@@ -1,0 +1,140 @@
+{
+  "realm": "oss",
+  "enabled": true,
+  "displayName": "OSSS Dev Realm",
+  "loginTheme": "keycloak",
+  "registrationAllowed": false,
+  "resetPasswordAllowed": true,
+  "roles": {
+    "realm": [
+      {
+        "name": "ADMIN",
+        "description": "Administrator"
+      },
+      {
+        "name": "CLERK",
+        "description": "Clerk role"
+      },
+      {
+        "name": "MEMBER",
+        "description": "Board member"
+      },
+      {
+        "name": "PUBLIC",
+        "description": "Public user"
+      }
+    ]
+  },
+  "groups": [
+    {
+      "name": "Board Members",
+      "path": "/Board Members"
+    },
+    {
+      "name": "Clerks",
+      "path": "/Clerks"
+    },
+    {
+      "name": "Public",
+      "path": "/Public"
+    }
+  ],
+  "clients": [
+    {
+      "clientId": "osss-web",
+      "protocol": "openid-connect",
+      "name": "OSSS Web",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "rootUrl": "http://localhost:5173",
+      "baseUrl": "/",
+      "redirectUris": [
+        "http://localhost:5173/*"
+      ],
+      "webOrigins": [
+        "http://localhost:5173"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      }
+    }
+  ],
+  "users": [
+    {
+      "username": "admin-oss",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Admin",
+      "lastName": "OSS",
+      "email": "admin-oss@example.com",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "changeme",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "ADMIN"
+      ]
+    },
+    {
+      "username": "clerk",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Clerk",
+      "lastName": "User",
+      "email": "clerk@example.com",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "changeme",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "CLERK"
+      ]
+    },
+    {
+      "username": "member",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Board",
+      "lastName": "Member",
+      "email": "member@example.com",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "changeme",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "MEMBER"
+      ]
+    },
+    {
+      "username": "public",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Public",
+      "lastName": "User",
+      "email": "public@example.com",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "changeme",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "PUBLIC"
+      ]
+    }
+  ],
+  "defaultGroups": [
+    "/Public"
+  ]
+}
