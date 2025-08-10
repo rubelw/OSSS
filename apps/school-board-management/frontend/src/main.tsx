@@ -4,6 +4,8 @@ import { createBrowserRouter, RouterProvider } from 'react-router-dom'
 import './index.css'
 import App from './App'
 import Home from './pages/Home'
+import PlanningList from './pages/PlanningList'
+import PlanningDetail from './pages/PlanningDetail'
 import MeetingsList from './pages/MeetingsList'
 import MeetingDetail from './pages/MeetingDetail'
 import PoliciesList from './pages/PoliciesList'
@@ -13,6 +15,8 @@ import { keycloak } from './keycloak'
 const router = createBrowserRouter([
   { path: '/', element: <App />, children: [
     { index: true, element: <Home /> },
+    { path: 'planning', element: <PlanningList /> },
+    { path: 'planning/:id', element: <PlanningDetail /> },
     { path: 'meetings', element: <MeetingsList /> },
     { path: 'meetings/:id', element: <MeetingDetail /> },
     { path: 'policies', element: <PoliciesList /> },

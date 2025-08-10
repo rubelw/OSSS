@@ -8,6 +8,7 @@ export default function App() {
         <div className="mx-auto max-w-5xl px-4 py-3 flex items-center justify-between">
           <Link to="/" className="font-semibold">OSSS</Link>
           <nav className="flex gap-4">
+            <NavLink to="/planning" className={({isActive})=> isActive? 'font-semibold' : ''}>Planning</NavLink>
             <NavLink to="/meetings" className={({isActive})=> isActive? 'font-semibold' : ''}>Meetings</NavLink>
             <NavLink to="/policies" className={({isActive})=> isActive? 'font-semibold' : ''}>Policies</NavLink>
           </nav>
