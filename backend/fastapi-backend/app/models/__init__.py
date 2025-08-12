@@ -106,8 +106,23 @@ from .data_sharing_agreements import DataSharingAgreement
 from .sis_import_jobs import SisImportJob
 from .data_quality_issues import DataQualityIssue
 
+from .cic_committees import CICCommittee
+from .cic_memberships import CICMembership
+from .cic_meetings import CICMeeting
+from .cic_agenda_items import CICAgendaItem
+from .cic_motions import CICMotion
+from .cic_votes import CICVote
+from .cic_resolutions import CICResolution
+from .cic_proposals import CICProposal
+from .cic_proposal_reviews import CICProposalReview
+from .cic_proposal_documents import CICProposalDocument
+from .cic_meeting_documents import CICMeetingDocument
+from .cic_publications import CICPublication
+
 __all__ = [
-    "Base","District","School","AcademicTerm","GradingPeriod","Calendar","CalendarDay",
+    "CICCommittee","CICMembership", "CICMeeting","CICAgendaItem", "CICMotion",
+    "CICVote","CICResolution","CICProposal","CICProposalReview","CICProposalDocument",
+    "CICMeetingDocument","CICPublication","Base","District","School","AcademicTerm","GradingPeriod","Calendar","CalendarDay",
     "BellSchedule","Period","GradeLevel","Department","Subject","Course","CourseSection",
     "Room","Person","Student","Staff","Guardian","UserAccount","Role","Permission",
     "RolePermission","Address","Contact","PersonAddress","PersonContact","StudentGuardian",

@@ -1966,9 +1966,185 @@ class DataQualityIssueRead(WithID, WithTimestamps):
     details: Optional[str] = None
     detected_at: datetime
 
+# ----------------------------------------------------------------------------
+# CIC (Curriculum & Instruction Committee)
+# ----------------------------------------------------------------------------
 
+# Committees & Memberships
+class CommitteeCreate(ORMBase):
+    school_id: UUID
+    name: str
+    description: Optional[str] = None
+    active: bool = True
 
+class CommitteeRead(WithID, WithTimestamps):
+    school_id: UUID
+    name: str
+    description: Optional[str] = None
+    active: bool
 
+class CommitteeMembershipCreate(ORMBase):
+    committee_id: UUID
+    person_id: UUID
+    role: Optional[str] = None  # chair | member | secretary | guest
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+    voting_member: bool = True
+
+class CommitteeMembershipRead(WithID, WithTimestamps):
+    committee_id: UUID
+    person_id: UUID
+    role: Optional[str] = None
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+    voting_member: bool
+
+# Meetings & Agenda
+class CICMeetingCreate(ORMBase):
+    committee_id: UUID
+    scheduled_at: datetime
+    ends_at: Optional[datetime] = None
+    location: Optional[str] = None
+    status: Optional[str] = None  # planned | in_progress | completed | canceled
+    notes: Optional[str] = None
+
+class CICMeetingRead(WithID, WithTimestamps):
+    committee_id: UUID
+    scheduled_at: datetime
+    ends_at: Optional[datetime] = None
+    location: Optional[str] = None
+    status: Optional[str] = None
+    notes: Optional[str] = None
+
+class CICAgendaItemCreate(ORMBase):
+    meeting_id: UUID
+    title: str
+    description: Optional[str] = None
+    presenter_id: Optional[UUID] = None
+    position: int = 0
+    time_allocated_minutes: Optional[int] = None
+    parent_id: Optional[UUID] = None
+
+class CICAgendaItemRead(WithID, WithTimestamps):
+    meeting_id: UUID
+    title: str
+    description: Optional[str] = None
+    presenter_id: Optional[UUID] = None
+    position: int
+    time_allocated_minutes: Optional[int] = None
+    parent_id: Optional[UUID] = None
+
+# Motions, Votes, Resolutions
+class CICMotionCreate(ORMBase):
+    agenda_item_id: UUID
+    text: str
+    moved_by_id: Optional[UUID] = None
+    seconded_by_id: Optional[UUID] = None
+
+class CICMotionRead(WithID, WithTimestamps):
+    agenda_item_id: UUID
+    text: str
+    moved_by_id: Optional[UUID] = None
+    seconded_by_id: Optional[UUID] = None
+    outcome: Optional[str] = None  # passed | failed | tabled
+    tally_for: Optional[int] = None
+    tally_against: Optional[int] = None
+    tally_abstain: Optional[int] = None
+
+class CICVoteCreate(ORMBase):
+    motion_id: UUID
+    member_id: UUID
+    value: str  # yea | nay | abstain | absent
+
+class CICVoteRead(WithID, WithTimestamps):
+    motion_id: UUID
+    member_id: UUID
+    value: str
+
+class CICResolutionCreate(ORMBase):
+    committee_id: UUID
+    title: str
+    text: Optional[str] = None
+    adopted_on: Optional[date] = None
+    status: Optional[str] = None  # draft | adopted | rescinded
+
+class CICResolutionRead(WithID, WithTimestamps):
+    committee_id: UUID
+    title: str
+    text: Optional[str] = None
+    adopted_on: Optional[date] = None
+    status: Optional[str] = None
+
+# Proposals & Reviews
+class CurriculumProposalCreate(ORMBase):
+    school_id: UUID
+    submitted_by_id: UUID
+    title: str
+    summary: Optional[str] = None
+    proposal_type: Optional[str] = None  # new_course | modify_course | textbook | policy
+    status: Optional[str] = None         # submitted | under_review | approved | rejected
+    submitted_at: Optional[datetime] = None
+    target_term_id: Optional[UUID] = None
+
+class CurriculumProposalRead(WithID, WithTimestamps):
+    school_id: UUID
+    submitted_by_id: UUID
+    title: str
+    summary: Optional[str] = None
+    proposal_type: Optional[str] = None
+    status: Optional[str] = None
+    submitted_at: Optional[datetime] = None
+    target_term_id: Optional[UUID] = None
+
+class ProposalReviewCreate(ORMBase):
+    proposal_id: UUID
+    reviewer_id: UUID
+    decision: Optional[str] = None  # approve | reject | revise
+    comments: Optional[str] = None
+    reviewed_at: Optional[datetime] = None
+
+class ProposalReviewRead(WithID, WithTimestamps):
+    proposal_id: UUID
+    reviewer_id: UUID
+    decision: Optional[str] = None
+    comments: Optional[str] = None
+    reviewed_at: Optional[datetime] = None
+
+# Documents (attachments)
+class ProposalDocumentCreate(ORMBase):
+    proposal_id: UUID
+    document_id: UUID
+    label: Optional[str] = None
+
+class ProposalDocumentRead(WithID, WithTimestamps):
+    proposal_id: UUID
+    document_id: UUID
+    label: Optional[str] = None
+
+class MeetingDocumentCreate(ORMBase):
+    meeting_id: UUID
+    document_id: UUID
+    label: Optional[str] = None
+
+class MeetingDocumentRead(WithID, WithTimestamps):
+    meeting_id: UUID
+    document_id: UUID
+    label: Optional[str] = None
+
+# Publications (public-facing)
+class CICPublicationCreate(ORMBase):
+    committee_id: UUID
+    meeting_id: Optional[UUID] = None
+    public_url: Optional[str] = None
+    archive_url: Optional[str] = None
+    published_at: Optional[datetime] = None
+
+class CICPublicationRead(WithID, WithTimestamps):
+    committee_id: UUID
+    meeting_id: Optional[UUID] = None
+    public_url: Optional[str] = None
+    archive_url: Optional[str] = None
+    published_at: Optional[datetime] = None
 
 
 # === BEGIN: alias shim for acronym class names ===

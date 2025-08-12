@@ -390,3 +390,114 @@ add_crud("data_sharing_agreements", models.DataSharingAgreement, S.DataSharingAg
 # Analytics & ETL Support
 add_crud("sis_import_jobs", models.SisImportJob, S.SisImportJobRead, S.SisImportJobCreate, openapi_extra=SECURITY, dependencies=DEPS)
 add_crud("data_quality_issues", models.DataQualityIssue, S.DataQualityIssueRead, S.DataQualityIssueCreate, openapi_extra=SECURITY, dependencies=DEPS)
+
+# -----------------------------
+# CIC (Curriculum & Instruction Committee)
+# -----------------------------
+add_crud(
+    "cic_committees",
+    models.CICCommittee,
+    S.CommitteeRead,
+    S.CommitteeCreate,
+    openapi_extra=SECURITY,
+    dependencies=DEPS,
+)
+
+add_crud(
+    "cic_memberships",
+    models.CICMembership,
+    S.CommitteeMembershipRead,
+    S.CommitteeMembershipCreate,
+    openapi_extra=SECURITY,
+    dependencies=DEPS,
+)
+
+add_crud(
+    "cic_meetings",
+    models.CICMeeting,
+    S.CICMeetingRead,
+    S.CICMeetingCreate,
+    openapi_extra=SECURITY,
+    dependencies=DEPS,
+)
+
+add_crud(
+    "cic_agenda_items",
+    models.CICAgendaItem,
+    S.CICAgendaItemRead,
+    S.CICAgendaItemCreate,
+    openapi_extra=SECURITY,
+    dependencies=DEPS,
+)
+
+add_crud(
+    "cic_motions",
+    models.CICMotion,
+    S.CICMotionRead,
+    S.CICMotionCreate,
+    openapi_extra=SECURITY,
+    dependencies=DEPS,
+)
+
+add_crud(
+    "cic_votes",
+    models.CICVote,
+    S.CICVoteRead,
+    S.CICVoteCreate,
+    openapi_extra=SECURITY,
+    dependencies=DEPS,
+)
+
+add_crud(
+    "cic_resolutions",
+    models.CICResolution,
+    S.CICResolutionRead,
+    S.CICResolutionCreate,
+    openapi_extra=SECURITY,
+    dependencies=DEPS,
+)
+
+add_crud(
+    "cic_proposals",
+    models.CICProposal,
+    S.CurriculumProposalRead,
+    S.CurriculumProposalCreate,
+    openapi_extra=SECURITY,
+    dependencies=DEPS,
+)
+
+add_crud(
+    "cic_proposal_reviews",
+    models.CICProposalReview,
+    S.ProposalReviewRead,
+    S.ProposalReviewCreate,
+    openapi_extra=SECURITY,
+    dependencies=DEPS,
+)
+
+add_crud(
+    "cic_proposal_documents",
+    models.CICProposalDocument,
+    S.ProposalDocumentRead,
+    S.ProposalDocumentCreate,
+    openapi_extra=SECURITY,
+    dependencies=DEPS,
+)
+
+add_crud(
+    "cic_meeting_documents",
+    models.CICMeetingDocument,
+    S.MeetingDocumentRead,
+    S.MeetingDocumentCreate,
+    openapi_extra=SECURITY,
+    dependencies=DEPS,
+)
+
+add_crud(
+    "cic_publications",
+    models.CICPublication,
+    S.CICPublicationRead,
+    S.CICPublicationCreate,
+    openapi_extra=SECURITY,
+    dependencies=DEPS,
+)
