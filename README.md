@@ -1,4 +1,4 @@
-# Open Source School Software
+# (Currently in Development) Open Source School Software
 
 A community-driven, modular suite of applications for K‑12 districts. This repo is a **polyglot monorepo** that hosts multiple apps (each independently deployable) plus shared packages and infra. Use the provided templates to spin up new apps quickly.
 
