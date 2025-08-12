@@ -30,3 +30,9 @@ class TimestampMixin:
         nullable=False,
         server_default=text("now()"),
     )
+
+def ts_columns(sa):
+    return [
+        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+    ]

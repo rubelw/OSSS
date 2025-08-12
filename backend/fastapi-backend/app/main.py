@@ -30,6 +30,10 @@ app = FastAPI(title=settings.APP_NAME, version="1.0.0")
 KEYCLOAK_PUBLIC = (getattr(settings, "KEYCLOAK_PUBLIC_URL", None) or settings.KEYCLOAK_SERVER_URL).rstrip("/")
 realm = settings.KEYCLOAK_REALM
 
+SECURITY = {"security": [{"KeycloakOAuth2": ["openid"]}]}
+DEPS = [Depends(require_realm_roles("admin"))]
+
+
 # Show both options in Swagger: OAuth2 (Keycloak) and simple Bearer
 oauth2_scheme = OAuth2AuthorizationCodeBearer(
     authorizationUrl=f"{KEYCLOAK_PUBLIC}/realms/{realm}/protocol/openid-connect/auth",
@@ -268,3 +272,122 @@ add_crud("subscriptions", models.Subscription, S.SubscriptionRead, S.Subscriptio
 add_crud("deliveries", models.Delivery, S.DeliveryRead, create_schema=None,openapi_extra={"security": [{"KeycloakOAuth2": ["openid"]}]},dependencies=[Depends(require_realm_roles("admin"))])  # typically system/worker generated
 add_crud("pages", models.Page, S.PageRead, S.PageCreate,openapi_extra={"security": [{"KeycloakOAuth2": ["openid"]}]},dependencies=[Depends(require_realm_roles("admin"))])
 # comm_search_index is internal → omit POST
+
+# ---- Auto-generated CRUD registrations ----
+
+add_crud("districts", models.District, S.DistrictRead, S.DistrictCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("schools", models.School, S.SchoolRead, S.SchoolCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("academic_terms", models.AcademicTerm, S.AcademicTermRead, S.AcademicTermCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("grading_periods", models.GradingPeriod, S.GradingPeriodRead, S.GradingPeriodCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("calendars", models.Calendar, S.CalendarRead, S.CalendarCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("calendar_days", models.CalendarDay, S.CalendarDayRead, S.CalendarDayCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("bell_schedules", models.BellSchedule, S.BellScheduleRead, S.BellScheduleCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("periods", models.Period, S.PeriodRead, S.PeriodCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("grade_levels", models.GradeLevel, S.GradeLevelRead, S.GradeLevelCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("departments", models.Department, S.DepartmentRead, S.DepartmentCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("subjects", models.Subject, S.SubjectRead, S.SubjectCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("courses", models.Course, S.CourseRead, S.CourseCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("course_sections", models.CourseSection, S.CourseSectionRead, S.CourseSectionCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("rooms", models.Room, S.RoomRead, S.RoomCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("persons", models.Person, S.PersonRead, S.PersonCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("students", models.Student, S.StudentRead, S.StudentCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("staff", models.Staff, S.StaffRead, S.StaffCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("guardians", models.Guardian, S.GuardianRead, S.GuardianCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("user_accounts", models.UserAccount, S.UserAccountRead, S.UserAccountCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("roles", models.Role, S.RoleRead, S.RoleCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("permissions", models.Permission, S.PermissionRead, S.PermissionCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("role_permissions", models.RolePermission, S.RolePermissionRead, S.RolePermissionCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("addresses", models.Address, S.AddressRead, S.AddressCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("contacts", models.Contact, S.ContactRead, S.ContactCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("person_addresses", models.PersonAddress, S.PersonAddressRead, S.PersonAddressCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("person_contacts", models.PersonContact, S.PersonContactRead, S.PersonContactCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("student_guardians", models.StudentGuardian, S.StudentGuardianRead, S.StudentGuardianCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("external_ids", models.ExternalId, S.ExternalIdRead, S.ExternalIdCreate, openapi_extra=SECURITY, dependencies=DEPS)
+
+# Enrollment & Programs
+add_crud("student_school_enrollments", models.StudentSchoolEnrollment, S.StudentSchoolEnrollmentRead, S.StudentSchoolEnrollmentCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("student_program_enrollments", models.StudentProgramEnrollment, S.StudentProgramEnrollmentRead, S.StudentProgramEnrollmentCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("special_education_cases", models.SpecialEducationCase, S.SpecialEducationCaseRead, S.SpecialEducationCaseCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("iep_plans", models.IepPlan, S.IepPlanRead, S.IepPlanCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("accommodations", models.Accommodation, S.AccommodationRead, S.AccommodationCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("ell_plans", models.EllPlan, S.EllPlanRead, S.EllPlanCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("section504_plans", models.Section504Plan, S.Section504PlanRead, S.Section504PlanCreate, openapi_extra=SECURITY, dependencies=DEPS)
+
+# Scheduling
+add_crud("section_meetings", models.SectionMeeting, S.SectionMeetingRead, S.SectionMeetingCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("teacher_section_assignments", models.TeacherSectionAssignment, S.TeacherSectionAssignmentRead, S.TeacherSectionAssignmentCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("student_section_enrollments", models.StudentSectionEnrollment, S.StudentSectionEnrollmentRead, S.StudentSectionEnrollmentCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("course_prerequisites", models.CoursePrerequisite, S.CoursePrerequisiteRead, S.CoursePrerequisiteCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("section_room_assignments", models.SectionRoomAssignment, S.SectionRoomAssignmentRead, S.SectionRoomAssignmentCreate, openapi_extra=SECURITY, dependencies=DEPS)
+
+# Attendance
+add_crud("attendance_codes", models.AttendanceCode, S.AttendanceCodeRead, S.AttendanceCodeCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("attendance_events", models.AttendanceEvent, S.AttendanceEventRead, S.AttendanceEventCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("attendance_daily_summary", models.AttendanceDailySummary, S.AttendanceDailySummaryRead, S.AttendanceDailySummaryCreate, openapi_extra=SECURITY, dependencies=DEPS)
+
+# Assessment, Grades & Transcripts
+add_crud("grade_scales", models.GradeScale, S.GradeScaleRead, S.GradeScaleCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("grade_scale_bands", models.GradeScaleBand, S.GradeScaleBandRead, S.GradeScaleBandCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("assignment_categories", models.AssignmentCategory, S.AssignmentCategoryRead, S.AssignmentCategoryCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("assignments", models.Assignment, S.AssignmentRead, S.AssignmentCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("gradebook_entries", models.GradebookEntry, S.GradebookEntryRead, S.GradebookEntryCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("final_grades", models.FinalGrade, S.FinalGradeRead, S.FinalGradeCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("gpa_calculations", models.GpaCalculation, S.GpaCalculationRead, S.GpaCalculationCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("class_ranks", models.ClassRank, S.ClassRankRead, S.ClassRankCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("report_cards", models.ReportCard, S.ReportCardRead, S.ReportCardCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("transcript_lines", models.TranscriptLine, S.TranscriptLineRead, S.TranscriptLineCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("standardized_tests", models.StandardizedTest, S.StandardizedTestRead, S.StandardizedTestCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("test_administrations", models.TestAdministration, S.TestAdministrationRead, S.TestAdministrationCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("test_results", models.TestResult, S.TestResultRead, S.TestResultCreate, openapi_extra=SECURITY, dependencies=DEPS)
+
+# Behavior & Discipline
+add_crud("behavior_codes", models.BehaviorCode, S.BehaviorCodeRead, S.BehaviorCodeCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("consequence_types", models.ConsequenceType, S.ConsequenceTypeRead, S.ConsequenceTypeCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("incidents", models.Incident, S.IncidentRead, S.IncidentCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("incident_participants", models.IncidentParticipant, S.IncidentParticipantRead, S.IncidentParticipantCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("consequences", models.Consequence, S.ConsequenceRead, S.ConsequenceCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("behavior_interventions", models.BehaviorIntervention, S.BehaviorInterventionRead, S.BehaviorInterventionCreate, openapi_extra=SECURITY, dependencies=DEPS)
+
+# Health & Safety
+add_crud("health_profiles", models.HealthProfile, S.HealthProfileRead, S.HealthProfileCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("immunizations", models.Immunization, S.ImmunizationRead, S.ImmunizationCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("immunization_records", models.ImmunizationRecord, S.ImmunizationRecordRead, S.ImmunizationRecordCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("medications", models.Medication, S.MedicationRead, S.MedicationCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("medication_administrations", models.MedicationAdministration, S.MedicationAdministrationRead, S.MedicationAdministrationCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("nurse_visits", models.NurseVisit, S.NurseVisitRead, S.NurseVisitCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("emergency_contacts", models.EmergencyContact, S.EmergencyContactRead, S.EmergencyContactCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("consents", models.Consent, S.ConsentRead, S.ConsentCreate, openapi_extra=SECURITY, dependencies=DEPS)
+
+# Fees, Meals, Transportation, Library
+add_crud("fees", models.Fee, S.FeeRead, S.FeeCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("invoices", models.Invoice, S.InvoiceRead, S.InvoiceCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("payments", models.Payment, S.PaymentRead, S.PaymentCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("waivers", models.Waiver, S.WaiverRead, S.WaiverCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("meal_accounts", models.MealAccount, S.MealAccountRead, S.MealAccountCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("meal_transactions", models.MealTransaction, S.MealTransactionRead, S.MealTransactionCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("meal_eligibility_statuses", models.MealEligibilityStatus, S.MealEligibilityStatusRead, S.MealEligibilityStatusCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("bus_routes", models.BusRoute, S.BusRouteRead, S.BusRouteCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("bus_stops", models.BusStop, S.BusStopRead, S.BusStopCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("bus_stop_times", models.BusStopTime, S.BusStopTimeRead, S.BusStopTimeCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("student_transportation_assignments", models.StudentTransportationAssignment, S.StudentTransportationAssignmentRead, S.StudentTransportationAssignmentCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("library_items", models.LibraryItem, S.LibraryItemRead, S.LibraryItemCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("library_checkouts", models.LibraryCheckout, S.LibraryCheckoutRead, S.LibraryCheckoutCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("library_holds", models.LibraryHold, S.LibraryHoldRead, S.LibraryHoldCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("library_fines", models.LibraryFine, S.LibraryFineRead, S.LibraryFineCreate, openapi_extra=SECURITY, dependencies=DEPS)
+
+# Communication & Engagement
+add_crud("messages", models.Message, S.MessageRead, S.MessageCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("message_recipients", models.MessageRecipient, S.MessageRecipientRead, S.MessageRecipientCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("family_portal_access", models.FamilyPortalAccess, S.FamilyPortalAccessRead, S.FamilyPortalAccessCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("documents", models.Document, S.DocumentRead, S.DocumentCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("document_links", models.DocumentLink, S.DocumentLinkRead, S.DocumentLinkCreate, openapi_extra=SECURITY, dependencies=DEPS)
+
+# State Reporting & Auditing
+add_crud("state_reporting_snapshots", models.StateReportingSnapshot, S.StateReportingSnapshotRead, S.StateReportingSnapshotCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("export_runs", models.ExportRun, S.ExportRunRead, S.ExportRunCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("audit_logs", models.AuditLog, S.AuditLogRead, S.AuditLogCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("data_sharing_agreements", models.DataSharingAgreement, S.DataSharingAgreementRead, S.DataSharingAgreementCreate, openapi_extra=SECURITY, dependencies=DEPS)
+
+# Analytics & ETL Support
+add_crud("sis_import_jobs", models.SisImportJob, S.SisImportJobRead, S.SisImportJobCreate, openapi_extra=SECURITY, dependencies=DEPS)
+add_crud("data_quality_issues", models.DataQualityIssue, S.DataQualityIssueRead, S.DataQualityIssueCreate, openapi_extra=SECURITY, dependencies=DEPS)
