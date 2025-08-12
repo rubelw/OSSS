@@ -1,0 +1,105 @@
+{
+  "realm": "myrealm",
+  "enabled": true,
+  "roles": {
+    "realm": [
+      {
+        "name": "admin",
+        "description": "Realm-wide administrator role for myrealm"
+      },
+      { "name": "editor", "description": "Can edit content" },
+      { "name": "viewer", "description": "Read-only access" }
+    ],
+    "client": {
+      "myapi": [
+        { "name": "api-admin", "description": "Admin on API client" },
+        { "name": "api-editor", "description": "Editor on API client" }
+      ]
+    }
+  },
+  "clients": [
+    {
+      "clientId": "myapi",
+      "name": "My API",
+      "protocolMappers": [
+        {
+          "name": "audience-myapi",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "myapi",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        }
+      ],
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": [
+        "http://localhost:8000/*",
+        "http://localhost:8000/docs/*"
+      ],
+      "webOrigins": [
+        "http://localhost:8000"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      },
+      "defaultClientScopes": [
+        "roles",
+        "profile",
+        "email",
+        "web-origins"
+      ]
+    }
+  ],
+  "groups": [
+    {
+      "name": "admins",
+      "realmRoles": ["admin"]
+    }
+  ],
+  "users": [
+    {
+      "username": "app-admin",
+      "firstName": "App",
+      "lastName": "Admin",
+      "enabled": true,
+      "email": "admin@example.com",
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "admin",
+          "temporary": true
+        }
+      ],
+      "groups": [
+        "admins"
+      ],
+      "clientRoles": {
+        "myapi": [
+          "api-admin"
+        ]
+      }
+    },
+    {
+      "username": "alice",
+      "firstName": "Alice",
+      "lastName": "LNU",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "alice@example.com",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "alicepwd",
+          "temporary": false
+        }
+      ]
+    }
+  ]
+}
