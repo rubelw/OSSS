@@ -274,7 +274,6 @@ add_crud("pages", models.Page, S.PageRead, S.PageCreate,openapi_extra={"security
 # comm_search_index is internal → omit POST
 
 # ---- Auto-generated CRUD registrations ----
-
 add_crud("districts", models.District, S.DistrictRead, S.DistrictCreate, openapi_extra=SECURITY, dependencies=DEPS)
 add_crud("schools", models.School, S.SchoolRead, S.SchoolCreate, openapi_extra=SECURITY, dependencies=DEPS)
 add_crud("academic_terms", models.AcademicTerm, S.AcademicTermRead, S.AcademicTermCreate, openapi_extra=SECURITY, dependencies=DEPS)

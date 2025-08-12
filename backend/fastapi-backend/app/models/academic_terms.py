@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Text, Integer, Boolean, Date, DateTime, Time, Numeric, ForeignKey, UniqueConstraint, Index, text
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
-from ._base import Base
+from .base import Base
 
 
 class AcademicTerm(Base):
