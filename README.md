@@ -2,6 +2,38 @@
 
 A community-driven, modular suite of applications for K‑12 districts. This repo is a **polyglot monorepo** that hosts multiple apps (each independently deployable) plus shared packages and infra. Use the provided templates to spin up new apps quickly.
 
+## **More Than Free — It’s a Path to the Future**
+
+This software doesn’t just save money—it brings public schools into the modern era.  
+Built with the latest, most efficient development techniques, it keeps technology current while lowering long-term maintenance costs.
+
+### **Key Advantages**
+- **Cut Costs Without Compromise**  
+  100% free to use, helping schools save budget for other critical needs.
+
+- **Modernize with Confidence**  
+  Developed using the latest software engineering practices to ensure performance, security, and long-term stability.
+
+- **Fully Open-Source**  
+  Accessible to students, parents, administrators, and developers worldwide for review, improvement, and customization.
+
+- **Empowered by AI**  
+  Even non-programmers can:
+  - Generate code snippets  
+  - Add new features  
+  - Customize the system  
+  …all without advanced technical skills.
+
+- **Secure by Design**  
+  Every contribution is automatically scanned for malicious code and vulnerabilities before integration.
+
+- **Test Before You Commit**  
+  Users can run and evaluate updated software locally to ensure it meets their needs before adoption.
+
+- **Collaborative & Evolving**  
+  A global community works together to continuously improve and adapt the platform to meet changing school requirements.
+
+
 > **Highlight:** This repository includes an application called **School Board Management Software** (agendas, packets, policies, minutes, votes, and a public portal). See below for details.
 
 ---
