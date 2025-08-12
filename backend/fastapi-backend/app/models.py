@@ -1,9 +1,15 @@
 from __future__ import annotations
-import sqlalchemy as sa
 from sqlalchemy.orm import declarative_base, Mapped, mapped_column
-from sqlalchemy.dialects.postgresql import UUID, JSONB, TSVECTOR
 from datetime import datetime
 import uuid
+import sqlalchemy as sa
+
+# Cross-DB JSON type: JSONB on Postgres, JSON elsewhere (e.g., SQLite)
+try:
+    from sqlalchemy.dialects.postgresql import JSONB as PGJSONB
+    JSONType = PGJSONB
+except Exception:
+    JSONType = sa.JSON
 
 Base = declarative_base()
 now_tz = sa.TIMESTAMP(timezone=True)
@@ -13,13 +19,13 @@ class User(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
     username: Mapped[str] = mapped_column(sa.String(80), unique=True, nullable=False)
     email: Mapped[str] = mapped_column(sa.String(255), unique=True, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(now_tz, nullable=False, server_default=sa.text("now()"))
+    created_at: Mapped[datetime] = mapped_column(now_tz, nullable=False, server_default=sa.text("CURRENT_TIMESTAMP"))
 
 class Organization(Base):
     __tablename__ = "organizations"
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name: Mapped[str] = mapped_column(sa.String(255), unique=True, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(now_tz, server_default=sa.text("now()"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(now_tz, server_default=sa.text("CURRENT_TIMESTAMP"), nullable=False)
 
 class Body(Base):
     __tablename__ = "bodies"
@@ -36,7 +42,7 @@ class File(Base):
     size: Mapped[int | None] = mapped_column(sa.BigInteger)
     mime_type: Mapped[str | None] = mapped_column(sa.String(127))
     created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), sa.ForeignKey("users.id"))
-    created_at: Mapped[datetime] = mapped_column(now_tz, server_default=sa.text("now()"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(now_tz, server_default=sa.text("CURRENT_TIMESTAMP"), nullable=False)
 
 class Tag(Base):
     __tablename__ = "tags"
@@ -56,8 +62,8 @@ class AuditLog(Base):
     entity_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
     action: Mapped[str] = mapped_column(sa.String(50), nullable=False)
     actor_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), sa.ForeignKey("users.id"))
-    at: Mapped[datetime] = mapped_column(now_tz, server_default=sa.text("now()"), nullable=False)
-    delta: Mapped[dict | None] = mapped_column(JSONB)
+    at: Mapped[datetime] = mapped_column(now_tz, server_default=sa.text("CURRENT_TIMESTAMP"), nullable=False)
+    delta: Mapped[dict | None] = mapped_column(JSONType)
 
 class FeatureFlag(Base):
     __tablename__ = "feature_flags"
@@ -69,7 +75,7 @@ class RetentionRule(Base):
     __tablename__ = "retention_rules"
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     entity_type: Mapped[str] = mapped_column(sa.String(50), nullable=False)
-    policy: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    policy: Mapped[dict] = mapped_column(JSONType, nullable=False)
 
 class Webhook(Base):
     __tablename__ = "webhooks"
@@ -77,20 +83,20 @@ class Webhook(Base):
     target_url: Mapped[str] = mapped_column(sa.String(1024), nullable=False)
     secret: Mapped[str | None] = mapped_column(sa.String(255))
     events: Mapped[list[str] | None] = mapped_column(sa.ARRAY(sa.String(64)))
-    created_at: Mapped[datetime] = mapped_column(now_tz, server_default=sa.text("now()"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(now_tz, server_default=sa.text("CURRENT_TIMESTAMP"), nullable=False)
 
 class Embed(Base):
     __tablename__ = "embeds"
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     provider: Mapped[str] = mapped_column(sa.String(64), nullable=False)
     url: Mapped[str] = mapped_column(sa.String(1024), nullable=False)
-    meta: Mapped[dict | None] = mapped_column(JSONB)
+    meta: Mapped[dict | None] = mapped_column(JSONType)
 
 class Notification(Base):
     __tablename__ = "notifications"
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     type: Mapped[str] = mapped_column(sa.String(50), nullable=False)
-    payload: Mapped[dict | None] = mapped_column(JSONB)
+    payload: Mapped[dict | None] = mapped_column(JSONType)
     read_at: Mapped[datetime | None] = mapped_column(now_tz)
-    created_at: Mapped[datetime] = mapped_column(now_tz, server_default=sa.text("now()"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(now_tz, server_default=sa.text("CURRENT_TIMESTAMP"), nullable=False)

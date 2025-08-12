@@ -1,5 +1,5 @@
 # app/models/__init__.py
-from .base import Base
+from .base import Base, GUID
 
 # Re-export all models so `import app.models as models; models.Organization` works.
 from .core import *         # noqa: F401,F403

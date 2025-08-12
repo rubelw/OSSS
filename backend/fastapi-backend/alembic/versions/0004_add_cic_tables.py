@@ -16,6 +16,54 @@ from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql as psql
 
+# Pull the shims from your app (preferred)
+try:
+    from app.models.base import GUID, JSONB, TSVectorType  # GUID/JSONB are TypeDecorator; TSVectorType is PG TSVECTOR or Text
+except Exception:
+    # Fallbacks, in case direct import isn't available during migration
+    import uuid
+    from sqlalchemy.types import TypeDecorator, CHAR
+
+    class GUID(TypeDecorator):
+        impl = CHAR
+        cache_ok = True
+        def load_dialect_impl(self, dialect):
+            if dialect.name == "postgresql":
+                from sqlalchemy.dialects.postgresql import UUID as PGUUID
+                return dialect.type_descriptor(PGUUID(as_uuid=True))
+            return dialect.type_descriptor(sa.CHAR(36))
+        def process_bind_param(self, value, dialect):
+            if value is None:
+                return None
+            if not isinstance(value, uuid.UUID):
+                value = uuid.UUID(str(value))
+            return str(value)
+        def process_result_value(self, value, dialect):
+            return None if value is None else uuid.UUID(value)
+
+    # JSONB shim: real JSONB on PG, JSON elsewhere
+    try:
+        from sqlalchemy.dialects.postgresql import JSONB as PGJSONB
+    except Exception:
+        PGJSONB = None
+
+    class JSONB(TypeDecorator):
+        impl = sa.JSON
+        cache_ok = True
+        def load_dialect_impl(self, dialect):
+            if dialect.name == "postgresql" and PGJSONB is not None:
+                return dialect.type_descriptor(PGJSONB())
+            return dialect.type_descriptor(sa.JSON())
+
+    # TSVECTOR shim: real TSVECTOR on PG, TEXT elsewhere
+    try:
+        from sqlalchemy.dialects.postgresql import TSVECTOR as PG_TSVECTOR
+        class TSVectorType(PG_TSVECTOR):  # ok to subclass for clarity
+            pass
+    except Exception:
+        class TSVectorType(sa.Text):  # type: ignore
+            pass
+
 # Alembic identifiers
 # revision identifiers, used by Alembic.
 revision = "0004_add_cic_tables"
@@ -26,8 +74,8 @@ depends_on = None
 
 def _timestamps():
     return [
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
-        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("CURRENT_TIMESTAMP")),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("CURRENT_TIMESTAMP")),
     ]
 
 
@@ -35,10 +83,10 @@ def upgrade() -> None:
     # Committees
     op.create_table(
         "cic_committees",
-        sa.Column("id", psql.UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
+        sa.Column("id", sa.String(36), primary_key=True, server_default=sa.text("gen_random_uuid()")),
         # scope at district or school; keep both optional so you can use either
-        sa.Column("district_id", psql.UUID(as_uuid=True), sa.ForeignKey("districts.id", ondelete="SET NULL"), nullable=True),
-        sa.Column("school_id", psql.UUID(as_uuid=True), sa.ForeignKey("schools.id", ondelete="SET NULL"), nullable=True),
+        sa.Column("district_id", sa.String(36), sa.ForeignKey("districts.id", ondelete="SET NULL"), nullable=True),
+        sa.Column("school_id", sa.String(36), sa.ForeignKey("schools.id", ondelete="SET NULL"), nullable=True),
         sa.Column("name", sa.Text(), nullable=False),
         sa.Column("description", sa.Text(), nullable=True),
         sa.Column("status", sa.Text(), nullable=False, server_default=sa.text("'active'")),
@@ -50,9 +98,9 @@ def upgrade() -> None:
     # Memberships (people on the committee)
     op.create_table(
         "cic_memberships",
-        sa.Column("id", psql.UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
-        sa.Column("committee_id", psql.UUID(as_uuid=True), sa.ForeignKey("cic_committees.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("person_id", psql.UUID(as_uuid=True), sa.ForeignKey("persons.id", ondelete="CASCADE"), nullable=False),
+        sa.Column("id", sa.String(36), primary_key=True, server_default=sa.text("gen_random_uuid()")),
+        sa.Column("committee_id", sa.String(36), sa.ForeignKey("cic_committees.id", ondelete="CASCADE"), nullable=False),
+        sa.Column("person_id", sa.String(36), sa.ForeignKey("persons.id", ondelete="CASCADE"), nullable=False),
         sa.Column("role", sa.Text(), nullable=True),  # chair, vice-chair, member, secretary, etc.
         sa.Column("start_date", sa.Date(), nullable=True),
         sa.Column("end_date", sa.Date(), nullable=True),
@@ -66,8 +114,8 @@ def upgrade() -> None:
     # Meetings
     op.create_table(
         "cic_meetings",
-        sa.Column("id", psql.UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
-        sa.Column("committee_id", psql.UUID(as_uuid=True), sa.ForeignKey("cic_committees.id", ondelete="CASCADE"), nullable=False),
+        sa.Column("id", sa.String(36), primary_key=True, server_default=sa.text("gen_random_uuid()")),
+        sa.Column("committee_id", sa.String(36), sa.ForeignKey("cic_committees.id", ondelete="CASCADE"), nullable=False),
         sa.Column("title", sa.Text(), nullable=False),
         sa.Column("scheduled_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("ends_at", sa.DateTime(timezone=True), nullable=True),
@@ -82,16 +130,16 @@ def upgrade() -> None:
     # Agenda Items
     op.create_table(
         "cic_agenda_items",
-        sa.Column("id", psql.UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
-        sa.Column("meeting_id", psql.UUID(as_uuid=True), sa.ForeignKey("cic_meetings.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("parent_id", psql.UUID(as_uuid=True), sa.ForeignKey("cic_agenda_items.id", ondelete="SET NULL"), nullable=True),
+        sa.Column("id", sa.String(36), primary_key=True, server_default=sa.text("gen_random_uuid()")),
+        sa.Column("meeting_id", sa.String(36), sa.ForeignKey("cic_meetings.id", ondelete="CASCADE"), nullable=False),
+        sa.Column("parent_id", sa.String(36), sa.ForeignKey("cic_agenda_items.id", ondelete="SET NULL"), nullable=True),
         sa.Column("position", sa.Integer(), nullable=False, server_default=sa.text("0")),
         sa.Column("title", sa.Text(), nullable=False),
         sa.Column("description", sa.Text(), nullable=True),
         sa.Column("time_allocated_minutes", sa.Integer(), nullable=True),
         # Optional cross-links (curriculum artifacts)
-        sa.Column("subject_id", psql.UUID(as_uuid=True), sa.ForeignKey("subjects.id", ondelete="SET NULL"), nullable=True),
-        sa.Column("course_id", psql.UUID(as_uuid=True), sa.ForeignKey("courses.id", ondelete="SET NULL"), nullable=True),
+        sa.Column("subject_id", sa.String(36), sa.ForeignKey("subjects.id", ondelete="SET NULL"), nullable=True),
+        sa.Column("course_id", sa.String(36), sa.ForeignKey("courses.id", ondelete="SET NULL"), nullable=True),
         * _timestamps(),
         sa.UniqueConstraint("meeting_id", "position", name="uq_cic_agenda_position")
     )
@@ -100,11 +148,11 @@ def upgrade() -> None:
     # Motions
     op.create_table(
         "cic_motions",
-        sa.Column("id", psql.UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
-        sa.Column("agenda_item_id", psql.UUID(as_uuid=True), sa.ForeignKey("cic_agenda_items.id", ondelete="CASCADE"), nullable=False),
+        sa.Column("id", sa.String(36), primary_key=True, server_default=sa.text("gen_random_uuid()")),
+        sa.Column("agenda_item_id", sa.String(36), sa.ForeignKey("cic_agenda_items.id", ondelete="CASCADE"), nullable=False),
         sa.Column("text", sa.Text(), nullable=False),
-        sa.Column("moved_by_id", psql.UUID(as_uuid=True), sa.ForeignKey("persons.id", ondelete="SET NULL"), nullable=True),
-        sa.Column("seconded_by_id", psql.UUID(as_uuid=True), sa.ForeignKey("persons.id", ondelete="SET NULL"), nullable=True),
+        sa.Column("moved_by_id", sa.String(36), sa.ForeignKey("persons.id", ondelete="SET NULL"), nullable=True),
+        sa.Column("seconded_by_id", sa.String(36), sa.ForeignKey("persons.id", ondelete="SET NULL"), nullable=True),
         sa.Column("result", sa.Text(), nullable=True),  # passed|failed|tabled
         sa.Column("tally_for", sa.Integer(), nullable=True),
         sa.Column("tally_against", sa.Integer(), nullable=True),
@@ -116,9 +164,9 @@ def upgrade() -> None:
     # Votes
     op.create_table(
         "cic_votes",
-        sa.Column("id", psql.UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
-        sa.Column("motion_id", psql.UUID(as_uuid=True), sa.ForeignKey("cic_motions.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("person_id", psql.UUID(as_uuid=True), sa.ForeignKey("persons.id", ondelete="CASCADE"), nullable=False),
+        sa.Column("id", sa.String(36), primary_key=True, server_default=sa.text("gen_random_uuid()")),
+        sa.Column("motion_id", sa.String(36), sa.ForeignKey("cic_motions.id", ondelete="CASCADE"), nullable=False),
+        sa.Column("person_id", sa.String(36), sa.ForeignKey("persons.id", ondelete="CASCADE"), nullable=False),
         sa.Column("value", sa.Text(), nullable=False),  # yea|nay|abstain|absent
         * _timestamps(),
         sa.UniqueConstraint("motion_id", "person_id", name="uq_cic_vote_unique")
@@ -128,8 +176,8 @@ def upgrade() -> None:
     # Decisions / Resolutions (meeting-level outcomes)
     op.create_table(
         "cic_resolutions",
-        sa.Column("id", psql.UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
-        sa.Column("meeting_id", psql.UUID(as_uuid=True), sa.ForeignKey("cic_meetings.id", ondelete="CASCADE"), nullable=False),
+        sa.Column("id", sa.String(36), primary_key=True, server_default=sa.text("gen_random_uuid()")),
+        sa.Column("meeting_id", sa.String(36), sa.ForeignKey("cic_meetings.id", ondelete="CASCADE"), nullable=False),
         sa.Column("title", sa.Text(), nullable=False),
         sa.Column("summary", sa.Text(), nullable=True),
         sa.Column("effective_date", sa.Date(), nullable=True),
@@ -140,17 +188,17 @@ def upgrade() -> None:
     # Proposals (new course, course change, materials adoption, etc.)
     op.create_table(
         "cic_proposals",
-        sa.Column("id", psql.UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
-        sa.Column("committee_id", psql.UUID(as_uuid=True), sa.ForeignKey("cic_committees.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("submitted_by_id", psql.UUID(as_uuid=True), sa.ForeignKey("persons.id", ondelete="SET NULL"), nullable=True),
-        sa.Column("school_id", psql.UUID(as_uuid=True), sa.ForeignKey("schools.id", ondelete="SET NULL"), nullable=True),
+        sa.Column("id", sa.String(36), primary_key=True, server_default=sa.text("gen_random_uuid()")),
+        sa.Column("committee_id", sa.String(36), sa.ForeignKey("cic_committees.id", ondelete="CASCADE"), nullable=False),
+        sa.Column("submitted_by_id", sa.String(36), sa.ForeignKey("persons.id", ondelete="SET NULL"), nullable=True),
+        sa.Column("school_id", sa.String(36), sa.ForeignKey("schools.id", ondelete="SET NULL"), nullable=True),
         sa.Column("type", sa.Text(), nullable=False),  # new_course|course_change|materials_adoption|policy
-        sa.Column("subject_id", psql.UUID(as_uuid=True), sa.ForeignKey("subjects.id", ondelete="SET NULL"), nullable=True),
-        sa.Column("course_id", psql.UUID(as_uuid=True), sa.ForeignKey("courses.id", ondelete="SET NULL"), nullable=True),
+        sa.Column("subject_id", sa.String(36), sa.ForeignKey("subjects.id", ondelete="SET NULL"), nullable=True),
+        sa.Column("course_id", sa.String(36), sa.ForeignKey("courses.id", ondelete="SET NULL"), nullable=True),
         sa.Column("title", sa.Text(), nullable=False),
         sa.Column("rationale", sa.Text(), nullable=True),
         sa.Column("status", sa.Text(), nullable=False, server_default=sa.text("'draft'")),  # draft|under_review|approved|rejected|withdrawn
-        sa.Column("submitted_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column("submitted_at", sa.DateTime(timezone=True), server_default=sa.text("CURRENT_TIMESTAMP"), nullable=False),
         sa.Column("review_deadline", sa.Date(), nullable=True),
         * _timestamps(),
     )
@@ -160,9 +208,9 @@ def upgrade() -> None:
     # Proposal Reviews (individual reviews/comments & decisions)
     op.create_table(
         "cic_proposal_reviews",
-        sa.Column("id", psql.UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
-        sa.Column("proposal_id", psql.UUID(as_uuid=True), sa.ForeignKey("cic_proposals.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("reviewer_id", psql.UUID(as_uuid=True), sa.ForeignKey("persons.id", ondelete="SET NULL"), nullable=True),
+        sa.Column("id", sa.String(36), primary_key=True, server_default=sa.text("gen_random_uuid()")),
+        sa.Column("proposal_id", sa.String(36), sa.ForeignKey("cic_proposals.id", ondelete="CASCADE"), nullable=False),
+        sa.Column("reviewer_id", sa.String(36), sa.ForeignKey("persons.id", ondelete="SET NULL"), nullable=True),
         sa.Column("decision", sa.Text(), nullable=True),  # approve|reject|revise
         sa.Column("decided_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("comment", sa.Text(), nullable=True),
@@ -174,9 +222,9 @@ def upgrade() -> None:
     # Attach documents (reuse your existing 'documents' table if present)
     op.create_table(
         "cic_proposal_documents",
-        sa.Column("id", psql.UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
-        sa.Column("proposal_id", psql.UUID(as_uuid=True), sa.ForeignKey("cic_proposals.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("document_id", psql.UUID(as_uuid=True), sa.ForeignKey("documents.id", ondelete="SET NULL"), nullable=True),
+        sa.Column("id", sa.String(36), primary_key=True, server_default=sa.text("gen_random_uuid()")),
+        sa.Column("proposal_id", sa.String(36), sa.ForeignKey("cic_proposals.id", ondelete="CASCADE"), nullable=False),
+        sa.Column("document_id", sa.String(36), sa.ForeignKey("documents.id", ondelete="SET NULL"), nullable=True),
         sa.Column("file_uri", sa.Text(), nullable=True),  # optional direct URI if not using documents repository
         sa.Column("label", sa.Text(), nullable=True),
         * _timestamps(),
@@ -185,9 +233,9 @@ def upgrade() -> None:
     # Meeting files (agenda packets, minutes drafts, etc.)
     op.create_table(
         "cic_meeting_documents",
-        sa.Column("id", psql.UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
-        sa.Column("meeting_id", psql.UUID(as_uuid=True), sa.ForeignKey("cic_meetings.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("document_id", psql.UUID(as_uuid=True), sa.ForeignKey("documents.id", ondelete="SET NULL"), nullable=True),
+        sa.Column("id", sa.String(36), primary_key=True, server_default=sa.text("gen_random_uuid()")),
+        sa.Column("meeting_id", sa.String(36), sa.ForeignKey("cic_meetings.id", ondelete="CASCADE"), nullable=False),
+        sa.Column("document_id", sa.String(36), sa.ForeignKey("documents.id", ondelete="SET NULL"), nullable=True),
         sa.Column("file_uri", sa.Text(), nullable=True),
         sa.Column("label", sa.Text(), nullable=True),
         * _timestamps(),
@@ -196,9 +244,9 @@ def upgrade() -> None:
     # Public notices / publications for transparency (optional)
     op.create_table(
         "cic_publications",
-        sa.Column("id", psql.UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
-        sa.Column("meeting_id", psql.UUID(as_uuid=True), sa.ForeignKey("cic_meetings.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("published_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
+        sa.Column("id", sa.String(36), primary_key=True, server_default=sa.text("gen_random_uuid()")),
+        sa.Column("meeting_id", sa.String(36), sa.ForeignKey("cic_meetings.id", ondelete="CASCADE"), nullable=False),
+        sa.Column("published_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("CURRENT_TIMESTAMP")),
         sa.Column("public_url", sa.Text(), nullable=True),
         sa.Column("is_final", sa.Boolean(), nullable=False, server_default=sa.text("false")),
         * _timestamps(),

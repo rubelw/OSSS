@@ -5,16 +5,8 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
-from app.models.base import Base
-import app.user_models  # ensure User is registered
-# (optional) also import the domain modules if you rely on autogenerate:
-import app.models.core
-import app.models.meetings
-import app.models.policies
-import app.models.planning
-import app.models.evaluations
-import app.models.documents
-import app.models.comms
+from app.models.base import Base, GUID, JSONB
+
 
 config = context.config
 target_metadata = Base.metadata
