@@ -43,7 +43,20 @@ class AgendaItem(UUIDMixin, Base):
     time_allocated: Mapped[Optional[int]] = mapped_column(Integer)
 
     meeting: Mapped[Meeting] = relationship(back_populates="agenda_items")
-    parent: Mapped[Optional["AgendaItem"]] = relationship(remote_side="AgendaItem.id")
+    # ✅ FIX: self-referential relationship using lambda to reference actual columns
+    parent: Mapped[Optional["AgendaItem"]] = relationship(
+        "AgendaItem",
+        remote_side=lambda: [AgendaItem.id],  # reference the column attribute
+        back_populates="children",
+        foreign_keys=lambda: [AgendaItem.parent_id],  # be explicit on the FK column
+    )
+    children: Mapped[list["AgendaItem"]] = relationship(
+        "AgendaItem",
+        back_populates="parent",
+        cascade="all, delete-orphan",
+        foreign_keys=lambda: [AgendaItem.parent_id],
+        passive_deletes=True,
+    )
 
 class AgendaWorkflow(UUIDMixin, Base):
     __tablename__ = "agenda_workflows"

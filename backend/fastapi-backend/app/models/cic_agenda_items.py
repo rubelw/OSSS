@@ -27,5 +27,20 @@ class CICAgendaItem(UUIDMixin, Base):
     )
 
     meeting = relationship("CICMeeting", back_populates="agenda_items")
-    parent = relationship("CICAgendaItem", remote_side=[id])
+
+    # ✅ FIX: reference the actual column via lambda; add explicit foreign_keys and inverse side
+    parent = relationship(
+        "CICAgendaItem",
+        remote_side=lambda: [CICAgendaItem.id],
+        back_populates="children",
+        foreign_keys=lambda: [CICAgendaItem.parent_id],
+    )
+    children = relationship(
+        "CICAgendaItem",
+        back_populates="parent",
+        cascade="all, delete-orphan",
+        foreign_keys=lambda: [CICAgendaItem.parent_id],
+        passive_deletes=True,
+    )
+
     motions = relationship("CICMotion", back_populates="agenda_item", cascade="all, delete-orphan")
