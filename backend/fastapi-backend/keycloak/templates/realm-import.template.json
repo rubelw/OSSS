@@ -3,17 +3,32 @@
   "enabled": true,
   "roles": {
     "realm": [
-      {
-        "name": "admin",
-        "description": "Realm-wide administrator role for myrealm"
-      },
+      {"name": "admin","description": "Realm-wide administrator role for myrealm"},
+      { "name": "manage_all_schools", "description": "Manage all schools in the district" },
+      { "name": "manage_users", "description": "Manage user accounts and assignments" },
+      { "name": "manage_security", "description": "Manage security settings and permissions" },
+      { "name": "view_edit_student_records", "description": "View and edit all student records" },
+      { "name": "manage_schedules", "description": "Create and modify schedules" },
+      { "name": "enroll_students", "description": "Enroll new students" },
+      { "name": "edit_student_records", "description": "Edit existing student records" },
+      { "name": "manage_transcripts", "description": "Manage and issue transcripts" },
+      { "name": "take_attendance", "description": "Record and manage attendance" },
+      { "name": "manage_gradebook", "description": "Manage gradebook entries" },
+      { "name": "view_student_profiles", "description": "View full student profiles" },
+      { "name": "view_student_attendance", "description": "View student attendance records" },
+      { "name": "view_student_grades", "description": "View student grades" },
+      { "name": "view_own_attendance", "description": "View own attendance" },
+      { "name": "view_own_grades", "description": "View own grades" },
+      { "name": "admin", "description": "Realm-wide administrator role for myrealm" },
       { "name": "editor", "description": "Can edit content" },
       { "name": "viewer", "description": "Read-only access" }
     ],
     "client": {
       "myapi": [
         { "name": "api-admin", "description": "Admin on API client" },
-        { "name": "api-editor", "description": "Editor on API client" }
+        { "name": "api-editor", "description": "Editor on API client" },
+        { "name": "api-viewer", "description": "Viewer on API client" }
+
       ]
     }
   },
@@ -59,7 +74,15 @@
   "groups": [
     {
       "name": "admins",
-      "realmRoles": ["admin"]
+      "realmRoles": [
+        "admin",
+        "manage_all_schools",
+        "manage_users",
+        "manage_security"
+      ],
+      "clientRoles": {
+        "myapi": ["api-admin"]
+      }
     }
   ],
   "users": [

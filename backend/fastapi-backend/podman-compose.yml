@@ -27,15 +27,16 @@ services:
       - |
         set -eux
         python -m pip install --no-cache-dir pyyaml
-        test -f /keycloak/realm-import.template.json
+        test -f /keycloak/templates/realm-import.template.json
         test -f /role-rules.yaml
         python /scripts/gen_realm_from_yaml.py \
-          --template /keycloak/realm-import.template.json \
+          --template /keycloak/templates/realm-import.template.json \
           --in /role-rules.yaml \
-          --out /keycloak/realm-export.json
-        ls -l /keycloak/realm-export.json
+          --out /keycloak/import/realm-export.json
+        ls -l /keycloak/import/realm-export.json
     volumes:
-      - ./keycloak:/keycloak:Z
+      - ./keycloak/templates:/keycloak/templates:Z
+      - ./keycloak/import:/keycloak/import:Z
       - ./scripts:/scripts:ro,Z
       - ./role-rules.yaml:/role-rules.yaml:ro,Z
     restart: "no"
@@ -49,7 +50,7 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - ./keycloak:/opt/keycloak/data/import:ro
+      - ./keycloak/import:/opt/keycloak/data/import:ro
     depends_on:
       - realmgen
     healthcheck:

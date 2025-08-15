@@ -64,6 +64,70 @@ down_revision = "0001_init"
 branch_labels = None
 depends_on = None
 
+# revision identifiers, used by Alembic.
+revision = "0002_add_table"
+down_revision = "0001_init"
+branch_labels = None
+depends_on = None
+
+# ---- Timestamp helpers ----
+def _timestamps():
+    # NOTE: This sets created_at/updated_at defaults to now().
+    # updated_at won't auto-bump on UPDATE without app logic or a DB trigger.
+    return (
+        sa.Column(
+            "created_at",
+            sa.TIMESTAMP(timezone=True),
+            nullable=False,
+            server_default=sa.text("CURRENT_TIMESTAMP"),
+        ),
+        sa.Column(
+            "updated_at",
+            sa.TIMESTAMP(timezone=True),
+            nullable=False,
+            server_default=sa.text("CURRENT_TIMESTAMP"),
+        ),
+    )
+
+# (Optional) Postgres-only trigger to keep updated_at current for any table that includes it.
+# Call _add_updated_at_trigger("document_links") AFTER creating the table if you want DB-side updates.
+def _add_updated_at_trigger(table_name: str):
+    op.execute(
+        """
+        DO $$
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM pg_proc WHERE proname = 'set_updated_at'
+            ) THEN
+                CREATE OR REPLACE FUNCTION set_updated_at()
+                RETURNS TRIGGER AS $BODY$
+                BEGIN
+                    NEW.updated_at = CURRENT_TIMESTAMP;
+                    RETURN NEW;
+                END;
+                $BODY$ LANGUAGE plpgsql;
+            END IF;
+        END$$;
+        """
+    )
+    op.execute(
+        f"""
+        DO $$
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1
+                FROM pg_trigger
+                WHERE tgname = 'trg_{table_name}_updated_at'
+            ) THEN
+                CREATE TRIGGER trg_{table_name}_updated_at
+                BEFORE UPDATE ON {table_name}
+                FOR EACH ROW
+                EXECUTE FUNCTION set_updated_at();
+            END IF;
+        END$$;
+        """
+    )
+
 
 def upgrade():
     # Safe if already present (0001 likely created pgcrypto)

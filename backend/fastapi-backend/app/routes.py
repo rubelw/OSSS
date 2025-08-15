@@ -24,7 +24,8 @@ from .auth_keycloak import (
 )
 from .database import get_session
 from .models.user_models import User
-from .schemas import UserCreate, UserRead
+from .models.state import State
+from .schemas import UserCreate, UserRead, StateOut
 
 # Domain models & schemas
 from . import models
@@ -228,6 +229,22 @@ def register_routes(app: FastAPI, oauth2_scheme):
         await session.refresh(u)
         return u
 
+
+    @app.get(
+        "/states",
+        response_model=list[StateOut],
+        openapi_extra={"security": [{"KeycloakOAuth2": ["openid"]}]},
+        dependencies=[roles_dep_for("GET", "/states")],
+
+    )
+    async def list_states(session: AsyncSession = Depends(get_session)):
+        result = await session.execute(select(State).order_by(State.code))
+        items = result.scalars().all()
+        # Let Pydantic read ORM attrs using alias "code" -> "abbr"
+        return [StateOut.model_validate(obj) for obj in items]
+
+
+
     # ----------------------------------
     # Domain routers
     # ----------------------------------
@@ -417,6 +434,8 @@ def register_routes(app: FastAPI, oauth2_scheme):
     add_crud("library_holds", models.LibraryHold, S.LibraryHoldRead, S.LibraryHoldCreate, openapi_extra=SECURITY, router=app)
     add_crud("library_fines", models.LibraryFine, S.LibraryFineRead, S.LibraryFineCreate, openapi_extra=SECURITY, router=app)
 
+
     # Include feature routers
     app.include_router(repo)
     app.include_router(comm)
+

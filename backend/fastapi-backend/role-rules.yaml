@@ -1,12 +1,24 @@
 realm: myrealm
 
 realm_roles:
+  manage_all_schools: manager_all_schools
+  manage_users: manage_users
+  manage_security: manage_security
+  view_edit_student_records: view_edit_student_records
+  manage_schedules: manage_schedules
+  enroll_students: enroll_students
+  edit_student_records: edit_student_records
+  manage_transcripts: manage_transcripts
+  take_attendance: take_attendance
+  manage_gradebook: manage_gradebook
+  view_student_profiles: view_student_profiles
+  view_student_attendance: view_student_attendance
+  view_student_grades: view_student_grades
+  view_own_attendance: view_own_attendance
+  view_own_grades: view_own_grades
   admin: admin
   editor: editor
   viewer: viewer
-  hr: hr
-  records_reader: records_reader
-  records_editor: records_editor
 
 clients:
   myapi:
@@ -16,8 +28,8 @@ clients:
 
 routes:
   "GET /users": ["admin"]
-  "POST /users": ["admin", "hr"]
+  "POST /users": ["admin"]
 
   # example router-prefixed paths
-  "GET /repo/documents": ["records_reader"]
-  "POST /repo/documents": ["records_editor"]
+  #"GET /repo/documents": ["records_reader"]
+  #"POST /repo/documents": ["records_editor"]

@@ -87,6 +87,11 @@ from .repo import (
 from .communications import (
     Channel, Post, PostAttachment, Subscription, Delivery, Page, DocumentLink
 )
+
+from .state import (
+    State
+)
+
 from .sis import (
     District,
     School,

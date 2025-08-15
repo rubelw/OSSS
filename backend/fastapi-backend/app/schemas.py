@@ -5,7 +5,7 @@ from datetime import datetime, date
 from decimal import Decimal
 
 
-from pydantic import BaseModel, ConfigDict, EmailStr
+from pydantic import BaseModel, ConfigDict, EmailStr, constr, Field
 
 # ---------------------------------------------------------------------------
 # Helpers / Base
@@ -2163,3 +2163,24 @@ GpaCalculationRead = GPACalculationRead
 SisImportJobCreate = SISImportJobCreate
 SisImportJobRead = SISImportJobRead
 # === END: alias shim ===
+
+
+class StateBase(BaseModel):
+    abbr: constr(min_length=2, max_length=2)
+    name: str
+
+class StateCreate(StateBase):
+    """Schema for creating a new state"""
+    pass
+
+class StateRead(StateBase):
+    """Schema for reading a state"""
+    class Config:
+        from_attributes = True  # pydantic v2 / for v1 use orm_mode = True
+
+class StateOut(BaseModel):
+    abbr: str = Field(alias="code")
+    name: str
+
+    # allow creating from ORM objects and using aliases
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
