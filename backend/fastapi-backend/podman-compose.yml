@@ -18,16 +18,40 @@ services:
       retries: 30
       start_period: 10s
 
+  realmgen:
+    image: python:3.12-alpine
+    # Use a shell so we can install PyYAML then run the generator
+    command:
+      - sh
+      - -lc
+      - |
+        set -eux
+        python -m pip install --no-cache-dir pyyaml
+        test -f /keycloak/realm-import.template.json
+        test -f /role-rules.yaml
+        python /scripts/gen_realm_from_yaml.py \
+          --template /keycloak/realm-import.template.json \
+          --in /role-rules.yaml \
+          --out /keycloak/realm-export.json
+        ls -l /keycloak/realm-export.json
+    volumes:
+      - ./keycloak:/keycloak:Z
+      - ./scripts:/scripts:ro,Z
+      - ./role-rules.yaml:/role-rules.yaml:ro,Z
+    restart: "no"
+
   keycloak:
     image: quay.io/keycloak/keycloak:24.0
-    command: ["start-dev", "--import-realm"]
+    command: [ "start-dev", "--import-realm" ]
     environment:
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: admin
     ports:
       - "8080:8080"
     volumes:
-      - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm.json:ro
+      - ./keycloak:/opt/keycloak/data/import:ro
+    depends_on:
+      - realmgen
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8080/realms/${KEYCLOAK_REALM:-myrealm}/.well-known/openid-configuration || exit 1"]
       interval: 5s

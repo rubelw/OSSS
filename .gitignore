@@ -1,0 +1,3 @@
+./idea
+.idea/*
+./backend/fastapi-backend/keycloak/real-export.json

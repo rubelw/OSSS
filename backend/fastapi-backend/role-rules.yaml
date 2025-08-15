@@ -1,5 +1,18 @@
-default_roles:
-  - admin
+realm: myrealm
+
+realm_roles:
+  admin: admin
+  editor: editor
+  viewer: viewer
+  hr: hr
+  records_reader: records_reader
+  records_editor: records_editor
+
+clients:
+  myapi:
+    roles:
+      - api-admin
+      - api-editor
 
 routes:
   "GET /users": ["admin"]
