@@ -5,7 +5,7 @@ from datetime import datetime, date
 from decimal import Decimal
 
 
-from pydantic import BaseModel, ConfigDict, EmailStr, constr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, constr, Field, model_validator
 
 # ---------------------------------------------------------------------------
 # Helpers / Base
@@ -808,19 +808,39 @@ class DistrictRead(WithID, WithTimestamps):
     name: str
     code: Optional[str] = None
 
+
 class SchoolCreate(ORMBase):
     district_id: UUID
     name: str
-    school_code: Optional[str] = None
     type: Optional[str] = None
     timezone: Optional[str] = None
 
-class SchoolRead(WithID, WithTimestamps):
+    # codes
+    school_code: Optional[str] = None
+    building_code: Optional[str] = None
+    nces_school_id: Optional[str] = None
+
+    @model_validator(mode="after")
+    def default_school_code(self):
+        # If school_code not provided, use building_code (keeps API compatible with ORM/backfill)
+        if not self.school_code and self.building_code:
+            self.school_code = self.building_code
+        return self
+
+class SchoolRead(ORMBase):
+    id: UUID
     district_id: UUID
     name: str
     school_code: Optional[str] = None
     type: Optional[str] = None
     timezone: Optional[str] = None
+    nces_school_id: Optional[str] = None
+    building_code: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+    # ensure ORM -> schema works when returning SQLAlchemy models
+    model_config = ConfigDict(from_attributes=True)
 
 class AcademicTermCreate(ORMBase):
     school_id: UUID
