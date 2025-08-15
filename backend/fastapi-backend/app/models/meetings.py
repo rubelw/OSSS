@@ -14,8 +14,8 @@ class Meeting(UUIDMixin, TimestampMixin, Base):
     org_id: Mapped[str] = mapped_column(GUID(), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
     body_id: Mapped[Optional[str]] = mapped_column(GUID(), ForeignKey("bodies.id", ondelete="SET NULL"))
     title: Mapped[str] = mapped_column(String(255), nullable=False)
-    starts_at: Mapped["datetime"] = mapped_column(TIMESTAMP(timezone=True), nullable=False)  # type: ignore
-    ends_at: Mapped[Optional["datetime"]] = mapped_column(TIMESTAMP(timezone=True))  # type: ignore
+    starts_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)  # type: ignore
+    ends_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=True))  # type: ignore
     location: Mapped[Optional[str]] = mapped_column(String(255))
     status: Mapped[Optional[str]] = mapped_column(String(32))
     is_public: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
@@ -79,7 +79,7 @@ class AgendaItemApproval(UUIDMixin, Base):
     step_id: Mapped[str] = mapped_column(GUID(), ForeignKey("agenda_workflow_steps.id", ondelete="CASCADE"), nullable=False)
     approver_id: Mapped[Optional[str]] = mapped_column(GUID(), ForeignKey("users.id"))
     decision: Mapped[Optional[str]] = mapped_column(String(16))
-    decided_at: Mapped[Optional["datetime"]] = mapped_column(TIMESTAMP(timezone=True))  # type: ignore
+    decided_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=True))  # type: ignore
     comment: Mapped[Optional[str]] = mapped_column(Text)
 
 class Motion(UUIDMixin, Base):
@@ -104,15 +104,15 @@ class Attendance(Base):
     meeting_id: Mapped[str] = mapped_column(GUID(), ForeignKey("meetings.id", ondelete="CASCADE"), primary_key=True)
     user_id: Mapped[str] = mapped_column(GUID(), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
     status: Mapped[Optional[str]] = mapped_column(String(16))
-    arrived_at: Mapped[Optional["datetime"]] = mapped_column(TIMESTAMP(timezone=True))  # type: ignore
-    left_at: Mapped[Optional["datetime"]] = mapped_column(TIMESTAMP(timezone=True))  # type: ignore
+    arrived_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=True))  # type: ignore
+    left_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=True))  # type: ignore
 
 class Minutes(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "minutes"
     meeting_id: Mapped[str] = mapped_column(GUID(), ForeignKey("meetings.id", ondelete="CASCADE"), nullable=False)
     author_id: Mapped[Optional[str]] = mapped_column(GUID(), ForeignKey("users.id"))
     content: Mapped[Optional[str]] = mapped_column(Text)
-    published_at: Mapped[Optional["datetime"]] = mapped_column(TIMESTAMP(timezone=True))  # type: ignore
+    published_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=True))  # type: ignore
     meeting: Mapped[Meeting] = relationship(back_populates="minutes")
 
 class MeetingFile(Base):
@@ -137,7 +137,7 @@ class PersonalNote(UUIDMixin, TimestampMixin, Base):
 class MeetingPublication(Base):
     __tablename__ = "meeting_publications"
     meeting_id: Mapped[str] = mapped_column(GUID(), ForeignKey("meetings.id", ondelete="CASCADE"), primary_key=True)
-    published_at: Mapped["datetime"] = mapped_column(TIMESTAMP(timezone=True), nullable=False)  # type: ignore
+    published_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)  # type: ignore
     public_url: Mapped[Optional[str]] = mapped_column(String(1024))
     archive_url: Mapped[Optional[str]] = mapped_column(String(1024))
 

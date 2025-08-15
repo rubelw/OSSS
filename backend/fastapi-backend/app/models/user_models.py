@@ -3,7 +3,7 @@ from __future__ import annotations
 import sqlalchemy as sa
 from sqlalchemy.orm import Mapped, mapped_column
 from uuid import UUID as _UUID
-from .models.base import Base, GUID  # <-- share the same Base
+from .base import Base, GUID  # <-- share the same Base
 
 class User(Base):
     __tablename__ = "users"

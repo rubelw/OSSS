@@ -24,7 +24,7 @@ class Post(UUIDMixin, Base):
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="draft")
     publish_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=True))  # type: ignore
     author_id: Mapped[Optional[str]] = mapped_column(GUID(), ForeignKey("users.id"))
-    created_at: Mapped["datetime"] = mapped_column(TIMESTAMP(timezone=True), nullable=False)  # type: ignore
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)  # type: ignore
 
 class PostAttachment(Base):
     __tablename__ = "post_attachments"
@@ -42,7 +42,7 @@ class Delivery(UUIDMixin, Base):
     __tablename__ = "deliveries"
     post_id: Mapped[str] = mapped_column(GUID(), ForeignKey("posts.id", ondelete="CASCADE"), nullable=False)
     user_id: Mapped[str] = mapped_column(GUID(), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    delivered_at: Mapped[Optional["datetime"]] = mapped_column(TIMESTAMP(timezone=True))  # type: ignore
+    delivered_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=True))  # type: ignore
     medium: Mapped[Optional[str]] = mapped_column(String(16))  # email|push|rss
     status: Mapped[Optional[str]] = mapped_column(String(16))
 
@@ -53,7 +53,7 @@ class Page(UUIDMixin, Base):
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     body: Mapped[Optional[str]] = mapped_column(Text)
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="draft")
-    published_at: Mapped[Optional["datetime"]] = mapped_column(TIMESTAMP(timezone=True))  # type: ignore
+    published_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=True))  # type: ignore
 
 class CommSearchIndex(Base):
     __tablename__ = "comm_search_index"

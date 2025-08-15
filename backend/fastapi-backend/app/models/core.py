@@ -46,7 +46,7 @@ class AuditLog(UUIDMixin, Base):
     entity_id: Mapped[str] = mapped_column(GUID(), nullable=False)
     action: Mapped[str] = mapped_column(String(50), nullable=False)
     actor_id: Mapped[Optional[str]] = mapped_column(GUID(), ForeignKey("users.id"))
-    at: Mapped["datetime"] = mapped_column(TIMESTAMP(timezone=True), default=lambda: str(uuid.uuid4()), nullable=False)  # type: ignore
+    at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), default=lambda: str(uuid.uuid4()), nullable=False)  # type: ignore
     delta: Mapped[Optional[dict]] = mapped_column(JSONB())
 from sqlalchemy import TIMESTAMP, text  # placed here to avoid circular imports warning
 
@@ -68,7 +68,7 @@ class Notification(UUIDMixin, TimestampMixin, Base):
     user_id: Mapped[str] = mapped_column(GUID(), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     type: Mapped[str] = mapped_column(String(50), nullable=False)
     payload: Mapped[Optional[dict]] = mapped_column(JSONB())
-    read_at: Mapped[Optional["datetime"]] = mapped_column(TIMESTAMP(timezone=True))  # type: ignore
+    read_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=True))  # type: ignore
 from sqlalchemy import TIMESTAMP  # noqa
 
 class FeatureFlag(Base):

@@ -8,7 +8,16 @@ from fastapi.routing import APIRoute
 from .settings import settings
 from .routes import register_routes  # <-- all routes live here
 
+from . import models  # imports all models
+from sqlalchemy.orm import configure_mappers
+
+
 app = FastAPI(title=settings.APP_NAME, version="1.0.0")
+
+@app.on_event("startup")
+async def _configure_sqlalchemy_mappers():
+    configure_mappers()
+
 
 # --- Keycloak / Swagger OAuth setup (docs-only objects live here) ---
 KEYCLOAK_PUBLIC = (

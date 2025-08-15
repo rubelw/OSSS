@@ -15,14 +15,9 @@ from .settings import settings
 from .auth_keycloak import (
     get_current_claims,
     require_realm_roles,
-    require_any_realm_role,
-    require_client_roles,
-    require_any_client_role,
-    require_groups,
-    require_scopes,
 )
 from .database import get_session
-from .user_models import User
+from .models.user_models import User
 from .schemas import UserCreate, UserRead
 
 # Domain models & schemas

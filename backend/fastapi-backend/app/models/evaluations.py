@@ -35,8 +35,8 @@ class EvaluationCycle(UUIDMixin, Base):
     __tablename__ = "evaluation_cycles"
     org_id: Mapped[str] = mapped_column(GUID(), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
-    start_at: Mapped[Optional["datetime"]] = mapped_column(TIMESTAMP(timezone=True))  # type: ignore
-    end_at: Mapped[Optional["datetime"]] = mapped_column(TIMESTAMP(timezone=True))    # type: ignore
+    start_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=True))  # type: ignore
+    end_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=True))    # type: ignore
 
 class EvaluationAssignment(UUIDMixin, Base):
     __tablename__ = "evaluation_assignments"
@@ -53,13 +53,13 @@ class EvaluationResponse(UUIDMixin, Base):
     value_num: Mapped[Optional[float]] = mapped_column(Float)
     value_text: Mapped[Optional[str]] = mapped_column(Text)
     comment: Mapped[Optional[str]] = mapped_column(Text)
-    answered_at: Mapped[Optional["datetime"]] = mapped_column(TIMESTAMP(timezone=True))  # type: ignore
+    answered_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=True))  # type: ignore
 
 class EvaluationSignoff(UUIDMixin, Base):
     __tablename__ = "evaluation_signoffs"
     assignment_id: Mapped[str] = mapped_column(GUID(), ForeignKey("evaluation_assignments.id", ondelete="CASCADE"), nullable=False)
     signer_id: Mapped[str] = mapped_column(GUID(), ForeignKey("users.id"), nullable=False)
-    signed_at: Mapped["datetime"] = mapped_column(TIMESTAMP(timezone=True), nullable=False)  # type: ignore
+    signed_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)  # type: ignore
     note: Mapped[Optional[str]] = mapped_column(Text)
 
 class EvaluationFile(Base):
@@ -71,5 +71,5 @@ class EvaluationReport(UUIDMixin, Base):
     __tablename__ = "evaluation_reports"
     cycle_id: Mapped[str] = mapped_column(GUID(), ForeignKey("evaluation_cycles.id", ondelete="CASCADE"), nullable=False)
     scope: Mapped[Optional[dict]] = mapped_column(JSONB())
-    generated_at: Mapped["datetime"] = mapped_column(TIMESTAMP(timezone=True), nullable=False)  # type: ignore
+    generated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)  # type: ignore
     file_id: Mapped[Optional[str]] = mapped_column(GUID(), ForeignKey("files.id", ondelete="SET NULL"))

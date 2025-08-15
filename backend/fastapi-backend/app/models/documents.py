@@ -31,7 +31,7 @@ class DocumentVersion(UUIDMixin, Base):
     checksum: Mapped[Optional[str]] = mapped_column(String(128))
     created_by: Mapped[Optional[str]] = mapped_column(GUID(), ForeignKey("users.id"))
     created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)  # type: ignore
-    published_at: Mapped[Optional["datetime"]] = mapped_column(TIMESTAMP(timezone=True))  # type: ignore
+    published_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=True))  # type: ignore
 
 class DocumentPermission(Base):
     __tablename__ = "document_permissions"
@@ -46,14 +46,14 @@ class DocumentNotification(Base):
     document_id: Mapped[str] = mapped_column(GUID(), ForeignKey("documents.id", ondelete="CASCADE"), primary_key=True)
     user_id: Mapped[str] = mapped_column(GUID(), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
     subscribed: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    last_sent_at: Mapped[Optional["datetime"]] = mapped_column(TIMESTAMP(timezone=True))  # type: ignore
+    last_sent_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=True))  # type: ignore
 
 class DocumentActivity(UUIDMixin, Base):
     __tablename__ = "document_activity"
     document_id: Mapped[str] = mapped_column(GUID(), ForeignKey("documents.id", ondelete="CASCADE"), nullable=False)
     actor_id: Mapped[Optional[str]] = mapped_column(GUID(), ForeignKey("users.id"))
     action: Mapped[str] = mapped_column(String(32), nullable=False)
-    at: Mapped["datetime"] = mapped_column(TIMESTAMP(timezone=True), nullable=False)  # type: ignore
+    at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)  # type: ignore
     meta: Mapped[Optional[dict]] = mapped_column(JSONB())
 
 class DocumentSearchIndex(Base):
