@@ -470,6 +470,48 @@ def register_routes(app: FastAPI, oauth2_scheme):
     add_crud("project-tasks", models.ProjectTask, S.ProjectTaskRead, S.ProjectTaskCreate, openapi_extra=SECURITY, router=app)
     add_crud("move-orders", models.MoveOrder, S.MoveOrderRead, S.MoveOrderCreate, openapi_extra=SECURITY, router=app)
 
+    # -------- Finance / GL --------
+    add_crud("gl-segments", models.GLSegment, S.GLSegmentRead, S.GLSegmentCreate, openapi_extra=SECURITY, router=app)
+    add_crud("gl-segment-values", models.GLSegmentValue, S.GLSegmentValueRead, S.GLSegmentValueCreate,
+             openapi_extra=SECURITY, router=app)
+    add_crud("gl-accounts", models.GLAccount, S.GLAccountRead, S.GLAccountCreate, openapi_extra=SECURITY, router=app)
+    add_crud("gl-account-segments", models.GLAccountSegment, S.GLAccountSegmentRead, S.GLAccountSegmentCreate,
+             openapi_extra=SECURITY, router=app)
+
+    add_crud("fiscal-years", models.FiscalYear, S.FiscalYearRead, S.FiscalYearCreate, openapi_extra=SECURITY,
+             router=app)
+    add_crud("fiscal-periods", models.FiscalPeriod, S.FiscalPeriodRead, S.FiscalPeriodCreate, openapi_extra=SECURITY,
+             router=app)
+
+    add_crud("journal-batches", models.JournalBatch, S.JournalBatchRead, S.JournalBatchCreate, openapi_extra=SECURITY,
+             router=app)
+    add_crud("journal-entries", models.JournalEntry, S.JournalEntryRead, S.JournalEntryCreate, openapi_extra=SECURITY,
+             router=app)
+    add_crud("journal-entry-lines", models.JournalEntryLine, S.JournalEntryLineRead, S.JournalEntryLineCreate,
+             openapi_extra=SECURITY, router=app)
+
+    # -------- HR --------
+    add_crud("hr-employees", models.HREmployee, S.HREmployeeRead, S.HREmployeeCreate, openapi_extra=SECURITY,
+             router=app)
+    add_crud("hr-positions", models.HRPosition, S.HRPositionRead, S.HRPositionCreate, openapi_extra=SECURITY,
+             router=app)
+    add_crud("hr-position-assignments", models.HRPositionAssignment, S.HRPositionAssignmentRead,
+             S.HRPositionAssignmentCreate, openapi_extra=SECURITY, router=app)
+
+    # -------- Payroll --------
+    add_crud("pay-periods", models.PayPeriod, S.PayPeriodRead, S.PayPeriodCreate, openapi_extra=SECURITY, router=app)
+    add_crud("payroll-runs", models.PayrollRun, S.PayrollRunRead, S.PayrollRunCreate, openapi_extra=SECURITY,
+             router=app)
+    add_crud("earning-codes", models.EarningCode, S.EarningCodeRead, S.EarningCodeCreate, openapi_extra=SECURITY,
+             router=app)
+    add_crud("deduction-codes", models.DeductionCode, S.DeductionCodeRead, S.DeductionCodeCreate,
+             openapi_extra=SECURITY, router=app)
+    add_crud("employee-earnings", models.EmployeeEarning, S.EmployeeEarningRead, S.EmployeeEarningCreate,
+             openapi_extra=SECURITY, router=app)
+    add_crud("employee-deductions", models.EmployeeDeduction, S.EmployeeDeductionRead, S.EmployeeDeductionCreate,
+             openapi_extra=SECURITY, router=app)
+    add_crud("paychecks", models.Paycheck, S.PaycheckRead, S.PaycheckCreate, openapi_extra=SECURITY, router=app)
+
     # Include feature routers
     app.include_router(repo)
     app.include_router(comm)

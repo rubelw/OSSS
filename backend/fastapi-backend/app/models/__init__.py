@@ -182,6 +182,29 @@ from .sis import (
     EmergencyContact, Consent
 )
 
+from .finance_hr_payroll import (
+     GLSegment,
+     GLSegmentValue,
+     GLAccount,
+     GLAccountSegment,
+     FiscalYear,
+     FiscalPeriod,
+     JournalBatch,
+     JournalEntry,
+     JournalEntryLine,
+     HREmployee,
+     HRPosition,
+     HRPositionAssignment,
+     PayPeriod,
+     PayrollRun,
+     EarningCode,
+     DeductionCode,
+     EmployeeEarning,
+     EmployeeDeduction,
+     Paycheck,
+)
+
+
 from .cmms_iwms import (
     Facility,
     Building,

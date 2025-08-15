@@ -2598,3 +2598,269 @@ class MoveOrderRead(MoveOrderCreate):
     id: str
     created_at: datetime
     updated_at: datetime
+
+# ==========================
+# Finance / General Ledger
+# ==========================
+
+class GLSegmentCreate(ORMBase):
+    code: str
+    name: str
+    seq: int
+    length: Optional[int] = None
+    required: bool = True
+
+class GLSegmentRead(GLSegmentCreate):
+    id: UUID
+    created_at: datetime
+    updated_at: datetime
+
+
+class GLSegmentValueCreate(ORMBase):
+    segment_id: UUID
+    code: str
+    name: str
+    active: bool = True
+
+class GLSegmentValueRead(GLSegmentValueCreate):
+    id: UUID
+    created_at: datetime
+    updated_at: datetime
+
+
+class GLAccountCreate(ORMBase):
+    code: str
+    name: str
+    acct_type: str
+    active: bool = True
+    attributes: Optional[dict] = None
+
+class GLAccountRead(GLAccountCreate):
+    id: UUID
+    created_at: datetime
+    updated_at: datetime
+
+
+class GLAccountSegmentCreate(ORMBase):
+    account_id: UUID
+    segment_id: UUID
+    value_id: Optional[UUID] = None
+
+class GLAccountSegmentRead(GLAccountSegmentCreate):
+    id: UUID
+    created_at: datetime
+    updated_at: datetime
+
+
+class FiscalYearCreate(ORMBase):
+    year: int
+    start_date: date
+    end_date: date
+    is_closed: bool = False
+
+class FiscalYearRead(FiscalYearCreate):
+    id: UUID
+    created_at: datetime
+    updated_at: datetime
+
+
+class FiscalPeriodCreate(ORMBase):
+    fiscal_year_id: UUID
+    period_no: int
+    start_date: date
+    end_date: date
+    is_closed: bool = False
+
+class FiscalPeriodRead(FiscalPeriodCreate):
+    id: UUID
+    created_at: datetime
+    updated_at: datetime
+
+
+class JournalBatchCreate(ORMBase):
+    batch_no: str
+    description: Optional[str] = None
+    source: Optional[str] = None
+    status: str = "open"
+    posted_at: Optional[datetime] = None
+
+class JournalBatchRead(JournalBatchCreate):
+    id: UUID
+    created_at: datetime
+    updated_at: datetime
+
+
+class JournalEntryCreate(ORMBase):
+    batch_id: UUID
+    fiscal_period_id: UUID
+    je_no: str
+    journal_date: date
+    description: Optional[str] = None
+    status: str = "open"
+
+class JournalEntryRead(JournalEntryCreate):
+    id: UUID
+    total_debits: float
+    total_credits: float
+    created_at: datetime
+    updated_at: datetime
+
+
+class JournalEntryLineCreate(ORMBase):
+    entry_id: UUID
+    account_id: UUID
+    line_no: int
+    description: Optional[str] = None
+    debit: float = 0.0
+    credit: float = 0.0
+    segment_overrides: Optional[dict] = None
+
+class JournalEntryLineRead(JournalEntryLineCreate):
+    id: UUID
+    created_at: datetime
+    updated_at: datetime
+
+
+# ==========================
+# HR
+# ==========================
+
+class HREmployeeCreate(ORMBase):
+    person_id: Optional[UUID] = None
+    employee_no: str
+    primary_school_id: Optional[UUID] = None
+    department_segment_id: Optional[UUID] = None
+    employment_type: Optional[str] = None
+    status: str = "active"
+    hire_date: Optional[date] = None
+    termination_date: Optional[date] = None
+    attributes: Optional[dict] = None
+
+class HREmployeeRead(HREmployeeCreate):
+    id: UUID
+    created_at: datetime
+    updated_at: datetime
+
+
+class HRPositionCreate(ORMBase):
+    title: str
+    department_segment_id: Optional[UUID] = None
+    grade: Optional[str] = None
+    fte: Optional[float] = None
+    attributes: Optional[dict] = None
+
+class HRPositionRead(HRPositionCreate):
+    id: UUID
+    created_at: datetime
+    updated_at: datetime
+
+
+class HRPositionAssignmentCreate(ORMBase):
+    employee_id: UUID
+    position_id: UUID
+    start_date: date
+    end_date: Optional[date] = None
+    percent: Optional[float] = None
+    funding_split: Optional[dict] = None
+
+class HRPositionAssignmentRead(HRPositionAssignmentCreate):
+    id: UUID
+    created_at: datetime
+    updated_at: datetime
+
+
+# ==========================
+# Payroll
+# ==========================
+
+class PayPeriodCreate(ORMBase):
+    code: str
+    start_date: date
+    end_date: date
+    pay_date: date
+    status: str = "open"
+
+class PayPeriodRead(PayPeriodCreate):
+    id: UUID
+    created_at: datetime
+    updated_at: datetime
+
+
+class PayrollRunCreate(ORMBase):
+    pay_period_id: UUID
+    run_no: int = 1
+    status: str = "open"
+    created_by_user_id: Optional[UUID] = None
+    posted_entry_id: Optional[UUID] = None
+
+class PayrollRunRead(PayrollRunCreate):
+    id: UUID
+    created_at: datetime
+    updated_at: datetime
+
+
+class EarningCodeCreate(ORMBase):
+    code: str
+    name: str
+    taxable: bool = True
+    attributes: Optional[dict] = None
+
+class EarningCodeRead(EarningCodeCreate):
+    id: UUID
+    created_at: datetime
+    updated_at: datetime
+
+
+class DeductionCodeCreate(ORMBase):
+    code: str
+    name: str
+    pretax: bool = True
+    vendor_id: Optional[UUID] = None
+    attributes: Optional[dict] = None
+
+class DeductionCodeRead(DeductionCodeCreate):
+    id: UUID
+    created_at: datetime
+    updated_at: datetime
+
+
+class EmployeeEarningCreate(ORMBase):
+    run_id: UUID
+    employee_id: UUID
+    earning_code_id: UUID
+    hours: Optional[float] = None
+    rate: Optional[float] = None
+    amount: float
+
+class EmployeeEarningRead(EmployeeEarningCreate):
+    id: UUID
+    created_at: datetime
+    updated_at: datetime
+
+
+class EmployeeDeductionCreate(ORMBase):
+    run_id: UUID
+    employee_id: UUID
+    deduction_code_id: UUID
+    amount: float
+    attributes: Optional[dict] = None
+
+class EmployeeDeductionRead(EmployeeDeductionCreate):
+    id: UUID
+    created_at: datetime
+    updated_at: datetime
+
+
+class PaycheckCreate(ORMBase):
+    run_id: UUID
+    employee_id: UUID
+    check_no: Optional[str] = None
+    gross_pay: float
+    net_pay: float
+    taxes: Optional[dict] = None
+    attributes: Optional[dict] = None
+
+class PaycheckRead(PaycheckCreate):
+    id: UUID
+    created_at: datetime
+    updated_at: datetime
