@@ -7,6 +7,12 @@ from jwt import PyJWKClient, decode as jwt_decode, InvalidTokenError
 from urllib.parse import urlparse, urlunparse
 
 from .settings import settings
+from .role_config import resolve_roles
+
+def roles_dep(method: str, path: str):
+    roles = resolve_roles(method, path)
+    return Depends(require_realm_roles(*roles))
+
 
 bearer = HTTPBearer(auto_error=True)
 
@@ -98,14 +104,30 @@ async def get_current_claims(credentials = Depends(bearer)):
 def _403(msg: str) -> HTTPException:
     return HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=msg)
 
-def require_realm_roles(*roles: str):
-    def _dep(claims: dict = Depends(get_current_claims)) -> dict:
-        have = set(claims.get("realm_access", {}).get("roles", []) or [])
-        need = set(roles)
-        if need.issubset(have):
-            return claims
-        raise _403(f"Missing realm role(s): {', '.join(sorted(need - have))}")
+def require_realm_roles(*required_roles: str):
+    """
+    Dependency factory: ensures the caller has ALL of the given realm roles.
+    """
+    async def _dep(claims=Depends(get_current_claims)):
+        roles = set((claims or {}).get("realm_access", {}).get("roles") or [])
+        missing = [r for r in required_roles if r not in roles]
+        if missing:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Insufficient realm role(s): {', '.join(missing)}",
+            )
+        return True
+
     return _dep
+
+
+def roles_dep_for(method: str, path: str):
+    """
+    Convenience wrapper: looks up roles from role-rules.yaml (or JSON)
+    and returns a FastAPI Depends(...) you can drop into `dependencies=[...]`.
+    """
+    roles = resolve_roles(method, path)
+    return Depends(require_realm_roles(*roles))
 
 def require_any_realm_role(*roles: str):
     def _dep(claims: dict = Depends(get_current_claims)) -> dict:

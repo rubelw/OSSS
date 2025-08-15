@@ -1,0 +1,10 @@
+default_roles:
+  - admin
+
+routes:
+  "GET /users": ["admin"]
+  "POST /users": ["admin", "hr"]
+
+  # example router-prefixed paths
+  "GET /repo/documents": ["records_reader"]
+  "POST /repo/documents": ["records_editor"]
