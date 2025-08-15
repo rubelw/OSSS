@@ -32,6 +32,9 @@ from . import models
 from . import schemas as S
 
 
+
+
+
 # ------------------------------------------------------------------------------
 # Security constants (duplicated config here to avoid circular imports)
 # ------------------------------------------------------------------------------
@@ -434,6 +437,38 @@ def register_routes(app: FastAPI, oauth2_scheme):
     add_crud("library_holds", models.LibraryHold, S.LibraryHoldRead, S.LibraryHoldCreate, openapi_extra=SECURITY, router=app)
     add_crud("library_fines", models.LibraryFine, S.LibraryFineRead, S.LibraryFineCreate, openapi_extra=SECURITY, router=app)
 
+    add_crud("facilities", models.Facility, S.FacilityRead, S.FacilityCreate, openapi_extra=SECURITY, router=app)
+    add_crud("buildings", models.Building, S.BuildingRead, S.BuildingCreate, openapi_extra=SECURITY, router=app)
+    add_crud("floors", models.Floor, S.FloorRead, S.FloorCreate, openapi_extra=SECURITY, router=app)
+    add_crud("spaces", models.Space, S.SpaceRead, S.SpaceCreate, openapi_extra=SECURITY, router=app)
+    add_crud("vendors", models.Vendor, S.VendorRead, S.VendorCreate, openapi_extra=SECURITY, router=app)
+    add_crud("parts", models.Part, S.PartRead, S.PartCreate, openapi_extra=SECURITY, router=app)
+    add_crud("part-locations", models.PartLocation, S.PartLocationRead, S.PartLocationCreate, openapi_extra=SECURITY,
+             router=app)
+    add_crud("assets", models.Asset, S.AssetRead, S.AssetCreate, openapi_extra=SECURITY, router=app)
+    add_crud("asset-parts", models.AssetPart, S.AssetPartRead, S.AssetPartCreate, openapi_extra=SECURITY, router=app)
+    add_crud("meters", models.Meter, S.MeterRead, S.MeterCreate, openapi_extra=SECURITY, router=app)
+    add_crud("maintenance-requests", models.MaintenanceRequest, S.MaintenanceRequestRead, S.MaintenanceRequestCreate,
+             openapi_extra=SECURITY, router=app)
+    add_crud("work-orders", models.WorkOrder, S.WorkOrderRead, S.WorkOrderCreate, openapi_extra=SECURITY, router=app)
+    add_crud("work-order-tasks", models.WorkOrderTask, S.WorkOrderTaskRead, S.WorkOrderTaskCreate, openapi_extra=SECURITY,
+             router=app)
+    add_crud("work-order-time-logs", models.WorkOrderTimeLog, S.WorkOrderTimeLogRead, S.WorkOrderTimeLogCreate,
+             openapi_extra=SECURITY, router=app)
+    add_crud("work-order-parts", models.WorkOrderPart, S.WorkOrderPartRead, S.WorkOrderPartCreate, openapi_extra=SECURITY,
+             router=app)
+    add_crud("pm-plans", models.PMPlan, S.PMPlanRead, S.PMPlanCreate, openapi_extra=SECURITY, router=app)
+    add_crud("pm-work-generators", models.PMWorkGenerator, S.PMWorkGeneratorRead, S.PMWorkGeneratorCreate,
+             openapi_extra=SECURITY, router=app)
+    add_crud("warranties", models.Warranty, S.WarrantyRead, S.WarrantyCreate, openapi_extra=SECURITY, router=app)
+    add_crud("compliance-records", models.ComplianceRecord, S.ComplianceRecordRead, S.ComplianceRecordCreate,
+             openapi_extra=SECURITY, router=app)
+    add_crud("space-reservations", models.SpaceReservation, S.SpaceReservationRead, S.SpaceReservationCreate,
+             openapi_extra=SECURITY, router=app)
+    add_crud("leases", models.Lease, S.LeaseRead, S.LeaseCreate, openapi_extra=SECURITY, router=app)
+    add_crud("projects", models.Project, S.ProjectRead, S.ProjectCreate, openapi_extra=SECURITY, router=app)
+    add_crud("project-tasks", models.ProjectTask, S.ProjectTaskRead, S.ProjectTaskCreate, openapi_extra=SECURITY, router=app)
+    add_crud("move-orders", models.MoveOrder, S.MoveOrderRead, S.MoveOrderCreate, openapi_extra=SECURITY, router=app)
 
     # Include feature routers
     app.include_router(repo)

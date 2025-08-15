@@ -181,6 +181,36 @@ from .sis import (
     NurseVisit,
     EmergencyContact, Consent
 )
+
+from .cmms_iwms import (
+    Facility,
+    Building,
+    Floor,
+    Space,
+    Vendor,
+    Part,
+    PartLocation,
+    Asset,
+    AssetPart,
+    Meter,
+    MaintenanceRequest,
+    WorkOrder,
+    WorkOrderTask,
+    WorkOrderTimeLog,
+    WorkOrderPart,
+    PMPlan,
+    PMWorkGenerator,
+    Warranty,
+    ComplianceRecord,
+    SpaceReservation,
+    Lease,
+    Project,
+    ProjectTask,
+    MoveOrder,
+
+)
+
+
 from .cic import (
     CICCommittee,
     CICMembership,

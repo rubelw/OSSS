@@ -2204,3 +2204,397 @@ class StateOut(BaseModel):
 
     # allow creating from ORM objects and using aliases
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+# Common small helpers ------------------------------------------------
+
+JSONDict = dict[str, Any]
+
+
+# Facilities / Space --------------------------------------------------
+
+class FacilityCreate(ORMBase):
+    school_id: str
+    name: str
+    code: Optional[str] = None
+    address: Optional[JSONDict] = None
+    attributes: Optional[JSONDict] = None
+
+class FacilityRead(FacilityCreate):
+    id: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class BuildingCreate(ORMBase):
+    facility_id: str
+    name: str
+    code: Optional[str] = None
+    year_built: Optional[int] = None
+    floors_count: Optional[int] = None
+    gross_sqft: Optional[Decimal] = None
+    use_type: Optional[str] = None
+    address: Optional[JSONDict] = None
+    attributes: Optional[JSONDict] = None
+
+class BuildingRead(BuildingCreate):
+    id: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class FloorCreate(ORMBase):
+    building_id: str
+    level_code: str
+    name: Optional[str] = None
+
+class FloorRead(FloorCreate):
+    id: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class SpaceCreate(ORMBase):
+    building_id: str
+    code: str
+    floor_id: Optional[str] = None
+    name: Optional[str] = None
+    space_type: Optional[str] = None
+    area_sqft: Optional[Decimal] = None
+    capacity: Optional[int] = None
+    attributes: Optional[JSONDict] = None
+
+class SpaceRead(SpaceCreate):
+    id: str
+    created_at: datetime
+    updated_at: datetime
+
+
+# Vendors / Parts / Inventory / Assets --------------------------------
+
+class VendorCreate(ORMBase):
+    name: str
+    contact: Optional[JSONDict] = None
+    active: Optional[bool] = True
+    notes: Optional[str] = None
+
+class VendorRead(VendorCreate):
+    id: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class PartCreate(ORMBase):
+    sku: Optional[str] = None
+    name: str
+    description: Optional[str] = None
+    unit_cost: Optional[Decimal] = None
+    uom: Optional[str] = None
+    attributes: Optional[JSONDict] = None
+
+class PartRead(PartCreate):
+    id: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class PartLocationCreate(ORMBase):
+    part_id: str
+    building_id: Optional[str] = None
+    space_id: Optional[str] = None
+    location_code: Optional[str] = None
+    qty_on_hand: Optional[Decimal] = None
+    min_qty: Optional[Decimal] = None
+    max_qty: Optional[Decimal] = None
+
+class PartLocationRead(PartLocationCreate):
+    id: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class AssetCreate(ORMBase):
+    building_id: Optional[str] = None
+    space_id: Optional[str] = None
+    parent_asset_id: Optional[str] = None
+    tag: str
+    serial_no: Optional[str] = None
+    manufacturer: Optional[str] = None
+    model: Optional[str] = None
+    category: Optional[str] = None
+    status: Optional[str] = None
+    install_date: Optional[date] = None
+    warranty_expires_at: Optional[date] = None
+    expected_life_months: Optional[int] = None
+    attributes: Optional[JSONDict] = None
+
+class AssetRead(AssetCreate):
+    id: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class AssetPartCreate(ORMBase):
+    asset_id: str
+    part_id: str
+    qty: Optional[Decimal] = None
+
+class AssetPartRead(AssetPartCreate):
+    # composite PK, but expose them together
+    created_at: datetime
+    updated_at: datetime
+
+
+class MeterCreate(ORMBase):
+    asset_id: Optional[str] = None
+    building_id: Optional[str] = None
+    name: str
+    meter_type: Optional[str] = None
+    uom: Optional[str] = None
+    last_read_value: Optional[Decimal] = None
+    last_read_at: Optional[datetime] = None
+    attributes: Optional[JSONDict] = None
+
+class MeterRead(MeterCreate):
+    id: str
+    created_at: datetime
+    updated_at: datetime
+
+
+# Work Management ------------------------------------------------------
+
+class MaintenanceRequestCreate(ORMBase):
+    school_id: Optional[str] = None
+    building_id: Optional[str] = None
+    space_id: Optional[str] = None
+    asset_id: Optional[str] = None
+    submitted_by_user_id: Optional[str] = None
+    status: Optional[str] = None
+    priority: Optional[str] = None
+    summary: str
+    description: Optional[str] = None
+    converted_work_order_id: Optional[str] = None
+    attributes: Optional[JSONDict] = None
+
+class MaintenanceRequestRead(MaintenanceRequestCreate):
+    id: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class WorkOrderCreate(ORMBase):
+    school_id: Optional[str] = None
+    building_id: Optional[str] = None
+    space_id: Optional[str] = None
+    asset_id: Optional[str] = None
+    request_id: Optional[str] = None
+    status: Optional[str] = None
+    priority: Optional[str] = None
+    category: Optional[str] = None
+    summary: str
+    description: Optional[str] = None
+    requested_due_at: Optional[datetime] = None
+    scheduled_start_at: Optional[datetime] = None
+    scheduled_end_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    assigned_to_user_id: Optional[str] = None
+    materials_cost: Optional[Decimal] = None
+    labor_cost: Optional[Decimal] = None
+    other_cost: Optional[Decimal] = None
+    attributes: Optional[JSONDict] = None
+
+class WorkOrderRead(WorkOrderCreate):
+    id: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class WorkOrderTaskCreate(ORMBase):
+    work_order_id: str
+    seq: Optional[int] = None
+    title: str
+    is_mandatory: Optional[bool] = None
+    status: Optional[str] = None
+    completed_at: Optional[datetime] = None
+    notes: Optional[str] = None
+
+class WorkOrderTaskRead(WorkOrderTaskCreate):
+    id: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class WorkOrderTimeLogCreate(ORMBase):
+    work_order_id: str
+    user_id: Optional[str] = None
+    started_at: Optional[datetime] = None
+    ended_at: Optional[datetime] = None
+    hours: Optional[Decimal] = None
+    hourly_rate: Optional[Decimal] = None
+    cost: Optional[Decimal] = None
+    notes: Optional[str] = None
+
+class WorkOrderTimeLogRead(WorkOrderTimeLogCreate):
+    id: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class WorkOrderPartCreate(ORMBase):
+    work_order_id: str
+    part_id: Optional[str] = None
+    qty: Optional[Decimal] = None
+    unit_cost: Optional[Decimal] = None
+    extended_cost: Optional[Decimal] = None
+    notes: Optional[str] = None
+
+class WorkOrderPartRead(WorkOrderPartCreate):
+    id: str
+    created_at: datetime
+    updated_at: datetime
+
+
+# PM / Compliance -----------------------------------------------------
+
+class PMPlanCreate(ORMBase):
+    asset_id: Optional[str] = None
+    building_id: Optional[str] = None
+    name: str
+    frequency: Optional[str] = None
+    next_due_at: Optional[datetime] = None
+    last_completed_at: Optional[datetime] = None
+    active: Optional[bool] = True
+    procedure: Optional[JSONDict] = None
+    attributes: Optional[JSONDict] = None
+
+class PMPlanRead(PMPlanCreate):
+    id: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class PMWorkGeneratorCreate(ORMBase):
+    pm_plan_id: str
+    last_generated_at: Optional[datetime] = None
+    lookahead_days: Optional[int] = None
+    attributes: Optional[JSONDict] = None
+
+class PMWorkGeneratorRead(PMWorkGeneratorCreate):
+    id: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class WarrantyCreate(ORMBase):
+    asset_id: str
+    vendor_id: Optional[str] = None
+    policy_no: Optional[str] = None
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+    terms: Optional[str] = None
+    attributes: Optional[JSONDict] = None
+
+class WarrantyRead(WarrantyCreate):
+    id: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class ComplianceRecordCreate(ORMBase):
+    building_id: Optional[str] = None
+    asset_id: Optional[str] = None
+    record_type: str
+    authority: Optional[str] = None
+    identifier: Optional[str] = None
+    issued_at: Optional[date] = None
+    expires_at: Optional[date] = None
+    documents: Optional[JSONDict] = None
+    attributes: Optional[JSONDict] = None
+
+class ComplianceRecordRead(ComplianceRecordCreate):
+    id: str
+    created_at: datetime
+    updated_at: datetime
+
+
+# Reservations / Leases / Projects / Moves ---------------------------
+
+class SpaceReservationCreate(ORMBase):
+    space_id: str
+    booked_by_user_id: Optional[str] = None
+    start_at: datetime
+    end_at: datetime
+    purpose: Optional[str] = None
+    status: Optional[str] = None
+    setup: Optional[JSONDict] = None
+    attributes: Optional[JSONDict] = None
+
+class SpaceReservationRead(SpaceReservationCreate):
+    id: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class LeaseCreate(ORMBase):
+    building_id: Optional[str] = None
+    landlord: Optional[str] = None
+    tenant: Optional[str] = None
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+    base_rent: Optional[Decimal] = None
+    rent_schedule: Optional[JSONDict] = None
+    options: Optional[JSONDict] = None
+    documents: Optional[JSONDict] = None
+    attributes: Optional[JSONDict] = None
+
+class LeaseRead(LeaseCreate):
+    id: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class ProjectCreate(ORMBase):
+    school_id: Optional[str] = None
+    name: str
+    project_type: Optional[str] = None
+    status: Optional[str] = None
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+    budget: Optional[Decimal] = None
+    description: Optional[str] = None
+    attributes: Optional[JSONDict] = None
+
+class ProjectRead(ProjectCreate):
+    id: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class ProjectTaskCreate(ORMBase):
+    project_id: str
+    name: str
+    status: Optional[str] = None
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+    percent_complete: Optional[Decimal] = None
+    assignee_user_id: Optional[str] = None
+    attributes: Optional[JSONDict] = None
+
+class ProjectTaskRead(ProjectTaskCreate):
+    id: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class MoveOrderCreate(ORMBase):
+    project_id: Optional[str] = None
+    person_id: Optional[str] = None
+    from_space_id: Optional[str] = None
+    to_space_id: Optional[str] = None
+    move_date: Optional[date] = None
+    status: Optional[str] = None
+    attributes: Optional[JSONDict] = None
+
+class MoveOrderRead(MoveOrderCreate):
+    id: str
+    created_at: datetime
+    updated_at: datetime
