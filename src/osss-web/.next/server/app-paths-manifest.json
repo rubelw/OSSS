@@ -1,5 +1,0 @@
-{
-  "/api/osss/[...path]/route": "app/api/osss/[...path]/route.js",
-  "/api/auth/[...nextauth]/route": "app/api/auth/[...nextauth]/route.js",
-  "/page": "app/page.js"
-}

@@ -134,3 +134,21 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# --- Node / Next.js (anywhere in the repo)
+**/node_modules/
+**/.next/
+**/out/
+**/.turbo/
+**/.vercel/
+**/dist/
+**/.cache/
+
+# Native addons inside node_modules (e.g., Next SWC .node/.nod files)
+**/node_modules/**/*.node
+**/node_modules/**/*.nod
+
+# If you want to be explicit for osss-web as well:
+src/osss-web/node_modules/
+src/osss-web/.next/
+src/osss-web/out/
