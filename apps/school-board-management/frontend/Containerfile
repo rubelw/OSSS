@@ -1,7 +1,0 @@
-FROM node:20-alpine
-WORKDIR /app
-# Install with lockfile if present
-COPY package.json package-lock.json* /app/
-RUN if [ -s package-lock.json ]; then npm ci --no-audit --no-fund; else npm install --no-audit --no-fund; fi
-COPY . /app
-EXPOSE 5173

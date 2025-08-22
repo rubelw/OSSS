@@ -1,0 +1,119 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "OSSS"
+version = "0.0.0.dev0"  # static to avoid dynamic import during build
+description = "Open Source School Software"
+requires-python = ">=3.9"
+keywords = ["Keycloak", "FastAPI", "Authentication", "Authorization", "School"]
+authors = [
+    { name = "Will Rubel", email = "will.rubel@gmail.com" }
+]
+maintainers = [
+    { name = "Will Rubel", email = "will.rubel@gmail.com" }
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Topic :: Internet :: WWW/HTTP :: Session",
+    "Topic :: Internet :: WWW/HTTP :: WSGI",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Framework :: FastAPI",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+dynamic = ["readme"]
+
+dependencies = [
+    "anyio>=3.4.0",
+    "asgiref>=3.4.1",
+    "certifi>=2023.7.22",
+    "charset-normalizer>=2.0.9",
+    "click>=8.0.3",
+    "ecdsa>=0.17.0",
+
+    # ✅ Bumped to requested versions
+    "fastapi>=0.110.0",
+    "pydantic>=2.6",
+    "uvicorn>=0.22",
+
+    # ✅ Added
+    "httpx>=0.24",
+
+    "h11>=0.12.0",
+    "idna>=3.3",
+    "pyasn1>=0.4.8",
+
+    # (You had both; keeping the stricter/with-extras one is enough)
+    "python-jose[cryptography]>=3.3.0",
+
+    "requests>=2.31.0",
+    "rsa>=4.8",
+    "six>=1.16.0",
+    "sniffio>=1.2.0",
+
+    # ⛔ Removed explicit Starlette pin to avoid version conflicts;
+    # FastAPI brings a compatible Starlette version.
+    # "starlette>=0.36.2",
+
+    "typing_extensions>=4.0.1",
+    "urllib3>=1.26.17",
+    "itsdangerous>=2.0.1",
+    "cryptography>=41.0.0",
+
+    # Added for migrations / DB support:
+    "alembic>=1.13.0",
+    "sqlalchemy>=2.0.0",
+    "psycopg2-binary>=2.9.9",
+
+    # ✅ Added caching
+    "fastapi-cache2>=0.2.1",
+    "redis>=5.0.0",
+
+    "httpx>=0.24",
+    "httpretty>=1.1.4",
+
+    "python-multipart>=0.0.9",
+    "jwt>=1.4.0",
+    "PyJWT>=2.10.1",
+    "pydantic-settings>=2.10.1",
+    "python-dotenv>=1.1.1",
+    "asyncpg>=0.30.0"
+
+
+]
+
+[project.optional-dependencies]
+server = ["gunicorn>=21.2"]
+dev = [
+    "pytest>=8.3.4",
+    "pytest-cov>=6.0.0",
+    "mkdocs>=1.6.0",
+    "mkdocs-material>=9.5.0",
+    "mkdocstrings[python]>=0.26.0",
+    "markdown-include>=0.8.1",
+]
+
+[project.urls]
+documentation = "https://osss.com/"
+repository = "https://github.com/rubelw/OSSS"
+issues = "https://github.com/rubelw/OSSS/issues"
+
+# ---- Setuptools config ----
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+# Make package discovery explicit; exclude non-package folders to avoid flat-layout conflicts
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["OSSS*"]
+exclude = ["tests*", "apps*", "examples*", "scripts*", "alembic*"]
+
+[tool.setuptools.dynamic]
+readme = { file = ["README.md"], content-type = "text/markdown" }

@@ -1,0 +1,38 @@
+:root {
+  --bg: #0b0c0c;
+  --card: #111315;
+  --text: #e8eaed;
+  --muted: #9aa0a6;
+  --accent: #c8102e; /* OSSS red */
+}
+
+html, body, #__next { height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--text);
+}
+
+.container {
+  max-width: 900px;
+  margin: 2rem auto;
+  padding: 0 1rem;
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid #24292f;
+  border-radius: 12px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.btn {
+  background: var(--accent);
+  color: white;
+  padding: .6rem 1rem;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+}
+.btn:disabled { opacity: .6; cursor: not-allowed; }
+code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }

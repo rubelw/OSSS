@@ -1,0 +1,83 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: OSSS
+  labels:
+    app: OSSS
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: OSSS
+  template:
+    metadata:
+      labels:
+        app: OSSS
+    spec:
+      containers:
+        - name: api
+          image: YOUR_REGISTRY/OSSS:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            # gunicorn/uvicorn
+            - name: HOST
+              value: "0.0.0.0"
+            - name: PORT
+              value: "8000"
+            - name: LOG_LEVEL
+              value: "info"
+            - name: WEB_CONCURRENCY
+              valueFrom:
+                resourceFieldRef:
+                  containerName: api
+                  resource: limits.cpu
+                  divisor: "1"
+            # keycloak config (match your app defaults)
+            - name: KC_TIMEOUT
+              value: "10"
+            - name: KC_SSL_VERIFY
+              value: "false"
+            # redis url for caching (see snippet below)
+            - name: REDIS_URL
+              value: "redis://redis:6379/0"
+          ports:
+            - containerPort: 8000
+              name: http
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 2
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "256Mi"
+            limits:
+              cpu: "1"
+              memory: "512Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: OSSS
+  labels:
+    app: OSSS
+spec:
+  selector:
+    app: OSSS
+  ports:
+    - port: 80
+      targetPort: http
+      protocol: TCP
+      name: http
+  type: ClusterIP

@@ -1,0 +1,90 @@
+version: "3.8"
+
+volumes:
+  kc_postgres_data:
+  osss_postgres_data:
+  redis-data:
+
+services:
+  app:
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: docker/app/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8000
+    depends_on:
+      - kc_postgres
+      - osss_postgres
+  osss_postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${OSSS_DB_NAME}
+      POSTGRES_USER: ${OSSS_DB_USER}
+      POSTGRES_PASSWORD: ${OSSS_DB_PASSWORD}
+    ports: [ "5433:5432" ]
+    volumes:
+      - osss_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${OSSS_DB_USER:-osss} -d ${OSSS_DB_NAME:-osss} -h 127.0.0.1 -p 5432 || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  kc_postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: ${KC_DB_NAME}
+      POSTGRES_USER: ${KC_DB_USERNAME}
+      POSTGRES_PASSWORD: ${KC_DB_PASSWORD}
+    volumes:
+      - kc_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${OSSS_DB_USER:-osss} -d ${OSSS_DB_NAME:-osss} -h 127.0.0.1 -p 5432 || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    restart: always
+  redis:
+    image: redis:7-alpine
+    command: [ "redis-server", "--appendonly", "yes" ]
+    ports:
+      - "6379:6379"        # optional for host access; containers use 'redis:6379'
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+  keycloak:
+    build:
+      context: .          # folder that contains Dockerfile + init-and-start.sh
+      dockerfile: docker/keycloak/Dockerfile
+    environment:
+      KC_DB: ${KC_DB}
+      KC_DB_URL: jdbc:postgresql://${KC_DB_HOST}:${KC_DB_PORT}/${KC_DB_NAME}
+      KC_DB_USERNAME: ${KC_DB_USERNAME}
+      KC_DB_PASSWORD: ${KC_DB_PASSWORD}
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+      # Optional but nice:
+      KC_HEALTH_ENABLED: "true"
+      KC_HOSTNAME: localhost
+      KC_DB_SCHEMA: public
+      REALM: OSSS
+      IMPORT_STRATEGY: OVERWRITE_EXISTING
+      RESET_REALM: "1"   # set to "0" to skip deletion
+    volumes:
+      - ./realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+    ports:
+      - "8085:8080"
+    depends_on:
+      kc_postgres:
+        condition: service_healthy
+    restart: always

@@ -1,0 +1,663 @@
+{
+  "realm": "OSSS",
+  "enabled": true,
+  "roles": {
+    "realm": [
+      {
+        "id": "7bcb164f-9fbc-409a-b9f2-47e775ae6275",
+        "name": "offline_access",
+        "description": "Offline Access",
+        "composite": false,
+        "clientRole": false,
+        "containerId": "OSSS",
+        "attributes": {}
+      },
+      {
+        "id": "cfc012ff-a9dd-484b-a02a-5010c9be589b",
+        "name": "uma_authorization",
+        "description": "UMA Authorization",
+        "composite": false,
+        "clientRole": false,
+        "containerId": "OSSS",
+        "attributes": {}
+      },
+      {
+        "id": "414a7bff-cc9b-4b46-ab38-8cb48985a4b2",
+        "name": "default-roles-test",
+        "description": "Default test role",
+        "composite": true,
+        "clientRole": false,
+        "containerId": "OSSS",
+        "attributes": {},
+        "composites": {
+          "realm": [
+            "offline_access",
+            "uma_authorization"
+          ],
+          "client": {
+            "account": [
+              "manage-account",
+              "delete-account"
+            ],
+            "realm-management": [
+              "query-groups",
+              "manage-clients",
+              "realm-admin",
+              "manage-users",
+              "query-realms",
+              "view-events",
+              "view-realm",
+              "view-clients",
+              "manage-events",
+              "create-client",
+              "manage-identity-providers",
+              "manage-authorization",
+              "query-users",
+              "view-identity-providers",
+              "impersonation",
+              "query-clients",
+              "view-authorization",
+              "manage-realm",
+              "view-users"
+            ]
+          }
+        }
+      }
+    ],
+    "client": {
+      "account-console": [],
+      "broker": [],
+      "admin-cli": [],
+      "security-admin-console": [],
+      "osss-api": [
+        {
+          "id": "76cf16f1-9d85-4274-bfef-4f51af46d8a4",
+          "name": "api.user",
+          "description": "Baseline access to OSSS API",
+          "composite": false,
+          "clientRole": true,
+          "containerId": "osss-api",
+          "attributes": {}
+        },
+        {
+          "id": "f3ba6905-3409-4ca0-8a69-888ead34f527",
+          "name": "api.admin",
+          "description": "Administrative access to OSSS API",
+          "composite": false,
+          "clientRole": true,
+          "containerId": "osss-api",
+          "attributes": {}
+        },
+        {
+          "id": "c35f633e-530f-4244-be76-0d7790314f05",
+          "name": "api.teacher",
+          "description": "Teacher access to OSSS API",
+          "composite": false,
+          "clientRole": true,
+          "containerId": "osss-api",
+          "attributes": {
+            "allowed_schools": [
+              "Heritage Elementary",
+              "Oak View MS"
+            ],
+            "grade_bands": [
+              "6-8"
+            ],
+            "scopes": [
+              "students:read",
+              "attendance:read",
+              "roster:read"
+            ],
+            "max_results": [
+              "1000"
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "users": [
+    {
+      "id": "440699b6-65c3-474c-9655-fefbc227113e",
+      "username": "admin@osss.local",
+      "enabled": true,
+      "email": "admin@osss.local",
+      "emailVerified": true,
+      "firstName": "OSSS",
+      "lastName": "Admin",
+      "requiredActions": [],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "offline_access",
+        "uma_authorization",
+        "admin"
+      ],
+      "clientRoles": {
+        "realm-management": [
+          "realm-admin"
+        ],
+        "account": [
+          "manage-account",
+          "view-profile"
+        ],
+        "osss-api": [
+          "admin"
+        ]
+      },
+      "groups": [],
+      "attributes": {
+        "department": [
+          "IT"
+        ],
+        "title": [
+          "Administrator"
+        ]
+      },
+      "totp": false
+    },
+    {
+      "id": "cf35afba-a561-4b59-af1c-bfa9280473b9",
+      "username": "teacher@osss.local",
+      "enabled": true,
+      "email": "teacher@osss.local",
+      "emailVerified": true,
+      "firstName": "Pat",
+      "lastName": "Teacher",
+      "requiredActions": [],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "uma_authorization"
+      ],
+      "clientRoles": {
+        "account": [
+          "view-profile"
+        ],
+        "osss-api": [
+          "api.user",
+          "api.teacher"
+        ]
+      },
+      "groups": [],
+      "attributes": {
+        "role": [
+          "teacher"
+        ]
+      },
+      "totp": false
+    }
+  ],
+  "clients": [
+    {
+      "clientId": "osss-api",
+      "name": "osss-api",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "password",
+      "publicClient": false,
+      "bearerOnly": false,
+      "frontchannelLogout": false,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "implicitFlowEnabled": false,
+      "serviceAccountsEnabled": true,
+      "consentRequired": false,
+      "fullScopeAllowed": true,
+      "redirectUris": [
+        "http://localhost:8081/*"
+      ],
+      "webOrigins": [
+        "http://localhost:8081"
+      ],
+      "notBefore": 0,
+      "alwaysDisplayInConsole": false,
+      "surrogateAuthRequired": false,
+      "nodeReRegistrationTimeout": 0,
+      "protocol": "openid-connect",
+      "attributes": {
+        "id.token.as.detached.signature": "false",
+        "saml.assertion.signature": "false",
+        "saml.force.post.binding": "false",
+        "saml.multivalued.roles": "false",
+        "saml.encrypt": "false",
+        "oauth2.device.authorization.grant.enabled": "false",
+        "backchannel.logout.revoke.offline.tokens": "false",
+        "saml.server.signature": "false",
+        "saml.server.signature.keyinfo.ext": "false",
+        "use.refresh.tokens": "true",
+        "exclude.session.state.from.auth.response": "false",
+        "oidc.ciba.grant.enabled": "false",
+        "saml.artifact.binding": "false",
+        "backchannel.logout.session.required": "true",
+        "client_credentials.use_refresh_token": "false",
+        "saml_force_name_id_format": "false",
+        "require.pushed.authorization.requests": "false",
+        "saml.client.signature": "false",
+        "tls.client.certificate.bound.access.tokens": "false",
+        "saml.authnstatement": "false",
+        "display.on.consent.screen": "false",
+        "saml.onetimeuse.condition": "false"
+      },
+      "authenticationFlowBindingOverrides": {},
+      "defaultClientScopes": [
+        "web-origins",
+        "roles",
+        "profile",
+        "email"
+      ],
+      "optionalClientScopes": [
+        "address",
+        "phone",
+        "offline_access",
+        "microprofile-jwt"
+      ],
+      "authorizationServicesEnabled": true,
+      "authorizationSettings": {
+        "allowRemoteResourceManagement": true,
+        "policyEnforcementMode": "ENFORCING",
+        "resources": [
+          {
+            "name": "Default Resource",
+            "type": "urn:osss-api:resources:default",
+            "ownerManagedAccess": false,
+            "attributes": {},
+            "uris": [
+              "/*"
+            ]
+          }
+        ],
+        "policies": [],
+        "scopes": [],
+        "decisionStrategy": "UNANIMOUS"
+      }
+    },
+    {
+      "clientId": "osss-web",
+      "name": "osss-web",
+      "rootUrl": "http://localhost:3000",
+      "baseUrl": "/",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "password",
+      "publicClient": false,
+      "bearerOnly": false,
+      "frontchannelLogout": false,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "implicitFlowEnabled": false,
+      "serviceAccountsEnabled": false,
+      "consentRequired": false,
+      "fullScopeAllowed": true,
+      "redirectUris": [
+        "http://localhost:3000/*"
+      ],
+      "webOrigins": [
+        "http://localhost:3000"
+      ],
+      "notBefore": 0,
+      "alwaysDisplayInConsole": false,
+      "surrogateAuthRequired": false,
+      "nodeReRegistrationTimeout": 0,
+      "protocol": "openid-connect",
+      "attributes": {
+        "post.logout.redirect.uris": "+"
+      },
+      "authenticationFlowBindingOverrides": {},
+      "protocolMappers": [
+        {
+          "name": "username",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-property-mapper",
+          "consentRequired": false,
+          "config": {
+            "userinfo.token.claim": "true",
+            "user.attribute": "username",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "preferred_username",
+            "jsonType.label": "String"
+          }
+        }
+      ],
+      "defaultClientScopes": [
+        "profile",
+        "email",
+        "roles",
+        "osss-api-audience"
+      ],
+      "optionalClientScopes": [
+        "address",
+        "phone",
+        "offline_access",
+        "microprofile-jwt"
+      ],
+      "authorizationServicesEnabled": true
+    },
+    {
+      "clientId": "admin-cli",
+      "name": "admin-cli",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "password",
+      "publicClient": false,
+      "bearerOnly": false,
+      "frontchannelLogout": false,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "implicitFlowEnabled": false,
+      "serviceAccountsEnabled": true,
+      "consentRequired": false,
+      "fullScopeAllowed": true,
+      "redirectUris": [],
+      "webOrigins": [],
+      "notBefore": 0,
+      "alwaysDisplayInConsole": false,
+      "surrogateAuthRequired": false,
+      "nodeReRegistrationTimeout": 0,
+      "protocol": "openid-connect",
+      "attributes": {
+        "id.token.as.detached.signature": "false",
+        "saml.assertion.signature": "false",
+        "saml.force.post.binding": "false",
+        "saml.multivalued.roles": "false",
+        "saml.encrypt": "false",
+        "oauth2.device.authorization.grant.enabled": "true",
+        "backchannel.logout.revoke.offline.tokens": "false",
+        "saml.server.signature": "false",
+        "saml.server.signature.keyinfo.ext": "false",
+        "use.refresh.tokens": "true",
+        "exclude.session.state.from.auth.response": "false",
+        "oidc.ciba.grant.enabled": "false",
+        "saml.artifact.binding": "false",
+        "backchannel.logout.session.required": "false",
+        "client_credentials.use_refresh_token": "false",
+        "saml_force_name_id_format": "false",
+        "require.pushed.authorization.requests": "false",
+        "saml.client.signature": "false",
+        "tls.client.certificate.bound.access.tokens": "false",
+        "saml.authnstatement": "false",
+        "display.on.consent.screen": "false",
+        "saml.onetimeuse.condition": "false"
+      },
+      "authenticationFlowBindingOverrides": {},
+      "defaultClientScopes": [
+        "web-origins",
+        "roles",
+        "profile",
+        "email"
+      ],
+      "optionalClientScopes": [
+        "address",
+        "phone",
+        "offline_access",
+        "microprofile-jwt"
+      ],
+      "authorizationServicesEnabled": true,
+      "authorizationSettings": {
+        "allowRemoteResourceManagement": true,
+        "policyEnforcementMode": "ENFORCING",
+        "resources": [
+          {
+            "name": "Default Resource",
+            "type": "urn:osss-api:resources:default",
+            "ownerManagedAccess": false,
+            "attributes": {},
+            "uris": [
+              "/*"
+            ]
+          }
+        ],
+        "policies": [],
+        "scopes": [],
+        "decisionStrategy": "UNANIMOUS"
+      }
+    }
+  ],
+  "groups": [],
+  "scopeMappings": [],
+  "clientScopes": [
+    {
+      "name": "web-origins",
+      "protocol": "openid-connect",
+      "attributes": {},
+      "protocolMappers": []
+    },
+    {
+      "name": "address",
+      "protocol": "openid-connect",
+      "attributes": {},
+      "protocolMappers": []
+    },
+    {
+      "name": "phone",
+      "protocol": "openid-connect",
+      "attributes": {},
+      "protocolMappers": []
+    },
+    {
+      "name": "microprofile-jwt",
+      "protocol": "openid-connect",
+      "attributes": {},
+      "protocolMappers": []
+    },
+    {
+      "name": "offline_access",
+      "protocol": "openid-connect",
+      "attributes": {},
+      "protocolMappers": []
+    },
+    {
+      "name": "roles",
+      "description": "OIDC scope for realm & client roles",
+      "protocol": "openid-connect",
+      "attributes": {},
+      "protocolMappers": [
+        {
+          "name": "realm roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "multivalued": "true",
+            "userinfo.token.claim": "true",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "realm_access.roles",
+            "jsonType.label": "String"
+          }
+        },
+        {
+          "name": "client roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-client-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "multivalued": "true",
+            "userinfo.token.claim": "true",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "resource_access.${client_id}.roles",
+            "jsonType.label": "String"
+          }
+        }
+      ]
+    },
+    {
+      "name": "email",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true"
+      },
+      "protocolMappers": [
+        {
+          "name": "email",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-property-mapper",
+          "consentRequired": false,
+          "config": {
+            "userinfo.token.claim": "true",
+            "user.attribute": "email",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "email",
+            "jsonType.label": "String"
+          }
+        },
+        {
+          "name": "email verified",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-property-mapper",
+          "consentRequired": false,
+          "config": {
+            "userinfo.token.claim": "true",
+            "user.attribute": "emailVerified",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "email_verified",
+            "jsonType.label": "boolean"
+          }
+        }
+      ]
+    },
+    {
+      "name": "osss-api-audience",
+      "description": "Adds aud=osss-api to access tokens",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true"
+      },
+      "protocolMappers": [
+        {
+          "name": "audience: osss-api",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "included.client.audience": "osss-api"
+          }
+        }
+      ]
+    },
+    {
+      "name": "profile",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true"
+      },
+      "protocolMappers": [
+        {
+          "name": "given name",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-property-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "firstName",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "claim.name": "given_name",
+            "jsonType.label": "String"
+          }
+        },
+        {
+          "name": "family name",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-property-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "lastName",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "claim.name": "family_name",
+            "jsonType.label": "String"
+          }
+        },
+        {
+          "name": "preferred username",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-property-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "username",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "claim.name": "preferred_username",
+            "jsonType.label": "String"
+          }
+        }
+      ]
+    }
+  ],
+  "components": {},
+  "authenticatorConfig": [],
+  "requiredActions": [],
+  "browserSecurityHeaders": {},
+  "smtpServer": {},
+  "eventsEnabled": false,
+  "eventsListeners": [],
+  "enabledEventTypes": [],
+  "adminEventsEnabled": false,
+  "adminEventsDetailsEnabled": false,
+  "identityProviders": [],
+  "identityProviderMappers": [],
+  "internationalizationEnabled": false,
+  "supportedLocales": [],
+  "browserFlow": "browser",
+  "registrationFlow": "registration",
+  "directGrantFlow": "direct grant",
+  "resetCredentialsFlow": "reset credentials",
+  "clientAuthenticationFlow": "clients",
+  "dockerAuthenticationFlow": "docker auth",
+  "defaultRole": {
+    "id": "c2ad3184-01e2-4798-a53d-83ecc27a1a5a",
+    "name": "default-roles-test",
+    "description": "${role_default-roles}",
+    "composite": true,
+    "clientRole": false,
+    "containerId": "OSSS"
+  },
+  "defaultSignatureAlgorithm": "RS256",
+  "accessTokenLifespan": 300,
+  "accessTokenLifespanForImplicitFlow": 900,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 36000,
+  "otpPolicyType": "totp",
+  "otpPolicyAlgorithm": "HmacSHA1",
+  "otpPolicyInitialCounter": 0,
+  "otpPolicyDigits": 6,
+  "otpPolicyLookAheadWindow": 1,
+  "otpPolicyPeriod": 30,
+  "otpSupportedApplications": [
+    "FreeOTP",
+    "Google Authenticator"
+  ],
+  "keycloakVersion": "16.1.0",
+  "userManagedAccessAllowed": false,
+  "defaultDefaultClientScopes": [
+    "roles",
+    "web-origins",
+    "profile",
+    "email"
+  ],
+  "defaultOptionalClientScopes": [
+    "address",
+    "phone",
+    "offline_access",
+    "microprofile-jwt"
+  ]
+}
