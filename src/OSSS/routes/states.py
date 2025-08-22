@@ -12,11 +12,11 @@ router = APIRouter(prefix="/states", tags=["states"])
 
 @router.get("")
 async def list_states(
-    _claims: dict = Depends(require_auth),  # 🔐 must have a valid bearer token
+    _claims: dict = Depends(require_auth),   # 🔐 must have a valid bearer token
     session: AsyncSession = Depends(get_session),
 ):
-    # Replace with real table queries. Simple demo:
-    rows = await session.execute(
-        sa.text("SELECT 'CA' AS code, 'California' AS name UNION ALL SELECT 'NY','New York'")
+    # Fetch all states from the DB (expects a table named `states` with columns `code`, `name`)
+    result = await session.execute(
+        sa.text("SELECT code, name FROM states ORDER BY code")
     )
-    return [dict(r) for r in rows.mappings()]
+    return list(result.mappings().all())
