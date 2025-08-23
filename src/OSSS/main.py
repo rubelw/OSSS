@@ -11,9 +11,12 @@ from OSSS.db import get_sessionmaker
 # Router imports (each file should define `router = APIRouter(...)`)
 from OSSS.api.routers.health import router as health_router
 from OSSS.api.routers.me import router as me_router
-from OSSS.api.routers.states import router as states_router
-from OSSS.routes.schools import router as schools_router
-from OSSS.routes import sis_behavior_codes  # import the module
+from OSSS.api.routers.admin_settings_states import router as states_router
+from OSSS.api.routers.admin_settings_schools import router as schools_router
+from OSSS.api.routers.admin_settings_districts import router as districts_router
+from OSSS.api.routers.sis_settings_academic_terms import router as sis_academic_terms_router
+
+from OSSS.api.routers.sis_settings_behavior_codes import router as sis_behavior_codes_router
 from OSSS.api.routers import activities as activities_router
 
 
@@ -37,7 +40,9 @@ def create_app() -> FastAPI:
     app.include_router(me_router)
     app.include_router(states_router)
     app.include_router(schools_router)
-    app.include_router(sis_behavior_codes.router)
+    app.include_router(districts_router)
+    app.include_router(sis_behavior_codes_router)
+    app.include_router(sis_academic_terms_router)
     app.include_router(activities_router.router)
 
     app.include_router(auth_router)

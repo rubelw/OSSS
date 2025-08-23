@@ -134,12 +134,25 @@ def upgrade():
     op.execute("CREATE EXTENSION IF NOT EXISTS pgcrypto")
 
     # ---------- Core (shared) ----------
+    # Tenant / District boundary. In K-12 SIS systems, an “organization” usually maps 1-to-1 to a district (or charter network). It’s the top-level container for data, users, and configuration.
     op.create_table(
         "organizations",
         sa.Column("id", sa.String(36), primary_key=True, server_default=sa.text("gen_random_uuid()")),
         sa.Column("name", sa.String(255), nullable=False, unique=True),
         sa.Column("created_at", sa.TIMESTAMP(timezone=True), nullable=False, server_default=sa.text("CURRENT_TIMESTAMP")),
     )
+
+    # The bodies table is designed to represent formal groups or governing/decision-making entities within an organization (district). In an SIS context, especially in large districts or Infinite Campus–style systems, schools and districts often have boards, committees, and councils that oversee policy, governance, or targeted areas (e.g., school board, advisory committees, curriculum councils).
+    #
+    # Think of it as the place where you model organizational structures above the individual school:
+    #
+    # District School Board (elected or appointed body overseeing all schools)
+    #
+    # Advisory Councils (e.g., Parent-Teacher Advisory, Student Advisory)
+    #
+    # Committees (e.g., Curriculum Committee, Safety Committee, Technology Steering Committee)
+    #
+    # By normalizing these into a table, you can attach memberships, decisions, meetings, and documents to them.
 
     op.create_table(
         "bodies",
@@ -168,6 +181,22 @@ def upgrade():
         sa.Column("label", sa.String(80), nullable=False, unique=True),
     )
 
+    # What entity_tags represents
+    #
+    # entity_tags is a polymorphic many-to-many junction that lets you attach tags (from a shared tags table) to any kind of record in your system—students, incidents, goals, behavior codes, staff, courses, plans, etc.
+    #
+    # Instead of having separate join tables like student_tags, goal_tags, incident_tags, you centralize tagging in one place and distinguish the target record by entity_type and entity_id.
+    #
+    # Typical SIS use-cases:
+    #
+    # Tag students: IEP, 504, ELL, Gifted, At-Risk.
+    #
+    # Tag behavior incidents: Bus, Playground, Bullying, Tardy.
+    #
+    # Tag goals/plans: Literacy, PBIS, Attendance, STEM.
+    #
+    # Tag staff or committees: Math, SEL, Safety, Bilingual.
+
     op.create_table(
         "entity_tags",
         sa.Column("entity_type", sa.String(50), nullable=False),
@@ -175,6 +204,18 @@ def upgrade():
         sa.Column("tag_id", sa.String(36), sa.ForeignKey("tags.id", ondelete="CASCADE"), nullable=False),
         sa.PrimaryKeyConstraint("entity_type", "entity_id", "tag_id"),
     )
+
+    # The audit_log table is your system of record for “who did what, when, to what.”
+    #
+    # In an SIS, you often have strict compliance and accountability needs:
+    #
+    # FERPA requires tracking access/modification of student records.
+    #
+    # Districts want visibility into who changed grades, attendance, IEPs, etc.
+    #
+    # Admins need to troubleshoot changes (e.g., “Why did this student’s enrollment disappear?”).
+    #
+    # This table lets you store a structured record of all key actions taken across the system.
 
     op.create_table(
         "audit_log",
@@ -189,6 +230,20 @@ def upgrade():
     op.create_index("ix_audit_log_entity", "audit_log", ["entity_type", "entity_id"])
 
     # ---------- Meetings ----------
+    # The meetings table models formal gatherings tied to a district/organization, optionally linked to a governance body (board, committee, council).
+    #
+    # In a K-12 SIS (e.g., Infinite Campus + board/committee functionality), this provides structure for:
+    #
+    # School board meetings (policy, budgets, superintendent oversight).
+    #
+    # Committee meetings (curriculum, safety, technology, parent advisory).
+    #
+    # Student/parent council meetings (student government, PTO/PTA, advisory councils).
+    #
+    # Ad-hoc organizational meetings (task forces, hearings, planning groups).
+    #
+    # It gives administrators a way to schedule, track, and expose meetings (sometimes publicly), while linking them to the governing body that called them.
+
     op.create_table(
         "meetings",
         sa.Column("id", sa.String(36), primary_key=True, server_default=sa.text("gen_random_uuid()")),
