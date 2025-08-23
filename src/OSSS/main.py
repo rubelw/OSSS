@@ -12,6 +12,7 @@ from OSSS.db import get_sessionmaker
 from OSSS.api.routers.health import router as health_router
 from OSSS.api.routers.me import router as me_router
 from OSSS.api.routers.states import router as states_router
+from OSSS.routes.schools import router as schools_router
 from OSSS.api.routers.auth_flow import router as auth_router
 
 
@@ -31,6 +32,7 @@ def create_app() -> FastAPI:
     app.include_router(health_router)
     app.include_router(me_router)
     app.include_router(states_router)
+    app.include_router(schools_router)
     app.include_router(auth_router)
 
     # --- Startup (DB ping + Swagger OAuth) ---
