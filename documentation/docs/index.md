@@ -117,8 +117,3 @@ When this variable is present, the library will cache:
 - Lives alongside other shared packages under `src/` and is shipped as a Python package named **OSSS**.
 
 ---
-
-## Acknowledgements
-
-This work is inspired by, and includes concepts from, the original **fastapi-keycloak** project by *Code Specialist*.  
-Please retain attribution and comply with the original license terms when reusing code or ideas.

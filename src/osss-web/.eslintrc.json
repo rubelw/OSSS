@@ -1,0 +1,6 @@
+{
+  "extends": ["next/core-web-vitals"],
+  "rules": {
+    "import/order": ["error", { "newlines-between": "always", "alphabetize": { "order": "asc" } }]
+  }
+}

@@ -249,10 +249,3 @@ This repository is designed to work with either **Apache‑2.0** (permissive) **
 Inspired by the needs of public school districts for transparent governance and modern, accessible software. Thanks to all contributors and the civic‑tech community.
 
 ---
-
-## Credits
-
-This project includes code from **fastapi-keycloak**  
-Copyright © 2021 Code Specialist  
-Used under the terms of the [Apache License 2.0].  
-Modifications: renamed package to `OSSS`, adapted APIs, added caching, tests, and deployment files.
