@@ -1,38 +1,174 @@
+/* globals.css — bright/light-only theme */
+
+/* Force light color scheme for form controls, etc. */
 :root {
-  --bg: #0b0c0c;
-  --card: #111315;
-  --text: #e8eaed;
-  --muted: #9aa0a6;
-  --accent: #c8102e; /* OSSS red */
+  color-scheme: light;
+
+  /* Palette — bright + high contrast */
+  --bg:            #ffffff;      /* page background */
+  --surface:       #ffffff;      /* cards / panels */
+  --surface-2:     #f9fafb;      /* app shell main background */
+  --header-bg:     rgba(255,255,255,0.88); /* glassy header */
+  --border:        #e5e7eb;      /* light gray border */
+  --ring:          #93c5fd;      /* focus ring */
+  --shadow-lg:     0 10px 25px rgba(15, 23, 42, 0.08);
+
+  /* Text */
+  --text:          #0f172a;      /* slate-900 */
+  --text-muted:    #475569;      /* slate-600 */
+
+  /* Brand (bright blue) */
+  --brand:         #0b57d0;
+  --brand-600:     #1a73e8;
+  --brand-700:     #185abc;
+
+  /* Link hovers / subtle fills */
+  --link-hover:    #eef2ff;      /* very light indigo */
+  --sidebar-bg:    #ffffff;
+  --sidebar-border:#e5e7eb;
 }
 
-html, body, #__next { height: 100%; }
+/* Base */
+html, body {
+  height: 100%;
+}
+
 body {
-  background: var(--bg);
+  margin: 0;
+  background: var(--surface-2);
   color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-.container {
-  max-width: 900px;
-  margin: 2rem auto;
-  padding: 0 1rem;
+/* a11y focus */
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
 }
 
-.card {
-  background: var(--card);
-  border: 1px solid #24292f;
-  border-radius: 12px;
-  padding: 1rem;
-  margin-bottom: 1rem;
+/* Container helper */
+.container-max {
+  max-width: 1200px;
+  margin-inline: auto;
 }
 
+/* Top header (glassy) */
+.header-glass {
+  background: var(--header-bg);
+  backdrop-filter: saturate(140%) blur(10px);
+  -webkit-backdrop-filter: saturate(140%) blur(10px);
+  border-bottom: 1px solid var(--border);
+}
+
+/* Sidebar */
+.sidebar-surface {
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--sidebar-border);
+}
+
+/* Main surface */
+.main-surface {
+  background: var(--surface-2);
+}
+
+/* Links in nav/side */
+/* Replace this: display: inline-flex; */
+.link-nav {
+  display: flex;          /* forces full-row items */
+  width: 100%;            /* take full sidebar width */
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.625rem;
+  border-radius: 0.5rem;
+  color: var(--text);
+  text-decoration: none;
+  transition: background-color 160ms ease, color 160ms ease, transform 120ms ease;
+}
+
+.sidebar-section {
+  display: flex;
+  flex-direction: column;  /* stack links vertically */
+  gap: 0.25rem;            /* space between links */
+  margin-bottom: 1rem;     /* space between groups (Quick Links vs Modules) */
+}
+
+
+.link-nav:hover {
+  background: var(--link-hover);
+}
+
+.link-nav[aria-current="page"],
+.link-nav.active {
+  background: #eaf2ff;
+  color: var(--brand-700);
+  font-weight: 600;
+}
+
+/* Buttons */
 .btn {
-  background: var(--accent);
-  color: white;
-  padding: .6rem 1rem;
-  border-radius: 8px;
-  border: none;
+  appearance: none;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  padding: 0.5rem 0.9rem;
+  border-radius: 0.65rem;
+  font-weight: 500;
+  line-height: 1.2;
   cursor: pointer;
+  transition: box-shadow 150ms ease, transform 120ms ease, background-color 150ms ease;
+  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.03);
 }
-.btn:disabled { opacity: .6; cursor: not-allowed; }
-code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
+
+.btn:hover {
+  background: #f8fafc;
+}
+
+.btn:active {
+  transform: translateY(1px);
+}
+
+.btn-primary {
+  border-color: transparent;
+  background: var(--brand);
+  color: #fff;
+  box-shadow: var(--shadow-lg);
+}
+
+.btn-primary:hover {
+  background: var(--brand-600);
+}
+
+.btn-primary:active {
+  background: var(--brand-700);
+  transform: translateY(1px);
+}
+
+/* Cards / tables feel brighter */
+table {
+  background: var(--surface);
+  border-collapse: collapse;
+}
+
+th, td {
+  border: 1px solid var(--border);
+}
+
+thead tr {
+  background: #f3f6ff; /* super light brand tint */
+}
+
+.elevated {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  box-shadow: var(--shadow-lg);
+}
+
+/* Utility: subtle section labels */
+.section-label {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
