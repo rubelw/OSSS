@@ -18,7 +18,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import relationship
 
-from .base import Base, GUID, UUIDMixin
+from OSSS.db.base import Base, GUID, UUIDMixin
 
 
 # Reusable timestamp columns (DB-driven defaults)

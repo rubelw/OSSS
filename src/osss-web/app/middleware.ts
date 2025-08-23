@@ -5,7 +5,7 @@ import { NextResponse } from "next/server";
 export default auth((req) => {
   const { nextUrl } = req;
   const isAuthed = !!req.auth;
-  const protectedPrefixes = ["/states", "/schools", "/dashboard", "/account", "/protected"];
+  const protectedPrefixes = ["/states", "/schools", "/sis/behavior_codes", "/dashboard", "/account", "/protected"];
 
   if (protectedPrefixes.some((p) => nextUrl.pathname.startsWith(p)) && !isAuthed) {
     const url = new URL("/api/auth/signin", nextUrl.origin);
@@ -16,5 +16,5 @@ export default auth((req) => {
 });
 
 export const config = {
-  matcher: ["/states/:path*", "/schools/:path*", "/dashboard/:path*", "/account/:path*", "/protected/:path*", "/api/osss/:path*"],
+  matcher: ["/states/:path*", "/schools/:path*", "/behavior-codes/:path*", "/dashboard/:path*", "/account/:path*", "/protected/:path*", "/api/osss/:path*"],
 };

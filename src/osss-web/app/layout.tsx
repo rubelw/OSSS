@@ -18,15 +18,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <Link href="/" className="font-semibold">OSSS</Link>
             <div className="ml-auto flex items-center gap-4">
               {/* New: singular “School” links to the main page */}
-              <Link href="/" className="hover:underline">
-                School
-              </Link>
-              {/* Existing links */}
-              <Link href="/states" className="hover:underline">
-                States
-              </Link>
               <Link href="/schools" className="hover:underline">
                 Schools
+              </Link>
+            </div>
+            <div className="ml-auto flex items-center gap-4">
+              {/* New: singular “School” links to the main page */}
+              <Link href="/behavior_codes" className="hover:underline">
+                Behavior Codes
               </Link>
             </div>
           </nav>

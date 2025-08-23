@@ -8,7 +8,7 @@ import sqlalchemy as sa
 from sqlalchemy import String, Text, Boolean, TIMESTAMP, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
-from .base import Base, UUIDMixin, GUID, TSVectorType
+from OSSS.db.base import Base, UUIDMixin, GUID, TSVectorType
 
 
 class Channel(UUIDMixin, Base):

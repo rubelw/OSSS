@@ -9,7 +9,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import relationship, Mapped
 
-from .base import Base, GUID, UUIDMixin, JSONB
+from OSSS.db.base import Base, GUID, UUIDMixin, JSONB
 
 
 # Helpers -------------------------------------------------------------

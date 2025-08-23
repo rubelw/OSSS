@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from sqlalchemy import Column, Text, TIMESTAMP, func
 
-from .base import Base
+from OSSS.db.base import Base
 
 
 class BehaviorCode(Base):

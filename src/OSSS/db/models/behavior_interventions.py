@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from sqlalchemy import Column, Text, Date, TIMESTAMP, ForeignKey, func
 
-from .base import Base, GUID, UUIDMixin
+from OSSS.db.base import Base, GUID, UUIDMixin
 
 
 class BehaviorIntervention(UUIDMixin, Base):

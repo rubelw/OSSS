@@ -1,21 +1,73 @@
-import NextAuth, { type NextAuthConfig } from "next-auth";
+// auth.ts (v5 style)
+import NextAuth from "next-auth";
 import Keycloak from "next-auth/providers/keycloak";
+import { env } from "@/lib/env";
 
-export const authConfig: NextAuthConfig = {
+const issuer = `${env.NEXT_PUBLIC_KEYCLOAK_BASE.replace(/\/+$/,"")}/realms/${env.NEXT_PUBLIC_KEYCLOAK_REALM}`;
+
+export const { handlers, auth, signIn, signOut } = NextAuth({
+  trustHost: env.AUTH_TRUST_HOST === "1",
+  secret: env.AUTH_SECRET,
   session: { strategy: "jwt" },
+  debug: env.AUTH_DEBUG === "1",
   providers: [
     Keycloak({
-      issuer: process.env.KEYCLOAK_ISSUER!,          // e.g. http://localhost:8085/realms/OSSS
-      clientId: process.env.Web_KEYCLOAK_CLIENT_ID!,     // e.g. "osss-web"
-      clientSecret: process.env.WEB_KEYCLOAK_CLIENT_SECRET || undefined, // omit/empty for Public client
-      // Prevents “Missing parameter: code_challenge_method”
-      checks: ["pkce", "state"],
+      issuer,
+      clientId: env.NEXT_PUBLIC_KEYCLOAK_CLIENT_ID,
+      clientSecret: env.WEB_KEYCLOAK_CLIENT_SECRET, // optional
       authorization: { params: { scope: "openid profile email" } },
     }),
   ],
-  // Having a secret avoids server-side errors that render HTML
-  secret: process.env.AUTH_SECRET,
-  debug: process.env.NODE_ENV === "development",
-};
+  callbacks: {
+    async jwt({ token, account }) {
+      if (account) {
+        token.accessToken = (account as any).access_token;
+        // keep refreshToken only if you actually refresh on the server
+        token.refreshToken = (account as any).refresh_token ?? token.refreshToken;
+        // ❌ do NOT store id_token -> it’s big and not needed for API calls
+        // token.idToken = (account as any).id_token; // remove
+        token.expiresAt =
+          typeof (account as any).expires_at === "number"
+            ? (account as any).expires_at
+            : Math.floor(Date.now() / 1000) + 55 * 60;
+        return token;
+      }
 
-export const { handlers, auth, signIn, signOut } = NextAuth(authConfig);
+      // refresh if close to expiry
+      const now = Math.floor(Date.now() / 1000);
+      if (!token.expiresAt || now < (token.expiresAt as number) - 60) return token;
+
+      try {
+        if (!token.refreshToken) return token; // no refresh path -> let it expire
+        const form = new URLSearchParams();
+        form.set("grant_type", "refresh_token");
+        form.set("client_id", env.NEXT_PUBLIC_KEYCLOAK_CLIENT_ID);
+        form.set("refresh_token", String(token.refreshToken));
+        if (env.WEB_KEYCLOAK_CLIENT_SECRET) form.set("client_secret", env.WEB_KEYCLOAK_CLIENT_SECRET);
+
+        const res = await fetch(`${issuer}/protocol/openid-connect/token`, {
+          method: "POST",
+          headers: { "content-type": "application/x-www-form-urlencoded" },
+          body: form.toString(),
+          cache: "no-store",
+        });
+        if (!res.ok) throw new Error(`Refresh failed ${res.status}`);
+
+        const data = await res.json();
+        token.accessToken = data.access_token;
+        if (data.refresh_token) token.refreshToken = data.refresh_token;
+        token.expiresAt = Math.floor(Date.now() / 1000) + (data.expires_in ?? 3300);
+        delete (token as any).error;
+        return token;
+      } catch {
+        (token as any).error = "RefreshAccessTokenError";
+        return token;
+      }
+    },
+    async session({ session, token }) {
+      (session as any).accessToken = token.accessToken;
+      // ❌ don’t expose id/refresh tokens in the session
+      return session;
+    },
+  },
+});
