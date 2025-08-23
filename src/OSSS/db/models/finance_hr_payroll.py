@@ -1,320 +1,283 @@
+# src/OSSS/db/models/finance_hr_payroll.py
 from __future__ import annotations
-from datetime import datetime, date
+
+from datetime import date, datetime
 from typing import Optional
-from sqlalchemy import Column, Text, CHAR, Date, DateTime, Numeric, TIMESTAMP, func, Integer, Boolean, ForeignKey, UniqueConstraint, String, CheckConstraint
-from sqlalchemy.sql import text
-from sqlalchemy.orm import relationship
+
 import sqlalchemy as sa
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from .base import Base, GUID, UUIDMixin, JSONB
-
-# ---------- helpers ----------
-def ts_cols():
-    return (
-        Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now()),
-        Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()),
-    )
-
+from OSSS.db.base import Base, GUID, UUIDMixin, TimestampMixin, JSONB
 
 
 # ==========================
 # Finance / General Ledger
 # ==========================
 
-class GLSegment(UUIDMixin, Base):
+class GLSegment(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "gl_segments"
 
-    code = Column(String(32), nullable=False, unique=True)
-    name = Column(String(128), nullable=False)
-    seq = Column(Integer, nullable=False)            # ordering of segments in an account string
-    length = Column(Integer, nullable=True)          # optional fixed length
-    required = Column(Boolean, nullable=False, server_default="true")
+    code: Mapped[str] = mapped_column(sa.String(32), nullable=False, unique=True)
+    name: Mapped[str] = mapped_column(sa.String(128), nullable=False)
+    seq: Mapped[int] = mapped_column(sa.Integer, nullable=False)
+    length: Mapped[Optional[int]] = mapped_column(sa.Integer)
+    required: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, server_default=sa.text("true"))
 
-    created_at, updated_at = ts_cols()
+    values: Mapped[list["GLSegmentValue"]] = relationship(
+        "GLSegmentValue", back_populates="segment", cascade="all, delete-orphan"
+    )
 
-    values = relationship("GLSegmentValue", back_populates="segment", cascade="all, delete-orphan")
 
-
-class GLSegmentValue(UUIDMixin, Base):
+class GLSegmentValue(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "gl_segment_values"
-    __table_args__ = (UniqueConstraint("segment_id", "code", name="uq_segment_value_code_per_segment"),)
+    __table_args__ = (sa.UniqueConstraint("segment_id", "code", name="uq_segment_value_code_per_segment"),)
 
-    segment_id = Column(GUID(), ForeignKey("gl_segments.id", ondelete="CASCADE"), nullable=False)
-    code = Column(String(32), nullable=False)
-    name = Column(String(128), nullable=False)
-    active = Column(Boolean, nullable=False, server_default="true")
+    segment_id: Mapped[str] = mapped_column(GUID(), sa.ForeignKey("gl_segments.id", ondelete="CASCADE"), nullable=False)
+    code: Mapped[str] = mapped_column(sa.String(32), nullable=False)
+    name: Mapped[str] = mapped_column(sa.String(128), nullable=False)
+    active: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, server_default=sa.text("true"))
 
-    created_at, updated_at = ts_cols()
-
-    segment = relationship("GLSegment", back_populates="values")
+    segment: Mapped["GLSegment"] = relationship("GLSegment", back_populates="values")
 
 
-class GLAccount(UUIDMixin, Base):
+class GLAccount(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "gl_accounts"
 
-    code = Column(String(128), nullable=False, unique=True)  # full combined code, e.g., 10-2340-000-...
-    name = Column(String(255), nullable=False)
-    acct_type = Column(String(32), nullable=False)           # asset, liability, revenue, expense, equity
-    active = Column(Boolean, nullable=False, server_default="true")
-    attributes = Column(JSONB, nullable=True)
+    code: Mapped[str] = mapped_column(sa.String(128), nullable=False, unique=True)  # full combined code
+    name: Mapped[str] = mapped_column(sa.String(255), nullable=False)
+    acct_type: Mapped[str] = mapped_column(sa.String(32), nullable=False)  # asset, liability, revenue, expense, equity
+    active: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, server_default=sa.text("true"))
+    attributes: Mapped[Optional[dict]] = mapped_column(JSONB())
 
-    created_at, updated_at = ts_cols()
-
-    lines = relationship("JournalEntryLine", back_populates="account")
+    lines: Mapped[list["JournalEntryLine"]] = relationship("JournalEntryLine", back_populates="account")
 
 
-class GLAccountSegment(UUIDMixin, Base):
-    """
-    Optional: stores the segment/value breakdown for a GL account.
-    """
+class GLAccountSegment(UUIDMixin, TimestampMixin, Base):
+    """Optional: store segment/value breakdown for a GL account."""
     __tablename__ = "gl_account_segments"
-    __table_args__ = (UniqueConstraint("account_id", "segment_id", name="uq_account_segment_once"),)
+    __table_args__ = (sa.UniqueConstraint("account_id", "segment_id", name="uq_account_segment_once"),)
 
-    account_id = Column(GUID(), ForeignKey("gl_accounts.id", ondelete="CASCADE"), nullable=False)
-    segment_id = Column(GUID(), ForeignKey("gl_segments.id", ondelete="CASCADE"), nullable=False)
-    value_id = Column(GUID(), ForeignKey("gl_segment_values.id", ondelete="SET NULL"), nullable=True)
+    account_id: Mapped[str] = mapped_column(GUID(), sa.ForeignKey("gl_accounts.id", ondelete="CASCADE"), nullable=False)
+    segment_id: Mapped[str] = mapped_column(GUID(), sa.ForeignKey("gl_segments.id", ondelete="CASCADE"), nullable=False)
+    value_id: Mapped[Optional[str]] = mapped_column(GUID(), sa.ForeignKey("gl_segment_values.id", ondelete="SET NULL"))
 
-    created_at, updated_at = ts_cols()
+# Fiscal
 
-
-class FiscalYear(UUIDMixin, Base):
+class FiscalYear(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "fiscal_years"
 
-    year = Column(Integer, nullable=False, unique=True)  # e.g., 2024
-    start_date = Column(Date, nullable=False)
-    end_date = Column(Date, nullable=False)
-    is_closed = Column(Boolean, nullable=False, server_default="false")
+    year: Mapped[int] = mapped_column(sa.Integer, nullable=False, unique=True)  # e.g., 2024
+    start_date: Mapped[date] = mapped_column(sa.Date, nullable=False)
+    end_date: Mapped[date] = mapped_column(sa.Date, nullable=False)
+    is_closed: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, server_default=sa.text("false"))
 
-    created_at, updated_at = ts_cols()
+    periods: Mapped[list["FiscalPeriod"]] = relationship(
+        "FiscalPeriod", back_populates="year", cascade="all, delete-orphan"
+    )
 
-    periods = relationship("FiscalPeriod", back_populates="year", cascade="all, delete-orphan")
 
-
-class FiscalPeriod(UUIDMixin, Base):
+class FiscalPeriod(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "fiscal_periods"
-    __table_args__ = (UniqueConstraint("fiscal_year_id", "period_no", name="uq_year_periodno"),)
+    __table_args__ = (sa.UniqueConstraint("fiscal_year_id", "period_no", name="uq_year_periodno"),)
 
-    fiscal_year_id = Column(GUID(), ForeignKey("fiscal_years.id", ondelete="CASCADE"), nullable=False)
-    period_no = Column(Integer, nullable=False)   # 1..12 or 1..13
-    start_date = Column(Date, nullable=False)
-    end_date = Column(Date, nullable=False)
-    is_closed = Column(Boolean, nullable=False, server_default="false")
+    fiscal_year_id: Mapped[str] = mapped_column(GUID(), sa.ForeignKey("fiscal_years.id", ondelete="CASCADE"), nullable=False)
+    period_no: Mapped[int] = mapped_column(sa.Integer, nullable=False)  # 1..12 or 1..13
+    start_date: Mapped[date] = mapped_column(sa.Date, nullable=False)
+    end_date: Mapped[date] = mapped_column(sa.Date, nullable=False)
+    is_closed: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, server_default=sa.text("false"))
 
-    created_at, updated_at = ts_cols()
-
-    year = relationship("FiscalYear", back_populates="periods")
-    entries = relationship("JournalEntry", back_populates="period")
+    year: Mapped["FiscalYear"] = relationship("FiscalYear", back_populates="periods")
+    entries: Mapped[list["JournalEntry"]] = relationship("JournalEntry", back_populates="period")
 
 
-class JournalBatch(UUIDMixin, Base):
+class JournalBatch(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "journal_batches"
 
-    batch_no = Column(String(64), nullable=False, unique=True)
-    description = Column(String(255), nullable=True)
-    source = Column(String(64), nullable=True)     # subsystem/source tag
-    status = Column(String(16), nullable=False, server_default="open")  # open, posted
-    posted_at = Column(TIMESTAMP(timezone=True), nullable=True)
-
-    created_at, updated_at = ts_cols()
-
-    entries = relationship("JournalEntry", back_populates="batch")
+    batch_no: Mapped[str] = mapped_column(sa.String(64), nullable=False, unique=True)
+    description: Mapped[Optional[str]] = mapped_column(sa.String(255))
+    source: Mapped[Optional[str]] = mapped_column(sa.String(64))         # subsystem/source tag
+    status: Mapped[str] = mapped_column(sa.String(16), nullable=False, server_default=sa.text("'open'"))  # open, posted
+    posted_at: Mapped[Optional[datetime]] = mapped_column(sa.TIMESTAMP(timezone=True))
 
 
-class JournalEntry(UUIDMixin, Base):
+class JournalEntry(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "journal_entries"
-    __table_args__ = (UniqueConstraint("batch_id", "je_no", name="uq_batch_je_no"),)
+    __table_args__ = (sa.UniqueConstraint("batch_id", "je_no", name="uq_batch_je_no"),)
 
-    batch_id = Column(GUID(), ForeignKey("journal_batches.id", ondelete="CASCADE"), nullable=False)
-    fiscal_period_id = Column(GUID(), ForeignKey("fiscal_periods.id", ondelete="RESTRICT"), nullable=False)
+    batch_id: Mapped[str] = mapped_column(GUID(), sa.ForeignKey("journal_batches.id", ondelete="CASCADE"), nullable=False)
+    fiscal_period_id: Mapped[str] = mapped_column(GUID(), sa.ForeignKey("fiscal_periods.id", ondelete="RESTRICT"), nullable=False)
 
-    je_no = Column(String(64), nullable=False)  # unique per batch
-    journal_date = Column(Date, nullable=False)
-    description = Column(String(255), nullable=True)
-    status = Column(String(16), nullable=False, server_default="open")  # open, posted
-    total_debits = Column(Numeric(14, 2), nullable=False, default=0)
-    total_credits = Column(Numeric(14, 2), nullable=False, default=0)
+    je_no: Mapped[str] = mapped_column(sa.String(64), nullable=False)  # unique per batch
+    journal_date: Mapped[date] = mapped_column(sa.Date, nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(sa.String(255))
+    status: Mapped[str] = mapped_column(sa.String(16), nullable=False, server_default=sa.text("'open'"))
+    total_debits: Mapped[float] = mapped_column(sa.Numeric(14, 2), nullable=False, server_default="0")
+    total_credits: Mapped[float] = mapped_column(sa.Numeric(14, 2), nullable=False, server_default="0")
 
-    created_at, updated_at = ts_cols()
+    batch: Mapped["JournalBatch"] = relationship("JournalBatch", backref="entries")
+    period: Mapped["FiscalPeriod"] = relationship("FiscalPeriod", back_populates="entries")
+    lines: Mapped[list["JournalEntryLine"]] = relationship(
+        "JournalEntryLine", back_populates="entry", cascade="all, delete-orphan"
+    )
 
-    batch = relationship("JournalBatch", back_populates="entries")
-    period = relationship("FiscalPeriod", back_populates="entries")
-    lines = relationship("JournalEntryLine", back_populates="entry", cascade="all, delete-orphan")
 
-
-class JournalEntryLine(UUIDMixin, Base):
+class JournalEntryLine(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "journal_entry_lines"
 
-    entry_id = Column(GUID(), ForeignKey("journal_entries.id", ondelete="CASCADE"), nullable=False)
-    account_id = Column(GUID(), ForeignKey("gl_accounts.id", ondelete="RESTRICT"), nullable=False)
-    line_no = Column(Integer, nullable=False)
-    description = Column(String(255), nullable=True)
-    debit = Column(Numeric(14, 2), nullable=False, default=0)
-    credit = Column(Numeric(14, 2), nullable=False, default=0)
-    segment_overrides = Column(JSONB, nullable=True)  # optional: override account's default segments
+    entry_id: Mapped[str] = mapped_column(GUID(), sa.ForeignKey("journal_entries.id", ondelete="CASCADE"), nullable=False)
+    account_id: Mapped[str] = mapped_column(GUID(), sa.ForeignKey("gl_accounts.id", ondelete="RESTRICT"), nullable=False)
 
-    created_at, updated_at = ts_cols()
+    line_no: Mapped[int] = mapped_column(sa.Integer, nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(sa.String(255))
+    debit: Mapped[float] = mapped_column(sa.Numeric(14, 2), nullable=False, server_default="0")
+    credit: Mapped[float] = mapped_column(sa.Numeric(14, 2), nullable=False, server_default="0")
+    segment_overrides: Mapped[Optional[dict]] = mapped_column(JSONB())
 
-    entry = relationship("JournalEntry", back_populates="lines")
-    account = relationship("GLAccount", back_populates="lines")
+    entry: Mapped["JournalEntry"] = relationship("JournalEntry", back_populates="lines")
+    account: Mapped["GLAccount"] = relationship("GLAccount", back_populates="lines")
 
 
 # ==========================
 # HR
 # ==========================
 
-class HREmployee(UUIDMixin, Base):
+class HREmployee(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "hr_employees"
 
-    person_id = Column(GUID(), ForeignKey("persons.id", ondelete="SET NULL"), nullable=True)
-    employee_no = Column(String(32), nullable=False, unique=True)
-    primary_school_id = Column(GUID(), ForeignKey("schools.id", ondelete="SET NULL"), nullable=True)
+    person_id: Mapped[Optional[str]] = mapped_column(GUID(), sa.ForeignKey("persons.id", ondelete="SET NULL"))
+    employee_no: Mapped[str] = mapped_column(sa.String(32), nullable=False, unique=True)
+    primary_school_id: Mapped[Optional[str]] = mapped_column(GUID(), sa.ForeignKey("schools.id", ondelete="SET NULL"))
 
-    # Matches earlier migration column name (segment, not value) for compatibility:
-    department_segment_id = Column(GUID(), ForeignKey("gl_segments.id", ondelete="SET NULL"), nullable=True)
+    # matches earlier migration column name (segment, not value):
+    department_segment_id: Mapped[Optional[str]] = mapped_column(GUID(), sa.ForeignKey("gl_segments.id", ondelete="SET NULL"))
 
-    employment_type = Column(String(16), nullable=True)  # full_time, part_time, seasonal, etc.
-    status = Column(String(16), nullable=False, server_default="active")
-    hire_date = Column(Date, nullable=True)
-    termination_date = Column(Date, nullable=True)
-    attributes = Column(JSONB, nullable=True)
+    employment_type: Mapped[Optional[str]] = mapped_column(sa.String(16))  # full_time, part_time, etc.
+    status: Mapped[str] = mapped_column(sa.String(16), nullable=False, server_default=sa.text("'active'"))
+    hire_date: Mapped[Optional[date]] = mapped_column(sa.Date)
+    termination_date: Mapped[Optional[date]] = mapped_column(sa.Date)
+    attributes: Mapped[Optional[dict]] = mapped_column(JSONB())
 
-    created_at, updated_at = ts_cols()
+    assignments: Mapped[list["HRPositionAssignment"]] = relationship(
+        "HRPositionAssignment", back_populates="employee", cascade="all, delete-orphan"
+    )
 
-    assignments = relationship("HRPositionAssignment", back_populates="employee", cascade="all, delete-orphan")
 
-
-class HRPosition(UUIDMixin, Base):
+class HRPosition(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "hr_positions"
 
-    title = Column(String(255), nullable=False)
-    department_segment_id = Column(GUID(), ForeignKey("gl_segments.id", ondelete="SET NULL"), nullable=True)
-    grade = Column(String(32), nullable=True)
-    fte = Column(Numeric(5, 2), nullable=True)
-    attributes = Column(JSONB, nullable=True)
+    title: Mapped[str] = mapped_column(sa.String(255), nullable=False)
+    department_segment_id: Mapped[Optional[str]] = mapped_column(GUID(), sa.ForeignKey("gl_segments.id", ondelete="SET NULL"))
+    grade: Mapped[Optional[str]] = mapped_column(sa.String(32))
+    fte: Mapped[Optional[float]] = mapped_column(sa.Numeric(5, 2))
+    attributes: Mapped[Optional[dict]] = mapped_column(JSONB())
 
-    created_at, updated_at = ts_cols()
+    assignments: Mapped[list["HRPositionAssignment"]] = relationship(
+        "HRPositionAssignment", back_populates="position", cascade="all, delete-orphan"
+    )
 
-    assignments = relationship("HRPositionAssignment", back_populates="position", cascade="all, delete-orphan")
 
-
-class HRPositionAssignment(UUIDMixin, Base):
+class HRPositionAssignment(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "hr_position_assignments"
 
-    employee_id = Column(GUID(), ForeignKey("hr_employees.id", ondelete="CASCADE"), nullable=False)
-    position_id = Column(GUID(), ForeignKey("hr_positions.id", ondelete="CASCADE"), nullable=False)
-    start_date = Column(Date, nullable=False)
-    end_date = Column(Date, nullable=True)
-    percent = Column(Numeric(5, 2), nullable=True)  # allocation percent
-    funding_split = Column(JSONB, nullable=True)     # list of {gl_account_id, percent}
+    employee_id: Mapped[str] = mapped_column(GUID(), sa.ForeignKey("hr_employees.id", ondelete="CASCADE"), nullable=False)
+    position_id: Mapped[str] = mapped_column(GUID(), sa.ForeignKey("hr_positions.id", ondelete="CASCADE"), nullable=False)
+    start_date: Mapped[date] = mapped_column(sa.Date, nullable=False)
+    end_date: Mapped[Optional[date]] = mapped_column(sa.Date)
+    percent: Mapped[Optional[float]] = mapped_column(sa.Numeric(5, 2))  # allocation percent
+    funding_split: Mapped[Optional[dict]] = mapped_column(JSONB())       # list of {gl_account_id, percent}
 
-    created_at, updated_at = ts_cols()
-
-    employee = relationship("HREmployee", back_populates="assignments")
-    position = relationship("HRPosition", back_populates="assignments")
+    employee: Mapped["HREmployee"] = relationship("HREmployee", back_populates="assignments")
+    position: Mapped["HRPosition"] = relationship("HRPosition", back_populates="assignments")
 
 
 # ==========================
 # Payroll
 # ==========================
 
-class PayPeriod(UUIDMixin, Base):
+class PayPeriod(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "pay_periods"
 
-    code = Column(String(32), nullable=False, unique=True)
-    start_date = Column(Date, nullable=False)
-    end_date = Column(Date, nullable=False)
-    pay_date = Column(Date, nullable=False)
-    status = Column(String(16), nullable=False, server_default="open")  # open, locked, posted
+    code: Mapped[str] = mapped_column(sa.String(32), nullable=False, unique=True)
+    start_date: Mapped[date] = mapped_column(sa.Date, nullable=False)
+    end_date: Mapped[date] = mapped_column(sa.Date, nullable=False)
+    pay_date: Mapped[date] = mapped_column(sa.Date, nullable=False)
+    status: Mapped[str] = mapped_column(sa.String(16), nullable=False, server_default=sa.text("'open'"))  # open, locked, posted
 
-    created_at, updated_at = ts_cols()
-
-    runs = relationship("PayrollRun", back_populates="pay_period", cascade="all, delete-orphan")
+    runs: Mapped[list["PayrollRun"]] = relationship("PayrollRun", back_populates="pay_period", cascade="all, delete-orphan")
 
 
-class PayrollRun(UUIDMixin, Base):
+class PayrollRun(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "payroll_runs"
 
-    pay_period_id = Column(GUID(), ForeignKey("pay_periods.id", ondelete="CASCADE"), nullable=False)
-    run_no = Column(Integer, nullable=False, default=1)  # multiple runs in a period
-    status = Column(String(16), nullable=False, server_default="open")  # open, processed, posted
-    created_by_user_id = Column(GUID(), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    pay_period_id: Mapped[str] = mapped_column(GUID(), sa.ForeignKey("pay_periods.id", ondelete="CASCADE"), nullable=False)
+    run_no: Mapped[int] = mapped_column(sa.Integer, nullable=False, server_default="1")  # multiple runs per period
+    status: Mapped[str] = mapped_column(sa.String(16), nullable=False, server_default=sa.text("'open'"))  # open, processed, posted
+    created_by_user_id: Mapped[Optional[str]] = mapped_column(GUID(), sa.ForeignKey("users.id", ondelete="SET NULL"))
 
     # optional link to GL posting (when payroll posts to GL)
-    posted_entry_id = Column(GUID(), ForeignKey("journal_entries.id", ondelete="SET NULL"), nullable=True)
+    posted_entry_id: Mapped[Optional[str]] = mapped_column(GUID(), sa.ForeignKey("journal_entries.id", ondelete="SET NULL"))
 
-    created_at, updated_at = ts_cols()
-
-    pay_period = relationship("PayPeriod", back_populates="runs")
-    earnings = relationship("EmployeeEarning", back_populates="run", cascade="all, delete-orphan")
-    deductions = relationship("EmployeeDeduction", back_populates="run", cascade="all, delete-orphan")
-    checks = relationship("Paycheck", back_populates="run", cascade="all, delete-orphan")
+    pay_period: Mapped["PayPeriod"] = relationship("PayPeriod", back_populates="runs")
+    earnings: Mapped[list["EmployeeEarning"]] = relationship("EmployeeEarning", back_populates="run", cascade="all, delete-orphan")
+    deductions: Mapped[list["EmployeeDeduction"]] = relationship("EmployeeDeduction", back_populates="run", cascade="all, delete-orphan")
+    checks: Mapped[list["Paycheck"]] = relationship("Paycheck", back_populates="run", cascade="all, delete-orphan")
 
 
-class EarningCode(UUIDMixin, Base):
+class EarningCode(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "earning_codes"
 
-    code = Column(String(32), nullable=False, unique=True)  # REG, OT, STIP, etc.
-    name = Column(String(128), nullable=False)
-    taxable = Column(Boolean, nullable=False, server_default="true")
-    attributes = Column(JSONB, nullable=True)
-
-    created_at, updated_at = ts_cols()
+    code: Mapped[str] = mapped_column(sa.String(32), nullable=False, unique=True)  # REG, OT, etc.
+    name: Mapped[str] = mapped_column(sa.String(128), nullable=False)
+    taxable: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, server_default=sa.text("true"))
+    attributes: Mapped[Optional[dict]] = mapped_column(JSONB())
 
 
-class DeductionCode(UUIDMixin, Base):
+class DeductionCode(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "deduction_codes"
 
-    code = Column(String(32), nullable=False, unique=True)  # 403B, MED, DENTAL, GARN, etc.
-    name = Column(String(128), nullable=False)
-    pretax = Column(Boolean, nullable=False, server_default="true")
-    vendor_id = Column(GUID(), ForeignKey("vendors.id", ondelete="SET NULL"), nullable=True)  # optional linkage
-    attributes = Column(JSONB, nullable=True)
-
-    created_at, updated_at = ts_cols()
+    code: Mapped[str] = mapped_column(sa.String(32), nullable=False, unique=True)  # 403B, MED, etc.
+    name: Mapped[str] = mapped_column(sa.String(128), nullable=False)
+    pretax: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, server_default=sa.text("true"))
+    vendor_id: Mapped[Optional[str]] = mapped_column(GUID(), sa.ForeignKey("vendors.id", ondelete="SET NULL"))
+    attributes: Mapped[Optional[dict]] = mapped_column(JSONB())
 
 
-class EmployeeEarning(UUIDMixin, Base):
+class EmployeeEarning(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "employee_earnings"
 
-    run_id = Column(GUID(), ForeignKey("payroll_runs.id", ondelete="CASCADE"), nullable=False)
-    employee_id = Column(GUID(), ForeignKey("hr_employees.id", ondelete="CASCADE"), nullable=False)
-    earning_code_id = Column(GUID(), ForeignKey("earning_codes.id", ondelete="RESTRICT"), nullable=False)
+    run_id: Mapped[str] = mapped_column(GUID(), sa.ForeignKey("payroll_runs.id", ondelete="CASCADE"), nullable=False)
+    employee_id: Mapped[str] = mapped_column(GUID(), sa.ForeignKey("hr_employees.id", ondelete="CASCADE"), nullable=False)
+    earning_code_id: Mapped[str] = mapped_column(GUID(), sa.ForeignKey("earning_codes.id", ondelete="RESTRICT"), nullable=False)
 
-    hours = Column(Numeric(10, 2), nullable=True)
-    rate = Column(Numeric(12, 4), nullable=True)
-    amount = Column(Numeric(12, 2), nullable=False)  # use either hours*rate or flat amount
+    hours: Mapped[Optional[float]] = mapped_column(sa.Numeric(10, 2))
+    rate: Mapped[Optional[float]] = mapped_column(sa.Numeric(12, 4))
+    amount: Mapped[float] = mapped_column(sa.Numeric(12, 2), nullable=False)  # hours*rate or flat amount
 
-    created_at, updated_at = ts_cols()
-
-    run = relationship("PayrollRun", back_populates="earnings")
+    run: Mapped["PayrollRun"] = relationship("PayrollRun", back_populates="earnings")
 
 
-class EmployeeDeduction(UUIDMixin, Base):
+class EmployeeDeduction(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "employee_deductions"
 
-    run_id = Column(GUID(), ForeignKey("payroll_runs.id", ondelete="CASCADE"), nullable=False)
-    employee_id = Column(GUID(), ForeignKey("hr_employees.id", ondelete="CASCADE"), nullable=False)
-    deduction_code_id = Column(GUID(), ForeignKey("deduction_codes.id", ondelete="RESTRICT"), nullable=False)
+    run_id: Mapped[str] = mapped_column(GUID(), sa.ForeignKey("payroll_runs.id", ondelete="CASCADE"), nullable=False)
+    employee_id: Mapped[str] = mapped_column(GUID(), sa.ForeignKey("hr_employees.id", ondelete="CASCADE"), nullable=False)
+    deduction_code_id: Mapped[str] = mapped_column(GUID(), sa.ForeignKey("deduction_codes.id", ondelete="RESTRICT"), nullable=False)
 
-    amount = Column(Numeric(12, 2), nullable=False)
-    attributes = Column(JSONB, nullable=True)
+    amount: Mapped[float] = mapped_column(sa.Numeric(12, 2), nullable=False)
+    attributes: Mapped[Optional[dict]] = mapped_column(JSONB())
 
-    created_at, updated_at = ts_cols()
-
-    run = relationship("PayrollRun", back_populates="deductions")
+    run: Mapped["PayrollRun"] = relationship("PayrollRun", back_populates="deductions")
 
 
-class Paycheck(UUIDMixin, Base):
+class Paycheck(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "paychecks"
 
-    run_id = Column(GUID(), ForeignKey("payroll_runs.id", ondelete="CASCADE"), nullable=False)
-    employee_id = Column(GUID(), ForeignKey("hr_employees.id", ondelete="CASCADE"), nullable=False)
-    check_no = Column(String(32), nullable=True)  # or advice number
-    gross_pay = Column(Numeric(12, 2), nullable=False)
-    net_pay = Column(Numeric(12, 2), nullable=False)
-    taxes = Column(JSONB, nullable=True)  # breakdown
-    attributes = Column(JSONB, nullable=True)
+    run_id: Mapped[str] = mapped_column(GUID(), sa.ForeignKey("payroll_runs.id", ondelete="CASCADE"), nullable=False)
+    employee_id: Mapped[str] = mapped_column(GUID(), sa.ForeignKey("hr_employees.id", ondelete="CASCADE"), nullable=False)
+    check_no: Mapped[Optional[str]] = mapped_column(sa.String(32))  # or advice number
+    gross_pay: Mapped[float] = mapped_column(sa.Numeric(12, 2), nullable=False)
+    net_pay: Mapped[float] = mapped_column(sa.Numeric(12, 2), nullable=False)
+    taxes: Mapped[Optional[dict]] = mapped_column(JSONB())
+    attributes: Mapped[Optional[dict]] = mapped_column(JSONB())
 
-    created_at, updated_at = ts_cols()
-
-    run = relationship("PayrollRun", back_populates="checks")
+    run: Mapped["PayrollRun"] = relationship("PayrollRun", back_populates="checks")

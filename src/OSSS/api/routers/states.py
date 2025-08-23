@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from OSSS.auth.dependencies import require_auth
 from OSSS.db.session import get_session
-from OSSS.models.state import State
+from OSSS.db.models.state import State
 from OSSS.schemas.state import StateOut
 
 router = APIRouter(prefix="", tags=["states"])

@@ -1,13 +1,37 @@
-from sqlalchemy import Column, Text, Integer, Boolean, Date, DateTime, Time, Numeric, ForeignKey, UniqueConstraint, Index, text
-from sqlalchemy.orm import relationship
-from .base import Base, GUID
+# src/OSSS/db/models/document_links.py
+from __future__ import annotations
+
+from datetime import datetime
+from typing import Optional
+
+import sqlalchemy as sa
+from sqlalchemy.orm import Mapped, mapped_column
+
+from OSSS.db.base import Base, GUID, UUIDMixin
 
 
-class DocumentLink(Base):
+class DocumentLink(UUIDMixin, Base):
     __tablename__ = "document_links"
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    document_id = Column("document_id", GUID(), ForeignKey("documents.id", ondelete="CASCADE"), nullable=False)
-    entity_type = Column("entity_type", Text, nullable=False)
-    entity_id = Column("entity_id", GUID(), nullable=False)
-    created_at = Column("created_at", DateTime(timezone=True), default=lambda: str(uuid.uuid4()), nullable=False)
-    updated_at = Column("updated_at", DateTime(timezone=True), default=lambda: str(uuid.uuid4()), nullable=False)
+
+    document_id: Mapped[str] = mapped_column(
+        GUID(), sa.ForeignKey("documents.id", ondelete="CASCADE"), nullable=False
+    )
+    entity_type: Mapped[str] = mapped_column(sa.String(50), nullable=False)  # polymorphic target type
+    entity_id: Mapped[str] = mapped_column(GUID(), nullable=False)
+
+    created_at: Mapped[datetime] = mapped_column(
+        sa.TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=sa.text("CURRENT_TIMESTAMP"),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        sa.TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=sa.text("CURRENT_TIMESTAMP"),
+        onupdate=sa.text("CURRENT_TIMESTAMP"),
+    )
+
+    __table_args__ = (
+        sa.Index("ix_document_links_doc", "document_id"),
+        sa.Index("ix_document_links_entity", "entity_type", "entity_id"),
+    )

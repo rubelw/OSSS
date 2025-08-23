@@ -1,24 +1,18 @@
-# app/models/cmms_iwms.py
+# src/OSSS/db/models/cmms_iwms.py
 from __future__ import annotations
 
 from typing import Optional, List
 
 from sqlalchemy import (
     Column, String, Integer, Numeric, Boolean, Date, Text,
-    ForeignKey, TIMESTAMP, func, UniqueConstraint
+    ForeignKey, TIMESTAMP, func, UniqueConstraint, text
 )
 from sqlalchemy.orm import relationship, Mapped
-from sqlalchemy.sql import text
 
 from .base import Base, GUID, UUIDMixin, JSONB
 
 
 # Helpers -------------------------------------------------------------
-
-def id_col():
-    # Keep VARCHAR(36) to match the migration; PG default generates UUID as text
-    return Column(String(36), primary_key=True, server_default=text("gen_random_uuid()"))
-
 def ts_cols():
     return (
         Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now()),
@@ -31,7 +25,7 @@ def ts_cols():
 class Facility(UUIDMixin, Base):
     __tablename__ = "facilities"
 
-    school_id = Column(String(36), ForeignKey("schools.id", ondelete="CASCADE"), nullable=False)
+    school_id = Column(GUID(), ForeignKey("schools.id", ondelete="CASCADE"), nullable=False)
     name = Column(String(255), nullable=False)
     code = Column(String(64), unique=True)
     address = Column(JSONB, nullable=True)
@@ -44,7 +38,7 @@ class Facility(UUIDMixin, Base):
 class Building(UUIDMixin, Base):
     __tablename__ = "buildings"
 
-    facility_id = Column(String(36), ForeignKey("facilities.id", ondelete="CASCADE"), nullable=False)
+    facility_id = Column(GUID(), ForeignKey("facilities.id", ondelete="CASCADE"), nullable=False)
     name = Column(String(255), nullable=False)
     code = Column(String(64), unique=True)
     year_built = Column(Integer)
@@ -63,7 +57,7 @@ class Building(UUIDMixin, Base):
 class Floor(UUIDMixin, Base):
     __tablename__ = "floors"
 
-    building_id = Column(String(36), ForeignKey("buildings.id", ondelete="CASCADE"), nullable=False)
+    building_id = Column(GUID(), ForeignKey("buildings.id", ondelete="CASCADE"), nullable=False)
     level_code = Column(String(32), nullable=False)  # e.g., B1, 1, 2
     name = Column(String(128))
     created_at, updated_at = ts_cols()
@@ -76,8 +70,8 @@ class Space(UUIDMixin, Base):
     __tablename__ = "spaces"
     __table_args__ = (UniqueConstraint("building_id", "code", name="uq_spaces_building_code"),)
 
-    building_id = Column(String(36), ForeignKey("buildings.id", ondelete="CASCADE"), nullable=False)
-    floor_id = Column(String(36), ForeignKey("floors.id", ondelete="SET NULL"), nullable=True)
+    building_id = Column(GUID(), ForeignKey("buildings.id", ondelete="CASCADE"), nullable=False)
+    floor_id = Column(GUID(), ForeignKey("floors.id", ondelete="SET NULL"), nullable=True)
     code = Column(String(64), nullable=False)  # room number
     name = Column(String(255))
     space_type = Column(String(64))
@@ -124,9 +118,9 @@ class Part(UUIDMixin, Base):
 class PartLocation(UUIDMixin, Base):
     __tablename__ = "part_locations"
 
-    part_id = Column(String(36), ForeignKey("parts.id", ondelete="CASCADE"), nullable=False)
-    building_id = Column(String(36), ForeignKey("buildings.id", ondelete="SET NULL"))
-    space_id = Column(String(36), ForeignKey("spaces.id", ondelete="SET NULL"))
+    part_id = Column(GUID(), ForeignKey("parts.id", ondelete="CASCADE"), nullable=False)
+    building_id = Column(GUID(), ForeignKey("buildings.id", ondelete="SET NULL"))
+    space_id = Column(GUID(), ForeignKey("spaces.id", ondelete="SET NULL"))
     location_code = Column(String(128))
     qty_on_hand = Column(Numeric(12, 2), nullable=False, server_default=text("0"))
     min_qty = Column(Numeric(12, 2))
@@ -141,9 +135,9 @@ class PartLocation(UUIDMixin, Base):
 class Asset(UUIDMixin, Base):
     __tablename__ = "assets"
 
-    building_id = Column(String(36), ForeignKey("buildings.id", ondelete="SET NULL"))
-    space_id    = Column(String(36), ForeignKey("spaces.id",    ondelete="SET NULL"))
-    parent_asset_id = Column(String(36), ForeignKey("assets.id", ondelete="SET NULL"), nullable=True)
+    building_id = Column(GUID(), ForeignKey("buildings.id", ondelete="SET NULL"))
+    space_id    = Column(GUID(), ForeignKey("spaces.id",    ondelete="SET NULL"))
+    parent_asset_id = Column(GUID(), ForeignKey("assets.id", ondelete="SET NULL"), nullable=True)
 
     tag = Column(String(128), nullable=False, unique=True)
     serial_no = Column(String(128))
@@ -163,7 +157,7 @@ class Asset(UUIDMixin, Base):
     # self-referential: parent/children
     parent: Mapped[Optional["Asset"]] = relationship(
         "Asset",
-        remote_side=lambda: [Asset.id],            # IMPORTANT: real column, not string/builtin
+        remote_side=lambda: [Asset.id],
         back_populates="children",
         foreign_keys=lambda: [Asset.parent_asset_id],
     )
@@ -174,21 +168,23 @@ class Asset(UUIDMixin, Base):
         foreign_keys=lambda: [Asset.parent_asset_id],
     )
 
-    parts             = relationship("AssetPart", back_populates="asset")
-    meters            = relationship("Meter", back_populates="asset")
-    pm_plans          = relationship("PMPlan", back_populates="asset")
-    warranties        = relationship("Warranty", back_populates="asset")
-    compliance_records= relationship("ComplianceRecord", back_populates="asset")
-    work_orders       = relationship(
+    parts              = relationship("AssetPart", back_populates="asset")
+    meters             = relationship("Meter", back_populates="asset")
+    pm_plans           = relationship("PMPlan", back_populates="asset")
+    warranties         = relationship("Warranty", back_populates="asset")
+    compliance_records = relationship("ComplianceRecord", back_populates="asset")
+    work_orders        = relationship(
         "WorkOrder",
         back_populates="asset",
         foreign_keys=lambda: [WorkOrder.asset_id],
     )
+
+
 class AssetPart(Base):
     __tablename__ = "asset_parts"
 
-    asset_id = Column(String(36), ForeignKey("assets.id", ondelete="CASCADE"), primary_key=True)
-    part_id = Column(String(36), ForeignKey("parts.id", ondelete="CASCADE"), primary_key=True)
+    asset_id = Column(GUID(), ForeignKey("assets.id", ondelete="CASCADE"), primary_key=True)
+    part_id = Column(GUID(), ForeignKey("parts.id", ondelete="CASCADE"), primary_key=True)
     qty = Column(Numeric(12, 2), nullable=False, server_default=text("1"))
     created_at, updated_at = ts_cols()
 
@@ -199,8 +195,8 @@ class AssetPart(Base):
 class Meter(UUIDMixin, Base):
     __tablename__ = "meters"
 
-    asset_id = Column(String(36), ForeignKey("assets.id", ondelete="CASCADE"))
-    building_id = Column(String(36), ForeignKey("buildings.id", ondelete="CASCADE"))
+    asset_id = Column(GUID(), ForeignKey("assets.id", ondelete="CASCADE"))
+    building_id = Column(GUID(), ForeignKey("buildings.id", ondelete="CASCADE"))
     name = Column(String(255), nullable=False)
     meter_type = Column(String(64))
     uom = Column(String(32))
@@ -215,25 +211,26 @@ class Meter(UUIDMixin, Base):
 
 # Work Management -----------------------------------------------------
 
-# MaintenanceRequest
 class MaintenanceRequest(UUIDMixin, Base):
     __tablename__ = "maintenance_requests"
 
-    school_id  = Column(String(36), ForeignKey("schools.id",   ondelete="SET NULL"))
-    building_id= Column(String(36), ForeignKey("buildings.id", ondelete="SET NULL"))
-    space_id   = Column(String(36), ForeignKey("spaces.id",    ondelete="SET NULL"))
-    asset_id   = Column(String(36), ForeignKey("assets.id",    ondelete="SET NULL"))
-    submitted_by_user_id = Column(String(36), ForeignKey("users.id", ondelete="SET NULL"))
+    school_id  = Column(GUID(), ForeignKey("schools.id",   ondelete="SET NULL"))
+    building_id= Column(GUID(), ForeignKey("buildings.id", ondelete="SET NULL"))
+    space_id   = Column(GUID(), ForeignKey("spaces.id",    ondelete="SET NULL"))
+    asset_id   = Column(GUID(), ForeignKey("assets.id",    ondelete="SET NULL"))
+    submitted_by_user_id = Column(GUID(), ForeignKey("users.id", ondelete="SET NULL"))
     status = Column(String(32), nullable=False, server_default=text("'new'"))
     priority = Column(String(16))
     summary = Column(String(255), nullable=False)
     description = Column(Text)
-    # keep the column, but don’t back_populate with WorkOrder
-    converted_work_order_id = Column(String(36), ForeignKey("work_orders.id", ondelete="SET NULL"), nullable=True)
+
+    # legacy pointer (kept for compatibility)
+    converted_work_order_id = Column(GUID(), ForeignKey("work_orders.id", ondelete="SET NULL"), nullable=True)
+
     attributes = Column(JSONB, nullable=True)
     created_at, updated_at = ts_cols()
 
-    # single authoritative 1:1 path via WorkOrder.request_id
+    # canonical 1:1 link via WorkOrder.request_id
     work_order: Mapped[Optional["WorkOrder"]] = relationship(
         "WorkOrder",
         primaryjoin="MaintenanceRequest.id == foreign(WorkOrder.request_id)",
@@ -241,7 +238,7 @@ class MaintenanceRequest(UUIDMixin, Base):
         uselist=False,
     )
 
-    # convenience read-only pointer via the legacy column
+    # read-only convenience to legacy column
     converted_work_order: Mapped[Optional["WorkOrder"]] = relationship(
         "WorkOrder",
         primaryjoin="MaintenanceRequest.converted_work_order_id == WorkOrder.id",
@@ -249,16 +246,17 @@ class MaintenanceRequest(UUIDMixin, Base):
         uselist=False,
     )
 
+
 class WorkOrder(UUIDMixin, Base):
     __tablename__ = "work_orders"
 
-    school_id  = Column(String(36), ForeignKey("schools.id",   ondelete="SET NULL"))
-    building_id= Column(String(36), ForeignKey("buildings.id", ondelete="SET NULL"))
-    space_id   = Column(String(36), ForeignKey("spaces.id",    ondelete="SET NULL"))
-    asset_id   = Column(String(36), ForeignKey("assets.id",    ondelete="SET NULL"))
+    school_id  = Column(GUID(), ForeignKey("schools.id",   ondelete="SET NULL"))
+    building_id= Column(GUID(), ForeignKey("buildings.id", ondelete="SET NULL"))
+    space_id   = Column(GUID(), ForeignKey("spaces.id",    ondelete="SET NULL"))
+    asset_id   = Column(GUID(), ForeignKey("assets.id",    ondelete="SET NULL"))
 
-    # keep ONE definition, matching the migration type
-    request_id = Column(String(36), ForeignKey("maintenance_requests.id", ondelete="SET NULL"),
+    # canonical pointer back to request
+    request_id = Column(GUID(), ForeignKey("maintenance_requests.id", ondelete="SET NULL"),
                         unique=True, nullable=True)
 
     status = Column(String(32), nullable=False, server_default=text("'open'"))
@@ -270,14 +268,13 @@ class WorkOrder(UUIDMixin, Base):
     scheduled_start_at = Column(TIMESTAMP(timezone=True))
     scheduled_end_at   = Column(TIMESTAMP(timezone=True))
     completed_at       = Column(TIMESTAMP(timezone=True))
-    assigned_to_user_id= Column(String(36), ForeignKey("users.id", ondelete="SET NULL"))
+    assigned_to_user_id= Column(GUID(), ForeignKey("users.id", ondelete="SET NULL"))
     materials_cost = Column(Numeric(12, 2))
     labor_cost     = Column(Numeric(12, 2))
     other_cost     = Column(Numeric(12, 2))
     attributes = Column(JSONB, nullable=True)
     created_at, updated_at = ts_cols()
 
-    # canonical 1:1 link to the request
     request: Mapped[Optional["MaintenanceRequest"]] = relationship(
         "MaintenanceRequest",
         back_populates="work_order",
@@ -285,16 +282,15 @@ class WorkOrder(UUIDMixin, Base):
         uselist=False,
     )
 
-    # link to asset (reverse of Asset.work_orders)
     asset = relationship(
         "Asset",
         back_populates="work_orders",
         foreign_keys=[asset_id],
     )
 
-    tasks     = relationship("WorkOrderTask", back_populates="work_order", cascade="all, delete-orphan")
-    time_logs = relationship("WorkOrderTimeLog", back_populates="work_order", cascade="all, delete-orphan")
-    parts_used= relationship("WorkOrderPart",  back_populates="work_order", cascade="all, delete-orphan")
+    tasks      = relationship("WorkOrderTask", back_populates="work_order", cascade="all, delete-orphan")
+    time_logs  = relationship("WorkOrderTimeLog", back_populates="work_order", cascade="all, delete-orphan")
+    parts_used = relationship("WorkOrderPart",  back_populates="work_order", cascade="all, delete-orphan")
 
     # optional view of “converted from” via MR.converted_work_order_id (no back_populates)
     converted_from_request: Mapped[Optional["MaintenanceRequest"]] = relationship(
@@ -304,10 +300,11 @@ class WorkOrder(UUIDMixin, Base):
         uselist=False,
     )
 
+
 class WorkOrderTask(UUIDMixin, Base):
     __tablename__ = "work_order_tasks"
 
-    work_order_id = Column(String(36), ForeignKey("work_orders.id", ondelete="CASCADE"), nullable=False)
+    work_order_id = Column(GUID(), ForeignKey("work_orders.id", ondelete="CASCADE"), nullable=False)
     seq = Column(Integer, nullable=False, server_default=text("1"))
     title = Column(String(255), nullable=False)
     is_mandatory = Column(Boolean, nullable=False, server_default=text("false"))
@@ -322,8 +319,8 @@ class WorkOrderTask(UUIDMixin, Base):
 class WorkOrderTimeLog(UUIDMixin, Base):
     __tablename__ = "work_order_time_logs"
 
-    work_order_id = Column(String(36), ForeignKey("work_orders.id", ondelete="CASCADE"), nullable=False)
-    user_id = Column(String(36), ForeignKey("users.id", ondelete="SET NULL"))
+    work_order_id = Column(GUID(), ForeignKey("work_orders.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(GUID(), ForeignKey("users.id", ondelete="SET NULL"))
     started_at = Column(TIMESTAMP(timezone=True))
     ended_at = Column(TIMESTAMP(timezone=True))
     hours = Column(Numeric(10, 2))
@@ -338,8 +335,8 @@ class WorkOrderTimeLog(UUIDMixin, Base):
 class WorkOrderPart(UUIDMixin, Base):
     __tablename__ = "work_order_parts"
 
-    work_order_id = Column(String(36), ForeignKey("work_orders.id", ondelete="CASCADE"), nullable=False)
-    part_id = Column(String(36), ForeignKey("parts.id", ondelete="SET NULL"))
+    work_order_id = Column(GUID(), ForeignKey("work_orders.id", ondelete="CASCADE"), nullable=False)
+    part_id = Column(GUID(), ForeignKey("parts.id", ondelete="SET NULL"))
     qty = Column(Numeric(12, 2), nullable=False, server_default=text("1"))
     unit_cost = Column(Numeric(12, 2))
     extended_cost = Column(Numeric(12, 2))
@@ -355,8 +352,8 @@ class WorkOrderPart(UUIDMixin, Base):
 class PMPlan(UUIDMixin, Base):
     __tablename__ = "pm_plans"
 
-    asset_id = Column(String(36), ForeignKey("assets.id", ondelete="CASCADE"))
-    building_id = Column(String(36), ForeignKey("buildings.id", ondelete="CASCADE"))
+    asset_id = Column(GUID(), ForeignKey("assets.id", ondelete="CASCADE"))
+    building_id = Column(GUID(), ForeignKey("buildings.id", ondelete="CASCADE"))
     name = Column(String(255), nullable=False)
     frequency = Column(String(64))
     next_due_at = Column(TIMESTAMP(timezone=True))
@@ -374,7 +371,7 @@ class PMPlan(UUIDMixin, Base):
 class PMWorkGenerator(UUIDMixin, Base):
     __tablename__ = "pm_work_generators"
 
-    pm_plan_id = Column(String(36), ForeignKey("pm_plans.id", ondelete="CASCADE"), nullable=False)
+    pm_plan_id = Column(GUID(), ForeignKey("pm_plans.id", ondelete="CASCADE"), nullable=False)
     last_generated_at = Column(TIMESTAMP(timezone=True))
     lookahead_days = Column(Integer)
     attributes = Column(JSONB, nullable=True)
@@ -386,8 +383,8 @@ class PMWorkGenerator(UUIDMixin, Base):
 class Warranty(UUIDMixin, Base):
     __tablename__ = "warranties"
 
-    asset_id = Column(String(36), ForeignKey("assets.id", ondelete="CASCADE"), nullable=False)
-    vendor_id = Column(String(36), ForeignKey("vendors.id", ondelete="SET NULL"))
+    asset_id = Column(GUID(), ForeignKey("assets.id", ondelete="CASCADE"), nullable=False)
+    vendor_id = Column(GUID(), ForeignKey("vendors.id", ondelete="SET NULL"))
     policy_no = Column(String(128))
     start_date = Column(Date)
     end_date = Column(Date)
@@ -402,8 +399,8 @@ class Warranty(UUIDMixin, Base):
 class ComplianceRecord(UUIDMixin, Base):
     __tablename__ = "compliance_records"
 
-    building_id = Column(String(36), ForeignKey("buildings.id", ondelete="SET NULL"))
-    asset_id = Column(String(36), ForeignKey("assets.id", ondelete="SET NULL"))
+    building_id = Column(GUID(), ForeignKey("buildings.id", ondelete="SET NULL"))
+    asset_id = Column(GUID(), ForeignKey("assets.id", ondelete="SET NULL"))
     record_type = Column(String(64), nullable=False)
     authority = Column(String(255))
     identifier = Column(String(128))
@@ -422,8 +419,8 @@ class ComplianceRecord(UUIDMixin, Base):
 class SpaceReservation(UUIDMixin, Base):
     __tablename__ = "space_reservations"
 
-    space_id = Column(String(36), ForeignKey("spaces.id", ondelete="CASCADE"), nullable=False)
-    booked_by_user_id = Column(String(36), ForeignKey("users.id", ondelete="SET NULL"))
+    space_id = Column(GUID(), ForeignKey("spaces.id", ondelete="CASCADE"), nullable=False)
+    booked_by_user_id = Column(GUID(), ForeignKey("users.id", ondelete="SET NULL"))
     start_at = Column(TIMESTAMP(timezone=True), nullable=False)
     end_at = Column(TIMESTAMP(timezone=True), nullable=False)
     purpose = Column(String(255))
@@ -438,7 +435,7 @@ class SpaceReservation(UUIDMixin, Base):
 class Lease(UUIDMixin, Base):
     __tablename__ = "leases"
 
-    building_id = Column(String(36), ForeignKey("buildings.id", ondelete="SET NULL"))
+    building_id = Column(GUID(), ForeignKey("buildings.id", ondelete="SET NULL"))
     landlord = Column(String(255))
     tenant = Column(String(255))
     start_date = Column(Date)
@@ -456,7 +453,7 @@ class Lease(UUIDMixin, Base):
 class Project(UUIDMixin, Base):
     __tablename__ = "projects"
 
-    school_id = Column(String(36), ForeignKey("schools.id", ondelete="SET NULL"))
+    school_id = Column(GUID(), ForeignKey("schools.id", ondelete="SET NULL"))
     name = Column(String(255), nullable=False)
     project_type = Column(String(32))
     status = Column(String(32))
@@ -473,13 +470,13 @@ class Project(UUIDMixin, Base):
 class ProjectTask(UUIDMixin, Base):
     __tablename__ = "project_tasks"
 
-    project_id = Column(String(36), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    project_id = Column(GUID(), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
     name = Column(String(255), nullable=False)
     status = Column(String(32))
     start_date = Column(Date)
     end_date = Column(Date)
     percent_complete = Column(Numeric(5, 2))
-    assignee_user_id = Column(String(36), ForeignKey("users.id", ondelete="SET NULL"))
+    assignee_user_id = Column(GUID(), ForeignKey("users.id", ondelete="SET NULL"))
     attributes = Column(JSONB, nullable=True)
     created_at, updated_at = ts_cols()
 
@@ -489,10 +486,10 @@ class ProjectTask(UUIDMixin, Base):
 class MoveOrder(UUIDMixin, Base):
     __tablename__ = "move_orders"
 
-    project_id = Column(String(36), ForeignKey("projects.id", ondelete="SET NULL"))
-    person_id = Column(String(36), ForeignKey("users.id", ondelete="SET NULL"))
-    from_space_id = Column(String(36), ForeignKey("spaces.id", ondelete="SET NULL"))
-    to_space_id = Column(String(36), ForeignKey("spaces.id", ondelete="SET NULL"))
+    project_id = Column(GUID(), ForeignKey("projects.id", ondelete="SET NULL"))
+    person_id = Column(GUID(), ForeignKey("users.id", ondelete="SET NULL"))
+    from_space_id = Column(GUID(), ForeignKey("spaces.id", ondelete="SET NULL"))
+    to_space_id = Column(GUID(), ForeignKey("spaces.id", ondelete="SET NULL"))
     move_date = Column(Date)
     status = Column(String(32))
     attributes = Column(JSONB, nullable=True)

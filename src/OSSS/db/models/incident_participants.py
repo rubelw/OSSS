@@ -1,15 +1,25 @@
-from sqlalchemy import Column, Text, Integer, Boolean, Date, DateTime, Time, Numeric, ForeignKey, UniqueConstraint, Index, text
+# src/OSSS/db/models/incident_participants.py
+from __future__ import annotations
 
-from sqlalchemy.orm import relationship
-from .base import Base, GUID
+import sqlalchemy as sa
+from sqlalchemy.orm import Mapped, mapped_column
+
+from OSSS.db.base import Base, UUIDMixin, TimestampMixin, GUID
 
 
-class IncidentParticipant(Base):
+class IncidentParticipant(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "incident_participants"
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    incident_id = Column("incident_id", GUID(), ForeignKey("incidents.id", ondelete="CASCADE"), nullable=False)
-    person_id = Column("person_id", GUID(), ForeignKey("persons.id", ondelete="CASCADE"), nullable=False)
-    role = Column("role", Text, nullable=False)
-    created_at = Column("created_at", DateTime(timezone=True), default=lambda: str(uuid.uuid4()), nullable=False)
-    updated_at = Column("updated_at", DateTime(timezone=True), default=lambda: str(uuid.uuid4()), nullable=False)
-    __table_args__ = (UniqueConstraint("incident_id", "person_id", name="uq_incident_person"), )
+
+    incident_id: Mapped[str] = mapped_column(
+        GUID(), sa.ForeignKey("incidents.id", ondelete="CASCADE"), nullable=False
+    )
+    person_id: Mapped[str] = mapped_column(
+        GUID(), sa.ForeignKey("persons.id", ondelete="CASCADE"), nullable=False
+    )
+    role: Mapped[str] = mapped_column(sa.Text, nullable=False)
+
+    __table_args__ = (
+        sa.UniqueConstraint("incident_id", "person_id", name="uq_incident_person"),
+        sa.Index("ix_incident_participants_incident", "incident_id"),
+        sa.Index("ix_incident_participants_person", "person_id"),
+    )

@@ -1,16 +1,40 @@
-from sqlalchemy import Column, Text, Integer, Boolean, Date, DateTime, Time, Numeric, ForeignKey, UniqueConstraint, Index, text
-from sqlalchemy.orm import relationship
-from .base import Base, GUID
+# src/OSSS/db/models/consequences.py
+from __future__ import annotations
+
+from datetime import date, datetime
+from typing import Optional
+
+import sqlalchemy as sa
+from sqlalchemy.orm import Mapped, mapped_column
+
+from OSSS.db.base import Base, GUID, UUIDMixin
 
 
-class Consequence(Base):
+class Consequence(UUIDMixin, Base):
     __tablename__ = "consequences"
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    incident_id = Column("incident_id", GUID(), ForeignKey("incidents.id", ondelete="CASCADE"), nullable=False)
-    participant_id = Column("participant_id", GUID(), ForeignKey("incident_participants.id", ondelete="CASCADE"), nullable=False)
-    consequence_code = Column("consequence_code", Text, ForeignKey("consequence_types.code", ondelete="RESTRICT"), nullable=False)
-    start_date = Column("start_date", Date)
-    end_date = Column("end_date", Date)
-    notes = Column("notes", Text)
-    created_at = Column("created_at", DateTime(timezone=True), default=lambda: str(uuid.uuid4()), nullable=False)
-    updated_at = Column("updated_at", DateTime(timezone=True), default=lambda: str(uuid.uuid4()), nullable=False)
+
+    incident_id: Mapped[str] = mapped_column(
+        GUID(), sa.ForeignKey("incidents.id", ondelete="CASCADE"), nullable=False
+    )
+    participant_id: Mapped[str] = mapped_column(
+        GUID(), sa.ForeignKey("incident_participants.id", ondelete="CASCADE"), nullable=False
+    )
+    consequence_code: Mapped[str] = mapped_column(
+        sa.Text, sa.ForeignKey("consequence_types.code", ondelete="RESTRICT"), nullable=False
+    )
+
+    start_date: Mapped[Optional[date]] = mapped_column(sa.Date)
+    end_date: Mapped[Optional[date]] = mapped_column(sa.Date)
+    notes: Mapped[Optional[str]] = mapped_column(sa.Text)
+
+    created_at: Mapped[datetime] = mapped_column(
+        sa.TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=sa.text("CURRENT_TIMESTAMP"),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        sa.TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=sa.text("CURRENT_TIMESTAMP"),
+        onupdate=sa.text("CURRENT_TIMESTAMP"),
+    )

@@ -1169,7 +1169,7 @@ def osss_realm() -> RealmRepresentation:
         email_verified=True,
         first_name="OSSS",
         last_name="Admin",
-        totp=False,
+        totp=True,
         password="password",
         required_actions=[],
         realm_roles=["offline_access","uma_authorization","admin"],

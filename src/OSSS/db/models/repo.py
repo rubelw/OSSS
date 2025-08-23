@@ -1,15 +1,16 @@
 # app/models/repo.py
+# src/OSSS/db/model/repo.py
 from __future__ import annotations
 
+import uuid
 from datetime import datetime
 from typing import Optional, Literal, List
 
 import sqlalchemy as sa
 from sqlalchemy import String, Boolean, Integer, ForeignKey, Index
-from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from .base import Base, GUID, TSVectorType, UUIDMixin, JSONB
+from OSSS.db.base import Base, GUID, TSVectorType, UUIDMixin, JSONB
 
 
 # -------------------------------
@@ -18,8 +19,12 @@ from .base import Base, GUID, TSVectorType, UUIDMixin, JSONB
 class Folder(UUIDMixin, Base):
     __tablename__ = "folders"
 
-    org_id: Mapped[str] = mapped_column(GUID(), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
-    parent_id: Mapped[Optional[str]] = mapped_column(GUID(), ForeignKey("folders.id", ondelete="CASCADE"))
+    org_id: Mapped[uuid.UUID] = mapped_column(
+        GUID(), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    parent_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        GUID(), ForeignKey("folders.id", ondelete="CASCADE")
+    )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     is_public: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=sa.text("false"))
     sort_order: Mapped[Optional[int]] = mapped_column(Integer)
@@ -29,19 +34,20 @@ class Folder(UUIDMixin, Base):
         "Folder",
         remote_side="Folder.id",
         back_populates="children",
-        lazy="joined",
-        cascade="none",
+        lazy="selectin",
     )
     children: Mapped[List["Folder"]] = relationship(
         "Folder",
         back_populates="parent",
         cascade="all, delete-orphan",
+        lazy="selectin",
     )
     documents: Mapped[List["Document"]] = relationship(
         "Document",
         back_populates="folder",
         cascade="all, delete-orphan",
         passive_deletes=True,
+        lazy="selectin",
     )
 
     __table_args__ = (Index("ix_folders_org", "org_id"),)
@@ -53,16 +59,20 @@ class Folder(UUIDMixin, Base):
 class Document(UUIDMixin, Base):
     __tablename__ = "documents"
 
-    folder_id: Mapped[Optional[str]] = mapped_column(GUID(), ForeignKey("folders.id", ondelete="SET NULL"))
+    folder_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        GUID(), ForeignKey("folders.id", ondelete="SET NULL")
+    )
     title: Mapped[str] = mapped_column(String(255), nullable=False)
-    # FK is added via table-level constraint below to mirror your migration
-    current_version_id: Mapped[Optional[str]] = mapped_column(GUID(), nullable=True)
+
+    # FK is added via table-level constraint below (current_version_id -> document_versions.id)
+    current_version_id: Mapped[Optional[uuid.UUID]] = mapped_column(GUID(), nullable=True)
+
     is_public: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=sa.text("false"))
 
     # relationships
-    folder: Mapped[Optional["Folder"]] = relationship("Folder", back_populates="documents")
+    folder: Mapped[Optional["Folder"]] = relationship("Folder", back_populates="documents", lazy="selectin")
 
-    # EXPLICIT: tie to path Document.id -> DocumentVersion.document_id
+    # EXPLICIT: Document.id -> DocumentVersion.document_id
     versions: Mapped[List["DocumentVersion"]] = relationship(
         "DocumentVersion",
         back_populates="document",
@@ -70,10 +80,11 @@ class Document(UUIDMixin, Base):
         passive_deletes=True,
         foreign_keys="DocumentVersion.document_id",
         primaryjoin="Document.id == DocumentVersion.document_id",
+        lazy="selectin",
     )
 
-    # EXPLICIT: tie to path Document.current_version_id -> DocumentVersion.id
-    # viewonly avoids write-order conflicts with versions; drop viewonly if you need to set this directly
+    # EXPLICIT: Document.current_version_id -> DocumentVersion.id
+    # viewonly avoids write-order conflicts with versions
     current_version: Mapped[Optional["DocumentVersion"]] = relationship(
         "DocumentVersion",
         uselist=False,
@@ -88,12 +99,14 @@ class Document(UUIDMixin, Base):
         back_populates="document",
         cascade="all, delete-orphan",
         passive_deletes=True,
+        lazy="selectin",
     )
     activities: Mapped[List["DocumentActivity"]] = relationship(
         "DocumentActivity",
         back_populates="document",
         cascade="all, delete-orphan",
         passive_deletes=True,
+        lazy="selectin",
     )
     search_index: Mapped[Optional["DocumentSearchIndex"]] = relationship(
         "DocumentSearchIndex",
@@ -101,10 +114,10 @@ class Document(UUIDMixin, Base):
         cascade="all, delete-orphan",
         uselist=False,
         passive_deletes=True,
+        lazy="joined",
     )
 
     __table_args__ = (
-        # match migration’s fk_documents_current_version
         sa.ForeignKeyConstraint(
             ["current_version_id"],
             ["document_versions.id"],
@@ -120,20 +133,26 @@ class Document(UUIDMixin, Base):
 class DocumentVersion(UUIDMixin, Base):
     __tablename__ = "document_versions"
 
-    document_id: Mapped[str] = mapped_column(GUID(), ForeignKey("documents.id", ondelete="CASCADE"), nullable=False)
+    document_id: Mapped[uuid.UUID] = mapped_column(
+        GUID(), ForeignKey("documents.id", ondelete="CASCADE"), nullable=False
+    )
     version_no: Mapped[int] = mapped_column(Integer, nullable=False, server_default="1")
-    file_id: Mapped[str] = mapped_column(GUID(), ForeignKey("files.id", ondelete="RESTRICT"), nullable=False)
+    file_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("files.id", ondelete="RESTRICT"), nullable=False)
     checksum: Mapped[Optional[str]] = mapped_column(String(128))
-    created_by: Mapped[Optional[str]] = mapped_column(GUID(), ForeignKey("users.id"))
-    created_at: Mapped[datetime] = mapped_column(sa.TIMESTAMP(timezone=True), nullable=False, server_default=sa.text("CURRENT_TIMESTAMP"))
-    published_at: Mapped[Optional[datetime]] = mapped_column(sa.TIMESTAMP(timezone=True))
+    created_by: Mapped[Optional[uuid.UUID]] = mapped_column(GUID(), ForeignKey("users.id"))
 
-    # EXPLICIT: tie back to Document via DocumentVersion.document_id
+    created_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()
+    )
+    published_at: Mapped[Optional[datetime]] = mapped_column(sa.DateTime(timezone=True))
+
+    # EXPLICIT: tie back to Document
     document: Mapped["Document"] = relationship(
         "Document",
         back_populates="versions",
         foreign_keys=[document_id],
         primaryjoin="DocumentVersion.document_id == Document.id",
+        lazy="joined",
     )
 
 
@@ -149,11 +168,10 @@ class DocumentPermission(Base):
     __tablename__ = "document_permissions"
 
     resource_type: Mapped[str] = mapped_column(String(20), primary_key=True)   # folder|document
-    resource_id: Mapped[str] = mapped_column(GUID(), primary_key=True)
+    resource_id: Mapped[uuid.UUID] = mapped_column(GUID(), primary_key=True)
     principal_type: Mapped[str] = mapped_column(String(20), primary_key=True)  # user|group|role
-    principal_id: Mapped[str] = mapped_column(GUID(), primary_key=True)
+    principal_id: Mapped[uuid.UUID] = mapped_column(GUID(), primary_key=True)
     permission: Mapped[str] = mapped_column(String(20), primary_key=True)      # view|edit|manage
-
     # No FKs here by design (polymorphic target)
 
 
@@ -163,12 +181,16 @@ class DocumentPermission(Base):
 class DocumentNotification(Base):
     __tablename__ = "document_notifications"
 
-    document_id: Mapped[str] = mapped_column(GUID(), ForeignKey("documents.id", ondelete="CASCADE"), primary_key=True)
-    user_id: Mapped[str] = mapped_column(GUID(), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    document_id: Mapped[uuid.UUID] = mapped_column(
+        GUID(), ForeignKey("documents.id", ondelete="CASCADE"), primary_key=True
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        GUID(), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
     subscribed: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=sa.text("true"))
-    last_sent_at: Mapped[Optional[datetime]] = mapped_column(sa.TIMESTAMP(timezone=True))
+    last_sent_at: Mapped[Optional[datetime]] = mapped_column(sa.DateTime(timezone=True))
 
-    document: Mapped["Document"] = relationship("Document", back_populates="notifications")
+    document: Mapped["Document"] = relationship("Document", back_populates="notifications", lazy="joined")
 
 
 # -------------------------------
@@ -177,13 +199,17 @@ class DocumentNotification(Base):
 class DocumentActivity(UUIDMixin, Base):
     __tablename__ = "document_activity"
 
-    document_id: Mapped[str] = mapped_column(GUID(), ForeignKey("documents.id", ondelete="CASCADE"), nullable=False)
-    actor_id: Mapped[Optional[str]] = mapped_column(GUID(), ForeignKey("users.id"))
+    document_id: Mapped[uuid.UUID] = mapped_column(
+        GUID(), ForeignKey("documents.id", ondelete="CASCADE"), nullable=False
+    )
+    actor_id: Mapped[Optional[uuid.UUID]] = mapped_column(GUID(), ForeignKey("users.id"))
     action: Mapped[str] = mapped_column(String(32), nullable=False)
-    at: Mapped[datetime] = mapped_column(sa.TIMESTAMP(timezone=True), nullable=False, server_default=sa.text("CURRENT_TIMESTAMP"))
-    meta: Mapped[Optional[dict]] = mapped_column(JSONB)
+    at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()
+    )
+    meta: Mapped[Optional[dict]] = mapped_column(JSONB())
 
-    document: Mapped["Document"] = relationship("Document", back_populates="activities")
+    document: Mapped["Document"] = relationship("Document", back_populates="activities", lazy="joined")
 
     __table_args__ = (Index("ix_document_activity_doc", "document_id"),)
 
@@ -194,12 +220,15 @@ class DocumentActivity(UUIDMixin, Base):
 class DocumentSearchIndex(Base):
     __tablename__ = "document_search_index"
 
-    document_id: Mapped[str] = mapped_column(GUID(), ForeignKey("documents.id", ondelete="CASCADE"), primary_key=True)
+    document_id: Mapped[uuid.UUID] = mapped_column(
+        GUID(), ForeignKey("documents.id", ondelete="CASCADE"), primary_key=True
+    )
+    # With sqlalchemy-utils TSVectorType you can pass column names (e.g., TSVectorType('title'))
+    # Our fallback maps to TSVECTOR on PG or TEXT elsewhere.
     ts: Mapped[Optional[str]] = mapped_column(TSVectorType())
 
-    document: Mapped["Document"] = relationship("Document", back_populates="search_index")
+    document: Mapped["Document"] = relationship("Document", back_populates="search_index", lazy="joined")
 
     __table_args__ = (
-        # GIN index is created in migration; leaving here for parity if you ever autogenerate
         sa.Index("ix_document_search_gin", "ts", postgresql_using="gin"),
     )
