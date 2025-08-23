@@ -1,7 +1,21 @@
-# src/OSSS/schemas/state.py
-from pydantic import BaseModel, ConfigDict
+from __future__ import annotations
+from typing import Optional
 
-class StateOut(BaseModel):
+from .base import ORMModel
+
+
+class StateBase(ORMModel):
     code: str
     name: str
-    model_config = ConfigDict(from_attributes=True)
+
+
+class StateCreate(StateBase):
+    pass
+
+
+class StateUpdate(ORMModel):
+    name: Optional[str] = None
+
+
+class StateOut(StateBase):
+    pass
