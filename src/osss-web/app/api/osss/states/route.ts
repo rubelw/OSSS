@@ -4,20 +4,23 @@ import { apiGet } from "@/lib/api-client";
 import { auth } from "@/auth";
 
 export async function GET() {
-  const session = await auth();
-  const accessToken = (session as any)?.accessToken;
-
-  if (!accessToken) {
-    // Not signed in or token not present in session
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   try {
-    const data = await apiGet("/states", {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
-    return NextResponse.json(data);
+    const session = await auth();
+    const accessToken = (session as any)?.accessToken as string | undefined;
+
+    if (!accessToken) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const data = await apiGet("/states", accessToken);
+    return NextResponse.json(data ?? []);
   } catch (err: any) {
-    return NextResponse.json({ error: err.message ?? "Upstream error" }, { status: 502 });
+    // If the upstream rejected the token, return 401 to the browser (not 500)
+    const msg = String(err?.message || "");
+    if (msg.startsWith("API 401")) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    console.error("[states route] error:", err);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
