@@ -131,7 +131,7 @@ def upgrade() -> None:
 
     # ---- events & signups ----
     op.create_table(
-        "events",
+        "comm_events",
         sa.Column("id", sa.String(36), primary_key=True),
         sa.Column("group_id", sa.String(36), sa.ForeignKey("groups.id", ondelete="CASCADE"), nullable=False),
         sa.Column("title", sa.String(255), nullable=False),
@@ -142,19 +142,19 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
     )
-    op.create_index("ix_events_group_id", "events", ["group_id"])
-    op.create_index("ix_events_starts_at", "events", ["starts_at"])
+    op.create_index("ix_comm_events_group_id", "comm_events", ["group_id"])
+    op.create_index("ix_comm_events_starts_at", "comm_events", ["starts_at"])
 
     op.create_table(
         "event_signups",
         sa.Column("id", sa.String(36), primary_key=True),
-        sa.Column("event_id", sa.String(36), sa.ForeignKey("events.id", ondelete="CASCADE"), nullable=False),
+        sa.Column("comm_event_id", sa.String(36), sa.ForeignKey("comm_events.id", ondelete="CASCADE"), nullable=False),
         sa.Column("user_id", sa.String(36), sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
         sa.Column("status", sa.String(32), nullable=False, server_default="going"),  # going | maybe | declined
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
-        sa.UniqueConstraint("event_id", "user_id", name="uq_event_signups_event_user"),
+        sa.UniqueConstraint("comm_event_id", "user_id", name="uq_event_signups_event_user"),
     )
-    op.create_index("ix_event_signups_event_id", "event_signups", ["event_id"])
+    op.create_index("ix_event_signups_event_id", "event_signups", ["comm_event_id"])
     op.create_index("ix_event_signups_user_id", "event_signups", ["user_id"])
 
 def downgrade() -> None:
@@ -164,9 +164,9 @@ def downgrade() -> None:
     op.drop_index("ix_event_signups_event_id", table_name="event_signups")
     op.drop_table("event_signups")
 
-    op.drop_index("ix_events_starts_at", table_name="events")
-    op.drop_index("ix_events_group_id", table_name="events")
-    op.drop_table("events")
+    op.drop_index("ix_comm_events_starts_at", table_name="comm_events")
+    op.drop_index("ix_comm_events_group_id", table_name="comm_events")
+    op.drop_table("comm_events")
 
     op.drop_index("ix_attachments_comment_id", table_name="attachments")
     op.drop_index("ix_attachments_post_id", table_name="attachments")

@@ -6,6 +6,10 @@ A community-driven, modular suite of applications for K‑12 districts. This rep
 
 ---
 
+## Demo
+
+![Dev Example](https://raw.githubusercontent.com/rubelw/OSSS/main/documentation/docs/img/demo.png)
+
 ## Contents
 
 * [Goals](#goals)
@@ -34,23 +38,7 @@ A community-driven, modular suite of applications for K‑12 districts. This rep
 ## Repository Layout
 
 ```
-open-source-school-software/
-├─ apps/
-│  ├─ school-board-management/          # featured app (see below)
-│  ├─ student-information-system/       # template (placeholder)
-│  ├─ facilities-booking/               # template (placeholder)
-│  └─ communications-portal/            # template (placeholder)
-├─ packages/
-│  ├─ ui/                               # shared UI components (optional)
-│  └─ shared/                           # shared libs (types, utils)
-├─ infra/
-│  ├─ docker/                           # docker-compose.*.yml for local dev
-│  └─ terraform/                        # VPC, DB, object storage (baseline)
-├─ .github/                              # workflows, issue templates, CODEOWNERS
-├─ CODE_OF_CONDUCT.md
-├─ SECURITY.md
-├─ LICENSE
-└─ README.md (this file)
+FIXME
 ```
 
 > This repo embraces **polyglot** development (e.g., TypeScript, Python, Go). Each app documents its own stack and requirements.

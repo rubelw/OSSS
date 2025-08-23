@@ -14,6 +14,8 @@ from OSSS.api.routers.me import router as me_router
 from OSSS.api.routers.states import router as states_router
 from OSSS.routes.schools import router as schools_router
 from OSSS.routes import sis_behavior_codes  # import the module
+from OSSS.api.routers import activities as activities_router
+
 
 from OSSS.api.routers.auth_flow import router as auth_router
 
@@ -35,7 +37,9 @@ def create_app() -> FastAPI:
     app.include_router(me_router)
     app.include_router(states_router)
     app.include_router(schools_router)
-    app.include_router(sis_behavior_codes.router)  # works: module.router
+    app.include_router(sis_behavior_codes.router)
+    app.include_router(activities_router.router)
+
     app.include_router(auth_router)
 
     # --- Startup (DB ping + Swagger OAuth) ---

@@ -1,174 +1,153 @@
-/* globals.css — bright/light-only theme */
-
-/* Force light color scheme for form controls, etc. */
+/* Bright theme */
 :root {
-  color-scheme: light;
-
-  /* Palette — bright + high contrast */
-  --bg:            #ffffff;      /* page background */
-  --surface:       #ffffff;      /* cards / panels */
-  --surface-2:     #f9fafb;      /* app shell main background */
-  --header-bg:     rgba(255,255,255,0.88); /* glassy header */
-  --border:        #e5e7eb;      /* light gray border */
-  --ring:          #93c5fd;      /* focus ring */
-  --shadow-lg:     0 10px 25px rgba(15, 23, 42, 0.08);
-
-  /* Text */
-  --text:          #0f172a;      /* slate-900 */
-  --text-muted:    #475569;      /* slate-600 */
-
-  /* Brand (bright blue) */
-  --brand:         #0b57d0;
-  --brand-600:     #1a73e8;
-  --brand-700:     #185abc;
-
-  /* Link hovers / subtle fills */
-  --link-hover:    #eef2ff;      /* very light indigo */
-  --sidebar-bg:    #ffffff;
-  --sidebar-border:#e5e7eb;
+  --bg: #ffffff;
+  --fg: #0f172a;          /* slate-900 */
+  --muted: #475569;       /* slate-600 */
+  --border: #e2e8f0;      /* slate-200 */
+  --brand: #0ea5e9;       /* sky-500 */
+  --header-bg: #f1f5f9;   /* slate-100 */
+  --sidebar-bg: #f8fafc;  /* slate-50 */
 }
 
-/* Base */
-html, body {
-  height: 100%;
-}
-
+* { box-sizing: border-box; }
+html, body { height: 100%; }
 body {
   margin: 0;
-  background: var(--surface-2);
-  color: var(--text);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
 }
 
-/* a11y focus */
-:focus-visible {
-  outline: 2px solid var(--ring);
-  outline-offset: 2px;
-}
-
-/* Container helper */
-.container-max {
+/* Centered content helper (don’t use for full-bleed areas) */
+.container {
   max-width: 1200px;
   margin-inline: auto;
+  padding-inline: 16px;
 }
 
-/* Top header (glassy) */
-.header-glass {
+/* App shell */
+.app-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Full-width, sticky header */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  width: 100%;
   background: var(--header-bg);
-  backdrop-filter: saturate(140%) blur(10px);
-  -webkit-backdrop-filter: saturate(140%) blur(10px);
   border-bottom: 1px solid var(--border);
 }
 
-/* Sidebar */
-.sidebar-surface {
-  background: var(--sidebar-bg);
-  border-right: 1px solid var(--sidebar-border);
-}
-
-/* Main surface */
-.main-surface {
-  background: var(--surface-2);
-}
-
-/* Links in nav/side */
-/* Replace this: display: inline-flex; */
-.link-nav {
-  display: flex;          /* forces full-row items */
-  width: 100%;            /* take full sidebar width */
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 0.625rem;
-  border-radius: 0.5rem;
-  color: var(--text);
-  text-decoration: none;
-  transition: background-color 160ms ease, color 160ms ease, transform 120ms ease;
-}
-
-.sidebar-section {
+/* Header inner layout */
+.topbar-inner {
   display: flex;
-  flex-direction: column;  /* stack links vertically */
-  gap: 0.25rem;            /* space between links */
-  margin-bottom: 1rem;     /* space between groups (Quick Links vs Modules) */
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 56px;
 }
 
+/* Brand */
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  text-decoration: none;
+  color: var(--fg);
+}
+.brand-badge {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: var(--brand);
+  color: white;
+  font-size: 14px;
+}
+.brand-text { letter-spacing: .2px; }
 
-.link-nav:hover {
-  background: var(--link-hover);
+/* Top navigation (horizontal) */
+.topnav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+.topnav a {
+  text-decoration: none;
+  color: var(--muted);
+  padding: 6px 8px;
+  border-radius: 8px;
+}
+.topnav a:hover {
+  background: #e9eef5;
+  color: var(--fg);
 }
 
-.link-nav[aria-current="page"],
-.link-nav.active {
-  background: #eaf2ff;
-  color: var(--brand-700);
-  font-weight: 600;
+/* Auth buttons */
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Content area */
+.app-content {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+}
+
+/* Sidebar */
+.sidebar {
+  width: 260px;
+  flex: 0 0 260px;
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--border);
+  padding: 16px;
+}
+.sidebar section + section { margin-top: 20px; }
+.sidebar h4 {
+  margin: 0 0 8px 0;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--muted);
+}
+.sidebar a {
+  display: block;           /* put each link on its own line */
+  padding: 8px 10px;
+  margin-bottom: 6px;       /* spacing between links */
+  border-radius: 8px;
+  color: var(--fg);
+  text-decoration: none;
+}
+.sidebar a:hover { background: #eef6fb; }
+
+/* Main */
+.main {
+  flex: 1;
+  min-width: 0;
+  padding: 24px;
 }
 
 /* Buttons */
 .btn {
-  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 10px;
   border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text);
-  padding: 0.5rem 0.9rem;
-  border-radius: 0.65rem;
-  font-weight: 500;
-  line-height: 1.2;
-  cursor: pointer;
-  transition: box-shadow 150ms ease, transform 120ms ease, background-color 150ms ease;
-  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.03);
+  background: #ffffff;
+  color: var(--fg);
+  text-decoration: none;
 }
+.btn:hover { background: #f8fafc; }
 
-.btn:hover {
-  background: #f8fafc;
-}
-
-.btn:active {
-  transform: translateY(1px);
-}
-
-.btn-primary {
-  border-color: transparent;
-  background: var(--brand);
-  color: #fff;
-  box-shadow: var(--shadow-lg);
-}
-
-.btn-primary:hover {
-  background: var(--brand-600);
-}
-
-.btn-primary:active {
-  background: var(--brand-700);
-  transform: translateY(1px);
-}
-
-/* Cards / tables feel brighter */
-table {
-  background: var(--surface);
-  border-collapse: collapse;
-}
-
-th, td {
-  border: 1px solid var(--border);
-}
-
-thead tr {
-  background: #f3f6ff; /* super light brand tint */
-}
-
-.elevated {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 0.75rem;
-  box-shadow: var(--shadow-lg);
-}
-
-/* Utility: subtle section labels */
-.section-label {
-  color: var(--text-muted);
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: .08em;
-}
