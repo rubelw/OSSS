@@ -14,6 +14,7 @@ from OSSS.api.routers.me import router as me_router
 from OSSS.api.routers.admin_settings_states import router as states_router
 from OSSS.api.routers.admin_settings_schools import router as schools_router
 from OSSS.api.routers.admin_settings_departments import router as departments_router
+from OSSS.api.routers.admin_settings_subjects import router as subjects_router
 
 from OSSS.api.routers.admin_settings_roles import router as roles_router
 from OSSS.api.routers.admin_settings_permissions import router as permissions_router
@@ -49,6 +50,8 @@ def create_app() -> FastAPI:
     app.include_router(states_router)
     app.include_router(schools_router)
     app.include_router(departments_router)
+    app.include_router(subjects_router)
+
 
     app.include_router(roles_router)
     app.include_router(permissions_router)
