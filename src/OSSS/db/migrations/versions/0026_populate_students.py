@@ -1,6 +1,10 @@
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy import text
+from datetime import date, datetime, timedelta
+from typing import Dict, List, Tuple, Optional
+
+
 
 # Pull the shims from your app (preferred)
 try:
@@ -48,46 +52,44 @@ except Exception:
             pass
 
 # --- Alembic identifiers ---
-revision = "0011_create_hr_position_asgnmnt"
-down_revision = "0010_create_payroll_hr_tables"
+revision = "0026_populate_students"
+down_revision = "0025_populate_bus_routes"
 branch_labels = None
 depends_on = None
 
-# ---- Timestamp helpers ----
-def _timestamps():
-    return (
-        sa.Column(
-            "created_at",
-            sa.TIMESTAMP(timezone=True),
-            nullable=False,
-            server_default=sa.text("CURRENT_TIMESTAMP"),
-        ),
-        sa.Column(
-            "updated_at",
-            sa.TIMESTAMP(timezone=True),
-            nullable=False,
-            server_default=sa.text("CURRENT_TIMESTAMP"),
-        ),
+
+def upgrade() -> None:
+    # Define a lightweight table for bulk_insert
+    students_tbl = sa.table(
+        "students",
+        sa.column("student_number", sa.Text),
+        sa.column("graduation_year", sa.Integer),
     )
 
-def upgrade():
-    op.create_table(
-        "hr_position_assignments",
-        sa.Column("id", sa.String(36), primary_key=True, server_default=sa.text("gen_random_uuid()")),
-        sa.Column("employee_id", sa.String(36), sa.ForeignKey("hr_employees.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("position_id", sa.String(36), sa.ForeignKey("hr_positions.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("start_date", sa.Date),
-        sa.Column("end_date", sa.Date),
-        sa.Column("percent", sa.Numeric(5, 2)),
-        sa.Column("funding_split", JSONB(), nullable=True),  # e.g. {"fundA": 0.5, "fundB": 0.5}
-        *_timestamps(),
-        sa.UniqueConstraint("employee_id", "position_id", "start_date", "end_date", name="uq_hr_pos_assign_span"),
+    rows = []
+    for year in range(2019, 2036):  # inclusive 2019..2035
+        # Mark as seed data; F/M denotes a female/male placeholder counterpart
+        rows.append(
+            {"student_number": f"SEED-{year}-F", "graduation_year": year}
+        )
+        rows.append(
+            {"student_number": f"SEED-{year}-M", "graduation_year": year}
+        )
+
+    # Insert rows; id/created_at/updated_at are provided by server defaults
+    op.bulk_insert(students_tbl, rows)
+
+
+def downgrade() -> None:
+    # Safely remove only the seed rows we added
+    bind = op.get_bind()
+    bind.execute(
+        sa.text(
+            """
+            DELETE FROM students
+            WHERE student_number LIKE 'SEED-%'
+              AND graduation_year BETWEEN :start_yr AND :end_yr
+            """
+        ),
+        {"start_yr": 2019, "end_yr": 2035},
     )
-    op.create_index("ix_hr_pos_assign_employee", "hr_position_assignments", ["employee_id"])
-    op.create_index("ix_hr_pos_assign_position", "hr_position_assignments", ["position_id"])
-
-
-def downgrade():
-    op.drop_index("ix_hr_pos_assign_position", table_name="hr_position_assignments")
-    op.drop_index("ix_hr_pos_assign_employee", table_name="hr_position_assignments")
-    op.drop_table("hr_position_assignments")
