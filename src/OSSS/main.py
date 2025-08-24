@@ -25,6 +25,7 @@ from OSSS.api.routers.sis_settings_academic_terms import router as sis_academic_
 from OSSS.api.routers.sis_settings_standardized_tests import router as sis_standardized_tests_router
 from OSSS.api.routers.sis_settings_attendance_codes import router as sis_attendance_codes_router
 from OSSS.api.routers.sis_settings_catalog_courses import router as sis_catalog_courses_router
+from OSSS.api.routers.sis_settings_academic_grading_periods import router as sis_grading_periods_router
 
 
 from OSSS.api.routers.sis_settings_behavior_codes import router as sis_behavior_codes_router
@@ -64,6 +65,8 @@ def create_app() -> FastAPI:
     app.include_router(sis_standardized_tests_router)
     app.include_router(sis_attendance_codes_router)
     app.include_router(sis_catalog_courses_router)
+    app.include_router(sis_grading_periods_router)
+
 
 
 
