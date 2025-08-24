@@ -52,7 +52,7 @@ except Exception:
             pass
 
 # --- Alembic identifiers ---
-revision = "0023_populate_grading_periods"
+revision = "0024_populate_grading_periods"
 down_revision = "0023_populate_courses"
 branch_labels = None
 depends_on = None

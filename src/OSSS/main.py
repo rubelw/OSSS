@@ -31,6 +31,8 @@ from OSSS.api.routers.sis_settings_academic_grading_periods import router as sis
 from OSSS.api.routers.sis_settings_behavior_codes import router as sis_behavior_codes_router
 from OSSS.api.routers import activities as activities_router
 
+from OSSS.api.routers.transport_bus_routes import router as bus_routes_router
+
 
 from OSSS.api.routers.auth_flow import router as auth_router
 
@@ -67,8 +69,7 @@ def create_app() -> FastAPI:
     app.include_router(sis_catalog_courses_router)
     app.include_router(sis_grading_periods_router)
 
-
-
+    app.include_router(bus_routes_router)
 
     app.include_router(activities_router.router)
 
