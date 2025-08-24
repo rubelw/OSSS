@@ -1,0 +1,174 @@
+
+Project OSSS {
+  database_type: "PostgreSQL"
+  Note: 'Schema derived from discussed Alembic migrations and routers.'
+}
+
+Table organizations {
+  id uuid [pk, default: `gen_random_uuid()`]
+  name text [not null, unique]
+  code text [unique]
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+
+  Note: 'Top-level tenant/district container for scoping data.'
+}
+
+
+Table schools {
+  id uuid [pk, default: `gen_random_uuid()`]
+  organization_id uuid [not null, ref: > organizations.id]
+  name text [not null]
+  school_code text
+  nces_school_id text
+  building_code text
+  type text
+  timezone text
+
+  Note: 'Schools within an organization (district).'
+}
+
+Table bodies {
+  id uuid [pk, default: `gen_random_uuid()`]
+  org_id uuid [not null, ref: > organizations.id]
+  name text [not null]
+  type text
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+
+  Note: 'Boards/committees/councils under an organization.'
+}
+
+Table meetings {
+  id uuid [pk, default: `gen_random_uuid()`]
+  org_id uuid [not null, ref: > organizations.id]
+  body_id uuid [ref: > bodies.id] // on delete set null (documented)
+  title text [not null]
+  starts_at timestamptz [not null]
+  ends_at timestamptz
+  location text
+  status text // draft/published/cancelled
+  is_public boolean [not null, default: true]
+  stream_url text
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    (org_id) [name: 'ix_meetings_org']
+    (body_id) [name: 'ix_meetings_body']
+  }
+
+  Note: 'Formal gatherings linked to a body and org; optionally public with livestream.'
+}
+
+Table calendars {
+  id uuid [pk, default: `gen_random_uuid()`]
+  school_id uuid [not null, ref: > schools.id]
+  name text [not null]
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+
+  Note: 'Named instructional calendars for a school (e.g., Student Days, Staff Workdays).'
+}
+
+Table academic_terms {
+  id uuid [pk, default: `gen_random_uuid()`]
+  school_id uuid [not null, ref: > schools.id]
+  name text [not null]
+  type text // semester, quarter, trimester, session, year
+  start_date date [not null]
+  end_date date [not null]
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+
+  Note: 'High-level term container (semester/trimester/year) per school.'
+}
+
+Table grading_periods {
+  id uuid [pk, default: `gen_random_uuid()`]
+  term_id uuid [not null, ref: > academic_terms.id]
+  name text [not null]
+  start_date date [not null]
+  end_date date [not null]
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+
+  Note: 'Sub-term reporting windows (quarters, progress periods).'
+}
+
+Table plans {
+  id uuid [pk, default: `gen_random_uuid()`]
+  name text [not null]
+  // add other fields from your schema as needed
+
+  Note: 'Plan container (e.g., SIP/MTSS/IEP plan).'
+}
+
+Table goals {
+  id uuid [pk, default: `gen_random_uuid()`]
+  plan_id uuid [not null, ref: > plans.id] // on delete cascade
+  name text [not null]
+  description text
+
+  Note: 'Goals linked to a plan.'
+}
+
+Table tags {
+  id uuid [pk, default: `gen_random_uuid()`]
+  name text [not null]
+  slug text [unique]
+  color text
+  description text
+  org_id uuid // optional scoping to organization
+  created_at timestamptz [default: `CURRENT_TIMESTAMP`]
+
+  Note: 'Reusable labels; consider uniqueness per org if org_id used.'
+}
+
+Table entity_tags {
+  entity_type text [not null]
+  entity_id uuid [not null]
+  tag_id uuid [not null, ref: > tags.id] // on delete cascade
+
+  Indexes {
+    (entity_type, entity_id, tag_id) [pk]
+  }
+
+  Note: 'Polymorphic tagging table; composite PK prevents duplicate tag assignments.'
+}
+
+Table users {
+  id uuid [pk, default: `gen_random_uuid()`]
+  email text [not null, unique]
+  // ... other identity fields
+
+  Note: 'System users; referenced by audit logs.'
+}
+
+Table audit_log {
+  id uuid [pk, default: `gen_random_uuid()`]
+  entity_type text [not null]
+  entity_id uuid [not null]
+  action text [not null] // created/updated/deleted/published/etc.
+  actor_id uuid [ref: > users.id] // nullable
+  at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  delta jsonb
+
+  Indexes {
+    (entity_type, entity_id) [name: 'ix_audit_log_entity']
+  }
+
+  Note: 'Append-only event log of changes across entities.'
+}
+
+Table states {
+  code char(2) [pk]
+  name text [not null]
+
+  Note: 'US States reference table.'
+}
+
+Table behavior_codes {
+  code text [pk]
+  description text [not null]
+
+  Note: 'SIS behavior/discipline codes.'
+}

@@ -130,6 +130,18 @@ def upgrade() -> None:
     )
     op.create_index("ix_terms_school", "academic_terms", ["school_id"])
 
+    # The grading_periods table represents subdivisions of an academic term used for grading, reporting, and progress tracking.
+    #
+    # While an academic term (semester, trimester, year) defines the broad calendar (e.g., Fall 2025: Aug 18 – Dec 19), schools often split that into smaller grading/reporting windows:
+    #
+    # Quarters inside semesters (e.g., Q1 + Q2 = Fall semester).
+    #
+    # Progress report periods (mid-term snapshots).
+    #
+    # Trimester-based grading windows.
+    #
+    # This allows teachers, administrators, and parents to view/report on student performance in logical chunks of time without waiting for the entire semester/year to end.
+
     op.create_table(
         "grading_periods",
         uuid_col,
@@ -139,6 +151,16 @@ def upgrade() -> None:
         sa.Column("end_date", sa.Date(), nullable=False),
         *_timestamps(),
     )
+
+    # The calendars table defines named instructional calendars for a school. It’s the foundation for tracking which days are student days, staff work days, holidays, or special schedules.
+    #
+    # Why it matters in an SIS:
+    #
+    # Schools often maintain multiple calendars (e.g., regular student day calendar, staff-only workdays, year-round programs, summer school).
+    #
+    # Calendars act as containers that group daily entries (attendance days, grading periods, instructional minutes).
+    #
+    # Used to drive attendance, scheduling, reporting, and compliance with state seat-time or instructional day requirements.
 
     op.create_table(
         "calendars",

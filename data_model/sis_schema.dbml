@@ -1,0 +1,1102 @@
+
+Project SIS {
+  database_type: "PostgreSQL"
+  Note: 'Generated from provided Alembic create_table definitions. Composite PKs use Indexes [pk].'
+}
+
+////////////////////////////////////////////////////
+// Core & Identity
+////////////////////////////////////////////////////
+
+Table districts {
+  id uuid [pk, default: `gen_random_uuid()`]
+  name text [not null, unique]
+  code text [unique]
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+}
+
+Table schools {
+  id uuid [pk, default: `gen_random_uuid()`]
+  district_id uuid [not null, ref: > districts.id]
+  name text [not null]
+  school_code text [unique]
+  type text // elementary, middle, high
+  timezone text
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    (district_id) [name: 'ix_schools_district']
+  }
+}
+
+Table academic_terms {
+  id uuid [pk, default: `gen_random_uuid()`]
+  school_id uuid [not null, ref: > schools.id]
+  name text [not null] // 2025-2026, Semester 1, etc.
+  type text // year, semester, trimester
+  start_date date [not null]
+  end_date date [not null]
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    (school_id) [name: 'ix_terms_school']
+  }
+}
+
+Table grading_periods {
+  id uuid [pk, default: `gen_random_uuid()`]
+  term_id uuid [not null, ref: > academic_terms.id]
+  name text [not null]
+  start_date date [not null]
+  end_date date [not null]
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+}
+
+Table calendars {
+  id uuid [pk, default: `gen_random_uuid()`]
+  school_id uuid [not null, ref: > schools.id]
+  name text [not null] // e.g., Student Days
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+}
+
+Table calendar_days {
+  id uuid [pk, default: `gen_random_uuid()`]
+  calendar_id uuid [not null, ref: > calendars.id]
+  date date [not null]
+  day_type text [not null, default: 'instructional'] // instructional, holiday, pd, etc.
+  notes text
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    (calendar_id, date) [name: 'uq_calendar_day', unique]
+  }
+}
+
+Table bell_schedules {
+  id uuid [pk, default: `gen_random_uuid()`]
+  school_id uuid [not null, ref: > schools.id]
+  name text [not null] // Regular, Early Release
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+}
+
+Table periods {
+  id uuid [pk, default: `gen_random_uuid()`]
+  bell_schedule_id uuid [not null, ref: > bell_schedules.id]
+  name text [not null]
+  start_time time [not null]
+  end_time time [not null]
+  sequence int
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+}
+
+Table grade_levels {
+  id uuid [pk, default: `gen_random_uuid()`]
+  school_id uuid [not null, ref: > schools.id]
+  name text [not null] // Grade 1, 2, 3 ...
+  ordinal int
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+}
+
+Table departments {
+  id uuid [pk, default: `gen_random_uuid()`]
+  school_id uuid [not null, ref: > schools.id]
+  name text [not null]
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    (school_id, name) [name: 'uq_department_name', unique]
+  }
+}
+
+Table subjects {
+  id uuid [pk, default: `gen_random_uuid()`]
+  department_id uuid [ref: > departments.id] // SET NULL on delete (documented)
+  name text [not null]
+  code text
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+}
+
+Table courses {
+  id uuid [pk, default: `gen_random_uuid()`]
+  school_id uuid [not null, ref: > schools.id]
+  subject_id uuid [ref: > subjects.id] // SET NULL on delete (documented)
+  name text [not null]
+  code text
+  credit_hours numeric(4,2)
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+}
+
+Table course_sections {
+  id uuid [pk, default: `gen_random_uuid()`]
+  course_id uuid [not null, ref: > courses.id]
+  term_id uuid [not null, ref: > academic_terms.id]
+  section_number text [not null]
+  capacity int
+  school_id uuid [not null, ref: > schools.id]
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    (course_id, term_id, section_number) [name: 'uq_course_term_section', unique]
+  }
+}
+
+Table rooms {
+  id uuid [pk, default: `gen_random_uuid()`]
+  school_id uuid [not null, ref: > schools.id]
+  name text [not null]
+  capacity int
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+}
+
+Table persons {
+  id uuid [pk, default: `gen_random_uuid()`]
+  first_name text [not null]
+  last_name text [not null]
+  middle_name text
+  dob date
+  email text
+  phone text
+  gender text
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+}
+
+Table students {
+  id uuid [pk, default: `gen_random_uuid()`]
+  student_number text [unique]
+  graduation_year int
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+}
+
+Table staff {
+  id uuid [pk, default: `gen_random_uuid()`]
+  employee_number text [unique]
+  title text
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+}
+
+Table guardians {
+  id uuid [pk, default: `gen_random_uuid()`]
+  relationship text
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+}
+
+Table user_accounts {
+  id uuid [pk, default: `gen_random_uuid()`]
+  person_id uuid [not null, ref: > persons.id]
+  username text [not null, unique]
+  password_hash text
+  is_active boolean [not null, default: true]
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+}
+
+Table roles {
+  id uuid [pk, default: `gen_random_uuid()`]
+  name text [not null, unique]
+  description text
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+}
+
+Table permissions {
+  id uuid [pk, default: `gen_random_uuid()`]
+  code text [not null, unique]
+  description text
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+}
+
+Table role_permissions {
+  role_id uuid [not null, ref: > roles.id]
+  permission_id uuid [not null, ref: > permissions.id]
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    (role_id, permission_id) [pk]
+  }
+}
+
+Table addresses {
+  id uuid [pk, default: `gen_random_uuid()`]
+  line1 text [not null]
+  line2 text
+  city text [not null]
+  state text
+  postal_code text
+  country text
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+}
+
+Table contacts {
+  id uuid [pk, default: `gen_random_uuid()`]
+  type text [not null] // phone, email, etc
+  value text [not null]
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+}
+
+Table person_addresses {
+  person_id uuid [not null, ref: > persons.id]
+  address_id uuid [not null, ref: > addresses.id]
+  is_primary boolean [not null, default: false]
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    (person_id, address_id) [pk]
+  }
+}
+
+Table person_contacts {
+  person_id uuid [not null, ref: > persons.id]
+  contact_id uuid [not null, ref: > contacts.id]
+  label text
+  is_primary boolean [not null, default: false]
+  is_emergency boolean [not null, default: false]
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    (person_id, contact_id) [pk]
+  }
+}
+
+Table student_guardians {
+  student_id uuid [not null, ref: > students.id]
+  guardian_id uuid [not null, ref: > guardians.id]
+  custody text
+  is_primary boolean [not null, default: false]
+  contact_order int
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    (student_id, guardian_id) [pk]
+  }
+}
+
+Table external_ids {
+  id uuid [pk, default: `gen_random_uuid()`]
+  entity_type text [not null] // person, student, course, etc.
+  entity_id uuid [not null]
+  system text [not null] // state, vendor name
+  external_id text [not null]
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    (entity_type, entity_id, system) [name: 'uq_external_ids', unique]
+  }
+}
+
+////////////////////////////////////////////////////
+// Enrollment & Programs
+////////////////////////////////////////////////////
+
+Table student_school_enrollments {
+  id uuid [pk, default: `gen_random_uuid()`]
+  student_id uuid [not null, ref: > students.id]
+  school_id uuid [not null, ref: > schools.id]
+  entry_date date [not null]
+  exit_date date
+  status text [not null, default: 'active']
+  exit_reason text
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    (student_id, school_id) [name: 'ix_enroll_student_school']
+  }
+}
+
+Table student_program_enrollments {
+  id uuid [pk, default: `gen_random_uuid()`]
+  student_id uuid [not null, ref: > students.id]
+  program_name text [not null]
+  start_date date [not null]
+  end_date date
+  status text
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+}
+
+Table special_education_cases {
+  id uuid [pk, default: `gen_random_uuid()`]
+  student_id uuid [not null, ref: > students.id]
+  eligibility text
+  case_opened date
+  case_closed date
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+}
+
+Table iep_plans {
+  id uuid [pk, default: `gen_random_uuid()`]
+  special_ed_case_id uuid [not null, ref: > special_education_cases.id]
+  effective_start date [not null]
+  effective_end date
+  summary text
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+}
+
+Table accommodations {
+  id uuid [pk, default: `gen_random_uuid()`]
+  iep_plan_id uuid [ref: > iep_plans.id] // nullable
+  applies_to text
+  description text [not null]
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+}
+
+Table ell_plans {
+  id uuid [pk, default: `gen_random_uuid()`]
+  student_id uuid [not null, ref: > students.id]
+  level text
+  effective_start date [not null]
+  effective_end date
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+}
+
+Table section504_plans {
+  id uuid [pk, default: `gen_random_uuid()`]
+  student_id uuid [not null, ref: > students.id]
+  effective_start date [not null]
+  effective_end date
+  summary text
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+}
+
+////////////////////////////////////////////////////
+// Scheduling
+////////////////////////////////////////////////////
+
+Table section_meetings {
+  id uuid [pk, default: `gen_random_uuid()`]
+  section_id uuid [not null, ref: > course_sections.id]
+  day_of_week int [not null] // 0=Mon..6=Sun
+  period_id uuid [ref: > periods.id] // nullable
+  room_id uuid [ref: > rooms.id] // nullable
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    (section_id, day_of_week, period_id) [name: 'uq_section_meeting', unique]
+  }
+}
+
+Table teacher_section_assignments {
+  id uuid [pk, default: `gen_random_uuid()`]
+  staff_id uuid [not null, ref: > staff.id]
+  section_id uuid [not null, ref: > course_sections.id]
+  role text
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    (staff_id, section_id) [name: 'uq_teacher_section', unique]
+  }
+}
+
+Table student_section_enrollments {
+  id uuid [pk, default: `gen_random_uuid()`]
+  student_id uuid [not null, ref: > students.id]
+  section_id uuid [not null, ref: > course_sections.id]
+  added_on date [not null]
+  dropped_on date
+  seat_time_minutes int
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    (student_id, section_id) [name: 'uq_student_section', unique]
+  }
+}
+
+Table course_prerequisites {
+  course_id uuid [not null, ref: > courses.id]
+  prereq_course_id uuid [not null, ref: > courses.id]
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    (course_id, prereq_course_id) [pk]
+  }
+}
+
+Table section_room_assignments {
+  id uuid [pk, default: `gen_random_uuid()`]
+  section_id uuid [not null, ref: > course_sections.id]
+  room_id uuid [not null, ref: > rooms.id]
+  start_date date
+  end_date date
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    (section_id, room_id, start_date) [name: 'uq_section_room_range', unique]
+  }
+}
+
+////////////////////////////////////////////////////
+// Attendance
+////////////////////////////////////////////////////
+
+Table attendance_codes {
+  code text [pk]
+  description text
+  is_present boolean [not null, default: false]
+  is_excused boolean [not null, default: false]
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+}
+
+Table attendance_events {
+  id uuid [pk, default: `gen_random_uuid()`]
+  student_id uuid [not null, ref: > students.id]
+  section_meeting_id uuid [ref: > section_meetings.id]
+  date date [not null]
+  code text [not null, ref: > attendance_codes.code]
+  minutes int
+  notes text
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    (student_id, date, section_meeting_id) [name: 'uq_attendance_event', unique]
+  }
+}
+
+Table attendance_daily_summary {
+  id uuid [pk, default: `gen_random_uuid()`]
+  student_id uuid [not null, ref: > students.id]
+  date date [not null]
+  present_minutes int [not null, default: 0]
+  absent_minutes int [not null, default: 0]
+  tardy_minutes int [not null, default: 0]
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    (student_id, date) [name: 'uq_attendance_daily', unique]
+  }
+}
+
+////////////////////////////////////////////////////
+// Assessment, Grades & Transcripts
+////////////////////////////////////////////////////
+
+Table grade_scales {
+  id uuid [pk, default: `gen_random_uuid()`]
+  school_id uuid [not null, ref: > schools.id]
+  name text [not null]
+  type text // AF, standards-based
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+}
+
+Table grade_scale_bands {
+  id uuid [pk, default: `gen_random_uuid()`]
+  grade_scale_id uuid [not null, ref: > grade_scales.id]
+  label text [not null] // A, B, 4, etc.
+  min_value numeric(6,3) [not null]
+  max_value numeric(6,3) [not null]
+  gpa_points numeric(4,2)
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+}
+
+Table assignment_categories {
+  id uuid [pk, default: `gen_random_uuid()`]
+  section_id uuid [not null, ref: > course_sections.id]
+  name text [not null]
+  weight numeric(5,2)
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+}
+
+Table assignments {
+  id uuid [pk, default: `gen_random_uuid()`]
+  section_id uuid [not null, ref: > course_sections.id]
+  category_id uuid [ref: > assignment_categories.id]
+  name text [not null]
+  due_date date
+  points_possible numeric(8,2)
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+}
+
+Table gradebook_entries {
+  id uuid [pk, default: `gen_random_uuid()`]
+  assignment_id uuid [not null, ref: > assignments.id]
+  student_id uuid [not null, ref: > students.id]
+  score numeric(8,3)
+  submitted_at timestamptz
+  late boolean [not null, default: false]
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    (assignment_id, student_id) [name: 'uq_gradebook_student_assignment', unique]
+  }
+}
+
+Table final_grades {
+  id uuid [pk, default: `gen_random_uuid()`]
+  student_id uuid [not null, ref: > students.id]
+  section_id uuid [not null, ref: > course_sections.id]
+  grading_period_id uuid [not null, ref: > grading_periods.id]
+  numeric_grade numeric(6,3)
+  letter_grade text
+  credits_earned numeric(5,2)
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    (student_id, section_id, grading_period_id) [name: 'uq_final_grade_period', unique]
+  }
+}
+
+Table gpa_calculations {
+  id uuid [pk, default: `gen_random_uuid()`]
+  student_id uuid [not null, ref: > students.id]
+  term_id uuid [not null, ref: > academic_terms.id]
+  gpa numeric(4,3) [not null]
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    (student_id, term_id) [name: 'uq_gpa_term', unique]
+  }
+}
+
+Table class_ranks {
+  id uuid [pk, default: `gen_random_uuid()`]
+  school_id uuid [not null, ref: > schools.id]
+  term_id uuid [not null, ref: > academic_terms.id]
+  student_id uuid [not null, ref: > students.id]
+  rank int [not null]
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    (school_id, term_id, student_id) [name: 'uq_class_rank', unique]
+  }
+}
+
+Table report_cards {
+  id uuid [pk, default: `gen_random_uuid()`]
+  student_id uuid [not null, ref: > students.id]
+  term_id uuid [not null, ref: > academic_terms.id]
+  published_at timestamptz
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    (student_id, term_id) [name: 'uq_report_card', unique]
+  }
+}
+
+Table transcript_lines {
+  id uuid [pk, default: `gen_random_uuid()`]
+  student_id uuid [not null, ref: > students.id]
+  course_id uuid [ref: > courses.id]
+  term_id uuid [ref: > academic_terms.id]
+  credits_attempted numeric(5,2)
+  credits_earned numeric(5,2)
+  final_letter text
+  final_numeric numeric(6,3)
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+}
+
+Table standardized_tests {
+  id uuid [pk, default: `gen_random_uuid()`]
+  name text [not null]
+  subject text
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+}
+
+Table test_administrations {
+  id uuid [pk, default: `gen_random_uuid()`]
+  test_id uuid [not null, ref: > standardized_tests.id]
+  administration_date date [not null]
+  school_id uuid [ref: > schools.id]
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+}
+
+Table test_results {
+  id uuid [pk, default: `gen_random_uuid()`]
+  administration_id uuid [not null, ref: > test_administrations.id]
+  student_id uuid [not null, ref: > students.id]
+  scale_score numeric(8,2)
+  percentile numeric(5,2)
+  performance_level text
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    (administration_id, student_id) [name: 'uq_test_result_student', unique]
+  }
+}
+
+////////////////////////////////////////////////////
+// Behavior & Discipline
+////////////////////////////////////////////////////
+
+Table behavior_codes {
+  code text [pk]
+  description text
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+}
+
+Table consequence_types {
+  code text [pk]
+  description text
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+}
+
+Table incidents {
+  id uuid [pk, default: `gen_random_uuid()`]
+  school_id uuid [ref: > schools.id]
+  occurred_at timestamptz [not null]
+  behavior_code text [not null, ref: > behavior_codes.code]
+  description text
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+}
+
+Table incident_participants {
+  id uuid [pk, default: `gen_random_uuid()`]
+  incident_id uuid [not null, ref: > incidents.id]
+  person_id uuid [not null, ref: > persons.id]
+  role text [not null] // offender, victim, witness
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    (incident_id, person_id) [name: 'uq_incident_person', unique]
+  }
+}
+
+Table consequences {
+  id uuid [pk, default: `gen_random_uuid()`]
+  incident_id uuid [not null, ref: > incidents.id]
+  participant_id uuid [not null, ref: > incident_participants.id]
+  consequence_code text [not null, ref: > consequence_types.code]
+  start_date date
+  end_date date
+  notes text
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+}
+
+Table behavior_interventions {
+  id uuid [pk, default: `gen_random_uuid()`]
+  student_id uuid [not null, ref: > students.id]
+  intervention text [not null]
+  start_date date [not null]
+  end_date date
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+}
+
+////////////////////////////////////////////////////
+// Health & Safety
+////////////////////////////////////////////////////
+
+Table health_profiles {
+  id uuid [pk, default: `gen_random_uuid()`]
+  student_id uuid [not null, ref: > students.id]
+  allergies text
+  conditions text
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    (student_id) [name: 'uq_health_profile_student', unique]
+  }
+}
+
+Table immunizations {
+  id uuid [pk, default: `gen_random_uuid()`]
+  name text [not null]
+  code text
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+}
+
+Table immunization_records {
+  id uuid [pk, default: `gen_random_uuid()`]
+  student_id uuid [not null, ref: > students.id]
+  immunization_id uuid [not null, ref: > immunizations.id]
+  date_administered date [not null]
+  dose_number int
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    (student_id, immunization_id, date_administered) [name: 'uq_immunization_record', unique]
+  }
+}
+
+Table medications {
+  id uuid [pk, default: `gen_random_uuid()`]
+  name text [not null]
+  instructions text
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+}
+
+Table medication_administrations {
+  id uuid [pk, default: `gen_random_uuid()`]
+  student_id uuid [not null, ref: > students.id]
+  medication_id uuid [not null, ref: > medications.id]
+  administered_at timestamptz [not null]
+  dose text
+  notes text
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+}
+
+Table nurse_visits {
+  id uuid [pk, default: `gen_random_uuid()`]
+  student_id uuid [not null, ref: > students.id]
+  visited_at timestamptz [not null]
+  reason text
+  disposition text
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+}
+
+Table emergency_contacts {
+  id uuid [pk, default: `gen_random_uuid()`]
+  person_id uuid [not null, ref: > persons.id]
+  contact_name text [not null]
+  relationship text
+  phone text
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+}
+
+Table consents {
+  id uuid [pk, default: `gen_random_uuid()`]
+  person_id uuid [not null, ref: > persons.id]
+  consent_type text [not null] // media_release, field_trip, etc.
+  granted boolean [not null, default: true]
+  effective_date date [not null]
+  expires_on date
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    (person_id, consent_type) [name: 'uq_consent_type', unique]
+  }
+}
+
+////////////////////////////////////////////////////
+// Fees, Meals, Transportation, Library
+////////////////////////////////////////////////////
+
+Table fees {
+  id uuid [pk, default: `gen_random_uuid()`]
+  school_id uuid [not null, ref: > schools.id]
+  name text [not null]
+  amount numeric(10,2) [not null]
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+}
+
+Table invoices {
+  id uuid [pk, default: `gen_random_uuid()`]
+  student_id uuid [not null, ref: > students.id]
+  issued_on date [not null]
+  due_on date
+  status text [not null, default: 'open']
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+}
+
+Table payments {
+  id uuid [pk, default: `gen_random_uuid()`]
+  invoice_id uuid [not null, ref: > invoices.id]
+  paid_on date [not null]
+  amount numeric(10,2) [not null]
+  method text
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+}
+
+Table waivers {
+  id uuid [pk, default: `gen_random_uuid()`]
+  student_id uuid [not null, ref: > students.id]
+  reason text
+  amount numeric(10,2)
+  granted_on date
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+}
+
+Table meal_accounts {
+  id uuid [pk, default: `gen_random_uuid()`]
+  student_id uuid [not null, ref: > students.id]
+  balance numeric(10,2) [not null, default: 0]
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    (student_id) [name: 'uq_meal_account_student', unique]
+  }
+}
+
+Table meal_transactions {
+  id uuid [pk, default: `gen_random_uuid()`]
+  account_id uuid [not null, ref: > meal_accounts.id]
+  transacted_at timestamptz [not null]
+  amount numeric(10,2) [not null] // negative=debit, positive=credit
+  description text
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+}
+
+Table meal_eligibility_statuses {
+  id uuid [pk, default: `gen_random_uuid()`]
+  student_id uuid [not null, ref: > students.id]
+  status text [not null] // free, reduced, paid
+  effective_start date [not null]
+  effective_end date
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+}
+
+Table bus_routes {
+  id uuid [pk, default: `gen_random_uuid()`]
+  name text [not null]
+  school_id uuid [ref: > schools.id]
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+}
+
+Table bus_stops {
+  id uuid [pk, default: `gen_random_uuid()`]
+  route_id uuid [not null, ref: > bus_routes.id]
+  name text [not null]
+  latitude numeric(10,7)
+  longitude numeric(10,7)
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+}
+
+Table bus_stop_times {
+  id uuid [pk, default: `gen_random_uuid()`]
+  route_id uuid [not null, ref: > bus_routes.id]
+  stop_id uuid [not null, ref: > bus_stops.id]
+  arrival_time time [not null]
+  departure_time time
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    (route_id, stop_id, arrival_time) [name: 'uq_bus_stop_time', unique]
+  }
+}
+
+Table student_transportation_assignments {
+  id uuid [pk, default: `gen_random_uuid()`]
+  student_id uuid [not null, ref: > students.id]
+  route_id uuid [ref: > bus_routes.id]
+  stop_id uuid [ref: > bus_stops.id]
+  direction text // AM / PM / BOTH
+  effective_start date [not null]
+  effective_end date
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+}
+
+Table library_items {
+  id uuid [pk, default: `gen_random_uuid()`]
+  school_id uuid [not null, ref: > schools.id]
+  title text [not null]
+  author text
+  isbn text
+  barcode text [unique]
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+}
+
+Table library_checkouts {
+  id uuid [pk, default: `gen_random_uuid()`]
+  item_id uuid [not null, ref: > library_items.id]
+  person_id uuid [not null, ref: > persons.id]
+  checked_out_on date [not null]
+  due_on date [not null]
+  returned_on date
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+}
+
+Table library_holds {
+  id uuid [pk, default: `gen_random_uuid()`]
+  item_id uuid [not null, ref: > library_items.id]
+  person_id uuid [not null, ref: > persons.id]
+  placed_on date [not null]
+  expires_on date
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    (item_id, person_id) [name: 'uq_library_hold', unique]
+  }
+}
+
+Table library_fines {
+  id uuid [pk, default: `gen_random_uuid()`]
+  person_id uuid [not null, ref: > persons.id]
+  amount numeric(10,2) [not null]
+  reason text
+  assessed_on date [not null]
+  paid_on date
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+}
+
+////////////////////////////////////////////////////
+// Communication & Engagement
+////////////////////////////////////////////////////
+
+Table messages {
+  id uuid [pk, default: `gen_random_uuid()`]
+  sender_id uuid [ref: > user_accounts.id]
+  channel text [not null] // email, sms, in_app
+  subject text
+  body text
+  sent_at timestamptz
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+}
+
+Table message_recipients {
+  message_id uuid [not null, ref: > messages.id]
+  person_id uuid [not null, ref: > persons.id]
+  delivery_status text
+  delivered_at timestamptz
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    (message_id, person_id) [pk]
+  }
+}
+
+Table family_portal_access {
+  guardian_id uuid [not null, ref: > guardians.id]
+  student_id uuid [not null, ref: > students.id]
+  permissions text
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    (guardian_id, student_id) [pk]
+  }
+}
+
+////////////////////////////////////////////////////
+// State Reporting & Auditing
+////////////////////////////////////////////////////
+
+Table state_reporting_snapshots {
+  id uuid [pk, default: `gen_random_uuid()`]
+  as_of_date date [not null]
+  scope text
+  payload jsonb
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+}
+
+Table export_runs {
+  id uuid [pk, default: `gen_random_uuid()`]
+  export_name text [not null]
+  ran_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  status text [not null, default: 'success']
+  file_uri text
+  error text
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+}
+
+Table audit_logs {
+  id uuid [pk, default: `gen_random_uuid()`]
+  actor_id uuid [ref: > user_accounts.id]
+  action text [not null]
+  entity_type text [not null]
+  entity_id uuid [not null]
+  metadata jsonb
+  occurred_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+}
+
+Table data_sharing_agreements {
+  id uuid [pk, default: `gen_random_uuid()`]
+  vendor text [not null]
+  scope text
+  start_date date
+  end_date date
+  notes text
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+}
+
+////////////////////////////////////////////////////
+// Analytics & ETL Support
+////////////////////////////////////////////////////
+
+Table sis_import_jobs {
+  id uuid [pk, default: `gen_random_uuid()`]
+  source text [not null]
+  status text [not null, default: 'running']
+  started_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  finished_at timestamptz
+  counts jsonb
+  error_log text
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+}
+
+Table data_quality_issues {
+  id uuid [pk, default: `gen_random_uuid()`]
+  entity_type text [not null]
+  entity_id uuid [not null]
+  rule text [not null]
+  severity text [not null] // info, warning, error
+  details text
+  detected_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+}

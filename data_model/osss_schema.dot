@@ -1,0 +1,189 @@
+
+digraph OSSS_Schema {
+  graph [rankdir=LR, nodesep=0.5, ranksep=1.0, splines=ortho];
+  node  [shape=record, fontsize=10, fontname="Helvetica"];
+  edge  [fontsize=9, fontname="Helvetica"];
+
+  // -------- Core org / district / school --------
+  organizations [label="{organizations|
+    id: uuid PK\l
+    name: text UNIQUE\l
+    created_at: timestamptz\l
+  }"];
+
+  districts [label="{districts|
+    id: uuid PK\l
+    name: text UNIQUE\l
+    code: text UNIQUE NULL\l
+    created_at: timestamptz\l
+    updated_at: timestamptz\l
+  }"];
+
+  schools [label="{schools|
+    id: uuid PK\l
+    organization_id: uuid FK→organizations.id\l
+    name: text\l
+    school_code: text NULL\l
+    nces_school_id: text NULL\l
+    building_code: text NULL\l
+    type: text NULL\l
+    timezone: text NULL\l
+  }"];
+
+  // -------- Governance bodies & meetings --------
+  bodies [label="{bodies|
+    id: uuid PK\l
+    org_id: uuid FK→organizations.id\l
+    name: text\l
+    type: text NULL (board/committee/council)\l
+    created_at: timestamptz\l
+  }"];
+
+  meetings [label="{meetings|
+    id: uuid PK\l
+    org_id: uuid FK→organizations.id\l
+    body_id: uuid FK→bodies.id (SET NULL)\l
+    title: text\l
+    starts_at: timestamptz\l
+    ends_at: timestamptz NULL\l
+    location: text NULL\l
+    status: text NULL (draft/published/cancelled)\l
+    is_public: boolean DEFAULT true\l
+    stream_url: text NULL\l
+    created_at: timestamptz\l
+  }"];
+
+  // -------- Calendars & terms --------
+  calendars [label="{calendars|
+    id: uuid PK\l
+    school_id: uuid FK→schools.id\l
+    name: text\l
+    created_at: timestamptz\l
+    updated_at: timestamptz\l
+  }"];
+
+  academic_terms [label="{academic_terms|
+    id: uuid PK\l
+    school_id: uuid FK→schools.id\l
+    name: text\l
+    type: text NULL\l
+    start_date: date\l
+    end_date: date\l
+    created_at: timestamptz\l
+    updated_at: timestamptz\l
+  }"];
+
+  grading_periods [label="{grading_periods|
+    id: uuid PK\l
+    term_id: uuid FK→academic_terms.id\l
+    name: text\l
+    start_date: date\l
+    end_date: date\l
+    created_at: timestamptz\l
+    updated_at: timestamptz\l
+  }"];
+
+  // -------- Plans & goals --------
+  plans [label="{plans|
+    id: uuid PK\l
+    name: text\l
+    ...\l
+  }"];
+
+  goals [label="{goals|
+    id: uuid PK\l
+    plan_id: uuid FK→plans.id (CASCADE)\l
+    name: text\l
+    description: text NULL\l
+  }"];
+
+  // -------- Tagging --------
+  tags [label="{tags|
+    id: uuid PK\l
+    name: text\l
+    slug: text UNIQUE NULL\l
+    color: text NULL\l
+    description: text NULL\l
+    org_id: uuid NULL\l
+  }"];
+
+  entity_tags [label="{entity_tags|
+    entity_type: text\l
+    entity_id: uuid\l
+    tag_id: uuid FK→tags.id (CASCADE)\l
+    PK(entity_type, entity_id, tag_id)\l
+  }"];
+
+  // -------- Users & Audit --------
+  users [label="{users|
+    id: uuid PK\l
+    email: text UNIQUE\l
+    ...\l
+  }"];
+
+  audit_log [label="{audit_log|
+    id: uuid PK\l
+    entity_type: text\l
+    entity_id: uuid\l
+    action: text\l
+    actor_id: uuid FK→users.id NULL\l
+    at: timestamptz\l
+    delta: jsonb NULL\l
+    INDEX(entity_type, entity_id)\l
+  }"];
+
+  // -------- Reference data --------
+  states [label="{states|
+    code: char(2) PK\l
+    name: text\l
+  }"];
+
+  behavior_codes [label="{behavior_codes|
+    code: text PK\l
+    description: text\l
+  }"];
+
+  // -------- Edges (FKs) --------
+  schools         -> organizations [label="many-to-1"];
+  bodies          -> organizations [label="many-to-1"];
+  meetings        -> organizations [label="many-to-1"];
+  meetings        -> bodies        [label="many-to-1 (nullable)"];
+  calendars       -> schools       [label="many-to-1"];
+  academic_terms  -> schools       [label="many-to-1"];
+  grading_periods -> academic_terms[label="many-to-1"];
+  goals           -> plans         [label="many-to-1"];
+  entity_tags     -> tags          [label="many-to-1"];
+  audit_log       -> users         [label="many-to-1 (nullable)"];
+
+  // ------ Styling groups (optional visual clusters) ------
+  subgraph cluster_org {
+    label="Organization Scope";
+    color="#CCCCCC";
+    organizations; districts; schools;
+  }
+  subgraph cluster_governance {
+    label="Governance";
+    color="#CCCCCC";
+    bodies; meetings;
+  }
+  subgraph cluster_calendar {
+    label="Calendars & Terms";
+    color="#CCCCCC";
+    calendars; academic_terms; grading_periods;
+  }
+  subgraph cluster_plans {
+    label="Plans & Goals";
+    color="#CCCCCC";
+    plans; goals;
+  }
+  subgraph cluster_meta {
+    label="Tags & Audit";
+    color="#CCCCCC";
+    tags; entity_tags; users; audit_log;
+  }
+  subgraph cluster_ref {
+    label="Reference Data";
+    color="#CCCCCC";
+    states; behavior_codes;
+  }
+}
