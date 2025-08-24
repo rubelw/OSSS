@@ -100,6 +100,19 @@ class JSONB(TypeDecorator):
 # -----------------------------------------------------------------------------
 # Common mixin with UUID PK + timestamps
 # -----------------------------------------------------------------------------
+class TimestampMixin:
+    created_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True),
+        server_default=sa.func.now(),
+        nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True),
+        server_default=sa.func.now(),
+        onupdate=sa.func.now(),
+        nullable=False,
+    )
+
 class UUIDMixin:
     """
     Mixin that adds:
@@ -123,5 +136,5 @@ class UUIDMixin:
     )
 
 
-__all__ = ["Base", "UUIDMixin", "GUID", "JSONB", "TSVectorType"]
+__all__ = ["Base", "UUIDMixin", "GUID", "JSONB", "TSVectorType", "TimestampMixin"]
 

@@ -14,24 +14,12 @@ from OSSS.db.base import Base, UUIDMixin, GUID, JSONB  # TSVectorType if/when ne
 
 # ---------- District / School / Calendar ----------
 
-class District(UUIDMixin, Base):
-    __tablename__ = "districts"
-
-    name: Mapped[str] = mapped_column(sa.Text, nullable=False, unique=True)
-    code: Mapped[Optional[str]] = mapped_column(sa.Text, unique=True)
-
-    created_at: Mapped[datetime] = mapped_column(
-        sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
-    )
-    updated_at: Mapped[datetime] = mapped_column(
-        sa.DateTime(timezone=True), server_default=sa.func.now(), onupdate=sa.func.now(), nullable=False
-    )
 
 
 class School(UUIDMixin, Base):
     __tablename__ = "schools"
 
-    district_id: Mapped[Any] = mapped_column(GUID(), ForeignKey("districts.id", ondelete="CASCADE"), nullable=False)
+    organization_id: Mapped[Any] = mapped_column(GUID(), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
     name: Mapped[str] = mapped_column(sa.Text, nullable=False)
     school_code: Mapped[Optional[str]] = mapped_column(sa.Text, unique=True)
     nces_school_id: Mapped[Optional[str]] = mapped_column(sa.Text)

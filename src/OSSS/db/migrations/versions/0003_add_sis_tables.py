@@ -98,25 +98,19 @@ def upgrade() -> None:
     # ==================
     # Core & Identity
     # ==================
-    op.create_table(
-        "districts",
-        uuid_col,
-        sa.Column("name", sa.Text(), nullable=False, unique=True),
-        sa.Column("code", sa.Text(), nullable=True, unique=True),
-        *_timestamps(),
-    )
+
 
     op.create_table(
         "schools",
         uuid_col,
-        sa.Column("district_id", sa.String(36), sa.ForeignKey("districts.id", ondelete="CASCADE"), nullable=False),
+        sa.Column("organization_id", sa.String(36), sa.ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False),
         sa.Column("name", sa.Text(), nullable=False),
         sa.Column("school_code", sa.Text(), nullable=True, unique=True),
         sa.Column("type", sa.Text(), nullable=True),  # elementary, middle, high
         sa.Column("timezone", sa.Text(), nullable=True),
         *_timestamps(),
     )
-    op.create_index("ix_schools_district", "schools", ["district_id"])
+    op.create_index("ix_schools_organization", "schools", ["organization_id"])
 
     op.create_table(
         "academic_terms",
@@ -339,6 +333,12 @@ def upgrade() -> None:
         sa.Column("country", sa.Text(), nullable=True),
         *_timestamps(),
     )
+
+    # contacts stores reusable contact endpoints (e.g., phone numbers, email addresses) that can be linked to one or more people. It separates the channel endpoint from who uses it so you can:
+    #
+    # Attach the same phone/email to multiple parties (e.g., two parents share a number).
+    #
+    # Track metadata about the relationship per person (primary, emergency) in a join table instead of duplicating the contact value.
 
     op.create_table(
         "contacts",
@@ -1198,7 +1198,6 @@ def downgrade() -> None:
         "grading_periods",
         "academic_terms",
         "schools",
-        "districts",
     ]:
         op.drop_table(table)
     op.execute("DROP EXTENSION IF EXISTS pgcrypto;")

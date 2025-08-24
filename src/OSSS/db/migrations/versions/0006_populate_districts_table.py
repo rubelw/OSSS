@@ -58,7 +58,7 @@ branch_labels = None
 depends_on = None
 
 
-district_data = [
+organization_data = [
     ("00180000", "Adair-Casey 11070000 Chariton"),
     ("00270000", "Adel DeSoto Minburn 11160000 Charles City"),
     ("00090000", "AGWSR 11340000 Charter Oak Ute"),
@@ -360,14 +360,14 @@ def upgrade() -> None:
 
     # (Optional) clean up any bad row from a previous failed attempt
     try:
-        conn.execute(sa.text("DELETE FROM districts WHERE id = 'CHAR(36)'"))
+        conn.execute(sa.text("DELETE FROM organizations WHERE id = 'CHAR(36)'"))
     except Exception:
         pass
 
-    rows = [{"name": name.strip(), "code": code.strip()} for code, name in district_data]
+    rows = [{"name": name.strip(), "code": code.strip()} for code, name in organization_data]
 
     upsert = sa.text("""
-        INSERT INTO districts (name, code)
+        INSERT INTO organizations (name, code)
         VALUES (:name, :code)
         ON CONFLICT (code) DO UPDATE
         SET name = EXCLUDED.name,
@@ -379,9 +379,9 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     conn = op.get_bind()
-    codes = [code for code, _ in district_data]
+    codes = [code for code, _ in organization_data]
 
     conn.execute(
-        sa.text("DELETE FROM districts WHERE code = ANY(:codes)"),
+        sa.text("DELETE FROM organizations WHERE code = ANY(:codes)"),
         {"codes": codes},
     )

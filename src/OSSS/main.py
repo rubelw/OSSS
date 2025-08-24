@@ -13,7 +13,9 @@ from OSSS.api.routers.health import router as health_router
 from OSSS.api.routers.me import router as me_router
 from OSSS.api.routers.admin_settings_states import router as states_router
 from OSSS.api.routers.admin_settings_schools import router as schools_router
-from OSSS.api.routers.admin_settings_districts import router as districts_router
+from OSSS.api.routers.admin_settings_roles import router as roles_router
+
+from OSSS.api.routers.admin_settings_organizations import router as organizations_router
 from OSSS.api.routers.sis_settings_academic_terms import router as sis_academic_terms_router
 from OSSS.api.routers.sis_settings_standardized_tests import router as sis_standardized_tests_router
 from OSSS.api.routers.sis_settings_attendance_codes import router as sis_attendance_codes_router
@@ -42,7 +44,8 @@ def create_app() -> FastAPI:
     app.include_router(me_router)
     app.include_router(states_router)
     app.include_router(schools_router)
-    app.include_router(districts_router)
+    app.include_router(roles_router)
+    app.include_router(organizations_router)
     app.include_router(sis_behavior_codes_router)
     app.include_router(sis_academic_terms_router)
     app.include_router(sis_standardized_tests_router)

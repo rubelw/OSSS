@@ -130,16 +130,27 @@ def _add_updated_at_trigger(table_name: str):
 
 
 def upgrade():
-    # Safe if already present (0001 likely created pgcrypto)
+    # Enable gen_random_uuid() on Postgres (safe to re-run)
     op.execute("CREATE EXTENSION IF NOT EXISTS pgcrypto")
 
+    # --- define uuid_col ONCE, then reuse in every op.create_table ---
+    bind = op.get_bind()
+    is_pg = bind.dialect.name == "postgresql"
+
+    uuid_col = (
+        sa.Column("id", sa.String(36), primary_key=True,
+                  server_default=sa.text("gen_random_uuid()"))  # Postgres default
+        if is_pg else
+        sa.Column("id", sa.CHAR(36), primary_key=True)  # e.g., SQLite fallback
+    )
+
     # ---------- Core (shared) ----------
-    # Tenant / District boundary. In K-12 SIS systems, an “organization” usually maps 1-to-1 to a district (or charter network). It’s the top-level container for data, users, and configuration.
     op.create_table(
         "organizations",
-        sa.Column("id", sa.String(36), primary_key=True, server_default=sa.text("gen_random_uuid()")),
-        sa.Column("name", sa.String(255), nullable=False, unique=True),
-        sa.Column("created_at", sa.TIMESTAMP(timezone=True), nullable=False, server_default=sa.text("CURRENT_TIMESTAMP")),
+        uuid_col,
+        sa.Column("name", sa.Text(), nullable=False, unique=True),
+        sa.Column("code", sa.Text(), nullable=True, unique=True),
+        *_timestamps(),
     )
 
     # The bodies table is designed to represent formal groups or governing/decision-making entities within an organization (district). In an SIS context, especially in large districts or Infinite Campus–style systems, schools and districts often have boards, committees, and councils that oversee policy, governance, or targeted areas (e.g., school board, advisory committees, curriculum councils).

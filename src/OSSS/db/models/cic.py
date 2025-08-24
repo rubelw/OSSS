@@ -37,7 +37,7 @@ def ts_cols():
 class CICCommittee(UUIDMixin, Base):
     __tablename__ = "cic_committees"
 
-    district_id = Column(GUID(), ForeignKey("districts.id", ondelete="SET NULL"))
+    district_id = Column(GUID(), ForeignKey("organizations.id", ondelete="SET NULL"))
     school_id   = Column(GUID(), ForeignKey("schools.id",   ondelete="SET NULL"))
     name        = Column(Text, nullable=False)
     description = Column(Text)
@@ -47,7 +47,7 @@ class CICCommittee(UUIDMixin, Base):
 
     __table_args__ = (
         CheckConstraint(
-            "(district_id IS NOT NULL) OR (school_id IS NOT NULL)",
+            "(organization_id IS NOT NULL) OR (school_id IS NOT NULL)",
             name="ck_cic_committee_scope",
         ),
     )

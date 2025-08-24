@@ -85,15 +85,15 @@ def upgrade() -> None:
         "cic_committees",
         sa.Column("id", sa.String(36), primary_key=True, server_default=sa.text("gen_random_uuid()")),
         # scope at district or school; keep both optional so you can use either
-        sa.Column("district_id", sa.String(36), sa.ForeignKey("districts.id", ondelete="SET NULL"), nullable=True),
+        sa.Column("organization_id", sa.String(36), sa.ForeignKey("organizations.id", ondelete="SET NULL"), nullable=True),
         sa.Column("school_id", sa.String(36), sa.ForeignKey("schools.id", ondelete="SET NULL"), nullable=True),
         sa.Column("name", sa.Text(), nullable=False),
         sa.Column("description", sa.Text(), nullable=True),
         sa.Column("status", sa.Text(), nullable=False, server_default=sa.text("'active'")),
         * _timestamps(),
-        sa.CheckConstraint("(district_id IS NOT NULL) OR (school_id IS NOT NULL)", name="ck_cic_committee_scope")
+        sa.CheckConstraint("(organization_id IS NOT NULL) OR (school_id IS NOT NULL)", name="ck_cic_committee_scope")
     )
-    op.create_index("ix_cic_committees_scope", "cic_committees", ["district_id", "school_id"])
+    op.create_index("ix_cic_committees_scope", "cic_committees", ["organization_id", "school_id"])
 
     # Memberships (people on the committee)
     op.create_table(

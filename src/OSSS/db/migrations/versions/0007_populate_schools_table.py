@@ -24,11 +24,11 @@ DCG_CODE = "15760000"
 def _log(msg: str) -> None:
     print(f"[0007] {msg}")
 
-def _find_dcg_district_id(conn) -> str | None:
+def _find_dcg_organization_id(conn) -> str | None:
     # 1) Try code (most reliable)
-    did = conn.scalar(sa.text("SELECT id FROM districts WHERE code = :c"), {"c": DCG_CODE})
+    did = conn.scalar(sa.text("SELECT id FROM organizations WHERE code = :c"), {"c": DCG_CODE})
     if did:
-        _log(f"Matched district by code={DCG_CODE} -> {did}")
+        _log(f"Matched organization by code={DCG_CODE} -> {did}")
         return did
 
     # 2) Try several name variants
@@ -40,23 +40,23 @@ def _find_dcg_district_id(conn) -> str | None:
         "Dallas Center–Grimes Community School District",
     ]
     for cand in exact_candidates:
-        did = conn.scalar(sa.text("SELECT id FROM districts WHERE name = :n"), {"n": cand})
+        did = conn.scalar(sa.text("SELECT id FROM organizations WHERE name = :n"), {"n": cand})
         if did:
-            _log(f"Matched district by exact name '{cand}' -> {did}")
+            _log(f"Matched organization by exact name '{cand}' -> {did}")
             return did
 
     # 3) Fallback fuzzy
     did = conn.scalar(
         sa.text(
-            "SELECT id FROM districts "
+            "SELECT id FROM organizations "
             "WHERE name ILIKE '%Dallas Center%' AND name ILIKE '%Grimes%' "
             "ORDER BY LENGTH(name) ASC LIMIT 1"
         )
     )
     if did:
-        _log(f"Matched district by fuzzy ILIKE -> {did}")
+        _log(f"Matched organization by fuzzy ILIKE -> {did}")
     else:
-        _log("District lookup failed (Dallas Center–Grimes not found).")
+        _log("Organization lookup failed (Dallas Center–Grimes not found).")
     return did
 
 def upgrade():
@@ -70,15 +70,15 @@ def upgrade():
     conn.execute(sa.text("ALTER TABLE schools ADD COLUMN IF NOT EXISTS building_code  TEXT"))
     _log("Ensured columns nces_school_id, building_code exist on schools.")
 
-    # Resolve district id (by code first)
-    district_id = _find_dcg_district_id(conn)
-    if not district_id:
+    # Resolve organization id (by code first)
+    organization_id = _find_dcg_organization_id(conn)
+    if not organization_id:
         raise RuntimeError(
-            "District for Dallas Center–Grimes not found. "
+            "Organization for Dallas Center–Grimes not found. "
             "Verify 0006_populate_districts_table inserted code=15760000 or a compatible name."
         )
 
-    sel_id_sql = sa.text("SELECT id FROM schools WHERE district_id = :d AND name = :n")
+    sel_id_sql = sa.text("SELECT id FROM schools WHERE organization_id = :d AND name = :n")
     upd_sql = sa.text(
         "UPDATE schools "
         "   SET nces_school_id = :nces, "
@@ -89,48 +89,48 @@ def upgrade():
     )
     ins_sql = sa.text(
         "INSERT INTO schools "
-        "    (id, district_id, name, nces_school_id, building_code, school_code, created_at, updated_at) "
+        "    (id, organization_id, name, nces_school_id, building_code, school_code, created_at, updated_at) "
         "VALUES (gen_random_uuid(), :d, :n, :nces, :bcode, :bcode, NOW(), NOW())"
     )
 
     inserted = updated = 0
     for name, nces, bcode in SCHOOLS:
-        existing_id = conn.scalar(sel_id_sql, {"d": district_id, "n": name})
+        existing_id = conn.scalar(sel_id_sql, {"d": organization_id, "n": name})
         if existing_id:
             conn.execute(upd_sql, {"id": existing_id, "nces": nces, "bcode": bcode})
             updated += 1
             _log(f"Updated: {name} (id={existing_id}) nces={nces} bcode={bcode}")
         else:
-            conn.execute(ins_sql, {"d": district_id, "n": name, "nces": nces, "bcode": bcode})
+            conn.execute(ins_sql, {"d": organization_id, "n": name, "nces": nces, "bcode": bcode})
             inserted += 1
             _log(f"Inserted: {name} nces={nces} bcode={bcode}")
 
     # Post-check: count & sample rows we just touched
-    count = conn.scalar(sa.text("SELECT COUNT(*) FROM schools WHERE district_id = :d"), {"d": district_id})
+    count = conn.scalar(sa.text("SELECT COUNT(*) FROM schools WHERE organization_id = :d"), {"d": organization_id})
     sample = conn.execute(
         sa.text(
             "SELECT name, nces_school_id, building_code "
-            "FROM schools WHERE district_id = :d ORDER BY name LIMIT 10"
+            "FROM schools WHERE organization_id = :d ORDER BY name LIMIT 10"
         ),
-        {"d": district_id},
+        {"d": organization_id},
     ).fetchall()
 
-    _log(f"Done. Inserted={inserted}, Updated={updated}, DistrictRowCount={count}")
+    _log(f"Done. Inserted={inserted}, Updated={updated}, OrganizationRowCount={count}")
     _log(f"Sample rows: {sample}")
 
 def downgrade():
     conn = op.get_bind()
-    district_id = _find_dcg_district_id(conn)
-    if not district_id:
-        _log("Downgrade: DCG district not found; skipping.")
+    organization_id = _find_dcg_organization_id(conn)
+    if not organization_id:
+        _log("Downgrade: DCG organization not found; skipping.")
         return
 
     # Clear only the fields we populated
     upd_null_sql = sa.text(
         "UPDATE schools "
         "   SET nces_school_id = NULL, building_code = NULL, updated_at = NOW() "
-        " WHERE district_id = :d AND name = :n"
+        " WHERE organization_id = :d AND name = :n"
     )
     for name, _, _ in SCHOOLS:
-        conn.execute(upd_null_sql, {"d": district_id, "n": name})
+        conn.execute(upd_null_sql, {"d": organization_id, "n": name})
         _log(f"Cleared fields on: {name}")

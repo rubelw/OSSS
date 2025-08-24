@@ -17,7 +17,7 @@ class Organization(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "organizations"
 
     name: Mapped[str] = mapped_column(sa.String(255), unique=True, nullable=False)
-
+    code: Mapped[Optional[str]] = mapped_column(sa.Text, unique=True)
     bodies: Mapped[list["Body"]] = relationship(
         "Body",
         back_populates="organization",
