@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from OSSS.auth import require_auth
 from OSSS.db import get_session
-from OSSS.db.models.sis import School
+from OSSS.db.models import School
 
 router = APIRouter(prefix="/admin/settings", tags=["admin"])
 

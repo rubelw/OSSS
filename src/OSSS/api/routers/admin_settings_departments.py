@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict, Field
 
 from OSSS.db.session import get_session
-from OSSS.db.models.sis import Department  # adjust import if Department lives elsewhere
+from OSSS.db.models import Department  # adjust import if Department lives elsewhere
 
 router = APIRouter(prefix="/admin/settings/departments", tags=["admin"])
 

@@ -1,18 +1,21 @@
-# src/OSSS/db/models/behavior_codes.py
 from __future__ import annotations
 
-from sqlalchemy import Column, Text, TIMESTAMP, func
+from datetime import datetime, date, time
+from decimal import Decimal
+from typing import Any, Optional, List
 
-from OSSS.db.base import Base
+import sqlalchemy as sa
+from sqlalchemy import ForeignKey, UniqueConstraint, text
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from OSSS.db.base import Base, UUIDMixin, GUID, JSONB
 
 class BehaviorCode(Base):
     __tablename__ = "behavior_codes"
 
-    code = Column(Text, primary_key=True)
-    description = Column(Text)
+    code = sa.Column(sa.Text, primary_key=True)
+    description = sa.Column(sa.Text)
 
-    created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
-    updated_at = Column(
-        TIMESTAMP(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    created_at = sa.Column(sa.TIMESTAMP(timezone=True), nullable=False, server_default=sa.func.now())
+    updated_at = sa.Column(sa.TIMESTAMP(timezone=True), nullable=False, server_default=sa.func.now(), onupdate=sa.func.now()
     )

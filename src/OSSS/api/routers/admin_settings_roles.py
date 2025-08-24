@@ -13,7 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 # Adjust these imports to your project layout as needed:
 from OSSS.db.session import get_session
-from OSSS.db.models.sis import Role  # update if Role is defined elsewhere
+from OSSS.db.models import Role  # update if Role is defined elsewhere
 
 from pydantic import BaseModel, ConfigDict, Field
 

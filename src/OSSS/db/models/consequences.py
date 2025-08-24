@@ -1,14 +1,14 @@
-# src/OSSS/db/models/consequences.py
 from __future__ import annotations
 
-from datetime import date, datetime
-from typing import Optional
+from datetime import datetime, date, time
+from decimal import Decimal
+from typing import Any, Optional, List
 
 import sqlalchemy as sa
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import ForeignKey, UniqueConstraint, text
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from OSSS.db.base import Base, GUID, UUIDMixin
-
+from OSSS.db.base import Base, UUIDMixin, GUID, JSONB
 
 class Consequence(UUIDMixin, Base):
     __tablename__ = "consequences"

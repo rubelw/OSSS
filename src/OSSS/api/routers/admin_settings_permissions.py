@@ -13,7 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict, Field
 
 from OSSS.db.session import get_session
-from OSSS.db.models.sis import Permission
+from OSSS.db.models.permissions import Permission
 
 router = APIRouter(prefix="/admin/settings/permissions", tags=["admin"])
 

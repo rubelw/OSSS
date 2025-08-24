@@ -2,13 +2,16 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from typing import Any, Optional
+from datetime import datetime, date, time
+from decimal import Decimal
 
 import sqlalchemy as sa
 from sqlalchemy import MetaData
 from sqlalchemy.dialects import postgresql as pg
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy.types import CHAR, JSON, TypeDecorator, TEXT
+from typing import Any, Optional  # and UUID if you use it
 
 # -----------------------------------------------------------------------------
 # Optional TSVectorType
@@ -43,6 +46,19 @@ NAMING_CONVENTION = {
 
 class Base(DeclarativeBase):
     metadata = MetaData(naming_convention=NAMING_CONVENTION)
+    """Shared declarative base for all models."""
+    # Make names available during annotation evaluation everywhere.
+    __sa_eval_namespace__ = {
+        # typing
+        "Any": Any,
+        "Optional": Optional,
+        # stdlib types used in annotations
+        "uuid": uuid,  # for `uuid.UUID`
+        "Decimal": Decimal,  # for `Mapped[Decimal]`
+        "datetime": datetime,  # for `Mapped[datetime]`
+        "date": date,  # for `Mapped[date]`
+        "time": time,  # just in case
+    }
 
 
 # -----------------------------------------------------------------------------
@@ -120,7 +136,12 @@ class UUIDMixin:
       - created_at: timezone-aware timestamp, defaults to NOW() on DB
       - updated_at: timezone-aware timestamp, defaults to NOW(), auto-updates
     """
-    id: Mapped[uuid.UUID] = mapped_column(GUID(), primary_key=True, default=uuid.uuid4)
+    # Avoid a uuid import requirement in every model file
+    id: Mapped[Any] = mapped_column(
+        GUID(),
+        primary_key=True,
+        server_default=sa.text("gen_random_uuid()"),  # on Postgres
+    )
 
     created_at: Mapped[datetime] = mapped_column(
         sa.DateTime(timezone=True),

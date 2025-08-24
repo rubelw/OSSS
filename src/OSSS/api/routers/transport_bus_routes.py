@@ -15,7 +15,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 # Adjust these imports to your project layout as needed:
 from OSSS.db.session import get_session
-from OSSS.db.models.sis import BusRoute  # <-- update if model lives elsewhere
+from OSSS.db.models.bus_routes import BusRoute  # <-- update if model lives elsewhere
 
 router = APIRouter(prefix="/transport/bus_routes", tags=["transportation"])
 

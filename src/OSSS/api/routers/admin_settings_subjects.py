@@ -14,7 +14,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 # Adjust these imports to your project structure
 from OSSS.db.session import get_session
-from OSSS.db.models.sis import Subject  # <-- update if Subject lives elsewhere
+from OSSS.db.models import Subject  # <-- update if Subject lives elsewhere
 
 router = APIRouter(prefix="/admin/settings/subjects", tags=["admin"])
 

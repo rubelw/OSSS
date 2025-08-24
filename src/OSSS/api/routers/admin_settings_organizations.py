@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from OSSS.auth.dependencies import require_auth
 from OSSS.db.session import get_session
-from OSSS.db.models.core import Organization
+from OSSS.db.models.organizations import Organization
 
 router = APIRouter(prefix="/admin/settings", tags=["admin"])
 

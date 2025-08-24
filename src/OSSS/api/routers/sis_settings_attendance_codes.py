@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 from OSSS.auth.dependencies import require_auth
 from OSSS.db.session import get_session
-from OSSS.db.models.sis import AttendanceCode  # adjust path if needed
+from OSSS.db.models.attendance_codes import AttendanceCode  # adjust path if needed
 
 router = APIRouter(prefix="/sis/settings", tags=["sis"])
 

@@ -1,20 +1,24 @@
-# src/OSSS/db/models/behavior_interventions.py
 from __future__ import annotations
 
-from sqlalchemy import Column, Text, Date, TIMESTAMP, ForeignKey, func
+from datetime import datetime, date, time
+from decimal import Decimal
+from typing import Any, Optional, List
 
-from OSSS.db.base import Base, GUID, UUIDMixin
+import sqlalchemy as sa
+from sqlalchemy import ForeignKey, UniqueConstraint, text
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from OSSS.db.base import Base, UUIDMixin, GUID, JSONB
 
 class BehaviorIntervention(UUIDMixin, Base):
     __tablename__ = "behavior_interventions"
 
-    student_id = Column(GUID(), ForeignKey("students.id", ondelete="CASCADE"), nullable=False)
-    intervention = Column(Text, nullable=False)
-    start_date = Column(Date, nullable=False)
-    end_date = Column(Date)
+    student_id = sa.Column(GUID(), ForeignKey("students.id", ondelete="CASCADE"), nullable=False)
+    intervention = sa.Column(sa.Text, nullable=False)
+    start_date = sa.Column(sa.Date, nullable=False)
+    end_date = sa.Column(sa.Date)
 
-    created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
-    updated_at = Column(
-        TIMESTAMP(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    created_at = sa.Column(sa.TIMESTAMP(timezone=True), nullable=False, server_default=sa.func.now())
+    updated_at = sa.Column(
+        sa.TIMESTAMP(timezone=True), nullable=False, server_default=sa.func.now(), onupdate=sa.func.now()
     )

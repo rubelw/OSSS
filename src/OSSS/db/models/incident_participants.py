@@ -1,11 +1,14 @@
-# src/OSSS/db/models/incident_participants.py
 from __future__ import annotations
 
+from datetime import datetime, date, time
+from decimal import Decimal
+from typing import Any, Optional, List
+
 import sqlalchemy as sa
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import ForeignKey, UniqueConstraint, text
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from OSSS.db.base import Base, UUIDMixin, TimestampMixin, GUID
-
+from OSSS.db.base import Base, UUIDMixin, GUID, JSONB, TimestampMixin
 
 class IncidentParticipant(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "incident_participants"

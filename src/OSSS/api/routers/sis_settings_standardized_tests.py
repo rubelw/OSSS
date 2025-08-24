@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from OSSS.auth.dependencies import require_auth
 from OSSS.db.session import get_session
-from OSSS.db.models.sis import StandardizedTest  # adjust path if different
+from OSSS.db.models.standardized_tests import StandardizedTest  # adjust path if different
 
 router = APIRouter(prefix="/sis/settings", tags=["sis"])
 

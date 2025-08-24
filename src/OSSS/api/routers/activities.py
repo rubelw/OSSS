@@ -7,14 +7,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from OSSS.auth.dependencies import require_auth
 from OSSS.db.session import get_session
-from OSSS.db.models.activities import Activity, Event, TicketType, Order, Ticket, TicketScan
-from OSSS.schemas.activities import (
-    ActivityIn, ActivityOut,
-    EventIn, EventOut,
-    TicketTypeIn, TicketTypeOut,
-    OrderCreate, OrderOut, TicketOut,
-    ScanRequest, ScanResult
-)
+from OSSS.db.models.activities import Activity
+from OSSS.db.models.events import Event
+from OSSS.db.models.ticket_types import TicketType
+from OSSS.db.models.orders import Order
+from OSSS.db.models.tickets import Ticket
+from OSSS.db.models.ticket_scans import  TicketScan
+from OSSS.schemas.activities import ActivityIn, ActivityOut
+from OSSS.schemas.events import EventIn, EventOut
+from OSSS.schemas.ticket_types import TicketTypeIn, TicketTypeOut
+from OSSS.schemas.orders import OrderCreate, OrderOut
+from OSSS.schemas.tickets import TicketOut
+from OSSS.schemas.scan_request import ScanRequest
+from OSSS.schemas.scan_result import ScanResult
+
 
 router = APIRouter(prefix="/activities", tags=["activities"])
 

@@ -15,7 +15,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 # Adjust these imports to your project structure
 from OSSS.db.session import get_session
-from OSSS.db.models.sis import GradingPeriod  # update path if different
+from OSSS.db.models.grading_periods import GradingPeriod  # update path if different
 
 router = APIRouter(prefix="/sis/settings", tags=["sis"])
 

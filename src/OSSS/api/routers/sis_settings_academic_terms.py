@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from OSSS.auth.dependencies import require_auth
 from OSSS.db.session import get_session
-from OSSS.db.models.sis import AcademicTerm  # adjust path if different
+from OSSS.db.models.academic_terms import AcademicTerm  # adjust path if different
 
 router = APIRouter(prefix="/sis/settings", tags=["sis"])
 

@@ -14,7 +14,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict, Field
 
 from OSSS.db.session import get_session
-from OSSS.db.models.sis import Course  # adjust import if Course lives elsewhere
+from OSSS.db.models.courses import Course  # adjust import if Course lives elsewhere
 
 router = APIRouter(prefix="/sis/settings", tags=["sis"])
 
