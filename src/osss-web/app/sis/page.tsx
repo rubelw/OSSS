@@ -14,13 +14,13 @@ export default function SISPage() {
       </header>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <Link href="/schools" className="rounded-lg border p-4 hover:bg-gray-50">
+        <Link href="/api/schools" className="rounded-lg border p-4 hover:bg-gray-50">
           <h2 className="font-medium">Schools</h2>
           <p className="text-sm text-gray-600">Browse schools from the SIS.</p>
         </Link>
 
         <Link
-          href="/behavior-codes"
+          href="/api/behaviorcodes"
           className="rounded-lg border p-4 hover:bg-gray-50"
         >
           <h2 className="font-medium">Behavior Codes</h2>

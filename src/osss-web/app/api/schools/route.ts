@@ -18,7 +18,7 @@ export async function GET() {
     );
   }
 
-  const url = `${base}/states`;
+  const url = `${base}/api/schools`;
 
   try {
     const res = await fetch(url, {
@@ -34,7 +34,7 @@ export async function GET() {
     const ct = res.headers.get("content-type") || "";
 
     if (!res.ok) {
-      console.error("Upstream /states error", res.status, text);
+      console.error("Upstream /schools error", res.status, text);
       return NextResponse.json(
         { error: "upstream_error", status: res.status, details: text.slice(0, 400) },
         { status: res.status }

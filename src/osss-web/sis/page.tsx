@@ -20,7 +20,7 @@ export default function SISPage() {
         </Link>
 
         <Link
-          href="/behavior-codes"
+          href="/api/behaviorcodes"
           className="rounded-lg border p-4 hover:bg-gray-50"
         >
           <h2 className="font-medium">Behavior Codes</h2>

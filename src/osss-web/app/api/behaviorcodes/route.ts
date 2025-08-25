@@ -18,7 +18,7 @@ export async function GET() {
     );
   }
 
-  const url = `${base}/sis/behavior_codes`;
+  const url = `${base}/api/behaviorcodes`;
 
   try {
     const res = await fetch(url, {

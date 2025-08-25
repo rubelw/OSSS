@@ -77,35 +77,10 @@ except Exception:  # pragma: no cover
 
 
 # ---- Utilities ----
-def _import_models(packages: Iterable[str] = ("OSSS.db.models", "OSSS.db.models_split")) -> None:
-    """
-    Import every module under the given packages so all SQLAlchemy models
-    are attached to Base.metadata.
-
-    - Recurses through subpackages.
-    - Skips modules/packages that start with "_".
-    """
-    for pkg_name in packages:
-        try:
-            pkg = import_module(pkg_name)
-        except ModuleNotFoundError:
-            log.debug("Package %s not found; skipping.", pkg_name)
-            continue
-
-        pkg_path = getattr(pkg, "__path__", None)
-        if not pkg_path:
-            # Simple module (not a package) — importing above was enough
-            continue
-
-        prefix = pkg.__name__ + "."
-        for modinfo in pkgutil.walk_packages(pkg_path, prefix=prefix):
-            fullname = modinfo.name
-            if any(part.startswith("_") for part in fullname.split(".")):
-                continue
-            try:
-                import_module(fullname)
-            except Exception as exc:
-                log.warning("Failed to import model module %s: %s", fullname, exc)
+def _import_models():
+    # Import the models package to populate Base.metadata,
+    # but DO NOT import OSSS.db (which pulls in session/engine).
+    import_module("OSSS.db.models")
 
 def _ensure_users_id_is_uuid():
     bind = op.get_bind()
