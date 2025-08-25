@@ -9,33 +9,39 @@ from OSSS.core.config import settings
 from OSSS.db import get_sessionmaker
 
 # Router imports (each file should define `router = APIRouter(...)`)
-from OSSS.api.routers.health import router as health_router
-from OSSS.api.routers.me import router as me_router
-from OSSS.api.routers.admin_settings_states import router as states_router
-from OSSS.api.routers.admin_settings_schools import router as schools_router
-from OSSS.api.routers.admin_settings_departments import router as departments_router
-from OSSS.api.routers.admin_settings_subjects import router as subjects_router
+#from OSSS.api.routers.health import router as health_router
+#from OSSS.api.routers.me import router as me_router
+#from OSSS.api.routers.admin_settings_states import router as states_router
+#from OSSS.api.routers.admin_settings_schools import router as schools_router
+#from OSSS.api.routers.admin_settings_departments import router as departments_router
+#from OSSS.api.routers.admin_settings_subjects import router as subjects_router
 
-from OSSS.api.routers.admin_settings_roles import router as roles_router
-from OSSS.api.routers.admin_settings_permissions import router as permissions_router
-
-
-from OSSS.api.routers.admin_settings_organizations import router as organizations_router
-from OSSS.api.routers.sis_settings_academic_terms import router as sis_academic_terms_router
-from OSSS.api.routers.sis_settings_standardized_tests import router as sis_standardized_tests_router
-from OSSS.api.routers.sis_settings_attendance_codes import router as sis_attendance_codes_router
-from OSSS.api.routers.sis_settings_catalog_courses import router as sis_catalog_courses_router
-from OSSS.api.routers.sis_settings_academic_grading_periods import router as sis_grading_periods_router
+#from OSSS.api.routers.admin_settings_roles import router as roles_router
+#from OSSS.api.routers.admin_settings_permissions import router as permissions_router
 
 
-from OSSS.api.routers.sis_settings_behavior_codes import router as sis_behavior_codes_router
-from OSSS.api.routers import activities as activities_router
+#from OSSS.api.routers.admin_settings_organizations import router as organizations_router
+#from OSSS.api.routers.sis_settings_academic_terms import router as sis_academic_terms_router
+#from OSSS.api.routers.sis_settings_standardized_tests import router as sis_standardized_tests_router
+#from OSSS.api.routers.sis_settings_attendance_codes import router as sis_attendance_codes_router
+#from OSSS.api.routers.sis_settings_catalog_courses import router as sis_catalog_courses_router
+#from OSSS.api.routers.sis_settings_academic_grading_periods import router as sis_grading_periods_router
 
-from OSSS.api.routers.transport_bus_routes import router as bus_routes_router
+
+#from OSSS.api.routers.sis_settings_behavior_codes import router as sis_behavior_codes_router
+#from OSSS.api.routers import activities as activities_router
+
+#from OSSS.api.routers.transport_bus_routes import router as bus_routes_router
 
 
 from OSSS.api.routers.auth_flow import router as auth_router
 
+# If you create tables at runtime (dev only). Keep Alembic for prod migrations.
+# from OSSS.db.base import Base
+# from OSSS.db.session import engine
+
+from OSSS.resources import registry  # importing triggers registrations
+from OSSS.resources import registry, autodiscover  # importing triggers registration
 
 def create_app() -> FastAPI:
     app = FastAPI(title=settings.APP_NAME, version=settings.APP_VERSION)
@@ -50,30 +56,40 @@ def create_app() -> FastAPI:
     )
 
     # --- Routers ---
-    app.include_router(health_router)
-    app.include_router(me_router)
-    app.include_router(states_router)
-    app.include_router(schools_router)
-    app.include_router(departments_router)
-    app.include_router(subjects_router)
+    #app.include_router(health_router)
+    #app.include_router(me_router)
+    #app.include_router(states_router)
+    #app.include_router(schools_router)
+    #app.include_router(departments_router)
+    #app.include_router(subjects_router)
 
 
-    app.include_router(roles_router)
-    app.include_router(permissions_router)
+    #app.include_router(roles_router)
+    #app.include_router(permissions_router)
 
-    app.include_router(organizations_router)
-    app.include_router(sis_behavior_codes_router)
-    app.include_router(sis_academic_terms_router)
-    app.include_router(sis_standardized_tests_router)
-    app.include_router(sis_attendance_codes_router)
-    app.include_router(sis_catalog_courses_router)
-    app.include_router(sis_grading_periods_router)
+    #app.include_router(organizations_router)
+    #app.include_router(sis_behavior_codes_router)
+    #app.include_router(sis_academic_terms_router)
+    #app.include_router(sis_standardized_tests_router)
+    #app.include_router(sis_attendance_codes_router)
+    #app.include_router(sis_catalog_courses_router)
+    #app.include_router(sis_grading_periods_router)
 
-    app.include_router(bus_routes_router)
+    #app.include_router(bus_routes_router)
 
-    app.include_router(activities_router.router)
+    #app.include_router(activities_router.router)
+
 
     app.include_router(auth_router)
+    # Dev-only table creation:
+    # Base.metadata.create_all(bind=engine)
+
+    # Import resource modules so their register(...) calls run
+    autodiscover()  # <-- this is the missing piece
+
+    for res in registry:
+      # Allow a per-resource prefix if you store one with the resource
+      app.include_router(res.router, prefix=getattr(res, "prefix", ""))
 
     # --- Startup (DB ping + Swagger OAuth) ---
     @app.on_event("startup")
@@ -97,6 +113,11 @@ def create_app() -> FastAPI:
         if settings.SWAGGER_CLIENT_SECRET:
             oauth_cfg["clientSecret"] = settings.SWAGGER_CLIENT_SECRET  # dev only
         app.swagger_ui_init_oauth = oauth_cfg
+
+        # Helpful debug: list mounted routes
+        from fastapi.routing import APIRoute
+        print("[startup] mounted routes:",
+            sorted([r.path for r in app.routes if isinstance(r, APIRoute)]))
 
     return app
 

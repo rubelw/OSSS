@@ -1,10 +1,20 @@
 from __future__ import annotations
 
-from datetime import date, time, datetime
+from datetime import datetime
 from decimal import Decimal
-from typing import Optional, Any, Dict
+from typing import Optional
 
+from pydantic import BaseModel
 from .base import ORMBase
+
+
+class CourseCreate(BaseModel):
+    school_id: str
+    name: str
+    subject_id: Optional[str] = None
+    code: Optional[str] = None
+    credit_hours: Optional[Decimal] = None
+
 
 class CourseOut(ORMBase):
     id: str

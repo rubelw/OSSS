@@ -1,22 +1,36 @@
 # src/OSSS/db/session.py
 from __future__ import annotations
-import logging
-from functools import lru_cache
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
-from .base import Base
+
+from typing import AsyncGenerator
+
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.engine import URL
+
 from OSSS.core.config import settings
 
-log = logging.getLogger(__name__)
+# Build the async engine once
+# DATABASE_URL should be async (e.g., postgresql+asyncpg://...)
+DATABASE_URL: str | URL = settings.DATABASE_URL
+engine = create_async_engine(DATABASE_URL, echo=getattr(settings, "DB_ECHO", False), future=True)
 
-@lru_cache
-def get_engine():
-    log.info("DB: connecting (url=%s)", settings.DATABASE_URL.replace(settings.DATABASE_URL.split('@')[0], "postgresql+asyncpg://***:***"))
-    return create_async_engine(settings.DATABASE_URL, pool_pre_ping=True, future=True)
+# Create a single async sessionmaker for the app
+_sessionmaker: async_sessionmaker[AsyncSession] = async_sessionmaker(
+    bind=engine,
+    expire_on_commit=False,
+    class_=AsyncSession,
+)
 
-@lru_cache
-def get_sessionmaker():
-    return async_sessionmaker(bind=get_engine(), expire_on_commit=False, autoflush=False)
 
-async def get_session() -> AsyncSession:
-    async with get_sessionmaker()() as session:
+def get_sessionmaker() -> async_sessionmaker[AsyncSession]:
+    """Return the app-wide async sessionmaker."""
+    return _sessionmaker
+
+
+async def get_session() -> AsyncGenerator[AsyncSession, None]:
+    """
+    FastAPI dependency that yields an AsyncSession.
+    Note: call the sessionmaker (factory) to create a session instance.
+    """
+    maker = get_sessionmaker()  # <- factory
+    async with maker() as session:  # <- session instance
         yield session

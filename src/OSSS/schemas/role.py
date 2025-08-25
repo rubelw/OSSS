@@ -4,7 +4,14 @@ from datetime import date, time, datetime
 from decimal import Decimal
 from typing import Optional, Any, Dict
 
+from pydantic import BaseModel
 from .base import ORMBase
+
+
+class RoleCreate(BaseModel):
+    name: str
+    description: Optional[str] = None
+
 
 class RoleOut(ORMBase):
     id: str

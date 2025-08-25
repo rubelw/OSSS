@@ -1,10 +1,15 @@
 from __future__ import annotations
 
-from datetime import date, time, datetime
-from decimal import Decimal
-from typing import Optional, Any, Dict
+from datetime import datetime
+from pydantic import BaseModel
 
 from .base import ORMBase
+
+
+class DepartmentCreate(BaseModel):
+    school_id: str
+    name: str
+
 
 class DepartmentOut(ORMBase):
     id: str

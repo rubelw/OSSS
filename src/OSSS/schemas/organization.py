@@ -4,17 +4,17 @@ from datetime import datetime
 from typing import Optional
 
 from pydantic import BaseModel
+
 from .base import ORMBase
 
 
-class BusRouteCreate(BaseModel):
+class OrganizationCreate(BaseModel):
     name: str
-    school_id: Optional[str] = None
+    code: Optional[str] = None
 
-
-class BusRouteOut(ORMBase):
+class OrganizationOut(ORMBase):
     id: str
     name: str
-    school_id: Optional[str] = None
+    code: Optional[str] = None
     created_at: datetime
     updated_at: datetime

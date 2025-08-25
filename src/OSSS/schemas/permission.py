@@ -4,7 +4,14 @@ from datetime import date, time, datetime
 from decimal import Decimal
 from typing import Optional, Any, Dict
 
+from pydantic import BaseModel
 from .base import ORMBase
+
+
+class PermissionCreate(BaseModel):
+    code: str
+    description: Optional[str] = None
+
 
 class PermissionOut(ORMBase):
     id: str
