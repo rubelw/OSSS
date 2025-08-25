@@ -1,10 +1,20 @@
 from __future__ import annotations
 
-from datetime import date, time, datetime
-from decimal import Decimal
-from typing import Optional, Any, Dict
+from datetime import datetime
+from typing import Optional, Dict, Any
 
+from pydantic import BaseModel
 from .base import ORMBase
+
+
+class SisImportJobCreate(BaseModel):
+    source: str
+    status: str
+    started_at: datetime
+    finished_at: Optional[datetime] = None
+    counts: Optional[Dict[str, Any]] = None
+    error_log: Optional[str] = None
+
 
 class SisImportJobOut(ORMBase):
     id: str

@@ -1,10 +1,20 @@
 from __future__ import annotations
 from typing import Optional
 from datetime import datetime, date
+from pydantic import BaseModel
 
 from .base import ORMModel, TimestampMixin
 
 
+# ---------- Create ----------
+class IncidentCreate(BaseModel):
+    school_id: Optional[str] = None
+    occurred_at: datetime
+    behavior_code: str
+    description: Optional[str] = None
+
+
+# ---------- Out ----------
 class BehaviorCodeOut(ORMModel):
     code: str
     description: Optional[str] = None

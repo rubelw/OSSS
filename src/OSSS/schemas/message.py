@@ -1,10 +1,19 @@
 from __future__ import annotations
 
-from datetime import date, time, datetime
-from decimal import Decimal
-from typing import Optional, Any, Dict
+from datetime import datetime
+from typing import Optional
+from pydantic import BaseModel
 
 from .base import ORMBase
+
+
+class MessageCreate(BaseModel):
+    sender_id: Optional[str] = None
+    channel: str
+    subject: Optional[str] = None
+    body: Optional[str] = None
+    sent_at: Optional[datetime] = None
+
 
 class MessageOut(ORMBase):
     id: str

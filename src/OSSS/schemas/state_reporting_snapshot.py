@@ -1,10 +1,17 @@
 from __future__ import annotations
 
-from datetime import date, time, datetime
-from decimal import Decimal
-from typing import Optional, Any, Dict
+from datetime import date, datetime
+from typing import Optional, Dict, Any
 
+from pydantic import BaseModel
 from .base import ORMBase
+
+
+class StateReportingSnapshotCreate(BaseModel):
+    as_of_date: date
+    scope: Optional[str] = None
+    payload: Optional[Dict[str, Any]] = None
+
 
 class StateReportingSnapshotOut(ORMBase):
     id: str

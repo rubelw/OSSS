@@ -2,7 +2,17 @@ from __future__ import annotations
 from typing import Optional
 from datetime import datetime, date
 
+from pydantic import BaseModel
+
 from .base import ORMModel
+
+
+class CICResolutionCreate(BaseModel):
+    meeting_id: str
+    title: str
+    summary: Optional[str] = None
+    effective_date: Optional[date] = None
+    status: Optional[str] = None
 
 
 class CICResolutionOut(ORMModel):

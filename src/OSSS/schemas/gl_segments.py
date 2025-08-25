@@ -1,9 +1,13 @@
 from __future__ import annotations
-from typing import Optional, Dict, Any
+
 from datetime import datetime
+from typing import Optional, Dict, Any
+from pydantic import BaseModel
+
 from .base import ORMBase
 
-class GlSegmentBase(ORMBase):
+
+class GLSegmentCreate(BaseModel):
     type: str
     code: str
     name: str
@@ -11,10 +15,8 @@ class GlSegmentBase(ORMBase):
     active: bool = True
     attributes: Optional[Dict[str, Any]] = None
 
-class GlSegmentCreate(GlSegmentBase):
-    pass
 
-class GlSegmentUpdate(ORMBase):
+class GLSegmentUpdate(BaseModel):
     type: Optional[str] = None
     code: Optional[str] = None
     name: Optional[str] = None
@@ -22,7 +24,14 @@ class GlSegmentUpdate(ORMBase):
     active: Optional[bool] = None
     attributes: Optional[Dict[str, Any]] = None
 
-class GlSegmentOut(GlSegmentBase):
+
+class GLSegmentOut(ORMBase):
     id: str
+    type: str
+    code: str
+    name: str
+    parent_id: Optional[str] = None
+    active: bool
+    attributes: Optional[Dict[str, Any]] = None
     created_at: datetime
     updated_at: datetime

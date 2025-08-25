@@ -1,10 +1,19 @@
 from __future__ import annotations
 
-from datetime import date, time, datetime
-from decimal import Decimal
-from typing import Optional, Any, Dict
+from datetime import datetime
+from typing import Optional
+from pydantic import BaseModel
 
 from .base import ORMBase
+
+
+class LibraryItemCreate(BaseModel):
+    school_id: str
+    title: str
+    author: Optional[str] = None
+    isbn: Optional[str] = None
+    barcode: Optional[str] = None
+
 
 class LibraryItemOut(ORMBase):
     id: str

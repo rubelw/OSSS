@@ -1,10 +1,19 @@
 from __future__ import annotations
 
-from datetime import date, time, datetime
+from datetime import datetime
 from decimal import Decimal
-from typing import Optional, Any, Dict
+from typing import Optional
+from pydantic import BaseModel
 
 from .base import ORMBase
+
+
+class MealTransactionCreate(BaseModel):
+    account_id: str
+    amount: Decimal
+    transacted_at: Optional[datetime] = None
+    description: Optional[str] = None
+
 
 class MealTransactionOut(ORMBase):
     id: str

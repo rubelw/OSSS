@@ -5,6 +5,15 @@ from typing import Optional
 from pydantic import BaseModel, Field
 
 
+class ScanRequestCreate(BaseModel):
+    """Schema for creating a scan request (POST/PUT)."""
+    qr_code: str = Field(..., description="QR token encoded on the ticket")
+    location: Optional[str] = Field(
+        None,
+        description="Optional location or gate identifier where the scan occurred",
+    )
+
+
 class ScanRequest(BaseModel):
     """Request payload to scan/validate a ticket QR code."""
     qr_code: str = Field(..., description="QR token encoded on the ticket")
@@ -19,5 +28,3 @@ class ScanRequest(BaseModel):
                 "qr_code": "QRCODE-EXAMPLE-XYZ",
                 "location": "Main Gate A",
             }
-        }
-    }
