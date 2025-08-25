@@ -58,6 +58,7 @@ def build_crud_router(
     if create_schema is None or read_schema is None:
         raise RuntimeError("You must provide at least schema_in and schema_out (or create_schema/read_schema).")
 
+
     router = APIRouter(
         prefix=path_prefix,
         tags=list(tags or []),

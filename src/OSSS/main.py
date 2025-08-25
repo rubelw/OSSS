@@ -2,8 +2,11 @@
 from __future__ import annotations
 
 import sqlalchemy as sa
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends, Security
 from fastapi.middleware.cors import CORSMiddleware
+from OSSS.api.generated_resources.register_all import generate_routers_for_all_models
+from OSSS.api.routers.auth_flow import router as auth_router, oauth2_scheme
+from OSSS.auth.dependencies import get_current_user
 
 from OSSS.core.config import settings
 from OSSS.db import get_sessionmaker
@@ -35,6 +38,7 @@ from OSSS.db import get_sessionmaker
 
 
 from OSSS.api.routers.auth_flow import router as auth_router
+
 
 # If you create tables at runtime (dev only). Keep Alembic for prod migrations.
 # from OSSS.db.base import Base
@@ -85,11 +89,24 @@ def create_app() -> FastAPI:
     # Base.metadata.create_all(bind=engine)
 
     # Import resource modules so their register(...) calls run
-    autodiscover()  # <-- this is the missing piece
+    #autodiscover()  # <-- this is the missing piece
 
-    for res in registry:
-      # Allow a per-resource prefix if you store one with the resource
-      app.include_router(res.router, prefix=getattr(res, "prefix", ""))
+    #for res in registry:
+    #  # Allow a per-resource prefix if you store one with the resource
+    #  app.include_router(res.router, prefix=getattr(res, "prefix", ""))
+
+    app.include_router(auth_router, prefix="/auth", tags=["auth"])  # << mount under /auth
+
+    # Automatically create and mount routers for every model under OSSS.db.models
+    # Generated resources – require auth and surface the scheme in OpenAPI:
+    for name, router in generate_routers_for_all_models(prefix_base="/api"):
+        app.include_router(
+            router,
+            dependencies=[
+                Security(oauth2_scheme, scopes=["openid"]),  # shows padlock & passes token to deps
+                Depends(get_current_user),  # enforces authentication
+            ],
+        )
 
     # --- Startup (DB ping + Swagger OAuth) ---
     @app.on_event("startup")

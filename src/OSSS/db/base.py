@@ -5,6 +5,7 @@ import uuid
 from typing import Any, Optional
 from datetime import datetime, date, time
 from decimal import Decimal
+import uuid
 
 import sqlalchemy as sa
 from sqlalchemy import MetaData
@@ -47,6 +48,8 @@ NAMING_CONVENTION = {
 class Base(DeclarativeBase):
     metadata = MetaData(naming_convention=NAMING_CONVENTION)
     """Shared declarative base for all models."""
+    __allow_unmapped__ = True  # allow legacy non-Mapped[...] annotations temporarily
+
     # Make names available during annotation evaluation everywhere.
     __sa_eval_namespace__ = {
         # typing
@@ -156,6 +159,9 @@ class UUIDMixin:
         nullable=False,
     )
 
+# at the end of base.py, before __all__ or adjust __all__ accordingly
+ORMBase = Base
 
-__all__ = ["Base", "UUIDMixin", "GUID", "JSONB", "TSVectorType", "TimestampMixin"]
+__all__ = ["Base", "ORMBase", "UUIDMixin", "GUID", "JSONB", "TSVectorType", "TimestampMixin"]
+
 

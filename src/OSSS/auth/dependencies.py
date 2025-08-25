@@ -2,144 +2,140 @@
 from __future__ import annotations
 
 import os
-from typing import Any, Dict, Optional, Iterable
+from typing import Any, Dict, Iterable, Optional, Set
+from functools import lru_cache
 
 import requests
-from fastapi import Depends, HTTPException, Request, Security, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer, OAuth2PasswordBearer
-from fastapi.security.utils import get_authorization_scheme_param
+from fastapi import HTTPException, Security, status
+from fastapi.security import SecurityScopes
+from jose import jwt, JWTError
 
-# --------------------------------------------------------------------------------------
+# Use the SAME oauth2 scheme your OpenAPI references (defined in /auth_flow.py)
+from OSSS.api.routers.auth_flow import oauth2_scheme
+
+
+# -----------------------------------------------------------------------------
 # Config
-# --------------------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 KEYCLOAK_BASE_URL = os.getenv("KEYCLOAK_BASE_URL", "http://localhost:8085").rstrip("/")
 KEYCLOAK_REALM = os.getenv("KEYCLOAK_REALM", "OSSS")
 
-# Confidential client used to introspect tokens
-INTROSPECT_CLIENT_ID = os.getenv("KEYCLOAK_CLIENT_ID", "osss-api")
-INTROSPECT_CLIENT_SECRET = os.getenv("KEYCLOAK_CLIENT_SECRET", "changeme")
+# Full issuer for this realm
+KEYCLOAK_ISSUER = os.getenv("KEYCLOAK_ISSUER") or f"{KEYCLOAK_BASE_URL}/realms/{KEYCLOAK_REALM}"
 
-# Accept tokens for any of these audiences (aud) or authorized party (azp)
-KEYCLOAK_ALLOWED_AUDIENCES: set[str] = {
+# Single audience to verify with jose (optional; if unset, we’ll skip jose’s aud check)
+KEYCLOAK_AUDIENCE = os.getenv("KEYCLOAK_AUDIENCE")
+
+# Accept tokens whose aud/azp matches one of these (additional guard, optional)
+KEYCLOAK_ALLOWED_AUDIENCES: Set[str] = {
     c.strip()
     for c in os.getenv("KEYCLOAK_ALLOWED_AUDIENCES", "osss-api,osss-web").split(",")
     if c.strip()
 }
 
-INTROSPECTION_URL = (
-    f"{KEYCLOAK_BASE_URL}/realms/{KEYCLOAK_REALM}/protocol/openid-connect/token/introspect"
-)
 
-# Security helpers used by require_auth
-http_bearer = HTTPBearer(auto_error=False)
-oauth2_password = OAuth2PasswordBearer(tokenUrl="/token", auto_error=False)
+# -----------------------------------------------------------------------------
+# OIDC / JWKS helpers (cached)
+# -----------------------------------------------------------------------------
+@lru_cache
+def _oidc_config() -> Dict[str, Any]:
+    url = f"{KEYCLOAK_ISSUER}/.well-known/openid-configuration"
+    resp = requests.get(url, timeout=5)
+    resp.raise_for_status()
+    return resp.json()
 
-# --------------------------------------------------------------------------------------
-# Helpers
-# --------------------------------------------------------------------------------------
+
+@lru_cache
+def _jwks() -> Dict[str, Any]:
+    resp = requests.get(_oidc_config()["jwks_uri"], timeout=5)
+    resp.raise_for_status()
+    return resp.json()
+
+
+def _get_key(header: Dict[str, Any]) -> Dict[str, Any]:
+    kid = header.get("kid")
+    for k in _jwks().get("keys", []):
+        if k.get("kid") == kid:
+            return k
+    raise HTTPException(status_code=401, detail="Unknown signing key")
+
+
 def _aud_ok(aud: Any, azp: Optional[str]) -> bool:
     """
-    Accept if token's `aud` contains any allowed audience OR `azp` matches.
-    Keycloak may emit aud as str or list.
+    Accept if token's `aud` (str or list) or `azp` matches any allowed audience.
+    If KEYCLOAK_ALLOWED_AUDIENCES is empty, permit.
     """
-    if isinstance(aud, str):
-        if aud in KEYCLOAK_ALLOWED_AUDIENCES:
-            return True
-    elif isinstance(aud, Iterable):
-        if any(a in KEYCLOAK_ALLOWED_AUDIENCES for a in aud):
-            return True
+    if not KEYCLOAK_ALLOWED_AUDIENCES:
+        return True
+    if isinstance(aud, str) and aud in KEYCLOAK_ALLOWED_AUDIENCES:
+        return True
+    if isinstance(aud, Iterable) and any(a in KEYCLOAK_ALLOWED_AUDIENCES for a in aud):
+        return True
     if azp and azp in KEYCLOAK_ALLOWED_AUDIENCES:
         return True
     return False
 
 
-def _introspect(token: str) -> Dict[str, Any]:
-    """
-    Introspect a token via Keycloak.  Kept as a top-level symbol so tests can monkeypatch it.
-    """
-    data = {
-        "token": token,
-        "client_id": INTROSPECT_CLIENT_ID,
-        "client_secret": INTROSPECT_CLIENT_SECRET,
-    }
-    try:
-        r = requests.post(INTROSPECTION_URL, data=data, timeout=10)
-    except requests.RequestException:
-        raise HTTPException(status_code=502, detail="Keycloak introspection unavailable")
+def _extract_roles(claims: Dict[str, Any]) -> Set[str]:
+    roles: Set[str] = set(claims.get("realm_access", {}).get("roles", []))
+    for _, obj in (claims.get("resource_access") or {}).items():
+        roles.update(obj.get("roles", []))
+    return roles
 
-    if r.status_code != 200:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token introspection failed",
-            headers={"WWW-Authenticate": f'Bearer realm="{KEYCLOAK_REALM}",error="invalid_token"'},
-        )
 
-    payload = r.json()
-    if not payload.get("active"):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Inactive token",
-            headers={"WWW-Authenticate": f'Bearer realm="{KEYCLOAK_REALM}",error="invalid_token"'},
-        )
+def _extract_scopes(claims: Dict[str, Any]) -> Set[str]:
+    scope_str = claims.get("scope", "")
+    return set(scope_str.split()) if scope_str else set()
 
-    # Enforce issuer realm
-    iss = payload.get("iss")
-    expected_iss = f"{KEYCLOAK_BASE_URL}/realms/{KEYCLOAK_REALM}"
-    if iss != expected_iss:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token issuer mismatch",
-            headers={"WWW-Authenticate": f'Bearer realm="{KEYCLOAK_REALM}",error="invalid_token"'},
-        )
 
-    # Audience / azp check
-    if not _aud_ok(payload.get("aud"), payload.get("azp")):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Audience not allowed",
-            headers={"WWW-Authenticate": f'Bearer realm="{KEYCLOAK_REALM}",error="invalid_token"'},
-        )
-
-    return payload
-
-# --------------------------------------------------------------------------------------
-# Public dependency
-# --------------------------------------------------------------------------------------
-async def require_auth(
-    request: Request,
-    bearer: Optional[HTTPAuthorizationCredentials] = Security(http_bearer),
-    oauth2_token: Optional[str] = Depends(oauth2_password),
+# -----------------------------------------------------------------------------
+# Public dependencies
+# -----------------------------------------------------------------------------
+def get_current_user(
+    security_scopes: SecurityScopes,
+    token: str = Security(oauth2_scheme),
 ) -> Dict[str, Any]:
     """
-    Accept a token from:
-      1) Authorization: Bearer <token> (normal clients, curl, Next.js),
-      2) Swagger's OAuth2 password flow (via oauth2_password),
-      3) Optional cookie fallback (Authorization / access_token).
-    Then validate it via Keycloak introspection and return the token payload (claims).
+    Decode & verify a Keycloak JWT using realm JWKS.
+    Returns a user dict with roles and original claims.
     """
-    token: Optional[str] = None
-
-    # 1) Bearer header
-    if bearer and bearer.scheme and bearer.scheme.lower() == "bearer" and bearer.credentials:
-        token = bearer.credentials
-
-    # 2) Swagger's OAuth2 password flow
-    if not token and oauth2_token:
-        token = oauth2_token
-
-    # 3) Cookie fallback (if you choose to set one on responses)
-    if not token:
-        cookie_val = request.cookies.get("Authorization") or request.cookies.get("access_token")
-        if cookie_val:
-            scheme, param = get_authorization_scheme_param(cookie_val)
-            token = param or cookie_val
-
-    if not token:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Missing bearer token",
-            headers={"WWW-Authenticate": f'Bearer realm="{KEYCLOAK_REALM}"'},
+    try:
+        header = jwt.get_unverified_header(token)
+        key = _get_key(header)
+        # Verify issuer always; verify audience only if configured
+        claims = jwt.decode(
+            token,
+            key,
+            algorithms=[header.get("alg", "RS256")],
+            issuer=KEYCLOAK_ISSUER,
+            audience=KEYCLOAK_AUDIENCE if KEYCLOAK_AUDIENCE else None,
+            options={"verify_aud": bool(KEYCLOAK_AUDIENCE)},
         )
+    except (JWTError, requests.RequestException) as e:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token") from e
 
-    # This call is what tests often monkeypatch:
-    return _introspect(token)
+    # Additional audience/azp guard if you provided KEYCLOAK_ALLOWED_AUDIENCES
+    if KEYCLOAK_ALLOWED_AUDIENCES and not _aud_ok(claims.get("aud"), claims.get("azp")):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Audience not allowed")
+
+    # OPTIONAL: enforce requested scopes only if both sides provide them
+    required = set(security_scopes.scopes)
+    provided = _extract_scopes(claims)
+    if required and provided and not required.issubset(provided):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough scope")
+
+    return {
+        "sub": claims.get("sub"),
+        "preferred_username": claims.get("preferred_username"),
+        "email": claims.get("email"),
+        "roles": sorted(_extract_roles(claims)),
+        "claims": claims,
+    }
+
+
+# Backwards compat: some code may still depend on `require_auth`
+def require_auth(user: Dict[str, Any] = Security(get_current_user)) -> Dict[str, Any]:
+    """
+    Thin wrapper around get_current_user so existing imports continue to work.
+    """
+    return user

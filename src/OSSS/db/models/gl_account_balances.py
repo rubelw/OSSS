@@ -2,7 +2,7 @@ from __future__ import annotations
 from typing import Optional, Dict, Any
 from datetime import datetime
 from decimal import Decimal
-from .base import ORMBase
+from src.OSSS.db.base import ORMBase
 
 class GlAccountBalanceBase(ORMBase):
     account_id: str
