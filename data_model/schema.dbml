@@ -1,0 +1,3026 @@
+Table academic_terms {
+  school_id CHAR(36) [not null, increment]
+  name text [not null, increment]
+  type text [increment]
+  start_date date [not null, increment]
+  end_date date [not null, increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table accommodations {
+  iep_plan_id CHAR(36) [increment]
+  applies_to text [increment]
+  description text [not null, increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table activities {
+  school_id CHAR(36) [increment]
+  name varchar(255) [not null, increment]
+  description text [increment]
+  is_active boolean [not null, default: "true", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table addresses {
+  line1 text [not null, increment]
+  line2 text [increment]
+  city text [not null, increment]
+  state text [increment]
+  postal_code text [increment]
+  country text [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table agenda_item_approvals {
+  item_id CHAR(36) [not null, increment]
+  step_id CHAR(36) [not null, increment]
+  approver_id CHAR(36) [increment]
+  decision varchar(16) [increment]
+  decided_at timestamp [increment]
+  comment text [increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+
+  Indexes {
+    (item_id) [name: "ix_agenda_item_approvals_item"]
+  }
+}
+
+Table agenda_item_files {
+  agenda_item_id CHAR(36) [pk, not null, increment]
+  file_id CHAR(36) [pk, not null, increment]
+  caption varchar(255) [increment]
+}
+
+Table agenda_items {
+  meeting_id CHAR(36) [not null, increment]
+  parent_id CHAR(36) [increment]
+  position int [not null, default: "0", increment]
+  title varchar(255) [not null, increment]
+  description text [increment]
+  linked_policy_id CHAR(36) [increment]
+  linked_objective_id CHAR(36) [increment]
+  time_allocated int [increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+
+  Indexes {
+    (meeting_id) [name: "ix_agenda_items_meeting"]
+    (parent_id) [name: "ix_agenda_items_parent"]
+  }
+}
+
+Table agenda_workflow_steps {
+  workflow_id CHAR(36) [not null, increment]
+  step_no int [not null, default: "0", increment]
+  approver_type varchar(20) [not null, increment]
+  approver_id CHAR(36) [increment]
+  rule varchar(50) [increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+
+  Indexes {
+    (workflow_id) [name: "ix_agenda_workflow_steps_wf"]
+  }
+}
+
+Table agenda_workflows {
+  name varchar(255) [not null, increment]
+  active boolean [not null, default: "true", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+}
+
+Table asset_parts {
+  asset_id CHAR(36) [pk, not null, increment]
+  part_id CHAR(36) [pk, not null, increment]
+  qty numeric(12,2) [not null, default: "1", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+}
+
+Table assets {
+  building_id CHAR(36) [increment]
+  space_id CHAR(36) [increment]
+  parent_asset_id CHAR(36) [increment]
+  tag varchar(128) [not null, unique, increment]
+  serial_no varchar(128) [increment]
+  manufacturer varchar(255) [increment]
+  model varchar(255) [increment]
+  category varchar(64) [increment]
+  status varchar(32) [increment]
+  install_date date [increment]
+  warranty_expires_at date [increment]
+  expected_life_months int [increment]
+  attributes JSON [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table assignment_categories {
+  section_id CHAR(36) [not null, increment]
+  name text [not null, increment]
+  weight numeric(5,2) [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table assignments {
+  section_id CHAR(36) [not null, increment]
+  category_id CHAR(36) [increment]
+  name text [not null, increment]
+  due_date date [increment]
+  points_possible numeric(8,2) [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table attendance {
+  meeting_id CHAR(36) [pk, not null, increment]
+  user_id CHAR(36) [pk, not null, increment]
+  status varchar(16) [increment]
+  arrived_at timestamp [increment]
+  left_at timestamp [increment]
+}
+
+Table attendance_codes {
+  code text [pk, not null, increment]
+  description text [increment]
+  is_present boolean [not null, default: "false", increment]
+  is_excused boolean [not null, default: "false", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+}
+
+Table attendance_daily_summary {
+  student_id CHAR(36) [not null, increment]
+  date date [not null, increment]
+  present_minutes int [not null, default: "0", increment]
+  absent_minutes int [not null, default: "0", increment]
+  tardy_minutes int [not null, default: "0", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+
+  Indexes {
+    (student_id, date) [unique, name: "uq_attendance_daily"]
+  }
+}
+
+Table attendance_events {
+  student_id CHAR(36) [not null, increment]
+  section_meeting_id CHAR(36) [increment]
+  date date [not null, increment]
+  code text [not null, increment]
+  minutes int [increment]
+  notes text [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+
+  Indexes {
+    (student_id, date, section_meeting_id) [unique, name: "uq_attendance_event"]
+  }
+}
+
+Table audit_log {
+  entity_type varchar(50) [not null, increment]
+  entity_id CHAR(36) [not null, increment]
+  action varchar(50) [not null, increment]
+  actor_id CHAR(36) [increment]
+  at timestamp [not null, default: "CURRENT_TIMESTAMP", increment]
+  delta JSON [increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+
+  Indexes {
+    (actor_id) [name: "ix_audit_log_actor"]
+    (entity_type, entity_id) [name: "ix_audit_log_entity"]
+  }
+}
+
+Table audit_logs {
+  actor_id CHAR(36) [increment]
+  action text [not null, increment]
+  entity_type text [not null, increment]
+  entity_id CHAR(36) [not null, increment]
+  metadata JSON [increment]
+  occurred_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+}
+
+Table behavior_codes {
+  code text [pk, not null, increment]
+  description text [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+}
+
+Table behavior_interventions {
+  student_id CHAR(36) [not null, increment]
+  intervention text [not null, increment]
+  start_date date [not null, increment]
+  end_date date [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table bell_schedules {
+  school_id CHAR(36) [not null, increment]
+  name text [not null, increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table bodies {
+  org_id CHAR(36) [not null, increment]
+  name varchar(255) [not null, increment]
+  type varchar(50) [increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+
+  Indexes {
+    (org_id) [name: "ix_bodies_org"]
+  }
+}
+
+Table buildings {
+  facility_id CHAR(36) [not null, increment]
+  name varchar(255) [not null, increment]
+  code varchar(64) [unique, increment]
+  year_built int [increment]
+  floors_count int [increment]
+  gross_sqft numeric(12,2) [increment]
+  use_type varchar(64) [increment]
+  address JSON [increment]
+  attributes JSON [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table bus_routes {
+  name text [not null, increment]
+  school_id CHAR(36) [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table bus_stop_times {
+  route_id CHAR(36) [not null, increment]
+  stop_id CHAR(36) [not null, increment]
+  arrival_time TIME [not null, increment]
+  departure_time TIME [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+
+  Indexes {
+    (route_id, stop_id, arrival_time) [unique, name: "uq_bus_stop_time"]
+  }
+}
+
+Table bus_stops {
+  route_id CHAR(36) [not null, increment]
+  name text [not null, increment]
+  latitude numeric(10,7) [increment]
+  longitude numeric(10,7) [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table calendar_days {
+  calendar_id CHAR(36) [not null, increment]
+  date date [not null, increment]
+  day_type text [not null, default: "'instructional'", increment]
+  notes text [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+
+  Indexes {
+    (calendar_id, date) [unique, name: "uq_calendar_day"]
+  }
+}
+
+Table calendars {
+  school_id CHAR(36) [not null, increment]
+  name text [not null, increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table channels {
+  org_id CHAR(36) [not null, increment]
+  name varchar(255) [not null, increment]
+  audience varchar(16) [not null, default: "'public'", increment]
+  description text [increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+}
+
+Table cic_agenda_items {
+  meeting_id CHAR(36) [not null, increment]
+  parent_id CHAR(36) [increment]
+  position int [not null, default: "0", increment]
+  title text [not null, increment]
+  description text [increment]
+  time_allocated_minutes int [increment]
+  subject_id CHAR(36) [increment]
+  course_id CHAR(36) [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+
+  Indexes {
+    (meeting_id, position) [unique, name: "uq_cic_agenda_position"]
+  }
+}
+
+Table cic_committees {
+  organization_id CHAR(36) [increment]
+  school_id CHAR(36) [increment]
+  name text [not null, increment]
+  description text [increment]
+  status text [not null, default: "'active'", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table cic_meeting_documents {
+  meeting_id CHAR(36) [not null, increment]
+  document_id CHAR(36) [increment]
+  file_uri text [increment]
+  label text [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table cic_meetings {
+  committee_id CHAR(36) [not null, increment]
+  title text [not null, increment]
+  scheduled_at timestamp [not null, increment]
+  ends_at timestamp [increment]
+  location text [increment]
+  status text [not null, default: "'scheduled'", increment]
+  is_public boolean [not null, default: "true", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table cic_memberships {
+  committee_id CHAR(36) [not null, increment]
+  person_id CHAR(36) [not null, increment]
+  role text [increment]
+  start_date date [increment]
+  end_date date [increment]
+  voting_member boolean [not null, default: "true", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+
+  Indexes {
+    (committee_id, person_id) [unique, name: "uq_cic_membership_unique"]
+  }
+}
+
+Table cic_motions {
+  agenda_item_id CHAR(36) [not null, increment]
+  text text [not null, increment]
+  moved_by_id CHAR(36) [increment]
+  seconded_by_id CHAR(36) [increment]
+  result text [increment]
+  tally_for int [increment]
+  tally_against int [increment]
+  tally_abstain int [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table cic_proposal_documents {
+  proposal_id CHAR(36) [not null, increment]
+  document_id CHAR(36) [increment]
+  file_uri text [increment]
+  label text [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table cic_proposal_reviews {
+  proposal_id CHAR(36) [not null, increment]
+  reviewer_id CHAR(36) [increment]
+  decision text [increment]
+  decided_at timestamp [increment]
+  comment text [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+
+  Indexes {
+    (proposal_id, reviewer_id) [unique, name: "uq_cic_proposal_reviewer"]
+  }
+}
+
+Table cic_proposals {
+  committee_id CHAR(36) [not null, increment]
+  submitted_by_id CHAR(36) [increment]
+  school_id CHAR(36) [increment]
+  type text [not null, increment]
+  subject_id CHAR(36) [increment]
+  course_id CHAR(36) [increment]
+  title text [not null, increment]
+  rationale text [increment]
+  status text [not null, default: "'draft'", increment]
+  submitted_at timestamp [not null, default: "now()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table cic_publications {
+  meeting_id CHAR(36) [not null, increment]
+  published_at timestamp [not null, default: "now()", increment]
+  public_url text [increment]
+  is_final boolean [not null, default: "false", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table cic_resolutions {
+  meeting_id CHAR(36) [not null, increment]
+  title text [not null, increment]
+  summary text [increment]
+  effective_date date [increment]
+  status text [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table cic_votes {
+  motion_id CHAR(36) [not null, increment]
+  person_id CHAR(36) [not null, increment]
+  value text [not null, increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+
+  Indexes {
+    (motion_id, person_id) [unique, name: "uq_cic_vote_unique"]
+  }
+}
+
+Table class_ranks {
+  school_id CHAR(36) [not null, increment]
+  term_id CHAR(36) [not null, increment]
+  student_id CHAR(36) [not null, increment]
+  rank int [not null, increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+
+  Indexes {
+    (school_id, term_id, student_id) [unique, name: "uq_class_rank"]
+  }
+}
+
+Table comm_search_index {
+  entity_type varchar(32) [pk, not null, increment]
+  entity_id CHAR(36) [pk, not null, increment]
+  ts TEXT [increment]
+}
+
+Table compliance_records {
+  building_id CHAR(36) [increment]
+  asset_id CHAR(36) [increment]
+  record_type varchar(64) [not null, increment]
+  authority varchar(255) [increment]
+  identifier varchar(128) [increment]
+  issued_at date [increment]
+  expires_at date [increment]
+  documents JSON [increment]
+  attributes JSON [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table consents {
+  person_id CHAR(36) [not null, increment]
+  consent_type text [not null, increment]
+  granted boolean [not null, default: "true", increment]
+  effective_date date [not null, increment]
+  expires_on date [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+
+  Indexes {
+    (person_id, consent_type) [unique, name: "uq_consent_type"]
+  }
+}
+
+Table consequence_types {
+  code text [pk, not null, increment]
+  description text [increment]
+  created_at timestamp [not null, default: "CURRENT_TIMESTAMP", increment]
+  updated_at timestamp [not null, default: "CURRENT_TIMESTAMP", increment]
+}
+
+Table consequences {
+  incident_id CHAR(36) [not null, increment]
+  participant_id CHAR(36) [not null, increment]
+  consequence_code text [not null, increment]
+  start_date date [increment]
+  end_date date [increment]
+  notes text [increment]
+  created_at timestamp [not null, default: "CURRENT_TIMESTAMP", increment]
+  updated_at timestamp [not null, default: "CURRENT_TIMESTAMP", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table contacts {
+  type text [not null, increment]
+  value text [not null, increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table course_prerequisites {
+  course_id CHAR(36) [pk, not null, increment]
+  prereq_course_id CHAR(36) [pk, not null, increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+}
+
+Table course_sections {
+  course_id CHAR(36) [not null, increment]
+  term_id CHAR(36) [not null, increment]
+  section_number text [not null, increment]
+  capacity int [increment]
+  school_id CHAR(36) [not null, increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+
+  Indexes {
+    (course_id, term_id, section_number) [unique, name: "uq_course_term_section"]
+  }
+}
+
+Table courses {
+  school_id CHAR(36) [not null, increment]
+  subject_id CHAR(36) [increment]
+  name text [not null, increment]
+  code text [increment]
+  credit_hours numeric(4,2) [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table data_quality_issues {
+  entity_type text [not null, increment]
+  entity_id CHAR(36) [not null, increment]
+  rule text [not null, increment]
+  severity text [not null, increment]
+  details text [increment]
+  detected_at timestamp [not null, default: "now()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table data_sharing_agreements {
+  vendor text [not null, increment]
+  scope text [increment]
+  start_date date [increment]
+  end_date date [increment]
+  notes text [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table deduction_codes {
+  code varchar(32) [not null, unique, increment]
+  name varchar(128) [not null, increment]
+  pretax boolean [not null, default: "true", increment]
+  vendor_id CHAR(36) [increment]
+  attributes JSON [increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+}
+
+Table deliveries {
+  post_id CHAR(36) [not null, increment]
+  user_id CHAR(36) [not null, increment]
+  delivered_at timestamp [increment]
+  medium varchar(16) [increment]
+  status varchar(16) [increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+}
+
+Table departments {
+  school_id CHAR(36) [not null, increment]
+  name text [not null, increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+
+  Indexes {
+    (school_id, name) [unique, name: "uq_department_name"]
+  }
+}
+
+Table document_activity {
+  document_id CHAR(36) [not null, increment]
+  actor_id CHAR(36) [increment]
+  action varchar(32) [not null, increment]
+  at timestamp [not null, default: "now()", increment]
+  meta JSON [increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+
+  Indexes {
+    (document_id) [name: "ix_document_activity_doc"]
+  }
+}
+
+Table document_links {
+  document_id CHAR(36) [not null, increment]
+  entity_type varchar(50) [not null, increment]
+  entity_id CHAR(36) [not null, increment]
+  created_at timestamp [not null, default: "CURRENT_TIMESTAMP", increment]
+  updated_at timestamp [not null, default: "CURRENT_TIMESTAMP", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+
+  Indexes {
+    (document_id) [name: "ix_document_links_doc"]
+    (entity_type, entity_id) [name: "ix_document_links_entity"]
+  }
+}
+
+Table document_notifications {
+  document_id CHAR(36) [pk, not null, increment]
+  user_id CHAR(36) [pk, not null, increment]
+  subscribed boolean [not null, default: "true", increment]
+  last_sent_at timestamp [increment]
+}
+
+Table document_permissions {
+  resource_type varchar(20) [pk, not null, increment]
+  resource_id CHAR(36) [pk, not null, increment]
+  principal_type varchar(20) [pk, not null, increment]
+  principal_id CHAR(36) [pk, not null, increment]
+  permission varchar(20) [pk, not null, increment]
+}
+
+Table document_search_index {
+  document_id CHAR(36) [pk, not null, increment]
+  ts TEXT [increment]
+
+  Indexes {
+    (ts) [name: "ix_document_search_gin"]
+  }
+}
+
+Table document_versions {
+  document_id CHAR(36) [not null, increment]
+  version_no int [not null, default: "1", increment]
+  file_id CHAR(36) [not null, increment]
+  checksum varchar(128) [increment]
+  created_by CHAR(36) [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  published_at timestamp [increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+}
+
+Table documents {
+  folder_id CHAR(36) [increment]
+  title varchar(255) [not null, increment]
+  current_version_id CHAR(36) [increment]
+  is_public boolean [not null, default: "false", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+}
+
+Table earning_codes {
+  code varchar(32) [not null, unique, increment]
+  name varchar(128) [not null, increment]
+  taxable boolean [not null, default: "true", increment]
+  attributes JSON [increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+}
+
+Table ell_plans {
+  student_id CHAR(36) [not null, increment]
+  level text [increment]
+  effective_start date [not null, increment]
+  effective_end date [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table embeds {
+  provider varchar(64) [not null, increment]
+  url varchar(1024) [not null, increment]
+  meta JSON [increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+}
+
+Table emergency_contacts {
+  person_id CHAR(36) [not null, increment]
+  contact_name text [not null, increment]
+  relationship text [increment]
+  phone text [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table employee_deductions {
+  run_id CHAR(36) [not null, increment]
+  employee_id CHAR(36) [not null, increment]
+  deduction_code_id CHAR(36) [not null, increment]
+  amount numeric(12,2) [not null, increment]
+  attributes JSON [increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+}
+
+Table employee_earnings {
+  run_id CHAR(36) [not null, increment]
+  employee_id CHAR(36) [not null, increment]
+  earning_code_id CHAR(36) [not null, increment]
+  hours numeric(10,2) [increment]
+  rate numeric(12,4) [increment]
+  amount numeric(12,2) [not null, increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+}
+
+Table entity_tags {
+  entity_type varchar(50) [pk, not null, increment]
+  entity_id CHAR(36) [pk, not null, increment]
+  tag_id CHAR(36) [pk, not null, increment]
+
+  Indexes {
+    (entity_type, entity_id) [name: "ix_entity_tags_entity"]
+    (tag_id) [name: "ix_entity_tags_tag"]
+  }
+}
+
+Table evaluation_assignments {
+  cycle_id CHAR(36) [not null, increment]
+  subject_user_id CHAR(36) [not null, increment]
+  evaluator_user_id CHAR(36) [not null, increment]
+  template_id CHAR(36) [not null, increment]
+  status varchar(32) [increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+}
+
+Table evaluation_cycles {
+  org_id CHAR(36) [not null, increment]
+  name varchar(255) [not null, increment]
+  start_at timestamp [increment]
+  end_at timestamp [increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+}
+
+Table evaluation_files {
+  assignment_id CHAR(36) [pk, not null, increment]
+  file_id CHAR(36) [pk, not null, increment]
+}
+
+Table evaluation_questions {
+  section_id CHAR(36) [not null, increment]
+  text text [not null, increment]
+  type varchar(16) [not null, increment]
+  scale_min int [increment]
+  scale_max int [increment]
+  weight numeric [increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+}
+
+Table evaluation_reports {
+  cycle_id CHAR(36) [not null, increment]
+  scope JSON [increment]
+  generated_at timestamp [not null, increment]
+  file_id CHAR(36) [increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+}
+
+Table evaluation_responses {
+  assignment_id CHAR(36) [not null, increment]
+  question_id CHAR(36) [not null, increment]
+  value_num numeric [increment]
+  value_text text [increment]
+  comment text [increment]
+  answered_at timestamp [increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+}
+
+Table evaluation_sections {
+  template_id CHAR(36) [not null, increment]
+  title varchar(255) [not null, increment]
+  order_no int [not null, default: "0", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+}
+
+Table evaluation_signoffs {
+  assignment_id CHAR(36) [not null, increment]
+  signer_id CHAR(36) [not null, increment]
+  signed_at timestamp [not null, increment]
+  note text [increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+}
+
+Table evaluation_templates {
+  name varchar(255) [not null, increment]
+  for_role varchar(80) [increment]
+  version int [not null, default: "1", increment]
+  is_active boolean [not null, default: "true", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+}
+
+Table events {
+  school_id CHAR(36) [not null, increment]
+  activity_id CHAR(36) [increment]
+  title varchar(255) [not null, increment]
+  summary text [increment]
+  starts_at timestamp [not null, increment]
+  ends_at timestamp [increment]
+  venue varchar(255) [increment]
+  status varchar(16) [not null, default: "'draft'", increment]
+  attributes JSON [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table export_runs {
+  export_name text [not null, increment]
+  ran_at timestamp [not null, default: "now()", increment]
+  status text [not null, default: "'success'", increment]
+  file_uri text [increment]
+  error text [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table external_ids {
+  entity_type text [not null, increment]
+  entity_id CHAR(36) [not null, increment]
+  system text [not null, increment]
+  external_id text [not null, increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+
+  Indexes {
+    (entity_type, entity_id, system) [unique, name: "uq_external_ids"]
+  }
+}
+
+Table facilities {
+  school_id CHAR(36) [not null, increment]
+  name varchar(255) [not null, increment]
+  code varchar(64) [unique, increment]
+  address JSON [increment]
+  attributes JSON [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table family_portal_access {
+  guardian_id CHAR(36) [pk, not null, increment]
+  student_id CHAR(36) [pk, not null, increment]
+  permissions text [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+}
+
+Table feature_flags {
+  org_id CHAR(36) [pk, not null, increment]
+  key varchar(64) [pk, not null, increment]
+  enabled boolean [not null, default: "false", increment]
+
+  Indexes {
+    (org_id) [name: "ix_feature_flags_org"]
+  }
+}
+
+Table fees {
+  school_id CHAR(36) [not null, increment]
+  name text [not null, increment]
+  amount numeric(10,2) [not null, increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table files {
+  storage_key varchar(512) [not null, increment]
+  filename varchar(255) [not null, increment]
+  size int [increment]
+  mime_type varchar(127) [increment]
+  created_by CHAR(36) [increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+}
+
+Table final_grades {
+  student_id CHAR(36) [not null, increment]
+  section_id CHAR(36) [not null, increment]
+  grading_period_id CHAR(36) [not null, increment]
+  numeric_grade numeric(6,3) [increment]
+  letter_grade text [increment]
+  credits_earned numeric(5,2) [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+
+  Indexes {
+    (student_id, section_id, grading_period_id) [unique, name: "uq_final_grade_period"]
+  }
+}
+
+Table fiscal_periods {
+  fiscal_year_id CHAR(36) [not null, increment]
+  period_no int [not null, increment]
+  start_date date [not null, increment]
+  end_date date [not null, increment]
+  is_closed boolean [not null, default: "false", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+
+  Indexes {
+    (fiscal_year_id, period_no) [unique, name: "uq_year_periodno"]
+  }
+}
+
+Table fiscal_years {
+  year int [not null, unique, increment]
+  start_date date [not null, increment]
+  end_date date [not null, increment]
+  is_closed boolean [not null, default: "false", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+}
+
+Table floors {
+  building_id CHAR(36) [not null, increment]
+  level_code varchar(32) [not null, increment]
+  name varchar(128) [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table folders {
+  org_id CHAR(36) [not null, increment]
+  parent_id CHAR(36) [increment]
+  name varchar(255) [not null, increment]
+  is_public boolean [not null, default: "false", increment]
+  sort_order int [increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+
+  Indexes {
+    (org_id) [name: "ix_folders_org"]
+  }
+}
+
+Table gl_account_segments {
+  account_id CHAR(36) [not null, increment]
+  segment_id CHAR(36) [not null, increment]
+  value_id CHAR(36) [increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+
+  Indexes {
+    (account_id, segment_id) [unique, name: "uq_account_segment_once"]
+  }
+}
+
+Table gl_accounts {
+  code varchar(128) [not null, unique, increment]
+  name varchar(255) [not null, increment]
+  acct_type varchar(32) [not null, increment]
+  active boolean [not null, default: "true", increment]
+  attributes JSON [increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+}
+
+Table gl_segment_values {
+  segment_id CHAR(36) [not null, increment]
+  code varchar(32) [not null, increment]
+  name varchar(128) [not null, increment]
+  active boolean [not null, default: "true", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+
+  Indexes {
+    (segment_id, code) [unique, name: "uq_segment_value_code_per_segment"]
+  }
+}
+
+Table gl_segments {
+  code varchar(32) [not null, unique, increment]
+  name varchar(128) [not null, increment]
+  seq int [not null, increment]
+  length int [increment]
+  required boolean [not null, default: "true", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+}
+
+Table goals {
+  plan_id CHAR(36) [not null, increment]
+  name varchar(255) [not null, increment]
+  description text [increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+
+  Indexes {
+    (plan_id) [name: "ix_goals_plan"]
+  }
+}
+
+Table gpa_calculations {
+  student_id CHAR(36) [not null, increment]
+  term_id CHAR(36) [not null, increment]
+  gpa numeric(4,3) [not null, increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+
+  Indexes {
+    (student_id, term_id) [unique, name: "uq_gpa_term"]
+  }
+}
+
+Table grade_levels {
+  school_id CHAR(36) [not null, increment]
+  name text [not null, increment]
+  ordinal int [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table grade_scale_bands {
+  grade_scale_id CHAR(36) [not null, increment]
+  label text [not null, increment]
+  min_value numeric(6,3) [not null, increment]
+  max_value numeric(6,3) [not null, increment]
+  gpa_points numeric(4,2) [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table grade_scales {
+  school_id CHAR(36) [not null, increment]
+  name text [not null, increment]
+  type text [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table gradebook_entries {
+  assignment_id CHAR(36) [not null, increment]
+  student_id CHAR(36) [not null, increment]
+  score numeric(8,3) [increment]
+  submitted_at timestamp [increment]
+  late boolean [not null, default: "false", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+
+  Indexes {
+    (assignment_id, student_id) [unique, name: "uq_gradebook_student_assignment"]
+  }
+}
+
+Table grading_periods {
+  term_id CHAR(36) [not null, increment]
+  name text [not null, increment]
+  start_date date [not null, increment]
+  end_date date [not null, increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table guardians {
+  relationship text [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table health_profiles {
+  student_id CHAR(36) [not null, increment]
+  allergies text [increment]
+  conditions text [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table hr_employees {
+  person_id CHAR(36) [increment]
+  employee_no varchar(32) [not null, unique, increment]
+  primary_school_id CHAR(36) [increment]
+  department_segment_id CHAR(36) [increment]
+  employment_type varchar(16) [increment]
+  status varchar(16) [not null, default: "'active'", increment]
+  hire_date date [increment]
+  termination_date date [increment]
+  attributes JSON [increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+}
+
+Table hr_position_assignments {
+  employee_id CHAR(36) [not null, increment]
+  position_id CHAR(36) [not null, increment]
+  start_date date [not null, increment]
+  end_date date [increment]
+  percent numeric(5,2) [increment]
+  funding_split JSON [increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+}
+
+Table hr_positions {
+  title varchar(255) [not null, increment]
+  department_segment_id CHAR(36) [increment]
+  grade varchar(32) [increment]
+  fte numeric(5,2) [increment]
+  attributes JSON [increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+}
+
+Table iep_plans {
+  special_ed_case_id CHAR(36) [not null, increment]
+  effective_start date [not null, increment]
+  effective_end date [increment]
+  summary text [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table immunization_records {
+  student_id CHAR(36) [not null, increment]
+  immunization_id CHAR(36) [not null, increment]
+  date_administered date [not null, increment]
+  dose_number int [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+
+  Indexes {
+    (student_id, immunization_id, date_administered) [unique, name: "uq_immunization_record"]
+  }
+}
+
+Table immunizations {
+  name text [not null, increment]
+  code text [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table incident_participants {
+  incident_id CHAR(36) [not null, increment]
+  person_id CHAR(36) [not null, increment]
+  role text [not null, increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+
+  Indexes {
+    (incident_id) [name: "ix_incident_participants_incident"]
+    (person_id) [name: "ix_incident_participants_person"]
+  }
+
+  Indexes {
+    (incident_id, person_id) [unique, name: "uq_incident_person"]
+  }
+}
+
+Table incidents {
+  school_id CHAR(36) [increment]
+  occurred_at timestamp [not null, increment]
+  behavior_code text [not null, increment]
+  description text [increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+
+  Indexes {
+    (behavior_code) [name: "ix_incidents_behavior"]
+    (occurred_at) [name: "ix_incidents_occurred_at"]
+    (school_id) [name: "ix_incidents_school"]
+  }
+}
+
+Table initiatives {
+  objective_id CHAR(36) [not null, increment]
+  name varchar(255) [not null, increment]
+  description text [increment]
+  owner_id CHAR(36) [increment]
+  due_date date [increment]
+  status varchar(32) [increment]
+  priority varchar(16) [increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+
+  Indexes {
+    (objective_id) [name: "ix_initiatives_objective"]
+    (owner_id) [name: "ix_initiatives_owner"]
+  }
+}
+
+Table invoices {
+  student_id CHAR(36) [not null, increment]
+  issued_on date [not null, increment]
+  due_on date [increment]
+  status text [not null, default: "'open'", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table journal_batches {
+  batch_no varchar(64) [not null, unique, increment]
+  description varchar(255) [increment]
+  source varchar(64) [increment]
+  status varchar(16) [not null, default: "'open'", increment]
+  posted_at timestamp [increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+}
+
+Table journal_entries {
+  batch_id CHAR(36) [not null, increment]
+  fiscal_period_id CHAR(36) [not null, increment]
+  je_no varchar(64) [not null, increment]
+  journal_date date [not null, increment]
+  description varchar(255) [increment]
+  status varchar(16) [not null, default: "'open'", increment]
+  total_debits numeric(14,2) [not null, default: "0", increment]
+  total_credits numeric(14,2) [not null, default: "0", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+
+  Indexes {
+    (batch_id, je_no) [unique, name: "uq_batch_je_no"]
+  }
+}
+
+Table journal_entry_lines {
+  entry_id CHAR(36) [not null, increment]
+  account_id CHAR(36) [not null, increment]
+  line_no int [not null, increment]
+  description varchar(255) [increment]
+  debit numeric(14,2) [not null, default: "0", increment]
+  credit numeric(14,2) [not null, default: "0", increment]
+  segment_overrides JSON [increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+}
+
+Table kpi_datapoints {
+  kpi_id CHAR(36) [not null, increment]
+  as_of date [not null, increment]
+  value numeric [not null, increment]
+  note text [increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+
+  Indexes {
+    (kpi_id) [name: "ix_kpi_datapoints_kpi"]
+  }
+
+  Indexes {
+    (kpi_id, as_of) [unique, name: "uq_kpi_datapoint"]
+  }
+}
+
+Table kpis {
+  goal_id CHAR(36) [increment]
+  objective_id CHAR(36) [increment]
+  name varchar(255) [not null, increment]
+  unit varchar(32) [increment]
+  target numeric [increment]
+  baseline numeric [increment]
+  direction varchar(8) [increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+
+  Indexes {
+    (goal_id) [name: "ix_kpis_goal"]
+    (objective_id) [name: "ix_kpis_objective"]
+  }
+}
+
+Table leases {
+  building_id CHAR(36) [increment]
+  landlord varchar(255) [increment]
+  tenant varchar(255) [increment]
+  start_date date [increment]
+  end_date date [increment]
+  base_rent numeric(14,2) [increment]
+  rent_schedule JSON [increment]
+  options JSON [increment]
+  documents JSON [increment]
+  attributes JSON [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table library_checkouts {
+  item_id CHAR(36) [not null, increment]
+  person_id CHAR(36) [not null, increment]
+  checked_out_on date [not null, increment]
+  due_on date [not null, increment]
+  returned_on date [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table library_fines {
+  person_id CHAR(36) [not null, increment]
+  amount numeric(10,2) [not null, increment]
+  reason text [increment]
+  assessed_on date [not null, increment]
+  paid_on date [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table library_holds {
+  item_id CHAR(36) [not null, increment]
+  person_id CHAR(36) [not null, increment]
+  placed_on date [not null, increment]
+  expires_on date [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+
+  Indexes {
+    (item_id, person_id) [unique, name: "uq_library_hold"]
+  }
+}
+
+Table library_items {
+  school_id CHAR(36) [not null, increment]
+  title text [not null, increment]
+  author text [increment]
+  isbn text [increment]
+  barcode text [unique, increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table maintenance_requests {
+  school_id CHAR(36) [increment]
+  building_id CHAR(36) [increment]
+  space_id CHAR(36) [increment]
+  asset_id CHAR(36) [increment]
+  submitted_by_user_id CHAR(36) [increment]
+  status varchar(32) [not null, default: "'new'", increment]
+  priority varchar(16) [increment]
+  summary varchar(255) [not null, increment]
+  description text [increment]
+  converted_work_order_id CHAR(36) [increment]
+  attributes JSON [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table meal_accounts {
+  student_id CHAR(36) [not null, increment]
+  balance numeric(10,2) [not null, default: "0", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table meal_eligibility_statuses {
+  student_id CHAR(36) [not null, increment]
+  status text [not null, increment]
+  effective_start date [not null, increment]
+  effective_end date [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table meal_transactions {
+  account_id CHAR(36) [not null, increment]
+  transacted_at timestamp [not null, increment]
+  amount numeric(10,2) [not null, increment]
+  description text [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table medication_administrations {
+  student_id CHAR(36) [not null, increment]
+  medication_id CHAR(36) [not null, increment]
+  administered_at timestamp [not null, increment]
+  dose text [increment]
+  notes text [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table medications {
+  name text [not null, increment]
+  instructions text [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table meeting_files {
+  meeting_id CHAR(36) [pk, not null, increment]
+  file_id CHAR(36) [pk, not null, increment]
+  caption varchar(255) [increment]
+}
+
+Table meeting_permissions {
+  meeting_id CHAR(36) [pk, not null, increment]
+  principal_type varchar(20) [pk, not null, increment]
+  principal_id CHAR(36) [pk, not null, increment]
+  permission varchar(50) [pk, not null, increment]
+}
+
+Table meeting_publications {
+  meeting_id CHAR(36) [pk, not null, increment]
+  published_at timestamp [not null, increment]
+  public_url varchar(1024) [increment]
+  archive_url varchar(1024) [increment]
+}
+
+Table meeting_search_index {
+  meeting_id CHAR(36) [pk, not null, increment]
+  ts TEXT [increment]
+
+  Indexes {
+    (ts) [name: "ix_meeting_search_gin"]
+  }
+}
+
+Table meetings {
+  org_id CHAR(36) [not null, increment]
+  body_id CHAR(36) [increment]
+  title varchar(255) [not null, increment]
+  starts_at timestamp [not null, increment]
+  ends_at timestamp [increment]
+  location varchar(255) [increment]
+  status varchar(32) [increment]
+  is_public boolean [not null, default: "true", increment]
+  stream_url varchar(1024) [increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+
+  Indexes {
+    (body_id) [name: "ix_meetings_body"]
+    (org_id) [name: "ix_meetings_org"]
+    (starts_at) [name: "ix_meetings_starts_at"]
+  }
+}
+
+Table message_recipients {
+  message_id CHAR(36) [pk, not null, increment]
+  person_id CHAR(36) [pk, not null, increment]
+  delivery_status text [increment]
+  delivered_at timestamp [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+}
+
+Table messages {
+  sender_id CHAR(36) [increment]
+  channel text [not null, increment]
+  subject text [increment]
+  body text [increment]
+  sent_at timestamp [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table meters {
+  asset_id CHAR(36) [increment]
+  building_id CHAR(36) [increment]
+  name varchar(255) [not null, increment]
+  meter_type varchar(64) [increment]
+  uom varchar(32) [increment]
+  last_read_value numeric(18,6) [increment]
+  last_read_at timestamp [increment]
+  attributes JSON [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table minutes {
+  meeting_id CHAR(36) [not null, increment]
+  author_id CHAR(36) [increment]
+  content text [increment]
+  published_at timestamp [increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+}
+
+Table motions {
+  agenda_item_id CHAR(36) [not null, increment]
+  text text [not null, increment]
+  moved_by_id CHAR(36) [increment]
+  seconded_by_id CHAR(36) [increment]
+  passed boolean [increment]
+  tally_for int [increment]
+  tally_against int [increment]
+  tally_abstain int [increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+}
+
+Table move_orders {
+  project_id CHAR(36) [increment]
+  person_id CHAR(36) [increment]
+  from_space_id CHAR(36) [increment]
+  to_space_id CHAR(36) [increment]
+  move_date date [increment]
+  status varchar(32) [increment]
+  attributes JSON [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table notifications {
+  user_id CHAR(36) [not null, increment]
+  type varchar(50) [not null, increment]
+  payload JSON [increment]
+  read_at timestamp [increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+
+  Indexes {
+    (user_id) [name: "ix_notifications_user"]
+  }
+}
+
+Table nurse_visits {
+  student_id CHAR(36) [not null, increment]
+  visited_at timestamp [not null, increment]
+  reason text [increment]
+  disposition text [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table objectives {
+  goal_id CHAR(36) [not null, increment]
+  name varchar(255) [not null, increment]
+  description text [increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+
+  Indexes {
+    (goal_id) [name: "ix_objectives_goal"]
+  }
+}
+
+Table order_line_items {
+  order_id CHAR(36) [not null, increment]
+  ticket_type_id CHAR(36) [not null, increment]
+  quantity int [not null, increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+
+  Indexes {
+    (order_id) [name: "ix_order_line_items_order_id"]
+    (ticket_type_id) [name: "ix_order_line_items_ticket_type_id"]
+  }
+}
+
+Table orders {
+  event_id CHAR(36) [not null, increment]
+  purchaser_user_id CHAR(36) [increment]
+  total_cents int [not null, default: "0", increment]
+  currency varchar(8) [not null, default: "'USD'", increment]
+  status varchar(16) [not null, default: "'pending'", increment]
+  external_ref varchar(255) [increment]
+  attributes JSON [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table organizations {
+  name varchar(255) [not null, unique, increment]
+  code text [unique, increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+}
+
+Table pages {
+  channel_id CHAR(36) [not null, increment]
+  slug varchar(255) [not null, increment]
+  title varchar(255) [not null, increment]
+  body text [increment]
+  status varchar(16) [not null, default: "'draft'", increment]
+  published_at timestamp [increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+
+  Indexes {
+    (channel_id, slug) [unique, name: "uq_pages_channel_slug"]
+  }
+}
+
+Table part_locations {
+  part_id CHAR(36) [not null, increment]
+  building_id CHAR(36) [increment]
+  space_id CHAR(36) [increment]
+  location_code varchar(128) [increment]
+  qty_on_hand numeric(12,2) [not null, default: "0", increment]
+  min_qty numeric(12,2) [increment]
+  max_qty numeric(12,2) [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table parts {
+  sku varchar(128) [unique, increment]
+  name varchar(255) [not null, increment]
+  description text [increment]
+  unit_cost numeric(12,2) [increment]
+  uom varchar(32) [increment]
+  attributes JSON [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table pay_periods {
+  code varchar(32) [not null, unique, increment]
+  start_date date [not null, increment]
+  end_date date [not null, increment]
+  pay_date date [not null, increment]
+  status varchar(16) [not null, default: "'open'", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+}
+
+Table paychecks {
+  run_id CHAR(36) [not null, increment]
+  employee_id CHAR(36) [not null, increment]
+  check_no varchar(32) [increment]
+  gross_pay numeric(12,2) [not null, increment]
+  net_pay numeric(12,2) [not null, increment]
+  taxes JSON [increment]
+  attributes JSON [increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+}
+
+Table payments {
+  invoice_id CHAR(36) [not null, increment]
+  paid_on date [not null, increment]
+  amount numeric(10,2) [not null, increment]
+  method text [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table payroll_runs {
+  pay_period_id CHAR(36) [not null, increment]
+  run_no int [not null, default: "1", increment]
+  status varchar(16) [not null, default: "'open'", increment]
+  created_by_user_id CHAR(36) [increment]
+  posted_entry_id CHAR(36) [increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+}
+
+Table periods {
+  bell_schedule_id CHAR(36) [not null, increment]
+  name text [not null, increment]
+  start_time TIME [not null, increment]
+  end_time TIME [not null, increment]
+  sequence int [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table permissions {
+  code text [not null, unique, increment]
+  description text [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table person_addresses {
+  person_id CHAR(36) [pk, not null, increment]
+  address_id CHAR(36) [pk, not null, increment]
+  is_primary boolean [not null, default: "false", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+}
+
+Table person_contacts {
+  person_id CHAR(36) [pk, not null, increment]
+  contact_id CHAR(36) [pk, not null, increment]
+  label text [increment]
+  is_primary boolean [not null, default: "false", increment]
+  is_emergency boolean [not null, default: "false", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+}
+
+Table personal_notes {
+  user_id CHAR(36) [not null, increment]
+  entity_type varchar(50) [not null, increment]
+  entity_id CHAR(36) [not null, increment]
+  text text [increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+}
+
+Table persons {
+  first_name text [not null, increment]
+  last_name text [not null, increment]
+  middle_name text [increment]
+  dob date [increment]
+  email text [increment]
+  phone text [increment]
+  gender text [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table plan_alignments {
+  agenda_item_id CHAR(36) [increment]
+  policy_id CHAR(36) [increment]
+  objective_id CHAR(36) [increment]
+  note text [increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+}
+
+Table plan_assignments {
+  entity_type varchar(50) [pk, not null, increment]
+  entity_id CHAR(36) [pk, not null, increment]
+  assignee_type varchar(20) [pk, not null, increment]
+  assignee_id CHAR(36) [pk, not null, increment]
+}
+
+Table plan_filters {
+  plan_id CHAR(36) [not null, increment]
+  name varchar(255) [not null, increment]
+  criteria JSON [increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+
+  Indexes {
+    (plan_id) [name: "ix_plan_filters_plan"]
+  }
+}
+
+Table plan_search_index {
+  plan_id CHAR(36) [pk, not null, increment]
+  ts TEXT [increment]
+
+  Indexes {
+    (ts) [name: "ix_plan_search_gin"]
+  }
+}
+
+Table plans {
+  org_id CHAR(36) [not null, increment]
+  name varchar(255) [not null, increment]
+  cycle_start date [increment]
+  cycle_end date [increment]
+  status varchar(32) [increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+
+  Indexes {
+    (org_id) [name: "ix_plans_org"]
+  }
+}
+
+Table pm_plans {
+  asset_id CHAR(36) [increment]
+  building_id CHAR(36) [increment]
+  name varchar(255) [not null, increment]
+  frequency varchar(64) [increment]
+  next_due_at timestamp [increment]
+  last_completed_at timestamp [increment]
+  active boolean [not null, default: "true", increment]
+  procedure JSON [increment]
+  attributes JSON [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table pm_work_generators {
+  pm_plan_id CHAR(36) [not null, increment]
+  last_generated_at timestamp [increment]
+  lookahead_days int [increment]
+  attributes JSON [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table policies {
+  org_id CHAR(36) [not null, increment]
+  code varchar(64) [increment]
+  title varchar(255) [not null, increment]
+  status varchar(32) [not null, default: "'active'", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+
+  Indexes {
+    (org_id) [name: "ix_policies_org"]
+  }
+}
+
+Table policy_approvals {
+  policy_version_id CHAR(36) [not null, increment]
+  step_id CHAR(36) [not null, increment]
+  approver_id CHAR(36) [increment]
+  decision varchar(16) [increment]
+  decided_at timestamp [increment]
+  comment text [increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+
+  Indexes {
+    (policy_version_id) [name: "ix_policy_approvals_version"]
+  }
+
+  Indexes {
+    (policy_version_id, step_id) [unique, name: "uq_policy_approval_step"]
+  }
+}
+
+Table policy_comments {
+  policy_version_id CHAR(36) [not null, increment]
+  user_id CHAR(36) [increment]
+  text text [not null, increment]
+  visibility varchar(16) [not null, default: "'public'", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+
+  Indexes {
+    (policy_version_id) [name: "ix_policy_comments_version"]
+  }
+}
+
+Table policy_files {
+  policy_version_id CHAR(36) [pk, not null, increment]
+  file_id CHAR(36) [pk, not null, increment]
+}
+
+Table policy_legal_refs {
+  policy_version_id CHAR(36) [not null, increment]
+  citation varchar(255) [not null, increment]
+  url varchar(1024) [increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+
+  Indexes {
+    (policy_version_id) [name: "ix_policy_legal_refs_version"]
+  }
+}
+
+Table policy_publications {
+  policy_version_id CHAR(36) [pk, not null, increment]
+  published_at timestamp [not null, default: "now()", increment]
+  public_url varchar(1024) [increment]
+  is_current boolean [not null, default: "false", increment]
+}
+
+Table policy_search_index {
+  policy_id CHAR(36) [pk, not null, increment]
+  ts TEXT [increment]
+
+  Indexes {
+    (ts) [name: "ix_policy_search_gin"]
+  }
+}
+
+Table policy_versions {
+  policy_id CHAR(36) [not null, increment]
+  version_no int [not null, default: "1", increment]
+  content text [increment]
+  effective_date date [increment]
+  supersedes_version_id CHAR(36) [increment]
+  created_by CHAR(36) [increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+
+  Indexes {
+    (policy_id) [name: "ix_policy_versions_policy"]
+  }
+}
+
+Table policy_workflow_steps {
+  workflow_id CHAR(36) [not null, increment]
+  step_no int [not null, increment]
+  approver_type varchar(20) [not null, increment]
+  approver_id CHAR(36) [increment]
+  rule varchar(50) [increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+
+  Indexes {
+    (workflow_id) [name: "ix_policy_workflow_steps_wf"]
+  }
+
+  Indexes {
+    (workflow_id, step_no) [unique, name: "uq_policy_workflow_step_no"]
+  }
+}
+
+Table policy_workflows {
+  policy_id CHAR(36) [not null, increment]
+  name varchar(255) [not null, increment]
+  active boolean [not null, default: "true", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+
+  Indexes {
+    (policy_id) [name: "ix_policy_workflows_policy"]
+  }
+}
+
+Table post_attachments {
+  post_id CHAR(36) [pk, not null, increment]
+  file_id CHAR(36) [pk, not null, increment]
+}
+
+Table posts {
+  channel_id CHAR(36) [not null, increment]
+  title varchar(255) [not null, increment]
+  body text [increment]
+  status varchar(16) [not null, default: "'draft'", increment]
+  publish_at timestamp [increment]
+  author_id CHAR(36) [increment]
+  created_at timestamp [not null, default: "CURRENT_TIMESTAMP", increment]
+  updated_at timestamp [not null, default: "CURRENT_TIMESTAMP", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table project_tasks {
+  project_id CHAR(36) [not null, increment]
+  name varchar(255) [not null, increment]
+  status varchar(32) [increment]
+  start_date date [increment]
+  end_date date [increment]
+  percent_complete numeric(5,2) [increment]
+  assignee_user_id CHAR(36) [increment]
+  attributes JSON [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table projects {
+  school_id CHAR(36) [increment]
+  name varchar(255) [not null, increment]
+  project_type varchar(32) [increment]
+  status varchar(32) [increment]
+  start_date date [increment]
+  end_date date [increment]
+  budget numeric(14,2) [increment]
+  description text [increment]
+  attributes JSON [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table report_cards {
+  student_id CHAR(36) [not null, increment]
+  term_id CHAR(36) [not null, increment]
+  published_at timestamp [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+
+  Indexes {
+    (student_id, term_id) [unique, name: "uq_report_card"]
+  }
+}
+
+Table retention_rules {
+  entity_type varchar(50) [not null, increment]
+  policy JSON [not null, increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+
+  Indexes {
+    (entity_type) [name: "ix_retention_rules_entity"]
+  }
+}
+
+Table role_permissions {
+  role_id CHAR(36) [pk, not null, increment]
+  permission_id CHAR(36) [pk, not null, increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+}
+
+Table roles {
+  name text [not null, unique, increment]
+  description text [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table rooms {
+  school_id CHAR(36) [not null, increment]
+  name text [not null, increment]
+  capacity int [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table scan_requests {
+  qr_code varchar(128) [not null, increment]
+  location varchar(255) [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+
+  Indexes {
+    (qr_code) [name: "ix_scan_requests_qr_code"]
+  }
+}
+
+Table scan_results {
+  ok boolean [not null, increment]
+  ticket_id CHAR(36) [increment]
+  status varchar(32) [increment]
+  message text [not null, increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+
+  Indexes {
+    (ticket_id) [name: "ix_scan_results_ticket_id"]
+  }
+}
+
+Table schools {
+  organization_id CHAR(36) [not null, increment]
+  name text [not null, increment]
+  school_code text [unique, increment]
+  nces_school_id text [increment]
+  building_code text [increment]
+  type text [increment]
+  timezone text [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table scorecard_kpis {
+  scorecard_id CHAR(36) [pk, not null, increment]
+  kpi_id CHAR(36) [pk, not null, increment]
+  display_order int [increment]
+}
+
+Table scorecards {
+  plan_id CHAR(36) [not null, increment]
+  name varchar(255) [not null, increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+
+  Indexes {
+    (plan_id) [name: "ix_scorecards_plan"]
+  }
+}
+
+Table section504_plans {
+  student_id CHAR(36) [not null, increment]
+  effective_start date [not null, increment]
+  effective_end date [increment]
+  summary text [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table section_meetings {
+  section_id CHAR(36) [not null, increment]
+  day_of_week int [not null, increment]
+  period_id CHAR(36) [increment]
+  room_id CHAR(36) [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+
+  Indexes {
+    (section_id, day_of_week, period_id) [unique, name: "uq_section_meeting"]
+  }
+}
+
+Table section_room_assignments {
+  section_id CHAR(36) [not null, increment]
+  room_id CHAR(36) [not null, increment]
+  start_date date [increment]
+  end_date date [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+
+  Indexes {
+    (section_id, room_id, start_date) [unique, name: "uq_section_room_range"]
+  }
+}
+
+Table sis_import_jobs {
+  source text [not null, increment]
+  status text [not null, default: "'running'", increment]
+  started_at timestamp [not null, default: "now()", increment]
+  finished_at timestamp [increment]
+  counts JSON [increment]
+  error_log text [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table space_reservations {
+  space_id CHAR(36) [not null, increment]
+  booked_by_user_id CHAR(36) [increment]
+  start_at timestamp [not null, increment]
+  end_at timestamp [not null, increment]
+  purpose varchar(255) [increment]
+  status varchar(32) [not null, default: "'booked'", increment]
+  setup JSON [increment]
+  attributes JSON [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table spaces {
+  building_id CHAR(36) [not null, increment]
+  floor_id CHAR(36) [increment]
+  code varchar(64) [not null, increment]
+  name varchar(255) [increment]
+  space_type varchar(64) [increment]
+  area_sqft numeric(12,2) [increment]
+  capacity int [increment]
+  attributes JSON [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+
+  Indexes {
+    (building_id, code) [unique, name: "uq_spaces_building_code"]
+  }
+}
+
+Table special_education_cases {
+  student_id CHAR(36) [not null, increment]
+  eligibility text [increment]
+  case_opened date [increment]
+  case_closed date [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table staff {
+  employee_number text [unique, increment]
+  title text [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table standardized_tests {
+  name text [not null, increment]
+  subject text [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table state_reporting_snapshots {
+  as_of_date date [not null, increment]
+  scope text [increment]
+  payload JSON [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table states {
+  code varchar(2) [pk, not null, increment]
+  name varchar(64) [not null, increment]
+
+  Indexes {
+    (name) [name: "ix_states_name"]
+  }
+}
+
+Table student_guardians {
+  student_id CHAR(36) [pk, not null, increment]
+  guardian_id CHAR(36) [pk, not null, increment]
+  custody text [increment]
+  is_primary boolean [not null, default: "false", increment]
+  contact_order int [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+}
+
+Table student_program_enrollments {
+  student_id CHAR(36) [not null, increment]
+  program_name text [not null, increment]
+  start_date date [not null, increment]
+  end_date date [increment]
+  status text [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table student_school_enrollments {
+  student_id CHAR(36) [not null, increment]
+  school_id CHAR(36) [not null, increment]
+  entry_date date [not null, increment]
+  exit_date date [increment]
+  status text [not null, default: "'active'", increment]
+  exit_reason text [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table student_section_enrollments {
+  student_id CHAR(36) [not null, increment]
+  section_id CHAR(36) [not null, increment]
+  added_on date [not null, increment]
+  dropped_on date [increment]
+  seat_time_minutes int [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+
+  Indexes {
+    (student_id, section_id) [unique, name: "uq_student_section"]
+  }
+}
+
+Table student_transportation_assignments {
+  student_id CHAR(36) [not null, increment]
+  route_id CHAR(36) [increment]
+  stop_id CHAR(36) [increment]
+  direction text [increment]
+  effective_start date [not null, increment]
+  effective_end date [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table students {
+  student_number text [unique, increment]
+  graduation_year int [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table subjects {
+  department_id CHAR(36) [increment]
+  name text [not null, increment]
+  code text [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table subscriptions {
+  channel_id CHAR(36) [pk, not null, increment]
+  principal_type varchar(20) [pk, not null, increment]
+  principal_id CHAR(36) [pk, not null, increment]
+  created_at timestamp [not null, default: "CURRENT_TIMESTAMP", increment]
+}
+
+Table tags {
+  label varchar(80) [not null, unique, increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+}
+
+Table teacher_section_assignments {
+  staff_id CHAR(36) [not null, increment]
+  section_id CHAR(36) [not null, increment]
+  role text [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+
+  Indexes {
+    (staff_id, section_id) [unique, name: "uq_teacher_section"]
+  }
+}
+
+Table test_administrations {
+  test_id CHAR(36) [not null, increment]
+  administration_date date [not null, increment]
+  school_id CHAR(36) [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table test_results {
+  administration_id CHAR(36) [not null, increment]
+  student_id CHAR(36) [not null, increment]
+  scale_score numeric(8,2) [increment]
+  percentile numeric(5,2) [increment]
+  performance_level text [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+
+  Indexes {
+    (administration_id, student_id) [unique, name: "uq_test_result_student"]
+  }
+}
+
+Table ticket_scans {
+  ticket_id CHAR(36) [not null, increment]
+  scanned_by_user_id CHAR(36) [increment]
+  scanned_at timestamp [not null, default: "now()", increment]
+  result varchar(16) [not null, increment]
+  location varchar(255) [increment]
+  meta JSON [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table ticket_types {
+  event_id CHAR(36) [not null, increment]
+  name varchar(128) [not null, increment]
+  price_cents int [not null, default: "0", increment]
+  quantity_total int [not null, default: "0", increment]
+  quantity_sold int [not null, default: "0", increment]
+  sales_starts_at timestamp [increment]
+  sales_ends_at timestamp [increment]
+  attributes JSON [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+
+  Indexes {
+    (event_id, name) [unique, name: "uq_event_tickettype_name"]
+  }
+}
+
+Table tickets {
+  order_id CHAR(36) [not null, increment]
+  ticket_type_id CHAR(36) [not null, increment]
+  serial_no int [not null, increment]
+  price_cents int [not null, default: "0", increment]
+  holder_person_id CHAR(36) [increment]
+  qr_code varchar(128) [increment]
+  status varchar(16) [not null, default: "'issued'", increment]
+  issued_at timestamp [not null, default: "now()", increment]
+  checked_in_at timestamp [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+
+  Indexes {
+    (ticket_type_id, serial_no) [unique, name: "uq_ticket_serial_per_type"]
+  }
+}
+
+Table transcript_lines {
+  student_id CHAR(36) [not null, increment]
+  course_id CHAR(36) [increment]
+  term_id CHAR(36) [increment]
+  credits_attempted numeric(5,2) [increment]
+  credits_earned numeric(5,2) [increment]
+  final_letter text [increment]
+  final_numeric numeric(6,3) [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table user_accounts {
+  person_id CHAR(36) [not null, increment]
+  username text [not null, unique, increment]
+  password_hash text [increment]
+  is_active boolean [not null, default: "true", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table users {
+  username text [not null, unique, increment]
+  email text [not null, unique, increment]
+  created_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+}
+
+Table vendors {
+  name varchar(255) [not null, unique, increment]
+  contact JSON [increment]
+  active boolean [not null, default: "true", increment]
+  notes text [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table votes {
+  motion_id CHAR(36) [not null, increment]
+  voter_id CHAR(36) [not null, increment]
+  value varchar(16) [not null, increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+}
+
+Table waivers {
+  student_id CHAR(36) [not null, increment]
+  reason text [increment]
+  amount numeric(10,2) [increment]
+  granted_on date [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table warranties {
+  asset_id CHAR(36) [not null, increment]
+  vendor_id CHAR(36) [increment]
+  policy_no varchar(128) [increment]
+  start_date date [increment]
+  end_date date [increment]
+  terms text [increment]
+  attributes JSON [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table webhooks {
+  target_url varchar(1024) [not null, increment]
+  secret varchar(255) [increment]
+  events JSON [increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+}
+
+Table work_order_parts {
+  work_order_id CHAR(36) [not null, increment]
+  part_id CHAR(36) [increment]
+  qty numeric(12,2) [not null, default: "1", increment]
+  unit_cost numeric(12,2) [increment]
+  extended_cost numeric(12,2) [increment]
+  notes text [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table work_order_tasks {
+  work_order_id CHAR(36) [not null, increment]
+  seq int [not null, default: "1", increment]
+  title varchar(255) [not null, increment]
+  is_mandatory boolean [not null, default: "false", increment]
+  status varchar(32) [increment]
+  completed_at timestamp [increment]
+  notes text [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table work_order_time_logs {
+  work_order_id CHAR(36) [not null, increment]
+  user_id CHAR(36) [increment]
+  started_at timestamp [increment]
+  ended_at timestamp [increment]
+  hours numeric(10,2) [increment]
+  hourly_rate numeric(12,2) [increment]
+  cost numeric(12,2) [increment]
+  notes text [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table work_orders {
+  school_id CHAR(36) [increment]
+  building_id CHAR(36) [increment]
+  space_id CHAR(36) [increment]
+  asset_id CHAR(36) [increment]
+  request_id CHAR(36) [unique, increment]
+  status varchar(32) [not null, default: "'open'", increment]
+  priority varchar(16) [increment]
+  category varchar(64) [increment]
+  summary varchar(255) [not null, increment]
+  description text [increment]
+  requested_due_at timestamp [increment]
+  scheduled_start_at timestamp [increment]
+  scheduled_end_at timestamp [increment]
+  completed_at timestamp [increment]
+  assigned_to_user_id CHAR(36) [increment]
+  materials_cost numeric(12,2) [increment]
+  labor_cost numeric(12,2) [increment]
+  other_cost numeric(12,2) [increment]
+  attributes JSON [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+
+
+Ref: academic_terms.school_id > schools.id [delete: CASCADE]
+Ref: accommodations.iep_plan_id > iep_plans.id [delete: CASCADE]
+Ref: activities.school_id > schools.id [delete: SET NULL]
+Ref: agenda_item_approvals.step_id > agenda_workflow_steps.id [delete: CASCADE]
+Ref: agenda_item_approvals.approver_id > users.id
+Ref: agenda_item_approvals.item_id > agenda_items.id [delete: CASCADE]
+Ref: agenda_item_files.agenda_item_id > agenda_items.id [delete: CASCADE]
+Ref: agenda_item_files.file_id > files.id [delete: CASCADE]
+Ref: agenda_items.parent_id > agenda_items.id [delete: CASCADE]
+Ref: agenda_items.meeting_id > meetings.id [delete: CASCADE]
+Ref: agenda_workflow_steps.workflow_id > agenda_workflows.id [delete: CASCADE]
+Ref: asset_parts.part_id > parts.id [delete: CASCADE]
+Ref: asset_parts.asset_id > assets.id [delete: CASCADE]
+Ref: work_orders.school_id > schools.id [delete: SET NULL]
+Ref: work_orders.request_id > maintenance_requests.id [delete: SET NULL]
+Ref: work_orders.asset_id > assets.id [delete: SET NULL]
+Ref: work_orders.building_id > buildings.id [delete: SET NULL]
+Ref: work_orders.assigned_to_user_id > users.id [delete: SET NULL]
+Ref: work_orders.space_id > spaces.id [delete: SET NULL]
+Ref: assets.building_id > buildings.id [delete: SET NULL]
+Ref: assets.parent_asset_id > assets.id [delete: SET NULL]
+Ref: assets.space_id > spaces.id [delete: SET NULL]
+Ref: assignment_categories.section_id > course_sections.id [delete: CASCADE]
+Ref: assignments.category_id > assignment_categories.id [delete: SET NULL]
+Ref: assignments.section_id > course_sections.id [delete: CASCADE]
+Ref: attendance.meeting_id > meetings.id [delete: CASCADE]
+Ref: attendance.user_id > users.id [delete: CASCADE]
+Ref: attendance_daily_summary.student_id > students.id [delete: CASCADE]
+Ref: attendance_events.section_meeting_id > section_meetings.id [delete: SET NULL]
+Ref: attendance_events.student_id > students.id [delete: CASCADE]
+Ref: attendance_events.code > attendance_codes.code [delete: RESTRICT]
+Ref: audit_log.actor_id > users.id
+Ref: audit_logs.actor_id > user_accounts.id [delete: SET NULL]
+Ref: behavior_interventions.student_id > students.id [delete: CASCADE]
+Ref: bell_schedules.school_id > schools.id [delete: CASCADE]
+Ref: bodies.org_id > organizations.id [delete: CASCADE]
+Ref: buildings.facility_id > facilities.id [delete: CASCADE]
+Ref: bus_routes.school_id > schools.id [delete: SET NULL]
+Ref: bus_stop_times.route_id > bus_routes.id [delete: CASCADE]
+Ref: bus_stop_times.stop_id > bus_stops.id [delete: CASCADE]
+Ref: bus_stops.route_id > bus_routes.id [delete: CASCADE]
+Ref: calendar_days.calendar_id > calendars.id [delete: CASCADE]
+Ref: calendars.school_id > schools.id [delete: CASCADE]
+Ref: channels.org_id > organizations.id [delete: CASCADE]
+Ref: cic_agenda_items.meeting_id > cic_meetings.id [delete: CASCADE]
+Ref: cic_agenda_items.parent_id > cic_agenda_items.id [delete: SET NULL]
+Ref: cic_agenda_items.course_id > courses.id [delete: SET NULL]
+Ref: cic_agenda_items.subject_id > subjects.id [delete: SET NULL]
+Ref: cic_committees.organization_id > organizations.id [delete: SET NULL]
+Ref: cic_committees.school_id > schools.id [delete: SET NULL]
+Ref: cic_meeting_documents.document_id > documents.id [delete: SET NULL]
+Ref: cic_meeting_documents.meeting_id > cic_meetings.id [delete: CASCADE]
+Ref: cic_meetings.committee_id > cic_committees.id [delete: CASCADE]
+Ref: cic_memberships.person_id > persons.id [delete: CASCADE]
+Ref: cic_memberships.committee_id > cic_committees.id [delete: CASCADE]
+Ref: cic_motions.agenda_item_id > cic_agenda_items.id [delete: CASCADE]
+Ref: cic_motions.seconded_by_id > persons.id [delete: SET NULL]
+Ref: cic_motions.moved_by_id > persons.id [delete: SET NULL]
+Ref: cic_proposal_documents.proposal_id > cic_proposals.id [delete: CASCADE]
+Ref: cic_proposal_documents.document_id > documents.id [delete: SET NULL]
+Ref: cic_proposal_reviews.reviewer_id > persons.id [delete: SET NULL]
+Ref: cic_proposal_reviews.proposal_id > cic_proposals.id [delete: CASCADE]
+Ref: cic_proposals.subject_id > subjects.id [delete: SET NULL]
+Ref: cic_proposals.course_id > courses.id [delete: SET NULL]
+Ref: cic_proposals.submitted_by_id > persons.id [delete: SET NULL]
+Ref: cic_proposals.school_id > schools.id [delete: SET NULL]
+Ref: cic_proposals.committee_id > cic_committees.id [delete: CASCADE]
+Ref: cic_publications.meeting_id > cic_meetings.id [delete: CASCADE]
+Ref: cic_resolutions.meeting_id > cic_meetings.id [delete: CASCADE]
+Ref: cic_votes.motion_id > cic_motions.id [delete: CASCADE]
+Ref: cic_votes.person_id > persons.id [delete: CASCADE]
+Ref: class_ranks.term_id > academic_terms.id [delete: CASCADE]
+Ref: class_ranks.school_id > schools.id [delete: CASCADE]
+Ref: class_ranks.student_id > students.id [delete: CASCADE]
+Ref: compliance_records.building_id > buildings.id [delete: SET NULL]
+Ref: compliance_records.asset_id > assets.id [delete: SET NULL]
+Ref: consents.person_id > persons.id [delete: CASCADE]
+Ref: consequences.participant_id > incident_participants.id [delete: CASCADE]
+Ref: consequences.consequence_code > consequence_types.code [delete: RESTRICT]
+Ref: consequences.incident_id > incidents.id [delete: CASCADE]
+Ref: course_prerequisites.course_id > courses.id [delete: CASCADE]
+Ref: course_prerequisites.prereq_course_id > courses.id [delete: CASCADE]
+Ref: course_sections.term_id > academic_terms.id [delete: CASCADE]
+Ref: course_sections.school_id > schools.id [delete: CASCADE]
+Ref: course_sections.course_id > courses.id [delete: CASCADE]
+Ref: courses.school_id > schools.id [delete: CASCADE]
+Ref: courses.subject_id > subjects.id [delete: SET NULL]
+Ref: deduction_codes.vendor_id > vendors.id [delete: SET NULL]
+Ref: deliveries.user_id > users.id [delete: CASCADE]
+Ref: deliveries.post_id > posts.id [delete: CASCADE]
+Ref: departments.school_id > schools.id [delete: CASCADE]
+Ref: document_activity.actor_id > users.id
+Ref: document_activity.document_id > documents.id [delete: CASCADE]
+Ref: document_links.document_id > documents.id [delete: CASCADE]
+Ref: document_notifications.document_id > documents.id [delete: CASCADE]
+Ref: document_notifications.user_id > users.id [delete: CASCADE]
+Ref: document_search_index.document_id > documents.id [delete: CASCADE]
+Ref: document_versions.file_id > files.id [delete: RESTRICT]
+Ref: document_versions.document_id > documents.id [delete: CASCADE]
+Ref: document_versions.created_by > users.id
+Ref: documents.current_version_id > document_versions.id [delete: SET NULL]
+Ref: documents.folder_id > folders.id [delete: SET NULL]
+Ref: ell_plans.student_id > students.id [delete: CASCADE]
+Ref: emergency_contacts.person_id > persons.id [delete: CASCADE]
+Ref: employee_deductions.run_id > payroll_runs.id [delete: CASCADE]
+Ref: employee_deductions.employee_id > hr_employees.id [delete: CASCADE]
+Ref: employee_deductions.deduction_code_id > deduction_codes.id [delete: RESTRICT]
+Ref: employee_earnings.employee_id > hr_employees.id [delete: CASCADE]
+Ref: employee_earnings.earning_code_id > earning_codes.id [delete: RESTRICT]
+Ref: employee_earnings.run_id > payroll_runs.id [delete: CASCADE]
+Ref: entity_tags.tag_id > tags.id [delete: CASCADE]
+Ref: evaluation_assignments.subject_user_id > users.id
+Ref: evaluation_assignments.evaluator_user_id > users.id
+Ref: evaluation_assignments.template_id > evaluation_templates.id [delete: RESTRICT]
+Ref: evaluation_assignments.cycle_id > evaluation_cycles.id [delete: CASCADE]
+Ref: evaluation_cycles.org_id > organizations.id [delete: CASCADE]
+Ref: evaluation_files.assignment_id > evaluation_assignments.id [delete: CASCADE]
+Ref: evaluation_files.file_id > files.id [delete: CASCADE]
+Ref: evaluation_questions.section_id > evaluation_sections.id [delete: CASCADE]
+Ref: evaluation_reports.cycle_id > evaluation_cycles.id [delete: CASCADE]
+Ref: evaluation_reports.file_id > files.id [delete: SET NULL]
+Ref: evaluation_responses.assignment_id > evaluation_assignments.id [delete: CASCADE]
+Ref: evaluation_responses.question_id > evaluation_questions.id [delete: CASCADE]
+Ref: evaluation_sections.template_id > evaluation_templates.id [delete: CASCADE]
+Ref: evaluation_signoffs.signer_id > users.id
+Ref: evaluation_signoffs.assignment_id > evaluation_assignments.id [delete: CASCADE]
+Ref: events.school_id > schools.id [delete: CASCADE]
+Ref: events.activity_id > activities.id [delete: SET NULL]
+Ref: facilities.school_id > schools.id [delete: CASCADE]
+Ref: family_portal_access.guardian_id > guardians.id [delete: CASCADE]
+Ref: family_portal_access.student_id > students.id [delete: CASCADE]
+Ref: feature_flags.org_id > organizations.id [delete: CASCADE]
+Ref: fees.school_id > schools.id [delete: CASCADE]
+Ref: files.created_by > users.id
+Ref: final_grades.section_id > course_sections.id [delete: CASCADE]
+Ref: final_grades.grading_period_id > grading_periods.id [delete: CASCADE]
+Ref: final_grades.student_id > students.id [delete: CASCADE]
+Ref: fiscal_periods.fiscal_year_id > fiscal_years.id [delete: CASCADE]
+Ref: floors.building_id > buildings.id [delete: CASCADE]
+Ref: folders.org_id > organizations.id [delete: CASCADE]
+Ref: folders.parent_id > folders.id [delete: CASCADE]
+Ref: gl_account_segments.segment_id > gl_segments.id [delete: CASCADE]
+Ref: gl_account_segments.account_id > gl_accounts.id [delete: CASCADE]
+Ref: gl_account_segments.value_id > gl_segment_values.id [delete: SET NULL]
+Ref: gl_segment_values.segment_id > gl_segments.id [delete: CASCADE]
+Ref: goals.plan_id > plans.id [delete: CASCADE]
+Ref: gpa_calculations.student_id > students.id [delete: CASCADE]
+Ref: gpa_calculations.term_id > academic_terms.id [delete: CASCADE]
+Ref: grade_levels.school_id > schools.id [delete: CASCADE]
+Ref: grade_scale_bands.grade_scale_id > grade_scales.id [delete: CASCADE]
+Ref: grade_scales.school_id > schools.id [delete: CASCADE]
+Ref: gradebook_entries.assignment_id > assignments.id [delete: CASCADE]
+Ref: gradebook_entries.student_id > students.id [delete: CASCADE]
+Ref: grading_periods.term_id > academic_terms.id [delete: CASCADE]
+Ref: health_profiles.student_id > students.id [delete: CASCADE]
+Ref: hr_employees.primary_school_id > schools.id [delete: SET NULL]
+Ref: hr_employees.person_id > persons.id [delete: SET NULL]
+Ref: hr_employees.department_segment_id > gl_segments.id [delete: SET NULL]
+Ref: hr_position_assignments.position_id > hr_positions.id [delete: CASCADE]
+Ref: hr_position_assignments.employee_id > hr_employees.id [delete: CASCADE]
+Ref: hr_positions.department_segment_id > gl_segments.id [delete: SET NULL]
+Ref: iep_plans.special_ed_case_id > special_education_cases.id [delete: CASCADE]
+Ref: immunization_records.immunization_id > immunizations.id [delete: CASCADE]
+Ref: immunization_records.student_id > students.id [delete: CASCADE]
+Ref: incident_participants.person_id > persons.id [delete: CASCADE]
+Ref: incident_participants.incident_id > incidents.id [delete: CASCADE]
+Ref: incidents.behavior_code > behavior_codes.code [delete: RESTRICT]
+Ref: incidents.school_id > schools.id [delete: SET NULL]
+Ref: initiatives.owner_id > users.id
+Ref: initiatives.objective_id > objectives.id [delete: CASCADE]
+Ref: invoices.student_id > students.id [delete: CASCADE]
+Ref: journal_entries.batch_id > journal_batches.id [delete: CASCADE]
+Ref: journal_entries.fiscal_period_id > fiscal_periods.id [delete: RESTRICT]
+Ref: journal_entry_lines.account_id > gl_accounts.id [delete: RESTRICT]
+Ref: journal_entry_lines.entry_id > journal_entries.id [delete: CASCADE]
+Ref: kpi_datapoints.kpi_id > kpis.id [delete: CASCADE]
+Ref: kpis.objective_id > objectives.id [delete: SET NULL]
+Ref: kpis.goal_id > goals.id [delete: SET NULL]
+Ref: leases.building_id > buildings.id [delete: SET NULL]
+Ref: library_checkouts.item_id > library_items.id [delete: CASCADE]
+Ref: library_checkouts.person_id > persons.id [delete: CASCADE]
+Ref: library_fines.person_id > persons.id [delete: CASCADE]
+Ref: library_holds.item_id > library_items.id [delete: CASCADE]
+Ref: library_holds.person_id > persons.id [delete: CASCADE]
+Ref: library_items.school_id > schools.id [delete: CASCADE]
+Ref: maintenance_requests.school_id > schools.id [delete: SET NULL]
+Ref: maintenance_requests.submitted_by_user_id > users.id [delete: SET NULL]
+Ref: maintenance_requests.converted_work_order_id > work_orders.id [delete: SET NULL]
+Ref: maintenance_requests.building_id > buildings.id [delete: SET NULL]
+Ref: maintenance_requests.asset_id > assets.id [delete: SET NULL]
+Ref: maintenance_requests.space_id > spaces.id [delete: SET NULL]
+Ref: meal_accounts.student_id > students.id [delete: CASCADE]
+Ref: meal_eligibility_statuses.student_id > students.id [delete: CASCADE]
+Ref: meal_transactions.account_id > meal_accounts.id [delete: CASCADE]
+Ref: medication_administrations.student_id > students.id [delete: CASCADE]
+Ref: medication_administrations.medication_id > medications.id [delete: CASCADE]
+Ref: meeting_files.meeting_id > meetings.id [delete: CASCADE]
+Ref: meeting_files.file_id > files.id [delete: CASCADE]
+Ref: meeting_permissions.meeting_id > meetings.id [delete: CASCADE]
+Ref: meeting_publications.meeting_id > meetings.id [delete: CASCADE]
+Ref: meeting_search_index.meeting_id > meetings.id [delete: CASCADE]
+Ref: meetings.org_id > organizations.id [delete: CASCADE]
+Ref: meetings.body_id > bodies.id [delete: SET NULL]
+Ref: message_recipients.message_id > messages.id [delete: CASCADE]
+Ref: message_recipients.person_id > persons.id [delete: CASCADE]
+Ref: messages.sender_id > user_accounts.id [delete: SET NULL]
+Ref: meters.building_id > buildings.id [delete: CASCADE]
+Ref: meters.asset_id > assets.id [delete: CASCADE]
+Ref: minutes.meeting_id > meetings.id [delete: CASCADE]
+Ref: minutes.author_id > users.id
+Ref: motions.moved_by_id > users.id
+Ref: motions.seconded_by_id > users.id
+Ref: motions.agenda_item_id > agenda_items.id [delete: CASCADE]
+Ref: move_orders.from_space_id > spaces.id [delete: SET NULL]
+Ref: move_orders.project_id > projects.id [delete: SET NULL]
+Ref: move_orders.person_id > users.id [delete: SET NULL]
+Ref: move_orders.to_space_id > spaces.id [delete: SET NULL]
+Ref: notifications.user_id > users.id [delete: CASCADE]
+Ref: nurse_visits.student_id > students.id [delete: CASCADE]
+Ref: objectives.goal_id > goals.id [delete: CASCADE]
+Ref: order_line_items.order_id > orders.id [delete: CASCADE]
+Ref: order_line_items.ticket_type_id > ticket_types.id [delete: RESTRICT]
+Ref: orders.purchaser_user_id > users.id [delete: SET NULL]
+Ref: orders.event_id > events.id [delete: CASCADE]
+Ref: pages.channel_id > channels.id [delete: CASCADE]
+Ref: part_locations.building_id > buildings.id [delete: SET NULL]
+Ref: part_locations.part_id > parts.id [delete: CASCADE]
+Ref: part_locations.space_id > spaces.id [delete: SET NULL]
+Ref: paychecks.employee_id > hr_employees.id [delete: CASCADE]
+Ref: paychecks.run_id > payroll_runs.id [delete: CASCADE]
+Ref: payments.invoice_id > invoices.id [delete: CASCADE]
+Ref: payroll_runs.pay_period_id > pay_periods.id [delete: CASCADE]
+Ref: payroll_runs.posted_entry_id > journal_entries.id [delete: SET NULL]
+Ref: payroll_runs.created_by_user_id > users.id [delete: SET NULL]
+Ref: periods.bell_schedule_id > bell_schedules.id [delete: CASCADE]
+Ref: person_addresses.person_id > persons.id [delete: CASCADE]
+Ref: person_addresses.address_id > addresses.id [delete: CASCADE]
+Ref: person_contacts.person_id > persons.id [delete: CASCADE]
+Ref: person_contacts.contact_id > contacts.id [delete: CASCADE]
+Ref: personal_notes.user_id > users.id [delete: CASCADE]
+Ref: plan_alignments.policy_id > policies.id [delete: SET NULL]
+Ref: plan_alignments.objective_id > objectives.id [delete: SET NULL]
+Ref: plan_alignments.agenda_item_id > agenda_items.id [delete: SET NULL]
+Ref: plan_filters.plan_id > plans.id [delete: CASCADE]
+Ref: plan_search_index.plan_id > plans.id [delete: CASCADE]
+Ref: plans.org_id > organizations.id [delete: CASCADE]
+Ref: pm_plans.building_id > buildings.id [delete: CASCADE]
+Ref: pm_plans.asset_id > assets.id [delete: CASCADE]
+Ref: pm_work_generators.pm_plan_id > pm_plans.id [delete: CASCADE]
+Ref: policies.org_id > organizations.id [delete: CASCADE]
+Ref: policy_approvals.policy_version_id > policy_versions.id [delete: CASCADE]
+Ref: policy_approvals.step_id > policy_workflow_steps.id [delete: CASCADE]
+Ref: policy_approvals.approver_id > users.id
+Ref: policy_comments.user_id > users.id [delete: SET NULL]
+Ref: policy_comments.policy_version_id > policy_versions.id [delete: CASCADE]
+Ref: policy_files.file_id > files.id [delete: CASCADE]
+Ref: policy_files.policy_version_id > policy_versions.id [delete: CASCADE]
+Ref: policy_legal_refs.policy_version_id > policy_versions.id [delete: CASCADE]
+Ref: policy_publications.policy_version_id > policy_versions.id [delete: CASCADE]
+Ref: policy_search_index.policy_id > policies.id [delete: CASCADE]
+Ref: policy_versions.supersedes_version_id > policy_versions.id [delete: SET NULL]
+Ref: policy_versions.policy_id > policies.id [delete: CASCADE]
+Ref: policy_versions.created_by > users.id
+Ref: policy_workflow_steps.workflow_id > policy_workflows.id [delete: CASCADE]
+Ref: policy_workflows.policy_id > policies.id [delete: CASCADE]
+Ref: post_attachments.post_id > posts.id [delete: CASCADE]
+Ref: post_attachments.file_id > files.id [delete: CASCADE]
+Ref: posts.author_id > users.id
+Ref: posts.channel_id > channels.id [delete: CASCADE]
+Ref: project_tasks.assignee_user_id > users.id [delete: SET NULL]
+Ref: project_tasks.project_id > projects.id [delete: CASCADE]
+Ref: projects.school_id > schools.id [delete: SET NULL]
+Ref: report_cards.student_id > students.id [delete: CASCADE]
+Ref: report_cards.term_id > academic_terms.id [delete: CASCADE]
+Ref: role_permissions.role_id > roles.id [delete: CASCADE]
+Ref: role_permissions.permission_id > permissions.id [delete: CASCADE]
+Ref: rooms.school_id > schools.id [delete: CASCADE]
+Ref: schools.organization_id > organizations.id [delete: CASCADE]
+Ref: scorecard_kpis.kpi_id > kpis.id [delete: CASCADE]
+Ref: scorecard_kpis.scorecard_id > scorecards.id [delete: CASCADE]
+Ref: scorecards.plan_id > plans.id [delete: CASCADE]
+Ref: section504_plans.student_id > students.id [delete: CASCADE]
+Ref: section_meetings.period_id > periods.id [delete: SET NULL]
+Ref: section_meetings.room_id > rooms.id [delete: SET NULL]
+Ref: section_meetings.section_id > course_sections.id [delete: CASCADE]
+Ref: section_room_assignments.section_id > course_sections.id [delete: CASCADE]
+Ref: section_room_assignments.room_id > rooms.id [delete: CASCADE]
+Ref: space_reservations.booked_by_user_id > users.id [delete: SET NULL]
+Ref: space_reservations.space_id > spaces.id [delete: CASCADE]
+Ref: spaces.floor_id > floors.id [delete: SET NULL]
+Ref: spaces.building_id > buildings.id [delete: CASCADE]
+Ref: special_education_cases.student_id > students.id [delete: CASCADE]
+Ref: student_guardians.student_id > students.id [delete: CASCADE]
+Ref: student_guardians.guardian_id > guardians.id [delete: CASCADE]
+Ref: student_program_enrollments.student_id > students.id [delete: CASCADE]
+Ref: student_school_enrollments.student_id > students.id [delete: CASCADE]
+Ref: student_school_enrollments.school_id > schools.id [delete: CASCADE]
+Ref: student_section_enrollments.section_id > course_sections.id [delete: CASCADE]
+Ref: student_section_enrollments.student_id > students.id [delete: CASCADE]
+Ref: student_transportation_assignments.student_id > students.id [delete: CASCADE]
+Ref: student_transportation_assignments.stop_id > bus_stops.id [delete: SET NULL]
+Ref: student_transportation_assignments.route_id > bus_routes.id [delete: SET NULL]
+Ref: subjects.department_id > departments.id [delete: SET NULL]
+Ref: subscriptions.channel_id > channels.id [delete: CASCADE]
+Ref: teacher_section_assignments.section_id > course_sections.id [delete: CASCADE]
+Ref: teacher_section_assignments.staff_id > staff.id [delete: CASCADE]
+Ref: test_administrations.test_id > standardized_tests.id [delete: CASCADE]
+Ref: test_administrations.school_id > schools.id [delete: SET NULL]
+Ref: test_results.administration_id > test_administrations.id [delete: CASCADE]
+Ref: test_results.student_id > students.id [delete: CASCADE]
+Ref: ticket_scans.ticket_id > tickets.id [delete: CASCADE]
+Ref: ticket_scans.scanned_by_user_id > users.id [delete: SET NULL]
+Ref: ticket_types.event_id > events.id [delete: CASCADE]
+Ref: tickets.order_id > orders.id [delete: CASCADE]
+Ref: tickets.holder_person_id > persons.id [delete: SET NULL]
+Ref: tickets.ticket_type_id > ticket_types.id [delete: RESTRICT]
+Ref: transcript_lines.term_id > academic_terms.id [delete: SET NULL]
+Ref: transcript_lines.course_id > courses.id [delete: SET NULL]
+Ref: transcript_lines.student_id > students.id [delete: CASCADE]
+Ref: user_accounts.person_id > persons.id [delete: CASCADE]
+Ref: votes.voter_id > users.id [delete: CASCADE]
+Ref: votes.motion_id > motions.id [delete: CASCADE]
+Ref: waivers.student_id > students.id [delete: CASCADE]
+Ref: warranties.vendor_id > vendors.id [delete: SET NULL]
+Ref: warranties.asset_id > assets.id [delete: CASCADE]
+Ref: work_order_parts.part_id > parts.id [delete: SET NULL]
+Ref: work_order_parts.work_order_id > work_orders.id [delete: CASCADE]
+Ref: work_order_tasks.work_order_id > work_orders.id [delete: CASCADE]
+Ref: work_order_time_logs.user_id > users.id [delete: SET NULL]
+Ref: work_order_time_logs.work_order_id > work_orders.id [delete: CASCADE]
+Ref: scan_results.ticket_id > tickets.id [delete: SET NULL]

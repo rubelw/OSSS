@@ -4,7 +4,7 @@
   "roles": {
     "realm": [
       {
-        "id": "89961cff-a2f1-41f4-bc8a-f7f825bef2fb",
+        "id": "41c26b7d-fdcb-44ce-8951-79da77b3d83b",
         "name": "offline_access",
         "description": "Offline Access",
         "composite": false,
@@ -13,7 +13,7 @@
         "attributes": {}
       },
       {
-        "id": "883eb2e2-c819-4848-a8f6-eda950d57388",
+        "id": "4af30a9d-9201-4a02-bbbe-8cf1e5566c93",
         "name": "uma_authorization",
         "description": "UMA Authorization",
         "composite": false,
@@ -22,7 +22,7 @@
         "attributes": {}
       },
       {
-        "id": "f6db3d2f-812d-4781-b354-8b48bf474059",
+        "id": "0ed1e968-267d-4c42-a9c4-00a8dcf34174",
         "name": "default-roles-test",
         "description": "Default test role",
         "composite": true,
@@ -71,7 +71,7 @@
       "security-admin-console": [],
       "osss-api": [
         {
-          "id": "0007ef77-a719-4741-ac89-ecd6ec8b961f",
+          "id": "37385df5-5631-4fd8-8d98-895396a10111",
           "name": "api.user",
           "description": "Baseline access to OSSS API",
           "composite": false,
@@ -80,7 +80,7 @@
           "attributes": {}
         },
         {
-          "id": "422da294-ee70-47d6-b440-38c342dbbfe0",
+          "id": "fd15c098-5b54-4a95-9e94-427dcb0fd8f6",
           "name": "api.admin",
           "description": "Administrative access to OSSS API",
           "composite": false,
@@ -89,7 +89,7 @@
           "attributes": {}
         },
         {
-          "id": "907453c2-5a31-46e2-a70c-8e74dd244e6b",
+          "id": "6b23a588-60e7-4f90-b4a3-640d55e95921",
           "name": "api.teacher",
           "description": "Teacher access to OSSS API",
           "composite": false,
@@ -118,7 +118,7 @@
   },
   "users": [
     {
-      "id": "2920f1a9-f40e-4af5-be57-dba985eec4b3",
+      "id": "ac90f561-1cdf-458e-bfb2-64c262f8ab5f",
       "username": "admin@osss.local",
       "enabled": true,
       "email": "admin@osss.local",
@@ -162,7 +162,7 @@
       "totp": true
     },
     {
-      "id": "4de3d131-eef2-4fdb-a35d-ed84198612c8",
+      "id": "6f45e8d8-bfbb-41be-be0e-117cd49addf5",
       "username": "teacher@osss.local",
       "enabled": true,
       "email": "teacher@osss.local",
@@ -624,7 +624,7 @@
   "clientAuthenticationFlow": "clients",
   "dockerAuthenticationFlow": "docker auth",
   "defaultRole": {
-    "id": "6e9c90ca-9405-4f36-ab92-42dcdcb9e552",
+    "id": "ae314e8a-b243-485f-adbb-09065b329302",
     "name": "default-roles-test",
     "description": "${role_default-roles}",
     "composite": true,
