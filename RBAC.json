@@ -115,7 +115,7 @@
       "parent": null,
       "positions": [
         {
-          "name": "position_board_chair",
+          "name": "board_chair",
           "description": "Leads the governing board; sets agendas and presides over meetings.",
           "permissions": [
             "read:academic_terms",
@@ -228,7 +228,7 @@
           ]
         },
         {
-          "name": "position_board_vice_chair",
+          "name": "board_vice_chair",
           "description": "Supports/acts in place of the chair as needed.",
           "permissions": [
             "read:academic_terms",
@@ -341,7 +341,7 @@
           ]
         },
         {
-          "name": "position_board_clerk",
+          "name": "board_clerk",
           "description": "Records board actions; manages official records and notices.",
           "permissions": [
             "read:academic_terms",
@@ -454,7 +454,7 @@
           ]
         },
         {
-          "name": "position_school_board_member_trustee",
+          "name": "school_board_member_trustee",
           "description": "Elected/appointed governance of the district or school; sets policy and oversees superintendent/head.",
           "permissions": [
             "read:academic_terms",
@@ -681,7 +681,7 @@
           ],
           "positions": [
             {
-              "name": "position_superintendent",
+              "name": "superintendent",
               "description": "Chief executive of a public school district; accountable to the board.",
               "permissions": [
                 "read:academic_terms",
@@ -794,7 +794,7 @@
               ]
             },
             {
-              "name": "position_head_of_school",
+              "name": "head_of_school",
               "description": "Chief executive of an independent/private school.",
               "permissions": [
                 "read:academic_terms",
@@ -907,7 +907,7 @@
               ]
             },
             {
-              "name": "position_deputy_superintendent",
+              "name": "deputy_superintendent",
               "description": "Second-in-command over district operations or academics.",
               "permissions": [
                 "read:academic_terms",
@@ -1020,7 +1020,7 @@
               ]
             },
             {
-              "name": "position_associate_superintendent",
+              "name": "associate_superintendent",
               "description": "Senior executive over major divisions (e.g., teaching & learning).",
               "permissions": [
                 "read:academic_terms",
@@ -1133,7 +1133,7 @@
               ]
             },
             {
-              "name": "position_assistant_superintendent",
+              "name": "assistant_superintendent",
               "description": "Executive leader over specific functions or clusters of schools.",
               "permissions": [
                 "read:academic_terms",
@@ -1246,7 +1246,7 @@
               ]
             },
             {
-              "name": "position_chief_of_staff",
+              "name": "chief_of_staff",
               "description": "Coordinates executive priorities, cabinet operations, and cross-functional initiatives.",
               "permissions": [
                 "read:academic_terms",
@@ -1359,7 +1359,7 @@
               ]
             },
             {
-              "name": "position_general_counsel",
+              "name": "general_counsel",
               "description": "Provides legal guidance; manages risk, contracts, and compliance.",
               "permissions": [
                 "read:academic_terms",
@@ -1472,7 +1472,7 @@
               ]
             },
             {
-              "name": "position_ombudsperson",
+              "name": "ombudsperson",
               "description": "Independent, confidential resource for resolving concerns and complaints.",
               "permissions": [
                 "read:academic_terms",
@@ -1585,7 +1585,7 @@
               ]
             },
             {
-              "name": "position_chief_equity_officer",
+              "name": "chief_equity_officer",
               "description": "Leads equity, diversity, inclusion initiatives and policy.",
               "permissions": [
                 "read:academic_terms",
@@ -1812,7 +1812,7 @@
               ],
               "positions": [
                 {
-                  "name": "position_chief_schools_officer",
+                  "name": "chief_schools_officer",
                   "description": "Oversees school portfolio and principals; drives performance.",
                   "permissions": [
                     "read:academic_terms",
@@ -2039,7 +2039,7 @@
                   ],
                   "positions": [
                     {
-                      "name": "position_principal",
+                      "name": "principal",
                       "description": "School-site leader responsible for instruction, operations, and culture.",
                       "permissions": [
                         "read:academic_terms",
@@ -2152,7 +2152,7 @@
                       ]
                     },
                     {
-                      "name": "position_assistant_principal",
+                      "name": "assistant_principal",
                       "description": "Supports principal in instruction, discipline, operations, and staff supervision.",
                       "permissions": [
                         "read:academic_terms",
@@ -2265,7 +2265,7 @@
                       ]
                     },
                     {
-                      "name": "position_associate_principal",
+                      "name": "associate_principal",
                       "description": "Senior AP; often leads major school functions.",
                       "permissions": [
                         "read:academic_terms",
@@ -2378,7 +2378,7 @@
                       ]
                     },
                     {
-                      "name": "position_vice_principal",
+                      "name": "vice_principal",
                       "description": "Alternative title for assistant/associate principal.",
                       "permissions": [
                         "read:academic_terms",
@@ -2491,7 +2491,7 @@
                       ]
                     },
                     {
-                      "name": "position_dean_of_students",
+                      "name": "dean_of_students",
                       "description": "Leads student conduct, attendance, culture, and MTSS supports.",
                       "permissions": [
                         "read:academic_terms",
@@ -2604,7 +2604,7 @@
                       ]
                     },
                     {
-                      "name": "position_dean_of_academics",
+                      "name": "dean_of_academics",
                       "description": "Oversees curriculum, scheduling, grading, and academic quality.",
                       "permissions": [
                         "read:academic_terms",
@@ -2717,7 +2717,7 @@
                       ]
                     },
                     {
-                      "name": "position_grade_level_dean",
+                      "name": "grade_level_dean",
                       "description": "Oversees a grade\u2019s academic and behavioral support systems.",
                       "permissions": [
                         "read:academic_terms",
@@ -2830,7 +2830,7 @@
                       ]
                     },
                     {
-                      "name": "position_director_of_residential_life",
+                      "name": "director_of_residential_life",
                       "description": "Oversees dorms/residential programs (boarding schools).",
                       "permissions": [
                         "read:academic_terms",
@@ -2943,7 +2943,7 @@
                       ]
                     },
                     {
-                      "name": "position_activities_director",
+                      "name": "activities_director",
                       "description": "Leads student activities, clubs, and co-curriculars.",
                       "permissions": [
                         "read:academic_terms",
@@ -3056,7 +3056,7 @@
                       ]
                     },
                     {
-                      "name": "position_athletics_director",
+                      "name": "athletics_director",
                       "description": "Leads athletics programs, compliance, facilities, and scheduling.",
                       "permissions": [
                         "read:academic_terms",
@@ -3169,7 +3169,7 @@
                       ]
                     },
                     {
-                      "name": "position_assistant_athletics_director",
+                      "name": "assistant_athletics_director",
                       "description": "Supports athletic director with operations and compliance.",
                       "permissions": [
                         "read:academic_terms",
@@ -3282,7 +3282,7 @@
                       ]
                     },
                     {
-                      "name": "position_head_of_upper_school",
+                      "name": "head_of_upper_school",
                       "description": "Leads upper/secondary division in independent schools.",
                       "permissions": [
                         "read:academic_terms",
@@ -3395,7 +3395,7 @@
                       ]
                     },
                     {
-                      "name": "position_head_of_middle_school",
+                      "name": "head_of_middle_school",
                       "description": "Leads middle division.",
                       "permissions": [
                         "read:academic_terms",
@@ -3508,7 +3508,7 @@
                       ]
                     },
                     {
-                      "name": "position_head_of_lower_school",
+                      "name": "head_of_lower_school",
                       "description": "Leads lower/elementary division.",
                       "permissions": [
                         "read:academic_terms",
@@ -3643,7 +3643,7 @@
                       ],
                       "positions": [
                         {
-                          "name": "position_classroom_teacher",
+                          "name": "classroom_teacher",
                           "description": "Core instruction in content areas at elementary, middle, or high school.",
                           "permissions": [
                             "read:academic_terms",
@@ -3664,7 +3664,7 @@
                           ]
                         },
                         {
-                          "name": "position_elementary_teacher",
+                          "name": "elementary_teacher",
                           "description": "Self-contained or team-taught elementary grades.",
                           "permissions": [
                             "read:academic_terms",
@@ -3685,7 +3685,7 @@
                           ]
                         },
                         {
-                          "name": "position_middle_school_teacher",
+                          "name": "middle_school_teacher",
                           "description": "Departmentalized instruction for middle grades.",
                           "permissions": [
                             "read:academic_terms",
@@ -3706,7 +3706,7 @@
                           ]
                         },
                         {
-                          "name": "position_high_school_teacher",
+                          "name": "high_school_teacher",
                           "description": "Subject-specific instruction at high school level.",
                           "permissions": [
                             "read:academic_terms",
@@ -3727,7 +3727,7 @@
                           ]
                         },
                         {
-                          "name": "position_art_teacher",
+                          "name": "art_teacher",
                           "description": "Visual arts instruction and programming.",
                           "permissions": [
                             "read:academic_terms",
@@ -3748,7 +3748,7 @@
                           ]
                         },
                         {
-                          "name": "position_music_teacher",
+                          "name": "music_teacher",
                           "description": "General music or performance ensembles.",
                           "permissions": [
                             "read:academic_terms",
@@ -3769,7 +3769,7 @@
                           ]
                         },
                         {
-                          "name": "position_band_director",
+                          "name": "band_director",
                           "description": "Leads band program and performances.",
                           "permissions": [
                             "read:academic_terms",
@@ -3790,7 +3790,7 @@
                           ]
                         },
                         {
-                          "name": "position_choir_director",
+                          "name": "choir_director",
                           "description": "Leads choral program and performances.",
                           "permissions": [
                             "read:academic_terms",
@@ -3811,7 +3811,7 @@
                           ]
                         },
                         {
-                          "name": "position_theater_teacher",
+                          "name": "theater_teacher",
                           "description": "Drama instruction and productions.",
                           "permissions": [
                             "read:academic_terms",
@@ -3832,7 +3832,7 @@
                           ]
                         },
                         {
-                          "name": "position_physical_education_teacher",
+                          "name": "physical_education_teacher",
                           "description": "PE instruction; fitness, health, and wellness.",
                           "permissions": [
                             "read:academic_terms",
@@ -3853,7 +3853,7 @@
                           ]
                         },
                         {
-                          "name": "position_health_teacher",
+                          "name": "health_teacher",
                           "description": "Health education curriculum.",
                           "permissions": [
                             "read:academic_terms",
@@ -3874,7 +3874,7 @@
                           ]
                         },
                         {
-                          "name": "position_world_languages_teacher",
+                          "name": "world_languages_teacher",
                           "description": "Foreign/heritage language instruction.",
                           "permissions": [
                             "read:academic_terms",
@@ -3895,7 +3895,7 @@
                           ]
                         },
                         {
-                          "name": "position_computer_science_teacher",
+                          "name": "computer_science_teacher",
                           "description": "CS/coding/programming instruction.",
                           "permissions": [
                             "read:academic_terms",
@@ -3916,7 +3916,7 @@
                           ]
                         },
                         {
-                          "name": "position_cte_teacher",
+                          "name": "cte_teacher",
                           "description": "Career & Technical Education (pathways, labs, certifications).",
                           "permissions": [
                             "read:academic_terms",
@@ -3937,7 +3937,7 @@
                           ]
                         },
                         {
-                          "name": "position_early_childhood_teacher",
+                          "name": "early_childhood_teacher",
                           "description": "Pre-K and early learning instruction.",
                           "permissions": [
                             "read:academic_terms",
@@ -3958,7 +3958,7 @@
                           ]
                         },
                         {
-                          "name": "position_reading_interventionist",
+                          "name": "reading_interventionist",
                           "description": "Targeted literacy interventions and progress monitoring.",
                           "permissions": [
                             "read:academic_terms",
@@ -3979,7 +3979,7 @@
                           ]
                         },
                         {
-                          "name": "position_math_interventionist",
+                          "name": "math_interventionist",
                           "description": "Targeted math interventions and progress monitoring.",
                           "permissions": [
                             "read:academic_terms",
@@ -4000,7 +4000,7 @@
                           ]
                         },
                         {
-                          "name": "position_instructional_coach",
+                          "name": "instructional_coach",
                           "description": "Job-embedded coaching on pedagogy and curriculum.",
                           "permissions": [
                             "read:academic_terms",
@@ -4021,7 +4021,7 @@
                           ]
                         },
                         {
-                          "name": "position_literacy_coach",
+                          "name": "literacy_coach",
                           "description": "Specialized coaching in reading and writing instruction.",
                           "permissions": [
                             "read:academic_terms",
@@ -4042,7 +4042,7 @@
                           ]
                         },
                         {
-                          "name": "position_math_coach",
+                          "name": "math_coach",
                           "description": "Specialized coaching in mathematics instruction.",
                           "permissions": [
                             "read:academic_terms",
@@ -4063,7 +4063,7 @@
                           ]
                         },
                         {
-                          "name": "position_mentor_teacher",
+                          "name": "mentor_teacher",
                           "description": "Supports novice teachers with induction and practice.",
                           "permissions": [
                             "read:academic_terms",
@@ -4084,7 +4084,7 @@
                           ]
                         },
                         {
-                          "name": "position_media_specialist",
+                          "name": "media_specialist",
                           "description": "Library/media program; information literacy; collections.",
                           "permissions": [
                             "read:academic_terms",
@@ -4105,7 +4105,7 @@
                           ]
                         },
                         {
-                          "name": "position_teacher_librarian",
+                          "name": "teacher_librarian",
                           "description": "Certified librarian providing instruction and curation.",
                           "permissions": [
                             "read:academic_terms",
@@ -4126,7 +4126,7 @@
                           ]
                         },
                         {
-                          "name": "position_substitute_teacher",
+                          "name": "substitute_teacher",
                           "description": "Short-term classroom coverage.",
                           "permissions": [
                             "read:academic_terms",
@@ -4147,7 +4147,7 @@
                           ]
                         },
                         {
-                          "name": "position_long_term_substitute",
+                          "name": "long_term_substitute",
                           "description": "Extended coverage; curriculum and grading responsibilities.",
                           "permissions": [
                             "read:academic_terms",
@@ -4168,7 +4168,7 @@
                           ]
                         },
                         {
-                          "name": "position_teacher_resident",
+                          "name": "teacher_resident",
                           "description": "Residency preparation role co-teaching with a mentor.",
                           "permissions": [
                             "read:academic_terms",
@@ -4189,7 +4189,7 @@
                           ]
                         },
                         {
-                          "name": "position_student_teacher",
+                          "name": "student_teacher",
                           "description": "Clinical practice under supervision.",
                           "permissions": [
                             "read:academic_terms",
@@ -4210,7 +4210,7 @@
                           ]
                         },
                         {
-                          "name": "position_instructional_fellow",
+                          "name": "instructional_fellow",
                           "description": "Early-career instructional support role.",
                           "permissions": [
                             "read:academic_terms",
@@ -4257,7 +4257,7 @@
                       ],
                       "positions": [
                         {
-                          "name": "position_school_counselor",
+                          "name": "school_counselor",
                           "description": "Academic, social-emotional, and college/career counseling.",
                           "permissions": [
                             "read:accommodations",
@@ -4282,7 +4282,7 @@
                           ]
                         },
                         {
-                          "name": "position_guidance_counselor",
+                          "name": "guidance_counselor",
                           "description": "Legacy title for school counselor.",
                           "permissions": [
                             "read:accommodations",
@@ -4307,7 +4307,7 @@
                           ]
                         },
                         {
-                          "name": "position_school_social_worker",
+                          "name": "school_social_worker",
                           "description": "Family services, wraparound supports, attendance.",
                           "permissions": [
                             "read:accommodations",
@@ -4332,7 +4332,7 @@
                           ]
                         },
                         {
-                          "name": "position_family_liaison",
+                          "name": "family_liaison",
                           "description": "Connects families with resources and the school.",
                           "permissions": [
                             "read:accommodations",
@@ -4357,7 +4357,7 @@
                           ]
                         },
                         {
-                          "name": "position_school_nurse",
+                          "name": "school_nurse",
                           "description": "Health services, care plans, medication, records.",
                           "permissions": [
                             "read:accommodations",
@@ -4382,7 +4382,7 @@
                           ]
                         },
                         {
-                          "name": "position_health_aide",
+                          "name": "health_aide",
                           "description": "Supports nurse; first aid and documentation.",
                           "permissions": [
                             "read:accommodations",
@@ -4407,7 +4407,7 @@
                           ]
                         },
                         {
-                          "name": "position_attendance_officer",
+                          "name": "attendance_officer",
                           "description": "Monitors attendance and interventions.",
                           "permissions": [
                             "read:accommodations",
@@ -4432,7 +4432,7 @@
                           ]
                         },
                         {
-                          "name": "position_truancy_officer",
+                          "name": "truancy_officer",
                           "description": "Enforces compulsory attendance with due process.",
                           "permissions": [
                             "read:accommodations",
@@ -4457,7 +4457,7 @@
                           ]
                         },
                         {
-                          "name": "position_mckinney_vento_liaison",
+                          "name": "mckinney_vento_liaison",
                           "description": "Supports students experiencing homelessness.",
                           "permissions": [
                             "read:accommodations",
@@ -4482,7 +4482,7 @@
                           ]
                         },
                         {
-                          "name": "position_foster_care_liaison",
+                          "name": "foster_care_liaison",
                           "description": "Coordinates supports for students in foster care.",
                           "permissions": [
                             "read:accommodations",
@@ -4507,7 +4507,7 @@
                           ]
                         },
                         {
-                          "name": "position_behavior_support_coach",
+                          "name": "behavior_support_coach",
                           "description": "Coaches staff on behavior systems and PBIS.",
                           "permissions": [
                             "read:accommodations",
@@ -4532,7 +4532,7 @@
                           ]
                         },
                         {
-                          "name": "position_restorative_practices_coordinator",
+                          "name": "restorative_practices_coordinator",
                           "description": "Implements restorative approaches and circles.",
                           "permissions": [
                             "read:accommodations",
@@ -4557,7 +4557,7 @@
                           ]
                         },
                         {
-                          "name": "position_mtss_coordinator",
+                          "name": "mtss_coordinator",
                           "description": "Coordinates MTSS tiers across academics/behavior.",
                           "permissions": [
                             "read:accommodations",
@@ -4582,7 +4582,7 @@
                           ]
                         },
                         {
-                          "name": "position_rti_coordinator",
+                          "name": "rti_coordinator",
                           "description": "Manages Response to Intervention processes.",
                           "permissions": [
                             "read:accommodations",
@@ -4607,7 +4607,7 @@
                           ]
                         },
                         {
-                          "name": "position_registrar",
+                          "name": "registrar",
                           "description": "Manages student records, transcripts, and enrollments.",
                           "permissions": [
                             "read:accommodations",
@@ -4632,7 +4632,7 @@
                           ]
                         },
                         {
-                          "name": "position_records_clerk",
+                          "name": "records_clerk",
                           "description": "Supports records management and requests.",
                           "permissions": [
                             "read:accommodations",
@@ -4657,7 +4657,7 @@
                           ]
                         },
                         {
-                          "name": "position_testing_and_assessment_coordinator",
+                          "name": "testing_and_assessment_coordinator",
                           "description": "Manages state/local tests and accommodations.",
                           "permissions": [
                             "read:accommodations",
@@ -4682,7 +4682,7 @@
                           ]
                         },
                         {
-                          "name": "position_college_counselor",
+                          "name": "college_counselor",
                           "description": "Postsecondary advising (independent/HS).",
                           "permissions": [
                             "read:accommodations",
@@ -4707,7 +4707,7 @@
                           ]
                         },
                         {
-                          "name": "position_financial_aid_advisor",
+                          "name": "financial_aid_advisor",
                           "description": "Supports tuition/aid processes (independent).",
                           "permissions": [
                             "read:accommodations",
@@ -4748,7 +4748,7 @@
                       ],
                       "positions": [
                         {
-                          "name": "position_school_secretary",
+                          "name": "school_secretary",
                           "description": "Front office operations and parent/student support.",
                           "permissions": [
                             "read:addresses",
@@ -4763,7 +4763,7 @@
                           ]
                         },
                         {
-                          "name": "position_administrative_assistant",
+                          "name": "administrative_assistant",
                           "description": "Administrative support to leaders/departments.",
                           "permissions": [
                             "read:addresses",
@@ -4778,7 +4778,7 @@
                           ]
                         },
                         {
-                          "name": "position_office_manager",
+                          "name": "office_manager",
                           "description": "Oversees office staff and procedures.",
                           "permissions": [
                             "read:addresses",
@@ -4793,7 +4793,7 @@
                           ]
                         },
                         {
-                          "name": "position_receptionist",
+                          "name": "receptionist",
                           "description": "Greets visitors, answers phones, and routes inquiries.",
                           "permissions": [
                             "read:addresses",
@@ -4808,7 +4808,7 @@
                           ]
                         },
                         {
-                          "name": "position_attendance_clerk",
+                          "name": "attendance_clerk",
                           "description": "Attendance entry and parent communication.",
                           "permissions": [
                             "read:addresses",
@@ -4823,7 +4823,7 @@
                           ]
                         },
                         {
-                          "name": "position_student_services_clerk",
+                          "name": "student_services_clerk",
                           "description": "Supports counseling, registration, and records.",
                           "permissions": [
                             "read:addresses",
@@ -4838,7 +4838,7 @@
                           ]
                         },
                         {
-                          "name": "position_data_clerk",
+                          "name": "data_clerk",
                           "description": "Data entry, audits, and SIS support.",
                           "permissions": [
                             "read:addresses",
@@ -4853,7 +4853,7 @@
                           ]
                         },
                         {
-                          "name": "position_sis_clerk",
+                          "name": "sis_clerk",
                           "description": "Specialist data entry and reports in SIS.",
                           "permissions": [
                             "read:addresses",
@@ -4868,7 +4868,7 @@
                           ]
                         },
                         {
-                          "name": "position_health_office_clerk",
+                          "name": "health_office_clerk",
                           "description": "Supports school nurse and health records.",
                           "permissions": [
                             "read:addresses",
@@ -4891,91 +4891,91 @@
                       ],
                       "positions": [
                         {
-                          "name": "position_head_coach",
+                          "name": "head_coach",
                           "description": "Leads a sport program and coaching staff.",
                           "permissions": [
                             "read:activities"
                           ]
                         },
                         {
-                          "name": "position_assistant_coach",
+                          "name": "assistant_coach",
                           "description": "Supports head coach with training and supervision.",
                           "permissions": [
                             "read:activities"
                           ]
                         },
                         {
-                          "name": "position_athletic_trainer",
+                          "name": "athletic_trainer",
                           "description": "Sports medicine, injury prevention, and rehab.",
                           "permissions": [
                             "read:activities"
                           ]
                         },
                         {
-                          "name": "position_strength_and_conditioning_coach",
+                          "name": "strength_and_conditioning_coach",
                           "description": "Athlete strength and conditioning programs.",
                           "permissions": [
                             "read:activities"
                           ]
                         },
                         {
-                          "name": "position_club_sponsor",
+                          "name": "club_sponsor",
                           "description": "Staff sponsor for student clubs.",
                           "permissions": [
                             "read:activities"
                           ]
                         },
                         {
-                          "name": "position_activity_sponsor",
+                          "name": "activity_sponsor",
                           "description": "Leads co-curricular activities (e.g., yearbook).",
                           "permissions": [
                             "read:activities"
                           ]
                         },
                         {
-                          "name": "position_robotics_coach",
+                          "name": "robotics_coach",
                           "description": "Coaches robotics team and competitions.",
                           "permissions": [
                             "read:activities"
                           ]
                         },
                         {
-                          "name": "position_debate_coach",
+                          "name": "debate_coach",
                           "description": "Leads debate team and tournaments.",
                           "permissions": [
                             "read:activities"
                           ]
                         },
                         {
-                          "name": "position_esports_coach",
+                          "name": "esports_coach",
                           "description": "Coaches competitive gaming program.",
                           "permissions": [
                             "read:activities"
                           ]
                         },
                         {
-                          "name": "position_yearbook_advisor",
+                          "name": "yearbook_advisor",
                           "description": "Advises yearbook production.",
                           "permissions": [
                             "read:activities"
                           ]
                         },
                         {
-                          "name": "position_student_government_advisor",
+                          "name": "student_government_advisor",
                           "description": "Advises student council/governance.",
                           "permissions": [
                             "read:activities"
                           ]
                         },
                         {
-                          "name": "position_performing_arts_director",
+                          "name": "performing_arts_director",
                           "description": "Oversees music, theater, and performances.",
                           "permissions": [
                             "read:activities"
                           ]
                         },
                         {
-                          "name": "position_theater_director",
+                          "name": "theater_director",
                           "description": "Directs theatrical productions.",
                           "permissions": [
                             "read:activities"
@@ -4988,42 +4988,42 @@
                       "permissions": [],
                       "positions": [
                         {
-                          "name": "position_director_of_early_childhood",
+                          "name": "director_of_early_childhood",
                           "description": "Leads preschool/early learning programs.",
                           "permissions": []
                         },
                         {
-                          "name": "position_preschool_teacher",
+                          "name": "preschool_teacher",
                           "description": "Early childhood classroom instruction.",
                           "permissions": []
                         },
                         {
-                          "name": "position_preschool_assistant",
+                          "name": "preschool_assistant",
                           "description": "Assists preschool teachers and students.",
                           "permissions": []
                         },
                         {
-                          "name": "position_before_school_program_director",
+                          "name": "before_school_program_director",
                           "description": "Leads before-school care programs.",
                           "permissions": []
                         },
                         {
-                          "name": "position_after_school_program_director",
+                          "name": "after_school_program_director",
                           "description": "Leads after-school care/enrichment.",
                           "permissions": []
                         },
                         {
-                          "name": "position_extended_day_coordinator",
+                          "name": "extended_day_coordinator",
                           "description": "Coordinates extended-day activities and staffing.",
                           "permissions": []
                         },
                         {
-                          "name": "position_summer_school_coordinator",
+                          "name": "summer_school_coordinator",
                           "description": "Plans and manages summer learning.",
                           "permissions": []
                         },
                         {
-                          "name": "position_enrichment_coordinator",
+                          "name": "enrichment_coordinator",
                           "description": "Coordinates clubs, electives, and enrichment.",
                           "permissions": []
                         }
@@ -5034,27 +5034,27 @@
                       "permissions": [],
                       "positions": [
                         {
-                          "name": "position_chaplain",
+                          "name": "chaplain",
                           "description": "Provides spiritual care and services.",
                           "permissions": []
                         },
                         {
-                          "name": "position_campus_minister",
+                          "name": "campus_minister",
                           "description": "Leads campus ministry programs.",
                           "permissions": []
                         },
                         {
-                          "name": "position_religion_teacher",
+                          "name": "religion_teacher",
                           "description": "Teaches religion curriculum.",
                           "permissions": []
                         },
                         {
-                          "name": "position_theology_teacher",
+                          "name": "theology_teacher",
                           "description": "Teaches theology/biblical studies.",
                           "permissions": []
                         },
                         {
-                          "name": "position_service_learning_coordinator",
+                          "name": "service_learning_coordinator",
                           "description": "Coordinates service learning/community service.",
                           "permissions": []
                         }
@@ -5089,7 +5089,7 @@
               ],
               "positions": [
                 {
-                  "name": "position_chief_academic_officer",
+                  "name": "chief_academic_officer",
                   "description": "Leads curriculum, instruction, assessment, and school improvement.",
                   "permissions": [
                     "read:academic_terms",
@@ -5114,7 +5114,7 @@
                   ]
                 },
                 {
-                  "name": "position_director_of_student_support_services",
+                  "name": "director_of_student_support_services",
                   "description": "Oversees counseling, nursing, social work, and supports.",
                   "permissions": [
                     "read:academic_terms",
@@ -5161,7 +5161,7 @@
                   ],
                   "positions": [
                     {
-                      "name": "position_director_of_curriculum_and_instruction",
+                      "name": "director_of_curriculum_and_instruction",
                       "description": "Leads curriculum adoption, PD, and pedagogy.",
                       "permissions": [
                         "read:academic_terms",
@@ -5182,7 +5182,7 @@
                       ]
                     },
                     {
-                      "name": "position_director_of_assessment_research_evaluation",
+                      "name": "director_of_assessment_research_evaluation",
                       "description": "Oversees testing, analytics, and program evaluation.",
                       "permissions": [
                         "read:academic_terms",
@@ -5203,7 +5203,7 @@
                       ]
                     },
                     {
-                      "name": "position_director_of_accountability",
+                      "name": "director_of_accountability",
                       "description": "Manages accountability metrics and reporting.",
                       "permissions": [
                         "read:academic_terms",
@@ -5224,7 +5224,7 @@
                       ]
                     },
                     {
-                      "name": "position_director_of_data_analytics",
+                      "name": "director_of_data_analytics",
                       "description": "Leads analytics, dashboards, and data governance.",
                       "permissions": [
                         "read:academic_terms",
@@ -5245,7 +5245,7 @@
                       ]
                     },
                     {
-                      "name": "position_instructional_materials_coordinator",
+                      "name": "instructional_materials_coordinator",
                       "description": "Textbooks/materials adoption and inventory.",
                       "permissions": [
                         "read:academic_terms",
@@ -5266,7 +5266,7 @@
                       ]
                     },
                     {
-                      "name": "position_textbook_coordinator",
+                      "name": "textbook_coordinator",
                       "description": "Procurement and distribution of textbooks.",
                       "permissions": [
                         "read:academic_terms",
@@ -5287,7 +5287,7 @@
                       ]
                     },
                     {
-                      "name": "position_professional_development_coordinator",
+                      "name": "professional_development_coordinator",
                       "description": "Plans and manages staff learning programs.",
                       "permissions": [
                         "read:academic_terms",
@@ -5308,7 +5308,7 @@
                       ]
                     },
                     {
-                      "name": "position_teacher_induction_coordinator",
+                      "name": "teacher_induction_coordinator",
                       "description": "New teacher support and certification pathways.",
                       "permissions": [
                         "read:academic_terms",
@@ -5329,7 +5329,7 @@
                       ]
                     },
                     {
-                      "name": "position_accreditation_coordinator",
+                      "name": "accreditation_coordinator",
                       "description": "Manages accreditation cycles and evidence.",
                       "permissions": [
                         "read:academic_terms",
@@ -5359,7 +5359,7 @@
                   ],
                   "positions": [
                     {
-                      "name": "position_director_of_special_education",
+                      "name": "director_of_special_education",
                       "description": "Leads SPED/Exceptional Student Services and compliance (IDEA).",
                       "permissions": [
                         "read:accommodations",
@@ -5367,7 +5367,7 @@
                       ]
                     },
                     {
-                      "name": "position_special_education_teacher",
+                      "name": "special_education_teacher",
                       "description": "Instruction and services for students with disabilities.",
                       "permissions": [
                         "read:accommodations",
@@ -5375,7 +5375,7 @@
                       ]
                     },
                     {
-                      "name": "position_sped_case_manager",
+                      "name": "sped_case_manager",
                       "description": "Coordinates IEPs, services, and progress reporting.",
                       "permissions": [
                         "read:accommodations",
@@ -5383,7 +5383,7 @@
                       ]
                     },
                     {
-                      "name": "position_school_psychologist",
+                      "name": "school_psychologist",
                       "description": "Evaluation, counseling, MTSS, and IEP support.",
                       "permissions": [
                         "read:accommodations",
@@ -5391,7 +5391,7 @@
                       ]
                     },
                     {
-                      "name": "position_speech_language_pathologist",
+                      "name": "speech_language_pathologist",
                       "description": "Speech/language therapy and evaluations.",
                       "permissions": [
                         "read:accommodations",
@@ -5399,7 +5399,7 @@
                       ]
                     },
                     {
-                      "name": "position_occupational_therapist",
+                      "name": "occupational_therapist",
                       "description": "Fine-motor/sensory/ADL supports.",
                       "permissions": [
                         "read:accommodations",
@@ -5407,7 +5407,7 @@
                       ]
                     },
                     {
-                      "name": "position_certified_occupational_therapy_assistant",
+                      "name": "certified_occupational_therapy_assistant",
                       "description": "Supports OT service delivery.",
                       "permissions": [
                         "read:accommodations",
@@ -5415,7 +5415,7 @@
                       ]
                     },
                     {
-                      "name": "position_physical_therapist",
+                      "name": "physical_therapist",
                       "description": "Gross-motor/mobility therapy and evaluations.",
                       "permissions": [
                         "read:accommodations",
@@ -5423,7 +5423,7 @@
                       ]
                     },
                     {
-                      "name": "position_physical_therapist_assistant",
+                      "name": "physical_therapist_assistant",
                       "description": "Supports PT services.",
                       "permissions": [
                         "read:accommodations",
@@ -5431,7 +5431,7 @@
                       ]
                     },
                     {
-                      "name": "position_board_certified_behavior_analyst",
+                      "name": "board_certified_behavior_analyst",
                       "description": "Behavior analysis, plans, and consultation.",
                       "permissions": [
                         "read:accommodations",
@@ -5439,7 +5439,7 @@
                       ]
                     },
                     {
-                      "name": "position_behavior_interventionist",
+                      "name": "behavior_interventionist",
                       "description": "Implements behavior plans and supports.",
                       "permissions": [
                         "read:accommodations",
@@ -5447,7 +5447,7 @@
                       ]
                     },
                     {
-                      "name": "position_vision_specialist",
+                      "name": "vision_specialist",
                       "description": "Services for students with visual impairments.",
                       "permissions": [
                         "read:accommodations",
@@ -5455,7 +5455,7 @@
                       ]
                     },
                     {
-                      "name": "position_orientation_and_mobility_specialist",
+                      "name": "orientation_and_mobility_specialist",
                       "description": "Travel/orientation training for visually impaired students.",
                       "permissions": [
                         "read:accommodations",
@@ -5463,7 +5463,7 @@
                       ]
                     },
                     {
-                      "name": "position_deaf_hard_of_hearing_teacher",
+                      "name": "deaf_hard_of_hearing_teacher",
                       "description": "Instruction and support for D/HH students.",
                       "permissions": [
                         "read:accommodations",
@@ -5471,7 +5471,7 @@
                       ]
                     },
                     {
-                      "name": "position_504_coordinator",
+                      "name": "504_coordinator",
                       "description": "Leads Section 504 identification and accommodation plans.",
                       "permissions": [
                         "read:accommodations",
@@ -5479,7 +5479,7 @@
                       ]
                     },
                     {
-                      "name": "position_sped_compliance_coordinator",
+                      "name": "sped_compliance_coordinator",
                       "description": "Monitors timelines, documentation, and audits.",
                       "permissions": [
                         "read:accommodations",
@@ -5487,7 +5487,7 @@
                       ]
                     },
                     {
-                      "name": "position_paraprofessional",
+                      "name": "paraprofessional",
                       "description": "Classroom and individual student support.",
                       "permissions": [
                         "read:accommodations",
@@ -5495,7 +5495,7 @@
                       ]
                     },
                     {
-                      "name": "position_instructional_aide",
+                      "name": "instructional_aide",
                       "description": "Assists with instruction and supervision.",
                       "permissions": [
                         "read:accommodations",
@@ -5503,7 +5503,7 @@
                       ]
                     },
                     {
-                      "name": "position_teachers_aide",
+                      "name": "teachers_aide",
                       "description": "General classroom support role.",
                       "permissions": [
                         "read:accommodations",
@@ -5511,7 +5511,7 @@
                       ]
                     },
                     {
-                      "name": "position_sign_language_interpreter",
+                      "name": "sign_language_interpreter",
                       "description": "ASL/interpretation services for students and families.",
                       "permissions": [
                         "read:accommodations",
@@ -5519,7 +5519,7 @@
                       ]
                     },
                     {
-                      "name": "position_transition_specialist",
+                      "name": "transition_specialist",
                       "description": "HS transition planning to postsecondary/workforce.",
                       "permissions": [
                         "read:accommodations",
@@ -5527,7 +5527,7 @@
                       ]
                     },
                     {
-                      "name": "position_vocational_specialist",
+                      "name": "vocational_specialist",
                       "description": "Career exploration and work-based learning supports.",
                       "permissions": [
                         "read:accommodations",
@@ -5543,105 +5543,105 @@
                   ],
                   "positions": [
                     {
-                      "name": "position_alternative_education_director",
+                      "name": "alternative_education_director",
                       "description": "Leads alt-ed schools/programs.",
                       "permissions": [
                         "read:ell_plans"
                       ]
                     },
                     {
-                      "name": "position_virtual_online_program_director",
+                      "name": "virtual_online_program_director",
                       "description": "Leads online learning programs.",
                       "permissions": [
                         "read:ell_plans"
                       ]
                     },
                     {
-                      "name": "position_cte_director",
+                      "name": "cte_director",
                       "description": "Oversees career/technical education pathways.",
                       "permissions": [
                         "read:ell_plans"
                       ]
                     },
                     {
-                      "name": "position_pathways_coordinator",
+                      "name": "pathways_coordinator",
                       "description": "Coordinates career/college pathways and work-based learning.",
                       "permissions": [
                         "read:ell_plans"
                       ]
                     },
                     {
-                      "name": "position_apprenticeship_coordinator",
+                      "name": "apprenticeship_coordinator",
                       "description": "Manages apprenticeships and employer partnerships.",
                       "permissions": [
                         "read:ell_plans"
                       ]
                     },
                     {
-                      "name": "position_international_student_program_director",
+                      "name": "international_student_program_director",
                       "description": "Leads international student recruitment/support.",
                       "permissions": [
                         "read:ell_plans"
                       ]
                     },
                     {
-                      "name": "position_homestay_coordinator",
+                      "name": "homestay_coordinator",
                       "description": "Coordinates host families and compliance.",
                       "permissions": [
                         "read:ell_plans"
                       ]
                     },
                     {
-                      "name": "position_testing_site_manager",
+                      "name": "testing_site_manager",
                       "description": "Manages SAT/ACT/AP/IB test administrations.",
                       "permissions": [
                         "read:ell_plans"
                       ]
                     },
                     {
-                      "name": "position_ib_coordinator",
+                      "name": "ib_coordinator",
                       "description": "Coordinates International Baccalaureate programs.",
                       "permissions": [
                         "read:ell_plans"
                       ]
                     },
                     {
-                      "name": "position_ap_coordinator",
+                      "name": "ap_coordinator",
                       "description": "Coordinates Advanced Placement programs.",
                       "permissions": [
                         "read:ell_plans"
                       ]
                     },
                     {
-                      "name": "position_librarian",
+                      "name": "librarian",
                       "description": "Library program lead; instruction and curation.",
                       "permissions": [
                         "read:ell_plans"
                       ]
                     },
                     {
-                      "name": "position_archivist",
+                      "name": "archivist",
                       "description": "Maintains historical records and archives.",
                       "permissions": [
                         "read:ell_plans"
                       ]
                     },
                     {
-                      "name": "position_print_shop_manager",
+                      "name": "print_shop_manager",
                       "description": "Oversees printing services and production.",
                       "permissions": [
                         "read:ell_plans"
                       ]
                     },
                     {
-                      "name": "position_mailroom_clerk",
+                      "name": "mailroom_clerk",
                       "description": "Handles mail distribution and shipping.",
                       "permissions": [
                         "read:ell_plans"
                       ]
                     },
                     {
-                      "name": "position_volunteer_coordinator",
+                      "name": "volunteer_coordinator",
                       "description": "Recruits and manages school volunteers.",
                       "permissions": [
                         "read:ell_plans"
@@ -5667,7 +5667,7 @@
               ],
               "positions": [
                 {
-                  "name": "position_chief_operations_officer",
+                  "name": "chief_operations_officer",
                   "description": "Oversees non-instructional operations (facilities, transport, nutrition, safety).",
                   "permissions": [
                     "read:asset_parts",
@@ -5695,7 +5695,7 @@
                   ],
                   "positions": [
                     {
-                      "name": "position_director_of_facilities",
+                      "name": "director_of_facilities",
                       "description": "Leads facilities strategy, maintenance, and capital projects.",
                       "permissions": [
                         "read:asset_parts",
@@ -5706,7 +5706,7 @@
                       ]
                     },
                     {
-                      "name": "position_facilities_manager",
+                      "name": "facilities_manager",
                       "description": "Oversees site maintenance and work orders.",
                       "permissions": [
                         "read:asset_parts",
@@ -5717,7 +5717,7 @@
                       ]
                     },
                     {
-                      "name": "position_plant_manager",
+                      "name": "plant_manager",
                       "description": "Leads plant operations at large sites.",
                       "permissions": [
                         "read:asset_parts",
@@ -5728,7 +5728,7 @@
                       ]
                     },
                     {
-                      "name": "position_maintenance_technician",
+                      "name": "maintenance_technician",
                       "description": "General maintenance and repairs.",
                       "permissions": [
                         "read:asset_parts",
@@ -5739,7 +5739,7 @@
                       ]
                     },
                     {
-                      "name": "position_electrician",
+                      "name": "electrician",
                       "description": "Electrical systems and repairs.",
                       "permissions": [
                         "read:asset_parts",
@@ -5750,7 +5750,7 @@
                       ]
                     },
                     {
-                      "name": "position_plumber",
+                      "name": "plumber",
                       "description": "Plumbing systems maintenance.",
                       "permissions": [
                         "read:asset_parts",
@@ -5761,7 +5761,7 @@
                       ]
                     },
                     {
-                      "name": "position_hvac_technician",
+                      "name": "hvac_technician",
                       "description": "Heating, ventilation, and air conditioning.",
                       "permissions": [
                         "read:asset_parts",
@@ -5772,7 +5772,7 @@
                       ]
                     },
                     {
-                      "name": "position_carpenter",
+                      "name": "carpenter",
                       "description": "Carpentry and finish work.",
                       "permissions": [
                         "read:asset_parts",
@@ -5783,7 +5783,7 @@
                       ]
                     },
                     {
-                      "name": "position_painter",
+                      "name": "painter",
                       "description": "Interior/exterior painting and finishes.",
                       "permissions": [
                         "read:asset_parts",
@@ -5794,7 +5794,7 @@
                       ]
                     },
                     {
-                      "name": "position_locksmith",
+                      "name": "locksmith",
                       "description": "Keying and access control hardware.",
                       "permissions": [
                         "read:asset_parts",
@@ -5805,7 +5805,7 @@
                       ]
                     },
                     {
-                      "name": "position_groundskeeper",
+                      "name": "groundskeeper",
                       "description": "Landscape and grounds maintenance.",
                       "permissions": [
                         "read:asset_parts",
@@ -5816,7 +5816,7 @@
                       ]
                     },
                     {
-                      "name": "position_irrigation_technician",
+                      "name": "irrigation_technician",
                       "description": "Irrigation systems setup and repair.",
                       "permissions": [
                         "read:asset_parts",
@@ -5827,7 +5827,7 @@
                       ]
                     },
                     {
-                      "name": "position_custodial_supervisor",
+                      "name": "custodial_supervisor",
                       "description": "Leads custodial staff and schedules.",
                       "permissions": [
                         "read:asset_parts",
@@ -5838,7 +5838,7 @@
                       ]
                     },
                     {
-                      "name": "position_custodian",
+                      "name": "custodian",
                       "description": "Cleaning, setup, and basic maintenance.",
                       "permissions": [
                         "read:asset_parts",
@@ -5849,7 +5849,7 @@
                       ]
                     },
                     {
-                      "name": "position_porter",
+                      "name": "porter",
                       "description": "Daytime cleaning and event turnover.",
                       "permissions": [
                         "read:asset_parts",
@@ -5860,7 +5860,7 @@
                       ]
                     },
                     {
-                      "name": "position_night_lead",
+                      "name": "night_lead",
                       "description": "Oversees night custodial shifts.",
                       "permissions": [
                         "read:asset_parts",
@@ -5871,7 +5871,7 @@
                       ]
                     },
                     {
-                      "name": "position_warehouse_receiving",
+                      "name": "warehouse_receiving",
                       "description": "Shipping/receiving and storeroom management.",
                       "permissions": [
                         "read:asset_parts",
@@ -5882,7 +5882,7 @@
                       ]
                     },
                     {
-                      "name": "position_inventory_specialist",
+                      "name": "inventory_specialist",
                       "description": "Tracks assets, consumables, and supplies.",
                       "permissions": [
                         "read:asset_parts",
@@ -5893,7 +5893,7 @@
                       ]
                     },
                     {
-                      "name": "position_energy_manager",
+                      "name": "energy_manager",
                       "description": "Utility monitoring and conservation initiatives.",
                       "permissions": [
                         "read:asset_parts",
@@ -5904,7 +5904,7 @@
                       ]
                     },
                     {
-                      "name": "position_sustainability_manager",
+                      "name": "sustainability_manager",
                       "description": "Sustainability programs and reporting.",
                       "permissions": [
                         "read:asset_parts",
@@ -5925,7 +5925,7 @@
                   ],
                   "positions": [
                     {
-                      "name": "position_director_of_transportation",
+                      "name": "director_of_transportation",
                       "description": "Leads routing, fleet, and driver operations.",
                       "permissions": [
                         "read:bus_routes",
@@ -5934,7 +5934,7 @@
                       ]
                     },
                     {
-                      "name": "position_routing_scheduling_coordinator",
+                      "name": "routing_scheduling_coordinator",
                       "description": "Creates routes, stops, and schedules.",
                       "permissions": [
                         "read:bus_routes",
@@ -5943,7 +5943,7 @@
                       ]
                     },
                     {
-                      "name": "position_dispatcher",
+                      "name": "dispatcher",
                       "description": "Coordinates buses and communications.",
                       "permissions": [
                         "read:bus_routes",
@@ -5952,7 +5952,7 @@
                       ]
                     },
                     {
-                      "name": "position_bus_driver",
+                      "name": "bus_driver",
                       "description": "Student transportation on regular and trip routes.",
                       "permissions": [
                         "read:bus_routes",
@@ -5961,7 +5961,7 @@
                       ]
                     },
                     {
-                      "name": "position_activity_driver",
+                      "name": "activity_driver",
                       "description": "Drives for activities/athletics trips.",
                       "permissions": [
                         "read:bus_routes",
@@ -5970,7 +5970,7 @@
                       ]
                     },
                     {
-                      "name": "position_bus_aide_monitor",
+                      "name": "bus_aide_monitor",
                       "description": "Student supervision and safety on buses.",
                       "permissions": [
                         "read:bus_routes",
@@ -5979,7 +5979,7 @@
                       ]
                     },
                     {
-                      "name": "position_fleet_manager",
+                      "name": "fleet_manager",
                       "description": "Oversees maintenance shop and fleet lifecycle.",
                       "permissions": [
                         "read:bus_routes",
@@ -5988,7 +5988,7 @@
                       ]
                     },
                     {
-                      "name": "position_mechanic",
+                      "name": "mechanic",
                       "description": "Vehicle diagnostics and repair.",
                       "permissions": [
                         "read:bus_routes",
@@ -5997,7 +5997,7 @@
                       ]
                     },
                     {
-                      "name": "position_diesel_technician",
+                      "name": "diesel_technician",
                       "description": "Specialized diesel engine service.",
                       "permissions": [
                         "read:bus_routes",
@@ -6006,7 +6006,7 @@
                       ]
                     },
                     {
-                      "name": "position_shop_foreman",
+                      "name": "shop_foreman",
                       "description": "Leads mechanics and shop operations.",
                       "permissions": [
                         "read:bus_routes",
@@ -6015,7 +6015,7 @@
                       ]
                     },
                     {
-                      "name": "position_crossing_guard",
+                      "name": "crossing_guard",
                       "description": "Pedestrian safety near schools.",
                       "permissions": [
                         "read:bus_routes",
@@ -6030,52 +6030,52 @@
                   "permissions": [],
                   "positions": [
                     {
-                      "name": "position_director_of_nutrition_services",
+                      "name": "director_of_nutrition_services",
                       "description": "Leads USDA-compliant meal programs and kitchens.",
                       "permissions": []
                     },
                     {
-                      "name": "position_food_service_director",
+                      "name": "food_service_director",
                       "description": "Alternative title leading nutrition services.",
                       "permissions": []
                     },
                     {
-                      "name": "position_cafeteria_manager",
+                      "name": "cafeteria_manager",
                       "description": "Site-level cafeteria operations and staffing.",
                       "permissions": []
                     },
                     {
-                      "name": "position_kitchen_manager",
+                      "name": "kitchen_manager",
                       "description": "Back-of-house operations and food safety.",
                       "permissions": []
                     },
                     {
-                      "name": "position_cook",
+                      "name": "cook",
                       "description": "Food preparation and service.",
                       "permissions": []
                     },
                     {
-                      "name": "position_prep_cook",
+                      "name": "prep_cook",
                       "description": "Ingredients prep and batch cooking.",
                       "permissions": []
                     },
                     {
-                      "name": "position_baker",
+                      "name": "baker",
                       "description": "Baked goods preparation.",
                       "permissions": []
                     },
                     {
-                      "name": "position_cashier_point_of_sale_operator",
+                      "name": "cashier_point_of_sale_operator",
                       "description": "Point-of-sale transactions and compliance.",
                       "permissions": []
                     },
                     {
-                      "name": "position_dietitian",
+                      "name": "dietitian",
                       "description": "Menu planning and nutrition compliance.",
                       "permissions": []
                     },
                     {
-                      "name": "position_nutritionist",
+                      "name": "nutritionist",
                       "description": "Nutrition guidance and education.",
                       "permissions": []
                     }
@@ -6089,7 +6089,7 @@
                   ],
                   "positions": [
                     {
-                      "name": "position_director_of_safety_security",
+                      "name": "director_of_safety_security",
                       "description": "Leads security strategy, staffing, and incident response.",
                       "permissions": [
                         "read:incident_participants",
@@ -6097,7 +6097,7 @@
                       ]
                     },
                     {
-                      "name": "position_emergency_management_director",
+                      "name": "emergency_management_director",
                       "description": "Plans drills, response, and recovery operations.",
                       "permissions": [
                         "read:incident_participants",
@@ -6105,7 +6105,7 @@
                       ]
                     },
                     {
-                      "name": "position_school_resource_officer",
+                      "name": "school_resource_officer",
                       "description": "Law enforcement officer assigned to schools.",
                       "permissions": [
                         "read:incident_participants",
@@ -6113,7 +6113,7 @@
                       ]
                     },
                     {
-                      "name": "position_campus_police_officer",
+                      "name": "campus_police_officer",
                       "description": "District police/security officer.",
                       "permissions": [
                         "read:incident_participants",
@@ -6121,7 +6121,7 @@
                       ]
                     },
                     {
-                      "name": "position_security_guard",
+                      "name": "security_guard",
                       "description": "Access control and campus patrols.",
                       "permissions": [
                         "read:incident_participants",
@@ -6129,7 +6129,7 @@
                       ]
                     },
                     {
-                      "name": "position_campus_supervisor",
+                      "name": "campus_supervisor",
                       "description": "Student supervision (lunch/recess/common areas).",
                       "permissions": [
                         "read:incident_participants",
@@ -6137,7 +6137,7 @@
                       ]
                     },
                     {
-                      "name": "position_emergency_preparedness_coordinator",
+                      "name": "emergency_preparedness_coordinator",
                       "description": "Coordinates safety plans and training.",
                       "permissions": [
                         "read:incident_participants",
@@ -6180,7 +6180,7 @@
               ],
               "positions": [
                 {
-                  "name": "position_chief_financial_officer",
+                  "name": "chief_financial_officer",
                   "description": "Leads finance, budgeting, accounting, and fiscal reporting.",
                   "permissions": [
                     "read:agenda_item_files",
@@ -6245,7 +6245,7 @@
                   ],
                   "positions": [
                     {
-                      "name": "position_business_manager",
+                      "name": "business_manager",
                       "description": "School/district business office lead.",
                       "permissions": [
                         "read:agenda_item_files",
@@ -6277,7 +6277,7 @@
                       ]
                     },
                     {
-                      "name": "position_controller",
+                      "name": "controller",
                       "description": "Accounting controls, closing, and reporting.",
                       "permissions": [
                         "read:agenda_item_files",
@@ -6309,7 +6309,7 @@
                       ]
                     },
                     {
-                      "name": "position_accountant",
+                      "name": "accountant",
                       "description": "General accounting and reconciliation.",
                       "permissions": [
                         "read:agenda_item_files",
@@ -6341,7 +6341,7 @@
                       ]
                     },
                     {
-                      "name": "position_payroll_manager",
+                      "name": "payroll_manager",
                       "description": "Oversees payroll operations and compliance.",
                       "permissions": [
                         "read:agenda_item_files",
@@ -6373,7 +6373,7 @@
                       ]
                     },
                     {
-                      "name": "position_payroll_specialist",
+                      "name": "payroll_specialist",
                       "description": "Executes payroll processing and reporting.",
                       "permissions": [
                         "read:agenda_item_files",
@@ -6405,7 +6405,7 @@
                       ]
                     },
                     {
-                      "name": "position_accounts_payable_specialist",
+                      "name": "accounts_payable_specialist",
                       "description": "Processes vendor invoices and payments.",
                       "permissions": [
                         "read:agenda_item_files",
@@ -6437,7 +6437,7 @@
                       ]
                     },
                     {
-                      "name": "position_accounts_receivable_specialist",
+                      "name": "accounts_receivable_specialist",
                       "description": "Manages receivables and collections.",
                       "permissions": [
                         "read:agenda_item_files",
@@ -6469,7 +6469,7 @@
                       ]
                     },
                     {
-                      "name": "position_grants_manager",
+                      "name": "grants_manager",
                       "description": "Oversees grants lifecycle and compliance.",
                       "permissions": [
                         "read:agenda_item_files",
@@ -6501,7 +6501,7 @@
                       ]
                     },
                     {
-                      "name": "position_grant_writer",
+                      "name": "grant_writer",
                       "description": "Develops grant proposals and narratives.",
                       "permissions": [
                         "read:agenda_item_files",
@@ -6533,7 +6533,7 @@
                       ]
                     },
                     {
-                      "name": "position_federal_programs_director",
+                      "name": "federal_programs_director",
                       "description": "Leads federal funds (Title I/II/III/IV) compliance.",
                       "permissions": [
                         "read:agenda_item_files",
@@ -6565,7 +6565,7 @@
                       ]
                     },
                     {
-                      "name": "position_purchasing_director",
+                      "name": "purchasing_director",
                       "description": "Leads procurement strategy and compliance.",
                       "permissions": [
                         "read:agenda_item_files",
@@ -6597,7 +6597,7 @@
                       ]
                     },
                     {
-                      "name": "position_buyer",
+                      "name": "buyer",
                       "description": "Executes purchasing transactions and bids.",
                       "permissions": [
                         "read:agenda_item_files",
@@ -6629,7 +6629,7 @@
                       ]
                     },
                     {
-                      "name": "position_risk_manager",
+                      "name": "risk_manager",
                       "description": "Enterprise risk and insurance programs.",
                       "permissions": [
                         "read:agenda_item_files",
@@ -6661,7 +6661,7 @@
                       ]
                     },
                     {
-                      "name": "position_insurance_coordinator",
+                      "name": "insurance_coordinator",
                       "description": "Manages insurance claims and coverage.",
                       "permissions": [
                         "read:agenda_item_files",
@@ -6693,7 +6693,7 @@
                       ]
                     },
                     {
-                      "name": "position_compliance_officer",
+                      "name": "compliance_officer",
                       "description": "Oversees policy/regulatory compliance.",
                       "permissions": [
                         "read:agenda_item_files",
@@ -6725,7 +6725,7 @@
                       ]
                     },
                     {
-                      "name": "position_records_retention_manager",
+                      "name": "records_retention_manager",
                       "description": "Records schedules, storage, and disposition.",
                       "permissions": [
                         "read:agenda_item_files",
@@ -6757,7 +6757,7 @@
                       ]
                     },
                     {
-                      "name": "position_e_rate_coordinator",
+                      "name": "e_rate_coordinator",
                       "description": "Manages E-rate applications and compliance.",
                       "permissions": [
                         "read:agenda_item_files",
@@ -6810,7 +6810,7 @@
               ],
               "positions": [
                 {
-                  "name": "position_chief_human_resources_officer",
+                  "name": "chief_human_resources_officer",
                   "description": "Leads talent strategy, employee relations, payroll/benefits, and compliance.",
                   "permissions": [
                     "read:evaluation_assignments",
@@ -6828,7 +6828,7 @@
                   ]
                 },
                 {
-                  "name": "position_human_resources_director",
+                  "name": "human_resources_director",
                   "description": "Leads HR strategy and operations.",
                   "permissions": [
                     "read:evaluation_assignments",
@@ -6865,7 +6865,7 @@
                   ],
                   "positions": [
                     {
-                      "name": "position_hr_manager",
+                      "name": "hr_manager",
                       "description": "Manages HR processes and teams.",
                       "permissions": [
                         "read:evaluation_assignments",
@@ -6883,7 +6883,7 @@
                       ]
                     },
                     {
-                      "name": "position_hr_generalist",
+                      "name": "hr_generalist",
                       "description": "Broad HR support across functions.",
                       "permissions": [
                         "read:evaluation_assignments",
@@ -6901,7 +6901,7 @@
                       ]
                     },
                     {
-                      "name": "position_recruiter",
+                      "name": "recruiter",
                       "description": "Leads talent sourcing and hiring pipelines.",
                       "permissions": [
                         "read:evaluation_assignments",
@@ -6919,7 +6919,7 @@
                       ]
                     },
                     {
-                      "name": "position_benefits_manager",
+                      "name": "benefits_manager",
                       "description": "Administers benefits programs.",
                       "permissions": [
                         "read:evaluation_assignments",
@@ -6937,7 +6937,7 @@
                       ]
                     },
                     {
-                      "name": "position_benefits_specialist",
+                      "name": "benefits_specialist",
                       "description": "Benefits enrollment and support.",
                       "permissions": [
                         "read:evaluation_assignments",
@@ -6974,7 +6974,7 @@
               ],
               "positions": [
                 {
-                  "name": "position_chief_information_officer",
+                  "name": "chief_information_officer",
                   "description": "Leads technology strategy, systems, data, and cybersecurity.",
                   "permissions": [
                     "read:audit_log",
@@ -6990,7 +6990,7 @@
                   ]
                 },
                 {
-                  "name": "position_chief_technology_officer",
+                  "name": "chief_technology_officer",
                   "description": "Oversees IT infrastructure, networks, endpoints, and platforms.",
                   "permissions": [
                     "read:audit_log",
@@ -7023,7 +7023,7 @@
                   ],
                   "positions": [
                     {
-                      "name": "position_director_of_technology",
+                      "name": "director_of_technology",
                       "description": "Leads district technology vision and delivery.",
                       "permissions": [
                         "read:audit_log",
@@ -7039,7 +7039,7 @@
                       ]
                     },
                     {
-                      "name": "position_it_director",
+                      "name": "it_director",
                       "description": "Alternative title for Director of Technology.",
                       "permissions": [
                         "read:audit_log",
@@ -7055,7 +7055,7 @@
                       ]
                     },
                     {
-                      "name": "position_network_administrator",
+                      "name": "network_administrator",
                       "description": "LAN/WAN, wireless, and network services.",
                       "permissions": [
                         "read:audit_log",
@@ -7071,7 +7071,7 @@
                       ]
                     },
                     {
-                      "name": "position_systems_administrator",
+                      "name": "systems_administrator",
                       "description": "Servers, identity, and core services.",
                       "permissions": [
                         "read:audit_log",
@@ -7087,7 +7087,7 @@
                       ]
                     },
                     {
-                      "name": "position_cloud_administrator",
+                      "name": "cloud_administrator",
                       "description": "Cloud platforms and identity management.",
                       "permissions": [
                         "read:audit_log",
@@ -7103,7 +7103,7 @@
                       ]
                     },
                     {
-                      "name": "position_server_administrator",
+                      "name": "server_administrator",
                       "description": "Physical/virtual servers and storage.",
                       "permissions": [
                         "read:audit_log",
@@ -7119,7 +7119,7 @@
                       ]
                     },
                     {
-                      "name": "position_information_security_officer",
+                      "name": "information_security_officer",
                       "description": "Security policy, controls, and incident response.",
                       "permissions": [
                         "read:audit_log",
@@ -7135,7 +7135,7 @@
                       ]
                     },
                     {
-                      "name": "position_database_administrator",
+                      "name": "database_administrator",
                       "description": "DB performance, backups, and integrity.",
                       "permissions": [
                         "read:audit_log",
@@ -7151,7 +7151,7 @@
                       ]
                     },
                     {
-                      "name": "position_help_desk_manager",
+                      "name": "help_desk_manager",
                       "description": "Leads support team and ticketing.",
                       "permissions": [
                         "read:audit_log",
@@ -7167,7 +7167,7 @@
                       ]
                     },
                     {
-                      "name": "position_help_desk_technician",
+                      "name": "help_desk_technician",
                       "description": "Frontline technical support to staff/students.",
                       "permissions": [
                         "read:audit_log",
@@ -7183,7 +7183,7 @@
                       ]
                     },
                     {
-                      "name": "position_field_technician",
+                      "name": "field_technician",
                       "description": "On-site hardware and AV support.",
                       "permissions": [
                         "read:audit_log",
@@ -7199,7 +7199,7 @@
                       ]
                     },
                     {
-                      "name": "position_web_administrator",
+                      "name": "web_administrator",
                       "description": "Manages websites/portals and CMS.",
                       "permissions": [
                         "read:audit_log",
@@ -7215,7 +7215,7 @@
                       ]
                     },
                     {
-                      "name": "position_webmaster",
+                      "name": "webmaster",
                       "description": "Alternative title for web administration.",
                       "permissions": [
                         "read:audit_log",
@@ -7231,7 +7231,7 @@
                       ]
                     },
                     {
-                      "name": "position_av_media_technician",
+                      "name": "av_media_technician",
                       "description": "Audio/visual systems and event support.",
                       "permissions": [
                         "read:audit_log",
@@ -7264,7 +7264,7 @@
                   ],
                   "positions": [
                     {
-                      "name": "position_sis_administrator",
+                      "name": "sis_administrator",
                       "description": "Student information system configuration and support.",
                       "permissions": [
                         "read:audit_log",
@@ -7280,7 +7280,7 @@
                       ]
                     },
                     {
-                      "name": "position_data_engineer",
+                      "name": "data_engineer",
                       "description": "Pipelines, integrations, and warehousing.",
                       "permissions": [
                         "read:audit_log",
@@ -7296,7 +7296,7 @@
                       ]
                     },
                     {
-                      "name": "position_data_analyst",
+                      "name": "data_analyst",
                       "description": "Dashboards, KPI tracking, and insights.",
                       "permissions": [
                         "read:audit_log",
@@ -7312,7 +7312,7 @@
                       ]
                     },
                     {
-                      "name": "position_etl_developer",
+                      "name": "etl_developer",
                       "description": "Extract/transform/load processes and tooling.",
                       "permissions": [
                         "read:audit_log",
@@ -7341,7 +7341,7 @@
               ],
               "positions": [
                 {
-                  "name": "position_chief_communications_officer",
+                  "name": "chief_communications_officer",
                   "description": "Directs communications, media relations, branding, and engagement.",
                   "permissions": [
                     "read:channels",
@@ -7362,7 +7362,7 @@
                   ],
                   "positions": [
                     {
-                      "name": "position_communications_director",
+                      "name": "communications_director",
                       "description": "Leads comms strategy and media relations.",
                       "permissions": [
                         "read:channels",
@@ -7372,7 +7372,7 @@
                       ]
                     },
                     {
-                      "name": "position_public_relations_director",
+                      "name": "public_relations_director",
                       "description": "Manages public relations and press.",
                       "permissions": [
                         "read:channels",
@@ -7382,7 +7382,7 @@
                       ]
                     },
                     {
-                      "name": "position_media_relations_manager",
+                      "name": "media_relations_manager",
                       "description": "Press releases, interviews, and messaging.",
                       "permissions": [
                         "read:channels",
@@ -7392,7 +7392,7 @@
                       ]
                     },
                     {
-                      "name": "position_family_engagement_coordinator",
+                      "name": "family_engagement_coordinator",
                       "description": "Strengthens family partnerships and outreach.",
                       "permissions": [
                         "read:channels",
@@ -7402,7 +7402,7 @@
                       ]
                     },
                     {
-                      "name": "position_community_engagement_coordinator",
+                      "name": "community_engagement_coordinator",
                       "description": "Builds community partnerships and events.",
                       "permissions": [
                         "read:channels",
@@ -7412,7 +7412,7 @@
                       ]
                     },
                     {
-                      "name": "position_translation_services_coordinator",
+                      "name": "translation_services_coordinator",
                       "description": "Coordinates translation/interpretation services.",
                       "permissions": [
                         "read:channels",
@@ -7422,7 +7422,7 @@
                       ]
                     },
                     {
-                      "name": "position_interpreter_services_coordinator",
+                      "name": "interpreter_services_coordinator",
                       "description": "Manages interpreter scheduling and quality.",
                       "permissions": [
                         "read:channels",
@@ -7432,7 +7432,7 @@
                       ]
                     },
                     {
-                      "name": "position_alumni_relations_director",
+                      "name": "alumni_relations_director",
                       "description": "Cultivates alumni networks (independent schools).",
                       "permissions": [
                         "read:channels",
@@ -7442,7 +7442,7 @@
                       ]
                     },
                     {
-                      "name": "position_advancement_development_director",
+                      "name": "advancement_development_director",
                       "description": "Leads fundraising and donor relations.",
                       "permissions": [
                         "read:channels",
@@ -7452,7 +7452,7 @@
                       ]
                     },
                     {
-                      "name": "position_annual_giving_manager",
+                      "name": "annual_giving_manager",
                       "description": "Runs annual giving campaigns.",
                       "permissions": [
                         "read:channels",
@@ -7462,7 +7462,7 @@
                       ]
                     },
                     {
-                      "name": "position_capital_campaign_manager",
+                      "name": "capital_campaign_manager",
                       "description": "Leads capital fundraising initiatives.",
                       "permissions": [
                         "read:channels",
@@ -7472,7 +7472,7 @@
                       ]
                     },
                     {
-                      "name": "position_major_gifts_officer",
+                      "name": "major_gifts_officer",
                       "description": "Manages high-capacity donor portfolios.",
                       "permissions": [
                         "read:channels",
@@ -7482,7 +7482,7 @@
                       ]
                     },
                     {
-                      "name": "position_admissions_director",
+                      "name": "admissions_director",
                       "description": "Leads admissions/enrollment (independent).",
                       "permissions": [
                         "read:channels",
@@ -7492,7 +7492,7 @@
                       ]
                     },
                     {
-                      "name": "position_enrollment_director",
+                      "name": "enrollment_director",
                       "description": "Oversees enrollment management and strategy.",
                       "permissions": [
                         "read:channels",
@@ -7502,7 +7502,7 @@
                       ]
                     },
                     {
-                      "name": "position_financial_aid_director",
+                      "name": "financial_aid_director",
                       "description": "Administers tuition assistance (independent).",
                       "permissions": [
                         "read:channels",
@@ -7512,7 +7512,7 @@
                       ]
                     },
                     {
-                      "name": "position_marketing_director",
+                      "name": "marketing_director",
                       "description": "Leads marketing strategy and branding.",
                       "permissions": [
                         "read:channels",
@@ -7522,7 +7522,7 @@
                       ]
                     },
                     {
-                      "name": "position_marketing_manager",
+                      "name": "marketing_manager",
                       "description": "Executes marketing campaigns and content.",
                       "permissions": [
                         "read:channels",
@@ -7532,7 +7532,7 @@
                       ]
                     },
                     {
-                      "name": "position_graphic_designer",
+                      "name": "graphic_designer",
                       "description": "Designs print/digital collateral.",
                       "permissions": [
                         "read:channels",
@@ -7542,7 +7542,7 @@
                       ]
                     },
                     {
-                      "name": "position_social_media_manager",
+                      "name": "social_media_manager",
                       "description": "Manages social platforms and engagement.",
                       "permissions": [
                         "read:channels",

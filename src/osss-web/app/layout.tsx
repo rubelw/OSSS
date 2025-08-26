@@ -44,11 +44,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
                 <div className="actions">
                   {/* Swap to real auth buttons if desired */}
-                  <SignInButton force/>
+                  <SignInButton />
                   <SignOutButton />
-
-                  <Link href="/api/auth/signin" className="btn">Sign In</Link>
-                  <Link href="/api/auth/signout" className="btn">Sign Out</Link>
                 </div>
               </div>
             </header>

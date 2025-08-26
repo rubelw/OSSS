@@ -2,39 +2,35 @@
 import NextAuth from "next-auth";
 import Keycloak from "next-auth/providers/keycloak";
 
-const isConfidential = !!process.env.KEYCLOAK_CLIENT_SECRET;
-
 async function refreshKeycloakAccessToken(token: any) {
   try {
     const url = `${process.env.KEYCLOAK_ISSUER}/protocol/openid-connect/token`;
     const body = new URLSearchParams({
+      client_id: process.env.WEB_KEYCLOAK_CLIENT_ID!,
+      client_secret: process.env.WEB_KEYCLOAK_CLIENT_SECRET ?? "", // if public client, leave blank + remove from Keycloak
       grant_type: "refresh_token",
-      refresh_token: token.refreshToken as string,
-      client_id: process.env.WEB_KEYCLOAK_CLIENT_ID as string,
+      refresh_token: token.refresh_token as string,
     });
-    if (process.env.KEYCLOAK_CLIENT_SECRET) {
-      body.set("client_secret", process.env.WEB_KEYCLOAK_CLIENT_SECRET);
-    }
 
     const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body,
     });
+
+    if (!res.ok) throw new Error("Failed to refresh token");
+
     const data = await res.json();
-    if (!res.ok) throw data;
 
     return {
       ...token,
-      accessToken: data.access_token,
-      idToken: data.id_token ?? token.idToken,
-      refreshToken: data.refresh_token ?? token.refreshToken,
-      // seconds from now
-      expiresAt: Math.floor(Date.now() / 1000) + (data.expires_in ?? 3600),
-      error: undefined,
+      access_token: data.access_token,
+      refresh_token: data.refresh_token ?? token.refresh_token,
+      expires_at: Math.floor(Date.now() / 1000) + (data.expires_in ?? 300) - 10,
+      id_token: data.id_token ?? token.id_token,
+      error: null,
     };
-  } catch (e) {
-    console.error("refreshKeycloakAccessToken error", e);
+  } catch {
     return { ...token, error: "RefreshAccessTokenError" as const };
   }
 }
@@ -45,47 +41,45 @@ export const {
   signIn,
   signOut,
 } = NextAuth({
+  secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET,
   providers: [
     Keycloak({
-      issuer: process.env.KEYCLOAK_ISSUER,          // http://localhost:8085/realms/OSSS
-      clientId: process.env.WEB_KEYCLOAK_CLIENT_ID,     // osss-web
-      ...(isConfidential
-        ? { clientSecret: process.env.WEB_KEYCLOAK_CLIENT_SECRET }      // confidential
-        : { client: { token_endpoint_auth_method: "none" } }),      // public (PKCE)
-      authorization: { params: { scope: "openid profile email" } },
+      issuer: process.env.KEYCLOAK_ISSUER,      // e.g. http://localhost:8085/realms/OSSS
+      clientId: process.env.WEB_KEYCLOAK_CLIENT_ID, // e.g. osss-web
+      clientSecret: process.env.WEB_KEYCLOAK_CLIENT_SECRET, // omit if public
+      authorization: { params: { scope: "openid profile email" } }, // keep minimal
+      client: { token_endpoint_auth_method: process.env.WEB_KEYCLOAK_CLIENT_SECRET ? "client_secret_post" : "none" },
     }),
   ],
-  session: { strategy: "jwt" },
-
+  session: {
+    strategy: "jwt",
+    // Do NOT increase cookie size limits; keep payload small instead.
+  },
   callbacks: {
     async jwt({ token, account }) {
-      // Initial sign-in: copy tokens from provider
+      // On initial sign-in
       if (account) {
-        token.accessToken = account.access_token;
-        token.refreshToken = account.refresh_token;
-        token.idToken = account.id_token;
-        token.expiresAt =
-          account.expires_at ??
-          Math.floor(Date.now() / 1000) + (account.expires_in ?? 3600);
+        token.access_token = account.access_token;
+        token.refresh_token = account.refresh_token;
+        token.expires_at = Math.floor(Date.now() / 1000) + (account.expires_in ?? 300) - 10;
+        token.id_token = account.id_token; // optional; useful for KC logout
+        // IMPORTANT: don't copy decoded claims/roles into the token
       }
 
-      // Refresh if expiring/expired (with 60s buffer)
-      if (token.expiresAt && Date.now() / 1000 > token.expiresAt - 60) {
+      // Refresh if expired (or close)
+      if (token.expires_at && Date.now() / 1000 >= token.expires_at) {
         return await refreshKeycloakAccessToken(token);
       }
+
       return token;
     },
 
     async session({ session, token }) {
-      // expose a boolean and (optionally) the token for your debug UI
-      (session as any).hasAccessToken = Boolean(token.accessToken);
-      (session as any).accessToken = token.accessToken ?? null;
-      (session as any).idToken = token.idToken ?? null;
+      // Keep the session tiny. Just expose booleans and small flags.
+      (session as any).hasAccessToken = Boolean(token.access_token);
       (session as any).tokenError = token.error ?? null;
+      // Do NOT attach roles/claims to session — fetch them on demand server-side if needed.
       return session;
     },
   },
-
-  // optional while debugging
-  // debug: true,
 });

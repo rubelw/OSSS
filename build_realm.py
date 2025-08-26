@@ -80,6 +80,18 @@ DEFAULT_AUTHENTICATION_FLOWS: List[Dict[str, Any]] = []  # keep empty
 # ---------------------------------------------------------------------
 # Utils
 # ---------------------------------------------------------------------
+def to_names_from_position(name: str) -> tuple[str, str]:
+    """
+    Turn a position name like 'position_board_chair' into ('Board', 'Chair').
+    If it doesn't start with 'position_', it still tries to split on underscores.
+    """
+    base = name[len("position_"):] if str(name).startswith("position_") else str(name)
+    parts = [p for p in base.split("_") if p]
+    if not parts:
+        return ("", "")
+    if len(parts) == 1:
+        return (parts[0].title(), "")
+    return (" ".join(p.title() for p in parts[:-1]), parts[-1].title())
 
 def _uuid() -> str:
     return str(uuid.uuid4())
@@ -482,6 +494,45 @@ class RealmBuilder:
         self.realm = RealmRepresentation(realm=name, enabled=enabled)
         LOG.debug("Initialized RealmBuilder for realm=%s enabled=%s", name, enabled)
 
+    def _find_top_group(self, name: str):
+        for g in (self.realm.groups or []):
+            if g.name == name:
+                return g
+        return None
+
+    def _find_child_group(self, parent, name: str):
+        for g in (getattr(parent, "subGroups", None) or []):
+            if g.name == name:
+                return g
+        return None
+
+    def ensure_group_path(self, path: str):
+        """
+        Ensure a group path like '/a/b/c' exists in self.realm.groups.
+        Creates any missing groups on the way and returns the deepest group.
+        """
+        if not path or path == "/":
+            raise ValueError("Group path must look like '/segment[/segment]*'")
+
+        parts = [p for p in path.split("/") if p]
+        # Top-level
+        current = self._find_top_group(parts[0])
+        if current is None:
+            current = GroupRepresentation(id=_uuid(), name=parts[0], subGroups=[])
+            self.realm.groups.append(current)
+
+        # Children
+        for name in parts[1:]:
+            child = self._find_child_group(current, name)
+            if child is None:
+                child = GroupRepresentation(id=_uuid(), name=name, subGroups=[])
+                if current.subGroups is None:
+                    current.subGroups = []
+                current.subGroups.append(child)
+            current = child
+
+        return current
+
     def _finalize_for_export(self) -> Dict[str, Any]:
         data = self.realm.model_dump(exclude_none=True)  # make sure exclude_none=True is used
         if not data.get("authenticationFlows"):
@@ -531,6 +582,47 @@ class RealmBuilder:
             )
         )
         return self
+
+    def ensure_roles_scope_with_mappers(self) -> "RealmBuilder":
+        # Build the two mappers Keycloak’s built-in "roles" scope normally has
+        realm_roles_pm = ProtocolMapperRepresentation(
+            name="realm roles",
+            protocolMapper="oidc-usermodel-realm-role-mapper",
+            config={
+                "multivalued": "true",
+                "access.token.claim": "true",
+                "id.token.claim": "true",
+                "userinfo.token.claim": "true",
+                "claim.name": "realm_access.roles",
+            },
+        )
+        client_roles_pm = ProtocolMapperRepresentation(
+            name="client roles",
+            protocolMapper="oidc-usermodel-client-role-mapper",
+            config={
+                "multivalued": "true",
+                "access.token.claim": "true",
+                "id.token.claim": "true",
+                "userinfo.token.claim": "true",
+                # This claim name produces resource_access.<clientId>.roles
+                "claim.name": "resource_access.${client_id}.roles",
+            },
+        )
+
+        # If "roles" exists, make sure it has mappers; otherwise create it.
+        for cs in self.realm.clientScopes:
+            if cs.name == "roles":
+                if not cs.protocolMappers or len(cs.protocolMappers) == 0:
+                    cs.protocolMappers = [realm_roles_pm, client_roles_pm]
+                return self
+
+        # Not found: create it
+        return self.add_client_scope(
+            name="roles",
+            protocol="openid-connect",
+            protocol_mappers=[realm_roles_pm, client_roles_pm],
+        )
+
 
     def ensure_realm_role(self, name: str, description: Optional[str] = None, **kwargs) -> "RealmBuilder":
         for r in self.realm.roles.realm:
@@ -859,10 +951,13 @@ class RealmBuilder:
             password_field: str = "password",
     ) -> "RealmBuilder":
         """
-        Walk the RBAC hierarchy and add a user for each position whose name starts
-        with 'position_'. If `password` is provided, all users get that password.
-        Otherwise, we look for a per-position field (default: "password").
+        - Add a user for each position in 'positions'.
+          * Group path: uses 'position_<slug>'
+          * Username/email: use the base name WITHOUT 'position_'.
+        - Also add one user per leaf unit (no children).
         """
+        import re
+        from typing import Dict
 
         def seg(name: str) -> str:
             s = str(name or "").strip()
@@ -872,9 +967,12 @@ class RealmBuilder:
             cleaned = [seg(s) for s in segments if s]
             return "/" + "/".join(cleaned) if cleaned else "/"
 
-        def to_names(name: str) -> tuple[str, str]:
-            base = name[len("position_"):] if str(name).startswith("position_") else str(name)
-            parts = [p for p in base.split("_") if p]
+        def slugify(s: str) -> str:
+            return re.sub(r"[^a-zA-Z0-9]+", "_", s.strip()).strip("_").lower() or "item"
+
+        def split_names(s: str) -> tuple[str, str]:
+            # Split human-readable first/last from a base string
+            parts = [p for p in re.split(r"[^a-zA-Z0-9]+", s) if p]
             if not parts:
                 return ("", "")
             if len(parts) == 1:
@@ -885,18 +983,25 @@ class RealmBuilder:
 
         def walk(node: Mapping[str, Any], parent_segments: list[str]) -> None:
             nonlocal added
+
             unit_name = seg(node.get("unit") or node.get("name"))
             my_segments = [*parent_segments, unit_name]
 
+            # 1) Position-based users
             for pos in (node.get("positions") or []):
-                pos_name = seg(pos.get("name") or "position")
-                if not pos_name.startswith("position_"):
-                    continue
+                raw_name = seg(pos.get("name"))  # e.g. "position_board_chair"
 
-                path = to_path([*my_segments, pos_name])
-                uname = pos_name
-                first, last = to_names(pos_name)
-                email = f"{uname}@{email_domain}" if email_domain else None
+
+                # Groups use the full position name (with prefix) so paths match your group tree
+                path = to_path([*my_segments, raw_name])  # "/board_of_education_governing_board/position_board_chair"
+                self.ensure_group_path(path)
+
+                # Usernames/emails drop the "position_" prefix
+                uname_base = raw_name[len("position_"):]  # "board_chair"
+                uname = raw_name  # keep underscores; Keycloak allows them
+                LOG.debug("raw name: "+str(raw_name))
+                first, last = to_names_from_position(raw_name)  # your existing helper
+                email = f"{raw_name}@{email_domain}" if email_domain else None
 
                 # choose password: explicit param > per-position field > None
                 pw = password
@@ -916,17 +1021,51 @@ class RealmBuilder:
                     attributes=attrs,
                     enabled=True,
                     email_verified=False,
-                    password=(password if password is not None else (
-                        str(pos[password_field]) if password_field and pos.get(password_field) else None)),
+                    password=pw,
                     temporary_password=temporary_password,
                 )
                 LOG.debug(
-                    "add_users_from_rbac_positions: added user '%s' (group=%s, has_pw=%s, temp=%s)",
+                    "add_users_from_rbac_positions: added POSITION user '%s' (group=%s, has_pw=%s, temp=%s)",
                     uname, path, bool(pw), temporary_password
                 )
                 added += 1
 
-            for child in (node.get("children") or []):
+            # 2) LEAF-UNIT USER (unchanged)
+            children = node.get("children") or []
+            if not children:
+                unit_path = to_path(my_segments)
+                unit_slug = slugify(unit_name)
+                uname = f"unit_{unit_slug}"
+                first, last = split_names(unit_name)
+                email = f"{uname}@{email_domain}" if email_domain else None
+
+                pw = password
+                if pw is None and password_field and node.get(password_field):
+                    pw = str(node[password_field])
+
+                attrs: Dict[str, Any] = {"unit_leaf": ["true"], "unit_name": [unit_name]}
+                if include_description_attribute and node.get("description"):
+                    attrs["unit_description"] = [node["description"]]
+
+                self.add_user(
+                    username=uname,
+                    email=email,
+                    first_name=first or None,
+                    last_name=last or None,
+                    groups=[unit_path],
+                    attributes=attrs,
+                    enabled=True,
+                    email_verified=False,
+                    password=pw,
+                    temporary_password=temporary_password,
+                )
+                LOG.debug(
+                    "add_users_from_rbac_positions: added LEAF-UNIT user '%s' (group=%s, has_pw=%s, temp=%s)",
+                    uname, unit_path, bool(pw), temporary_password
+                )
+                added += 1
+
+            for child in children:
                 walk(child, my_segments)
 
         for root in (rbac.get("hierarchy") or []):
@@ -935,7 +1074,66 @@ class RealmBuilder:
         LOG.debug("add_users_from_rbac_positions: total users added=%d", added)
         return self
 
+    def _get_client(self, client_id: str):
+        for c in self.realm.clients or []:
+            if getattr(c, "clientId", None) == client_id:
+                return c
+        raise KeyError(f"Client not found: {client_id}")
 
+    def ensure_client_roles_scope(self, target_client_id: str, scope_name: str | None = None) -> "RealmBuilder":
+        scope_name = scope_name or f"{target_client_id}-roles"
+        pm = ProtocolMapperRepresentation(
+            name=f"{target_client_id} client roles",
+            protocolMapper="oidc-usermodel-client-role-mapper",
+            config={
+                "multivalued": "true",
+                "access.token.claim": "true",
+                "id.token.claim": "false",
+                "userinfo.token.claim": "false",
+                # Limit to a specific client’s roles:
+                "usermodel.clientRoleMapping.clientId": target_client_id,
+                "claim.name": f"resource_access.{target_client_id}.roles",
+            },
+        )
+
+        # Upsert the scope
+        for cs in self.realm.clientScopes:
+            if cs.name == scope_name:
+                if not cs.protocolMappers or len(cs.protocolMappers) == 0:
+                    cs.protocolMappers = [pm]
+                return self
+
+        return self.add_client_scope(
+            name=scope_name, protocol="openid-connect", protocol_mappers=[pm]
+        )
+
+
+    def ensure_client_default_scopes(
+            self,
+            client_id: str,
+            *,
+            add: list[str] | tuple[str, ...] = (),
+            optional: list[str] | tuple[str, ...] = (),
+    ) -> "RealmBuilder":
+        client = self._get_client(client_id)
+        # KC fields on ClientRepresentation
+        dfl = set(getattr(client, "defaultClientScopes", []) or [])
+        opt = set(getattr(client, "optionalClientScopes", []) or [])
+        dfl.update(add or [])
+        opt.update(optional or [])
+        if dfl:
+            client.defaultClientScopes = sorted(dfl)
+        if opt:
+            client.optionalClientScopes = sorted(opt)
+        LOG.debug("Client '%s' scopes: default=%s optional=%s",
+                  client_id, client.defaultClientScopes, client.optionalClientScopes)
+        return self
+
+    def set_client_full_scope_allowed(self, client_id: str, value: bool = True) -> "RealmBuilder":
+        client = self._get_client(client_id)
+        client.fullScopeAllowed = bool(value)
+        LOG.debug("Client '%s' fullScopeAllowed=%s", client_id, client.fullScopeAllowed)
+        return self
 
     def add_users_from_rbac_positions_file(
             self,
@@ -1151,8 +1349,8 @@ if __name__ == "__main__":
             "display.on.consent.screen": "false",
             "saml.onetimeuse.condition": "false",
         },
-        default_client_scopes=["web-origins", "roles", "profile", "email"],
-        optional_client_scopes=["address", "phone", "offline_access", "microprofile-jwt"],
+        default_client_scopes=["roles", "profile", "email", "osss-api-roles"],
+        optional_client_scopes=["address", "offline_access"],
         authorization_settings={
             "allowRemoteResourceManagement": True,
             "policyEnforcementMode": "ENFORCING",
@@ -1195,9 +1393,10 @@ if __name__ == "__main__":
             "profile",
             "email",
             "roles",
-            "osss-api-audience"
+            "osss-api-audience",
+            "osss-api-roles"
         ],
-        optional_client_scopes=["address", "phone", "offline_access", "microprofile-jwt"],
+        optional_client_scopes=["address", "offline_access"],
         protocol_mappers=[
             ProtocolMapperRepresentation(
                 name="username",
@@ -1229,8 +1428,8 @@ if __name__ == "__main__":
         secret="password",
         enabled=True,
         full_scope_allowed=True,
-        default_client_scopes=["web-origins", "roles", "profile", "email", "roles"],
-        optional_client_scopes=["address", "phone", "offline_access", "microprofile-jwt"],
+        default_client_scopes=["roles", "profile", "email", "roles"],
+        optional_client_scopes=["address", "offline_access"],
         authorization_services_enabled=True,
         attributes={
             "id.token.as.detached.signature": "false",
@@ -1423,6 +1622,23 @@ if __name__ == "__main__":
         organizational_structure = json.load(f)  # dict or list
 
     rb.add_groups_from_hierarchy(organizational_structure, role_client_id="osss-api")
+
+    rb.ensure_client_default_scopes(
+        "osss-api",
+        add=["roles", "profile", "email"]  # 'roles' is the important one
+    )
+
+    rb.ensure_client_default_scopes(
+        "osss-web",
+        add=["roles", "profile", "email"]  # 'roles' is the important one
+    )
+
+    rb.add_builtin_oidc_scopes()  # currently creates names only (no mappers) :contentReference[oaicite:2]{index=2}
+    rb.ensure_roles_scope_with_mappers()
+    rb.ensure_client_roles_scope("osss-api", scope_name="osss-api-roles")
+    rb.ensure_client_roles_scope("osss-web", scope_name="osss-web-roles")
+
+
 
     # then add users for each `position_*`
     rb.add_users_from_rbac_positions_file(
