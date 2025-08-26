@@ -3,6 +3,9 @@ import Link from "next/link";
 import Image from "next/image";
 import Providers from "./providers";
 import "./globals.css";
+import { SignOutButton } from '@/components/SignOutButton';
+import { SignInButton } from '@/components/SignInButton';
+
 
 export const metadata: Metadata = {
   title: "OSSS Web",
@@ -41,6 +44,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
                 <div className="actions">
                   {/* Swap to real auth buttons if desired */}
+                  <SignInButton force/>
+                  <SignOutButton />
+
                   <Link href="/api/auth/signin" className="btn">Sign In</Link>
                   <Link href="/api/auth/signout" className="btn">Sign Out</Link>
                 </div>

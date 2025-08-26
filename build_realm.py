@@ -1,68 +1,338 @@
 #!/usr/bin/env python3
 """
-build_realm.py
+build_realm.py — debug-friendly, permissive
 
-An object-oriented builder for generating a Keycloak `realm-export.json`
-suitable for import during container start (e.g., via `--import-realm` or
-Keycloak's auto-import at `/opt/keycloak/data/import`).
-
-Why this script exists
-----------------------
-Keycloak ships with *built-in* OIDC client scopes like `roles`, `profile`,
-and `email`. If your realm import doesn't include those scopes (or you forget
-to attach them as default client scopes), your access tokens may *lack* key
-claims like:
-
-- `realm_access.roles` (realm roles)
-- `resource_access.{client_id}.roles` (client roles)
-- `email` / `email_verified`
-- `given_name` / `family_name` / `preferred_username`
-
-This builder ensures:
-1) The realm includes the scopes `roles`, `email`, and `profile` with explicit
-   protocol mappers (so the claims are present in tokens), and
-2) Clients include those scopes as *default* client scopes.
-
-Quickstart
-----------
-    python build_realm.py
-
-This writes `<repo_root>/realm-export.json`, which your docker-compose
-can mount into the Keycloak container to create/overwrite the realm.
-
-Pydantic
---------
-This file targets **Pydantic v2**. (Your project pins `pydantic>=2.6`.)
+What's inside:
+- Detailed debug logging (--debug / --trace flags; or KC_DEBUG=1)
+- DEFAULT_FLOW_BINDINGS auto-applied to new clients unless overridden
+- add_realm_role is permissive (accepts composites, clientRole, containerId, etc.)
+- add_client_scope accepts both protocol_mappers (snake) and protocolMappers (camel)
+- add_builtin_oidc_scopes() provided (you asked for this)
 """
-
 from __future__ import annotations
 
 import json
+import logging
+import os
 import uuid
+import importlib
+import pkgutil
+import argparse
+import json
+import re
 from pathlib import Path
+from typing import Iterable
+import sqlalchemy as sa
 from typing import Any, Dict, List, Optional, Union
 
 from pydantic import BaseModel, Field, ConfigDict, model_validator
 
+# Remove // line comments and /* block */ comments
+_COMMENT_BLOCK_RE = re.compile(r"/\*.*?\*/", re.S)
+_COMMENT_LINE_RE = re.compile(r"//.*?$", re.M)
+
+# Match: Table <name> [optional settings] { ... }
+# <name> can be: unquoted, "double-quoted", `backticked`, or schema.name
+_TABLE_RE = re.compile(
+    r"""
+    \bTable                           # keyword
+    \s+
+    (                                 # capture name token (with optional quotes)
+        "(?P<dquoted>[^"]+)"          # "Name"
+        |
+        `(?P<bquoted>[^`]+)`          # `Name`
+        |
+        (?P<raw>[A-Za-z0-9_.]+)       # schema.name or plain
+    )
+    (?:\s+as\s+[A-Za-z0-9_."`]+)?     # optional 'as Alias'
+    (?:\s*\[[^\]]*\])?                # optional [settings: ...]
+    \s*\{                             # opening brace of table body
+    """,
+    re.X | re.I,
+)
+
 
 # ---------------------------------------------------------------------
-# Utilities
+# Logging
+# ---------------------------------------------------------------------
+
+LOG = logging.getLogger("realm_builder")
+
+def configure_logging(debug: bool = False, trace: bool = False) -> None:
+    level = logging.DEBUG if (debug or os.getenv("KC_DEBUG") == "1") else logging.INFO
+    if trace:
+        logging.addLevelName(5, "TRACE")
+        level = 5
+    logging.basicConfig(
+        level=level,
+        format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+        datefmt="%H:%M:%S",
+    )
+
+# ---------------------------------------------------------------------
+# Defaults
+# ---------------------------------------------------------------------
+
+DEFAULT_FLOW_BINDINGS: Dict[str, str] = {
+    # "browser": "browser", ...  # <-- REMOVE defaults for now
+}
+DEFAULT_AUTHENTICATION_FLOWS: List[Dict[str, Any]] = []  # keep empty
+# ---------------------------------------------------------------------
+# Utils
 # ---------------------------------------------------------------------
 
 def _uuid() -> str:
-    """Generate a random UUID string (used for Keycloak ids when omitted)."""
     return str(uuid.uuid4())
 
+def _dedupe(seq: List[Any]) -> List[Any]:
+    seen: set = set()
+    out: List[Any] = []
+    for x in seq:
+        if x not in seen:
+            out.append(x)
+            seen.add(x)
+    return out
+
+def _strip_quotes(name: str) -> str:
+    # just in case a different bracket sneaks in
+    if (name.startswith('"') and name.endswith('"')) or \
+       (name.startswith('`') and name.endswith('`')) or \
+       (name.startswith('[') and name.endswith(']')):
+        return name[1:-1]
+    return name
+
+def _preprocess(text: str) -> str:
+    text = _COMMENT_BLOCK_RE.sub("", text)
+    text = _COMMENT_LINE_RE.sub("", text)
+    return text
+
+def iter_table_names(text: str) -> Iterable[str]:
+    cleaned = _preprocess(text)
+    for m in _TABLE_RE.finditer(cleaned):
+        name = m.group("dquoted") or m.group("bquoted") or m.group("raw") or ""
+        yield _strip_quotes(name).strip()
+
+
+def read_dbml_file(path: str) -> str:
+    """
+    Reads a DBML file from disk and returns its contents as a string.
+
+    Args:
+        path: Path to the .dbml file.
+
+    Returns:
+        The text content of the DBML file.
+    """
+    p = Path(path)
+    if not p.exists() or not p.is_file():
+        raise FileNotFoundError(f"DBML file not found: {path}")
+
+    with p.open("r", encoding="utf-8") as f:
+        return f.read()
+
+def import_all_models(root_pkg: str) -> None:
+    """
+    Import all modules under the given package so that all model classes register
+    themselves on their SQLAlchemy Base.metadata.
+    """
+    pkg = importlib.import_module(root_pkg)
+    pkg_path = getattr(pkg, "__path__", None)
+    if not pkg_path:
+        return
+
+    prefix = pkg.__name__ + "."
+    for modinfo in pkgutil.walk_packages(pkg_path, prefix=prefix):
+        fullname = modinfo.name
+        # Skip private or tests/migrations-like modules
+        parts = fullname.split(".")
+        if any(p.startswith("_") for p in parts):
+            continue
+        if any(p in {"tests", "migrations"} for p in parts):
+            continue
+
+        try:
+            importlib.import_module(fullname)
+            logging.getLogger(__name__).debug("Imported %s", fullname)
+        except Exception as exc:
+            logging.getLogger(__name__).warning("Skipping %s due to import error: %s", fullname, exc)
+
+
+def _compile_type(coltype: sa.types.TypeEngine) -> str:
+    """Map SQLAlchemy types to DBML-ish names. Fallback to str(coltype)."""
+    t = coltype
+    # Common types
+    if isinstance(t, sa.String):
+        if getattr(t, "length", None):
+            return f"varchar({t.length})"
+        return "text"
+    if isinstance(t, sa.Text):
+        return "text"
+    if isinstance(t, sa.Integer):
+        return "int"
+    if isinstance(t, sa.BigInteger):
+        return "bigint"
+    if isinstance(t, sa.SmallInteger):
+        return "smallint"
+    if isinstance(t, sa.Numeric):
+        if getattr(t, "precision", None) is not None and getattr(t, "scale", None) is not None:
+            return f"numeric({t.precision},{t.scale})"
+        return "numeric"
+    if isinstance(t, sa.Float):
+        return "float"
+    if isinstance(t, sa.Boolean):
+        return "boolean"
+    if isinstance(t, sa.Date):
+        return "date"
+    if isinstance(t, sa.DateTime) or isinstance(t, sa.types.TIMESTAMP):
+        return "timestamp"
+    if isinstance(t, sa.types.UUID):
+        return "uuid"
+    # Dialect-specific or custom
+    try:
+        from sqlalchemy.dialects.postgresql import UUID as PGUUID, JSONB, JSON, INET
+        if isinstance(t, PGUUID):
+            return "uuid"
+        if isinstance(t, JSONB):
+            return "jsonb"
+        if isinstance(t, JSON):
+            return "json"
+        if isinstance(t, INET):
+            return "inet"
+    except Exception:
+        pass
+    if isinstance(t, sa.JSON):
+        return "json"
+    # Fallback
+    return str(t)
+
+
+def _default_to_str(col: sa.Column) -> Optional[str]:
+    # Column default (client side)
+    if col.default is not None:
+        try:
+            if col.default.is_scalar:
+                return repr(col.default.arg)
+        except Exception:
+            pass
+    # Server default
+    if col.server_default is not None:
+        try:
+            # Often a SQL ClauseElement/TextClause
+            return str(getattr(col.server_default.arg, "text", col.server_default.arg))
+        except Exception:
+            return str(col.server_default)
+    return None
+
+
+def emit_table_dbml(table: sa.Table) -> str:
+    """Emit a DBML block for a single Table."""
+    name = table.name
+    schema = table.schema
+    fq_name = f"{schema}.{name}" if schema else name
+
+    lines = [f"Table {fq_name} {{"]
+
+    # Columns
+    for col in table.columns:
+        parts = [f"  {col.name} {_compile_type(col.type)}"]
+        attrs = []
+        if col.primary_key:
+            attrs.append("pk")
+        if not col.nullable:
+            attrs.append("not null")
+        if col.unique:
+            attrs.append("unique")
+        dflt = _default_to_str(col)
+        if dflt is not None:
+            # escape braces/quotes lightly
+            dflt_clean = str(dflt).replace("{", "\{").replace("}", "\}")
+            attrs.append(f'default: "{dflt_clean}"')
+        if getattr(col, "autoincrement", False):
+            attrs.append("increment")
+        if attrs:
+            parts.append(f"[{', '.join(attrs)}]")
+        lines.append(" ".join(parts))
+
+    # Indexes (simple)
+    if table.indexes:
+        lines.append("")
+        lines.append("  Indexes {")
+        for idx in sorted(table.indexes, key=lambda i: i.name or ""):
+            cols = ", ".join(getattr(c, "name", str(c)) for c in idx.expressions)
+            flags = []
+            if idx.unique:
+                flags.append("unique")
+            idx_name = f' name: "{idx.name}"' if idx.name else ""
+            flag_str = f" [{', '.join(flags)}{(',' if flags and idx_name else '')}{idx_name.strip()}]" if (flags or idx_name) else ""
+            lines.append(f"    ({cols}){flag_str}")
+        lines.append("  }")
+
+    # Unique constraints (composite)
+    uniques = [
+        c for c in table.constraints
+        if isinstance(c, sa.UniqueConstraint) and len(c.columns) > 1
+    ]
+    if uniques:
+        lines.append("")
+        lines.append("  Indexes {")
+        for uc in uniques:
+            cols = ", ".join(col.name for col in uc.columns)
+            uc_name = f' name: "{uc.name}"' if uc.name else ""
+            lines.append(f"    ({cols}) [unique{(',' if uc_name else '')}{uc_name}]")
+        lines.append("  }")
+
+    lines.append("}")
+    return "\n".join(lines)
+
+
+def emit_refs_dbml(metadata: sa.MetaData) -> str:
+    """Emit DBML Ref lines for all foreign keys in metadata."""
+    out = []
+    for table in metadata.tables.values():
+        for fk in table.foreign_keys:
+            src = f"{table.schema + '.' if table.schema else ''}{table.name}.{fk.parent.name}"
+            reft = fk.column.table
+            tgt = f"{reft.schema + '.' if reft.schema else ''}{reft.name}.{fk.column.name}"
+            opts = []
+            ondelete = getattr(fk.constraint, "ondelete", None)
+            onupdate = getattr(fk.constraint, "onupdate", None)
+            if ondelete:
+                opts.append(f"delete: {ondelete}")
+            if onupdate:
+                opts.append(f"update: {onupdate}")
+            opt_str = f" [{', '.join(opts)}]" if opts else ""
+            out.append(f"Ref: {src} > {tgt}{opt_str}")
+    return "\n".join(out)
+
+
 
 # ---------------------------------------------------------------------
-# Pydantic models – simplified mirrors of Keycloak export JSON
-# (v2-style models; unknown fields are ignored for resilience)
+# Models (subset of Keycloak export schema)
 # ---------------------------------------------------------------------
+
+class ProtocolMapperRepresentation(BaseModel):
+    name: str
+    protocol: str = "openid-connect"
+    protocolMapper: str
+    consentRequired: bool = False
+    consentText: Optional[str] = None
+    config: Dict[str, Any] = Field(default_factory=dict)
+
+    model_config = ConfigDict(extra="ignore")
+
+
+class ClientScopeRepresentation(BaseModel):
+    id: Optional[str] = None
+    name: str
+    description: Optional[str] = None
+    protocol: str = "openid-connect"
+    attributes: Dict[str, Any] = Field(default_factory=dict)
+    protocolMappers: List[ProtocolMapperRepresentation] = Field(default_factory=list)
+
+    model_config = ConfigDict(extra="ignore")
+
 
 class RoleRepresentation(BaseModel):
-    """
-    Keycloak role (realm or client role).
-    """
     id: Optional[str] = None
     name: str
     description: Optional[str] = None
@@ -75,116 +345,54 @@ class RoleRepresentation(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     @model_validator(mode="after")
-    def _ensure_id_and_attrs(self) -> "RoleRepresentation":
-        # Make sure Keycloak sees a proper id + always a dict for attributes.
-        if not self.id:
-            self.id = _uuid()
-        if self.attributes is None:
-            self.attributes = {}
+    def _coerce_attribute_lists(self):
+        if self.attributes:
+            self.attributes = {
+                k: v if isinstance(v, list) else [str(v)]
+                for k, v in self.attributes.items()
+            }
         return self
-
-
-class RequiredActionProviderRepresentation(BaseModel):
-    """
-    Realm-level Required Action (e.g., CONFIGURE_TOTP). Not heavily used here,
-    but kept for completeness/extensibility.
-    """
-    alias: str
-    name: str
-    providerId: str
-    enabled: bool = True
-    defaultAction: bool = False
-    priority: int = 0
-    config: Dict[str, str] = Field(default_factory=dict)
-
-    model_config = ConfigDict(extra="ignore")
-
-
-class AuthenticatorConfigRepresentation(BaseModel):
-    """
-    Optional authenticator config entries, if you add flows.
-    """
-    id: str = Field(default_factory=_uuid)
-    alias: str
-    config: Dict[str, str] = Field(default_factory=dict)
-
-    model_config = ConfigDict(extra="ignore")
-
-
-class DefaultRoleRepresentation(BaseModel):
-    """
-    Default composite role assigned to new users (Keycloak creates one per realm).
-    """
-    id: str = Field(default_factory=_uuid)
-    name: str
-    description: Optional[str] = None
-    composite: bool = True
-    clientRole: bool = False
-    containerId: Optional[str] = None
 
 
 class RolesRepresentation(BaseModel):
-    """
-    Container for realm roles and client roles.
-    """
     realm: List[RoleRepresentation] = Field(default_factory=list)
-    client: Dict[str, List[RoleRepresentation]] = Field(
-        default_factory=lambda: {
-            # Keep entries for these commonly-seen clients around, but empty
-            "account-console": [],
-            "broker": [],
-            "admin-cli": [],
-            "security-admin-console": [],
-        }
-    )
+    client: Dict[str, List[RoleRepresentation]] = Field(default_factory=dict)
 
     model_config = ConfigDict(extra="ignore")
 
-    @model_validator(mode="after")
-    def _ensure_id_attributes_everywhere(self) -> "RolesRepresentation":
-        # Realm roles
-        for r in self.realm:
-            if not r.id:
-                r.id = _uuid()
-            if r.attributes is None:
-                r.attributes = {}
-        # Client roles
-        for roles in self.client.values():
-            for r in roles:
-                if not r.id:
-                    r.id = _uuid()
-                if r.attributes is None:
-                    r.attributes = {}
-        return self
 
+class GroupRepresentation(BaseModel):
+    id: Optional[str] = None
+    name: str
+    path: Optional[str] = None
+    attributes: Optional[Dict[str, List[str]]] = None
+    subGroups: Optional[List["GroupRepresentation"]] = None
+    realmRoles: Optional[List[str]] = None
+    clientRoles: Optional[Dict[str, List[str]]] = None
+
+    model_config = ConfigDict(extra="ignore")
 
 class CredentialRepresentation(BaseModel):
-    """User credential declaration (we only use simple 'password')."""
     type: str = "password"
-    value: Optional[str] = None
+    value: str
     temporary: bool = False
-
+    model_config = ConfigDict(extra="ignore")
 
 class UserRepresentation(BaseModel):
-    """
-    Realm user. Only the most common fields are modeled here.
-    """
-    id: str = Field(default_factory=_uuid)
+    id: Optional[str] = None
     username: str
-    enabled: bool = True
     email: Optional[str] = None
-    emailVerified: bool = False
     firstName: Optional[str] = None
     lastName: Optional[str] = None
-    requiredActions: List[str] = Field(default_factory=list)
-    credentials: Optional[List[CredentialRepresentation]] = None
-
-    # Role assignments by *name* (Keycloak resolves on import)
-    realmRoles: Optional[List[str]] = None
+    enabled: bool = True
+    emailVerified: bool = False
+    attributes: Dict[str, Any] = Field(default_factory=dict)
+    realmRoles: List[str] = Field(default_factory=list)
     clientRoles: Dict[str, List[str]] = Field(default_factory=dict)
-
+    requiredActions: List[str] = Field(default_factory=list)
     groups: List[str] = Field(default_factory=list)
-    attributes: Optional[Dict[str, Any]] = None
+    credentials: List[CredentialRepresentation] = Field(default_factory=list)
+
 
     # Extra optional exports commonly present
     totp: Optional[bool] = None
@@ -196,55 +404,28 @@ class UserRepresentation(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
 
-class ProtocolMapperRepresentation(BaseModel):
-    """
-    OIDC (or SAML) protocol mapper definition.
-    For OIDC, common mappers are:
-      - oidc-usermodel-realm-role-mapper
-      - oidc-usermodel-client-role-mapper
-      - oidc-usermodel-property-mapper
-    """
-    id: Optional[str] = None
-    name: str
-    protocol: str = "openid-connect"
-    protocolMapper: str
-    consentRequired: bool = False
-    config: Dict[str, Any] = Field(default_factory=dict)
-
-    model_config = ConfigDict(extra="ignore")
-
-
 class ClientRepresentation(BaseModel):
-    """
-    Keycloak Client configuration (OIDC).
-    """
     id: Optional[str] = None
     clientId: str
     name: Optional[str] = None
 
-    # URLs + app model
     rootUrl: Optional[str] = None
     baseUrl: Optional[str] = None
-
-    # Auth + switches
-    enabled: bool = True
-    clientAuthenticatorType: str = "client-secret"
+    adminUrl: Optional[str] = None
     secret: Optional[str] = None
+
     publicClient: bool = False
     bearerOnly: bool = False
-    frontchannelLogout: bool = False
-    standardFlowEnabled: bool = True
     directAccessGrantsEnabled: bool = False
-    implicitFlowEnabled: bool = False
     serviceAccountsEnabled: bool = False
+    standardFlowEnabled: bool = True
+    implicitFlowEnabled: bool = False
+    frontchannelLogout: bool = False
     consentRequired: bool = False
-    fullScopeAllowed: bool = True
 
-    # CORS + redirects
     redirectUris: List[str] = Field(default_factory=list)
     webOrigins: List[str] = Field(default_factory=list)
 
-    # Misc
     notBefore: int = 0
     alwaysDisplayInConsole: bool = False
     surrogateAuthRequired: bool = False
@@ -253,130 +434,36 @@ class ClientRepresentation(BaseModel):
     attributes: Dict[str, Any] = Field(default_factory=dict)
     authenticationFlowBindingOverrides: Dict[str, Any] = Field(default_factory=dict)
 
-    # Scopes/mappers
     protocolMappers: Optional[List[ProtocolMapperRepresentation]] = None
     defaultClientScopes: Optional[List[str]] = None
     optionalClientScopes: Optional[List[str]] = None
 
-    # Authz services (optional)
+    clientAuthenticatorType: Optional[str] = None
+    fullScopeAllowed: Optional[bool] = None
+    enabled: Optional[bool] = True
+
     authorizationServicesEnabled: Optional[bool] = None
     authorizationSettings: Optional[Dict[str, Any]] = None
 
     model_config = ConfigDict(extra="ignore")
 
 
-
-class GroupRepresentation(BaseModel):
-    """
-    Realm group tree. Only a subset of fields are modeled.
-    """
-    id: Optional[str] = None
-    name: str
-    path: Optional[str] = None
-    attributes: Optional[Dict[str, List[str]]] = None
-    realmRoles: Optional[List[str]] = None
-    clientRoles: Optional[Dict[str, List[str]]] = None
-    subGroups: Optional[List["GroupRepresentation"]] = None  # forward-ref
-
-    model_config = ConfigDict(extra="ignore")
-
-
-# resolve forward refs (Pydantic v2)
-try:
-    GroupRepresentation.model_rebuild()
-except Exception:
-    pass
-
-
-class AuthenticationExecutionRepresentation(BaseModel):
-    """Skeleton auth execution step (kept for future extension)."""
-    authenticator: Optional[str] = None
-    authenticatorConfig: Optional[str] = None
-    authenticatorFlow: bool = False
-    requirement: str
-    priority: int
-    flowAlias: Optional[str] = None
-    userSetupAllowed: bool = False
-    autheticatorFlow: bool = False  # spelling as in export
-
-    model_config = ConfigDict(extra="ignore")
-
-
-class AuthenticationFlowRepresentation(BaseModel):
-    """Skeleton flow (not actively used here)."""
-    id: str
-    alias: str
-    description: Optional[str] = None
-    providerId: str
-    topLevel: bool
-    builtIn: bool
-    authenticationExecutions: List[AuthenticationExecutionRepresentation]
-
-    model_config = ConfigDict(extra="ignore")
-
-
-class ScopeMappingRepresentation(BaseModel):
-    """Link a client scope to realm roles (rarely needed here)."""
-    clientScope: str
-    roles: List[str]
-
-    model_config = ConfigDict(extra="ignore")
-
-
-class ClientScopeRepresentation(BaseModel):
-    """
-    OIDC client scope with optional protocol mappers.
-    """
-    id: Optional[str] = None
-    name: str
-    description: Optional[str] = None
-    protocol: str = "openid-connect"
-    attributes: Dict[str, Any] = Field(default_factory=dict)
-    protocolMappers: List[ProtocolMapperRepresentation] = Field(default_factory=list)
-
-    model_config = ConfigDict(extra="ignore")
-
-
 class RealmRepresentation(BaseModel):
-    """
-    The full realm export. Only a subset of fields are modeled to keep the
-    JSON concise but sufficiently rich for tests/integration.
-    """
     id: Optional[str] = None
     realm: str
     enabled: bool = True
 
-    # Core collections
     roles: RolesRepresentation = Field(default_factory=RolesRepresentation)
     users: List[UserRepresentation] = Field(default_factory=list)
     clients: List[ClientRepresentation] = Field(default_factory=list)
     groups: List[GroupRepresentation] = Field(default_factory=list)
 
-    # Scopes + mappers
-    scopeMappings: List[ScopeMappingRepresentation] = Field(default_factory=list)
     clientScopes: List[ClientScopeRepresentation] = Field(default_factory=list)
 
-    # Config odds & ends
-    components: Dict[str, List[Dict[str, Any]]] = Field(default_factory=dict)
-    authenticatorConfig: List[AuthenticatorConfigRepresentation] = Field(default_factory=list)
-    requiredActions: List[RequiredActionProviderRepresentation] = Field(default_factory=list)
-    browserSecurityHeaders: Dict[str, str] = Field(default_factory=dict)
-    smtpServer: Dict[str, str] = Field(default_factory=dict)
+    # flows
+    authenticationFlows: List[Dict[str, Any]] = Field(default_factory=lambda: list(DEFAULT_AUTHENTICATION_FLOWS))
 
-    # Events / providers
-    eventsEnabled: bool = False
-    eventsListeners: List[str] = Field(default_factory=list)
-    enabledEventTypes: List[str] = Field(default_factory=list)
-    adminEventsEnabled: bool = False
-    adminEventsDetailsEnabled: bool = False
-    identityProviders: List[dict] = Field(default_factory=list)
-    identityProviderMappers: List[dict] = Field(default_factory=list)
-
-    # i18n
-    internationalizationEnabled: bool = False
-    supportedLocales: List[str] = Field(default_factory=list)
-
-    # Flow bindings (keep defaults)
+    # Built-in flow bindings
     browserFlow: str = "browser"
     registrationFlow: str = "registration"
     directGrantFlow: str = "direct grant"
@@ -384,296 +471,497 @@ class RealmRepresentation(BaseModel):
     clientAuthenticationFlow: str = "clients"
     dockerAuthenticationFlow: str = "docker auth"
 
-    # Default composite role
-    defaultRole: DefaultRoleRepresentation = Field(
-        default_factory=lambda: DefaultRoleRepresentation(
-            name="default-roles-test",
-            description="${role_default-roles}",
-            composite=True,
-            clientRole=False,
-            containerId="OSSS",
-        )
-    )
-
-    # Token / session lifetimes (trimmed to essentials)
-    defaultSignatureAlgorithm: Optional[str] = "RS256"
-    accessTokenLifespan: Optional[int] = 300
-    accessTokenLifespanForImplicitFlow: Optional[int] = 900
-    ssoSessionIdleTimeout: Optional[int] = 1800
-    ssoSessionMaxLifespan: Optional[int] = 36000
-
-    # OTP (left at Keycloak defaults)
-    otpPolicyType: str = "totp"
-    otpPolicyAlgorithm: str = "HmacSHA1"
-    otpPolicyInitialCounter: int = 0
-    otpPolicyDigits: int = 6
-    otpPolicyLookAheadWindow: int = 1
-    otpPolicyPeriod: int = 30
-    otpSupportedApplications: List[str] = Field(
-        default_factory=lambda: ["FreeOTP", "Google Authenticator"]
-    )
-
-    # Misc realm flags
-    keycloakVersion: str = "16.1.0"
-    userManagedAccessAllowed: bool = False
-
-    # Default client scopes applied to *every* client in this realm (by name)
-    defaultDefaultClientScopes: List[str] = Field(default_factory=list)
-    defaultOptionalClientScopes: List[str] = Field(default_factory=list)
-
     model_config = ConfigDict(extra="ignore")
-
 
 # ---------------------------------------------------------------------
 # Builder
 # ---------------------------------------------------------------------
 
 class RealmBuilder:
-    """
-    Fluent builder that assembles a minimal yet functional realm, with
-    explicit OIDC client scopes/mappers so tests get the right token claims.
-    """
     def __init__(self, name: str, enabled: bool = True):
         self.realm = RealmRepresentation(realm=name, enabled=enabled)
+        LOG.debug("Initialized RealmBuilder for realm=%s enabled=%s", name, enabled)
 
-    # ----- Required actions / auth config (optional plumbing) -----
+    def _finalize_for_export(self) -> Dict[str, Any]:
+        data = self.realm.model_dump(exclude_none=True)  # make sure exclude_none=True is used
+        if not data.get("authenticationFlows"):
+            # Drop realm-level bindings so KC uses built-ins
+            for k in ("browserFlow", "registrationFlow", "directGrantFlow",
+                      "resetCredentialsFlow", "clientAuthenticationFlow", "dockerAuthenticationFlow"):
+                data.pop(k, None)
+            # Drop client-level overrides
+            for c in data.get("clients", []):
+                c.pop("authenticationFlowBindingOverrides", None)
+        return data
 
-    def add_required_action(
-        self,
-        *,
-        alias: str,
-        name: str,
-        provider_id: str,
-        enabled: bool = True,
-        default_action: bool = False,
-        priority: int = 0,
-        config: Optional[dict] = None,
-    ) -> "RealmBuilder":
-        self.realm.requiredActions.append(
-            RequiredActionProviderRepresentation(
-                alias=alias,
-                name=name,
-                providerId=provider_id,
-                enabled=enabled,
-                defaultAction=default_action,
-                priority=priority,
-                config=config or {},
-            )
-        )
-        return self
-
-    def add_authenticator_config(self, config: AuthenticatorConfigRepresentation) -> "RealmBuilder":
-        self.realm.authenticatorConfig.append(config)
-        return self
-
-    # ----- Components / SMTP / Events (optional; no-ops here) -----
-
-    def add_component(self, provider_category: str, component: Dict[str, Any]) -> "RealmBuilder":
-        self.realm.components.setdefault(provider_category, []).append(component)
-        return self
-
-    def set_components(self, components: Dict[str, List[Dict[str, Any]]]) -> "RealmBuilder":
-        self.realm.components = components
-        return self
-
-    def set_smtp_server(self, config: Dict[str, str]) -> "RealmBuilder":
-        self.realm.smtpServer = config
-        return self
-
-    def enable_events(self, listeners: List[str], enabled_types: Optional[List[str]] = None) -> "RealmBuilder":
-        self.realm.eventsEnabled = True
-        self.realm.eventsListeners = listeners
-        if enabled_types:
-            self.realm.enabledEventTypes = enabled_types
-        return self
-
-    def enable_admin_events(self, details: bool = False) -> "RealmBuilder":
-        self.realm.adminEventsEnabled = True
-        self.realm.adminEventsDetailsEnabled = details
-        return self
-
-    def add_identity_provider(self, provider: dict) -> "RealmBuilder":
-        self.realm.identityProviders.append(provider)
-        return self
-
-    def add_identity_provider_mapper(self, mapper: dict) -> "RealmBuilder":
-        self.realm.identityProviderMappers.append(mapper)
-        return self
-
-    def set_default_default_client_scopes(self, scopes: List[str]) -> "RealmBuilder":
-        """
-        Scopes applied to all clients by default (realm-level setting).
-        """
-        self.realm.defaultDefaultClientScopes = scopes
-        return self
-
-    def set_default_optional_client_scopes(self, scopes: List[str]) -> "RealmBuilder":
-        """
-        Optional scopes a client may opt into (realm-level setting).
-        """
-        self.realm.defaultOptionalClientScopes = scopes
-        return self
-
-    # ----- Roles -----
-
+    # --- roles ---
     def add_realm_role(
         self,
         name: str,
         description: Optional[str] = None,
+        *,
+        attributes: Optional[Dict[str, Any]] = None,
         composite: bool = False,
+        client_role: bool = False,
+        container_id: Optional[str] = None,
         composites: Optional[Dict[str, Any]] = None,
-        role_id: Optional[str] = None,
+        **kwargs,
     ) -> "RealmBuilder":
+        # Accept KC-style aliases
+        if "clientRole" in kwargs and kwargs["clientRole"] is not None:
+            client_role = kwargs["clientRole"]
+        if "containerId" in kwargs and kwargs["containerId"] is not None:
+            container_id = kwargs["containerId"]
+        if composites is None and "composites" in kwargs:
+            composites = kwargs["composites"]
+
+        LOG.debug(
+            "add_realm_role(name=%s, composite=%s, client_role=%s, container_id=%s, composites_keys=%s)",
+            name, composite, client_role, container_id, list((composites or {}).keys())
+        )
         self.realm.roles.realm.append(
             RoleRepresentation(
-                id=role_id,
                 name=name,
                 description=description,
                 composite=composite,
-                clientRole=False,
-                containerId=self.realm.realm,
+                clientRole=client_role,
+                containerId=container_id,
+                attributes=attributes or {},
                 composites=composites,
             )
         )
         return self
 
-    def add_client_role(
-        self,
-        client_id: str,
-        role_name: str,
-        *,
-        description: Optional[str] = None,
-        attributes: Optional[Dict[str, Any]] = None,
-    ) -> "RealmBuilder":
-        # 1) ensure roles container
-        _ensure_roles_container(self.realm)
+    def ensure_realm_role(self, name: str, description: Optional[str] = None, **kwargs) -> "RealmBuilder":
+        for r in self.realm.roles.realm:
+            if r.name == name:
+                return self
+        return self.add_realm_role(name, description, **kwargs)
 
-        # 2) point to the client-roles bucket (dict or model)
-        roles = self.realm.roles
-        if isinstance(roles, dict):
-            client_roles_map = roles["client"]
-        else:
-            client_roles_map = roles.client  # pydantic model
+    def add_client_role(self, client_id: str, name: str, description: Optional[str] = None, **kwargs) -> "RealmBuilder":
+        role = RoleRepresentation(name=name, description=description, clientRole=True, containerId=client_id, **kwargs)
 
-        # 3) ensure list for this clientId
-        if client_id not in client_roles_map or client_roles_map[client_id] is None:
-            client_roles_map[client_id] = []
-
-        role_list = client_roles_map[client_id]
-
-        # 4) no-dup
-        def _name_of(r):
-            return r.get("name") if isinstance(r, dict) else getattr(r, "name", None)
-        if any(_name_of(r) == role_name for r in role_list):
-            return self
-
-        # 5) normalize attributes and append
-        norm_attrs = _norm_role_attrs(attributes)
-
-        role_repr = RoleRepresentation(
-            name=role_name,
-            description=description,
-            composite=False,
-            clientRole=True,
-            containerId=client_id,
-            attributes=norm_attrs,
-        )
-        role_list.append(role_repr)
+        self.realm.roles.client.setdefault(client_id, []).append(role)
         return self
 
-    # ----- Clients -----
+    # --- clients ---
+    def add_client(self, client_id: str, **kwargs) -> "RealmBuilder":
 
-    def add_client(
-        self,
-        client_id: str,
-        *,
-        id: Optional[str] = None,
-        name: Optional[str] = None,
-        secret: Optional[str] = None,
-        redirect_uris: Optional[List[str]] = None,
-        web_origins: Optional[List[str]] = None,
-        base_url: Optional[str] = None,
-        admin_url: Optional[str] = None,
-        public_client: bool = False,
-        direct_access_grants_enabled: bool = False,
-        service_accounts_enabled: bool = False,
-        standard_flow_enabled: bool = True,
-        attributes: Optional[Dict[str, Any]] = None,
-        default_client_scopes: Optional[List[str]] = None,
-        optional_client_scopes: Optional[List[str]] = None,
-        protocol_mappers: Optional[List[Union[ProtocolMapperRepresentation, Dict[str, Any]]]] = None,
-        authorization_services_enabled: Optional[bool] = None,
-        authorization_settings: Optional[Dict[str, Any]] = None,
-        root_url: Optional[str] = None,
-        bearer_only: Optional[bool] = None,
-        full_scope_allowed: Optional[bool] = None,
-        node_re_registration_timeout: Optional[int] = None,
-        authentication_flow_binding_overrides: Optional[Dict[str, Any]] = None,
-        frontchannel_logout: Optional[bool] = None,
-        consent_required: Optional[bool] = None,
-        implicit_flow_enabled: Optional[bool] = None,
-        not_before: Optional[int] = None,
-        enabled: Optional[bool] = None,
-        always_display_in_console: Optional[bool] = None,
-        client_authenticator_type: Optional[str] = None,
-        surrogate_auth_required: Optional[bool] = None,
-        protocol: str = "openid-connect",
+        kw = dict(kwargs)
 
+        # Map our override name to KC's field
+        overrides = kw.pop("authentication_flow_binding_overrides", None)
+        if overrides is None:
+            overrides = dict(DEFAULT_FLOW_BINDINGS)
+
+        # Normalize snake_case -> camelCase for common client fields
+        keymap = {
+            "root_url": "rootUrl",
+            "base_url": "baseUrl",
+            "admin_url": "adminUrl",
+            "public_client": "publicClient",
+            "bearer_only": "bearerOnly",
+            "direct_access_grants_enabled": "directAccessGrantsEnabled",
+            "service_accounts_enabled": "serviceAccountsEnabled",
+            "standard_flow_enabled": "standardFlowEnabled",
+            "implicit_flow_enabled": "implicitFlowEnabled",
+            "frontchannel_logout": "frontchannelLogout",
+            "redirect_uris": "redirectUris",
+            "web_origins": "webOrigins",
+            "default_client_scopes": "defaultClientScopes",
+            "optional_client_scopes": "optionalClientScopes",
+            "client_authenticator_type": "clientAuthenticatorType",
+            "full_scope_allowed": "fullScopeAllowed",
+            "authorization_services_enabled": "authorizationServicesEnabled",
+            "authorization_settings": "authorizationSettings",
+        }
+        for snake, camel in keymap.items():
+            if snake in kw and camel not in kw:
+                kw[camel] = kw.pop(snake)
+
+        # Ensure list types for redirectUris/webOrigins
+        for list_key in ("redirectUris", "webOrigins"):
+            if list_key in kw and kw[list_key] is not None and not isinstance(kw[list_key], list):
+                kw[list_key] = [kw[list_key]]
+
+        # Build client
+        client = ClientRepresentation(
+            id=kw.pop("id", None) or _uuid(),
+            clientId=client_id,
+            authenticationFlowBindingOverrides=overrides,
+            **kw,
+        )
+        self.realm.clients.append(client)
+        LOG.debug("Added client: %s (total=%d) redirectUris=%s webOrigins=%s",
+                  client_id, len(self.realm.clients),
+                  getattr(client, "redirectUris", None),
+                  getattr(client, "webOrigins", None))
+        return self
+
+    # --- groups ---
+    def add_groups_from_hierarchy(
+            self,
+            hierarchy: Mapping[str, Any],
+            *,
+            include_position_groups: bool = True,
+            unit_attr_key: str = "kind",
+            position_attr_key: str = "kind",
+            role_client_id: Optional[str] = None,
+            # role_mapper takes a permissions list and returns (realm_roles, client_roles_map)
+            role_mapper: Optional[
+                Callable[[List[str]], Tuple[List[str], Dict[str, List[str]]]]
+            ] = None,
     ) -> "RealmBuilder":
-        # Normalize protocol mappers to actual objects (dicts or instances are ok).
-        pm_norm: Optional[List[ProtocolMapperRepresentation]] = None
-        if protocol_mappers is not None:
-            pm_norm = []
-            for pm in protocol_mappers:
-                if isinstance(pm, ProtocolMapperRepresentation):
-                    pm_norm.append(pm)
-                else:
-                    pm_norm.append(ProtocolMapperRepresentation(**pm))
+        """
+        Create Keycloak groups/sub-groups from an org hierarchy dict,
+        and attach role mappings derived from a `permissions` list on each node.
 
-        self.realm.clients.append(
-            ClientRepresentation(
-                id=id,
-                clientId=client_id,
-                name=name,
-                secret=secret,
-                redirectUris=redirect_uris or [],
-                webOrigins=web_origins or [],
-                baseUrl=base_url,
-                adminUrl=admin_url,
-                publicClient=public_client,
-                directAccessGrantsEnabled=direct_access_grants_enabled,
-                serviceAccountsEnabled=service_accounts_enabled,
-                standardFlowEnabled=standard_flow_enabled,
-                attributes=attributes or {},
-                defaultClientScopes=default_client_scopes,
-                optionalClientScopes=optional_client_scopes,
-                authorizationServicesEnabled=authorization_services_enabled,
-                authorizationSettings=authorization_settings,
-                rootUrl=root_url,
-                bearerOnly=bearer_only if bearer_only is not None else False,
-                fullScopeAllowed=full_scope_allowed if full_scope_allowed is not None else True,
-                nodeReRegistrationTimeout=node_re_registration_timeout if node_re_registration_timeout is not None else 0,
-                authenticationFlowBindingOverrides=authentication_flow_binding_overrides or {},
-                frontchannelLogout=frontchannel_logout if frontchannel_logout is not None else False,
-                consentRequired=consent_required if consent_required is not None else False,
-                implicitFlowEnabled=implicit_flow_enabled if implicit_flow_enabled is not None else False,
-                notBefore=not_before if not_before is not None else 0,
-                enabled=enabled if enabled is not None else True,
-                alwaysDisplayInConsole=always_display_in_console if always_display_in_console is not None else False,
-                clientAuthenticatorType=client_authenticator_type or "client-secret",
-                protocol=protocol,
-                protocolMappers=pm_norm,
+        Structure excerpt:
+        {
+          "organization": "school_district",
+          "hierarchy": [
+            {
+              "unit": "...",
+              "permissions": ["role_or_perm_1", ...],   # optional
+              "positions": [
+                { "name":"...", "description":"...", "permissions": ["..."] }, ...
+              ],
+              "children": [ {...}, ... ]
+            }
+          ]
+        }
 
+        Role mapping behavior:
+          - If `role_mapper` is provided, it's used to convert `permissions` to
+            `(realm_roles, client_roles_map)`.
+          - Else, if `role_client_id` is provided, each permission becomes a client
+            role of the same name on that client.
+          - Else, no role mappings are attached.
+        """
+        LOG.debug(
+            "add_groups_from_hierarchy: start (include_position_groups=%s, unit_attr_key=%s, position_attr_key=%s, role_client_id=%s, role_mapper=%s)",
+            include_position_groups, unit_attr_key, position_attr_key, role_client_id, bool(role_mapper)
+        )
+
+        def _dedupe_sorted(seq: List[str]) -> List[str]:
+            out = sorted(set(filter(None, seq)))
+            if out != list(seq):
+                LOG.debug("  _dedupe_sorted: input_len=%d -> unique_len=%d", len(seq), len(out))
+            return out
+
+        def _default_role_mapper(perms: List[str]) -> Tuple[List[str], Dict[str, List[str]]]:
+            # Default: map permissions directly to client roles on `role_client_id`
+            if role_client_id:
+                LOG.debug("  default_role_mapper: mapping %d perms to client '%s'", len(perms), role_client_id)
+                return ([], {role_client_id: _dedupe_sorted(perms)})
+            LOG.debug("  default_role_mapper: no role_client_id; no role mappings")
+            return ([], {})  # no mappings if no client specified
+
+        use_role_mapper = role_mapper or _default_role_mapper
+
+        LOG.debug("Role mapper: "+str(use_role_mapper))
+
+        group_count = 0
+        position_count = 0
+
+        def _seg(name: str) -> str:
+            # Keep the display name intact (including spaces);
+            # only strip surrounding whitespace and fall back to 'Group' if empty.
+            s = str(name or "").strip()
+            return s or "Group"
+
+        def _to_path(segments: list[str]) -> str:
+            # Build "/A/B/C" from a list of names; compress any accidental empty segs.
+            cleaned = [s for s in map(_seg, segments) if s]
+            return "/" + "/".join(cleaned) if cleaned else "/"
+
+
+        def _ensure_client_roles(client_id: Optional[str], roles: List[str]) -> None:
+            if not client_id or not roles:
+                return
+            # Ensure the roles bucket exists
+            if client_id not in self.realm.roles.client:
+                self.realm.roles.client[client_id] = []
+            existing = {r.name for r in self.realm.roles.client[client_id]}
+            created = 0
+            for rname in roles:
+                if rname not in existing:
+                    self.add_client_role(client_id, rname, description=f"Auto-created from hierarchy for {client_id}")
+                    existing.add(rname)
+                    created += 1
+            if created:
+                LOG.debug("  created %d client roles on '%s': %s", created, client_id, roles)
+
+        def build_group(node: Mapping[str, Any], parent_segments: list[str] | None = None) -> GroupRepresentation:
+            nonlocal group_count, position_count
+            if parent_segments is None:
+                parent_segments = []
+
+            unit_name = (node.get("unit") or node.get("name") or "Unit")
+            unit_perms: List[str] = node.get("permissions") or []
+
+            my_segments = [*parent_segments, unit_name]
+            unit_path = _to_path(my_segments)
+
+            LOG.debug(" build_group: unit='%s' path='%s' perms=%d children=%d positions=%d",
+                      unit_name, unit_path, len(unit_perms),
+                      len(node.get("children") or []),
+                      len(node.get("positions") or []))
+
+            # Compute role mappings for this unit (if any)
+            realm_roles: List[str]
+            client_roles: Dict[str, List[str]]
+            realm_roles, client_roles = use_role_mapper(unit_perms)
+            LOG.debug("  unit role mapping: realm_roles=%d, client_roles clients=%s",
+                      len(realm_roles), list((client_roles or {}).keys()))
+
+            # Tag a unit group with attributes so you can filter in Keycloak UI later
+            unit_attrs: Dict[str, List[str]] = {unit_attr_key: ["unit"]}
+
+            subgroups: List[GroupRepresentation] = []
+
+            # Add each position as a subgroup under the unit (optional)
+            if include_position_groups:
+                for pos in node.get("positions", []) or []:
+                    pos_name = pos.get("name", "position")
+                    pos_desc = pos.get("description", "")
+                    pos_perms: List[str] = pos.get("permissions") or []
+
+                    pos_path = _to_path([*my_segments, pos_name])
+                    LOG.debug("   position subgroup: name='%s' path='%s' perms=%d", pos_name, pos_path, len(pos_perms))
+
+                    pos_realm_roles, pos_client_roles = use_role_mapper(pos_perms)
+                    LOG.debug("    position role mapping: realm_roles=%d, client_roles clients=%s",
+                              len(pos_realm_roles), list((pos_client_roles or {}).keys()))
+
+                    subgroups.append(
+                        GroupRepresentation(
+                            name=_seg(pos_name),
+                            path=pos_path,
+                            attributes={
+                                position_attr_key: ["position"],
+                                "description": [pos_desc] if pos_desc else [],
+                            },
+                            subGroups=[],
+                            realmRoles=_dedupe_sorted(pos_realm_roles) or None,
+                            clientRoles={k: _dedupe_sorted(v) for k, v in (pos_client_roles or {}).items()} or None,
+                        )
+                    )
+                    position_count += 1
+
+            # Recurse into child units
+            for child in node.get("children", []) or []:
+                child_group = build_group(child, my_segments)
+                # Defensive: ensure child's path reflects the full ancestry
+                if not getattr(child_group, "path", None):
+                    child_group.path = _to_path([*my_segments, getattr(child_group, "name", "Group")])
+                subgroups.append(child_group)
+
+            group_rep = GroupRepresentation(
+                name=_seg(unit_name),
+                path=unit_path,
+                attributes=unit_attrs,
+                subGroups=subgroups,
+                realmRoles=_dedupe_sorted(realm_roles) or None,
+                clientRoles={k: _dedupe_sorted(v) for k, v in (client_roles or {}).items()} or None,
             )
+            group_count += 1
+            LOG.debug("  built group '%s' path='%s' with %d subgroups, realmRoles=%s, clientRoles=%s",
+                      unit_name, unit_path,
+                      len(subgroups),
+                      (group_rep.realmRoles or []),
+                      {k: len(v) for k, v in (group_rep.clientRoles or {}).items()} if group_rep.clientRoles else {})
+            return group_rep
+
+
+        roots = hierarchy.get("hierarchy", []) or []
+        LOG.debug("add_groups_from_hierarchy: processing %d root node(s)", len(roots))
+
+        # Top-level may contain multiple roots under "hierarchy"
+        for root in roots:
+            self.realm.groups.append(build_group(root))
+
+            # Root is:
+            # root [{'unit': 'board_of_education_governing_board', 'permissions': ['read:academic_terms', 'read:accommodations', 'read:activities', 'read:addresses', 'read:agenda_item_approvals', 'read:agenda_item_files', 'read:agenda_items', 'read:agenda_workflow_steps', 'read:agend
+
+            LOG.debug("root %s", roots)
+
+
+
+        LOG.debug("add_groups_from_hierarchy: done (groups_added=%d, position_groups_added=%d, total_top_level=%d)",
+                  group_count, position_count, len(roots))
+
+        return self
+
+    # --- users ---
+    def add_user(
+            self,
+            username: str,
+            *,
+            password: Optional[str] = None,  # <<< new
+            temporary_password: bool = False,  # <<< new
+            email: Optional[str] = None,
+            first_name: Optional[str] = None,
+            last_name: Optional[str] = None,
+            enabled: bool = True,
+            email_verified: bool = False,
+            groups: Optional[List[str]] = None,
+            attributes: Optional[Dict[str, Any]] = None,
+            realm_roles: Optional[List[str]] = None,
+            client_roles: Optional[Dict[str, List[str]]] = None,
+            required_actions: Optional[List[str]] = None,
+            totp: Optional[bool] = None,  # convenience; maps to CONFIGURE_TOTP
+    ) -> "RealmBuilder":
+        # start from caller-provided required actions
+        req = list(required_actions or [])
+
+        # map totp flag to Keycloak required action
+        if totp is True and "CONFIGURE_TOTP" not in req:
+            req.append("CONFIGURE_TOTP")
+        elif totp is False and "CONFIGURE_TOTP" in req:
+            req.remove("CONFIGURE_TOTP")
+
+        credentials = (
+            [{"type": "password", "value": password, "temporary": temporary_password}]
+            if password is not None else []
+        )
+
+        user = UserRepresentation(
+            id=_uuid(),
+            username=username,
+            email=email,
+            firstName=first_name,
+            lastName=last_name,
+            enabled=enabled,
+            emailVerified=email_verified,
+            groups=(groups or []),
+            attributes=(attributes or {}),
+            realmRoles=(realm_roles or []),
+            clientRoles=(client_roles or {}),
+            requiredActions=req,
+            credentials=credentials,
+        )
+        self.realm.users.append(user)
+        LOG.debug(
+            "Added user: %s (groups=%d, has_password=%s, temp=%s)",
+            username, len(user.groups or []), bool(password), temporary_password
         )
         return self
 
-    def set_browser_security_headers(self, headers: Dict[str, str]) -> "RealmBuilder":
-        self.realm.browserSecurityHeaders = headers
+    def add_users_from_rbac_positions(
+            self,
+            rbac: Mapping[str, Any],
+            *,
+            email_domain: str = "example.org",
+            include_description_attribute: bool = True,
+            password: Optional[str] = None,
+            temporary_password: bool = False,
+            password_field: str = "password",
+    ) -> "RealmBuilder":
+        """
+        Walk the RBAC hierarchy and add a user for each position whose name starts
+        with 'position_'. If `password` is provided, all users get that password.
+        Otherwise, we look for a per-position field (default: "password").
+        """
+
+        def seg(name: str) -> str:
+            s = str(name or "").strip()
+            return s or "Group"
+
+        def to_path(segments: list[str]) -> str:
+            cleaned = [seg(s) for s in segments if s]
+            return "/" + "/".join(cleaned) if cleaned else "/"
+
+        def to_names(name: str) -> tuple[str, str]:
+            base = name[len("position_"):] if str(name).startswith("position_") else str(name)
+            parts = [p for p in base.split("_") if p]
+            if not parts:
+                return ("", "")
+            if len(parts) == 1:
+                return (parts[0].title(), "")
+            return (" ".join(p.title() for p in parts[:-1]), parts[-1].title())
+
+        added = 0
+
+        def walk(node: Mapping[str, Any], parent_segments: list[str]) -> None:
+            nonlocal added
+            unit_name = seg(node.get("unit") or node.get("name"))
+            my_segments = [*parent_segments, unit_name]
+
+            for pos in (node.get("positions") or []):
+                pos_name = seg(pos.get("name") or "position")
+                if not pos_name.startswith("position_"):
+                    continue
+
+                path = to_path([*my_segments, pos_name])
+                uname = pos_name
+                first, last = to_names(pos_name)
+                email = f"{uname}@{email_domain}" if email_domain else None
+
+                # choose password: explicit param > per-position field > None
+                pw = password
+                if pw is None and password_field and pos.get(password_field):
+                    pw = str(pos[password_field])
+
+                attrs: Dict[str, Any] = {}
+                if include_description_attribute and pos.get("description"):
+                    attrs["position_description"] = [pos["description"]]
+
+                self.add_user(
+                    username=uname,
+                    email=email,
+                    first_name=first or None,
+                    last_name=last or None,
+                    groups=[path],
+                    attributes=attrs,
+                    enabled=True,
+                    email_verified=False,
+                    password=(password if password is not None else (
+                        str(pos[password_field]) if password_field and pos.get(password_field) else None)),
+                    temporary_password=temporary_password,
+                )
+                LOG.debug(
+                    "add_users_from_rbac_positions: added user '%s' (group=%s, has_pw=%s, temp=%s)",
+                    uname, path, bool(pw), temporary_password
+                )
+                added += 1
+
+            for child in (node.get("children") or []):
+                walk(child, my_segments)
+
+        for root in (rbac.get("hierarchy") or []):
+            walk(root, [])
+
+        LOG.debug("add_users_from_rbac_positions: total users added=%d", added)
         return self
 
-    # ----- Client scopes -----
 
+
+    def add_users_from_rbac_positions_file(
+            self,
+            path: str,
+            *,
+            email_domain: str = "example.org",
+            include_description_attribute: bool = True,
+            password: Optional[str] = None,  # NEW
+            temporary_password: bool = False,  # NEW
+            password_field: str = "password",  # NEW
+            encoding: str = "utf-8",
+    ) -> "RealmBuilder":
+        import json as _json
+        from pathlib import Path as _Path
+        with _Path(path).expanduser().open("r", encoding=encoding) as f:
+            rbac = _json.load(f)
+        return self.add_users_from_rbac_positions(
+            rbac,
+            email_domain=email_domain,
+            include_description_attribute=include_description_attribute,
+            password=password,
+            temporary_password=temporary_password,
+            password_field=password_field,
+        )
+
+    # --- client scopes ---
     def add_client_scope(
         self,
         name: str,
@@ -683,7 +971,10 @@ class RealmBuilder:
         protocol: str = "openid-connect",
         attributes: Optional[Dict[str, Any]] = None,
         protocol_mappers: Optional[List[ProtocolMapperRepresentation]] = None,
+        **kwargs,
     ) -> "RealmBuilder":
+        if protocol_mappers is None and "protocolMappers" in kwargs:
+            protocol_mappers = kwargs["protocolMappers"]
         self.realm.clientScopes.append(
             ClientScopeRepresentation(
                 id=id,
@@ -694,6 +985,7 @@ class RealmBuilder:
                 protocolMappers=protocol_mappers or [],
             )
         )
+        LOG.debug("Added client scope: %s (total=%d)", name, len(self.realm.clientScopes))
         return self
 
     def ensure_client_scope(
@@ -705,8 +997,8 @@ class RealmBuilder:
         protocol: str = "openid-connect",
         attributes: Optional[Dict[str, Any]] = None,
         protocol_mappers: Optional[List[ProtocolMapperRepresentation]] = None,
+        **kwargs,
     ) -> "RealmBuilder":
-        """No-op if a client scope with the same name already exists."""
         for cs in self.realm.clientScopes:
             if cs.name == name:
                 return self
@@ -717,111 +1009,85 @@ class RealmBuilder:
             protocol=protocol,
             attributes=attributes,
             protocol_mappers=protocol_mappers,
+            **kwargs,
         )
 
     def add_builtin_oidc_scopes(self) -> "RealmBuilder":
-        """
-        Ensure *non-duplicated* built-ins exist by name. We explicitly define
-        `roles`, `email`, and `profile` below with custom mappers, so we do NOT
-        create them here to avoid conflicts.
-        """
-        for n in ["web-origins", "address", "phone", "microprofile-jwt", "offline_access"]:
-            self.ensure_client_scope(n, protocol="openid-connect")
+        LOG.debug("Skipping built-in scopes; Keycloak will create them.")
         return self
 
-    # ----- Groups -----
-
-    def add_group(
-        self,
-        name: str,
-        *,
-        path: Optional[str] = None,
-        realm_roles: Optional[List[str]] = None,
-        client_roles: Optional[Dict[str, List[str]]] = None,
-        attributes: Optional[Dict[str, List[str]]] = None,
-        subgroups: Optional[List[GroupRepresentation]] = None,
-    ) -> "RealmBuilder":
-        self.realm.groups.append(
-            GroupRepresentation(
-                name=name,
-                path=path,
-                realmRoles=realm_roles,
-                clientRoles=client_roles,
-                attributes=attributes,
-                subGroups=subgroups,
-            )
+    # --- export ---
+    def export(self) -> Dict[str, Any]:
+        data = self.realm.model_dump(exclude_none=True)
+        LOG.debug(
+            "export(): clients=%d, clientScopes=%d, roles=%d, users=%d",
+            len(self.realm.clients), len(self.realm.clientScopes),
+            len(self.realm.roles.realm), len(self.realm.users)
         )
-        return self
-
-    # ----- Users -----
-
-    def add_user(
-        self,
-        username: str,
-        *,
-        email: Optional[str] = None,
-        first_name: Optional[str] = None,
-        last_name: Optional[str] = None,
-        enabled: bool = True,
-        totp: bool = True,
-        email_verified: bool = False,
-        password: Optional[str] = None,
-        realm_roles: Optional[List[str]] = None,
-        client_roles: Optional[Dict[str, List[str]]] = None,
-        required_actions: Optional[List[str]] = None,
-        attributes: Optional[Dict[str, Any]] = None,
-        groups: Optional[List[str]] = None,
-        service_account_client_id: Optional[str] = None,
-    ) -> "RealmBuilder":
-        creds = None
-        if password:
-            creds = [CredentialRepresentation(type="password", value=password, temporary=False)]
-        self.realm.users.append(
-            UserRepresentation(
-                username=username,
-                email=email,
-                firstName=first_name,
-                lastName=last_name,
-                enabled=enabled,
-                emailVerified=email_verified,
-                credentials=creds,
-                realmRoles=realm_roles,
-                clientRoles=client_roles or {},
-                requiredActions=required_actions or [],
-                attributes=attributes,
-                groups=groups or [],
-                totp=totp,
-                serviceAccountClientId=service_account_client_id,
-            )
-        )
-        return self
-
-    # ----- Finalize -----
-
-    def build(self) -> RealmRepresentation:
-        return self.realm
-
+        return data
 
 # ---------------------------------------------------------------------
-# Assemble the test realm used by your tests/compose
+# Helpers
 # ---------------------------------------------------------------------
 
-def osss_realm() -> RealmRepresentation:
-    """
-    Build the realm named "OSSS" used by CI/integration tests.
-    Includes:
-      - Essential realm roles
-      - Two clients (`osss-api`, `admin-cli`)
-      - Client scopes: roles, email, profile (with correct mappers)
-      - Realm-level defaults so all clients receive those scopes
-    """
-    rb = RealmBuilder("OSSS", enabled=True)
-    # Non-conflicting built-ins (we will explicitly define roles/email/profile next)
-    rb.add_builtin_oidc_scopes()
+def make_email_client_scope(include_in_token_scope: bool = True) -> ClientScopeRepresentation:
+    return ClientScopeRepresentation(
+        name="email",
+        protocol="openid-connect",
+        attributes={"include.in.token.scope": str(include_in_token_scope).lower()},
+        protocolMappers=[
+            ProtocolMapperRepresentation(
+                name="email",
+                protocolMapper="oidc-usermodel-property-mapper",
+                config={
+                    "userinfo.token.claim": "true",
+                    "user.attribute": "email",
+                    "id.token.claim": "true",
+                    "access.token.claim": "true",
+                    "claim.name": "email",
+                    "jsonType.label": "String",
+                },
+            )
+        ],
+    )
 
+# ---------------------------------------------------------------------
+# CLI
+# ---------------------------------------------------------------------
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Build a Keycloak realm export JSON (debug-friendly)")
+    parser.add_argument("--name", default="OSSS", help="Realm name")
+    parser.add_argument("--out", default="realm-export.json", help="Output file path")
+    parser.add_argument("--debug", action="store_true", help="Enable DEBUG logging (or KC_DEBUG=1)")
+    parser.add_argument("--trace", action="store_true", help="Ultra-verbose logging below DEBUG")
+    parser.add_argument("--skip-email-scope", action="store_true", help="Do not add 'email' client scope")
+    args = parser.parse_args()
+
+    configure_logging(debug=args.debug, trace=args.trace)
+    LOG.info("Starting builder for realm '%s'", args.name)
+
+    rb = RealmBuilder(args.name)
     # --- Realm roles ---
     rb.add_realm_role("offline_access", "Offline Access", composite=False)
     rb.add_realm_role("uma_authorization", "UMA Authorization", composite=False)
+
+
+    if not args.skip_email_scope:
+        cs = make_email_client_scope()
+        rb.add_client_scope(
+            name=cs.name,
+            id=cs.id,
+            description=cs.description,
+            protocol=cs.protocol,
+            attributes=cs.attributes,
+            protocol_mappers=cs.protocolMappers,
+        )
+
+    # Ensure built-ins user asked for
+    rb.add_builtin_oidc_scopes()
 
     # Composite default-roles for this realm
     rb.add_realm_role(
@@ -851,11 +1117,12 @@ def osss_realm() -> RealmRepresentation:
         client_id="osss-api",
         name="osss-api",
         redirect_uris=["http://localhost:8081/*"],
-        web_origins=["http://localhost:8081"],
+        protocol = "openid-connect",
+        web_origins=["+"],
         public_client=False,
-        direct_access_grants_enabled=True,   # password grant
+        direct_access_grants_enabled=True,  # password grant
         service_accounts_enabled=True,
-        standard_flow_enabled=True,          # authorization code flow
+        standard_flow_enabled=False,  # authorization code flow
         client_authenticator_type="client-secret",
         authorization_services_enabled=True,
         secret="password",
@@ -911,7 +1178,7 @@ def osss_realm() -> RealmRepresentation:
         root_url="http://localhost:3000",
         base_url="/",
         admin_url="http://localhost:3000",
-        redirect_uris=["http://localhost:3000/*"],
+        redirect_uris=["http://localhost:3000/*","http://localhost:3000/api/auth/callback/keycloak"],
         web_origins=["http://localhost:3000"],
         protocol="openid-connect",
         public_client=False,
@@ -923,10 +1190,7 @@ def osss_realm() -> RealmRepresentation:
         authorization_services_enabled=True,
         implicit_flow_enabled=False,
         secret="password",
-        attributes={
-            #"pkce.code.challenge.method": "S256",
-            "post.logout.redirect.uris": "+"
-        },
+        attributes={"post.logout.redirect.uris": "http://localhost:3000/"},
         default_client_scopes=[
             "profile",
             "email",
@@ -1010,413 +1274,9 @@ def osss_realm() -> RealmRepresentation:
         },
     )
 
-    rb.add_client_role("osss-api", "api.user", description="Baseline access to OSSS API")
-    rb.add_client_role("osss-api", "api.admin", description="Administrative access to OSSS API")
-    rb.add_client_role(
-        "osss-api",
-        "api.teacher",
-        description="Teacher access to OSSS API",
-        attributes = {
-            "allowed_schools": ["Heritage Elementary", "Oak View MS"],
-            "grade_bands": ["6-8"],
-            "scopes": ["students:read", "attendance:read", "roster:read"],
-            "max_results": "1000",
-        }
-    )
-
-    client_roles = [
-      {"name":"position_school_board_member_trustee","description":"Elected/appointed governance of the district or school; sets policy and oversees superintendent/head."},
-      {"name":"position_board_chair","description":"Leads the governing board; sets agendas and presides over meetings."},
-      {"name":"position_board_vice_chair","description":"Supports/acts in place of the chair as needed."},
-      {"name":"position_board_clerk","description":"Records board actions; manages official records and notices."},
-      {"name":"position_superintendent","description":"Chief executive of a public school district; accountable to the board."},
-      {"name":"position_head_of_school","description":"Chief executive of an independent/private school."},
-      {"name":"position_deputy_superintendent","description":"Second-in-command over district operations or academics."},
-      {"name":"position_associate_superintendent","description":"Senior executive over major divisions (e.g., teaching & learning)."},
-      {"name":"position_assistant_superintendent","description":"Executive leader over specific functions or clusters of schools."},
-      {"name":"position_chief_of_staff","description":"Coordinates executive priorities, cabinet operations, and cross-functional initiatives."},
-      {"name":"position_chief_academic_officer","description":"Leads curriculum, instruction, assessment, and school improvement."},
-      {"name":"position_chief_schools_officer","description":"Oversees school portfolio and principals; drives performance."},
-      {"name":"position_chief_operations_officer","description":"Oversees non-instructional operations (facilities, transport, nutrition, safety)."},
-      {"name":"position_chief_financial_officer","description":"Leads finance, budgeting, accounting, and fiscal reporting."},
-      {"name":"position_chief_information_officer","description":"Leads technology strategy, systems, data, and cybersecurity."},
-      {"name":"position_chief_technology_officer","description":"Oversees IT infrastructure, networks, endpoints, and platforms."},
-      {"name":"position_chief_human_resources_officer","description":"Leads talent strategy, employee relations, payroll/benefits, and compliance."},
-      {"name":"position_chief_communications_officer","description":"Directs communications, media relations, branding, and engagement."},
-      {"name":"position_chief_equity_officer","description":"Leads equity, diversity, inclusion initiatives and policy."},
-      {"name":"position_general_counsel","description":"Provides legal guidance; manages risk, contracts, and compliance."},
-      {"name":"position_ombudsperson","description":"Independent, confidential resource for resolving concerns and complaints."},
-
-      {"name":"position_principal","description":"School-site leader responsible for instruction, operations, and culture."},
-      {"name":"position_assistant_principal","description":"Supports principal in instruction, discipline, operations, and staff supervision."},
-      {"name":"position_associate_principal","description":"Senior AP; often leads major school functions."},
-      {"name":"position_vice_principal","description":"Alternative title for assistant/associate principal."},
-      {"name":"position_head_of_upper_school","description":"Leads upper/secondary division in independent schools."},
-      {"name":"position_head_of_middle_school","description":"Leads middle division."},
-      {"name":"position_head_of_lower_school","description":"Leads lower/elementary division."},
-      {"name":"position_dean_of_students","description":"Leads student conduct, attendance, culture, and MTSS supports."},
-      {"name":"position_dean_of_academics","description":"Oversees curriculum, scheduling, grading, and academic quality."},
-      {"name":"position_grade_level_dean","description":"Oversees a grade’s academic and behavioral support systems."},
-      {"name":"position_director_of_residential_life","description":"Oversees dorms/residential programs (boarding schools)."},
-      {"name":"position_activities_director","description":"Leads student activities, clubs, and co-curriculars."},
-      {"name":"position_athletics_director","description":"Leads athletics programs, compliance, facilities, and scheduling."},
-      {"name":"position_assistant_athletics_director","description":"Supports athletic director with operations and compliance."},
-
-      {"name":"position_classroom_teacher","description":"Core instruction in content areas at elementary, middle, or high school."},
-      {"name":"position_elementary_teacher","description":"Self-contained or team-taught elementary grades."},
-      {"name":"position_middle_school_teacher","description":"Departmentalized instruction for middle grades."},
-      {"name":"position_high_school_teacher","description":"Subject-specific instruction at high school level."},
-      {"name":"position_art_teacher","description":"Visual arts instruction and programming."},
-      {"name":"position_music_teacher","description":"General music or performance ensembles."},
-      {"name":"position_band_director","description":"Leads band program and performances."},
-      {"name":"position_choir_director","description":"Leads choral program and performances."},
-      {"name":"position_theater_teacher","description":"Drama instruction and productions."},
-      {"name":"position_physical_education_teacher","description":"PE instruction; fitness, health, and wellness."},
-      {"name":"position_health_teacher","description":"Health education curriculum."},
-      {"name":"position_world_languages_teacher","description":"Foreign/heritage language instruction."},
-      {"name":"position_computer_science_teacher","description":"CS/coding/programming instruction."},
-      {"name":"position_cte_teacher","description":"Career & Technical Education (pathways, labs, certifications)."},
-      {"name":"position_early_childhood_teacher","description":"Pre-K and early learning instruction."},
-      {"name":"position_reading_interventionist","description":"Targeted literacy interventions and progress monitoring."},
-      {"name":"position_math_interventionist","description":"Targeted math interventions and progress monitoring."},
-      {"name":"position_instructional_coach","description":"Job-embedded coaching on pedagogy and curriculum."},
-      {"name":"position_literacy_coach","description":"Specialized coaching in reading and writing instruction."},
-      {"name":"position_math_coach","description":"Specialized coaching in mathematics instruction."},
-      {"name":"position_mentor_teacher","description":"Supports novice teachers with induction and practice."},
-      {"name":"position_media_specialist","description":"Library/media program; information literacy; collections."},
-      {"name":"position_teacher_librarian","description":"Certified librarian providing instruction and curation."},
-      {"name":"position_gifted_and_talented_teacher","description":"GT/advanced learners instruction and enrichment."},
-      {"name":"position_gifted_and_talented_coordinator","description":"Oversees GT identification, services, and compliance."},
-      {"name":"position_english_learner_teacher","description":"EL/ESL/ML services and instruction."},
-      {"name":"position_english_learner_coordinator","description":"Oversees EL program, identification, and compliance."},
-      {"name":"position_title_i_teacher","description":"Interventions funded under Title I."},
-      {"name":"position_title_i_coordinator","description":"Oversees Title I compliance and services."},
-      {"name":"position_alternative_program_teacher","description":"Instruction in alternative education settings."},
-      {"name":"position_virtual_program_teacher","description":"Instruction in online/virtual programs."},
-      {"name":"position_substitute_teacher","description":"Short-term classroom coverage."},
-      {"name":"position_long_term_substitute","description":"Extended coverage; curriculum and grading responsibilities."},
-      {"name":"position_teacher_resident","description":"Residency preparation role co-teaching with a mentor."},
-      {"name":"position_student_teacher","description":"Clinical practice under supervision."},
-      {"name":"position_instructional_fellow","description":"Early-career instructional support role."},
-
-      {"name":"position_director_of_special_education","description":"Leads SPED/Exceptional Student Services and compliance (IDEA)."},
-      {"name":"position_special_education_teacher","description":"Instruction and services for students with disabilities."},
-      {"name":"position_sped_case_manager","description":"Coordinates IEPs, services, and progress reporting."},
-      {"name":"position_school_psychologist","description":"Evaluation, counseling, MTSS, and IEP support."},
-      {"name":"position_speech_language_pathologist","description":"Speech/language therapy and evaluations."},
-      {"name":"position_occupational_therapist","description":"Fine-motor/sensory/ADL supports."},
-      {"name":"position_certified_occupational_therapy_assistant","description":"Supports OT service delivery."},
-      {"name":"position_physical_therapist","description":"Gross-motor/mobility therapy and evaluations."},
-      {"name":"position_physical_therapist_assistant","description":"Supports PT services."},
-      {"name":"position_board_certified_behavior_analyst","description":"Behavior analysis, plans, and consultation."},
-      {"name":"position_behavior_interventionist","description":"Implements behavior plans and supports."},
-      {"name":"position_vision_specialist","description":"Services for students with visual impairments."},
-      {"name":"position_orientation_and_mobility_specialist","description":"Travel/orientation training for visually impaired students."},
-      {"name":"position_deaf_hard_of_hearing_teacher","description":"Instruction and support for D/HH students."},
-      {"name":"position_504_coordinator","description":"Leads Section 504 identification and accommodation plans."},
-      {"name":"position_sped_compliance_coordinator","description":"Monitors timelines, documentation, and audits."},
-      {"name":"position_paraprofessional","description":"Classroom and individual student support."},
-      {"name":"position_instructional_aide","description":"Assists with instruction and supervision."},
-      {"name":"position_teachers_aide","description":"General classroom support role."},
-      {"name":"position_sign_language_interpreter","description":"ASL/interpretation services for students and families."},
-      {"name":"position_transition_specialist","description":"HS transition planning to postsecondary/workforce."},
-      {"name":"position_vocational_specialist","description":"Career exploration and work-based learning supports."},
-
-      {"name":"position_school_counselor","description":"Academic, social-emotional, and college/career counseling."},
-      {"name":"position_guidance_counselor","description":"Legacy title for school counselor."},
-      {"name":"position_school_social_worker","description":"Family services, wraparound supports, attendance."},
-      {"name":"position_family_liaison","description":"Connects families with resources and the school."},
-      {"name":"position_school_nurse","description":"Health services, care plans, medication, records."},
-      {"name":"position_health_aide","description":"Supports nurse; first aid and documentation."},
-      {"name":"position_attendance_officer","description":"Monitors attendance and interventions."},
-      {"name":"position_truancy_officer","description":"Enforces compulsory attendance with due process."},
-      {"name":"position_mckinney_vento_liaison","description":"Supports students experiencing homelessness."},
-      {"name":"position_foster_care_liaison","description":"Coordinates supports for students in foster care."},
-      {"name":"position_behavior_support_coach","description":"Coaches staff on behavior systems and PBIS."},
-      {"name":"position_restorative_practices_coordinator","description":"Implements restorative approaches and circles."},
-      {"name":"position_mtss_coordinator","description":"Coordinates MTSS tiers across academics/behavior."},
-      {"name":"position_rti_coordinator","description":"Manages Response to Intervention processes."},
-      {"name":"position_director_of_student_support_services","description":"Oversees counseling, nursing, social work, and supports."},
-      {"name":"position_registrar","description":"Manages student records, transcripts, and enrollments."},
-      {"name":"position_records_clerk","description":"Supports records management and requests."},
-      {"name":"position_testing_and_assessment_coordinator","description":"Manages state/local tests and accommodations."},
-      {"name":"position_college_counselor","description":"Postsecondary advising (independent/HS)."},
-      {"name":"position_financial_aid_advisor","description":"Supports tuition/aid processes (independent)."},
-
-      {"name":"position_director_of_curriculum_and_instruction","description":"Leads curriculum adoption, PD, and pedagogy."},
-      {"name":"position_director_of_assessment_research_evaluation","description":"Oversees testing, analytics, and program evaluation."},
-      {"name":"position_director_of_accountability","description":"Manages accountability metrics and reporting."},
-      {"name":"position_director_of_data_analytics","description":"Leads analytics, dashboards, and data governance."},
-      {"name":"position_instructional_materials_coordinator","description":"Textbooks/materials adoption and inventory."},
-      {"name":"position_textbook_coordinator","description":"Procurement and distribution of textbooks."},
-      {"name":"position_professional_development_coordinator","description":"Plans and manages staff learning programs."},
-      {"name":"position_teacher_induction_coordinator","description":"New teacher support and certification pathways."},
-      {"name":"position_accreditation_coordinator","description":"Manages accreditation cycles and evidence."},
-
-      {"name":"position_human_resources_director","description":"Leads HR strategy and operations."},
-      {"name":"position_hr_manager","description":"Manages HR processes and teams."},
-      {"name":"position_hr_generalist","description":"Broad HR support across functions."},
-      {"name":"position_recruiter","description":"Leads talent sourcing and hiring pipelines."},
-      {"name":"position_payroll_manager","description":"Oversees payroll operations and compliance."},
-      {"name":"position_payroll_specialist","description":"Executes payroll processing and reporting."},
-      {"name":"position_benefits_manager","description":"Administers benefits programs."},
-      {"name":"position_benefits_specialist","description":"Benefits enrollment and support."},
-      {"name":"position_business_manager","description":"School/district business office lead."},
-      {"name":"position_controller","description":"Accounting controls, closing, and reporting."},
-      {"name":"position_accountant","description":"General accounting and reconciliation."},
-      {"name":"position_accounts_payable_specialist","description":"Processes vendor invoices and payments."},
-      {"name":"position_accounts_receivable_specialist","description":"Manages receivables and collections."},
-      {"name":"position_purchasing_director","description":"Leads procurement strategy and compliance."},
-      {"name":"position_buyer","description":"Executes purchasing transactions and bids."},
-      {"name":"position_risk_manager","description":"Enterprise risk and insurance programs."},
-      {"name":"position_insurance_coordinator","description":"Manages insurance claims and coverage."},
-      {"name":"position_grants_manager","description":"Oversees grants lifecycle and compliance."},
-      {"name":"position_grant_writer","description":"Develops grant proposals and narratives."},
-      {"name":"position_federal_programs_director","description":"Leads federal funds (Title I/II/III/IV) compliance."},
-      {"name":"position_e_rate_coordinator","description":"Manages E-rate applications and compliance."},
-      {"name":"position_compliance_officer","description":"Oversees policy/regulatory compliance."},
-      {"name":"position_records_retention_manager","description":"Records schedules, storage, and disposition."},
-
-      {"name":"position_director_of_technology","description":"Leads district technology vision and delivery."},
-      {"name":"position_it_director","description":"Alternative title for Director of Technology."},
-      {"name":"position_network_administrator","description":"LAN/WAN, wireless, and network services."},
-      {"name":"position_systems_administrator","description":"Servers, identity, and core services."},
-      {"name":"position_cloud_administrator","description":"Cloud platforms and identity management."},
-      {"name":"position_server_administrator","description":"Physical/virtual servers and storage."},
-      {"name":"position_information_security_officer","description":"Security policy, controls, and incident response."},
-      {"name":"position_database_administrator","description":"DB performance, backups, and integrity."},
-      {"name":"position_sis_administrator","description":"Student information system configuration and support."},
-      {"name":"position_data_engineer","description":"Pipelines, integrations, and warehousing."},
-      {"name":"position_data_analyst","description":"Dashboards, KPI tracking, and insights."},
-      {"name":"position_etl_developer","description":"Extract/transform/load processes and tooling."},
-      {"name":"position_help_desk_manager","description":"Leads support team and ticketing."},
-      {"name":"position_help_desk_technician","description":"Frontline technical support to staff/students."},
-      {"name":"position_field_technician","description":"On-site hardware and AV support."},
-      {"name":"position_instructional_technology_coach","description":"Integrates technology with pedagogy."},
-      {"name":"position_instructional_technology_integrator","description":"Supports teachers using digital tools."},
-      {"name":"position_web_administrator","description":"Manages websites/portals and CMS."},
-      {"name":"position_webmaster","description":"Alternative title for web administration."},
-      {"name":"position_av_media_technician","description":"Audio/visual systems and event support."},
-
-      {"name":"position_director_of_facilities","description":"Leads facilities strategy, maintenance, and capital projects."},
-      {"name":"position_facilities_manager","description":"Oversees site maintenance and work orders."},
-      {"name":"position_plant_manager","description":"Leads plant operations at large sites."},
-      {"name":"position_maintenance_technician","description":"General maintenance and repairs."},
-      {"name":"position_electrician","description":"Electrical systems and repairs."},
-      {"name":"position_plumber","description":"Plumbing systems maintenance."},
-      {"name":"position_hvac_technician","description":"Heating, ventilation, and air conditioning."},
-      {"name":"position_carpenter","description":"Carpentry and finish work."},
-      {"name":"position_painter","description":"Interior/exterior painting and finishes."},
-      {"name":"position_locksmith","description":"Keying and access control hardware."},
-      {"name":"position_groundskeeper","description":"Landscape and grounds maintenance."},
-      {"name":"position_irrigation_technician","description":"Irrigation systems setup and repair."},
-      {"name":"position_custodial_supervisor","description":"Leads custodial staff and schedules."},
-      {"name":"position_custodian","description":"Cleaning, setup, and basic maintenance."},
-      {"name":"position_porter","description":"Daytime cleaning and event turnover."},
-      {"name":"position_night_lead","description":"Oversees night custodial shifts."},
-      {"name":"position_warehouse_receiving","description":"Shipping/receiving and storeroom management."},
-      {"name":"position_inventory_specialist","description":"Tracks assets, consumables, and supplies."},
-      {"name":"position_energy_manager","description":"Utility monitoring and conservation initiatives."},
-      {"name":"position_sustainability_manager","description":"Sustainability programs and reporting."},
-
-      {"name":"position_director_of_transportation","description":"Leads routing, fleet, and driver operations."},
-      {"name":"position_routing_scheduling_coordinator","description":"Creates routes, stops, and schedules."},
-      {"name":"position_dispatcher","description":"Coordinates buses and communications."},
-      {"name":"position_bus_driver","description":"Student transportation on regular and trip routes."},
-      {"name":"position_activity_driver","description":"Drives for activities/athletics trips."},
-      {"name":"position_bus_aide_monitor","description":"Student supervision and safety on buses."},
-      {"name":"position_fleet_manager","description":"Oversees maintenance shop and fleet lifecycle."},
-      {"name":"position_mechanic","description":"Vehicle diagnostics and repair."},
-      {"name":"position_diesel_technician","description":"Specialized diesel engine service."},
-      {"name":"position_shop_foreman","description":"Leads mechanics and shop operations."},
-      {"name":"position_crossing_guard","description":"Pedestrian safety near schools."},
-
-      {"name":"position_director_of_nutrition_services","description":"Leads USDA-compliant meal programs and kitchens."},
-      {"name":"position_food_service_director","description":"Alternative title leading nutrition services."},
-      {"name":"position_cafeteria_manager","description":"Site-level cafeteria operations and staffing."},
-      {"name":"position_kitchen_manager","description":"Back-of-house operations and food safety."},
-      {"name":"position_cook","description":"Food preparation and service."},
-      {"name":"position_prep_cook","description":"Ingredients prep and batch cooking."},
-      {"name":"position_baker","description":"Baked goods preparation."},
-      {"name":"position_cashier_point_of_sale_operator","description":"Point-of-sale transactions and compliance."},
-      {"name":"position_dietitian","description":"Menu planning and nutrition compliance."},
-      {"name":"position_nutritionist","description":"Nutrition guidance and education."},
-
-      {"name":"position_director_of_safety_security","description":"Leads security strategy, staffing, and incident response."},
-      {"name":"position_emergency_management_director","description":"Plans drills, response, and recovery operations."},
-      {"name":"position_school_resource_officer","description":"Law enforcement officer assigned to schools."},
-      {"name":"position_campus_police_officer","description":"District police/security officer."},
-      {"name":"position_security_guard","description":"Access control and campus patrols."},
-      {"name":"position_campus_supervisor","description":"Student supervision (lunch/recess/common areas)."},
-      {"name":"position_emergency_preparedness_coordinator","description":"Coordinates safety plans and training."},
-
-      {"name":"position_school_secretary","description":"Front office operations and parent/student support."},
-      {"name":"position_administrative_assistant","description":"Administrative support to leaders/departments."},
-      {"name":"position_office_manager","description":"Oversees office staff and procedures."},
-      {"name":"position_receptionist","description":"Greets visitors, answers phones, and routes inquiries."},
-      {"name":"position_attendance_clerk","description":"Attendance entry and parent communication."},
-      {"name":"position_student_services_clerk","description":"Supports counseling, registration, and records."},
-      {"name":"position_data_clerk","description":"Data entry, audits, and SIS support."},
-      {"name":"position_sis_clerk","description":"Specialist data entry and reports in SIS."},
-      {"name":"position_health_office_clerk","description":"Supports school nurse and health records."},
-
-      {"name":"position_head_coach","description":"Leads a sport program and coaching staff."},
-      {"name":"position_assistant_coach","description":"Supports head coach with training and supervision."},
-      {"name":"position_athletic_trainer","description":"Sports medicine, injury prevention, and rehab."},
-      {"name":"position_strength_and_conditioning_coach","description":"Athlete strength and conditioning programs."},
-      {"name":"position_club_sponsor","description":"Staff sponsor for student clubs."},
-      {"name":"position_activity_sponsor","description":"Leads co-curricular activities (e.g., yearbook)."},
-      {"name":"position_robotics_coach","description":"Coaches robotics team and competitions."},
-      {"name":"position_debate_coach","description":"Leads debate team and tournaments."},
-      {"name":"position_esports_coach","description":"Coaches competitive gaming program."},
-      {"name":"position_yearbook_advisor","description":"Advises yearbook production."},
-      {"name":"position_student_government_advisor","description":"Advises student council/governance."},
-      {"name":"position_performing_arts_director","description":"Oversees music, theater, and performances."},
-      {"name":"position_theater_director","description":"Directs theatrical productions."},
-
-      {"name":"position_communications_director","description":"Leads comms strategy and media relations."},
-      {"name":"position_public_relations_director","description":"Manages public relations and press."},
-      {"name":"position_media_relations_manager","description":"Press releases, interviews, and messaging."},
-      {"name":"position_family_engagement_coordinator","description":"Strengthens family partnerships and outreach."},
-      {"name":"position_community_engagement_coordinator","description":"Builds community partnerships and events."},
-      {"name":"position_translation_services_coordinator","description":"Coordinates translation/interpretation services."},
-      {"name":"position_interpreter_services_coordinator","description":"Manages interpreter scheduling and quality."},
-      {"name":"position_alumni_relations_director","description":"Cultivates alumni networks (independent schools)."},
-      {"name":"position_advancement_development_director","description":"Leads fundraising and donor relations."},
-      {"name":"position_annual_giving_manager","description":"Runs annual giving campaigns."},
-      {"name":"position_capital_campaign_manager","description":"Leads capital fundraising initiatives."},
-      {"name":"position_major_gifts_officer","description":"Manages high-capacity donor portfolios."},
-      {"name":"position_admissions_director","description":"Leads admissions/enrollment (independent)."},
-      {"name":"position_enrollment_director","description":"Oversees enrollment management and strategy."},
-      {"name":"position_financial_aid_director","description":"Administers tuition assistance (independent)."},
-      {"name":"position_marketing_director","description":"Leads marketing strategy and branding."},
-      {"name":"position_marketing_manager","description":"Executes marketing campaigns and content."},
-      {"name":"position_graphic_designer","description":"Designs print/digital collateral."},
-      {"name":"position_social_media_manager","description":"Manages social platforms and engagement."},
-
-      {"name":"position_director_of_early_childhood","description":"Leads preschool/early learning programs."},
-      {"name":"position_preschool_teacher","description":"Early childhood classroom instruction."},
-      {"name":"position_preschool_assistant","description":"Assists preschool teachers and students."},
-      {"name":"position_before_school_program_director","description":"Leads before-school care programs."},
-      {"name":"position_after_school_program_director","description":"Leads after-school care/enrichment."},
-      {"name":"position_extended_day_coordinator","description":"Coordinates extended-day activities and staffing."},
-      {"name":"position_summer_school_coordinator","description":"Plans and manages summer learning."},
-      {"name":"position_enrichment_coordinator","description":"Coordinates clubs, electives, and enrichment."},
-
-      {"name":"position_chaplain","description":"Provides spiritual care and services."},
-      {"name":"position_campus_minister","description":"Leads campus ministry programs."},
-      {"name":"position_religion_teacher","description":"Teaches religion curriculum."},
-      {"name":"position_theology_teacher","description":"Teaches theology/biblical studies."},
-      {"name":"position_service_learning_coordinator","description":"Coordinates service learning/community service."},
-
-      {"name":"position_alternative_education_director","description":"Leads alt-ed schools/programs."},
-      {"name":"position_virtual_online_program_director","description":"Leads online learning programs."},
-      {"name":"position_cte_director","description":"Oversees career/technical education pathways."},
-      {"name":"position_pathways_coordinator","description":"Coordinates career/college pathways and work-based learning."},
-      {"name":"position_apprenticeship_coordinator","description":"Manages apprenticeships and employer partnerships."},
-      {"name":"position_international_student_program_director","description":"Leads international student recruitment/support."},
-      {"name":"position_homestay_coordinator","description":"Coordinates host families and compliance."},
-      {"name":"position_testing_site_manager","description":"Manages SAT/ACT/AP/IB test administrations."},
-      {"name":"position_ib_coordinator","description":"Coordinates International Baccalaureate programs."},
-      {"name":"position_ap_coordinator","description":"Coordinates Advanced Placement programs."},
-      {"name":"position_librarian","description":"Library program lead; instruction and curation."},
-      {"name":"position_archivist","description":"Maintains historical records and archives."},
-      {"name":"position_print_shop_manager","description":"Oversees printing services and production."},
-      {"name":"position_mailroom_clerk","description":"Handles mail distribution and shipping."},
-      {"name":"position_volunteer_coordinator","description":"Recruits and manages school volunteers."}
-    ]
-
-    for role in client_roles:
-        # Accept dict form {"name": "...", "description": "..."} or tuple/list ("...", "...")
-        if isinstance(role, dict):
-            name = role["name"]
-            desc = role.get("description", "")
-        elif isinstance(role, (list, tuple)):
-            name = role[0]
-            desc = role[1] if len(role) > 1 else ""
-        else:
-            name = str(role)
-            desc = ""
-
-        rb.add_client_role(
-            "osss-api",
-            name,
-            description=desc,
-            attributes={
-                "allowed_schools": ["All"],
-                "grade_bands": ["k-12"],
-                "scopes": ["students:read", "attendance:read", "roster:read"],
-                "max_results": "1000",
-            },
-        )
-
     # --- Client scopes (define explicit mappers so tokens contain claims) ---
 
-    # roles: realm + client roles into access/id/userinfo tokens
-    rb.add_client_scope(
-        name="roles",
-        description="OIDC scope for realm & client roles",
-        protocol="openid-connect",
-        protocol_mappers=[
-            ProtocolMapperRepresentation(
-                name="realm roles",
-                protocolMapper="oidc-usermodel-realm-role-mapper",
-                config={
-                    "multivalued": "true",
-                    "userinfo.token.claim": "true",
-                    "id.token.claim": "true",
-                    "access.token.claim": "true",
-                    "claim.name": "realm_access.roles",
-                    "jsonType.label": "String",
-                },
-            ),
-            ProtocolMapperRepresentation(
-                name="client roles",
-                protocolMapper="oidc-usermodel-client-role-mapper",
-                config={
-                    "multivalued": "true",
-                    "userinfo.token.claim": "true",
-                    "id.token.claim": "true",
-                    "access.token.claim": "true",
-                    "claim.name": "resource_access.${client_id}.roles",
-                    "jsonType.label": "String",
-                },
-            )
-        ],
-    )
 
-    # email: email + email_verified
-    rb.add_client_scope(
-        name="email",
-        protocol="openid-connect",
-        attributes={"include.in.token.scope": "true"},
-        protocol_mappers=[
-            ProtocolMapperRepresentation(
-                name="email",
-                protocolMapper="oidc-usermodel-property-mapper",
-                config={
-                    "userinfo.token.claim": "true",
-                    "user.attribute": "email",
-                    "id.token.claim": "true",
-                    "access.token.claim": "true",
-                    "claim.name": "email",
-                    "jsonType.label": "String",
-                },
-            ),
-            ProtocolMapperRepresentation(
-                name="email verified",
-                protocolMapper="oidc-usermodel-property-mapper",
-                config={
-                    "userinfo.token.claim": "true",
-                    "user.attribute": "emailVerified",
-                    "id.token.claim": "true",
-                    "access.token.claim": "true",
-                    "claim.name": "email_verified",
-                    "jsonType.label": "boolean",
-                },
-            ),
-        ],
-    )
 
     # Add a client scope that injects aud=osss-api into access tokens
     rb.add_client_scope(
@@ -1440,7 +1300,6 @@ def osss_realm() -> RealmRepresentation:
             )
         ],
     )
-
 
     # profile: basic profile fields
     rb.add_client_scope(
@@ -1487,30 +1346,90 @@ def osss_realm() -> RealmRepresentation:
         ],
     )
 
-    rb.add_user(
-        username="admin@osss.local",
-        email="admin@osss.local",
-        enabled=True,
-        email_verified=True,
-        first_name="OSSS",
-        last_name="Admin",
-        totp=True,
-        password="password",
-        required_actions=[],
-        realm_roles=["offline_access","uma_authorization","admin"],
-        client_roles={
-            "realm-management": ["realm-admin"],
-            "account": ["manage-account", "view-profile"],
-            "osss-api": ["admin"]
-        },
+    rb.add_client_role("osss-api", "api.user", description="Baseline access to OSSS API")
+    rb.add_client_role("osss-api", "api.admin", description="Administrative access to OSSS API")
+    rb.add_client_role(
+        "osss-api",
+        "api.teacher",
+        description="Teacher access to OSSS API",
         attributes={
-            "department": ["IT"],
-            "title": ["Administrator"],
-        },
-        groups=[  # optional; must exist in your realm tree
-            # "/Admins"
-        ],
-        service_account_client_id=None,
+            "allowed_schools": ["Heritage Elementary", "Oak View MS"],
+            "grade_bands": ["6-8"],
+            "scopes": ["students:read", "attendance:read", "roster:read"],
+            "max_results": ["1000"],
+        }
+    )
+
+    # --- Rebuild DBML from models ----
+    import_all_models("OSSS.db.models")
+    # Import the Base that models registered on
+    try:
+        base_mod = importlib.import_module("OSSS.db.base")
+        Base = getattr(base_mod, "Base")
+    except Exception as exc:
+        raise SystemExit(f"Could not import OSSS.db.base: {exc}")
+
+    md: sa.MetaData = Base.metadata
+
+    # Build DBML
+    chunks = []
+    # Sort tables for stable output
+    for tname in sorted(md.tables.keys()):
+        table = md.tables[tname]
+        chunks.append(emit_table_dbml(table))
+
+    # Refs last
+    chunks.append("")
+    chunks.append(emit_refs_dbml(md))
+
+    dbml = "\n\n".join(chunks).strip() + "\n"
+
+    with open("data_model/schema.dbml", "w", encoding="utf-8") as f:
+        f.write(dbml)
+
+    # ---- Read database table names from dbml
+    text = read_dbml_file("data_model/schema.dbml")
+    table_names = list(iter_table_names(text))
+    table_names = list(dict.fromkeys(table_names))  # preserve first-seen order
+    print(json.dumps(table_names, indent=2))
+
+    for table in table_names:
+        rb.add_client_role(
+            "osss-api",
+            f"read:{table}",
+            description="Read " + str(table),
+            attributes={
+                "allowed_schools": ["All"],
+                "grade_bands": ["k-12"],
+                # "scopes": ["students:read", "attendance:read", "roster:read"],
+                "max_results": "1000",
+            },
+        )
+
+        rb.add_client_role(
+            "osss-api",
+            f"manage:{table}",
+            description="Manage " + str(table),
+            attributes={
+                "allowed_schools": ["All"],
+                "grade_bands": ["k-12"],
+                # "scopes": ["students:read", "attendance:read", "roster:read"],
+                "max_results": "1000",
+            },
+        )
+
+    path = Path("RBAC.json")  # replace with your file
+    with path.open("r", encoding="utf-8") as f:
+        organizational_structure = json.load(f)  # dict or list
+
+    rb.add_groups_from_hierarchy(organizational_structure, role_client_id="osss-api")
+
+    # then add users for each `position_*`
+    rb.add_users_from_rbac_positions_file(
+        "RBAC.json",
+        email_domain="osss.local",
+        password="password",
+        temporary_password=False
     )
 
     rb.add_user(
@@ -1522,119 +1441,20 @@ def osss_realm() -> RealmRepresentation:
         totp=False,
         email_verified=True,
         password="password",
+        temporary_password=False,
         realm_roles=["uma_authorization"],
         client_roles={
             "account": ["view-profile"],
-            "osss-api": ["api.user","api.teacher"],  # create a "user" role on your osss-api
+            "osss-api": ["api.user", "api.teacher"],  # create a "user" role on your osss-api
         },
         attributes={"role": ["teacher"]},
     )
 
-    # Realm-level defaults: ensure *every* client gets these
-    rb.set_default_default_client_scopes(["roles", "web-origins", "profile", "email","roles"])
-    rb.set_default_optional_client_scopes(["address", "phone", "offline_access", "microprofile-jwt"])
+    out = rb.export()
 
-    return rb.build()
+    # with this (singular name, if that's how you defined it):
+    out = rb._finalize_for_export()
 
-
-# ---------------------------------------------------------------------
-# Build helpers + main
-# ---------------------------------------------------------------------
-
-def _norm_role_attrs(attrs: Optional[Dict[str, Any]]) -> Dict[str, List[str]]:
-    out: Dict[str, List[str]] = {}
-    if not attrs:
-        return out
-    for k, v in attrs.items():
-        if v is None:
-            continue
-        if isinstance(v, list):
-            out[k] = [str(x) for x in v]
-        else:
-            out[k] = [str(v)]
-    return out
-
-def _ensure_roles_container(realm):
-    """
-    Make sure self.realm.roles has the shape:
-      {
-        "realm": [ RoleRepresentation, ... ],
-        "client": { "<clientId>": [ RoleRepresentation, ... ] }
-      }
-    Works whether roles is a dict or a Pydantic model with .realm/.client.
-    """
-    roles = getattr(realm, "roles", None)
-    if roles is None:
-        realm.roles = {"realm": [], "client": {}}
-        return
-
-    # Pydantic model?
-    if hasattr(roles, "realm") or hasattr(roles, "client"):
-        if getattr(roles, "realm", None) is None:
-            roles.realm = []
-        if getattr(roles, "client", None) is None:
-            roles.client = {}
-        return
-
-    # Plain dict
-    if isinstance(roles, dict):
-        roles.setdefault("realm", [])
-        roles.setdefault("client", {})
-
-
-def _dedupe(seq: Optional[List[str]]) -> List[str]:
-    """Order-preserving de-duplication for small lists."""
-    return list(dict.fromkeys(seq or []))
-
-
-def build() -> RealmRepresentation:
-    """
-    Build realm and apply small normalizations:
-      - De-dupe realm-level default scopes and client-level scope lists
-      - De-dupe clientScopes by name
-    """
-    realm = osss_realm()
-
-    # De-dupe realm default scope lists
-    realm.defaultDefaultClientScopes = _dedupe(realm.defaultDefaultClientScopes)
-    realm.defaultOptionalClientScopes = _dedupe(realm.defaultOptionalClientScopes)
-
-    # De-dupe client-level scope lists
-    for c in realm.clients:
-        if c.defaultClientScopes is not None:
-            c.defaultClientScopes = _dedupe(c.defaultClientScopes)
-        if c.optionalClientScopes is not None:
-            c.optionalClientScopes = _dedupe(c.optionalClientScopes)
-
-    # Keep only unique clientScopes by name
-    seen: set[str] = set()
-    uniq: List[ClientScopeRepresentation] = []
-    for cs in realm.clientScopes:
-        if cs.name not in seen:
-            seen.add(cs.name)
-            uniq.append(cs)
-    realm.clientScopes = uniq
-
-    return realm
-
-
-if __name__ == "__main__":
-    # Build the realm
-    realm = build()
-
-    HERE = Path(__file__).resolve().parent
-    OUT = HERE / "realm-export.json"
-
-
-    payload = realm.model_dump(exclude_none=True)
-    with OUT.open("w", encoding="utf-8") as f:
-        json.dump(realm.model_dump(by_alias=True, exclude_none=True), f, indent=2)
-
-    # Tiny summary on stdout
-    print(f"✅ Wrote {OUT}")
-    print(
-        f"    clients={len(realm.clients)}  "
-        f"clientScopes={len(realm.clientScopes)}  "
-        f"realmRoles={len(realm.roles.realm)}  "
-        f"users={len(realm.users)}"
-    )
+    with open(args.out, "w") as f:
+        json.dump(out, f, indent=2)
+    LOG.info("Wrote realm export to %s", args.out)

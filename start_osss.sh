@@ -172,7 +172,7 @@ SQL
 
 # --- Config & defaults ---
 COMPOSE_FILE="${FK_COMPOSE_FILE:-${REPO_ROOT}/docker-compose.yml}"
-BOOT_WAIT="${FK_BOOT_WAIT:-90}"
+BOOT_WAIT="${FK_BOOT_WAIT:-180}"
 OIDC_DISCOVERY="${FK_OIDC_URL:-http://localhost:8085/realms/OSSS/.well-known/openid-configuration}"
 
 API_MODULE="${API_MODULE:-src.OSSS.main:app}"

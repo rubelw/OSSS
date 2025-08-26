@@ -9,7 +9,7 @@ const nextConfig = {
       },
       // do NOT add a catch-all /api/:path* rewrite
     ];
-  },
+  }
 };
 
 const path = require('path');
