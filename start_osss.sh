@@ -201,6 +201,13 @@ KEYCLOAK_CLIENT_SECRET="$(sanitize_secret "${KEYCLOAK_CLIENT_SECRET:-password}")
 KEYCLOAK_ADMIN="${KEYCLOAK_ADMIN:-admin}"
 KEYCLOAK_ADMIN_PASSWORD="$(sanitize_secret "${KEYCLOAK_ADMIN_PASSWORD:-admin}")"
 
+
+# --- Redis ----
+REDIS_TOKEN="${REDIS_TOKEN:-LoG1W0PtrKylYyQkSsk4FUcukhymnchrsjGLToF0U}"
+REDIS_USER="${REDIS_USER:-appuser}"
+REDIS_VERSION="${REDIS_VERSION:-'-7-alpine'}"
+
+
 # -------- Keycloak DB (kc_postgres) --------
 KC_DB_NAME="${KC_DB_NAME:-keycloak}"
 KC_DB_USERNAME="${KC_DB_USERNAME:-keycloak}"
@@ -343,12 +350,16 @@ ensure_role_and_db kc_postgres \
   "$KC_DB_USERNAME" "$KC_DB_PASSWORD" "$KC_DB_NAME" \
   "$KC_DB_USERNAME" "$KC_DB_PASSWORD"
 
+
+
 # Wait for Keycloak OIDC discovery
 if ! wait_for_url "${OIDC_DISCOVERY}" "${BOOT_WAIT}"; then
   echo "❌ Keycloak did not become ready at: ${OIDC_DISCOVERY}" >&2
   echo "🔎 Recent logs:"; ${COMPOSE_CMD} "${COMPOSE_ENV_ARGS[@]}" -f "${COMPOSE_FILE}" logs --tail=200 || true
   exit 1
 fi
+
+
 
 ### --- Run Alembic migrations on OSSS Postgres ---
 SYNC_DB_URL="${ALEMBIC_DATABASE_URL/postgresql+asyncpg/postgresql+psycopg2}"

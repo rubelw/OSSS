@@ -1,25 +1,60 @@
 from __future__ import annotations
+from typing import Optional, Dict, Any
+from pydantic import BaseModel, ConfigDict, Field
 
-from datetime import datetime, date, time
-from decimal import Decimal
-from typing import Any, Optional, List
+# -----------------------------
+# Base (shared fields)
+# -----------------------------
+class EntityTagBase(BaseModel):
+    entity_type: str = Field(..., min_length=1, max_length=50)
+    entity_id: str = Field(..., description="GUID/UUID of the entity being tagged")
+    tag_id: str = Field(..., description="GUID/UUID of the Tag")
+    # attributes: Optional[Dict[str, Any]] = None
 
-import sqlalchemy as sa
-from sqlalchemy import ForeignKey, UniqueConstraint, text
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+# -----------------------------
+# Create (POST)
+# -----------------------------
+class EntityTagCreate(EntityTagBase):
+    pass
 
-from OSSS.db.base import Base, UUIDMixin, GUID, JSONB
+# -----------------------------
+# Replace (PUT)
+# -----------------------------
+class EntityTagPut(EntityTagBase):
+    pass
 
-class EntityTag(Base):
-    __tablename__ = "entity_tags"
+# -----------------------------
+# Patch (PATCH)
+# -----------------------------
+class EntityTagPatch(BaseModel):
+    entity_type: Optional[str] = Field(None, min_length=1, max_length=50)
+    entity_id: Optional[str] = None
+    tag_id: Optional[str] = None
+    # attributes: Optional[Dict[str, Any]] = None
 
-    entity_type: Mapped[str] = mapped_column(sa.String(50), primary_key=True)
-    entity_id: Mapped[str] = mapped_column(GUID(), primary_key=True)
-    tag_id: Mapped[str] = mapped_column(
-        GUID(), sa.ForeignKey("tags.id", ondelete="CASCADE"), primary_key=True
-    )
+# -----------------------------
+# Read (GET)
+# -----------------------------
+class EntityTagRead(EntityTagBase):
+    id: str
+    model_config = ConfigDict(from_attributes=True)
 
-    __table_args__ = (
-        sa.Index("ix_entity_tags_entity", "entity_type", "entity_id"),
-        sa.Index("ix_entity_tags_tag", "tag_id"),
-    )
+# -----------------------------
+# Back-compat aliases (old names)
+# -----------------------------
+EntityTagOut = EntityTagRead        # response
+EntityTagIn = EntityTagCreate       # create
+EntityTagUpdate = EntityTagPatch    # patch
+EntityTagReplace = EntityTagPut     # put  <-- required by your imports
+
+__all__ = [
+    "EntityTagBase",
+    "EntityTagCreate",
+    "EntityTagPut",
+    "EntityTagPatch",
+    "EntityTagRead",
+    "EntityTagOut",
+    "EntityTagIn",
+    "EntityTagUpdate",
+    "EntityTagReplace",
+]

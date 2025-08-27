@@ -1,4 +1,6 @@
-// app/api/osss/behavior_codes/route.ts
+// app/api/behaviorcodes/route.ts
+export const runtime = "nodejs";
+
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { env } from "@/lib/env";
@@ -6,6 +8,7 @@ import { env } from "@/lib/env";
 export async function GET() {
   const session = await auth();
   const accessToken = (session as any)?.accessToken;
+
   if (!accessToken) {
     return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
   }
@@ -34,7 +37,7 @@ export async function GET() {
     const ct = res.headers.get("content-type") || "";
 
     if (!res.ok) {
-      console.error("Upstream /behavior_codes error", res.status, text);
+      console.error("Upstream /behaviorcodes error", res.status, text);
       return NextResponse.json(
         { error: "upstream_error", status: res.status, details: text.slice(0, 400) },
         { status: res.status }
@@ -43,7 +46,10 @@ export async function GET() {
 
     return ct.includes("application/json")
       ? NextResponse.json(JSON.parse(text))
-      : new NextResponse(text, { status: 200, headers: { "content-type": ct || "application/json" } });
+      : new NextResponse(text, {
+          status: 200,
+          headers: { "content-type": ct || "application/json" },
+        });
   } catch (err: any) {
     console.error("Fetch to OSSS API failed", err);
     return NextResponse.json(

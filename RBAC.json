@@ -2960,6 +2960,7 @@
                         "read:assignment_categories",
                         "read:assignments",
                         "read:bell_schedules",
+                        "read:behavior_codes",
                         "read:bodies",
                         "read:bus_routes",
                         "read:bus_stop_times",
@@ -3052,7 +3053,8 @@
                         "read:incident_participants",
                         "read:incidents",
                         "read:initiatives",
-                        "read:invoices"
+                        "read:invoices",
+                        "reac:schools"
                       ]
                     },
                     {

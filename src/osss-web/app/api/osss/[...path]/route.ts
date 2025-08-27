@@ -1,51 +1,76 @@
 // app/api/osss/[...path]/route.ts
-import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/auth";
 
-const BASE = process.env.OSSS_API_URL ?? "http://localhost:8000";
+export const runtime = "nodejs";
 
-function targetURL(segments: string[], search: string) {
-  const path = segments.join("/");
-  return `${BASE}/${path}${search ? `?${search}` : ""}`;
-}
+const BASE = process.env.OSSS_API_BASE_URL ?? "http://127.0.0.1:8081";
+const PREFIX = process.env.OSSS_API_PREFIX ?? "/";
 
-async function proxy(
-  req: NextRequest,
-  ctx: { params: Promise<{ path?: string[] }> } // <-- params is a Promise in Next 15
+async function forward(
+  req: Request,
+  ctx: { params: Promise<{ path?: string[] }> }
 ) {
-  const { path = [] } = await ctx.params;       // <-- await it
-  const url = targetURL(path, req.nextUrl.searchParams.toString());
+  // Next 15: params is a Promise
+  const { path = [] } = await ctx.params;
 
-  // Pass through body for non-GET/HEAD
-  const body =
-    req.method === "GET" || req.method === "HEAD" ? undefined : await req.arrayBuffer();
+  // Build upstream URL (preserve query string)
+  const incoming = new URL(req.url);
+  const joined = (PREFIX + "/" + path.join("/")).replace(/\/+/g, "/");
+  const upstream = new URL(joined, BASE);
+  upstream.search = incoming.search; // keep ?query=...
 
-  // Strip hop-by-hop headers that can confuse the upstream
+  // Pull access token from session
+  const session = await auth();
+  const accessToken = (session as any)?.accessToken;
+
+  // Prepare headers for upstream (no browser cookies!)
   const headers = new Headers(req.headers);
-  ["host", "connection", "content-length", "accept-encoding"].forEach((h) =>
-    headers.delete(h)
-  );
+  headers.delete("cookie");      // don't leak big Auth.js cookies to FastAPI
+  headers.delete("host");
+  headers.set("accept", "application/json");
+  if (accessToken) headers.set("authorization", `Bearer ${accessToken}`);
 
-  const res = await fetch(url, {
-    method: req.method,
+  // Clone body for non-GET/HEAD
+  const method = req.method.toUpperCase();
+  const body =
+    method === "GET" || method === "HEAD" ? undefined : await req.arrayBuffer();
+
+  const res = await fetch(upstream, {
+    method,
     headers,
     body,
     redirect: "manual",
     cache: "no-store",
   });
 
-  // Stream response back, preserving headers/status
-  const outHeaders = new Headers(res.headers);
-  return new NextResponse(res.body, {
+  // Stream back response
+  const resHeaders = new Headers(res.headers);
+  resHeaders.delete("content-encoding");
+  return new Response(res.body, {
     status: res.status,
-    headers: outHeaders,
+    headers: resHeaders,
   });
 }
 
-// Export handlers
-export const GET = proxy;
-export const POST = proxy;
-export const PUT = proxy;
-export const PATCH = proxy;
-export const DELETE = proxy;
-export const OPTIONS = proxy;
+export async function GET(req: Request, ctx: { params: Promise<{ path?: string[] }> }) {
+  return forward(req, ctx);
+}
+export async function POST(req: Request, ctx: { params: Promise<{ path?: string[] }> }) {
+  return forward(req, ctx);
+}
+export async function PUT(req: Request, ctx: { params: Promise<{ path?: string[] }> }) {
+  return forward(req, ctx);
+}
+export async function PATCH(req: Request, ctx: { params: Promise<{ path?: string[] }> }) {
+  return forward(req, ctx);
+}
+export async function DELETE(req: Request, ctx: { params: Promise<{ path?: string[] }> }) {
+  return forward(req, ctx);
+}
+export async function HEAD(req: Request, ctx: { params: Promise<{ path?: string[] }> }) {
+  return forward(req, ctx);
+}
+export async function OPTIONS(req: Request, ctx: { params: Promise<{ path?: string[] }> }) {
+  return forward(req, ctx);
+}
 

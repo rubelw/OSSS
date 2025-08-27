@@ -16,8 +16,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import text
 
-from OSSS.db.base import Base
-from OSSS.db.mixins import UUIDMixin  # provides id: str PK (String(36)) by convention
+from OSSS.db.base import Base, UUIDMixin
 
 
 class GlAccountBalance(UUIDMixin, Base):

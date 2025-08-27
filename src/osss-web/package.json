@@ -14,6 +14,9 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@auth/upstash-redis-adapter": "^2.10.0",
+    "@upstash/redis": "^1.35.3",
+    "ioredis": "^5.7.0",
     "next": "^15.5.0",
     "next-auth": "5.0.0-beta.29",
     "openid-client": "^5.7.1",
