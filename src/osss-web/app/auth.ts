@@ -1,3 +1,8 @@
+/**
+ * OSSS Web — Auth bootstrap (already commented elsewhere)
+ * Note: A fully commented version exists; this header marks the top of this copy.
+ * If the content changed, let me know and I’ll regenerate rich inline documentation.
+ */
 // auth.ts (v5 style)
 import NextAuth from "next-auth";
 import Keycloak from "next-auth/providers/keycloak";
@@ -71,3 +76,4 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
   },
 });
+
