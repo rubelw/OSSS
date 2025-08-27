@@ -5,6 +5,7 @@ from decimal import Decimal
 from .base import ORMBase
 
 class GlAccountBalanceBase(ORMBase):
+    __abstract__ = True
     account_id: str
     fiscal_period_id: str
     begin_balance: Decimal = Decimal("0")

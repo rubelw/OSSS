@@ -1,92 +1,199 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-import json
-import os
 import sys
+import os
+import json
+import time
+import base64
 from pathlib import Path
 from typing import Any, Dict, Optional
 
+import click
 import httpx
-import typer
 from rich.console import Console
 from rich.table import Table
-from rich.prompt import Prompt, Confirm
 from rich.panel import Panel
-import json, os
-from pathlib import Path
-from importlib import resources as pkg_resources  # Python 3.9+
+from rich.prompt import Confirm
 
-# Minimal built-in fallback so the menu always loads
-EMBEDDED_DEFAULT_MENU = {
-    "title": "OSSS CLI",
-    "header": "OSSS CLI — API: {api_base}",
-    "menu": [
-        {"key": "1", "label": "List schools", "action": "schools_list"},
-        {"key": "2", "label": "Get school", "action": "schools_get", "params": [{"name": "school_id", "prompt": "School ID"}]},
-        {"key": "3", "label": "Create school", "action": "schools_create",
-         "params": [
-            {"name": "name", "prompt": "Name"},
-            {"name": "district_id", "prompt": "District ID"},
-            {"name": "timezone", "prompt": "Timezone", "default": "", "none_if_empty": True},
-            {"name": "school_code", "prompt": "School Code", "default": "", "none_if_empty": True}
-         ]},
-        {"key": "4", "label": "Update school", "action": "schools_update",
-         "params": [
-            {"name": "school_id", "prompt": "School ID"},
-            {"name": "name", "prompt": "Name", "default": "", "none_if_empty": True},
-            {"name": "district_id", "prompt": "District ID", "default": "", "none_if_empty": True},
-            {"name": "timezone", "prompt": "Timezone", "default": "", "none_if_empty": True},
-            {"name": "school_code", "prompt": "School Code", "default": "", "none_if_empty": True}
-         ]},
-        {"key": "5", "label": "Delete school", "action": "schools_delete",
-         "params": [{"name": "school_id", "prompt": "School ID"}, {"name": "yes", "value": False}]},
-        {"key": "q", "label": "Quit", "action": "quit"}
-    ],
-    "submenus": {}
-}
-
+# --- TOML IO (py3.11 stdlib reader + tomli_w for writing) ---
 try:
-    import tomllib  # py3.11+
-except ModuleNotFoundError:
+    import tomllib  # Python 3.11+
+except ModuleNotFoundError:  # pragma: no cover
     import tomli as tomllib  # type: ignore
-from tomli_w import dump as toml_dump  # writes TOML
+from tomli_w import dump as toml_dump
 
-app = typer.Typer(add_completion=False, help="OSSS FastAPI CLI")
-cfg_app = typer.Typer(help="Configure API base and auth")
-app.add_typer(cfg_app, name="config")
-
+# -----------------------------------------------------------------------------
+# Globals / Config
+# -----------------------------------------------------------------------------
 console = Console()
 CONFIG_PATH = Path.home() / ".ossscli.toml"
 
-DEFAULTS = {
-    "api_base": os.getenv("OSSS_API_BASE", "http://localhost:8081"),
-    "token": os.getenv("OSSS_API_TOKEN", ""),
-    "timeout": 20,
+# Environment key mapping -> config keys
+ENV_MAP = {
+    # API
+    "OSSS_API_BASE": "api_base",
+    "OSSS_API_TOKEN": "token",
+    "OSSS_API_TIMEOUT": "timeout",
+    # Keycloak
+    "KC_BASE": "kc_base",
+    "KC_REALM": "kc_realm",
+    "KC_CLIENT_ID": "kc_client_id",
+    "KC_CLIENT_SECRET": "kc_client_secret",
+    "KC_SCOPE": "kc_scope",
 }
 
+DEFAULTS: Dict[str, Any] = {
+    # API server
+    "api_base": "http://localhost:8081",
+    "timeout": 20,
+    "token": "",  # kept for compatibility; mirrors kc_access_token after login
+
+    # Keycloak defaults
+    "kc_base": "http://localhost:8085",
+    "kc_realm": "OSSS",
+    "kc_client_id": "osss-cli",
+    "kc_client_secret": "",
+    "kc_scope": "openid profile email roles",
+
+    # tokens (populated by auth login/refresh)
+    "kc_access_token": "",
+    "kc_refresh_token": "",
+    "kc_expires_at": 0.0,
+}
+
+# Explicit override path for .env: always try ../../.env from the current working directory
+DOTENV_OVERRIDE_PATH = (Path.cwd() / "../../.env").resolve()
+
+# -----------------------------------------------------------------------------
+# .env loading (no external dependency)
+# -----------------------------------------------------------------------------
+def _parse_dotenv(path: Path) -> Dict[str, str]:
+    env: Dict[str, str] = {}
+    if not path.exists() or not path.is_file():
+        return env
+    for raw in path.read_text().splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        k, v = line.split("=", 1)
+        k, v = k.strip(), v.strip()
+        if v and ((v[0] == v[-1] == '"') or (v[0] == v[-1] == "'")):
+            v = v[1:-1]
+        env[k] = v
+    return env
+
+def _load_env_vars() -> Dict[str, str]:
+    """Load env from ../../.env (relative to CWD) and OS env (OS overrides file)."""
+    file_env: Dict[str, str] = _parse_dotenv(DOTENV_OVERRIDE_PATH)
+    merged: Dict[str, str] = dict(file_env)
+    for k in ENV_MAP.keys():
+        if k in os.environ and os.environ[k] != "":
+            merged[k] = os.environ[k]
+    return merged
+
+# -----------------------------------------------------------------------------
+# Helpers
+# -----------------------------------------------------------------------------
+def _kc_urls(cfg: Dict[str, Any]) -> Dict[str, str]:
+    base = (cfg.get("kc_base") or DEFAULTS["kc_base"]).rstrip("/")
+    realm = cfg.get("kc_realm") or DEFAULTS["kc_realm"]
+    root = f"{base}/realms/{realm}/protocol/openid-connect"
+    return {
+        "token": f"{root}/token",
+        "userinfo": f"{root}/userinfo",
+        "logout": f"{root}/logout",
+    }
+
+def _jwt_payload(token: str) -> Dict[str, Any]:
+    try:
+        parts = token.split(".")
+        if len(parts) != 3:
+            return {}
+        pad = "=" * (-len(parts[1]) % 4)
+        raw = base64.urlsafe_b64decode(parts[1] + pad)
+        return json.loads(raw.decode("utf-8"))
+    except Exception:
+        return {}
+
 def load_config() -> Dict[str, Any]:
+    """Effective config precedence:
+       DEFAULTS < saved config (~/.ossscli.toml) < ../../.env < OS env
+       (tokens are persisted in config; env won't blank them out)
+    """
+    cfg = dict(DEFAULTS)
+
+    # Load saved config
     if CONFIG_PATH.exists():
         with CONFIG_PATH.open("rb") as f:
-            data = tomllib.load(f)
-    else:
-        data = {}
-    for k, v in DEFAULTS.items():
-        data.setdefault(k, v)
-    return data
+            file_cfg = tomllib.load(f)
+        cfg.update({k: v for k, v in file_cfg.items() if v not in ("", None)})
+
+    # Load explicit ../../.env and OS env
+    env_vars = _load_env_vars()
+    for env_key, conf_key in ENV_MAP.items():
+        val = env_vars.get(env_key, None)
+        if val not in (None, ""):
+            if conf_key == "timeout":
+                try:
+                    cfg[conf_key] = int(val)
+                    continue
+                except ValueError:
+                    pass
+            cfg[conf_key] = val
+
+    return cfg
 
 def save_config(cfg: Dict[str, Any]) -> None:
+    CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    if cfg.get("kc_access_token"):
+        cfg["token"] = cfg["kc_access_token"]
     with CONFIG_PATH.open("wb") as f:
         toml_dump(cfg, f)
 
+def _maybe_refresh(cfg: Dict[str, Any]) -> Dict[str, Any]:
+    now = time.time()
+    exp = float(cfg.get("kc_expires_at") or 0.0)
+    rt = cfg.get("kc_refresh_token") or ""
+    if rt and (not cfg.get("kc_access_token") or now >= exp - 10):
+        urls = _kc_urls(cfg)
+        data = {
+            "grant_type": "refresh_token",
+            "client_id": cfg["kc_client_id"],
+            "refresh_token": rt,
+        }
+        if cfg.get("kc_client_secret"):
+            data["client_secret"] = cfg["kc_client_secret"]
+        try:
+            with httpx.Client(timeout=int(cfg.get("timeout", 20))) as c:
+                r = c.post(urls["token"], data=data, headers={"Content-Type": "application/x-www-form-urlencoded"})
+            if r.is_success:
+                tok = r.json()
+                cfg["kc_access_token"] = tok.get("access_token", "")
+                cfg["kc_refresh_token"] = tok.get("refresh_token", rt)
+                cfg["kc_expires_at"] = time.time() + float(tok.get("expires_in", 60)) - 30
+                cfg["token"] = cfg["kc_access_token"]
+                save_config(cfg)
+                console.log("[green]Token refreshed[/]")
+            else:
+                console.log(f"[red]Refresh failed:[/] {r.status_code} {r.text}")
+        except Exception as e:
+            console.log(f"[red]Refresh error:[/] {e}")
+    return cfg
+
 def client(cfg: Dict[str, Any]) -> httpx.Client:
-    headers = {}
-    if cfg.get("token"):
-        headers["Authorization"] = f"Bearer {cfg['token']}"
-    return httpx.Client(base_url=cfg["api_base"], headers=headers, timeout=cfg.get("timeout", 20))
+    cfg = _maybe_refresh(cfg)
+    headers: Dict[str, str] = {"Accept": "application/json"}
+    token = cfg.get("kc_access_token") or cfg.get("token")
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    return httpx.Client(base_url=cfg["api_base"], headers=headers, timeout=int(cfg.get("timeout", 20)))
 
 def show_json(obj: Any) -> None:
-    console.print_json(data=obj if isinstance(obj, (dict, list)) else json.loads(obj))
+    if isinstance(obj, (dict, list)):
+        console.print_json(data=obj)
+    else:
+        console.print_json(obj)
 
 def show_table(items: list[dict[str, Any]], columns: list[str]) -> None:
     t = Table(show_lines=False)
@@ -96,50 +203,203 @@ def show_table(items: list[dict[str, Any]], columns: list[str]) -> None:
         t.add_row(*(str(it.get(c, "")) for c in columns))
     console.print(t)
 
-@cfg_app.command("show")
-def config_show():
-    cfg = load_config()
-    console.print(Panel.fit(json.dumps(cfg, indent=2), title="Config"))
-
-@cfg_app.command("set-base")
-def config_set_base(api_base: str = typer.Argument(..., help="e.g. http://localhost:8081")):
-    cfg = load_config()
-    cfg["api_base"] = api_base.rstrip("/")
-    save_config(cfg)
-    console.print(f"[green]Saved[/] api_base = {cfg['api_base']}")
-
-@cfg_app.command("set-token")
-def config_set_token(token: str = typer.Argument(..., help="Bearer token (Keycloak, etc.)")):
-    cfg = load_config()
-    cfg["token"] = token
-    save_config(cfg)
-    console.print(f"[green]Saved[/] token")
-
-# ---- Schools resource (clone this section for other resources) ---- #
-
-schools_app = typer.Typer(help="Manage schools")
-app.add_typer(schools_app, name="schools")
-
 def _handle_resp(r: httpx.Response):
-    if r.headers.get("content-type","").startswith("application/json"):
-        data = r.json()
-    else:
-        data = r.text
+    ctype = (r.headers.get("content-type") or "").split(";")[0].strip()
+    data = r.json() if ctype == "application/json" else r.text
     if r.is_success:
         return data
     msg = data if isinstance(data, str) else json.dumps(data, indent=2)
     console.print(f"[red]HTTP {r.status_code}[/]: {msg}")
-    raise typer.Exit(1)
+    raise click.Abort()
 
 def _confirm_delete(kind: str, ident: Any) -> bool:
     return Confirm.ask(f"Delete {kind} [bold]{ident}[/]?")
 
-@schools_app.command("list")
-def schools_list(limit: int = 50, cursor: Optional[str] = None):
+# -----------------------------------------------------------------------------
+# Click Application
+# -----------------------------------------------------------------------------
+@click.group(help="OSSS CLI (Click edition)")
+def cli() -> None:
+    """Top-level command group."""
+
+# ---- config subgroup ----
+@cli.group("config", help="View or set CLI configuration")
+def config_group() -> None:
+    pass
+
+@config_group.command("show", help="Show effective configuration")
+def config_show() -> None:
+    cfg = load_config()
+    redacted = {**cfg, "kc_client_secret": "***" if cfg.get("kc_client_secret") else ""}
+    # include which .env path we read for clarity
+    redacted["_env_path"] = str(DOTENV_OVERRIDE_PATH)
+    console.print(Panel.fit(json.dumps(redacted, indent=2), title="Config"))
+
+@config_group.command("set-base", help="Set API base URL, e.g., http://localhost:8081")
+@click.argument("api_base", metavar="API_BASE")
+def config_set_base(api_base: str) -> None:
+    cfg = load_config()
+    cfg["api_base"] = api_base
+    save_config(cfg)
+    console.print(f"[green]Saved[/] api_base = [cyan]{api_base}[/]")
+
+@config_group.command("set-token", help="Set bearer token used for API calls")
+@click.argument("token", metavar="TOKEN")
+def config_set_token(token: str) -> None:
+    cfg = load_config()
+    cfg["kc_access_token"] = token
+    cfg["token"] = token
+    cfg["kc_expires_at"] = time.time() + 60  # unknown; force refresh if refresh_token exists
+    save_config(cfg)
+    console.print(f"[green]Saved[/] token")
+
+@config_group.command("from-env", help="Load ../../.env and OS env into saved config")
+def config_from_env() -> None:
+    cfg = load_config()
+    env_vars = _load_env_vars()
+    changed = False
+    for env_key, conf_key in ENV_MAP.items():
+        val = env_vars.get(env_key, None)
+        if val not in (None, ""):
+            if conf_key in {"kc_access_token", "kc_refresh_token"}:
+                continue
+            cfg[conf_key] = val
+            changed = True
+    if changed:
+        save_config(cfg)
+        console.print("[green]Config updated from env[/]")
+    else:
+        console.print("[yellow]No changes from env[/]")
+
+# ---- auth subgroup (Keycloak) ----
+@cli.group("auth", help="Authenticate with Keycloak")
+def auth_group() -> None:
+    pass
+
+@auth_group.command("login", help="Login via Direct Access Grants (password flow)")
+@click.option("--username", prompt=True)
+@click.option("--password", prompt=True, hide_input=True)
+@click.option("--client-id", default=None, help="Override client_id")
+@click.option("--client-secret", default=None, help="Override client_secret")
+@click.option("--realm", default=None, help="Override realm")
+@click.option("--base", "base_url", default=None, help="Override Keycloak base, e.g. http://localhost:8085")
+@click.option("--scope", default=None, help="Override OIDC scope (space-separated)")
+def auth_login(username: str, password: str, client_id: Optional[str], client_secret: Optional[str],
+               realm: Optional[str], base_url: Optional[str], scope: Optional[str]) -> None:
+    cfg = load_config()
+    if client_id: cfg["kc_client_id"] = client_id
+    if client_secret is not None: cfg["kc_client_secret"] = client_secret
+    if realm: cfg["kc_realm"] = realm
+    if base_url: cfg["kc_base"] = base_url
+    if scope: cfg["kc_scope"] = scope
+
+    urls = _kc_urls(cfg)
+    data = {
+        "grant_type": "password",
+        "client_id": cfg["kc_client_id"],
+        "username": username,
+        "password": password,
+        "scope": cfg.get("kc_scope", "openid profile email roles"),
+    }
+    if cfg.get("kc_client_secret"):
+        data["client_secret"] = cfg["kc_client_secret"]
+
+    with httpx.Client(timeout=int(cfg.get("timeout", 20))) as c:
+        r = c.post(urls["token"], data=data, headers={"Content-Type": "application/x-www-form-urlencoded"})
+    if not r.is_success:
+        console.print(f"[red]Login failed[/] {r.status_code}: {r.text}")
+        raise click.Abort()
+
+    tok = r.json()
+    cfg["kc_access_token"] = tok.get("access_token", "")
+    cfg["kc_refresh_token"] = tok.get("refresh_token", "")
+    cfg["kc_expires_at"] = time.time() + float(tok.get("expires_in", 60)) - 30
+    cfg["token"] = cfg["kc_access_token"]
+    save_config(cfg)
+
+    claims = _jwt_payload(cfg["kc_access_token"])
+    roles = (claims.get("realm_access", {}) or {}).get("roles", [])
+    console.print("[green]Logged in[/] ✅")
+    console.print(f"user: [cyan]{claims.get('preferred_username') or claims.get('sub')}[/]  realm: [cyan]{cfg['kc_realm']}[/]")
+    if roles:
+        console.print("roles:", ", ".join(roles))
+
+@auth_group.command("refresh", help="Force a token refresh using the stored refresh_token")
+def auth_refresh() -> None:
+    cfg = load_config()
+    before = cfg.get("kc_access_token")
+    _maybe_refresh(cfg)
+    after = cfg.get("kc_access_token")
+    if after and after != before:
+        console.print("[green]Refreshed[/] ✅")
+    else:
+        console.print("[yellow]No refresh performed[/] (missing/expired refresh token?)")
+
+@auth_group.command("logout", help="Logout (revokes refresh token if possible)")
+def auth_logout() -> None:
+    cfg = load_config()
+    urls = _kc_urls(cfg)
+    data = {
+        "client_id": cfg["kc_client_id"],
+        "refresh_token": cfg.get("kc_refresh_token", ""),
+    }
+    if cfg.get("kc_client_secret"):
+        data["client_secret"] = cfg["kc_client_secret"]
+
+    ok = False
+    if data["refresh_token"]:
+        try:
+            with httpx.Client(timeout=int(cfg.get("timeout", 20))) as c:
+                r = c.post(urls["logout"], data=data, headers={"Content-Type": "application/x-www-form-urlencoded"})
+            ok = r.is_success
+        except Exception as e:
+            console.log(f"[red]Logout error:[/] {e}")
+
+    for k in ["kc_access_token", "kc_refresh_token", "kc_expires_at", "token"]:
+        cfg[k] = "" if k != "kc_expires_at" else 0.0
+    save_config(cfg)
+    console.print("[green]Logged out[/] ✅" if ok else "[yellow]Local tokens cleared[/]")
+
+@auth_group.command("whoami", help="Show current user/claims from token or userinfo endpoint")
+def auth_whoami() -> None:
+    cfg = load_config()
+    cfg = _maybe_refresh(cfg)
+    token = cfg.get("kc_access_token") or cfg.get("token")
+    if not token:
+        console.print("[red]Not authenticated[/] (no access token)")
+        raise click.Abort()
+
+    urls = _kc_urls(cfg)
+    try:
+        with httpx.Client(timeout=int(cfg.get("timeout", 20))) as c:
+            r = c.get(urls["userinfo"], headers={"Authorization": f"Bearer {token}"})
+        if r.is_success:
+            data = r.json()
+            console.print(Panel.fit(json.dumps(data, indent=2), title="userinfo"))
+            return
+    except Exception:
+        pass
+
+    claims = _jwt_payload(token)
+    if claims:
+        console.print(Panel.fit(json.dumps(claims, indent=2), title="access_token (decoded)"))
+    else:
+        console.print("[red]Could not retrieve user info[/]")
+
+# ---- schools subgroup ----
+@cli.group("schools", help="Manage schools resources")
+def schools_group() -> None:
+    pass
+
+@schools_group.command("list", help="List schools")
+@click.option("--limit", default=50, show_default=True, type=int)
+@click.option("--cursor", default=None)
+def schools_list(limit: int, cursor: Optional[str]) -> None:
     cfg = load_config()
     with client(cfg) as c:
         r = c.get("/schools", params={"limit": limit, "cursor": cursor})
         data = _handle_resp(r)
+
     items = data.get("items", data) if isinstance(data, dict) else data
     if isinstance(items, list) and items and isinstance(items[0], dict):
         cols = ["id", "name", "district_id", "timezone"]
@@ -148,22 +408,22 @@ def schools_list(limit: int = 50, cursor: Optional[str] = None):
     else:
         show_json(items)
 
-@schools_app.command("get")
-def schools_get(school_id: str):
+@schools_group.command("get", help="Get a school by ID")
+@click.argument("school_id")
+def schools_get(school_id: str) -> None:
     cfg = load_config()
     with client(cfg) as c:
         r = c.get(f"/schools/{school_id}")
         data = _handle_resp(r)
     show_json(data)
 
-@schools_app.command("create")
-def schools_create(
-    name: str = typer.Option(...),
-    district_id: str = typer.Option(...),
-    timezone: Optional[str] = typer.Option(None),
-    school_code: Optional[str] = typer.Option(None),
-):
-    payload = {"name": name, "district_id": district_id}
+@schools_group.command("create", help="Create a school")
+@click.option("--name", required=True, help="School name")
+@click.option("--district-id", "district_id", required=True, help="District id")
+@click.option("--timezone", default=None)
+@click.option("--school-code", "school_code", default=None)
+def schools_create(name: str, district_id: str, timezone: Optional[str], school_code: Optional[str]) -> None:
+    payload: Dict[str, Any] = {"name": name, "district_id": district_id}
     if timezone: payload["timezone"] = timezone
     if school_code: payload["school_code"] = school_code
     cfg = load_config()
@@ -173,20 +433,19 @@ def schools_create(
     console.print("[green]Created[/] ✅")
     show_json(data)
 
-@schools_app.command("update")
-def schools_update(
-    school_id: str,
-    name: Optional[str] = typer.Option(None),
-    district_id: Optional[str] = typer.Option(None),
-    timezone: Optional[str] = typer.Option(None),
-    school_code: Optional[str] = typer.Option(None),
-):
-    payload = {k:v for k,v in {
+@schools_group.command("update", help="Update a school (partial)")
+@click.argument("school_id")
+@click.option("--name", default=None)
+@click.option("--district-id", "district_id", default=None)
+@click.option("--timezone", default=None)
+@click.option("--school-code", "school_code", default=None)
+def schools_update(school_id: str, name: Optional[str], district_id: Optional[str], timezone: Optional[str], school_code: Optional[str]) -> None:
+    payload = {k: v for k, v in {
         "name": name, "district_id": district_id, "timezone": timezone, "school_code": school_code
     }.items() if v is not None}
     if not payload:
         console.print("[yellow]Nothing to update[/]")
-        raise typer.Exit(0)
+        raise click.Abort()
     cfg = load_config()
     with client(cfg) as c:
         r = c.put(f"/schools/{school_id}", json=payload, headers={"Content-Type": "application/json"})
@@ -194,303 +453,58 @@ def schools_update(
     console.print("[green]Updated[/] ✅")
     show_json(data)
 
-@schools_app.command("delete")
-def schools_delete(school_id: str, yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirm")):
+@schools_group.command("delete", help="Delete a school by ID")
+@click.argument("school_id")
+@click.option("--yes", "-y", is_flag=True, help="Skip confirm")
+def schools_delete(school_id: str, yes: bool) -> None:
     if not yes and not _confirm_delete("school", school_id):
-        raise typer.Exit(0)
+        console.print("[yellow]Cancelled[/]")
+        return
     cfg = load_config()
     with client(cfg) as c:
         r = c.delete(f"/schools/{school_id}")
         _handle_resp(r)
     console.print("[green]Deleted[/] ✅")
 
-# ---- Interactive menu ---- #
-import json
-import os
-import sys
-from pathlib import Path
-from typing import Any, Dict, Callable
-
-from rich.panel import Panel
-from rich.prompt import Prompt
-from rich.table import Table
-
-try:
-    # Py3.9+ recommended
-    import importlib.resources as pkg_resources
-except Exception:  # pragma: no cover
-    import importlib_resources as pkg_resources  # type: ignore
-
-# Adjust these imports to your actual module paths
-# from .api import schools_list, schools_get, schools_create, schools_update, schools_delete
-# from .config import load_config, save_config
-# from .app import app, console
-
-# ---------- Menu JSON loading ----------
-
-def _expand_placeholders(s: str, cfg: Dict[str, Any]) -> str:
-    try:
-        return s.format_map({**cfg})
-    except Exception:
-        return s
-
-def _read_json_file(p: Path):
-    with p.open("r", encoding="utf-8") as f:
-        return json.load(f)
-
-def load_menu_json(cfg):
-    # 0) Explicit override via env
-    env_path = os.getenv("OSSS_MENU_FILE")
-    if env_path and Path(env_path).is_file():
-        return _read_json_file(Path(env_path))
-
-    # 1) User config
-    user_cfg = Path.home() / ".config" / "osss-cli" / "menu.json"
-    if user_cfg.is_file():
-        return _read_json_file(user_cfg)
-
-    # 2) Packaged default — resolve current top-level package dynamically
-    # Example: if this file is OSSS/cli.py, __package__ might be "OSSS"
-    top_pkg = (__package__ or "").split(".", 1)[0] or "OSSS"
-
-    # Try "<top_pkg>.assets/menu.json" then "<top_pkg>/assets/menu.json" by path
-    last_err = None
-    candidates = [
-        f"{top_pkg}.assets",  # package with resources
-        top_pkg,              # top package; we'll try joinpath('assets/menu.json')
-    ]
-    for pkg_name in candidates:
-        try:
-            files = pkg_resources.files(pkg_name)
-            # direct asset
-            candidate = files.joinpath("menu.json")
-            if candidate.is_file():
-                with candidate.open("r", encoding="utf-8") as f:
-                    return json.load(f)
-            # assets/menu.json
-            candidate = files.joinpath("assets").joinpath("menu.json")
-            if candidate.is_file():
-                with candidate.open("r", encoding="utf-8") as f:
-                    return json.load(f)
-        except Exception as e:
-            last_err = e
-
-    # 3) Dev fallback: next to this file as ./assets/menu.json
-    local = Path(__file__).with_name("assets") / "menu.json"
-    if local.is_file():
-        return _read_json_file(local)
-
-    # 4) Embedded fallback to guarantee functionality
-    return EMBEDDED_DEFAULT_MENU
-
-# ---------- Actions registry ----------
-
-class _QuitMenu(Exception):
-    pass
-
-class _BackMenu(Exception):
-    pass
-
-def _act_schools_list(**kw):
-    return schools_list()
-
-def _act_schools_get(**kw):
-    # accept "school_id" or fallback "sid"
-    sid = kw.get("school_id") or kw.get("sid")
-    return schools_get(sid)
-
-def _act_schools_create(**kw):
-    return schools_create(
-        name=kw.get("name"),
-        district_id=kw.get("district_id"),
-        timezone=kw.get("timezone"),
-        school_code=kw.get("school_code"),
-    )
-
-def _act_schools_update(**kw):
-    return schools_update(
-        school_id=kw.get("school_id") or kw.get("sid"),
-        name=kw.get("name"),
-        district_id=kw.get("district_id"),
-        timezone=kw.get("timezone"),
-        school_code=kw.get("school_code"),
-    )
-
-def _act_schools_delete(**kw):
-    return schools_delete(kw.get("school_id") or kw.get("sid"), yes=kw.get("yes", False))
-
-def _act_config_set(**kw):
+# -----------------------------------------------------------------------------
+# Interactive menu (unchanged; invoke when no args)
+# -----------------------------------------------------------------------------
+def menu() -> None:
     cfg = load_config()
-    # support arbitrary key=value updates, but default to api_base
-    key = next((k for k in kw.keys() if k in ("api_base", "api_base_url", "api_base_uri", "api")), "api_base")
-    val = kw.get(key)
-    if key == "api_base" and isinstance(val, str):
-        val = val.rstrip("/")
-    cfg[key] = val
-    save_config(cfg)
-    console.print("[green]Saved[/]")
-
-def _act_config_set_secret(**kw):
-    cfg = load_config()
-    token = kw.get("token")
-    if token is not None:
-        cfg["token"] = token
-        save_config(cfg)
-        console.print("[green]Saved[/]")
-
-def _act_quit(**kw):
-    raise _QuitMenu()
-
-def _act_back(**kw):
-    raise _BackMenu()
-
-
-ACTION_REGISTRY: Dict[str, Callable[..., Any]] = {
-    "schools_list": _act_schools_list,
-    "schools_get": _act_schools_get,
-    "schools_create": _act_schools_create,
-    "schools_update": _act_schools_update,
-    "schools_delete": _act_schools_delete,
-    "config_set": _act_config_set,
-    "config_set_secret": _act_config_set_secret,
-    "quit": _act_quit,
-    "back": _act_back,
-}
-
-
-# ---------- Prompt helpers from JSON spec ----------
-
-def _gather_params(params_spec, cfg: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    params_spec: list of objects, each may contain:
-      - name (str) [required]
-      - prompt (str) [optional] -> if present, ask user
-      - default (str) [optional] -> rendered via placeholders
-      - secret (bool) [optional] -> Prompt with password=True
-      - value (Any) [optional] -> constant value (no prompt)
-      - none_if_empty (bool) [optional] -> if user enters "", store None
-    """
-    result: Dict[str, Any] = {}
-    for p in params_spec or []:
-        name = p["name"]
-        if "value" in p:
-            result[name] = p["value"]
-            continue
-
-        default = p.get("default")
-        if isinstance(default, str):
-            default = _expand_placeholders(default, cfg)
-
-        if "prompt" in p:
-            val = Prompt.ask(
-                p["prompt"],
-                default=str(default) if default is not None else None,
-                password=bool(p.get("secret", False)),
-            )
-            if p.get("none_if_empty") and (val == "" or val is None):
-                val = None
-            result[name] = val
-        else:
-            # no prompt -> use default (possibly None)
-            result[name] = default
-    return result
-
-
-def _render_menu(menu_def: Dict[str, Any], cfg: Dict[str, Any]) -> None:
-    """
-    Renders a menu loop based on a menu definition:
-      {
-        "title": str,
-        "menu": [ {"key": "...", "label": "...", "action": "name" or "submenu": "id", "params": [...] }, ... ]
-      }
-    """
-    title = menu_def.get("title", "Menu")
+    console.print(Panel.fit(
+        f"OSSS CLI — API: [cyan]{cfg['api_base']}[/]  |  KC: [cyan]{cfg['kc_base']}[/]/realms/{cfg['kc_realm']}"
+    ))
     while True:
-        table = Table(title=title, show_header=False)
-        table.add_column("Key", no_wrap=True, style="bold")
-        table.add_column("Action")
-        for item in menu_def.get("menu", []):
-            table.add_row(f"{item['key']})", item["label"])
-        console.print(table)
-
-        choice = Prompt.ask("Select", default=str(menu_def.get("default", ""))).strip()
-        # find item by key (case-insensitive)
-        item = next((i for i in menu_def.get("menu", []) if i["key"].lower() == choice.lower()), None)
-        if not item:
-            console.print("[yellow]Unknown choice[/]")
-            continue
-
+        console.print("\n[bold]Main Menu[/]")
+        console.print(" 1) Config: show")
+        console.print(" 2) Config: from-env")
+        console.print(" 3) Auth: login")
+        console.print(" 4) Auth: whoami")
+        console.print(" 5) Schools: list")
+        console.print(" q) Quit")
+        choice = input("Select> ").strip().lower()
         try:
-            if "submenu" in item:
-                # descend into submenu
-                submenu_id = item["submenu"]
-                sub = _MENU_SPEC["submenus"].get(submenu_id)
-                if not sub:
-                    console.print(f"[red]Submenu not found:[/] {submenu_id}")
-                    continue
-                _render_menu(sub, cfg)
-                continue
-
-            # action
-            action = item.get("action")
-            if not action:
-                console.print("[yellow]No action defined[/]")
-                continue
-
-            fn = ACTION_REGISTRY.get(action)
-            if not fn:
-                console.print(f"[yellow]Unrecognized action:[/] {action}")
-                continue
-
-            # collect params (if any)
-            params = _gather_params(item.get("params", []), cfg)
-            # perform call
-            fn(**params)
-
-        except _BackMenu:
-            # return to parent menu
-            return
-        except _QuitMenu:
-            raise
-        except SystemExit:
+            if choice == "1":
+                config_show(standalone_mode=False)  # type: ignore
+            elif choice == "2":
+                config_from_env(standalone_mode=False)  # type: ignore
+            elif choice == "3":
+                auth_login(standalone_mode=False)  # prompts
+            elif choice == "4":
+                auth_whoami(standalone_mode=False)  # type: ignore
+            elif choice == "5":
+                schools_list.callback(limit=50, cursor=None)  # type: ignore
+            elif choice in {"q", "quit"}:
+                console.print("Bye!")
+                return
+        except click.Abort:
             pass
-        except Exception as e:
-            console.print(f"[red]Error:[/] {e}")
-
-
-# ---------- Public entrypoint ----------
-
-def menu():
-    cfg = load_config()
-    # Load spec & render header panel if defined
-    global _MENU_SPEC
-    _MENU_SPEC = load_menu_json(cfg)
-
-    header = _MENU_SPEC.get("header")
-    if isinstance(header, str):
-        console.print(Panel.fit(_expand_placeholders(header, cfg)))
-    else:
-        # fallback to previous header
-        console.print(Panel.fit(f"OSSS CLI — API: [cyan]{cfg['api_base']}[/]"))
-
-    try:
-        # top-level menu
-        top = {
-            "title": _MENU_SPEC.get("title", "OSSS CLI"),
-            "menu": _MENU_SPEC.get("menu", []),
-            "default": _MENU_SPEC.get("default", "1"),
-        }
-        _render_menu(top, cfg)
-    except _QuitMenu:
-        console.print("Bye!")
-
 
 def _main():
     if len(sys.argv) == 1:
         menu()
     else:
-        app()
-
+        cli()
 
 if __name__ == "__main__":
     _main()

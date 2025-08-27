@@ -55,7 +55,6 @@ from OSSS.resources import registry, autodiscover  # importing triggers registra
 # ⬇️ add this once (module level is fine)
 log = logging.getLogger("startup")
 
-
 def create_app() -> FastAPI:
     app = FastAPI(title=settings.APP_NAME, version=settings.APP_VERSION)
 

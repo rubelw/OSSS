@@ -7,6 +7,11 @@ import uuid
 from pydantic import Field
 from OSSS.schemas.base import APIModel
 
+# src/OSSS/db/models/order_create.py
+# Do NOT declare a second mapped class here.
+from .line_item import OrderLineItem  # reuse the mapping
+__all__ = ["OrderLineItem"]
+
 
 class OrderOut(APIModel):
     event_id: Any

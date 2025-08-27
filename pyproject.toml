@@ -6,8 +6,10 @@ build-backend = "setuptools.build_meta"
 name = "OSSS"
 version = "0.0.0.dev0"  # static to avoid dynamic import during build
 description = "Open Source School Software"
-requires-python = ">=3.9"
+requires-python = ">=3.11"
+license = { text = "Apache-2.0" }  # SPDX, avoids the classifier warning
 keywords = ["Keycloak", "FastAPI", "Authentication", "Authorization", "School"]
+
 authors = [
     { name = "Will Rubel", email = "will.rubel@gmail.com" }
 ]
@@ -87,7 +89,11 @@ dependencies = [
      "fastapi",
      "uvicorn",
      "httpx>=0.24",
-     "python-jose[cryptography]>=3.3"
+     "python-jose[cryptography]>=3.3",
+     "click",
+     "httpx",
+     "rich",
+     "tomli_w"
 ]
 
 
@@ -129,4 +135,4 @@ readme = { file = ["README.md"], content-type = "text/markdown" }
 "osss_cli" = ["__pycache__"]
 
 [project.scripts]
-osss = "OSSS.cli:_main"
+osss = "OSSS.cli:cli"
