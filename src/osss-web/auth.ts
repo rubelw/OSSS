@@ -53,7 +53,7 @@ const clientId =
 
 const clientSecret = process.env.WEB_KEYCLOAK_CLIENT_SECRET?.trim();
 
-export const { handlers, auth, signIn, signOut } = NextAuth(
+export const { handlers: {GET, POST}, auth, signIn, signOut } = NextAuth(
   /**
    * ----------------------------------------------------------------------------
    * Auth.js (NextAuth) configuration

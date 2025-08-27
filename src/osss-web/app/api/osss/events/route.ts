@@ -1,8 +1,10 @@
-import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { env } from "@/lib/env";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 
-export async function GET() {
+export async function GET(_req: NextRequest, context: { params: Promise<{ id: string }> }) {
+  const { id } = await context.params;   // 👈 await the Promise
   const session = await auth();
   const accessToken = (session as any)?.accessToken;
   if (!accessToken) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });

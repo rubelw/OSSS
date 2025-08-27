@@ -1,0 +1,57 @@
+site_name: OSSS Developer Documentation
+site_url: /
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.tabs
+    - content.code.copy
+    - toc.integrate
+  icon:
+    repo: fontawesome/brands/github
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+
+# Where the static site gets written (your requirement)
+site_dir: documentation
+
+# Docs sources (Markdown). We'll hand-write some and also generate via plugins.
+docs_dir: docs
+
+nav:
+  - Overview: index.md
+  - Frontend (Next.js):
+      - Overview: frontend/overview.md
+      - API (TypeScript): api/web/README.md  # or the main index typedoc generated
+  - Backend (Python):
+      - Overview: backend/overview.md
+      - API (Python):
+          - Index: api/python/index.md
+          - OSSS package: api/python/OSSS.md
+
+plugins:
+  - search
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          paths: [ "src" ]   # so it can import OSSS from src/OSSS
+          options:
+            docstring_style: google
+            show_source: false
+  - gen-files:
+      scripts:
+        - tooling/generate_docs.py
+  - literate-nav
+  - section-index
+
+markdown_extensions:
+  - admonition
+  - toc:
+      permalink: true
+  - tables
+  - footnotes
+  - def_list
+  - codehilite

@@ -1,0 +1,16 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": ["src/osss-web"],
+  "entryPointStrategy": "expand",
+  "tsconfig": "src/osss-web/tsconfig.json",
+  "plugin": ["typedoc-plugin-markdown"],
+  "hideBreadcrumbs": true,
+  "hidePageTitle": true,
+  "excludeExternals": false,
+  "excludePrivate": true,
+  "excludeProtected": false,
+  "readme": "none",
+  "out": "docs/api/web",
+  "exclude": ["**/node_modules/**", "**/.next/**", "**/dist/**"]
+
+}

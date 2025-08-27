@@ -1,0 +1,17 @@
+{
+  "name": "osss-web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "docs:typedoc": "typedoc --options typedoc.frontend.json",
+    "docs:mkdocs": "mkdocs build --clean",
+    "docs:serve": "mkdocs serve -a 0.0.0.0:8000",
+    "docs": "npm run docs:typedoc && mkdocs build --clean"
+  },
+  "devDependencies": {
+    "typedoc": "^0.28.11",
+    "typedoc-plugin-markdown": "^4.8.1"
+  },
+  "packageManager": "npm@10.9.0"
+}
