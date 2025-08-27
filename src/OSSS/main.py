@@ -2,18 +2,23 @@
 from __future__ import annotations
 
 import sqlalchemy as sa
-from fastapi import FastAPI, Depends, Security
+from fastapi import FastAPI, Depends, Security, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 from OSSS.api.generated_resources.register_all import generate_routers_for_all_models
 from OSSS.api.routers.auth_flow import router as auth_router, oauth2_scheme
 from OSSS.auth.dependencies import get_current_user
-
+import logging
 from OSSS.core.config import settings
 from OSSS.db import get_sessionmaker
+from OSSS.api import debug
+from OSSS.api import auth_proxy
+from OSSS.auth.deps import oauth2
+
+
 
 # Router imports (each file should define `router = APIRouter(...)`)
 #from OSSS.api.routers.health import router as health_router
-#from OSSS.api.routers.me import router as me_router
+from OSSS.api.routers.me import router as me_router
 #from OSSS.api.routers.admin_settings_states import router as states_router
 #from OSSS.api.routers.admin_settings_schools import router as schools_router
 #from OSSS.api.routers.admin_settings_departments import router as departments_router
@@ -47,6 +52,10 @@ from OSSS.api.routers.auth_flow import router as auth_router
 from OSSS.resources import registry  # importing triggers registrations
 from OSSS.resources import registry, autodiscover  # importing triggers registration
 
+# ⬇️ add this once (module level is fine)
+log = logging.getLogger("startup")
+
+
 def create_app() -> FastAPI:
     app = FastAPI(title=settings.APP_NAME, version=settings.APP_VERSION)
 
@@ -59,9 +68,12 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    app.include_router(debug.router)
+    app.include_router(auth_proxy.router)
+
     # --- Routers ---
     #app.include_router(health_router)
-    #app.include_router(me_router)
+    app.include_router(me_router)
     #app.include_router(states_router)
     #app.include_router(schools_router)
     #app.include_router(departments_router)
@@ -84,7 +96,6 @@ def create_app() -> FastAPI:
     #app.include_router(activities_router.router)
 
 
-    app.include_router(auth_router)
     # Dev-only table creation:
     # Base.metadata.create_all(bind=engine)
 
@@ -99,18 +110,23 @@ def create_app() -> FastAPI:
 
     # Automatically create and mount routers for every model under OSSS.db.models
     # Generated resources – require auth and surface the scheme in OpenAPI:
+    # Mount dynamic routers
     for name, router in generate_routers_for_all_models(prefix_base="/api"):
-        app.include_router(
-            router,
-            dependencies=[
-                Security(oauth2_scheme, scopes=["openid"]),  # shows padlock & passes token to deps
-                Depends(get_current_user),  # enforces authentication
-            ],
-        )
+        app.include_router(router)
+        log.info("[startup] mounted dynamic router: %s", name)
 
     # --- Startup (DB ping + Swagger OAuth) ---
     @app.on_event("startup")
     async def _startup() -> None:
+
+        probe = APIRouter()
+
+        @probe.get("/_oauth_probe", tags=["_debug"])
+        async def _oauth_probe(_token: str = Security(oauth2)):
+            return {"ok": True}
+
+        app.include_router(probe)
+
         # DB ping unless in tests
         if not settings.TESTING:
             try:

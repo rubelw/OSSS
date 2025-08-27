@@ -1,17 +1,20 @@
-# src/OSSS/api/routers/me.py
-from fastapi import APIRouter, Depends
-from OSSS.auth.dependencies import require_auth
+from fastapi import APIRouter, Depends, HTTPException, status
+from OSSS.auth.deps import get_current_user  # OAuth2-password based dep
+from OSSS.settings import settings
 
-router = APIRouter(prefix="", tags=["auth"])
+router = APIRouter()
 
-@router.get("/me")
-def me(claims: dict = Depends(require_auth)):
+@router.get("/me", tags=["auth"])
+async def me(user: dict = Depends(get_current_user)):
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+    token = user.get("token") or {}
     return {
-        "sub": claims.get("sub"),
-        "preferred_username": claims.get("preferred_username"),
-        "email": claims.get("email"),
-        "roles": (claims.get("realm_access") or {}).get("roles", []),
-        "aud": claims.get("aud"),
-        "azp": claims.get("azp"),
-        "iss": claims.get("iss"),
+        "sub": user.get("sub"),
+        "email": user.get("email"),
+        "preferred_username": user.get("preferred_username"),
+        "roles": sorted(list(user.get("roles") or [])),
+        "iss": token.get("iss"),
+        "aud": token.get("aud"),
+        "azp": token.get("azp"),
     }

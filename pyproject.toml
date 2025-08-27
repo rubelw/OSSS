@@ -83,6 +83,11 @@ dependencies = [
     "rich>=13.7",
     "tomli-w>=1.0",
     "tomli>=2.0; python_version < '3.11'",
+
+     "fastapi",
+     "uvicorn",
+     "httpx>=0.24",
+     "python-jose[cryptography]>=3.3"
 ]
 
 

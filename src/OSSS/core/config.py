@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     KEYCLOAK_ALLOWED_AUDIENCES: str = "osss-api,osss-web"
 
     # ---- Swagger / OAuth UI ----
-    SWAGGER_CLIENT_ID: str = "osss-web"   # public web client for browser flow
+    SWAGGER_CLIENT_ID: str = "osss-api"   # public web client for browser flow
     SWAGGER_USE_PKCE: bool = True
     # Optional: set a client secret to show in “Available authorizations” (dev only)
     SWAGGER_CLIENT_SECRET: str | None = None

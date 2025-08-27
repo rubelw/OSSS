@@ -11,6 +11,7 @@ from sqlalchemy import select
 from .serialization import to_dict
 
 
+from OSSS.auth.deps import require_roles  # role-based gate
 # -----------------------------------------------------------------------------
 # Discovery helpers
 # -----------------------------------------------------------------------------
@@ -117,6 +118,18 @@ async def _db_commit_refresh(db: Session | AsyncSession, obj: Any | None = None)
 # -----------------------------------------------------------------------------
 # Authorization helpers
 # -----------------------------------------------------------------------------
+def _deps_for(op: str):
+    """Translate roles[op] into a FastAPI dependency list for that endpoint."""
+    deps = []
+    if roles:
+        spec = roles.get(op) if isinstance(roles, dict) else None
+        if spec:
+            any_of = spec.get("any_of") or set()
+            all_of = spec.get("all_of") or set()
+            client_id = spec.get("client_id")
+            deps.append(Depends(require_roles(any_of=any_of, all_of=all_of, client_id=client_id)))
+    return deps
+
 def _ensure_authenticated(user: Any):
     # Treat falsy / None as unauthenticated
     if user is None:
@@ -141,19 +154,13 @@ def create_router_for_model(
     require_auth: bool = True,
     get_current_user: Callable[..., Any] = DEFAULT_GET_CURRENT_USER,
     authorize: Optional[AuthorizeFn] = None,  # optional RBAC/ABAC hook
+    # ⬇️ NEW: renamed to avoid shadowing and capture issues
+    roles_map: Optional[Dict[str, Dict[str, Any]]] = None,
 ) -> APIRouter:
     """
-    Minimal CRUD router for a SQLAlchemy model.
-
-    - Works with BOTH sync Session and AsyncSession.
-    - Requires authentication by default (set require_auth=False to disable).
-    - Optional 'authorize' hook for per-action checks; raise HTTPException(403) inside it to deny.
-      authorize(action: 'read'|'create'|'update'|'delete', user, instance|None, model) -> None
-    - Returns plain dicts via a lightweight serializer (no Pydantic coupling).
+    Minimal CRUD router for a SQLAlchemy model, with optional per-op RBAC.
     """
-    # If auth is required but no discoverable dependency exists and caller didn't pass one, fail early.
     if require_auth and get_current_user is DEFAULT_GET_CURRENT_USER and get_current_user is _discover_get_current_user():
-        # The discover function returns a new callable each time; compare by name as well.
         if getattr(get_current_user, "__name__", "") == "_missing_current_user":
             raise RuntimeError(
                 "require_auth=True but no get_current_user dependency was found. "
@@ -162,7 +169,6 @@ def create_router_for_model(
 
     dependencies = []
     if require_auth:
-        # Router-level dependency so every endpoint gets a user injected
         dependencies.append(Depends(get_current_user))
 
     router = APIRouter(dependencies=dependencies)
@@ -172,15 +178,30 @@ def create_router_for_model(
     _tags = tags or [model.__name__]
     pk_name, _pk_type = _pk_info(model)
     cols = set(_model_columns(model))
+    op = model.__name__.lower()
+
+    # ⬇️ Capture roles_map via default arg so decorators can use it safely
+    def _deps_for(op: str, _roles=roles_map):
+        deps = []
+        if _roles:
+            spec = _roles.get(op)
+            if spec:
+                any_of = set(spec.get("any_of") or [])
+                all_of = set(spec.get("all_of") or [])
+                client_id = spec.get("client_id")
+                deps.append(Depends(require_roles(any_of=any_of, all_of=all_of, client_id=client_id)))
+        return deps
 
     def _authz(action: str, user: Any, instance: Optional[Any] = None):
         if require_auth:
             _ensure_authenticated(user)
         if authorize is not None:
-            # user-provided function should raise HTTPException(403) if not allowed
             authorize(action, user, instance, model)
 
-    @router.get(_prefix, tags=_tags)
+    @router.get(_prefix, tags=_tags,
+                name=f"{op}_list",
+                operation_id=f"{op}_list",
+                dependencies=_deps_for("list"))
     async def list_items(
         skip: int = Query(0, ge=0),
         limit: int = Query(100, ge=1, le=1000),
@@ -192,7 +213,10 @@ def create_router_for_model(
         rows = await _db_execute_scalars_all(db, stmt)
         return [to_dict(o) for o in rows]
 
-    @router.get(f"{_prefix}/{{item_id}}", tags=_tags)
+    @router.get(f"{_prefix}/{{item_id}}", tags=_tags,
+                name=f"{op}_get",
+                operation_id=f"{op}_get",
+                dependencies=_deps_for("retrieve"))
     async def get_item(
         item_id: str = Path(...),
         db: Session | AsyncSession = Depends(get_db),
@@ -204,7 +228,10 @@ def create_router_for_model(
             raise HTTPException(404, f"{model.__name__} not found")
         return to_dict(obj)
 
-    @router.post(_prefix, status_code=201, tags=_tags)
+    @router.post(_prefix, status_code=201, tags=_tags,
+                 name=f"{op}_create",
+                 operation_id=f"{op}_create",
+                 dependencies=_deps_for("create"))
     async def create_item(
         payload: Dict[str, Any] = Body(...),
         db: Session | AsyncSession = Depends(get_db),
@@ -217,7 +244,10 @@ def create_router_for_model(
         await _db_commit_refresh(db, obj)
         return to_dict(obj)
 
-    @router.patch(f"{_prefix}/{{item_id}}", tags=_tags)
+    @router.patch(f"{_prefix}/{{item_id}}", tags=_tags,
+                  name=f"{op}_update",
+                  operation_id=f"{op}_update",
+                  dependencies=_deps_for("update"))
     async def update_item(
         item_id: str,
         payload: Dict[str, Any] = Body(...),
@@ -235,7 +265,10 @@ def create_router_for_model(
         await _db_commit_refresh(db, obj)
         return to_dict(obj)
 
-    @router.put(f"{_prefix}/{{item_id}}", tags=_tags)
+    @router.put(f"{_prefix}/{{item_id}}", tags=_tags,
+                name=f"{op}_replace",
+                operation_id=f"{op}_replace",
+                dependencies=_deps_for("update"))
     async def replace_item(
         item_id: str,
         payload: Dict[str, Any] = Body(...),
@@ -264,7 +297,10 @@ def create_router_for_model(
         await _db_commit_refresh(db, obj)
         return to_dict(obj)
 
-    @router.delete(f"{_prefix}/{{item_id}}", status_code=204, tags=_tags)
+    @router.delete(f"{_prefix}/{{item_id}}", status_code=204, tags=_tags,
+                   name=f"{op}_delete",
+                   operation_id=f"{op}_delete",
+                   dependencies=_deps_for("delete"))
     async def delete_item(
         item_id: str,
         db: Session | AsyncSession = Depends(get_db),
@@ -272,8 +308,7 @@ def create_router_for_model(
     ):
         obj = await _db_get(db, model, item_id)
         if not obj:
-            # idempotent delete
-            return None
+            return None  # idempotent
         _authz("delete", user, obj)
         if isinstance(db, AsyncSession):
             await db.delete(obj)  # type: ignore[attr-defined]
