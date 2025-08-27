@@ -1,18 +1,11 @@
 from __future__ import annotations
+from typing import Any, Union
+from pydantic import BaseModel, ConfigDict, RootModel
 
-from pydantic import BaseModel, ConfigDict
-from datetime import datetime
-from typing import Optional, Literal
+ID = Union[int, str]
 
+class APIModel(BaseModel):
+    model_config = ConfigDict(from_attributes=True, extra="ignore")
 
-class ORMModel(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-# --- keep existing mixins, etc. ---
-
-# Backward-compat alias (so older code importing ORMBase keeps working)
-ORMBase = ORMModel
-
-class TimestampMixin(BaseModel):
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+class FreeObject(RootModel[dict[str, Any]]):
+    root: dict[str, Any]
