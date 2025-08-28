@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "OSSS"
 version = "0.0.0.dev0"  # static to avoid dynamic import during build
-description = "Open Source School Software"
+description = "Open Source School Software(OSSS)"
 requires-python = ">=3.11"
 license = { text = "Apache-2.0" }  # SPDX, avoids the classifier warning
 keywords = ["Keycloak", "FastAPI", "Authentication", "Authorization", "School"]

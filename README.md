@@ -26,21 +26,28 @@ The static site is output to `./documentation/`.
 > Run all commands from the **repo root**. Create and activate a Python venv first.  
 > Live docs are published at **https://rubelw.github.io/OSSS/**.
 
+### Quick start
 ```bash
-python -m venv .venv
-source .venv/bin/activate                 # Windows PowerShell: .\.venv\Scripts\Activate.ps1
+# clone
+git clone https://github.com/rubelw/OSSS.git
+cd OSSS
 
-# Install MkDocs and plugins
-pip install -r requirements-docs.txt
+# (optional) copy environment examples
+cp .env.example .env || true
 
-# Generate TypeScript API docs (into docs/api/web/*)
-# Uses typedoc.frontend.json and your Next.js tsconfig
-npm i -D typedoc typedoc-plugin-markdown   # one-time
-npx typedoc --options typedoc.frontend.json
+# create a venv in a folder named .venv (inside your project)
+python3 -m venv .venv
+source .venv/bin/activate
 
-# Serve the docs site with live reload (opens at http://127.0.0.1:8000)
-# Ensures Python imports resolve from ./src (for mkdocstrings & OpenAPI export)
-PYTHONPATH=src mkdocs serve -a 127.0.0.1:8000
+# build + run local stack (database, API, web)
+./start_osss.sh
+
+# to run the cli
+osss <TAB>
+
+# Keycloak http://localhost:8085 with username 'admin' and password 'admin'
+# FastApi  http://localhost:8081/docs# username 'activities_director@osss.local' and password 'password'
+# Web: http://localhost:3000 username 'activities_director@osss.local' and password 'password'
 ```
 
 Build the static site to `./documentation/`:
@@ -74,6 +81,11 @@ docs/
 > small helper scripts (see below). TypeDoc output is generated before the build runs.
 
 ---
+
+## Demo
+
+![OSSS demo](https://raw.githubusercontent.com/rubelw/OSSS/main/docs/demo.gif)
+
 
 ## ⚙️ MkDocs Configuration
 

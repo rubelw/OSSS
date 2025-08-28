@@ -152,3 +152,4 @@ dmypy.json
 src/osss-web/node_modules/
 src/osss-web/.next/
 src/osss-web/out/
+src/osss-web/package-lock.json

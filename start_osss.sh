@@ -170,6 +170,58 @@ END
 SQL
 }
 
+install_python_requirements() {
+  local py; py="$(resolve_python)"
+
+  echo "📦 Ensuring Python dependencies (pyproject/requirements)…"
+  "$py" -m pip --version >/dev/null 2>&1 || { echo "❌ pip not available"; exit 1; }
+  "$py" -m pip install --upgrade pip setuptools wheel >/dev/null
+
+  # If caller provided an explicit requirements file, prefer that.
+  if [[ -n "${PY_REQUIREMENTS_FILE:-}" && -f "${PY_REQUIREMENTS_FILE}" ]]; then
+    echo "➡️  Installing from ${PY_REQUIREMENTS_FILE}"
+    "$py" -m pip install -r "${PY_REQUIREMENTS_FILE}"
+    return
+  fi
+
+  # Primary path: install from pyproject.toml in repo root
+  if [[ -f "${REPO_ROOT}/pyproject.toml" ]]; then
+    local extras="${PIP_EXTRAS:-}"   # e.g. [dev] or [realm]; include brackets if used
+    echo "➡️  Installing from pyproject.toml at ${REPO_ROOT} (editable) ${extras}"
+    ( cd "${REPO_ROOT}" && "$py" -m pip install -e ".${extras}" )
+    return
+  fi
+
+  # Fallback: requirements.txt if present
+  if [[ -f "${REPO_ROOT}/requirements.txt" ]]; then
+    echo "➡️  Installing from requirements.txt"
+    "$py" -m pip install -r "${REPO_ROOT}/requirements.txt"
+    return
+  fi
+
+  # Last resort: minimal deps often needed by build_realm.py
+  echo "⚠️  No pyproject.toml or requirements.txt found – installing minimal realm deps"
+  "$py" -m pip install "SQLAlchemy>=2,<3" "pydantic>=2,<3" "pydantic-settings>=2,<3"
+}
+
+ensure_realm_python_deps() {
+  local py; py="$(resolve_python)"
+  local need=()
+
+  # Detect what’s missing
+  "$py" -c "import sqlalchemy"            2>/dev/null || need+=("SQLAlchemy>=2,<3")
+  "$py" -c "import pydantic_settings"     2>/dev/null || need+=("pydantic-settings>=2,<3")
+  "$py" -c "import pydantic"              2>/dev/null || need+=("pydantic>=2,<3")
+
+  if ((${#need[@]})); then
+    echo "📦 Installing missing realm deps: ${need[*]}"
+    "$py" -m pip install --upgrade pip >/dev/null
+    "$py" -m pip install "${need[@]}"
+  else
+    echo "✅ Realm Python deps already present."
+  fi
+}
+
 # --- Config & defaults ---
 COMPOSE_FILE="${FK_COMPOSE_FILE:-${REPO_ROOT}/docker-compose.yml}"
 BOOT_WAIT="${FK_BOOT_WAIT:-250}"
@@ -308,6 +360,12 @@ EOF
 }
 print_env_summary
 
+# Ensure Python deps are present for build_realm.py
+ensure_realm_python_deps
+
+# --- Ensure Python deps are installed from pyproject.toml (or fallbacks) ---
+install_python_requirements
+
 ### --- Build realm-export.json BEFORE starting infra ---
 if [ "${SKIP_REALM_BUILD}" != "1" ]; then
   if [ ! -f "${REALM_BUILDER}" ]; then
@@ -350,7 +408,7 @@ ensure_role_and_db kc_postgres \
   "$KC_DB_USERNAME" "$KC_DB_PASSWORD" "$KC_DB_NAME" \
   "$KC_DB_USERNAME" "$KC_DB_PASSWORD"
 
-
+echo "### Please wait at least 180 seconds for this to populate ###"
 
 # Wait for Keycloak OIDC discovery
 if ! wait_for_url "${OIDC_DISCOVERY}" "${BOOT_WAIT}"; then

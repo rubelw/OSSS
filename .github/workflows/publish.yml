@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       destination:
-        description: "Where to publish"
+        description: "Publish to testpypi and pypi"
         type: choice
         options: [testpypi, pypi]
         default: testpypi
@@ -52,7 +52,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: testpypi
-      url: https://test.pypi.org/p/OSSS   # optional; for “View deployment”
+      url: https://test.pypi.org/p/osss   # optional; for “View deployment”
     steps:
       - name: Download dist artifacts
         uses: actions/download-artifact@v4
@@ -74,7 +74,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: pypi
-      url: https://pypi.org/project/<your-project-name>  # optional; for “View deployment”
+      url: https://pypi.org/project/osss  # optional; for “View deployment”
     steps:
       - name: Download dist artifacts
         uses: actions/download-artifact@v4

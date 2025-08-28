@@ -73,8 +73,19 @@ cd OSSS
 # (optional) copy environment examples
 cp .env.example .env || true
 
+# create a venv in a folder named .venv (inside your project)
+python3 -m venv .venv
+source .venv/bin/activate
+
 # build + run local stack (database, API, web)
-docker compose up --build
+./start_osss.sh
+
+# to run the cli
+osss <TAB>
+
+# Keycloak http://localhost:8085 with username 'admin' and password 'admin'
+# FastApi  http://localhost:8081/docs# username 'activities_director@osss.local' and password 'password'
+# Web: http://localhost:3000 username 'activities_director@osss.local' and password 'password'
 ```
 
 Visit the app-specific README(s) for service URLs (e.g. API docs at `/docs`, web at `http://localhost:3000` for Next.js or `5173` for Vite).
@@ -132,6 +143,10 @@ mkdocs build --clean
 - **Observability**: structured logs, traces, metrics.
 
 ---
+
+## Demo
+
+![OSSS Demo](demo.gif)
 
 ## Contributing
 

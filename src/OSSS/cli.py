@@ -241,7 +241,30 @@ def _envvar_name(prog: str) -> str:
 def completion_snippet(shell: str, prog: str) -> str:
     envvar = _envvar_name(prog)
     if shell == "bash":
-        return f'eval "$({envvar}=bash_source {prog})"'
+        return f"""# --- Hardened OSSS Click completion (macOS-safe) ---
+        # - Works on bash 3.2 (mac default) and bash 4/5.
+        # - If a custom fzf completer (_osss_complete_with_help) is already registered, do nothing.
+
+        if [ -n "$BASH_VERSION" ]; then
+          # Skip if our custom fzf completer is in place
+          if complete -p {prog} 2>/dev/null | grep -q '_osss_complete_with_help'; then
+            :
+          else
+            # bash 4/5: native Click completion
+            if [ "${{BASH_VERSINFO[0]:-3}}" -ge 4 ]; then
+              eval "$({envvar}=bash_source {prog})"
+            else
+              # bash 3.2: strip unsupported bits from Click’s bash script
+              eval "$({envvar}=bash_source {prog} | sed -e 's/-o nosort//g' -e '/^compopt /d')"
+              # Optional readability tweaks
+              bind 'set print-completions-horizontally off'
+              bind 'set page-completions on'
+              bind 'set show-all-if-ambiguous on'
+              bind 'set completion-ignore-case on'
+            fi
+          fi
+        fi
+        """
     if shell == "zsh":
         return f'eval "$({envvar}=zsh_source {prog})"'
     if shell == "fish":
