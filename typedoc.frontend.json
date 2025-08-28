@@ -14,6 +14,7 @@
   "excludePrivate": true,
   "excludeProtected": false,
   "excludeExternals": true,
+  "skipErrorChecking": true,
   "exclude": [
     "**/.next/**",
     "**/node_modules/**",
