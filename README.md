@@ -1,6 +1,14 @@
 # Open Source School Software (OSSS)
 
-A community‑driven, modular suite of applications for K‑12 districts.
+!!! warning "Project status: active development"
+    **OSSS is still being developed.** Community input and assistance are very welcome!
+    - Share feedback and ideas via issues or discussions.
+    - Open PRs for bug fixes and small improvements.
+    - See [Contributing](#contributing) for guidelines.
+
+A community-driven, modular suite of applications for K-12 districts.
+
+> 📚 **Live documentation:** https://rubelw.github.io/OSSS/
 
 This repository is a **polyglot monorepo** with a Next.js frontend (`src/osss-web`) and a FastAPI
 backend (`src/OSSS`). Documentation is built with **MkDocs Material**, with API references
@@ -16,7 +24,8 @@ The static site is output to `./documentation/`.
 
 ## 📖 Documentation Quick Start
 
-> Run all commands from the **repo root**. Create and activate a Python venv first.
+> Run all commands from the **repo root**. Create and activate a Python venv first.  
+> Live docs are published at **https://rubelw.github.io/OSSS/**.
 
 ```bash
 python -m venv .venv
@@ -73,6 +82,7 @@ docs/
 
 ```yaml
 site_name: OSSS Developer Documentation
+site_url: https://rubelw.github.io/OSSS/
 docs_dir: docs
 site_dir: documentation
 
@@ -185,7 +195,7 @@ JavaScript is required to render the ReDoc UI. You can still download the
 
 ### Optional: widen pages
 
-`docs/overrides/wide.css` (site‑wide) or `docs/overrides/redoc-wide.css` (only OpenAPI page):
+`docs/overrides/wide.css` (site-wide) or `docs/overrides/redoc-wide.css` (only OpenAPI page):
 
 ```css
 /* Site-wide wider grid */
@@ -254,22 +264,8 @@ jobs:
           name: osss-docs
           path: documentation
 ```
-
----
-
-## 🧰 Troubleshooting
-
-- **Blank Python API page** → Ensure a page includes `::: OSSS`, `paths: ["src"]` is set in `mkdocs.yml`,
-  and you ran with `PYTHONPATH=src`.
-- **Blank ReDoc page** → Check browser console for `Redoc is not defined` (missing CDN) or
-  `404` for `openapi.json`. Confirm the relative path is `../../api/openapi/openapi.json` from
-  `docs/backend/openapi.md`.
-- **TypeDoc missing** → Run `npx typedoc --options typedoc.frontend.json` and point your nav to the
-  file TypeDoc actually generated (`api/web/modules.md` or `api/web/index.md`).
-
 ---
 
 ## 📜 License
 
-Apache‑2.0 (see `LICENSE`).
-
+Apache-2.0 (see `LICENSE`).

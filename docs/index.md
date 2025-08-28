@@ -1,3 +1,9 @@
+!!! warning "Project status: active development"
+    **OSSS is still being developed.** Community input and assistance are very welcome!
+    - Share feedback and ideas via issues or discussions.
+    - Open PRs for bug fixes and small improvements.
+    - See [Contributing](#contributing) for guidelines.
+
 # Open Source School Software (OSSS)
 
 _A community‑driven, modular suite of applications for K‑12 school districts._  
