@@ -1,0 +1,19 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "types": ["node", "react", "react-dom"],
+    "skipLibCheck": true
+  },
+  "include": [
+    "components/**/*",
+    "types/**/*"
+  ],
+  "exclude": [
+    ".next",
+    "**/.next/**",
+    "dist",
+    "node_modules",
+    "app/**"
+  ]
+}
