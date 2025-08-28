@@ -52,9 +52,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: testpypi
-      url: https://test.pypi.org/p/osss   # optional; for “View deployment”]
-    permissions:
-      contents: read
+      url: https://test.pypi.org/p/open-schools   # optional; for “View deployment”]
     steps:
       - name: Download dist artifacts
         uses: actions/download-artifact@v4
@@ -65,11 +63,9 @@ jobs:
       - name: Publish to TestPyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          user: __token__
-          password: ${{ secrets.TEST_PYPI_API_TOKEN }}
           repository-url: https://test.pypi.org/legacy/
-          skip-existing: true
-          verbose: true
+          packages-dir: dist
+
 
   publish-pypi:
     name: Publish to PyPI
@@ -78,9 +74,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: pypi
-      url: https://pypi.org/project/osss  # optional; for “View deployment”
-    permissions:
-      contents: read
+      url: https://pypi.org/project/open-schools  # optional; for “View deployment”
     steps:
       - name: Download dist artifacts
         uses: actions/download-artifact@v4
@@ -91,5 +85,4 @@ jobs:
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          user: __token__
-          password: ${{ secrets.PYPI_API_TOKEN }}
+          packages-dir: dist
