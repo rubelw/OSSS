@@ -24,8 +24,8 @@ from sqlalchemy.sql import sqltypes as sat
 
 
 # ---- Alembic identifiers ----
-revision = "0018_seed_remaining_tables"
-down_revision = "0017_populate_students"
+revision = "0019_seed_remaining_tables"
+down_revision = "0018_populate_positions"
 branch_labels = None
 depends_on = None
 
