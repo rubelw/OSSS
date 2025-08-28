@@ -1,3 +1,4 @@
+// src/osss-web/app/api/kc/claims/route.ts
 import { NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
 
@@ -19,15 +20,25 @@ export async function GET(req: Request) {
   }
 
   const token = await getToken({ req: req as any, secret });
-  if (!token?.access_token) {
+
+  // Safely extract the access token as a string
+  const accessToken =
+    token && typeof (token as any).access_token === "string"
+      ? ((token as any).access_token as string)
+      : undefined;
+
+  if (!accessToken) {
     return NextResponse.json({ error: "No access token" }, { status: 401 });
   }
 
   // Decode access token to read roles/claims
   let claims: any = {};
   try {
-    const [, payload] = token.access_token.split(".");
-    claims = decodeJwtPayload(payload);
+    const parts = accessToken.split(".");
+    if (parts.length >= 2) {
+      const payload = parts[1];
+      claims = decodeJwtPayload(payload);
+    }
   } catch {
     // ignore decode errors gracefully
   }

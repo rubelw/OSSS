@@ -1,3 +1,4 @@
+// src/osss-web/app/api/osss/healthz/route.ts
 import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic"; // no caching
@@ -8,26 +9,39 @@ const RAW_PREFIX = process.env.OSSS_API_PREFIX ?? "/";
 const PREFIX = RAW_PREFIX.replace(/\/+$/, ""); // trim trailing /
 const UPSTREAM_URL = new URL(`${PREFIX}/healthz`.replace(/\/+/g, "/"), BASE).toString();
 
+type UpOk = { url: string; ok: true; status: "ok"; code: number; latency_ms: number };
+type UpErr = { url: string; ok: false; status: "error" | "unreachable"; code?: number; latency_ms: number };
+
 export async function GET() {
   const started = Date.now();
 
-  let upstream:
-    | { url: string; ok: true; status: "ok"; code: number; latency_ms: number }
-    | { url: string; ok: false; status: "error" | "unreachable"; code?: number; latency_ms: number };
+  let upstream: UpOk | UpErr;
 
   try {
     const res = await fetch(UPSTREAM_URL, { cache: "no-store" });
-    upstream = {
-      url: UPSTREAM_URL,
-      ok: res.ok,
-      status: res.ok ? "ok" : "error",
-      code: res.status,
-      latency_ms: Date.now() - started,
-    };
+    const latency_ms = Date.now() - started;
+
+    if (res.ok) {
+      upstream = {
+        url: UPSTREAM_URL,
+        ok: true,                // ✅ literal true
+        status: "ok",
+        code: res.status,
+        latency_ms,
+      };
+    } else {
+      upstream = {
+        url: UPSTREAM_URL,
+        ok: false,               // ✅ literal false
+        status: "error",
+        code: res.status,
+        latency_ms,
+      };
+    }
   } catch {
     upstream = {
       url: UPSTREAM_URL,
-      ok: false,
+      ok: false,                 // ✅ literal false
       status: "unreachable",
       latency_ms: Date.now() - started,
     };

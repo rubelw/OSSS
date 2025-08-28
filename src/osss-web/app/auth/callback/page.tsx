@@ -1,7 +1,36 @@
+// src/osss-web/app/auth/callback/page.tsx
 "use client";
 
 import { useEffect, useState } from "react";
-import { saveTokens } from "@/lib/auth-store";
+
+/**
+ * Minimal client-side token store for the OAuth fragment/callback flow.
+ * Persists tokens in localStorage (adjust to cookies/secure storage if needed).
+ */
+function saveTokens(args: {
+  access_token: string;
+  refresh_token?: string;
+  token_type?: string;
+  expires_in?: number; // seconds
+}) {
+  try {
+    const now = Date.now();
+    const expiresAt = args.expires_in ? now + args.expires_in * 1000 : undefined;
+
+    const payload = {
+      access_token: args.access_token,
+      refresh_token: args.refresh_token,
+      token_type: args.token_type ?? "Bearer",
+      expires_at: expiresAt, // epoch ms
+      saved_at: now,
+    };
+
+    // NOTE: For production, prefer HTTP-only cookies or a server session.
+    localStorage.setItem("osss.tokens", JSON.stringify(payload));
+  } catch {
+    // swallow; caller will log if needed
+  }
+}
 
 function parseHash(hash: string) {
   const out: Record<string, string> = {};

@@ -1,239 +1,275 @@
-# Open Source School Software
+# Open Source School Software (OSSS)
 
-A community-driven, modular suite of applications for K‑12 districts. This repo is a **polyglot monorepo** that hosts multiple apps (each independently deployable) plus shared packages and infra. Use the provided templates to spin up new apps quickly.
+A community‑driven, modular suite of applications for K‑12 districts.
 
-> **Highlight:** This repository includes an application called **School Board Management Software** (agendas, packets, policies, minutes, votes, and a public portal). See below for details.
+This repository is a **polyglot monorepo** with a Next.js frontend (`src/osss-web`) and a FastAPI
+backend (`src/OSSS`). Documentation is built with **MkDocs Material**, with API references
+generated from source:
 
----
+- **Frontend (TypeScript)** → TypeDoc → Markdown (`docs/api/web/*`)
+- **Backend (Python)** → mkdocstrings renders code objects from `src/OSSS`
+- **REST (OpenAPI)** → exported JSON rendered with ReDoc
 
-## Demo
-
-![Dev Example](https://raw.githubusercontent.com/rubelw/OSSS/main/documentation/docs/img/demo.png)
-
-## Contents
-
-* [Goals](#goals)
-* [Repository Layout](#repository-layout)
-* [App Catalog](#app-catalog)
-* [Getting Started (Dev)](#getting-started-dev)
-* [App Template](#app-template)
-* [School Board Management Software](#school-board-management-software)
-* [Quality, Security & Compliance](#quality-security--compliance)
-* [Contributing](#contributing)
-* [Releases & Versioning](#releases--versioning)
-* [License](#license)
-* [Acknowledgements](#acknowledgements)
+The static site is output to `./documentation/`.
 
 ---
 
-## Goals
+## 📖 Documentation Quick Start
 
-* **Open standards first:** accessible, interoperable, export-friendly.
-* **District reality:** support public meetings/open records, records retention, FERPA‑aware data handling.
-* **Composable:** each app should be useful alone, but better together via shared packages.
-* **Operationally sane:** containerized, IaC‑ready, observable.
-
----
-
-## Repository Layout
-
-```
-FIXME
-```
-
-> This repo embraces **polyglot** development (e.g., TypeScript, Python, Go). Each app documents its own stack and requirements.
-
----
-
-## App Catalog
-
-| App                                   | Path                               | Status   | Primary Tech                               | What it does                                              |
-| ------------------------------------- | ---------------------------------- | -------- | ------------------------------------------ | --------------------------------------------------------- |
-| **School Board Management Software**  | `apps/school-board-management/`    | **MVP**  | React/TypeScript, FastAPI/Python, Postgres | Agendas, packets, votes, policies, minutes, public portal |
-| Student Information System (template) | `apps/student-information-system/` | Template | *(choose)*                                 | Enrollment, attendance, grades, transcripts               |
-| Facilities Booking (template)         | `apps/facilities-booking/`         | Template | *(choose)*                                 | Room/field scheduling, approvals, fee schedules           |
-| Communications Portal (template)      | `apps/communications-portal/`      | Template | *(choose)*                                 | Posts, alerts, newsletters, translation workflows         |
-
----
-
-## Getting Started (Dev)
-
-### Prereqs
-
-* Git, Docker (or Podman), Docker Compose
-* For app stacks: Node LTS (if web UI), Python 3.12+ (if FastAPI), or as specified
-
-### Quick start
+> Run all commands from the **repo root**. Create and activate a Python venv first.
 
 ```bash
-# clone
-git clone https://github.com/<your-org>/open-source-school-software.git
-cd open-source-school-software
+python -m venv .venv
+source .venv/bin/activate                 # Windows PowerShell: .\.venv\Scripts\Activate.ps1
 
-# copy env templates (root + app-specific)
-cp .env.example .env || true
-cp apps/school-board-management/.env.example apps/school-board-management/.env || true
+# Install MkDocs and plugins
+pip install -r requirements-docs.txt
 
-# run local stack (database, API, web)
-docker compose -f infra/docker/docker-compose.dev.yml up --build
+# Generate TypeScript API docs (into docs/api/web/*)
+# Uses typedoc.frontend.json and your Next.js tsconfig
+npm i -D typedoc typedoc-plugin-markdown   # one-time
+npx typedoc --options typedoc.frontend.json
+
+# Serve the docs site with live reload (opens at http://127.0.0.1:8000)
+# Ensures Python imports resolve from ./src (for mkdocstrings & OpenAPI export)
+PYTHONPATH=src mkdocs serve -a 127.0.0.1:8000
 ```
 
-> Visit each app's README for detailed commands, migrations, and seed data.
-
----
-
-## App Template
-
-Create new apps under `apps/<your-app>/`. Use this **copy‑paste template** inside your app's `README.md` and fill in the blanks.
-
-````markdown
-# <App Name>
-
-## Overview
-Short paragraph on what the app does and the problem it solves.
-
-## Features
-- [ ] Core feature 1
-- [ ] Core feature 2
-- [ ] Accessibility (WCAG 2.2 AA)
-
-## Architecture
-- **Frontend:** <e.g., React + Vite + Tailwind>
-- **Backend:** <e.g., FastAPI + SQLAlchemy>
-- **Data:** <e.g., Postgres>
-- **Storage & Search:** <e.g., S3-compatible, OpenSearch>
-
-## Domain Model
-_Describe key entities and relationships, or include an ERD._
-
-## API
-Link to `/docs` or describe main endpoints.
-
-## Setup
-```bash
-# local
-cp .env.example .env
-make up  # or docker compose up
-````
-
-## Configuration
-
-| Variable       | Example            | Purpose               |
-| -------------- | ------------------ | --------------------- |
-| `DATABASE_URL` | `postgresql://...` | Primary DB connection |
-| `API_SECRET`   | `devsecret`        | Local auth/dev key    |
-
-## Testing
+Build the static site to `./documentation/`:
 
 ```bash
-make test
+# Optional: regenerate TypeDoc first if code changed
+npx typedoc --options typedoc.frontend.json
+mkdocs build --clean
 ```
 
-## Security & Compliance
+---
 
-* Data classification: Public / Internal / Confidential / Regulated
-* PII handling: redaction, logging policy
-* AuthN/Z: SSO (OIDC/SAML) support (planned/implemented)
+## 📁 Docs Layout (MkDocs)
 
-## Deployment
+```
+docs/
+├─ index.md                      # Landing page
+├─ frontend/
+│  └─ overview.md                # Next.js app overview
+├─ backend/
+│  └─ overview.md                # FastAPI app overview
+├─ api/
+│  ├─ web/                       # (generated) TypeDoc markdown for Next.js
+│  └─ openapi/                   # (generated) openapi.json for ReDoc
+└─ api/python/
+   ├─ index.md                   # (generated) landing for Python API
+   └─ OSSS.md                    # (generated) mkdocstrings page for OSSS package
+```
 
-* Docker image(s): `<registry>/<app>:<tag>`
-* Terraform module(s): `infra/terraform/*`
-
-## Roadmap
-
-* [ ] Item A
-* [ ] Item B
-
-## License
-
-Inherits repository license unless overridden.
-
-````
+> The pages under `docs/api/python/` and `docs/api/openapi/` are created during the MkDocs build by
+> small helper scripts (see below). TypeDoc output is generated before the build runs.
 
 ---
 
-## School Board Management Software
-**Path:** `apps/school-board-management/`
+## ⚙️ MkDocs Configuration
 
-### Scope (MVP)
-- **Meetings:** agenda builder, attachments, consent calendar, packet PDF, minutes generation
-- **Motions & Votes:** roll‑call capture, tallies, export
-- **Policies:** library, versions, redline, adoption workflow, public search
-- **Public Portal:** ADA‑compliant website for agendas, minutes, policies
+`mkdocs.yml` at the repo root glues everything together. Key bits:
 
-### Suggested Stack
-- **Frontend:** React + TypeScript + Vite + Tailwind
-- **Backend:** FastAPI (Python) + SQLAlchemy + Alembic
-- **DB:** PostgreSQL; **Files:** S3‑compatible storage (versioned)
-- **Search:** OpenSearch/Elasticsearch (optional in MVP)
-- **Auth:** Local dev JWT; ready for Keycloak/Entra/Google SSO
+```yaml
+site_name: OSSS Developer Documentation
+docs_dir: docs
+site_dir: documentation
 
-### Local Dev (example)
-```bash
-cd apps/school-board-management
-cp .env.example .env
-docker compose up --build
-# API → http://localhost:8000/docs
-# Web → http://localhost:5173
-````
+nav:
+  - Overview: index.md
+  - Frontend (Next.js):
+      - Overview: frontend/overview.md
+      - API (TypeScript): api/web/modules.md   # <-- match what TypeDoc emits (modules.md or index.md)
+  - Backend (Python):
+      - Overview: backend/overview.md
+      - API (Python): api/python/OSSS.md
+      - OpenAPI: backend/openapi.md
 
-### Initial Entities (example)
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: ["src"]           # import OSSS from ./src/OSSS
+          options:
+            show_source: false
+            docstring_style: google
+            members_order: source
+  - gen-files:
+      scripts:
+        - tooling/generate_docs.py
+        - tooling/export_openapi.py
 
-* `Meeting(id, title, start_at, location, status)`
-* `AgendaItem(id, meeting_id, parent_id, order_no, consent, executive_session)`
-* `Motion(id, meeting_id, agenda_item_id, text, status)`
-* `Vote(id, motion_id, voter_user_id, choice, timestamp)`
-* `Policy(id, code, title, status, category)`
-* `PolicyVersion(id, policy_id, version_no, body_md, adopted_on, effective_on)`
+# Optional: make pages wider site-wide, or include a page-class-based override
+extra_css:
+  - overrides/wide.css
 
-> A prebuilt FastAPI/React scaffold is available in this app folder; extend as needed.
+# Load ReDoc globally so the OpenAPI page can initialize it
+extra_javascript:
+  - https://cdn.redoc.ly/redoc/latest/bundles/redoc.standalone.js
+```
+
+### Helper scripts (run during `mkdocs serve/build`)
+
+- `tooling/generate_docs.py` — generates `docs/api/python/OSSS.md` that contains the `::: OSSS`
+  directive; mkdocstrings renders it into API docs.
+
+  ```python
+  # tooling/generate_docs.py
+  from pathlib import Path
+  import mkdocs_gen_files as gen
+
+  with gen.open("api/python/index.md", "w") as f:
+      f.write("# Python API\n\n- [OSSS package](./OSSS.md)\n")
+
+  with gen.open("api/python/OSSS.md", "w") as f:
+      f.write("# `OSSS` package\n\n")
+      f.write("::: OSSS\n")
+      f.write("    handler: python\n")
+      f.write("    options:\n")
+      f.write("      show_root_heading: true\n")
+      f.write("      show_source: false\n")
+      f.write("      docstring_style: google\n")
+      f.write("      members_order: source\n")
+      f.write("      show_signature: true\n")
+  ```
+
+- `tooling/export_openapi.py` — writes `docs/api/openapi/openapi.json` from the FastAPI app.
+
+  ```python
+  # tooling/export_openapi.py
+  import json
+  import mkdocs_gen_files as gen
+  from OSSS.main import app              # adjust if your FastAPI app lives elsewhere
+
+  with gen.open("api/openapi/openapi.json", "w") as f:
+      json.dump(app.openapi(), f, indent=2)
+  ```
+
+### ReDoc page (`docs/backend/openapi.md`)
+
+```md
+---
+title: OSSS API (OpenAPI)
+hide:
+  - toc
+class: full-width
+---
+
+> If the panel below stays blank, verify the JSON exists:
+> **[OpenAPI JSON](../../api/openapi/openapi.json)**
+
+<div id="redoc-container"></div>
+
+<script>
+(function () {
+  function init() {
+    var el = document.getElementById('redoc-container');
+    if (window.Redoc && el) {
+      // NOTE: two ".." segments from /backend/openapi → /api/openapi/openapi.json
+      window.Redoc.init('../../api/openapi/openapi.json', {}, el);
+    } else {
+      setTimeout(init, 50);
+    }
+  }
+  init();
+})();
+</script>
+
+<noscript>
+JavaScript is required to render the ReDoc UI. You can still download the
+<a href="../../api/openapi/openapi.json">OpenAPI JSON</a>.
+</noscript>
+```
+
+### Optional: widen pages
+
+`docs/overrides/wide.css` (site‑wide) or `docs/overrides/redoc-wide.css` (only OpenAPI page):
+
+```css
+/* Site-wide wider grid */
+.md-grid { max-width: 1440px; }
+
+/* Only pages with class: full-width */
+.md-content__inner.full-width { max-width: none; padding-left: 0; padding-right: 0; }
+#redoc-container { margin: 0; padding: 0; }
+```
+
+Reference in `mkdocs.yml` via `extra_css`.
 
 ---
 
-## Quality, Security & Compliance
+## 🔐 Environment Notes
 
-* **Accessibility:** target WCAG 2.2 AA for public pages and PDFs.
-* **Security:** OWASP ASVS‑inspired checklists, SAST/DAST in CI, dependency scans.
-* **Privacy:** follow least‑privilege, data minimization, and provide export tooling for records requests.
-* **Observability:** structured logs, traces, metrics; dashboards included in `packages/`.
-* **Backups & DR:** document RPO/RTO per app; use versioned object storage for published records.
-
-### Issue Labels (suggested)
-
-`good first issue`, `help wanted`, `a11y`, `security`, `infra`, `api`, `frontend`, `backend`, `docs`.
+- **Python imports for docs**: run `mkdocs` with `PYTHONPATH=src` so mkdocstrings and the OpenAPI
+  export can import `OSSS` from `src/OSSS`.
+- **Frontend generator**: TypeDoc runs with your Next.js `tsconfig`. If the app declares
+  `"packageManager"` in `src/osss-web/package.json`, use **npm** (not pnpm) for consistency.
 
 ---
 
-## Contributing
+## 🧪 CI Example (GitHub Actions)
 
-1. Read the [CODE\_OF\_CONDUCT.md](./CODE_OF_CONDUCT.md) and [SECURITY.md](./SECURITY.md).
-2. Create a feature branch: `feat/<area>-<short-desc>`.
-3. Use **Conventional Commits** (`feat:`, `fix:`, `docs:`…).
-4. Add/Update tests and docs.
-5. Open a PR with a clear description and screenshots where helpful.
+`.github/workflows/docs.yml`
 
-We use ADRs (Architecture Decision Records). New decisions go under `docs/adrs/`.
+```yaml
+name: Build Docs
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-docs.txt
+          npm ci || npm i
+
+      - name: Generate TypeScript API (TypeDoc → Markdown)
+        run: npx typedoc --options typedoc.frontend.json
+
+      - name: Build MkDocs site → ./documentation
+        env:
+          PYTHONPATH: src
+        run: mkdocs build --clean
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: osss-docs
+          path: documentation
+```
 
 ---
 
-## Releases & Versioning
+## 🧰 Troubleshooting
 
-* **Semantic Versioning** per app (e.g., `school-board-management@v0.3.0`).
-* GitHub Releases include changelogs and migration notes.
-
----
-
-## License
-
-This repository is designed to work with either **Apache‑2.0** (permissive) **or** **AGPL‑3.0** (strong copyleft) depending on your goals. By default, we recommend **Apache‑2.0** for maximum adoption.
-
-> Ensure you keep the `LICENSE` file at the repo root updated and include notices in downstream distributions. If you plan to dual‑license (e.g., AGPL + Commercial), add a `LICENSE-ENTERPRISE` file and a `NOTICE` file.
+- **Blank Python API page** → Ensure a page includes `::: OSSS`, `paths: ["src"]` is set in `mkdocs.yml`,
+  and you ran with `PYTHONPATH=src`.
+- **Blank ReDoc page** → Check browser console for `Redoc is not defined` (missing CDN) or
+  `404` for `openapi.json`. Confirm the relative path is `../../api/openapi/openapi.json` from
+  `docs/backend/openapi.md`.
+- **TypeDoc missing** → Run `npx typedoc --options typedoc.frontend.json` and point your nav to the
+  file TypeDoc actually generated (`api/web/modules.md` or `api/web/index.md`).
 
 ---
 
-## Acknowledgements
+## 📜 License
 
-Inspired by the needs of public school districts for transparent governance and modern, accessible software. Thanks to all contributors and the civic‑tech community.
+Apache‑2.0 (see `LICENSE`).
 
----

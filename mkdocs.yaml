@@ -1,18 +1,32 @@
-site_name: OSSS Developer Documentation
-site_url: /
+site_name: Open Source School Software(OSSS) Documentation
+site_url: https://rubelw.github.io/OSSS/
 theme:
   name: material
-  features:
-    - navigation.sections
-    - navigation.tabs
-    - content.code.copy
-    - toc.integrate
-  icon:
-    repo: fontawesome/brands/github
+  locale: en
+  highlightjs: true
+  favicon: ./img/favicon.svg
+  logo: ./img/logo.png
+  hljs_languages:
+    - yaml
+    - python
+    - bash
+    - shell
   palette:
     - scheme: default
-      primary: indigo
-      accent: indigo
+      primary: custom     # ← use CSS variables for header color
+      accent: custom
+      toggle:
+        icon: material/toggle-switch-off-outline
+        name: Switch to dark mode
+    - scheme: slate
+      primary: custom     # ← keep gray even in dark scheme
+      accent: custom
+      toggle:
+        icon: material/toggle-switch
+        name: Switch to light mode
+  font:
+    text: Nunito Sans
+    code: IBM Plex Mono
 
 # Where the static site gets written (your requirement)
 site_dir: documentation
@@ -27,9 +41,10 @@ nav:
       - API (TypeScript): api/web/README.md  # or the main index typedoc generated
   - Backend (Python):
       - Overview: backend/overview.md
-      - API (Python):
-          - Index: api/python/index.md
-          - OSSS package: api/python/OSSS.md
+      - OpenAPI: backend/openapi.md
+      #- API (Python):
+      #    - Index: api/python/index.md
+      #    - OSSS package: api/python/OSSS.md
 
 plugins:
   - search
@@ -41,8 +56,11 @@ plugins:
           options:
             docstring_style: google
             show_source: false
+            members_order: source
+
   - gen-files:
       scripts:
+        - tooling/export_openapi.py
         - tooling/generate_docs.py
   - literate-nav
   - section-index
@@ -55,3 +73,8 @@ markdown_extensions:
   - footnotes
   - def_list
   - codehilite
+extra_javascript:
+  - https://cdn.redoc.ly/redoc/latest/bundles/redoc.standalone.js
+
+extra_css:
+  - overrides/wide.css

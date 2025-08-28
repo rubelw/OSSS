@@ -1,12 +1,11 @@
-// app/api/debug/session/route.ts
+// src/osss-web/app/api/debug/session/route.ts
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "../../auth/[...nextauth]/route";
+import { auth } from "@/app/auth"; // ✅ use central NextAuth export
 
 export async function GET() {
-  const session = await getServerSession(authOptions);
+  const session = await auth();
   return NextResponse.json({
     signedIn: !!session,
-    hasAccessToken: !!(session as any)?.accessToken,
+    hasAccessToken: Boolean((session as any)?.accessToken),
   });
 }

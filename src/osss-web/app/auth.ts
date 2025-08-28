@@ -1,16 +1,16 @@
 /**
  * OSSS Web — Auth bootstrap (already commented elsewhere)
  * Note: A fully commented version exists; this header marks the top of this copy.
- * If the content changed, let me know and I’ll regenerate rich inline documentation.
  */
 // auth.ts (v5 style)
-import NextAuth from "next-auth";
+import NextAuth, { type NextAuthConfig } from "next-auth";
 import Keycloak from "next-auth/providers/keycloak";
 import { env } from "@/lib/env";
 
-const issuer = `${env.NEXT_PUBLIC_KEYCLOAK_BASE.replace(/\/+$/,"")}/realms/${env.NEXT_PUBLIC_KEYCLOAK_REALM}`;
+const issuer = `${env.NEXT_PUBLIC_KEYCLOAK_BASE.replace(/\/+$/, "")}/realms/${env.NEXT_PUBLIC_KEYCLOAK_REALM}`;
 
-export const { handlers, auth, signIn, signOut } = NextAuth({
+// 👇 Export the raw config object so Pages API routes can use getServerSession(req,res,authConfig)
+export const authConfig: NextAuthConfig = {
   trustHost: env.AUTH_TRUST_HOST === "1",
   secret: env.AUTH_SECRET,
   session: { strategy: "jwt" },
@@ -27,10 +27,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async jwt({ token, account }) {
       if (account) {
         token.accessToken = (account as any).access_token;
-        // keep refreshToken only if you actually refresh on the server
         token.refreshToken = (account as any).refresh_token ?? token.refreshToken;
-        // ❌ do NOT store id_token -> it’s big and not needed for API calls
-        // token.idToken = (account as any).id_token; // remove
         token.expiresAt =
           typeof (account as any).expires_at === "number"
             ? (account as any).expires_at
@@ -38,12 +35,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         return token;
       }
 
-      // refresh if close to expiry
       const now = Math.floor(Date.now() / 1000);
       if (!token.expiresAt || now < (token.expiresAt as number) - 60) return token;
 
       try {
-        if (!token.refreshToken) return token; // no refresh path -> let it expire
+        if (!token.refreshToken) return token;
         const form = new URLSearchParams();
         form.set("grant_type", "refresh_token");
         form.set("client_id", env.NEXT_PUBLIC_KEYCLOAK_CLIENT_ID);
@@ -71,9 +67,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
     async session({ session, token }) {
       (session as any).accessToken = token.accessToken;
-      // ❌ don’t expose id/refresh tokens in the session
       return session;
     },
   },
-});
+};
+
+// 👇 Export the NextAuth helpers for App Router usage
+export const {
+  handlers: { GET, POST },
+  auth,
+  signIn,
+  signOut,
+} = NextAuth(authConfig);
 

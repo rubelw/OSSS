@@ -1,53 +1,27 @@
-import { NextRequest, NextResponse } from "next/server";
-import { auth } from "../../../auth";
+// src/osss-web/app/pages/api/backend/[...path]/route.ts
+import { NextResponse, type NextRequest } from "next/server";
+import { auth } from "@/app/auth";   // ✅ fixed import, uses alias (preferred)
 
-const BASE = process.env.OSSS_API_URL || "http://127.0.0.1:8081";
-
-function buildTargetURL(pathSegments: string[] | undefined, search: string) {
-  const path = pathSegments?.join("/") ?? "";
-  return `${BASE}/${path}${search ? `?${search}` : ""}`;
-}
-
-async function forward(
+export async function GET(
   req: NextRequest,
-  method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE",
-  params: { path?: string[] }
+  context: { params: Promise<{ path: string[] }> } // ✅ correct typing (params is Promise)
 ) {
-  const url = buildTargetURL(params.path, req.nextUrl.searchParams.toString());
+  const { path } = await context.params;
   const session = await auth();
 
-  const headers = new Headers();
-  // pass content-type if present
-  const ct = req.headers.get("content-type");
-  if (ct) headers.set("content-type", ct);
-  headers.set("accept", "application/json");
+  if (!session?.user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
-  // attach bearer if logged in
-  const accessToken = (session as any)?.accessToken as string | undefined;
-  if (accessToken) headers.set("authorization", `Bearer ${accessToken}`);
-
-  const body = ["POST", "PUT", "PATCH"].includes(method) ? await req.text() : undefined;
-
-  const res = await fetch(url, { method, headers, body, cache: "no-store" });
-  const out = await res.text();
-  return new NextResponse(out, {
-    status: res.status,
-    headers: { "content-type": res.headers.get("content-type") ?? "application/json" },
+  // Example passthrough logic — forward to backend
+  const targetUrl = `${process.env.OSSS_API_URL}/${path.join("/")}`;
+  const res = await fetch(targetUrl, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${(session as any).accessToken}`,
+    },
   });
-}
 
-export async function GET(req: NextRequest, ctx: { params: { path?: string[] } }) {
-  return forward(req, "GET", ctx.params);
-}
-export async function POST(req: NextRequest, ctx: { params: { path?: string[] } }) {
-  return forward(req, "POST", ctx.params);
-}
-export async function PUT(req: NextRequest, ctx: { params: { path?: string[] } }) {
-  return forward(req, "PUT", ctx.params);
-}
-export async function PATCH(req: NextRequest, ctx: { params: { path?: string[] } }) {
-  return forward(req, "PATCH", ctx.params);
-}
-export async function DELETE(req: NextRequest, ctx: { params: { path?: string[] } }) {
-  return forward(req, "DELETE", ctx.params);
+  const data = await res.json();
+  return NextResponse.json(data, { status: res.status });
 }
