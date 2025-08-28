@@ -1,25 +1,24 @@
 {
   "$schema": "https://typedoc.org/schema.json",
-  "tsconfig": "src/osss-web/tsconfig.json",
   "entryPointStrategy": "expand",
   "entryPoints": [
-    "src/osss-web/lib",
     "src/osss-web/components",
     "src/osss-web/types"
   ],
+  "tsconfig": "src/osss-web/tsconfig.typedoc.json",
   "plugin": ["typedoc-plugin-markdown"],
   "readme": "none",
   "out": "docs/api/web",
+  "hideBreadcrumbs": true,
+  "hidePageTitle": true,
+  "excludePrivate": true,
+  "excludeProtected": false,
+  "excludeExternals": true,
   "exclude": [
-    "src/osss-web/app/**",
     "**/.next/**",
     "**/node_modules/**",
     "**/dist/**",
-    "**/*.test.*",
-    "**/*.spec.*",
-    "**/__tests__/**"
-  ],
-  "excludePrivate": true,
-  "excludeProtected": false,
-  "excludeExternals": true
+    "src/osss-web/app/**",             // exclude app/ (Pages & Route Handlers)
+    "src/osss-web/app/pages/**"
+  ]
 }
