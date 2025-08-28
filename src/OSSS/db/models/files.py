@@ -18,3 +18,20 @@ class File(UUIDMixin, TimestampMixin, Base):
     size: Mapped[Optional[int]] = mapped_column(sa.BigInteger)
     mime_type: Mapped[Optional[str]] = mapped_column(sa.String(127))
     created_by: Mapped[Optional[str]] = mapped_column(GUID(), sa.ForeignKey("users.id"))
+
+    meeting_links: Mapped[list["MeetingFile"]] = relationship(
+        "MeetingFile",
+        back_populates="file",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        lazy="selectin",
+    )
+
+    # 🔧 add this to match PolicyFile.file.back_populates="policy_links"
+    policy_links: Mapped[list["PolicyFile"]] = relationship(
+        "PolicyFile",
+        back_populates="file",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        lazy="selectin",
+    )

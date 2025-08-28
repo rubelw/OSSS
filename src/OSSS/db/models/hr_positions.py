@@ -7,6 +7,7 @@ from typing import Any, Optional, List
 import sqlalchemy as sa
 from sqlalchemy import ForeignKey, UniqueConstraint, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.ext.associationproxy import association_proxy
 
 from OSSS.db.base import Base, UUIDMixin, GUID, JSONB, TimestampMixin
 
@@ -22,3 +23,14 @@ class HRPosition(UUIDMixin, TimestampMixin, Base):
     assignments: Mapped[list["HRPositionAssignment"]] = relationship(
         "HRPositionAssignment", back_populates="position", cascade="all, delete-orphan"
     )
+
+    # Link rows
+    department_links: Mapped[list["DepartmentPositionIndex"]] = relationship(
+        "DepartmentPositionIndex",
+        back_populates="position",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
+    # Convenience: access departments directly
+    departments = association_proxy("department_links", "department")

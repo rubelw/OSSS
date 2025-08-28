@@ -2,7 +2,8 @@ name: Publish Python distribution to PyPI
 
 on:
   push:
-    branches: [ main ]
+    workflow_dispatch: {}
+    #branches: [ main ]  # Disabled
   workflow_dispatch:
     inputs:
       destination:

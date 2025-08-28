@@ -8,13 +8,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from OSSS.db.base import Base, UUIDMixin, JSONB
 
-# Import FastAPI/Pydantic schemas (ensure these files do NOT import this models module)
-# This import is for FastAPI route typing / re-exports; models don't use them directly.
-from OSSS.schemas.ap_vendors import (  # noqa: F401
-    ApVendorCreate,
-    ApVendorUpdate,
-    ApVendorOut,
-)
+
 
 
 # ---------------------------

@@ -1,20 +1,33 @@
+# OSSS/db/models/plan_assignment.py
 from __future__ import annotations
-import uuid
 
-from datetime import datetime, date, time
-from decimal import Decimal
-from typing import Any, Optional, List
 import uuid
 import sqlalchemy as sa
-from sqlalchemy import ForeignKey, UniqueConstraint, text
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import ForeignKey, text
 
-from OSSS.db.base import Base, UUIDMixin, GUID, JSONB
+from OSSS.db.base import Base, GUID
 
 class PlanAssignment(Base):
     __tablename__ = "plan_assignments"
 
-    entity_type: Mapped[str] = mapped_column(sa.String(50), primary_key=True)  # e.g., 'plan' | 'goal' | 'objective'
-    entity_id: Mapped[uuid.UUID] = mapped_column(GUID(), primary_key=True)
-    assignee_type: Mapped[str] = mapped_column(sa.String(20), primary_key=True)  # user|group|role
-    assignee_id: Mapped[uuid.UUID] = mapped_column(GUID(), primary_key=True)
+    id: Mapped[uuid.UUID] = mapped_column(
+        GUID(), primary_key=True, server_default=sa.text("gen_random_uuid()")
+    )
+
+    # e.g., 'plan' | 'goal' | 'objective'
+    entity_type: Mapped[str] = mapped_column(sa.String(50), nullable=False)
+    entity_id:   Mapped[uuid.UUID] = mapped_column(GUID(), nullable=False, index=True)
+
+    # e.g., 'user' | 'group' | 'role'
+    assignee_type: Mapped[str] = mapped_column(sa.String(20), nullable=False)
+    assignee_id:   Mapped[uuid.UUID] = mapped_column(GUID(), nullable=False, index=True)
+
+    __table_args__ = (
+        sa.UniqueConstraint(
+            "entity_type", "entity_id", "assignee_type", "assignee_id",
+            name="uq_plan_assignments_tuple",
+        ),
+        sa.Index("ix_plan_assignments_entity", "entity_type", "entity_id"),
+        sa.Index("ix_plan_assignments_assignee", "assignee_type", "assignee_id"),
+    )

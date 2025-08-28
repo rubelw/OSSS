@@ -227,6 +227,8 @@ from .policy_search_index import PolicySearchIndexOut, PolicySearchIndexCreate, 
 __all__ += ['PolicySearchIndexOut','PolicySearchIndexCreate','PolicySearchIndexReplace','PolicySearchIndexPatch','PolicySearchIndexList']
 from .department import DepartmentOut, DepartmentCreate, DepartmentReplace, DepartmentPatch, DepartmentList
 __all__ += ['DepartmentOut','DepartmentCreate','DepartmentReplace','DepartmentPatch','DepartmentList']
+from .department_position_index import DepartmentPositionLinkCreate,DepartmentPositionLink,DepartmentAttachPositions,PositionAttachDepartments,DepartmentPositionLinkList
+__all__ += ['DepartmentPositionLinkCreate','DepartmentPositionLink','DepartmentAttachPositions','PositionAttachDepartments','DepartmentPositionLinkList']
 from .agenda_workflow import AgendaWorkflowOut, AgendaWorkflowCreate, AgendaWorkflowReplace, AgendaWorkflowPatch, AgendaWorkflowList
 __all__ += ['AgendaWorkflowOut','AgendaWorkflowCreate','AgendaWorkflowReplace','AgendaWorkflowPatch','AgendaWorkflowList']
 from .course import CourseOut, CourseCreate, CourseReplace, CoursePatch, CourseList

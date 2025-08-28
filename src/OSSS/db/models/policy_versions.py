@@ -37,6 +37,15 @@ class PolicyVersion(UUIDMixin, TimestampMixin, Base):
         viewonly=True,
     )
 
+    # 🔧 reverse side for PolicyFile.policy_version (back_populates="files")
+    files: Mapped[list["PolicyFile"]] = relationship(
+        "PolicyFile",
+        back_populates="policy_version",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        lazy="selectin",
+    )
+
     __table_args__ = (
         sa.Index("ix_policy_versions_policy", "policy_id"),
     )

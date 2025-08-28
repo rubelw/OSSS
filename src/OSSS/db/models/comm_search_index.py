@@ -1,18 +1,21 @@
+# OSSS/db/models/comm_search_index.py
 from __future__ import annotations
-
-from datetime import datetime, date, time
-from decimal import Decimal
-from typing import Any, Optional, List
-
 import sqlalchemy as sa
-from sqlalchemy import ForeignKey, UniqueConstraint, text
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-
-from OSSS.db.base import Base, UUIDMixin, GUID, JSONB, TSVectorType
+from sqlalchemy.orm import Mapped, mapped_column
+from OSSS.db.base import Base, GUID, TSVectorType
 
 class CommSearchIndex(Base):
     __tablename__ = "comm_search_index"
 
-    entity_type: Mapped[str] = mapped_column(sa.String(32), primary_key=True)
-    entity_id: Mapped[str] = mapped_column(GUID(), primary_key=True)
-    ts: Mapped[Optional[str]] = mapped_column(TSVectorType())
+    id: Mapped[str] = mapped_column(GUID(), primary_key=True, server_default=sa.text("gen_random_uuid()"))
+
+    entity_type: Mapped[str] = mapped_column(sa.String(32), nullable=False, index=True)
+    entity_id:   Mapped[str] = mapped_column(GUID(),       nullable=False, index=True)
+
+    # Postgres tsvector column
+    ts: Mapped[str | None] = mapped_column(TSVectorType())
+
+    __table_args__ = (
+        sa.UniqueConstraint("entity_type", "entity_id", name="uq_comm_search_index_pair"),
+        sa.Index("ix_comm_search_index_ts", "ts", postgresql_using="gin"),
+    )

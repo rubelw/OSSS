@@ -45,6 +45,30 @@ class Meeting(UUIDMixin, TimestampMixin, Base):
         lazy="selectin",
     )
 
+    permissions: Mapped[list["MeetingPermission"]] = relationship(
+        "MeetingPermission",
+        back_populates="meeting",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        lazy="selectin",
+    )
+
+    files: Mapped[list["MeetingFile"]] = relationship(
+        "MeetingFile",
+        back_populates="meeting",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        lazy="selectin",
+    )
+
+    attendance: Mapped[list["Attendance"]] = relationship(
+        "Attendance",
+        back_populates="meeting",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        lazy="selectin",
+    )
+
     __table_args__ = (
         sa.Index("ix_meetings_org", "org_id"),
         sa.Index("ix_meetings_body", "body_id"),

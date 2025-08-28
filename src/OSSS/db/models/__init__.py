@@ -57,6 +57,7 @@ from .data_sharing_agreements import *
 from .deduction_codes import *
 from .deliveries import *
 from .deliveries import *
+from .department_position_index import *
 from .departments import *
 from .document_activity import *
 from .document_activity import *

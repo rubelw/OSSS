@@ -35,6 +35,17 @@
       }
     ]
   },
-  "include": ["lib/**/*", "components/**/*", "types/**/*"],
-  "exclude": [".next", "**/.next/**", "dist", "node_modules", "app/pages/api/**"]
+  "include": [
+    "components/**/*",
+    "lib/**/*",
+    "types/**/*",
+    ".next/types/**/*.ts"
+  ],
+  "exclude": [
+    ".next",
+    "**/.next/**",
+    "dist",
+    "node_modules",
+    "app/pages/api/**"
+  ]
 }
