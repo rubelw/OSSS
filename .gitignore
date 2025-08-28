@@ -153,3 +153,7 @@ src/osss-web/node_modules/
 src/osss-web/.next/
 src/osss-web/out/
 src/osss-web/package-lock.json
+
+# Allow Next.js lib directory
+!src/osss-web/lib/
+!src/osss-web/lib/**
