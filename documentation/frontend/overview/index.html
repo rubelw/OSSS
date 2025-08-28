@@ -11,18 +11,18 @@
         <link rel="canonical" href="https://rubelw.github.io/OSSS/frontend/overview/">
       
       
-        <link rel="prev" href="../..">
+        <link rel="prev" href="../../job_descriptions/INDEX/">
       
       
         <link rel="next" href="../../api/web/">
       
       
-      <link rel="icon" href="../../assets/images/favicon.png">
+      <link rel="icon" href="../../img/favicon.svg">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.5.34">
     
     
       
-        <title>Overview - OSSS Developer Documentation</title>
+        <title>Overview - Open Source School Software(OSSS) Documentation</title>
       
     
     
@@ -43,12 +43,14 @@
         
         
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
-        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Nunito+Sans:300,300i,400,400i,700,700i%7CIBM+Plex+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Nunito Sans";--md-code-font:"IBM Plex Mono"}</style>
       
     
     
       <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+      <link rel="stylesheet" href="../../overrides/wide.css">
     
     <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
@@ -67,13 +69,18 @@
     
     
     
-    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom">
   
     
     <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
     <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
     <label class="md-overlay" for="__drawer"></label>
     <div data-md-component="skip">
+      
+        
+        <a href="#osss-web-nextjs-overview" class="md-skip">
+          Skip to content
+        </a>
       
     </div>
     <div data-md-component="announce">
@@ -83,12 +90,13 @@
     
       
 
-<header class="md-header" data-md-component="header">
-  <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="../.." title="OSSS Developer Documentation" class="md-header__button md-logo" aria-label="OSSS Developer Documentation" data-md-component="logo">
-      
   
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Open Source School Software(OSSS) Documentation" class="md-header__button md-logo" aria-label="Open Source School Software(OSSS) Documentation" data-md-component="logo">
+      
+  <img src="../../img/logo.png" alt="logo">
 
     </a>
     <label class="md-header__button md-icon" for="__drawer">
@@ -99,7 +107,7 @@
       <div class="md-header__ellipsis">
         <div class="md-header__topic">
           <span class="md-ellipsis">
-            OSSS Developer Documentation
+            Open Source School Software(OSSS) Documentation
           </span>
         </div>
         <div class="md-header__topic" data-md-component="header-topic">
@@ -118,7 +126,21 @@
     
     
     
-    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-hidden="true"  type="radio" name="__palette" id="__palette_0">
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 6H7c-3.31 0-6 2.69-6 6s2.69 6 6 6h10c3.31 0 6-2.69 6-6s-2.69-6-6-6m0 10H7c-2.21 0-4-1.79-4-4s1.79-4 4-4h10c2.21 0 4 1.79 4 4s-1.79 4-4 4M7 9c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 7H7a5 5 0 0 0-5 5 5 5 0 0 0 5 5h10a5 5 0 0 0 5-5 5 5 0 0 0-5-5m0 8a3 3 0 0 1-3-3 3 3 0 0 1 3-3 3 3 0 0 1 3 3 3 3 0 0 1-3 3"/></svg>
+      </label>
     
   
 </form>
@@ -176,70 +198,6 @@
       
         
           
-            
-<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
-  <div class="md-grid">
-    <ul class="md-tabs__list">
-      
-        
-  
-  
-  
-    <li class="md-tabs__item">
-      <a href="../.." class="md-tabs__link">
-        
-  
-    
-  
-  Overview
-
-      </a>
-    </li>
-  
-
-      
-        
-  
-  
-    
-  
-  
-    
-    
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="./" class="md-tabs__link">
-          
-  
-  Frontend (Next.js)
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-  
-    
-    
-      <li class="md-tabs__item">
-        <a href="../../backend/overview/" class="md-tabs__link">
-          
-  
-  Backend (Python)
-
-        </a>
-      </li>
-    
-  
-
-      
-    </ul>
-  </div>
-</nav>
-          
         
       
       <main class="md-main" data-md-component="main">
@@ -253,20 +211,15 @@
                     
 
 
-  
 
-
-  
-
-<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="../.." title="OSSS Developer Documentation" class="md-nav__button md-logo" aria-label="OSSS Developer Documentation" data-md-component="logo">
+    <a href="../.." title="Open Source School Software(OSSS) Documentation" class="md-nav__button md-logo" aria-label="Open Source School Software(OSSS) Documentation" data-md-component="logo">
       
-  
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+  <img src="../../img/logo.png" alt="logo">
 
     </a>
-    OSSS Developer Documentation
+    Open Source School Software(OSSS) Documentation
   </label>
   
   <ul class="md-nav__list" data-md-scrollfix>
@@ -295,6 +248,26 @@
       
   
   
+  
+  
+    <li class="md-nav__item">
+      <a href="../../job_descriptions/INDEX/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Job Positions Being Automated
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
     
   
   
@@ -302,23 +275,15 @@
     
     
     
-      
-        
-        
-      
-      
-        
-      
     
-    
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
         
           
-          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
             
   
   <span class="md-ellipsis">
@@ -329,8 +294,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
-          <label class="md-nav__title" for="__nav_2">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             Frontend (Next.js)
           </label>
@@ -349,6 +314,19 @@
       <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
       
       
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    Overview
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
       
       <a href="./" class="md-nav__link md-nav__link--active">
         
@@ -359,6 +337,124 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#key-features" class="md-nav__link">
+    <span class="md-ellipsis">
+      Key Features
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#project-structure-high-level" class="md-nav__link">
+    <span class="md-ellipsis">
+      Project Structure (high level)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#authentication-flow-keycloak-nextauth" class="md-nav__link">
+    <span class="md-ellipsis">
+      Authentication Flow (Keycloak + NextAuth)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#environment-variables" class="md-nav__link">
+    <span class="md-ellipsis">
+      Environment Variables
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#local-development" class="md-nav__link">
+    <span class="md-ellipsis">
+      Local Development
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#coding-conventions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Coding Conventions
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testing-suggested" class="md-nav__link">
+    <span class="md-ellipsis">
+      Testing (suggested)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#build-deploy" class="md-nav__link">
+    <span class="md-ellipsis">
+      Build &amp; Deploy
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#troubleshooting" class="md-nav__link">
+    <span class="md-ellipsis">
+      Troubleshooting
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#related-docs" class="md-nav__link">
+    <span class="md-ellipsis">
+      Related Docs
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#links" class="md-nav__link">
+    <span class="md-ellipsis">
+      Links
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -402,20 +498,15 @@
     
     
     
-      
-      
-        
-      
-    
     
     <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
         
           
-          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
             
   
   <span class="md-ellipsis">
@@ -426,8 +517,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
             <span class="md-nav__icon md-icon"></span>
             Backend (Python)
           </label>
@@ -460,85 +551,16 @@
   
   
   
-    
-    
-    
-      
-      
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_2" >
-        
-          
-          <label class="md-nav__link" for="__nav_3_2" id="__nav_3_2_label" tabindex="0">
-            
-  
-  <span class="md-ellipsis">
-    API (Python)
-  </span>
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_2_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_2">
-            <span class="md-nav__icon md-icon"></span>
-            API (Python)
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
     <li class="md-nav__item">
-      <a href="../../api/python/" class="md-nav__link">
+      <a href="../../backend/openapi/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
-    Index
+    OpenAPI
   </span>
   
 
       </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../api/python/OSSS/" class="md-nav__link">
-        
-  
-  <span class="md-ellipsis">
-    OSSS package
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
     </li>
   
 
@@ -558,6 +580,131 @@
               </div>
             
             
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#key-features" class="md-nav__link">
+    <span class="md-ellipsis">
+      Key Features
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#project-structure-high-level" class="md-nav__link">
+    <span class="md-ellipsis">
+      Project Structure (high level)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#authentication-flow-keycloak-nextauth" class="md-nav__link">
+    <span class="md-ellipsis">
+      Authentication Flow (Keycloak + NextAuth)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#environment-variables" class="md-nav__link">
+    <span class="md-ellipsis">
+      Environment Variables
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#local-development" class="md-nav__link">
+    <span class="md-ellipsis">
+      Local Development
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#coding-conventions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Coding Conventions
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testing-suggested" class="md-nav__link">
+    <span class="md-ellipsis">
+      Testing (suggested)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#build-deploy" class="md-nav__link">
+    <span class="md-ellipsis">
+      Build &amp; Deploy
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#troubleshooting" class="md-nav__link">
+    <span class="md-ellipsis">
+      Troubleshooting
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#related-docs" class="md-nav__link">
+    <span class="md-ellipsis">
+      Related Docs
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#links" class="md-nav__link">
+    <span class="md-ellipsis">
+      Links
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
           
           
             <div class="md-content" data-md-component="content">
@@ -566,9 +713,195 @@
                   
 
 
-  <h1>Overview</h1>
+<h1 id="osss-web-nextjs-overview">OSSS Web (Next.js) — Overview<a class="headerlink" href="#osss-web-nextjs-overview" title="Permanent link">&para;</a></h1>
+<p><em>This page describes the <strong>frontend</strong> application located at:</em><br />
+<code>src/osss-web</code> (commit <strong>e7c3fcf69557527d1c09b9d47096fac63c0af246</strong>).</p>
+<p>The web app is built with <strong>Next.js (App Router)</strong> and <strong>TypeScript</strong>. It integrates with <strong>Auth.js (NextAuth)</strong> and <strong>Keycloak</strong> for authentication, and optionally uses <strong>Redis</strong> (via <code>unstorage</code>) for user/account persistence on the server side. The app is organized to keep UI, routing, and integration code cleanly separated.</p>
+<hr />
+<h2 id="key-features">Key Features<a class="headerlink" href="#key-features" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Next.js App Router</strong>: <code>app/</code> directory with segment-based layouts, server/client components, and API route handlers under <code>app/api/**</code>.</li>
+<li><strong>Authentication</strong>: NextAuth (Auth.js) configured with <strong>Keycloak</strong>; JWT session strategy by default.</li>
+<li><strong>Edge + Node</strong>: Middleware and server components can run in the Edge runtime; storage-backed features (Redis adapter) run in Node.</li>
+<li><strong>TypeScript-first</strong>: Strict typing with shared types under <code>types/</code>; utilities under <code>lib/</code>.</li>
+<li><strong>Reusable UI</strong>: Common components in <code>components/</code>; public assets in <code>public/</code>.</li>
+</ul>
+<hr />
+<h2 id="project-structure-high-level">Project Structure (high level)<a class="headerlink" href="#project-structure-high-level" title="Permanent link">&para;</a></h2>
+<div class="codehilite"><pre><span></span><code><span class="nx">src</span><span class="o">/</span><span class="nx">osss</span><span class="o">-</span><span class="nx">web</span><span class="o">/</span>
+<span class="err">├──</span><span class="w"> </span><span class="nx">app</span><span class="o">/</span><span class="w">                         </span><span class="err">#</span><span class="w"> </span><span class="nx">App</span><span class="w"> </span><span class="nx">Router</span><span class="w"> </span><span class="nx">entry</span><span class="o">-</span><span class="nx">point</span><span class="w"> </span><span class="p">(</span><span class="nx">layouts</span><span class="p">,</span><span class="w"> </span><span class="nx">pages</span><span class="p">,</span><span class="w"> </span><span class="nx">API</span><span class="w"> </span><span class="nx">routes</span><span class="p">)</span>
+<span class="err">│</span><span class="w">   </span><span class="err">├──</span><span class="w"> </span><span class="kn">api</span><span class="o">/</span>
+<span class="err">│</span><span class="w">   </span><span class="err">│</span><span class="w">   </span><span class="err">└──</span><span class="w"> </span><span class="nx">auth</span><span class="o">/</span><span class="w">                </span><span class="err">#</span><span class="w"> </span><span class="nx">NextAuth</span><span class="w"> </span><span class="nx">handlers</span><span class="w"> </span><span class="k">and</span><span class="w"> </span><span class="nx">related</span><span class="w"> </span><span class="nx">routes</span>
+<span class="err">│</span><span class="w">   </span><span class="err">├──</span><span class="w"> </span><span class="nx">administration</span><span class="o">/</span><span class="w">          </span><span class="err">#</span><span class="w"> </span><span class="nx">Feature</span><span class="w"> </span><span class="nx">routes</span>
+<span class="err">│</span><span class="w">   </span><span class="err">├──</span><span class="w"> </span><span class="nx">finance</span><span class="o">/</span>
+<span class="err">│</span><span class="w">   </span><span class="err">├──</span><span class="w"> </span><span class="nx">human</span><span class="o">-</span><span class="nx">resources</span><span class="o">/</span>
+<span class="err">│</span><span class="w">   </span><span class="err">├──</span><span class="w"> </span><span class="nx">parent</span><span class="o">-</span><span class="nx">communications</span><span class="o">/</span>
+<span class="err">│</span><span class="w">   </span><span class="err">├──</span><span class="w"> </span><span class="nx">school</span><span class="o">-</span><span class="nx">board</span><span class="o">/</span>
+<span class="err">│</span><span class="w">   </span><span class="err">├──</span><span class="w"> </span><span class="nx">facilities</span><span class="o">/</span>
+<span class="err">│</span><span class="w">   </span><span class="err">├──</span><span class="w"> </span><span class="nx">transportation</span><span class="o">/</span>
+<span class="err">│</span><span class="w">   </span><span class="err">├──</span><span class="w"> </span><span class="nx">layout</span><span class="p">.</span><span class="nx">tsx</span><span class="w">               </span><span class="err">#</span><span class="w"> </span><span class="nx">Root</span><span class="w"> </span><span class="nx">layout</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="nx">all</span><span class="w"> </span><span class="nx">pages</span>
+<span class="err">│</span><span class="w">   </span><span class="err">└──</span><span class="w"> </span><span class="nx">page</span><span class="p">.</span><span class="nx">tsx</span><span class="w">                 </span><span class="err">#</span><span class="w"> </span><span class="nx">Home</span><span class="w"> </span><span class="nx">page</span>
+<span class="err">├──</span><span class="w"> </span><span class="nx">components</span><span class="o">/</span><span class="w">                  </span><span class="err">#</span><span class="w"> </span><span class="nx">Reusable</span><span class="w"> </span><span class="nx">UI</span><span class="w"> </span><span class="nx">components</span><span class="w"> </span><span class="p">(</span><span class="nx">buttons</span><span class="p">,</span><span class="w"> </span><span class="nx">forms</span><span class="p">,</span><span class="w"> </span><span class="nx">nav</span><span class="p">,</span><span class="w"> </span><span class="nx">cards</span><span class="p">,</span><span class="w"> </span><span class="nx">etc</span><span class="p">.)</span>
+<span class="err">├──</span><span class="w"> </span><span class="nx">lib</span><span class="o">/</span><span class="w">                         </span><span class="err">#</span><span class="w"> </span><span class="nx">Non</span><span class="o">-</span><span class="nx">UI</span><span class="w"> </span><span class="nx">helpers</span><span class="w"> </span><span class="k">and</span><span class="w"> </span><span class="nx">integrations</span>
+<span class="err">│</span><span class="w">   </span><span class="err">├──</span><span class="w"> </span><span class="nx">auth</span><span class="p">.</span><span class="nx">ts</span><span class="w">                  </span><span class="err">#</span><span class="w"> </span><span class="nx">NextAuth</span><span class="w"> </span><span class="nx">config</span><span class="w"> </span><span class="p">(</span><span class="nx">Node</span><span class="w"> </span><span class="nx">runtime</span><span class="p">)</span>
+<span class="err">│</span><span class="w">   </span><span class="err">├──</span><span class="w"> </span><span class="nx">auth</span><span class="o">-</span><span class="nx">edge</span><span class="p">.</span><span class="nx">ts</span><span class="w">             </span><span class="err">#</span><span class="w"> </span><span class="nx">Edge</span><span class="o">-</span><span class="nx">safe</span><span class="w"> </span><span class="nx">auth</span><span class="w"> </span><span class="nx">helpers</span><span class="w"> </span><span class="p">(</span><span class="nx">no</span><span class="w"> </span><span class="nx">Node</span><span class="w"> </span><span class="nx">APIs</span><span class="p">)</span>
+<span class="err">│</span><span class="w">   </span><span class="err">├──</span><span class="w"> </span><span class="kn">api</span><span class="o">-</span><span class="nx">client</span><span class="p">.</span><span class="nx">ts</span><span class="w">            </span><span class="err">#</span><span class="w"> </span><span class="nx">Typed</span><span class="w"> </span><span class="nx">fetch</span><span class="w"> </span><span class="nx">wrapper</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="nx">backend</span><span class="w"> </span><span class="nx">calls</span>
+<span class="err">│</span><span class="w">   </span><span class="err">├──</span><span class="w"> </span><span class="nx">kc</span><span class="o">-</span><span class="nx">token</span><span class="p">.</span><span class="nx">ts</span><span class="w">              </span><span class="err">#</span><span class="w"> </span><span class="nx">Keycloak</span><span class="w"> </span><span class="nx">token</span><span class="w"> </span><span class="nx">helpers</span>
+<span class="err">│</span><span class="w">   </span><span class="err">├──</span><span class="w"> </span><span class="nx">redis</span><span class="p">.</span><span class="nx">ts</span><span class="w">                 </span><span class="err">#</span><span class="w"> </span><span class="nx">Redis</span><span class="o">-</span><span class="nx">backed</span><span class="w"> </span><span class="nx">unstorage</span>
+<span class="err">│</span><span class="w">   </span><span class="err">├──</span><span class="w"> </span><span class="nx">redis</span><span class="o">-</span><span class="nx">adapter</span><span class="p">.</span><span class="nx">ts</span><span class="w">         </span><span class="err">#</span><span class="w"> </span><span class="nx">Unstorage</span><span class="w"> </span><span class="nx">adapter</span><span class="w"> </span><span class="nx">wiring</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="nx">NextAuth</span>
+<span class="err">│</span><span class="w">   </span><span class="err">└──</span><span class="w"> </span><span class="nx">env</span><span class="p">.</span><span class="nx">ts</span><span class="w">                   </span><span class="err">#</span><span class="w"> </span><span class="nx">Centralized</span><span class="w"> </span><span class="nx">environment</span><span class="w"> </span><span class="nx">access</span><span class="o">/</span><span class="nx">validation</span>
+<span class="err">├──</span><span class="w"> </span><span class="nx">types</span><span class="o">/</span><span class="w">                       </span><span class="err">#</span><span class="w"> </span><span class="nx">Shared</span><span class="w"> </span><span class="nx">TypeScript</span><span class="w"> </span><span class="k">type</span><span class="w"> </span><span class="nx">definitions</span>
+<span class="err">├──</span><span class="w"> </span><span class="nx">public</span><span class="o">/</span><span class="w">                      </span><span class="err">#</span><span class="w"> </span><span class="nx">Static</span><span class="w"> </span><span class="nx">assets</span><span class="w"> </span><span class="nx">served</span><span class="w"> </span><span class="k">as</span><span class="o">-</span><span class="k">is</span><span class="w"> </span><span class="p">(</span><span class="nx">favicon</span><span class="p">,</span><span class="w"> </span><span class="nx">images</span><span class="p">,</span><span class="w"> </span><span class="nx">docs</span><span class="p">)</span>
+<span class="err">├──</span><span class="w"> </span><span class="nx">providers</span><span class="p">.</span><span class="nx">tsx</span><span class="w">                </span><span class="err">#</span><span class="w"> </span><span class="nx">App</span><span class="o">-</span><span class="nx">wide</span><span class="w"> </span><span class="nx">client</span><span class="w"> </span><span class="nx">providers</span><span class="w"> </span><span class="p">(</span><span class="nx">e</span><span class="p">.</span><span class="nx">g</span><span class="p">.,</span><span class="w"> </span><span class="nx">SessionProvider</span><span class="p">)</span>
+<span class="err">├──</span><span class="w"> </span><span class="nx">middleware</span><span class="p">.</span><span class="nx">ts</span><span class="w">                </span><span class="err">#</span><span class="w"> </span><span class="nx">Edge</span><span class="w"> </span><span class="nx">middleware</span><span class="w"> </span><span class="p">(</span><span class="nx">auth</span><span class="w"> </span><span class="nx">gates</span><span class="p">,</span><span class="w"> </span><span class="nx">rewrites</span><span class="o">/</span><span class="nx">redirects</span><span class="p">)</span>
+<span class="err">├──</span><span class="w"> </span><span class="nx">layout</span><span class="p">.</span><span class="nx">tsx</span><span class="w">                   </span><span class="err">#</span><span class="w"> </span><span class="p">(</span><span class="nx">If</span><span class="w"> </span><span class="nx">colocated</span><span class="w"> </span><span class="nx">at</span><span class="w"> </span><span class="nx">root</span><span class="w"> </span><span class="nx">app</span><span class="w"> </span><span class="nx">level</span><span class="w"> </span><span class="nx">depending</span><span class="w"> </span><span class="nx">on</span><span class="w"> </span><span class="nx">version</span><span class="p">)</span>
+<span class="err">├──</span><span class="w"> </span><span class="nx">next</span><span class="p">.</span><span class="nx">config</span><span class="p">.</span><span class="nx">js</span><span class="w">               </span><span class="err">#</span><span class="w"> </span><span class="nx">Next</span><span class="p">.</span><span class="nx">js</span><span class="w"> </span><span class="nx">configuration</span><span class="w"> </span><span class="p">(</span><span class="nx">rewrites</span><span class="p">,</span><span class="w"> </span><span class="nx">output</span><span class="w"> </span><span class="nx">tracing</span><span class="w"> </span><span class="nx">root</span><span class="p">)</span>
+<span class="err">└──</span><span class="w"> </span><span class="kn">package</span><span class="p">.</span><span class="nx">json</span>
+</code></pre></div>
 
+<blockquote>
+<p>Some filenames may vary slightly; see local tree for the exact list. The <code>app/api/auth</code> and <code>lib/auth.ts</code> pairing is central to login/session flows.</p>
+</blockquote>
+<hr />
+<h2 id="authentication-flow-keycloak-nextauth">Authentication Flow (Keycloak + NextAuth)<a class="headerlink" href="#authentication-flow-keycloak-nextauth" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>Provider</strong>: <code>lib/auth.ts</code> registers the <strong>Keycloak</strong> provider with PKCE and a compact <code>profile(...)</code> mapper.  </li>
+<li><strong>Session strategy</strong>: JWT (stateless) by default — good for Edge; accounts/users can be persisted via Redis on Node.  </li>
+<li><strong>Route handlers</strong>: <code>app/api/auth/[...nextauth]/route.ts</code> exports NextAuth <code>GET</code>/<code>POST</code> handlers.  </li>
+<li><strong>Client usage</strong>: Components use <code>useSession()</code> to read session state; <code>signIn()</code> / <code>signOut()</code> to start flows.  </li>
+<li><strong>Middleware</strong>: <code>middleware.ts</code> can perform light auth gating in the Edge runtime (no Node APIs).</li>
+</ol>
+<blockquote>
+<p>For detailed explanations, see the comments in <code>lib/auth.ts</code>, <code>auth-edge.ts</code>, and <code>app/api/auth/</code> README (if present).</p>
+</blockquote>
+<hr />
+<h2 id="environment-variables">Environment Variables<a class="headerlink" href="#environment-variables" title="Permanent link">&para;</a></h2>
+<p>Create an <code>.env.local</code> in <code>src/osss-web</code> (or at the repository root if your tooling loads from there) with the following variables:</p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Purpose</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>NEXTAUTH_URL</code></td>
+<td>Absolute URL of the web app (used by NextAuth)</td>
+<td><code>http://localhost:3000</code></td>
+</tr>
+<tr>
+<td><code>NEXTAUTH_SECRET</code></td>
+<td>Random secret for session/JWT encryption</td>
+<td><code>openssl rand -base64 32</code></td>
+</tr>
+<tr>
+<td><code>KEYCLOAK_ISSUER</code></td>
+<td>Keycloak realm issuer URL</td>
+<td><code>https://kc.example.com/realms/OSSS</code></td>
+</tr>
+<tr>
+<td><code>WEB_KEYCLOAK_CLIENT_ID</code></td>
+<td>Keycloak client ID for the web app</td>
+<td><code>osss-web</code></td>
+</tr>
+<tr>
+<td><code>WEB_KEYCLOAK_CLIENT_SECRET</code></td>
+<td>Corresponding client secret</td>
+<td><code>***</code></td>
+</tr>
+<tr>
+<td><code>REDIS_URL</code></td>
+<td>Redis base URL (optional)</td>
+<td><code>redis://127.0.0.1:6379</code></td>
+</tr>
+<tr>
+<td><code>REDIS_PASSWORD</code></td>
+<td>Redis password (optional)</td>
+<td><code>***</code></td>
+</tr>
+<tr>
+<td><code>NODE_ENV</code></td>
+<td>Enables debug logs when <code>development</code></td>
+<td><code>development</code></td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>If Redis is password-protected, the code builds a URL like: <code>redis://:&lt;PASS&gt;@host:port</code>. For Edge-only deployments, JWT sessions work without Redis; Redis is useful for account persistence in Node runtimes.</p>
+</blockquote>
+<hr />
+<h2 id="local-development">Local Development<a class="headerlink" href="#local-development" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p><strong>Package manager</strong>: This project declares a <code>packageManager</code> in <code>package.json</code>. If you see errors using <code>pnpm</code>, use <strong>npm</strong> (as configured).</p>
+</blockquote>
+<div class="codehilite"><pre><span></span><code><span class="c1"># From repo root</span>
+<span class="nb">cd</span><span class="w"> </span>src/osss-web
 
+<span class="c1"># Install dependencies</span>
+npm<span class="w"> </span>install
+
+<span class="c1"># Run the dev server</span>
+npm<span class="w"> </span>run<span class="w"> </span>dev
+<span class="c1"># → http://localhost:3000</span>
+
+<span class="c1"># Type-check, lint, build</span>
+npm<span class="w"> </span>run<span class="w"> </span>typecheck
+npm<span class="w"> </span>run<span class="w"> </span>lint
+npm<span class="w"> </span>run<span class="w"> </span>build
+npm<span class="w"> </span>start<span class="w">   </span><span class="c1"># run the production build locally</span>
+</code></pre></div>
+
+<p>If you proxy a backend during development, confirm <code>next.config.js</code> rewrites (e.g., <code>/api/osss/:path* → http://localhost:8081/:path*</code>). Avoid a catch‑all <code>/api/:path*</code> rewrite to prevent clashes with Next’s own API routes.</p>
+<hr />
+<h2 id="coding-conventions">Coding Conventions<a class="headerlink" href="#coding-conventions" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>TypeScript</strong>: Prefer explicit types at module boundaries; use <code>import type</code> for type-only imports.</li>
+<li><strong>Components</strong>: Co-locate feature-specific components with their routes; place shared UI in <code>components/</code>.</li>
+<li><strong>Lib utilities</strong>: Keep non-UI logic in <code>lib/</code> (auth, env, API client, tokens).</li>
+<li><strong>Path aliases</strong>: Use <code>@/lib/...</code>, <code>@/components/...</code>, <code>@/types/...</code> for clarity (see <code>tsconfig.json</code>).</li>
+<li><strong>Styling</strong>: Tailwind/shadcn-ui/Radix (if configured in your project) — keep components accessible (ARIA).</li>
+</ul>
+<hr />
+<h2 id="testing-suggested">Testing (suggested)<a class="headerlink" href="#testing-suggested" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Unit</strong>: React Testing Library + Vitest/Jest (depending on project setup).  </li>
+<li><strong>E2E</strong>: Playwright/Cypress.  </li>
+<li><strong>Middleware/Edge</strong>: Use <code>@edge-runtime/jest</code> or compatible mocks for <code>Request</code>/<code>Response</code>.</li>
+</ul>
+<blockquote>
+<p>Ensure auth-dependent tests provide stubbed sessions/tokens; avoid hitting live IdP in CI.</p>
+</blockquote>
+<hr />
+<h2 id="build-deploy">Build &amp; Deploy<a class="headerlink" href="#build-deploy" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Build</strong>: <code>npm run build</code> produces a <code>.next</code> output.  </li>
+<li><strong>Runtime</strong>: Edge + Node depending on route; functions requiring Redis or other Node-only clients must run on Node.  </li>
+<li><strong>Output tracing</strong>: <code>next.config.js</code> may set <code>outputFileTracingRoot</code> for monorepo-friendly server bundling. Adjust if you move directories.</li>
+</ul>
+<hr />
+<h2 id="troubleshooting">Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>“This project is configured to use npm …”</strong>: Use <code>npm</code> since <code>packageManager</code> is set in <code>package.json</code>.</li>
+<li><strong><code>/api/auth/session</code> 500</strong>: Verify env vars, issuer is an absolute URL, and <code>providers</code> array is defined.</li>
+<li><strong>Redis connection errors</strong>: Validate <code>REDIS_URL</code>/<code>REDIS_PASSWORD</code>; test with <code>redis-cli -a</code> locally.</li>
+<li><strong>Edge vs Node</strong>: Don’t import Node-only modules in Edge code paths (middleware, some RSC).</li>
+</ul>
+<hr />
+<h2 id="related-docs">Related Docs<a class="headerlink" href="#related-docs" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="../app.md"><code>app/</code> directory</a> – App Router overview  </li>
+<li><a href="../api/auth/README.md"><code>app/api/auth/</code></a> – NextAuth routes &amp; handlers  </li>
+<li><a href="../components/README.components.md"><code>components/</code></a> – Shared UI components  </li>
+<li><a href="../lib/README.lib.md"><code>lib/</code></a> – Utilities and integrations  </li>
+<li><a href="../types/README.types.md"><code>types/</code></a> – Shared TS types</li>
+</ul>
+<hr />
+<h2 id="links">Links<a class="headerlink" href="#links" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Repo: https://github.com/rubelw/OSSS/tree/e7c3fcf69557527d1c09b9d47096fac63c0af246/src/osss-web</li>
+</ul>
 
 
 
@@ -615,10 +948,12 @@
     </div>
     
     
-    <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.sections", "navigation.tabs", "content.code.copy", "toc.integrate"], "search": "../../assets/javascripts/workers/search.07f07601.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    <script id="__config" type="application/json">{"base": "../..", "features": [], "search": "../../assets/javascripts/workers/search.07f07601.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
     
     
       <script src="../../assets/javascripts/bundle.56dfad97.min.js"></script>
+      
+        <script src="https://cdn.redoc.ly/redoc/latest/bundles/redoc.standalone.js"></script>
       
     
   </body>

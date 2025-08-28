@@ -14,15 +14,15 @@
         <link rel="prev" href="../../api/web/">
       
       
-        <link rel="next" href="../../api/python/">
+        <link rel="next" href="../openapi/">
       
       
-      <link rel="icon" href="../../assets/images/favicon.png">
+      <link rel="icon" href="../../img/favicon.svg">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.5.34">
     
     
       
-        <title>Overview - OSSS Developer Documentation</title>
+        <title>Overview - Open Source School Software(OSSS) Documentation</title>
       
     
     
@@ -43,12 +43,14 @@
         
         
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
-        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Nunito+Sans:300,300i,400,400i,700,700i%7CIBM+Plex+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Nunito Sans";--md-code-font:"IBM Plex Mono"}</style>
       
     
     
       <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+      <link rel="stylesheet" href="../../overrides/wide.css">
     
     <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
@@ -67,13 +69,18 @@
     
     
     
-    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom">
   
     
     <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
     <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
     <label class="md-overlay" for="__drawer"></label>
     <div data-md-component="skip">
+      
+        
+        <a href="#osss-backend-fastapi-overview" class="md-skip">
+          Skip to content
+        </a>
       
     </div>
     <div data-md-component="announce">
@@ -83,12 +90,13 @@
     
       
 
-<header class="md-header" data-md-component="header">
-  <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="../.." title="OSSS Developer Documentation" class="md-header__button md-logo" aria-label="OSSS Developer Documentation" data-md-component="logo">
-      
   
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Open Source School Software(OSSS) Documentation" class="md-header__button md-logo" aria-label="Open Source School Software(OSSS) Documentation" data-md-component="logo">
+      
+  <img src="../../img/logo.png" alt="logo">
 
     </a>
     <label class="md-header__button md-icon" for="__drawer">
@@ -99,7 +107,7 @@
       <div class="md-header__ellipsis">
         <div class="md-header__topic">
           <span class="md-ellipsis">
-            OSSS Developer Documentation
+            Open Source School Software(OSSS) Documentation
           </span>
         </div>
         <div class="md-header__topic" data-md-component="header-topic">
@@ -118,7 +126,21 @@
     
     
     
-    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-hidden="true"  type="radio" name="__palette" id="__palette_0">
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 6H7c-3.31 0-6 2.69-6 6s2.69 6 6 6h10c3.31 0 6-2.69 6-6s-2.69-6-6-6m0 10H7c-2.21 0-4-1.79-4-4s1.79-4 4-4h10c2.21 0 4 1.79 4 4s-1.79 4-4 4M7 9c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 7H7a5 5 0 0 0-5 5 5 5 0 0 0 5 5h10a5 5 0 0 0 5-5 5 5 0 0 0-5-5m0 8a3 3 0 0 1-3-3 3 3 0 0 1 3-3 3 3 0 0 1 3 3 3 3 0 0 1-3 3"/></svg>
+      </label>
     
   
 </form>
@@ -176,70 +198,6 @@
       
         
           
-            
-<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
-  <div class="md-grid">
-    <ul class="md-tabs__list">
-      
-        
-  
-  
-  
-    <li class="md-tabs__item">
-      <a href="../.." class="md-tabs__link">
-        
-  
-    
-  
-  Overview
-
-      </a>
-    </li>
-  
-
-      
-        
-  
-  
-  
-    
-    
-      <li class="md-tabs__item">
-        <a href="../../frontend/overview/" class="md-tabs__link">
-          
-  
-  Frontend (Next.js)
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-    
-  
-  
-    
-    
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="./" class="md-tabs__link">
-          
-  
-  Backend (Python)
-
-        </a>
-      </li>
-    
-  
-
-      
-    </ul>
-  </div>
-</nav>
-          
         
       
       <main class="md-main" data-md-component="main">
@@ -253,20 +211,15 @@
                     
 
 
-  
 
-
-  
-
-<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="../.." title="OSSS Developer Documentation" class="md-nav__button md-logo" aria-label="OSSS Developer Documentation" data-md-component="logo">
+    <a href="../.." title="Open Source School Software(OSSS) Documentation" class="md-nav__button md-logo" aria-label="Open Source School Software(OSSS) Documentation" data-md-component="logo">
       
-  
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+  <img src="../../img/logo.png" alt="logo">
 
     </a>
-    OSSS Developer Documentation
+    Open Source School Software(OSSS) Documentation
   </label>
   
   <ul class="md-nav__list" data-md-scrollfix>
@@ -297,23 +250,38 @@
   
   
   
-    
-    
-    
-      
-      
+    <li class="md-nav__item">
+      <a href="../../job_descriptions/INDEX/" class="md-nav__link">
         
+  
+  <span class="md-ellipsis">
+    Job Positions Being Automated
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
       
+      
+  
+  
+  
+  
+    
+    
     
     
     <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
         
           
-          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
             
   
   <span class="md-ellipsis">
@@ -324,8 +292,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_2">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             Frontend (Next.js)
           </label>
@@ -391,23 +359,15 @@
     
     
     
-      
-        
-        
-      
-      
-        
-      
     
-    
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
         
           
-          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
             
   
   <span class="md-ellipsis">
@@ -418,8 +378,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
-          <label class="md-nav__title" for="__nav_3">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4">
             <span class="md-nav__icon md-icon"></span>
             Backend (Python)
           </label>
@@ -438,6 +398,19 @@
       <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
       
       
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    Overview
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
       
       <a href="./" class="md-nav__link md-nav__link--active">
         
@@ -449,53 +422,161 @@
 
       </a>
       
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#key-features" class="md-nav__link">
+    <span class="md-ellipsis">
+      Key Features
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#project-structure-typical" class="md-nav__link">
+    <span class="md-ellipsis">
+      Project Structure (typical)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#running-locally" class="md-nav__link">
+    <span class="md-ellipsis">
+      Running Locally
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Running Locally">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-python-environment" class="md-nav__link">
+    <span class="md-ellipsis">
+      1) Python environment
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-environment-variables" class="md-nav__link">
+    <span class="md-ellipsis">
+      2) Environment variables
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-start-the-api-server" class="md-nav__link">
+    <span class="md-ellipsis">
+      3) Start the API server
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#authentication-authorization-keycloakoidc" class="md-nav__link">
+    <span class="md-ellipsis">
+      Authentication &amp; Authorization (Keycloak/OIDC)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#development-tips" class="md-nav__link">
+    <span class="md-ellipsis">
+      Development Tips
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testing" class="md-nav__link">
+    <span class="md-ellipsis">
+      Testing
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#openapi-client-sdks" class="md-nav__link">
+    <span class="md-ellipsis">
+      OpenAPI &amp; Client SDKs
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#deployment" class="md-nav__link">
+    <span class="md-ellipsis">
+      Deployment
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#troubleshooting" class="md-nav__link">
+    <span class="md-ellipsis">
+      Troubleshooting
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#related-docs" class="md-nav__link">
+    <span class="md-ellipsis">
+      Related Docs
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#links" class="md-nav__link">
+    <span class="md-ellipsis">
+      Links
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
               
-            
-              
-                
-  
-  
-  
-  
-    
-    
-    
-      
-      
-        
-          
-          
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_2" >
-        
-          
-          <label class="md-nav__link" for="__nav_3_2" id="__nav_3_2_label" tabindex="">
-            
-  
-  <span class="md-ellipsis">
-    API (Python)
-  </span>
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_2_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_2">
-            <span class="md-nav__icon md-icon"></span>
-            API (Python)
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
             
               
                 
@@ -504,44 +585,15 @@
   
   
     <li class="md-nav__item">
-      <a href="../../api/python/" class="md-nav__link">
+      <a href="../openapi/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
-    Index
+    OpenAPI
   </span>
   
 
       </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../api/python/OSSS/" class="md-nav__link">
-        
-  
-  <span class="md-ellipsis">
-    OSSS package
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
     </li>
   
 
@@ -561,6 +613,164 @@
               </div>
             
             
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#key-features" class="md-nav__link">
+    <span class="md-ellipsis">
+      Key Features
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#project-structure-typical" class="md-nav__link">
+    <span class="md-ellipsis">
+      Project Structure (typical)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#running-locally" class="md-nav__link">
+    <span class="md-ellipsis">
+      Running Locally
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Running Locally">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-python-environment" class="md-nav__link">
+    <span class="md-ellipsis">
+      1) Python environment
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-environment-variables" class="md-nav__link">
+    <span class="md-ellipsis">
+      2) Environment variables
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-start-the-api-server" class="md-nav__link">
+    <span class="md-ellipsis">
+      3) Start the API server
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#authentication-authorization-keycloakoidc" class="md-nav__link">
+    <span class="md-ellipsis">
+      Authentication &amp; Authorization (Keycloak/OIDC)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#development-tips" class="md-nav__link">
+    <span class="md-ellipsis">
+      Development Tips
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testing" class="md-nav__link">
+    <span class="md-ellipsis">
+      Testing
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#openapi-client-sdks" class="md-nav__link">
+    <span class="md-ellipsis">
+      OpenAPI &amp; Client SDKs
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#deployment" class="md-nav__link">
+    <span class="md-ellipsis">
+      Deployment
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#troubleshooting" class="md-nav__link">
+    <span class="md-ellipsis">
+      Troubleshooting
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#related-docs" class="md-nav__link">
+    <span class="md-ellipsis">
+      Related Docs
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#links" class="md-nav__link">
+    <span class="md-ellipsis">
+      Links
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
           
           
             <div class="md-content" data-md-component="content">
@@ -569,9 +779,212 @@
                   
 
 
-  <h1>Overview</h1>
+<h1 id="osss-backend-fastapi-overview">OSSS Backend (FastAPI) — Overview<a class="headerlink" href="#osss-backend-fastapi-overview" title="Permanent link">&para;</a></h1>
+<p><em>This page documents the <strong>backend</strong> application located at:</em><br />
+<code>src/OSSS</code> (commit <strong>e7c3fcf69557527d1c09b9d47096fac63c0af246</strong>).</p>
+<p>The backend is built with <strong>FastAPI</strong> and <strong>Python 3.11+</strong>. It exposes REST endpoints with an
+OpenAPI schema, integrates with <strong>Keycloak</strong> for authentication (OIDC), and is designed to run in
+containers for local and production environments.</p>
+<hr />
+<h2 id="key-features">Key Features<a class="headerlink" href="#key-features" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>FastAPI</strong> app with typed routers and Pydantic models.</li>
+<li><strong>OpenAPI</strong> documentation out-of-the-box (<code>/docs</code>, <code>/redoc</code>).</li>
+<li><strong>SSO-ready</strong>: hooks for Keycloak / OIDC (token verification and role mapping).</li>
+<li><strong>Testable</strong>: first-class support for <code>pytest</code> and dependency overrides.</li>
+<li><strong>Container-friendly</strong>: deterministic runtime via Docker/Compose, optional <code>.env</code> support.</li>
+</ul>
+<hr />
+<h2 id="project-structure-typical">Project Structure (typical)<a class="headerlink" href="#project-structure-typical" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p>Your exact module names may differ; this reflects a common layout for <code>src/OSSS</code>.</p>
+</blockquote>
+<div class="codehilite"><pre><span></span><code>src/OSSS/
+├── __init__.py
+├── __main__.py             # CLI entry (menu or helpers) — <span class="sb">`python -m OSSS`</span>
+├── api/                    # Routers (per feature), dependencies, error handlers
+│   ├── routes/             # e.g., behavior codes, admin, health, users
+│   ├── deps.py
+│   └── errors.py
+├── core/                   # App factory, config, logging
+│   ├── config.py           # Settings (env-driven)
+│   └── security.py         # Auth helpers (JWT/OIDC validation)
+├── db/                     # Persistence (SQLAlchemy / async drivers) if used
+│   ├── models.py
+│   ├── session.py
+│   └── migrations/         # Alembic (optional)
+├── services/               # Business logic / service layer
+├── schemas/                # Pydantic models (request/response/domain)
+└── main.py                 # FastAPI app instance (`app = FastAPI(...)`)
+</code></pre></div>
 
+<p>If your <code>main.py</code> lives elsewhere, adjust commands accordingly (see <strong>Run</strong> below).</p>
+<hr />
+<h2 id="running-locally">Running Locally<a class="headerlink" href="#running-locally" title="Permanent link">&para;</a></h2>
+<h3 id="1-python-environment">1) Python environment<a class="headerlink" href="#1-python-environment" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="c1"># From the repo root</span>
+python<span class="w"> </span>-m<span class="w"> </span>venv<span class="w"> </span>.venv
+<span class="nb">source</span><span class="w"> </span>.venv/bin/activate<span class="w">        </span><span class="c1"># Windows PowerShell: .\.venv\Scripts\Activate.ps1</span>
 
+<span class="c1"># Install backend dependencies (adjust if you use Poetry/UV)</span>
+pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </span>requirements.txt<span class="w">  </span><span class="c1"># or: pip install -e &quot;.[dev]&quot;</span>
+</code></pre></div>
+
+<h3 id="2-environment-variables">2) Environment variables<a class="headerlink" href="#2-environment-variables" title="Permanent link">&para;</a></h3>
+<p>Create <code>.env</code> (or export env vars) with typical settings (examples — tailor to your app):</p>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Purpose</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>OSSS_ENV</code></td>
+<td>runtime profile</td>
+<td><code>development</code></td>
+</tr>
+<tr>
+<td><code>OSSS_LOG_LEVEL</code></td>
+<td>logging level</td>
+<td><code>INFO</code></td>
+</tr>
+<tr>
+<td><code>DATABASE_URL</code></td>
+<td>DB connection string</td>
+<td><code>postgresql+asyncpg://user:pass@localhost:5432/osss</code></td>
+</tr>
+<tr>
+<td><code>KEYCLOAK_ISSUER</code></td>
+<td>OIDC issuer</td>
+<td><code>https://kc.example.com/realms/OSSS</code></td>
+</tr>
+<tr>
+<td><code>KEYCLOAK_AUDIENCE</code></td>
+<td>API audience/client id</td>
+<td><code>osss-api</code></td>
+</tr>
+<tr>
+<td><code>KEYCLOAK_JWKS_URL</code></td>
+<td>JWKS endpoint (optional if discoverable)</td>
+<td><code>https://kc.../protocol/openid-connect/certs</code></td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>The web frontend (<code>src/osss-web</code>) has its own <code>.env.local</code> variables; keep secrets server-side.</p>
+</blockquote>
+<h3 id="3-start-the-api-server">3) Start the API server<a class="headerlink" href="#3-start-the-api-server" title="Permanent link">&para;</a></h3>
+<p>Choose one method:</p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># (A) If your app exposes `app` in main.py:</span>
+uvicorn<span class="w"> </span>OSSS.main:app<span class="w"> </span>--reload<span class="w"> </span>--port<span class="w"> </span><span class="m">8081</span>
+
+<span class="c1"># (B) If your app factory is in OSSS.api (example):</span>
+uvicorn<span class="w"> </span>OSSS.api.main:app<span class="w"> </span>--reload<span class="w"> </span>--port<span class="w"> </span><span class="m">8081</span>
+
+<span class="c1"># (C) If you ship a CLI entry and it supports &quot;serve&quot;:</span>
+python<span class="w"> </span>-m<span class="w"> </span>OSSS<span class="w">  </span><span class="c1"># see __main__.py (may open menu; pick &quot;serve&quot; if provided)</span>
+</code></pre></div>
+
+<p>Then open:
+- Swagger UI: http://localhost:8081/docs<br />
+- ReDoc: http://localhost:8081/redoc</p>
+<hr />
+<h2 id="authentication-authorization-keycloakoidc">Authentication &amp; Authorization (Keycloak/OIDC)<a class="headerlink" href="#authentication-authorization-keycloakoidc" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Incoming requests</strong> present a <strong>Bearer token</strong> (Access Token) issued by Keycloak.</li>
+<li>The API <strong>verifies</strong> token signature and <strong>validates</strong> issuer, audience, expiry, and (optionally) roles.</li>
+<li>Use a dependency (e.g., <code>get_current_user</code>) to require auth for protected routes and map roles/groups
+  into domain permissions (RBAC/ABAC).</li>
+</ul>
+<p>Typical request flow:</p>
+<div class="codehilite"><pre><span></span><code>Client → (Bearer JWT) → OSSS FastAPI → (validate via OIDC/JWKS) → Authorized route
+</code></pre></div>
+
+<blockquote>
+<p>For service-to-service calls, use client credentials with a machine account and a distinct audience.</p>
+</blockquote>
+<hr />
+<h2 id="development-tips">Development Tips<a class="headerlink" href="#development-tips" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Routers</strong>: Group endpoints by feature (e.g., <code>api/routes/behavior_codes.py</code>). Include them in <code>main.py</code>.</li>
+<li><strong>Schemas (Pydantic)</strong>: Keep request/response models small and versionable.</li>
+<li><strong>Services</strong>: Put business logic in <code>services/</code> and call from routers → easier to unit test.</li>
+<li><strong>Dependencies</strong>: Inject per-request resources (db sessions, current user). Override them in <code>pytest</code>.</li>
+<li><strong>CORS</strong>: If the frontend runs on a different origin, enable CORS for dev (exact origins only).</li>
+</ul>
+<p>Example <code>main.py</code> skeleton:</p>
+<div class="codehilite"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">fastapi</span><span class="w"> </span><span class="kn">import</span> <span class="n">FastAPI</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.api.routes</span><span class="w"> </span><span class="kn">import</span> <span class="n">health</span>
+
+<span class="n">app</span> <span class="o">=</span> <span class="n">FastAPI</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">&quot;OSSS API&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="s2">&quot;0.1.0&quot;</span><span class="p">)</span>
+<span class="n">app</span><span class="o">.</span><span class="n">include_router</span><span class="p">(</span><span class="n">health</span><span class="o">.</span><span class="n">router</span><span class="p">,</span> <span class="n">prefix</span><span class="o">=</span><span class="s2">&quot;/healthz&quot;</span><span class="p">,</span> <span class="n">tags</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;health&quot;</span><span class="p">])</span>
+</code></pre></div>
+
+<hr />
+<h2 id="testing">Testing<a class="headerlink" href="#testing" title="Permanent link">&para;</a></h2>
+<div class="codehilite"><pre><span></span><code><span class="c1"># Lint &amp; type check (if configured)</span>
+ruff<span class="w"> </span>check<span class="w"> </span>src/OSSS
+mypy<span class="w"> </span>src/OSSS
+
+<span class="c1"># Run unit/integration tests</span>
+pytest<span class="w"> </span>-q
+</code></pre></div>
+
+<ul>
+<li>Prefer <strong>unit tests</strong> for services and dependencies.</li>
+<li>Use <strong>TestClient</strong> (or httpx) for router tests; override deps for auth/db.</li>
+<li>For auth, generate signed test tokens or mock verification step.</li>
+</ul>
+<hr />
+<h2 id="openapi-client-sdks">OpenAPI &amp; Client SDKs<a class="headerlink" href="#openapi-client-sdks" title="Permanent link">&para;</a></h2>
+<p>FastAPI exposes the OpenAPI JSON at <code>/openapi.json</code>. You can generate clients:</p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># Typescript/axios example via openapi-generator (adjust package)</span>
+openapi-generator<span class="w"> </span>generate<span class="w">   </span>-i<span class="w"> </span>http://localhost:8081/openapi.json<span class="w">   </span>-g<span class="w"> </span>typescript-axios<span class="w">   </span>-o<span class="w"> </span>client-ts
+</code></pre></div>
+
+<p>Keep versioning in mind; regenerate clients on breaking changes.</p>
+<hr />
+<h2 id="deployment">Deployment<a class="headerlink" href="#deployment" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Container</strong>: Build an image with a non-root user, pinned Python deps, and a healthcheck.</li>
+<li><strong>Server</strong>: Run with <code>uvicorn</code> (or <code>gunicorn -k uvicorn.workers.UvicornWorker</code>) behind a reverse proxy.</li>
+<li><strong>Config</strong>: Inject env vars via secrets manager; never bake secrets into images.</li>
+<li><strong>Observability</strong>: Structured logs (JSON), request IDs, metrics (Prometheus), tracing (OTel) as needed.</li>
+</ul>
+<p>Minimal Dockerfile example (adjust paths):</p>
+<div class="codehilite"><pre><span></span><code><span class="k">FROM</span><span class="w"> </span><span class="s">python:3.11-slim</span>
+<span class="k">WORKDIR</span><span class="w"> </span><span class="s">/app</span>
+<span class="k">COPY</span><span class="w"> </span>requirements.txt<span class="w"> </span>./
+<span class="k">RUN</span><span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </span>requirements.txt
+<span class="k">COPY</span><span class="w"> </span>src<span class="w"> </span>./src
+<span class="k">ENV</span><span class="w"> </span><span class="nv">PYTHONPATH</span><span class="o">=</span>/app/src
+<span class="k">EXPOSE</span><span class="w"> </span><span class="s">8081</span>
+<span class="k">CMD</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;uvicorn&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;OSSS.main:app&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;--host&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;0.0.0.0&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;--port&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;8081&quot;</span><span class="p">]</span>
+</code></pre></div>
+
+<hr />
+<h2 id="troubleshooting">Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>404 /docs</strong>: Check your app entry and router includes; verify <code>FastAPI()</code> created.</li>
+<li><strong>401/403</strong>: Validate Keycloak config (issuer/audience). Check that tokens have the right roles.</li>
+<li><strong>CORS errors</strong>: Set allowed origins for your dev frontend URL.</li>
+<li><strong>Import errors</strong>: Run with <code>PYTHONPATH=src</code> or install the package in editable mode.</li>
+</ul>
+<hr />
+<h2 id="related-docs">Related Docs<a class="headerlink" href="#related-docs" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Frontend overview: <code>docs/frontend/overview.md</code></li>
+<li>Monorepo landing page: <code>docs/index.md</code></li>
+<li>MkDocs + API docs: see <code>mkdocs.yml</code>, <code>docs/api/python/</code></li>
+</ul>
+<hr />
+<h2 id="links">Links<a class="headerlink" href="#links" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Repo path: https://github.com/rubelw/OSSS/tree/e7c3fcf69557527d1c09b9d47096fac63c0af246/src/OSSS</li>
+</ul>
 
 
 
@@ -618,10 +1031,12 @@
     </div>
     
     
-    <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.sections", "navigation.tabs", "content.code.copy", "toc.integrate"], "search": "../../assets/javascripts/workers/search.07f07601.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    <script id="__config" type="application/json">{"base": "../..", "features": [], "search": "../../assets/javascripts/workers/search.07f07601.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
     
     
       <script src="../../assets/javascripts/bundle.56dfad97.min.js"></script>
+      
+        <script src="https://cdn.redoc.ly/redoc/latest/bundles/redoc.standalone.js"></script>
       
     
   </body>

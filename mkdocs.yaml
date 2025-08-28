@@ -36,6 +36,7 @@ docs_dir: docs
 
 nav:
   - Overview: index.md
+  - Job Positions Being Automated: job_descriptions/INDEX.md
   - Frontend (Next.js):
       - Overview: frontend/overview.md
       - API (TypeScript): api/web/README.md  # or the main index typedoc generated

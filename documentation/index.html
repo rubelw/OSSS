@@ -12,15 +12,15 @@
       
       
       
-        <link rel="next" href="frontend/overview/">
+        <link rel="next" href="job_descriptions/INDEX/">
       
       
-      <link rel="icon" href="assets/images/favicon.png">
+      <link rel="icon" href="img/favicon.svg">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.5.34">
     
     
       
-        <title>OSSS Developer Documentation</title>
+        <title>Open Source School Software(OSSS) Documentation</title>
       
     
     
@@ -41,12 +41,14 @@
         
         
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
-        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Nunito+Sans:300,300i,400,400i,700,700i%7CIBM+Plex+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Nunito Sans";--md-code-font:"IBM Plex Mono"}</style>
       
     
     
       <link rel="stylesheet" href="assets/_mkdocstrings.css">
+    
+      <link rel="stylesheet" href="overrides/wide.css">
     
     <script>__md_scope=new URL(".",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
@@ -65,7 +67,7 @@
     
     
     
-    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom">
   
     
     <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
@@ -74,7 +76,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#osss-developer-documentation" class="md-skip">
+        <a href="#open-source-school-software-osss" class="md-skip">
           Skip to content
         </a>
       
@@ -86,12 +88,13 @@
     
       
 
-<header class="md-header" data-md-component="header">
-  <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="." title="OSSS Developer Documentation" class="md-header__button md-logo" aria-label="OSSS Developer Documentation" data-md-component="logo">
-      
   
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="." title="Open Source School Software(OSSS) Documentation" class="md-header__button md-logo" aria-label="Open Source School Software(OSSS) Documentation" data-md-component="logo">
+      
+  <img src="img/logo.png" alt="logo">
 
     </a>
     <label class="md-header__button md-icon" for="__drawer">
@@ -102,7 +105,7 @@
       <div class="md-header__ellipsis">
         <div class="md-header__topic">
           <span class="md-ellipsis">
-            OSSS Developer Documentation
+            Open Source School Software(OSSS) Documentation
           </span>
         </div>
         <div class="md-header__topic" data-md-component="header-topic">
@@ -121,7 +124,21 @@
     
     
     
-    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-hidden="true"  type="radio" name="__palette" id="__palette_0">
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 6H7c-3.31 0-6 2.69-6 6s2.69 6 6 6h10c3.31 0 6-2.69 6-6s-2.69-6-6-6m0 10H7c-2.21 0-4-1.79-4-4s1.79-4 4-4h10c2.21 0 4 1.79 4 4s-1.79 4-4 4M7 9c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 7H7a5 5 0 0 0-5 5 5 5 0 0 0 5 5h10a5 5 0 0 0 5-5 5 5 0 0 0-5-5m0 8a3 3 0 0 1-3-3 3 3 0 0 1 3-3 3 3 0 0 1 3 3 3 3 0 0 1-3 3"/></svg>
+      </label>
     
   
 </form>
@@ -179,70 +196,6 @@
       
         
           
-            
-<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
-  <div class="md-grid">
-    <ul class="md-tabs__list">
-      
-        
-  
-  
-    
-  
-  
-    <li class="md-tabs__item md-tabs__item--active">
-      <a href="." class="md-tabs__link">
-        
-  
-    
-  
-  Overview
-
-      </a>
-    </li>
-  
-
-      
-        
-  
-  
-  
-    
-    
-      <li class="md-tabs__item">
-        <a href="frontend/overview/" class="md-tabs__link">
-          
-  
-  Frontend (Next.js)
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-  
-    
-    
-      <li class="md-tabs__item">
-        <a href="backend/overview/" class="md-tabs__link">
-          
-  
-  Backend (Python)
-
-        </a>
-      </li>
-    
-  
-
-      
-    </ul>
-  </div>
-</nav>
-          
         
       
       <main class="md-main" data-md-component="main">
@@ -256,20 +209,15 @@
                     
 
 
-  
 
-
-  
-
-<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="." title="OSSS Developer Documentation" class="md-nav__button md-logo" aria-label="OSSS Developer Documentation" data-md-component="logo">
+    <a href="." title="Open Source School Software(OSSS) Documentation" class="md-nav__button md-logo" aria-label="Open Source School Software(OSSS) Documentation" data-md-component="logo">
       
-  
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+  <img src="img/logo.png" alt="logo">
 
     </a>
-    OSSS Developer Documentation
+    Open Source School Software(OSSS) Documentation
   </label>
   
   <ul class="md-nav__list" data-md-scrollfix>
@@ -290,6 +238,17 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    Overview
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="." class="md-nav__link md-nav__link--active">
         
   
@@ -300,6 +259,183 @@
 
       </a>
       
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#what-is-in-this-repo" class="md-nav__link">
+    <span class="md-ellipsis">
+      What is in this repo?
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#repository-layout-high-level" class="md-nav__link">
+    <span class="md-ellipsis">
+      Repository layout (high level)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#apps-catalog-starter" class="md-nav__link">
+    <span class="md-ellipsis">
+      Apps catalog (starter)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#getting-started-local-development" class="md-nav__link">
+    <span class="md-ellipsis">
+      Getting started (local development)
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Getting started (local development)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    <span class="md-ellipsis">
+      Prerequisites
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#quick-start" class="md-nav__link">
+    <span class="md-ellipsis">
+      Quick start
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#frontend-nextjs-highlights" class="md-nav__link">
+    <span class="md-ellipsis">
+      Frontend (Next.js) highlights
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#backend-fastapi-highlights" class="md-nav__link">
+    <span class="md-ellipsis">
+      Backend (FastAPI) highlights
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#documentation-mkdocs" class="md-nav__link">
+    <span class="md-ellipsis">
+      Documentation (MkDocs)
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Documentation (MkDocs)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#common-commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      Common commands
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#quality-security-compliance" class="md-nav__link">
+    <span class="md-ellipsis">
+      Quality, Security &amp; Compliance
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#contributing" class="md-nav__link">
+    <span class="md-ellipsis">
+      Contributing
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#license" class="md-nav__link">
+    <span class="md-ellipsis">
+      License
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#links" class="md-nav__link">
+    <span class="md-ellipsis">
+      Links
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="job_descriptions/INDEX/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Job Positions Being Automated
+  </span>
+  
+
+      </a>
     </li>
   
 
@@ -313,20 +449,15 @@
     
     
     
-      
-      
-        
-      
-    
     
     <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
         
           
-          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
             
   
   <span class="md-ellipsis">
@@ -337,8 +468,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_2">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             Frontend (Next.js)
           </label>
@@ -402,20 +533,15 @@
     
     
     
-      
-      
-        
-      
-    
     
     <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
         
           
-          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
             
   
   <span class="md-ellipsis">
@@ -426,8 +552,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
             <span class="md-nav__icon md-icon"></span>
             Backend (Python)
           </label>
@@ -460,85 +586,16 @@
   
   
   
-    
-    
-    
-      
-      
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_2" >
-        
-          
-          <label class="md-nav__link" for="__nav_3_2" id="__nav_3_2_label" tabindex="0">
-            
-  
-  <span class="md-ellipsis">
-    API (Python)
-  </span>
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_2_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_2">
-            <span class="md-nav__icon md-icon"></span>
-            API (Python)
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
     <li class="md-nav__item">
-      <a href="api/python/" class="md-nav__link">
+      <a href="backend/openapi/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
-    Index
+    OpenAPI
   </span>
   
 
       </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="api/python/OSSS/" class="md-nav__link">
-        
-  
-  <span class="md-ellipsis">
-    OSSS package
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
     </li>
   
 
@@ -558,6 +615,170 @@
               </div>
             
             
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#what-is-in-this-repo" class="md-nav__link">
+    <span class="md-ellipsis">
+      What is in this repo?
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#repository-layout-high-level" class="md-nav__link">
+    <span class="md-ellipsis">
+      Repository layout (high level)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#apps-catalog-starter" class="md-nav__link">
+    <span class="md-ellipsis">
+      Apps catalog (starter)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#getting-started-local-development" class="md-nav__link">
+    <span class="md-ellipsis">
+      Getting started (local development)
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Getting started (local development)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    <span class="md-ellipsis">
+      Prerequisites
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#quick-start" class="md-nav__link">
+    <span class="md-ellipsis">
+      Quick start
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#frontend-nextjs-highlights" class="md-nav__link">
+    <span class="md-ellipsis">
+      Frontend (Next.js) highlights
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#backend-fastapi-highlights" class="md-nav__link">
+    <span class="md-ellipsis">
+      Backend (FastAPI) highlights
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#documentation-mkdocs" class="md-nav__link">
+    <span class="md-ellipsis">
+      Documentation (MkDocs)
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Documentation (MkDocs)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#common-commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      Common commands
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#quality-security-compliance" class="md-nav__link">
+    <span class="md-ellipsis">
+      Quality, Security &amp; Compliance
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#contributing" class="md-nav__link">
+    <span class="md-ellipsis">
+      Contributing
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#license" class="md-nav__link">
+    <span class="md-ellipsis">
+      License
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#links" class="md-nav__link">
+    <span class="md-ellipsis">
+      Links
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
           
           
             <div class="md-content" data-md-component="content">
@@ -566,12 +787,182 @@
                   
 
 
-<h1 id="osss-developer-documentation">OSSS Developer Documentation<a class="headerlink" href="#osss-developer-documentation" title="Permanent link">&para;</a></h1>
-<p>Welcome! This site documents both the <strong>backend (Python)</strong> and <strong>frontend (Next.js/TypeScript)</strong>.</p>
-<p>Use the navigation to explore:
-- Frontend API (TypeDoc)
-- Backend API (mkdocstrings)
-- Overviews and guides</p>
+<div class="admonition warning">
+<p class="admonition-title">Project status: active development</p>
+<p><strong>OSSS is still being developed.</strong> Community input and assistance are very welcome!
+- Share feedback and ideas via issues or discussions.
+- Open PRs for bug fixes and small improvements.
+- See <a href="#contributing">Contributing</a> for guidelines.</p>
+</div>
+<h1 id="open-source-school-software-osss">Open Source School Software (OSSS)<a class="headerlink" href="#open-source-school-software-osss" title="Permanent link">&para;</a></h1>
+<p><em>A community‑driven, modular suite of applications for K‑12 school districts.</em><br />
+This repository is a <strong>polyglot monorepo</strong> that hosts multiple apps (each independently deployable) plus shared packages and infrastructure. It currently focuses on a <strong>School Board Management</strong> application (agendas, packets, policies, minutes, votes, and a public portal), and provides scaffolding for additional district apps.</p>
+<blockquote>
+<p>This <code>index.md</code> documents the repository at commit <strong>e7c3fcf69557527d1c09b9d47096fac63c0af246</strong>.</p>
+</blockquote>
+<hr />
+<h2 id="what-is-in-this-repo">What is in this repo?<a class="headerlink" href="#what-is-in-this-repo" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Multiple apps and shared packages</strong> in a single monorepo.</li>
+<li><strong>Backend (FastAPI/Python)</strong> under <code>src/OSSS</code>.</li>
+<li><strong>Frontend (Next.js/TypeScript)</strong> under <code>src/osss-web</code>.</li>
+<li><strong>Infrastructure &amp; tooling</strong>: Docker/Compose, K8s manifests, scripts, and CI.</li>
+<li><strong>Documentation</strong> generated with <strong>MkDocs</strong>, output to <code>./documentation/</code>.</li>
+</ul>
+<blockquote>
+<p>The repository emphasizes openness (export-friendly), modularity, and operational sanity (containers, IaC, observability).</p>
+</blockquote>
+<hr />
+<h2 id="repository-layout-high-level">Repository layout (high level)<a class="headerlink" href="#repository-layout-high-level" title="Permanent link">&para;</a></h2>
+<div class="codehilite"><pre><span></span><code>.
+├─ src/
+│  ├─ OSSS/         # Python backend (FastAPI app, domain, services)
+│  └─ osss-web/     # Next.js frontend (App Router, NextAuth, Keycloak integration)
+├─ data_model/      # Database schema / migrations helpers
+├─ docker/          # Docker/Compose files (local dev)
+├─ k8s/             # Kubernetes manifests (optional)
+├─ tests/           # Unit/integration tests
+├─ documentation/   # Built MkDocs site (HTML output)
+├─ docs/            # MkDocs content &amp; auto-generated API docs
+└─ scripts/         # Developer scripts &amp; automation
+</code></pre></div>
+
+<blockquote>
+<p>Exact paths may evolve; check app‑specific READMEs for authoritative details.</p>
+</blockquote>
+<hr />
+<h2 id="apps-catalog-starter">Apps catalog (starter)<a class="headerlink" href="#apps-catalog-starter" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>App</th>
+<th>Path</th>
+<th>Status</th>
+<th>Tech</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>School Board Management</strong></td>
+<td><code>apps/school-board-management/</code></td>
+<td>MVP</td>
+<td>React/TypeScript, FastAPI/Python, Postgres</td>
+<td>Agendas, packets, votes, policies, minutes, public portal</td>
+</tr>
+<tr>
+<td><strong>Student Information System (template)</strong></td>
+<td><code>apps/student-information-system/</code></td>
+<td>Template</td>
+<td>(choose)</td>
+<td>Enrollment, attendance, grades, transcripts</td>
+</tr>
+<tr>
+<td><strong>Facilities Booking (template)</strong></td>
+<td><code>apps/facilities-booking/</code></td>
+<td>Template</td>
+<td>(choose)</td>
+<td>Room/field scheduling, approvals</td>
+</tr>
+<tr>
+<td><strong>Communications Portal (template)</strong></td>
+<td><code>apps/communications-portal/</code></td>
+<td>Template</td>
+<td>(choose)</td>
+<td>Posts, alerts, newsletters, translation workflows</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>Use the template as a starting point when adding a new app to the monorepo.</p>
+</blockquote>
+<hr />
+<h2 id="getting-started-local-development">Getting started (local development)<a class="headerlink" href="#getting-started-local-development" title="Permanent link">&para;</a></h2>
+<h3 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Git, Docker (or Podman), Docker Compose</li>
+<li>Node.js LTS (for the web UI), Python 3.11+ (for FastAPI) — per app stack</li>
+</ul>
+<h3 id="quick-start">Quick start<a class="headerlink" href="#quick-start" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="c1"># clone</span>
+git<span class="w"> </span>clone<span class="w"> </span>https://github.com/rubelw/OSSS.git
+<span class="nb">cd</span><span class="w"> </span>OSSS
+
+<span class="c1"># (optional) copy environment examples</span>
+cp<span class="w"> </span>.env.example<span class="w"> </span>.env<span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nb">true</span>
+
+<span class="c1"># build + run local stack (database, API, web)</span>
+docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>--build
+</code></pre></div>
+
+<p>Visit the app-specific README(s) for service URLs (e.g. API docs at <code>/docs</code>, web at <code>http://localhost:3000</code> for Next.js or <code>5173</code> for Vite).</p>
+<hr />
+<h2 id="frontend-nextjs-highlights">Frontend (Next.js) highlights<a class="headerlink" href="#frontend-nextjs-highlights" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>App Router</strong> with <code>app/</code> directory and segment‑scoped <code>layout.tsx</code>, <code>page.tsx</code>, and API routes.</li>
+<li><strong>Authentication with NextAuth (Auth.js)</strong> and <strong>Keycloak</strong> provider; JWT sessions by default.</li>
+<li><strong>Edge/Node split</strong>: Edge middleware for light auth checks; Node runtime for Redis‑backed storage.</li>
+<li><strong>UI components</strong> under <code>components/</code>, shared utilities under <code>lib/</code> and types in <code>types/</code>.</li>
+</ul>
+<blockquote>
+<p>See <code>src/osss-web/</code> for code and detailed READMEs.</p>
+</blockquote>
+<hr />
+<h2 id="backend-fastapi-highlights">Backend (FastAPI) highlights<a class="headerlink" href="#backend-fastapi-highlights" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Python 3.11+ FastAPI service</strong> with typed routers, Pydantic models, and OpenAPI docs.</li>
+<li><strong>Auth integration</strong> (Keycloak/SSO ready), database setup, and migration tooling (Alembic).</li>
+<li><strong>Testing</strong> via <code>pytest</code>, configuration via <code>pyproject.toml</code>/<code>setup.cfg</code>.</li>
+</ul>
+<blockquote>
+<p>See <code>src/OSSS/</code> and the app‑specific README for endpoints and dev commands.</p>
+</blockquote>
+<hr />
+<h2 id="documentation-mkdocs">Documentation (MkDocs)<a class="headerlink" href="#documentation-mkdocs" title="Permanent link">&para;</a></h2>
+<p>We build docs to <code>./documentation/</code> using <strong>MkDocs Material</strong> and a mix of generated API references:</p>
+<ul>
+<li><strong>Frontend API (TypeScript)</strong> via TypeDoc → Markdown placed in <code>docs/api/web/</code>.</li>
+<li><strong>Backend API (Python)</strong> via mkdocstrings (<code>::: OSSS</code>) rendered from <code>src/OSSS</code>.</li>
+<li>Hand‑written guides live in <code>docs/</code> (e.g., <code>docs/frontend/overview.md</code>, <code>docs/backend/overview.md</code>).</li>
+</ul>
+<h3 id="common-commands">Common commands<a class="headerlink" href="#common-commands" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="c1"># Generate TypeScript API pages</span>
+npm<span class="w"> </span>run<span class="w"> </span>docs:typedoc
+
+<span class="c1"># Serve MkDocs locally</span>
+mkdocs<span class="w"> </span>serve<span class="w"> </span>-a<span class="w"> </span><span class="m">127</span>.0.0.1:8000
+
+<span class="c1"># Build static site to ./documentation/</span>
+mkdocs<span class="w"> </span>build<span class="w"> </span>--clean
+</code></pre></div>
+
+<hr />
+<h2 id="quality-security-compliance">Quality, Security &amp; Compliance<a class="headerlink" href="#quality-security-compliance" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Accessibility</strong>: target WCAG 2.2 AA for public pages and PDFs.</li>
+<li><strong>Security</strong>: OWASP ASVS‑inspired checklists; SAST/DAST in CI; dependency scanning.</li>
+<li><strong>Privacy</strong>: least‑privilege, data minimization, export tooling for records requests.</li>
+<li><strong>Observability</strong>: structured logs, traces, metrics.</li>
+</ul>
+<hr />
+<h2 id="contributing">Contributing<a class="headerlink" href="#contributing" title="Permanent link">&para;</a></h2>
+<ol>
+<li>Create a feature branch: <code>feat/&lt;area&gt;-&lt;short-desc&gt;</code>  </li>
+<li>Use Conventional Commits (<code>feat:</code>, <code>fix:</code>, <code>docs:</code> …)  </li>
+<li>Add/update tests and docs  </li>
+<li>Open a PR with a clear description and screenshots when helpful</li>
+</ol>
+<p>We use ADRs (Architecture Decision Records). New decisions go under <code>docs/adrs/</code>.</p>
+<hr />
+<h2 id="license">License<a class="headerlink" href="#license" title="Permanent link">&para;</a></h2>
+<p>This repository uses <strong>Apache‑2.0</strong> by default. See <code>LICENSE</code> at the repo root.<br />
+Third‑party notices are in <code>THIRD_PARTY_NOTICES.md</code>.</p>
+<hr />
+<h2 id="links">Links<a class="headerlink" href="#links" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Source: https://github.com/rubelw/OSSS  </li>
+<li>Commit documented here: e7c3fcf69557527d1c09b9d47096fac63c0af246</li>
+</ul>
 
 
 
@@ -618,10 +1009,12 @@
     </div>
     
     
-    <script id="__config" type="application/json">{"base": ".", "features": ["navigation.sections", "navigation.tabs", "content.code.copy", "toc.integrate"], "search": "assets/javascripts/workers/search.07f07601.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    <script id="__config" type="application/json">{"base": ".", "features": [], "search": "assets/javascripts/workers/search.07f07601.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
     
     
       <script src="assets/javascripts/bundle.56dfad97.min.js"></script>
+      
+        <script src="https://cdn.redoc.ly/redoc/latest/bundles/redoc.standalone.js"></script>
       
     
   </body>

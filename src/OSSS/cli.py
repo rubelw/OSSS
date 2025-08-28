@@ -16,6 +16,7 @@ from rich.table import Table
 from rich.panel import Panel
 from rich.prompt import Confirm
 
+
 # --- TOML IO (py3.11 stdlib reader + tomli_w for writing) ---
 try:
     import tomllib  # Python 3.11+
@@ -215,61 +216,124 @@ def _handle_resp(r: httpx.Response):
 def _confirm_delete(kind: str, ident: Any) -> bool:
     return Confirm.ask(f"Delete {kind} [bold]{ident}[/]?")
 
-# -----------------------------------------------------------------------------
-# Click Application
-# -----------------------------------------------------------------------------
+def humanize(s: str) -> str:
+    """Convert snake_case to 'Title Case' labels."""
+    return s.replace('_', ' ').replace('-', ' ').strip().title()
+
+def make_role_command(role_name: str):
+    """Factory to create a simple command that prints the role's label."""
+    label = humanize(role_name)
+    @click.command(name=role_name, help=f"{label}")
+    def _cmd():
+        click.echo(label)
+    return _cmd
+
+def _prog_name() -> str:
+    # What the user runs on the command line. If you rename this file, the
+    # completion snippets will still work as long as you use that new name.
+    return os.path.basename(sys.argv[0]) or "cli"
+
+def _envvar_name(prog: str) -> str:
+    # Click expects _PROG_COMPLETE=... (PROG uppercased, - → _)
+    return f"_{prog.replace('-', '_').upper()}_COMPLETE"
+
+
+def completion_snippet(shell: str, prog: str) -> str:
+    envvar = _envvar_name(prog)
+    if shell == "bash":
+        return f'eval "$({envvar}=bash_source {prog})"'
+    if shell == "zsh":
+        return f'eval "$({envvar}=zsh_source {prog})"'
+    if shell == "fish":
+        return f"eval ({envvar}=fish_source {prog})"
+    if shell in ("powershell", "pwsh"):
+        return f'$env:{envvar} = "powershell"; iex (& {prog} | Out-String)'
+    raise click.ClickException(f"Unsupported shell: {shell}")
+
+
+def detect_shell() -> str | None:
+    sh = os.environ.get("SHELL", "").lower()
+    if "zsh" in sh:
+        return "zsh"
+    if "bash" in sh:
+        return "bash"
+    # fish sets SHELL as fish; on Windows, prefer powershell
+    if "fish" in sh:
+        return "fish"
+    if os.name == "nt":
+        return "powershell"
+    return None
+
+
+def rc_path_for(shell: str) -> Path:
+    home = Path.home()
+    if shell == "bash":
+        # Favor .bashrc; on macOS interactive shells may use .bash_profile
+        return home / ".bashrc"
+    if shell == "zsh":
+        return home / ".zshrc"
+    if shell == "fish":
+        return home / ".config" / "fish" / "config.fish"
+    if shell in ("powershell", "pwsh"):
+        # Typical user profile script
+        return Path(os.path.expanduser("~/Documents/PowerShell/Microsoft.PowerShell_profile.ps1"))
+    # Fallback
+    return home / ".profile"
+
+
+# ------------------------------
+# Root CLI
+# ------------------------------
 @click.group(help="OSSS CLI (Click edition)")
 def cli() -> None:
     """Top-level command group."""
 
-# ---- config subgroup ----
-@cli.group("config", help="View or set CLI configuration")
-def config_group() -> None:
+# ------------------------------
+# Completion utilities (standalone group)
+# ------------------------------
+@click.group(name="completion", help="Show or install shell completion for this CLI")
+def completion_group() -> None:
     pass
 
-@config_group.command("show", help="Show effective configuration")
-def config_show() -> None:
-    cfg = load_config()
-    redacted = {**cfg, "kc_client_secret": "***" if cfg.get("kc_client_secret") else ""}
-    # include which .env path we read for clarity
-    redacted["_env_path"] = str(DOTENV_OVERRIDE_PATH)
-    console.print(Panel.fit(json.dumps(redacted, indent=2), title="Config"))
 
-@config_group.command("set-base", help="Set API base URL, e.g., http://localhost:8081")
-@click.argument("api_base", metavar="API_BASE")
-def config_set_base(api_base: str) -> None:
-    cfg = load_config()
-    cfg["api_base"] = api_base
-    save_config(cfg)
-    console.print(f"[green]Saved[/] api_base = [cyan]{api_base}[/]")
+@completion_group.command("show", help="Print the completion snippet for your shell")
+@click.option("--shell", type=click.Choice(["bash", "zsh", "fish", "powershell", "pwsh"]), default=None,
+              help="Shell to target (auto-detected if omitted)")
+def completion_show(shell: str | None) -> None:
+    if shell is None:
+        shell = detect_shell() or "bash"
+    prog = _prog_name()
+    snippet = completion_snippet(shell, prog)
+    click.echo(f"# Add the following line to your shell rc file to enable TAB completion for '{prog}':")
+    click.echo(f"#   {rc_path_for(shell)}")
+    click.echo(snippet)
 
-@config_group.command("set-token", help="Set bearer token used for API calls")
-@click.argument("token", metavar="TOKEN")
-def config_set_token(token: str) -> None:
-    cfg = load_config()
-    cfg["kc_access_token"] = token
-    cfg["token"] = token
-    cfg["kc_expires_at"] = time.time() + 60  # unknown; force refresh if refresh_token exists
-    save_config(cfg)
-    console.print(f"[green]Saved[/] token")
 
-@config_group.command("from-env", help="Load ../../.env and OS env into saved config")
-def config_from_env() -> None:
-    cfg = load_config()
-    env_vars = _load_env_vars()
-    changed = False
-    for env_key, conf_key in ENV_MAP.items():
-        val = env_vars.get(env_key, None)
-        if val not in (None, ""):
-            if conf_key in {"kc_access_token", "kc_refresh_token"}:
-                continue
-            cfg[conf_key] = val
-            changed = True
-    if changed:
-        save_config(cfg)
-        console.print("[green]Config updated from env[/]")
-    else:
-        console.print("[yellow]No changes from env[/]")
+@completion_group.command("install", help="Append the completion snippet to your shell rc file")
+@click.option("--shell", type=click.Choice(["bash", "zsh", "fish", "powershell", "pwsh"]), default=None,
+              help="Shell to target (auto-detected if omitted)")
+def completion_install(shell: str | None) -> None:
+    if shell is None:
+        shell = detect_shell() or "bash"
+    prog = _prog_name()
+    snippet = completion_snippet(shell, prog)
+    rc = rc_path_for(shell)
+    rc.parent.mkdir(parents=True, exist_ok=True)
+    line = f"\n# OSSS CLI completion for '{prog}'\n{snippet}\n"
+    try:
+        with rc.open("a", encoding="utf-8") as f:
+            f.write(line)
+        click.secho(f"✔ Installed completion in {rc}", fg="green")
+        click.echo("Open a new shell OR source your rc file to activate it, e.g.:")
+        if shell in ("bash", "zsh", "fish"):
+            click.echo(f"  source {rc}")
+        elif shell in ("powershell", "pwsh"):
+            click.echo("  . $PROFILE")
+    except Exception as e:
+        raise click.ClickException(f"Failed to write completion to {rc}: {e}")
+
+
+
 
 # ---- auth subgroup (Keycloak) ----
 @cli.group("auth", help="Authenticate with Keycloak")
@@ -386,119 +450,567 @@ def auth_whoami() -> None:
     else:
         console.print("[red]Could not retrieve user info[/]")
 
-# ---- schools subgroup ----
-@cli.group("schools", help="Manage schools resources")
-def schools_group() -> None:
+# ---------------------------------------------------------------------------
+# Top-level: osss (NEW parent for all remaining groups)
+# ---------------------------------------------------------------------------
+@click.group(name="osss", help="OSSS functional areas (all domain groups are nested here).")
+def osss_group():
     pass
 
-@schools_group.command("list", help="List schools")
-@click.option("--limit", default=50, show_default=True, type=int)
-@click.option("--cursor", default=None)
-def schools_list(limit: int, cursor: Optional[str]) -> None:
-    cfg = load_config()
-    with client(cfg) as c:
-        r = c.get("/schools", params={"limit": limit, "cursor": cursor})
-        data = _handle_resp(r)
 
-    items = data.get("items", data) if isinstance(data, dict) else data
-    if isinstance(items, list) and items and isinstance(items[0], dict):
-        cols = ["id", "name", "district_id", "timezone"]
-        cols = [c for c in cols if any(c in it for it in items)]
-        show_table(items, cols)
-    else:
-        show_json(items)
 
-@schools_group.command("get", help="Get a school by ID")
-@click.argument("school_id")
-def schools_get(school_id: str) -> None:
-    cfg = load_config()
-    with client(cfg) as c:
-        r = c.get(f"/schools/{school_id}")
-        data = _handle_resp(r)
-    show_json(data)
+# ======================================================================
+# 1) Governance & District Executive Leadership
+# ======================================================================
+@click.group(name="governance_and_district_executive_leadership", help="Governance & District Executive Leadership")
+def governance_and_district_executive_leadership_group() -> None:
+    pass
 
-@schools_group.command("create", help="Create a school")
-@click.option("--name", required=True, help="School name")
-@click.option("--district-id", "district_id", required=True, help="District id")
-@click.option("--timezone", default=None)
-@click.option("--school-code", "school_code", default=None)
-def schools_create(name: str, district_id: str, timezone: Optional[str], school_code: Optional[str]) -> None:
-    payload: Dict[str, Any] = {"name": name, "district_id": district_id}
-    if timezone: payload["timezone"] = timezone
-    if school_code: payload["school_code"] = school_code
-    cfg = load_config()
-    with client(cfg) as c:
-        r = c.post("/schools", json=payload, headers={"Content-Type": "application/json"})
-        data = _handle_resp(r)
-    console.print("[green]Created[/] ✅")
-    show_json(data)
 
-@schools_group.command("update", help="Update a school (partial)")
-@click.argument("school_id")
-@click.option("--name", default=None)
-@click.option("--district-id", "district_id", default=None)
-@click.option("--timezone", default=None)
-@click.option("--school-code", "school_code", default=None)
-def schools_update(school_id: str, name: Optional[str], district_id: Optional[str], timezone: Optional[str], school_code: Optional[str]) -> None:
-    payload = {k: v for k, v in {
-        "name": name, "district_id": district_id, "timezone": timezone, "school_code": school_code
-    }.items() if v is not None}
-    if not payload:
-        console.print("[yellow]Nothing to update[/]")
-        raise click.Abort()
-    cfg = load_config()
-    with client(cfg) as c:
-        r = c.put(f"/schools/{school_id}", json=payload, headers={"Content-Type": "application/json"})
-        data = _handle_resp(r)
-    console.print("[green]Updated[/] ✅")
-    show_json(data)
+@click.group(name="board_governance", help="Board & Governance")
+def board_governance_group() -> None:
+    pass
 
-@schools_group.command("delete", help="Delete a school by ID")
-@click.argument("school_id")
-@click.option("--yes", "-y", is_flag=True, help="Skip confirm")
-def schools_delete(school_id: str, yes: bool) -> None:
-    if not yes and not _confirm_delete("school", school_id):
-        console.print("[yellow]Cancelled[/]")
-        return
-    cfg = load_config()
-    with client(cfg) as c:
-        r = c.delete(f"/schools/{school_id}")
-        _handle_resp(r)
-    console.print("[green]Deleted[/] ✅")
 
-# -----------------------------------------------------------------------------
-# Interactive menu (unchanged; invoke when no args)
-# -----------------------------------------------------------------------------
-def menu() -> None:
-    cfg = load_config()
-    console.print(Panel.fit(
-        f"OSSS CLI — API: [cyan]{cfg['api_base']}[/]  |  KC: [cyan]{cfg['kc_base']}[/]/realms/{cfg['kc_realm']}"
-    ))
-    while True:
-        console.print("\n[bold]Main Menu[/]")
-        console.print(" 1) Config: show")
-        console.print(" 2) Config: from-env")
-        console.print(" 3) Auth: login")
-        console.print(" 4) Auth: whoami")
-        console.print(" 5) Schools: list")
-        console.print(" q) Quit")
-        choice = input("Select> ").strip().lower()
-        try:
-            if choice == "1":
-                config_show(standalone_mode=False)  # type: ignore
-            elif choice == "2":
-                config_from_env(standalone_mode=False)  # type: ignore
-            elif choice == "3":
-                auth_login(standalone_mode=False)  # prompts
-            elif choice == "4":
-                auth_whoami(standalone_mode=False)  # type: ignore
-            elif choice == "5":
-                schools_list.callback(limit=50, cursor=None)  # type: ignore
-            elif choice in {"q", "quit"}:
-                console.print("Bye!")
-                return
-        except click.Abort:
-            pass
+@click.group(name="executive_cabinet", help="Executive Cabinet")
+def executive_cabinet_group() -> None:
+    pass
+
+
+for r in ["board_chair", "board_vice_chair", "board_clerk", "school_board_member_trustee"]:
+    board_governance_group.add_command(make_role_command(r))
+
+for r in [
+    "superintendent",
+    "head_of_school",
+    "deputy_superintendent",
+    "associate_superintendent",
+    "assistant_superintendent",
+    "chief_of_staff",
+    "general_counsel",
+    "ombudsperson",
+    "chief_equity_officer",
+    "chief_schools_officer",
+    "chief_academic_officer",
+]:
+    executive_cabinet_group.add_command(make_role_command(r))
+
+
+# ======================================================================
+# 2) School Leadership, Teaching & Learning (Instruction)
+# ======================================================================
+@click.group(name="school_leadership_teaching_learning_instruction", help="School Leadership, Teaching & Learning (Instruction)")
+def school_leadership_teaching_learning_instruction_group() -> None:
+    pass
+
+
+@click.group(name="school_leadership", help="School Leadership")
+def school_leadership_group() -> None:
+    pass
+
+
+@click.group(name="teachers_classroom_roles", help="Teachers & Classroom Roles")
+def teachers_classroom_roles_group() -> None:
+    pass
+
+
+@click.group(name="instructional_support_library_media", help="Instructional Support & Library/Media")
+def instructional_support_library_media_group() -> None:
+    pass
+
+
+@click.group(name="curriculum_pd_accountability_instruction", help="Curriculum, PD & Accountability (Instruction-Facing)")
+def curriculum_pd_accountability_instruction_group() -> None:
+    pass
+
+
+for r in [
+    "principal",
+    "assistant_principal",
+    "associate_principal",
+    "vice_principal",
+    "dean_of_students",
+    "dean_of_academics",
+    "grade_level_dean",
+    "head_of_upper_school",
+    "head_of_middle_school",
+    "head_of_lower_school",
+    "director_of_residential_life",
+]:
+    school_leadership_group.add_command(make_role_command(r))
+
+for r in [
+    "classroom_teacher",
+    "elementary_teacher",
+    "middle_school_teacher",
+    "high_school_teacher",
+    "art_teacher",
+    "music_teacher",
+    "theater_teacher",
+    "physical_education_teacher",
+    "health_teacher",
+    "world_languages_teacher",
+    "computer_science_teacher",
+    "cte_teacher",
+    "early_childhood_teacher",
+    "reading_interventionist",
+    "math_interventionist",
+    "substitute_teacher",
+    "long_term_substitute",
+    "teacher_resident",
+    "student_teacher",
+    "instructional_fellow",
+]:
+    teachers_classroom_roles_group.add_command(make_role_command(r))
+
+for r in ["instructional_coach", "literacy_coach", "math_coach", "mentor_teacher", "media_specialist", "teacher_librarian", "librarian"]:
+    instructional_support_library_media_group.add_command(make_role_command(r))
+
+for r in [
+    "director_of_curriculum_and_instruction",
+    "instructional_materials_coordinator",
+    "textbook_coordinator",
+    "professional_development_coordinator",
+    "teacher_induction_coordinator",
+    "accreditation_coordinator",
+    "ib_coordinator",
+    "ap_coordinator",
+]:
+    curriculum_pd_accountability_instruction_group.add_command(make_role_command(r))
+
+
+# ======================================================================
+# 3) Student Services, Health & Special Education
+# ======================================================================
+@click.group(name="student_services_health_special_education", help="Student Services, Health & Special Education")
+def student_services_health_special_education_group() -> None:
+    pass
+
+
+@click.group(name="counseling_health_attendance", help="Counseling, Health & Attendance")
+def counseling_health_attendance_group() -> None:
+    pass
+
+
+@click.group(name="special_education_related_services", help="Special Education & Related Services")
+def special_education_related_services_group() -> None:
+    pass
+
+
+@click.group(name="assessment_testing_ops", help="Assessment & Testing Operations")
+def assessment_testing_ops_group() -> None:
+    pass
+
+
+@click.group(name="front_office_student_support", help="Front Office Student Support")
+def front_office_student_support_group() -> None:
+    pass
+
+
+for r in [
+    "school_counselor",
+    "guidance_counselor",
+    "school_social_worker",
+    "family_liaison",
+    "school_nurse",
+    "health_aide",
+    "attendance_officer",
+    "truancy_officer",
+    "mckinney_vento_liaison",
+    "foster_care_liaison",
+    "behavior_support_coach",
+    "restorative_practices_coordinator",
+    "mtss_coordinator",
+    "rti_coordinator",
+    "registrar",
+    "records_clerk",
+    "testing_and_assessment_coordinator",
+    "college_counselor",
+    "financial_aid_advisor",
+]:
+    counseling_health_attendance_group.add_command(make_role_command(r))
+
+for r in [
+    "director_of_special_education",
+    "special_education_teacher",
+    "sped_case_manager",
+    "school_psychologist",
+    "speech_language_pathologist",
+    "occupational_therapist",
+    "certified_occupational_therapy_assistant",
+    "physical_therapist",
+    "physical_therapist_assistant",
+    "board_certified_behavior_analyst",
+    "behavior_interventionist",
+    "vision_specialist",
+    "orientation_and_mobility_specialist",
+    "deaf_hard_of_hearing_teacher",
+    "504_coordinator",
+    "sped_compliance_coordinator",
+    "paraprofessional",
+    "instructional_aide",
+    "teachers_aide",
+    "sign_language_interpreter",
+    "transition_specialist",
+    "vocational_specialist",
+]:
+    special_education_related_services_group.add_command(make_role_command(r))
+
+for r in ["testing_site_manager"]:
+    assessment_testing_ops_group.add_command(make_role_command(r))
+
+for r in ["school_secretary", "administrative_assistant", "office_manager", "receptionist", "attendance_clerk", "student_services_clerk", "health_office_clerk"]:
+    front_office_student_support_group.add_command(make_role_command(r))
+
+
+# ======================================================================
+# 4) Student Life, Activities & Enrichment
+# ======================================================================
+@click.group(name="student_life_activities_enrichment", help="Student Life, Activities & Enrichment")
+def student_life_activities_enrichment_group() -> None:
+    pass
+
+
+@click.group(name="athletics_activities", help="Athletics & Activities")
+def athletics_activities_group() -> None:
+    pass
+
+
+@click.group(name="performing_arts", help="Performing Arts")
+def performing_arts_group() -> None:
+    pass
+
+
+@click.group(name="early_childhood_out_of_school", help="Early Childhood & Out-of-School Time")
+def early_childhood_out_of_school_group() -> None:
+    pass
+
+
+@click.group(name="faith_based", help="Faith-Based (if applicable)")
+def faith_based_group() -> None:
+    pass
+
+
+@click.group(name="alternative_virtual_cte_international", help="Alternative/Virtual/CTE & International")
+def alternative_virtual_cte_international_group() -> None:
+    pass
+
+
+for r in [
+    "activities_director",
+    "athletics_director",
+    "assistant_athletics_director",
+    "head_coach",
+    "assistant_coach",
+    "athletic_trainer",
+    "strength_and_conditioning_coach",
+    "club_sponsor",
+    "activity_sponsor",
+    "robotics_coach",
+    "debate_coach",
+    "esports_coach",
+    "yearbook_advisor",
+    "student_government_advisor",
+]:
+    athletics_activities_group.add_command(make_role_command(r))
+
+for r in ["performing_arts_director", "theater_director", "band_director", "choir_director"]:
+    performing_arts_group.add_command(make_role_command(r))
+
+for r in [
+    "director_of_early_childhood",
+    "preschool_teacher",
+    "preschool_assistant",
+    "before_school_program_director",
+    "after_school_program_director",
+    "extended_day_coordinator",
+    "summer_school_coordinator",
+    "enrichment_coordinator",
+]:
+    early_childhood_out_of_school_group.add_command(make_role_command(r))
+
+for r in ["chaplain", "campus_minister", "religion_teacher", "theology_teacher", "service_learning_coordinator"]:
+    faith_based_group.add_command(make_role_command(r))
+
+for r in [
+    "alternative_education_director",
+    "virtual_online_program_director",
+    "cte_director",
+    "pathways_coordinator",
+    "apprenticeship_coordinator",
+    "international_student_program_director",
+    "homestay_coordinator",
+]:
+    alternative_virtual_cte_international_group.add_command(make_role_command(r))
+
+
+# ======================================================================
+# 5) Operations, Facilities, Transportation, Nutrition & Safety
+# ======================================================================
+@click.group(name="operations_facilities_transportation_nutrition_safety", help="Operations, Facilities, Transportation, Nutrition & Safety")
+def operations_facilities_transportation_nutrition_safety_group() -> None:
+    pass
+
+
+@click.group(name="facilities_maintenance", help="Facilities & Maintenance")
+def facilities_maintenance_group() -> None:
+    pass
+
+
+@click.group(name="transportation_fleet", help="Transportation & Fleet")
+def transportation_fleet_group() -> None:
+    pass
+
+
+@click.group(name="nutrition_services", help="Nutrition Services")
+def nutrition_services_group() -> None:
+    pass
+
+
+@click.group(name="safety_security", help="Safety & Security")
+def safety_security_group() -> None:
+    pass
+
+
+for r in [
+    "chief_operations_officer",
+    "director_of_facilities",
+    "facilities_manager",
+    "plant_manager",
+    "maintenance_technician",
+    "electrician",
+    "plumber",
+    "hvac_technician",
+    "carpenter",
+    "painter",
+    "locksmith",
+    "groundskeeper",
+    "irrigation_technician",
+    "custodial_supervisor",
+    "custodian",
+    "porter",
+    "night_lead",
+    "warehouse_receiving",
+    "inventory_specialist",
+    "energy_manager",
+    "sustainability_manager",
+    "print_shop_manager",
+    "mailroom_clerk",
+]:
+    facilities_maintenance_group.add_command(make_role_command(r))
+
+for r in [
+    "director_of_transportation",
+    "routing_scheduling_coordinator",
+    "dispatcher",
+    "bus_driver",
+    "activity_driver",
+    "bus_aide_monitor",
+    "fleet_manager",
+    "mechanic",
+    "diesel_technician",
+    "shop_foreman",
+    "crossing_guard",
+]:
+    transportation_fleet_group.add_command(make_role_command(r))
+
+for r in [
+    "director_of_nutrition_services",
+    "food_service_director",
+    "cafeteria_manager",
+    "kitchen_manager",
+    "cook",
+    "prep_cook",
+    "baker",
+    "cashier_point_of_sale_operator",
+    "dietitian",
+    "nutritionist",
+]:
+    nutrition_services_group.add_command(make_role_command(r))
+
+for r in [
+    "director_of_safety_security",
+    "emergency_management_director",
+    "school_resource_officer",
+    "campus_police_officer",
+    "security_guard",
+    "campus_supervisor",
+    "emergency_preparedness_coordinator",
+]:
+    safety_security_group.add_command(make_role_command(r))
+
+
+# ======================================================================
+# 6) Central Services: Finance, HR, Technology & Data, Comms/Engagement, Enrollment
+# ======================================================================
+@click.group(name="central_services_finance_hr_tech_data_comms_enrollment", help="Central Services: Finance, HR, Tech & Data, Comms/Engagement, Enrollment")
+def central_services_finance_hr_tech_data_comms_enrollment_group() -> None:
+    pass
+
+
+@click.group(name="finance_grants_compliance", help="Finance, Grants & Compliance")
+def finance_grants_compliance_group() -> None:
+    pass
+
+
+@click.group(name="human_resources", help="Human Resources")
+def human_resources_group() -> None:
+    pass
+
+
+@click.group(name="technology_data", help="Technology & Data")
+def technology_data_group() -> None:
+    pass
+
+
+@click.group(name="communications_engagement_development_marketing", help="Comms, Engagement, Development & Marketing")
+def communications_engagement_development_marketing_group() -> None:
+    pass
+
+
+@click.group(name="enrollment_admissions", help="Enrollment & Admissions")
+def enrollment_admissions_group() -> None:
+    pass
+
+
+for r in [
+    "chief_financial_officer",
+    "business_manager",
+    "controller",
+    "accountant",
+    "payroll_manager",
+    "payroll_specialist",
+    "accounts_payable_specialist",
+    "accounts_receivable_specialist",
+    "grants_manager",
+    "grant_writer",
+    "federal_programs_director",
+    "purchasing_director",
+    "buyer",
+    "risk_manager",
+    "insurance_coordinator",
+    "compliance_officer",
+    "records_retention_manager",
+    "e_rate_coordinator",
+    "archivist",
+]:
+    finance_grants_compliance_group.add_command(make_role_command(r))
+
+for r in [
+    "chief_human_resources_officer",
+    "human_resources_director",
+    "hr_manager",
+    "hr_generalist",
+    "recruiter",
+    "benefits_manager",
+    "benefits_specialist",
+]:
+    human_resources_group.add_command(make_role_command(r))
+
+for r in [
+    "chief_information_officer",
+    "chief_technology_officer",
+    "director_of_technology",
+    "it_director",
+    "network_administrator",
+    "systems_administrator",
+    "cloud_administrator",
+    "server_administrator",
+    "information_security_officer",
+    "database_administrator",
+    "help_desk_manager",
+    "help_desk_technician",
+    "field_technician",
+    "web_administrator",
+    "webmaster",
+    "av_media_technician",
+    "sis_administrator",
+    "data_engineer",
+    "data_analyst",
+    "etl_developer",
+    "director_of_data_analytics",
+    "sis_clerk",
+    "data_clerk",
+]:
+    technology_data_group.add_command(make_role_command(r))
+
+for r in [
+    "chief_communications_officer",
+    "communications_director",
+    "public_relations_director",
+    "media_relations_manager",
+    "family_engagement_coordinator",
+    "community_engagement_coordinator",
+    "translation_services_coordinator",
+    "interpreter_services_coordinator",
+    "alumni_relations_director",
+    "advancement_development_director",
+    "annual_giving_manager",
+    "capital_campaign_manager",
+    "major_gifts_officer",
+    "marketing_director",
+    "marketing_manager",
+    "graphic_designer",
+    "social_media_manager",
+    "volunteer_coordinator",
+]:
+    communications_engagement_development_marketing_group.add_command(make_role_command(r))
+
+for r in ["admissions_director", "enrollment_director", "financial_aid_director"]:
+    enrollment_admissions_group.add_command(make_role_command(r))
+
+
+# ------------------------------
+# Compose the tree (now that everything exists)
+# ------------------------------
+cli.add_command(completion_group)
+
+#1) OSSS
+cli.add_command(osss_group)
+# nest domain groups under osss
+osss_group.add_command(governance_and_district_executive_leadership_group)
+osss_group.add_command(operations_facilities_transportation_nutrition_safety_group)
+osss_group.add_command(school_leadership_teaching_learning_instruction_group)
+osss_group.add_command(student_life_activities_enrichment_group)
+osss_group.add_command(student_services_health_special_education_group)
+osss_group.add_command(central_services_finance_hr_tech_data_comms_enrollment_group)
+
+
+# 1) Governance
+governance_and_district_executive_leadership_group.add_command(board_governance_group)
+governance_and_district_executive_leadership_group.add_command(executive_cabinet_group)
+
+# 2) Instruction
+school_leadership_teaching_learning_instruction_group.add_command(school_leadership_group)
+school_leadership_teaching_learning_instruction_group.add_command(teachers_classroom_roles_group)
+school_leadership_teaching_learning_instruction_group.add_command(instructional_support_library_media_group)
+school_leadership_teaching_learning_instruction_group.add_command(curriculum_pd_accountability_instruction_group)
+
+# 3) Student Services
+student_services_health_special_education_group.add_command(counseling_health_attendance_group)
+student_services_health_special_education_group.add_command(special_education_related_services_group)
+student_services_health_special_education_group.add_command(assessment_testing_ops_group)
+student_services_health_special_education_group.add_command(front_office_student_support_group)
+
+# 4) Student Life
+student_life_activities_enrichment_group.add_command(athletics_activities_group)
+student_life_activities_enrichment_group.add_command(performing_arts_group)
+student_life_activities_enrichment_group.add_command(early_childhood_out_of_school_group)
+student_life_activities_enrichment_group.add_command(faith_based_group)
+student_life_activities_enrichment_group.add_command(alternative_virtual_cte_international_group)
+
+# 5) Operations
+operations_facilities_transportation_nutrition_safety_group.add_command(facilities_maintenance_group)
+operations_facilities_transportation_nutrition_safety_group.add_command(transportation_fleet_group)
+operations_facilities_transportation_nutrition_safety_group.add_command(nutrition_services_group)
+operations_facilities_transportation_nutrition_safety_group.add_command(safety_security_group)
+
+# 6) Central Services
+central_services_finance_hr_tech_data_comms_enrollment_group.add_command(finance_grants_compliance_group)
+central_services_finance_hr_tech_data_comms_enrollment_group.add_command(human_resources_group)
+central_services_finance_hr_tech_data_comms_enrollment_group.add_command(technology_data_group)
+central_services_finance_hr_tech_data_comms_enrollment_group.add_command(communications_engagement_development_marketing_group)
+central_services_finance_hr_tech_data_comms_enrollment_group.add_command(enrollment_admissions_group)
 
 def _main():
     if len(sys.argv) == 1:
