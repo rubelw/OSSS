@@ -1,4 +1,4 @@
-### fastapi-keycloak
+### Open Source School Software(OSSS)
 Copyright © 2025 Terraform Consulting Inc
 
 Licensed under the Apache License, Version 2.0 (the "License");
