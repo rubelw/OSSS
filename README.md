@@ -1,10 +1,9 @@
-# Open Source School Software (OSSS)
-
 !!! warning "Project status: active development"
     **OSSS is still being developed.** Community input and assistance are very welcome!
     - Share feedback and ideas via issues or discussions.
     - Open PRs for bug fixes and small improvements.
-    - See [Contributing](#contributing) for guidelines.
+
+# Open Source School Software (OSSS)
 
 A community-driven, modular suite of applications for K-12 districts.
 
@@ -215,7 +214,7 @@ Reference in `mkdocs.yml` via `extra_css`.
 - **Python imports for docs**: run `mkdocs` with `PYTHONPATH=src` so mkdocstrings and the OpenAPI
   export can import `OSSS` from `src/OSSS`.
 - **Frontend generator**: TypeDoc runs with your Next.js `tsconfig`. If the app declares
-  `"packageManager"` in `src/osss-web/package.json`, use **npm** (not pnpm) for consistency.
+  "packageManager" in `src/osss-web/package.json`, use **npm** (not pnpm) for consistency.
 
 ---
 
