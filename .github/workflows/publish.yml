@@ -2,8 +2,7 @@ name: Publish Python distribution to PyPI
 
 on:
   push:
-    tags:
-      - "v*"           # e.g. v1.2.3
+    branches: [ main ]
   workflow_dispatch:
     inputs:
       destination:
