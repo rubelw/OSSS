@@ -92,6 +92,9 @@ Visit the app-specific README(s) for service URLs (e.g. API docs at `/docs`, web
 
 ---
 
+[![Web UI preview](img/web_view.png)](img/web_view.png)
+
+
 ## Frontend (Next.js) highlights
 
 - **App Router** with `app/` directory and segment‑scoped `layout.tsx`, `page.tsx`, and API routes.

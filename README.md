@@ -19,6 +19,8 @@ generated from source:
 
 The static site is output to `./documentation/`.
 
+![Example Web View](https://raw.githubusercontent.com/rubelw/OSSS/main/docs/img/web_view.png)
+
 ---
 
 ## 📖 Documentation Quick Start
