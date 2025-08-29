@@ -7,7 +7,7 @@ from sqlalchemy.dialects import postgresql
 
 # --- Alembic identifiers ---
 revision = "0018_populate_positions"
-down_revision = "0017_populate_students"  # TODO: set to your current head
+down_revision = "0016_populate_bus_routes"  # TODO: set to your current head
 branch_labels = None
 depends_on = None
 

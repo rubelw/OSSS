@@ -1,0 +1,51 @@
+first_name,middle_name,last_name,dob,email,phone,gender,student_number,graduation_year,unit
+Sloan,Lee,Williams,2011-04-10,sloan.williams406@school.edu,669-476-3221,male,STU9068248,2025,Transportation
+Riley,Sage,Carter,2010-04-17,riley.carter8868@school.edu,493-817-6559,nonbinary,STU7342217,2027,High School
+Alex,Taylor,Ramirez,2007-04-10,alex.ramirez2804@school.edu,212-205-5985,male,STU2713307,2032,Athletics
+Finley,Jean,Flores,2015-01-04,finley.flores7828@example.edu,800-650-7745,female,STU1523520,2032,IT
+Sam,James,White,2008-03-16,sam.white9977@students.edu,256-657-9494,nonbinary,STU4476658,2035,Transportation
+Alex,Alex,Roberts,2017-03-25,alex.roberts8954@students.edu,528-706-7716,nonbinary,STU8364954,2027,Nutrition Services
+Remy,,Young,2014-08-12,remy.young4818@students.edu,796-416-7845,nonbinary,STU7506733,2028,Student Services
+Noel,Drew,Nguyen,2005-05-14,noel.nguyen4886@students.edu,874-513-3528,female,STU4767061,2027,Nutrition Services
+Blake,Avery,Roberts,2013-02-02,blake.roberts245@school.edu,757-472-8868,female,STU4294051,2031,Nutrition Services
+Dakota,,King,2011-10-08,dakota.king3223@students.edu,726-369-4664,female,STU8366755,2030,Athletics
+Parker,,Wright,2013-07-01,parker.wright8631@example.edu,921-793-2520,female,STU4070048,2034,Student Services
+Noel,Jordan,King,2015-09-05,noel.king1645@example.edu,358-604-8679,male,STU4507356,2029,Facilities
+Toby,Wren,Sanchez,2006-10-28,toby.sanchez3043@students.edu,952-262-2799,nonbinary,STU7310439,2032,Nutrition Services
+Frankie,Skye,Torres,2012-07-27,frankie.torres7095@school.edu,826-679-3761,nonbinary,STU3226735,2031,IT
+Ari,Jordan,Jones,2008-12-05,ari.jones7597@school.edu,490-737-2615,male,STU9082857,2035,Athletics
+Micah,Drew,White,2009-09-26,micah.white6963@students.edu,981-662-9674,nonbinary,STU1952715,2030,Nutrition Services
+Sage,Grace,King,2017-06-05,sage.king303@example.edu,700-987-6842,male,STU6159510,2033,Communications
+Frankie,Wren,Taylor,2011-08-28,frankie.taylor3491@school.edu,561-357-1755,female,STU7408338,2027,IT
+Charlie,Jude,Miller,2005-04-20,charlie.miller8231@school.edu,693-810-2738,male,STU7549225,2034,Middle School
+Riley,Reese,Baker,2017-02-02,riley.baker1515@example.edu,229-541-8315,male,STU7489898,2035,Communications
+Noel,Drew,Baker,2010-04-09,noel.baker7913@school.edu,516-671-9340,nonbinary,STU7453069,2033,Facilities
+River,Lane,Scott,2013-03-27,river.scott7902@students.edu,345-798-7607,male,STU8433237,2029,Nutrition Services
+Winter,Marie,Allen,2013-04-05,winter.allen8704@students.edu,426-663-5235,nonbinary,STU5322537,2026,Nutrition Services
+Alex,,Flores,2017-06-27,alex.flores6750@school.edu,918-399-8822,female,STU4227842,2029,Communications
+Devin,Lee,White,2012-11-21,devin.white6126@example.edu,751-317-8115,nonbinary,STU7855099,2032,Transportation
+Jamie,,Harris,2012-08-07,jamie.harris852@example.edu,760-660-9087,female,STU7961690,2032,Athletics
+Harper,Avery,Thomas,2007-08-26,harper.thomas2948@students.edu,891-972-9771,female,STU8201907,2029,Communications
+Payton,Lee,Walker,2007-10-18,payton.walker7601@school.edu,267-823-2690,male,STU3647937,2030,Facilities
+Emerson,,Clark,2012-05-13,emerson.clark365@school.edu,815-990-7551,male,STU1324344,2031,IT
+Emery,Jordan,Jackson,2005-09-14,emery.jackson2386@example.edu,531-227-3979,male,STU1451871,2035,Communications
+Taylor,,Allen,2012-04-22,taylor.allen4259@students.edu,675-692-7312,male,STU9229304,2032,Student Services
+Brett,Ray,Moore,2013-01-18,brett.moore9334@students.edu,787-473-3528,nonbinary,STU1010538,2034,Middle School
+Blake,Jude,Lewis,2016-08-08,blake.lewis2949@school.edu,720-296-2864,female,STU8805261,2029,Student Services
+Devin,Lane,Ramirez,2009-06-17,devin.ramirez5228@school.edu,955-605-7168,female,STU1992723,2032,Middle School
+Dakota,Skye,Baker,2011-02-06,dakota.baker6837@example.edu,559-427-6753,female,STU9164188,2033,Nutrition Services
+Finley,Quinn,Perez,2015-08-08,finley.perez7823@example.edu,421-805-8694,female,STU4028146,2029,Transportation
+Cameron,Ray,Anderson,2008-04-22,cameron.anderson5685@school.edu,628-243-8277,male,STU2030555,2035,Elementary
+Emery,,Lee,2013-01-21,emery.lee8322@students.edu,892-753-4052,female,STU9126616,2027,Elementary
+Rowan,Wren,Walker,2010-07-13,rowan.walker731@students.edu,566-992-1184,male,STU8682708,2032,Middle School
+Finley,James,Davis,2010-12-08,finley.davis7715@example.edu,644-898-8149,nonbinary,STU1262041,2027,Athletics
+Jules,Jude,Torres,2014-11-14,jules.torres1146@example.edu,389-946-8621,female,STU2995755,2031,Facilities
+Casey,Skye,Anderson,2007-03-28,casey.anderson4242@school.edu,229-310-6578,nonbinary,STU1412569,2034,Elementary
+Sage,Shawn,Martin,2013-10-01,sage.martin3812@school.edu,234-923-6650,nonbinary,STU9093729,2026,Student Services
+Riley,Jordan,Johnson,2014-12-28,riley.johnson793@school.edu,465-739-9581,female,STU2635167,2032,Middle School
+Sloan,Lane,Ramirez,2011-07-28,sloan.ramirez81@school.edu,808-362-7614,female,STU8000441,2030,Middle School
+Brett,Grace,Walker,2005-10-08,brett.walker228@example.edu,465-983-9734,female,STU6507949,2029,Communications
+Rowan,Jude,Jackson,2015-07-31,rowan.jackson6153@school.edu,484-651-9373,female,STU4030197,2034,Athletics
+Kit,,Jackson,2007-02-11,kit.jackson5361@school.edu,968-394-5444,nonbinary,STU2621487,2027,Athletics
+Logan,Jean,Wilson,2015-05-26,logan.wilson9113@school.edu,541-850-1077,female,STU8431567,2032,Communications
+Reese,Taylor,Robinson,2007-01-11,reese.robinson4191@example.edu,530-956-5963,female,STU4569422,2033,Communications

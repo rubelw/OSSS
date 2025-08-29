@@ -85,7 +85,7 @@ def _has_col(conn, table: str, column: str) -> bool:
     return any(c["name"] == column for c in insp.get_columns(table))
 
 
-def _read_employees_csv(csv_path: Path) -> List[Dict[str, Optional[str]]]:
+def _read_persons_csv(csv_path: Path) -> List[Dict[str, Optional[str]]]:
     with csv_path.open(newline="", encoding="utf-8") as f:
         r = csv.DictReader(f)
         rows: List[Dict[str, Optional[str]]] = []
@@ -99,7 +99,6 @@ def _read_employees_csv(csv_path: Path) -> List[Dict[str, Optional[str]]]:
                     "email": _norm_text(row.get("email")),
                     "phone": _norm_text(row.get("phone")),
                     "gender": _norm_text(row.get("gender")),
-                    "unit": _norm_text(row.get("unit")),  # parsed but not stored in persons
                 }
             )
         return rows
@@ -109,9 +108,9 @@ def _read_employees_csv(csv_path: Path) -> List[Dict[str, Optional[str]]]:
 def upgrade():
     conn = op.get_bind()
 
-    csv_path = Path(__file__).parent / "employees.csv"
+    csv_path = Path(__file__).parent / "persons.csv"
     if not csv_path.exists():
-        print(f"[seed persons] ❌ employees.csv not found at {csv_path}")
+        print(f"[seed persons] ❌ persons.csv not found at {csv_path}")
         return
 
     # Check persons table shape
@@ -121,9 +120,9 @@ def upgrade():
         print(f"[seed persons] ❌ persons table missing required columns: {missing}")
         return
 
-    rows = _read_employees_csv(csv_path)
+    rows = _read_persons_csv(csv_path)
     if not rows:
-        print("[seed persons] ⚠️ employees.csv contained no data")
+        print("[seed persons] ⚠️ persons.csv contained no data")
         return
 
     # Build payload (normalize + deterministic IDs)
@@ -191,17 +190,16 @@ def upgrade():
         conn.execute(insert_sql, payload[i : i + chunk])
         total += len(payload[i : i + chunk])
 
-    print(f"[seed persons] Upserted {total} rows into persons (parsed unit column but did not store it)")
 
 
 def downgrade():
     """Delete seeded persons based on deterministic IDs recomputed from CSV."""
     conn = op.get_bind()
-    csv_path = Path(__file__).parent / "employees.csv"
+    csv_path = Path(__file__).parent / "persons.csv"
     if not csv_path.exists():
         return
 
-    rows = _read_employees_csv(csv_path)
+    rows = _read_persons_csv(csv_path)
     ids = []
     for r in rows:
         first = r.get("first_name")

@@ -3726,7 +3726,8 @@
                             "read:grade_scale_bands",
                             "read:grade_scales",
                             "read:gradebook_entries",
-                            "read:grading_periods"
+                            "read:grading_periods",
+                            "read:students"
                           ]
                         },
                         {
