@@ -1,4 +1,11 @@
-from alembic import op
+from __future__ import annotations
+
+import os
+import csv
+from pathlib import Path
+from typing import Optional
+
+from alembic import op, context
 import sqlalchemy as sa
 
 # --- Alembic identifiers ---
@@ -7,24 +14,48 @@ down_revision = "0004_populate_orgs_table"
 branch_labels = None
 depends_on = None
 
-# Dallas Center–Grimes schools data (TEXT everywhere)
-SCHOOLS: list[tuple[str, str, str]] = [
-    ("Dallas Center Elementary",           "190852000705", "436"),
-    ("Dallas Center-Grimes High School",   "190852000451", "109"),
-    ("Dallas Center-Grimes Middle School", "190852000453", "209"),
-    ("DC-G Oak View",                      "190852002174", "218"),
-    ("Heritage Elementary",                "190852002242", "437"),
-    ("North Ridge Elementary",             "190852002099", "418"),
-    ("South Prairie Elementary",           "190852002029", "427"),
-]
-
 # Official district code for Dallas Center–Grimes
 DCG_CODE = "15760000"
 
 def _log(msg: str) -> None:
-    print(f"[0007] {msg}")
+    print(f"[{revision}] {msg}")
 
-def _find_dcg_organization_id(conn) -> str | None:
+def _resolve_csv_path() -> Path:
+    """
+    Look for schools.csv in the following order:
+      1) -x schools_csv=/path/to/schools.csv
+      2) $SCHOOLS_CSV environment variable
+      3) Same folder as this migration file
+      4) a sibling 'data/schools.csv' folder
+    """
+    x = context.get_x_argument(as_dictionary=True)
+    if "schools_csv" in x:
+        p = Path(x["schools_csv"]).expanduser().resolve()
+        if p.exists():
+            _log(f"Using CSV from -x schools_csv={p}")
+            return p
+        raise RuntimeError(f"CSV not found at -x schools_csv={p}")
+
+    env = os.getenv("SCHOOLS_CSV")
+    if env:
+        p = Path(env).expanduser().resolve()
+        if p.exists():
+            _log(f"Using CSV from $SCHOOLS_CSV={p}")
+            return p
+        raise RuntimeError(f"CSV not found at $SCHOOLS_CSV={p}")
+
+    here = Path(__file__).resolve().parent
+    for cand in (here / "schools.csv", here / "data" / "schools.csv"):
+        if cand.exists():
+            _log(f"Using CSV located next to migration: {cand}")
+            return cand
+
+    raise RuntimeError(
+        "schools.csv not found. Place it next to this migration, in a local "
+        "'data' subfolder, set $SCHOOLS_CSV, or pass -x schools_csv=/path/to/file.csv"
+    )
+
+def _find_organization_id(conn) -> Optional[str]:
     # 1) Try code (most reliable)
     did = conn.scalar(sa.text("SELECT id FROM organizations WHERE code = :c"), {"c": DCG_CODE})
     if did:
@@ -62,21 +93,32 @@ def _find_dcg_organization_id(conn) -> str | None:
 def upgrade():
     conn = op.get_bind()
 
-    # Ensure gen_random_uuid() exists (pgcrypto)
+    # Ensure gen_random_uuid() exists (pgcrypto) & columns exist (idempotent)
     conn.execute(sa.text("CREATE EXTENSION IF NOT EXISTS pgcrypto"))
-
-    # Ensure columns exist (idempotent on PostgreSQL)
     conn.execute(sa.text("ALTER TABLE schools ADD COLUMN IF NOT EXISTS nces_school_id TEXT"))
     conn.execute(sa.text("ALTER TABLE schools ADD COLUMN IF NOT EXISTS building_code  TEXT"))
-    _log("Ensured columns nces_school_id, building_code exist on schools.")
+    conn.execute(sa.text("ALTER TABLE schools ADD COLUMN IF NOT EXISTS school_code   TEXT"))
+    _log("Ensured columns nces_school_id, building_code, school_code on schools.")
 
-    # Resolve organization id (by code first)
-    organization_id = _find_dcg_organization_id(conn)
+    organization_id = _find_organization_id(conn)
     if not organization_id:
         raise RuntimeError(
             "Organization for Dallas Center–Grimes not found. "
-            "Verify 0006_populate_districts_table inserted code=15760000 or a compatible name."
+            "Verify organizations table has code=15760000 or a compatible name."
         )
+
+    csv_path = _resolve_csv_path()
+    with csv_path.open(newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        rows = []
+        for i, row in enumerate(reader, 1):
+            name = (row.get("name") or "").strip()
+            nces = (row.get("nces_school_id") or "").strip()
+            bcode = (row.get("building_code") or "").strip()
+            if not name:
+                _log(f"Skipping row {i}: missing 'name'")
+                continue
+            rows.append({"name": name, "nces": nces, "bcode": bcode})
 
     sel_id_sql = sa.text("SELECT id FROM schools WHERE organization_id = :d AND name = :n")
     upd_sql = sa.text(
@@ -94,43 +136,38 @@ def upgrade():
     )
 
     inserted = updated = 0
-    for name, nces, bcode in SCHOOLS:
-        existing_id = conn.scalar(sel_id_sql, {"d": organization_id, "n": name})
+    for r in rows:
+        existing_id = conn.scalar(sel_id_sql, {"d": organization_id, "n": r["name"]})
         if existing_id:
-            conn.execute(upd_sql, {"id": existing_id, "nces": nces, "bcode": bcode})
+            conn.execute(upd_sql, {"id": existing_id, "nces": r["nces"], "bcode": r["bcode"]})
             updated += 1
-            _log(f"Updated: {name} (id={existing_id}) nces={nces} bcode={bcode}")
+            _log(f"Updated: {r['name']} (id={existing_id}) nces={r['nces']} bcode={r['bcode']}")
         else:
-            conn.execute(ins_sql, {"d": organization_id, "n": name, "nces": nces, "bcode": bcode})
+            conn.execute(ins_sql, {"d": organization_id, "n": r["name"], "nces": r["nces"], "bcode": r["bcode"]})
             inserted += 1
-            _log(f"Inserted: {name} nces={nces} bcode={bcode}")
+            _log(f"Inserted: {r['name']} nces={r['nces']} bcode={r['bcode']}")
 
-    # Post-check: count & sample rows we just touched
+    # Post-check
     count = conn.scalar(sa.text("SELECT COUNT(*) FROM schools WHERE organization_id = :d"), {"d": organization_id})
-    sample = conn.execute(
-        sa.text(
-            "SELECT name, nces_school_id, building_code "
-            "FROM schools WHERE organization_id = :d ORDER BY name LIMIT 10"
-        ),
-        {"d": organization_id},
-    ).fetchall()
-
     _log(f"Done. Inserted={inserted}, Updated={updated}, OrganizationRowCount={count}")
-    _log(f"Sample rows: {sample}")
 
 def downgrade():
     conn = op.get_bind()
-    organization_id = _find_dcg_organization_id(conn)
+    organization_id = _find_organization_id(conn)
     if not organization_id:
-        _log("Downgrade: DCG organization not found; skipping.")
+        _log("Downgrade: organization not found; skipping.")
         return
 
-    # Clear only the fields we populated
+    csv_path = _resolve_csv_path()
+    with csv_path.open(newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        names = [ (row.get("name") or "").strip() for row in reader if (row.get("name") or "").strip() ]
+
     upd_null_sql = sa.text(
         "UPDATE schools "
         "   SET nces_school_id = NULL, building_code = NULL, updated_at = NOW() "
         " WHERE organization_id = :d AND name = :n"
     )
-    for name, _, _ in SCHOOLS:
+    for name in names:
         conn.execute(upd_null_sql, {"d": organization_id, "n": name})
         _log(f"Cleared fields on: {name}")

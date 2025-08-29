@@ -1,0 +1,8 @@
+school_name,school_state_id,school_local_code,name,code,address_json,attributes_json
+Dallas Center Elementary,190852000705,436,Dallas Center Elementary - Main Facility,FAC-436,{},{}
+Dallas Center-Grimes High School,190852000451,109,Dallas Center-Grimes High School - Main Facility,FAC-109,{},{}
+Dallas Center-Grimes Middle School,190852000453,209,Dallas Center-Grimes Middle School - Main Facility,FAC-209,{},{}
+DC-G Oak View,190852002174,218,DC-G Oak View - Main Facility,FAC-218,{},{}
+Heritage Elementary,190852002242,437,Heritage Elementary - Main Facility,FAC-437,{},{}
+North Ridge Elementary,190852002099,418,North Ridge Elementary - Main Facility,FAC-418,{},{}
+South Prairie Elementary,190852002029,427,South Prairie Elementary - Main Facility,FAC-427,{},{}

@@ -1,62 +1,97 @@
-# alembic revision: add initial HR positions
+# alembic revision: add initial HR positions (CSV-driven)
 from __future__ import annotations
 
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
+from sqlalchemy import text
+import csv, os
 
 # --- Alembic identifiers ---
 revision = "0018_populate_positions"
-down_revision = "0016_populate_bus_routes"  # TODO: set to your current head
+down_revision = "0016_populate_bus_routes"
 branch_labels = None
 depends_on = None
 
 
-def _slug_to_title(slug: str) -> str:
+def _alembic_x_arg(key: str) -> str | None:
     """
-    Convert a snake_case slug to a display title, with a few acronym/term fixes.
-    This is intentionally lightweight; adjust as your style guide evolves.
+    Allow passing file paths at runtime:
+      alembic upgrade head -x positions_csv=/abs/path/positions.csv -x position_accronyms_csv=/abs/path/position_accronyms.csv
+    """
+    try:
+        from alembic import context
+        x = context.get_x_argument(as_dictionary=True)
+        return x.get(key)
+    except Exception:
+        return None
+
+
+def _csv_path(default_name: str, x_key: str) -> str:
+    # 1) explicit -x override, 2) same dir as migration, 3) current CWD fallback
+    override = _alembic_x_arg(x_key)
+    if override:
+        return override
+    here = os.path.dirname(__file__)
+    p = os.path.join(here, default_name)
+    if os.path.exists(p):
+        return p
+    return os.path.abspath(default_name)
+
+
+def _load_positions_csv(path: str) -> list[str]:
+    slugs: list[str] = []
+    with open(path, newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        if "slug" not in (reader.fieldnames or []):
+            raise RuntimeError(f"{path} must have a header 'slug'")
+        for row in reader:
+            s = row.get("slug")
+            if s:
+                slugs.append(s.strip())
+    return slugs
+
+
+def _load_acronyms_csv(path: str) -> dict[str, str]:
+    """
+    Load search/replace pairs. We intentionally DO NOT strip() values,
+    so trailing spaces in the CSV are preserved for exact replacements.
+    """
+    fixes: dict[str, str] = {}
+    with open(path, newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        if not {"search", "replace"}.issubset(set(reader.fieldnames or [])):
+            raise RuntimeError(f"{path} must have headers 'search' and 'replace'")
+        for row in reader:
+            k = row.get("search")
+            v = row.get("replace")
+            if k is None or v is None:
+                continue
+            fixes[k] = v
+    return fixes
+
+
+def _slug_to_title(slug: str, fixes: dict[str, str]) -> str:
+    """
+    Convert a snake_case slug to a display title, then apply CSV-driven fixes.
+    Example: 'chief_financial_officer' -> 'Chief Financial Officer' -> 'CFO' (via fix)
     """
     base = slug.replace("_", " ").title()
-
-    # Simple targeted fixes for common acronyms and special terms
-    fixes = {
-        "Hr ": "HR ",
-        "Cfo": "CFO",
-        "Cio": "CIO",
-        "Cto": "CTO",
-        "Coo": "COO",
-        "Cao": "CAO",
-        "Cso": "CSO",
-        "Cio ": "CIO ",
-        "Cto ": "CTO ",
-        "Cte": "CTE",
-        "Ap Coordinator": "AP Coordinator",
-        "Ib Coordinator": "IB Coordinator",
-        "Sis ": "SIS ",
-        "Sis Administrator": "SIS Administrator",
-        "Hvac": "HVAC",
-        "Av ": "AV ",
-        "Av/Media": "AV/Media",
-        "It ": "IT ",
-        "It Director": "IT Director",
-        "E Rate": "E-Rate",
-        "Mckinney Vento": "McKinney-Vento",
-        "Esports": "Esports",
-        "Board Certified Behavior Analyst": "Board Certified Behavior Analyst",
-        "Deaf Hard Of Hearing": "Deaf/Hard of Hearing",
-        "Ombudsperson": "Ombudsperson",
-    }
-
     title = base
-    for k, v in fixes.items():
-        title = title.replace(k, v)
-
+    for search, replace in fixes.items():
+        title = title.replace(search, replace)
     return title
 
 
 def upgrade() -> None:
     conn = op.get_bind()
+
+    # Resolve CSV paths (defaults to files next to this migration)
+    positions_csv = _csv_path("positions.csv", "positions_csv")
+    acronyms_csv = _csv_path("position_accronyms.csv", "position_accronyms_csv")
+
+    slugs = _load_positions_csv(positions_csv)
+    fixes = _load_acronyms_csv(acronyms_csv)
 
     hr_positions = sa.table(
         "hr_positions",
@@ -67,281 +102,6 @@ def upgrade() -> None:
         sa.column("fte", sa.Numeric(5, 2)),
         sa.column("attributes", postgresql.JSONB),
     )
-
-    slugs = [
-        "board_chair",
-        "board_vice_chair",
-        "board_clerk",
-        "school_board_member_trustee",
-        "superintendent",
-        "head_of_school",
-        "deputy_superintendent",
-        "associate_superintendent",
-        "assistant_superintendent",
-        "chief_of_staff",
-        "general_counsel",
-        "ombudsperson",
-        "chief_equity_officer",
-        "chief_schools_officer",
-        "principal",
-        "assistant_principal",
-        "associate_principal",
-        "vice_principal",
-        "dean_of_students",
-        "dean_of_academics",
-        "grade_level_dean",
-        "director_of_residential_life",
-        "activities_director",
-        "athletics_director",
-        "assistant_athletics_director",
-        "head_of_upper_school",
-        "head_of_middle_school",
-        "head_of_lower_school",
-        "classroom_teacher",
-        "elementary_teacher",
-        "middle_school_teacher",
-        "high_school_teacher",
-        "art_teacher",
-        "music_teacher",
-        "band_director",
-        "choir_director",
-        "theater_teacher",
-        "physical_education_teacher",
-        "health_teacher",
-        "world_languages_teacher",
-        "computer_science_teacher",
-        "cte_teacher",
-        "early_childhood_teacher",
-        "reading_interventionist",
-        "math_interventionist",
-        "instructional_coach",
-        "literacy_coach",
-        "math_coach",
-        "mentor_teacher",
-        "media_specialist",
-        "teacher_librarian",
-        "substitute_teacher",
-        "long_term_substitute",
-        "teacher_resident",
-        "student_teacher",
-        "instructional_fellow",
-        "school_counselor",
-        "guidance_counselor",
-        "school_social_worker",
-        "family_liaison",
-        "school_nurse",
-        "health_aide",
-        "attendance_officer",
-        "truancy_officer",
-        "mckinney_vento_liaison",
-        "foster_care_liaison",
-        "behavior_support_coach",
-        "restorative_practices_coordinator",
-        "mtss_coordinator",
-        "rti_coordinator",
-        "registrar",
-        "records_clerk",
-        "testing_and_assessment_coordinator",
-        "college_counselor",
-        "financial_aid_advisor",
-        "school_secretary",
-        "administrative_assistant",
-        "office_manager",
-        "receptionist",
-        "attendance_clerk",
-        "student_services_clerk",
-        "data_clerk",
-        "sis_clerk",
-        "health_office_clerk",
-        "head_coach",
-        "assistant_coach",
-        "athletic_trainer",
-        "strength_and_conditioning_coach",
-        "club_sponsor",
-        "activity_sponsor",
-        "robotics_coach",
-        "debate_coach",
-        "esports_coach",
-        "yearbook_advisor",
-        "student_government_advisor",
-        "performing_arts_director",
-        "theater_director",
-        "director_of_early_childhood",
-        "preschool_teacher",
-        "preschool_assistant",
-        "before_school_program_director",
-        "after_school_program_director",
-        "extended_day_coordinator",
-        "summer_school_coordinator",
-        "enrichment_coordinator",
-        "chaplain",
-        "campus_minister",
-        "religion_teacher",
-        "theology_teacher",
-        "service_learning_coordinator",
-        "chief_academic_officer",
-        "director_of_student_support_services",
-        "director_of_curriculum_and_instruction",
-        "director_of_assessment_research_evaluation",
-        "director_of_accountability",
-        "director_of_data_analytics",
-        "instructional_materials_coordinator",
-        "textbook_coordinator",
-        "professional_development_coordinator",
-        "teacher_induction_coordinator",
-        "accreditation_coordinator",
-        "director_of_special_education",
-        "special_education_teacher",
-        "sped_case_manager",
-        "school_psychologist",
-        "speech_language_pathologist",
-        "occupational_therapist",
-        "certified_occupational_therapy_assistant",
-        "physical_therapist",
-        "physical_therapist_assistant",
-        "board_certified_behavior_analyst",
-        "behavior_interventionist",
-        "vision_specialist",
-        "orientation_and_mobility_specialist",
-        "deaf_hard_of_hearing_teacher",
-        "504_coordinator",
-        "sped_compliance_coordinator",
-        "paraprofessional",
-        "instructional_aide",
-        "teachers_aide",
-        "sign_language_interpreter",
-        "transition_specialist",
-        "vocational_specialist",
-        "alternative_education_director",
-        "virtual_online_program_director",
-        "cte_director",
-        "pathways_coordinator",
-        "apprenticeship_coordinator",
-        "international_student_program_director",
-        "homestay_coordinator",
-        "testing_site_manager",
-        "ib_coordinator",
-        "ap_coordinator",
-        "librarian",
-        "archivist",
-        "print_shop_manager",
-        "mailroom_clerk",
-        "volunteer_coordinator",
-        "chief_operations_officer",
-        "director_of_facilities",
-        "facilities_manager",
-        "plant_manager",
-        "maintenance_technician",
-        "electrician",
-        "plumber",
-        "hvac_technician",
-        "carpenter",
-        "painter",
-        "locksmith",
-        "groundskeeper",
-        "irrigation_technician",
-        "custodial_supervisor",
-        "custodian",
-        "porter",
-        "night_lead",
-        "warehouse_receiving",
-        "inventory_specialist",
-        "energy_manager",
-        "sustainability_manager",
-        "director_of_transportation",
-        "routing_scheduling_coordinator",
-        "dispatcher",
-        "bus_driver",
-        "activity_driver",
-        "bus_aide_monitor",
-        "fleet_manager",
-        "mechanic",
-        "diesel_technician",
-        "shop_foreman",
-        "crossing_guard",
-        "director_of_nutrition_services",
-        "food_service_director",
-        "cafeteria_manager",
-        "kitchen_manager",
-        "cook",
-        "prep_cook",
-        "baker",
-        "cashier_point_of_sale_operator",
-        "dietitian",
-        "nutritionist",
-        "director_of_safety_security",
-        "emergency_management_director",
-        "school_resource_officer",
-        "campus_police_officer",
-        "security_guard",
-        "campus_supervisor",
-        "emergency_preparedness_coordinator",
-        "chief_financial_officer",
-        "business_manager",
-        "controller",
-        "accountant",
-        "payroll_manager",
-        "payroll_specialist",
-        "accounts_payable_specialist",
-        "accounts_receivable_specialist",
-        "grants_manager",
-        "grant_writer",
-        "federal_programs_director",
-        "purchasing_director",
-        "buyer",
-        "risk_manager",
-        "insurance_coordinator",
-        "compliance_officer",
-        "records_retention_manager",
-        "e_rate_coordinator",
-        "chief_human_resources_officer",
-        "human_resources_director",
-        "hr_manager",
-        "hr_generalist",
-        "recruiter",
-        "benefits_manager",
-        "benefits_specialist",
-        "chief_information_officer",
-        "chief_technology_officer",
-        "director_of_technology",
-        "it_director",
-        "network_administrator",
-        "systems_administrator",
-        "cloud_administrator",
-        "server_administrator",
-        "information_security_officer",
-        "database_administrator",
-        "help_desk_manager",
-        "help_desk_technician",
-        "field_technician",
-        "web_administrator",
-        "webmaster",
-        "av_media_technician",
-        "sis_administrator",
-        "data_engineer",
-        "data_analyst",
-        "etl_developer",
-        "chief_communications_officer",
-        "communications_director",
-        "public_relations_director",
-        "media_relations_manager",
-        "family_engagement_coordinator",
-        "community_engagement_coordinator",
-        "translation_services_coordinator",
-        "interpreter_services_coordinator",
-        "alumni_relations_director",
-        "advancement_development_director",
-        "annual_giving_manager",
-        "capital_campaign_manager",
-        "major_gifts_officer",
-        "admissions_director",
-        "enrollment_director",
-        "financial_aid_director",
-        "marketing_director",
-        "marketing_manager",
-        "graphic_designer",
-        "social_media_manager",
-    ]
 
     # Gather existing slugs (preferred) and titles to avoid duplicates
     try:
@@ -363,7 +123,7 @@ def upgrade() -> None:
 
     rows_to_insert = []
     for slug in slugs:
-        title = _slug_to_title(slug)
+        title = _slug_to_title(slug, fixes)
         if slug in existing_slugs or title in existing_titles:
             continue
         rows_to_insert.append(
@@ -383,283 +143,16 @@ def upgrade() -> None:
 def downgrade() -> None:
     conn = op.get_bind()
 
-    slugs = [
-        # same list as in upgrade()
-        "board_chair",
-        "board_vice_chair",
-        "board_clerk",
-        "school_board_member_trustee",
-        "superintendent",
-        "head_of_school",
-        "deputy_superintendent",
-        "associate_superintendent",
-        "assistant_superintendent",
-        "chief_of_staff",
-        "general_counsel",
-        "ombudsperson",
-        "chief_equity_officer",
-        "chief_schools_officer",
-        "principal",
-        "assistant_principal",
-        "associate_principal",
-        "vice_principal",
-        "dean_of_students",
-        "dean_of_academics",
-        "grade_level_dean",
-        "director_of_residential_life",
-        "activities_director",
-        "athletics_director",
-        "assistant_athletics_director",
-        "head_of_upper_school",
-        "head_of_middle_school",
-        "head_of_lower_school",
-        "classroom_teacher",
-        "elementary_teacher",
-        "middle_school_teacher",
-        "high_school_teacher",
-        "art_teacher",
-        "music_teacher",
-        "band_director",
-        "choir_director",
-        "theater_teacher",
-        "physical_education_teacher",
-        "health_teacher",
-        "world_languages_teacher",
-        "computer_science_teacher",
-        "cte_teacher",
-        "early_childhood_teacher",
-        "reading_interventionist",
-        "math_interventionist",
-        "instructional_coach",
-        "literacy_coach",
-        "math_coach",
-        "mentor_teacher",
-        "media_specialist",
-        "teacher_librarian",
-        "substitute_teacher",
-        "long_term_substitute",
-        "teacher_resident",
-        "student_teacher",
-        "instructional_fellow",
-        "school_counselor",
-        "guidance_counselor",
-        "school_social_worker",
-        "family_liaison",
-        "school_nurse",
-        "health_aide",
-        "attendance_officer",
-        "truancy_officer",
-        "mckinney_vento_liaison",
-        "foster_care_liaison",
-        "behavior_support_coach",
-        "restorative_practices_coordinator",
-        "mtss_coordinator",
-        "rti_coordinator",
-        "registrar",
-        "records_clerk",
-        "testing_and_assessment_coordinator",
-        "college_counselor",
-        "financial_aid_advisor",
-        "school_secretary",
-        "administrative_assistant",
-        "office_manager",
-        "receptionist",
-        "attendance_clerk",
-        "student_services_clerk",
-        "data_clerk",
-        "sis_clerk",
-        "health_office_clerk",
-        "head_coach",
-        "assistant_coach",
-        "athletic_trainer",
-        "strength_and_conditioning_coach",
-        "club_sponsor",
-        "activity_sponsor",
-        "robotics_coach",
-        "debate_coach",
-        "esports_coach",
-        "yearbook_advisor",
-        "student_government_advisor",
-        "performing_arts_director",
-        "theater_director",
-        "director_of_early_childhood",
-        "preschool_teacher",
-        "preschool_assistant",
-        "before_school_program_director",
-        "after_school_program_director",
-        "extended_day_coordinator",
-        "summer_school_coordinator",
-        "enrichment_coordinator",
-        "chaplain",
-        "campus_minister",
-        "religion_teacher",
-        "theology_teacher",
-        "service_learning_coordinator",
-        "chief_academic_officer",
-        "director_of_student_support_services",
-        "director_of_curriculum_and_instruction",
-        "director_of_assessment_research_evaluation",
-        "director_of_accountability",
-        "director_of_data_analytics",
-        "instructional_materials_coordinator",
-        "textbook_coordinator",
-        "professional_development_coordinator",
-        "teacher_induction_coordinator",
-        "accreditation_coordinator",
-        "director_of_special_education",
-        "special_education_teacher",
-        "sped_case_manager",
-        "school_psychologist",
-        "speech_language_pathologist",
-        "occupational_therapist",
-        "certified_occupational_therapy_assistant",
-        "physical_therapist",
-        "physical_therapist_assistant",
-        "board_certified_behavior_analyst",
-        "behavior_interventionist",
-        "vision_specialist",
-        "orientation_and_mobility_specialist",
-        "deaf_hard_of_hearing_teacher",
-        "504_coordinator",
-        "sped_compliance_coordinator",
-        "paraprofessional",
-        "instructional_aide",
-        "teachers_aide",
-        "sign_language_interpreter",
-        "transition_specialist",
-        "vocational_specialist",
-        "alternative_education_director",
-        "virtual_online_program_director",
-        "cte_director",
-        "pathways_coordinator",
-        "apprenticeship_coordinator",
-        "international_student_program_director",
-        "homestay_coordinator",
-        "testing_site_manager",
-        "ib_coordinator",
-        "ap_coordinator",
-        "librarian",
-        "archivist",
-        "print_shop_manager",
-        "mailroom_clerk",
-        "volunteer_coordinator",
-        "chief_operations_officer",
-        "director_of_facilities",
-        "facilities_manager",
-        "plant_manager",
-        "maintenance_technician",
-        "electrician",
-        "plumber",
-        "hvac_technician",
-        "carpenter",
-        "painter",
-        "locksmith",
-        "groundskeeper",
-        "irrigation_technician",
-        "custodial_supervisor",
-        "custodian",
-        "porter",
-        "night_lead",
-        "warehouse_receiving",
-        "inventory_specialist",
-        "energy_manager",
-        "sustainability_manager",
-        "director_of_transportation",
-        "routing_scheduling_coordinator",
-        "dispatcher",
-        "bus_driver",
-        "activity_driver",
-        "bus_aide_monitor",
-        "fleet_manager",
-        "mechanic",
-        "diesel_technician",
-        "shop_foreman",
-        "crossing_guard",
-        "director_of_nutrition_services",
-        "food_service_director",
-        "cafeteria_manager",
-        "kitchen_manager",
-        "cook",
-        "prep_cook",
-        "baker",
-        "cashier_point_of_sale_operator",
-        "dietitian",
-        "nutritionist",
-        "director_of_safety_security",
-        "emergency_management_director",
-        "school_resource_officer",
-        "campus_police_officer",
-        "security_guard",
-        "campus_supervisor",
-        "emergency_preparedness_coordinator",
-        "chief_financial_officer",
-        "business_manager",
-        "controller",
-        "accountant",
-        "payroll_manager",
-        "payroll_specialist",
-        "accounts_payable_specialist",
-        "accounts_receivable_specialist",
-        "grants_manager",
-        "grant_writer",
-        "federal_programs_director",
-        "purchasing_director",
-        "buyer",
-        "risk_manager",
-        "insurance_coordinator",
-        "compliance_officer",
-        "records_retention_manager",
-        "e_rate_coordinator",
-        "chief_human_resources_officer",
-        "human_resources_director",
-        "hr_manager",
-        "hr_generalist",
-        "recruiter",
-        "benefits_manager",
-        "benefits_specialist",
-        "chief_information_officer",
-        "chief_technology_officer",
-        "director_of_technology",
-        "it_director",
-        "network_administrator",
-        "systems_administrator",
-        "cloud_administrator",
-        "server_administrator",
-        "information_security_officer",
-        "database_administrator",
-        "help_desk_manager",
-        "help_desk_technician",
-        "field_technician",
-        "web_administrator",
-        "webmaster",
-        "av_media_technician",
-        "sis_administrator",
-        "data_engineer",
-        "data_analyst",
-        "etl_developer",
-        "chief_communications_officer",
-        "communications_director",
-        "public_relations_director",
-        "media_relations_manager",
-        "family_engagement_coordinator",
-        "community_engagement_coordinator",
-        "translation_services_coordinator",
-        "interpreter_services_coordinator",
-        "alumni_relations_director",
-        "advancement_development_director",
-        "annual_giving_manager",
-        "capital_campaign_manager",
-        "major_gifts_officer",
-        "admissions_director",
-        "enrollment_director",
-        "financial_aid_director",
-        "marketing_director",
-        "marketing_manager",
-        "graphic_designer",
-        "social_media_manager",
-    ]
+    positions_csv = _csv_path("positions.csv", "positions_csv")
+    slugs = _load_positions_csv(positions_csv)
 
     # Prefer deleting by slug in attributes; fallback to title matches
+    # We need fixes to compute titles for fallback.
+    acronyms_csv = _csv_path("position_accronyms.csv", "position_accronyms_csv")
+    fixes = _load_acronyms_csv(acronyms_csv)
+
+    titles = [_slug_to_title(s, fixes) for s in slugs]
+
     conn.execute(
         sa.text(
             """
@@ -668,8 +161,5 @@ def downgrade() -> None:
                OR title = ANY(:titles)
             """
         ),
-        {
-            "slugs": slugs,
-            "titles": [_slug_to_title(s) for s in slugs],
-        },
+        {"slugs": slugs, "titles": titles},
     )

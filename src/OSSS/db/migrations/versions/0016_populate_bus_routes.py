@@ -1,55 +1,11 @@
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy import text
-from datetime import date, datetime, timedelta
-from typing import Dict, List, Tuple, Optional
+import uuid
+import csv
+from pathlib import Path
+from typing import Dict, List, Optional
 
-
-
-# Pull the shims from your app (preferred)
-try:
-    from app.models.base import GUID, JSONB, TSVectorType  # GUID/JSONB TypeDecorator; TSVectorType for PG tsvector
-except Exception:
-    import uuid
-    from sqlalchemy.types import TypeDecorator, CHAR
-
-    class GUID(TypeDecorator):
-        impl = CHAR
-        cache_ok = True
-        def load_dialect_impl(self, dialect):
-            if dialect.name == "postgresql":
-                from sqlalchemy.dialects.postgresql import UUID as PGUUID
-                return dialect.type_descriptor(PGUUID(as_uuid=True))
-            return dialect.type_descriptor(sa.CHAR(36))
-        def process_bind_param(self, value, dialect):
-            if value is None:
-                return None
-            if not isinstance(value, uuid.UUID):
-                value = uuid.UUID(str(value))
-            return str(value)
-        def process_result_value(self, value, dialect):
-            return None if value is None else uuid.UUID(value)
-
-    try:
-        from sqlalchemy.dialects.postgresql import JSONB as PGJSONB
-    except Exception:
-        PGJSONB = None
-
-    class JSONB(TypeDecorator):
-        impl = sa.JSON
-        cache_ok = True
-        def load_dialect_impl(self, dialect):
-            if dialect.name == "postgresql" and PGJSONB is not None:
-                return dialect.type_descriptor(PGJSONB())
-            return dialect.type_descriptor(sa.JSON())
-
-    try:
-        from sqlalchemy.dialects.postgresql import TSVECTOR as PG_TSVECTOR
-        class TSVectorType(PG_TSVECTOR):
-            pass
-    except Exception:
-        class TSVectorType(sa.Text):
-            pass
 
 # --- Alembic identifiers ---
 revision = "0016_populate_bus_routes"
@@ -58,33 +14,53 @@ branch_labels = None
 depends_on = None
 
 
-# Source list (name, school_name|None)
-ROUTES: List[Tuple[str, Optional[str]]] = [
-    ("DCG-01 — Dallas Center North", None),
-    ("DCG-02 — Dallas Center South", None),
-    ("DCG-03 — Grimes Northwest", None),
-    ("DCG-04 — Grimes Northeast", None),
-    ("DCG-05 — Grimes Southwest", None),
-    ("DCG-06 — Grimes Southeast", None),
-    ("DCG-07 — Rural West Loop", None),
-    ("DCG-08 — Rural East Loop", None),
+def _csv_path(filename_default: str = "bus_routes.csv") -> Path:
+    """
+    Resolve the CSV path. Supports:
+      alembic upgrade head -x bus_routes_csv=/abs/or/relative/path.csv
+    Falls back to file in the same directory as this migration,
+    then to current working directory.
+    """
+    from alembic import context
 
-    # School-specific loops:
-    ("DCG-09 — Heritage Elementary Loop", "Heritage Elementary"),
-    ("DCG-10 — North Ridge Elementary Loop", "North Ridge Elementary"),
-    ("DCG-11 — South Prairie Elementary Loop", "South Prairie Elementary"),
-    ("DCG-12 — Oak View / Meadows Loop", "DC-G Oak View"),
+    xargs = {k: v for k, v in (arg.split("=", 1) if "=" in arg else (arg, "") for arg in context.get_x_argument())}
+    candidate = xargs.get("bus_routes_csv", filename_default)
 
-    # Shuttles (tie to MS/HS where clear)
-    ("DCG-13 — Middle School AM Shuttle", "Dallas Center-Grimes Middle School"),
-    ("DCG-14 — High School AM Shuttle", "Dallas Center-Grimes High School"),
+    p = Path(candidate)
+    if p.is_file():
+        return p
 
-    # Transfers / activity buses (leave general)
-    ("DCG-15 — PM Transfer Shuttle A", None),
-    ("DCG-16 — PM Transfer Shuttle B", None),
-    ("DCG-17 — Activity Bus A (After-school)", None),
-    ("DCG-18 — Activity Bus B (After-school)", None),
-]
+    # Try alongside this migration file
+    here = Path(__file__).resolve().parent
+    p2 = here / filename_default
+    if p2.is_file():
+        return p2
+
+    # Try CWD
+    p3 = Path.cwd() / filename_default
+    return p3
+
+
+def _load_routes(csv_path: Path) -> List[Dict[str, Optional[str]]]:
+    """
+    Expect CSV headers: name, school_name
+    """
+    rows: List[Dict[str, Optional[str]]] = []
+    if not csv_path.exists():
+        return rows
+
+    with csv_path.open(newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for r in reader:
+            name = (r.get("name") or "").strip()
+            school_name = (r.get("school_name") or "").strip()
+            rows.append(
+                {
+                    "name": name,
+                    "school_name": school_name or None,
+                }
+            )
+    return rows
 
 
 def _table(name: str, *cols: sa.Column) -> sa.Table:
@@ -94,7 +70,13 @@ def _table(name: str, *cols: sa.Column) -> sa.Table:
 def upgrade() -> None:
     bind = op.get_bind()
 
-    # Map school name -> id (from existing schools table)
+    csv_path = _csv_path()
+    routes = _load_routes(csv_path)
+    if not routes:
+        # Nothing to insert if file missing/empty
+        return
+
+    # Map school name -> id
     school_rows = bind.execute(sa.text("SELECT id, name FROM schools")).mappings().all()
     school_by_name: Dict[str, str] = {r["name"]: r["id"] for r in school_rows}
 
@@ -103,11 +85,12 @@ def upgrade() -> None:
         r["name"] for r in bind.execute(sa.text("SELECT name FROM bus_routes")).mappings()
     }
 
-    # Prepare rows
     to_insert: List[Dict[str, Optional[str]]] = []
-    for route_name, school_name in ROUTES:
-        if route_name in existing_names:
+    for row in routes:
+        route_name = row["name"]
+        if not route_name or route_name in existing_names:
             continue
+        school_name = row["school_name"]
         school_id = school_by_name.get(school_name) if school_name else None
         to_insert.append(
             {
@@ -131,8 +114,18 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    names = [r[0] for r in ROUTES]  # all names we seeded
-    op.execute(
-        sa.text("DELETE FROM bus_routes WHERE name = ANY(:names)")
-        .bindparams(sa.bindparam("names", value=names, type_=sa.ARRAY(sa.Text())))
+    bind = op.get_bind()
+
+    csv_path = _csv_path()
+    routes = _load_routes(csv_path)
+    if not routes:
+        return
+
+    names = [r["name"] for r in routes if r.get("name")]
+
+    # Cross-dialect friendly IN with expanding param
+    stmt = sa.text("DELETE FROM bus_routes WHERE name IN :names").bindparams(
+        sa.bindparam("names", expanding=True)
     )
+    if names:
+        bind.execute(stmt, {"names": names})

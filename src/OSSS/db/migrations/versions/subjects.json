@@ -1,0 +1,366 @@
+{
+  "english_language_arts": [
+    {
+      "name": "English 9",
+      "code": "ELA9"
+    },
+    {
+      "name": "English 10",
+      "code": "ELA10"
+    },
+    {
+      "name": "English 11",
+      "code": "ELA11"
+    },
+    {
+      "name": "English 12",
+      "code": "ELA12"
+    },
+    {
+      "name": "Literature",
+      "code": "LIT"
+    },
+    {
+      "name": "Writing/Composition",
+      "code": "COMP"
+    },
+    {
+      "name": "Journalism",
+      "code": "JOUR"
+    },
+    {
+      "name": "Speech/Communications",
+      "code": "SPEECH"
+    },
+    {
+      "name": "Reading",
+      "code": "READ"
+    }
+  ],
+  "mathematics": [
+    {
+      "name": "Math 6",
+      "code": "MATH6"
+    },
+    {
+      "name": "Pre-Algebra",
+      "code": "PREALG"
+    },
+    {
+      "name": "Algebra I",
+      "code": "ALG1"
+    },
+    {
+      "name": "Geometry",
+      "code": "GEOM"
+    },
+    {
+      "name": "Algebra II",
+      "code": "ALG2"
+    },
+    {
+      "name": "Precalculus",
+      "code": "PRECALC"
+    },
+    {
+      "name": "Calculus",
+      "code": "CALC"
+    },
+    {
+      "name": "Statistics",
+      "code": "STATS"
+    }
+  ],
+  "science": [
+    {
+      "name": "Earth Science",
+      "code": "EARTH"
+    },
+    {
+      "name": "Physical Science",
+      "code": "PHYSCI"
+    },
+    {
+      "name": "Biology",
+      "code": "BIO"
+    },
+    {
+      "name": "Chemistry",
+      "code": "CHEM"
+    },
+    {
+      "name": "Physics",
+      "code": "PHYS"
+    },
+    {
+      "name": "Environmental Science",
+      "code": "ENVS"
+    },
+    {
+      "name": "Anatomy & Physiology",
+      "code": "ANAT"
+    }
+  ],
+  "social_studies": [
+    {
+      "name": "World History",
+      "code": "WHIST"
+    },
+    {
+      "name": "U.S. History",
+      "code": "USHIST"
+    },
+    {
+      "name": "Government/Civics",
+      "code": "GOV"
+    },
+    {
+      "name": "Economics",
+      "code": "ECON"
+    },
+    {
+      "name": "Geography",
+      "code": "GEOG"
+    },
+    {
+      "name": "Psychology",
+      "code": "PSYCH"
+    },
+    {
+      "name": "Sociology",
+      "code": "SOC"
+    }
+  ],
+  "world_languages": [
+    {
+      "name": "Spanish I",
+      "code": "SPAN1"
+    },
+    {
+      "name": "Spanish II",
+      "code": "SPAN2"
+    },
+    {
+      "name": "French I",
+      "code": "FREN1"
+    },
+    {
+      "name": "French II",
+      "code": "FREN2"
+    },
+    {
+      "name": "German I",
+      "code": "GERM1"
+    },
+    {
+      "name": "German II",
+      "code": "GERM2"
+    }
+  ],
+  "fine_arts": [
+    {
+      "name": "Art I",
+      "code": "ART1"
+    },
+    {
+      "name": "Art II",
+      "code": "ART2"
+    },
+    {
+      "name": "Drawing",
+      "code": "DRAW"
+    },
+    {
+      "name": "Painting",
+      "code": "PAINT"
+    },
+    {
+      "name": "Sculpture",
+      "code": "SCULPT"
+    },
+    {
+      "name": "Digital Art",
+      "code": "DIGART"
+    }
+  ],
+  "music": [
+    {
+      "name": "Band",
+      "code": "BAND"
+    },
+    {
+      "name": "Choir",
+      "code": "CHOIR"
+    },
+    {
+      "name": "Orchestra",
+      "code": "ORCH"
+    },
+    {
+      "name": "Jazz Band",
+      "code": "JAZZ"
+    },
+    {
+      "name": "Music Theory",
+      "code": "MUSTH"
+    }
+  ],
+  "physical_education": [
+    {
+      "name": "PE 9",
+      "code": "PE9"
+    },
+    {
+      "name": "PE 10",
+      "code": "PE10"
+    },
+    {
+      "name": "Weight Training",
+      "code": "WEIGHTS"
+    },
+    {
+      "name": "Lifetime Fitness",
+      "code": "FIT"
+    }
+  ],
+  "health": [
+    {
+      "name": "Health",
+      "code": "HEALTH"
+    },
+    {
+      "name": "Nutrition & Wellness",
+      "code": "NUTR"
+    }
+  ],
+  "cte": [
+    {
+      "name": "Business Essentials",
+      "code": "BUS"
+    },
+    {
+      "name": "Accounting",
+      "code": "ACCT"
+    },
+    {
+      "name": "Marketing",
+      "code": "MKTG"
+    },
+    {
+      "name": "Entrepreneurship",
+      "code": "ENTR"
+    },
+    {
+      "name": "Computer Applications",
+      "code": "COMPAPP"
+    },
+    {
+      "name": "Engineering/PLTW",
+      "code": "ENGR"
+    },
+    {
+      "name": "Robotics",
+      "code": "ROBOT"
+    },
+    {
+      "name": "Culinary Arts",
+      "code": "CUL"
+    },
+    {
+      "name": "Construction Trades",
+      "code": "CONST"
+    },
+    {
+      "name": "Automotive Technology",
+      "code": "AUTO"
+    }
+  ],
+  "computer_science": [
+    {
+      "name": "Intro to Computer Science",
+      "code": "ICS"
+    },
+    {
+      "name": "AP Computer Science Principles",
+      "code": "APCSP"
+    },
+    {
+      "name": "AP Computer Science A",
+      "code": "APCSA"
+    },
+    {
+      "name": "Web Development",
+      "code": "WEBDEV"
+    },
+    {
+      "name": "Cybersecurity",
+      "code": "CYBER"
+    },
+    {
+      "name": "Data Science",
+      "code": "DATASCI"
+    }
+  ],
+  "special_education": [
+    {
+      "name": "Resource English",
+      "code": "R-ELA"
+    },
+    {
+      "name": "Resource Math",
+      "code": "R-MATH"
+    },
+    {
+      "name": "Study Skills",
+      "code": "STUDY"
+    }
+  ],
+  "esl_ell": [
+    {
+      "name": "ELL Beginner",
+      "code": "ELL1"
+    },
+    {
+      "name": "ELL Intermediate",
+      "code": "ELL2"
+    },
+    {
+      "name": "ELL Advanced",
+      "code": "ELL3"
+    }
+  ],
+  "family_consumer_science": [
+    {
+      "name": "Child Development",
+      "code": "CHILD"
+    },
+    {
+      "name": "Foods & Nutrition",
+      "code": "FOODS"
+    },
+    {
+      "name": "Family & Consumer Science",
+      "code": "FCS"
+    }
+  ],
+  "agriculture": [
+    {
+      "name": "Agricultural Science",
+      "code": "AGSCI"
+    },
+    {
+      "name": "Animal Science",
+      "code": "ANSCI"
+    },
+    {
+      "name": "Plant Science",
+      "code": "PLANT"
+    }
+  ],
+  "general": [
+    {
+      "name": "General Studies",
+      "code": "GEN"
+    }
+  ]
+}

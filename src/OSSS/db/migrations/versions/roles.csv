@@ -1,0 +1,283 @@
+name,description
+School Board Member/Trustee,Elected/appointed governance of the district or school; sets policy and oversees superintendent/head.
+Board Chair,Leads the governing board; sets agendas and presides over meetings.
+Board Vice Chair,Supports/acts in place of the chair as needed.
+Board Clerk,Records board actions; manages official records and notices.
+Superintendent,Chief executive of a public school district; accountable to the board.
+Head of School,Chief executive of an independent/private school.
+Deputy Superintendent,Second-in-command over district operations or academics.
+Associate Superintendent,"Senior executive over major divisions (e.g., teaching & learning)."
+Assistant Superintendent,Executive leader over specific functions or clusters of schools.
+Chief of Staff,"Coordinates executive priorities, cabinet operations, and cross-functional initiatives."
+Chief Academic Officer,"Leads curriculum, instruction, assessment, and school improvement."
+Chief Schools Officer,Oversees school portfolio and principals; drives performance.
+Chief Operations Officer,"Oversees non-instructional operations (facilities, transport, nutrition, safety)."
+Chief Financial Officer,"Leads finance, budgeting, accounting, and fiscal reporting."
+Chief Information Officer,"Leads technology strategy, systems, data, and cybersecurity."
+Chief Technology Officer,"Oversees IT infrastructure, networks, endpoints, and platforms."
+Chief Human Resources Officer,"Leads talent strategy, employee relations, payroll/benefits, and compliance."
+Chief Communications Officer,"Directs communications, media relations, branding, and engagement."
+Chief Equity Officer,"Leads equity, diversity, inclusion initiatives and policy."
+General Counsel,"Provides legal guidance; manages risk, contracts, and compliance."
+Ombudsperson,"Independent, confidential resource for resolving concerns and complaints."
+Principal,"School-site leader responsible for instruction, operations, and culture."
+Assistant Principal,"Supports principal in instruction, discipline, operations, and staff supervision."
+Associate Principal,Senior AP; often leads major school functions.
+Vice Principal,Alternative title for assistant/associate principal.
+Head of Upper School,Leads upper/secondary division in independent schools.
+Head of Middle School,Leads middle division.
+Head of Lower School,Leads lower/elementary division.
+Dean of Students,"Leads student conduct, attendance, culture, and MTSS supports."
+Dean of Academics,"Oversees curriculum, scheduling, grading, and academic quality."
+Grade-Level Dean,Oversees a grade’s academic and behavioral support systems.
+Director of Residential Life,Oversees dorms/residential programs (boarding schools).
+Activities Director,"Leads student activities, clubs, and co-curriculars."
+Athletics Director,"Leads athletics programs, compliance, facilities, and scheduling."
+Assistant Athletics Director,Supports athletic director with operations and compliance.
+Classroom Teacher,"Core instruction in content areas at elementary, middle, or high school."
+Elementary Teacher,Self-contained or team-taught elementary grades.
+Middle School Teacher,Departmentalized instruction for middle grades.
+High School Teacher,Subject-specific instruction at high school level.
+Art Teacher,Visual arts instruction and programming.
+Music Teacher,General music or performance ensembles.
+Band Director,Leads band program and performances.
+Choir Director,Leads choral program and performances.
+Theater Teacher,Drama instruction and productions.
+Physical Education Teacher,"PE instruction; fitness, health, and wellness."
+Health Teacher,Health education curriculum.
+World Languages Teacher,Foreign/heritage language instruction.
+Computer Science Teacher,CS/coding/programming instruction.
+CTE Teacher,"Career & Technical Education (pathways, labs, certifications)."
+Early Childhood Teacher,Pre-K and early learning instruction.
+Reading Interventionist,Targeted literacy interventions and progress monitoring.
+Math Interventionist,Targeted math interventions and progress monitoring.
+Instructional Coach,Job-embedded coaching on pedagogy and curriculum.
+Literacy Coach,Specialized coaching in reading and writing instruction.
+Math Coach,Specialized coaching in mathematics instruction.
+Mentor Teacher,Supports novice teachers with induction and practice.
+Media Specialist,Library/media program; information literacy; collections.
+Teacher-Librarian,Certified librarian providing instruction and curation.
+Gifted & Talented Teacher,GT/advanced learners instruction and enrichment.
+Gifted & Talented Coordinator,"Oversees GT identification, services, and compliance."
+English Learner Teacher,EL/ESL/ML services and instruction.
+English Learner Coordinator,"Oversees EL program, identification, and compliance."
+Title I Teacher,Interventions funded under Title I.
+Title I Coordinator,Oversees Title I compliance and services.
+Alternative Program Teacher,Instruction in alternative education settings.
+Virtual Program Teacher,Instruction in online/virtual programs.
+Substitute Teacher,Short-term classroom coverage.
+Long-Term Substitute,Extended coverage; curriculum and grading responsibilities.
+Teacher Resident,Residency preparation role co-teaching with a mentor.
+Student Teacher,Clinical practice under supervision.
+Instructional Fellow,Early-career instructional support role.
+Director of Special Education,Leads SPED/Exceptional Student Services and compliance (IDEA).
+Special Education Teacher,Instruction and services for students with disabilities.
+SPED Case Manager,"Coordinates IEPs, services, and progress reporting."
+School Psychologist,"Evaluation, counseling, MTSS, and IEP support."
+Speech-Language Pathologist,Speech/language therapy and evaluations.
+Occupational Therapist,Fine-motor/sensory/ADL supports.
+Certified Occupational Therapy Assistant,Supports OT service delivery.
+Physical Therapist,Gross-motor/mobility therapy and evaluations.
+Physical Therapist Assistant,Supports PT services.
+Board Certified Behavior Analyst,"Behavior analysis, plans, and consultation."
+Behavior Interventionist,Implements behavior plans and supports.
+Vision Specialist,Services for students with visual impairments.
+Orientation and Mobility Specialist,Travel/orientation training for visually impaired students.
+Deaf/Hard of Hearing Teacher,Instruction and support for D/HH students.
+504 Coordinator,Leads Section 504 identification and accommodation plans.
+SPED Compliance Coordinator,"Monitors timelines, documentation, and audits."
+Paraprofessional,Classroom and individual student support.
+Instructional Aide,Assists with instruction and supervision.
+Teacher’s Aide,General classroom support role.
+Sign Language Interpreter,ASL/interpretation services for students and families.
+Transition Specialist,HS transition planning to postsecondary/workforce.
+Vocational Specialist,Career exploration and work-based learning supports.
+School Counselor,"Academic, social-emotional, and college/career counseling."
+Guidance Counselor,Legacy title for school counselor.
+School Social Worker,"Family services, wraparound supports, attendance."
+Family Liaison,Connects families with resources and the school.
+School Nurse,"Health services, care plans, medication, records."
+Health Aide,Supports nurse; first aid and documentation.
+Attendance Officer,Monitors attendance and interventions.
+Truancy Officer,Enforces compulsory attendance with due process.
+McKinney-Vento Liaison,Supports students experiencing homelessness.
+Foster Care Liaison,Coordinates supports for students in foster care.
+Behavior Support Coach,Coaches staff on behavior systems and PBIS.
+Restorative Practices Coordinator,Implements restorative approaches and circles.
+MTSS Coordinator,Coordinates MTSS tiers across academics/behavior.
+RTI Coordinator,Manages Response to Intervention processes.
+Director of Student Support Services,"Oversees counseling, nursing, social work, and supports."
+Registrar,"Manages student records, transcripts, and enrollments."
+Records Clerk,Supports records management and requests.
+Testing & Assessment Coordinator,Manages state/local tests and accommodations.
+College Counselor,Postsecondary advising (independent/HS).
+Financial Aid Advisor,Supports tuition/aid processes (independent).
+Director of Curriculum and Instruction,"Leads curriculum adoption, PD, and pedagogy."
+"Director of Assessment, Research & Evaluation","Oversees testing, analytics, and program evaluation."
+Director of Accountability,Manages accountability metrics and reporting.
+Director of Data & Analytics,"Leads analytics, dashboards, and data governance."
+Instructional Materials Coordinator,Textbooks/materials adoption and inventory.
+Textbook Coordinator,Procurement and distribution of textbooks.
+Professional Development Coordinator,Plans and manages staff learning programs.
+Teacher Induction Coordinator,New teacher support and certification pathways.
+Accreditation Coordinator,Manages accreditation cycles and evidence.
+Human Resources Director,Leads HR strategy and operations.
+HR Manager,Manages HR processes and teams.
+HR Generalist,Broad HR support across functions.
+Recruiter,Leads talent sourcing and hiring pipelines.
+Payroll Manager,Oversees payroll operations and compliance.
+Payroll Specialist,Executes payroll processing and reporting.
+Benefits Manager,Administers benefits programs.
+Benefits Specialist,Benefits enrollment and support.
+Business Manager,School/district business office lead.
+Controller,"Accounting controls, closing, and reporting."
+Accountant,General accounting and reconciliation.
+Accounts Payable Specialist,Processes vendor invoices and payments.
+Accounts Receivable Specialist,Manages receivables and collections.
+Purchasing Director,Leads procurement strategy and compliance.
+Buyer,Executes purchasing transactions and bids.
+Risk Manager,Enterprise risk and insurance programs.
+Insurance Coordinator,Manages insurance claims and coverage.
+Grants Manager,Oversees grants lifecycle and compliance.
+Grant Writer,Develops grant proposals and narratives.
+Federal Programs Director,Leads federal funds (Title I/II/III/IV) compliance.
+E-rate Coordinator,Manages E-rate applications and compliance.
+Compliance Officer,Oversees policy/regulatory compliance.
+Records/Retention Manager,"Records schedules, storage, and disposition."
+Director of Technology,Leads district technology vision and delivery.
+IT Director,Alternative title for Director of Technology.
+Network Administrator,"LAN/WAN, wireless, and network services."
+Systems Administrator,"Servers, identity, and core services."
+Cloud Administrator,Cloud platforms and identity management.
+Server Administrator,Physical/virtual servers and storage.
+Information Security Officer,"Security policy, controls, and incident response."
+Database Administrator,"DB performance, backups, and integrity."
+SIS Administrator,Student information system configuration and support.
+Data Engineer,"Pipelines, integrations, and warehousing."
+Data Analyst,"Dashboards, KPI tracking, and insights."
+ETL Developer,Extract/transform/load processes and tooling.
+Help Desk Manager,Leads support team and ticketing.
+Help Desk Technician,Frontline technical support to staff/students.
+Field Technician,On-site hardware and AV support.
+Instructional Technology Coach,Integrates technology with pedagogy.
+Instructional Technology Integrator,Supports teachers using digital tools.
+Web Administrator,Manages websites/portals and CMS.
+Webmaster,Alternative title for web administration.
+AV/Media Technician,Audio/visual systems and event support.
+Director of Facilities,"Leads facilities strategy, maintenance, and capital projects."
+Facilities Manager,Oversees site maintenance and work orders.
+Plant Manager,Leads plant operations at large sites.
+Maintenance Technician,General maintenance and repairs.
+Electrician,Electrical systems and repairs.
+Plumber,Plumbing systems maintenance.
+HVAC Technician,"Heating, ventilation, and air conditioning."
+Carpenter,Carpentry and finish work.
+Painter,Interior/exterior painting and finishes.
+Locksmith,Keying and access control hardware.
+Groundskeeper,Landscape and grounds maintenance.
+Irrigation Technician,Irrigation systems setup and repair.
+Custodial Supervisor,Leads custodial staff and schedules.
+Custodian,"Cleaning, setup, and basic maintenance."
+Porter,Daytime cleaning and event turnover.
+Night Lead,Oversees night custodial shifts.
+Warehouse/Receiving,Shipping/receiving and storeroom management.
+Inventory Specialist,"Tracks assets, consumables, and supplies."
+Energy Manager,Utility monitoring and conservation initiatives.
+Sustainability Manager,Sustainability programs and reporting.
+Director of Transportation,"Leads routing, fleet, and driver operations."
+Routing/Scheduling Coordinator,"Creates routes, stops, and schedules."
+Dispatcher,Coordinates buses and communications.
+Bus Driver,Student transportation on regular and trip routes.
+Activity Driver,Drives for activities/athletics trips.
+Bus Aide/Monitor,Student supervision and safety on buses.
+Fleet Manager,Oversees maintenance shop and fleet lifecycle.
+Mechanic,Vehicle diagnostics and repair.
+Diesel Technician,Specialized diesel engine service.
+Shop Foreman,Leads mechanics and shop operations.
+Crossing Guard,Pedestrian safety near schools.
+Director of Nutrition Services,Leads USDA-compliant meal programs and kitchens.
+Food Service Director,Alternative title leading nutrition services.
+Cafeteria Manager,Site-level cafeteria operations and staffing.
+Kitchen Manager,Back-of-house operations and food safety.
+Cook,Food preparation and service.
+Prep Cook,Ingredients prep and batch cooking.
+Baker,Baked goods preparation.
+Cashier/Point-of-Sale Operator,Point-of-sale transactions and compliance.
+Dietitian,Menu planning and nutrition compliance.
+Nutritionist,Nutrition guidance and education.
+Director of Safety & Security,"Leads security strategy, staffing, and incident response."
+Emergency Management Director,"Plans drills, response, and recovery operations."
+School Resource Officer,Law enforcement officer assigned to schools.
+Campus Police Officer,District police/security officer.
+Security Guard,Access control and campus patrols.
+Campus Supervisor,Student supervision (lunch/recess/common areas).
+Emergency Preparedness Coordinator,Coordinates safety plans and training.
+School Secretary,Front office operations and parent/student support.
+Administrative Assistant,Administrative support to leaders/departments.
+Office Manager,Oversees office staff and procedures.
+Receptionist,"Greets visitors, answers phones, and routes inquiries."
+Attendance Clerk,Attendance entry and parent communication.
+Student Services Clerk,"Supports counseling, registration, and records."
+Data Clerk,"Data entry, audits, and SIS support."
+SIS Clerk,Specialist data entry and reports in SIS.
+Health Office Clerk,Supports school nurse and health records.
+Head Coach,Leads a sport program and coaching staff.
+Assistant Coach,Supports head coach with training and supervision.
+Athletic Trainer,"Sports medicine, injury prevention, and rehab."
+Strength & Conditioning Coach,Athlete strength and conditioning programs.
+Club Sponsor,Staff sponsor for student clubs.
+Activity Sponsor,"Leads co-curricular activities (e.g., yearbook)."
+Robotics Coach,Coaches robotics team and competitions.
+Debate Coach,Leads debate team and tournaments.
+Esports Coach,Coaches competitive gaming program.
+Yearbook Advisor,Advises yearbook production.
+Student Government Advisor,Advises student council/governance.
+Performing Arts Director,"Oversees music, theater, and performances."
+Theater Director,Directs theatrical productions.
+Communications Director,Leads comms strategy and media relations.
+Public Relations Director,Manages public relations and press.
+Media Relations Manager,"Press releases, interviews, and messaging."
+Family Engagement Coordinator,Strengthens family partnerships and outreach.
+Community Engagement Coordinator,Builds community partnerships and events.
+Translation Services Coordinator,Coordinates translation/interpretation services.
+Interpreter Services Coordinator,Manages interpreter scheduling and quality.
+Alumni Relations Director,Cultivates alumni networks (independent schools).
+Advancement/Development Director,Leads fundraising and donor relations.
+Annual Giving Manager,Runs annual giving campaigns.
+Capital Campaign Manager,Leads capital fundraising initiatives.
+Major Gifts Officer,Manages high-capacity donor portfolios.
+Admissions Director,Leads admissions/enrollment (independent).
+Enrollment Director,Oversees enrollment management and strategy.
+Financial Aid Director,Administers tuition assistance (independent).
+Marketing Director,Leads marketing strategy and branding.
+Marketing Manager,Executes marketing campaigns and content.
+Graphic Designer,Designs print/digital collateral.
+Social Media Manager,Manages social platforms and engagement.
+Director of Early Childhood,Leads preschool/early learning programs.
+Preschool Teacher,Early childhood classroom instruction.
+Preschool Assistant,Assists preschool teachers and students.
+Before-School Program Director,Leads before-school care programs.
+After-School Program Director,Leads after-school care/enrichment.
+Extended Day Coordinator,Coordinates extended-day activities and staffing.
+Summer School Coordinator,Plans and manages summer learning.
+Enrichment Coordinator,"Coordinates clubs, electives, and enrichment."
+Chaplain,Provides spiritual care and services.
+Campus Minister,Leads campus ministry programs.
+Religion Teacher,Teaches religion curriculum.
+Theology Teacher,Teaches theology/biblical studies.
+Service Learning Coordinator,Coordinates service learning/community service.
+Alternative Education Director,Leads alt-ed schools/programs.
+Virtual/Online Program Director,Leads online learning programs.
+CTE Director,Oversees career/technical education pathways.
+Pathways Coordinator,Coordinates career/college pathways and work-based learning.
+Apprenticeship Coordinator,Manages apprenticeships and employer partnerships.
+International Student Program Director,Leads international student recruitment/support.
+Homestay Coordinator,Coordinates host families and compliance.
+Testing Site Manager,Manages SAT/ACT/AP/IB test administrations.
+IB Coordinator,Coordinates International Baccalaureate programs.
+AP Coordinator,Coordinates Advanced Placement programs.
+Librarian,Library program lead; instruction and curation.
+Archivist,Maintains historical records and archives.
+Print Shop Manager,Oversees printing services and production.
+Mailroom Clerk,Handles mail distribution and shipping.
+Volunteer Coordinator,Recruits and manages school volunteers.

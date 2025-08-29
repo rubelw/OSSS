@@ -1,0 +1,18 @@
+code,description
+TARD,Tardy to class
+SKIP,Skipping class / Unexcused absence
+DRSG,Dress code violation
+DISR,Disruptive behavior in class
+DISO,Disobedience / Insubordination
+INAP,Inappropriate language / gestures
+FGT,Fighting / Physical aggression
+HRAS,Harassment / Bullying
+THRT,Threat / Intimidation
+VAND,Vandalism / Property damage
+THEF,Theft
+TOB,Tobacco possession/use
+DRUG,Drugs / Alcohol possession or use
+WEAP,Weapon possession
+CHEA,Academic dishonesty / Cheating
+TECH,"Technology misuse (e.g., inappropriate internet use)"
+OTHR,Other (uncategorized behavior)
