@@ -5730,7 +5730,8 @@
                 "read:facilities",
                 "read:floors",
                 "read:incident_participants",
-                "read:incidents"
+                "read:incidents",
+                "read:spaces"
               ],
               "positions": [
                 {
@@ -5746,7 +5747,8 @@
                     "read:facilities",
                     "read:floors",
                     "read:incident_participants",
-                    "read:incidents"
+                    "read:incidents",
+                    "read:spaces"
                   ]
                 }
               ],
@@ -5758,7 +5760,8 @@
                     "read:assets",
                     "read:buildings",
                     "read:facilities",
-                    "read:floors"
+                    "read:floors",
+                    "read:spaces"
                   ],
                   "positions": [
                     {
@@ -5769,7 +5772,8 @@
                         "read:assets",
                         "read:buildings",
                         "read:facilities",
-                        "read:floors"
+                        "read:floors",
+                        "read:spaces"
                       ]
                     },
                     {
@@ -5780,7 +5784,8 @@
                         "read:assets",
                         "read:buildings",
                         "read:facilities",
-                        "read:floors"
+                        "read:floors",
+                        "read:spaces"
                       ]
                     },
                     {
@@ -5791,7 +5796,8 @@
                         "read:assets",
                         "read:buildings",
                         "read:facilities",
-                        "read:floors"
+                        "read:floors",
+                        "read:spaces"
                       ]
                     },
                     {
@@ -5802,7 +5808,8 @@
                         "read:assets",
                         "read:buildings",
                         "read:facilities",
-                        "read:floors"
+                        "read:floors",
+                        "read:spaces"
                       ]
                     },
                     {
@@ -5813,7 +5820,8 @@
                         "read:assets",
                         "read:buildings",
                         "read:facilities",
-                        "read:floors"
+                        "read:floors",
+                        "read:spaces"
                       ]
                     },
                     {
@@ -5824,7 +5832,8 @@
                         "read:assets",
                         "read:buildings",
                         "read:facilities",
-                        "read:floors"
+                        "read:floors",
+                        "read:spaces"
                       ]
                     },
                     {
@@ -5835,7 +5844,8 @@
                         "read:assets",
                         "read:buildings",
                         "read:facilities",
-                        "read:floors"
+                        "read:floors",
+                        "read:spaces"
                       ]
                     },
                     {
@@ -5846,7 +5856,8 @@
                         "read:assets",
                         "read:buildings",
                         "read:facilities",
-                        "read:floors"
+                        "read:floors",
+                        "read:spaces"
                       ]
                     },
                     {
@@ -5857,7 +5868,8 @@
                         "read:assets",
                         "read:buildings",
                         "read:facilities",
-                        "read:floors"
+                        "read:floors",
+                        "read:spaces"
                       ]
                     },
                     {
@@ -5868,7 +5880,8 @@
                         "read:assets",
                         "read:buildings",
                         "read:facilities",
-                        "read:floors"
+                        "read:floors",
+                        "read:spaces"
                       ]
                     },
                     {
@@ -5879,7 +5892,8 @@
                         "read:assets",
                         "read:buildings",
                         "read:facilities",
-                        "read:floors"
+                        "read:floors",
+                        "read:spaces"
                       ]
                     },
                     {
@@ -5890,7 +5904,8 @@
                         "read:assets",
                         "read:buildings",
                         "read:facilities",
-                        "read:floors"
+                        "read:floors",
+                        "read:spaces"
                       ]
                     },
                     {
@@ -5901,7 +5916,8 @@
                         "read:assets",
                         "read:buildings",
                         "read:facilities",
-                        "read:floors"
+                        "read:floors",
+                        "read:spaces"
                       ]
                     },
                     {
@@ -5912,7 +5928,8 @@
                         "read:assets",
                         "read:buildings",
                         "read:facilities",
-                        "read:floors"
+                        "read:floors",
+                        "read:spaces"
                       ]
                     },
                     {
@@ -5923,7 +5940,8 @@
                         "read:assets",
                         "read:buildings",
                         "read:facilities",
-                        "read:floors"
+                        "read:floors",
+                        "read:spaces"
                       ]
                     },
                     {
@@ -5934,7 +5952,8 @@
                         "read:assets",
                         "read:buildings",
                         "read:facilities",
-                        "read:floors"
+                        "read:floors",
+                        "read:spaces"
                       ]
                     },
                     {
@@ -5945,7 +5964,8 @@
                         "read:assets",
                         "read:buildings",
                         "read:facilities",
-                        "read:floors"
+                        "read:floors",
+                        "read:spaces"
                       ]
                     },
                     {
@@ -5956,7 +5976,8 @@
                         "read:assets",
                         "read:buildings",
                         "read:facilities",
-                        "read:floors"
+                        "read:floors",
+                        "read:spaces"
                       ]
                     },
                     {
@@ -5967,7 +5988,8 @@
                         "read:assets",
                         "read:buildings",
                         "read:facilities",
-                        "read:floors"
+                        "read:floors",
+                        "read:spaces"
                       ]
                     },
                     {
@@ -5978,7 +6000,8 @@
                         "read:assets",
                         "read:buildings",
                         "read:facilities",
-                        "read:floors"
+                        "read:floors",
+                        "read:spaces"
                       ]
                     }
                   ]
