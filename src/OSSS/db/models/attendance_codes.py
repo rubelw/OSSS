@@ -15,8 +15,8 @@ class AttendanceCode(Base):
 
     code: Mapped[str] = mapped_column(sa.Text, primary_key=True)
     description: Mapped[Optional[str]] = mapped_column(sa.Text)
-    is_present: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, server_default=text("false"))
-    is_excused: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, server_default=text("false"))
+    is_present: Mapped[bool] = mapped_column(sa.Text, nullable=False, server_default=text("0"))
+    is_excused: Mapped[bool] = mapped_column(sa.Text, nullable=False, server_default=text("0"))
 
     created_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), server_default=sa.func.now(), onupdate=sa.func.now(), nullable=False)

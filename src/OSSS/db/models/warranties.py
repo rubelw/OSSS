@@ -20,7 +20,7 @@ class Warranty(UUIDMixin, Base):
     start_date = sa.Column(sa.Date)
     end_date = sa.Column(sa.Date)
     terms = sa.Column(sa.Text)
-    attributes = sa.Column(JSONB, nullable=True)
+    attributes = sa.Column(sa.JSON, nullable=True)
     created_at, updated_at = ts_cols()
 
     asset = relationship("Asset", back_populates="warranties")

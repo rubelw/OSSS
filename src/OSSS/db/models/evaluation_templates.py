@@ -16,7 +16,7 @@ class EvaluationTemplate(UUIDMixin, TimestampMixin, Base):
     name: Mapped[str] = mapped_column(sa.String(255), nullable=False)
     for_role: Mapped[Optional[str]] = mapped_column(sa.String(80))
     version: Mapped[int] = mapped_column(sa.Integer, nullable=False, server_default="1")
-    is_active: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, server_default=sa.text("true"))
+    is_active: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, server_default=sa.sql.true())
 
     sections: Mapped[list["EvaluationSection"]] = relationship(
         "EvaluationSection", back_populates="template", cascade="all, delete-orphan"

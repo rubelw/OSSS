@@ -21,7 +21,7 @@ class Meter(UUIDMixin, Base):
     uom = sa.Column(sa.String(32))
     last_read_value = sa.Column(sa.Numeric(18, 6))
     last_read_at = sa.Column(sa.TIMESTAMP(timezone=True))
-    attributes = sa.Column(JSONB, nullable=True)
+    attributes = sa.Column(sa.JSON, nullable=True)
     created_at, updated_at = ts_cols()
 
     asset = relationship("Asset", back_populates="meters")

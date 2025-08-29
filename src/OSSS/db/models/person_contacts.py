@@ -12,8 +12,8 @@ class PersonContact(Base):
     person_id:  Mapped[str] = mapped_column(GUID(), ForeignKey("persons.id", ondelete="CASCADE"), nullable=False, index=True)
     contact_id: Mapped[str] = mapped_column(GUID(), ForeignKey("contacts.id", ondelete="CASCADE"), nullable=False, index=True)
     label:      Mapped[str | None] = mapped_column(sa.Text)
-    is_primary: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, server_default=text("false"))
-    is_emergency: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, server_default=text("false"))
+    is_primary: Mapped[bool] = mapped_column(sa.Text, nullable=False, server_default=text("0"))
+    is_emergency: Mapped[bool] = mapped_column(sa.Text, nullable=False, server_default=text("0"))
 
     created_at: Mapped[sa.DateTime] = mapped_column(sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False)
     updated_at: Mapped[sa.DateTime] = mapped_column(sa.DateTime(timezone=True), server_default=sa.func.now(), onupdate=sa.func.now(), nullable=False)

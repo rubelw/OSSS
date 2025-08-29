@@ -16,7 +16,7 @@ class FiscalYear(UUIDMixin, TimestampMixin, Base):
     year: Mapped[int] = mapped_column(sa.Integer, nullable=False, unique=True)  # e.g., 2024
     start_date: Mapped[date] = mapped_column(sa.Date, nullable=False)
     end_date: Mapped[date] = mapped_column(sa.Date, nullable=False)
-    is_closed: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, server_default=sa.text("false"))
+    is_closed: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, server_default=sa.sql.false())
 
     periods: Mapped[list["FiscalPeriod"]] = relationship(
         "FiscalPeriod", back_populates="year", cascade="all, delete-orphan"

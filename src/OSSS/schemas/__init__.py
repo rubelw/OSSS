@@ -61,6 +61,8 @@ from .scan_request import ScanRequestOut, ScanRequestCreate, ScanRequestReplace,
 __all__ += ['ScanRequestOut','ScanRequestCreate','ScanRequestReplace','ScanRequestPatch','ScanRequestList']
 from .audit_log import AuditLogOut, AuditLogCreate, AuditLogReplace, AuditLogPatch, AuditLogList
 __all__ += ['AuditLogOut','AuditLogCreate','AuditLogReplace','AuditLogPatch','AuditLogList']
+from .ap_models import ApModelBase, ApModelCreate, ApModelUpdate, ApModelOut, ApModelList
+__all__ += ["ApModelBase", "ApModelCreate", "ApModelUpdate", "ApModelOut", "ApModelList"]
 from .audit_log import AuditLogOut, AuditLogCreate, AuditLogReplace, AuditLogPatch, AuditLogList
 __all__ += ['AuditLogOut','AuditLogCreate','AuditLogReplace','AuditLogPatch','AuditLogList']
 from .plan_filter import PlanFilterOut, PlanFilterCreate, PlanFilterReplace, PlanFilterPatch, PlanFilterList
@@ -303,6 +305,8 @@ from .ticket import TicketOut, TicketCreate, TicketReplace, TicketPatch, TicketL
 __all__ += ['TicketOut','TicketCreate','TicketReplace','TicketPatch','TicketList']
 from .vendor import VendorOut, VendorCreate, VendorReplace, VendorPatch, VendorList
 __all__ += ['VendorOut','VendorCreate','VendorReplace','VendorPatch','VendorList']
+from .ap_vendor import ApVendorBase, ApVendorCreate, ApVendorUpdate, ApVendorOut, ApVendorList
+__all__ += ["ApVendorBase","ApVendorCreate","ApVendorUpdate","ApVendorOut","ApVendorList",']
 from .gpa_calculation import GpaCalculationOut, GpaCalculationCreate, GpaCalculationReplace, GpaCalculationPatch, GpaCalculationList
 __all__ += ['GpaCalculationOut','GpaCalculationCreate','GpaCalculationReplace','GpaCalculationPatch','GpaCalculationList']
 from .subject import SubjectOut, SubjectCreate, SubjectReplace, SubjectPatch, SubjectList
@@ -465,3 +469,19 @@ from .ticket_scan import TicketScanOut, TicketScanCreate, TicketScanReplace, Tic
 __all__ += ['TicketScanOut','TicketScanCreate','TicketScanReplace','TicketScanPatch','TicketScanList']
 from .grade_scale import GradeScaleOut, GradeScaleCreate, GradeScaleReplace, GradeScalePatch, GradeScaleList
 __all__ += ['GradeScaleOut','GradeScaleCreate','GradeScaleReplace','GradeScalePatch','GradeScaleList']
+
+from .ap_vendor import (
+    ApVendorBase,
+    ApVendorCreate,
+    ApVendorUpdate,
+    ApVendorOut,
+    ApVendorList,
+)
+
+__all__ += [
+    "ApVendorBase",
+    "ApVendorCreate",
+    "ApVendorUpdate",
+    "ApVendorOut",
+    "ApVendorList",
+]

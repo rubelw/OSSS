@@ -16,7 +16,7 @@ class GLAccount(UUIDMixin, TimestampMixin, Base):
     code: Mapped[str] = mapped_column(sa.String(128), nullable=False, unique=True)  # full combined code
     name: Mapped[str] = mapped_column(sa.String(255), nullable=False)
     acct_type: Mapped[str] = mapped_column(sa.String(32), nullable=False)  # asset, liability, revenue, expense, equity
-    active: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, server_default=sa.text("true"))
+    active: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, server_default=sa.sql.true())
     attributes: Mapped[Optional[dict]] = mapped_column(JSONB())
 
     lines: Mapped[list["JournalEntryLine"]] = relationship("JournalEntryLine", back_populates="account")

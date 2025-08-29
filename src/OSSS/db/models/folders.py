@@ -21,7 +21,7 @@ class Folder(UUIDMixin, Base):
         GUID(), ForeignKey("folders.id", ondelete="CASCADE")
     )
     name: Mapped[str] = mapped_column(sa.String(255), nullable=False)
-    is_public: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, server_default=sa.text("false"))
+    is_public: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, server_default=sa.sql.false())
     sort_order: Mapped[Optional[int]] = mapped_column(sa.Integer)
 
     # relationships

@@ -17,7 +17,7 @@ class WorkOrderTask(UUIDMixin, Base):
     work_order_id = sa.Column(GUID(), ForeignKey("work_orders.id", ondelete="CASCADE"), nullable=False)
     seq = sa.Column(sa.Integer, nullable=False, server_default=text("1"))
     title = sa.Column(sa.String(255), nullable=False)
-    is_mandatory = sa.Column(sa.Boolean, nullable=False, server_default=text("false"))
+    is_mandatory = sa.Column(sa.Text, nullable=False, server_default=text("0"))
     status = sa.Column(sa.String(32))
     completed_at = sa.Column(sa.TIMESTAMP(timezone=True))
     notes = sa.Column(sa.Text)

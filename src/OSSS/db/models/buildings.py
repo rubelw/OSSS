@@ -22,8 +22,8 @@ class Building(UUIDMixin, Base):
     floors_count = sa.Column(sa.Integer)
     gross_sqft = sa.Column(sa.Numeric(12, 2))
     use_type = sa.Column(sa.String(64))
-    address = sa.Column(JSONB, nullable=True)
-    attributes = sa.Column(JSONB, nullable=True)
+    address = sa.Column(sa.JSON, nullable=True)
+    attributes = sa.Column(sa.JSON, nullable=True)
     created_at, updated_at = ts_cols()
 
     facility = relationship("Facility", back_populates="buildings")

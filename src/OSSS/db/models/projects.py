@@ -22,7 +22,7 @@ class Project(UUIDMixin, Base):
     end_date = sa.Column(sa.Date)
     budget = sa.Column(sa.Numeric(14, 2))
     description = sa.Column(sa.Text)
-    attributes = sa.Column(JSONB, nullable=True)
+    attributes = sa.Column(sa.JSON, nullable=True)
     created_at, updated_at = ts_cols()
 
     tasks = relationship("ProjectTask", back_populates="project", cascade="all, delete-orphan")

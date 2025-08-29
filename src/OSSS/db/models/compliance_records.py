@@ -21,8 +21,8 @@ class ComplianceRecord(UUIDMixin, Base):
     identifier = sa.Column(sa.String(128))
     issued_at = sa.Column(sa.Date)
     expires_at = sa.Column(sa.Date)
-    documents = sa.Column(JSONB, nullable=True)
-    attributes = sa.Column(JSONB, nullable=True)
+    documents = sa.Column(sa.JSON, nullable=True)
+    attributes = sa.Column(sa.JSON, nullable=True)
     created_at, updated_at = ts_cols()
 
     building = relationship("Building")

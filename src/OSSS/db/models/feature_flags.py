@@ -12,7 +12,7 @@ class FeatureFlag(Base):
 
     org_id: Mapped[str] = mapped_column(GUID(), sa.ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
     key:    Mapped[str] = mapped_column(sa.String(64), nullable=False)
-    enabled: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, server_default=text("false"))
+    enabled: Mapped[bool] = mapped_column(sa.Text, nullable=False, server_default=text("0"))
 
     __table_args__ = (
         sa.UniqueConstraint("org_id", "key", name="uq_feature_flags_org_key"),

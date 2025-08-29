@@ -22,7 +22,7 @@ class Activity(UUIDMixin, Base):
     school_id: Mapped[Optional[str]] = mapped_column(GUID(), ForeignKey("schools.id", ondelete="SET NULL"))
     name: Mapped[str] = mapped_column(sa.String(255), nullable=False)
     description: Mapped[Optional[str]] = mapped_column(sa.Text)
-    is_active: Mapped[bool] = mapped_column(sa.Boolean, server_default=text("true"), nullable=False)
+    is_active: Mapped[bool] = mapped_column(sa.Text, server_default=sa.text("1"), nullable=False)
     created_at, updated_at = ts_cols()
 
     events: Mapped[list["Event"]] = relationship(back_populates="activity", cascade="all, delete-orphan")

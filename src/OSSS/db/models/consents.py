@@ -15,7 +15,7 @@ class Consent(UUIDMixin, Base):
 
     person_id: Mapped[Any] = mapped_column(GUID(), ForeignKey("persons.id", ondelete="CASCADE"), nullable=False)
     consent_type: Mapped[str] = mapped_column(sa.Text, nullable=False)
-    granted: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, server_default=text("true"))
+    granted: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, server_default=sa.sql.false())
     effective_date: Mapped[date] = mapped_column(sa.Date, nullable=False)
     expires_on: Mapped[Optional[date]] = mapped_column(sa.Date)
 

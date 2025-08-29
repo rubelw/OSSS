@@ -15,6 +15,6 @@ class DeductionCode(UUIDMixin, TimestampMixin, Base):
 
     code: Mapped[str] = mapped_column(sa.String(32), nullable=False, unique=True)  # 403B, MED, etc.
     name: Mapped[str] = mapped_column(sa.String(128), nullable=False)
-    pretax: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, server_default=sa.text("true"))
+    pretax: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, server_default=sa.sql.true())
     vendor_id: Mapped[Optional[str]] = mapped_column(GUID(), sa.ForeignKey("vendors.id", ondelete="SET NULL"))
     attributes: Mapped[Optional[dict]] = mapped_column(JSONB())

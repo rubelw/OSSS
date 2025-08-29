@@ -78,9 +78,11 @@ except Exception:  # pragma: no cover
 
 # ---- Utilities ----
 def _import_models():
-    # Import the models package to populate Base.metadata,
-    # but DO NOT import OSSS.db (which pulls in session/engine).
-    import_module("OSSS.db.models")
+    pkg = import_module("OSSS.db.models")
+    if hasattr(pkg, "__path__"):
+        for m in pkgutil.walk_packages(pkg.__path__, pkg.__name__ + "."):
+            import_module(m.name)
+
 
 def _ensure_users_id_is_uuid():
     bind = op.get_bind()

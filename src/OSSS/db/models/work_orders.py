@@ -36,7 +36,7 @@ class WorkOrder(UUIDMixin, Base):
     materials_cost = sa.Column(sa.Numeric(12, 2))
     labor_cost     = sa.Column(sa.Numeric(12, 2))
     other_cost     = sa.Column(sa.Numeric(12, 2))
-    attributes = sa.Column(JSONB, nullable=True)
+    attributes = sa.Column(sa.JSON, nullable=True)
     created_at, updated_at = ts_cols()
 
     request: Mapped[Optional["MaintenanceRequest"]] = relationship(

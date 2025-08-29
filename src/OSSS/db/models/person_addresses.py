@@ -17,7 +17,7 @@ class PersonAddress(Base):
 
     person_id: Mapped[Any] = mapped_column(GUID(), ForeignKey("persons.id", ondelete="CASCADE"), nullable=False, index=True)
     address_id: Mapped[Any] = mapped_column(GUID(), ForeignKey("addresses.id", ondelete="CASCADE"), nullable=False, index=True)
-    is_primary: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, server_default=text("false"))
+    is_primary: Mapped[bool] = mapped_column(sa.Text, nullable=False, server_default=text("0"))
 
     created_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), server_default=sa.func.now(), onupdate=sa.func.now(), nullable=False)

@@ -20,7 +20,7 @@ class CICMembership(UUIDMixin, Base):
     role          = sa.Column(sa.Text)  # chair, member, etc.
     start_date    = sa.Column(sa.Date)
     end_date      = sa.Column(sa.Date)
-    voting_member = sa.Column(sa.Boolean, nullable=False, server_default=text("true"))
+    voting_member = sa.Column(sa.Boolean, nullable=False, server_default=sa.sql.false())
 
     created_at, updated_at = ts_cols()
 

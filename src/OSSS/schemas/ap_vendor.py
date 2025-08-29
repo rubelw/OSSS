@@ -2,6 +2,9 @@
 from __future__ import annotations
 
 from typing import Optional, Dict, Any, List
+from datetime import datetime
+from uuid import UUID
+
 from pydantic import Field
 from OSSS.schemas.base import APIModel
 
@@ -11,18 +14,22 @@ class ApVendorBase(APIModel):
     name: str = Field(..., min_length=1, max_length=255)
     tax_id: Optional[str] = Field(None, max_length=64)
 
+    # JSON/JSONB-ish fields are represented as dicts in the API
     remit_to: Optional[Dict[str, Any]] = None
     contact: Optional[Dict[str, Any]] = None
     attributes: Optional[Dict[str, Any]] = None
 
-    active: Optional[bool] = True
+    # Model default is true at the DB level; mirror that here
+    active: bool = True
 
 
 class ApVendorCreate(ApVendorBase):
+    """Payload to create an AP vendor."""
     pass
 
 
 class ApVendorUpdate(APIModel):
+    """Partial update; send only fields that should change."""
     vendor_no: Optional[str] = Field(None, min_length=1, max_length=64)
     name: Optional[str] = Field(None, min_length=1, max_length=255)
     tax_id: Optional[str] = Field(None, max_length=64)
@@ -35,10 +42,10 @@ class ApVendorUpdate(APIModel):
 
 
 class ApVendorOut(ApVendorBase):
-    id: str
-    # If your mixins add timestamps, include them:
-    # created_at: datetime
-    # updated_at: datetime
+    """Response model."""
+    id: UUID
+    created_at: datetime
+    updated_at: datetime
 
 
 ApVendorList = List[ApVendorOut]

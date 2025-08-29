@@ -25,7 +25,7 @@ class Meeting(UUIDMixin, TimestampMixin, Base):
     ends_at: Mapped[Optional[datetime]] = mapped_column(sa.TIMESTAMP(timezone=True))
     location: Mapped[Optional[str]] = mapped_column(sa.String(255))
     status: Mapped[Optional[str]] = mapped_column(sa.String(32))
-    is_public: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, server_default=sa.text("true"))
+    is_public: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, server_default=sa.sql.true())
     stream_url: Mapped[Optional[str]] = mapped_column(sa.String(1024))
 
     agenda_items: Mapped[List["AgendaItem"]] = relationship(

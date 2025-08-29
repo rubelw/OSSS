@@ -6387,7 +6387,8 @@
                     "read:gl_segment_values",
                     "read:gl_segments",
                     "read:invoices",
-                    "read:vendors"
+                    "read:vendors",
+                    "read:ap_vendors"
                   ],
                   "positions": [
                     {
@@ -6420,7 +6421,8 @@
                         "read:gl_segment_values",
                         "read:gl_segments",
                         "read:invoices",
-                        "read:vendors"
+                        "read:vendors",
+                        "read:ap_vendors"
                       ]
                     },
                     {
@@ -6453,7 +6455,8 @@
                         "read:gl_segment_values",
                         "read:gl_segments",
                         "read:invoices",
-                        "read:vendors"
+                        "read:vendors",
+                        "read:ap_vendors"
                       ]
                     },
                     {
@@ -6486,7 +6489,8 @@
                         "read:gl_segment_values",
                         "read:gl_segments",
                         "read:invoices",
-                        "read:vendors"
+                        "read:vendors",
+                        "read:ap_vendors"
                       ]
                     },
                     {
@@ -6583,7 +6587,8 @@
                         "read:gl_segment_values",
                         "read:gl_segments",
                         "read:invoices",
-                        "read:vendors"
+                        "read:vendors",
+                        "read:ap_vendors"
                       ]
                     },
                     {

@@ -15,8 +15,9 @@ class Vendor(UUIDMixin, Base):
     __tablename__ = "vendors"
 
     name = sa.Column(sa.String(255), nullable=False, unique=True)
-    contact = sa.Column(JSONB, nullable=True)
-    active = sa.Column(sa.Boolean, nullable=False, server_default=text("true"))
+    contact = sa.Column(sa.JSON, nullable=True)
+    active = sa.Column(sa.Boolean, nullable=False, server_default=sa.sql.false())
+
     notes = sa.Column(sa.Text)
     created_at, updated_at = ts_cols()
 

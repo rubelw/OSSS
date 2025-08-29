@@ -13,7 +13,7 @@ class DocumentNotification(Base):
     document_id: Mapped[str] = mapped_column(GUID(), ForeignKey("documents.id", ondelete="CASCADE"), nullable=False, index=True)
     user_id:     Mapped[str] = mapped_column(GUID(), ForeignKey("users.id", ondelete="CASCADE"),     nullable=False, index=True)
 
-    subscribed:  Mapped[bool] = mapped_column(sa.Boolean, nullable=False, server_default=text("true"))
+    subscribed:  Mapped[bool] = mapped_column(sa.Boolean, nullable=False, server_default=sa.sql.false())
     last_sent_at: Mapped[sa.DateTime | None] = mapped_column(sa.DateTime(timezone=True))
 
     document = relationship("Document", back_populates="notifications", lazy="joined")

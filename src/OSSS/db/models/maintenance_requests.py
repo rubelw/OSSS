@@ -27,7 +27,7 @@ class MaintenanceRequest(UUIDMixin, Base):
     # legacy pointer (kept for compatibility)
     converted_work_order_id = sa.Column(GUID(), ForeignKey("work_orders.id", ondelete="SET NULL"), nullable=True)
 
-    attributes = sa.Column(JSONB, nullable=True)
+    attributes = sa.Column(sa.JSON, nullable=True)
     created_at, updated_at = ts_cols()
 
     # canonical 1:1 link via WorkOrder.request_id

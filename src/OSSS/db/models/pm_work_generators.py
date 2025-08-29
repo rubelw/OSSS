@@ -17,7 +17,7 @@ class PMWorkGenerator(UUIDMixin, Base):
     pm_plan_id = sa.Column(GUID(), ForeignKey("pm_plans.id", ondelete="CASCADE"), nullable=False)
     last_generated_at = sa.Column(sa.TIMESTAMP(timezone=True))
     lookahead_days = sa.Column(sa.Integer)
-    attributes = sa.Column(JSONB, nullable=True)
+    attributes = sa.Column(sa.JSON, nullable=True)
     created_at, updated_at = ts_cols()
 
     plan = relationship("PMPlan", back_populates="generators")

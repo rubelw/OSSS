@@ -20,9 +20,9 @@ class PMPlan(UUIDMixin, Base):
     frequency = sa.Column(sa.String(64))
     next_due_at = sa.Column(sa.TIMESTAMP(timezone=True))
     last_completed_at = sa.Column(sa.TIMESTAMP(timezone=True))
-    active = sa.Column(sa.Boolean, nullable=False, server_default=text("true"))
-    procedure = sa.Column(JSONB, nullable=True)
-    attributes = sa.Column(JSONB, nullable=True)
+    active = sa.Column(sa.Boolean, nullable=False, server_default=sa.sql.true())
+    procedure = sa.Column(sa.JSON, nullable=True)
+    attributes = sa.Column(sa.JSON, nullable=True)
     created_at, updated_at = ts_cols()
 
     asset = relationship("Asset", back_populates="pm_plans")

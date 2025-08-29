@@ -20,7 +20,7 @@ class MoveOrder(UUIDMixin, Base):
     to_space_id = sa.Column(GUID(), ForeignKey("spaces.id", ondelete="SET NULL"))
     move_date = sa.Column(sa.Date)
     status = sa.Column(sa.String(32))
-    attributes = sa.Column(JSONB, nullable=True)
+    attributes = sa.Column(sa.JSON, nullable=True)
     created_at, updated_at = ts_cols()
 
     project = relationship("Project")

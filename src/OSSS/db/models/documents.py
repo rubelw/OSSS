@@ -22,7 +22,7 @@ class Document(UUIDMixin, Base):
     # FK is added via table-level constraint below (current_version_id -> document_versions.id)
     current_version_id: Mapped[Optional[uuid.UUID]] = mapped_column(GUID(), nullable=True)
 
-    is_public: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, server_default=sa.text("false"))
+    is_public: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, server_default=sa.sql.false())
 
     # relationships
     folder: Mapped[Optional["Folder"]] = relationship("Folder", back_populates="documents", lazy="selectin")

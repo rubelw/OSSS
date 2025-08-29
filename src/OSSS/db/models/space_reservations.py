@@ -20,8 +20,8 @@ class SpaceReservation(UUIDMixin, Base):
     end_at = sa.Column(sa.TIMESTAMP(timezone=True), nullable=False)
     purpose = sa.Column(sa.String(255))
     status = sa.Column(sa.String(32), nullable=False, server_default=text("'booked'"))
-    setup = sa.Column(JSONB, nullable=True)
-    attributes = sa.Column(JSONB, nullable=True)
+    setup = sa.Column(sa.JSON, nullable=True)
+    attributes = sa.Column(sa.JSON, nullable=True)
     created_at, updated_at = ts_cols()
 
     space = relationship("Space")

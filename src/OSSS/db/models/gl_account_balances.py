@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from decimal import Decimal
 from typing import Optional, Dict, Any
-
+import sqlalchemy as sa
+import uuid
 from sqlalchemy import (
     String,
     Numeric,
@@ -16,62 +17,28 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import text
 
-from OSSS.db.base import Base, UUIDMixin
+from OSSS.db.base import Base, UUIDMixin, GUID
 
 
 class GlAccountBalance(UUIDMixin, Base):
-    """
-    Mirrors Alembic migration:
-
-      gl_account_balances(
-        id UUID PK,
-        account_id FK -> gl_accounts.id (CASCADE),
-        fiscal_period_id FK -> fiscal_periods.id (CASCADE),
-        begin_balance NUMERIC(16,2) DEFAULT 0,
-        debit_total  NUMERIC(16,2) DEFAULT 0,
-        credit_total NUMERIC(16,2) DEFAULT 0,
-        end_balance  NUMERIC(16,2) DEFAULT 0,
-        attributes JSONB NULL,
-        created_at/updated_at,
-        UNIQUE(account_id, fiscal_period_id),
-        INDEX account_id, INDEX fiscal_period_id
-      )
-    """
-
     __tablename__ = "gl_account_balances"
 
-    # FKs (String(36) to align with your id_col())
-    account_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("gl_accounts.id", ondelete="CASCADE"), nullable=False
+    # Use GUID()/UUID to match referenced PK types
+    account_id: Mapped[uuid.UUID] = mapped_column(
+        GUID(), ForeignKey("gl_accounts.id", ondelete="CASCADE"), nullable=False
     )
-    fiscal_period_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("fiscal_periods.id", ondelete="CASCADE"), nullable=False
-    )
-
-    # Amounts
-    begin_balance: Mapped[Decimal] = mapped_column(
-        Numeric(16, 2), nullable=False, server_default=text("0")
-    )
-    debit_total: Mapped[Decimal] = mapped_column(
-        Numeric(16, 2), nullable=False, server_default=text("0")
-    )
-    credit_total: Mapped[Decimal] = mapped_column(
-        Numeric(16, 2), nullable=False, server_default=text("0")
-    )
-    end_balance: Mapped[Decimal] = mapped_column(
-        Numeric(16, 2), nullable=False, server_default=text("0")
+    fiscal_period_id: Mapped[uuid.UUID] = mapped_column(
+        GUID(), ForeignKey("fiscal_periods.id", ondelete="CASCADE"), nullable=False
     )
 
-    # Freeform attributes (PostgreSQL)
-    attributes: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSONB, nullable=True)
+    begin_balance: Mapped[Decimal] = mapped_column(Numeric(16, 2), nullable=False, server_default=text("0"))
+    debit_total:   Mapped[Decimal] = mapped_column(Numeric(16, 2), nullable=False, server_default=text("0"))
+    credit_total:  Mapped[Decimal] = mapped_column(Numeric(16, 2), nullable=False, server_default=text("0"))
+    end_balance:   Mapped[Decimal] = mapped_column(Numeric(16, 2), nullable=False, server_default=text("0"))
 
-    # Timestamps (match your *_timestamps(); adjust if you already have a mixin)
-    created_at: Mapped[Any] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now()
-    )
-    updated_at: Mapped[Any] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
-    )
+    attributes: Mapped[Optional[Dict[str, Any]]] = mapped_column(sa.JSON, nullable=True)
+    created_at: Mapped[Any] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at: Mapped[Any] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
 
     __table_args__ = (
         UniqueConstraint("account_id", "fiscal_period_id", name="uq_balance_acct_period"),

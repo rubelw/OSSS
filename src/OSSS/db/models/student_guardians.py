@@ -16,7 +16,7 @@ class StudentGuardian(Base):
     guardian_id: Mapped[str] = mapped_column(GUID(), ForeignKey("guardians.id", ondelete="CASCADE"), nullable=False, index=True)
 
     custody: Mapped[str | None] = mapped_column(sa.Text)
-    is_primary: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, server_default=text("false"))
+    is_primary: Mapped[bool] = mapped_column(sa.Text, nullable=False, server_default=text("0"))
     contact_order: Mapped[int | None] = mapped_column(sa.Integer)
 
     created_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False)

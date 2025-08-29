@@ -22,5 +22,5 @@ class PolicyPublication(Base):
     )
     public_url: Mapped[Optional[str]] = mapped_column(sa.String(1024))
     is_current: Mapped[bool] = mapped_column(
-        sa.Boolean, nullable=False, server_default=sa.text("false")
+        sa.Boolean, nullable=False, server_default=sa.sql.false()
     )

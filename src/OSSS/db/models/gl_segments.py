@@ -17,7 +17,7 @@ class GLSegment(UUIDMixin, TimestampMixin, Base):
     name: Mapped[str] = mapped_column(sa.String(128), nullable=False)
     seq: Mapped[int] = mapped_column(sa.Integer, nullable=False)
     length: Mapped[Optional[int]] = mapped_column(sa.Integer)
-    required: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, server_default=sa.text("true"))
+    required: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, server_default=sa.sql.true())
 
     values: Mapped[list["GLSegmentValue"]] = relationship(
         "GLSegmentValue", back_populates="segment", cascade="all, delete-orphan"

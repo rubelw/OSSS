@@ -17,6 +17,6 @@ class GLSegmentValue(UUIDMixin, TimestampMixin, Base):
     segment_id: Mapped[str] = mapped_column(GUID(), sa.ForeignKey("gl_segments.id", ondelete="CASCADE"), nullable=False)
     code: Mapped[str] = mapped_column(sa.String(32), nullable=False)
     name: Mapped[str] = mapped_column(sa.String(128), nullable=False)
-    active: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, server_default=sa.text("true"))
+    active: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, server_default=sa.sql.true())
 
     segment: Mapped["GLSegment"] = relationship("GLSegment", back_populates="values")

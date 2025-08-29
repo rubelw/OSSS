@@ -17,7 +17,7 @@ class CICPublication(UUIDMixin, Base):
     meeting_id   = sa.Column(GUID(), ForeignKey("cic_meetings.id", ondelete="CASCADE"), nullable=False)
     published_at = sa.Column(sa.TIMESTAMP(timezone=True), nullable=False, server_default=sa.func.now())
     public_url   = sa.Column(sa.Text)
-    is_final     = sa.Column(sa.Boolean, nullable=False, server_default=text("false"))
+    is_final     = sa.Column(sa.Text, nullable=False, server_default=text("0"))
 
     created_at, updated_at = ts_cols()
 

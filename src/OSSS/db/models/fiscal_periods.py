@@ -18,7 +18,7 @@ class FiscalPeriod(UUIDMixin, TimestampMixin, Base):
     period_no: Mapped[int] = mapped_column(sa.Integer, nullable=False)  # 1..12 or 1..13
     start_date: Mapped[date] = mapped_column(sa.Date, nullable=False)
     end_date: Mapped[date] = mapped_column(sa.Date, nullable=False)
-    is_closed: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, server_default=sa.text("false"))
+    is_closed: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, server_default=sa.sql.false())
 
     year: Mapped["FiscalYear"] = relationship("FiscalYear", back_populates="periods")
     entries: Mapped[list["JournalEntry"]] = relationship("JournalEntry", back_populates="period")

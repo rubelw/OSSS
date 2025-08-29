@@ -1,14 +1,16 @@
 # src/OSSS/main.py
 from __future__ import annotations
 
-import logging
+import logging, logging.config
 import sqlalchemy as sa
 from fastapi import FastAPI, APIRouter, Security
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.routing import APIRoute
 from starlette.middleware.sessions import SessionMiddleware
 from OSSS.settings import settings
-
+import os
+from sqlalchemy.orm import class_mapper
+from sqlalchemy.orm.exc import UnmappedClassError
 
 from OSSS.core.config import settings
 from OSSS.db import get_sessionmaker
@@ -21,7 +23,44 @@ from OSSS.api.routers.me import router as me_router
 
 from OSSS.auth.deps import oauth2  # used in _oauth_probe
 
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "uvicorn": {
+            "()": "uvicorn.logging.DefaultFormatter",
+            "fmt": "%(levelprefix)s %(name)s: %(message)s",
+            "use_colors": True,
+        }
+    },
+    "handlers": {
+        "console": {"class": "logging.StreamHandler", "formatter": "uvicorn"},
+    },
+    "loggers": {
+        # Uvicorn defaults
+        "uvicorn":         {"handlers": ["console"], "level": "INFO"},
+        "uvicorn.error":   {"handlers": ["console"], "level": "INFO", "propagate": False},
+        "uvicorn.access":  {"handlers": ["console"], "level": "INFO", "propagate": False},
+
+        # Your app loggers
+        "startup":         {"handlers": ["console"], "level": "DEBUG", "propagate": False},
+        "OSSS":            {"handlers": ["console"], "level": "DEBUG", "propagate": False},
+    },
+}
+
+logging.config.dictConfig(LOGGING)
 log = logging.getLogger("startup")
+
+if os.getenv("OSSS_DEBUG_MAPPINGS") == "1":
+    from OSSS.db.models.ap_vendors import ApVendor, ApVendorBase
+
+    assert ApVendor.__mapper__.class_ is ApVendor
+
+    try:
+        class_mapper(ApVendorBase)
+        raise AssertionError("Mixin is incorrectly mapped!")
+    except UnmappedClassError:
+        pass
 
 
 # Make operation IDs unique across all routers
@@ -52,6 +91,7 @@ def create_app() -> FastAPI:
         generate_unique_id_function=generate_unique_id,
     )
 
+
     # when configuring your session middleware / auth:
     secret_key = _cfg("session_secret", "SESSION_SECRET", "dev-insecure-change-me")
     cookie_name = _cfg("session_cookie_name", "SESSION_COOKIE_NAME", "osss_session")
@@ -67,7 +107,6 @@ def create_app() -> FastAPI:
         https_only=https_only,
         same_site=same_site,
     )
-
 
     # Base/utility routers
     app.include_router(debug.router)
@@ -85,6 +124,8 @@ def create_app() -> FastAPI:
     mounted_models: set[str] = set()
 
     for name, router in generate_routers_for_all_models(prefix_base="/api"):
+        log.info(" routers name: %s %s", name, router)
+
         if name in mounted_models:
             log.warning("[startup] skipping %s (already mounted by name)", name)
             continue

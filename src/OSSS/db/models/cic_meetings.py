@@ -21,7 +21,7 @@ class CICMeeting(UUIDMixin, Base):
     ends_at      = sa.Column(sa.TIMESTAMP(timezone=True))
     location     = sa.Column(sa.Text)
     status       = sa.Column(sa.Text, nullable=False, server_default=text("'scheduled'"))
-    is_public    = sa.Column(sa.Boolean, nullable=False, server_default=text("true"))
+    is_public    = sa.Column(sa.Boolean, nullable=False, server_default=sa.sql.false())
 
     created_at, updated_at = ts_cols()
 

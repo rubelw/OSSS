@@ -22,7 +22,7 @@ class Space(UUIDMixin, Base):
     space_type = sa.Column(sa.String(64))
     area_sqft = sa.Column(sa.Numeric(12, 2))
     capacity = sa.Column(sa.Integer)
-    attributes = sa.Column(JSONB, nullable=True)
+    attributes = sa.Column(sa.JSON, nullable=True)
     created_at, updated_at = ts_cols()
 
     building = relationship("Building", back_populates="spaces")

@@ -14,7 +14,7 @@ class AgendaWorkflow(UUIDMixin, Base):
     __tablename__ = "agenda_workflows"
 
     name: Mapped[str] = mapped_column(sa.String(255), nullable=False)
-    active: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, server_default=sa.text("true"))
+    active: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, server_default=sa.sql.true())
 
     steps: Mapped[List["AgendaWorkflowStep"]] = relationship(
         "AgendaWorkflowStep",

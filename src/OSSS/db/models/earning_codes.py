@@ -15,5 +15,5 @@ class EarningCode(UUIDMixin, TimestampMixin, Base):
 
     code: Mapped[str] = mapped_column(sa.String(32), nullable=False, unique=True)  # REG, OT, etc.
     name: Mapped[str] = mapped_column(sa.String(128), nullable=False)
-    taxable: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, server_default=sa.text("true"))
+    taxable: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, server_default=sa.sql.true())
     attributes: Mapped[Optional[dict]] = mapped_column(JSONB())
