@@ -6,6 +6,9 @@ import sqlalchemy as sa
 from fastapi import FastAPI, APIRouter, Security
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.routing import APIRoute
+from starlette.middleware.sessions import SessionMiddleware
+from OSSS.settings import settings
+
 
 from OSSS.core.config import settings
 from OSSS.db import get_sessionmaker
@@ -38,6 +41,9 @@ def _routes_signature(router: APIRouter) -> set[tuple[str, tuple[str, ...]]]:
             sig.add((r.path, methods))
     return sig
 
+def _cfg(lower: str, UPPER: str, default=None):
+    # safe: no eager evaluation
+    return getattr(settings, lower, None) or getattr(settings, UPPER, default)
 
 def create_app() -> FastAPI:
     app = FastAPI(
@@ -46,14 +52,22 @@ def create_app() -> FastAPI:
         generate_unique_id_function=generate_unique_id,
     )
 
-    # CORS
+    # when configuring your session middleware / auth:
+    secret_key = _cfg("session_secret", "SESSION_SECRET", "dev-insecure-change-me")
+    cookie_name = _cfg("session_cookie_name", "SESSION_COOKIE_NAME", "osss_session")
+    max_age = _cfg("session_max_age", "SESSION_MAX_AGE", 60 * 60 * 24 * 14)
+    https_only = _cfg("session_https_only", "SESSION_HTTPS_ONLY", False)
+    same_site = _cfg("session_samesite", "SESSION_SAMESITE", "lax")
+
     app.add_middleware(
-        CORSMiddleware,
-        allow_origins=list(settings.CORS_ORIGINS),
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        SessionMiddleware,
+        secret_key=secret_key,
+        session_cookie=cookie_name,
+        max_age=max_age,
+        https_only=https_only,
+        same_site=same_site,
     )
+
 
     # Base/utility routers
     app.include_router(debug.router)

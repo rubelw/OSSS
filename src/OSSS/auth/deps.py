@@ -8,6 +8,9 @@ from OSSS.settings import settings
 from OSSS.auth.jwt import verify_and_decode
 from OSSS.auth.roles import extract_roles
 
+from starlette.requests import Request
+from starlette.status import HTTP_401_UNAUTHORIZED
+
 oauth2 = OAuth2PasswordBearer(
     tokenUrl="/auth/token",  # implemented by the small proxy route
     scopes={"openid": "OIDC", "profile": "Profile", "email": "Email", "roles": "Keycloak roles"},
@@ -23,6 +26,15 @@ async def get_current_user(token: str = Security(oauth2, scopes=["roles"])) -> D
         "roles": roles,
         "token": decoded,
     }
+
+# Minimal example: pull the token from the session.
+# Adjust to wherever you store tokens (e.g., request.session["kc"]["access_token"])
+async def ensure_access_token(request: Request) -> str:
+    tokens = request.session.get("tokens") or {}
+    access_token = tokens.get("access_token")
+    if not access_token:
+        raise HTTPException(HTTP_401_UNAUTHORIZED, "Not authenticated")
+    return access_token
 
 async def get_token_payload(token: str = Security(oauth2, scopes=["roles"])) -> Dict[str, Any]:
     return await verify_and_decode(token)
