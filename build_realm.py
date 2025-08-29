@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import Iterable
 import sqlalchemy as sa
 from typing import Any, Dict, List, Optional, Union
+from datetime import datetime, timezone
 
 from pydantic import BaseModel, Field, ConfigDict, model_validator
 
@@ -316,7 +317,19 @@ def emit_refs_dbml(metadata: sa.MetaData) -> str:
             out.append(f"Ref: {src} > {tgt}{opt_str}")
     return "\n".join(out)
 
+def _now_ms() -> int:
+    return int(datetime.now(timezone.utc).timestamp() * 1000)
 
+def _normalize_attrs(attrs: Optional[Dict[str, Any]]) -> Dict[str, List[str]]:
+    out: Dict[str, List[str]] = {}
+    for k, v in (attrs or {}).items():
+        if v is None:
+            continue
+        if isinstance(v, list):
+            out[k] = [str(x) for x in v if x is not None]
+        else:
+            out[k] = [str(v)]
+    return out
 
 # ---------------------------------------------------------------------
 # Models (subset of Keycloak export schema)
@@ -918,6 +931,11 @@ class RealmBuilder:
             if password is not None else []
         )
 
+        # normalize attributes to list-of-strings and ensure CreatedAt exists
+        norm_attrs = _normalize_attrs(attributes)
+        if "CreatedAt" not in norm_attrs or not norm_attrs["CreatedAt"]:
+            norm_attrs["CreatedAt"] = [datetime.now(timezone.utc).isoformat()]
+
         user = UserRepresentation(
             id=_uuid(),
             username=username,
@@ -932,6 +950,8 @@ class RealmBuilder:
             clientRoles=(client_roles or {}),
             requiredActions=req,
             credentials=credentials,
+            createdTimestamp=_now_ms(),
+
         )
         self.realm.users.append(user)
         LOG.debug(
@@ -1001,6 +1021,8 @@ class RealmBuilder:
                 uname = raw_name  # keep underscores; Keycloak allows them
                 LOG.debug("raw name: "+str(raw_name))
                 first, last = to_names_from_position(raw_name)  # your existing helper
+                if not last:
+                    last = "LNU"
                 email = f"{raw_name}@{email_domain}" if email_domain else None
 
                 # choose password: explicit param > per-position field > None
