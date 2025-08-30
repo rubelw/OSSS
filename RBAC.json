@@ -230,7 +230,24 @@
             "read:incident_participants",
             "read:incidents",
             "read:initiatives",
-            "read:invoices"
+            "read:invoices",
+            "read:alignment",
+            "read:association",
+            "read:curriculum",
+            "read:curriculum_version",
+            "read:requirement",
+            "read:review_request",
+            "read:unit_standard_map",
+            "read:curriculum_units",
+            "read:curricula",
+            "read:approvals",
+            "read:round_decisions",
+            "read:reviews",
+            "read:reviewers",
+            "read:review_rounds",
+            "read:proposal_standard_map",
+            "read:standards",
+            "read:frameworks"
           ]
         },
         {

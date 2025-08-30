@@ -12,7 +12,7 @@ from sqlalchemy import MetaData
 from sqlalchemy.dialects import postgresql as pg
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy.types import CHAR, JSON, TypeDecorator, TEXT
-from typing import Any, Optional  # and UUID if you use it
+from typing import Any, Optional, List, Dict, Set, Tuple, Union, Annotated
 
 # -----------------------------------------------------------------------------
 # Optional TSVectorType
@@ -52,15 +52,25 @@ class Base(DeclarativeBase):
 
     # Make names available during annotation evaluation everywhere.
     __sa_eval_namespace__ = {
-        # typing
+        # typing (use typing.* not builtins for forward refs like List['X'])
         "Any": Any,
         "Optional": Optional,
+        "List": List,
+        "Dict": Dict,
+        "Set": Set,
+        "Tuple": Tuple,
+        "Union": Union,
+        "Annotated": Annotated,
+
         # stdlib types used in annotations
-        "uuid": uuid,  # for `uuid.UUID`
-        "Decimal": Decimal,  # for `Mapped[Decimal]`
-        "datetime": datetime,  # for `Mapped[datetime]`
-        "date": date,  # for `Mapped[date]`
-        "time": time,  # just in case
+        "uuid": uuid,
+        "Decimal": Decimal,
+        "datetime": datetime,
+        "date": date,
+        "time": time,
+
+        # allow "sa.DateTime" etc. in string annotations
+        "sa": sa,
     }
 
 
