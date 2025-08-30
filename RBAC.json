@@ -88,6 +88,7 @@
         "read:fiscal_periods",
         "read:fiscal_years",
         "read:floors",
+        "read:rooms",
         "read:folders",
         "read:gl_account_segments",
         "read:gl_accounts",
@@ -205,6 +206,7 @@
             "read:fiscal_periods",
             "read:fiscal_years",
             "read:floors",
+            "read:rooms",
             "read:folders",
             "read:gl_account_segments",
             "read:gl_accounts",
@@ -338,6 +340,7 @@
             "read:fiscal_periods",
             "read:fiscal_years",
             "read:floors",
+            "read:rooms",
             "read:folders",
             "read:gl_account_segments",
             "read:gl_accounts",
@@ -454,6 +457,7 @@
             "read:fiscal_periods",
             "read:fiscal_years",
             "read:floors",
+            "read:rooms",
             "read:folders",
             "read:gl_account_segments",
             "read:gl_accounts",
@@ -570,6 +574,7 @@
             "read:fiscal_periods",
             "read:fiscal_years",
             "read:floors",
+            "read:rooms",
             "read:folders",
             "read:gl_account_segments",
             "read:gl_accounts",
@@ -687,6 +692,7 @@
             "read:fiscal_periods",
             "read:fiscal_years",
             "read:floors",
+            "read:rooms",
             "read:folders",
             "read:gl_account_segments",
             "read:gl_accounts",
@@ -803,6 +809,7 @@
                 "read:fiscal_periods",
                 "read:fiscal_years",
                 "read:floors",
+                "read:rooms",
                 "read:folders",
                 "read:gl_account_segments",
                 "read:gl_accounts",
@@ -919,6 +926,7 @@
                 "read:fiscal_periods",
                 "read:fiscal_years",
                 "read:floors",
+                "read:rooms",
                 "read:folders",
                 "read:gl_account_segments",
                 "read:gl_accounts",
@@ -1035,6 +1043,7 @@
                 "read:fiscal_periods",
                 "read:fiscal_years",
                 "read:floors",
+                "read:rooms",
                 "read:folders",
                 "read:gl_account_segments",
                 "read:gl_accounts",
@@ -1151,6 +1160,7 @@
                 "read:fiscal_periods",
                 "read:fiscal_years",
                 "read:floors",
+                "read:rooms",
                 "read:folders",
                 "read:gl_account_segments",
                 "read:gl_accounts",
@@ -1267,6 +1277,7 @@
                 "read:fiscal_periods",
                 "read:fiscal_years",
                 "read:floors",
+                "read:rooms",
                 "read:folders",
                 "read:gl_account_segments",
                 "read:gl_accounts",
@@ -1383,6 +1394,7 @@
                 "read:fiscal_periods",
                 "read:fiscal_years",
                 "read:floors",
+                "read:rooms",
                 "read:folders",
                 "read:gl_account_segments",
                 "read:gl_accounts",
@@ -1499,6 +1511,7 @@
                 "read:fiscal_periods",
                 "read:fiscal_years",
                 "read:floors",
+                "read:rooms",
                 "read:folders",
                 "read:gl_account_segments",
                 "read:gl_accounts",
@@ -1615,6 +1628,7 @@
                 "read:fiscal_periods",
                 "read:fiscal_years",
                 "read:floors",
+                "read:rooms",
                 "read:folders",
                 "read:gl_account_segments",
                 "read:gl_accounts",
@@ -1731,6 +1745,7 @@
                 "read:fiscal_periods",
                 "read:fiscal_years",
                 "read:floors",
+                "read:rooms",
                 "read:folders",
                 "read:gl_account_segments",
                 "read:gl_accounts",
@@ -1848,6 +1863,7 @@
                 "read:fiscal_periods",
                 "read:fiscal_years",
                 "read:floors",
+                "read:rooms",
                 "read:folders",
                 "read:gl_account_segments",
                 "read:gl_accounts",
@@ -1964,6 +1980,7 @@
                     "read:fiscal_periods",
                     "read:fiscal_years",
                     "read:floors",
+                    "read:rooms",
                     "read:folders",
                     "read:gl_account_segments",
                     "read:gl_accounts",
@@ -2081,6 +2098,7 @@
                     "read:fiscal_periods",
                     "read:fiscal_years",
                     "read:floors",
+                    "read:rooms",
                     "read:folders",
                     "read:gl_account_segments",
                     "read:gl_accounts",
@@ -2197,6 +2215,7 @@
                         "read:fiscal_periods",
                         "read:fiscal_years",
                         "read:floors",
+                        "read:rooms",
                         "read:folders",
                         "read:gl_account_segments",
                         "read:gl_accounts",
@@ -2313,6 +2332,7 @@
                         "read:fiscal_periods",
                         "read:fiscal_years",
                         "read:floors",
+                        "read:rooms",
                         "read:folders",
                         "read:gl_account_segments",
                         "read:gl_accounts",
@@ -2429,6 +2449,7 @@
                         "read:fiscal_periods",
                         "read:fiscal_years",
                         "read:floors",
+                        "read:rooms",
                         "read:folders",
                         "read:gl_account_segments",
                         "read:gl_accounts",
@@ -2545,6 +2566,7 @@
                         "read:fiscal_periods",
                         "read:fiscal_years",
                         "read:floors",
+                        "read:rooms",
                         "read:folders",
                         "read:gl_account_segments",
                         "read:gl_accounts",
@@ -2661,6 +2683,7 @@
                         "read:fiscal_periods",
                         "read:fiscal_years",
                         "read:floors",
+                        "read:rooms",
                         "read:folders",
                         "read:gl_account_segments",
                         "read:gl_accounts",
@@ -2777,6 +2800,7 @@
                         "read:fiscal_periods",
                         "read:fiscal_years",
                         "read:floors",
+                        "read:rooms",
                         "read:folders",
                         "read:gl_account_segments",
                         "read:gl_accounts",
@@ -2893,6 +2917,7 @@
                         "read:fiscal_periods",
                         "read:fiscal_years",
                         "read:floors",
+                        "read:rooms",
                         "read:folders",
                         "read:gl_account_segments",
                         "read:gl_accounts",
@@ -3009,6 +3034,7 @@
                         "read:fiscal_periods",
                         "read:fiscal_years",
                         "read:floors",
+                        "read:rooms",
                         "read:folders",
                         "read:gl_account_segments",
                         "read:gl_accounts",
@@ -3126,6 +3152,7 @@
                         "read:fiscal_periods",
                         "read:fiscal_years",
                         "read:floors",
+                        "read:rooms",
                         "read:folders",
                         "read:gl_account_segments",
                         "read:gl_accounts",
@@ -3243,6 +3270,7 @@
                         "read:fiscal_periods",
                         "read:fiscal_years",
                         "read:floors",
+                        "read:rooms",
                         "read:folders",
                         "read:gl_account_segments",
                         "read:gl_accounts",
@@ -3359,6 +3387,7 @@
                         "read:fiscal_periods",
                         "read:fiscal_years",
                         "read:floors",
+                        "read:rooms",
                         "read:folders",
                         "read:gl_account_segments",
                         "read:gl_accounts",
@@ -3475,6 +3504,7 @@
                         "read:fiscal_periods",
                         "read:fiscal_years",
                         "read:floors",
+                        "read:rooms",
                         "read:folders",
                         "read:gl_account_segments",
                         "read:gl_accounts",
@@ -3591,6 +3621,7 @@
                         "read:fiscal_periods",
                         "read:fiscal_years",
                         "read:floors",
+                        "read:rooms",
                         "read:folders",
                         "read:gl_account_segments",
                         "read:gl_accounts",
@@ -3707,6 +3738,7 @@
                         "read:fiscal_periods",
                         "read:fiscal_years",
                         "read:floors",
+                        "read:rooms",
                         "read:folders",
                         "read:gl_account_segments",
                         "read:gl_accounts",
@@ -5781,7 +5813,8 @@
                 "read:floors",
                 "read:incident_participants",
                 "read:incidents",
-                "read:spaces"
+                "read:spaces",
+                "read:rooms"
               ],
               "positions": [
                 {
@@ -5799,7 +5832,8 @@
                     "read:floors",
                     "read:incident_participants",
                     "read:incidents",
-                    "read:spaces"
+                    "read:spaces",
+                    "read:rooms"
                   ]
                 }
               ],
@@ -5813,7 +5847,8 @@
                     "read:buildings",
                     "read:facilities",
                     "read:floors",
-                    "read:spaces"
+                    "read:spaces",
+                    "read:rooms"
                   ],
                   "positions": [
                     {
@@ -5826,7 +5861,8 @@
                         "read:buildings",
                         "read:facilities",
                         "read:floors",
-                        "read:spaces"
+                        "read:spaces",
+                        "read:rooms"
                       ]
                     },
                     {
@@ -5839,7 +5875,8 @@
                         "read:buildings",
                         "read:facilities",
                         "read:floors",
-                        "read:spaces"
+                        "read:spaces",
+                        "read:rooms"
                       ]
                     },
                     {
@@ -5852,7 +5889,8 @@
                         "read:buildings",
                         "read:facilities",
                         "read:floors",
-                        "read:spaces"
+                        "read:spaces",
+                        "read:rooms"
                       ]
                     },
                     {
@@ -5865,6 +5903,7 @@
                         "read:buildings",
                         "read:facilities",
                         "read:floors",
+                        "read:rooms",
                         "read:spaces"
                       ]
                     },
@@ -5878,6 +5917,7 @@
                         "read:buildings",
                         "read:facilities",
                         "read:floors",
+                        "read:rooms",
                         "read:spaces"
                       ]
                     },
@@ -5891,6 +5931,7 @@
                         "read:buildings",
                         "read:facilities",
                         "read:floors",
+                        "read:rooms",
                         "read:spaces"
                       ]
                     },
@@ -5904,6 +5945,7 @@
                         "read:buildings",
                         "read:facilities",
                         "read:floors",
+                        "read:rooms",
                         "read:spaces"
                       ]
                     },
@@ -5917,6 +5959,7 @@
                         "read:buildings",
                         "read:facilities",
                         "read:floors",
+                        "read:rooms",
                         "read:spaces"
                       ]
                     },
@@ -5930,6 +5973,7 @@
                         "read:buildings",
                         "read:facilities",
                         "read:floors",
+                        "read:rooms",
                         "read:spaces"
                       ]
                     },
@@ -5943,6 +5987,7 @@
                         "read:buildings",
                         "read:facilities",
                         "read:floors",
+                        "read:rooms",
                         "read:spaces"
                       ]
                     },
@@ -5956,6 +6001,7 @@
                         "read:buildings",
                         "read:facilities",
                         "read:floors",
+                        "read:rooms",
                         "read:spaces"
                       ]
                     },
@@ -5969,6 +6015,7 @@
                         "read:buildings",
                         "read:facilities",
                         "read:floors",
+                        "read:rooms",
                         "read:spaces"
                       ]
                     },
@@ -5982,6 +6029,7 @@
                         "read:buildings",
                         "read:facilities",
                         "read:floors",
+                        "read:rooms",
                         "read:spaces"
                       ]
                     },
@@ -5995,6 +6043,7 @@
                         "read:buildings",
                         "read:facilities",
                         "read:floors",
+                        "read:rooms",
                         "read:spaces"
                       ]
                     },
@@ -6008,6 +6057,7 @@
                         "read:buildings",
                         "read:facilities",
                         "read:floors",
+                        "read:rooms",
                         "read:spaces"
                       ]
                     },
@@ -6021,6 +6071,7 @@
                         "read:buildings",
                         "read:facilities",
                         "read:floors",
+                        "read:rooms",
                         "read:spaces"
                       ]
                     },
@@ -6034,6 +6085,7 @@
                         "read:buildings",
                         "read:facilities",
                         "read:floors",
+                        "read:rooms",
                         "read:spaces"
                       ]
                     },
@@ -6047,6 +6099,7 @@
                         "read:buildings",
                         "read:facilities",
                         "read:floors",
+                        "read:rooms",
                         "read:spaces"
                       ]
                     },
@@ -6060,6 +6113,7 @@
                         "read:buildings",
                         "read:facilities",
                         "read:floors",
+                        "read:rooms",
                         "read:spaces"
                       ]
                     },
@@ -6073,6 +6127,7 @@
                         "read:buildings",
                         "read:facilities",
                         "read:floors",
+                        "read:rooms",
                         "read:spaces"
                       ]
                     }
