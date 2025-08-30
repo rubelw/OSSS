@@ -259,7 +259,7 @@ from .guardian import GuardianOut, GuardianCreate, GuardianReplace, GuardianPatc
 __all__ += ['GuardianOut','GuardianCreate','GuardianReplace','GuardianPatch','GuardianList']
 from .hr_position import HRPositionOut, HRPositionCreate, HRPositionReplace, HRPositionPatch, HRPositionList
 __all__ += ['HRPositionOut','HRPositionCreate','HRPositionReplace','HRPositionPatch','HRPositionList']
-from .body import BodyOut, BodyCreate, BodyReplace, BodyPatch, BodyList
+from .governing_body import BodyOut, BodyCreate, BodyReplace, BodyPatch, BodyList
 __all__ += ['BodyOut','BodyCreate','BodyReplace','BodyPatch','BodyList']
 from .part_location import PartLocationOut, PartLocationCreate, PartLocationReplace, PartLocationPatch, PartLocationList
 __all__ += ['PartLocationOut','PartLocationCreate','PartLocationReplace','PartLocationPatch','PartLocationList']

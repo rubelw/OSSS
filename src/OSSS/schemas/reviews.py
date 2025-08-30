@@ -1,5 +1,5 @@
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional, List, Dict, Any
 from datetime import datetime, date
 import uuid
@@ -12,9 +12,11 @@ class ReviewBase(BaseModel):
     submitted_at: Optional[datetime] = None
     content: Optional[Dict[str, Any]] = None
 
-    class Config:
-        orm_mode = True
-
+    model_config = ConfigDict(
+        from_attributes=True,
+        extra="ignore",
+        populate_by_name=True,
+    )
 
 class ReviewCreate(ReviewBase): ...
 class ReviewUpdate(ReviewBase): ...

@@ -93,7 +93,16 @@ dependencies = [
      "click",
      "httpx",
      "rich",
-     "tomli_w"
+     "tomli_w",
+     "pydantic-settings",
+
+     # Google classroom
+     "google-auth>=2.0.0",
+     "google-auth-oauthlib>=1.0.0",
+     "google-api-python-client>=2.0.0",
+     "tenacity>=8.0.0",              # retries
+     "httpx>=0.27",                   # async HTTP (if you prefer REST directly)
+     "google-cloud-pubsub>=2.0.0"     # only if you also publish (not required for push)
 ]
 
 
