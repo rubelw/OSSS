@@ -115,7 +115,8 @@
         "read:incident_participants",
         "read:incidents",
         "read:initiatives",
-        "read:invoices"
+        "read:invoices",
+        "read:meetings"
       ],
       "parent": null,
       "positions": [
@@ -251,7 +252,8 @@
             "read:review_rounds",
             "read:proposal_standard_map",
             "read:standards",
-            "read:frameworks"
+            "read:frameworks",
+            "read:meetings"
           ]
         },
         {
@@ -369,7 +371,8 @@
             "read:incident_participants",
             "read:incidents",
             "read:initiatives",
-            "read:invoices"
+            "read:invoices",
+            "read:meetings"
           ]
         },
         {
@@ -487,7 +490,8 @@
             "read:incident_participants",
             "read:incidents",
             "read:initiatives",
-            "read:invoices"
+            "read:invoices",
+            "read:meetings"
           ]
         },
         {
@@ -605,7 +609,8 @@
             "read:incident_participants",
             "read:incidents",
             "read:initiatives",
-            "read:invoices"
+            "read:invoices",
+            "read:meetings"
           ]
         }
       ],
@@ -725,7 +730,8 @@
             "read:incident_participants",
             "read:incidents",
             "read:initiatives",
-            "read:invoices"
+            "read:invoices",
+            "read:meetings"
           ],
           "positions": [
             {
@@ -843,7 +849,8 @@
                 "read:incident_participants",
                 "read:incidents",
                 "read:initiatives",
-                "read:invoices"
+                "read:invoices",
+                "read:meetings"
               ]
             },
             {
@@ -961,7 +968,8 @@
                 "read:incident_participants",
                 "read:incidents",
                 "read:initiatives",
-                "read:invoices"
+                "read:invoices",
+                "read:meetings"
               ]
             },
             {
@@ -1079,7 +1087,8 @@
                 "read:incident_participants",
                 "read:incidents",
                 "read:initiatives",
-                "read:invoices"
+                "read:invoices",
+                "read:meetings"
               ]
             },
             {
@@ -1197,7 +1206,8 @@
                 "read:incident_participants",
                 "read:incidents",
                 "read:initiatives",
-                "read:invoices"
+                "read:invoices",
+                "read:meetings"
               ]
             },
             {
@@ -1315,7 +1325,8 @@
                 "read:incident_participants",
                 "read:incidents",
                 "read:initiatives",
-                "read:invoices"
+                "read:invoices",
+                "read:meetings"
               ]
             },
             {
@@ -1433,7 +1444,8 @@
                 "read:incident_participants",
                 "read:incidents",
                 "read:initiatives",
-                "read:invoices"
+                "read:invoices",
+                "read:meetings"
               ]
             },
             {
@@ -1551,7 +1563,8 @@
                 "read:incident_participants",
                 "read:incidents",
                 "read:initiatives",
-                "read:invoices"
+                "read:invoices",
+                "read:meetings"
               ]
             },
             {
@@ -1669,7 +1682,8 @@
                 "read:incident_participants",
                 "read:incidents",
                 "read:initiatives",
-                "read:invoices"
+                "read:invoices",
+                "read:meetings"
               ]
             },
             {
@@ -1787,7 +1801,8 @@
                 "read:incident_participants",
                 "read:incidents",
                 "read:initiatives",
-                "read:invoices"
+                "read:invoices",
+                "read:meetings"
               ]
             }
           ],
@@ -1906,7 +1921,8 @@
                 "read:incident_participants",
                 "read:incidents",
                 "read:initiatives",
-                "read:invoices"
+                "read:invoices",
+                "read:meetings"
               ],
               "positions": [
                 {
@@ -2024,7 +2040,8 @@
                     "read:incident_participants",
                     "read:incidents",
                     "read:initiatives",
-                    "read:invoices"
+                    "read:invoices",
+                    "read:meetings"
                   ]
                 }
               ],
@@ -2143,7 +2160,8 @@
                     "read:incident_participants",
                     "read:incidents",
                     "read:initiatives",
-                    "read:invoices"
+                    "read:invoices",
+                    "read:meetings"
                   ],
                   "positions": [
                     {
@@ -2261,7 +2279,8 @@
                         "read:incident_participants",
                         "read:incidents",
                         "read:initiatives",
-                        "read:invoices"
+                        "read:invoices",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -2379,7 +2398,8 @@
                         "read:incident_participants",
                         "read:incidents",
                         "read:initiatives",
-                        "read:invoices"
+                        "read:invoices",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -2497,7 +2517,8 @@
                         "read:incident_participants",
                         "read:incidents",
                         "read:initiatives",
-                        "read:invoices"
+                        "read:invoices",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -2615,7 +2636,8 @@
                         "read:incident_participants",
                         "read:incidents",
                         "read:initiatives",
-                        "read:invoices"
+                        "read:invoices",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -2733,7 +2755,8 @@
                         "read:incident_participants",
                         "read:incidents",
                         "read:initiatives",
-                        "read:invoices"
+                        "read:invoices",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -2851,7 +2874,8 @@
                         "read:incident_participants",
                         "read:incidents",
                         "read:initiatives",
-                        "read:invoices"
+                        "read:invoices",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -2969,7 +2993,8 @@
                         "read:incident_participants",
                         "read:incidents",
                         "read:initiatives",
-                        "read:invoices"
+                        "read:invoices",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -3087,7 +3112,8 @@
                         "read:incident_participants",
                         "read:incidents",
                         "read:initiatives",
-                        "read:invoices"
+                        "read:invoices",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -3207,7 +3233,8 @@
                         "read:incidents",
                         "read:initiatives",
                         "read:invoices",
-                        "reac:schools"
+                        "reac:schools",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -3325,7 +3352,8 @@
                         "read:incident_participants",
                         "read:incidents",
                         "read:initiatives",
-                        "read:invoices"
+                        "read:invoices",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -3443,7 +3471,8 @@
                         "read:incident_participants",
                         "read:incidents",
                         "read:initiatives",
-                        "read:invoices"
+                        "read:invoices",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -3561,7 +3590,8 @@
                         "read:incident_participants",
                         "read:incidents",
                         "read:initiatives",
-                        "read:invoices"
+                        "read:invoices",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -3679,7 +3709,8 @@
                         "read:incident_participants",
                         "read:incidents",
                         "read:initiatives",
-                        "read:invoices"
+                        "read:invoices",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -3797,7 +3828,8 @@
                         "read:incident_participants",
                         "read:incidents",
                         "read:initiatives",
-                        "read:invoices"
+                        "read:invoices",
+                        "read:meetings"
                       ]
                     }
                   ],
@@ -3819,7 +3851,8 @@
                         "read:grade_scale_bands",
                         "read:grade_scales",
                         "read:gradebook_entries",
-                        "read:grading_periods"
+                        "read:grading_periods",
+                        "read:meetings"
                       ],
                       "positions": [
                         {
@@ -3841,7 +3874,8 @@
                             "read:grade_scales",
                             "read:gradebook_entries",
                             "read:grading_periods",
-                            "read:students"
+                            "read:students",
+                            "read:meetings"
                           ]
                         },
                         {
@@ -3862,7 +3896,8 @@
                             "read:grade_scale_bands",
                             "read:grade_scales",
                             "read:gradebook_entries",
-                            "read:grading_periods"
+                            "read:grading_periods",
+                            "read:meetings"
                           ]
                         },
                         {
@@ -3883,7 +3918,8 @@
                             "read:grade_scale_bands",
                             "read:grade_scales",
                             "read:gradebook_entries",
-                            "read:grading_periods"
+                            "read:grading_periods",
+                            "read:meetings"
                           ]
                         },
                         {
@@ -3904,7 +3940,8 @@
                             "read:grade_scale_bands",
                             "read:grade_scales",
                             "read:gradebook_entries",
-                            "read:grading_periods"
+                            "read:grading_periods",
+                            "read:meetings"
                           ]
                         },
                         {
@@ -3925,7 +3962,8 @@
                             "read:grade_scale_bands",
                             "read:grade_scales",
                             "read:gradebook_entries",
-                            "read:grading_periods"
+                            "read:grading_periods",
+                            "read:meetings"
                           ]
                         },
                         {
@@ -3946,7 +3984,8 @@
                             "read:grade_scale_bands",
                             "read:grade_scales",
                             "read:gradebook_entries",
-                            "read:grading_periods"
+                            "read:grading_periods",
+                            "read:meetings"
                           ]
                         },
                         {
@@ -3967,7 +4006,8 @@
                             "read:grade_scale_bands",
                             "read:grade_scales",
                             "read:gradebook_entries",
-                            "read:grading_periods"
+                            "read:grading_periods",
+                            "read:meetings"
                           ]
                         },
                         {
@@ -3988,7 +4028,8 @@
                             "read:grade_scale_bands",
                             "read:grade_scales",
                             "read:gradebook_entries",
-                            "read:grading_periods"
+                            "read:grading_periods",
+                            "read:meetings"
                           ]
                         },
                         {
@@ -4009,7 +4050,8 @@
                             "read:grade_scale_bands",
                             "read:grade_scales",
                             "read:gradebook_entries",
-                            "read:grading_periods"
+                            "read:grading_periods",
+                            "read:meetings"
                           ]
                         },
                         {
@@ -4030,7 +4072,8 @@
                             "read:grade_scale_bands",
                             "read:grade_scales",
                             "read:gradebook_entries",
-                            "read:grading_periods"
+                            "read:grading_periods",
+                            "read:meetings"
                           ]
                         },
                         {
@@ -4051,7 +4094,8 @@
                             "read:grade_scale_bands",
                             "read:grade_scales",
                             "read:gradebook_entries",
-                            "read:grading_periods"
+                            "read:grading_periods",
+                            "read:meetings"
                           ]
                         },
                         {
@@ -4072,7 +4116,8 @@
                             "read:grade_scale_bands",
                             "read:grade_scales",
                             "read:gradebook_entries",
-                            "read:grading_periods"
+                            "read:grading_periods",
+                            "read:meetings"
                           ]
                         },
                         {
@@ -4093,7 +4138,8 @@
                             "read:grade_scale_bands",
                             "read:grade_scales",
                             "read:gradebook_entries",
-                            "read:grading_periods"
+                            "read:grading_periods",
+                            "read:meetings"
                           ]
                         },
                         {
@@ -4114,7 +4160,8 @@
                             "read:grade_scale_bands",
                             "read:grade_scales",
                             "read:gradebook_entries",
-                            "read:grading_periods"
+                            "read:grading_periods",
+                            "read:meetings"
                           ]
                         },
                         {
@@ -4135,7 +4182,8 @@
                             "read:grade_scale_bands",
                             "read:grade_scales",
                             "read:gradebook_entries",
-                            "read:grading_periods"
+                            "read:grading_periods",
+                            "read:meetings"
                           ]
                         },
                         {
@@ -4156,7 +4204,8 @@
                             "read:grade_scale_bands",
                             "read:grade_scales",
                             "read:gradebook_entries",
-                            "read:grading_periods"
+                            "read:grading_periods",
+                            "read:meetings"
                           ]
                         },
                         {
@@ -4177,7 +4226,8 @@
                             "read:grade_scale_bands",
                             "read:grade_scales",
                             "read:gradebook_entries",
-                            "read:grading_periods"
+                            "read:grading_periods",
+                            "read:meetings"
                           ]
                         },
                         {
@@ -4198,7 +4248,8 @@
                             "read:grade_scale_bands",
                             "read:grade_scales",
                             "read:gradebook_entries",
-                            "read:grading_periods"
+                            "read:grading_periods",
+                            "read:meetings"
                           ]
                         },
                         {
@@ -4219,7 +4270,8 @@
                             "read:grade_scale_bands",
                             "read:grade_scales",
                             "read:gradebook_entries",
-                            "read:grading_periods"
+                            "read:grading_periods",
+                            "read:meetings"
                           ]
                         },
                         {
@@ -4240,7 +4292,8 @@
                             "read:grade_scale_bands",
                             "read:grade_scales",
                             "read:gradebook_entries",
-                            "read:grading_periods"
+                            "read:grading_periods",
+                            "read:meetings"
                           ]
                         },
                         {
@@ -4261,7 +4314,8 @@
                             "read:grade_scale_bands",
                             "read:grade_scales",
                             "read:gradebook_entries",
-                            "read:grading_periods"
+                            "read:grading_periods",
+                            "read:meetings"
                           ]
                         },
                         {
@@ -4282,7 +4336,8 @@
                             "read:grade_scale_bands",
                             "read:grade_scales",
                             "read:gradebook_entries",
-                            "read:grading_periods"
+                            "read:grading_periods",
+                            "read:meetings"
                           ]
                         },
                         {
@@ -4303,7 +4358,8 @@
                             "read:grade_scale_bands",
                             "read:grade_scales",
                             "read:gradebook_entries",
-                            "read:grading_periods"
+                            "read:grading_periods",
+                            "read:meetings"
                           ]
                         },
                         {
@@ -4324,7 +4380,8 @@
                             "read:grade_scale_bands",
                             "read:grade_scales",
                             "read:gradebook_entries",
-                            "read:grading_periods"
+                            "read:grading_periods",
+                            "read:meetings"
                           ]
                         },
                         {
@@ -4345,7 +4402,8 @@
                             "read:grade_scale_bands",
                             "read:grade_scales",
                             "read:gradebook_entries",
-                            "read:grading_periods"
+                            "read:grading_periods",
+                            "read:meetings"
                           ]
                         },
                         {
@@ -4366,7 +4424,8 @@
                             "read:grade_scale_bands",
                             "read:grade_scales",
                             "read:gradebook_entries",
-                            "read:grading_periods"
+                            "read:grading_periods",
+                            "read:meetings"
                           ]
                         },
                         {
@@ -4387,7 +4446,8 @@
                             "read:grade_scale_bands",
                             "read:grade_scales",
                             "read:gradebook_entries",
-                            "read:grading_periods"
+                            "read:grading_periods",
+                            "read:meetings"
                           ]
                         },
                         {
@@ -4408,7 +4468,8 @@
                             "read:grade_scale_bands",
                             "read:grade_scales",
                             "read:gradebook_entries",
-                            "read:grading_periods"
+                            "read:grading_periods",
+                            "read:meetings"
                           ]
                         }
                       ]
@@ -4434,7 +4495,8 @@
                         "read:immunization_records",
                         "read:immunizations",
                         "read:incident_participants",
-                        "read:incidents"
+                        "read:incidents",
+                        "read:meetings"
                       ],
                       "positions": [
                         {
@@ -4459,7 +4521,8 @@
                             "read:immunization_records",
                             "read:immunizations",
                             "read:incident_participants",
-                            "read:incidents"
+                            "read:incidents",
+                            "read:meetings"
                           ]
                         },
                         {
@@ -4484,7 +4547,8 @@
                             "read:immunization_records",
                             "read:immunizations",
                             "read:incident_participants",
-                            "read:incidents"
+                            "read:incidents",
+                            "read:meetings"
                           ]
                         },
                         {
@@ -4509,7 +4573,8 @@
                             "read:immunization_records",
                             "read:immunizations",
                             "read:incident_participants",
-                            "read:incidents"
+                            "read:incidents",
+                            "read:meetings"
                           ]
                         },
                         {
@@ -4534,7 +4599,8 @@
                             "read:immunization_records",
                             "read:immunizations",
                             "read:incident_participants",
-                            "read:incidents"
+                            "read:incidents",
+                            "read:meetings"
                           ]
                         },
                         {
@@ -4559,7 +4625,8 @@
                             "read:immunization_records",
                             "read:immunizations",
                             "read:incident_participants",
-                            "read:incidents"
+                            "read:incidents",
+                            "read:meetings"
                           ]
                         },
                         {
@@ -4584,7 +4651,8 @@
                             "read:immunization_records",
                             "read:immunizations",
                             "read:incident_participants",
-                            "read:incidents"
+                            "read:incidents",
+                            "read:meetings"
                           ]
                         },
                         {
@@ -4609,7 +4677,8 @@
                             "read:immunization_records",
                             "read:immunizations",
                             "read:incident_participants",
-                            "read:incidents"
+                            "read:incidents",
+                            "read:meetings"
                           ]
                         },
                         {
@@ -4634,7 +4703,8 @@
                             "read:immunization_records",
                             "read:immunizations",
                             "read:incident_participants",
-                            "read:incidents"
+                            "read:incidents",
+                            "read:meetings"
                           ]
                         },
                         {
@@ -4659,7 +4729,8 @@
                             "read:immunization_records",
                             "read:immunizations",
                             "read:incident_participants",
-                            "read:incidents"
+                            "read:incidents",
+                            "read:meetings"
                           ]
                         },
                         {
@@ -4684,7 +4755,8 @@
                             "read:immunization_records",
                             "read:immunizations",
                             "read:incident_participants",
-                            "read:incidents"
+                            "read:incidents",
+                            "read:meetings"
                           ]
                         },
                         {
@@ -4709,7 +4781,8 @@
                             "read:immunization_records",
                             "read:immunizations",
                             "read:incident_participants",
-                            "read:incidents"
+                            "read:incidents",
+                            "read:meetings"
                           ]
                         },
                         {
@@ -4734,7 +4807,8 @@
                             "read:immunization_records",
                             "read:immunizations",
                             "read:incident_participants",
-                            "read:incidents"
+                            "read:incidents",
+                            "read:meetings"
                           ]
                         },
                         {
@@ -4759,7 +4833,8 @@
                             "read:immunization_records",
                             "read:immunizations",
                             "read:incident_participants",
-                            "read:incidents"
+                            "read:incidents",
+                            "read:meetings"
                           ]
                         },
                         {
@@ -4784,7 +4859,8 @@
                             "read:immunization_records",
                             "read:immunizations",
                             "read:incident_participants",
-                            "read:incidents"
+                            "read:incidents",
+                            "read:meetings"
                           ]
                         },
                         {
@@ -4809,7 +4885,8 @@
                             "read:immunization_records",
                             "read:immunizations",
                             "read:incident_participants",
-                            "read:incidents"
+                            "read:incidents",
+                            "read:meetings"
                           ]
                         },
                         {
@@ -4834,7 +4911,8 @@
                             "read:immunization_records",
                             "read:immunizations",
                             "read:incident_participants",
-                            "read:incidents"
+                            "read:incidents",
+                            "read:meetings"
                           ]
                         },
                         {
@@ -4859,7 +4937,8 @@
                             "read:immunization_records",
                             "read:immunizations",
                             "read:incident_participants",
-                            "read:incidents"
+                            "read:incidents",
+                            "read:meetings"
                           ]
                         },
                         {
@@ -4884,7 +4963,8 @@
                             "read:immunization_records",
                             "read:immunizations",
                             "read:incident_participants",
-                            "read:incidents"
+                            "read:incidents",
+                            "read:meetings"
                           ]
                         },
                         {
@@ -4909,7 +4989,8 @@
                             "read:immunization_records",
                             "read:immunizations",
                             "read:incident_participants",
-                            "read:incidents"
+                            "read:incidents",
+                            "read:meetings"
                           ]
                         }
                       ]
@@ -4925,7 +5006,8 @@
                         "read:calendars",
                         "read:contacts",
                         "read:emergency_contacts",
-                        "read:events"
+                        "read:events",
+                        "read:meetings"
                       ],
                       "positions": [
                         {
@@ -4940,7 +5022,8 @@
                             "read:calendars",
                             "read:contacts",
                             "read:emergency_contacts",
-                            "read:events"
+                            "read:events",
+                            "read:meetings"
                           ]
                         },
                         {
@@ -4955,7 +5038,8 @@
                             "read:calendars",
                             "read:contacts",
                             "read:emergency_contacts",
-                            "read:events"
+                            "read:events",
+                            "read:meetings"
                           ]
                         },
                         {
@@ -4970,7 +5054,8 @@
                             "read:calendars",
                             "read:contacts",
                             "read:emergency_contacts",
-                            "read:events"
+                            "read:events",
+                            "read:meetings"
                           ]
                         },
                         {
@@ -4985,7 +5070,8 @@
                             "read:calendars",
                             "read:contacts",
                             "read:emergency_contacts",
-                            "read:events"
+                            "read:events",
+                            "read:meetings"
                           ]
                         },
                         {
@@ -5000,7 +5086,8 @@
                             "read:calendars",
                             "read:contacts",
                             "read:emergency_contacts",
-                            "read:events"
+                            "read:events",
+                            "read:meetings"
                           ]
                         },
                         {
@@ -5015,7 +5102,8 @@
                             "read:calendars",
                             "read:contacts",
                             "read:emergency_contacts",
-                            "read:events"
+                            "read:events",
+                            "read:meetings"
                           ]
                         },
                         {
@@ -5030,7 +5118,8 @@
                             "read:calendars",
                             "read:contacts",
                             "read:emergency_contacts",
-                            "read:events"
+                            "read:events",
+                            "read:meetings"
                           ]
                         },
                         {
@@ -5045,7 +5134,8 @@
                             "read:calendars",
                             "read:contacts",
                             "read:emergency_contacts",
-                            "read:events"
+                            "read:events",
+                            "read:meetings"
                           ]
                         },
                         {
@@ -5060,7 +5150,8 @@
                             "read:calendars",
                             "read:contacts",
                             "read:emergency_contacts",
-                            "read:events"
+                            "read:events",
+                            "read:meetings"
                           ]
                         }
                       ]
@@ -5068,176 +5159,220 @@
                     {
                       "unit": "athletics_activities_enrichment",
                       "permissions": [
-                        "read:activities"
+                        "read:activities",
+                        "read:meetings"
                       ],
                       "positions": [
                         {
                           "name": "head_coach",
                           "description": "Leads a sport program and coaching staff.",
                           "permissions": [
-                            "read:activities"
+                            "read:activities",
+                            "read:meetings"
                           ]
                         },
                         {
                           "name": "assistant_coach",
                           "description": "Supports head coach with training and supervision.",
                           "permissions": [
-                            "read:activities"
+                            "read:activities",
+                            "read:meetings"
                           ]
                         },
                         {
                           "name": "athletic_trainer",
                           "description": "Sports medicine, injury prevention, and rehab.",
                           "permissions": [
-                            "read:activities"
+                            "read:activities",
+                            "read:meetings"
                           ]
                         },
                         {
                           "name": "strength_and_conditioning_coach",
                           "description": "Athlete strength and conditioning programs.",
                           "permissions": [
-                            "read:activities"
+                            "read:activities",
+                            "read:meetings"
                           ]
                         },
                         {
                           "name": "club_sponsor",
                           "description": "Staff sponsor for student clubs.",
                           "permissions": [
-                            "read:activities"
+                            "read:activities",
+                            "read:meetings"
                           ]
                         },
                         {
                           "name": "activity_sponsor",
                           "description": "Leads co-curricular activities (e.g., yearbook).",
                           "permissions": [
-                            "read:activities"
+                            "read:activities",
+                            "read:meetings"
                           ]
                         },
                         {
                           "name": "robotics_coach",
                           "description": "Coaches robotics team and competitions.",
                           "permissions": [
-                            "read:activities"
+                            "read:activities",
+                            "read:meetings"
                           ]
                         },
                         {
                           "name": "debate_coach",
                           "description": "Leads debate team and tournaments.",
                           "permissions": [
-                            "read:activities"
+                            "read:activities",
+                            "read:meetings"
                           ]
                         },
                         {
                           "name": "esports_coach",
                           "description": "Coaches competitive gaming program.",
                           "permissions": [
-                            "read:activities"
+                            "read:activities",
+                            "read:meetings"
                           ]
                         },
                         {
                           "name": "yearbook_advisor",
                           "description": "Advises yearbook production.",
                           "permissions": [
-                            "read:activities"
+                            "read:activities",
+                            "read:meetings"
                           ]
                         },
                         {
                           "name": "student_government_advisor",
                           "description": "Advises student council/governance.",
                           "permissions": [
-                            "read:activities"
+                            "read:activities",
+                            "read:meetings"
                           ]
                         },
                         {
                           "name": "performing_arts_director",
                           "description": "Oversees music, theater, and performances.",
                           "permissions": [
-                            "read:activities"
+                            "read:activities",
+                            "read:meetings"
                           ]
                         },
                         {
                           "name": "theater_director",
                           "description": "Directs theatrical productions.",
                           "permissions": [
-                            "read:activities"
+                            "read:activities",
+                            "read:meetings"
                           ]
                         }
                       ]
                     },
                     {
                       "unit": "early_childhood_extended_programs",
-                      "permissions": [],
+                      "permissions": [
+                        "read:meetings"
+                      ],
                       "positions": [
                         {
                           "name": "director_of_early_childhood",
                           "description": "Leads preschool/early learning programs.",
-                          "permissions": []
+                          "permissions": [
+                            "read:meetings"
+                          ]
                         },
                         {
                           "name": "preschool_teacher",
                           "description": "Early childhood classroom instruction.",
-                          "permissions": []
+                          "permissions": [
+                            "read:meetings"
+                          ]
                         },
                         {
                           "name": "preschool_assistant",
                           "description": "Assists preschool teachers and students.",
-                          "permissions": []
+                          "permissions": [
+                            "read:meetings"
+                          ]
                         },
                         {
                           "name": "before_school_program_director",
                           "description": "Leads before-school care programs.",
-                          "permissions": []
+                          "permissions": [
+                            "read:meetings"
+                          ]
                         },
                         {
                           "name": "after_school_program_director",
                           "description": "Leads after-school care/enrichment.",
-                          "permissions": []
+                          "permissions": [
+                            "read:meetings"
+                          ]
                         },
                         {
                           "name": "extended_day_coordinator",
                           "description": "Coordinates extended-day activities and staffing.",
-                          "permissions": []
+                          "permissions": [
+                            "read:meetings"
+                          ]
                         },
                         {
                           "name": "summer_school_coordinator",
                           "description": "Plans and manages summer learning.",
-                          "permissions": []
+                          "permissions": [
+                            "read:meetings"
+                          ]
                         },
                         {
                           "name": "enrichment_coordinator",
                           "description": "Coordinates clubs, electives, and enrichment.",
-                          "permissions": []
+                          "permissions": [
+                            "read:meetings"
+                          ]
                         }
                       ]
                     },
                     {
                       "unit": "faith_based_religious_if_applicable",
-                      "permissions": [],
+                      "permissions": [
+                        "read:meetings"
+                      ],
                       "positions": [
                         {
                           "name": "chaplain",
                           "description": "Provides spiritual care and services.",
-                          "permissions": []
+                          "permissions": [
+                            "read:meetings"
+                          ]
                         },
                         {
                           "name": "campus_minister",
                           "description": "Leads campus ministry programs.",
-                          "permissions": []
+                          "permissions": [
+                            "read:meetings"
+                          ]
                         },
                         {
                           "name": "religion_teacher",
                           "description": "Teaches religion curriculum.",
-                          "permissions": []
+                          "permissions": [
+                            "read:meetings"
+                          ]
                         },
                         {
                           "name": "theology_teacher",
                           "description": "Teaches theology/biblical studies.",
-                          "permissions": []
+                          "permissions": [
+                            "read:meetings"
+                          ]
                         },
                         {
                           "name": "service_learning_coordinator",
                           "description": "Coordinates service learning/community service.",
-                          "permissions": []
+                          "permissions": [
+                            "read:meetings"
+                          ]
                         }
                       ]
                     }
@@ -5266,7 +5401,8 @@
                 "read:grade_scales",
                 "read:gradebook_entries",
                 "read:grading_periods",
-                "read:initiatives"
+                "read:initiatives",
+                "read:meetings"
               ],
               "positions": [
                 {
@@ -5291,7 +5427,8 @@
                     "read:grade_scales",
                     "read:gradebook_entries",
                     "read:grading_periods",
-                    "read:initiatives"
+                    "read:initiatives",
+                    "read:meetings"
                   ]
                 },
                 {
@@ -5316,7 +5453,8 @@
                     "read:grade_scales",
                     "read:gradebook_entries",
                     "read:grading_periods",
-                    "read:initiatives"
+                    "read:initiatives",
+                    "read:meetings"
                   ]
                 }
               ],
@@ -5338,7 +5476,8 @@
                     "read:grade_scale_bands",
                     "read:grade_scales",
                     "read:gradebook_entries",
-                    "read:grading_periods"
+                    "read:grading_periods",
+                    "read:meetings"
                   ],
                   "positions": [
                     {
@@ -5359,7 +5498,8 @@
                         "read:grade_scale_bands",
                         "read:grade_scales",
                         "read:gradebook_entries",
-                        "read:grading_periods"
+                        "read:grading_periods",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -5380,7 +5520,8 @@
                         "read:grade_scale_bands",
                         "read:grade_scales",
                         "read:gradebook_entries",
-                        "read:grading_periods"
+                        "read:grading_periods",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -5401,7 +5542,8 @@
                         "read:grade_scale_bands",
                         "read:grade_scales",
                         "read:gradebook_entries",
-                        "read:grading_periods"
+                        "read:grading_periods",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -5422,7 +5564,8 @@
                         "read:grade_scale_bands",
                         "read:grade_scales",
                         "read:gradebook_entries",
-                        "read:grading_periods"
+                        "read:grading_periods",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -5443,7 +5586,8 @@
                         "read:grade_scale_bands",
                         "read:grade_scales",
                         "read:gradebook_entries",
-                        "read:grading_periods"
+                        "read:grading_periods",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -5464,7 +5608,8 @@
                         "read:grade_scale_bands",
                         "read:grade_scales",
                         "read:gradebook_entries",
-                        "read:grading_periods"
+                        "read:grading_periods",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -5485,7 +5630,8 @@
                         "read:grade_scale_bands",
                         "read:grade_scales",
                         "read:gradebook_entries",
-                        "read:grading_periods"
+                        "read:grading_periods",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -5506,7 +5652,8 @@
                         "read:grade_scale_bands",
                         "read:grade_scales",
                         "read:gradebook_entries",
-                        "read:grading_periods"
+                        "read:grading_periods",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -5527,7 +5674,8 @@
                         "read:grade_scale_bands",
                         "read:grade_scales",
                         "read:gradebook_entries",
-                        "read:grading_periods"
+                        "read:grading_periods",
+                        "read:meetings"
                       ]
                     }
                   ]
@@ -5537,7 +5685,8 @@
                   "permissions": [
                     "read:accommodations",
                     "read:special_education_cases",
-                    "read:iep_plans"
+                    "read:iep_plans",
+                    "read:meetings"
                   ],
                   "positions": [
                     {
@@ -5546,7 +5695,8 @@
                       "permissions": [
                         "read:accommodations",
                         "read:special_education_cases",
-                        "read:iep_plans"
+                        "read:iep_plans",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -5555,7 +5705,8 @@
                       "permissions": [
                         "read:accommodations",
                         "read:special_education_cases",
-                        "read:iep_plans"
+                        "read:iep_plans",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -5564,7 +5715,8 @@
                       "permissions": [
                         "read:accommodations",
                         "read:special_education_cases",
-                        "read:iep_plans"
+                        "read:iep_plans",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -5573,7 +5725,8 @@
                       "permissions": [
                         "read:accommodations",
                         "read:special_education_cases",
-                        "read:iep_plans"
+                        "read:iep_plans",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -5582,7 +5735,8 @@
                       "permissions": [
                         "read:accommodations",
                         "read:special_education_cases",
-                        "read:iep_plans"
+                        "read:iep_plans",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -5591,7 +5745,8 @@
                       "permissions": [
                         "read:accommodations",
                         "read:special_education_cases",
-                        "read:iep_plans"
+                        "read:iep_plans",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -5600,7 +5755,8 @@
                       "permissions": [
                         "read:accommodations",
                         "read:special_education_cases",
-                        "read:iep_plans"
+                        "read:iep_plans",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -5609,7 +5765,8 @@
                       "permissions": [
                         "read:accommodations",
                         "read:special_education_cases",
-                        "read:iep_plans"
+                        "read:iep_plans",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -5618,7 +5775,8 @@
                       "permissions": [
                         "read:accommodations",
                         "read:special_education_cases",
-                        "read:iep_plans"
+                        "read:iep_plans",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -5627,7 +5785,8 @@
                       "permissions": [
                         "read:accommodations",
                         "read:special_education_cases",
-                        "read:iep_plans"
+                        "read:iep_plans",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -5636,7 +5795,8 @@
                       "permissions": [
                         "read:accommodations",
                         "read:special_education_cases",
-                        "read:iep_plans"
+                        "read:iep_plans",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -5645,7 +5805,8 @@
                       "permissions": [
                         "read:accommodations",
                         "read:special_education_cases",
-                        "read:iep_plans"
+                        "read:iep_plans",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -5654,7 +5815,8 @@
                       "permissions": [
                         "read:accommodations",
                         "read:special_education_cases",
-                        "read:iep_plans"
+                        "read:iep_plans",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -5663,7 +5825,8 @@
                       "permissions": [
                         "read:accommodations",
                         "read:special_education_cases",
-                        "read:iep_plans"
+                        "read:iep_plans",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -5672,7 +5835,8 @@
                       "permissions": [
                         "read:accommodations",
                         "read:special_education_cases",
-                        "read:iep_plans"
+                        "read:iep_plans",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -5681,7 +5845,8 @@
                       "permissions": [
                         "read:accommodations",
                         "read:special_education_cases",
-                        "read:iep_plans"
+                        "read:iep_plans",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -5690,7 +5855,8 @@
                       "permissions": [
                         "read:accommodations",
                         "read:special_education_cases",
-                        "read:iep_plans"
+                        "read:iep_plans",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -5699,7 +5865,8 @@
                       "permissions": [
                         "read:accommodations",
                         "read:special_education_cases",
-                        "read:iep_plans"
+                        "read:iep_plans",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -5708,7 +5875,8 @@
                       "permissions": [
                         "read:accommodations",
                         "read:special_education_cases",
-                        "read:iep_plans"
+                        "read:iep_plans",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -5717,7 +5885,8 @@
                       "permissions": [
                         "read:accommodations",
                         "read:special_education_cases",
-                        "read:iep_plans"
+                        "read:iep_plans",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -5726,7 +5895,8 @@
                       "permissions": [
                         "read:accommodations",
                         "read:special_education_cases",
-                        "read:iep_plans"
+                        "read:iep_plans",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -5735,7 +5905,8 @@
                       "permissions": [
                         "read:accommodations",
                         "read:special_education_cases",
-                        "read:iep_plans"
+                        "read:iep_plans",
+                        "read:meetings"
                       ]
                     }
                   ]
@@ -5743,112 +5914,128 @@
                 {
                   "unit": "special_programs",
                   "permissions": [
-                    "read:ell_plans"
+                    "read:ell_plans",
+                    "read:meetings"
                   ],
                   "positions": [
                     {
                       "name": "alternative_education_director",
                       "description": "Leads alt-ed schools/programs.",
                       "permissions": [
-                        "read:ell_plans"
+                        "read:ell_plans",
+                        "read:meetings"
                       ]
                     },
                     {
                       "name": "virtual_online_program_director",
                       "description": "Leads online learning programs.",
                       "permissions": [
-                        "read:ell_plans"
+                        "read:ell_plans",
+                        "read:meetings"
                       ]
                     },
                     {
                       "name": "cte_director",
                       "description": "Oversees career/technical education pathways.",
                       "permissions": [
-                        "read:ell_plans"
+                        "read:ell_plans",
+                        "read:meetings"
                       ]
                     },
                     {
                       "name": "pathways_coordinator",
                       "description": "Coordinates career/college pathways and work-based learning.",
                       "permissions": [
-                        "read:ell_plans"
+                        "read:ell_plans",
+                        "read:meetings"
                       ]
                     },
                     {
                       "name": "apprenticeship_coordinator",
                       "description": "Manages apprenticeships and employer partnerships.",
                       "permissions": [
-                        "read:ell_plans"
+                        "read:ell_plans",
+                        "read:meetings"
                       ]
                     },
                     {
                       "name": "international_student_program_director",
                       "description": "Leads international student recruitment/support.",
                       "permissions": [
-                        "read:ell_plans"
+                        "read:ell_plans",
+                        "read:meetings"
                       ]
                     },
                     {
                       "name": "homestay_coordinator",
                       "description": "Coordinates host families and compliance.",
                       "permissions": [
-                        "read:ell_plans"
+                        "read:ell_plans",
+                        "read:meetings"
                       ]
                     },
                     {
                       "name": "testing_site_manager",
                       "description": "Manages SAT/ACT/AP/IB test administrations.",
                       "permissions": [
-                        "read:ell_plans"
+                        "read:ell_plans",
+                        "read:meetings"
                       ]
                     },
                     {
                       "name": "ib_coordinator",
                       "description": "Coordinates International Baccalaureate programs.",
                       "permissions": [
-                        "read:ell_plans"
+                        "read:ell_plans",
+                        "read:meetings"
                       ]
                     },
                     {
                       "name": "ap_coordinator",
                       "description": "Coordinates Advanced Placement programs.",
                       "permissions": [
-                        "read:ell_plans"
+                        "read:ell_plans",
+                        "read:meetings"
                       ]
                     },
                     {
                       "name": "librarian",
                       "description": "Library program lead; instruction and curation.",
                       "permissions": [
-                        "read:ell_plans"
+                        "read:ell_plans",
+                        "read:meetings"
                       ]
                     },
                     {
                       "name": "archivist",
                       "description": "Maintains historical records and archives.",
                       "permissions": [
-                        "read:ell_plans"
+                        "read:ell_plans",
+                        "read:meetings"
                       ]
                     },
                     {
                       "name": "print_shop_manager",
                       "description": "Oversees printing services and production.",
                       "permissions": [
-                        "read:ell_plans"
+                        "read:ell_plans",
+                        "read:meetings"
                       ]
                     },
                     {
                       "name": "mailroom_clerk",
                       "description": "Handles mail distribution and shipping.",
                       "permissions": [
-                        "read:ell_plans"
+                        "read:ell_plans",
+                        "read:meetings"
                       ]
                     },
                     {
                       "name": "volunteer_coordinator",
                       "description": "Recruits and manages school volunteers.",
                       "permissions": [
-                        "read:ell_plans"
+                        "read:ell_plans",
+                        "read:meetings"
                       ]
                     }
                   ]
@@ -5870,7 +6057,8 @@
                 "read:incident_participants",
                 "read:incidents",
                 "read:spaces",
-                "read:rooms"
+                "read:rooms",
+                "read:meetings"
               ],
               "positions": [
                 {
@@ -5889,7 +6077,8 @@
                     "read:incident_participants",
                     "read:incidents",
                     "read:spaces",
-                    "read:rooms"
+                    "read:rooms",
+                    "read:meetings"
                   ]
                 }
               ],
@@ -5904,7 +6093,8 @@
                     "read:facilities",
                     "read:floors",
                     "read:spaces",
-                    "read:rooms"
+                    "read:rooms",
+                    "read:meetings"
                   ],
                   "positions": [
                     {
@@ -5918,7 +6108,8 @@
                         "read:facilities",
                         "read:floors",
                         "read:spaces",
-                        "read:rooms"
+                        "read:rooms",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -5932,7 +6123,8 @@
                         "read:facilities",
                         "read:floors",
                         "read:spaces",
-                        "read:rooms"
+                        "read:rooms",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -5946,7 +6138,8 @@
                         "read:facilities",
                         "read:floors",
                         "read:spaces",
-                        "read:rooms"
+                        "read:rooms",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -5960,7 +6153,8 @@
                         "read:facilities",
                         "read:floors",
                         "read:rooms",
-                        "read:spaces"
+                        "read:spaces",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -5974,7 +6168,8 @@
                         "read:facilities",
                         "read:floors",
                         "read:rooms",
-                        "read:spaces"
+                        "read:spaces",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -5988,7 +6183,8 @@
                         "read:facilities",
                         "read:floors",
                         "read:rooms",
-                        "read:spaces"
+                        "read:spaces",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -6002,7 +6198,8 @@
                         "read:facilities",
                         "read:floors",
                         "read:rooms",
-                        "read:spaces"
+                        "read:spaces",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -6016,7 +6213,8 @@
                         "read:facilities",
                         "read:floors",
                         "read:rooms",
-                        "read:spaces"
+                        "read:spaces",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -6030,7 +6228,8 @@
                         "read:facilities",
                         "read:floors",
                         "read:rooms",
-                        "read:spaces"
+                        "read:spaces",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -6044,7 +6243,8 @@
                         "read:facilities",
                         "read:floors",
                         "read:rooms",
-                        "read:spaces"
+                        "read:spaces",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -6058,7 +6258,8 @@
                         "read:facilities",
                         "read:floors",
                         "read:rooms",
-                        "read:spaces"
+                        "read:spaces",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -6072,7 +6273,8 @@
                         "read:facilities",
                         "read:floors",
                         "read:rooms",
-                        "read:spaces"
+                        "read:spaces",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -6086,7 +6288,8 @@
                         "read:facilities",
                         "read:floors",
                         "read:rooms",
-                        "read:spaces"
+                        "read:spaces",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -6100,7 +6303,8 @@
                         "read:facilities",
                         "read:floors",
                         "read:rooms",
-                        "read:spaces"
+                        "read:spaces",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -6114,7 +6318,8 @@
                         "read:facilities",
                         "read:floors",
                         "read:rooms",
-                        "read:spaces"
+                        "read:spaces",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -6128,7 +6333,8 @@
                         "read:facilities",
                         "read:floors",
                         "read:rooms",
-                        "read:spaces"
+                        "read:spaces",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -6142,7 +6348,8 @@
                         "read:facilities",
                         "read:floors",
                         "read:rooms",
-                        "read:spaces"
+                        "read:spaces",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -6156,7 +6363,8 @@
                         "read:facilities",
                         "read:floors",
                         "read:rooms",
-                        "read:spaces"
+                        "read:spaces",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -6170,7 +6378,8 @@
                         "read:facilities",
                         "read:floors",
                         "read:rooms",
-                        "read:spaces"
+                        "read:spaces",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -6184,7 +6393,8 @@
                         "read:facilities",
                         "read:floors",
                         "read:rooms",
-                        "read:spaces"
+                        "read:spaces",
+                        "read:meetings"
                       ]
                     }
                   ]
@@ -6194,7 +6404,8 @@
                   "permissions": [
                     "read:bus_routes",
                     "read:bus_stop_times",
-                    "read:bus_stops"
+                    "read:bus_stops",
+                    "read:meetings"
                   ],
                   "positions": [
                     {
@@ -6203,7 +6414,8 @@
                       "permissions": [
                         "read:bus_routes",
                         "read:bus_stop_times",
-                        "read:bus_stops"
+                        "read:bus_stops",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -6212,7 +6424,8 @@
                       "permissions": [
                         "read:bus_routes",
                         "read:bus_stop_times",
-                        "read:bus_stops"
+                        "read:bus_stops",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -6221,7 +6434,8 @@
                       "permissions": [
                         "read:bus_routes",
                         "read:bus_stop_times",
-                        "read:bus_stops"
+                        "read:bus_stops",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -6230,7 +6444,8 @@
                       "permissions": [
                         "read:bus_routes",
                         "read:bus_stop_times",
-                        "read:bus_stops"
+                        "read:bus_stops",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -6239,7 +6454,8 @@
                       "permissions": [
                         "read:bus_routes",
                         "read:bus_stop_times",
-                        "read:bus_stops"
+                        "read:bus_stops",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -6248,7 +6464,8 @@
                       "permissions": [
                         "read:bus_routes",
                         "read:bus_stop_times",
-                        "read:bus_stops"
+                        "read:bus_stops",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -6257,7 +6474,8 @@
                       "permissions": [
                         "read:bus_routes",
                         "read:bus_stop_times",
-                        "read:bus_stops"
+                        "read:bus_stops",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -6266,7 +6484,8 @@
                       "permissions": [
                         "read:bus_routes",
                         "read:bus_stop_times",
-                        "read:bus_stops"
+                        "read:bus_stops",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -6275,7 +6494,8 @@
                       "permissions": [
                         "read:bus_routes",
                         "read:bus_stop_times",
-                        "read:bus_stops"
+                        "read:bus_stops",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -6284,7 +6504,8 @@
                       "permissions": [
                         "read:bus_routes",
                         "read:bus_stop_times",
-                        "read:bus_stops"
+                        "read:bus_stops",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -6293,64 +6514,87 @@
                       "permissions": [
                         "read:bus_routes",
                         "read:bus_stop_times",
-                        "read:bus_stops"
+                        "read:bus_stops",
+                        "read:meetings"
                       ]
                     }
                   ]
                 },
                 {
                   "unit": "nutrition_services",
-                  "permissions": [],
+                  "permissions": [
+                    "read:meetings"
+                  ],
                   "positions": [
                     {
                       "name": "director_of_nutrition_services",
                       "description": "Leads USDA-compliant meal programs and kitchens.",
-                      "permissions": []
+                      "permissions": [
+                        "read:meetings"
+                      ]
                     },
                     {
                       "name": "food_service_director",
                       "description": "Alternative title leading nutrition services.",
-                      "permissions": []
+                      "permissions": [
+                        "read:meetings"
+                      ]
                     },
                     {
                       "name": "cafeteria_manager",
                       "description": "Site-level cafeteria operations and staffing.",
-                      "permissions": []
+                      "permissions": [
+                        "read:meetings"
+                      ]
                     },
                     {
                       "name": "kitchen_manager",
                       "description": "Back-of-house operations and food safety.",
-                      "permissions": []
+                      "permissions": [
+                        "read:meetings"
+                      ]
                     },
                     {
                       "name": "cook",
                       "description": "Food preparation and service.",
-                      "permissions": []
+                      "permissions": [
+                        "read:meetings"
+                      ]
                     },
                     {
                       "name": "prep_cook",
                       "description": "Ingredients prep and batch cooking.",
-                      "permissions": []
+                      "permissions": [
+                        "read:meetings"
+                      ]
                     },
                     {
                       "name": "baker",
                       "description": "Baked goods preparation.",
-                      "permissions": []
+                      "permissions": [
+                        "read:meetings"
+                      ]
                     },
                     {
                       "name": "cashier_point_of_sale_operator",
                       "description": "Point-of-sale transactions and compliance.",
-                      "permissions": []
+                      "permissions": [
+                        "read:meetings"
+                      ]
                     },
                     {
                       "name": "dietitian",
                       "description": "Menu planning and nutrition compliance.",
-                      "permissions": []
+                      "permissions": [
+                        "read:meetings"
+                      ]
                     },
                     {
                       "name": "nutritionist",
                       "description": "Nutrition guidance and education.",
-                      "permissions": []
+                      "permissions": [
+                        "read:meetings"
+                      ]
                     }
                   ]
                 },
@@ -6358,7 +6602,8 @@
                   "unit": "safety_security_emergency_management",
                   "permissions": [
                     "read:incident_participants",
-                    "read:incidents"
+                    "read:incidents",
+                    "read:meetings"
                   ],
                   "positions": [
                     {
@@ -6366,7 +6611,8 @@
                       "description": "Leads security strategy, staffing, and incident response.",
                       "permissions": [
                         "read:incident_participants",
-                        "read:incidents"
+                        "read:incidents",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -6374,7 +6620,8 @@
                       "description": "Plans drills, response, and recovery operations.",
                       "permissions": [
                         "read:incident_participants",
-                        "read:incidents"
+                        "read:incidents",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -6382,7 +6629,8 @@
                       "description": "Law enforcement officer assigned to schools.",
                       "permissions": [
                         "read:incident_participants",
-                        "read:incidents"
+                        "read:incidents",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -6390,7 +6638,8 @@
                       "description": "District police/security officer.",
                       "permissions": [
                         "read:incident_participants",
-                        "read:incidents"
+                        "read:incidents",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -6398,7 +6647,8 @@
                       "description": "Access control and campus patrols.",
                       "permissions": [
                         "read:incident_participants",
-                        "read:incidents"
+                        "read:incidents",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -6406,7 +6656,8 @@
                       "description": "Student supervision (lunch/recess/common areas).",
                       "permissions": [
                         "read:incident_participants",
-                        "read:incidents"
+                        "read:incidents",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -6414,7 +6665,8 @@
                       "description": "Coordinates safety plans and training.",
                       "permissions": [
                         "read:incident_participants",
-                        "read:incidents"
+                        "read:incidents",
+                        "read:meetings"
                       ]
                     }
                   ]
@@ -6449,7 +6701,8 @@
                 "read:gl_accounts",
                 "read:gl_segment_values",
                 "read:gl_segments",
-                "read:invoices"
+                "read:invoices",
+                "read:meetings"
               ],
               "positions": [
                 {
@@ -6481,7 +6734,8 @@
                     "read:gl_accounts",
                     "read:gl_segment_values",
                     "read:gl_segments",
-                    "read:invoices"
+                    "read:invoices",
+                    "read:meetings"
                   ]
                 }
               ],
@@ -6516,7 +6770,8 @@
                     "read:gl_segments",
                     "read:invoices",
                     "read:vendors",
-                    "read:ap_vendors"
+                    "read:ap_vendors",
+                    "read:meetings"
                   ],
                   "positions": [
                     {
@@ -6550,7 +6805,8 @@
                         "read:gl_segments",
                         "read:invoices",
                         "read:vendors",
-                        "read:ap_vendors"
+                        "read:ap_vendors",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -6584,7 +6840,8 @@
                         "read:gl_segments",
                         "read:invoices",
                         "read:vendors",
-                        "read:ap_vendors"
+                        "read:ap_vendors",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -6618,7 +6875,8 @@
                         "read:gl_segments",
                         "read:invoices",
                         "read:vendors",
-                        "read:ap_vendors"
+                        "read:ap_vendors",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -6650,7 +6908,8 @@
                         "read:gl_accounts",
                         "read:gl_segment_values",
                         "read:gl_segments",
-                        "read:invoices"
+                        "read:invoices",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -6682,7 +6941,8 @@
                         "read:gl_accounts",
                         "read:gl_segment_values",
                         "read:gl_segments",
-                        "read:invoices"
+                        "read:invoices",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -6716,7 +6976,8 @@
                         "read:gl_segments",
                         "read:invoices",
                         "read:vendors",
-                        "read:ap_vendors"
+                        "read:ap_vendors",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -6748,7 +7009,8 @@
                         "read:gl_accounts",
                         "read:gl_segment_values",
                         "read:gl_segments",
-                        "read:invoices"
+                        "read:invoices",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -6780,7 +7042,8 @@
                         "read:gl_accounts",
                         "read:gl_segment_values",
                         "read:gl_segments",
-                        "read:invoices"
+                        "read:invoices",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -6812,7 +7075,8 @@
                         "read:gl_accounts",
                         "read:gl_segment_values",
                         "read:gl_segments",
-                        "read:invoices"
+                        "read:invoices",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -6844,7 +7108,8 @@
                         "read:gl_accounts",
                         "read:gl_segment_values",
                         "read:gl_segments",
-                        "read:invoices"
+                        "read:invoices",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -6876,7 +7141,8 @@
                         "read:gl_accounts",
                         "read:gl_segment_values",
                         "read:gl_segments",
-                        "read:invoices"
+                        "read:invoices",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -6908,7 +7174,8 @@
                         "read:gl_accounts",
                         "read:gl_segment_values",
                         "read:gl_segments",
-                        "read:invoices"
+                        "read:invoices",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -6940,7 +7207,8 @@
                         "read:gl_accounts",
                         "read:gl_segment_values",
                         "read:gl_segments",
-                        "read:invoices"
+                        "read:invoices",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -6972,7 +7240,8 @@
                         "read:gl_accounts",
                         "read:gl_segment_values",
                         "read:gl_segments",
-                        "read:invoices"
+                        "read:invoices",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -7004,7 +7273,8 @@
                         "read:gl_accounts",
                         "read:gl_segment_values",
                         "read:gl_segments",
-                        "read:invoices"
+                        "read:invoices",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -7036,7 +7306,8 @@
                         "read:gl_accounts",
                         "read:gl_segment_values",
                         "read:gl_segments",
-                        "read:invoices"
+                        "read:invoices",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -7068,7 +7339,8 @@
                         "read:gl_accounts",
                         "read:gl_segment_values",
                         "read:gl_segments",
-                        "read:invoices"
+                        "read:invoices",
+                        "read:meetings"
                       ]
                     }
                   ]
@@ -7090,7 +7362,8 @@
                 "read:hr_employees",
                 "read:persons",
                 "read:hr_position_assignments",
-                "read:hr_positions"
+                "read:hr_positions",
+                "read:meetings"
               ],
               "positions": [
                 {
@@ -7109,7 +7382,8 @@
                     "read:hr_employees",
                     "read:persons",
                     "read:hr_position_assignments",
-                    "read:hr_positions"
+                    "read:hr_positions",
+                    "read:meetings"
                   ]
                 },
                 {
@@ -7128,7 +7402,8 @@
                     "read:hr_employees",
                     "read:persons",
                     "read:hr_position_assignments",
-                    "read:hr_positions"
+                    "read:hr_positions",
+                    "read:meetings"
                   ]
                 }
               ],
@@ -7148,7 +7423,8 @@
                     "read:hr_employees",
                     "read:persons",
                     "read:hr_position_assignments",
-                    "read:hr_positions"
+                    "read:hr_positions",
+                    "read:meetings"
                   ],
                   "positions": [
                     {
@@ -7167,8 +7443,8 @@
                         "read:hr_employees",
                         "read:persons",
                         "read:hr_position_assignments",
-                        "read:hr_positions"
-                        
+                        "read:hr_positions",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -7187,7 +7463,8 @@
                         "read:hr_employees",
                         "read:persons",
                         "read:hr_position_assignments",
-                        "read:hr_positions"
+                        "read:hr_positions",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -7206,7 +7483,8 @@
                         "read:hr_employees",
                         "read:persons",
                         "read:hr_position_assignments",
-                        "read:hr_positions"
+                        "read:hr_positions",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -7225,7 +7503,8 @@
                         "read:hr_employees",
                         "read:persons",
                         "read:hr_position_assignments",
-                        "read:hr_positions"
+                        "read:hr_positions",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -7244,7 +7523,8 @@
                         "read:hr_employees",
                         "read:persons",
                         "read:hr_position_assignments",
-                        "read:hr_positions"
+                        "read:hr_positions",
+                        "read:meetings"
                       ]
                     }
                   ]
@@ -7263,7 +7543,8 @@
                 "read:entity_tags",
                 "read:export_runs",
                 "read:external_ids",
-                "read:feature_flags"
+                "read:feature_flags",
+                "read:meetings"
               ],
               "positions": [
                 {
@@ -7279,7 +7560,8 @@
                     "read:entity_tags",
                     "read:export_runs",
                     "read:external_ids",
-                    "read:feature_flags"
+                    "read:feature_flags",
+                    "read:meetings"
                   ]
                 },
                 {
@@ -7295,7 +7577,8 @@
                     "read:entity_tags",
                     "read:export_runs",
                     "read:external_ids",
-                    "read:feature_flags"
+                    "read:feature_flags",
+                    "read:meetings"
                   ]
                 }
               ],
@@ -7312,7 +7595,8 @@
                     "read:entity_tags",
                     "read:export_runs",
                     "read:external_ids",
-                    "read:feature_flags"
+                    "read:feature_flags",
+                    "read:meetings"
                   ],
                   "positions": [
                     {
@@ -7328,7 +7612,8 @@
                         "read:entity_tags",
                         "read:export_runs",
                         "read:external_ids",
-                        "read:feature_flags"
+                        "read:feature_flags",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -7344,7 +7629,8 @@
                         "read:entity_tags",
                         "read:export_runs",
                         "read:external_ids",
-                        "read:feature_flags"
+                        "read:feature_flags",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -7360,7 +7646,8 @@
                         "read:entity_tags",
                         "read:export_runs",
                         "read:external_ids",
-                        "read:feature_flags"
+                        "read:feature_flags",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -7376,7 +7663,8 @@
                         "read:entity_tags",
                         "read:export_runs",
                         "read:external_ids",
-                        "read:feature_flags"
+                        "read:feature_flags",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -7392,7 +7680,8 @@
                         "read:entity_tags",
                         "read:export_runs",
                         "read:external_ids",
-                        "read:feature_flags"
+                        "read:feature_flags",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -7408,7 +7697,8 @@
                         "read:entity_tags",
                         "read:export_runs",
                         "read:external_ids",
-                        "read:feature_flags"
+                        "read:feature_flags",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -7424,7 +7714,8 @@
                         "read:entity_tags",
                         "read:export_runs",
                         "read:external_ids",
-                        "read:feature_flags"
+                        "read:feature_flags",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -7440,7 +7731,8 @@
                         "read:entity_tags",
                         "read:export_runs",
                         "read:external_ids",
-                        "read:feature_flags"
+                        "read:feature_flags",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -7456,7 +7748,8 @@
                         "read:entity_tags",
                         "read:export_runs",
                         "read:external_ids",
-                        "read:feature_flags"
+                        "read:feature_flags",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -7472,7 +7765,8 @@
                         "read:entity_tags",
                         "read:export_runs",
                         "read:external_ids",
-                        "read:feature_flags"
+                        "read:feature_flags",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -7488,7 +7782,8 @@
                         "read:entity_tags",
                         "read:export_runs",
                         "read:external_ids",
-                        "read:feature_flags"
+                        "read:feature_flags",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -7504,7 +7799,8 @@
                         "read:entity_tags",
                         "read:export_runs",
                         "read:external_ids",
-                        "read:feature_flags"
+                        "read:feature_flags",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -7520,7 +7816,8 @@
                         "read:entity_tags",
                         "read:export_runs",
                         "read:external_ids",
-                        "read:feature_flags"
+                        "read:feature_flags",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -7536,7 +7833,8 @@
                         "read:entity_tags",
                         "read:export_runs",
                         "read:external_ids",
-                        "read:feature_flags"
+                        "read:feature_flags",
+                        "read:meetings"
                       ]
                     }
                   ]
@@ -7553,7 +7851,8 @@
                     "read:entity_tags",
                     "read:export_runs",
                     "read:external_ids",
-                    "read:feature_flags"
+                    "read:feature_flags",
+                    "read:meetings"
                   ],
                   "positions": [
                     {
@@ -7569,7 +7868,8 @@
                         "read:entity_tags",
                         "read:export_runs",
                         "read:external_ids",
-                        "read:feature_flags"
+                        "read:feature_flags",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -7585,7 +7885,8 @@
                         "read:entity_tags",
                         "read:export_runs",
                         "read:external_ids",
-                        "read:feature_flags"
+                        "read:feature_flags",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -7601,7 +7902,8 @@
                         "read:entity_tags",
                         "read:export_runs",
                         "read:external_ids",
-                        "read:feature_flags"
+                        "read:feature_flags",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -7617,7 +7919,8 @@
                         "read:entity_tags",
                         "read:export_runs",
                         "read:external_ids",
-                        "read:feature_flags"
+                        "read:feature_flags",
+                        "read:meetings"
                       ]
                     }
                   ]
@@ -7630,7 +7933,8 @@
                 "read:channels",
                 "read:cic_publications",
                 "read:embeds",
-                "read:events"
+                "read:events",
+                "read:meetings"
               ],
               "positions": [
                 {
@@ -7640,7 +7944,8 @@
                     "read:channels",
                     "read:cic_publications",
                     "read:embeds",
-                    "read:events"
+                    "read:events",
+                    "read:meetings"
                   ]
                 }
               ],
@@ -7651,7 +7956,8 @@
                     "read:channels",
                     "read:cic_publications",
                     "read:embeds",
-                    "read:events"
+                    "read:events",
+                    "read:meetings"
                   ],
                   "positions": [
                     {
@@ -7661,7 +7967,8 @@
                         "read:channels",
                         "read:cic_publications",
                         "read:embeds",
-                        "read:events"
+                        "read:events",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -7671,7 +7978,8 @@
                         "read:channels",
                         "read:cic_publications",
                         "read:embeds",
-                        "read:events"
+                        "read:events",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -7681,7 +7989,8 @@
                         "read:channels",
                         "read:cic_publications",
                         "read:embeds",
-                        "read:events"
+                        "read:events",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -7691,7 +8000,8 @@
                         "read:channels",
                         "read:cic_publications",
                         "read:embeds",
-                        "read:events"
+                        "read:events",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -7701,7 +8011,8 @@
                         "read:channels",
                         "read:cic_publications",
                         "read:embeds",
-                        "read:events"
+                        "read:events",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -7711,7 +8022,8 @@
                         "read:channels",
                         "read:cic_publications",
                         "read:embeds",
-                        "read:events"
+                        "read:events",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -7721,7 +8033,8 @@
                         "read:channels",
                         "read:cic_publications",
                         "read:embeds",
-                        "read:events"
+                        "read:events",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -7731,7 +8044,8 @@
                         "read:channels",
                         "read:cic_publications",
                         "read:embeds",
-                        "read:events"
+                        "read:events",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -7741,7 +8055,8 @@
                         "read:channels",
                         "read:cic_publications",
                         "read:embeds",
-                        "read:events"
+                        "read:events",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -7751,7 +8066,8 @@
                         "read:channels",
                         "read:cic_publications",
                         "read:embeds",
-                        "read:events"
+                        "read:events",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -7761,7 +8077,8 @@
                         "read:channels",
                         "read:cic_publications",
                         "read:embeds",
-                        "read:events"
+                        "read:events",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -7771,7 +8088,8 @@
                         "read:channels",
                         "read:cic_publications",
                         "read:embeds",
-                        "read:events"
+                        "read:events",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -7781,7 +8099,8 @@
                         "read:channels",
                         "read:cic_publications",
                         "read:embeds",
-                        "read:events"
+                        "read:events",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -7791,7 +8110,8 @@
                         "read:channels",
                         "read:cic_publications",
                         "read:embeds",
-                        "read:events"
+                        "read:events",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -7801,7 +8121,8 @@
                         "read:channels",
                         "read:cic_publications",
                         "read:embeds",
-                        "read:events"
+                        "read:events",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -7811,7 +8132,8 @@
                         "read:channels",
                         "read:cic_publications",
                         "read:embeds",
-                        "read:events"
+                        "read:events",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -7821,7 +8143,8 @@
                         "read:channels",
                         "read:cic_publications",
                         "read:embeds",
-                        "read:events"
+                        "read:events",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -7831,7 +8154,8 @@
                         "read:channels",
                         "read:cic_publications",
                         "read:embeds",
-                        "read:events"
+                        "read:events",
+                        "read:meetings"
                       ]
                     },
                     {
@@ -7841,7 +8165,8 @@
                         "read:channels",
                         "read:cic_publications",
                         "read:embeds",
-                        "read:events"
+                        "read:events",
+                        "read:meetings"
                       ]
                     }
                   ]
