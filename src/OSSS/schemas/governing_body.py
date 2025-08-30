@@ -8,7 +8,7 @@ from pydantic import Field
 from OSSS.schemas.base import APIModel
 
 
-class BodyOut(APIModel):
+class GoverningBodyOut(APIModel):
     org_id: Any
     name: str
     type: str | None = None
@@ -16,29 +16,33 @@ class BodyOut(APIModel):
     created_at: datetime
     updated_at: datetime
 
-class BodyCreate(APIModel):
+
+class GoverningBodyCreate(APIModel):
     org_id: Any
     name: str
     type: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
-class BodyReplace(APIModel):
+
+class GoverningBodyReplace(APIModel):
     org_id: Any
     name: str
     type: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
-class BodyPatch(APIModel):
+
+class GoverningBodyPatch(APIModel):
     org_id: Any | None = None
     name: str | None = None
     type: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
-class BodyList(APIModel):
-    items: list[BodyOut]
+
+class GoverningBodyList(APIModel):
+    items: list[GoverningBodyOut]
     total: int | None = None
     skip: int = 0
     limit: int = 100

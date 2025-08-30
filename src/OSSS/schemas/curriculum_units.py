@@ -1,5 +1,5 @@
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional, List, Dict, Any
 from datetime import datetime, date
 import uuid
@@ -12,10 +12,11 @@ class CurriculumUnitBase(BaseModel):
     summary: Optional[str] = None
     metadata: Optional[Dict[str, Any]] = Field(default=None, alias="metadata_json")
 
-    class Config:
-        allow_population_by_field_name = True
-        orm_mode = True
-
+    model_config = ConfigDict(
+        from_attributes=True,
+        extra="ignore",
+        populate_by_name=True,
+    )
 
 class CurriculumUnitCreate(CurriculumUnitBase): ...
 class CurriculumUnitUpdate(CurriculumUnitBase): ...

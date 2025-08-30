@@ -1,5 +1,5 @@
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional, List, Dict, Any
 from datetime import datetime, date
 import uuid
@@ -12,9 +12,11 @@ class ApprovalBase(BaseModel):
     expires_at: Optional[datetime] = None
     status: Optional[str] = "active"
 
-    class Config:
-        orm_mode = True
-
+    model_config = ConfigDict(
+        from_attributes=True,
+        extra="ignore",
+        populate_by_name=True,
+    )
 
 class ApprovalCreate(ApprovalBase): ...
 class ApprovalUpdate(ApprovalBase): ...
