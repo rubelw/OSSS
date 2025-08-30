@@ -132,6 +132,39 @@ class TimestampMixin:
         nullable=False,
     )
 
+# -----------------------------------------------------------------------------
+# DB-agnostic text-search column + index helper
+# -----------------------------------------------------------------------------
+def ts_cols(name: str = "search_vector"):
+    """
+    Return a pair (column, index_factory) you can use inside a model class.
+
+    Usage:
+        class Document(UUIDMixin, Base):
+            __tablename__ = "documents"
+
+            # 1) Declare the column
+            search_vector: Mapped[Any] = ts_cols("search_vector")[0]
+
+            # 2) Add the index in __table_args__ using the factory
+            __table_args__ = (
+                ts_cols("search_vector")[1](__tablename__),
+            )
+
+    Notes:
+      - On PostgreSQL, the column type is TSVECTOR and the index uses GIN.
+      - On other DBs, the column is TEXT and the index is a regular btree.
+      - You still need to populate/refresh the column yourself
+        (e.g., triggers or app-level updates).
+    """
+    col = mapped_column(TSVectorType(), nullable=True)
+
+    def index_factory(table_name: str) -> sa.Index:
+        # 'postgresql_using' is harmless on non-PG backends; it is ignored.
+        return sa.Index(f"ix_{table_name}_{name}", name, postgresql_using="gin")
+
+    return col, index_factory
+
 class UUIDMixin:
     """
     Mixin that adds:

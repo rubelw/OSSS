@@ -1,0 +1,13 @@
+name,active
+Standard Meeting Workflow,True
+Policy Adoption Workflow,True
+Budget Approval Workflow,True
+Facilities Project Workflow,True
+Curriculum Adoption Workflow,True
+Personnel Action Workflow,True
+Vendor Contract Workflow,True
+Student Discipline Hearing Workflow,False
+Emergency Meeting Workflow,True
+Closed Session Workflow,False
+Audit Review Workflow,True
+Annual Organizational Meeting Workflow,True

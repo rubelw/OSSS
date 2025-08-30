@@ -11,7 +11,7 @@ from alembic import op
 import sqlalchemy as sa
 
 revision = "0032_populate_ap_vendors"
-down_revision = "0032_populate_asset_parts"
+down_revision = "0031_populate_parts"
 branch_labels = None
 depends_on = None
 

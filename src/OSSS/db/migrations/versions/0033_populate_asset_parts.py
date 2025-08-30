@@ -9,11 +9,11 @@ from alembic import op
 import sqlalchemy as sa
 import json
 from datetime import datetime
+from decimal import Decimal
 
 
-
-revision = "0032_populate_asset_parts"
-down_revision = "0031_populate_parts"
+revision = "0033_populate_asset_parts"
+down_revision = "0032_populate_ap_vendors"
 branch_labels = None
 depends_on = None
 

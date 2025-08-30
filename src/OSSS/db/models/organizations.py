@@ -20,3 +20,11 @@ class Organization(UUIDMixin, TimestampMixin, Base):
         back_populates="organization",
         cascade="all, delete-orphan",
     )
+
+    # add this if you want the back_populates name to be "curricula"
+    curricula: Mapped[List["Curriculum"]] = relationship(
+        "Curriculum",
+        back_populates="organization",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
