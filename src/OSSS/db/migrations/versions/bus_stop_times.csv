@@ -1,0 +1,370 @@
+route_name,stop_name,arrival_time,departure_time,created_at,updated_at
+DCG-01 — Dallas Center North,Stop 1: Lakeview & Highland Ave,06:24,06:28,2024-10-31T15:39:37Z,2024-12-01T15:39:37Z
+DCG-01 — Dallas Center North,Stop 2: River & Birch Way,06:28,06:29,2024-11-20T15:39:37Z,2025-01-18T15:39:37Z
+DCG-01 — Dallas Center North,Stop 3: Cedar & Oak Dr,06:34,06:37,2025-01-10T15:39:37Z,2025-04-28T15:39:37Z
+DCG-01 — Dallas Center North,Stop 3: Cedar & Oak Dr,07:08,07:12,2024-09-04T15:39:37Z,2024-09-21T15:39:37Z
+DCG-01 — Dallas Center North,Stop 4: Willow & Broad Pl,06:30,06:34,2025-04-30T15:39:37Z,2025-08-21T15:39:37Z
+DCG-01 — Dallas Center North,Stop 4: Willow & Broad Pl,07:26,07:27,2025-03-04T15:39:37Z,2025-05-30T15:39:37Z
+DCG-01 — Dallas Center North,Stop 5: Park & Highland Dr,06:42,06:43,2025-04-21T15:39:37Z,2025-05-16T15:39:37Z
+DCG-01 — Dallas Center North,Stop 6: Birch & Ash Ct,06:42,06:44,2025-01-23T15:39:37Z,2025-03-15T15:39:37Z
+DCG-01 — Dallas Center North,Stop 7: Elm & Hickory Way,06:58,06:59,2025-05-07T15:39:37Z,2025-05-26T15:39:37Z
+DCG-01 — Dallas Center North,Stop 8: Sunset & Ridge Rd,06:54,06:55,2024-11-24T15:39:37Z,2025-01-21T15:39:37Z
+DCG-01 — Dallas Center North,Stop 8: Sunset & Ridge Rd,07:22,07:23,2024-10-18T15:39:37Z,2025-02-05T15:39:37Z
+DCG-01 — Dallas Center North,Stop 9: Maple & Park St,07:07,07:11,2025-04-24T15:39:37Z,2025-05-19T15:39:37Z
+DCG-01 — Dallas Center North,Stop 10: Cedar & Hickory Ln,07:03,07:05,2025-05-02T15:39:37Z,2025-07-19T15:39:37Z
+DCG-01 — Dallas Center North,Stop 10: Cedar & Hickory Ln,07:22,07:23,2024-12-28T15:39:37Z,2025-04-06T15:39:37Z
+DCG-01 — Dallas Center North,Stop 11: Pine & Hickory Rd,07:05,07:08,2025-08-07T15:39:37Z,2025-12-04T15:39:37Z
+DCG-01 — Dallas Center North,Stop 11: Pine & Hickory Rd,07:57,07:59,2025-04-19T15:39:37Z,2025-04-25T15:39:37Z
+DCG-01 — Dallas Center North,Stop 12: Maple & Main Blvd,06:58,07:01,2025-08-23T15:39:37Z,2025-09-27T15:39:37Z
+DCG-02 — Dallas Center South,Stop 1: Hickory & Broad Dr,07:04,07:07,2024-09-22T15:39:37Z,2024-12-05T15:39:37Z
+DCG-02 — Dallas Center South,Stop 1: Hickory & Broad Dr,07:54,07:58,2025-02-12T15:39:37Z,2025-02-19T15:39:37Z
+DCG-02 — Dallas Center South,Stop 2: Ridge & Valley Way,07:04,07:06,2025-03-15T15:39:37Z,2025-07-06T15:39:37Z
+DCG-02 — Dallas Center South,Stop 3: Elm & Sunset Ln,07:11,07:14,2024-10-10T15:39:37Z,2025-01-18T15:39:37Z
+DCG-02 — Dallas Center South,Stop 4: River & Broad Ave,07:09,07:11,2025-02-23T15:39:37Z,2025-04-03T15:39:37Z
+DCG-02 — Dallas Center South,Stop 4: River & Broad Ave,07:48,07:52,2024-10-29T15:39:37Z,2025-01-22T15:39:37Z
+DCG-02 — Dallas Center South,Stop 5: Ridge & Elm Dr,07:18,07:20,2025-01-31T15:39:37Z,2025-02-16T15:39:37Z
+DCG-02 — Dallas Center South,Stop 5: Ridge & Elm Dr,08:10,08:12,2024-10-23T15:39:37Z,2025-02-17T15:39:37Z
+DCG-02 — Dallas Center South,Stop 6: Lakeview & Ash St,07:33,07:35,2025-07-22T15:39:37Z,2025-11-09T15:39:37Z
+DCG-02 — Dallas Center South,Stop 6: Lakeview & Ash St,08:05,08:08,2025-05-29T15:39:37Z,2025-07-25T15:39:37Z
+DCG-02 — Dallas Center South,Stop 7: Valley & Oak Ave,07:15,07:19,2024-11-07T15:39:37Z,2025-02-19T15:39:37Z
+DCG-02 — Dallas Center South,Stop 7: Valley & Oak Ave,07:47,07:51,2025-02-08T15:39:37Z,2025-03-15T15:39:37Z
+DCG-02 — Dallas Center South,Stop 8: Broad & River Dr,07:35,07:38,2025-03-19T15:39:37Z,2025-05-29T15:39:37Z
+DCG-02 — Dallas Center South,Stop 8: Broad & River Dr,07:55,07:56,2025-07-19T15:39:37Z,2025-08-04T15:39:37Z
+DCG-02 — Dallas Center South,Stop 9: Pine & Main St,07:39,07:43,2025-08-01T15:39:37Z,2025-10-05T15:39:37Z
+DCG-02 — Dallas Center South,Stop 10: Pine & Maple Way,07:22,07:24,2025-03-26T15:39:37Z,2025-04-05T15:39:37Z
+DCG-02 — Dallas Center South,Stop 11: Valley & Oak Dr,07:45,07:49,2025-07-09T15:39:37Z,2025-07-09T15:39:37Z
+DCG-02 — Dallas Center South,Stop 12: Cedar & Valley St,08:03,08:04,2024-12-03T15:39:37Z,2025-01-25T15:39:37Z
+DCG-02 — Dallas Center South,Stop 13: Valley & Broad Rd,07:54,07:55,2025-05-19T15:39:37Z,2025-06-24T15:39:37Z
+DCG-02 — Dallas Center South,Stop 14: Elm & River Pl,07:58,08:01,2024-11-18T15:39:37Z,2025-03-11T15:39:37Z
+DCG-02 — Dallas Center South,Stop 15: Spruce & Cedar Ct,08:02,08:04,2024-11-07T15:39:37Z,2024-12-04T15:39:37Z
+DCG-02 — Dallas Center South,Stop 16: Ridge & River Way,07:49,07:52,2024-09-08T15:39:37Z,2024-10-16T15:39:37Z
+DCG-02 — Dallas Center South,Stop 17: Valley & Birch Ln,08:10,08:12,2024-11-16T15:39:37Z,2025-01-05T15:39:37Z
+DCG-02 — Dallas Center South,Stop 17: Valley & Birch Ln,08:32,08:34,2025-02-13T15:39:37Z,2025-04-08T15:39:37Z
+DCG-02 — Dallas Center South,Stop 18: Valley & Cedar Ave,08:15,08:19,2025-04-05T15:39:37Z,2025-07-17T15:39:37Z
+DCG-02 — Dallas Center South,Stop 18: Valley & Cedar Ave,08:37,08:41,2025-06-02T15:39:37Z,2025-08-23T15:39:37Z
+DCG-03 — Grimes Northwest,Stop 1: Ash & Oak Blvd,08:01,08:03,2025-03-27T15:39:37Z,2025-07-24T15:39:37Z
+DCG-03 — Grimes Northwest,Stop 1: Ash & Oak Blvd,08:52,08:56,2025-04-02T15:39:37Z,2025-05-17T15:39:37Z
+DCG-03 — Grimes Northwest,Stop 2: Willow & Park Blvd,08:04,08:06,2024-09-06T15:39:37Z,2024-09-27T15:39:37Z
+DCG-03 — Grimes Northwest,Stop 2: Willow & Park Blvd,08:56,08:58,2025-05-18T15:39:37Z,2025-07-29T15:39:37Z
+DCG-03 — Grimes Northwest,Stop 3: Valley & Birch Ct,08:04,08:05,2025-05-25T15:39:37Z,2025-07-23T15:39:37Z
+DCG-03 — Grimes Northwest,Stop 4: Oak & River Rd,08:20,08:24,2025-05-29T15:39:37Z,2025-09-01T15:39:37Z
+DCG-03 — Grimes Northwest,Stop 5: Broad & Ash St,08:26,08:27,2024-11-10T15:39:37Z,2024-12-22T15:39:37Z
+DCG-03 — Grimes Northwest,Stop 5: Broad & Ash St,09:10,09:13,2024-11-06T15:39:37Z,2024-11-09T15:39:37Z
+DCG-03 — Grimes Northwest,Stop 6: Willow & Birch Way,08:23,08:25,2024-09-02T15:39:37Z,2024-09-03T15:39:37Z
+DCG-03 — Grimes Northwest,Stop 6: Willow & Birch Way,09:15,09:18,2024-10-03T15:39:37Z,2024-12-03T15:39:37Z
+DCG-03 — Grimes Northwest,Stop 7: Valley & Meadow Ln,08:29,08:30,2024-09-07T15:39:37Z,2024-12-11T15:39:37Z
+DCG-03 — Grimes Northwest,Stop 7: Valley & Meadow Ln,08:57,09:00,2025-01-13T15:39:37Z,2025-04-20T15:39:37Z
+DCG-03 — Grimes Northwest,Stop 8: Main & Birch Way,08:38,08:42,2025-06-02T15:39:37Z,2025-06-11T15:39:37Z
+DCG-03 — Grimes Northwest,Stop 8: Main & Birch Way,09:03,09:07,2024-09-24T15:39:37Z,2024-11-04T15:39:37Z
+DCG-03 — Grimes Northwest,Stop 9: Hickory & Pine Ct,08:45,08:49,2024-10-17T15:39:37Z,2024-11-03T15:39:37Z
+DCG-03 — Grimes Northwest,Stop 10: Spruce & Broad Way,08:21,08:22,2025-06-08T15:39:37Z,2025-09-09T15:39:37Z
+DCG-03 — Grimes Northwest,Stop 11: Valley & River Dr,08:43,08:47,2024-11-16T15:39:37Z,2025-01-12T15:39:37Z
+DCG-03 — Grimes Northwest,Stop 11: Valley & River Dr,09:19,09:21,2024-12-27T15:39:37Z,2025-04-13T15:39:37Z
+DCG-03 — Grimes Northwest,Stop 12: Maple & Main Ln,09:00,09:02,2025-07-19T15:39:37Z,2025-09-15T15:39:37Z
+DCG-03 — Grimes Northwest,Stop 13: Pine & Cedar Rd,09:03,09:06,2025-02-17T15:39:37Z,2025-03-31T15:39:37Z
+DCG-04 — Grimes Northeast,Stop 1: Broad & Valley Ln,06:47,06:49,2024-09-29T15:39:37Z,2024-11-13T15:39:37Z
+DCG-04 — Grimes Northeast,Stop 2: Hickory & Cedar Ave,06:53,06:55,2025-01-24T15:39:37Z,2025-04-22T15:39:37Z
+DCG-04 — Grimes Northeast,Stop 3: Valley & Willow Dr,06:49,06:53,2024-12-07T15:39:37Z,2025-01-05T15:39:37Z
+DCG-04 — Grimes Northeast,Stop 3: Valley & Willow Dr,07:46,07:47,2024-10-21T15:39:37Z,2024-11-26T15:39:37Z
+DCG-04 — Grimes Northeast,Stop 4: Ash & Meadow Rd,06:56,06:58,2025-03-24T15:39:37Z,2025-03-26T15:39:37Z
+DCG-04 — Grimes Northeast,Stop 4: Ash & Meadow Rd,07:28,07:29,2025-06-30T15:39:37Z,2025-07-12T15:39:37Z
+DCG-04 — Grimes Northeast,Stop 5: Lakeview & Ash Ln,07:06,07:10,2025-05-07T15:39:37Z,2025-05-27T15:39:37Z
+DCG-04 — Grimes Northeast,Stop 5: Lakeview & Ash Ln,08:02,08:03,2025-03-19T15:39:37Z,2025-05-26T15:39:37Z
+DCG-04 — Grimes Northeast,Stop 6: Spruce & Ridge St,07:13,07:17,2025-06-23T15:39:37Z,2025-09-12T15:39:37Z
+DCG-04 — Grimes Northeast,Stop 7: Oak & Lakeview Blvd,07:12,07:13,2024-12-08T15:39:37Z,2025-01-02T15:39:37Z
+DCG-04 — Grimes Northeast,Stop 7: Oak & Lakeview Blvd,07:37,07:40,2025-06-22T15:39:37Z,2025-07-09T15:39:37Z
+DCG-04 — Grimes Northeast,Stop 8: Oak & Lakeview Pl,06:58,06:59,2025-08-18T15:39:37Z,2025-09-17T15:39:37Z
+DCG-04 — Grimes Northeast,Stop 8: Oak & Lakeview Pl,07:48,07:49,2025-07-20T15:39:37Z,2025-10-12T15:39:37Z
+DCG-04 — Grimes Northeast,Stop 9: Spruce & Willow Dr,07:11,07:14,2024-12-01T15:39:37Z,2025-01-28T15:39:37Z
+DCG-04 — Grimes Northeast,Stop 9: Spruce & Willow Dr,08:02,08:03,2025-05-22T15:39:37Z,2025-09-08T15:39:37Z
+DCG-04 — Grimes Northeast,Stop 10: Hickory & Valley Pl,07:14,07:16,2025-01-14T15:39:37Z,2025-04-26T15:39:37Z
+DCG-04 — Grimes Northeast,Stop 11: Spruce & River Ct,07:04,07:06,2025-07-06T15:39:37Z,2025-07-23T15:39:37Z
+DCG-04 — Grimes Northeast,Stop 12: Main & River Blvd,07:20,07:24,2025-08-17T15:39:37Z,2025-10-20T15:39:37Z
+DCG-04 — Grimes Northeast,Stop 12: Main & River Blvd,08:10,08:12,2025-01-31T15:39:37Z,2025-03-01T15:39:37Z
+DCG-04 — Grimes Northeast,Stop 13: Ash & Park Blvd,07:21,07:23,2024-11-02T15:39:37Z,2025-01-28T15:39:37Z
+DCG-05 — Grimes Southwest,Stop 1: Maple & Spruce Dr,06:49,06:50,2024-10-07T15:39:37Z,2025-02-01T15:39:37Z
+DCG-05 — Grimes Southwest,Stop 1: Maple & Spruce Dr,07:23,07:24,2025-08-09T15:39:37Z,2025-11-21T15:39:37Z
+DCG-05 — Grimes Southwest,Stop 2: Highland & Pine Ave,06:55,06:56,2025-02-23T15:39:37Z,2025-06-16T15:39:37Z
+DCG-05 — Grimes Southwest,Stop 2: Highland & Pine Ave,07:20,07:23,2024-11-10T15:39:37Z,2025-01-13T15:39:37Z
+DCG-05 — Grimes Southwest,Stop 3: Willow & Meadow Blvd,06:51,06:52,2025-01-13T15:39:37Z,2025-01-19T15:39:37Z
+DCG-05 — Grimes Southwest,Stop 4: Ridge & Main Ct,07:07,07:08,2024-12-07T15:39:37Z,2025-01-20T15:39:37Z
+DCG-05 — Grimes Southwest,Stop 5: Lakeview & Birch Pl,07:00,07:02,2025-05-23T15:39:37Z,2025-07-15T15:39:37Z
+DCG-05 — Grimes Southwest,Stop 6: Hickory & River Ave,07:00,07:03,2024-10-17T15:39:37Z,2024-12-10T15:39:37Z
+DCG-05 — Grimes Southwest,Stop 6: Hickory & River Ave,07:28,07:31,2024-09-28T15:39:37Z,2024-10-26T15:39:37Z
+DCG-05 — Grimes Southwest,Stop 7: Spruce & Pine St,07:16,07:18,2025-06-25T15:39:37Z,2025-09-07T15:39:37Z
+DCG-05 — Grimes Southwest,Stop 8: Birch & Park Dr,07:02,07:05,2025-04-04T15:39:37Z,2025-05-30T15:39:37Z
+DCG-05 — Grimes Southwest,Stop 8: Birch & Park Dr,07:48,07:51,2025-07-01T15:39:37Z,2025-09-05T15:39:37Z
+DCG-05 — Grimes Southwest,Stop 9: River & Sunset Ave,07:33,07:36,2025-03-12T15:39:37Z,2025-04-08T15:39:37Z
+DCG-05 — Grimes Southwest,Stop 10: Birch & Ridge Way,07:25,07:27,2025-04-15T15:39:37Z,2025-07-27T15:39:37Z
+DCG-05 — Grimes Southwest,Stop 10: Birch & Ridge Way,08:20,08:24,2025-01-18T15:39:37Z,2025-03-30T15:39:37Z
+DCG-05 — Grimes Southwest,Stop 11: Lakeview & Cedar Ave,07:29,07:31,2025-04-13T15:39:37Z,2025-07-01T15:39:37Z
+DCG-05 — Grimes Southwest,Stop 11: Lakeview & Cedar Ave,08:09,08:13,2025-07-25T15:39:37Z,2025-10-23T15:39:37Z
+DCG-05 — Grimes Southwest,Stop 12: Broad & Meadow St,07:35,07:37,2025-07-12T15:39:37Z,2025-08-04T15:39:37Z
+DCG-05 — Grimes Southwest,Stop 13: Main & Meadow Way,07:24,07:25,2024-11-01T15:39:37Z,2024-11-23T15:39:37Z
+DCG-05 — Grimes Southwest,Stop 14: Lakeview & River Dr,07:30,07:31,2025-08-13T15:39:37Z,2025-09-10T15:39:37Z
+DCG-06 — Grimes Southeast,Stop 1: Lakeview & Park Ave,07:18,07:22,2025-06-07T15:39:37Z,2025-08-30T15:39:37Z
+DCG-06 — Grimes Southeast,Stop 2: Ash & Cedar Way,07:26,07:29,2025-04-27T15:39:37Z,2025-08-15T15:39:37Z
+DCG-06 — Grimes Southeast,Stop 3: Cedar & Birch Dr,07:23,07:25,2025-08-29T15:39:37Z,2025-09-07T15:39:37Z
+DCG-06 — Grimes Southeast,Stop 3: Cedar & Birch Dr,08:13,08:14,2025-03-27T15:39:37Z,2025-06-24T15:39:37Z
+DCG-06 — Grimes Southeast,Stop 4: River & Broad Dr,07:21,07:23,2025-01-26T15:39:37Z,2025-04-23T15:39:37Z
+DCG-06 — Grimes Southeast,Stop 4: River & Broad Dr,08:16,08:19,2025-04-25T15:39:37Z,2025-05-24T15:39:37Z
+DCG-06 — Grimes Southeast,Stop 5: Maple & Highland Ct,07:31,07:33,2025-08-03T15:39:37Z,2025-09-26T15:39:37Z
+DCG-06 — Grimes Southeast,Stop 6: Meadow & Maple Ave,07:25,07:27,2024-11-08T15:39:37Z,2025-03-01T15:39:37Z
+DCG-06 — Grimes Southeast,Stop 7: Oak & Sunset St,07:44,07:45,2024-12-21T15:39:37Z,2025-03-16T15:39:37Z
+DCG-06 — Grimes Southeast,Stop 7: Oak & Sunset St,08:42,08:43,2025-02-16T15:39:37Z,2025-04-03T15:39:37Z
+DCG-06 — Grimes Southeast,Stop 8: Sunset & Birch Ct,07:54,07:58,2025-04-02T15:39:37Z,2025-07-05T15:39:37Z
+DCG-06 — Grimes Southeast,Stop 8: Sunset & Birch Ct,08:25,08:26,2024-12-17T15:39:37Z,2025-02-27T15:39:37Z
+DCG-06 — Grimes Southeast,Stop 9: Ridge & Maple Rd,07:59,08:01,2025-04-22T15:39:37Z,2025-08-19T15:39:37Z
+DCG-06 — Grimes Southeast,Stop 9: Ridge & Maple Rd,08:53,08:54,2024-09-22T15:39:37Z,2024-10-14T15:39:37Z
+DCG-06 — Grimes Southeast,Stop 10: Sunset & Pine Dr,07:36,07:38,2025-02-16T15:39:37Z,2025-04-18T15:39:37Z
+DCG-06 — Grimes Southeast,Stop 11: Meadow & River Blvd,08:11,08:15,2025-02-05T15:39:37Z,2025-04-07T15:39:37Z
+DCG-06 — Grimes Southeast,Stop 11: Meadow & River Blvd,08:48,08:52,2025-03-25T15:39:37Z,2025-04-20T15:39:37Z
+DCG-06 — Grimes Southeast,Stop 12: Broad & Sunset Ave,07:49,07:51,2025-03-11T15:39:37Z,2025-04-12T15:39:37Z
+DCG-06 — Grimes Southeast,Stop 13: Willow & Ash Dr,07:40,07:44,2024-10-29T15:39:37Z,2024-12-03T15:39:37Z
+DCG-06 — Grimes Southeast,Stop 14: Hickory & Park Way,08:25,08:27,2025-02-12T15:39:37Z,2025-03-28T15:39:37Z
+DCG-06 — Grimes Southeast,Stop 15: Oak & River St,07:44,07:47,2025-06-13T15:39:37Z,2025-09-27T15:39:37Z
+DCG-06 — Grimes Southeast,Stop 15: Oak & River St,08:26,08:29,2025-08-25T15:39:37Z,2025-10-29T15:39:37Z
+DCG-07 — Rural West Loop,Stop 1: Cedar & Willow Ave,07:34,07:37,2025-02-02T15:39:37Z,2025-02-05T15:39:37Z
+DCG-07 — Rural West Loop,Stop 1: Cedar & Willow Ave,08:14,08:17,2025-08-11T15:39:37Z,2025-10-17T15:39:37Z
+DCG-07 — Rural West Loop,Stop 2: Maple & Hickory Way,07:35,07:36,2025-01-31T15:39:37Z,2025-05-10T15:39:37Z
+DCG-07 — Rural West Loop,Stop 3: Willow & River Blvd,07:43,07:46,2025-02-01T15:39:37Z,2025-02-18T15:39:37Z
+DCG-07 — Rural West Loop,Stop 3: Willow & River Blvd,08:15,08:19,2025-07-28T15:39:37Z,2025-10-08T15:39:37Z
+DCG-07 — Rural West Loop,Stop 4: Valley & Ridge Way,07:51,07:54,2025-07-20T15:39:37Z,2025-08-12T15:39:37Z
+DCG-07 — Rural West Loop,Stop 5: Valley & Elm St,07:50,07:54,2025-07-07T15:39:37Z,2025-07-25T15:39:37Z
+DCG-07 — Rural West Loop,Stop 6: Cedar & Ridge Dr,07:53,07:54,2024-09-02T15:39:37Z,2024-12-06T15:39:37Z
+DCG-07 — Rural West Loop,Stop 6: Cedar & Ridge Dr,08:49,08:53,2025-06-10T15:39:37Z,2025-08-31T15:39:37Z
+DCG-07 — Rural West Loop,Stop 7: Main & Ash Rd,07:43,07:46,2025-06-25T15:39:37Z,2025-08-31T15:39:37Z
+DCG-07 — Rural West Loop,Stop 7: Main & Ash Rd,08:38,08:40,2024-12-29T15:39:37Z,2025-01-24T15:39:37Z
+DCG-07 — Rural West Loop,Stop 8: River & Hickory Pl,08:11,08:13,2024-09-25T15:39:37Z,2024-11-07T15:39:37Z
+DCG-07 — Rural West Loop,Stop 8: River & Hickory Pl,09:12,09:15,2025-01-14T15:39:37Z,2025-05-11T15:39:37Z
+DCG-07 — Rural West Loop,Stop 9: River & Broad Blvd,08:16,08:17,2025-08-14T15:39:37Z,2025-09-18T15:39:37Z
+DCG-08 — Rural East Loop,Stop 1: Ash & Ridge Ln,06:50,06:54,2025-06-14T15:39:37Z,2025-09-16T15:39:37Z
+DCG-08 — Rural East Loop,Stop 1: Ash & Ridge Ln,07:23,07:26,2024-11-01T15:39:37Z,2025-01-19T15:39:37Z
+DCG-08 — Rural East Loop,Stop 2: Maple & Oak Dr,06:52,06:56,2025-03-10T15:39:37Z,2025-06-04T15:39:37Z
+DCG-08 — Rural East Loop,Stop 2: Maple & Oak Dr,07:41,07:44,2025-03-08T15:39:37Z,2025-06-24T15:39:37Z
+DCG-08 — Rural East Loop,Stop 3: Spruce & Lakeview Ln,06:59,07:03,2025-03-16T15:39:37Z,2025-05-10T15:39:37Z
+DCG-08 — Rural East Loop,Stop 3: Spruce & Lakeview Ln,07:34,07:35,2025-03-18T15:39:37Z,2025-06-28T15:39:37Z
+DCG-08 — Rural East Loop,Stop 4: Birch & Main Dr,06:59,07:03,2025-03-09T15:39:37Z,2025-03-15T15:39:37Z
+DCG-08 — Rural East Loop,Stop 5: Valley & Lakeview Blvd,07:01,07:03,2025-05-05T15:39:37Z,2025-06-23T15:39:37Z
+DCG-08 — Rural East Loop,Stop 5: Valley & Lakeview Blvd,07:53,07:57,2025-03-25T15:39:37Z,2025-06-30T15:39:37Z
+DCG-08 — Rural East Loop,Stop 6: Valley & Pine Rd,07:18,07:21,2024-12-28T15:39:37Z,2025-03-14T15:39:37Z
+DCG-08 — Rural East Loop,Stop 7: Spruce & Main Ave,07:08,07:11,2024-09-07T15:39:37Z,2024-10-14T15:39:37Z
+DCG-08 — Rural East Loop,Stop 8: Willow & Meadow Blvd,07:10,07:13,2025-02-04T15:39:37Z,2025-03-15T15:39:37Z
+DCG-08 — Rural East Loop,Stop 9: Meadow & Spruce Blvd,07:06,07:07,2024-10-29T15:39:37Z,2024-12-05T15:39:37Z
+DCG-08 — Rural East Loop,Stop 9: Meadow & Spruce Blvd,07:42,07:43,2025-04-14T15:39:37Z,2025-06-25T15:39:37Z
+DCG-08 — Rural East Loop,Stop 10: Cedar & Maple Pl,07:38,07:40,2025-06-01T15:39:37Z,2025-08-07T15:39:37Z
+DCG-08 — Rural East Loop,Stop 10: Cedar & Maple Pl,08:12,08:13,2024-11-09T15:39:37Z,2025-02-20T15:39:37Z
+DCG-08 — Rural East Loop,Stop 11: Broad & Highland Blvd,07:20,07:22,2025-07-29T15:39:37Z,2025-07-30T15:39:37Z
+DCG-08 — Rural East Loop,Stop 11: Broad & Highland Blvd,08:08,08:09,2025-05-25T15:39:37Z,2025-06-30T15:39:37Z
+DCG-08 — Rural East Loop,Stop 12: Main & Spruce Ave,07:12,07:16,2025-03-04T15:39:37Z,2025-06-05T15:39:37Z
+DCG-08 — Rural East Loop,Stop 13: Elm & Hickory Way,07:52,07:55,2025-07-15T15:39:37Z,2025-10-28T15:39:37Z
+DCG-08 — Rural East Loop,Stop 13: Elm & Hickory Way,08:26,08:27,2025-07-28T15:39:37Z,2025-08-21T15:39:37Z
+DCG-08 — Rural East Loop,Stop 14: Ash & Oak Pl,07:57,07:59,2025-01-02T15:39:37Z,2025-02-21T15:39:37Z
+DCG-08 — Rural East Loop,Stop 14: Ash & Oak Pl,08:30,08:31,2025-04-25T15:39:37Z,2025-06-19T15:39:37Z
+DCG-09 — Heritage Elementary Loop,Stop 1: Park & Broad Ct,07:03,07:05,2024-09-03T15:39:37Z,2024-11-19T15:39:37Z
+DCG-09 — Heritage Elementary Loop,Stop 1: Park & Broad Ct,07:37,07:40,2024-10-10T15:39:37Z,2025-01-30T15:39:37Z
+DCG-09 — Heritage Elementary Loop,Stop 2: Main & Valley Ave,07:07,07:08,2024-12-17T15:39:37Z,2025-03-26T15:39:37Z
+DCG-09 — Heritage Elementary Loop,Stop 2: Main & Valley Ave,07:31,07:33,2025-06-23T15:39:37Z,2025-10-12T15:39:37Z
+DCG-09 — Heritage Elementary Loop,Stop 3: Pine & Meadow Ct,07:15,07:18,2024-12-18T15:39:37Z,2025-03-08T15:39:37Z
+DCG-09 — Heritage Elementary Loop,Stop 3: Pine & Meadow Ct,07:38,07:39,2025-01-30T15:39:37Z,2025-05-04T15:39:37Z
+DCG-09 — Heritage Elementary Loop,Stop 4: Oak & Park St,07:14,07:15,2025-01-02T15:39:37Z,2025-02-11T15:39:37Z
+DCG-09 — Heritage Elementary Loop,Stop 5: Birch & Maple Blvd,07:21,07:23,2024-09-11T15:39:37Z,2024-10-07T15:39:37Z
+DCG-09 — Heritage Elementary Loop,Stop 6: Highland & Hickory Way,07:25,07:26,2025-04-26T15:39:37Z,2025-06-09T15:39:37Z
+DCG-09 — Heritage Elementary Loop,Stop 7: Lakeview & Sunset Dr,07:17,07:19,2025-03-12T15:39:37Z,2025-05-08T15:39:37Z
+DCG-09 — Heritage Elementary Loop,Stop 7: Lakeview & Sunset Dr,08:03,08:06,2024-10-21T15:39:37Z,2024-11-30T15:39:37Z
+DCG-09 — Heritage Elementary Loop,Stop 8: Meadow & Hickory Ln,07:41,07:43,2025-06-11T15:39:37Z,2025-07-31T15:39:37Z
+DCG-09 — Heritage Elementary Loop,Stop 9: Maple & Elm St,07:19,07:23,2025-01-24T15:39:37Z,2025-03-09T15:39:37Z
+DCG-09 — Heritage Elementary Loop,Stop 10: Cedar & Spruce Rd,07:43,07:47,2025-06-14T15:39:37Z,2025-08-02T15:39:37Z
+DCG-09 — Heritage Elementary Loop,Stop 11: Highland & Spruce Ln,07:58,08:00,2025-02-28T15:39:37Z,2025-04-10T15:39:37Z
+DCG-09 — Heritage Elementary Loop,Stop 12: Birch & Park Way,07:25,07:28,2024-11-25T15:39:37Z,2024-12-20T15:39:37Z
+DCG-10 — North Ridge Elementary Loop,Stop 1: Highland & Broad Rd,06:47,06:50,2024-11-20T15:39:37Z,2024-11-23T15:39:37Z
+DCG-10 — North Ridge Elementary Loop,Stop 2: Highland & Meadow Dr,06:50,06:54,2024-12-11T15:39:37Z,2025-03-15T15:39:37Z
+DCG-10 — North Ridge Elementary Loop,Stop 2: Highland & Meadow Dr,07:44,07:47,2024-12-03T15:39:37Z,2025-01-21T15:39:37Z
+DCG-10 — North Ridge Elementary Loop,Stop 3: River & Ridge Ct,06:54,06:56,2024-12-18T15:39:37Z,2025-01-16T15:39:37Z
+DCG-10 — North Ridge Elementary Loop,Stop 3: River & Ridge Ct,07:32,07:33,2025-03-05T15:39:37Z,2025-04-29T15:39:37Z
+DCG-10 — North Ridge Elementary Loop,Stop 4: Park & Meadow Pl,06:56,06:59,2025-04-08T15:39:37Z,2025-06-11T15:39:37Z
+DCG-10 — North Ridge Elementary Loop,Stop 4: Park & Meadow Pl,07:34,07:36,2025-05-25T15:39:37Z,2025-07-16T15:39:37Z
+DCG-10 — North Ridge Elementary Loop,Stop 5: River & Ash St,06:51,06:52,2024-11-24T15:39:37Z,2025-01-06T15:39:37Z
+DCG-10 — North Ridge Elementary Loop,Stop 6: Cedar & Valley Blvd,07:01,07:02,2025-08-22T15:39:37Z,2025-08-30T15:39:37Z
+DCG-10 — North Ridge Elementary Loop,Stop 6: Cedar & Valley Blvd,07:48,07:50,2025-07-10T15:39:37Z,2025-08-05T15:39:37Z
+DCG-10 — North Ridge Elementary Loop,Stop 7: Main & Oak Dr,07:10,07:13,2025-06-21T15:39:37Z,2025-10-08T15:39:37Z
+DCG-10 — North Ridge Elementary Loop,Stop 8: Maple & River Way,06:58,07:02,2024-09-14T15:39:37Z,2024-10-17T15:39:37Z
+DCG-10 — North Ridge Elementary Loop,Stop 9: Cedar & Highland Ln,07:28,07:32,2025-08-15T15:39:37Z,2025-08-18T15:39:37Z
+DCG-10 — North Ridge Elementary Loop,Stop 10: Maple & Ash Blvd,07:21,07:22,2025-02-27T15:39:37Z,2025-05-11T15:39:37Z
+DCG-10 — North Ridge Elementary Loop,Stop 10: Maple & Ash Blvd,07:58,08:02,2025-06-25T15:39:37Z,2025-08-15T15:39:37Z
+DCG-10 — North Ridge Elementary Loop,Stop 11: Lakeview & Sunset Way,07:17,07:18,2025-05-03T15:39:37Z,2025-08-04T15:39:37Z
+DCG-10 — North Ridge Elementary Loop,Stop 12: Maple & Valley Pl,07:42,07:45,2024-10-31T15:39:37Z,2024-12-10T15:39:37Z
+DCG-10 — North Ridge Elementary Loop,Stop 12: Maple & Valley Pl,08:37,08:39,2025-02-13T15:39:37Z,2025-06-11T15:39:37Z
+DCG-10 — North Ridge Elementary Loop,Stop 13: Birch & Ridge Way,07:48,07:50,2024-09-11T15:39:37Z,2024-12-31T15:39:37Z
+DCG-10 — North Ridge Elementary Loop,Stop 13: Birch & Ridge Way,08:38,08:41,2025-03-22T15:39:37Z,2025-03-30T15:39:37Z
+DCG-10 — North Ridge Elementary Loop,Stop 14: Maple & Lakeview Ct,07:54,07:58,2025-05-23T15:39:37Z,2025-07-17T15:39:37Z
+DCG-10 — North Ridge Elementary Loop,Stop 14: Maple & Lakeview Ct,08:43,08:45,2025-03-30T15:39:37Z,2025-07-09T15:39:37Z
+DCG-10 — North Ridge Elementary Loop,Stop 15: Cedar & Hickory St,07:43,07:47,2024-10-28T15:39:37Z,2024-11-07T15:39:37Z
+DCG-11 — South Prairie Elementary Loop,Stop 1: Maple & Cedar St,07:58,08:00,2024-11-18T15:39:37Z,2025-02-21T15:39:37Z
+DCG-11 — South Prairie Elementary Loop,Stop 2: Maple & Lakeview Way,08:02,08:04,2025-01-26T15:39:37Z,2025-02-18T15:39:37Z
+DCG-11 — South Prairie Elementary Loop,Stop 3: River & Birch Dr,08:07,08:10,2024-10-11T15:39:37Z,2024-12-06T15:39:37Z
+DCG-11 — South Prairie Elementary Loop,Stop 3: River & Birch Dr,08:33,08:35,2025-06-16T15:39:37Z,2025-08-09T15:39:37Z
+DCG-11 — South Prairie Elementary Loop,Stop 4: Lakeview & Meadow Ct,08:09,08:12,2025-05-11T15:39:37Z,2025-06-01T15:39:37Z
+DCG-11 — South Prairie Elementary Loop,Stop 5: Spruce & Oak Blvd,08:19,08:20,2024-11-22T15:39:37Z,2024-11-24T15:39:37Z
+DCG-11 — South Prairie Elementary Loop,Stop 6: Oak & Valley Ln,08:07,08:10,2025-01-04T15:39:37Z,2025-04-29T15:39:37Z
+DCG-11 — South Prairie Elementary Loop,Stop 7: Maple & Main Ln,08:27,08:28,2024-10-17T15:39:37Z,2025-01-08T15:39:37Z
+DCG-11 — South Prairie Elementary Loop,Stop 8: Broad & Elm Ln,08:19,08:20,2025-03-11T15:39:37Z,2025-05-20T15:39:37Z
+DCG-11 — South Prairie Elementary Loop,Stop 9: Main & Highland Rd,08:13,08:14,2024-09-23T15:39:37Z,2024-11-21T15:39:37Z
+DCG-11 — South Prairie Elementary Loop,Stop 10: Sunset & Lakeview St,08:22,08:26,2025-07-12T15:39:37Z,2025-11-03T15:39:37Z
+DCG-11 — South Prairie Elementary Loop,Stop 11: Ash & Main Ave,08:25,08:28,2025-03-30T15:39:37Z,2025-06-18T15:39:37Z
+DCG-11 — South Prairie Elementary Loop,Stop 12: Maple & Pine Dr,08:29,08:31,2025-08-17T15:39:37Z,2025-10-20T15:39:37Z
+DCG-11 — South Prairie Elementary Loop,Stop 12: Maple & Pine Dr,09:10,09:13,2025-04-14T15:39:37Z,2025-05-12T15:39:37Z
+DCG-11 — South Prairie Elementary Loop,Stop 13: Spruce & River Way,09:00,09:01,2025-07-12T15:39:37Z,2025-09-14T15:39:37Z
+DCG-11 — South Prairie Elementary Loop,Stop 13: Spruce & River Way,09:34,09:35,2025-03-16T15:39:37Z,2025-03-26T15:39:37Z
+DCG-11 — South Prairie Elementary Loop,Stop 14: Lakeview & Oak Rd,08:36,08:37,2025-04-24T15:39:37Z,2025-08-15T15:39:37Z
+DCG-11 — South Prairie Elementary Loop,Stop 14: Lakeview & Oak Rd,09:24,09:25,2025-08-01T15:39:37Z,2025-08-08T15:39:37Z
+DCG-12 — Oak View / Meadows Loop,Stop 1: Elm & Park Ln,06:24,06:27,2025-06-05T15:39:37Z,2025-07-05T15:39:37Z
+DCG-12 — Oak View / Meadows Loop,Stop 2: Pine & Highland Ln,06:29,06:31,2024-11-10T15:39:37Z,2025-02-15T15:39:37Z
+DCG-12 — Oak View / Meadows Loop,Stop 2: Pine & Highland Ln,07:07,07:10,2025-01-27T15:39:37Z,2025-04-07T15:39:37Z
+DCG-12 — Oak View / Meadows Loop,Stop 3: Lakeview & Park Way,06:28,06:31,2025-03-14T15:39:37Z,2025-06-22T15:39:37Z
+DCG-12 — Oak View / Meadows Loop,Stop 4: Spruce & Oak Ln,06:28,06:32,2024-09-12T15:39:37Z,2024-10-23T15:39:37Z
+DCG-12 — Oak View / Meadows Loop,Stop 5: Highland & Oak Ct,06:35,06:36,2025-03-20T15:39:37Z,2025-05-04T15:39:37Z
+DCG-12 — Oak View / Meadows Loop,Stop 6: Main & Hickory Ln,06:32,06:33,2025-08-10T15:39:37Z,2025-10-07T15:39:37Z
+DCG-12 — Oak View / Meadows Loop,Stop 6: Main & Hickory Ln,07:00,07:01,2024-11-14T15:39:37Z,2025-02-17T15:39:37Z
+DCG-12 — Oak View / Meadows Loop,Stop 7: Hickory & River Ave,06:47,06:51,2024-10-21T15:39:37Z,2025-01-23T15:39:37Z
+DCG-12 — Oak View / Meadows Loop,Stop 7: Hickory & River Ave,07:19,07:21,2025-03-11T15:39:37Z,2025-07-02T15:39:37Z
+DCG-12 — Oak View / Meadows Loop,Stop 8: Oak & Elm Ln,07:01,07:04,2025-05-23T15:39:37Z,2025-07-04T15:39:37Z
+DCG-12 — Oak View / Meadows Loop,Stop 9: Hickory & Park Rd,07:06,07:09,2024-09-26T15:39:37Z,2024-10-03T15:39:37Z
+DCG-12 — Oak View / Meadows Loop,Stop 9: Hickory & Park Rd,07:35,07:39,2025-03-29T15:39:37Z,2025-06-18T15:39:37Z
+DCG-12 — Oak View / Meadows Loop,Stop 10: Main & Ash St,06:50,06:53,2025-03-31T15:39:37Z,2025-06-30T15:39:37Z
+DCG-12 — Oak View / Meadows Loop,Stop 10: Main & Ash St,07:23,07:24,2024-11-04T15:39:37Z,2025-02-23T15:39:37Z
+DCG-12 — Oak View / Meadows Loop,Stop 11: Broad & Elm Ave,06:54,06:56,2024-10-14T15:39:37Z,2024-12-15T15:39:37Z
+DCG-12 — Oak View / Meadows Loop,Stop 12: Park & Ash Rd,07:21,07:24,2025-03-20T15:39:37Z,2025-03-22T15:39:37Z
+DCG-12 — Oak View / Meadows Loop,Stop 12: Park & Ash Rd,07:54,07:55,2024-12-03T15:39:37Z,2025-03-28T15:39:37Z
+DCG-12 — Oak View / Meadows Loop,Stop 13: Sunset & Ridge St,06:58,06:59,2025-08-19T15:39:37Z,2025-08-24T15:39:37Z
+DCG-12 — Oak View / Meadows Loop,Stop 13: Sunset & Ridge St,07:24,07:28,2025-05-02T15:39:37Z,2025-05-17T15:39:37Z
+DCG-12 — Oak View / Meadows Loop,Stop 14: Lakeview & Maple Ln,07:14,07:17,2024-12-23T15:39:37Z,2025-01-26T15:39:37Z
+DCG-12 — Oak View / Meadows Loop,Stop 14: Lakeview & Maple Ln,07:41,07:44,2025-03-24T15:39:37Z,2025-04-24T15:39:37Z
+DCG-12 — Oak View / Meadows Loop,Stop 15: Oak & Spruce Rd,07:21,07:23,2025-04-01T15:39:37Z,2025-05-09T15:39:37Z
+DCG-12 — Oak View / Meadows Loop,Stop 15: Oak & Spruce Rd,07:55,07:57,2024-11-15T15:39:37Z,2025-01-09T15:39:37Z
+DCG-12 — Oak View / Meadows Loop,Stop 16: Broad & Valley Dr,07:23,07:26,2024-11-16T15:39:37Z,2025-01-24T15:39:37Z
+DCG-12 — Oak View / Meadows Loop,Stop 16: Broad & Valley Dr,07:52,07:54,2025-01-23T15:39:37Z,2025-04-26T15:39:37Z
+DCG-12 — Oak View / Meadows Loop,Stop 17: Park & Ridge Blvd,06:54,06:55,2025-01-13T15:39:37Z,2025-04-07T15:39:37Z
+DCG-12 — Oak View / Meadows Loop,Stop 18: Hickory & Ash Rd,06:55,06:57,2025-02-05T15:39:37Z,2025-04-20T15:39:37Z
+DCG-12 — Oak View / Meadows Loop,Stop 18: Hickory & Ash Rd,07:28,07:32,2025-01-18T15:39:37Z,2025-02-13T15:39:37Z
+DCG-13 — Middle School AM Shuttle,Stop 1: Sunset & Hickory Ct,07:24,07:28,2025-04-15T15:39:37Z,2025-05-27T15:39:37Z
+DCG-13 — Middle School AM Shuttle,Stop 1: Sunset & Hickory Ct,07:53,07:54,2024-09-10T15:39:37Z,2024-12-28T15:39:37Z
+DCG-13 — Middle School AM Shuttle,Stop 2: Hickory & Willow Ct,07:31,07:33,2025-06-22T15:39:37Z,2025-09-19T15:39:37Z
+DCG-13 — Middle School AM Shuttle,Stop 2: Hickory & Willow Ct,08:07,08:08,2025-02-19T15:39:37Z,2025-05-26T15:39:37Z
+DCG-13 — Middle School AM Shuttle,Stop 3: Sunset & Highland Rd,07:31,07:32,2025-05-06T15:39:37Z,2025-06-14T15:39:37Z
+DCG-13 — Middle School AM Shuttle,Stop 4: Park & Sunset Ln,07:35,07:39,2025-07-10T15:39:37Z,2025-08-01T15:39:37Z
+DCG-13 — Middle School AM Shuttle,Stop 5: Maple & Hickory Dr,07:35,07:37,2025-04-29T15:39:37Z,2025-05-09T15:39:37Z
+DCG-13 — Middle School AM Shuttle,Stop 5: Maple & Hickory Dr,07:55,07:58,2024-09-08T15:39:37Z,2024-11-09T15:39:37Z
+DCG-13 — Middle School AM Shuttle,Stop 6: Cedar & Maple Dr,07:34,07:37,2025-03-29T15:39:37Z,2025-07-03T15:39:37Z
+DCG-13 — Middle School AM Shuttle,Stop 6: Cedar & Maple Dr,07:59,08:01,2025-07-20T15:39:37Z,2025-10-24T15:39:37Z
+DCG-13 — Middle School AM Shuttle,Stop 7: Willow & Main Way,07:42,07:43,2025-01-09T15:39:37Z,2025-03-05T15:39:37Z
+DCG-13 — Middle School AM Shuttle,Stop 7: Willow & Main Way,08:29,08:32,2025-07-09T15:39:37Z,2025-08-28T15:39:37Z
+DCG-13 — Middle School AM Shuttle,Stop 8: Spruce & Maple Way,07:59,08:02,2025-02-10T15:39:37Z,2025-03-31T15:39:37Z
+DCG-14 — High School AM Shuttle,Stop 1: Elm & Willow Ave,06:43,06:46,2025-08-20T15:39:37Z,2025-10-28T15:39:37Z
+DCG-14 — High School AM Shuttle,Stop 1: Elm & Willow Ave,07:05,07:09,2025-05-08T15:39:37Z,2025-08-20T15:39:37Z
+DCG-14 — High School AM Shuttle,Stop 2: Main & Broad Rd,06:54,06:58,2025-01-11T15:39:37Z,2025-01-22T15:39:37Z
+DCG-14 — High School AM Shuttle,Stop 2: Main & Broad Rd,07:48,07:49,2024-08-31T15:39:37Z,2024-12-16T15:39:37Z
+DCG-14 — High School AM Shuttle,Stop 3: Birch & Park Way,06:48,06:49,2024-11-15T15:39:37Z,2025-03-01T15:39:37Z
+DCG-14 — High School AM Shuttle,Stop 3: Birch & Park Way,07:34,07:38,2025-04-15T15:39:37Z,2025-07-13T15:39:37Z
+DCG-14 — High School AM Shuttle,Stop 4: Park & Spruce Ave,06:57,07:01,2025-05-19T15:39:37Z,2025-08-25T15:39:37Z
+DCG-14 — High School AM Shuttle,Stop 4: Park & Spruce Ave,07:25,07:28,2024-12-01T15:39:37Z,2025-01-21T15:39:37Z
+DCG-14 — High School AM Shuttle,Stop 5: Highland & Meadow Ave,06:58,06:59,2024-09-17T15:39:37Z,2024-12-02T15:39:37Z
+DCG-14 — High School AM Shuttle,Stop 5: Highland & Meadow Ave,07:55,07:57,2024-09-26T15:39:37Z,2024-11-01T15:39:37Z
+DCG-14 — High School AM Shuttle,Stop 6: River & Ridge Ln,07:12,07:13,2025-02-14T15:39:37Z,2025-03-07T15:39:37Z
+DCG-14 — High School AM Shuttle,Stop 6: River & Ridge Ln,07:47,07:51,2024-09-06T15:39:37Z,2024-12-12T15:39:37Z
+DCG-14 — High School AM Shuttle,Stop 7: Lakeview & Valley Ave,06:57,07:00,2025-08-02T15:39:37Z,2025-09-07T15:39:37Z
+DCG-14 — High School AM Shuttle,Stop 8: Birch & Broad Pl,07:13,07:17,2024-11-01T15:39:37Z,2025-01-29T15:39:37Z
+DCG-14 — High School AM Shuttle,Stop 9: Birch & Lakeview Rd,07:26,07:29,2025-02-14T15:39:37Z,2025-04-11T15:39:37Z
+DCG-14 — High School AM Shuttle,Stop 9: Birch & Lakeview Rd,08:08,08:11,2024-10-19T15:39:37Z,2025-01-07T15:39:37Z
+DCG-14 — High School AM Shuttle,Stop 10: Lakeview & Ridge Rd,07:02,07:05,2025-01-25T15:39:37Z,2025-04-24T15:39:37Z
+DCG-14 — High School AM Shuttle,Stop 11: Pine & Spruce Way,07:27,07:29,2025-05-22T15:39:37Z,2025-07-13T15:39:37Z
+DCG-14 — High School AM Shuttle,Stop 12: Ash & Elm Pl,07:08,07:10,2025-04-27T15:39:37Z,2025-05-16T15:39:37Z
+DCG-14 — High School AM Shuttle,Stop 13: Cedar & River Ln,07:09,07:10,2024-10-28T15:39:37Z,2024-11-18T15:39:37Z
+DCG-14 — High School AM Shuttle,Stop 13: Cedar & River Ln,07:42,07:44,2025-03-26T15:39:37Z,2025-07-08T15:39:37Z
+DCG-14 — High School AM Shuttle,Stop 14: Lakeview & Oak Pl,07:24,07:26,2025-06-18T15:39:37Z,2025-07-10T15:39:37Z
+DCG-14 — High School AM Shuttle,Stop 15: Spruce & Valley Blvd,07:44,07:46,2024-12-21T15:39:37Z,2025-04-17T15:39:37Z
+DCG-14 — High School AM Shuttle,Stop 15: Spruce & Valley Blvd,08:20,08:22,2025-02-27T15:39:37Z,2025-04-18T15:39:37Z
+DCG-14 — High School AM Shuttle,Stop 16: Spruce & River Way,08:04,08:08,2025-03-26T15:39:37Z,2025-07-21T15:39:37Z
+DCG-15 — PM Transfer Shuttle A,Stop 1: Broad & Pine St,06:31,06:35,2024-11-16T15:39:37Z,2025-01-13T15:39:37Z
+DCG-15 — PM Transfer Shuttle A,Stop 2: Elm & Birch Dr,06:40,06:43,2025-08-21T15:39:37Z,2025-09-15T15:39:37Z
+DCG-15 — PM Transfer Shuttle A,Stop 3: Pine & Elm Way,06:41,06:43,2024-11-01T15:39:37Z,2024-11-07T15:39:37Z
+DCG-15 — PM Transfer Shuttle A,Stop 4: Park & Spruce St,06:46,06:49,2024-11-05T15:39:37Z,2024-11-21T15:39:37Z
+DCG-15 — PM Transfer Shuttle A,Stop 5: Park & Birch Ct,06:57,07:01,2025-07-31T15:39:37Z,2025-11-18T15:39:37Z
+DCG-15 — PM Transfer Shuttle A,Stop 6: Cedar & Ash Way,06:59,07:00,2025-05-01T15:39:37Z,2025-06-15T15:39:37Z
+DCG-15 — PM Transfer Shuttle A,Stop 6: Cedar & Ash Way,07:51,07:54,2024-12-03T15:39:37Z,2025-02-19T15:39:37Z
+DCG-15 — PM Transfer Shuttle A,Stop 7: Pine & Lakeview Ave,06:43,06:44,2025-08-19T15:39:37Z,2025-11-18T15:39:37Z
+DCG-15 — PM Transfer Shuttle A,Stop 7: Pine & Lakeview Ave,07:05,07:08,2024-12-06T15:39:37Z,2024-12-19T15:39:37Z
+DCG-15 — PM Transfer Shuttle A,Stop 8: Elm & Highland Rd,07:04,07:05,2025-03-21T15:39:37Z,2025-05-16T15:39:37Z
+DCG-15 — PM Transfer Shuttle A,Stop 9: Pine & Broad Pl,07:14,07:15,2024-10-15T15:39:37Z,2025-02-09T15:39:37Z
+DCG-15 — PM Transfer Shuttle A,Stop 9: Pine & Broad Pl,07:47,07:49,2024-10-10T15:39:37Z,2024-10-13T15:39:37Z
+DCG-15 — PM Transfer Shuttle A,Stop 10: Meadow & Highland Rd,06:50,06:52,2025-04-07T15:39:37Z,2025-04-15T15:39:37Z
+DCG-15 — PM Transfer Shuttle A,Stop 10: Meadow & Highland Rd,07:27,07:29,2024-09-28T15:39:37Z,2025-01-22T15:39:37Z
+DCG-15 — PM Transfer Shuttle A,Stop 11: Oak & Ash Ct,06:54,06:58,2025-06-08T15:39:37Z,2025-07-27T15:39:37Z
+DCG-15 — PM Transfer Shuttle A,Stop 12: Birch & Highland St,06:53,06:54,2024-09-25T15:39:37Z,2024-10-09T15:39:37Z
+DCG-15 — PM Transfer Shuttle A,Stop 12: Birch & Highland St,07:42,07:45,2024-09-18T15:39:37Z,2024-11-28T15:39:37Z
+DCG-15 — PM Transfer Shuttle A,Stop 13: Meadow & Broad Blvd,07:10,07:11,2024-09-06T15:39:37Z,2024-10-16T15:39:37Z
+DCG-15 — PM Transfer Shuttle A,Stop 14: Sunset & Hickory Dr,07:13,07:14,2025-02-25T15:39:37Z,2025-03-21T15:39:37Z
+DCG-15 — PM Transfer Shuttle A,Stop 14: Sunset & Hickory Dr,08:08,08:10,2024-11-20T15:39:37Z,2025-01-23T15:39:37Z
+DCG-15 — PM Transfer Shuttle A,Stop 15: Maple & Valley Way,07:01,07:03,2025-01-24T15:39:37Z,2025-03-22T15:39:37Z
+DCG-15 — PM Transfer Shuttle A,Stop 16: Spruce & Hickory Ave,07:52,07:55,2025-04-16T15:39:37Z,2025-05-22T15:39:37Z
+DCG-15 — PM Transfer Shuttle A,Stop 16: Spruce & Hickory Ave,08:33,08:34,2025-01-20T15:39:37Z,2025-02-08T15:39:37Z
+DCG-15 — PM Transfer Shuttle A,Stop 17: Broad & Park St,07:37,07:38,2024-11-05T15:39:37Z,2024-12-15T15:39:37Z
+DCG-16 — PM Transfer Shuttle B,Stop 1: Cedar & Meadow Ln,07:55,07:56,2024-11-23T15:39:37Z,2024-12-28T15:39:37Z
+DCG-16 — PM Transfer Shuttle B,Stop 2: Oak & Highland Rd,07:53,07:54,2025-01-19T15:39:37Z,2025-04-03T15:39:37Z
+DCG-16 — PM Transfer Shuttle B,Stop 2: Oak & Highland Rd,08:21,08:23,2025-05-07T15:39:37Z,2025-07-25T15:39:37Z
+DCG-16 — PM Transfer Shuttle B,Stop 3: Ridge & Valley St,07:58,07:59,2024-10-15T15:39:37Z,2024-11-05T15:39:37Z
+DCG-16 — PM Transfer Shuttle B,Stop 4: River & Oak Pl,08:00,08:01,2025-02-19T15:39:37Z,2025-04-02T15:39:37Z
+DCG-16 — PM Transfer Shuttle B,Stop 5: Pine & Broad Way,08:16,08:18,2024-11-22T15:39:37Z,2025-02-15T15:39:37Z
+DCG-16 — PM Transfer Shuttle B,Stop 6: Broad & Elm Way,08:08,08:11,2025-07-07T15:39:37Z,2025-09-04T15:39:37Z
+DCG-16 — PM Transfer Shuttle B,Stop 7: Meadow & Main Way,08:27,08:29,2025-03-14T15:39:37Z,2025-04-19T15:39:37Z
+DCG-16 — PM Transfer Shuttle B,Stop 8: Park & Birch Ave,08:13,08:17,2025-03-24T15:39:37Z,2025-04-29T15:39:37Z
+DCG-16 — PM Transfer Shuttle B,Stop 9: Elm & Lakeview Way,08:08,08:09,2025-07-07T15:39:37Z,2025-09-02T15:39:37Z
+DCG-16 — PM Transfer Shuttle B,Stop 9: Elm & Lakeview Way,08:32,08:36,2024-11-01T15:39:37Z,2025-01-28T15:39:37Z
+DCG-16 — PM Transfer Shuttle B,Stop 10: Meadow & Ridge Blvd,08:29,08:33,2025-02-23T15:39:37Z,2025-06-10T15:39:37Z
+DCG-16 — PM Transfer Shuttle B,Stop 11: Highland & Valley Ln,08:11,08:12,2025-07-15T15:39:37Z,2025-10-25T15:39:37Z
+DCG-16 — PM Transfer Shuttle B,Stop 11: Highland & Valley Ln,08:33,08:34,2024-10-23T15:39:37Z,2025-01-17T15:39:37Z
+DCG-17 — Activity Bus A (After-school),Stop 1: Oak & Main St,06:58,07:01,2024-11-06T15:39:37Z,2024-12-20T15:39:37Z
+DCG-17 — Activity Bus A (After-school),Stop 1: Oak & Main St,07:18,07:21,2024-12-18T15:39:37Z,2025-03-03T15:39:37Z
+DCG-17 — Activity Bus A (After-school),Stop 2: Broad & Ridge Dr,07:05,07:06,2024-11-03T15:39:37Z,2024-12-28T15:39:37Z
+DCG-17 — Activity Bus A (After-school),Stop 2: Broad & Ridge Dr,07:50,07:53,2024-10-02T15:39:37Z,2025-01-08T15:39:37Z
+DCG-17 — Activity Bus A (After-school),Stop 3: Meadow & River Ave,07:00,07:02,2024-12-17T15:39:37Z,2024-12-31T15:39:37Z
+DCG-17 — Activity Bus A (After-school),Stop 3: Meadow & River Ave,07:39,07:41,2025-03-25T15:39:37Z,2025-05-17T15:39:37Z
+DCG-17 — Activity Bus A (After-school),Stop 4: Hickory & Park Pl,07:11,07:15,2025-03-02T15:39:37Z,2025-05-22T15:39:37Z
+DCG-17 — Activity Bus A (After-school),Stop 5: Birch & Ridge Ln,07:15,07:16,2025-07-13T15:39:37Z,2025-07-30T15:39:37Z
+DCG-17 — Activity Bus A (After-school),Stop 5: Birch & Ridge Ln,07:43,07:47,2025-03-22T15:39:37Z,2025-05-01T15:39:37Z
+DCG-17 — Activity Bus A (After-school),Stop 6: Sunset & Lakeview Blvd,07:20,07:21,2025-02-20T15:39:37Z,2025-03-15T15:39:37Z
+DCG-17 — Activity Bus A (After-school),Stop 6: Sunset & Lakeview Blvd,07:49,07:52,2025-03-05T15:39:37Z,2025-06-23T15:39:37Z
+DCG-17 — Activity Bus A (After-school),Stop 7: Main & Park Way,07:31,07:32,2025-06-02T15:39:37Z,2025-06-26T15:39:37Z
+DCG-17 — Activity Bus A (After-school),Stop 8: Main & Ash Ct,07:29,07:30,2025-01-03T15:39:37Z,2025-03-08T15:39:37Z
+DCG-17 — Activity Bus A (After-school),Stop 9: Sunset & Broad Pl,07:15,07:18,2025-05-21T15:39:37Z,2025-08-24T15:39:37Z
+DCG-17 — Activity Bus A (After-school),Stop 9: Sunset & Broad Pl,07:51,07:53,2024-10-16T15:39:37Z,2024-11-16T15:39:37Z
+DCG-17 — Activity Bus A (After-school),Stop 10: Ridge & Willow Way,07:34,07:38,2025-02-13T15:39:37Z,2025-05-15T15:39:37Z
+DCG-17 — Activity Bus A (After-school),Stop 10: Ridge & Willow Way,08:20,08:23,2025-06-16T15:39:37Z,2025-10-02T15:39:37Z
+DCG-17 — Activity Bus A (After-school),Stop 11: Highland & Lakeview Ave,07:19,07:23,2025-08-27T15:39:37Z,2025-11-22T15:39:37Z
+DCG-17 — Activity Bus A (After-school),Stop 11: Highland & Lakeview Ave,08:15,08:19,2024-10-15T15:39:37Z,2024-11-22T15:39:37Z
+DCG-17 — Activity Bus A (After-school),Stop 12: Cedar & Willow Dr,07:44,07:48,2025-04-03T15:39:37Z,2025-04-23T15:39:37Z
+DCG-17 — Activity Bus A (After-school),Stop 13: Oak & Pine St,07:46,07:49,2025-03-24T15:39:37Z,2025-07-04T15:39:37Z
+DCG-17 — Activity Bus A (After-school),Stop 14: Hickory & Meadow Blvd,07:51,07:53,2025-04-23T15:39:37Z,2025-06-13T15:39:37Z
+DCG-17 — Activity Bus A (After-school),Stop 14: Hickory & Meadow Blvd,08:31,08:32,2025-07-14T15:39:37Z,2025-10-04T15:39:37Z
+DCG-17 — Activity Bus A (After-school),Stop 15: Maple & Ash Rd,07:26,07:29,2025-07-19T15:39:37Z,2025-09-15T15:39:37Z
+DCG-17 — Activity Bus A (After-school),Stop 16: Main & River Blvd,08:14,08:16,2025-05-06T15:39:37Z,2025-07-24T15:39:37Z
+DCG-18 — Activity Bus B (After-school),Stop 1: Spruce & Birch Way,06:58,07:00,2025-05-28T15:39:37Z,2025-06-18T15:39:37Z
+DCG-18 — Activity Bus B (After-school),Stop 2: Ash & Cedar Ct,07:01,07:04,2024-11-04T15:39:37Z,2025-01-25T15:39:37Z
+DCG-18 — Activity Bus B (After-school),Stop 3: Park & Oak Ct,07:08,07:12,2025-08-22T15:39:37Z,2025-08-23T15:39:37Z
+DCG-18 — Activity Bus B (After-school),Stop 3: Park & Oak Ct,07:51,07:54,2025-01-20T15:39:37Z,2025-04-04T15:39:37Z
+DCG-18 — Activity Bus B (After-school),Stop 4: Hickory & Meadow Way,07:17,07:21,2025-07-28T15:39:37Z,2025-11-23T15:39:37Z
+DCG-18 — Activity Bus B (After-school),Stop 5: Spruce & Broad Blvd,07:13,07:17,2025-06-08T15:39:37Z,2025-09-03T15:39:37Z
+DCG-18 — Activity Bus B (After-school),Stop 6: Ash & Broad Blvd,07:26,07:27,2025-02-28T15:39:37Z,2025-03-17T15:39:37Z
+DCG-18 — Activity Bus B (After-school),Stop 6: Ash & Broad Blvd,08:18,08:21,2025-01-22T15:39:37Z,2025-04-11T15:39:37Z
+DCG-18 — Activity Bus B (After-school),Stop 7: Maple & Lakeview Way,07:24,07:28,2024-11-08T15:39:37Z,2024-11-20T15:39:37Z
+DCG-18 — Activity Bus B (After-school),Stop 8: Elm & Willow Dr,07:22,07:23,2025-02-02T15:39:37Z,2025-05-15T15:39:37Z
+DCG-18 — Activity Bus B (After-school),Stop 8: Elm & Willow Dr,08:14,08:17,2025-04-09T15:39:37Z,2025-07-15T15:39:37Z
+DCG-18 — Activity Bus B (After-school),Stop 9: Elm & Cedar Ave,07:16,07:19,2024-11-19T15:39:37Z,2024-11-30T15:39:37Z
+DCG-18 — Activity Bus B (After-school),Stop 10: Spruce & Highland Ct,07:16,07:17,2025-05-29T15:39:37Z,2025-08-06T15:39:37Z
+DCG-18 — Activity Bus B (After-school),Stop 11: Oak & Hickory Ct,07:51,07:52,2025-03-10T15:39:37Z,2025-06-15T15:39:37Z
+DCG-18 — Activity Bus B (After-school),Stop 11: Oak & Hickory Ct,08:12,08:13,2024-09-21T15:39:37Z,2024-10-25T15:39:37Z
+DCG-18 — Activity Bus B (After-school),Stop 12: Main & Oak Rd,07:31,07:34,2025-06-08T15:39:37Z,2025-09-03T15:39:37Z
+DCG-18 — Activity Bus B (After-school),Stop 12: Main & Oak Rd,08:29,08:33,2024-11-01T15:39:37Z,2025-01-13T15:39:37Z
+DCG-18 — Activity Bus B (After-school),Stop 13: Oak & Ridge St,08:01,08:02,2024-10-12T15:39:37Z,2024-12-11T15:39:37Z
+DCG-18 — Activity Bus B (After-school),Stop 13: Oak & Ridge St,08:27,08:28,2025-03-07T15:39:37Z,2025-06-23T15:39:37Z
+DCG-18 — Activity Bus B (After-school),Stop 14: Highland & Elm Pl,07:53,07:56,2025-08-02T15:39:37Z,2025-09-21T15:39:37Z
