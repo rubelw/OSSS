@@ -30,7 +30,7 @@ from .audit_logs import *
 from .behavior_codes import *
 from .behavior_interventions import *
 from .bell_schedules import *
-from .bodies import *
+from .governing_bodies import *
 from .buildings import *
 from .bus_routes import *
 from .bus_stop_times import *
