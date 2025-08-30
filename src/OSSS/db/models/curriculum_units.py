@@ -12,11 +12,17 @@ class CurriculumUnit(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "curriculum_units"
     __table_args__ = (sa.UniqueConstraint("curriculum_id", "order_index", name="uq_unit_order"),)
 
-    curriculum_id: Mapped[str] = mapped_column(GUID(), sa.ForeignKey("curricula.id", ondelete="CASCADE"), nullable=False, index=True)
+    curriculum_id: Mapped[GUID] = mapped_column(
+        GUID(), sa.ForeignKey("curricula.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+
+    curriculum: Mapped["Curriculum"] = relationship(
+        "Curriculum", back_populates="units", lazy="joined"
+    )
+
     title: Mapped[str] = mapped_column(sa.String(255), nullable=False)
     order_index: Mapped[int] = mapped_column(sa.Integer, nullable=False, index=True)
     summary: Mapped[Optional[str]] = mapped_column(sa.Text)
     metadata_json = mapped_column("metadata", JSON, nullable=True)
 
-    curriculum = relationship("Curriculum", back_populates="units")
     standards: Mapped[List["UnitStandardMap"]] = relationship("UnitStandardMap", back_populates="unit", cascade="all, delete-orphan")

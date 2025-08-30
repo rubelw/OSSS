@@ -52,25 +52,18 @@ class Base(DeclarativeBase):
 
     # Make names available during annotation evaluation everywhere.
     __sa_eval_namespace__ = {
-        # typing (use typing.* not builtins for forward refs like List['X'])
         "Any": Any,
         "Optional": Optional,
         "List": List,
         "Dict": Dict,
         "Set": Set,
-        "Tuple": Tuple,
         "Union": Union,
-        "Annotated": Annotated,
-
-        # stdlib types used in annotations
+        "sa": sa,  # lets you write Optional[sa.DateTime], etc.
         "uuid": uuid,
         "Decimal": Decimal,
         "datetime": datetime,
         "date": date,
         "time": time,
-
-        # allow "sa.DateTime" etc. in string annotations
-        "sa": sa,
     }
 
 

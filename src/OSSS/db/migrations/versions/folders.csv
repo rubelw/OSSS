@@ -1,0 +1,8 @@
+name,is_public,sort_order,org_code,parent_name
+District Documents,True,1,05400000,
+Board Policies,True,10,05400000,District Documents
+Contracts,False,20,05400000,District Documents
+Student Handbooks,True,30,05400000,District Documents
+Meeting Minutes,True,40,05400000,District Documents
+Series 100: Educational Philosophy,True,101,05400000,Board Policies
+Series 200: Board of Directors,True,102,05400000,Board Policies

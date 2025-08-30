@@ -30,5 +30,9 @@ class Curriculum(UUIDMixin, Base):
     metadata_json = mapped_column("metadata", JSON, nullable=True)
 
     proposal = relationship("Proposal", back_populates="curriculum")
-    units: Mapped[list["CurriculumUnit"]] = relationship(...)
-
+    units: Mapped[list["CurriculumUnit"]] = relationship(
+        "CurriculumUnit",
+        back_populates="curriculum",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
