@@ -108,6 +108,7 @@
         "read:hr_position_assignments",
         "read:hr_positions",
         "read:department_position_index",
+        "read:special_education_cases",
         "read:iep_plans",
         "read:immunization_records",
         "read:immunizations",
@@ -226,6 +227,7 @@
             "read:hr_position_assignments",
             "read:hr_positions",
             "read:department_position_index",
+            "read:special_education_cases",
             "read:iep_plans",
             "read:immunization_records",
             "read:immunizations",
@@ -360,6 +362,7 @@
             "read:hr_position_assignments",
             "read:hr_positions",
             "read:department_position_index",
+            "read:special_education_cases",
             "read:iep_plans",
             "read:immunization_records",
             "read:immunizations",
@@ -477,6 +480,7 @@
             "read:hr_position_assignments",
             "read:hr_positions",
             "read:department_position_index",
+            "read:special_education_cases",
             "read:iep_plans",
             "read:immunization_records",
             "read:immunizations",
@@ -595,6 +599,7 @@
             "read:hr_positions",
             "read:department_position_index",
             "read:iep_plans",
+            "read:special_education_cases",
             "read:immunization_records",
             "read:immunizations",
             "read:incident_participants",
@@ -712,6 +717,8 @@
             "read:hr_position_assignments",
             "read:hr_positions",
             "read:department_position_index",
+            "read:special_education_cases",
+            "read:special_education_cases",
             "read:iep_plans",
             "read:immunization_records",
             "read:immunizations",
@@ -829,6 +836,7 @@
                 "read:hr_position_assignments",
                 "read:hr_positions",
                 "read:department_position_index",
+                "read:special_education_cases",
                 "read:iep_plans",
                 "read:immunization_records",
                 "read:immunizations",
@@ -946,6 +954,7 @@
                 "read:hr_position_assignments",
                 "read:hr_positions",
                 "read:department_position_index",
+                "read:special_education_cases",
                 "read:iep_plans",
                 "read:immunization_records",
                 "read:immunizations",
@@ -1063,6 +1072,7 @@
                 "read:hr_position_assignments",
                 "read:hr_positions",
                 "read:department_position_index",
+                "read:special_education_cases",
                 "read:iep_plans",
                 "read:immunization_records",
                 "read:immunizations",
@@ -1180,6 +1190,7 @@
                 "read:hr_position_assignments",
                 "read:hr_positions",
                 "read:department_position_index",
+                "read:special_education_cases",
                 "read:iep_plans",
                 "read:immunization_records",
                 "read:immunizations",
@@ -1297,6 +1308,7 @@
                 "read:hr_position_assignments",
                 "read:hr_positions",
                 "read:department_position_index",
+                "read:special_education_cases",
                 "read:iep_plans",
                 "read:immunization_records",
                 "read:immunizations",
@@ -1414,6 +1426,7 @@
                 "read:hr_position_assignments",
                 "read:hr_positions",
                 "read:department_position_index",
+                "read:special_education_cases",
                 "read:iep_plans",
                 "read:immunization_records",
                 "read:immunizations",
@@ -1531,6 +1544,7 @@
                 "read:hr_position_assignments",
                 "read:hr_positions",
                 "read:department_position_index",
+                "read:special_education_cases",
                 "read:iep_plans",
                 "read:immunization_records",
                 "read:immunizations",
@@ -1648,6 +1662,7 @@
                 "read:hr_position_assignments",
                 "read:hr_positions",
                 "read:department_position_index",
+                "read:special_education_cases",
                 "read:iep_plans",
                 "read:immunization_records",
                 "read:immunizations",
@@ -1765,6 +1780,7 @@
                 "read:hr_position_assignments",
                 "read:hr_positions",
                 "read:department_position_index",
+                "read:special_education_cases",
                 "read:iep_plans",
                 "read:immunization_records",
                 "read:immunizations",
@@ -1883,6 +1899,7 @@
                 "read:hr_position_assignments",
                 "read:hr_positions",
                 "read:department_position_index",
+                "read:special_education_cases",
                 "read:iep_plans",
                 "read:immunization_records",
                 "read:immunizations",
@@ -2000,6 +2017,7 @@
                     "read:hr_position_assignments",
                     "read:hr_positions",
                     "read:department_position_index",
+                    "read:special_education_cases",
                     "read:iep_plans",
                     "read:immunization_records",
                     "read:immunizations",
@@ -2118,6 +2136,7 @@
                     "read:hr_position_assignments",
                     "read:hr_positions",
                     "read:department_position_index",
+                    "read:special_education_cases",
                     "read:iep_plans",
                     "read:immunization_records",
                     "read:immunizations",
@@ -2235,6 +2254,7 @@
                         "read:hr_position_assignments",
                         "read:hr_positions",
                         "read:department_position_index",
+                        "read:special_education_cases",
                         "read:iep_plans",
                         "read:immunization_records",
                         "read:immunizations",
@@ -2352,6 +2372,7 @@
                         "read:hr_position_assignments",
                         "read:hr_positions",
                         "read:department_position_index",
+                        "read:special_education_cases",
                         "read:iep_plans",
                         "read:immunization_records",
                         "read:immunizations",
@@ -2469,6 +2490,7 @@
                         "read:hr_position_assignments",
                         "read:hr_positions",
                         "read:department_position_index",
+                        "read:special_education_cases",
                         "read:iep_plans",
                         "read:immunization_records",
                         "read:immunizations",
@@ -2586,6 +2608,7 @@
                         "read:hr_position_assignments",
                         "read:hr_positions",
                         "read:department_position_index",
+                        "read:special_education_cases",
                         "read:iep_plans",
                         "read:immunization_records",
                         "read:immunizations",
@@ -2703,6 +2726,7 @@
                         "read:hr_position_assignments",
                         "read:hr_positions",
                         "read:department_position_index",
+                        "read:special_education_cases",
                         "read:iep_plans",
                         "read:immunization_records",
                         "read:immunizations",
@@ -2820,6 +2844,7 @@
                         "read:hr_position_assignments",
                         "read:hr_positions",
                         "read:department_position_index",
+                        "read:special_education_cases",
                         "read:iep_plans",
                         "read:immunization_records",
                         "read:immunizations",
@@ -2937,6 +2962,7 @@
                         "read:hr_position_assignments",
                         "read:hr_positions",
                         "read:department_position_index",
+                        "read:special_education_cases",
                         "read:iep_plans",
                         "read:immunization_records",
                         "read:immunizations",
@@ -3054,6 +3080,7 @@
                         "read:hr_position_assignments",
                         "read:hr_positions",
                         "read:department_position_index",
+                        "read:special_education_cases",
                         "read:iep_plans",
                         "read:immunization_records",
                         "read:immunizations",
@@ -3172,6 +3199,7 @@
                         "read:hr_position_assignments",
                         "read:hr_positions",
                         "read:department_position_index",
+                        "read:special_education_cases",
                         "read:iep_plans",
                         "read:immunization_records",
                         "read:immunizations",
@@ -3290,6 +3318,7 @@
                         "read:hr_position_assignments",
                         "read:hr_positions",
                         "read:department_position_index",
+                        "read:special_education_cases",
                         "read:iep_plans",
                         "read:immunization_records",
                         "read:immunizations",
@@ -3407,6 +3436,7 @@
                         "read:hr_position_assignments",
                         "read:hr_positions",
                         "read:department_position_index",
+                        "read:special_education_cases",
                         "read:iep_plans",
                         "read:immunization_records",
                         "read:immunizations",
@@ -3524,6 +3554,7 @@
                         "read:hr_position_assignments",
                         "read:hr_positions",
                         "read:department_position_index",
+                        "read:special_education_cases",
                         "read:iep_plans",
                         "read:immunization_records",
                         "read:immunizations",
@@ -3641,6 +3672,7 @@
                         "read:hr_position_assignments",
                         "read:hr_positions",
                         "read:department_position_index",
+                        "read:special_education_cases",
                         "read:iep_plans",
                         "read:immunization_records",
                         "read:immunizations",
@@ -3758,6 +3790,7 @@
                         "read:hr_position_assignments",
                         "read:hr_positions",
                         "read:department_position_index",
+                        "read:special_education_cases",
                         "read:iep_plans",
                         "read:immunization_records",
                         "read:immunizations",
@@ -5503,6 +5536,7 @@
                   "unit": "special_education_related_services",
                   "permissions": [
                     "read:accommodations",
+                    "read:special_education_cases",
                     "read:iep_plans"
                   ],
                   "positions": [
@@ -5511,6 +5545,7 @@
                       "description": "Leads SPED/Exceptional Student Services and compliance (IDEA).",
                       "permissions": [
                         "read:accommodations",
+                        "read:special_education_cases",
                         "read:iep_plans"
                       ]
                     },
@@ -5519,6 +5554,7 @@
                       "description": "Instruction and services for students with disabilities.",
                       "permissions": [
                         "read:accommodations",
+                        "read:special_education_cases",
                         "read:iep_plans"
                       ]
                     },
@@ -5527,6 +5563,7 @@
                       "description": "Coordinates IEPs, services, and progress reporting.",
                       "permissions": [
                         "read:accommodations",
+                        "read:special_education_cases",
                         "read:iep_plans"
                       ]
                     },
@@ -5535,6 +5572,7 @@
                       "description": "Evaluation, counseling, MTSS, and IEP support.",
                       "permissions": [
                         "read:accommodations",
+                        "read:special_education_cases",
                         "read:iep_plans"
                       ]
                     },
@@ -5543,6 +5581,7 @@
                       "description": "Speech/language therapy and evaluations.",
                       "permissions": [
                         "read:accommodations",
+                        "read:special_education_cases",
                         "read:iep_plans"
                       ]
                     },
@@ -5551,6 +5590,7 @@
                       "description": "Fine-motor/sensory/ADL supports.",
                       "permissions": [
                         "read:accommodations",
+                        "read:special_education_cases",
                         "read:iep_plans"
                       ]
                     },
@@ -5559,6 +5599,7 @@
                       "description": "Supports OT service delivery.",
                       "permissions": [
                         "read:accommodations",
+                        "read:special_education_cases",
                         "read:iep_plans"
                       ]
                     },
@@ -5567,6 +5608,7 @@
                       "description": "Gross-motor/mobility therapy and evaluations.",
                       "permissions": [
                         "read:accommodations",
+                        "read:special_education_cases",
                         "read:iep_plans"
                       ]
                     },
@@ -5575,6 +5617,7 @@
                       "description": "Supports PT services.",
                       "permissions": [
                         "read:accommodations",
+                        "read:special_education_cases",
                         "read:iep_plans"
                       ]
                     },
@@ -5583,6 +5626,7 @@
                       "description": "Behavior analysis, plans, and consultation.",
                       "permissions": [
                         "read:accommodations",
+                        "read:special_education_cases",
                         "read:iep_plans"
                       ]
                     },
@@ -5591,6 +5635,7 @@
                       "description": "Implements behavior plans and supports.",
                       "permissions": [
                         "read:accommodations",
+                        "read:special_education_cases",
                         "read:iep_plans"
                       ]
                     },
@@ -5599,6 +5644,7 @@
                       "description": "Services for students with visual impairments.",
                       "permissions": [
                         "read:accommodations",
+                        "read:special_education_cases",
                         "read:iep_plans"
                       ]
                     },
@@ -5607,6 +5653,7 @@
                       "description": "Travel/orientation training for visually impaired students.",
                       "permissions": [
                         "read:accommodations",
+                        "read:special_education_cases",
                         "read:iep_plans"
                       ]
                     },
@@ -5615,6 +5662,7 @@
                       "description": "Instruction and support for D/HH students.",
                       "permissions": [
                         "read:accommodations",
+                        "read:special_education_cases",
                         "read:iep_plans"
                       ]
                     },
@@ -5623,6 +5671,7 @@
                       "description": "Leads Section 504 identification and accommodation plans.",
                       "permissions": [
                         "read:accommodations",
+                        "read:special_education_cases",
                         "read:iep_plans"
                       ]
                     },
@@ -5631,6 +5680,7 @@
                       "description": "Monitors timelines, documentation, and audits.",
                       "permissions": [
                         "read:accommodations",
+                        "read:special_education_cases",
                         "read:iep_plans"
                       ]
                     },
@@ -5639,6 +5689,7 @@
                       "description": "Classroom and individual student support.",
                       "permissions": [
                         "read:accommodations",
+                        "read:special_education_cases",
                         "read:iep_plans"
                       ]
                     },
@@ -5647,6 +5698,7 @@
                       "description": "Assists with instruction and supervision.",
                       "permissions": [
                         "read:accommodations",
+                        "read:special_education_cases",
                         "read:iep_plans"
                       ]
                     },
@@ -5655,6 +5707,7 @@
                       "description": "General classroom support role.",
                       "permissions": [
                         "read:accommodations",
+                        "read:special_education_cases",
                         "read:iep_plans"
                       ]
                     },
@@ -5663,6 +5716,7 @@
                       "description": "ASL/interpretation services for students and families.",
                       "permissions": [
                         "read:accommodations",
+                        "read:special_education_cases",
                         "read:iep_plans"
                       ]
                     },
@@ -5671,6 +5725,7 @@
                       "description": "HS transition planning to postsecondary/workforce.",
                       "permissions": [
                         "read:accommodations",
+                        "read:special_education_cases",
                         "read:iep_plans"
                       ]
                     },
@@ -5679,6 +5734,7 @@
                       "description": "Career exploration and work-based learning supports.",
                       "permissions": [
                         "read:accommodations",
+                        "read:special_education_cases",
                         "read:iep_plans"
                       ]
                     }
