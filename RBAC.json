@@ -236,7 +236,7 @@
             "read:initiatives",
             "read:invoices",
             "read:alignment",
-            "read:association",
+            "read:education_associations",
             "read:curriculum",
             "read:curriculum_version",
             "read:requirement",
