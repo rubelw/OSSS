@@ -1,60 +1,34 @@
+# src/OSSS/db/models/entity_tags.py
 from __future__ import annotations
-from typing import Optional, Dict, Any
-from pydantic import BaseModel, ConfigDict, Field
 
-# -----------------------------
-# Base (shared fields)
-# -----------------------------
-class EntityTagBase(BaseModel):
-    entity_type: str = Field(..., min_length=1, max_length=50)
-    entity_id: str = Field(..., description="GUID/UUID of the entity being tagged")
-    tag_id: str = Field(..., description="GUID/UUID of the Tag")
-    # attributes: Optional[Dict[str, Any]] = None
+import sqlalchemy as sa
+from sqlalchemy.orm import Mapped, mapped_column
+from OSSS.db.base import Base
 
-# -----------------------------
-# Create (POST)
-# -----------------------------
-class EntityTagCreate(EntityTagBase):
-    pass
+# Try to reuse your GUID type if you have one; else fall back to PG UUID
+try:
+    from OSSS.db.types import GUID  # your project’s custom GUID type, if present
+    GUIDCol = GUID
+except Exception:
+    from sqlalchemy.dialects.postgresql import UUID as GUIDCol  # type: ignore
 
-# -----------------------------
-# Replace (PUT)
-# -----------------------------
-class EntityTagPut(EntityTagBase):
-    pass
+class EntityTag(Base):
+    __tablename__ = "entity_tags"
+    __table_args__ = (
+        # helpful for dedupe; keeps router happy with a simple surrogate PK
+        sa.UniqueConstraint("entity_type", "entity_id", "tag_id", name="uq_entity_tags_triplet"),
+    )
 
-# -----------------------------
-# Patch (PATCH)
-# -----------------------------
-class EntityTagPatch(BaseModel):
-    entity_type: Optional[str] = Field(None, min_length=1, max_length=50)
-    entity_id: Optional[str] = None
-    tag_id: Optional[str] = None
-    # attributes: Optional[Dict[str, Any]] = None
+    id: Mapped[str] = mapped_column(
+        GUIDCol, primary_key=True, server_default=sa.text("gen_random_uuid()")
+    )
+    entity_type: Mapped[str] = mapped_column(sa.String(64), nullable=False, index=True)
+    entity_id: Mapped[str] = mapped_column(GUIDCol, nullable=False, index=True)
+    tag_id: Mapped[str] = mapped_column(GUIDCol, nullable=False, index=True)
 
-# -----------------------------
-# Read (GET)
-# -----------------------------
-class EntityTagRead(EntityTagBase):
-    id: str
-    model_config = ConfigDict(from_attributes=True)
-
-# -----------------------------
-# Back-compat aliases (old names)
-# -----------------------------
-EntityTagOut = EntityTagRead        # response
-EntityTagIn = EntityTagCreate       # create
-EntityTagUpdate = EntityTagPatch    # patch
-EntityTagReplace = EntityTagPut     # put  <-- required by your imports
-
-__all__ = [
-    "EntityTagBase",
-    "EntityTagCreate",
-    "EntityTagPut",
-    "EntityTagPatch",
-    "EntityTagRead",
-    "EntityTagOut",
-    "EntityTagIn",
-    "EntityTagUpdate",
-    "EntityTagReplace",
-]
+    created_at: Mapped[sa.DateTime] = mapped_column(
+        sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False
+    )
+    updated_at: Mapped[sa.DateTime] = mapped_column(
+        sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False
+    )
