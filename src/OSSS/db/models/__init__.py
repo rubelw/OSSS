@@ -25,7 +25,6 @@ from .attendance import *
 from .attendance_codes import *
 from .attendance_daily_summary import *
 from .attendance_events import *
-from .audit_log import *
 from .audit_logs import *
 from .behavior_codes import *
 from .behavior_interventions import *
