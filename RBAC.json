@@ -117,7 +117,8 @@
         "read:initiatives",
         "read:invoices",
         "read:meetings",
-        "read:warranties"
+        "read:warranties",
+        "read:maintenance_requests"
       ],
       "parent": null,
       "positions": [
@@ -255,7 +256,8 @@
             "read:standards",
             "read:frameworks",
             "read:meetings",
-            "read:warranties"
+            "read:warranties",
+            "read:maintenance_requests"
           ]
         },
         {
@@ -375,7 +377,8 @@
             "read:initiatives",
             "read:invoices",
             "read:meetings",
-            "read:warranties"
+            "read:warranties",
+            "read:maintenance_requests"
           ]
         },
         {
@@ -495,7 +498,8 @@
             "read:initiatives",
             "read:invoices",
             "read:meetings",
-            "read:warranties"
+            "read:warranties",
+            "read:maintenance_requests"
           ]
         },
         {
@@ -615,7 +619,8 @@
             "read:initiatives",
             "read:invoices",
             "read:meetings",
-            "read:warranties"
+            "read:warranties",
+            "read:maintenance_requests"
           ]
         }
       ],
@@ -737,7 +742,8 @@
             "read:initiatives",
             "read:invoices",
             "read:meetings",
-            "read:warranties"
+            "read:warranties",
+            "read:maintenance_requests"
           ],
           "positions": [
             {
@@ -857,7 +863,8 @@
                 "read:initiatives",
                 "read:invoices",
                 "read:meetings",
-                "read:warranties"
+                "read:warranties",
+                "read:maintenance_requests"
               ]
             },
             {
@@ -977,7 +984,8 @@
                 "read:initiatives",
                 "read:invoices",
                 "read:meetings",
-                "read:warranties"
+                "read:warranties",
+                "read:maintenance_requests"
               ]
             },
             {
@@ -1097,7 +1105,8 @@
                 "read:initiatives",
                 "read:invoices",
                 "read:meetings",
-                "read:warranties"
+                "read:warranties",
+                "read:maintenance_requests"
               ]
             },
             {
@@ -1217,7 +1226,8 @@
                 "read:initiatives",
                 "read:invoices",
                 "read:meetings",
-                "read:warranties"
+                "read:warranties",
+                "read:maintenance_requests"
               ]
             },
             {
@@ -1337,7 +1347,8 @@
                 "read:initiatives",
                 "read:invoices",
                 "read:meetings",
-                "read:warranties"
+                "read:warranties",
+                "read:maintenance_requests"
               ]
             },
             {
@@ -1457,7 +1468,8 @@
                 "read:initiatives",
                 "read:invoices",
                 "read:meetings",
-                "read:warranties"
+                "read:warranties",
+                "read:maintenance_requests"
               ]
             },
             {
@@ -1577,7 +1589,8 @@
                 "read:initiatives",
                 "read:invoices",
                 "read:meetings",
-                "read:warranties"
+                "read:warranties",
+                "read:maintenance_requests"
               ]
             },
             {
@@ -1697,7 +1710,8 @@
                 "read:initiatives",
                 "read:invoices",
                 "read:meetings",
-                "read:warranties"
+                "read:warranties",
+                "read:maintenance_requests"
               ]
             },
             {
@@ -1817,7 +1831,8 @@
                 "read:initiatives",
                 "read:invoices",
                 "read:meetings",
-                "read:warranties"
+                "read:warranties",
+                "read:maintenance_requests"
               ]
             }
           ],
@@ -1938,7 +1953,8 @@
                 "read:initiatives",
                 "read:invoices",
                 "read:meetings",
-                "read:warranties"
+                "read:warranties",
+                "read:maintenance_requests"
               ],
               "positions": [
                 {
@@ -2058,7 +2074,8 @@
                     "read:initiatives",
                     "read:invoices",
                     "read:meetings",
-                    "read:warranties"
+                    "read:warranties",
+                    "read:maintenance_requests"
                   ]
                 }
               ],
@@ -2179,7 +2196,8 @@
                     "read:initiatives",
                     "read:invoices",
                     "read:meetings",
-                    "read:warranties"
+                    "read:warranties",
+                    "read:maintenance_requests"
                   ],
                   "positions": [
                     {
@@ -2299,7 +2317,8 @@
                         "read:initiatives",
                         "read:invoices",
                         "read:meetings",
-                        "read:warranties"
+                        "read:warranties",
+                        "read:maintenance_requests"
                       ]
                     },
                     {
@@ -2419,7 +2438,8 @@
                         "read:initiatives",
                         "read:invoices",
                         "read:meetings",
-                        "read:warranties"
+                        "read:warranties",
+                        "read:maintenance_requests"
                       ]
                     },
                     {
@@ -2539,7 +2559,8 @@
                         "read:initiatives",
                         "read:invoices",
                         "read:meetings",
-                        "read:warranties"
+                        "read:warranties",
+                        "read:maintenance_requests"
                       ]
                     },
                     {
@@ -2659,7 +2680,8 @@
                         "read:initiatives",
                         "read:invoices",
                         "read:meetings",
-                        "read:warranties"
+                        "read:warranties",
+                        "read:maintenance_requests"
                       ]
                     },
                     {
@@ -2779,7 +2801,8 @@
                         "read:initiatives",
                         "read:invoices",
                         "read:meetings",
-                        "read:warranties"
+                        "read:warranties",
+                        "read:maintenance_requests"
                       ]
                     },
                     {
@@ -2899,7 +2922,8 @@
                         "read:initiatives",
                         "read:invoices",
                         "read:meetings",
-                        "read:warranties"
+                        "read:warranties",
+                        "read:maintenance_requests"
                       ]
                     },
                     {
@@ -3019,7 +3043,8 @@
                         "read:initiatives",
                         "read:invoices",
                         "read:meetings",
-                        "read:warranties"
+                        "read:warranties",
+                        "read:maintenance_requests"
                       ]
                     },
                     {
@@ -3139,7 +3164,8 @@
                         "read:initiatives",
                         "read:invoices",
                         "read:meetings",
-                        "read:warranties"
+                        "read:warranties",
+                        "read:maintenance_requests"
                       ]
                     },
                     {
@@ -3261,7 +3287,8 @@
                         "read:invoices",
                         "reac:schools",
                         "read:meetings",
-                        "read:warranties"
+                        "read:warranties",
+                        "read:maintenance_requests"
                       ]
                     },
                     {
@@ -3381,7 +3408,8 @@
                         "read:initiatives",
                         "read:invoices",
                         "read:meetings",
-                        "read:warranties"
+                        "read:warranties",
+                        "read:maintenance_requests"
                       ]
                     },
                     {
@@ -3501,7 +3529,8 @@
                         "read:initiatives",
                         "read:invoices",
                         "read:meetings",
-                        "read:warranties"
+                        "read:warranties",
+                        "read:maintenance_requests"
                       ]
                     },
                     {
@@ -3621,7 +3650,8 @@
                         "read:initiatives",
                         "read:invoices",
                         "read:meetings",
-                        "read:warranties"
+                        "read:warranties",
+                        "read:maintenance_requests"
                       ]
                     },
                     {
@@ -3741,7 +3771,8 @@
                         "read:initiatives",
                         "read:invoices",
                         "read:meetings",
-                        "read:warranties"
+                        "read:warranties",
+                        "read:maintenance_requests"
                       ]
                     },
                     {
@@ -3861,7 +3892,8 @@
                         "read:initiatives",
                         "read:invoices",
                         "read:meetings",
-                        "read:warranties"
+                        "read:warranties",
+                        "read:maintenance_requests"
                       ]
                     }
                   ],
@@ -6232,7 +6264,8 @@
                 "read:rooms",
                 "read:meetings",
                 "read:entity_tags",
-                "read:warranties"
+                "read:warranties",
+                "read:maintenance_requests"
               ],
               "positions": [
                 {
@@ -6254,7 +6287,8 @@
                     "read:rooms",
                     "read:meetings",
                     "read:entity_tags",
-                    "read:warranties"
+                    "read:warranties",
+                    "read:maintenance_requests"
                   ]
                 }
               ],
@@ -6273,7 +6307,8 @@
                     "read:pm_plans",
                     "read:meetings",
                     "read:entity_tags",
-                    "read:warranties"
+                    "read:warranties",
+                    "read:maintenance_requests"
                   ],
                   "positions": [
                     {
@@ -6291,7 +6326,8 @@
                         "read:pm_plans",
                         "read:meetings",
                         "read:entity_tags",
-                        "read:warranties"
+                        "read:warranties",
+                        "read:maintenance_requests"
                       ]
                     },
                     {
@@ -6309,7 +6345,8 @@
                         "read:pm_plans",
                         "read:meetings",
                         "read:entity_tags",
-                        "read:warranties"
+                        "read:warranties",
+                        "read:maintenance_requests"
                       ]
                     },
                     {
@@ -6327,7 +6364,8 @@
                         "read:pm_plans",
                         "read:meetings",
                         "read:entity_tags",
-                        "read:warranties"
+                        "read:warranties",
+                        "read:maintenance_requests"
                       ]
                     },
                     {
@@ -6345,7 +6383,8 @@
                         "read:spaces",
                         "read:meetings",
                         "read:entity_tags",
-                        "read:warranties"
+                        "read:warranties",
+                        "read:maintenance_requests"
                       ]
                     },
                     {
@@ -6363,7 +6402,8 @@
                         "read:spaces",
                         "read:meetings",
                         "read:entity_tags",
-                        "read:warranties"
+                        "read:warranties",
+                        "read:maintenance_requests"
                       ]
                     },
                     {
@@ -6381,7 +6421,8 @@
                         "read:spaces",
                         "read:meetings",
                         "read:entity_tags",
-                        "read:warranties"
+                        "read:warranties",
+                        "read:maintenance_requests"
                       ]
                     },
                     {
@@ -6399,7 +6440,8 @@
                         "read:spaces",
                         "read:meetings",
                         "read:entity_tags",
-                        "read:warranties"
+                        "read:warranties",
+                        "read:maintenance_requests"
                       ]
                     },
                     {
@@ -6417,7 +6459,8 @@
                         "read:spaces",
                         "read:meetings",
                         "read:entity_tags",
-                        "read:warranties"
+                        "read:warranties",
+                        "read:maintenance_requests"
                       ]
                     },
                     {
@@ -6435,7 +6478,8 @@
                         "read:spaces",
                         "read:meetings",
                         "read:entity_tags",
-                        "read:warranties"
+                        "read:warranties",
+                        "read:maintenance_requests"
                       ]
                     },
                     {
@@ -6453,7 +6497,8 @@
                         "read:spaces",
                         "read:meetings",
                         "read:entity_tags",
-                        "read:warranties"
+                        "read:warranties",
+                        "read:maintenance_requests"
                       ]
                     },
                     {
@@ -6471,7 +6516,8 @@
                         "read:spaces",
                         "read:meetings",
                         "read:entity_tags",
-                        "read:warranties"
+                        "read:warranties",
+                        "read:maintenance_requests"
                       ]
                     },
                     {
@@ -6489,7 +6535,8 @@
                         "read:spaces",
                         "read:meetings",
                         "read:entity_tags",
-                        "read:warranties"
+                        "read:warranties",
+                        "read:maintenance_requests"
                       ]
                     },
                     {
@@ -6507,7 +6554,8 @@
                         "read:spaces",
                         "read:meetings",
                         "read:entity_tags",
-                        "read:warranties"
+                        "read:warranties",
+                        "read:maintenance_requests"
                       ]
                     },
                     {
@@ -6525,7 +6573,8 @@
                         "read:spaces",
                         "read:meetings",
                         "read:entity_tags",
-                        "read:warranties"
+                        "read:warranties",
+                        "read:maintenance_requests"
                       ]
                     },
                     {
@@ -6543,7 +6592,8 @@
                         "read:spaces",
                         "read:meetings",
                         "read:entity_tags",
-                        "read:warranties"
+                        "read:warranties",
+                        "read:maintenance_requests"
                       ]
                     },
                     {
@@ -6561,7 +6611,8 @@
                         "read:spaces",
                         "read:meetings",
                         "read:entity_tags",
-                        "read:warranties"
+                        "read:warranties",
+                        "read:maintenance_requests"
                       ]
                     },
                     {
@@ -6579,7 +6630,8 @@
                         "read:spaces",
                         "read:meetings",
                         "read:entity_tags",
-                        "read:warranties"
+                        "read:warranties",
+                        "read:maintenance_requests"
                       ]
                     },
                     {
@@ -6597,7 +6649,8 @@
                         "read:spaces",
                         "read:meetings",
                         "read:entity_tags",
-                        "read:warranties"
+                        "read:warranties",
+                        "read:maintenance_requests"
                       ]
                     },
                     {
@@ -6615,7 +6668,8 @@
                         "read:spaces",
                         "read:meetings",
                         "read:entity_tags",
-                        "read:warranties"
+                        "read:warranties",
+                        "read:maintenance_requests"
                       ]
                     },
                     {
@@ -6633,7 +6687,8 @@
                         "read:spaces",
                         "read:meetings",
                         "read:entity_tags",
-                        "read:warranties"
+                        "read:warranties",
+                        "read:maintenance_requests"
                       ]
                     }
                   ]
