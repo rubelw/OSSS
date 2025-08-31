@@ -11,6 +11,7 @@ from OSSS.settings import settings
 import os
 from sqlalchemy.orm import class_mapper
 from sqlalchemy.orm.exc import UnmappedClassError
+from sqlalchemy.inspection import inspect as sa_inspect
 
 from OSSS.core.config import settings
 from OSSS.db import get_sessionmaker
@@ -51,16 +52,82 @@ LOGGING = {
 logging.config.dictConfig(LOGGING)
 log = logging.getLogger("startup")
 
-if os.getenv("OSSS_DEBUG_MAPPINGS") == "1":
-    from OSSS.db.models.ap_vendors import ApVendor, ApVendorBase
 
-    assert ApVendor.__mapper__.class_ is ApVendor
+def _discover_Base():
+    """Best-effort discovery of the SQLAlchemy Declarative Base."""
+    candidates = [
+        "OSSS.db.base:Base",
+        "OSSS.db.models.base:Base",
+        "OSSS.db.models:Base",
+    ]
+    for cand in candidates:
+        try:
+            mod, attr = cand.split(":")
+            m = __import__(mod, fromlist=[attr])
+            Base = getattr(m, attr)
+            if getattr(getattr(Base, "registry", None), "mappers", None) is not None:
+                return Base, None
+        except Exception as e:
+            last_err = str(e)
+            continue
+    return None, locals().get("last_err", "No suitable Base found")
 
+
+def _dump_mappings(header: str = "[mappings]") -> None:
+    """Emit a detailed list of mapped classes, highlighting entity_tags."""
+    Base, err = _discover_Base()
+    if not Base:
+        log.warning("%s could not discover Base: %s", header, err)
+        return
     try:
-        class_mapper(ApVendorBase)
-        raise AssertionError("Mixin is incorrectly mapped!")
-    except UnmappedClassError:
-        pass
+        mappers = list(Base.registry.mappers)  # type: ignore[attr-defined]
+    except Exception as e:
+        log.exception("%s failed to enumerate mappers: %s", header, e)
+        return
+
+    if not mappers:
+        log.warning("%s no mappers registered yet", header)
+        return
+
+    log.info("%s %d mapped classes:", header, len(mappers))
+    found_entity_tags = False
+
+    for mp in sorted(mappers, key=lambda m: m.class_.__name__):
+        cls = mp.class_
+        name = cls.__name__
+        tablename = getattr(cls, "__tablename__", "<none>")
+        try:
+            mapper_info = sa_inspect(cls)
+            cols = [c.key for c in mapper_info.columns]
+            pks = [c.key for c in mapper_info.primary_key]
+        except Exception:
+            cols, pks = ["<inspect-failed>"], ["<inspect-failed>"]
+        composite_pk = len(pks) > 1
+        flag = ""
+        if tablename == "entity_tags" or "entitytag" in name.lower():
+            flag = "  <-- entity_tags?"
+            found_entity_tags = True
+        log.info("  - %s (table=%s) PK=%s composite=%s cols=%s%s",
+                 name, tablename, pks, composite_pk, cols, flag)
+
+    if not found_entity_tags:
+        log.warning("%s entity_tags not found among mapped classes", header)
+
+
+if os.getenv("OSSS_DEBUG_MAPPINGS") == "1":
+    # Optional sanity check for ApVendor
+    try:
+        from OSSS.db.models.ap_vendors import ApVendor, ApVendorBase  # type: ignore
+        assert ApVendor.__mapper__.class_ is ApVendor
+        try:
+            class_mapper(ApVendorBase)
+            raise AssertionError("Mixin is incorrectly mapped!")
+        except UnmappedClassError:
+            pass
+    except Exception as e:
+        log.debug("[mappings] ApVendor sanity check skipped: %s", e)
+
+    _dump_mappings("[mappings][import-time]")
 
 
 # Make operation IDs unique across all routers
@@ -80,9 +147,10 @@ def _routes_signature(router: APIRouter) -> set[tuple[str, tuple[str, ...]]]:
             sig.add((r.path, methods))
     return sig
 
+
 def _cfg(lower: str, UPPER: str, default=None):
-    # safe: no eager evaluation
     return getattr(settings, lower, None) or getattr(settings, UPPER, default)
+
 
 def create_app() -> FastAPI:
     app = FastAPI(
@@ -91,8 +159,7 @@ def create_app() -> FastAPI:
         generate_unique_id_function=generate_unique_id,
     )
 
-
-    # when configuring your session middleware / auth:
+    # Session middleware
     secret_key = _cfg("session_secret", "SESSION_SECRET", "dev-insecure-change-me")
     cookie_name = _cfg("session_cookie_name", "SESSION_COOKIE_NAME", "osss_session")
     max_age = _cfg("session_max_age", "SESSION_MAX_AGE", 60 * 60 * 24 * 14)
@@ -112,12 +179,11 @@ def create_app() -> FastAPI:
     app.include_router(debug.router)
     app.include_router(me_router)
 
-    # Auth: avoid /auth/token duplication.
-    # If you still need the proxy endpoints, keep them under a distinct prefix.
+    # Auth routers
     app.include_router(auth_router, prefix="/auth", tags=["auth"])
-    app.include_router(auth_proxy.router, prefix="/auth/proxy", tags=["auth"])  # no collision now
+    app.include_router(auth_proxy.router, prefix="/auth/proxy", tags=["auth"])
 
-    # Dynamic model routers (dedupe on path+method to avoid double mounting)
+    # Dynamic model routers
     existing: set[tuple[str, tuple[str, ...]]] = {
         (r.path, tuple(sorted((r.methods or [])))) for r in app.routes if isinstance(r, APIRoute)
     }
@@ -143,7 +209,6 @@ def create_app() -> FastAPI:
     # Startup hooks
     @app.on_event("startup")
     async def _startup() -> None:
-        # tiny probe so Swagger "Authorize" shows usable OAuth2 flow
         probe = APIRouter()
 
         @probe.get("/_oauth_probe", tags=["_debug"])
@@ -152,14 +217,14 @@ def create_app() -> FastAPI:
 
         app.include_router(probe)
 
-        # DB ping (dev friendly)
+        # DB ping
         if not settings.TESTING:
             try:
                 async_session = get_sessionmaker()
                 async with async_session() as session:
                     await session.execute(sa.text("SELECT 1"))
             except Exception:
-                pass  # don't crash app in dev
+                pass
 
         # Swagger OAuth init
         oauth_cfg = {
@@ -167,17 +232,18 @@ def create_app() -> FastAPI:
             "usePkceWithAuthorizationCodeGrant": settings.SWAGGER_USE_PKCE,
             "scopes": "openid profile email",
             **({"clientSecret": settings.SWAGGER_CLIENT_SECRET} if settings.SWAGGER_CLIENT_SECRET else {}),
-
         }
         if settings.SWAGGER_CLIENT_SECRET:
-            oauth_cfg["clientSecret"] = settings.SWAGGER_CLIENT_SECRET  # dev only
+            oauth_cfg["clientSecret"] = settings.SWAGGER_CLIENT_SECRET
         app.swagger_ui_init_oauth = oauth_cfg
 
-        # Log mounted routes (handy for confirming no dupes)
         print(
             "[startup] mounted routes:",
             sorted([r.path for r in app.routes if isinstance(r, APIRoute)]),
         )
+
+        if os.getenv("OSSS_DEBUG_MAPPINGS") == "1":
+            _dump_mappings("[mappings][startup]")
 
     return app
 
