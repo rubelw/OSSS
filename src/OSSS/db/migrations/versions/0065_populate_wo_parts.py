@@ -11,7 +11,7 @@ from alembic import op
 import sqlalchemy as sa
 
 # ---- Alembic identifiers ----
-revision = "0064_populate_wo_parts"
+revision = "0065_populate_wo_parts"
 down_revision = "0064_populate_wo_tasks"
 branch_labels = None
 depends_on = None

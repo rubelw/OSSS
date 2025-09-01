@@ -15,7 +15,7 @@ import sqlalchemy as sa
 
 # ---- Alembic identifiers ----
 revision = "0066_populate_waivers"
-down_revision = "0065_populate_webhooks"
+down_revision = "0065_populate_wo_parts"
 branch_labels = None
 depends_on = None
 

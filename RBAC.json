@@ -5,6 +5,7 @@
       "unit": "board_of_education_governing_board",
       "permissions": [
         "read:academic_terms",
+        "read:motions",
         "read:accommodations",
         "read:activities",
         "read:addresses",
@@ -132,6 +133,7 @@
           "description": "Leads the governing board; sets agendas and presides over meetings.",
           "permissions": [
             "read:academic_terms",
+            "read:motions",
             "read:accommodations",
             "read:activities",
             "read:addresses",
@@ -276,6 +278,7 @@
           "description": "Supports/acts in place of the chair as needed.",
           "permissions": [
             "read:academic_terms",
+            "read:motions",
             "read:accommodations",
             "read:activities",
             "read:addresses",
@@ -402,6 +405,7 @@
           "description": "Records board actions; manages official records and notices.",
           "permissions": [
             "read:academic_terms",
+            "read:motions",
             "read:accommodations",
             "read:activities",
             "read:addresses",
@@ -528,6 +532,7 @@
           "description": "Elected/appointed governance of the district or school; sets policy and oversees superintendent/head.",
           "permissions": [
             "read:academic_terms",
+            "read:motions",
             "read:accommodations",
             "read:activities",
             "read:addresses",
