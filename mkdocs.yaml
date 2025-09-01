@@ -52,7 +52,6 @@ nav:
 
 plugins:
   - search
-  - sitemap
   - mkdocstrings:
       default_handler: python
       handlers:
