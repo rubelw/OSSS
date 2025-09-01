@@ -134,6 +134,7 @@
           "description": "Leads the governing board; sets agendas and presides over meetings.",
           "permissions": [
             "read:academic_terms",
+            "read:proposals",
             "read:votes",
             "read:motions",
             "read:accommodations",

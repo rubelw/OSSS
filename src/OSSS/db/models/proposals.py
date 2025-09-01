@@ -18,7 +18,7 @@ class Proposal(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "proposals"
 
     # Use bare GUID columns for cross-system IDs to remain DB-agnostic without external FK requirements.
-    district_id: Mapped[Optional[str]] = mapped_column(GUID(), index=True)
+    organization_id: Mapped[Optional[str]] = mapped_column(GUID(), index=True)
     association_id: Mapped[Optional[str]] = mapped_column(GUID(), index=True)
 
     title: Mapped[str] = mapped_column(sa.String(255), nullable=False)
