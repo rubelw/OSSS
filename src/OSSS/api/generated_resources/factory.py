@@ -7,13 +7,18 @@ from sqlalchemy.orm import Session
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.inspection import inspect
 from sqlalchemy import select
+from sqlalchemy.sql.schema import MetaData as SAMetaData  # <-- NEW
 
 from .serialization import to_dict
-
+# NOTE: remove any direct import of get_db here; we’ll use discovery helpers
+# from OSSS.db.session import get_db  # ❌ remove this
+from .factory_helpers import build_pydantic_from_sqla_model, to_pydantic
 
 from OSSS.auth.deps import require_roles  # role-based gate
+
+
 # -----------------------------------------------------------------------------
-# Discovery helpers
+# Discovery helpers (unchanged)
 # -----------------------------------------------------------------------------
 def _discover_get_db() -> Callable[[], Iterable[Session | AsyncSession]]:
     candidates = [
@@ -41,7 +46,6 @@ def _discover_get_db() -> Callable[[], Iterable[Session | AsyncSession]]:
 
 
 def _discover_get_current_user() -> Callable[..., Any]:
-    """Try common spots for your auth dependency."""
     candidates = [
         "OSSS.auth.dependencies:get_current_user",
         "OSSS.api.dependencies:get_current_user",
@@ -56,7 +60,6 @@ def _discover_get_current_user() -> Callable[..., Any]:
         except Exception:
             continue
 
-    # default raises clearly if require_auth=True and you didn't pass one
     def _missing_current_user():
         raise RuntimeError(
             "No get_current_user dependency found. "
@@ -71,7 +74,7 @@ DEFAULT_GET_CURRENT_USER = _discover_get_current_user()
 
 
 # -----------------------------------------------------------------------------
-# Introspection helpers
+# Introspection helpers (unchanged)
 # -----------------------------------------------------------------------------
 def _pk_info(model) -> Tuple[str, Any]:
     mapper = inspect(model)
@@ -88,9 +91,74 @@ def _model_columns(model):
     return [c.key for c in inspect(model).columns]
 
 
+# -----------------------------------------------------------------------------
+# SA/JSON field name helpers
+# -----------------------------------------------------------------------------
+def _json_attr_name(model: Type[Any], db_column_name: str = "metadata") -> Optional[str]:
+    """
+    If the DB column is named 'metadata', many projects expose it on the model
+    under a safer Python attribute name (e.g. 'metadata_json', 'data', etc.)
+    to avoid colliding with SQLAlchemy's Base.metadata.
+
+    Try common alternates and return whichever exists, else None.
+    """
+    candidates = [
+        "metadata_json", "_metadata", "data", "json", "extra",
+        db_column_name,  # last resort: literal 'metadata' if they really mapped it
+    ]
+    for name in candidates:
+        if hasattr(model, name):
+            return name
+    return None
+
+
+def _coerce_metadata_for_output(obj: Any, d: Dict[str, Any], db_column_name: str = "metadata") -> Dict[str, Any]:
+    """
+    If d['metadata'] is actually a SQLAlchemy MetaData() (collision),
+    replace it with the real JSON source if we can find it. Otherwise drop it.
+    """
+    val = getattr(obj, db_column_name, None)
+    if isinstance(val, SAMetaData):
+        # collision: look for the true attribute
+        attr = _json_attr_name(type(obj), db_column_name)
+        if attr and not isinstance(getattr(obj, attr, None), SAMetaData):
+            d[db_column_name] = getattr(obj, attr, None)
+        else:
+            # can't resolve safely; remove to avoid 500s
+            d.pop(db_column_name, None)
+    return d
+
+
+def _sanitize_payload_for_model(model: Type[Any], payload: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Map incoming JSON 'metadata' into the model's true JSON attribute to avoid
+    colliding with SQLAlchemy's MetaData. Leaves other keys intact.
+    """
+    if "metadata" in payload:
+        attr = _json_attr_name(model, "metadata")
+        if attr and attr != "metadata":
+            # move/alias 'metadata' → actual attribute
+            if attr not in payload:
+                payload[attr] = payload["metadata"]
+            # drop the colliding key so we never set obj.metadata = ...
+            payload.pop("metadata", None)
+    return payload
+
+
+def _safe_to_dict(obj: Any) -> Dict[str, Any]:
+    """
+    Dump an ORM object to a plain dict while fixing 'metadata' collisions
+    and leaving nullable datetimes (e.g. published_at=None) as-is.
+    """
+    data = to_dict(obj)
+    if "metadata" in data:
+        data = _coerce_metadata_for_output(obj, data, "metadata")
+    # Repeat here for other known JSON columns that could collide, if any
+    return data
+
 
 # -----------------------------------------------------------------------------
-# Small async/sync DB helpers
+# Small async/sync DB helpers (unchanged)
 # -----------------------------------------------------------------------------
 async def _db_get(db: Session | AsyncSession, model: Type[Any], item_id: Any):
     if isinstance(db, AsyncSession):
@@ -117,28 +185,14 @@ async def _db_commit_refresh(db: Session | AsyncSession, obj: Any | None = None)
 
 
 # -----------------------------------------------------------------------------
-# Authorization helpers
+# Authorization helpers (unchanged)
 # -----------------------------------------------------------------------------
-def _deps_for(op: str):
-    """Translate roles[op] into a FastAPI dependency list for that endpoint."""
-    deps = []
-    if roles:
-        spec = roles.get(op) if isinstance(roles, dict) else None
-        if spec:
-            any_of = spec.get("any_of") or set()
-            all_of = spec.get("all_of") or set()
-            client_id = spec.get("client_id")
-            deps.append(Depends(require_roles(any_of=any_of, all_of=all_of, client_id=client_id)))
-    return deps
-
 def _ensure_authenticated(user: Any):
-    # Treat falsy / None as unauthenticated
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
 
 
 AuthorizeFn = Callable[[str, Any, Optional[Any], Type[Any]], None]
-# signature: authorize(action, user, resource_instance_or_None, model_class) -> None (raise 403 if not allowed)
 
 
 # -----------------------------------------------------------------------------
@@ -154,13 +208,9 @@ def create_router_for_model(
     # Auth:
     require_auth: bool = True,
     get_current_user: Callable[..., Any] = DEFAULT_GET_CURRENT_USER,
-    authorize: Optional[AuthorizeFn] = None,  # optional RBAC/ABAC hook
-    # ⬇️ NEW: renamed to avoid shadowing and capture issues
+    authorize: Optional[AuthorizeFn] = None,
     roles_map: Optional[Dict[str, Dict[str, Any]]] = None,
 ) -> APIRouter:
-    """
-    Minimal CRUD router for a SQLAlchemy model, with optional per-op RBAC.
-    """
     if require_auth and get_current_user is DEFAULT_GET_CURRENT_USER and get_current_user is _discover_get_current_user():
         if getattr(get_current_user, "__name__", "") == "_missing_current_user":
             raise RuntimeError(
@@ -181,7 +231,6 @@ def create_router_for_model(
     cols = set(_model_columns(model))
     op = model.__name__.lower()
 
-    # ⬇️ Capture roles_map via default arg so decorators can use it safely
     def _deps_for(op: str, _roles=roles_map):
         deps = []
         if _roles:
@@ -199,6 +248,7 @@ def create_router_for_model(
         if authorize is not None:
             authorize(action, user, instance, model)
 
+    # ---------- LIST ----------
     @router.get(_prefix, tags=_tags,
                 name=f"{op}_list",
                 operation_id=f"{op}_list",
@@ -212,8 +262,10 @@ def create_router_for_model(
         _authz("read", user, None)
         stmt = select(model).offset(skip).limit(limit)
         rows = await _db_execute_scalars_all(db, stmt)
-        return [to_dict(o) for o in rows]
+        # Return sanitized dicts to avoid Pydantic crashes on MetaData()/NULL
+        return [_safe_to_dict(o) for o in rows]
 
+    # ---------- GET ----------
     @router.get(f"{_prefix}/{{item_id}}", tags=_tags,
                 name=f"{op}_get",
                 operation_id=f"{op}_get",
@@ -227,8 +279,9 @@ def create_router_for_model(
         _authz("read", user, obj)
         if not obj:
             raise HTTPException(404, f"{model.__name__} not found")
-        return to_dict(obj)
+        return _safe_to_dict(obj)
 
+    # ---------- CREATE ----------
     @router.post(_prefix, status_code=201, tags=_tags,
                  name=f"{op}_create",
                  operation_id=f"{op}_create",
@@ -239,12 +292,14 @@ def create_router_for_model(
         user: Any = Depends(get_current_user) if require_auth else None,
     ):
         _authz("create", user, None)
+        payload = _sanitize_payload_for_model(model, dict(payload))
         data = {k: v for k, v in payload.items() if k in cols}
         obj = model(**data)
         db.add(obj)
         await _db_commit_refresh(db, obj)
-        return to_dict(obj)
+        return _safe_to_dict(obj)
 
+    # ---------- PATCH ----------
     @router.patch(f"{_prefix}/{{item_id}}", tags=_tags,
                   name=f"{op}_update",
                   operation_id=f"{op}_update",
@@ -259,13 +314,16 @@ def create_router_for_model(
         if not obj:
             raise HTTPException(404, f"{model.__name__} not found")
         _authz("update", user, obj)
+
+        payload = _sanitize_payload_for_model(model, dict(payload))
         for k, v in payload.items():
             if k in cols and k != pk_name:
                 setattr(obj, k, v)
         db.add(obj)
         await _db_commit_refresh(db, obj)
-        return to_dict(obj)
+        return _safe_to_dict(obj)
 
+    # ---------- PUT (replace) ----------
     @router.put(f"{_prefix}/{{item_id}}", tags=_tags,
                 name=f"{op}_replace",
                 operation_id=f"{op}_replace",
@@ -277,7 +335,9 @@ def create_router_for_model(
         user: Any = Depends(get_current_user) if require_auth else None,
     ):
         obj = await _db_get(db, model, item_id)
+        payload = _sanitize_payload_for_model(model, dict(payload))
         filtered = {k: v for k, v in payload.items() if k in cols}
+
         if obj is None:
             _authz("create", user, None)
             if not allow_put_create:
@@ -287,7 +347,7 @@ def create_router_for_model(
             obj = model(**filtered)
             db.add(obj)
             await _db_commit_refresh(db, obj)
-            return to_dict(obj)
+            return _safe_to_dict(obj)
 
         _authz("update", user, obj)
         for k in cols:
@@ -296,8 +356,9 @@ def create_router_for_model(
             setattr(obj, k, filtered.get(k, None))
         db.add(obj)
         await _db_commit_refresh(db, obj)
-        return to_dict(obj)
+        return _safe_to_dict(obj)
 
+    # ---------- DELETE ----------
     @router.delete(f"{_prefix}/{{item_id}}", status_code=204, tags=_tags,
                    name=f"{op}_delete",
                    operation_id=f"{op}_delete",
