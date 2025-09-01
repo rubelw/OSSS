@@ -1,0 +1,1744 @@
+section_name,course_name,term_name,section_number,name,weight
+English 9 | Fall Semester 2025 | Section 001,English 9,Fall Semester 2025,001,Homework,40.00
+English 9 | Fall Semester 2025 | Section 001,English 9,Fall Semester 2025,001,Quizzes,30.00
+English 9 | Fall Semester 2025 | Section 001,English 9,Fall Semester 2025,001,Final Exam,30.00
+English 10 | Fall Semester 2025 | Section 001,English 10,Fall Semester 2025,001,Homework,40.00
+English 10 | Fall Semester 2025 | Section 001,English 10,Fall Semester 2025,001,Quizzes,30.00
+English 10 | Fall Semester 2025 | Section 001,English 10,Fall Semester 2025,001,Final Exam,30.00
+English 11 | Fall Semester 2025 | Section 001,English 11,Fall Semester 2025,001,Homework,40.00
+English 11 | Fall Semester 2025 | Section 001,English 11,Fall Semester 2025,001,Quizzes,30.00
+English 11 | Fall Semester 2025 | Section 001,English 11,Fall Semester 2025,001,Final Exam,30.00
+English 12 | Fall Semester 2025 | Section 001,English 12,Fall Semester 2025,001,Homework,40.00
+English 12 | Fall Semester 2025 | Section 001,English 12,Fall Semester 2025,001,Quizzes,30.00
+English 12 | Fall Semester 2025 | Section 001,English 12,Fall Semester 2025,001,Final Exam,30.00
+Literature | Fall Semester 2025 | Section 001,Literature,Fall Semester 2025,001,Homework,40.00
+Literature | Fall Semester 2025 | Section 001,Literature,Fall Semester 2025,001,Quizzes,30.00
+Literature | Fall Semester 2025 | Section 001,Literature,Fall Semester 2025,001,Final Exam,30.00
+Writing/Composition | Fall Semester 2025 | Section 001,Writing/Composition,Fall Semester 2025,001,Homework,40.00
+Writing/Composition | Fall Semester 2025 | Section 001,Writing/Composition,Fall Semester 2025,001,Quizzes,30.00
+Writing/Composition | Fall Semester 2025 | Section 001,Writing/Composition,Fall Semester 2025,001,Final Exam,30.00
+Journalism | Fall Semester 2025 | Section 001,Journalism,Fall Semester 2025,001,Homework,40.00
+Journalism | Fall Semester 2025 | Section 001,Journalism,Fall Semester 2025,001,Quizzes,30.00
+Journalism | Fall Semester 2025 | Section 001,Journalism,Fall Semester 2025,001,Final Exam,30.00
+Speech/Communications | Fall Semester 2025 | Section 001,Speech/Communications,Fall Semester 2025,001,Homework,40.00
+Speech/Communications | Fall Semester 2025 | Section 001,Speech/Communications,Fall Semester 2025,001,Quizzes,30.00
+Speech/Communications | Fall Semester 2025 | Section 001,Speech/Communications,Fall Semester 2025,001,Final Exam,30.00
+Reading | Fall Semester 2025 | Section 001,Reading,Fall Semester 2025,001,Homework,40.00
+Reading | Fall Semester 2025 | Section 001,Reading,Fall Semester 2025,001,Quizzes,30.00
+Reading | Fall Semester 2025 | Section 001,Reading,Fall Semester 2025,001,Final Exam,30.00
+Math 6 | Fall Semester 2025 | Section 001,Math 6,Fall Semester 2025,001,Homework,40.00
+Math 6 | Fall Semester 2025 | Section 001,Math 6,Fall Semester 2025,001,Quizzes,30.00
+Math 6 | Fall Semester 2025 | Section 001,Math 6,Fall Semester 2025,001,Final Exam,30.00
+Pre-Algebra | Fall Semester 2025 | Section 001,Pre-Algebra,Fall Semester 2025,001,Homework,40.00
+Pre-Algebra | Fall Semester 2025 | Section 001,Pre-Algebra,Fall Semester 2025,001,Quizzes,30.00
+Pre-Algebra | Fall Semester 2025 | Section 001,Pre-Algebra,Fall Semester 2025,001,Final Exam,30.00
+Algebra I | Fall Semester 2025 | Section 001,Algebra I,Fall Semester 2025,001,Homework,40.00
+Algebra I | Fall Semester 2025 | Section 001,Algebra I,Fall Semester 2025,001,Quizzes,30.00
+Algebra I | Fall Semester 2025 | Section 001,Algebra I,Fall Semester 2025,001,Final Exam,30.00
+Geometry | Fall Semester 2025 | Section 001,Geometry,Fall Semester 2025,001,Homework,40.00
+Geometry | Fall Semester 2025 | Section 001,Geometry,Fall Semester 2025,001,Quizzes,30.00
+Geometry | Fall Semester 2025 | Section 001,Geometry,Fall Semester 2025,001,Final Exam,30.00
+Algebra II | Fall Semester 2025 | Section 001,Algebra II,Fall Semester 2025,001,Homework,40.00
+Algebra II | Fall Semester 2025 | Section 001,Algebra II,Fall Semester 2025,001,Quizzes,30.00
+Algebra II | Fall Semester 2025 | Section 001,Algebra II,Fall Semester 2025,001,Final Exam,30.00
+Precalculus | Fall Semester 2025 | Section 001,Precalculus,Fall Semester 2025,001,Homework,40.00
+Precalculus | Fall Semester 2025 | Section 001,Precalculus,Fall Semester 2025,001,Quizzes,30.00
+Precalculus | Fall Semester 2025 | Section 001,Precalculus,Fall Semester 2025,001,Final Exam,30.00
+Calculus | Fall Semester 2025 | Section 001,Calculus,Fall Semester 2025,001,Homework,40.00
+Calculus | Fall Semester 2025 | Section 001,Calculus,Fall Semester 2025,001,Quizzes,30.00
+Calculus | Fall Semester 2025 | Section 001,Calculus,Fall Semester 2025,001,Final Exam,30.00
+Statistics | Fall Semester 2025 | Section 001,Statistics,Fall Semester 2025,001,Homework,40.00
+Statistics | Fall Semester 2025 | Section 001,Statistics,Fall Semester 2025,001,Quizzes,30.00
+Statistics | Fall Semester 2025 | Section 001,Statistics,Fall Semester 2025,001,Final Exam,30.00
+Earth Science | Fall Semester 2025 | Section 001,Earth Science,Fall Semester 2025,001,Homework,40.00
+Earth Science | Fall Semester 2025 | Section 001,Earth Science,Fall Semester 2025,001,Quizzes,30.00
+Earth Science | Fall Semester 2025 | Section 001,Earth Science,Fall Semester 2025,001,Final Exam,30.00
+Physical Science | Fall Semester 2025 | Section 001,Physical Science,Fall Semester 2025,001,Homework,40.00
+Physical Science | Fall Semester 2025 | Section 001,Physical Science,Fall Semester 2025,001,Quizzes,30.00
+Physical Science | Fall Semester 2025 | Section 001,Physical Science,Fall Semester 2025,001,Final Exam,30.00
+Biology | Fall Semester 2025 | Section 001,Biology,Fall Semester 2025,001,Homework,40.00
+Biology | Fall Semester 2025 | Section 001,Biology,Fall Semester 2025,001,Quizzes,30.00
+Biology | Fall Semester 2025 | Section 001,Biology,Fall Semester 2025,001,Final Exam,30.00
+Chemistry | Fall Semester 2025 | Section 001,Chemistry,Fall Semester 2025,001,Homework,40.00
+Chemistry | Fall Semester 2025 | Section 001,Chemistry,Fall Semester 2025,001,Quizzes,30.00
+Chemistry | Fall Semester 2025 | Section 001,Chemistry,Fall Semester 2025,001,Final Exam,30.00
+Physics | Fall Semester 2025 | Section 001,Physics,Fall Semester 2025,001,Homework,40.00
+Physics | Fall Semester 2025 | Section 001,Physics,Fall Semester 2025,001,Quizzes,30.00
+Physics | Fall Semester 2025 | Section 001,Physics,Fall Semester 2025,001,Final Exam,30.00
+Environmental Science | Fall Semester 2025 | Section 001,Environmental Science,Fall Semester 2025,001,Homework,40.00
+Environmental Science | Fall Semester 2025 | Section 001,Environmental Science,Fall Semester 2025,001,Quizzes,30.00
+Environmental Science | Fall Semester 2025 | Section 001,Environmental Science,Fall Semester 2025,001,Final Exam,30.00
+Anatomy & Physiology | Fall Semester 2025 | Section 001,Anatomy & Physiology,Fall Semester 2025,001,Homework,40.00
+Anatomy & Physiology | Fall Semester 2025 | Section 001,Anatomy & Physiology,Fall Semester 2025,001,Quizzes,30.00
+Anatomy & Physiology | Fall Semester 2025 | Section 001,Anatomy & Physiology,Fall Semester 2025,001,Final Exam,30.00
+World History | Fall Semester 2025 | Section 001,World History,Fall Semester 2025,001,Homework,40.00
+World History | Fall Semester 2025 | Section 001,World History,Fall Semester 2025,001,Quizzes,30.00
+World History | Fall Semester 2025 | Section 001,World History,Fall Semester 2025,001,Final Exam,30.00
+U.S. History | Fall Semester 2025 | Section 001,U.S. History,Fall Semester 2025,001,Homework,40.00
+U.S. History | Fall Semester 2025 | Section 001,U.S. History,Fall Semester 2025,001,Quizzes,30.00
+U.S. History | Fall Semester 2025 | Section 001,U.S. History,Fall Semester 2025,001,Final Exam,30.00
+Government/Civics | Fall Semester 2025 | Section 001,Government/Civics,Fall Semester 2025,001,Homework,40.00
+Government/Civics | Fall Semester 2025 | Section 001,Government/Civics,Fall Semester 2025,001,Quizzes,30.00
+Government/Civics | Fall Semester 2025 | Section 001,Government/Civics,Fall Semester 2025,001,Final Exam,30.00
+Economics | Fall Semester 2025 | Section 001,Economics,Fall Semester 2025,001,Homework,40.00
+Economics | Fall Semester 2025 | Section 001,Economics,Fall Semester 2025,001,Quizzes,30.00
+Economics | Fall Semester 2025 | Section 001,Economics,Fall Semester 2025,001,Final Exam,30.00
+Geography | Fall Semester 2025 | Section 001,Geography,Fall Semester 2025,001,Homework,40.00
+Geography | Fall Semester 2025 | Section 001,Geography,Fall Semester 2025,001,Quizzes,30.00
+Geography | Fall Semester 2025 | Section 001,Geography,Fall Semester 2025,001,Final Exam,30.00
+Psychology | Fall Semester 2025 | Section 001,Psychology,Fall Semester 2025,001,Homework,40.00
+Psychology | Fall Semester 2025 | Section 001,Psychology,Fall Semester 2025,001,Quizzes,30.00
+Psychology | Fall Semester 2025 | Section 001,Psychology,Fall Semester 2025,001,Final Exam,30.00
+Sociology | Fall Semester 2025 | Section 001,Sociology,Fall Semester 2025,001,Homework,40.00
+Sociology | Fall Semester 2025 | Section 001,Sociology,Fall Semester 2025,001,Quizzes,30.00
+Sociology | Fall Semester 2025 | Section 001,Sociology,Fall Semester 2025,001,Final Exam,30.00
+Spanish I | Fall Semester 2025 | Section 001,Spanish I,Fall Semester 2025,001,Homework,40.00
+Spanish I | Fall Semester 2025 | Section 001,Spanish I,Fall Semester 2025,001,Quizzes,30.00
+Spanish I | Fall Semester 2025 | Section 001,Spanish I,Fall Semester 2025,001,Final Exam,30.00
+Spanish II | Fall Semester 2025 | Section 001,Spanish II,Fall Semester 2025,001,Homework,40.00
+Spanish II | Fall Semester 2025 | Section 001,Spanish II,Fall Semester 2025,001,Quizzes,30.00
+Spanish II | Fall Semester 2025 | Section 001,Spanish II,Fall Semester 2025,001,Final Exam,30.00
+French I | Fall Semester 2025 | Section 001,French I,Fall Semester 2025,001,Homework,40.00
+French I | Fall Semester 2025 | Section 001,French I,Fall Semester 2025,001,Quizzes,30.00
+French I | Fall Semester 2025 | Section 001,French I,Fall Semester 2025,001,Final Exam,30.00
+French II | Fall Semester 2025 | Section 001,French II,Fall Semester 2025,001,Homework,40.00
+French II | Fall Semester 2025 | Section 001,French II,Fall Semester 2025,001,Quizzes,30.00
+French II | Fall Semester 2025 | Section 001,French II,Fall Semester 2025,001,Final Exam,30.00
+German I | Fall Semester 2025 | Section 001,German I,Fall Semester 2025,001,Homework,40.00
+German I | Fall Semester 2025 | Section 001,German I,Fall Semester 2025,001,Quizzes,30.00
+German I | Fall Semester 2025 | Section 001,German I,Fall Semester 2025,001,Final Exam,30.00
+German II | Fall Semester 2025 | Section 001,German II,Fall Semester 2025,001,Homework,40.00
+German II | Fall Semester 2025 | Section 001,German II,Fall Semester 2025,001,Quizzes,30.00
+German II | Fall Semester 2025 | Section 001,German II,Fall Semester 2025,001,Final Exam,30.00
+Art I | Fall Semester 2025 | Section 001,Art I,Fall Semester 2025,001,Homework,40.00
+Art I | Fall Semester 2025 | Section 001,Art I,Fall Semester 2025,001,Quizzes,30.00
+Art I | Fall Semester 2025 | Section 001,Art I,Fall Semester 2025,001,Final Exam,30.00
+Art II | Fall Semester 2025 | Section 001,Art II,Fall Semester 2025,001,Homework,40.00
+Art II | Fall Semester 2025 | Section 001,Art II,Fall Semester 2025,001,Quizzes,30.00
+Art II | Fall Semester 2025 | Section 001,Art II,Fall Semester 2025,001,Final Exam,30.00
+Drawing | Fall Semester 2025 | Section 001,Drawing,Fall Semester 2025,001,Homework,40.00
+Drawing | Fall Semester 2025 | Section 001,Drawing,Fall Semester 2025,001,Quizzes,30.00
+Drawing | Fall Semester 2025 | Section 001,Drawing,Fall Semester 2025,001,Final Exam,30.00
+Painting | Fall Semester 2025 | Section 001,Painting,Fall Semester 2025,001,Homework,40.00
+Painting | Fall Semester 2025 | Section 001,Painting,Fall Semester 2025,001,Quizzes,30.00
+Painting | Fall Semester 2025 | Section 001,Painting,Fall Semester 2025,001,Final Exam,30.00
+Sculpture | Fall Semester 2025 | Section 001,Sculpture,Fall Semester 2025,001,Homework,40.00
+Sculpture | Fall Semester 2025 | Section 001,Sculpture,Fall Semester 2025,001,Quizzes,30.00
+Sculpture | Fall Semester 2025 | Section 001,Sculpture,Fall Semester 2025,001,Final Exam,30.00
+Digital Art | Fall Semester 2025 | Section 001,Digital Art,Fall Semester 2025,001,Homework,40.00
+Digital Art | Fall Semester 2025 | Section 001,Digital Art,Fall Semester 2025,001,Quizzes,30.00
+Digital Art | Fall Semester 2025 | Section 001,Digital Art,Fall Semester 2025,001,Final Exam,30.00
+Band | Fall Semester 2025 | Section 001,Band,Fall Semester 2025,001,Homework,40.00
+Band | Fall Semester 2025 | Section 001,Band,Fall Semester 2025,001,Quizzes,30.00
+Band | Fall Semester 2025 | Section 001,Band,Fall Semester 2025,001,Final Exam,30.00
+Choir | Fall Semester 2025 | Section 001,Choir,Fall Semester 2025,001,Homework,40.00
+Choir | Fall Semester 2025 | Section 001,Choir,Fall Semester 2025,001,Quizzes,30.00
+Choir | Fall Semester 2025 | Section 001,Choir,Fall Semester 2025,001,Final Exam,30.00
+Orchestra | Fall Semester 2025 | Section 001,Orchestra,Fall Semester 2025,001,Homework,40.00
+Orchestra | Fall Semester 2025 | Section 001,Orchestra,Fall Semester 2025,001,Quizzes,30.00
+Orchestra | Fall Semester 2025 | Section 001,Orchestra,Fall Semester 2025,001,Final Exam,30.00
+Jazz Band | Fall Semester 2025 | Section 001,Jazz Band,Fall Semester 2025,001,Homework,40.00
+Jazz Band | Fall Semester 2025 | Section 001,Jazz Band,Fall Semester 2025,001,Quizzes,30.00
+Jazz Band | Fall Semester 2025 | Section 001,Jazz Band,Fall Semester 2025,001,Final Exam,30.00
+Music Theory | Fall Semester 2025 | Section 001,Music Theory,Fall Semester 2025,001,Homework,40.00
+Music Theory | Fall Semester 2025 | Section 001,Music Theory,Fall Semester 2025,001,Quizzes,30.00
+Music Theory | Fall Semester 2025 | Section 001,Music Theory,Fall Semester 2025,001,Final Exam,30.00
+PE 9 | Fall Semester 2025 | Section 001,PE 9,Fall Semester 2025,001,Homework,40.00
+PE 9 | Fall Semester 2025 | Section 001,PE 9,Fall Semester 2025,001,Quizzes,30.00
+PE 9 | Fall Semester 2025 | Section 001,PE 9,Fall Semester 2025,001,Final Exam,30.00
+PE 10 | Fall Semester 2025 | Section 001,PE 10,Fall Semester 2025,001,Homework,40.00
+PE 10 | Fall Semester 2025 | Section 001,PE 10,Fall Semester 2025,001,Quizzes,30.00
+PE 10 | Fall Semester 2025 | Section 001,PE 10,Fall Semester 2025,001,Final Exam,30.00
+Weight Training | Fall Semester 2025 | Section 001,Weight Training,Fall Semester 2025,001,Homework,40.00
+Weight Training | Fall Semester 2025 | Section 001,Weight Training,Fall Semester 2025,001,Quizzes,30.00
+Weight Training | Fall Semester 2025 | Section 001,Weight Training,Fall Semester 2025,001,Final Exam,30.00
+Lifetime Fitness | Fall Semester 2025 | Section 001,Lifetime Fitness,Fall Semester 2025,001,Homework,40.00
+Lifetime Fitness | Fall Semester 2025 | Section 001,Lifetime Fitness,Fall Semester 2025,001,Quizzes,30.00
+Lifetime Fitness | Fall Semester 2025 | Section 001,Lifetime Fitness,Fall Semester 2025,001,Final Exam,30.00
+Health | Fall Semester 2025 | Section 001,Health,Fall Semester 2025,001,Homework,40.00
+Health | Fall Semester 2025 | Section 001,Health,Fall Semester 2025,001,Quizzes,30.00
+Health | Fall Semester 2025 | Section 001,Health,Fall Semester 2025,001,Final Exam,30.00
+Nutrition & Wellness | Fall Semester 2025 | Section 001,Nutrition & Wellness,Fall Semester 2025,001,Homework,40.00
+Nutrition & Wellness | Fall Semester 2025 | Section 001,Nutrition & Wellness,Fall Semester 2025,001,Quizzes,30.00
+Nutrition & Wellness | Fall Semester 2025 | Section 001,Nutrition & Wellness,Fall Semester 2025,001,Final Exam,30.00
+Business Essentials | Fall Semester 2025 | Section 001,Business Essentials,Fall Semester 2025,001,Homework,40.00
+Business Essentials | Fall Semester 2025 | Section 001,Business Essentials,Fall Semester 2025,001,Quizzes,30.00
+Business Essentials | Fall Semester 2025 | Section 001,Business Essentials,Fall Semester 2025,001,Final Exam,30.00
+Accounting | Fall Semester 2025 | Section 001,Accounting,Fall Semester 2025,001,Homework,40.00
+Accounting | Fall Semester 2025 | Section 001,Accounting,Fall Semester 2025,001,Quizzes,30.00
+Accounting | Fall Semester 2025 | Section 001,Accounting,Fall Semester 2025,001,Final Exam,30.00
+Marketing | Fall Semester 2025 | Section 001,Marketing,Fall Semester 2025,001,Homework,40.00
+Marketing | Fall Semester 2025 | Section 001,Marketing,Fall Semester 2025,001,Quizzes,30.00
+Marketing | Fall Semester 2025 | Section 001,Marketing,Fall Semester 2025,001,Final Exam,30.00
+Entrepreneurship | Fall Semester 2025 | Section 001,Entrepreneurship,Fall Semester 2025,001,Homework,40.00
+Entrepreneurship | Fall Semester 2025 | Section 001,Entrepreneurship,Fall Semester 2025,001,Quizzes,30.00
+Entrepreneurship | Fall Semester 2025 | Section 001,Entrepreneurship,Fall Semester 2025,001,Final Exam,30.00
+Computer Applications | Fall Semester 2025 | Section 001,Computer Applications,Fall Semester 2025,001,Homework,40.00
+Computer Applications | Fall Semester 2025 | Section 001,Computer Applications,Fall Semester 2025,001,Quizzes,30.00
+Computer Applications | Fall Semester 2025 | Section 001,Computer Applications,Fall Semester 2025,001,Final Exam,30.00
+Engineering/PLTW | Fall Semester 2025 | Section 001,Engineering/PLTW,Fall Semester 2025,001,Homework,40.00
+Engineering/PLTW | Fall Semester 2025 | Section 001,Engineering/PLTW,Fall Semester 2025,001,Quizzes,30.00
+Engineering/PLTW | Fall Semester 2025 | Section 001,Engineering/PLTW,Fall Semester 2025,001,Final Exam,30.00
+Robotics | Fall Semester 2025 | Section 001,Robotics,Fall Semester 2025,001,Homework,40.00
+Robotics | Fall Semester 2025 | Section 001,Robotics,Fall Semester 2025,001,Quizzes,30.00
+Robotics | Fall Semester 2025 | Section 001,Robotics,Fall Semester 2025,001,Final Exam,30.00
+Culinary Arts | Fall Semester 2025 | Section 001,Culinary Arts,Fall Semester 2025,001,Homework,40.00
+Culinary Arts | Fall Semester 2025 | Section 001,Culinary Arts,Fall Semester 2025,001,Quizzes,30.00
+Culinary Arts | Fall Semester 2025 | Section 001,Culinary Arts,Fall Semester 2025,001,Final Exam,30.00
+Construction Trades | Fall Semester 2025 | Section 001,Construction Trades,Fall Semester 2025,001,Homework,40.00
+Construction Trades | Fall Semester 2025 | Section 001,Construction Trades,Fall Semester 2025,001,Quizzes,30.00
+Construction Trades | Fall Semester 2025 | Section 001,Construction Trades,Fall Semester 2025,001,Final Exam,30.00
+Automotive Technology | Fall Semester 2025 | Section 001,Automotive Technology,Fall Semester 2025,001,Homework,40.00
+Automotive Technology | Fall Semester 2025 | Section 001,Automotive Technology,Fall Semester 2025,001,Quizzes,30.00
+Automotive Technology | Fall Semester 2025 | Section 001,Automotive Technology,Fall Semester 2025,001,Final Exam,30.00
+Intro to Computer Science | Fall Semester 2025 | Section 001,Intro to Computer Science,Fall Semester 2025,001,Homework,40.00
+Intro to Computer Science | Fall Semester 2025 | Section 001,Intro to Computer Science,Fall Semester 2025,001,Quizzes,30.00
+Intro to Computer Science | Fall Semester 2025 | Section 001,Intro to Computer Science,Fall Semester 2025,001,Final Exam,30.00
+AP Computer Science Principles | Fall Semester 2025 | Section 001,AP Computer Science Principles,Fall Semester 2025,001,Homework,40.00
+AP Computer Science Principles | Fall Semester 2025 | Section 001,AP Computer Science Principles,Fall Semester 2025,001,Quizzes,30.00
+AP Computer Science Principles | Fall Semester 2025 | Section 001,AP Computer Science Principles,Fall Semester 2025,001,Final Exam,30.00
+AP Computer Science A | Fall Semester 2025 | Section 001,AP Computer Science A,Fall Semester 2025,001,Homework,40.00
+AP Computer Science A | Fall Semester 2025 | Section 001,AP Computer Science A,Fall Semester 2025,001,Quizzes,30.00
+AP Computer Science A | Fall Semester 2025 | Section 001,AP Computer Science A,Fall Semester 2025,001,Final Exam,30.00
+Web Development | Fall Semester 2025 | Section 001,Web Development,Fall Semester 2025,001,Homework,40.00
+Web Development | Fall Semester 2025 | Section 001,Web Development,Fall Semester 2025,001,Quizzes,30.00
+Web Development | Fall Semester 2025 | Section 001,Web Development,Fall Semester 2025,001,Final Exam,30.00
+Cybersecurity | Fall Semester 2025 | Section 001,Cybersecurity,Fall Semester 2025,001,Homework,40.00
+Cybersecurity | Fall Semester 2025 | Section 001,Cybersecurity,Fall Semester 2025,001,Quizzes,30.00
+Cybersecurity | Fall Semester 2025 | Section 001,Cybersecurity,Fall Semester 2025,001,Final Exam,30.00
+Data Science | Fall Semester 2025 | Section 001,Data Science,Fall Semester 2025,001,Homework,40.00
+Data Science | Fall Semester 2025 | Section 001,Data Science,Fall Semester 2025,001,Quizzes,30.00
+Data Science | Fall Semester 2025 | Section 001,Data Science,Fall Semester 2025,001,Final Exam,30.00
+Resource English | Fall Semester 2025 | Section 001,Resource English,Fall Semester 2025,001,Homework,40.00
+Resource English | Fall Semester 2025 | Section 001,Resource English,Fall Semester 2025,001,Quizzes,30.00
+Resource English | Fall Semester 2025 | Section 001,Resource English,Fall Semester 2025,001,Final Exam,30.00
+Resource Math | Fall Semester 2025 | Section 001,Resource Math,Fall Semester 2025,001,Homework,40.00
+Resource Math | Fall Semester 2025 | Section 001,Resource Math,Fall Semester 2025,001,Quizzes,30.00
+Resource Math | Fall Semester 2025 | Section 001,Resource Math,Fall Semester 2025,001,Final Exam,30.00
+Study Skills | Fall Semester 2025 | Section 001,Study Skills,Fall Semester 2025,001,Homework,40.00
+Study Skills | Fall Semester 2025 | Section 001,Study Skills,Fall Semester 2025,001,Quizzes,30.00
+Study Skills | Fall Semester 2025 | Section 001,Study Skills,Fall Semester 2025,001,Final Exam,30.00
+ELL Beginner | Fall Semester 2025 | Section 001,ELL Beginner,Fall Semester 2025,001,Homework,40.00
+ELL Beginner | Fall Semester 2025 | Section 001,ELL Beginner,Fall Semester 2025,001,Quizzes,30.00
+ELL Beginner | Fall Semester 2025 | Section 001,ELL Beginner,Fall Semester 2025,001,Final Exam,30.00
+ELL Intermediate | Fall Semester 2025 | Section 001,ELL Intermediate,Fall Semester 2025,001,Homework,40.00
+ELL Intermediate | Fall Semester 2025 | Section 001,ELL Intermediate,Fall Semester 2025,001,Quizzes,30.00
+ELL Intermediate | Fall Semester 2025 | Section 001,ELL Intermediate,Fall Semester 2025,001,Final Exam,30.00
+ELL Advanced | Fall Semester 2025 | Section 001,ELL Advanced,Fall Semester 2025,001,Homework,40.00
+ELL Advanced | Fall Semester 2025 | Section 001,ELL Advanced,Fall Semester 2025,001,Quizzes,30.00
+ELL Advanced | Fall Semester 2025 | Section 001,ELL Advanced,Fall Semester 2025,001,Final Exam,30.00
+Child Development | Fall Semester 2025 | Section 001,Child Development,Fall Semester 2025,001,Homework,40.00
+Child Development | Fall Semester 2025 | Section 001,Child Development,Fall Semester 2025,001,Quizzes,30.00
+Child Development | Fall Semester 2025 | Section 001,Child Development,Fall Semester 2025,001,Final Exam,30.00
+Foods & Nutrition | Fall Semester 2025 | Section 001,Foods & Nutrition,Fall Semester 2025,001,Homework,40.00
+Foods & Nutrition | Fall Semester 2025 | Section 001,Foods & Nutrition,Fall Semester 2025,001,Quizzes,30.00
+Foods & Nutrition | Fall Semester 2025 | Section 001,Foods & Nutrition,Fall Semester 2025,001,Final Exam,30.00
+Family & Consumer Science | Fall Semester 2025 | Section 001,Family & Consumer Science,Fall Semester 2025,001,Homework,40.00
+Family & Consumer Science | Fall Semester 2025 | Section 001,Family & Consumer Science,Fall Semester 2025,001,Quizzes,30.00
+Family & Consumer Science | Fall Semester 2025 | Section 001,Family & Consumer Science,Fall Semester 2025,001,Final Exam,30.00
+Agricultural Science | Fall Semester 2025 | Section 001,Agricultural Science,Fall Semester 2025,001,Homework,40.00
+Agricultural Science | Fall Semester 2025 | Section 001,Agricultural Science,Fall Semester 2025,001,Quizzes,30.00
+Agricultural Science | Fall Semester 2025 | Section 001,Agricultural Science,Fall Semester 2025,001,Final Exam,30.00
+Animal Science | Fall Semester 2025 | Section 001,Animal Science,Fall Semester 2025,001,Homework,40.00
+Animal Science | Fall Semester 2025 | Section 001,Animal Science,Fall Semester 2025,001,Quizzes,30.00
+Animal Science | Fall Semester 2025 | Section 001,Animal Science,Fall Semester 2025,001,Final Exam,30.00
+Plant Science | Fall Semester 2025 | Section 001,Plant Science,Fall Semester 2025,001,Homework,40.00
+Plant Science | Fall Semester 2025 | Section 001,Plant Science,Fall Semester 2025,001,Quizzes,30.00
+Plant Science | Fall Semester 2025 | Section 001,Plant Science,Fall Semester 2025,001,Final Exam,30.00
+General Studies | Fall Semester 2025 | Section 001,General Studies,Fall Semester 2025,001,Homework,40.00
+General Studies | Fall Semester 2025 | Section 001,General Studies,Fall Semester 2025,001,Quizzes,30.00
+General Studies | Fall Semester 2025 | Section 001,General Studies,Fall Semester 2025,001,Final Exam,30.00
+English 9 | Fall Semester 2025 | Section 001,English 9,Fall Semester 2025,001,Homework,40.00
+English 9 | Fall Semester 2025 | Section 001,English 9,Fall Semester 2025,001,Quizzes,30.00
+English 9 | Fall Semester 2025 | Section 001,English 9,Fall Semester 2025,001,Final Exam,30.00
+English 10 | Fall Semester 2025 | Section 001,English 10,Fall Semester 2025,001,Homework,40.00
+English 10 | Fall Semester 2025 | Section 001,English 10,Fall Semester 2025,001,Quizzes,30.00
+English 10 | Fall Semester 2025 | Section 001,English 10,Fall Semester 2025,001,Final Exam,30.00
+English 11 | Fall Semester 2025 | Section 001,English 11,Fall Semester 2025,001,Homework,40.00
+English 11 | Fall Semester 2025 | Section 001,English 11,Fall Semester 2025,001,Quizzes,30.00
+English 11 | Fall Semester 2025 | Section 001,English 11,Fall Semester 2025,001,Final Exam,30.00
+English 12 | Fall Semester 2025 | Section 001,English 12,Fall Semester 2025,001,Homework,40.00
+English 12 | Fall Semester 2025 | Section 001,English 12,Fall Semester 2025,001,Quizzes,30.00
+English 12 | Fall Semester 2025 | Section 001,English 12,Fall Semester 2025,001,Final Exam,30.00
+Literature | Fall Semester 2025 | Section 001,Literature,Fall Semester 2025,001,Homework,40.00
+Literature | Fall Semester 2025 | Section 001,Literature,Fall Semester 2025,001,Quizzes,30.00
+Literature | Fall Semester 2025 | Section 001,Literature,Fall Semester 2025,001,Final Exam,30.00
+Writing/Composition | Fall Semester 2025 | Section 001,Writing/Composition,Fall Semester 2025,001,Homework,40.00
+Writing/Composition | Fall Semester 2025 | Section 001,Writing/Composition,Fall Semester 2025,001,Quizzes,30.00
+Writing/Composition | Fall Semester 2025 | Section 001,Writing/Composition,Fall Semester 2025,001,Final Exam,30.00
+Journalism | Fall Semester 2025 | Section 001,Journalism,Fall Semester 2025,001,Homework,40.00
+Journalism | Fall Semester 2025 | Section 001,Journalism,Fall Semester 2025,001,Quizzes,30.00
+Journalism | Fall Semester 2025 | Section 001,Journalism,Fall Semester 2025,001,Final Exam,30.00
+Speech/Communications | Fall Semester 2025 | Section 001,Speech/Communications,Fall Semester 2025,001,Homework,40.00
+Speech/Communications | Fall Semester 2025 | Section 001,Speech/Communications,Fall Semester 2025,001,Quizzes,30.00
+Speech/Communications | Fall Semester 2025 | Section 001,Speech/Communications,Fall Semester 2025,001,Final Exam,30.00
+Reading | Fall Semester 2025 | Section 001,Reading,Fall Semester 2025,001,Homework,40.00
+Reading | Fall Semester 2025 | Section 001,Reading,Fall Semester 2025,001,Quizzes,30.00
+Reading | Fall Semester 2025 | Section 001,Reading,Fall Semester 2025,001,Final Exam,30.00
+Math 6 | Fall Semester 2025 | Section 001,Math 6,Fall Semester 2025,001,Homework,40.00
+Math 6 | Fall Semester 2025 | Section 001,Math 6,Fall Semester 2025,001,Quizzes,30.00
+Math 6 | Fall Semester 2025 | Section 001,Math 6,Fall Semester 2025,001,Final Exam,30.00
+Pre-Algebra | Fall Semester 2025 | Section 001,Pre-Algebra,Fall Semester 2025,001,Homework,40.00
+Pre-Algebra | Fall Semester 2025 | Section 001,Pre-Algebra,Fall Semester 2025,001,Quizzes,30.00
+Pre-Algebra | Fall Semester 2025 | Section 001,Pre-Algebra,Fall Semester 2025,001,Final Exam,30.00
+Algebra I | Fall Semester 2025 | Section 001,Algebra I,Fall Semester 2025,001,Homework,40.00
+Algebra I | Fall Semester 2025 | Section 001,Algebra I,Fall Semester 2025,001,Quizzes,30.00
+Algebra I | Fall Semester 2025 | Section 001,Algebra I,Fall Semester 2025,001,Final Exam,30.00
+Geometry | Fall Semester 2025 | Section 001,Geometry,Fall Semester 2025,001,Homework,40.00
+Geometry | Fall Semester 2025 | Section 001,Geometry,Fall Semester 2025,001,Quizzes,30.00
+Geometry | Fall Semester 2025 | Section 001,Geometry,Fall Semester 2025,001,Final Exam,30.00
+Algebra II | Fall Semester 2025 | Section 001,Algebra II,Fall Semester 2025,001,Homework,40.00
+Algebra II | Fall Semester 2025 | Section 001,Algebra II,Fall Semester 2025,001,Quizzes,30.00
+Algebra II | Fall Semester 2025 | Section 001,Algebra II,Fall Semester 2025,001,Final Exam,30.00
+Precalculus | Fall Semester 2025 | Section 001,Precalculus,Fall Semester 2025,001,Homework,40.00
+Precalculus | Fall Semester 2025 | Section 001,Precalculus,Fall Semester 2025,001,Quizzes,30.00
+Precalculus | Fall Semester 2025 | Section 001,Precalculus,Fall Semester 2025,001,Final Exam,30.00
+Calculus | Fall Semester 2025 | Section 001,Calculus,Fall Semester 2025,001,Homework,40.00
+Calculus | Fall Semester 2025 | Section 001,Calculus,Fall Semester 2025,001,Quizzes,30.00
+Calculus | Fall Semester 2025 | Section 001,Calculus,Fall Semester 2025,001,Final Exam,30.00
+Statistics | Fall Semester 2025 | Section 001,Statistics,Fall Semester 2025,001,Homework,40.00
+Statistics | Fall Semester 2025 | Section 001,Statistics,Fall Semester 2025,001,Quizzes,30.00
+Statistics | Fall Semester 2025 | Section 001,Statistics,Fall Semester 2025,001,Final Exam,30.00
+Earth Science | Fall Semester 2025 | Section 001,Earth Science,Fall Semester 2025,001,Homework,40.00
+Earth Science | Fall Semester 2025 | Section 001,Earth Science,Fall Semester 2025,001,Quizzes,30.00
+Earth Science | Fall Semester 2025 | Section 001,Earth Science,Fall Semester 2025,001,Final Exam,30.00
+Physical Science | Fall Semester 2025 | Section 001,Physical Science,Fall Semester 2025,001,Homework,40.00
+Physical Science | Fall Semester 2025 | Section 001,Physical Science,Fall Semester 2025,001,Quizzes,30.00
+Physical Science | Fall Semester 2025 | Section 001,Physical Science,Fall Semester 2025,001,Final Exam,30.00
+Biology | Fall Semester 2025 | Section 001,Biology,Fall Semester 2025,001,Homework,40.00
+Biology | Fall Semester 2025 | Section 001,Biology,Fall Semester 2025,001,Quizzes,30.00
+Biology | Fall Semester 2025 | Section 001,Biology,Fall Semester 2025,001,Final Exam,30.00
+Chemistry | Fall Semester 2025 | Section 001,Chemistry,Fall Semester 2025,001,Homework,40.00
+Chemistry | Fall Semester 2025 | Section 001,Chemistry,Fall Semester 2025,001,Quizzes,30.00
+Chemistry | Fall Semester 2025 | Section 001,Chemistry,Fall Semester 2025,001,Final Exam,30.00
+Physics | Fall Semester 2025 | Section 001,Physics,Fall Semester 2025,001,Homework,40.00
+Physics | Fall Semester 2025 | Section 001,Physics,Fall Semester 2025,001,Quizzes,30.00
+Physics | Fall Semester 2025 | Section 001,Physics,Fall Semester 2025,001,Final Exam,30.00
+Environmental Science | Fall Semester 2025 | Section 001,Environmental Science,Fall Semester 2025,001,Homework,40.00
+Environmental Science | Fall Semester 2025 | Section 001,Environmental Science,Fall Semester 2025,001,Quizzes,30.00
+Environmental Science | Fall Semester 2025 | Section 001,Environmental Science,Fall Semester 2025,001,Final Exam,30.00
+Anatomy & Physiology | Fall Semester 2025 | Section 001,Anatomy & Physiology,Fall Semester 2025,001,Homework,40.00
+Anatomy & Physiology | Fall Semester 2025 | Section 001,Anatomy & Physiology,Fall Semester 2025,001,Quizzes,30.00
+Anatomy & Physiology | Fall Semester 2025 | Section 001,Anatomy & Physiology,Fall Semester 2025,001,Final Exam,30.00
+World History | Fall Semester 2025 | Section 001,World History,Fall Semester 2025,001,Homework,40.00
+World History | Fall Semester 2025 | Section 001,World History,Fall Semester 2025,001,Quizzes,30.00
+World History | Fall Semester 2025 | Section 001,World History,Fall Semester 2025,001,Final Exam,30.00
+U.S. History | Fall Semester 2025 | Section 001,U.S. History,Fall Semester 2025,001,Homework,40.00
+U.S. History | Fall Semester 2025 | Section 001,U.S. History,Fall Semester 2025,001,Quizzes,30.00
+U.S. History | Fall Semester 2025 | Section 001,U.S. History,Fall Semester 2025,001,Final Exam,30.00
+Government/Civics | Fall Semester 2025 | Section 001,Government/Civics,Fall Semester 2025,001,Homework,40.00
+Government/Civics | Fall Semester 2025 | Section 001,Government/Civics,Fall Semester 2025,001,Quizzes,30.00
+Government/Civics | Fall Semester 2025 | Section 001,Government/Civics,Fall Semester 2025,001,Final Exam,30.00
+Economics | Fall Semester 2025 | Section 001,Economics,Fall Semester 2025,001,Homework,40.00
+Economics | Fall Semester 2025 | Section 001,Economics,Fall Semester 2025,001,Quizzes,30.00
+Economics | Fall Semester 2025 | Section 001,Economics,Fall Semester 2025,001,Final Exam,30.00
+Geography | Fall Semester 2025 | Section 001,Geography,Fall Semester 2025,001,Homework,40.00
+Geography | Fall Semester 2025 | Section 001,Geography,Fall Semester 2025,001,Quizzes,30.00
+Geography | Fall Semester 2025 | Section 001,Geography,Fall Semester 2025,001,Final Exam,30.00
+Psychology | Fall Semester 2025 | Section 001,Psychology,Fall Semester 2025,001,Homework,40.00
+Psychology | Fall Semester 2025 | Section 001,Psychology,Fall Semester 2025,001,Quizzes,30.00
+Psychology | Fall Semester 2025 | Section 001,Psychology,Fall Semester 2025,001,Final Exam,30.00
+Sociology | Fall Semester 2025 | Section 001,Sociology,Fall Semester 2025,001,Homework,40.00
+Sociology | Fall Semester 2025 | Section 001,Sociology,Fall Semester 2025,001,Quizzes,30.00
+Sociology | Fall Semester 2025 | Section 001,Sociology,Fall Semester 2025,001,Final Exam,30.00
+Spanish I | Fall Semester 2025 | Section 001,Spanish I,Fall Semester 2025,001,Homework,40.00
+Spanish I | Fall Semester 2025 | Section 001,Spanish I,Fall Semester 2025,001,Quizzes,30.00
+Spanish I | Fall Semester 2025 | Section 001,Spanish I,Fall Semester 2025,001,Final Exam,30.00
+Spanish II | Fall Semester 2025 | Section 001,Spanish II,Fall Semester 2025,001,Homework,40.00
+Spanish II | Fall Semester 2025 | Section 001,Spanish II,Fall Semester 2025,001,Quizzes,30.00
+Spanish II | Fall Semester 2025 | Section 001,Spanish II,Fall Semester 2025,001,Final Exam,30.00
+French I | Fall Semester 2025 | Section 001,French I,Fall Semester 2025,001,Homework,40.00
+French I | Fall Semester 2025 | Section 001,French I,Fall Semester 2025,001,Quizzes,30.00
+French I | Fall Semester 2025 | Section 001,French I,Fall Semester 2025,001,Final Exam,30.00
+French II | Fall Semester 2025 | Section 001,French II,Fall Semester 2025,001,Homework,40.00
+French II | Fall Semester 2025 | Section 001,French II,Fall Semester 2025,001,Quizzes,30.00
+French II | Fall Semester 2025 | Section 001,French II,Fall Semester 2025,001,Final Exam,30.00
+German I | Fall Semester 2025 | Section 001,German I,Fall Semester 2025,001,Homework,40.00
+German I | Fall Semester 2025 | Section 001,German I,Fall Semester 2025,001,Quizzes,30.00
+German I | Fall Semester 2025 | Section 001,German I,Fall Semester 2025,001,Final Exam,30.00
+German II | Fall Semester 2025 | Section 001,German II,Fall Semester 2025,001,Homework,40.00
+German II | Fall Semester 2025 | Section 001,German II,Fall Semester 2025,001,Quizzes,30.00
+German II | Fall Semester 2025 | Section 001,German II,Fall Semester 2025,001,Final Exam,30.00
+Art I | Fall Semester 2025 | Section 001,Art I,Fall Semester 2025,001,Homework,40.00
+Art I | Fall Semester 2025 | Section 001,Art I,Fall Semester 2025,001,Quizzes,30.00
+Art I | Fall Semester 2025 | Section 001,Art I,Fall Semester 2025,001,Final Exam,30.00
+Art II | Fall Semester 2025 | Section 001,Art II,Fall Semester 2025,001,Homework,40.00
+Art II | Fall Semester 2025 | Section 001,Art II,Fall Semester 2025,001,Quizzes,30.00
+Art II | Fall Semester 2025 | Section 001,Art II,Fall Semester 2025,001,Final Exam,30.00
+Drawing | Fall Semester 2025 | Section 001,Drawing,Fall Semester 2025,001,Homework,40.00
+Drawing | Fall Semester 2025 | Section 001,Drawing,Fall Semester 2025,001,Quizzes,30.00
+Drawing | Fall Semester 2025 | Section 001,Drawing,Fall Semester 2025,001,Final Exam,30.00
+Painting | Fall Semester 2025 | Section 001,Painting,Fall Semester 2025,001,Homework,40.00
+Painting | Fall Semester 2025 | Section 001,Painting,Fall Semester 2025,001,Quizzes,30.00
+Painting | Fall Semester 2025 | Section 001,Painting,Fall Semester 2025,001,Final Exam,30.00
+Sculpture | Fall Semester 2025 | Section 001,Sculpture,Fall Semester 2025,001,Homework,40.00
+Sculpture | Fall Semester 2025 | Section 001,Sculpture,Fall Semester 2025,001,Quizzes,30.00
+Sculpture | Fall Semester 2025 | Section 001,Sculpture,Fall Semester 2025,001,Final Exam,30.00
+Digital Art | Fall Semester 2025 | Section 001,Digital Art,Fall Semester 2025,001,Homework,40.00
+Digital Art | Fall Semester 2025 | Section 001,Digital Art,Fall Semester 2025,001,Quizzes,30.00
+Digital Art | Fall Semester 2025 | Section 001,Digital Art,Fall Semester 2025,001,Final Exam,30.00
+Band | Fall Semester 2025 | Section 001,Band,Fall Semester 2025,001,Homework,40.00
+Band | Fall Semester 2025 | Section 001,Band,Fall Semester 2025,001,Quizzes,30.00
+Band | Fall Semester 2025 | Section 001,Band,Fall Semester 2025,001,Final Exam,30.00
+Choir | Fall Semester 2025 | Section 001,Choir,Fall Semester 2025,001,Homework,40.00
+Choir | Fall Semester 2025 | Section 001,Choir,Fall Semester 2025,001,Quizzes,30.00
+Choir | Fall Semester 2025 | Section 001,Choir,Fall Semester 2025,001,Final Exam,30.00
+Orchestra | Fall Semester 2025 | Section 001,Orchestra,Fall Semester 2025,001,Homework,40.00
+Orchestra | Fall Semester 2025 | Section 001,Orchestra,Fall Semester 2025,001,Quizzes,30.00
+Orchestra | Fall Semester 2025 | Section 001,Orchestra,Fall Semester 2025,001,Final Exam,30.00
+Jazz Band | Fall Semester 2025 | Section 001,Jazz Band,Fall Semester 2025,001,Homework,40.00
+Jazz Band | Fall Semester 2025 | Section 001,Jazz Band,Fall Semester 2025,001,Quizzes,30.00
+Jazz Band | Fall Semester 2025 | Section 001,Jazz Band,Fall Semester 2025,001,Final Exam,30.00
+Music Theory | Fall Semester 2025 | Section 001,Music Theory,Fall Semester 2025,001,Homework,40.00
+Music Theory | Fall Semester 2025 | Section 001,Music Theory,Fall Semester 2025,001,Quizzes,30.00
+Music Theory | Fall Semester 2025 | Section 001,Music Theory,Fall Semester 2025,001,Final Exam,30.00
+PE 9 | Fall Semester 2025 | Section 001,PE 9,Fall Semester 2025,001,Homework,40.00
+PE 9 | Fall Semester 2025 | Section 001,PE 9,Fall Semester 2025,001,Quizzes,30.00
+PE 9 | Fall Semester 2025 | Section 001,PE 9,Fall Semester 2025,001,Final Exam,30.00
+PE 10 | Fall Semester 2025 | Section 001,PE 10,Fall Semester 2025,001,Homework,40.00
+PE 10 | Fall Semester 2025 | Section 001,PE 10,Fall Semester 2025,001,Quizzes,30.00
+PE 10 | Fall Semester 2025 | Section 001,PE 10,Fall Semester 2025,001,Final Exam,30.00
+Weight Training | Fall Semester 2025 | Section 001,Weight Training,Fall Semester 2025,001,Homework,40.00
+Weight Training | Fall Semester 2025 | Section 001,Weight Training,Fall Semester 2025,001,Quizzes,30.00
+Weight Training | Fall Semester 2025 | Section 001,Weight Training,Fall Semester 2025,001,Final Exam,30.00
+Lifetime Fitness | Fall Semester 2025 | Section 001,Lifetime Fitness,Fall Semester 2025,001,Homework,40.00
+Lifetime Fitness | Fall Semester 2025 | Section 001,Lifetime Fitness,Fall Semester 2025,001,Quizzes,30.00
+Lifetime Fitness | Fall Semester 2025 | Section 001,Lifetime Fitness,Fall Semester 2025,001,Final Exam,30.00
+Health | Fall Semester 2025 | Section 001,Health,Fall Semester 2025,001,Homework,40.00
+Health | Fall Semester 2025 | Section 001,Health,Fall Semester 2025,001,Quizzes,30.00
+Health | Fall Semester 2025 | Section 001,Health,Fall Semester 2025,001,Final Exam,30.00
+Nutrition & Wellness | Fall Semester 2025 | Section 001,Nutrition & Wellness,Fall Semester 2025,001,Homework,40.00
+Nutrition & Wellness | Fall Semester 2025 | Section 001,Nutrition & Wellness,Fall Semester 2025,001,Quizzes,30.00
+Nutrition & Wellness | Fall Semester 2025 | Section 001,Nutrition & Wellness,Fall Semester 2025,001,Final Exam,30.00
+Business Essentials | Fall Semester 2025 | Section 001,Business Essentials,Fall Semester 2025,001,Homework,40.00
+Business Essentials | Fall Semester 2025 | Section 001,Business Essentials,Fall Semester 2025,001,Quizzes,30.00
+Business Essentials | Fall Semester 2025 | Section 001,Business Essentials,Fall Semester 2025,001,Final Exam,30.00
+Accounting | Fall Semester 2025 | Section 001,Accounting,Fall Semester 2025,001,Homework,40.00
+Accounting | Fall Semester 2025 | Section 001,Accounting,Fall Semester 2025,001,Quizzes,30.00
+Accounting | Fall Semester 2025 | Section 001,Accounting,Fall Semester 2025,001,Final Exam,30.00
+Marketing | Fall Semester 2025 | Section 001,Marketing,Fall Semester 2025,001,Homework,40.00
+Marketing | Fall Semester 2025 | Section 001,Marketing,Fall Semester 2025,001,Quizzes,30.00
+Marketing | Fall Semester 2025 | Section 001,Marketing,Fall Semester 2025,001,Final Exam,30.00
+Entrepreneurship | Fall Semester 2025 | Section 001,Entrepreneurship,Fall Semester 2025,001,Homework,40.00
+Entrepreneurship | Fall Semester 2025 | Section 001,Entrepreneurship,Fall Semester 2025,001,Quizzes,30.00
+Entrepreneurship | Fall Semester 2025 | Section 001,Entrepreneurship,Fall Semester 2025,001,Final Exam,30.00
+Computer Applications | Fall Semester 2025 | Section 001,Computer Applications,Fall Semester 2025,001,Homework,40.00
+Computer Applications | Fall Semester 2025 | Section 001,Computer Applications,Fall Semester 2025,001,Quizzes,30.00
+Computer Applications | Fall Semester 2025 | Section 001,Computer Applications,Fall Semester 2025,001,Final Exam,30.00
+Engineering/PLTW | Fall Semester 2025 | Section 001,Engineering/PLTW,Fall Semester 2025,001,Homework,40.00
+Engineering/PLTW | Fall Semester 2025 | Section 001,Engineering/PLTW,Fall Semester 2025,001,Quizzes,30.00
+Engineering/PLTW | Fall Semester 2025 | Section 001,Engineering/PLTW,Fall Semester 2025,001,Final Exam,30.00
+Robotics | Fall Semester 2025 | Section 001,Robotics,Fall Semester 2025,001,Homework,40.00
+Robotics | Fall Semester 2025 | Section 001,Robotics,Fall Semester 2025,001,Quizzes,30.00
+Robotics | Fall Semester 2025 | Section 001,Robotics,Fall Semester 2025,001,Final Exam,30.00
+Culinary Arts | Fall Semester 2025 | Section 001,Culinary Arts,Fall Semester 2025,001,Homework,40.00
+Culinary Arts | Fall Semester 2025 | Section 001,Culinary Arts,Fall Semester 2025,001,Quizzes,30.00
+Culinary Arts | Fall Semester 2025 | Section 001,Culinary Arts,Fall Semester 2025,001,Final Exam,30.00
+Construction Trades | Fall Semester 2025 | Section 001,Construction Trades,Fall Semester 2025,001,Homework,40.00
+Construction Trades | Fall Semester 2025 | Section 001,Construction Trades,Fall Semester 2025,001,Quizzes,30.00
+Construction Trades | Fall Semester 2025 | Section 001,Construction Trades,Fall Semester 2025,001,Final Exam,30.00
+Automotive Technology | Fall Semester 2025 | Section 001,Automotive Technology,Fall Semester 2025,001,Homework,40.00
+Automotive Technology | Fall Semester 2025 | Section 001,Automotive Technology,Fall Semester 2025,001,Quizzes,30.00
+Automotive Technology | Fall Semester 2025 | Section 001,Automotive Technology,Fall Semester 2025,001,Final Exam,30.00
+Intro to Computer Science | Fall Semester 2025 | Section 001,Intro to Computer Science,Fall Semester 2025,001,Homework,40.00
+Intro to Computer Science | Fall Semester 2025 | Section 001,Intro to Computer Science,Fall Semester 2025,001,Quizzes,30.00
+Intro to Computer Science | Fall Semester 2025 | Section 001,Intro to Computer Science,Fall Semester 2025,001,Final Exam,30.00
+AP Computer Science Principles | Fall Semester 2025 | Section 001,AP Computer Science Principles,Fall Semester 2025,001,Homework,40.00
+AP Computer Science Principles | Fall Semester 2025 | Section 001,AP Computer Science Principles,Fall Semester 2025,001,Quizzes,30.00
+AP Computer Science Principles | Fall Semester 2025 | Section 001,AP Computer Science Principles,Fall Semester 2025,001,Final Exam,30.00
+AP Computer Science A | Fall Semester 2025 | Section 001,AP Computer Science A,Fall Semester 2025,001,Homework,40.00
+AP Computer Science A | Fall Semester 2025 | Section 001,AP Computer Science A,Fall Semester 2025,001,Quizzes,30.00
+AP Computer Science A | Fall Semester 2025 | Section 001,AP Computer Science A,Fall Semester 2025,001,Final Exam,30.00
+Web Development | Fall Semester 2025 | Section 001,Web Development,Fall Semester 2025,001,Homework,40.00
+Web Development | Fall Semester 2025 | Section 001,Web Development,Fall Semester 2025,001,Quizzes,30.00
+Web Development | Fall Semester 2025 | Section 001,Web Development,Fall Semester 2025,001,Final Exam,30.00
+Cybersecurity | Fall Semester 2025 | Section 001,Cybersecurity,Fall Semester 2025,001,Homework,40.00
+Cybersecurity | Fall Semester 2025 | Section 001,Cybersecurity,Fall Semester 2025,001,Quizzes,30.00
+Cybersecurity | Fall Semester 2025 | Section 001,Cybersecurity,Fall Semester 2025,001,Final Exam,30.00
+Data Science | Fall Semester 2025 | Section 001,Data Science,Fall Semester 2025,001,Homework,40.00
+Data Science | Fall Semester 2025 | Section 001,Data Science,Fall Semester 2025,001,Quizzes,30.00
+Data Science | Fall Semester 2025 | Section 001,Data Science,Fall Semester 2025,001,Final Exam,30.00
+Resource English | Fall Semester 2025 | Section 001,Resource English,Fall Semester 2025,001,Homework,40.00
+Resource English | Fall Semester 2025 | Section 001,Resource English,Fall Semester 2025,001,Quizzes,30.00
+Resource English | Fall Semester 2025 | Section 001,Resource English,Fall Semester 2025,001,Final Exam,30.00
+Resource Math | Fall Semester 2025 | Section 001,Resource Math,Fall Semester 2025,001,Homework,40.00
+Resource Math | Fall Semester 2025 | Section 001,Resource Math,Fall Semester 2025,001,Quizzes,30.00
+Resource Math | Fall Semester 2025 | Section 001,Resource Math,Fall Semester 2025,001,Final Exam,30.00
+Study Skills | Fall Semester 2025 | Section 001,Study Skills,Fall Semester 2025,001,Homework,40.00
+Study Skills | Fall Semester 2025 | Section 001,Study Skills,Fall Semester 2025,001,Quizzes,30.00
+Study Skills | Fall Semester 2025 | Section 001,Study Skills,Fall Semester 2025,001,Final Exam,30.00
+ELL Beginner | Fall Semester 2025 | Section 001,ELL Beginner,Fall Semester 2025,001,Homework,40.00
+ELL Beginner | Fall Semester 2025 | Section 001,ELL Beginner,Fall Semester 2025,001,Quizzes,30.00
+ELL Beginner | Fall Semester 2025 | Section 001,ELL Beginner,Fall Semester 2025,001,Final Exam,30.00
+ELL Intermediate | Fall Semester 2025 | Section 001,ELL Intermediate,Fall Semester 2025,001,Homework,40.00
+ELL Intermediate | Fall Semester 2025 | Section 001,ELL Intermediate,Fall Semester 2025,001,Quizzes,30.00
+ELL Intermediate | Fall Semester 2025 | Section 001,ELL Intermediate,Fall Semester 2025,001,Final Exam,30.00
+ELL Advanced | Fall Semester 2025 | Section 001,ELL Advanced,Fall Semester 2025,001,Homework,40.00
+ELL Advanced | Fall Semester 2025 | Section 001,ELL Advanced,Fall Semester 2025,001,Quizzes,30.00
+ELL Advanced | Fall Semester 2025 | Section 001,ELL Advanced,Fall Semester 2025,001,Final Exam,30.00
+Child Development | Fall Semester 2025 | Section 001,Child Development,Fall Semester 2025,001,Homework,40.00
+Child Development | Fall Semester 2025 | Section 001,Child Development,Fall Semester 2025,001,Quizzes,30.00
+Child Development | Fall Semester 2025 | Section 001,Child Development,Fall Semester 2025,001,Final Exam,30.00
+Foods & Nutrition | Fall Semester 2025 | Section 001,Foods & Nutrition,Fall Semester 2025,001,Homework,40.00
+Foods & Nutrition | Fall Semester 2025 | Section 001,Foods & Nutrition,Fall Semester 2025,001,Quizzes,30.00
+Foods & Nutrition | Fall Semester 2025 | Section 001,Foods & Nutrition,Fall Semester 2025,001,Final Exam,30.00
+Family & Consumer Science | Fall Semester 2025 | Section 001,Family & Consumer Science,Fall Semester 2025,001,Homework,40.00
+Family & Consumer Science | Fall Semester 2025 | Section 001,Family & Consumer Science,Fall Semester 2025,001,Quizzes,30.00
+Family & Consumer Science | Fall Semester 2025 | Section 001,Family & Consumer Science,Fall Semester 2025,001,Final Exam,30.00
+Agricultural Science | Fall Semester 2025 | Section 001,Agricultural Science,Fall Semester 2025,001,Homework,40.00
+Agricultural Science | Fall Semester 2025 | Section 001,Agricultural Science,Fall Semester 2025,001,Quizzes,30.00
+Agricultural Science | Fall Semester 2025 | Section 001,Agricultural Science,Fall Semester 2025,001,Final Exam,30.00
+Animal Science | Fall Semester 2025 | Section 001,Animal Science,Fall Semester 2025,001,Homework,40.00
+Animal Science | Fall Semester 2025 | Section 001,Animal Science,Fall Semester 2025,001,Quizzes,30.00
+Animal Science | Fall Semester 2025 | Section 001,Animal Science,Fall Semester 2025,001,Final Exam,30.00
+Plant Science | Fall Semester 2025 | Section 001,Plant Science,Fall Semester 2025,001,Homework,40.00
+Plant Science | Fall Semester 2025 | Section 001,Plant Science,Fall Semester 2025,001,Quizzes,30.00
+Plant Science | Fall Semester 2025 | Section 001,Plant Science,Fall Semester 2025,001,Final Exam,30.00
+General Studies | Fall Semester 2025 | Section 001,General Studies,Fall Semester 2025,001,Homework,40.00
+General Studies | Fall Semester 2025 | Section 001,General Studies,Fall Semester 2025,001,Quizzes,30.00
+General Studies | Fall Semester 2025 | Section 001,General Studies,Fall Semester 2025,001,Final Exam,30.00
+English 9 | Fall Semester 2025 | Section 001,English 9,Fall Semester 2025,001,Homework,40.00
+English 9 | Fall Semester 2025 | Section 001,English 9,Fall Semester 2025,001,Quizzes,30.00
+English 9 | Fall Semester 2025 | Section 001,English 9,Fall Semester 2025,001,Final Exam,30.00
+English 10 | Fall Semester 2025 | Section 001,English 10,Fall Semester 2025,001,Homework,40.00
+English 10 | Fall Semester 2025 | Section 001,English 10,Fall Semester 2025,001,Quizzes,30.00
+English 10 | Fall Semester 2025 | Section 001,English 10,Fall Semester 2025,001,Final Exam,30.00
+English 11 | Fall Semester 2025 | Section 001,English 11,Fall Semester 2025,001,Homework,40.00
+English 11 | Fall Semester 2025 | Section 001,English 11,Fall Semester 2025,001,Quizzes,30.00
+English 11 | Fall Semester 2025 | Section 001,English 11,Fall Semester 2025,001,Final Exam,30.00
+English 12 | Fall Semester 2025 | Section 001,English 12,Fall Semester 2025,001,Homework,40.00
+English 12 | Fall Semester 2025 | Section 001,English 12,Fall Semester 2025,001,Quizzes,30.00
+English 12 | Fall Semester 2025 | Section 001,English 12,Fall Semester 2025,001,Final Exam,30.00
+Literature | Fall Semester 2025 | Section 001,Literature,Fall Semester 2025,001,Homework,40.00
+Literature | Fall Semester 2025 | Section 001,Literature,Fall Semester 2025,001,Quizzes,30.00
+Literature | Fall Semester 2025 | Section 001,Literature,Fall Semester 2025,001,Final Exam,30.00
+Writing/Composition | Fall Semester 2025 | Section 001,Writing/Composition,Fall Semester 2025,001,Homework,40.00
+Writing/Composition | Fall Semester 2025 | Section 001,Writing/Composition,Fall Semester 2025,001,Quizzes,30.00
+Writing/Composition | Fall Semester 2025 | Section 001,Writing/Composition,Fall Semester 2025,001,Final Exam,30.00
+Journalism | Fall Semester 2025 | Section 001,Journalism,Fall Semester 2025,001,Homework,40.00
+Journalism | Fall Semester 2025 | Section 001,Journalism,Fall Semester 2025,001,Quizzes,30.00
+Journalism | Fall Semester 2025 | Section 001,Journalism,Fall Semester 2025,001,Final Exam,30.00
+Speech/Communications | Fall Semester 2025 | Section 001,Speech/Communications,Fall Semester 2025,001,Homework,40.00
+Speech/Communications | Fall Semester 2025 | Section 001,Speech/Communications,Fall Semester 2025,001,Quizzes,30.00
+Speech/Communications | Fall Semester 2025 | Section 001,Speech/Communications,Fall Semester 2025,001,Final Exam,30.00
+Reading | Fall Semester 2025 | Section 001,Reading,Fall Semester 2025,001,Homework,40.00
+Reading | Fall Semester 2025 | Section 001,Reading,Fall Semester 2025,001,Quizzes,30.00
+Reading | Fall Semester 2025 | Section 001,Reading,Fall Semester 2025,001,Final Exam,30.00
+Math 6 | Fall Semester 2025 | Section 001,Math 6,Fall Semester 2025,001,Homework,40.00
+Math 6 | Fall Semester 2025 | Section 001,Math 6,Fall Semester 2025,001,Quizzes,30.00
+Math 6 | Fall Semester 2025 | Section 001,Math 6,Fall Semester 2025,001,Final Exam,30.00
+Pre-Algebra | Fall Semester 2025 | Section 001,Pre-Algebra,Fall Semester 2025,001,Homework,40.00
+Pre-Algebra | Fall Semester 2025 | Section 001,Pre-Algebra,Fall Semester 2025,001,Quizzes,30.00
+Pre-Algebra | Fall Semester 2025 | Section 001,Pre-Algebra,Fall Semester 2025,001,Final Exam,30.00
+Algebra I | Fall Semester 2025 | Section 001,Algebra I,Fall Semester 2025,001,Homework,40.00
+Algebra I | Fall Semester 2025 | Section 001,Algebra I,Fall Semester 2025,001,Quizzes,30.00
+Algebra I | Fall Semester 2025 | Section 001,Algebra I,Fall Semester 2025,001,Final Exam,30.00
+Geometry | Fall Semester 2025 | Section 001,Geometry,Fall Semester 2025,001,Homework,40.00
+Geometry | Fall Semester 2025 | Section 001,Geometry,Fall Semester 2025,001,Quizzes,30.00
+Geometry | Fall Semester 2025 | Section 001,Geometry,Fall Semester 2025,001,Final Exam,30.00
+Algebra II | Fall Semester 2025 | Section 001,Algebra II,Fall Semester 2025,001,Homework,40.00
+Algebra II | Fall Semester 2025 | Section 001,Algebra II,Fall Semester 2025,001,Quizzes,30.00
+Algebra II | Fall Semester 2025 | Section 001,Algebra II,Fall Semester 2025,001,Final Exam,30.00
+Precalculus | Fall Semester 2025 | Section 001,Precalculus,Fall Semester 2025,001,Homework,40.00
+Precalculus | Fall Semester 2025 | Section 001,Precalculus,Fall Semester 2025,001,Quizzes,30.00
+Precalculus | Fall Semester 2025 | Section 001,Precalculus,Fall Semester 2025,001,Final Exam,30.00
+Calculus | Fall Semester 2025 | Section 001,Calculus,Fall Semester 2025,001,Homework,40.00
+Calculus | Fall Semester 2025 | Section 001,Calculus,Fall Semester 2025,001,Quizzes,30.00
+Calculus | Fall Semester 2025 | Section 001,Calculus,Fall Semester 2025,001,Final Exam,30.00
+Statistics | Fall Semester 2025 | Section 001,Statistics,Fall Semester 2025,001,Homework,40.00
+Statistics | Fall Semester 2025 | Section 001,Statistics,Fall Semester 2025,001,Quizzes,30.00
+Statistics | Fall Semester 2025 | Section 001,Statistics,Fall Semester 2025,001,Final Exam,30.00
+Earth Science | Fall Semester 2025 | Section 001,Earth Science,Fall Semester 2025,001,Homework,40.00
+Earth Science | Fall Semester 2025 | Section 001,Earth Science,Fall Semester 2025,001,Quizzes,30.00
+Earth Science | Fall Semester 2025 | Section 001,Earth Science,Fall Semester 2025,001,Final Exam,30.00
+Physical Science | Fall Semester 2025 | Section 001,Physical Science,Fall Semester 2025,001,Homework,40.00
+Physical Science | Fall Semester 2025 | Section 001,Physical Science,Fall Semester 2025,001,Quizzes,30.00
+Physical Science | Fall Semester 2025 | Section 001,Physical Science,Fall Semester 2025,001,Final Exam,30.00
+Biology | Fall Semester 2025 | Section 001,Biology,Fall Semester 2025,001,Homework,40.00
+Biology | Fall Semester 2025 | Section 001,Biology,Fall Semester 2025,001,Quizzes,30.00
+Biology | Fall Semester 2025 | Section 001,Biology,Fall Semester 2025,001,Final Exam,30.00
+Chemistry | Fall Semester 2025 | Section 001,Chemistry,Fall Semester 2025,001,Homework,40.00
+Chemistry | Fall Semester 2025 | Section 001,Chemistry,Fall Semester 2025,001,Quizzes,30.00
+Chemistry | Fall Semester 2025 | Section 001,Chemistry,Fall Semester 2025,001,Final Exam,30.00
+Physics | Fall Semester 2025 | Section 001,Physics,Fall Semester 2025,001,Homework,40.00
+Physics | Fall Semester 2025 | Section 001,Physics,Fall Semester 2025,001,Quizzes,30.00
+Physics | Fall Semester 2025 | Section 001,Physics,Fall Semester 2025,001,Final Exam,30.00
+Environmental Science | Fall Semester 2025 | Section 001,Environmental Science,Fall Semester 2025,001,Homework,40.00
+Environmental Science | Fall Semester 2025 | Section 001,Environmental Science,Fall Semester 2025,001,Quizzes,30.00
+Environmental Science | Fall Semester 2025 | Section 001,Environmental Science,Fall Semester 2025,001,Final Exam,30.00
+Anatomy & Physiology | Fall Semester 2025 | Section 001,Anatomy & Physiology,Fall Semester 2025,001,Homework,40.00
+Anatomy & Physiology | Fall Semester 2025 | Section 001,Anatomy & Physiology,Fall Semester 2025,001,Quizzes,30.00
+Anatomy & Physiology | Fall Semester 2025 | Section 001,Anatomy & Physiology,Fall Semester 2025,001,Final Exam,30.00
+World History | Fall Semester 2025 | Section 001,World History,Fall Semester 2025,001,Homework,40.00
+World History | Fall Semester 2025 | Section 001,World History,Fall Semester 2025,001,Quizzes,30.00
+World History | Fall Semester 2025 | Section 001,World History,Fall Semester 2025,001,Final Exam,30.00
+U.S. History | Fall Semester 2025 | Section 001,U.S. History,Fall Semester 2025,001,Homework,40.00
+U.S. History | Fall Semester 2025 | Section 001,U.S. History,Fall Semester 2025,001,Quizzes,30.00
+U.S. History | Fall Semester 2025 | Section 001,U.S. History,Fall Semester 2025,001,Final Exam,30.00
+Government/Civics | Fall Semester 2025 | Section 001,Government/Civics,Fall Semester 2025,001,Homework,40.00
+Government/Civics | Fall Semester 2025 | Section 001,Government/Civics,Fall Semester 2025,001,Quizzes,30.00
+Government/Civics | Fall Semester 2025 | Section 001,Government/Civics,Fall Semester 2025,001,Final Exam,30.00
+Economics | Fall Semester 2025 | Section 001,Economics,Fall Semester 2025,001,Homework,40.00
+Economics | Fall Semester 2025 | Section 001,Economics,Fall Semester 2025,001,Quizzes,30.00
+Economics | Fall Semester 2025 | Section 001,Economics,Fall Semester 2025,001,Final Exam,30.00
+Geography | Fall Semester 2025 | Section 001,Geography,Fall Semester 2025,001,Homework,40.00
+Geography | Fall Semester 2025 | Section 001,Geography,Fall Semester 2025,001,Quizzes,30.00
+Geography | Fall Semester 2025 | Section 001,Geography,Fall Semester 2025,001,Final Exam,30.00
+Psychology | Fall Semester 2025 | Section 001,Psychology,Fall Semester 2025,001,Homework,40.00
+Psychology | Fall Semester 2025 | Section 001,Psychology,Fall Semester 2025,001,Quizzes,30.00
+Psychology | Fall Semester 2025 | Section 001,Psychology,Fall Semester 2025,001,Final Exam,30.00
+Sociology | Fall Semester 2025 | Section 001,Sociology,Fall Semester 2025,001,Homework,40.00
+Sociology | Fall Semester 2025 | Section 001,Sociology,Fall Semester 2025,001,Quizzes,30.00
+Sociology | Fall Semester 2025 | Section 001,Sociology,Fall Semester 2025,001,Final Exam,30.00
+Spanish I | Fall Semester 2025 | Section 001,Spanish I,Fall Semester 2025,001,Homework,40.00
+Spanish I | Fall Semester 2025 | Section 001,Spanish I,Fall Semester 2025,001,Quizzes,30.00
+Spanish I | Fall Semester 2025 | Section 001,Spanish I,Fall Semester 2025,001,Final Exam,30.00
+Spanish II | Fall Semester 2025 | Section 001,Spanish II,Fall Semester 2025,001,Homework,40.00
+Spanish II | Fall Semester 2025 | Section 001,Spanish II,Fall Semester 2025,001,Quizzes,30.00
+Spanish II | Fall Semester 2025 | Section 001,Spanish II,Fall Semester 2025,001,Final Exam,30.00
+French I | Fall Semester 2025 | Section 001,French I,Fall Semester 2025,001,Homework,40.00
+French I | Fall Semester 2025 | Section 001,French I,Fall Semester 2025,001,Quizzes,30.00
+French I | Fall Semester 2025 | Section 001,French I,Fall Semester 2025,001,Final Exam,30.00
+French II | Fall Semester 2025 | Section 001,French II,Fall Semester 2025,001,Homework,40.00
+French II | Fall Semester 2025 | Section 001,French II,Fall Semester 2025,001,Quizzes,30.00
+French II | Fall Semester 2025 | Section 001,French II,Fall Semester 2025,001,Final Exam,30.00
+German I | Fall Semester 2025 | Section 001,German I,Fall Semester 2025,001,Homework,40.00
+German I | Fall Semester 2025 | Section 001,German I,Fall Semester 2025,001,Quizzes,30.00
+German I | Fall Semester 2025 | Section 001,German I,Fall Semester 2025,001,Final Exam,30.00
+German II | Fall Semester 2025 | Section 001,German II,Fall Semester 2025,001,Homework,40.00
+German II | Fall Semester 2025 | Section 001,German II,Fall Semester 2025,001,Quizzes,30.00
+German II | Fall Semester 2025 | Section 001,German II,Fall Semester 2025,001,Final Exam,30.00
+Art I | Fall Semester 2025 | Section 001,Art I,Fall Semester 2025,001,Homework,40.00
+Art I | Fall Semester 2025 | Section 001,Art I,Fall Semester 2025,001,Quizzes,30.00
+Art I | Fall Semester 2025 | Section 001,Art I,Fall Semester 2025,001,Final Exam,30.00
+Art II | Fall Semester 2025 | Section 001,Art II,Fall Semester 2025,001,Homework,40.00
+Art II | Fall Semester 2025 | Section 001,Art II,Fall Semester 2025,001,Quizzes,30.00
+Art II | Fall Semester 2025 | Section 001,Art II,Fall Semester 2025,001,Final Exam,30.00
+Drawing | Fall Semester 2025 | Section 001,Drawing,Fall Semester 2025,001,Homework,40.00
+Drawing | Fall Semester 2025 | Section 001,Drawing,Fall Semester 2025,001,Quizzes,30.00
+Drawing | Fall Semester 2025 | Section 001,Drawing,Fall Semester 2025,001,Final Exam,30.00
+Painting | Fall Semester 2025 | Section 001,Painting,Fall Semester 2025,001,Homework,40.00
+Painting | Fall Semester 2025 | Section 001,Painting,Fall Semester 2025,001,Quizzes,30.00
+Painting | Fall Semester 2025 | Section 001,Painting,Fall Semester 2025,001,Final Exam,30.00
+Sculpture | Fall Semester 2025 | Section 001,Sculpture,Fall Semester 2025,001,Homework,40.00
+Sculpture | Fall Semester 2025 | Section 001,Sculpture,Fall Semester 2025,001,Quizzes,30.00
+Sculpture | Fall Semester 2025 | Section 001,Sculpture,Fall Semester 2025,001,Final Exam,30.00
+Digital Art | Fall Semester 2025 | Section 001,Digital Art,Fall Semester 2025,001,Homework,40.00
+Digital Art | Fall Semester 2025 | Section 001,Digital Art,Fall Semester 2025,001,Quizzes,30.00
+Digital Art | Fall Semester 2025 | Section 001,Digital Art,Fall Semester 2025,001,Final Exam,30.00
+Band | Fall Semester 2025 | Section 001,Band,Fall Semester 2025,001,Homework,40.00
+Band | Fall Semester 2025 | Section 001,Band,Fall Semester 2025,001,Quizzes,30.00
+Band | Fall Semester 2025 | Section 001,Band,Fall Semester 2025,001,Final Exam,30.00
+Choir | Fall Semester 2025 | Section 001,Choir,Fall Semester 2025,001,Homework,40.00
+Choir | Fall Semester 2025 | Section 001,Choir,Fall Semester 2025,001,Quizzes,30.00
+Choir | Fall Semester 2025 | Section 001,Choir,Fall Semester 2025,001,Final Exam,30.00
+Orchestra | Fall Semester 2025 | Section 001,Orchestra,Fall Semester 2025,001,Homework,40.00
+Orchestra | Fall Semester 2025 | Section 001,Orchestra,Fall Semester 2025,001,Quizzes,30.00
+Orchestra | Fall Semester 2025 | Section 001,Orchestra,Fall Semester 2025,001,Final Exam,30.00
+Jazz Band | Fall Semester 2025 | Section 001,Jazz Band,Fall Semester 2025,001,Homework,40.00
+Jazz Band | Fall Semester 2025 | Section 001,Jazz Band,Fall Semester 2025,001,Quizzes,30.00
+Jazz Band | Fall Semester 2025 | Section 001,Jazz Band,Fall Semester 2025,001,Final Exam,30.00
+Music Theory | Fall Semester 2025 | Section 001,Music Theory,Fall Semester 2025,001,Homework,40.00
+Music Theory | Fall Semester 2025 | Section 001,Music Theory,Fall Semester 2025,001,Quizzes,30.00
+Music Theory | Fall Semester 2025 | Section 001,Music Theory,Fall Semester 2025,001,Final Exam,30.00
+PE 9 | Fall Semester 2025 | Section 001,PE 9,Fall Semester 2025,001,Homework,40.00
+PE 9 | Fall Semester 2025 | Section 001,PE 9,Fall Semester 2025,001,Quizzes,30.00
+PE 9 | Fall Semester 2025 | Section 001,PE 9,Fall Semester 2025,001,Final Exam,30.00
+PE 10 | Fall Semester 2025 | Section 001,PE 10,Fall Semester 2025,001,Homework,40.00
+PE 10 | Fall Semester 2025 | Section 001,PE 10,Fall Semester 2025,001,Quizzes,30.00
+PE 10 | Fall Semester 2025 | Section 001,PE 10,Fall Semester 2025,001,Final Exam,30.00
+Weight Training | Fall Semester 2025 | Section 001,Weight Training,Fall Semester 2025,001,Homework,40.00
+Weight Training | Fall Semester 2025 | Section 001,Weight Training,Fall Semester 2025,001,Quizzes,30.00
+Weight Training | Fall Semester 2025 | Section 001,Weight Training,Fall Semester 2025,001,Final Exam,30.00
+Lifetime Fitness | Fall Semester 2025 | Section 001,Lifetime Fitness,Fall Semester 2025,001,Homework,40.00
+Lifetime Fitness | Fall Semester 2025 | Section 001,Lifetime Fitness,Fall Semester 2025,001,Quizzes,30.00
+Lifetime Fitness | Fall Semester 2025 | Section 001,Lifetime Fitness,Fall Semester 2025,001,Final Exam,30.00
+Health | Fall Semester 2025 | Section 001,Health,Fall Semester 2025,001,Homework,40.00
+Health | Fall Semester 2025 | Section 001,Health,Fall Semester 2025,001,Quizzes,30.00
+Health | Fall Semester 2025 | Section 001,Health,Fall Semester 2025,001,Final Exam,30.00
+Nutrition & Wellness | Fall Semester 2025 | Section 001,Nutrition & Wellness,Fall Semester 2025,001,Homework,40.00
+Nutrition & Wellness | Fall Semester 2025 | Section 001,Nutrition & Wellness,Fall Semester 2025,001,Quizzes,30.00
+Nutrition & Wellness | Fall Semester 2025 | Section 001,Nutrition & Wellness,Fall Semester 2025,001,Final Exam,30.00
+Business Essentials | Fall Semester 2025 | Section 001,Business Essentials,Fall Semester 2025,001,Homework,40.00
+Business Essentials | Fall Semester 2025 | Section 001,Business Essentials,Fall Semester 2025,001,Quizzes,30.00
+Business Essentials | Fall Semester 2025 | Section 001,Business Essentials,Fall Semester 2025,001,Final Exam,30.00
+Accounting | Fall Semester 2025 | Section 001,Accounting,Fall Semester 2025,001,Homework,40.00
+Accounting | Fall Semester 2025 | Section 001,Accounting,Fall Semester 2025,001,Quizzes,30.00
+Accounting | Fall Semester 2025 | Section 001,Accounting,Fall Semester 2025,001,Final Exam,30.00
+Marketing | Fall Semester 2025 | Section 001,Marketing,Fall Semester 2025,001,Homework,40.00
+Marketing | Fall Semester 2025 | Section 001,Marketing,Fall Semester 2025,001,Quizzes,30.00
+Marketing | Fall Semester 2025 | Section 001,Marketing,Fall Semester 2025,001,Final Exam,30.00
+Entrepreneurship | Fall Semester 2025 | Section 001,Entrepreneurship,Fall Semester 2025,001,Homework,40.00
+Entrepreneurship | Fall Semester 2025 | Section 001,Entrepreneurship,Fall Semester 2025,001,Quizzes,30.00
+Entrepreneurship | Fall Semester 2025 | Section 001,Entrepreneurship,Fall Semester 2025,001,Final Exam,30.00
+Computer Applications | Fall Semester 2025 | Section 001,Computer Applications,Fall Semester 2025,001,Homework,40.00
+Computer Applications | Fall Semester 2025 | Section 001,Computer Applications,Fall Semester 2025,001,Quizzes,30.00
+Computer Applications | Fall Semester 2025 | Section 001,Computer Applications,Fall Semester 2025,001,Final Exam,30.00
+Engineering/PLTW | Fall Semester 2025 | Section 001,Engineering/PLTW,Fall Semester 2025,001,Homework,40.00
+Engineering/PLTW | Fall Semester 2025 | Section 001,Engineering/PLTW,Fall Semester 2025,001,Quizzes,30.00
+Engineering/PLTW | Fall Semester 2025 | Section 001,Engineering/PLTW,Fall Semester 2025,001,Final Exam,30.00
+Robotics | Fall Semester 2025 | Section 001,Robotics,Fall Semester 2025,001,Homework,40.00
+Robotics | Fall Semester 2025 | Section 001,Robotics,Fall Semester 2025,001,Quizzes,30.00
+Robotics | Fall Semester 2025 | Section 001,Robotics,Fall Semester 2025,001,Final Exam,30.00
+Culinary Arts | Fall Semester 2025 | Section 001,Culinary Arts,Fall Semester 2025,001,Homework,40.00
+Culinary Arts | Fall Semester 2025 | Section 001,Culinary Arts,Fall Semester 2025,001,Quizzes,30.00
+Culinary Arts | Fall Semester 2025 | Section 001,Culinary Arts,Fall Semester 2025,001,Final Exam,30.00
+Construction Trades | Fall Semester 2025 | Section 001,Construction Trades,Fall Semester 2025,001,Homework,40.00
+Construction Trades | Fall Semester 2025 | Section 001,Construction Trades,Fall Semester 2025,001,Quizzes,30.00
+Construction Trades | Fall Semester 2025 | Section 001,Construction Trades,Fall Semester 2025,001,Final Exam,30.00
+Automotive Technology | Fall Semester 2025 | Section 001,Automotive Technology,Fall Semester 2025,001,Homework,40.00
+Automotive Technology | Fall Semester 2025 | Section 001,Automotive Technology,Fall Semester 2025,001,Quizzes,30.00
+Automotive Technology | Fall Semester 2025 | Section 001,Automotive Technology,Fall Semester 2025,001,Final Exam,30.00
+Intro to Computer Science | Fall Semester 2025 | Section 001,Intro to Computer Science,Fall Semester 2025,001,Homework,40.00
+Intro to Computer Science | Fall Semester 2025 | Section 001,Intro to Computer Science,Fall Semester 2025,001,Quizzes,30.00
+Intro to Computer Science | Fall Semester 2025 | Section 001,Intro to Computer Science,Fall Semester 2025,001,Final Exam,30.00
+AP Computer Science Principles | Fall Semester 2025 | Section 001,AP Computer Science Principles,Fall Semester 2025,001,Homework,40.00
+AP Computer Science Principles | Fall Semester 2025 | Section 001,AP Computer Science Principles,Fall Semester 2025,001,Quizzes,30.00
+AP Computer Science Principles | Fall Semester 2025 | Section 001,AP Computer Science Principles,Fall Semester 2025,001,Final Exam,30.00
+AP Computer Science A | Fall Semester 2025 | Section 001,AP Computer Science A,Fall Semester 2025,001,Homework,40.00
+AP Computer Science A | Fall Semester 2025 | Section 001,AP Computer Science A,Fall Semester 2025,001,Quizzes,30.00
+AP Computer Science A | Fall Semester 2025 | Section 001,AP Computer Science A,Fall Semester 2025,001,Final Exam,30.00
+Web Development | Fall Semester 2025 | Section 001,Web Development,Fall Semester 2025,001,Homework,40.00
+Web Development | Fall Semester 2025 | Section 001,Web Development,Fall Semester 2025,001,Quizzes,30.00
+Web Development | Fall Semester 2025 | Section 001,Web Development,Fall Semester 2025,001,Final Exam,30.00
+Cybersecurity | Fall Semester 2025 | Section 001,Cybersecurity,Fall Semester 2025,001,Homework,40.00
+Cybersecurity | Fall Semester 2025 | Section 001,Cybersecurity,Fall Semester 2025,001,Quizzes,30.00
+Cybersecurity | Fall Semester 2025 | Section 001,Cybersecurity,Fall Semester 2025,001,Final Exam,30.00
+Data Science | Fall Semester 2025 | Section 001,Data Science,Fall Semester 2025,001,Homework,40.00
+Data Science | Fall Semester 2025 | Section 001,Data Science,Fall Semester 2025,001,Quizzes,30.00
+Data Science | Fall Semester 2025 | Section 001,Data Science,Fall Semester 2025,001,Final Exam,30.00
+Resource English | Fall Semester 2025 | Section 001,Resource English,Fall Semester 2025,001,Homework,40.00
+Resource English | Fall Semester 2025 | Section 001,Resource English,Fall Semester 2025,001,Quizzes,30.00
+Resource English | Fall Semester 2025 | Section 001,Resource English,Fall Semester 2025,001,Final Exam,30.00
+Resource Math | Fall Semester 2025 | Section 001,Resource Math,Fall Semester 2025,001,Homework,40.00
+Resource Math | Fall Semester 2025 | Section 001,Resource Math,Fall Semester 2025,001,Quizzes,30.00
+Resource Math | Fall Semester 2025 | Section 001,Resource Math,Fall Semester 2025,001,Final Exam,30.00
+Study Skills | Fall Semester 2025 | Section 001,Study Skills,Fall Semester 2025,001,Homework,40.00
+Study Skills | Fall Semester 2025 | Section 001,Study Skills,Fall Semester 2025,001,Quizzes,30.00
+Study Skills | Fall Semester 2025 | Section 001,Study Skills,Fall Semester 2025,001,Final Exam,30.00
+ELL Beginner | Fall Semester 2025 | Section 001,ELL Beginner,Fall Semester 2025,001,Homework,40.00
+ELL Beginner | Fall Semester 2025 | Section 001,ELL Beginner,Fall Semester 2025,001,Quizzes,30.00
+ELL Beginner | Fall Semester 2025 | Section 001,ELL Beginner,Fall Semester 2025,001,Final Exam,30.00
+ELL Intermediate | Fall Semester 2025 | Section 001,ELL Intermediate,Fall Semester 2025,001,Homework,40.00
+ELL Intermediate | Fall Semester 2025 | Section 001,ELL Intermediate,Fall Semester 2025,001,Quizzes,30.00
+ELL Intermediate | Fall Semester 2025 | Section 001,ELL Intermediate,Fall Semester 2025,001,Final Exam,30.00
+ELL Advanced | Fall Semester 2025 | Section 001,ELL Advanced,Fall Semester 2025,001,Homework,40.00
+ELL Advanced | Fall Semester 2025 | Section 001,ELL Advanced,Fall Semester 2025,001,Quizzes,30.00
+ELL Advanced | Fall Semester 2025 | Section 001,ELL Advanced,Fall Semester 2025,001,Final Exam,30.00
+Child Development | Fall Semester 2025 | Section 001,Child Development,Fall Semester 2025,001,Homework,40.00
+Child Development | Fall Semester 2025 | Section 001,Child Development,Fall Semester 2025,001,Quizzes,30.00
+Child Development | Fall Semester 2025 | Section 001,Child Development,Fall Semester 2025,001,Final Exam,30.00
+Foods & Nutrition | Fall Semester 2025 | Section 001,Foods & Nutrition,Fall Semester 2025,001,Homework,40.00
+Foods & Nutrition | Fall Semester 2025 | Section 001,Foods & Nutrition,Fall Semester 2025,001,Quizzes,30.00
+Foods & Nutrition | Fall Semester 2025 | Section 001,Foods & Nutrition,Fall Semester 2025,001,Final Exam,30.00
+Family & Consumer Science | Fall Semester 2025 | Section 001,Family & Consumer Science,Fall Semester 2025,001,Homework,40.00
+Family & Consumer Science | Fall Semester 2025 | Section 001,Family & Consumer Science,Fall Semester 2025,001,Quizzes,30.00
+Family & Consumer Science | Fall Semester 2025 | Section 001,Family & Consumer Science,Fall Semester 2025,001,Final Exam,30.00
+Agricultural Science | Fall Semester 2025 | Section 001,Agricultural Science,Fall Semester 2025,001,Homework,40.00
+Agricultural Science | Fall Semester 2025 | Section 001,Agricultural Science,Fall Semester 2025,001,Quizzes,30.00
+Agricultural Science | Fall Semester 2025 | Section 001,Agricultural Science,Fall Semester 2025,001,Final Exam,30.00
+Animal Science | Fall Semester 2025 | Section 001,Animal Science,Fall Semester 2025,001,Homework,40.00
+Animal Science | Fall Semester 2025 | Section 001,Animal Science,Fall Semester 2025,001,Quizzes,30.00
+Animal Science | Fall Semester 2025 | Section 001,Animal Science,Fall Semester 2025,001,Final Exam,30.00
+Plant Science | Fall Semester 2025 | Section 001,Plant Science,Fall Semester 2025,001,Homework,40.00
+Plant Science | Fall Semester 2025 | Section 001,Plant Science,Fall Semester 2025,001,Quizzes,30.00
+Plant Science | Fall Semester 2025 | Section 001,Plant Science,Fall Semester 2025,001,Final Exam,30.00
+General Studies | Fall Semester 2025 | Section 001,General Studies,Fall Semester 2025,001,Homework,40.00
+General Studies | Fall Semester 2025 | Section 001,General Studies,Fall Semester 2025,001,Quizzes,30.00
+General Studies | Fall Semester 2025 | Section 001,General Studies,Fall Semester 2025,001,Final Exam,30.00
+English 9 | Fall Semester 2025 | Section 001,English 9,Fall Semester 2025,001,Homework,40.00
+English 9 | Fall Semester 2025 | Section 001,English 9,Fall Semester 2025,001,Quizzes,30.00
+English 9 | Fall Semester 2025 | Section 001,English 9,Fall Semester 2025,001,Final Exam,30.00
+English 10 | Fall Semester 2025 | Section 001,English 10,Fall Semester 2025,001,Homework,40.00
+English 10 | Fall Semester 2025 | Section 001,English 10,Fall Semester 2025,001,Quizzes,30.00
+English 10 | Fall Semester 2025 | Section 001,English 10,Fall Semester 2025,001,Final Exam,30.00
+English 11 | Fall Semester 2025 | Section 001,English 11,Fall Semester 2025,001,Homework,40.00
+English 11 | Fall Semester 2025 | Section 001,English 11,Fall Semester 2025,001,Quizzes,30.00
+English 11 | Fall Semester 2025 | Section 001,English 11,Fall Semester 2025,001,Final Exam,30.00
+English 12 | Fall Semester 2025 | Section 001,English 12,Fall Semester 2025,001,Homework,40.00
+English 12 | Fall Semester 2025 | Section 001,English 12,Fall Semester 2025,001,Quizzes,30.00
+English 12 | Fall Semester 2025 | Section 001,English 12,Fall Semester 2025,001,Final Exam,30.00
+Literature | Fall Semester 2025 | Section 001,Literature,Fall Semester 2025,001,Homework,40.00
+Literature | Fall Semester 2025 | Section 001,Literature,Fall Semester 2025,001,Quizzes,30.00
+Literature | Fall Semester 2025 | Section 001,Literature,Fall Semester 2025,001,Final Exam,30.00
+Writing/Composition | Fall Semester 2025 | Section 001,Writing/Composition,Fall Semester 2025,001,Homework,40.00
+Writing/Composition | Fall Semester 2025 | Section 001,Writing/Composition,Fall Semester 2025,001,Quizzes,30.00
+Writing/Composition | Fall Semester 2025 | Section 001,Writing/Composition,Fall Semester 2025,001,Final Exam,30.00
+Journalism | Fall Semester 2025 | Section 001,Journalism,Fall Semester 2025,001,Homework,40.00
+Journalism | Fall Semester 2025 | Section 001,Journalism,Fall Semester 2025,001,Quizzes,30.00
+Journalism | Fall Semester 2025 | Section 001,Journalism,Fall Semester 2025,001,Final Exam,30.00
+Speech/Communications | Fall Semester 2025 | Section 001,Speech/Communications,Fall Semester 2025,001,Homework,40.00
+Speech/Communications | Fall Semester 2025 | Section 001,Speech/Communications,Fall Semester 2025,001,Quizzes,30.00
+Speech/Communications | Fall Semester 2025 | Section 001,Speech/Communications,Fall Semester 2025,001,Final Exam,30.00
+Reading | Fall Semester 2025 | Section 001,Reading,Fall Semester 2025,001,Homework,40.00
+Reading | Fall Semester 2025 | Section 001,Reading,Fall Semester 2025,001,Quizzes,30.00
+Reading | Fall Semester 2025 | Section 001,Reading,Fall Semester 2025,001,Final Exam,30.00
+Math 6 | Fall Semester 2025 | Section 001,Math 6,Fall Semester 2025,001,Homework,40.00
+Math 6 | Fall Semester 2025 | Section 001,Math 6,Fall Semester 2025,001,Quizzes,30.00
+Math 6 | Fall Semester 2025 | Section 001,Math 6,Fall Semester 2025,001,Final Exam,30.00
+Pre-Algebra | Fall Semester 2025 | Section 001,Pre-Algebra,Fall Semester 2025,001,Homework,40.00
+Pre-Algebra | Fall Semester 2025 | Section 001,Pre-Algebra,Fall Semester 2025,001,Quizzes,30.00
+Pre-Algebra | Fall Semester 2025 | Section 001,Pre-Algebra,Fall Semester 2025,001,Final Exam,30.00
+Algebra I | Fall Semester 2025 | Section 001,Algebra I,Fall Semester 2025,001,Homework,40.00
+Algebra I | Fall Semester 2025 | Section 001,Algebra I,Fall Semester 2025,001,Quizzes,30.00
+Algebra I | Fall Semester 2025 | Section 001,Algebra I,Fall Semester 2025,001,Final Exam,30.00
+Geometry | Fall Semester 2025 | Section 001,Geometry,Fall Semester 2025,001,Homework,40.00
+Geometry | Fall Semester 2025 | Section 001,Geometry,Fall Semester 2025,001,Quizzes,30.00
+Geometry | Fall Semester 2025 | Section 001,Geometry,Fall Semester 2025,001,Final Exam,30.00
+Algebra II | Fall Semester 2025 | Section 001,Algebra II,Fall Semester 2025,001,Homework,40.00
+Algebra II | Fall Semester 2025 | Section 001,Algebra II,Fall Semester 2025,001,Quizzes,30.00
+Algebra II | Fall Semester 2025 | Section 001,Algebra II,Fall Semester 2025,001,Final Exam,30.00
+Precalculus | Fall Semester 2025 | Section 001,Precalculus,Fall Semester 2025,001,Homework,40.00
+Precalculus | Fall Semester 2025 | Section 001,Precalculus,Fall Semester 2025,001,Quizzes,30.00
+Precalculus | Fall Semester 2025 | Section 001,Precalculus,Fall Semester 2025,001,Final Exam,30.00
+Calculus | Fall Semester 2025 | Section 001,Calculus,Fall Semester 2025,001,Homework,40.00
+Calculus | Fall Semester 2025 | Section 001,Calculus,Fall Semester 2025,001,Quizzes,30.00
+Calculus | Fall Semester 2025 | Section 001,Calculus,Fall Semester 2025,001,Final Exam,30.00
+Statistics | Fall Semester 2025 | Section 001,Statistics,Fall Semester 2025,001,Homework,40.00
+Statistics | Fall Semester 2025 | Section 001,Statistics,Fall Semester 2025,001,Quizzes,30.00
+Statistics | Fall Semester 2025 | Section 001,Statistics,Fall Semester 2025,001,Final Exam,30.00
+Earth Science | Fall Semester 2025 | Section 001,Earth Science,Fall Semester 2025,001,Homework,40.00
+Earth Science | Fall Semester 2025 | Section 001,Earth Science,Fall Semester 2025,001,Quizzes,30.00
+Earth Science | Fall Semester 2025 | Section 001,Earth Science,Fall Semester 2025,001,Final Exam,30.00
+Physical Science | Fall Semester 2025 | Section 001,Physical Science,Fall Semester 2025,001,Homework,40.00
+Physical Science | Fall Semester 2025 | Section 001,Physical Science,Fall Semester 2025,001,Quizzes,30.00
+Physical Science | Fall Semester 2025 | Section 001,Physical Science,Fall Semester 2025,001,Final Exam,30.00
+Biology | Fall Semester 2025 | Section 001,Biology,Fall Semester 2025,001,Homework,40.00
+Biology | Fall Semester 2025 | Section 001,Biology,Fall Semester 2025,001,Quizzes,30.00
+Biology | Fall Semester 2025 | Section 001,Biology,Fall Semester 2025,001,Final Exam,30.00
+Chemistry | Fall Semester 2025 | Section 001,Chemistry,Fall Semester 2025,001,Homework,40.00
+Chemistry | Fall Semester 2025 | Section 001,Chemistry,Fall Semester 2025,001,Quizzes,30.00
+Chemistry | Fall Semester 2025 | Section 001,Chemistry,Fall Semester 2025,001,Final Exam,30.00
+Physics | Fall Semester 2025 | Section 001,Physics,Fall Semester 2025,001,Homework,40.00
+Physics | Fall Semester 2025 | Section 001,Physics,Fall Semester 2025,001,Quizzes,30.00
+Physics | Fall Semester 2025 | Section 001,Physics,Fall Semester 2025,001,Final Exam,30.00
+Environmental Science | Fall Semester 2025 | Section 001,Environmental Science,Fall Semester 2025,001,Homework,40.00
+Environmental Science | Fall Semester 2025 | Section 001,Environmental Science,Fall Semester 2025,001,Quizzes,30.00
+Environmental Science | Fall Semester 2025 | Section 001,Environmental Science,Fall Semester 2025,001,Final Exam,30.00
+Anatomy & Physiology | Fall Semester 2025 | Section 001,Anatomy & Physiology,Fall Semester 2025,001,Homework,40.00
+Anatomy & Physiology | Fall Semester 2025 | Section 001,Anatomy & Physiology,Fall Semester 2025,001,Quizzes,30.00
+Anatomy & Physiology | Fall Semester 2025 | Section 001,Anatomy & Physiology,Fall Semester 2025,001,Final Exam,30.00
+World History | Fall Semester 2025 | Section 001,World History,Fall Semester 2025,001,Homework,40.00
+World History | Fall Semester 2025 | Section 001,World History,Fall Semester 2025,001,Quizzes,30.00
+World History | Fall Semester 2025 | Section 001,World History,Fall Semester 2025,001,Final Exam,30.00
+U.S. History | Fall Semester 2025 | Section 001,U.S. History,Fall Semester 2025,001,Homework,40.00
+U.S. History | Fall Semester 2025 | Section 001,U.S. History,Fall Semester 2025,001,Quizzes,30.00
+U.S. History | Fall Semester 2025 | Section 001,U.S. History,Fall Semester 2025,001,Final Exam,30.00
+Government/Civics | Fall Semester 2025 | Section 001,Government/Civics,Fall Semester 2025,001,Homework,40.00
+Government/Civics | Fall Semester 2025 | Section 001,Government/Civics,Fall Semester 2025,001,Quizzes,30.00
+Government/Civics | Fall Semester 2025 | Section 001,Government/Civics,Fall Semester 2025,001,Final Exam,30.00
+Economics | Fall Semester 2025 | Section 001,Economics,Fall Semester 2025,001,Homework,40.00
+Economics | Fall Semester 2025 | Section 001,Economics,Fall Semester 2025,001,Quizzes,30.00
+Economics | Fall Semester 2025 | Section 001,Economics,Fall Semester 2025,001,Final Exam,30.00
+Geography | Fall Semester 2025 | Section 001,Geography,Fall Semester 2025,001,Homework,40.00
+Geography | Fall Semester 2025 | Section 001,Geography,Fall Semester 2025,001,Quizzes,30.00
+Geography | Fall Semester 2025 | Section 001,Geography,Fall Semester 2025,001,Final Exam,30.00
+Psychology | Fall Semester 2025 | Section 001,Psychology,Fall Semester 2025,001,Homework,40.00
+Psychology | Fall Semester 2025 | Section 001,Psychology,Fall Semester 2025,001,Quizzes,30.00
+Psychology | Fall Semester 2025 | Section 001,Psychology,Fall Semester 2025,001,Final Exam,30.00
+Sociology | Fall Semester 2025 | Section 001,Sociology,Fall Semester 2025,001,Homework,40.00
+Sociology | Fall Semester 2025 | Section 001,Sociology,Fall Semester 2025,001,Quizzes,30.00
+Sociology | Fall Semester 2025 | Section 001,Sociology,Fall Semester 2025,001,Final Exam,30.00
+Spanish I | Fall Semester 2025 | Section 001,Spanish I,Fall Semester 2025,001,Homework,40.00
+Spanish I | Fall Semester 2025 | Section 001,Spanish I,Fall Semester 2025,001,Quizzes,30.00
+Spanish I | Fall Semester 2025 | Section 001,Spanish I,Fall Semester 2025,001,Final Exam,30.00
+Spanish II | Fall Semester 2025 | Section 001,Spanish II,Fall Semester 2025,001,Homework,40.00
+Spanish II | Fall Semester 2025 | Section 001,Spanish II,Fall Semester 2025,001,Quizzes,30.00
+Spanish II | Fall Semester 2025 | Section 001,Spanish II,Fall Semester 2025,001,Final Exam,30.00
+French I | Fall Semester 2025 | Section 001,French I,Fall Semester 2025,001,Homework,40.00
+French I | Fall Semester 2025 | Section 001,French I,Fall Semester 2025,001,Quizzes,30.00
+French I | Fall Semester 2025 | Section 001,French I,Fall Semester 2025,001,Final Exam,30.00
+French II | Fall Semester 2025 | Section 001,French II,Fall Semester 2025,001,Homework,40.00
+French II | Fall Semester 2025 | Section 001,French II,Fall Semester 2025,001,Quizzes,30.00
+French II | Fall Semester 2025 | Section 001,French II,Fall Semester 2025,001,Final Exam,30.00
+German I | Fall Semester 2025 | Section 001,German I,Fall Semester 2025,001,Homework,40.00
+German I | Fall Semester 2025 | Section 001,German I,Fall Semester 2025,001,Quizzes,30.00
+German I | Fall Semester 2025 | Section 001,German I,Fall Semester 2025,001,Final Exam,30.00
+German II | Fall Semester 2025 | Section 001,German II,Fall Semester 2025,001,Homework,40.00
+German II | Fall Semester 2025 | Section 001,German II,Fall Semester 2025,001,Quizzes,30.00
+German II | Fall Semester 2025 | Section 001,German II,Fall Semester 2025,001,Final Exam,30.00
+Art I | Fall Semester 2025 | Section 001,Art I,Fall Semester 2025,001,Homework,40.00
+Art I | Fall Semester 2025 | Section 001,Art I,Fall Semester 2025,001,Quizzes,30.00
+Art I | Fall Semester 2025 | Section 001,Art I,Fall Semester 2025,001,Final Exam,30.00
+Art II | Fall Semester 2025 | Section 001,Art II,Fall Semester 2025,001,Homework,40.00
+Art II | Fall Semester 2025 | Section 001,Art II,Fall Semester 2025,001,Quizzes,30.00
+Art II | Fall Semester 2025 | Section 001,Art II,Fall Semester 2025,001,Final Exam,30.00
+Drawing | Fall Semester 2025 | Section 001,Drawing,Fall Semester 2025,001,Homework,40.00
+Drawing | Fall Semester 2025 | Section 001,Drawing,Fall Semester 2025,001,Quizzes,30.00
+Drawing | Fall Semester 2025 | Section 001,Drawing,Fall Semester 2025,001,Final Exam,30.00
+Painting | Fall Semester 2025 | Section 001,Painting,Fall Semester 2025,001,Homework,40.00
+Painting | Fall Semester 2025 | Section 001,Painting,Fall Semester 2025,001,Quizzes,30.00
+Painting | Fall Semester 2025 | Section 001,Painting,Fall Semester 2025,001,Final Exam,30.00
+Sculpture | Fall Semester 2025 | Section 001,Sculpture,Fall Semester 2025,001,Homework,40.00
+Sculpture | Fall Semester 2025 | Section 001,Sculpture,Fall Semester 2025,001,Quizzes,30.00
+Sculpture | Fall Semester 2025 | Section 001,Sculpture,Fall Semester 2025,001,Final Exam,30.00
+Digital Art | Fall Semester 2025 | Section 001,Digital Art,Fall Semester 2025,001,Homework,40.00
+Digital Art | Fall Semester 2025 | Section 001,Digital Art,Fall Semester 2025,001,Quizzes,30.00
+Digital Art | Fall Semester 2025 | Section 001,Digital Art,Fall Semester 2025,001,Final Exam,30.00
+Band | Fall Semester 2025 | Section 001,Band,Fall Semester 2025,001,Homework,40.00
+Band | Fall Semester 2025 | Section 001,Band,Fall Semester 2025,001,Quizzes,30.00
+Band | Fall Semester 2025 | Section 001,Band,Fall Semester 2025,001,Final Exam,30.00
+Choir | Fall Semester 2025 | Section 001,Choir,Fall Semester 2025,001,Homework,40.00
+Choir | Fall Semester 2025 | Section 001,Choir,Fall Semester 2025,001,Quizzes,30.00
+Choir | Fall Semester 2025 | Section 001,Choir,Fall Semester 2025,001,Final Exam,30.00
+Orchestra | Fall Semester 2025 | Section 001,Orchestra,Fall Semester 2025,001,Homework,40.00
+Orchestra | Fall Semester 2025 | Section 001,Orchestra,Fall Semester 2025,001,Quizzes,30.00
+Orchestra | Fall Semester 2025 | Section 001,Orchestra,Fall Semester 2025,001,Final Exam,30.00
+Jazz Band | Fall Semester 2025 | Section 001,Jazz Band,Fall Semester 2025,001,Homework,40.00
+Jazz Band | Fall Semester 2025 | Section 001,Jazz Band,Fall Semester 2025,001,Quizzes,30.00
+Jazz Band | Fall Semester 2025 | Section 001,Jazz Band,Fall Semester 2025,001,Final Exam,30.00
+Music Theory | Fall Semester 2025 | Section 001,Music Theory,Fall Semester 2025,001,Homework,40.00
+Music Theory | Fall Semester 2025 | Section 001,Music Theory,Fall Semester 2025,001,Quizzes,30.00
+Music Theory | Fall Semester 2025 | Section 001,Music Theory,Fall Semester 2025,001,Final Exam,30.00
+PE 9 | Fall Semester 2025 | Section 001,PE 9,Fall Semester 2025,001,Homework,40.00
+PE 9 | Fall Semester 2025 | Section 001,PE 9,Fall Semester 2025,001,Quizzes,30.00
+PE 9 | Fall Semester 2025 | Section 001,PE 9,Fall Semester 2025,001,Final Exam,30.00
+PE 10 | Fall Semester 2025 | Section 001,PE 10,Fall Semester 2025,001,Homework,40.00
+PE 10 | Fall Semester 2025 | Section 001,PE 10,Fall Semester 2025,001,Quizzes,30.00
+PE 10 | Fall Semester 2025 | Section 001,PE 10,Fall Semester 2025,001,Final Exam,30.00
+Weight Training | Fall Semester 2025 | Section 001,Weight Training,Fall Semester 2025,001,Homework,40.00
+Weight Training | Fall Semester 2025 | Section 001,Weight Training,Fall Semester 2025,001,Quizzes,30.00
+Weight Training | Fall Semester 2025 | Section 001,Weight Training,Fall Semester 2025,001,Final Exam,30.00
+Lifetime Fitness | Fall Semester 2025 | Section 001,Lifetime Fitness,Fall Semester 2025,001,Homework,40.00
+Lifetime Fitness | Fall Semester 2025 | Section 001,Lifetime Fitness,Fall Semester 2025,001,Quizzes,30.00
+Lifetime Fitness | Fall Semester 2025 | Section 001,Lifetime Fitness,Fall Semester 2025,001,Final Exam,30.00
+Health | Fall Semester 2025 | Section 001,Health,Fall Semester 2025,001,Homework,40.00
+Health | Fall Semester 2025 | Section 001,Health,Fall Semester 2025,001,Quizzes,30.00
+Health | Fall Semester 2025 | Section 001,Health,Fall Semester 2025,001,Final Exam,30.00
+Nutrition & Wellness | Fall Semester 2025 | Section 001,Nutrition & Wellness,Fall Semester 2025,001,Homework,40.00
+Nutrition & Wellness | Fall Semester 2025 | Section 001,Nutrition & Wellness,Fall Semester 2025,001,Quizzes,30.00
+Nutrition & Wellness | Fall Semester 2025 | Section 001,Nutrition & Wellness,Fall Semester 2025,001,Final Exam,30.00
+Business Essentials | Fall Semester 2025 | Section 001,Business Essentials,Fall Semester 2025,001,Homework,40.00
+Business Essentials | Fall Semester 2025 | Section 001,Business Essentials,Fall Semester 2025,001,Quizzes,30.00
+Business Essentials | Fall Semester 2025 | Section 001,Business Essentials,Fall Semester 2025,001,Final Exam,30.00
+Accounting | Fall Semester 2025 | Section 001,Accounting,Fall Semester 2025,001,Homework,40.00
+Accounting | Fall Semester 2025 | Section 001,Accounting,Fall Semester 2025,001,Quizzes,30.00
+Accounting | Fall Semester 2025 | Section 001,Accounting,Fall Semester 2025,001,Final Exam,30.00
+Marketing | Fall Semester 2025 | Section 001,Marketing,Fall Semester 2025,001,Homework,40.00
+Marketing | Fall Semester 2025 | Section 001,Marketing,Fall Semester 2025,001,Quizzes,30.00
+Marketing | Fall Semester 2025 | Section 001,Marketing,Fall Semester 2025,001,Final Exam,30.00
+Entrepreneurship | Fall Semester 2025 | Section 001,Entrepreneurship,Fall Semester 2025,001,Homework,40.00
+Entrepreneurship | Fall Semester 2025 | Section 001,Entrepreneurship,Fall Semester 2025,001,Quizzes,30.00
+Entrepreneurship | Fall Semester 2025 | Section 001,Entrepreneurship,Fall Semester 2025,001,Final Exam,30.00
+Computer Applications | Fall Semester 2025 | Section 001,Computer Applications,Fall Semester 2025,001,Homework,40.00
+Computer Applications | Fall Semester 2025 | Section 001,Computer Applications,Fall Semester 2025,001,Quizzes,30.00
+Computer Applications | Fall Semester 2025 | Section 001,Computer Applications,Fall Semester 2025,001,Final Exam,30.00
+Engineering/PLTW | Fall Semester 2025 | Section 001,Engineering/PLTW,Fall Semester 2025,001,Homework,40.00
+Engineering/PLTW | Fall Semester 2025 | Section 001,Engineering/PLTW,Fall Semester 2025,001,Quizzes,30.00
+Engineering/PLTW | Fall Semester 2025 | Section 001,Engineering/PLTW,Fall Semester 2025,001,Final Exam,30.00
+Robotics | Fall Semester 2025 | Section 001,Robotics,Fall Semester 2025,001,Homework,40.00
+Robotics | Fall Semester 2025 | Section 001,Robotics,Fall Semester 2025,001,Quizzes,30.00
+Robotics | Fall Semester 2025 | Section 001,Robotics,Fall Semester 2025,001,Final Exam,30.00
+Culinary Arts | Fall Semester 2025 | Section 001,Culinary Arts,Fall Semester 2025,001,Homework,40.00
+Culinary Arts | Fall Semester 2025 | Section 001,Culinary Arts,Fall Semester 2025,001,Quizzes,30.00
+Culinary Arts | Fall Semester 2025 | Section 001,Culinary Arts,Fall Semester 2025,001,Final Exam,30.00
+Construction Trades | Fall Semester 2025 | Section 001,Construction Trades,Fall Semester 2025,001,Homework,40.00
+Construction Trades | Fall Semester 2025 | Section 001,Construction Trades,Fall Semester 2025,001,Quizzes,30.00
+Construction Trades | Fall Semester 2025 | Section 001,Construction Trades,Fall Semester 2025,001,Final Exam,30.00
+Automotive Technology | Fall Semester 2025 | Section 001,Automotive Technology,Fall Semester 2025,001,Homework,40.00
+Automotive Technology | Fall Semester 2025 | Section 001,Automotive Technology,Fall Semester 2025,001,Quizzes,30.00
+Automotive Technology | Fall Semester 2025 | Section 001,Automotive Technology,Fall Semester 2025,001,Final Exam,30.00
+Intro to Computer Science | Fall Semester 2025 | Section 001,Intro to Computer Science,Fall Semester 2025,001,Homework,40.00
+Intro to Computer Science | Fall Semester 2025 | Section 001,Intro to Computer Science,Fall Semester 2025,001,Quizzes,30.00
+Intro to Computer Science | Fall Semester 2025 | Section 001,Intro to Computer Science,Fall Semester 2025,001,Final Exam,30.00
+AP Computer Science Principles | Fall Semester 2025 | Section 001,AP Computer Science Principles,Fall Semester 2025,001,Homework,40.00
+AP Computer Science Principles | Fall Semester 2025 | Section 001,AP Computer Science Principles,Fall Semester 2025,001,Quizzes,30.00
+AP Computer Science Principles | Fall Semester 2025 | Section 001,AP Computer Science Principles,Fall Semester 2025,001,Final Exam,30.00
+AP Computer Science A | Fall Semester 2025 | Section 001,AP Computer Science A,Fall Semester 2025,001,Homework,40.00
+AP Computer Science A | Fall Semester 2025 | Section 001,AP Computer Science A,Fall Semester 2025,001,Quizzes,30.00
+AP Computer Science A | Fall Semester 2025 | Section 001,AP Computer Science A,Fall Semester 2025,001,Final Exam,30.00
+Web Development | Fall Semester 2025 | Section 001,Web Development,Fall Semester 2025,001,Homework,40.00
+Web Development | Fall Semester 2025 | Section 001,Web Development,Fall Semester 2025,001,Quizzes,30.00
+Web Development | Fall Semester 2025 | Section 001,Web Development,Fall Semester 2025,001,Final Exam,30.00
+Cybersecurity | Fall Semester 2025 | Section 001,Cybersecurity,Fall Semester 2025,001,Homework,40.00
+Cybersecurity | Fall Semester 2025 | Section 001,Cybersecurity,Fall Semester 2025,001,Quizzes,30.00
+Cybersecurity | Fall Semester 2025 | Section 001,Cybersecurity,Fall Semester 2025,001,Final Exam,30.00
+Data Science | Fall Semester 2025 | Section 001,Data Science,Fall Semester 2025,001,Homework,40.00
+Data Science | Fall Semester 2025 | Section 001,Data Science,Fall Semester 2025,001,Quizzes,30.00
+Data Science | Fall Semester 2025 | Section 001,Data Science,Fall Semester 2025,001,Final Exam,30.00
+Resource English | Fall Semester 2025 | Section 001,Resource English,Fall Semester 2025,001,Homework,40.00
+Resource English | Fall Semester 2025 | Section 001,Resource English,Fall Semester 2025,001,Quizzes,30.00
+Resource English | Fall Semester 2025 | Section 001,Resource English,Fall Semester 2025,001,Final Exam,30.00
+Resource Math | Fall Semester 2025 | Section 001,Resource Math,Fall Semester 2025,001,Homework,40.00
+Resource Math | Fall Semester 2025 | Section 001,Resource Math,Fall Semester 2025,001,Quizzes,30.00
+Resource Math | Fall Semester 2025 | Section 001,Resource Math,Fall Semester 2025,001,Final Exam,30.00
+Study Skills | Fall Semester 2025 | Section 001,Study Skills,Fall Semester 2025,001,Homework,40.00
+Study Skills | Fall Semester 2025 | Section 001,Study Skills,Fall Semester 2025,001,Quizzes,30.00
+Study Skills | Fall Semester 2025 | Section 001,Study Skills,Fall Semester 2025,001,Final Exam,30.00
+ELL Beginner | Fall Semester 2025 | Section 001,ELL Beginner,Fall Semester 2025,001,Homework,40.00
+ELL Beginner | Fall Semester 2025 | Section 001,ELL Beginner,Fall Semester 2025,001,Quizzes,30.00
+ELL Beginner | Fall Semester 2025 | Section 001,ELL Beginner,Fall Semester 2025,001,Final Exam,30.00
+ELL Intermediate | Fall Semester 2025 | Section 001,ELL Intermediate,Fall Semester 2025,001,Homework,40.00
+ELL Intermediate | Fall Semester 2025 | Section 001,ELL Intermediate,Fall Semester 2025,001,Quizzes,30.00
+ELL Intermediate | Fall Semester 2025 | Section 001,ELL Intermediate,Fall Semester 2025,001,Final Exam,30.00
+ELL Advanced | Fall Semester 2025 | Section 001,ELL Advanced,Fall Semester 2025,001,Homework,40.00
+ELL Advanced | Fall Semester 2025 | Section 001,ELL Advanced,Fall Semester 2025,001,Quizzes,30.00
+ELL Advanced | Fall Semester 2025 | Section 001,ELL Advanced,Fall Semester 2025,001,Final Exam,30.00
+Child Development | Fall Semester 2025 | Section 001,Child Development,Fall Semester 2025,001,Homework,40.00
+Child Development | Fall Semester 2025 | Section 001,Child Development,Fall Semester 2025,001,Quizzes,30.00
+Child Development | Fall Semester 2025 | Section 001,Child Development,Fall Semester 2025,001,Final Exam,30.00
+Foods & Nutrition | Fall Semester 2025 | Section 001,Foods & Nutrition,Fall Semester 2025,001,Homework,40.00
+Foods & Nutrition | Fall Semester 2025 | Section 001,Foods & Nutrition,Fall Semester 2025,001,Quizzes,30.00
+Foods & Nutrition | Fall Semester 2025 | Section 001,Foods & Nutrition,Fall Semester 2025,001,Final Exam,30.00
+Family & Consumer Science | Fall Semester 2025 | Section 001,Family & Consumer Science,Fall Semester 2025,001,Homework,40.00
+Family & Consumer Science | Fall Semester 2025 | Section 001,Family & Consumer Science,Fall Semester 2025,001,Quizzes,30.00
+Family & Consumer Science | Fall Semester 2025 | Section 001,Family & Consumer Science,Fall Semester 2025,001,Final Exam,30.00
+Agricultural Science | Fall Semester 2025 | Section 001,Agricultural Science,Fall Semester 2025,001,Homework,40.00
+Agricultural Science | Fall Semester 2025 | Section 001,Agricultural Science,Fall Semester 2025,001,Quizzes,30.00
+Agricultural Science | Fall Semester 2025 | Section 001,Agricultural Science,Fall Semester 2025,001,Final Exam,30.00
+Animal Science | Fall Semester 2025 | Section 001,Animal Science,Fall Semester 2025,001,Homework,40.00
+Animal Science | Fall Semester 2025 | Section 001,Animal Science,Fall Semester 2025,001,Quizzes,30.00
+Animal Science | Fall Semester 2025 | Section 001,Animal Science,Fall Semester 2025,001,Final Exam,30.00
+Plant Science | Fall Semester 2025 | Section 001,Plant Science,Fall Semester 2025,001,Homework,40.00
+Plant Science | Fall Semester 2025 | Section 001,Plant Science,Fall Semester 2025,001,Quizzes,30.00
+Plant Science | Fall Semester 2025 | Section 001,Plant Science,Fall Semester 2025,001,Final Exam,30.00
+General Studies | Fall Semester 2025 | Section 001,General Studies,Fall Semester 2025,001,Homework,40.00
+General Studies | Fall Semester 2025 | Section 001,General Studies,Fall Semester 2025,001,Quizzes,30.00
+General Studies | Fall Semester 2025 | Section 001,General Studies,Fall Semester 2025,001,Final Exam,30.00
+English 9 | Fall Semester 2025 | Section 001,English 9,Fall Semester 2025,001,Homework,40.00
+English 9 | Fall Semester 2025 | Section 001,English 9,Fall Semester 2025,001,Quizzes,30.00
+English 9 | Fall Semester 2025 | Section 001,English 9,Fall Semester 2025,001,Final Exam,30.00
+English 10 | Fall Semester 2025 | Section 001,English 10,Fall Semester 2025,001,Homework,40.00
+English 10 | Fall Semester 2025 | Section 001,English 10,Fall Semester 2025,001,Quizzes,30.00
+English 10 | Fall Semester 2025 | Section 001,English 10,Fall Semester 2025,001,Final Exam,30.00
+English 11 | Fall Semester 2025 | Section 001,English 11,Fall Semester 2025,001,Homework,40.00
+English 11 | Fall Semester 2025 | Section 001,English 11,Fall Semester 2025,001,Quizzes,30.00
+English 11 | Fall Semester 2025 | Section 001,English 11,Fall Semester 2025,001,Final Exam,30.00
+English 12 | Fall Semester 2025 | Section 001,English 12,Fall Semester 2025,001,Homework,40.00
+English 12 | Fall Semester 2025 | Section 001,English 12,Fall Semester 2025,001,Quizzes,30.00
+English 12 | Fall Semester 2025 | Section 001,English 12,Fall Semester 2025,001,Final Exam,30.00
+Literature | Fall Semester 2025 | Section 001,Literature,Fall Semester 2025,001,Homework,40.00
+Literature | Fall Semester 2025 | Section 001,Literature,Fall Semester 2025,001,Quizzes,30.00
+Literature | Fall Semester 2025 | Section 001,Literature,Fall Semester 2025,001,Final Exam,30.00
+Writing/Composition | Fall Semester 2025 | Section 001,Writing/Composition,Fall Semester 2025,001,Homework,40.00
+Writing/Composition | Fall Semester 2025 | Section 001,Writing/Composition,Fall Semester 2025,001,Quizzes,30.00
+Writing/Composition | Fall Semester 2025 | Section 001,Writing/Composition,Fall Semester 2025,001,Final Exam,30.00
+Journalism | Fall Semester 2025 | Section 001,Journalism,Fall Semester 2025,001,Homework,40.00
+Journalism | Fall Semester 2025 | Section 001,Journalism,Fall Semester 2025,001,Quizzes,30.00
+Journalism | Fall Semester 2025 | Section 001,Journalism,Fall Semester 2025,001,Final Exam,30.00
+Speech/Communications | Fall Semester 2025 | Section 001,Speech/Communications,Fall Semester 2025,001,Homework,40.00
+Speech/Communications | Fall Semester 2025 | Section 001,Speech/Communications,Fall Semester 2025,001,Quizzes,30.00
+Speech/Communications | Fall Semester 2025 | Section 001,Speech/Communications,Fall Semester 2025,001,Final Exam,30.00
+Reading | Fall Semester 2025 | Section 001,Reading,Fall Semester 2025,001,Homework,40.00
+Reading | Fall Semester 2025 | Section 001,Reading,Fall Semester 2025,001,Quizzes,30.00
+Reading | Fall Semester 2025 | Section 001,Reading,Fall Semester 2025,001,Final Exam,30.00
+Math 6 | Fall Semester 2025 | Section 001,Math 6,Fall Semester 2025,001,Homework,40.00
+Math 6 | Fall Semester 2025 | Section 001,Math 6,Fall Semester 2025,001,Quizzes,30.00
+Math 6 | Fall Semester 2025 | Section 001,Math 6,Fall Semester 2025,001,Final Exam,30.00
+Pre-Algebra | Fall Semester 2025 | Section 001,Pre-Algebra,Fall Semester 2025,001,Homework,40.00
+Pre-Algebra | Fall Semester 2025 | Section 001,Pre-Algebra,Fall Semester 2025,001,Quizzes,30.00
+Pre-Algebra | Fall Semester 2025 | Section 001,Pre-Algebra,Fall Semester 2025,001,Final Exam,30.00
+Algebra I | Fall Semester 2025 | Section 001,Algebra I,Fall Semester 2025,001,Homework,40.00
+Algebra I | Fall Semester 2025 | Section 001,Algebra I,Fall Semester 2025,001,Quizzes,30.00
+Algebra I | Fall Semester 2025 | Section 001,Algebra I,Fall Semester 2025,001,Final Exam,30.00
+Geometry | Fall Semester 2025 | Section 001,Geometry,Fall Semester 2025,001,Homework,40.00
+Geometry | Fall Semester 2025 | Section 001,Geometry,Fall Semester 2025,001,Quizzes,30.00
+Geometry | Fall Semester 2025 | Section 001,Geometry,Fall Semester 2025,001,Final Exam,30.00
+Algebra II | Fall Semester 2025 | Section 001,Algebra II,Fall Semester 2025,001,Homework,40.00
+Algebra II | Fall Semester 2025 | Section 001,Algebra II,Fall Semester 2025,001,Quizzes,30.00
+Algebra II | Fall Semester 2025 | Section 001,Algebra II,Fall Semester 2025,001,Final Exam,30.00
+Precalculus | Fall Semester 2025 | Section 001,Precalculus,Fall Semester 2025,001,Homework,40.00
+Precalculus | Fall Semester 2025 | Section 001,Precalculus,Fall Semester 2025,001,Quizzes,30.00
+Precalculus | Fall Semester 2025 | Section 001,Precalculus,Fall Semester 2025,001,Final Exam,30.00
+Calculus | Fall Semester 2025 | Section 001,Calculus,Fall Semester 2025,001,Homework,40.00
+Calculus | Fall Semester 2025 | Section 001,Calculus,Fall Semester 2025,001,Quizzes,30.00
+Calculus | Fall Semester 2025 | Section 001,Calculus,Fall Semester 2025,001,Final Exam,30.00
+Statistics | Fall Semester 2025 | Section 001,Statistics,Fall Semester 2025,001,Homework,40.00
+Statistics | Fall Semester 2025 | Section 001,Statistics,Fall Semester 2025,001,Quizzes,30.00
+Statistics | Fall Semester 2025 | Section 001,Statistics,Fall Semester 2025,001,Final Exam,30.00
+Earth Science | Fall Semester 2025 | Section 001,Earth Science,Fall Semester 2025,001,Homework,40.00
+Earth Science | Fall Semester 2025 | Section 001,Earth Science,Fall Semester 2025,001,Quizzes,30.00
+Earth Science | Fall Semester 2025 | Section 001,Earth Science,Fall Semester 2025,001,Final Exam,30.00
+Physical Science | Fall Semester 2025 | Section 001,Physical Science,Fall Semester 2025,001,Homework,40.00
+Physical Science | Fall Semester 2025 | Section 001,Physical Science,Fall Semester 2025,001,Quizzes,30.00
+Physical Science | Fall Semester 2025 | Section 001,Physical Science,Fall Semester 2025,001,Final Exam,30.00
+Biology | Fall Semester 2025 | Section 001,Biology,Fall Semester 2025,001,Homework,40.00
+Biology | Fall Semester 2025 | Section 001,Biology,Fall Semester 2025,001,Quizzes,30.00
+Biology | Fall Semester 2025 | Section 001,Biology,Fall Semester 2025,001,Final Exam,30.00
+Chemistry | Fall Semester 2025 | Section 001,Chemistry,Fall Semester 2025,001,Homework,40.00
+Chemistry | Fall Semester 2025 | Section 001,Chemistry,Fall Semester 2025,001,Quizzes,30.00
+Chemistry | Fall Semester 2025 | Section 001,Chemistry,Fall Semester 2025,001,Final Exam,30.00
+Physics | Fall Semester 2025 | Section 001,Physics,Fall Semester 2025,001,Homework,40.00
+Physics | Fall Semester 2025 | Section 001,Physics,Fall Semester 2025,001,Quizzes,30.00
+Physics | Fall Semester 2025 | Section 001,Physics,Fall Semester 2025,001,Final Exam,30.00
+Environmental Science | Fall Semester 2025 | Section 001,Environmental Science,Fall Semester 2025,001,Homework,40.00
+Environmental Science | Fall Semester 2025 | Section 001,Environmental Science,Fall Semester 2025,001,Quizzes,30.00
+Environmental Science | Fall Semester 2025 | Section 001,Environmental Science,Fall Semester 2025,001,Final Exam,30.00
+Anatomy & Physiology | Fall Semester 2025 | Section 001,Anatomy & Physiology,Fall Semester 2025,001,Homework,40.00
+Anatomy & Physiology | Fall Semester 2025 | Section 001,Anatomy & Physiology,Fall Semester 2025,001,Quizzes,30.00
+Anatomy & Physiology | Fall Semester 2025 | Section 001,Anatomy & Physiology,Fall Semester 2025,001,Final Exam,30.00
+World History | Fall Semester 2025 | Section 001,World History,Fall Semester 2025,001,Homework,40.00
+World History | Fall Semester 2025 | Section 001,World History,Fall Semester 2025,001,Quizzes,30.00
+World History | Fall Semester 2025 | Section 001,World History,Fall Semester 2025,001,Final Exam,30.00
+U.S. History | Fall Semester 2025 | Section 001,U.S. History,Fall Semester 2025,001,Homework,40.00
+U.S. History | Fall Semester 2025 | Section 001,U.S. History,Fall Semester 2025,001,Quizzes,30.00
+U.S. History | Fall Semester 2025 | Section 001,U.S. History,Fall Semester 2025,001,Final Exam,30.00
+Government/Civics | Fall Semester 2025 | Section 001,Government/Civics,Fall Semester 2025,001,Homework,40.00
+Government/Civics | Fall Semester 2025 | Section 001,Government/Civics,Fall Semester 2025,001,Quizzes,30.00
+Government/Civics | Fall Semester 2025 | Section 001,Government/Civics,Fall Semester 2025,001,Final Exam,30.00
+Economics | Fall Semester 2025 | Section 001,Economics,Fall Semester 2025,001,Homework,40.00
+Economics | Fall Semester 2025 | Section 001,Economics,Fall Semester 2025,001,Quizzes,30.00
+Economics | Fall Semester 2025 | Section 001,Economics,Fall Semester 2025,001,Final Exam,30.00
+Geography | Fall Semester 2025 | Section 001,Geography,Fall Semester 2025,001,Homework,40.00
+Geography | Fall Semester 2025 | Section 001,Geography,Fall Semester 2025,001,Quizzes,30.00
+Geography | Fall Semester 2025 | Section 001,Geography,Fall Semester 2025,001,Final Exam,30.00
+Psychology | Fall Semester 2025 | Section 001,Psychology,Fall Semester 2025,001,Homework,40.00
+Psychology | Fall Semester 2025 | Section 001,Psychology,Fall Semester 2025,001,Quizzes,30.00
+Psychology | Fall Semester 2025 | Section 001,Psychology,Fall Semester 2025,001,Final Exam,30.00
+Sociology | Fall Semester 2025 | Section 001,Sociology,Fall Semester 2025,001,Homework,40.00
+Sociology | Fall Semester 2025 | Section 001,Sociology,Fall Semester 2025,001,Quizzes,30.00
+Sociology | Fall Semester 2025 | Section 001,Sociology,Fall Semester 2025,001,Final Exam,30.00
+Spanish I | Fall Semester 2025 | Section 001,Spanish I,Fall Semester 2025,001,Homework,40.00
+Spanish I | Fall Semester 2025 | Section 001,Spanish I,Fall Semester 2025,001,Quizzes,30.00
+Spanish I | Fall Semester 2025 | Section 001,Spanish I,Fall Semester 2025,001,Final Exam,30.00
+Spanish II | Fall Semester 2025 | Section 001,Spanish II,Fall Semester 2025,001,Homework,40.00
+Spanish II | Fall Semester 2025 | Section 001,Spanish II,Fall Semester 2025,001,Quizzes,30.00
+Spanish II | Fall Semester 2025 | Section 001,Spanish II,Fall Semester 2025,001,Final Exam,30.00
+French I | Fall Semester 2025 | Section 001,French I,Fall Semester 2025,001,Homework,40.00
+French I | Fall Semester 2025 | Section 001,French I,Fall Semester 2025,001,Quizzes,30.00
+French I | Fall Semester 2025 | Section 001,French I,Fall Semester 2025,001,Final Exam,30.00
+French II | Fall Semester 2025 | Section 001,French II,Fall Semester 2025,001,Homework,40.00
+French II | Fall Semester 2025 | Section 001,French II,Fall Semester 2025,001,Quizzes,30.00
+French II | Fall Semester 2025 | Section 001,French II,Fall Semester 2025,001,Final Exam,30.00
+German I | Fall Semester 2025 | Section 001,German I,Fall Semester 2025,001,Homework,40.00
+German I | Fall Semester 2025 | Section 001,German I,Fall Semester 2025,001,Quizzes,30.00
+German I | Fall Semester 2025 | Section 001,German I,Fall Semester 2025,001,Final Exam,30.00
+German II | Fall Semester 2025 | Section 001,German II,Fall Semester 2025,001,Homework,40.00
+German II | Fall Semester 2025 | Section 001,German II,Fall Semester 2025,001,Quizzes,30.00
+German II | Fall Semester 2025 | Section 001,German II,Fall Semester 2025,001,Final Exam,30.00
+Art I | Fall Semester 2025 | Section 001,Art I,Fall Semester 2025,001,Homework,40.00
+Art I | Fall Semester 2025 | Section 001,Art I,Fall Semester 2025,001,Quizzes,30.00
+Art I | Fall Semester 2025 | Section 001,Art I,Fall Semester 2025,001,Final Exam,30.00
+Art II | Fall Semester 2025 | Section 001,Art II,Fall Semester 2025,001,Homework,40.00
+Art II | Fall Semester 2025 | Section 001,Art II,Fall Semester 2025,001,Quizzes,30.00
+Art II | Fall Semester 2025 | Section 001,Art II,Fall Semester 2025,001,Final Exam,30.00
+Drawing | Fall Semester 2025 | Section 001,Drawing,Fall Semester 2025,001,Homework,40.00
+Drawing | Fall Semester 2025 | Section 001,Drawing,Fall Semester 2025,001,Quizzes,30.00
+Drawing | Fall Semester 2025 | Section 001,Drawing,Fall Semester 2025,001,Final Exam,30.00
+Painting | Fall Semester 2025 | Section 001,Painting,Fall Semester 2025,001,Homework,40.00
+Painting | Fall Semester 2025 | Section 001,Painting,Fall Semester 2025,001,Quizzes,30.00
+Painting | Fall Semester 2025 | Section 001,Painting,Fall Semester 2025,001,Final Exam,30.00
+Sculpture | Fall Semester 2025 | Section 001,Sculpture,Fall Semester 2025,001,Homework,40.00
+Sculpture | Fall Semester 2025 | Section 001,Sculpture,Fall Semester 2025,001,Quizzes,30.00
+Sculpture | Fall Semester 2025 | Section 001,Sculpture,Fall Semester 2025,001,Final Exam,30.00
+Digital Art | Fall Semester 2025 | Section 001,Digital Art,Fall Semester 2025,001,Homework,40.00
+Digital Art | Fall Semester 2025 | Section 001,Digital Art,Fall Semester 2025,001,Quizzes,30.00
+Digital Art | Fall Semester 2025 | Section 001,Digital Art,Fall Semester 2025,001,Final Exam,30.00
+Band | Fall Semester 2025 | Section 001,Band,Fall Semester 2025,001,Homework,40.00
+Band | Fall Semester 2025 | Section 001,Band,Fall Semester 2025,001,Quizzes,30.00
+Band | Fall Semester 2025 | Section 001,Band,Fall Semester 2025,001,Final Exam,30.00
+Choir | Fall Semester 2025 | Section 001,Choir,Fall Semester 2025,001,Homework,40.00
+Choir | Fall Semester 2025 | Section 001,Choir,Fall Semester 2025,001,Quizzes,30.00
+Choir | Fall Semester 2025 | Section 001,Choir,Fall Semester 2025,001,Final Exam,30.00
+Orchestra | Fall Semester 2025 | Section 001,Orchestra,Fall Semester 2025,001,Homework,40.00
+Orchestra | Fall Semester 2025 | Section 001,Orchestra,Fall Semester 2025,001,Quizzes,30.00
+Orchestra | Fall Semester 2025 | Section 001,Orchestra,Fall Semester 2025,001,Final Exam,30.00
+Jazz Band | Fall Semester 2025 | Section 001,Jazz Band,Fall Semester 2025,001,Homework,40.00
+Jazz Band | Fall Semester 2025 | Section 001,Jazz Band,Fall Semester 2025,001,Quizzes,30.00
+Jazz Band | Fall Semester 2025 | Section 001,Jazz Band,Fall Semester 2025,001,Final Exam,30.00
+Music Theory | Fall Semester 2025 | Section 001,Music Theory,Fall Semester 2025,001,Homework,40.00
+Music Theory | Fall Semester 2025 | Section 001,Music Theory,Fall Semester 2025,001,Quizzes,30.00
+Music Theory | Fall Semester 2025 | Section 001,Music Theory,Fall Semester 2025,001,Final Exam,30.00
+PE 9 | Fall Semester 2025 | Section 001,PE 9,Fall Semester 2025,001,Homework,40.00
+PE 9 | Fall Semester 2025 | Section 001,PE 9,Fall Semester 2025,001,Quizzes,30.00
+PE 9 | Fall Semester 2025 | Section 001,PE 9,Fall Semester 2025,001,Final Exam,30.00
+PE 10 | Fall Semester 2025 | Section 001,PE 10,Fall Semester 2025,001,Homework,40.00
+PE 10 | Fall Semester 2025 | Section 001,PE 10,Fall Semester 2025,001,Quizzes,30.00
+PE 10 | Fall Semester 2025 | Section 001,PE 10,Fall Semester 2025,001,Final Exam,30.00
+Weight Training | Fall Semester 2025 | Section 001,Weight Training,Fall Semester 2025,001,Homework,40.00
+Weight Training | Fall Semester 2025 | Section 001,Weight Training,Fall Semester 2025,001,Quizzes,30.00
+Weight Training | Fall Semester 2025 | Section 001,Weight Training,Fall Semester 2025,001,Final Exam,30.00
+Lifetime Fitness | Fall Semester 2025 | Section 001,Lifetime Fitness,Fall Semester 2025,001,Homework,40.00
+Lifetime Fitness | Fall Semester 2025 | Section 001,Lifetime Fitness,Fall Semester 2025,001,Quizzes,30.00
+Lifetime Fitness | Fall Semester 2025 | Section 001,Lifetime Fitness,Fall Semester 2025,001,Final Exam,30.00
+Health | Fall Semester 2025 | Section 001,Health,Fall Semester 2025,001,Homework,40.00
+Health | Fall Semester 2025 | Section 001,Health,Fall Semester 2025,001,Quizzes,30.00
+Health | Fall Semester 2025 | Section 001,Health,Fall Semester 2025,001,Final Exam,30.00
+Nutrition & Wellness | Fall Semester 2025 | Section 001,Nutrition & Wellness,Fall Semester 2025,001,Homework,40.00
+Nutrition & Wellness | Fall Semester 2025 | Section 001,Nutrition & Wellness,Fall Semester 2025,001,Quizzes,30.00
+Nutrition & Wellness | Fall Semester 2025 | Section 001,Nutrition & Wellness,Fall Semester 2025,001,Final Exam,30.00
+Business Essentials | Fall Semester 2025 | Section 001,Business Essentials,Fall Semester 2025,001,Homework,40.00
+Business Essentials | Fall Semester 2025 | Section 001,Business Essentials,Fall Semester 2025,001,Quizzes,30.00
+Business Essentials | Fall Semester 2025 | Section 001,Business Essentials,Fall Semester 2025,001,Final Exam,30.00
+Accounting | Fall Semester 2025 | Section 001,Accounting,Fall Semester 2025,001,Homework,40.00
+Accounting | Fall Semester 2025 | Section 001,Accounting,Fall Semester 2025,001,Quizzes,30.00
+Accounting | Fall Semester 2025 | Section 001,Accounting,Fall Semester 2025,001,Final Exam,30.00
+Marketing | Fall Semester 2025 | Section 001,Marketing,Fall Semester 2025,001,Homework,40.00
+Marketing | Fall Semester 2025 | Section 001,Marketing,Fall Semester 2025,001,Quizzes,30.00
+Marketing | Fall Semester 2025 | Section 001,Marketing,Fall Semester 2025,001,Final Exam,30.00
+Entrepreneurship | Fall Semester 2025 | Section 001,Entrepreneurship,Fall Semester 2025,001,Homework,40.00
+Entrepreneurship | Fall Semester 2025 | Section 001,Entrepreneurship,Fall Semester 2025,001,Quizzes,30.00
+Entrepreneurship | Fall Semester 2025 | Section 001,Entrepreneurship,Fall Semester 2025,001,Final Exam,30.00
+Computer Applications | Fall Semester 2025 | Section 001,Computer Applications,Fall Semester 2025,001,Homework,40.00
+Computer Applications | Fall Semester 2025 | Section 001,Computer Applications,Fall Semester 2025,001,Quizzes,30.00
+Computer Applications | Fall Semester 2025 | Section 001,Computer Applications,Fall Semester 2025,001,Final Exam,30.00
+Engineering/PLTW | Fall Semester 2025 | Section 001,Engineering/PLTW,Fall Semester 2025,001,Homework,40.00
+Engineering/PLTW | Fall Semester 2025 | Section 001,Engineering/PLTW,Fall Semester 2025,001,Quizzes,30.00
+Engineering/PLTW | Fall Semester 2025 | Section 001,Engineering/PLTW,Fall Semester 2025,001,Final Exam,30.00
+Robotics | Fall Semester 2025 | Section 001,Robotics,Fall Semester 2025,001,Homework,40.00
+Robotics | Fall Semester 2025 | Section 001,Robotics,Fall Semester 2025,001,Quizzes,30.00
+Robotics | Fall Semester 2025 | Section 001,Robotics,Fall Semester 2025,001,Final Exam,30.00
+Culinary Arts | Fall Semester 2025 | Section 001,Culinary Arts,Fall Semester 2025,001,Homework,40.00
+Culinary Arts | Fall Semester 2025 | Section 001,Culinary Arts,Fall Semester 2025,001,Quizzes,30.00
+Culinary Arts | Fall Semester 2025 | Section 001,Culinary Arts,Fall Semester 2025,001,Final Exam,30.00
+Construction Trades | Fall Semester 2025 | Section 001,Construction Trades,Fall Semester 2025,001,Homework,40.00
+Construction Trades | Fall Semester 2025 | Section 001,Construction Trades,Fall Semester 2025,001,Quizzes,30.00
+Construction Trades | Fall Semester 2025 | Section 001,Construction Trades,Fall Semester 2025,001,Final Exam,30.00
+Automotive Technology | Fall Semester 2025 | Section 001,Automotive Technology,Fall Semester 2025,001,Homework,40.00
+Automotive Technology | Fall Semester 2025 | Section 001,Automotive Technology,Fall Semester 2025,001,Quizzes,30.00
+Automotive Technology | Fall Semester 2025 | Section 001,Automotive Technology,Fall Semester 2025,001,Final Exam,30.00
+Intro to Computer Science | Fall Semester 2025 | Section 001,Intro to Computer Science,Fall Semester 2025,001,Homework,40.00
+Intro to Computer Science | Fall Semester 2025 | Section 001,Intro to Computer Science,Fall Semester 2025,001,Quizzes,30.00
+Intro to Computer Science | Fall Semester 2025 | Section 001,Intro to Computer Science,Fall Semester 2025,001,Final Exam,30.00
+AP Computer Science Principles | Fall Semester 2025 | Section 001,AP Computer Science Principles,Fall Semester 2025,001,Homework,40.00
+AP Computer Science Principles | Fall Semester 2025 | Section 001,AP Computer Science Principles,Fall Semester 2025,001,Quizzes,30.00
+AP Computer Science Principles | Fall Semester 2025 | Section 001,AP Computer Science Principles,Fall Semester 2025,001,Final Exam,30.00
+AP Computer Science A | Fall Semester 2025 | Section 001,AP Computer Science A,Fall Semester 2025,001,Homework,40.00
+AP Computer Science A | Fall Semester 2025 | Section 001,AP Computer Science A,Fall Semester 2025,001,Quizzes,30.00
+AP Computer Science A | Fall Semester 2025 | Section 001,AP Computer Science A,Fall Semester 2025,001,Final Exam,30.00
+Web Development | Fall Semester 2025 | Section 001,Web Development,Fall Semester 2025,001,Homework,40.00
+Web Development | Fall Semester 2025 | Section 001,Web Development,Fall Semester 2025,001,Quizzes,30.00
+Web Development | Fall Semester 2025 | Section 001,Web Development,Fall Semester 2025,001,Final Exam,30.00
+Cybersecurity | Fall Semester 2025 | Section 001,Cybersecurity,Fall Semester 2025,001,Homework,40.00
+Cybersecurity | Fall Semester 2025 | Section 001,Cybersecurity,Fall Semester 2025,001,Quizzes,30.00
+Cybersecurity | Fall Semester 2025 | Section 001,Cybersecurity,Fall Semester 2025,001,Final Exam,30.00
+Data Science | Fall Semester 2025 | Section 001,Data Science,Fall Semester 2025,001,Homework,40.00
+Data Science | Fall Semester 2025 | Section 001,Data Science,Fall Semester 2025,001,Quizzes,30.00
+Data Science | Fall Semester 2025 | Section 001,Data Science,Fall Semester 2025,001,Final Exam,30.00
+Resource English | Fall Semester 2025 | Section 001,Resource English,Fall Semester 2025,001,Homework,40.00
+Resource English | Fall Semester 2025 | Section 001,Resource English,Fall Semester 2025,001,Quizzes,30.00
+Resource English | Fall Semester 2025 | Section 001,Resource English,Fall Semester 2025,001,Final Exam,30.00
+Resource Math | Fall Semester 2025 | Section 001,Resource Math,Fall Semester 2025,001,Homework,40.00
+Resource Math | Fall Semester 2025 | Section 001,Resource Math,Fall Semester 2025,001,Quizzes,30.00
+Resource Math | Fall Semester 2025 | Section 001,Resource Math,Fall Semester 2025,001,Final Exam,30.00
+Study Skills | Fall Semester 2025 | Section 001,Study Skills,Fall Semester 2025,001,Homework,40.00
+Study Skills | Fall Semester 2025 | Section 001,Study Skills,Fall Semester 2025,001,Quizzes,30.00
+Study Skills | Fall Semester 2025 | Section 001,Study Skills,Fall Semester 2025,001,Final Exam,30.00
+ELL Beginner | Fall Semester 2025 | Section 001,ELL Beginner,Fall Semester 2025,001,Homework,40.00
+ELL Beginner | Fall Semester 2025 | Section 001,ELL Beginner,Fall Semester 2025,001,Quizzes,30.00
+ELL Beginner | Fall Semester 2025 | Section 001,ELL Beginner,Fall Semester 2025,001,Final Exam,30.00
+ELL Intermediate | Fall Semester 2025 | Section 001,ELL Intermediate,Fall Semester 2025,001,Homework,40.00
+ELL Intermediate | Fall Semester 2025 | Section 001,ELL Intermediate,Fall Semester 2025,001,Quizzes,30.00
+ELL Intermediate | Fall Semester 2025 | Section 001,ELL Intermediate,Fall Semester 2025,001,Final Exam,30.00
+ELL Advanced | Fall Semester 2025 | Section 001,ELL Advanced,Fall Semester 2025,001,Homework,40.00
+ELL Advanced | Fall Semester 2025 | Section 001,ELL Advanced,Fall Semester 2025,001,Quizzes,30.00
+ELL Advanced | Fall Semester 2025 | Section 001,ELL Advanced,Fall Semester 2025,001,Final Exam,30.00
+Child Development | Fall Semester 2025 | Section 001,Child Development,Fall Semester 2025,001,Homework,40.00
+Child Development | Fall Semester 2025 | Section 001,Child Development,Fall Semester 2025,001,Quizzes,30.00
+Child Development | Fall Semester 2025 | Section 001,Child Development,Fall Semester 2025,001,Final Exam,30.00
+Foods & Nutrition | Fall Semester 2025 | Section 001,Foods & Nutrition,Fall Semester 2025,001,Homework,40.00
+Foods & Nutrition | Fall Semester 2025 | Section 001,Foods & Nutrition,Fall Semester 2025,001,Quizzes,30.00
+Foods & Nutrition | Fall Semester 2025 | Section 001,Foods & Nutrition,Fall Semester 2025,001,Final Exam,30.00
+Family & Consumer Science | Fall Semester 2025 | Section 001,Family & Consumer Science,Fall Semester 2025,001,Homework,40.00
+Family & Consumer Science | Fall Semester 2025 | Section 001,Family & Consumer Science,Fall Semester 2025,001,Quizzes,30.00
+Family & Consumer Science | Fall Semester 2025 | Section 001,Family & Consumer Science,Fall Semester 2025,001,Final Exam,30.00
+Agricultural Science | Fall Semester 2025 | Section 001,Agricultural Science,Fall Semester 2025,001,Homework,40.00
+Agricultural Science | Fall Semester 2025 | Section 001,Agricultural Science,Fall Semester 2025,001,Quizzes,30.00
+Agricultural Science | Fall Semester 2025 | Section 001,Agricultural Science,Fall Semester 2025,001,Final Exam,30.00
+Animal Science | Fall Semester 2025 | Section 001,Animal Science,Fall Semester 2025,001,Homework,40.00
+Animal Science | Fall Semester 2025 | Section 001,Animal Science,Fall Semester 2025,001,Quizzes,30.00
+Animal Science | Fall Semester 2025 | Section 001,Animal Science,Fall Semester 2025,001,Final Exam,30.00
+Plant Science | Fall Semester 2025 | Section 001,Plant Science,Fall Semester 2025,001,Homework,40.00
+Plant Science | Fall Semester 2025 | Section 001,Plant Science,Fall Semester 2025,001,Quizzes,30.00
+Plant Science | Fall Semester 2025 | Section 001,Plant Science,Fall Semester 2025,001,Final Exam,30.00
+General Studies | Fall Semester 2025 | Section 001,General Studies,Fall Semester 2025,001,Homework,40.00
+General Studies | Fall Semester 2025 | Section 001,General Studies,Fall Semester 2025,001,Quizzes,30.00
+General Studies | Fall Semester 2025 | Section 001,General Studies,Fall Semester 2025,001,Final Exam,30.00
+English 9 | Fall Semester 2025 | Section 001,English 9,Fall Semester 2025,001,Homework,40.00
+English 9 | Fall Semester 2025 | Section 001,English 9,Fall Semester 2025,001,Quizzes,30.00
+English 9 | Fall Semester 2025 | Section 001,English 9,Fall Semester 2025,001,Final Exam,30.00
+English 10 | Fall Semester 2025 | Section 001,English 10,Fall Semester 2025,001,Homework,40.00
+English 10 | Fall Semester 2025 | Section 001,English 10,Fall Semester 2025,001,Quizzes,30.00
+English 10 | Fall Semester 2025 | Section 001,English 10,Fall Semester 2025,001,Final Exam,30.00
+English 11 | Fall Semester 2025 | Section 001,English 11,Fall Semester 2025,001,Homework,40.00
+English 11 | Fall Semester 2025 | Section 001,English 11,Fall Semester 2025,001,Quizzes,30.00
+English 11 | Fall Semester 2025 | Section 001,English 11,Fall Semester 2025,001,Final Exam,30.00
+English 12 | Fall Semester 2025 | Section 001,English 12,Fall Semester 2025,001,Homework,40.00
+English 12 | Fall Semester 2025 | Section 001,English 12,Fall Semester 2025,001,Quizzes,30.00
+English 12 | Fall Semester 2025 | Section 001,English 12,Fall Semester 2025,001,Final Exam,30.00
+Literature | Fall Semester 2025 | Section 001,Literature,Fall Semester 2025,001,Homework,40.00
+Literature | Fall Semester 2025 | Section 001,Literature,Fall Semester 2025,001,Quizzes,30.00
+Literature | Fall Semester 2025 | Section 001,Literature,Fall Semester 2025,001,Final Exam,30.00
+Writing/Composition | Fall Semester 2025 | Section 001,Writing/Composition,Fall Semester 2025,001,Homework,40.00
+Writing/Composition | Fall Semester 2025 | Section 001,Writing/Composition,Fall Semester 2025,001,Quizzes,30.00
+Writing/Composition | Fall Semester 2025 | Section 001,Writing/Composition,Fall Semester 2025,001,Final Exam,30.00
+Journalism | Fall Semester 2025 | Section 001,Journalism,Fall Semester 2025,001,Homework,40.00
+Journalism | Fall Semester 2025 | Section 001,Journalism,Fall Semester 2025,001,Quizzes,30.00
+Journalism | Fall Semester 2025 | Section 001,Journalism,Fall Semester 2025,001,Final Exam,30.00
+Speech/Communications | Fall Semester 2025 | Section 001,Speech/Communications,Fall Semester 2025,001,Homework,40.00
+Speech/Communications | Fall Semester 2025 | Section 001,Speech/Communications,Fall Semester 2025,001,Quizzes,30.00
+Speech/Communications | Fall Semester 2025 | Section 001,Speech/Communications,Fall Semester 2025,001,Final Exam,30.00
+Reading | Fall Semester 2025 | Section 001,Reading,Fall Semester 2025,001,Homework,40.00
+Reading | Fall Semester 2025 | Section 001,Reading,Fall Semester 2025,001,Quizzes,30.00
+Reading | Fall Semester 2025 | Section 001,Reading,Fall Semester 2025,001,Final Exam,30.00
+Math 6 | Fall Semester 2025 | Section 001,Math 6,Fall Semester 2025,001,Homework,40.00
+Math 6 | Fall Semester 2025 | Section 001,Math 6,Fall Semester 2025,001,Quizzes,30.00
+Math 6 | Fall Semester 2025 | Section 001,Math 6,Fall Semester 2025,001,Final Exam,30.00
+Pre-Algebra | Fall Semester 2025 | Section 001,Pre-Algebra,Fall Semester 2025,001,Homework,40.00
+Pre-Algebra | Fall Semester 2025 | Section 001,Pre-Algebra,Fall Semester 2025,001,Quizzes,30.00
+Pre-Algebra | Fall Semester 2025 | Section 001,Pre-Algebra,Fall Semester 2025,001,Final Exam,30.00
+Algebra I | Fall Semester 2025 | Section 001,Algebra I,Fall Semester 2025,001,Homework,40.00
+Algebra I | Fall Semester 2025 | Section 001,Algebra I,Fall Semester 2025,001,Quizzes,30.00
+Algebra I | Fall Semester 2025 | Section 001,Algebra I,Fall Semester 2025,001,Final Exam,30.00
+Geometry | Fall Semester 2025 | Section 001,Geometry,Fall Semester 2025,001,Homework,40.00
+Geometry | Fall Semester 2025 | Section 001,Geometry,Fall Semester 2025,001,Quizzes,30.00
+Geometry | Fall Semester 2025 | Section 001,Geometry,Fall Semester 2025,001,Final Exam,30.00
+Algebra II | Fall Semester 2025 | Section 001,Algebra II,Fall Semester 2025,001,Homework,40.00
+Algebra II | Fall Semester 2025 | Section 001,Algebra II,Fall Semester 2025,001,Quizzes,30.00
+Algebra II | Fall Semester 2025 | Section 001,Algebra II,Fall Semester 2025,001,Final Exam,30.00
+Precalculus | Fall Semester 2025 | Section 001,Precalculus,Fall Semester 2025,001,Homework,40.00
+Precalculus | Fall Semester 2025 | Section 001,Precalculus,Fall Semester 2025,001,Quizzes,30.00
+Precalculus | Fall Semester 2025 | Section 001,Precalculus,Fall Semester 2025,001,Final Exam,30.00
+Calculus | Fall Semester 2025 | Section 001,Calculus,Fall Semester 2025,001,Homework,40.00
+Calculus | Fall Semester 2025 | Section 001,Calculus,Fall Semester 2025,001,Quizzes,30.00
+Calculus | Fall Semester 2025 | Section 001,Calculus,Fall Semester 2025,001,Final Exam,30.00
+Statistics | Fall Semester 2025 | Section 001,Statistics,Fall Semester 2025,001,Homework,40.00
+Statistics | Fall Semester 2025 | Section 001,Statistics,Fall Semester 2025,001,Quizzes,30.00
+Statistics | Fall Semester 2025 | Section 001,Statistics,Fall Semester 2025,001,Final Exam,30.00
+Earth Science | Fall Semester 2025 | Section 001,Earth Science,Fall Semester 2025,001,Homework,40.00
+Earth Science | Fall Semester 2025 | Section 001,Earth Science,Fall Semester 2025,001,Quizzes,30.00
+Earth Science | Fall Semester 2025 | Section 001,Earth Science,Fall Semester 2025,001,Final Exam,30.00
+Physical Science | Fall Semester 2025 | Section 001,Physical Science,Fall Semester 2025,001,Homework,40.00
+Physical Science | Fall Semester 2025 | Section 001,Physical Science,Fall Semester 2025,001,Quizzes,30.00
+Physical Science | Fall Semester 2025 | Section 001,Physical Science,Fall Semester 2025,001,Final Exam,30.00
+Biology | Fall Semester 2025 | Section 001,Biology,Fall Semester 2025,001,Homework,40.00
+Biology | Fall Semester 2025 | Section 001,Biology,Fall Semester 2025,001,Quizzes,30.00
+Biology | Fall Semester 2025 | Section 001,Biology,Fall Semester 2025,001,Final Exam,30.00
+Chemistry | Fall Semester 2025 | Section 001,Chemistry,Fall Semester 2025,001,Homework,40.00
+Chemistry | Fall Semester 2025 | Section 001,Chemistry,Fall Semester 2025,001,Quizzes,30.00
+Chemistry | Fall Semester 2025 | Section 001,Chemistry,Fall Semester 2025,001,Final Exam,30.00
+Physics | Fall Semester 2025 | Section 001,Physics,Fall Semester 2025,001,Homework,40.00
+Physics | Fall Semester 2025 | Section 001,Physics,Fall Semester 2025,001,Quizzes,30.00
+Physics | Fall Semester 2025 | Section 001,Physics,Fall Semester 2025,001,Final Exam,30.00
+Environmental Science | Fall Semester 2025 | Section 001,Environmental Science,Fall Semester 2025,001,Homework,40.00
+Environmental Science | Fall Semester 2025 | Section 001,Environmental Science,Fall Semester 2025,001,Quizzes,30.00
+Environmental Science | Fall Semester 2025 | Section 001,Environmental Science,Fall Semester 2025,001,Final Exam,30.00
+Anatomy & Physiology | Fall Semester 2025 | Section 001,Anatomy & Physiology,Fall Semester 2025,001,Homework,40.00
+Anatomy & Physiology | Fall Semester 2025 | Section 001,Anatomy & Physiology,Fall Semester 2025,001,Quizzes,30.00
+Anatomy & Physiology | Fall Semester 2025 | Section 001,Anatomy & Physiology,Fall Semester 2025,001,Final Exam,30.00
+World History | Fall Semester 2025 | Section 001,World History,Fall Semester 2025,001,Homework,40.00
+World History | Fall Semester 2025 | Section 001,World History,Fall Semester 2025,001,Quizzes,30.00
+World History | Fall Semester 2025 | Section 001,World History,Fall Semester 2025,001,Final Exam,30.00
+U.S. History | Fall Semester 2025 | Section 001,U.S. History,Fall Semester 2025,001,Homework,40.00
+U.S. History | Fall Semester 2025 | Section 001,U.S. History,Fall Semester 2025,001,Quizzes,30.00
+U.S. History | Fall Semester 2025 | Section 001,U.S. History,Fall Semester 2025,001,Final Exam,30.00
+Government/Civics | Fall Semester 2025 | Section 001,Government/Civics,Fall Semester 2025,001,Homework,40.00
+Government/Civics | Fall Semester 2025 | Section 001,Government/Civics,Fall Semester 2025,001,Quizzes,30.00
+Government/Civics | Fall Semester 2025 | Section 001,Government/Civics,Fall Semester 2025,001,Final Exam,30.00
+Economics | Fall Semester 2025 | Section 001,Economics,Fall Semester 2025,001,Homework,40.00
+Economics | Fall Semester 2025 | Section 001,Economics,Fall Semester 2025,001,Quizzes,30.00
+Economics | Fall Semester 2025 | Section 001,Economics,Fall Semester 2025,001,Final Exam,30.00
+Geography | Fall Semester 2025 | Section 001,Geography,Fall Semester 2025,001,Homework,40.00
+Geography | Fall Semester 2025 | Section 001,Geography,Fall Semester 2025,001,Quizzes,30.00
+Geography | Fall Semester 2025 | Section 001,Geography,Fall Semester 2025,001,Final Exam,30.00
+Psychology | Fall Semester 2025 | Section 001,Psychology,Fall Semester 2025,001,Homework,40.00
+Psychology | Fall Semester 2025 | Section 001,Psychology,Fall Semester 2025,001,Quizzes,30.00
+Psychology | Fall Semester 2025 | Section 001,Psychology,Fall Semester 2025,001,Final Exam,30.00
+Sociology | Fall Semester 2025 | Section 001,Sociology,Fall Semester 2025,001,Homework,40.00
+Sociology | Fall Semester 2025 | Section 001,Sociology,Fall Semester 2025,001,Quizzes,30.00
+Sociology | Fall Semester 2025 | Section 001,Sociology,Fall Semester 2025,001,Final Exam,30.00
+Spanish I | Fall Semester 2025 | Section 001,Spanish I,Fall Semester 2025,001,Homework,40.00
+Spanish I | Fall Semester 2025 | Section 001,Spanish I,Fall Semester 2025,001,Quizzes,30.00
+Spanish I | Fall Semester 2025 | Section 001,Spanish I,Fall Semester 2025,001,Final Exam,30.00
+Spanish II | Fall Semester 2025 | Section 001,Spanish II,Fall Semester 2025,001,Homework,40.00
+Spanish II | Fall Semester 2025 | Section 001,Spanish II,Fall Semester 2025,001,Quizzes,30.00
+Spanish II | Fall Semester 2025 | Section 001,Spanish II,Fall Semester 2025,001,Final Exam,30.00
+French I | Fall Semester 2025 | Section 001,French I,Fall Semester 2025,001,Homework,40.00
+French I | Fall Semester 2025 | Section 001,French I,Fall Semester 2025,001,Quizzes,30.00
+French I | Fall Semester 2025 | Section 001,French I,Fall Semester 2025,001,Final Exam,30.00
+French II | Fall Semester 2025 | Section 001,French II,Fall Semester 2025,001,Homework,40.00
+French II | Fall Semester 2025 | Section 001,French II,Fall Semester 2025,001,Quizzes,30.00
+French II | Fall Semester 2025 | Section 001,French II,Fall Semester 2025,001,Final Exam,30.00
+German I | Fall Semester 2025 | Section 001,German I,Fall Semester 2025,001,Homework,40.00
+German I | Fall Semester 2025 | Section 001,German I,Fall Semester 2025,001,Quizzes,30.00
+German I | Fall Semester 2025 | Section 001,German I,Fall Semester 2025,001,Final Exam,30.00
+German II | Fall Semester 2025 | Section 001,German II,Fall Semester 2025,001,Homework,40.00
+German II | Fall Semester 2025 | Section 001,German II,Fall Semester 2025,001,Quizzes,30.00
+German II | Fall Semester 2025 | Section 001,German II,Fall Semester 2025,001,Final Exam,30.00
+Art I | Fall Semester 2025 | Section 001,Art I,Fall Semester 2025,001,Homework,40.00
+Art I | Fall Semester 2025 | Section 001,Art I,Fall Semester 2025,001,Quizzes,30.00
+Art I | Fall Semester 2025 | Section 001,Art I,Fall Semester 2025,001,Final Exam,30.00
+Art II | Fall Semester 2025 | Section 001,Art II,Fall Semester 2025,001,Homework,40.00
+Art II | Fall Semester 2025 | Section 001,Art II,Fall Semester 2025,001,Quizzes,30.00
+Art II | Fall Semester 2025 | Section 001,Art II,Fall Semester 2025,001,Final Exam,30.00
+Drawing | Fall Semester 2025 | Section 001,Drawing,Fall Semester 2025,001,Homework,40.00
+Drawing | Fall Semester 2025 | Section 001,Drawing,Fall Semester 2025,001,Quizzes,30.00
+Drawing | Fall Semester 2025 | Section 001,Drawing,Fall Semester 2025,001,Final Exam,30.00
+Painting | Fall Semester 2025 | Section 001,Painting,Fall Semester 2025,001,Homework,40.00
+Painting | Fall Semester 2025 | Section 001,Painting,Fall Semester 2025,001,Quizzes,30.00
+Painting | Fall Semester 2025 | Section 001,Painting,Fall Semester 2025,001,Final Exam,30.00
+Sculpture | Fall Semester 2025 | Section 001,Sculpture,Fall Semester 2025,001,Homework,40.00
+Sculpture | Fall Semester 2025 | Section 001,Sculpture,Fall Semester 2025,001,Quizzes,30.00
+Sculpture | Fall Semester 2025 | Section 001,Sculpture,Fall Semester 2025,001,Final Exam,30.00
+Digital Art | Fall Semester 2025 | Section 001,Digital Art,Fall Semester 2025,001,Homework,40.00
+Digital Art | Fall Semester 2025 | Section 001,Digital Art,Fall Semester 2025,001,Quizzes,30.00
+Digital Art | Fall Semester 2025 | Section 001,Digital Art,Fall Semester 2025,001,Final Exam,30.00
+Band | Fall Semester 2025 | Section 001,Band,Fall Semester 2025,001,Homework,40.00
+Band | Fall Semester 2025 | Section 001,Band,Fall Semester 2025,001,Quizzes,30.00
+Band | Fall Semester 2025 | Section 001,Band,Fall Semester 2025,001,Final Exam,30.00
+Choir | Fall Semester 2025 | Section 001,Choir,Fall Semester 2025,001,Homework,40.00
+Choir | Fall Semester 2025 | Section 001,Choir,Fall Semester 2025,001,Quizzes,30.00
+Choir | Fall Semester 2025 | Section 001,Choir,Fall Semester 2025,001,Final Exam,30.00
+Orchestra | Fall Semester 2025 | Section 001,Orchestra,Fall Semester 2025,001,Homework,40.00
+Orchestra | Fall Semester 2025 | Section 001,Orchestra,Fall Semester 2025,001,Quizzes,30.00
+Orchestra | Fall Semester 2025 | Section 001,Orchestra,Fall Semester 2025,001,Final Exam,30.00
+Jazz Band | Fall Semester 2025 | Section 001,Jazz Band,Fall Semester 2025,001,Homework,40.00
+Jazz Band | Fall Semester 2025 | Section 001,Jazz Band,Fall Semester 2025,001,Quizzes,30.00
+Jazz Band | Fall Semester 2025 | Section 001,Jazz Band,Fall Semester 2025,001,Final Exam,30.00
+Music Theory | Fall Semester 2025 | Section 001,Music Theory,Fall Semester 2025,001,Homework,40.00
+Music Theory | Fall Semester 2025 | Section 001,Music Theory,Fall Semester 2025,001,Quizzes,30.00
+Music Theory | Fall Semester 2025 | Section 001,Music Theory,Fall Semester 2025,001,Final Exam,30.00
+PE 9 | Fall Semester 2025 | Section 001,PE 9,Fall Semester 2025,001,Homework,40.00
+PE 9 | Fall Semester 2025 | Section 001,PE 9,Fall Semester 2025,001,Quizzes,30.00
+PE 9 | Fall Semester 2025 | Section 001,PE 9,Fall Semester 2025,001,Final Exam,30.00
+PE 10 | Fall Semester 2025 | Section 001,PE 10,Fall Semester 2025,001,Homework,40.00
+PE 10 | Fall Semester 2025 | Section 001,PE 10,Fall Semester 2025,001,Quizzes,30.00
+PE 10 | Fall Semester 2025 | Section 001,PE 10,Fall Semester 2025,001,Final Exam,30.00
+Weight Training | Fall Semester 2025 | Section 001,Weight Training,Fall Semester 2025,001,Homework,40.00
+Weight Training | Fall Semester 2025 | Section 001,Weight Training,Fall Semester 2025,001,Quizzes,30.00
+Weight Training | Fall Semester 2025 | Section 001,Weight Training,Fall Semester 2025,001,Final Exam,30.00
+Lifetime Fitness | Fall Semester 2025 | Section 001,Lifetime Fitness,Fall Semester 2025,001,Homework,40.00
+Lifetime Fitness | Fall Semester 2025 | Section 001,Lifetime Fitness,Fall Semester 2025,001,Quizzes,30.00
+Lifetime Fitness | Fall Semester 2025 | Section 001,Lifetime Fitness,Fall Semester 2025,001,Final Exam,30.00
+Health | Fall Semester 2025 | Section 001,Health,Fall Semester 2025,001,Homework,40.00
+Health | Fall Semester 2025 | Section 001,Health,Fall Semester 2025,001,Quizzes,30.00
+Health | Fall Semester 2025 | Section 001,Health,Fall Semester 2025,001,Final Exam,30.00
+Nutrition & Wellness | Fall Semester 2025 | Section 001,Nutrition & Wellness,Fall Semester 2025,001,Homework,40.00
+Nutrition & Wellness | Fall Semester 2025 | Section 001,Nutrition & Wellness,Fall Semester 2025,001,Quizzes,30.00
+Nutrition & Wellness | Fall Semester 2025 | Section 001,Nutrition & Wellness,Fall Semester 2025,001,Final Exam,30.00
+Business Essentials | Fall Semester 2025 | Section 001,Business Essentials,Fall Semester 2025,001,Homework,40.00
+Business Essentials | Fall Semester 2025 | Section 001,Business Essentials,Fall Semester 2025,001,Quizzes,30.00
+Business Essentials | Fall Semester 2025 | Section 001,Business Essentials,Fall Semester 2025,001,Final Exam,30.00
+Accounting | Fall Semester 2025 | Section 001,Accounting,Fall Semester 2025,001,Homework,40.00
+Accounting | Fall Semester 2025 | Section 001,Accounting,Fall Semester 2025,001,Quizzes,30.00
+Accounting | Fall Semester 2025 | Section 001,Accounting,Fall Semester 2025,001,Final Exam,30.00
+Marketing | Fall Semester 2025 | Section 001,Marketing,Fall Semester 2025,001,Homework,40.00
+Marketing | Fall Semester 2025 | Section 001,Marketing,Fall Semester 2025,001,Quizzes,30.00
+Marketing | Fall Semester 2025 | Section 001,Marketing,Fall Semester 2025,001,Final Exam,30.00
+Entrepreneurship | Fall Semester 2025 | Section 001,Entrepreneurship,Fall Semester 2025,001,Homework,40.00
+Entrepreneurship | Fall Semester 2025 | Section 001,Entrepreneurship,Fall Semester 2025,001,Quizzes,30.00
+Entrepreneurship | Fall Semester 2025 | Section 001,Entrepreneurship,Fall Semester 2025,001,Final Exam,30.00
+Computer Applications | Fall Semester 2025 | Section 001,Computer Applications,Fall Semester 2025,001,Homework,40.00
+Computer Applications | Fall Semester 2025 | Section 001,Computer Applications,Fall Semester 2025,001,Quizzes,30.00
+Computer Applications | Fall Semester 2025 | Section 001,Computer Applications,Fall Semester 2025,001,Final Exam,30.00
+Engineering/PLTW | Fall Semester 2025 | Section 001,Engineering/PLTW,Fall Semester 2025,001,Homework,40.00
+Engineering/PLTW | Fall Semester 2025 | Section 001,Engineering/PLTW,Fall Semester 2025,001,Quizzes,30.00
+Engineering/PLTW | Fall Semester 2025 | Section 001,Engineering/PLTW,Fall Semester 2025,001,Final Exam,30.00
+Robotics | Fall Semester 2025 | Section 001,Robotics,Fall Semester 2025,001,Homework,40.00
+Robotics | Fall Semester 2025 | Section 001,Robotics,Fall Semester 2025,001,Quizzes,30.00
+Robotics | Fall Semester 2025 | Section 001,Robotics,Fall Semester 2025,001,Final Exam,30.00
+Culinary Arts | Fall Semester 2025 | Section 001,Culinary Arts,Fall Semester 2025,001,Homework,40.00
+Culinary Arts | Fall Semester 2025 | Section 001,Culinary Arts,Fall Semester 2025,001,Quizzes,30.00
+Culinary Arts | Fall Semester 2025 | Section 001,Culinary Arts,Fall Semester 2025,001,Final Exam,30.00
+Construction Trades | Fall Semester 2025 | Section 001,Construction Trades,Fall Semester 2025,001,Homework,40.00
+Construction Trades | Fall Semester 2025 | Section 001,Construction Trades,Fall Semester 2025,001,Quizzes,30.00
+Construction Trades | Fall Semester 2025 | Section 001,Construction Trades,Fall Semester 2025,001,Final Exam,30.00
+Automotive Technology | Fall Semester 2025 | Section 001,Automotive Technology,Fall Semester 2025,001,Homework,40.00
+Automotive Technology | Fall Semester 2025 | Section 001,Automotive Technology,Fall Semester 2025,001,Quizzes,30.00
+Automotive Technology | Fall Semester 2025 | Section 001,Automotive Technology,Fall Semester 2025,001,Final Exam,30.00
+Intro to Computer Science | Fall Semester 2025 | Section 001,Intro to Computer Science,Fall Semester 2025,001,Homework,40.00
+Intro to Computer Science | Fall Semester 2025 | Section 001,Intro to Computer Science,Fall Semester 2025,001,Quizzes,30.00
+Intro to Computer Science | Fall Semester 2025 | Section 001,Intro to Computer Science,Fall Semester 2025,001,Final Exam,30.00
+AP Computer Science Principles | Fall Semester 2025 | Section 001,AP Computer Science Principles,Fall Semester 2025,001,Homework,40.00
+AP Computer Science Principles | Fall Semester 2025 | Section 001,AP Computer Science Principles,Fall Semester 2025,001,Quizzes,30.00
+AP Computer Science Principles | Fall Semester 2025 | Section 001,AP Computer Science Principles,Fall Semester 2025,001,Final Exam,30.00
+AP Computer Science A | Fall Semester 2025 | Section 001,AP Computer Science A,Fall Semester 2025,001,Homework,40.00
+AP Computer Science A | Fall Semester 2025 | Section 001,AP Computer Science A,Fall Semester 2025,001,Quizzes,30.00
+AP Computer Science A | Fall Semester 2025 | Section 001,AP Computer Science A,Fall Semester 2025,001,Final Exam,30.00
+Web Development | Fall Semester 2025 | Section 001,Web Development,Fall Semester 2025,001,Homework,40.00
+Web Development | Fall Semester 2025 | Section 001,Web Development,Fall Semester 2025,001,Quizzes,30.00
+Web Development | Fall Semester 2025 | Section 001,Web Development,Fall Semester 2025,001,Final Exam,30.00
+Cybersecurity | Fall Semester 2025 | Section 001,Cybersecurity,Fall Semester 2025,001,Homework,40.00
+Cybersecurity | Fall Semester 2025 | Section 001,Cybersecurity,Fall Semester 2025,001,Quizzes,30.00
+Cybersecurity | Fall Semester 2025 | Section 001,Cybersecurity,Fall Semester 2025,001,Final Exam,30.00
+Data Science | Fall Semester 2025 | Section 001,Data Science,Fall Semester 2025,001,Homework,40.00
+Data Science | Fall Semester 2025 | Section 001,Data Science,Fall Semester 2025,001,Quizzes,30.00
+Data Science | Fall Semester 2025 | Section 001,Data Science,Fall Semester 2025,001,Final Exam,30.00
+Resource English | Fall Semester 2025 | Section 001,Resource English,Fall Semester 2025,001,Homework,40.00
+Resource English | Fall Semester 2025 | Section 001,Resource English,Fall Semester 2025,001,Quizzes,30.00
+Resource English | Fall Semester 2025 | Section 001,Resource English,Fall Semester 2025,001,Final Exam,30.00
+Resource Math | Fall Semester 2025 | Section 001,Resource Math,Fall Semester 2025,001,Homework,40.00
+Resource Math | Fall Semester 2025 | Section 001,Resource Math,Fall Semester 2025,001,Quizzes,30.00
+Resource Math | Fall Semester 2025 | Section 001,Resource Math,Fall Semester 2025,001,Final Exam,30.00
+Study Skills | Fall Semester 2025 | Section 001,Study Skills,Fall Semester 2025,001,Homework,40.00
+Study Skills | Fall Semester 2025 | Section 001,Study Skills,Fall Semester 2025,001,Quizzes,30.00
+Study Skills | Fall Semester 2025 | Section 001,Study Skills,Fall Semester 2025,001,Final Exam,30.00
+ELL Beginner | Fall Semester 2025 | Section 001,ELL Beginner,Fall Semester 2025,001,Homework,40.00
+ELL Beginner | Fall Semester 2025 | Section 001,ELL Beginner,Fall Semester 2025,001,Quizzes,30.00
+ELL Beginner | Fall Semester 2025 | Section 001,ELL Beginner,Fall Semester 2025,001,Final Exam,30.00
+ELL Intermediate | Fall Semester 2025 | Section 001,ELL Intermediate,Fall Semester 2025,001,Homework,40.00
+ELL Intermediate | Fall Semester 2025 | Section 001,ELL Intermediate,Fall Semester 2025,001,Quizzes,30.00
+ELL Intermediate | Fall Semester 2025 | Section 001,ELL Intermediate,Fall Semester 2025,001,Final Exam,30.00
+ELL Advanced | Fall Semester 2025 | Section 001,ELL Advanced,Fall Semester 2025,001,Homework,40.00
+ELL Advanced | Fall Semester 2025 | Section 001,ELL Advanced,Fall Semester 2025,001,Quizzes,30.00
+ELL Advanced | Fall Semester 2025 | Section 001,ELL Advanced,Fall Semester 2025,001,Final Exam,30.00
+Child Development | Fall Semester 2025 | Section 001,Child Development,Fall Semester 2025,001,Homework,40.00
+Child Development | Fall Semester 2025 | Section 001,Child Development,Fall Semester 2025,001,Quizzes,30.00
+Child Development | Fall Semester 2025 | Section 001,Child Development,Fall Semester 2025,001,Final Exam,30.00
+Foods & Nutrition | Fall Semester 2025 | Section 001,Foods & Nutrition,Fall Semester 2025,001,Homework,40.00
+Foods & Nutrition | Fall Semester 2025 | Section 001,Foods & Nutrition,Fall Semester 2025,001,Quizzes,30.00
+Foods & Nutrition | Fall Semester 2025 | Section 001,Foods & Nutrition,Fall Semester 2025,001,Final Exam,30.00
+Family & Consumer Science | Fall Semester 2025 | Section 001,Family & Consumer Science,Fall Semester 2025,001,Homework,40.00
+Family & Consumer Science | Fall Semester 2025 | Section 001,Family & Consumer Science,Fall Semester 2025,001,Quizzes,30.00
+Family & Consumer Science | Fall Semester 2025 | Section 001,Family & Consumer Science,Fall Semester 2025,001,Final Exam,30.00
+Agricultural Science | Fall Semester 2025 | Section 001,Agricultural Science,Fall Semester 2025,001,Homework,40.00
+Agricultural Science | Fall Semester 2025 | Section 001,Agricultural Science,Fall Semester 2025,001,Quizzes,30.00
+Agricultural Science | Fall Semester 2025 | Section 001,Agricultural Science,Fall Semester 2025,001,Final Exam,30.00
+Animal Science | Fall Semester 2025 | Section 001,Animal Science,Fall Semester 2025,001,Homework,40.00
+Animal Science | Fall Semester 2025 | Section 001,Animal Science,Fall Semester 2025,001,Quizzes,30.00
+Animal Science | Fall Semester 2025 | Section 001,Animal Science,Fall Semester 2025,001,Final Exam,30.00
+Plant Science | Fall Semester 2025 | Section 001,Plant Science,Fall Semester 2025,001,Homework,40.00
+Plant Science | Fall Semester 2025 | Section 001,Plant Science,Fall Semester 2025,001,Quizzes,30.00
+Plant Science | Fall Semester 2025 | Section 001,Plant Science,Fall Semester 2025,001,Final Exam,30.00
+General Studies | Fall Semester 2025 | Section 001,General Studies,Fall Semester 2025,001,Homework,40.00
+General Studies | Fall Semester 2025 | Section 001,General Studies,Fall Semester 2025,001,Quizzes,30.00
+General Studies | Fall Semester 2025 | Section 001,General Studies,Fall Semester 2025,001,Final Exam,30.00
+English 9 | Fall Semester 2025 | Section 001,English 9,Fall Semester 2025,001,Homework,40.00
+English 9 | Fall Semester 2025 | Section 001,English 9,Fall Semester 2025,001,Quizzes,30.00
+English 9 | Fall Semester 2025 | Section 001,English 9,Fall Semester 2025,001,Final Exam,30.00
+English 10 | Fall Semester 2025 | Section 001,English 10,Fall Semester 2025,001,Homework,40.00
+English 10 | Fall Semester 2025 | Section 001,English 10,Fall Semester 2025,001,Quizzes,30.00
+English 10 | Fall Semester 2025 | Section 001,English 10,Fall Semester 2025,001,Final Exam,30.00
+English 11 | Fall Semester 2025 | Section 001,English 11,Fall Semester 2025,001,Homework,40.00
+English 11 | Fall Semester 2025 | Section 001,English 11,Fall Semester 2025,001,Quizzes,30.00
+English 11 | Fall Semester 2025 | Section 001,English 11,Fall Semester 2025,001,Final Exam,30.00
+English 12 | Fall Semester 2025 | Section 001,English 12,Fall Semester 2025,001,Homework,40.00
+English 12 | Fall Semester 2025 | Section 001,English 12,Fall Semester 2025,001,Quizzes,30.00
+English 12 | Fall Semester 2025 | Section 001,English 12,Fall Semester 2025,001,Final Exam,30.00
+Literature | Fall Semester 2025 | Section 001,Literature,Fall Semester 2025,001,Homework,40.00
+Literature | Fall Semester 2025 | Section 001,Literature,Fall Semester 2025,001,Quizzes,30.00
+Literature | Fall Semester 2025 | Section 001,Literature,Fall Semester 2025,001,Final Exam,30.00
+Writing/Composition | Fall Semester 2025 | Section 001,Writing/Composition,Fall Semester 2025,001,Homework,40.00
+Writing/Composition | Fall Semester 2025 | Section 001,Writing/Composition,Fall Semester 2025,001,Quizzes,30.00
+Writing/Composition | Fall Semester 2025 | Section 001,Writing/Composition,Fall Semester 2025,001,Final Exam,30.00
+Journalism | Fall Semester 2025 | Section 001,Journalism,Fall Semester 2025,001,Homework,40.00
+Journalism | Fall Semester 2025 | Section 001,Journalism,Fall Semester 2025,001,Quizzes,30.00
+Journalism | Fall Semester 2025 | Section 001,Journalism,Fall Semester 2025,001,Final Exam,30.00
+Speech/Communications | Fall Semester 2025 | Section 001,Speech/Communications,Fall Semester 2025,001,Homework,40.00
+Speech/Communications | Fall Semester 2025 | Section 001,Speech/Communications,Fall Semester 2025,001,Quizzes,30.00
+Speech/Communications | Fall Semester 2025 | Section 001,Speech/Communications,Fall Semester 2025,001,Final Exam,30.00
+Reading | Fall Semester 2025 | Section 001,Reading,Fall Semester 2025,001,Homework,40.00
+Reading | Fall Semester 2025 | Section 001,Reading,Fall Semester 2025,001,Quizzes,30.00
+Reading | Fall Semester 2025 | Section 001,Reading,Fall Semester 2025,001,Final Exam,30.00
+Math 6 | Fall Semester 2025 | Section 001,Math 6,Fall Semester 2025,001,Homework,40.00
+Math 6 | Fall Semester 2025 | Section 001,Math 6,Fall Semester 2025,001,Quizzes,30.00
+Math 6 | Fall Semester 2025 | Section 001,Math 6,Fall Semester 2025,001,Final Exam,30.00
+Pre-Algebra | Fall Semester 2025 | Section 001,Pre-Algebra,Fall Semester 2025,001,Homework,40.00
+Pre-Algebra | Fall Semester 2025 | Section 001,Pre-Algebra,Fall Semester 2025,001,Quizzes,30.00
+Pre-Algebra | Fall Semester 2025 | Section 001,Pre-Algebra,Fall Semester 2025,001,Final Exam,30.00
+Algebra I | Fall Semester 2025 | Section 001,Algebra I,Fall Semester 2025,001,Homework,40.00
+Algebra I | Fall Semester 2025 | Section 001,Algebra I,Fall Semester 2025,001,Quizzes,30.00
+Algebra I | Fall Semester 2025 | Section 001,Algebra I,Fall Semester 2025,001,Final Exam,30.00
+Geometry | Fall Semester 2025 | Section 001,Geometry,Fall Semester 2025,001,Homework,40.00
+Geometry | Fall Semester 2025 | Section 001,Geometry,Fall Semester 2025,001,Quizzes,30.00
+Geometry | Fall Semester 2025 | Section 001,Geometry,Fall Semester 2025,001,Final Exam,30.00
+Algebra II | Fall Semester 2025 | Section 001,Algebra II,Fall Semester 2025,001,Homework,40.00
+Algebra II | Fall Semester 2025 | Section 001,Algebra II,Fall Semester 2025,001,Quizzes,30.00
+Algebra II | Fall Semester 2025 | Section 001,Algebra II,Fall Semester 2025,001,Final Exam,30.00
+Precalculus | Fall Semester 2025 | Section 001,Precalculus,Fall Semester 2025,001,Homework,40.00
+Precalculus | Fall Semester 2025 | Section 001,Precalculus,Fall Semester 2025,001,Quizzes,30.00
+Precalculus | Fall Semester 2025 | Section 001,Precalculus,Fall Semester 2025,001,Final Exam,30.00
+Calculus | Fall Semester 2025 | Section 001,Calculus,Fall Semester 2025,001,Homework,40.00
+Calculus | Fall Semester 2025 | Section 001,Calculus,Fall Semester 2025,001,Quizzes,30.00
+Calculus | Fall Semester 2025 | Section 001,Calculus,Fall Semester 2025,001,Final Exam,30.00
+Statistics | Fall Semester 2025 | Section 001,Statistics,Fall Semester 2025,001,Homework,40.00
+Statistics | Fall Semester 2025 | Section 001,Statistics,Fall Semester 2025,001,Quizzes,30.00
+Statistics | Fall Semester 2025 | Section 001,Statistics,Fall Semester 2025,001,Final Exam,30.00
+Earth Science | Fall Semester 2025 | Section 001,Earth Science,Fall Semester 2025,001,Homework,40.00
+Earth Science | Fall Semester 2025 | Section 001,Earth Science,Fall Semester 2025,001,Quizzes,30.00
+Earth Science | Fall Semester 2025 | Section 001,Earth Science,Fall Semester 2025,001,Final Exam,30.00
+Physical Science | Fall Semester 2025 | Section 001,Physical Science,Fall Semester 2025,001,Homework,40.00
+Physical Science | Fall Semester 2025 | Section 001,Physical Science,Fall Semester 2025,001,Quizzes,30.00
+Physical Science | Fall Semester 2025 | Section 001,Physical Science,Fall Semester 2025,001,Final Exam,30.00
+Biology | Fall Semester 2025 | Section 001,Biology,Fall Semester 2025,001,Homework,40.00
+Biology | Fall Semester 2025 | Section 001,Biology,Fall Semester 2025,001,Quizzes,30.00
+Biology | Fall Semester 2025 | Section 001,Biology,Fall Semester 2025,001,Final Exam,30.00
+Chemistry | Fall Semester 2025 | Section 001,Chemistry,Fall Semester 2025,001,Homework,40.00
+Chemistry | Fall Semester 2025 | Section 001,Chemistry,Fall Semester 2025,001,Quizzes,30.00
+Chemistry | Fall Semester 2025 | Section 001,Chemistry,Fall Semester 2025,001,Final Exam,30.00
+Physics | Fall Semester 2025 | Section 001,Physics,Fall Semester 2025,001,Homework,40.00
+Physics | Fall Semester 2025 | Section 001,Physics,Fall Semester 2025,001,Quizzes,30.00
+Physics | Fall Semester 2025 | Section 001,Physics,Fall Semester 2025,001,Final Exam,30.00
+Environmental Science | Fall Semester 2025 | Section 001,Environmental Science,Fall Semester 2025,001,Homework,40.00
+Environmental Science | Fall Semester 2025 | Section 001,Environmental Science,Fall Semester 2025,001,Quizzes,30.00
+Environmental Science | Fall Semester 2025 | Section 001,Environmental Science,Fall Semester 2025,001,Final Exam,30.00
+Anatomy & Physiology | Fall Semester 2025 | Section 001,Anatomy & Physiology,Fall Semester 2025,001,Homework,40.00
+Anatomy & Physiology | Fall Semester 2025 | Section 001,Anatomy & Physiology,Fall Semester 2025,001,Quizzes,30.00
+Anatomy & Physiology | Fall Semester 2025 | Section 001,Anatomy & Physiology,Fall Semester 2025,001,Final Exam,30.00
+World History | Fall Semester 2025 | Section 001,World History,Fall Semester 2025,001,Homework,40.00
+World History | Fall Semester 2025 | Section 001,World History,Fall Semester 2025,001,Quizzes,30.00
+World History | Fall Semester 2025 | Section 001,World History,Fall Semester 2025,001,Final Exam,30.00
+U.S. History | Fall Semester 2025 | Section 001,U.S. History,Fall Semester 2025,001,Homework,40.00
+U.S. History | Fall Semester 2025 | Section 001,U.S. History,Fall Semester 2025,001,Quizzes,30.00
+U.S. History | Fall Semester 2025 | Section 001,U.S. History,Fall Semester 2025,001,Final Exam,30.00
+Government/Civics | Fall Semester 2025 | Section 001,Government/Civics,Fall Semester 2025,001,Homework,40.00
+Government/Civics | Fall Semester 2025 | Section 001,Government/Civics,Fall Semester 2025,001,Quizzes,30.00
+Government/Civics | Fall Semester 2025 | Section 001,Government/Civics,Fall Semester 2025,001,Final Exam,30.00
+Economics | Fall Semester 2025 | Section 001,Economics,Fall Semester 2025,001,Homework,40.00
+Economics | Fall Semester 2025 | Section 001,Economics,Fall Semester 2025,001,Quizzes,30.00
+Economics | Fall Semester 2025 | Section 001,Economics,Fall Semester 2025,001,Final Exam,30.00
+Geography | Fall Semester 2025 | Section 001,Geography,Fall Semester 2025,001,Homework,40.00
+Geography | Fall Semester 2025 | Section 001,Geography,Fall Semester 2025,001,Quizzes,30.00
+Geography | Fall Semester 2025 | Section 001,Geography,Fall Semester 2025,001,Final Exam,30.00
+Psychology | Fall Semester 2025 | Section 001,Psychology,Fall Semester 2025,001,Homework,40.00
+Psychology | Fall Semester 2025 | Section 001,Psychology,Fall Semester 2025,001,Quizzes,30.00
+Psychology | Fall Semester 2025 | Section 001,Psychology,Fall Semester 2025,001,Final Exam,30.00
+Sociology | Fall Semester 2025 | Section 001,Sociology,Fall Semester 2025,001,Homework,40.00
+Sociology | Fall Semester 2025 | Section 001,Sociology,Fall Semester 2025,001,Quizzes,30.00
+Sociology | Fall Semester 2025 | Section 001,Sociology,Fall Semester 2025,001,Final Exam,30.00
+Spanish I | Fall Semester 2025 | Section 001,Spanish I,Fall Semester 2025,001,Homework,40.00
+Spanish I | Fall Semester 2025 | Section 001,Spanish I,Fall Semester 2025,001,Quizzes,30.00
+Spanish I | Fall Semester 2025 | Section 001,Spanish I,Fall Semester 2025,001,Final Exam,30.00
+Spanish II | Fall Semester 2025 | Section 001,Spanish II,Fall Semester 2025,001,Homework,40.00
+Spanish II | Fall Semester 2025 | Section 001,Spanish II,Fall Semester 2025,001,Quizzes,30.00
+Spanish II | Fall Semester 2025 | Section 001,Spanish II,Fall Semester 2025,001,Final Exam,30.00
+French I | Fall Semester 2025 | Section 001,French I,Fall Semester 2025,001,Homework,40.00
+French I | Fall Semester 2025 | Section 001,French I,Fall Semester 2025,001,Quizzes,30.00
+French I | Fall Semester 2025 | Section 001,French I,Fall Semester 2025,001,Final Exam,30.00
+French II | Fall Semester 2025 | Section 001,French II,Fall Semester 2025,001,Homework,40.00
+French II | Fall Semester 2025 | Section 001,French II,Fall Semester 2025,001,Quizzes,30.00
+French II | Fall Semester 2025 | Section 001,French II,Fall Semester 2025,001,Final Exam,30.00
+German I | Fall Semester 2025 | Section 001,German I,Fall Semester 2025,001,Homework,40.00
+German I | Fall Semester 2025 | Section 001,German I,Fall Semester 2025,001,Quizzes,30.00
+German I | Fall Semester 2025 | Section 001,German I,Fall Semester 2025,001,Final Exam,30.00
+German II | Fall Semester 2025 | Section 001,German II,Fall Semester 2025,001,Homework,40.00
+German II | Fall Semester 2025 | Section 001,German II,Fall Semester 2025,001,Quizzes,30.00
+German II | Fall Semester 2025 | Section 001,German II,Fall Semester 2025,001,Final Exam,30.00
+Art I | Fall Semester 2025 | Section 001,Art I,Fall Semester 2025,001,Homework,40.00
+Art I | Fall Semester 2025 | Section 001,Art I,Fall Semester 2025,001,Quizzes,30.00
+Art I | Fall Semester 2025 | Section 001,Art I,Fall Semester 2025,001,Final Exam,30.00
+Art II | Fall Semester 2025 | Section 001,Art II,Fall Semester 2025,001,Homework,40.00
+Art II | Fall Semester 2025 | Section 001,Art II,Fall Semester 2025,001,Quizzes,30.00
+Art II | Fall Semester 2025 | Section 001,Art II,Fall Semester 2025,001,Final Exam,30.00
+Drawing | Fall Semester 2025 | Section 001,Drawing,Fall Semester 2025,001,Homework,40.00
+Drawing | Fall Semester 2025 | Section 001,Drawing,Fall Semester 2025,001,Quizzes,30.00
+Drawing | Fall Semester 2025 | Section 001,Drawing,Fall Semester 2025,001,Final Exam,30.00
+Painting | Fall Semester 2025 | Section 001,Painting,Fall Semester 2025,001,Homework,40.00
+Painting | Fall Semester 2025 | Section 001,Painting,Fall Semester 2025,001,Quizzes,30.00
+Painting | Fall Semester 2025 | Section 001,Painting,Fall Semester 2025,001,Final Exam,30.00
+Sculpture | Fall Semester 2025 | Section 001,Sculpture,Fall Semester 2025,001,Homework,40.00
+Sculpture | Fall Semester 2025 | Section 001,Sculpture,Fall Semester 2025,001,Quizzes,30.00
+Sculpture | Fall Semester 2025 | Section 001,Sculpture,Fall Semester 2025,001,Final Exam,30.00
+Digital Art | Fall Semester 2025 | Section 001,Digital Art,Fall Semester 2025,001,Homework,40.00
+Digital Art | Fall Semester 2025 | Section 001,Digital Art,Fall Semester 2025,001,Quizzes,30.00
+Digital Art | Fall Semester 2025 | Section 001,Digital Art,Fall Semester 2025,001,Final Exam,30.00
+Band | Fall Semester 2025 | Section 001,Band,Fall Semester 2025,001,Homework,40.00
+Band | Fall Semester 2025 | Section 001,Band,Fall Semester 2025,001,Quizzes,30.00
+Band | Fall Semester 2025 | Section 001,Band,Fall Semester 2025,001,Final Exam,30.00
+Choir | Fall Semester 2025 | Section 001,Choir,Fall Semester 2025,001,Homework,40.00
+Choir | Fall Semester 2025 | Section 001,Choir,Fall Semester 2025,001,Quizzes,30.00
+Choir | Fall Semester 2025 | Section 001,Choir,Fall Semester 2025,001,Final Exam,30.00
+Orchestra | Fall Semester 2025 | Section 001,Orchestra,Fall Semester 2025,001,Homework,40.00
+Orchestra | Fall Semester 2025 | Section 001,Orchestra,Fall Semester 2025,001,Quizzes,30.00
+Orchestra | Fall Semester 2025 | Section 001,Orchestra,Fall Semester 2025,001,Final Exam,30.00
+Jazz Band | Fall Semester 2025 | Section 001,Jazz Band,Fall Semester 2025,001,Homework,40.00
+Jazz Band | Fall Semester 2025 | Section 001,Jazz Band,Fall Semester 2025,001,Quizzes,30.00
+Jazz Band | Fall Semester 2025 | Section 001,Jazz Band,Fall Semester 2025,001,Final Exam,30.00
+Music Theory | Fall Semester 2025 | Section 001,Music Theory,Fall Semester 2025,001,Homework,40.00
+Music Theory | Fall Semester 2025 | Section 001,Music Theory,Fall Semester 2025,001,Quizzes,30.00
+Music Theory | Fall Semester 2025 | Section 001,Music Theory,Fall Semester 2025,001,Final Exam,30.00
+PE 9 | Fall Semester 2025 | Section 001,PE 9,Fall Semester 2025,001,Homework,40.00
+PE 9 | Fall Semester 2025 | Section 001,PE 9,Fall Semester 2025,001,Quizzes,30.00
+PE 9 | Fall Semester 2025 | Section 001,PE 9,Fall Semester 2025,001,Final Exam,30.00
+PE 10 | Fall Semester 2025 | Section 001,PE 10,Fall Semester 2025,001,Homework,40.00
+PE 10 | Fall Semester 2025 | Section 001,PE 10,Fall Semester 2025,001,Quizzes,30.00
+PE 10 | Fall Semester 2025 | Section 001,PE 10,Fall Semester 2025,001,Final Exam,30.00
+Weight Training | Fall Semester 2025 | Section 001,Weight Training,Fall Semester 2025,001,Homework,40.00
+Weight Training | Fall Semester 2025 | Section 001,Weight Training,Fall Semester 2025,001,Quizzes,30.00
+Weight Training | Fall Semester 2025 | Section 001,Weight Training,Fall Semester 2025,001,Final Exam,30.00
+Lifetime Fitness | Fall Semester 2025 | Section 001,Lifetime Fitness,Fall Semester 2025,001,Homework,40.00
+Lifetime Fitness | Fall Semester 2025 | Section 001,Lifetime Fitness,Fall Semester 2025,001,Quizzes,30.00
+Lifetime Fitness | Fall Semester 2025 | Section 001,Lifetime Fitness,Fall Semester 2025,001,Final Exam,30.00
+Health | Fall Semester 2025 | Section 001,Health,Fall Semester 2025,001,Homework,40.00
+Health | Fall Semester 2025 | Section 001,Health,Fall Semester 2025,001,Quizzes,30.00
+Health | Fall Semester 2025 | Section 001,Health,Fall Semester 2025,001,Final Exam,30.00
+Nutrition & Wellness | Fall Semester 2025 | Section 001,Nutrition & Wellness,Fall Semester 2025,001,Homework,40.00
+Nutrition & Wellness | Fall Semester 2025 | Section 001,Nutrition & Wellness,Fall Semester 2025,001,Quizzes,30.00
+Nutrition & Wellness | Fall Semester 2025 | Section 001,Nutrition & Wellness,Fall Semester 2025,001,Final Exam,30.00
+Business Essentials | Fall Semester 2025 | Section 001,Business Essentials,Fall Semester 2025,001,Homework,40.00
+Business Essentials | Fall Semester 2025 | Section 001,Business Essentials,Fall Semester 2025,001,Quizzes,30.00
+Business Essentials | Fall Semester 2025 | Section 001,Business Essentials,Fall Semester 2025,001,Final Exam,30.00
+Accounting | Fall Semester 2025 | Section 001,Accounting,Fall Semester 2025,001,Homework,40.00
+Accounting | Fall Semester 2025 | Section 001,Accounting,Fall Semester 2025,001,Quizzes,30.00
+Accounting | Fall Semester 2025 | Section 001,Accounting,Fall Semester 2025,001,Final Exam,30.00
+Marketing | Fall Semester 2025 | Section 001,Marketing,Fall Semester 2025,001,Homework,40.00
+Marketing | Fall Semester 2025 | Section 001,Marketing,Fall Semester 2025,001,Quizzes,30.00
+Marketing | Fall Semester 2025 | Section 001,Marketing,Fall Semester 2025,001,Final Exam,30.00
+Entrepreneurship | Fall Semester 2025 | Section 001,Entrepreneurship,Fall Semester 2025,001,Homework,40.00
+Entrepreneurship | Fall Semester 2025 | Section 001,Entrepreneurship,Fall Semester 2025,001,Quizzes,30.00
+Entrepreneurship | Fall Semester 2025 | Section 001,Entrepreneurship,Fall Semester 2025,001,Final Exam,30.00
+Computer Applications | Fall Semester 2025 | Section 001,Computer Applications,Fall Semester 2025,001,Homework,40.00
+Computer Applications | Fall Semester 2025 | Section 001,Computer Applications,Fall Semester 2025,001,Quizzes,30.00
+Computer Applications | Fall Semester 2025 | Section 001,Computer Applications,Fall Semester 2025,001,Final Exam,30.00
+Engineering/PLTW | Fall Semester 2025 | Section 001,Engineering/PLTW,Fall Semester 2025,001,Homework,40.00
+Engineering/PLTW | Fall Semester 2025 | Section 001,Engineering/PLTW,Fall Semester 2025,001,Quizzes,30.00
+Engineering/PLTW | Fall Semester 2025 | Section 001,Engineering/PLTW,Fall Semester 2025,001,Final Exam,30.00
+Robotics | Fall Semester 2025 | Section 001,Robotics,Fall Semester 2025,001,Homework,40.00
+Robotics | Fall Semester 2025 | Section 001,Robotics,Fall Semester 2025,001,Quizzes,30.00
+Robotics | Fall Semester 2025 | Section 001,Robotics,Fall Semester 2025,001,Final Exam,30.00
+Culinary Arts | Fall Semester 2025 | Section 001,Culinary Arts,Fall Semester 2025,001,Homework,40.00
+Culinary Arts | Fall Semester 2025 | Section 001,Culinary Arts,Fall Semester 2025,001,Quizzes,30.00
+Culinary Arts | Fall Semester 2025 | Section 001,Culinary Arts,Fall Semester 2025,001,Final Exam,30.00
+Construction Trades | Fall Semester 2025 | Section 001,Construction Trades,Fall Semester 2025,001,Homework,40.00
+Construction Trades | Fall Semester 2025 | Section 001,Construction Trades,Fall Semester 2025,001,Quizzes,30.00
+Construction Trades | Fall Semester 2025 | Section 001,Construction Trades,Fall Semester 2025,001,Final Exam,30.00
+Automotive Technology | Fall Semester 2025 | Section 001,Automotive Technology,Fall Semester 2025,001,Homework,40.00
+Automotive Technology | Fall Semester 2025 | Section 001,Automotive Technology,Fall Semester 2025,001,Quizzes,30.00
+Automotive Technology | Fall Semester 2025 | Section 001,Automotive Technology,Fall Semester 2025,001,Final Exam,30.00
+Intro to Computer Science | Fall Semester 2025 | Section 001,Intro to Computer Science,Fall Semester 2025,001,Homework,40.00
+Intro to Computer Science | Fall Semester 2025 | Section 001,Intro to Computer Science,Fall Semester 2025,001,Quizzes,30.00
+Intro to Computer Science | Fall Semester 2025 | Section 001,Intro to Computer Science,Fall Semester 2025,001,Final Exam,30.00
+AP Computer Science Principles | Fall Semester 2025 | Section 001,AP Computer Science Principles,Fall Semester 2025,001,Homework,40.00
+AP Computer Science Principles | Fall Semester 2025 | Section 001,AP Computer Science Principles,Fall Semester 2025,001,Quizzes,30.00
+AP Computer Science Principles | Fall Semester 2025 | Section 001,AP Computer Science Principles,Fall Semester 2025,001,Final Exam,30.00
+AP Computer Science A | Fall Semester 2025 | Section 001,AP Computer Science A,Fall Semester 2025,001,Homework,40.00
+AP Computer Science A | Fall Semester 2025 | Section 001,AP Computer Science A,Fall Semester 2025,001,Quizzes,30.00
+AP Computer Science A | Fall Semester 2025 | Section 001,AP Computer Science A,Fall Semester 2025,001,Final Exam,30.00
+Web Development | Fall Semester 2025 | Section 001,Web Development,Fall Semester 2025,001,Homework,40.00
+Web Development | Fall Semester 2025 | Section 001,Web Development,Fall Semester 2025,001,Quizzes,30.00
+Web Development | Fall Semester 2025 | Section 001,Web Development,Fall Semester 2025,001,Final Exam,30.00
+Cybersecurity | Fall Semester 2025 | Section 001,Cybersecurity,Fall Semester 2025,001,Homework,40.00
+Cybersecurity | Fall Semester 2025 | Section 001,Cybersecurity,Fall Semester 2025,001,Quizzes,30.00
+Cybersecurity | Fall Semester 2025 | Section 001,Cybersecurity,Fall Semester 2025,001,Final Exam,30.00
+Data Science | Fall Semester 2025 | Section 001,Data Science,Fall Semester 2025,001,Homework,40.00
+Data Science | Fall Semester 2025 | Section 001,Data Science,Fall Semester 2025,001,Quizzes,30.00
+Data Science | Fall Semester 2025 | Section 001,Data Science,Fall Semester 2025,001,Final Exam,30.00
+Resource English | Fall Semester 2025 | Section 001,Resource English,Fall Semester 2025,001,Homework,40.00
+Resource English | Fall Semester 2025 | Section 001,Resource English,Fall Semester 2025,001,Quizzes,30.00
+Resource English | Fall Semester 2025 | Section 001,Resource English,Fall Semester 2025,001,Final Exam,30.00
+Resource Math | Fall Semester 2025 | Section 001,Resource Math,Fall Semester 2025,001,Homework,40.00
+Resource Math | Fall Semester 2025 | Section 001,Resource Math,Fall Semester 2025,001,Quizzes,30.00
+Resource Math | Fall Semester 2025 | Section 001,Resource Math,Fall Semester 2025,001,Final Exam,30.00
+Study Skills | Fall Semester 2025 | Section 001,Study Skills,Fall Semester 2025,001,Homework,40.00
+Study Skills | Fall Semester 2025 | Section 001,Study Skills,Fall Semester 2025,001,Quizzes,30.00
+Study Skills | Fall Semester 2025 | Section 001,Study Skills,Fall Semester 2025,001,Final Exam,30.00
+ELL Beginner | Fall Semester 2025 | Section 001,ELL Beginner,Fall Semester 2025,001,Homework,40.00
+ELL Beginner | Fall Semester 2025 | Section 001,ELL Beginner,Fall Semester 2025,001,Quizzes,30.00
+ELL Beginner | Fall Semester 2025 | Section 001,ELL Beginner,Fall Semester 2025,001,Final Exam,30.00
+ELL Intermediate | Fall Semester 2025 | Section 001,ELL Intermediate,Fall Semester 2025,001,Homework,40.00
+ELL Intermediate | Fall Semester 2025 | Section 001,ELL Intermediate,Fall Semester 2025,001,Quizzes,30.00
+ELL Intermediate | Fall Semester 2025 | Section 001,ELL Intermediate,Fall Semester 2025,001,Final Exam,30.00
+ELL Advanced | Fall Semester 2025 | Section 001,ELL Advanced,Fall Semester 2025,001,Homework,40.00
+ELL Advanced | Fall Semester 2025 | Section 001,ELL Advanced,Fall Semester 2025,001,Quizzes,30.00
+ELL Advanced | Fall Semester 2025 | Section 001,ELL Advanced,Fall Semester 2025,001,Final Exam,30.00
+Child Development | Fall Semester 2025 | Section 001,Child Development,Fall Semester 2025,001,Homework,40.00
+Child Development | Fall Semester 2025 | Section 001,Child Development,Fall Semester 2025,001,Quizzes,30.00
+Child Development | Fall Semester 2025 | Section 001,Child Development,Fall Semester 2025,001,Final Exam,30.00
+Foods & Nutrition | Fall Semester 2025 | Section 001,Foods & Nutrition,Fall Semester 2025,001,Homework,40.00
+Foods & Nutrition | Fall Semester 2025 | Section 001,Foods & Nutrition,Fall Semester 2025,001,Quizzes,30.00
+Foods & Nutrition | Fall Semester 2025 | Section 001,Foods & Nutrition,Fall Semester 2025,001,Final Exam,30.00
+Family & Consumer Science | Fall Semester 2025 | Section 001,Family & Consumer Science,Fall Semester 2025,001,Homework,40.00
+Family & Consumer Science | Fall Semester 2025 | Section 001,Family & Consumer Science,Fall Semester 2025,001,Quizzes,30.00
+Family & Consumer Science | Fall Semester 2025 | Section 001,Family & Consumer Science,Fall Semester 2025,001,Final Exam,30.00
+Agricultural Science | Fall Semester 2025 | Section 001,Agricultural Science,Fall Semester 2025,001,Homework,40.00
+Agricultural Science | Fall Semester 2025 | Section 001,Agricultural Science,Fall Semester 2025,001,Quizzes,30.00
+Agricultural Science | Fall Semester 2025 | Section 001,Agricultural Science,Fall Semester 2025,001,Final Exam,30.00
+Animal Science | Fall Semester 2025 | Section 001,Animal Science,Fall Semester 2025,001,Homework,40.00
+Animal Science | Fall Semester 2025 | Section 001,Animal Science,Fall Semester 2025,001,Quizzes,30.00
+Animal Science | Fall Semester 2025 | Section 001,Animal Science,Fall Semester 2025,001,Final Exam,30.00
+Plant Science | Fall Semester 2025 | Section 001,Plant Science,Fall Semester 2025,001,Homework,40.00
+Plant Science | Fall Semester 2025 | Section 001,Plant Science,Fall Semester 2025,001,Quizzes,30.00
+Plant Science | Fall Semester 2025 | Section 001,Plant Science,Fall Semester 2025,001,Final Exam,30.00
+General Studies | Fall Semester 2025 | Section 001,General Studies,Fall Semester 2025,001,Homework,40.00
+General Studies | Fall Semester 2025 | Section 001,General Studies,Fall Semester 2025,001,Quizzes,30.00
+General Studies | Fall Semester 2025 | Section 001,General Studies,Fall Semester 2025,001,Final Exam,30.00
