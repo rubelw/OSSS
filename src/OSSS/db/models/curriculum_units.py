@@ -17,7 +17,8 @@ class CurriculumUnit(UUIDMixin, TimestampMixin, Base):
     )
 
     curriculum: Mapped["Curriculum"] = relationship(
-        "Curriculum", back_populates="units", lazy="joined"
+        "Curriculum", back_populates="units", lazy="joined",
+        foreign_keys="CurriculumUnit.curriculum_id",
     )
 
     title: Mapped[str] = mapped_column(sa.String(255), nullable=False)

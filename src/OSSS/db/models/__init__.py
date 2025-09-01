@@ -59,7 +59,7 @@ from .contacts import *
 from .course_prerequisites import *
 from .course_sections import *
 from .courses import *
-from .curriculum import *
+from .curricula import *
 from .data_quality_issues import *
 from .data_sharing_agreements import *
 from .deduction_codes import *

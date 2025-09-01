@@ -28,7 +28,38 @@ class Proposal(UUIDMixin, TimestampMixin, Base):
 
     attributes = mapped_column(JSON, nullable=True)
 
-    alignments: Mapped[List["ProposalStandardMap"]] = relationship("ProposalStandardMap", back_populates="proposal", cascade="all, delete-orphan")
-    review_rounds: Mapped[List["ReviewRound"]] = relationship("ReviewRound", back_populates="proposal", cascade="all, delete-orphan")
-    approvals: Mapped[List["Approval"]] = relationship("Approval", back_populates="proposal", cascade="all, delete-orphan")
-    curriculum: Mapped[Optional["Curriculum"]] = relationship("Curriculum", back_populates="proposal", uselist=False, cascade="all, delete-orphan")
+    # If you want the inverse of Curriculum.proposal (the single proposal chosen to become a curriculum),
+    # keep this; otherwise you can omit both sides of this pair.
+    resulting_curriculum: Mapped[Optional["Curriculum"]] = relationship(
+        "Curriculum",
+        back_populates="proposal",
+        foreign_keys="Curriculum.proposal_id",
+        uselist=False,
+        viewonly=True,  # optional: this makes it read-only; drop if you want a writable link
+    )
+
+    alignments: Mapped[List["ProposalStandardMap"]] = relationship(
+        "ProposalStandardMap", back_populates="proposal", cascade="all, delete-orphan"
+    )
+    review_rounds: Mapped[List["ReviewRound"]] = relationship(
+        "ReviewRound", back_populates="proposal", cascade="all, delete-orphan"
+    )
+    approvals: Mapped[List["Approval"]] = relationship(
+        "Approval", back_populates="proposal", cascade="all, delete-orphan"
+    )
+
+    # This FK points FROM proposals TO curricula
+    curriculum_id: Mapped[Optional[str]] = mapped_column(
+        GUID(),
+        sa.ForeignKey("curricula.id", ondelete="SET NULL"),
+        index=True,
+        nullable=True,
+    )
+
+    # ← many-to-one (each proposal references zero/one curriculum)
+    curriculum: Mapped[Optional["Curriculum"]] = relationship(
+        "Curriculum",
+        back_populates="proposals",
+        foreign_keys="Proposal.curriculum_id",
+        lazy="joined",
+    )

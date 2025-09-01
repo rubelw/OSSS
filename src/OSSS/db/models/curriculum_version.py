@@ -17,6 +17,9 @@ class CurriculumVersion(UUIDMixin, Base):
 
     created_at, updated_at = ts_cols()
 
-    curriculum = relationship("Curriculum", back_populates="versions", lazy="joined")
+    curriculum: Mapped["Curriculum"] = relationship(
+        "Curriculum", back_populates="versions", lazy="joined",
+        foreign_keys="CurriculumVersion.curriculum_id",
+    )
     reviews = relationship("ReviewRequest", back_populates="curriculum_version", cascade="all, delete-orphan")
     alignments = relationship("Alignment", back_populates="curriculum_version", cascade="all, delete-orphan")
