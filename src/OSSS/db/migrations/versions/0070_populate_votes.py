@@ -15,7 +15,7 @@ from alembic import op
 import sqlalchemy as sa
 
 # ---- Alembic identifiers ----
-revision = "0079_populate_votes"
+revision = "0070_populate_votes"
 # If your head before this migration is different, adjust the down_revision accordingly.
 down_revision = "0069_populate_webhooks"
 branch_labels = None
