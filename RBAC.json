@@ -8448,7 +8448,8 @@
                         "read:export_runs",
                         "read:external_ids",
                         "read:feature_flags",
-                        "read:meetings"
+                        "read:meetings",
+                        "read:webhooks"
                       ]
                     },
                     {

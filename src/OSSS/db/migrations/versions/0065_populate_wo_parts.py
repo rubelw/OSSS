@@ -22,14 +22,22 @@ log = logging.getLogger("alembic.runtime.migration")
 # ---- Env toggles -------------------------------------------------------------
 LOG_LVL        = os.getenv("WOP_LOG_LEVEL", "DEBUG").upper()
 LOG_SQL        = os.getenv("WOP_LOG_SQL", "0") == "1"
-LOG_ROWS       = os.getenv("WOP_LOG_ROWS", "1") == "1"   # default ON to diagnose
+LOG_ROWS       = os.getenv("WOP_LOG_ROWS", "1") == "1"   # default ON for diagnosis
 ABORT_IF_ZERO  = os.getenv("WOP_ABORT_IF_ZERO", "1") == "1"
+
 CSV_ENV        = "WORK_ORDER_PARTS_CSV_PATH"
 CSV_NAME       = "work_order_parts.csv"
-WOP_ROWS       = int(os.getenv("WOP_ROWS", "200"))  # rows to auto-generate if CSV absent
+WOP_ROWS       = int(os.getenv("WOP_ROWS", "200"))
+
+# Always (re)generate the CSV on each run (can disable by setting 0)
+WOP_REGEN_ALWAYS = os.getenv("WOP_REGEN_ALWAYS", "1") == "1"
 
 # allow fallback lookups if CSV doesn't have UUIDs
 ALLOW_NAME_LOOKUPS  = os.getenv("WOP_ALLOW_NAME_LOOKUPS", "1") == "1"
+
+# Schema (defaults to public)
+SCHEMA = (os.getenv("WOP_SCHEMA", "public") or "").strip()
+INSPECT_SCHEMA = None if SCHEMA == "" else SCHEMA
 
 logging.getLogger("alembic.runtime.migration").setLevel(getattr(logging, LOG_LVL, logging.INFO))
 engine_logger = logging.getLogger("sqlalchemy.engine")
@@ -39,6 +47,10 @@ engine_logger.setLevel(logging.INFO if LOG_SQL else getattr(logging, LOG_LVL, lo
 ORDERS_TBL = "work_orders"
 PARTS_TBL  = "parts"
 WOP_TBL    = "work_order_parts"
+
+def _qt(table: str) -> str:
+    """Qualified table name with schema."""
+    return f"{SCHEMA}.{table}" if SCHEMA else table
 
 # ---- Helpers -----------------------------------------------------------------
 _norm_ws_re = re.compile(r"\s+")
@@ -66,6 +78,7 @@ def _dec(v):
 def _open_csv(csv_path: Path):
     f = csv_path.open("r", encoding="utf-8", newline="")
     reader = csv.DictReader(f)
+    log.info("[%s] CSV path: %s", revision, csv_path)
     log.info("[%s] CSV headers: %s", revision, reader.fieldnames)
     return reader, f
 
@@ -110,41 +123,36 @@ def _candidate_paths(name: str) -> list[Path]:
             uniq.append(p); seen.add(key)
     return uniq
 
-def _locate_existing_csv(name: str) -> Path | None:
-    for p in _candidate_paths(name):
-        if p.exists() and p.is_file():
-            log.info("[%s] using CSV: %s", revision, p)
-            return p
-    return None
-
 def _default_output_path(name: str) -> Path:
     envp = os.getenv(CSV_ENV)
     if envp:
         p = Path(envp)
         return (p / name) if p.is_dir() else p
-    # fall back to co-located with this migration
+    # co-locate with this migration
     return Path(__file__).resolve().with_name(name)
 
 def _generate_csv(bind, insp) -> Path:
-    """Create CSV deterministically by zipping work_orders with parts."""
+    """Create CSV deterministically by zipping work_orders with parts (same DB connection)."""
     out = _default_output_path(CSV_NAME)
     out.parent.mkdir(parents=True, exist_ok=True)
 
     # detect parts.unit_cost presence
-    pcols = {c["name"] for c in insp.get_columns(PARTS_TBL)}
+    pcols = {c["name"] for c in insp.get_columns(PARTS_TBL, schema=INSPECT_SCHEMA)}
     have_unit = "unit_cost" in pcols
 
-    # fetch candidates
-    wo_sql = sa.text(f"SELECT id FROM {ORDERS_TBL} ORDER BY created_at NULLS LAST, id")
-    pt_sql = sa.text(f"SELECT id{', unit_cost' if have_unit else ''} FROM {PARTS_TBL} ORDER BY name NULLS LAST, id")
+    # fetch candidates from the SAME DB/schema
+    wo_sql = sa.text(f"SELECT id FROM {_qt(ORDERS_TBL)} ORDER BY created_at NULLS LAST, id")
+    pt_sql = sa.text(f"SELECT id{', unit_cost' if have_unit else ''} FROM {_qt(PARTS_TBL)} ORDER BY id")
 
     wo_ids = [str(r[0]) for r in bind.execute(wo_sql).fetchall()]
     parts  = [{"id": str(r[0]), "unit_cost": (r[1] if have_unit else None)} for r in bind.execute(pt_sql).fetchall()]
 
+    log.info("[%s] source DB: work_orders=%d, parts=%d", revision, len(wo_ids), len(parts))
+
     if not wo_ids:
-        raise RuntimeError(f"[{revision}] cannot auto-generate CSV: no rows in {ORDERS_TBL}")
+        raise RuntimeError(f"[{revision}] cannot auto-generate CSV: no rows in {_qt(ORDERS_TBL)}")
     if not parts:
-        raise RuntimeError(f"[{revision}] cannot auto-generate CSV: no rows in {PARTS_TBL}")
+        raise RuntimeError(f"[{revision}] cannot auto-generate CSV: no rows in {_qt(PARTS_TBL)}")
 
     # deterministic “zip & cycle” generation
     count = min(WOP_ROWS, len(wo_ids))
@@ -166,10 +174,15 @@ def _generate_csv(bind, insp) -> Path:
     return out
 
 def _ensure_csv(bind, insp) -> Path:
-    path = _locate_existing_csv(CSV_NAME)
-    if path:
-        return path
-    log.warning("[%s] %s not found — auto-generating from DB …", revision, CSV_NAME)
+    if WOP_REGEN_ALWAYS:
+        log.info("[%s] WOP_REGEN_ALWAYS=1 — regenerating %s", revision, CSV_NAME)
+        return _generate_csv(bind, insp)
+    # else: reuse if present, otherwise generate
+    for p in _candidate_paths(CSV_NAME):
+        if p.exists() and p.is_file():
+            log.info("[%s] using existing CSV: %s", revision, p)
+            return p
+    log.warning("[%s] %s not found — auto-generating …", revision, CSV_NAME)
     return _generate_csv(bind, insp)
 
 def _canon(k: str) -> str:
@@ -204,7 +217,7 @@ def _flex_get(row: dict, key: str):
 # ---- Insert builder ----------------------------------------------------------
 def _insert_sql(bind):
     insp = sa.inspect(bind)
-    cols = {c["name"] for c in insp.get_columns(WOP_TBL)}
+    cols = {c["name"] for c in insp.get_columns(WOP_TBL, schema=INSPECT_SCHEMA)}
     ins_cols, vals = ["id"], ["gen_random_uuid()"]
 
     def add(col):
@@ -216,43 +229,52 @@ def _insert_sql(bind):
         add(c)
     if "created_at" in cols: ins_cols.append("created_at"); vals.append("now()")
     if "updated_at" in cols: ins_cols.append("updated_at"); vals.append("now()")
-    sql = sa.text(f"INSERT INTO {WOP_TBL} ({', '.join(ins_cols)}) VALUES ({', '.join(vals)})")
+    sql = sa.text(f"INSERT INTO {_qt(WOP_TBL)} ({', '.join(ins_cols)}) VALUES ({', '.join(vals)})")
     return sql
+
+# ---- Existence check (extra fallback) ----------------------------------------
+def _id_exists(bind, table: str, id_: str) -> bool:
+    try:
+        res = bind.execute(sa.text(f"SELECT 1 FROM {_qt(table)} WHERE id = :id LIMIT 1"), {"id": id_}).first()
+        return bool(res)
+    except Exception:
+        return False
 
 # ---- Lookup caches -----------------------------------------------------------
 def _build_caches(bind):
     insp = sa.inspect(bind)
 
     # Work orders
-    wo_ids = {str(r[0]) for r in bind.execute(sa.text(f"SELECT id FROM {ORDERS_TBL}")).fetchall()}
-    log.info("[%s] work_orders in DB: %d", revision, len(wo_ids))
+    wo_ids = {str(r[0]) for r in bind.execute(sa.text(f"SELECT id FROM {_qt(ORDERS_TBL)}")).fetchall()}
+    log.info("[%s] work_orders in DB (schema=%s): %d", revision, SCHEMA, len(wo_ids))
 
     # Optional summary lookup
-    has_summary = any(c["name"] == "summary" for c in insp.get_columns(ORDERS_TBL))
+    has_summary = any(c["name"] == "summary" for c in insp.get_columns(ORDERS_TBL, schema=INSPECT_SCHEMA))
     wo_by_summary = {}
     if has_summary:
-        rows = bind.execute(sa.text(f"SELECT id, summary FROM {ORDERS_TBL} WHERE summary IS NOT NULL")).mappings().all()
+        rows = bind.execute(sa.text(f"SELECT id, summary FROM {_qt(ORDERS_TBL)} WHERE summary IS NOT NULL")).mappings().all()
         for r in rows:
-            s = r["summary"].strip().lower()
-            wo_by_summary.setdefault(s, str(r["id"]))
+            s = (r["summary"] or "").strip().lower()
+            if s:
+                wo_by_summary.setdefault(s, str(r["id"]))
         log.info("[%s] work_order summary index: %d", revision, len(wo_by_summary))
 
     # Parts
-    part_ids = {str(r[0]) for r in bind.execute(sa.text(f"SELECT id FROM {PARTS_TBL}")).fetchall()}
-    log.info("[%s] parts in DB: %d", revision, len(part_ids))
+    part_ids = {str(r[0]) for r in bind.execute(sa.text(f"SELECT id FROM {_qt(PARTS_TBL)}")).fetchall()}
+    log.info("[%s] parts in DB (schema=%s): %d", revision, SCHEMA, len(part_ids))
 
     # Optional code / name lookups
-    cols = {c["name"] for c in insp.get_columns(PARTS_TBL)}
+    cols = {c["name"] for c in insp.get_columns(PARTS_TBL, schema=INSPECT_SCHEMA)}
     part_by_code, part_by_name = {}, {}
     if "code" in cols:
-        rows = bind.execute(sa.text(f"SELECT id, code FROM {PARTS_TBL} WHERE code IS NOT NULL")).mappings().all()
+        rows = bind.execute(sa.text(f"SELECT id, code FROM {_qt(PARTS_TBL)} WHERE code IS NOT NULL")).mappings().all()
         for r in rows:
-            part_by_code[r["code"].strip().lower()] = str(r["id"])
+            part_by_code[(r["code"] or "").strip().lower()] = str(r["id"])
         log.info("[%s] parts code index: %d", revision, len(part_by_code))
     if "name" in cols:
-        rows = bind.execute(sa.text(f"SELECT id, name FROM {PARTS_TBL} WHERE name IS NOT NULL")).mappings().all()
+        rows = bind.execute(sa.text(f"SELECT id, name FROM {_qt(PARTS_TBL)} WHERE name IS NOT NULL")).mappings().all()
         for r in rows:
-            part_by_name[r["name"].strip().lower()] = str(r["id"])
+            part_by_name[(r["name"] or "").strip().lower()] = str(r["id"])
         log.info("[%s] parts name index: %d", revision, len(part_by_name))
 
     return wo_ids, wo_by_summary, part_ids, part_by_code, part_by_name
@@ -262,7 +284,7 @@ def upgrade() -> None:
     bind = op.get_bind()
     insp = sa.inspect(bind)
 
-    # Ensure CSV exists (generate if missing)
+    # Always (re)create CSV from THIS DB connection (ensures IDs exist)
     csv_path = _ensure_csv(bind, insp)
     reader, fobj = _open_csv(csv_path)
 
@@ -282,10 +304,12 @@ def upgrade() -> None:
                 # ---- resolve work_order_id ----
                 wo_val = _flex_get(row, "work_order_id")
                 wo_id = None
-                if wo_val and _looks_uuid(wo_val) and str(wo_val) in wo_ids:
-                    wo_id = str(wo_val)
+                if wo_val and _looks_uuid(wo_val):
+                    s = str(wo_val)
+                    if s in wo_ids or _id_exists(bind, ORDERS_TBL, s):
+                        wo_id = s
+                        wo_ids.add(s)  # cache extend
                 elif ALLOW_NAME_LOOKUPS:
-                    # try by summary
                     wos = _flex_get(row, "work_order_summary")
                     if wos:
                         wo_id = wo_by_summary.get(wos.strip().lower())
@@ -301,8 +325,11 @@ def upgrade() -> None:
                 # ---- resolve part_id ----
                 pt_val = _flex_get(row, "part_id")
                 part_id = None
-                if pt_val and _looks_uuid(pt_val) and str(pt_val) in part_ids:
-                    part_id = str(pt_val)
+                if pt_val and _looks_uuid(pt_val):
+                    s = str(pt_val)
+                    if s in part_ids or _id_exists(bind, PARTS_TBL, s):
+                        part_id = s
+                        part_ids.add(s)
                 elif ALLOW_NAME_LOOKUPS:
                     pcode = _flex_get(row, "part_code")
                     pname = _flex_get(row, "part_name")
@@ -350,8 +377,8 @@ def upgrade() -> None:
         try: fobj.close()
         except Exception: pass
 
-    log.info("[%s] done: CSV rows=%d, inserted=%d, skipped=%d (missing_wo=%d, missing_pt=%d) [csv=%s]",
-             revision, total, inserted, skipped, missing_wo, missing_pt, csv_path)
+    log.info("[%s] done: CSV rows=%d, inserted=%d, skipped=%d (missing_wo=%d, missing_pt=%d) [csv=%s, schema=%s]",
+             revision, total, inserted, skipped, missing_wo, missing_pt, csv_path, SCHEMA)
 
     if ABORT_IF_ZERO and inserted == 0:
         raise RuntimeError(f"[{revision}] No rows inserted. Enable WOP_LOG_LEVEL=DEBUG WOP_LOG_ROWS=1 and re-run to see per-row reasons.")
