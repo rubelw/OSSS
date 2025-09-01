@@ -1538,6 +1538,7 @@
               "description": "Provides legal guidance; manages risk, contracts, and compliance.",
               "permissions": [
                 "read:academic_terms",
+                "read:waivers",
                 "read:accommodations",
                 "read:activities",
                 "read:addresses",
@@ -2296,6 +2297,7 @@
                       "description": "School-site leader responsible for instruction, operations, and culture.",
                       "permissions": [
                         "read:academic_terms",
+                        "read:waivers",
                         "read:accommodations",
                         "read:activities",
                         "read:addresses",
@@ -2422,6 +2424,7 @@
                       "description": "Supports principal in instruction, discipline, operations, and staff supervision.",
                       "permissions": [
                         "read:academic_terms",
+                        "read:waivers",
                         "read:accommodations",
                         "read:activities",
                         "read:addresses",
@@ -5137,6 +5140,7 @@
                           "description": "Manages student records, transcripts, and enrollments.",
                           "permissions": [
                             "read:accommodations",
+                            "read:waivers",
                             "read:addresses",
                             "read:attendance",
                             "read:attendance_codes",
@@ -5164,6 +5168,7 @@
                           "description": "Supports records management and requests.",
                           "permissions": [
                             "read:accommodations",
+                            "read:waivers",
                             "read:addresses",
                             "read:attendance",
                             "read:attendance_codes",
@@ -7800,6 +7805,7 @@
                       "description": "Enterprise risk and insurance programs.",
                       "permissions": [
                         "read:agenda_item_files",
+                        "read:waivers",
                         "read:cic_meeting_documents",
                         "read:cic_proposal_documents",
                         "read:compliance_records",
@@ -7902,6 +7908,7 @@
                       "description": "Records schedules, storage, and disposition.",
                       "permissions": [
                         "read:agenda_item_files",
+                        "read:waivers",
                         "read:cic_meeting_documents",
                         "read:cic_proposal_documents",
                         "read:compliance_records",
