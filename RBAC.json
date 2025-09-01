@@ -251,7 +251,7 @@
             "read:alignment",
             "read:education_associations",
             "read:curriculum_versions",
-            "read:requirement",
+            "read:requirements",
             "read:review_request",
             "read:unit_standard_map",
             "read:curriculum_units",
