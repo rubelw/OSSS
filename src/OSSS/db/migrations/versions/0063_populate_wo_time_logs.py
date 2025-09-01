@@ -308,3 +308,44 @@ def upgrade() -> None:
 def downgrade() -> None:
     # Best-effort: nothing to do — leave time logs in place.
     log.info("[%s] downgrade: no-op (data migration).", revision)
+
+
+# ---- Standalone execution support (env-driven DB URL) -----------------------
+# Allows running this migration file directly (outside Alembic) using env vars:
+#   OSSS_DB_URL="postgresql+asyncpg://osss:password@localhost:5433/osss"
+# or compose from parts:
+#   OSSS_DB_HOST="127.0.0.1"
+#   OSSS_DB_PORT="5433"
+#   OSSS_DB_NAME="osss"
+#   OSSS_DB_USER="osss"
+#   OSSS_DB_PASSWORD="password"
+def _env_db_url() -> str:
+    url = os.getenv("OSSS_DB_URL")
+    if url:
+        return url
+    host = os.getenv("OSSS_DB_HOST", "127.0.0.1")
+    port = os.getenv("OSSS_DB_PORT", "5433")
+    name = os.getenv("OSSS_DB_NAME", "osss")
+    user = os.getenv("OSSS_DB_USER", "osss")
+    pwd  = os.getenv("OSSS_DB_PASSWORD", "password")
+    return f"postgresql://{user}:{pwd}@{host}:{port}/{name}"
+
+def _to_sync_dsn(url: str) -> str:
+    # migration body is synchronous; normalize asyncpg DSN to sync
+    if url.startswith("postgresql+asyncpg://"):
+        return "postgresql://" + url.split("postgresql+asyncpg://", 1)[1]
+    return url
+
+if __name__ == "__main__":
+    # Run the migration logic directly, outside Alembic, using env-provided DB URL
+    try:
+        dsn = _to_sync_dsn(_env_db_url())
+        engine = sa.create_engine(dsn, echo=SQL_ECHO, future=True)
+        with engine.begin() as conn:
+            # Monkey-patch Alembic's op.get_bind() to return our connection
+            op.get_bind = lambda: conn  # type: ignore[assignment]
+            upgrade()
+    except Exception as _e:
+        import traceback
+        print(f"[{revision}] standalone execution failed: {_e}\\n{traceback.format_exc()}")
+        raise

@@ -121,6 +121,7 @@
         "read:maintenance_requests",
         "read:plans",
         "read:work_orders",
+        "read:work_order_tasks",
         "read:work_order_time_logs"
       ],
       "parent": null,
@@ -263,6 +264,7 @@
             "read:maintenance_requests",
             "read:plans",
             "read:work_orders",
+            "read:work_order_tasks",
             "read:users",
             "read:work_order_time_logs"
           ]
@@ -388,6 +390,7 @@
             "read:maintenance_requests",
             "read:plans",
             "read:work_orders",
+            "read:work_order_tasks",
             "read:work_order_time_logs"
           ]
         },
@@ -512,6 +515,7 @@
             "read:maintenance_requests",
             "read:plans",
             "read:work_orders",
+            "read:work_order_tasks",
             "read:work_order_time_logs"
           ]
         },
@@ -636,6 +640,7 @@
             "read:maintenance_requests",
             "read:plans",
             "read:work_orders",
+            "read:work_order_tasks",
             "read:work_order_time_logs"
           ]
         }
@@ -762,6 +767,7 @@
             "read:maintenance_requests",
             "read:plans",
             "read:work_orders",
+            "read:work_order_tasks",
             "read:work_order_time_logs"
           ],
           "positions": [
@@ -886,6 +892,7 @@
                 "read:maintenance_requests",
                 "read:plans",
                 "read:work_orders",
+                "read:work_order_tasks",
                 "read:work_order_time_logs"
               ]
             },
@@ -1010,6 +1017,7 @@
                 "read:maintenance_requests",
                 "read:plans",
                 "read:work_orders",
+                "read:work_order_tasks",
                 "read:work_order_time_logs"
               ]
             },
@@ -1134,6 +1142,7 @@
                 "read:maintenance_requests",
                 "read:plans",
                 "read:work_orders",
+                "read:work_order_tasks",
                 "read:work_order_time_logs"
               ]
             },
@@ -1258,6 +1267,7 @@
                 "read:maintenance_requests",
                 "read:plans",
                 "read:work_orders",
+                "read:work_order_tasks",
                 "read:work_order_time_logs"
               ]
             },
@@ -1382,6 +1392,7 @@
                 "read:maintenance_requests",
                 "read:plans",
                 "read:work_orders",
+                "read:work_order_tasks",
                 "read:work_order_time_logs"
               ]
             },
@@ -1506,6 +1517,7 @@
                 "read:maintenance_requests",
                 "read:plans",
                 "read:work_orders",
+                "read:work_order_tasks",
                 "read:work_order_time_logs"
               ]
             },
@@ -1630,6 +1642,7 @@
                 "read:maintenance_requests",
                 "read:plans",
                 "read:work_orders",
+                "read:work_order_tasks",
                 "read:work_order_time_logs"
               ]
             },
@@ -1754,6 +1767,7 @@
                 "read:maintenance_requests",
                 "read:plans",
                 "read:work_orders",
+                "read:work_order_tasks",
                 "read:work_order_time_logs"
               ]
             },
@@ -1878,6 +1892,7 @@
                 "read:maintenance_requests",
                 "read:plans",
                 "read:work_orders",
+                "read:work_order_tasks",
                 "read:work_order_time_logs"
               ]
             }
@@ -2003,6 +2018,7 @@
                 "read:maintenance_requests",
                 "read:plans",
                 "read:work_orders",
+                "read:work_order_tasks",
                 "read:work_order_time_logs"
               ],
               "positions": [
@@ -2127,6 +2143,7 @@
                     "read:maintenance_requests",
                     "read:plans",
                     "read:work_orders",
+                    "read:work_order_tasks",
                     "read:work_order_time_logs"
                   ]
                 }
@@ -2252,6 +2269,7 @@
                     "read:maintenance_requests",
                     "read:plans",
                     "read:work_orders",
+                    "read:work_order_tasks",
                     "read:work_order_time_logs"
                   ],
                   "positions": [
@@ -2376,6 +2394,7 @@
                         "read:maintenance_requests",
                         "read:plans",
                         "read:work_orders",
+                        "read:work_order_tasks",
                         "read:work_order_time_logs"
                       ]
                     },
@@ -2500,6 +2519,7 @@
                         "read:maintenance_requests",
                         "read:plans",
                         "read:work_orders",
+                        "read:work_order_tasks",
                         "read:work_order_time_logs"
                       ]
                     },
@@ -2624,6 +2644,7 @@
                         "read:maintenance_requests",
                         "read:plans",
                         "read:work_orders",
+                        "read:work_order_tasks",
                         "read:work_order_time_logs"
                       ]
                     },
@@ -2748,6 +2769,7 @@
                         "read:maintenance_requests",
                         "read:plans",
                         "read:work_orders",
+                        "read:work_order_tasks",
                         "read:work_order_time_logs"
                       ]
                     },
@@ -2872,6 +2894,7 @@
                         "read:maintenance_requests",
                         "read:plans",
                         "read:work_orders",
+                        "read:work_order_tasks",
                         "read:work_order_time_logs"
                       ]
                     },
@@ -2996,12 +3019,13 @@
                         "read:maintenance_requests",
                         "read:plans",
                         "read:work_orders",
+                        "read:work_order_tasks",
                         "read:work_order_time_logs"
                       ]
                     },
                     {
                       "name": "grade_level_dean",
-                      "description": "Oversees a grade\u2019s academic and behavioral support systems.",
+                      "description": "Oversees a grade’s academic and behavioral support systems.",
                       "permissions": [
                         "read:academic_terms",
                         "read:accommodations",
@@ -3120,6 +3144,7 @@
                         "read:maintenance_requests",
                         "read:plans",
                         "read:work_orders",
+                        "read:work_order_tasks",
                         "read:work_order_time_logs"
                       ]
                     },
@@ -3244,6 +3269,7 @@
                         "read:maintenance_requests",
                         "read:plans",
                         "read:work_orders",
+                        "read:work_order_tasks",
                         "read:work_order_time_logs"
                       ]
                     },
@@ -3370,6 +3396,7 @@
                         "read:maintenance_requests",
                         "read:plans",
                         "read:work_orders",
+                        "read:work_order_tasks",
                         "read:work_order_time_logs"
                       ]
                     },
@@ -3494,6 +3521,7 @@
                         "read:maintenance_requests",
                         "read:plans",
                         "read:work_orders",
+                        "read:work_order_tasks",
                         "read:work_order_time_logs"
                       ]
                     },
@@ -3618,6 +3646,7 @@
                         "read:maintenance_requests",
                         "read:plans",
                         "read:work_orders",
+                        "read:work_order_tasks",
                         "read:work_order_time_logs"
                       ]
                     },
@@ -3742,6 +3771,7 @@
                         "read:maintenance_requests",
                         "read:plans",
                         "read:work_orders",
+                        "read:work_order_tasks",
                         "read:work_order_time_logs"
                       ]
                     },
@@ -3866,6 +3896,7 @@
                         "read:maintenance_requests",
                         "read:plans",
                         "read:work_orders",
+                        "read:work_order_tasks",
                         "read:work_order_time_logs"
                       ]
                     },
@@ -3990,6 +4021,7 @@
                         "read:maintenance_requests",
                         "read:plans",
                         "read:work_orders",
+                        "read:work_order_tasks",
                         "read:work_order_time_logs"
                       ]
                     }
@@ -6367,6 +6399,7 @@
                 "read:warranties",
                 "read:maintenance_requests",
                 "read:work_orders",
+                "read:work_order_tasks",
                 "read:work_order_time_logs"
               ],
               "positions": [
@@ -6392,6 +6425,7 @@
                     "read:warranties",
                     "read:maintenance_requests",
                     "read:work_orders",
+                    "read:work_order_tasks",
                     "read:work_order_time_logs"
                   ]
                 }
@@ -6415,6 +6449,7 @@
                     "read:warranties",
                     "read:maintenance_requests",
                     "read:work_orders",
+                    "read:work_order_tasks",
                     "read:work_order_time_logs"
                   ],
                   "positions": [
@@ -6437,6 +6472,7 @@
                         "read:warranties",
                         "read:maintenance_requests",
                         "read:work_orders",
+                        "read:work_order_tasks",
                         "read:work_order_time_logs"
                       ]
                     },
@@ -6459,6 +6495,7 @@
                         "read:warranties",
                         "read:maintenance_requests",
                         "read:work_orders",
+                        "read:work_order_tasks",
                         "read:work_order_time_logs"
                       ]
                     },
@@ -6481,6 +6518,7 @@
                         "read:warranties",
                         "read:maintenance_requests",
                         "read:work_orders",
+                        "read:work_order_tasks",
                         "read:work_order_time_logs"
                       ]
                     },
@@ -6503,6 +6541,7 @@
                         "read:warranties",
                         "read:maintenance_requests",
                         "read:work_orders",
+                        "read:work_order_tasks",
                         "read:work_order_time_logs"
                       ]
                     },
@@ -6525,6 +6564,7 @@
                         "read:warranties",
                         "read:maintenance_requests",
                         "read:work_orders",
+                        "read:work_order_tasks",
                         "read:work_order_time_logs"
                       ]
                     },
@@ -6547,6 +6587,7 @@
                         "read:warranties",
                         "read:maintenance_requests",
                         "read:work_orders",
+                        "read:work_order_tasks",
                         "read:work_order_time_logs"
                       ]
                     },
@@ -6569,6 +6610,7 @@
                         "read:warranties",
                         "read:maintenance_requests",
                         "read:work_orders",
+                        "read:work_order_tasks",
                         "read:work_order_time_logs"
                       ]
                     },
@@ -6591,6 +6633,7 @@
                         "read:warranties",
                         "read:maintenance_requests",
                         "read:work_orders",
+                        "read:work_order_tasks",
                         "read:work_order_time_logs"
                       ]
                     },
@@ -6613,6 +6656,7 @@
                         "read:warranties",
                         "read:maintenance_requests",
                         "read:work_orders",
+                        "read:work_order_tasks",
                         "read:work_order_time_logs"
                       ]
                     },
@@ -6635,6 +6679,7 @@
                         "read:warranties",
                         "read:maintenance_requests",
                         "read:work_orders",
+                        "read:work_order_tasks",
                         "read:work_order_time_logs"
                       ]
                     },
@@ -6657,6 +6702,7 @@
                         "read:warranties",
                         "read:maintenance_requests",
                         "read:work_orders",
+                        "read:work_order_tasks",
                         "read:work_order_time_logs"
                       ]
                     },
@@ -6679,6 +6725,7 @@
                         "read:warranties",
                         "read:maintenance_requests",
                         "read:work_orders",
+                        "read:work_order_tasks",
                         "read:work_order_time_logs"
                       ]
                     },
@@ -6701,6 +6748,7 @@
                         "read:warranties",
                         "read:maintenance_requests",
                         "read:work_orders",
+                        "read:work_order_tasks",
                         "read:work_order_time_logs"
                       ]
                     },
@@ -6723,6 +6771,7 @@
                         "read:warranties",
                         "read:maintenance_requests",
                         "read:work_orders",
+                        "read:work_order_tasks",
                         "read:work_order_time_logs"
                       ]
                     },
@@ -6745,6 +6794,7 @@
                         "read:warranties",
                         "read:maintenance_requests",
                         "read:work_orders",
+                        "read:work_order_tasks",
                         "read:work_order_time_logs"
                       ]
                     },
@@ -6767,6 +6817,7 @@
                         "read:warranties",
                         "read:maintenance_requests",
                         "read:work_orders",
+                        "read:work_order_tasks",
                         "read:work_order_time_logs"
                       ]
                     },
@@ -6789,6 +6840,7 @@
                         "read:warranties",
                         "read:maintenance_requests",
                         "read:work_orders",
+                        "read:work_order_tasks",
                         "read:work_order_time_logs"
                       ]
                     },
@@ -6811,6 +6863,7 @@
                         "read:warranties",
                         "read:maintenance_requests",
                         "read:work_orders",
+                        "read:work_order_tasks",
                         "read:work_order_time_logs"
                       ]
                     },
@@ -6833,6 +6886,7 @@
                         "read:warranties",
                         "read:maintenance_requests",
                         "read:work_orders",
+                        "read:work_order_tasks",
                         "read:work_order_time_logs"
                       ]
                     },
@@ -6855,6 +6909,7 @@
                         "read:warranties",
                         "read:maintenance_requests",
                         "read:work_orders",
+                        "read:work_order_tasks",
                         "read:work_order_time_logs"
                       ]
                     }
