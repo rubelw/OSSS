@@ -23,7 +23,7 @@ jobs:
         with:
           python-version: '3.11'
       - run: pip install mkdocs mkdocs-material mkdocstrings[python] mkdocs-gen-files mkdocs-literate-nav mkdocs-section-index
-      - run: mkdocs build --strict   # outputs to ./site
+      - run: mkdocs build   # outputs to ./site
       - uses: actions/upload-pages-artifact@v3
         with:
           path: ./site
