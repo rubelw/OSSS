@@ -1,0 +1,21 @@
+plan_title,frequency_value,frequency_unit,next_run_at,is_active,attributes,plan_name
+Calibration for ASSET-000280,60,days,2025-09-14T21:06:42,true,,Calibration for ASSET-000280
+Calibration for ASSET-000652,60,days,2025-09-14T21:06:42,true,,Calibration for ASSET-000652
+Cleaning for ASSET-000430,7,days,2025-09-09T21:06:42,true,,Cleaning for ASSET-000430
+Cleaning for ASSET-000457,90,days,2025-09-14T21:06:42,true,,Cleaning for ASSET-000457
+Filter Replacement for ASSET-000060,60,days,2025-09-01T21:06:42,true,,Filter Replacement for ASSET-000060
+Filter Replacement for ASSET-000224,90,days,2025-09-06T21:06:42,true,,Filter Replacement for ASSET-000224
+Filter Replacement for ASSET-000264,60,days,2025-09-06T21:06:42,true,,Filter Replacement for ASSET-000264
+Filter Replacement for ASSET-000488,30,days,2025-09-07T21:06:42,true,,Filter Replacement for ASSET-000488
+Inspection for ASSET-000233,60,days,2025-09-09T21:06:42,true,,Inspection for ASSET-000233
+Inspection for ASSET-000331,30,days,2025-09-01T21:06:42,true,,Inspection for ASSET-000331
+Inspection for ASSET-000362,14,days,2025-09-10T21:06:42,true,,Inspection for ASSET-000362
+Inspection for ASSET-000380,90,days,2025-09-05T21:06:42,true,,Inspection for ASSET-000380
+Inspection for ASSET-000405,90,days,2025-09-05T21:06:42,true,,Inspection for ASSET-000405
+Inspection for ASSET-000426,7,days,2025-09-10T21:06:42,true,,Inspection for ASSET-000426
+Inspection for ASSET-000471,60,days,2025-09-01T21:06:42,true,,Inspection for ASSET-000471
+Inspection for ASSET-000608,7,days,2025-09-03T21:06:42,true,,Inspection for ASSET-000608
+Inspection for ASSET-000687,90,days,2025-09-01T21:06:42,true,,Inspection for ASSET-000687
+Safety Check for ASSET-000037,60,days,2025-09-05T21:06:42,true,,Safety Check for ASSET-000037
+Safety Check for ASSET-000294,30,days,2025-09-04T21:06:42,true,,Safety Check for ASSET-000294
+Safety Check for ASSET-000516,14,days,2025-09-03T21:06:42,true,,Safety Check for ASSET-000516
