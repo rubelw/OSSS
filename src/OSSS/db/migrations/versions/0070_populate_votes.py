@@ -1,5 +1,3 @@
-"""Populate motions from CSV (auto-generate CSV each run, robust parsing, no manual transactions)."""
-
 from __future__ import annotations
 
 import os, csv, logging, random, re
