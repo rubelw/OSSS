@@ -132,6 +132,7 @@
             "read:accommodations",
             "read:activities",
             "read:addresses",
+            "read:users",
             "read:agenda_item_approvals",
             "read:agenda_item_files",
             "read:agenda_items",
