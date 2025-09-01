@@ -6,7 +6,7 @@ import uuid
 
 
 class ProposalBase(BaseModel):
-    district_id: Optional[uuid.UUID] = None
+    organization_id: Optional[uuid.UUID] = None
     association_id: Optional[uuid.UUID] = None
     title: str
     summary: Optional[str] = None
