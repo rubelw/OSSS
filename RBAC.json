@@ -120,7 +120,8 @@
         "read:warranties",
         "read:maintenance_requests",
         "read:plans",
-        "read:work_orders"
+        "read:work_orders",
+        "read:work_order_time_logs"
       ],
       "parent": null,
       "positions": [
@@ -132,7 +133,6 @@
             "read:accommodations",
             "read:activities",
             "read:addresses",
-            "read:users",
             "read:agenda_item_approvals",
             "read:agenda_item_files",
             "read:agenda_items",
@@ -262,7 +262,9 @@
             "read:warranties",
             "read:maintenance_requests",
             "read:plans",
-            "read:work_orders"
+            "read:work_orders",
+            "read:users",
+            "read:work_order_time_logs"
           ]
         },
         {
@@ -385,7 +387,8 @@
             "read:warranties",
             "read:maintenance_requests",
             "read:plans",
-            "read:work_orders"
+            "read:work_orders",
+            "read:work_order_time_logs"
           ]
         },
         {
@@ -508,7 +511,8 @@
             "read:warranties",
             "read:maintenance_requests",
             "read:plans",
-            "read:work_orders"
+            "read:work_orders",
+            "read:work_order_time_logs"
           ]
         },
         {
@@ -631,7 +635,8 @@
             "read:warranties",
             "read:maintenance_requests",
             "read:plans",
-            "read:work_orders"
+            "read:work_orders",
+            "read:work_order_time_logs"
           ]
         }
       ],
@@ -756,7 +761,8 @@
             "read:warranties",
             "read:maintenance_requests",
             "read:plans",
-            "read:work_orders"
+            "read:work_orders",
+            "read:work_order_time_logs"
           ],
           "positions": [
             {
@@ -879,7 +885,8 @@
                 "read:warranties",
                 "read:maintenance_requests",
                 "read:plans",
-                "read:work_orders"
+                "read:work_orders",
+                "read:work_order_time_logs"
               ]
             },
             {
@@ -1002,7 +1009,8 @@
                 "read:warranties",
                 "read:maintenance_requests",
                 "read:plans",
-                "read:work_orders"
+                "read:work_orders",
+                "read:work_order_time_logs"
               ]
             },
             {
@@ -1125,7 +1133,8 @@
                 "read:warranties",
                 "read:maintenance_requests",
                 "read:plans",
-                "read:work_orders"
+                "read:work_orders",
+                "read:work_order_time_logs"
               ]
             },
             {
@@ -1248,7 +1257,8 @@
                 "read:warranties",
                 "read:maintenance_requests",
                 "read:plans",
-                "read:work_orders"
+                "read:work_orders",
+                "read:work_order_time_logs"
               ]
             },
             {
@@ -1371,7 +1381,8 @@
                 "read:warranties",
                 "read:maintenance_requests",
                 "read:plans",
-                "read:work_orders"
+                "read:work_orders",
+                "read:work_order_time_logs"
               ]
             },
             {
@@ -1494,7 +1505,8 @@
                 "read:warranties",
                 "read:maintenance_requests",
                 "read:plans",
-                "read:work_orders"
+                "read:work_orders",
+                "read:work_order_time_logs"
               ]
             },
             {
@@ -1617,7 +1629,8 @@
                 "read:warranties",
                 "read:maintenance_requests",
                 "read:plans",
-                "read:work_orders"
+                "read:work_orders",
+                "read:work_order_time_logs"
               ]
             },
             {
@@ -1740,7 +1753,8 @@
                 "read:warranties",
                 "read:maintenance_requests",
                 "read:plans",
-                "read:work_orders"
+                "read:work_orders",
+                "read:work_order_time_logs"
               ]
             },
             {
@@ -1863,7 +1877,8 @@
                 "read:warranties",
                 "read:maintenance_requests",
                 "read:plans",
-                "read:work_orders"
+                "read:work_orders",
+                "read:work_order_time_logs"
               ]
             }
           ],
@@ -1987,7 +2002,8 @@
                 "read:warranties",
                 "read:maintenance_requests",
                 "read:plans",
-                "read:work_orders"
+                "read:work_orders",
+                "read:work_order_time_logs"
               ],
               "positions": [
                 {
@@ -2110,7 +2126,8 @@
                     "read:warranties",
                     "read:maintenance_requests",
                     "read:plans",
-                    "read:work_orders"
+                    "read:work_orders",
+                    "read:work_order_time_logs"
                   ]
                 }
               ],
@@ -2234,7 +2251,8 @@
                     "read:warranties",
                     "read:maintenance_requests",
                     "read:plans",
-                    "read:work_orders"
+                    "read:work_orders",
+                    "read:work_order_time_logs"
                   ],
                   "positions": [
                     {
@@ -2357,7 +2375,8 @@
                         "read:warranties",
                         "read:maintenance_requests",
                         "read:plans",
-                        "read:work_orders"
+                        "read:work_orders",
+                        "read:work_order_time_logs"
                       ]
                     },
                     {
@@ -2480,7 +2499,8 @@
                         "read:warranties",
                         "read:maintenance_requests",
                         "read:plans",
-                        "read:work_orders"
+                        "read:work_orders",
+                        "read:work_order_time_logs"
                       ]
                     },
                     {
@@ -2603,7 +2623,8 @@
                         "read:warranties",
                         "read:maintenance_requests",
                         "read:plans",
-                        "read:work_orders"
+                        "read:work_orders",
+                        "read:work_order_time_logs"
                       ]
                     },
                     {
@@ -2726,7 +2747,8 @@
                         "read:warranties",
                         "read:maintenance_requests",
                         "read:plans",
-                        "read:work_orders"
+                        "read:work_orders",
+                        "read:work_order_time_logs"
                       ]
                     },
                     {
@@ -2849,7 +2871,8 @@
                         "read:warranties",
                         "read:maintenance_requests",
                         "read:plans",
-                        "read:work_orders"
+                        "read:work_orders",
+                        "read:work_order_time_logs"
                       ]
                     },
                     {
@@ -2972,7 +2995,8 @@
                         "read:warranties",
                         "read:maintenance_requests",
                         "read:plans",
-                        "read:work_orders"
+                        "read:work_orders",
+                        "read:work_order_time_logs"
                       ]
                     },
                     {
@@ -3095,7 +3119,8 @@
                         "read:warranties",
                         "read:maintenance_requests",
                         "read:plans",
-                        "read:work_orders"
+                        "read:work_orders",
+                        "read:work_order_time_logs"
                       ]
                     },
                     {
@@ -3218,7 +3243,8 @@
                         "read:warranties",
                         "read:maintenance_requests",
                         "read:plans",
-                        "read:work_orders"
+                        "read:work_orders",
+                        "read:work_order_time_logs"
                       ]
                     },
                     {
@@ -3343,7 +3369,8 @@
                         "read:warranties",
                         "read:maintenance_requests",
                         "read:plans",
-                        "read:work_orders"
+                        "read:work_orders",
+                        "read:work_order_time_logs"
                       ]
                     },
                     {
@@ -3466,7 +3493,8 @@
                         "read:warranties",
                         "read:maintenance_requests",
                         "read:plans",
-                        "read:work_orders"
+                        "read:work_orders",
+                        "read:work_order_time_logs"
                       ]
                     },
                     {
@@ -3589,7 +3617,8 @@
                         "read:warranties",
                         "read:maintenance_requests",
                         "read:plans",
-                        "read:work_orders"
+                        "read:work_orders",
+                        "read:work_order_time_logs"
                       ]
                     },
                     {
@@ -3712,7 +3741,8 @@
                         "read:warranties",
                         "read:maintenance_requests",
                         "read:plans",
-                        "read:work_orders"
+                        "read:work_orders",
+                        "read:work_order_time_logs"
                       ]
                     },
                     {
@@ -3835,7 +3865,8 @@
                         "read:warranties",
                         "read:maintenance_requests",
                         "read:plans",
-                        "read:work_orders"
+                        "read:work_orders",
+                        "read:work_order_time_logs"
                       ]
                     },
                     {
@@ -3958,7 +3989,8 @@
                         "read:warranties",
                         "read:maintenance_requests",
                         "read:plans",
-                        "read:work_orders"
+                        "read:work_orders",
+                        "read:work_order_time_logs"
                       ]
                     }
                   ],
@@ -6334,7 +6366,8 @@
                 "read:entity_tags",
                 "read:warranties",
                 "read:maintenance_requests",
-                "read:work_orders"
+                "read:work_orders",
+                "read:work_order_time_logs"
               ],
               "positions": [
                 {
@@ -6358,7 +6391,8 @@
                     "read:entity_tags",
                     "read:warranties",
                     "read:maintenance_requests",
-                    "read:work_orders"
+                    "read:work_orders",
+                    "read:work_order_time_logs"
                   ]
                 }
               ],
@@ -6380,7 +6414,8 @@
                     "read:entity_tags",
                     "read:warranties",
                     "read:maintenance_requests",
-                    "read:work_orders"
+                    "read:work_orders",
+                    "read:work_order_time_logs"
                   ],
                   "positions": [
                     {
@@ -6401,7 +6436,8 @@
                         "read:entity_tags",
                         "read:warranties",
                         "read:maintenance_requests",
-                        "read:work_orders"
+                        "read:work_orders",
+                        "read:work_order_time_logs"
                       ]
                     },
                     {
@@ -6422,7 +6458,8 @@
                         "read:entity_tags",
                         "read:warranties",
                         "read:maintenance_requests",
-                        "read:work_orders"
+                        "read:work_orders",
+                        "read:work_order_time_logs"
                       ]
                     },
                     {
@@ -6443,7 +6480,8 @@
                         "read:entity_tags",
                         "read:warranties",
                         "read:maintenance_requests",
-                        "read:work_orders"
+                        "read:work_orders",
+                        "read:work_order_time_logs"
                       ]
                     },
                     {
@@ -6464,7 +6502,8 @@
                         "read:entity_tags",
                         "read:warranties",
                         "read:maintenance_requests",
-                        "read:work_orders"
+                        "read:work_orders",
+                        "read:work_order_time_logs"
                       ]
                     },
                     {
@@ -6485,7 +6524,8 @@
                         "read:entity_tags",
                         "read:warranties",
                         "read:maintenance_requests",
-                        "read:work_orders"
+                        "read:work_orders",
+                        "read:work_order_time_logs"
                       ]
                     },
                     {
@@ -6506,7 +6546,8 @@
                         "read:entity_tags",
                         "read:warranties",
                         "read:maintenance_requests",
-                        "read:work_orders"
+                        "read:work_orders",
+                        "read:work_order_time_logs"
                       ]
                     },
                     {
@@ -6527,7 +6568,8 @@
                         "read:entity_tags",
                         "read:warranties",
                         "read:maintenance_requests",
-                        "read:work_orders"
+                        "read:work_orders",
+                        "read:work_order_time_logs"
                       ]
                     },
                     {
@@ -6548,7 +6590,8 @@
                         "read:entity_tags",
                         "read:warranties",
                         "read:maintenance_requests",
-                        "read:work_orders"
+                        "read:work_orders",
+                        "read:work_order_time_logs"
                       ]
                     },
                     {
@@ -6569,7 +6612,8 @@
                         "read:entity_tags",
                         "read:warranties",
                         "read:maintenance_requests",
-                        "read:work_orders"
+                        "read:work_orders",
+                        "read:work_order_time_logs"
                       ]
                     },
                     {
@@ -6590,7 +6634,8 @@
                         "read:entity_tags",
                         "read:warranties",
                         "read:maintenance_requests",
-                        "read:work_orders"
+                        "read:work_orders",
+                        "read:work_order_time_logs"
                       ]
                     },
                     {
@@ -6611,7 +6656,8 @@
                         "read:entity_tags",
                         "read:warranties",
                         "read:maintenance_requests",
-                        "read:work_orders"
+                        "read:work_orders",
+                        "read:work_order_time_logs"
                       ]
                     },
                     {
@@ -6632,7 +6678,8 @@
                         "read:entity_tags",
                         "read:warranties",
                         "read:maintenance_requests",
-                        "read:work_orders"
+                        "read:work_orders",
+                        "read:work_order_time_logs"
                       ]
                     },
                     {
@@ -6653,7 +6700,8 @@
                         "read:entity_tags",
                         "read:warranties",
                         "read:maintenance_requests",
-                        "read:work_orders"
+                        "read:work_orders",
+                        "read:work_order_time_logs"
                       ]
                     },
                     {
@@ -6674,7 +6722,8 @@
                         "read:entity_tags",
                         "read:warranties",
                         "read:maintenance_requests",
-                        "read:work_orders"
+                        "read:work_orders",
+                        "read:work_order_time_logs"
                       ]
                     },
                     {
@@ -6695,7 +6744,8 @@
                         "read:entity_tags",
                         "read:warranties",
                         "read:maintenance_requests",
-                        "read:work_orders"
+                        "read:work_orders",
+                        "read:work_order_time_logs"
                       ]
                     },
                     {
@@ -6716,7 +6766,8 @@
                         "read:entity_tags",
                         "read:warranties",
                         "read:maintenance_requests",
-                        "read:work_orders"
+                        "read:work_orders",
+                        "read:work_order_time_logs"
                       ]
                     },
                     {
@@ -6737,7 +6788,8 @@
                         "read:entity_tags",
                         "read:warranties",
                         "read:maintenance_requests",
-                        "read:work_orders"
+                        "read:work_orders",
+                        "read:work_order_time_logs"
                       ]
                     },
                     {
@@ -6758,7 +6810,8 @@
                         "read:entity_tags",
                         "read:warranties",
                         "read:maintenance_requests",
-                        "read:work_orders"
+                        "read:work_orders",
+                        "read:work_order_time_logs"
                       ]
                     },
                     {
@@ -6779,7 +6832,8 @@
                         "read:entity_tags",
                         "read:warranties",
                         "read:maintenance_requests",
-                        "read:work_orders"
+                        "read:work_orders",
+                        "read:work_order_time_logs"
                       ]
                     },
                     {
@@ -6800,7 +6854,8 @@
                         "read:entity_tags",
                         "read:warranties",
                         "read:maintenance_requests",
-                        "read:work_orders"
+                        "read:work_orders",
+                        "read:work_order_time_logs"
                       ]
                     }
                   ]
