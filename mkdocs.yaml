@@ -3,26 +3,21 @@ site_description: "Open source school software (K-12 SIS). FastAPI + Keycloak + 
 site_url: "https://rubelw.github.io/OSSS/"
 repo_url: "https://github.com/rubelw/OSSS"
 repo_name: "rubelw/OSSS"
+
 theme:
   name: material
-  locale: en
-  highlightjs: true
-  favicon: ./img/favicon.svg
-  logo: ./img/logo.png
-  hljs_languages:
-    - yaml
-    - python
-    - bash
-    - shell
+  language: en              # was: locale
+  favicon: img/favicon.svg  # drop leading ./ (either works)
+  logo: img/logo.png
   palette:
     - scheme: default
-      primary: custom     # ← use CSS variables for header color
+      primary: custom
       accent: custom
       toggle:
         icon: material/toggle-switch-off-outline
         name: Switch to dark mode
     - scheme: slate
-      primary: custom     # ← keep gray even in dark scheme
+      primary: custom
       accent: custom
       toggle:
         icon: material/toggle-switch
@@ -31,10 +26,8 @@ theme:
     text: Nunito Sans
     code: IBM Plex Mono
 
-# Where the static site gets written (your requirement)
-site_dir: documentation
-
-# Docs sources (Markdown). We'll hand-write some and also generate via plugins.
+# Use the default output dir so the Pages workflow can upload ./site
+site_dir: site
 docs_dir: docs
 
 nav:
@@ -42,13 +35,13 @@ nav:
   - Job Positions Being Automated: job_descriptions/INDEX.md
   - Frontend (Next.js):
       - Overview: frontend/overview.md
-      - API (TypeScript): api/web/README.md  # or the main index typedoc generated
+      - API (TypeScript): api/web/README.md
   - Backend (Python):
       - Overview: backend/overview.md
       - OpenAPI: backend/openapi.md
-      #- API (Python):
-      #    - Index: api/python/index.md
-      #    - OSSS package: api/python/OSSS.md
+      # - API (Python):
+      #     - Index: api/python/index.md
+      #     - OSSS package: api/python/OSSS.md
 
 plugins:
   - search
@@ -56,12 +49,11 @@ plugins:
       default_handler: python
       handlers:
         python:
-          paths: [ "src" ]   # so it can import OSSS from src/OSSS
+          paths: ["src"]
           options:
             docstring_style: google
             show_source: false
             members_order: source
-
   - gen-files:
       scripts:
         - tooling/export_openapi.py
@@ -76,7 +68,11 @@ markdown_extensions:
   - tables
   - footnotes
   - def_list
-  - codehilite
+  - attr_list
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
+  - pymdownx.superfences
+
 extra_javascript:
   - https://cdn.redoc.ly/redoc/latest/bundles/redoc.standalone.js
 
@@ -88,7 +84,6 @@ extra:
     - icon: fontawesome/brands/github
       link: https://github.com/rubelw/OSSS
       name: OSSS on GitHub
-  # Optional Open Graph fallback (some themes read these)
   ogp:
     site_name: "OSSS — Open Student Support System (K-12 SIS)"
     image: "https://raw.githubusercontent.com/rubelw/OSSS/main/docs/social-card.png"
