@@ -8389,6 +8389,7 @@
                       "permissions": [
                         "read:audit_log",
                         "read:audit_logs",
+                        "read:user_accounts",
                         "read:comm_search_index",
                         "read:data_quality_issues",
                         "read:data_sharing_agreements",
@@ -8406,6 +8407,7 @@
                       "permissions": [
                         "read:audit_log",
                         "read:audit_logs",
+                        "read:user_accounts",
                         "read:comm_search_index",
                         "read:data_quality_issues",
                         "read:data_sharing_agreements",
