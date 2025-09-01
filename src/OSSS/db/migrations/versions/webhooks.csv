@@ -1,0 +1,13 @@
+target_url,secret,events
+https://seed.osss.local/webhooks/endpoint-1,auto-2a93db59499c416109c63694,"[""work_order.created"", ""work_order.updated""]"
+https://seed.osss.local/webhooks/endpoint-2,auto-07359d8443b445b2e4888a57,"[""work_order.closed""]"
+https://seed.osss.local/webhooks/endpoint-3,auto-2b94a6d56f3d92fbfaf406d4,"[""work_order_time_log.created""]"
+https://seed.osss.local/webhooks/endpoint-4,auto-4a448963598a6c2d2592ed77,"[""work_order_part.added""]"
+https://seed.osss.local/webhooks/endpoint-5,auto-0487b1a85343188f3ea9ef37,"[""maintenance_request.created""]"
+https://seed.osss.local/webhooks/endpoint-6,auto-31ec08b585710f38f4b55be3,"[""maintenance_request.created"", ""maintenance_request.converted""]"
+https://seed.osss.local/webhooks/endpoint-7,auto-b4b8ebd6fe81c197a48feebf,"[""work_order.created"", ""work_order.updated"", ""work_order.closed""]"
+https://seed.osss.local/webhooks/endpoint-8,auto-0435b25695ee078a03853e19,"[""work_order_part.added"", ""maintenance_request.created"", ""maintenance_request.converted""]"
+https://seed.osss.local/webhooks/endpoint-9,auto-32d91b896a5c020d3f8bae5c,"[""work_order.created"", ""work_order.updated""]"
+https://seed.osss.local/webhooks/endpoint-10,auto-7f69857dc296f09cabdfad7e,"[""work_order.closed""]"
+https://seed.osss.local/webhooks/endpoint-11,auto-064153735778775e7b49fe10,"[""work_order_time_log.created""]"
+https://seed.osss.local/webhooks/endpoint-12,auto-b8b696dbc0a3fe2c69269803,"[""work_order_part.added""]"
