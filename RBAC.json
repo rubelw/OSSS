@@ -248,7 +248,7 @@
             "read:incidents",
             "read:initiatives",
             "read:invoices",
-            "read:alignment",
+            "read:alignments",
             "read:education_associations",
             "read:curriculum_versions",
             "read:requirements",
