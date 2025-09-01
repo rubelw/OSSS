@@ -1,5 +1,8 @@
-site_name: Open Source School Software(OSSS) Documentation
-site_url: https://rubelw.github.io/OSSS/
+site_name: "OSSS — Open Student Support System (K-12 SIS)"
+site_description: "Open source school software (K-12 SIS). FastAPI + Keycloak + SQLAlchemy; governance + student info."
+site_url: "https://rubelw.github.io/OSSS/"
+repo_url: "https://github.com/rubelw/OSSS"
+repo_name: "rubelw/OSSS"
 theme:
   name: material
   locale: en
@@ -49,6 +52,7 @@ nav:
 
 plugins:
   - search
+  - sitemap
   - mkdocstrings:
       default_handler: python
       handlers:
@@ -79,3 +83,14 @@ extra_javascript:
 
 extra_css:
   - overrides/wide.css
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/rubelw/OSSS
+      name: OSSS on GitHub
+  # Optional Open Graph fallback (some themes read these)
+  ogp:
+    site_name: "OSSS — Open Student Support System (K-12 SIS)"
+    image: "https://raw.githubusercontent.com/rubelw/OSSS/main/docs/social-card.png"
+    description: "Open source school software (K-12 SIS). FastAPI + Keycloak + SQLAlchemy; governance + student info."
