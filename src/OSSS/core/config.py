@@ -84,6 +84,11 @@ class Settings(BaseSettings):
     # Optional dev toggles
     AUTH_DEBUG: bool = Field(default=False, validation_alias=AliasChoices("AUTH_DEBUG", "REQUESTS_DEBUG"))
 
+    REDIS_URL: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("REDIS_URL"),
+    )
+
     # Pydantic settings config
     model_config = SettingsConfigDict(
         env_file=".env",

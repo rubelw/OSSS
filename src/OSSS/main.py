@@ -11,7 +11,6 @@ from fastapi import FastAPI, APIRouter, Depends, Request
 from fastapi.routing import APIRoute
 
 from starlette.middleware.sessions import SessionMiddleware
-from redis import Redis
 
 
 from sqlalchemy.orm import class_mapper
@@ -28,9 +27,12 @@ from OSSS.api import auth_proxy
 from OSSS.api.routers.me import router as me_router
 from OSSS.api.routers.health import router as health_router
 from OSSS.app_logger import logger
+from OSSS.sessions import redis_session, RedisSession, SESSION_PREFIX
 
 # New auth deps (no oauth2 symbol anymore)
 from OSSS.auth import ensure_access_token, get_current_user
+
+from redis.asyncio import Redis
 
 LOGGING = {
     "version": 1,
@@ -55,6 +57,16 @@ LOGGING = {
 logging.config.dictConfig(LOGGING)
 log = logging.getLogger("startup")
 
+def get_redis() -> Redis:
+    return redis
+
+async def get_redis_session(
+    request: Request,
+    r: Redis = Depends(get_redis),
+) -> RedisSession:
+    # Provide the per-request RedisSession
+    return await redis_session(request, r,_cfg("session_max_age")
+)
 
 def _discover_Base():
     """Best-effort discovery of the SQLAlchemy Declarative Base."""
@@ -220,6 +232,7 @@ def create_app() -> FastAPI:
     https_only = _cfg("session_https_only", "SESSION_HTTPS_ONLY", False)
     same_site = _cfg("session_samesite", "SESSION_SAMESITE", "lax")
 
+
     app.add_middleware(
         SessionMiddleware,
         secret_key=secret_key,
@@ -227,7 +240,11 @@ def create_app() -> FastAPI:
         session_cookie="osss_session",
         same_site="lax",
         https_only=False,  # True in production behind HTTPS
+
     )
+
+    # Redis client (shared)
+    redis = Redis.from_url(settings.REDIS_URL, decode_responses=True)
 
     # Base / utility routers
     app.include_router(debug.router)
