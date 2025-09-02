@@ -1,0 +1,13 @@
+name,code
+"DTaP (Diphtheria, Tetanus, acellular Pertussis)",DTaP
+"Tdap (Tetanus, diphtheria, acellular Pertussis)",Tdap
+Polio (IPV),IPV
+"MMR (Measles, Mumps, Rubella)",MMR
+Varicella (Chickenpox),VAR
+Hepatitis B,HepB
+Hepatitis A,HepA
+Hib (Haemophilus influenzae type b),Hib
+Pneumococcal Conjugate,PCV
+Meningococcal ACWY,MCV4
+HPV (Human Papillomavirus),HPV
+Influenza (Seasonal),Flu
