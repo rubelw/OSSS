@@ -14,6 +14,7 @@ from ._helpers import ts_cols
 class WorkOrderTimeLog(UUIDMixin, Base):
     __tablename__ = "work_order_time_logs"
 
+
     work_order_id = sa.Column(GUID(), ForeignKey("work_orders.id", ondelete="CASCADE"), nullable=False)
     user_id = sa.Column(GUID(), ForeignKey("users.id", ondelete="SET NULL"))
     started_at = sa.Column(sa.TIMESTAMP(timezone=True))

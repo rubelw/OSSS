@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from typing import Any, Dict, Iterable, Optional, Type, Tuple, Callable, Protocol
+from typing import Any, Dict, Iterable, Optional, Type, Tuple, Callable
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Body, Path, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Body, Path, status, Request
 from sqlalchemy.orm import Session
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.inspection import inspect
@@ -15,6 +15,12 @@ from .serialization import to_dict
 from .factory_helpers import build_pydantic_from_sqla_model, to_pydantic
 
 from OSSS.auth.deps import require_roles  # role-based gate
+
+from OSSS.sessions import RedisSession
+
+# Make sure the parameter is typed
+async def bind_session_store(request: Request) -> None:
+    request.state.session_store = getattr(request.app.state, "session_store", None)
 
 
 # -----------------------------------------------------------------------------
@@ -74,44 +80,9 @@ def _discover_get_current_user() -> Callable[..., Any]:
 
     return _unauthenticated
 
-# ──────────────────────────────────────────────────────────────────────────────
-# NEW: light Protocol so we can type-hint even if RedisSession can't be imported
-class _RedisSessionProto(Protocol):
-    async def get(self) -> Dict[str, Any]: ...
-    async def set(self, data: Dict[str, Any]) -> None: ...
-    async def clear(self) -> None: ...
-
-# NEW: discover a get_redis_session dependency, similar to DB + current_user
-def _discover_get_redis_session() -> Callable[..., _RedisSessionProto]:
-    candidates = [
-        # put your actual path first if you know it:
-        "OSSS.cache.session:get_redis_session",
-        "OSSS.cache.redis:get_redis_session",
-        "OSSS.redis.session:get_redis_session",
-        "OSSS.sessions:get_redis_session",
-        "OSSS.api.dependencies:get_redis_session",
-    ]
-    for cand in candidates:
-        try:
-            mod_name, func_name = cand.split(":")
-            mod = __import__(mod_name, fromlist=[func_name])
-            fn = getattr(mod, func_name)
-            if callable(fn):
-                return fn
-        except Exception:
-            continue
-
-    # Fallback placeholder that raises a clean error if someone enables cart routes
-    def _no_redis_session(*_a, **_k):
-        raise RuntimeError(
-            "No Redis session dependency found. "
-            "Provide get_redis_session=... or disable attach_cart."
-        )
-    return _no_redis_session
 
 DEFAULT_GET_DB = _discover_get_db()
 DEFAULT_GET_CURRENT_USER = _discover_get_current_user()
-DEFAULT_GET_REDIS_SESSION = _discover_get_redis_session()  # ← NEW
 
 
 # -----------------------------------------------------------------------------
@@ -236,6 +207,11 @@ def _ensure_authenticated(user: Any):
 AuthorizeFn = Callable[[str, Any, Optional[Any], Type[Any]], None]
 
 
+# Redis helpers
+def get_session_store(request: Request) -> Optional[RedisSession]:
+    # Return None gracefully if not configured (keeps tests/dev happy)
+    return getattr(request.app.state, "session_store", None)
+
 # -----------------------------------------------------------------------------
 # Router factory
 # -----------------------------------------------------------------------------
@@ -251,10 +227,6 @@ def create_router_for_model(
     get_current_user: Callable[..., Any] = DEFAULT_GET_CURRENT_USER,
     authorize: Optional[AuthorizeFn] = None,
     roles_map: Optional[Dict[str, Dict[str, Any]]] = None,
-# NEW: Redis session options
-    get_redis_session: Callable[..., _RedisSessionProto] = DEFAULT_GET_REDIS_SESSION,
-    attach_cart: bool = False,                 # enable /{prefix}/cart like in your example
-    cart_key: str = "cart",                    # session key to read; matches the example
 ) -> APIRouter:
     """
     Minimal CRUD router for a SQLAlchemy model, with optional per-op RBAC.
@@ -266,6 +238,7 @@ def create_router_for_model(
     dependencies = []
     if require_auth:
         dependencies.append(Depends(get_current_user))
+        dependencies.append(Depends(bind_session_store))
 
     router = APIRouter(dependencies=dependencies)
 
@@ -304,6 +277,8 @@ def create_router_for_model(
         skip: int = Query(0, ge=0),
         limit: int = Query(100, ge=1, le=1000),
         db: Session | AsyncSession = Depends(get_db),
+        store: Optional[RedisSession] = Depends(get_session_store),
+
         user: Any = Depends(get_current_user) if require_auth else None,
     ):
         _authz("read", user, None)
@@ -426,20 +401,5 @@ def create_router_for_model(
             db.delete(obj)
             db.commit()
         return None
-
-        # ── OPTIONAL: session-backed cart endpoint (matches your example) ─────────
-        if attach_cart:
-            @router.get(f"{_prefix}/cart",
-                        tags=_tags,
-                        name=f"{name}_cart_get",
-                        operation_id=f"{name}_cart_get")
-            async def get_cart(
-                    rs: _RedisSessionProto = Depends(get_redis_session),
-                    user: Any = Depends(get_current_user) if require_auth else None,
-            ):
-                # If you want cart gated, uncomment:
-                # _authz("read", user, None)
-                data = await rs.get()
-                return {"items": data.get(cart_key, [])}
 
     return router

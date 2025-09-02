@@ -8,6 +8,16 @@ log = get_logger("routers.me")
 
 @router.get("/me")
 async def me(request: Request, user = Depends(get_current_user)):
+    store = getattr(request.state, "session_store", None)  # Optional[RedisSession]
+
+    cache_key = None
+    if store:
+        q = "&".join(f"{k}={v}" for k, v in sorted(request.query_params.multi_items()))
+        cache_key = f"list:{request.url.path}?{q}"
+        cached = await store.get(cache_key)
+        if cached:
+            return cached
+
     # Request-level diagnostics
     log.info("[/me] client=%s method=%s path=%s", request.client.host if request.client else "?", request.method, request.url.path)
 
@@ -41,5 +51,8 @@ async def me(request: Request, user = Depends(get_current_user)):
 
     log.info("[/me] OK sub=%s email=%s roles=%s",
              user.get("sub"), user.get("email"), sorted(list(user.get("_roles", [])))[:10])
+
+    if store and cache_key:
+        await store.set(cache_key, result, ttl_sec=60)
 
     return user
