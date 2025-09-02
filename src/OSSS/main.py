@@ -21,6 +21,8 @@ from OSSS.api.routers.auth_flow import router as auth_router  # single source of
 from OSSS.api import debug
 from OSSS.api import auth_proxy  # keep but under non-conflicting prefix
 from OSSS.api.routers.me import router as me_router
+from OSSS.api.routers.health import router as health_router
+from contextlib import asynccontextmanager
 
 from OSSS.auth.deps import oauth2  # used in _oauth_probe
 
@@ -38,12 +40,9 @@ LOGGING = {
         "console": {"class": "logging.StreamHandler", "formatter": "uvicorn"},
     },
     "loggers": {
-        # Uvicorn defaults
         "uvicorn":         {"handlers": ["console"], "level": "INFO"},
         "uvicorn.error":   {"handlers": ["console"], "level": "INFO", "propagate": False},
         "uvicorn.access":  {"handlers": ["console"], "level": "INFO", "propagate": False},
-
-        # Your app loggers
         "startup":         {"handlers": ["console"], "level": "DEBUG", "propagate": False},
         "OSSS":            {"handlers": ["console"], "level": "DEBUG", "propagate": False},
     },
@@ -153,11 +152,60 @@ def _cfg(lower: str, UPPER: str, default=None):
 
 
 def create_app() -> FastAPI:
+    # ---------- lifespan replaces on_event ----------
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        # Startup
+        probe = APIRouter()
+        @probe.get("/_oauth_probe", tags=["_debug"])
+        async def _oauth_probe(_token: str = Security(oauth2)):
+            return {"ok": True}
+        app.include_router(probe)
+
+        # DB ping (skip in tests)
+        if not settings.TESTING:
+            try:
+                async_session = get_sessionmaker()
+                async with async_session() as session:
+                    await session.execute(sa.text("SELECT 1"))
+            except Exception:
+                pass
+
+        # Swagger OAuth init
+        oauth_cfg = {
+            "clientId": settings.SWAGGER_CLIENT_ID,
+            "usePkceWithAuthorizationCodeGrant": settings.SWAGGER_USE_PKCE,
+            "scopes": "openid profile email",
+            **({"clientSecret": settings.SWAGGER_CLIENT_SECRET} if settings.SWAGGER_CLIENT_SECRET else {}),
+        }
+        if settings.SWAGGER_CLIENT_SECRET:
+            oauth_cfg["clientSecret"] = settings.SWAGGER_CLIENT_SECRET
+        app.swagger_ui_init_oauth = oauth_cfg
+
+        print(
+            "[startup] mounted routes:",
+            sorted([r.path for r in app.routes if isinstance(r, APIRoute)]),
+        )
+
+        if os.getenv("OSSS_DEBUG_MAPPINGS") == "1":
+            _dump_mappings("[mappings][startup]")
+
+        try:
+            yield  # ---- application runs here ----
+        finally:
+            # Shutdown (add cleanup if needed)
+            pass
+    # -----------------------------------------------
+
     app = FastAPI(
         title=settings.APP_NAME,
         version=settings.APP_VERSION,
         generate_unique_id_function=generate_unique_id,
+        lifespan=lifespan,  # ✅ use lifespan
     )
+
+    # Mount health endpoints (place BEFORE any auth-guarded routers if you apply global dependencies)
+    app.include_router(health_router)
 
     # Session middleware
     secret_key = _cfg("session_secret", "SESSION_SECRET", "dev-insecure-change-me")
@@ -206,44 +254,7 @@ def create_app() -> FastAPI:
         mounted_models.add(name)
         log.info("[startup] mounted dynamic router: %s", name)
 
-    # Startup hooks
-    @app.on_event("startup")
-    async def _startup() -> None:
-        probe = APIRouter()
-
-        @probe.get("/_oauth_probe", tags=["_debug"])
-        async def _oauth_probe(_token: str = Security(oauth2)):
-            return {"ok": True}
-
-        app.include_router(probe)
-
-        # DB ping
-        if not settings.TESTING:
-            try:
-                async_session = get_sessionmaker()
-                async with async_session() as session:
-                    await session.execute(sa.text("SELECT 1"))
-            except Exception:
-                pass
-
-        # Swagger OAuth init
-        oauth_cfg = {
-            "clientId": settings.SWAGGER_CLIENT_ID,
-            "usePkceWithAuthorizationCodeGrant": settings.SWAGGER_USE_PKCE,
-            "scopes": "openid profile email",
-            **({"clientSecret": settings.SWAGGER_CLIENT_SECRET} if settings.SWAGGER_CLIENT_SECRET else {}),
-        }
-        if settings.SWAGGER_CLIENT_SECRET:
-            oauth_cfg["clientSecret"] = settings.SWAGGER_CLIENT_SECRET
-        app.swagger_ui_init_oauth = oauth_cfg
-
-        print(
-            "[startup] mounted routes:",
-            sorted([r.path for r in app.routes if isinstance(r, APIRoute)]),
-        )
-
-        if os.getenv("OSSS_DEBUG_MAPPINGS") == "1":
-            _dump_mappings("[mappings][startup]")
+    # 🔥 Removed deprecated @app.on_event("startup") block
 
     return app
 
