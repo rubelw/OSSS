@@ -81,6 +81,8 @@ class GoogleSettings(BaseSettings):
 
 
 class Settings(BaseSettings):
+
+
     # Read the raw env (we’ll parse ourselves)
     cors_origins_raw: str | None = Field(default=None, alias="CORS_ORIGINS")
 
@@ -108,11 +110,12 @@ class Settings(BaseSettings):
     session_secret: str = Field("dev-insecure-change-me", alias="SESSION_SECRET")
     session_cookie_name: str = Field("osss_session", alias="SESSION_COOKIE_NAME")
     session_cookie: str = "osss_session"
-    session_max_age: int = 60 * 60 * 24 * 14
+    session_max_age: int = Field(60 * 60 * 24 * 14, env="SESSION_MAX_AGE")
     session_https_only: bool = False
     session_samesite: str = "lax"
 
     OIDC_SCOPE: str = "openid profile email offline_access"
+
 
     @property
     def SESSION_SECRET(self) -> str:

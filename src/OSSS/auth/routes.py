@@ -26,7 +26,9 @@ async def auth_callback(request: Request):
     request.session["oidc"] = {
         # required for continued auth across restarts
         "access_token": token.get("access_token"),
-        "access_expires_at": _access_expires_at(token),            # absolute epoch (int)
+        "access_expires_at": _access_expires_at(token),
+        "expires_at": token.get("expires_at"),  # or use `expires_in`
+        # absolute epoch (int)
         "refresh_token": token.get("refresh_token"),
         "refresh_expires_at": _refresh_expires_at(token, None),    # may be None if KC didn't return it
 
