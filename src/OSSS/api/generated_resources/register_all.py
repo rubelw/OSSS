@@ -7,6 +7,7 @@ from fastapi import APIRouter
 from OSSS.db.base import Base
 from .factory import create_router_for_model
 from OSSS.db.models import ap_vendors as _ap_vendors  # <- force import
+from OSSS.auth import get_current_user as auth_get_current_user
 
 log = logging.getLogger("startup")
 DEBUG_IMPORTS = True   # set False to quiet import spam
@@ -122,7 +123,8 @@ def generate_routers_for_all_models(prefix_base: str = "/api"):
             r = create_router_for_model(
                 model,
                 prefix=prefix,
-                require_auth=False,
+                require_auth=True,  # flip on auth for these endpoints
+                get_current_user=auth_get_current_user,  # <-- make it explicit
                 roles_map=_roles_for_table(tablename),
             )
             routers.append((model.__name__, r))

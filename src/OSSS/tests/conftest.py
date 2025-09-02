@@ -1,141 +1,100 @@
+# src/OSSS/tests/conftest.py
 import os
 import pytest
-from starlette.testclient import TestClient
-from fastapi import Header, HTTPException, status
-from OSSS.auth import require_auth as real_require_auth
-from OSSS.auth.deps import oauth2 as real_oauth2
-from fastapi.routing import APIRoute
 
+# conftest.py (add this near the top)
+import os
+import pytest
 
-from OSSS.main import app
-from OSSS.core.config import settings
-
-# --- Global test env ---
 @pytest.fixture(scope="session", autouse=True)
-def _env():
+def _env_bootstrap():
+    # Default Keycloak config for local dev
     os.environ.setdefault("KEYCLOAK_BASE_URL", "http://localhost:8085")
     os.environ.setdefault("KEYCLOAK_REALM", "OSSS")
     os.environ.setdefault("KEYCLOAK_CLIENT_ID", "osss-api")
-    os.environ.setdefault("KEYCLOAK_CLIENT_SECRET", "changeme")
-    os.environ.setdefault("KEYCLOAK_ALLOWED_AUDIENCES", "osss-api,osss-web")
-    os.environ.setdefault("SKIP_DB_PING", "1")  # skip real DB ping during tests
+    os.environ.setdefault("KEYCLOAK_CLIENT_SECRET", "password")  # <-- your real secret
+
+    # Ensure issuer & JWKS for the app so it can validate tokens
+    issuer = os.environ.get("KEYCLOAK_ISSUER")
+    if not issuer:
+        issuer = f"{os.environ['KEYCLOAK_BASE_URL'].rstrip('/')}/realms/{os.environ['KEYCLOAK_REALM']}"
+        os.environ["KEYCLOAK_ISSUER"] = issuer
+
+    os.environ.setdefault("OIDC_ISSUER", issuer)
+    os.environ.setdefault("OIDC_JWKS_URL", f"{issuer}/protocol/openid-connect/certs")
+
+    # When you want real auth in tests, export INTEGRATION_AUTH=1 in your shell
+    # (we don't force it here)
     yield
 
-# --- Fake auth dependency: accept Bearer good ---
-def _fake_require_auth(authorization: str | None = Header(None, alias="Authorization")) -> dict:
-    if not authorization:
-        raise HTTPException(status_code=401, detail="Missing bearer token", headers={"WWW-Authenticate": "Bearer"})
-    scheme, _, token = authorization.partition(" ")
-    if scheme.lower() != "bearer" or token != "good":
-        raise HTTPException(status_code=401, detail="invalid token")
-    return {"preferred_username": "tester", "aud": ["osss-api"], "sub": "user-123"}
+# --- Make sure OIDC/Keycloak env is set BEFORE importing the app/auth ----
+os.environ.setdefault("KEYCLOAK_BASE_URL", "http://localhost:8085")
+os.environ.setdefault("KEYCLOAK_REALM", "OSSS")
+os.environ.setdefault("KEYCLOAK_CLIENT_ID", "osss-api")
+# Only set this if your client is Confidential and this is the real secret.
+# Do NOT set it for a Public client.
+# os.environ.setdefault("KEYCLOAK_CLIENT_SECRET", "<real-secret>")
 
-async def _fake_oauth2(authorization: str | None = Header(None, alias="Authorization")) -> dict:
-    return _fake_require_auth(authorization)
+issuer = f"{os.environ['KEYCLOAK_BASE_URL'].rstrip('/')}/realms/{os.environ['KEYCLOAK_REALM']}"
+os.environ.setdefault("OIDC_ISSUER", issuer)
+os.environ.setdefault("KEYCLOAK_ISSUER", issuer)  # for code that reads KEYCLOAK_ISSUER
+os.environ.setdefault("OIDC_JWKS_URL", f"{issuer}/protocol/openid-connect/certs")
+os.environ.setdefault("JWT_ALLOWED_ALGS", "RS256")
 
-app.dependency_overrides[real_require_auth] = _fake_require_auth
-app.dependency_overrides[real_oauth2] = _fake_oauth2
+# Disable test-time auth overrides when running real integration auth
+# (set INTEGRATION_AUTH=1 in your shell to use real Keycloak)
+USE_FAKE_AUTH = os.getenv("INTEGRATION_AUTH", "0") != "1"
 
-# --- Fake DB session for /states so we don't touch a real DB ---
-class _FakeResult:
-    def __init__(self):
-        self._rows = [{"code": "CA", "name": "California"}, {"code": "NY", "name": "New York"}]
-    def mappings(self):
-        return self
-    def all(self):
-        return self._rows
-    def __iter__(self):
-        return iter(self._rows)
+import pytest
+from starlette.testclient import TestClient
+from fastapi.routing import APIRoute
 
-class _FakeSession:
-    async def execute(self, *a, **kw):
-        return _FakeResult()
-    async def close(self):  # called by dependency cleanup
-        pass
-
-async def _fake_get_session():
-    sess = _FakeSession()
-    try:
-        yield sess
-    finally:
-        await sess.close()
+# Import AFTER env is set so deps.py picks up the right values
+from OSSS.main import app
 
 @pytest.fixture()
 def client():
-    def allow_all_security(*args, **kwargs) -> dict:
-        # Accepts any request as an authenticated principal
-        return {
-            "active": True,
-            "sub": "user-123",
-            "preferred_username": "tester",
-            "email": "tester@example.com",
-            "aud": ["osss-api"],
-            "azp": "osss-web",
-            "iss": f'{os.environ.get("KEYCLOAK_BASE_URL","http://localhost:8085").rstrip("/")}/realms/{os.environ.get("KEYCLOAK_REALM","OSSS")}',
-            "realm_access": {"roles": ["user"]},
-        }
-
     overrides = []
 
-    # 1) Blanket overrides for common guards (keeps things easy for most routes)
-    for where in (
-        ("OSSS.auth", "require_auth"),
-        ("OSSS.auth.deps", "oauth2"),
-        ("OSSS.api.security", "require_auth"),
-        ("OSSS.api.security", "oauth2"),
-        ("OSSS.api.security", "require_principal"),
-        ("OSSS.api.security", "require_user"),
-        ("OSSS.api.auth", "require_auth"),
-        ("OSSS.api.deps", "oauth2"),
-    ):
-        mod_path, name = where
-        try:
-            mod = __import__(mod_path, fromlist=[name])
-            dep = getattr(mod, name, None)
-            if dep is not None:
-                app.dependency_overrides[dep] = allow_all_security
-                overrides.append(dep)
-        except Exception:
-            pass
+    if USE_FAKE_AUTH:
+        async def allow_all_security():
+            return {
+                "active": True,
+                "sub": "user-123",
+                "preferred_username": "tester",
+                "email": "tester@example.com",
+                "aud": ["osss-api"],
+                "azp": "osss-web",
+                "iss": issuer,
+                "realm_access": {"roles": ["user"]},
+            }
 
-    # 2) Route-targeted override: whatever /me or /debug/me depend on, replace it
-    def _override_route_deps(path: str):
+        # optional: override ONLY legacy guards; do NOT override get_current_user
+        for mod_path, name in (
+            ("OSSS.auth.deps", "oauth2"),
+            ("OSSS.api.security", "oauth2"),
+            ("OSSS.api.security", "require_auth"),
+            ("OSSS.api.auth", "require_auth"),
+        ):
+            try:
+                mod = __import__(mod_path, fromlist=[name])
+                dep = getattr(mod, name, None)
+                if dep is not None:
+                    app.dependency_overrides[dep] = allow_all_security
+                    overrides.append(dep)
+            except Exception:
+                pass
+
+        # only /debug/me should be faked
         for r in app.routes:
-            if isinstance(r, APIRoute) and r.path == path and "GET" in (r.methods or []):
+            if isinstance(r, APIRoute) and r.path == "/debug/me" and "GET" in (r.methods or []):
                 for d in r.dependant.dependencies:
                     if d.call is not None:
                         app.dependency_overrides[d.call] = allow_all_security
                         overrides.append(d.call)
 
-    for p in ("/me", "/debug/me"):
-        _override_route_deps(p)
-
-    # 3) Fake DB session if needed elsewhere (optional)
-    class _FakeResult:
-        def __init__(self):
-            self._rows = [{"code": "CA", "name": "California"}, {"code": "NY", "name": "New York"}]
-        def mappings(self): return self
-        def all(self): return self._rows
-        def __iter__(self): return iter(self._rows)
-    class _FakeSession:
-        async def execute(self, *a, **kw): return _FakeResult()
-        async def close(self): pass
-    async def _fake_get_session():
-        sess = _FakeSession()
-        try:
-            yield sess
-        finally:
-            await sess.close()
-    try:
-        from OSSS.db import get_session as dep
-        app.dependency_overrides[dep] = _fake_get_session
-        overrides.append(dep)
-    except Exception:
-        pass
-
     with TestClient(app) as c:
         yield c
 
-    # Cleanup
     for dep in overrides:
         app.dependency_overrides.pop(dep, None)
