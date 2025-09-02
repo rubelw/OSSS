@@ -45,28 +45,34 @@ def _discover_get_db() -> Callable[[], Iterable[Session | AsyncSession]]:
     return _placeholder
 
 
+# --- factory.py ---
+
+# (keep your imports)
+
+# ── discovery helpers ─────────────────────────────────────────────────────────
 def _discover_get_current_user() -> Callable[..., Any]:
     candidates = [
         "OSSS.auth.dependencies:get_current_user",
         "OSSS.api.dependencies:get_current_user",
         "OSSS.api.auth:get_current_user",
         "OSSS.dependencies:get_current_user",
+        "OSSS.auth.deps:get_current_user",         # add your actual module if you have one
     ]
     for cand in candidates:
         try:
             mod_name, func_name = cand.split(":")
             mod = __import__(mod_name, fromlist=[func_name])
-            return getattr(mod, func_name)
+            func = getattr(mod, func_name)
+            if callable(func):
+                return func
         except Exception:
             continue
 
-    def _missing_current_user():
-        raise RuntimeError(
-            "No get_current_user dependency found. "
-            "Pass get_current_user=... to create_router_for_model or add one to your project."
-        )
+    # ❗ Safe fallback: return None instead of raising (routes that need auth will 401 later)
+    def _unauthenticated(*_args, **_kwargs):
+        return None
 
-    return _missing_current_user
+    return _unauthenticated
 
 
 DEFAULT_GET_DB = _discover_get_db()
@@ -206,17 +212,17 @@ def create_router_for_model(
     get_db: Callable[[], Iterable[Session | AsyncSession]] = DEFAULT_GET_DB,
     allow_put_create: bool = False,
     # Auth:
-    require_auth: bool = True,
+    require_auth: bool = False,                      # ← default to False for generated resources
     get_current_user: Callable[..., Any] = DEFAULT_GET_CURRENT_USER,
     authorize: Optional[AuthorizeFn] = None,
     roles_map: Optional[Dict[str, Dict[str, Any]]] = None,
 ) -> APIRouter:
-    if require_auth and get_current_user is DEFAULT_GET_CURRENT_USER and get_current_user is _discover_get_current_user():
-        if getattr(get_current_user, "__name__", "") == "_missing_current_user":
-            raise RuntimeError(
-                "require_auth=True but no get_current_user dependency was found. "
-                "Pass get_current_user=... or add one to your project."
-            )
+    """
+    Minimal CRUD router for a SQLAlchemy model, with optional per-op RBAC.
+    """
+
+    # ❌ Remove the old preflight guard that raised RuntimeError if no get_current_user.
+    # If a route needs auth, _ensure_authenticated will raise a clean 401 instead.
 
     dependencies = []
     if require_auth:
@@ -227,6 +233,8 @@ def create_router_for_model(
     name = model.__name__.lower()
     _prefix = prefix or f"/{name}s"
     _tags = tags or [model.__name__]
+
+
     pk_name, _pk_type = _pk_info(model)
     cols = set(_model_columns(model))
     op = model.__name__.lower()

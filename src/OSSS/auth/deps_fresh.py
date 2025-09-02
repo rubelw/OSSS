@@ -1,6 +1,6 @@
 # src/OSSS/auth/deps_fresh.py
 from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.security import HTTPAuthorizationCredentials
 from OSSS.auth.introspection import introspect
 
 

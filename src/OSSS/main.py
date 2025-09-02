@@ -1,14 +1,16 @@
 # src/OSSS/main.py
 from __future__ import annotations
 
-import logging, logging.config
-import sqlalchemy as sa
-from fastapi import FastAPI, APIRouter, Security
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.routing import APIRoute
-from starlette.middleware.sessions import SessionMiddleware
-from OSSS.settings import settings
 import os
+import logging
+import logging.config
+import sqlalchemy as sa
+
+from contextlib import asynccontextmanager          # ADD THIS
+from fastapi import FastAPI, APIRouter, Depends, Request
+from fastapi.routing import APIRoute
+
+from starlette.middleware.sessions import SessionMiddleware
 from sqlalchemy.orm import class_mapper
 from sqlalchemy.orm.exc import UnmappedClassError
 from sqlalchemy.inspection import inspect as sa_inspect
@@ -17,14 +19,15 @@ from OSSS.core.config import settings
 from OSSS.db import get_sessionmaker
 
 from OSSS.api.generated_resources.register_all import generate_routers_for_all_models
-from OSSS.api.routers.auth_flow import router as auth_router  # single source of /auth/token
+from OSSS.api.routers.auth_flow import router as auth_router
 from OSSS.api import debug
-from OSSS.api import auth_proxy  # keep but under non-conflicting prefix
+from OSSS.api import auth_proxy
 from OSSS.api.routers.me import router as me_router
 from OSSS.api.routers.health import router as health_router
-from contextlib import asynccontextmanager
+from OSSS.app_logger import logger
 
-from OSSS.auth.deps import oauth2  # used in _oauth_probe
+# New auth deps (no oauth2 symbol anymore)
+from OSSS.auth import ensure_access_token, get_current_user
 
 LOGGING = {
     "version": 1,
@@ -40,14 +43,12 @@ LOGGING = {
         "console": {"class": "logging.StreamHandler", "formatter": "uvicorn"},
     },
     "loggers": {
-        "uvicorn":         {"handlers": ["console"], "level": "INFO"},
-        "uvicorn.error":   {"handlers": ["console"], "level": "INFO", "propagate": False},
-        "uvicorn.access":  {"handlers": ["console"], "level": "INFO", "propagate": False},
-        "startup":         {"handlers": ["console"], "level": "DEBUG", "propagate": False},
-        "OSSS":            {"handlers": ["console"], "level": "DEBUG", "propagate": False},
+        "uvicorn":        {"handlers": ["console"], "level": "INFO"},
+        "uvicorn.error":  {"handlers": ["console"], "level": "INFO", "propagate": False},
+        "uvicorn.access": {"handlers": ["console"], "level": "INFO", "propagate": False},
+        "startup":        {"handlers": ["console"], "level": "DEBUG", "propagate": False},
     },
 }
-
 logging.config.dictConfig(LOGGING)
 log = logging.getLogger("startup")
 
@@ -59,6 +60,7 @@ def _discover_Base():
         "OSSS.db.models.base:Base",
         "OSSS.db.models:Base",
     ]
+    last_err = None
     for cand in candidates:
         try:
             mod, attr = cand.split(":")
@@ -69,7 +71,7 @@ def _discover_Base():
         except Exception as e:
             last_err = str(e)
             continue
-    return None, locals().get("last_err", "No suitable Base found")
+    return None, last_err or "No suitable Base found"
 
 
 def _dump_mappings(header: str = "[mappings]") -> None:
@@ -114,7 +116,6 @@ def _dump_mappings(header: str = "[mappings]") -> None:
 
 
 if os.getenv("OSSS_DEBUG_MAPPINGS") == "1":
-    # Optional sanity check for ApVendor
     try:
         from OSSS.db.models.ap_vendors import ApVendor, ApVendorBase  # type: ignore
         assert ApVendor.__mapper__.class_ is ApVendor
@@ -129,7 +130,6 @@ if os.getenv("OSSS_DEBUG_MAPPINGS") == "1":
     _dump_mappings("[mappings][import-time]")
 
 
-# Make operation IDs unique across all routers
 def generate_unique_id(route: APIRoute) -> str:
     methods = "_".join(sorted((route.methods or []), key=str.lower)).lower()
     path = route.path_format.replace("/", "_").replace("{", "").replace("}", "").strip("_")
@@ -138,7 +138,6 @@ def generate_unique_id(route: APIRoute) -> str:
 
 
 def _routes_signature(router: APIRouter) -> set[tuple[str, tuple[str, ...]]]:
-    """(path, methods) signature for a router (used to detect collisions)."""
     sig: set[tuple[str, tuple[str, ...]]] = set()
     for r in router.routes:
         if isinstance(r, APIRoute):
@@ -152,17 +151,27 @@ def _cfg(lower: str, UPPER: str, default=None):
 
 
 def create_app() -> FastAPI:
-    # ---------- lifespan replaces on_event ----------
+    # define a lifespan handler to replace deprecated on_event
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        # Startup
+        """
+        Handles startup/shutdown tasks for the app.
+        This runs once when the app starts and once when it stops.
+        """
+        # STARTUP logic
+        # Create probe router
         probe = APIRouter()
+
         @probe.get("/_oauth_probe", tags=["_debug"])
-        async def _oauth_probe(_token: str = Security(oauth2)):
-            return {"ok": True}
+        async def _oauth_probe(
+                _token: str = Depends(ensure_access_token),
+                user: dict | None = Depends(get_current_user),
+        ):
+            return {"ok": True, "sub": (user or {}).get("sub")}
+
         app.include_router(probe)
 
-        # DB ping (skip in tests)
+        # DB ping (unless testing)
         if not settings.TESTING:
             try:
                 async_session = get_sessionmaker()
@@ -178,36 +187,30 @@ def create_app() -> FastAPI:
             "scopes": "openid profile email",
             **({"clientSecret": settings.SWAGGER_CLIENT_SECRET} if settings.SWAGGER_CLIENT_SECRET else {}),
         }
-        if settings.SWAGGER_CLIENT_SECRET:
-            oauth_cfg["clientSecret"] = settings.SWAGGER_CLIENT_SECRET
         app.swagger_ui_init_oauth = oauth_cfg
 
-        print(
-            "[startup] mounted routes:",
-            sorted([r.path for r in app.routes if isinstance(r, APIRoute)]),
-        )
-
+        # optional mapping dump
         if os.getenv("OSSS_DEBUG_MAPPINGS") == "1":
             _dump_mappings("[mappings][startup]")
 
-        try:
-            yield  # ---- application runs here ----
-        finally:
-            # Shutdown (add cleanup if needed)
-            pass
-    # -----------------------------------------------
+        # print routes
+        print("[startup] mounted routes:",
+              sorted([r.path for r in app.routes if isinstance(r, APIRoute)]))
 
+        # yield control to the application
+        yield
+
+        # SHUTDOWN logic (if you need any cleanup, put it here)
+
+    # instantiate FastAPI with the lifespan handler
     app = FastAPI(
         title=settings.APP_NAME,
         version=settings.APP_VERSION,
         generate_unique_id_function=generate_unique_id,
-        lifespan=lifespan,  # ✅ use lifespan
+        lifespan=lifespan,  # PASS lifespan handler here
     )
 
-    # Mount health endpoints (place BEFORE any auth-guarded routers if you apply global dependencies)
-    app.include_router(health_router)
-
-    # Session middleware
+    # Sessions
     secret_key = _cfg("session_secret", "SESSION_SECRET", "dev-insecure-change-me")
     cookie_name = _cfg("session_cookie_name", "SESSION_COOKIE_NAME", "osss_session")
     max_age = _cfg("session_max_age", "SESSION_MAX_AGE", 60 * 60 * 24 * 14)
@@ -223,23 +226,22 @@ def create_app() -> FastAPI:
         same_site=same_site,
     )
 
-    # Base/utility routers
+    # Base / utility routers
     app.include_router(debug.router)
-    app.include_router(me_router)
+    app.include_router(health_router)
+    app.include_router(me_router)  # mounts at /me
 
     # Auth routers
     app.include_router(auth_router, prefix="/auth", tags=["auth"])
     app.include_router(auth_proxy.router, prefix="/auth/proxy", tags=["auth"])
 
-    # Dynamic model routers
+    # Dynamic model routers under /api
     existing: set[tuple[str, tuple[str, ...]]] = {
         (r.path, tuple(sorted((r.methods or [])))) for r in app.routes if isinstance(r, APIRoute)
     }
     mounted_models: set[str] = set()
 
     for name, router in generate_routers_for_all_models(prefix_base="/api"):
-        log.info(" routers name: %s %s", name, router)
-
         if name in mounted_models:
             log.warning("[startup] skipping %s (already mounted by name)", name)
             continue
@@ -254,9 +256,89 @@ def create_app() -> FastAPI:
         mounted_models.add(name)
         log.info("[startup] mounted dynamic router: %s", name)
 
-    # 🔥 Removed deprecated @app.on_event("startup") block
+    # Startup
+    @app.on_event("startup")
+    async def _startup() -> None:
+        # Small probe that enforces a token (no oauth2 symbol)
+        probe = APIRouter()
+
+        @probe.get("/_oauth_probe", tags=["_debug"])
+        async def _oauth_probe(
+            _token: str = Depends(ensure_access_token),
+            user: dict | None = Depends(get_current_user),
+        ):
+            return {"ok": True, "sub": (user or {}).get("sub")}
+
+        app.include_router(probe)
+
+        # DB ping
+        if not settings.TESTING:
+            try:
+                async_session = get_sessionmaker()
+                async with async_session() as session:
+                    await session.execute(sa.text("SELECT 1"))
+            except Exception:
+                pass
+
+        # Swagger OAuth init
+        oauth_cfg = {
+            "clientId": settings.SWAGGER_CLIENT_ID,
+            "usePkceWithAuthorizationCodeGrant": settings.SWAGGER_USE_PKCE,
+            "scopes": "openid profile email",
+            **({"clientSecret": settings.SWAGGER_CLIENT_SECRET} if settings.SWAGGER_CLIENT_SECRET else {}),
+        }
+        app.swagger_ui_init_oauth = oauth_cfg
+
+        print(
+            "[startup] mounted routes:",
+            sorted([r.path for r in app.routes if isinstance(r, APIRoute)]),
+        )
+
+        if os.getenv("OSSS_DEBUG_MAPPINGS") == "1":
+            _dump_mappings("[mappings][startup]")
+
 
     return app
 
 
 app = create_app()
+
+from fastapi.openapi.utils import get_openapi
+
+def _strip_http_bearer_from_openapi(app: FastAPI):
+    def _custom_openapi():
+        if app.openapi_schema:
+            return app.openapi_schema
+        schema = get_openapi(
+            title=app.title,
+            version=app.version,
+            routes=app.routes,
+            description=getattr(app, "description", None),
+        )
+        comps = schema.get("components", {}).get("securitySchemes", {})
+        # find bearer-type schemes
+        to_remove = [k for k, v in comps.items()
+                     if isinstance(v, dict) and v.get("type") == "http" and v.get("scheme") == "bearer"]
+        if to_remove:
+            for k in to_remove:
+                comps.pop(k, None)
+            # remove global security refs to removed schemes
+            if "security" in schema and isinstance(schema["security"], list):
+                schema["security"] = [
+                    s for s in schema["security"]
+                    if not any(k in s for k in to_remove)
+                ]
+            # remove per-operation refs to removed schemes
+            for _, methods in (schema.get("paths") or {}).items():
+                for _, op in methods.items():
+                    if isinstance(op, dict) and "security" in op and isinstance(op["security"], list):
+                        op["security"] = [
+                            s for s in op["security"]
+                            if not any(k in s for k in to_remove)
+                        ]
+        app.openapi_schema = schema
+        return app.openapi_schema
+    app.openapi = _custom_openapi
+
+# call it after app creation
+_strip_http_bearer_from_openapi(app)
