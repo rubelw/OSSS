@@ -135,6 +135,7 @@
           "permissions": [
             "read:academic_terms",
             "read:proposals",
+            "read:projects",
             "read:votes",
             "read:motions",
             "read:accommodations",
