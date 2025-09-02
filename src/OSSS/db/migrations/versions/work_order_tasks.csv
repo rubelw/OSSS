@@ -1,470 +1,502 @@
 work_order_id,seq,title,is_mandatory,status,completed_at,notes
-0fb1086a-5ac2-486a-bf10-f2b4f60da116,1,Cleanup,0,in_progress,,All good
-0fb1086a-5ac2-486a-bf10-f2b4f60da116,2,Gather materials,0,pending,,N/A
-9106039d-2965-45ee-9fb2-8186d153bda8,1,Finalize documentation,1,in_progress,,Requires follow-up
-9106039d-2965-45ee-9fb2-8186d153bda8,2,Initial inspection,0,done,2025-08-14T17:50:10.666618+00:00,
-9106039d-2965-45ee-9fb2-8186d153bda8,3,Gather materials,1,pending,,Requires follow-up
-d72de19a-d1b4-44d3-9022-a27c8c47cd11,1,Cleanup,0,in_progress,,
-ce471bf0-1687-4349-88e6-2ee814eda19a,1,Perform task,0,in_progress,,Requires follow-up
-ce471bf0-1687-4349-88e6-2ee814eda19a,2,Finalize documentation,0,in_progress,,All good
-ce471bf0-1687-4349-88e6-2ee814eda19a,3,Cleanup,0,in_progress,,Requires follow-up
-69153e62-155d-4e11-979a-9cb70eae33dd,1,Cleanup,1,in_progress,,
-69153e62-155d-4e11-979a-9cb70eae33dd,2,Gather materials,1,pending,,Requires follow-up
-69153e62-155d-4e11-979a-9cb70eae33dd,3,Initial inspection,1,done,2025-08-02T15:50:10.666618+00:00,See photos attached
-34ee365e-223f-48cb-b46d-19d68b580d01,1,Finalize documentation,1,done,2025-08-28T19:50:10.666618+00:00,N/A
-34ee365e-223f-48cb-b46d-19d68b580d01,2,Finalize documentation,0,in_progress,,N/A
-34ee365e-223f-48cb-b46d-19d68b580d01,3,Initial inspection,0,done,2025-08-31T15:50:10.666618+00:00,
-34ee365e-223f-48cb-b46d-19d68b580d01,4,Perform task,0,pending,,N/A
-d12bac4c-8276-44a0-a290-f5c4cfd021ac,1,Initial inspection,0,in_progress,,All good
-d29886ea-0146-4d1a-88a4-b198134d664f,1,Cleanup,1,in_progress,,All good
-226afa18-65fe-4d1c-84f0-0512704e6cda,1,Cleanup,1,pending,,Requires follow-up
-68793550-bb3b-4127-aa9e-cab56bc52a86,1,Initial inspection,0,in_progress,,Requires follow-up
-68793550-bb3b-4127-aa9e-cab56bc52a86,2,Perform task,0,pending,,All good
-877a47ea-5827-4eb7-8fe6-27a98adedeb2,1,Quality check,1,in_progress,,N/A
-d5529ee3-f8df-40a7-b734-dadba9a29b74,1,Cleanup,0,in_progress,,
-d5529ee3-f8df-40a7-b734-dadba9a29b74,2,Cleanup,1,in_progress,,
-d5529ee3-f8df-40a7-b734-dadba9a29b74,3,Cleanup,0,pending,,All good
-1e7a9793-20ab-4bda-ac4c-905a7813a8ad,1,Initial inspection,0,in_progress,,N/A
-1e7a9793-20ab-4bda-ac4c-905a7813a8ad,2,Quality check,1,done,2025-08-09T12:50:10.666618+00:00,Requires follow-up
-1e7a9793-20ab-4bda-ac4c-905a7813a8ad,3,Perform task,1,pending,,
-213414f8-ee75-451c-a5ee-5165eede0d0a,1,Quality check,0,pending,,See photos attached
-213414f8-ee75-451c-a5ee-5165eede0d0a,2,Perform task,0,in_progress,,
-a2470543-4d5b-42e2-a455-026107ed9783,1,Initial inspection,0,in_progress,,All good
-a2470543-4d5b-42e2-a455-026107ed9783,2,Gather materials,1,in_progress,,
-a2470543-4d5b-42e2-a455-026107ed9783,3,Quality check,1,done,2025-08-10T21:50:10.666618+00:00,N/A
-603592b9-e8c2-4cbd-8fa5-da992ded5103,1,Finalize documentation,1,done,2025-08-23T13:50:10.666618+00:00,N/A
-603592b9-e8c2-4cbd-8fa5-da992ded5103,2,Gather materials,1,pending,,
-c9bb89c2-41ba-4fa3-9e7b-de740a98594a,1,Gather materials,1,pending,,All good
-c9bb89c2-41ba-4fa3-9e7b-de740a98594a,2,Finalize documentation,1,in_progress,,N/A
-9b44ffa4-c5b5-433f-be80-beba2b6a2829,1,Initial inspection,1,pending,,
-6a2108ce-b158-4b22-929a-d43067a26105,1,Cleanup,1,pending,,N/A
-6a2108ce-b158-4b22-929a-d43067a26105,2,Gather materials,1,in_progress,,N/A
-6a2108ce-b158-4b22-929a-d43067a26105,3,Cleanup,0,done,2025-08-29T20:50:10.666618+00:00,All good
-6a2108ce-b158-4b22-929a-d43067a26105,4,Perform task,0,pending,,All good
-c8be19be-2815-4392-ac11-ef5bbb9b9f50,1,Finalize documentation,0,pending,,N/A
-c8be19be-2815-4392-ac11-ef5bbb9b9f50,2,Gather materials,1,in_progress,,
-c8be19be-2815-4392-ac11-ef5bbb9b9f50,3,Perform task,0,done,2025-08-06T13:50:10.666618+00:00,N/A
-2bbf197d-ebd6-43a9-bae0-36165759625c,1,Initial inspection,1,done,2025-08-05T22:50:10.666618+00:00,
-2bbf197d-ebd6-43a9-bae0-36165759625c,2,Gather materials,0,in_progress,,All good
-f0c7bc00-febc-4e01-b64d-420f2f52d179,1,Perform task,0,in_progress,,All good
-65d42420-cae7-431b-b4a7-7f9e99624a08,1,Quality check,0,pending,,All good
-65d42420-cae7-431b-b4a7-7f9e99624a08,2,Quality check,1,in_progress,,
-0f431f04-373a-427a-af15-d234c9e26032,1,Finalize documentation,0,pending,,
-22ebb981-1d33-4145-8f51-6bbfd56e7104,1,Finalize documentation,1,pending,,N/A
-bbcd7839-ef5e-4859-a61b-8825c1bd5ee5,1,Quality check,1,in_progress,,All good
-bbcd7839-ef5e-4859-a61b-8825c1bd5ee5,2,Perform task,0,done,2025-08-31T18:50:10.666618+00:00,All good
-bbcd7839-ef5e-4859-a61b-8825c1bd5ee5,3,Finalize documentation,0,pending,,N/A
-69885a86-76cc-4344-8a56-aa3f1a2efabc,1,Quality check,0,pending,,Requires follow-up
-69885a86-76cc-4344-8a56-aa3f1a2efabc,2,Gather materials,0,pending,,See photos attached
-69885a86-76cc-4344-8a56-aa3f1a2efabc,3,Gather materials,1,done,2025-08-18T13:50:10.666618+00:00,See photos attached
-5f81391a-3d5c-422a-93d9-2ecc8be59e9c,1,Perform task,0,in_progress,,
-5f81391a-3d5c-422a-93d9-2ecc8be59e9c,2,Finalize documentation,1,done,2025-08-30T23:50:10.666618+00:00,See photos attached
-5f81391a-3d5c-422a-93d9-2ecc8be59e9c,3,Quality check,0,pending,,Requires follow-up
-4c634614-7adf-4e98-bfb7-3387efa0956b,1,Quality check,1,done,2025-09-01T19:50:10.666618+00:00,N/A
-4c634614-7adf-4e98-bfb7-3387efa0956b,2,Cleanup,1,done,2025-08-27T17:50:10.666618+00:00,See photos attached
-4c634614-7adf-4e98-bfb7-3387efa0956b,3,Perform task,0,in_progress,,All good
-66ed92c1-5178-4c86-945e-3f432fcf624c,1,Initial inspection,1,in_progress,,All good
-66ed92c1-5178-4c86-945e-3f432fcf624c,2,Cleanup,1,in_progress,,N/A
-b3857ce1-32ad-4328-a6aa-885c96410b27,1,Finalize documentation,1,done,2025-08-31T05:50:10.666618+00:00,All good
-b3857ce1-32ad-4328-a6aa-885c96410b27,2,Gather materials,1,in_progress,,See photos attached
-b3857ce1-32ad-4328-a6aa-885c96410b27,3,Perform task,0,pending,,See photos attached
-b3857ce1-32ad-4328-a6aa-885c96410b27,4,Initial inspection,1,in_progress,,All good
-74ed17aa-a66a-4f95-8fb9-d7efd24879f2,1,Quality check,0,done,2025-08-23T12:50:10.666618+00:00,See photos attached
-74ed17aa-a66a-4f95-8fb9-d7efd24879f2,2,Perform task,1,done,2025-08-26T23:50:10.666618+00:00,See photos attached
-74ed17aa-a66a-4f95-8fb9-d7efd24879f2,3,Gather materials,0,pending,,N/A
-95c78ef5-b0b1-4963-8515-a6a1884907b2,1,Initial inspection,1,in_progress,,Requires follow-up
-08edf39f-2eb7-41ae-b210-e542e15d1867,1,Finalize documentation,0,done,2025-08-05T10:50:10.666618+00:00,
-08edf39f-2eb7-41ae-b210-e542e15d1867,2,Gather materials,0,pending,,
-ff275eb0-4bbc-4f55-b300-7bc59cdfb90d,1,Cleanup,1,done,2025-08-12T15:50:10.666618+00:00,All good
-ff275eb0-4bbc-4f55-b300-7bc59cdfb90d,2,Perform task,0,pending,,N/A
-ff275eb0-4bbc-4f55-b300-7bc59cdfb90d,3,Finalize documentation,1,done,2025-08-03T08:50:10.666618+00:00,
-ff275eb0-4bbc-4f55-b300-7bc59cdfb90d,4,Finalize documentation,1,pending,,
-8d4f7206-6864-4a40-b9ff-2dfe5d8b5c52,1,Initial inspection,0,done,2025-08-05T10:50:10.666618+00:00,All good
-8d4f7206-6864-4a40-b9ff-2dfe5d8b5c52,2,Quality check,1,pending,,N/A
-8d4f7206-6864-4a40-b9ff-2dfe5d8b5c52,3,Initial inspection,0,pending,,N/A
-a8c9a659-8f2f-4ae5-92a5-e7ea1268d56d,1,Perform task,1,done,2025-08-19T09:50:10.666618+00:00,N/A
-a8c9a659-8f2f-4ae5-92a5-e7ea1268d56d,2,Quality check,0,pending,,N/A
-a8c9a659-8f2f-4ae5-92a5-e7ea1268d56d,3,Cleanup,0,done,2025-08-18T09:50:10.666618+00:00,Requires follow-up
-a8c9a659-8f2f-4ae5-92a5-e7ea1268d56d,4,Gather materials,1,done,2025-08-02T21:50:10.666618+00:00,N/A
-cdc6f420-00c8-4814-a6a4-fe0fc25f703c,1,Perform task,1,done,2025-08-18T13:50:10.666618+00:00,N/A
-cdc6f420-00c8-4814-a6a4-fe0fc25f703c,2,Perform task,1,pending,,See photos attached
-1c3f7f25-2bf2-46c5-bcf7-b1db4762bfb6,1,Cleanup,0,in_progress,,N/A
-1c3f7f25-2bf2-46c5-bcf7-b1db4762bfb6,2,Perform task,0,in_progress,,All good
-1c3f7f25-2bf2-46c5-bcf7-b1db4762bfb6,3,Finalize documentation,0,pending,,Requires follow-up
-f9897d98-ca58-4e4b-8fef-996e0aad9128,1,Perform task,1,pending,,N/A
-139e3023-83dc-4361-b62a-8f94a27bc337,1,Finalize documentation,0,pending,,Requires follow-up
-139e3023-83dc-4361-b62a-8f94a27bc337,2,Cleanup,1,done,2025-08-12T21:50:10.666618+00:00,All good
-139e3023-83dc-4361-b62a-8f94a27bc337,3,Initial inspection,0,done,2025-08-27T16:50:10.666618+00:00,All good
-139e3023-83dc-4361-b62a-8f94a27bc337,4,Finalize documentation,0,in_progress,,
-0e6364a0-1f63-42c4-b6b1-5fd1497aa59d,1,Quality check,1,done,2025-08-23T12:50:10.666618+00:00,N/A
-9a6fc310-07d9-4bfc-9653-64991efebf6f,1,Cleanup,0,done,2025-08-17T23:50:10.666618+00:00,
-9a6fc310-07d9-4bfc-9653-64991efebf6f,2,Initial inspection,1,in_progress,,See photos attached
-933e91fa-2a37-4e13-bfaa-0c8cdc025741,1,Initial inspection,1,pending,,All good
-933e91fa-2a37-4e13-bfaa-0c8cdc025741,2,Finalize documentation,1,in_progress,,All good
-933e91fa-2a37-4e13-bfaa-0c8cdc025741,3,Gather materials,1,in_progress,,N/A
-933e91fa-2a37-4e13-bfaa-0c8cdc025741,4,Initial inspection,0,done,2025-08-10T11:50:10.666618+00:00,Requires follow-up
-e4f08c6f-3786-4cbd-a9ab-554898545460,1,Finalize documentation,1,done,2025-08-17T08:50:10.666618+00:00,All good
-af8b3f52-96eb-4575-9b26-dc98c873d7ae,1,Quality check,0,in_progress,,
-af8b3f52-96eb-4575-9b26-dc98c873d7ae,2,Gather materials,0,in_progress,,N/A
-0c501ef8-c7f4-4417-af8c-00c0f6706065,1,Perform task,1,in_progress,,
-0c501ef8-c7f4-4417-af8c-00c0f6706065,2,Quality check,0,done,2025-08-08T19:50:10.666618+00:00,See photos attached
-0c501ef8-c7f4-4417-af8c-00c0f6706065,3,Perform task,1,done,2025-08-14T14:50:10.666618+00:00,See photos attached
-c9f1037e-d444-47f3-94c1-737e4a42586d,1,Cleanup,1,pending,,Requires follow-up
-c9f1037e-d444-47f3-94c1-737e4a42586d,2,Perform task,1,pending,,See photos attached
-c9f1037e-d444-47f3-94c1-737e4a42586d,3,Finalize documentation,0,done,2025-08-30T15:50:10.666618+00:00,Requires follow-up
-c4ff352c-d4d2-4758-b126-c6eb4c90972a,1,Perform task,1,in_progress,,All good
-c4ff352c-d4d2-4758-b126-c6eb4c90972a,2,Gather materials,0,in_progress,,
-c4ff352c-d4d2-4758-b126-c6eb4c90972a,3,Finalize documentation,1,done,2025-08-02T20:50:10.666618+00:00,Requires follow-up
-d18e5985-e8fc-4454-b483-132dc462d02d,1,Initial inspection,0,in_progress,,
-d18e5985-e8fc-4454-b483-132dc462d02d,2,Finalize documentation,0,in_progress,,N/A
-d18e5985-e8fc-4454-b483-132dc462d02d,3,Gather materials,1,pending,,Requires follow-up
-d18e5985-e8fc-4454-b483-132dc462d02d,4,Initial inspection,1,in_progress,,See photos attached
-73c9d58f-3fc6-4659-918a-9388a7df58f5,1,Gather materials,0,in_progress,,N/A
-86573f2b-186d-4419-b337-aa1f10a03cdd,1,Quality check,0,pending,,N/A
-86573f2b-186d-4419-b337-aa1f10a03cdd,2,Gather materials,1,pending,,Requires follow-up
-0b4eba79-c4d0-4002-981a-829d20106be8,1,Finalize documentation,1,done,2025-08-11T10:50:10.666618+00:00,All good
-0b4eba79-c4d0-4002-981a-829d20106be8,2,Finalize documentation,1,pending,,Requires follow-up
-0b4eba79-c4d0-4002-981a-829d20106be8,3,Finalize documentation,1,in_progress,,
-1b217acf-333e-499b-bfd2-d7dbb427f932,1,Cleanup,1,in_progress,,See photos attached
-be96f1d4-7121-4f84-991f-ba3304f66fee,1,Initial inspection,1,done,2025-08-30T11:50:10.666618+00:00,
-94ca5a4d-e08a-44ce-8eb9-b173538620c2,1,Finalize documentation,0,pending,,N/A
-94ca5a4d-e08a-44ce-8eb9-b173538620c2,2,Cleanup,1,pending,,
-94ca5a4d-e08a-44ce-8eb9-b173538620c2,3,Perform task,0,done,2025-08-06T22:50:10.666618+00:00,N/A
-20f74c27-c688-4b22-8e15-b4abb389a651,1,Cleanup,1,in_progress,,Requires follow-up
-20f74c27-c688-4b22-8e15-b4abb389a651,2,Finalize documentation,0,pending,,N/A
-20f74c27-c688-4b22-8e15-b4abb389a651,3,Cleanup,1,in_progress,,All good
-20f74c27-c688-4b22-8e15-b4abb389a651,4,Gather materials,1,pending,,All good
-232a267b-6ca5-46ca-a167-063e6c9d8beb,1,Initial inspection,0,done,2025-08-14T18:50:10.666618+00:00,Requires follow-up
-1fb7ab2f-38ca-4906-9aab-63ec8cf94698,1,Gather materials,0,done,2025-08-29T16:50:10.666618+00:00,See photos attached
-1fb7ab2f-38ca-4906-9aab-63ec8cf94698,2,Quality check,1,done,2025-08-17T21:50:10.666618+00:00,All good
-1fb7ab2f-38ca-4906-9aab-63ec8cf94698,3,Perform task,0,pending,,
-1fb7ab2f-38ca-4906-9aab-63ec8cf94698,4,Perform task,0,pending,,N/A
-3e2b8e71-8f09-448d-bf4c-bac8c6295aa3,1,Cleanup,0,pending,,All good
-3e2b8e71-8f09-448d-bf4c-bac8c6295aa3,2,Finalize documentation,0,in_progress,,Requires follow-up
-3e2b8e71-8f09-448d-bf4c-bac8c6295aa3,3,Initial inspection,0,in_progress,,N/A
-4149f80e-8b1b-4ed9-b331-acffcc6b5d02,1,Initial inspection,1,done,2025-08-20T11:50:10.666618+00:00,See photos attached
-4149f80e-8b1b-4ed9-b331-acffcc6b5d02,2,Finalize documentation,1,in_progress,,See photos attached
-4149f80e-8b1b-4ed9-b331-acffcc6b5d02,3,Perform task,1,pending,,All good
-4149f80e-8b1b-4ed9-b331-acffcc6b5d02,4,Quality check,1,done,2025-08-14T10:50:10.666618+00:00,N/A
-bc02bfca-410b-41e4-80d8-83415e475071,1,Perform task,1,in_progress,,
-bc02bfca-410b-41e4-80d8-83415e475071,2,Initial inspection,1,pending,,Requires follow-up
-bc02bfca-410b-41e4-80d8-83415e475071,3,Gather materials,1,in_progress,,N/A
-bc02bfca-410b-41e4-80d8-83415e475071,4,Gather materials,1,done,2025-08-10T19:50:10.666618+00:00,See photos attached
-4d62293b-e82b-4fdf-804f-30b6985e6fdc,1,Finalize documentation,1,done,2025-08-26T15:50:10.666618+00:00,All good
-4d62293b-e82b-4fdf-804f-30b6985e6fdc,2,Initial inspection,0,done,2025-08-05T06:50:10.666618+00:00,
-9b3ce022-d350-40c3-a23f-b0694e83532b,1,Perform task,1,pending,,N/A
-9b3ce022-d350-40c3-a23f-b0694e83532b,2,Finalize documentation,0,done,2025-08-09T12:50:10.666618+00:00,All good
-fd6e619a-f4d8-47de-8861-8568b02fc3f1,1,Quality check,0,in_progress,,Requires follow-up
-fd6e619a-f4d8-47de-8861-8568b02fc3f1,2,Cleanup,0,in_progress,,See photos attached
-fd6e619a-f4d8-47de-8861-8568b02fc3f1,3,Cleanup,1,done,2025-08-20T20:50:10.666618+00:00,See photos attached
-8b3f3236-49e0-471e-b91b-b9635e4b125c,1,Quality check,0,in_progress,,See photos attached
-8b3f3236-49e0-471e-b91b-b9635e4b125c,2,Gather materials,0,done,2025-08-03T21:50:10.666618+00:00,N/A
-7d335baa-62b6-49d2-8e73-bf6815aaa3ab,1,Finalize documentation,1,done,2025-08-18T11:50:10.666618+00:00,See photos attached
-d7f4b989-5056-4429-b09d-b88c3aff13b7,1,Gather materials,1,in_progress,,All good
-d7f4b989-5056-4429-b09d-b88c3aff13b7,2,Cleanup,1,in_progress,,Requires follow-up
-63a1e4f7-53e6-42ca-8e53-eadc268cf2b2,1,Quality check,0,done,2025-08-09T05:50:10.666618+00:00,See photos attached
-63a1e4f7-53e6-42ca-8e53-eadc268cf2b2,2,Cleanup,1,pending,,Requires follow-up
-63a1e4f7-53e6-42ca-8e53-eadc268cf2b2,3,Quality check,1,done,2025-08-04T18:50:10.666618+00:00,N/A
-63a1e4f7-53e6-42ca-8e53-eadc268cf2b2,4,Initial inspection,0,pending,,N/A
-9ab8a650-aef8-4445-acb5-05b95410e91d,1,Perform task,0,in_progress,,See photos attached
-9ab8a650-aef8-4445-acb5-05b95410e91d,2,Initial inspection,1,pending,,N/A
-9ab8a650-aef8-4445-acb5-05b95410e91d,3,Gather materials,0,pending,,
-ed6b41bb-0e3e-4940-b144-346721c18b8e,1,Perform task,1,done,2025-09-01T17:50:10.666618+00:00,N/A
-ed6b41bb-0e3e-4940-b144-346721c18b8e,2,Cleanup,1,in_progress,,All good
-ed6b41bb-0e3e-4940-b144-346721c18b8e,3,Quality check,0,pending,,N/A
-869f3296-3f44-425a-b01f-94d52d47468b,1,Finalize documentation,1,done,2025-08-07T13:50:10.666618+00:00,N/A
-869f3296-3f44-425a-b01f-94d52d47468b,2,Perform task,1,pending,,N/A
-869f3296-3f44-425a-b01f-94d52d47468b,3,Perform task,1,in_progress,,See photos attached
-44593b07-ee4e-4de7-90b9-d6cf73f971ce,1,Quality check,1,pending,,N/A
-ba7aab46-19cd-42d0-9acf-985c2d58751a,1,Initial inspection,1,pending,,
-ba7aab46-19cd-42d0-9acf-985c2d58751a,2,Quality check,1,in_progress,,All good
-620615a3-348c-456f-985c-acec21d81cb5,1,Gather materials,1,pending,,Requires follow-up
-620615a3-348c-456f-985c-acec21d81cb5,2,Gather materials,1,pending,,N/A
-03aa7346-a7ac-4e89-97d4-3251825b39be,1,Initial inspection,1,done,2025-08-25T21:50:10.666618+00:00,N/A
-03aa7346-a7ac-4e89-97d4-3251825b39be,2,Perform task,1,pending,,All good
-ed6fa1d5-37fd-438c-86b4-98755136e801,1,Initial inspection,0,in_progress,,All good
-ed6fa1d5-37fd-438c-86b4-98755136e801,2,Quality check,1,done,2025-08-03T18:50:10.666618+00:00,All good
-ed6fa1d5-37fd-438c-86b4-98755136e801,3,Cleanup,0,pending,,See photos attached
-43f7e78a-d02d-42c8-866f-fed6bf8ea983,1,Gather materials,1,in_progress,,
-09670ecb-186e-43d6-be1a-bea37d036c1e,1,Cleanup,1,done,2025-08-16T05:50:10.666618+00:00,Requires follow-up
-09670ecb-186e-43d6-be1a-bea37d036c1e,2,Initial inspection,1,done,2025-08-15T06:50:10.666618+00:00,Requires follow-up
-e52ca224-e177-4ee9-b68e-cbbb7c0df53b,1,Finalize documentation,1,pending,,Requires follow-up
-e52ca224-e177-4ee9-b68e-cbbb7c0df53b,2,Quality check,1,pending,,Requires follow-up
-e52ca224-e177-4ee9-b68e-cbbb7c0df53b,3,Cleanup,1,done,2025-08-13T21:50:10.666618+00:00,See photos attached
-e52ca224-e177-4ee9-b68e-cbbb7c0df53b,4,Gather materials,1,pending,,See photos attached
-47f1866e-53d2-470e-b758-fd7a4a42b8fd,1,Initial inspection,0,pending,,Requires follow-up
-47f1866e-53d2-470e-b758-fd7a4a42b8fd,2,Cleanup,0,in_progress,,See photos attached
-47f1866e-53d2-470e-b758-fd7a4a42b8fd,3,Perform task,0,in_progress,,See photos attached
-43004ec2-7205-4067-b96b-c4cb15e7355c,1,Perform task,0,done,2025-08-29T12:50:10.666618+00:00,N/A
-43004ec2-7205-4067-b96b-c4cb15e7355c,2,Perform task,1,pending,,
-1dce712a-1e87-4a4e-a4dd-70aab26234ac,1,Cleanup,0,in_progress,,All good
-0183d880-2ebb-4ebf-9a4d-a44e91eb1b59,1,Gather materials,1,done,2025-08-14T19:50:10.666618+00:00,
-0183d880-2ebb-4ebf-9a4d-a44e91eb1b59,2,Perform task,0,in_progress,,
-0183d880-2ebb-4ebf-9a4d-a44e91eb1b59,3,Quality check,1,pending,,Requires follow-up
-0183d880-2ebb-4ebf-9a4d-a44e91eb1b59,4,Cleanup,0,pending,,N/A
-b54de508-699c-46b0-bdee-f0bc7c507ce7,1,Initial inspection,0,in_progress,,
-b54de508-699c-46b0-bdee-f0bc7c507ce7,2,Cleanup,1,in_progress,,Requires follow-up
-2b0b1630-ce92-4ca2-82e2-749185cd322a,1,Quality check,1,pending,,All good
-7dba7243-a4bd-4213-92fc-6d9b6572aed5,1,Cleanup,0,done,2025-08-16T10:50:10.666618+00:00,N/A
-7dba7243-a4bd-4213-92fc-6d9b6572aed5,2,Gather materials,1,done,2025-09-01T14:50:10.666618+00:00,N/A
-6dc96f87-5963-4b30-b81c-a7b05871c07a,1,Initial inspection,1,pending,,See photos attached
-6dc96f87-5963-4b30-b81c-a7b05871c07a,2,Cleanup,0,done,2025-08-28T12:50:10.666618+00:00,Requires follow-up
-6dc96f87-5963-4b30-b81c-a7b05871c07a,3,Finalize documentation,0,done,2025-08-17T08:50:10.666618+00:00,
-6dc96f87-5963-4b30-b81c-a7b05871c07a,4,Initial inspection,0,pending,,All good
-c047aca6-68e0-4942-98ba-6009e96628ec,1,Cleanup,1,in_progress,,Requires follow-up
-c047aca6-68e0-4942-98ba-6009e96628ec,2,Quality check,1,in_progress,,See photos attached
-c047aca6-68e0-4942-98ba-6009e96628ec,3,Initial inspection,0,in_progress,,Requires follow-up
-c047aca6-68e0-4942-98ba-6009e96628ec,4,Gather materials,1,pending,,N/A
-0238f92e-7bae-42b9-9db8-486737a0be55,1,Initial inspection,1,pending,,All good
-061573a9-f51e-44ea-a5e6-07f1206a95a0,1,Gather materials,1,in_progress,,
-061573a9-f51e-44ea-a5e6-07f1206a95a0,2,Cleanup,1,done,2025-08-29T19:50:10.666618+00:00,N/A
-7eb6d333-2dec-4a32-b8f9-03934f98b622,1,Gather materials,0,in_progress,,
-7eb6d333-2dec-4a32-b8f9-03934f98b622,2,Finalize documentation,0,done,2025-08-12T10:50:10.666618+00:00,
-15ead551-2211-4bd5-a530-0cc3e15e87bf,1,Perform task,1,in_progress,,N/A
-15ead551-2211-4bd5-a530-0cc3e15e87bf,2,Gather materials,0,done,2025-08-26T18:50:10.666618+00:00,See photos attached
-226d810d-52a1-4955-82ca-49da634aa8dd,1,Quality check,1,pending,,
-226d810d-52a1-4955-82ca-49da634aa8dd,2,Gather materials,0,in_progress,,See photos attached
-226d810d-52a1-4955-82ca-49da634aa8dd,3,Gather materials,0,done,2025-08-24T12:50:10.666618+00:00,
-226d810d-52a1-4955-82ca-49da634aa8dd,4,Gather materials,0,in_progress,,See photos attached
-4217680b-438a-43b4-b342-22c36fdfe56b,1,Quality check,1,pending,,All good
-4217680b-438a-43b4-b342-22c36fdfe56b,2,Gather materials,1,in_progress,,All good
-4217680b-438a-43b4-b342-22c36fdfe56b,3,Gather materials,1,pending,,
-92825554-6635-4bfd-bbee-6b391c8d0800,1,Perform task,1,pending,,N/A
-92825554-6635-4bfd-bbee-6b391c8d0800,2,Initial inspection,1,in_progress,,Requires follow-up
-92825554-6635-4bfd-bbee-6b391c8d0800,3,Quality check,0,pending,,All good
-92825554-6635-4bfd-bbee-6b391c8d0800,4,Finalize documentation,0,pending,,
-7b055c09-ad8a-4d06-b4ad-3345b19e4fe1,1,Finalize documentation,1,pending,,N/A
-7b055c09-ad8a-4d06-b4ad-3345b19e4fe1,2,Perform task,1,in_progress,,Requires follow-up
-3263488d-8244-4bfe-bf2d-b0560fce7edf,1,Finalize documentation,1,in_progress,,Requires follow-up
-3263488d-8244-4bfe-bf2d-b0560fce7edf,2,Quality check,1,done,2025-08-29T16:50:10.666618+00:00,
-3263488d-8244-4bfe-bf2d-b0560fce7edf,3,Gather materials,1,in_progress,,See photos attached
-3263488d-8244-4bfe-bf2d-b0560fce7edf,4,Cleanup,1,pending,,See photos attached
-60f262de-e023-4697-8e11-98d902aab967,1,Initial inspection,0,in_progress,,All good
-60f262de-e023-4697-8e11-98d902aab967,2,Cleanup,0,pending,,N/A
-d25a1be3-534e-4d6f-bd78-31f1c5620fe6,1,Cleanup,1,in_progress,,See photos attached
-a4070768-6c79-4662-b1d8-b79d78d8db9c,1,Gather materials,1,in_progress,,See photos attached
-0034e7d1-86ea-43ef-8848-16a20a8a9cfc,1,Perform task,1,pending,,All good
-0034e7d1-86ea-43ef-8848-16a20a8a9cfc,2,Cleanup,0,pending,,Requires follow-up
-0034e7d1-86ea-43ef-8848-16a20a8a9cfc,3,Cleanup,1,done,2025-08-29T09:50:10.666618+00:00,See photos attached
-dcaf6ba2-4ef0-41fd-a4b6-17dd73e1c75b,1,Finalize documentation,1,in_progress,,Requires follow-up
-dcaf6ba2-4ef0-41fd-a4b6-17dd73e1c75b,2,Quality check,1,done,2025-08-10T15:50:10.666618+00:00,All good
-dcaf6ba2-4ef0-41fd-a4b6-17dd73e1c75b,3,Gather materials,0,done,2025-08-28T05:50:10.666618+00:00,
-ce6745a7-8d48-46be-a9ce-1cbeee9751ea,1,Quality check,0,pending,,N/A
-5dbd6f99-e30e-4cd7-8889-c3ca82e1f751,1,Finalize documentation,0,pending,,All good
-5dbd6f99-e30e-4cd7-8889-c3ca82e1f751,2,Initial inspection,1,in_progress,,
-5dbd6f99-e30e-4cd7-8889-c3ca82e1f751,3,Initial inspection,0,pending,,N/A
-deb7e423-9431-4587-a90b-31efef0a190b,1,Gather materials,1,pending,,All good
-0e1d8b18-cfc1-4f94-9d73-6ddf1d1c8ce9,1,Perform task,1,done,2025-08-25T22:50:10.666618+00:00,Requires follow-up
-faa04442-b895-4c8e-9756-166b3dda737d,1,Perform task,0,pending,,
-f82ddedc-9b91-4d76-9fc8-302d4d5fb59b,1,Gather materials,0,done,2025-08-15T17:50:10.666618+00:00,Requires follow-up
-d8751966-65a1-4110-88ff-b2eafdc48cfd,1,Cleanup,1,in_progress,,
-d8751966-65a1-4110-88ff-b2eafdc48cfd,2,Quality check,1,in_progress,,Requires follow-up
-3b6d79b0-821f-4552-85da-958e16155707,1,Finalize documentation,0,done,2025-08-23T05:50:10.666618+00:00,Requires follow-up
-3b6d79b0-821f-4552-85da-958e16155707,2,Initial inspection,1,done,2025-08-03T17:50:10.666618+00:00,All good
-3b6d79b0-821f-4552-85da-958e16155707,3,Cleanup,1,in_progress,,All good
-73892afd-2527-40bb-b8c5-fa88bf07f736,1,Initial inspection,1,done,2025-08-27T08:50:10.666618+00:00,Requires follow-up
-73892afd-2527-40bb-b8c5-fa88bf07f736,2,Perform task,0,pending,,Requires follow-up
-9b1dd38b-6f49-42fd-b3a8-d1fb5d258b81,1,Finalize documentation,1,done,2025-08-28T15:50:10.666618+00:00,Requires follow-up
-9b1dd38b-6f49-42fd-b3a8-d1fb5d258b81,2,Finalize documentation,1,done,2025-08-09T16:50:10.666618+00:00,All good
-6b2f7f45-863f-40b3-b14f-a0a4da36902c,1,Gather materials,1,done,2025-08-10T23:50:10.666618+00:00,
-6b2f7f45-863f-40b3-b14f-a0a4da36902c,2,Initial inspection,1,done,2025-08-18T22:50:10.666618+00:00,See photos attached
-bc99404b-2f7c-4310-b171-e25fdbdad49f,1,Finalize documentation,0,done,2025-08-22T13:50:10.666618+00:00,See photos attached
-bc99404b-2f7c-4310-b171-e25fdbdad49f,2,Quality check,1,pending,,Requires follow-up
-bc99404b-2f7c-4310-b171-e25fdbdad49f,3,Perform task,1,in_progress,,See photos attached
-bc99404b-2f7c-4310-b171-e25fdbdad49f,4,Quality check,1,in_progress,,See photos attached
-40a0536b-c819-4588-be27-e5b1ed48cbcd,1,Finalize documentation,0,done,2025-08-16T22:50:10.666618+00:00,
-40a0536b-c819-4588-be27-e5b1ed48cbcd,2,Quality check,0,in_progress,,See photos attached
-40a0536b-c819-4588-be27-e5b1ed48cbcd,3,Finalize documentation,1,pending,,All good
-01b4456f-6d02-47ac-a2d5-cf2b57514acc,1,Initial inspection,1,done,2025-08-24T21:50:10.666618+00:00,
-01b4456f-6d02-47ac-a2d5-cf2b57514acc,2,Cleanup,1,done,2025-08-29T18:50:10.666618+00:00,N/A
-01b4456f-6d02-47ac-a2d5-cf2b57514acc,3,Cleanup,1,pending,,Requires follow-up
-66279b6f-c8f8-4532-86bb-73d28aa0b1e1,1,Initial inspection,1,pending,,All good
-607eb7d1-7a33-4216-b2b5-f6e5f66cc43b,1,Gather materials,1,done,2025-08-27T06:50:10.666618+00:00,
-607eb7d1-7a33-4216-b2b5-f6e5f66cc43b,2,Perform task,1,in_progress,,All good
-607eb7d1-7a33-4216-b2b5-f6e5f66cc43b,3,Finalize documentation,0,pending,,See photos attached
-607eb7d1-7a33-4216-b2b5-f6e5f66cc43b,4,Initial inspection,1,pending,,Requires follow-up
-5db4a0cd-00c5-4343-8595-a252117f8488,1,Finalize documentation,0,done,2025-08-25T06:50:10.666618+00:00,See photos attached
-5db4a0cd-00c5-4343-8595-a252117f8488,2,Perform task,1,pending,,See photos attached
-5db4a0cd-00c5-4343-8595-a252117f8488,3,Cleanup,1,in_progress,,All good
-5db4a0cd-00c5-4343-8595-a252117f8488,4,Cleanup,0,in_progress,,All good
-06cc6eed-8edf-44c5-9720-a9b0d1e338ca,1,Perform task,0,pending,,
-06cc6eed-8edf-44c5-9720-a9b0d1e338ca,2,Initial inspection,1,in_progress,,N/A
-8d5e7cd0-68f0-4ea1-88c7-7591a8a7ca12,1,Initial inspection,1,pending,,Requires follow-up
-68905c97-40c3-4d4e-aa17-01a622314759,1,Initial inspection,1,done,2025-08-25T15:50:10.666618+00:00,
-68905c97-40c3-4d4e-aa17-01a622314759,2,Gather materials,1,pending,,All good
-68905c97-40c3-4d4e-aa17-01a622314759,3,Cleanup,1,in_progress,,All good
-68905c97-40c3-4d4e-aa17-01a622314759,4,Finalize documentation,0,in_progress,,Requires follow-up
-cec1bb2c-5735-4048-97b7-ae5d7506ab4b,1,Initial inspection,1,done,2025-08-31T14:50:10.666618+00:00,See photos attached
-4774e7e0-a18d-4c4c-9eec-7d385a636c19,1,Finalize documentation,1,pending,,All good
-4774e7e0-a18d-4c4c-9eec-7d385a636c19,2,Finalize documentation,1,done,2025-08-06T23:50:10.666618+00:00,See photos attached
-c5dfec05-f5b8-4eb7-9f5b-175879270d45,1,Quality check,0,pending,,Requires follow-up
-c5dfec05-f5b8-4eb7-9f5b-175879270d45,2,Gather materials,1,in_progress,,
-c5dfec05-f5b8-4eb7-9f5b-175879270d45,3,Gather materials,0,in_progress,,N/A
-c5dfec05-f5b8-4eb7-9f5b-175879270d45,4,Quality check,1,in_progress,,Requires follow-up
-829c5dce-18a3-4ba1-b8de-8232c3de6b56,1,Gather materials,0,done,2025-08-02T20:50:10.666618+00:00,N/A
-829c5dce-18a3-4ba1-b8de-8232c3de6b56,2,Quality check,1,in_progress,,N/A
-e702eaae-1f23-4e68-97ae-1efa4b7ce9f5,1,Cleanup,1,done,2025-08-24T09:50:10.666618+00:00,All good
-e702eaae-1f23-4e68-97ae-1efa4b7ce9f5,2,Finalize documentation,0,done,2025-08-09T15:50:10.666618+00:00,Requires follow-up
-f080b655-95e0-4787-b6fa-db0940c4e391,1,Perform task,0,pending,,See photos attached
-6a369cc3-eb04-4326-9b3f-dc0c7281cbb9,1,Finalize documentation,1,in_progress,,N/A
-ee1fb090-a1ac-471b-8e5f-f1c739a3047d,1,Perform task,0,done,2025-08-07T06:50:10.666618+00:00,See photos attached
-ee1fb090-a1ac-471b-8e5f-f1c739a3047d,2,Quality check,1,pending,,N/A
-ee1fb090-a1ac-471b-8e5f-f1c739a3047d,3,Initial inspection,1,done,2025-08-29T15:50:10.666618+00:00,
-1f2919bd-4b86-445e-984d-ca6616838487,1,Gather materials,1,done,2025-08-29T13:50:10.666618+00:00,Requires follow-up
-1f2919bd-4b86-445e-984d-ca6616838487,2,Cleanup,0,in_progress,,Requires follow-up
-1f2919bd-4b86-445e-984d-ca6616838487,3,Perform task,0,in_progress,,Requires follow-up
-d6d4c54b-ae33-4e0f-bbdd-1e501af5621b,1,Gather materials,1,in_progress,,All good
-d6d4c54b-ae33-4e0f-bbdd-1e501af5621b,2,Quality check,1,in_progress,,All good
-d6d4c54b-ae33-4e0f-bbdd-1e501af5621b,3,Finalize documentation,0,in_progress,,See photos attached
-d6d4c54b-ae33-4e0f-bbdd-1e501af5621b,4,Perform task,1,pending,,All good
-fafe3de0-dcca-4b94-ba85-006122c492a7,1,Cleanup,1,in_progress,,
-cc92c463-dbb1-4cd8-a95d-4b76bde14672,1,Quality check,1,done,2025-08-05T06:50:10.666618+00:00,All good
-cc92c463-dbb1-4cd8-a95d-4b76bde14672,2,Gather materials,1,pending,,See photos attached
-cc92c463-dbb1-4cd8-a95d-4b76bde14672,3,Perform task,1,pending,,All good
-cc92c463-dbb1-4cd8-a95d-4b76bde14672,4,Quality check,1,pending,,All good
-6ad741a5-4d3c-4f8d-bfe9-5c750e116b97,1,Finalize documentation,1,pending,,See photos attached
-6ad741a5-4d3c-4f8d-bfe9-5c750e116b97,2,Initial inspection,0,done,2025-08-04T13:50:10.666618+00:00,N/A
-6ad741a5-4d3c-4f8d-bfe9-5c750e116b97,3,Perform task,1,done,2025-08-24T17:50:10.666618+00:00,All good
-6ad741a5-4d3c-4f8d-bfe9-5c750e116b97,4,Finalize documentation,1,done,2025-08-15T13:50:10.666618+00:00,
-8cf795c8-caa2-4f70-8572-bff85775ebc6,1,Quality check,1,pending,,Requires follow-up
-78c5ede9-9638-4141-b8a2-e78b72bfff3d,1,Gather materials,0,done,2025-08-16T14:50:10.666618+00:00,N/A
-78c5ede9-9638-4141-b8a2-e78b72bfff3d,2,Quality check,1,done,2025-08-21T08:50:10.666618+00:00,See photos attached
-01168da5-a383-4d77-a42c-bc49f3aa8f2d,1,Quality check,1,done,2025-08-11T20:50:10.666618+00:00,
-01168da5-a383-4d77-a42c-bc49f3aa8f2d,2,Cleanup,1,pending,,N/A
-01168da5-a383-4d77-a42c-bc49f3aa8f2d,3,Finalize documentation,0,in_progress,,See photos attached
-01168da5-a383-4d77-a42c-bc49f3aa8f2d,4,Gather materials,1,done,2025-08-12T17:50:10.666618+00:00,N/A
-74560fa7-14b6-4862-bf36-ecac6ccee7b2,1,Gather materials,0,done,2025-08-05T12:50:10.666618+00:00,See photos attached
-74560fa7-14b6-4862-bf36-ecac6ccee7b2,2,Initial inspection,1,in_progress,,See photos attached
-74560fa7-14b6-4862-bf36-ecac6ccee7b2,3,Gather materials,0,pending,,All good
-74560fa7-14b6-4862-bf36-ecac6ccee7b2,4,Initial inspection,0,pending,,N/A
-7117decd-f642-47e4-a8be-266d4c2bf026,1,Perform task,0,in_progress,,Requires follow-up
-7117decd-f642-47e4-a8be-266d4c2bf026,2,Perform task,0,done,2025-08-19T14:50:10.666618+00:00,
-a518f9ea-ef66-4eec-9721-91921244a23d,1,Gather materials,1,done,2025-08-28T10:50:10.666618+00:00,See photos attached
-a518f9ea-ef66-4eec-9721-91921244a23d,2,Perform task,1,in_progress,,See photos attached
-821d0ead-d4a4-4be5-8e3b-9ca908ac282d,1,Cleanup,0,done,2025-08-13T21:50:10.666618+00:00,
-821d0ead-d4a4-4be5-8e3b-9ca908ac282d,2,Initial inspection,0,pending,,All good
-821d0ead-d4a4-4be5-8e3b-9ca908ac282d,3,Perform task,1,done,2025-08-22T08:50:10.666618+00:00,
-821d0ead-d4a4-4be5-8e3b-9ca908ac282d,4,Cleanup,0,pending,,
-70247e9d-8231-46e8-8938-43f4a9c32478,1,Quality check,1,done,2025-08-05T09:50:10.666618+00:00,See photos attached
-70247e9d-8231-46e8-8938-43f4a9c32478,2,Finalize documentation,1,done,2025-08-26T21:50:10.666618+00:00,All good
-7e5ad677-0929-45fb-bbee-09121e043005,1,Finalize documentation,1,pending,,See photos attached
-1abbaaf7-7b15-4817-9e84-3d5de637175d,1,Initial inspection,0,pending,,See photos attached
-1abbaaf7-7b15-4817-9e84-3d5de637175d,2,Gather materials,1,done,2025-08-27T09:50:10.666618+00:00,All good
-1abbaaf7-7b15-4817-9e84-3d5de637175d,3,Quality check,1,in_progress,,All good
-1abbaaf7-7b15-4817-9e84-3d5de637175d,4,Quality check,0,pending,,N/A
-ab36d7dd-e739-47b4-929f-509723331bbf,1,Perform task,0,done,2025-08-14T05:50:10.666618+00:00,All good
-df6e41eb-957a-4cd5-bcbe-1023ef0c04cf,1,Gather materials,1,pending,,N/A
-34e860aa-70c6-40ab-bb6c-ee9c4a5107f3,1,Gather materials,0,in_progress,,
-34e860aa-70c6-40ab-bb6c-ee9c4a5107f3,2,Perform task,1,in_progress,,See photos attached
-34e860aa-70c6-40ab-bb6c-ee9c4a5107f3,3,Gather materials,0,in_progress,,See photos attached
-9cabb9e7-6cb0-4eaa-ad52-6380ad9c3f97,1,Gather materials,1,in_progress,,Requires follow-up
-68759c39-5bfe-471a-9b1f-b0608958ae4b,1,Perform task,0,pending,,See photos attached
-68759c39-5bfe-471a-9b1f-b0608958ae4b,2,Finalize documentation,0,pending,,
-68759c39-5bfe-471a-9b1f-b0608958ae4b,3,Finalize documentation,0,in_progress,,
-68759c39-5bfe-471a-9b1f-b0608958ae4b,4,Quality check,0,done,2025-08-30T07:50:10.666618+00:00,Requires follow-up
-b884249e-e7a5-48b0-81a7-4f978691a1a7,1,Finalize documentation,1,in_progress,,
-b884249e-e7a5-48b0-81a7-4f978691a1a7,2,Finalize documentation,1,done,2025-08-03T16:50:10.666618+00:00,Requires follow-up
-73f7a4b1-f97a-414b-99cc-99c3b3943c17,1,Cleanup,0,in_progress,,
-b523a8fe-6f45-4c36-8267-1e89d60e3ad6,1,Cleanup,1,pending,,All good
-8f6b3360-24b9-478a-8675-140216c7c40f,1,Finalize documentation,1,pending,,
-f60622fa-0292-4447-9038-03bebb5b651f,1,Cleanup,1,in_progress,,Requires follow-up
-afd4ecbf-5bb0-43c5-a29b-b8310e2d5400,1,Quality check,0,in_progress,,N/A
-afd4ecbf-5bb0-43c5-a29b-b8310e2d5400,2,Gather materials,1,in_progress,,N/A
-afd4ecbf-5bb0-43c5-a29b-b8310e2d5400,3,Perform task,1,pending,,Requires follow-up
-58ac0e8c-ce3c-4059-a992-34598f8bcb62,1,Quality check,1,in_progress,,All good
-58ac0e8c-ce3c-4059-a992-34598f8bcb62,2,Cleanup,0,done,2025-08-16T22:50:10.666618+00:00,See photos attached
-84a25ff3-fdc3-4d16-8ae9-26a605647b25,1,Quality check,1,pending,,All good
-84a25ff3-fdc3-4d16-8ae9-26a605647b25,2,Quality check,0,pending,,All good
-84a25ff3-fdc3-4d16-8ae9-26a605647b25,3,Gather materials,1,pending,,
-84a25ff3-fdc3-4d16-8ae9-26a605647b25,4,Finalize documentation,1,done,2025-08-23T08:50:10.666618+00:00,
-ed027028-0038-4cad-a444-2dd0bbe63c37,1,Quality check,0,in_progress,,All good
-ed027028-0038-4cad-a444-2dd0bbe63c37,2,Gather materials,1,done,2025-08-29T17:50:10.666618+00:00,N/A
-ed027028-0038-4cad-a444-2dd0bbe63c37,3,Gather materials,1,pending,,N/A
-76114d89-9e2d-415a-ac6c-77b844205f68,1,Quality check,0,done,2025-08-27T16:50:10.666618+00:00,All good
-ec0bdcaf-894f-49aa-95a3-ca4268634f72,1,Cleanup,0,pending,,See photos attached
-ec0bdcaf-894f-49aa-95a3-ca4268634f72,2,Gather materials,1,in_progress,,Requires follow-up
-2f0e6187-2920-45dc-85f9-a274dc80e342,1,Initial inspection,0,pending,,See photos attached
-4e4e4fd8-1df0-4e35-9dff-bb9d536855dc,1,Gather materials,1,in_progress,,All good
-4e4e4fd8-1df0-4e35-9dff-bb9d536855dc,2,Finalize documentation,1,in_progress,,Requires follow-up
-4e4e4fd8-1df0-4e35-9dff-bb9d536855dc,3,Cleanup,1,pending,,All good
-bd26556b-a46a-405e-81d8-d77b47f94903,1,Initial inspection,0,in_progress,,
-bd26556b-a46a-405e-81d8-d77b47f94903,2,Gather materials,1,pending,,Requires follow-up
-bd26556b-a46a-405e-81d8-d77b47f94903,3,Cleanup,1,done,2025-08-14T23:50:10.666618+00:00,See photos attached
-bd26556b-a46a-405e-81d8-d77b47f94903,4,Cleanup,0,done,2025-08-22T12:50:10.666618+00:00,
-9d0cd3cd-36a8-4ac6-9344-e7f9a5bfae42,1,Initial inspection,1,in_progress,,
-9d0cd3cd-36a8-4ac6-9344-e7f9a5bfae42,2,Quality check,1,done,2025-08-13T21:50:10.666618+00:00,N/A
-9d0cd3cd-36a8-4ac6-9344-e7f9a5bfae42,3,Initial inspection,0,in_progress,,See photos attached
-9d0cd3cd-36a8-4ac6-9344-e7f9a5bfae42,4,Finalize documentation,1,pending,,
-18ac07ca-d590-42c0-9893-34f0d84bd0c4,1,Finalize documentation,0,in_progress,,See photos attached
-18ac07ca-d590-42c0-9893-34f0d84bd0c4,2,Quality check,0,pending,,N/A
-18ac07ca-d590-42c0-9893-34f0d84bd0c4,3,Perform task,0,in_progress,,All good
-18ac07ca-d590-42c0-9893-34f0d84bd0c4,4,Finalize documentation,0,in_progress,,
-b4a5f88a-2719-4446-a116-f469ea962284,1,Perform task,0,in_progress,,
-a8ca261f-d558-4780-b56d-f4763db41fd0,1,Finalize documentation,0,done,2025-08-21T12:50:10.666618+00:00,N/A
-a8ca261f-d558-4780-b56d-f4763db41fd0,2,Quality check,1,pending,,See photos attached
-dd79e7e6-94d4-4be9-8f65-ffabc78aba39,1,Cleanup,1,pending,,
-dd79e7e6-94d4-4be9-8f65-ffabc78aba39,2,Perform task,0,pending,,See photos attached
-3638d611-0ba0-4946-96f2-55580b4b9cfd,1,Finalize documentation,0,done,2025-08-11T09:50:10.666618+00:00,All good
-3638d611-0ba0-4946-96f2-55580b4b9cfd,2,Cleanup,1,done,2025-08-21T22:50:10.666618+00:00,Requires follow-up
-27533f6f-a956-436f-a575-525e75fcae83,1,Gather materials,1,in_progress,,All good
-27533f6f-a956-436f-a575-525e75fcae83,2,Gather materials,1,in_progress,,Requires follow-up
-27533f6f-a956-436f-a575-525e75fcae83,3,Cleanup,1,done,2025-08-08T09:50:10.666618+00:00,See photos attached
-27533f6f-a956-436f-a575-525e75fcae83,4,Gather materials,1,pending,,All good
-1be0571c-5070-42a9-99bb-9ef69ac9f291,1,Gather materials,0,pending,,N/A
-1be0571c-5070-42a9-99bb-9ef69ac9f291,2,Gather materials,1,done,2025-08-08T21:50:10.666618+00:00,All good
-1be0571c-5070-42a9-99bb-9ef69ac9f291,3,Perform task,1,pending,,See photos attached
-98cc8293-5abe-423e-bf05-0f461b9d4a9b,1,Perform task,1,in_progress,,Requires follow-up
-98cc8293-5abe-423e-bf05-0f461b9d4a9b,2,Gather materials,1,in_progress,,
-98cc8293-5abe-423e-bf05-0f461b9d4a9b,3,Cleanup,0,in_progress,,Requires follow-up
-ee18f731-ea7b-4e35-8e27-d9c558937594,1,Quality check,1,done,2025-08-23T13:50:10.666618+00:00,All good
-36b695b7-d423-48d2-91bd-0ce58de810a6,1,Perform task,1,pending,,
-36b695b7-d423-48d2-91bd-0ce58de810a6,2,Quality check,1,pending,,
-10bb3473-e4bc-4713-9fd9-1710f4d493ba,1,Cleanup,1,pending,,See photos attached
-c15fbe9c-f168-424e-b727-1bf6f45c40d8,1,Perform task,1,in_progress,,All good
-c15fbe9c-f168-424e-b727-1bf6f45c40d8,2,Initial inspection,1,pending,,Requires follow-up
-b1dbf7b4-9088-46a5-bebc-979906112965,1,Cleanup,1,in_progress,,See photos attached
-b1dbf7b4-9088-46a5-bebc-979906112965,2,Cleanup,1,done,2025-08-13T19:50:10.666618+00:00,
-7cc544e0-56dc-442f-9dcb-552173817e18,1,Quality check,0,pending,,
-7cc544e0-56dc-442f-9dcb-552173817e18,2,Quality check,0,done,2025-08-03T07:50:10.666618+00:00,Requires follow-up
-182dd584-ca5c-44a3-8c0a-f14bddd43112,1,Gather materials,1,in_progress,,Requires follow-up
-9fdf405a-b1d9-445e-9693-8007503d67f4,1,Finalize documentation,0,in_progress,,See photos attached
-9fdf405a-b1d9-445e-9693-8007503d67f4,2,Initial inspection,1,done,2025-08-02T16:50:10.666618+00:00,See photos attached
-d581c031-f712-424e-bdec-19d05b2c383b,1,Cleanup,0,pending,,See photos attached
-d581c031-f712-424e-bdec-19d05b2c383b,2,Quality check,1,pending,,All good
-d581c031-f712-424e-bdec-19d05b2c383b,3,Cleanup,0,pending,,All good
-51cf14f2-ae67-4516-ba0f-3d25f567744f,1,Initial inspection,0,in_progress,,See photos attached
-6d705339-cd3b-4da2-8575-64be9023641d,1,Cleanup,0,pending,,
-d80fe341-e6dc-48a0-b1cb-8bed5a6e4474,1,Cleanup,1,done,2025-08-06T17:50:10.666618+00:00,
-e11127cf-8a53-4062-8fc1-a77ecec258cf,1,Gather materials,1,in_progress,,
-e11127cf-8a53-4062-8fc1-a77ecec258cf,2,Quality check,0,pending,,See photos attached
-e11127cf-8a53-4062-8fc1-a77ecec258cf,3,Perform task,1,in_progress,,See photos attached
-82511fb1-de71-479b-bb5b-c3b78b06836e,1,Perform task,1,in_progress,,
-82511fb1-de71-479b-bb5b-c3b78b06836e,2,Gather materials,1,in_progress,,
-82511fb1-de71-479b-bb5b-c3b78b06836e,3,Quality check,1,done,2025-08-13T09:50:10.666618+00:00,N/A
-c249966d-804d-4be6-8aae-22e4cf6643c2,1,Initial inspection,1,in_progress,,All good
-c249966d-804d-4be6-8aae-22e4cf6643c2,2,Initial inspection,1,in_progress,,Requires follow-up
-c249966d-804d-4be6-8aae-22e4cf6643c2,3,Quality check,1,pending,,N/A
-c5f6932d-01cf-4989-8730-424a0b9a0dfb,1,Finalize documentation,1,pending,,N/A
-8fbdb16f-c018-463c-8263-b6ee2d5381d3,1,Quality check,1,in_progress,,Requires follow-up
-8fbdb16f-c018-463c-8263-b6ee2d5381d3,2,Initial inspection,1,pending,,See photos attached
-d5131dde-dac5-4466-a6ef-637c30c4572e,1,Gather materials,0,pending,,All good
-f2c24f4b-82c3-4fc9-bf6f-dd16da8ad345,1,Finalize documentation,0,in_progress,,N/A
-f2c24f4b-82c3-4fc9-bf6f-dd16da8ad345,2,Quality check,1,in_progress,,N/A
-f2c24f4b-82c3-4fc9-bf6f-dd16da8ad345,3,Perform task,1,pending,,
-f2c24f4b-82c3-4fc9-bf6f-dd16da8ad345,4,Cleanup,1,in_progress,,Requires follow-up
-55873eb7-2590-4d1f-a6d1-6b8212180e8b,1,Finalize documentation,0,in_progress,,Requires follow-up
-55873eb7-2590-4d1f-a6d1-6b8212180e8b,2,Gather materials,1,pending,,All good
-55877b1d-e567-425b-8fa9-c010612283a5,1,Initial inspection,0,pending,,Requires follow-up
-55877b1d-e567-425b-8fa9-c010612283a5,2,Gather materials,1,in_progress,,
-82c4a05a-4900-49bc-a5f1-fa6b0f92e830,1,Perform task,0,pending,,
-a1657eea-4cc7-48c3-8f37-2d0132fc012d,1,Quality check,0,pending,,
-a1657eea-4cc7-48c3-8f37-2d0132fc012d,2,Initial inspection,1,pending,,Requires follow-up
-a1657eea-4cc7-48c3-8f37-2d0132fc012d,3,Perform task,1,pending,,
-2e3df4d5-35ea-4e6c-9556-f5fa722e3eec,1,Gather materials,1,in_progress,,
-2e3df4d5-35ea-4e6c-9556-f5fa722e3eec,2,Gather materials,1,done,2025-08-11T06:50:10.666618+00:00,All good
-2e3df4d5-35ea-4e6c-9556-f5fa722e3eec,3,Gather materials,0,in_progress,,Requires follow-up
-2e3df4d5-35ea-4e6c-9556-f5fa722e3eec,4,Quality check,0,pending,,All good
-34fa92a3-c003-4062-a6d6-48613d53fdd8,1,Perform task,1,done,2025-08-19T11:50:10.666618+00:00,N/A
-34fa92a3-c003-4062-a6d6-48613d53fdd8,2,Cleanup,1,in_progress,,See photos attached
-34fa92a3-c003-4062-a6d6-48613d53fdd8,3,Finalize documentation,1,pending,,
-974bda0b-c866-41b7-9439-6656bdd2e712,1,Perform task,1,in_progress,,All good
+cf777c8e-5677-4f4b-94fc-9db36adb809f,1,Finalize documentation,1,pending,,N/A
+cf777c8e-5677-4f4b-94fc-9db36adb809f,2,Quality check,1,done,2025-08-08T15:43:11.441222+00:00,
+cf777c8e-5677-4f4b-94fc-9db36adb809f,3,Quality check,1,done,2025-08-30T23:43:11.441222+00:00,See photos attached
+cf777c8e-5677-4f4b-94fc-9db36adb809f,4,Gather materials,0,pending,,All good
+ee1e5220-618d-414a-bd42-2ae8ce0a5ee7,1,Gather materials,1,pending,,N/A
+ee1e5220-618d-414a-bd42-2ae8ce0a5ee7,2,Gather materials,1,in_progress,,
+ee1e5220-618d-414a-bd42-2ae8ce0a5ee7,3,Initial inspection,1,done,2025-08-06T13:43:11.441222+00:00,
+ee1e5220-618d-414a-bd42-2ae8ce0a5ee7,4,Finalize documentation,1,pending,,
+c1ea5e5f-8529-4a14-bc80-d2bfb96d4496,1,Finalize documentation,1,pending,,Requires follow-up
+c1ea5e5f-8529-4a14-bc80-d2bfb96d4496,2,Finalize documentation,1,pending,,See photos attached
+c1ea5e5f-8529-4a14-bc80-d2bfb96d4496,3,Finalize documentation,1,done,2025-08-15T00:43:11.441222+00:00,All good
+c1ea5e5f-8529-4a14-bc80-d2bfb96d4496,4,Initial inspection,1,done,2025-08-15T23:43:11.441222+00:00,N/A
+1765c2c4-356a-4e1a-8ace-dc70cbded1f4,1,Cleanup,1,done,2025-08-15T23:43:11.441222+00:00,Requires follow-up
+1765c2c4-356a-4e1a-8ace-dc70cbded1f4,2,Cleanup,1,in_progress,,Requires follow-up
+1765c2c4-356a-4e1a-8ace-dc70cbded1f4,3,Quality check,0,done,2025-08-18T23:43:11.441222+00:00,N/A
+c1ad9c2e-d217-48e6-9dfd-5219eef96ea9,1,Cleanup,1,in_progress,,Requires follow-up
+c1ad9c2e-d217-48e6-9dfd-5219eef96ea9,2,Cleanup,0,done,2025-08-26T09:43:11.441222+00:00,All good
+c1ad9c2e-d217-48e6-9dfd-5219eef96ea9,3,Cleanup,1,done,2025-08-21T11:43:11.441222+00:00,See photos attached
+c1ad9c2e-d217-48e6-9dfd-5219eef96ea9,4,Perform task,1,in_progress,,Requires follow-up
+a7de91e4-4e60-4b86-9fd3-33e6c9758cd1,1,Cleanup,1,pending,,
+7054ed75-85cb-4fc0-9010-16a5b487c860,1,Gather materials,1,pending,,All good
+7054ed75-85cb-4fc0-9010-16a5b487c860,2,Quality check,1,in_progress,,All good
+7054ed75-85cb-4fc0-9010-16a5b487c860,3,Gather materials,0,pending,,Requires follow-up
+7054ed75-85cb-4fc0-9010-16a5b487c860,4,Finalize documentation,0,done,2025-08-23T15:43:11.441222+00:00,N/A
+fa6ed1b1-6ea1-4e0c-91b0-9e7380b01e17,1,Perform task,0,pending,,
+fa6ed1b1-6ea1-4e0c-91b0-9e7380b01e17,2,Gather materials,0,pending,,All good
+dc80a5b2-49e7-484a-8dba-6ed75a4467a3,1,Perform task,1,pending,,Requires follow-up
+dc80a5b2-49e7-484a-8dba-6ed75a4467a3,2,Initial inspection,1,pending,,
+8d023a7b-8cca-4e62-8f3a-98af2c76ee1b,1,Perform task,0,pending,,N/A
+8d023a7b-8cca-4e62-8f3a-98af2c76ee1b,2,Finalize documentation,0,pending,,Requires follow-up
+8d023a7b-8cca-4e62-8f3a-98af2c76ee1b,3,Finalize documentation,0,pending,,Requires follow-up
+8d023a7b-8cca-4e62-8f3a-98af2c76ee1b,4,Initial inspection,1,done,2025-08-05T20:43:11.441222+00:00,N/A
+ce937c2c-3ae6-413a-868a-2f7070c28b8f,1,Finalize documentation,1,pending,,All good
+ce937c2c-3ae6-413a-868a-2f7070c28b8f,2,Initial inspection,0,in_progress,,
+ce937c2c-3ae6-413a-868a-2f7070c28b8f,3,Quality check,0,in_progress,,N/A
+ce937c2c-3ae6-413a-868a-2f7070c28b8f,4,Initial inspection,0,in_progress,,See photos attached
+a8c13494-57d6-400c-a350-4706e93d926b,1,Perform task,1,done,2025-08-19T14:43:11.441222+00:00,Requires follow-up
+a8c13494-57d6-400c-a350-4706e93d926b,2,Gather materials,1,pending,,See photos attached
+a8c13494-57d6-400c-a350-4706e93d926b,3,Quality check,1,pending,,N/A
+a8c13494-57d6-400c-a350-4706e93d926b,4,Finalize documentation,0,in_progress,,Requires follow-up
+76d946f6-f850-4692-965d-152d1a2f8c70,1,Quality check,0,pending,,
+e52b8531-641e-45e8-9b1f-f2699fae8918,1,Gather materials,1,pending,,See photos attached
+e52b8531-641e-45e8-9b1f-f2699fae8918,2,Gather materials,0,in_progress,,
+1d86051f-2f32-4013-956f-17f64c4da978,1,Gather materials,1,done,2025-08-11T12:43:11.441222+00:00,Requires follow-up
+9a275389-0e3c-4750-bc8d-1871c3d76c30,1,Perform task,1,in_progress,,All good
+9a275389-0e3c-4750-bc8d-1871c3d76c30,2,Perform task,1,pending,,N/A
+0e9c820c-6513-4789-9fec-55d6d2c30c18,1,Quality check,1,done,2025-08-14T21:43:11.441222+00:00,See photos attached
+0e9c820c-6513-4789-9fec-55d6d2c30c18,2,Perform task,0,in_progress,,Requires follow-up
+0e9c820c-6513-4789-9fec-55d6d2c30c18,3,Initial inspection,0,in_progress,,Requires follow-up
+0f94e000-3637-4687-8ec4-9211cea741f7,1,Finalize documentation,1,pending,,See photos attached
+0f94e000-3637-4687-8ec4-9211cea741f7,2,Cleanup,1,in_progress,,Requires follow-up
+0f94e000-3637-4687-8ec4-9211cea741f7,3,Perform task,1,done,2025-08-02T10:43:11.441222+00:00,Requires follow-up
+f56208e1-5cf9-477a-8ca4-a919132de568,1,Finalize documentation,0,in_progress,,Requires follow-up
+f56208e1-5cf9-477a-8ca4-a919132de568,2,Cleanup,0,in_progress,,N/A
+f56208e1-5cf9-477a-8ca4-a919132de568,3,Quality check,1,in_progress,,N/A
+f56208e1-5cf9-477a-8ca4-a919132de568,4,Gather materials,1,pending,,
+6b805b27-0d8c-4661-af38-49d2785ae3a9,1,Finalize documentation,0,done,2025-08-03T13:43:11.441222+00:00,
+6b805b27-0d8c-4661-af38-49d2785ae3a9,2,Initial inspection,0,in_progress,,All good
+6b805b27-0d8c-4661-af38-49d2785ae3a9,3,Initial inspection,1,done,2025-08-11T18:43:11.441222+00:00,Requires follow-up
+b58a9623-16c6-401c-bca3-a1a8ffd38788,1,Initial inspection,1,in_progress,,
+b58a9623-16c6-401c-bca3-a1a8ffd38788,2,Cleanup,0,pending,,See photos attached
+07d029c0-dda3-4f7f-845b-81d9761876b0,1,Cleanup,1,pending,,Requires follow-up
+07d029c0-dda3-4f7f-845b-81d9761876b0,2,Gather materials,0,pending,,N/A
+07d029c0-dda3-4f7f-845b-81d9761876b0,3,Finalize documentation,0,pending,,N/A
+07d029c0-dda3-4f7f-845b-81d9761876b0,4,Cleanup,0,pending,,All good
+04083b2e-de4c-4fad-85d2-fda4f664d2dd,1,Initial inspection,1,done,2025-08-03T18:43:11.441222+00:00,All good
+b4a079e0-b930-4d82-b4c9-9e6c3e095549,1,Initial inspection,1,done,2025-08-13T15:43:11.441222+00:00,See photos attached
+b4a079e0-b930-4d82-b4c9-9e6c3e095549,2,Cleanup,1,done,2025-08-15T20:43:11.441222+00:00,See photos attached
+b4a079e0-b930-4d82-b4c9-9e6c3e095549,3,Quality check,1,pending,,N/A
+974555de-b9e1-4fb0-86cc-1ab84005b706,1,Perform task,0,done,2025-08-17T09:43:11.441222+00:00,N/A
+974555de-b9e1-4fb0-86cc-1ab84005b706,2,Quality check,0,in_progress,,Requires follow-up
+974555de-b9e1-4fb0-86cc-1ab84005b706,3,Initial inspection,1,done,2025-08-19T15:43:11.441222+00:00,All good
+974555de-b9e1-4fb0-86cc-1ab84005b706,4,Gather materials,1,done,2025-08-04T20:43:11.441222+00:00,Requires follow-up
+c0051730-396b-4bdb-adf3-8d0a7664089f,1,Initial inspection,1,pending,,
+c0051730-396b-4bdb-adf3-8d0a7664089f,2,Quality check,0,done,2025-08-12T06:43:11.441222+00:00,N/A
+c0051730-396b-4bdb-adf3-8d0a7664089f,3,Initial inspection,1,pending,,Requires follow-up
+c0051730-396b-4bdb-adf3-8d0a7664089f,4,Finalize documentation,1,pending,,N/A
+90f08260-0a0d-49a2-9539-6625668af36e,1,Perform task,0,in_progress,,
+c56b4b6b-db26-4104-a5ac-2ec03d579dfe,1,Gather materials,1,done,2025-09-01T07:43:11.441222+00:00,See photos attached
+c7dfb66a-edfd-4f31-82c5-7a5161ecab13,1,Quality check,0,done,2025-08-20T23:43:11.441222+00:00,All good
+b39c70db-1b1e-4079-a878-ee3234c609ce,1,Gather materials,0,in_progress,,See photos attached
+b39c70db-1b1e-4079-a878-ee3234c609ce,2,Initial inspection,0,done,2025-08-27T16:43:11.441222+00:00,
+b39c70db-1b1e-4079-a878-ee3234c609ce,3,Finalize documentation,0,done,2025-08-06T15:43:11.441222+00:00,
+4b0421ee-41c5-43da-accf-5ce83af0e69f,1,Gather materials,1,done,2025-08-20T08:43:11.441222+00:00,N/A
+3fef9108-12b2-48d6-8461-826445dbe257,1,Perform task,0,pending,,All good
+3fef9108-12b2-48d6-8461-826445dbe257,2,Perform task,0,pending,,See photos attached
+4987d84d-432f-417f-b86b-d496438c32eb,1,Finalize documentation,0,pending,,
+4987d84d-432f-417f-b86b-d496438c32eb,2,Quality check,0,done,2025-08-04T12:43:11.441222+00:00,All good
+a4a7005a-6c4b-4a94-857c-55bad0118608,1,Quality check,1,in_progress,,
+a4a7005a-6c4b-4a94-857c-55bad0118608,2,Perform task,0,done,2025-08-08T13:43:11.441222+00:00,See photos attached
+d5fbb8c3-91cb-4f2c-b248-18bb77974b6e,1,Finalize documentation,0,in_progress,,N/A
+3e95f80d-bf95-415a-b37e-317a8ae3f48f,1,Cleanup,1,in_progress,,N/A
+3e95f80d-bf95-415a-b37e-317a8ae3f48f,2,Gather materials,0,done,2025-08-23T15:43:11.441222+00:00,See photos attached
+1a23ef97-befa-461f-89f4-cd34d1b6db93,1,Gather materials,0,in_progress,,See photos attached
+1a23ef97-befa-461f-89f4-cd34d1b6db93,2,Initial inspection,1,in_progress,,N/A
+717e064d-a091-44b0-be8d-833d0e8f0c72,1,Quality check,0,pending,,
+717e064d-a091-44b0-be8d-833d0e8f0c72,2,Perform task,1,done,2025-08-09T21:43:11.441222+00:00,See photos attached
+717e064d-a091-44b0-be8d-833d0e8f0c72,3,Perform task,1,in_progress,,
+717e064d-a091-44b0-be8d-833d0e8f0c72,4,Finalize documentation,0,in_progress,,Requires follow-up
+eeec58ce-ef3e-4a19-8095-0dec3102f0ec,1,Cleanup,1,done,2025-08-22T08:43:11.441222+00:00,Requires follow-up
+eeec58ce-ef3e-4a19-8095-0dec3102f0ec,2,Quality check,0,done,2025-08-03T00:43:11.441222+00:00,See photos attached
+fc6dccd4-0388-4dbc-a72c-82b1b75ac267,1,Gather materials,0,pending,,All good
+7ff379bd-75d7-49c0-b2f8-04bac3bc7322,1,Finalize documentation,1,pending,,See photos attached
+7ff379bd-75d7-49c0-b2f8-04bac3bc7322,2,Quality check,0,pending,,
+7ff379bd-75d7-49c0-b2f8-04bac3bc7322,3,Cleanup,0,done,2025-08-15T19:43:11.441222+00:00,All good
+6314fc1e-9dbe-4d33-b0cd-7f4da654054d,1,Cleanup,1,in_progress,,See photos attached
+3c82e972-6197-4844-b746-0247671746d9,1,Quality check,1,in_progress,,
+045661ff-d059-4aed-9f2e-08149c411591,1,Quality check,0,pending,,See photos attached
+045661ff-d059-4aed-9f2e-08149c411591,2,Perform task,1,in_progress,,N/A
+d53abc74-85fa-4d63-9048-62f78a11b4d3,1,Gather materials,0,in_progress,,See photos attached
+725fa675-d4bb-453a-bbd9-d009f06dd884,1,Gather materials,1,done,2025-08-03T20:43:11.441222+00:00,Requires follow-up
+725fa675-d4bb-453a-bbd9-d009f06dd884,2,Finalize documentation,0,in_progress,,All good
+0915aebf-f819-4cbb-93cc-ed2dcac0a65a,1,Gather materials,1,pending,,
+0915aebf-f819-4cbb-93cc-ed2dcac0a65a,2,Gather materials,0,pending,,All good
+0915aebf-f819-4cbb-93cc-ed2dcac0a65a,3,Initial inspection,1,pending,,Requires follow-up
+0915aebf-f819-4cbb-93cc-ed2dcac0a65a,4,Gather materials,1,in_progress,,All good
+491ed9ad-80aa-44ad-85e1-87b8f72213b0,1,Cleanup,1,done,2025-08-07T11:43:11.441222+00:00,Requires follow-up
+491ed9ad-80aa-44ad-85e1-87b8f72213b0,2,Quality check,0,done,2025-08-21T19:43:11.441222+00:00,See photos attached
+491ed9ad-80aa-44ad-85e1-87b8f72213b0,3,Cleanup,0,in_progress,,
+491ed9ad-80aa-44ad-85e1-87b8f72213b0,4,Cleanup,1,pending,,N/A
+d95f12c7-af00-4de9-b560-076a6ccc1711,1,Initial inspection,1,pending,,Requires follow-up
+d95f12c7-af00-4de9-b560-076a6ccc1711,2,Cleanup,1,done,2025-08-03T15:43:11.441222+00:00,See photos attached
+d95f12c7-af00-4de9-b560-076a6ccc1711,3,Initial inspection,0,done,2025-08-16T07:43:11.441222+00:00,All good
+ae43dd60-1fb2-4c0d-a63d-e20499bb2c24,1,Gather materials,0,in_progress,,
+9398c6c1-a145-4802-ac1b-a36ff72d4c5d,1,Perform task,0,done,2025-08-30T00:43:11.441222+00:00,See photos attached
+d8a4c90c-b42e-440f-80b9-12070e5a8f97,1,Finalize documentation,0,done,2025-08-29T09:43:11.441222+00:00,
+1750a0d4-4e6e-408c-b18f-f9be0f6f3ffd,1,Initial inspection,0,in_progress,,N/A
+1750a0d4-4e6e-408c-b18f-f9be0f6f3ffd,2,Finalize documentation,1,done,2025-08-16T17:43:11.441222+00:00,N/A
+1750a0d4-4e6e-408c-b18f-f9be0f6f3ffd,3,Cleanup,1,done,2025-08-10T13:43:11.441222+00:00,Requires follow-up
+1750a0d4-4e6e-408c-b18f-f9be0f6f3ffd,4,Perform task,1,pending,,
+da795ff3-a97e-43be-99a9-e7938e7b9f92,1,Gather materials,1,done,2025-08-12T12:43:11.441222+00:00,
+da795ff3-a97e-43be-99a9-e7938e7b9f92,2,Quality check,0,pending,,N/A
+da795ff3-a97e-43be-99a9-e7938e7b9f92,3,Finalize documentation,0,done,2025-08-24T22:43:11.441222+00:00,Requires follow-up
+715a64a8-62d1-42fd-b210-e3b4301c9953,1,Cleanup,1,pending,,Requires follow-up
+715a64a8-62d1-42fd-b210-e3b4301c9953,2,Finalize documentation,0,done,2025-08-13T09:43:11.441222+00:00,
+715a64a8-62d1-42fd-b210-e3b4301c9953,3,Initial inspection,0,in_progress,,See photos attached
+715a64a8-62d1-42fd-b210-e3b4301c9953,4,Finalize documentation,1,in_progress,,See photos attached
+df3c340b-938d-4d47-99f1-d03d6ffc1dc6,1,Initial inspection,0,in_progress,,Requires follow-up
+df3c340b-938d-4d47-99f1-d03d6ffc1dc6,2,Gather materials,0,pending,,N/A
+df3c340b-938d-4d47-99f1-d03d6ffc1dc6,3,Quality check,1,in_progress,,
+d8157167-4642-46ac-b6b4-85a6948a918f,1,Quality check,1,pending,,N/A
+d8157167-4642-46ac-b6b4-85a6948a918f,2,Gather materials,0,in_progress,,See photos attached
+d8157167-4642-46ac-b6b4-85a6948a918f,3,Quality check,1,in_progress,,All good
+aed2bebe-c886-449f-87f3-a24e96390b74,1,Finalize documentation,1,pending,,Requires follow-up
+9c05ca03-079e-40fb-896a-462baca83a4b,1,Perform task,1,in_progress,,All good
+9c05ca03-079e-40fb-896a-462baca83a4b,2,Cleanup,1,done,2025-08-14T10:43:11.441222+00:00,See photos attached
+9c05ca03-079e-40fb-896a-462baca83a4b,3,Cleanup,1,in_progress,,N/A
+9c05ca03-079e-40fb-896a-462baca83a4b,4,Initial inspection,1,done,2025-08-11T15:43:11.441222+00:00,See photos attached
+6e18a0e6-6e14-4ae9-b60f-53699d124fc5,1,Cleanup,1,done,2025-08-29T08:43:11.441222+00:00,See photos attached
+e5a286d9-08b4-4230-80f9-950a1481e69a,1,Quality check,1,done,2025-08-13T13:43:11.441222+00:00,
+9ba62abf-0113-4f8d-9e67-3d668e8ca8de,1,Perform task,1,done,2025-08-20T17:43:11.441222+00:00,Requires follow-up
+8f011815-bd85-4da2-9b14-e7a672b8b59d,1,Perform task,1,pending,,See photos attached
+8f011815-bd85-4da2-9b14-e7a672b8b59d,2,Perform task,1,done,2025-08-16T11:43:11.441222+00:00,
+b9d64ac9-1ae1-4ac1-a910-7792bf712870,1,Finalize documentation,1,pending,,
+6310e4e4-6e35-4a80-ae87-4622c6401a51,1,Finalize documentation,1,in_progress,,N/A
+6310e4e4-6e35-4a80-ae87-4622c6401a51,2,Perform task,1,done,2025-09-01T00:43:11.441222+00:00,All good
+1902ab9f-db81-4c04-9ebb-5a5c69c2d5dc,1,Initial inspection,0,pending,,
+5e31dc81-a07f-4900-b7bd-fc52f9f66830,1,Cleanup,0,done,2025-08-09T10:43:11.441222+00:00,All good
+5e31dc81-a07f-4900-b7bd-fc52f9f66830,2,Initial inspection,1,done,2025-08-14T18:43:11.441222+00:00,N/A
+5e31dc81-a07f-4900-b7bd-fc52f9f66830,3,Cleanup,1,in_progress,,
+38bb4e0b-4dd4-42bd-8c5a-545ffa0a0f44,1,Perform task,0,pending,,See photos attached
+38bb4e0b-4dd4-42bd-8c5a-545ffa0a0f44,2,Cleanup,0,in_progress,,All good
+38bb4e0b-4dd4-42bd-8c5a-545ffa0a0f44,3,Cleanup,1,done,2025-08-27T23:43:11.441222+00:00,N/A
+ca35474f-58c9-4a2e-8d4e-ab29ada01fbe,1,Gather materials,1,done,2025-08-05T16:43:11.441222+00:00,N/A
+ca35474f-58c9-4a2e-8d4e-ab29ada01fbe,2,Gather materials,1,in_progress,,All good
+ca35474f-58c9-4a2e-8d4e-ab29ada01fbe,3,Gather materials,0,pending,,All good
+ca35474f-58c9-4a2e-8d4e-ab29ada01fbe,4,Cleanup,1,done,2025-08-13T17:43:11.441222+00:00,See photos attached
+dc768dea-2062-46a9-9f34-531ddf7a0641,1,Cleanup,0,pending,,See photos attached
+dc768dea-2062-46a9-9f34-531ddf7a0641,2,Gather materials,0,in_progress,,
+dc768dea-2062-46a9-9f34-531ddf7a0641,3,Cleanup,1,done,2025-08-27T08:43:11.441222+00:00,Requires follow-up
+dc768dea-2062-46a9-9f34-531ddf7a0641,4,Initial inspection,1,pending,,
+03b03fa6-e890-46ac-a9da-8912b4675326,1,Finalize documentation,1,pending,,
+03b03fa6-e890-46ac-a9da-8912b4675326,2,Finalize documentation,1,pending,,Requires follow-up
+03b03fa6-e890-46ac-a9da-8912b4675326,3,Finalize documentation,1,in_progress,,N/A
+f36633d7-c9fc-4d04-ab4a-90d78a3124ac,1,Cleanup,1,in_progress,,All good
+f36633d7-c9fc-4d04-ab4a-90d78a3124ac,2,Perform task,0,in_progress,,Requires follow-up
+f36633d7-c9fc-4d04-ab4a-90d78a3124ac,3,Gather materials,1,pending,,Requires follow-up
+7c0b36f4-d93f-419c-aa0d-0aa9ebf8fa42,1,Perform task,1,in_progress,,See photos attached
+d8807942-b917-43e7-8775-29e0195df6f2,1,Finalize documentation,0,pending,,N/A
+d8807942-b917-43e7-8775-29e0195df6f2,2,Initial inspection,0,in_progress,,All good
+d8807942-b917-43e7-8775-29e0195df6f2,3,Perform task,1,in_progress,,See photos attached
+d8807942-b917-43e7-8775-29e0195df6f2,4,Perform task,0,pending,,
+2e607bac-5e08-4f32-925b-fddf4fe271be,1,Cleanup,1,in_progress,,
+2e607bac-5e08-4f32-925b-fddf4fe271be,2,Quality check,1,pending,,See photos attached
+6d31d27b-5d50-40ff-ac62-8d8aef9034d2,1,Gather materials,1,done,2025-08-23T12:43:11.441222+00:00,Requires follow-up
+b9c4df93-231f-4697-ad73-c0d6fa194a6e,1,Gather materials,1,pending,,All good
+b9c4df93-231f-4697-ad73-c0d6fa194a6e,2,Initial inspection,1,in_progress,,N/A
+b9c4df93-231f-4697-ad73-c0d6fa194a6e,3,Initial inspection,0,pending,,See photos attached
+16b36cd5-6771-4532-ab04-727f661f03eb,1,Perform task,0,in_progress,,All good
+10e59cb2-1b2d-4a8c-b73f-131c4db59e63,1,Perform task,1,pending,,N/A
+10e59cb2-1b2d-4a8c-b73f-131c4db59e63,2,Perform task,1,pending,,See photos attached
+ccd8ad0f-57e2-4224-8334-4550ee46485e,1,Gather materials,1,in_progress,,See photos attached
+ccd8ad0f-57e2-4224-8334-4550ee46485e,2,Quality check,0,done,2025-08-11T11:43:11.441222+00:00,N/A
+8faaeda5-f283-4d33-b26b-a226ca089032,1,Finalize documentation,1,pending,,All good
+8faaeda5-f283-4d33-b26b-a226ca089032,2,Finalize documentation,0,done,2025-08-28T09:43:11.441222+00:00,Requires follow-up
+8faaeda5-f283-4d33-b26b-a226ca089032,3,Gather materials,0,done,2025-08-19T23:43:11.441222+00:00,Requires follow-up
+f210fa50-ee7f-457c-bcb3-89a350f63190,1,Finalize documentation,1,pending,,Requires follow-up
+f210fa50-ee7f-457c-bcb3-89a350f63190,2,Perform task,0,in_progress,,N/A
+f210fa50-ee7f-457c-bcb3-89a350f63190,3,Finalize documentation,1,pending,,All good
+f210fa50-ee7f-457c-bcb3-89a350f63190,4,Initial inspection,1,pending,,Requires follow-up
+903f767c-a131-4dbe-a8bd-d9bd2e75ff98,1,Cleanup,0,in_progress,,
+903f767c-a131-4dbe-a8bd-d9bd2e75ff98,2,Quality check,0,in_progress,,N/A
+993fc9a1-ebe0-4ee5-b9ec-13e6fe56b22a,1,Quality check,1,pending,,
+ace3f683-0299-4ad3-9098-0b36376b976a,1,Quality check,0,in_progress,,See photos attached
+15b8373b-d251-47b4-806b-75680e11b219,1,Finalize documentation,0,in_progress,,
+15b8373b-d251-47b4-806b-75680e11b219,2,Perform task,0,done,2025-08-11T07:43:11.441222+00:00,Requires follow-up
+15b8373b-d251-47b4-806b-75680e11b219,3,Finalize documentation,0,in_progress,,
+15b8373b-d251-47b4-806b-75680e11b219,4,Perform task,1,in_progress,,N/A
+f3943ccf-ba4e-46d7-96cc-2a189e2c390f,1,Gather materials,0,pending,,
+f3943ccf-ba4e-46d7-96cc-2a189e2c390f,2,Cleanup,1,in_progress,,N/A
+f3943ccf-ba4e-46d7-96cc-2a189e2c390f,3,Finalize documentation,1,done,2025-08-14T14:43:11.441222+00:00,N/A
+0f74f0ab-0be9-44ea-aa70-04350fa50f3b,1,Perform task,1,pending,,
+0f74f0ab-0be9-44ea-aa70-04350fa50f3b,2,Perform task,1,in_progress,,N/A
+73be8c4e-6a7d-475e-84c3-2cbf19fe515e,1,Cleanup,0,done,2025-08-17T13:43:11.441222+00:00,See photos attached
+73be8c4e-6a7d-475e-84c3-2cbf19fe515e,2,Perform task,1,done,2025-08-06T22:43:11.441222+00:00,All good
+d48d461b-2064-4362-acba-c9b27e0030c0,1,Gather materials,0,pending,,N/A
+d48d461b-2064-4362-acba-c9b27e0030c0,2,Gather materials,0,done,2025-08-02T08:43:11.441222+00:00,Requires follow-up
+d48d461b-2064-4362-acba-c9b27e0030c0,3,Perform task,1,pending,,Requires follow-up
+d48d461b-2064-4362-acba-c9b27e0030c0,4,Cleanup,1,pending,,All good
+4b6569b8-46df-4705-b4e6-58f78405dc15,1,Quality check,0,in_progress,,
+f119c6ef-ca13-4342-b16f-7944097e472e,1,Initial inspection,0,in_progress,,Requires follow-up
+f119c6ef-ca13-4342-b16f-7944097e472e,2,Quality check,1,done,2025-08-15T10:43:11.441222+00:00,
+f119c6ef-ca13-4342-b16f-7944097e472e,3,Initial inspection,0,pending,,Requires follow-up
+f119c6ef-ca13-4342-b16f-7944097e472e,4,Quality check,1,in_progress,,N/A
+4f4f0120-e17c-426f-bf15-78e70ec79883,1,Finalize documentation,0,done,2025-08-06T22:43:11.441222+00:00,N/A
+4f4f0120-e17c-426f-bf15-78e70ec79883,2,Cleanup,1,done,2025-08-09T20:43:11.441222+00:00,
+c0c1b16f-2c49-41c6-bf3c-7322960721f6,1,Gather materials,0,in_progress,,N/A
+d773b6a4-04d3-4308-9c89-50fb0fd6b2f7,1,Initial inspection,1,done,2025-08-27T18:43:11.441222+00:00,See photos attached
+8329c4c7-6340-43cd-b0ff-35d4e98f16a5,1,Gather materials,1,done,2025-08-02T23:43:11.441222+00:00,See photos attached
+f831b154-8747-44b1-b6d7-b89fc340c8d9,1,Cleanup,0,done,2025-08-20T12:43:11.441222+00:00,All good
+f831b154-8747-44b1-b6d7-b89fc340c8d9,2,Initial inspection,1,done,2025-08-21T21:43:11.441222+00:00,Requires follow-up
+f7ef0e65-f2b1-4398-b9e6-4a7753487dab,1,Quality check,1,pending,,See photos attached
+f7ef0e65-f2b1-4398-b9e6-4a7753487dab,2,Cleanup,0,in_progress,,See photos attached
+f7ef0e65-f2b1-4398-b9e6-4a7753487dab,3,Quality check,1,done,2025-08-08T11:43:11.441222+00:00,
+f7ef0e65-f2b1-4398-b9e6-4a7753487dab,4,Gather materials,1,done,2025-08-18T23:43:11.441222+00:00,N/A
+4f6d5725-a2af-4039-a0b0-2ff3eca5074b,1,Cleanup,1,pending,,See photos attached
+4f6d5725-a2af-4039-a0b0-2ff3eca5074b,2,Cleanup,1,done,2025-08-21T11:43:11.441222+00:00,N/A
+4f6d5725-a2af-4039-a0b0-2ff3eca5074b,3,Perform task,1,in_progress,,
+8efb33b9-c3f2-4b1a-b902-6aac13a2eac1,1,Cleanup,0,pending,,All good
+e97956c5-7843-449d-8827-cb98d60f4a67,1,Gather materials,1,done,2025-08-14T12:43:11.441222+00:00,
+4fedc9f0-745a-44e5-85d6-e160d91470ec,1,Gather materials,1,in_progress,,All good
+4fedc9f0-745a-44e5-85d6-e160d91470ec,2,Perform task,1,in_progress,,All good
+4fedc9f0-745a-44e5-85d6-e160d91470ec,3,Quality check,0,in_progress,,N/A
+4fedc9f0-745a-44e5-85d6-e160d91470ec,4,Perform task,1,done,2025-08-09T12:43:11.441222+00:00,
+dad62b12-972b-4dcb-abaa-8a8ad96f8445,1,Finalize documentation,1,in_progress,,See photos attached
+dad62b12-972b-4dcb-abaa-8a8ad96f8445,2,Cleanup,0,in_progress,,All good
+3a3e1bc2-7702-4dcb-ae1f-a5ebbeb3ee5c,1,Cleanup,1,in_progress,,All good
+3a3e1bc2-7702-4dcb-ae1f-a5ebbeb3ee5c,2,Initial inspection,1,in_progress,,N/A
+3a3e1bc2-7702-4dcb-ae1f-a5ebbeb3ee5c,3,Initial inspection,1,in_progress,,All good
+e623aed6-12bb-41cc-b356-e39e1823bd71,1,Cleanup,1,pending,,See photos attached
+e623aed6-12bb-41cc-b356-e39e1823bd71,2,Quality check,1,done,2025-08-25T22:43:11.441222+00:00,
+e623aed6-12bb-41cc-b356-e39e1823bd71,3,Finalize documentation,1,done,2025-08-16T08:43:11.441222+00:00,Requires follow-up
+b42ead1c-a2d9-488f-ae06-08dc0b191de7,1,Perform task,1,pending,,Requires follow-up
+b42ead1c-a2d9-488f-ae06-08dc0b191de7,2,Initial inspection,0,pending,,Requires follow-up
+b42ead1c-a2d9-488f-ae06-08dc0b191de7,3,Initial inspection,1,done,2025-08-20T13:43:11.441222+00:00,All good
+2bf098ab-266e-4325-8b3e-baca3f030f02,1,Quality check,1,pending,,All good
+2bf098ab-266e-4325-8b3e-baca3f030f02,2,Initial inspection,1,in_progress,,
+2bf098ab-266e-4325-8b3e-baca3f030f02,3,Initial inspection,1,done,2025-08-22T22:43:11.441222+00:00,Requires follow-up
+2bf098ab-266e-4325-8b3e-baca3f030f02,4,Finalize documentation,1,done,2025-08-24T19:43:11.441222+00:00,N/A
+88621418-d00e-489a-98c1-92d603e2e2d7,1,Gather materials,1,in_progress,,Requires follow-up
+7cad2d51-4e34-4160-b5cd-52385c5fe150,1,Initial inspection,1,done,2025-08-14T06:43:11.441222+00:00,See photos attached
+7cad2d51-4e34-4160-b5cd-52385c5fe150,2,Cleanup,1,pending,,See photos attached
+7cad2d51-4e34-4160-b5cd-52385c5fe150,3,Gather materials,1,done,2025-09-01T12:43:11.441222+00:00,See photos attached
+7cad2d51-4e34-4160-b5cd-52385c5fe150,4,Perform task,1,pending,,N/A
+55795455-ee3e-453f-8fea-199c981c3b65,1,Quality check,1,in_progress,,Requires follow-up
+55795455-ee3e-453f-8fea-199c981c3b65,2,Gather materials,0,in_progress,,N/A
+8f92caa3-a4a3-4f07-a402-e007b4d4c96f,1,Quality check,1,in_progress,,N/A
+8f92caa3-a4a3-4f07-a402-e007b4d4c96f,2,Gather materials,1,pending,,See photos attached
+c39f25c2-f434-481c-8f8e-df0a0e2678f4,1,Initial inspection,1,done,2025-08-14T19:43:11.441222+00:00,Requires follow-up
+c39f25c2-f434-481c-8f8e-df0a0e2678f4,2,Initial inspection,0,in_progress,,
+c03f76b9-cbc2-4b73-a897-797eb928dfe1,1,Initial inspection,0,in_progress,,See photos attached
+c03f76b9-cbc2-4b73-a897-797eb928dfe1,2,Finalize documentation,1,done,2025-08-04T09:43:11.441222+00:00,All good
+c03f76b9-cbc2-4b73-a897-797eb928dfe1,3,Perform task,0,pending,,All good
+c03f76b9-cbc2-4b73-a897-797eb928dfe1,4,Initial inspection,0,pending,,N/A
+39d70759-88a3-4664-83d6-315fe419934c,1,Cleanup,1,pending,,
+39d70759-88a3-4664-83d6-315fe419934c,2,Initial inspection,1,pending,,N/A
+39d70759-88a3-4664-83d6-315fe419934c,3,Finalize documentation,0,done,2025-08-22T20:43:11.441222+00:00,N/A
+39d70759-88a3-4664-83d6-315fe419934c,4,Cleanup,0,done,2025-08-14T16:43:11.441222+00:00,See photos attached
+936ded79-3903-45f5-a145-506cb8757dc2,1,Initial inspection,1,in_progress,,All good
+936ded79-3903-45f5-a145-506cb8757dc2,2,Initial inspection,1,pending,,Requires follow-up
+936ded79-3903-45f5-a145-506cb8757dc2,3,Finalize documentation,0,in_progress,,N/A
+1bb1526d-62da-44a8-9de0-434db771e16a,1,Cleanup,0,pending,,Requires follow-up
+1bb1526d-62da-44a8-9de0-434db771e16a,2,Gather materials,1,done,2025-08-24T19:43:11.441222+00:00,
+1bb1526d-62da-44a8-9de0-434db771e16a,3,Quality check,1,pending,,All good
+07b70a6b-97e6-49cf-9262-97464caeda7b,1,Gather materials,1,done,2025-08-07T18:43:11.441222+00:00,Requires follow-up
+07b70a6b-97e6-49cf-9262-97464caeda7b,2,Cleanup,0,done,2025-08-27T00:43:11.441222+00:00,See photos attached
+622d3073-ffe1-4f46-b8ab-1fe098272d08,1,Cleanup,1,in_progress,,See photos attached
+622d3073-ffe1-4f46-b8ab-1fe098272d08,2,Finalize documentation,1,pending,,All good
+622d3073-ffe1-4f46-b8ab-1fe098272d08,3,Cleanup,0,done,2025-08-12T09:43:11.441222+00:00,Requires follow-up
+622d3073-ffe1-4f46-b8ab-1fe098272d08,4,Cleanup,0,pending,,N/A
+7df853e1-0cc6-4ab7-8abd-fa7a4bed8f69,1,Perform task,1,pending,,Requires follow-up
+8c61e3eb-f997-40a8-933d-2d36a94ca6cc,1,Perform task,1,in_progress,,See photos attached
+275248da-522f-49ff-a7db-2ce00e71caad,1,Finalize documentation,1,in_progress,,Requires follow-up
+275248da-522f-49ff-a7db-2ce00e71caad,2,Cleanup,1,pending,,Requires follow-up
+275248da-522f-49ff-a7db-2ce00e71caad,3,Initial inspection,0,done,2025-08-07T11:43:11.441222+00:00,All good
+275248da-522f-49ff-a7db-2ce00e71caad,4,Gather materials,0,in_progress,,Requires follow-up
+f311a740-6a73-4b56-a53b-d42b4bfd9777,1,Quality check,1,in_progress,,All good
+f311a740-6a73-4b56-a53b-d42b4bfd9777,2,Initial inspection,1,done,2025-08-13T19:43:11.441222+00:00,N/A
+f311a740-6a73-4b56-a53b-d42b4bfd9777,3,Quality check,0,in_progress,,All good
+f311a740-6a73-4b56-a53b-d42b4bfd9777,4,Perform task,1,done,2025-08-17T12:43:11.441222+00:00,All good
+6e22cf1b-3b0c-4816-a299-29a1364d1e88,1,Quality check,1,pending,,N/A
+6e22cf1b-3b0c-4816-a299-29a1364d1e88,2,Gather materials,1,in_progress,,See photos attached
+6e22cf1b-3b0c-4816-a299-29a1364d1e88,3,Perform task,0,in_progress,,See photos attached
+6e22cf1b-3b0c-4816-a299-29a1364d1e88,4,Gather materials,1,done,2025-08-30T09:43:11.441222+00:00,All good
+86ca9ce8-d08d-43bb-90a0-d4a702efb16c,1,Initial inspection,1,done,2025-08-31T21:43:11.441222+00:00,See photos attached
+86ca9ce8-d08d-43bb-90a0-d4a702efb16c,2,Initial inspection,0,in_progress,,N/A
+16ae8542-2b16-4512-81eb-ffee2a4b2843,1,Perform task,1,pending,,Requires follow-up
+16ae8542-2b16-4512-81eb-ffee2a4b2843,2,Cleanup,0,in_progress,,N/A
+16ae8542-2b16-4512-81eb-ffee2a4b2843,3,Perform task,1,pending,,
+255138ef-be45-469b-9f21-d4e2072df049,1,Initial inspection,0,done,2025-08-20T13:43:11.441222+00:00,All good
+255138ef-be45-469b-9f21-d4e2072df049,2,Initial inspection,1,in_progress,,N/A
+255138ef-be45-469b-9f21-d4e2072df049,3,Finalize documentation,1,done,2025-08-07T20:43:11.441222+00:00,N/A
+5e94d10b-a9d9-4724-81e5-a3d255efb29e,1,Perform task,1,in_progress,,All good
+5e94d10b-a9d9-4724-81e5-a3d255efb29e,2,Finalize documentation,1,in_progress,,
+5e94d10b-a9d9-4724-81e5-a3d255efb29e,3,Gather materials,0,in_progress,,All good
+cb41081e-f749-420c-8c8f-eb7ddf2bcd65,1,Quality check,0,done,2025-08-07T13:43:11.441222+00:00,Requires follow-up
+cb41081e-f749-420c-8c8f-eb7ddf2bcd65,2,Cleanup,1,pending,,All good
+8ecef2ec-2be6-4c69-9ab3-9c0bfc0ff324,1,Finalize documentation,1,pending,,
+dfa31f52-6db1-4f2d-ae1f-a0cb56eb1dcf,1,Finalize documentation,0,in_progress,,
+658d8e4b-b3f0-43d2-9c6f-3659dedadc5e,1,Quality check,1,in_progress,,N/A
+658d8e4b-b3f0-43d2-9c6f-3659dedadc5e,2,Initial inspection,0,in_progress,,
+658d8e4b-b3f0-43d2-9c6f-3659dedadc5e,3,Finalize documentation,1,done,2025-08-31T11:43:11.441222+00:00,Requires follow-up
+f328b6e8-8282-4db4-81c5-0e76e6ed6881,1,Quality check,1,pending,,
+fa0cc138-8b99-4d43-82e7-a7db2036c902,1,Initial inspection,0,in_progress,,See photos attached
+fa0cc138-8b99-4d43-82e7-a7db2036c902,2,Perform task,0,pending,,See photos attached
+71f852d2-5a80-414e-8a30-d6acc0e4047e,1,Cleanup,1,in_progress,,Requires follow-up
+71f852d2-5a80-414e-8a30-d6acc0e4047e,2,Cleanup,0,done,2025-08-26T08:43:11.441222+00:00,Requires follow-up
+71f852d2-5a80-414e-8a30-d6acc0e4047e,3,Cleanup,1,pending,,Requires follow-up
+71f852d2-5a80-414e-8a30-d6acc0e4047e,4,Initial inspection,0,done,2025-08-06T17:43:11.441222+00:00,See photos attached
+de02f6ff-5ca9-4174-b560-a6009ed9d9ff,1,Cleanup,0,done,2025-08-05T10:43:11.441222+00:00,All good
+de02f6ff-5ca9-4174-b560-a6009ed9d9ff,2,Perform task,1,in_progress,,N/A
+6d2a2eaa-3edc-40dc-9379-ef175c55c959,1,Finalize documentation,1,pending,,N/A
+ec032929-260b-4949-b3f8-342a160a6171,1,Initial inspection,0,done,2025-08-28T23:43:11.441222+00:00,See photos attached
+ec032929-260b-4949-b3f8-342a160a6171,2,Initial inspection,0,pending,,All good
+6ff96eff-76bb-40ed-bc0b-3d7b4b52a559,1,Gather materials,0,done,2025-08-18T08:43:11.441222+00:00,See photos attached
+6ff96eff-76bb-40ed-bc0b-3d7b4b52a559,2,Finalize documentation,1,pending,,Requires follow-up
+041179c3-6bcb-4719-b442-ca0c578196e4,1,Finalize documentation,0,pending,,See photos attached
+2c44a13a-5053-48dd-bb94-57e1aaf8cd9c,1,Cleanup,1,in_progress,,N/A
+2c44a13a-5053-48dd-bb94-57e1aaf8cd9c,2,Quality check,0,in_progress,,See photos attached
+2c44a13a-5053-48dd-bb94-57e1aaf8cd9c,3,Quality check,1,done,2025-08-19T23:43:11.441222+00:00,Requires follow-up
+2c44a13a-5053-48dd-bb94-57e1aaf8cd9c,4,Initial inspection,0,in_progress,,All good
+af2daced-1137-4e35-8f09-31aee1385d75,1,Gather materials,0,in_progress,,
+af2daced-1137-4e35-8f09-31aee1385d75,2,Cleanup,0,done,2025-08-05T19:43:11.441222+00:00,See photos attached
+af2daced-1137-4e35-8f09-31aee1385d75,3,Perform task,0,pending,,
+af2daced-1137-4e35-8f09-31aee1385d75,4,Initial inspection,0,pending,,All good
+75ea9ad6-62db-489f-a0e8-dbd906fa4979,1,Initial inspection,0,in_progress,,N/A
+75ea9ad6-62db-489f-a0e8-dbd906fa4979,2,Finalize documentation,1,in_progress,,N/A
+edfbd738-67c6-48ff-b90e-9e0c00c54d59,1,Cleanup,1,pending,,See photos attached
+edfbd738-67c6-48ff-b90e-9e0c00c54d59,2,Gather materials,0,done,2025-08-30T08:43:11.441222+00:00,Requires follow-up
+edfbd738-67c6-48ff-b90e-9e0c00c54d59,3,Initial inspection,1,done,2025-08-22T14:43:11.441222+00:00,N/A
+edfbd738-67c6-48ff-b90e-9e0c00c54d59,4,Initial inspection,1,done,2025-08-30T13:43:11.441222+00:00,All good
+c884d988-7237-4262-8061-d62c2c1e3643,1,Quality check,1,in_progress,,
+c884d988-7237-4262-8061-d62c2c1e3643,2,Finalize documentation,0,pending,,Requires follow-up
+a38a1eee-a5fc-445c-9259-371b3715c016,1,Cleanup,0,in_progress,,
+a38a1eee-a5fc-445c-9259-371b3715c016,2,Quality check,0,pending,,N/A
+fed838ef-585f-402e-8984-79ac4bd4efb2,1,Finalize documentation,0,pending,,N/A
+fed838ef-585f-402e-8984-79ac4bd4efb2,2,Perform task,1,pending,,N/A
+fed838ef-585f-402e-8984-79ac4bd4efb2,3,Cleanup,1,done,2025-08-11T22:43:11.441222+00:00,All good
+4f55f3a3-1360-4926-b683-be2ea9259272,1,Finalize documentation,1,in_progress,,See photos attached
+4f55f3a3-1360-4926-b683-be2ea9259272,2,Perform task,1,pending,,N/A
+4f55f3a3-1360-4926-b683-be2ea9259272,3,Gather materials,0,done,2025-08-05T15:43:11.441222+00:00,All good
+4f55f3a3-1360-4926-b683-be2ea9259272,4,Quality check,1,in_progress,,Requires follow-up
+957bb8c0-0418-428e-adec-656668a2599c,1,Cleanup,1,in_progress,,N/A
+957bb8c0-0418-428e-adec-656668a2599c,2,Finalize documentation,0,pending,,See photos attached
+459312b0-7919-41f2-91e4-9be9901543f1,1,Quality check,1,in_progress,,See photos attached
+459312b0-7919-41f2-91e4-9be9901543f1,2,Cleanup,0,done,2025-09-01T20:43:11.441222+00:00,
+6f35f47e-5663-4620-9d08-fdd044237d43,1,Finalize documentation,0,in_progress,,See photos attached
+6f35f47e-5663-4620-9d08-fdd044237d43,2,Cleanup,0,pending,,See photos attached
+6f35f47e-5663-4620-9d08-fdd044237d43,3,Finalize documentation,1,pending,,See photos attached
+aa351dec-13f1-4463-a047-a989f561d597,1,Quality check,1,done,2025-08-21T08:43:11.441222+00:00,
+aa351dec-13f1-4463-a047-a989f561d597,2,Finalize documentation,1,pending,,See photos attached
+aa351dec-13f1-4463-a047-a989f561d597,3,Quality check,1,in_progress,,N/A
+01d3de47-a88b-4a31-b10c-d9680eaf86ac,1,Gather materials,1,done,2025-09-01T06:43:11.441222+00:00,
+01d3de47-a88b-4a31-b10c-d9680eaf86ac,2,Finalize documentation,1,pending,,All good
+ee7aba3d-c8ea-4f8c-afd7-f1384924aac0,1,Gather materials,1,done,2025-08-24T12:43:11.441222+00:00,
+f1c353a8-f38f-4e3d-96e0-3dc90b8be455,1,Quality check,1,in_progress,,N/A
+f1c353a8-f38f-4e3d-96e0-3dc90b8be455,2,Quality check,1,done,2025-08-20T21:43:11.441222+00:00,See photos attached
+f1c353a8-f38f-4e3d-96e0-3dc90b8be455,3,Initial inspection,0,in_progress,,
+f1c353a8-f38f-4e3d-96e0-3dc90b8be455,4,Finalize documentation,1,done,2025-08-15T16:43:11.441222+00:00,All good
+31f2fdfb-edcc-4519-86bf-b08f5c8fe25d,1,Gather materials,1,in_progress,,
+31f2fdfb-edcc-4519-86bf-b08f5c8fe25d,2,Gather materials,0,done,2025-08-04T00:43:11.441222+00:00,All good
+59826a9c-f54d-4262-b773-470bc0a2258f,1,Initial inspection,0,done,2025-08-21T08:43:11.441222+00:00,
+572d5834-f50f-40f9-a57e-3f11fd08193c,1,Perform task,1,in_progress,,All good
+572d5834-f50f-40f9-a57e-3f11fd08193c,2,Finalize documentation,0,pending,,N/A
+960a69ac-96ec-4d2f-9ea0-cf7fa494e187,1,Initial inspection,1,in_progress,,N/A
+960a69ac-96ec-4d2f-9ea0-cf7fa494e187,2,Cleanup,1,pending,,Requires follow-up
+394eb511-4dfc-4005-9e60-78c1856369d5,1,Quality check,0,in_progress,,See photos attached
+394eb511-4dfc-4005-9e60-78c1856369d5,2,Quality check,1,pending,,N/A
+394eb511-4dfc-4005-9e60-78c1856369d5,3,Quality check,1,pending,,Requires follow-up
+394eb511-4dfc-4005-9e60-78c1856369d5,4,Finalize documentation,0,in_progress,,
+3fc3b48c-44e6-4351-864e-fdd1cf7d2c71,1,Quality check,1,pending,,All good
+3fc3b48c-44e6-4351-864e-fdd1cf7d2c71,2,Cleanup,0,done,2025-08-28T18:43:11.441222+00:00,Requires follow-up
+b7090901-478c-4879-91c8-86a3e02f97e8,1,Finalize documentation,1,pending,,All good
+b7090901-478c-4879-91c8-86a3e02f97e8,2,Cleanup,1,done,2025-08-22T22:43:11.441222+00:00,
+b7090901-478c-4879-91c8-86a3e02f97e8,3,Cleanup,1,in_progress,,N/A
+cce1d738-6b55-463a-aa58-96e47c579e77,1,Perform task,1,pending,,Requires follow-up
+84543360-5d65-4764-893b-59274de1b288,1,Quality check,1,pending,,All good
+6004251c-15a6-4e9a-b6e0-a8ab90da016a,1,Cleanup,1,done,2025-09-01T20:43:11.441222+00:00,
+6004251c-15a6-4e9a-b6e0-a8ab90da016a,2,Quality check,1,in_progress,,Requires follow-up
+6004251c-15a6-4e9a-b6e0-a8ab90da016a,3,Finalize documentation,1,done,2025-08-06T15:43:11.441222+00:00,See photos attached
+6004251c-15a6-4e9a-b6e0-a8ab90da016a,4,Gather materials,0,done,2025-08-28T16:43:11.441222+00:00,All good
+2a454304-cba9-441e-b82e-a42ae5979b4c,1,Initial inspection,1,in_progress,,N/A
+2a454304-cba9-441e-b82e-a42ae5979b4c,2,Perform task,1,done,2025-08-02T20:43:11.441222+00:00,All good
+2a454304-cba9-441e-b82e-a42ae5979b4c,3,Gather materials,0,done,2025-08-22T23:43:11.441222+00:00,See photos attached
+e0525b50-8c52-40cd-b765-ddc3fe62672a,1,Finalize documentation,1,pending,,N/A
+e0525b50-8c52-40cd-b765-ddc3fe62672a,2,Cleanup,0,pending,,See photos attached
+e0525b50-8c52-40cd-b765-ddc3fe62672a,3,Finalize documentation,0,pending,,See photos attached
+db054e4d-3fef-4ab8-9853-ab64a3e53014,1,Perform task,1,done,2025-08-26T22:43:11.441222+00:00,
+452db683-b7f0-4b02-b446-4891648788c2,1,Finalize documentation,1,done,2025-08-29T09:43:11.441222+00:00,All good
+9e550ef4-9d53-4a0e-a71f-c212bfe29a0e,1,Gather materials,1,pending,,N/A
+9e550ef4-9d53-4a0e-a71f-c212bfe29a0e,2,Perform task,0,pending,,All good
+9e550ef4-9d53-4a0e-a71f-c212bfe29a0e,3,Gather materials,1,pending,,Requires follow-up
+9e550ef4-9d53-4a0e-a71f-c212bfe29a0e,4,Initial inspection,0,done,2025-08-07T18:43:11.441222+00:00,All good
+0d4d0b45-9c03-46e5-aa2d-1e25ee0d83a9,1,Finalize documentation,1,done,2025-09-01T00:43:11.441222+00:00,
+0d4d0b45-9c03-46e5-aa2d-1e25ee0d83a9,2,Cleanup,1,done,2025-08-16T15:43:11.441222+00:00,Requires follow-up
+0d4d0b45-9c03-46e5-aa2d-1e25ee0d83a9,3,Initial inspection,1,in_progress,,See photos attached
+f213bdc6-7082-40e9-89af-bba638f0b124,1,Initial inspection,1,in_progress,,Requires follow-up
+68ddd11e-816f-4ca4-a101-1be60edcfe70,1,Finalize documentation,0,done,2025-08-29T00:43:11.441222+00:00,Requires follow-up
+d0e7f435-df68-4216-adeb-a75f5aaccc6e,1,Finalize documentation,1,pending,,Requires follow-up
+d0e7f435-df68-4216-adeb-a75f5aaccc6e,2,Finalize documentation,1,pending,,N/A
+d0e7f435-df68-4216-adeb-a75f5aaccc6e,3,Cleanup,1,in_progress,,See photos attached
+d0e7f435-df68-4216-adeb-a75f5aaccc6e,4,Finalize documentation,0,done,2025-08-31T06:43:11.441222+00:00,N/A
+b3936755-069e-421e-b595-8a5c63ddae91,1,Initial inspection,0,done,2025-08-04T13:43:11.441222+00:00,
+b3936755-069e-421e-b595-8a5c63ddae91,2,Initial inspection,0,in_progress,,
+b3936755-069e-421e-b595-8a5c63ddae91,3,Finalize documentation,1,in_progress,,All good
+b3936755-069e-421e-b595-8a5c63ddae91,4,Gather materials,1,pending,,Requires follow-up
+cd676bad-18d0-486a-b265-28edde5055d7,1,Initial inspection,1,in_progress,,
+4bdfd748-5fe6-46f3-aea0-aef3db222561,1,Initial inspection,0,pending,,N/A
+4bdfd748-5fe6-46f3-aea0-aef3db222561,2,Quality check,0,in_progress,,
+4bdfd748-5fe6-46f3-aea0-aef3db222561,3,Gather materials,0,done,2025-08-24T21:43:11.441222+00:00,All good
+4bdfd748-5fe6-46f3-aea0-aef3db222561,4,Finalize documentation,1,done,2025-08-27T20:43:11.441222+00:00,
+9e9a5790-3d20-4bb7-924a-e960f6e0193b,1,Gather materials,0,pending,,See photos attached
+9e9a5790-3d20-4bb7-924a-e960f6e0193b,2,Perform task,0,in_progress,,N/A
+9e9a5790-3d20-4bb7-924a-e960f6e0193b,3,Initial inspection,0,in_progress,,
+9e9a5790-3d20-4bb7-924a-e960f6e0193b,4,Cleanup,1,in_progress,,N/A
+2e5dd61e-8709-496c-9140-92e2de4063b0,1,Quality check,0,pending,,Requires follow-up
+17575dd9-5330-4568-b826-c3a50b0b8cfd,1,Cleanup,0,done,2025-09-01T07:43:11.441222+00:00,All good
+17575dd9-5330-4568-b826-c3a50b0b8cfd,2,Quality check,1,done,2025-08-20T09:43:11.441222+00:00,Requires follow-up
+17575dd9-5330-4568-b826-c3a50b0b8cfd,3,Initial inspection,1,in_progress,,
+4b0db978-dd05-42b8-b252-d0806216d419,1,Quality check,0,done,2025-08-05T00:43:11.441222+00:00,All good
+4b0db978-dd05-42b8-b252-d0806216d419,2,Initial inspection,0,in_progress,,All good
+4b0db978-dd05-42b8-b252-d0806216d419,3,Gather materials,1,in_progress,,N/A
+599d379b-7f0c-4213-9001-43634cd42987,1,Perform task,1,done,2025-08-20T11:43:11.441222+00:00,Requires follow-up
+e03b2b31-e635-4f15-8743-41c2244cdeff,1,Perform task,0,pending,,
+e03b2b31-e635-4f15-8743-41c2244cdeff,2,Gather materials,1,in_progress,,
+e03b2b31-e635-4f15-8743-41c2244cdeff,3,Perform task,1,pending,,Requires follow-up
+e03b2b31-e635-4f15-8743-41c2244cdeff,4,Finalize documentation,0,in_progress,,All good
+1025bc7d-9a32-42a7-90ca-4a0e11340b62,1,Finalize documentation,0,pending,,All good
+1025bc7d-9a32-42a7-90ca-4a0e11340b62,2,Initial inspection,0,in_progress,,
+1025bc7d-9a32-42a7-90ca-4a0e11340b62,3,Finalize documentation,1,in_progress,,N/A
+59de1a46-c818-4b02-ba9f-3fe716155651,1,Gather materials,1,in_progress,,See photos attached
+39fbcbeb-4a53-42a4-85cd-31ab5881da74,1,Initial inspection,0,done,2025-08-30T14:43:11.441222+00:00,See photos attached
+39fbcbeb-4a53-42a4-85cd-31ab5881da74,2,Perform task,1,done,2025-08-28T11:43:11.441222+00:00,N/A
+93475b81-bc53-42fd-a874-75e2e6ccc690,1,Perform task,0,pending,,All good
+4001a194-4bfa-4d83-98cb-d06563f592d0,1,Gather materials,1,in_progress,,Requires follow-up
+4001a194-4bfa-4d83-98cb-d06563f592d0,2,Initial inspection,1,pending,,All good
+4001a194-4bfa-4d83-98cb-d06563f592d0,3,Cleanup,0,done,2025-08-23T11:43:11.441222+00:00,All good
+4001a194-4bfa-4d83-98cb-d06563f592d0,4,Quality check,0,done,2025-08-05T00:43:11.441222+00:00,Requires follow-up
+fa77dd31-7f47-4e64-ae69-78d22b2e789c,1,Perform task,1,in_progress,,
+fa77dd31-7f47-4e64-ae69-78d22b2e789c,2,Quality check,1,in_progress,,All good
+fa77dd31-7f47-4e64-ae69-78d22b2e789c,3,Perform task,1,pending,,All good
+fa77dd31-7f47-4e64-ae69-78d22b2e789c,4,Gather materials,0,done,2025-08-14T06:43:11.441222+00:00,Requires follow-up
+b595a1d4-09bb-4a7e-bad2-c20c40530cf0,1,Perform task,1,in_progress,,
+b595a1d4-09bb-4a7e-bad2-c20c40530cf0,2,Finalize documentation,1,done,2025-08-15T19:43:11.441222+00:00,Requires follow-up
+b595a1d4-09bb-4a7e-bad2-c20c40530cf0,3,Initial inspection,1,done,2025-08-19T14:43:11.441222+00:00,All good
+3aabaf50-2c52-497f-87cf-0446e11011a7,1,Initial inspection,1,pending,,Requires follow-up
+3aabaf50-2c52-497f-87cf-0446e11011a7,2,Gather materials,1,in_progress,,See photos attached
+3aabaf50-2c52-497f-87cf-0446e11011a7,3,Perform task,0,done,2025-08-02T16:43:11.441222+00:00,
+55d327f9-9a4b-4c2c-ac2a-77580c0ccbad,1,Perform task,0,done,2025-08-22T19:43:11.441222+00:00,
+55d327f9-9a4b-4c2c-ac2a-77580c0ccbad,2,Cleanup,0,done,2025-08-26T18:43:11.441222+00:00,See photos attached
+55d327f9-9a4b-4c2c-ac2a-77580c0ccbad,3,Gather materials,0,in_progress,,See photos attached
+6d4f6d70-6ed7-4e57-9d38-867898b84b72,1,Quality check,0,done,2025-08-26T11:43:11.441222+00:00,See photos attached
+6d4f6d70-6ed7-4e57-9d38-867898b84b72,2,Perform task,1,done,2025-08-27T10:43:11.441222+00:00,Requires follow-up
+6d4f6d70-6ed7-4e57-9d38-867898b84b72,3,Gather materials,1,in_progress,,
+6d4f6d70-6ed7-4e57-9d38-867898b84b72,4,Cleanup,0,done,2025-08-23T13:43:11.441222+00:00,Requires follow-up
+fe26ecfa-5156-41a9-9140-183896f2ea33,1,Initial inspection,0,pending,,
+fe26ecfa-5156-41a9-9140-183896f2ea33,2,Perform task,1,in_progress,,All good
+fe26ecfa-5156-41a9-9140-183896f2ea33,3,Gather materials,1,in_progress,,
+fe26ecfa-5156-41a9-9140-183896f2ea33,4,Finalize documentation,0,done,2025-08-16T08:43:11.441222+00:00,All good
+bb08e535-95b4-4115-8be2-4ed6f23d74c4,1,Quality check,1,done,2025-08-08T12:43:11.441222+00:00,All good
+7c890099-99f2-4285-bb76-6da3e3ce836b,1,Perform task,1,pending,,See photos attached
+7c890099-99f2-4285-bb76-6da3e3ce836b,2,Finalize documentation,0,in_progress,,
+7c890099-99f2-4285-bb76-6da3e3ce836b,3,Quality check,1,in_progress,,
+44fc0c3a-b616-47b8-94fd-b36228ff960b,1,Finalize documentation,0,in_progress,,
+44fc0c3a-b616-47b8-94fd-b36228ff960b,2,Cleanup,0,done,2025-08-31T16:43:11.441222+00:00,All good
+44fc0c3a-b616-47b8-94fd-b36228ff960b,3,Initial inspection,0,done,2025-08-24T18:43:11.441222+00:00,N/A
+44fc0c3a-b616-47b8-94fd-b36228ff960b,4,Gather materials,1,in_progress,,Requires follow-up
+b6531e91-d046-41e6-a95c-4cd87a59881e,1,Cleanup,0,in_progress,,N/A
+b6531e91-d046-41e6-a95c-4cd87a59881e,2,Cleanup,0,done,2025-08-29T15:43:11.441222+00:00,See photos attached
+b6531e91-d046-41e6-a95c-4cd87a59881e,3,Cleanup,0,done,2025-08-29T07:43:11.441222+00:00,
+b6531e91-d046-41e6-a95c-4cd87a59881e,4,Perform task,1,done,2025-08-14T17:43:11.441222+00:00,All good
+b9c50453-c4c7-405a-8e11-2c3c6971251c,1,Perform task,1,pending,,See photos attached
+b9c50453-c4c7-405a-8e11-2c3c6971251c,2,Initial inspection,1,in_progress,,All good
+b9c50453-c4c7-405a-8e11-2c3c6971251c,3,Finalize documentation,0,in_progress,,Requires follow-up
+3307f633-36a4-4dc2-b98a-1f9b19583999,1,Perform task,1,in_progress,,
+3307f633-36a4-4dc2-b98a-1f9b19583999,2,Perform task,0,done,2025-08-08T10:43:11.441222+00:00,All good
+3307f633-36a4-4dc2-b98a-1f9b19583999,3,Initial inspection,1,done,2025-08-20T07:43:11.441222+00:00,All good
+3307f633-36a4-4dc2-b98a-1f9b19583999,4,Gather materials,1,pending,,See photos attached
+24ce55ff-631d-49fd-9e1e-18eddea622f8,1,Finalize documentation,1,pending,,
+24ce55ff-631d-49fd-9e1e-18eddea622f8,2,Quality check,1,in_progress,,
+24ce55ff-631d-49fd-9e1e-18eddea622f8,3,Quality check,1,done,2025-08-27T23:43:11.441222+00:00,Requires follow-up

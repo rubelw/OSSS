@@ -1,21 +1,21 @@
 student_id,reason,amount,granted_on
-21b482db-30b6-4bb8-9263-29434f4b22e3,Administrative adjustment,50.00,2025-05-30
-20624cbc-9dd0-405a-9e51-177e8be0dac8,Needs-based waiver,100.00,2025-08-19
-995848b7-cf4e-4354-9bc3-b1b3c4052a56,Special program,50.00,2025-06-27
-4a3b3e56-242d-4c18-a7a8-3ba860002e61,Special program,50.00,2025-06-08
-ef5b8377-9675-4739-9b4f-a0c5032ae827,Needs-based waiver,100.00,2025-05-13
-aa47d1d4-0833-460f-9838-8599cefdd5cf,Merit-based waiver,100.00,2025-08-02
-86bec08b-0c03-4576-9378-fcbc122891d5,Merit-based waiver,100.00,2025-08-10
-ba052cac-0b0a-4044-a4be-fcd87bea70c3,Merit-based waiver,25.00,2025-06-24
-5e361e82-99b2-4b1f-8ee9-f473018a2a4f,Special program,100.00,2025-08-14
-d72edfc1-f9cc-437f-bd60-033740234dea,Merit-based waiver,100.00,2025-05-23
-7bae7512-5ada-4dcc-981f-150664c414e6,Merit-based waiver,50.00,2025-07-13
-a8d530ab-39c9-46e8-8387-63ff84c28184,Financial hardship,100.00,2025-06-30
-45312164-600a-4589-b36b-f2ebfb3e47d4,Financial hardship,50.00,2025-06-09
-499bb5f0-bd91-455e-b88e-df736401724c,Administrative adjustment,100.00,2025-06-15
-2152f6f5-1e66-4e54-a15c-9f72b998bfd8,Merit-based waiver,125.00,2025-05-20
-70044b83-94b2-4123-b3e6-c6b29b2a0325,Financial hardship,100.00,2025-07-24
-3589fe70-ae08-4312-b60d-48554ff89e0f,Financial hardship,25.00,2025-06-14
-9bbd5997-e51c-46fe-9279-c3de0fcc9e47,Fee error correction,25.00,2025-08-10
-018fb1ab-fbe9-4de0-a7d8-b776a4ba5d12,Financial hardship,125.00,2025-05-31
-19b750cf-e0e7-4f2a-9e9d-b6080e879fe1,Merit-based waiver,100.00,2025-06-09
+3cf9197e-f2f4-4472-bf77-944cb34a927b,Financial hardship,25.00,2025-05-30
+306bfefa-e441-45e1-b06d-cb3612f3e85f,Merit-based waiver,125.00,2025-08-10
+32ee6b31-ff17-4c58-906d-ee477bb5ad27,Merit-based waiver,100.00,2025-05-30
+7e416b63-d728-4e62-aaaf-2bb843909397,Needs-based waiver,75.00,2025-07-28
+60f65d22-2bb8-4d4a-bbfe-e93cebedeea6,Fee error correction,50.00,2025-07-21
+e60c80ca-0482-40df-a07d-2a36a6bbfa76,Administrative adjustment,100.00,2025-06-19
+9798a5b4-e615-4088-bd39-214334b19857,Merit-based waiver,100.00,2025-06-24
+2ea2a70f-a7c1-4a30-925a-7aaabfb0fa3f,Needs-based waiver,125.00,2025-06-12
+9b6f52c9-1233-4d40-87ba-45113b74829a,Administrative adjustment,50.00,2025-08-11
+0adcce2a-2793-440d-9857-70fe2f884419,Needs-based waiver,125.00,2025-06-16
+47a82c52-835f-4622-8600-058ddd15424c,Needs-based waiver,100.00,2025-06-19
+e7adff9d-84e2-415b-9343-ab8ef0adcd00,Fee error correction,125.00,2025-08-08
+8667fc00-0c45-4ac4-b8de-cf5b6d49309f,Financial hardship,25.00,2025-05-05
+b4d8b3e2-0556-4160-9e82-37109da51902,Fee error correction,25.00,2025-05-12
+8cc8d0b9-18b9-4ed0-93a5-9d08ab8004de,Merit-based waiver,125.00,2025-07-31
+d82e7ed0-8bb8-4e34-a4a2-a88bd4011733,Administrative adjustment,25.00,2025-06-11
+24117a2f-ef32-49b5-b75e-fd82d530724f,Financial hardship,75.00,2025-08-10
+c704a3f8-d76f-4798-bfa7-37b8f30fd200,Merit-based waiver,100.00,2025-05-07
+eb072a36-4077-4082-a247-38e49eb426d1,Administrative adjustment,25.00,2025-07-01
+31edf94a-0ca2-47f2-8906-dbe60588db4a,Special program,50.00,2025-08-24
