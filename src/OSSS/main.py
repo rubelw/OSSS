@@ -12,14 +12,14 @@ from fastapi.routing import APIRoute
 
 from starlette.middleware.sessions import SessionMiddleware
 
-from redis import Redis
-
 from sqlalchemy.orm import class_mapper
 from sqlalchemy.orm.exc import UnmappedClassError
 from sqlalchemy.inspection import inspect as sa_inspect
 
 from OSSS.core.config import settings
 from OSSS.db import get_sessionmaker
+from OSSS.sessions import attach_session_store
+
 
 from OSSS.api.generated_resources.register_all import generate_routers_for_all_models
 from OSSS.api.routers.auth_flow import router as auth_router
@@ -28,12 +28,11 @@ from OSSS.api import auth_proxy
 from OSSS.api.routers.me import router as me_router
 from OSSS.api.routers.health import router as health_router
 from OSSS.app_logger import logger
-from OSSS.sessions import redis_session, RedisSession, SESSION_PREFIX
 
 # New auth deps (no oauth2 symbol anymore)
 from OSSS.auth import ensure_access_token, get_current_user
 
-from OSSS.sessions import redis_session, RedisSession, close_redis
+from OSSS.sessions import attach_session_store, get_session_store, SESSION_PREFIX
 
 LOGGING = {
     "version": 1,
@@ -58,16 +57,7 @@ LOGGING = {
 logging.config.dictConfig(LOGGING)
 log = logging.getLogger("startup")
 
-def get_redis() -> Redis:
-    return redis
 
-async def get_redis_session(
-    request: Request,
-    r: Redis = Depends(get_redis),
-) -> RedisSession:
-    # Provide the per-request RedisSession
-    return await redis_session(request, r,_cfg("session_max_age")
-)
 
 def _discover_Base():
     """Best-effort discovery of the SQLAlchemy Declarative Base."""
@@ -226,6 +216,8 @@ def create_app() -> FastAPI:
         lifespan=lifespan,  # PASS lifespan handler here
     )
 
+    attach_session_store(app)  # adds startup/shutdown hooks + app.state.session_store
+
     # Sessions
     secret_key = _cfg("session_secret", "SESSION_SECRET", "dev-insecure-change-me")
     cookie_name = _cfg("session_cookie_name", "SESSION_COOKIE_NAME", "osss_session")
@@ -243,9 +235,6 @@ def create_app() -> FastAPI:
         https_only=False,  # True in production behind HTTPS
 
     )
-
-    # Redis client (shared)
-    redis = Redis.from_url(settings.REDIS_URL, decode_responses=True)
 
     # Base / utility routers
     app.include_router(debug.router)
@@ -280,9 +269,6 @@ def create_app() -> FastAPI:
     # Startup
     @app.on_event("startup")
     async def _startup() -> None:
-        r = await redis_session()
-        app.state.redis = r
-        app.state.session_store = RedisSession(r)
 
         # Small probe that enforces a token (no oauth2 symbol)
         probe = APIRouter()
@@ -321,10 +307,6 @@ def create_app() -> FastAPI:
 
         if os.getenv("OSSS_DEBUG_MAPPINGS") == "1":
             _dump_mappings("[mappings][startup]")
-
-    @app.on_event("shutdown")
-    async def _shutdown():
-        await close_redis()
 
 
     return app
