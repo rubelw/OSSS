@@ -11,6 +11,9 @@ from fastapi import FastAPI, APIRouter, Depends, Request
 from fastapi.routing import APIRoute
 
 from starlette.middleware.sessions import SessionMiddleware
+from redis import Redis
+
+
 from sqlalchemy.orm import class_mapper
 from sqlalchemy.orm.exc import UnmappedClassError
 from sqlalchemy.inspection import inspect as sa_inspect
@@ -220,10 +223,10 @@ def create_app() -> FastAPI:
     app.add_middleware(
         SessionMiddleware,
         secret_key=secret_key,
-        session_cookie=cookie_name,
         max_age=max_age,
-        https_only=https_only,
-        same_site=same_site,
+        session_cookie="osss_session",
+        same_site="lax",
+        https_only=False,  # True in production behind HTTPS
     )
 
     # Base / utility routers

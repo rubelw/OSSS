@@ -2,7 +2,7 @@
 # src/OSSS/auth/session_token.py
 import time
 from typing import Any, Dict, Optional
-from fastapi import HTTPException, Request
+from fastapi import HTTPException, Request, Depends
 from authlib.integrations.starlette_client import OAuthError
 from OSSS.auth.oauth import oauth
 
@@ -10,6 +10,14 @@ ACCESS_SKEW = 60
 REFRESH_SKEW = 60
 
 def _now() -> int: return int(time.time())
+
+@router.get("/protected")
+async def protected_view(
+    token: str = Depends(ensure_access_token),
+    user: dict = Depends(get_current_user),
+):
+    # token is guaranteed fresh here
+    ...
 
 def _access_expires_at(token: Dict[str, Any]) -> int:
     if token.get("expires_at") is not None:
@@ -58,6 +66,7 @@ async def ensure_access_token(request: Request) -> str:
     request.session["oidc"] = {
         "access_token": new_access,
         "access_expires_at": _access_expires_at(token),
+        "expires_at": token.get("expires_at"),  # or use `expires_in`
         "refresh_token": token.get("refresh_token", refresh),           # may rotate
         "refresh_expires_at": _refresh_expires_at(token, refresh_exp),  # may be None
         "token_type": token.get("token_type"),
