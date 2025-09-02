@@ -274,7 +274,8 @@
             "read:work_order_tasks",
             "read:users",
             "read:work_order_time_logs",
-            "read:work_order_parts"
+            "read:work_order_parts",
+            "read:subscriptions"
           ]
         },
         {
@@ -402,7 +403,8 @@
             "read:work_orders",
             "read:work_order_tasks",
             "read:work_order_time_logs",
-            "read:work_order_parts"
+            "read:work_order_parts",
+            "read:subscriptions"
           ]
         },
         {
@@ -530,7 +532,8 @@
             "read:work_orders",
             "read:work_order_tasks",
             "read:work_order_time_logs",
-            "read:work_order_parts"
+            "read:work_order_parts",
+            "read:subscriptions"
           ]
         },
         {
@@ -658,7 +661,8 @@
             "read:work_orders",
             "read:work_order_tasks",
             "read:work_order_time_logs",
-            "read:work_order_parts"
+            "read:work_order_parts",
+            "read:subscriptions"
           ]
         }
       ],
@@ -912,7 +916,8 @@
                 "read:work_orders",
                 "read:work_order_tasks",
                 "read:work_order_time_logs",
-                "read:work_order_parts"
+                "read:work_order_parts",
+                "read:subscriptions"
               ]
             },
             {
@@ -1038,7 +1043,8 @@
                 "read:work_orders",
                 "read:work_order_tasks",
                 "read:work_order_time_logs",
-                "read:work_order_parts"
+                "read:work_order_parts",
+                "read:subscriptions"
               ]
             },
             {
@@ -1164,7 +1170,8 @@
                 "read:work_orders",
                 "read:work_order_tasks",
                 "read:work_order_time_logs",
-                "read:work_order_parts"
+                "read:work_order_parts",
+                "read:subscriptions"
               ]
             },
             {
@@ -1290,7 +1297,8 @@
                 "read:work_orders",
                 "read:work_order_tasks",
                 "read:work_order_time_logs",
-                "read:work_order_parts"
+                "read:work_order_parts",
+                "read:subscriptions"
               ]
             },
             {
@@ -1416,7 +1424,8 @@
                 "read:work_orders",
                 "read:work_order_tasks",
                 "read:work_order_time_logs",
-                "read:work_order_parts"
+                "read:work_order_parts",
+                "read:subscriptions"
               ]
             },
             {
@@ -1542,7 +1551,8 @@
                 "read:work_orders",
                 "read:work_order_tasks",
                 "read:work_order_time_logs",
-                "read:work_order_parts"
+                "read:work_order_parts",
+                "read:subscriptions"
               ]
             },
             {
@@ -1669,7 +1679,8 @@
                 "read:work_orders",
                 "read:work_order_tasks",
                 "read:work_order_time_logs",
-                "read:work_order_parts"
+                "read:work_order_parts",
+                "read:subscriptions"
               ]
             },
             {
@@ -1795,7 +1806,8 @@
                 "read:work_orders",
                 "read:work_order_tasks",
                 "read:work_order_time_logs",
-                "read:work_order_parts"
+                "read:work_order_parts",
+                "read:subscriptions"
               ]
             },
             {
@@ -1921,7 +1933,8 @@
                 "read:work_orders",
                 "read:work_order_tasks",
                 "read:work_order_time_logs",
-                "read:work_order_parts"
+                "read:work_order_parts",
+                "read:subscriptions"
               ]
             }
           ],
@@ -2174,7 +2187,8 @@
                     "read:work_orders",
                     "read:work_order_tasks",
                     "read:work_order_time_logs",
-                    "read:work_order_parts"
+                    "read:work_order_parts",
+                    "read:subscriptions"
                   ]
                 }
               ],
@@ -2428,7 +2442,8 @@
                         "read:work_orders",
                         "read:work_order_tasks",
                         "read:work_order_time_logs",
-                        "read:work_order_parts"
+                        "read:work_order_parts",
+                        "read:subscriptions"
                       ]
                     },
                     {
@@ -2555,7 +2570,8 @@
                         "read:work_orders",
                         "read:work_order_tasks",
                         "read:work_order_time_logs",
-                        "read:work_order_parts"
+                        "read:work_order_parts",
+                        "read:subscriptions"
                       ]
                     },
                     {
@@ -2681,7 +2697,8 @@
                         "read:work_orders",
                         "read:work_order_tasks",
                         "read:work_order_time_logs",
-                        "read:work_order_parts"
+                        "read:work_order_parts",
+                        "read:subscriptions"
                       ]
                     },
                     {
@@ -2807,7 +2824,8 @@
                         "read:work_orders",
                         "read:work_order_tasks",
                         "read:work_order_time_logs",
-                        "read:work_order_parts"
+                        "read:work_order_parts",
+                        "read:subscriptions"
                       ]
                     },
                     {
@@ -2933,7 +2951,8 @@
                         "read:work_orders",
                         "read:work_order_tasks",
                         "read:work_order_time_logs",
-                        "read:work_order_parts"
+                        "read:work_order_parts",
+                        "read:subscriptions"
                       ]
                     },
                     {
@@ -3059,12 +3078,13 @@
                         "read:work_orders",
                         "read:work_order_tasks",
                         "read:work_order_time_logs",
-                        "read:work_order_parts"
+                        "read:work_order_parts",
+                        "read:subscriptions"
                       ]
                     },
                     {
                       "name": "grade_level_dean",
-                      "description": "Oversees a grade\u2019s academic and behavioral support systems.",
+                      "description": "Oversees a grade’s academic and behavioral support systems.",
                       "permissions": [
                         "read:academic_terms",
                         "read:accommodations",
@@ -3185,7 +3205,8 @@
                         "read:work_orders",
                         "read:work_order_tasks",
                         "read:work_order_time_logs",
-                        "read:work_order_parts"
+                        "read:work_order_parts",
+                        "read:subscriptions"
                       ]
                     },
                     {
@@ -3311,7 +3332,8 @@
                         "read:work_orders",
                         "read:work_order_tasks",
                         "read:work_order_time_logs",
-                        "read:work_order_parts"
+                        "read:work_order_parts",
+                        "read:subscriptions"
                       ]
                     },
                     {
@@ -3439,7 +3461,8 @@
                         "read:work_orders",
                         "read:work_order_tasks",
                         "read:work_order_time_logs",
-                        "read:work_order_parts"
+                        "read:work_order_parts",
+                        "read:subscriptions"
                       ]
                     },
                     {
@@ -3565,7 +3588,8 @@
                         "read:work_orders",
                         "read:work_order_tasks",
                         "read:work_order_time_logs",
-                        "read:work_order_parts"
+                        "read:work_order_parts",
+                        "read:subscriptions"
                       ]
                     },
                     {
@@ -3691,7 +3715,8 @@
                         "read:work_orders",
                         "read:work_order_tasks",
                         "read:work_order_time_logs",
-                        "read:work_order_parts"
+                        "read:work_order_parts",
+                        "read:subscriptions"
                       ]
                     },
                     {
@@ -3817,7 +3842,8 @@
                         "read:work_orders",
                         "read:work_order_tasks",
                         "read:work_order_time_logs",
-                        "read:work_order_parts"
+                        "read:work_order_parts",
+                        "read:subscriptions"
                       ]
                     },
                     {
@@ -3943,7 +3969,8 @@
                         "read:work_orders",
                         "read:work_order_tasks",
                         "read:work_order_time_logs",
-                        "read:work_order_parts"
+                        "read:work_order_parts",
+                        "read:subscriptions"
                       ]
                     },
                     {
@@ -4069,7 +4096,8 @@
                         "read:work_orders",
                         "read:work_order_tasks",
                         "read:work_order_time_logs",
-                        "read:work_order_parts"
+                        "read:work_order_parts",
+                        "read:subscriptions"
                       ]
                     }
                   ],
@@ -8619,7 +8647,8 @@
                     "read:embeds",
                     "read:events",
                     "read:meetings",
-                    "read:entity_tags"
+                    "read:entity_tags",
+                    "read:subscriptions"
                   ]
                 }
               ],
@@ -8644,7 +8673,8 @@
                         "read:embeds",
                         "read:events",
                         "read:meetings",
-                        "read:entity_tags"
+                        "read:entity_tags",
+                        "read:subscriptions"
                       ]
                     },
                     {
@@ -8656,7 +8686,8 @@
                         "read:embeds",
                         "read:events",
                         "read:meetings",
-                        "read:entity_tags"
+                        "read:entity_tags",
+                        "read:subscriptions"
                       ]
                     },
                     {
@@ -8668,7 +8699,8 @@
                         "read:embeds",
                         "read:events",
                         "read:meetings",
-                        "read:entity_tags"
+                        "read:entity_tags",
+                        "read:subscriptions"
                       ]
                     },
                     {
@@ -8680,7 +8712,8 @@
                         "read:embeds",
                         "read:events",
                         "read:meetings",
-                        "read:entity_tags"
+                        "read:entity_tags",
+                        "read:subscriptions"
                       ]
                     },
                     {
@@ -8692,7 +8725,8 @@
                         "read:embeds",
                         "read:events",
                         "read:meetings",
-                        "read:entity_tags"
+                        "read:entity_tags",
+                        "read:subscriptions"
                       ]
                     },
                     {
@@ -8704,7 +8738,8 @@
                         "read:embeds",
                         "read:events",
                         "read:meetings",
-                        "read:entity_tags"
+                        "read:entity_tags",
+                        "read:subscriptions"
                       ]
                     },
                     {
@@ -8716,7 +8751,8 @@
                         "read:embeds",
                         "read:events",
                         "read:meetings",
-                        "read:entity_tags"
+                        "read:entity_tags",
+                        "read:subscriptions"
                       ]
                     },
                     {
@@ -8728,7 +8764,8 @@
                         "read:embeds",
                         "read:events",
                         "read:meetings",
-                        "read:entity_tags"
+                        "read:entity_tags",
+                        "read:subscriptions"
                       ]
                     },
                     {
@@ -8740,7 +8777,8 @@
                         "read:embeds",
                         "read:events",
                         "read:meetings",
-                        "read:entity_tags"
+                        "read:entity_tags",
+                        "read:subscriptions"
                       ]
                     },
                     {
@@ -8752,7 +8790,8 @@
                         "read:embeds",
                         "read:events",
                         "read:meetings",
-                        "read:entity_tags"
+                        "read:entity_tags",
+                        "read:subscriptions"
                       ]
                     },
                     {
@@ -8764,7 +8803,8 @@
                         "read:embeds",
                         "read:events",
                         "read:meetings",
-                        "read:entity_tags"
+                        "read:entity_tags",
+                        "read:subscriptions"
                       ]
                     },
                     {
@@ -8776,7 +8816,8 @@
                         "read:embeds",
                         "read:events",
                         "read:meetings",
-                        "read:entity_tags"
+                        "read:entity_tags",
+                        "read:subscriptions"
                       ]
                     },
                     {
@@ -8788,7 +8829,8 @@
                         "read:embeds",
                         "read:events",
                         "read:meetings",
-                        "read:entity_tags"
+                        "read:entity_tags",
+                        "read:subscriptions"
                       ]
                     },
                     {
@@ -8800,7 +8842,8 @@
                         "read:embeds",
                         "read:events",
                         "read:meetings",
-                        "read:entity_tags"
+                        "read:entity_tags",
+                        "read:subscriptions"
                       ]
                     },
                     {
@@ -8812,7 +8855,8 @@
                         "read:embeds",
                         "read:events",
                         "read:meetings",
-                        "read:entity_tags"
+                        "read:entity_tags",
+                        "read:subscriptions"
                       ]
                     },
                     {
@@ -8824,7 +8868,8 @@
                         "read:embeds",
                         "read:events",
                         "read:meetings",
-                        "read:entity_tags"
+                        "read:entity_tags",
+                        "read:subscriptions"
                       ]
                     },
                     {
@@ -8836,7 +8881,8 @@
                         "read:embeds",
                         "read:events",
                         "read:meetings",
-                        "read:entity_tags"
+                        "read:entity_tags",
+                        "read:subscriptions"
                       ]
                     },
                     {
@@ -8848,7 +8894,8 @@
                         "read:embeds",
                         "read:events",
                         "read:meetings",
-                        "read:entity_tags"
+                        "read:entity_tags",
+                        "read:subscriptions"
                       ]
                     },
                     {
@@ -8860,7 +8907,8 @@
                         "read:embeds",
                         "read:events",
                         "read:meetings",
-                        "read:entity_tags"
+                        "read:entity_tags",
+                        "read:subscriptions"
                       ]
                     }
                   ]

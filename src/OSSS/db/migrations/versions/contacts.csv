@@ -1,22 +1,22 @@
 type,value
-attendance_phone,(291) 770-5321
-website,https://www.dc-g-oak-view.edu
-fax,(882) 355-5954
-counseling_email,contact@dallas-center-elementary.k12.example
-phone,(263) 833-6506
+attendance_phone,(608) 447-5280
+fax,(902) 511-8652
+website,https://www.dc-g-oak-view.school.org
+attendance_phone,(335) 518-5629
 website,https://www.dallas-center-elementary.k12.us
-email,admin@dallas-center-grimes-high-school.k12.us
-attendance_phone,(390) 398-4438
-phone,(741) 545-4729
-email,support@dallas-center-grimes-middle-school.k12.example
-counseling_email,contact@dallas-center-grimes-middle-school.edu
-attendance_phone,(730) 756-6057
-website,https://www.heritage-elementary.k12.us
-fax,(940) 218-4530
-email,hello@heritage-elementary.k12.example
-counseling_email,office@north-ridge-elementary.school.org
-email,hello@north-ridge-elementary.edu
-phone,(564) 869-4494
-phone,(970) 705-9130
-attendance_phone,(974) 510-6649
-email,support@south-prairie-elementary.k12.example
+email,hello@dallas-center-elementary.edu
+counseling_email,hello@dallas-center-grimes-high-school.k12.example
+email,support@dallas-center-grimes-high-school.k12.us
+attendance_phone,(425) 302-6481
+attendance_phone,(200) 298-3331
+fax,(860) 600-4306
+counseling_email,admin@dallas-center-grimes-middle-school.school.org
+email,admin@heritage-elementary.edu
+phone,(225) 337-9455
+fax,(684) 426-3911
+website,https://www.north-ridge-elementary.k12.us
+counseling_email,info@north-ridge-elementary.k12.us
+attendance_phone,(430) 553-7441
+attendance_phone,(657) 546-1824
+email,info@south-prairie-elementary.k12.example
+counseling_email,contact@south-prairie-elementary.k12.example
