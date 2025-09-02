@@ -1,226 +1,148 @@
 # src/OSSS/sessions.py
 from __future__ import annotations
+import os, json, secrets
+from datetime import datetime, timezone
+from typing import Any, Optional, AsyncIterator
 
-import os
-import json
-import logging
-from typing import Any, Optional, Mapping
-
-import redis.asyncio as redis  # pip install redis>=4.2 (includes asyncio support)
+import redis.asyncio as redis  # pip install "redis>=4"
 from fastapi import Request
-
 from OSSS.app_logger import get_logger
 
-# --------------------------------------------------------------------------------------
-# Config
-# --------------------------------------------------------------------------------------
-REDIS_URL        = os.getenv("REDIS_URL", "redis://localhost:6379/0")
-SESSION_PREFIX   = os.getenv("SESSION_PREFIX", "sess:")
-SESSION_TTL_SEC  = int(os.getenv("SESSION_TTL_SEC", str(60 * 60 * 24 * 7)))  # 7 days default
-MAX_CONNECTIONS  = int(os.getenv("REDIS_MAX_CONNECTIONS", "20"))
-HEALTHCHECK_SECS = int(os.getenv("REDIS_HEALTHCHECK_SECS", "30"))
-
-# Logging
-SESSIONS_LOG_LEVEL = os.getenv("SESSIONS_LOG_LEVEL", "INFO").upper()
 log = get_logger("sessions")
-log.setLevel(getattr(logging, SESSIONS_LOG_LEVEL, logging.INFO))
 
-def _redact_url(url: str) -> str:
-    # redis://user:pass@host:port/db -> redis://***:***@host:port/db
-    try:
-        if "@" in url and "://" in url:
-            scheme, rest = url.split("://", 1)
-            creds, hostpart = rest.split("@", 1)
-            if ":" in creds:
-                user, _ = creds.split(":", 1)
-                creds = f"{user}:***"
-            else:
-                creds = "***"
-            return f"{scheme}://{creds}@{hostpart}"
-    except Exception:
-        pass
-    return url
+SESSION_PREFIX   = os.getenv("SESSION_PREFIX", "sess:")
+SESSION_TTL_SEC  = int(os.getenv("SESSION_TTL_SEC", "3600"))
+SESSION_COOKIE   = os.getenv("SESSION_COOKIE", "sid")
+REDIS_URL        = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
-def _preview(value: Any, maxlen: int = 200) -> str:
-    try:
-        s = value if isinstance(value, str) else json.dumps(value, default=str)
-    except Exception:
-        s = str(type(value))
-    s = s if len(s) <= maxlen else s[:maxlen] + "…"
-    return f"{s} (len={len(s)})"
 
-# --------------------------------------------------------------------------------------
-# Session store
-# --------------------------------------------------------------------------------------
 class RedisSession:
-    """
-    Thin Redis wrapper for app session-ish storage.
-    Stores JSON strings (decode_responses=True).
-    """
+    def __init__(self, url: str = REDIS_URL, prefix: str = SESSION_PREFIX):
+        self._r = redis.from_url(url, decode_responses=True)
+        self._p = prefix
+        log.info("RedisSession initialized: url=%s prefix=%s", url, prefix)
 
-    def __init__(
-        self,
-        url: str = REDIS_URL,
-        prefix: str = SESSION_PREFIX,
-        default_ttl: int = SESSION_TTL_SEC,
-        max_connections: int = MAX_CONNECTIONS,
-        health_check_interval: int = HEALTHCHECK_SECS,
-    ) -> None:
-        self.url = url
-        self.prefix = prefix
-        self.ttl = default_ttl
+    def _k(self, key: str) -> str:
+        return f"{self._p}{key}"
 
-        self._redis: redis.Redis = redis.from_url(
-            url,
-            encoding="utf-8",
-            decode_responses=True,
-            socket_timeout=5,
-            socket_connect_timeout=5,
-            health_check_interval=health_check_interval,
-            max_connections=max_connections,
-            retry_on_timeout=True,
-        )
-
-        log.info(
-            "RedisSession init: url=%s prefix=%r ttl=%ss max_conns=%d hcheck=%ds",
-            _redact_url(url), prefix, default_ttl, max_connections, health_check_interval,
-        )
-
-    # -------------------- lifecycle --------------------
     async def ping(self) -> bool:
         try:
-            ok = await self._redis.ping()
-            log.info("RedisSession ping=%s", ok)
-            return bool(ok)
+            pong = await self._r.ping()
+            log.debug("Redis ping -> %s", pong)
+            return bool(pong)
         except Exception as e:
-            log.exception("RedisSession ping failed: %s", e)
-            raise
+            log.exception("Redis ping failed: %s", e)
+            return False
 
-    async def close(self) -> None:
-        try:
-            await self._redis.close()
-            await self._redis.connection_pool.disconnect()
-            log.info("RedisSession closed and pool disconnected")
-        except Exception as e:
-            log.exception("RedisSession close error: %s", e)
+    async def set(self, key: str, value: Any, ttl: Optional[int] = None) -> None:
+        raw = json.dumps(value) if not isinstance(value, str) else value
+        await self._r.set(self._k(key), raw, ex=ttl or SESSION_TTL_SEC)
+        log.debug("SET %s (ttl=%s)", self._k(key), ttl or SESSION_TTL_SEC)
 
-    # -------------------- helpers ----------------------
-    def _mk(self, key: str) -> str:
-        k = f"{self.prefix}{key}"
-        log.debug("mk_key: %r -> %r", key, k)
-        return k
-
-    # -------------------- ops --------------------------
-    async def get(self, key: str) -> Optional[Any]:
-        rkey = self._mk(key)
-        try:
-            raw = await self._redis.get(rkey)
-            if raw is None:
-                log.debug("GET miss key=%r", rkey)
-                return None
+    async def get(self, key: str, as_json: bool = True) -> Any:
+        raw = await self._r.get(self._k(key))
+        if raw is None:
+            return None
+        if as_json:
             try:
-                val = json.loads(raw)
+                return json.loads(raw)
             except Exception:
-                val = raw  # not JSON? return as-is
-            log.debug("GET hit key=%r type=%s preview=%s", rkey, type(val).__name__, _preview(val, 120))
-            return val
-        except Exception as e:
-            log.exception("GET failed key=%r: %s", rkey, e)
-            raise
-
-    async def set(self, key: str, value: Any, *, ex: Optional[int] = None) -> bool:
-        rkey = self._mk(key)
-        ttl = ex if ex is not None else self.ttl
-        try:
-            sval = value if isinstance(value, str) else json.dumps(value, separators=(",", ":"), default=str)
-            ok = await self._redis.set(rkey, sval, ex=ttl)
-            log.info("SET key=%r ttl=%s ok=%s value_preview=%s", rkey, ttl, ok, _preview(value, 120))
-            return bool(ok)
-        except Exception as e:
-            log.exception("SET failed key=%r: %s", rkey, e)
-            raise
-
-    async def delete(self, key: str) -> int:
-        rkey = self._mk(key)
-        try:
-            n = await self._redis.delete(rkey)
-            log.info("DEL key=%r deleted=%d", rkey, n)
-            return int(n)
-        except Exception as e:
-            log.exception("DEL failed key=%r: %s", rkey, e)
-            raise
-
-    async def expire(self, key: str, seconds: int) -> bool:
-        rkey = self._mk(key)
-        try:
-            ok = await self._redis.expire(rkey, seconds)
-            log.debug("EXPIRE key=%r seconds=%d ok=%s", rkey, seconds, ok)
-            return bool(ok)
-        except Exception as e:
-            log.exception("EXPIRE failed key=%r: %s", rkey, e)
-            raise
+                pass
+        return raw
 
     async def ttl(self, key: str) -> int:
-        rkey = self._mk(key)
-        try:
-            t = await self._redis.ttl(rkey)
-            log.debug("TTL key=%r -> %s", rkey, t)
-            return int(t)
-        except Exception as e:
-            log.exception("TTL failed key=%r: %s", rkey, e)
-            raise
+        t = await self._r.ttl(self._k(key))
+        log.debug("TTL %s -> %s", self._k(key), t)
+        return t  # -2 missing, -1 no expire
 
-    async def keys(self, pattern: str = "*") -> list[str]:
-        patt = self._mk(pattern)
-        try:
-            ks = await self._redis.keys(patt)
-            log.debug("KEYS pattern=%r -> %d keys", patt, len(ks))
-            return ks
-        except Exception as e:
-            log.exception("KEYS failed pattern=%r: %s", patt, e)
-            raise
+    async def touch(self, key: str, ttl: Optional[int] = None) -> None:
+        await self._r.expire(self._k(key), ttl or SESSION_TTL_SEC)
+        log.debug("EXPIRE %s -> %s", self._k(key), ttl or SESSION_TTL_SEC)
 
-# --------------------------------------------------------------------------------------
-# App integration helpers
-# --------------------------------------------------------------------------------------
-def build_session_store_from_env() -> RedisSession:
+    async def exists(self, key: str) -> bool:
+        ok = bool(await self._r.exists(self._k(key)))
+        log.debug("EXISTS %s -> %s", self._k(key), ok)
+        return ok
+
+    async def iter_keys(self, limit: int = 100) -> AsyncIterator[str]:
+        patt = self._k("*")
+        count = 0
+        async for full in self._r.scan_iter(match=patt, count=limit):
+            yield full[len(self._p):]
+            count += 1
+            if count >= limit:
+                break
+
+
+# ---- FastAPI integration helpers ----
+
+def attach_session_store(app, url: Optional[str] = None, prefix: Optional[str] = None) -> RedisSession:
     """
-    Construct a RedisSession from env. Does not connect yet.
+    Create and attach RedisSession to app.state.session_store.
+    Safe to call multiple times (last wins).
     """
-    store = RedisSession(
-        url=REDIS_URL,
-        prefix=SESSION_PREFIX,
-        default_ttl=SESSION_TTL_SEC,
-        max_connections=MAX_CONNECTIONS,
-        health_check_interval=HEALTHCHECK_SECS,
-    )
+    store = RedisSession(url=url or REDIS_URL, prefix=prefix or SESSION_PREFIX)
+    app.state.session_store = store
+    log.info("Attached Redis session store to app.state.session_store")
     return store
 
-def attach_session_store(app) -> None:
-    """
-    Attach a RedisSession to app.state and wire startup/shutdown checks.
-    """
-    if getattr(app.state, "session_store", None) is not None:
-        log.warning("attach_session_store: app.state.session_store already set; replacing")
-
-    store = build_session_store_from_env()
-    app.state.session_store = store
-
-    @app.on_event("startup")
-    async def _session_startup():
-        log.info("Session store startup: pinging Redis at %s", _redact_url(REDIS_URL))
-        await store.ping()
-
-    @app.on_event("shutdown")
-    async def _session_shutdown():
-        log.info("Session store shutdown: closing Redis client")
-        await store.close()
 
 def get_session_store(request: Request) -> RedisSession:
-    """
-    FastAPI dependency to inject the session store into routes / services.
-    """
     store = getattr(request.app.state, "session_store", None)
     if store is None:
-        raise RuntimeError("Session store not attached. Call attach_session_store(app) during app startup.")
+        # fallback (shouldn't happen if you call attach_session_store at startup)
+        log.warning("session_store missing on app.state; attaching default store")
+        store = attach_session_store(request.app)
     return store
+
+
+async def ensure_sid_cookie_and_store(request: Request, response) -> str:
+    """
+    Ensure a server-managed session id exists (cookie + Redis), with sliding TTL.
+    """
+    store: RedisSession = get_session_store(request)
+    sid = request.cookies.get(SESSION_COOKIE)
+    created = False
+
+    if not sid or not await store.exists(sid):
+        sid = secrets.token_urlsafe(24)
+        created = True
+        await store.set(
+            sid,
+            {"created_at": datetime.now(timezone.utc).isoformat()},
+            ttl=SESSION_TTL_SEC,
+        )
+        log.info("Created sid=%s… ttl=%ss", sid[:8], SESSION_TTL_SEC)
+    else:
+        data = await store.get(sid) or {}
+        if isinstance(data, dict):
+            data["last_seen"] = datetime.now(timezone.utc).isoformat()
+            await store.set(sid, data, ttl=SESSION_TTL_SEC)
+        else:
+            await store.touch(sid, ttl=SESSION_TTL_SEC)
+
+    if created:
+        response.set_cookie(
+            SESSION_COOKIE, sid, max_age=SESSION_TTL_SEC,
+            httponly=True, samesite="lax",
+            secure=os.getenv("COOKIE_SECURE", "0") == "1",
+        )
+    return sid
+
+
+# small util you tried to import
+async def probe_key_ttl(store: RedisSession, key: str) -> int:
+    return await store.ttl(key)
+
+
+__all__ = [
+    "RedisSession",
+    "attach_session_store",
+    "get_session_store",
+    "ensure_sid_cookie_and_store",
+    "probe_key_ttl",
+    "SESSION_PREFIX",
+    "SESSION_TTL_SEC",
+    "SESSION_COOKIE",
+    "REDIS_URL",
+]

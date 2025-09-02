@@ -18,7 +18,6 @@ from sqlalchemy.inspection import inspect as sa_inspect
 
 from OSSS.core.config import settings
 from OSSS.db import get_sessionmaker
-from OSSS.sessions import attach_session_store
 
 
 from OSSS.api.generated_resources.register_all import generate_routers_for_all_models
@@ -27,12 +26,15 @@ from OSSS.api import debug
 from OSSS.api import auth_proxy
 from OSSS.api.routers.me import router as me_router
 from OSSS.api.routers.health import router as health_router
-from OSSS.app_logger import logger
 
 # New auth deps (no oauth2 symbol anymore)
 from OSSS.auth import ensure_access_token, get_current_user
 
-from OSSS.sessions import attach_session_store, get_session_store, SESSION_PREFIX
+from OSSS.sessions import attach_session_store, get_session_store, SESSION_PREFIX, ensure_sid_cookie_and_store, RedisSession, probe_key_ttl
+from OSSS.sessions_diag import router as sessions_diag_router
+from OSSS.app_logger import get_logger
+
+
 
 LOGGING = {
     "version": 1,
@@ -55,7 +57,7 @@ LOGGING = {
     },
 }
 logging.config.dictConfig(LOGGING)
-log = logging.getLogger("startup")
+log = logging.getLogger("main")
 
 
 
@@ -175,7 +177,23 @@ def create_app() -> FastAPI:
         ):
             return {"ok": True, "sub": (user or {}).get("sub")}
 
+        @app.get("/_session_ttl", tags=["_debug"])
+        async def session_ttl(key: str, store: RedisSession = Depends(get_session_store)):
+            return await probe_key_ttl(store, key)
+
+        @app.get("/_session_keys", tags=["_debug"])
+        async def session_keys(limit: int = 20, store: RedisSession = Depends(get_session_store)):
+            # list raw redis keys; strip prefix for display
+            patt = f"{SESSION_PREFIX}*"
+            keys = []
+            async for k in store._r.scan_iter(match=patt, count=limit):
+                keys.append(k.removeprefix(SESSION_PREFIX))
+                if len(keys) >= limit:
+                    break
+            return {"keys": keys}
+
         app.include_router(probe)
+        app.include_router(sessions_diag_router)
 
         # DB ping (unless testing)
         if not settings.TESTING:
@@ -269,6 +287,10 @@ def create_app() -> FastAPI:
     # Startup
     @app.on_event("startup")
     async def _startup() -> None:
+        app.state.session_store = RedisSession()
+        ok = await app.state.session_store.ping()
+        if not ok:
+            log.warning("Redis not reachable at startup.")
 
         # Small probe that enforces a token (no oauth2 symbol)
         probe = APIRouter()
@@ -308,6 +330,16 @@ def create_app() -> FastAPI:
         if os.getenv("OSSS_DEBUG_MAPPINGS") == "1":
             _dump_mappings("[mappings][startup]")
 
+    @app.middleware("http")
+    async def session_tracker(request: Request, call_next):
+        response = await call_next(request)  # process first to avoid masking errors
+        try:
+            sid = await ensure_sid_cookie_and_store(request, response)
+            request.state.sid = sid
+            log.debug("Request %s %s -> sid=%s…", request.method, request.url.path, sid[:8])
+        except Exception as e:
+            log.exception("Failed to ensure sid: %s", e)
+        return response
 
     return app
 
