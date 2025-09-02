@@ -89,6 +89,38 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("REDIS_URL"),
     )
 
+    SESSION_SECRET: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("SESSION_SECRET"),
+    )
+
+    SESSION_MAX_AGE: int | None = Field(
+        default=None,
+        validation_alias=AliasChoices("SESSION_MAX_AGE"),
+    )
+
+    SESSION_TTL_SECONDS: int | None = Field(
+        default=None,
+        validation_alias=AliasChoices("SESSION_TTL_SECONDS"),
+    )
+
+    COOKIE_DOMAIN: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("COOKIE_DOMAIN"),
+    )
+
+    COOKIE_SECURE: bool | None = Field(
+        default=False,
+        validation_alias=AliasChoices("COOKIE_SECURE"),
+    )
+
+    COOKIE_SAMESITE: str | None = Field(
+        default="lax",
+        validation_alias=AliasChoices("COOKIE_SAMESITE"),
+    )
+
+
+
     # Pydantic settings config
     model_config = SettingsConfigDict(
         env_file=".env",

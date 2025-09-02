@@ -12,6 +12,7 @@ from fastapi.routing import APIRoute
 
 from starlette.middleware.sessions import SessionMiddleware
 
+from redis import Redis
 
 from sqlalchemy.orm import class_mapper
 from sqlalchemy.orm.exc import UnmappedClassError
@@ -32,7 +33,7 @@ from OSSS.sessions import redis_session, RedisSession, SESSION_PREFIX
 # New auth deps (no oauth2 symbol anymore)
 from OSSS.auth import ensure_access_token, get_current_user
 
-from redis.asyncio import Redis
+from OSSS.sessions import redis_session, RedisSession, close_redis
 
 LOGGING = {
     "version": 1,
@@ -279,6 +280,10 @@ def create_app() -> FastAPI:
     # Startup
     @app.on_event("startup")
     async def _startup() -> None:
+        r = await redis_session()
+        app.state.redis = r
+        app.state.session_store = RedisSession(r)
+
         # Small probe that enforces a token (no oauth2 symbol)
         probe = APIRouter()
 
@@ -316,6 +321,10 @@ def create_app() -> FastAPI:
 
         if os.getenv("OSSS_DEBUG_MAPPINGS") == "1":
             _dump_mappings("[mappings][startup]")
+
+    @app.on_event("shutdown")
+    async def _shutdown():
+        await close_redis()
 
 
     return app
