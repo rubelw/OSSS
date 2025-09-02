@@ -1,6 +1,6 @@
 curriculum_version_id,requirement_id,alignment_level,evidence_url,notes
-2d9cb060-a824-431c-b61c-fbc017444b2d,afcb8f6e-b5d9-43ab-84c2-6feeb2c70410,partial,,Seeded Alignment (alembic)
-574936b8-4818-4c17-9c17-a05b5c7af323,6c9bbcdd-81ea-4c74-a9a3-88190acf2032,partial,,Seeded Alignment (alembic)
-9fcf0da8-8358-47cf-9bb5-c4b7617e0ef5,c70547bb-aa00-46ef-8aec-9805a8965919,partial,,Seeded Alignment (alembic)
-d282aa16-15cf-493a-b16b-23bdc637135e,4d555f67-8e3f-4a7c-8e6c-47e851c62e70,unknown,,Seeded Alignment (alembic)
-e930e5ee-d086-42f1-9404-27a775026292,473cf468-b968-4149-a999-14b3d47afa8b,not_aligned,,Seeded Alignment (alembic)
+1ec3619a-95db-4e5d-9c42-3a17564c9e0b,1fc10803-ca61-43a8-b575-f078be17ba40,unknown,,Seeded Alignment (alembic)
+775f0e53-b6d2-4260-a75c-52098935fc97,a962f15f-b7a9-4049-9f9f-812e471b0e97,unknown,,Seeded Alignment (alembic)
+a2f5665c-6dc9-41fb-966d-94ccc31a7eb6,5b44cd4e-982f-4b48-8a2f-6e0e5abd2927,not_aligned,,Seeded Alignment (alembic)
+ab8529e2-288f-4e4b-9921-776f28c8593e,3154075e-f968-4457-ac1f-af1ac0d3466c,aligned,,Seeded Alignment (alembic)
+bca55911-4f4a-4a57-85b4-774f97d2d864,c10e9d70-d335-4e8e-9a61-68f8f3f201e5,not_aligned,,Seeded Alignment (alembic)
