@@ -3341,6 +3341,9 @@
                       "description": "Leads student activities, clubs, and co-curriculars.",
                       "permissions": [
                         "read:academic_terms",
+                        "read:tickets",
+                        "read:ticket_types",
+
                         "read:accommodations",
                         "read:activities",
                         "read:addresses",
@@ -3414,6 +3417,7 @@
                         "read:evaluation_signoffs",
                         "read:evaluation_templates",
                         "read:events",
+                        "read:orders",
                         "read:export_runs",
                         "read:external_ids",
                         "read:facilities",
@@ -3453,7 +3457,7 @@
                         "read:incidents",
                         "read:initiatives",
                         "read:invoices",
-                        "reac:schools",
+                        "read:schools",
                         "read:meetings",
                         "read:warranties",
                         "read:maintenance_requests",
