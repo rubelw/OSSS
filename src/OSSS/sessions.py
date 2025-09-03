@@ -1,6 +1,6 @@
 # src/OSSS/sessions.py
 from __future__ import annotations
-import os, json, secrets
+import os, json, secrets, httpx, time, logging, os
 from datetime import datetime, timezone
 from typing import Any, Optional, AsyncIterator
 
@@ -14,6 +14,10 @@ SESSION_PREFIX   = os.getenv("SESSION_PREFIX", "sess:")
 SESSION_TTL_SEC  = int(os.getenv("SESSION_TTL_SEC", "3600"))
 SESSION_COOKIE   = os.getenv("SESSION_COOKIE", "sid")
 REDIS_URL        = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+
+KC_ISSUER = os.getenv("KEYCLOAK_ISSUER") or os.getenv("OIDC_ISSUER")
+KC_CLIENT_ID = os.getenv("KEYCLOAK_CLIENT_ID", "osss-api")
+KC_CLIENT_SECRET = os.getenv("KEYCLOAK_CLIENT_SECRET")  # confidential client
 
 
 class RedisSession:
@@ -75,6 +79,22 @@ class RedisSession:
 
 
 # ---- FastAPI integration helpers ----
+def _token_url() -> str:
+    return f"{KC_ISSUER.rstrip('/')}/protocol/openid-connect/token"
+
+def _basic_auth_header(cid: str, secret: str) -> dict:
+    import base64
+    raw = f"{cid}:{secret}".encode("utf-8")
+    return {"Authorization": "Basic " + base64.b64encode(raw).decode("ascii")}
+
+async def refresh_access_token(refresh_token: str) -> dict:
+    """Return new token payload from Keycloak using refresh_token."""
+    data = {"grant_type": "refresh_token", "refresh_token": refresh_token}
+    headers = _basic_auth_header(KC_CLIENT_ID, KC_CLIENT_SECRET) if KC_CLIENT_SECRET else None
+    async with httpx.AsyncClient(timeout=10) as client:
+        r = await client.post(_token_url(), data=data, headers=headers)
+    r.raise_for_status()
+    return r.json()
 
 def attach_session_store(app, url: Optional[str] = None, prefix: Optional[str] = None) -> RedisSession:
     """

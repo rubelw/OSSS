@@ -1,19 +1,19 @@
 id,org_id,name,audience,description
-8eb659cc-b82a-48d8-a927-d246a95a9fac,307a842e-d2da-4437-bddc-a9cd2398f73a,Community,board,Community engagement and partnerships.
-af28801f-ba0b-49dc-a87c-0df560e11b6d,307a842e-d2da-4437-bddc-a9cd2398f73a,Superintendent,public,"Arts, music, and theater highlights."
-c4605691-a800-4d71-99e1-a9565e456a3c,307a842e-d2da-4437-bddc-a9cd2398f73a,Library,public,Health and safety reminders.
-b0531ed9-afbc-4e4d-99df-4f1828a22af6,307a842e-d2da-4437-bddc-a9cd2398f73a,Clubs,board,Transportation notices and route updates.
-3c1026c4-1bb5-4fb2-90de-18c832666904,307a842e-d2da-4437-bddc-a9cd2398f73a,Food Services,board,Information for staff and internal announcements.
-c05e1b98-9a9c-463c-8acb-9a208c6bf614,307a842e-d2da-4437-bddc-a9cd2398f73a,Theater,public,Upcoming events and activities.
-c7af1390-93a8-4a46-8380-fd28562eb3a8,307a842e-d2da-4437-bddc-a9cd2398f73a,Board Updates,public,Health and safety reminders.
-a6fdb27c-b24e-47aa-8f4d-a134cca8f9de,307a842e-d2da-4437-bddc-a9cd2398f73a,Principals,public,
-3e97e43a-bb1c-49bb-af4f-142d5f2a66a6,307a842e-d2da-4437-bddc-a9cd2398f73a,Technology,public,Information for staff and internal announcements.
-240abaa2-69fc-46df-8f2c-87f3dd9258c0,307a842e-d2da-4437-bddc-a9cd2398f73a,District News,public,Information for staff and internal announcements.
-ade45e83-5498-4cb0-a906-cefc32626fda,307a842e-d2da-4437-bddc-a9cd2398f73a,Events,public,Information for staff and internal announcements.
-914f2d1d-44c6-406c-b400-6932edef259a,307a842e-d2da-4437-bddc-a9cd2398f73a,Arts,public,Information for staff and internal announcements.
-f3443d18-cef8-414a-ac22-fc8b2fa6f23d,307a842e-d2da-4437-bddc-a9cd2398f73a,Health & Safety,public,Technology tips and service notices.
-ed8b3bc0-47e2-4400-a701-b56d5bdc1f27,307a842e-d2da-4437-bddc-a9cd2398f73a,Counseling,public,Technology tips and service notices.
-d401f1e2-4d25-4661-867c-72e22c5dcd62,307a842e-d2da-4437-bddc-a9cd2398f73a,Facilities,public,Updates from the school board.
-daa71879-5fed-4c16-be36-567bce9b7ce0,307a842e-d2da-4437-bddc-a9cd2398f73a,Transportation,staff,Information for staff and internal announcements.
-d72cf766-b40b-4e2b-a915-a03fa727be8e,307a842e-d2da-4437-bddc-a9cd2398f73a,Music,public,Updates from the school board.
-ff767341-cbfd-4a3e-92f4-d5465f12adea,307a842e-d2da-4437-bddc-a9cd2398f73a,Curriculum,staff,Health and safety reminders.
+fd01fede-fcb0-4ea9-9c12-349ebc90210e,17865b18-d3d9-4161-a6ef-f7e033f09c1e,Facilities,public,Information for staff and internal announcements.
+07daec0d-7ae7-4a01-86c5-dfa9eccd3fc0,17865b18-d3d9-4161-a6ef-f7e033f09c1e,Superintendent,staff,Community engagement and partnerships.
+4c9b3047-1375-4abb-86ec-e2076eb9a143,17865b18-d3d9-4161-a6ef-f7e033f09c1e,Music,staff,
+7b2bebe1-3cd1-4947-99db-fc96470cb544,17865b18-d3d9-4161-a6ef-f7e033f09c1e,Library,staff,Community engagement and partnerships.
+6d9296a5-8dce-46a6-8138-75ff87fd0219,17865b18-d3d9-4161-a6ef-f7e033f09c1e,Board Updates,staff,Information for staff and internal announcements.
+aad7763b-df83-4424-9fe4-81ecc69a573e,17865b18-d3d9-4161-a6ef-f7e033f09c1e,Staff Updates,staff,Updates from the school board.
+7c8534aa-4b26-401d-a941-6bec37457e9d,17865b18-d3d9-4161-a6ef-f7e033f09c1e,District News,public,Transportation notices and route updates.
+97c239fc-27fc-467e-b041-d8ac23abe902,17865b18-d3d9-4161-a6ef-f7e033f09c1e,Transportation,public,Updates from the school board.
+b7266e70-3e36-43d7-b248-8b3a67b23ab4,17865b18-d3d9-4161-a6ef-f7e033f09c1e,Announcements,staff,"Arts, music, and theater highlights."
+7eedc929-bedd-4467-bb5f-7e467e38ddbe,17865b18-d3d9-4161-a6ef-f7e033f09c1e,Technology,public,Information for staff and internal announcements.
+8b9b4a4c-5aaf-4d39-8cdb-2a481892835a,17865b18-d3d9-4161-a6ef-f7e033f09c1e,Food Services,public,"Arts, music, and theater highlights."
+8f8b5a12-2cb2-44bf-b60b-16957e7f675a,17865b18-d3d9-4161-a6ef-f7e033f09c1e,Special Education,public,Official updates and news for the district.
+e6697601-9353-4b68-a1eb-7526937cbebb,17865b18-d3d9-4161-a6ef-f7e033f09c1e,Theater,public,"Arts, music, and theater highlights."
+b167b15d-07a2-4f12-90f2-99ae066c6bf7,17865b18-d3d9-4161-a6ef-f7e033f09c1e,Community,board,Technology tips and service notices.
+b39e9de3-8eef-4ef2-ad5b-150c228b1166,17865b18-d3d9-4161-a6ef-f7e033f09c1e,Events,public,Transportation notices and route updates.
+6eed671d-5ee4-44b7-95ef-5560190150ea,17865b18-d3d9-4161-a6ef-f7e033f09c1e,Principals,staff,Health and safety reminders.
+c2138c15-0424-434d-a82c-0267740d67ab,17865b18-d3d9-4161-a6ef-f7e033f09c1e,Athletics,public,Information for staff and internal announcements.
+04016ace-8a8c-4707-9d3f-ecea87925cdc,17865b18-d3d9-4161-a6ef-f7e033f09c1e,Counseling,public,Updates from the school board.

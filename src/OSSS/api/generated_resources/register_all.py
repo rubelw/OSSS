@@ -13,9 +13,22 @@ log = logging.getLogger("startup")
 DEBUG_IMPORTS = True   # set False to quiet import spam
 SLOW_ON_ERROR = False  # set True to sleep briefly on import errors
 
+_ACRONYM_BOUNDARY = re.compile(r'([A-Z]+)([A-Z][a-z])')  # CIC + A -> CIC_A
+_MIDWORD_BOUNDARY = re.compile(r'([a-z0-9])([A-Z])')     # fooB -> foo_B
+
+
+
+
 
 def _to_snake(name: str) -> str:
-    return re.sub(r'(?<!^)(?=[A-Z])', '_', name).lower()  # ApVendor -> ap_vendor
+    """
+    Convert CamelCase to snake_case, preserving acronyms:
+      CICAgendaItem -> cic_agenda_item
+      APIKey        -> api_key
+    """
+    s = _ACRONYM_BOUNDARY.sub(r'\1_\2', name)
+    s = _MIDWORD_BOUNDARY.sub(r'\1_\2', s)
+    return s.replace("__", "_").lower()
 
 
 def _debug_dump_models(label: str = "[register_all] mappings"):

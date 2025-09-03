@@ -8,11 +8,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.inspection import inspect
 from sqlalchemy import select
 from sqlalchemy.sql.schema import MetaData as SAMetaData  # <-- NEW
+from .factory_helpers import to_snake, pluralize_snake  # ensure imported
+
 
 from .serialization import to_dict
 # NOTE: remove any direct import of get_db here; we’ll use discovery helpers
 # from OSSS.db.session import get_db  # ❌ remove this
-from .factory_helpers import build_pydantic_from_sqla_model, to_pydantic
+from .factory_helpers import resource_name_for_model
 
 from OSSS.auth.deps import require_roles  # role-based gate
 
@@ -240,16 +242,17 @@ def create_router_for_model(
         dependencies.append(Depends(get_current_user))
         dependencies.append(Depends(bind_session_store))
 
+    # ---- NEW: derive resource name and prefix using helper ----
+    resource_name = resource_name_for_model(model)              # e.g., "cic_meetings"
+
+    _prefix = prefix or f"/api/{pluralize_snake(resource_name)}"
+    _tags = tags or [pluralize_snake(resource_name)]
+
     router = APIRouter(dependencies=dependencies)
-
-    name = model.__name__.lower()
-    _prefix = prefix or f"/{name}s"
-    _tags = tags or [model.__name__]
-
 
     pk_name, _pk_type = _pk_info(model)
     cols = set(_model_columns(model))
-    op = model.__name__.lower()
+    op = pluralize_snake(model.__name__.lower())
 
     def _deps_for(op: str, _roles=roles_map):
         deps = []
