@@ -5,6 +5,8 @@ from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt
 import requests
+from jose import jwt, JWTError, ExpiredSignatureError
+from OSSS.sessions import get_session_store, refresh_access_token   # your helpers
 
 from OSSS.app_logger import get_logger
 
@@ -21,6 +23,7 @@ log.setLevel(getattr(logging, AUTH_LOG_LEVEL, logging.INFO))
 
 JWT_SECRET      = os.getenv("JWT_SECRET")
 JWT_ALLOWED_ALGS = [a.strip() for a in os.getenv("JWT_ALLOWED_ALGS","RS256").split(",")]
+JWT_LEEWAY_SECONDS = int(os.getenv("JWT_LEEWAY_SECONDS", "60"))
 
 
 # Dump auth config at import-time (once)
@@ -32,6 +35,16 @@ log.debug("Auth cfg: issuer=%r jwks_url=%r client_id=%r verify_aud=%s leeway=%ss
 # ---- JWKS cache --------------------------------------------------------------
 _JWKS_CACHE: dict[str, Any] = {}
 _JWKS_EXP_AT: float = 0.0
+
+def decode_jwt(token: str, key, audience=None, verify_aud=True):
+    return jwt.decode(
+        token,
+        key,
+        algorithms=["RS256", "HS256"],   # whatever you use
+        audience=audience if verify_aud else None,
+        options={"verify_aud": verify_aud, "verify_exp": True},
+        leeway=JWT_LEEWAY_SECONDS,
+    )
 
 def _load_jwks(force: bool = False) -> dict:
     global _JWKS_CACHE, _JWKS_EXP_AT
@@ -255,8 +268,60 @@ def require_roles(*, any_of: Sequence[str] | set[str] | None = None,
     return _dep
 
 # Back-compat shim (if anything imports oauth2)
-async def oauth2(request: Request) -> str:
-    return ensure_access_token(request)
+async def oauth2(request: Request, store=Depends(get_session_store)):
+    # 1) If a Bearer header is present, try it first (don’t auto-refresh unknown clients)
+    auth = request.headers.get("Authorization", "")
+    if auth.startswith("Bearer "):
+        token = auth[7:]
+        try:
+            return decode_jwt(token, key=...)  # your key selection
+        except ExpiredSignatureError:
+            # You *could* decide not to refresh here for security;
+            # commonly, only refresh for your own session/cookie flow.
+            pass
+        except Exception:
+            pass  # fall through to session
+
+    # 2) Try your server-side session
+    sid = request.cookies.get("sid")  # whatever your cookie is
+    if not sid:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    sess = await store.get(sid) or {}
+    token = sess.get("access_token")
+    if not token:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    try:
+        return decode_jwt(token, key=...)  # still valid
+    except ExpiredSignatureError:
+        # 2a) Auto-refresh if we have refresh_token
+        rt = sess.get("refresh_token")
+        if not rt:
+            raise HTTPException(status_code=401, detail="Session expired")
+
+        try:
+            new = await refresh_access_token(rt)
+        except Exception as e:
+            log.warning("refresh failed: %s", e)
+            raise HTTPException(status_code=401, detail="Session expired")
+
+        # update session
+        sess["access_token"]  = new["access_token"]
+        sess["refresh_token"] = new.get("refresh_token", rt)
+        # optional, track expiry seconds
+        sess["expires_at"]    = int(time.time()) + int(new.get("expires_in", 300))
+
+        # extend session TTL, e.g. sliding window
+        await store.set(sid, sess, ttl=int(os.getenv("SESSION_TTL_SECONDS", "3600")))
+        log.info("[session] refreshed access token for sid=%s", sid)
+
+        # return decoded claims of the new token
+        return decode_jwt(new["access_token"], key=...)
+
+    # any other decode errors => 401
+    except Exception:
+        raise HTTPException(status_code=401, detail="Not authenticated")
 
 # --- Simple dependency that just enforces auth -------------------------------
 async def require_auth(user: Optional[dict] = Depends(get_current_user)) -> dict:

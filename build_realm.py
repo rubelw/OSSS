@@ -20,6 +20,7 @@ import pkgutil
 import argparse
 import json
 import re
+import sys
 from pathlib import Path
 from typing import Iterable
 import sqlalchemy as sa
@@ -31,6 +32,12 @@ from pydantic import BaseModel, Field, ConfigDict, model_validator
 # Remove // line comments and /* block */ comments
 _COMMENT_BLOCK_RE = re.compile(r"/\*.*?\*/", re.S)
 _COMMENT_LINE_RE = re.compile(r"//.*?$", re.M)
+
+SESSION_TTLS = {
+    "ssoSessionIdleTimeout": 1800,       # 30 minutes
+    "ssoSessionMaxLifespan": 36000,      # 10 hours
+    "offlineSessionIdleTimeout": 2592000 # 30 days
+}
 
 # Match: Table <name> [optional settings] { ... }
 # <name> can be: unquoted, "double-quoted", `backticked`, or schema.name
@@ -1290,6 +1297,8 @@ if __name__ == "__main__":
     LOG.info("Starting builder for realm '%s'", args.name)
 
     rb = RealmBuilder(args.name)
+
+
     # --- Realm roles ---
     rb.add_realm_role("offline_access", "Offline Access", composite=False)
     rb.add_realm_role("uma_authorization", "UMA Authorization", composite=False)
@@ -1696,3 +1705,113 @@ if __name__ == "__main__":
     with open(args.out, "w") as f:
         json.dump(out, f, indent=2)
     LOG.info("Wrote realm export to %s", args.out)
+
+# ---- RealmBuilder override/refactor shim ------------------------------------
+from typing import Mapping, Any, Callable
+
+# Determine a base "build-like" method, even if it's not literally named "build"
+_base_build_method: Callable | None = None
+for _cand in ("build", "render", "to_dict", "as_dict", "export", "dump", "generate", "compile", "build_realm", "create"):
+    if hasattr(RealmBuilder, _cand) and callable(getattr(RealmBuilder, _cand)):
+        _base_build_method = getattr(RealmBuilder, _cand)
+        _base_build_name = _cand
+        break
+else:
+    _base_build_name = None
+
+# Per-instance overrides (top-level realm fields to merge)
+if not hasattr(RealmBuilder, "_overrides"):
+    # Will be attached in __init__ wrapper below
+    pass
+
+# Chainable .update(mapping=None, **kwargs)
+if not hasattr(RealmBuilder, "update"):
+    def _rb_update(self, mapping: Mapping[str, Any] | None = None, /, **kwargs: Any):
+        """
+        Chainable: attach/merge arbitrary top-level realm overrides that will be
+        applied after the base realm is built.
+        Usage:
+            builder.update({"foo": 1}).update(bar=2)
+        """
+        if getattr(self, "_overrides", None) is None:
+            self._overrides = {}
+        if mapping:
+            self._overrides.update(dict(mapping))
+        if kwargs:
+            self._overrides.update(kwargs)
+        return self
+    RealmBuilder.update = _rb_update  # type: ignore[attr-defined]
+
+# Sugar: set session TTLs
+if not hasattr(RealmBuilder, "with_session_timeouts"):
+    def _rb_with_session_timeouts(self, *, idle: int, max_lifespan: int, offline_idle: int):
+        """
+        Convenience wrapper for common Keycloak realm session TTLs.
+        """
+        return self.update(
+            ssoSessionIdleTimeout=idle,
+            ssoSessionMaxLifespan=max_lifespan,
+            offlineSessionIdleTimeout=offline_idle,
+        )
+    RealmBuilder.with_session_timeouts = _rb_with_session_timeouts  # type: ignore[attr-defined]
+
+# Wrap __init__ to ensure each instance gets its own _overrides dict
+if not hasattr(RealmBuilder, "_orig_init"):
+    RealmBuilder._orig_init = RealmBuilder.__init__  # type: ignore[attr-defined]
+    def _rb_init(self, *args, **kwargs):
+        RealmBuilder._orig_init(self, *args, **kwargs)  # type: ignore[attr-defined]
+        if getattr(self, "_overrides", None) is None:
+            self._overrides = {}
+    RealmBuilder.__init__ = _rb_init  # type: ignore[attr-defined]
+
+def _normalize_realm_dict(realm: Any) -> dict:
+    # Normalize to a plain dict (supports Pydantic v1/v2, dataclasses, etc.)
+    if hasattr(realm, "model_dump"):   # pydantic v2
+        realm = realm.model_dump()
+    elif hasattr(realm, "dict"):       # pydantic v1
+        realm = realm.dict()
+    elif hasattr(realm, "__dict__") and not isinstance(realm, dict):
+        realm = dict(realm.__dict__)
+    if not isinstance(realm, dict):
+        raise TypeError("RealmBuilder build/render must produce a dict-like structure")
+    return realm
+
+# Wrap/define build:
+if _base_build_method is not None:
+    # Preserve the original "build-like" for later calls
+    if not hasattr(RealmBuilder, "_orig_build"):
+        RealmBuilder._orig_build = _base_build_method  # type: ignore[attr-defined]
+
+    def _rb_build(self, *args, **kwargs):
+        realm = RealmBuilder._orig_build(self, *args, **kwargs)  # type: ignore[attr-defined]
+        realm = _normalize_realm_dict(realm)
+        overrides = getattr(self, "_overrides", None) or {}
+        if overrides:
+            realm.update(overrides)
+        return realm
+
+    # If there is already a .build(), wrap it; otherwise, provide a .build() alias
+    if _base_build_name == "build":
+        RealmBuilder.build = _rb_build  # type: ignore[attr-defined]
+    else:
+        # Keep the original method intact, and also expose a new .build()
+        if not hasattr(RealmBuilder, "build"):
+            RealmBuilder.build = _rb_build  # type: ignore[attr-defined]
+else:
+    # No build-like method found; define a minimal build() pulling from common attrs
+    if not hasattr(RealmBuilder, "build"):
+        def _rb_build_min(self):
+            for attr in ("realm", "data", "payload", "config"):
+                if hasattr(self, attr):
+                    realm = getattr(self, attr)
+                    realm = _normalize_realm_dict(realm)
+                    overrides = getattr(self, "_overrides", None) or {}
+                    if overrides:
+                        realm.update(overrides)
+                    return realm
+            raise AttributeError(
+                "RealmBuilder has no build-like method and no common realm/data attributes; "
+                "please implement .build() or one of: render, to_dict, as_dict, export, dump, generate, compile."
+            )
+        RealmBuilder.build = _rb_build_min  # type: ignore[attr-defined]
+# -----------------------------------------------------------------------------
