@@ -2,48 +2,45 @@
 from __future__ import annotations
 from typing import Optional, Any, List
 from datetime import date, datetime
-from decimal import Decimal
 import uuid
 from pydantic import Field
 from OSSS.schemas.base import APIModel
 
 
 class FiscalPeriodOut(APIModel):
-    fiscal_year_id: Any
+    year_number: int
     period_no: int
     start_date: date
     end_date: date
     is_closed: bool
-    id: Any
+    id: uuid.UUID
     created_at: datetime
     updated_at: datetime
 
+
 class FiscalPeriodCreate(APIModel):
-    fiscal_year_id: Any
+    year_number: int
     period_no: int
     start_date: date
     end_date: date
     is_closed: bool | None = None
-    created_at: datetime | None = None
-    updated_at: datetime | None = None
+
 
 class FiscalPeriodReplace(APIModel):
-    fiscal_year_id: Any
+    year_number: int
     period_no: int
     start_date: date
     end_date: date
     is_closed: bool | None = None
-    created_at: datetime | None = None
-    updated_at: datetime | None = None
+
 
 class FiscalPeriodPatch(APIModel):
-    fiscal_year_id: Any | None = None
+    year_number: int | None = None
     period_no: int | None = None
     start_date: date | None = None
     end_date: date | None = None
     is_closed: bool | None = None
-    created_at: datetime | None = None
-    updated_at: datetime | None = None
+
 
 class FiscalPeriodList(APIModel):
     items: list[FiscalPeriodOut]

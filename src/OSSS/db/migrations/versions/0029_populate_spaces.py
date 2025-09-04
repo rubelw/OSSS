@@ -117,23 +117,36 @@ def upgrade() -> None:
     ).mappings().all()
     f_by_bld_level = {(str(r["building_id"]), (r["level_code"] or "").strip()): str(r["id"]) for r in f_rows}
 
-    # Existing to avoid duplicates
+    # Existing to avoid duplicates (by floor + code)
     existing = bind.execute(
-        text("SELECT building_id, code FROM spaces")
+        text("SELECT floor_id, code FROM spaces")
     ).mappings().all()
-    existing_set = {(str(r["building_id"]), r["code"]) for r in existing}
+    existing_set = {(str(r["floor_id"]) if r["floor_id"] is not None else None, r["code"]) for r in existing}
 
-    # Prepare insert
+    # Prepare insert: include building_id (derived from the matching floor) to satisfy NOT NULL constraint
     if is_pg:
         ins = text("""
             INSERT INTO spaces (building_id, floor_id, code, name, space_type, area_sqft, capacity, created_at, updated_at)
-            VALUES (:building_id, :floor_id, :code, :name, :space_type, :area_sqft, :capacity, NOW(), NOW())
-            ON CONFLICT (building_id, code) DO NOTHING
+            SELECT f.building_id, :floor_id, :code, :name, :space_type, :area_sqft, :capacity, NOW(), NOW()
+            FROM floors f
+            WHERE f.id = :floor_id
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM spaces s
+                  WHERE s.floor_id = :floor_id
+                    AND s.code = :code
+              )
         """)
     else:
+        # SQLite: derive building_id via floors and guard with NOT EXISTS
         ins = text("""
-            INSERT OR IGNORE INTO spaces (building_id, floor_id, code, name, space_type, area_sqft, capacity, created_at, updated_at)
-            VALUES (:building_id, :floor_id, :code, :name, :space_type, :area_sqft, :capacity, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            INSERT INTO spaces (building_id, floor_id, code, name, space_type, area_sqft, capacity, created_at, updated_at)
+            SELECT f.building_id, :floor_id, :code, :name, :space_type, :area_sqft, :capacity, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+            FROM floors f
+            WHERE f.id = :floor_id
+              AND NOT EXISTS (
+                  SELECT 1 FROM spaces s WHERE s.floor_id = :floor_id AND s.code = :code
+              )
         """)
 
     inserted = 0
@@ -145,17 +158,20 @@ def upgrade() -> None:
             # building unknown; skip row
             continue
 
-        floor_id = None
         lvl = r["level_code"]
+        floor_id = None
         if lvl:
             floor_id = f_by_bld_level.get((bld_id, lvl))
 
-        sig = (bld_id, r["code"])
+        # If we can't resolve a floor, skip (schema likely needs floor_id)
+        if not floor_id:
+            continue
+
+        sig = (floor_id, r["code"])
         if sig in existing_set:
             continue
 
         bind.execute(ins, {
-            "building_id": bld_id,
             "floor_id": floor_id,
             "code": r["code"],
             "name": r["name"],
@@ -174,7 +190,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    bind = op.get_get_bind() if hasattr(op, "get_get_bind") else op.get_bind()
+    bind = op.get_bind()
 
     csv_path = _resolve_csv_path()
     if not csv_path or not csv_path.exists():
@@ -190,29 +206,46 @@ def downgrade() -> None:
     b_by_code = {r["code"]: str(r["id"]) for r in b_rows if r["code"]}
     b_by_name = {r["name"]: str(r["id"]) for r in b_rows if r["name"]}
 
-    # Delete precisely those (building_id, code) pairs
-    # Do in small batches to avoid huge IN clauses
-    batch = []
+    # Map floors again
+    f_rows = bind.execute(text("SELECT id, building_id, level_code FROM floors")).mappings().all()
+    f_by_bld_level = {(str(r["building_id"]), (r["level_code"] or "").strip()): str(r["id"]) for r in f_rows}
+
+    # Collect exact (floor_id, code) pairs that were inserted
+    pairs = []
     for r in data:
         bcode = r["building_code"]
         bld_id = b_by_code.get(bcode) or b_by_name.get(bcode)
         if not bld_id:
             continue
-        batch.append((bld_id, r["code"]))
+        lvl = r["level_code"]
+        floor_id = None
+        if lvl:
+            floor_id = f_by_bld_level.get((bld_id, lvl))
+        if not floor_id:
+            continue
+        pairs.append((floor_id, r["code"]))
 
-    if not batch:
+    if not pairs:
         return
 
     if bind.dialect.name == "postgresql":
+        # delete using a zipped unnest
         del_sql = text("""
-            DELETE FROM spaces
-            WHERE (building_id, code) IN (
-                SELECT UNNEST(:bids)::uuid, UNNEST(:codes)::text
+            WITH to_del AS (
+                SELECT UNNEST(:floor_ids)::uuid AS floor_id,
+                       UNNEST(:codes)::text AS code
             )
+            DELETE FROM spaces s
+            USING to_del td
+            WHERE s.floor_id = td.floor_id
+              AND s.code     = td.code
         """)
-        bind.execute(del_sql, {"bids": [b for b, _ in batch], "codes": [c for _, c in batch]})
+        bind.execute(del_sql, {
+            "floor_ids": [f for f, _ in pairs],
+            "codes": [c for _, c in pairs],
+        })
     else:
         # SQLite fallback: iterate
-        del_one = text("DELETE FROM spaces WHERE building_id = :bid AND code = :code")
-        for bid, code in batch:
-            bind.execute(del_one, {"bid": bid, "code": code})
+        del_one = text("DELETE FROM spaces WHERE floor_id = :fid AND code = :code")
+        for fid, code in pairs:
+            bind.execute(del_one, {"fid": fid, "code": code})

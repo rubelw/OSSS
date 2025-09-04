@@ -3,17 +3,54 @@ import uuid
 
 from datetime import datetime, date, time
 from decimal import Decimal
-from typing import Any, Optional, List
+from typing import Any, Optional, List, ClassVar
 
 import sqlalchemy as sa
 from sqlalchemy import ForeignKey, UniqueConstraint, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from OSSS.db.base import Base, UUIDMixin, GUID, JSONB, TimestampMixin
+from OSSS.db.base import Base, UUIDMixin, GUID, JSONB, TimestampMixin, ts_cols
 
 
 class Meeting(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "meetings"
+    __allow_unmapped__ = True  # keep NOTE out of the SQLAlchemy mapper
+
+    NOTE: ClassVar[str] =     (
+        "owner=special_education_related_services; "
+        "description=Stores meetings records for the application. "
+        "Key attributes include title. "
+        "References related entities via: governing body, org. "
+        "Includes standard audit timestamps (created_at, updated_at). "
+        "12 column(s) defined. "
+        "Primary key is `id`. "
+        "2 foreign key field(s) detected."
+    )
+
+    __table_args__ = {
+        "comment":         (
+            "Stores meetings records for the application. "
+            "Key attributes include title. "
+            "References related entities via: governing body, org. "
+            "Includes standard audit timestamps (created_at, updated_at). "
+            "12 column(s) defined. "
+            "Primary key is `id`. "
+            "2 foreign key field(s) detected."
+        ),
+        "info": {
+            "note": NOTE,
+            "description":         (
+            "Stores meetings records for the application. "
+            "Key attributes include title. "
+            "References related entities via: governing body, org. "
+            "Includes standard audit timestamps (created_at, updated_at). "
+            "12 column(s) defined. "
+            "Primary key is `id`. "
+            "2 foreign key field(s) detected."
+        ),
+        },
+    }
+
 
     org_id: Mapped[uuid.UUID] = mapped_column(
         GUID(), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
@@ -24,7 +61,10 @@ class Meeting(UUIDMixin, TimestampMixin, Base):
         GUID(), ForeignKey("governing_bodies.id", ondelete="SET NULL"), nullable=True
     )
 
+    committee_id = sa.Column(GUID(), ForeignKey("committees.id", ondelete="CASCADE"), nullable=False)
+
     title: Mapped[str] = mapped_column(sa.String(255), nullable=False)
+    scheduled_at = sa.Column(sa.TIMESTAMP(timezone=True), nullable=False)
     starts_at: Mapped[datetime] = mapped_column(sa.TIMESTAMP(timezone=True), nullable=False)
     ends_at: Mapped[Optional[datetime]] = mapped_column(sa.TIMESTAMP(timezone=True))
     location: Mapped[Optional[str]] = mapped_column(sa.String(255))
@@ -32,7 +72,15 @@ class Meeting(UUIDMixin, TimestampMixin, Base):
     is_public: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, server_default=sa.sql.true())
     stream_url: Mapped[Optional[str]] = mapped_column(sa.String(1024))
 
+    created_at, updated_at = ts_cols()
+
     # Relationships
+    committee      = relationship("Committee", back_populates="meetings")
+    resolutions    = relationship("Resolution",     back_populates="meeting",   cascade="all, delete-orphan")
+    publications   = relationship("Publication",    back_populates="meeting",   cascade="all, delete-orphan")
+    meeting_documents = relationship("MeetingDocument", back_populates="meeting", cascade="all, delete-orphan")
+
+
     governing_body: Mapped[Optional["GoverningBody"]] = relationship(
         "GoverningBody",
         back_populates="meetings",
@@ -78,14 +126,6 @@ class Meeting(UUIDMixin, TimestampMixin, Base):
         lazy="selectin",
     )
 
-    __table_args__ = (
-        sa.Index("ix_meetings_org", "org_id"),
-        sa.Index("ix_meetings_governing_body", "governing_body_id"),
-        sa.Index("ix_meetings_starts_at", "starts_at"),
-    )
-
-    # ---- Back-compat aliases (temporary) ----
-    # Allow legacy code that still references `body_id` to keep working.
     @property
     def body_id(self) -> Optional[uuid.UUID]:
         return self.governing_body_id

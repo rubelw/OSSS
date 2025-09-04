@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, date, time
 from decimal import Decimal
-from typing import Any, Optional, List
+from typing import Any, Optional, List, ClassVar
 
 import sqlalchemy as sa
 from sqlalchemy import ForeignKey, UniqueConstraint, text
@@ -12,6 +12,40 @@ from OSSS.db.base import Base, UUIDMixin, GUID, JSONB
 
 class SectionMeeting(UUIDMixin, Base):
     __tablename__ = "section_meetings"
+    __allow_unmapped__ = True  # keep NOTE out of the SQLAlchemy mapper
+
+    NOTE: ClassVar[str] =     (
+        "owner=special_education_related_services; "
+        "description=Stores section meetings records for the application. "
+        "References related entities via: period, room, section. "
+        "Includes standard audit timestamps (created_at, updated_at). "
+        "7 column(s) defined. "
+        "Primary key is `id`. "
+        "3 foreign key field(s) detected."
+    )
+
+    __table_args__ = {
+        "comment":         (
+            "Stores section meetings records for the application. "
+            "References related entities via: period, room, section. "
+            "Includes standard audit timestamps (created_at, updated_at). "
+            "7 column(s) defined. "
+            "Primary key is `id`. "
+            "3 foreign key field(s) detected."
+        ),
+        "info": {
+            "note": NOTE,
+            "description":         (
+            "Stores section meetings records for the application. "
+            "References related entities via: period, room, section. "
+            "Includes standard audit timestamps (created_at, updated_at). "
+            "7 column(s) defined. "
+            "Primary key is `id`. "
+            "3 foreign key field(s) detected."
+        ),
+        },
+    }
+
 
     section_id: Mapped[Any] = mapped_column(GUID(), ForeignKey("course_sections.id", ondelete="CASCADE"), nullable=False)
     day_of_week: Mapped[int] = mapped_column(sa.Integer, nullable=False)
@@ -20,5 +54,3 @@ class SectionMeeting(UUIDMixin, Base):
 
     created_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), server_default=sa.func.now(), onupdate=sa.func.now(), nullable=False)
-
-    __table_args__ = (UniqueConstraint("section_id", "day_of_week", "period_id", name="uq_section_meeting"),)

@@ -66,6 +66,9 @@ services:
     build:
       context: .          # folder that contains Dockerfile + init-and-start.sh
       dockerfile: docker/keycloak/Dockerfile
+    # ⬇️ hard limits for the container (compose)
+    mem_limit: 1g         # container RAM
+    cpus: 1               # container vCPUs
     environment:
       KC_DB: ${KC_DB}
       KC_DB_URL: jdbc:postgresql://${KC_DB_HOST}:${KC_DB_PORT}/${KC_DB_NAME}
@@ -80,6 +83,20 @@ services:
       REALM: OSSS
       IMPORT_STRATEGY: OVERWRITE_EXISTING
       RESET_REALM: "1"   # set to "0" to skip deletion
+      # Give the import more time (default is often too low for big group trees)
+      QUARKUS_TRANSACTION_MANAGER_DEFAULT_TRANSACTION_TIMEOUT: "600"   # seconds
+
+      # DB connection pool headroom (avoid pool starvation during import)
+      KC_DB_POOL_INITIAL_SIZE: "20"
+      KC_DB_POOL_MIN_SIZE: "20"
+      KC_DB_POOL_MAX_SIZE: "50"
+
+      # runtime env form (keep it)
+      QUARKUS_HIBERNATE_ORM_PERSISTENCE_XML_IGNORE: "true"
+      # also append a JVM -D for the build/augmentation phase
+      JAVA_OPTS_APPEND: "-Dquarkus.hibernate-orm.persistence-xml.ignore=true"
+      # (optional) extra logging to see what’s happening
+      KC_LOG_LEVEL: "info,org.keycloak:DEBUG,org.hibernate:INFO,io.quarkus:DEBUG"
     volumes:
       - ./realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
     ports:

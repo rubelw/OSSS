@@ -3,7 +3,7 @@ import uuid
 
 from datetime import datetime, date, time
 from decimal import Decimal
-from typing import Any, Optional, List
+from typing import Any, Optional, List, ClassVar
 
 import sqlalchemy as sa
 from sqlalchemy import ForeignKey, UniqueConstraint, text
@@ -13,6 +13,40 @@ from OSSS.db.base import Base, UUIDMixin, GUID, JSONB
 
 class PolicyWorkflowStep(UUIDMixin, Base):
     __tablename__ = "policy_workflow_steps"
+    __allow_unmapped__ = True  # keep NOTE out of the SQLAlchemy mapper
+
+    NOTE: ClassVar[str] =     (
+        "owner=special_education_related_services; "
+        "description=Stores policy workflow steps records for the application. "
+        "References related entities via: approver, workflow. "
+        "Includes standard audit timestamps (created_at, updated_at). "
+        "8 column(s) defined. "
+        "Primary key is `id`. "
+        "2 foreign key field(s) detected."
+    )
+
+    __table_args__ = {
+        "comment":         (
+            "Stores policy workflow steps records for the application. "
+            "References related entities via: approver, workflow. "
+            "Includes standard audit timestamps (created_at, updated_at). "
+            "8 column(s) defined. "
+            "Primary key is `id`. "
+            "2 foreign key field(s) detected."
+        ),
+        "info": {
+            "note": NOTE,
+            "description":         (
+            "Stores policy workflow steps records for the application. "
+            "References related entities via: approver, workflow. "
+            "Includes standard audit timestamps (created_at, updated_at). "
+            "8 column(s) defined. "
+            "Primary key is `id`. "
+            "2 foreign key field(s) detected."
+        ),
+        },
+    }
+
 
     workflow_id: Mapped[uuid.UUID] = mapped_column(
         GUID(), ForeignKey("policy_workflows.id", ondelete="CASCADE"), nullable=False
@@ -24,9 +58,4 @@ class PolicyWorkflowStep(UUIDMixin, Base):
 
     workflow: Mapped["PolicyWorkflow"] = relationship(
         "PolicyWorkflow", back_populates="steps", lazy="joined"
-    )
-
-    __table_args__ = (
-        sa.UniqueConstraint("workflow_id", "step_no", name="uq_policy_workflow_step_no"),
-        sa.Index("ix_policy_workflow_steps_wf", "workflow_id"),
     )

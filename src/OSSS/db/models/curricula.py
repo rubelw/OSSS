@@ -1,13 +1,50 @@
 from __future__ import annotations
 
 import sqlalchemy as sa
-from typing import Optional
+from typing import Optional, ClassVar
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from OSSS.db.base import Base, UUIDMixin, GUID, JSONB, ts_cols, JSON
 
 
 class Curriculum(UUIDMixin, Base):
     __tablename__ = "curricula"
+    __allow_unmapped__ = True  # keep NOTE out of the SQLAlchemy mapper
+
+    NOTE: ClassVar[str] =     (
+        "owner=teaching_instructional_support; "
+        "description=Stores curricula records for the application. "
+        "Key attributes include title, name. "
+        "References related entities via: organization, proposal. "
+        "Includes standard audit timestamps (created_at, published_at). "
+        "13 column(s) defined. "
+        "Primary key is `id`. "
+        "2 foreign key field(s) detected."
+    )
+
+    __table_args__ = {
+        "comment":         (
+            "Stores curricula records for the application. "
+            "Key attributes include title, name. "
+            "References related entities via: organization, proposal. "
+            "Includes standard audit timestamps (created_at, published_at). "
+            "13 column(s) defined. "
+            "Primary key is `id`. "
+            "2 foreign key field(s) detected."
+        ),
+        "info": {
+            "note": NOTE,
+            "description":         (
+            "Stores curricula records for the application. "
+            "Key attributes include title, name. "
+            "References related entities via: organization, proposal. "
+            "Includes standard audit timestamps (created_at, published_at). "
+            "13 column(s) defined. "
+            "Primary key is `id`. "
+            "2 foreign key field(s) detected."
+        ),
+        },
+    }
+
 
     organization_id: Mapped = mapped_column(
         GUID(), sa.ForeignKey("organizations.id", ondelete="CASCADE"),
@@ -58,7 +95,7 @@ class Curriculum(UUIDMixin, Base):
     # one Curriculum is linked to zero/one Proposal that birthed it (via curriculum.proposal_id)
     proposal: Mapped[Optional["Proposal"]] = relationship(
         "Proposal",
-        back_populates="resulting_curriculum",  # matches Proposal.resulting_curriculum above
+        back_populates="curriculum",  # matches Proposal.resulting_curriculum above
         foreign_keys="Curriculum.proposal_id",
         uselist=False,
         lazy="joined",
@@ -72,3 +109,5 @@ class Curriculum(UUIDMixin, Base):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
+
+

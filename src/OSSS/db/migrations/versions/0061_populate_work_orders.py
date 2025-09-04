@@ -149,16 +149,34 @@ def _build_building_indexes(bind, insp):
     return bldg_by_key, names_by_school, has_b_school
 
 def _build_space_indexes(bind):
-    # Use (building_id, name) for uniqueness
-    rows = bind.execute(sa.text(f"SELECT id, building_id, name FROM {SPACES_TBL}")).mappings().all()
+    """
+    spaces no longer carries building_id; fetch it via floors.
+    Use COALESCE(TRIM(name), code) as the display/match name.
+    """
+    rows = bind.execute(sa.text("""
+        SELECT
+            s.id          AS space_id,
+            f.building_id AS building_id,
+            COALESCE(NULLIF(TRIM(s.name), ''), s.code) AS space_name
+        FROM spaces s
+        LEFT JOIN floors f ON f.id = s.floor_id
+    """)).mappings().all()
+
     space_by_bldg_name: dict[tuple[str, str], str] = {}
     names_by_bldg: dict[str, set[str]] = {}
+
     for r in rows:
-        bid = str(r["building_id"]) if r.get("building_id") else None
-        nm = _norm(r.get("name"))
-        if bid and nm:
-            space_by_bldg_name[(bid, nm)] = str(r["id"])
-            names_by_bldg.setdefault(bid, set()).add(r["name"] or "")
+        bid = r["building_id"]
+        if bid is None:
+            continue
+        name = (r["space_name"] or "").strip()
+        if not name:
+            continue
+        bid_s = str(bid)
+        norm_name = _norm(name)
+        space_by_bldg_name[(bid_s, norm_name)] = str(r["space_id"])
+        names_by_bldg.setdefault(bid_s, set()).add(name)
+
     log.info("[%s] spaces loaded: %d mappings for %d buildings", revision, len(space_by_bldg_name), len(names_by_bldg))
     return space_by_bldg_name, names_by_bldg
 

@@ -1,4 +1,3 @@
-# src/OSSS/db/migrations/versions/0092_populate_att_evts.py
 from __future__ import annotations
 
 import csv
@@ -61,7 +60,7 @@ except Exception:
 
 # ---- Alembic identifiers ----
 revision = "0102_seed_events"
-down_revision = "0101_seed_cic_mtg_doc"  # update if needed
+down_revision = "0101_seed_mtg_doc"  # update if needed
 branch_labels = None
 depends_on = None
 

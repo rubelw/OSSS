@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, date, time
 from decimal import Decimal
-from typing import Any, Optional, List
+from typing import Any, Optional, List, ClassVar
 
 import sqlalchemy as sa
 from sqlalchemy import ForeignKey, UniqueConstraint, text
@@ -12,6 +12,40 @@ from OSSS.db.base import Base, UUIDMixin, GUID, JSONB, TimestampMixin
 
 class HREmployee(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "hr_employees"
+    __allow_unmapped__ = True  # keep NOTE out of the SQLAlchemy mapper
+
+    NOTE: ClassVar[str] =     (
+        "owner=hr_operations_talent; "
+        "description=Stores hr employees records for the application. "
+        "References related entities via: department segment, person, primary school. "
+        "Includes standard audit timestamps (created_at, updated_at). "
+        "12 column(s) defined. "
+        "Primary key is `id`. "
+        "3 foreign key field(s) detected."
+    )
+
+    __table_args__ = {
+        "comment":         (
+            "Stores hr employees records for the application. "
+            "References related entities via: department segment, person, primary school. "
+            "Includes standard audit timestamps (created_at, updated_at). "
+            "12 column(s) defined. "
+            "Primary key is `id`. "
+            "3 foreign key field(s) detected."
+        ),
+        "info": {
+            "note": NOTE,
+            "description":         (
+            "Stores hr employees records for the application. "
+            "References related entities via: department segment, person, primary school. "
+            "Includes standard audit timestamps (created_at, updated_at). "
+            "12 column(s) defined. "
+            "Primary key is `id`. "
+            "3 foreign key field(s) detected."
+        ),
+        },
+    }
+
 
     person_id: Mapped[Optional[str]] = mapped_column(GUID(), sa.ForeignKey("persons.id", ondelete="SET NULL"))
     employee_no: Mapped[str] = mapped_column(sa.String(32), nullable=False, unique=True)
@@ -29,3 +63,5 @@ class HREmployee(UUIDMixin, TimestampMixin, Base):
     assignments: Mapped[list["HRPositionAssignment"]] = relationship(
         "HRPositionAssignment", back_populates="employee", cascade="all, delete-orphan"
     )
+
+

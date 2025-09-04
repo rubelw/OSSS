@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, ClassVar
 import sqlalchemy as sa
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -24,6 +24,39 @@ class ApVendorBase:
 
 class ApVendor(ApVendorBase, UUIDMixin, Base):
     __tablename__ = "ap_vendors"
-    __table_args__ = (
-        sa.UniqueConstraint("vendor_no", name="uq_ap_vendors_vendor_no"),
+    __allow_unmapped__ = True  # keep NOTE out of the SQLAlchemy mapper
+
+    NOTE: ClassVar[str] =     (
+        "owner=business_accounting; "
+        "description=Stores ap vendors records for the application. "
+        "Key attributes include name. "
+        "References related entities via: tax. "
+        "Includes standard audit timestamps (created_at, updated_at). "
+        "10 column(s) defined. "
+        "Primary key is `id`. "
+        "1 foreign key field(s) detected."
     )
+
+    __table_args__ = {
+        "comment":         (
+            "Stores ap vendors records for the application. "
+            "Key attributes include name. "
+            "References related entities via: tax. "
+            "Includes standard audit timestamps (created_at, updated_at). "
+            "10 column(s) defined. "
+            "Primary key is `id`. "
+            "1 foreign key field(s) detected."
+        ),
+        "info": {
+            "note": NOTE,
+            "description":         (
+            "Stores ap vendors records for the application. "
+            "Key attributes include name. "
+            "References related entities via: tax. "
+            "Includes standard audit timestamps (created_at, updated_at). "
+            "10 column(s) defined. "
+            "Primary key is `id`. "
+            "1 foreign key field(s) detected."
+        ),
+        },
+    }

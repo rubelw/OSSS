@@ -1,4 +1,3 @@
-# src/OSSS/db/migrations/versions/0092_populate_att_evts.py
 from __future__ import annotations
 
 import csv

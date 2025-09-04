@@ -1,20 +1,59 @@
 
 from __future__ import annotations
 
-from typing import Optional, List
+from typing import Optional, List, ClassVar
 import sqlalchemy as sa
 from sqlalchemy.orm import Mapped, mapped_column, relationship, foreign
-
+from .associations import unit_standard_map
 from OSSS.db.base import Base, UUIDMixin, TimestampMixin, GUID, JSON
-
+from OSSS.db.models.associations import proposal_standard_map, unit_standard_map
 
 class Standard(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "standards"
-    __table_args__ = (
-        sa.UniqueConstraint("framework_id", "code", name="uq_standards_framework_code"),
+    __allow_unmapped__ = True  # keep NOTE out of the SQLAlchemy mapper
+
+    NOTE: ClassVar[str] =     (
+        "owner=curriculum_instruction_assessment; "
+        "description=Stores standards records for the application. "
+        "Key attributes include code. "
+        "References related entities via: framework, parent. "
+        "Includes standard audit timestamps (created_at, updated_at). "
+        "11 column(s) defined. "
+        "Primary key is `id`. "
+        "2 foreign key field(s) detected."
     )
 
-    framework_id: Mapped[str] = mapped_column(GUID(), sa.ForeignKey("frameworks.id", ondelete="CASCADE"), nullable=False, index=True)
+    __table_args__ = {
+        "comment":         (
+            "Stores standards records for the application. "
+            "Key attributes include code. "
+            "References related entities via: framework, parent. "
+            "Includes standard audit timestamps (created_at, updated_at). "
+            "11 column(s) defined. "
+            "Primary key is `id`. "
+            "2 foreign key field(s) detected."
+        ),
+        "info": {
+            "note": NOTE,
+            "description":         (
+            "Stores standards records for the application. "
+            "Key attributes include code. "
+            "References related entities via: framework, parent. "
+            "Includes standard audit timestamps (created_at, updated_at). "
+            "11 column(s) defined. "
+            "Primary key is `id`. "
+            "2 foreign key field(s) detected."
+        ),
+        },
+    }
+
+    framework_id: Mapped[GUID] = mapped_column(
+        GUID(),
+        sa.ForeignKey("frameworks.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
     code: Mapped[str] = mapped_column(sa.String(128), nullable=False)
     description: Mapped[str] = mapped_column(sa.Text, nullable=False)
     parent_id: Mapped[Optional[str]] = mapped_column(GUID(), sa.ForeignKey("standards.id", ondelete="SET NULL"))
@@ -29,4 +68,20 @@ class Standard(UUIDMixin, TimestampMixin, Base):
     )
     children: Mapped[List["Standard"]] = relationship(
         "Standard", back_populates="parent", cascade="all, delete-orphan"
+    )
+
+    # Example many-to-many to units (if you use it)
+    units: Mapped[List["CurriculumUnit"]] = relationship(
+         "CurriculumUnit",
+         secondary=unit_standard_map,
+         back_populates="standards",
+         lazy="selectin",
+    )
+
+    # already have units relationship via unit_standard_map
+    proposals: Mapped[List["Proposal"]] = relationship(
+        "Proposal",
+        secondary=proposal_standard_map,
+        back_populates="standards",
+        lazy="selectin",
     )

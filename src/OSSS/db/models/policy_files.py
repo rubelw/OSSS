@@ -9,10 +9,45 @@ from sqlalchemy import ForeignKey, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from OSSS.db.base import Base, GUID
+from typing import ClassVar
 
 
 class PolicyFile(Base):
     __tablename__ = "policy_files"
+    __allow_unmapped__ = True  # keep NOTE out of the SQLAlchemy mapper
+
+    NOTE: ClassVar[str] =     (
+        "owner=special_education_related_services; "
+        "description=Stores policy files records for the application. "
+        "References related entities via: file, policy version. "
+        "Includes standard audit timestamps (created_at). "
+        "4 column(s) defined. "
+        "Primary key is `id`. "
+        "2 foreign key field(s) detected."
+    )
+
+    __table_args__ = {
+        "comment":         (
+            "Stores policy files records for the application. "
+            "References related entities via: file, policy version. "
+            "Includes standard audit timestamps (created_at). "
+            "4 column(s) defined. "
+            "Primary key is `id`. "
+            "2 foreign key field(s) detected."
+        ),
+        "info": {
+            "note": NOTE,
+            "description":         (
+            "Stores policy files records for the application. "
+            "References related entities via: file, policy version. "
+            "Includes standard audit timestamps (created_at). "
+            "4 column(s) defined. "
+            "Primary key is `id`. "
+            "2 foreign key field(s) detected."
+        ),
+        },
+    }
+
 
     id: Mapped[uuid.UUID] = mapped_column(
         GUID(), primary_key=True, server_default=sa.text("gen_random_uuid()")
@@ -31,7 +66,3 @@ class PolicyFile(Base):
 
     policy_version = relationship("PolicyVersion", back_populates="files", lazy="selectin")
     file = relationship("File", back_populates="policy_links", lazy="selectin")
-
-    __table_args__ = (
-        sa.UniqueConstraint("policy_version_id", "file_id", name="uq_policy_files_pair"),
-    )

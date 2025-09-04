@@ -3,7 +3,7 @@ import uuid
 
 from datetime import datetime, date, time
 from decimal import Decimal
-from typing import Any, Optional, List
+from typing import Any, Optional, List, ClassVar
 
 import sqlalchemy as sa
 from sqlalchemy import ForeignKey, UniqueConstraint, text
@@ -13,6 +13,37 @@ from OSSS.db.base import Base, UUIDMixin, GUID, JSONB
 
 class MeetingPublication(Base):
     __tablename__ = "meeting_publications"
+    __allow_unmapped__ = True  # keep NOTE out of the SQLAlchemy mapper
+
+    NOTE: ClassVar[str] =     (
+        "owner=special_education_related_services; "
+        "description=Stores meeting publications records for the application. "
+        "References related entities via: meeting. "
+        "Includes standard audit timestamps (published_at). "
+        "4 column(s) defined. "
+        "1 foreign key field(s) detected."
+    )
+
+    __table_args__ = {
+        "comment":         (
+            "Stores meeting publications records for the application. "
+            "References related entities via: meeting. "
+            "Includes standard audit timestamps (published_at). "
+            "4 column(s) defined. "
+            "1 foreign key field(s) detected."
+        ),
+        "info": {
+            "note": NOTE,
+            "description":         (
+            "Stores meeting publications records for the application. "
+            "References related entities via: meeting. "
+            "Includes standard audit timestamps (published_at). "
+            "4 column(s) defined. "
+            "1 foreign key field(s) detected."
+        ),
+        },
+    }
+
 
     meeting_id: Mapped[uuid.UUID] = mapped_column(
         GUID(), ForeignKey("meetings.id", ondelete="CASCADE"), primary_key=True
@@ -20,3 +51,5 @@ class MeetingPublication(Base):
     published_at: Mapped[datetime] = mapped_column(sa.TIMESTAMP(timezone=True), nullable=False)
     public_url: Mapped[Optional[str]] = mapped_column(sa.String(1024))
     archive_url: Mapped[Optional[str]] = mapped_column(sa.String(1024))
+
+

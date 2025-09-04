@@ -21,6 +21,7 @@ Notes:
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 from pathlib import Path
 from typing import Iterable, Iterator, List, Dict, Any
@@ -65,6 +66,14 @@ def collect_positions(data: Dict[str, Any], unique: bool = True) -> List[str]:
 
     return positions
 
+def write_csv(names, path: str = "positions.csv"):
+    """Write a single-column CSV with header 'position'."""
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        for n in names:
+            w.writerow([n])
+
+
 def main(argv: Iterable[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="Extract position names from an OSSS RBAC JSON file.")
     p.add_argument("rbac_file", type=Path, help="Path to RBAC.json")
@@ -82,6 +91,10 @@ def main(argv: Iterable[str] | None = None) -> int:
         p.error(f"Failed to parse JSON: {e}")
 
     names = collect_positions(data, unique=not args.no_unique)
+
+    # Always write positions.csv
+    write_csv(names, "positions.csv")
+    print(f"Wrote {len(names)} position(s) to positions.csv")
 
     if args.format == "json":
         print(json.dumps(names, indent=2, ensure_ascii=False))

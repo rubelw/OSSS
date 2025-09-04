@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, date, time
 from decimal import Decimal
-from typing import Any, Optional, List
+from typing import Any, Optional, List, ClassVar
 
 import sqlalchemy as sa
 from sqlalchemy import ForeignKey, UniqueConstraint, text
@@ -17,6 +17,40 @@ from .order_line_items import OrderLineItem as _OrderLineItem  # noqa: F401
 
 class Order(UUIDMixin, Base):
     __tablename__ = "orders"
+    __allow_unmapped__ = True  # keep NOTE out of the SQLAlchemy mapper
+
+    NOTE: ClassVar[str] =     (
+        "owner=athletics_activities_enrichment | division_of_schools; "
+        "description=Stores orders records for the application. "
+        "References related entities via: event, purchaser user. "
+        "Includes standard audit timestamps (created_at, updated_at). "
+        "10 column(s) defined. "
+        "Primary key is `id`. "
+        "2 foreign key field(s) detected."
+    )
+
+    __table_args__ = {
+        "comment":         (
+            "Stores orders records for the application. "
+            "References related entities via: event, purchaser user. "
+            "Includes standard audit timestamps (created_at, updated_at). "
+            "10 column(s) defined. "
+            "Primary key is `id`. "
+            "2 foreign key field(s) detected."
+        ),
+        "info": {
+            "note": NOTE,
+            "description":         (
+            "Stores orders records for the application. "
+            "References related entities via: event, purchaser user. "
+            "Includes standard audit timestamps (created_at, updated_at). "
+            "10 column(s) defined. "
+            "Primary key is `id`. "
+            "2 foreign key field(s) detected."
+        ),
+        },
+    }
+
 
     event_id: Mapped[str] = mapped_column(GUID(), ForeignKey("events.id", ondelete="CASCADE"), nullable=False)
     purchaser_user_id: Mapped[Optional[str]] = mapped_column(GUID(), ForeignKey("users.id", ondelete="SET NULL"))
@@ -30,9 +64,18 @@ class Order(UUIDMixin, Base):
     created_at, updated_at = ts_cols()
 
     event: Mapped[Event] = relationship(back_populates="orders")
-    tickets: Mapped[list["Ticket"]] = relationship(back_populates="order", cascade="all, delete-orphan")
+
+    tickets: Mapped[List["Ticket"]] = relationship(
+        "Ticket",
+        back_populates="order",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        lazy="selectin",
+    )
+
     line_items: Mapped[list["OrderLineItem"]] = relationship(
         "OrderLineItem",
         back_populates="order",
         cascade="all, delete-orphan",
     )
+

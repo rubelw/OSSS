@@ -326,9 +326,7 @@ Fleet Manager,Transportation
 Mechanic,Transportation
 Routing Scheduling Coordinator,Transportation
 Shop Foreman,Transportation
-'''.format(
-        rows="""{csv_rows}"""
-    )
+'''
 
     # Build normalized rows list
     reader = csv.DictReader(StringIO(CSV_DATA))
@@ -349,6 +347,7 @@ Shop Foreman,Transportation
                 params[f"pos_{i}"] = r["pos"]
                 params[f"dept_{i}"] = r["dept"]
 
+            # NOTE: Use NOT EXISTS so we don't require a unique constraint on (department_id, position_id)
             sql = f"""
                     WITH s(pos_title, dept_name) AS (
                         VALUES {", ".join(values_sql)}
@@ -360,7 +359,12 @@ Shop Foreman,Transportation
                       ON trim(lower(p.title)) = trim(lower(s.pos_title))
                     JOIN departments d
                       ON trim(lower(d.name)) = trim(lower(s.dept_name))
-                    ON CONFLICT (department_id, position_id) DO NOTHING
+                    WHERE NOT EXISTS (
+                      SELECT 1
+                      FROM department_position_index dpi
+                      WHERE dpi.department_id = d.id
+                        AND dpi.position_id  = p.id
+                    )
                 """
             conn.execute(sa.text(sql), params)
 

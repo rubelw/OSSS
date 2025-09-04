@@ -3,12 +3,17 @@ from __future__ import annotations
 from typing import Any, Dict
 from OSSS.core.config import settings
 import requests
+import httpx  # NEW
+from .tokens import TokenSet  # NEW
+
 
 def token_endpoint() -> str:
     return f"{settings.KEYCLOAK_BASE_URL}/realms/{settings.KEYCLOAK_REALM}/protocol/openid-connect/token"
 
+
 def auth_endpoint() -> str:
     return f"{settings.KEYCLOAK_BASE_URL}/realms/{settings.KEYCLOAK_REALM}/protocol/openid-connect/auth"
+
 
 def introspect(token: str) -> Dict[str, Any]:
     """Keycloak token introspection using confidential client creds."""
@@ -50,3 +55,49 @@ def introspect(token: str) -> Dict[str, Any]:
         raise PermissionError("Audience not allowed")
 
     return payload
+
+
+# --- NEW: refresh support -----------------------------------------------------
+
+class RefreshError(Exception):
+    """Raised when Keycloak token refresh fails."""
+
+
+async def refresh_with_keycloak(refresh_token: str) -> TokenSet:
+    """
+    Refresh tokens via Keycloak using confidential client credentials.
+
+    Returns:
+        TokenSet: parsed from the OIDC token response.
+
+    Raises:
+        RefreshError: if configuration is missing or the refresh call fails.
+    """
+    if not all(
+        [
+            settings.KEYCLOAK_BASE_URL,
+            settings.KEYCLOAK_REALM,
+            settings.KEYCLOAK_CLIENT_ID,
+            settings.KEYCLOAK_CLIENT_SECRET,
+        ]
+    ):
+        raise RefreshError("Keycloak configuration is incomplete")
+
+    data = {
+        "grant_type": "refresh_token",
+        "client_id": settings.KEYCLOAK_CLIENT_ID,
+        "client_secret": settings.KEYCLOAK_CLIENT_SECRET,
+        "refresh_token": refresh_token,
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.post(token_endpoint(), data=data)
+    except httpx.HTTPError as e:
+        raise RefreshError(f"KC refresh unavailable: {e}") from e
+
+    if resp.status_code != 200:
+        raise RefreshError(f"KC refresh failed: {resp.status_code} {resp.text}")
+
+    payload = resp.json()
+    return TokenSet.from_oidc_response(payload)

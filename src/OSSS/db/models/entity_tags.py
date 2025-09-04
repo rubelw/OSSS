@@ -13,10 +13,26 @@ except Exception:
     from sqlalchemy.dialects.postgresql import UUID as GUIDCol  # type: ignore
 
 class EntityTag(Base):
+    note: str = 'owner=division_of_technology_data; description=Stores entity tags records for the application. References related entities via: entity, tag. Includes standard audit timestamps (created_at, updated_at). 6 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected.'
+
     __tablename__ = "entity_tags"
     __table_args__ = (
         # helpful for dedupe; keeps router happy with a simple surrogate PK
         sa.UniqueConstraint("entity_type", "entity_id", "tag_id", name="uq_entity_tags_triplet"),
+        {
+            "comment": (
+                "Stores entity tags records for the application. References related entities via: entity, tag. "
+                "Includes standard audit timestamps (created_at, updated_at). 6 column(s) defined. "
+                "Primary key is `id`. 2 foreign key field(s) detected."
+            ),
+            "info": {
+                "description": (
+                    "Stores entity tags records for the application. References related entities via: entity, tag. "
+                    "Includes standard audit timestamps (created_at, updated_at). 6 column(s) defined. "
+                    "Primary key is `id`. 2 foreign key field(s) detected."
+                )
+            },
+        },
     )
 
     id: Mapped[str] = mapped_column(

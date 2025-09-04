@@ -100,17 +100,19 @@ def upgrade():
 
     # 3) resolve route name column on routes
     route_cols = {c.lower(): c for c in routes.c.keys()}
+
     def any_col(*cands: str):
         for c in cands:
             real = route_cols.get(c.lower())
             if real:
                 return routes.c[real]
         return None
+
     r_name = any_col("name", "route_name", "route", "title")
     if r_name is None:
         raise RuntimeError(f"Could not find a route name column on bus_routes. Present: {list(routes.c.keys())}")
 
-    # 4) Join staging -> routes (route_name) -> stops (route_id + stop name), insert
+    # 4) Join staging -> routes (route_name) -> stops (route_id + stop name)
     lower = sa.func.lower
 
     join_imp_routes = lower(r_name) == lower(imp.c.route_name)
@@ -123,6 +125,7 @@ def upgrade():
     arr_expr = sa.cast(imp.c.arrival_time, sa.Time())
     dep_expr = sa.cast(imp.c.departure_time, sa.Time())
 
+    # Base SELECT of rows we *want* to insert
     select_src = (
         sa.select(
             routes.c.id.label("route_id"),
@@ -135,17 +138,23 @@ def upgrade():
         .select_from(imp.join(routes, join_imp_routes).join(stops, join_routes_stops))
     )
 
-    insert_cols = ["route_id", "stop_id", "arrival_time", "departure_time", "created_at", "updated_at"]
-
-    if bind.dialect.name == "postgresql":
-        from sqlalchemy.dialects.postgresql import insert as pg_insert
-        # respect unique constraint uq_bus_stop_time(route_id, stop_id, arrival_time)
-        stmt = pg_insert(times).from_select(insert_cols, select_src).on_conflict_do_nothing(
-            index_elements=["route_id", "stop_id", "arrival_time"]
+    # ---- FIX: avoid ON CONFLICT; use NOT EXISTS so we don't need a unique index ----
+    not_exists = ~sa.exists(
+        sa.select(sa.literal(1))
+        .select_from(times)
+        .where(
+            sa.and_(
+                times.c.route_id == routes.c.id,
+                times.c.stop_id == stops.c.id,
+                times.c.arrival_time == arr_expr,
+            )
         )
-        bind.execute(stmt)
-    else:
-        bind.execute(sa.insert(times).from_select(insert_cols, select_src))
+    )
+    select_src = select_src.where(not_exists)
+
+    # Perform INSERT FROM SELECT (works on PG & SQLite)
+    insert_cols = ["route_id", "stop_id", "arrival_time", "departure_time", "created_at", "updated_at"]
+    bind.execute(sa.insert(times).from_select(insert_cols, select_src))
 
     # 5) Drop staging
     op.drop_table(STAGING_TABLE)

@@ -1,0 +1,755 @@
+{
+  "academic_terms": {
+    "description": "Stores academic terms records for the application. Key attributes include name. References related entities via: school. Includes standard audit timestamps (created_at, updated_at). 8 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "accommodations": {
+    "description": "Stores accommodations records for the application. References related entities via: iep plan. Includes standard audit timestamps (created_at, updated_at). 6 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "activities": {
+    "description": "Stores activities records for the application. Key attributes include name. References related entities via: school. Includes standard audit timestamps (created_at, updated_at). 7 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "addresses": {
+    "description": "Stores addresses records for the application. Includes standard audit timestamps (created_at, updated_at). 9 column(s) defined. Primary key is `id`."
+  },
+  "agenda_item_approvals": {
+    "description": "Stores agenda item approvals records for the application. References related entities via: approver, item, step. Includes standard audit timestamps (created_at, updated_at). 9 column(s) defined. Primary key is `id`. 3 foreign key field(s) detected."
+  },
+  "agenda_item_files": {
+    "description": "Stores agenda item files records for the application. References related entities via: agenda item, file. 4 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "agenda_items": {
+    "description": "Stores agenda items records for the application. Key attributes include title. References related entities via: linked objective, linked policy, meeting, parent. Includes standard audit timestamps (created_at, updated_at). 11 column(s) defined. Primary key is `id`. 4 foreign key field(s) detected."
+  },
+  "agenda_workflow_steps": {
+    "description": "Stores agenda workflow steps records for the application. References related entities via: approver, workflow. Includes standard audit timestamps (created_at, updated_at). 8 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "agenda_workflows": {
+    "description": "Stores agenda workflows records for the application. Key attributes include name. Includes standard audit timestamps (created_at, updated_at). 5 column(s) defined. Primary key is `id`."
+  },
+  "alignments": {
+    "description": "Stores alignments records for the application. References related entities via: curriculum version, requirement. Includes standard audit timestamps (created_at). 7 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "ap_vendors": {
+    "description": "Stores ap vendors records for the application. Key attributes include name. References related entities via: tax. Includes standard audit timestamps (created_at, updated_at). 10 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "approvals": {
+    "description": "Stores approvals records for the application. References related entities via: association, proposal. Includes standard audit timestamps (created_at, updated_at). 8 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "asset_parts": {
+    "description": "Stores asset parts records for the application. References related entities via: asset, part. Includes standard audit timestamps (created_at, updated_at). 6 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "assets": {
+    "description": "Stores assets records for the application. Key attributes include serial_no. References related entities via: building, parent asset, space. Includes standard audit timestamps (created_at, updated_at). 16 column(s) defined. Primary key is `id`. 3 foreign key field(s) detected."
+  },
+  "assignment_categories": {
+    "description": "Stores assignment categories records for the application. Key attributes include name. References related entities via: section. Includes standard audit timestamps (created_at, updated_at). 6 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "assignments": {
+    "description": "Stores assignments records for the application. Key attributes include name. References related entities via: category, section. Includes standard audit timestamps (created_at, updated_at). 8 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "attendance": {
+    "description": "Stores attendance records for the application. References related entities via: meeting, user. 6 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "attendance_codes": {
+    "description": "Stores attendance codes records for the application. Key attributes include code. Includes standard audit timestamps (created_at, updated_at). 6 column(s) defined."
+  },
+  "attendance_daily_summary": {
+    "description": "Stores attendance daily summary records for the application. References related entities via: student. Includes standard audit timestamps (created_at, updated_at). 8 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "attendance_events": {
+    "description": "Stores attendance events records for the application. Key attributes include code. References related entities via: section meeting, student. Includes standard audit timestamps (created_at, updated_at). 9 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "audit_logs": {
+    "description": "Stores audit logs records for the application. References related entities via: actor, entity. Includes standard audit timestamps (created_at, updated_at). 9 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "behavior_codes": {
+    "description": "Stores behavior codes records for the application. Key attributes include code. Includes standard audit timestamps (created_at, updated_at). 4 column(s) defined."
+  },
+  "behavior_interventions": {
+    "description": "Stores behavior interventions records for the application. References related entities via: student. Includes standard audit timestamps (created_at, updated_at). 7 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "bell_schedules": {
+    "description": "Stores bell schedules records for the application. Key attributes include name. References related entities via: school. Includes standard audit timestamps (created_at, updated_at). 5 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "buildings": {
+    "description": "Stores buildings records for the application. Key attributes include name, code. References related entities via: facility. Includes standard audit timestamps (created_at, updated_at). 12 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "bus_routes": {
+    "description": "Stores bus routes records for the application. Key attributes include name. References related entities via: school. Includes standard audit timestamps (created_at, updated_at). 5 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "bus_stop_times": {
+    "description": "Stores bus stop times records for the application. References related entities via: route, stop. Includes standard audit timestamps (created_at, updated_at). 7 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "bus_stops": {
+    "description": "Stores bus stops records for the application. Key attributes include name. References related entities via: route. Includes standard audit timestamps (created_at, updated_at). 7 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "calendar_days": {
+    "description": "Stores calendar days records for the application. References related entities via: calendar. Includes standard audit timestamps (created_at, updated_at). 7 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "calendars": {
+    "description": "Stores calendars records for the application. Key attributes include name. References related entities via: school. Includes standard audit timestamps (created_at, updated_at). 5 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "channels": {
+    "description": "Stores channels records for the application. Key attributes include name. References related entities via: org. Includes standard audit timestamps (created_at, updated_at). 7 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "cic_agenda_items": {
+    "description": "Stores cic agenda items records for the application. Key attributes include title. References related entities via: course, meeting, parent, subject. Includes standard audit timestamps (created_at, updated_at). 11 column(s) defined. Primary key is `id`. 4 foreign key field(s) detected."
+  },
+  "cic_committees": {
+    "description": "Stores cic committees records for the application. Key attributes include name. References related entities via: organization, school. Includes standard audit timestamps (created_at, updated_at). 8 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "cic_meeting_documents": {
+    "description": "Stores cic meeting documents records for the application. References related entities via: document, meeting. Includes standard audit timestamps (created_at, updated_at). 7 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "cic_meetings": {
+    "description": "Stores cic meetings records for the application. Key attributes include title. References related entities via: committee. Includes standard audit timestamps (created_at, updated_at). 10 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "cic_memberships": {
+    "description": "Stores cic memberships records for the application. References related entities via: committee, person. Includes standard audit timestamps (created_at, updated_at). 9 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "cic_motions": {
+    "description": "Stores cic motions records for the application. References related entities via: agenda item, moved by, seconded by. Includes standard audit timestamps (created_at, updated_at). 11 column(s) defined. Primary key is `id`. 3 foreign key field(s) detected."
+  },
+  "cic_proposal_documents": {
+    "description": "Stores cic proposal documents records for the application. References related entities via: document, proposal. Includes standard audit timestamps (created_at, updated_at). 7 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "cic_proposal_reviews": {
+    "description": "Stores cic proposal reviews records for the application. References related entities via: proposal, reviewer. Includes standard audit timestamps (created_at, updated_at). 8 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "cic_proposals": {
+    "description": "Stores cic proposals records for the application. Key attributes include title. References related entities via: committee, course, school, subject, submitted by. Includes standard audit timestamps (created_at, updated_at). 13 column(s) defined. Primary key is `id`. 5 foreign key field(s) detected."
+  },
+  "cic_publications": {
+    "description": "Stores cic publications records for the application. References related entities via: meeting. Includes standard audit timestamps (published_at, created_at, updated_at). 7 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "cic_resolutions": {
+    "description": "Stores cic resolutions records for the application. Key attributes include title. References related entities via: meeting. Includes standard audit timestamps (created_at, updated_at). 8 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "cic_votes": {
+    "description": "Stores cic votes records for the application. References related entities via: motion, person. Includes standard audit timestamps (created_at, updated_at). 6 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "class_ranks": {
+    "description": "Stores class ranks records for the application. References related entities via: school, student, term. Includes standard audit timestamps (created_at, updated_at). 7 column(s) defined. Primary key is `id`. 3 foreign key field(s) detected."
+  },
+  "comm_search_index": {
+    "description": "Stores comm search index records for the application. References related entities via: entity. 4 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "compliance_records": {
+    "description": "Stores compliance records records for the application. References related entities via: asset, building. Includes standard audit timestamps (created_at, updated_at). 12 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "consents": {
+    "description": "Stores consents records for the application. References related entities via: person. Includes standard audit timestamps (created_at, updated_at). 8 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "consequence_types": {
+    "description": "Stores consequence types records for the application. Key attributes include code. Includes standard audit timestamps (created_at, updated_at). 4 column(s) defined."
+  },
+  "consequences": {
+    "description": "Stores consequences records for the application. References related entities via: incident, participant. Includes standard audit timestamps (created_at, updated_at). 9 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "contacts": {
+    "description": "Stores contacts records for the application. Includes standard audit timestamps (created_at, updated_at). 5 column(s) defined. Primary key is `id`."
+  },
+  "course_prerequisites": {
+    "description": "Stores course prerequisites records for the application. References related entities via: course, prereq course. Includes standard audit timestamps (created_at, updated_at). 5 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "course_sections": {
+    "description": "Stores course sections records for the application. References related entities via: course, school, term. Includes standard audit timestamps (created_at, updated_at). 8 column(s) defined. Primary key is `id`. 3 foreign key field(s) detected."
+  },
+  "courses": {
+    "description": "Stores courses records for the application. Key attributes include name, code. References related entities via: school, subject. Includes standard audit timestamps (created_at, updated_at). 8 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "curricula": {
+    "description": "Stores curricula records for the application. Key attributes include title, name. References related entities via: organization, proposal. Includes standard audit timestamps (created_at, published_at). 13 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "curriculum_units": {
+    "description": "Stores curriculum units records for the application. Key attributes include title. References related entities via: curriculum. Includes standard audit timestamps (created_at, updated_at). 8 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "curriculum_versions": {
+    "description": "Stores curriculum versions records for the application. References related entities via: curriculum. Includes standard audit timestamps (created_at). 8 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "data_quality_issues": {
+    "description": "Stores data quality issues records for the application. References related entities via: entity. Includes standard audit timestamps (created_at, updated_at). 9 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "data_sharing_agreements": {
+    "description": "Stores data sharing agreements records for the application. Includes standard audit timestamps (created_at, updated_at). 8 column(s) defined. Primary key is `id`."
+  },
+  "deduction_codes": {
+    "description": "Stores deduction codes records for the application. Key attributes include code, name. References related entities via: vendor. Includes standard audit timestamps (created_at, updated_at). 8 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "deliveries": {
+    "description": "Stores deliveries records for the application. References related entities via: post, user. Includes standard audit timestamps (created_at, updated_at). 8 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "department_position_index": {
+    "description": "Stores department position index records for the application. References related entities via: department, position. Includes standard audit timestamps (created_at). 4 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "departments": {
+    "description": "Stores departments records for the application. Key attributes include name. References related entities via: school. Includes standard audit timestamps (created_at, updated_at). 5 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "document_activity": {
+    "description": "Stores document activity records for the application. References related entities via: actor, document. Includes standard audit timestamps (created_at, updated_at). 8 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "document_links": {
+    "description": "Stores document links records for the application. References related entities via: document, entity. Includes standard audit timestamps (created_at, updated_at). 6 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "document_notifications": {
+    "description": "Stores document notifications records for the application. References related entities via: document, user. 5 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "document_permissions": {
+    "description": "Stores document permissions records for the application. References related entities via: principal, resource. 6 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "document_search_index": {
+    "description": "Stores document search index records for the application. References related entities via: document. 2 column(s) defined. 1 foreign key field(s) detected."
+  },
+  "document_versions": {
+    "description": "Stores document versions records for the application. References related entities via: document, file. Includes standard audit timestamps (created_at, published_at, updated_at). 9 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "documents": {
+    "description": "Stores documents records for the application. Key attributes include title. References related entities via: current version, folder. Includes standard audit timestamps (created_at, updated_at). 7 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "earning_codes": {
+    "description": "Stores earning codes records for the application. Key attributes include code, name. Includes standard audit timestamps (created_at, updated_at). 7 column(s) defined. Primary key is `id`."
+  },
+  "education_associations": {
+    "description": "Stores education associations records for the application. Key attributes include name. Includes standard audit timestamps (created_at). 5 column(s) defined. Primary key is `id`."
+  },
+  "ell_plans": {
+    "description": "Stores ell plans records for the application. References related entities via: student. Includes standard audit timestamps (created_at, updated_at). 7 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "embeds": {
+    "description": "Stores embeds records for the application. Includes standard audit timestamps (created_at, updated_at). 6 column(s) defined. Primary key is `id`."
+  },
+  "emergency_contacts": {
+    "description": "Stores emergency contacts records for the application. References related entities via: person. Includes standard audit timestamps (created_at, updated_at). 7 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "employee_deductions": {
+    "description": "Stores employee deductions records for the application. References related entities via: deduction code, employee, run. Includes standard audit timestamps (created_at, updated_at). 8 column(s) defined. Primary key is `id`. 3 foreign key field(s) detected."
+  },
+  "employee_earnings": {
+    "description": "Stores employee earnings records for the application. References related entities via: earning code, employee, run. Includes standard audit timestamps (created_at, updated_at). 9 column(s) defined. Primary key is `id`. 3 foreign key field(s) detected."
+  },
+  "entity_tags": {
+    "description": "Stores entity tags records for the application. References related entities via: entity, tag. Includes standard audit timestamps (created_at, updated_at). 6 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "evaluation_assignments": {
+    "description": "Stores evaluation assignments records for the application. References related entities via: cycle, evaluator user, subject user, template. Includes standard audit timestamps (created_at, updated_at). 8 column(s) defined. Primary key is `id`. 4 foreign key field(s) detected."
+  },
+  "evaluation_cycles": {
+    "description": "Stores evaluation cycles records for the application. Key attributes include name. References related entities via: org. Includes standard audit timestamps (created_at, updated_at). 7 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "evaluation_files": {
+    "description": "Stores evaluation files records for the application. References related entities via: assignment, file. 3 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "evaluation_questions": {
+    "description": "Stores evaluation questions records for the application. References related entities via: section. Includes standard audit timestamps (created_at, updated_at). 9 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "evaluation_reports": {
+    "description": "Stores evaluation reports records for the application. References related entities via: cycle, file. Includes standard audit timestamps (created_at, updated_at). 7 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "evaluation_responses": {
+    "description": "Stores evaluation responses records for the application. References related entities via: assignment, question. Includes standard audit timestamps (created_at, updated_at). 9 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "evaluation_sections": {
+    "description": "Stores evaluation sections records for the application. Key attributes include title. References related entities via: template. Includes standard audit timestamps (created_at, updated_at). 6 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "evaluation_signoffs": {
+    "description": "Stores evaluation signoffs records for the application. References related entities via: assignment, signer. Includes standard audit timestamps (created_at, updated_at). 7 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "evaluation_templates": {
+    "description": "Stores evaluation templates records for the application. Key attributes include name. Includes standard audit timestamps (created_at, updated_at). 7 column(s) defined. Primary key is `id`."
+  },
+  "events": {
+    "description": "Stores events records for the application. Key attributes include title. References related entities via: activity, school. Includes standard audit timestamps (created_at, updated_at). 12 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "export_runs": {
+    "description": "Stores export runs records for the application. Includes standard audit timestamps (created_at, updated_at). 8 column(s) defined. Primary key is `id`."
+  },
+  "external_ids": {
+    "description": "Stores external ids records for the application. References related entities via: entity, external. Includes standard audit timestamps (created_at, updated_at). 7 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "facilities": {
+    "description": "Stores facilities records for the application. Key attributes include name, code. References related entities via: school. Includes standard audit timestamps (created_at, updated_at). 8 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "family_portal_access": {
+    "description": "Stores family portal access records for the application. References related entities via: guardian, student. Includes standard audit timestamps (created_at, updated_at). 6 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "feature_flags": {
+    "description": "Stores feature flags records for the application. References related entities via: org. 4 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "fees": {
+    "description": "Stores fees records for the application. Key attributes include name. References related entities via: school. Includes standard audit timestamps (created_at, updated_at). 6 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "files": {
+    "description": "Stores files records for the application. Includes standard audit timestamps (created_at, updated_at). 8 column(s) defined. Primary key is `id`."
+  },
+  "final_grades": {
+    "description": "Stores final grades records for the application. References related entities via: grading period, section, student. Includes standard audit timestamps (created_at, updated_at). 9 column(s) defined. Primary key is `id`. 3 foreign key field(s) detected."
+  },
+  "fiscal_periods": {
+    "description": "Stores fiscal periods records for the application. References related entities via: fiscal year. Includes standard audit timestamps (created_at, updated_at). 8 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "fiscal_years": {
+    "description": "Stores fiscal years records for the application. Includes standard audit timestamps (created_at, updated_at). 7 column(s) defined. Primary key is `id`."
+  },
+  "floors": {
+    "description": "Stores floors records for the application. Key attributes include name. References related entities via: building. Includes standard audit timestamps (created_at, updated_at). 6 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "folders": {
+    "description": "Stores folders records for the application. Key attributes include name. References related entities via: org, parent. Includes standard audit timestamps (created_at, updated_at). 8 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "frameworks": {
+    "description": "Stores frameworks records for the application. Key attributes include code, name. Includes standard audit timestamps (created_at, updated_at). 9 column(s) defined. Primary key is `id`."
+  },
+  "gl_account_balances": {
+    "description": "Stores gl account balances records for the application. References related entities via: account, fiscal period. Includes standard audit timestamps (created_at, updated_at). 10 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "gl_account_segments": {
+    "description": "Stores gl account segments records for the application. References related entities via: account, segment, value. Includes standard audit timestamps (created_at, updated_at). 6 column(s) defined. Primary key is `id`. 3 foreign key field(s) detected."
+  },
+  "gl_accounts": {
+    "description": "Stores gl accounts records for the application. Key attributes include code, name. Includes standard audit timestamps (created_at, updated_at). 8 column(s) defined. Primary key is `id`."
+  },
+  "gl_segment_values": {
+    "description": "Stores gl segment values records for the application. Key attributes include code, name. References related entities via: segment. Includes standard audit timestamps (created_at, updated_at). 7 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "gl_segments": {
+    "description": "Stores gl segments records for the application. Key attributes include code, name. Includes standard audit timestamps (created_at, updated_at). 8 column(s) defined. Primary key is `id`."
+  },
+  "goals": {
+    "description": "Stores goals records for the application. Key attributes include name. References related entities via: plan. Includes standard audit timestamps (created_at, updated_at). 6 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "google_accounts": {
+    "description": "Stores google accounts records for the application. References related entities via: client, user. Includes standard audit timestamps (created_at, updated_at). 11 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "governing_bodies": {
+    "description": "Stores governing bodies records for the application. Key attributes include name. References related entities via: org. Includes standard audit timestamps (created_at, updated_at). 6 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "gpa_calculations": {
+    "description": "Stores gpa calculations records for the application. References related entities via: student, term. Includes standard audit timestamps (created_at, updated_at). 6 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "grade_levels": {
+    "description": "Stores grade levels records for the application. Key attributes include name. References related entities via: school. Includes standard audit timestamps (created_at, updated_at). 6 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "grade_scale_bands": {
+    "description": "Stores grade scale bands records for the application. References related entities via: grade scale. Includes standard audit timestamps (created_at, updated_at). 8 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "grade_scales": {
+    "description": "Stores grade scales records for the application. Key attributes include name. References related entities via: school. Includes standard audit timestamps (created_at, updated_at). 6 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "gradebook_entries": {
+    "description": "Stores gradebook entries records for the application. References related entities via: assignment, student. Includes standard audit timestamps (created_at, updated_at). 8 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "grading_periods": {
+    "description": "Stores grading periods records for the application. Key attributes include name. References related entities via: term. Includes standard audit timestamps (created_at, updated_at). 7 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "guardians": {
+    "description": "Stores guardians records for the application. Includes standard audit timestamps (created_at, updated_at). 4 column(s) defined. Primary key is `id`."
+  },
+  "health_profiles": {
+    "description": "Stores health profiles records for the application. References related entities via: student. Includes standard audit timestamps (created_at, updated_at). 6 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "hr_employees": {
+    "description": "Stores hr employees records for the application. References related entities via: department segment, person, primary school. Includes standard audit timestamps (created_at, updated_at). 12 column(s) defined. Primary key is `id`. 3 foreign key field(s) detected."
+  },
+  "hr_position_assignments": {
+    "description": "Stores hr position assignments records for the application. References related entities via: employee, position. Includes standard audit timestamps (created_at, updated_at). 9 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "hr_positions": {
+    "description": "Stores hr positions records for the application. Key attributes include title. References related entities via: department segment. Includes standard audit timestamps (created_at, updated_at). 8 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "iep_plans": {
+    "description": "Stores iep plans records for the application. References related entities via: special ed case. Includes standard audit timestamps (created_at, updated_at). 7 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "immunization_records": {
+    "description": "Stores immunization records records for the application. References related entities via: immunization, student. Includes standard audit timestamps (created_at, updated_at). 7 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "immunizations": {
+    "description": "Stores immunizations records for the application. Key attributes include name, code. Includes standard audit timestamps (created_at, updated_at). 5 column(s) defined. Primary key is `id`."
+  },
+  "incident_participants": {
+    "description": "Stores incident participants records for the application. References related entities via: incident, person. Includes standard audit timestamps (created_at, updated_at). 6 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "incidents": {
+    "description": "Stores incidents records for the application. References related entities via: school. Includes standard audit timestamps (created_at, updated_at). 7 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "initiatives": {
+    "description": "Stores initiatives records for the application. Key attributes include name. References related entities via: objective, owner. Includes standard audit timestamps (created_at, updated_at). 10 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "invoices": {
+    "description": "Stores invoices records for the application. References related entities via: student. Includes standard audit timestamps (created_at, updated_at). 7 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "journal_batches": {
+    "description": "Stores journal batches records for the application. Includes standard audit timestamps (created_at, updated_at). 8 column(s) defined. Primary key is `id`."
+  },
+  "journal_entries": {
+    "description": "Stores journal entries records for the application. References related entities via: batch, fiscal period. Includes standard audit timestamps (created_at, updated_at). 11 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "journal_entry_lines": {
+    "description": "Stores journal entry lines records for the application. References related entities via: account, entry. Includes standard audit timestamps (created_at, updated_at). 10 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "kpi_datapoints": {
+    "description": "Stores kpi datapoints records for the application. References related entities via: kpi. Includes standard audit timestamps (created_at, updated_at). 7 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "kpis": {
+    "description": "Stores kpis records for the application. Key attributes include name. References related entities via: goal, objective. Includes standard audit timestamps (created_at, updated_at). 10 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "leases": {
+    "description": "Stores leases records for the application. References related entities via: building. Includes standard audit timestamps (created_at, updated_at). 13 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "library_checkouts": {
+    "description": "Stores library checkouts records for the application. References related entities via: item, person. Includes standard audit timestamps (created_at, updated_at). 8 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "library_fines": {
+    "description": "Stores library fines records for the application. References related entities via: person. Includes standard audit timestamps (created_at, updated_at). 8 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "library_holds": {
+    "description": "Stores library holds records for the application. References related entities via: item, person. Includes standard audit timestamps (created_at, updated_at). 7 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "library_items": {
+    "description": "Stores library items records for the application. Key attributes include title. References related entities via: school. Includes standard audit timestamps (created_at, updated_at). 8 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "maintenance_requests": {
+    "description": "Stores maintenance requests records for the application. References related entities via: asset, building, converted work order, school, space, submitted by user. Includes standard audit timestamps (created_at, updated_at). 14 column(s) defined. Primary key is `id`. 6 foreign key field(s) detected."
+  },
+  "meal_accounts": {
+    "description": "Stores meal accounts records for the application. References related entities via: student. Includes standard audit timestamps (created_at, updated_at). 5 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "meal_eligibility_statuses": {
+    "description": "Stores meal eligibility statuses records for the application. References related entities via: student. Includes standard audit timestamps (created_at, updated_at). 7 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "meal_transactions": {
+    "description": "Stores meal transactions records for the application. References related entities via: account. Includes standard audit timestamps (created_at, updated_at). 7 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "medication_administrations": {
+    "description": "Stores medication administrations records for the application. References related entities via: medication, student. Includes standard audit timestamps (created_at, updated_at). 8 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "medications": {
+    "description": "Stores medications records for the application. Key attributes include name. Includes standard audit timestamps (created_at, updated_at). 5 column(s) defined. Primary key is `id`."
+  },
+  "meeting_files": {
+    "description": "Stores meeting files records for the application. References related entities via: file, meeting. 4 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "meeting_permissions": {
+    "description": "Stores meeting permissions records for the application. References related entities via: meeting, user. Includes standard audit timestamps (created_at, updated_at). 8 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "meeting_publications": {
+    "description": "Stores meeting publications records for the application. References related entities via: meeting. Includes standard audit timestamps (published_at). 4 column(s) defined. 1 foreign key field(s) detected."
+  },
+  "meeting_search_index": {
+    "description": "Stores meeting search index records for the application. References related entities via: meeting. 2 column(s) defined. 1 foreign key field(s) detected."
+  },
+  "meetings": {
+    "description": "Stores meetings records for the application. Key attributes include title. References related entities via: governing body, org. Includes standard audit timestamps (created_at, updated_at). 12 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "message_recipients": {
+    "description": "Stores message recipients records for the application. References related entities via: message, person. Includes standard audit timestamps (created_at, updated_at). 7 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "messages": {
+    "description": "Stores messages records for the application. References related entities via: sender. Includes standard audit timestamps (created_at, updated_at). 8 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "meters": {
+    "description": "Stores meters records for the application. Key attributes include name. References related entities via: asset, building. Includes standard audit timestamps (created_at, updated_at). 11 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "minutes": {
+    "description": "Stores minutes records for the application. References related entities via: author, meeting. Includes standard audit timestamps (published_at, created_at, updated_at). 7 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "motions": {
+    "description": "Stores motions records for the application. References related entities via: agenda item, moved by, seconded by. Includes standard audit timestamps (created_at, updated_at). 11 column(s) defined. Primary key is `id`. 3 foreign key field(s) detected."
+  },
+  "move_orders": {
+    "description": "Stores move orders records for the application. References related entities via: from space, person, project, to space. Includes standard audit timestamps (created_at, updated_at). 10 column(s) defined. Primary key is `id`. 4 foreign key field(s) detected."
+  },
+  "notifications": {
+    "description": "Stores notifications records for the application. References related entities via: user. Includes standard audit timestamps (created_at, updated_at). 7 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "nurse_visits": {
+    "description": "Stores nurse visits records for the application. References related entities via: student. Includes standard audit timestamps (created_at, updated_at). 7 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "objectives": {
+    "description": "Stores objectives records for the application. Key attributes include name. References related entities via: goal. Includes standard audit timestamps (created_at, updated_at). 6 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "order_line_items": {
+    "description": "Stores order line items records for the application. References related entities via: order, ticket type. Includes standard audit timestamps (created_at, updated_at). 6 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "orders": {
+    "description": "Stores orders records for the application. References related entities via: event, purchaser user. Includes standard audit timestamps (created_at, updated_at). 10 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "organizations": {
+    "description": "Stores organizations records for the application. Key attributes include name, code. Includes standard audit timestamps (created_at, updated_at). 5 column(s) defined. Primary key is `id`."
+  },
+  "pages": {
+    "description": "Stores pages records for the application. Key attributes include slug, title. References related entities via: channel. Includes standard audit timestamps (published_at, created_at, updated_at). 9 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "part_locations": {
+    "description": "Stores part locations records for the application. References related entities via: building, part, space. Includes standard audit timestamps (created_at, updated_at). 10 column(s) defined. Primary key is `id`. 3 foreign key field(s) detected."
+  },
+  "parts": {
+    "description": "Stores parts records for the application. Key attributes include name. Includes standard audit timestamps (created_at, updated_at). 9 column(s) defined. Primary key is `id`."
+  },
+  "pay_periods": {
+    "description": "Stores pay periods records for the application. Key attributes include code. Includes standard audit timestamps (created_at, updated_at). 8 column(s) defined. Primary key is `id`."
+  },
+  "paychecks": {
+    "description": "Stores paychecks records for the application. References related entities via: employee, run. Includes standard audit timestamps (created_at, updated_at). 10 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "payments": {
+    "description": "Stores payments records for the application. References related entities via: invoice. Includes standard audit timestamps (created_at, updated_at). 7 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "payroll_runs": {
+    "description": "Stores payroll runs records for the application. References related entities via: created by user, pay period, posted entry. Includes standard audit timestamps (created_at, updated_at). 8 column(s) defined. Primary key is `id`. 3 foreign key field(s) detected."
+  },
+  "periods": {
+    "description": "Stores periods records for the application. Key attributes include name. References related entities via: bell schedule. Includes standard audit timestamps (created_at, updated_at). 8 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "permissions": {
+    "description": "Stores permissions records for the application. Key attributes include code. Includes standard audit timestamps (created_at, updated_at). 5 column(s) defined. Primary key is `id`."
+  },
+  "person_addresses": {
+    "description": "Stores person addresses records for the application. References related entities via: address, person. Includes standard audit timestamps (created_at, updated_at). 6 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "person_contacts": {
+    "description": "Stores person contacts records for the application. References related entities via: contact, person. Includes standard audit timestamps (created_at, updated_at). 8 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "personal_notes": {
+    "description": "Stores personal notes records for the application. References related entities via: entity, user. Includes standard audit timestamps (created_at, updated_at). 7 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "persons": {
+    "description": "Stores persons records for the application. Includes standard audit timestamps (created_at, updated_at). 10 column(s) defined. Primary key is `id`."
+  },
+  "plan_alignments": {
+    "description": "Stores plan alignments records for the application. References related entities via: agenda item, objective, policy. Includes standard audit timestamps (created_at, updated_at). 7 column(s) defined. Primary key is `id`. 3 foreign key field(s) detected."
+  },
+  "plan_assignments": {
+    "description": "Stores plan assignments records for the application. References related entities via: assignee, entity. 5 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "plan_filters": {
+    "description": "Stores plan filters records for the application. Key attributes include name. References related entities via: plan. Includes standard audit timestamps (created_at, updated_at). 6 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "plan_search_index": {
+    "description": "Stores plan search index records for the application. References related entities via: plan. 2 column(s) defined. 1 foreign key field(s) detected."
+  },
+  "plans": {
+    "description": "Stores plans records for the application. Key attributes include name. References related entities via: org. Includes standard audit timestamps (created_at, updated_at). 8 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "pm_plans": {
+    "description": "Stores pm plans records for the application. Key attributes include name. References related entities via: asset, building. Includes standard audit timestamps (created_at, updated_at). 12 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "pm_work_generators": {
+    "description": "Stores pm work generators records for the application. References related entities via: pm plan. Includes standard audit timestamps (created_at, updated_at). 7 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "policies": {
+    "description": "Stores policies records for the application. Key attributes include code, title. References related entities via: org. Includes standard audit timestamps (created_at, updated_at). 7 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "policy_approvals": {
+    "description": "Stores policy approvals records for the application. References related entities via: approver, policy version, step. Includes standard audit timestamps (created_at, updated_at). 9 column(s) defined. Primary key is `id`. 3 foreign key field(s) detected."
+  },
+  "policy_comments": {
+    "description": "Stores policy comments records for the application. References related entities via: policy version, user. Includes standard audit timestamps (created_at, updated_at). 7 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "policy_files": {
+    "description": "Stores policy files records for the application. References related entities via: file, policy version. Includes standard audit timestamps (created_at). 4 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "policy_legal_refs": {
+    "description": "Stores policy legal refs records for the application. References related entities via: policy version. Includes standard audit timestamps (created_at, updated_at). 6 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "policy_publications": {
+    "description": "Stores policy publications records for the application. References related entities via: policy version. Includes standard audit timestamps (published_at). 4 column(s) defined. 1 foreign key field(s) detected."
+  },
+  "policy_search_index": {
+    "description": "Stores policy search index records for the application. References related entities via: policy. 2 column(s) defined. 1 foreign key field(s) detected."
+  },
+  "policy_versions": {
+    "description": "Stores policy versions records for the application. References related entities via: policy, supersedes version. Includes standard audit timestamps (created_at, updated_at). 9 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "policy_workflow_steps": {
+    "description": "Stores policy workflow steps records for the application. References related entities via: approver, workflow. Includes standard audit timestamps (created_at, updated_at). 8 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "policy_workflows": {
+    "description": "Stores policy workflows records for the application. Key attributes include name. References related entities via: policy. Includes standard audit timestamps (created_at, updated_at). 6 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "post_attachments": {
+    "description": "Stores post attachments records for the application. References related entities via: file, post. 3 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "posts": {
+    "description": "Stores posts records for the application. Key attributes include title. References related entities via: author, channel. Includes standard audit timestamps (created_at, updated_at). 9 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "project_tasks": {
+    "description": "Stores project tasks records for the application. Key attributes include name. References related entities via: assignee user, project. Includes standard audit timestamps (created_at, updated_at). 11 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "projects": {
+    "description": "Stores projects records for the application. Key attributes include name. References related entities via: school. Includes standard audit timestamps (created_at, updated_at). 12 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "proposal_standard_map": {
+    "description": "Stores proposal standard map records for the application. References related entities via: proposal, standard. Includes standard audit timestamps (created_at, updated_at). 7 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "proposals": {
+    "description": "Stores proposals records for the application. Key attributes include title. References related entities via: association, curriculum, organization. Includes standard audit timestamps (created_at, updated_at). 11 column(s) defined. Primary key is `id`. 3 foreign key field(s) detected."
+  },
+  "report_cards": {
+    "description": "Stores report cards records for the application. References related entities via: student, term. Includes standard audit timestamps (published_at, created_at, updated_at). 6 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "requirements": {
+    "description": "Stores requirements records for the application. Key attributes include title. Includes standard audit timestamps (created_at). 9 column(s) defined. Primary key is `id`."
+  },
+  "retention_rules": {
+    "description": "Stores retention rules records for the application. Includes standard audit timestamps (created_at, updated_at). 5 column(s) defined. Primary key is `id`."
+  },
+  "review_requests": {
+    "description": "Stores review requests records for the application. References related entities via: association, curriculum version. Includes standard audit timestamps (created_at). 8 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "review_rounds": {
+    "description": "Stores review rounds records for the application. References related entities via: proposal. Includes standard audit timestamps (created_at, updated_at). 8 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "reviewers": {
+    "description": "Stores reviewers records for the application. Key attributes include name. References related entities via: association. Includes standard audit timestamps (created_at, updated_at). 7 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "reviews": {
+    "description": "Stores reviews records for the application. References related entities via: review round, reviewer. Includes standard audit timestamps (created_at, updated_at). 8 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "role_permissions": {
+    "description": "Stores role permissions records for the application. References related entities via: permission, role. Includes standard audit timestamps (created_at, updated_at). 5 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "roles": {
+    "description": "Stores roles records for the application. Key attributes include name. Includes standard audit timestamps (created_at, updated_at). 5 column(s) defined. Primary key is `id`."
+  },
+  "rooms": {
+    "description": "Stores rooms records for the application. Key attributes include name. References related entities via: school. Includes standard audit timestamps (created_at, updated_at). 6 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "round_decisions": {
+    "description": "Stores round decisions records for the application. References related entities via: review round. Includes standard audit timestamps (created_at, updated_at). 7 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "scan_requests": {
+    "description": "Stores scan requests records for the application. Includes standard audit timestamps (created_at, updated_at). 5 column(s) defined. Primary key is `id`."
+  },
+  "scan_results": {
+    "description": "Stores scan results records for the application. References related entities via: ticket. Includes standard audit timestamps (created_at, updated_at). 7 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "schools": {
+    "description": "Stores schools records for the application. Key attributes include name. References related entities via: nces school, organization. Includes standard audit timestamps (created_at, updated_at). 10 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "scorecard_kpis": {
+    "description": "Stores scorecard kpis records for the application. References related entities via: kpi, scorecard. 4 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "scorecards": {
+    "description": "Stores scorecards records for the application. Key attributes include name. References related entities via: plan. Includes standard audit timestamps (created_at, updated_at). 5 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "section504_plans": {
+    "description": "Stores section504 plans records for the application. References related entities via: student. Includes standard audit timestamps (created_at, updated_at). 7 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "section_meetings": {
+    "description": "Stores section meetings records for the application. References related entities via: period, room, section. Includes standard audit timestamps (created_at, updated_at). 7 column(s) defined. Primary key is `id`. 3 foreign key field(s) detected."
+  },
+  "section_room_assignments": {
+    "description": "Stores section room assignments records for the application. References related entities via: room, section. Includes standard audit timestamps (created_at, updated_at). 7 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "sis_import_jobs": {
+    "description": "Stores sis import jobs records for the application. Includes standard audit timestamps (created_at, updated_at). 9 column(s) defined. Primary key is `id`."
+  },
+  "space_reservations": {
+    "description": "Stores space reservations records for the application. References related entities via: booked by user, space. Includes standard audit timestamps (created_at, updated_at). 11 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "spaces": {
+    "description": "Stores spaces records for the application. Key attributes include code, name. References related entities via: building, floor. Includes standard audit timestamps (created_at, updated_at). 11 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "special_education_cases": {
+    "description": "Stores special education cases records for the application. References related entities via: student. Includes standard audit timestamps (created_at, updated_at). 7 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "staff": {
+    "description": "Stores staff records for the application. Key attributes include title. Includes standard audit timestamps (created_at, updated_at). 5 column(s) defined. Primary key is `id`."
+  },
+  "standardized_tests": {
+    "description": "Stores standardized tests records for the application. Key attributes include name. Includes standard audit timestamps (created_at, updated_at). 5 column(s) defined. Primary key is `id`."
+  },
+  "standards": {
+    "description": "Stores standards records for the application. Key attributes include code. References related entities via: framework, parent. Includes standard audit timestamps (created_at, updated_at). 11 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "state_reporting_snapshots": {
+    "description": "Stores state reporting snapshots records for the application. Includes standard audit timestamps (created_at, updated_at). 6 column(s) defined. Primary key is `id`."
+  },
+  "states": {
+    "description": "Stores states records for the application. Key attributes include code, name. 2 column(s) defined."
+  },
+  "student_guardians": {
+    "description": "Stores student guardians records for the application. References related entities via: guardian, student. Includes standard audit timestamps (created_at, updated_at). 8 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "student_program_enrollments": {
+    "description": "Stores student program enrollments records for the application. References related entities via: student. Includes standard audit timestamps (created_at, updated_at). 8 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "student_school_enrollments": {
+    "description": "Stores student school enrollments records for the application. References related entities via: school, student. Includes standard audit timestamps (created_at, updated_at). 9 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "student_section_enrollments": {
+    "description": "Stores student section enrollments records for the application. References related entities via: section, student. Includes standard audit timestamps (created_at, updated_at). 8 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "student_transportation_assignments": {
+    "description": "Stores student transportation assignments records for the application. References related entities via: route, stop, student. Includes standard audit timestamps (created_at, updated_at). 9 column(s) defined. Primary key is `id`. 3 foreign key field(s) detected."
+  },
+  "students": {
+    "description": "Stores students records for the application. References related entities via: person. Includes standard audit timestamps (created_at, updated_at). 6 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "subjects": {
+    "description": "Stores subjects records for the application. Key attributes include name, code. References related entities via: department. Includes standard audit timestamps (created_at, updated_at). 6 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "subscriptions": {
+    "description": "Stores subscriptions records for the application. References related entities via: channel, principal. Includes standard audit timestamps (created_at). 5 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "tags": {
+    "description": "Stores tags records for the application. Includes standard audit timestamps (created_at, updated_at). 4 column(s) defined. Primary key is `id`."
+  },
+  "teacher_section_assignments": {
+    "description": "Stores teacher section assignments records for the application. References related entities via: section, staff. Includes standard audit timestamps (created_at, updated_at). 6 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "test_administrations": {
+    "description": "Stores test administrations records for the application. References related entities via: school, test. Includes standard audit timestamps (created_at, updated_at). 6 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "test_results": {
+    "description": "Stores test results records for the application. References related entities via: administration, student. Includes standard audit timestamps (created_at, updated_at). 8 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "ticket_scans": {
+    "description": "Stores ticket scans records for the application. References related entities via: scanned by user, ticket. Includes standard audit timestamps (created_at, updated_at). 9 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "ticket_types": {
+    "description": "Stores ticket types records for the application. Key attributes include name. References related entities via: event. Includes standard audit timestamps (created_at, updated_at). 11 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "tickets": {
+    "description": "Stores tickets records for the application. Key attributes include serial_no. References related entities via: holder person, order, ticket type. Includes standard audit timestamps (created_at, updated_at). 12 column(s) defined. Primary key is `id`. 3 foreign key field(s) detected."
+  },
+  "transcript_lines": {
+    "description": "Stores transcript lines records for the application. References related entities via: course, student, term. Includes standard audit timestamps (created_at, updated_at). 10 column(s) defined. Primary key is `id`. 3 foreign key field(s) detected."
+  },
+  "unit_standard_map": {
+    "description": "Stores unit standard map records for the application. References related entities via: standard, unit. Includes standard audit timestamps (created_at, updated_at). 5 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "user_accounts": {
+    "description": "Stores user accounts records for the application. References related entities via: person. Includes standard audit timestamps (created_at, updated_at). 7 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "users": {
+    "description": "Stores users records for the application. Includes standard audit timestamps (created_at, updated_at). 5 column(s) defined. Primary key is `id`."
+  },
+  "vendors": {
+    "description": "Stores vendors records for the application. Key attributes include name. Includes standard audit timestamps (created_at, updated_at). 7 column(s) defined. Primary key is `id`."
+  },
+  "votes": {
+    "description": "Stores votes records for the application. References related entities via: motion, voter. Includes standard audit timestamps (created_at, updated_at). 6 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "waivers": {
+    "description": "Stores waivers records for the application. References related entities via: student. Includes standard audit timestamps (created_at, updated_at). 7 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "warranties": {
+    "description": "Stores warranties records for the application. References related entities via: asset, vendor. Includes standard audit timestamps (created_at, updated_at). 10 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "webhooks": {
+    "description": "Stores webhooks records for the application. Includes standard audit timestamps (created_at, updated_at). 6 column(s) defined. Primary key is `id`."
+  },
+  "work_order_parts": {
+    "description": "Stores work order parts records for the application. References related entities via: part, work order. Includes standard audit timestamps (created_at, updated_at). 9 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "work_order_tasks": {
+    "description": "Stores work order tasks records for the application. Key attributes include title. References related entities via: work order. Includes standard audit timestamps (created_at, updated_at). 10 column(s) defined. Primary key is `id`. 1 foreign key field(s) detected."
+  },
+  "work_order_time_logs": {
+    "description": "Stores work order time logs records for the application. References related entities via: user, work order. Includes standard audit timestamps (created_at, updated_at). 11 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+  },
+  "work_orders": {
+    "description": "Stores work orders records for the application. References related entities via: asset, assigned to user, building, request, school, space. Includes standard audit timestamps (created_at, updated_at). 22 column(s) defined. Primary key is `id`. 6 foreign key field(s) detected."
+  }
+}

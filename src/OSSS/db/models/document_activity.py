@@ -3,7 +3,7 @@ import uuid
 
 from datetime import datetime, date, time
 from decimal import Decimal
-from typing import Any, Optional, List
+from typing import Any, Optional, List,ClassVar
 
 import sqlalchemy as sa
 from sqlalchemy import ForeignKey, UniqueConstraint, text
@@ -13,6 +13,34 @@ from OSSS.db.base import Base, UUIDMixin, GUID, JSONB
 
 class DocumentActivity(UUIDMixin, Base):
     __tablename__ = "document_activity"
+    __allow_unmapped__ = True  # ignore class-level notes etc.
+
+    NOTE: ClassVar[str] = (
+        "owner=athletics_activities_enrichment | division_of_schools; "
+        "description=Stores document activity records for the application. "
+        "References related entities via: actor, document. "
+        "Includes standard audit timestamps (created_at, updated_at). "
+        "8 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+    )
+
+    __table_args__ = {
+        "comment": (
+            "Stores document activity records for the application. "
+            "References related entities via: actor, document. "
+            "Includes standard audit timestamps (created_at, updated_at). "
+            "8 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+        ),
+        "info": {
+            "note": NOTE,
+            "description": (
+                "Stores document activity records for the application. "
+                "References related entities via: actor, document. "
+                "Includes standard audit timestamps (created_at, updated_at). "
+                "8 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+            ),
+        },
+    }
+
 
     document_id: Mapped[uuid.UUID] = mapped_column(
         GUID(), ForeignKey("documents.id", ondelete="CASCADE"), nullable=False
@@ -26,4 +54,3 @@ class DocumentActivity(UUIDMixin, Base):
 
     document: Mapped["Document"] = relationship("Document", back_populates="activities", lazy="joined")
 
-    __table_args__ = (sa.Index("ix_document_activity_doc", "document_id"),)
