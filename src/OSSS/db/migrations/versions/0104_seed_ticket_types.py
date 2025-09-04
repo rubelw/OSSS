@@ -1,4 +1,3 @@
-# src/OSSS/db/migrations/versions/0092_populate_att_evts.py
 from __future__ import annotations
 
 import csv
@@ -8,7 +7,7 @@ import json
 import random
 import uuid
 from datetime import date, timedelta, datetime, timezone
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Optional
 
 from alembic import op
 import sqlalchemy as sa
@@ -94,32 +93,18 @@ def _csv_path() -> str:
     return os.path.join(os.path.dirname(__file__), CSV_FILENAME)
 
 def _fetch_events(conn) -> List[Tuple[str, Optional[datetime], Optional[datetime]]]:
-    """
-    Returns list of (id, starts_at, ends_at) from events.
-    """
-    rows = conn.execute(
-        sa.text("SELECT id, starts_at, ends_at FROM events")
-    ).fetchall()
+    """Returns list of (id, starts_at, ends_at) from events."""
+    rows = conn.execute(sa.text("SELECT id, starts_at, ends_at FROM events")).fetchall()
     return [(r[0], r[1], r[2]) for r in rows]
 
 def _rand_sales_window(starts_at: Optional[datetime], ends_at: Optional[datetime]) -> Tuple[Optional[datetime], Optional[datetime]]:
-    """
-    Choose a plausible sales window relative to the event time.
-    If event times are missing, fallback to now-based windows.
-    """
+    """Choose a plausible sales window relative to the event time."""
     now = datetime.now(timezone.utc)
-
-    # Start some days before the event (or now)
     base = starts_at or now + timedelta(days=random.randint(7, 60))
     start = base - timedelta(days=random.randint(7, 45), hours=random.randint(0, 10))
-
-    # End around event start (or shortly after start)
     end = (starts_at or base) + timedelta(hours=random.randint(0, 6))
     if random.random() < 0.1:
-        # Occasionally keep sales open a bit longer
         end = end + timedelta(hours=random.randint(2, 24))
-
-    # Ensure chronological order
     if end < start:
         end = start + timedelta(hours=random.randint(1, 8))
     return start, end
@@ -129,9 +114,7 @@ def _unique_names_for_event(k: int) -> List[str]:
     random.shuffle(pool)
     if k <= len(pool):
         return pool[:k]
-    # if more needed, synthesize extras
-    extras = [f"Type {i}" for i in range(k - len(pool))]
-    return pool + extras
+    return pool + [f"Type {i}" for i in range(k - len(pool))]
 
 def _generate_rows(
     events: List[Tuple[str, Optional[datetime], Optional[datetime]]],
@@ -145,7 +128,32 @@ def _generate_rows(
             random.seed(SEED)
 
     if not events:
-        raise RuntimeError("No events found. Cannot generate ticket_types.")
+        # No events? Still generate some rows detached from events.
+        now = datetime.now(timezone.utc)
+        fallback_rows = []
+        for _ in range(50):
+            name = random.choice(NAMES)
+            price = random.choice(PRICE_CHOICES)
+            qty_total = random.randint(*QTY_TOTAL_RANGE)
+            qty_sold = random.randint(0, qty_total)
+            s_start = now - timedelta(days=random.randint(1, 10))
+            s_end = s_start + timedelta(days=random.randint(1, 5))
+            fallback_rows.append(
+                {
+                    "id": str(uuid.uuid4()),
+                    "event_id": None,  # may be ignored on insert
+                    "name": name,
+                    "price_cents": price,
+                    "quantity_total": qty_total,
+                    "quantity_sold": qty_sold,
+                    "sales_starts_at": s_start.isoformat(),
+                    "sales_ends_at": s_end.isoformat(),
+                    "attributes": "",
+                    "created_at": now.isoformat(),
+                    "updated_at": now.isoformat(),
+                }
+            )
+        return fallback_rows
 
     rows: List[Dict[str, object]] = []
     now = datetime.now(timezone.utc)
@@ -153,8 +161,6 @@ def _generate_rows(
     for (event_id, starts_at, ends_at) in events:
         how_many = random.randint(per_event_min, per_event_max)
         names = _unique_names_for_event(how_many)
-
-        # Create consistent serializable sales windows per type
         base_start, base_end = _rand_sales_window(starts_at, ends_at)
 
         for name in names:
@@ -162,7 +168,6 @@ def _generate_rows(
             qty_total = random.randint(*QTY_TOTAL_RANGE)
             qty_sold = random.randint(0, qty_total)
 
-            # Slightly vary per-type windows
             s_start = base_start - timedelta(hours=random.randint(0, 24))
             s_end = base_end + timedelta(hours=random.randint(0, 24))
             if s_end < s_start:
@@ -220,11 +225,49 @@ def _read_csv(csv_path: str) -> List[Dict[str, object]]:
     with open(csv_path, "r", newline="", encoding="utf-8") as f:
         return list(csv.DictReader(f))
 
+def _parse_dt(s: Optional[str]) -> Optional[datetime]:
+    if not s:
+        return None
+    s = s.strip()
+    if not s:
+        return None
+    return datetime.fromisoformat(s.replace("Z", ""))
+
+def _resolve_event_fk_column(bind: sa.engine.Connection) -> Optional[str]:
+    """
+    Discover which column on ticket_types is the FK to events, if any.
+    Returns None when the table has no such column.
+    """
+    meta = sa.MetaData()
+    tt = sa.Table("ticket_types", meta, autoload_with=bind)
+    cols = {c.name for c in tt.c}
+
+    for name in ("event_id", "attendance_event_id", "calendar_event_id", "activity_id"):
+        if name in cols:
+            return name
+    for name in cols:
+        if name.endswith("_event_id") or (name.startswith("event_") and name.endswith("_id")):
+            return name
+
+    log.warning("[0104] ticket_types: no event FK column found; will insert rows without event linkage.")
+    return None
+
+def _has_unique_on_name(bind: sa.engine.Connection) -> bool:
+    insp = sa.inspect(bind)
+    try:
+        for u in insp.get_unique_constraints("ticket_types"):
+            cols = set(u.get("column_names") or [])
+            if cols == {"name"}:
+                return True
+    except Exception:
+        pass
+    return False
+
 def upgrade():
-    conn = op.get_bind()
+    bind = op.get_bind()
 
     log.info("[0104] ticket_types: fetching events…")
-    events = _fetch_events(conn)
+    events = _fetch_events(bind)
     log.info("[0104] ticket_types: %d event(s) found", len(events))
 
     per_min = DEFAULT_PER_EVENT_MIN
@@ -238,54 +281,74 @@ def upgrade():
     _write_csv(csv_path, rows)
 
     log.info("[0104] ticket_types: clearing table for idempotent seed…")
-    conn.execute(sa.text("DELETE FROM ticket_types"))
+    bind.execute(sa.text("DELETE FROM ticket_types"))
 
     data = _read_csv(csv_path)
 
-    table = sa.table(
-        "ticket_types",
-        sa.column("id", sa.String),
-        sa.column("event_id", sa.String),
-        sa.column("name", sa.String),
-        sa.column("price_cents", sa.Integer),
-        sa.column("quantity_total", sa.Integer),
-        sa.column("quantity_sold", sa.Integer),
-        sa.column("sales_starts_at", sa.DateTime(timezone=True)),
-        sa.column("sales_ends_at", sa.DateTime(timezone=True)),
-        sa.column("attributes", JSONB),
-        sa.column("created_at", sa.DateTime(timezone=True)),
-        sa.column("updated_at", sa.DateTime(timezone=True)),
-    )
+    # Reflect the actual table so native types (JSONB, timestamptz) are honored.
+    meta = sa.MetaData()
+    ticket_types = sa.Table("ticket_types", meta, autoload_with=bind)
 
-    to_insert = []
+    # FK column (may be None)
+    event_fk_col = _resolve_event_fk_column(bind)
+    unique_on_name = _has_unique_on_name(bind)
+
+    # Track names to avoid duplicates if there is a unique(name) and no FK present
+    seen_names: set[str] = set()
+
+    fixed_rows: List[Dict[str, object]] = []
     for r in data:
         attrs_raw = (r.get("attributes") or "").strip()
-        attrs_val = json.loads(attrs_raw) if attrs_raw else None
+        if attrs_raw.lower() in ("", "null", "none"):
+            attrs_val = None
+        else:
+            try:
+                attrs_val = json.loads(attrs_raw) if isinstance(attrs_raw, str) else attrs_raw
+            except Exception:
+                attrs_val = None
 
-        to_insert.append(
-            {
-                "id": r["id"],
-                "event_id": r["event_id"],
-                "name": r["name"],
-                "price_cents": int(r["price_cents"]),
-                "quantity_total": int(r["quantity_total"]),
-                "quantity_sold": int(r["quantity_sold"]),
-                "sales_starts_at": datetime.fromisoformat(r["sales_starts_at"]),
-                "sales_ends_at": datetime.fromisoformat(r["sales_ends_at"]) if (r.get("sales_ends_at") or "").strip() else None,
-                "attributes": attrs_val,
-                "created_at": datetime.fromisoformat(r["created_at"]),
-                "updated_at": datetime.fromisoformat(r["updated_at"]),
-            }
-        )
+        name_val = r["name"]
+        if event_fk_col is None and unique_on_name:
+            # keep names unique by suffixing a short token derived from event_id when present
+            ev = (r.get("event_id") or "")[:8]
+            candidate = f"{name_val} ({ev})" if ev else name_val
+            # ensure uniqueness in-memory as well
+            i = 1
+            base = candidate
+            while candidate in seen_names:
+                i += 1
+                candidate = f"{base}-{i}"
+            name_val = candidate
+            seen_names.add(name_val)
 
-    log.info("[0104] ticket_types: inserting %d rows…", len(to_insert))
+        row = {
+            "id": r["id"],
+            "name": name_val,
+            "price_cents": int(r["price_cents"]),
+            "quantity_total": int(r["quantity_total"]),
+            "quantity_sold": int(r["quantity_sold"]),
+            "sales_starts_at": _parse_dt(r.get("sales_starts_at")),
+            "sales_ends_at": _parse_dt(r.get("sales_ends_at")),
+            "attributes": attrs_val,
+            "created_at": _parse_dt(r.get("created_at")),
+            "updated_at": _parse_dt(r.get("updated_at")),
+        }
+
+        # Only include event linkage when the column exists
+        if event_fk_col:
+            row[event_fk_col] = r.get("event_id")
+
+        fixed_rows.append(row)
+
+    log.info("[0104] ticket_types: inserting %d rows…", len(fixed_rows))
     CHUNK = 1000
-    for i in range(0, len(to_insert), CHUNK):
-        op.bulk_insert(table, to_insert[i : i + CHUNK])
+    for i in range(0, len(fixed_rows), CHUNK):
+        batch = fixed_rows[i : i + CHUNK]
+        bind.execute(ticket_types.insert(), batch)
 
     log.info("[0104] ticket_types: done.")
 
 def downgrade():
-    conn = op.get_bind()
+    bind = op.get_bind()
     log.info("[0104] ticket_types: deleting all rows (downgrade)…")
-    conn.execute(sa.text("DELETE FROM ticket_types"))
+    bind.execute(sa.text("DELETE FROM ticket_types"))

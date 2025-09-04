@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
+from typing import Optional, ClassVar
 
 import sqlalchemy as sa
 from sqlalchemy import ForeignKey
@@ -13,6 +13,40 @@ from OSSS.db.base import Base, UUIDMixin, GUID
 
 class ScanResult(UUIDMixin, Base):
     __tablename__ = "scan_results"
+    __allow_unmapped__ = True  # keep NOTE out of the SQLAlchemy mapper
+
+    NOTE: ClassVar[str] =     (
+        "owner=division_of_technology_data; "
+        "description=Stores scan results records for the application. "
+        "References related entities via: ticket. "
+        "Includes standard audit timestamps (created_at, updated_at). "
+        "7 column(s) defined. "
+        "Primary key is `id`. "
+        "1 foreign key field(s) detected."
+    )
+
+    __table_args__ = {
+        "comment":         (
+            "Stores scan results records for the application. "
+            "References related entities via: ticket. "
+            "Includes standard audit timestamps (created_at, updated_at). "
+            "7 column(s) defined. "
+            "Primary key is `id`. "
+            "1 foreign key field(s) detected."
+        ),
+        "info": {
+            "note": NOTE,
+            "description":         (
+            "Stores scan results records for the application. "
+            "References related entities via: ticket. "
+            "Includes standard audit timestamps (created_at, updated_at). "
+            "7 column(s) defined. "
+            "Primary key is `id`. "
+            "1 foreign key field(s) detected."
+        ),
+        },
+    }
+
 
     # Core fields
     ok: Mapped[bool] = mapped_column(sa.Boolean, nullable=False)
@@ -33,3 +67,5 @@ class ScanResult(UUIDMixin, Base):
 
     # Relationships
     ticket: Mapped[Optional["Ticket"]] = relationship("Ticket")
+
+

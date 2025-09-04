@@ -3,10 +3,42 @@ from __future__ import annotations
 import sqlalchemy as sa
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from OSSS.db.base import Base, UUIDMixin, GUID, JSONB, ts_cols
+from typing import ClassVar
 
 
 class Requirement(UUIDMixin, Base):
     __tablename__ = "requirements"
+    __allow_unmapped__ = True  # keep NOTE out of the SQLAlchemy mapper
+
+    NOTE: ClassVar[str] =     (
+        "owner=division_of_technology_data; "
+        "description=Stores requirements records for the application. "
+        "Key attributes include title. "
+        "Includes standard audit timestamps (created_at). "
+        "9 column(s) defined. "
+        "Primary key is `id`."
+    )
+
+    __table_args__ = {
+        "comment":         (
+            "Stores requirements records for the application. "
+            "Key attributes include title. "
+            "Includes standard audit timestamps (created_at). "
+            "9 column(s) defined. "
+            "Primary key is `id`."
+        ),
+        "info": {
+            "note": NOTE,
+            "description":         (
+            "Stores requirements records for the application. "
+            "Key attributes include title. "
+            "Includes standard audit timestamps (created_at). "
+            "9 column(s) defined. "
+            "Primary key is `id`."
+        ),
+        },
+    }
+
 
     state_code: Mapped[str] = mapped_column(
         sa.String(2),
@@ -24,3 +56,5 @@ class Requirement(UUIDMixin, Base):
 
     state = relationship("State", back_populates="requirements", lazy="joined")
     alignments = relationship("Alignment", back_populates="requirement", cascade="all, delete-orphan")
+
+

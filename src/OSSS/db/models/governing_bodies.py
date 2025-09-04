@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Optional, List
+from typing import Optional, List, ClassVar
 
 import sqlalchemy as sa
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -10,6 +10,43 @@ from OSSS.db.base import Base, UUIDMixin, GUID, TimestampMixin
 
 class GoverningBody(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "governing_bodies"
+    __allow_unmapped__ = True  # keep NOTE out of the SQLAlchemy mapper
+
+    NOTE: ClassVar[str] =     (
+        "owner=board_of_education_governing_board; "
+        "description=Stores governing bodies records for the application. "
+        "Key attributes include name. "
+        "References related entities via: org. "
+        "Includes standard audit timestamps (created_at, updated_at). "
+        "6 column(s) defined. "
+        "Primary key is `id`. "
+        "1 foreign key field(s) detected."
+    )
+
+    __table_args__ = {
+        "comment":         (
+            "Stores governing bodies records for the application. "
+            "Key attributes include name. "
+            "References related entities via: org. "
+            "Includes standard audit timestamps (created_at, updated_at). "
+            "6 column(s) defined. "
+            "Primary key is `id`. "
+            "1 foreign key field(s) detected."
+        ),
+        "info": {
+            "note": NOTE,
+            "description":         (
+            "Stores governing bodies records for the application. "
+            "Key attributes include name. "
+            "References related entities via: org. "
+            "Includes standard audit timestamps (created_at, updated_at). "
+            "6 column(s) defined. "
+            "Primary key is `id`. "
+            "1 foreign key field(s) detected."
+        ),
+        },
+    }
+
 
     org_id: Mapped[str] = mapped_column(
         GUID(), sa.ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
@@ -32,5 +69,3 @@ class GoverningBody(UUIDMixin, TimestampMixin, Base):
         passive_deletes=True,
         lazy="selectin",
     )
-
-    __table_args__ = (sa.Index("ix_governing_bodies_org", "org_id"),)

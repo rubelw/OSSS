@@ -5,8 +5,8 @@ import os
 import logging
 import logging.config
 import sqlalchemy as sa
-
-from contextlib import asynccontextmanager          # ADD THIS
+import inspect
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, APIRouter, Depends, Request
 from fastapi.routing import APIRoute
 
@@ -19,6 +19,7 @@ from sqlalchemy.inspection import inspect as sa_inspect
 from OSSS.core.config import settings
 from OSSS.db import get_sessionmaker
 
+from OSSS.middleware.session_ttl import SessionTTL
 
 from OSSS.api.generated_resources.register_all import generate_routers_for_all_models
 from OSSS.api.routers.auth_flow import router as auth_router
@@ -30,10 +31,17 @@ from OSSS.api.routers.health import router as health_router
 # New auth deps (no oauth2 symbol anymore)
 from OSSS.auth import ensure_access_token, get_current_user
 
-from OSSS.sessions import attach_session_store, get_session_store, SESSION_PREFIX, ensure_sid_cookie_and_store, RedisSession, probe_key_ttl
+from OSSS.sessions import (
+    attach_session_store,
+    get_session_store,
+    SESSION_PREFIX,
+    ensure_sid_cookie_and_store,
+    RedisSession,
+    probe_key_ttl,
+)
 from OSSS.sessions_diag import router as sessions_diag_router
 from OSSS.app_logger import get_logger
-
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 
 
 LOGGING = {
@@ -58,7 +66,6 @@ LOGGING = {
 }
 logging.config.dictConfig(LOGGING)
 log = logging.getLogger("main")
-
 
 
 def _discover_Base():
@@ -116,8 +123,10 @@ def _dump_mappings(header: str = "[mappings]") -> None:
         if tablename == "entity_tags" or "entitytag" in name.lower():
             flag = "  <-- entity_tags?"
             found_entity_tags = True
-        log.info("  - %s (table=%s) PK=%s composite=%s cols=%s%s",
-                 name, tablename, pks, composite_pk, cols, flag)
+        log.info(
+            "  - %s (table=%s) PK=%s composite=%s cols=%s%s",
+            name, tablename, pks, composite_pk, cols, flag
+        )
 
     if not found_entity_tags:
         log.warning("%s entity_tags not found among mapped classes", header)
@@ -159,21 +168,33 @@ def _cfg(lower: str, UPPER: str, default=None):
 
 
 def create_app() -> FastAPI:
-    # define a lifespan handler to replace deprecated on_event
+    # define a lifespan handler
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         """
-        Handles startup/shutdown tasks for the app.
-        This runs once when the app starts and once when it stops.
+        Handles startup/shutdown tasks for the app (runs once on start, once on stop).
         """
-        # STARTUP logic
+        # ---------------- STARTUP ----------------
+        # DB engine/sessionmaker bound to THIS loop
+        app.state.db_engine = create_async_engine(
+            settings.DATABASE_URL,
+            pool_pre_ping=True,
+        )
+        app.state.async_sessionmaker = async_sessionmaker(
+            app.state.db_engine, expire_on_commit=False, class_=AsyncSession
+        )
+        # Ensure all deps that call get_sessionmaker() use the app-scoped one
+        def _sessionmaker_override():
+            return app.state.async_sessionmaker
+        app.dependency_overrides[get_sessionmaker] = _sessionmaker_override
+
         # Create probe router
         probe = APIRouter()
 
         @probe.get("/_oauth_probe", tags=["_debug"])
         async def _oauth_probe(
-                _token: str = Depends(ensure_access_token),
-                user: dict | None = Depends(get_current_user),
+            _token: str = Depends(ensure_access_token),
+            user: dict | None = Depends(get_current_user),
         ):
             return {"ok": True, "sub": (user or {}).get("sub")}
 
@@ -183,7 +204,6 @@ def create_app() -> FastAPI:
 
         @app.get("/_session_keys", tags=["_debug"])
         async def session_keys(limit: int = 20, store: RedisSession = Depends(get_session_store)):
-            # list raw redis keys; strip prefix for display
             patt = f"{SESSION_PREFIX}*"
             keys = []
             async for k in store._r.scan_iter(match=patt, count=limit):
@@ -195,10 +215,10 @@ def create_app() -> FastAPI:
         app.include_router(probe)
         app.include_router(sessions_diag_router)
 
-        # DB ping (unless testing)
+        # DB ping (unless testing) using the app-scoped sessionmaker
         if not settings.TESTING:
             try:
-                async_session = get_sessionmaker()
+                async_session = app.state.async_sessionmaker
                 async with async_session() as session:
                     await session.execute(sa.text("SELECT 1"))
             except Exception:
@@ -213,25 +233,43 @@ def create_app() -> FastAPI:
         }
         app.swagger_ui_init_oauth = oauth_cfg
 
-        # optional mapping dump
         if os.getenv("OSSS_DEBUG_MAPPINGS") == "1":
             _dump_mappings("[mappings][startup]")
 
-        # print routes
-        print("[startup] mounted routes:",
-              sorted([r.path for r in app.routes if isinstance(r, APIRoute)]))
+        print(
+            "[startup] mounted routes:",
+            sorted([r.path for r in app.routes if isinstance(r, APIRoute)])
+        )
 
-        # yield control to the application
+        # hand control to application
         yield
 
-        # SHUTDOWN logic (if you need any cleanup, put it here)
+        # ---------------- SHUTDOWN ----------------
+        # Close DB engine BEFORE loop closes (prevents asyncpg 'loop is closed')
+        try:
+            await app.state.db_engine.dispose()
+        except Exception:
+            pass
+
+        # Close session store (and its Redis client) on THIS loop
+        try:
+            store = getattr(app.state, "session_store", None)
+            if store is not None:
+                if hasattr(store, "aclose") and inspect.iscoroutinefunction(store.aclose):
+                    await store.aclose()  # type: ignore[func-returns-value]
+                else:
+                    r = getattr(store, "_r", None)
+                    if r is not None and hasattr(r, "aclose"):
+                        await r.aclose()  # type: ignore[func-returns-value]
+        except Exception:
+            pass
 
     # instantiate FastAPI with the lifespan handler
     app = FastAPI(
         title=settings.APP_NAME,
         version=settings.APP_VERSION,
         generate_unique_id_function=generate_unique_id,
-        lifespan=lifespan,  # PASS lifespan handler here
+        lifespan=lifespan,
     )
 
     attach_session_store(app)  # adds startup/shutdown hooks + app.state.session_store
@@ -243,7 +281,6 @@ def create_app() -> FastAPI:
     https_only = _cfg("session_https_only", "SESSION_HTTPS_ONLY", False)
     same_site = _cfg("session_samesite", "SESSION_SAMESITE", "lax")
 
-
     app.add_middleware(
         SessionMiddleware,
         secret_key=secret_key,
@@ -251,8 +288,9 @@ def create_app() -> FastAPI:
         session_cookie="osss_session",
         same_site="lax",
         https_only=False,  # True in production behind HTTPS
-
     )
+
+    app.add_middleware(SessionTTL)  # <- after your session-loader middleware
 
     # Base / utility routers
     app.include_router(debug.router)
@@ -284,52 +322,6 @@ def create_app() -> FastAPI:
         mounted_models.add(name)
         log.info("[startup] mounted dynamic router: %s", name)
 
-    # Startup
-    @app.on_event("startup")
-    async def _startup() -> None:
-        app.state.session_store = RedisSession()
-        ok = await app.state.session_store.ping()
-        if not ok:
-            log.warning("Redis not reachable at startup.")
-
-        # Small probe that enforces a token (no oauth2 symbol)
-        probe = APIRouter()
-
-        @probe.get("/_oauth_probe", tags=["_debug"])
-        async def _oauth_probe(
-            _token: str = Depends(ensure_access_token),
-            user: dict | None = Depends(get_current_user),
-        ):
-            return {"ok": True, "sub": (user or {}).get("sub")}
-
-        app.include_router(probe)
-
-        # DB ping
-        if not settings.TESTING:
-            try:
-                async_session = get_sessionmaker()
-                async with async_session() as session:
-                    await session.execute(sa.text("SELECT 1"))
-            except Exception:
-                pass
-
-        # Swagger OAuth init
-        oauth_cfg = {
-            "clientId": settings.SWAGGER_CLIENT_ID,
-            "usePkceWithAuthorizationCodeGrant": settings.SWAGGER_USE_PKCE,
-            "scopes": "openid profile email",
-            **({"clientSecret": settings.SWAGGER_CLIENT_SECRET} if settings.SWAGGER_CLIENT_SECRET else {}),
-        }
-        app.swagger_ui_init_oauth = oauth_cfg
-
-        print(
-            "[startup] mounted routes:",
-            sorted([r.path for r in app.routes if isinstance(r, APIRoute)]),
-        )
-
-        if os.getenv("OSSS_DEBUG_MAPPINGS") == "1":
-            _dump_mappings("[mappings][startup]")
-
     @app.middleware("http")
     async def session_tracker(request: Request, call_next):
         response = await call_next(request)  # process first to avoid masking errors
@@ -359,19 +351,16 @@ def _strip_http_bearer_from_openapi(app: FastAPI):
             description=getattr(app, "description", None),
         )
         comps = schema.get("components", {}).get("securitySchemes", {})
-        # find bearer-type schemes
         to_remove = [k for k, v in comps.items()
                      if isinstance(v, dict) and v.get("type") == "http" and v.get("scheme") == "bearer"]
         if to_remove:
             for k in to_remove:
                 comps.pop(k, None)
-            # remove global security refs to removed schemes
             if "security" in schema and isinstance(schema["security"], list):
                 schema["security"] = [
                     s for s in schema["security"]
                     if not any(k in s for k in to_remove)
                 ]
-            # remove per-operation refs to removed schemes
             for _, methods in (schema.get("paths") or {}).items():
                 for _, op in methods.items():
                     if isinstance(op, dict) and "security" in op and isinstance(op["security"], list):

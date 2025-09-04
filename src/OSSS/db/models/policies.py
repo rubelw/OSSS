@@ -3,7 +3,7 @@ import uuid
 
 from datetime import datetime, date, time
 from decimal import Decimal
-from typing import Any, Optional, List
+from typing import Any, Optional, List, ClassVar
 
 import sqlalchemy as sa
 from sqlalchemy import ForeignKey, UniqueConstraint, text
@@ -13,6 +13,43 @@ from OSSS.db.base import Base, UUIDMixin, GUID, JSONB
 
 class Policy(UUIDMixin, Base):
     __tablename__ = "policies"
+    __allow_unmapped__ = True  # keep NOTE out of the SQLAlchemy mapper
+
+    NOTE: ClassVar[str] =     (
+        "owner=division_of_technology_data; "
+        "description=Stores policies records for the application. "
+        "Key attributes include code, title. "
+        "References related entities via: org. "
+        "Includes standard audit timestamps (created_at, updated_at). "
+        "7 column(s) defined. "
+        "Primary key is `id`. "
+        "1 foreign key field(s) detected."
+    )
+
+    __table_args__ = {
+        "comment":         (
+            "Stores policies records for the application. "
+            "Key attributes include code, title. "
+            "References related entities via: org. "
+            "Includes standard audit timestamps (created_at, updated_at). "
+            "7 column(s) defined. "
+            "Primary key is `id`. "
+            "1 foreign key field(s) detected."
+        ),
+        "info": {
+            "note": NOTE,
+            "description":         (
+            "Stores policies records for the application. "
+            "Key attributes include code, title. "
+            "References related entities via: org. "
+            "Includes standard audit timestamps (created_at, updated_at). "
+            "7 column(s) defined. "
+            "Primary key is `id`. "
+            "1 foreign key field(s) detected."
+        ),
+        },
+    }
+
 
     org_id: Mapped[uuid.UUID] = mapped_column(
         GUID(), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
@@ -30,8 +67,4 @@ class Policy(UUIDMixin, Base):
         passive_deletes=True,
         order_by="PolicyVersion.version_no",
         lazy="selectin",
-    )
-
-    __table_args__ = (
-        sa.Index("ix_policies_org", "org_id"),
     )

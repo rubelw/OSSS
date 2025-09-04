@@ -243,7 +243,7 @@ def create_router_for_model(
         dependencies.append(Depends(bind_session_store))
 
     # ---- NEW: derive resource name and prefix using helper ----
-    resource_name = resource_name_for_model(model)              # e.g., "cic_meetings"
+    resource_name = resource_name_for_model(model)              # e.g., "meetings"
 
     _prefix = prefix or f"/api/{pluralize_snake(resource_name)}"
     _tags = tags or [pluralize_snake(resource_name)]

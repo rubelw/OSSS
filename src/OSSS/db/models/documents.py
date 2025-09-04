@@ -1,33 +1,71 @@
 from __future__ import annotations
 
-from datetime import datetime, date, time
-from decimal import Decimal
-from typing import Any, Optional, List
+from typing import Optional, List, ClassVar
+from datetime import datetime
 import uuid
 import sqlalchemy as sa
-from sqlalchemy import ForeignKey, UniqueConstraint, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from OSSS.db.base import Base, UUIDMixin, GUID, JSONB
 
+
 class Document(UUIDMixin, Base):
     __tablename__ = "documents"
+    __allow_unmapped__ = True  # ignore non-mapped constants, etc.
 
+    NOTE: ClassVar[str] = (
+        "owner=division_of_technology_data; "
+        "description=Stores documents records for the application. "
+        "Key attributes include title. References related entities via: current version, folder. "
+        "Includes standard audit timestamps (created_at, updated_at). "
+        "7 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+    )
+
+    # Add the FK constraint for current_version_id explicitly
+    __table_args__ = (
+        sa.ForeignKeyConstraint(
+            ["current_version_id"],
+            ["document_versions.id"],
+            name="documents_current_version_id_fkey",
+            ondelete="SET NULL",
+        ),
+        {
+            "comment": (
+                "Stores documents records for the application. Key attributes include title. "
+                "References related entities via: current version, folder. "
+                "Includes standard audit timestamps (created_at, updated_at). "
+                "7 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+            ),
+            "info": {
+                "note": NOTE,
+                "description": (
+                    "Stores documents records for the application. Key attributes include title. "
+                    "References related entities via: current version, folder. "
+                    "Includes standard audit timestamps (created_at, updated_at). "
+                    "7 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+                ),
+            },
+        },
+    )
 
     folder_id: Mapped[Optional[uuid.UUID]] = mapped_column(
-        GUID(), ForeignKey("folders.id", ondelete="SET NULL")
+        GUID(), sa.ForeignKey("folders.id", ondelete="SET NULL"), index=True, nullable=True
     )
     title: Mapped[str] = mapped_column(sa.String(255), nullable=False)
 
-    # FK is added via table-level constraint below (current_version_id -> document_versions.id)
-    current_version_id: Mapped[Optional[uuid.UUID]] = mapped_column(GUID(), nullable=True)
+    # FK is enforced via __table_args__ above
+    current_version_id: Mapped[Optional[uuid.UUID]] = mapped_column(GUID(), nullable=True, index=True)
 
-    is_public: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, server_default=sa.sql.false())
+    is_public: Mapped[bool] = mapped_column(
+        sa.Boolean, nullable=False, server_default=sa.sql.false()
+    )
 
     # relationships
-    folder: Mapped[Optional["Folder"]] = relationship("Folder", back_populates="documents", lazy="selectin")
+    folder: Mapped[Optional["Folder"]] = relationship(
+        "Folder", back_populates="documents", lazy="selectin"
+    )
 
-    # EXPLICIT: Document.id -> DocumentVersion.document_id
+    # Document.id -> DocumentVersion.document_id
     versions: Mapped[List["DocumentVersion"]] = relationship(
         "DocumentVersion",
         back_populates="document",
@@ -38,8 +76,7 @@ class Document(UUIDMixin, Base):
         lazy="selectin",
     )
 
-    # EXPLICIT: Document.current_version_id -> DocumentVersion.id
-    # viewonly avoids write-order conflicts with versions
+    # Document.current_version_id -> DocumentVersion.id (view-only for safety)
     current_version: Mapped[Optional["DocumentVersion"]] = relationship(
         "DocumentVersion",
         uselist=False,
@@ -47,6 +84,15 @@ class Document(UUIDMixin, Base):
         foreign_keys=[current_version_id],
         primaryjoin="Document.current_version_id == DocumentVersion.id",
         lazy="joined",
+    )
+
+    # NEW: reverse link to ProposalDocument
+    proposal_links: Mapped[List["ProposalDocument"]] = relationship(
+        "ProposalDocument",
+        back_populates="document",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        lazy="selectin",
     )
 
     notifications: Mapped[List["DocumentNotification"]] = relationship(
@@ -70,13 +116,4 @@ class Document(UUIDMixin, Base):
         uselist=False,
         passive_deletes=True,
         lazy="joined",
-    )
-
-    __table_args__ = (
-        sa.ForeignKeyConstraint(
-            ["current_version_id"],
-            ["document_versions.id"],
-            name="fk_documents_current_version",
-            ondelete="SET NULL",
-        ),
     )

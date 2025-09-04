@@ -2,13 +2,13 @@
 from __future__ import annotations
 
 import csv
+import json
 from pathlib import Path
 from typing import Dict, List, Optional
 from sqlalchemy import text
 from alembic import op
 import sqlalchemy as sa
 from datetime import datetime
-
 
 
 revision = "0030_populate_assets"
@@ -25,6 +25,7 @@ def _get_x_arg(name: str, default: str | None = None) -> str | None:
         return default
     return xargs.get(name, default)
 
+
 def _resolve_csv_path(filename: str, xarg_key: str) -> Path | None:
     override = _get_x_arg(xarg_key)
     if override:
@@ -38,6 +39,7 @@ def _resolve_csv_path(filename: str, xarg_key: str) -> Path | None:
     # cwd fallback
     p = Path.cwd() / filename
     return p if p.exists() else None
+
 
 def _read_assets(csv_path: Path) -> list[dict]:
     """
@@ -64,10 +66,11 @@ def _read_assets(csv_path: Path) -> list[dict]:
             d["serial_no"] = d.get("serial_no") or None
             d["manufacturer"] = d.get("manufacturer") or None
             d["model"] = d.get("model") or None
-            # parse ints/dates if present
+            # parse ints/dates if present (keep date strings; DB will cast)
             d["expected_life_months"] = int(d["expected_life_months"]) if d.get("expected_life_months") else None
             d["install_date"] = d["install_date"] or None
             d["warranty_expires_at"] = d["warranty_expires_at"] or None
+            # attributes JSON
             attrs_raw = d.get("attributes")
             if attrs_raw:
                 try:
@@ -79,6 +82,7 @@ def _read_assets(csv_path: Path) -> list[dict]:
             out.append(d)
     return out
 
+
 def upgrade() -> None:
     conn = op.get_bind()
     csv_path = _resolve_csv_path("assets.csv", "assets_csv")
@@ -89,25 +93,33 @@ def upgrade() -> None:
     if not rows:
         return
 
+    is_pg = conn.dialect.name == "postgresql"
+
     # Build building lookup (by code and name)
     bld_rows = conn.execute(
-        text("SELECT id, code, name FROM buildings")
+        text("SELECT id, COALESCE(code,'') AS code, name FROM buildings")
     ).mappings().all()
     bld_by_code = {r["code"]: str(r["id"]) for r in bld_rows if r["code"]}
     bld_by_name = {r["name"]: str(r["id"]) for r in bld_rows if r["name"]}
 
-    # Build space lookup by (building_id, code)
-    sp_rows = conn.execute(
-        text("SELECT id, building_id, code FROM spaces")
-    ).mappings().all()
-    space_by_bld_code = {}
+    # Build space lookup by (building_id, code) via floors (spaces has floor_id)
+    sp_rows = conn.execute(text("""
+        SELECT
+            s.id          AS space_id,
+            f.building_id AS building_id,
+            s.code        AS space_code
+        FROM spaces s
+        LEFT JOIN floors f ON f.id = s.floor_id
+    """)).mappings().all()
+    space_by_bld_code: dict[str, dict[str, str]] = {}
     for r in sp_rows:
-        space_by_bld_code.setdefault(str(r["building_id"]), {})[r["code"]] = str(r["id"])
+        bid = str(r["building_id"]) if r["building_id"] is not None else None
+        if not bid:
+            continue
+        inner = space_by_bld_code.setdefault(bid, {})
+        inner[r["space_code"]] = str(r["space_id"])
 
-    # Also map building-name -> id if a CSV happens to use that
-    now_ts = datetime.utcnow().isoformat(timespec="seconds")
-
-    is_pg = conn.dialect.name == "postgresql"
+    # Prepare insert (PG casts :attributes via CAST to jsonb)
     insert_sql = text(
         """
         INSERT INTO assets (
@@ -120,7 +132,7 @@ def upgrade() -> None:
             :building_id, :space_id, :parent_asset_id,
             :tag, :serial_no, :manufacturer, :model, :category, :status,
             :install_date, :warranty_expires_at, :expected_life_months,
-            :attributes, NOW(), NOW()
+            CAST(:attributes AS JSONB), NOW(), NOW()
         )
         ON CONFLICT (tag) DO NOTHING
         """
@@ -156,6 +168,10 @@ def upgrade() -> None:
             inner = space_by_bld_code.get(building_id) or {}
             space_id = inner.get(scode)
 
+        # Always serialize attributes; PG will CAST to jsonb above
+        attrs = r.get("attributes")
+        attrs_param = json.dumps(attrs) if attrs is not None else None
+
         params = {
             "building_id": building_id,
             "space_id": space_id,
@@ -169,14 +185,8 @@ def upgrade() -> None:
             "install_date": r.get("install_date"),
             "warranty_expires_at": r.get("warranty_expires_at"),
             "expected_life_months": r.get("expected_life_months"),
-            "attributes": sa.text(json.dumps(r["attributes"])) if r.get("attributes") is not None else None,
+            "attributes": attrs_param,
         }
-
-        # For JSONB on PG, pass native JSON (psycopg2 handles), for SQLite use string
-        if is_pg:
-            params["attributes"] = r.get("attributes")
-        else:
-            params["attributes"] = json.dumps(r["attributes"]) if r.get("attributes") is not None else None
 
         conn.execute(insert_sql, params)
         inserted += 1
@@ -187,6 +197,7 @@ def upgrade() -> None:
         print(f"[populate assets] Insert attempted for {inserted} rows from {csv_path.name}")
     except Exception:
         pass
+
 
 def downgrade() -> None:
     conn = op.get_bind()

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, date, time
 from decimal import Decimal
-from typing import Any, Optional, List, TYPE_CHECKING
+from typing import Any, Optional, List, TYPE_CHECKING, ClassVar
 
 import sqlalchemy as sa
 from sqlalchemy import ForeignKey, UniqueConstraint, text
@@ -14,6 +14,43 @@ from .work_orders import WorkOrder  # type-only import
 
 class Asset(UUIDMixin, Base):
     __tablename__ = "assets"
+    __allow_unmapped__ = True  # keep NOTE out of the SQLAlchemy mapper
+
+    NOTE: ClassVar[str] =     (
+        "owner=facilities_maintenance; "
+        "description=Stores assets records for the application. "
+        "Key attributes include serial_no. "
+        "References related entities via: building, parent asset, space. "
+        "Includes standard audit timestamps (created_at, updated_at). "
+        "16 column(s) defined. "
+        "Primary key is `id`. "
+        "3 foreign key field(s) detected."
+    )
+
+    __table_args__ = {
+        "comment":         (
+            "Stores assets records for the application. "
+            "Key attributes include serial_no. "
+            "References related entities via: building, parent asset, space. "
+            "Includes standard audit timestamps (created_at, updated_at). "
+            "16 column(s) defined. "
+            "Primary key is `id`. "
+            "3 foreign key field(s) detected."
+        ),
+        "info": {
+            "note": NOTE,
+            "description":         (
+            "Stores assets records for the application. "
+            "Key attributes include serial_no. "
+            "References related entities via: building, parent asset, space. "
+            "Includes standard audit timestamps (created_at, updated_at). "
+            "16 column(s) defined. "
+            "Primary key is `id`. "
+            "3 foreign key field(s) detected."
+        ),
+        },
+    }
+
 
     building_id = sa.Column(GUID(), ForeignKey("buildings.id", ondelete="SET NULL"))
     space_id    = sa.Column(GUID(), ForeignKey("spaces.id",    ondelete="SET NULL"))
@@ -58,3 +95,5 @@ class Asset(UUIDMixin, Base):
         back_populates="asset",
         foreign_keys=lambda: [WorkOrder.asset_id],
     )
+
+

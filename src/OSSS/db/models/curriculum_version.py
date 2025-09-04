@@ -3,10 +3,45 @@ from __future__ import annotations
 import sqlalchemy as sa
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from OSSS.db.base import Base, UUIDMixin, GUID, JSONB, ts_cols
+from typing import ClassVar
 
 
 class CurriculumVersion(UUIDMixin, Base):
     __tablename__ = "curriculum_versions"
+    __allow_unmapped__ = True  # keep NOTE out of the SQLAlchemy mapper
+
+    NOTE: ClassVar[str] =     (
+        "owner=curriculum_instruction_assessment | division_of_schools | early_childhood_extended_programs | faith_based_religious_if_applicable | special_education_related_services | teaching_instructional_support; "
+        "description=Stores curriculum versions records for the application. "
+        "References related entities via: curriculum. "
+        "Includes standard audit timestamps (created_at). "
+        "8 column(s) defined. "
+        "Primary key is `id`. "
+        "1 foreign key field(s) detected."
+    )
+
+    __table_args__ = {
+        "comment":         (
+            "Stores curriculum versions records for the application. "
+            "References related entities via: curriculum. "
+            "Includes standard audit timestamps (created_at). "
+            "8 column(s) defined. "
+            "Primary key is `id`. "
+            "1 foreign key field(s) detected."
+        ),
+        "info": {
+            "note": NOTE,
+            "description":         (
+            "Stores curriculum versions records for the application. "
+            "References related entities via: curriculum. "
+            "Includes standard audit timestamps (created_at). "
+            "8 column(s) defined. "
+            "Primary key is `id`. "
+            "1 foreign key field(s) detected."
+        ),
+        },
+    }
+
 
     curriculum_id: Mapped = mapped_column(GUID(), sa.ForeignKey("curricula.id", ondelete="CASCADE"), nullable=False, index=True)
     version: Mapped[str] = mapped_column(sa.String(64), nullable=False)
@@ -23,3 +58,5 @@ class CurriculumVersion(UUIDMixin, Base):
     )
     reviews = relationship("ReviewRequest", back_populates="curriculum_version", cascade="all, delete-orphan")
     alignments = relationship("Alignment", back_populates="curriculum_version", cascade="all, delete-orphan")
+
+

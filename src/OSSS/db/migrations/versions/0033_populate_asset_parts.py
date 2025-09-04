@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import csv
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Set, Tuple  # <-- add Set, Tuple
 from sqlalchemy import text
 from alembic import op
 import sqlalchemy as sa
@@ -94,6 +94,7 @@ def upgrade() -> None:
         cat = (r["category"] or "").strip().lower()
         if not cat:
             continue
+        # Safe append that always initializes the list
         assets_by_cat.setdefault(cat, []).append(str(r["id"]))
 
     # Prefetch parts by SKU
@@ -123,7 +124,6 @@ def upgrade() -> None:
             aid = assets_by_tag.get(r["asset_tag"])
             if aid:
                 add_pair(aid, part_id, qty)
-            # else: skip unknown tag silently (idempotent)
         elif r["asset_category"]:
             cat_key = r["asset_category"].strip().lower()
             for aid in assets_by_cat.get(cat_key, []):
@@ -132,17 +132,26 @@ def upgrade() -> None:
     if not to_insert:
         return
 
-    is_pg = conn.dialect.name == "postgresql"
-    if is_pg:
+    # Use WHERE NOT EXISTS so no unique constraint is required
+    if conn.dialect.name == "postgresql":
         stmt = sa.text("""
             INSERT INTO asset_parts (asset_id, part_id, qty, created_at, updated_at)
-            VALUES (:asset_id, :part_id, CAST(:qty AS numeric), NOW(), NOW())
-            ON CONFLICT (asset_id, part_id) DO NOTHING
+            SELECT :asset_id, :part_id, CAST(:qty AS numeric), NOW(), NOW()
+            WHERE NOT EXISTS (
+                SELECT 1 FROM asset_parts ap
+                WHERE ap.asset_id = :asset_id
+                  AND ap.part_id  = :part_id
+            )
         """)
     else:
         stmt = sa.text("""
-            INSERT OR IGNORE INTO asset_parts (asset_id, part_id, qty, created_at, updated_at)
-            VALUES (:asset_id, :part_id, :qty, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            INSERT INTO asset_parts (asset_id, part_id, qty, created_at, updated_at)
+            SELECT :asset_id, :part_id, :qty, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+            WHERE NOT EXISTS (
+                SELECT 1 FROM asset_parts ap
+                WHERE ap.asset_id = :asset_id
+                  AND ap.part_id  = :part_id
+            )
         """)
 
     CHUNK = 500
@@ -154,7 +163,6 @@ def downgrade() -> None:
     conn = op.get_bind()
     csv_path = _resolve_csv_path("asset_parts.csv", "asset_parts_csv")
     if not csv_path:
-        # Can't safely determine which pairs to remove; bail out quietly.
         return
 
     src = _read_asset_parts(csv_path)
@@ -191,14 +199,10 @@ def downgrade() -> None:
     if not pairs:
         return
 
-    # Delete one pair at a time (dataset is small)
-    if conn.dialect.name == "postgresql":
-        del_stmt = sa.text("""
-            DELETE FROM asset_parts
-            WHERE asset_id = :aid AND part_id = :pid
-        """)
-    else:
-        del_stmt = sa.text("DELETE FROM asset_parts WHERE asset_id = :aid AND part_id = :pid")
+    del_stmt = sa.text("""
+        DELETE FROM asset_parts
+        WHERE asset_id = :aid AND part_id = :pid
+    """)
 
     for aid, pid in pairs:
         conn.execute(del_stmt, {"aid": aid, "pid": pid})

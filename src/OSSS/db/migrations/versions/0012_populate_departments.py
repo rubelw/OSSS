@@ -14,9 +14,6 @@ depends_on = None
 def _get_x_arg(name: str, default: str | None = None) -> str | None:
     """Read a -x key=value argument passed to Alembic."""
     from alembic import context
-    for x in context.get_x_argument(as_dictionary=True).items():
-        # x is tuple(key, value)
-        pass
     xargs = context.get_x_argument(as_dictionary=True)
     return xargs.get(name, default)
 
@@ -38,12 +35,13 @@ def _resolve_csv_path(filename: str, xarg_key: str) -> Path | None:
     p = Path.cwd() / filename
     return p if p.exists() else None
 
+
 def _read_departments(csv_path: Path) -> list[str]:
     """Expect a CSV with header 'name'."""
     names: list[str] = []
     with csv_path.open(newline="", encoding="utf-8") as f:
         rdr = csv.DictReader(f)
-        if "name" not in rdr.fieldnames:
+        if "name" not in (rdr.fieldnames or []):
             raise RuntimeError("departments.csv must contain a 'name' column")
         for row in rdr:
             name = (row.get("name") or "").strip()
@@ -124,17 +122,23 @@ def upgrade() -> None:
         # Nothing to do (keeps migration idempotent on empty/partial DBs)
         return
 
-    is_pg = conn.dialect.name == "postgresql"
-    if is_pg:
+    if conn.dialect.name == "postgresql":
+        # Use NOT EXISTS so we don't need a unique constraint on (school_id, name)
         insert_stmt = sa.text(
             """
             INSERT INTO departments (school_id, name)
-            VALUES (:school_id, :name)
-            ON CONFLICT (school_id, name) DO NOTHING
+            SELECT :school_id, :name
+            WHERE NOT EXISTS (
+              SELECT 1 FROM departments d
+              WHERE d.school_id = :school_id AND d.name = :name
+            )
             """
         )
     else:
-        insert_stmt = sa.text("INSERT OR IGNORE INTO departments (school_id, name) VALUES (:school_id, :name)")
+        # SQLite-friendly "INSERT OR IGNORE"
+        insert_stmt = sa.text(
+            "INSERT OR IGNORE INTO departments (school_id, name) VALUES (:school_id, :name)"
+        )
 
     for sid in school_ids:
         for dname in dept_names:

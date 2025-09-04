@@ -7,8 +7,8 @@ from .order_line_item import OrderLineItemOut, OrderLineItemCreate, OrderLineIte
 __all__ += ['OrderLineItemOut','OrderLineItemCreate','OrderLineItemReplace','OrderLineItemPatch','OrderLineItemList']
 from .calendar import CalendarOut, CalendarCreate, CalendarReplace, CalendarPatch, CalendarList
 __all__ += ['CalendarOut','CalendarCreate','CalendarReplace','CalendarPatch','CalendarList']
-from .cic_publication import CICPublicationOut, CICPublicationCreate, CICPublicationReplace, CICPublicationPatch, CICPublicationList
-__all__ += ['CICPublicationOut','CICPublicationCreate','CICPublicationReplace','CICPublicationPatch','CICPublicationList']
+from .publication import PublicationOut, PublicationCreate, PublicationReplace, PublicationPatch, PublicationList
+__all__ += ['PublicationOut','PublicationCreate','PublicationReplace','PublicationPatch','PublicationList']
 from .consent import ConsentOut, ConsentCreate, ConsentReplace, ConsentPatch, ConsentList
 __all__ += ['ConsentOut','ConsentCreate','ConsentReplace','ConsentPatch','ConsentList']
 from .feature_flag import FeatureFlagOut, FeatureFlagCreate, FeatureFlagReplace, FeatureFlagPatch, FeatureFlagList
@@ -51,8 +51,8 @@ from .document_version import DocumentVersionOut, DocumentVersionCreate, Documen
 __all__ += ['DocumentVersionOut','DocumentVersionCreate','DocumentVersionReplace','DocumentVersionPatch','DocumentVersionList']
 from .floor import FloorOut, FloorCreate, FloorReplace, FloorPatch, FloorList
 __all__ += ['FloorOut','FloorCreate','FloorReplace','FloorPatch','FloorList']
-from .cic_meeting import CICMeetingOut, CICMeetingCreate, CICMeetingReplace, CICMeetingPatch, CICMeetingList
-__all__ += ['CICMeetingOut','CICMeetingCreate','CICMeetingReplace','CICMeetingPatch','CICMeetingList']
+from .meeting import MeetingOut, MeetingCreate, MeetingReplace, MeetingPatch, MeetingList
+__all__ += ['MeetingOut','MeetingCreate','MeetingReplace','MeetingPatch','MeetingList']
 from .deduction_code import DeductionCodeOut, DeductionCodeCreate, DeductionCodeReplace, DeductionCodePatch, DeductionCodeList
 __all__ += ['DeductionCodeOut','DeductionCodeCreate','DeductionCodeReplace','DeductionCodePatch','DeductionCodeList']
 from .payroll_run import PayrollRunOut, PayrollRunCreate, PayrollRunReplace, PayrollRunPatch, PayrollRunList
@@ -125,8 +125,6 @@ from .project import ProjectOut, ProjectCreate, ProjectReplace, ProjectPatch, Pr
 __all__ += ['ProjectOut','ProjectCreate','ProjectReplace','ProjectPatch','ProjectList']
 from .state import StateOut, StateCreate, StateReplace, StatePatch, StateList
 __all__ += ['StateOut','StateCreate','StateReplace','StatePatch','StateList']
-from .cic_proposal_document import CICProposalDocumentOut, CICProposalDocumentCreate, CICProposalDocumentReplace, CICProposalDocumentPatch, CICProposalDocumentList
-__all__ += ['CICProposalDocumentOut','CICProposalDocumentCreate','CICProposalDocumentReplace','CICProposalDocumentPatch','CICProposalDocumentList']
 from .emergency_contact import EmergencyContactOut, EmergencyContactCreate, EmergencyContactReplace, EmergencyContactPatch, EmergencyContactList
 __all__ += ['EmergencyContactOut','EmergencyContactCreate','EmergencyContactReplace','EmergencyContactPatch','EmergencyContactList']
 from .journal_entry_line import JournalEntryLineOut, JournalEntryLineCreate, JournalEntryLineReplace, JournalEntryLinePatch, JournalEntryLineList
@@ -181,8 +179,8 @@ from .message import MessageOut, MessageCreate, MessageReplace, MessagePatch, Me
 __all__ += ['MessageOut','MessageCreate','MessageReplace','MessagePatch','MessageList']
 from .policy_version import PolicyVersionOut, PolicyVersionCreate, PolicyVersionReplace, PolicyVersionPatch, PolicyVersionList
 __all__ += ['PolicyVersionOut','PolicyVersionCreate','PolicyVersionReplace','PolicyVersionPatch','PolicyVersionList']
-from .cic_proposal import CICProposalOut, CICProposalCreate, CICProposalReplace, CICProposalPatch, CICProposalList
-__all__ += ['CICProposalOut','CICProposalCreate','CICProposalReplace','CICProposalPatch','CICProposalList']
+from .proposal import ProposalOut, ProposalCreate, ProposalReplace, ProposalPatch, ProposalList
+__all__ += ['ProposalOut','ProposalCreate','ProposalReplace','ProposalPatch','ProposalList']
 from .folder import FolderOut, FolderCreate, FolderReplace, FolderPatch, FolderList
 __all__ += ['FolderOut','FolderCreate','FolderReplace','FolderPatch','FolderList']
 from .meal_eligibility_status import MealEligibilityStatusOut, MealEligibilityStatusCreate, MealEligibilityStatusReplace, MealEligibilityStatusPatch, MealEligibilityStatusList
@@ -195,12 +193,12 @@ from .space import SpaceOut, SpaceCreate, SpaceReplace, SpacePatch, SpaceList
 __all__ += ['SpaceOut','SpaceCreate','SpaceReplace','SpacePatch','SpaceList']
 from .agenda_item_approval import AgendaItemApprovalOut, AgendaItemApprovalCreate, AgendaItemApprovalReplace, AgendaItemApprovalPatch, AgendaItemApprovalList
 __all__ += ['AgendaItemApprovalOut','AgendaItemApprovalCreate','AgendaItemApprovalReplace','AgendaItemApprovalPatch','AgendaItemApprovalList']
-from .cic_membership import CICMembershipOut, CICMembershipCreate, CICMembershipReplace, CICMembershipPatch, CICMembershipList
-__all__ += ['CICMembershipOut','CICMembershipCreate','CICMembershipReplace','CICMembershipPatch','CICMembershipList']
+from .membership import MembershipOut, MembershipCreate, MembershipReplace, MembershipPatch, MembershipList
+__all__ += ['MembershipOut','MembershipCreate','MembershipReplace','MembershipPatch','MembershipList']
 from .facility import FacilityOut, FacilityCreate, FacilityReplace, FacilityPatch, FacilityList
 __all__ += ['FacilityOut','FacilityCreate','FacilityReplace','FacilityPatch','FacilityList']
-from .cic_proposal_review import CICProposalReviewOut, CICProposalReviewCreate, CICProposalReviewReplace, CICProposalReviewPatch, CICProposalReviewList
-__all__ += ['CICProposalReviewOut','CICProposalReviewCreate','CICProposalReviewReplace','CICProposalReviewPatch','CICProposalReviewList']
+from .proposal_review import ProposalReviewOut, ProposalReviewCreate, ProposalReviewReplace, ProposalReviewPatch, ProposalReviewList
+__all__ += ['ProposalReviewOut','ProposalReviewCreate','ProposalReviewReplace','ProposalReviewPatch','ProposalReviewList']
 from .person_address import PersonAddressOut, PersonAddressCreate, PersonAddressReplace, PersonAddressPatch, PersonAddressList
 __all__ += ['PersonAddressOut','PersonAddressCreate','PersonAddressReplace','PersonAddressPatch','PersonAddressList']
 from .work_order_task import WorkOrderTaskOut, WorkOrderTaskCreate, WorkOrderTaskReplace, WorkOrderTaskPatch, WorkOrderTaskList
@@ -245,8 +243,8 @@ from .role_permission import RolePermissionOut, RolePermissionCreate, RolePermis
 __all__ += ['RolePermissionOut','RolePermissionCreate','RolePermissionReplace','RolePermissionPatch','RolePermissionList']
 from .activity import ActivityOut, ActivityCreate, ActivityReplace, ActivityPatch, ActivityList
 __all__ += ['ActivityOut','ActivityCreate','ActivityReplace','ActivityPatch','ActivityList']
-from .cic_agenda_item import CICAgendaItemOut, CICAgendaItemCreate, CICAgendaItemReplace, CICAgendaItemPatch, CICAgendaItemList
-__all__ += ['CICAgendaItemOut','CICAgendaItemCreate','CICAgendaItemReplace','CICAgendaItemPatch','CICAgendaItemList']
+from .agenda_item import AgendaItemOut, AgendaItemCreate, AgendaItemReplace, AgendaItemPatch, AgendaItemList
+__all__ += ['AgendaItemOut','AgendaItemCreate','AgendaItemReplace','AgendaItemPatch','AgendaItemList']
 from .family_portal_access import FamilyPortalAccessOut, FamilyPortalAccessCreate, FamilyPortalAccessReplace, FamilyPortalAccessPatch, FamilyPortalAccessList
 __all__ += ['FamilyPortalAccessOut','FamilyPortalAccessCreate','FamilyPortalAccessReplace','FamilyPortalAccessPatch','FamilyPortalAccessList']
 from .student_school_enrollment import StudentSchoolEnrollmentOut, StudentSchoolEnrollmentCreate, StudentSchoolEnrollmentReplace, StudentSchoolEnrollmentPatch, StudentSchoolEnrollmentList
@@ -285,8 +283,8 @@ from .grade_scale_band import GradeScaleBandOut, GradeScaleBandCreate, GradeScal
 __all__ += ['GradeScaleBandOut','GradeScaleBandCreate','GradeScaleBandReplace','GradeScaleBandPatch','GradeScaleBandList']
 from .agenda_item import AgendaItemOut, AgendaItemCreate, AgendaItemReplace, AgendaItemPatch, AgendaItemList
 __all__ += ['AgendaItemOut','AgendaItemCreate','AgendaItemReplace','AgendaItemPatch','AgendaItemList']
-from .cic_meeting_document import CICMeetingDocumentOut, CICMeetingDocumentCreate, CICMeetingDocumentReplace, CICMeetingDocumentPatch, CICMeetingDocumentList
-__all__ += ['CICMeetingDocumentOut','CICMeetingDocumentCreate','CICMeetingDocumentReplace','CICMeetingDocumentPatch','CICMeetingDocumentList']
+from .meeting_document import MeetingDocumentOut, MeetingDocumentCreate, MeetingDocumentReplace, MeetingDocumentPatch, MeetingDocumentList
+__all__ += ['MeetingDocumentOut','MeetingDocumentCreate','MeetingDocumentReplace','MeetingDocumentPatch','MeetingDocumentList']
 from .hr_position_assignment import HRPositionAssignmentOut, HRPositionAssignmentCreate, HRPositionAssignmentReplace, HRPositionAssignmentPatch, HRPositionAssignmentList
 __all__ += ['HRPositionAssignmentOut','HRPositionAssignmentCreate','HRPositionAssignmentReplace','HRPositionAssignmentPatch','HRPositionAssignmentList']
 from .kpi import KPIOut, KPICreate, KPIReplace, KPIPatch, KPIList
@@ -395,8 +393,8 @@ from .scorecard_kpi import ScorecardKPIOut, ScorecardKPICreate, ScorecardKPIRepl
 __all__ += ['ScorecardKPIOut','ScorecardKPICreate','ScorecardKPIReplace','ScorecardKPIPatch','ScorecardKPIList']
 from .sis_import_job import SisImportJobOut, SisImportJobCreate, SisImportJobReplace, SisImportJobPatch, SisImportJobList
 __all__ += ['SisImportJobOut','SisImportJobCreate','SisImportJobReplace','SisImportJobPatch','SisImportJobList']
-from .cic_committee import CICCommitteeOut, CICCommitteeCreate, CICCommitteeReplace, CICCommitteePatch, CICCommitteeList
-__all__ += ['CICCommitteeOut','CICCommitteeCreate','CICCommitteeReplace','CICCommitteePatch','CICCommitteeList']
+from .committee import CommitteeOut, CommitteeCreate, CommitteeReplace, CommitteePatch, CommitteeList
+__all__ += ['CommitteeOut','CommitteeCreate','CommitteeReplace','CommitteePatch','CommitteeList']
 from .goal import GoalOut, GoalCreate, GoalReplace, GoalPatch, GoalList
 __all__ += ['GoalOut','GoalCreate','GoalReplace','GoalPatch','GoalList']
 from .person import PersonOut, PersonCreate, PersonReplace, PersonPatch, PersonList
@@ -425,16 +423,14 @@ from .gl_segment import GLSegmentOut, GLSegmentCreate, GLSegmentReplace, GLSegme
 __all__ += ['GLSegmentOut','GLSegmentCreate','GLSegmentReplace','GLSegmentPatch','GLSegmentList']
 from .medication import MedicationOut, MedicationCreate, MedicationReplace, MedicationPatch, MedicationList
 __all__ += ['MedicationOut','MedicationCreate','MedicationReplace','MedicationPatch','MedicationList']
-from .cic_vote import CICVoteOut, CICVoteCreate, CICVoteReplace, CICVotePatch, CICVoteList
-__all__ += ['CICVoteOut','CICVoteCreate','CICVoteReplace','CICVotePatch','CICVoteList']
 from .teacher_section_assignment import TeacherSectionAssignmentOut, TeacherSectionAssignmentCreate, TeacherSectionAssignmentReplace, TeacherSectionAssignmentPatch, TeacherSectionAssignmentList
 __all__ += ['TeacherSectionAssignmentOut','TeacherSectionAssignmentCreate','TeacherSectionAssignmentReplace','TeacherSectionAssignmentPatch','TeacherSectionAssignmentList']
 from .bell_schedule import BellScheduleOut, BellScheduleCreate, BellScheduleReplace, BellSchedulePatch, BellScheduleList
 __all__ += ['BellScheduleOut','BellScheduleCreate','BellScheduleReplace','BellSchedulePatch','BellScheduleList']
 from .pm_work_generator import PMWorkGeneratorOut, PMWorkGeneratorCreate, PMWorkGeneratorReplace, PMWorkGeneratorPatch, PMWorkGeneratorList
 __all__ += ['PMWorkGeneratorOut','PMWorkGeneratorCreate','PMWorkGeneratorReplace','PMWorkGeneratorPatch','PMWorkGeneratorList']
-from .cic_resolution import CICResolutionOut, CICResolutionCreate, CICResolutionReplace, CICResolutionPatch, CICResolutionList
-__all__ += ['CICResolutionOut','CICResolutionCreate','CICResolutionReplace','CICResolutionPatch','CICResolutionList']
+from .resolution import ResolutionOut, ResolutionCreate, ResolutionReplace, ResolutionPatch, ResolutionList
+__all__ += ['ResolutionOut','ResolutionCreate','ResolutionReplace','ResolutionPatch','ResolutionList']
 from .document_activity import DocumentActivityOut, DocumentActivityCreate, DocumentActivityReplace, DocumentActivityPatch, DocumentActivityList
 __all__ += ['DocumentActivityOut','DocumentActivityCreate','DocumentActivityReplace','DocumentActivityPatch','DocumentActivityList']
 from .evaluation_file import EvaluationFileOut, EvaluationFileCreate, EvaluationFileReplace, EvaluationFilePatch, EvaluationFileList
@@ -447,8 +443,6 @@ from .paycheck import PaycheckOut, PaycheckCreate, PaycheckReplace, PaycheckPatc
 __all__ += ['PaycheckOut','PaycheckCreate','PaycheckReplace','PaycheckPatch','PaycheckList']
 from .work_order_part import WorkOrderPartOut, WorkOrderPartCreate, WorkOrderPartReplace, WorkOrderPartPatch, WorkOrderPartList
 __all__ += ['WorkOrderPartOut','WorkOrderPartCreate','WorkOrderPartReplace','WorkOrderPartPatch','WorkOrderPartList']
-from .cic_motion import CICMotionOut, CICMotionCreate, CICMotionReplace, CICMotionPatch, CICMotionList
-__all__ += ['CICMotionOut','CICMotionCreate','CICMotionReplace','CICMotionPatch','CICMotionList']
 from .grading_period import GradingPeriodOut, GradingPeriodCreate, GradingPeriodReplace, GradingPeriodPatch, GradingPeriodList
 __all__ += ['GradingPeriodOut','GradingPeriodCreate','GradingPeriodReplace','GradingPeriodPatch','GradingPeriodList']
 from .maintenance_request import MaintenanceRequestOut, MaintenanceRequestCreate, MaintenanceRequestReplace, MaintenanceRequestPatch, MaintenanceRequestList

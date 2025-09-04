@@ -6,9 +6,44 @@ from sqlalchemy import ForeignKey, text
 from sqlalchemy.orm import relationship
 from OSSS.db.base import Base, GUID
 from ._helpers import ts_cols
+from typing import ClassVar
 
 class AssetPart(Base):
     __tablename__ = "asset_parts"
+    __allow_unmapped__ = True  # keep NOTE out of the SQLAlchemy mapper
+
+    NOTE: ClassVar[str] =     (
+        "owner=division_of_operations; "
+        "description=Stores asset parts records for the application. "
+        "References related entities via: asset, part. "
+        "Includes standard audit timestamps (created_at, updated_at). "
+        "6 column(s) defined. "
+        "Primary key is `id`. "
+        "2 foreign key field(s) detected."
+    )
+
+    __table_args__ = {
+        "comment":         (
+            "Stores asset parts records for the application. "
+            "References related entities via: asset, part. "
+            "Includes standard audit timestamps (created_at, updated_at). "
+            "6 column(s) defined. "
+            "Primary key is `id`. "
+            "2 foreign key field(s) detected."
+        ),
+        "info": {
+            "note": NOTE,
+            "description":         (
+            "Stores asset parts records for the application. "
+            "References related entities via: asset, part. "
+            "Includes standard audit timestamps (created_at, updated_at). "
+            "6 column(s) defined. "
+            "Primary key is `id`. "
+            "2 foreign key field(s) detected."
+        ),
+        },
+    }
+
 
     id = sa.Column(GUID(), primary_key=True, server_default=sa.text("gen_random_uuid()"))
 
@@ -21,8 +56,3 @@ class AssetPart(Base):
 
     asset = relationship("Asset", back_populates="parts")
     part  = relationship("Part",  back_populates="asset_parts")
-
-    __table_args__ = (
-        sa.UniqueConstraint("asset_id", "part_id", name="uq_asset_parts_pair"),
-        sa.CheckConstraint("qty > 0", name="ck_asset_parts_qty_positive"),
-    )

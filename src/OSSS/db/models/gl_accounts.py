@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, date, time
 from decimal import Decimal
-from typing import Any, Optional, List
+from typing import Any, Optional, List, ClassVar
 
 import sqlalchemy as sa
 from sqlalchemy import ForeignKey, UniqueConstraint, text
@@ -12,6 +12,37 @@ from OSSS.db.base import Base, UUIDMixin, GUID, JSONB, TimestampMixin
 
 class GLAccount(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "gl_accounts"
+    __allow_unmapped__ = True  # keep NOTE out of the SQLAlchemy mapper
+
+    NOTE: ClassVar[str] =     (
+        "owner=business_accounting; "
+        "description=Stores gl accounts records for the application. "
+        "Key attributes include code, name. "
+        "Includes standard audit timestamps (created_at, updated_at). "
+        "8 column(s) defined. "
+        "Primary key is `id`."
+    )
+
+    __table_args__ = {
+        "comment":         (
+            "Stores gl accounts records for the application. "
+            "Key attributes include code, name. "
+            "Includes standard audit timestamps (created_at, updated_at). "
+            "8 column(s) defined. "
+            "Primary key is `id`."
+        ),
+        "info": {
+            "note": NOTE,
+            "description":         (
+            "Stores gl accounts records for the application. "
+            "Key attributes include code, name. "
+            "Includes standard audit timestamps (created_at, updated_at). "
+            "8 column(s) defined. "
+            "Primary key is `id`."
+        ),
+        },
+    }
+
 
     code: Mapped[str] = mapped_column(sa.String(128), nullable=False, unique=True)  # full combined code
     name: Mapped[str] = mapped_column(sa.String(255), nullable=False)
@@ -20,3 +51,5 @@ class GLAccount(UUIDMixin, TimestampMixin, Base):
     attributes: Mapped[Optional[dict]] = mapped_column(JSONB())
 
     lines: Mapped[list["JournalEntryLine"]] = relationship("JournalEntryLine", back_populates="account")
+
+

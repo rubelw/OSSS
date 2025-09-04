@@ -2,44 +2,41 @@
 from __future__ import annotations
 from typing import Optional, Any, List
 from datetime import date, datetime
-from decimal import Decimal
 import uuid
 from pydantic import Field
 from OSSS.schemas.base import APIModel
 
 
 class DocumentOut(APIModel):
-    folder_id: Any | None = None
+    folder_id: uuid.UUID | None = None
     title: str
-    current_version_id: Any | None = None
+    current_version_id: uuid.UUID | None = None
     is_public: bool
-    id: Any
+    id: uuid.UUID
     created_at: datetime
     updated_at: datetime
 
+
 class DocumentCreate(APIModel):
-    folder_id: Any | None = None
-    title: str
-    current_version_id: Any | None = None
+    folder_id: uuid.UUID | None = None
+    title: str = Field(..., max_length=255)
+    current_version_id: uuid.UUID | None = None
     is_public: bool | None = None
-    created_at: datetime | None = None
-    updated_at: datetime | None = None
+
 
 class DocumentReplace(APIModel):
-    folder_id: Any | None = None
-    title: str
-    current_version_id: Any | None = None
+    folder_id: uuid.UUID | None = None
+    title: str = Field(..., max_length=255)
+    current_version_id: uuid.UUID | None = None
     is_public: bool | None = None
-    created_at: datetime | None = None
-    updated_at: datetime | None = None
+
 
 class DocumentPatch(APIModel):
-    folder_id: Any | None = None
-    title: str | None = None
-    current_version_id: Any | None = None
+    folder_id: uuid.UUID | None = None
+    title: str | None = Field(None, max_length=255)
+    current_version_id: uuid.UUID | None = None
     is_public: bool | None = None
-    created_at: datetime | None = None
-    updated_at: datetime | None = None
+
 
 class DocumentList(APIModel):
     items: list[DocumentOut]

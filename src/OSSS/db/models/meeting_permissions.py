@@ -6,9 +6,44 @@ from sqlalchemy.orm import relationship
 
 from OSSS.db.base import Base, UUIDMixin, GUID
 from ._helpers import ts_cols  # assuming this returns (created_at, updated_at)
+from typing import ClassVar
 
 class MeetingPermission(UUIDMixin, Base):
     __tablename__ = "meeting_permissions"
+    __allow_unmapped__ = True  # keep NOTE out of the SQLAlchemy mapper
+
+    NOTE: ClassVar[str] =     (
+        "owner=special_education_related_services; "
+        "description=Stores meeting permissions records for the application. "
+        "References related entities via: meeting, user. "
+        "Includes standard audit timestamps (created_at, updated_at). "
+        "8 column(s) defined. "
+        "Primary key is `id`. "
+        "2 foreign key field(s) detected."
+    )
+
+    __table_args__ = {
+        "comment":         (
+            "Stores meeting permissions records for the application. "
+            "References related entities via: meeting, user. "
+            "Includes standard audit timestamps (created_at, updated_at). "
+            "8 column(s) defined. "
+            "Primary key is `id`. "
+            "2 foreign key field(s) detected."
+        ),
+        "info": {
+            "note": NOTE,
+            "description":         (
+            "Stores meeting permissions records for the application. "
+            "References related entities via: meeting, user. "
+            "Includes standard audit timestamps (created_at, updated_at). "
+            "8 column(s) defined. "
+            "Primary key is `id`. "
+            "2 foreign key field(s) detected."
+        ),
+        },
+    }
+
 
     meeting_id = sa.Column(GUID(), ForeignKey("meetings.id", ondelete="CASCADE"), nullable=False)
     user_id = sa.Column(GUID(), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
@@ -19,10 +54,5 @@ class MeetingPermission(UUIDMixin, Base):
 
     created_at, updated_at = ts_cols()
 
-    __table_args__ = (
-        UniqueConstraint("meeting_id", "user_id", name="uq_meeting_permissions_meeting_user"),
-    )
-
-    # Optional relationships if you have these models
     meeting = relationship("Meeting", back_populates="permissions", lazy="selectin")
     user = relationship("User", lazy="selectin")

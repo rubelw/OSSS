@@ -4,9 +4,34 @@ import sqlalchemy as sa
 from sqlalchemy import ForeignKey, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from OSSS.db.base import Base, GUID
+from typing import ClassVar
 
 class DocumentNotification(Base):
     __tablename__ = "document_notifications"
+    __allow_unmapped__ = True  # keep NOTE out of mapper
+
+    NOTE: ClassVar[str] = (
+        "owner=division_of_technology_data; "
+        "description=Stores document notifications records for the application. "
+        "References related entities via: document, user. "
+        "5 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+    )
+
+    __table_args__ = {
+        "comment": (
+            "Stores document notifications records for the application. "
+            "References related entities via: document, user. "
+            "5 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+        ),
+        "info": {
+            "note": NOTE,
+            "description": (
+                "Stores document notifications records for the application. "
+                "References related entities via: document, user. "
+                "5 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+            ),
+        },
+    }
 
     id: Mapped[str] = mapped_column(GUID(), primary_key=True, server_default=sa.text("gen_random_uuid()"))
 
@@ -18,6 +43,3 @@ class DocumentNotification(Base):
 
     document = relationship("Document", back_populates="notifications", lazy="joined")
 
-    __table_args__ = (
-        sa.UniqueConstraint("document_id", "user_id", name="uq_document_notifications_pair"),
-    )

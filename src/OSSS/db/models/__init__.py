@@ -21,6 +21,7 @@ from .asset_parts import *
 from .assets import *
 from .assignment_categories import *
 from .assignments import *
+from .associations import unit_standard_map, proposal_standard_map
 from .attendance import *
 from .attendance_codes import *
 from .attendance_daily_summary import *
@@ -37,18 +38,14 @@ from .bus_stops import *
 from .calendar_days import *
 from .calendars import *
 from .channels import *
-from .cic_agenda_items import *
-from .cic_committees import *
-from .cic_meeting_documents import *
-from .cic_meetings import *
-from .cic_memberships import *
-from .cic_motions import *
-from .cic_proposal_documents import *
-from .cic_proposal_reviews import *
-from .cic_proposals import *
-from .cic_publications import *
-from .cic_resolutions import *
-from .cic_votes import *
+from .committees import *
+from .meeting_documents import *
+from .meetings import *
+from .memberships import *
+from .proposal_documents import *
+from .proposal_reviews import *
+from .publications import *
+from .resolutions import *
 from .class_ranks import *
 from .comm_search_index import *
 from .compliance_records import *
@@ -60,6 +57,8 @@ from .course_prerequisites import *
 from .course_sections import *
 from .courses import *
 from .curricula import *
+from .curriculum_units import *
+from .curriculum_version import *
 from .data_quality_issues import *
 from .data_sharing_agreements import *
 from .deduction_codes import *
@@ -210,6 +209,7 @@ from .spaces import *
 from .special_education_cases import *
 from .staff import *
 from .standardized_tests import *
+from .standards import *
 from .state_reporting_snapshots import *
 from .states import *
 from .student_guardians import *
@@ -239,3 +239,4 @@ from .work_order_parts import *
 from .work_order_tasks import *
 from .work_order_time_logs import *
 from .work_orders import *
+

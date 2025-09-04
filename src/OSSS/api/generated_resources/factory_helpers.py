@@ -39,7 +39,7 @@ _SQLA_TO_PY: Dict[type, Any] = {
 
 def _camel_to_snake_acronym_aware(name: str) -> str:
     """Turn CamelCase (incl. ALLCAPS acronyms) into snake_case.
-    CICMeeting -> cic_meeting, HTTPServerError -> http_server_error
+    Meeting -> meeting, HTTPServerError -> http_server_error
     """
     # split between ALLCAPS + Capitalized (…CIC|Meeting -> CIC_Meeting)
     s = re.sub(r'([A-Z]+)([A-Z][a-z])', r'\1_\2', name)
@@ -66,11 +66,11 @@ def resource_name_for_model(model: Type) -> str:
         return table.name
 
     # 2) Fallback: derive from class name, but collapse acronyms
-    # "CICMeeting" -> "cic_meeting" -> "cic_meetings"
+    # "Meeting" -> "cic_meeting" -> "cic_meetings"
     name = model.__name__
 
     # collapse runs of capitals before Capital-lowercase boundaries
-    # e.g. "CICMeeting" -> "CIC_Meeting"
+    # e.g. "Meeting" -> "CIC_Meeting"
     s1 = re.sub(r"([A-Z]+)([A-Z][a-z])", r"\1_\2", name)
     # split camel humps
     s2 = re.sub(r"([a-z\d])([A-Z])", r"\1_\2", s1)
@@ -145,7 +145,7 @@ def to_pydantic(obj: Any, Schema: type[BaseModel]) -> BaseModel | None:
 def to_snake(name: str) -> str:
     """
     Convert CamelCase to snake_case, preserving acronyms:
-      CICAgendaItem -> cic_agenda_item
+      AgendaItem -> agenda_item
       APIKey        -> api_key
     """
     s = _ACRONYM_BOUNDARY.sub(r'\1_\2', name)

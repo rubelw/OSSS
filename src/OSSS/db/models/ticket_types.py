@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from datetime import datetime, date, time
 from decimal import Decimal
-from typing import Any, Optional, List
-
+from typing import Any, Optional, List, ClassVar
+import uuid
 import sqlalchemy as sa
 from sqlalchemy import ForeignKey, UniqueConstraint, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -13,13 +13,43 @@ from ._helpers import ts_cols
 
 class TicketType(UUIDMixin, Base):
     __tablename__ = "ticket_types"
-    __table_args__ = (
-        sa.UniqueConstraint("event_id", "name", name="uq_event_tickettype_name"),
-        sa.CheckConstraint("price_cents >= 0", name="ck_ticket_price_nonneg"),
-        sa.CheckConstraint("quantity_total >= 0", name="ck_ticket_qty_total_nonneg"),
+    __allow_unmapped__ = True  # keep NOTE out of the SQLAlchemy mapper
+
+    NOTE: ClassVar[str] =     (
+        "owner=athletics_activities_enrichment | division_of_schools; "
+        "description=Stores ticket types records for the application. "
+        "Key attributes include name. "
+        "References related entities via: event. "
+        "Includes standard audit timestamps (created_at, updated_at). "
+        "11 column(s) defined. "
+        "Primary key is `id`. "
+        "1 foreign key field(s) detected."
     )
 
-    event_id: Mapped[str] = mapped_column(GUID(), ForeignKey("events.id", ondelete="CASCADE"), nullable=False)
+    __table_args__ = {
+        "comment":         (
+            "Stores ticket types records for the application. "
+            "Key attributes include name. "
+            "References related entities via: event. "
+            "Includes standard audit timestamps (created_at, updated_at). "
+            "11 column(s) defined. "
+            "Primary key is `id`. "
+            "1 foreign key field(s) detected."
+        ),
+        "info": {
+            "note": NOTE,
+            "description":         (
+            "Stores ticket types records for the application. "
+            "Key attributes include name. "
+            "References related entities via: event. "
+            "Includes standard audit timestamps (created_at, updated_at). "
+            "11 column(s) defined. "
+            "Primary key is `id`. "
+            "1 foreign key field(s) detected."
+        ),
+        },
+    }
+
     name: Mapped[str] = mapped_column(sa.String(128), nullable=False)  # e.g., General, Student, VIP
     price_cents: Mapped[int] = mapped_column(sa.Integer, nullable=False, server_default=text("0"))
     quantity_total: Mapped[int] = mapped_column(sa.Integer, nullable=False, server_default=text("0"))
@@ -30,8 +60,18 @@ class TicketType(UUIDMixin, Base):
 
     created_at, updated_at = ts_cols()
 
-    event: Mapped[Event] = relationship(back_populates="ticket_types")
+    # ✅ add the FK to events
+    event_id: Mapped[uuid.UUID] = mapped_column(
+        GUID(),
+        sa.ForeignKey("events.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    event: Mapped["Event"] = relationship("Event", back_populates="ticket_types")
+
     tickets: Mapped[list["Ticket"]] = relationship(back_populates="ticket_type")
+
     order_line_items: Mapped[list["OrderLineItem"]] = relationship(
         "OrderLineItem",
         back_populates="ticket_type",

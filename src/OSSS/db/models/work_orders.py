@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, date, time
 from decimal import Decimal
-from typing import Any, Optional, List
+from typing import Any, Optional, List, ClassVar
 
 import sqlalchemy as sa
 from sqlalchemy import ForeignKey, UniqueConstraint, text
@@ -13,6 +13,40 @@ from ._helpers import ts_cols
 
 class WorkOrder(UUIDMixin, Base):
     __tablename__ = "work_orders"
+    __allow_unmapped__ = True  # keep NOTE out of the SQLAlchemy mapper
+
+    NOTE: ClassVar[str] =     (
+        "owner=facilities_maintenance; "
+        "description=Stores work orders records for the application. "
+        "References related entities via: asset, assigned to user, building, request, school, space. "
+        "Includes standard audit timestamps (created_at, updated_at). "
+        "22 column(s) defined. "
+        "Primary key is `id`. "
+        "6 foreign key field(s) detected."
+    )
+
+    __table_args__ = {
+        "comment":         (
+            "Stores work orders records for the application. "
+            "References related entities via: asset, assigned to user, building, request, school, space. "
+            "Includes standard audit timestamps (created_at, updated_at). "
+            "22 column(s) defined. "
+            "Primary key is `id`. "
+            "6 foreign key field(s) detected."
+        ),
+        "info": {
+            "note": NOTE,
+            "description":         (
+            "Stores work orders records for the application. "
+            "References related entities via: asset, assigned to user, building, request, school, space. "
+            "Includes standard audit timestamps (created_at, updated_at). "
+            "22 column(s) defined. "
+            "Primary key is `id`. "
+            "6 foreign key field(s) detected."
+        ),
+        },
+    }
+
 
     school_id  = sa.Column(GUID(), ForeignKey("schools.id",   ondelete="SET NULL"))
     building_id= sa.Column(GUID(), ForeignKey("buildings.id", ondelete="SET NULL"))
@@ -63,3 +97,5 @@ class WorkOrder(UUIDMixin, Base):
         viewonly=True,
         uselist=False,
     )
+
+

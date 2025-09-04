@@ -1,62 +1,173 @@
 # src/OSSS/tests/conftest.py
-import os
-import pytest
+from __future__ import annotations
 
-# conftest.py (add this near the top)
 import os
+import time
+import base64
+from typing import List, Optional
+
 import pytest
+import requests
+from httpx import AsyncClient, ASGITransport
+from fastapi.routing import APIRoute
+
+# ==============================================================
+# Session-wide env bootstrap (runs before we create the app)
+# ==============================================================
 
 @pytest.fixture(scope="session", autouse=True)
 def _env_bootstrap():
-    # Default Keycloak config for local dev
+    # Default Keycloak-ish config for local dev
     os.environ.setdefault("KEYCLOAK_BASE_URL", "http://localhost:8085")
     os.environ.setdefault("KEYCLOAK_REALM", "OSSS")
     os.environ.setdefault("KEYCLOAK_CLIENT_ID", "osss-api")
-    os.environ.setdefault("KEYCLOAK_CLIENT_SECRET", "password")  # <-- your real secret
+    os.environ.setdefault("KEYCLOAK_CLIENT_SECRET", "password")  # override in CI/local
 
-    # Ensure issuer & JWKS for the app so it can validate tokens
     issuer = os.environ.get("KEYCLOAK_ISSUER")
     if not issuer:
         issuer = f"{os.environ['KEYCLOAK_BASE_URL'].rstrip('/')}/realms/{os.environ['KEYCLOAK_REALM']}"
         os.environ["KEYCLOAK_ISSUER"] = issuer
-
     os.environ.setdefault("OIDC_ISSUER", issuer)
     os.environ.setdefault("OIDC_JWKS_URL", f"{issuer}/protocol/openid-connect/certs")
-
-    # When you want real auth in tests, export INTEGRATION_AUTH=1 in your shell
-    # (we don't force it here)
+    os.environ.setdefault("JWT_ALLOWED_ALGS", "RS256")
     yield
 
-# --- Make sure OIDC/Keycloak env is set BEFORE importing the app/auth ----
-os.environ.setdefault("KEYCLOAK_BASE_URL", "http://localhost:8085")
-os.environ.setdefault("KEYCLOAK_REALM", "OSSS")
-os.environ.setdefault("KEYCLOAK_CLIENT_ID", "osss-api")
-# Only set this if your client is Confidential and this is the real secret.
-# Do NOT set it for a Public client.
-# os.environ.setdefault("KEYCLOAK_CLIENT_SECRET", "<real-secret>")
+# ==============================================================
+# Live-mode detection and helpers
+# ==============================================================
 
-issuer = f"{os.environ['KEYCLOAK_BASE_URL'].rstrip('/')}/realms/{os.environ['KEYCLOAK_REALM']}"
-os.environ.setdefault("OIDC_ISSUER", issuer)
-os.environ.setdefault("KEYCLOAK_ISSUER", issuer)  # for code that reads KEYCLOAK_ISSUER
-os.environ.setdefault("OIDC_JWKS_URL", f"{issuer}/protocol/openid-connect/certs")
-os.environ.setdefault("JWT_ALLOWED_ALGS", "RS256")
+LIVE_BASE: Optional[str] = os.getenv("APP_BASE_URL", "").rstrip("/") or None
+LIVE_MODE = bool(LIVE_BASE)
+REAL_AUTH = os.getenv("INTEGRATION_AUTH", "0") == "1"  # use real Keycloak
 
-# Disable test-time auth overrides when running real integration auth
-# (set INTEGRATION_AUTH=1 in your shell to use real Keycloak)
-USE_FAKE_AUTH = os.getenv("INTEGRATION_AUTH", "0") != "1"
+def _issuer() -> Optional[str]:
+    return (
+        os.getenv("KEYCLOAK_ISSUER")
+        or (
+            os.getenv("KEYCLOAK_BASE_URL") and os.getenv("KEYCLOAK_REALM")
+            and f"{os.getenv('KEYCLOAK_BASE_URL').rstrip('/')}/realms/{os.getenv('KEYCLOAK_REALM')}"
+        )
+    )
 
-import pytest
-from starlette.testclient import TestClient
-from fastapi.routing import APIRoute
+def _token_endpoint(issuer: str) -> str:
+    return f"{issuer.rstrip('/')}/protocol/openid-connect/token"
 
-# Import AFTER env is set so deps.py picks up the right values
-from OSSS.main import app
+def _basic_auth_header(cid: str, secret: str) -> dict:
+    raw = f"{cid}:{secret}".encode("utf-8")
+    return {"Authorization": "Basic " + base64.b64encode(raw).decode("ascii")}
 
-@pytest.fixture()
-def client():
-    overrides = []
+def _fmt_body(resp: requests.Response) -> str:
+    try:
+        return str(resp.json())
+    except Exception:
+        return (resp.text or "")[:800]
 
-    if USE_FAKE_AUTH:
+def _wait_for(url: str, timeout: float = 30.0, interval: float = 0.5):
+    """Poll a URL until it returns 2xx–4xx (service up) or timeout."""
+    deadline = time.time() + timeout
+    last_err = None
+    while time.time() < deadline:
+        try:
+            r = requests.get(url, timeout=3)
+            if 200 <= r.status_code < 500:
+                return
+        except Exception as e:
+            last_err = e
+        time.sleep(interval)
+    raise RuntimeError(f"Service not ready: {url} ({last_err})")
+
+@pytest.fixture(scope="session", autouse=True)
+def _ensure_services_ready():
+    """When in LIVE_MODE, wait for the running app and (optionally) Keycloak."""
+    if not LIVE_MODE:
+        return
+    _wait_for(f"{LIVE_BASE}/openapi.json", timeout=40)
+    if REAL_AUTH:
+        iss = _issuer()
+        if iss:
+            _wait_for(f"{iss}/.well-known/openid-configuration", timeout=40)
+
+# ==============================================================
+# Live-mode auth fixtures (real Keycloak only when INTEGRATION_AUTH=1)
+# ==============================================================
+
+@pytest.fixture(scope="session")
+def base_url() -> Optional[str]:
+    return LIVE_BASE
+
+@pytest.fixture(scope="session")
+def keycloak_token() -> str:
+    """Real user token via password grant (integration-only)."""
+    if not (LIVE_MODE and REAL_AUTH):
+        pytest.skip("Not in live real-auth mode (APP_BASE_URL + INTEGRATION_AUTH=1 required).")
+    issuer = _issuer()
+    if not issuer:
+        pytest.skip("KEYCLOAK_ISSUER or KEYCLOAK_BASE_URL/REALM not set.")
+
+    client_id = os.getenv("KEYCLOAK_CLIENT_ID") or "osss-api"
+    client_secret = os.getenv("KEYCLOAK_CLIENT_SECRET")
+    if not client_secret:
+        pytest.skip("KEYCLOAK_CLIENT_SECRET not set (confidential client required).")
+
+    url = _token_endpoint(issuer)
+    data = {
+        "grant_type": "password",
+        "username": os.getenv("OSSS_TEST_USER", "board_chair@osss.local"),
+        "password": os.getenv("OSSS_TEST_PASS", "password"),
+        "scope": "openid profile email",
+    }
+
+    # client_secret_basic
+    r = requests.post(url, data=data, headers=_basic_auth_header(client_id, client_secret), timeout=15)
+    if r.status_code == 200:
+        return r.json()["access_token"]
+
+    # fallback: client_secret_post
+    r2 = requests.post(url, data={**data, "client_id": client_id, "client_secret": client_secret}, timeout=15)
+    if r2.status_code == 200:
+        return r2.json()["access_token"]
+
+    pytest.fail(
+        "[Keycloak] token fetch failed.\n"
+        f"  basic={r.status_code} body={_fmt_body(r)}\n"
+        f"  post ={r2.status_code} body={_fmt_body(r2)}"
+    )
+
+@pytest.fixture(scope="session")
+def auth_headers(keycloak_token) -> dict:
+    return {"Authorization": f"Bearer {keycloak_token}", "Accept": "application/json"}
+
+# ==============================================================
+# Client fixture (live vs in-process)
+# ==============================================================
+
+# In-process app factory (import after env is primed)
+from OSSS.main import create_app  # noqa: E402
+
+@pytest.fixture
+async def client():
+    """
+    - LIVE_MODE: returns a requests.Session hitting APP_BASE_URL
+    - Else: returns an httpx.AsyncClient against an in-process app, with fake auth
+            unless INTEGRATION_AUTH=1 (REAL_AUTH)
+    """
+    if LIVE_MODE:
+        s = requests.Session()
+        s.headers.update({"Accept": "application/json"})
+        try:
+            yield s
+        finally:
+            s.close()
+        return
+
+    # In-process mode
+    app = create_app()
+    overrides: List[object] = []
+
+    # Only apply fake auth when not explicitly using real auth
+    if not REAL_AUTH:
+        issuer = os.environ["KEYCLOAK_ISSUER"]
+
         async def allow_all_security():
             return {
                 "active": True,
@@ -69,7 +180,7 @@ def client():
                 "realm_access": {"roles": ["user"]},
             }
 
-        # optional: override ONLY legacy guards; do NOT override get_current_user
+        # Override selected legacy guards (do NOT override get_current_user)
         for mod_path, name in (
             ("OSSS.auth.deps", "oauth2"),
             ("OSSS.api.security", "oauth2"),
@@ -85,7 +196,7 @@ def client():
             except Exception:
                 pass
 
-        # only /debug/me should be faked
+        # Only fake /debug/me explicitly
         for r in app.routes:
             if isinstance(r, APIRoute) and r.path == "/debug/me" and "GET" in (r.methods or []):
                 for d in r.dependant.dependencies:
@@ -93,8 +204,9 @@ def client():
                         app.dependency_overrides[d.call] = allow_all_security
                         overrides.append(d.call)
 
-    with TestClient(app) as c:
-        yield c
+    transport = ASGITransport(app=app, lifespan="on")
+    async with AsyncClient(transport=transport, base_url="http://testserver") as ac:
+        yield ac
 
     for dep in overrides:
         app.dependency_overrides.pop(dep, None)

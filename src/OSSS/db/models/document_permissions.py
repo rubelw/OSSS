@@ -4,9 +4,35 @@ import sqlalchemy as sa
 from sqlalchemy import ForeignKey, text
 from sqlalchemy.orm import Mapped, mapped_column
 from OSSS.db.base import Base, GUID
+from typing import ClassVar
 
 class DocumentPermission(Base):
     __tablename__ = "document_permissions"
+    __allow_unmapped__ = True  # keep NOTE out of mapper
+
+    NOTE: ClassVar[str] = (
+        "owner=division_of_technology_data; "
+        "description=Stores document permissions records for the application. "
+        "References related entities via: principal, resource. "
+        "6 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+    )
+
+    __table_args__ = {
+        "comment": (
+            "Stores document permissions records for the application. "
+            "References related entities via: principal, resource. "
+            "6 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+        ),
+        "info": {
+            "note": NOTE,
+            "description": (
+                "Stores document permissions records for the application. "
+                "References related entities via: principal, resource. "
+                "6 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected."
+            ),
+        },
+    }
+
 
     id: Mapped[str] = mapped_column(GUID(), primary_key=True, server_default=sa.text("gen_random_uuid()"))
 
@@ -16,11 +42,3 @@ class DocumentPermission(Base):
     principal_id:   Mapped[str] = mapped_column(GUID(),        nullable=False, index=True)
     permission:     Mapped[str] = mapped_column(sa.String(20), nullable=False)    # e.g. view|edit|manage
 
-    __table_args__ = (
-        sa.UniqueConstraint(
-            "resource_type", "resource_id", "principal_type", "principal_id", "permission",
-            name="uq_document_permissions_tuple",
-        ),
-        sa.Index("ix_docperm_resource", "resource_type", "resource_id"),
-        sa.Index("ix_docperm_principal", "principal_type", "principal_id"),
-    )

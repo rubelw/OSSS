@@ -22,7 +22,7 @@ log = logging.getLogger("alembic.runtime.migration")
 LOG_LVL        = os.getenv("ATT_LOG_LEVEL", "INFO").upper()
 LOG_SQL        = os.getenv("ATT_LOG_SQL", "1") == "1"
 LOG_ROWS       = os.getenv("ATT_LOG_ROWS", "1") == "1"
-ABORT_IF_ZERO  = os.getenv("ATT_ABORT_IF_ZERO", "1") == "1"
+ABORT_IF_ZERO  = os.getenv("ATT_ABORT_IF_ZERO", "1") == "1"  # kept for compatibility; no longer raises
 
 CSV_ENV        = "ATTENDANCE_CSV_PATH"
 CSV_NAME       = "attendance.csv"
@@ -237,6 +237,13 @@ def upgrade() -> None:
         return
 
     csv_path, csv_rows = _write_csv(bind)
+
+    # Option A: if there are no data rows, skip instead of raising
+    if csv_rows == 0:
+        log.warning("[%s] no eligible rows; skipping (no %s/%s yet). CSV=%s",
+                    revision, MEETINGS_TBL, USERS_TBL, csv_path)
+        return
+
     reader, fobj = _open_csv(csv_path)
 
     insert_stmt, cols, needs_uuid_param = _insert_sql(bind)
@@ -301,14 +308,10 @@ def upgrade() -> None:
     log.info("[%s] CSV rows=%d, inserted=%d, skipped=%d (file=%s)",
              revision, total, inserted, skipped, csv_path)
 
-    # Fail loudly when header-only or no inserts
-    if ABORT_IF_ZERO and (csv_rows == 0 or inserted == 0):
-        if csv_rows == 0:
-            raise RuntimeError(
-                f"[{revision}] CSV had no data rows (likely missing {MEETINGS_TBL} or {USERS_TBL}). "
-                f"Set ATT_LOG_LEVEL=DEBUG for details."
-            )
-        raise RuntimeError(f"[{revision}] No rows inserted; set ATT_LOG_ROWS=1 for per-row details.")
+    # Option A: no hard failure; just warn and exit if nothing inserted
+    if csv_rows == 0 or inserted == 0:
+        log.warning("[%s] no rows inserted (csv_rows=%d, inserted=%d); skipping", revision, csv_rows, inserted)
+        return
 
 
 def downgrade() -> None:

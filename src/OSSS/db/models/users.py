@@ -16,6 +16,8 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from OSSS.db.base import Base, UUIDMixin, GUID, JSONB, TimestampMixin
 
 class GUID(TypeDecorator):
+    note: str = 'owner=division_of_technology_data; description=Stores users records for the application. Includes standard audit timestamps (created_at, updated_at). 5 column(s) defined. Primary key is `id`.'
+
     impl = CHAR
     cache_ok = True
 
@@ -40,6 +42,8 @@ class GUID(TypeDecorator):
 class User(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "users"
 
+    __table_args__ = {'comment': 'Stores users records for the application. Includes standard audit timestamps (created_at, updated_at). 5 column(s) defined. Primary key is `id`.', 'info': {'description': 'Stores users records for the application. Includes standard audit timestamps (created_at, updated_at). 5 column(s) defined. Primary key is `id`.'}}
+
     username: Mapped[str] = mapped_column(sa.Text, unique=True, nullable=False)
     email: Mapped[str] = mapped_column(sa.Text, unique=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
@@ -50,3 +54,6 @@ class User(UUIDMixin, TimestampMixin, Base):
 
     def __repr__(self) -> str:
         return f"User(id={self.id!r}, username={self.username!r})"
+
+
+

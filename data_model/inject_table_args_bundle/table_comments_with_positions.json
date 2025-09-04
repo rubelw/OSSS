@@ -1,0 +1,1132 @@
+{
+  "addresses": {
+    "description": "General application data table managed by OSSS. See docs for details.",
+    "positions": [
+      "school_counselor"
+    ]
+  },
+  "agenda_workflows": {
+    "description": "Tracks governance documents, agendas, meetings, motions, and resolutions for boards or committees.",
+    "positions": [
+      "board_clerk",
+      "board_chair",
+      "school_board_member_trustee"
+    ]
+  },
+  "alignments": {
+    "description": "Stores metadata, tags, and alignment frameworks for curriculum or other entities.",
+    "positions": [
+      "dean_of_academics"
+    ]
+  },
+  "assets": {
+    "description": "General application data table managed by OSSS. See docs for details.",
+    "positions": [
+      "school_counselor"
+    ]
+  },
+  "assignment_categories": {
+    "description": "Stores student academic work, assessments, grading periods, and transcripts.",
+    "positions": [
+      "dean_of_academics",
+      "registrar"
+    ]
+  },
+  "assignments": {
+    "description": "Stores student academic work, assessments, grading periods, and transcripts.",
+    "positions": [
+      "dean_of_academics",
+      "registrar"
+    ]
+  },
+  "attendance_codes": {
+    "description": "Manages attendance codes, school calendars, terms, and bell schedules.",
+    "positions": [
+      "registrar",
+      "dean_of_students",
+      "principal"
+    ]
+  },
+  "audit_logs": {
+    "description": "Tracks system audits, logs, imports, and exports for compliance.",
+    "positions": [
+      "school_counselor"
+    ]
+  },
+  "behavior_codes": {
+    "description": "Tracks student behavior incidents, codes, consequences, and interventions.",
+    "positions": [
+      "dean_of_students",
+      "assistant_principal",
+      "principal"
+    ]
+  },
+  "behavior_interventions": {
+    "description": "Tracks student behavior incidents, codes, consequences, and interventions.",
+    "positions": [
+      "dean_of_students",
+      "assistant_principal",
+      "principal"
+    ]
+  },
+  "bell_schedules": {
+    "description": "Manages attendance codes, school calendars, terms, and bell schedules.",
+    "positions": [
+      "registrar",
+      "dean_of_students",
+      "principal"
+    ]
+  },
+  "buildings": {
+    "description": "Manages facilities, rooms, leases, maintenance requests, and work orders.",
+    "positions": [
+      "facilities_manager"
+    ]
+  },
+  "bus_routes": {
+    "description": "Tracks student transportation routes, stops, and assignments.",
+    "positions": [
+      "school_counselor"
+    ]
+  },
+  "bus_stops": {
+    "description": "Tracks student transportation routes, stops, and assignments.",
+    "positions": [
+      "school_counselor"
+    ]
+  },
+  "calendars": {
+    "description": "Manages attendance codes, school calendars, terms, and bell schedules.",
+    "positions": [
+      "registrar",
+      "dean_of_students",
+      "principal"
+    ]
+  },
+  "channels": {
+    "description": "General application data table managed by OSSS. See docs for details.",
+    "positions": [
+      "school_counselor"
+    ]
+  },
+  "cic_meeting_documents": {
+    "description": "Tracks governance documents, agendas, meetings, motions, and resolutions for boards or committees.",
+    "positions": [
+      "board_clerk",
+      "board_chair",
+      "school_board_member_trustee"
+    ]
+  },
+  "cic_meetings": {
+    "description": "Tracks governance documents, agendas, meetings, motions, and resolutions for boards or committees.",
+    "positions": [
+      "board_clerk",
+      "board_chair",
+      "school_board_member_trustee"
+    ]
+  },
+  "cic_motions": {
+    "description": "Tracks governance documents, agendas, meetings, motions, and resolutions for boards or committees.",
+    "positions": [
+      "board_clerk",
+      "board_chair",
+      "school_board_member_trustee"
+    ]
+  },
+  "cic_proposal_documents": {
+    "description": "Tracks governance documents, agendas, meetings, motions, and resolutions for boards or committees.",
+    "positions": [
+      "board_clerk",
+      "board_chair",
+      "school_board_member_trustee"
+    ]
+  },
+  "cic_proposals": {
+    "description": "Tracks governance documents, agendas, meetings, motions, and resolutions for boards or committees.",
+    "positions": [
+      "board_clerk",
+      "board_chair",
+      "school_board_member_trustee"
+    ]
+  },
+  "cic_publications": {
+    "description": "Tracks governance documents, agendas, meetings, motions, and resolutions for boards or committees.",
+    "positions": [
+      "board_clerk",
+      "board_chair",
+      "school_board_member_trustee"
+    ]
+  },
+  "cic_resolutions": {
+    "description": "Tracks governance documents, agendas, meetings, motions, and resolutions for boards or committees.",
+    "positions": [
+      "board_clerk",
+      "board_chair",
+      "school_board_member_trustee"
+    ]
+  },
+  "compliance_records": {
+    "description": "General application data table managed by OSSS. See docs for details.",
+    "positions": [
+      "school_counselor"
+    ]
+  },
+  "consequence_types": {
+    "description": "Tracks student behavior incidents, codes, consequences, and interventions.",
+    "positions": [
+      "dean_of_students",
+      "assistant_principal",
+      "principal"
+    ]
+  },
+  "consequences": {
+    "description": "Tracks student behavior incidents, codes, consequences, and interventions.",
+    "positions": [
+      "dean_of_students",
+      "assistant_principal",
+      "principal"
+    ]
+  },
+  "contacts": {
+    "description": "Stores information about students, guardians, and personal details for communication and services.",
+    "positions": [
+      "registrar",
+      "principal"
+    ]
+  },
+  "courses": {
+    "description": "Stores academic course and curriculum information, including subjects and instructional frameworks.",
+    "positions": [
+      "dean_of_academics",
+      "registrar",
+      "principal"
+    ]
+  },
+  "curricula": {
+    "description": "General application data table managed by OSSS. See docs for details.",
+    "positions": [
+      "school_counselor"
+    ]
+  },
+  "curriculum_versions": {
+    "description": "Stores academic course and curriculum information, including subjects and instructional frameworks.",
+    "positions": [
+      "dean_of_academics",
+      "registrar",
+      "principal"
+    ]
+  },
+  "data_quality_issues": {
+    "description": "General application data table managed by OSSS. See docs for details.",
+    "positions": [
+      "school_counselor"
+    ]
+  },
+  "data_sharing_agreements": {
+    "description": "General application data table managed by OSSS. See docs for details.",
+    "positions": [
+      "school_counselor"
+    ]
+  },
+  "deduction_codes": {
+    "description": "Manages financial transactions including fees, invoices, payments, payroll, and deductions.",
+    "positions": [
+      "school_counselor"
+    ]
+  },
+  "deliveries": {
+    "description": "General application data table managed by OSSS. See docs for details.",
+    "positions": [
+      "school_counselor"
+    ]
+  },
+  "document_versions": {
+    "description": "General application data table managed by OSSS. See docs for details.",
+    "positions": [
+      "school_counselor"
+    ]
+  },
+  "earning_codes": {
+    "description": "Manages financial transactions including fees, invoices, payments, payroll, and deductions.",
+    "positions": [
+      "school_counselor"
+    ]
+  },
+  "education_associations": {
+    "description": "General application data table managed by OSSS. See docs for details.",
+    "positions": [
+      "school_counselor"
+    ]
+  },
+  "ell_plans": {
+    "description": "Manages student support and accommodation plans (IEPs, 504, ELL, special education).",
+    "positions": [
+      "principal"
+    ]
+  },
+  "embeds": {
+    "description": "General application data table managed by OSSS. See docs for details.",
+    "positions": [
+      "school_counselor"
+    ]
+  },
+  "emergency_contacts": {
+    "description": "Stores information about students, guardians, and personal details for communication and services.",
+    "positions": [
+      "registrar",
+      "principal"
+    ]
+  },
+  "employee_deductions": {
+    "description": "Manages financial transactions including fees, invoices, payments, payroll, and deductions.",
+    "positions": [
+      "school_counselor"
+    ]
+  },
+  "employee_earnings": {
+    "description": "Manages financial transactions including fees, invoices, payments, payroll, and deductions.",
+    "positions": [
+      "school_counselor"
+    ]
+  },
+  "evaluation_assignments": {
+    "description": "Stores student academic work, assessments, grading periods, and transcripts.",
+    "positions": [
+      "dean_of_academics",
+      "registrar"
+    ]
+  },
+  "evaluation_cycles": {
+    "description": "General application data table managed by OSSS. See docs for details.",
+    "positions": [
+      "school_counselor"
+    ]
+  },
+  "evaluation_questions": {
+    "description": "General application data table managed by OSSS. See docs for details.",
+    "positions": [
+      "school_counselor"
+    ]
+  },
+  "evaluation_reports": {
+    "description": "General application data table managed by OSSS. See docs for details.",
+    "positions": [
+      "school_counselor"
+    ]
+  },
+  "evaluation_responses": {
+    "description": "General application data table managed by OSSS. See docs for details.",
+    "positions": [
+      "school_counselor"
+    ]
+  },
+  "evaluation_sections": {
+    "description": "General application data table managed by OSSS. See docs for details.",
+    "positions": [
+      "school_counselor"
+    ]
+  },
+  "evaluation_signoffs": {
+    "description": "General application data table managed by OSSS. See docs for details.",
+    "positions": [
+      "school_counselor"
+    ]
+  },
+  "evaluation_templates": {
+    "description": "General application data table managed by OSSS. See docs for details.",
+    "positions": [
+      "school_counselor"
+    ]
+  },
+  "events": {
+    "description": "General application data table managed by OSSS. See docs for details.",
+    "positions": [
+      "school_counselor"
+    ]
+  },
+  "export_runs": {
+    "description": "Tracks system audits, logs, imports, and exports for compliance.",
+    "positions": [
+      "school_counselor"
+    ]
+  },
+  "facilities": {
+    "description": "General application data table managed by OSSS. See docs for details.",
+    "positions": [
+      "school_counselor"
+    ]
+  },
+  "fees": {
+    "description": "Manages financial transactions including fees, invoices, payments, payroll, and deductions.",
+    "positions": [
+      "school_counselor"
+    ]
+  },
+  "files": {
+    "description": "General application data table managed by OSSS. See docs for details.",
+    "positions": [
+      "school_counselor"
+    ]
+  },
+  "fiscal_years": {
+    "description": "Stores general ledger, accounting, and fiscal year financial data.",
+    "positions": [
+      "school_counselor"
+    ]
+  },
+  "floors": {
+    "description": "General application data table managed by OSSS. See docs for details.",
+    "positions": [
+      "school_counselor"
+    ]
+  },
+  "frameworks": {
+    "description": "Stores metadata, tags, and alignment frameworks for curriculum or other entities.",
+    "positions": [
+      "dean_of_academics"
+    ]
+  },
+  "gl_accounts": {
+    "description": "Stores general ledger, accounting, and fiscal year financial data.",
+    "positions": [
+      "school_counselor"
+    ]
+  },
+  "gl_segments": {
+    "description": "Stores general ledger, accounting, and fiscal year financial data.",
+    "positions": [
+      "school_counselor"
+    ]
+  },
+  "google_accounts": {
+    "description": "Stores general ledger, accounting, and fiscal year financial data.",
+    "positions": [
+      "school_counselor"
+    ]
+  },
+  "grade_levels": {
+    "description": "Stores student academic work, assessments, grading periods, and transcripts.",
+    "positions": [
+      "dean_of_academics",
+      "registrar"
+    ]
+  },
+  "grade_scale_bands": {
+    "description": "Stores student academic work, assessments, grading periods, and transcripts.",
+    "positions": [
+      "dean_of_academics",
+      "registrar"
+    ]
+  },
+  "grade_scales": {
+    "description": "Stores student academic work, assessments, grading periods, and transcripts.",
+    "positions": [
+      "dean_of_academics",
+      "registrar"
+    ]
+  },
+  "grading_periods": {
+    "description": "Stores student academic work, assessments, grading periods, and transcripts.",
+    "positions": [
+      "dean_of_academics",
+      "registrar"
+    ]
+  },
+  "guardians": {
+    "description": "Stores information about students, guardians, and personal details for communication and services.",
+    "positions": [
+      "registrar",
+      "principal"
+    ]
+  },
+  "hr_employees": {
+    "description": "Stores HR data including employee records, positions, and staff assignments.",
+    "positions": [
+      "superintendent"
+    ]
+  },
+  "hr_position_assignments": {
+    "description": "Stores student academic work, assessments, grading periods, and transcripts.",
+    "positions": [
+      "dean_of_academics",
+      "registrar"
+    ]
+  },
+  "hr_positions": {
+    "description": "Stores HR data including employee records, positions, and staff assignments.",
+    "positions": [
+      "superintendent"
+    ]
+  },
+  "iep_plans": {
+    "description": "Manages student support and accommodation plans (IEPs, 504, ELL, special education).",
+    "positions": [
+      "principal"
+    ]
+  },
+  "immunizations": {
+    "description": "Stores student health, immunization, nurse visits, and medication administration records.",
+    "positions": [
+      "school_nurse",
+      "principal"
+    ]
+  },
+  "invoices": {
+    "description": "Manages financial transactions including fees, invoices, payments, payroll, and deductions.",
+    "positions": [
+      "school_counselor"
+    ]
+  },
+  "journal_batches": {
+    "description": "Stores general ledger, accounting, and fiscal year financial data.",
+    "positions": [
+      "school_counselor"
+    ]
+  },
+  "journal_entry_lines": {
+    "description": "Stores general ledger, accounting, and fiscal year financial data.",
+    "positions": [
+      "school_counselor"
+    ]
+  },
+  "leases": {
+    "description": "Manages facilities, rooms, leases, maintenance requests, and work orders.",
+    "positions": [
+      "facilities_manager"
+    ]
+  },
+  "library_checkouts": {
+    "description": "Manages library catalog, items, checkouts, and fines.",
+    "positions": [
+      "librarian",
+      "media_specialist"
+    ]
+  },
+  "library_fines": {
+    "description": "Manages library catalog, items, checkouts, and fines.",
+    "positions": [
+      "librarian",
+      "media_specialist"
+    ]
+  },
+  "library_items": {
+    "description": "Manages library catalog, items, checkouts, and fines.",
+    "positions": [
+      "librarian",
+      "media_specialist"
+    ]
+  },
+  "maintenance_requests": {
+    "description": "Manages facilities, rooms, leases, maintenance requests, and work orders.",
+    "positions": [
+      "facilities_manager"
+    ]
+  },
+  "meal_eligibility_statuses": {
+    "description": "Tracks student meal transactions and eligibility for free/reduced lunch programs.",
+    "positions": [
+      "school_counselor"
+    ]
+  },
+  "meal_transactions": {
+    "description": "Tracks student meal transactions and eligibility for free/reduced lunch programs.",
+    "positions": [
+      "school_counselor"
+    ]
+  },
+  "medication_administrations": {
+    "description": "Stores student health, immunization, nurse visits, and medication administration records.",
+    "positions": [
+      "school_nurse",
+      "principal"
+    ]
+  },
+  "medications": {
+    "description": "Stores student health, immunization, nurse visits, and medication administration records.",
+    "positions": [
+      "school_nurse",
+      "principal"
+    ]
+  },
+  "meeting_files": {
+    "description": "Tracks governance documents, agendas, meetings, motions, and resolutions for boards or committees.",
+    "positions": [
+      "board_clerk",
+      "board_chair",
+      "school_board_member_trustee"
+    ]
+  },
+  "meeting_publications": {
+    "description": "Tracks governance documents, agendas, meetings, motions, and resolutions for boards or committees.",
+    "positions": [
+      "board_clerk",
+      "board_chair",
+      "school_board_member_trustee"
+    ]
+  },
+  "messages": {
+    "description": "General application data table managed by OSSS. See docs for details.",
+    "positions": [
+      "school_counselor"
+    ]
+  },
+  "meters": {
+    "description": "General application data table managed by OSSS. See docs for details.",
+    "positions": [
+      "school_counselor"
+    ]
+  },
+  "minutes": {
+    "description": "General application data table managed by OSSS. See docs for details.",
+    "positions": [
+      "school_counselor"
+    ]
+  },
+  "motions": {
+    "description": "Tracks governance documents, agendas, meetings, motions, and resolutions for boards or committees.",
+    "positions": [
+      "board_clerk",
+      "board_chair",
+      "school_board_member_trustee"
+    ]
+  },
+  "move_orders": {
+    "description": "General application data table managed by OSSS. See docs for details.",
+    "positions": [
+      "school_counselor"
+    ]
+  },
+  "nurse_visits": {
+    "description": "Stores student health, immunization, nurse visits, and medication administration records.",
+    "positions": [
+      "school_nurse",
+      "principal"
+    ]
+  },
+  "orders": {
+    "description": "General application data table managed by OSSS. See docs for details.",
+    "positions": [
+      "school_counselor"
+    ]
+  },
+  "organizations": {
+    "description": "General application data table managed by OSSS. See docs for details.",
+    "positions": [
+      "school_counselor"
+    ]
+  },
+  "part_locations": {
+    "description": "General application data table managed by OSSS. See docs for details.",
+    "positions": [
+      "school_counselor"
+    ]
+  },
+  "parts": {
+    "description": "General application data table managed by OSSS. See docs for details.",
+    "positions": [
+      "school_counselor"
+    ]
+  },
+  "pay_periods": {
+    "description": "Manages attendance codes, school calendars, terms, and bell schedules.",
+    "positions": [
+      "registrar",
+      "dean_of_students",
+      "principal"
+    ]
+  },
+  "paychecks": {
+    "description": "General application data table managed by OSSS. See docs for details.",
+    "positions": [
+      "school_counselor"
+    ]
+  },
+  "payments": {
+    "description": "Manages financial transactions including fees, invoices, payments, payroll, and deductions.",
+    "positions": [
+      "school_counselor"
+    ]
+  },
+  "payroll_runs": {
+    "description": "Manages financial transactions including fees, invoices, payments, payroll, and deductions.",
+    "positions": [
+      "school_counselor"
+    ]
+  },
+  "periods": {
+    "description": "Manages attendance codes, school calendars, terms, and bell schedules.",
+    "positions": [
+      "registrar",
+      "dean_of_students",
+      "principal"
+    ]
+  },
+  "permissions": {
+    "description": "Manages system users, roles, permissions, and integrations.",
+    "positions": [
+      "school_counselor"
+    ]
+  },
+  "personal_notes": {
+    "description": "Stores information about students, guardians, and personal details for communication and services.",
+    "positions": [
+      "registrar",
+      "principal"
+    ]
+  },
+  "persons": {
+    "description": "Stores information about students, guardians, and personal details for communication and services.",
+    "positions": [
+      "registrar",
+      "principal"
+    ]
+  },
+  "plan_alignments": {
+    "description": "Stores metadata, tags, and alignment frameworks for curriculum or other entities.",
+    "positions": [
+      "dean_of_academics"
+    ]
+  },
+  "pm_plans": {
+    "description": "General application data table managed by OSSS. See docs for details.",
+    "positions": [
+      "school_counselor"
+    ]
+  },
+  "pm_work_generators": {
+    "description": "General application data table managed by OSSS. See docs for details.",
+    "positions": [
+      "school_counselor"
+    ]
+  },
+  "policy_publications": {
+    "description": "Stores governance policy documents, publications, and voting records.",
+    "positions": [
+      "board_clerk",
+      "board_chair",
+      "superintendent"
+    ]
+  },
+  "posts": {
+    "description": "General application data table managed by OSSS. See docs for details.",
+    "positions": [
+      "school_counselor"
+    ]
+  },
+  "project_tasks": {
+    "description": "Tracks district/school-level projects, tasks, and requirements.",
+    "positions": [
+      "school_counselor"
+    ]
+  },
+  "projects": {
+    "description": "Tracks district/school-level projects, tasks, and requirements.",
+    "positions": [
+      "school_counselor"
+    ]
+  },
+  "proposals": {
+    "description": "Tracks governance documents, agendas, meetings, motions, and resolutions for boards or committees.",
+    "positions": [
+      "board_clerk",
+      "board_chair",
+      "school_board_member_trustee"
+    ]
+  },
+  "requirements": {
+    "description": "Tracks district/school-level projects, tasks, and requirements.",
+    "positions": [
+      "school_counselor"
+    ]
+  },
+  "review_requests": {
+    "description": "General application data table managed by OSSS. See docs for details.",
+    "positions": [
+      "school_counselor"
+    ]
+  },
+  "roles": {
+    "description": "Manages system users, roles, permissions, and integrations.",
+    "positions": [
+      "school_counselor"
+    ]
+  },
+  "rooms": {
+    "description": "Manages facilities, rooms, leases, maintenance requests, and work orders.",
+    "positions": [
+      "facilities_manager"
+    ]
+  },
+  "scan_requests": {
+    "description": "General application data table managed by OSSS. See docs for details.",
+    "positions": [
+      "school_counselor"
+    ]
+  },
+  "scan_results": {
+    "description": "General application data table managed by OSSS. See docs for details.",
+    "positions": [
+      "school_counselor"
+    ]
+  },
+  "schools": {
+    "description": "General application data table managed by OSSS. See docs for details.",
+    "positions": [
+      "school_counselor"
+    ]
+  },
+  "section504_plans": {
+    "description": "Manages student support and accommodation plans (IEPs, 504, ELL, special education).",
+    "positions": [
+      "principal"
+    ]
+  },
+  "sis_import_jobs": {
+    "description": "Tracks system audits, logs, imports, and exports for compliance.",
+    "positions": [
+      "school_counselor"
+    ]
+  },
+  "space_reservations": {
+    "description": "General application data table managed by OSSS. See docs for details.",
+    "positions": [
+      "school_counselor"
+    ]
+  },
+  "special_education_cases": {
+    "description": "Manages student support and accommodation plans (IEPs, 504, ELL, special education).",
+    "positions": [
+      "principal"
+    ]
+  },
+  "staff": {
+    "description": "Stores HR data including employee records, positions, and staff assignments.",
+    "positions": [
+      "superintendent"
+    ]
+  },
+  "standardized_tests": {
+    "description": "Stores student academic work, assessments, grading periods, and transcripts.",
+    "positions": [
+      "dean_of_academics",
+      "registrar"
+    ]
+  },
+  "state_reporting_snapshots": {
+    "description": "Stores state reporting data snapshots and jurisdiction codes.",
+    "positions": [
+      "registrar",
+      "superintendent"
+    ]
+  },
+  "states": {
+    "description": "Stores state reporting data snapshots and jurisdiction codes.",
+    "positions": [
+      "registrar",
+      "superintendent"
+    ]
+  },
+  "student_program_enrollments": {
+    "description": "Stores information about students, guardians, and personal details for communication and services.",
+    "positions": [
+      "registrar",
+      "principal"
+    ]
+  },
+  "student_school_enrollments": {
+    "description": "Stores information about students, guardians, and personal details for communication and services.",
+    "positions": [
+      "registrar",
+      "principal"
+    ]
+  },
+  "student_transportation_assignments": {
+    "description": "Stores student academic work, assessments, grading periods, and transcripts.",
+    "positions": [
+      "dean_of_academics",
+      "registrar"
+    ]
+  },
+  "students": {
+    "description": "Stores information about students, guardians, and personal details for communication and services.",
+    "positions": [
+      "registrar",
+      "principal"
+    ]
+  },
+  "subjects": {
+    "description": "Stores academic course and curriculum information, including subjects and instructional frameworks.",
+    "positions": [
+      "dean_of_academics",
+      "registrar",
+      "principal"
+    ]
+  },
+  "tags": {
+    "description": "Stores metadata, tags, and alignment frameworks for curriculum or other entities.",
+    "positions": [
+      "dean_of_academics"
+    ]
+  },
+  "test_administrations": {
+    "description": "Stores student academic work, assessments, grading periods, and transcripts.",
+    "positions": [
+      "dean_of_academics",
+      "registrar"
+    ]
+  },
+  "ticket_scans": {
+    "description": "General application data table managed by OSSS. See docs for details.",
+    "positions": [
+      "school_counselor"
+    ]
+  },
+  "transcript_lines": {
+    "description": "Stores student academic work, assessments, grading periods, and transcripts.",
+    "positions": [
+      "dean_of_academics",
+      "registrar"
+    ]
+  },
+  "user_accounts": {
+    "description": "Stores general ledger, accounting, and fiscal year financial data.",
+    "positions": [
+      "school_counselor"
+    ]
+  },
+  "users": {
+    "description": "Manages system users, roles, permissions, and integrations.",
+    "positions": [
+      "school_counselor"
+    ]
+  },
+  "vendors": {
+    "description": "Stores general ledger, accounting, and fiscal year financial data.",
+    "positions": [
+      "school_counselor"
+    ]
+  },
+  "votes": {
+    "description": "Stores governance policy documents, publications, and voting records.",
+    "positions": [
+      "board_clerk",
+      "board_chair",
+      "superintendent"
+    ]
+  },
+  "waivers": {
+    "description": "General application data table managed by OSSS. See docs for details.",
+    "positions": [
+      "school_counselor"
+    ]
+  },
+  "warranties": {
+    "description": "General application data table managed by OSSS. See docs for details.",
+    "positions": [
+      "school_counselor"
+    ]
+  },
+  "webhooks": {
+    "description": "Manages system users, roles, permissions, and integrations.",
+    "positions": [
+      "school_counselor"
+    ]
+  },
+  "work_order_parts": {
+    "description": "Manages facilities, rooms, leases, maintenance requests, and work orders.",
+    "positions": [
+      "facilities_manager"
+    ]
+  },
+  "work_order_tasks": {
+    "description": "Manages facilities, rooms, leases, maintenance requests, and work orders.",
+    "positions": [
+      "facilities_manager"
+    ]
+  },
+  "work_order_time_logs": {
+    "description": "Manages facilities, rooms, leases, maintenance requests, and work orders.",
+    "positions": [
+      "facilities_manager"
+    ]
+  },
+  "work_orders": {
+    "description": "Manages facilities, rooms, leases, maintenance requests, and work orders.",
+    "positions": [
+      "facilities_manager"
+    ]
+  },
+  "activities": {
+    "description": "Catalog of school-sponsored extracurriculars (athletics, clubs, teams, and programs) used for eligibility, rostering, scheduling, and communications.",
+    "positions": [
+      "activities_director",
+      "dean_of_students",
+      "assistant_principal",
+      "principal"
+    ]
+  },
+  "accommodations": {
+    "description": "Student learning and behavior supports (e.g., IEP/504/testing accommodations) with effective dates, responsible staff, and notes—used to inform instruction and compliance reporting.",
+    "positions": [
+      "special_education_coordinator",
+      "counselor",
+      "dean_of_students",
+      "dean_of_academics",
+      "principal",
+      "assistant_principal"
+    ]
+  },
+  "academic_terms": {
+    "description": "Definition of academic terms (semesters, trimesters, marking periods) including start/end dates and grading cycles; drives scheduling, transcripts, and reporting timelines.",
+    "positions": [
+      "registrar",
+      "dean_of_academics",
+      "principal",
+      "assistant_principal"
+    ]
+  },
+  "organizations": {
+    "description": "Organizations within the district (district office, departments, schools). Provides the parent container for governance and SIS records.",
+    "positions": [
+      "superintendent",
+      "deputy_superintendent",
+      "associate_superintendent",
+      "head_of_school",
+      "principal",
+      "assistant_principal",
+      "board_chair",
+      "board_vice_chair",
+      "board_clerk",
+      "school_board_member_trustee"
+    ]
+  },
+  "bodies": {
+    "description": "Governing bodies and committees (e.g., Board of Education, advisory councils).",
+    "positions": [
+      "board_chair",
+      "board_vice_chair",
+      "board_clerk",
+      "school_board_member_trustee",
+      "superintendent"
+    ]
+  },
+  "entity_tags": {
+    "description": "Tagging table for attaching classification labels to entities (folders, people, records) for organization and search.",
+    "positions": [
+      "data_steward",
+      "registrar",
+      "it_manager",
+      "principal",
+      "assistant_principal"
+    ]
+  },
+  "person": {
+    "description": "People directory (students, guardians, staff). Stores identity and cross-table references.",
+    "positions": [
+      "registrar",
+      "counselor",
+      "principal",
+      "assistant_principal",
+      "dean_of_students",
+      "data_steward"
+    ]
+  },
+  "person_address": {
+    "description": "Postal addresses for people; supports history and multiple address types.",
+    "positions": [
+      "registrar",
+      "counselor",
+      "attendance_office"
+    ]
+  },
+  "person_contact": {
+    "description": "Contact methods for people (email, phone). Includes preferred flags and verification status.",
+    "positions": [
+      "registrar",
+      "counselor",
+      "attendance_office"
+    ]
+  },
+  "sis_behavior_codes": {
+    "description": "Dictionary of behavior/discipline codes used by SIS events and referrals.",
+    "positions": [
+      "dean_of_students",
+      "assistant_principal",
+      "principal",
+      "counselor"
+    ]
+  },
+  "goals": {
+    "description": "Student goals for academics, behavior, or support plans, including owner and target dates.",
+    "positions": [
+      "counselor",
+      "special_education_coordinator",
+      "interventionist",
+      "principal"
+    ]
+  },
+  "plans": {
+    "description": "Student support plans (IEP/504, MTSS/RTI, custom interventions) with milestones and progress tracking.",
+    "positions": [
+      "special_education_coordinator",
+      "counselor",
+      "interventionist",
+      "principal"
+    ]
+  },
+  "personal_notes": {
+    "description": "Private staff notes about a student/person with role-based access controls.",
+    "positions": [
+      "counselor",
+      "teacher",
+      "dean_of_students",
+      "principal"
+    ]
+  },
+  "payments": {
+    "description": "Money received or owed (fees, activities, meals) captured as integer cents to avoid float errors.",
+    "positions": [
+      "bursar",
+      "bookkeeper",
+      "activities_director"
+    ]
+  },
+  "periods": {
+    "description": "Time periods/terms (quarters/semesters) and attendance schedule anchors.",
+    "positions": [
+      "registrar",
+      "attendance_office",
+      "principal"
+    ]
+  },
+  "events": {
+    "description": "Calendar or transactional events used by orders/registrations and audit trails.",
+    "positions": [
+      "activities_director",
+      "registrar",
+      "principal"
+    ]
+  },
+  "orders": {
+    "description": "Purchases/registrations linked to events and users; totals are stored in cents.",
+    "positions": [
+      "activities_director",
+      "bookkeeper",
+      "bursar"
+    ]
+  },
+  "users": {
+    "description": "Application users (linked to Keycloak). Stores app-specific attributes/flags.",
+    "positions": [
+      "it_manager",
+      "data_steward"
+    ]
+  },
+  "__default__": {
+    "description": "Application data table managed by OSSS. See docs for field-level semantics.",
+    "positions": [
+      "data_steward",
+      "it_manager"
+    ]
+  }
+}

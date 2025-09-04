@@ -256,3 +256,69 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+def emit_table_dbml(table) -> str:
+    """Emit a single Table {...} block in DBML, including table/column notes."""
+    lines = []
+    schema_prefix = f"{table.schema}." if getattr(table, "schema", None) and table.schema != "public" else ""
+    lines.append(f"Table {schema_prefix}{table.name} {{")
+
+    # Columns
+    for col in table.columns:
+        parts = [f"  {col.name} {_compile_type(col.type)}"]
+        attrs = []
+        if col.primary_key:
+            attrs.append("pk")
+        if not col.nullable:
+            attrs.append("not null")
+        if col.unique:
+            attrs.append("unique")
+
+        dflt = _default_to_str(col)
+        if dflt is not None:
+            # keep whatever quoting _default_to_str returns
+            attrs.append(f"default: {dflt}")
+
+        # Column note from SQLAlchemy (comment, info['note'], or doc)
+        c_note = getattr(col, 'comment', None) or getattr(col, 'doc', None)
+        try:
+            info_note = getattr(col, 'info', {}).get('note')
+        except Exception:
+            info_note = None
+        if not c_note and info_note:
+            c_note = info_note
+        if c_note:
+            note_clean = str(c_note).replace('\\', '\\\\').replace("'", "\\'").replace("\n", " | ")
+            attrs.append(f"note: '{note_clean}'")
+
+        if attrs:
+            parts.append(f"[{', '.join(attrs)}]")
+        lines.append(" ".join(parts))
+
+    # Table-level note (multi-line)
+    t_note = getattr(table, 'comment', None)
+    try:
+        t_info_note = getattr(table, 'info', {}).get('note')
+    except Exception:
+        t_info_note = None
+    if not t_note and t_info_note:
+        t_note = t_info_note
+    if t_note:
+        lines.append("")
+        lines.append("  Note: '''")
+        for ln in str(t_note).splitlines():
+            lines.append(f"  {ln}")
+        lines.append("  '''")
+
+    # Indexes (simple)
+    if table.indexes:
+        lines.append("")
+        lines.append("  Indexes {")
+        for idx in sorted(table.indexes, key=lambda i: i.name or ""):
+            cols = ", ".join(c.name for c in idx.columns)
+            uniq = " [unique]" if idx.unique else ""
+            lines.append(f"    ({cols}){uniq}")
+        lines.append("  }")
+
+    lines.append("}")
+    return "\n".join(lines)

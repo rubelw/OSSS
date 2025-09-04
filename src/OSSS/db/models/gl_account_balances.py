@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, ClassVar
 import sqlalchemy as sa
 import uuid
 from sqlalchemy import (
@@ -22,6 +22,40 @@ from OSSS.db.base import Base, UUIDMixin, GUID
 
 class GlAccountBalance(UUIDMixin, Base):
     __tablename__ = "gl_account_balances"
+    __allow_unmapped__ = True  # keep NOTE out of the SQLAlchemy mapper
+
+    NOTE: ClassVar[str] =     (
+        "owner=business_accounting; "
+        "description=Stores gl account balances records for the application. "
+        "References related entities via: account, fiscal period. "
+        "Includes standard audit timestamps (created_at, updated_at). "
+        "10 column(s) defined. "
+        "Primary key is `id`. "
+        "2 foreign key field(s) detected."
+    )
+
+    __table_args__ = {
+        "comment":         (
+            "Stores gl account balances records for the application. "
+            "References related entities via: account, fiscal period. "
+            "Includes standard audit timestamps (created_at, updated_at). "
+            "10 column(s) defined. "
+            "Primary key is `id`. "
+            "2 foreign key field(s) detected."
+        ),
+        "info": {
+            "note": NOTE,
+            "description":         (
+            "Stores gl account balances records for the application. "
+            "References related entities via: account, fiscal period. "
+            "Includes standard audit timestamps (created_at, updated_at). "
+            "10 column(s) defined. "
+            "Primary key is `id`. "
+            "2 foreign key field(s) detected."
+        ),
+        },
+    }
+
 
     # Use GUID()/UUID to match referenced PK types
     account_id: Mapped[uuid.UUID] = mapped_column(
@@ -39,9 +73,3 @@ class GlAccountBalance(UUIDMixin, Base):
     attributes: Mapped[Optional[Dict[str, Any]]] = mapped_column(sa.JSON, nullable=True)
     created_at: Mapped[Any] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at: Mapped[Any] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
-
-    __table_args__ = (
-        UniqueConstraint("account_id", "fiscal_period_id", name="uq_balance_acct_period"),
-        Index("ix_balances_acct", "account_id"),
-        Index("ix_balances_period", "fiscal_period_id"),
-    )

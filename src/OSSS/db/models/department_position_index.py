@@ -5,9 +5,44 @@ import sqlalchemy as sa
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy import ForeignKey, Index
 from OSSS.db.base import Base, GUID
+from typing import ClassVar
 
 class DepartmentPositionIndex(Base):
     __tablename__ = "department_position_index"
+    __allow_unmapped__ = True  # keep NOTE out of the SQLAlchemy mapper
+
+    NOTE: ClassVar[str] =     (
+        "owner=hr_operations_talent; "
+        "description=Stores department position index records for the application. "
+        "References related entities via: department, position. "
+        "Includes standard audit timestamps (created_at). "
+        "4 column(s) defined. "
+        "Primary key is `id`. "
+        "2 foreign key field(s) detected."
+    )
+
+    __table_args__ = {
+        "comment":         (
+            "Stores department position index records for the application. "
+            "References related entities via: department, position. "
+            "Includes standard audit timestamps (created_at). "
+            "4 column(s) defined. "
+            "Primary key is `id`. "
+            "2 foreign key field(s) detected."
+        ),
+        "info": {
+            "note": NOTE,
+            "description":         (
+            "Stores department position index records for the application. "
+            "References related entities via: department, position. "
+            "Includes standard audit timestamps (created_at). "
+            "4 column(s) defined. "
+            "Primary key is `id`. "
+            "2 foreign key field(s) detected."
+        ),
+        },
+    }
+
 
     id: Mapped[uuid.UUID] = mapped_column(
         GUID(), primary_key=True, server_default=sa.text("gen_random_uuid()")
@@ -28,12 +63,3 @@ class DepartmentPositionIndex(Base):
     position: Mapped["HRPosition"] = relationship(
         "HRPosition", back_populates="department_links", passive_deletes=True
     )
-
-    __table_args__ = (
-        sa.UniqueConstraint("department_id", "position_id", name="uq_deptpos_pair"),
-        Index("ix_deptpos_department_id", "department_id"),
-        Index("ix_deptpos_position_id", "position_id"),
-    )
-
-    def __repr__(self) -> str:
-        return f"<DepartmentPositionIndex id={self.id} dept={self.department_id} pos={self.position_id}>"

@@ -1,0 +1,1670 @@
+{
+  "board_chair": {
+    "responsibilities": [
+      "Lead meetings of the Board of Education",
+      "Set board agendas and priorities",
+      "Represent the board at district and community functions",
+      "Ensure governance policies are followed"
+    ]
+  },
+  "board_vice_chair": {
+    "responsibilities": [
+      "Support the board chair",
+      "Preside over meetings when chair is absent",
+      "Assist in setting agendas and board priorities"
+    ]
+  },
+  "board_clerk": {
+    "responsibilities": [
+      "Maintain official board records and minutes",
+      "Certify board decisions and resolutions",
+      "Handle official correspondence for the board"
+    ]
+  },
+  "school_board_member_trustee": {
+    "responsibilities": [
+      "Vote on district policies and budgets",
+      "Represent community interests on the board",
+      "Serve on committees as assigned"
+    ]
+  },
+  "superintendent": {
+    "responsibilities": [
+      "Serve as chief executive officer of the school district",
+      "Implement board policies across the district",
+      "Oversee district operations, academics, and staff",
+      "Report regularly to the Board of Education"
+    ],
+    "department": "board_of_education_governing_board"
+  },
+  "head_of_school": {
+    "responsibilities": [
+      "Provide overall leadership for a school",
+      "Ensure academic quality and student support",
+      "Manage faculty, staff, and resources",
+      "Engage with families and the community"
+    ],
+    "department": "board_of_education_governing_board"
+  },
+  "deputy_superintendent": {
+    "responsibilities": [
+      "Support the superintendent in district leadership",
+      "Oversee specific divisions such as academics or operations",
+      "Act as superintendent during absences"
+    ],
+    "department": "board_of_education_governing_board"
+  },
+  "associate_superintendent": {
+    "responsibilities": [
+      "Oversee major district functions (curriculum, HR, finance, etc.)",
+      "Supervise directors or department heads",
+      "Advise superintendent on policy and operations"
+    ],
+    "department": "board_of_education_governing_board"
+  },
+  "assistant_superintendent": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "board_of_education_governing_board"
+  },
+  "chief_of_staff": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "board_of_education_governing_board"
+  },
+  "general_counsel": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "board_of_education_governing_board"
+  },
+  "ombudsperson": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "board_of_education_governing_board"
+  },
+  "chief_equity_officer": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "board_of_education_governing_board"
+  },
+  "chief_schools_officer": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "superintendent_s_office"
+  },
+  "principal": {
+    "responsibilities": [
+      "Lead daily operations of a school",
+      "Oversee curriculum implementation and instruction",
+      "Supervise teachers and staff",
+      "Manage student discipline and parent communication"
+    ],
+    "department": "division_of_schools"
+  },
+  "assistant_principal": {
+    "responsibilities": [
+      "Support the principal in school management",
+      "Handle student discipline and attendance issues",
+      "Coordinate testing and academic programs",
+      "Supervise extracurricular activities"
+    ],
+    "department": "division_of_schools"
+  },
+  "associate_principal": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "division_of_schools"
+  },
+  "vice_principal": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "division_of_schools"
+  },
+  "dean_of_students": {
+    "responsibilities": [
+      "Manage student discipline and behavior programs",
+      "Promote positive school culture and climate",
+      "Oversee attendance and truancy interventions"
+    ],
+    "department": "division_of_schools"
+  },
+  "dean_of_academics": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "division_of_schools"
+  },
+  "grade_level_dean": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "division_of_schools"
+  },
+  "director_of_residential_life": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "division_of_schools"
+  },
+  "activities_director": {
+    "responsibilities": [
+      "Organize and supervise extracurricular programs",
+      "Coordinate school events, clubs, and activities",
+      "Support student engagement beyond the classroom"
+    ],
+    "department": "division_of_schools"
+  },
+  "athletics_director": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "division_of_schools"
+  },
+  "assistant_athletics_director": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "division_of_schools"
+  },
+  "head_of_upper_school": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "division_of_schools"
+  },
+  "head_of_middle_school": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "division_of_schools"
+  },
+  "head_of_lower_school": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "division_of_schools"
+  },
+  "classroom_teacher": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "teaching_instructional_support"
+  },
+  "elementary_teacher": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "teaching_instructional_support"
+  },
+  "middle_school_teacher": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "teaching_instructional_support"
+  },
+  "high_school_teacher": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "teaching_instructional_support"
+  },
+  "art_teacher": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "teaching_instructional_support"
+  },
+  "music_teacher": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "teaching_instructional_support"
+  },
+  "band_director": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "teaching_instructional_support"
+  },
+  "choir_director": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "teaching_instructional_support"
+  },
+  "theater_teacher": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "teaching_instructional_support"
+  },
+  "physical_education_teacher": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "teaching_instructional_support"
+  },
+  "health_teacher": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "teaching_instructional_support"
+  },
+  "world_languages_teacher": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "teaching_instructional_support"
+  },
+  "computer_science_teacher": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "teaching_instructional_support"
+  },
+  "cte_teacher": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "teaching_instructional_support"
+  },
+  "early_childhood_teacher": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "teaching_instructional_support"
+  },
+  "reading_interventionist": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "teaching_instructional_support"
+  },
+  "math_interventionist": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "teaching_instructional_support"
+  },
+  "instructional_coach": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "teaching_instructional_support"
+  },
+  "literacy_coach": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "teaching_instructional_support"
+  },
+  "math_coach": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "teaching_instructional_support"
+  },
+  "mentor_teacher": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "teaching_instructional_support"
+  },
+  "media_specialist": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "teaching_instructional_support"
+  },
+  "teacher_librarian": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "teaching_instructional_support"
+  },
+  "substitute_teacher": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "teaching_instructional_support"
+  },
+  "long_term_substitute": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "teaching_instructional_support"
+  },
+  "teacher_resident": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "teaching_instructional_support"
+  },
+  "student_teacher": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "teaching_instructional_support"
+  },
+  "instructional_fellow": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "teaching_instructional_support"
+  },
+  "school_counselor": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "student_services_school_level"
+  },
+  "guidance_counselor": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "student_services_school_level"
+  },
+  "school_social_worker": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "student_services_school_level"
+  },
+  "family_liaison": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "student_services_school_level"
+  },
+  "school_nurse": {
+    "responsibilities": [
+      "Provide health services to students",
+      "Manage immunization and health records",
+      "Administer medications and respond to emergencies",
+      "Promote health education in the school community"
+    ],
+    "department": "student_services_school_level"
+  },
+  "health_aide": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "student_services_school_level"
+  },
+  "attendance_officer": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "student_services_school_level"
+  },
+  "truancy_officer": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "student_services_school_level"
+  },
+  "homeless_liaison": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "student_services_school_level"
+  },
+  "foster_care_liaison": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "student_services_school_level"
+  },
+  "behavior_support_coach": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "student_services_school_level"
+  },
+  "restorative_practices_coordinator": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "student_services_school_level"
+  },
+  "mtss_coordinator": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "student_services_school_level"
+  },
+  "rti_coordinator": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "student_services_school_level"
+  },
+  "registrar": {
+    "responsibilities": [
+      "Maintain student academic records and transcripts",
+      "Oversee course scheduling and enrollment",
+      "Manage student data for state reporting",
+      "Support registration and transfer processes"
+    ],
+    "department": "student_services_school_level"
+  },
+  "records_clerk": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "student_services_school_level"
+  },
+  "testing_and_assessment_coordinator": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "student_services_school_level"
+  },
+  "college_counselor": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "student_services_school_level"
+  },
+  "financial_aid_advisor": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "student_services_school_level"
+  },
+  "school_secretary": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "front_office_school_support"
+  },
+  "administrative_assistant": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "front_office_school_support"
+  },
+  "office_manager": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "front_office_school_support"
+  },
+  "receptionist": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "front_office_school_support"
+  },
+  "attendance_clerk": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "front_office_school_support"
+  },
+  "student_services_clerk": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "front_office_school_support"
+  },
+  "data_clerk": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "front_office_school_support"
+  },
+  "sis_clerk": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "front_office_school_support"
+  },
+  "health_office_clerk": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "front_office_school_support"
+  },
+  "head_coach": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "athletics_activities_enrichment"
+  },
+  "assistant_coach": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "athletics_activities_enrichment"
+  },
+  "athletic_trainer": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "athletics_activities_enrichment"
+  },
+  "strength_and_conditioning_coach": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "athletics_activities_enrichment"
+  },
+  "club_sponsor": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "athletics_activities_enrichment"
+  },
+  "activity_sponsor": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "athletics_activities_enrichment"
+  },
+  "robotics_coach": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "athletics_activities_enrichment"
+  },
+  "debate_coach": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "athletics_activities_enrichment"
+  },
+  "esports_coach": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "athletics_activities_enrichment"
+  },
+  "yearbook_advisor": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "athletics_activities_enrichment"
+  },
+  "student_government_advisor": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "athletics_activities_enrichment"
+  },
+  "performing_arts_director": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "athletics_activities_enrichment"
+  },
+  "theater_director": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "athletics_activities_enrichment"
+  },
+  "director_of_early_childhood": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "early_childhood_extended_programs"
+  },
+  "preschool_teacher": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "early_childhood_extended_programs"
+  },
+  "preschool_assistant": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "early_childhood_extended_programs"
+  },
+  "before_school_program_director": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "early_childhood_extended_programs"
+  },
+  "after_school_program_director": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "early_childhood_extended_programs"
+  },
+  "extended_day_coordinator": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "early_childhood_extended_programs"
+  },
+  "summer_school_coordinator": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "early_childhood_extended_programs"
+  },
+  "enrichment_coordinator": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "early_childhood_extended_programs"
+  },
+  "chaplain": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "faith_based_religious_if_applicable"
+  },
+  "campus_minister": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "faith_based_religious_if_applicable"
+  },
+  "religion_teacher": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "faith_based_religious_if_applicable"
+  },
+  "theology_teacher": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "faith_based_religious_if_applicable"
+  },
+  "service_learning_coordinator": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "faith_based_religious_if_applicable"
+  },
+  "chief_academic_officer": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "superintendent_s_office"
+  },
+  "director_of_student_support_services": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "superintendent_s_office"
+  },
+  "director_of_curriculum_and_instruction": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "curriculum_instruction_assessment"
+  },
+  "director_of_assessment_research_evaluation": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "curriculum_instruction_assessment"
+  },
+  "director_of_accountability": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "curriculum_instruction_assessment"
+  },
+  "director_of_data_analytics": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "curriculum_instruction_assessment"
+  },
+  "instructional_materials_coordinator": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "curriculum_instruction_assessment"
+  },
+  "textbook_coordinator": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "curriculum_instruction_assessment"
+  },
+  "professional_development_coordinator": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "curriculum_instruction_assessment"
+  },
+  "teacher_induction_coordinator": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "curriculum_instruction_assessment"
+  },
+  "accreditation_coordinator": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "curriculum_instruction_assessment"
+  },
+  "director_of_special_education": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "special_education_related_services"
+  },
+  "special_education_teacher": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "special_education_related_services"
+  },
+  "sped_case_manager": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "special_education_related_services"
+  },
+  "school_psychologist": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "special_education_related_services"
+  },
+  "speech_language_pathologist": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "special_education_related_services"
+  },
+  "occupational_therapist": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "special_education_related_services"
+  },
+  "certified_occupational_therapy_assistant": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "special_education_related_services"
+  },
+  "physical_therapist": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "special_education_related_services"
+  },
+  "physical_therapist_assistant": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "special_education_related_services"
+  },
+  "board_certified_behavior_analyst": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "special_education_related_services"
+  },
+  "behavior_interventionist": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "special_education_related_services"
+  },
+  "vision_specialist": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "special_education_related_services"
+  },
+  "orientation_and_mobility_specialist": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "special_education_related_services"
+  },
+  "deaf_hard_of_hearing_teacher": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "special_education_related_services"
+  },
+  "504_coordinator": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "special_education_related_services"
+  },
+  "sped_compliance_coordinator": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "special_education_related_services"
+  },
+  "paraprofessional": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "special_education_related_services"
+  },
+  "instructional_aide": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "special_education_related_services"
+  },
+  "teachers_aide": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "special_education_related_services"
+  },
+  "sign_language_interpreter": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "special_education_related_services"
+  },
+  "transition_specialist": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "special_education_related_services"
+  },
+  "vocational_specialist": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "special_education_related_services"
+  },
+  "alternative_education_director": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "special_programs"
+  },
+  "virtual_online_program_director": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "special_programs"
+  },
+  "cte_director": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "special_programs"
+  },
+  "pathways_coordinator": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "special_programs"
+  },
+  "apprenticeship_coordinator": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "special_programs"
+  },
+  "international_student_program_director": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "special_programs"
+  },
+  "homestay_coordinator": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "special_programs"
+  },
+  "testing_site_manager": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "special_programs"
+  },
+  "ib_coordinator": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "special_programs"
+  },
+  "ap_coordinator": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "special_programs"
+  },
+  "librarian": {
+    "responsibilities": [
+      "Manage school library collections and digital resources",
+      "Support student literacy and research skills",
+      "Collaborate with teachers on instructional resources"
+    ],
+    "department": "special_programs"
+  },
+  "archivist": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "special_programs"
+  },
+  "print_shop_manager": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "special_programs"
+  },
+  "mailroom_clerk": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "special_programs"
+  },
+  "volunteer_coordinator": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "special_programs"
+  },
+  "chief_operations_officer": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "superintendent_s_office"
+  },
+  "director_of_facilities": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "facilities_maintenance"
+  },
+  "facilities_manager": {
+    "responsibilities": [
+      "Oversee maintenance and operation of school buildings",
+      "Manage custodial and grounds staff",
+      "Plan for building repairs and capital improvements",
+      "Ensure compliance with safety regulations"
+    ],
+    "department": "facilities_maintenance"
+  },
+  "plant_manager": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "facilities_maintenance"
+  },
+  "maintenance_technician": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "facilities_maintenance"
+  },
+  "electrician": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "facilities_maintenance"
+  },
+  "plumber": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "facilities_maintenance"
+  },
+  "hvac_technician": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "facilities_maintenance"
+  },
+  "carpenter": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "facilities_maintenance"
+  },
+  "painter": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "facilities_maintenance"
+  },
+  "locksmith": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "facilities_maintenance"
+  },
+  "groundskeeper": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "facilities_maintenance"
+  },
+  "irrigation_technician": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "facilities_maintenance"
+  },
+  "custodial_supervisor": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "facilities_maintenance"
+  },
+  "custodian": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "facilities_maintenance"
+  },
+  "porter": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "facilities_maintenance"
+  },
+  "night_lead": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "facilities_maintenance"
+  },
+  "warehouse_receiving": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "facilities_maintenance"
+  },
+  "inventory_specialist": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "facilities_maintenance"
+  },
+  "energy_manager": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "facilities_maintenance"
+  },
+  "sustainability_manager": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "facilities_maintenance"
+  },
+  "director_of_transportation": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "transportation"
+  },
+  "routing_scheduling_coordinator": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "transportation"
+  },
+  "dispatcher": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "transportation"
+  },
+  "bus_driver": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "transportation"
+  },
+  "activity_driver": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "transportation"
+  },
+  "bus_aide_monitor": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "transportation"
+  },
+  "fleet_manager": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "transportation"
+  },
+  "mechanic": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "transportation"
+  },
+  "diesel_technician": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "transportation"
+  },
+  "shop_foreman": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "transportation"
+  },
+  "crossing_guard": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "transportation"
+  },
+  "director_of_nutrition_services": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "nutrition_services"
+  },
+  "food_service_director": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "nutrition_services"
+  },
+  "cafeteria_manager": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "nutrition_services"
+  },
+  "kitchen_manager": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "nutrition_services"
+  },
+  "cook": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "nutrition_services"
+  },
+  "prep_cook": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "nutrition_services"
+  },
+  "baker": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "nutrition_services"
+  },
+  "cashier_point_of_sale_operator": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "nutrition_services"
+  },
+  "dietitian": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "nutrition_services"
+  },
+  "nutritionist": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "nutrition_services"
+  },
+  "director_of_safety_security": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "safety_security_emergency_management"
+  },
+  "emergency_management_director": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "safety_security_emergency_management"
+  },
+  "school_resource_officer": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "safety_security_emergency_management"
+  },
+  "campus_police_officer": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "safety_security_emergency_management"
+  },
+  "security_guard": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "safety_security_emergency_management"
+  },
+  "campus_supervisor": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "safety_security_emergency_management"
+  },
+  "emergency_preparedness_coordinator": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "safety_security_emergency_management"
+  },
+  "chief_financial_officer": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "superintendent_s_office"
+  },
+  "business_manager": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "business_accounting"
+  },
+  "controller": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "business_accounting"
+  },
+  "accountant": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "business_accounting"
+  },
+  "payroll_manager": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "business_accounting"
+  },
+  "payroll_specialist": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "business_accounting"
+  },
+  "accounts_payable_specialist": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "business_accounting"
+  },
+  "accounts_receivable_specialist": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "business_accounting"
+  },
+  "grants_manager": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "business_accounting"
+  },
+  "grant_writer": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "business_accounting"
+  },
+  "federal_programs_director": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "business_accounting"
+  },
+  "purchasing_director": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "business_accounting"
+  },
+  "buyer": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "business_accounting"
+  },
+  "risk_manager": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "business_accounting"
+  },
+  "insurance_coordinator": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "business_accounting"
+  },
+  "compliance_officer": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "business_accounting"
+  },
+  "records_retention_manager": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "business_accounting"
+  },
+  "e_rate_coordinator": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "business_accounting"
+  },
+  "chief_human_resources_officer": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "superintendent_s_office"
+  },
+  "human_resources_director": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "superintendent_s_office"
+  },
+  "hr_manager": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "hr_operations_talent"
+  },
+  "hr_generalist": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "hr_operations_talent"
+  },
+  "recruiter": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "hr_operations_talent"
+  },
+  "benefits_manager": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "hr_operations_talent"
+  },
+  "benefits_specialist": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "hr_operations_talent"
+  },
+  "chief_information_officer": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "superintendent_s_office"
+  },
+  "chief_technology_officer": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "superintendent_s_office"
+  },
+  "director_of_technology": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "it_infrastructure_support"
+  },
+  "it_director": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "it_infrastructure_support"
+  },
+  "network_administrator": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "it_infrastructure_support"
+  },
+  "systems_administrator": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "it_infrastructure_support"
+  },
+  "cloud_administrator": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "it_infrastructure_support"
+  },
+  "server_administrator": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "it_infrastructure_support"
+  },
+  "information_security_officer": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "it_infrastructure_support"
+  },
+  "database_administrator": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "it_infrastructure_support"
+  },
+  "help_desk_manager": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "it_infrastructure_support"
+  },
+  "help_desk_technician": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "it_infrastructure_support"
+  },
+  "field_technician": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "it_infrastructure_support"
+  },
+  "web_administrator": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "it_infrastructure_support"
+  },
+  "webmaster": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "it_infrastructure_support"
+  },
+  "av_media_technician": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "it_infrastructure_support"
+  },
+  "sis_administrator": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "data_sis_analytics"
+  },
+  "data_engineer": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "data_sis_analytics"
+  },
+  "data_analyst": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "data_sis_analytics"
+  },
+  "etl_developer": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "data_sis_analytics"
+  },
+  "chief_communications_officer": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "superintendent_s_office"
+  },
+  "communications_director": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "communications_pr_advancement"
+  },
+  "public_relations_director": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "communications_pr_advancement"
+  },
+  "media_relations_manager": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "communications_pr_advancement"
+  },
+  "family_engagement_coordinator": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "communications_pr_advancement"
+  },
+  "community_engagement_coordinator": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "communications_pr_advancement"
+  },
+  "translation_services_coordinator": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "communications_pr_advancement"
+  },
+  "interpreter_services_coordinator": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "communications_pr_advancement"
+  },
+  "alumni_relations_director": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "communications_pr_advancement"
+  },
+  "advancement_development_director": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "communications_pr_advancement"
+  },
+  "annual_giving_manager": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "communications_pr_advancement"
+  },
+  "capital_campaign_manager": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "communications_pr_advancement"
+  },
+  "major_gifts_officer": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "communications_pr_advancement"
+  },
+  "admissions_director": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "communications_pr_advancement"
+  },
+  "enrollment_director": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "communications_pr_advancement"
+  },
+  "financial_aid_director": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "communications_pr_advancement"
+  },
+  "marketing_director": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "communications_pr_advancement"
+  },
+  "marketing_manager": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "communications_pr_advancement"
+  },
+  "graphic_designer": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "communications_pr_advancement"
+  },
+  "social_media_manager": {
+    "responsibilities": [
+      "Responsibilities to be defined based on district policy and role scope."
+    ],
+    "department": "communications_pr_advancement"
+  }
+}

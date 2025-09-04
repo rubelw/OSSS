@@ -1,15 +1,19 @@
 # src/OSSS/tests/test_state.py
+from __future__ import annotations
+
 import os
 import json
 import base64
 import requests
 import pytest
 
-from OSSS.main import app
-from fastapi.routing import APIRoute
+# Live-mode switches
+BASE = os.getenv("APP_BASE_URL", "").rstrip("/") or None
+LIVE_MODE = bool(BASE)
+REAL_AUTH = os.getenv("INTEGRATION_AUTH", "0") == "1"
 
 # Fallback guesses if discovery fails
-DEFAULT_STATE_PATHS = ("/states", "/api/states", "/v1/states")
+DEFAULT_STATE_PATHS = ("/api/states")
 
 # Common pagination shapes
 CANDIDATE_PARAMS = (
@@ -42,10 +46,6 @@ def _client_secret() -> str | None:
         return None
     return v
 
-def _app_base_url() -> str | None:
-    v = os.getenv("APP_BASE_URL", "").rstrip("/")
-    return v or None
-
 def _token_endpoint(issuer: str) -> str:
     return f"{issuer.rstrip('/')}/protocol/openid-connect/token"
 
@@ -74,9 +74,7 @@ def _fetch_keycloak_token(username: str, password: str, issuer: str,
         return resp.json()["access_token"]
 
     # 2) client_secret_post
-    data_post = dict(common)
-    data_post["client_id"] = client_id
-    data_post["client_secret"] = client_secret
+    data_post = dict(common, client_id=client_id, client_secret=client_secret)
     resp2 = requests.post(url, data=data_post, timeout=12)
     if resp2.status_code == 200:
         return resp2.json()["access_token"]
@@ -94,43 +92,47 @@ def _fetch_keycloak_token(username: str, password: str, issuer: str,
         "'Direct access grants' is ENABLED."
     )
 
-# ---------- States route helpers ----------
+# ---------- Discovery via live OpenAPI ----------
 
-def _discover_state_list_paths():
-    """Find GET list routes that look like '.../states' and aren't item endpoints."""
+def _fetch_openapi() -> dict | None:
+    if not BASE:
+        return None
+    try:
+        r = requests.get(BASE + "/openapi.json", timeout=8)
+        if r.status_code == 200:
+            return r.json()
+    except Exception:
+        pass
+    return None
+
+def _discover_state_list_paths_from_spec(spec: dict | None) -> list[str]:
+    if not spec:
+        return list(DEFAULT_STATE_PATHS)
     paths = []
-    for r in app.routes:
-        if isinstance(r, APIRoute) and "GET" in (r.methods or []):
-            p = r.path
-            if "{" in p:  # exclude item endpoints
-                continue
-            if p.endswith("/states") or p.endswith("/states/"):
-                paths.append(p)
+    for path, ops in (spec.get("paths") or {}).items():
+        if "{" in path:
+            continue
+        if path.endswith("/states") or path.endswith("/states/"):
+            if (ops or {}).get("get"):
+                paths.append(path)
     return paths or list(DEFAULT_STATE_PATHS)
 
-def _get_states_with(client_or_base, headers=None):
-    """Try discovered paths & common param shapes; return first non-404/422 response."""
+# ---------- Request helpers ----------
+
+def _get_states_live(headers: dict | None = None):
+    """Try discovered paths & common param shapes against the live app; return first non-404/422 response."""
+    assert BASE, "APP_BASE_URL must be set for live-mode tests."
     hdrs = headers or {}
-    paths = _discover_state_list_paths()
+    spec = _fetch_openapi()
+    paths = _discover_state_list_paths_from_spec(spec)
     last = None
-    if isinstance(client_or_base, str) and client_or_base:
-        base = client_or_base
-        for p in paths:
-            for params in CANDIDATE_PARAMS:
-                r = requests.get(f"{base}{p}", headers=hdrs, params=params, timeout=8)
-                last = r
-                if r.status_code not in (404, 422):
-                    return r
-        return last
-    else:
-        client = client_or_base
-        for p in paths:
-            for params in CANDIDATE_PARAMS:
-                r = client.get(p, headers=hdrs, params=params)
-                last = r
-                if r.status_code not in (404, 422):
-                    return r
-        return last
+    for p in paths:
+        for params in CANDIDATE_PARAMS:
+            r = requests.get(f"{BASE}{p}", headers=hdrs, params=params, timeout=8)
+            last = r
+            if r.status_code not in (404, 422):
+                return r
+    return last
 
 def _extract_items(body):
     if isinstance(body, list):
@@ -141,12 +143,14 @@ def _extract_items(body):
                 return body[key]
     return None
 
-# ---------- Tests ----------
+# ---------- Tests (live-mode only) ----------
 
-def test_states_requires_auth(client):
-    r = _get_states_with(client)
+@pytest.mark.integration
+@pytest.mark.skipif(not LIVE_MODE, reason="APP_BASE_URL not set (live mode only)")
+def test_states_requires_auth_live():
+    r = _get_states_live()
     assert r is not None
-    # States list should demand auth without a token (or 422 if auth is validated at parameter layer)
+    # States list should demand auth without a token (or 422 if auth validated at parameter layer)
     assert r.status_code in (401, 403, 422)
 
     if r.status_code == 422:
@@ -161,11 +165,14 @@ def test_states_requires_auth(client):
             has_detail = False
         assert has_www or has_detail
 
+@pytest.mark.integration
+@pytest.mark.skipif(not LIVE_MODE, reason="APP_BASE_URL not set (live mode only)")
+@pytest.mark.skipif(not REAL_AUTH, reason="INTEGRATION_AUTH=1 required for real Keycloak auth")
 @pytest.mark.timeout(30)
-def test_states_with_auth_keycloak(client):
+def test_states_with_auth_keycloak_live():
     """
     Integration test: fetch a real token from Keycloak (confidential client) and list states.
-    Skips if issuer/secret not configured or route is not mounted.
+    Requires APP_BASE_URL and INTEGRATION_AUTH=1.
     """
     issuer = _issuer()
     if not issuer:
@@ -177,15 +184,14 @@ def test_states_with_auth_keycloak(client):
         pytest.skip("KEYCLOAK_CLIENT_SECRET/OIDC_CLIENT_SECRET not set (client is confidential).")
 
     token = _fetch_keycloak_token(
-        username="board_chair@osss.local",
-        password="password",
+        username=os.getenv("OSSS_TEST_USER", "board_chair@osss.local"),
+        password=os.getenv("OSSS_TEST_PASS", "password"),
         issuer=issuer,
         client_id=client_id,
         client_secret=client_secret,
     )
 
-    target = _app_base_url() or client
-    r = _get_states_with(target, headers={"Authorization": f"Bearer {token}", "Accept": "application/json"})
+    r = _get_states_live(headers={"Authorization": f"Bearer {token}", "Accept": "application/json"})
 
     if r is None or r.status_code == 404:
         pytest.skip("States list route not mounted (or different path) in this build.")

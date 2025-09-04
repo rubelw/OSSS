@@ -100,30 +100,49 @@ def _uuid_sql(bind) -> str:
 
 
 def _ensure_schema(bind):
-    """Ensure the unique constraint (proposal_id, association_id) exists for ON CONFLICT."""
+    """
+    Ensure the unique constraint (proposal_id, association_id) exists for ON CONFLICT.
+    **Only** attempt to create it if both columns exist, to avoid aborting the transaction.
+    """
     insp = sa.inspect(bind)
     if not insp.has_table(APPROVALS_TBL):
         log.warning("[%s] table %s does not exist; skipping schema ensure", revision, APPROVALS_TBL)
         return
-    uqs = {u["name"]: u for u in insp.get_unique_constraints(APPROVALS_TBL)}
-    log.debug("[%s] current unique constraints on %s: %s", revision, APPROVALS_TBL, list(uqs.keys()))
-    expected_cols = ["proposal_id", "association_id"]
-    if "uq_approval_proposal_assoc" in uqs:
-        cols = uqs["uq_approval_proposal_assoc"]["column_names"]
-        if cols != expected_cols:
-            log.info("[%s] dropping mismatched unique %s (cols=%s)", revision, "uq_approval_proposal_assoc", cols)
-            op.drop_constraint("uq_approval_proposal_assoc", APPROVALS_TBL, type_="unique")
-            try:
-                op.create_unique_constraint("uq_approval_proposal_assoc", APPROVALS_TBL, expected_cols)
-                log.info("[%s] created unique constraint uq_approval_proposal_assoc on (%s)", revision, ", ".join(expected_cols))
-            except Exception:
-                log.exception("[%s] create_unique_constraint failed (non-fatal)", revision)
-    else:
-        try:
-            op.create_unique_constraint("uq_approval_proposal_assoc", APPROVALS_TBL, expected_cols)
-            log.info("[%s] created unique constraint uq_approval_proposal_assoc on (%s)", revision, ", ".join(expected_cols))
-        except Exception:
-            log.exception("[%s] create_unique_constraint failed (non-fatal)", revision)
+
+    try:
+        cols = {c["name"] for c in insp.get_columns(APPROVALS_TBL)}
+    except Exception:
+        log.warning("[%s] approvals columns not introspectable; skipping schema ensure.", revision)
+        return
+
+    expected_cols = ("proposal_id", "association_id")
+    missing = [c for c in expected_cols if c not in cols]
+    if missing:
+        log.info("[%s] skipping unique constraint on %s — missing columns: %s",
+                 revision, APPROVALS_TBL, ", ".join(missing))
+        return  # Do NOT attempt DDL that would fail and poison the txn.
+
+    # At this point both columns exist; check current unique constraints
+    try:
+        uqs = insp.get_unique_constraints(APPROVALS_TBL)
+    except Exception:
+        uqs = []
+
+    # Already have an equivalent constraint?
+    for uc in uqs:
+        names = uc.get("column_names") or []
+        if set(names) == set(expected_cols):
+            log.info("[%s] unique constraint on (%s) already present on %s; skipping.",
+                     revision, ", ".join(expected_cols), APPROVALS_TBL)
+            return
+
+    # Safe to create
+    try:
+        op.create_unique_constraint("uq_approval_proposal_assoc", APPROVALS_TBL, list(expected_cols))
+        log.info("[%s] created unique constraint uq_approval_proposal_assoc on (%s)",
+                 revision, ", ".join(expected_cols))
+    except Exception:
+        log.exception("[%s] create_unique_constraint failed (non-fatal)", revision)
 
 
 def _write_csv(bind) -> tuple[Path, int]:
@@ -202,7 +221,6 @@ def _insert_sql(bind):
     uuid_expr = _uuid_sql(bind)
     if "id" in cols:
         ins_cols.append("id")
-        # FIX: honor whichever function is available; param if needed
         vals.append(uuid_expr if uuid_expr != ":_uuid" else ":_uuid")
 
     def add(col: str, param: Optional[str] = None):
@@ -263,10 +281,21 @@ def upgrade() -> None:
              ASSOCS_TBL,    insp.has_table(ASSOCS_TBL),
              APPROVALS_TBL, insp.has_table(APPROVALS_TBL))
 
+    # Ensure schema only if columns actually exist (prevents txn aborts)
     _ensure_schema(bind)
 
+    # If approvals table is missing required columns, don’t attempt inserts.
     if not insp.has_table(APPROVALS_TBL):
         log.info("[%s] Table %s missing; nothing to populate.", revision, APPROVALS_TBL)
+        return
+    try:
+        a_cols = {c["name"] for c in insp.get_columns(APPROVALS_TBL)}
+    except Exception:
+        a_cols = set()
+    if not {"proposal_id", "association_id"}.issubset(a_cols):
+        log.info("[%s] %s lacks required columns (have=%s); skipping data insert.", revision, APPROVALS_TBL, sorted(a_cols))
+        # Still write a header-only CSV (useful for ops visibility)
+        _write_csv(bind)
         return
 
     # Show counts ahead of CSV

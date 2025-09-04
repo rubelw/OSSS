@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, date, time
 from decimal import Decimal
-from typing import Any, Optional, List
+from typing import Any, Optional, List, ClassVar
 
 import sqlalchemy as sa
 from sqlalchemy import ForeignKey, UniqueConstraint, text
@@ -13,6 +13,43 @@ from ._helpers import ts_cols
 
 class Meter(UUIDMixin, Base):
     __tablename__ = "meters"
+    __allow_unmapped__ = True  # keep NOTE out of the SQLAlchemy mapper
+
+    NOTE: ClassVar[str] =     (
+        "owner=facilities_maintenance; "
+        "description=Stores meters records for the application. "
+        "Key attributes include name. "
+        "References related entities via: asset, building. "
+        "Includes standard audit timestamps (created_at, updated_at). "
+        "11 column(s) defined. "
+        "Primary key is `id`. "
+        "2 foreign key field(s) detected."
+    )
+
+    __table_args__ = {
+        "comment":         (
+            "Stores meters records for the application. "
+            "Key attributes include name. "
+            "References related entities via: asset, building. "
+            "Includes standard audit timestamps (created_at, updated_at). "
+            "11 column(s) defined. "
+            "Primary key is `id`. "
+            "2 foreign key field(s) detected."
+        ),
+        "info": {
+            "note": NOTE,
+            "description":         (
+            "Stores meters records for the application. "
+            "Key attributes include name. "
+            "References related entities via: asset, building. "
+            "Includes standard audit timestamps (created_at, updated_at). "
+            "11 column(s) defined. "
+            "Primary key is `id`. "
+            "2 foreign key field(s) detected."
+        ),
+        },
+    }
+
 
     asset_id = sa.Column(GUID(), ForeignKey("assets.id", ondelete="CASCADE"))
     building_id = sa.Column(GUID(), ForeignKey("buildings.id", ondelete="CASCADE"))
@@ -26,3 +63,5 @@ class Meter(UUIDMixin, Base):
 
     asset = relationship("Asset", back_populates="meters")
     building = relationship("Building")
+
+

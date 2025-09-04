@@ -7,9 +7,25 @@ from OSSS.db.base import Base, UUIDMixin, GUID
 from ._helpers import ts_cols  # if you use the common timestamp helper
 
 class OrderLineItem(UUIDMixin, Base):
+    note: str = 'owner=division_of_technology_data; description=Stores order line items records for the application. References related entities via: order, ticket type. Includes standard audit timestamps (created_at, updated_at). 6 column(s) defined. Primary key is `id`. 2 foreign key field(s) detected.'
+
     __tablename__ = "order_line_items"
     __table_args__ = (
         sa.CheckConstraint("quantity > 0", name="ck_oli_qty_pos"),
+        {
+            "comment": (
+                "Stores order line items records for the application. References related entities via: order, ticket type. "
+                "Includes standard audit timestamps (created_at, updated_at). 6 column(s) defined. "
+                "Primary key is `id`. 2 foreign key field(s) detected."
+            ),
+            "info": {
+                "description": (
+                    "Stores order line items records for the application. References related entities via: order, ticket type. "
+                    "Includes standard audit timestamps (created_at, updated_at). 6 column(s) defined. "
+                    "Primary key is `id`. 2 foreign key field(s) detected."
+                )
+            },
+        },
     )
 
     order_id: Mapped[str] = mapped_column(

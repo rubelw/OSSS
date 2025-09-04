@@ -4,9 +4,44 @@ import sqlalchemy as sa
 from sqlalchemy import ForeignKey, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from OSSS.db.base import Base, GUID
+from typing import ClassVar
 
 class Subscription(Base):
     __tablename__ = "subscriptions"
+    __allow_unmapped__ = True  # keep NOTE out of the SQLAlchemy mapper
+
+    NOTE: ClassVar[str] =     (
+        "owner=division_of_technology_data; "
+        "description=Stores subscriptions records for the application. "
+        "References related entities via: channel, principal. "
+        "Includes standard audit timestamps (created_at). "
+        "5 column(s) defined. "
+        "Primary key is `id`. "
+        "2 foreign key field(s) detected."
+    )
+
+    __table_args__ = {
+        "comment":         (
+            "Stores subscriptions records for the application. "
+            "References related entities via: channel, principal. "
+            "Includes standard audit timestamps (created_at). "
+            "5 column(s) defined. "
+            "Primary key is `id`. "
+            "2 foreign key field(s) detected."
+        ),
+        "info": {
+            "note": NOTE,
+            "description":         (
+            "Stores subscriptions records for the application. "
+            "References related entities via: channel, principal. "
+            "Includes standard audit timestamps (created_at). "
+            "5 column(s) defined. "
+            "Primary key is `id`. "
+            "2 foreign key field(s) detected."
+        ),
+        },
+    }
+
 
     id: Mapped[str] = mapped_column(GUID(), primary_key=True, server_default=text("gen_random_uuid()"))
 
@@ -19,8 +54,3 @@ class Subscription(Base):
     )
 
     channel = relationship("Channel", back_populates="subscriptions")
-
-    __table_args__ = (
-        sa.UniqueConstraint("channel_id", "principal_type", "principal_id", name="uq_subscriptions_tuple"),
-        sa.Index("ix_subscriptions_principal", "principal_type", "principal_id"),
-    )
