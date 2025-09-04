@@ -43,7 +43,6 @@ from OSSS.sessions_diag import router as sessions_diag_router
 from OSSS.app_logger import get_logger
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 
-
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
@@ -55,7 +54,11 @@ LOGGING = {
         }
     },
     "handlers": {
-        "console": {"class": "logging.StreamHandler", "formatter": "uvicorn"},
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "uvicorn",
+            "stream": "ext://sys.stdout",    # <- ensure stdout (not default stderr)
+        },
     },
     "loggers": {
         "uvicorn":        {"handlers": ["console"], "level": "INFO"},
@@ -64,6 +67,7 @@ LOGGING = {
         "startup":        {"handlers": ["console"], "level": "DEBUG", "propagate": False},
     },
 }
+
 logging.config.dictConfig(LOGGING)
 log = logging.getLogger("main")
 
