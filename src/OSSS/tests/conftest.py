@@ -5,11 +5,32 @@ import os
 import time
 import base64
 from typing import List, Optional
-
+import sys
+import logging
 import pytest
 import requests
 from httpx import AsyncClient, ASGITransport
 from fastapi.routing import APIRoute
+
+@pytest.fixture(scope="session", autouse=True)
+def _tests_log_to_stdout():
+    """
+    Ensure test logs go to stdout so they show up under pytest -s or log_cli=true.
+    Avoid duplicates if handler is already present.
+    """
+    root = logging.getLogger()
+    want = None
+    for h in root.handlers:
+        if isinstance(h, logging.StreamHandler) and getattr(h, "stream", None) is sys.stdout:
+            want = h
+            break
+    if want is None:
+        want = logging.StreamHandler(sys.stdout)
+        want.setFormatter(logging.Formatter("%(levelname)s %(name)s: %(message)s"))
+        root.addHandler(want)
+
+    # Let the user override via TEST_LOG_LEVEL=DEBUG/INFO/WARNING...
+    root.setLevel(os.getenv("TEST_LOG_LEVEL", "INFO").upper())
 
 # ==============================================================
 # Session-wide env bootstrap (runs before we create the app)
