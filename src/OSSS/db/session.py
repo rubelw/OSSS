@@ -2,14 +2,15 @@
 from __future__ import annotations
 
 import os
-from typing import AsyncGenerator
+from contextlib import asynccontextmanager
+from typing import AsyncIterator, AsyncGenerator
 
+from sqlalchemy.engine import URL
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
     create_async_engine,
 )
-from sqlalchemy.engine import URL
 from sqlalchemy.pool import NullPool
 
 from OSSS.core.config import settings
@@ -30,7 +31,6 @@ USE_NULLPOOL = (
 _engine_kwargs: dict = {
     "echo": bool(getattr(settings, "DB_ECHO", False)),
     "pool_pre_ping": True,  # protects against stale connections
-    # "future": True,  # SQLAlchemy 2.x defaults; not needed explicitly
 }
 
 if USE_NULLPOOL:
@@ -41,13 +41,18 @@ engine = create_async_engine(DATABASE_URL, **_engine_kwargs)
 
 # ---------------------------------------------------------------------------
 # Sessionmaker (one factory for the whole app)
+#   - Define AsyncSessionLocal for backwards compatibility
+#   - Keep get_sessionmaker() for callers needing the factory
 # ---------------------------------------------------------------------------
 
-_sessionmaker: async_sessionmaker[AsyncSession] = async_sessionmaker(
+AsyncSessionLocal: async_sessionmaker[AsyncSession] = async_sessionmaker(
     bind=engine,
     expire_on_commit=False,
     class_=AsyncSession,
 )
+
+# Backwards-compatible alias if other code expects "_sessionmaker"
+_sessionmaker: async_sessionmaker[AsyncSession] = AsyncSessionLocal
 
 def get_engine():
     """Expose the engine (e.g., for health checks / pings)."""
@@ -58,22 +63,27 @@ def get_sessionmaker() -> async_sessionmaker[AsyncSession]:
     return _sessionmaker
 
 # ---------------------------------------------------------------------------
-# FastAPI dependency
+# FastAPI dependencies
+#   - get_session: async context manager (use with `async with`)
+#   - get_db: async generator (use with `Depends(get_db)`)
 # ---------------------------------------------------------------------------
 
-async def get_session() -> AsyncGenerator[AsyncSession, None]:
-    """
-    Yield a fresh AsyncSession per request.
-
-    Notes:
-    - Do not run concurrent queries on the same session (no asyncio.gather on one session).
-    - Commit explicitly in endpoints/services if you mutate. This dependency does not auto-commit.
-    """
-    async with _sessionmaker() as session:
+@asynccontextmanager
+async def get_session() -> AsyncIterator[AsyncSession]:
+    async with AsyncSessionLocal() as session:
         try:
             yield session
         except Exception:
-            # Roll back on error to leave the connection clean for the pool
+            await session.rollback()
+            raise
+        finally:
+            await session.close()
+
+async def get_db() -> AsyncGenerator[AsyncSession, None]:
+    async with AsyncSessionLocal() as session:
+        try:
+            yield session
+        except Exception:
             await session.rollback()
             raise
         finally:

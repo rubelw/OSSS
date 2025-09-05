@@ -27,6 +27,7 @@ from OSSS.api import debug
 from OSSS.api import auth_proxy
 from OSSS.api.routers.me import router as me_router
 from OSSS.api.routers.health import router as health_router
+from OSSS.api.logout import router as logout_router
 
 # New auth deps (no oauth2 symbol anymore)
 from OSSS.auth import ensure_access_token, get_current_user
@@ -42,6 +43,21 @@ from OSSS.sessions import (
 from OSSS.sessions_diag import router as sessions_diag_router
 from OSSS.app_logger import get_logger
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+
+from starlette.responses import JSONResponse
+from sqlalchemy.exc import IntegrityError
+
+# If you might be on Postgres/asyncpg, these imports let us detect specific violation types
+try:
+    from asyncpg.exceptions import (
+        UniqueViolationError,
+        ForeignKeyViolationError,
+        NotNullViolationError,
+        CheckViolationError,
+    )
+    _HAS_ASYNCPG = True
+except Exception:  # pragma: no cover
+    _HAS_ASYNCPG = False
 
 LOGGING = {
     "version": 1,
@@ -216,8 +232,71 @@ def create_app() -> FastAPI:
                     break
             return {"keys": keys}
 
+        @app.exception_handler(IntegrityError)
+        async def integrity_error_handler(request: Request, exc: IntegrityError):
+            """
+            Map DB integrity errors to clear 4xx responses instead of 500.
+            - Unique constraint -> 409 Conflict
+            - Not-null / FK / Check -> 422 Unprocessable Entity (validation-like)
+            - Otherwise -> 400 Bad Request
+            """
+            orig = getattr(exc, "orig", None)
+            message = str(orig or exc)
+
+            status = 400
+            detail = "Integrity error"
+
+            # asyncpg-specific (PostgreSQL) precise mapping
+            if _HAS_ASYNCPG and orig is not None:
+                if isinstance(orig, UniqueViolationError):
+                    status = 409
+                    detail = "Unique constraint violation"
+                elif isinstance(orig, ForeignKeyViolationError):
+                    status = 422
+                    detail = "Foreign key constraint failed"
+                elif isinstance(orig, NotNullViolationError):
+                    status = 422
+                    detail = "Missing required field (NOT NULL violation)"
+                elif isinstance(orig, CheckViolationError):
+                    status = 422
+                    detail = "Check constraint failed"
+            else:
+                # Generic string heuristics (works across DBs/drivers)
+                low = message.lower()
+                if "unique constraint" in low or "duplicate key" in low:
+                    status = 409
+                    detail = "Unique constraint violation"
+                elif "foreign key" in low:
+                    status = 422
+                    detail = "Foreign key constraint failed"
+                elif "not null" in low or "null value in column" in low:
+                    status = 422
+                    detail = "Missing required field (NOT NULL violation)"
+                elif "check constraint" in low:
+                    status = 422
+                    detail = "Check constraint failed"
+
+            # Log once with context; don't leak sensitive values
+            logger.exception(
+                "IntegrityError on %s %s -> %s: %s",
+                request.method, request.url.path, status, message
+            )
+
+            return JSONResponse(
+                status_code=status,
+                content={
+                    "detail": {
+                        "error": "integrity_error",
+                        "reason": detail,
+                        # include minimal DB message for debugging; remove if too chatty
+                        "db_message": message,
+                    }
+                },
+            )
+
         app.include_router(probe)
         app.include_router(sessions_diag_router)
+        app.include_router(logout_router)
 
         # DB ping (unless testing) using the app-scoped sessionmaker
         if not settings.TESTING:
