@@ -2,7 +2,7 @@
 from __future__ import annotations
 from decimal import Decimal
 import sqlalchemy as sa
-from sqlalchemy import ForeignKey, text
+from sqlalchemy import Column, DateTime, ForeignKey, func, text
 from sqlalchemy.orm import relationship
 from OSSS.db.base import Base, GUID
 from ._helpers import ts_cols
@@ -10,6 +10,9 @@ from typing import ClassVar
 
 class AssetPart(Base):
     __tablename__ = "asset_parts"
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
     __allow_unmapped__ = True  # keep NOTE out of the SQLAlchemy mapper
 
     NOTE: ClassVar[str] =     (

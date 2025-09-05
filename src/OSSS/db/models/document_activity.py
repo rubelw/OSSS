@@ -6,13 +6,16 @@ from decimal import Decimal
 from typing import Any, Optional, List,ClassVar
 
 import sqlalchemy as sa
-from sqlalchemy import ForeignKey, UniqueConstraint, text
+from sqlalchemy import Column, DateTime, ForeignKey, UniqueConstraint, func, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from OSSS.db.base import Base, UUIDMixin, GUID, JSONB
 
 class DocumentActivity(UUIDMixin, Base):
     __tablename__ = "document_activity"
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
     __allow_unmapped__ = True  # ignore class-level notes etc.
 
     NOTE: ClassVar[str] = (
