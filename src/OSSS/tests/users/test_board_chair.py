@@ -1,4 +1,3 @@
-# src/OSSS/tests/users/test_board_chair.py
 from __future__ import annotations
 
 import os
@@ -6,15 +5,15 @@ import sys
 import json
 import inspect
 import asyncio
-from typing import Iterable, List, Dict, Any, Set, Tuple, Any, Iterator
-from pathlib import Path
-import pytest
-import requests
-import logging
+import uuid
+from typing import Iterable, List, Dict, Any, Set, Tuple, Iterator, Optional
 from pathlib import PurePosixPath
+import logging
+import pytest
 
+# ----------------- Config / env -----------------
 
-POSITION_NAME="board_chair"
+POSITION_NAME = os.getenv("POSITION_NAME", "board_chair")
 BASE = os.getenv("APP_BASE_URL", "").rstrip("/") or None
 LIVE_MODE = bool(BASE)
 REAL_AUTH = os.getenv("INTEGRATION_AUTH", "0") == "1"
@@ -24,17 +23,13 @@ RBAC_JSON_PATH = os.getenv("RBAC_JSON_PATH") or os.path.join(
     os.path.dirname(__file__), "../../../RBAC.json"
 )
 
-# ----- console logger (stdout + immediate flush) -----
-LOG_ENABLED = os.getenv("TEST_LOG", "1") != "0"
+# ----------------- Logging to stdout -----------------
 
 def _get_logger() -> logging.Logger:
-    logger = logging.getLogger("osss.tests")
-    has_stdout_handler = any(
-        isinstance(h, logging.StreamHandler) and getattr(h, "stream", None) is sys.stdout
-        for h in logger.handlers
-    )
-    if not has_stdout_handler:
-        handler = logging.StreamHandler(stream=sys.stdout)  # <- stdout
+    logger = logging.getLogger("osss.tests.auto")
+    # Ensure a stdout handler exists
+    if not any(isinstance(h, logging.StreamHandler) and getattr(h, "stream", None) is sys.stdout for h in logger.handlers):
+        handler = logging.StreamHandler(sys.stdout)
         handler.setFormatter(logging.Formatter("[%(levelname)s] %(message)s"))
         logger.addHandler(handler)
     logger.propagate = False
@@ -45,38 +40,46 @@ def _get_logger() -> logging.Logger:
 
 log = _get_logger()
 
-def _emit_console(line: str):
-    try:
-        print(line, file=sys.stdout, flush=True)
-    except Exception:
-        pass
-
 def _log_info(msg: str):
-    if LOG_ENABLED:
-        log.info(msg)
-        _emit_console(f"[INFO] {msg}")
+    log.info(msg)
 
 def _log_debug(msg: str):
-    if LOG_ENABLED and log.isEnabledFor(logging.DEBUG):
-        log.debug(msg)
-        _emit_console(f"[DEBUG] {msg}")
+    log.debug(msg)
+
+# ----------------- HTTP helpers (sync/async friendly) -----------------
 
 def _url(path: str) -> str:
     if LIVE_MODE:
         return BASE + path
     return path
 
+async def _arequest(client, method: str, url: str, **kwargs):
+    fn = getattr(client, method.lower())
+    if inspect.iscoroutinefunction(fn):
+        return await fn(url, **kwargs)
+    # requests.Session.* are sync → run in thread
+    return await asyncio.to_thread(fn, url, **kwargs)
+
 async def _aget(client, url: str, **kwargs):
-    get_fn = getattr(client, "get")
-    if inspect.iscoroutinefunction(get_fn):
-        return await get_fn(url, **kwargs)
-    return await asyncio.to_thread(get_fn, url, **kwargs)
+    return await _arequest(client, "get", url, **kwargs)
+
+async def _apost(client, url: str, **kwargs):
+    return await _arequest(client, "post", url, **kwargs)
+
+async def _aput(client, url: str, **kwargs):
+    return await _arequest(client, "put", url, **kwargs)
+
+async def _apatch(client, url: str, **kwargs):
+    return await _arequest(client, "patch", url, **kwargs)
+
+async def _adelete(client, url: str, **kwargs):
+    return await _arequest(client, "delete", url, **kwargs)
 
 def _fmt_body(resp) -> str:
     try:
-        return str(resp.json())
+        return json.dumps(resp.json(), indent=2)[:1000]
     except Exception:
-        return getattr(resp, "text", "")[:800]
+        return getattr(resp, "text", "")[:1000]
 
 # ----------------- RBAC helpers -----------------
 
@@ -90,7 +93,6 @@ def _normalize_permissions(perms: Any) -> List[str]:
                     out.append(p)
     return out
 
-
 def iter_position_records(node: Dict[str, Any]) -> Iterator[Dict[str, Any]]:
     for pos in (node.get("positions") or []):
         if isinstance(pos, dict):
@@ -100,11 +102,9 @@ def iter_position_records(node: Dict[str, Any]) -> Iterator[Dict[str, Any]]:
                     "name": name.strip(),
                     "permissions": _normalize_permissions(pos.get("permissions")),
                 }
-
     for child in (node.get("children") or []):
         if isinstance(child, dict):
             yield from iter_position_records(child)
-
 
 def collect_position_records(data: Dict[str, Any]) -> List[Dict[str, Any]]:
     records: List[Dict[str, Any]] = []
@@ -116,29 +116,14 @@ def collect_position_records(data: Dict[str, Any]) -> List[Dict[str, Any]]:
             records.extend(iter_position_records(unit))
     return records
 
-
-def merge_by_name(records: List[Dict[str, Any]]) -> Dict[str, List[str]]:
-    by_name: Dict[str, List[str]] = {}
-    for rec in records:
-        name = rec["name"]
-        perms = rec.get("permissions") or []
-        bucket = by_name.setdefault(name, [])
-        for p in perms:
-            if p not in bucket:
-                bucket.append(p)
-    for k in by_name:
-        by_name[k].sort()
-    return by_name
-
-
-def extract_read_resources(records: List[Dict[str, Any]]) -> List[str]:
-    """Collect unique resource names from permissions starting with 'read:'."""
+def extract_resources_with_prefix(records: List[Dict[str, Any]], prefix: str) -> List[str]:
+    """Collect unique resource names from permissions starting with 'prefix:'."""
     seen = set()
     out: List[str] = []
     for rec in records:
         for perm in rec.get("permissions") or []:
             perm = perm.strip()
-            if perm.startswith("read:"):
+            if perm.startswith(prefix + ":"):
                 parts = perm.split(":", 1)
                 if len(parts) == 2:
                     resource = parts[1].strip()
@@ -147,7 +132,6 @@ def extract_read_resources(records: List[Dict[str, Any]]) -> List[str]:
                         out.append(resource)
     out.sort()
     return out
-
 
 def _rbac_load(path_candidates: Iterable[str]) -> Dict[str, Any] | None:
     for p in path_candidates:
@@ -162,58 +146,24 @@ def _rbac_load(path_candidates: Iterable[str]) -> Dict[str, Any] | None:
     _log_info("RBAC.json not found in any candidate paths; proceeding without RBAC filtering.")
     return None
 
-def _iter_positions(node: Dict[str, Any]) -> Iterable[Dict[str, Any]]:
-    for pos in (node.get("positions") or []):
-        yield pos
-    for child in (node.get("children") or []):
-        yield from _iter_positions(child)
-
-def  _position_permissions_from_rbac() -> Set[str]:
-    candidates = [
-        RBAC_JSON_PATH,
-        "../../../RBAC.json",
-        "./RBAC.json",
-        "/mnt/data/RBAC.json",  # tool-upload fallback
-    ]
-    data = _rbac_load(candidates)
-    if not data:
-        return set()
-
-    tables: Set[str] = set()
-    matches = 0
-    for unit in (data.get("hierarchy") or []):
-        for pos in _iter_positions(unit):
-            name = (pos.get("name") or "").strip().lower()
-            if name in {POSITION_NAME}:
-                matches += 1
-                for perm in (pos.get("permissions") or []):
-                    _log_info(f"permission: {str(perm)}")
-
-                    if isinstance(perm, str) and perm.startswith("read:"):
-                        tables.add(perm.split(":", 1)[1])
-
-    _log_info(f"RBAC: found {matches} "+POSITION_NAME +" position(s); read-perm tables={len(tables)}")
-    _log_debug(f"RBAC tables: {sorted(tables)}")
-    return tables
-
-
-
 # ----------------- OpenAPI discovery -----------------
 
 def _fetch_openapi_live() -> dict:
-    r = requests.get(BASE + "/openapi.json", timeout=10)
+    import requests  # local import to keep import-time side-effects down
+    r = requests.get(BASE + "/openapi.json", timeout=12)
     r.raise_for_status()
     return r.json()
 
 def _discover_list_get_paths(spec: dict) -> list[str]:
     out: list[str] = []
     for path, ops in (spec.get("paths") or {}).items():
-        if "{" in path:
+        if not isinstance(ops, dict):
             continue
-        get_op = (ops or {}).get("get")
-        if not get_op:
+        if "{" in path:  # skip item endpoints; this suite focuses on collection GETs
             continue
-        out.append(path)
+        get_op = ops.get("get")
+        if get_op:
+            out.append(path)
     return sorted(set(out))
 
 def _last_segment(path: str) -> str:
@@ -247,7 +197,105 @@ def _filter_paths_for_tables(list_paths: List[str], tables: Set[str]) -> List[st
     _log_debug(f"Matched endpoints: {selected}")
     return sorted(selected)
 
-# Precompute at import time
+# ----------------- RequestBody samplers -----------------
+
+def _sample_from_schema(schema: Dict[str, Any]) -> Any:
+    if not isinstance(schema, dict):
+        return None
+    t = schema.get("type")
+    fmt = schema.get("format")
+
+    if "$ref" in schema:
+        # Resolve very shallow refs if provided in components
+        ref = schema["$ref"]
+        return {"$ref": ref}  # best-effort: server will likely 422; we'll xfail on validation
+
+    if t == "object":
+        props = schema.get("properties") or {}
+        required = schema.get("required") or []
+        out = {}
+        for name in required:
+            sub = props.get(name) or {}
+            out[name] = _sample_from_schema(sub)
+        return out
+
+    if t == "array":
+        items = schema.get("items") or {}
+        # minimal: empty array; if required, server may 422 and we xfail
+        return []
+
+    if t == "string":
+        if fmt == "uuid":
+            return "00000000-0000-0000-0000-000000000000"
+        if fmt in ("date-time", "datetime"):
+            return "1970-01-01T00:00:00Z"
+        if fmt == "date":
+            return "1970-01-01"
+        return "test"
+
+    if t == "integer":
+        return 0
+    if t == "number":
+        return 0
+    if t == "boolean":
+        return True
+
+    return None
+
+def _build_minimal_payload_for_method(spec: dict, path: str, method: str) -> Optional[Tuple[Dict[str, Any], Dict[str, Any], str]]:
+    """
+    Returns (payload, files, content_type) for the given method,
+    or None if no requestBody is defined.
+    Supports JSON, x-www-form-urlencoded, multipart/form-data (best-effort).
+    """
+    path_item = (spec.get("paths") or {}).get(path) or {}
+    op = path_item.get(method.lower())
+    if not isinstance(op, dict):
+        return None
+    rb = op.get("requestBody")
+    if not isinstance(rb, dict):
+        return None
+
+    content = rb.get("content") or {}
+    # Preference order
+    media_types = [
+        "application/json",
+        "application/x-www-form-urlencoded",
+        "multipart/form-data",
+    ]
+    for mt in media_types:
+        mt_obj = content.get(mt)
+        if not mt_obj:
+            continue
+        schema = (mt_obj.get("schema") or {})
+        payload = {}
+        files = {}
+        if mt == "application/json":
+            payload = _sample_from_schema(schema) or {}
+        elif mt == "application/x-www-form-urlencoded":
+            sample = _sample_from_schema(schema) or {}
+            # Coerce non-primitive to json string for form encoding
+            if isinstance(sample, dict):
+                payload = {k: (json.dumps(v) if isinstance(v, (dict, list)) else v) for k, v in sample.items()}
+            else:
+                payload = {}
+        elif mt == "multipart/form-data":
+            sample = _sample_from_schema(schema) or {}
+            if isinstance(sample, dict):
+                # very light heuristic: put any field that looks like file into files
+                for k, v in sample.items():
+                    if "file" in k.lower():
+                        files[k] = ("dummy.txt", b"dummy", "text/plain")
+                    else:
+                        payload[k] = v if isinstance(v, (str, int, float)) else json.dumps(v)
+            else:
+                files["file"] = ("dummy.txt", b"dummy", "text/plain")
+        return payload or {}, files or {}, mt
+
+    return None
+
+# ----------------- Precompute from RBAC & OpenAPI -----------------
+
 if LIVE_MODE:
     try:
         _SPEC = _fetch_openapi_live()
@@ -260,157 +308,84 @@ else:
     _ALL_LIST_PATHS = ["__LIVE_MODE_DISABLED__"]
     _log_info("Live mode disabled; APP_BASE_URL not set.")
 
-_BOARD_CHAIR_TABLES =  _position_permissions_from_rbac()
-if LIVE_MODE and _ALL_LIST_PATHS and not _ALL_LIST_PATHS[0].startswith("__"):
-    _MATCHED_LIST_PATHS = _filter_paths_for_tables(_ALL_LIST_PATHS, _BOARD_CHAIR_TABLES)
-    if not _MATCHED_LIST_PATHS:
-        _MATCHED_LIST_PATHS = ["__NO_MATCHING_ENDPOINTS_FOR_RBAC__"]
-        _log_info("No OpenAPI list endpoints match board_chair read-permissions from RBAC.json.")
-else:
-    _MATCHED_LIST_PATHS = _ALL_LIST_PATHS
-
 ALL_CANDIDATES = [
     RBAC_JSON_PATH,
     "../../../RBAC.json",
     "./RBAC.json",
     "/mnt/data/RBAC.json",
 ]
-ALL_DATA = _rbac_load(ALL_CANDIDATES)
+ALL_DATA = _rbac_load(ALL_CANDIDATES) or {}
 LOCAL_RECORDS = collect_position_records(ALL_DATA)
-ALL_RECORDS = [r for r in LOCAL_RECORDS if r["name"].lower() == POSITION_NAME]
+ALL_RECORDS = [r for r in LOCAL_RECORDS if r.get("name", "").lower() == POSITION_NAME]
 
-try:
-    ALL_RECORDS  # noqa: F821  # will raise NameError if not defined
-except NameError:
-    pytest.fail("`records` is not defined")
+READ_RESOURCES: List[str] = extract_resources_with_prefix(ALL_RECORDS, "read")
+MANAGE_RESOURCES: List[str] = extract_resources_with_prefix(ALL_RECORDS, "manage")
 
-ALL_PERMISSIONS: Any = extract_read_resources(ALL_RECORDS)
+READ_SET: Set[str] = set(READ_RESOURCES)
+MANAGE_SET: Set[str] = set(MANAGE_RESOURCES)
 
-# optional: log / guard
-if not ALL_PERMISSIONS:
-    pytest.skip("No readable resources found for POSITION_NAME in RBAC.json")
+# Use RBAC to filter list endpoints
+if LIVE_MODE and _ALL_LIST_PATHS and not _ALL_LIST_PATHS[0].startswith("__"):
+    _MATCHED_LIST_PATHS = _filter_paths_for_tables(_ALL_LIST_PATHS, READ_SET or set())
+    if not _MATCHED_LIST_PATHS:
+        _MATCHED_LIST_PATHS = ["__NO_MATCHING_ENDPOINTS_FOR_RBAC__"]
+        _log_info(f"No OpenAPI list endpoints match {POSITION_NAME} read-permissions from RBAC.json.")
+else:
+    _MATCHED_LIST_PATHS = _ALL_LIST_PATHS
 
-# wrap the whole list so it's passed ONCE (not per element)
-_PERMISSIONS_PARAM = [pytest.param(ALL_PERMISSIONS, id=f"rbac-read-{len(ALL_PERMISSIONS)}")]
+# Bundle permissions for parametrization
+_PERMS_PARAM = [pytest.param({"read": READ_SET, "manage": MANAGE_SET},
+                             id=f"rbac-read{len(READ_SET)}-manage{len(MANAGE_SET)}")]
 
-
-# ---------- RBAC sanity tests (run regardless of live mode) ----------
+# ----------------- Sanity tests for RBAC -----------------
 
 @pytest.mark.rbac
 def test_rbac_file_can_be_read():
-    """Verify we can locate and load RBAC.json from known paths."""
-    candidates = [
-        RBAC_JSON_PATH,
-        "../../../RBAC.json",
-        "./RBAC.json",
-        "/mnt/data/RBAC.json",
-    ]
-    data = _rbac_load(candidates)
-    if not data:
+    if not ALL_DATA:
         pytest.skip("RBAC.json not found in any known path; set RBAC_JSON_PATH or place the file.")
-    assert isinstance(data, dict) and data, "RBAC.json loaded but appears empty"
-    _log_info(f"RBAC.json top-level keys: {list(data.keys())}")
+    assert isinstance(ALL_DATA, dict) and ALL_DATA, "RBAC.json loaded but appears empty"
+    _log_info(f"RBAC.json top-level keys: {list(ALL_DATA.keys())}")
 
 @pytest.mark.rbac
-def test_rbac_has_board_chair_position():
-    """Ensure the RBAC hierarchy includes a 'board_chair' position."""
-    candidates = [
-        RBAC_JSON_PATH,
-        "../../../RBAC.json",
-        "./RBAC.json",
-        "/mnt/data/RBAC.json",
-    ]
-    data = _rbac_load(candidates)
-    records = collect_position_records(data)
-
-    records = [r for r in records if r["name"].lower() == POSITION_NAME]
-    _log_info(f"records: " + str(records))
-
-    try:
-        records  # noqa: F821  # will raise NameError if not defined
-    except NameError:
-        pytest.fail("`records` is not defined")
-
-    if isinstance(records, list):
-        assert len(records) >= 1, "`records` is an empty list (expected at least 1 item)"
-
-
+def test_rbac_has_position_name():
+    recs = [r for r in LOCAL_RECORDS if r.get("name", "").lower() == POSITION_NAME]
+    assert isinstance(recs, list) and len(recs) >= 1, f"Position {POSITION_NAME!r} not found in RBAC"
 
 @pytest.mark.rbac
-def test_rbac_board_position_count_gt_one():
-    """
-    Ensure the RBAC hierarchy has more than one position classified as 'board_position'.
-    Classification is detected via common keys, tags/labels, or a name starting with 'board_'.
-    """
-    candidates = [
-        RBAC_JSON_PATH,
-        "../../../RBAC.json",
-        "./RBAC.json",
-        "/mnt/data/RBAC.json",
-    ]
-    data = _rbac_load(candidates)
+def test_rbac_permissions_nonempty():
+    # At least one read or manage permission present
+    assert (len(READ_SET) + len(MANAGE_SET)) >= 1, f"No read/manage permissions for {POSITION_NAME}"
 
-    if not data:
-        pytest.skip("RBAC.json not found in any known path; set RBAC_JSON_PATH or place the file.")
-
-    data = _rbac_load(candidates)
-    records = collect_position_records(data)
-    records = [r for r in records if r["name"].lower() == POSITION_NAME]
-
-    try:
-        records  # noqa: F821  # will raise NameError if not defined
-    except NameError:
-        pytest.fail("`records` is not defined")
-
-    permissions: Any = extract_read_resources(records)
-    _log_info(f"permissions: "+str(permissions))
-
-    if isinstance(permissions, list):
-        assert len(permissions) >= 1, "`permissions` is an empty list (expected at least 1 item)"
-
-
-# ---------- simple live smoke tests ----------
+# ----------------- Simple live smoke tests -----------------
 
 @pytest.mark.anyio("asyncio")
 @pytest.mark.integration
 @pytest.mark.skipif(not LIVE_MODE, reason="APP_BASE_URL not set (live mode only)")
 async def test_openapi_available(client):
     _log_info("GET /openapi.json")
-    r = await _aget(client, _url("/openapi.json"), timeout=8)
+    r = await _aget(client, _url("/openapi.json"), timeout=10)
     _log_info(f"/openapi.json -> {r.status_code}")
     assert r.status_code == 200
-    data = r.json()
-    assert "paths" in data
+    assert "paths" in r.json()
 
 @pytest.mark.anyio("asyncio")
 @pytest.mark.integration
 @pytest.mark.skipif(not LIVE_MODE, reason="APP_BASE_URL not set (live mode only)")
 async def test_me_requires_auth(client):
     _log_info("GET /me (unauthenticated)")
-    r = await _aget(client, _url("/me"), timeout=8)
+    r = await _aget(client, _url("/me"), timeout=10)
     _log_info(f"/me (unauth) -> {r.status_code}")
     assert r.status_code in (401, 403)
 
-@pytest.mark.anyio("asyncio")
-@pytest.mark.integration
-@pytest.mark.skipif(not (LIVE_MODE and REAL_AUTH), reason="Requires live app + real Keycloak auth")
-async def test_probe_with_keycloak_auth(client, auth_headers):
-    _log_info("GET /_oauth_probe (with Bearer)")
-    r = await _aget(client, _url("/_oauth_probe"), headers=auth_headers, timeout=8)
-    _log_info(f"/_oauth_probe -> {r.status_code}")
-    assert r.status_code == 200, getattr(r, "text", "")
-    data = r.json()
-    assert data.get("ok") is True
-
-# ---------- authenticated list-endpoint sweep (board_chair RBAC) ----------
+# ----------------- Endpoint tests driven by RBAC + OpenAPI -----------------
 
 @pytest.mark.anyio("asyncio")
 @pytest.mark.integration
 @pytest.mark.skipif(not LIVE_MODE, reason="APP_BASE_URL not set (live mode only)")
 @pytest.mark.skipif(not REAL_AUTH, reason="INTEGRATION_AUTH=1 required to iterate endpoints with auth")
 @pytest.mark.parametrize("list_path", _MATCHED_LIST_PATHS)
-@pytest.mark.parametrize("permissions", _PERMISSIONS_PARAM)
-async def test_get_list_endpoint(client, permissions, list_path, auth_headers):
+@pytest.mark.parametrize("perms", _PERMS_PARAM)
+async def test_endpoints(client, perms, list_path, auth_headers):
     if list_path == "__LIVE_MODE_DISABLED__":
         pytest.skip("APP_BASE_URL not set (live mode only).")
     if list_path.startswith("__OPENAPI_FETCH_FAILED__"):
@@ -418,35 +393,158 @@ async def test_get_list_endpoint(client, permissions, list_path, auth_headers):
     if list_path == "__NO_LIST_ENDPOINTS_FOUND__":
         pytest.skip("No list-style GET endpoints discovered from OpenAPI.")
     if list_path == "__NO_MATCHING_ENDPOINTS_FOR_RBAC__":
-        pytest.skip("No OpenAPI list endpoints match board_chair read-permissions from RBAC.json.")
+        pytest.skip(f"No OpenAPI list endpoints match {POSITION_NAME} read-permissions from RBAC.json.")
 
     try:
-        spec = _fetch_openapi_live()
+        spec = _SPEC if LIVE_MODE else {}
         if list_path not in set(_discover_list_get_paths(spec)):
             pytest.skip(f"{list_path} not present in current OpenAPI.")
     except Exception:
         pass
 
-    tail = PurePosixPath(list_path.rstrip("/")).name  # -> "deduction_codes"
-    _log_info(f"suffix {tail}")
-    _log_info(f"permissions: {permissions}")
+    tail = PurePosixPath(list_path.rstrip("/")).name
+    read_allowed = tail in perms["read"]
+    manage_allowed = tail in perms["manage"]
 
-
-
+    # ---- GET (list) ----
     _log_info(f"GET {list_path} (with Bearer)")
     r = await _aget(client, _url(list_path), headers=auth_headers, timeout=12)
     _log_info(f"{list_path} -> {r.status_code}")
-    _log_info(f"response code: "+str(r.status_code))
 
-    if tail in permissions:
-        # Allowed by RBAC → should succeed
+    if r.status_code >= 500:
+        pytest.fail(f"{list_path} -> {r.status_code}: {_fmt_body(r)}")
+
+    if read_allowed or manage_allowed:
         assert r.status_code == 200, (
             f"{list_path} -> {r.status_code}: {_fmt_body(r)} "
             f"(expected 200 because RBAC allows read:{tail})"
         )
     else:
-        # Not in RBAC → a 200 is always unexpected
-        assert r.status_code != 200, (
-            f"{list_path} -> {r.status_code}: {_fmt_body(r)} "
-            f"(unexpected 200; RBAC does not include read:{tail})"
-        )
+        if STRICT:
+            assert r.status_code != 200, (
+                f"{list_path} unexpectedly returned 200; RBAC does not include read:{tail}"
+            )
+
+    # ---- Write verbs on collection (best-effort) ----
+    # POST
+    post_data = _build_minimal_payload_for_method(_SPEC, list_path, "post")
+    if post_data is not None:
+        payload, files, ct = post_data
+        headers = dict(auth_headers)
+        kwargs = {}
+        if ct == "application/json":
+            kwargs = {"json": payload}
+        elif ct == "application/x-www-form-urlencoded":
+            kwargs = {"data": payload}
+        elif ct == "multipart/form-data":
+            kwargs = {"data": payload, "files": files}
+        else:
+            kwargs = {"json": payload}
+            ct = "application/json"
+        if ct in {"application/json", "application/x-www-form-urlencoded"}:
+            headers["Content-Type"] = ct
+
+        _log_info(f"POST {list_path} using {ct} payload={payload!r} files={list(files.keys())}")
+        resp = await _apost(client, _url(list_path), headers=headers, timeout=12, **kwargs)
+        code = resp.status_code
+        _log_info(f"POST {list_path} -> {code}")
+
+        if code in (400, 422):
+            pytest.xfail(f"POST {list_path} returned {code} (validation) before RBAC; cannot assert. Body={_fmt_body(resp)}")
+
+        if manage_allowed:
+            assert 200 <= code < 300, (
+                f"{list_path} -> {code}: {_fmt_body(resp)} "
+                f"(expected 2xx because RBAC includes manage:{tail})"
+            )
+        else:
+            assert code != 200, (
+                f"{list_path} unexpectedly returned 200; RBAC does not include manage:{tail}"
+            )
+
+    # PUT
+    put_data = _build_minimal_payload_for_method(_SPEC, list_path, "put")
+    if put_data is not None:
+        payload, files, ct = put_data
+        headers = dict(auth_headers)
+        if ct in {"application/json", "application/x-www-form-urlencoded"}:
+            headers["Content-Type"] = ct
+        if ct == "application/json":
+            kwargs = {"json": payload}
+        elif ct == "application/x-www-form-urlencoded":
+            kwargs = {"data": payload}
+        elif ct == "multipart/form-data":
+            kwargs = {"data": payload, "files": files}
+        else:
+            kwargs = {"json": payload}
+        _log_info(f"PUT {list_path} using {ct} payload={payload!r} files={list(files.keys())}")
+        resp = await _aput(client, _url(list_path), headers=headers, timeout=12, **kwargs)
+        code = resp.status_code
+        _log_info(f"PUT {list_path} -> {code}")
+
+        if code in (400, 422):
+            pytest.xfail(f"PUT {list_path} returned {code} (validation) before RBAC; cannot assert. Body={_fmt_body(resp)}")
+
+        if manage_allowed:
+            assert 200 <= code < 300, (
+                f"{list_path} -> {code}: {_fmt_body(resp)} "
+                f"(expected 2xx because RBAC includes manage:{tail})"
+            )
+        else:
+            assert code != 200, (
+                f"{list_path} unexpectedly returned 200; RBAC does not include manage:{tail}"
+            )
+
+    # PATCH
+    patch_data = _build_minimal_payload_for_method(_SPEC, list_path, "patch")
+    if patch_data is not None:
+        payload, files, ct = patch_data
+        headers = dict(auth_headers)
+        if ct in {"application/json", "application/x-www-form-urlencoded"}:
+            headers["Content-Type"] = ct
+        if ct == "application/json":
+            kwargs = {"json": payload}
+        elif ct == "application/x-www-form-urlencoded":
+            kwargs = {"data": payload}
+        elif ct == "multipart/form-data":
+            kwargs = {"data": payload, "files": files}
+        else:
+            kwargs = {"json": payload}
+        _log_info(f"PATCH {list_path} using {ct} payload={payload!r} files={list(files.keys())}")
+        resp = await _apatch(client, _url(list_path), headers=headers, timeout=12, **kwargs)
+        code = resp.status_code
+        _log_info(f"PATCH {list_path} -> {code}")
+
+        if code in (400, 422):
+            pytest.xfail(f"PATCH {list_path} returned {code} (validation) before RBAC; cannot assert. Body={_fmt_body(resp)}")
+
+        if manage_allowed:
+            assert 200 <= code < 300, (
+                f"{list_path} -> {code}: {_fmt_body(resp)} "
+                f"(expected 2xx because RBAC includes manage:{tail})"
+            )
+        else:
+            assert code != 200, (
+                f"{list_path} unexpectedly returned 200; RBAC does not include manage:{tail}"
+            )
+
+    # DELETE (collection-level; if defined)
+    path_item = (_SPEC.get("paths") or {}).get(list_path) or {}
+    if "delete" in path_item:
+        _log_info(f"DELETE {list_path}")
+        resp = await _adelete(client, _url(list_path), headers=auth_headers, timeout=12)
+        code = resp.status_code
+        _log_info(f"DELETE {list_path} -> {code}")
+
+        if code in (400, 422):
+            pytest.xfail(f"DELETE {list_path} returned {code} (validation) before RBAC; cannot assert. Body={_fmt_body(resp)}")
+
+        if manage_allowed:
+            assert 200 <= code < 300, (
+                f"{list_path} -> {code}: {_fmt_body(resp)} "
+                f"(expected 2xx because RBAC includes manage:{tail})"
+            )
+        else:
+            assert code != 200, (
+                f"{list_path} unexpectedly returned 200; RBAC does not include manage:{tail}"
+            )

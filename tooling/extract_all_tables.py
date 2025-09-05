@@ -58,9 +58,9 @@ def write_csv(rows, path=OUTPUT_CSV):
     """Write rows [(schema, table)] to CSV with headers."""
     with open(path, "w", newline="") as f:
         w = csv.writer(f)
-        w.writerow(["table_schema", "table_name"])
+        w.writerow(["table_name"])
         for schema, table in rows:
-            w.writerow([schema, table])
+            w.writerow([table])
 
 if __name__ == "__main__":
     tables = list_all_tables(include_system=False)

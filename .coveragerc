@@ -1,0 +1,18 @@
+# .coveragerc
+[run]
+branch = True
+source =
+    src/OSSS
+omit =
+    */tests/*
+    */.venv/*
+    */migrations/*
+    */alembic/*
+
+[report]
+skip_covered = True
+show_missing = True
+exclude_lines =
+    pragma: no cover
+    if TYPE_CHECKING:
+    if __name__ == "__main__":

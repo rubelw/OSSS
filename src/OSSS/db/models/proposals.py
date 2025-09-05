@@ -4,7 +4,7 @@ from __future__ import annotations
 import uuid
 from typing import Optional, List, Dict, Any
 import sqlalchemy as sa
-from sqlalchemy.orm import Mapped, mapped_column, relationship, synonym  # ← add synonym
+from sqlalchemy.orm import Mapped, mapped_column, relationship, synonym  # ← synonym stays
 from OSSS.db.models.associations import proposal_standard_map
 from OSSS.db.base import Base, UUIDMixin, TimestampMixin, GUID, JSON, ts_cols
 
@@ -59,14 +59,25 @@ class Proposal(UUIDMixin, TimestampMixin, Base):
 
     committee: Mapped["Committee"] = relationship("Committee", back_populates="proposals")
 
+    # Both of these traverse the same association table (proposal_standard_map)
+    # Add `overlaps` so SQLAlchemy understands they touch the same columns.
     alignments: Mapped[List["Standard"]] = relationship(
         "Standard",
         secondary=proposal_standard_map,
         back_populates="proposals",
         lazy="selectin",
+        overlaps="standards,alignments",
     )
 
-    # Link to ReviewRound (since ReviewRound.proposal back_populates "review_rounds")
+    standards: Mapped[List["Standard"]] = relationship(
+        "Standard",
+        secondary=proposal_standard_map,
+        back_populates="proposals",
+        lazy="selectin",
+        overlaps="alignments,standards",
+    )
+
+    # Link to ReviewRound (ReviewRound.proposal back_populates "review_rounds")
     review_rounds: Mapped[List["ReviewRound"]] = relationship(
         "ReviewRound",
         back_populates="proposal",
@@ -76,14 +87,8 @@ class Proposal(UUIDMixin, TimestampMixin, Base):
     )
 
     approvals: Mapped[List["Approval"]] = relationship(
-        "Approval", back_populates="proposal", cascade="all, delete-orphan"
-    )
-
-    # ---- Single canonical relationship for reviews ----
-    reviews: Mapped[List["ProposalReview"]] = relationship(
-        "ProposalReview",
-        back_populates="proposal",             # must match ProposalReview.proposal
-        foreign_keys="ProposalReview.proposal_id",
+        "Approval",
+        back_populates="proposal",
         cascade="all, delete-orphan",
         passive_deletes=True,
         lazy="selectin",
@@ -94,13 +99,16 @@ class Proposal(UUIDMixin, TimestampMixin, Base):
         back_populates="proposal",
         cascade="all, delete-orphan",
         passive_deletes=True,
-        lazy="selectin"
+        lazy="selectin",
     )
 
-    standards: Mapped[List["Standard"]] = relationship(
-        "Standard",
-        secondary=proposal_standard_map,
-        back_populates="proposals",
+    # ---- Single canonical relationship for reviews ----
+    reviews: Mapped[List["ProposalReview"]] = relationship(
+        "ProposalReview",
+        back_populates="proposal",             # must match ProposalReview.proposal
+        foreign_keys="ProposalReview.proposal_id",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
         lazy="selectin",
     )
 
