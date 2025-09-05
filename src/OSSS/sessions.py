@@ -1,8 +1,8 @@
 # src/OSSS/sessions.py
 from __future__ import annotations
-import os, json, secrets, httpx, time, logging, os
+import os, json, secrets, httpx, time, logging
 from datetime import datetime, timezone
-from typing import Any, Optional, AsyncIterator
+from typing import Any, Optional, AsyncIterator, Dict, Iterable
 
 import redis.asyncio as redis  # pip install "redis>=4"
 from fastapi import Request
@@ -21,6 +21,12 @@ KC_CLIENT_SECRET = os.getenv("KEYCLOAK_CLIENT_SECRET")  # confidential client
 
 
 class RedisSession:
+    """
+    Store sessions as a single JSON blob per SID at key `${prefix}${sid}`.
+
+    Convenience helpers `set_many` and `delete_many` do read–modify–write
+    updates on that JSON blob. These are *store-level* helpers (require `sid`).
+    """
     def __init__(self, url: str = REDIS_URL, prefix: str = SESSION_PREFIX):
         self._r = redis.from_url(url, decode_responses=True)
         self._p = prefix
@@ -77,6 +83,28 @@ class RedisSession:
             if count >= limit:
                 break
 
+    # ---------- JSON blob convenience ops (store-level; require sid) ----------
+    async def set_many(self, sid: str, mapping: Dict[str, Any], ttl: Optional[int] = None) -> Dict[str, Any]:
+        """Merge `mapping` into the JSON blob at `sid` and persist."""
+        cur = await self.get(sid) or {}
+        if not isinstance(cur, dict):
+            cur = {}
+        cur.update(mapping or {})
+        await self.set(sid, cur, ttl=ttl or SESSION_TTL_SEC)
+        log.debug("SET_MANY sid=%s… keys=%s", sid[:8], list(mapping.keys()))
+        return cur
+
+    async def delete_many(self, sid: str, keys: Iterable[str], ttl: Optional[int] = None) -> Dict[str, Any]:
+        """Delete `keys` from the JSON blob at `sid` and persist."""
+        cur = await self.get(sid) or {}
+        if not isinstance(cur, dict):
+            cur = {}
+        for k in keys:
+            cur.pop(k, None)
+        await self.set(sid, cur, ttl=ttl or SESSION_TTL_SEC)
+        log.debug("DEL_MANY sid=%s… keys=%s", sid[:8], list(keys))
+        return cur
+
 
 # ---- FastAPI integration helpers ----
 def _token_url() -> str:
@@ -95,6 +123,68 @@ async def refresh_access_token(refresh_token: str) -> dict:
         r = await client.post(_token_url(), data=data, headers=headers)
     r.raise_for_status()
     return r.json()
+
+async def record_tokens_to_session(
+    store: RedisSession,
+    sid: str,
+    tokens: Dict[str, Any],
+    *,
+    user_email: Optional[str] = None,
+    ttl: Optional[int] = None,
+) -> Dict[str, Any]:
+    """
+    Persist OAuth tokens + expiries into the server-side session for `sid`.
+    """
+    now = int(time.time())
+    payload: Dict[str, Any] = {
+        "access_token": tokens.get("access_token"),
+        "refresh_token": tokens.get("refresh_token"),
+        "expires_at": now + int(tokens.get("expires_in", 300) or 0),
+        "refresh_expires_at": (now + int(tokens.get("refresh_expires_in"))) if tokens.get("refresh_expires_in") else None,
+    }
+    if user_email:
+        payload["email"] = user_email
+
+    updated = await store.set_many(sid, payload, ttl=ttl or SESSION_TTL_SEC)
+    log.debug("Recorded tokens -> sid=%s… exp=%s", sid[:8], updated.get("expires_at"))
+    return updated
+
+async def proactive_refresh(
+    store: RedisSession,
+    sid: str,
+    *,
+    skew_seconds: int = 60,
+) -> Optional[Dict[str, Any]]:
+    """
+    If the session access token is near expiry (<= skew), refresh it using
+    the refresh_token and update the session. Returns the updated session dict
+    when a refresh occurs; otherwise None.
+    """
+    sess = await store.get(sid) or {}
+    if not isinstance(sess, dict):
+        return None
+
+    exp = sess.get("expires_at")
+    rt  = sess.get("refresh_token")
+    now = int(time.time())
+
+    if not exp or not rt:
+        return None
+
+    if now + max(0, int(skew_seconds)) < int(exp):
+        # not within refresh window
+        return None
+
+    try:
+        new_tokens = await refresh_access_token(rt)
+    except Exception as e:
+        log.warning("proactive_refresh failed for sid=%s…: %s", sid[:8], e)
+        return None
+
+    updated = await record_tokens_to_session(store, sid, new_tokens)
+    log.info("proactive_refresh: refreshed access token for sid=%s…", sid[:8])
+    return updated
+
 
 def attach_session_store(app, url: Optional[str] = None, prefix: Optional[str] = None) -> RedisSession:
     """
@@ -161,6 +251,9 @@ __all__ = [
     "get_session_store",
     "ensure_sid_cookie_and_store",
     "probe_key_ttl",
+    "refresh_access_token",
+    "record_tokens_to_session",
+    "proactive_refresh",
     "SESSION_PREFIX",
     "SESSION_TTL_SEC",
     "SESSION_COOKIE",

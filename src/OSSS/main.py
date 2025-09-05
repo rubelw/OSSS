@@ -2,10 +2,11 @@
 from __future__ import annotations
 
 import os
+import time
 import logging
 import logging.config
 import sqlalchemy as sa
-import inspect
+import inspect as _pyinspect
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, APIRouter, Depends, Request
 from fastapi.routing import APIRoute
@@ -29,8 +30,8 @@ from OSSS.api.routers.me import router as me_router
 from OSSS.api.routers.health import router as health_router
 from OSSS.api.logout import router as logout_router
 
-# New auth deps (no oauth2 symbol anymore)
-from OSSS.auth import ensure_access_token, get_current_user
+# New auth deps
+from OSSS.auth.deps import ensure_access_token, get_current_user
 
 from OSSS.sessions import (
     attach_session_store,
@@ -39,7 +40,9 @@ from OSSS.sessions import (
     ensure_sid_cookie_and_store,
     RedisSession,
     probe_key_ttl,
+    refresh_access_token,  # <-- needed for proactive refresh
 )
+
 from OSSS.sessions_diag import router as sessions_diag_router
 from OSSS.app_logger import get_logger
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
@@ -73,7 +76,7 @@ LOGGING = {
         "console": {
             "class": "logging.StreamHandler",
             "formatter": "uvicorn",
-            "stream": "ext://sys.stdout",    # <- ensure stdout (not default stderr)
+            "stream": "ext://sys.stdout",
         },
     },
     "loggers": {
@@ -187,6 +190,63 @@ def _cfg(lower: str, UPPER: str, default=None):
     return getattr(settings, lower, None) or getattr(settings, UPPER, default)
 
 
+# -------------------------------
+# Session helpers
+# -------------------------------
+SID_COOKIE_NAME = os.getenv("SID_COOKIE_NAME", "sid")
+SESSION_TTL_SECONDS = int(os.getenv("SESSION_TTL_SECONDS", "3600"))
+ACCESS_TOKEN_REFRESH_SKEW_SECONDS = int(os.getenv("ACCESS_TOKEN_REFRESH_SKEW_SECONDS", "60"))
+
+async def _session_set_many(store: RedisSession, sid: str, mapping: dict, ttl: int | None = None) -> None:
+    """
+    Best-effort 'set_many' for our session dicts.
+    If the store exposes set_many, use it. Otherwise: get -> update -> set.
+    """
+    try:
+        set_many = getattr(store, "set_many", None)
+        if set_many and callable(set_many):
+            if _pyinspect.iscoroutinefunction(set_many):
+                await set_many(mapping, prefix=SESSION_PREFIX, ttl=ttl)
+            else:
+                set_many(mapping, prefix=SESSION_PREFIX, ttl=ttl)
+            return
+    except Exception:
+        # fall back below
+        pass
+
+    # Fallback: merge and set the whole session
+    try:
+        get_fn = getattr(store, "get", None)
+        if _pyinspect.iscoroutinefunction(get_fn):
+            current = await store.get(sid) or {}
+        else:
+            current = store.get(sid) or {}
+    except Exception:
+        current = {}
+
+    current = dict(current)
+    current.update(mapping)
+
+    set_fn = getattr(store, "set", None)
+    if _pyinspect.iscoroutinefunction(set_fn):
+        await store.set(sid, current, ttl=ttl)
+    else:
+        store.set(sid, current, ttl=ttl)
+
+
+async def record_tokens_to_session(store: RedisSession, sid: str, tok: dict, user_email: str | None = None) -> None:
+    now = int(time.time())
+    mapping = {
+        "access_token": tok.get("access_token"),
+        "refresh_token": tok.get("refresh_token"),
+        "expires_at": now + int(tok.get("expires_in", 300)),
+        "refresh_expires_at": (now + int(tok["refresh_expires_in"])) if tok.get("refresh_expires_in") else None,
+    }
+    if user_email:
+        mapping["email"] = user_email
+    await _session_set_many(store, sid, mapping, ttl=SESSION_TTL_SECONDS)
+
+
 def create_app() -> FastAPI:
     # define a lifespan handler
     @asynccontextmanager
@@ -226,7 +286,7 @@ def create_app() -> FastAPI:
         async def session_keys(limit: int = 20, store: RedisSession = Depends(get_session_store)):
             patt = f"{SESSION_PREFIX}*"
             keys = []
-            async for k in store._r.scan_iter(match=patt, count=limit):
+            async for k in store._r.scan_iter(match=patt, count=limit):  # type: ignore[attr-defined]
                 keys.append(k.removeprefix(SESSION_PREFIX))
                 if len(keys) >= limit:
                     break
@@ -243,52 +303,51 @@ def create_app() -> FastAPI:
             orig = getattr(exc, "orig", None)
             message = str(orig or exc)
 
-            status = 400
+            status_code = 400
             detail = "Integrity error"
 
             # asyncpg-specific (PostgreSQL) precise mapping
             if _HAS_ASYNCPG and orig is not None:
                 if isinstance(orig, UniqueViolationError):
-                    status = 409
+                    status_code = 409
                     detail = "Unique constraint violation"
                 elif isinstance(orig, ForeignKeyViolationError):
-                    status = 422
+                    status_code = 422
                     detail = "Foreign key constraint failed"
                 elif isinstance(orig, NotNullViolationError):
-                    status = 422
+                    status_code = 422
                     detail = "Missing required field (NOT NULL violation)"
                 elif isinstance(orig, CheckViolationError):
-                    status = 422
+                    status_code = 422
                     detail = "Check constraint failed"
             else:
                 # Generic string heuristics (works across DBs/drivers)
                 low = message.lower()
                 if "unique constraint" in low or "duplicate key" in low:
-                    status = 409
+                    status_code = 409
                     detail = "Unique constraint violation"
                 elif "foreign key" in low:
-                    status = 422
+                    status_code = 422
                     detail = "Foreign key constraint failed"
                 elif "not null" in low or "null value in column" in low:
-                    status = 422
+                    status_code = 422
                     detail = "Missing required field (NOT NULL violation)"
                 elif "check constraint" in low:
-                    status = 422
+                    status_code = 422
                     detail = "Check constraint failed"
 
             # Log once with context; don't leak sensitive values
-            logger.exception(
+            log.exception(
                 "IntegrityError on %s %s -> %s: %s",
-                request.method, request.url.path, status, message
+                request.method, request.url.path, status_code, message
             )
 
             return JSONResponse(
-                status_code=status,
+                status_code=status_code,
                 content={
                     "detail": {
                         "error": "integrity_error",
                         "reason": detail,
-                        # include minimal DB message for debugging; remove if too chatty
                         "db_message": message,
                     }
                 },
@@ -338,7 +397,7 @@ def create_app() -> FastAPI:
         try:
             store = getattr(app.state, "session_store", None)
             if store is not None:
-                if hasattr(store, "aclose") and inspect.iscoroutinefunction(store.aclose):
+                if hasattr(store, "aclose") and _pyinspect.iscoroutinefunction(store.aclose):
                     await store.aclose()  # type: ignore[func-returns-value]
                 else:
                     r = getattr(store, "_r", None)
@@ -368,9 +427,9 @@ def create_app() -> FastAPI:
         SessionMiddleware,
         secret_key=secret_key,
         max_age=max_age,
-        session_cookie="osss_session",
-        same_site="lax",
-        https_only=False,  # True in production behind HTTPS
+        session_cookie=cookie_name,
+        same_site=same_site,
+        https_only=https_only,
     )
 
     app.add_middleware(SessionTTL)  # <- after your session-loader middleware
@@ -382,7 +441,7 @@ def create_app() -> FastAPI:
 
     # Auth routers
     app.include_router(auth_router, prefix="/auth", tags=["auth"])
-    app.include_router(auth_proxy.router, prefix="/auth/proxy", tags=["auth"])
+    #app.include_router(auth_proxy.router, prefix="/auth/proxy", tags=["auth"])
 
     # Dynamic model routers under /api
     existing: set[tuple[str, tuple[str, ...]]] = {
@@ -405,6 +464,52 @@ def create_app() -> FastAPI:
         mounted_models.add(name)
         log.info("[startup] mounted dynamic router: %s", name)
 
+    # -----------------------------
+    # Middleware: proactive refresh
+    # -----------------------------
+    @app.middleware("http")
+    async def proactive_refresh(request: Request, call_next):
+        """
+        If the access token is close to expiration (within skew), refresh it using the
+        refresh token and store the new values back into the server-side session.
+        """
+        response = None
+        try:
+            store = getattr(request.app.state, "session_store", None)
+            if store:
+                sid = request.cookies.get(SID_COOKIE_NAME)
+                if sid:
+                    # Load current session
+                    try:
+                        sess = await store.get(sid)  # type: ignore[attr-defined]
+                    except TypeError:
+                        sess = store.get(sid)  # sync fallback
+                    if isinstance(sess, dict):
+                        now = int(time.time())
+                        exp = sess.get("expires_at")
+                        rt = sess.get("refresh_token")
+                        if exp and rt and (exp - now) <= ACCESS_TOKEN_REFRESH_SKEW_SECONDS:
+                            try:
+                                new = await refresh_access_token(rt)
+                                mapping = {
+                                    "access_token": new.get("access_token"),
+                                    "refresh_token": new.get("refresh_token", rt),
+                                    "expires_at": now + int(new.get("expires_in", 300)),
+                                }
+                                r_exp = new.get("refresh_expires_in")
+                                if r_exp:
+                                    mapping["refresh_expires_at"] = now + int(r_exp)
+                                await _session_set_many(store, sid, mapping, ttl=SESSION_TTL_SECONDS)
+                                log.debug("[session] proactively refreshed token for sid=%s…", sid[:8])
+                            except Exception as e:
+                                log.warning("proactive refresh failed: %s", e)
+        finally:
+            response = await call_next(request)
+        return response
+
+    # -----------------------------
+    # Middleware: ensure SID cookie
+    # -----------------------------
     @app.middleware("http")
     async def session_tracker(request: Request, call_next):
         response = await call_next(request)  # process first to avoid masking errors

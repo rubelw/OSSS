@@ -179,51 +179,85 @@ def _extract_roles(claims: dict, client_id: Optional[str]) -> set[str]:
 # ------------------------------------------------------------------------------
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token", auto_error=False)
 
-async def get_current_user(request: Request, token: str | None = Depends(oauth2_scheme)) -> Optional[dict]:
+# ⬇️ change signature to include the store dependency
+async def get_current_user(
+    request: Request,
+    token: str | None = Depends(oauth2_scheme),
+    store = Depends(get_session_store),   # <-- add this
+) -> Optional[dict]:
     """
-    Pull a JWT from:
-      1) OAuth2PasswordBearer (Authorization: Bearer ...)
-      2) Authorization header (if not provided via dependency)
-      3) X-Forwarded-Access-Token (proxy)
-      4) 'access_token' cookie (JWT only)
-    Returns decoded claims dict or None if not authenticated/invalid.
+    1) Try bearer token (Authorization / OAuth2PasswordBearer / proxy / cookie)
+    2) If it fails due to expiry, and we have a server-side session with a refresh_token,
+       refresh the access token, update the session, and proceed.
     """
+    # --------------- existing token pickup logic (unchanged) ---------------
     raw = token
-
     if not raw:
         auth = request.headers.get("Authorization", "")
         if auth.lower().startswith("bearer "):
             raw = auth.split(" ", 1)[1].strip()
-
     if not raw:
         xf = request.headers.get("X-Forwarded-Access-Token")
         if xf:
             raw = xf.strip()
-
     if not raw:
         cookie_tok = request.cookies.get("access_token")
         if cookie_tok:
             raw = cookie_tok.strip()
-
     if not raw:
-        # unauthenticated; caller can decide whether to require
         return None
 
+    # --------------- try to decode ---------------
     try:
         claims = _decode_jwt(raw)
         claims["_roles"] = _extract_roles(claims, OIDC_CLIENT_ID)
-        # Trim noisy logs by default
         log.info("[/me] authenticated sub=%s email=%s roles=%s",
                  claims.get("sub"), claims.get("email"),
                  sorted(list(claims.get("_roles", [])))[:10])
         return claims
     except AuthError as e:
-        log.debug("Bearer presented but invalid: %s", e.detail)
-        return None
-    except Exception as e:
-        # Harden against unexpected decode errors (don’t 500)
-        log.exception("Unexpected token decode error: %s", e)
-        return None
+        # If token invalid for reasons other than expiry, bail out
+        if "expired" not in e.detail.lower():
+            log.debug("Bearer invalid (non-expiry): %s", e.detail)
+            return None
+
+        # --------------- attempt session-based refresh ---------------
+        try:
+            sid = request.cookies.get("sid")
+            if not sid or not store:
+                return None
+
+            sess = await store.get(sid) or {}
+            rt = sess.get("refresh_token")
+            if not rt:
+                return None
+
+            # Optional safety: only refresh if header token matches session’s token
+            if raw and sess.get("access_token") and raw != sess["access_token"]:
+                # This was some other token presented; don't refresh.
+                return None
+
+            new = await refresh_access_token(rt)
+            # update session and extend TTL (sliding)
+            now = int(time.time())
+            sess.update({
+                "access_token": new["access_token"],
+                "refresh_token": new.get("refresh_token", rt),
+                "expires_at":   now + int(new.get("expires_in", 300)),
+            })
+            ttl = int(os.getenv("SESSION_TTL_SECONDS", "3600"))
+            await store.set(sid, sess, ttl=ttl)
+            log.info("[session] refreshed access token for sid=%s", sid[:6] + "…")
+
+            # return claims of the new token
+            claims = _decode_jwt(new["access_token"])
+            claims["_roles"] = _extract_roles(claims, OIDC_CLIENT_ID)
+            return claims
+
+        except Exception as ex:
+            log.warning("Auto-refresh failed: %s", ex)
+            return None
+
 
 def ensure_access_token(request: Request) -> str:
     auth = request.headers.get("Authorization") or ""
