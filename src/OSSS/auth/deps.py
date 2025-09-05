@@ -8,7 +8,13 @@ from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt, JWTError, ExpiredSignatureError
 
-from OSSS.sessions import get_session_store, refresh_access_token   # project helpers
+# ⬇️ bring in session store + refresh + helpers
+from OSSS.sessions import (
+    get_session_store,
+    refresh_access_token,
+    record_tokens_to_session,
+    SESSION_COOKIE,
+)
 from OSSS.app_logger import get_logger
 
 log = get_logger("auth.deps")
@@ -29,7 +35,6 @@ JWT_SECRET         = os.getenv("JWT_SECRET")
 JWT_ALLOWED_ALGS   = [a.strip() for a in os.getenv("JWT_ALLOWED_ALGS", "RS256").split(",")]
 JWT_LEEWAY_SECONDS = int(os.getenv("JWT_LEEWAY_SECONDS", str(OIDC_LEEWAY_SEC)))
 
-# Dump auth config once
 log.info(
     "AUTH cfg: issuer=%r jwks_url=%r verify_aud=%s client_id=%r allowed_algs=%s leeway=%ss",
     OIDC_ISSUER, OIDC_JWKS_URL, OIDC_VERIFY_AUD, OIDC_CLIENT_ID, JWT_ALLOWED_ALGS, JWT_LEEWAY_SECONDS
@@ -64,13 +69,12 @@ def _load_jwks(force: bool = False) -> dict:
         return data
     except Exception as e:
         log.exception("JWKS fetch failed: %s", e)
-        # preserve last cache if present; else install empty
         if not _JWKS_CACHE:
             _JWKS_CACHE = {"keys": []}
         _JWKS_EXP_AT = now + 60
         return _JWKS_CACHE
 
-# Prime cache once (non-fatal)
+# Prime cache (non-fatal on failure)
 try:
     _ = _load_jwks(force=True)
 except Exception:
@@ -111,12 +115,12 @@ def _decode_jwt(token: str) -> dict:
     if alg not in JWT_ALLOWED_ALGS:
         raise AuthError("Unsupported token algorithm")
 
-    # Common decode options (put leeway INSIDE options)
+    # Note: some python-jose versions don't support top-level 'leeway' kwarg.
     opts = {
         "verify_aud": OIDC_VERIFY_AUD,
         "verify_exp": True,
         "verify_iss": bool(OIDC_ISSUER),
-        "leeway": JWT_LEEWAY_SECONDS,
+        "leeway": JWT_LEEWAY_SECONDS,  # ignored by older versions but harmless
     }
 
     # HS path (local)
@@ -124,7 +128,7 @@ def _decode_jwt(token: str) -> dict:
         if not JWT_SECRET:
             raise AuthError("Signing key not found")
         try:
-            claims = jwt.decode(
+            return jwt.decode(
                 token,
                 JWT_SECRET,
                 algorithms=[alg],
@@ -132,7 +136,6 @@ def _decode_jwt(token: str) -> dict:
                 issuer=OIDC_ISSUER if OIDC_ISSUER else None,
                 audience=OIDC_CLIENT_ID if OIDC_VERIFY_AUD else None,
             )
-            return claims
         except ExpiredSignatureError:
             raise AuthError("Token expired")
         except JWTError:
@@ -144,22 +147,21 @@ def _decode_jwt(token: str) -> dict:
         raise AuthError("Signing key not found")
 
     try:
-        claims = jwt.decode(
+        return jwt.decode(
             token,
-            key,  # python-jose accepts JWK dict for RS*
+            key,  # python-jose accepts JWK dict
             algorithms=[alg],
             options=opts,
             issuer=OIDC_ISSUER if OIDC_ISSUER else None,
             audience=OIDC_CLIENT_ID if OIDC_VERIFY_AUD else None,
         )
-        return claims
     except ExpiredSignatureError:
         raise AuthError("Token expired")
     except JWTError:
         raise AuthError("Invalid token")
 
 # ------------------------------------------------------------------------------
-# Roles extraction
+# Roles
 # ------------------------------------------------------------------------------
 def _extract_roles(claims: dict, client_id: Optional[str]) -> set[str]:
     roles: set[str] = set()
@@ -175,22 +177,25 @@ def _extract_roles(claims: dict, client_id: Optional[str]) -> set[str]:
     return roles
 
 # ------------------------------------------------------------------------------
-# OAuth2 bearer dependency (header/cookie/proxy)
+# OAuth2 bearer dependency (header/cookie/proxy) with session fallback/refresh
 # ------------------------------------------------------------------------------
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token", auto_error=False)
 
-# ⬇️ change signature to include the store dependency
 async def get_current_user(
     request: Request,
     token: str | None = Depends(oauth2_scheme),
-    store = Depends(get_session_store),   # <-- add this
+    store = Depends(get_session_store),
 ) -> Optional[dict]:
     """
-    1) Try bearer token (Authorization / OAuth2PasswordBearer / proxy / cookie)
-    2) If it fails due to expiry, and we have a server-side session with a refresh_token,
-       refresh the access token, update the session, and proceed.
+    Authentication flow:
+      1) Try Bearer (OAuth2/Authorization header/cookie/proxy). If valid, return claims.
+      2) If Bearer is missing/invalid/expired, try server session via SESSION_COOKIE.
+         - If session access_token valid, use it.
+         - If expired and refresh_token present, refresh via Keycloak, persist with
+           record_tokens_to_session(...), then use new access_token.
+      Returns claims dict or None.
     """
-    # --------------- existing token pickup logic (unchanged) ---------------
+    # Gather a candidate Bearer
     raw = token
     if not raw:
         auth = request.headers.get("Authorization", "")
@@ -204,60 +209,57 @@ async def get_current_user(
         cookie_tok = request.cookies.get("access_token")
         if cookie_tok:
             raw = cookie_tok.strip()
-    if not raw:
-        return None
 
-    # --------------- try to decode ---------------
-    try:
-        claims = _decode_jwt(raw)
-        claims["_roles"] = _extract_roles(claims, OIDC_CLIENT_ID)
-        log.info("[/me] authenticated sub=%s email=%s roles=%s",
-                 claims.get("sub"), claims.get("email"),
-                 sorted(list(claims.get("_roles", [])))[:10])
-        return claims
-    except AuthError as e:
-        # If token invalid for reasons other than expiry, bail out
-        if "expired" not in e.detail.lower():
-            log.debug("Bearer invalid (non-expiry): %s", e.detail)
-            return None
-
-        # --------------- attempt session-based refresh ---------------
+    # (1) Try to decode Bearer if present
+    if raw:
         try:
-            sid = request.cookies.get("sid")
-            if not sid or not store:
-                return None
-
-            sess = await store.get(sid) or {}
-            rt = sess.get("refresh_token")
-            if not rt:
-                return None
-
-            # Optional safety: only refresh if header token matches session’s token
-            if raw and sess.get("access_token") and raw != sess["access_token"]:
-                # This was some other token presented; don't refresh.
-                return None
-
-            new = await refresh_access_token(rt)
-            # update session and extend TTL (sliding)
-            now = int(time.time())
-            sess.update({
-                "access_token": new["access_token"],
-                "refresh_token": new.get("refresh_token", rt),
-                "expires_at":   now + int(new.get("expires_in", 300)),
-            })
-            ttl = int(os.getenv("SESSION_TTL_SECONDS", "3600"))
-            await store.set(sid, sess, ttl=ttl)
-            log.info("[session] refreshed access token for sid=%s", sid[:6] + "…")
-
-            # return claims of the new token
-            claims = _decode_jwt(new["access_token"])
+            claims = _decode_jwt(raw)
             claims["_roles"] = _extract_roles(claims, OIDC_CLIENT_ID)
             return claims
+        except AuthError as e:
+            # fall through to session path for any invalid/expired
+            log.debug("Bearer invalid; trying session fallback: %s", e.detail)
 
-        except Exception as ex:
-            log.warning("Auto-refresh failed: %s", ex)
-            return None
+    # (2) Session fallback (works even if no Bearer at all)
+    sid = request.cookies.get(SESSION_COOKIE)
+    if not sid or not store:
+        return None
 
+    sess = await store.get(sid) or {}
+    sess_at = sess.get("access_token")
+    if sess_at:
+        try:
+            claims = _decode_jwt(sess_at)
+            claims["_roles"] = _extract_roles(claims, OIDC_CLIENT_ID)
+            return claims
+        except AuthError:
+            pass  # maybe expired; try refresh below
+
+    rt = sess.get("refresh_token")
+    if not rt:
+        return None
+
+    # Optional safety: only refresh when Bearer equals session access token (if both exist)
+    if raw and sess_at and raw != sess_at:
+        # Someone presented a different token; don't refresh session on its behalf.
+        return None
+
+    # Refresh using Keycloak
+    try:
+        new_tokens = await refresh_access_token(rt)
+        # Persist + extend TTL via helper
+        await record_tokens_to_session(
+            store,
+            sid,
+            new_tokens,
+            user_email=sess.get("email"),
+        )
+        claims = _decode_jwt(new_tokens["access_token"])
+        claims["_roles"] = _extract_roles(claims, OIDC_CLIENT_ID)
+        return claims
+    except Exception as ex:
+        log.warning("Session auto-refresh failed: %s", ex)
+        return None
 
 def ensure_access_token(request: Request) -> str:
     auth = request.headers.get("Authorization") or ""
@@ -299,11 +301,11 @@ def require_roles(*, any_of: Sequence[str] | set[str] | None = None,
 # ------------------------------------------------------------------------------
 # Back-compat “oauth2” shim with session-based auto-refresh
 # ------------------------------------------------------------------------------
-async def oauth2(request: Request, store=Depends(get_session_store)):
+async def oauth2(request: Request, store = Depends(get_session_store)):
     """
     Historic dependency for routes/tests that used server-side session tokens.
     1) If Bearer header is present, try it (no refresh).
-    2) Else try session (sid cookie). If expired and refresh_token present, auto-refresh.
+    2) Else try session (SESSION_COOKIE). If expired and refresh_token present, auto-refresh.
     """
     # (1) Raw bearer first
     auth = request.headers.get("Authorization", "")
@@ -312,14 +314,13 @@ async def oauth2(request: Request, store=Depends(get_session_store)):
         try:
             return _decode_jwt(token)
         except AuthError:
-            # fall back to session path below
-            pass
+            pass  # fall through
 
     # (2) Server-side session
     if not store:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
-    sid = request.cookies.get("sid")  # your cookie name
+    sid = request.cookies.get(SESSION_COOKIE)
     if not sid:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
@@ -329,10 +330,8 @@ async def oauth2(request: Request, store=Depends(get_session_store)):
         raise HTTPException(status_code=401, detail="Not authenticated")
 
     try:
-        # still valid?
         return _decode_jwt(token)
-    except AuthError as e:
-        # attempt refresh if we have a refresh_token
+    except AuthError:
         rt = sess.get("refresh_token")
         if not rt:
             raise HTTPException(status_code=401, detail="Session expired")
@@ -343,14 +342,7 @@ async def oauth2(request: Request, store=Depends(get_session_store)):
             log.warning("refresh failed: %s", ex)
             raise HTTPException(status_code=401, detail="Session expired")
 
-        # update session and extend TTL (sliding window)
-        sess["access_token"]  = new["access_token"]
-        sess["refresh_token"] = new.get("refresh_token", rt)
-        sess["expires_at"]    = int(time.time()) + int(new.get("expires_in", 300))
-        ttl = int(os.getenv("SESSION_TTL_SECONDS", "3600"))
-        await store.set(sid, sess, ttl=ttl)
-        log.info("[session] refreshed access token for sid=%s", sid[:6] + "…")
-
+        await record_tokens_to_session(store, sid, new, user_email=sess.get("email"))
         return _decode_jwt(new["access_token"])
 
 # ------------------------------------------------------------------------------
