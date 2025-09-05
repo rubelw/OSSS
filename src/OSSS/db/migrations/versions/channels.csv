@@ -1,19 +1,19 @@
 id,org_id,name,audience,description
-655caed5-ff1b-47c8-9d0b-d1c979b6b213,ba2066a9-7a1a-4a8a-bdf5-3daf97c279c1,Technology,staff,Information for staff and internal announcements.
-a0af06f0-73d5-4fba-8d34-8a1f827e52fe,ba2066a9-7a1a-4a8a-bdf5-3daf97c279c1,Library,staff,Updates from the school board.
-caf9c507-df01-4c50-be93-3de5aac22895,ba2066a9-7a1a-4a8a-bdf5-3daf97c279c1,Principals,public,Transportation notices and route updates.
-14fa2cb3-866f-4e69-b304-b705a53b2361,ba2066a9-7a1a-4a8a-bdf5-3daf97c279c1,Facilities,staff,Upcoming events and activities.
-30b40ee0-9399-4c11-a1a6-adb6dc4e040f,ba2066a9-7a1a-4a8a-bdf5-3daf97c279c1,Clubs,public,Technology tips and service notices.
-ae44aadc-8f09-419e-958b-418955dd49bb,ba2066a9-7a1a-4a8a-bdf5-3daf97c279c1,District News,staff,Community engagement and partnerships.
-527f36cf-df70-4ea1-a579-b0fa17d53871,ba2066a9-7a1a-4a8a-bdf5-3daf97c279c1,Music,staff,Information for staff and internal announcements.
-4b2e5b19-c58a-4749-8d75-f8cbb4525d1f,ba2066a9-7a1a-4a8a-bdf5-3daf97c279c1,Curriculum,public,
-252d7bdd-e601-4837-a219-28ea01521705,ba2066a9-7a1a-4a8a-bdf5-3daf97c279c1,Athletics,public,Information for staff and internal announcements.
-5bb545a4-0613-494a-adcf-23e9fe0b995a,ba2066a9-7a1a-4a8a-bdf5-3daf97c279c1,Family Portal,staff,Official updates and news for the district.
-c8588189-3ff3-49da-b4fd-107682424e6e,ba2066a9-7a1a-4a8a-bdf5-3daf97c279c1,Events,board,Upcoming events and activities.
-d76ac068-aec5-412b-a7c6-53808bc8ee40,ba2066a9-7a1a-4a8a-bdf5-3daf97c279c1,Theater,public,
-5994d3ee-ef6a-4be7-a029-13cb3ae301d7,ba2066a9-7a1a-4a8a-bdf5-3daf97c279c1,Community,board,Upcoming events and activities.
-46023d20-9025-48ab-b084-46d51504bb61,ba2066a9-7a1a-4a8a-bdf5-3daf97c279c1,Staff Updates,staff,Technology tips and service notices.
-3dfea978-33cd-4951-89da-fef2f9c99e67,ba2066a9-7a1a-4a8a-bdf5-3daf97c279c1,Transportation,public,Community engagement and partnerships.
-d9531f10-ae73-4159-9a60-22e44f5d4d63,ba2066a9-7a1a-4a8a-bdf5-3daf97c279c1,Board Updates,public,"Arts, music, and theater highlights."
-3476bd8d-b672-4700-b191-02ca50655a69,ba2066a9-7a1a-4a8a-bdf5-3daf97c279c1,Superintendent,public,Upcoming events and activities.
-d671131e-1d6d-45b3-b8cf-0c65fb08d1f7,ba2066a9-7a1a-4a8a-bdf5-3daf97c279c1,Arts,public,Official updates and news for the district.
+66db8d77-96f8-4aaf-a066-fde96f1c93ba,70b8d508-f6fe-4042-a996-83e4076ad0f0,Events,staff,Official updates and news for the district.
+20c83974-c3dc-4f44-aa32-44c80a8c827e,70b8d508-f6fe-4042-a996-83e4076ad0f0,Technology,public,Updates from the school board.
+700d44c6-0e36-411d-94eb-ca039237aa8d,70b8d508-f6fe-4042-a996-83e4076ad0f0,Community,staff,Official updates and news for the district.
+052383a5-5a3f-4ee2-ab44-31add486739f,70b8d508-f6fe-4042-a996-83e4076ad0f0,Music,public,Updates from the school board.
+f156af1c-408f-4a23-b5c9-23773d640093,70b8d508-f6fe-4042-a996-83e4076ad0f0,Principals,public,Information for staff and internal announcements.
+88bd0bb7-fdaa-432a-9f8f-a13d63aa132d,70b8d508-f6fe-4042-a996-83e4076ad0f0,Superintendent,public,Updates from the school board.
+dac3c9c8-0383-46f1-9251-182383cc5c43,70b8d508-f6fe-4042-a996-83e4076ad0f0,Family Portal,staff,Updates from the school board.
+50dcd80b-e227-4098-a5a3-b479b0629a5e,70b8d508-f6fe-4042-a996-83e4076ad0f0,Curriculum,public,
+68624e61-9883-41e7-b332-5df34cdc9da5,70b8d508-f6fe-4042-a996-83e4076ad0f0,Transportation,public,Transportation notices and route updates.
+2e75c3e0-811e-41d0-901a-74b820995b46,70b8d508-f6fe-4042-a996-83e4076ad0f0,Announcements,public,Upcoming events and activities.
+49eda8e1-cd00-4f3a-bbde-6830cfb32633,70b8d508-f6fe-4042-a996-83e4076ad0f0,Special Education,public,Health and safety reminders.
+ea9a2d73-820c-41c2-95f2-94dfbcd2cbe3,70b8d508-f6fe-4042-a996-83e4076ad0f0,Facilities,staff,
+67cbfc3c-bb13-41cc-a75c-d6526f472a6b,70b8d508-f6fe-4042-a996-83e4076ad0f0,Staff Updates,public,Technology tips and service notices.
+a5ff628e-86d6-496b-9b81-950add9dcb70,70b8d508-f6fe-4042-a996-83e4076ad0f0,District News,public,
+a5369279-deac-405a-ad0c-858489fcf202,70b8d508-f6fe-4042-a996-83e4076ad0f0,Athletics,public,
+95085e85-f95c-4a6c-b777-cfda5cd5d7ca,70b8d508-f6fe-4042-a996-83e4076ad0f0,Food Services,public,"Arts, music, and theater highlights."
+eea560e6-fc40-4438-8f30-5662fdbcc115,70b8d508-f6fe-4042-a996-83e4076ad0f0,Clubs,public,
+c232f740-402e-49b5-915e-8fd93a8dfa10,70b8d508-f6fe-4042-a996-83e4076ad0f0,Library,staff,
