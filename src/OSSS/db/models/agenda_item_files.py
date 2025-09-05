@@ -1,7 +1,7 @@
 # models/agenda_item_file.py
 from __future__ import annotations
 import sqlalchemy as sa
-from sqlalchemy import ForeignKey
+from sqlalchemy import Column, DateTime, ForeignKey, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from OSSS.db.base import Base, GUID
 from typing import ClassVar
@@ -9,6 +9,9 @@ from typing import ClassVar
 
 class AgendaItemFile(Base):
     __tablename__ = "agenda_item_files"
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
     __allow_unmapped__ = True  # keep NOTE out of the SQLAlchemy mapper
 
     NOTE: ClassVar[str] =     (

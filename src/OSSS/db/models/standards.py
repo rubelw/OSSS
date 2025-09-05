@@ -11,6 +11,9 @@ from .associations import proposal_standard_map, unit_standard_map
 
 class Standard(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "standards"
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
     __allow_unmapped__ = True  # keep NOTE out of the SQLAlchemy mapper
 
     NOTE: ClassVar[str] = (
@@ -89,3 +92,5 @@ class Standard(UUIDMixin, TimestampMixin, Base):
         back_populates="standards",
         lazy="selectin",
     )
+
+from sqlalchemy import Column, DateTime, func

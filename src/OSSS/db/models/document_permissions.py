@@ -1,13 +1,16 @@
 # OSSS/db/models/document_permission.py
 from __future__ import annotations
 import sqlalchemy as sa
-from sqlalchemy import ForeignKey, text
+from sqlalchemy import Column, DateTime, ForeignKey, func, text
 from sqlalchemy.orm import Mapped, mapped_column
 from OSSS.db.base import Base, GUID
 from typing import ClassVar
 
 class DocumentPermission(Base):
     __tablename__ = "document_permissions"
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
     __allow_unmapped__ = True  # keep NOTE out of mapper
 
     NOTE: ClassVar[str] = (

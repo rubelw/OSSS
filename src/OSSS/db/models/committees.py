@@ -6,7 +6,7 @@ from decimal import Decimal
 from typing import Any, Optional, List
 
 import sqlalchemy as sa
-from sqlalchemy import ForeignKey, UniqueConstraint, text, CheckConstraint
+from sqlalchemy import CheckConstraint, Column, DateTime, ForeignKey, UniqueConstraint, func, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from OSSS.db.base import Base, UUIDMixin, GUID, JSONB
@@ -29,6 +29,9 @@ class Committee(UUIDMixin, Base):
 
     # IMPORTANT: use 'committees' to match FKs like ForeignKey('committees.id')
     __tablename__ = "committees"
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
     organization_id: Mapped[Optional[Any]] = mapped_column(
         GUID(), ForeignKey("organizations.id", ondelete="SET NULL")

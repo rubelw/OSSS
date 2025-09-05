@@ -2,13 +2,16 @@ from __future__ import annotations
 import uuid
 from typing import Any, Optional, List, ClassVar
 import sqlalchemy as sa
-from sqlalchemy import ForeignKey, UniqueConstraint, text
+from sqlalchemy import Column, DateTime, ForeignKey, UniqueConstraint, func, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from OSSS.db.base import Base, UUIDMixin, GUID, JSONB, TSVectorType
 
 class DocumentSearchIndex(Base):
     __tablename__ = "document_search_index"
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
     __allow_unmapped__ = True  # keep NOTE out of mapper
 
     NOTE: ClassVar[str] = (
