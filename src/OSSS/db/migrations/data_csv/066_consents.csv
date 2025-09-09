@@ -1,0 +1,2 @@
+id,person_id,consent_type,created_at,updated_at,effective_date,granted
+c9f5e996-0fb6-548e-9788-247c176f1357,5c6ecd7f-1795-56cb-a251-533278674a9e,Sample consents consent_type,2025-09-05T18:25:42Z,2025-09-05T18:25:42Z,2025-09-05,True

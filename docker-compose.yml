@@ -1,11 +1,63 @@
 version: "3.8"
 
+networks:
+  osss-net:
+
 volumes:
+  consul_data:
   kc_postgres_data:
   osss_postgres_data:
   redis-data:
 
 services:
+  curl:
+    image: curlimages/curl:8.8.0
+    command: [ "sleep","infinity" ]
+    depends_on:
+      keycloak:
+        condition: service_started
+    networks: [ osss-net ]
+    # ✅ Use curl sidecar to report Keycloak readiness
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -fsS http://keycloak:9000/health/ready >/dev/null || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 90s
+  # HashiCorp Consul (dev mode) — service discovery, DNS, UI
+  consul:
+    image: hashicorp/consul:1.18
+    command: [ "agent","-dev","-client=0.0.0.0","-ui","-log-level=INFO" ]
+    ports:
+      - "8500:8500"          # HTTP UI/API
+      - "8600:8600/tcp"      # DNS (TCP)
+      - "8600:8600/udp"      # DNS (UDP)
+    volumes:
+      - consul_data:/consul/data
+    networks: [ osss-net ]
+    environment:
+      # Registers your FastAPI 'app' service; Consul runs this TCP check from inside the container
+      CONSUL_LOCAL_CONFIG: |
+        {
+          "datacenter": "dc1",
+          "connect": { "enabled": true },
+          "services": [
+              {
+                  "name": "app",
+                  "address": "app",
+                  "port": 8000,
+                  "checks": [
+                      { "tcp": "app:8000", "interval": "10s", "timeout": "2s" }
+                  ]
+              }
+          ]
+        }
+    healthcheck:
+      test: [ "CMD-SHELL", "consul info >/dev/null 2>&1" ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
   app:
     profiles: ["app"]
     build:
@@ -13,9 +65,15 @@ services:
       dockerfile: docker/app/Dockerfile
     ports:
       - "8000:8000"
+    networks: [ osss-net ]
     environment:
       - HOST=0.0.0.0
       - PORT=8000
+      # ↓↓↓ Make FastAPI validate against the same issuer Keycloak advertises
+      - OIDC_ISSUER=http://host.docker.internal:8085/realms/OSSS
+      - OIDC_CLIENT_ID=osss-api
+      - OIDC_VERIFY_AUD=0
+      - OIDC_JWKS_URL=http://host.docker.internal:8085/realms/OSSS/protocol/openid-connect/certs
     depends_on:
       - kc_postgres
       - osss_postgres
@@ -25,6 +83,7 @@ services:
       POSTGRES_DB: ${OSSS_DB_NAME}
       POSTGRES_USER: ${OSSS_DB_USER}
       POSTGRES_PASSWORD: ${OSSS_DB_PASSWORD}
+    networks: [ osss-net ]
     ports: [ "5433:5432" ]
     volumes:
       - osss_postgres_data:/var/lib/postgresql/data
@@ -40,10 +99,11 @@ services:
       POSTGRES_DB: ${KC_DB_NAME}
       POSTGRES_USER: ${KC_DB_USERNAME}
       POSTGRES_PASSWORD: ${KC_DB_PASSWORD}
+    networks: [ osss-net ]
     volumes:
       - kc_postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${OSSS_DB_USER:-osss} -d ${OSSS_DB_NAME:-osss} -h 127.0.0.1 -p 5432 || exit 1"]
+      test: ["CMD-SHELL", "pg_isready -U ${KC_DB_USERNAME:-osss} -d ${KC_DB_NAME:-osss} -h 127.0.0.1 -p 5432 || exit 1"]
       interval: 5s
       timeout: 5s
       retries: 20
@@ -54,6 +114,7 @@ services:
     command: [ "redis-server", "--appendonly", "yes" ]
     ports:
       - "6379:6379"        # optional for host access; containers use 'redis:6379'
+    networks: [ osss-net ]
     volumes:
       - redis-data:/data
     healthcheck:
@@ -63,45 +124,132 @@ services:
       retries: 20
     restart: unless-stopped
   keycloak:
-    build:
-      context: .          # folder that contains Dockerfile + init-and-start.sh
-      dockerfile: docker/keycloak/Dockerfile
-    # ⬇️ hard limits for the container (compose)
-    mem_limit: 1g         # container RAM
-    cpus: 1               # container vCPUs
-    environment:
-      KC_DB: ${KC_DB}
-      KC_DB_URL: jdbc:postgresql://${KC_DB_HOST}:${KC_DB_PORT}/${KC_DB_NAME}
-      KC_DB_USERNAME: ${KC_DB_USERNAME}
-      KC_DB_PASSWORD: ${KC_DB_PASSWORD}
-      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN}
-      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
-      # Optional but nice:
-      KC_HEALTH_ENABLED: "true"
-      KC_HOSTNAME: localhost
-      KC_DB_SCHEMA: public
-      REALM: OSSS
-      IMPORT_STRATEGY: OVERWRITE_EXISTING
-      RESET_REALM: "1"   # set to "0" to skip deletion
-      # Give the import more time (default is often too low for big group trees)
-      QUARKUS_TRANSACTION_MANAGER_DEFAULT_TRANSACTION_TIMEOUT: "600"   # seconds
-
-      # DB connection pool headroom (avoid pool starvation during import)
-      KC_DB_POOL_INITIAL_SIZE: "20"
-      KC_DB_POOL_MIN_SIZE: "20"
-      KC_DB_POOL_MAX_SIZE: "50"
-
-      # runtime env form (keep it)
-      QUARKUS_HIBERNATE_ORM_PERSISTENCE_XML_IGNORE: "true"
-      # also append a JVM -D for the build/augmentation phase
-      JAVA_OPTS_APPEND: "-Dquarkus.hibernate-orm.persistence-xml.ignore=true"
-      # (optional) extra logging to see what’s happening
-      KC_LOG_LEVEL: "info,org.keycloak:DEBUG,org.hibernate:INFO,io.quarkus:DEBUG"
-    volumes:
-      - ./realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
-    ports:
-      - "8085:8080"
+    image: quay.io/keycloak/keycloak:25.0.6
     depends_on:
       kc_postgres:
         condition: service_healthy
-    restart: always
+    networks: [ osss-net ]
+    environment:
+      # --- DB ---
+      KC_DB: postgres
+      KC_DB_USERNAME: ${KC_DB_USERNAME:-keycloak}
+      KC_DB_PASSWORD: ${KC_DB_PASSWORD:-keycloakpass}
+      KC_DB_URL_HOST: kc_postgres
+      KC_DB_URL_PORT: "5432"
+      KC_DB_URL_DATABASE: ${KC_DB_NAME:-keycloak}
+
+      # --- Admin ---
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+
+      # --- HTTP & Hostname (the important part) ---
+      KC_HTTP_ENABLED: "true"
+      KC_HEALTH_ENABLED: "true"
+      KC_PROXY: "edge"
+      KC_HOSTNAME_PORT: "8080"
+      KC_HOSTNAME_STRICT: "false"
+      KC_HOSTNAME_STRICT_HTTPS: "false"
+      # Force canonical base URL used in discovery/issuer:
+      KC_FEATURES: "hostname:v1"
+
+      # --- Logging/timeouts (optional) ---
+      QUARKUS_TRANSACTION_MANAGER_DEFAULT_TRANSACTION_TIMEOUT: "600"
+      KC_LOG_LEVEL: "info,org.keycloak:DEBUG,org.hibernate:INFO,io.quarkus:DEBUG"
+
+    # Keep start, but **drop** hostname-admin-url pointing to host.docker.internal
+    command: [ "start", "--hostname-admin-url=http://host.docker.internal:8085","--hostname-url=http://host.docker.internal:8085","--http-enabled=true", "--import-realm" ]
+
+    volumes:
+      - ./realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+
+    # Expose 8080 from the container on 8085 of the host (fine to keep)
+    ports:
+      - "8085:8080"
+    restart: unless-stopped
+
+  vault:
+    image: hashicorp/vault:1.20.3
+    pull_policy: always
+    container_name: vault
+    ports: ["8200:8200"]
+    cap_add: ["IPC_LOCK"]
+    networks: [ osss-net ]
+    environment:
+      VAULT_DEV_ROOT_TOKEN_ID: "root"
+      VAULT_DEV_LISTEN_ADDRESS: "0.0.0.0:8200"
+      VAULT_UI: "true"
+      # internal address used by other containers
+      VAULT_API_ADDR: "http://vault:8200"
+    command:
+      - server
+      - -dev
+      - -dev-root-token-id=root
+      - -dev-listen-address=0.0.0.0:8200
+    healthcheck:
+      test: ["CMD-SHELL","wget -qO- http://127.0.0.1:8200/v1/sys/health | grep -q '\"initialized\":true'"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+
+  vault-oidc-setup:
+    build:
+      context: .                      # repo root
+      dockerfile: docker/vault-oidc-setup/Dockerfile
+    container_name: vault-oidc-setup
+    networks: [ osss-net ]
+    depends_on:
+      vault:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+    environment:
+      VERBOSE: "1"
+      DEBUG: "1"
+      # talk to Vault via service DNS inside the compose network
+      VAULT_ADDR: "http://vault:8200"
+      VAULT_TOKEN: "${VAULT_TOKEN:-root}"
+
+      # Keycloak issuer (discovery URL without the /.well-known suffix)]
+      OIDC_DISCOVERY_URL: "http://host.docker.internal:8085/realms/OSSS"
+      VAULT_OIDC_DISCOVERY_URL: "http://host.docker.internal:8085/realms/OSSS"
+      VAULT_OIDC_CLIENT_ID: "${VAULT_OIDC_CLIENT_ID:-vault}"
+      VAULT_OIDC_CLIENT_SECRET: "${VAULT_OIDC_CLIENT_SECRET:-password}"
+      VAULT_OIDC_ROLE: "${VAULT_OIDC_ROLE:-vault}"
+      VAULT_TOKEN_FILE: "/root/.vault-token"
+      OIDC_ADMIN_GROUP: "/vault-admin"
+
+      # Allow both 127.0.0.1 and localhost for UI & CLI
+      VAULT_UI_REDIRECT_1: "http://127.0.0.1:8200/ui/vault/auth/oidc/oidc/callback"
+      VAULT_UI_REDIRECT_2: "http://localhost:8200/ui/vault/auth/oidc/oidc/callback"
+      VAULT_CLI_REDIRECT_1: "http://127.0.0.1:8250/oidc/callback"
+      VAULT_CLI_REDIRECT_2: "http://localhost:8250/oidc/callback"
+
+    volumes: [ "./scripts/vault-oidc-setup.sh:/setup.sh:ro","~/.vault-token:/root/.vault-token:ro" ]
+    entrypoint: [ "/bin/sh","-lc","/setup.sh" ]
+    restart: "no"
+
+  vault-seed:
+    image: alpine:3.20
+    env_file: .env
+    networks: [ osss-net ]
+    environment:
+      VAULT_ADDR: "http://vault:8200"
+      VAULT_TOKEN: "${VAULT_TOKEN:-root}"
+      VAULT_KV_PATH: "${VAULT_KV_PATH:-app}"
+      SEED_VAULT_TOKEN: "${VAULT_TOKEN:-root}"
+      VERBOSE: "1"   # set to 0 to quiet logs
+      DEBUG: "1"     # set to 1 for shell trace
+    depends_on:
+      vault:
+        condition: service_healthy
+    volumes:
+      - ./scripts/seed-vault.sh:/usr/local/bin/seed-vault:ro
+    entrypoint: [ "/bin/sh","-lc","/usr/local/bin/seed-vault" ]
+    restart: "no"
+
+

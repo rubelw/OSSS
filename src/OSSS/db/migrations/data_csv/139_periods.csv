@@ -1,0 +1,2 @@
+id,bell_schedule_id,created_at,end_time,start_time,updated_at,name
+04bbe899-ce6f-5e46-bb80-9b89d6ff473a,5826e237-75c4-5fce-8e0e-d0a4c13bf6e2,2025-09-05T18:25:42Z,X-periods-end_time,X-periods-start_time,2025-09-05T18:25:42Z,Sample periods name

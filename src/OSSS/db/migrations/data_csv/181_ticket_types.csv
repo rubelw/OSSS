@@ -1,0 +1,2 @@
+id,event_id,price_cents,created_at,quantity_total,updated_at,quantity_sold,name
+edd7aa44-5c47-59c5-8884-e04e9fc2e02e,8e05f034-722e-5926-be91-43763ea26c41,1,2025-09-05T18:25:42Z,1,2025-09-05T18:25:42Z,1,Sample ticket_types name

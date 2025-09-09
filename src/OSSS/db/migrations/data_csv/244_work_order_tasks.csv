@@ -1,0 +1,2 @@
+id,work_order_id,seq,title,created_at,updated_at,is_mandatory
+cdb45d36-3da5-52b8-afa6-7fd0a7035812,55edd688-cf32-52e7-a4bf-870530c97814,1,Sample work_order_tasks title,2025-09-05T18:25:42Z,2025-09-05T18:25:42Z,Sample work_order_tasks is_mandatory

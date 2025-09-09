@@ -2,7 +2,9 @@ name: Publish Python distribution to PyPI
 
 on:
   push:
-    workflow_dispatch: {}
+    branches-ignore: [ '**' ]  # ignore all
+    tags-ignore: [ '**' ]  # ignore all
+    #workflow_dispatch:
     #branches: [ main ]  # Disabled
   workflow_dispatch:
     inputs:
@@ -20,6 +22,7 @@ permissions:
 jobs:
   build:
     name: Build dist artifacts
+    if: ${{ github.event_name == 'workflow_dispatch' }}  # skip on push
     runs-on: ubuntu-latest
     steps:
       - name: Check out

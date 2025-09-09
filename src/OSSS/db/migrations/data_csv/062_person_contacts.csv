@@ -1,0 +1,2 @@
+id,person_id,contact_id,is_primary,created_at,is_emergency,updated_at
+144568ae-6667-5a23-aae8-d8ca4f2cb8da,5c6ecd7f-1795-56cb-a251-533278674a9e,d893a355-8a88-5726-b20c-6ea3886bf931,Sample person_contacts is_primary,2025-09-05T18:25:42Z,Sample person_contacts is_emergency,2025-09-05T18:25:42Z

@@ -1,0 +1,78 @@
+#!/bin/sh
+set -eu
+
+# --- Configurable basics ---
+ADMIN_USER="${KEYCLOAK_ADMIN:-admin}"
+ADMIN_PWD="${KEYCLOAK_ADMIN_PASSWORD:-admin}"
+REALM="${REALM:-OSSS}"
+
+# Bootstrap (HTTP) so kcadm works without truststore
+BOOT_HTTP_PORT="${BOOT_HTTP_PORT:-8080}"
+KC_BOOT_URL="http://localhost:${BOOT_HTTP_PORT}"
+
+# Final HTTPS settings
+HTTPS_PORT="${HTTPS_PORT:-8443}"
+KC_HOSTNAME_FINAL="${KC_HOSTNAME:-localhost}"   # set to the host you will use in the browser
+CERT_FILE="${KC_CERT_FILE:-/certs/keycloak/server.crt}"
+CERT_KEY_FILE="${KC_CERT_KEY_FILE:-/certs/keycloak/server.key}"
+
+# Import behavior
+IMPORT_STRATEGY="${IMPORT_STRATEGY:-OVERWRITE_EXISTING}"
+DO_IMPORT="${DO_IMPORT:-true}"
+
+echo "▶️  Starting bootstrap Keycloak (start-dev on ${KC_BOOT_URL})..."
+/opt/keycloak/bin/kc.sh start-dev \
+  --http-enabled=true \
+  --http-port="${BOOT_HTTP_PORT}" \
+  --hostname-strict=false \
+  --hostname=localhost &
+BOOT_PID=$!
+
+# Wait until admin CLI can auth
+echo "⏳ Waiting for Keycloak to accept kcadm credentials..."
+until /opt/keycloak/bin/kcadm.sh config credentials \
+  --server "$KC_BOOT_URL" --realm master \
+  --user "$ADMIN_USER" --password "$ADMIN_PWD" >/dev/null 2>&1
+do
+  sleep 2
+done
+echo "🔐 Logged into admin CLI."
+
+# Delete realm if present (clean import later)
+if /opt/keycloak/bin/kcadm.sh get "realms/${REALM}" >/dev/null 2>&1; then
+  echo "🧹 Deleting existing realm '${REALM}'..."
+  /opt/keycloak/bin/kcadm.sh delete "realms/${REALM}"
+else
+  echo "ℹ️ Realm '${REALM}' not found. Nothing to delete."
+fi
+
+echo "🛑 Stopping bootstrap Keycloak..."
+kill "$BOOT_PID" 2>/dev/null || true
+wait "$BOOT_PID" 2>/dev/null || true
+
+# ----- BUILD FOR PRODUCTION -----
+echo "🧱 Building Keycloak for production..."
+/opt/keycloak/bin/kc.sh build --db=postgres
+# If build fails in your env, you can fall back to auto-build at start:
+# EXTRA_START_FLAGS="--auto-build"
+
+# ----- FINAL START (HTTPS) -----
+IMPORT_DIR="/opt/keycloak/data/import"
+START_IMPORT_FLAGS=""
+if [ "${DO_IMPORT}" = "true" ] || [ "${DO_IMPORT}" = "1" ]; then
+  if ls "${IMPORT_DIR}"/* >/dev/null 2>&1; then
+    START_IMPORT_FLAGS="--import-realm --spi-export-import-single-file.strategy=${IMPORT_STRATEGY}"
+  else
+    echo "⚠️ No realm files found in ${IMPORT_DIR}; skipping import."
+  fi
+fi
+
+echo "🚀 Starting Keycloak (start) over HTTPS on :${HTTPS_PORT} (hostname='${KC_HOSTNAME_FINAL}')"
+exec /opt/keycloak/bin/kc.sh start \
+  --https-certificate-file="${CERT_FILE}" \
+  --https-certificate-key-file="${CERT_KEY_FILE}" \
+  --http-enabled=false \
+  --https-port="${HTTPS_PORT}" \
+  --hostname="${KC_HOSTNAME_FINAL}" \
+  --hostname-strict=true \
+  ${START_IMPORT_FLAGS} ${EXTRA_START_FLAGS:-}

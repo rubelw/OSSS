@@ -1,0 +1,2 @@
+id,asset_id,building_id,school_id,space_id,assigned_to_user_id,request_id,summary,created_at,status,updated_at
+55edd688-cf32-52e7-a4bf-870530c97814,c1c45de6-4bfb-5c8c-8213-9a4e356d6bef,b966627f-da21-5522-9d86-88d0cdf22732,a08e9a86-7bc6-5963-8689-a2b7499d2984,c2251d74-598c-5fd9-8837-257402edc906,02af070d-4e8a-543f-b9d5-4fbdda232c69,6d4b7c16-b027-582b-869f-522924bb0851,Sample work_orders summary,2025-09-05T18:25:42Z,Sample work_orders status,2025-09-05T18:25:42Z

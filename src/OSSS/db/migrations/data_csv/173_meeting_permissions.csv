@@ -1,0 +1,2 @@
+id,meeting_id,user_id,can_view,created_at,can_manage,updated_at,can_edit
+a1429986-68be-5c88-a005-8585331f4081,a1382238-1ce3-5f6f-9ac1-6c66e74a4ee1,02af070d-4e8a-543f-b9d5-4fbdda232c69,True,2025-09-05T18:25:42Z,Sample meeting_permissions can_manage,2025-09-05T18:25:42Z,Sample meeting_permissions can_edit

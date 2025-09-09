@@ -1,0 +1,2 @@
+id,primary_school_id,department_segment_id,person_id,created_at,status,updated_at,employee_no
+6cad28d3-a80b-5f37-8064-02e44b2abf7c,a08e9a86-7bc6-5963-8689-a2b7499d2984,a9dfa149-2865-559d-9a52-539dd9c5780c,5c6ecd7f-1795-56cb-a251-533278674a9e,2025-09-05T18:25:42Z,Sample hr_employees status,2025-09-05T18:25:42Z,Sample hr_employees employee_no

@@ -5,3 +5,8 @@ __pycache__
 *.pyc
 realm-export.json
 .DS_Store
+node_modules
+**/__pycache__/
+*.venv
+dist
+build
