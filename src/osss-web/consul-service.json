@@ -1,0 +1,15 @@
+{
+  "service": {
+    "Name": "osss-web",
+    "ID": "osss-web-3000",
+    "Tags": ["nextjs", "frontend"],
+    "Address": "host.docker.internal",
+    "Port": 3000,
+    "Check": {
+      "http": "http://host.docker.internal:3000/health",
+      "Interval": "10s",
+      "Timeout": "2s",
+      "DeregisterCriticalServiceAfter": "1m"
+    }
+  }
+}

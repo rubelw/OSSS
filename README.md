@@ -36,6 +36,20 @@ The static site is output to `./documentation/`.
 
 ![Example Web View](https://raw.githubusercontent.com/rubelw/OSSS/main/docs/img/web_view.png)
 
+
+Consul example:
+
+![Example Consul](https://raw.githubusercontent.com/rubelw/OSSS/main/docs/img/consul_example.png)
+
+Vault example:
+
+![Example Vault](https://raw.githubusercontent.com/rubelw/OSSS/main/docs/img/vault_example.png)
+
+Keycloak example:
+
+![Example Keycloak](https://raw.githubusercontent.com/rubelw/OSSS/main/docs/img/keycloak_example.png)
+
+
 ---
 
 ## Why This Is Important
