@@ -1,0 +1,2 @@
+id,ticket_type_id,order_id,holder_person_id,price_cents,issued_at,created_at,serial_no,status,updated_at
+945fff71-1877-5356-be9d-efb29731ae7b,edd7aa44-5c47-59c5-8884-e04e9fc2e02e,3ed7049e-b232-56a8-9332-bf95e62728db,5c6ecd7f-1795-56cb-a251-533278674a9e,1,2025-09-05T18:25:42Z,2025-09-05T18:25:42Z,1,Sample tickets status,2025-09-05T18:25:42Z

@@ -711,6 +711,29 @@ class RealmBuilder:
         return self
 
     # --- groups ---
+
+    def add_group(
+        self,
+        name: str,
+        *,
+        path: Optional[str] = None,
+        realm_roles: Optional[List[str]] = None,
+        client_roles: Optional[Dict[str, List[str]]] = None,
+        attributes: Optional[Dict[str, List[str]]] = None,
+        subgroups: Optional[List[GroupRepresentation]] = None,
+    ) -> "RealmBuilder":
+        self.realm.groups.append(
+            GroupRepresentation(
+                name=name,
+                path=path,
+                realmRoles=realm_roles,
+                clientRoles=client_roles,
+                attributes=attributes,
+                subGroups=subgroups,
+            )
+        )
+        return self
+
     def add_groups_from_hierarchy(
             self,
             hierarchy: Mapping[str, Any],
@@ -924,6 +947,9 @@ class RealmBuilder:
             required_actions: Optional[List[str]] = None,
             totp: Optional[bool] = None,  # convenience; maps to CONFIGURE_TOTP
     ) -> "RealmBuilder":
+
+        LOG.info("add_user: "+str(username))
+
         # start from caller-provided required actions
         req = list(required_actions or [])
 
@@ -976,6 +1002,7 @@ class RealmBuilder:
             password: Optional[str] = None,
             temporary_password: bool = False,
             password_field: str = "password",
+            realm_roles: Optional[List[str]] = None,
     ) -> "RealmBuilder":
         """
         - Add a user for each position in 'positions'.
@@ -1018,6 +1045,29 @@ class RealmBuilder:
             for pos in (node.get("positions") or []):
                 raw_name = seg(pos.get("name"))  # e.g. "position_board_chair"
 
+                raw_vault_admin = seg(pos.get("vault_admin"))
+                raw_vault_user = seg(pos.get("vault_user"))
+                raw_consul_admin = seg(pos.get("consul_admin"))
+                raw_consul_user = seg(pos.get("consul_user"))
+
+                # Build extra groups from flags
+                extra_groups = []
+                if raw_vault_admin == "true":
+                    extra_groups.append("vault-admin")
+                if raw_vault_user == "true":
+                    extra_groups.append("vault-user")
+                if raw_consul_admin == "true":
+                    extra_groups.append("consul-admin")
+                if raw_consul_user == "true":
+                    extra_groups.append("consul-user")
+
+                # Convert to root-level group paths (to match how `path` is passed)
+                extra_group_paths = [f"/{g}" for g in extra_groups]
+
+                # Optionally ensure the groups exist first (uncomment if needed)
+                for gp in extra_group_paths:
+                    self.ensure_group_path(gp)
+
 
                 # Groups use the full position name (with prefix) so paths match your group tree
                 path = to_path([*my_segments, raw_name])  # "/board_of_education_governing_board/position_board_chair"
@@ -1041,16 +1091,19 @@ class RealmBuilder:
                 if include_description_attribute and pos.get("description"):
                     attrs["position_description"] = [pos["description"]]
 
+
+
                 self.add_user(
                     username=uname,
                     email=email,
                     first_name=first or None,
                     last_name=last or None,
-                    groups=[path],
+                    groups=[path, *extra_group_paths],
                     attributes=attrs,
                     enabled=True,
                     email_verified=False,
                     password=pw,
+                    realm_roles=(realm_roles or []),
                     temporary_password=temporary_password,
                 )
                 LOG.debug(
@@ -1076,6 +1129,7 @@ class RealmBuilder:
                 if include_description_attribute and node.get("description"):
                     attrs["unit_description"] = [node["description"]]
 
+
                 self.add_user(
                     username=uname,
                     email=email,
@@ -1086,6 +1140,7 @@ class RealmBuilder:
                     enabled=True,
                     email_verified=False,
                     password=pw,
+                    realm_roles=(realm_roles or []),
                     temporary_password=temporary_password,
                 )
                 LOG.debug(
@@ -1173,6 +1228,7 @@ class RealmBuilder:
             password: Optional[str] = None,  # NEW
             temporary_password: bool = False,  # NEW
             password_field: str = "password",  # NEW
+            realm_roles: Optional[List[str]] = None,
             encoding: str = "utf-8",
     ) -> "RealmBuilder":
         import json as _json
@@ -1186,6 +1242,7 @@ class RealmBuilder:
             password=password,
             temporary_password=temporary_password,
             password_field=password_field,
+            realm_roles=(realm_roles or [])
         )
 
     # --- client scopes ---
@@ -1302,6 +1359,8 @@ if __name__ == "__main__":
     # --- Realm roles ---
     rb.add_realm_role("offline_access", "Offline Access", composite=False)
     rb.add_realm_role("uma_authorization", "UMA Authorization", composite=False)
+    rb.add_realm_role("vault-user", "Standard Vault users", composite=False)
+    rb.add_realm_role("vault-admin", "Administrators for Vault", composite=False)
 
 
     if not args.skip_email_scope:
@@ -1504,6 +1563,29 @@ if __name__ == "__main__":
         },
     )
 
+    # Vault (OIDC for HashiCorp Vault dev)
+    rb.add_client(
+        client_id="vault",
+        name="vault",
+        redirect_uris=["http://localhost:8250/oidc/callback",
+                       "http://127.0.0.1:8250/oidc/callback",
+                       "http://localhost:8200/ui/vault/auth/oidc/oidc/callback",
+                       "http://127.0.0.1:8200/ui/vault/auth/oidc/oidc/callback"],
+        protocol="openid-connect",
+        web_origins=["+"],
+        enabled=True,
+        public_client=False,
+        direct_access_grants_enabled=False,
+        service_accounts_enabled=False,
+        standard_flow_enabled=True,
+        client_authenticator_type="client-secret",
+        authorization_services_enabled=True,
+        secret="password",
+        attributes={"post.logout.redirect.uris": "+", "oidc.cida.grant.enabled": "false"},
+        default_client_scopes=["profile", "email","groups-claim"],
+        optional_client_scopes=["roles", "web-origins", "address", "phone", "offline_access"],
+    )
+
     # --- Client scopes (define explicit mappers so tokens contain claims) ---
 
 
@@ -1575,6 +1657,42 @@ if __name__ == "__main__":
             ),
         ],
     )
+
+    rb.add_group(
+        name="vault-users",
+        realm_roles=["vault-user"]
+    )
+
+    rb.add_group(
+        name="vault-admins",
+        realm_roles=["vault-admin"]
+    )
+
+    # Groups scope: emit `groups` in ID/access/userinfo (Vault expects this)
+    rb.add_client_scope(
+        name="groups-claim",
+        description="Adds 'groups' claim into ID, access, and userinfo tokens",
+        protocol="openid-connect",
+        attributes={"include.in.token.scope": "true"},
+        protocol_mappers=[
+            ProtocolMapperRepresentation(
+                name="groups",
+                protocol="openid-connect",
+                protocolMapper="oidc-group-membership-mapper",
+                consentRequired=False,
+                config={
+                    "full.path": "false",
+                    "id.token.claim": "true",
+                    "access.token.claim": "true",
+                    "userinfo.token.claim": "true",
+                    "claim.name": "groups"
+                },
+            )
+        ],
+    )
+
+
+
 
     rb.add_client_role("osss-api", "api.user", description="Baseline access to OSSS API")
     rb.add_client_role("osss-api", "api.admin", description="Administrative access to OSSS API")
@@ -1651,6 +1769,7 @@ if __name__ == "__main__":
     path = Path("RBAC.json")  # replace with your file
     with path.open("r", encoding="utf-8") as f:
         organizational_structure = json.load(f)  # dict or list
+
 
     rb.add_groups_from_hierarchy(organizational_structure, role_client_id="osss-api")
 

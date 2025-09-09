@@ -1,0 +1,2 @@
+id,booked_by_user_id,space_id,end_at,start_at,created_at,status,updated_at
+0e5a99c9-8cf7-5405-8458-e88f6a71b747,02af070d-4e8a-543f-b9d5-4fbdda232c69,c2251d74-598c-5fd9-8837-257402edc906,2025-09-05T18:25:42Z,2025-09-05T18:25:42Z,2025-09-05T18:25:42Z,Sample space_reservations status,2025-09-05T18:25:42Z

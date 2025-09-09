@@ -1,0 +1,2 @@
+id,workflow_id,step_no,created_at,updated_at,approver_type
+d19595b2-97c5-514f-824c-6ef497e40908,048c4720-455a-5b91-9366-5b68b49df2b8,1,2025-09-05T18:25:42Z,2025-09-05T18:25:42Z,Sample policy_workflow_steps approver_type

@@ -1,0 +1,2 @@
+id,fiscal_period_id,batch_id,je_no,total_credits,total_debits,created_at,status,updated_at,journal_date
+49e3c460-b21c-5479-b8ca-3d907dc476fd,71b6983a-d20c-5fbd-9311-2ab109a8533f,9ee89b96-f160-53eb-8b69-0253052cb54c,Sample journal_entries je_no,1.0,1.0,2025-09-05T18:25:42Z,Sample journal_entries status,2025-09-05T18:25:42Z,2025-09-05

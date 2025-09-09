@@ -1,0 +1,2 @@
+id,governing_body_id,org_id,committee_id,title,starts_at,scheduled_at,is_public,created_at
+a1382238-1ce3-5f6f-9ac1-6c66e74a4ee1,a9e1cb6c-23ca-5ff0-86f7-ea734aaf8c22,00fe9a4d-239e-5839-9bc5-7b9667a3ed5e,b7d76103-9d9d-5c4d-a81e-b50a7e3b0339,Sample meetings title,2025-09-05T18:25:42Z,2025-09-05T18:25:42Z,True,2025-09-05T18:25:42Z

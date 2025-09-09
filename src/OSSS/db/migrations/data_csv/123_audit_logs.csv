@@ -1,0 +1,2 @@
+id,actor_id,entity_type,entity_id,created_at,occurred_at,updated_at,action
+83b2ae1a-df33-5540-9c17-ffc5c899d1c8,46e35108-5d74-5494-babd-e6a24ef0b80c,Sample audit_logs entity_type,Sample audit_logs entity_id,2025-09-05T18:25:42Z,2025-09-05T18:25:42Z,2025-09-05T18:25:42Z,Sample audit_logs action

@@ -1,0 +1,2 @@
+id,org_id,parent_id,created_at,updated_at,is_public,name
+ac2eb89f-1fe0-5b9d-860d-2befe9358ca5,00fe9a4d-239e-5839-9bc5-7b9667a3ed5e,ac2eb89f-1fe0-5b9d-860d-2befe9358ca5,2025-09-05T18:25:42Z,2025-09-05T18:25:42Z,True,Sample folders name

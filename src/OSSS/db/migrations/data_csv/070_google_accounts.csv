@@ -1,0 +1,2 @@
+id,user_id,client_secret,client_id,access_token,created_at,updated_at,token_uri
+e1b4d473-dcda-58ee-81a3-0c67999d5759,02af070d-4e8a-543f-b9d5-4fbdda232c69,Sample google_accounts client_secret,Sample google_accounts client_id,Sample google_accounts access_token,2025-09-05T18:25:42Z,2025-09-05T18:25:42Z,Sample google_accounts token_uri

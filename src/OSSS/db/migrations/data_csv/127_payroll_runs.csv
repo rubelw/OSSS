@@ -1,0 +1,2 @@
+id,pay_period_id,posted_entry_id,created_by_user_id,created_at,status,updated_at,run_no
+909cea3a-4bf9-56c7-afba-f7bb899ba4c6,a0c69bb3-80af-5a49-8808-ce78cc3aea46,49e3c460-b21c-5479-b8ca-3d907dc476fd,02af070d-4e8a-543f-b9d5-4fbdda232c69,2025-09-05T18:25:42Z,Sample payroll_runs status,2025-09-05T18:25:42Z,1

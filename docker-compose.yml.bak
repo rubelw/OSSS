@@ -1,0 +1,244 @@
+version: "3.8"
+
+volumes:
+  consul_data:
+  kc_postgres_data:
+  osss_postgres_data:
+  redis-data:
+
+services:
+  curl:
+    image: curlimages/curl:8.8.0
+    command: [ "sleep","infinity" ]
+    depends_on:
+      keycloak:
+        condition: service_started
+    # ✅ Use curl sidecar to report Keycloak readiness
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -fsS http://keycloak:9000/health/ready >/dev/null || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 90s
+  # HashiCorp Consul (dev mode) — service discovery, DNS, UI
+  consul:
+    image: hashicorp/consul:1.18
+    command: [ "agent","-dev","-client=0.0.0.0","-ui","-log-level=INFO" ]
+    ports:
+      - "8500:8500"          # HTTP UI/API
+      - "8600:8600/tcp"      # DNS (TCP)
+      - "8600:8600/udp"      # DNS (UDP)
+    volumes:
+      - consul_data:/consul/data
+    environment:
+      # Registers your FastAPI 'app' service; Consul runs this TCP check from inside the container
+      CONSUL_LOCAL_CONFIG: |
+        {
+          "datacenter": "dc1",
+          "connect": { "enabled": true },
+          "services": [
+              {
+                  "name": "app",
+                  "address": "app",
+                  "port": 8000,
+                  "checks": [
+                      { "tcp": "app:8000", "interval": "10s", "timeout": "2s" }
+                  ]
+              }
+          ]
+        }
+    healthcheck:
+      test: [ "CMD-SHELL", "consul info >/dev/null 2>&1" ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+  app:
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: docker/app/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8000
+    depends_on:
+      - kc_postgres
+      - osss_postgres
+  osss_postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${OSSS_DB_NAME}
+      POSTGRES_USER: ${OSSS_DB_USER}
+      POSTGRES_PASSWORD: ${OSSS_DB_PASSWORD}
+    ports: [ "5433:5432" ]
+    volumes:
+      - osss_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${OSSS_DB_USER:-osss} -d ${OSSS_DB_NAME:-osss} -h 127.0.0.1 -p 5432 || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  kc_postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: ${KC_DB_NAME}
+      POSTGRES_USER: ${KC_DB_USERNAME}
+      POSTGRES_PASSWORD: ${KC_DB_PASSWORD}
+    volumes:
+      - kc_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${KC_DB_USERNAME:-osss} -d ${KC_DB_NAME:-osss} -h 127.0.0.1 -p 5432 || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    restart: always
+  redis:
+    image: redis:7-alpine
+    command: [ "redis-server", "--appendonly", "yes" ]
+    ports:
+      - "6379:6379"        # optional for host access; containers use 'redis:6379'
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+  keycloak:
+    image: quay.io/keycloak/keycloak:25.0.6
+    depends_on:
+      kc_postgres:
+        condition: service_healthy
+    environment:
+      OIDC_DISCOVERY_URL: "http://host.docker.internal:8085/realms/OSSS"
+
+      # Database (runtime augmentation includes the Postgres driver)
+      KC_DB: postgres
+      KC_DB_USERNAME: ${KC_DB_USERNAME:-keycloak}
+      KC_DB_PASSWORD: ${KC_DB_PASSWORD:-keycloakpass}
+      KC_DB_URL_HOST: kc_postgres
+      KC_DB_URL_PORT: "5432"
+      KC_DB_URL_DATABASE: ${KC_DB_NAME:-keycloak}
+
+      # Admin user
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+
+      # HTTP + canonical external URL (works for browser and containers)
+      KC_HTTP_ENABLED: "true"
+      KC_HOSTNAME: "http://host.docker.internal:8085"
+      KC_HOSTNAME_STRICT: "false"
+      #KC_PROXY_HEADERS: xforwarded         # not “true”
+      KC_HEALTH_ENABLED: "true"
+
+
+
+      # Optional: more time for imports and helpful logs
+      QUARKUS_TRANSACTION_MANAGER_DEFAULT_TRANSACTION_TIMEOUT: "600"
+      KC_LOG_LEVEL: "info,org.keycloak:DEBUG,org.hibernate:INFO,io.quarkus:DEBUG"
+    command:
+      - start
+      - --http-enabled=true
+      - --hostname=host.docker.internal
+      - --hostname-strict=false
+      - --import-realm
+    volumes:
+      - ./realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+    ports:
+      - "8085:8080"
+    restart: unless-stopped
+
+  vault:
+    image: hashicorp/vault:1.20.3
+    pull_policy: always
+    container_name: vault
+    ports: ["8200:8200"]
+    cap_add: ["IPC_LOCK"]
+    environment:
+      VAULT_DEV_ROOT_TOKEN_ID: "root"
+      VAULT_DEV_LISTEN_ADDRESS: "0.0.0.0:8200"
+      VAULT_UI: "true"
+      # internal address used by other containers
+      VAULT_API_ADDR: "http://vault:8200"
+    command:
+      - server
+      - -dev
+      - -dev-root-token-id=root
+      - -dev-listen-address=0.0.0.0:8200
+    healthcheck:
+      test: ["CMD-SHELL","wget -qO- http://127.0.0.1:8200/v1/sys/health | grep -q '\"initialized\":true'"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  vault-oidc-setup:
+    build:
+      context: .                      # repo root
+      dockerfile: docker/vault-oidc-setup/Dockerfile
+    container_name: vault-oidc-setup
+    depends_on:
+      vault:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+    environment:
+      VERBOSE: "1"
+      DEBUG: "1"
+      # talk to Vault via service DNS inside the compose network
+      VAULT_ADDR: "http://vault:8200"
+      VAULT_TOKEN: "${VAULT_TOKEN:-root}"
+
+      # Keycloak issuer (discovery URL without the /.well-known suffix)
+      OIDC_DISCOVERY_URL: "http://host.docker.internal:8085/realms/OSSS"  # << change
+
+      VAULT_OIDC_CLIENT_ID: "${VAULT_OIDC_CLIENT_ID:-vault}"
+      VAULT_OIDC_CLIENT_SECRET: "${VAULT_OIDC_CLIENT_SECRET:-password}"
+      VAULT_OIDC_ROLE: "${VAULT_OIDC_ROLE:-vault}"
+      VAULT_TOKEN_FILE: "/root/.vault-token"
+
+      # Allow both 127.0.0.1 and localhost for UI & CLI
+      VAULT_UI_REDIRECT_1: "http://127.0.0.1:8200/ui/vault/auth/oidc/oidc/callback"
+      VAULT_UI_REDIRECT_2: "http://localhost:8200/ui/vault/auth/oidc/oidc/callback"
+      VAULT_CLI_REDIRECT_1: "http://127.0.0.1:8250/oidc/callback"
+      VAULT_CLI_REDIRECT_2: "http://localhost:8250/oidc/callback"
+    volumes: [ "./scripts/vault-oidc-setup.sh:/setup.sh:ro","~/.vault-token:/root/.vault-token:ro" ]
+    entrypoint: [ "/bin/sh","-lc","/setup.sh" ]
+    restart: "no"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+  vault-seed:
+    image: alpine:3.20
+    # 1) Load all keys into the container's environment
+    env_file: ./.env
+    environment:
+      VAULT_ADDR: "http://vault:8200"
+      VAULT_TOKEN: "${VAULT_TOKEN:-root}"
+      VAULT_KV_PATH: "${VAULT_KV_PATH:-app}"
+      # 2) Tell the script where to read the raw .env file we’re mounting
+      DOTENV_FILE: "/run/dotenv/.env"
+      # (optional) exclude control keys if your script supports it
+      SEED_EXCLUDE_REGEX: '^(VAULT_ADDR|VAULT_TOKEN|VAULT_KV_PATH|DOTENV_FILE)$'
+      VERBOSE: "1"   # set to 0 to quiet logs
+      DEBUG: "1"     # set to 1 for shell trace
+    depends_on:
+      vault:
+        condition: service_healthy
+    volumes:
+      # 3) Mount the actual .env file inside the container so the script can parse it
+      - ./.env:/run/dotenv/.env:ro
+      # 4) Mount the seeding script
+      - ./scripts/seed-vault.sh:/usr/local/bin/seed-vault:ro
+    # Alpine doesn't ship curl/jq; install quickly, then run the script
+    entrypoint: [ "/bin/sh","-lc","apk add --no-cache curl jq >/dev/null; /usr/local/bin/seed-vault" ]
+    restart: "no"
+
+

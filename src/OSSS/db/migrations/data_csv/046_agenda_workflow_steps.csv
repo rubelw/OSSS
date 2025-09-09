@@ -1,0 +1,2 @@
+id,workflow_id,step_no,created_at,updated_at,approver_type
+a71820b4-acea-5ee1-9c04-899be78147df,c163dff6-975d-521b-8114-452f00c05b4b,1,2025-09-05T18:25:42Z,2025-09-05T18:25:42Z,Sample agenda_workflow_steps approver_type

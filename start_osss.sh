@@ -1,4 +1,20 @@
 #!/usr/bin/env bash
+
+# Ensure /etc/hosts contains 'host.docker.internal' on 127.0.0.1 line alongside 'localhost'
+if ! grep -Eq '^[[:space:]]*127\.0\.0\.1[[:space:]].*\bhost\.docker\.internal\b' /etc/hosts; then
+  if grep -Eq '^[[:space:]]*127\.0\.0\.1[[:space:]].*\blocalhost\b' /etc/hosts; then
+    echo "🖇️  Adding 'host.docker.internal' to 127.0.0.1 localhost line (requires sudo)"
+    TMPH="$(mktemp)"
+    awk '($1=="127.0.0.1" && $0 ~ /\blocalhost\b/ && $0 !~ /\bhost\.docker\.internal\b/) {print $0" host.docker.internal"; next} {print}' /etc/hosts > "$TMPH"
+    sudo cp "$TMPH" /etc/hosts && rm -f "$TMPH"
+  else
+    echo "🖇️  Appending '127.0.0.1 localhost host.docker.internal' to /etc/hosts (requires sudo)"
+    echo "127.0.0.1 localhost host.docker.internal" | sudo tee -a /etc/hosts >/dev/null
+  fi
+else
+  echo "✅ /etc/hosts already contains 'host.docker.internal' on 127.0.0.1"
+fi
+
 set -euo pipefail
 
 # --- Locations ---
@@ -66,6 +82,76 @@ resolve_python() { command -v python >/dev/null 2>&1 && { echo "python"; return;
                    echo "❌ Python not found on PATH" >&2; exit 1; }
 resolve_npm()    { command -v npm >/dev/null 2>&1 && { echo "npm"; return; }
                    echo "❌ npm not found on PATH. Install Node.js/npm." >&2; exit 1; }
+
+# --- Priv escalation helper for package managers ---
+need_sudo() { if [ "$(id -u)" -eq 0 ]; then echo ""; else command -v sudo >/dev/null 2>&1 && echo "sudo" || echo ""; fi; }
+
+# --- mkcert (install if missing) + local TLS cert generation ---
+ensure_mkcert() {
+  if command -v mkcert >/dev/null 2>&1; then
+    echo "✅ mkcert already installed: $(command -v mkcert)"
+    return 0
+  fi
+  echo "⬇️  Installing mkcert…"
+  local SUDO; SUDO="$(need_sudo)"
+  case "$(uname -s)" in
+    Darwin)
+      if command -v brew >/dev/null 2>&1; then
+        brew update >/dev/null || true
+        brew install mkcert nss || brew install mkcert || true
+      else
+        echo "❌ Homebrew not found. Install Homebrew or mkcert manually: https://github.com/FiloSottile/mkcert" >&2
+        return 1
+      fi
+      ;;
+    Linux)
+      if command -v apt-get >/dev/null 2>&1; then
+        $SUDO apt-get update -y
+        $SUDO apt-get install -y mkcert libnss3-tools || $SUDO apt-get install -y mkcert
+      elif command -v dnf >/dev/null 2>&1; then
+        $SUDO dnf install -y mkcert nss-tools || $SUDO dnf install -y mkcert
+      elif command -v yum >/dev/null 2>&1; then
+        $SUDO yum install -y mkcert nss-tools || $SUDO yum install -y mkcert
+      elif command -v apk >/dev/null 2>&1; then
+        $SUDO apk add --no-cache mkcert nss-tools || $SUDO apk add --no-cache mkcert nss
+      elif command -v pacman >/dev/null 2>&1; then
+        $SUDO pacman -Sy --noconfirm mkcert nss || $SUDO pacman -Sy --noconfirm mkcert
+      else
+        echo "❌ No supported package manager found. Install mkcert manually: https://github.com/FiloSottile/mkcert" >&2
+        return 1
+      fi
+      ;;
+    *)
+      echo "❌ Unsupported OS for auto-install. Install mkcert manually." >&2
+      return 1
+      ;;
+  esac
+  command -v mkcert >/dev/null 2>&1 || { echo "❌ mkcert install failed." >&2; return 1; }
+  echo "✅ mkcert installed: $(command -v mkcert)"
+}
+
+ensure_local_tls_cert() {
+  local SUDO; SUDO="$(need_sudo)"
+  # Ensure directory exists and is writable by current user (for mkcert output)
+  if [ ! -d "${TLS_CERT_DIR}" ]; then
+    $SUDO mkdir -p "${TLS_CERT_DIR}"
+    $SUDO chown "$(id -u):$(id -g)" "${TLS_CERT_DIR}" || true
+  fi
+  # Install local CA (idempotent)
+  mkcert -install
+  # Create cert if missing
+  if [[ ! -s "${TLS_CERT_FILE}" || ! -s "${TLS_KEY_FILE}" ]]; then
+    echo "🔐 Generating local TLS certs for: ${TLS_DOMAIN_LIST}"
+    mkcert -key-file "${TLS_KEY_FILE}" -cert-file "${TLS_CERT_FILE}" ${TLS_DOMAIN_LIST}
+    echo "✅ Created:"
+    echo "   cert: ${TLS_CERT_FILE}"
+    echo "   key : ${TLS_KEY_FILE}"
+  else
+    echo "✅ Using existing TLS certs:"
+    echo "   ${TLS_CERT_FILE}"
+    echo "   ${TLS_KEY_FILE}"
+  fi
+}
 
 wait_for_url() {
   local url="$1"; local timeout="$2"
@@ -253,12 +339,33 @@ KEYCLOAK_CLIENT_SECRET="$(sanitize_secret "${KEYCLOAK_CLIENT_SECRET:-password}")
 KEYCLOAK_ADMIN="${KEYCLOAK_ADMIN:-admin}"
 KEYCLOAK_ADMIN_PASSWORD="$(sanitize_secret "${KEYCLOAK_ADMIN_PASSWORD:-admin}")"
 
+# Ensure localhost can resolve "keycloak" hostname for OIDC callbacks/tools.
+# Only append if not already present.
+if ! grep -qE '^[[:space:]]*127\.0\.0\.1[[:space:]].*\bkeycloak\b' /etc/hosts; then
+  echo "🖇️  Adding 'keycloak' to /etc/hosts (requires sudo)"
+  sudo sh -c 'echo "127.0.0.1 keycloak" >> /etc/hosts'
+else
+  echo "✅ /etc/hosts already contains 'keycloak'"
+fi
+
+# one-time: make sure the cert directory exists and is writable
+sudo mkdir -p /etc/osss/certs
+sudo chown "$(id -u)":"$(id -g)" /etc/osss/certs
+
+### --- Local HTTPS / mkcert ---
+# Enable to run the API over HTTPS locally/production
+ENABLE_LOCAL_TLS="${ENABLE_LOCAL_TLS:-0}"
+# Domains to include in the cert. Add your hostname if needed.
+TLS_DOMAIN_LIST="${TLS_DOMAIN_LIST:-localhost 127.0.0.1 ::1}"
+TLS_CERT_DIR="${TLS_CERT_DIR:-/etc/osss/certs}"
+TLS_CERT_FILE="${TLS_CERT_FILE:-${TLS_CERT_DIR}/fullchain.pem}"
+TLS_KEY_FILE="${TLS_KEY_FILE:-${TLS_CERT_DIR}/privkey.pem}"
+TRUST_STORES=${TRUST_STORES:-system}
 
 # --- Redis ----
 REDIS_TOKEN="${REDIS_TOKEN:-LoG1W0PtrKylYyQkSsk4FUcukhymnchrsjGLToF0U}"
 REDIS_USER="${REDIS_USER:-appuser}"
 REDIS_VERSION="${REDIS_VERSION:-'-7-alpine'}"
-
 
 # -------- Keycloak DB (kc_postgres) --------
 KC_DB_NAME="${KC_DB_NAME:-keycloak}"
@@ -354,6 +461,12 @@ ALEMBIC_DATABASE_URL: ${ALEMBIC_DATABASE_URL}
 # OIDC & boot
 OIDC_DISCOVERY      : ${OIDC_DISCOVERY}
 BOOT_WAIT           : ${BOOT_WAIT}s
+
+# TLS (local)
+ENABLE_LOCAL_TLS    : ${ENABLE_LOCAL_TLS}
+TLS_CERT_FILE       : ${TLS_CERT_FILE}
+TLS_KEY_FILE        : ${TLS_KEY_FILE}
+TLS_DOMAIN_LIST     : ${TLS_DOMAIN_LIST}
 =============================================================
 
 EOF
@@ -382,6 +495,7 @@ if [ "${SKIP_REALM_BUILD}" != "1" ]; then
     echo "❌ Realm export not found or empty at: ${REALM_EXPORT}" >&2; exit 1
   fi
   echo "✅ Realm export ready at: ${REALM_EXPORT}"
+
 else
   echo "⚠️  SKIP_REALM_BUILD=1 set — skipping build_realm.py"
 fi
@@ -416,8 +530,6 @@ if ! wait_for_url "${OIDC_DISCOVERY}" "${BOOT_WAIT}"; then
   echo "🔎 Recent logs:"; ${COMPOSE_CMD} "${COMPOSE_ENV_ARGS[@]}" -f "${COMPOSE_FILE}" logs --tail=200 || true
   exit 1
 fi
-
-
 
 ### --- Run Alembic migrations on OSSS Postgres ---
 SYNC_DB_URL="${ALEMBIC_DATABASE_URL/postgresql+asyncpg/postgresql+psycopg2}"
@@ -471,13 +583,22 @@ ASYNC_PREFLIGHT
 ### --- Start FastAPI (uvicorn) ---
 PY="$(resolve_python)"
 
-
-
 if ! "${PY}" -c "import uvicorn" 2>/dev/null; then
   echo "❌ uvicorn not installed. Try: pip install uvicorn" >&2; exit 1
 fi
-echo "🚀 Starting FastAPI: uvicorn ${API_MODULE} --host ${API_HOST} --port ${API_PORT} --reload"
-"${PY}" -m uvicorn "${API_MODULE}" --host "${API_HOST}" --port "${API_PORT}" --reload &
+
+UVICORN_TLS_ARGS=()
+API_PROTO="http"
+
+#if [[ "${ENABLE_LOCAL_TLS}" == "1" ]]; then
+#  ensure_mkcert
+#  ensure_local_tls_cert
+#  UVICORN_TLS_ARGS+=(--ssl-certfile "${TLS_CERT_FILE}" --ssl-keyfile "${TLS_KEY_FILE}")
+#  API_PROTO="https"
+#fi
+
+echo "🚀 Starting FastAPI: uvicorn ${API_MODULE} --host ${API_HOST} --port ${API_PORT} --reload ${UVICORN_TLS_ARGS[*]:-}"
+"${PY}" -m uvicorn "${API_MODULE}" --host "${API_HOST}" --port "${API_PORT}" --reload "${UVICORN_TLS_ARGS[@]}" &
 API_PID=$!
 
 ### --- Start Next.js (npm run dev) ---
@@ -495,7 +616,7 @@ if [ "${OSSS_WEB_INSTALL}" = "1" ] || [ ! -d "node_modules" ]; then
   echo "📦 Installing web dependencies (npm install)…"
   ${NPM} install
 fi
-export OSSS_API_URL="http://${API_HOST}:${API_PORT}"
+export OSSS_API_URL="${API_PROTO}://${API_HOST}:${API_PORT}"
 echo "🕸  Starting osss-web: ${NPM} run dev (port ${OSSS_WEB_PORT})"
 ${NPM} run dev -- --port "${OSSS_WEB_PORT}" &
 WEB_PID=$!
@@ -513,7 +634,7 @@ cleanup() {
 trap cleanup INT TERM EXIT
 
 echo ""
-echo "📎 OpenAPI docs:    http://${API_HOST}:${API_PORT}/docs"
+echo "📎 OpenAPI docs:    ${API_PROTO}://${API_HOST}:${API_PORT}/docs"
 echo "📎 OIDC discovery:  ${OIDC_DISCOVERY}"
 echo "🌐 osss-web:        http://localhost:${OSSS_WEB_PORT}"
 echo ""

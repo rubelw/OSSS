@@ -73,6 +73,8 @@ osss <TAB>
 # Keycloak http://localhost:8085 with username 'admin' and password 'admin'
 # FastApi  http://localhost:8081/docs# username 'activities_director@osss.local' and password 'password'
 # Web: http://localhost:3000 username 'activities_director@osss.local' and password 'password'
+# Vault: http://localhost:8200 username 'chief_technology_officer@osss.local and password 'password'
+# Consul: http://localhost:8500
 ```
 
 Build the static site to `./documentation/`:

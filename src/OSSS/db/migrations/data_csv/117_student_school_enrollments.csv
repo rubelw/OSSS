@@ -1,0 +1,2 @@
+id,student_id,school_id,created_at,status,updated_at,entry_date
+5d1dcadb-69f0-50a4-a8a8-d567036a565f,e7ad61df-58ea-5471-b0d4-a7259521d9ee,a08e9a86-7bc6-5963-8689-a2b7499d2984,2025-09-05T18:25:42Z,Sample student_school_enrollments status,2025-09-05T18:25:42Z,2025-09-05

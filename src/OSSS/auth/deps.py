@@ -22,6 +22,8 @@ log = get_logger("auth.deps")
 # ------------------------------------------------------------------------------
 # Config via environment
 # ------------------------------------------------------------------------------
+# IMPORTANT: Set OIDC_ISSUER to the EXACT issuer your tokens use
+# e.g. OIDC_ISSUER=http://host.docker.internal:8085/realms/OSSS
 OIDC_ISSUER       = os.getenv("OIDC_ISSUER") or os.getenv("KEYCLOAK_ISSUER")
 OIDC_CLIENT_ID    = os.getenv("OIDC_CLIENT_ID") or os.getenv("KEYCLOAK_CLIENT_ID") or "osss-api"
 OIDC_JWKS_URL     = os.getenv("OIDC_JWKS_URL") or (f"{OIDC_ISSUER}/protocol/openid-connect/certs" if OIDC_ISSUER else None)
@@ -32,46 +34,68 @@ log.setLevel(getattr(logging, AUTH_LOG_LEVEL, logging.INFO))
 
 # HS* (local) support if you mint local tokens
 JWT_SECRET         = os.getenv("JWT_SECRET")
+# default still RS256, but you can broaden with env if needed
 JWT_ALLOWED_ALGS   = [a.strip() for a in os.getenv("JWT_ALLOWED_ALGS", "RS256").split(",")]
 JWT_LEEWAY_SECONDS = int(os.getenv("JWT_LEEWAY_SECONDS", str(OIDC_LEEWAY_SEC)))
 
+# ---- Single source of truth for validation params (avoids drift) ----
+ISSUER   = OIDC_ISSUER                 # e.g. http://host.docker.internal:8085/realms/OSSS
+AUDIENCE = OIDC_CLIENT_ID              # e.g. osss-api
+JWKS_URL = OIDC_JWKS_URL               # derived above
+
 log.info(
     "AUTH cfg: issuer=%r jwks_url=%r verify_aud=%s client_id=%r allowed_algs=%s leeway=%ss",
-    OIDC_ISSUER, OIDC_JWKS_URL, OIDC_VERIFY_AUD, OIDC_CLIENT_ID, JWT_ALLOWED_ALGS, JWT_LEEWAY_SECONDS
+    ISSUER, JWKS_URL, OIDC_VERIFY_AUD, AUDIENCE, JWT_ALLOWED_ALGS, JWT_LEEWAY_SECONDS
 )
 
 # ------------------------------------------------------------------------------
 # JWKS cache
 # ------------------------------------------------------------------------------
-_JWKS_CACHE: dict[str, Any] = {}
-_JWKS_EXP_AT: float = 0.0
+_JWKS_CACHE: dict[str, Any] = {}      # raw JWKS JSON: {"keys":[...]}
+_JWKS_BY_KID: dict[str, dict] = {}    # kid -> JWK dict
+_JWKS_EXP_AT: float = 0.0             # epoch seconds when cache expires
+
+def _index_by_kid(data: dict[str, Any]) -> dict[str, dict]:
+    by_kid: dict[str, dict] = {}
+    for k in data.get("keys", []) or []:
+        kid = k.get("kid")
+        if kid:
+            by_kid[kid] = k
+    return by_kid
 
 def _load_jwks(force: bool = False) -> dict:
-    global _JWKS_CACHE, _JWKS_EXP_AT
+    """Load JWKS (with simple TTL) and index by kid."""
+    global _JWKS_CACHE, _JWKS_BY_KID, _JWKS_EXP_AT
     now = time.time()
     if not force and _JWKS_CACHE and now < _JWKS_EXP_AT:
         log.debug("JWKS cache hit (expires in %.0fs)", _JWKS_EXP_AT - now)
         return _JWKS_CACHE
 
-    if not OIDC_JWKS_URL:
-        log.warning("JWKS: OIDC_JWKS_URL not set; token verification disabled.")
-        _JWKS_CACHE, _JWKS_EXP_AT = {"keys": []}, now + 300
+    if not JWKS_URL:
+        log.warning("JWKS: JWKS_URL not set; token verification disabled.")
+        _JWKS_CACHE = {"keys": []}
+        _JWKS_BY_KID = {}
+        _JWKS_EXP_AT = now + 300
         return _JWKS_CACHE
 
     try:
-        log.debug("JWKS: fetching %s", OIDC_JWKS_URL)
-        resp = requests.get(OIDC_JWKS_URL, timeout=5)
+        log.debug("JWKS: fetching %s", JWKS_URL)
+        resp = requests.get(JWKS_URL, timeout=5)
         resp.raise_for_status()
         data = resp.json()
         _JWKS_CACHE = data
+        _JWKS_BY_KID = _index_by_kid(data)
         _JWKS_EXP_AT = now + 300
-        log.info("JWKS: loaded %d key(s)", len(data.get("keys", [])))
+        log.info("JWKS: loaded %d key(s) kids=%s",
+                 len(data.get("keys", [])),
+                 sorted(list(_JWKS_BY_KID.keys())))
         return data
     except Exception as e:
         log.exception("JWKS fetch failed: %s", e)
         if not _JWKS_CACHE:
             _JWKS_CACHE = {"keys": []}
-        _JWKS_EXP_AT = now + 60
+            _JWKS_BY_KID = {}
+        _JWKS_EXP_AT = now + 60   # short backoff
         return _JWKS_CACHE
 
 # Prime cache (non-fatal on failure)
@@ -80,19 +104,25 @@ try:
 except Exception:
     pass
 
-def _select_key(header: dict) -> Optional[dict]:
-    kid = (header or {}).get("kid")
+def _get_jwk_by_kid(kid: Optional[str], *, refresh_on_miss: bool = True) -> Optional[dict]:
+    """Return JWK by kid, optionally force-refresh JWKS on miss."""
     if not kid:
         return None
-    keys = _load_jwks().get("keys", [])
-    for k in keys:
-        if k.get("kid") == kid:
-            return k
-    keys = _load_jwks(force=True).get("keys", [])
-    for k in keys:
-        if k.get("kid") == kid:
-            return k
-    log.warning("JWKS: key not found for kid=%r", kid)
+    jwk = _JWKS_BY_KID.get(kid)
+    if jwk:
+        return jwk
+    _load_jwks(force=False)
+    jwk = _JWKS_BY_KID.get(kid)
+    if jwk:
+        return jwk
+    if refresh_on_miss:
+        log.warning("JWKS miss for kid=%r -> refreshing JWKS", kid)
+        _load_jwks(force=True)
+        jwk = _JWKS_BY_KID.get(kid)
+        if jwk:
+            return jwk
+        log.warning("JWKS: key still not found for kid=%r; available kids=%s",
+                    kid, sorted(list(_JWKS_BY_KID.keys())))
     return None
 
 # ------------------------------------------------------------------------------
@@ -105,60 +135,86 @@ class AuthError(HTTPException):
 # ------------------------------------------------------------------------------
 # Token decode (supports RS* via JWKS and HS* via shared secret)
 # ------------------------------------------------------------------------------
-def _decode_jwt(token: str) -> dict:
+def verify_with_auto_refresh(token: str) -> dict:
+    """
+    RS/HS verification with auto-refresh of JWKS on kid miss (RS).
+    Uses ISSUER/AUDIENCE defined above so iss matches your Keycloak config.
+    """
     try:
         header = jwt.get_unverified_header(token)
     except Exception:
         raise AuthError("Invalid token header")
 
     alg = header.get("alg", "RS256")
-    if alg not in JWT_ALLOWED_ALGS:
-        raise AuthError("Unsupported token algorithm")
+    kid = header.get("kid")
+    log.debug("JWT header: alg=%s kid=%s", alg, kid)
 
-    # Note: some python-jose versions don't support top-level 'leeway' kwarg.
+    if alg not in JWT_ALLOWED_ALGS:
+        raise AuthError(f"Unsupported token algorithm: {alg}")
+
     opts = {
         "verify_aud": OIDC_VERIFY_AUD,
         "verify_exp": True,
-        "verify_iss": bool(OIDC_ISSUER),
-        "leeway": JWT_LEEWAY_SECONDS,  # ignored by older versions but harmless
+        "verify_iss": bool(ISSUER),
+        "leeway": JWT_LEEWAY_SECONDS,
     }
 
-    # HS path (local)
+    # HS path
     if alg.startswith("HS"):
         if not JWT_SECRET:
-            raise AuthError("Signing key not found")
+            raise AuthError("Signing key not found (HS)")
         try:
-            return jwt.decode(
+            claims = jwt.decode(
                 token,
                 JWT_SECRET,
                 algorithms=[alg],
                 options=opts,
-                issuer=OIDC_ISSUER if OIDC_ISSUER else None,
-                audience=OIDC_CLIENT_ID if OIDC_VERIFY_AUD else None,
+                issuer=ISSUER if ISSUER else None,
+                audience=AUDIENCE if OIDC_VERIFY_AUD else None,
             )
+            log.debug("JWT payload ok (HS): iss=%s sub=%s exp=%s",
+                      claims.get("iss"), claims.get("sub"), claims.get("exp"))
+            return claims
         except ExpiredSignatureError:
             raise AuthError("Token expired")
-        except JWTError:
-            raise AuthError("Invalid token")
+        except JWTError as e:
+            raise AuthError(f"Invalid token (HS): {e}")
 
-    # RS path (OIDC/JWKS)
-    key = _select_key(header)
-    if not key:
-        raise AuthError("Signing key not found")
+    # RS path
+    jwk = _get_jwk_by_kid(kid, refresh_on_miss=True)
+    if not jwk:
+        raise AuthError("Unknown key (kid)")
 
     try:
-        return jwt.decode(
+        claims = jwt.decode(
             token,
-            key,  # python-jose accepts JWK dict
+            jwk,  # python-jose accepts JWK dict
             algorithms=[alg],
             options=opts,
-            issuer=OIDC_ISSUER if OIDC_ISSUER else None,
-            audience=OIDC_CLIENT_ID if OIDC_VERIFY_AUD else None,
+            issuer=ISSUER if ISSUER else None,
+            audience=AUDIENCE if OIDC_VERIFY_AUD else None,
         )
+        log.debug("JWT payload ok (RS): iss=%s sub=%s exp=%s aud=%s",
+                  claims.get("iss"), claims.get("sub"), claims.get("exp"), claims.get("aud"))
+        return claims
     except ExpiredSignatureError:
         raise AuthError("Token expired")
-    except JWTError:
-        raise AuthError("Invalid token")
+    except JWTError as e:
+        # Log a hint if this may be an issuer mismatch
+        try:
+            unverified = jwt.get_unverified_claims(token)
+            log.warning("JWTError: %s (unverified iss=%r, expected=%r)",
+                        e, unverified.get("iss"), ISSUER)
+        except Exception:
+            log.warning("JWTError: %s (could not read unverified claims)", e)
+        raise AuthError(f"Invalid token (RS): {e}")
+
+
+def _decode_jwt(token: str) -> dict:
+    """
+    Backward-compatible wrapper that delegates to verify_with_auto_refresh().
+    """
+    return verify_with_auto_refresh(token)
 
 # ------------------------------------------------------------------------------
 # Roles
@@ -197,6 +253,22 @@ async def get_current_user(
     """
     # Gather a candidate Bearer
     raw = token
+
+    # (1) Try to decode Bearer if present
+    if raw:
+        parts = raw.split(".")
+        if len(parts) != 3:
+            log.warning("Bearer header is not a JWT (segments=%d, len=%d); ignoring and using session fallback",
+                        len(parts), len(raw))
+            raw = None  # force session path
+        else:
+            try:
+                claims = _decode_jwt(raw)
+                claims["_roles"] = _extract_roles(claims, OIDC_CLIENT_ID)
+                return claims
+            except AuthError as e:
+                log.debug("Bearer invalid; trying session fallback: %s", e.detail)
+
     if not raw:
         auth = request.headers.get("Authorization", "")
         if auth.lower().startswith("bearer "):
