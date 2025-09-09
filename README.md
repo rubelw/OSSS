@@ -89,6 +89,8 @@ osss <TAB>
 # Web: http://localhost:3000 username 'activities_director@osss.local' and password 'password'
 # Vault: http://localhost:8200 username 'chief_technology_officer@osss.local and password 'password'
 # Consul: http://localhost:8500
+# Kibana: http://localhost:5601
+# ElasticSearch: http://localhost:9200
 ```
 
 Build the static site to `./documentation/`:

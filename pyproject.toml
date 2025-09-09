@@ -105,7 +105,8 @@ dependencies = [
      "google-cloud-pubsub>=2.0.0",     # only if you also publish (not required for push)
 
      "python-keycloak-client>=0.2.3",
-     "python-consul2>=0.1.5"
+     "python-consul2>=0.1.5",
+     "python-json-logger>=3.3.0"
 
 ]
 

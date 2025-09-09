@@ -1,0 +1,33 @@
+filebeat.autodiscover:
+  providers:
+    - type: docker
+      hints.enabled: true    # <- reads the co.elastic.logs/* labels
+      templates:
+        - condition:
+            contains:
+              docker.container.labels.co.elastic.logs/enabled: "true"
+          config:
+            - type: container
+              paths:
+                - /var/lib/docker/containers/${data.container.id}/*.log
+              json:
+                keys_under_root: true
+                add_error_key: true
+                overwrite_keys: true
+              processors:
+                - add_docker_metadata: ~
+                - add_fields:
+                    target: ''
+                    fields:
+                      service.name: ${data.container.labels.co.elastic.logs/service.name|osss-api}
+                      event.dataset: osss.api
+                      event.module: osss
+output.elasticsearch:
+  hosts: ["http://elasticsearch:9200"]
+  # xpack.security disabled in the ES snippet you used; add auth if you enable it later
+
+setup.template.enabled: true
+setup.ilm.enabled: true
+setup.ilm.rollover_alias: "logs-osss"
+setup.ilm.pattern: "{now/d}-000001"
+logging.to_files: false
