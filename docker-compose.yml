@@ -36,22 +36,66 @@ services:
       - consul_data:/consul/data
     networks: [ osss-net ]
     environment:
-      # Registers your FastAPI 'app' service; Consul runs this TCP check from inside the container
+      # Registers services with Consul; Consul runs these checks from inside the container
       CONSUL_LOCAL_CONFIG: |
         {
           "datacenter": "dc1",
-          "connect": { "enabled": true },
           "services": [
-              {
-                  "name": "app",
-                  "address": "app",
-                  "port": 8000,
-                  "checks": [
-                      { "tcp": "app:8000", "interval": "10s", "timeout": "2s" }
-                  ]
-              }
+            {
+              "name": "osss-postgres",
+              "address": "osss_postgres",
+              "port": 5432,
+              "checks": [
+                { "tcp": "osss_postgres:5432", "interval": "10s", "timeout": "2s" }
+              ]
+            },
+            {
+              "name": "kc-postgres",
+              "address": "kc_postgres",
+              "port": 5432,
+              "checks": [
+                { "tcp": "kc_postgres:5432", "interval": "10s", "timeout": "2s" }
+              ]
+            },
+            {
+              "name": "redis",
+              "address": "redis",
+              "port": 6379,
+              "tags": ["cache", "redis"],
+              "checks": [
+                { "tcp": "redis:6379", "interval": "10s", "timeout": "2s" }
+              ]
+            },
+            {
+              "name": "vault",
+              "address": "vault",
+              "port": 8200,
+              "tags": ["vault", "http"],
+              "checks": [
+                {
+                  "http": "http://vault:8200/v1/sys/health?standbyok=true&sealedcode=503&standbycode=200&activecode=200",
+                  "interval": "10s",
+                  "timeout": "3s"
+                }
+              ]
+            },
+            {
+              "name": "keycloak",
+              "address": "keycloak",
+              "port": 8080,
+              "tags": ["keycloak", "http"],
+              "checks": [
+                {
+                  "http": "http://keycloak:8080/health/ready",
+                  "interval": "10s",
+                  "timeout": "3s",
+                  "DeregisterCriticalServiceAfter": "1m"
+                }
+              ]
+            }
           ]
         }
+
     healthcheck:
       test: [ "CMD-SHELL", "consul info >/dev/null 2>&1" ]
       interval: 5s
