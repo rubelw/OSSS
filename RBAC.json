@@ -344,7 +344,9 @@
           "vault_admin": "false",
           "vault_user": "false",
           "consul_admin": "false",
-          "consul_user": "false"
+          "consul_user": "false",
+          "kibana_admin": "false",
+          "kibana_user": "false"
         },
         {
           "name": "board_vice_chair",
@@ -558,7 +560,9 @@
           "vault_admin": "false",
           "vault_user": "false",
           "consul_admin": "false",
-          "consul_user": "false"
+          "consul_user": "false",
+          "kibana_admin": "false",
+          "kibana_user": "false"
         },
         {
           "name": "board_clerk",
@@ -796,7 +800,9 @@
           "vault_admin": "false",
           "vault_user": "false",
           "consul_admin": "false",
-          "consul_user": "false"
+          "consul_user": "false",
+          "kibana_admin": "false",
+          "kibana_user": "false"
         },
         {
           "name": "school_board_member_trustee",
@@ -1012,7 +1018,9 @@
           "vault_admin": "false",
           "vault_user": "false",
           "consul_admin": "false",
-          "consul_user": "false"
+          "consul_user": "false",
+          "kibana_admin": "false",
+          "kibana_user": "false"
         }
       ],
       "children": [
@@ -1392,7 +1400,9 @@
               "vault_admin": "false",
               "vault_user": "false",
               "consul_admin": "false",
-              "consul_user": "false"
+              "consul_user": "false",
+              "kibana_admin": "false",
+              "kibana_user": "false"
             },
             {
               "name": "head_of_school",
@@ -1599,7 +1609,9 @@
               "vault_admin": "false",
               "vault_user": "false",
               "consul_admin": "false",
-              "consul_user": "false"
+              "consul_user": "false",
+              "kibana_admin": "false",
+              "kibana_user": "false"
             },
             {
               "name": "deputy_superintendent",
@@ -1799,7 +1811,9 @@
               "vault_admin": "false",
               "vault_user": "false",
               "consul_admin": "false",
-              "consul_user": "false"
+              "consul_user": "false",
+              "kibana_admin": "false",
+              "kibana_user": "false"
             },
             {
               "name": "associate_superintendent",
@@ -2114,7 +2128,9 @@
               "vault_admin": "false",
               "vault_user": "false",
               "consul_admin": "false",
-              "consul_user": "false"
+              "consul_user": "false",
+              "kibana_admin": "false",
+              "kibana_user": "false"
             },
             {
               "name": "assistant_superintendent",
@@ -2332,7 +2348,9 @@
               "vault_admin": "false",
               "vault_user": "false",
               "consul_admin": "false",
-              "consul_user": "false"
+              "consul_user": "false",
+              "kibana_admin": "false",
+              "kibana_user": "false"
             },
             {
               "name": "chief_of_staff",
@@ -2544,7 +2562,9 @@
               "vault_admin": "false",
               "vault_user": "false",
               "consul_admin": "false",
-              "consul_user": "false"
+              "consul_user": "false",
+              "kibana_admin": "false",
+              "kibana_user": "false"
             },
             {
               "name": "general_counsel",
@@ -2757,7 +2777,9 @@
               "vault_admin": "false",
               "vault_user": "false",
               "consul_admin": "false",
-              "consul_user": "false"
+              "consul_user": "false",
+              "kibana_admin": "false",
+              "kibana_user": "false"
             },
             {
               "name": "ombudsperson",
@@ -2969,7 +2991,9 @@
               "vault_admin": "false",
               "vault_user": "false",
               "consul_admin": "false",
-              "consul_user": "false"
+              "consul_user": "false",
+              "kibana_admin": "false",
+              "kibana_user": "false"
             },
             {
               "name": "chief_equity_officer",
@@ -3181,7 +3205,9 @@
               "vault_admin": "false",
               "vault_user": "false",
               "consul_admin": "false",
-              "consul_user": "false"
+              "consul_user": "false",
+              "kibana_admin": "false",
+              "kibana_user": "false"
             }
           ],
           "children": [
@@ -3520,7 +3546,9 @@
                   "vault_admin": "false",
                   "vault_user": "false",
                   "consul_admin": "false",
-                  "consul_user": "false"
+                  "consul_user": "false",
+                  "kibana_admin": "false",
+                  "kibana_user": "false"
                 }
               ],
               "children": [
@@ -3921,7 +3949,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "assistant_principal",
@@ -4184,7 +4214,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "associate_principal",
@@ -4511,7 +4543,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "vice_principal",
@@ -4838,7 +4872,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "dean_of_students",
@@ -5046,7 +5082,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "dean_of_academics",
@@ -5307,11 +5345,13 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "grade_level_dean",
-                      "description": "Oversees a grade’s academic and behavioral support systems.",
+                      "description": "Oversees a grade\u2019s academic and behavioral support systems.",
                       "permissions": [
                         "read:academic_terms",
                         "read:accommodations",
@@ -5519,7 +5559,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "director_of_residential_life",
@@ -5731,7 +5773,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "activities_director",
@@ -5920,7 +5964,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "athletics_director",
@@ -6132,7 +6178,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "assistant_athletics_director",
@@ -6344,7 +6392,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "head_of_upper_school",
@@ -6556,7 +6606,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "head_of_middle_school",
@@ -6768,7 +6820,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "head_of_lower_school",
@@ -6980,7 +7034,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     }
                   ],
                   "children": [
@@ -7123,7 +7179,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "elementary_teacher",
@@ -7241,7 +7299,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "middle_school_teacher",
@@ -7359,7 +7419,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "high_school_teacher",
@@ -7477,7 +7539,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "art_teacher",
@@ -7595,7 +7659,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "music_teacher",
@@ -7713,7 +7779,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "band_director",
@@ -7831,7 +7899,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "choir_director",
@@ -7949,7 +8019,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "theater_teacher",
@@ -8067,7 +8139,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "physical_education_teacher",
@@ -8185,7 +8259,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "health_teacher",
@@ -8303,7 +8379,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "world_languages_teacher",
@@ -8421,7 +8499,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "computer_science_teacher",
@@ -8539,7 +8619,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "cte_teacher",
@@ -8657,7 +8739,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "early_childhood_teacher",
@@ -8775,7 +8859,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "reading_interventionist",
@@ -8893,7 +8979,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "math_interventionist",
@@ -9011,7 +9099,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "instructional_coach",
@@ -9129,7 +9219,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "literacy_coach",
@@ -9247,7 +9339,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "math_coach",
@@ -9365,7 +9459,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "mentor_teacher",
@@ -9483,7 +9579,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "media_specialist",
@@ -9652,7 +9750,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "teacher_librarian",
@@ -9780,7 +9880,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "substitute_teacher",
@@ -9898,7 +10000,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "long_term_substitute",
@@ -10016,7 +10120,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "teacher_resident",
@@ -10134,7 +10240,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "student_teacher",
@@ -10252,7 +10360,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "instructional_fellow",
@@ -10370,7 +10480,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         }
                       ]
                     },
@@ -10565,7 +10677,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "guidance_counselor",
@@ -10732,7 +10846,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "school_social_worker",
@@ -10854,7 +10970,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "family_liaison",
@@ -10976,7 +11094,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "school_nurse",
@@ -11041,7 +11161,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "health_aide",
@@ -11163,7 +11285,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "attendance_officer",
@@ -11285,7 +11409,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "truancy_officer",
@@ -11407,7 +11533,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "homeless_liaison",
@@ -11529,7 +11657,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "foster_care_liaison",
@@ -11651,7 +11781,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "behavior_support_coach",
@@ -11773,7 +11905,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "restorative_practices_coordinator",
@@ -11895,7 +12029,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "mtss_coordinator",
@@ -12017,7 +12153,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "rti_coordinator",
@@ -12139,7 +12277,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "registrar",
@@ -12316,7 +12456,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "records_clerk",
@@ -12439,7 +12581,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "testing_and_assessment_coordinator",
@@ -12561,7 +12705,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "college_counselor",
@@ -12728,7 +12874,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "financial_aid_advisor",
@@ -12850,7 +12998,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         }
                       ]
                     },
@@ -12980,7 +13130,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "administrative_assistant",
@@ -13092,7 +13244,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "office_manager",
@@ -13204,7 +13358,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "receptionist",
@@ -13316,7 +13472,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "attendance_clerk",
@@ -13428,7 +13586,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "student_services_clerk",
@@ -13540,7 +13700,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "data_clerk",
@@ -13652,7 +13814,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "sis_clerk",
@@ -13764,7 +13928,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "health_office_clerk",
@@ -13876,7 +14042,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         }
                       ]
                     },
@@ -13990,7 +14158,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "assistant_coach",
@@ -14094,7 +14264,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "athletic_trainer",
@@ -14198,7 +14370,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "strength_and_conditioning_coach",
@@ -14302,7 +14476,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "club_sponsor",
@@ -14406,7 +14582,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "activity_sponsor",
@@ -14510,7 +14688,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "robotics_coach",
@@ -14614,7 +14794,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "debate_coach",
@@ -14718,7 +14900,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "esports_coach",
@@ -14822,7 +15006,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "yearbook_advisor",
@@ -14926,7 +15112,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "student_government_advisor",
@@ -15030,7 +15218,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "performing_arts_director",
@@ -15134,7 +15324,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "theater_director",
@@ -15238,7 +15430,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         }
                       ]
                     },
@@ -15350,7 +15544,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "preschool_teacher",
@@ -15453,7 +15649,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "preschool_assistant",
@@ -15556,7 +15754,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "before_school_program_director",
@@ -15659,7 +15859,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "after_school_program_director",
@@ -15762,7 +15964,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "extended_day_coordinator",
@@ -15865,7 +16069,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "summer_school_coordinator",
@@ -15968,7 +16174,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "enrichment_coordinator",
@@ -16071,7 +16279,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         }
                       ]
                     },
@@ -16183,7 +16393,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "campus_minister",
@@ -16286,7 +16498,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "religion_teacher",
@@ -16389,7 +16603,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "theology_teacher",
@@ -16492,7 +16708,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         },
                         {
                           "name": "service_learning_coordinator",
@@ -16595,7 +16813,9 @@
                           "vault_admin": "false",
                           "vault_user": "false",
                           "consul_admin": "false",
-                          "consul_user": "false"
+                          "consul_user": "false",
+                          "kibana_admin": "false",
+                          "kibana_user": "false"
                         }
                       ]
                     }
@@ -16751,7 +16971,9 @@
                   "vault_admin": "false",
                   "vault_user": "false",
                   "consul_admin": "false",
-                  "consul_user": "false"
+                  "consul_user": "false",
+                  "kibana_admin": "false",
+                  "kibana_user": "false"
                 },
                 {
                   "name": "director_of_student_support_services",
@@ -16874,7 +17096,9 @@
                   "vault_admin": "false",
                   "vault_user": "false",
                   "consul_admin": "false",
-                  "consul_user": "false"
+                  "consul_user": "false",
+                  "kibana_admin": "false",
+                  "kibana_user": "false"
                 }
               ],
               "children": [
@@ -17016,7 +17240,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "director_of_assessment_research_evaluation",
@@ -17134,7 +17360,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "director_of_accountability",
@@ -17252,7 +17480,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "director_of_data_analytics",
@@ -17370,7 +17600,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "instructional_materials_coordinator",
@@ -17488,7 +17720,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "textbook_coordinator",
@@ -17606,7 +17840,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "professional_development_coordinator",
@@ -17724,7 +17960,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "teacher_induction_coordinator",
@@ -17842,7 +18080,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "accreditation_coordinator",
@@ -17960,7 +18200,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     }
                   ]
                 },
@@ -18078,7 +18320,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "special_education_teacher",
@@ -18184,7 +18428,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "sped_case_manager",
@@ -18290,7 +18536,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "school_psychologist",
@@ -18396,7 +18644,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "speech_language_pathologist",
@@ -18502,7 +18752,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "occupational_therapist",
@@ -18608,7 +18860,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "certified_occupational_therapy_assistant",
@@ -18714,7 +18968,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "physical_therapist",
@@ -18820,7 +19076,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "physical_therapist_assistant",
@@ -18926,7 +19184,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "board_certified_behavior_analyst",
@@ -19032,7 +19292,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "behavior_interventionist",
@@ -19138,7 +19400,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "vision_specialist",
@@ -19244,7 +19508,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "orientation_and_mobility_specialist",
@@ -19350,7 +19616,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "deaf_hard_of_hearing_teacher",
@@ -19456,7 +19724,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "504_coordinator",
@@ -19562,7 +19832,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "sped_compliance_coordinator",
@@ -19668,7 +19940,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "paraprofessional",
@@ -19774,7 +20048,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "instructional_aide",
@@ -19880,7 +20156,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "teachers_aide",
@@ -19986,7 +20264,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "sign_language_interpreter",
@@ -20092,7 +20372,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "transition_specialist",
@@ -20198,7 +20480,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "vocational_specialist",
@@ -20304,7 +20588,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     }
                   ]
                 },
@@ -20418,7 +20704,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "virtual_online_program_director",
@@ -20522,7 +20810,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "cte_director",
@@ -20626,7 +20916,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "pathways_coordinator",
@@ -20730,7 +21022,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "apprenticeship_coordinator",
@@ -20834,7 +21128,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "international_student_program_director",
@@ -20938,7 +21234,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "homestay_coordinator",
@@ -21042,7 +21340,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "testing_site_manager",
@@ -21146,7 +21446,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "ib_coordinator",
@@ -21250,7 +21552,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "ap_coordinator",
@@ -21354,7 +21658,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "librarian",
@@ -21437,7 +21743,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "archivist",
@@ -21541,7 +21849,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "print_shop_manager",
@@ -21645,7 +21955,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "mailroom_clerk",
@@ -21749,7 +22061,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "volunteer_coordinator",
@@ -21853,7 +22167,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     }
                   ]
                 }
@@ -22005,7 +22321,9 @@
                   "vault_admin": "false",
                   "vault_user": "false",
                   "consul_admin": "false",
-                  "consul_user": "false"
+                  "consul_user": "false",
+                  "kibana_admin": "false",
+                  "kibana_user": "false"
                 }
               ],
               "children": [
@@ -22149,7 +22467,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "facilities_manager",
@@ -22214,7 +22534,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "plant_manager",
@@ -22333,7 +22655,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "maintenance_technician",
@@ -22452,7 +22776,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "electrician",
@@ -22571,7 +22897,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "plumber",
@@ -22690,7 +23018,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "hvac_technician",
@@ -22809,7 +23139,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "carpenter",
@@ -22928,7 +23260,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "painter",
@@ -23047,7 +23381,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "locksmith",
@@ -23166,7 +23502,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "groundskeeper",
@@ -23285,7 +23623,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "irrigation_technician",
@@ -23404,7 +23744,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "custodial_supervisor",
@@ -23523,7 +23865,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "custodian",
@@ -23642,7 +23986,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "porter",
@@ -23761,7 +24107,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "night_lead",
@@ -23880,7 +24228,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "warehouse_receiving",
@@ -23999,7 +24349,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "inventory_specialist",
@@ -24118,7 +24470,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "energy_manager",
@@ -24237,7 +24591,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "sustainability_manager",
@@ -24356,7 +24712,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     }
                   ]
                 },
@@ -24474,7 +24832,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "routing_scheduling_coordinator",
@@ -24580,7 +24940,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "dispatcher",
@@ -24686,7 +25048,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "bus_driver",
@@ -24792,7 +25156,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "activity_driver",
@@ -24898,7 +25264,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "bus_aide_monitor",
@@ -25004,7 +25372,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "fleet_manager",
@@ -25110,7 +25480,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "mechanic",
@@ -25216,7 +25588,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "diesel_technician",
@@ -25322,7 +25696,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "shop_foreman",
@@ -25428,7 +25804,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "crossing_guard",
@@ -25534,7 +25912,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     }
                   ]
                 },
@@ -25646,7 +26026,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "food_service_director",
@@ -25749,7 +26131,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "cafeteria_manager",
@@ -25852,7 +26236,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "kitchen_manager",
@@ -25955,7 +26341,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "cook",
@@ -26058,7 +26446,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "prep_cook",
@@ -26161,7 +26551,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "baker",
@@ -26264,7 +26656,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "cashier_point_of_sale_operator",
@@ -26367,7 +26761,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "dietitian",
@@ -26470,7 +26866,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "nutritionist",
@@ -26573,7 +26971,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     }
                   ]
                 },
@@ -26689,7 +27089,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "emergency_management_director",
@@ -26794,7 +27196,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "school_resource_officer",
@@ -26899,7 +27303,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "campus_police_officer",
@@ -27004,7 +27410,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "security_guard",
@@ -27109,7 +27517,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "campus_supervisor",
@@ -27214,7 +27624,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "emergency_preparedness_coordinator",
@@ -27319,7 +27731,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     }
                   ]
                 }
@@ -27483,7 +27897,9 @@
                   "vault_admin": "false",
                   "vault_user": "false",
                   "consul_admin": "false",
-                  "consul_user": "false"
+                  "consul_user": "false",
+                  "kibana_admin": "false",
+                  "kibana_user": "false"
                 }
               ],
               "children": [
@@ -27649,7 +28065,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "controller",
@@ -27778,7 +28196,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "accountant",
@@ -27907,7 +28327,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "payroll_manager",
@@ -28034,7 +28456,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "payroll_specialist",
@@ -28161,7 +28585,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "accounts_payable_specialist",
@@ -28290,7 +28716,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "accounts_receivable_specialist",
@@ -28417,7 +28845,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "grants_manager",
@@ -28544,7 +28974,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "grant_writer",
@@ -28671,7 +29103,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "federal_programs_director",
@@ -28798,7 +29232,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "purchasing_director",
@@ -28925,7 +29361,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "buyer",
@@ -29052,7 +29490,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "risk_manager",
@@ -29180,7 +29620,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "insurance_coordinator",
@@ -29307,7 +29749,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "compliance_officer",
@@ -29434,7 +29878,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "records_retention_manager",
@@ -29562,7 +30008,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "e_rate_coordinator",
@@ -29689,7 +30137,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     }
                   ]
                 }
@@ -29829,7 +30279,9 @@
                   "vault_admin": "false",
                   "vault_user": "false",
                   "consul_admin": "false",
-                  "consul_user": "false"
+                  "consul_user": "false",
+                  "kibana_admin": "false",
+                  "kibana_user": "false"
                 },
                 {
                   "name": "human_resources_director",
@@ -29945,7 +30397,9 @@
                   "vault_admin": "false",
                   "vault_user": "false",
                   "consul_admin": "false",
-                  "consul_user": "false"
+                  "consul_user": "false",
+                  "kibana_admin": "false",
+                  "kibana_user": "false"
                 }
               ],
               "children": [
@@ -30083,7 +30537,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "hr_generalist",
@@ -30199,7 +30655,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "recruiter",
@@ -30315,7 +30773,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "benefits_manager",
@@ -30431,7 +30891,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "benefits_specialist",
@@ -30547,7 +31009,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     }
                   ]
                 }
@@ -30677,7 +31141,9 @@
                   "vault_admin": "false",
                   "vault_user": "true",
                   "consul_admin": "false",
-                  "consul_user": "false"
+                  "consul_user": "false",
+                  "kibana_admin": "false",
+                  "kibana_user": "false"
                 },
                 {
                   "name": "chief_technology_officer",
@@ -30787,7 +31253,9 @@
                   "vault_admin": "true",
                   "vault_user": "false",
                   "consul_admin": "false",
-                  "consul_user": "false"
+                  "consul_user": "false",
+                  "kibana_admin": "false",
+                  "kibana_user": "false"
                 }
               ],
               "children": [
@@ -30915,7 +31383,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "it_director",
@@ -31025,7 +31495,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "network_administrator",
@@ -31135,7 +31607,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "systems_administrator",
@@ -31245,7 +31719,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "cloud_administrator",
@@ -31355,7 +31831,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "server_administrator",
@@ -31465,7 +31943,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "information_security_officer",
@@ -31575,7 +32055,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "database_administrator",
@@ -31685,7 +32167,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "help_desk_manager",
@@ -31795,7 +32279,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "help_desk_technician",
@@ -31905,7 +32391,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "field_technician",
@@ -32015,7 +32503,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "web_administrator",
@@ -32125,7 +32615,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "webmaster",
@@ -32235,7 +32727,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "av_media_technician",
@@ -32345,7 +32839,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     }
                   ]
                 },
@@ -32473,7 +32969,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "data_engineer",
@@ -32583,7 +33081,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "data_analyst",
@@ -32693,7 +33193,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "etl_developer",
@@ -32803,7 +33305,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     }
                   ]
                 }
@@ -32926,7 +33430,9 @@
                   "vault_admin": "false",
                   "vault_user": "false",
                   "consul_admin": "false",
-                  "consul_user": "false"
+                  "consul_user": "false",
+                  "kibana_admin": "false",
+                  "kibana_user": "false"
                 }
               ],
               "children": [
@@ -33047,7 +33553,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "public_relations_director",
@@ -33155,7 +33663,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "media_relations_manager",
@@ -33263,7 +33773,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "family_engagement_coordinator",
@@ -33371,7 +33883,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "community_engagement_coordinator",
@@ -33479,7 +33993,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "translation_services_coordinator",
@@ -33587,7 +34103,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "interpreter_services_coordinator",
@@ -33695,7 +34213,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "alumni_relations_director",
@@ -33803,7 +34323,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "advancement_development_director",
@@ -33911,7 +34433,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "annual_giving_manager",
@@ -34019,7 +34543,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "capital_campaign_manager",
@@ -34127,7 +34653,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "major_gifts_officer",
@@ -34235,7 +34763,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "admissions_director",
@@ -34343,7 +34873,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "enrollment_director",
@@ -34451,7 +34983,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "financial_aid_director",
@@ -34559,7 +35093,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "marketing_director",
@@ -34667,7 +35203,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "marketing_manager",
@@ -34775,7 +35313,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "graphic_designer",
@@ -34883,7 +35423,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     },
                     {
                       "name": "social_media_manager",
@@ -34991,7 +35533,9 @@
                       "vault_admin": "false",
                       "vault_user": "false",
                       "consul_admin": "false",
-                      "consul_user": "false"
+                      "consul_user": "false",
+                      "kibana_admin": "false",
+                      "kibana_user": "false"
                     }
                   ]
                 }

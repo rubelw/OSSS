@@ -1,0 +1,92 @@
+version: 1
+disable_existing_loggers: false
+
+formatters:
+  brief:
+    format: "%(levelname)s %(name)s: %(message)s"
+  detailed_json:
+    format: '{"asctime":"%(asctime)s","levelname":"%(levelname)s","name":"%(name)s","message":"%(message)s","module":"%(module)s","func":"%(funcName)s","lineno":%(lineno)d}'
+
+handlers:
+  console:
+    class: logging.StreamHandler
+    level: DEBUG
+    formatter: detailed_json
+    stream: ext://sys.stdout
+
+root:
+  level: INFO
+  handlers: [console]
+
+loggers:
+  # uvicorn / fastapi plumbing
+  uvicorn:
+    level: DEBUG
+    handlers: [console]
+    propagate: false
+  uvicorn.error:
+    level: DEBUG
+    handlers: [console]
+    propagate: false
+  uvicorn.access:
+    level: INFO
+    handlers: [console]
+    propagate: false
+  fastapi:
+    level: DEBUG
+    handlers: [console]
+    propagate: false
+  starlette:
+    level: DEBUG
+    handlers: [console]
+    propagate: false
+
+  # HTTP clients used during OIDC flows
+  httpx:
+    level: DEBUG
+    handlers: [console]
+    propagate: false
+  urllib3:
+    level: DEBUG
+    handlers: [console]
+    propagate: false
+  requests:
+    level: DEBUG
+    handlers: [console]
+    propagate: false
+
+  # OIDC/Auth libs (turn these up)
+  authlib:
+    level: DEBUG
+    handlers: [console]
+    propagate: false
+  oauthlib:
+    level: DEBUG
+    handlers: [console]
+    propagate: false
+  jose:
+    level: DEBUG
+    handlers: [console]
+    propagate: false
+  jwcrypto:
+    level: DEBUG
+    handlers: [console]
+    propagate: false
+
+  # Your app packages/modules
+  OSSS:
+    level: DEBUG
+    handlers: [console]
+    propagate: false
+  OSSS.auth:
+    level: DEBUG
+    handlers: [console]
+    propagate: false
+  OSSS.security:
+    level: DEBUG
+    handlers: [console]
+    propagate: false
+  main:
+    level: DEBUG
+    handlers: [console]
+    propagate: false

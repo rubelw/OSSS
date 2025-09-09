@@ -12,7 +12,7 @@ if ! grep -Eq '^[[:space:]]*127\.0\.0\.1[[:space:]].*\bhost\.docker\.internal\b'
     echo "127.0.0.1 localhost host.docker.internal" | sudo tee -a /etc/hosts >/dev/null
   fi
 else
-  echo "✅ /etc/hosts already contains 'host.docker.internal' on 127.0.0.1"
+  echo "✅ /etc/hosts already contains 'host.docker.internal'"
 fi
 
 set -euo pipefail
@@ -23,6 +23,19 @@ if REPO_ROOT_GIT="$(cd "$SCRIPT_DIR" && git rev-parse --show-toplevel 2>/dev/nul
   REPO_ROOT="$REPO_ROOT_GIT"
 else
   REPO_ROOT="$SCRIPT_DIR"
+fi
+
+# Give this compose run a stable project name to avoid collisions
+export COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME:-osss}
+PROJECT="$COMPOSE_PROJECT_NAME"
+NET="${PROJECT}_osss-net"
+
+# Ensure the external network exists (Compose won't create external networks)
+if ! docker network inspect "$NET" >/dev/null 2>&1; then
+  echo "🌐 Creating external network: $NET"
+  docker network create "$NET"
+else
+  echo "✅ External network present: $NET"
 fi
 
 ### --- .env loader (before reading defaults) ---
@@ -77,6 +90,19 @@ compose_base_cmd() {
   exit 1
 }
 
+# Decide which compose to use, and store it as an array not a string.
+COMPOSE_CMD_STR="$(compose_base_cmd)"
+if [[ "$COMPOSE_CMD_STR" == "docker compose" ]]; then
+  COMPOSE_CMD_ARR=(docker compose)
+else
+  COMPOSE_CMD_ARR=(docker-compose)
+fi
+compose() { "${COMPOSE_CMD_ARR[@]}" "$@"; }
+
+COMPOSE_ENV_ARGS=()
+[[ -f "$ENV_FILE" ]] && COMPOSE_ENV_ARGS+=(--env-file "$ENV_FILE")
+
+
 resolve_python() { command -v python >/dev/null 2>&1 && { echo "python"; return; }
                    command -v python3 >/dev/null 2>&1 && { echo "python3"; return; }
                    echo "❌ Python not found on PATH" >&2; exit 1; }
@@ -117,7 +143,7 @@ ensure_mkcert() {
       elif command -v pacman >/dev/null 2>&1; then
         $SUDO pacman -Sy --noconfirm mkcert nss || $SUDO pacman -Sy --noconfirm mkcert
       else
-        echo "❌ No supported package manager found. Install mkcert manually: https://github.com/FiloSottile/mkcert" >&2
+        echo "❌ No supported package manager found. Install mkcert manually." >&2
         return 1
       fi
       ;;
@@ -132,14 +158,11 @@ ensure_mkcert() {
 
 ensure_local_tls_cert() {
   local SUDO; SUDO="$(need_sudo)"
-  # Ensure directory exists and is writable by current user (for mkcert output)
   if [ ! -d "${TLS_CERT_DIR}" ]; then
     $SUDO mkdir -p "${TLS_CERT_DIR}"
     $SUDO chown "$(id -u):$(id -g)" "${TLS_CERT_DIR}" || true
   fi
-  # Install local CA (idempotent)
   mkcert -install
-  # Create cert if missing
   if [[ ! -s "${TLS_CERT_FILE}" || ! -s "${TLS_KEY_FILE}" ]]; then
     echo "🔐 Generating local TLS certs for: ${TLS_DOMAIN_LIST}"
     mkcert -key-file "${TLS_KEY_FILE}" -cert-file "${TLS_CERT_FILE}" ${TLS_DOMAIN_LIST}
@@ -193,7 +216,7 @@ wait_for_pg_service() {
   local svc="$1"; local tries=60
   echo "⏳ Waiting for Postgres in service '${svc}' to be ready…"
   while (( tries-- > 0 )); do
-    if ${COMPOSE_CMD} "${COMPOSE_ENV_ARGS[@]}" -f "${COMPOSE_FILE}" exec -T "$svc" pg_isready -q >/dev/null 2>&1; then
+    if "${COMPOSE_CMD[@]}" "${COMPOSE_ENV_ARGS[@]}" -f "${COMPOSE_FILE}" exec -T "$svc" pg_isready -q >/dev/null 2>&1; then
       echo "✅ ${svc} Postgres is ready."; return 0; fi
     sleep 2
   done
@@ -212,21 +235,20 @@ ensure_role_and_db() {
   echo "   ↳ Using superuser: ${su}"
 
   # Try to connect (with pw, then without)
-  if ! ${COMPOSE_CMD} "${COMPOSE_ENV_ARGS[@]}" -f "${COMPOSE_FILE}" exec -T -e PGPASSWORD="$su_pw" "$svc" \
+  if ! "${COMPOSE_CMD[@]}" "${COMPOSE_ENV_ARGS[@]}" -f "${COMPOSE_FILE}" exec -T -e PGPASSWORD="$su_pw" "$svc" \
         psql -U "$su" -d postgres -c "select 1" >/dev/null 2>&1; then
-    if ! ${COMPOSE_CMD} "${COMPOSE_ENV_ARGS[@]}" -f "${COMPOSE_FILE}" exec -T "$svc" \
+    if ! "${COMPOSE_CMD[@]}" "${COMPOSE_ENV_ARGS[@]}" -f "${COMPOSE_FILE}" exec -T "$svc" \
           psql -U "$su" -d postgres -c "select 1" >/dev/null 2>&1; then
       echo "❌ Could not connect to $svc as '$su'." >&2; return 1
     fi
   fi
 
-  # Pre-escape values
   local L_USER L_PASS L_DB
   L_USER=$(sql_escape_literal "$app_user")
   L_PASS=$(sql_escape_literal "$app_password")
   L_DB=$(sql_escape_literal "$app_db")
 
-  ${COMPOSE_CMD} "${COMPOSE_ENV_ARGS[@]}" -f "${COMPOSE_FILE}" exec -T -e PGPASSWORD="$su_pw" "$svc" \
+  "${COMPOSE_CMD[@]}" "${COMPOSE_ENV_ARGS[@]}" -f "${COMPOSE_FILE}" exec -T -e PGPASSWORD="$su_pw" "$svc" \
     psql -X -v ON_ERROR_STOP=1 -U "$su" -d postgres -f - <<SQL
 DO \$do\$
 DECLARE
@@ -234,14 +256,12 @@ DECLARE
   v_pass text := ${L_PASS};
   v_db   text := ${L_DB};
 BEGIN
-  -- Always (re)apply the password to avoid stale/CRLF'd secrets
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = v_user) THEN
     EXECUTE format('CREATE ROLE %I LOGIN PASSWORD %L', v_user, v_pass);
   ELSE
     EXECUTE format('ALTER ROLE %I WITH LOGIN PASSWORD %L', v_user, v_pass);
   END IF;
 
-  -- DB
   IF NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = v_db) THEN
     EXECUTE format('CREATE DATABASE %I OWNER %I', v_db, v_user);
   ELSE
@@ -258,34 +278,29 @@ SQL
 
 install_python_requirements() {
   local py; py="$(resolve_python)"
-
   echo "📦 Ensuring Python dependencies (pyproject/requirements)…"
   "$py" -m pip --version >/dev/null 2>&1 || { echo "❌ pip not available"; exit 1; }
   "$py" -m pip install --upgrade pip setuptools wheel >/dev/null
 
-  # If caller provided an explicit requirements file, prefer that.
   if [[ -n "${PY_REQUIREMENTS_FILE:-}" && -f "${PY_REQUIREMENTS_FILE}" ]]; then
     echo "➡️  Installing from ${PY_REQUIREMENTS_FILE}"
     "$py" -m pip install -r "${PY_REQUIREMENTS_FILE}"
     return
   fi
 
-  # Primary path: install from pyproject.toml in repo root
   if [[ -f "${REPO_ROOT}/pyproject.toml" ]]; then
-    local extras="${PIP_EXTRAS:-}"   # e.g. [dev] or [realm]; include brackets if used
+    local extras="${PIP_EXTRAS:-}"
     echo "➡️  Installing from pyproject.toml at ${REPO_ROOT} (editable) ${extras}"
     ( cd "${REPO_ROOT}" && "$py" -m pip install -e ".${extras}" )
     return
   fi
 
-  # Fallback: requirements.txt if present
   if [[ -f "${REPO_ROOT}/requirements.txt" ]]; then
     echo "➡️  Installing from requirements.txt"
     "$py" -m pip install -r "${REPO_ROOT}/requirements.txt"
     return
   fi
 
-  # Last resort: minimal deps often needed by build_realm.py
   echo "⚠️  No pyproject.toml or requirements.txt found – installing minimal realm deps"
   "$py" -m pip install "SQLAlchemy>=2,<3" "pydantic>=2,<3" "pydantic-settings>=2,<3"
 }
@@ -293,12 +308,9 @@ install_python_requirements() {
 ensure_realm_python_deps() {
   local py; py="$(resolve_python)"
   local need=()
-
-  # Detect what’s missing
   "$py" -c "import sqlalchemy"            2>/dev/null || need+=("SQLAlchemy>=2,<3")
   "$py" -c "import pydantic_settings"     2>/dev/null || need+=("pydantic-settings>=2,<3")
   "$py" -c "import pydantic"              2>/dev/null || need+=("pydantic>=2,<3")
-
   if ((${#need[@]})); then
     echo "📦 Installing missing realm deps: ${need[*]}"
     "$py" -m pip install --upgrade pip >/dev/null
@@ -339,8 +351,20 @@ KEYCLOAK_CLIENT_SECRET="$(sanitize_secret "${KEYCLOAK_CLIENT_SECRET:-password}")
 KEYCLOAK_ADMIN="${KEYCLOAK_ADMIN:-admin}"
 KEYCLOAK_ADMIN_PASSWORD="$(sanitize_secret "${KEYCLOAK_ADMIN_PASSWORD:-admin}")"
 
+# --- Ensure ENV_FILE and COMPOSE_FILE point to files ---
+if [ -n "${ENV_FILE:-}" ] && [ ! -f "$ENV_FILE" ]; then
+  echo "⚠️  ENV_FILE points to '$ENV_FILE' but it does not exist or is not a file."
+  echo "   → Falling back to skipping --env-file"
+  unset ENV_FILE
+fi
+
+if [ -n "${COMPOSE_FILE:-}" ] && [ ! -f "$COMPOSE_FILE" ]; then
+  echo "❌ COMPOSE_FILE points to '$COMPOSE_FILE' but no file found."
+  echo "   Please create $COMPOSE_FILE or export FK_COMPOSE_FILE to the correct path."
+  exit 1
+fi
+
 # Ensure localhost can resolve "keycloak" hostname for OIDC callbacks/tools.
-# Only append if not already present.
 if ! grep -qE '^[[:space:]]*127\.0\.0\.1[[:space:]].*\bkeycloak\b' /etc/hosts; then
   echo "🖇️  Adding 'keycloak' to /etc/hosts (requires sudo)"
   sudo sh -c 'echo "127.0.0.1 keycloak" >> /etc/hosts'
@@ -353,9 +377,7 @@ sudo mkdir -p /etc/osss/certs
 sudo chown "$(id -u)":"$(id -g)" /etc/osss/certs
 
 ### --- Local HTTPS / mkcert ---
-# Enable to run the API over HTTPS locally/production
 ENABLE_LOCAL_TLS="${ENABLE_LOCAL_TLS:-0}"
-# Domains to include in the cert. Add your hostname if needed.
 TLS_DOMAIN_LIST="${TLS_DOMAIN_LIST:-localhost 127.0.0.1 ::1}"
 TLS_CERT_DIR="${TLS_CERT_DIR:-/etc/osss/certs}"
 TLS_CERT_FILE="${TLS_CERT_FILE:-${TLS_CERT_DIR}/fullchain.pem}"
@@ -392,24 +414,19 @@ fi
 
 # Alembic (sync) URL default = psycopg2 variant of DATABASE_URL
 ALEMBIC_DATABASE_URL="${ALEMBIC_DATABASE_URL:-${DATABASE_URL/postgresql+asyncpg/postgresql+psycopg2}}"
-
 CALLBACK_URL="${CALLBACK_URL:-http://localhost:8081/callback}"
 
-# Alembic settings
 ALEMBIC_INI="${ALEMBIC_INI:-${REPO_ROOT}/alembic.ini}"
 ALEMBIC_CMD="${ALEMBIC_CMD:-alembic}"
 
-# Ensure FastAPI project sources are importable
 export PYTHONPATH="${PYTHONPATH:-${REPO_ROOT}/src}"
 
 # Compose: pass .env explicitly
 COMPOSE_ENV_ARGS=()
 [[ -f "$ENV_FILE" ]] && COMPOSE_ENV_ARGS+=(--env-file "$ENV_FILE")
 
-### --- Also export the exact names docker-compose typically references ---
+# Also export the exact names docker-compose typically references
 export KC_DB_NAME KC_DB_USERNAME KC_DB_PASSWORD KC_DB_HOST KC_DB_PORT
-
-# IMPORTANT: sanitize the cluster bootstrap creds for osss_postgres too
 export POSTGRES_DB="${OSSS_DB_NAME}"
 export POSTGRES_USER="${OSSS_DB_USER}"
 export POSTGRES_PASSWORD="${OSSS_DB_PASSWORD}"
@@ -475,8 +492,6 @@ print_env_summary
 
 # Ensure Python deps are present for build_realm.py
 ensure_realm_python_deps
-
-# --- Ensure Python deps are installed from pyproject.toml (or fallbacks) ---
 install_python_requirements
 
 ### --- Build realm-export.json BEFORE starting infra ---
@@ -495,7 +510,6 @@ if [ "${SKIP_REALM_BUILD}" != "1" ]; then
     echo "❌ Realm export not found or empty at: ${REALM_EXPORT}" >&2; exit 1
   fi
   echo "✅ Realm export ready at: ${REALM_EXPORT}"
-
 else
   echo "⚠️  SKIP_REALM_BUILD=1 set — skipping build_realm.py"
 fi
@@ -505,11 +519,87 @@ if [ ! -f "${COMPOSE_FILE}" ]; then
   echo "❌ Compose file not found: ${COMPOSE_FILE}" >&2; exit 1
 fi
 
-COMPOSE_CMD=$(compose_base_cmd)
-echo "▶️  Bringing up infra with: ${COMPOSE_CMD} ${COMPOSE_ENV_ARGS[*]:-} -f ${COMPOSE_FILE} up -d"
-if ! ${COMPOSE_CMD} "${COMPOSE_ENV_ARGS[@]}" -f "${COMPOSE_FILE}" up -d; then
-  echo "❌ docker compose up failed" >&2; exit 1
+# Make COMPOSE_CMD an array for safety with spaces ("docker compose")
+COMPOSE_CMD=($(compose_base_cmd))
+
+# --- Preflight: build to catch missing Dockerfiles early ---
+echo "🔧 Preflight: docker compose build (infra)…"
+if ! "${COMPOSE_CMD[@]}" "${COMPOSE_ENV_ARGS[@]}" -f "${COMPOSE_FILE}" build --progress=plain; then
+  echo "❌ Build failed. Trying to locate service(s) with missing Dockerfile…"
+  if "${COMPOSE_CMD[@]}" -f "${COMPOSE_FILE}" config --format json >/dev/null 2>&1; then
+    JSON="$("${COMPOSE_CMD[@]}" -f "${COMPOSE_FILE}" config --format json)"
+    export JSON
+    python - <<'PY'
+import json, os, os.path, sys
+cfg=json.loads(os.environ["JSON"])
+bad=[]
+for name,svc in cfg.get("services",{}).items():
+    b=svc.get("build")
+    if not b:
+        continue
+    if isinstance(b,str):
+        ctx=b; df="Dockerfile"
+    else:
+        ctx=b.get("context","."); df=b.get("dockerfile","Dockerfile")
+    path=os.path.normpath(os.path.join(ctx,df))
+    if not os.path.isfile(path):
+        bad.append((name,ctx,df,path))
+if bad:
+    print("🚫 Missing Dockerfile(s) detected:")
+    for name,ctx,df,path in bad:
+        print(f"  - service: {name}")
+        print(f"    context   : {ctx}")
+        print(f"    dockerfile: {df}")
+        print(f"    resolved  : {path}  (NOT FOUND)")
+        print("    👉 Fix by either:")
+        print("       • creating that Dockerfile, or")
+        print("       • correcting build.context/dockerfile, or")
+        print("       • switching to an 'image:' instead of 'build:'")
+    sys.exit(2)
+else:
+    print("ℹ️ Build failed, but all declared Dockerfiles exist; check the build logs above.")
+    sys.exit(1)
+PY
+    exit $?
+  else
+    echo "ℹ️ Your Compose version may not support JSON output."
+    echo "   Rerun manually to see the failing service:"
+    echo "   ${COMPOSE_CMD[*]} ${COMPOSE_ENV_ARGS[*]:-} -f \"${COMPOSE_FILE}\" build --progress=plain"
+    exit 1
+  fi
 fi
+echo "✅ Infra images built."
+
+echo "▶️  Bringing up infra with: ${COMPOSE_CMD_STR} ${COMPOSE_ENV_ARGS[*]:-} -f ${COMPOSE_FILE} up -d"
+
+# First attempt (let Compose create the network itself)
+set +e
+"${COMPOSE_CMD[@]}" "${COMPOSE_ENV_ARGS[@]}" -f "${COMPOSE_FILE}" up -d
+rc=$?
+set -e
+
+if (( rc != 0 )); then
+  echo "⚠️  'up -d' failed; performing a clean reset of the project network and retrying once…"
+
+  # Tear everything for this project down (ignore errors)
+  "${COMPOSE_CMD[@]}" "${COMPOSE_ENV_ARGS[@]}" -f "${COMPOSE_FILE}" down -v --remove-orphans || true
+
+  # Remove any leftover networks for this project (they can be half-created)
+  # Usually the project network name is "${PROJECT}_osss-net" plus the default network.
+  docker network rm "${NET}" 2>/dev/null || true
+  docker network rm "${PROJECT}_default" 2>/dev/null || true
+  # As a safety belt, prune any dangling networks
+  docker network prune -f >/dev/null 2>&1 || true
+
+  # Retry bringing everything up cleanly
+  if ! "${COMPOSE_CMD[@]}" "${COMPOSE_ENV_ARGS[@]}" -f "${COMPOSE_FILE}" up -d; then
+    echo "❌ docker compose up failed (after clean reset)"
+    exit 1
+  fi
+fi
+
+echo "✅ Infra up."
+
 
 # --- Ensure both DBs have correct users/passwords (sanitized) ---
 wait_for_pg_service osss_postgres
@@ -527,7 +617,7 @@ echo "### Please wait at least 180 seconds for this to populate ###"
 # Wait for Keycloak OIDC discovery
 if ! wait_for_url "${OIDC_DISCOVERY}" "${BOOT_WAIT}"; then
   echo "❌ Keycloak did not become ready at: ${OIDC_DISCOVERY}" >&2
-  echo "🔎 Recent logs:"; ${COMPOSE_CMD} "${COMPOSE_ENV_ARGS[@]}" -f "${COMPOSE_FILE}" logs --tail=200 || true
+  echo "🔎 Recent logs:"; "${COMPOSE_CMD[@]}" "${COMPOSE_ENV_ARGS[@]}" -f "${COMPOSE_FILE}" logs --tail=200 || true
   exit 1
 fi
 
@@ -535,7 +625,6 @@ fi
 SYNC_DB_URL="${ALEMBIC_DATABASE_URL/postgresql+asyncpg/postgresql+psycopg2}"
 SYNC_DB_URL="$(force_ipv4_localhost "$SYNC_DB_URL")"
 
-# Use libpq env PW (no secret in URL)
 drop_password_in_url() { echo "$1" | sed -E 's#^(postgresql(\+[a-z0-9]+)?://[^:/@]+):[^@]*(@.*)$#\1\3#'; }
 SYNC_DB_URL_NOPW="$(drop_password_in_url "$SYNC_DB_URL")"
 
@@ -552,91 +641,72 @@ ALEMBIC_DATABASE_URL="${SYNC_DB_URL_NOPW}" \
 popd >/dev/null
 echo "✅ Alembic migrations completed."
 
-### --- Force the API runtime DB URL (async) with sanitized secrets ---
-RUNTIME_DB_HOST="127.0.0.1"
-RUNTIME_DB_PORT="${OSSS_DB_PORT}"
-RUNTIME_DB_NAME="${OSSS_DB_NAME}"
-RUNTIME_DB_USER="${OSSS_DB_USER}"
-RUNTIME_DB_PASSWORD="${OSSS_DB_PASSWORD}"
-
-enc_user="$(url_quote "${RUNTIME_DB_USER}")"
-enc_pass="$(url_quote "${RUNTIME_DB_PASSWORD}")"
-export DATABASE_URL="postgresql+asyncpg://${enc_user}:${enc_pass}@${RUNTIME_DB_HOST}:${RUNTIME_DB_PORT}/${RUNTIME_DB_NAME}"
-unset SQLALCHEMY_DATABASE_URL ALEMBIC_DATABASE_URL
-echo "🔧 Runtime DB → ${RUNTIME_DB_USER}@${RUNTIME_DB_HOST}:${RUNTIME_DB_PORT}/${RUNTIME_DB_NAME} (password hidden)"
-
-# --- Optional: asyncpg preflight (uncomment to hard-fail early) ---
-: <<'ASYNC_PREFLIGHT'
-PY="$(resolve_python)"
-"$PY" - "$DATABASE_URL" <<'PYCODE'
-import os, sys, asyncio, asyncpg
-url = sys.argv[1].replace("postgresql+asyncpg", "postgresql")
-async def main():
-    conn = await asyncpg.connect(dsn=url, timeout=5)
-    await conn.execute("SELECT 1")
-    await conn.close()
-print("✅ asyncpg preflight OK:", url.replace(url.split("@")[0], "****"))
-asyncio.run(main())
-PYCODE
-ASYNC_PREFLIGHT
-
-### --- Start FastAPI (uvicorn) ---
-PY="$(resolve_python)"
-
-if ! "${PY}" -c "import uvicorn" 2>/dev/null; then
-  echo "❌ uvicorn not installed. Try: pip install uvicorn" >&2; exit 1
-fi
-
-UVICORN_TLS_ARGS=()
-API_PROTO="http"
-
-#if [[ "${ENABLE_LOCAL_TLS}" == "1" ]]; then
-#  ensure_mkcert
-#  ensure_local_tls_cert
-#  UVICORN_TLS_ARGS+=(--ssl-certfile "${TLS_CERT_FILE}" --ssl-keyfile "${TLS_KEY_FILE}")
-#  API_PROTO="https"
-#fi
-
-echo "🚀 Starting FastAPI: uvicorn ${API_MODULE} --host ${API_HOST} --port ${API_PORT} --reload ${UVICORN_TLS_ARGS[*]:-}"
-"${PY}" -m uvicorn "${API_MODULE}" --host "${API_HOST}" --port "${API_PORT}" --reload "${UVICORN_TLS_ARGS[@]}" &
-API_PID=$!
-
-### --- Start Next.js (npm run dev) ---
-NPM="$(resolve_npm)"
-if [ ! -d "${OSSS_WEB_DIR}" ]; then
-  echo "❌ OSSS web app directory not found: ${OSSS_WEB_DIR}" >&2
-  echo "   Set OSSS_WEB_DIR=... to override." >&2
-  kill "${API_PID}" 2>/dev/null || true; wait "${API_PID}" 2>/dev/null || true
-  ${COMPOSE_CMD} "${COMPOSE_ENV_ARGS[@]}" -f "${COMPOSE_FILE}" down -v || true
+### --- Start app & web via Docker Compose ---
+APP_PROFILE_FLAG="--profile app"
+echo "▶️  Starting app & web containers with profile 'app'…"
+if ! "${COMPOSE_CMD[@]}" "${COMPOSE_ENV_ARGS[@]}" -f "${COMPOSE_FILE}" ${APP_PROFILE_FLAG} up -d app web; then
+  echo "❌ Failed to start app/web containers" >&2
+  "${COMPOSE_CMD[@]}" "${COMPOSE_ENV_ARGS[@]}" -f "${COMPOSE_FILE}" logs --tail=200 app web || true
   exit 1
 fi
 
-pushd "${OSSS_WEB_DIR}" >/dev/null
-if [ "${OSSS_WEB_INSTALL}" = "1" ] || [ ! -d "node_modules" ]; then
-  echo "📦 Installing web dependencies (npm install)…"
-  ${NPM} install
-fi
-export OSSS_API_URL="${API_PROTO}://${API_HOST}:${API_PORT}"
-echo "🕸  Starting osss-web: ${NPM} run dev (port ${OSSS_WEB_PORT})"
-${NPM} run dev -- --port "${OSSS_WEB_PORT}" &
-WEB_PID=$!
-popd >/dev/null
-
-wait_for_url "http://localhost:${OSSS_WEB_PORT}" 20 || true
+# Wait for app (FastAPI) and web (Next.js) to be reachable on host ports
+APP_PORT="${APP_PORT:-8081}"
+WEB_PORT="${WEB_PORT:-3000}"
+wait_for_url "http://localhost:${APP_PORT}" 120 || { echo "⚠️  app not responding yet on :${APP_PORT}"; }
+wait_for_url "http://localhost:${WEB_PORT}" 120 || { echo "⚠️  web not responding yet on :${WEB_PORT}"; }
+echo "✅ app/web reachable (or will be shortly)."
 
 ### --- Cleanup on exit ---
 cleanup() {
   echo ""
-  echo "🧹 Stopping web (PID ${WEB_PID:-n/a})…";   [ -n "${WEB_PID:-}" ] && kill "${WEB_PID}" 2>/dev/null || true;   [ -n "${WEB_PID:-}" ] && wait "${WEB_PID}" 2>/dev/null || true
-  echo "🧹 Stopping API (PID ${API_PID:-n/a})…";   [ -n "${API_PID:-}" ] && kill "${API_PID}" 2>/dev/null || true;   [ -n "${API_PID:-}" ] && wait "${API_PID}" 2>/dev/null || true
-  echo "🛑 Tearing down infra (compose down -v)…"; ${COMPOSE_CMD} "${COMPOSE_ENV_ARGS[@]}" -f "${COMPOSE_FILE}" down -v || true
+  echo "🛑 Tearing down containers (compose down -v)…"
+  "${COMPOSE_CMD[@]}" "${COMPOSE_ENV_ARGS[@]}" -f "${COMPOSE_FILE}" down -v --remove-orphans || true
+
+  echo "🔎 Checking for containers still attached to ${NET}…"
+  ATTACHED="$(docker network inspect "${NET}" --format '{{range .Containers}}{{println .Name}}{{end}}' 2>/dev/null || true)"
+
+  if [ -n "${ATTACHED}" ]; then
+    echo "⚠️  Detaching these containers from ${NET}:"
+    echo "${ATTACHED}"
+    while IFS= read -r cname; do
+      [ -n "$cname" ] && docker network disconnect -f "${NET}" "$cname" || true
+    done <<< "${ATTACHED}"
+  fi
+
+  echo "🧽 Removing network ${NET}…"
+  for i in 1 2 3; do
+    docker network rm "${NET}" && { echo "✅ Network removed."; break; }
+    echo "   retry ${i}/3…"; sleep 1
+  done
+  docker network prune -f >/dev/null 2>&1 || true
 }
 trap cleanup INT TERM EXIT
 
+# Host ports
+FASTAPI_HOST_PORT="${FASTAPI_HOST_PORT:-8081}"  # host→container mapping 8081:8000
+WEB_PORT="${WEB_PORT:-3000}"
+
+wait_for_url "http://localhost:${FASTAPI_HOST_PORT}" 120 || {
+  echo "⚠️  app not responding yet on :${FASTAPI_HOST_PORT}";
+}
+wait_for_url "http://localhost:${WEB_PORT}" 120 || {
+  echo "⚠️  web not responding yet on :${WEB_PORT}";
+}
+
+
 echo ""
-echo "📎 OpenAPI docs:    ${API_PROTO}://${API_HOST}:${API_PORT}/docs"
+echo "📎 OpenAPI docs:    http://localhost:${APP_PORT}/docs"
 echo "📎 OIDC discovery:  ${OIDC_DISCOVERY}"
-echo "🌐 osss-web:        http://localhost:${OSSS_WEB_PORT}"
+echo "🌐 osss-web:        http://localhost:${WEB_PORT}"
+echo "   osss:            http://localhost:8081/docs#/"
+echo "   kibana:          http://localhost:5601"
+echo "   consul:          http://localhost:8500"
+echo "   vault:           http://localhost:8200"
 echo ""
 echo "⌨️  Press Ctrl-C to stop everything…"
-wait "${API_PID}"
+
+# --- Stream FastAPI logs in foreground ---
+"${COMPOSE_CMD[@]}" "${COMPOSE_ENV_ARGS[@]}" -f "${COMPOSE_FILE}" logs -f app
+# To also stream web logs, use:
+# "${COMPOSE_CMD[@]}" "${COMPOSE_ENV_ARGS[@]}" -f "${COMPOSE_FILE}" logs -f app web
