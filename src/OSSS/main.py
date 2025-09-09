@@ -2,13 +2,15 @@
 from __future__ import annotations
 
 import os
+import socket
 import time
 import logging
+import httpx
 import logging.config
 import sqlalchemy as sa
 import inspect as _pyinspect
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, APIRouter, Depends, Request
+from fastapi import FastAPI, APIRouter, Depends, Request, HTTPException
 from fastapi.routing import APIRoute
 
 from starlette.middleware.sessions import SessionMiddleware
@@ -29,6 +31,7 @@ from OSSS.api import auth_proxy
 from OSSS.api.routers.me import router as me_router
 from OSSS.api.routers.health import router as health_router
 from OSSS.api.logout import router as logout_router
+from consul import Consul
 
 # New auth deps
 from OSSS.auth.deps import ensure_access_token, get_current_user
@@ -89,6 +92,27 @@ LOGGING = {
 
 logging.config.dictConfig(LOGGING)
 log = logging.getLogger("main")
+
+# For Consul
+#CONSUL_HOST = os.getenv("CONSUL_HOST", "127.0.0.1")
+CONSUL_HOST="host.docker.internal"
+CONSUL_PORT = int(os.getenv("CONSUL_PORT", "8500"))
+
+APP_HOST = os.getenv("APP_HOST", "host.docker.internal")
+APP_PORT = int(os.getenv("APP_PORT", "8081"))
+SERVICE_NAME = os.getenv("SERVICE_NAME", "osss-api")
+SERVICE_ID = os.getenv("SERVICE_ID", f"{SERVICE_NAME}-{socket.gethostname()}-{APP_PORT}")
+
+def consul_client() -> Consul:
+    return Consul(host=CONSUL_HOST, port=CONSUL_PORT)
+
+def pick_healthy_service(consul: Consul, name: str) -> tuple[str, int]:
+    _i, nodes = consul.health.service(name, passing=True)
+    if not nodes:
+        raise HTTPException(status_code=503, detail=f"No healthy instances for {name}")
+    svc = nodes[0]["Service"]  # naive pick; could add round-robin later
+    return svc["Address"], svc["Port"]
+
 
 
 def _discover_Base():
@@ -255,6 +279,7 @@ def create_app() -> FastAPI:
         Handles startup/shutdown tasks for the app (runs once on start, once on stop).
         """
         # ---------------- STARTUP ----------------
+
         # DB engine/sessionmaker bound to THIS loop
         app.state.db_engine = create_async_engine(
             settings.DATABASE_URL,
@@ -277,6 +302,7 @@ def create_app() -> FastAPI:
             user: dict | None = Depends(get_current_user),
         ):
             return {"ok": True, "sub": (user or {}).get("sub")}
+
 
         @app.get("/_session_ttl", tags=["_debug"])
         async def session_ttl(key: str, store: RedisSession = Depends(get_session_store)):
@@ -357,6 +383,14 @@ def create_app() -> FastAPI:
         app.include_router(sessions_diag_router)
         app.include_router(logout_router)
 
+        @app.get("/whoami", tags=["debug"])
+        async def whoami(consul: Consul = Depends(consul_client)):
+            host, port = pick_healthy_service(consul, "users-api")
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                r = await client.get(f"http://{host}:{port}/me")
+                r.raise_for_status()
+                return r.json()
+
         # DB ping (unless testing) using the app-scoped sessionmaker
         if not settings.TESTING:
             try:
@@ -383,8 +417,49 @@ def create_app() -> FastAPI:
             sorted([r.path for r in app.routes if isinstance(r, APIRoute)])
         )
 
+        # -------- Consul registration (non-blocking) --------
+        app.state.consul = None
+        #if os.getenv("CONSUL_ENABLE", "1") not in ("0", "false", "False"):
+        if (1):
+            try:
+                c = Consul(host=CONSUL_HOST, port=CONSUL_PORT)
+
+                # If your health router exposes a different path, change here.
+                health_path = "/healthz"
+
+                c.agent.service.register(
+                    name=SERVICE_NAME,
+                    service_id=SERVICE_ID,
+                    address=APP_HOST,  # what peers use to reach THIS instance
+                    port=int(APP_PORT),
+                    tags=["fastapi", "osss", "v1"],
+                    check={
+                        "http": f"http://{APP_HOST}:{APP_PORT}{health_path}",
+                        "interval": "10s",
+                        "timeout": "2s",
+                        "DeregisterCriticalServiceAfter": "1m",
+                    },
+                )
+                app.state.consul = c
+                logging.getLogger("startup").info(
+                    "[consul] registered %s at %s:%s", SERVICE_ID, APP_HOST, APP_PORT
+                )
+            except Exception as e:
+                logging.getLogger("startup").warning(
+                    "[consul] registration skipped: %s", e
+                )
+
         # hand control to application
         yield
+
+        # -------- Consul deregistration --------
+        try:
+            c = getattr(app.state, "consul", None)
+            if c is not None:
+                c.agent.service.deregister(SERVICE_ID)
+                logging.getLogger("startup").info("[consul] deregistered %s", SERVICE_ID)
+        except Exception as e:
+            logging.getLogger("startup").warning("[consul] deregister failed: %s", e)
 
         # ---------------- SHUTDOWN ----------------
         # Close DB engine BEFORE loop closes (prevents asyncpg 'loop is closed')
