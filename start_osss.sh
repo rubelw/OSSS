@@ -30,6 +30,46 @@ export COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME:-osss}
 PROJECT="$COMPOSE_PROJECT_NAME"
 NET="${PROJECT}_osss-net"
 
+# ---- CLI flags ----
+DO_BUILD=0
+NO_CACHE=0
+
+usage() {
+  cat <<EOF
+Usage: $(basename "$0") [--build|--rebuild] [--help]
+
+  --build     Build docker images before 'compose up' (uses cache).
+  --rebuild   Build docker images with --no-cache before 'compose up'.
+  --help      Show this help.
+
+If no flag is passed, the script will skip the image build step and just run 'compose up'.
+EOF
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --build)
+      DO_BUILD=1
+      NO_CACHE=0
+      shift
+      ;;
+    --rebuild|--no-cache)
+      DO_BUILD=1
+      NO_CACHE=1
+      shift
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "Unknown argument: $1" >&2
+      usage
+      exit 1
+      ;;
+  esac
+done
+
 # Ensure the external network exists (Compose won't create external networks)
 if ! docker network inspect "$NET" >/dev/null 2>&1; then
   echo "🌐 Creating external network: $NET"
@@ -237,7 +277,7 @@ ensure_role_and_db() {
   # Try to connect (with pw, then without)
   if ! "${COMPOSE_CMD[@]}" "${COMPOSE_ENV_ARGS[@]}" -f "${COMPOSE_FILE}" exec -T -e PGPASSWORD="$su_pw" "$svc" \
         psql -U "$su" -d postgres -c "select 1" >/dev/null 2>&1; then
-    if ! "${COMPOSE_CMD[@]}" "${COMPOSE_ENV_ARGS[@]}" -f "${COMPOSE_FILE}" exec -T "$svc" \
+    if ! "${COMPOSE_CMD[@]}" "${COMPOSE_ARGS[@]}" -f "${COMPOSE_FILE}" exec -T "$svc" \
           psql -U "$su" -d postgres -c "select 1" >/dev/null 2>&1; then
       echo "❌ Could not connect to $svc as '$su'." >&2; return 1
     fi
@@ -522,53 +562,19 @@ fi
 # Make COMPOSE_CMD an array for safety with spaces ("docker compose")
 COMPOSE_CMD=($(compose_base_cmd))
 
-# --- Preflight: build to catch missing Dockerfiles early ---
-echo "🔧 Preflight: docker compose build (infra)…"
-if ! "${COMPOSE_CMD[@]}" "${COMPOSE_ENV_ARGS[@]}" -f "${COMPOSE_FILE}" build --progress=plain; then
-  echo "❌ Build failed. Trying to locate service(s) with missing Dockerfile…"
-  if "${COMPOSE_CMD[@]}" -f "${COMPOSE_FILE}" config --format json >/dev/null 2>&1; then
-    JSON="$("${COMPOSE_CMD[@]}" -f "${COMPOSE_FILE}" config --format json)"
-    export JSON
-    python - <<'PY'
-import json, os, os.path, sys
-cfg=json.loads(os.environ["JSON"])
-bad=[]
-for name,svc in cfg.get("services",{}).items():
-    b=svc.get("build")
-    if not b:
-        continue
-    if isinstance(b,str):
-        ctx=b; df="Dockerfile"
-    else:
-        ctx=b.get("context","."); df=b.get("dockerfile","Dockerfile")
-    path=os.path.normpath(os.path.join(ctx,df))
-    if not os.path.isfile(path):
-        bad.append((name,ctx,df,path))
-if bad:
-    print("🚫 Missing Dockerfile(s) detected:")
-    for name,ctx,df,path in bad:
-        print(f"  - service: {name}")
-        print(f"    context   : {ctx}")
-        print(f"    dockerfile: {df}")
-        print(f"    resolved  : {path}  (NOT FOUND)")
-        print("    👉 Fix by either:")
-        print("       • creating that Dockerfile, or")
-        print("       • correcting build.context/dockerfile, or")
-        print("       • switching to an 'image:' instead of 'build:'")
-    sys.exit(2)
-else:
-    print("ℹ️ Build failed, but all declared Dockerfiles exist; check the build logs above.")
-    sys.exit(1)
-PY
-    exit $?
+# --- Optional image build step ---
+if [[ $DO_BUILD -eq 1 ]]; then
+  echo "🔧 Building docker images (infra) …"
+  if [[ $NO_CACHE -eq 1 ]]; then
+    echo "   ↳ Using --no-cache"
+    "${COMPOSE_CMD[@]}" "${COMPOSE_ENV_ARGS[@]}" -f "${COMPOSE_FILE}" build --no-cache --progress=plain
   else
-    echo "ℹ️ Your Compose version may not support JSON output."
-    echo "   Rerun manually to see the failing service:"
-    echo "   ${COMPOSE_CMD[*]} ${COMPOSE_ENV_ARGS[*]:-} -f \"${COMPOSE_FILE}\" build --progress=plain"
-    exit 1
+    "${COMPOSE_CMD[@]}" "${COMPOSE_ENV_ARGS[@]}" -f "${COMPOSE_FILE}" build --progress=plain
   fi
+  echo "✅ Images built."
+else
+  echo "⏭️  Skipping 'compose build' (no --build/--rebuild flag provided)."
 fi
-echo "✅ Infra images built."
 
 echo "▶️  Bringing up infra with: ${COMPOSE_CMD_STR} ${COMPOSE_ENV_ARGS[*]:-} -f ${COMPOSE_FILE} up -d"
 
@@ -585,15 +591,14 @@ if (( rc != 0 )); then
   "${COMPOSE_CMD[@]}" "${COMPOSE_ENV_ARGS[@]}" -f "${COMPOSE_FILE}" down -v --remove-orphans || true
 
   # Remove any leftover networks for this project (they can be half-created)
-  # Usually the project network name is "${PROJECT}_osss-net" plus the default network.
   docker network rm "${NET}" 2>/dev/null || true
   docker network rm "${PROJECT}_default" 2>/dev/null || true
-  # As a safety belt, prune any dangling networks
   docker network prune -f >/dev/null 2>&1 || true
 
   # Retry bringing everything up cleanly
   if ! "${COMPOSE_CMD[@]}" "${COMPOSE_ENV_ARGS[@]}" -f "${COMPOSE_FILE}" up -d; then
     echo "❌ docker compose up failed (after clean reset)"
+    "${COMPOSE_CMD[@]}" "${COMPOSE_ENV_ARGS[@]}" -f "${COMPOSE_FILE}" ps || true
     exit 1
   fi
 fi

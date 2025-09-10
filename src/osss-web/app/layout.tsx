@@ -3,24 +3,33 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import Providers from "./providers";
+import Head from 'next/head';
 import "./globals.css";
 import { SignOutButton } from '@/components/SignOutButton';
 import { SignInButton } from '@/components/SignInButton';
 
 
-export const metadata: Metadata = {
-  title: "OSSS Web",
-  description: "Open Source School Software",
+export const metadata = {
+  title: 'OSSS',
   icons: {
-    icon: "/osss-logo.svg",          // favicon/tab icon
-    shortcut: "/osss-logo.svg",
-    apple: "/osss-logo.svg",
+    icon: [
+      { url: '/favicon.ico?v=2' },
+      { url: '/32x32.png?v=2', sizes: '32x32', type: 'image/png' },
+      { url: '/16x16.png?v=2', sizes: '16x16', type: 'image/png' },
+    ],
+    apple: '/apple-touch-icon.png?v=2',
   },
+  manifest: '/site.webmanifest?v=2',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
+    <Head>
+        <link rel="icon" href="/favicon.ico" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+        <link rel="manifest" href="/site.webmanifest" />
+      </Head>
       <body>
         <Providers>
           <div className="app-shell">

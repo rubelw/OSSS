@@ -59,6 +59,24 @@ When Artificial General Intelligence (AGI) starts to emerge—potentially by 203
 I’m building the next generation of school software as an open, participatory project. Administrators, staff, students, and families will be able to propose enhancements, contribute code, and ship improvements together—so the platform keeps pace with classroom needs and policy changes.
 
 ---
+# Minimum System Requirements
+
+- **OS:** Linux or macOS (Windows via Docker Desktop + WSL2)
+- **CPU:** 4 cores (minimum), 8 cores recommended (Elasticsearch + Keycloak + dev servers)
+- **RAM:** 12 GB usable for Docker (minimum), 16 GB+ recommended
+- **Disk free:** ~50–60 GB (images + ES/Kibana data + two Postgres volumes)
+- **Docker:** Engine 24+ with Compose v2; cgroup v2 enabled on modern Linux
+- **Ports:**  
+  - 8081 (API)  
+  - 3000 (web)  
+  - 8085 (Keycloak)  
+  - 5433/5434 (Postgres)  
+  - 5601 (Kibana)  
+  - 9200 (Elasticsearch)  
+  - 8200 (Vault)  
+  - 8500 (Consul)
+  - 
+---
 
 ## 📖 Documentation Quick Start
 

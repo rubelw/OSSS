@@ -18,6 +18,8 @@ import uuid
 import importlib
 import pkgutil
 import argparse
+from pathlib import Path as _Path
+import json as _json
 import json
 import re
 import sys
@@ -88,6 +90,54 @@ DEFAULT_AUTHENTICATION_FLOWS: List[Dict[str, Any]] = []  # keep empty
 # ---------------------------------------------------------------------
 # Utils
 # ---------------------------------------------------------------------
+def _split_realm_export(
+    input_path: _Path,
+    strip_user_groups,
+    pretty: bool,
+) -> tuple[_Path, _Path]:
+    """
+    Split a Keycloak realm export into:
+      - realm-core.json                  (everything EXCEPT groups)
+      - realm-groups-and-grants.json     (ONLY groups + minimal header)
+    """
+    out_dir = input_path.parent  # always same dir as input
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    with input_path.open("r", encoding="utf-8") as f:
+        realm = _json.load(f)
+    if not isinstance(realm, dict):
+        raise ValueError(f"Expected a top-level JSON object in {input_path}")
+
+    # Build core: shallow copy minus 'groups'
+    core = dict(realm)
+    core.pop("groups", None)
+    if strip_user_groups and "users" in core and isinstance(core["users"], list):
+        for u in core["users"]:
+            if isinstance(u, dict) and "groups" in u:
+                u.pop("groups", None)
+
+    # Grants: minimal header + groups
+    grants = {
+        "realm": realm.get("realm"),
+        "enabled": realm.get("enabled", True),
+        "groups": realm.get("groups", []),
+    }
+
+    export_path = out_dir / "realm-export.json"
+    core_path = out_dir / "realm-core.json"
+    grants_path = out_dir / "realm-groups-and-grants.json"
+
+    with export_path.open("w", encoding="utf-8") as f:
+        _json.dump(realm, f, indent=2 if pretty else None, ensure_ascii=False)
+    with core_path.open("w", encoding="utf-8") as f:
+        _json.dump(core, f, indent=2 if pretty else None, ensure_ascii=False)
+    with grants_path.open("w", encoding="utf-8") as f:
+        _json.dump(grants, f, indent=2 if pretty else None, ensure_ascii=False)
+
+    LOG.info("Split wrote:\n  %s\n  %s\n  %s", export_path, core_path, grants_path)
+    return export_path, core_path, grants_path
+
+
 def to_names_from_position(name: str) -> tuple[str, str]:
     """
     Turn a position name like 'position_board_chair' into ('Board', 'Chair').
@@ -1824,6 +1874,20 @@ if __name__ == "__main__":
     with open(args.out, "w") as f:
         json.dump(out, f, indent=2)
     LOG.info("Wrote realm export to %s", args.out)
+
+    in_path = args.out
+
+
+    out_dir = "./"
+    _split_realm_export(
+        _Path(in_path),
+        strip_user_groups=True,
+        pretty=True,
+    )
+
+    raise SystemExit(0)
+
+
 
 # ---- RealmBuilder override/refactor shim ------------------------------------
 from typing import Mapping, Any, Callable
