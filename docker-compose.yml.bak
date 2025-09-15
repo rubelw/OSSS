@@ -1,25 +1,17 @@
-version: "3.8"
+networks:
+  osss-net:
+    name: ${COMPOSE_PROJECT_NAME:-osss}_osss-net
+    external: true
 
 volumes:
   consul_data:
   kc_postgres_data:
   osss_postgres_data:
   redis-data:
+  es-data:
+  filebeat-data:
 
 services:
-  curl:
-    image: curlimages/curl:8.8.0
-    command: [ "sleep","infinity" ]
-    depends_on:
-      keycloak:
-        condition: service_started
-    # ✅ Use curl sidecar to report Keycloak readiness
-    healthcheck:
-      test: [ "CMD-SHELL", "curl -fsS http://keycloak:9000/health/ready >/dev/null || exit 1" ]
-      interval: 10s
-      timeout: 5s
-      retries: 30
-      start_period: 90s
   # HashiCorp Consul (dev mode) — service discovery, DNS, UI
   consul:
     image: hashicorp/consul:1.18
@@ -30,23 +22,84 @@ services:
       - "8600:8600/udp"      # DNS (UDP)
     volumes:
       - consul_data:/consul/data
+    networks: [ osss-net ]
     environment:
-      # Registers your FastAPI 'app' service; Consul runs this TCP check from inside the container
+      # Registers services with Consul; Consul runs these checks from inside the container
       CONSUL_LOCAL_CONFIG: |
         {
           "datacenter": "dc1",
-          "connect": { "enabled": true },
           "services": [
-              {
-                  "name": "app",
-                  "address": "app",
-                  "port": 8000,
-                  "checks": [
-                      { "tcp": "app:8000", "interval": "10s", "timeout": "2s" }
-                  ]
-              }
+            {
+              "name": "osss-postgres",
+              "address": "osss_postgres",
+              "port": 5432,
+              "checks": [
+                { "tcp": "osss_postgres:5432", "interval": "10s", "timeout": "2s" }
+              ]
+            },
+            {
+              "name": "kc-postgres",
+              "address": "kc_postgres",
+              "port": 5432,
+              "checks": [
+                { "tcp": "kc_postgres:5432", "interval": "10s", "timeout": "2s" }
+              ]
+            },
+            {
+              "name": "redis",
+              "address": "redis",
+              "port": 6379,
+              "tags": ["cache", "redis"],
+              "checks": [
+                { "tcp": "redis:6379", "interval": "10s", "timeout": "2s" }
+              ]
+            },
+            {
+              "name": "vault",
+              "address": "vault",
+              "port": 8200,
+              "tags": ["vault", "http"],
+              "checks": [
+                {
+                  "http": "http://vault:8200/v1/sys/health?standbyok=true&sealedcode=503&standbycode=200&activecode=200",
+                  "interval": "10s",
+                  "timeout": "3s"
+                }
+              ]
+            },
+            {
+              "name": "keycloak",
+              "address": "keycloak",
+              "port": 8080,
+              "tags": ["keycloak", "http"],
+              "checks": [
+                {
+                  "http": "http://keycloak:8080/health/ready",
+                  "interval": "10s",
+                  "timeout": "3s",
+                  "DeregisterCriticalServiceAfter": "1m"
+                }
+              ]
+            },
+            {
+              "name":"elasticsearch",
+              "address":"elasticsearch",
+              "port":9200,
+              "checks":[
+                {"http":"http://elasticsearch:9200","interval":"10s","timeout":"3s"}
+              ]
+            },
+            {
+              "name":"kibana",
+              "address":"kibana",
+              "port":5601,
+              "checks":[
+                {"http":"http://kibana:5601/api/status","interval":"10s","timeout":"3s"}
+              ]
+            }
           ]
         }
+
     healthcheck:
       test: [ "CMD-SHELL", "consul info >/dev/null 2>&1" ]
       interval: 5s
@@ -54,29 +107,123 @@ services:
       retries: 20
     restart: unless-stopped
   app:
-    profiles: ["app"]
     build:
       context: .
       dockerfile: docker/app/Dockerfile
+    command: >
+      uvicorn src.OSSS.main:app
+        --host 0.0.0.0 --port 8000 --reload
+        --log-level debug
+        --log-config /workspace/docker/logging.yaml
+    working_dir: /workspace
     ports:
-      - "8000:8000"
+      - "8081:8000"     # host:container
+    volumes:
+      - ./:/workspace:cached
+      - ./docker/logging.yml:/workspace/docker/logging.yaml:ro
+
     environment:
-      - HOST=0.0.0.0
-      - PORT=8000
+      # --- verbose logging knobs ---
+      OSSS_VERBOSE_AUTH: "1"
+      PYTHONUNBUFFERED: "1"
+      PYTHONLOGLEVEL: DEBUG         # stdlib logging default
+      LOG_LEVEL: DEBUG              # if your app reads this
+      UVICORN_LOG_LEVEL: debug
+      UVICORN_ACCESS_LOG: "1"
+
+      # Auth/OIDC stacks you might be using
+      AUTHLIB_DEBUG: "1"            # Authlib (common with OIDC)
+      OAUTHLIB_INSECURE_TRANSPORT: "1"  # allow http redirect/token exchange in dev
+
+      # HTTP client debug (pick whichever your app uses)
+      HTTPX_LOG_LEVEL: DEBUG
+      REQUESTS_LOG_LEVEL: DEBUG
+
+      # JWT/JWK libs often used under the hood
+      JOSE_LOG_LEVEL: DEBUG
+      JWcrypto_LOG_LEVEL: DEBUG
+
+      HOST: 0.0.0.0
+      PORT: "8000"
+      PYTHONPATH: /workspace/src
+      WATCHFILES_FORCE_POLLING: "true"
+      # OIDC (unchanged)
+      CORS_ALLOW_ORIGINS: http://localhost:3000,http://localhost:8081
+      # OIDC — must match how Keycloak issues tokens
+      OIDC_ISSUER: http://host.docker.internal:8085/realms/OSSS
+      OIDC_JWKS_URL: http://host.docker.internal:8085/realms/OSSS/protocol/openid-connect/certs
+      OIDC_CLIENT_ID: osss-api
+      # If client is confidential:
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-password}
+      # Public URLs your API advertises/uses for redirects
+      OSSS_PUBLIC_BASE_URL: http://localhost:8081
+      OIDC_REDIRECT_URL: http://localhost:8081/callback
+      OIDC_LOGOUT_REDIRECT_URL: http://localhost:8081/
+      # Helpful toggles while wiring up
+      OIDC_VERIFY_AUD: "0"          # flip to "1" after adding audience mapper
+      ALLOWED_CLOCK_SKEW: "60"
+      # Sessions/Redis (you already fixed the host)
+      REDIS_URL: redis://redis:6379/0
+      SESSION_REDIS_HOST: redis
+      SESSION_REDIS_PORT: "6379"
     depends_on:
-      - kc_postgres
-      - osss_postgres
+      redis:
+        condition: service_healthy   # ✅ wait for redis to be ready
+      kc_postgres:
+        condition: service_started
+      osss_postgres:
+        condition: service_started
+      curl:
+        condition: service_healthy
+    healthcheck: # ✅ let compose decide if the app is ready
+      test: [ "CMD-SHELL","curl -fsS http://localhost:8000/healthz >/dev/null || exit 1" ]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 20s
+    networks: [ osss-net ]
+
+  web:
+    build:
+      context: ./src/osss-web
+      dockerfile: ../../docker/osss-web/Dockerfile
+    command: npm run dev -- --port 3000
+    depends_on:
+      app:
+        condition: service_healthy
+    environment:
+      NODE_ENV: development
+      # These make file watching reliable in containers:
+      CHOKIDAR_USEPOLLING: "true"
+      WATCHPACK_POLLING: "true"
+      # Point web at the API container:
+      OSSS_API_URL: http://app:8000
+    volumes:
+      - ./src/osss-web:/app:cached
+      - /app/node_modules
+    working_dir: /app
+    ports:
+      - "3000:3000"
+    labels:
+      co.elastic.logs/enabled: "true"
+      co.elastic.logs/json.add_error_key: "true"
+      co.elastic.logs/json.overwrite_keys: "true"
+      # custom dataset/type for web logs
+      co.elastic.logs/processors.1.add_fields.fields.service: "osss-web"
+      co.elastic.logs/processors.1.add_fields.fields.type: "frontend"
+      co.elastic.logs/processors.1.add_fields.target: "event"
   osss_postgres:
     image: postgres:16-alpine
     environment:
       POSTGRES_DB: ${OSSS_DB_NAME}
       POSTGRES_USER: ${OSSS_DB_USER}
       POSTGRES_PASSWORD: ${OSSS_DB_PASSWORD}
+    networks: [ osss-net ]
     ports: [ "5433:5432" ]
     volumes:
       - osss_postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${OSSS_DB_USER:-osss} -d ${OSSS_DB_NAME:-osss} -h 127.0.0.1 -p 5432 || exit 1"]
+      test: [ "CMD-SHELL", "pg_isready -U ${OSSS_DB_USER:-osss} -d ${OSSS_DB_NAME:-osss} -h 127.0.0.1 -p 5432 || exit 1" ]
       interval: 5s
       timeout: 5s
       retries: 20
@@ -87,6 +234,7 @@ services:
       POSTGRES_DB: ${KC_DB_NAME}
       POSTGRES_USER: ${KC_DB_USERNAME}
       POSTGRES_PASSWORD: ${KC_DB_PASSWORD}
+    networks: [ osss-net ]
     volumes:
       - kc_postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -96,11 +244,26 @@ services:
       retries: 20
       start_period: 10s
     restart: always
+  curl:
+      image: curlimages/curl:8.8.0
+      command: [ "sleep","infinity" ]
+      depends_on:
+        keycloak:
+          condition: service_started
+      networks: [ osss-net ]
+      # ✅ Use curl sidecar to report Keycloak readiness
+      healthcheck:
+        test: [ "CMD-SHELL", "curl -fsS http://keycloak:9000/health/ready >/dev/null || exit 1" ]
+        interval: 10s
+        timeout: 5s
+        retries: 30
+        start_period: 90s
   redis:
     image: redis:7-alpine
     command: [ "redis-server", "--appendonly", "yes" ]
     ports:
       - "6379:6379"        # optional for host access; containers use 'redis:6379'
+    networks: [ osss-net ]
     volumes:
       - redis-data:/data
     healthcheck:
@@ -109,56 +272,81 @@ services:
       timeout: 3s
       retries: 20
     restart: unless-stopped
+
   keycloak:
-    image: quay.io/keycloak/keycloak:25.0.6
-    depends_on:
-      kc_postgres:
-        condition: service_healthy
-    environment:
-      OIDC_DISCOVERY_URL: "http://host.docker.internal:8085/realms/OSSS"
+      image: quay.io/keycloak/keycloak:25.0.6
+      depends_on:
+        kc_postgres:
+          condition: service_healthy
+      networks: [ osss-net ]
+      environment:
+        # --- DB ---
+        KC_DB: postgres
+        KC_DB_USERNAME: ${KC_DB_USERNAME:-keycloak}
+        KC_DB_PASSWORD: ${KC_DB_PASSWORD:-keycloakpass}
+        KC_DB_URL_HOST: kc_postgres
+        KC_DB_URL_PORT: "5432"
+        KC_DB_URL_DATABASE: ${KC_DB_NAME:-keycloak}
 
-      # Database (runtime augmentation includes the Postgres driver)
-      KC_DB: postgres
-      KC_DB_USERNAME: ${KC_DB_USERNAME:-keycloak}
-      KC_DB_PASSWORD: ${KC_DB_PASSWORD:-keycloakpass}
-      KC_DB_URL_HOST: kc_postgres
-      KC_DB_URL_PORT: "5432"
-      KC_DB_URL_DATABASE: ${KC_DB_NAME:-keycloak}
+        # --- Admin ---
+        KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+        KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
 
-      # Admin user
-      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
-      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+        # --- HTTP & Hostname (the important part) ---
+        KC_HTTP_ENABLED: "true"
+        KC_HEALTH_ENABLED: "true"
+        KC_PROXY: "edge"
+        KC_HOSTNAME_PORT: "8080"
+        KC_HOSTNAME_STRICT: "false"
+        KC_HOSTNAME_STRICT_HTTPS: "false"
+        # Force canonical base URL used in discovery/issuer:
+        KC_FEATURES: "hostname:v1"
 
-      # HTTP + canonical external URL (works for browser and containers)
-      KC_HTTP_ENABLED: "true"
-      KC_HOSTNAME: "http://host.docker.internal:8085"
-      KC_HOSTNAME_STRICT: "false"
-      #KC_PROXY_HEADERS: xforwarded         # not “true”
-      KC_HEALTH_ENABLED: "true"
+        # --- Logging/timeouts (optional) ---
+        QUARKUS_TRANSACTION_MANAGER_DEFAULT_TRANSACTION_TIMEOUT: "600"
+        KC_LOG_LEVEL: "info,org.keycloak:DEBUG,org.hibernate:INFO,io.quarkus:DEBUG"
+
+      # Keep start, but **drop** hostname-admin-url pointing to host.docker.internal
+      command: [ "start-dev", "--hostname-admin-url=http://host.docker.internal:8085","--hostname-url=http://host.docker.internal:8085","--http-enabled=true" ]
 
 
+    # Expose 8080 from the container on 8085 of the host (fine to keep)
+      ports:
+        - "8085:8080"
+      restart: unless-stopped
+  kc-importer:
+      image: quay.io/keycloak/keycloak:25.0.6
+      networks: [ osss-net ]
+      depends_on:
+        keycloak:
+          condition: service_started   # ← don’t require 'healthy'
+      environment:
+        # --- DB ---
+        KC_DB: postgres
+        KC_DB_USERNAME: ${KC_DB_USERNAME:-keycloak}
+        KC_DB_PASSWORD: ${KC_DB_PASSWORD:-keycloakpass}
+        KC_DB_URL_HOST: kc_postgres
+        KC_DB_URL_PORT: "5432"
+        KC_DB_URL_DATABASE: ${KC_DB_NAME:-keycloak}
 
-      # Optional: more time for imports and helpful logs
-      QUARKUS_TRANSACTION_MANAGER_DEFAULT_TRANSACTION_TIMEOUT: "600"
-      KC_LOG_LEVEL: "info,org.keycloak:DEBUG,org.hibernate:INFO,io.quarkus:DEBUG"
-    command:
-      - start
-      - --http-enabled=true
-      - --hostname=host.docker.internal
-      - --hostname-strict=false
-      - --import-realm
-    volumes:
-      - ./realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
-    ports:
-      - "8085:8080"
-    restart: unless-stopped
-
+      volumes:
+        - ./realm-core.json:/import/00-realm-core.json:ro
+        - ./realm-groups-and-grants.json:/import/01-realm-groups-and-grants.json:ro
+      command:
+            - import
+            - --dir=/opt/keycloak/data/import
+            - --override=true
+      restart: "no"
   vault:
     image: hashicorp/vault:1.20.3
     pull_policy: always
     container_name: vault
-    ports: ["8200:8200"]
-    cap_add: ["IPC_LOCK"]
+    ports: [ "8200:8200" ]
+    cap_add: [ "IPC_LOCK" ]
+    networks: [ osss-net ]
+    depends_on:
+      curl:
+        condition: service_healthy
     environment:
       VAULT_DEV_ROOT_TOKEN_ID: "root"
       VAULT_DEV_LISTEN_ADDRESS: "0.0.0.0:8200"
@@ -171,7 +359,7 @@ services:
       - -dev-root-token-id=root
       - -dev-listen-address=0.0.0.0:8200
     healthcheck:
-      test: ["CMD-SHELL","wget -qO- http://127.0.0.1:8200/v1/sys/health | grep -q '\"initialized\":true'"]
+      test: [ "CMD-SHELL","wget -qO- http://127.0.0.1:8200/v1/sys/health | grep -q '\"initialized\":true'" ]
       interval: 10s
       timeout: 5s
       retries: 30
@@ -179,12 +367,12 @@ services:
     restart: unless-stopped
     extra_hosts:
       - "host.docker.internal:host-gateway"
-
   vault-oidc-setup:
     build:
       context: .                      # repo root
       dockerfile: docker/vault-oidc-setup/Dockerfile
     container_name: vault-oidc-setup
+    networks: [ osss-net ]
     depends_on:
       vault:
         condition: service_healthy
@@ -197,48 +385,101 @@ services:
       VAULT_ADDR: "http://vault:8200"
       VAULT_TOKEN: "${VAULT_TOKEN:-root}"
 
-      # Keycloak issuer (discovery URL without the /.well-known suffix)
-      OIDC_DISCOVERY_URL: "http://host.docker.internal:8085/realms/OSSS"  # << change
-
+      # Keycloak issuer (discovery URL without the /.well-known suffix)]
+      OIDC_DISCOVERY_URL: "http://host.docker.internal:8085/realms/OSSS"
+      VAULT_OIDC_DISCOVERY_URL: "http://host.docker.internal:8085/realms/OSSS"
       VAULT_OIDC_CLIENT_ID: "${VAULT_OIDC_CLIENT_ID:-vault}"
       VAULT_OIDC_CLIENT_SECRET: "${VAULT_OIDC_CLIENT_SECRET:-password}"
       VAULT_OIDC_ROLE: "${VAULT_OIDC_ROLE:-vault}"
       VAULT_TOKEN_FILE: "/root/.vault-token"
+      OIDC_ADMIN_GROUP: "/vault-admin"
 
       # Allow both 127.0.0.1 and localhost for UI & CLI
       VAULT_UI_REDIRECT_1: "http://127.0.0.1:8200/ui/vault/auth/oidc/oidc/callback"
       VAULT_UI_REDIRECT_2: "http://localhost:8200/ui/vault/auth/oidc/oidc/callback"
       VAULT_CLI_REDIRECT_1: "http://127.0.0.1:8250/oidc/callback"
       VAULT_CLI_REDIRECT_2: "http://localhost:8250/oidc/callback"
+
     volumes: [ "./scripts/vault-oidc-setup.sh:/setup.sh:ro","~/.vault-token:/root/.vault-token:ro" ]
     entrypoint: [ "/bin/sh","-lc","/setup.sh" ]
     restart: "no"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
   vault-seed:
     image: alpine:3.20
-    # 1) Load all keys into the container's environment
-    env_file: ./.env
+    env_file: .env
+    networks: [ osss-net ]
     environment:
       VAULT_ADDR: "http://vault:8200"
       VAULT_TOKEN: "${VAULT_TOKEN:-root}"
       VAULT_KV_PATH: "${VAULT_KV_PATH:-app}"
-      # 2) Tell the script where to read the raw .env file we’re mounting
-      DOTENV_FILE: "/run/dotenv/.env"
-      # (optional) exclude control keys if your script supports it
-      SEED_EXCLUDE_REGEX: '^(VAULT_ADDR|VAULT_TOKEN|VAULT_KV_PATH|DOTENV_FILE)$'
+      SEED_VAULT_TOKEN: "${VAULT_TOKEN:-root}"
       VERBOSE: "1"   # set to 0 to quiet logs
       DEBUG: "1"     # set to 1 for shell trace
     depends_on:
       vault:
         condition: service_healthy
     volumes:
-      # 3) Mount the actual .env file inside the container so the script can parse it
-      - ./.env:/run/dotenv/.env:ro
-      # 4) Mount the seeding script
       - ./scripts/seed-vault.sh:/usr/local/bin/seed-vault:ro
-    # Alpine doesn't ship curl/jq; install quickly, then run the script
-    entrypoint: [ "/bin/sh","-lc","apk add --no-cache curl jq >/dev/null; /usr/local/bin/seed-vault" ]
+    entrypoint: [ "/bin/sh","-lc","/usr/local/bin/seed-vault" ]
     restart: "no"
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.14.3
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false         # dev only
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    ports:
+      - "9200:9200"
+    networks: [ osss-net ]
+    volumes:
+      - es-data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: [ "CMD-SHELL","curl -sf http://localhost:9200 >/dev/null || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+    restart: unless-stopped
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.14.3
+    container_name: kibana
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - SERVER_PUBLICBASEURL=http://localhost:5601
+      - LOGGING_VERBOSE=true
+      - XPACK_REPORTING_ENABLED=false
+      - XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY=dev-dev-dev-dev-dev-dev-dev-dev1
+      - NODE_OPTIONS=--max-old-space-size=512
+
+    ports:
+      - "5601:5601"
+    networks: [ osss-net ]
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -sf http://localhost:5601/api/status | grep -q 'available'" ]
+      interval: 10s
+      timeout: 5s
+      retries: 60
+      start_period: 60s
+
+
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:8.14.3
+    container_name: filebeat
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    user: root
+    networks: [ osss-net ]
+    volumes:
+      - ./filebeat.docker.yml:/usr/share/filebeat/filebeat.yml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - filebeat-data:/usr/share/filebeat/data
+    command: [ "--strict.perms=false" ]
+    restart: unless-stopped
 
 

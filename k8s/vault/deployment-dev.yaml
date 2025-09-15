@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vault
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vault
+  template:
+    metadata:
+      labels:
+        app: vault
+    spec:
+      containers:
+        - name: vault
+          image: hashicorp/vault:1.17
+          imagePullPolicy: IfNotPresent
+          args:
+            - "server"
+            - "-dev"
+            - "-dev-listen-address=0.0.0.0:8200"
+            - "-dev-root-token-id=root"   # DEV ONLY
+            - "-dev-ha"
+          env:
+            - name: VAULT_DEV_ROOT_TOKEN_ID
+              value: "root"
+            - name: VAULT_ADDR
+              value: "http://127.0.0.1:8200"
+          ports:
+            - name: http
+              containerPort: 8200
+          readinessProbe:
+            httpGet: { path: /v1/sys/health?standbyok=true&perfstandbyok=true&activecode=204, port: http }
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /v1/sys/health?standbyok=true&perfstandbyok=true&activecode=204, port: http }
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          securityContext:
+            # Containerized Vault can't use mlock; disable to avoid warnings
+            capabilities:
+              drop: ["ALL"]
+            allowPrivilegeEscalation: false
+          volumeMounts:
+            - name: data
+              mountPath: /vault/data
+      volumes:
+        - name: data
+          emptyDir: {}

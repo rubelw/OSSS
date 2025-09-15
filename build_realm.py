@@ -18,8 +18,6 @@ import uuid
 import importlib
 import pkgutil
 import argparse
-from pathlib import Path as _Path
-import json as _json
 import json
 import re
 import sys
@@ -90,54 +88,6 @@ DEFAULT_AUTHENTICATION_FLOWS: List[Dict[str, Any]] = []  # keep empty
 # ---------------------------------------------------------------------
 # Utils
 # ---------------------------------------------------------------------
-def _split_realm_export(
-    input_path: _Path,
-    strip_user_groups,
-    pretty: bool,
-) -> tuple[_Path, _Path]:
-    """
-    Split a Keycloak realm export into:
-      - realm-core.json                  (everything EXCEPT groups)
-      - realm-groups-and-grants.json     (ONLY groups + minimal header)
-    """
-    out_dir = input_path.parent  # always same dir as input
-    out_dir.mkdir(parents=True, exist_ok=True)
-
-    with input_path.open("r", encoding="utf-8") as f:
-        realm = _json.load(f)
-    if not isinstance(realm, dict):
-        raise ValueError(f"Expected a top-level JSON object in {input_path}")
-
-    # Build core: shallow copy minus 'groups'
-    core = dict(realm)
-    core.pop("groups", None)
-    if strip_user_groups and "users" in core and isinstance(core["users"], list):
-        for u in core["users"]:
-            if isinstance(u, dict) and "groups" in u:
-                u.pop("groups", None)
-
-    # Grants: minimal header + groups
-    grants = {
-        "realm": realm.get("realm"),
-        "enabled": realm.get("enabled", True),
-        "groups": realm.get("groups", []),
-    }
-
-    export_path = out_dir / "realm-export.json"
-    core_path = out_dir / "realm-core.json"
-    grants_path = out_dir / "realm-groups-and-grants.json"
-
-    with export_path.open("w", encoding="utf-8") as f:
-        _json.dump(realm, f, indent=2 if pretty else None, ensure_ascii=False)
-    with core_path.open("w", encoding="utf-8") as f:
-        _json.dump(core, f, indent=2 if pretty else None, ensure_ascii=False)
-    with grants_path.open("w", encoding="utf-8") as f:
-        _json.dump(grants, f, indent=2 if pretty else None, ensure_ascii=False)
-
-    LOG.info("Split wrote:\n  %s\n  %s\n  %s", export_path, core_path, grants_path)
-    return export_path, core_path, grants_path
-
-
 def to_names_from_position(name: str) -> tuple[str, str]:
     """
     Turn a position name like 'position_board_chair' into ('Board', 'Chair').
@@ -761,29 +711,6 @@ class RealmBuilder:
         return self
 
     # --- groups ---
-
-    def add_group(
-        self,
-        name: str,
-        *,
-        path: Optional[str] = None,
-        realm_roles: Optional[List[str]] = None,
-        client_roles: Optional[Dict[str, List[str]]] = None,
-        attributes: Optional[Dict[str, List[str]]] = None,
-        subgroups: Optional[List[GroupRepresentation]] = None,
-    ) -> "RealmBuilder":
-        self.realm.groups.append(
-            GroupRepresentation(
-                name=name,
-                path=path,
-                realmRoles=realm_roles,
-                clientRoles=client_roles,
-                attributes=attributes,
-                subGroups=subgroups,
-            )
-        )
-        return self
-
     def add_groups_from_hierarchy(
             self,
             hierarchy: Mapping[str, Any],
@@ -997,9 +924,6 @@ class RealmBuilder:
             required_actions: Optional[List[str]] = None,
             totp: Optional[bool] = None,  # convenience; maps to CONFIGURE_TOTP
     ) -> "RealmBuilder":
-
-        LOG.info("add_user: "+str(username))
-
         # start from caller-provided required actions
         req = list(required_actions or [])
 
@@ -1052,7 +976,6 @@ class RealmBuilder:
             password: Optional[str] = None,
             temporary_password: bool = False,
             password_field: str = "password",
-            realm_roles: Optional[List[str]] = None,
     ) -> "RealmBuilder":
         """
         - Add a user for each position in 'positions'.
@@ -1095,29 +1018,6 @@ class RealmBuilder:
             for pos in (node.get("positions") or []):
                 raw_name = seg(pos.get("name"))  # e.g. "position_board_chair"
 
-                raw_vault_admin = seg(pos.get("vault_admin"))
-                raw_vault_user = seg(pos.get("vault_user"))
-                raw_consul_admin = seg(pos.get("consul_admin"))
-                raw_consul_user = seg(pos.get("consul_user"))
-
-                # Build extra groups from flags
-                extra_groups = []
-                if raw_vault_admin == "true":
-                    extra_groups.append("vault-admin")
-                if raw_vault_user == "true":
-                    extra_groups.append("vault-user")
-                if raw_consul_admin == "true":
-                    extra_groups.append("consul-admin")
-                if raw_consul_user == "true":
-                    extra_groups.append("consul-user")
-
-                # Convert to root-level group paths (to match how `path` is passed)
-                extra_group_paths = [f"/{g}" for g in extra_groups]
-
-                # Optionally ensure the groups exist first (uncomment if needed)
-                for gp in extra_group_paths:
-                    self.ensure_group_path(gp)
-
 
                 # Groups use the full position name (with prefix) so paths match your group tree
                 path = to_path([*my_segments, raw_name])  # "/board_of_education_governing_board/position_board_chair"
@@ -1141,19 +1041,16 @@ class RealmBuilder:
                 if include_description_attribute and pos.get("description"):
                     attrs["position_description"] = [pos["description"]]
 
-
-
                 self.add_user(
                     username=uname,
                     email=email,
                     first_name=first or None,
                     last_name=last or None,
-                    groups=[path, *extra_group_paths],
+                    groups=[path],
                     attributes=attrs,
                     enabled=True,
                     email_verified=False,
                     password=pw,
-                    realm_roles=(realm_roles or []),
                     temporary_password=temporary_password,
                 )
                 LOG.debug(
@@ -1179,7 +1076,6 @@ class RealmBuilder:
                 if include_description_attribute and node.get("description"):
                     attrs["unit_description"] = [node["description"]]
 
-
                 self.add_user(
                     username=uname,
                     email=email,
@@ -1190,7 +1086,6 @@ class RealmBuilder:
                     enabled=True,
                     email_verified=False,
                     password=pw,
-                    realm_roles=(realm_roles or []),
                     temporary_password=temporary_password,
                 )
                 LOG.debug(
@@ -1278,7 +1173,6 @@ class RealmBuilder:
             password: Optional[str] = None,  # NEW
             temporary_password: bool = False,  # NEW
             password_field: str = "password",  # NEW
-            realm_roles: Optional[List[str]] = None,
             encoding: str = "utf-8",
     ) -> "RealmBuilder":
         import json as _json
@@ -1292,7 +1186,6 @@ class RealmBuilder:
             password=password,
             temporary_password=temporary_password,
             password_field=password_field,
-            realm_roles=(realm_roles or [])
         )
 
     # --- client scopes ---
@@ -1409,8 +1302,6 @@ if __name__ == "__main__":
     # --- Realm roles ---
     rb.add_realm_role("offline_access", "Offline Access", composite=False)
     rb.add_realm_role("uma_authorization", "UMA Authorization", composite=False)
-    rb.add_realm_role("vault-user", "Standard Vault users", composite=False)
-    rb.add_realm_role("vault-admin", "Administrators for Vault", composite=False)
 
 
     if not args.skip_email_scope:
@@ -1613,29 +1504,6 @@ if __name__ == "__main__":
         },
     )
 
-    # Vault (OIDC for HashiCorp Vault dev)
-    rb.add_client(
-        client_id="vault",
-        name="vault",
-        redirect_uris=["http://localhost:8250/oidc/callback",
-                       "http://127.0.0.1:8250/oidc/callback",
-                       "http://localhost:8200/ui/vault/auth/oidc/oidc/callback",
-                       "http://127.0.0.1:8200/ui/vault/auth/oidc/oidc/callback"],
-        protocol="openid-connect",
-        web_origins=["+"],
-        enabled=True,
-        public_client=False,
-        direct_access_grants_enabled=False,
-        service_accounts_enabled=False,
-        standard_flow_enabled=True,
-        client_authenticator_type="client-secret",
-        authorization_services_enabled=True,
-        secret="password",
-        attributes={"post.logout.redirect.uris": "+", "oidc.cida.grant.enabled": "false"},
-        default_client_scopes=["profile", "email","groups-claim"],
-        optional_client_scopes=["roles", "web-origins", "address", "phone", "offline_access"],
-    )
-
     # --- Client scopes (define explicit mappers so tokens contain claims) ---
 
 
@@ -1707,42 +1575,6 @@ if __name__ == "__main__":
             ),
         ],
     )
-
-    rb.add_group(
-        name="vault-users",
-        realm_roles=["vault-user"]
-    )
-
-    rb.add_group(
-        name="vault-admins",
-        realm_roles=["vault-admin"]
-    )
-
-    # Groups scope: emit `groups` in ID/access/userinfo (Vault expects this)
-    rb.add_client_scope(
-        name="groups-claim",
-        description="Adds 'groups' claim into ID, access, and userinfo tokens",
-        protocol="openid-connect",
-        attributes={"include.in.token.scope": "true"},
-        protocol_mappers=[
-            ProtocolMapperRepresentation(
-                name="groups",
-                protocol="openid-connect",
-                protocolMapper="oidc-group-membership-mapper",
-                consentRequired=False,
-                config={
-                    "full.path": "false",
-                    "id.token.claim": "true",
-                    "access.token.claim": "true",
-                    "userinfo.token.claim": "true",
-                    "claim.name": "groups"
-                },
-            )
-        ],
-    )
-
-
-
 
     rb.add_client_role("osss-api", "api.user", description="Baseline access to OSSS API")
     rb.add_client_role("osss-api", "api.admin", description="Administrative access to OSSS API")
@@ -1820,7 +1652,6 @@ if __name__ == "__main__":
     with path.open("r", encoding="utf-8") as f:
         organizational_structure = json.load(f)  # dict or list
 
-
     rb.add_groups_from_hierarchy(organizational_structure, role_client_id="osss-api")
 
     rb.ensure_client_default_scopes(
@@ -1874,20 +1705,6 @@ if __name__ == "__main__":
     with open(args.out, "w") as f:
         json.dump(out, f, indent=2)
     LOG.info("Wrote realm export to %s", args.out)
-
-    in_path = args.out
-
-
-    out_dir = "./"
-    _split_realm_export(
-        _Path(in_path),
-        strip_user_groups=True,
-        pretty=True,
-    )
-
-    raise SystemExit(0)
-
-
 
 # ---- RealmBuilder override/refactor shim ------------------------------------
 from typing import Mapping, Any, Callable

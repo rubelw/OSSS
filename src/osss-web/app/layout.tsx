@@ -9,18 +9,7 @@ import { SignOutButton } from '@/components/SignOutButton';
 import { SignInButton } from '@/components/SignInButton';
 
 
-export const metadata = {
-  title: 'OSSS',
-  icons: {
-    icon: [
-      { url: '/favicon.ico?v=2' },
-      { url: '/32x32.png?v=2', sizes: '32x32', type: 'image/png' },
-      { url: '/16x16.png?v=2', sizes: '16x16', type: 'image/png' },
-    ],
-    apple: '/apple-touch-icon.png?v=2',
-  },
-  manifest: '/site.webmanifest?v=2',
-};
+
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
