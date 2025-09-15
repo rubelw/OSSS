@@ -1,7 +1,53 @@
+name: osss
+
+x-kc-db-env: &kc_db_env
+  KC_DB: postgres
+  KC_DB_URL_HOST: ${KC_DB_URL_HOST:-kc_postgres}
+  KC_DB_URL_PORT: ${KC_DB_URL_PORT:-5432}
+  KC_DB_URL_DATABASE: ${KC_DB_NAME:-keycloak}
+  KC_DB_USERNAME: ${KC_DB_USERNAME:-keycloak}
+  KC_DB_PASSWORD: ${KC_DB_PASSWORD:-password}
+  KC_DB_URL: "jdbc:postgresql://kc_postgres:5432/keycloak?tcpKeepAlive=true&connectTimeout=30&socketTimeout=0"
+  # optional JDBC params; the importer will append them with a leading "?"
+  KC_DB_URL_PROPERTIES: "tcpKeepAlive=true&connectTimeout=30&socketTimeout=0"
+  KC_LOG_LEVEL: "TRACE"
+  QUARKUS_TRANSACTION_MANAGER_DEFAULT_TRANSACTION_TIMEOUT: "PT30M"
+  QUARKUS_DATASOURCE_JDBC_ACQUISITION_TIMEOUT: "600s"
+  QUARKUS_DATASOURCE_JDBC_BACKGROUND_VALIDATION_INTERVAL: "30S"
+  QUARKUS_DATASOURCE_JDBC_VALIDATION_QUERY: "SELECT 1"
+  QUARKUS_LOG_LEVEL: INFO
+  KC_DB_POOL_INITIAL_SIZE: "1"
+  KC_DB_POOL_MIN_SIZE: "1"
+  KC_DB_POOL_MAX_SIZE: "5"
+  KEYCLOAK_URL: http://keycloak:8080
+  KEYCLOAK_ADMIN: admin
+  KEYCLOAK_ADMIN_PASSWORD: admin
+  KEYCLOAK_REALM: OSSS
+  KEYCLOAK_HEALTH_URL: http://keycloak:9000
+  # Force canonical base URL used in discovery/issuer:
+  KC_FEATURES: "hostname:v1"
+
+# --- add near the top ---
+x-keycloak-common: &keycloak_common
+  image: quay.io/keycloak/keycloak:25.0.6
+  networks: [ osss-net ]
+  environment: *kc_db_env
+  command:
+    - start-dev
+    - --http-enabled=true
+    - --hostname-admin-url=http://host.docker.internal:8085
+    - --hostname-url=http://host.docker.internal:8085
+  ports:
+    - "8085:8080"
+  restart: unless-stopped
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
+
+
 networks:
-  osss-net:
-    name: ${COMPOSE_PROJECT_NAME:-osss}_osss-net
-    external: true
+  osss-net: {}   # single definition
+
+
 
 volumes:
   consul_data:
@@ -11,24 +57,14 @@ volumes:
   es-data:
   filebeat-data:
 
+
+
+
 services:
-  curl:
-    image: curlimages/curl:8.8.0
-    command: [ "sleep","infinity" ]
-    depends_on:
-      keycloak:
-        condition: service_started
-    networks: [ osss-net ]
-    # ✅ Use curl sidecar to report Keycloak readiness
-    healthcheck:
-      test: [ "CMD-SHELL", "curl -fsS http://keycloak:9000/health/ready >/dev/null || exit 1" ]
-      interval: 10s
-      timeout: 5s
-      retries: 30
-      start_period: 90s
   # HashiCorp Consul (dev mode) — service discovery, DNS, UI
   consul:
     image: hashicorp/consul:1.18
+    profiles: ["app"]
     command: [ "agent","-dev","-client=0.0.0.0","-ui","-log-level=INFO" ]
     ports:
       - "8500:8500"          # HTTP UI/API
@@ -121,6 +157,8 @@ services:
       retries: 20
     restart: unless-stopped
   app:
+    profiles: ["app"]
+    networks: [ osss-net ]
     build:
       context: .
       dockerfile: docker/app/Dockerfile
@@ -180,13 +218,9 @@ services:
       REDIS_URL: redis://redis:6379/0
       SESSION_REDIS_HOST: redis
       SESSION_REDIS_PORT: "6379"
-
-
     depends_on:
       redis:
         condition: service_healthy   # ✅ wait for redis to be ready
-      kc_postgres:
-        condition: service_started
       osss_postgres:
         condition: service_started
     healthcheck: # ✅ let compose decide if the app is ready
@@ -195,13 +229,19 @@ services:
       timeout: 3s
       retries: 30
       start_period: 20s
-    networks: [ osss-net ]
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   web:
+    profiles: ["app"]
+    networks: [ osss-net ]
     build:
       context: ./src/osss-web
       dockerfile: ../../docker/osss-web/Dockerfile
     command: npm run dev -- --port 3000
+    depends_on:
+      app:
+        condition: service_healthy
     environment:
       NODE_ENV: development
       # These make file watching reliable in containers:
@@ -215,8 +255,6 @@ services:
     working_dir: /app
     ports:
       - "3000:3000"
-    depends_on:
-      - app
     labels:
       co.elastic.logs/enabled: "true"
       co.elastic.logs/json.add_error_key: "true"
@@ -225,8 +263,12 @@ services:
       co.elastic.logs/processors.1.add_fields.fields.service: "osss-web"
       co.elastic.logs/processors.1.add_fields.fields.type: "frontend"
       co.elastic.logs/processors.1.add_fields.target: "event"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
   osss_postgres:
     image: postgres:16-alpine
+    profiles: [ "app" ]
+
     environment:
       POSTGRES_DB: ${OSSS_DB_NAME}
       POSTGRES_USER: ${OSSS_DB_USER}
@@ -236,29 +278,15 @@ services:
     volumes:
       - osss_postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${OSSS_DB_USER:-osss} -d ${OSSS_DB_NAME:-osss} -h 127.0.0.1 -p 5432 || exit 1"]
+      test: [ "CMD-SHELL", "pg_isready -U ${OSSS_DB_USER:-osss} -d ${OSSS_DB_NAME:-osss} -h 127.0.0.1 -p 5432 || exit 1" ]
       interval: 5s
       timeout: 5s
       retries: 20
 
-  kc_postgres:
-    image: postgres:16
-    environment:
-      POSTGRES_DB: ${KC_DB_NAME}
-      POSTGRES_USER: ${KC_DB_USERNAME}
-      POSTGRES_PASSWORD: ${KC_DB_PASSWORD}
-    networks: [ osss-net ]
-    volumes:
-      - kc_postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${KC_DB_USERNAME:-osss} -d ${KC_DB_NAME:-osss} -h 127.0.0.1 -p 5432 || exit 1"]
-      interval: 5s
-      timeout: 5s
-      retries: 20
-      start_period: 10s
-    restart: always
+
   redis:
     image: redis:7-alpine
+    profiles: ["app"]
     command: [ "redis-server", "--appendonly", "yes" ]
     ports:
       - "6379:6379"        # optional for host access; containers use 'redis:6379'
@@ -271,80 +299,78 @@ services:
       timeout: 3s
       retries: 20
     restart: unless-stopped
-  keycloak:
-    image: quay.io/keycloak/keycloak:25.0.6
+
+
+  kc_postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: ${KC_DB_NAME:-keycloak}
+      POSTGRES_USER: ${KC_DB_USERNAME:-keycloak}
+      POSTGRES_PASSWORD: ${KC_DB_PASSWORD:-password}
+
     networks: [ osss-net ]
+    volumes:
+      - kc_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL","pg_isready -U ${KC_DB_USERNAME:-keycloak} -d ${KC_DB_NAME:-keycloak} -h 127.0.0.1 -p 5432 || exit 1" ]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+    restart: always
+
+  keycloak:
+    build:
+      context: .          # folder that contains Dockerfile + init-and-start.sh
+      dockerfile: docker/keycloak/Dockerfile
+    networks: [ osss-net ]
+    # ⬇️ hard limits for the container (compose)
+    mem_limit: 1g         # container RAM
+    cpus: 1               # container vCPUs
+    environment:
+      KC_DB: "postgres"
+      KC_DB_URL: "jdbc:postgresql://kc_postgres:5432/keycloak"
+      KC_DB_USERNAME: "keycloak"
+      KC_DB_PASSWORD: "password"
+      KEYCLOAK_ADMIN: "admin"
+      KEYCLOAK_ADMIN_PASSWORD: "admin"
+      # Optional but nice:
+      KC_HEALTH_ENABLED: "true"
+      KC_HOSTNAME: localhost
+      KC_DB_SCHEMA: public
+      REALM: OSSS
+      IMPORT_STRATEGY: OVERWRITE_EXISTING
+      RESET_REALM: "1"   # set to "0" to skip deletion
+      # Give the import more time (default is often too low for big group trees)
+      QUARKUS_TRANSACTION_MANAGER_DEFAULT_TRANSACTION_TIMEOUT: "600"   # seconds
+
+      # DB connection pool headroom (avoid pool starvation during import)
+      KC_DB_POOL_INITIAL_SIZE: "20"
+      KC_DB_POOL_MIN_SIZE: "20"
+      KC_DB_POOL_MAX_SIZE: "50"
+
+      # runtime env form (keep it)
+      QUARKUS_HIBERNATE_ORM_PERSISTENCE_XML_IGNORE: "true"
+      # also append a JVM -D for the build/augmentation phase
+      JAVA_OPTS_APPEND: "-Dquarkus.hibernate-orm.persistence-xml.ignore=true"
+      # (optional) extra logging to see what’s happening
+      KC_LOG_LEVEL: "info,org.keycloak:DEBUG,org.hibernate:INFO,io.quarkus:DEBUG"
+    volumes:
+      - ./realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+    ports:
+      - "8085:8080"
     depends_on:
       kc_postgres:
         condition: service_healthy
-    environment:
-      KC_HTTP_RELATIVE_PATH: /auth   # if you use it
+    restart: always
 
-      # --- DB ---
-      KC_DB: postgres
-      KC_DB_USERNAME: ${KC_DB_USERNAME:-keycloak}
-      KC_DB_PASSWORD: ${KC_DB_PASSWORD:-keycloakpass}
-      KC_DB_URL_HOST: kc_postgres
-      KC_DB_URL_PORT: "5432"
-      KC_DB_URL_DATABASE: ${KC_DB_NAME:-keycloak}
-
-      # --- Admin ---
-      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
-      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
-
-      # --- HTTP & Hostname (the important part) ---
-      KC_HTTP_ENABLED: "true"
-      KC_HEALTH_ENABLED: "true"
-      KC_PROXY: "edge"
-      KC_HOSTNAME_PORT: "8080"
-      KC_HOSTNAME_STRICT: "false"
-      KC_HOSTNAME_STRICT_HTTPS: "false"
-      # Force canonical base URL used in discovery/issuer:
-      KC_FEATURES: "hostname:v1"
-
-      # --- Logging/timeouts (optional) ---
-      QUARKUS_TRANSACTION_MANAGER_DEFAULT_TRANSACTION_TIMEOUT: "600"
-      KC_LOG_LEVEL: "info,org.keycloak:DEBUG,org.hibernate:INFO,io.quarkus:DEBUG"
-
-    # Keep start, but **drop** hostname-admin-url pointing to host.docker.internal
-    command: [ "start", "--hostname-admin-url=http://host.docker.internal:8085","--hostname-url=http://host.docker.internal:8085","--http-enabled=true"]
-
-    ports: [ "8085:8080" ]
-    healthcheck:
-      test: [ "CMD", "curl", "-fsS", "http://localhost:8080/realms/master/.well-known/openid-configuration" ]
-      interval: 10s
-      timeout: 5s
-      retries: 30
-    restart: unless-stopped
-
-  kc-importer:
-    image: quay.io/keycloak/keycloak:25.0.6
-    networks: [ osss-net ]
-    depends_on:
-      keycloak:
-        condition: service_started   # ← don’t require 'healthy'
-    environment:
-      KC_HTTP_RELATIVE_PATH: "/auth"  # MUST match Keycloak if set
-      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
-      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
-      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-OSSS}
-      START_DELAY_SEC: "10"
-      HOLD_OPEN: "1"
-      KC_PORT: "8080"
-
-
-    volumes:
-      - ./scripts/kc-import.sh:/usr/local/bin/kc-import.sh:ro
-      - ./realm-export.json:/import/realm-export.json:ro
-    entrypoint: [ "/bin/bash","-lc" ]
-    command: [ "/usr/local/bin/kc-import.sh" ]
-    restart: "no"
   vault:
     image: hashicorp/vault:1.20.3
+    profiles: ["app"]
     pull_policy: always
     container_name: vault
-    ports: ["8200:8200"]
-    cap_add: ["IPC_LOCK"]
+    ports: [ "8200:8200" ]
+    cap_add: [ "IPC_LOCK" ]
     networks: [ osss-net ]
     environment:
       VAULT_DEV_ROOT_TOKEN_ID: "root"
@@ -358,7 +384,7 @@ services:
       - -dev-root-token-id=root
       - -dev-listen-address=0.0.0.0:8200
     healthcheck:
-      test: ["CMD-SHELL","wget -qO- http://127.0.0.1:8200/v1/sys/health | grep -q '\"initialized\":true'"]
+      test: [ "CMD-SHELL","wget -qO- http://127.0.0.1:8200/v1/sys/health | grep -q '\"initialized\":true'" ]
       interval: 10s
       timeout: 5s
       retries: 30
@@ -367,6 +393,7 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
   vault-oidc-setup:
+    profiles: ["app"]
     build:
       context: .                      # repo root
       dockerfile: docker/vault-oidc-setup/Dockerfile
@@ -375,8 +402,6 @@ services:
     depends_on:
       vault:
         condition: service_healthy
-      keycloak:
-        condition: service_started
     environment:
       VERBOSE: "1"
       DEBUG: "1"
@@ -404,6 +429,7 @@ services:
     restart: "no"
   vault-seed:
     image: alpine:3.20
+    profiles: ["app"]
     env_file: .env
     networks: [ osss-net ]
     environment:
@@ -422,6 +448,7 @@ services:
     restart: "no"
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.14.3
+    profiles: ["app"]
     container_name: elasticsearch
     environment:
       - discovery.type=single-node
@@ -441,6 +468,7 @@ services:
 
   kibana:
     image: docker.elastic.co/kibana/kibana:8.14.3
+    profiles: ["app"]
     container_name: kibana
     depends_on:
       elasticsearch:
@@ -467,6 +495,7 @@ services:
 
   filebeat:
     image: docker.elastic.co/beats/filebeat:8.14.3
+    profiles: ["app"]
     container_name: filebeat
     depends_on:
       elasticsearch:
@@ -480,5 +509,3 @@ services:
       - filebeat-data:/usr/share/filebeat/data
     command: [ "--strict.perms=false" ]
     restart: unless-stopped
-
-

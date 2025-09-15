@@ -1,91 +1,118 @@
 #!/usr/bin/env bash
+# kc-import.sh — Keycloak headless importer (ordered). Works with KC 24/25/26.
 set -Eeuo pipefail
-[[ "${DEBUG:-0}" == "1" ]] && set -x
-PS4='+ [${BASH_SOURCE##*/}:${LINENO}] '
 
-# --- Config (env-overridable) ---
-KCADM="${KCADM:-/opt/keycloak/bin/kcadm.sh}"
-IMPORT_FILE="${IMPORT_FILE:-/import/realm-export.json}"
-REALM="${KEYCLOAK_REALM:-}"
-HOST="${KC_HOST:-keycloak}"
-PORT="${KC_PORT:-8080}"
-REL_PATH="${KC_HTTP_RELATIVE_PATH:-}"   # e.g. "/auth" or empty
+# ---------- Required env ----------
+: "${KC_DB:=postgres}"
+: "${KC_DB_URL_HOST:?KC_DB_URL_HOST is required}"
+: "${KC_DB_URL_PORT:=5432}"
+: "${KC_DB_URL_DATABASE:?KC_DB_URL_DATABASE is required}"
+: "${KC_DB_USERNAME:?KC_DB_USERNAME is required}"
+: "${KC_DB_PASSWORD:?KC_DB_PASSWORD is required}"
 
-# Build server URL including relative path if provided
-if [[ -n "$REL_PATH" ]]; then
-  REL_PATH="/${REL_PATH#/}"    # ensure leading slash
-  REL_PATH="${REL_PATH%/}"     # strip trailing slash
-fi
-KC="${KC:-http://${HOST}:${PORT}${REL_PATH}}"
+# ---------- Optional ----------
+: "${KC_LOG_LEVEL:=TRACE}"                      # INFO|DEBUG|TRACE
+: "${IMPORT_PATH:=/opt/keycloak/data/import}"  # file or dir of JSONs
+: "${IMPORT_STRATEGY:=IGNORE_EXISTING}"        # legacy: IGNORE_EXISTING|OVERWRITE_EXISTING|UPDATE
+: "${IMPORT_OVERRIDE:=false}"                  # preferred: true|false (KC 25+)
+: "${KC_DB_URL_PROPERTIES:=}"
 
-sleep "${START_DELAY_SEC:-15}"
+echo "== Keycloak import starting =="
+echo "DB: ${KC_DB}://${KC_DB_URL_HOST}:${KC_DB_URL_PORT}/${KC_DB_URL_DATABASE}"
+[[ -n "${KC_DB_URL_PROPERTIES}" ]] && echo "DB PROPS: ${KC_DB_URL_PROPERTIES}"
+echo "Import source: ${IMPORT_PATH}"
 
-echo "Using Keycloak server: ${KC}"
-echo "Using kcadm: ${KCADM}"
-echo "Import file: ${IMPORT_FILE}"
-
-if [[ ! -r "$IMPORT_FILE" ]]; then
-  echo "FATAL: Import file not readable: ${IMPORT_FILE}" >&2
-  exit 1
-fi
-
-echo "Waiting for Keycloak to accept admin credentials…"
-for i in $(seq 1 120); do
-  if "$KCADM" config credentials \
-        --server "$KC" \
-        --realm master \
-        --user "${KEYCLOAK_ADMIN:?missing}" \
-        --password "${KEYCLOAK_ADMIN_PASSWORD:?missing}" \
-        >/dev/stdout 2>/dev/stderr; then
-    echo "Keycloak is ready."
-    break
+# Fix props accidentally appended to DB name (common env quirk)
+if [[ "${KC_DB_URL_DATABASE}" =~ ^([A-Za-z0-9_-]+)\?([A-Za-z0-9_&=.:;-]+)$ ]]; then
+  CLEAN_DB_NAME="${BASH_REMATCH[1]}"
+  EXTRA_PROPS="${BASH_REMATCH[2]}"
+  export KC_DB_URL_DATABASE="${CLEAN_DB_NAME}"
+  if [[ -n "${KC_DB_URL_PROPERTIES}" ]]; then
+    export KC_DB_URL_PROPERTIES="${KC_DB_URL_PROPERTIES}&${EXTRA_PROPS}"
+  else
+    export KC_DB_URL_PROPERTIES="${EXTRA_PROPS}"
   fi
-  echo "[$i] Still waiting…"
-  sleep 2
-  if [[ "$i" -eq 120 ]]; then
-    echo "FATAL: Timed out waiting for Keycloak admin login." >&2
-    exit 1
-  fi
-done
-
-# Resolve realm name
-if [[ -z "$REALM" ]]; then
-  if command -v jq >/dev/null 2>&1 && [[ -s "$IMPORT_FILE" ]]; then
-    REALM="$(jq -r '.realm // .id // .name // empty' "$IMPORT_FILE")"
-  fi
-  REALM="${REALM:-OSSS}"
-fi
-echo "Target realm: ${REALM}"
-
-# Always overwrite: delete existing realm if present
-if "$KCADM" get "realms/${REALM}" >/dev/null 2>&1; then
-  echo "Realm '${REALM}' exists; deleting before import."
-  if ! "$KCADM" delete "realms/${REALM}"; then
-    echo "WARNING: Failed to delete existing realm '${REALM}'" >&2
-  fi
+  echo "Adjusted DB name -> ${KC_DB_URL_DATABASE} ; props -> ${KC_DB_URL_PROPERTIES}"
 fi
 
-# Create realm from file
-echo "Importing realm from ${IMPORT_FILE}…"
-if ! OUT=$("$KCADM" create realms -f "$IMPORT_FILE" 2>&1); then
-  echo "FATAL: Import failed. kcadm output:" >&2
-  echo "$OUT" >&2
-  exit 1
-fi
-echo "Import complete. kcadm says:"
-echo "$OUT"
-
-# Sanity check the well-known endpoint
-WELL_KNOWN="${KC%/}/realms/${REALM}/.well-known/openid-configuration"
-if command -v curl >/dev/null 2>&1; then
-  HTTP=$(curl -s -o /dev/null -w "%{http_code}" "$WELL_KNOWN" || true)
-  echo "Well-known endpoint: ${WELL_KNOWN} (HTTP ${HTTP})"
-fi
-
-# Keep container running for log inspection unless disabled
-if [[ "${HOLD_OPEN:-1}" == "1" ]]; then
-  echo "Importer finished; holding container open."
-  tail -f /dev/null
+# Validate import path
+if [[ -f "${IMPORT_PATH}" ]]; then
+  FILE_MODE=true
+elif [[ -d "${IMPORT_PATH}" ]]; then
+  FILE_MODE=false
 else
-  echo "Importer finished; exiting."
+  echo "ERROR: IMPORT_PATH ${IMPORT_PATH} not found" >&2
+  exit 2
 fi
+
+# ---------- Map override flag ----------
+OVERRIDE_BOOL=""
+case "${IMPORT_OVERRIDE,,}" in
+  true|false) OVERRIDE_BOOL="${IMPORT_OVERRIDE,,}";;
+  "") :;;  # fall through to mapping from IMPORT_STRATEGY
+  *) echo "ERROR: IMPORT_OVERRIDE must be true|false (got '${IMPORT_OVERRIDE}')" >&2; exit 2;;
+esac
+if [[ -z "${OVERRIDE_BOOL}" && -n "${IMPORT_STRATEGY}" ]]; then
+  case "${IMPORT_STRATEGY^^}" in
+    IGNORE_EXISTING)           OVERRIDE_BOOL="false";;
+    OVERWRITE_EXISTING|UPDATE) OVERRIDE_BOOL="true";;
+    *) echo "ERROR: Unsupported IMPORT_STRATEGY='${IMPORT_STRATEGY}'" >&2; exit 2;;
+  esac
+fi
+: "${OVERRIDE_BOOL:=false}"
+
+# ---------- Common kc args ----------
+KC_ARGS=(
+  "--verbose"
+  "--db=${KC_DB}"
+  "--db-url-host=${KC_DB_URL_HOST}"
+  "--db-url-port=${KC_DB_URL_PORT}"
+  "--db-url-database=${KC_DB_URL_DATABASE}"
+  "--db-username=${KC_DB_USERNAME}"
+  "--db-password=${KC_DB_PASSWORD}"
+  "--log-level=${KC_LOG_LEVEL}"
+)
+[[ -n "${KC_DB_URL_PROPERTIES}" ]] && KC_ARGS+=("--db-url-properties=${KC_DB_URL_PROPERTIES}")
+
+set -x
+if [[ "${FILE_MODE}" == "true" ]]; then
+  # Single file import
+  /opt/keycloak/bin/kc.sh import --override="${OVERRIDE_BOOL}" --file="${IMPORT_PATH}" "${KC_ARGS[@]}"
+else
+  # Directory import — deterministic order:
+  shopt -s nullglob
+  mapfile -t FILES < <(ls -1 "${IMPORT_PATH}"/*.json 2>/dev/null | sort)
+  if ((${#FILES[@]}==0)); then
+    echo "No .json files in ${IMPORT_PATH}" >&2
+    exit 2
+  fi
+
+  # Categorize files by name (no fragile [[ … ]] globs)
+  realm=() cscopes=() clients=() roles=() croles=() groups=() maps=() users=() other=()
+  for f in "${FILES[@]}"; do
+    case "$f" in
+      *-realm.json)                 realm+=("$f")  ;;
+      *-client-scopes.json)         cscopes+=("$f");;
+      *-clients.json)               clients+=("$f");;
+      *-roles-client.json)          croles+=("$f") ;;
+      *-roles.json)                 roles+=("$f")  ;; # after roles-client is also fine; we explicitly order below
+      *-groups.json)                groups+=("$f") ;;
+      *-group-role-mappings.json)   maps+=("$f")   ;;
+      *-users.json|*-users-*.json)  users+=("$f")  ;;
+      *)                            other+=("$f")  ;;
+    esac
+  done
+
+  # Final order
+  ordered=( "${realm[@]}" "${cscopes[@]}" "${clients[@]}" "${roles[@]}" "${croles[@]}" "${groups[@]}" "${maps[@]}" "${users[@]}" "${other[@]}" )
+
+  echo "+ Import order:"
+  printf '   %s\n' "${ordered[@]}"
+
+  # Import one by one
+  for f in "${ordered[@]}"; do
+    echo "== Importing $f =="
+    /opt/keycloak/bin/kc.sh import --override="${OVERRIDE_BOOL}" --file="$f" "${KC_ARGS[@]}"
+  done
+fi
+set +x

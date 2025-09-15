@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vault
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vault
+  template:
+    metadata:
+      labels:
+        app: vault
+    spec:
+      containers:
+        - name: vault
+          image: hashicorp/vault:1.18
+          imagePullPolicy: IfNotPresent
+          args:
+            - "server"
+            - "-dev"  # DEV ONLY: ephemeral in-memory backend
+            - "-dev-listen-address=0.0.0.0:8200"
+          env:
+            - name: VAULT_DEV_ROOT_TOKEN_ID
+              value: "root"
+            - name: VAULT_ADDR
+              value: "http://0.0.0.0:8200"
+          ports:
+            - name: http
+              containerPort: 8200
+          readinessProbe:
+            httpGet: { path: /v1/sys/health, port: http }
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /v1/sys/health, port: http }
+            initialDelaySeconds: 20
+            periodSeconds: 20

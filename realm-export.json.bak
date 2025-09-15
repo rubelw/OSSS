@@ -1,0 +1,92 @@
+{
+  "realm": "OSSS-IMPORT-TEST",
+  "enabled": true,
+  "roles": {
+    "realm": [
+      {
+        "name": "vault-user",
+        "description": "Standard Vault users",
+        "composite": false,
+        "clientRole": false,
+        "attributes": {}
+      },
+      {
+        "name": "vault-admin",
+        "description": "Administrators for Vault",
+        "composite": false,
+        "clientRole": false,
+        "attributes": {}
+      }
+    ],
+    "client": {
+      "osss-api": [
+        {
+          "name": "api.user",
+          "description": "Baseline access to OSSS API",
+          "composite": false,
+          "clientRole": true,
+          "attributes": {}
+        },
+        {
+          "name": "api.admin",
+          "description": "Administrative access to OSSS API",
+          "composite": false,
+          "clientRole": true,
+          "attributes": {}
+        }
+      ]
+    }
+  },
+  "clients": [
+    {
+      "clientId": "osss-api",
+      "name": "OSSS API",
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "bearerOnly": false,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": true,
+      "authorizationServicesEnabled": false,
+      "redirectUris": [
+        "http://localhost:3000/*",
+        "http://localhost:8080/*"
+      ],
+      "webOrigins": [
+        "+"
+      ],
+      "attributes": {}
+    }
+  ],
+  "groups": [
+    {
+      "name": "Teachers",
+      "path": "/Teachers",
+      "attributes": {},
+      "subGroups": [
+        {
+          "name": "Science",
+          "path": "/Teachers/Science",
+          "attributes": {}
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "alice",
+      "enabled": true,
+      "emailVerified": false,
+      "firstName": "Alice",
+      "lastName": "Tester",
+      "email": "alice@example.com",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Password1!",
+          "temporary": false
+        }
+      ]
+    }
+  ]
+}

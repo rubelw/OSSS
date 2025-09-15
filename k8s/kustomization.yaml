@@ -1,0 +1,42 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: osss
+
+resources:
+  - namespace.yaml
+  - config/configmap.yaml
+  - secrets/secrets.placeholder.yaml
+  - postgres/statefulset.yaml
+  - postgres/service.yaml
+  - keycloak-postgres/statefulset.yaml
+  - keycloak-postgres/service.yaml
+  - redis/deployment.yaml
+  - redis/service.yaml
+  - api/deployment.yaml
+  - api/service.yaml
+  - web/deployment.yaml
+  - web/service.yaml
+  - keycloak/deployment.yaml
+  - keycloak/service.yaml
+
+  # Add-ons (uncomment to include):
+  # - elasticsearch/statefulset.yaml
+  # - elasticsearch/service.yaml
+  # - kibana/deployment.yaml
+  # - kibana/service.yaml
+  # - consul/deployment.yaml
+  # - consul/service.yaml
+  # - vault/deployment.yaml
+  # - vault/service.yaml
+
+  # - ingress/ingress.yaml  # enable after installing an IngressController
+
+# Optionally replace images at apply-time:
+images:
+  - name: osss-api
+    newName: osss-api
+    newTag: dev
+  - name: osss-web
+    newName: osss-web
+    newTag: dev

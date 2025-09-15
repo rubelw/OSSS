@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: consul
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: consul
+  template:
+    metadata:
+      labels:
+        app: consul
+    spec:
+      containers:
+        - name: consul
+          image: hashicorp/consul:1.19
+          imagePullPolicy: IfNotPresent
+          args:
+            - "agent"
+            - "-server"
+            - "-bootstrap-expect=1"
+            - "-ui"
+            - "-client=0.0.0.0"
+            - "-bind=0.0.0.0"
+          ports:
+            - name: http
+              containerPort: 8500
+            - name: serf-tcp
+              containerPort: 8301
+            - name: serf-udp
+              containerPort: 8301
+              protocol: UDP
+            - name: server
+              containerPort: 8300
+            - name: dns
+              containerPort: 8600
+              protocol: UDP
+          readinessProbe:
+            httpGet: { path: /v1/status/leader, port: http }
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /v1/agent/self, port: http }
+            initialDelaySeconds: 20
+            periodSeconds: 20

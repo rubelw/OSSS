@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
 
+# Fallback compose command if DC not provided
+: "${DC:=docker compose}"
+
+export COMPOSE_PROJECT_NAME=osss
+
+
 # Ensure /etc/hosts contains 'host.docker.internal' on 127.0.0.1 line alongside 'localhost'
 if ! grep -Eq '^[[:space:]]*127\.0\.0\.1[[:space:]].*\bhost\.docker\.internal\b' /etc/hosts; then
   if grep -Eq '^[[:space:]]*127\.0\.0\.1[[:space:]].*\blocalhost\b' /etc/hosts; then
@@ -256,7 +262,7 @@ wait_for_pg_service() {
   local svc="$1"; local tries=60
   echo "⏳ Waiting for Postgres in service '${svc}' to be ready…"
   while (( tries-- > 0 )); do
-    if "${COMPOSE_CMD[@]}" "${COMPOSE_ENV_ARGS[@]}" -f "${COMPOSE_FILE}" exec -T "$svc" pg_isready -q >/dev/null 2>&1; then
+    if "${COMPOSE_CMD[@]}" "${COMPOSE_ENV_ARGS[@]}" --project-name "$COMPOSE_PROJECT_NAME" -f "${COMPOSE_FILE}" exec -T "$svc" pg_isready -q >/dev/null 2>&1; then
       echo "✅ ${svc} Postgres is ready."; return 0; fi
     sleep 2
   done
@@ -275,9 +281,9 @@ ensure_role_and_db() {
   echo "   ↳ Using superuser: ${su}"
 
   # Try to connect (with pw, then without)
-  if ! "${COMPOSE_CMD[@]}" "${COMPOSE_ENV_ARGS[@]}" -f "${COMPOSE_FILE}" exec -T -e PGPASSWORD="$su_pw" "$svc" \
+  if ! "${COMPOSE_CMD[@]}" "${COMPOSE_ENV_ARGS[@]}" --project-name "$COMPOSE_PROJECT_NAME" -f "${COMPOSE_FILE}" exec -T -e PGPASSWORD="$su_pw" "$svc" \
         psql -U "$su" -d postgres -c "select 1" >/dev/null 2>&1; then
-    if ! "${COMPOSE_CMD[@]}" "${COMPOSE_ARGS[@]}" -f "${COMPOSE_FILE}" exec -T "$svc" \
+    if ! "${COMPOSE_CMD[@]}" "${COMPOSE_ARGS[@]}" --project-name "$COMPOSE_PROJECT_NAME" -f "${COMPOSE_FILE}" exec -T "$svc" \
           psql -U "$su" -d postgres -c "select 1" >/dev/null 2>&1; then
       echo "❌ Could not connect to $svc as '$su'." >&2; return 1
     fi
@@ -288,7 +294,7 @@ ensure_role_and_db() {
   L_PASS=$(sql_escape_literal "$app_password")
   L_DB=$(sql_escape_literal "$app_db")
 
-  "${COMPOSE_CMD[@]}" "${COMPOSE_ENV_ARGS[@]}" -f "${COMPOSE_FILE}" exec -T -e PGPASSWORD="$su_pw" "$svc" \
+  "${COMPOSE_CMD[@]}" "${COMPOSE_ENV_ARGS[@]}" --project-name "$COMPOSE_PROJECT_NAME" -f "${COMPOSE_FILE}" exec -T -e PGPASSWORD="$su_pw" "$svc" \
     psql -X -v ON_ERROR_STOP=1 -U "$su" -d postgres -f - <<SQL
 DO \$do\$
 DECLARE
@@ -315,12 +321,20 @@ END
 \$do\$;
 SQL
 }
-
 install_python_requirements() {
   local py; py="$(resolve_python)"
+
   echo "📦 Ensuring Python dependencies (pyproject/requirements)…"
   "$py" -m pip --version >/dev/null 2>&1 || { echo "❌ pip not available"; exit 1; }
   "$py" -m pip install --upgrade pip setuptools wheel >/dev/null
+
+  # Prompt user (default No)
+  read -r -p "Do you want to install Python dependencies now? [y/N] " choice
+  choice="${choice:-N}"
+  if [[ ! "$choice" =~ ^[Yy]$ ]]; then
+    echo "ℹ️  Skipping Python dependency installation."
+    return 0
+  fi
 
   if [[ -n "${PY_REQUIREMENTS_FILE:-}" && -f "${PY_REQUIREMENTS_FILE}" ]]; then
     echo "➡️  Installing from ${PY_REQUIREMENTS_FILE}"
@@ -341,24 +355,476 @@ install_python_requirements() {
     return
   fi
 
+
   echo "⚠️  No pyproject.toml or requirements.txt found – installing minimal realm deps"
   "$py" -m pip install "SQLAlchemy>=2,<3" "pydantic>=2,<3" "pydantic-settings>=2,<3"
 }
 
-ensure_realm_python_deps() {
-  local py; py="$(resolve_python)"
-  local need=()
-  "$py" -c "import sqlalchemy"            2>/dev/null || need+=("SQLAlchemy>=2,<3")
-  "$py" -c "import pydantic_settings"     2>/dev/null || need+=("pydantic-settings>=2,<3")
-  "$py" -c "import pydantic"              2>/dev/null || need+=("pydantic>=2,<3")
-  if ((${#need[@]})); then
-    echo "📦 Installing missing realm deps: ${need[*]}"
-    "$py" -m pip install --upgrade pip >/dev/null
-    "$py" -m pip install "${need[@]}"
-  else
-    echo "✅ Realm Python deps already present."
+# Wait for a service to be healthy (or at least running if no healthcheck)
+wait_healthy() {
+  local service="$1"
+  local timeout="${2:-120}"
+  local start_ts end_ts cid status
+  start_ts=$(date +%s)
+  cid="$($DC -f "$COMPOSE_FILE" ps -q "$service" 2>/dev/null || true)"
+  if [[ -z "$cid" ]]; then
+    # try to start it in detached mode
+    $DC -f "$COMPOSE_FILE" up -d "$service"
+    cid="$($DC -f "$COMPOSE_FILE" ps -q "$service" 2>/dev/null || true)"
+  fi
+  if [[ -z "$cid" ]]; then
+    log "WARN: could not get container id for $service"
+    return 0
+  fi
+  while true; do
+    status="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$cid" 2>/dev/null || echo "unknown")"
+    case "$status" in
+      healthy|running) return 0 ;;
+      starting|restarting) ;;
+      *) ;;
+    esac
+    end_ts=$(date +%s)
+    if (( end_ts - start_ts > timeout )); then
+      log "WARN: timeout waiting for $service (last status: $status)"
+      return 0
+    fi
+    sleep 2
+  done
+}
+
+realm_exists() {
+  curl -fsS "${KEYCLOAK_HTTP}/realms/${KC_REALM}/.well-known/openid-configuration" >/dev/null 2>&1
+}
+
+kc_init_needed() {
+  # If marker exists, skip
+  if [[ -f "$KC_MARKER" ]]; then
+    return 1
+  fi
+  # If realm already responds, skip
+  if realm_exists; then
+    return 1
+  fi
+  return 0
+}
+
+bring_up_keycloak() {
+  echo "▶️  Bringing up keycloak…"
+  ${COMPOSE_CMD} "${env_args[@]}" --project-name "$COMPOSE_PROJECT_NAME" -f "$compose_file" up -d keycloak || return 1
+
+  if command -v wait_for_url >/dev/null 2>&1; then
+    # Try the realm; if not there yet, just wait for Keycloak readiness
+    if curl -fsS --max-time 3 "http://localhost:${kc_port}/realms/${kc_realm}/.well-known/openid-configuration" >/dev/null; then
+      echo "✅ ${kc_realm} realm is reachable."
+    else
+      echo "ℹ️ ${kc_realm} realm not found yet; waiting on Keycloak health only."
+      wait_for_url "http://localhost:${kc_port}/health/ready" 180 || true
+    fi
   fi
 }
+
+kc_init_sequence() {
+  echo "🔑 Running kc-init (kc-importer → keycloak → kc-post-import → kc-verify)…"
+
+  # 1) DB up
+  ${COMPOSE_CMD} "${env_args[@]}" --project-name "$COMPOSE_PROJECT_NAME" -f "$compose_file" up -d kc_postgres || return 1
+  command -v wait_healthy >/dev/null && wait_healthy kc_postgres 120 || true
+
+  # 2) Offline import (no keycloak running yet)
+  ${COMPOSE_CMD} "${env_args[@]}" --project-name "$COMPOSE_PROJECT_NAME" -f "$compose_file" --profile "$kc_profile" up --build kc-importer || return 1
+
+  # 3) Start Keycloak and wait for realm to respond
+  bring_up_keycloak || return 1
+
+  # 4) Post-import (talks to running KC)
+  ${COMPOSE_CMD} "${env_args[@]}" --project-name "$COMPOSE_PROJECT_NAME" -f "$compose_file" --profile "$kc_profile" up --build kc-post-import || return 1
+
+  # 5) Optional verification AFTER import settles
+  ${COMPOSE_CMD} "${env_args[@]}" --project-name "$COMPOSE_PROJECT_NAME" -f "$compose_file" up --build kc-verify || true
+
+  echo "✅ kc-init completed."
+}
+
+
+start_stack() {
+  log "Starting stack (without kc-init one-shots)…"
+  $DC -f "$COMPOSE_FILE" up -d
+  log "Stack is starting. Use: docker compose ps && docker compose logs -f <service>"
+}
+
+build_realm_before_infra() {
+  # Always prompt the user whether to skip the realm build
+  local default="${DEFAULT_SKIP_REALM_BUILD:-N}" ans
+  if [[ -t 0 ]]; then
+    while :; do
+      printf "Skip Keycloak realm build and use existing realm-export.json? [y/N]: "
+      read -r ans
+      ans="${ans:-$default}"
+      case "${ans,,}" in
+        y|yes) SKIP_REALM_BUILD=1; break ;;
+        n|no)  SKIP_REALM_BUILD=0; break ;;
+        *) echo "Please answer yes or no."; ;;
+      esac
+    done
+  else
+    echo "⚠️  Non-interactive shell detected; defaulting to '${default}'."
+    case "${default,,}" in y|yes) SKIP_REALM_BUILD=1 ;; *) SKIP_REALM_BUILD=0 ;; esac
+  fi
+
+  # --- Build realm-export.json BEFORE starting infra ---
+  if [[ "${SKIP_REALM_BUILD}" != "1" ]]; then
+    if [[ ! -f "${REALM_BUILDER}" ]]; then
+      echo "❌ REALM_BUILDER not found: ${REALM_BUILDER}" >&2
+      echo "   Set SKIP_REALM_BUILD=1 to bypass this step." >&2
+      return 1
+    fi
+
+    local PY
+    PY="$(resolve_python)"
+    echo "🧱 Building realm export via: ${PY} ${REALM_BUILDER}"
+    if ! "${PY}" -u "${REALM_BUILDER}"; then
+      echo "❌ build_realm.py failed" >&2
+      return 1
+    fi
+
+    if [[ ! -s "${REALM_EXPORT}" ]]; then
+      echo "❌ Realm export not found or empty at: ${REALM_EXPORT}" >&2
+      return 1
+    fi
+
+    echo "✅ Realm export ready at: ${REALM_EXPORT}"
+    echo "Running Python script..."
+    python3 ./build_split_realm.py --in ./realm-export.json
+  else
+    echo "⏭️  Skipping realm build (per user choice)."
+  fi
+
+  # --- Start infra (Keycloak + both Postgres) ---
+  if [[ ! -f "${COMPOSE_FILE}" ]]; then
+    echo "❌ Compose file not found: ${COMPOSE_FILE}" >&2
+    return 1
+  fi
+}
+
+
+maybe_build_images() {
+  # --- Optional image build step ---
+  if [[ ${DO_BUILD:-0} -eq 1 ]]; then
+    echo "🔧 Building docker images (infra) …"
+    if [[ ${NO_CACHE:-0} -eq 1 ]]; then
+      echo "   ↳ Using --no-cache"
+      "${COMPOSE_CMD[@]}" "${COMPOSE_ENV_ARGS[@]}" --project-name "$COMPOSE_PROJECT_NAME" -f "${COMPOSE_FILE}" build --no-cache --progress=plain || return 1
+    else
+      "${COMPOSE_CMD[@]}" "${COMPOSE_ENV_ARGS[@]}" --project-name "$COMPOSE_PROJECT_NAME" -f "${COMPOSE_FILE}" build --progress=plain || return 1
+    fi
+    echo "✅ Images built."
+  else
+    echo "⏭️  Skipping 'compose build' (no --build/--rebuild flag provided)."
+  fi
+}
+
+ensure_db_roles_and_databases() {
+  # --- Ensure both DBs have correct users/passwords (sanitized) ---
+
+  # OSSS Postgres
+  wait_for_pg_service osss_postgres || return 1
+  ensure_role_and_db osss_postgres \
+    "${OSSS_DB_USER}" "${OSSS_DB_PASSWORD}" "${OSSS_DB_NAME}" \
+    "${POSTGRES_USER}" "${POSTGRES_PASSWORD}" || return 1
+
+  # Keycloak Postgres
+  wait_for_pg_service kc_postgres || return 1
+  ensure_role_and_db kc_postgres \
+    "${KC_DB_USERNAME}" "${KC_DB_PASSWORD}" "${KC_DB_NAME}" \
+    "${KC_DB_USERNAME}" "${KC_DB_PASSWORD}" || return 1
+}
+
+run_alembic_migrations() {
+  # --- Run Alembic migrations on OSSS Postgres ---
+  # Requires env: ALEMBIC_DATABASE_URL, REPO_ROOT, ALEMBIC_CMD, ALEMBIC_INI, OSSS_DB_PASSWORD
+  # Uses helpers: force_ipv4_localhost, wait_for_db
+
+  # sanity checks
+  [[ -z "${ALEMBIC_DATABASE_URL:-}" ]] && { echo "❌ ALEMBIC_DATABASE_URL is not set" >&2; return 1; }
+  [[ -z "${REPO_ROOT:-}" ]] && { echo "❌ REPO_ROOT is not set" >&2; return 1; }
+  [[ -z "${ALEMBIC_CMD:-}" ]] && { echo "❌ ALEMBIC_CMD is not set" >&2; return 1; }
+  [[ -z "${ALEMBIC_INI:-}" ]] && { echo "❌ ALEMBIC_INI is not set" >&2; return 1; }
+  [[ -z "${OSSS_DB_PASSWORD:-}" ]] && { echo "❌ OSSS_DB_PASSWORD is not set" >&2; return 1; }
+
+  # swap async driver for sync driver and normalize localhost to IPv4
+  local SYNC_DB_URL
+  SYNC_DB_URL="${ALEMBIC_DATABASE_URL/postgresql+asyncpg/postgresql+psycopg2}"
+  SYNC_DB_URL="$(force_ipv4_localhost "$SYNC_DB_URL")"
+
+  # helper to hide password in logs/env vars
+  drop_password_in_url() {
+    echo "$1" | sed -E 's#^(postgresql(\+[a-z0-9]+)?://[^:/@]+):[^@]*(@.*)$#\1\3#'
+  }
+
+  local SYNC_DB_URL_NOPW
+  SYNC_DB_URL_NOPW="$(drop_password_in_url "$SYNC_DB_URL")"
+
+  echo "🧭 Alembic will use DB URL: ${SYNC_DB_URL}"
+  wait_for_db "${SYNC_DB_URL}" 90 || { echo "❌ DB not reachable within timeout" >&2; return 1; }
+
+  echo "📜 Running Alembic migrations (upgrade head)…"
+  pushd "${REPO_ROOT}" >/dev/null || { echo "❌ pushd ${REPO_ROOT} failed" >&2; return 1; }
+  PGPASSWORD="${OSSS_DB_PASSWORD}" \
+  DATABASE_URL="${SYNC_DB_URL_NOPW}" \
+  SQLALCHEMY_DATABASE_URL="${SYNC_DB_URL_NOPW}" \
+  ALEMBIC_DATABASE_URL="${SYNC_DB_URL_NOPW}" \
+    "${ALEMBIC_CMD}" -c "${ALEMBIC_INI}" -x echo=true -x log=DEBUG upgrade head
+  local rc=$?
+  popd >/dev/null || true
+
+  if [[ $rc -ne 0 ]]; then
+    echo "❌ Alembic migrations failed (rc=$rc)" >&2
+    return "$rc"
+  fi
+
+  echo "✅ Alembic migrations completed."
+}
+
+start_infra_with_kc_prompts() {
+  # Modes:
+  #   1) Seed + start:
+  #        docker compose --profile seed up --abort-on-container-exit kc-importer
+  #        docker compose up -d keycloak
+  #   2) Infra only:
+  #        docker compose up -d kc_postgres keycloak
+  #   3) Remaining services:
+  #        docker compose up -d <everything except kc_postgres/keycloak/kc-importer/kc-verify/kc-post-import>
+
+  local compose_file="${COMPOSE_FILE:-docker-compose.yml}"
+  [[ ! -f "$compose_file" ]] && { echo "❌ Compose file not found: ${compose_file}" >&2; return 1; }
+
+  # Resolve compose base cmd and env args (arrays supported)
+  local COMPOSE_CMD
+  COMPOSE_CMD="$(compose_base_cmd)"
+  local -a env_args=()
+  [[ ${#COMPOSE_ENV_ARGS[@]} -gt 0 ]] && env_args=("${COMPOSE_ENV_ARGS[@]}")
+
+  # Options / defaults
+  local kc_profile="${KC_INIT_PROFILE:-seed}"
+  local kc_port="${KEYCLOAK_PORT:-8085}"
+  local kc_realm="${KEYCLOAK_REALM:-OSSS}"
+  local kc_well_known="http://localhost:${kc_port}/realms/${kc_realm}/.well-known/openid-configuration"
+
+  # Decide mode: arg > env > prompt (non-interactive default = infra)
+  local mode=""
+  case "${1:-}" in
+    seed|SEED)       mode="seed" ;;
+    infra|INFRA)     mode="infra" ;;
+    rest|remaining|others|stack|REST) mode="rest" ;;
+    "") : ;;
+    *)  : ;;
+  esac
+  [[ -z "$mode" && "${DO_KC_SEED:-0}" != "0" ]] && mode="seed"
+
+  if [[ -z "$mode" && -t 0 ]]; then
+    echo "What do you want to do?"
+    echo "  [1] Seed + start (kc-importer → keycloak)"
+    echo "  [2] Bring infra only (kc_postgres + keycloak)"
+    echo "  [3] Start remaining services (everything else in compose)"
+    printf "Select [1/2/3] (default 1): "
+    local ans; read -r ans
+    case "$ans" in
+      2) mode="infra" ;;
+      3) mode="rest"  ;;
+      *) mode="seed"  ;;
+    esac
+  fi
+  mode="${mode:-infra}"
+
+  # Helpers
+  compose_supports_profiles() {
+  # returns 0 if 'docker compose' with profiles is available
+  # v2 prints "Docker Compose version v2.x" or "v2.x"
+  ${COMPOSE_CMD} version 2>/dev/null | grep -Eq 'v2(\.|$)|Docker Compose version v2'
+}
+
+  wait_kc() {
+    # Prefer realm well-known; if not present yet, at least wait for KC health
+    if curl -fsS --max-time 3 "$kc_well_known" >/dev/null; then
+      echo "✅ ${kc_realm} realm is reachable."
+    else
+      echo "ℹ️ ${kc_realm} realm not found yet; waiting on Keycloak health only."
+      if command -v wait_for_url >/dev/null 2>&1; then
+        wait_for_url "http://localhost:${kc_port}/health/ready" 180 || true
+      fi
+    fi
+  }
+
+  _in_list() {
+    # _in_list <needle> <list...>
+    local n="$1"; shift
+    local x
+    for x in "$@"; do [[ "$x" == "$n" ]] && return 0; done
+    return 1
+  }
+  start_remaining() {
+    # Determine all services and filter out infra + seed helpers
+    local -a all rest exclude
+    exclude=(kc_postgres keycloak kc-importer kc-verify kc-post-import)
+    mapfile -t all < <(${COMPOSE_CMD} "${env_args[@]}" --project-name "$COMPOSE_PROJECT_NAME" -f "$compose_file" config --services 2>/dev/null)
+    local s
+    for s in "${all[@]}"; do
+      _in_list "$s" "${exclude[@]}" || rest+=("$s")
+    done
+    if [[ ${#rest[@]} -eq 0 ]]; then
+      echo "ℹ️ No remaining services to start."
+      return 0
+    fi
+    echo "▶️  Starting remaining services: ${rest[*]}"
+    ${COMPOSE_CMD} "${env_args[@]}" --project-name "$COMPOSE_PROJECT_NAME" -f "$compose_file" up -d "${rest[@]}"
+  }
+
+  # Run
+  case "$mode" in
+    seed)
+
+      echo "🐘 Bringing up kc_postgres…"
+      ${COMPOSE_CMD} "${env_args[@]}" --project-name "$COMPOSE_PROJECT_NAME" -f "$compose_file" up -d kc_postgres || return 1
+      wait_service_healthy kc_postgres || return 1
+
+      echo "🔑 Running importer (must succeed)…"
+      if compose_supports_profiles; then
+        # v2 path — profiles supported
+        ${COMPOSE_CMD} "${env_args[@]}" \
+          --project-name "$COMPOSE_PROJECT_NAME" \
+          -f "$compose_file" \
+          --profile seed \
+          up --no-deps --abort-on-container-exit --exit-code-from kc-importer kc-importer || return 1
+      else
+        # v1 path — no profiles; run the importer service explicitly
+        ${COMPOSE_CMD} "${env_args[@]}" \
+          --project-name "$COMPOSE_PROJECT_NAME" \
+          -f "$compose_file" \
+          up --no-deps --abort-on-container-exit --exit-code-from kc-importer kc-importer || return 1
+      fi
+
+      echo "▶️  Starting keycloak…"
+      ${COMPOSE_CMD} "${env_args[@]}" --project-name "$COMPOSE_PROJECT_NAME" -f "$compose_file" up -d keycloak || return 1
+      wait_kc
+
+      echo "▶️  Running kc-post-import…"
+      if compose_supports_profiles; then
+        ${COMPOSE_CMD} "${env_args[@]}" --project-name "$COMPOSE_PROJECT_NAME" -f "$compose_file" --profile seed up --no-deps kc-post-import || true
+      else
+        ${COMPOSE_CMD} "${env_args[@]}" --project-name "$COMPOSE_PROJECT_NAME" -f "$compose_file" up --no-deps kc-post-import || true
+      fi
+      ;;
+    infra)
+      echo "▶️  Bringing infra only (kc_postgres + keycloak)…"
+      ${COMPOSE_CMD} "${env_args[@]}" --project-name "$COMPOSE_PROJECT_NAME" -f "$compose_file" up -d kc_postgres keycloak || return 1
+      wait_kc
+      ;;
+    rest)
+      echo "▶️  Spinning up remaining services…"
+      start_remaining || return 1
+      ;;
+  esac
+}
+
+# Wait for a service with a Docker healthcheck to become healthy
+wait_service_healthy() {
+  local service="$1"
+  local cid
+  # Get the container id for this compose service
+  cid="$(${COMPOSE_CMD} "${env_args[@]}" --project-name "$COMPOSE_PROJECT_NAME" -f "$compose_file" ps -q "$service")"
+  if [[ -z "$cid" ]]; then
+    echo "❌ Could not find container for service '$service'."
+    return 1
+  fi
+
+  echo "⏳ Waiting for $service to become healthy…"
+  # Poll health status (fallback to 'running' if no healthcheck is defined)
+  local status tries=0
+  while true; do
+    status="$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$cid" 2>/dev/null || true)"
+    case "$status" in
+      healthy) echo "✅ $service is healthy."; return 0 ;;
+      running|starting) ;;
+      exited|dead) echo "❌ $service is not running (status: $status)."; return 1 ;;
+      *) ;; # keep waiting on unknown/empty
+    esac
+
+    ((tries++))
+    if (( tries > 120 )); then
+      echo "⚠️  Timed out waiting for $service to become healthy."
+      return 1
+    fi
+    sleep 1
+  done
+}
+
+ensure_realm_python_deps() {
+  local req_file="${REALM_REQUIREMENTS_FILE:-requirements/realm.txt}"
+
+  if [[ ! -f "$req_file" ]]; then
+    echo "ℹ️  No requirements file found at '$req_file'. Skipping dependency check."
+    return 0
+  fi
+
+  echo "Realm Python dependencies file: $req_file"
+  read -r -p "Do you want to install these Python dependencies? [y/N] " choice
+  choice="${choice:-N}"
+
+  if [[ ! "$choice" =~ ^[Yy]$ ]]; then
+    echo "ℹ️  Skipping Python dependency installation."
+    return 0
+  fi
+
+  # Ensure python + pip are available
+  if ! command -v python3 >/dev/null 2>&1; then
+    echo "❌ Python3 is required but not found."
+    return 1
+  fi
+
+  if ! python3 -m pip --version >/dev/null 2>&1; then
+    echo "❌ pip is required but not found for python3."
+    return 1
+  fi
+
+  echo "📦 Installing dependencies from $req_file..."
+  if ! python3 -m pip install --upgrade pip; then
+    echo "⚠️  Could not upgrade pip, continuing anyway."
+  fi
+
+  if ! python3 -m pip install -r "$req_file"; then
+    echo "❌ Failed to install dependencies."
+    return 1
+  fi
+
+  echo "✅ Python dependencies installed."
+}
+
+ensure_compose_network() {
+  # Ensures the Compose-managed network has the expected compose label.
+  # Derives the runtime network name as "${COMPOSE_PROJECT_NAME:-osss}_${1:-osss-net}"
+  local net_key="${1:-osss-net}"
+  local project="${COMPOSE_PROJECT_NAME:-osss}"
+  local net_runtime="${project}_${net_key}"
+
+  if docker network inspect "$net_runtime" >/dev/null 2>&1; then
+    # Read the compose label value (may be empty if created manually)
+    local label
+    label="$(docker network inspect -f '{{ index .Labels "com.docker.compose.network" }}' "$net_runtime" 2>/dev/null || true)"
+    if [[ "$label" != "$net_key" ]]; then
+      # Only safe to remove if nothing is attached
+      local attached
+      attached="$(docker network inspect -f '{{len .Containers}}' "$net_runtime" 2>/dev/null || echo 0)"
+      if (( attached > 0 )); then
+        echo "❌ Network '$net_runtime' has $attached attached container(s). Stop/disconnect them, or mark the network external in compose." >&2
+        return 1
+      fi
+      echo "🧹 Removing stale network '$net_runtime' (label='$label', expected='$net_key')…"
+      docker network rm "$net_runtime" || return 1
+      echo "✅ Removed. Compose will recreate it correctly."
+    fi
+  fi
+}
+
 
 # --- Config & defaults ---
 COMPOSE_FILE="${FK_COMPOSE_FILE:-${REPO_ROOT}/docker-compose.yml}"
@@ -372,7 +838,9 @@ API_PORT="${API_PORT:-8081}"
 # Realm build
 SKIP_REALM_BUILD="${SKIP_REALM_BUILD:-0}"
 REALM_BUILDER="${REALM_BUILDER:-${REPO_ROOT}/build_realm.py}"
-REALM_EXPORT="${REALM_EXPORT:-${REPO_ROOT}/realm-export.json}"
+
+REALM_SPLITTER="${REALM_SPLITTER:-${REPO_ROOT}/build_split_realm.py}"
+REALM_EXPORT="${REALM_EXPORT:-${REPO_ROOT}/OSSS-realm.json}"
 if [[ "${SKIP_REALM_BUILD}" != "1" && ! -f "${REALM_BUILDER}" ]]; then
   echo "⚠️  build_realm.py not found at: ${REALM_BUILDER} — skipping realm build (set SKIP_REALM_BUILD=0 and fix path to enable)."
   SKIP_REALM_BUILD=1
@@ -390,6 +858,15 @@ KEYCLOAK_CLIENT_ID="${KEYCLOAK_CLIENT_ID:-osss-api}"
 KEYCLOAK_CLIENT_SECRET="$(sanitize_secret "${KEYCLOAK_CLIENT_SECRET:-password}")"
 KEYCLOAK_ADMIN="${KEYCLOAK_ADMIN:-admin}"
 KEYCLOAK_ADMIN_PASSWORD="$(sanitize_secret "${KEYCLOAK_ADMIN_PASSWORD:-admin}")"
+
+
+# Keycloak realm/URL used to detect init status
+KC_REALM="${KC_REALM:-OSSS}"
+KEYCLOAK_HTTP="${KEYCLOAK_HTTP:-http://localhost:8085}"  # external URL per your compose ports
+
+# Marker to remember we've completed kc-init
+STATE_DIR="${STATE_DIR:-.state}"
+KC_MARKER="${KC_MARKER:-${STATE_DIR}/kc_init_done}"
 
 # --- Ensure ENV_FILE and COMPOSE_FILE point to files ---
 if [ -n "${ENV_FILE:-}" ] && [ ! -f "$ENV_FILE" ]; then
@@ -530,188 +1007,16 @@ EOF
 }
 print_env_summary
 
-# Ensure Python deps are present for build_realm.py
 ensure_realm_python_deps
+
 install_python_requirements
 
-### --- Build realm-export.json BEFORE starting infra ---
-if [ "${SKIP_REALM_BUILD}" != "1" ]; then
-  if [ ! -f "${REALM_BUILDER}" ]; then
-    echo "❌ REALM_BUILDER not found: ${REALM_BUILDER}" >&2
-    echo "   Set SKIP_REALM_BUILD=1 to bypass this step." >&2
-    exit 1
-  fi
-  PY="$(resolve_python)"
-  echo "🧱 Building realm export via: ${PY} ${REALM_BUILDER}"
-  if ! "${PY}" -u "${REALM_BUILDER}"; then
-    echo "❌ build_realm.py failed" >&2; exit 1
-  fi
-  if [ ! -s "${REALM_EXPORT}" ]; then
-    echo "❌ Realm export not found or empty at: ${REALM_EXPORT}" >&2; exit 1
-  fi
-  echo "✅ Realm export ready at: ${REALM_EXPORT}"
-else
-  echo "⚠️  SKIP_REALM_BUILD=1 set — skipping build_realm.py"
-fi
-
-### --- Start infra (Keycloak + both Postgres) ---
-if [ ! -f "${COMPOSE_FILE}" ]; then
-  echo "❌ Compose file not found: ${COMPOSE_FILE}" >&2; exit 1
-fi
-
-# Make COMPOSE_CMD an array for safety with spaces ("docker compose")
-COMPOSE_CMD=($(compose_base_cmd))
-
-# --- Optional image build step ---
-if [[ $DO_BUILD -eq 1 ]]; then
-  echo "🔧 Building docker images (infra) …"
-  if [[ $NO_CACHE -eq 1 ]]; then
-    echo "   ↳ Using --no-cache"
-    "${COMPOSE_CMD[@]}" "${COMPOSE_ENV_ARGS[@]}" -f "${COMPOSE_FILE}" build --no-cache --progress=plain
-  else
-    "${COMPOSE_CMD[@]}" "${COMPOSE_ENV_ARGS[@]}" -f "${COMPOSE_FILE}" build --progress=plain
-  fi
-  echo "✅ Images built."
-else
-  echo "⏭️  Skipping 'compose build' (no --build/--rebuild flag provided)."
-fi
-
-echo "▶️  Bringing up infra with: ${COMPOSE_CMD_STR} ${COMPOSE_ENV_ARGS[*]:-} -f ${COMPOSE_FILE} up -d"
-
-# First attempt (let Compose create the network itself)
-set +e
-"${COMPOSE_CMD[@]}" "${COMPOSE_ENV_ARGS[@]}" -f "${COMPOSE_FILE}" up -d
-rc=$?
-set -e
-
-if (( rc != 0 )); then
-  echo "⚠️  'up -d' failed; performing a clean reset of the project network and retrying once…"
-
-  # Tear everything for this project down (ignore errors)
-  "${COMPOSE_CMD[@]}" "${COMPOSE_ENV_ARGS[@]}" -f "${COMPOSE_FILE}" down -v --remove-orphans || true
-
-  # Remove any leftover networks for this project (they can be half-created)
-  docker network rm "${NET}" 2>/dev/null || true
-  docker network rm "${PROJECT}_default" 2>/dev/null || true
-  docker network prune -f >/dev/null 2>&1 || true
-
-  # Retry bringing everything up cleanly
-  if ! "${COMPOSE_CMD[@]}" "${COMPOSE_ENV_ARGS[@]}" -f "${COMPOSE_FILE}" up -d; then
-    echo "❌ docker compose up failed (after clean reset)"
-    "${COMPOSE_CMD[@]}" "${COMPOSE_ENV_ARGS[@]}" -f "${COMPOSE_FILE}" ps || true
-    exit 1
-  fi
-fi
-
-echo "✅ Infra up."
+echo "build keycloak realm before infrastructure"
+build_realm_before_infra
 
 
-# --- Ensure both DBs have correct users/passwords (sanitized) ---
-wait_for_pg_service osss_postgres
-ensure_role_and_db osss_postgres \
-  "$OSSS_DB_USER" "$OSSS_DB_PASSWORD" "$OSSS_DB_NAME" \
-  "$POSTGRES_USER" "$POSTGRES_PASSWORD"
+maybe_build_images
+ensure_compose_network
+start_infra_with_kc_prompts
 
-wait_for_pg_service kc_postgres
-ensure_role_and_db kc_postgres \
-  "$KC_DB_USERNAME" "$KC_DB_PASSWORD" "$KC_DB_NAME" \
-  "$KC_DB_USERNAME" "$KC_DB_PASSWORD"
-
-echo "### Please wait at least 180 seconds for this to populate ###"
-
-# Wait for Keycloak OIDC discovery
-if ! wait_for_url "${OIDC_DISCOVERY}" "${BOOT_WAIT}"; then
-  echo "❌ Keycloak did not become ready at: ${OIDC_DISCOVERY}" >&2
-  echo "🔎 Recent logs:"; "${COMPOSE_CMD[@]}" "${COMPOSE_ENV_ARGS[@]}" -f "${COMPOSE_FILE}" logs --tail=200 || true
-  exit 1
-fi
-
-### --- Run Alembic migrations on OSSS Postgres ---
-SYNC_DB_URL="${ALEMBIC_DATABASE_URL/postgresql+asyncpg/postgresql+psycopg2}"
-SYNC_DB_URL="$(force_ipv4_localhost "$SYNC_DB_URL")"
-
-drop_password_in_url() { echo "$1" | sed -E 's#^(postgresql(\+[a-z0-9]+)?://[^:/@]+):[^@]*(@.*)$#\1\3#'; }
-SYNC_DB_URL_NOPW="$(drop_password_in_url "$SYNC_DB_URL")"
-
-echo "🧭 Alembic will use DB URL: ${SYNC_DB_URL}"
-wait_for_db "${SYNC_DB_URL}" 90
-
-echo "📜 Running Alembic migrations (upgrade head)…"
-pushd "${REPO_ROOT}" >/dev/null
-PGPASSWORD="${OSSS_DB_PASSWORD}" \
-DATABASE_URL="${SYNC_DB_URL_NOPW}" \
-SQLALCHEMY_DATABASE_URL="${SYNC_DB_URL_NOPW}" \
-ALEMBIC_DATABASE_URL="${SYNC_DB_URL_NOPW}" \
-  "${ALEMBIC_CMD}" -c "${ALEMBIC_INI}" -x echo=true -x log=DEBUG upgrade head
-popd >/dev/null
-echo "✅ Alembic migrations completed."
-
-### --- Start app & web via Docker Compose ---
-APP_PROFILE_FLAG="--profile app"
-echo "▶️  Starting app & web containers with profile 'app'…"
-if ! "${COMPOSE_CMD[@]}" "${COMPOSE_ENV_ARGS[@]}" -f "${COMPOSE_FILE}" ${APP_PROFILE_FLAG} up -d app web; then
-  echo "❌ Failed to start app/web containers" >&2
-  "${COMPOSE_CMD[@]}" "${COMPOSE_ENV_ARGS[@]}" -f "${COMPOSE_FILE}" logs --tail=200 app web || true
-  exit 1
-fi
-
-# Wait for app (FastAPI) and web (Next.js) to be reachable on host ports
-APP_PORT="${APP_PORT:-8081}"
-WEB_PORT="${WEB_PORT:-3000}"
-wait_for_url "http://localhost:${APP_PORT}" 120 || { echo "⚠️  app not responding yet on :${APP_PORT}"; }
-wait_for_url "http://localhost:${WEB_PORT}" 120 || { echo "⚠️  web not responding yet on :${WEB_PORT}"; }
-echo "✅ app/web reachable (or will be shortly)."
-
-### --- Cleanup on exit ---
-cleanup() {
-  echo ""
-  echo "🛑 Tearing down containers (compose down -v)…"
-  "${COMPOSE_CMD[@]}" "${COMPOSE_ENV_ARGS[@]}" -f "${COMPOSE_FILE}" down -v --remove-orphans || true
-
-  echo "🔎 Checking for containers still attached to ${NET}…"
-  ATTACHED="$(docker network inspect "${NET}" --format '{{range .Containers}}{{println .Name}}{{end}}' 2>/dev/null || true)"
-
-  if [ -n "${ATTACHED}" ]; then
-    echo "⚠️  Detaching these containers from ${NET}:"
-    echo "${ATTACHED}"
-    while IFS= read -r cname; do
-      [ -n "$cname" ] && docker network disconnect -f "${NET}" "$cname" || true
-    done <<< "${ATTACHED}"
-  fi
-
-  echo "🧽 Removing network ${NET}…"
-  for i in 1 2 3; do
-    docker network rm "${NET}" && { echo "✅ Network removed."; break; }
-    echo "   retry ${i}/3…"; sleep 1
-  done
-  docker network prune -f >/dev/null 2>&1 || true
-}
-trap cleanup INT TERM EXIT
-
-# Host ports
-FASTAPI_HOST_PORT="${FASTAPI_HOST_PORT:-8081}"  # host→container mapping 8081:8000
-WEB_PORT="${WEB_PORT:-3000}"
-
-wait_for_url "http://localhost:${FASTAPI_HOST_PORT}" 120 || {
-  echo "⚠️  app not responding yet on :${FASTAPI_HOST_PORT}";
-}
-wait_for_url "http://localhost:${WEB_PORT}" 120 || {
-  echo "⚠️  web not responding yet on :${WEB_PORT}";
-}
-
-
-echo ""
-echo "📎 OpenAPI docs:    http://localhost:${APP_PORT}/docs"
-echo "📎 OIDC discovery:  ${OIDC_DISCOVERY}"
-echo "🌐 osss-web:        http://localhost:${WEB_PORT}"
-echo "   osss:            http://localhost:8081/docs#/"
-echo "   kibana:          http://localhost:5601"
-echo "   consul:          http://localhost:8500"
-echo "   vault:           http://localhost:8200"
-echo ""
-echo "⌨️  Press Ctrl-C to stop everything…"
-
-# --- Stream FastAPI logs in foreground ---
-"${COMPOSE_CMD[@]}" "${COMPOSE_ENV_ARGS[@]}" -f "${COMPOSE_FILE}" logs -f app
-# To also stream web logs, use:
-# "${COMPOSE_CMD[@]}" "${COMPOSE_ENV_ARGS[@]}" -f "${COMPOSE_FILE}" logs -f app web
+exit 0

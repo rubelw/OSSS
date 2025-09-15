@@ -1,0 +1,178 @@
+{
+  "realm": "OSSS",
+  "clients": [
+    {
+      "id": "bf1115bd-0bec-4f4c-96b3-8e124232d17f",
+      "clientId": "osss-api",
+      "name": "osss-api",
+      "secret": "password",
+      "publicClient": false,
+      "bearerOnly": false,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "frontchannelLogout": false,
+      "consentRequired": false,
+      "redirectUris": [
+        "http://localhost:8081/*"
+      ],
+      "webOrigins": [
+        "+"
+      ],
+      "notBefore": 0,
+      "alwaysDisplayInConsole": false,
+      "surrogateAuthRequired": false,
+      "nodeReRegistrationTimeout": 0,
+      "protocol": "openid-connect",
+      "attributes": {
+        "id.token.as.detached.signature": "false",
+        "saml.assertion.signature": "false",
+        "saml.force.post.binding": "false",
+        "saml.multivalued.roles": "false",
+        "saml.encrypt": "false",
+        "oauth2.device.authorization.grant.enabled": "false",
+        "backchannel.logout.revoke.offline.tokens": "false",
+        "saml.server.signature": "false",
+        "saml.server.signature.keyinfo.ext": "false",
+        "use.refresh.tokens": "true",
+        "exclude.session.state.from.auth.response": "false",
+        "oidc.ciba.grant.enabled": "false",
+        "saml.artifact.binding": "false",
+        "backchannel.logout.session.required": "true",
+        "client_credentials.use_refresh_token": "false",
+        "saml_force_name_id_format": "false",
+        "require.pushed.authorization.requests": "false",
+        "saml.client.signature": "false",
+        "tls.client.certificate.bound.access.tokens": "false",
+        "saml.authnstatement": "false",
+        "display.on.consent.screen": "false",
+        "saml.onetimeuse.condition": "false"
+      },
+      "defaultClientScopes": [
+        "email",
+        "osss-api-roles",
+        "profile",
+        "roles"
+      ],
+      "optionalClientScopes": [
+        "address",
+        "offline_access"
+      ],
+      "clientAuthenticatorType": "client-secret",
+      "enabled": true,
+      "authorizationServicesEnabled": true,
+      "authorizationSettings": {
+        "allowRemoteResourceManagement": true,
+        "policyEnforcementMode": "ENFORCING",
+        "resources": [
+          {
+            "name": "Default Resource",
+            "type": "urn:osss-api:resources:default",
+            "ownerManagedAccess": false,
+            "attributes": {},
+            "uris": [
+              "/*"
+            ]
+          }
+        ],
+        "policies": [],
+        "scopes": [],
+        "decisionStrategy": "UNANIMOUS"
+      }
+    },
+    {
+      "id": "fb6308bc-4ee1-4545-a31b-24a747e86d78",
+      "clientId": "osss-web",
+      "name": "osss-web",
+      "rootUrl": "http://localhost:3000",
+      "baseUrl": "/",
+      "adminUrl": "http://localhost:3000",
+      "secret": "password",
+      "publicClient": false,
+      "bearerOnly": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "frontchannelLogout": false,
+      "consentRequired": false,
+      "redirectUris": [
+        "http://localhost:3000/*",
+        "http://localhost:3000/api/auth/callback/keycloak"
+      ],
+      "webOrigins": [
+        "http://localhost:3000"
+      ],
+      "notBefore": 0,
+      "alwaysDisplayInConsole": false,
+      "surrogateAuthRequired": false,
+      "nodeReRegistrationTimeout": 0,
+      "protocol": "openid-connect",
+      "attributes": {
+        "post.logout.redirect.uris": "http://localhost:3000/"
+      },
+      "defaultClientScopes": [
+        "email",
+        "osss-api-audience",
+        "osss-api-roles",
+        "profile",
+        "roles"
+      ],
+      "optionalClientScopes": [
+        "address",
+        "offline_access"
+      ],
+      "clientAuthenticatorType": "client-secret",
+      "enabled": true,
+      "authorizationServicesEnabled": true
+    },
+    {
+      "id": "b393107d-5fdf-4ceb-b58d-df940a854410",
+      "clientId": "vault",
+      "name": "vault",
+      "secret": "password",
+      "publicClient": false,
+      "bearerOnly": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "frontchannelLogout": false,
+      "consentRequired": false,
+      "redirectUris": [
+        "http://localhost:8250/oidc/callback",
+        "http://127.0.0.1:8250/oidc/callback",
+        "http://localhost:8200/ui/vault/auth/oidc/oidc/callback",
+        "http://127.0.0.1:8200/ui/vault/auth/oidc/oidc/callback"
+      ],
+      "webOrigins": [
+        "+"
+      ],
+      "notBefore": 0,
+      "alwaysDisplayInConsole": false,
+      "surrogateAuthRequired": false,
+      "nodeReRegistrationTimeout": 0,
+      "protocol": "openid-connect",
+      "attributes": {
+        "post.logout.redirect.uris": "+",
+        "oidc.cida.grant.enabled": "false"
+      },
+      "defaultClientScopes": [
+        "profile",
+        "email",
+        "groups-claim"
+      ],
+      "optionalClientScopes": [
+        "roles",
+        "web-origins",
+        "address",
+        "phone",
+        "offline_access"
+      ],
+      "clientAuthenticatorType": "client-secret",
+      "enabled": true,
+      "authorizationServicesEnabled": true
+    }
+  ]
+}
