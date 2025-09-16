@@ -85,6 +85,6 @@ extra:
       link: https://github.com/rubelw/OSSS
       name: OSSS on GitHub
   ogp:
-    site_name: "OSSS — Open Student Support System (K-12 SIS)"
+    site_name: "OSSS — Open Source School Software (K-12 SIS)"
     image: "https://raw.githubusercontent.com/rubelw/OSSS/main/docs/social-card.png"
     description: "Open source school software (K-12 SIS). FastAPI + Keycloak + SQLAlchemy; governance + student info."
