@@ -1,6 +1,6 @@
 # Open Source School Software (OSSS)
 
-**Open Student Support System (OSSS)** is an **open source school software** platform—a modern **K‑12 Student Information System (SIS)** built with **FastAPI**, **Keycloak**, and **SQLAlchemy**. OSSS focuses on **student records**, **governance & workflows**, and core SIS features (attendance, scheduling, staff & family access), designed for school districts that want a transparent, extensible stack.
+**Open Source School Software (OSSS)** is an **open source school software** platform—a modern **K‑12 Student Information System (SIS)** built with **FastAPI**, **Keycloak**, and **SQLAlchemy**. OSSS focuses on **student records**, **governance & workflows**, and core SIS features (attendance, scheduling, staff & family access), designed for school districts that want a transparent, extensible stack.
 
 OSSS ships as a developer‑friendly API with clean domain models and authentication via OpenID Connect (Keycloak). It’s designed to be easy to deploy on PostgreSQL and to extend with React/Next.js front ends.
 
