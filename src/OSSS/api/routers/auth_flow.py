@@ -2,10 +2,11 @@
 from __future__ import annotations
 
 import os
-import logging
+from functools import lru_cache
 from typing import Optional, Dict, Any
-
+import time
 import requests
+from requests import exceptions as req_exc
 from fastapi import APIRouter, Request, Response, Form, HTTPException
 
 from OSSS.app_logger import get_logger
@@ -16,18 +17,91 @@ from OSSS.sessions import (
 )
 
 log = get_logger("auth_flow")
-
 router = APIRouter()
 
 # ---- OIDC / Keycloak config --------------------------------------------------
-KC_ISSUER         = os.getenv("KEYCLOAK_ISSUER") or os.getenv("OIDC_ISSUER")
-KC_CLIENT_ID      = os.getenv("KEYCLOAK_CLIENT_ID", "osss-api")
-KC_CLIENT_SECRET  = os.getenv("KEYCLOAK_CLIENT_SECRET")  # optional (confidential client)
+def _env(name: str, default: Optional[str] = None) -> Optional[str]:
+    return os.getenv(name, default)
+
+# External/public issuer (what Keycloak advertises in tokens)
+KC_ISSUER = _env("KEYCLOAK_ISSUER") or _env("OIDC_ISSUER")
+
+# Internal endpoints for container-to-container calls (recommended)
+KC_DISCOVERY_URL_INTERNAL = _env("OIDC_DISCOVERY_URL_INTERNAL")
+KC_TOKEN_URL_INTERNAL = _env("OIDC_TOKEN_URL_INTERNAL")
+KC_JWKS_URL = _env("OIDC_JWKS_URL")  # optional; not required here but kept for completeness
+
+KC_CLIENT_ID = _env("KEYCLOAK_CLIENT_ID", "osss-api")
+KC_CLIENT_SECRET = _env("KEYCLOAK_CLIENT_SECRET")  # optional (confidential client)
+
+def _get_with_retry(url: str, tries: int = 5, base_sleep: float = 0.2):
+    for i in range(tries):
+        try:
+            r = requests.get(url, timeout=10)
+            r.raise_for_status()
+            return r
+        except req_exc.RequestException as e:
+            if i == tries - 1:
+                raise
+            time.sleep(min(base_sleep * (2 ** i), 2.0))
+
+@lru_cache(maxsize=1)
+def _discover() -> Dict[str, str]:
+    """
+    Resolve OIDC endpoints preferring internal URLs for network calls,
+    while allowing the issuer to remain the public/external value.
+    """
+
+    # Shortcut: if both internal endpoints are provided, skip discovery
+    if KC_TOKEN_URL_INTERNAL and KC_JWKS_URL:
+        resolved = {
+            "issuer": KC_ISSUER,
+            "token_endpoint": KC_TOKEN_URL_INTERNAL,
+            "jwks_uri": KC_JWKS_URL,
+        }
+        log.debug(
+            "OIDC discovery shortcut via env: token=%s jwks=%s issuer=%s",
+            resolved["token_endpoint"], resolved["jwks_uri"], resolved["issuer"]
+        )
+        return resolved
+
+    # Prefer internal discovery; otherwise derive from external issuer
+    discovery_url = KC_DISCOVERY_URL_INTERNAL or (
+        KC_ISSUER and KC_ISSUER.rstrip("/") + "/.well-known/openid-configuration"
+    )
+    if not discovery_url:
+        raise RuntimeError(
+            "OIDC discovery not configured. Set OIDC_DISCOVERY_URL_INTERNAL "
+            "or KEYCLOAK_ISSUER / OIDC_ISSUER."
+        )
+
+    try:
+        r = _get_with_retry(discovery_url)
+        data = r.json()
+    except req_exc.RequestException as e:
+        log.error("OIDC discovery fetch failed from %s: %s", discovery_url, e)
+        raise HTTPException(status_code=502, detail="keycloak_discovery_error")
+
+    token_endpoint = KC_TOKEN_URL_INTERNAL or data.get("token_endpoint")
+    if not token_endpoint:
+        if KC_ISSUER:
+            token_endpoint = KC_ISSUER.rstrip("/") + "/protocol/openid-connect/token"
+        else:
+            raise HTTPException(status_code=502, detail="token_endpoint_unresolved")
+
+    resolved = {
+        "issuer": data.get("issuer") or KC_ISSUER,
+        "token_endpoint": token_endpoint,
+        "jwks_uri": KC_JWKS_URL or data.get("jwks_uri"),
+    }
+    log.debug(
+        "OIDC discovery resolved: discovery=%s token_endpoint=%s issuer=%s",
+        discovery_url, resolved["token_endpoint"], resolved["issuer"]
+    )
+    return resolved
 
 def _token_url() -> str:
-    if not KC_ISSUER:
-        raise RuntimeError("KEYCLOAK_ISSUER / OIDC_ISSUER not configured")
-    return KC_ISSUER.rstrip("/") + "/protocol/openid-connect/token"
+    return _discover()["token_endpoint"]
 
 
 # ---- helpers ----------------------------------------------------------------
@@ -81,20 +155,23 @@ async def password_grant(
     try:
         r = requests.post(_token_url(), data=data, timeout=10)
         r.raise_for_status()
-    except requests.HTTPError as e:
-        detail = {"error": "token_exchange_failed", "status": r.status_code if "r" in locals() else 502}
+    except req_exc.HTTPError:
+        status = getattr(r, "status_code", 502)  # type: ignore[name-defined]
+        detail = {"error": "token_exchange_failed", "status": status}
         try:
-            detail["body"] = r.json()
+            detail["body"] = r.json()  # type: ignore[name-defined]
         except Exception:
-            detail["body"] = getattr(r, "text", str(e))
-        raise HTTPException(status_code=detail["status"], detail=detail)
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=str(e))
+            detail["body"] = getattr(r, "text", "")  # type: ignore[name-defined]
+        raise HTTPException(status_code=status, detail=detail)
+    except req_exc.ConnectionError:
+        raise HTTPException(status_code=502, detail="keycloak_connect_error")
+    except (req_exc.ConnectTimeout, req_exc.ReadTimeout, req_exc.Timeout):
+        raise HTTPException(status_code=504, detail="keycloak_timeout")
+    except req_exc.RequestException as e:
+        raise HTTPException(status_code=502, detail=f"keycloak_request_error: {e}")
 
     tokens = r.json()
     await _persist_tokens(request, response, tokens, user_email=username)
-
-    # Return full token payload so Swagger/clients can set Authorization: Bearer ...
     return tokens
 
 
@@ -119,18 +196,21 @@ async def refresh_grant(
     try:
         r = requests.post(_token_url(), data=data, timeout=10)
         r.raise_for_status()
-    except requests.HTTPError as e:
-        detail = {"error": "token_refresh_failed", "status": r.status_code if "r" in locals() else 502}
+    except req_exc.HTTPError:
+        status = getattr(r, "status_code", 502)  # type: ignore[name-defined]
+        detail = {"error": "token_refresh_failed", "status": status}
         try:
-            detail["body"] = r.json()
+            detail["body"] = r.json()  # type: ignore[name-defined]
         except Exception:
-            detail["body"] = getattr(r, "text", str(e))
-        raise HTTPException(status_code=detail["status"], detail=detail)
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=str(e))
+            detail["body"] = getattr(r, "text", "")  # type: ignore[name-defined]
+        raise HTTPException(status_code=status, detail=detail)
+    except req_exc.ConnectionError:
+        raise HTTPException(status_code=502, detail="keycloak_connect_error")
+    except (req_exc.ConnectTimeout, req_exc.ReadTimeout, req_exc.Timeout):
+        raise HTTPException(status_code=504, detail="keycloak_timeout")
+    except req_exc.RequestException as e:
+        raise HTTPException(status_code=502, detail=f"keycloak_request_error: {e}")
 
     tokens = r.json()
     await _persist_tokens(request, response, tokens)
-
-    # Return full token payload for clients
     return tokens

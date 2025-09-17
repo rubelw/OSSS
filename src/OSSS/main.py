@@ -9,6 +9,7 @@ import httpx
 import json
 import pathlib
 import yaml
+import logging
 import logging.config
 import sqlalchemy as sa
 import inspect as _pyinspect
@@ -75,13 +76,13 @@ from urllib.parse import urljoin
 # --- END: verbose OIDC helpers imports ---
 
 
+
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
     "formatters": {
         "json": {
-            "()" : "pythonjsonlogger.jsonlogger.JsonFormatter",
-            # include fields you want searchable in ES
+            "()": "pythonjsonlogger.jsonlogger.JsonFormatter",
             "fmt": "%(asctime)s %(levelname)s %(name)s %(message)s %(process)d %(thread)d %(module)s %(pathname)s",
         },
     },
@@ -93,17 +94,32 @@ LOGGING = {
         },
     },
     "loggers": {
-        # send everything to the JSON console handler
-        "":               {"handlers": ["console"], "level": "INFO"},
-        "uvicorn":        {"handlers": ["console"], "level": "INFO", "propagate": False},
+        "":               {"handlers": ["console"], "level": "DEBUG"},
+        "uvicorn":        {"handlers": ["console"], "level": "DEBUG", "propagate": False},
         "uvicorn.error":  {"handlers": ["console"], "level": "INFO", "propagate": False},
         "uvicorn.access": {"handlers": ["console"], "level": "INFO", "propagate": False},
         "startup":        {"handlers": ["console"], "level": "DEBUG", "propagate": False},
+
+        # 👇 add these lines
+        "watchfiles":         {"handlers": ["console"], "level": "ERROR", "propagate": False},
+        "watchfiles.main":    {"handlers": ["console"], "level": "ERROR", "propagate": False},
+        "watchfiles.watcher": {"handlers": ["console"], "level": "ERROR", "propagate": False},
     },
 }
 
 logging.config.dictConfig(LOGGING)
+
+# must come immediately after dictConfig
+for _n in ("watchfiles", "watchfiles.main", "watchfiles.watcher"):
+    _lg = logging.getLogger(_n)
+    _lg.setLevel(100)      # higher than CRITICAL
+    _lg.propagate = False  # don't bubble to root
+    _lg.handlers.clear()   # no handlers = drop records
+
+
 log = logging.getLogger("main")
+
+
 
 # For Consul
 #CONSUL_HOST = os.getenv("CONSUL_HOST", "127.0.0.1")
@@ -473,7 +489,7 @@ def create_app() -> FastAPI:
                 # --- optional app-level OIDC tracing ---
                 if os.getenv("OSSS_VERBOSE_AUTH", "0") == "1":
                     _enable_verbose_oidc_logging()
-                    issuer = _env("OIDC_ISSUER", "http://localhost:8080/realms/OSSS")
+                    issuer = _env("OIDC_ISSUER", "http://localhost:8085/realms/OSSS")
                     jwks = _env("OIDC_JWKS_URL")
                     client_id = _env("OIDC_CLIENT_ID", "osss-api")
                     client_secret = _env("OIDC_CLIENT_SECRET")

@@ -19,7 +19,12 @@ from OSSS.core.config import settings
 # Engine configuration
 # ---------------------------------------------------------------------------
 
-DATABASE_URL: str | URL = settings.DATABASE_URL
+# Prefer ASYNC_DATABASE_URL (correct for containers), then DATABASE_URL, then settings
+DATABASE_URL = (
+    os.getenv("ASYNC_DATABASE_URL")
+    or os.getenv("DATABASE_URL")
+    or settings.DATABASE_URL
+)
 
 # Use NullPool in tests (or when explicitly requested) to avoid sharing the same
 # asyncpg connection across threads/tasks (common with TestClient).
@@ -28,13 +33,28 @@ USE_NULLPOOL = (
     or bool(getattr(settings, "TESTING", False))
 )
 
+# Optional tuning via settings/env (falls back to sensible defaults)
+POOL_SIZE = int(os.getenv("DB_POOL_SIZE", getattr(settings, "DB_POOL_SIZE", 5)))
+MAX_OVERFLOW = int(os.getenv("DB_MAX_OVERFLOW", getattr(settings, "DB_MAX_OVERFLOW", 10)))
+POOL_RECYCLE = int(os.getenv("DB_POOL_RECYCLE", getattr(settings, "DB_POOL_RECYCLE", 1800)))  # seconds
+
 _engine_kwargs: dict = {
     "echo": bool(getattr(settings, "DB_ECHO", False)),
-    "pool_pre_ping": True,  # protects against stale connections
+    "pool_pre_ping": True,        # 💡 protects against stale connections
 }
 
 if USE_NULLPOOL:
+    # Testing / one-off processes: don't keep a pool at all
     _engine_kwargs["poolclass"] = NullPool
+else:
+    # Normal runtime: keep a small, resilient pool
+    _engine_kwargs.update(
+        {
+            "pool_size": POOL_SIZE,
+            "max_overflow": MAX_OVERFLOW,
+            "pool_recycle": POOL_RECYCLE,
+        }
+    )
 
 # Build the async engine once
 engine = create_async_engine(DATABASE_URL, **_engine_kwargs)

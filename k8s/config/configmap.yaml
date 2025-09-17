@@ -20,6 +20,6 @@ data:
   REDIS_PORT: "6379"
 
   # Keycloak URL for web/api
-  KEYCLOAK_URL: "http://keycloak:8080"
+  KEYCLOAK_URL: "http://localhost:8085"
   KEYCLOAK_REALM: "OSSS"
   KEYCLOAK_CLIENT_ID: "web"

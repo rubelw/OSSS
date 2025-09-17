@@ -85,13 +85,13 @@ done
 log "✅ Vault reachable"
 
 log "⏳ Waiting for Keycloak discovery…"
-until curl -fsS "http://keycloak:8080/realms/OSSS/.well-known/openid-configuration" >/dev/null 2>&1; do
+until curl -fsS "http://localhost:8085/realms/OSSS/.well-known/openid-configuration" >/dev/null 2>&1; do
   sleep 2
 done
 log "✅ Keycloak discovery reachable"
 
 # Discover actual issuer from well-known (avoid mismatch errors)
-DISCOVERY_JSON="$(curl -fsS "http://keycloak:8080/realms/OSSS/.well-known/openid-configuration")"
+DISCOVERY_JSON="$(curl -fsS "http://localhost:8085/realms/OSSS/.well-known/openid-configuration")"
 ISSUER="$(echo "$DISCOVERY_JSON" | jq -r '.issuer')"
 [ -n "$ISSUER" ] || { log "❌ Could not parse issuer from discovery"; exit 1; }
 log "📛 Using issuer: ${ISSUER}"
@@ -99,7 +99,7 @@ log "📛 Using issuer: ${ISSUER}"
 # Choose a discovery **base** URL (realm URL) that **Vault** can reach.
 # Vault validates this itself, so the hostname must be resolvable/reachable from the *vault* container.
 # 1) Prefer Keycloak's container IP (most reliable for Vault)
-# 2) Fall back to provided OIDC_DISCOVERY_URL or keycloak:8080
+# 2) Fall back to provided OIDC_DISCOVERY_URL or localhost:8085
 DISCOVERY_BASE_FALLBACK="http://host.docker.internal:8085/realms/OSSS"
 DISC_URL_CANDIDATE="${OIDC_DISCOVERY_URL:-$DISCOVERY_BASE_FALLBACK}"
 DISC_URL_BASE="$(printf '%s' "$DISC_URL_CANDIDATE" | sed -E 's#(/\.well-known/.*)$##')"

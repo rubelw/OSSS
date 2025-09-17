@@ -5,11 +5,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1
 
-# System deps (psycopg2 compile, SSL for asyncpg, etc.)
+# System deps (psql client & curl for diagnostics; libpq-dev/build-essential not required if using psycopg2-binary)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      build-essential \
-      libpq-dev \
+      postgresql-client \
       curl \
+      jq \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -28,10 +28,16 @@ ENV PYTHONPATH=/app/src
 # Install your application (from pyproject)
 RUN pip install .
 
-# Install the process manager + ASGI worker
+# Runtime deps:
 # - gunicorn: master process
 # - uvicorn[standard]: uvicorn worker with uvloop, httptools, etc.
-RUN pip install --no-cache-dir "gunicorn>=21" "uvicorn[standard]>=0.30"
+# - asyncpg: async PostgreSQL driver for SQLAlchemy async engine
+# - psycopg2-binary: sync driver for Alembic migrations
+RUN pip install --no-cache-dir \
+      "gunicorn>=21" \
+      "uvicorn[standard]>=0.30" \
+      "asyncpg>=0.29" \
+      "psycopg2-binary>=2.9"
 
 EXPOSE 8000
 
