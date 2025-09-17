@@ -1,6 +1,7 @@
 # src/OSSS/core/config.py
 from __future__ import annotations
 
+import os
 from typing import Any, List, Optional
 import json
 
@@ -14,12 +15,14 @@ class Settings(BaseSettings):
     APP_VERSION: str = "0.1.0"
 
     # ---- DB ----
-    # Prefer DATABASE_URL, but also accept OSSS_DB_URL as a fallback.
-    DATABASE_URL: str = Field(
-        default="sqlite+aiosqlite:///:memory:",
-        validation_alias=AliasChoices("DATABASE_URL", "OSSS_DB_URL"),
+    # read DATABASE_URL, else ASYNC_DATABASE_URL, else a safe default
+    DATABASE_URL: str = (
+            os.getenv("DATABASE_URL")
+            or os.getenv("ASYNC_DATABASE_URL")
+            or "postgresql+asyncpg://osss:password@osss_postgres:5432/osss"
     )
-    TESTING: bool = False  # set to "1" in tests to skip real DB ping
+    DB_ECHO: bool = False
+    TESTING: bool = False
 
     # ---- Web / CORS ----
     # Raw env value (JSON or CSV). Use validation_alias for env binding (v2 style).

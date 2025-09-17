@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 # osss-compose-repair.sh
-# Compose repair + Logs submenu (seed + non-seed shortcuts) with Ctrl-C back.
+# Dynamic Compose repair + logs utility that adapts to docker-compose.yml (and profile).
+# - Auto-detects services per compose file/profile
+# - Builds menu entries only for present services
+# - Safe fallbacks when compose logs aren't available
+# - Persists default tail size in ~/.config/osss-compose-repair.conf
 
 set -Eeuo pipefail
 
@@ -9,10 +13,9 @@ PROJECT_DEFAULT="${COMPOSE_PROJECT_NAME:-osss}"
 COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.yml}"
 PROFILE="${PROFILE:-seed}"
 
-# persistent settings
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}"
 CONFIG_FILE="${CONFIG_DIR}/osss-compose-repair.conf"
-DEFAULT_TAIL="200"  # overridden by config file if present
+DEFAULT_TAIL="200"  # can be overridden by config
 
 usage() {
   cat <<EOF
@@ -39,6 +42,95 @@ done
 export COMPOSE_PROJECT_NAME="${PROJECT_DEFAULT}"
 
 # -------- helpers --------
+
+down_all() {
+  echo "▶️  Down ALL profiles for project '${COMPOSE_PROJECT_NAME}' (remove orphans & volumes)…"
+  run $COMPOSE -f "$COMPOSE_FILE" down --remove-orphans --volumes || true
+
+  echo "▶️  Ensuring no leftover containers remain for '${COMPOSE_PROJECT_NAME}'…"
+  ids=$(docker ps -a --filter "label=com.docker.compose.project=${COMPOSE_PROJECT_NAME}" -q)
+  if [[ -n "${ids:-}" ]]; then
+    run docker rm -f ${ids}
+  else
+    echo "(none)"
+  fi
+
+  echo "▶️  Removing ALL Docker volumes (global prune)…"
+  vols="$(docker volume ls -q)"
+  if [[ -n "${vols:-}" ]]; then
+    run docker volume rm ${vols} || true
+  else
+    echo "(no volumes to remove)"
+  fi
+}
+
+# --- service discovery across ALL profiles ---
+# Return list of profiles defined in the compose file (may be empty)
+compose_profiles() {
+  if $COMPOSE -f "$COMPOSE_FILE" config --profiles >/dev/null 2>&1; then
+    $COMPOSE -f "$COMPOSE_FILE" config --profiles | sed '/^\s*$/d' | sort -u
+  else
+    # best-effort fallback parser
+    awk '
+      $1=="profiles:"{inp=1; next}
+      inp && $1!~/:/{ sub("-","",$1); print $1 }
+      inp && $1~/.:/{ inp=0 }
+    ' "$COMPOSE_FILE" | sed '/^\s*$/d' | sort -u
+  fi
+}
+
+# Get services for the "base" (no profile) config
+compose_services_base() {
+  $COMPOSE -f "$COMPOSE_FILE" config --services 2>/dev/null | sed '/^\s*$/d' || true
+}
+
+# Get services for a specific profile
+compose_services_for_profile() {
+  local prof="$1"
+  $COMPOSE -f "$COMPOSE_FILE" --profile "$prof" config --services 2>/dev/null | sed '/^\s*$/d' || true
+}
+
+# Union of all services across base + every profile (unique, sorted)
+compose_services_all() {
+  {
+    compose_services_base
+    while read -r p; do
+      [[ -n "$p" ]] && compose_services_for_profile "$p"
+    done < <(compose_profiles)
+  } | awk 'NF && !seen[$0]++' | sort -u
+}
+
+list_services_logs() {
+  compose_services_all
+}
+
+start_all_services() {
+  # Discover all profiles and services
+  mapfile -t profs < <(compose_profiles)          # <- consistent name
+  mapfile -t all   < <(compose_services_all)
+
+  if ((${#all[@]}==0)); then
+    echo "(no services discovered in ${COMPOSE_FILE})"
+    return 1
+  fi
+
+  # Build args: include *all* profiles so profiled services are enabled
+  local args=( -f "$COMPOSE_FILE" )
+  if ((${#profs[@]})); then
+    echo "▶️  Enabling profiles: ${profs[*]}"
+    for p in "${profs[@]}"; do
+      args+=( --profile "$p" )
+    done
+  fi
+
+  echo "▶️  Starting ALL services (${#all[@]}): ${all[*]}"
+  if [[ "${BUILD_ALL:-0}" == "1" ]]; then
+    run $COMPOSE "${args[@]}" up -d --build "${all[@]}"
+  else
+    run $COMPOSE "${args[@]}" up -d "${all[@]}"
+  fi
+}
+
 compose_cmd() {
   if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
     echo "docker compose"
@@ -58,15 +150,11 @@ ensure_compose_file() {
 }
 
 run() { echo "+ $*"; "$@"; }
-
-# project/profile-aware compose wrapper
 c() { $COMPOSE -f "$COMPOSE_FILE" --profile "$PROFILE" "$@"; }
 
-# config persistence
 load_config() {
   mkdir -p "$CONFIG_DIR"
-  [[ -f "$CONFIG_FILE" ]] && # shellcheck disable=SC1090
-    source "$CONFIG_FILE"
+  [[ -f "$CONFIG_FILE" ]] && source "$CONFIG_FILE"
   : "${DEFAULT_TAIL:=${DEFAULT_TAIL:-200}}"
 }
 save_config() {
@@ -81,37 +169,206 @@ COMPOSE="$(compose_cmd)"
 ensure_compose_file
 load_config
 
+# -------- service discovery (profile-bound cache used by some helpers) --------
+COMPOSE_MTIME="$(stat -c %Y "$COMPOSE_FILE" 2>/dev/null || stat -f %m "$COMPOSE_FILE" 2>/dev/null || echo 0)"
+
+declare -a SERVICES=()
+refresh_services() {
+  local now_mtime
+  now_mtime="$(stat -c %Y "$COMPOSE_FILE" 2>/dev/null || stat -f %m "$COMPOSE_FILE" 2>/dev/null || echo 0)"
+  if (( ${#SERVICES[@]} == 0 )) || [[ "$now_mtime" != "$COMPOSE_MTIME" ]]; then
+    COMPOSE_MTIME="$now_mtime"
+    if c config --services >/dev/null 2>&1; then
+      mapfile -t SERVICES < <(c config --services | sed '/^\s*$/d' | sort -u)
+    else
+      mapfile -t SERVICES < <(docker ps -a --format '{{.Names}}' \
+        | sed -n "s/^${COMPOSE_PROJECT_NAME}-\([a-zA-Z0-9_.-]\+\)-[0-9]\+$/\1/p" \
+        | sort -u)
+    fi
+    echo "(services refreshed from ${COMPOSE_FILE} @ ${COMPOSE_MTIME})"
+  fi
+}
+
+has_service() {
+  local s="$1"
+  for x in "${SERVICES[@]:-}"; do
+    [[ "$x" == "$s" ]] && return 0
+  done
+  return 1
+}
+any_service_matching() {
+  local pat="$1"
+  for x in "${SERVICES[@]:-}"; do
+    [[ "$x" =~ $pat ]] && { echo "$x"; return 0; }
+  done
+  return 1
+}
+
+# -------- Vault helpers --------
+print_vault_install_instructions() {
+  cat <<'EOS'
+
+Vault CLI not found. Install on Ubuntu via APT:
+
+  # prerequisites
+  sudo apt-get update && sudo apt-get install -y gpg
+
+  # add HashiCorp’s signing key
+  curl -fsSL https://apt.releases.hashicorp.com/gpg \
+    | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+
+  # add the repository
+  echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] \
+  https://apt.releases.hashicorp.com $(lsb_release -cs) main" \
+  | sudo tee /etc/apt/sources.list.d/hashicorp.list
+
+  # install Vault
+  sudo apt-get update && sudo apt-get install -y vault
+
+Alternative (snap):
+  sudo snap install vault
+
+EOS
+}
+
+check_vault_cli() {
+  echo "▶️  Checking Vault CLI on host PATH…"
+  if command -v vault >/dev/null 2>&1; then
+    echo "✅ Vault found: $(vault version 2>/dev/null || echo 'version unknown')"
+    local va="${VAULT_ADDR:-<unset>}"
+    local vt="<unset>"; [[ -n "${VAULT_TOKEN:-}" ]] && vt="<set>"
+    echo "   VAULT_ADDR=${va}   VAULT_TOKEN=${vt}"
+    read -r -p "Run 'vault status' now (uses VAULT_ADDR=${VAULT_ADDR:-http://127.0.0.1:8200}, VAULT_TOKEN=${VAULT_TOKEN:-root})? [y/N] " ans || true
+    if [[ "${ans:-}" =~ ^[Yy]$ ]]; then
+      set +e
+      VAULT_ADDR="${VAULT_ADDR:-http://127.0.0.1:8200}" VAULT_TOKEN="${VAULT_TOKEN:-root}" vault status || true
+      set -e
+    fi
+  else
+    echo "❌ Vault CLI not found on PATH."
+    print_vault_install_instructions
+  fi
+}
+
+vcmd() { VAULT_ADDR="${VAULT_ADDR:-http://127.0.0.1:8200}" VAULT_TOKEN="${VAULT_TOKEN:-root}" vault "$@"; }
+
+vault_enabled_oidc() {
+  vcmd auth list 2>/dev/null | awk 'NR>2 && $1 ~ /^oidc\// {found=1} END{exit !found}'
+}
+
+verify_vault_oidc() {
+  echo; echo "🔎 Verifying Vault OIDC mount, config, and role…"
+  echo "— auth mounts (filtered to oidc):"
+  if vcmd auth list -detailed >/dev/null 2>&1; then
+    vcmd auth list -detailed | sed -n '/^path\s*oidc\//,/^$/p' || true
+  else
+    vcmd auth list | sed -n '1,2d;/^oidc\//p' || true
+  fi
+
+  echo; echo "— OIDC config:"
+  if command -v jq >/dev/null 2>&1; then
+    vcmd read -format=json auth/oidc/config | jq '.data' || true
+  else
+    vcmd read auth/oidc/config || true
+  fi
+
+  echo; echo "— OIDC roles:"
+  if command -v jq >/dev/null 2>&1; then
+    vcmd list -format=json auth/oidc/role | jq -r '.[]' || true
+  else
+    vcmd list auth/oidc/role || true
+  fi
+
+  echo; echo "— Role details (vault):"
+  if command -v jq >/dev/null 2>&1; then
+    vcmd read -format=json auth/oidc/role/vault | jq '.data' || true
+  else
+    vcmd read auth/oidc/role/vault || true
+  fi
+  echo
+}
+
+setup_vault_oidc() {
+  if ! command -v vault >/dev/null 2>&1; then
+    echo "❌ Vault CLI not found; cannot configure OIDC."
+    print_vault_install_instructions
+    return 1
+  fi
+
+  echo "▶️  Using VAULT_ADDR=${VAULT_ADDR:-http://127.0.0.1:8200}  VAULT_TOKEN=${VAULT_TOKEN:-root}"
+  echo "▶️  Checking Vault availability…"
+  if ! vcmd status >/dev/null 2>&1; then
+    echo "❌ Cannot reach Vault at ${VAULT_ADDR:-http://127.0.0.1:8200}. Is it running and accessible?"
+    return 1
+  fi
+
+  if vault_enabled_oidc; then
+    echo "ℹ️  OIDC auth method already enabled at path 'oidc/'."
+    read -r -p "Reset OIDC mount (disable → enable) to a known-good state? [y/N] " ans || true
+    if [[ "${ans:-}" =~ ^[Yy]$ ]]; then
+      set +e
+      vcmd auth disable oidc >/dev/null 2>&1
+      set -e
+      vcmd auth enable oidc
+    fi
+  else
+    echo "▶️  Enabling OIDC auth method…"
+    vcmd auth enable oidc
+  fi
+
+  echo "▶️  Writing OIDC config (issuer/keycloak on localhost)…"
+  vcmd write auth/oidc/config \
+    oidc_discovery_url="http://localhost:8085/realms/OSSS" \
+    oidc_client_id="vault" \
+    oidc_client_secret="password" \
+    default_role="vault"
+
+  echo "▶️  Writing OIDC role 'vault'…"
+  local role_args=(
+    "user_claim=email"
+    "oidc_scopes=openid,profile,email"
+    "allowed_redirect_uris=http://127.0.0.1:8200/ui/vault/auth/oidc/oidc/callback"
+    "allowed_redirect_uris=http://localhost:8200/ui/vault/auth/oidc/oidc/callback"
+    "allowed_redirect_uris=http://127.0.0.1:8250/oidc/callback"
+    "allowed_redirect_uris=http://localhost:8250/oidc/callback"
+  )
+  vcmd write auth/oidc/role/vault "${role_args[@]}"
+
+  verify_vault_oidc
+}
+
 # -------- actions --------
-down_seed() { echo "▶️  Bringing down profile '${PROFILE}' (remove orphans & volumes)…"; run c down --remove-orphans --volumes || true; }
+down_profile() { echo "▶️  Down (remove orphans & volumes) for profile '${PROFILE}'…"; run c down --remove-orphans --volumes || true; }
 kill_leftovers() {
   echo "▶️  Removing leftover containers for project '${COMPOSE_PROJECT_NAME}'…"
   ids=$(docker ps -a --filter "label=com.docker.compose.project=${COMPOSE_PROJECT_NAME}" -q)
   if [[ -n "${ids:-}" ]]; then run docker rm -f ${ids}; else echo "(none)"; fi
 }
 prune_networks() { echo "▶️  Pruning dangling networks…"; run docker network prune -f; }
-rm_osss_networks() {
+rm_project_networks() {
   echo "▶️  Removing '${COMPOSE_PROJECT_NAME}_…' networks…"
   nets=$(docker network ls --format '{{.Name}}' | grep -E "^${COMPOSE_PROJECT_NAME}_" || true)
   if [[ -n "${nets:-}" ]]; then run docker network rm ${nets}; else echo "(none)"; fi
 }
-up_db() { echo "▶️  Starting DB (kc_postgres)…"; run c up -d kc_postgres; }
-up_kc_importer() {
-  echo "▶️  Building keycloak-seed image…"
-  run c build --no-cache keycloak-seed
-  echo "▶️  Recreating kc-importer…"
-  run c up --force-recreate kc-importer
+
+up_service() {
+  local svc="$1"
+  echo "▶️  Starting '${svc}'…"
+  run c up -d "$svc"
+}
+recreate_service() {
+  local svc="$1"
+  echo "▶️  Recreating '${svc}'…"
+  run c up --force-recreate "$svc"
+}
+rebuild_service() {
+  local svc="$1"
+  echo "▶️  Building (no cache) '${svc}'…"
+  run c build --no-cache "$svc"
+  echo "▶️  Bringing up '${svc}'…"
+  run c up -d "$svc"
 }
 
-up_kc_post_import(){ echo "▶️  Recreating kc-post-import…"; run c up --force-recreate kc-post-import; }
-up_keycloak(){
-  echo "▶️  Building keycloak image…"
-  run c build --no-cache keycloak
-  echo "▶️  Starting Keycloak…";
-  run c up -d keycloak;
-}
-
-up_kc_verify(){ echo "▶️  Running kc-verify…"; run c up --force-recreate kc-verify; }
-full_repair(){ down_seed; kill_leftovers; prune_networks; rm_osss_networks; up_db; up_kc_importer; echo "✅ Full repair sequence finished."; }
 show_status(){
   echo "▶️  Containers (project ${COMPOSE_PROJECT_NAME}):"
   docker ps -a --filter "label=com.docker.compose.project=${COMPOSE_PROJECT_NAME}" \
@@ -120,23 +377,11 @@ show_status(){
   docker network ls | (head -n1; grep -E "^.* ${COMPOSE_PROJECT_NAME}_" || true)
 }
 
-# -------- logs helpers (enhanced) --------
-# 1) Always list services from the COMPOSE FILE (even if never started)
-list_services() {
-  if c config --services >/dev/null 2>&1; then
-    c config --services | sed '/^\s*$/d' | sort -u
-  else
-    # Fallback: try to infer from docker ps name pattern
-    docker ps -a --format '{{.Names}}' \
-      | sed -n "s/^${COMPOSE_PROJECT_NAME}-\([a-zA-Z0-9_.-]\+\)-[0-9]\+$/\1/p" \
-      | sort -u
-  fi
-}
+# -------- logs helpers (PROFILE-FREE) --------
+list_services() { refresh_services; printf "%s\n" "${SERVICES[@]:-}"; }
 
-# 2) Resolve the most recent container ID for a given service (running or exited)
 last_container_id() {
   local svc="$1"
-  # filter by compose project+service labels, then pick newest by Created timestamp
   local ids created id newest created_newest
   mapfile -t ids < <(docker ps -a \
     --filter "label=com.docker.compose.project=${COMPOSE_PROJECT_NAME}" \
@@ -154,32 +399,13 @@ last_container_id() {
   [[ -n "$newest" ]] && echo "$newest"
 }
 
-print_last_run_details() {
-  local svc="$1" cid
-  cid=$(last_container_id "$svc" || true)
-  if [[ -z "${cid}" ]]; then
-    echo "(no container history for service '$svc' in project '${COMPOSE_PROJECT_NAME}')"
-    return 1
-  fi
-  docker inspect -f $'Service: %s\nContainer: %s\nImage: %s\nCreated: %s\nState: %s\nStarted: %s\nFinished: %s\nExitCode: %d\nOOMKilled: %t\nRestartCount: %d' \
-    "$svc" "$cid" \
-    | sed "1s/${svc}/${svc}/" 2>/dev/null || {
-      # Portable variant if the multi-arg format fails (older docker):
-      docker inspect --format $'Service: %s\nContainer: %s\nImage: %s\nCreated: %s\nState: %s\nStarted: %s\nFinished: %s\nExitCode: %d\nOOMKilled: %t\nRestartCount: %d' \
-        $(echo "$svc" "$cid" | xargs -n1) 2>/dev/null || true
-    }
-  # Alternative robust one-field-at-a-time (always works):
-  echo "Service: $svc"
-  docker inspect -f $'Container: {{.Name}}\nImage: {{.Config.Image}}\nCreated: {{.Created}}\nState: {{.State.Status}}\nStarted: {{.State.StartedAt}}\nFinished: {{.State.FinishedAt}}\nExitCode: {{.State.ExitCode}}\nOOMKilled: {{.State.OOMKilled}}\nRestartCount: {{.RestartCount}}' "$cid"
-}
-
-# 3) Tail logs for a service. Try compose logs first; if that fails, tail the last container logs.
 logs_tail_service_any(){
   local svc="$1" lines="${2:-$DEFAULT_TAIL}" rc=0
   [[ "$lines" =~ ^[0-9]+$ ]] || lines="$DEFAULT_TAIL"
   echo "📜 Last ${lines} lines for '${svc}':"
   set +e
-  c logs --no-color --tail "$lines" "$svc" 2>&1
+  # 🔁 NO --profile here so logs work for all services, profiled or not
+  $COMPOSE -f "$COMPOSE_FILE" logs --no-color --tail "$lines" "$svc" 2>&1
   rc=$?
   set -e
   if (( rc != 0 )); then
@@ -199,7 +425,8 @@ logs_follow_service_any(){
   echo "📜 Following logs for '${svc}'. Press Ctrl-C to return."
   trap 'echo; echo "↩ Back to logs menu"; trap - INT; return 0' INT
   set +e
-  c logs -f --tail "$DEFAULT_TAIL" "$svc"
+  # 🔁 NO --profile here either
+  $COMPOSE -f "$COMPOSE_FILE" logs -f --tail "$DEFAULT_TAIL" "$svc"
   rc=$?
   set -e
   if (( rc != 0 )); then
@@ -222,22 +449,9 @@ logs_tail_all_any(){
   local svc
   while read -r svc; do
     [[ -z "$svc" ]] && continue
-    echo "\n===== ${svc} ====="
+    echo; echo "===== ${svc} ====="
     logs_tail_service_any "$svc" "$n" || true
-  done < <(list_services)
-}
-
-shortcut_if_exists(){
-  local svc="$1" action="$2" lines="${3:-$DEFAULT_TAIL}"
-  if list_services | grep -qx "$svc"; then
-    case "$action" in
-      follow) logs_follow_service_any "$svc" ;;
-      tail)   logs_tail_service_any   "$svc" "$lines" ;;
-      *) echo "unknown action $action" ;;
-    esac
-  else
-    echo "Service '$svc' not present in compose config (project/profile)."
-  fi
+  done < <(list_services_logs)
 }
 
 set_default_tail(){
@@ -248,47 +462,140 @@ set_default_tail(){
   save_config
 }
 
+maybe_start_db() {
+  local db_svc
+  if has_service "kc_postgres"; then db_svc="kc_postgres"
+  else db_svc="$(any_service_matching '(^|-)postgres($|-)|(^|-)db($|-)')" || true
+  fi
+  if [[ -n "${db_svc:-}" ]]; then
+    up_service "$db_svc"
+  else
+    echo "(no database-like service found)"
+  fi
+}
+
+maybe_recreate_importer() {
+  local svc
+  if has_service "kc-importer"; then svc="kc-importer"
+  elif has_service "kc_importer"; then svc="kc_importer"
+  else svc="$(any_service_matching 'importer')" || true
+  fi
+  if [[ -n "${svc:-}" ]]; then
+    recreate_service "$svc"
+  else
+    echo "(no importer-like service found)"
+  fi
+}
+
+maybe_recreate_post_import() {
+  local svc
+  if has_service "kc-post-import"; then svc="kc-post-import"
+  else svc="$(any_service_matching 'post[-_]?import')" || true
+  fi
+  if [[ -n "${svc:-}" ]]; then
+    recreate_service "$svc"
+  else
+    echo "(no post-import-like service found)"
+  fi
+}
+
+maybe_start_keycloak() {
+  local svc
+  if has_service "keycloak"; then svc="keycloak"
+  else svc="$(any_service_matching '^keycloak($|-)')" || true
+  fi
+  if [[ -n "${svc:-}" ]]; then
+    rebuild_service "$svc"
+  else
+    echo "(no keycloak service found)"
+  fi
+}
+
+maybe_run_verify() {
+  local svc
+  if has_service "kc-verify"; then svc="kc-verify"
+  else svc="$(any_service_matching 'verify')" || true
+  fi
+  if [[ -n "${svc:-}" ]]; then
+    recreate_service "$svc"
+  else
+    echo "(no verify-like service found)"
+  fi
+}
+
+full_repair(){
+  echo "==== Full repair ===="
+  down_profile
+  kill_leftovers
+  prune_networks
+  rm_project_networks
+  maybe_start_db
+  maybe_recreate_importer
+  echo "✅ Full repair sequence finished."
+}
+
+pick_service() {
+  refresh_services
+  if ((${#SERVICES[@]}==0)); then echo "(no services)"; return 1; fi
+  echo "Available services:"
+  local i
+  for ((i=0;i<${#SERVICES[@]};i++)); do
+    printf "  %2d) %s\n" "$((i+1))" "${SERVICES[$i]}"
+  done
+  local inp
+  read -rp "Pick a number or type a service name: " inp || return 1
+  if [[ "$inp" =~ ^[0-9]+$ ]] && (( inp>=1 && inp<=${#SERVICES[@]} )); then
+    echo "${SERVICES[$((inp-1))]}"
+  else
+    echo "$inp"
+  fi
+}
+
 # -------- logs submenu --------
 logs_menu() {
   local tail_n="${TAIL:-$DEFAULT_TAIL}"
   local choice svc_count svc
-
-  _print_services() {
-    local i=0
-    mapfile -t __SERVICES < <(list_services | sed '/^\s*$/d')
-    svc_count="${#__SERVICES[@]}"
-    if (( svc_count == 0 )); then
-      echo "No services found (project: ${COMPOSE_PROJECT_NAME})."
-      return 1
-    fi
-    echo "Available services:"
-    for ((i=0; i<svc_count; i++)); do
-      printf "  %2d) %s\n" "$((i+1))" "${__SERVICES[$i]}"
-    done
-    return 0
-  }
+  local __LOG_SERVICES=()
 
   while true; do
+    refresh_services
+    mapfile -t __LOG_SERVICES < <(list_services_logs)
+    svc_count="${#__LOG_SERVICES[@]}"
+
     echo
     echo "==== Logs Menu ===="
     echo "Enter a number to follow that service's logs."
-    echo "a) follow ALL services (compose)"
+    echo "a) follow ALL services"
     echo "t) tail ALL services (with fallback)"
     echo "d) last-run details for a service"
-    echo "b) back   r) refresh   q) quit"
-    echo "Tail lines: ${tail_n}"
+    echo "s) set default tail (currently ${DEFAULT_TAIL})"
+    echo "r) refresh services   b) back   q) quit"
     echo
 
-    _print_services || { echo "Press b to go back, or q to quit."; }
+    if (( svc_count == 0 )); then
+      echo "(No services found for project ${COMPOSE_PROJECT_NAME})"
+    else
+      local i
+      for ((i=0;i<svc_count;i++)); do
+        printf "  %2d) %s\n" "$((i+1))" "${__LOG_SERVICES[$i]}"
+      done
+    fi
 
     read -rp "Choice: " choice || return 0
     case "$choice" in
       b|B) return 0 ;;
       q|Q) echo "Bye!"; exit 0 ;;
       r|R) continue ;;
+      s|S) set_default_tail ;;
       a|A)
-        echo "Following logs for ALL services via compose (Ctrl-C to return)…"
-        ( trap - INT; c logs -f --tail "$tail_n" ) || true
+        echo "Following logs for ALL services (all profiles). Ctrl-C to return…"
+        # Enable every profile so compose knows about profiled services when streaming logs
+        mapfile -t _profs < <(compose_profiles)
+        _args=( -f "$COMPOSE_FILE" )
+        if ((${#_profs[@]})); then
+          for _p in "${_profs[@]}"; do _args+=( --profile "$_p" ); done
+        fi
+        ( trap - INT; $COMPOSE "${_args[@]}" logs -f --tail "$tail_n" ) || true
         ;;
       t|T)
         logs_tail_all_any "$tail_n"
@@ -297,8 +604,7 @@ logs_menu() {
         echo "Enter service name for last-run details (or number):"
         read -r svc || continue
         if [[ "$svc" =~ ^[0-9]+$ ]]; then
-          mapfile -t __SERVICES < <(list_services)
-          (( svc>=1 && svc<=${#__SERVICES[@]} )) && svc="${__SERVICES[$((svc-1))]}"
+          (( svc>=1 && svc<=svc_count )) && svc="${__LOG_SERVICES[$((svc-1))]}"
         fi
         print_last_run_details "$svc" || true
         ;;
@@ -314,8 +620,8 @@ logs_menu() {
           echo "Invalid number: ${choice}"
           continue
         fi
-        svc="${__SERVICES[$((choice-1))]}"
-        echo "Following logs for service: ${svc} (Ctrl-C to return to logs menu)…"
+        svc="${__LOG_SERVICES[$((choice-1))]}"
+        echo "Following logs for service: ${svc} (Ctrl-C to return)…"
         ( trap - INT; logs_follow_service_any "$svc" ) || true
         ;;
     esac
@@ -325,39 +631,27 @@ logs_menu() {
 # -------- main menu --------
 menu() {
   while true; do
+    refresh_services
     echo
     echo "==============================================="
-    echo " Compose Repair Menu (project: ${COMPOSE_PROJECT_NAME})"
+    echo " Menu (project: ${COMPOSE_PROJECT_NAME})"
     echo " File: ${COMPOSE_FILE}   Profile: ${PROFILE}"
+    echo " Services: ${#SERVICES[@]}"
     echo "==============================================="
-    echo " 1) Down ${PROFILE} profile (remove-orphans, volumes)"
-    echo " 2) Remove leftover containers for project"
-    echo " 3) Prune dangling networks"
-    echo " 4) Remove '${COMPOSE_PROJECT_NAME}_…' networks"
-    echo " 5) Up DB only (kc_postgres)"
-    echo " 6) Recreate kc-importer"
-    echo " 7) Recreate kc-post-import"
-    echo " 8) Full repair (1→4→5→6)"
-    echo " 9) Show status"
-    echo "10) Start Keycloak"
-    echo "11) Run kc-verify"
-    echo " L) Logs submenu"
-    echo " q) Quit"
+    echo " 1) Start all services"
+    echo " 2) Down ALL (remove-orphans, volumes)"
+    echo " 3) Remove leftover containers for project"
+    echo " 4) Prune dangling networks"
+    echo " 5) Logs submenu"
+    echo "  q) Quit"
     echo "-----------------------------------------------"
     read -rp "Select an option: " ans || exit 0
     case "${ans}" in
-      1) down_seed ;;
-      2) kill_leftovers ;;
-      3) prune_networks ;;
-      4) rm_osss_networks ;;
-      5) up_db ;;
-      6) up_kc_importer ;;
-      7) up_kc_post_import ;;
-      8) full_repair ;;
-      9) show_status ;;
-      10) up_keycloak ;;
-      11) up_kc_verify ;;
-      l|L) logs_menu ;;
+      1)  start_all_services ;;
+      2)  down_all ;;
+      3)  kill_leftovers ;;
+      4)  prune_networks ;;
+      5)  logs_menu ;;
       q|Q) echo "Bye!"; exit 0 ;;
       *) echo "Unknown choice: ${ans}" ;;
     esac

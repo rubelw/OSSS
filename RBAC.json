@@ -340,7 +340,11 @@
             "manage:votes",
             "read:webhooks",
             "manage:webhooks"
-          ]
+          ],
+          "vault_admin": "false",
+          "vault_user": "false",
+          "consul_admin": "false",
+          "consul_user": "false"
         },
         {
           "name": "board_vice_chair",
@@ -550,7 +554,11 @@
             "manage:votes",
             "read:webhooks",
             "manage:webhooks"
-          ]
+          ],
+          "vault_admin": "false",
+          "vault_user": "false",
+          "consul_admin": "false",
+          "consul_user": "false"
         },
         {
           "name": "board_clerk",
@@ -784,7 +792,11 @@
             "manage:votes",
             "read:webhooks",
             "manage:webhooks"
-          ]
+          ],
+          "vault_admin": "false",
+          "vault_user": "false",
+          "consul_admin": "false",
+          "consul_user": "false"
         },
         {
           "name": "school_board_member_trustee",
@@ -996,7 +1008,11 @@
             "manage:votes",
             "read:webhooks",
             "manage:webhooks"
-          ]
+          ],
+          "vault_admin": "false",
+          "vault_user": "false",
+          "consul_admin": "false",
+          "consul_user": "false"
         }
       ],
       "children": [
@@ -1372,7 +1388,11 @@
                 "manage:votes",
                 "read:webhooks",
                 "manage:webhooks"
-              ]
+              ],
+              "vault_admin": "false",
+              "vault_user": "false",
+              "consul_admin": "false",
+              "consul_user": "false"
             },
             {
               "name": "head_of_school",
@@ -1575,7 +1595,11 @@
                 "manage:user_accounts",
                 "read:vendors",
                 "manage:vendors"
-              ]
+              ],
+              "vault_admin": "false",
+              "vault_user": "false",
+              "consul_admin": "false",
+              "consul_user": "false"
             },
             {
               "name": "deputy_superintendent",
@@ -1771,7 +1795,11 @@
                 "read:states",
                 "manage:states",
                 "manage:votes"
-              ]
+              ],
+              "vault_admin": "false",
+              "vault_user": "false",
+              "consul_admin": "false",
+              "consul_user": "false"
             },
             {
               "name": "associate_superintendent",
@@ -2082,7 +2110,11 @@
                 "manage:work_order_tasks",
                 "manage:work_order_time_logs",
                 "manage:work_orders"
-              ]
+              ],
+              "vault_admin": "false",
+              "vault_user": "false",
+              "consul_admin": "false",
+              "consul_user": "false"
             },
             {
               "name": "assistant_superintendent",
@@ -2296,7 +2328,11 @@
                 "manage:votes",
                 "read:webhooks",
                 "manage:webhooks"
-              ]
+              ],
+              "vault_admin": "false",
+              "vault_user": "false",
+              "consul_admin": "false",
+              "consul_user": "false"
             },
             {
               "name": "chief_of_staff",
@@ -2504,7 +2540,11 @@
                 "manage:votes",
                 "read:webhooks",
                 "manage:webhooks"
-              ]
+              ],
+              "vault_admin": "false",
+              "vault_user": "false",
+              "consul_admin": "false",
+              "consul_user": "false"
             },
             {
               "name": "general_counsel",
@@ -2713,7 +2753,11 @@
                 "manage:votes",
                 "read:webhooks",
                 "manage:webhooks"
-              ]
+              ],
+              "vault_admin": "false",
+              "vault_user": "false",
+              "consul_admin": "false",
+              "consul_user": "false"
             },
             {
               "name": "ombudsperson",
@@ -2921,7 +2965,11 @@
                 "manage:votes",
                 "read:webhooks",
                 "manage:webhooks"
-              ]
+              ],
+              "vault_admin": "false",
+              "vault_user": "false",
+              "consul_admin": "false",
+              "consul_user": "false"
             },
             {
               "name": "chief_equity_officer",
@@ -3129,7 +3177,11 @@
                 "manage:votes",
                 "read:webhooks",
                 "manage:webhooks"
-              ]
+              ],
+              "vault_admin": "false",
+              "vault_user": "false",
+              "consul_admin": "false",
+              "consul_user": "false"
             }
           ],
           "children": [
@@ -3464,7 +3516,11 @@
                     "manage:votes",
                     "read:webhooks",
                     "manage:webhooks"
-                  ]
+                  ],
+                  "vault_admin": "false",
+                  "vault_user": "false",
+                  "consul_admin": "false",
+                  "consul_user": "false"
                 }
               ],
               "children": [
@@ -3861,7 +3917,11 @@
                         "manage:work_order_tasks",
                         "manage:work_order_time_logs",
                         "manage:work_orders"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "assistant_principal",
@@ -4120,7 +4180,11 @@
                         "manage:work_order_tasks",
                         "manage:work_order_time_logs",
                         "manage:work_orders"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "associate_principal",
@@ -4443,7 +4507,11 @@
                         "manage:work_order_tasks",
                         "manage:work_order_time_logs",
                         "manage:work_orders"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "vice_principal",
@@ -4766,7 +4834,11 @@
                         "manage:work_order_tasks",
                         "manage:work_order_time_logs",
                         "manage:work_orders"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "dean_of_students",
@@ -4970,7 +5042,11 @@
                         "manage:work_order_tasks",
                         "manage:work_order_time_logs",
                         "manage:work_orders"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "dean_of_academics",
@@ -5227,7 +5303,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "grade_level_dean",
@@ -5435,7 +5515,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "director_of_residential_life",
@@ -5643,7 +5727,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "activities_director",
@@ -5828,7 +5916,11 @@
                         "manage:work_order_tasks",
                         "manage:work_order_time_logs",
                         "manage:work_orders"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "athletics_director",
@@ -6036,7 +6128,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "assistant_athletics_director",
@@ -6244,7 +6340,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "head_of_upper_school",
@@ -6452,7 +6552,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "head_of_middle_school",
@@ -6660,7 +6764,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "head_of_lower_school",
@@ -6868,7 +6976,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     }
                   ],
                   "children": [
@@ -7007,7 +7119,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "elementary_teacher",
@@ -7121,7 +7237,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "middle_school_teacher",
@@ -7235,7 +7355,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "high_school_teacher",
@@ -7349,7 +7473,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "art_teacher",
@@ -7463,7 +7591,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "music_teacher",
@@ -7577,7 +7709,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "band_director",
@@ -7691,7 +7827,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "choir_director",
@@ -7805,7 +7945,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "theater_teacher",
@@ -7919,7 +8063,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "physical_education_teacher",
@@ -8033,7 +8181,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "health_teacher",
@@ -8147,7 +8299,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "world_languages_teacher",
@@ -8261,7 +8417,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "computer_science_teacher",
@@ -8375,7 +8535,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "cte_teacher",
@@ -8489,7 +8653,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "early_childhood_teacher",
@@ -8603,7 +8771,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "reading_interventionist",
@@ -8717,7 +8889,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "math_interventionist",
@@ -8831,7 +9007,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "instructional_coach",
@@ -8945,7 +9125,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "literacy_coach",
@@ -9059,7 +9243,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "math_coach",
@@ -9173,7 +9361,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "mentor_teacher",
@@ -9287,7 +9479,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "media_specialist",
@@ -9452,7 +9648,11 @@
                             "manage:work_order_time_logs",
                             "read:work_orders",
                             "manage:work_orders"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "teacher_librarian",
@@ -9576,7 +9776,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "substitute_teacher",
@@ -9690,7 +9894,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "long_term_substitute",
@@ -9804,7 +10012,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "teacher_resident",
@@ -9918,7 +10130,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "student_teacher",
@@ -10032,7 +10248,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "instructional_fellow",
@@ -10146,7 +10366,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         }
                       ]
                     },
@@ -10337,7 +10561,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "guidance_counselor",
@@ -10500,7 +10728,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "school_social_worker",
@@ -10618,7 +10850,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "family_liaison",
@@ -10736,7 +10972,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "school_nurse",
@@ -10797,7 +11037,11 @@
                             "manage:student_transportation_assignments",
                             "read:students",
                             "manage:students"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "health_aide",
@@ -10915,7 +11159,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "attendance_officer",
@@ -11033,7 +11281,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "truancy_officer",
@@ -11151,7 +11403,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "homeless_liaison",
@@ -11269,7 +11525,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "foster_care_liaison",
@@ -11387,7 +11647,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "behavior_support_coach",
@@ -11505,7 +11769,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "restorative_practices_coordinator",
@@ -11623,7 +11891,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "mtss_coordinator",
@@ -11741,7 +12013,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "rti_coordinator",
@@ -11859,7 +12135,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "registrar",
@@ -12032,7 +12312,11 @@
                             "manage:test_administrations",
                             "read:transcript_lines",
                             "manage:transcript_lines"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "records_clerk",
@@ -12151,7 +12435,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "testing_and_assessment_coordinator",
@@ -12269,7 +12557,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "college_counselor",
@@ -12432,7 +12724,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "financial_aid_advisor",
@@ -12550,7 +12846,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         }
                       ]
                     },
@@ -12676,7 +12976,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "administrative_assistant",
@@ -12784,7 +13088,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "office_manager",
@@ -12892,7 +13200,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "receptionist",
@@ -13000,7 +13312,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "attendance_clerk",
@@ -13108,7 +13424,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "student_services_clerk",
@@ -13216,7 +13536,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "data_clerk",
@@ -13324,7 +13648,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "sis_clerk",
@@ -13432,7 +13760,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "health_office_clerk",
@@ -13540,7 +13872,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         }
                       ]
                     },
@@ -13650,7 +13986,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "assistant_coach",
@@ -13750,7 +14090,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "athletic_trainer",
@@ -13850,7 +14194,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "strength_and_conditioning_coach",
@@ -13950,7 +14298,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "club_sponsor",
@@ -14050,7 +14402,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "activity_sponsor",
@@ -14150,7 +14506,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "robotics_coach",
@@ -14250,7 +14610,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "debate_coach",
@@ -14350,7 +14714,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "esports_coach",
@@ -14450,7 +14818,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "yearbook_advisor",
@@ -14550,7 +14922,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "student_government_advisor",
@@ -14650,7 +15026,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "performing_arts_director",
@@ -14750,7 +15130,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "theater_director",
@@ -14850,7 +15234,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         }
                       ]
                     },
@@ -14958,7 +15346,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "preschool_teacher",
@@ -15057,7 +15449,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "preschool_assistant",
@@ -15156,7 +15552,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "before_school_program_director",
@@ -15255,7 +15655,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "after_school_program_director",
@@ -15354,7 +15758,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "extended_day_coordinator",
@@ -15453,7 +15861,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "summer_school_coordinator",
@@ -15552,7 +15964,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "enrichment_coordinator",
@@ -15651,7 +16067,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         }
                       ]
                     },
@@ -15759,7 +16179,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "campus_minister",
@@ -15858,7 +16282,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "religion_teacher",
@@ -15957,7 +16385,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "theology_teacher",
@@ -16056,7 +16488,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         },
                         {
                           "name": "service_learning_coordinator",
@@ -16155,7 +16591,11 @@
                             "manage:votes",
                             "read:webhooks",
                             "manage:webhooks"
-                          ]
+                          ],
+                          "vault_admin": "false",
+                          "vault_user": "false",
+                          "consul_admin": "false",
+                          "consul_user": "false"
                         }
                       ]
                     }
@@ -16307,7 +16747,11 @@
                     "manage:votes",
                     "read:webhooks",
                     "manage:webhooks"
-                  ]
+                  ],
+                  "vault_admin": "false",
+                  "vault_user": "false",
+                  "consul_admin": "false",
+                  "consul_user": "false"
                 },
                 {
                   "name": "director_of_student_support_services",
@@ -16426,7 +16870,11 @@
                     "manage:votes",
                     "read:webhooks",
                     "manage:webhooks"
-                  ]
+                  ],
+                  "vault_admin": "false",
+                  "vault_user": "false",
+                  "consul_admin": "false",
+                  "consul_user": "false"
                 }
               ],
               "children": [
@@ -16564,7 +17012,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "director_of_assessment_research_evaluation",
@@ -16678,7 +17130,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "director_of_accountability",
@@ -16792,7 +17248,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "director_of_data_analytics",
@@ -16906,7 +17366,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "instructional_materials_coordinator",
@@ -17020,7 +17484,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "textbook_coordinator",
@@ -17134,7 +17602,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "professional_development_coordinator",
@@ -17248,7 +17720,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "teacher_induction_coordinator",
@@ -17362,7 +17838,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "accreditation_coordinator",
@@ -17476,7 +17956,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     }
                   ]
                 },
@@ -17590,7 +18074,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "special_education_teacher",
@@ -17692,7 +18180,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "sped_case_manager",
@@ -17794,7 +18286,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "school_psychologist",
@@ -17896,7 +18392,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "speech_language_pathologist",
@@ -17998,7 +18498,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "occupational_therapist",
@@ -18100,7 +18604,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "certified_occupational_therapy_assistant",
@@ -18202,7 +18710,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "physical_therapist",
@@ -18304,7 +18816,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "physical_therapist_assistant",
@@ -18406,7 +18922,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "board_certified_behavior_analyst",
@@ -18508,7 +19028,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "behavior_interventionist",
@@ -18610,7 +19134,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "vision_specialist",
@@ -18712,7 +19240,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "orientation_and_mobility_specialist",
@@ -18814,7 +19346,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "deaf_hard_of_hearing_teacher",
@@ -18916,7 +19452,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "504_coordinator",
@@ -19018,7 +19558,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "sped_compliance_coordinator",
@@ -19120,7 +19664,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "paraprofessional",
@@ -19222,7 +19770,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "instructional_aide",
@@ -19324,7 +19876,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "teachers_aide",
@@ -19426,7 +19982,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "sign_language_interpreter",
@@ -19528,7 +20088,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "transition_specialist",
@@ -19630,7 +20194,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "vocational_specialist",
@@ -19732,7 +20300,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     }
                   ]
                 },
@@ -19842,7 +20414,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "virtual_online_program_director",
@@ -19942,7 +20518,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "cte_director",
@@ -20042,7 +20622,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "pathways_coordinator",
@@ -20142,7 +20726,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "apprenticeship_coordinator",
@@ -20242,7 +20830,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "international_student_program_director",
@@ -20342,7 +20934,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "homestay_coordinator",
@@ -20442,7 +21038,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "testing_site_manager",
@@ -20542,7 +21142,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "ib_coordinator",
@@ -20642,7 +21246,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "ap_coordinator",
@@ -20742,7 +21350,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "librarian",
@@ -20821,7 +21433,11 @@
                         "manage:subjects",
                         "read:transcript_lines",
                         "manage:transcript_lines"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "archivist",
@@ -20921,7 +21537,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "print_shop_manager",
@@ -21021,7 +21641,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "mailroom_clerk",
@@ -21121,7 +21745,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "volunteer_coordinator",
@@ -21221,7 +21849,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     }
                   ]
                 }
@@ -21369,7 +22001,11 @@
                     "manage:votes",
                     "read:webhooks",
                     "manage:webhooks"
-                  ]
+                  ],
+                  "vault_admin": "false",
+                  "vault_user": "false",
+                  "consul_admin": "false",
+                  "consul_user": "false"
                 }
               ],
               "children": [
@@ -21509,7 +22145,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "facilities_manager",
@@ -21570,7 +22210,11 @@
                         "manage:work_order_tasks",
                         "manage:work_order_time_logs",
                         "manage:work_orders"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "plant_manager",
@@ -21685,7 +22329,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "maintenance_technician",
@@ -21800,7 +22448,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "electrician",
@@ -21915,7 +22567,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "plumber",
@@ -22030,7 +22686,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "hvac_technician",
@@ -22145,7 +22805,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "carpenter",
@@ -22260,7 +22924,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "painter",
@@ -22375,7 +23043,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "locksmith",
@@ -22490,7 +23162,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "groundskeeper",
@@ -22605,7 +23281,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "irrigation_technician",
@@ -22720,7 +23400,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "custodial_supervisor",
@@ -22835,7 +23519,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "custodian",
@@ -22950,7 +23638,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "porter",
@@ -23065,7 +23757,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "night_lead",
@@ -23180,7 +23876,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "warehouse_receiving",
@@ -23295,7 +23995,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "inventory_specialist",
@@ -23410,7 +24114,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "energy_manager",
@@ -23525,7 +24233,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "sustainability_manager",
@@ -23640,7 +24352,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     }
                   ]
                 },
@@ -23754,7 +24470,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "routing_scheduling_coordinator",
@@ -23856,7 +24576,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "dispatcher",
@@ -23958,7 +24682,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "bus_driver",
@@ -24060,7 +24788,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "activity_driver",
@@ -24162,7 +24894,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "bus_aide_monitor",
@@ -24264,7 +25000,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "fleet_manager",
@@ -24366,7 +25106,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "mechanic",
@@ -24468,7 +25212,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "diesel_technician",
@@ -24570,7 +25318,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "shop_foreman",
@@ -24672,7 +25424,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "crossing_guard",
@@ -24774,7 +25530,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     }
                   ]
                 },
@@ -24882,7 +25642,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "food_service_director",
@@ -24981,7 +25745,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "cafeteria_manager",
@@ -25080,7 +25848,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "kitchen_manager",
@@ -25179,7 +25951,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "cook",
@@ -25278,7 +26054,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "prep_cook",
@@ -25377,7 +26157,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "baker",
@@ -25476,7 +26260,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "cashier_point_of_sale_operator",
@@ -25575,7 +26363,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "dietitian",
@@ -25674,7 +26466,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "nutritionist",
@@ -25773,7 +26569,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     }
                   ]
                 },
@@ -25885,7 +26685,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "emergency_management_director",
@@ -25986,7 +26790,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "school_resource_officer",
@@ -26087,7 +26895,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "campus_police_officer",
@@ -26188,7 +27000,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "security_guard",
@@ -26289,7 +27105,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "campus_supervisor",
@@ -26390,7 +27210,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "emergency_preparedness_coordinator",
@@ -26491,7 +27315,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     }
                   ]
                 }
@@ -26651,7 +27479,11 @@
                     "manage:votes",
                     "read:webhooks",
                     "manage:webhooks"
-                  ]
+                  ],
+                  "vault_admin": "false",
+                  "vault_user": "false",
+                  "consul_admin": "false",
+                  "consul_user": "false"
                 }
               ],
               "children": [
@@ -26813,7 +27645,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "controller",
@@ -26938,7 +27774,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "accountant",
@@ -27063,7 +27903,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "payroll_manager",
@@ -27186,7 +28030,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "payroll_specialist",
@@ -27309,7 +28157,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "accounts_payable_specialist",
@@ -27434,7 +28286,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "accounts_receivable_specialist",
@@ -27557,7 +28413,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "grants_manager",
@@ -27680,7 +28540,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "grant_writer",
@@ -27803,7 +28667,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "federal_programs_director",
@@ -27926,7 +28794,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "purchasing_director",
@@ -28049,7 +28921,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "buyer",
@@ -28172,7 +29048,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "risk_manager",
@@ -28296,7 +29176,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "insurance_coordinator",
@@ -28419,7 +29303,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "compliance_officer",
@@ -28542,7 +29430,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "records_retention_manager",
@@ -28666,7 +29558,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "e_rate_coordinator",
@@ -28789,7 +29685,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     }
                   ]
                 }
@@ -28925,7 +29825,11 @@
                     "manage:votes",
                     "read:webhooks",
                     "manage:webhooks"
-                  ]
+                  ],
+                  "vault_admin": "false",
+                  "vault_user": "false",
+                  "consul_admin": "false",
+                  "consul_user": "false"
                 },
                 {
                   "name": "human_resources_director",
@@ -29037,7 +29941,11 @@
                     "manage:votes",
                     "read:webhooks",
                     "manage:webhooks"
-                  ]
+                  ],
+                  "vault_admin": "false",
+                  "vault_user": "false",
+                  "consul_admin": "false",
+                  "consul_user": "false"
                 }
               ],
               "children": [
@@ -29171,7 +30079,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "hr_generalist",
@@ -29283,7 +30195,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "recruiter",
@@ -29395,7 +30311,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "benefits_manager",
@@ -29507,7 +30427,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "benefits_specialist",
@@ -29619,7 +30543,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     }
                   ]
                 }
@@ -29745,7 +30673,11 @@
                     "manage:votes",
                     "read:webhooks",
                     "manage:webhooks"
-                  ]
+                  ],
+                  "vault_admin": "false",
+                  "vault_user": "true",
+                  "consul_admin": "false",
+                  "consul_user": "false"
                 },
                 {
                   "name": "chief_technology_officer",
@@ -29851,7 +30783,11 @@
                     "manage:votes",
                     "read:webhooks",
                     "manage:webhooks"
-                  ]
+                  ],
+                  "vault_admin": "true",
+                  "vault_user": "false",
+                  "consul_admin": "false",
+                  "consul_user": "false"
                 }
               ],
               "children": [
@@ -29975,7 +30911,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "it_director",
@@ -30081,7 +31021,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "network_administrator",
@@ -30187,7 +31131,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "systems_administrator",
@@ -30293,7 +31241,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "cloud_administrator",
@@ -30399,7 +31351,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "server_administrator",
@@ -30505,7 +31461,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "information_security_officer",
@@ -30611,7 +31571,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "database_administrator",
@@ -30717,7 +31681,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "help_desk_manager",
@@ -30823,7 +31791,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "help_desk_technician",
@@ -30929,7 +31901,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "field_technician",
@@ -31035,7 +32011,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "web_administrator",
@@ -31141,7 +32121,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "webmaster",
@@ -31247,7 +32231,11 @@
                         "read:votes",
                         "manage:votes",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "av_media_technician",
@@ -31353,7 +32341,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     }
                   ]
                 },
@@ -31477,7 +32469,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "data_engineer",
@@ -31583,7 +32579,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "data_analyst",
@@ -31689,7 +32689,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "etl_developer",
@@ -31795,7 +32799,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     }
                   ]
                 }
@@ -31914,7 +32922,11 @@
                     "manage:votes",
                     "read:webhooks",
                     "manage:webhooks"
-                  ]
+                  ],
+                  "vault_admin": "false",
+                  "vault_user": "false",
+                  "consul_admin": "false",
+                  "consul_user": "false"
                 }
               ],
               "children": [
@@ -32031,7 +33043,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "public_relations_director",
@@ -32135,7 +33151,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "media_relations_manager",
@@ -32239,7 +33259,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "family_engagement_coordinator",
@@ -32343,7 +33367,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "community_engagement_coordinator",
@@ -32447,7 +33475,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "translation_services_coordinator",
@@ -32551,7 +33583,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "interpreter_services_coordinator",
@@ -32655,7 +33691,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "alumni_relations_director",
@@ -32759,7 +33799,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "advancement_development_director",
@@ -32863,7 +33907,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "annual_giving_manager",
@@ -32967,7 +34015,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "capital_campaign_manager",
@@ -33071,7 +34123,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "major_gifts_officer",
@@ -33175,7 +34231,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "admissions_director",
@@ -33279,7 +34339,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "enrollment_director",
@@ -33383,7 +34447,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "financial_aid_director",
@@ -33487,7 +34555,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "marketing_director",
@@ -33591,7 +34663,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "marketing_manager",
@@ -33695,7 +34771,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "graphic_designer",
@@ -33799,7 +34879,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     },
                     {
                       "name": "social_media_manager",
@@ -33903,7 +34987,11 @@
                         "manage:votes",
                         "read:webhooks",
                         "manage:webhooks"
-                      ]
+                      ],
+                      "vault_admin": "false",
+                      "vault_user": "false",
+                      "consul_admin": "false",
+                      "consul_user": "false"
                     }
                   ]
                 }
