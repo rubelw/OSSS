@@ -51,7 +51,7 @@ DEFAULTS: Dict[str, Any] = {
     "token": "",  # kept for compatibility; mirrors kc_access_token after login
 
     # Keycloak defaults
-    "kc_base": "http://localhost:8085",
+    "kc_base": "http://localhost:8080",
     "kc_realm": "OSSS",
     "kc_client_id": "osss-cli",
     "kc_client_secret": "",
@@ -369,7 +369,7 @@ def auth_group() -> None:
 @click.option("--client-id", default=None, help="Override client_id")
 @click.option("--client-secret", default=None, help="Override client_secret")
 @click.option("--realm", default=None, help="Override realm")
-@click.option("--base", "base_url", default=None, help="Override Keycloak base, e.g. http://localhost:8085")
+@click.option("--base", "base_url", default=None, help="Override Keycloak base, e.g. http://localhost:8080")
 @click.option("--scope", default=None, help="Override OIDC scope (space-separated)")
 def auth_login(username: str, password: str, client_id: Optional[str], client_secret: Optional[str],
                realm: Optional[str], base_url: Optional[str], scope: Optional[str]) -> None:

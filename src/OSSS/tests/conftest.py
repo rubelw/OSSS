@@ -55,15 +55,22 @@ def anyio_backend():
 @pytest.fixture(scope="session", autouse=True)
 def _env_bootstrap():
     # Default Keycloak-ish config for local dev
-    os.environ.setdefault("KEYCLOAK_BASE_URL", "http://localhost:8085")
+    os.environ.setdefault("KEYCLOAK_BASE_URL", "http://keycloak:8080")
     os.environ.setdefault("KEYCLOAK_REALM", "OSSS")
     os.environ.setdefault("KEYCLOAK_CLIENT_ID", "osss-api")
     os.environ.setdefault("KEYCLOAK_CLIENT_SECRET", "password")  # override in CI/local
 
     issuer = os.environ.get("KEYCLOAK_ISSUER")
+
     if not issuer:
         issuer = f"{os.environ['KEYCLOAK_BASE_URL'].rstrip('/')}/realms/{os.environ['KEYCLOAK_REALM']}"
         os.environ["KEYCLOAK_ISSUER"] = issuer
+        # If someone exported a container-only hostname, fix it for LIVE mode
+
+    if LIVE_MODE and "keycloak:8080" in issuer:
+        issuer = f"{os.environ['KEYCLOAK_BASE_URL'].rstrip('/')}/realms/{os.environ['KEYCLOAK_REALM']}"
+        os.environ["KEYCLOAK_ISSUER"] = issuer
+
     os.environ.setdefault("OIDC_ISSUER", issuer)
     os.environ.setdefault("OIDC_JWKS_URL", f"{issuer}/protocol/openid-connect/certs")
     os.environ.setdefault("JWT_ALLOWED_ALGS", "RS256")
@@ -78,14 +85,19 @@ LIVE_BASE: Optional[str] = os.getenv("APP_BASE_URL", "").rstrip("/") or None
 LIVE_MODE = bool(LIVE_BASE)
 REAL_AUTH = os.getenv("INTEGRATION_AUTH", "0") == "1"  # use real Keycloak
 
+def _host_issuer() -> str:
+   base = os.getenv("KEYCLOAK_BASE_URL", "http://keycloak:8080").rstrip("/")
+   realm = os.getenv("KEYCLOAK_REALM", "OSSS")
+   return f"{base}/realms/{realm}"
+
 def _issuer() -> Optional[str]:
-    return (
-        os.getenv("KEYCLOAK_ISSUER")
-        or (
-            os.getenv("KEYCLOAK_BASE_URL") and os.getenv("KEYCLOAK_REALM")
-            and f"{os.getenv('KEYCLOAK_BASE_URL').rstrip('/')}/realms/{os.getenv('KEYCLOAK_REALM')}"
-        )
-    )
+   # In LIVE mode (tests talk to a running app from the host), always prefer host-reachable issuer
+   if LIVE_MODE:
+       return _host_issuer()
+   # In in-process mode, respect explicit override then fall back
+
+   return os.getenv("KEYCLOAK_ISSUER") or _host_issuer()
+
 
 def _token_endpoint(issuer: str) -> str:
     return f"{issuer.rstrip('/')}/protocol/openid-connect/token"

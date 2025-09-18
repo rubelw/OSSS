@@ -8,7 +8,7 @@ import os
 
 log = logging.getLogger(__name__)
 
-KC_TOKEN_URL = os.getenv("KEYCLOAK_TOKEN_URL")  # e.g. http://localhost:8085/realms/OSSS/protocol/openid-connect/token
+KC_TOKEN_URL = os.getenv("KEYCLOAK_TOKEN_URL")  # e.g. http://localhost:8080/realms/OSSS/protocol/openid-connect/token
 KC_CLIENT_ID = os.getenv("KEYCLOAK_CLIENT_ID")
 KC_CLIENT_SECRET = os.getenv("KEYCLOAK_CLIENT_SECRET")  # optional if public
 

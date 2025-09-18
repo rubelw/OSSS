@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import os
 from functools import lru_cache
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Iterable
 import time
 import requests
 from requests import exceptions as req_exc
@@ -19,40 +19,102 @@ from OSSS.sessions import (
 log = get_logger("auth_flow")
 router = APIRouter()
 
-# ---- OIDC / Keycloak config --------------------------------------------------
+# ---- env helpers -------------------------------------------------------------
 def _env(name: str, default: Optional[str] = None) -> Optional[str]:
     return os.getenv(name, default)
 
+def _mask_email(email: Optional[str]) -> str:
+    if not email:
+        return ""
+    try:
+        user, domain = email.split("@", 1)
+        head = user[:2]
+        tail = user[-1:] if len(user) > 2 else ""
+        return f"{head}***{tail}@{domain}"
+    except Exception:
+        return "***"
+
+# ---- OIDC / Keycloak config --------------------------------------------------
 # External/public issuer (what Keycloak advertises in tokens)
 KC_ISSUER = _env("KEYCLOAK_ISSUER") or _env("OIDC_ISSUER")
 
 # Internal endpoints for container-to-container calls (recommended)
 KC_DISCOVERY_URL_INTERNAL = _env("OIDC_DISCOVERY_URL_INTERNAL")
 KC_TOKEN_URL_INTERNAL = _env("OIDC_TOKEN_URL_INTERNAL")
+
+# Secondary fallback: public/external explicit token URL if provided
+KC_TOKEN_URL_PUBLIC = _env("OIDC_TOKEN_URL")
+
 KC_JWKS_URL = _env("OIDC_JWKS_URL")  # optional; not required here but kept for completeness
 
 KC_CLIENT_ID = _env("KEYCLOAK_CLIENT_ID", "osss-api")
 KC_CLIENT_SECRET = _env("KEYCLOAK_CLIENT_SECRET")  # optional (confidential client)
 
+# ---- HTTP with retry ---------------------------------------------------------
+_TRANSIENT_STATUSES: Iterable[int] = (502, 503, 504)
+
+_session = requests.Session()
+_session.headers.update({"Accept": "application/json"})
+
+def _sleep_backoff(i: int, base: float = 0.2, cap: float = 2.0) -> None:
+    time.sleep(min(base * (2 ** i), cap))
+
 def _get_with_retry(url: str, tries: int = 5, base_sleep: float = 0.2):
     for i in range(tries):
         try:
-            r = requests.get(url, timeout=10)
+            r = _session.get(url, timeout=10)
             r.raise_for_status()
             return r
-        except req_exc.RequestException as e:
+        except req_exc.HTTPError as e:
+            status = getattr(e.response, "status_code", None)
+            if status in _TRANSIENT_STATUSES and i < tries - 1:
+                _sleep_backoff(i, base_sleep)
+                continue
+            raise
+        except (req_exc.ConnectTimeout, req_exc.ReadTimeout, req_exc.ConnectionError):
             if i == tries - 1:
                 raise
-            time.sleep(min(base_sleep * (2 ** i), 2.0))
+            _sleep_backoff(i, base_sleep)
 
+def _post_form_with_retry(url: str, data: Dict[str, Any], tries: int = 4, base_sleep: float = 0.25):
+    headers = {"Content-Type": "application/x-www-form-urlencoded"}
+    for i in range(tries):
+        try:
+            r = _session.post(url, data=data, headers=headers, timeout=10)
+            # If KC returns 4xx, that's not transient—raise immediately.
+            if 400 <= r.status_code < 500:
+                r.raise_for_status()
+            # For 5xx, allow retries.
+            if r.status_code in _TRANSIENT_STATUSES and i < tries - 1:
+                _sleep_backoff(i, base_sleep)
+                continue
+            r.raise_for_status()
+            return r
+        except req_exc.HTTPError as e:
+            status = getattr(e.response, "status_code", None)
+            if status in _TRANSIENT_STATUSES and i < tries - 1:
+                _sleep_backoff(i, base_sleep)
+                continue
+            raise
+        except (req_exc.ConnectTimeout, req_exc.ReadTimeout, req_exc.ConnectionError):
+            if i == tries - 1:
+                raise
+            _sleep_backoff(i, base_sleep)
+
+# ---- discovery / endpoint resolution -----------------------------------------
 @lru_cache(maxsize=1)
 def _discover() -> Dict[str, str]:
     """
     Resolve OIDC endpoints preferring internal URLs for network calls,
     while allowing the issuer to remain the public/external value.
-    """
 
-    # Shortcut: if both internal endpoints are provided, skip discovery
+    Resolution order for token endpoint:
+        A) If OIDC_TOKEN_URL_INTERNAL is set -> use it.
+        B) Else if we used OIDC_DISCOVERY_URL_INTERNAL -> derive token URL from that internal base.
+        C) Else use discovery's token_endpoint unless it points to localhost.
+        D) Else fall back to OIDC_TOKEN_URL (public) or issuer-derived token URL.
+    """
+    # Shortcut: if both internal token and jwks are provided, skip discovery
     if KC_TOKEN_URL_INTERNAL and KC_JWKS_URL:
         resolved = {
             "issuer": KC_ISSUER,
@@ -65,32 +127,59 @@ def _discover() -> Dict[str, str]:
         )
         return resolved
 
-    # Prefer internal discovery; otherwise derive from external issuer
     discovery_url = KC_DISCOVERY_URL_INTERNAL or (
         KC_ISSUER and KC_ISSUER.rstrip("/") + "/.well-known/openid-configuration"
     )
-    if not discovery_url:
-        raise RuntimeError(
-            "OIDC discovery not configured. Set OIDC_DISCOVERY_URL_INTERNAL "
-            "or KEYCLOAK_ISSUER / OIDC_ISSUER."
+
+    data: Dict[str, Any] = {}
+    if discovery_url:
+        try:
+            r = _get_with_retry(discovery_url)
+            data = r.json() or {}
+        except req_exc.RequestException as e:
+            log.error("OIDC discovery fetch failed from %s: %s", discovery_url, e)
+            data = {}
+
+    # Helper: build an internal token URL from an internal discovery URL
+    token_from_internal_discovery: Optional[str] = None
+    if KC_DISCOVERY_URL_INTERNAL and KC_DISCOVERY_URL_INTERNAL in (discovery_url or ""):
+        # e.g. http://keycloak:8080/realms/OSSS/.well-known/openid-configuration
+        # -> http://keycloak:8080/realms/OSSS/protocol/openid-connect/token
+        try:
+            base = discovery_url.split("/.well-known/")[0].rstrip("/")
+            token_from_internal_discovery = f"{base}/protocol/openid-connect/token"
+        except Exception:
+            token_from_internal_discovery = None
+
+    disc_token = (data.get("token_endpoint") or "").strip()
+
+    def _is_localhost(u: str) -> bool:
+        return "://localhost:" in u or "://127.0.0.1:" in u
+
+    # Resolution order
+    token_endpoint = (
+        KC_TOKEN_URL_INTERNAL
+        or token_from_internal_discovery
+        or (disc_token if disc_token and not _is_localhost(disc_token) else None)
+        or KC_TOKEN_URL_PUBLIC
+        or (KC_ISSUER and KC_ISSUER.rstrip("/") + "/protocol/openid-connect/token")
+    )
+
+    if not token_endpoint:
+        raise HTTPException(status_code=502, detail="token_endpoint_unresolved")
+
+    # Prefer external/public issuer from discovery if present; otherwise env
+    issuer = data.get("issuer") or KC_ISSUER
+
+    # Warn if the discovery doc advertises localhost values
+    if disc_token and _is_localhost(disc_token):
+        log.warning(
+            "Discovery advertised localhost token_endpoint (%s); overriding to %s",
+            disc_token, token_endpoint
         )
 
-    try:
-        r = _get_with_retry(discovery_url)
-        data = r.json()
-    except req_exc.RequestException as e:
-        log.error("OIDC discovery fetch failed from %s: %s", discovery_url, e)
-        raise HTTPException(status_code=502, detail="keycloak_discovery_error")
-
-    token_endpoint = KC_TOKEN_URL_INTERNAL or data.get("token_endpoint")
-    if not token_endpoint:
-        if KC_ISSUER:
-            token_endpoint = KC_ISSUER.rstrip("/") + "/protocol/openid-connect/token"
-        else:
-            raise HTTPException(status_code=502, detail="token_endpoint_unresolved")
-
     resolved = {
-        "issuer": data.get("issuer") or KC_ISSUER,
+        "issuer": issuer,
         "token_endpoint": token_endpoint,
         "jwks_uri": KC_JWKS_URL or data.get("jwks_uri"),
     }
@@ -100,9 +189,13 @@ def _discover() -> Dict[str, str]:
     )
     return resolved
 
-def _token_url() -> str:
-    return _discover()["token_endpoint"]
 
+@lru_cache(maxsize=1)
+def _token_url() -> str:
+    url = _discover()["token_endpoint"]
+    # Log once; extremely helpful when a container accidentally uses localhost:8080
+    log.info("OIDC token endpoint in use: %s", url)
+    return url
 
 # ---- helpers ----------------------------------------------------------------
 async def _persist_tokens(
@@ -125,7 +218,6 @@ async def _persist_tokens(
     )
     return updated
 
-
 # ---- routes -----------------------------------------------------------------
 @router.post("/token")
 async def password_grant(
@@ -139,7 +231,7 @@ async def password_grant(
     if grant_type != "password":
         raise HTTPException(status_code=400, detail="Unsupported grant_type")
 
-    log.debug("/auth/token: requesting tokens for %s", username)
+    log.debug("/auth/token: requesting tokens for %s", _mask_email(username))
 
     data = {
         "grant_type": "password",
@@ -152,16 +244,17 @@ async def password_grant(
     if scope:
         data["scope"] = scope
 
+    url = _token_url()
     try:
-        r = requests.post(_token_url(), data=data, timeout=10)
-        r.raise_for_status()
-    except req_exc.HTTPError:
-        status = getattr(r, "status_code", 502)  # type: ignore[name-defined]
+        r = _post_form_with_retry(url, data=data)
+    except req_exc.HTTPError as e:
+        resp = e.response
+        status = getattr(resp, "status_code", 502)
         detail = {"error": "token_exchange_failed", "status": status}
         try:
-            detail["body"] = r.json()  # type: ignore[name-defined]
+            detail["body"] = resp.json()
         except Exception:
-            detail["body"] = getattr(r, "text", "")  # type: ignore[name-defined]
+            detail["body"] = getattr(resp, "text", "")
         raise HTTPException(status_code=status, detail=detail)
     except req_exc.ConnectionError:
         raise HTTPException(status_code=502, detail="keycloak_connect_error")
@@ -173,7 +266,6 @@ async def password_grant(
     tokens = r.json()
     await _persist_tokens(request, response, tokens, user_email=username)
     return tokens
-
 
 @router.post("/refresh")
 async def refresh_grant(
@@ -193,16 +285,17 @@ async def refresh_grant(
     if KC_CLIENT_SECRET:
         data["client_secret"] = KC_CLIENT_SECRET
 
+    url = _token_url()
     try:
-        r = requests.post(_token_url(), data=data, timeout=10)
-        r.raise_for_status()
-    except req_exc.HTTPError:
-        status = getattr(r, "status_code", 502)  # type: ignore[name-defined]
+        r = _post_form_with_retry(url, data=data)
+    except req_exc.HTTPError as e:
+        resp = e.response
+        status = getattr(resp, "status_code", 502)
         detail = {"error": "token_refresh_failed", "status": status}
         try:
-            detail["body"] = r.json()  # type: ignore[name-defined]
+            detail["body"] = resp.json()
         except Exception:
-            detail["body"] = getattr(r, "text", "")  # type: ignore[name-defined]
+            detail["body"] = getattr(resp, "text", "")
         raise HTTPException(status_code=status, detail=detail)
     except req_exc.ConnectionError:
         raise HTTPException(status_code=502, detail="keycloak_connect_error")

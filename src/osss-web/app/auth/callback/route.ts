@@ -5,7 +5,7 @@ import KeycloakProvider from "next-auth/providers/keycloak";
 const handler = NextAuth({
   providers: [
     KeycloakProvider({
-      issuer: process.env.KEYCLOAK_ISSUER,       // e.g. "http://localhost:8085/realms/OSSS"
+      issuer: process.env.KEYCLOAK_ISSUER,       // e.g. "http://localhost:8080/realms/OSSS"
       clientId: process.env.KEYCLOAK_CLIENT_ID!, // "osss-web"
       // For PUBLIC client, omit secret:
       clientSecret: process.env.KEYCLOAK_CLIENT_SECRET || undefined,
