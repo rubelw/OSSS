@@ -8,6 +8,26 @@
 
 set -Eeuo pipefail
 
+# -------- dotenv loader --------
+# Loads a dotenv-style file: KEY=VAL lines (comments & blanks okay). Everything is exported.
+load_dotenv() {
+  local candidate="$1"
+  [[ -z "${candidate:-}" ]] && return 0
+  if [[ -f "$candidate" ]]; then
+    echo "🔧 Loading environment from: $candidate"
+    # shellcheck disable=SC1090
+    set -a; source "$candidate"; set +a
+  fi
+}
+
+# Early dotenv load (before defaults), so .env can set COMPOSE_FILE/PROFILE/etc.
+# Priority: $ENV_FILE (if set) → ./.env
+if [[ -n "${ENV_FILE:-}" ]]; then
+  load_dotenv "$ENV_FILE"
+else
+  load_dotenv "./.env"
+fi
+
 # -------- config / flags --------
 PROJECT_DEFAULT="${COMPOSE_PROJECT_NAME:-osss}"
 COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.yml}"
@@ -25,6 +45,8 @@ Options:
   -p PROJECT      Compose project name (default: ${PROJECT_DEFAULT})
   -f FILE         Compose file path (default: ${COMPOSE_FILE})
   -r PROFILE      Compose profile to target (default: ${PROFILE})
+Environment:
+  ENV_FILE        Path to a .env file to load first (overrides ./\.env)
 EOF
   exit 0
 }
@@ -38,6 +60,15 @@ while getopts ":p:f:r:h" opt; do
     \?) echo "Unknown option: -$OPTARG" >&2; usage ;;
   esac
 done
+
+# Late dotenv load (after -f): also load .env next to the compose file
+# Priority: $ENV_FILE (again, if you want to ensure it applies after flags) → <dir-of-compose>/.env
+if [[ -n "${ENV_FILE:-}" ]]; then
+  load_dotenv "$ENV_FILE"
+fi
+compose_dir="$(dirname -- "$COMPOSE_FILE")"
+# If compose file isn't in cwd (or even if it is), load its sibling .env too
+load_dotenv "${compose_dir%/}/.env"
 
 export COMPOSE_PROJECT_NAME="${PROJECT_DEFAULT}"
 
@@ -65,7 +96,6 @@ down_all() {
 }
 
 # --- service discovery across ALL profiles ---
-# Return list of profiles defined in the compose file (may be empty)
 compose_profiles() {
   if $COMPOSE -f "$COMPOSE_FILE" config --profiles >/dev/null 2>&1; then
     $COMPOSE -f "$COMPOSE_FILE" config --profiles | sed '/^\s*$/d' | sort -u
@@ -79,15 +109,103 @@ compose_profiles() {
   fi
 }
 
-# Get services for the "base" (no profile) config
+# Replace this whole function
 compose_services_base() {
-  $COMPOSE -f "$COMPOSE_FILE" config --services 2>/dev/null | sed '/^\s*$/d' || true
+  # First try the canonical way; if it fails (e.g., undefined env), fall back to YAML parsing.
+  if $COMPOSE -f "$COMPOSE_FILE" config --services >/dev/null 2>&1; then
+    $COMPOSE -f "$COMPOSE_FILE" config --services 2>/dev/null | sed '/^\s*$/d' || true
+  else
+    # Fallback: parse top-level services keys without expanding env vars.
+    # Prints each service name that appears under the root "services:" key.
+    awk '
+      /^services:[[:space:]]*$/ { in_services=1; next }
+      in_services && /^[^[:space:]]/ { in_services=0 }                 # back to root
+      in_services && /^[[:space:]]{2}[A-Za-z0-9_.-]+:[[:space:]]*$/ {
+        s=$0
+        sub(/^[[:space:]]+/, "", s)
+        sub(/:.*/, "", s)
+        print s
+      }
+    ' "$COMPOSE_FILE" | sed '/^\s*$/d' | sort -u
+  fi
 }
 
-# Get services for a specific profile
+# Replace this whole function
 compose_services_for_profile() {
   local prof="$1"
-  $COMPOSE -f "$COMPOSE_FILE" --profile "$prof" config --services 2>/dev/null | sed '/^\s*$/d' || true
+  # Canonical path first
+  if $COMPOSE -f "$COMPOSE_FILE" --profile "$prof" config --services >/dev/null 2>&1; then
+    $COMPOSE -f "$COMPOSE_FILE" --profile "$prof" config --services 2>/dev/null | sed '/^\s*$/d' || true
+  else
+    # Fallback: print services that declare the given profile in their "profiles:" list
+    awk -v target="$prof" '
+      /^services:[[:space:]]*$/ { in_services=1; next }
+      in_services && /^[^[:space:]]/ { in_services=0 }                     # left services block
+
+      # Detect service start: two-space indent + "name:"
+      in_services && /^[[:space:]]{2}[A-Za-z0-9_.-]+:[[:space:]]*$/ {
+        # flush previous service
+        if (svc_name != "" && matched) { print svc_name }
+        matched=0; in_prof=0
+        line=$0
+        sub(/^[[:space:]]+/, "", line)
+        sub(/:.*/, "", line)
+        svc_name=line
+        next
+      }
+
+      # Inside a service, track indentation and profiles block
+      in_services && svc_name != "" {
+        # entering profiles:
+        if ($0 ~ /^[[:space:]]{4}profiles:[[:space:]]*$/) {
+          in_prof=1
+          next
+        }
+        # leaving profiles if indentation drops to 2 spaces (next key of the service)
+        if (in_prof && $0 ~ /^[[:space:]]{2}[A-Za-z0-9_.-]+:[[:space:]]*$/) {
+          in_prof=0
+        }
+        # within profiles list, look for "- foo"
+        if (in_prof && $0 ~ /^[[:space:]]{6}-[[:space:]]*[A-Za-z0-9_.-]+[[:space:]]*$/) {
+          p=$0
+          sub(/^[[:space:]]*-[[:space:]]*/, "", p)
+          sub(/[[:space:]]*$/, "", p)
+          if (p == target) { matched=1 }
+        }
+      }
+
+      END {
+        if (svc_name != "" && matched) { print svc_name }
+      }
+    ' "$COMPOSE_FILE" | sed '/^\s*$/d' | sort -u
+  fi
+}
+
+
+rebuild_all_services() {
+  # Discover all profiles and services
+  mapfile -t profs < <(compose_profiles)
+  mapfile -t all   < <(compose_services_all)
+
+  if ((${#all[@]}==0)); then
+    echo "(no services discovered in ${COMPOSE_FILE})"
+    return 1
+  fi
+
+  # Build args: enable all profiles so profiled services are included
+  local args=( -f "$COMPOSE_FILE" )
+  if ((${#profs[@]})); then
+    echo "▶️  Enabling profiles: ${profs[*]}"
+    for p in "${profs[@]}"; do
+      args+=( --profile "$p" )
+    done
+  fi
+
+  echo "🛠  Rebuilding ALL services (no cache) (${#all[@]}): ${all[*]}"
+  run $COMPOSE "${args[@]}" build --no-cache "${all[@]}"
+
+  echo "🚀 Bringing up ALL services with --force-recreate"
+  run $COMPOSE "${args[@]}" up -d --force-recreate "${all[@]}"
 }
 
 # Union of all services across base + every profile (unique, sorted)
@@ -106,7 +224,7 @@ list_services_logs() {
 
 start_all_services() {
   # Discover all profiles and services
-  mapfile -t profs < <(compose_profiles)          # <- consistent name
+  mapfile -t profs < <(compose_profiles)
   mapfile -t all   < <(compose_services_all)
 
   if ((${#all[@]}==0)); then
@@ -318,7 +436,7 @@ setup_vault_oidc() {
 
   echo "▶️  Writing OIDC config (issuer/keycloak on localhost)…"
   vcmd write auth/oidc/config \
-    oidc_discovery_url="http://localhost:8085/realms/OSSS" \
+    oidc_discovery_url="http://localhost:8080/realms/OSSS" \
     oidc_client_id="vault" \
     oidc_client_secret="password" \
     default_role="vault"
@@ -533,18 +651,28 @@ full_repair(){
   maybe_recreate_importer
   echo "✅ Full repair sequence finished."
 }
-
 pick_service() {
   refresh_services
-  if ((${#SERVICES[@]}==0)); then echo "(no services)"; return 1; fi
+  # Count safely even if SERVICES is unset/empty
+  local svc_count=0
+  if [[ ${#SERVICES[@]+x} ]]; then
+    svc_count=${#SERVICES[@]}
+  fi
+
+  if (( svc_count == 0 )); then
+    echo "(no services)"
+    return 1
+  fi
+
   echo "Available services:"
   local i
-  for ((i=0;i<${#SERVICES[@]};i++)); do
+  for (( i=0; i<svc_count; i++ )); do
     printf "  %2d) %s\n" "$((i+1))" "${SERVICES[$i]}"
   done
+
   local inp
   read -rp "Pick a number or type a service name: " inp || return 1
-  if [[ "$inp" =~ ^[0-9]+$ ]] && (( inp>=1 && inp<=${#SERVICES[@]} )); then
+  if [[ "$inp" =~ ^[0-9]+$ ]] && (( inp>=1 && inp<=svc_count )); then
     echo "${SERVICES[$((inp-1))]}"
   else
     echo "$inp"
@@ -589,7 +717,6 @@ logs_menu() {
       s|S) set_default_tail ;;
       a|A)
         echo "Following logs for ALL services (all profiles). Ctrl-C to return…"
-        # Enable every profile so compose knows about profiled services when streaming logs
         mapfile -t _profs < <(compose_profiles)
         _args=( -f "$COMPOSE_FILE" )
         if ((${#_profs[@]})); then
@@ -643,6 +770,7 @@ menu() {
     echo " 3) Remove leftover containers for project"
     echo " 4) Prune dangling networks"
     echo " 5) Logs submenu"
+    echo " 6) Rebuild ALL services (no cache)"
     echo "  q) Quit"
     echo "-----------------------------------------------"
     read -rp "Select an option: " ans || exit 0
@@ -652,6 +780,7 @@ menu() {
       3)  kill_leftovers ;;
       4)  prune_networks ;;
       5)  logs_menu ;;
+      6)  rebuild_all_services ;;
       q|Q) echo "Bye!"; exit 0 ;;
       *) echo "Unknown choice: ${ans}" ;;
     esac

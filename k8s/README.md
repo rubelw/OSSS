@@ -6,7 +6,7 @@ Included services:
 - `api` (FastAPI) -> port 8081
 - `web` (Next.js) -> port 3000
 - `postgres` (backend DB) -> port 5432 (nodePort may differ)
-- `keycloak` (auth) -> port 8080 (container) / Service 8085 (external)
+- `keycloak` (auth) -> port 8080 (container) / Service 8080 (external)
 - `keycloak-postgres` (Keycloak DB) -> port 5432
 - `redis` (cache/queue) -> port 6379
 
@@ -27,7 +27,7 @@ kubectl apply -k k8s/
 # Port-forward for local dev:
 kubectl -n osss port-forward svc/web 3000:3000 &
 kubectl -n osss port-forward svc/api 8081:8081 &
-kubectl -n osss port-forward svc/keycloak 8085:8085 &
+kubectl -n osss port-forward svc/keycloak 8080 &
 ```
 
 If your images are not in a registry, build + load them into the cluster (kind/minikube) so `imagePullPolicy: IfNotPresent` can find them locally:
@@ -118,7 +118,7 @@ export VAULT_TOKEN=root
 After Keycloak is up and you have a realm/client, you can enable OIDC auth in Vault (dev mode):
 ```bash
 vault auth enable oidc
-vault write auth/oidc/config   oidc_discovery_url="http://keycloak:8085/realms/OSSS"   oidc_client_id="vault"   oidc_client_secret="<client-secret>"   default_role="osss"
+vault write auth/oidc/config   oidc_discovery_url="http://keycloak8080/realms/OSSS"   oidc_client_id="vault"   oidc_client_secret="<client-secret>"   default_role="osss"
 
 vault write auth/oidc/role/osss   user_claim="preferred_username"   allowed_redirect_uris="http://localhost:8200/ui/vault/auth/oidc/oidc/callback"   allowed_redirect_uris="http://vault:8200/ui/vault/auth/oidc/oidc/callback"   policies="default"
 ```

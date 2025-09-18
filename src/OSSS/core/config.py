@@ -45,7 +45,7 @@ class Settings(BaseSettings):
 
     # ---- Keycloak (backend confidential client) ----
     KEYCLOAK_BASE_URL: str = Field(
-        default="http://localhost:8085",
+        default="http://localhost:8080",
         validation_alias=AliasChoices("KEYCLOAK_BASE_URL", "KEYCLOAK_SERVER_URL", "KEYCLOAK_PUBLIC_URL"),
     )
     KEYCLOAK_REALM: str = Field(

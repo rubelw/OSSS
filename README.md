@@ -69,7 +69,7 @@ I’m building the next generation of school software as an open, participatory 
 - **Ports:**  
   - 8081 (API)  
   - 3000 (web)  
-  - 8085 (Keycloak)  
+  - 8080 (Keycloak)  
   - 5433/5434 (Postgres)  
   - 5601 (Kibana)  
   - 9200 (Elasticsearch)  
@@ -102,7 +102,7 @@ source .venv/bin/activate
 # to run the cli
 osss <TAB>
 
-# Keycloak http://localhost:8085 with username 'admin' and password 'admin'
+# Keycloak http://localhost:8080 with username 'admin' and password 'admin'
 # FastApi  http://localhost:8081/docs# username 'activities_director@osss.local' and password 'password'
 # Web: http://localhost:3000 username 'activities_director@osss.local' and password 'password'
 # Vault: http://localhost:8200 username 'chief_technology_officer@osss.local and password 'password'
