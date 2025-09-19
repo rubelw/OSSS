@@ -74,24 +74,33 @@ log "🔧 VAULT_TOKEN=$(mask "${VAULT_TOKEN-}")"
 log "🔧 UI redirects:"
 log "    • ${VAULT_UI_REDIRECT_1-}"
 log "    • ${VAULT_UI_REDIRECT_2-}"
+log "    • ${VAULT_UI_REDIRECT_3-}"
 log "    • ${VAULT_CLI_REDIRECT_1-}"
 log "    • ${VAULT_CLI_REDIRECT_2-}"
+log "    • ${VAULT_CLI_REDIRECT_3-}"
 
 # -------- readiness waits --------
-log "⏳ Waiting for Vault health…"
-until curl -fsS "${VAULT_ADDR}/v1/sys/health" >/dev/null 2>&1; do
-  sleep 1
+log "⏳ Waiting for Vault health at ${VAULT_ADDR}…"
+i=0
+while :; do
+  code="$(curl -sS -o /dev/null -w '%{http_code}' "${VAULT_ADDR}/v1/sys/health" || echo 000)"
+  case "$code" in
+    200|429|472|473|501|503) log "✅ Vault reachable (code=${code})"; break ;;
+    *) i=$((i+1)); [ "$i" -le 180 ] || { log "❌ Vault not reachable (last code=${code})"; exit 1; }; sleep 1 ;;
+  esac
 done
+
+
 log "✅ Vault reachable"
 
 log "⏳ Waiting for Keycloak discovery…"
-until curl -fsS "http://localhost:8080/realms/OSSS/.well-known/openid-configuration" >/dev/null 2>&1; do
+until curl -fsS "http://keycloak:8080/realms/OSSS/.well-known/openid-configuration" >/dev/null 2>&1; do
   sleep 2
 done
 log "✅ Keycloak discovery reachable"
 
 # Discover actual issuer from well-known (avoid mismatch errors)
-DISCOVERY_JSON="$(curl -fsS "http://localhost:8080/realms/OSSS/.well-known/openid-configuration")"
+DISCOVERY_JSON="$(curl -fsS "http://keycloak:8080/realms/OSSS/.well-known/openid-configuration")"
 ISSUER="$(echo "$DISCOVERY_JSON" | jq -r '.issuer')"
 [ -n "$ISSUER" ] || { log "❌ Could not parse issuer from discovery"; exit 1; }
 log "📛 Using issuer: ${ISSUER}"
@@ -99,8 +108,8 @@ log "📛 Using issuer: ${ISSUER}"
 # Choose a discovery **base** URL (realm URL) that **Vault** can reach.
 # Vault validates this itself, so the hostname must be resolvable/reachable from the *vault* container.
 # 1) Prefer Keycloak's container IP (most reliable for Vault)
-# 2) Fall back to provided OIDC_DISCOVERY_URL or localhost:8080
-DISCOVERY_BASE_FALLBACK="http://host.docker.internal8080/realms/OSSS"
+# 2) Fall back to provided OIDC_DISCOVERY_URL or keycloak:8080
+DISCOVERY_BASE_FALLBACK="http://keycloak:8080/realms/OSSS"
 DISC_URL_CANDIDATE="${OIDC_DISCOVERY_URL:-$DISCOVERY_BASE_FALLBACK}"
 DISC_URL_BASE="$(printf '%s' "$DISC_URL_CANDIDATE" | sed -E 's#(/\.well-known/.*)$##')"
 
@@ -147,8 +156,8 @@ log "➡️  Writing OIDC config…"
 
 req POST "${VAULT_ADDR}/v1/auth/oidc/config" \
 '{
-  "oidc_discovery_url": "'"http://host.docker.internal8080/realms/OSSS"'",
-  "bound_issuer": "'"http://host.docker.internal8080/realms/OSSS"'",
+  "oidc_discovery_url": "'"http://keycloak:8080/realms/OSSS"'",
+  "bound_issuer": "'"http://keycloak:8080/realms/OSSS"'",
   "oidc_client_id": "'"${VAULT_OIDC_CLIENT_ID}"'",
   "oidc_client_secret": "'"${VAULT_OIDC_CLIENT_SECRET}"'",
   "default_role": "'"${VAULT_OIDC_ROLE}"'"
@@ -180,8 +189,11 @@ req POST "${VAULT_ADDR}/v1/auth/oidc/role/${VAULT_OIDC_ROLE}" \
   "allowed_redirect_uris": [
     "'"${VAULT_UI_REDIRECT_1}"'",
     "'"${VAULT_UI_REDIRECT_2}"'",
+    "'"${VAULT_UI_REDIRECT_3}"'",
     "'"${VAULT_CLI_REDIRECT_1}"'",
-    "'"${VAULT_CLI_REDIRECT_2}"'"
+    "'"${VAULT_CLI_REDIRECT_2}"'",
+    "'"${VAULT_CLI_REDIRECT_3}"'"
+
   ],
   "policies": ["kv-read"],
   "ttl": "1h",

@@ -55,7 +55,7 @@ def anyio_backend():
 @pytest.fixture(scope="session", autouse=True)
 def _env_bootstrap():
     # Default Keycloak-ish config for local dev
-    os.environ.setdefault("KEYCLOAK_BASE_URL", "http://keycloak:8080")
+    os.environ.setdefault("KEYCLOAK_BASE_URL", "http://keycloak.local:8080")
     os.environ.setdefault("KEYCLOAK_REALM", "OSSS")
     os.environ.setdefault("KEYCLOAK_CLIENT_ID", "osss-api")
     os.environ.setdefault("KEYCLOAK_CLIENT_SECRET", "password")  # override in CI/local
@@ -86,7 +86,7 @@ LIVE_MODE = bool(LIVE_BASE)
 REAL_AUTH = os.getenv("INTEGRATION_AUTH", "0") == "1"  # use real Keycloak
 
 def _host_issuer() -> str:
-   base = os.getenv("KEYCLOAK_BASE_URL", "http://keycloak:8080").rstrip("/")
+   base = os.getenv("KEYCLOAK_BASE_URL", "http://keycloak.local:8080").rstrip("/")
    realm = os.getenv("KEYCLOAK_REALM", "OSSS")
    return f"{base}/realms/{realm}"
 
