@@ -5,7 +5,7 @@ unset POSIXLY_CORRECT
 set -Eeuo pipefail
 
 REALM="${REALM:-OSSS}"
-KC_URL="${KC_URL:-http://localhost:8080}"
+KC_URL="${KC_URL:-http://keycloak.local:8080}"
 TOKEN="${TOKEN:-}"
 DEFAULT_MAX="${MAX:-50}"
 

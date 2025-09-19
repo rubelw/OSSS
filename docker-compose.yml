@@ -29,7 +29,7 @@ x-kc-db-env: &kc_db_env
 
 
 networks:
-  osss-net: {}   # single definition
+  osss-net: {}
 
 
 
@@ -40,11 +40,25 @@ volumes:
   redis-data:
   es-data:
   filebeat-data:
+  es-shared:
 
 
 
 
 services:
+
+  shared-vol-init:
+    image: alpine:3.20
+    user: "0:0"
+    volumes: [ es-shared:/shared ]
+    entrypoint: [ "sh","-lc" ]
+    command: |
+      set -e
+      mkdir -p /shared
+      chmod 0777 /shared         # or 0770 with a shared group if you prefer
+    profiles: [ "app" ]
+    networks: [ osss-net ]
+
   # HashiCorp Consul (dev mode) — service discovery, DNS, UI
   consul:
     image: hashicorp/consul:1.18
@@ -386,7 +400,9 @@ services:
     build:
       context: .
       dockerfile: docker/keycloak/Dockerfile
-    networks: [ osss-net ]
+    networks:
+      osss-net:
+        aliases: [ keycloak.local ]
     environment:
       KC_DB: ${KC_DB}
       KC_DB_URL: jdbc:postgresql://${KC_DB_HOST}:${KC_DB_PORT}/${KC_DB_NAME}
@@ -503,8 +519,14 @@ services:
     environment:
       VERBOSE: "1"
       DEBUG: "1"
+      # Vault CLI logs
+      VAULT_LOG_LEVEL: "debug"
+
+      # If any Go-based client is used, get HTTP/2 timing (optional)
+      GODEBUG: "http2debug=2"
+
       # talk to Vault via service DNS inside the compose network
-      VAULT_ADDR: "${VAULT_ADDR}"
+      VAULT_ADDR: "http://vault:8200"
       VAULT_TOKEN: "${VAULT_TOKEN:-root}"
 
       # Keycloak issuer (discovery URL without the /.well-known suffix)]
@@ -519,8 +541,11 @@ services:
       # Allow both 127.0.0.1 and localhost for UI & CLI
       VAULT_UI_REDIRECT_1: "http://127.0.0.1:8200/ui/vault/auth/oidc/oidc/callback"
       VAULT_UI_REDIRECT_2: "http://localhost:8200/ui/vault/auth/oidc/oidc/callback"
+      VAULT_UI_REDIRECT_3: "http://vault:8200/ui/vault/auth/oidc/oidc/callback"
+
       VAULT_CLI_REDIRECT_1: "http://127.0.0.1:8250/oidc/callback"
       VAULT_CLI_REDIRECT_2: "http://localhost:8250/oidc/callback"
+      VAULT_CLI_REDIRECT_3: "http://vault:8250/oidc/callback"
 
     volumes: [ "./scripts/vault-oidc-setup.sh:/setup.sh:ro","~/.vault-token:/root/.vault-token:ro" ]
     entrypoint: [ "/bin/sh","-lc","/setup.sh" ]
@@ -578,30 +603,51 @@ services:
 
   kibana-pass-init:
     image: curlimages/curl:8.8.0
-    profiles: ["app"]
-    container_name: kibana-pass-init
+    networks: [ osss-net ]
+    profiles: [ "app" ]
     depends_on:
       elasticsearch:
-        condition: service_healthy          # assumes ES has a healthcheck
-    networks: [ osss-net ]                  # same network as elasticsearch
+        condition: service_healthy
     environment:
-      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD} # elastic superuser password (from .env)
-      KIBANA_PASSWORD: ${KIBANA_PASSWORD}       # or set in .env and reference ${KIBANA_PASSWORD}
-    entrypoint: [ "/bin/sh","-lc" ]
-    command: |
-      set -eu
-      echo "Waiting for Elasticsearch..."
-      until curl -fsS -u "elastic:${ELASTIC_PASSWORD}" \
-        "http://elasticsearch:9200/_cluster/health?wait_for_status=yellow&timeout=60s" >/dev/null; do
-        sleep 2
-      done
-      echo "Setting kibana_system password..."
-      curl -fsS -u "elastic:${ELASTIC_PASSWORD}" \
-        -H 'Content-Type: application/json' \
-        -X POST "http://elasticsearch:9200/_security/user/kibana_system/_password" \
-        -d "{\"password\":\"${KIBANA_PASSWORD}\"}"
-      echo "Done."
+      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD}
+      KIBANA_PASSWORD: ${KIBANA_PASSWORD}
+      ES_URL: http://elasticsearch:9200
+    entrypoint: [ "sh","-lc" ]
+    command:
+      - >
+        set -euo pipefail;
+        now() { date -Iseconds; };
+        log() { printf '%s %s\n' "$$(now)" "$$*"; };
+        mask() { s="$$1"; [ -z "$$s" ] && printf '(empty)\n' || { [ "$${#s}" -le 8 ] && printf '******\n' || printf '%s******\n' "$${s%??????}"; }; };
+        log "ES_URL=$$ES_URL";
+        log "ELASTIC_PASSWORD=$$(mask "$$ELASTIC_PASSWORD")";
+        log "KIBANA_PASSWORD=$$(mask "$$KIBANA_PASSWORD")";
+        log "Waiting for Elasticsearch cluster health...";
+        __tries=0;
+        while :; do
+          __code="$$(curl -sS -o /dev/null -w '%{http_code}' -u "elastic:$$ELASTIC_PASSWORD" "$$ES_URL/_cluster/health" || echo 000)";
+          log "cluster health http_code=$$__code";
+          [ "$$__code" = "200" ] && break;
+          __tries=$$((__tries+1)); [ "$$__tries" -le 180 ] || { log "Elasticsearch not ready after 180 attempts"; exit 1; };
+          sleep 3;
+        done;
+        log "Elasticsearch reachable";
+        log "Setting kibana_system password...";
+        __resp="$$(curl -sS -u "elastic:$$ELASTIC_PASSWORD" -H 'Content-Type: application/json' -w '\nHTTP_STATUS:%{http_code}\n' -X POST "$$ES_URL/_security/user/kibana_system/_password" -d "{\"password\":\"$$KIBANA_PASSWORD\"}")";
+        __rc="$$(printf '%s' "$$__resp" | sed -n 's/^HTTP_STATUS://p')";
+        __body="$$(printf '%s' "$$__resp" | sed '$$d')";
+        log "POST /_security/user/kibana_system/_password -> $$__rc";
+        if [ -z "$$__rc" ] || [ "$$__rc" -ge 400 ]; then log "Failed to set kibana_system password; response follows:"; printf '%s\n' "$$__body"; exit 1; fi;
+        log "kibana_system password set";
+        log "Verifying kibana_system authentication...";
+        __v="$$(curl -sS -u "kibana_system:$$KIBANA_PASSWORD" -w '\nHTTP_STATUS:%{http_code}\n' "$$ES_URL/_security/_authenticate" || true)";
+        __v_code="$$(printf '%s' "$$__v" | sed -n 's/^HTTP_STATUS://p')";
+        __v_body="$$(printf '%s' "$$__v" | sed '$$d')";
+        log "GET /_security/_authenticate as kibana_system -> $$__v_code";
+        [ "$$__v_code" = "200" ] || { printf '%s\n' "$$__v_body"; exit 1; };
+        log "kibana-pass-init complete.";
     restart: "no"
+
 
   kibana:
     image: docker.elastic.co/kibana/kibana:8.14.3
@@ -633,41 +679,36 @@ services:
 
   api-key-init:
     image: curlimages/curl:8.8.0
-    user: "0:0"                       # <-- run as root to ensure write access
     networks: [ osss-net ]
     profiles: [ "app" ]
+    user: "0:0"                 # <-- root
     environment:
       ELASTIC_PASSWORD: ${ELASTIC_PASSWORD}
       ES_URL: http://elasticsearch:9200
     depends_on:
+      shared-vol-init:
+        condition: service_completed_successfully
       elasticsearch:
         condition: service_healthy
     volumes:
-      - ./:/work:rw                   # <-- ensure RW; add :z if using SELinux
+      - ./:/work
+      - es-shared:/shared
     working_dir: /work
     entrypoint: [ "sh","-lc" ]
     command:
       - |
         set -eu
-  
-        # If the file already exists, do nothing
-        if [ -f .env.apikey ]; then
-          echo "[skip] .env.apikey already exists, nothing to do"
-          exit 0
-        fi
-  
+
+        # Wait for ES
         echo "[wait] for Elasticsearch..."
-        i=0
-        until code="$$(curl -sS -o /dev/null -w '%{http_code}' "$$ES_URL")" \
-          && { [ "$$code" = "200" ] || [ "$$code" = "401" ] || [ "$$code" = "302" ]; }; do
-          i=$$((i+1))
-          if [ $$i -gt 180 ]; then
-            echo "ES not reachable (last http_code=$$code)" >&2
-            exit 1
-          fi
-          sleep 1
+        __n=0
+        while :; do
+          __code="$$(curl -sS -o /dev/null -w '%{http_code}' "$$ES_URL" || echo 000)"
+          case "$$__code" in 200|401|302) break ;; esac
+          __n=$$((__n+1)); [ "$$__n" -le 180 ] || { echo "ES not reachable (code=$$__code)" >&2; exit 1; }
+          sleep 5
         done
-  
+
         echo "[mint] API key for filebeat writer..."
         body='{
           "name": "filebeat_osss_ingest",
@@ -680,29 +721,22 @@ services:
             }
           }
         }'
-  
+
         resp=$$(curl -fsS -u "elastic:$$ELASTIC_PASSWORD" \
                  -H "Content-Type: application/json" \
                  -d "$$body" "$$ES_URL/_security/api_key")
-  
+
         id=$$(printf '%s' "$$resp" | sed -n 's/.*"id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
         key=$$(printf '%s' "$$resp" | sed -n 's/.*"api_key"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
-        if [ -z "$$id" ] || [ -z "$$key" ]; then
-          echo "ERROR: could not parse API key from: $$resp" >&2
-          exit 1
-        fi
-  
-        # Write atomically with tight perms, then chown to host dir owner
-        umask 077
-        tmp=.env.apikey.tmp
-        printf 'ELASTIC_API_KEY=%s:%s\n' "$$id" "$$key" > "$$tmp"
-  
-        owner_uid=$$(stat -c '%u' . || echo 0)
-        owner_gid=$$(stat -c '%g' . || echo 0)
-        chown "$$owner_uid:$$owner_gid" "$$tmp"
-        mv -f "$$tmp" .env.apikey
-  
+        [ -n "$$id" ] && [ -n "$$key" ] || { echo "ERROR: could not parse API key: $$resp" >&2; exit 1; }
+
+        echo "ELASTIC_API_KEY=$$id:$$key" > .env.apikey
         echo "[ok] wrote .env.apikey"
+        
+        echo "ELASTIC_API_KEY=$$id:$$key" > /shared/filebeat.apikey.env
+        chmod 600 /shared/filebeat.apikey.env
+        echo "[ok] wrote /shared/filebeat.apikey.env"
+  
 
   filebeat-setup:
     image: docker.elastic.co/beats/filebeat:8.14.3
@@ -710,7 +744,6 @@ services:
     profiles: ["app"]
     env_file:
       - .env
-      - .env.apikey
     depends_on:
       elasticsearch:
         condition: service_healthy
@@ -748,20 +781,38 @@ services:
     image: docker.elastic.co/beats/filebeat:8.14.3
     container_name: filebeat
     networks: [ osss-net ]
-    profiles: ["app"]
+    profiles: [ "app" ]
     user: root
     env_file:
-      - .env              # your normal environment
-      - .env.apikey       # contains ELASTIC_API_KEY=<id>:<api_key>
+      - .env
     environment:
       ELASTICSEARCH_HOSTS: http://elasticsearch:9200
     depends_on:
+      api-key-init:
+        condition: service_completed_successfully
       filebeat-setup:
         condition: service_completed_successfully
     volumes:
       - ./filebeat.docker.yml:/usr/share/filebeat/filebeat.yml:ro
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
+      - es-shared:/shared
+    # keep the default entrypoint, but tell it to run a shell
     command:
-      - "-e"
-      - "--strict.perms=false"
+      - sh
+      - -c
+      - |
+        set -eu
+        echo "[wait] for /shared/filebeat.apikey.env..."
+        i=0
+        while [ $i -lt 180 ]; do
+          [ -s /shared/filebeat.apikey.env ] && break
+          i=$((i+1))
+          sleep 1
+        done
+        [ -s /shared/filebeat.apikey.env ] || { echo "missing API key file"; exit 1; }
+        set -a
+        . /shared/filebeat.apikey.env
+        set +a
+        echo "[ok] ELASTIC_API_KEY loaded (id=$${ELASTIC_API_KEY%%:*})"
+        exec filebeat -e --strict.perms=false
