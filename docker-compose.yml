@@ -526,15 +526,15 @@ services:
       GODEBUG: "http2debug=2"
 
       # talk to Vault via service DNS inside the compose network
-      VAULT_ADDR: "http://vault:8200"
-      VAULT_TOKEN: "${VAULT_TOKEN:-root}"
+      VAULT_ADDR: "${VAULT_ADDR}"
+      VAULT_TOKEN: "${VAULT_TOKEN}"
 
       # Keycloak issuer (discovery URL without the /.well-known suffix)]
       OIDC_DISCOVERY_URL: "${OIDC_DISCOVERY_URL}"
       VAULT_OIDC_DISCOVERY_URL: "${VAULT_OIDC_DISCOVERY_URL}"
-      VAULT_OIDC_CLIENT_ID: "${VAULT_OIDC_CLIENT_ID:-vault}"
-      VAULT_OIDC_CLIENT_SECRET: "${VAULT_OIDC_CLIENT_SECRET:-password}"
-      VAULT_OIDC_ROLE: "${VAULT_OIDC_ROLE:-vault}"
+      VAULT_OIDC_CLIENT_ID: "${VAULT_OIDC_CLIENT_ID}"
+      VAULT_OIDC_CLIENT_SECRET: "${VAULT_OIDC_CLIENT_SECRET}"
+      VAULT_OIDC_ROLE: "${VAULT_OIDC_ROLE}"
       VAULT_TOKEN_FILE: "/root/.vault-token"
       OIDC_ADMIN_GROUP: "/vault-admin"
 
@@ -813,6 +813,5 @@ services:
         [ -s /shared/filebeat.apikey.env ] || { echo "missing API key file"; exit 1; }
         set -a
         . /shared/filebeat.apikey.env
-        set +a
         echo "[ok] ELASTIC_API_KEY loaded (id=$${ELASTIC_API_KEY%%:*})"
         exec filebeat -e --strict.perms=false
