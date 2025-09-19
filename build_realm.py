@@ -1047,14 +1047,18 @@ class RealmBuilder:
                 raw_consul_admin = seg(pos.get("consul_admin"))
                 raw_consul_user = seg(pos.get("consul_user"))
 
-                # Build extra groups from flags
+                # Use PLURAL group names to match Vault's bound_claims
                 extra_groups = []
+
                 if raw_vault_admin == "true":
-                    extra_groups.append("vault-admin")
+                    extra_groups.append("vault-admins")
+
                 if raw_vault_user == "true":
-                    extra_groups.append("vault-user")
+                    extra_groups.append("vault-users")
+
                 if raw_consul_admin == "true":
                     extra_groups.append("consul-admin")
+
                 if raw_consul_user == "true":
                     extra_groups.append("consul-user")
 
@@ -1089,12 +1093,15 @@ class RealmBuilder:
                 if include_description_attribute and pos.get("description"):
                     attrs["position_description"] = [pos["description"]]
 
+                groups_for_user = [path, *extra_group_paths] if extra_group_paths else [path]
+
                 self.add_user(
                     username=uname,
                     email=email,
                     first_name=first or None,
                     last_name=last or None,
-                    groups=[path],
+                    # Include both the position path AND the plural top-level group(s)
+                    groups=groups_for_user,
                     attributes=attrs,
                     enabled=True,
                     email_verified=False,
@@ -1348,8 +1355,8 @@ if __name__ == "__main__":
 
 
     # --- Realm roles ---
-    rb.add_realm_role("vault-user", "Standard Vault users", composite=False)
-    rb.add_realm_role("vault-admin", "Administrators for Vault", composite=False)
+    rb.add_realm_role("vault-users", "Standard Vault users", composite=False)
+    rb.add_realm_role("vault-admins", "Administrators for Vault", composite=False)
 
 
     rb.add_realm_role("offline_access", "Offline Access", composite=False)
@@ -1583,12 +1590,12 @@ if __name__ == "__main__":
 
     rb.add_group(
         name="vault-users",
-        realm_roles=["vault-user"]
+        realm_roles=["vault-users"]
     )
 
     rb.add_group(
         name="vault-admins",
-        realm_roles=["vault-admin"]
+        realm_roles=["vault-admins"]
     )
 
     # Groups scope: emit `groups` in ID/access/userinfo (Vault expects this)
