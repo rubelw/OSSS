@@ -19,9 +19,14 @@ processors:
 
 # ✅ Runtime output via ES API key (id:api_key, NOT base64)
 output.elasticsearch:
-  hosts: ["${ELASTICSEARCH_HOSTS:http://elasticsearch:9200}"]
-  api_key: "${ELASTIC_API_KEY}"
+  hosts: ["${ELASTICSEARCH_HOSTS}"]
 
+# Tell setup to talk to Kibana (auth injected via -E flags)
+setup.kibana:
+  host: "${KIBANA_HOSTS}"
+  username: "${KIBANA_USERNAME}"     # use a user that can access Kibana (elastic works)
+  password: "${KIBANA_PASSWORD}"
+  
 # 🚫 Don’t let the running beat hit Kibana
 setup.dashboards.enabled: false
 # (You can omit setup.kibana entirely for the runtime service)

@@ -149,11 +149,20 @@ services:
     build:
       context: .
       dockerfile: docker/app/Dockerfile
-    command: >
-      uvicorn src.OSSS.main:app
-        --host 0.0.0.0 --port 8000 --reload
-        --log-level debug
-        --log-config /workspace/docker/logging.yaml
+    command:
+      - uvicorn
+      - src.OSSS.main:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+      - --reload
+      - --log-level
+      - info
+      - --no-use-colors        # ← was "--use-colors false"
+      - --access-log
+      - --log-config
+      - /workspace/docker/logging.json
     working_dir: /workspace
     ports:
       - "8081:8000"     # host:container
@@ -163,6 +172,14 @@ services:
       - ./:/workspace:cached
       - ./docker/logging.yml:/workspace/docker/logging.yaml:ro
       - ./scripts/app-entrypoint.sh:/usr/local/bin/app-entrypoint.sh:ro   # file -> file ✅
+
+    labels:
+      co.elastic.logs/enabled: "true"
+      co.elastic.logs/processors.1.decode_json_fields.fields: 'message'
+      co.elastic.logs/processors.1.decode_json_fields.target: ''
+      co.elastic.logs/processors.1.decode_json_fields.overwrite_keys: 'true'
+      co.elastic.logs/processors.2.add_fields.target: 'app'
+      co.elastic.logs/processors.2.add_fields.fields.service: 'osss-api'
 
 
     environment:
@@ -290,12 +307,13 @@ services:
       - "3000:3000"
     labels:
       co.elastic.logs/enabled: "true"
-      co.elastic.logs/json.add_error_key: "true"
-      co.elastic.logs/json.overwrite_keys: "true"
-      # custom dataset/type for web logs
-      co.elastic.logs/processors.1.add_fields.fields.service: "osss-web"
-      co.elastic.logs/processors.1.add_fields.fields.type: "frontend"
-      co.elastic.logs/processors.1.add_fields.target: "event"
+      co.elastic.logs/processors.1.decode_json_fields.fields: 'message'
+      co.elastic.logs/processors.1.decode_json_fields.target: ''
+      co.elastic.logs/processors.1.decode_json_fields.overwrite_keys: 'true'
+      co.elastic.logs/processors.2.add_fields.target: 'app'
+      co.elastic.logs/processors.2.add_fields.fields.service: 'osss-web'
+
+
 
   osss_postgres:
     image: postgres:16-alpine
@@ -536,19 +554,54 @@ services:
     container_name: elasticsearch
     environment:
       - discovery.type=single-node
-      - xpack.security.enabled=false         # dev only
+      - xpack.security.enabled=true            # ← was false
+      - xpack.security.http.ssl.enabled=false
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}   # password for the built-in 'elastic' superuser
       - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    ulimits:
+      memlock: { soft: -1, hard: -1 }
     ports:
       - "9200:9200"
     networks: [ osss-net ]
     volumes:
       - es-data:/usr/share/elasticsearch/data
     healthcheck:
-      test: [ "CMD-SHELL","curl -sf http://localhost:9200 >/dev/null || exit 1" ]
-      interval: 10s
-      timeout: 5s
-      retries: 30
+      test:
+        [
+          "CMD-SHELL",
+          "curl -fsS -u elastic:${ELASTIC_PASSWORD} http://localhost:9200/_cluster/health?wait_for_status=yellow\\&timeout=60s >/dev/null"
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 50
     restart: unless-stopped
+
+  kibana-pass-init:
+    image: curlimages/curl:8.8.0
+    profiles: ["app"]
+    container_name: kibana-pass-init
+    depends_on:
+      elasticsearch:
+        condition: service_healthy          # assumes ES has a healthcheck
+    networks: [ osss-net ]                  # same network as elasticsearch
+    environment:
+      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD} # elastic superuser password (from .env)
+      KIBANA_PASSWORD: ${KIBANA_PASSWORD}       # or set in .env and reference ${KIBANA_PASSWORD}
+    entrypoint: [ "/bin/sh","-lc" ]
+    command: |
+      set -eu
+      echo "Waiting for Elasticsearch..."
+      until curl -fsS -u "elastic:${ELASTIC_PASSWORD}" \
+        "http://elasticsearch:9200/_cluster/health?wait_for_status=yellow&timeout=60s" >/dev/null; do
+        sleep 2
+      done
+      echo "Setting kibana_system password..."
+      curl -fsS -u "elastic:${ELASTIC_PASSWORD}" \
+        -H 'Content-Type: application/json' \
+        -X POST "http://elasticsearch:9200/_security/user/kibana_system/_password" \
+        -d "{\"password\":\"${KIBANA_PASSWORD}\"}"
+      echo "Done."
+    restart: "no"
 
   kibana:
     image: docker.elastic.co/kibana/kibana:8.14.3
@@ -557,39 +610,158 @@ services:
     depends_on:
       elasticsearch:
         condition: service_healthy
+      kibana-pass-init:
+        condition: service_completed_successfully
+
     environment:
-      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
-      - SERVER_PUBLICBASEURL=http://localhost:5601
-      - LOGGING_VERBOSE=true
-      - XPACK_REPORTING_ENABLED=false
-      - XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY=dev-dev-dev-dev-dev-dev-dev-dev1
-      - NODE_OPTIONS=--max-old-space-size=512
+      ELASTICSEARCH_HOSTS: "http://elasticsearch:9200"
+      SERVER_PUBLICBASEURL: "http://localhost:5601"
+      LOGGING_VERBOSE: "true"
+      ELASTICSEARCH_USERNAME: "kibana_system"
+      ELASTICSEARCH_PASSWORD: "${KIBANA_PASSWORD}"
 
     ports:
       - "5601:5601"
     networks: [ osss-net ]
     restart: unless-stopped
     healthcheck:
-      test: [ "CMD-SHELL", "curl -sf http://localhost:5601/api/status | grep -q 'available'" ]
-      interval: 10s
+      test: [ "CMD-SHELL","curl -fsS -I http://localhost:5601/login | grep -q '200'" ]
+      interval: 20s
       timeout: 5s
-      retries: 60
-      start_period: 60s
+      retries: 30
 
 
-  filebeat:
-    image: docker.elastic.co/beats/filebeat:8.14.3
-    profiles: ["app"]
-    container_name: filebeat
+  api-key-init:
+    image: curlimages/curl:8.8.0
+    user: "0:0"                       # <-- run as root to ensure write access
+    networks: [ osss-net ]
+    profiles: [ "app" ]
+    environment:
+      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD}
+      ES_URL: http://elasticsearch:9200
     depends_on:
       elasticsearch:
         condition: service_healthy
-    user: root
+    volumes:
+      - ./:/work:rw                   # <-- ensure RW; add :z if using SELinux
+    working_dir: /work
+    entrypoint: [ "sh","-lc" ]
+    command:
+      - |
+        set -eu
+  
+        # If the file already exists, do nothing
+        if [ -f .env.apikey ]; then
+          echo "[skip] .env.apikey already exists, nothing to do"
+          exit 0
+        fi
+  
+        echo "[wait] for Elasticsearch..."
+        i=0
+        until code="$$(curl -sS -o /dev/null -w '%{http_code}' "$$ES_URL")" \
+          && { [ "$$code" = "200" ] || [ "$$code" = "401" ] || [ "$$code" = "302" ]; }; do
+          i=$$((i+1))
+          if [ $$i -gt 180 ]; then
+            echo "ES not reachable (last http_code=$$code)" >&2
+            exit 1
+          fi
+          sleep 1
+        done
+  
+        echo "[mint] API key for filebeat writer..."
+        body='{
+          "name": "filebeat_osss_ingest",
+          "role_descriptors": {
+            "filebeat_writer": {
+              "cluster": ["monitor","read_ilm","read_pipeline"],
+              "index": [
+                { "names": ["logs-*","filebeat-*"], "privileges": ["auto_configure","create_doc","view_index_metadata"] }
+              ]
+            }
+          }
+        }'
+  
+        resp=$$(curl -fsS -u "elastic:$$ELASTIC_PASSWORD" \
+                 -H "Content-Type: application/json" \
+                 -d "$$body" "$$ES_URL/_security/api_key")
+  
+        id=$$(printf '%s' "$$resp" | sed -n 's/.*"id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+        key=$$(printf '%s' "$$resp" | sed -n 's/.*"api_key"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+        if [ -z "$$id" ] || [ -z "$$key" ]; then
+          echo "ERROR: could not parse API key from: $$resp" >&2
+          exit 1
+        fi
+  
+        # Write atomically with tight perms, then chown to host dir owner
+        umask 077
+        tmp=.env.apikey.tmp
+        printf 'ELASTIC_API_KEY=%s:%s\n' "$$id" "$$key" > "$$tmp"
+  
+        owner_uid=$$(stat -c '%u' . || echo 0)
+        owner_gid=$$(stat -c '%g' . || echo 0)
+        chown "$$owner_uid:$$owner_gid" "$$tmp"
+        mv -f "$$tmp" .env.apikey
+  
+        echo "[ok] wrote .env.apikey"
+
+  filebeat-setup:
+    image: docker.elastic.co/beats/filebeat:8.14.3
     networks: [ osss-net ]
+    profiles: ["app"]
+    env_file:
+      - .env
+      - .env.apikey
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+      kibana:
+        condition: service_healthy
+      api-key-init:
+        condition: service_completed_successfully
+    volumes:
+      - ./filebeat.setup.yml:/usr/share/filebeat/filebeat.yml:ro
+    entrypoint: [ "sh","-lc" ]
+    command:
+      - |
+        set -eu
+        echo "[wait] for Kibana..."
+        i=0
+        until code="$$(curl -sS -o /dev/null -w '%{http_code}' "$$KIBANA_URL/api/status")" \
+          && { [ "$$code" = "200" ] || [ "$$code" = "302" ] || [ "$$code" = "401" ]; }; do
+          i=$$((i+1)); [ $$i -le 180 ] || { echo "Kibana not reachable (last http_code=$$code)"; exit 1; }
+          sleep 1
+        done
+  
+        echo "[setup] ILM/templates/dashboards"
+        filebeat setup \
+          -E setup.ilm.overwrite=true \
+          -E setup.dashboards.enabled=true \
+          -E setup.kibana.hosts=["$$KIBANA_URL"] \
+          -E setup.kibana.username="$$KIBANA_USERNAME" \
+          -E setup.kibana.password="$$KIBANA_PASSWORD" \
+          -E output.elasticsearch.hosts=["$$ES_URL"] \
+          -E output.elasticsearch.username="elastic" \
+          -E output.elasticsearch.password="$$ELASTIC_PASSWORD"
+
+  # --- RUNTIME FILEBEAT (no kibana creds, api_key only to ES) ---
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:8.14.3
+    container_name: filebeat
+    networks: [ osss-net ]
+    profiles: ["app"]
+    user: root
+    env_file:
+      - .env              # your normal environment
+      - .env.apikey       # contains ELASTIC_API_KEY=<id>:<api_key>
+    environment:
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+    depends_on:
+      filebeat-setup:
+        condition: service_completed_successfully
     volumes:
       - ./filebeat.docker.yml:/usr/share/filebeat/filebeat.yml:ro
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - filebeat-data:/usr/share/filebeat/data
-    command: [ "--strict.perms=false" ]
-    restart: unless-stopped
+    command:
+      - "-e"
+      - "--strict.perms=false"
