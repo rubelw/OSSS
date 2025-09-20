@@ -152,38 +152,33 @@ down_profile_interactive() {
   echo "  a) ALL (same as 'Down ALL')"
   echo
 
-  local choice
+  local choice prof
   read -rp "Choose a profile to tear down: " choice || return 1
 
   case "$choice" in
-    a|A)
-      down_all
-      return
-      ;;
+    a|A) down_all; return ;;
     ''|*[!0-9]*)
-      # treat as a profile name typed directly
-      local prof="$choice"
-      if [[ -z "$prof" ]]; then
-        echo "No selection made."
-        return 1
-      fi
+      prof="$choice"
+      [[ -z "$prof" ]] && { echo "No selection made."; return 1; }
       if ! printf '%s\n' "${profs[@]}" | grep -qx -- "$prof"; then
-        echo "Unknown profile: '$prof'"
-        return 1
+        echo "Unknown profile: '$prof'"; return 1
       fi
       ;;
     *)
-      # numeric selection
       if (( choice < 1 || choice > ${#profs[@]} )); then
-        echo "Invalid number: ${choice}"
-        return 1
+        echo "Invalid number: ${choice}"; return 1
       fi
       prof="${profs[$((choice-1))]}"
       ;;
   esac
 
-  echo "▶️  Down (remove orphans & volumes) for profile '${prof}'…"
-  run $COMPOSE -f "$COMPOSE_FILE" --profile "$prof" down --remove-orphans --volumes || true
+  if [[ "$prof" == "trino" ]]; then
+    echo "▶️  Down (containers + anonymous volumes) for profile 'trino' ONLY…"
+    down_services_for_profile_only "trino"
+  else
+    echo "▶️  Down (remove orphans & volumes) for profile '${prof}'…"
+    run $COMPOSE -f "$COMPOSE_FILE" --profile "$prof" down --remove-orphans --volumes || true
+  fi
 }
 
 
@@ -300,6 +295,54 @@ start_profile_vault() {
   fi
 }
 
+start_profile_datalake_data() {
+  local prof="datalake_data"
+  echo "▶️  Starting services for profile 'datalake_data' (and enabling 'keycloak' profile for config validation)…"
+  if [[ "${BUILD_ALL:-0}" == "1" ]]; then
+    run $COMPOSE -f "$COMPOSE_FILE" --profile "$prof" --profile datalake_data up -d --no-deps --build
+  else
+    run $COMPOSE -f "$COMPOSE_FILE" --profile "$prof" --profile datalake_data up -d --no-deps
+  fi
+}
+
+start_profile_trino() {
+  local prof="trino"
+  echo "▶️  Starting services for profile 'trino' (and enabling 'keycloak' profile for config validation)…"
+  if [[ "${BUILD_ALL:-0}" == "1" ]]; then
+    run $COMPOSE -f "$COMPOSE_FILE" --profile "$prof" --profile trino up -d --no-deps --build
+  else
+    run $COMPOSE -f "$COMPOSE_FILE" --profile "$prof" --profile trino up -d --no-deps
+  fi
+}
+
+start_profile_airflow() {
+  local prof="airflow"
+  echo "▶️  Starting services for profile 'airflow' (and enabling 'keycloak' profile for config validation)…"
+  if [[ "${BUILD_ALL:-0}" == "1" ]]; then
+    run $COMPOSE -f "$COMPOSE_FILE" --profile "$prof" --profile airflow up -d --no-deps --build
+  else
+    run $COMPOSE -f "$COMPOSE_FILE" --profile "$prof" --profile airflow up -d --no-deps
+  fi
+}
+start_profile_superset() {
+  local prof="superset"
+  echo "▶️  Starting services for profile 'superset' (and enabling 'keycloak' profile for config validation)…"
+  if [[ "${BUILD_ALL:-0}" == "1" ]]; then
+    run $COMPOSE -f "$COMPOSE_FILE" --profile "$prof" --profile superset up -d --no-deps --build
+  else
+    run $COMPOSE -f "$COMPOSE_FILE" --profile "$prof" --profile superset up -d --no-deps
+  fi
+}
+
+start_profile_openmetadata() {
+  local prof="openmetadata"
+  echo "▶️  Starting services for profile 'openmetadata' (and enabling 'keycloak' profile for config validation)…"
+  if [[ "${BUILD_ALL:-0}" == "1" ]]; then
+    run $COMPOSE -f "$COMPOSE_FILE" --profile "$prof" --profile openmetadata up -d --no-deps --build
+  else
+    run $COMPOSE -f "$COMPOSE_FILE" --profile "$prof" --profile openmetadata up -d --no-deps
+  fi
+}
 # Your profiles list showed 'consol' (typo in compose?). Try both:
 start_profile_consul() {
   local prof="consul"
@@ -431,6 +474,60 @@ ensure_python_venv "$@"
 # -------- helpers --------
 
 # --- helpers: detect containers and build one-shot stub overlay ---
+
+# Stop & remove ONLY the services that belong to a given profile.
+# - Stops containers for those services
+# - Removes those containers and their *anonymous* volumes (-v)
+# - Does NOT prune project networks or named volumes (e.g., datalake_data)
+down_services_for_profile_only() {
+  local prof="$1"
+  mapfile -t svcs < <(compose_services_for_profile "$prof" || true)
+  if ((${#svcs[@]}==0)); then
+    echo "(no services discovered in profile '${prof}' for ${COMPOSE_FILE})"
+    return 0
+  fi
+
+  echo "▶️  Stopping ${#svcs[@]} service(s) in profile '${prof}': ${svcs[*]}"
+  run $COMPOSE -f "$COMPOSE_FILE" --profile "$prof" stop "${svcs[@]}" || true
+
+  echo "🗑  Removing containers for profile '${prof}' (and their anonymous volumes)…"
+  # Use rm -fsv on the exact services; this avoids touching other profiles' resources.
+  run $COMPOSE -f "$COMPOSE_FILE" rm -fsv "${svcs[@]}" || true
+
+  # Optional: remove orphan containers that belong to these services (defensive)
+  echo "🧹 Cleaning up any orphan containers for '${COMPOSE_PROJECT_NAME}' & services: ${svcs[*]}"
+  local ids
+  ids="$(docker ps -a \
+    --filter "label=com.docker.compose.project=${COMPOSE_PROJECT_NAME}" \
+    --format '{{.ID}} {{.Names}}' \
+    | awk -v ORS=' ' '{
+        name=$2
+        for(i=3;i<=NF;i++) name=name" "$i
+        print $1" "name"\n"
+      }' \
+    | awk -v proj="${COMPOSE_PROJECT_NAME}" '
+        { id=$1; name=$0; sub(/^[^ ]+ /,"",name);
+          # if name includes any of the service keys, mark for deletion
+          split("'"${svcs[*]}"'", S, " ")
+          for (i in S) if (index(name, S[i])>0) print id
+        }')" || true
+  if [[ -n "${ids:-}" ]]; then
+    run docker rm -f ${ids} || true
+  fi
+
+  echo "✅ Done tearing down profile '${prof}' without touching other profiles’ volumes."
+}
+
+# Convenience: apply to current $PROFILE if it's set, else refuse
+down_current_profile_services_only() {
+  local prof="${PROFILE:-}"
+  if [[ -z "$prof" ]]; then
+    echo "❌ PROFILE not set; use -r PROFILE or call down_services_for_profile_only <profile>."
+    return 1
+  fi
+  down_services_for_profile_only "$prof"
+}
+
 
 # Return 0 if any Docker container name matches the service token.
 # We accept "exact", "<project>-<service>-N", or anything that contains the token
@@ -1059,12 +1156,16 @@ setup_vault_oidc() {
 }
 
 # -------- actions --------
-down_profile() { echo "▶️  Down (remove orphans & volumes) for profile '${PROFILE}'…"; run c down --remove-orphans --volumes || true; }
-kill_leftovers() {
-  echo "▶️  Removing leftover containers for project '${COMPOSE_PROJECT_NAME}'…"
-  ids=$(docker ps -a --filter "label=com.docker.compose.project=${COMPOSE_PROJECT_NAME}" -q)
-  if [[ -n "${ids:-}" ]]; then run docker rm -f ${ids}; else echo "(none)"; fi
+down_profile() {
+  if [[ "${PROFILE:-}" == "trino" ]]; then
+    echo "▶️  Down (containers + anonymous volumes) for profile 'trino' ONLY…"
+    down_current_profile_services_only
+  else
+    echo "▶️  Down (remove orphans & volumes) for profile '${PROFILE}'…"
+    run c down --remove-orphans --volumes || true
+  fi
 }
+
 prune_networks() { echo "▶️  Pruning dangling networks…"; run docker network prune -f; }
 rm_project_networks() {
   echo "▶️  Removing '${COMPOSE_PROJECT_NAME}_…' networks…"
@@ -1375,12 +1476,17 @@ menu() {
     echo " 5) Start profile 'vault'"
     echo " 6) Start profile 'consul'"
     echo " 7) Start ALL services"
-    echo " 8) Down a profile (remove-orphans, volumes)"
-    echo " 9) Down ALL (remove-orphans, volumes)"
-    echo "10) Remove leftover containers for project"
-    echo "11) Prune dangling networks"
-    echo "12) Logs submenu"
-    echo "13) Rebuild ALL services (no cache)"
+    echo " 8) Start profile 'datalake_data'"
+    echo " 9) Start profile 'trino'"
+    echo "10) Start profile 'airflow'"
+    echo "11) Start profile 'superset'"
+    echo "12) Start profile 'openmetadata'"
+    echo "13) Down a profile (remove-orphans, volumes)"
+    echo "14) Down ALL (remove-orphans, volumes)"
+    echo "15) Remove leftover containers for project"
+    echo "16) Prune dangling networks"
+    echo "17) Logs submenu"
+    echo "18) Rebuild ALL services (no cache)"
     echo "  q) Quit"
     echo "-----------------------------------------------"
     read -rp "Select an option: " ans || exit 0
@@ -1392,15 +1498,21 @@ menu() {
       5)  start_profile_vault ;;
       6)  start_profile_consul ;;
       7)  start_all_services ;;
-      8)  down_profile_interactive ;;
-      9)  down_all ;;
-      10) kill_leftovers ;;
-      11) prune_networks ;;
-      12) logs_menu ;;
-      13) rebuild_all_services ;;
+      8)  start_profile_datalake_data ;;
+      9)  start_profile_trino ;;
+      10) start_profile_airflow ;;
+      11) start_profile_superset ;;
+      12) start_profile_openmetadata ;;
+      13) down_profile_interactive ;;
+      14) down_all ;;
+      15) kill_leftovers ;;
+      16) prune_networks ;;
+      17) logs_menu ;;
+      18) rebuild_all_services ;;
       q|Q) echo "Bye!"; exit 0 ;;
-      *) echo "Unknown choice: ${ans}" ;;
+      *)   echo "Unknown choice: ${ans}" ;;
     esac
+
   done
 }
 
