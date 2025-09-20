@@ -4,14 +4,23 @@ from __future__ import annotations
 import os
 import time
 import base64
-from typing import List, Optional
+from typing import List, Optional, Callable, Awaitable
 import sys
 import logging
 import pytest
 import requests
+
+# NEW: async/network helpers
+import asyncio
+import random
+import httpx
 from httpx import AsyncClient, ASGITransport
+
 from fastapi.routing import APIRoute
 
+# =========================
+# Logging -> stdout
+# =========================
 @pytest.fixture(scope="session", autouse=True)
 def _tests_log_to_stdout():
     """
@@ -32,6 +41,13 @@ def _tests_log_to_stdout():
     # Let the user override via TEST_LOG_LEVEL=DEBUG/INFO/WARNING...
     root.setLevel(os.getenv("TEST_LOG_LEVEL", "INFO").upper())
 
+
+# Make anyio run on asyncio (so our async fixtures work everywhere)
+@pytest.fixture(scope="session", autouse=True)
+def anyio_backend():
+    return "asyncio"
+
+
 # ==============================================================
 # Session-wide env bootstrap (runs before we create the app)
 # ==============================================================
@@ -39,19 +55,27 @@ def _tests_log_to_stdout():
 @pytest.fixture(scope="session", autouse=True)
 def _env_bootstrap():
     # Default Keycloak-ish config for local dev
-    os.environ.setdefault("KEYCLOAK_BASE_URL", "http://localhost:8085")
+    os.environ.setdefault("KEYCLOAK_BASE_URL", "http://keycloak.local:8080")
     os.environ.setdefault("KEYCLOAK_REALM", "OSSS")
     os.environ.setdefault("KEYCLOAK_CLIENT_ID", "osss-api")
     os.environ.setdefault("KEYCLOAK_CLIENT_SECRET", "password")  # override in CI/local
 
     issuer = os.environ.get("KEYCLOAK_ISSUER")
+
     if not issuer:
         issuer = f"{os.environ['KEYCLOAK_BASE_URL'].rstrip('/')}/realms/{os.environ['KEYCLOAK_REALM']}"
         os.environ["KEYCLOAK_ISSUER"] = issuer
+        # If someone exported a container-only hostname, fix it for LIVE mode
+
+    if LIVE_MODE and "keycloak:8080" in issuer:
+        issuer = f"{os.environ['KEYCLOAK_BASE_URL'].rstrip('/')}/realms/{os.environ['KEYCLOAK_REALM']}"
+        os.environ["KEYCLOAK_ISSUER"] = issuer
+
     os.environ.setdefault("OIDC_ISSUER", issuer)
     os.environ.setdefault("OIDC_JWKS_URL", f"{issuer}/protocol/openid-connect/certs")
     os.environ.setdefault("JWT_ALLOWED_ALGS", "RS256")
     yield
+
 
 # ==============================================================
 # Live-mode detection and helpers
@@ -61,14 +85,19 @@ LIVE_BASE: Optional[str] = os.getenv("APP_BASE_URL", "").rstrip("/") or None
 LIVE_MODE = bool(LIVE_BASE)
 REAL_AUTH = os.getenv("INTEGRATION_AUTH", "0") == "1"  # use real Keycloak
 
+def _host_issuer() -> str:
+   base = os.getenv("KEYCLOAK_BASE_URL", "http://keycloak.local:8080").rstrip("/")
+   realm = os.getenv("KEYCLOAK_REALM", "OSSS")
+   return f"{base}/realms/{realm}"
+
 def _issuer() -> Optional[str]:
-    return (
-        os.getenv("KEYCLOAK_ISSUER")
-        or (
-            os.getenv("KEYCLOAK_BASE_URL") and os.getenv("KEYCLOAK_REALM")
-            and f"{os.getenv('KEYCLOAK_BASE_URL').rstrip('/')}/realms/{os.getenv('KEYCLOAK_REALM')}"
-        )
-    )
+   # In LIVE mode (tests talk to a running app from the host), always prefer host-reachable issuer
+   if LIVE_MODE:
+       return _host_issuer()
+   # In in-process mode, respect explicit override then fall back
+
+   return os.getenv("KEYCLOAK_ISSUER") or _host_issuer()
+
 
 def _token_endpoint(issuer: str) -> str:
     return f"{issuer.rstrip('/')}/protocol/openid-connect/token"
@@ -97,16 +126,32 @@ def _wait_for(url: str, timeout: float = 30.0, interval: float = 0.5):
         time.sleep(interval)
     raise RuntimeError(f"Service not ready: {url} ({last_err})")
 
+
 @pytest.fixture(scope="session", autouse=True)
 def _ensure_services_ready():
-    """When in LIVE_MODE, wait for the running app and (optionally) Keycloak."""
+    """
+    When in LIVE_MODE, wait for the running app and (optionally) Keycloak.
+    Prefer /healthz (faster), then fall back to /openapi.json.
+    Controlled by env:
+      TEST_HEALTHZ_TIMEOUT (default 60)
+      TEST_HEALTHZ_INTERVAL (default 0.5)
+    """
     if not LIVE_MODE:
         return
-    _wait_for(f"{LIVE_BASE}/openapi.json", timeout=40)
+    timeout = float(os.getenv("TEST_HEALTHZ_TIMEOUT", "60"))
+    interval = float(os.getenv("TEST_HEALTHZ_INTERVAL", "0.5"))
+
+    # First try /healthz (if present)
+    try:
+        _wait_for(f"{LIVE_BASE}/healthz", timeout=timeout, interval=interval)
+    except Exception:
+        _wait_for(f"{LIVE_BASE}/openapi.json", timeout=timeout, interval=interval)
+
     if REAL_AUTH:
         iss = _issuer()
         if iss:
-            _wait_for(f"{iss}/.well-known/openid-configuration", timeout=40)
+            _wait_for(f"{iss}/.well-known/openid-configuration", timeout=timeout, interval=interval)
+
 
 # ==============================================================
 # Live-mode auth fixtures (real Keycloak only when INTEGRATION_AUTH=1)
@@ -157,6 +202,73 @@ def keycloak_token() -> str:
 @pytest.fixture(scope="session")
 def auth_headers(keycloak_token) -> dict:
     return {"Authorization": f"Bearer {keycloak_token}", "Accept": "application/json"}
+
+
+# ==============================================================
+# Throttle + Retry (politeness under load)
+# ==============================================================
+
+# Tunables via env (no code changes later)
+_TEST_QPS = float(os.getenv("TEST_QPS", "5"))                   # requests per second (global)
+_TEST_MAX_INFLIGHT = int(os.getenv("TEST_MAX_INFLIGHT", "4"))   # concurrent in-flight requests
+_TEST_HTTP_MAX = int(os.getenv("TEST_HTTP_MAX", "20"))          # httpx connection pool size
+_TEST_PER_CASE_DELAY = float(os.getenv("TEST_PER_CASE_DELAY", "0.05"))  # seconds
+
+class _RateLimiter:
+    def __init__(self, qps: float, max_inflight: int):
+        self.min_interval = 1.0 / qps if qps > 0 else 0.0
+        self._next_ok_at = 0.0
+        self._lock = asyncio.Lock()
+        self._sema = asyncio.Semaphore(max_inflight)
+
+    async def __aenter__(self):
+        await self._sema.acquire()
+        async with self._lock:
+            now = asyncio.get_event_loop().time()
+            wait = max(0.0, self._next_ok_at - now)
+            if wait:
+                await asyncio.sleep(wait)
+            self._next_ok_at = asyncio.get_event_loop().time() + self.min_interval
+        return self
+
+    async def __aexit__(self, *exc):
+        self._sema.release()
+
+
+@pytest.fixture(scope="session")
+def request_limits():
+    return _RateLimiter(_TEST_QPS, _TEST_MAX_INFLIGHT)
+
+
+RETRY_STATUS = {429, 500, 502, 503, 504}
+
+async def _aget_with_retry(client: httpx.AsyncClient, url: str, **kw):
+    """
+    GET with retries/backoff on transient status codes and network hiccups.
+    Accepts optional kwargs:
+      retries (int), backoff_base (float), backoff_max (float)
+    """
+    retries = int(kw.pop("retries", 5))
+    base = float(kw.pop("backoff_base", 0.25))
+    max_backoff = float(kw.pop("backoff_max", 3.0))
+    for attempt in range(retries + 1):
+        try:
+            r = await client.get(url, **kw)
+            if r.status_code in RETRY_STATUS and attempt < retries:
+                await asyncio.sleep(min(max_backoff, base * (2 ** attempt)) + random.random() * 0.2)
+                continue
+            return r
+        except (httpx.ConnectError, httpx.ReadTimeout, httpx.RemoteProtocolError):
+            if attempt >= retries:
+                raise
+            await asyncio.sleep(min(max_backoff, base * (2 ** attempt)) + random.random() * 0.2)
+
+
+# A tiny yield per parametrized test to avoid stampedes
+@pytest.fixture(autouse=True)
+async def _polite_delay():
+    await asyncio.sleep(_TEST_PER_CASE_DELAY)
+
 
 # ==============================================================
 # Client fixture (live vs in-process)
@@ -212,6 +324,7 @@ async def client():
                 mod = __import__(mod_path, fromlist=[name])
                 dep = getattr(mod, name, None)
                 if dep is not None:
+                    # FastAPI dependency override
                     app.dependency_overrides[dep] = allow_all_security
                     overrides.append(dep)
             except Exception:
@@ -231,3 +344,52 @@ async def client():
 
     for dep in overrides:
         app.dependency_overrides.pop(dep, None)
+
+
+# ==============================================================
+# aget fixture: polite, retried GET for both live & in-process
+# ==============================================================
+
+@pytest.fixture
+async def aget(request_limits, base_url, client) -> Callable[[str], Awaitable[httpx.Response]]:
+    """
+    Usage in tests:
+        r = await aget("/api/work_orders", headers=auth_headers, timeout=12)
+    This wraps requests through a limiter and adds retries/backoff.
+
+    - In LIVE_MODE, uses a shared httpx.AsyncClient to talk to APP_BASE_URL.
+    - In in-process mode, reuses the AsyncClient created by the `client` fixture.
+    """
+    # Connection pool + timeout sane defaults
+    limits = httpx.Limits(max_connections=_TEST_HTTP_MAX, max_keepalive_connections=10)
+    timeout = httpx.Timeout(connect=5, read=20, write=10, pool=5)
+
+    live_client: Optional[httpx.AsyncClient] = None
+
+    if LIVE_MODE:
+        live_client = httpx.AsyncClient(base_url=base_url, limits=limits, timeout=timeout)
+
+    async def _call(path: str, **kw):
+        # Normalize to absolute URL or /relative under base_url
+        if path.startswith("http://") or path.startswith("https://"):
+            url = path
+        elif path.startswith("/"):
+            url = (base_url or "http://testserver") + path
+        else:
+            # treat as-is; tests often pass full URL already
+            url = path
+
+        async with request_limits:
+            if LIVE_MODE:
+                assert live_client is not None
+                return await _aget_with_retry(live_client, url, **kw)
+            else:
+                # 'client' is AsyncClient in in-process mode
+                assert isinstance(client, AsyncClient), "Expected AsyncClient in in-process mode"
+                return await _aget_with_retry(client, url, **kw)
+
+    try:
+        yield _call
+    finally:
+        if live_client is not None:
+            await live_client.aclose()

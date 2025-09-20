@@ -7,7 +7,7 @@ A tiny FastAPI app that validates Keycloak access tokens (via JWKS), exposes an 
 ## 1) Configure environment
 
 ```bash
-export KEYCLOAK_BASE_URL="http://localhost:8085"   # no trailing /auth
+export KEYCLOAK_BASE_URL="http://localhost:8080"   # no trailing /auth
 export KEYCLOAK_REALM="myrealm"
 export KEYCLOAK_CLIENT_ID="my-fastapi"
 export KEYCLOAK_CLIENT_SECRET="your-client-secret-if-confidential"

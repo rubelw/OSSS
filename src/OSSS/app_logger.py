@@ -1,24 +1,17 @@
 import logging, os
 
-LOG_FORMAT = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
 _DEFAULT_LEVEL = os.getenv("OSSS_LOG_LEVEL", "INFO").upper()
 
 def setup_logging():
-    # Configure root once
-    logging.basicConfig(level=getattr(logging, _DEFAULT_LEVEL, logging.INFO), format=LOG_FORMAT)
-
-    # Main app logger
+    """Library-friendly: do NOT touch root or add handlers.
+    Ensure 'OSSS' logger exists, set its level, add NullHandler to avoid warnings.
+    """
     logger = logging.getLogger("OSSS")
     logger.setLevel(getattr(logging, _DEFAULT_LEVEL, logging.INFO))
-
-    # Avoid duplicate console handlers
-    if not any(isinstance(h, logging.StreamHandler) for h in logger.handlers):
-        ch = logging.StreamHandler()
-        ch.setFormatter(logging.Formatter(LOG_FORMAT))
-        ch.setLevel(logger.level)
-        logger.addHandler(ch)
-
-    logger.propagate = False
+    if not any(isinstance(h, logging.NullHandler) for h in logger.handlers):
+        logger.addHandler(logging.NullHandler())
+    # IMPORTANT: allow propagation so dictConfig/root handler formats it as JSON
+    logger.propagate = True
     return logger
 
 def get_logger(name: str | None = None) -> logging.Logger:

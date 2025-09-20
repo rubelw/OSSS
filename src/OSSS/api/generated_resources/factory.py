@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.inspection import inspect as sa_inspect
 from sqlalchemy import select
 from sqlalchemy.sql.schema import MetaData as SAMetaData
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, OperationalError, DBAPIError
 
 from .factory_helpers import to_snake, pluralize_snake, resource_name_for_model
 from .serialization import to_dict
@@ -191,10 +191,18 @@ async def _db_get(db: Session | AsyncSession, model: Type[Any], item_id: Any):
 
 
 async def _db_execute_scalars_all(db: Session | AsyncSession, stmt):
-    if isinstance(db, AsyncSession):
-        res = await db.execute(stmt)
-        return res.scalars().all()
-    return db.execute(stmt).scalars().all()
+    try:
+        if isinstance(db, AsyncSession):
+            res = await db.execute(stmt)
+            return list(res.scalars().all())
+        # sync Session path
+        res = db.execute(stmt)
+        return list(res.scalars().all())
+    except (OperationalError, DBAPIError, OSError) as e:
+        # Connection refused / closed / broken pipe / etc. → surface as 503
+        # (SQLAlchemy typically wraps driver errors in OperationalError/DBAPIError)
+        raise HTTPException(status_code=503, detail="Database unavailable") from e
+
 
 
 async def _db_commit_refresh(db: Session | AsyncSession, obj: Any | None = None):

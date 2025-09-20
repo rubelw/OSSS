@@ -2,9 +2,9 @@
 set -eu
 
 # configurable basics
-ADMIN_USER="${KEYCLOAK_ADMIN:-admin}"
-ADMIN_PWD="${KEYCLOAK_ADMIN_PASSWORD:-admin}"
-KC_URL="http://localhost:8080"
+ADMIN_USER="${KEYCLOAK_ADMIN}"
+ADMIN_PWD="${KEYCLOAK_ADMIN_PASSWORD}"
+KC_URL="${KC_URL}"
 
 echo "▶️  Starting bootstrap Keycloak..."
 /opt/keycloak/bin/kc.sh start-dev --http-enabled=true --hostname-strict=false &

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # check_ports.sh
-# Finds apps running on ports 8081, 8085, or 3000
+# Finds apps running on ports 8081, 8080, or 3000
 
-PORTS=(8081 8085 3000)
+PORTS=(8081 8080 3000)
 
 echo "Checking ports: ${PORTS[*]}"
 

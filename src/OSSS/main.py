@@ -6,6 +6,10 @@ import socket
 import time
 import logging
 import httpx
+import json
+import pathlib
+import yaml
+import logging
 import logging.config
 import sqlalchemy as sa
 import inspect as _pyinspect
@@ -52,6 +56,7 @@ from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, Asyn
 
 from starlette.responses import JSONResponse
 from sqlalchemy.exc import IntegrityError
+from pythonjsonlogger import jsonlogger
 
 # If you might be on Postgres/asyncpg, these imports let us detect specific violation types
 try:
@@ -65,33 +70,56 @@ try:
 except Exception:  # pragma: no cover
     _HAS_ASYNCPG = False
 
+# --- BEGIN: verbose OIDC helpers imports ---
+from typing import Optional
+from urllib.parse import urljoin
+# --- END: verbose OIDC helpers imports ---
+
+
+
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
     "formatters": {
-        "uvicorn": {
-            "()": "uvicorn.logging.DefaultFormatter",
-            "fmt": "%(levelprefix)s %(name)s: %(message)s",
-            "use_colors": True,
-        }
+        "json": {
+            "()": "pythonjsonlogger.jsonlogger.JsonFormatter",
+            "fmt": "%(asctime)s %(levelname)s %(name)s %(message)s %(process)d %(thread)d %(module)s %(pathname)s",
+        },
     },
     "handlers": {
         "console": {
             "class": "logging.StreamHandler",
-            "formatter": "uvicorn",
+            "formatter": "json",
             "stream": "ext://sys.stdout",
         },
     },
     "loggers": {
-        "uvicorn":        {"handlers": ["console"], "level": "INFO"},
+        "":               {"handlers": ["console"], "level": "DEBUG"},
+        "uvicorn":        {"handlers": ["console"], "level": "DEBUG", "propagate": False},
         "uvicorn.error":  {"handlers": ["console"], "level": "INFO", "propagate": False},
         "uvicorn.access": {"handlers": ["console"], "level": "INFO", "propagate": False},
         "startup":        {"handlers": ["console"], "level": "DEBUG", "propagate": False},
+
+        # 👇 add these lines
+        "watchfiles":         {"handlers": ["console"], "level": "ERROR", "propagate": False},
+        "watchfiles.main":    {"handlers": ["console"], "level": "ERROR", "propagate": False},
+        "watchfiles.watcher": {"handlers": ["console"], "level": "ERROR", "propagate": False},
     },
 }
 
 logging.config.dictConfig(LOGGING)
+
+# must come immediately after dictConfig
+for _n in ("watchfiles", "watchfiles.main", "watchfiles.watcher"):
+    _lg = logging.getLogger(_n)
+    _lg.setLevel(100)      # higher than CRITICAL
+    _lg.propagate = False  # don't bubble to root
+    _lg.handlers.clear()   # no handlers = drop records
+
+
 log = logging.getLogger("main")
+
+
 
 # For Consul
 #CONSUL_HOST = os.getenv("CONSUL_HOST", "127.0.0.1")
@@ -270,6 +298,64 @@ async def record_tokens_to_session(store: RedisSession, sid: str, tok: dict, use
         mapping["email"] = user_email
     await _session_set_many(store, sid, mapping, ttl=SESSION_TTL_SECONDS)
 
+# -------- Verbose OIDC tracing (optional, guarded by OSSS_VERBOSE_AUTH=1) --------
+def _mask(s: Optional[str], show: int = 2) -> Optional[str]:
+    if not s:
+        return s
+    return s[:show] + "…" if len(s) > show else "…"
+
+def _env(name: str, default: Optional[str] = None) -> Optional[str]:
+    v = os.getenv(name, default)
+    return v if v and str(v).strip() != "" else default
+
+async def _probe_oidc_discovery_and_jwks(issuer: str, explicit_jwks: Optional[str] = None) -> None:
+    """
+    Best-effort probe: fetch discovery doc + JWKS and log a concise summary.
+    Never fails the app; purely diagnostic.
+    """
+    log = logging.getLogger("OSSS.auth")
+    disc_url = urljoin(issuer.rstrip("/") + "/", ".well-known/openid-configuration")
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            d = await client.get(disc_url)
+            log.debug("OIDC discovery GET %s -> %s", disc_url, d.status_code)
+            if d.status_code == 200:
+                disc = d.json()
+                jwks_uri = explicit_jwks or disc.get("jwks_uri")
+                token_endpoint = disc.get("token_endpoint")
+                auth_endpoint = disc.get("authorization_endpoint")
+                log.debug("OIDC discovery summary: issuer=%s token_endpoint=%s auth_endpoint=%s jwks_uri=%s",
+                          disc.get("issuer"), token_endpoint, auth_endpoint, jwks_uri)
+                if jwks_uri:
+                    j = await client.get(jwks_uri)
+                    log.debug("JWKS GET %s -> %s", jwks_uri, j.status_code)
+                    if j.status_code == 200:
+                        keys = j.json().get("keys", [])
+                        kids = [k.get("kid") for k in keys if isinstance(k, dict)]
+                        algs = list({k.get("alg") for k in keys if isinstance(k, dict) and k.get("alg")})
+                        log.debug("JWKS summary: %d keys kids=%s algs=%s", len(keys), kids, algs)
+            else:
+                log.warning("OIDC discovery failed: %s %s", d.status_code, d.text[:400])
+    except Exception as e:
+        log.warning("OIDC discovery/JWKS probe error: %s", e)
+
+def _enable_verbose_oidc_logging() -> None:
+    """
+    Crank up loggers commonly involved in OIDC and HTTP so we can see
+    token exchange, discovery, JWKS fetch, and validation details.
+    """
+    targets = [
+        "OSSS", "OSSS.auth", "OSSS.security", "main", "startup",
+        "fastapi", "starlette", "uvicorn", "uvicorn.error", "uvicorn.access",
+        "authlib", "oauthlib", "jose", "jwcrypto",
+        "httpx", "urllib3", "requests",
+    ]
+    for name in targets:
+        logging.getLogger(name).setLevel(logging.DEBUG)
+    # ensure uvicorn respects debug if launched without --log-level
+    os.environ.setdefault("UVICORN_LOG_LEVEL", "debug")
+    os.environ.setdefault("PYTHONLOGLEVEL", "DEBUG")
+    logging.getLogger("OSSS.auth").debug("Verbose OIDC logging enabled.")
 
 def create_app() -> FastAPI:
     # define a lifespan handler
@@ -399,6 +485,20 @@ def create_app() -> FastAPI:
                     await session.execute(sa.text("SELECT 1"))
             except Exception:
                 pass
+
+                # --- optional app-level OIDC tracing ---
+                if os.getenv("OSSS_VERBOSE_AUTH", "0") == "1":
+                    _enable_verbose_oidc_logging()
+                    issuer = _env("OIDC_ISSUER", "http://localhost:8080/realms/OSSS")
+                    jwks = _env("OIDC_JWKS_URL")
+                    client_id = _env("OIDC_CLIENT_ID", "osss-api")
+                    client_secret = _env("OIDC_CLIENT_SECRET")
+                    logging.getLogger("OSSS.auth").debug(
+                        "OIDC config: issuer=%s client_id=%s jwks=%s client_secret=%s",
+                        issuer, client_id, jwks, _mask(client_secret)
+                    )
+                    # fire and forget: discovery + JWKS summary
+                    await _probe_oidc_discovery_and_jwks(issuer, explicit_jwks=jwks)
 
         # Swagger OAuth init
         oauth_cfg = {
