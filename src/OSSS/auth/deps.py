@@ -4,9 +4,11 @@ import os, time, logging
 from typing import Any, Callable, Optional, Sequence
 
 import requests
+from requests import exceptions as req_exc
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt, JWTError, ExpiredSignatureError
+from urllib.parse import urlparse  # NEW
 
 # ⬇️ bring in session store + refresh + helpers
 from OSSS.sessions import (
@@ -19,15 +21,29 @@ from OSSS.app_logger import get_logger
 
 log = get_logger("auth.deps")
 
+# Try to use the same resolver as auth_flow (cached; no circular import there)
+try:
+    from OSSS.api.routers.auth_flow import _discover  # type: ignore
+except Exception:
+    _discover = None  # graceful fallback
+
 # ------------------------------------------------------------------------------
 # Config via environment
 # ------------------------------------------------------------------------------
-# IMPORTANT: Set OIDC_ISSUER to the EXACT issuer your tokens use
-# e.g. OIDC_ISSUER=http://host.docker.internal:8085/realms/OSSS
-OIDC_ISSUER       = os.getenv("OIDC_ISSUER") or os.getenv("KEYCLOAK_ISSUER")
-OIDC_CLIENT_ID    = os.getenv("OIDC_CLIENT_ID") or os.getenv("KEYCLOAK_CLIENT_ID") or "osss-api"
-OIDC_JWKS_URL     = os.getenv("OIDC_JWKS_URL") or (f"{OIDC_ISSUER}/protocol/openid-connect/certs" if OIDC_ISSUER else None)
+# IMPORTANT: Set OIDC_ISSUER to the EXACT issuer your tokens use (or rely on discovery)
+OIDC_ISSUER         = os.getenv("OIDC_ISSUER") or os.getenv("KEYCLOAK_ISSUER")
+OIDC_CLIENT_ID      = os.getenv("OIDC_CLIENT_ID") or os.getenv("KEYCLOAK_CLIENT_ID") or "osss-api"
+
+# Prefer an internal JWKS for container→KC calls
+OIDC_JWKS_URL_INTERNAL = os.getenv("OIDC_JWKS_URL_INTERNAL")  # e.g. http://keycloak:8080/realms/OSSS/protocol/openid-connect/certs
+OIDC_JWKS_URL_PUBLIC   = os.getenv("OIDC_JWKS_URL") or (f"{OIDC_ISSUER}/protocol/openid-connect/certs" if OIDC_ISSUER else None)
+
+# Internal discovery (used to derive an internal base when discovery/env advertises localhost)
+OIDC_DISCOVERY_URL_INTERNAL = os.getenv("OIDC_DISCOVERY_URL_INTERNAL")  # NEW
+
+# Verification toggles
 OIDC_VERIFY_AUD   = os.getenv("OIDC_VERIFY_AUD", "0") == "1"
+OIDC_VERIFY_ISS   = os.getenv("OIDC_VERIFY_ISS", "1") == "1"  # allow disabling in dev if issuer mismatch
 OIDC_LEEWAY_SEC   = int(os.getenv("OIDC_LEEWAY_SEC", "60"))
 AUTH_LOG_LEVEL    = os.getenv("OIDC_LOG_LEVEL", "INFO").upper()
 log.setLevel(getattr(logging, AUTH_LOG_LEVEL, logging.INFO))
@@ -38,18 +54,86 @@ JWT_SECRET         = os.getenv("JWT_SECRET")
 JWT_ALLOWED_ALGS   = [a.strip() for a in os.getenv("JWT_ALLOWED_ALGS", "RS256").split(",")]
 JWT_LEEWAY_SECONDS = int(os.getenv("JWT_LEEWAY_SECONDS", str(OIDC_LEEWAY_SEC)))
 
-# ---- Single source of truth for validation params (avoids drift) ----
-ISSUER   = OIDC_ISSUER                 # e.g. http://host.docker.internal:8085/realms/OSSS
-AUDIENCE = OIDC_CLIENT_ID              # e.g. osss-api
-JWKS_URL = OIDC_JWKS_URL               # derived above
+# ------------------------------------------------------------------------------
+# Helpers for localhost→internal remap  (NEW)
+# ------------------------------------------------------------------------------
+def _is_localhost_url(u: str | None) -> bool:
+    if not u:
+        return False
+    try:
+        p = urlparse(u)
+        return (p.hostname in ("localhost", "127.0.0.1"))
+    except Exception:
+        return False
 
-log.info(
-    "AUTH cfg: issuer=%r jwks_url=%r verify_aud=%s client_id=%r allowed_algs=%s leeway=%ss",
-    ISSUER, JWKS_URL, OIDC_VERIFY_AUD, AUDIENCE, JWT_ALLOWED_ALGS, JWT_LEEWAY_SECONDS
-)
+def _internal_realm_base_from_discovery() -> Optional[str]:
+    """
+    From e.g. http://keycloak:8080/realms/OSSS/.well-known/openid-configuration
+    derive:    http://keycloak:8080/realms/OSSS
+    """
+    if not OIDC_DISCOVERY_URL_INTERNAL:
+        return None
+    try:
+        return OIDC_DISCOVERY_URL_INTERNAL.split("/.well-known/")[0].rstrip("/")
+    except Exception:
+        return None
 
 # ------------------------------------------------------------------------------
-# JWKS cache
+# Endpoint resolution (prefers internal when possible)
+# ------------------------------------------------------------------------------
+def _resolve_from_discovery() -> dict[str, Any]:
+    if _discover is None:
+        return {}
+    try:
+        return _discover() or {}
+    except Exception as e:
+        log.debug("discovery resolver failed in deps: %s", e)
+        return {}
+
+def _resolve_issuer() -> Optional[str]:
+    """
+    IMPORTANT:
+    Prefer the explicit env (public/front) issuer so it exactly matches token `iss`.
+    Only fall back to discovery if env isn't set.
+    """
+    if OIDC_ISSUER:
+        return OIDC_ISSUER  # e.g. http://localhost:8080/realms/OSSS
+    disc = _resolve_from_discovery()
+    return disc.get("issuer")
+
+def _resolve_jwks_url() -> str:
+    """
+    Resolution order for JWKS:
+      1) OIDC_JWKS_URL_INTERNAL (explicit internal)  <-- prefer this for container→KC
+      2) discovery.jwks_uri
+      3) OIDC_JWKS_URL_PUBLIC (or issuer-derived)
+      4) last-resort internal default (keycloak:8080)
+    """
+    if OIDC_JWKS_URL_INTERNAL:
+        return OIDC_JWKS_URL_INTERNAL  # e.g. http://keycloak:8080/realms/OSSS/protocol/openid-connect/certs
+    disc = _resolve_from_discovery()
+    if disc.get("jwks_uri"):
+        return disc["jwks_uri"]
+    if OIDC_JWKS_URL_PUBLIC:
+        return OIDC_JWKS_URL_PUBLIC
+    iss = _resolve_issuer()
+    if iss:
+        return f"{iss.rstrip('/')}/protocol/openid-connect/certs"
+    return "http://keycloak:8080/realms/OSSS/protocol/openid-connect/certs"
+
+# ---- Single source of truth for validation params (exported for other modules) ----
+ISSUER   = _resolve_issuer()              # may come from discovery or env
+AUDIENCE = OIDC_CLIENT_ID
+JWKS_URL = _resolve_jwks_url()            # EFFECTIVE JWKS used by this module
+
+log.info(
+    "AUTH cfg: issuer=%r jwks_url=%r verify_iss=%s verify_aud=%s client_id=%r allowed_algs=%s leeway=%ss",
+    ISSUER, JWKS_URL, OIDC_VERIFY_ISS, OIDC_VERIFY_AUD, AUDIENCE, JWT_ALLOWED_ALGS, JWT_LEEWAY_SECONDS
+)
+log.info("AUTH effective JWKS URL: %s", JWKS_URL)  # NEW
+
+# ------------------------------------------------------------------------------
+# JWKS cache (with retry/backoff)
 # ------------------------------------------------------------------------------
 _JWKS_CACHE: dict[str, Any] = {}      # raw JWKS JSON: {"keys":[...]}
 _JWKS_BY_KID: dict[str, dict] = {}    # kid -> JWK dict
@@ -64,39 +148,52 @@ def _index_by_kid(data: dict[str, Any]) -> dict[str, dict]:
     return by_kid
 
 def _load_jwks(force: bool = False) -> dict:
-    """Load JWKS (with simple TTL) and index by kid."""
+    """Load JWKS (with simple TTL and retries) and index by kid."""
     global _JWKS_CACHE, _JWKS_BY_KID, _JWKS_EXP_AT
     now = time.time()
     if not force and _JWKS_CACHE and now < _JWKS_EXP_AT:
         log.debug("JWKS cache hit (expires in %.0fs)", _JWKS_EXP_AT - now)
         return _JWKS_CACHE
 
-    if not JWKS_URL:
-        log.warning("JWKS: JWKS_URL not set; token verification disabled.")
+    url = _resolve_jwks_url()
+    tries = 4
+    backoff = 0.25
+    for i in range(tries):
+        try:
+            log.debug("JWKS: fetching %s (try %d/%d)", url, i+1, tries)
+            resp = requests.get(url, timeout=5)
+            # Non-transient 4xx should fail fast
+            if 400 <= resp.status_code < 500:
+                resp.raise_for_status()
+            # Retry 5xx
+            if 500 <= resp.status_code < 600 and i < tries - 1:
+                time.sleep(backoff * (2**i))
+                continue
+            resp.raise_for_status()
+            data = resp.json()
+            _JWKS_CACHE = data
+            _JWKS_BY_KID = _index_by_kid(data)
+            _JWKS_EXP_AT = now + 300
+            log.info("JWKS: loaded %d key(s) kids=%s", len(data.get("keys", []) or []), sorted(list(_JWKS_BY_KID.keys())))
+            return data
+        except (req_exc.ConnectionError, req_exc.Timeout) as e:
+            if i == tries - 1:
+                log.error("JWKS fetch failed after retries from %s: %s", url, e)
+                break
+            time.sleep(backoff * (2**i))
+        except req_exc.HTTPError as e:
+            log.error("JWKS fetch HTTP error from %s: %s", url, e)
+            break
+        except Exception as e:
+            log.exception("JWKS fetch unexpected error from %s: %s", url, e)
+            break
+
+    # On failure, keep (or initialize) an empty cache with short backoff
+    if not _JWKS_CACHE:
         _JWKS_CACHE = {"keys": []}
         _JWKS_BY_KID = {}
-        _JWKS_EXP_AT = now + 300
-        return _JWKS_CACHE
-
-    try:
-        log.debug("JWKS: fetching %s", JWKS_URL)
-        resp = requests.get(JWKS_URL, timeout=5)
-        resp.raise_for_status()
-        data = resp.json()
-        _JWKS_CACHE = data
-        _JWKS_BY_KID = _index_by_kid(data)
-        _JWKS_EXP_AT = now + 300
-        log.info("JWKS: loaded %d key(s) kids=%s",
-                 len(data.get("keys", [])),
-                 sorted(list(_JWKS_BY_KID.keys())))
-        return data
-    except Exception as e:
-        log.exception("JWKS fetch failed: %s", e)
-        if not _JWKS_CACHE:
-            _JWKS_CACHE = {"keys": []}
-            _JWKS_BY_KID = {}
-        _JWKS_EXP_AT = now + 60   # short backoff
-        return _JWKS_CACHE
+    _JWKS_EXP_AT = now + 60
+    return _JWKS_CACHE
 
 # Prime cache (non-fatal on failure)
 try:
@@ -121,8 +218,7 @@ def _get_jwk_by_kid(kid: Optional[str], *, refresh_on_miss: bool = True) -> Opti
         jwk = _JWKS_BY_KID.get(kid)
         if jwk:
             return jwk
-        log.warning("JWKS: key still not found for kid=%r; available kids=%s",
-                    kid, sorted(list(_JWKS_BY_KID.keys())))
+        log.warning("JWKS: key still not found for kid=%r; available kids=%s", kid, sorted(list(_JWKS_BY_KID.keys())))
     return None
 
 # ------------------------------------------------------------------------------
@@ -152,12 +248,22 @@ def verify_with_auto_refresh(token: str) -> dict:
     if alg not in JWT_ALLOWED_ALGS:
         raise AuthError(f"Unsupported token algorithm: {alg}")
 
+    # Resolve effective issuer at call time (in case discovery/env changed)
+    issuer_eff = _resolve_issuer()  # may be the env 8080 URL now
+    jwks_eff = _resolve_jwks_url()  # likely keycloak:8080
+
     opts = {
         "verify_aud": OIDC_VERIFY_AUD,
         "verify_exp": True,
-        "verify_iss": bool(ISSUER),
+        "verify_iss": bool(issuer_eff) and OIDC_VERIFY_ISS,
         "leeway": JWT_LEEWAY_SECONDS,
     }
+
+    audience = AUDIENCE if OIDC_VERIFY_AUD else None
+    issuer = issuer_eff if (bool(issuer_eff) and OIDC_VERIFY_ISS) else None
+
+    log.debug("JWT verify opts: verify_iss=%s issuer=%r verify_aud=%s audience=%r jwks=%r",
+              opts["verify_iss"], issuer, opts["verify_aud"], audience, jwks_eff)
 
     # HS path
     if alg.startswith("HS"):
@@ -169,11 +275,10 @@ def verify_with_auto_refresh(token: str) -> dict:
                 JWT_SECRET,
                 algorithms=[alg],
                 options=opts,
-                issuer=ISSUER if ISSUER else None,
-                audience=AUDIENCE if OIDC_VERIFY_AUD else None,
+                issuer=issuer,
+                audience=audience,
             )
-            log.debug("JWT payload ok (HS): iss=%s sub=%s exp=%s",
-                      claims.get("iss"), claims.get("sub"), claims.get("exp"))
+            log.debug("JWT payload ok (HS): iss=%s sub=%s exp=%s", claims.get("iss"), claims.get("sub"), claims.get("exp"))
             return claims
         except ExpiredSignatureError:
             raise AuthError("Token expired")
@@ -191,8 +296,8 @@ def verify_with_auto_refresh(token: str) -> dict:
             jwk,  # python-jose accepts JWK dict
             algorithms=[alg],
             options=opts,
-            issuer=ISSUER if ISSUER else None,
-            audience=AUDIENCE if OIDC_VERIFY_AUD else None,
+            issuer=issuer,
+            audience=audience,
         )
         log.debug("JWT payload ok (RS): iss=%s sub=%s exp=%s aud=%s",
                   claims.get("iss"), claims.get("sub"), claims.get("exp"), claims.get("aud"))
@@ -203,17 +308,13 @@ def verify_with_auto_refresh(token: str) -> dict:
         # Log a hint if this may be an issuer mismatch
         try:
             unverified = jwt.get_unverified_claims(token)
-            log.warning("JWTError: %s (unverified iss=%r, expected=%r)",
-                        e, unverified.get("iss"), ISSUER)
+            log.warning("JWTError: %s (unverified iss=%r, expected=%r)", e, unverified.get("iss"), issuer_eff)
         except Exception:
             log.warning("JWTError: %s (could not read unverified claims)", e)
         raise AuthError(f"Invalid token (RS): {e}")
 
-
 def _decode_jwt(token: str) -> dict:
-    """
-    Backward-compatible wrapper that delegates to verify_with_auto_refresh().
-    """
+    """Backward-compatible wrapper that delegates to verify_with_auto_refresh()."""
     return verify_with_auto_refresh(token)
 
 # ------------------------------------------------------------------------------

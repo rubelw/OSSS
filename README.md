@@ -59,6 +59,24 @@ When Artificial General Intelligence (AGI) starts to emerge—potentially by 203
 I’m building the next generation of school software as an open, participatory project. Administrators, staff, students, and families will be able to propose enhancements, contribute code, and ship improvements together—so the platform keeps pace with classroom needs and policy changes.
 
 ---
+# Minimum System Requirements
+
+- **OS:** Linux or macOS (Windows via Docker Desktop + WSL2)
+- **CPU:** 4 cores (minimum), 8 cores recommended (Elasticsearch + Keycloak + dev servers)
+- **RAM:** 12 GB usable for Docker (minimum), 16 GB+ recommended
+- **Disk free:** ~50–60 GB (images + ES/Kibana data + two Postgres volumes)
+- **Docker:** Engine 24+ with Compose v2; cgroup v2 enabled on modern Linux
+- **Ports:**  
+  - 8081 (API)  
+  - 3000 (web)  
+  - 8080 (Keycloak)  
+  - 5433/5434 (Postgres)  
+  - 5601 (Kibana)  
+  - 9200 (Elasticsearch)  
+  - 8200 (Vault)  
+  - 8500 (Consul)
+  - 
+---
 
 ## 📖 Documentation Quick Start
 
@@ -84,11 +102,13 @@ source .venv/bin/activate
 # to run the cli
 osss <TAB>
 
-# Keycloak http://localhost:8085 with username 'admin' and password 'admin'
+# Keycloak http://localhost:8080 with username 'admin' and password 'admin'
 # FastApi  http://localhost:8081/docs# username 'activities_director@osss.local' and password 'password'
 # Web: http://localhost:3000 username 'activities_director@osss.local' and password 'password'
 # Vault: http://localhost:8200 username 'chief_technology_officer@osss.local and password 'password'
 # Consul: http://localhost:8500
+# Kibana: http://localhost:5601
+# ElasticSearch: http://localhost:9200
 ```
 
 Build the static site to `./documentation/`:

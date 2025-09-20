@@ -711,16 +711,17 @@ class RealmBuilder:
         return self
 
     # --- groups ---
+    # --- groups ---
 
     def add_group(
-        self,
-        name: str,
-        *,
-        path: Optional[str] = None,
-        realm_roles: Optional[List[str]] = None,
-        client_roles: Optional[Dict[str, List[str]]] = None,
-        attributes: Optional[Dict[str, List[str]]] = None,
-        subgroups: Optional[List[GroupRepresentation]] = None,
+            self,
+            name: str,
+            *,
+            path: Optional[str] = None,
+            realm_roles: Optional[List[str]] = None,
+            client_roles: Optional[Dict[str, List[str]]] = None,
+            attributes: Optional[Dict[str, List[str]]] = None,
+            subgroups: Optional[List[GroupRepresentation]] = None,
     ) -> "RealmBuilder":
         self.realm.groups.append(
             GroupRepresentation(
@@ -947,9 +948,6 @@ class RealmBuilder:
             required_actions: Optional[List[str]] = None,
             totp: Optional[bool] = None,  # convenience; maps to CONFIGURE_TOTP
     ) -> "RealmBuilder":
-
-        LOG.info("add_user: "+str(username))
-
         # start from caller-provided required actions
         req = list(required_actions or [])
 
@@ -1002,7 +1000,6 @@ class RealmBuilder:
             password: Optional[str] = None,
             temporary_password: bool = False,
             password_field: str = "password",
-            realm_roles: Optional[List[str]] = None,
     ) -> "RealmBuilder":
         """
         - Add a user for each position in 'positions'.
@@ -1050,14 +1047,18 @@ class RealmBuilder:
                 raw_consul_admin = seg(pos.get("consul_admin"))
                 raw_consul_user = seg(pos.get("consul_user"))
 
-                # Build extra groups from flags
+                # Use PLURAL group names to match Vault's bound_claims
                 extra_groups = []
+
                 if raw_vault_admin == "true":
-                    extra_groups.append("vault-admin")
+                    extra_groups.append("vault-admins")
+
                 if raw_vault_user == "true":
-                    extra_groups.append("vault-user")
+                    extra_groups.append("vault-users")
+
                 if raw_consul_admin == "true":
                     extra_groups.append("consul-admin")
+
                 if raw_consul_user == "true":
                     extra_groups.append("consul-user")
 
@@ -1067,6 +1068,7 @@ class RealmBuilder:
                 # Optionally ensure the groups exist first (uncomment if needed)
                 for gp in extra_group_paths:
                     self.ensure_group_path(gp)
+
 
 
                 # Groups use the full position name (with prefix) so paths match your group tree
@@ -1091,19 +1093,19 @@ class RealmBuilder:
                 if include_description_attribute and pos.get("description"):
                     attrs["position_description"] = [pos["description"]]
 
-
+                groups_for_user = [path, *extra_group_paths] if extra_group_paths else [path]
 
                 self.add_user(
                     username=uname,
                     email=email,
                     first_name=first or None,
                     last_name=last or None,
-                    groups=[path, *extra_group_paths],
+                    # Include both the position path AND the plural top-level group(s)
+                    groups=groups_for_user,
                     attributes=attrs,
                     enabled=True,
                     email_verified=False,
                     password=pw,
-                    realm_roles=(realm_roles or []),
                     temporary_password=temporary_password,
                 )
                 LOG.debug(
@@ -1129,7 +1131,6 @@ class RealmBuilder:
                 if include_description_attribute and node.get("description"):
                     attrs["unit_description"] = [node["description"]]
 
-
                 self.add_user(
                     username=uname,
                     email=email,
@@ -1140,7 +1141,6 @@ class RealmBuilder:
                     enabled=True,
                     email_verified=False,
                     password=pw,
-                    realm_roles=(realm_roles or []),
                     temporary_password=temporary_password,
                 )
                 LOG.debug(
@@ -1228,7 +1228,6 @@ class RealmBuilder:
             password: Optional[str] = None,  # NEW
             temporary_password: bool = False,  # NEW
             password_field: str = "password",  # NEW
-            realm_roles: Optional[List[str]] = None,
             encoding: str = "utf-8",
     ) -> "RealmBuilder":
         import json as _json
@@ -1242,7 +1241,6 @@ class RealmBuilder:
             password=password,
             temporary_password=temporary_password,
             password_field=password_field,
-            realm_roles=(realm_roles or [])
         )
 
     # --- client scopes ---
@@ -1357,10 +1355,12 @@ if __name__ == "__main__":
 
 
     # --- Realm roles ---
+    rb.add_realm_role("vault-users", "Standard Vault users", composite=False)
+    rb.add_realm_role("vault-admins", "Administrators for Vault", composite=False)
+
+
     rb.add_realm_role("offline_access", "Offline Access", composite=False)
     rb.add_realm_role("uma_authorization", "UMA Authorization", composite=False)
-    rb.add_realm_role("vault-user", "Standard Vault users", composite=False)
-    rb.add_realm_role("vault-admin", "Administrators for Vault", composite=False)
 
 
     if not args.skip_email_scope:
@@ -1439,8 +1439,8 @@ if __name__ == "__main__":
             "display.on.consent.screen": "false",
             "saml.onetimeuse.condition": "false",
         },
-        default_client_scopes=["roles", "profile", "email", "osss-api-roles"],
-        optional_client_scopes=["address", "offline_access"],
+        default_client_scopes=["roles", "profile", "email", "osss-api-roles","osss-api-audience"],
+        optional_client_scopes=[ "offline_access"],
         authorization_settings={
             "allowRemoteResourceManagement": True,
             "policyEnforcementMode": "ENFORCING",
@@ -1486,7 +1486,7 @@ if __name__ == "__main__":
             "osss-api-audience",
             "osss-api-roles"
         ],
-        optional_client_scopes=["address", "offline_access"],
+        optional_client_scopes=[ "offline_access"],
         protocol_mappers=[
             ProtocolMapperRepresentation(
                 name="username",
@@ -1519,7 +1519,7 @@ if __name__ == "__main__":
         enabled=True,
         full_scope_allowed=True,
         default_client_scopes=["roles", "profile", "email", "roles"],
-        optional_client_scopes=["address", "offline_access"],
+        optional_client_scopes=[ "offline_access"],
         authorization_services_enabled=True,
         attributes={
             "id.token.as.detached.signature": "false",
@@ -1582,13 +1582,44 @@ if __name__ == "__main__":
         authorization_services_enabled=True,
         secret="password",
         attributes={"post.logout.redirect.uris": "+", "oidc.cida.grant.enabled": "false"},
-        default_client_scopes=["profile", "email","groups-claim"],
+        default_client_scopes=["profile", "email", "groups-claim"],
         optional_client_scopes=["roles", "web-origins", "address", "phone", "offline_access"],
     )
 
     # --- Client scopes (define explicit mappers so tokens contain claims) ---
 
+    rb.add_group(
+        name="vault-users",
+        realm_roles=["vault-users"]
+    )
 
+    rb.add_group(
+        name="vault-admins",
+        realm_roles=["vault-admins"]
+    )
+
+    # Groups scope: emit `groups` in ID/access/userinfo (Vault expects this)
+    rb.add_client_scope(
+        name="groups-claim",
+        description="Adds 'groups' claim into ID, access, and userinfo tokens",
+        protocol="openid-connect",
+        attributes={"include.in.token.scope": "true"},
+        protocol_mappers=[
+            ProtocolMapperRepresentation(
+                name="groups",
+                protocol="openid-connect",
+                protocolMapper="oidc-group-membership-mapper",
+                consentRequired=False,
+                config={
+                    "full.path": "false",
+                    "id.token.claim": "true",
+                    "access.token.claim": "true",
+                    "userinfo.token.claim": "true",
+                    "claim.name": "groups"
+                },
+            )
+        ],
+    )
 
     # Add a client scope that injects aud=osss-api into access tokens
     rb.add_client_scope(
@@ -1657,42 +1688,6 @@ if __name__ == "__main__":
             ),
         ],
     )
-
-    rb.add_group(
-        name="vault-users",
-        realm_roles=["vault-user"]
-    )
-
-    rb.add_group(
-        name="vault-admins",
-        realm_roles=["vault-admin"]
-    )
-
-    # Groups scope: emit `groups` in ID/access/userinfo (Vault expects this)
-    rb.add_client_scope(
-        name="groups-claim",
-        description="Adds 'groups' claim into ID, access, and userinfo tokens",
-        protocol="openid-connect",
-        attributes={"include.in.token.scope": "true"},
-        protocol_mappers=[
-            ProtocolMapperRepresentation(
-                name="groups",
-                protocol="openid-connect",
-                protocolMapper="oidc-group-membership-mapper",
-                consentRequired=False,
-                config={
-                    "full.path": "false",
-                    "id.token.claim": "true",
-                    "access.token.claim": "true",
-                    "userinfo.token.claim": "true",
-                    "claim.name": "groups"
-                },
-            )
-        ],
-    )
-
-
-
 
     rb.add_client_role("osss-api", "api.user", description="Baseline access to OSSS API")
     rb.add_client_role("osss-api", "api.admin", description="Administrative access to OSSS API")
@@ -1769,7 +1764,6 @@ if __name__ == "__main__":
     path = Path("RBAC.json")  # replace with your file
     with path.open("r", encoding="utf-8") as f:
         organizational_structure = json.load(f)  # dict or list
-
 
     rb.add_groups_from_hierarchy(organizational_structure, role_client_id="osss-api")
 

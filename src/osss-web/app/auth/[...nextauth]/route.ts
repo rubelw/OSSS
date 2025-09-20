@@ -7,7 +7,7 @@ export const authOptions = {
     Keycloak({
       clientId: process.env.KEYCLOAK_CLIENT_ID!,        // e.g. "osss-web"
       clientSecret: process.env.KEYCLOAK_CLIENT_SECRET!, // from Keycloak client credentials
-      issuer: process.env.KEYCLOAK_ISSUER!,              // e.g. "http://localhost:8085/realms/OSSS"
+      issuer: process.env.KEYCLOAK_ISSUER!,              // e.g. "http://localhost:8080/realms/OSSS"
     }),
   ],
   // (optional) customize session/jwt/callbacks here
