@@ -5,6 +5,7 @@
 # - Builds menu entries only for present services
 # - Safe fallbacks when compose logs aren't available
 # - Persists default tail size in ~/.config/osss-compose-repair.conf
+# - NEW: Ensures a Python venv is active; offers to create .venv and install from pyproject.toml
 
 set -Eeuo pipefail
 
@@ -46,7 +47,8 @@ Options:
   -f FILE         Compose file path (default: ${COMPOSE_FILE})
   -r PROFILE      Compose profile to target (default: ${PROFILE})
 Environment:
-  ENV_FILE        Path to a .env file to load first (overrides ./\.env)
+  ENV_FILE                Path to a .env file to load first (overrides ./\.env)
+  OSSS_SKIP_VENV_CHECK    Set to 1 to skip the Python venv check
 EOF
   exit 0
 }
@@ -72,7 +74,609 @@ load_dotenv "${compose_dir%/}/.env"
 
 export COMPOSE_PROJECT_NAME="${PROJECT_DEFAULT}"
 
+# -------- Python venv helpers (NEW) --------
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# --- start only the 'keycloak' profile services ---
+KEYCLOAK_PROFILE="${KEYCLOAK_PROFILE:-keycloak}"
+
+# Start services under a profile; if profile not found, fall back to name-matching
+start_profile_with_fallback() {
+  local prof="$1"
+  # First: try proper profile discovery
+  mapfile -t svcs < <(compose_services_for_profile "$prof" || true)
+
+  if ((${#svcs[@]}==0)); then
+    echo "(no services discovered in profile '${prof}' for ${COMPOSE_FILE})"
+    echo "→ Available profiles: $(compose_profiles | tr '\n' ' ' || true)"
+    echo "→ Falling back to name match: services containing '${prof}'…"
+
+    # Fallback: pick services whose names contain the token (case-insensitive)
+    mapfile -t svcs < <(
+      compose_services_base | awk -v p="$prof" 'BEGIN{IGNORECASE=1} index($0,p)>0'
+    )
+    if ((${#svcs[@]}==0)); then
+      echo "(no services with names matching '${prof}')"
+      return 1
+    fi
+  fi
+
+  echo "▶️  Starting ${#svcs[@]} service(s): ${svcs[*]}"
+  if [[ "${BUILD_ALL:-0}" == "1" ]]; then
+    run $COMPOSE -f "$COMPOSE_FILE" up -d --build "${svcs[@]}"
+  else
+    run $COMPOSE -f "$COMPOSE_FILE" up -d "${svcs[@]}"
+  fi
+}
+
+# Start services strictly by service-name list (no --profile)
+start_services_by_name() {
+  local svcs=("$@")
+  ((${#svcs[@]})) || { echo "(no service names supplied)"; return 1; }
+  echo "▶️  Starting ${#svcs[@]} service(s) by name: ${svcs[*]}"
+  if [[ "${BUILD_ALL:-0}" == "1" ]]; then
+    run $COMPOSE -f "$COMPOSE_FILE" up -d --build "${svcs[@]}"
+  else
+    run $COMPOSE -f "$COMPOSE_FILE" up -d "${svcs[@]}"
+  fi
+}
+
+# Return 0 if any container name suggests the token is already running (SILENT)
+docker_has_container_like() {
+  local token="$1"
+  mapfile -t __ALL_NAMES < <(docker ps -a --format '{{.Names}}' 2>/dev/null || true)
+  ((${#__ALL_NAMES[@]})) || return 1
+  local n
+  for n in "${__ALL_NAMES[@]}"; do
+    [[ "$n" == "$token" ]] && return 0
+    if [[ "$n" =~ (^|[_-])${token}([_-][0-9]+)?$ ]]; then return 0; fi
+    [[ "$n" == *"$token"* ]] && return 0
+  done
+  return 1
+}
+
+
+# --- interactively 'down' a single compose profile (or ALL) ---
+down_profile_interactive() {
+  mapfile -t profs < <(compose_profiles || true)
+  if ((${#profs[@]}==0)); then
+    echo "(no profiles discovered in ${COMPOSE_FILE})"
+    return 1
+  fi
+
+  echo "Profiles in ${COMPOSE_FILE}:"
+  local i
+  for ((i=0;i<${#profs[@]};i++)); do
+    printf "  %2d) %s\n" "$((i+1))" "${profs[$i]}"
+  done
+  echo "  a) ALL (same as 'Down ALL')"
+  echo
+
+  local choice
+  read -rp "Choose a profile to tear down: " choice || return 1
+
+  case "$choice" in
+    a|A)
+      down_all
+      return
+      ;;
+    ''|*[!0-9]*)
+      # treat as a profile name typed directly
+      local prof="$choice"
+      if [[ -z "$prof" ]]; then
+        echo "No selection made."
+        return 1
+      fi
+      if ! printf '%s\n' "${profs[@]}" | grep -qx -- "$prof"; then
+        echo "Unknown profile: '$prof'"
+        return 1
+      fi
+      ;;
+    *)
+      # numeric selection
+      if (( choice < 1 || choice > ${#profs[@]} )); then
+        echo "Invalid number: ${choice}"
+        return 1
+      fi
+      prof="${profs[$((choice-1))]}"
+      ;;
+  esac
+
+  echo "▶️  Down (remove orphans & volumes) for profile '${prof}'…"
+  run $COMPOSE -f "$COMPOSE_FILE" --profile "$prof" down --remove-orphans --volumes || true
+}
+
+
+# --- generic starter for any compose profile ---
+start_profile_services() {
+  local prof="$1"
+  mapfile -t svcs < <(compose_services_for_profile "$prof" || true)
+  if ((${#svcs[@]}==0)); then
+    echo "(no services discovered in profile '${prof}' for ${COMPOSE_FILE})"
+    return 1
+  fi
+  echo "▶️  Starting ${#svcs[@]} service(s) in profile '${prof}': ${svcs[*]}"
+  if [[ "${BUILD_ALL:-0}" == "1" ]]; then
+    run $COMPOSE -f "$COMPOSE_FILE" --profile "$prof" up -d --build "${svcs[@]}"
+  else
+    run $COMPOSE -f "$COMPOSE_FILE" --profile "$prof" up -d "${svcs[@]}"
+  fi
+}
+
+# Start all services for one or more profiles (no discovery)
+start_profiles_blind() {
+  local args=( -f "$COMPOSE_FILE" )
+  for p in "$@"; do args+=( --profile "$p" ); done
+  echo "▶️  Starting services for profiles: $* …"
+  if [[ "${BUILD_ALL:-0}" == "1" ]]; then
+    run $COMPOSE "${args[@]}" up -d --build
+  else
+    run $COMPOSE "${args[@]}" up -d
+  fi
+}
+
+
+start_profile_app() {
+  local prof="app"
+  echo "▶️  Starting services for profile 'app' (and enabling 'keycloak' profile for config validation)…"
+  if [[ "${BUILD_ALL:-0}" == "1" ]]; then
+    run $COMPOSE -f "$COMPOSE_FILE" --profile "$prof" --profile keycloak up -d --no-deps --build
+  else
+    run $COMPOSE -f "$COMPOSE_FILE" --profile "$prof" --profile keycloak up -d --no-deps
+  fi
+}
+
+start_profile_app() {
+  local prof="app"
+  echo "▶️  Starting services for profile 'app' (and enabling 'keycloak' profile for config validation)…"
+  if [[ "${BUILD_ALL:-0}" == "1" ]]; then
+    run $COMPOSE -f "$COMPOSE_FILE" --profile "$prof" --profile keycloak up -d --no-deps --build
+  else
+    run $COMPOSE -f "$COMPOSE_FILE" --profile "$prof" --profile keycloak up -d --no-deps
+  fi
+}
+
+# Your compose shows 'elastic' (not 'elastics'):
+start_profile_elastic() {
+  local prof="elastic"
+  echo "▶️  Starting services for profile 'elastic' (and enabling 'keycloak' profile for config validation)…"
+  if [[ "${BUILD_ALL:-0}" == "1" ]]; then
+    run $COMPOSE -f "$COMPOSE_FILE" --profile "$prof" --profile elastic up -d --no-deps --build
+  else
+    run $COMPOSE -f "$COMPOSE_FILE" --profile "$prof" --profile elastic up -d --no-deps
+  fi
+}
+
+# Robust Keycloak starter:
+# 1) Try KEYCLOAK_PROFILE (default "keycloak")
+# 2) If none, start any service whose *service key* contains "keycloak"
+# 3) If still none, but a keycloak-ish container exists, just "up" by name "keycloak"
+start_keycloak_services() {
+  local prof="${KEYCLOAK_PROFILE:-keycloak}"
+
+  # Try the profile first
+  mapfile -t svcs < <(compose_services_for_profile "$prof" 2>/dev/null || true)
+  if ((${#svcs[@]})); then
+    echo "▶️  Starting ${#svcs[@]} service(s) in profile '${prof}': ${svcs[*]}"
+    if [[ "${BUILD_ALL:-0}" == "1" ]]; then
+      run $COMPOSE -f "$COMPOSE_FILE" --profile "$prof" up -d --no-deps --build "${svcs[@]}"
+    else
+      run $COMPOSE -f "$COMPOSE_FILE" --profile "$prof" up -d --no-deps "${svcs[@]}"
+    fi
+    return 0
+  fi
+
+  # No services under that profile → fall back to name match
+  echo "(no services discovered in profile '${prof}' for ${COMPOSE_FILE})"
+  echo "→ Available profiles: $(compose_profiles | tr '\n' ' ' || true)"
+  echo "→ Falling back to name match: services containing 'keycloak'…"
+
+  mapfile -t svcs < <(compose_services_base | awk 'BEGIN{IGNORECASE=1} index($0,"keycloak")>0')
+  if ((${#svcs[@]})); then
+    start_services_by_name "${svcs[@]}"
+    return 0
+  fi
+
+  # Final fallback: a container that already exists (compose prefixing etc.)
+  if docker_has_container_like "keycloak"; then
+    echo "ℹ️  A 'keycloak' container exists; attempting to start service 'keycloak' by name…"
+    start_services_by_name "keycloak" || true
+    return 0
+  fi
+
+  echo "⚠️  Couldn’t find a 'keycloak' profile or service key."
+  echo "   Services in this compose file are: $(compose_services_base | tr '\n' ' ')"
+  return 1
+}
+
+# Your compose shows 'vault' explicitly, so this will Just Work now:
+start_profile_vault() {
+  local prof="vault"
+  echo "▶️  Starting services for profile 'vault' (and enabling 'keycloak' profile for config validation)…"
+  if [[ "${BUILD_ALL:-0}" == "1" ]]; then
+    run $COMPOSE -f "$COMPOSE_FILE" --profile "$prof" --profile vault up -d --no-deps --build
+  else
+    run $COMPOSE -f "$COMPOSE_FILE" --profile "$prof" --profile vault up -d --no-deps
+  fi
+}
+
+# Your profiles list showed 'consol' (typo in compose?). Try both:
+start_profile_consul() {
+  local prof="consul"
+  echo "▶️  Starting services for profile 'consul' (and enabling 'keycloak' profile for config validation)…"
+  if [[ "${BUILD_ALL:-0}" == "1" ]]; then
+    run $COMPOSE -f "$COMPOSE_FILE" --profile "$prof" --profile consul up -d --no-deps --build
+  else
+    run $COMPOSE -f "$COMPOSE_FILE" --profile "$prof" --profile consul up -d --no-deps
+  fi
+}
+
+find_upwards() {
+  # find_upwards <filename> [start_dir]
+  local target="$1"
+  local dir="${2:-$PWD}"
+  while :; do
+    if [[ -e "$dir/$target" ]]; then
+      echo "$dir/$target"
+      return 0
+    fi
+    [[ "$dir" == "/" ]] && break
+    dir="$(dirname "$dir")"
+  done
+  return 1
+}
+
+ensure_python_cmd() {
+  if command -v python3 >/dev/null 2>&1; then
+    echo "python3"
+  elif command -v python >/dev/null 2>&1; then
+    echo "python"
+  else
+    echo "❌ Python is not installed or not on PATH." >&2
+    echo "   Please install Python 3.8+ and re-run this script." >&2
+    exit 1
+  fi
+}
+
+in_venv() {
+  # Detect venv via env var or python base_prefix comparison
+  if [[ -n "${VIRTUAL_ENV:-}" ]]; then
+    return 0
+  fi
+  local py; py="$(ensure_python_cmd)"
+  "$py" - <<'PY' >/dev/null 2>&1
+import sys
+sys.exit(0 if getattr(sys, "base_prefix", sys.prefix) != sys.prefix else 1)
+PY
+}
+
+install_from_pyproject() {
+  local proj_root="$1"
+  local py="$2"
+
+  echo "📦 Installing project dependencies from pyproject.toml in: $proj_root"
+  ( cd "$proj_root"
+    "$py" -m pip install --upgrade pip setuptools wheel
+    # Install the project, which installs [project] dependencies in pyproject.toml
+    # If you prefer editable installs for development, swap to: pip install -e .
+    "$py" -m pip install .
+  )
+}
+
+ensure_python_venv() {
+  # Skip if asked
+  if [[ "${OSSS_SKIP_VENV_CHECK:-0}" == "1" ]]; then
+    return 0
+  fi
+
+  # Only run once in a re-exec loop
+  if [[ "${OSSS_VENV_BOOTSTRAPPED:-0}" == "1" ]]; then
+    return 0
+  fi
+
+  # Look for a pyproject.toml near here or above
+  local pyproject
+  pyproject="$(find_upwards "pyproject.toml" "$script_dir" || true)"
+  if [[ -z "$pyproject" ]]; then
+    # No pyproject found; nothing to install, but still nudge about venv best practice
+    if ! in_venv; then
+      echo "ℹ️  No pyproject.toml found; skipping Python dependency install."
+      echo "    (Tip: create a venv and a pyproject.toml to manage tooling for this repo.)"
+    fi
+    return 0
+  fi
+
+  local proj_root; proj_root="$(dirname "$pyproject")"
+  local py; py="$(ensure_python_cmd)"
+
+  if in_venv; then
+    echo "✅ Python virtual environment detected."
+    return 0
+  fi
+
+  echo "⚠️  This script is not running inside a Python virtual environment."
+  echo "    Project detected at: $proj_root"
+  read -r -p "Create and use '$proj_root/.venv' and install packages from pyproject.toml? [Y/n] " ans || true
+  if [[ -z "${ans:-}" || "${ans:-}" =~ ^[Yy]$ ]]; then
+    # Create venv if missing
+    if [[ ! -d "$proj_root/.venv" ]]; then
+      echo "🧰 Creating virtual environment at $proj_root/.venv"
+      "$py" -m venv "$proj_root/.venv"
+    else
+      echo "♻️  Using existing virtual environment at $proj_root/.venv"
+    fi
+
+    # Activate venv for the current shell
+    # shellcheck disable=SC1091
+    source "$proj_root/.venv/bin/activate"
+
+    # Recompute python pointer (now inside venv)
+    py="python"
+
+    # Install deps from pyproject.toml
+    install_from_pyproject "$proj_root" "$py"
+
+    # Re-exec this script under the activated venv to ensure the rest of the run uses it.
+    echo "🔁 Restarting script inside the virtual environment…"
+    export OSSS_VENV_BOOTSTRAPPED=1
+    exec "$0" "$@"
+  else
+    echo "➡️  Continuing without a Python virtual environment."
+  fi
+}
+
+# Run the venv bootstrap early
+ensure_python_venv "$@"
+
 # -------- helpers --------
+
+# --- helpers: detect containers and build one-shot stub overlay ---
+
+# Return 0 if any Docker container name matches the service token.
+# We accept "exact", "<project>-<service>-N", or anything that contains the token
+docker_has_container_like() {
+  local token="$1"
+  # Load all container names once
+  mapfile -t __ALL_NAMES < <(docker ps -a --format '{{.Names}}' 2>/dev/null || true)
+  ((${#__ALL_NAMES[@]})) || return 1
+
+  local n
+  for n in "${__ALL_NAMES[@]}"; do
+    # exact match (when user set container_name: token)
+    [[ "$n" == "$token" ]] && return 0
+    # typical compose name: <project>_<service>_N or <project>-<service>-N
+    # allow either '_' or '-' as separators
+    if [[ "$n" =~ (^|[_-])${token}([_-][0-9]+)?$ ]]; then
+      return 0
+    fi
+    # looser fallback (contains token)
+    [[ "$n" == *"$token"* ]] && return 0
+  done
+  return 1
+}
+# Parse undefined services from compose stderr/stdout
+parse_undefined_services_from_stderr() {
+  sed -nE '
+    s/.*undefined service "([^"]+)".*/\1/p;
+    s/.*depends on undefined service "([^"]+)".*/\1/p
+  ' | sort -u
+}
+
+# Build one stub overlay for a list of names; print ONLY the file path to stdout.
+# Any informational text goes to stderr. Returns non-zero if nothing to stub.
+make_stub_overlay() {
+  local names=("$@")
+  local stubbed=() n
+  for n in "${names[@]}"; do
+    if docker_has_container_like "$n"; then
+      echo "ℹ️  Found running container for '${n}' — no stub needed." >&2
+      continue
+    fi
+    stubbed+=("$n")
+  done
+  ((${#stubbed[@]})) || return 1
+
+  local tmp
+  tmp="$(mktemp -t osss-stub-XXXXXX.yml)"
+
+  # NOTE: no "version:" key (Compose warns it is obsolete)
+  {
+    echo 'services:'
+    for n in "${stubbed[@]}"; do
+      cat <<YAML
+  ${n}:
+    image: busybox:latest
+    command: ["sh","-c","sleep 1"]
+    profiles: ["_stub"]    # never started implicitly
+    deploy:
+      replicas: 0
+YAML
+    done
+  } > "$tmp"
+
+  echo "$tmp"
+}
+
+make_stub_overlay_force() {
+  local names=("$@")
+  ((${#names[@]})) || return 1
+
+  local tmp
+  tmp="$(mktemp -t osss-stub-XXXXXX.yml)"
+
+  {
+    echo 'services:'
+    local n
+    for n in "${names[@]}"; do
+      cat <<YAML
+  ${n}:
+    image: busybox:latest
+    command: ["sh","-c","sleep 1"]
+    restart: "no"
+    labels:
+      osss.stub: "1"
+    deploy:
+      replicas: 0
+YAML
+    done
+  } > "$tmp"
+
+  echo "$tmp"
+}
+
+
+# Start a profile ignoring depends_on, auto-stubbing undefined services
+start_profile_no_deps() {
+  local prof="$1"
+  echo "▶️  Starting services for profile '${prof}' (ignoring depends_on; auto-stubbing undefined services)…"
+
+  local base_args=(-f "$COMPOSE_FILE" --profile "$prof" up -d --no-deps)
+  [[ "${BUILD_ALL:-0}" == "1" ]] && base_args=(-f "$COMPOSE_FILE" --profile "$prof" up -d --no-deps --build)
+
+  # First attempt (might fail validation)
+  run $COMPOSE "${base_args[@]}" || true
+
+  # Capture diagnostics
+  local err
+  err="$($COMPOSE "${base_args[@]}" 2>&1 >/dev/null || true)"
+  mapfile -t missing < <(printf '%s\n' "$err" | parse_undefined_services_from_stderr || true)
+
+  if ((${#missing[@]}==0)); then
+    return 0
+  fi
+
+  echo "⚠️  Compose references undefined services: ${missing[*]}"
+
+  # For depends_on validation, the service must EXIST in config.
+  # So we ALWAYS stub the missing names, even if a similarly named container is already running.
+  stub_file="$(make_stub_overlay_force "${missing[@]}")" 2>/dev/null || stub_file=""
+  if [[ -z "$stub_file" || ! -f "$stub_file" ]]; then
+    echo "❌ Couldn’t create stub overlay for required services: ${missing[*]}"
+    return 1
+  fi
+
+  echo "➕ Using stub overlay: $stub_file"
+
+  # IMPORTANT: real compose file FIRST, stub LAST (so stub only fills the holes)
+  if [[ "${BUILD_ALL:-0}" == "1" ]]; then
+    run $COMPOSE -f "$COMPOSE_FILE" -f "$stub_file" --profile "$prof" up -d --no-deps --build
+  else
+    run $COMPOSE -f "$COMPOSE_FILE" -f "$stub_file" --profile "$prof" up -d --no-deps
+  fi
+
+  # Optional: verify and cleanup
+  $COMPOSE -f "$COMPOSE_FILE" -f "$stub_file" --profile "$prof" config >/dev/null 2>&1 || true
+  rm -f "$stub_file" || true
+
+
+  echo "➕ Using stub overlay: $stub_file"
+
+  # IMPORTANT: put the real compose file FIRST, stub LAST
+  if [[ "${BUILD_ALL:-0}" == "1" ]]; then
+    run $COMPOSE -f "$COMPOSE_FILE" -f "$stub_file" --profile "$prof" up -d --no-deps --build
+  else
+    run $COMPOSE -f "$COMPOSE_FILE" -f "$stub_file" --profile "$prof" up -d --no-deps
+  fi
+
+  # Optional: sanity check if errors persist (and always clean up)
+  err="$($COMPOSE -f "$COMPOSE_FILE" -f "$stub_file" --profile "$prof" config >/dev/null 2>&1; echo $?)"
+  rm -f "$stub_file" || true
+
+}
+
+
+# Compose wrapper: run and capture stderr to a var name you pass
+run_compose_capture_stderr() {
+  # Usage: run_compose_capture_stderr VAR -- rest of compose args...
+  local -n __ERR="$1"; shift
+  __ERR=""
+  # Capture only stderr to preserve normal stdout behavior
+  # shellcheck disable=SC2034
+  local out
+  out="$("$COMPOSE" "$@" 2> >(cat >&2 | tee /dev/fd/3) 3>&1 )" || true
+  # Re-run but capture stderr properly (portable approach)
+  __ERR="$("$COMPOSE" "$@" 2>&1 >/dev/null || true)"
+}
+
+
+# Create a temporary override that defines a stub service (busybox sleeper)
+_make_stub_override() {
+  local missing="$1"
+  local tmpfile
+  tmpfile="$(mktemp -t osss-stub-XXXXXX.yml)"
+  cat >"$tmpfile" <<EOF
+services:
+  ${missing}:
+    image: busybox
+    command: ["sh","-c","sleep infinity"]
+    profiles: ["_auto_stub"]
+EOF
+  echo "$tmpfile"
+}
+
+# Run `up -d --no-deps` for a profile; if validation fails due to an undefined
+# depends_on target, auto-stub it and retry once (loop supports multiple misses).
+# Run `up -d --no-deps` for a profile; if validation fails due to an undefined
+# depends_on target, auto-stub it and retry up to 5 missing names. Uses a temp log
+# file so the call returns promptly, then parses/logs after.
+_compose_up_profile_ignoring_dep_validation() {
+  local prof="$1"; shift
+  local extra_files=()
+  local attempt=0
+
+  while (( attempt < 5 )); do
+    attempt=$((attempt+1))
+
+    # Build command with any extra override files we’ve added
+    local cmd=( $COMPOSE )
+    for f in "${extra_files[@]}"; do cmd+=( -f "$f" ); done
+    cmd+=( -f "$COMPOSE_FILE" --profile "$prof" )
+    if [[ "${BUILD_ALL:-0}" == "1" ]]; then
+      cmd+=( up -d --build --no-deps )
+    else
+      cmd+=( up -d --no-deps )
+    fi
+
+    echo "+ ${cmd[*]}"
+
+    # Run -> temp log (avoid giant in-memory captures / buffering)
+    local tmp_log rc out
+    tmp_log="$(mktemp -t osss-up-XXXXXX.log)"
+    set +e
+    "${cmd[@]}" >"$tmp_log" 2>&1
+    rc=$?
+    set -e
+    out="$(cat "$tmp_log")"
+    rm -f "$tmp_log" || true
+
+    if (( rc == 0 )); then
+      [[ -n "$out" ]] && echo "$out"
+      # cleanup temp files on success
+      for f in "${extra_files[@]}"; do rm -f "$f" || true; done
+      return 0
+    fi
+
+    # Look for "depends on undefined service "NAME""
+    if [[ "$out" =~ depends\ on\ undefined\ service\ \"([^\"]+)\" ]]; then
+      local missing="${BASH_REMATCH[1]}"
+      echo "⚠️  Compose references undefined service '${missing}'. Creating stub override and retrying…"
+      local stub="$(_make_stub_override "$missing")"
+      extra_files+=( "$stub" )
+      continue
+    fi
+
+    # Any other error → print and fail
+    echo "$out"
+    for f in "${extra_files[@]}"; do rm -f "$f" || true; done
+    return "$rc"
+  done
+
+  echo "❌ Too many unresolved missing services while trying to start profile '${prof}'."
+  for f in "${extra_files[@]}"; do rm -f "$f" || true; done
+  return 1
+}
+
+
 
 down_all() {
   echo "▶️  Down ALL profiles for project '${COMPOSE_PROJECT_NAME}' (remove orphans & volumes)…"
@@ -180,7 +784,6 @@ compose_services_for_profile() {
     ' "$COMPOSE_FILE" | sed '/^\s*$/d' | sort -u
   fi
 }
-
 
 rebuild_all_services() {
   # Discover all profiles and services
@@ -765,26 +1368,41 @@ menu() {
     echo " File: ${COMPOSE_FILE}   Profile: ${PROFILE}"
     echo " Services: ${#SERVICES[@]}"
     echo "==============================================="
-    echo " 1) Start all services"
-    echo " 2) Down ALL (remove-orphans, volumes)"
-    echo " 3) Remove leftover containers for project"
-    echo " 4) Prune dangling networks"
-    echo " 5) Logs submenu"
-    echo " 6) Rebuild ALL services (no cache)"
+    echo " 1) Start profile 'keycloak'"
+    echo " 2) Start profile 'app'"
+    echo " 3) Start profile 'web-app'"
+    echo " 4) Start profile 'elastics'"
+    echo " 5) Start profile 'vault'"
+    echo " 6) Start profile 'consul'"
+    echo " 7) Start ALL services"
+    echo " 8) Down a profile (remove-orphans, volumes)"
+    echo " 9) Down ALL (remove-orphans, volumes)"
+    echo "10) Remove leftover containers for project"
+    echo "11) Prune dangling networks"
+    echo "12) Logs submenu"
+    echo "13) Rebuild ALL services (no cache)"
     echo "  q) Quit"
     echo "-----------------------------------------------"
     read -rp "Select an option: " ans || exit 0
     case "${ans}" in
-      1)  start_all_services ;;
-      2)  down_all ;;
-      3)  kill_leftovers ;;
-      4)  prune_networks ;;
-      5)  logs_menu ;;
-      6)  rebuild_all_services ;;
+      1)  start_keycloak_services ;;
+      2)  start_profile_app ;;
+      3)  start_profile_web_app ;;
+      4)  start_profile_elastics ;;
+      5)  start_profile_vault ;;
+      6)  start_profile_consul ;;
+      7)  start_all_services ;;
+      8)  down_profile_interactive ;;
+      9)  down_all ;;
+      10) kill_leftovers ;;
+      11) prune_networks ;;
+      12) logs_menu ;;
+      13) rebuild_all_services ;;
       q|Q) echo "Bye!"; exit 0 ;;
       *) echo "Unknown choice: ${ans}" ;;
     esac
   done
 }
+
 
 menu
