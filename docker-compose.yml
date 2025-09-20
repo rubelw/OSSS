@@ -47,22 +47,13 @@ volumes:
 
 services:
 
-  shared-vol-init:
-    image: alpine:3.20
-    user: "0:0"
-    volumes: [ es-shared:/shared ]
-    entrypoint: [ "sh","-lc" ]
-    command: |
-      set -e
-      mkdir -p /shared
-      chmod 0777 /shared         # or 0770 with a shared group if you prefer
-    profiles: [ "app" ]
-    networks: [ osss-net ]
+
 
   # HashiCorp Consul (dev mode) — service discovery, DNS, UI
   consul:
     image: hashicorp/consul:1.18
-    profiles: ["app"]
+    profiles: ["consol"]
+    container_name: consul
     command: [ "agent","-dev","-client=0.0.0.0","-ui","-log-level=INFO" ]
     ports:
       - "8500:8500"          # HTTP UI/API
@@ -160,6 +151,7 @@ services:
   app:
     profiles: ["app"]
     networks: [ osss-net ]
+    container_name: app
     build:
       context: .
       dockerfile: docker/app/Dockerfile
@@ -297,8 +289,9 @@ services:
 
 
   web:
-    profiles: ["app"]
+    profiles: ["web-app"]
     networks: [ osss-net ]
+    container_name: web
     build:
       context: ./src/osss-web
       dockerfile: ../../docker/osss-web/Dockerfile
@@ -332,6 +325,7 @@ services:
   osss_postgres:
     image: postgres:16-alpine
     profiles: [ "app" ]
+    container_name: osss_postgres
     environment:
       # Primary bootstrap user for the cluster
       POSTGRES_USER: "${POSTGRES_USER}"
@@ -364,6 +358,7 @@ services:
   redis:
     image: redis:7-alpine
     profiles: ["app"]
+    container_name: redis
     command: [ "redis-server", "--appendonly", "yes" ]
     ports:
       - "6379:6379"        # optional for host access; containers use 'redis:6379'
@@ -380,6 +375,8 @@ services:
 
   kc_postgres:
     image: postgres:16
+    profiles: ["keycloak"]
+    container_name: kc_postgres
     environment:
       POSTGRES_DB: ${KC_DB_NAME}
       POSTGRES_USER: ${KC_DB_USERNAME}
@@ -400,6 +397,8 @@ services:
     build:
       context: .
       dockerfile: docker/keycloak/Dockerfile
+    profiles: ["keycloak"]
+    container_name: keycloak
     networks:
       osss-net:
         aliases: [ keycloak.local ]
@@ -475,9 +474,9 @@ services:
     #  context: .                      # repo root
     #  dockerfile: docker/vault/Dockerfile
     image: hashicorp/vault:1.20.3
-    profiles: ["app"]
-    pull_policy: always
     container_name: vault
+    profiles: ["vault"]
+    pull_policy: always
     ports: [ "8200:8200" ]
     cap_add: [ "IPC_LOCK" ]
     # ⬇️ Put Vault on the host network so `localhost:8080` is reachable
@@ -505,11 +504,11 @@ services:
     restart: unless-stopped
 
   vault-oidc-setup:
-    profiles: ["app"]
+    profiles: ["vault"]
+    container_name: vault-oidc-setup
     build:
       context: .                      # repo root
       dockerfile: docker/vault-oidc-setup/Dockerfile
-    container_name: vault-oidc-setup
     networks: [ osss-net ]
     depends_on:
       vault:
@@ -554,7 +553,8 @@ services:
 
   vault-seed:
     image: alpine:3.20
-    profiles: ["app"]
+    profiles: ["vault"]
+    container_name: vault-seed
     env_file: .env
     networks: [ osss-net ]
     environment:
@@ -573,9 +573,22 @@ services:
     restart: "no"
 
 
+  shared-vol-init:
+    image: alpine:3.20
+    user: "0:0"
+    volumes: [ es-shared:/shared ]
+    container_name: shared-vol-init
+    entrypoint: [ "sh","-lc" ]
+    command: |
+      set -e
+      mkdir -p /shared
+      chmod 0777 /shared         # or 0770 with a shared group if you prefer
+    profiles: [ "elastic" ]
+    networks: [ osss-net ]
+
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.14.3
-    profiles: ["app"]
+    profiles: ["elastic"]
     container_name: elasticsearch
     environment:
       - discovery.type=single-node
@@ -604,7 +617,8 @@ services:
   kibana-pass-init:
     image: curlimages/curl:8.8.0
     networks: [ osss-net ]
-    profiles: [ "app" ]
+    profiles: [ "elastic" ]
+    container_name: kibana-pass-init
     depends_on:
       elasticsearch:
         condition: service_healthy
@@ -651,7 +665,7 @@ services:
 
   kibana:
     image: docker.elastic.co/kibana/kibana:8.14.3
-    profiles: ["app"]
+    profiles: ["elastic"]
     container_name: kibana
     depends_on:
       elasticsearch:
@@ -680,7 +694,8 @@ services:
   api-key-init:
     image: curlimages/curl:8.8.0
     networks: [ osss-net ]
-    profiles: [ "app" ]
+    profiles: [ "elastic" ]
+    container_name: api-key-init
     user: "0:0"                 # <-- root
     environment:
       ELASTIC_PASSWORD: ${ELASTIC_PASSWORD}
@@ -741,7 +756,8 @@ services:
   filebeat-setup:
     image: docker.elastic.co/beats/filebeat:8.14.3
     networks: [ osss-net ]
-    profiles: ["app"]
+    profiles: ["elastic"]
+    container_name: filebeat-setup
     env_file:
       - .env
     depends_on:
@@ -781,7 +797,7 @@ services:
     image: docker.elastic.co/beats/filebeat:8.14.3
     container_name: filebeat
     networks: [ osss-net ]
-    profiles: [ "app" ]
+    profiles: [ "elastic" ]
     user: root
     env_file:
       - .env
