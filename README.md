@@ -59,6 +59,16 @@ When Artificial General Intelligence (AGI) starts to emerge—potentially by 203
 I’m building the next generation of school software as an open, participatory project. Administrators, staff, students, and families will be able to propose enhancements, contribute code, and ship improvements together—so the platform keeps pace with classroom needs and policy changes.
 
 ---
+# Development Environment Configuration
+```commandline
+docker-compose version 1.29.2, build 5becea4c
+docker-py version: 5.0.0
+CPython version: 3.9.0
+OpenSSL version: OpenSSL 1.1.1h  22 Sep 2020
+
+```
+
+---
 # Minimum System Requirements
 
 - **OS:** Linux or macOS (Windows via Docker Desktop + WSL2)
