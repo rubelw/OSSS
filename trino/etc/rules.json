@@ -1,0 +1,12 @@
+{
+  "catalogs": [
+    { "user": ".*", "group": "trino-users", "catalog": ".*", "allow": "read-only" },
+    { "user": ".*", "group": "trino-admins", "catalog": ".*", "allow": "all" }
+  ],
+  "system-information": [
+    { "user": ".*", "group": "trino-users", "allow": true }
+  ],
+  "query": [
+    { "user": ".*", "group": "trino-users", "allow": true }
+  ]
+}

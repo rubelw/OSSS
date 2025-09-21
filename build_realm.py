@@ -1046,6 +1046,14 @@ class RealmBuilder:
                 raw_vault_user = seg(pos.get("vault_user"))
                 raw_consul_admin = seg(pos.get("consul_admin"))
                 raw_consul_user = seg(pos.get("consul_user"))
+                raw_kibana_admin = seg(pos.get("kibana_admin"))
+                raw_kibana_user = seg(pos.get("kibana_user"))
+                raw_trino_admin = seg(pos.get("trino_admin"))
+                raw_trino_user = seg(pos.get("trino_user"))
+                raw_airflow_admin = seg(pos.get("airflow_admin"))
+                raw_airflow_user = seg(pos.get("airflow_user"))
+                raw_openmetadata_admin = seg(pos.get("openmetadata_admin"))
+                raw_openmetadata_user = seg(pos.get("openmetadata_user"))
 
                 # Use PLURAL group names to match Vault's bound_claims
                 extra_groups = []
@@ -1061,6 +1069,30 @@ class RealmBuilder:
 
                 if raw_consul_user == "true":
                     extra_groups.append("consul-user")
+
+                if raw_kibana_admin == "true":
+                    extra_groups.append("kibana-admin")
+
+                if raw_kibana_user == "true":
+                    extra_groups.append("kibana-user")
+
+                if raw_trino_admin == "true":
+                    extra_groups.append("trino-admin")
+
+                if raw_trino_user == "true":
+                    extra_groups.append("trino-user")
+
+                if raw_airflow_admin == "true":
+                    extra_groups.append("airflow-admin")
+
+                if raw_airflow_user == "true":
+                    extra_groups.append("airflow-user")
+
+                if raw_openmetadata_admin == "true":
+                    extra_groups.append("openmetadata-admin")
+
+                if raw_openmetadata_user == "true":
+                    extra_groups.append("openmetadata-user")
 
                 # Convert to root-level group paths (to match how `path` is passed)
                 extra_group_paths = [f"/{g}" for g in extra_groups]
@@ -1358,6 +1390,20 @@ if __name__ == "__main__":
     rb.add_realm_role("vault-users", "Standard Vault users", composite=False)
     rb.add_realm_role("vault-admins", "Administrators for Vault", composite=False)
 
+    rb.add_realm_role("kibana-users", "Standard Kibana users", composite=False)
+    rb.add_realm_role("kibana-admins", "Administrators for Kibana", composite=False)
+
+    rb.add_realm_role("trino-users", "Standard Trino users", composite=False)
+    rb.add_realm_role("trino-admins", "Administrators for Trino", composite=False)
+
+    rb.add_realm_role("airflow-users", "Standard Airflow users", composite=False)
+    rb.add_realm_role("airflow-admins", "Administrators for Airflow", composite=False)
+
+    rb.add_realm_role("openmetadata-users", "Standard Openmetadata users", composite=False)
+    rb.add_realm_role("openmetadata-admins", "Administrators for Openmetadata", composite=False)
+
+
+
 
     rb.add_realm_role("offline_access", "Offline Access", composite=False)
     rb.add_realm_role("uma_authorization", "UMA Authorization", composite=False)
@@ -1586,6 +1632,88 @@ if __name__ == "__main__":
         optional_client_scopes=["roles", "web-origins", "address", "phone", "offline_access"],
     )
 
+    # Kibana
+    rb.add_client(
+        client_id="kibana",
+        name="kibana",
+        redirect_uris=["http://localhost:5601/api/security/oidc/callback",
+                       "http://127.0.0.1:5601/api/security/oidc/callback",
+                       "http://kibana:5601/api/security/oidc/callback"],
+        protocol="openid-connect",
+        web_origins=["+"],
+        enabled=True,
+        public_client=False,
+        direct_access_grants_enabled=False,
+        service_accounts_enabled=False,
+        standard_flow_enabled=True,
+        client_authenticator_type="client-secret",
+        authorization_services_enabled=True,
+        secret="password",
+        attributes={"post.logout.redirect.uris": "+", "oidc.cida.grant.enabled": "false"},
+        default_client_scopes=["profile", "email", "groups-claim"],
+        optional_client_scopes=["roles", "web-origins", "address", "phone", "offline_access"],
+    )
+
+    rb.add_client(
+        client_id="trino",
+        name="trino",
+        redirect_uris=["https://trino.local:8444/oauth2/callback",
+                       "https://localhost:8444/oauth2/callback"],
+        protocol="openid-connect",
+        web_origins=["+"],
+        enabled=True,
+        public_client=False,
+        direct_access_grants_enabled=False,
+        service_accounts_enabled=False,
+        standard_flow_enabled=True,
+        client_authenticator_type="client-secret",
+        authorization_services_enabled=True,
+        secret="password",
+        attributes={"post.logout.redirect.uris": "+", "oidc.cida.grant.enabled": "false"},
+        default_client_scopes=["profile", "email", "groups-claim"],
+        optional_client_scopes=["roles", "web-origins", "address", "phone", "offline_access"],
+    )
+
+    rb.add_client(
+        client_id="airflow",
+        name="airflow",
+        redirect_uris=["http://localhost:8080/oauth2/callback",
+                       "http://airflow.local/oauth2/callback"],
+        protocol="openid-connect",
+        web_origins=["+"],
+        enabled=True,
+        public_client=False,
+        direct_access_grants_enabled=False,
+        service_accounts_enabled=False,
+        standard_flow_enabled=True,
+        client_authenticator_type="client-secret",
+        authorization_services_enabled=True,
+        secret="password",
+        attributes={"post.logout.redirect.uris": "+", "oidc.cida.grant.enabled": "false"},
+        default_client_scopes=["profile", "email", "groups-claim"],
+        optional_client_scopes=["roles", "web-origins", "address", "phone", "offline_access"],
+    )
+
+    rb.add_client(
+        client_id="openmetadata",
+        name="openmetadata",
+        redirect_uris=["http://localhost:8585/callback",
+                       "http://openmetadata.local/callback"],
+        protocol="openid-connect",
+        web_origins=["+"],
+        enabled=True,
+        public_client=False,
+        direct_access_grants_enabled=False,
+        service_accounts_enabled=False,
+        standard_flow_enabled=True,
+        client_authenticator_type="client-secret",
+        authorization_services_enabled=True,
+        secret="password",
+        attributes={"post.logout.redirect.uris": "+", "oidc.cida.grant.enabled": "false"},
+        default_client_scopes=["profile", "email", "groups-claim"],
+        optional_client_scopes=["roles", "web-origins", "address", "phone", "offline_access"],
+    )
+
     # --- Client scopes (define explicit mappers so tokens contain claims) ---
 
     rb.add_group(
@@ -1597,6 +1725,47 @@ if __name__ == "__main__":
         name="vault-admins",
         realm_roles=["vault-admins"]
     )
+
+    rb.add_group(
+        name="kibana-users",
+        realm_roles=["kibana-users"]
+    )
+
+    rb.add_group(
+        name="kibana-admins",
+        realm_roles=["kibana-admins"]
+    )
+
+    rb.add_group(
+        name="trino-users",
+        realm_roles=["trino-users"]
+    )
+
+    rb.add_group(
+        name="trino-admins",
+        realm_roles=["trino-admins"]
+    )
+
+    rb.add_group(
+        name="airflow-users",
+        realm_roles=["airflow-users"]
+    )
+
+    rb.add_group(
+        name="airflow-admins",
+        realm_roles=["airflow-admins"]
+    )
+
+    rb.add_group(
+        name="openmetadata-users",
+        realm_roles=["openmetadata-users"]
+    )
+
+    rb.add_group(
+        name="openmetadata-admins",
+        realm_roles=["openmetadata-admins"]
+    )
+
 
     # Groups scope: emit `groups` in ID/access/userinfo (Vault expects this)
     rb.add_client_scope(

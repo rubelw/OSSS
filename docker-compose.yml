@@ -40,13 +40,11 @@ volumes:
   es-data:
   filebeat-data:
   es-shared:
-  pg_analytics_data:
-  dl_redis_data:
+  pg_superset_data:
+  superset_redis_data:
   trino_data:
-  airflow_dags:
-  airflow_logs:
-  airflow_plugins:
   om_mysql_data:
+  airflow-pgdata:
 
 
 
@@ -62,6 +60,9 @@ services:
     profiles: ["consul"]
     container_name: consul
     command: [ "agent","-dev","-client=0.0.0.0","-ui","-log-level=INFO" ]
+    cpus: 0.50
+    mem_limit: 512m
+    mem_reservation: 256m
     ports:
       - "8500:8500"          # HTTP UI/API
       - "8600:8600/tcp"      # DNS (TCP)
@@ -159,6 +160,9 @@ services:
     profiles: ["app"]
     networks: [ osss-net ]
     container_name: app
+    cpus: 2.00
+    mem_limit: 3g
+    mem_reservation: 2g
     build:
       context: .
       dockerfile: docker/app/Dockerfile
@@ -299,6 +303,9 @@ services:
     profiles: ["web-app"]
     networks: [ osss-net ]
     container_name: web
+    cpus: 2.00
+    mem_limit: 2g
+    mem_reservation: 1g
     build:
       context: ./src/osss-web
       dockerfile: ../../docker/osss-web/Dockerfile
@@ -333,6 +340,10 @@ services:
     image: postgres:16-alpine
     profiles: [ "app" ]
     container_name: osss_postgres
+    cpus: 1.00
+    mem_limit: 1536m
+    mem_reservation: 1g
+    # shm_size: "1g"             # (optional) uncomment to help big sorts
     environment:
       # Primary bootstrap user for the cluster
       POSTGRES_USER: "${POSTGRES_USER}"
@@ -365,6 +376,9 @@ services:
   redis:
     image: redis:7-alpine
     profiles: ["app"]
+    cpus: 0.50
+    mem_limit: 512m
+    mem_reservation: 256m
     container_name: redis
     command: [ "redis-server", "--appendonly", "yes" ]
     ports:
@@ -383,6 +397,9 @@ services:
   kc_postgres:
     image: postgres:16
     profiles: ["keycloak"]
+    cpus: 1.00
+    mem_limit: 1536m
+    mem_reservation: 1g
     container_name: kc_postgres
     environment:
       POSTGRES_DB: ${KC_DB_NAME}
@@ -464,6 +481,7 @@ services:
     ports:
       - "8080:8080"   # add this so host can reach keycloak:8080
 
+    cpus: 2.00
     mem_limit: 2g             # honored by non-Swarm compose
     mem_reservation: 1g
     depends_on:
@@ -482,6 +500,9 @@ services:
     #  dockerfile: docker/vault/Dockerfile
     image: hashicorp/vault:1.20.3
     container_name: vault
+    cpus: 1.00
+    mem_limit: 1g
+    mem_reservation: 512m
     profiles: ["vault"]
     pull_policy: always
     ports: [ "8200:8200" ]
@@ -517,6 +538,10 @@ services:
       context: .                      # repo root
       dockerfile: docker/vault-oidc-setup/Dockerfile
     networks: [ osss-net ]
+    cpus: 0.50
+    mem_limit: 512m
+    mem_reservation: 256m
+
     depends_on:
       vault:
         condition: service_healthy
@@ -564,6 +589,10 @@ services:
     container_name: vault-seed
     env_file: .env
     networks: [ osss-net ]
+    cpus: 0.25
+    mem_limit: 256m
+    mem_reservation: 128m
+
     environment:
       VAULT_ADDR: "http://vault:8200"
       VAULT_TOKEN: "${VAULT_TOKEN:-root}"
@@ -585,6 +614,9 @@ services:
     user: "0:0"
     volumes: [ es-shared:/shared ]
     container_name: shared-vol-init
+    cpus: 0.10
+    mem_limit: 128m
+    mem_reservation: 64m
     entrypoint: [ "sh","-lc" ]
     command: |
       set -e
@@ -597,6 +629,10 @@ services:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.14.3
     profiles: ["elastic"]
     container_name: elasticsearch
+    cpus: 2.00
+    mem_limit: 2g
+    mem_reservation: 1g
+    # ES_JAVA_OPTS is already -Xmx512m; the container needs extra headroom.
     environment:
       - discovery.type=single-node
       - xpack.security.enabled=true            # ← was false
@@ -610,6 +646,8 @@ services:
     networks: [ osss-net ]
     volumes:
       - es-data:/usr/share/elasticsearch/data
+      - ./elastic/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml:ro
+
     healthcheck:
       test:
         [
@@ -625,6 +663,9 @@ services:
     image: curlimages/curl:8.8.0
     networks: [ osss-net ]
     profiles: [ "elastic" ]
+    cpus: 0.50
+    mem_limit: 512m
+    mem_reservation: 256m
     container_name: kibana-pass-init
     depends_on:
       elasticsearch:
@@ -674,6 +715,11 @@ services:
     image: docker.elastic.co/kibana/kibana:8.14.3
     profiles: ["elastic"]
     container_name: kibana
+    cpus: 1.00
+    mem_limit: 1g
+    mem_reservation: 512m
+    volumes:
+      - ./elastic/kibana.yml:/usr/share/kibana/config/kibana.yml:ro
     depends_on:
       elasticsearch:
         condition: service_healthy
@@ -702,6 +748,10 @@ services:
     image: curlimages/curl:8.8.0
     networks: [ osss-net ]
     profiles: [ "elastic" ]
+    cpus: 0.50
+    mem_limit: 512m
+    mem_reservation: 256m
+
     container_name: api-key-init
     user: "0:0"                 # <-- root
     environment:
@@ -765,6 +815,9 @@ services:
     networks: [ osss-net ]
     profiles: ["elastic"]
     container_name: filebeat-setup
+    cpus: 0.50
+    mem_limit: 512m
+    mem_reservation: 256m
     env_file:
       - .env
     depends_on:
@@ -805,6 +858,10 @@ services:
     container_name: filebeat
     networks: [ osss-net ]
     profiles: [ "elastic" ]
+    cpus: 0.50
+    mem_limit: 512m
+    mem_reservation: 256m
+
     user: root
     env_file:
       - .env
@@ -843,62 +900,11 @@ services:
   # Datalake Datastores (shared)
   # -----------------------------
 
-  postgres-airflow:
-    image: postgres:16
-    profiles: ["datalake_data"]
-    environment:
-      POSTGRES_USER: airflow
-      POSTGRES_PASSWORD: airflow
-      POSTGRES_DB: airflow
-    volumes: [pgdata:/var/lib/postgresql/data]
-    networks: [ osss-net ]
-    ports:
-      - "5435:5432"          # local:5434 → container:5432
 
-  postgres-analytics:
-    image: postgres:16
-    profiles: ["datalake_data"]
-    container_name: postgres-analytics
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: osss
-      POSTGRES_PASSWORD: osss
-      POSTGRES_DB: analytics
-    volumes:
-      - pg_analytics_data:/var/lib/postgresql/data
-    ports:
-      - "5434:5432"          # local:5434 → container:5432
-    networks: [ osss-net ]
 
-  dl_redis:
-    image: redis:7-alpine
-    profiles: ["datalake_data"]
-    container_name: dl_redis
-    restart: unless-stopped
-    command: [ "redis-server", "--appendonly", "yes" ]
-    volumes:
-      - dl_redis_data:/data
-    ports:
-      - "6380:6379"
-    networks: [ osss-net ]
 
-  # OpenMetadata prefers MySQL (Postgres supported in newer versions, but MySQL is safest)
-  mysql-openmetadata:
-    image: mysql:8.0
-    profiles: ["datalake_data"]
-    container_name: mysql-openmetadata
-    restart: unless-stopped
-    environment:
-      MYSQL_ROOT_PASSWORD: openmetadata
-      MYSQL_USER: openmetadata_user
-      MYSQL_PASSWORD: openmetadata_password
-      MYSQL_DATABASE: openmetadata_db
-    command: --default-authentication-plugin=mysql_native_password --lower_case_table_names=1
-    ports:
-      - "3308:3306"
-    volumes:
-      - om_mysql_data:/var/lib/mysql
-    networks: [ osss-net ]
+
+
 
   # -----------------------------
   # Trino
@@ -909,14 +915,21 @@ services:
     container_name: trino
     profiles: ["trino"]
     user: "1000:1000"               # match the trino user inside the image
+    cpus: 2.00
+    mem_limit: 3g
+    mem_reservation: 2560m
+
     restart: unless-stopped
     ports:
-      - "8080:8080"               # Trino UI/API
+      - 8444:8443   # expose HTTPS for UI/API
+      #- "8080:8080"               # Trino UI/API
     environment:
       JAVA_TOOL_OPTIONS: "-Xms512m -Xmx2g"
     volumes:
       - ./trino_data:/var/trino
       - ./trino/etc:/etc/trino:ro # create local ./trino/etc with catalogs
+      # mount keystore dir (already lives under ./trino/etc/keystore)
+      - ./trino/etc/keystore:/etc/trino/keystore:ro
     networks: [ osss-net ]
 
   # Minimal local catalogs example (create files in ./trino/etc/catalog):
@@ -930,100 +943,218 @@ services:
   # Apache Superset
   # -----------------------------
 
+  superset_redis:
+    image: redis:7-alpine
+    profiles: [ "superset" ]
+    container_name: superset_redis
+    restart: unless-stopped
+    command: [ "redis-server", "--appendonly", "yes" ]
+    cpus: 0.50
+    mem_limit: 512m
+    mem_reservation: 256m
+    volumes:
+      - superset_redis_data:/data
+    ports:
+      - "6380:6379"
+    networks: [ osss-net ]
+
+
+  postgres-superset:
+    image: postgres:16
+    profiles: ["superset"]
+    container_name: postgres-superset
+    restart: unless-stopped
+    cpus: 1.00
+    mem_limit: 1536m
+    mem_reservation: 1g
+    environment:
+      POSTGRES_USER: osss
+      POSTGRES_PASSWORD: osss
+      POSTGRES_DB: superset
+    volumes:
+      - pg_superset_data:/var/lib/postgresql/data
+    ports:
+      - "5434:5432"          # local:5434 → container:5432
+    networks: [ osss-net ]
+
+  # one-off init job
+  superset-init:
+    image: apache/superset:latest
+    profiles: ["superset"]
+    depends_on: [ postgres-superset ]
+    cpus: 0.50
+    mem_limit: 512m
+    mem_reservation: 256m
+    networks: [ osss-net ]
+    environment:
+      # Force Postgres (set both keys to cover all Superset versions)
+      SUPERSET__SQLALCHEMY_DATABASE_URI: "postgresql+psycopg2://osss:osss@postgres-superset:5432/superset"
+      SQLALCHEMY_DATABASE_URI: "postgresql+psycopg2://osss:osss@postgres-superset:5432/superset"
+    entrypoint: [ "/bin/bash", "-lc" ]
+    command: >
+      superset db upgrade &&
+      superset fab create-admin --username admin --firstname Admin --lastname User
+      --email admin@example.com --password admin || true &&
+      superset init
+
   superset:
     image: apache/superset:latest
     container_name: superset
     profiles: ["superset"]
     restart: unless-stopped
+    cpus: 2.00
+    mem_limit: 3g                   # gunicorn -w 4 can climb
+    mem_reservation: 2g
     environment:
       SUPERSET_SECRET_KEY: "please_change_me"
-      SUPERSET_LOAD_EXAMPLES: "no"
-      # Superset metadata DB
-      SUPERSET_DATABASE_URI: "postgresql+psycopg2://osss:osss@postgres-analytics:5432/analytics"
-      # Optional cache/broker
-      REDIS_HOST: dl_redis
-      REDIS_PORT: 6380
+      # Force Postgres at runtime too
+      SUPERSET__SQLALCHEMY_DATABASE_URI: "postgresql+psycopg2://osss:osss@postgres-superset:5432/superset"
+      SQLALCHEMY_DATABASE_URI: "postgresql+psycopg2://osss:osss@postgres-superset:5432/superset"
+      FLASK_LIMITER_ENABLED: "false"   # quiet dev warning
     depends_on:
-      - postgres-analytics
-      - dl_redis
+      - postgres-superset
+      - superset_redis
+      - superset-init
     ports:
-      - "8088:8088"               # Superset UI
-    command: >
-      /bin/sh -c "
-      superset db upgrade &&
-      superset fab create-admin
-        --username admin --firstname Admin --lastname User
-        --email admin@example.com --password admin &&
-      superset init &&
-      gunicorn -w 4 -k gevent --timeout 300 -b 0.0.0.0:8088 'superset.app:create_app()'
-      "
+      - "8088:8088"
+    # Use exec form + a single-line shell so flags can't split
+    command: [ "gunicorn","-w","4","--timeout","300","-b","0.0.0.0:8088","superset.app:create_app()" ]
     networks: [ osss-net ]
 
   # -----------------------------
   # Apache Airflow (LocalExecutor)
   # -----------------------------
+  postgres-airflow:
+    image: postgres:16
+    profiles: ["airflow"]
+    cpus: 1.00
+    mem_limit: 1536m
+    mem_reservation: 1g
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes: [airflow-pgdata:/var/lib/postgresql/data]
+    networks: [ osss-net ]
+    ports:
+      - "5435:5432"          # local:5434 → container:5432
 
   airflow-init:
     image: apache/airflow:2.9.3-python3.11
     profiles: ["airflow"]
     depends_on: [ postgres-airflow ]
+    cpus: 1.00
+    mem_limit: 1g
+    mem_reservation: 768m
     environment:
-      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres-airflow/airflow
     entrypoint: /bin/bash
     command: -lc 'airflow db migrate && airflow users create \
       --username admin --firstname Admin --lastname User --role Admin \
       --email admin@example.com --password admin'
     volumes:
-      - ./dags:/opt/airflow/dags
+      - ./airflow/dags:/opt/airflow/dags
     networks: [ osss-net ]
 
   airflow-webserver:
     image: apache/airflow:2.9.3-python3.11
     profiles: ["airflow"]
     depends_on: [ airflow-init ]
+    cpus: 1.00
+    mem_limit: 1536m
+    mem_reservation: 1g
     environment:
-      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres-airflow/airflow
     command: webserver
-    ports: [ "8081:8080" ]
+    ports: [ "8083:8080" ]
     volumes:
-      - ./dags:/opt/airflow/dags
+      - ./airflow/dags:/opt/airflow/dags
     networks: [ osss-net ]
 
   airflow-scheduler:
     image: apache/airflow:2.9.3-python3.11
     profiles: ["airflow"]
     depends_on: [ airflow-init ]
+    cpus: 1.00
+    mem_limit: 1536m
+    mem_reservation: 1g
     environment:
-      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres-airflow/airflow
     command: scheduler
     volumes:
-      - ./dags:/opt/airflow/dags
+      - ./airflow/dags:/opt/airflow/dags
     networks: [ osss-net ]
 
   # -----------------------------
   # OpenMetadata (server only; minimal)
   # -----------------------------
 
+  # OpenMetadata prefers MySQL (Postgres supported in newer versions, but MySQL is safest)
+  mysql-openmetadata:
+    image: mysql:8.0
+    profiles: ["openmetadata"]
+    container_name: mysql-openmetadata
+    restart: unless-stopped
+    cpus: 1.00
+    mem_limit: 1536m
+    mem_reservation: 1g
+    environment:
+      MYSQL_ROOT_PASSWORD: openmetadata_password
+      MYSQL_DATABASE: openmetadata_db
+      MYSQL_USER: openmetadata_user
+      MYSQL_PASSWORD: openmetadata_password
+      # Optional but harmless; helps some client combos
+      MYSQL_ROOT_HOST: "%"
+    command: >
+      --lower-case-table-names=1
+      --default-authentication-plugin=mysql_native_password
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_0900_ai_ci
+    ports:
+      - "3308:3306"
+    volumes:
+      - om_mysql_data:/var/lib/mysql
+    networks: [ osss-net ]
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${MYSQL_ROOT_PASSWORD}" ]
+      interval: 5s
+      timeout: 5s
+      retries: 60
+      start_period: 30s
+
+
+
+
   openmetadata:
     image: openmetadata/server:1.4.3
     container_name: openmetadata
     profiles: ["openmetadata"]
     restart: unless-stopped
+    cpus: 2.00
+    mem_limit: 2g
+    mem_reservation: 1g
     depends_on:
-      - mysql-openmetadata
+      mysql-openmetadata:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+
     environment:
-      OPENMETADATA_DB_DRIVER: mysql
-      OPENMETADATA_DB_USER: openmetadata_user
-      OPENMETADATA_DB_PASSWORD: openmetadata_password
-      OPENMETADATA_DB_HOST: mysql-openmetadata
-      OPENMETADATA_DB_PORT: 3306
-      OPENMETADATA_DB_SCHEMA: openmetadata_db
+      # Make the DB target unambiguous for the server:
+      OPENMETADATA__DATABASE__URL: "jdbc:mysql://mysql-openmetadata:3306/openmetadata_db?useSSL=false&allowPublicKeyRetrieval=true"
+      OPENMETADATA__DATABASE__HOST: mysql-openmetadata
+      OPENMETADATA__DATABASE__PORT: 3306
+      OPENMETADATA__DATABASE__USERNAME: openmetadata_user
+      OPENMETADATA__DATABASE__PASSWORD: openmetadata_password
+      OPENMETADATA__DATABASE__DBNAME: openmetadata_db
+      OPENMETADATA__DATABASE__DRIVER_CLASS: com.mysql.cj.jdbc.Driver
+      OPENMETADATA__DATABASE__SCHEMA: openmetadata_db
       SERVER_PORT: 8585
       # Disable ES/Kafka for a light dev spin-up; enable later for search/streaming features
-      ENABLE_ELASTICSEARCH: "false"
-      ELASTICSEARCH_HOST: ""
-      ELASTICSEARCH_PORT: ""
-      ENABLE_KAFKA: "false"
+      SEARCH_TYPE: elasticsearch
+      ELASTICSEARCH_HOST: elasticsearch
+      ELASTICSEARCH_PORT: "9200"
+      ELASTICSEARCH_SCHEME: http
     ports:
       - "8585:8585"               # OpenMetadata UI/API
     networks: [ osss-net ]

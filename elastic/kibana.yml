@@ -1,0 +1,17 @@
+server.host: "0.0.0.0"
+# How users reach Kibana from the browser (host side)
+server.publicBaseUrl: "http://localhost:5601"
+
+elasticsearch.hosts: ["http://elasticsearch:9200"]
+
+xpack.security.enabled: true
+xpack.encryptedSavedObjects.encryptionKey: "please_change_me_to_any_32+_char_secret"
+
+# Show both Basic and Keycloak on the login page
+xpack.security.authc.providers:
+  basic.basic1:
+    order: 0
+  oidc.oidc1:
+    order: 1
+    realm: "oidc1"
+    description: "Login with Keycloak"
