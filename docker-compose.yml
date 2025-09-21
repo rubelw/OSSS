@@ -931,6 +931,11 @@ services:
       # mount keystore dir (already lives under ./trino/etc/keystore)
       - ./trino/etc/keystore:/etc/trino/keystore:ro
     networks: [ osss-net ]
+    extra_hosts:
+      - "keycloak.local:host-gateway"
+
+
+
 
   # Minimal local catalogs example (create files in ./trino/etc/catalog):
   #   jmx.properties:

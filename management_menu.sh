@@ -294,6 +294,64 @@ set_default_tail(){
   DEFAULT_TAIL="$n"; save_config
 }
 
+# --- Return-to-menu prompt ---
+prompt_return() {
+  echo
+  # don’t die if stdin isn’t a tty; just sleep briefly so users see output
+  if [[ -t 0 ]]; then
+    read -r -p "✅ Done. Press Enter to return to the menu..." _
+  else
+    echo "✅ Done. Returning to menu…"
+    sleep 1
+  fi
+}
+
+
+# Force-recreate all services in a given profile (works with both `podman compose` and `podman-compose`)
+up_force_profile() {
+  local prof="$1"
+
+  # discover services in the profile (never fail hard)
+  mapfile -t svcs < <(compose_services_for_profile "$prof" 2>/dev/null || true)
+  if ((${#svcs[@]}==0)); then
+    echo "⚠️  No services declare profile '${prof}' in ${COMPOSE_FILE:-docker-compose.yml}."
+    prompt_return
+    return 0
+  fi
+
+  echo "🛠️  Forcing recreate of ${#svcs[@]} service(s) in profile '${prof}': ${svcs[*]}"
+
+  # make this block failure-tolerant, then restore -e
+  set +e
+
+  # Stop via compose first (ok if already stopped)
+  $COMPOSE -f "$COMPOSE_FILE" --profile "$prof" stop "${svcs[@]}"
+
+  # Hard-stop & remove any existing containers/pods that belong to these services
+  for svc in "${svcs[@]}"; do
+    ids=$(podman ps -a \
+      --filter "label=io.podman.compose.project=${COMPOSE_PROJECT_NAME}" \
+      --filter "label=io.podman.compose.service=${svc}" -q 2>/dev/null)
+    if [[ -n "$ids" ]]; then
+      # stop pods that contain these containers (ignore errors)
+      pods=$(podman inspect -f '{{.PodName}}' $ids 2>/dev/null | awk 'NF && $0!="<no value>" && !seen[$0]++')
+      if [[ -n "$pods" ]]; then podman pod stop $pods >/dev/null 2>&1; fi
+      # remove containers + anon volumes
+      podman rm -f -v $ids >/dev/null 2>&1
+      # remove pods if any
+      if [[ -n "$pods" ]]; then podman pod rm -f $pods >/dev/null 2>&1; fi
+    fi
+  done
+
+  # Bring them back up (ignore “network in use”/pod removal errors, compose will reuse)
+  $COMPOSE -f "$COMPOSE_FILE" --profile "$prof" up -d --no-deps --force-recreate
+
+  set -e
+
+  prompt_return
+  return 0
+}
+
 # -------- profile helpers --------
 start_profiles_blind() {
   local args=( -f "$COMPOSE_FILE" )
@@ -305,27 +363,33 @@ start_profiles_blind() {
 start_profile_services() {
   local prof="$1"
   mapfile -t svcs < <(compose_services_for_profile "$prof" || true)
-  ((${#svcs[@]})) || { echo "(no services discovered in profile '${prof}')"; return 1; }
+  ((${#svcs[@]})) || { echo "(no services discovered in profile '${prof}')"; prompt_return; return 1; }
   echo "▶️  Starting ${#svcs[@]} service(s) in profile '${prof}': ${svcs[*]}"
   run $COMPOSE -f "$COMPOSE_FILE" --profile "$prof" up -d
+  prompt_return
 }
 
 # elastic under Podman: skip filebeat/filebeat-setup (docker-only bind paths)
 start_profile_elastic() {
   ensure_hosts_keycloak
   echo "▶️  Starting services for profile 'elastic' (and enabling 'keycloak' profile for config validation)…"
-  # Explicit service list avoids docker-only filebeat containers
   run $COMPOSE -f "$COMPOSE_FILE" --profile elastic up -d --no-deps shared-vol-init elasticsearch kibana kibana-pass-init api-key-init
+  prompt_return
 }
 
-start_profile_app()       { ensure_hosts_keycloak; run $COMPOSE -f "$COMPOSE_FILE" --profile app       up -d --no-deps; }
-start_profile_web_app()   { ensure_hosts_keycloak; run $COMPOSE -f "$COMPOSE_FILE" --profile web-app   up -d --no-deps; }
-start_profile_vault()     { ensure_hosts_keycloak; run $COMPOSE -f "$COMPOSE_FILE" --profile vault     up -d --no-deps; }
-start_profile_trino()     { ensure_hosts_keycloak; run $COMPOSE -f "$COMPOSE_FILE" --profile trino     up -d --no-deps; }
-start_profile_airflow()   { ensure_hosts_keycloak; run $COMPOSE -f "$COMPOSE_FILE" --profile airflow   up -d --no-deps; }
-start_profile_superset()  { ensure_hosts_keycloak; run $COMPOSE -f "$COMPOSE_FILE" --profile superset  up -d --no-deps; }
-start_profile_openmetadata(){ ensure_hosts_keycloak; run $COMPOSE -f "$COMPOSE_FILE" --profile openmetadata up -d --no-deps; }
-start_profile_consul()    { ensure_hosts_keycloak; run $COMPOSE -f "$COMPOSE_FILE" --profile consul    up -d --no-deps; }
+start_profile_app()         { ensure_hosts_keycloak; run $COMPOSE -f "$COMPOSE_FILE" --profile app         up -d --no-deps; prompt_return; }
+start_profile_web_app()     { ensure_hosts_keycloak; run $COMPOSE -f "$COMPOSE_FILE" --profile web-app     up -d --no-deps; prompt_return; }
+start_profile_vault()       { ensure_hosts_keycloak; run $COMPOSE -f "$COMPOSE_FILE" --profile vault       up -d --no-deps; prompt_return; }
+
+start_profile_trino() {
+  ensure_hosts_keycloak
+  up_force_profile trino
+}
+
+start_profile_airflow()     { ensure_hosts_keycloak; run $COMPOSE -f "$COMPOSE_FILE" --profile airflow     up -d --no-deps; prompt_return; }
+start_profile_superset()    { ensure_hosts_keycloak; run $COMPOSE -f "$COMPOSE_FILE" --profile superset    up -d --no-deps; prompt_return; }
+start_profile_openmetadata(){ ensure_hosts_keycloak; run $COMPOSE -f "$COMPOSE_FILE" --profile openmetadata up -d --no-deps; prompt_return; }
+start_profile_consul()      { ensure_hosts_keycloak; run $COMPOSE -f "$COMPOSE_FILE" --profile consul      up -d --no-deps; prompt_return; }
 
 # Keycloak start with realm bootstrap
 run_build_realm() {
@@ -350,63 +414,113 @@ run_build_realm() {
 start_keycloak_services() {
   ensure_hosts_keycloak
   echo "▶️  Starting Keycloak profile/services…"
-  # Prefer a real profile if present
   mapfile -t svcs < <(compose_services_for_profile "keycloak" || true)
   if ((${#svcs[@]})); then
     run $COMPOSE -f "$COMPOSE_FILE" --profile keycloak up -d --no-deps "${svcs[@]}"
-    run_build_realm; return 0
+    run_build_realm
+    prompt_return
+    return 0
   fi
-  # Else, try a service named 'keycloak'
   if $COMPOSE -f "$COMPOSE_FILE" config --services 2>/dev/null | grep -qx "keycloak"; then
     run $COMPOSE -f "$COMPOSE_FILE" up -d --no-deps keycloak
-    run_build_realm; return 0
+    run_build_realm
+    prompt_return
+    return 0
   fi
   echo "⚠️  Couldn’t find a 'keycloak' profile or service."
   echo "   Services: $(compose_services_base | tr '\n' ' ')"
+  prompt_return
   return 1
 }
 
 # -------- Trino cert helpers --------
 create_trino_cert() {
   local dir="trino/etc/keystore"
+  local ks="$dir/trino-keystore.p12"
   mkdir -p "$dir"
-  echo "▶️  Creating self-signed cert + PKCS#12 keystore for Trino in $dir"
 
-  # Generate self-signed cert
-  openssl req -newkey rsa:2048 -nodes \
-    -keyout "$dir/trino.key" \
-    -x509 -days 825 \
-    -out "$dir/trino.crt" \
-    -subj "/CN=trino.local"
+  echo "▶️  Recreating self-signed cert + PKCS#12 keystore for Trino in $dir"
 
-  # Convert to PKCS#12
-  openssl pkcs12 -export \
-    -in "$dir/trino.crt" \
-    -inkey "$dir/trino.key" \
-    -out "$dir/trino-keystore.p12" \
-    -name trino \
-    -passout pass:changeit
+  rm -f "$ks"
 
-  echo "✅ Trino keystore created: $dir/trino-keystore.p12 (password: changeit)"
+  keytool -genkeypair \
+    -alias trino \
+    -keyalg RSA -keysize 2048 \
+    -storetype PKCS12 \
+    -keystore "$ks" \
+    -storepass changeit -keypass changeit \
+    -validity 825 \
+    -dname "CN=trino" \
+    -ext "SAN=dns:localhost,dns:trino,dns:trino.local,ip:127.0.0.1" \
+    -ext "BasicConstraints=ca:false" \
+    -ext "ExtendedKeyUsage=serverAuth" \
+    -noprompt || { echo "❌ keytool failed"; prompt_return; return 1; }
+
+  echo "✅ Trino keystore created: $ks (password: changeit)"
+  echo "🔎 Keystore contents:"
+  keytool -list -keystore "$ks" -storepass changeit
+  prompt_return
 }
 
-
 # -------- teardown & cleanup --------
+# Down only the TRINO profile (containers + their named/anon volumes), leave networks/other profiles intact
 down_profile_interactive() {
-  mapfile -t profs < <(compose_profiles || true)
-  if ((${#profs[@]}==0)); then echo "(no profiles discovered in ${COMPOSE_FILE})"; return 1; fi
-  echo "Profiles in ${COMPOSE_FILE}:"
-  local i; for ((i=0;i<${#profs[@]};i++)); do printf "  %2d) %s\n" "$((i+1))" "${profs[$i]}"; done
-  echo "  a) ALL (same as 'Down ALL')"; echo
-  local choice prof; read -rp "Choose a profile to tear down: " choice || return 1
-  case "$choice" in
-    a|A) down_all; return ;;
-    ''|*[!0-9]*) prof="$choice" ;;
-    *) (( choice>=1 && choice<=${#profs[@]} )) || { echo "Invalid number."; return 1; }
-       prof="${profs[$((choice-1))]}" ;;
-  esac
-  echo "▶️  Down (remove orphans & volumes) for profile '${prof}'…"
-  run $COMPOSE -f "$COMPOSE_FILE" --profile "$prof" down --remove-orphans --volumes || true
+  local prof="trino"
+  local compose="${COMPOSE:-docker compose}"
+  local compose_file_flag=()
+  [[ -n "$COMPOSE_FILE" ]] && compose_file_flag=(-f "$COMPOSE_FILE")
+
+  mapfile -t trino_svcs < <(
+    awk -v prof="$prof" '
+      BEGIN{in_services=0; svc=""; in_profiles=0}
+      /^\s*services\s*:/ {in_services=1; next}
+      in_services {
+        if ($0 ~ /^[^[:space:]]/ && $0 !~ /^\s/) { in_services=0; next }
+        if (match($0, /^[[:space:]]{2}([A-Za-z0-9._-]+):[[:space:]]*$/, m)) {
+          svc=m[1]; in_profiles=0; next
+        }
+        if (svc && match($0, /^[[:space:]]{4}profiles:[[:space:]]*\[(.*)\][[:space:]]*$/, m)) {
+          s=m[1]; gsub(/[[:space:]]/,"",s); n=split(s, arr, ",")
+          for(i=1;i<=n;i++) if (arr[i]==prof) { print svc; break }
+          next
+        }
+        if (svc && $0 ~ /^[[:space:]]{4}profiles:[[:space:]]*$/) { in_profiles=1; next }
+        if (in_profiles) {
+          if ($0 ~ /^[[:space:]]{6}-[[:space:]]*([A-Za-z0-9._-]+)/) {
+            p=$0; sub(/^[[:space:]]*-/, "", p); gsub(/^[[:space:]]+/, "", p)
+            if (p==prof) print svc
+            next
+          }
+          if ($0 ~ /^[[:space:]]{4}[A-Za-z0-9._-]+:/) { in_profiles=0 }
+        }
+      }
+    ' "${COMPOSE_FILE:-docker-compose.yml}" | sort -u
+  )
+
+  if ((${#trino_svcs[@]}==0)); then
+    echo "⚠️  No services declare profile '${prof}' in ${COMPOSE_FILE:-docker-compose.yml}."
+    echo "Nothing to do. (Won’t call 'compose down' to avoid impacting other resources.)"
+    prompt_return
+    return 0
+  fi
+
+  echo "▶️  Stopping ${#trino_svcs[@]} service(s) in profile '${prof}': ${trino_svcs[*]}"
+  $compose "${compose_file_flag[@]}" stop "${trino_svcs[@]}" || true
+
+  echo "🧹  Removing containers (and their volumes) for: ${trino_svcs[*]}"
+  if [[ "$COMPOSE" == "podman-compose" ]]; then
+    for svc in "${trino_svcs[@]}"; do
+      ids=$(podman ps -a \
+        --filter "label=io.podman.compose.project=${COMPOSE_PROJECT_NAME}" \
+        --filter "label=io.podman.compose.service=${svc}" -q || true)
+      [[ -n "${ids:-}" ]] && podman rm -f -v $ids || true
+    done
+  else
+    $compose "${compose_file_flag[@]}" rm -f -s -v "${trino_svcs[@]}" || true
+  fi
+
+  echo "✅  Done. Networks and non-'${prof}' services were left untouched."
+  prompt_return
 }
 
 down_all() {
@@ -418,6 +532,7 @@ down_all() {
   echo "▶️  Removing named volumes for project…"
   vols=$(podman volume ls --format '{{.Name}}' | grep -E "^${COMPOSE_PROJECT_NAME}_" || true)
   [[ -n "${vols:-}" ]] && podman volume rm ${vols} || echo "(none)"
+  prompt_return
 }
 
 # -------- menu --------
@@ -508,11 +623,11 @@ menu() {
       11) start_profile_openmetadata ;;
       12) down_profile_interactive ;;
       13) down_all ;;
-      14) show_status ;;
+      14) show_status; prompt_return ;;
       15) logs_menu ;;
       16) create_trino_cert ;;
       q|Q) echo "Bye!"; exit 0 ;;
-      *)   echo "Unknown choice: ${ans}" ;;
+      *)   echo "Unknown choice: ${ans}"; prompt_return ;;
     esac
   done
 }

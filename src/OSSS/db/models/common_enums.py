@@ -1,8 +1,9 @@
-
+# src/OSSS/db/models/common_enums.py
 from __future__ import annotations
 from datetime import datetime
-from sqlalchemy.orm import declarative_base, Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy import Enum, DateTime
+from sqlalchemy.orm import declarative_base
 import enum
 
 try:
