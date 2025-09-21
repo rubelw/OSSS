@@ -1657,8 +1657,7 @@ if __name__ == "__main__":
     rb.add_client(
         client_id="trino",
         name="trino",
-        redirect_uris=["https://trino.local:8444/oauth2/callback",
-                       "https://localhost:8444/oauth2/callback"],
+        redirect_uris=["https://trino.local:8444/oauth2/callback"],
         protocol="openid-connect",
         web_origins=["+"],
         enabled=True,
