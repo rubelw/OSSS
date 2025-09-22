@@ -31,6 +31,7 @@ PROJECT_DEFAULT="${COMPOSE_PROJECT_NAME:-osss}"
 COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.yml}"
 PROFILE="${PROFILE:-seed}"
 DEFAULT_TAIL="200"
+FORCE_VOLUME_REMOVE=1
 
 usage() {
   cat <<EOF
@@ -129,13 +130,13 @@ ensure_python_venv "$@"
 
 # -------- Podman compose selection --------
 compose_cmd() {
-  # Prefer podman-compose if that’s what your env uses; fall back to docker compose.
+  # Prefer podman compose; fall back to podman-compose or docker compose.
   if command -v podman >/dev/null 2>&1 && podman --help | grep -qE '\bcompose\b'; then
-    echo "podman compose -f ${COMPOSE_FILE:-docker-compose.yml}"
+    echo "podman compose"
   elif command -v podman-compose >/dev/null 2>&1; then
-    echo "podman-compose -f ${COMPOSE_FILE:-docker-compose.yml}"
+    echo "podman-compose"
   elif command -v docker >/dev/null 2>&1; then
-    echo "docker compose -f ${COMPOSE_FILE:-docker-compose.yml}"
+    echo "docker compose"
   else
     echo "❌ Neither podman-compose nor docker was found." >&2
     return 127
@@ -144,11 +145,11 @@ compose_cmd() {
 
 __compose_cmd() {
   if command -v podman >/dev/null 2>&1 && podman --help | grep -qE '\bcompose\b'; then
-    echo "podman compose -f ${COMPOSE_FILE:-docker-compose.yml}"
+    echo "podman compose"
   elif command -v podman-compose >/dev/null 2>&1; then
-    echo "podman-compose -f ${COMPOSE_FILE:-docker-compose.yml}"
+    echo "podman-compose"
   elif command -v docker >/dev/null 2>&1; then
-    echo "docker compose -f ${COMPOSE_FILE:-docker-compose.yml}"
+    echo "docker compose"
   else
     echo "❌ Neither podman-compose nor docker found." >&2
     return 127
@@ -221,32 +222,77 @@ __compose_profiles() {
   ' "${COMPOSE_FILE:-docker-compose.yml}" | sort -u
 }
 
+# Back-compat shim for older callsites
+__compose_services_for_profile() { compose_services_for_profile "$@"; }
+
 # services for a given profile (quote-safe)
-__compose_services_for_profile() {
-  prof="$1"
-  awk -v prof="$prof" '
-    BEGIN{in_services=0; svc=""; in_profiles=0}
+# Return services in a profile that have a 'build:' section
+__compose_services_with_build_for_profile() {
+  local prof="$1"
+  local cfg allowed=()
+
+  # Services that belong to this profile (from the compose file itself)
+  mapfile -t allowed < <(__compose_services_for_profile "$prof")
+
+  # Try a profile-scoped config (compose v2); fall back to full config
+  if ! cfg="$($COMPOSE -f "$COMPOSE_FILE" --profile "$prof" config 2>/dev/null)"; then
+    cfg="$($COMPOSE -f "$COMPOSE_FILE" config 2>/dev/null || true)"
+  fi
+
+  # Parse config YAML for services that contain a top-level 'build:' key
+  mapfile -t all_with_build < <(awk '
+    BEGIN{in_services=0; svc=""; has_build=0}
     /^[[:space:]]*services[[:space:]]*:/ {in_services=1; next}
     in_services {
-      if ($0 ~ /^[^[:space:]]/ && $0 !~ /^[[:space:]]/) {in_services=0; next}
-      if ($0 ~ /^[[:space:]][[:space:]][A-Za-z0-9._-]+:[[:space:]]*$/) {
-        line=$0; sub(/^[[:space:]]+/, "", line); sub(/:.*/, "", line); svc=line; in_profiles=0; next
+      # leaving services block
+      if ($0 ~ /^[^[:space:]]/ && $0 !~ /^[[:space:]]/) {
+        if (svc!="" && has_build) print svc
+        in_services=0; svc=""; has_build=0; next
       }
-      if (svc && $0 ~ /^[[:space:]]{4}profiles:[[:space:]]*\[/) {
-        s=$0; sub(/^[^[]*\[/,"",s); sub(/\].*$/,"",s)
-        gsub(/[[:space:]"]/,"",s); gsub(/[[:space:]]'\''/,"",s)
-        n=split(s, arr, ","); for(i=1;i<=n;i++) if (arr[i]==prof) { print svc; break }
-        next
+      # service header
+      if ($0 ~ /^[[:space:]]{2}[A-Za-z0-9._-]+:[[:space:]]*$/) {
+        if (svc!="" && has_build) print svc
+        line=$0; sub(/^[[:space:]]+/,"",line); sub(/:.*/,"",line)
+        svc=line; has_build=0; next
       }
-      if (svc && $0 ~ /^[[:space:]]{4}profiles:[[:space:]]*$/) { in_profiles=1; next }
-      if (in_profiles && $0 ~ /^[[:space:]]{6}-[[:space:]]*/) {
-        p=$0; sub(/^[^ -]*-/,"",p); gsub(/^[[:space:]'"'"'"]+|[[:space:]'"'"'"]+$/,"",p)
-        if (p==prof) print svc; next
-      }
-      if (in_profiles && $0 ~ /^[[:space:]]{4}[A-Za-z0-9._-]+:/) { in_profiles=0 }
+      # build key at indent 4
+      if (svc!="" && $0 ~ /^[[:space:]]{4}build[[:space:]]*:/) { has_build=1 }
     }
-  ' "${COMPOSE_FILE:-docker-compose.yml}" | sort -u
+    END{ if (svc!="" && has_build) print svc }
+  ' <<<"$cfg")
+
+  # If we know which services are in the profile, filter against them
+  if ((${#allowed[@]})); then
+    for s in "${all_with_build[@]}"; do
+      for a in "${allowed[@]}"; do
+        [[ "$s" == "$a" ]] && echo "$s" && break
+      done
+    done | awk 'NF && !seen[$0]++'
+  else
+    printf "%s\n" "${all_with_build[@]}" | awk 'NF && !seen[$0]++'
+  fi
 }
+
+# Prompt to rebuild images for services with build: in a profile
+maybe_build_profile() {
+  local prof="$1"
+  mapfile -t build_svcs < <(__compose_services_with_build_for_profile "$prof")
+  ((${#build_svcs[@]})) || return 0
+
+  echo "🧱 The following services in profile '${prof}' have a build section:"
+  echo "    ${build_svcs[*]}"
+
+  local ans; read -rp "Rebuild these images before starting '${prof}'? [y/N] " ans || true
+  if [[ "$ans" =~ ^[Yy]$ ]]; then
+    local nocache=""
+    read -rp "Use --no-cache? [y/N] " ans || true
+    [[ "$ans" =~ ^[Yy]$ ]] && nocache="--no-cache"
+
+    echo "+ $COMPOSE -f \"$COMPOSE_FILE\" --profile \"$prof\" build $nocache ${build_svcs[*]}"
+    $COMPOSE -f "$COMPOSE_FILE" --profile "$prof" build $nocache "${build_svcs[@]}"
+  fi
+}
+
 
 compose_profiles() {
   # Emits unique profile names found in services.*.profiles (inline list or multiline).
@@ -479,14 +525,33 @@ up_force_profile() {
 # -------- profile helpers --------
 start_profiles_blind() {
   local args=( -f "$COMPOSE_FILE" )
-  for p in "$@"; do args+=( --profile "$p" ); done
   echo "▶️  Starting services for profiles: $* …"
+
+  # Offer rebuilds profile-by-profile before bringing anything up
+  for p in "$@"; do
+    maybe_build_profile "$p"
+    args+=( --profile "$p" )
+  done
+
   run $COMPOSE "${args[@]}" up -d
 }
 
-start_profile_services() {
+
+start_profile_with_build_prompt() {
   local prof="$1"
-  mapfile -t svcs < <(compose_services_for_profile "$prof" || true)
+  ensure_hosts_keycloak
+  maybe_build_profile "$prof"
+  run $COMPOSE -f "$COMPOSE_FILE" --profile "$prof" up -d
+  prompt_return
+}
+
+start_profile_services() {
+  local CMD; CMD="$(__compose_cmd)" || return $?
+  mapfile -t svcs < <($CMD -f "$COMPOSE_FILE" --profile "$prof" config --services 2>/dev/null | awk 'NF')
+  if [ "${#svcs[@]}" -eq 0 ]; then
+    mapfile -t svcs < <(compose_services_for_profile "$prof" 2>/dev/null || true)
+  fi
+
   ((${#svcs[@]})) || { echo "(no services discovered in profile '${prof}')"; prompt_return; return 1; }
   echo "▶️  Starting ${#svcs[@]} service(s) in profile '${prof}': ${svcs[*]}"
   run $COMPOSE -f "$COMPOSE_FILE" --profile "$prof" up -d
@@ -522,24 +587,29 @@ down_all() {
 # elastic under Podman: skip filebeat/filebeat-setup (docker-only bind paths)
 start_profile_elastic() {
   ensure_hosts_keycloak
+  maybe_build_profile elastic
   echo "▶️  Starting services for profile 'elastic' (and enabling 'keycloak' profile for config validation)…"
-  run $COMPOSE -f "$COMPOSE_FILE" --profile elastic up -d --no-deps shared-vol-init elasticsearch kibana kibana-pass-init api-key-init
+  run $COMPOSE -f "$COMPOSE_FILE" --profile elastic up -d --no-deps \
+      shared-vol-init elasticsearch kibana kibana-pass-init api-key-init
   prompt_return
 }
 
-start_profile_app()         { ensure_hosts_keycloak; run $COMPOSE -f "$COMPOSE_FILE" --profile app         up -d --no-deps; prompt_return; }
-start_profile_web_app()     { ensure_hosts_keycloak; run $COMPOSE -f "$COMPOSE_FILE" --profile web-app     up -d --no-deps; prompt_return; }
-start_profile_vault()       { ensure_hosts_keycloak; run $COMPOSE -f "$COMPOSE_FILE" --profile vault       up -d --no-deps; prompt_return; }
+
+start_profile_app()          { start_profile_with_build_prompt app; }
+start_profile_web_app()      { start_profile_with_build_prompt web-app; }
+start_profile_vault()        { start_profile_with_build_prompt vault; }
 
 start_profile_trino() {
   ensure_hosts_keycloak
+  maybe_build_profile trino
   up_force_profile trino
 }
 
-start_profile_airflow()     { ensure_hosts_keycloak; run $COMPOSE -f "$COMPOSE_FILE" --profile airflow     up -d --no-deps; prompt_return; }
-start_profile_superset()    { ensure_hosts_keycloak; run $COMPOSE -f "$COMPOSE_FILE" --profile superset    up -d --no-deps; prompt_return; }
-start_profile_openmetadata(){ ensure_hosts_keycloak; run $COMPOSE -f "$COMPOSE_FILE" --profile openmetadata up -d --no-deps; prompt_return; }
-start_profile_consul()      { ensure_hosts_keycloak; run $COMPOSE -f "$COMPOSE_FILE" --profile consul      up -d --no-deps; prompt_return; }
+start_profile_airflow()      { start_profile_with_build_prompt airflow; }
+start_profile_superset()     { start_profile_with_build_prompt superset; }
+start_profile_openmetadata() { start_profile_with_build_prompt openmetadata; }
+start_profile_consul()       { start_profile_with_build_prompt consul; }
+
 
 # Keycloak start with realm bootstrap
 run_build_realm() {
@@ -565,21 +635,23 @@ run_build_realm() {
 # No networks/volumes are removed globally; anonymous volumes attached to the removed containers are cleaned.
 compose_stop_rm_profile() {
   local prof="$1"
-  local compose="$COMPOSE -f \"$COMPOSE_FILE\""
+  local CMD; CMD="$(__compose_cmd)" || return $?
 
-  # List services that are part of the profile (using config, not ps)
-  mapfile -t SVCS < <(eval "$compose --profile \"$prof\" config --services" 2>/dev/null | awk NF)
-  if [[ ${#SVCS[@]} -eq 0 ]]; then
+  # Find the services that belong to this profile
+  mapfile -t SVCS < <($CMD -f "$COMPOSE_FILE" --profile "$prof" config --services 2>/dev/null | awk 'NF')
+  if ((${#SVCS[@]}==0)); then
     echo "No services found for profile '$prof'."
     return 0
   fi
 
-  echo "Stopping services in profile '$prof': ${SVCS[*]}"
-  eval "$compose stop ${SVCS[*]}"
+  echo "+ $CMD -f \"$COMPOSE_FILE\" stop ${SVCS[*]}"
+  $CMD -f "$COMPOSE_FILE" stop "${SVCS[@]}" || true
 
-  echo "Removing services in profile '$prof' (and their anonymous volumes): ${SVCS[*]}"
-  # -s: stop if running, -f: force, -v: remove anonymous volumes attached to these containers
-  eval "$compose rm -s -f -v ${SVCS[*]}"
+  # podman compose / docker compose support 'rm'; podman-compose does not (we'll clean by labels later)
+  if $CMD rm -h >/dev/null 2>&1; then
+    echo "+ $CMD -f \"$COMPOSE_FILE\" rm -s -f -v ${SVCS[*]}"
+    $CMD -f "$COMPOSE_FILE" rm -s -f -v "${SVCS[@]}" || true
+  fi
 }
 
 
@@ -592,33 +664,26 @@ start_keycloak_services() {
   echo "ℹ️  Compose command: $CMD"
   echo "ℹ️  Project: $PROJECT   File: ${COMPOSE_FILE:-docker-compose.yml}"
 
-  # Prefer profile if available; else fall back to services
   local svcs=()
   if compose_supports_profile; then
-    # What services are in the 'keycloak' profile?
-    mapfile -t svcs < <(__compose_services_for_profile "keycloak" 2>/dev/null | awk 'NF')
+    mapfile -t svcs < <($CMD -f "$COMPOSE_FILE" --profile "keycloak" config --services 2>/dev/null | awk 'NF')
+    if [ "${#svcs[@]}" -eq 0 ]; then
+      mapfile -t svcs < <(compose_services_for_profile "keycloak" 2>/dev/null || true)
+    fi
   fi
 
   if ((${#svcs[@]})); then
+    maybe_build_profile keycloak
     echo "🔎 Found profile 'keycloak' with services: ${svcs[*]}"
     echo "+ $CMD --profile keycloak up -d --no-deps ${svcs[*]}"
     $CMD --profile keycloak up -d --no-deps "${svcs[@]}"
     prompt_return; return 0
   fi
 
-  # No profile path → start by explicit service names.
-  # Common pair: keycloak + its DB (often kc_postgres)
   mapfile -t ALL_SERVS < <(compose_list_services)
   want=(keycloak kc_postgres)
   chosen=()
-  for w in "${want[@]}"; do
-    for s in "${ALL_SERVS[@]}"; do
-      if [[ "$s" == "$w" ]]; then
-        chosen+=("$w")
-        break
-      fi
-    done
-  done
+  for w in "${want[@]}"; do for s in "${ALL_SERVS[@]}"; do [[ "$s" == "$w" ]] && { chosen+=("$w"); break; }; done; done
 
   if ((${#chosen[@]}==0)); then
     echo "⚠️  Neither a 'keycloak' profile nor 'keycloak' service was detected."
@@ -803,28 +868,11 @@ remove_volumes_for_services() {
   local named=()
   for svc in "${svcs[@]}"; do
     while IFS= read -r vk; do
+      # keep only volumes that exist as top-level keys; add project prefix
       _in_list "$vk" "${topkeys[@]}" && _add_unique named "${project}_${vk}"
-    done < <(
-      awk -v SVC="$svc" '
-        BEGIN{in_services=0; svc=""; in_vols=0}
-        /^[[:space:]]*services:[[:space:]]*$/ {in_services=1; next}
-        in_services {
-          if ($0 ~ /^[^[:space:]]/ && $0 !~ /^[[:space:]]/) {in_services=0; next}
-          if ($0 ~ /^[[:space:]]{2}[A-Za-z0-9._-]+:[[:space:]]*$/) {
-            svc=$0; sub(/^[[:space:]]+/,"",svc); sub(/:.*/,"",svc); in_vols=0; next
-          }
-          if (svc==SVC) {
-            if ($0 ~ /^[[:space:]]{4}volumes:[[:space:]]*$/) { in_vols=1; next }
-            if (in_vols && $0 ~ /^[[:space:]]{6}-[[:space:]]*[^:]+:[[:space:]]*[^:]+/) {
-              line=$0; sub(/^[[:space:]]{6}-[[:space:]]*/,"",line)
-              src=line; sub(/:.*/,"",src)
-              if (src !~ /^\// && src !~ /^\.\.?\//) print src
-            }
-            if (in_vols && $0 ~ /^[[:space:]]{4}[A-Za-z0-9._-]+:/) { in_vols=0 }
-          }
-        }' <<<"$cfg" | sort -u
-    )
+    done < <(__compose_named_volumes_for_service "$svc")
   done
+
 
   # attached volumes still visible on any remaining containers for these services (should be none, but be safe)
   local attached=()
@@ -861,7 +909,7 @@ remove_volumes_for_services() {
         # only stop/remove users that belong to the same project (by label)
         mapfile -t PROJ_USERS < <(
           for id in "${USERS[@]}"; do
-            lab=$(podman inspect -f '{{index .Config.Labels "io.podman.compose.project"}}' "$id" 2>/dev/null)
+            lab=$(podman inspect -f '{{or (index .Config.Labels "io.podman.compose.project") (index .Config.Labels "com.docker.compose.project")}}' "$id" 2>/dev/null)
             [[ "$lab" == "$project" ]] && echo "$id"
           done
         )
@@ -881,6 +929,15 @@ remove_volumes_for_services() {
     echo "🧹 Removing volume: $v"
     podman volume rm -f "$v" || echo "   • failed to remove $v (continuing)"
   done
+
+  # If nothing matched through compose parsing, sweep all project-prefixed volumes.
+  if [[ "${#to_rm[@]}" -eq 0 ]]; then
+    echo "ℹ️  No service-mapped volumes found; falling back to project-prefixed sweep."
+    while IFS= read -r v; do
+      [[ -n "$v" ]] && _add_unique to_rm "$v"
+    done < <(podman volume ls --format '{{.Name}}' | grep -E "^${project}_" || true)
+  fi
+
 }
 
 
@@ -917,7 +974,11 @@ down_profile_interactive() {
   prof="${prof%\"}"; prof="${prof#\"}"; prof="${prof%\'}"; prof="${prof#\'}"
   echo "ℹ️  Normalized profile: $prof"
 
-  mapfile -t SVCS < <(__compose_services_for_profile "$prof")
+  # Discover services via the compose CLI (authoritative), with a parser fallback
+  mapfile -t SVCS < <($CMD -f "$COMPOSE_FILE" --profile "$prof" config --services 2>/dev/null | awk 'NF')
+  if [ "${#SVCS[@]}" -eq 0 ]; then
+    mapfile -t SVCS < <(compose_services_for_profile "$prof" 2>/dev/null || true)
+  fi
   echo "🔎 Services in profile '$prof': ${SVCS[*]:-(none)}"
   if [ "${#SVCS[@]}" -eq 0 ]; then
     echo "⚠️  No services declare profile '${prof}'. Nothing to do."
@@ -930,9 +991,15 @@ down_profile_interactive() {
   {
     set -x
 
-    # 0) Try compose-native stop/rm first (best cleanup, ignores unknowns)
-    $CMD stop "${SVCS[@]}" || true
-    $CMD rm   -s -f -v "${SVCS[@]}" || true
+    # 0) Stop & remove ONLY the services in this profile (never use 'down' here)
+    echo "+ $CMD -f \"$COMPOSE_FILE\" stop ${SVCS[*]}"
+    $CMD -f "$COMPOSE_FILE" stop "${SVCS[@]}" || true
+
+    if $CMD rm -h >/dev/null 2>&1; then
+      echo "+ $CMD -f \"$COMPOSE_FILE\" rm -s -f -v ${SVCS[*]}"
+      $CMD -f "$COMPOSE_FILE" rm -s -f -v "${SVCS[@]}" || true
+    fi
+
 
     # 1) Resolve containers by label (compose project + service)
     declare -a CIDS=()
@@ -957,19 +1024,21 @@ down_profile_interactive() {
 
     # 3) Disable auto-restart (prevents immediate respawn)
     if ((${#CIDS[@]})); then
-      podman update --restart=no "${CIDS[@]}" || true
+      for id in "${CIDS[@]}"; do
+        podman update --restart=no "$id" || true
+      done
     fi
 
-    # 4) Stop pods first (if any), then containers by ID, then by service name (fallback)
-    if ((${#PODS[@]})); then
-      podman pod stop "${PODS[@]}" || true
-    fi
-    if ((${#CIDS[@]})); then
-      podman stop "${CIDS[@]}" || true
-    fi
-    podman stop "${SVCS[@]}" || true
 
-    # 5) Remove (containers first, then pods)
+    # 4) Gather attached volumes before containers disappear (dedupe without assoc arrays)
+    mapfile -t VOL_ATTACHED < <(
+      for id in "${CIDS[@]}"; do
+        podman inspect --format '{{range .Mounts}}{{if eq .Type "volume"}}{{.Name}}{{"\n"}}{{end}}{{end}}' "$id" 2>/dev/null
+      done | awk 'NF && !seen[$0]++'
+    )
+    echo "🔎 Candidate volumes (attached): ${VOL_ATTACHED[*]:-(none)}"
+
+    # 5) Stop pods first (if any), then containers by ID, then by service name (fallback)
     if ((${#CIDS[@]})); then
       podman rm -fv "${CIDS[@]}" || true
     fi
@@ -978,15 +1047,8 @@ down_profile_interactive() {
       podman pod rm -f "${PODS[@]}" || true
     fi
 
-    # 6) Volumes actually attached (by inspect)
-    declare -A VOL_ATTACHED=()
-    for id in "${CIDS[@]}"; do
-      while read -r vname; do
-        [[ -n "$vname" ]] && VOL_ATTACHED["$vname"]=1
-      done < <(podman inspect --format '{{range .Mounts}}{{if eq .Type "volume"}}{{.Name}}{{"\n"}}{{end}}{{end}}' "$id" 2>/dev/null)
-    done
-    echo "🔎 Candidate volumes (attached): ${!VOL_ATTACHED[*]:-(none)}"
-    for v in "${!VOL_ATTACHED[@]}"; do
+    # 6) Drop any attached volumes we captured
+    for v in "${VOL_ATTACHED[@]}"; do
       podman volume rm -f "$v" || true
     done
 

@@ -28,3 +28,21 @@ class Team(UUIDMixin, Base):
     # relationships
     school: Mapped["School"] = relationship("School", back_populates="teams")
     sport:  Mapped["Sport"]  = relationship("Sport", back_populates="teams")
+
+    # Games where this team is the home team
+    games_home: Mapped[list["Game"]] = relationship(
+        "Game",
+        back_populates="home_team",
+        primaryjoin="Team.id == foreign(Game.home_team_id)",
+        foreign_keys="Game.home_team_id",
+        lazy="selectin",
+    )
+
+    # Games where this team is the away team
+    games_away: Mapped[list["Game"]] = relationship(
+        "Game",
+        back_populates="away_team",
+        primaryjoin="Team.id == foreign(Game.away_team_id)",
+        foreign_keys="Game.away_team_id",
+        lazy="selectin",
+    )

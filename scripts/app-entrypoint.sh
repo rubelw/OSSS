@@ -300,7 +300,21 @@ async def main():
 asyncio.run(main())
 PY
 
+    # If no command was provided, run uvicorn with sane defaults (bind to all interfaces)
+  if [[ $# -eq 0 ]]; then
+    HOST="${HOST:-0.0.0.0}"
+    PORT="${PORT:-8000}"
+    set -- uvicorn src.OSSS.main:app \
+      --host "$HOST" \
+      --port "$PORT" \
+      --reload \
+      --log-level "${UVICORN_LOG_LEVEL:-info}" \
+      --access-log \
+      --log-config /workspace/docker/logging.yaml
+  fi
+
   exec "$@"
+
 }
 
 main "$@"

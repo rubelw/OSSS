@@ -1,16 +1,29 @@
+# /opt/keycloak/healthcheck.sh
 #!/bin/sh
-set -e
+set -eu
 
-sleep 120  # Sleep to allow restart and import load
+# Try readiness on either mgmt (9000) *or* app (8080), preferring localhost.
+ready() {
+  curl -fsS http://127.0.0.1:9000/health/ready >/dev/null 2>&1 \
+  || curl -fsS http://127.0.0.1:8080/health/ready >/dev/null 2>&1
+}
 
-# 1) First check KC readiness endpoint
-if ! curl -fsS http://keycloak:9000/health/ready >/dev/null; then
-  exit 1
-fi
+# Wait up to ~2 minutes for readiness
+i=0
+until ready; do
+  i=$((i+1))
+  [ "$i" -ge 60 ] && exit 1
+  sleep 2
+done
 
-# 2) Then check that the OSSS realm exists
-if ! curl -fsS http://keycloak:8080/realms/OSSS/.well-known/openid-configuration >/dev/null; then
-  exit 1
+# Optional: only require the realm if you *want* the container to be Healthy
+# *after* the import has completed. Otherwise, comment this block out.
+if [ "${CHECK_REALM:-1}" = "1" ]; then
+  # Build a Host header that matches your configured KC_HOSTNAME (if any)
+  HOST="$(printf %s "${KC_HOSTNAME_URL:-${KC_HOSTNAME:-localhost}}" \
+        | sed -E 's~^https?://~~; s~/.*$~~')"
+  curl -fsS -H "Host: ${HOST}" \
+    http://127.0.0.1:8080/realms/OSSS/.well-known/openid-configuration >/dev/null
 fi
 
 exit 0
