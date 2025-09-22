@@ -1,0 +1,36 @@
+# src/OSSS/db/models/fundraising_campaigns.py
+from __future__ import annotations
+
+from datetime import datetime, date
+import sqlalchemy as sa
+from sqlalchemy import ForeignKey
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from OSSS.db.base import Base, UUIDMixin, GUID
+
+# Reuse your shared timestamp mixin if available; provide a fallback for tests/migrations.
+try:
+    from OSSS.db.mixins import TimestampMixin  # type: ignore
+except Exception:
+    class TimestampMixin:  # minimal fallback
+        created_at: Mapped[datetime] = mapped_column(sa.DateTime, default=datetime.utcnow, nullable=False)
+        updated_at: Mapped[datetime] = mapped_column(sa.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+from .schools import School
+
+
+class FundraisingCampaign(UUIDMixin, TimestampMixin, Base):
+    __tablename__ = "fundraising_campaigns"
+    __table_args__ = (
+        sa.CheckConstraint("target_cents IS NULL OR target_cents >= 0", name="ck_frc_target_nonneg"),
+    )
+
+    school_id: Mapped[str]        = mapped_column(GUID(), ForeignKey("schools.id", ondelete="CASCADE"), nullable=False, index=True)
+    name:       Mapped[str | None] = mapped_column(sa.String(255))
+    description: Mapped[str | None] = mapped_column(sa.Text)
+    target_cents: Mapped[int | None] = mapped_column(sa.Integer)
+    starts_on:   Mapped[date | None] = mapped_column(sa.Date)
+    ends_on:     Mapped[date | None] = mapped_column(sa.Date)
+
+    # relationships
+    school: Mapped[School] = relationship("School")

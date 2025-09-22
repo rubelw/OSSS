@@ -1,0 +1,37 @@
+# src/OSSS/db/models/store_orders.py
+from __future__ import annotations
+
+from datetime import datetime
+import sqlalchemy as sa
+from sqlalchemy import ForeignKey, Enum
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from OSSS.db.base import Base, UUIDMixin, GUID
+
+# Reuse your shared timestamp mixin; provide a safe fallback.
+try:
+    from OSSS.db.mixins import TimestampMixin  # type: ignore
+except Exception:
+    class TimestampMixin:
+        created_at: Mapped[datetime] = mapped_column(sa.DateTime, default=datetime.utcnow, nullable=False)
+        updated_at: Mapped[datetime] = mapped_column(sa.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+from .schools import School
+from .common_enums import OrderStatus
+
+
+class StoreOrder(UUIDMixin, TimestampMixin, Base):
+    __tablename__ = "store_orders"
+
+    school_id:   Mapped[str]        = mapped_column(GUID(), ForeignKey("schools.id", ondelete="CASCADE"), nullable=False, index=True)
+    buyer_name:  Mapped[str | None] = mapped_column(sa.String(255))
+    buyer_email: Mapped[str | None] = mapped_column(sa.String(255))
+    total_cents: Mapped[int | None] = mapped_column(sa.Integer)
+    status:      Mapped[OrderStatus] = mapped_column(
+        Enum(OrderStatus, name="order_status", native_enum=False),
+        nullable=False,
+        default=OrderStatus.pending,
+    )
+
+    # relationships
+    school: Mapped[School] = relationship("School")
