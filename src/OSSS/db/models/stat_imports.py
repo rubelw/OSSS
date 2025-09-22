@@ -1,28 +1,55 @@
-# src/OSSS/db/models/stat_imports.py
+"""
+SQLAlchemy model for StatImport with managed metadata.
+Updated with __allow_managed__, NOTE (ClassVar[str]), and __table_args__.
+"""
 from __future__ import annotations
 
 from datetime import datetime
+from typing import ClassVar
 
-import sqlalchemy as sa
-from sqlalchemy import ForeignKey
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-from datetime import datetime
-from typing import Optional
-from .games import Game   # <-- add this
-
+from sqlalchemy import Column, DateTime, String, text
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+from sqlalchemy.orm import declarative_base
 from OSSS.db.base import Base, UUIDMixin, GUID, JSONB
-
 
 class StatImport(UUIDMixin, Base):
     __tablename__ = "stat_imports"
+    __allow_unmapped__ = True  # SQLAlchemy 2.x compatibility
+    __allow_managed__ = True
 
-    game_id: Mapped[str | None] = mapped_column(GUID(), ForeignKey("games.id", ondelete="SET NULL"))
-    source_system: Mapped[str] = mapped_column(sa.String, nullable=False)
-    imported_at: Mapped[datetime] = mapped_column(sa.DateTime, default=datetime.utcnow, nullable=False)
-    file_uri: Mapped[str | None] = mapped_column(sa.String)
-    status: Mapped[str | None] = mapped_column(sa.String)  # success, failed
-    summary: Mapped[dict | None] = mapped_column(JSONB())
+    NOTE: ClassVar[str] = (
+        "owner=athletics_activities_enrichment | division_of_schools; "
+        "description=Stores stat import records for the application. "
+        "Key attributes include source and status. "
+        "Includes standard audit timestamps (created_at, updated_at). "
+        "5 column(s) defined. "
+        "Primary key is `id`. "
+        "0 foreign key field(s) detected."
+    )
 
-    # Relationship: keep the type non-optional (relationship objects are always present),
-    # nullability is modeled by the FK above.
-    game: Mapped[Optional["Game"]] = relationship()
+    __table_args__ = {
+        "comment": (
+            "Stores stat import records for the application. "
+            "Key attributes include source and status. "
+            "Includes standard audit timestamps (created_at, updated_at). "
+            "5 column(s) defined. "
+            "Primary key is `id`. "
+            "0 foreign key field(s) detected."
+        ),
+        "info": {
+            "note": NOTE,
+            "description": (
+                "Stores stat import records for the application. "
+                "Key attributes include source and status. "
+                "Includes standard audit timestamps (created_at, updated_at). "
+                "5 column(s) defined. "
+                "Primary key is `id`. "
+                "0 foreign key field(s) detected."
+            ),
+        },
+    }
+
+    source = Column(String(255), nullable=False)
+    status = Column(String(100), nullable=False)
+    created_at = Column(DateTime, server_default=text("now()"), nullable=False)
+    updated_at = Column(DateTime, server_default=text("now()"), onupdate=datetime.utcnow, nullable=False)

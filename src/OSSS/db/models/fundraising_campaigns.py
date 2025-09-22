@@ -1,36 +1,76 @@
-# src/OSSS/db/models/fundraising_campaigns.py
+"""
+SQLAlchemy model for FundraisingCampaign with managed metadata.
+Updated with __allow_managed__, NOTE (ClassVar[str]), and __table_args__.
+"""
 from __future__ import annotations
 
-from datetime import datetime, date
-import sqlalchemy as sa
-from sqlalchemy import ForeignKey
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from datetime import datetime
+from typing import ClassVar, List
 
-from OSSS.db.base import Base, UUIDMixin, GUID
-
-# Reuse your shared timestamp mixin if available; provide a fallback for tests/migrations.
-try:
-    from OSSS.db.mixins import TimestampMixin  # type: ignore
-except Exception:
-    class TimestampMixin:  # minimal fallback
-        created_at: Mapped[datetime] = mapped_column(sa.DateTime, default=datetime.utcnow, nullable=False)
-        updated_at: Mapped[datetime] = mapped_column(sa.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
-
-from .schools import School
+from sqlalchemy import Column, DateTime, ForeignKey, String, Integer, text
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+from sqlalchemy.orm import declarative_base, relationship, Mapped, mapped_column
+from OSSS.db.base import Base, UUIDMixin, GUID, JSONB
 
 
-class FundraisingCampaign(UUIDMixin, TimestampMixin, Base):
+class FundraisingCampaign(UUIDMixin, Base):
     __tablename__ = "fundraising_campaigns"
-    __table_args__ = (
-        sa.CheckConstraint("target_cents IS NULL OR target_cents >= 0", name="ck_frc_target_nonneg"),
+    __allow_unmapped__ = True  # SQLAlchemy 2.x compatibility
+    __allow_managed__ = True
+
+    NOTE: ClassVar[str] = (
+        "owner=athletics_activities_enrichment | division_of_schools; "
+        "description=Stores fundraising campaigns records for the application. "
+        "Key attributes include title and goal amount. "
+        "References related entities via: school. "
+        "Includes standard audit timestamps (created_at, updated_at). "
+        "5 column(s) defined. "
+        "Primary key is `id`. "
+        "1 foreign key field(s) detected."
     )
 
-    school_id: Mapped[str]        = mapped_column(GUID(), ForeignKey("schools.id", ondelete="CASCADE"), nullable=False, index=True)
-    name:       Mapped[str | None] = mapped_column(sa.String(255))
-    description: Mapped[str | None] = mapped_column(sa.Text)
-    target_cents: Mapped[int | None] = mapped_column(sa.Integer)
-    starts_on:   Mapped[date | None] = mapped_column(sa.Date)
-    ends_on:     Mapped[date | None] = mapped_column(sa.Date)
+    __table_args__ = {
+        "comment": (
+            "Stores fundraising campaigns records for the application. "
+            "Key attributes include title and goal amount. "
+            "References related entities via: school. "
+            "Includes standard audit timestamps (created_at, updated_at). "
+            "5 column(s) defined. "
+            "Primary key is `id`. "
+            "1 foreign key field(s) detected."
+        ),
+        "info": {
+            "note": NOTE,
+            "description": (
+                "Stores fundraising campaigns records for the application. "
+                "Key attributes include title and goal amount. "
+                "References related entities via: school. "
+                "Includes standard audit timestamps (created_at, updated_at). "
+                "5 column(s) defined. "
+                "Primary key is `id`. "
+                "1 foreign key field(s) detected."
+            ),
+        },
+    }
 
-    # relationships
-    school: Mapped[School] = relationship("School")
+    title = Column(String(255), nullable=False)
+    goal_cents = Column(Integer, nullable=False)
+    created_at = Column(DateTime, server_default=text("now()"), nullable=False)
+    updated_at = Column(DateTime, server_default=text("now()"), onupdate=datetime.utcnow, nullable=False)
+
+    donations: Mapped[List["Donation"]] = relationship(
+        back_populates="campaign",
+        cascade="all, delete-orphan"
+    )
+
+    # Make sure the FK matches your School PK & tablename
+    school_id: Mapped[GUID] = mapped_column(
+        ForeignKey("schools.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    school: Mapped["School"] = relationship(
+        "School",
+        back_populates="fundraising_campaigns",
+    )

@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, ClassVar, Optional
+from typing import Any, ClassVar, Optional, List
 
 import sqlalchemy as sa
 from sqlalchemy import ForeignKey, text
@@ -80,6 +80,67 @@ class School(UUIDMixin, Base):
     )
     events: Mapped[list["Event"]] = relationship(
         "Event",
+        back_populates="school",
+        cascade="all, delete-orphan",
+    )
+
+    # class name must be exactly "School"
+    fan_app_settings: Mapped[list["FanAppSetting"]] = relationship(
+        back_populates="school",
+        cascade="all, delete-orphan",
+    )
+
+    # Reverse side for FanPage.school
+    fan_pages: Mapped[List["FanPage"]] = relationship(
+        "FanPage",
+        back_populates="school",
+        cascade="all, delete-orphan",
+        lazy="selectin",  # optional, matches your pattern on other collections
+    )
+
+    camps: Mapped[list["Camp"]] = relationship(
+        "Camp", back_populates="school", cascade="all, delete-orphan"
+    )
+
+    # one-to-many: a school has many teams
+    teams: Mapped[list["Team"]] = relationship(
+        "Team", back_populates="school", cascade="all, delete-orphan"
+    )
+
+    donations: Mapped[list["Donation"]] = relationship(
+        "Donation",
+        back_populates="school",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+
+    app_settings: Mapped[list["FanAppSetting"]] = relationship(
+        "FanAppSetting", back_populates="school", cascade="all, delete-orphan"
+    )
+
+    concession_sales = relationship(
+        "ConcessionSale",
+        primaryjoin="School.id == foreign(ConcessionSale.school_id)",
+        viewonly=True,  # consider viewonly if you don't want writes
+    )
+
+    concession_items: Mapped[list["ConcessionItem"]] = relationship(
+        "ConcessionItem",
+        back_populates="school",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
+    # ✅ define the reverse side that Registration.back_populates points to
+    camp_registrations: Mapped[list["CampRegistration"]] = relationship(
+        back_populates="school",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+
+    # Fundraising: one School -> many FundraisingCampaigns
+    fundraising_campaigns: Mapped[list["FundraisingCampaign"]] = relationship(
+        "FundraisingCampaign",
         back_populates="school",
         cascade="all, delete-orphan",
     )
