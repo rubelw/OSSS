@@ -1,22 +1,31 @@
 from __future__ import annotations
-from datetime import datetime
-from typing import Optional
 
 import sqlalchemy as sa
-from sqlalchemy import ForeignKey
+from sqlalchemy import ForeignKey, Column, Integer
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-
 from OSSS.db.base import Base, UUIDMixin, GUID
-from .concession_stands import ConcessionStand
-from .events import Event   # <-- add this
+
 
 class ConcessionSale(UUIDMixin, Base):
     __tablename__ = "concession_sales"
 
     stand_id: Mapped[str] = mapped_column(GUID(), ForeignKey("concession_stands.id"), nullable=False)
     event_id: Mapped[str | None] = mapped_column(GUID(), ForeignKey("events.id"))
-    total_cents: Mapped[int] = mapped_column(sa.Integer, nullable=False)
-    sold_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), default=sa.func.now())
 
-    stand: Mapped[ConcessionStand] = relationship()
-    event: Mapped[Optional[Event]] = relationship()   # <-- Optional now resolves
+    buyer_name: Mapped[str | None] = mapped_column(sa.String)
+    buyer_email: Mapped[str | None] = mapped_column(sa.String)
+    buyer_phone: Mapped[str | None] = mapped_column(sa.String)
+    buyer_address_line1: Mapped[str | None] = mapped_column(sa.String)
+    buyer_address_line2: Mapped[str | None] = mapped_column(sa.String)
+    buyer_city: Mapped[str | None] = mapped_column(sa.String)
+    buyer_state: Mapped[str | None] = mapped_column(sa.String)
+    buyer_postal_code: Mapped[str | None] = mapped_column(sa.String)
+
+    # A sale has many line items
+    line_items: Mapped[list["ConcessionSaleItem"]] = relationship(
+        "ConcessionSaleItem",
+        back_populates="sale",
+        cascade="all, delete-orphan",
+    )
+
+    school_id = Column(Integer)  # no ForeignKey on purpose

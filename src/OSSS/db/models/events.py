@@ -95,3 +95,5 @@ class Event(UUIDMixin, Base):
         back_populates="event",
         cascade="all, delete-orphan",
     )
+
+    assignments: Mapped[list["WorkAssignment"]] = relationship("WorkAssignment", back_populates="event")

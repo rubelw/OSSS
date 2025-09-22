@@ -1,44 +1,69 @@
-# src/OSSS/db/models/camps.py
+"""
+SQLAlchemy model for Camp with managed metadata.
+Updated with __allow_managed__, NOTE (ClassVar[str]), and __table_args__.
+"""
 from __future__ import annotations
 
-from datetime import date, datetime
-import sqlalchemy as sa
-from sqlalchemy import ForeignKey, Integer
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from datetime import datetime
+from typing import ClassVar, Optional
+from uuid import UUID
 
-from OSSS.db.base import Base, UUIDMixin, GUID
-
-# Use your shared mixin if available; otherwise provide a minimal fallback
-try:
-    from OSSS.db.mixins import TimestampMixin  # type: ignore
-except Exception:
-    class TimestampMixin:
-        created_at: Mapped[datetime] = mapped_column(sa.DateTime, default=datetime.utcnow, nullable=False)
-        updated_at: Mapped[datetime] = mapped_column(sa.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
-
-# If your School model lives in src/OSSS/db/models/school.py
-from .schools import School
+from sqlalchemy import Column, DateTime, ForeignKey, String, text
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+from sqlalchemy.orm import declarative_base, relationship, mapped_column, Mapped
+from OSSS.db.base import Base, UUIDMixin, GUID, JSONB
 
 
-class Camp(UUIDMixin, TimestampMixin, Base):
+
+class Camp(UUIDMixin, Base):
     __tablename__ = "camps"
+    __allow_unmapped__ = True  # SQLAlchemy 2.x compatibility
+    __allow_managed__ = True
 
-    school_id:   Mapped[str]           = mapped_column(GUID(), ForeignKey("schools.id", ondelete="CASCADE"), nullable=False, index=True)
-    name:        Mapped[str | None]    = mapped_column(sa.String(255))
-    description: Mapped[str | None]    = mapped_column(sa.Text)
-    start_date:  Mapped[date | None]   = mapped_column(sa.Date)
-    end_date:    Mapped[date | None]   = mapped_column(sa.Date)
-    price_cents: Mapped[int | None]    = mapped_column(sa.Integer)
-    capacity:    Mapped[int | None]    = mapped_column(sa.Integer)
-    location:    Mapped[str | None]    = mapped_column(sa.String(255))
+    NOTE: ClassVar[str] = (
+        "owner=athletics_activities_enrichment | division_of_schools; "
+        "description=Stores camps records for the application. "
+        "Key attributes include name. "
+        "References related entities via: school. "
+        "Includes standard audit timestamps (created_at, updated_at). "
+        "5 column(s) defined. "
+        "Primary key is `id`. "
+        "1 foreign key field(s) detected."
+    )
 
-    # relationships
-    school: Mapped[School] = relationship("School")
+    __table_args__ = {
+        "comment": (
+            "Stores camps records for the application. "
+            "Key attributes include name. "
+            "References related entities via: school. "
+            "Includes standard audit timestamps (created_at, updated_at). "
+            "5 column(s) defined. "
+            "Primary key is `id`. "
+            "1 foreign key field(s) detected."
+        ),
+        "info": {
+            "note": NOTE,
+            "description": (
+                "Stores camps records for the application. "
+                "Key attributes include name. "
+                "References related entities via: school. "
+                "Includes standard audit timestamps (created_at, updated_at). "
+                "5 column(s) defined. "
+                "Primary key is `id`. "
+                "1 foreign key field(s) detected."
+            ),
+        },
+    }
 
-    registrations: Mapped[list["CampRegistration"]] = relationship(
-        "CampRegistration",
-        back_populates="camp",
-        cascade="all, delete-orphan",
-        passive_deletes=True,
-        lazy="selectin",
+    name = Column(String(255), nullable=False)
+    created_at = Column(DateTime, server_default=text("now()"), nullable=False)
+    updated_at = Column(DateTime, server_default=text("now()"), onupdate=datetime.utcnow, nullable=False)
+
+    registrations = relationship("CampRegistration", back_populates="camp")
+
+    school_id: Mapped[UUID] = mapped_column(
+        GUID(), ForeignKey("schools.id"), nullable=False
+    )
+    school: Mapped["School"] = relationship(
+        "School", back_populates="camps"
     )

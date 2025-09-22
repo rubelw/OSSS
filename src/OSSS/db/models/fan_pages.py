@@ -1,41 +1,64 @@
-# src/OSSS/db/models/fan_pages.py
+"""
+SQLAlchemy model for FanPage with managed metadata.
+Updated with __allow_managed__, NOTE (ClassVar[str]), and __table_args__.
+"""
 from __future__ import annotations
 
-import sqlalchemy as sa
-from sqlalchemy import ForeignKey
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from datetime import datetime
+from typing import ClassVar
 
-from OSSS.db.base import Base, UUIDMixin, GUID
-from ._helpers import ts_cols
-from .schools import School
-
+from sqlalchemy import Column, DateTime, ForeignKey, String, text
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+from sqlalchemy.orm import declarative_base, relationship, Mapped, mapped_column
+from OSSS.db.base import Base, UUIDMixin, GUID, JSONB
 
 class FanPage(UUIDMixin, Base):
     __tablename__ = "fan_pages"
+    __allow_unmapped__ = True  # SQLAlchemy 2.x compatibility
+    __allow_managed__ = True
 
-    school_id: Mapped[str] = mapped_column(
-        GUID(),
-        ForeignKey("schools.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True,
+    NOTE: ClassVar[str] = (
+        "owner=athletics_activities_enrichment | division_of_schools; "
+        "description=Stores fan pages records for the application. "
+        "Key attributes include title and content. "
+        "References related entities via: school. "
+        "Includes standard audit timestamps (created_at, updated_at). "
+        "5 column(s) defined. "
+        "Primary key is `id`. "
+        "1 foreign key field(s) detected."
     )
 
-    slug: Mapped[str] = mapped_column(
-        sa.String(255),
-        unique=True,
-        index=True,
-        nullable=False,
-    )
-    title: Mapped[str | None] = mapped_column(sa.String(255))
-    content_md: Mapped[str | None] = mapped_column(sa.Text)
-    published: Mapped[bool] = mapped_column(
-        sa.Boolean,
-        nullable=False,
-        server_default=sa.text("false"),
-    )
+    __table_args__ = {
+        "comment": (
+            "Stores fan pages records for the application. "
+            "Key attributes include title and content. "
+            "References related entities via: school. "
+            "Includes standard audit timestamps (created_at, updated_at). "
+            "5 column(s) defined. "
+            "Primary key is `id`. "
+            "1 foreign key field(s) detected."
+        ),
+        "info": {
+            "note": NOTE,
+            "description": (
+                "Stores fan pages records for the application. "
+                "Key attributes include title and content. "
+                "References related entities via: school. "
+                "Includes standard audit timestamps (created_at, updated_at). "
+                "5 column(s) defined. "
+                "Primary key is `id`. "
+                "1 foreign key field(s) detected."
+            ),
+        },
+    }
 
-    # standard audit timestamps
-    created_at, updated_at = ts_cols()
+    title = Column(String(255), nullable=False)
+    content = Column(String, nullable=False)
+    created_at = Column(DateTime, server_default=text("now()"), nullable=False)
+    updated_at = Column(DateTime, server_default=text("now()"), onupdate=datetime.utcnow, nullable=False)
 
-    # relationships
-    school: Mapped[School] = relationship("School")
+    school = relationship("School", back_populates="fan_pages")
+
+    school_id: Mapped[str] = mapped_column(ForeignKey("schools.id"), nullable=False, index=True)
+
+    school: Mapped["School"] = relationship("School", back_populates="fan_pages")

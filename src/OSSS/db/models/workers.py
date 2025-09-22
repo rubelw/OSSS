@@ -1,22 +1,22 @@
-# src/OSSS/db/models/workers.py
 from __future__ import annotations
 
+from datetime import datetime
 import sqlalchemy as sa
-from sqlalchemy import ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from OSSS.db.base import Base, UUIDMixin, GUID
-from .schools import School
-
+from OSSS.db.base import Base, UUIDMixin
 
 class Worker(UUIDMixin, Base):
     __tablename__ = "workers"
 
-    school_id: Mapped[str]        = mapped_column(GUID(), ForeignKey("schools.id", ondelete="CASCADE"), nullable=False, index=True)
-    name:      Mapped[str | None] = mapped_column(sa.String(128))
-    role:      Mapped[str | None] = mapped_column(sa.String(128))  # gate, clock, chain crew
-    phone:     Mapped[str | None] = mapped_column(sa.String(64))
-    email:     Mapped[str | None] = mapped_column(sa.String(255))
+    # example columns (keep your real ones)
+    first_name: Mapped[str] = mapped_column(sa.String(80), nullable=False)
+    last_name:  Mapped[str] = mapped_column(sa.String(80), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(sa.TIMESTAMP(timezone=True), server_default=sa.func.now())
 
-    # relationships
-    school: Mapped[School] = relationship("School")
+    # inverse relationship — name must match what you used above
+    assignments: Mapped[list["WorkAssignment"]] = relationship(
+        "WorkAssignment",
+        back_populates="worker",
+        cascade="all, delete-orphan",
+    )
