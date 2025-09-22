@@ -7,6 +7,8 @@
 
 set -Eeuo pipefail
 
+
+
 # -------- dotenv loader --------
 load_dotenv() {
   local candidate="${1:-}"
@@ -127,16 +129,30 @@ ensure_python_venv "$@"
 
 # -------- Podman compose selection --------
 compose_cmd() {
-  if podman compose version >/dev/null 2>&1; then
-    echo "podman compose"; return 0
+  # Prefer podman-compose if that’s what your env uses; fall back to docker compose.
+  if command -v podman >/dev/null 2>&1 && podman --help | grep -qE '\bcompose\b'; then
+    echo "podman compose -f ${COMPOSE_FILE:-docker-compose.yml}"
+  elif command -v podman-compose >/dev/null 2>&1; then
+    echo "podman-compose -f ${COMPOSE_FILE:-docker-compose.yml}"
+  elif command -v docker >/dev/null 2>&1; then
+    echo "docker compose -f ${COMPOSE_FILE:-docker-compose.yml}"
+  else
+    echo "❌ Neither podman-compose nor docker was found." >&2
+    return 127
   fi
-  if command -v podman-compose >/dev/null 2>&1; then
-    echo "podman-compose"; return 0
+}
+
+__compose_cmd() {
+  if command -v podman >/dev/null 2>&1 && podman --help | grep -qE '\bcompose\b'; then
+    echo "podman compose -f ${COMPOSE_FILE:-docker-compose.yml}"
+  elif command -v podman-compose >/dev/null 2>&1; then
+    echo "podman-compose -f ${COMPOSE_FILE:-docker-compose.yml}"
+  elif command -v docker >/dev/null 2>&1; then
+    echo "docker compose -f ${COMPOSE_FILE:-docker-compose.yml}"
+  else
+    echo "❌ Neither podman-compose nor docker found." >&2
+    return 127
   fi
-  echo "❌ Neither 'podman compose' nor 'podman-compose' found on PATH." >&2
-  echo "   macOS: brew install podman podman-compose" >&2
-  echo "   Linux: sudo apt/dnf install podman; pipx install podman-compose" >&2
-  exit 1
 }
 
 ensure_compose_file() {
@@ -151,17 +167,116 @@ run() { echo "+ $*"; "$@"; }
 c() { $COMPOSE -f "$COMPOSE_FILE" --profile "$PROFILE" "$@"; }
 
 # -------- Service discovery --------
-compose_profiles() {
-  local out
-  if out="$($COMPOSE -f "$COMPOSE_FILE" config --profiles 2>/dev/null)" && [[ -n "$out" ]]; then
-    printf '%s\n' "$out" | sed '/^\s*$/d' | sort -u
+
+# get compose project name the same way compose will (respect env/flags)
+__compose_project_name() {
+  # Respect COMPOSE_PROJECT_NAME if set; otherwise let compose compute.
+  if [ -n "${COMPOSE_PROJECT_NAME:-}" ]; then
+    echo "$COMPOSE_PROJECT_NAME"
   else
-    awk '
-      $1=="profiles:"{inp=1; next}
-      inp && $1!~/:/{ sub("-","",$1); print $1 }
-      inp && $1~/.:/{ inp=0 }
-    ' "$COMPOSE_FILE" | sed '/^\s*$/d' | sort -u
+    # Ask the compose CLI directly (works with both podman-compose and docker compose)
+    # Falls back to directory name if config doesn’t expose name.
+    local CMD; CMD="$(__compose_cmd)" || return $?
+    # docker compose: `config --services` doesn’t show project; but `config --hash` not universal.
+    # Use ps to read labels if running; else derive from current dir.
+    local pn
+    pn="$($CMD config 2>/dev/null | awk -F: '/^name:/{gsub(/[[:space:]]/,"",$2);print $2; exit}')" || true
+    if [ -n "$pn" ]; then echo "$pn"; else basename "$PWD"; fi
   fi
+}
+
+compose_down_profile() {
+  local prof="$1"
+  # Try a native compose down first (best at cleaning pods, networks, orphans)
+  # Fall back silently if the CLI doesn’t support flags.
+  set +e
+  compose_stop_rm_profile "$prof" 2>/dev/null
+  rc=$?
+  set -e
+  return $rc
+}
+
+# list profiles (quote-safe)
+__compose_profiles() {
+  awk '
+    BEGIN{in_services=0; svc=""; in_profiles=0}
+    /^[[:space:]]*services[[:space:]]*:/ {in_services=1; next}
+    in_services {
+      if ($0 ~ /^[^[:space:]]/ && $0 !~ /^[[:space:]]/) {in_services=0; next}
+      if ($0 ~ /^[[:space:]][[:space:]][A-Za-z0-9._-]+:[[:space:]]*$/) { svc=$0; sub(/^[[:space:]]+/, "", svc); sub(/:.*/, "", svc); in_profiles=0; next }
+      if (svc && $0 ~ /^[[:space:]]{4}profiles:[[:space:]]*\[/) {
+        s=$0; sub(/^[^[]*\[/,"",s); sub(/\].*$/,"",s)
+        gsub(/[[:space:]"]/,"",s); gsub(/[[:space:]]'\''/,"",s)
+        n=split(s, arr, ","); for(i=1;i<=n;i++) if (arr[i]!="") seen[arr[i]]=1
+        next
+      }
+      if (svc && $0 ~ /^[[:space:]]{4}profiles:[[:space:]]*$/) { in_profiles=1; next }
+      if (in_profiles && $0 ~ /^[[:space:]]{6}-[[:space:]]*/) {
+        p=$0; sub(/^[^ -]*-/,"",p); gsub(/^[[:space:]'"'"'"]+|[[:space:]'"'"'"]+$/,"",p)
+        if (p!="") seen[p]=1; next
+      }
+      if (in_profiles && $0 ~ /^[[:space:]]{4}[A-Za-z0-9._-]+:/) { in_profiles=0 }
+    }
+    END{ for (k in seen) print k }
+  ' "${COMPOSE_FILE:-docker-compose.yml}" | sort -u
+}
+
+# services for a given profile (quote-safe)
+__compose_services_for_profile() {
+  prof="$1"
+  awk -v prof="$prof" '
+    BEGIN{in_services=0; svc=""; in_profiles=0}
+    /^[[:space:]]*services[[:space:]]*:/ {in_services=1; next}
+    in_services {
+      if ($0 ~ /^[^[:space:]]/ && $0 !~ /^[[:space:]]/) {in_services=0; next}
+      if ($0 ~ /^[[:space:]][[:space:]][A-Za-z0-9._-]+:[[:space:]]*$/) {
+        line=$0; sub(/^[[:space:]]+/, "", line); sub(/:.*/, "", line); svc=line; in_profiles=0; next
+      }
+      if (svc && $0 ~ /^[[:space:]]{4}profiles:[[:space:]]*\[/) {
+        s=$0; sub(/^[^[]*\[/,"",s); sub(/\].*$/,"",s)
+        gsub(/[[:space:]"]/,"",s); gsub(/[[:space:]]'\''/,"",s)
+        n=split(s, arr, ","); for(i=1;i<=n;i++) if (arr[i]==prof) { print svc; break }
+        next
+      }
+      if (svc && $0 ~ /^[[:space:]]{4}profiles:[[:space:]]*$/) { in_profiles=1; next }
+      if (in_profiles && $0 ~ /^[[:space:]]{6}-[[:space:]]*/) {
+        p=$0; sub(/^[^ -]*-/,"",p); gsub(/^[[:space:]'"'"'"]+|[[:space:]'"'"'"]+$/,"",p)
+        if (p==prof) print svc; next
+      }
+      if (in_profiles && $0 ~ /^[[:space:]]{4}[A-Za-z0-9._-]+:/) { in_profiles=0 }
+    }
+  ' "${COMPOSE_FILE:-docker-compose.yml}" | sort -u
+}
+
+compose_profiles() {
+  # Emits unique profile names found in services.*.profiles (inline list or multiline).
+  awk '
+    BEGIN{in_services=0; svc=""; in_profiles=0}
+    /^[[:space:]]*services[[:space:]]*:/ {in_services=1; next}
+    in_services {
+      # top-level key ends services
+      if ($0 ~ /^[^[:space:]]/ && $0 !~ /^[[:space:]]/) {in_services=0; next}
+      # service header (two spaces then "name:")
+      if ($0 ~ /^[[:space:]][[:space:]][A-Za-z0-9._-]+:[[:space:]]*$/) {
+        svc=$0; sub(/^[[:space:]]+/, "", svc); sub(/:.*/, "", svc); in_profiles=0; next
+      }
+      # inline profiles: "    profiles: [a,b,c]"
+      if (svc && $0 ~ /^[[:space:]]{4}profiles:[[:space:]]*\[/) {
+        s=$0; sub(/^[^[]*\[/,"",s); sub(/\].*$/,"",s); gsub(/[[:space:]]/,"",s)
+        n=split(s, arr, ","); for(i=1;i<=n;i++) if (arr[i]!="") seen[arr[i]]=1
+        next
+      }
+      # multiline profiles: start
+      if (svc && $0 ~ /^[[:space:]]{4}profiles:[[:space:]]*$/) { in_profiles=1; next }
+      # multiline items: "      - prof"
+      if (in_profiles && $0 ~ /^[[:space:]]{6}-[[:space:]]*[A-Za-z0-9._-]+/) {
+        p=$0; sub(/^[^ -]*-/,"",p); gsub(/^[[:space:]]+|[[:space:]]+$/,"",p); if(p!="") seen[p]=1; next
+      }
+      # any new key at indent 4 ends profiles block
+      if (in_profiles && $0 ~ /^[[:space:]]{4}[A-Za-z0-9._-]+:/) { in_profiles=0 }
+    }
+    END{ for (k in seen) print k }
+  ' "${COMPOSE_FILE:-docker-compose.yml}" | sort -u
 }
 
 compose_services_base() {
@@ -180,30 +295,32 @@ compose_services_base() {
 }
 
 compose_services_for_profile() {
-  local prof="$1" out
-  if out="$($COMPOSE -f "$COMPOSE_FILE" --profile "$prof" config --services 2>/dev/null)" && [[ -n "$out" ]]; then
-    printf '%s\n' "$out" | sed '/^\s*$/d'
-  else
-    awk -v target="$prof" '
-      /^services:[[:space:]]*$/ { in_services=1; next }
-      in_services && /^[^[:space:]]/ { in_services=0 }
-      in_services && /^[[:space:]]{2}[A-Za-z0-9_.-]+:[[:space:]]*$/ {
-        if (svc_name != "" && matched) { print svc_name }
-        matched=0; in_prof=0
-        line=$0; sub(/^[[:space:]]+/, "", line); sub(/:.*/, "", line); svc_name=line; next
+  # Arg: profile name; emits service names belonging to that profile
+  prof="$1"
+  awk -v prof="$prof" '
+    BEGIN{in_services=0; svc=""; in_profiles=0}
+    /^[[:space:]]*services[[:space:]]*:/ {in_services=1; next}
+    in_services {
+      if ($0 ~ /^[^[:space:]]/ && $0 !~ /^[[:space:]]/) {in_services=0; next}
+      if ($0 ~ /^[[:space:]][[:space:]][A-Za-z0-9._-]+:[[:space:]]*$/) {
+        line=$0; sub(/^[[:space:]]+/, "", line); sub(/:.*/, "", line)
+        svc=line; in_profiles=0; next
       }
-      in_services && svc_name != "" {
-        if ($0 ~ /^[[:space:]]{4}profiles:[[:space:]]*$/) { in_prof=1; next }
-        if (in_prof && $0 ~ /^[[:space:]]{2}[A-Za-z0-9_.-]+:[[:space:]]*$/) { in_prof=0 }
-        if (in_prof && $0 ~ /^[[:space:]]{6}-[[:space:]]*[A-Za-z0-9_.-]+[[:space:]]*$/) {
-          p=$0; sub(/^[[:space:]]*-[[:space:]]*/, "", p); sub(/[[:space:]]*$/, "", p)
-          if (p == target) { matched=1 }
-        }
+      if (svc && $0 ~ /^[[:space:]]{4}profiles:[[:space:]]*\[/) {
+        s=$0; sub(/^[^[]*\[/,"",s); sub(/\].*$/,"",s); gsub(/[[:space:]]/,"",s)
+        n=split(s, arr, ","); for(i=1;i<=n;i++) if (arr[i]==prof) { print svc; break }
+        next
       }
-      END { if (svc_name != "" && matched) { print svc_name } }
-    ' "$COMPOSE_FILE" | sed '/^\s*$/d' | sort -u
-  fi
+      if (svc && $0 ~ /^[[:space:]]{4}profiles:[[:space:]]*$/) { in_profiles=1; next }
+      if (in_profiles && $0 ~ /^[[:space:]]{6}-[[:space:]]*[A-Za-z0-9._-]+/) {
+        p=$0; sub(/^[^ -]*-/,"",p); gsub(/^[[:space:]]+|[[:space:]]+$/,"",p)
+        if (p==prof) print svc; next
+      }
+      if (in_profiles && $0 ~ /^[[:space:]]{4}[A-Za-z0-9._-]+:/) { in_profiles=0 }
+    }
+  ' "${COMPOSE_FILE:-docker-compose.yml}" | sort -u
 }
+
 
 compose_services_all() {
   { compose_services_base; while read -r p; do [[ -n "$p" ]] && compose_services_for_profile "$p"; done < <(compose_profiles); } \
@@ -213,10 +330,14 @@ compose_services_all() {
 # -------- Host info --------
 show_status(){
   echo "▶️  Containers (project ${COMPOSE_PROJECT_NAME}):"
-  podman ps -a --format 'table {{.Names}}\t{{.Status}}\t{{.Networks}}' | (head -n1; grep -E "^${COMPOSE_PROJECT_NAME}[-_]" || true)
+  printf "NAMES\tSTATUS\tNETWORKS\n"
+  podman ps -a --format '{{.Names}}\t{{.Status}}\t{{.Networks}}' \
+    | (grep -E "^${COMPOSE_PROJECT_NAME}[-_]" || true)
+
   echo; echo "▶️  Networks containing '${COMPOSE_PROJECT_NAME}_':"
   podman network ls | (head -n1; grep -E " ${COMPOSE_PROJECT_NAME}_" || true)
 }
+
 
 # -------- logs helpers --------
 DEFAULT_TAIL_CONF="${XDG_CONFIG_HOME:-$HOME/.config}/osss-compose-repair.conf"
@@ -226,8 +347,11 @@ load_config
 
 last_container_id() {
   local svc="$1" newest="" created_newest="" id created
-  mapfile -t ids < <(podman ps -a --filter "label=io.podman.compose.project=${COMPOSE_PROJECT_NAME}" \
-                              --filter "label=io.podman.compose.service=${svc}" --format '{{.ID}}' 2>/dev/null || true)
+  mapfile -t ids < <(podman ps -a \
+  --filter "label=io.podman.compose.project=${COMPOSE_PROJECT_NAME}" \
+  --filter "label=io.podman.compose.service=${svc}" \
+  -q 2>/dev/null || true)
+
   for id in "${ids[@]:-}"; do
     created=$(podman inspect -f '{{.Created}}' "$id" 2>/dev/null || true)
     [[ -z "$created" ]] && continue
@@ -369,6 +493,32 @@ start_profile_services() {
   prompt_return
 }
 
+down_all() {
+  local CMD; CMD="$(__compose_cmd)" || return $?
+  local PROJECT; PROJECT="$(__compose_project_name)"
+
+  echo "🔻 Bringing down ALL compose services for project '${PROJECT}'…"
+  set +e
+  $COMPOSE -f "$COMPOSE_FILE" down --remove-orphans -v 2>/dev/null
+  set -e
+
+  # Sweep any project-prefixed volumes and common networks
+  echo "🧹 Sweeping leftover project volumes and networks…"
+  mapfile -t VOLS < <(podman volume ls --format '{{.Name}}' | grep -E "^${PROJECT}_" || true)
+  for v in "${VOLS[@]}"; do podman volume rm -f "$v" >/dev/null 2>&1 || true; done
+
+  for net in "${PROJECT}_osss-net" "${PROJECT}_default"; do
+    if podman network exists "$net" 2>/dev/null; then
+      if ! podman network inspect "$net" --format '{{len .Containers}}' 2>/dev/null | awk '{exit ($1>0)}'; then
+        podman network rm "$net" >/dev/null 2>&1 || true
+      fi
+    fi
+  done
+
+  echo "✅ All services down for project '${PROJECT}'."
+  prompt_return
+}
+
 # elastic under Podman: skip filebeat/filebeat-setup (docker-only bind paths)
 start_profile_elastic() {
   ensure_hosts_keycloak
@@ -411,26 +561,74 @@ run_build_realm() {
   "$py" -u "$script_path" || echo "⚠️ build_realm.py exited non-zero (continuing)."
 }
 
+# Stop & remove only services that belong to a given profile.
+# No networks/volumes are removed globally; anonymous volumes attached to the removed containers are cleaned.
+compose_stop_rm_profile() {
+  local prof="$1"
+  local compose="$COMPOSE -f \"$COMPOSE_FILE\""
+
+  # List services that are part of the profile (using config, not ps)
+  mapfile -t SVCS < <(eval "$compose --profile \"$prof\" config --services" 2>/dev/null | awk NF)
+  if [[ ${#SVCS[@]} -eq 0 ]]; then
+    echo "No services found for profile '$prof'."
+    return 0
+  fi
+
+  echo "Stopping services in profile '$prof': ${SVCS[*]}"
+  eval "$compose stop ${SVCS[*]}"
+
+  echo "Removing services in profile '$prof' (and their anonymous volumes): ${SVCS[*]}"
+  # -s: stop if running, -f: force, -v: remove anonymous volumes attached to these containers
+  eval "$compose rm -s -f -v ${SVCS[*]}"
+}
+
+
 start_keycloak_services() {
   ensure_hosts_keycloak
-  echo "▶️  Starting Keycloak profile/services…"
-  mapfile -t svcs < <(compose_services_for_profile "keycloak" || true)
+  local CMD; CMD="$(__compose_cmd)" || return $?
+  local PROJECT; PROJECT="$(__compose_project_name)"
+
+  echo "▶️  Starting Keycloak…"
+  echo "ℹ️  Compose command: $CMD"
+  echo "ℹ️  Project: $PROJECT   File: ${COMPOSE_FILE:-docker-compose.yml}"
+
+  # Prefer profile if available; else fall back to services
+  local svcs=()
+  if compose_supports_profile; then
+    # What services are in the 'keycloak' profile?
+    mapfile -t svcs < <(__compose_services_for_profile "keycloak" 2>/dev/null | awk 'NF')
+  fi
+
   if ((${#svcs[@]})); then
-    run $COMPOSE -f "$COMPOSE_FILE" --profile keycloak up -d --no-deps "${svcs[@]}"
-    run_build_realm
-    prompt_return
-    return 0
+    echo "🔎 Found profile 'keycloak' with services: ${svcs[*]}"
+    echo "+ $CMD --profile keycloak up -d --no-deps ${svcs[*]}"
+    $CMD --profile keycloak up -d --no-deps "${svcs[@]}"
+    prompt_return; return 0
   fi
-  if $COMPOSE -f "$COMPOSE_FILE" config --services 2>/dev/null | grep -qx "keycloak"; then
-    run $COMPOSE -f "$COMPOSE_FILE" up -d --no-deps keycloak
-    run_build_realm
-    prompt_return
-    return 0
+
+  # No profile path → start by explicit service names.
+  # Common pair: keycloak + its DB (often kc_postgres)
+  mapfile -t ALL_SERVS < <(compose_list_services)
+  want=(keycloak kc_postgres)
+  chosen=()
+  for w in "${want[@]}"; do
+    for s in "${ALL_SERVS[@]}"; do
+      if [[ "$s" == "$w" ]]; then
+        chosen+=("$w")
+        break
+      fi
+    done
+  done
+
+  if ((${#chosen[@]}==0)); then
+    echo "⚠️  Neither a 'keycloak' profile nor 'keycloak' service was detected."
+    echo "   Services available: ${ALL_SERVS[*]}"
+    prompt_return; return 1
   fi
-  echo "⚠️  Couldn’t find a 'keycloak' profile or service."
-  echo "   Services: $(compose_services_base | tr '\n' ' ')"
+
+  echo "🔎 Starting services (no profile): ${chosen[*]}"
+  compose_up_services "${chosen[@]}"
   prompt_return
-  return 1
 }
 
 # -------- Trino cert helpers --------
@@ -463,77 +661,350 @@ create_trino_cert() {
 }
 
 # -------- teardown & cleanup --------
-# Down only the TRINO profile (containers + their named/anon volumes), leave networks/other profiles intact
-down_profile_interactive() {
-  local prof="trino"
-  local compose="${COMPOSE:-docker compose}"
-  local compose_file_flag=()
-  [[ -n "$COMPOSE_FILE" ]] && compose_file_flag=(-f "$COMPOSE_FILE")
 
-  mapfile -t trino_svcs < <(
-    awk -v prof="$prof" '
-      BEGIN{in_services=0; svc=""; in_profiles=0}
-      /^\s*services\s*:/ {in_services=1; next}
-      in_services {
-        if ($0 ~ /^[^[:space:]]/ && $0 !~ /^\s/) { in_services=0; next }
-        if (match($0, /^[[:space:]]{2}([A-Za-z0-9._-]+):[[:space:]]*$/, m)) {
-          svc=m[1]; in_profiles=0; next
-        }
-        if (svc && match($0, /^[[:space:]]{4}profiles:[[:space:]]*\[(.*)\][[:space:]]*$/, m)) {
-          s=m[1]; gsub(/[[:space:]]/,"",s); n=split(s, arr, ",")
-          for(i=1;i<=n;i++) if (arr[i]==prof) { print svc; break }
+__compose_named_volumes_for_service() {
+  # Arg1: service name
+  local svc="$1"
+  awk -v target="$svc" '
+    BEGIN{
+      in_services=0; in_svc=0; in_vols=0; in_item=0; # YAML-ish state
+    }
+    /^[[:space:]]*services[[:space:]]*:/ { in_services=1; next }
+
+    in_services {
+      # leaving services block
+      if ($0 ~ /^[^[:space:]]/ && $0 !~ /^[[:space:]]/) { in_services=0; in_svc=0; in_vols=0; next }
+
+      # service header (two spaces, then "<name>:")
+      if ($0 ~ /^[[:space:]]{2}[A-Za-z0-9._-]+:[[:space:]]*$/) {
+        line=$0; sub(/^[[:space:]]+/,"",line); sub(/:.*/,"",line);
+        in_svc = (line==target); in_vols=0; in_item=0; next
+      }
+
+      # only parse volumes inside the target service
+      if (in_svc) {
+        # start of volumes block
+        if ($0 ~ /^[[:space:]]{4}volumes:[[:space:]]*$/) { in_vols=1; in_item=0; next }
+
+        # inline list: volumes: [a:/x, b:/y]
+        if ($0 ~ /^[[:space:]]{4}volumes:[[:space:]]*\[/) {
+          s=$0; sub(/^[^[]*\[/,"",s); sub(/\].*$/,"",s)
+          n=split(s, arr, ",")
+          for(i=1;i<=n;i++){
+            v=arr[i]; gsub(/^[[:space:]]+|[[:space:]]+$/,"",v)
+            # grab left of ":" if present
+            split(v, kv, ":"); src=kv[1]
+            # ignore binds like ./ or / or ${...}
+            if (src !~ /^(\.\/|\/|\$\{)/ && src!="") print src
+          }
           next
         }
-        if (svc && $0 ~ /^[[:space:]]{4}profiles:[[:space:]]*$/) { in_profiles=1; next }
-        if (in_profiles) {
-          if ($0 ~ /^[[:space:]]{6}-[[:space:]]*([A-Za-z0-9._-]+)/) {
-            p=$0; sub(/^[[:space:]]*-/, "", p); gsub(/^[[:space:]]+/, "", p)
-            if (p==prof) print svc
+
+        if (in_vols) {
+          # end volumes block if new key at same indent
+          if ($0 ~ /^[[:space:]]{4}[A-Za-z0-9._-]+:/) { in_vols=0; in_item=0; next }
+
+          # list item start
+          if ($0 ~ /^[[:space:]]{6}-[[:space:]]*/) {
+            in_item=1
+            # shorthand: "- volname:/container/path"
+            item=$0; sub(/^[^ -]*-[[:space:]]*/,"",item)
+            if (item ~ /:/) {
+              split(item, kv, ":"); src=kv[1]
+              gsub(/[[:space:]]*/,"",src)
+              if (src !~ /^(\.\/|\/|\$\{)/ && src!="") print src
+              in_item=0
+            }
             next
           }
-          if ($0 ~ /^[[:space:]]{4}[A-Za-z0-9._-]+:/) { in_profiles=0 }
+
+          # long form inside list item: "source: volname"
+          if (in_item && $0 ~ /^[[:space:]]{8}source:[[:space:]]*/) {
+            src=$0; sub(/^[^:]*:[[:space:]]*/,"",src)
+            gsub(/^[[:space:]]+|[[:space:]]+$/,"",src)
+            if (src !~ /^(\.\/|\/|\$\{)/ && src!="") print src
+            next
+          }
         }
       }
-    ' "${COMPOSE_FILE:-docker-compose.yml}" | sort -u
-  )
+    }
+  ' "${COMPOSE_FILE:-docker-compose.yml}" | awk 'NF && !seen[$0]++'
+}
 
-  if ((${#trino_svcs[@]}==0)); then
-    echo "⚠️  No services declare profile '${prof}' in ${COMPOSE_FILE:-docker-compose.yml}."
-    echo "Nothing to do. (Won’t call 'compose down' to avoid impacting other resources.)"
-    prompt_return
+# Return 0 if compose supports --profile (podman compose / docker compose), 1 otherwise (podman-compose)
+compose_supports_profile() {
+  local cmd="$(__compose_cmd)" || return 1
+  # crude but reliable: podman-compose is a python wrapper and doesn't accept 'help --profile'
+  if command -v podman-compose >/dev/null 2>&1 && [[ "$cmd" == podman-compose* ]]; then
+    return 1
+  fi
+  return 0
+}
+
+# Safe "config --services" into a bash array
+compose_list_services() {
+  local cmd="$(__compose_cmd)" || return 1
+  mapfile -t __SERVS < <($cmd config --services 2>/dev/null | awk 'NF')
+  printf "%s\n" "${__SERVS[@]}"
+}
+
+# Convenience runner that prints the command first
+compose_up_services() {
+  local cmd="$(__compose_cmd)" || return 1
+  echo "+ $cmd up -d --no-deps $*"
+  $cmd up -d --no-deps "$@"
+}
+
+
+
+# Remove named volumes for selected services (Bash-3 compatible).
+# Enable with REMOVE_VOLUMES=1 (default skip). Add FORCE_VOLUME_REMOVE=1 to
+# stop/remove same-project containers still using those volumes before deleting them.
+remove_volumes_for_services() {
+  # helpers (no associative arrays)
+  _add_unique() {  # _add_unique VAR value
+    local __var="$1" __val="$2" __e
+    eval "for __e in \"\${${__var}[@]}\"; do [[ \"\$__e\" == \"\$__val\" ]] && return 0; done"
+    eval "${__var}+=(\"\$__val\")"
+  }
+  _in_list() { local n="$1"; shift; for e in "$@"; do [[ "$e" == "$n" ]] && return 0; done; return 1; }
+
+  local project="$1"; shift
+  local do_rm="${REMOVE_VOLUMES:-0}"
+  [[ "${1:-}" == "--volumes" ]] && { do_rm=1; shift; }
+  local svcs=( "$@" )
+
+  if [[ "$do_rm" != "1" ]]; then
+    echo "ℹ️  Volume removal is DISABLED (set REMOVE_VOLUMES=1 or pass --volumes)."
     return 0
   fi
 
-  echo "▶️  Stopping ${#trino_svcs[@]} service(s) in profile '${prof}': ${trino_svcs[*]}"
-  $compose "${compose_file_flag[@]}" stop "${trino_svcs[@]}" || true
-
-  echo "🧹  Removing containers (and their volumes) for: ${trino_svcs[*]}"
-  if [[ "$COMPOSE" == "podman-compose" ]]; then
-    for svc in "${trino_svcs[@]}"; do
-      ids=$(podman ps -a \
-        --filter "label=io.podman.compose.project=${COMPOSE_PROJECT_NAME}" \
-        --filter "label=io.podman.compose.service=${svc}" -q || true)
-      [[ -n "${ids:-}" ]] && podman rm -f -v $ids || true
-    done
-  else
-    $compose "${compose_file_flag[@]}" rm -f -s -v "${trino_svcs[@]}" || true
+  local CMD cfg
+  CMD="$(__compose_cmd)" || { echo "⚠️  compose cmd unavailable"; return 0; }
+  if ! cfg="$($CMD config 2>/dev/null)"; then
+    echo "⚠️  Could not run 'compose config'; skipping volume cleanup."
+    return 0
   fi
 
-  echo "✅  Done. Networks and non-'${prof}' services were left untouched."
+  # top-level volume keys (normalized by `compose config`)
+  local topkeys=()
+  while IFS= read -r k; do [[ -n "$k" ]] && _add_unique topkeys "$k"; done < <(
+    awk '
+      /^[[:space:]]*volumes:[[:space:]]*$/ { in_vols=1; next }
+      in_vols {
+        if ($0 ~ /^[^[:space:]]/ && $0 !~ /^[[:space:]]/) { in_vols=0; next }
+        if ($0 ~ /^[[:space:]]{2}[A-Za-z0-9._-]+:[[:space:]]*$/) {
+          s=$0; sub(/^[[:space:]]+/, "", s); sub(/:.*/, "", s); print s
+        }
+      }' <<<"$cfg" | sort -u
+  )
+
+  # named volumes referenced by selected services
+  local named=()
+  for svc in "${svcs[@]}"; do
+    while IFS= read -r vk; do
+      _in_list "$vk" "${topkeys[@]}" && _add_unique named "${project}_${vk}"
+    done < <(
+      awk -v SVC="$svc" '
+        BEGIN{in_services=0; svc=""; in_vols=0}
+        /^[[:space:]]*services:[[:space:]]*$/ {in_services=1; next}
+        in_services {
+          if ($0 ~ /^[^[:space:]]/ && $0 !~ /^[[:space:]]/) {in_services=0; next}
+          if ($0 ~ /^[[:space:]]{2}[A-Za-z0-9._-]+:[[:space:]]*$/) {
+            svc=$0; sub(/^[[:space:]]+/,"",svc); sub(/:.*/,"",svc); in_vols=0; next
+          }
+          if (svc==SVC) {
+            if ($0 ~ /^[[:space:]]{4}volumes:[[:space:]]*$/) { in_vols=1; next }
+            if (in_vols && $0 ~ /^[[:space:]]{6}-[[:space:]]*[^:]+:[[:space:]]*[^:]+/) {
+              line=$0; sub(/^[[:space:]]{6}-[[:space:]]*/,"",line)
+              src=line; sub(/:.*/,"",src)
+              if (src !~ /^\// && src !~ /^\.\.?\//) print src
+            }
+            if (in_vols && $0 ~ /^[[:space:]]{4}[A-Za-z0-9._-]+:/) { in_vols=0 }
+          }
+        }' <<<"$cfg" | sort -u
+    )
+  done
+
+  # attached volumes still visible on any remaining containers for these services (should be none, but be safe)
+  local attached=()
+  for svc in "${svcs[@]}"; do
+    while IFS= read -r cid; do
+      [[ -z "$cid" ]] && continue
+      while IFS= read -r v; do [[ -n "$v" ]] && _add_unique attached "$v"; done < <(
+        podman inspect --format '{{range .Mounts}}{{if eq .Type "volume"}}{{.Name}}{{"\n"}}{{end}}{{end}}' "$cid" 2>/dev/null
+      )
+    done < <(podman ps -a --filter "label=io.podman.compose.project=$project" \
+                           --filter "label=io.podman.compose.service=$svc" -q)
+  done
+
+  echo "🔎 Named volumes to consider: ${named[*]:-(none)}"
+  echo "🔎 Attached volumes to consider: ${attached[*]:-(none)}"
+
+  # union
+  local to_rm=()
+  local v; for v in "${named[@]}";    do _add_unique to_rm "$v"; done
+           for v in "${attached[@]}"; do _add_unique to_rm "$v"; done
+  [[ "${#to_rm[@]}" -eq 0 ]] && { echo "ℹ️  No volumes eligible for removal."; return 0; }
+
+  # remove, optionally forcing same-project users to stop
+  for v in "${to_rm[@]}"; do
+    # existence check using name-only listing (works regardless of columns)
+    if ! podman volume ls --format '{{.Name}}' | grep -qx "$v"; then
+      echo "   • $v (does not exist)"
+      continue
+    fi
+    # who’s using it?
+    mapfile -t USERS < <(podman ps -a --filter "volume=$v" -q)
+    if ((${#USERS[@]})); then
+      if [[ "${FORCE_VOLUME_REMOVE:-0}" == "1" ]]; then
+        # only stop/remove users that belong to the same project (by label)
+        mapfile -t PROJ_USERS < <(
+          for id in "${USERS[@]}"; do
+            lab=$(podman inspect -f '{{index .Config.Labels "io.podman.compose.project"}}' "$id" 2>/dev/null)
+            [[ "$lab" == "$project" ]] && echo "$id"
+          done
+        )
+        if ((${#PROJ_USERS[@]})); then
+          echo "   • $v (in use by ${#USERS[@]} container/s → stopping same-project users: ${#PROJ_USERS[@]})"
+          podman stop "${PROJ_USERS[@]}" || true
+          podman rm -fv "${PROJ_USERS[@]}" || true
+          # re-check other users
+          mapfile -t USERS < <(podman ps -a --filter "volume=$v" -q)
+        fi
+      fi
+    fi
+    if ((${#USERS[@]})); then
+      echo "   • $v (skipping — still used by ${#USERS[@]} container/s)"
+      continue
+    fi
+    echo "🧹 Removing volume: $v"
+    podman volume rm -f "$v" || echo "   • failed to remove $v (continuing)"
+  done
+}
+
+
+down_profile_interactive() {
+  local CMD; CMD="$(__compose_cmd)" || return $?
+  local PROJECT; PROJECT="$(__compose_project_name)"
+
+  echo "ℹ️  Using compose command: $CMD"
+  echo "ℹ️  Compose project: $PROJECT"
+  echo "ℹ️  Compose file:    ${COMPOSE_FILE:-docker-compose.yml}"
+
+  mapfile -t PROFILES < <(__compose_profiles)
+  echo "🔎 Detected profiles: ${PROFILES[*]:-(none)}"
+  if [ "${#PROFILES[@]}" -eq 0 ]; then
+    echo "⚠️  No profiles found."
+    return 0
+  fi
+
+  echo "Available profiles:"
+  local i=1
+  for p in "${PROFILES[@]}"; do printf "  %2d) %s\n" "$i" "$p"; i=$((i+1)); done
+  echo "  q) Cancel"
+  read -r -p "Select a profile to take down: " choice || return 0
+  case "$choice" in q|Q) echo "❌ Cancelled."; return 0 ;; esac
+
+  local prof
+  if [[ "$choice" =~ ^[0-9]+$ ]] && [ "$choice" -ge 1 ] && [ "$choice" -le "${#PROFILES[@]}" ]; then
+    prof="${PROFILES[$((choice-1))]}"
+    echo "✅ Selected by number: $prof"
+  else
+    prof="$choice"
+    echo "✅ Selected by name: $prof"
+  fi
+  prof="${prof%\"}"; prof="${prof#\"}"; prof="${prof%\'}"; prof="${prof#\'}"
+  echo "ℹ️  Normalized profile: $prof"
+
+  mapfile -t SVCS < <(__compose_services_for_profile "$prof")
+  echo "🔎 Services in profile '$prof': ${SVCS[*]:-(none)}"
+  if [ "${#SVCS[@]}" -eq 0 ]; then
+    echo "⚠️  No services declare profile '${prof}'. Nothing to do."
+    return 0
+  fi
+
+  echo "🚧 Taking down profile '${prof}' services: ${SVCS[*]}"
+
+  # ---- VERBOSE EXECUTION SCOPE ----
+  {
+    set -x
+
+    # 0) Try compose-native stop/rm first (best cleanup, ignores unknowns)
+    $CMD stop "${SVCS[@]}" || true
+    $CMD rm   -s -f -v "${SVCS[@]}" || true
+
+    # 1) Resolve containers by label (compose project + service)
+    declare -a CIDS=()
+    for svc in "${SVCS[@]}"; do
+      while read -r id; do
+        [[ -n "$id" ]] && CIDS+=("$id")
+      done < <(podman ps -a \
+                 --filter "label=io.podman.compose.project=$PROJECT" \
+                 --filter "label=io.podman.compose.service=$svc" \
+                 -q)
+    done
+    echo "🔎 Container IDs to stop/rm: ${CIDS[*]:-(none)}"
+
+    # 2) Find related pods (if any)
+    declare -a PODS=()
+    if ((${#CIDS[@]})); then
+      while read -r pod; do
+        [[ -n "$pod" && "$pod" != "<no value>" ]] && PODS+=("$pod")
+      done < <(podman inspect -f '{{.PodName}}' "${CIDS[@]}" 2>/dev/null | awk 'NF && !seen[$0]++')
+    fi
+    echo "🔎 Pods to stop/rm: ${PODS[*]:-(none)}"
+
+    # 3) Disable auto-restart (prevents immediate respawn)
+    if ((${#CIDS[@]})); then
+      podman update --restart=no "${CIDS[@]}" || true
+    fi
+
+    # 4) Stop pods first (if any), then containers by ID, then by service name (fallback)
+    if ((${#PODS[@]})); then
+      podman pod stop "${PODS[@]}" || true
+    fi
+    if ((${#CIDS[@]})); then
+      podman stop "${CIDS[@]}" || true
+    fi
+    podman stop "${SVCS[@]}" || true
+
+    # 5) Remove (containers first, then pods)
+    if ((${#CIDS[@]})); then
+      podman rm -fv "${CIDS[@]}" || true
+    fi
+    podman rm -fv "${SVCS[@]}" || true
+    if ((${#PODS[@]})); then
+      podman pod rm -f "${PODS[@]}" || true
+    fi
+
+    # 6) Volumes actually attached (by inspect)
+    declare -A VOL_ATTACHED=()
+    for id in "${CIDS[@]}"; do
+      while read -r vname; do
+        [[ -n "$vname" ]] && VOL_ATTACHED["$vname"]=1
+      done < <(podman inspect --format '{{range .Mounts}}{{if eq .Type "volume"}}{{.Name}}{{"\n"}}{{end}}{{end}}' "$id" 2>/dev/null)
+    done
+    echo "🔎 Candidate volumes (attached): ${!VOL_ATTACHED[*]:-(none)}"
+    for v in "${!VOL_ATTACHED[@]}"; do
+      podman volume rm -f "$v" || true
+    done
+
+    set +x
+  }
+
+  # 7) Report what’s still running for this project after teardown
+  echo "🔎 Remaining containers matching project='$PROJECT':"
+  podman ps --format '{{.ID}}\t{{.Image}}\t{{.Names}}\t{{.Status}}\t{{.Ports}}' \
+    --filter "label=io.podman.compose.project=$PROJECT" | sed 's/^/  /' || true
+
+  # also remove named volumes referenced by those services
+  remove_volumes_for_services "$PROJECT" --volumes "${SVCS[@]}"
+  echo "✅ Done with profile '${prof}'."
   prompt_return
 }
 
-down_all() {
-  echo "▶️  Down ALL profiles (remove orphans & volumes)…"
-  run $COMPOSE -f "$COMPOSE_FILE" down --remove-orphans --volumes || true
-  echo "▶️  Removing '${COMPOSE_PROJECT_NAME}_…' networks…"
-  nets=$(podman network ls --format '{{.Name}}' | grep -E "^${COMPOSE_PROJECT_NAME}_" || true)
-  [[ -n "${nets:-}" ]] && podman network rm ${nets} || echo "(none)"
-  echo "▶️  Removing named volumes for project…"
-  vols=$(podman volume ls --format '{{.Name}}' | grep -E "^${COMPOSE_PROJECT_NAME}_" || true)
-  [[ -n "${vols:-}" ]] && podman volume rm ${vols} || echo "(none)"
-  prompt_return
-}
+
 
 # -------- menu --------
 refresh_services() { :; } # compatibility no-op

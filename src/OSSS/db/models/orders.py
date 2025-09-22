@@ -1,7 +1,7 @@
 # src/OSSS/db/models/orders.py
 from __future__ import annotations
 
-from typing import Optional, List, ClassVar
+from typing import Optional, List, ClassVar, TYPE_CHECKING
 import sqlalchemy as sa
 from sqlalchemy import ForeignKey, UniqueConstraint, text, Enum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -9,6 +9,12 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from OSSS.db.base import Base, UUIDMixin, GUID, JSONB
 from ._helpers import ts_cols
 from .common_enums import OrderStatus  # ✅ shared enum
+
+# only for type checking; avoids runtime imports that can cause cycles
+if TYPE_CHECKING:
+    from .events import Event
+    from .tickets import Ticket
+    from .order_line_items import OrderLineItem, TicketType
 
 
 class Order(UUIDMixin, Base):
@@ -100,20 +106,3 @@ class Order(UUIDMixin, Base):
     )
 
 
-class OrderLineItem(UUIDMixin, Base):
-    __tablename__ = "order_line_items"
-
-    order_id: Mapped[str] = mapped_column(
-        GUID(), ForeignKey("orders.id", ondelete="CASCADE"), nullable=False, index=True
-    )
-    ticket_type_id: Mapped[str] = mapped_column(
-        GUID(), ForeignKey("ticket_types.id", ondelete="RESTRICT"), nullable=False, index=True
-    )
-    quantity: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=1)
-    unit_price_cents: Mapped[int] = mapped_column(sa.Integer, nullable=False)
-
-    # relationships
-    order: Mapped[Order] = relationship("Order", back_populates="line_items")
-    ticket_type: Mapped["TicketType"] = relationship(
-        "TicketType", back_populates="order_line_items"
-    )

@@ -148,7 +148,7 @@ services:
         }
 
     healthcheck:
-      test: [ "CMD-SHELL", "consul info >/dev/null 2>&1" ]
+      test: consul info >/dev/null 2>&1 || exit 1
       interval: 5s
       timeout: 3s
       retries: 20
@@ -157,7 +157,7 @@ services:
 
 
   app:
-    profiles: ["app"]
+    profiles: [ "app" ]
     networks: [ osss-net ]
     container_name: app
     cpus: 2.00
@@ -166,29 +166,31 @@ services:
     build:
       context: .
       dockerfile: docker/app/Dockerfile
-    command:
-      - uvicorn
-      - src.OSSS.main:app
-      - --host
-      - 0.0.0.0
-      - --port
-      - "8000"
-      - --reload
-      - --log-level
-      - info
-      - --no-use-colors        # ← was "--use-colors false"
-      - --access-log
-      - --log-config
-      - /workspace/docker/logging.json
+
+    # Use a single shell string so podman-compose doesn't choke on CMD_SHELL
+    command: >
+      bash -lc "
+      uvicorn src.OSSS.main:app
+        --host 0.0.0.0
+        --port 8000
+        --reload
+        --log-level info
+        --no-use-colors
+        --access-log
+        --log-config /workspace/docker/logging.yaml
+      "
+
     working_dir: /workspace
     ports:
-      - "8081:8000"     # host:container
-    entrypoint: ["/usr/local/bin/app-entrypoint.sh"]
+      - "8081:8000"
+
+    entrypoint: [ "/usr/local/bin/app-entrypoint.sh" ]
 
     volumes:
       - ./:/workspace:cached
+      # mount the YAML you actually reference above
       - ./docker/logging.yml:/workspace/docker/logging.yaml:ro
-      - ./scripts/app-entrypoint.sh:/usr/local/bin/app-entrypoint.sh:ro   # file -> file ✅
+      - ./scripts/app-entrypoint.sh:/usr/local/bin/app-entrypoint.sh:ro
 
     labels:
       co.elastic.logs/enabled: "true"
@@ -198,29 +200,21 @@ services:
       co.elastic.logs/processors.2.add_fields.target: 'app'
       co.elastic.logs/processors.2.add_fields.fields.service: 'osss-api'
 
-
     environment:
-      # --- verbose logging knobs ---
       OSSS_VERBOSE_AUTH: "1"
       PYTHONUNBUFFERED: "1"
-      PYTHONLOGLEVEL: DEBUG         # stdlib logging default
-      LOG_LEVEL: DEBUG              # if your app reads this
+      PYTHONLOGLEVEL: DEBUG
+      LOG_LEVEL: DEBUG
       UVICORN_LOG_LEVEL: debug
       UVICORN_ACCESS_LOG: "1"
 
-      KEYCLOAK_ISSUER: "${KEYCLOAK_ISSUER}"   # if your code also checks this
+      KEYCLOAK_ISSUER: "${KEYCLOAK_ISSUER}"
       KEYCLOAK_JWKS_URL: "${KEYCLOAK_JWKS_URL}"
 
-
-      # Auth/OIDC stacks you might be using
-      AUTHLIB_DEBUG: "1"            # Authlib (common with OIDC)
-      OAUTHLIB_INSECURE_TRANSPORT: "1"  # allow http redirect/token exchange in dev
-
-      # HTTP client debug (pick whichever your app uses)
+      AUTHLIB_DEBUG: "1"
+      OAUTHLIB_INSECURE_TRANSPORT: "1"
       HTTPX_LOG_LEVEL: DEBUG
       REQUESTS_LOG_LEVEL: DEBUG
-
-      # JWT/JWK libs often used under the hood
       JOSE_LOG_LEVEL: DEBUG
       JWcrypto_LOG_LEVEL: DEBUG
 
@@ -228,48 +222,35 @@ services:
       PORT: "8000"
       PYTHONPATH: /workspace/src
       WATCHFILES_FORCE_POLLING: "true"
-      # OIDC (unchanged)
+
       CORS_ALLOW_ORIGINS: "${CORS_ALLOW_ORIGINS}"
       CORS_ORIGINS: "${CORS_ORIGINS}"
 
-
-      # external/public issuer (what tokens advertise)
       OIDC_ISSUER: "${OIDC_ISSUER}"
-
-      # internal container-to-container paths (what your app should call)
       OIDC_DISCOVERY_URL_INTERNAL: "${OIDC_DISCOVERY_URL_INTERNAL}"
       OIDC_TOKEN_URL_INTERNAL: "${OIDC_TOKEN_URL_INTERNAL}"
-      # optional (if you verify via JWKS directly)
       OIDC_JWKS_URL: "${OIDC_JWKS_URL}"
-
-      # OIDC — must match how Keycloak issues tokens
       OIDC_CLIENT_ID: osss-api
-      # If client is confidential:
       OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-password}
-      # Public URLs your API advertises/uses for redirects
       OSSS_PUBLIC_BASE_URL: http://localhost:8081
       OIDC_REDIRECT_URL: http://localhost:8081/callback
       OIDC_LOGOUT_REDIRECT_URL: http://localhost:8081/
-      # Helpful toggles while wiring up
-      OIDC_VERIFY_AUD: "0"          # flip to "1" after adding audience mapper
+      OIDC_VERIFY_AUD: "0"
       ALLOWED_CLOCK_SKEW: "60"
-      # Sessions/Redis (you already fixed the host)
+
       REDIS_URL: redis://redis:6379/0
       SESSION_REDIS_HOST: redis
       SESSION_REDIS_PORT: "6379"
       KEYCLOAK_CLIENT_ID: osss-api
-      KEYCLOAK_CLIENT_SECRET: password   # <-- use the real secret from Keycloak
+      KEYCLOAK_CLIENT_SECRET: password
 
-      # This one is used by your async engine at runtime:
       ASYNC_DATABASE_URL: postgresql+asyncpg://${OSSS_DB_USER}:${OSSS_DB_PASSWORD}@osss_postgres:5432/${OSSS_DB_NAME}
       ALEMBIC_DATABASE_URL: postgresql+asyncpg://${OSSS_DB_USER}:${OSSS_DB_PASSWORD}@osss_postgres:5432/${OSSS_DB_NAME}
 
       OIDC_JWKS_URL_INTERNAL: ${OIDC_JWKS_URL_INTERNAL}
-
-      # keep issuer verification on now that we pinned it correctly
       OIDC_VERIFY_ISS: "${OIDC_VERIFY_ISS}"
 
-      MIGRATIONS_DIR: /app/src/OSSS/db/migrations   # <-- adjust to your repo
+      MIGRATIONS_DIR: /app/src/OSSS/db/migrations
       REPO_ROOT: /app
       ALEMBIC_CMD: alembic
       ALEMBIC_INI: /app/alembic.ini
@@ -279,19 +260,17 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
-      DATABASE_URL: ${ASYNC_DATABASE_URL}   # keep them in lockstep
-
-
+      DATABASE_URL: ${ASYNC_DATABASE_URL}
 
     depends_on:
       redis:
-        condition: service_healthy   # ✅ wait for redis to be ready
+        condition: service_healthy
       osss_postgres:
         condition: service_started
-      keycloak:
-        condition: service_healthy
-    healthcheck: # ✅ let compose decide if the app is ready
-      test: [ "CMD-SHELL","curl -fsS http://localhost:8000/healthz >/dev/null || exit 1" ]
+      # keycloak dependency removed so 'app' profile can run without 'keycloak' profile
+
+    healthcheck:
+      test: curl -fsS http://localhost:8000/healthz >/dev/null || exit 1
       interval: 5s
       timeout: 3s
       retries: 90
@@ -367,7 +346,7 @@ services:
       - ./scripts/init-osss.sh:/docker-entrypoint-initdb.d/20-init-osss.sh:ro
     healthcheck:
       # Use the configured superuser & db (NOTE the $$ to escape for Compose)
-      test: [ "CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\" -h 127.0.0.1 -p 5432 || exit 1" ]
+      test: pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}" -h 127.0.0.1 -p 5432 || exit 1
       interval: 5s
       timeout: 5s
       retries: 20
@@ -410,7 +389,7 @@ services:
     volumes:
       - kc_postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: [ "CMD-SHELL","pg_isready -U ${KC_DB_USERNAME:-keycloak} -d ${KC_DB_NAME:-keycloak} -h 127.0.0.1 -p 5432 || exit 1" ]
+      test: pg_isready -U ${KC_DB_USERNAME:-keycloak} -d ${KC_DB_NAME:-keycloak} -h 127.0.0.1 -p 5432 || exit 1
       interval: 5s
       timeout: 5s
       retries: 30
@@ -524,7 +503,7 @@ services:
       - -dev-root-token-id=root
       - -dev-listen-address=0.0.0.0:8200
     healthcheck:
-      test: [ "CMD-SHELL","wget -qO- http://127.0.0.1:8200/v1/sys/health | grep -q '\"initialized\":true'" ]
+      test: wget -qO- http://127.0.0.1:8200/v1/sys/health | grep -q '"initialized":true'
       interval: 10s
       timeout: 5s
       retries: 30
@@ -649,11 +628,8 @@ services:
       - ./elastic/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml:ro
 
     healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "curl -fsS -u elastic:${ELASTIC_PASSWORD} http://localhost:9200/_cluster/health?wait_for_status=yellow\\&timeout=60s >/dev/null"
-        ]
+      test: curl -fsS -u elastic:${ELASTIC_PASSWORD} "http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=60s" >/dev/null || exit 1
+
       interval: 30s
       timeout: 10s
       retries: 50
@@ -738,7 +714,7 @@ services:
     networks: [ osss-net ]
     restart: unless-stopped
     healthcheck:
-      test: [ "CMD-SHELL","curl -fsS -I http://localhost:5601/login | grep -q '200'" ]
+      test: curl -fsS -I http://localhost:5601/login | grep -q '200'
       interval: 20s
       timeout: 5s
       retries: 30
