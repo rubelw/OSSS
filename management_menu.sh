@@ -481,8 +481,11 @@ prompt_return() {
 up_force_profile() {
   local prof="$1"
 
-  # discover services in the profile (never fail hard)
-  mapfile -t svcs < <(compose_services_for_profile "$prof" 2>/dev/null || true)
+  # Prefer compose CLI; fall back to awk parser
+  mapfile -t svcs < <($COMPOSE -f "$COMPOSE_FILE" --profile "$prof" config --services 2>/dev/null | awk 'NF')
+  if ((${#svcs[@]}==0)); then
+    mapfile -t svcs < <(compose_services_for_profile "$prof" 2>/dev/null || true)
+  fi
   if ((${#svcs[@]}==0)); then
     echo "⚠️  No services declare profile '${prof}' in ${COMPOSE_FILE:-docker-compose.yml}."
     prompt_return
@@ -601,7 +604,6 @@ start_profile_vault()        { start_profile_with_build_prompt vault; }
 
 start_profile_trino() {
   ensure_hosts_keycloak
-  maybe_build_profile trino
   up_force_profile trino
 }
 

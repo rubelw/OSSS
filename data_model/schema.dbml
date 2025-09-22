@@ -19,13 +19,17 @@ Table accommodations {
 }
 
 Table activities {
-  school_id CHAR(36) [increment]
-  name varchar(255) [not null, increment]
+  school_id CHAR(36) [not null, increment]
+  name varchar(128) [not null, increment]
   description text [increment]
-  is_active text [not null, default: "1", increment]
+  is_active boolean [not null, default: "true", increment]
   created_at timestamp [not null, default: "now()", increment]
   updated_at timestamp [not null, default: "now()", increment]
   id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+
+  Indexes {
+    (school_id) [name: "ix_activities_school_id"]
+  }
 }
 
 Table addresses {
@@ -339,6 +343,23 @@ Table calendars {
   id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
 }
 
+Table camp_registrations {
+  participant_name varchar(255) [not null, increment]
+  camp_id CHAR(36) [not null, increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  school_id CHAR(36) [not null, increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table camps {
+  name varchar(255) [not null, increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  school_id CHAR(36) [not null, increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
 Table channels {
   org_id CHAR(36) [not null, increment]
   name varchar(255) [not null, increment]
@@ -395,6 +416,62 @@ Table compliance_records {
   created_at timestamp [not null, default: "now()", increment]
   updated_at timestamp [not null, default: "now()", increment]
   id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table concession_items {
+  name varchar(255) [increment]
+  price_cents int [not null, increment]
+  inventory_quantity int [not null, default: "0", increment]
+  stand_id CHAR(36) [not null, increment]
+  active boolean [not null, default: "true", increment]
+  school_id CHAR(36) [not null, increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+
+  Indexes {
+    (school_id) [name: "ix_concession_items_school_id"]
+    (stand_id) [name: "ix_concession_items_stand_id"]
+  }
+}
+
+Table concession_sale_items {
+  sale_id CHAR(36) [not null, increment]
+  item_id CHAR(36) [not null, increment]
+  quantity int [not null, increment]
+  line_total_cents int [not null, increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+}
+
+Table concession_sales {
+  stand_id CHAR(36) [not null, increment]
+  event_id CHAR(36) [increment]
+  buyer_name text [increment]
+  buyer_email text [increment]
+  buyer_phone text [increment]
+  buyer_address_line1 text [increment]
+  buyer_address_line2 text [increment]
+  buyer_city text [increment]
+  buyer_state text [increment]
+  buyer_postal_code text [increment]
+  school_id int [increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+}
+
+Table concession_stands {
+  name text [not null, unique, increment]
+  location text [increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+
+  Indexes {
+    (name) [unique,name: "ix_concession_stands_name"]
+  }
 }
 
 Table consents {
@@ -673,6 +750,21 @@ Table documents {
   }
 }
 
+Table donations {
+  donor_name varchar(255) [not null, increment]
+  amount_cents int [not null, increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  school_id CHAR(36) [not null, increment]
+  campaign_id CHAR(36) [not null, increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+
+  Indexes {
+    (campaign_id) [name: "ix_donations_campaign_id"]
+    (school_id) [name: "ix_donations_school_id"]
+  }
+}
+
 Table earning_codes {
   code varchar(32) [not null, unique, increment]
   name varchar(128) [not null, increment]
@@ -870,6 +962,10 @@ Table events {
   created_at timestamp [not null, default: "now()", increment]
   updated_at timestamp [not null, default: "now()", increment]
   id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+
+  Indexes {
+    (school_id) [name: "ix_events_school_id"]
+  }
 }
 
 Table export_runs {
@@ -915,6 +1011,33 @@ Table family_portal_access {
   Indexes {
     (guardian_id) [name: "ix_family_portal_access_guardian_id"]
     (student_id) [name: "ix_family_portal_access_student_id"]
+  }
+}
+
+Table fan_app_settings {
+  key varchar(255) [not null, increment]
+  value varchar(255) [not null, increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  school_id CHAR(36) [not null, increment]
+  settings json [not null, increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+
+  Indexes {
+    (school_id) [name: "ix_fan_app_settings_school_id"]
+  }
+}
+
+Table fan_pages {
+  title varchar(255) [not null, increment]
+  content text [not null, increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  school_id CHAR(36) [not null, increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+
+  Indexes {
+    (school_id) [name: "ix_fan_pages_school_id"]
   }
 }
 
@@ -1023,6 +1146,60 @@ Table frameworks {
 
   Indexes {
     (code) [unique,name: "ix_frameworks_code"]
+  }
+}
+
+Table fundraising_campaigns {
+  title varchar(255) [not null, increment]
+  goal_cents int [not null, increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  school_id CHAR(36) [not null, increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+
+  Indexes {
+    (school_id) [name: "ix_fundraising_campaigns_school_id"]
+  }
+}
+
+Table game_official_contracts {
+  game_id CHAR(36) [not null, increment]
+  official_id CHAR(36) [not null, increment]
+  fee_cents int [not null, increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table game_programs {
+  game_id CHAR(36) [not null, increment]
+  title varchar(255) [not null, increment]
+  content text [not null, increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table game_reports {
+  game_id CHAR(36) [not null, increment]
+  report_type varchar(100) [not null, increment]
+  content text [not null, increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table games {
+  team_id CHAR(36) [not null, increment]
+  opponent varchar(255) [not null, increment]
+  score int [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  season_id CHAR(36) [not null, increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+
+  Indexes {
+    (season_id) [name: "ix_games_season_id"]
   }
 }
 
@@ -1426,6 +1603,15 @@ Table library_items {
   id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
 }
 
+Table live_scoring {
+  game_id CHAR(36) [not null, increment]
+  score int [not null, increment]
+  status varchar(50) [not null, increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
 Table maintenance_requests {
   school_id CHAR(36) [increment]
   building_id CHAR(36) [increment]
@@ -1440,6 +1626,15 @@ Table maintenance_requests {
   attributes json [increment]
   created_at timestamp [not null, default: "now()", increment]
   updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table manual_stats {
+  stat_type varchar(100) [not null, increment]
+  value int [not null, increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  game_id CHAR(36) [not null, increment]
   id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
 }
 
@@ -1673,10 +1868,19 @@ Table objectives {
   updated_at timestamp [not null, default: "now()", increment]
 }
 
+Table officials {
+  name varchar(255) [not null, increment]
+  certification varchar(255) [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
 Table order_line_items {
   order_id CHAR(36) [not null, increment]
   ticket_type_id CHAR(36) [not null, increment]
   quantity int [not null, increment]
+  unit_price_cents int [not null, increment]
   created_at timestamp [not null, default: "now()", increment]
   updated_at timestamp [not null, default: "now()", increment]
   id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
@@ -1688,16 +1892,24 @@ Table order_line_items {
 }
 
 Table orders {
+  school_id CHAR(36) [not null, increment]
   event_id CHAR(36) [not null, increment]
   purchaser_user_id CHAR(36) [increment]
+  buyer_name varchar(255) [increment]
+  buyer_email varchar(255) [increment]
   total_cents int [not null, default: "0", increment]
   currency varchar(8) [not null, default: "'USD'", increment]
-  status varchar(16) [not null, default: "'pending'", increment]
+  status varchar(8) [not null, default: "<OrderStatus.pending: 'pending'>", increment]
   external_ref varchar(255) [increment]
   attributes JSON [increment]
   created_at timestamp [not null, default: "now()", increment]
   updated_at timestamp [not null, default: "now()", increment]
   id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+
+  Indexes {
+    (event_id) [name: "ix_orders_event_id"]
+    (school_id) [name: "ix_orders_school_id"]
+  }
 }
 
 Table organizations {
@@ -1747,6 +1959,23 @@ Table parts {
   created_at timestamp [not null, default: "now()", increment]
   updated_at timestamp [not null, default: "now()", increment]
   id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table passes {
+  school_id CHAR(36) [not null, increment]
+  name varchar(128) [increment]
+  description text [increment]
+  price_cents int [increment]
+  valid_from date [increment]
+  valid_to date [increment]
+  max_uses int [increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+
+  Indexes {
+    (school_id) [name: "ix_passes_school_id"]
+  }
 }
 
 Table pay_periods {
@@ -2348,7 +2577,7 @@ Table scan_results {
 
 Table schools {
   organization_id CHAR(36) [not null, increment]
-  name text [not null, increment]
+  name varchar(255) [not null, increment]
   school_code text [unique, increment]
   nces_school_id text [increment]
   building_code text [increment]
@@ -2357,6 +2586,24 @@ Table schools {
   created_at timestamp [not null, default: "now()", increment]
   updated_at timestamp [not null, default: "now()", increment]
   id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+
+  Indexes {
+    (name) [name: "ix_schools_name"]
+  }
+}
+
+Table score_entries {
+  team_id CHAR(36) [not null, increment]
+  points int [not null, increment]
+  period varchar(50) [not null, increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  game_id CHAR(36) [not null, increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+
+  Indexes {
+    (game_id) [name: "ix_score_entries_game_id"]
+  }
 }
 
 Table scorecard_kpis {
@@ -2377,6 +2624,14 @@ Table scorecards {
   id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
   created_at timestamp [not null, default: "now()", increment]
   updated_at timestamp [not null, default: "now()", increment]
+}
+
+Table seasons {
+  name varchar(255) [not null, increment]
+  year varchar(50) [not null, increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
 }
 
 Table section504_plans {
@@ -2463,6 +2718,13 @@ Table special_education_cases {
   id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
 }
 
+Table sports {
+  name varchar(255) [not null, increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
 Table staff {
   employee_number text [unique, increment]
   title text [increment]
@@ -2497,6 +2759,14 @@ Table standards {
   }
 }
 
+Table stat_imports {
+  source varchar(255) [not null, increment]
+  status varchar(100) [not null, increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
 Table state_reporting_snapshots {
   as_of_date date [not null, increment]
   scope text [increment]
@@ -2512,6 +2782,51 @@ Table states {
 
   Indexes {
     (name) [name: "ix_states_name"]
+  }
+}
+
+Table store_order_items {
+  order_id CHAR(36) [not null, increment]
+  product_id CHAR(36) [not null, increment]
+  quantity int [not null, default: "1", increment]
+  price_cents int [not null, default: "0", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+
+  Indexes {
+    (order_id) [name: "ix_store_order_items_order_id"]
+    (product_id) [name: "ix_store_order_items_product_id"]
+  }
+}
+
+Table store_orders {
+  customer_id CHAR(36) [increment]
+  status varchar(32) [not null, default: "'pending'", increment]
+  notes text [increment]
+  metadata JSON [increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+
+  Indexes {
+    (customer_id) [name: "ix_store_orders_customer_id"]
+    (status) [name: "ix_store_orders_status"]
+  }
+}
+
+Table store_products {
+  name varchar(255) [not null, increment]
+  sku varchar(128) [unique, increment]
+  price_cents int [not null, default: "0", increment]
+  inventory_qty int [not null, default: "0", increment]
+  metadata JSON [increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+
+  Indexes {
+    (name) [name: "ix_store_products_name"]
   }
 }
 
@@ -2628,6 +2943,34 @@ Table teacher_section_assignments {
   id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
 }
 
+Table team_messages {
+  content text [not null, increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  team_id CHAR(36) [not null, increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+
+  Indexes {
+    (team_id) [name: "ix_team_messages_team_id"]
+  }
+}
+
+Table teams {
+  sport_id CHAR(36) [not null, increment]
+  name varchar(255) [not null, increment]
+  mascot varchar(255) [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  season_id CHAR(36) [not null, increment]
+  school_id CHAR(36) [not null, increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+
+  Indexes {
+    (school_id) [name: "ix_teams_school_id"]
+    (season_id) [name: "ix_teams_season_id"]
+  }
+}
+
 Table test_administrations {
   test_id CHAR(36) [not null, increment]
   administration_date date [not null, increment]
@@ -2679,21 +3022,21 @@ Table ticket_types {
 }
 
 Table tickets {
+  order_id CHAR(36) [not null, increment]
   ticket_type_id CHAR(36) [not null, increment]
-  serial_no int [not null, increment]
-  price_cents int [not null, default: "0", increment]
-  holder_person_id CHAR(36) [increment]
+  event_id CHAR(36) [increment]
   qr_code varchar(128) [increment]
-  status varchar(16) [not null, default: "'issued'", increment]
-  issued_at timestamp [not null, default: "now()", increment]
-  checked_in_at timestamp [increment]
+  status varchar(8) [not null, default: "<OrderStatus.paid: 'paid'>", increment]
+  issued_at timestamp [increment]
+  redeemed_at timestamp [increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
   created_at timestamp [not null, default: "now()", increment]
   updated_at timestamp [not null, default: "now()", increment]
-  order_id CHAR(36) [not null, increment]
-  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
 
   Indexes {
+    (event_id) [name: "ix_tickets_event_id"]
     (order_id) [name: "ix_tickets_order_id"]
+    (ticket_type_id) [name: "ix_tickets_ticket_type_id"]
   }
 }
 
@@ -2705,6 +3048,14 @@ Table transcript_lines {
   credits_earned numeric(5,2) [increment]
   final_letter text [increment]
   final_numeric numeric(6,3) [increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+}
+
+Table trips {
+  destination varchar(255) [not null, increment]
+  purpose varchar(255) [not null, increment]
   created_at timestamp [not null, default: "now()", increment]
   updated_at timestamp [not null, default: "now()", increment]
   id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
@@ -2784,6 +3135,24 @@ Table webhooks {
   updated_at timestamp [not null, default: "now()", increment]
 }
 
+Table work_assignments {
+  event_id CHAR(36) [not null, increment]
+  worker_id CHAR(36) [not null, increment]
+  stipend_cents int [increment]
+  status varchar(9) [not null, default: "<AssignmentStatus.pending: 'pending'>", increment]
+  assigned_at timestamp [default: "now()", increment]
+  checked_in_at timestamp [increment]
+  completed_at timestamp [increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  created_at timestamp [not null, default: "now()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+
+  Indexes {
+    (event_id) [name: "ix_work_assignments_event_id"]
+    (worker_id) [name: "ix_work_assignments_worker_id"]
+  }
+}
+
 Table work_order_parts {
   work_order_id CHAR(36) [not null, increment]
   part_id CHAR(36) [increment]
@@ -2848,27 +3217,35 @@ Table work_orders {
   id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
 }
 
+Table workers {
+  first_name varchar(80) [not null, increment]
+  last_name varchar(80) [not null, increment]
+  created_at timestamp [not null, default: "now()", increment]
+  id CHAR(36) [pk, not null, default: "gen_random_uuid()", increment]
+  updated_at timestamp [not null, default: "now()", increment]
+}
+
 
 
 Ref: academic_terms.school_id > schools.id [delete: CASCADE]
 Ref: accommodations.iep_plan_id > iep_plans.id [delete: CASCADE]
-Ref: activities.school_id > schools.id [delete: SET NULL]
-Ref: agenda_item_approvals.step_id > agenda_workflow_steps.id [delete: CASCADE]
+Ref: activities.school_id > schools.id [delete: CASCADE]
 Ref: agenda_item_approvals.approver_id > users.id
+Ref: agenda_item_approvals.step_id > agenda_workflow_steps.id [delete: CASCADE]
 Ref: agenda_item_approvals.item_id > agenda_items.id [delete: CASCADE]
-Ref: agenda_item_files.file_id > files.id [delete: CASCADE]
 Ref: agenda_item_files.agenda_item_id > agenda_items.id [delete: CASCADE]
-Ref: agenda_items.meeting_id > meetings.id [delete: CASCADE]
+Ref: agenda_item_files.file_id > files.id [delete: CASCADE]
 Ref: agenda_items.parent_id > agenda_items.id [delete: CASCADE]
+Ref: agenda_items.meeting_id > meetings.id [delete: CASCADE]
 Ref: agenda_workflow_steps.workflow_id > agenda_workflows.id [delete: CASCADE]
-Ref: asset_parts.asset_id > assets.id [delete: CASCADE]
 Ref: asset_parts.part_id > parts.id [delete: CASCADE]
-Ref: work_orders.assigned_to_user_id > users.id [delete: SET NULL]
+Ref: asset_parts.asset_id > assets.id [delete: CASCADE]
 Ref: work_orders.request_id > maintenance_requests.id [delete: SET NULL]
-Ref: work_orders.building_id > buildings.id [delete: SET NULL]
-Ref: work_orders.space_id > spaces.id [delete: SET NULL]
-Ref: work_orders.school_id > schools.id [delete: SET NULL]
 Ref: work_orders.asset_id > assets.id [delete: SET NULL]
+Ref: work_orders.building_id > buildings.id [delete: SET NULL]
+Ref: work_orders.school_id > schools.id [delete: SET NULL]
+Ref: work_orders.space_id > spaces.id [delete: SET NULL]
+Ref: work_orders.assigned_to_user_id > users.id [delete: SET NULL]
 Ref: assets.parent_asset_id > assets.id [delete: SET NULL]
 Ref: assets.building_id > buildings.id [delete: SET NULL]
 Ref: assets.space_id > spaces.id [delete: SET NULL]
@@ -2877,13 +3254,13 @@ Ref: assignments.section_id > course_sections.id [delete: CASCADE]
 Ref: assignments.category_id > assignment_categories.id [delete: SET NULL]
 Ref: unit_standard_map.unit_id > curriculum_units.id [delete: CASCADE]
 Ref: unit_standard_map.standard_id > standards.id [delete: CASCADE]
-Ref: proposal_standard_map.proposal_id > proposals.id [delete: CASCADE]
 Ref: proposal_standard_map.standard_id > standards.id [delete: CASCADE]
+Ref: proposal_standard_map.proposal_id > proposals.id [delete: CASCADE]
 Ref: attendance.user_id > users.id [delete: CASCADE]
 Ref: attendance.meeting_id > meetings.id [delete: CASCADE]
 Ref: attendance_daily_summary.student_id > students.id [delete: CASCADE]
-Ref: attendance_events.code > attendance_codes.code [delete: RESTRICT]
 Ref: attendance_events.section_meeting_id > section_meetings.id [delete: SET NULL]
+Ref: attendance_events.code > attendance_codes.code [delete: RESTRICT]
 Ref: attendance_events.student_id > students.id [delete: CASCADE]
 Ref: audit_logs.actor_id > user_accounts.id [delete: SET NULL]
 Ref: behavior_interventions.student_id > students.id [delete: CASCADE]
@@ -2891,109 +3268,141 @@ Ref: bell_schedules.school_id > schools.id [delete: CASCADE]
 Ref: governing_bodies.org_id > organizations.id [delete: CASCADE]
 Ref: buildings.facility_id > facilities.id [delete: CASCADE]
 Ref: bus_routes.school_id > schools.id [delete: SET NULL]
-Ref: bus_stop_times.route_id > bus_routes.id [delete: CASCADE]
 Ref: bus_stop_times.stop_id > bus_stops.id [delete: CASCADE]
+Ref: bus_stop_times.route_id > bus_routes.id [delete: CASCADE]
 Ref: bus_stops.route_id > bus_routes.id [delete: CASCADE]
 Ref: calendar_days.calendar_id > calendars.id [delete: CASCADE]
 Ref: calendars.school_id > schools.id [delete: CASCADE]
+Ref: camp_registrations.school_id > schools.id [delete: CASCADE]
+Ref: camp_registrations.camp_id > camps.id
+Ref: camps.school_id > schools.id
 Ref: channels.org_id > organizations.id [delete: CASCADE]
 Ref: committees.organization_id > organizations.id [delete: SET NULL]
 Ref: committees.school_id > schools.id [delete: SET NULL]
-Ref: meeting_documents.meeting_id > meetings.id [delete: CASCADE]
+Ref: concession_items.school_id > schools.id [delete: CASCADE]
+Ref: concession_items.stand_id > concession_stands.id [delete: CASCADE]
+Ref: concession_sale_items.item_id > concession_items.id
+Ref: concession_sale_items.sale_id > concession_sales.id
+Ref: concession_sales.stand_id > concession_stands.id
+Ref: concession_sales.event_id > events.id
+Ref: fan_app_settings.school_id > schools.id
+Ref: fan_pages.school_id > schools.id
+Ref: fundraising_campaigns.school_id > schools.id [delete: CASCADE]
+Ref: game_official_contracts.game_id > games.id
+Ref: game_official_contracts.official_id > officials.id
+Ref: game_programs.game_id > games.id
+Ref: game_reports.game_id > games.id
+Ref: games.team_id > teams.id
+Ref: games.season_id > seasons.id
+Ref: live_scoring.game_id > games.id
+Ref: manual_stats.game_id > games.id
+Ref: score_entries.team_id > teams.id
+Ref: score_entries.game_id > games.id [delete: CASCADE]
+Ref: store_order_items.product_id > store_products.id [delete: RESTRICT]
+Ref: store_order_items.order_id > store_orders.id [delete: CASCADE]
+Ref: team_messages.team_id > teams.id
+Ref: teams.sport_id > sports.id
+Ref: teams.school_id > schools.id
+Ref: teams.season_id > seasons.id
+Ref: work_assignments.event_id > events.id
+Ref: work_assignments.worker_id > workers.id
+Ref: donations.school_id > schools.id
+Ref: donations.campaign_id > fundraising_campaigns.id [delete: CASCADE]
 Ref: meeting_documents.document_id > documents.id [delete: SET NULL]
-Ref: meetings.governing_body_id > governing_bodies.id [delete: SET NULL]
+Ref: meeting_documents.meeting_id > meetings.id [delete: CASCADE]
 Ref: meetings.org_id > organizations.id [delete: CASCADE]
+Ref: meetings.governing_body_id > governing_bodies.id [delete: SET NULL]
 Ref: meetings.committee_id > committees.id [delete: CASCADE]
 Ref: memberships.person_id > persons.id [delete: CASCADE]
 Ref: memberships.committee_id > committees.id [delete: CASCADE]
-Ref: proposal_documents.document_id > documents.id [delete: SET NULL]
 Ref: proposal_documents.proposal_id > proposals.id [delete: CASCADE]
-Ref: proposal_reviews.reviewer_id > persons.id [delete: SET NULL]
+Ref: proposal_documents.document_id > documents.id [delete: SET NULL]
 Ref: proposal_reviews.proposal_id > proposals.id [delete: CASCADE]
+Ref: proposal_reviews.reviewer_id > persons.id [delete: SET NULL]
 Ref: proposal_reviews.review_round_id > review_rounds.id [delete: CASCADE]
 Ref: publications.meeting_id > meetings.id [delete: CASCADE]
 Ref: resolutions.meeting_id > meetings.id [delete: CASCADE]
-Ref: class_ranks.school_id > schools.id [delete: CASCADE]
 Ref: class_ranks.student_id > students.id [delete: CASCADE]
+Ref: class_ranks.school_id > schools.id [delete: CASCADE]
 Ref: class_ranks.term_id > academic_terms.id [delete: CASCADE]
 Ref: compliance_records.building_id > buildings.id [delete: SET NULL]
 Ref: compliance_records.asset_id > assets.id [delete: SET NULL]
 Ref: consents.person_id > persons.id [delete: CASCADE]
 Ref: consequences.incident_id > incidents.id [delete: CASCADE]
-Ref: consequences.participant_id > incident_participants.id [delete: CASCADE]
 Ref: consequences.consequence_code > consequence_types.code [delete: RESTRICT]
+Ref: consequences.participant_id > incident_participants.id [delete: CASCADE]
 Ref: course_prerequisites.course_id > courses.id [delete: CASCADE]
 Ref: course_prerequisites.prereq_course_id > courses.id [delete: CASCADE]
 Ref: course_sections.school_id > schools.id [delete: CASCADE]
 Ref: course_sections.course_id > courses.id [delete: CASCADE]
 Ref: course_sections.term_id > academic_terms.id [delete: CASCADE]
-Ref: courses.subject_id > subjects.id [delete: SET NULL]
 Ref: courses.school_id > schools.id [delete: CASCADE]
+Ref: courses.subject_id > subjects.id [delete: SET NULL]
 Ref: curricula.proposal_id > proposals.id [delete: SET NULL]
 Ref: curricula.organization_id > organizations.id [delete: CASCADE]
 Ref: curriculum_units.curriculum_id > curricula.id [delete: CASCADE]
 Ref: curriculum_versions.curriculum_id > curricula.id [delete: CASCADE]
 Ref: deduction_codes.vendor_id > vendors.id [delete: SET NULL]
-Ref: deliveries.post_id > posts.id [delete: CASCADE]
 Ref: deliveries.user_id > users.id [delete: CASCADE]
-Ref: department_position_index.position_id > hr_positions.id [delete: CASCADE]
+Ref: deliveries.post_id > posts.id [delete: CASCADE]
 Ref: department_position_index.department_id > departments.id [delete: CASCADE]
+Ref: department_position_index.position_id > hr_positions.id [delete: CASCADE]
 Ref: departments.school_id > schools.id [delete: CASCADE]
-Ref: document_activity.actor_id > users.id
 Ref: document_activity.document_id > documents.id [delete: CASCADE]
+Ref: document_activity.actor_id > users.id
 Ref: document_links.document_id > documents.id [delete: CASCADE]
 Ref: document_notifications.user_id > users.id [delete: CASCADE]
 Ref: document_notifications.document_id > documents.id [delete: CASCADE]
 Ref: document_search_index.document_id > documents.id [delete: CASCADE]
 Ref: document_versions.file_id > files.id [delete: RESTRICT]
-Ref: document_versions.document_id > documents.id [delete: CASCADE]
 Ref: document_versions.created_by > users.id
+Ref: document_versions.document_id > documents.id [delete: CASCADE]
 Ref: documents.current_version_id > document_versions.id [delete: SET NULL]
 Ref: documents.folder_id > folders.id [delete: SET NULL]
 Ref: ell_plans.student_id > students.id [delete: CASCADE]
 Ref: emergency_contacts.person_id > persons.id [delete: CASCADE]
+Ref: employee_deductions.run_id > payroll_runs.id [delete: CASCADE]
 Ref: employee_deductions.deduction_code_id > deduction_codes.id [delete: RESTRICT]
 Ref: employee_deductions.employee_id > hr_employees.id [delete: CASCADE]
-Ref: employee_deductions.run_id > payroll_runs.id [delete: CASCADE]
+Ref: employee_earnings.run_id > payroll_runs.id [delete: CASCADE]
 Ref: employee_earnings.employee_id > hr_employees.id [delete: CASCADE]
 Ref: employee_earnings.earning_code_id > earning_codes.id [delete: RESTRICT]
-Ref: employee_earnings.run_id > payroll_runs.id [delete: CASCADE]
-Ref: evaluation_assignments.cycle_id > evaluation_cycles.id [delete: CASCADE]
 Ref: evaluation_assignments.evaluator_user_id > users.id
 Ref: evaluation_assignments.subject_user_id > users.id
 Ref: evaluation_assignments.template_id > evaluation_templates.id [delete: RESTRICT]
+Ref: evaluation_assignments.cycle_id > evaluation_cycles.id [delete: CASCADE]
 Ref: evaluation_cycles.org_id > organizations.id [delete: CASCADE]
-Ref: evaluation_files.file_id > files.id [delete: CASCADE]
 Ref: evaluation_files.assignment_id > evaluation_assignments.id [delete: CASCADE]
+Ref: evaluation_files.file_id > files.id [delete: CASCADE]
 Ref: evaluation_questions.section_id > evaluation_sections.id [delete: CASCADE]
-Ref: evaluation_reports.cycle_id > evaluation_cycles.id [delete: CASCADE]
 Ref: evaluation_reports.file_id > files.id [delete: SET NULL]
+Ref: evaluation_reports.cycle_id > evaluation_cycles.id [delete: CASCADE]
 Ref: evaluation_responses.question_id > evaluation_questions.id [delete: CASCADE]
 Ref: evaluation_responses.assignment_id > evaluation_assignments.id [delete: CASCADE]
 Ref: evaluation_sections.template_id > evaluation_templates.id [delete: CASCADE]
 Ref: evaluation_signoffs.assignment_id > evaluation_assignments.id [delete: CASCADE]
 Ref: evaluation_signoffs.signer_id > users.id
-Ref: events.school_id > schools.id [delete: CASCADE]
 Ref: events.activity_id > activities.id [delete: SET NULL]
+Ref: events.school_id > schools.id [delete: CASCADE]
 Ref: facilities.school_id > schools.id [delete: CASCADE]
-Ref: family_portal_access.student_id > students.id [delete: CASCADE]
 Ref: family_portal_access.guardian_id > guardians.id [delete: CASCADE]
+Ref: family_portal_access.student_id > students.id [delete: CASCADE]
 Ref: feature_flags.org_id > organizations.id [delete: CASCADE]
 Ref: fees.school_id > schools.id [delete: CASCADE]
 Ref: files.created_by > users.id
-Ref: final_grades.grading_period_id > grading_periods.id [delete: CASCADE]
 Ref: final_grades.student_id > students.id [delete: CASCADE]
 Ref: final_grades.section_id > course_sections.id [delete: CASCADE]
+Ref: final_grades.grading_period_id > grading_periods.id [delete: CASCADE]
 Ref: fiscal_periods.year_number > fiscal_years.year [delete: CASCADE]
 Ref: floors.building_id > buildings.id [delete: CASCADE]
 Ref: folders.org_id > organizations.id [delete: CASCADE]
 Ref: folders.parent_id > folders.id [delete: CASCADE]
-Ref: gl_account_segments.value_id > gl_segment_values.id [delete: SET NULL]
 Ref: gl_account_segments.segment_id > gl_segments.id [delete: CASCADE]
+Ref: gl_account_segments.value_id > gl_segment_values.id [delete: SET NULL]
 Ref: gl_segment_values.segment_id > gl_segments.id [delete: CASCADE]
 Ref: goals.plan_id > plans.id [delete: CASCADE]
-Ref: gpa_calculations.term_id > academic_terms.id [delete: CASCADE]
 Ref: gpa_calculations.student_id > students.id [delete: CASCADE]
+Ref: gpa_calculations.term_id > academic_terms.id [delete: CASCADE]
 Ref: grade_levels.school_id > schools.id [delete: CASCADE]
 Ref: grade_scale_bands.grade_scale_id > grade_scales.id [delete: CASCADE]
 Ref: grade_scales.school_id > schools.id [delete: CASCADE]
@@ -3001,51 +3410,51 @@ Ref: gradebook_entries.student_id > students.id [delete: CASCADE]
 Ref: gradebook_entries.assignment_id > assignments.id [delete: CASCADE]
 Ref: grading_periods.term_id > academic_terms.id [delete: CASCADE]
 Ref: health_profiles.student_id > students.id [delete: CASCADE]
+Ref: hr_employees.person_id > persons.id [delete: SET NULL]
 Ref: hr_employees.department_segment_id > gl_segments.id [delete: SET NULL]
 Ref: hr_employees.primary_school_id > schools.id [delete: SET NULL]
-Ref: hr_employees.person_id > persons.id [delete: SET NULL]
-Ref: hr_position_assignments.position_id > hr_positions.id [delete: CASCADE]
 Ref: hr_position_assignments.employee_id > hr_employees.id [delete: CASCADE]
+Ref: hr_position_assignments.position_id > hr_positions.id [delete: CASCADE]
 Ref: hr_positions.department_segment_id > gl_segments.id [delete: SET NULL]
 Ref: iep_plans.special_ed_case_id > special_education_cases.id [delete: CASCADE]
 Ref: immunization_records.immunization_id > immunizations.id [delete: CASCADE]
 Ref: immunization_records.student_id > students.id [delete: CASCADE]
 Ref: incident_participants.incident_id > incidents.id [delete: CASCADE]
 Ref: incident_participants.person_id > persons.id [delete: CASCADE]
-Ref: incidents.school_id > schools.id [delete: SET NULL]
 Ref: incidents.behavior_code > behavior_codes.code [delete: RESTRICT]
-Ref: initiatives.owner_id > users.id
+Ref: incidents.school_id > schools.id [delete: SET NULL]
 Ref: initiatives.objective_id > objectives.id [delete: CASCADE]
+Ref: initiatives.owner_id > users.id
 Ref: invoices.student_id > students.id [delete: CASCADE]
 Ref: journal_entries.fiscal_period_id > fiscal_periods.id [delete: RESTRICT]
 Ref: journal_entries.batch_id > journal_batches.id [delete: CASCADE]
 Ref: journal_entry_lines.entry_id > journal_entries.id [delete: CASCADE]
 Ref: journal_entry_lines.account_id > gl_accounts.id [delete: RESTRICT]
 Ref: kpi_datapoints.kpi_id > kpis.id [delete: CASCADE]
-Ref: kpis.objective_id > objectives.id [delete: SET NULL]
 Ref: kpis.goal_id > goals.id [delete: SET NULL]
+Ref: kpis.objective_id > objectives.id [delete: SET NULL]
 Ref: leases.building_id > buildings.id [delete: SET NULL]
-Ref: library_checkouts.item_id > library_items.id [delete: CASCADE]
 Ref: library_checkouts.person_id > persons.id [delete: CASCADE]
+Ref: library_checkouts.item_id > library_items.id [delete: CASCADE]
 Ref: library_fines.person_id > persons.id [delete: CASCADE]
-Ref: library_holds.item_id > library_items.id [delete: CASCADE]
 Ref: library_holds.person_id > persons.id [delete: CASCADE]
+Ref: library_holds.item_id > library_items.id [delete: CASCADE]
 Ref: library_items.school_id > schools.id [delete: CASCADE]
 Ref: maintenance_requests.submitted_by_user_id > users.id [delete: SET NULL]
-Ref: maintenance_requests.converted_work_order_id > work_orders.id [delete: SET NULL]
-Ref: maintenance_requests.space_id > spaces.id [delete: SET NULL]
 Ref: maintenance_requests.building_id > buildings.id [delete: SET NULL]
+Ref: maintenance_requests.space_id > spaces.id [delete: SET NULL]
+Ref: maintenance_requests.converted_work_order_id > work_orders.id [delete: SET NULL]
 Ref: maintenance_requests.asset_id > assets.id [delete: SET NULL]
 Ref: maintenance_requests.school_id > schools.id [delete: SET NULL]
 Ref: meal_accounts.student_id > students.id [delete: CASCADE]
 Ref: meal_eligibility_statuses.student_id > students.id [delete: CASCADE]
 Ref: meal_transactions.account_id > meal_accounts.id [delete: CASCADE]
-Ref: medication_administrations.medication_id > medications.id [delete: CASCADE]
 Ref: medication_administrations.student_id > students.id [delete: CASCADE]
+Ref: medication_administrations.medication_id > medications.id [delete: CASCADE]
 Ref: meeting_files.file_id > files.id [delete: CASCADE]
 Ref: meeting_files.meeting_id > meetings.id [delete: CASCADE]
-Ref: meeting_permissions.user_id > users.id [delete: CASCADE]
 Ref: meeting_permissions.meeting_id > meetings.id [delete: CASCADE]
+Ref: meeting_permissions.user_id > users.id [delete: CASCADE]
 Ref: meeting_publications.meeting_id > meetings.id [delete: CASCADE]
 Ref: meeting_search_index.meeting_id > meetings.id [delete: CASCADE]
 Ref: message_recipients.message_id > messages.id [delete: CASCADE]
@@ -3053,69 +3462,68 @@ Ref: message_recipients.person_id > persons.id [delete: CASCADE]
 Ref: messages.sender_id > user_accounts.id [delete: SET NULL]
 Ref: meters.asset_id > assets.id [delete: CASCADE]
 Ref: meters.building_id > buildings.id [delete: CASCADE]
-Ref: minutes.author_id > users.id
 Ref: minutes.meeting_id > meetings.id [delete: CASCADE]
-Ref: motions.moved_by_id > users.id
-Ref: motions.seconded_by_id > users.id
+Ref: minutes.author_id > users.id
 Ref: motions.agenda_item_id > agenda_items.id [delete: CASCADE]
-Ref: move_orders.project_id > projects.id [delete: SET NULL]
-Ref: move_orders.from_space_id > spaces.id [delete: SET NULL]
+Ref: motions.seconded_by_id > users.id
+Ref: motions.moved_by_id > users.id
 Ref: move_orders.to_space_id > spaces.id [delete: SET NULL]
+Ref: move_orders.project_id > projects.id [delete: SET NULL]
 Ref: move_orders.person_id > users.id [delete: SET NULL]
+Ref: move_orders.from_space_id > spaces.id [delete: SET NULL]
 Ref: notifications.user_id > users.id [delete: CASCADE]
 Ref: nurse_visits.student_id > students.id [delete: CASCADE]
 Ref: objectives.goal_id > goals.id [delete: CASCADE]
-Ref: order_line_items.ticket_type_id > ticket_types.id [delete: RESTRICT]
-Ref: order_line_items.order_id > orders.id [delete: CASCADE]
+Ref: orders.school_id > schools.id [delete: CASCADE]
 Ref: orders.event_id > events.id [delete: CASCADE]
 Ref: orders.purchaser_user_id > users.id [delete: SET NULL]
 Ref: pages.channel_id > channels.id [delete: CASCADE]
-Ref: part_locations.space_id > spaces.id [delete: SET NULL]
 Ref: part_locations.part_id > parts.id [delete: CASCADE]
 Ref: part_locations.building_id > buildings.id [delete: SET NULL]
-Ref: paychecks.employee_id > hr_employees.id [delete: CASCADE]
+Ref: part_locations.space_id > spaces.id [delete: SET NULL]
 Ref: paychecks.run_id > payroll_runs.id [delete: CASCADE]
+Ref: paychecks.employee_id > hr_employees.id [delete: CASCADE]
 Ref: payments.invoice_id > invoices.id [delete: CASCADE]
-Ref: payroll_runs.posted_entry_id > journal_entries.id [delete: SET NULL]
 Ref: payroll_runs.pay_period_id > pay_periods.id [delete: CASCADE]
 Ref: payroll_runs.created_by_user_id > users.id [delete: SET NULL]
+Ref: payroll_runs.posted_entry_id > journal_entries.id [delete: SET NULL]
 Ref: periods.bell_schedule_id > bell_schedules.id [delete: CASCADE]
 Ref: person_addresses.person_id > persons.id [delete: CASCADE]
 Ref: person_addresses.address_id > addresses.id [delete: CASCADE]
-Ref: person_contacts.contact_id > contacts.id [delete: CASCADE]
 Ref: person_contacts.person_id > persons.id [delete: CASCADE]
+Ref: person_contacts.contact_id > contacts.id [delete: CASCADE]
 Ref: personal_notes.user_id > users.id [delete: CASCADE]
 Ref: plan_alignments.objective_id > objectives.id [delete: SET NULL]
-Ref: plan_alignments.agenda_item_id > agenda_items.id [delete: SET NULL]
 Ref: plan_alignments.policy_id > policies.id [delete: SET NULL]
+Ref: plan_alignments.agenda_item_id > agenda_items.id [delete: SET NULL]
 Ref: plan_filters.plan_id > plans.id [delete: CASCADE]
 Ref: plan_search_index.plan_id > plans.id [delete: CASCADE]
 Ref: plans.org_id > organizations.id [delete: CASCADE]
-Ref: pm_plans.building_id > buildings.id [delete: CASCADE]
 Ref: pm_plans.asset_id > assets.id [delete: CASCADE]
+Ref: pm_plans.building_id > buildings.id [delete: CASCADE]
 Ref: pm_work_generators.pm_plan_id > pm_plans.id [delete: CASCADE]
 Ref: policies.org_id > organizations.id [delete: CASCADE]
-Ref: policy_approvals.approver_id > users.id
-Ref: policy_approvals.policy_version_id > policy_versions.id [delete: CASCADE]
 Ref: policy_approvals.step_id > policy_workflow_steps.id [delete: CASCADE]
-Ref: policy_comments.policy_version_id > policy_versions.id [delete: CASCADE]
+Ref: policy_approvals.policy_version_id > policy_versions.id [delete: CASCADE]
+Ref: policy_approvals.approver_id > users.id
 Ref: policy_comments.user_id > users.id [delete: SET NULL]
-Ref: policy_files.file_id > files.id [delete: CASCADE]
+Ref: policy_comments.policy_version_id > policy_versions.id [delete: CASCADE]
 Ref: policy_files.policy_version_id > policy_versions.id [delete: CASCADE]
+Ref: policy_files.file_id > files.id [delete: CASCADE]
 Ref: policy_legal_refs.policy_version_id > policy_versions.id [delete: CASCADE]
 Ref: policy_publications.policy_version_id > policy_versions.id [delete: CASCADE]
 Ref: policy_search_index.policy_id > policies.id [delete: CASCADE]
-Ref: policy_versions.policy_id > policies.id [delete: CASCADE]
-Ref: policy_versions.created_by > users.id
 Ref: policy_versions.supersedes_version_id > policy_versions.id [delete: SET NULL]
+Ref: policy_versions.created_by > users.id
+Ref: policy_versions.policy_id > policies.id [delete: CASCADE]
 Ref: policy_workflow_steps.workflow_id > policy_workflows.id [delete: CASCADE]
 Ref: policy_workflows.policy_id > policies.id [delete: CASCADE]
 Ref: post_attachments.post_id > posts.id [delete: CASCADE]
 Ref: post_attachments.file_id > files.id [delete: CASCADE]
 Ref: posts.author_id > users.id
 Ref: posts.channel_id > channels.id [delete: CASCADE]
-Ref: project_tasks.project_id > projects.id [delete: CASCADE]
 Ref: project_tasks.assignee_user_id > users.id [delete: SET NULL]
+Ref: project_tasks.project_id > projects.id [delete: CASCADE]
 Ref: projects.school_id > schools.id [delete: SET NULL]
 Ref: report_cards.term_id > academic_terms.id [delete: CASCADE]
 Ref: report_cards.student_id > students.id [delete: CASCADE]
@@ -3127,69 +3535,72 @@ Ref: scorecard_kpis.scorecard_id > scorecards.id [delete: CASCADE]
 Ref: scorecard_kpis.kpi_id > kpis.id [delete: CASCADE]
 Ref: scorecards.plan_id > plans.id [delete: CASCADE]
 Ref: section504_plans.student_id > students.id [delete: CASCADE]
+Ref: section_meetings.room_id > rooms.id [delete: SET NULL]
 Ref: section_meetings.section_id > course_sections.id [delete: CASCADE]
 Ref: section_meetings.period_id > periods.id [delete: SET NULL]
-Ref: section_meetings.room_id > rooms.id [delete: SET NULL]
-Ref: section_room_assignments.section_id > course_sections.id [delete: CASCADE]
 Ref: section_room_assignments.room_id > rooms.id [delete: CASCADE]
+Ref: section_room_assignments.section_id > course_sections.id [delete: CASCADE]
 Ref: space_reservations.booked_by_user_id > users.id [delete: SET NULL]
 Ref: space_reservations.space_id > spaces.id [delete: CASCADE]
-Ref: spaces.floor_id > floors.id [delete: SET NULL]
 Ref: spaces.building_id > buildings.id [delete: CASCADE]
+Ref: spaces.floor_id > floors.id [delete: SET NULL]
 Ref: special_education_cases.student_id > students.id [delete: CASCADE]
-Ref: standards.parent_id > standards.id [delete: SET NULL]
 Ref: standards.framework_id > frameworks.id [delete: CASCADE]
+Ref: standards.parent_id > standards.id [delete: SET NULL]
 Ref: student_guardians.student_id > students.id [delete: CASCADE]
 Ref: student_guardians.guardian_id > guardians.id [delete: CASCADE]
 Ref: student_program_enrollments.student_id > students.id [delete: CASCADE]
 Ref: student_school_enrollments.student_id > students.id [delete: CASCADE]
 Ref: student_school_enrollments.school_id > schools.id [delete: CASCADE]
-Ref: student_section_enrollments.section_id > course_sections.id [delete: CASCADE]
 Ref: student_section_enrollments.student_id > students.id [delete: CASCADE]
-Ref: student_transportation_assignments.stop_id > bus_stops.id [delete: SET NULL]
+Ref: student_section_enrollments.section_id > course_sections.id [delete: CASCADE]
 Ref: student_transportation_assignments.student_id > students.id [delete: CASCADE]
+Ref: student_transportation_assignments.stop_id > bus_stops.id [delete: SET NULL]
 Ref: student_transportation_assignments.route_id > bus_routes.id [delete: SET NULL]
 Ref: students.person_id > persons.id [delete: CASCADE]
 Ref: subjects.department_id > departments.id [delete: SET NULL]
 Ref: subscriptions.channel_id > channels.id [delete: CASCADE]
 Ref: teacher_section_assignments.section_id > course_sections.id [delete: CASCADE]
 Ref: teacher_section_assignments.staff_id > staff.id [delete: CASCADE]
-Ref: test_administrations.test_id > standardized_tests.id [delete: CASCADE]
 Ref: test_administrations.school_id > schools.id [delete: SET NULL]
-Ref: test_results.administration_id > test_administrations.id [delete: CASCADE]
+Ref: test_administrations.test_id > standardized_tests.id [delete: CASCADE]
 Ref: test_results.student_id > students.id [delete: CASCADE]
-Ref: ticket_scans.ticket_id > tickets.id [delete: CASCADE]
+Ref: test_results.administration_id > test_administrations.id [delete: CASCADE]
 Ref: ticket_scans.scanned_by_user_id > users.id [delete: SET NULL]
+Ref: ticket_scans.ticket_id > tickets.id [delete: CASCADE]
 Ref: ticket_types.event_id > events.id [delete: CASCADE]
-Ref: tickets.ticket_type_id > ticket_types.id [delete: RESTRICT]
-Ref: tickets.holder_person_id > persons.id [delete: SET NULL]
 Ref: tickets.order_id > orders.id [delete: CASCADE]
+Ref: tickets.event_id > events.id [delete: SET NULL]
+Ref: tickets.ticket_type_id > ticket_types.id [delete: RESTRICT]
 Ref: transcript_lines.course_id > courses.id [delete: SET NULL]
 Ref: transcript_lines.student_id > students.id [delete: CASCADE]
 Ref: transcript_lines.term_id > academic_terms.id [delete: SET NULL]
 Ref: user_accounts.person_id > persons.id [delete: CASCADE]
-Ref: votes.voter_id > users.id [delete: CASCADE]
 Ref: votes.motion_id > motions.id [delete: CASCADE]
+Ref: votes.voter_id > users.id [delete: CASCADE]
 Ref: waivers.student_id > students.id [delete: CASCADE]
 Ref: warranties.vendor_id > vendors.id [delete: SET NULL]
 Ref: warranties.asset_id > assets.id [delete: CASCADE]
 Ref: work_order_parts.work_order_id > work_orders.id [delete: CASCADE]
 Ref: work_order_parts.part_id > parts.id [delete: SET NULL]
 Ref: work_order_tasks.work_order_id > work_orders.id [delete: CASCADE]
-Ref: work_order_time_logs.user_id > users.id [delete: SET NULL]
 Ref: work_order_time_logs.work_order_id > work_orders.id [delete: CASCADE]
-Ref: alignments.curriculum_version_id > curriculum_versions.id [delete: CASCADE]
+Ref: work_order_time_logs.user_id > users.id [delete: SET NULL]
 Ref: alignments.requirement_id > requirements.id [delete: CASCADE]
+Ref: alignments.curriculum_version_id > curriculum_versions.id [delete: CASCADE]
 Ref: approvals.proposal_id > proposals.id [delete: CASCADE]
-Ref: gl_account_balances.fiscal_period_id > fiscal_periods.id [delete: CASCADE]
 Ref: gl_account_balances.account_id > gl_accounts.id [delete: CASCADE]
+Ref: gl_account_balances.fiscal_period_id > fiscal_periods.id [delete: CASCADE]
 Ref: google_accounts.user_id > users.id [delete: CASCADE]
-Ref: proposals.course_id > courses.id [delete: SET NULL]
-Ref: proposals.subject_id > subjects.id [delete: SET NULL]
+Ref: order_line_items.order_id > orders.id [delete: CASCADE]
+Ref: order_line_items.ticket_type_id > ticket_types.id [delete: RESTRICT]
+Ref: passes.school_id > schools.id [delete: CASCADE]
 Ref: proposals.committee_id > committees.id [delete: CASCADE]
-Ref: proposals.school_id > schools.id [delete: SET NULL]
-Ref: proposals.submitted_by_id > persons.id [delete: SET NULL]
 Ref: proposals.curriculum_id > curricula.id [delete: SET NULL]
+Ref: proposals.school_id > schools.id [delete: SET NULL]
+Ref: proposals.subject_id > subjects.id [delete: SET NULL]
+Ref: proposals.course_id > courses.id [delete: SET NULL]
+Ref: proposals.submitted_by_id > persons.id [delete: SET NULL]
 Ref: requirements.state_code > states.code [delete: CASCADE]
 Ref: review_requests.association_id > education_associations.id [delete: CASCADE]
 Ref: review_requests.curriculum_version_id > curriculum_versions.id [delete: CASCADE]
