@@ -19,7 +19,7 @@ from fastapi.routing import APIRoute
 
 from starlette.middleware.sessions import SessionMiddleware
 
-from sqlalchemy.orm import class_mapper
+from sqlalchemy.orm import class_mapper, configure_mappers
 from sqlalchemy.orm.exc import UnmappedClassError
 from sqlalchemy.inspection import inspect as sa_inspect
 
@@ -365,6 +365,10 @@ def create_app() -> FastAPI:
         Handles startup/shutdown tasks for the app (runs once on start, once on stop).
         """
         # ---------------- STARTUP ----------------
+
+        # Import the package that eagerly imports *all* model modules
+        import OSSS.db.models  # must import camp, camp_registration, etc.
+        configure_mappers()  # raises immediately if any relationship is mismatched
 
         # DB engine/sessionmaker bound to THIS loop
         app.state.db_engine = create_async_engine(

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 import sqlalchemy as sa
-from sqlalchemy import ForeignKey
+from sqlalchemy import ForeignKey, Integer
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from OSSS.db.base import Base, UUIDMixin, GUID
@@ -34,3 +34,11 @@ class Camp(UUIDMixin, TimestampMixin, Base):
 
     # relationships
     school: Mapped[School] = relationship("School")
+
+    registrations: Mapped[list["CampRegistration"]] = relationship(
+        "CampRegistration",
+        back_populates="camp",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        lazy="selectin",
+    )

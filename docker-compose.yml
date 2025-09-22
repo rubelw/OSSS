@@ -168,21 +168,23 @@ services:
       dockerfile: docker/app/Dockerfile
 
     # Use a single shell string so podman-compose doesn't choke on CMD_SHELL
-    command: >
-      bash -lc "
-      uvicorn src.OSSS.main:app
-        --host 0.0.0.0
-        --port 8000
-        --reload
-        --log-level info
-        --no-use-colors
-        --access-log
-        --log-config /workspace/docker/logging.yaml
-      "
+    command:
+      - uvicorn
+      - src.OSSS.main:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+      - --reload
+      - --log-level
+      - info
+      - --access-log
+      - --log-config
+      - /workspace/docker/logging.yaml
 
     working_dir: /workspace
     ports:
-      - "8081:8000"
+      - "127.0.0.1:8081:8000"
 
     entrypoint: [ "/usr/local/bin/app-entrypoint.sh" ]
 

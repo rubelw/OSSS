@@ -15,8 +15,10 @@ class Game(UUIDMixin, Base):
     __tablename__ = "games"
 
     season_id:    Mapped[str | None] = mapped_column(GUID(), ForeignKey("seasons.id", ondelete="SET NULL"), index=True)
-    home_team_id: Mapped[str | None] = mapped_column(GUID(), ForeignKey("teams.id",   ondelete="SET NULL"), index=True)
-    away_team_id: Mapped[str | None] = mapped_column(GUID(), ForeignKey("teams.id",   ondelete="SET NULL"), index=True)
+    home_team_id: Mapped["GUID"] = mapped_column(ForeignKey("teams.id", ondelete="RESTRICT"), index=True,
+                                                 nullable=False)
+    away_team_id: Mapped["GUID"] = mapped_column(ForeignKey("teams.id", ondelete="RESTRICT"), index=True,
+                                                 nullable=False)
 
     level:      Mapped[Level]      = mapped_column(Enum(Level, name="level", native_enum=False), nullable=False, default=Level.Varsity)
     status:     Mapped[LiveStatus] = mapped_column(Enum(LiveStatus, name="live_status", native_enum=False), nullable=False, default=LiveStatus.scheduled)
@@ -29,8 +31,19 @@ class Game(UUIDMixin, Base):
 
     # NOTE: put the whole union inside one string to avoid the eval error
     season:    Mapped["Season | None"] = relationship("Season", backref="games")
-    home_team: Mapped["Team | None"]   = relationship("Team", back_populates="games_home", foreign_keys=[home_team_id])
-    away_team: Mapped["Team | None"]   = relationship("Team", back_populates="games_away", foreign_keys=[away_team_id])
+    home_team: Mapped["Team"] = relationship(
+        "Team",
+        back_populates="games_home",
+        foreign_keys=[home_team_id],
+        lazy="joined",
+    )
+
+    away_team: Mapped["Team"] = relationship(
+        "Team",
+        back_populates="games_away",
+        foreign_keys=[away_team_id],
+        lazy="joined",
+    )
 
     live_scoring_sessions: Mapped[list["LiveScoring"]] = relationship(
         "LiveScoring", back_populates="game", cascade="all, delete-orphan"
