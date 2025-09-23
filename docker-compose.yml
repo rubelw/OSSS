@@ -608,7 +608,7 @@ services:
 
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.14.3
-    profiles: ["elastic"]
+    profiles: [ "elastic" ]
     container_name: elasticsearch
     cpus: 2.00
     mem_limit: 2g
@@ -620,6 +620,7 @@ services:
       - xpack.security.http.ssl.enabled=false
       - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}   # password for the built-in 'elastic' superuser
       - ES_JAVA_OPTS=-Xms512m -Xmx512m
+      - network.host=0.0.0.0
     ulimits:
       memlock: { soft: -1, hard: -1 }
     ports:
@@ -630,11 +631,12 @@ services:
       - ./elastic/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml:ro
 
     healthcheck:
-      test: curl -fsS -u elastic:${ELASTIC_PASSWORD} "http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=60s" >/dev/null || exit 1
-
+      # 👇 use the service DNS name instead of localhost so we catch misbinds early
+      test: [ 'CMD-SHELL', 'curl -fsS -u elastic:${ELASTIC_PASSWORD} http://elasticsearch:9200/_cluster/health?wait_for_status=yellow&timeout=60s >/dev/null || exit 1' ]
       interval: 30s
       timeout: 10s
       retries: 50
+
     restart: unless-stopped
 
   kibana-pass-init:
@@ -691,7 +693,7 @@ services:
 
   kibana:
     image: docker.elastic.co/kibana/kibana:8.14.3
-    profiles: ["elastic"]
+    profiles: [ "elastic" ]
     container_name: kibana
     cpus: 1.00
     mem_limit: 1g
@@ -782,16 +784,16 @@ services:
 
         echo "ELASTIC_API_KEY=$$id:$$key" > .env.apikey
         echo "[ok] wrote .env.apikey"
-        
+
         echo "ELASTIC_API_KEY=$$id:$$key" > /shared/filebeat.apikey.env
         chmod 600 /shared/filebeat.apikey.env
         echo "[ok] wrote /shared/filebeat.apikey.env"
-  
+
 
   filebeat-setup:
     image: docker.elastic.co/beats/filebeat:8.14.3
     networks: [ osss-net ]
-    profiles: ["elastic"]
+    profiles: [ "elastic" ]
     container_name: filebeat-setup
     cpus: 0.50
     mem_limit: 512m
@@ -818,7 +820,7 @@ services:
           i=$$((i+1)); [ $$i -le 180 ] || { echo "Kibana not reachable (last http_code=$$code)"; exit 1; }
           sleep 1
         done
-  
+
         echo "[setup] ILM/templates/dashboards"
         filebeat setup \
           -E setup.ilm.overwrite=true \
@@ -833,14 +835,12 @@ services:
   # --- RUNTIME FILEBEAT (no kibana creds, api_key only to ES) ---
   filebeat:
     image: docker.elastic.co/beats/filebeat:8.14.3
-    container_name: filebeat
+    container_name: filebeat-podman
     networks: [ osss-net ]
     profiles: [ "elastic" ]
     cpus: 0.50
     mem_limit: 512m
     mem_reservation: 256m
-
-    user: root
     env_file:
       - .env
     environment:
@@ -850,12 +850,11 @@ services:
         condition: service_completed_successfully
       filebeat-setup:
         condition: service_completed_successfully
+    # NOTE: Podman stores container logs under /var/lib/containers/storage/overlay-containers/*/userdata/ctr.log
     volumes:
-      - ./filebeat.docker.yml:/usr/share/filebeat/filebeat.yml:ro
-      - /var/lib/docker/containers:/var/lib/docker/containers:ro
-      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./filebeat.podman.yml:/usr/share/filebeat/filebeat.yml:ro
+      - /var/lib/containers/storage/overlay-containers:/var/lib/containers/storage/overlay-containers:ro
       - es-shared:/shared
-    # keep the default entrypoint, but tell it to run a shell
     command:
       - sh
       - -c
@@ -873,15 +872,6 @@ services:
         . /shared/filebeat.apikey.env
         echo "[ok] ELASTIC_API_KEY loaded (id=$${ELASTIC_API_KEY%%:*})"
         exec filebeat -e --strict.perms=false
-
-  # -----------------------------
-  # Datalake Datastores (shared)
-  # -----------------------------
-
-
-
-
-
 
 
   # -----------------------------
@@ -1100,9 +1090,12 @@ services:
 
   # OpenMetadata prefers MySQL (Postgres supported in newer versions, but MySQL is safest)
   mysql-openmetadata:
-    image: mysql:8.0
-    profiles: ["openmetadata"]
+    build:
+      context: .
+      dockerfile: docker/mysql/Dockerfile
+    profiles: [ "openmetadata" ]
     container_name: mysql-openmetadata
+    hostname: mysql-openmetadata
     restart: unless-stopped
     cpus: 1.00
     mem_limit: 1536m
@@ -1112,7 +1105,6 @@ services:
       MYSQL_DATABASE: openmetadata_db
       MYSQL_USER: openmetadata_user
       MYSQL_PASSWORD: openmetadata_password
-      # Optional but harmless; helps some client combos
       MYSQL_ROOT_HOST: "%"
     command: >
       --lower-case-table-names=1
@@ -1120,17 +1112,20 @@ services:
       --character-set-server=utf8mb4
       --collation-server=utf8mb4_0900_ai_ci
     ports:
-      - "3308:3306"
+      - "3306:3306"
     volumes:
       - om_mysql_data:/var/lib/mysql
-    networks: [ osss-net ]
+      - ./docker/openmetadata/mysql-init.sql:/docker-entrypoint-initdb.d/00-init.sql:ro
+    networks:
+      osss-net:
+        aliases: [ mysql-openmetadata.local ]
     healthcheck:
-      test: [ "CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${MYSQL_ROOT_PASSWORD}" ]
+      # No creds; just “is the server answering”
+      test: [ "CMD-SHELL","mysqladmin ping -h127.0.0.1 --silent || exit 1" ]
       interval: 5s
       timeout: 5s
-      retries: 60
-      start_period: 30s
-
+      retries: 120
+      start_period: 120s
 
 
 
@@ -1145,25 +1140,41 @@ services:
     depends_on:
       mysql-openmetadata:
         condition: service_healthy
-      elasticsearch:
-        condition: service_healthy
+
 
     environment:
-      # Make the DB target unambiguous for the server:
-      OPENMETADATA__DATABASE__URL: "jdbc:mysql://mysql-openmetadata:3306/openmetadata_db?useSSL=false&allowPublicKeyRetrieval=true"
-      OPENMETADATA__DATABASE__HOST: mysql-openmetadata
-      OPENMETADATA__DATABASE__PORT: 3306
-      OPENMETADATA__DATABASE__USERNAME: openmetadata_user
-      OPENMETADATA__DATABASE__PASSWORD: openmetadata_password
-      OPENMETADATA__DATABASE__DBNAME: openmetadata_db
-      OPENMETADATA__DATABASE__DRIVER_CLASS: com.mysql.cj.jdbc.Driver
-      OPENMETADATA__DATABASE__SCHEMA: openmetadata_db
-      SERVER_PORT: 8585
-      # Disable ES/Kafka for a light dev spin-up; enable later for search/streaming features
+      # --- JDBC driver & URL (authoritative) ---
+      DB_DRIVER: com.mysql.cj.jdbc.Driver
+      DB_URL: jdbc:mysql://mysql-openmetadata:3306/openmetadata_db?allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC
+      DB_USER: openmetadata_user
+      DB_PASSWORD: openmetadata_password
+
+      # Keep these too (duplicate on purpose) in case this image reads DATABASE_*
+      DATABASE_DRIVER_CLASS: com.mysql.cj.jdbc.Driver
+      DATABASE_URL: jdbc:mysql://mysql-openmetadata:3306/openmetadata_db?allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC
+      DATABASE_USERNAME: openmetadata_user
+      DATABASE_PASSWORD: openmetadata_password
+      DATABASE_HOST: mysql-openmetadata
+      DATABASE_PORT: "3306"
+      DATABASE_NAME: openmetadata_db
+      # ES is secured in your stack; tell OM to auth to it
       SEARCH_TYPE: elasticsearch
       ELASTICSEARCH_HOST: elasticsearch
       ELASTICSEARCH_PORT: "9200"
       ELASTICSEARCH_SCHEME: http
+      ELASTICSEARCH_USERNAME: elastic
+      ELASTICSEARCH_PASSWORD: ${ELASTIC_PASSWORD}   # <-- use the same var as ES
+
+      # Force Dropwizard DB config (bulletproof override)
+      JAVA_OPTS: >-
+        -Ddw.database.url=jdbc:mysql://mysql-openmetadata:3306/openmetadata_db?allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC
+        -Ddw.database.user=openmetadata_user
+        -Ddw.database.password=openmetadata_password
+        -Ddw.database.driverClass=com.mysql.cj.jdbc.Driver
+
+      # (Optional) make startup a bit chattier for troubleshooting
+      LOG_LEVEL: INFO
+
     ports:
       - "8585:8585"               # OpenMetadata UI/API
     networks: [ osss-net ]
