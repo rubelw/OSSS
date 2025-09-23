@@ -1677,8 +1677,8 @@ if __name__ == "__main__":
     rb.add_client(
         client_id="airflow",
         name="airflow",
-        redirect_uris=["http://localhost:8080/oauth2/callback",
-                       "http://airflow.local/oauth2/callback"],
+        redirect_uris=["http://localhost:8083/oauth-authorized/keycloak",
+                       "http://airflow-webserver/oauth-authorized/keycloak"],
         protocol="openid-connect",
         web_origins=["+"],
         enabled=True,
