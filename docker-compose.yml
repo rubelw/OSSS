@@ -1053,11 +1053,26 @@ services:
     mem_limit: 1536m
     mem_reservation: 1g
     environment:
+      AIRFLOW__WEBSERVER__WEB_SERVER_CONFIG: "/opt/airflow/webserver_config.py"
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres-airflow/airflow
+      AIRFLOW__WEBSERVER__AUTHENTICATE: "True"
+      AIRFLOW__WEBSERVER__BASE_URL: "http://localhost:8083"
+      # Optional but recommended: set a stable secret key
+      AIRFLOW__WEBSERVER__SECRET_KEY: "change-this-in-prod"
+      AIRFLOW__WEBSERVER__ENABLE_PROXY_FIX: "True"   # safe even without a proxy
+
+      # Pass Keycloak settings used by webserver_config.py
+      KEYCLOAK_URL: "http://keycloak.local:8080"
+      KEYCLOAK_REALM: "OSSS"
+      KEYCLOAK_AIRFLOW_CLIENT_ID: "airflow"
+      KEYCLOAK_AIRFLOW_CLIENT_SECRET: "password"
+
     command: webserver
     ports: [ "8083:8080" ]
     volumes:
       - ./airflow/dags:/opt/airflow/dags
+      - ./airflow/webserver_config.py:/opt/airflow/webserver_config.py:ro
+
     networks: [ osss-net ]
 
   airflow-scheduler:
@@ -1069,9 +1084,14 @@ services:
     mem_reservation: 1g
     environment:
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres-airflow/airflow
+      # (Optional) mirror env for role mapping consistency
+      KEYCLOAK_URL: "http://keycloak.local:8080"
+      KEYCLOAK_REALM: "OSSS"
     command: scheduler
     volumes:
       - ./airflow/dags:/opt/airflow/dags
+      - ./airflow/webserver_config.py:/opt/airflow/webserver_config.py:ro
+
     networks: [ osss-net ]
 
   # -----------------------------

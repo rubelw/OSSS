@@ -7,7 +7,159 @@
 
 set -Eeuo pipefail
 
+# -------- Podman install/start checks --------
+ensure_podman_installed() {
+  if ! command -v podman >/dev/null 2>&1; then
+    echo "❌ Podman is not installed."
+    echo
+    echo "👉 Please install Podman before using this script:"
+    echo "   - Fedora/RHEL/CentOS:  sudo dnf install podman"
+    echo "   - Ubuntu/Debian:       sudo apt-get install podman"
+    echo "   - macOS (Homebrew):    brew install podman"
+    echo "   - Windows (Winget):    winget install -e --id RedHat.Podman"
+    echo
+    read -rp "Press Enter to exit, or type 'ignore' to continue anyway: " ans || true
+    [[ "${ans:-}" == "ignore" ]] || exit 1
+  fi
+}
 
+# Ensures Podman is ready. On macOS/Windows, ensures a Podman machine exists and is running.
+# On Linux, Podman is daemonless; we just verify `podman info`. If the user session has
+# systemd, we try starting the user socket as a convenience.
+ensure_podman_started() {
+  # Already healthy?
+  if podman info >/dev/null 2>&1; then
+    return 0
+  fi
+
+  # --- If there are existing connections, let user choose one ---
+  local has_connections=0
+  local -a CONN_NAMES=()
+  local -a CONN_URIS=()
+  local -a CONN_DEFAULT=()
+
+  if podman system connection list >/dev/null 2>&1; then
+    has_connections=1
+    # Collect connections (name, default flag, uri)
+    # Format: "{{.Name}}\t{{.Default}}\t{{.URI}}"
+    while IFS=$'\t' read -r cname cdef curi; do
+      [[ -z "$cname" ]] && continue
+      CONN_NAMES+=("$cname")
+      CONN_DEFAULT+=("$cdef")
+      CONN_URIS+=("$curi")
+    done < <(podman system connection list --format '{{.Name}}\t{{.Default}}\t{{.URI}}' 2>/dev/null || true)
+
+    if ((${#CONN_NAMES[@]} > 0)); then
+      local sel=""
+      if [[ -t 0 ]]; then
+        echo "🔌 Available Podman connections:"
+        local i
+        for ((i=0; i<${#CONN_NAMES[@]}; i++)); do
+          local mark=""
+          [[ "${CONN_DEFAULT[$i]}" == "true" ]] && mark=" (default)"
+          printf "  %2d) %s%s\n      ↳ %s\n" "$((i+1))" "${CONN_NAMES[$i]}" "$mark" "${CONN_URIS[$i]}"
+        done
+        echo "  q) Cancel selection (keep current)"
+        read -r -p "Select a connection by number (Enter to keep current): " sel || true
+      fi
+
+      # Non-TTY or empty input → keep current default if any
+      if [[ -z "${sel:-}" ]]; then
+        : # do nothing; keep current default
+      elif [[ "$sel" =~ ^[Qq]$ ]]; then
+        : # do nothing; keep current default
+      elif [[ "$sel" =~ ^[0-9]+$ ]] && (( sel>=1 && sel<=${#CONN_NAMES[@]} )); then
+        local chosen="${CONN_NAMES[$((sel-1))]}"
+        echo "✅ Setting default connection: ${chosen}"
+        podman system connection default "$chosen" >/dev/null 2>&1 || true
+      else
+        echo "⚠️  Invalid selection. Keeping current default."
+      fi
+    fi
+  fi
+
+  # Try again after potential default switch
+  if podman info >/dev/null 2>&1; then
+    return 0
+  fi
+
+  # --- macOS/Windows: ensure a machine is running for the chosen/default connection ---
+  if podman machine -h >/dev/null 2>&1; then
+    # Infer which machine to start from the default connection, if any
+    local def_name=""
+    def_name="$(podman system connection list --format '{{if .Default}}{{.Name}}{{end}}' 2>/dev/null | awk 'NF' | head -n1 || true)"
+
+    # Heuristic: connection names commonly equal machine name or end with "-root"
+    local mname=""
+    if [[ -n "$def_name" ]]; then
+      mname="${def_name%-root}"
+    else
+      # Fall back to first machine name if no default conn
+      mname="$(podman machine ls --format '{{.Name}}' 2>/dev/null | head -n1 || true)"
+    fi
+
+    # If no machines exist, create one
+    if ! podman machine ls --format '{{.Name}}' 2>/dev/null | awk 'NF' | grep -q .; then
+      echo "🖥️  No Podman machine found. Initializing a default machine…"
+      if ! podman machine init --now 2>/dev/null; then
+        podman machine init || true
+        podman machine start || true
+      fi
+    else
+      # Ensure the inferred/first machine is running
+      if [[ -z "$mname" ]]; then
+        mname="$(podman machine ls --format '{{.Name}}' | head -n1)"
+      fi
+      # Start if not running
+      if ! podman machine ls --format '{{.Name}} {{.Running}}' | awk -v n="$mname" '$1==n && $2=="true"{f=1} END{exit !f}'; then
+        echo "▶️  Starting Podman machine '${mname}'…"
+        podman machine start "$mname" || true
+      fi
+    fi
+
+    # After machine start, ensure we have a sensible default connection
+    if ! podman info >/dev/null 2>&1; then
+      # Prefer a conn matching the machine name (rootless first)
+      local cand=""
+      cand="$(podman system connection list --format '{{.Name}}' | awk -v n="$mname" '$0==n{print; exit}')" || true
+      if [[ -z "$cand" ]]; then
+        cand="$(podman system connection list --format '{{.Name}}' | awk -v n="$mname-root" '$0==n{print; exit}')" || true
+      fi
+      if [[ -n "$cand" ]]; then
+        echo "✅ Setting default connection: ${cand}"
+        podman system connection default "$cand" >/dev/null 2>&1 || true
+      fi
+    fi
+
+    # Re-check health
+    if podman info >/dev/null 2>&1; then
+      return 0
+    fi
+  fi
+
+  # --- Linux/systemd convenience: try user socket (ignore failures) ---
+  if command -v systemctl >/dev/null 2>&1; then
+    systemctl --user start podman.socket >/dev/null 2>&1 || true
+  fi
+
+  # Final health check
+  if ! podman info >/dev/null 2>&1; then
+    echo "⚠️  Podman is installed but not ready (cannot connect)."
+    echo "   • macOS/Windows: try 'podman machine start' or pick a valid connection:"
+    echo "       podman system connection list"
+    echo "       podman system connection default <NAME>"
+    echo "   • Linux: verify your user can run Podman; user socket may help:"
+    echo "       systemctl --user start podman.socket"
+    podman system connection list 2>/dev/null || true
+    if [[ -t 0 ]]; then
+      read -rp "Press Enter to continue anyway, or type 'exit' to quit: " ans || true
+      [[ "${ans:-}" == "exit" ]] && exit 1
+    fi
+  fi
+}
+
+ensure_podman_installed
+ensure_podman_started
 
 # -------- dotenv loader --------
 load_dotenv() {
@@ -127,6 +279,21 @@ ensure_python_venv() {
 }
 
 ensure_python_venv "$@"
+
+
+# Extra services to remove when downing a given profile (Bash 3–friendly).
+# Extend this case list as needed.
+cascade_services_for_profile() {
+  case "$1" in
+    airflow)
+      # OpenMetadata's MySQL that you want removed with Airflow
+      echo "mysql-openmetadata"
+      ;;
+    # Add more cascades here if you like, e.g.:
+    # openmetadata) echo "mysql-openmetadata elasticsearch" ;;
+  esac
+}
+
 
 # -------- Podman compose selection --------
 compose_cmd() {
@@ -375,14 +542,37 @@ compose_services_all() {
 
 # -------- Host info --------
 show_status(){
-  echo "▶️  Containers (project ${COMPOSE_PROJECT_NAME}):"
-  printf "NAMES\tSTATUS\tNETWORKS\n"
-  podman ps -a --format '{{.Names}}\t{{.Status}}\t{{.Networks}}' \
-    | (grep -E "^${COMPOSE_PROJECT_NAME}[-_]" || true)
+  # Derive the project exactly as compose will
+  local PROJECT; PROJECT="$(__compose_project_name)"
 
-  echo; echo "▶️  Networks containing '${COMPOSE_PROJECT_NAME}_':"
-  podman network ls | (head -n1; grep -E " ${COMPOSE_PROJECT_NAME}_" || true)
+  # Show connection/debug info
+  local CONN; CONN="$(podman system connection list --format '{{if .Default}}{{.Name}}{{end}}' 2>/dev/null | awk 'NF' || true)"
+  echo "▶️  Containers (project ${PROJECT})  [conn: ${CONN:-unknown}]"
+  printf "NAMES\tSTATUS\tNETWORKS\n"
+
+  # Match by labels (authoritative), covering both podman-compose and docker compose labels
+  {
+    podman ps -a \
+      --filter "label=io.podman.compose.project=${PROJECT}" \
+      --format '{{.Names}}\t{{.Status}}\t{{.Networks}}' 2>/dev/null
+    podman ps -a \
+      --filter "label=com.docker.compose.project=${PROJECT}" \
+      --format '{{.Names}}\t{{.Status}}\t{{.Networks}}' 2>/dev/null
+  } | awk 'NF' || true
+
+  echo
+  echo "▶️  Networks containing '${PROJECT}_':"
+  podman network ls | (head -n1; grep -E " ${PROJECT}_" || true)
+
+  # Fallback hint: if nothing matched, show a quick glance at everything
+  if ! podman ps -a --filter "label=io.podman.compose.project=${PROJECT}" -q | awk 'NF' \
+     && ! podman ps -a --filter "label=com.docker.compose.project=${PROJECT}" -q | awk 'NF'; then
+    echo
+    echo "ℹ️  No containers found for project='${PROJECT}'. Showing all containers for reference:"
+    podman ps -a --format '{{.Names}}\t{{.Status}}\t{{.Networks}}' | sed 's/^/  /' || true
+  fi
 }
+
 
 
 # -------- logs helpers --------
@@ -985,6 +1175,13 @@ down_profile_interactive() {
   if [ "${#SVCS[@]}" -eq 0 ]; then
     echo "⚠️  No services declare profile '${prof}'. Nothing to do."
     return 0
+  fi
+
+  # >>> NEW: cascade in cross-profile services for this selection
+  mapfile -t __CASCADE < <(cascade_services_for_profile "$prof" || true)
+  if ((${#__CASCADE[@]})); then
+    echo "🔗 Cascade: also including linked service(s): ${__CASCADE[*]}"
+    SVCS+=("${__CASCADE[@]}")
   fi
 
   echo "🚧 Taking down profile '${prof}' services: ${SVCS[*]}"
