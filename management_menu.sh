@@ -294,6 +294,41 @@ cascade_services_for_profile() {
   esac
 }
 
+# Parse docker-compose.yml and list services that include a given profile, without needing compose on the host.
+# Usage: services_for_profile_from_yaml "elastic"
+services_for_profile_from_yaml() {
+  local prof="$1" file="${COMPOSE_FILE:-docker-compose.yml}"
+  awk -v prof="$prof" '
+    BEGIN{in_services=0; svc=""; in_prof=0}
+    /^[[:space:]]*services[[:space:]]*:/ {in_services=1; next}
+    in_services {
+      # end of services block if dedented to column 0
+      if ($0 ~ /^[^[:space:]]/ && $0 !~ /^[[:space:]]/) {in_services=0; next}
+      # service header at 2 spaces indentation: "  name:"
+      if ($0 ~ /^[[:space:]]{2}[A-Za-z0-9._-]+:[[:space:]]*$/) {
+        line=$0; sub(/^[[:space:]]+/, "", line); sub(/:.*/, "", line)
+        svc=line; in_prof=0; next
+      }
+      # inline list: profiles: [ "elastic", "foo" ]
+      if (svc && $0 ~ /^[[:space:]]{4}profiles:[[:space:]]*\[/) {
+        s=$0; sub(/^[^[]*\[/, "", s); sub(/\].*$/, "", s)
+        gsub(/[[:space:]"\047]/, "", s)
+        n=split(s, arr, ",")
+        for (i=1;i<=n;i++) if (arr[i]==prof) { print svc; break }
+        next
+      }
+      # block list start: profiles:
+      if (svc && $0 ~ /^[[:space:]]{4}profiles:[[:space:]]*$/) { in_prof=1; next }
+      # list item lines:       - elastic
+      if (in_prof && $0 ~ /^[[:space:]]{6}-[[:space:]]*[^[:space:]]+/) {
+        p=$0; sub(/^[^ -]*-/, "", p); gsub(/^[[:space:]]+|[[:space:]]+$/, "", p)
+        if (p==prof) print svc; next
+      }
+      # next service / end of profiles block
+      if (in_prof && $0 ~ /^[[:space:]]{4}[A-Za-z0-9._-]+:/) { in_prof=0 }
+    }
+  ' "$file" | sort -u
+}
 
 # -------- Podman compose selection --------
 compose_cmd() {
@@ -720,23 +755,45 @@ start_profiles_blind() {
   local args=( -f "$COMPOSE_FILE" )
   echo "▶️  Starting services for profiles: $* …"
 
-  # Offer rebuilds profile-by-profile before bringing anything up
-  for p in "$@"; do
-    maybe_build_profile "$p"
-    args+=( --profile "$p" )
-  done
-
-  run $COMPOSE "${args[@]}" up -d
+  if compose_supports_profile; then
+    for p in "$@"; do maybe_build_profile "$p"; args+=( --profile "$p" ); done
+    run $COMPOSE "${args[@]}" up -d
+  else
+    local all_svcs=()
+    for p in "$@"; do
+      maybe_build_profile "$p"
+      while read -r s; do [[ -n "$s" ]] && all_svcs+=("$s"); done < <(compose_services_for_profile "$p")
+    done
+    mapfile -t all_svcs < <(printf '%s\n' "${all_svcs[@]}" | awk 'NF && !seen[$0]++')
+    echo "⚠️  Backend lacks profile support; starting services only: ${all_svcs[*]}"
+    compose_up_services "${all_svcs[@]}"
+  fi
 }
+
 
 
 start_profile_with_build_prompt() {
   local prof="$1"
   ensure_hosts_keycloak
   maybe_build_profile "$prof"
-  run $COMPOSE -f "$COMPOSE_FILE" --profile "$prof" up -d
+
+  if compose_supports_profile; then
+    # Works with podman compose / docker compose
+    run $COMPOSE -f "$COMPOSE_FILE" --profile "$prof" up -d --no-deps
+  else
+    # podman-compose path (no profile support): start just the services in that profile
+    mapfile -t svcs < <(compose_services_for_profile "$prof" 2>/dev/null || true)
+    if ((${#svcs[@]}==0)); then
+      echo "⚠️  No services declare profile '${prof}' in ${COMPOSE_FILE:-docker-compose.yml}."
+      prompt_return; return 1
+    fi
+    echo "⚠️  Backend lacks profile support; starting services only: ${svcs[*]}"
+    compose_up_services "${svcs[@]}"   # calls: up -d --no-deps <services...>
+  fi
+
   prompt_return
 }
+
 
 start_profile_services() {
   local CMD; CMD="$(__compose_cmd)" || return $?
@@ -751,41 +808,191 @@ start_profile_services() {
   prompt_return
 }
 
+# --- Run a compose command *inside* the Podman VM (macOS) ---
+# Usage: vm_compose_in_dir "$PWD" -f docker-compose.yml up -d svc1 svc2 ...
+vm_compose_in_dir() {
+  local host_dir="$1"; shift
+  local q_dir; q_dir="$(printf %q "$host_dir")"
+  local q_args=""; while (($#)); do q_args+=$(printf " %q" "$1"); shift; done
+
+  # Remote script: ensure a working compose provider (prefer docker-compose plugin),
+  # then exec with the ARGS we passed.
+  local remote='
+set -Eeuo pipefail
+cd '"$q_dir"'
+
+have_podman_compose() { podman compose version >/dev/null 2>&1; }
+install_compose_plugin() {
+  # Install docker-compose v2 plugin into ~/.docker/cli-plugins/docker-compose
+  # Pick arch automatically; allow override via COMPOSE_PLUGIN_VERSION env.
+  local ver="${COMPOSE_PLUGIN_VERSION:-v2.29.7}"
+  local arch="$(uname -m)"
+  case "$arch" in
+    x86_64|amd64) arch="x86_64" ;;
+    aarch64|arm64) arch="aarch64" ;;
+    *) echo "❌ Unsupported arch: $arch"; return 1 ;;
+  esac
+  local url="https://github.com/docker/compose/releases/download/${ver}/docker-compose-linux-${arch}"
+  local dst="$HOME/.docker/cli-plugins/docker-compose"
+  mkdir -p "$(dirname "$dst")"
+  echo "⬇️  Installing docker-compose plugin ${ver} for ${arch} -> $dst"
+  curl -fsSL "$url" -o "$dst"
+  chmod +x "$dst"
+}
+
+install_podman_compose_py() {
+  # Last resort: get pip, then podman-compose (Python)
+  echo "ℹ️  Installing podman-compose via pip (user)…"
+  if ! python3 -m pip --version >/dev/null 2>&1; then
+    echo "ℹ️  Bootstrapping pip (user)…"
+    curl -fsSL https://bootstrap.pypa.io/get-pip.py -o /tmp/get-pip.py
+    python3 /tmp/get-pip.py --user
+    export PATH="$HOME/.local/bin:$PATH"
+  fi
+  python3 -m pip install --user --upgrade podman-compose
+  export PATH="$HOME/.local/bin:$PATH"
+}
+
+PROVIDER=""
+if have_podman_compose; then
+  PROVIDER="podman compose"
+else
+  # Try installing the compose v2 plugin first (no root required)
+  if install_compose_plugin && have_podman_compose; then
+    PROVIDER="podman compose"
+  else
+    # Fallback to python podman-compose (needs pip)
+    if command -v podman-compose >/dev/null 2>&1; then
+      PROVIDER="podman-compose"
+    else
+      install_podman_compose_py
+      PROVIDER="podman-compose"
+    fi
+  fi
+fi
+
+echo "ℹ️  Compose provider in VM: $PROVIDER"
+exec $PROVIDER '"${q_args# }"'
+'
+  echo "+ podman machine ssh -- bash -lc \"$remote\""
+  podman machine ssh -- bash -lc "$remote"
+}
+
+
+
 down_all() {
   local CMD; CMD="$(__compose_cmd)" || return $?
   local PROJECT; PROJECT="$(__compose_project_name)"
+  local COMPOSE_FILE_LOCAL="${COMPOSE_FILE:-docker-compose.yml}"
+
+  # Split the compose command into an array (e.g., "docker compose" or "podman compose" or "docker-compose")
+  local -a CMD_ARR; IFS=' ' read -r -a CMD_ARR <<< "$CMD"
+  local ENGINE="${CMD_ARR[0]}"
+  [[ "$ENGINE" == "docker-compose" ]] && ENGINE="docker"
 
   echo "🔻 Bringing down ALL compose services for project '${PROJECT}'…"
   set +e
-  $COMPOSE -f "$COMPOSE_FILE" down --remove-orphans -v 2>/dev/null
+  # Use the detected compose command and explicit project to avoid mismatches
+  "${CMD_ARR[@]}" -f "$COMPOSE_FILE_LOCAL" -p "$PROJECT" down --remove-orphans -v >/dev/null 2>&1
   set -e
 
-  # Sweep any project-prefixed volumes and common networks
-  echo "🧹 Sweeping leftover project volumes and networks…"
-  mapfile -t VOLS < <(podman volume ls --format '{{.Name}}' | grep -E "^${PROJECT}_" || true)
-  for v in "${VOLS[@]}"; do podman volume rm -f "$v" >/dev/null 2>&1 || true; done
+  # -------- Containers --------
+  echo "🧹 Removing leftover containers…"
+  local cids
+  cids="$($ENGINE ps -a --filter "label=com.docker.compose.project=${PROJECT}" -q 2>/dev/null)"
+  if [[ -n "$cids" ]]; then
+    $ENGINE rm -f $cids >/dev/null 2>&1 || true
+  fi
 
-  for net in "${PROJECT}_osss-net" "${PROJECT}_default"; do
-    if podman network exists "$net" 2>/dev/null; then
-      if ! podman network inspect "$net" --format '{{len .Containers}}' 2>/dev/null | awk '{exit ($1>0)}'; then
-        podman network rm "$net" >/dev/null 2>&1 || true
-      fi
+  # -------- Networks --------
+  echo "🧹 Removing leftover networks…"
+  local nids
+  nids="$($ENGINE network ls --filter "label=com.docker.compose.project=${PROJECT}" -q 2>/dev/null)"
+  if [[ -n "$nids" ]]; then
+    $ENGINE network rm $nids >/dev/null 2>&1 || true
+  fi
+  # Also remove common names if they still exist (label-less fallbacks)
+  for net in "${PROJECT}_osss-net" "${PROJECT}_default" "osss-net"; do
+    if $ENGINE network inspect "$net" >/dev/null 2>&1; then
+      $ENGINE network rm "$net" >/dev/null 2>&1 || true
     fi
+  done
+
+  # -------- Volumes --------
+  echo "🧹 Removing leftover volumes…"
+  local vids
+  vids="$($ENGINE volume ls --filter "label=com.docker.compose.project=${PROJECT}" -q 2>/dev/null)"
+  if [[ -n "$vids" ]]; then
+    $ENGINE volume rm -f $vids >/dev/null 2>&1 || true
+  fi
+  # Fallback: remove project-prefixed volumes even if not labeled
+  mapfile -t VOLS < <($ENGINE volume ls --format '{{.Name}}' 2>/dev/null | grep -E "^${PROJECT}_" || true)
+  for v in "${VOLS[@]}"; do
+    $ENGINE volume rm -f "$v" >/dev/null 2>&1 || true
   done
 
   echo "✅ All services down for project '${PROJECT}'."
   prompt_return
 }
 
+
 # elastic under Podman: skip filebeat/filebeat-setup (docker-only bind paths)
 start_profile_elastic() {
   ensure_hosts_keycloak
   maybe_build_profile elastic
-  echo "▶️  Starting services for profile 'elastic' (and enabling 'keycloak' profile for config validation)…"
-  run $COMPOSE -f "$COMPOSE_FILE" --profile elastic up -d --no-deps \
-      shared-vol-init elasticsearch kibana kibana-pass-init api-key-init
+
+  # Resolve services belonging to the 'elastic' profile directly from YAML
+  mapfile -t svcs < <(services_for_profile_from_yaml "elastic")
+  if ((${#svcs[@]}==0)); then
+    echo "⚠️  No services found for profile 'elastic' in ${COMPOSE_FILE:-docker-compose.yml}."
+    echo "    (Parser couldn’t match profiles; check indentation/quotes.)"
+    prompt_return; return 1
+  fi
+
+  # Optional: establish a sane start order when running without --profile
+  # Compose will still honor depends_on/healthchecks, but this helps reduce churn.
+  # Reorder to preferred sequence if present:
+  declare -a prefer=(shared-vol-init elasticsearch kibana-pass-init kibana api-key-init filebeat-setup filebeat)
+  declare -a ordered=()
+  for s in "${prefer[@]}"; do
+    for t in "${svcs[@]}"; do [[ "$t" == "$s" ]] && ordered+=("$t"); done
+  done
+  # append anything else (shouldn’t happen, but keeps this generic)
+  for t in "${svcs[@]}"; do
+    local seen=0; for u in "${ordered[@]}"; do [[ "$u" == "$t" ]] && seen=1; done
+    ((seen==0)) && ordered+=("$t")
+  done
+
+  if [[ "$(uname -s)" == "Darwin" ]] && command -v podman >/dev/null 2>&1 && podman machine -h >/dev/null 2>&1; then
+    echo "▶️  Starting profile 'elastic' inside the Podman VM (dependencies honored)…"
+    # Run *inside* the VM WITHOUT --profile; pass explicit services instead
+    vm_compose_in_dir "$PWD" -f "$COMPOSE_FILE" up -d "${ordered[@]}"
+  else
+    echo "▶️  Starting profile 'elastic' on this host (dependencies honored)…"
+    # Using explicit services works on Docker or Podman, no --profile required
+    run $COMPOSE -f "$COMPOSE_FILE" up -d "${ordered[@]}"
+  fi
+
   prompt_return
 }
+
+
+# Returns 0 if a service name exists in services: {...} (regardless of profiles)
+service_exists_in_compose() {
+  local name="$1" file="${COMPOSE_FILE:-docker-compose.yml}"
+  awk -v n="$name" '
+    BEGIN{in_s=0}
+    /^[[:space:]]*services[[:space:]]*:/ {in_s=1; next}
+    in_s {
+      if ($0 ~ /^[^[:space:]]/ && $0 !~ /^[[:space:]]/) {in_s=0; next}
+      if ($0 ~ /^[[:space:]]{2}[A-Za-z0-9._-]+:[[:space:]]*$/) {
+        line=$0; sub(/^[[:space:]]+/, "", line); sub(/:.*/, "", line)
+        if (line==n) { print "YES"; exit 0 }
+      }
+    }
+  ' "$file" | grep -q YES
+}
+
 
 
 start_profile_app()          { start_profile_with_build_prompt app; }
@@ -799,7 +1006,87 @@ start_profile_trino() {
 
 start_profile_airflow()      { start_profile_with_build_prompt airflow; }
 start_profile_superset()     { start_profile_with_build_prompt superset; }
-start_profile_openmetadata() { start_profile_with_build_prompt openmetadata; }
+
+start_profile_openmetadata() {
+  echo "▶️  Starting profile 'openmetadata' inside the Podman VM (dependencies honored)…"
+  podman machine ssh -- bash -lc "
+set -Eeuo pipefail
+
+# 👉 Adjust this to your project path inside the Podman VM if needed
+cd /Users/rubelw/projects/OSSS
+
+# --- Pick a compose provider in the VM ---
+have_podman_compose() { podman compose version >/dev/null 2>&1; }
+
+install_compose_plugin() {
+  # Install docker-compose v2 plugin into ~/.docker/cli-plugins/docker-compose (no root needed)
+  local ver=\"\${COMPOSE_PLUGIN_VERSION:-v2.29.7}\"
+  local arch=\"\$(uname -m)\"
+  case \"\$arch\" in
+    x86_64|amd64) arch=\"x86_64\" ;;
+    aarch64|arm64) arch=\"aarch64\" ;;
+    *) echo \"❌ Unsupported arch: \$arch\"; return 1 ;;
+  esac
+  local url=\"https://github.com/docker/compose/releases/download/\${ver}/docker-compose-linux-\${arch}\"
+  local dst=\"\$HOME/.docker/cli-plugins/docker-compose\"
+  mkdir -p \"\$(dirname \"\$dst\")\"
+  echo \"⬇️  Installing docker-compose plugin \${ver} for \${arch} -> \$dst\"
+  curl -fsSL \"\$url\" -o \"\$dst\"
+  chmod +x \"\$dst\"
+}
+
+install_podman_compose_py() {
+  echo \"ℹ️  Installing podman-compose via pip (user)…\"
+  if ! python3 -m pip --version >/dev/null 2>&1; then
+    echo \"ℹ️  Bootstrapping pip (user)…\"
+    curl -fsSL https://bootstrap.pypa.io/get-pip.py -o /tmp/get-pip.py
+    python3 /tmp/get-pip.py --user
+  fi
+  export PATH=\"\$HOME/.local/bin:\$PATH\"
+  python3 -m pip install --user --upgrade podman-compose
+}
+
+PROVIDER=\"\"
+if have_podman_compose; then
+  PROVIDER=\"podman compose\"
+else
+  if install_compose_plugin && have_podman_compose; then
+    PROVIDER=\"podman compose\"
+  else
+    if command -v podman-compose >/dev/null 2>&1; then
+      PROVIDER=\"podman-compose\"
+    else
+      install_podman_compose_py
+      PROVIDER=\"podman-compose\"
+    fi
+  fi
+fi
+
+echo \"ℹ️  Compose provider in VM: \$PROVIDER\"
+
+# --- Phase 1: bring up ONLY MySQL ---
+\$PROVIDER -f docker-compose.yml up -d mysql-openmetadata
+
+
+# --- Phase 2: wait until MySQL is healthy ---
+echo \"⏳ waiting for mysql-openmetadata to be healthy…\"
+for i in \$(seq 1 240); do
+  status=\$(podman inspect -f '{{.State.Health.Status}}' mysql-openmetadata 2>/dev/null || true)
+  if [ \"\$status\" = \"healthy\" ]; then
+    echo \"✅ mysql-openmetadata is healthy\"
+    break
+  fi
+  sleep 2
+done
+
+# --- Phase 3: now bring up OpenMetadata ---
+\$PROVIDER -f docker-compose.yml --profile openmetadata up -d openmetadata
+"
+  prompt_return
+}
+
+
+
 start_profile_consul()       { start_profile_with_build_prompt consul; }
 
 
