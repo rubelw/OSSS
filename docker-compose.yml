@@ -43,8 +43,10 @@ volumes:
   pg_superset_data:
   superset_redis_data:
   trino_data:
-  om_mysql_data:
+  mysql_data:
   airflow-pgdata:
+  ingestion_data:
+  elasticsearch_data:
 
 
 
@@ -59,7 +61,7 @@ services:
     image: hashicorp/consul:1.18
     profiles: ["consul"]
     container_name: consul
-    command: [ "agent","-dev","-client=0.0.0.0","-ui","-log-level=INFO" ]
+    command: ["agent","-server","-bootstrap-expect=1","-client=0.0.0.0","-ui","-log-level=INFO","-config-dir=/consul/config"]
     cpus: 0.50
     mem_limit: 512m
     mem_reservation: 256m
@@ -68,84 +70,15 @@ services:
       - "8600:8600/tcp"      # DNS (TCP)
       - "8600:8600/udp"      # DNS (UDP)
     volumes:
-      - consul_data:/consul/data
+      - ./consul_data:/consul/data
+      - ./consul/config:/consul/config:rw
+      - ./consul/jwt:/consul/jwt:rw
+
+
     networks: [ osss-net ]
     environment:
-      # Registers services with Consul; Consul runs these checks from inside the container
-      CONSUL_LOCAL_CONFIG: |
-        {
-          "datacenter": "dc1",
-          "services": [
-            {
-              "name": "osss-postgres",
-              "address": "osss_postgres",
-              "port": 5432,
-              "checks": [
-                { "tcp": "osss_postgres:5432", "interval": "10s", "timeout": "2s" }
-              ]
-            },
-            {
-              "name": "kc-postgres",
-              "address": "kc_postgres",
-              "port": 5432,
-              "checks": [
-                { "tcp": "kc_postgres:5432", "interval": "10s", "timeout": "2s" }
-              ]
-            },
-            {
-              "name": "redis",
-              "address": "redis",
-              "port": 6379,
-              "tags": ["cache", "redis"],
-              "checks": [
-                { "tcp": "redis:6379", "interval": "10s", "timeout": "2s" }
-              ]
-            },
-            {
-              "name": "vault",
-              "address": "vault",
-              "port": 8200,
-              "tags": ["vault", "http"],
-              "checks": [
-                {
-                  "http": "http://vault:8200/v1/sys/health?standbyok=true&sealedcode=503&standbycode=200&activecode=200",
-                  "interval": "10s",
-                  "timeout": "3s"
-                }
-              ]
-            },
-            {
-              "name": "keycloak",
-              "address": "keycloak",
-              "port": 8080,
-              "tags": ["keycloak", "http"],
-              "checks": [
-                {
-                  "http": "http://keycloak:9000/health/ready",
-                  "interval": "10s",
-                  "timeout": "3s",
-                  "DeregisterCriticalServiceAfter": "1m"
-                }
-              ]
-            },
-            {
-              "name":"elasticsearch",
-              "address":"elasticsearch",
-              "port":9200,
-              "checks":[
-                {"http":"http://elasticsearch:9200","interval":"10s","timeout":"3s"}
-              ]
-            },
-            {
-              "name":"kibana",
-              "address":"kibana",
-              "port":5601,
-              "checks":[
-                {"http":"http://kibana:5601/api/status","interval":"10s","timeout":"3s"}
-              ]
-            }
-          ]
-        }
+      CONSUL_HTTP_TOKEN: ${CONSUL_HTTP_TOKEN:-}
+
 
     healthcheck:
       test: consul info >/dev/null 2>&1 || exit 1
@@ -154,6 +87,25 @@ services:
       retries: 20
     restart: unless-stopped
 
+
+  consul-jwt-init:
+    image: hashicorp/consul:1.18
+    profiles: [ "consul" ]
+    container_name: consul-jwt-init
+    networks: [ osss-net ]
+    depends_on:
+      - consul
+    environment:
+      CONSUL_HTTP_ADDR: http://consul:8500
+      CONSUL_HTTP_TOKEN: ${CONSUL_HTTP_TOKEN}   # put your mgmt token in .env
+    volumes:
+      - ./consul/jwt/jwt.json:/cfg/jwt.json:ro
+      - ./consul/init-jwt.sh:/cfg/init-jwt.sh:ro
+
+    entrypoint: [ "/bin/sh","-exc" ]
+    command: [ "/cfg/init-jwt.sh" ]         # avoid multi-line YAML here
+
+    restart: "no"
 
 
   app:
@@ -625,6 +577,8 @@ services:
       memlock: { soft: -1, hard: -1 }
     ports:
       - "9200:9200"
+      - "9300:9300"
+
     networks: [ osss-net ]
     volumes:
       - es-data:/usr/share/elasticsearch/data
@@ -1089,92 +1043,81 @@ services:
   # -----------------------------
 
   # OpenMetadata prefers MySQL (Postgres supported in newer versions, but MySQL is safest)
-  mysql-openmetadata:
-    build:
-      context: .
-      dockerfile: docker/mysql/Dockerfile
-    profiles: [ "openmetadata" ]
-    container_name: mysql-openmetadata
-    hostname: mysql-openmetadata
-    restart: unless-stopped
-    cpus: 1.00
-    mem_limit: 1536m
-    mem_reservation: 1g
-    environment:
-      MYSQL_ROOT_PASSWORD: openmetadata_password
-      MYSQL_DATABASE: openmetadata_db
-      MYSQL_USER: openmetadata_user
-      MYSQL_PASSWORD: openmetadata_password
-      MYSQL_ROOT_HOST: "%"
-    command: >
-      --lower-case-table-names=1
-      --default-authentication-plugin=mysql_native_password
-      --character-set-server=utf8mb4
-      --collation-server=utf8mb4_0900_ai_ci
-    ports:
-      - "3306:3306"
-    volumes:
-      - om_mysql_data:/var/lib/mysql
-      - ./docker/openmetadata/mysql-init.sql:/docker-entrypoint-initdb.d/00-init.sql:ro
-    networks:
-      osss-net:
-        aliases: [ mysql-openmetadata.local ]
-    healthcheck:
-      # No creds; just “is the server answering”
-      test: [ "CMD-SHELL","mysqladmin ping -h127.0.0.1 --silent || exit 1" ]
-      interval: 5s
-      timeout: 5s
-      retries: 120
-      start_period: 120s
-
-
-
-  openmetadata:
-    image: openmetadata/server:1.4.3
-    container_name: openmetadata
+  # The OpenMetadata server
+  openmetadata-server:
+    image: openmetadata/server:1.4.0
     profiles: ["openmetadata"]
-    restart: unless-stopped
-    cpus: 2.00
-    mem_limit: 2g
-    mem_reservation: 1g
+    container_name: openmetadata-server
+    networks: [ osss-net ]
+    restart: always
+    ports:
+      - "8585:8585"
+    environment:
+      # Database configuration
+      - DB_SCHEMAS_STORE=jdbc:mysql://mysql/openmetadata_db
+      - DB_SCHEMAS_STORE_USER=openmetadata_user
+      - DB_SCHEMAS_STORE_PASSWORD=openmetadata_password
+      - DB_SCHEMAS_STORE_HOST=mysql
+      # Elasticsearch configuration
+      - ELASTICSEARCH_HOST=elasticsearch
+      - ELASTICSEARCH_PORT=9200
+      - ELASTICSEARCH_PROTOCOL=http
+      # Ingestion framework configuration
+      - PIPELINE_SERVICE_CLIENT_ENDPOINT=http://openmetadata-ingestion:8080
+    command: [ "./wait-for-db.sh", "mysql", "3306", "java", "-jar", "/app/openmetadata.jar" ]
+    volumes:
+      - ./scripts/wait-for-db.sh:/wait-for-db.sh:ro
+
     depends_on:
-      mysql-openmetadata:
+      mysql:
         condition: service_healthy
 
 
-    environment:
-      # --- JDBC driver & URL (authoritative) ---
-      DB_DRIVER: com.mysql.cj.jdbc.Driver
-      DB_URL: jdbc:mysql://mysql-openmetadata:3306/openmetadata_db?allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC
-      DB_USER: openmetadata_user
-      DB_PASSWORD: openmetadata_password
-
-      # Keep these too (duplicate on purpose) in case this image reads DATABASE_*
-      DATABASE_DRIVER_CLASS: com.mysql.cj.jdbc.Driver
-      DATABASE_URL: jdbc:mysql://mysql-openmetadata:3306/openmetadata_db?allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC
-      DATABASE_USERNAME: openmetadata_user
-      DATABASE_PASSWORD: openmetadata_password
-      DATABASE_HOST: mysql-openmetadata
-      DATABASE_PORT: "3306"
-      DATABASE_NAME: openmetadata_db
-      # ES is secured in your stack; tell OM to auth to it
-      SEARCH_TYPE: elasticsearch
-      ELASTICSEARCH_HOST: elasticsearch
-      ELASTICSEARCH_PORT: "9200"
-      ELASTICSEARCH_SCHEME: http
-      ELASTICSEARCH_USERNAME: elastic
-      ELASTICSEARCH_PASSWORD: ${ELASTIC_PASSWORD}   # <-- use the same var as ES
-
-      # Force Dropwizard DB config (bulletproof override)
-      JAVA_OPTS: >-
-        -Ddw.database.url=jdbc:mysql://mysql-openmetadata:3306/openmetadata_db?allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC
-        -Ddw.database.user=openmetadata_user
-        -Ddw.database.password=openmetadata_password
-        -Ddw.database.driverClass=com.mysql.cj.jdbc.Driver
-
-      # (Optional) make startup a bit chattier for troubleshooting
-      LOG_LEVEL: INFO
-
-    ports:
-      - "8585:8585"               # OpenMetadata UI/API
+  # The database service (MySQL by default)
+  mysql:
+    image: mysql:8.0
+    container_name: openmetadata-mysql
     networks: [ osss-net ]
+    profiles: ["openmetadata"]
+    restart: always
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=openmetadata_password
+      - MYSQL_DATABASE=openmetadata_db
+      - MYSQL_USER=openmetadata_user
+      - MYSQL_PASSWORD=openmetadata_password
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: [ "CMD-SHELL", "mysqladmin ping -h localhost -u root --password=openmetadata_password" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+
+
+
+  # The ingestion framework (Apache Airflow)
+  openmetadata-ingestion:
+    image: openmetadata/ingestion-base:1.6.0
+    container_name: openmetadata-ingestion
+    networks: [ osss-net ]
+    profiles: ["openmetadata"]
+    restart: always
+    environment:
+      - AIRFLOW__CORE__DAGS_FOLDER=/usr/local/airflow/dags
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=mysql://openmetadata_user:openmetadata_password@mysql:3306/openmetadata_db
+
+    volumes:
+      - ingestion_data:/usr/local/airflow
+    ports:
+      - "8080:8080"
+    command: [ "/bin/bash", "-c", "airflow standalone" ]
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+

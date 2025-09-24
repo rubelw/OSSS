@@ -1387,6 +1387,10 @@ if __name__ == "__main__":
 
 
     # --- Realm roles ---
+    rb.add_realm_role("consul-users", "Standard Consul users", composite=False)
+    rb.add_realm_role("consul-admins", "Administrators for Consul", composite=False)
+
+
     rb.add_realm_role("vault-users", "Standard Vault users", composite=False)
     rb.add_realm_role("vault-admins", "Administrators for Vault", composite=False)
 
@@ -1632,6 +1636,26 @@ if __name__ == "__main__":
         optional_client_scopes=["roles", "web-origins", "address", "phone", "offline_access"],
     )
 
+    rb.add_client(
+        client_id="consul",
+        name="consul",
+        redirect_uris=["http://localhost:8500/ui/*",
+                       "http://consul:8500/ui/*"],
+        protocol="openid-connect",
+        web_origins=["+"],
+        enabled=True,
+        public_client=False,
+        direct_access_grants_enabled=True,
+        service_accounts_enabled=False,
+        standard_flow_enabled=True,
+        client_authenticator_type="client-secret",
+        authorization_services_enabled=True,
+        secret="password",
+        attributes={"post.logout.redirect.uris": "+", "oidc.cida.grant.enabled": "false"},
+        default_client_scopes=["profile", "email", "groups-claim", "consul-audience"],
+        optional_client_scopes=["roles", "web-origins", "address", "phone", "offline_access"],
+    )
+
     # Kibana
     rb.add_client(
         client_id="kibana",
@@ -1715,6 +1739,16 @@ if __name__ == "__main__":
     )
 
     # --- Client scopes (define explicit mappers so tokens contain claims) ---
+
+    rb.add_group(
+        name="consul-users",
+        realm_roles=["consul-users"]
+    )
+
+    rb.add_group(
+        name="consul-admins",
+        realm_roles=["consul-admins"]
+    )
 
     rb.add_group(
         name="vault-users",
@@ -1871,6 +1905,25 @@ if __name__ == "__main__":
             "max_results": ["1000"],
         }
     )
+
+    # profile: basic profile fields
+    rb.add_client_scope(
+        name="consul-audience",
+        protocol="openid-connect",
+        attributes={"include.in.token.scope": "true"},
+        protocol_mappers=[
+            ProtocolMapperRepresentation(
+                name="audience consul",
+                protocolMapper="oidc-audience-mapper",
+                config={
+                    "id.token.claim": "false",
+                    "access.token.claim": "true",
+                    "included.client.audience": "consul"
+                },
+            )
+        ],
+    )
+
 
     # --- Rebuild DBML from models ----
     import_all_models("OSSS.db.models")

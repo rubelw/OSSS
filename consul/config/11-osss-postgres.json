@@ -1,0 +1,17 @@
+{
+  "datacenter": "dc1",
+  "services": [
+    {
+      "name": "osss-postgres",
+      "address": "osss_postgres",
+      "port": 5432,
+      "checks": [
+        {
+          "tcp": "osss_postgres:5432",
+          "interval": "10s",
+          "timeout": "2s"
+        }
+      ]
+    }
+  ]
+}

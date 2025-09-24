@@ -287,10 +287,10 @@ cascade_services_for_profile() {
   case "$1" in
     airflow)
       # OpenMetadata's MySQL that you want removed with Airflow
-      echo "mysql-openmetadata"
+      echo "mysql"
       ;;
     # Add more cascades here if you like, e.g.:
-    # openmetadata) echo "mysql-openmetadata elasticsearch" ;;
+    # openmetadata) echo "mysql elasticsearch" ;;
   esac
 }
 
@@ -1065,22 +1065,38 @@ fi
 echo \"ℹ️  Compose provider in VM: \$PROVIDER\"
 
 # --- Phase 1: bring up ONLY MySQL ---
-\$PROVIDER -f docker-compose.yml up -d mysql-openmetadata
+\$PROVIDER -f docker-compose.yml up -d mysql
 
 
 # --- Phase 2: wait until MySQL is healthy ---
-echo \"⏳ waiting for mysql-openmetadata to be healthy…\"
+echo \"⏳ waiting for openmetadata-mysql to be healthy…\"
 for i in \$(seq 1 240); do
-  status=\$(podman inspect -f '{{.State.Health.Status}}' mysql-openmetadata 2>/dev/null || true)
-  if [ \"\$status\" = \"healthy\" ]; then
-    echo \"✅ mysql-openmetadata is healthy\"
-    break
+  # get the exact container id
+  CID=\$(podman ps -aq --filter name=^openmetadata-mysql\$ | head -n1)
+  echo \"\$CID\"
+
+  if [ -z \"\$CID\" ]; then
+    echo \"❌ openmetadata-mysql not found\"
+    exit 1
   fi
+
+  # read state + health (health can be nil if no healthcheck)
+  state=\$(podman inspect -f '{{.State.Status}}' \"\$CID\" 2>/dev/null || echo unknown)
+  health=\$(podman inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' \"\$CID\" 2>/dev/null || echo unknown)
+  echo \"state=\$state health=\$health\"
+
+  if [ \"\$health\" = \"healthy\" ] || { [ \"\$health\" = \"none\" ] && [ \"\$state\" = \"running\" ]; }; then
+    echo \"✅ openmetadata-mysql is ready\"
+    break   # keep if this lives inside a wait loop
+  fi
+
   sleep 2
 done
 
 # --- Phase 3: now bring up OpenMetadata ---
-\$PROVIDER -f docker-compose.yml --profile openmetadata up -d openmetadata
+\$PROVIDER -f docker-compose.yml --profile openmetadata up -d openmetadata-server
+\$PROVIDER -f docker-compose.yml --profile openmetadata up -d openmetadata-ingestion
+
 "
   prompt_return
 }
@@ -1311,7 +1327,6 @@ remove_volumes_for_services() {
     eval "for __e in \"\${${__var}[@]}\"; do [[ \"\$__e\" == \"\$__val\" ]] && return 0; done"
     eval "${__var}+=(\"\$__val\")"
   }
-  _in_list() { local n="$1"; shift; for e in "$@"; do [[ "$e" == "$n" ]] && return 0; done; return 1; }
 
   local project="$1"; shift
   local do_rm="${REMOVE_VOLUMES:-0}"
@@ -1323,69 +1338,56 @@ remove_volumes_for_services() {
     return 0
   fi
 
-  local CMD cfg
-  CMD="$(__compose_cmd)" || { echo "⚠️  compose cmd unavailable"; return 0; }
-  if ! cfg="$($CMD config 2>/dev/null)"; then
-    echo "⚠️  Could not run 'compose config'; skipping volume cleanup."
-    return 0
-  fi
-
-  # top-level volume keys (normalized by `compose config`)
-  local topkeys=()
-  while IFS= read -r k; do [[ -n "$k" ]] && _add_unique topkeys "$k"; done < <(
-    awk '
-      /^[[:space:]]*volumes:[[:space:]]*$/ { in_vols=1; next }
-      in_vols {
-        if ($0 ~ /^[^[:space:]]/ && $0 !~ /^[[:space:]]/) { in_vols=0; next }
-        if ($0 ~ /^[[:space:]]{2}[A-Za-z0-9._-]+:[[:space:]]*$/) {
-          s=$0; sub(/^[[:space:]]+/, "", s); sub(/:.*/, "", s); print s
-        }
-      }' <<<"$cfg" | sort -u
-  )
-
-  # named volumes referenced by selected services
+  # 1) Collect named volumes referenced by the selected services
+  #    (trust the compose service volume refs; do NOT sweep project-wide)
   local named=()
   for svc in "${svcs[@]}"; do
     while IFS= read -r vk; do
-      # keep only volumes that exist as top-level keys; add project prefix
-      _in_list "$vk" "${topkeys[@]}" && _add_unique named "${project}_${vk}"
+      # Prefix with project (compose creates volumes as ${project}_${name})
+      [[ -n "$vk" ]] && _add_unique named "${project}_${vk}"
     done < <(__compose_named_volumes_for_service "$svc")
   done
 
-
-  # attached volumes still visible on any remaining containers for these services (should be none, but be safe)
+  # 2) Collect any currently attached volumes for containers of these services
   local attached=()
   for svc in "${svcs[@]}"; do
     while IFS= read -r cid; do
       [[ -z "$cid" ]] && continue
-      while IFS= read -r v; do [[ -n "$v" ]] && _add_unique attached "$v"; done < <(
-        podman inspect --format '{{range .Mounts}}{{if eq .Type "volume"}}{{.Name}}{{"\n"}}{{end}}{{end}}' "$cid" 2>/dev/null
-      )
+      podman inspect --format '{{range .Mounts}}{{if eq .Type "volume"}}{{.Name}}{{"\n"}}{{end}}{{end}}' "$cid" 2>/dev/null \
+        | awk 'NF' \
+        | while read -r v; do _add_unique attached "$v"; done
     done < <(podman ps -a --filter "label=io.podman.compose.project=$project" \
-                           --filter "label=io.podman.compose.service=$svc" -q)
+                       --filter "label=io.podman.compose.service=$svc" -q)
   done
 
   echo "🔎 Named volumes to consider: ${named[*]:-(none)}"
   echo "🔎 Attached volumes to consider: ${attached[*]:-(none)}"
 
-  # union
+  # 3) Union (only the volumes we explicitly identified above)
   local to_rm=()
   local v; for v in "${named[@]}";    do _add_unique to_rm "$v"; done
            for v in "${attached[@]}"; do _add_unique to_rm "$v"; done
-  [[ "${#to_rm[@]}" -eq 0 ]] && { echo "ℹ️  No volumes eligible for removal."; return 0; }
 
-  # remove, optionally forcing same-project users to stop
+  # If nothing matched, SKIP removal (do NOT sweep project-wide)
+  if [[ "${#to_rm[@]}" -eq 0 ]]; then
+    echo "ℹ️  No service-mapped or attached volumes found for ${svcs[*]}; skipping volume removal."
+    return 0
+  fi
+
+  # 4) Remove, optionally stopping same-project users first
   for v in "${to_rm[@]}"; do
-    # existence check using name-only listing (works regardless of columns)
+    # Volume must exist
     if ! podman volume ls --format '{{.Name}}' | grep -qx "$v"; then
       echo "   • $v (does not exist)"
       continue
     fi
-    # who’s using it?
+
+    # Who’s using it?
     mapfile -t USERS < <(podman ps -a --filter "volume=$v" -q)
+
     if ((${#USERS[@]})); then
       if [[ "${FORCE_VOLUME_REMOVE:-0}" == "1" ]]; then
-        # only stop/remove users that belong to the same project (by label)
+        # Only stop/remove users that belong to the same compose project
         mapfile -t PROJ_USERS < <(
           for id in "${USERS[@]}"; do
             lab=$(podman inspect -f '{{or (index .Config.Labels "io.podman.compose.project") (index .Config.Labels "com.docker.compose.project")}}' "$id" 2>/dev/null)
@@ -1393,40 +1395,39 @@ remove_volumes_for_services() {
           done
         )
         if ((${#PROJ_USERS[@]})); then
-          echo "   • $v (in use by ${#USERS[@]} container/s → stopping same-project users: ${#PROJ_USERS[@]})"
+          echo "   • $v (in use → stopping same-project users: ${#PROJ_USERS[@]})"
           podman stop "${PROJ_USERS[@]}" || true
           podman rm -fv "${PROJ_USERS[@]}" || true
-          # re-check other users
+          # Re-check other users
           mapfile -t USERS < <(podman ps -a --filter "volume=$v" -q)
         fi
       fi
     fi
+
     if ((${#USERS[@]})); then
       echo "   • $v (skipping — still used by ${#USERS[@]} container/s)"
       continue
     fi
+
     echo "🧹 Removing volume: $v"
     podman volume rm -f "$v" || echo "   • failed to remove $v (continuing)"
   done
-
-  # If nothing matched through compose parsing, sweep all project-prefixed volumes.
-  if [[ "${#to_rm[@]}" -eq 0 ]]; then
-    echo "ℹ️  No service-mapped volumes found; falling back to project-prefixed sweep."
-    while IFS= read -r v; do
-      [[ -n "$v" ]] && _add_unique to_rm "$v"
-    done < <(podman volume ls --format '{{.Name}}' | grep -E "^${project}_" || true)
-  fi
-
 }
 
 
 down_profile_interactive() {
   local CMD; CMD="$(__compose_cmd)" || return $?
   local PROJECT; PROJECT="$(__compose_project_name)"
+  local COMPOSE_FILE_LOCAL="${COMPOSE_FILE:-docker-compose.yml}"
+
+  # Split compose command to detect engine
+  local -a CMD_ARR; IFS=' ' read -r -a CMD_ARR <<< "$CMD"
+  local ENGINE="${CMD_ARR[0]}"
+  [[ "$ENGINE" == "docker-compose" ]] && ENGINE="docker"
 
   echo "ℹ️  Using compose command: $CMD"
   echo "ℹ️  Compose project: $PROJECT"
-  echo "ℹ️  Compose file:    ${COMPOSE_FILE:-docker-compose.yml}"
+  echo "ℹ️  Compose file:    $COMPOSE_FILE_LOCAL"
 
   mapfile -t PROFILES < <(__compose_profiles)
   echo "🔎 Detected profiles: ${PROFILES[*]:-(none)}"
@@ -1453,8 +1454,8 @@ down_profile_interactive() {
   prof="${prof%\"}"; prof="${prof#\"}"; prof="${prof%\'}"; prof="${prof#\'}"
   echo "ℹ️  Normalized profile: $prof"
 
-  # Discover services via the compose CLI (authoritative), with a parser fallback
-  mapfile -t SVCS < <($CMD -f "$COMPOSE_FILE" --profile "$prof" config --services 2>/dev/null | awk 'NF')
+  # Authoritative service list from compose
+  mapfile -t SVCS < <("${CMD_ARR[@]}" -f "$COMPOSE_FILE_LOCAL" --profile "$prof" config --services 2>/dev/null | awk 'NF')
   if [ "${#SVCS[@]}" -eq 0 ]; then
     mapfile -t SVCS < <(compose_services_for_profile "$prof" 2>/dev/null || true)
   fi
@@ -1464,7 +1465,7 @@ down_profile_interactive() {
     return 0
   fi
 
-  # >>> NEW: cascade in cross-profile services for this selection
+  # Cascade (your helper)
   mapfile -t __CASCADE < <(cascade_services_for_profile "$prof" || true)
   if ((${#__CASCADE[@]})); then
     echo "🔗 Cascade: also including linked service(s): ${__CASCADE[*]}"
@@ -1473,84 +1474,55 @@ down_profile_interactive() {
 
   echo "🚧 Taking down profile '${prof}' services: ${SVCS[*]}"
 
-  # ---- VERBOSE EXECUTION SCOPE ----
   {
     set -x
 
-    # 0) Stop & remove ONLY the services in this profile (never use 'down' here)
-    echo "+ $CMD -f \"$COMPOSE_FILE\" stop ${SVCS[*]}"
-    $CMD -f "$COMPOSE_FILE" stop "${SVCS[@]}" || true
-
-    if $CMD rm -h >/dev/null 2>&1; then
-      echo "+ $CMD -f \"$COMPOSE_FILE\" rm -s -f -v ${SVCS[*]}"
-      $CMD -f "$COMPOSE_FILE" rm -s -f -v "${SVCS[@]}" || true
+    # Stop and remove containers for the chosen services (only)
+    "${CMD_ARR[@]}" -f "$COMPOSE_FILE_LOCAL" stop "${SVCS[@]}" || true
+    if "${CMD_ARR[@]}" rm -h >/dev/null 2>&1; then
+      "${CMD_ARR[@]}" -f "$COMPOSE_FILE_LOCAL" rm -s -f -v "${SVCS[@]}" || true
     fi
 
-
-    # 1) Resolve containers by label (compose project + service)
+    # Find any remaining containers for these services by label (docker/podman compatible label)
     declare -a CIDS=()
-    for svc in "${SVCS[@]}"; do
-      while read -r id; do
-        [[ -n "$id" ]] && CIDS+=("$id")
-      done < <(podman ps -a \
-                 --filter "label=io.podman.compose.project=$PROJECT" \
-                 --filter "label=io.podman.compose.service=$svc" \
-                 -q)
-    done
-    echo "🔎 Container IDs to stop/rm: ${CIDS[*]:-(none)}"
-
-    # 2) Find related pods (if any)
-    declare -a PODS=()
-    if ((${#CIDS[@]})); then
-      while read -r pod; do
-        [[ -n "$pod" && "$pod" != "<no value>" ]] && PODS+=("$pod")
-      done < <(podman inspect -f '{{.PodName}}' "${CIDS[@]}" 2>/dev/null | awk 'NF && !seen[$0]++')
-    fi
-    echo "🔎 Pods to stop/rm: ${PODS[*]:-(none)}"
-
-    # 3) Disable auto-restart (prevents immediate respawn)
-    if ((${#CIDS[@]})); then
-      for id in "${CIDS[@]}"; do
-        podman update --restart=no "$id" || true
-      done
-    fi
-
-
-    # 4) Gather attached volumes before containers disappear (dedupe without assoc arrays)
-    mapfile -t VOL_ATTACHED < <(
-      for id in "${CIDS[@]}"; do
-        podman inspect --format '{{range .Mounts}}{{if eq .Type "volume"}}{{.Name}}{{"\n"}}{{end}}{{end}}' "$id" 2>/dev/null
-      done | awk 'NF && !seen[$0]++'
+    while read -r id; do [[ -n "$id" ]] && CIDS+=("$id"); done < <(
+      $ENGINE ps -a \
+        --filter "label=com.docker.compose.project=${PROJECT}" \
+        $(for s in "${SVCS[@]}"; do printf -- '--filter label=com.docker.compose.service=%s ' "$s"; done) \
+        -q 2>/dev/null
     )
-    echo "🔎 Candidate volumes (attached): ${VOL_ATTACHED[*]:-(none)}"
-
-    # 5) Stop pods first (if any), then containers by ID, then by service name (fallback)
+    # Collect attached volumes BEFORE removing the remaining containers
+    declare -a VOL_ATTACHED=()
     if ((${#CIDS[@]})); then
-      podman rm -fv "${CIDS[@]}" || true
-    fi
-    podman rm -fv "${SVCS[@]}" || true
-    if ((${#PODS[@]})); then
-      podman pod rm -f "${PODS[@]}" || true
+      while read -r v; do [[ -n "$v" ]] && VOL_ATTACHED+=("$v"); done < <(
+        $ENGINE inspect "${CIDS[@]}" \
+          -f '{{range .Mounts}}{{if eq .Type "volume"}}{{.Name}}{{"\n"}}{{end}}{{end}}' 2>/dev/null | awk 'NF && !seen[$0]++'
+      )
+      $ENGINE rm -f "${CIDS[@]}" >/dev/null 2>&1 || true
     fi
 
-    # 6) Drop any attached volumes we captured
+    # Fallback: remove by service name (handles engine quirks)
+    $ENGINE rm -f "${SVCS[@]}" >/dev/null 2>&1 || true
+
+    # Remove any volumes that were attached to these containers
     for v in "${VOL_ATTACHED[@]}"; do
-      podman volume rm -f "$v" || true
+      $ENGINE volume rm -f "$v" >/dev/null 2>&1 || true
     done
 
     set +x
   }
 
-  # 7) Report what’s still running for this project after teardown
-  echo "🔎 Remaining containers matching project='$PROJECT':"
-  podman ps --format '{{.ID}}\t{{.Image}}\t{{.Names}}\t{{.Status}}\t{{.Ports}}' \
-    --filter "label=io.podman.compose.project=$PROJECT" | sed 's/^/  /' || true
+  echo "🔎 Remaining containers for project='$PROJECT':"
+  $ENGINE ps --format '{{.ID}}\t{{.Image}}\t{{.Names}}\t{{.Status}}\t{{.Ports}}' \
+    --filter "label=com.docker.compose.project=${PROJECT}" | sed 's/^/  /' || true
 
-  # also remove named volumes referenced by those services
-  remove_volumes_for_services "$PROJECT" --volumes "${SVCS[@]}"
+  # Also call your helper for any compose-declared named volumes of these services
+  remove_volumes_for_services "$PROJECT" --volumes "${SVCS[@]}" || true
+
   echo "✅ Done with profile '${prof}'."
   prompt_return
 }
+
 
 
 
