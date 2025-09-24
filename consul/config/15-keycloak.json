@@ -1,0 +1,22 @@
+{
+  "datacenter": "dc1",
+  "services": [
+    {
+      "name": "keycloak",
+      "address": "keycloak",
+      "port": 8080,
+      "tags": [
+        "keycloak",
+        "http"
+      ],
+      "checks": [
+        {
+          "http": "http://keycloak:9000/health/ready",
+          "interval": "10s",
+          "timeout": "3s",
+          "DeregisterCriticalServiceAfter": "1m"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "datacenter": "dc1",
+  "services": [
+    {
+      "name": "elasticsearch",
+      "address": "elasticsearch",
+      "port": 9200,
+      "checks": [
+        {
+          "http": "http://elasticsearch:9200",
+          "interval": "10s",
+          "timeout": "3s"
+        }
+      ]
+    }
+  ]
+}

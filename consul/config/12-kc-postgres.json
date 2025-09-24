@@ -1,0 +1,17 @@
+{
+  "datacenter": "dc1",
+  "services": [
+    {
+      "name": "kc-postgres",
+      "address": "kc_postgres",
+      "port": 5432,
+      "checks": [
+        {
+          "tcp": "kc_postgres:5432",
+          "interval": "10s",
+          "timeout": "2s"
+        }
+      ]
+    }
+  ]
+}
