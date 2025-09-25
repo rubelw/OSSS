@@ -1,0 +1,21 @@
+cluster.name: "docker-cluster"
+discovery.type: single-node
+
+xpack.security.enabled: false
+xpack.security.http.ssl.enabled: false
+
+# --- OIDC realm for Keycloak (name: oidc1)
+xpack.security.authc.realms.oidc.oidc1:
+  order: 2
+  # RP (Kibana) registration at Keycloak
+  rp.client_id: "kibana"
+  rp.client_secret: "password"
+  rp.response_type: "code"
+  rp.redirect_uri: "http://localhost:5601/api/security/oidc/callback"
+
+  # Use discovery from Keycloak
+  op.issuer: "http://keycloak.local:8080/realms/OSSS"
+
+  # Map token claims
+  claims.principal: "preferred_username"
+  claims.groups: "groups"

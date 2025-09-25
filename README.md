@@ -17,7 +17,7 @@
 </p>
 <!-- badges: end -->
 
-> Open Student Support System (K-12 SIS) — FastAPI + Keycloak + SQLAlchemy; governance + student info.
+> Open Source School Software (K-12 SIS) — FastAPI + Keycloak + SQLAlchemy + Datalake; governance + student info + accounting + activites + transportation.
 
 
 A community-driven, modular suite of applications for K-12 districts.
@@ -31,6 +31,18 @@ generated from source:
 - **Frontend (TypeScript)** → TypeDoc → Markdown (`docs/api/web/*`)
 - **Backend (Python)** → mkdocstrings renders code objects from `src/OSSS`
 - **REST (OpenAPI)** → exported JSON rendered with ReDoc
+
+---
+## Network diagram
+
+<p align="center">
+  <img src="./docs/img/osss-network.jpg"
+       alt="OSSS network architecture (draw.io)"
+       width="100%" />
+</p>
+
+---
+# Screen Shots
 
 The static site is output to `./documentation/`.
 
@@ -65,8 +77,6 @@ docker-compose version 1.29.2, build 5becea4c
 docker-py version: 5.0.0
 CPython version: 3.9.0
 OpenSSL version: OpenSSL 1.1.1h  22 Sep 2020
-
-```
 
 ---
 # Minimum System Requirements
