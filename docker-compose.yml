@@ -1,209 +1,184 @@
-
-x-kc-db-env: &kc_db_env
+x-kc-db-env:
   KC_DB: ${KC_DB}
   KC_DB_URL_HOST: ${KC_DB_URL_HOST}
   KC_DB_URL_PORT: ${KC_DB_URL_PORT}
   KC_DB_URL_DATABASE: ${KC_DB_NAME}
   KC_DB_USERNAME: ${KC_DB_USERNAME}
   KC_DB_PASSWORD: ${KC_DB_PASSWORD}
-  KC_DB_URL: "${KC_DB_URL}"
-  # optional JDBC params; the importer will append them with a leading "?"
-  KC_DB_URL_PROPERTIES: "${KC_DB_URL_PROPERTIES}"
-  KC_LOG_LEVEL: "TRACE"
-  QUARKUS_TRANSACTION_MANAGER_DEFAULT_TRANSACTION_TIMEOUT: "PT30M"
-  QUARKUS_DATASOURCE_JDBC_ACQUISITION_TIMEOUT: "600s"
-  QUARKUS_DATASOURCE_JDBC_BACKGROUND_VALIDATION_INTERVAL: "30S"
-  QUARKUS_DATASOURCE_JDBC_VALIDATION_QUERY: "SELECT 1"
-  QUARKUS_LOG_LEVEL: "INFO"
-  KC_DB_POOL_INITIAL_SIZE: "1"
-  KC_DB_POOL_MIN_SIZE: "1"
-  KC_DB_POOL_MAX_SIZE: "5"
-  KEYCLOAK_URL: "${KEYCLOAK_URL}"
-  KEYCLOAK_ADMIN: "admin"
-  KEYCLOAK_ADMIN_PASSWORD: "admin"
-  KEYCLOAK_REALM: "OSSS"
-  KEYCLOAK_HEALTH_URL: "${KEYCLOAK_HEALTH_URL}"
-  # Force canonical base URL used in discovery/issuer:
-  KC_FEATURES: "hostname:v1"
-
-
+  KC_DB_URL: ${KC_DB_URL}
+  KC_DB_URL_PROPERTIES: ${KC_DB_URL_PROPERTIES}
+  KC_LOG_LEVEL: TRACE
+  QUARKUS_TRANSACTION_MANAGER_DEFAULT_TRANSACTION_TIMEOUT: PT30M
+  QUARKUS_DATASOURCE_JDBC_ACQUISITION_TIMEOUT: 600s
+  QUARKUS_DATASOURCE_JDBC_BACKGROUND_VALIDATION_INTERVAL: 30S
+  QUARKUS_DATASOURCE_JDBC_VALIDATION_QUERY: SELECT 1
+  QUARKUS_LOG_LEVEL: INFO
+  KC_DB_POOL_INITIAL_SIZE: '1'
+  KC_DB_POOL_MIN_SIZE: '1'
+  KC_DB_POOL_MAX_SIZE: '5'
+  KEYCLOAK_URL: ${KEYCLOAK_URL}
+  KEYCLOAK_ADMIN: admin
+  KEYCLOAK_ADMIN_PASSWORD: admin
+  KEYCLOAK_REALM: OSSS
+  KEYCLOAK_HEALTH_URL: ${KEYCLOAK_HEALTH_URL}
+  KC_FEATURES: hostname:v1
 networks:
-  osss-net: {}
-
-
-
+  osss-net:
+    external: true
+    name: osss-net
 volumes:
-  consul_data:
-  kc_postgres_data:
-  osss_postgres_data:
-  redis-data:
-  es-data:
-  filebeat-data:
-  es-shared:
-  pg_superset_data:
-  superset_redis_data:
-  trino_data:
-  mysql_data:
-  airflow-pgdata:
-  ingestion_data:
-  elasticsearch_data:
-
-
-
-
-
+  consul_data: null
+  kc_postgres_data: null
+  osss_postgres_data: null
+  redis-data: null
+  es-data: null
+  filebeat-data: null
+  es-shared: null
+  pg_superset_data: null
+  superset_redis_data: null
+  trino_data: null
+  mysql_data: null
+  airflow-pgdata: null
+  ingestion_data: null
+  elasticsearch_data: null
 services:
-
-
-
-  # HashiCorp Consul (dev mode) — service discovery, DNS, UI
   consul:
     image: hashicorp/consul:1.18
-    profiles: ["consul"]
+    profiles:
+    - consul
     container_name: consul
-    command: ["agent","-server","-bootstrap-expect=1","-client=0.0.0.0","-ui","-log-level=INFO","-config-dir=/consul/config"]
-    cpus: 0.50
+    command:
+    - agent
+    - -server
+    - -bootstrap-expect=1
+    - -client=0.0.0.0
+    - -ui
+    - -log-level=INFO
+    - -config-dir=/consul/config
+    cpus: 0.5
     mem_limit: 512m
     mem_reservation: 256m
     ports:
-      - "8500:8500"          # HTTP UI/API
-      - "8600:8600/tcp"      # DNS (TCP)
-      - "8600:8600/udp"      # DNS (UDP)
+    - 8500:8500
+    - 8600:8600/tcp
+    - 8600:8600/udp
     volumes:
-      - ./consul_data:/consul/data
-      - ./consul/config:/consul/config:rw
-      - ./consul/jwt:/consul/jwt:rw
-
-
-    networks: [ osss-net ]
+    - ./config_files/consul_data:/consul/data
+    - ./config_files/consul/config:/consul/config:rw
+    - ./config_files/consul/jwt:/consul/jwt:rw
+    networks:
+    - osss-net
     environment:
       CONSUL_HTTP_TOKEN: ${CONSUL_HTTP_TOKEN:-}
-
-
     healthcheck:
       test: consul info >/dev/null 2>&1 || exit 1
       interval: 5s
       timeout: 3s
       retries: 20
     restart: unless-stopped
-
-
   consul-jwt-init:
     image: hashicorp/consul:1.18
-    profiles: [ "consul" ]
+    profiles:
+    - consul
     container_name: consul-jwt-init
-    networks: [ osss-net ]
+    networks:
+    - osss-net
     depends_on:
-      - consul
+    - consul
     environment:
       CONSUL_HTTP_ADDR: http://consul:8500
-      CONSUL_HTTP_TOKEN: ${CONSUL_HTTP_TOKEN}   # put your mgmt token in .env
+      CONSUL_HTTP_TOKEN: ${CONSUL_HTTP_TOKEN}
     volumes:
-      - ./consul/jwt/jwt.json:/cfg/jwt.json:ro
-      - ./consul/init-jwt.sh:/cfg/init-jwt.sh:ro
-
-    entrypoint: [ "/bin/sh","-exc" ]
-    command: [ "/cfg/init-jwt.sh" ]         # avoid multi-line YAML here
-
-    restart: "no"
-
-
+    - ./config_files/consul/jwt/jwt.json:/cfg/jwt.json:ro
+    - ./config_files/consul/init-jwt.sh:/cfg/init-jwt.sh:ro
+    entrypoint:
+    - /bin/sh
+    - -exc
+    command:
+    - /cfg/init-jwt.sh
+    restart: 'no'
   app:
-    profiles: [ "app" ]
-    networks: [ osss-net ]
+    profiles:
+    - app
+    networks:
+    - osss-net
     container_name: app
-    cpus: 2.00
+    cpus: 2.0
     mem_limit: 3g
     mem_reservation: 2g
     build:
       context: .
       dockerfile: docker/app/Dockerfile
-
-    # Use a single shell string so podman-compose doesn't choke on CMD_SHELL
     command:
-      - uvicorn
-      - src.OSSS.main:app
-      - --host
-      - 0.0.0.0
-      - --port
-      - "8000"
-      - --reload
-      - --log-level
-      - info
-      - --access-log
-      - --log-config
-      - /workspace/docker/logging.yaml
-
+    - uvicorn
+    - src.OSSS.main:app
+    - --host
+    - 0.0.0.0
+    - --port
+    - '8000'
+    - --reload
+    - --log-level
+    - info
+    - --access-log
+    - --log-config
+    - /workspace/docker/logging.yaml
     working_dir: /workspace
     ports:
-      - "127.0.0.1:8081:8000"
-
-    entrypoint: [ "/usr/local/bin/app-entrypoint.sh" ]
-
+    - 127.0.0.1:8081:8000
+    entrypoint:
+    - /usr/local/bin/app-entrypoint.sh
     volumes:
-      - ./:/workspace:cached
-      # mount the YAML you actually reference above
-      - ./docker/logging.yml:/workspace/docker/logging.yaml:ro
-      - ./scripts/app-entrypoint.sh:/usr/local/bin/app-entrypoint.sh:ro
-
+    - ./:/workspace:cached
+    - ./docker/logging.yml:/workspace/docker/logging.yaml:ro
+    - ./scripts/app-entrypoint.sh:/usr/local/bin/app-entrypoint.sh:ro
     labels:
-      co.elastic.logs/enabled: "true"
-      co.elastic.logs/processors.1.decode_json_fields.fields: 'message'
+      co.elastic.logs/enabled: 'true'
+      co.elastic.logs/processors.1.decode_json_fields.fields: message
       co.elastic.logs/processors.1.decode_json_fields.target: ''
       co.elastic.logs/processors.1.decode_json_fields.overwrite_keys: 'true'
-      co.elastic.logs/processors.2.add_fields.target: 'app'
-      co.elastic.logs/processors.2.add_fields.fields.service: 'osss-api'
-
+      co.elastic.logs/processors.2.add_fields.target: app
+      co.elastic.logs/processors.2.add_fields.fields.service: osss-api
     environment:
-      OSSS_VERBOSE_AUTH: "1"
-      PYTHONUNBUFFERED: "1"
+      OSSS_VERBOSE_AUTH: '1'
+      PYTHONUNBUFFERED: '1'
       PYTHONLOGLEVEL: DEBUG
       LOG_LEVEL: DEBUG
       UVICORN_LOG_LEVEL: debug
-      UVICORN_ACCESS_LOG: "1"
-
-      KEYCLOAK_ISSUER: "${KEYCLOAK_ISSUER}"
-      KEYCLOAK_JWKS_URL: "${KEYCLOAK_JWKS_URL}"
-
-      AUTHLIB_DEBUG: "1"
-      OAUTHLIB_INSECURE_TRANSPORT: "1"
+      UVICORN_ACCESS_LOG: '1'
+      KEYCLOAK_ISSUER: ${KEYCLOAK_ISSUER}
+      KEYCLOAK_JWKS_URL: ${KEYCLOAK_JWKS_URL}
+      AUTHLIB_DEBUG: '1'
+      OAUTHLIB_INSECURE_TRANSPORT: '1'
       HTTPX_LOG_LEVEL: DEBUG
       REQUESTS_LOG_LEVEL: DEBUG
       JOSE_LOG_LEVEL: DEBUG
       JWcrypto_LOG_LEVEL: DEBUG
-
       HOST: 0.0.0.0
-      PORT: "8000"
+      PORT: '8000'
       PYTHONPATH: /workspace/src
-      WATCHFILES_FORCE_POLLING: "true"
-
-      CORS_ALLOW_ORIGINS: "${CORS_ALLOW_ORIGINS}"
-      CORS_ORIGINS: "${CORS_ORIGINS}"
-
-      OIDC_ISSUER: "${OIDC_ISSUER}"
-      OIDC_DISCOVERY_URL_INTERNAL: "${OIDC_DISCOVERY_URL_INTERNAL}"
-      OIDC_TOKEN_URL_INTERNAL: "${OIDC_TOKEN_URL_INTERNAL}"
-      OIDC_JWKS_URL: "${OIDC_JWKS_URL}"
+      WATCHFILES_FORCE_POLLING: 'true'
+      CORS_ALLOW_ORIGINS: ${CORS_ALLOW_ORIGINS}
+      CORS_ORIGINS: ${CORS_ORIGINS}
+      OIDC_ISSUER: ${OIDC_ISSUER}
+      OIDC_DISCOVERY_URL_INTERNAL: ${OIDC_DISCOVERY_URL_INTERNAL}
+      OIDC_TOKEN_URL_INTERNAL: ${OIDC_TOKEN_URL_INTERNAL}
+      OIDC_JWKS_URL: ${OIDC_JWKS_URL}
       OIDC_CLIENT_ID: osss-api
       OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-password}
       OSSS_PUBLIC_BASE_URL: http://localhost:8081
       OIDC_REDIRECT_URL: http://localhost:8081/callback
       OIDC_LOGOUT_REDIRECT_URL: http://localhost:8081/
-      OIDC_VERIFY_AUD: "0"
-      ALLOWED_CLOCK_SKEW: "60"
-
+      OIDC_VERIFY_AUD: '0'
+      ALLOWED_CLOCK_SKEW: '60'
       REDIS_URL: redis://redis:6379/0
       SESSION_REDIS_HOST: redis
-      SESSION_REDIS_PORT: "6379"
+      SESSION_REDIS_PORT: '6379'
       KEYCLOAK_CLIENT_ID: osss-api
       KEYCLOAK_CLIENT_SECRET: password
-
       ASYNC_DATABASE_URL: postgresql+asyncpg://${OSSS_DB_USER}:${OSSS_DB_PASSWORD}@osss_postgres:5432/${OSSS_DB_NAME}
       ALEMBIC_DATABASE_URL: postgresql+asyncpg://${OSSS_DB_USER}:${OSSS_DB_PASSWORD}@osss_postgres:5432/${OSSS_DB_NAME}
-
       OIDC_JWKS_URL_INTERNAL: ${OIDC_JWKS_URL_INTERNAL}
-      OIDC_VERIFY_ISS: "${OIDC_VERIFY_ISS}"
-
+      OIDC_VERIFY_ISS: ${OIDC_VERIFY_ISS}
       MIGRATIONS_DIR: /app/src/OSSS/db/migrations
       REPO_ROOT: /app
       ALEMBIC_CMD: alembic
@@ -215,28 +190,24 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
       DATABASE_URL: ${ASYNC_DATABASE_URL}
-
     depends_on:
       redis:
         condition: service_healthy
       osss_postgres:
         condition: service_started
-      # keycloak dependency removed so 'app' profile can run without 'keycloak' profile
-
     healthcheck:
       test: curl -fsS http://localhost:8000/healthz >/dev/null || exit 1
       interval: 5s
       timeout: 3s
       retries: 90
       start_period: 20s
-
-
-
   web:
-    profiles: ["web-app"]
-    networks: [ osss-net ]
+    profiles:
+    - web-app
+    networks:
+    - osss-net
     container_name: web
-    cpus: 2.00
+    cpus: 2.0
     mem_limit: 2g
     mem_reservation: 1g
     build:
@@ -248,89 +219,83 @@ services:
         condition: service_healthy
     environment:
       NODE_ENV: development
-      # These make file watching reliable in containers:
-      CHOKIDAR_USEPOLLING: "true"
-      WATCHPACK_POLLING: "true"
-      # Point web at the API container:
-      OSSS_API_URL: "${OSSS_API_URL}"
+      CHOKIDAR_USEPOLLING: 'true'
+      WATCHPACK_POLLING: 'true'
+      OSSS_API_URL: ${OSSS_API_URL}
     volumes:
-      - ./src/osss-web:/app:cached
-      - /app/node_modules
+    - ./src/osss-web:/app:cached
+    - /app/node_modules
     working_dir: /app
     ports:
-      - "3000:3000"
+    - 3000:3000
     labels:
-      co.elastic.logs/enabled: "true"
-      co.elastic.logs/processors.1.decode_json_fields.fields: 'message'
+      co.elastic.logs/enabled: 'true'
+      co.elastic.logs/processors.1.decode_json_fields.fields: message
       co.elastic.logs/processors.1.decode_json_fields.target: ''
       co.elastic.logs/processors.1.decode_json_fields.overwrite_keys: 'true'
-      co.elastic.logs/processors.2.add_fields.target: 'app'
-      co.elastic.logs/processors.2.add_fields.fields.service: 'osss-web'
-
-
-
+      co.elastic.logs/processors.2.add_fields.target: app
+      co.elastic.logs/processors.2.add_fields.fields.service: osss-web
   osss_postgres:
     image: postgres:16-alpine
-    profiles: [ "app" ]
+    profiles:
+    - app
     container_name: osss_postgres
-    cpus: 1.00
+    cpus: 1.0
     mem_limit: 1536m
     mem_reservation: 1g
-    # shm_size: "1g"             # (optional) uncomment to help big sorts
     environment:
-      # Primary bootstrap user for the cluster
-      POSTGRES_USER: "${POSTGRES_USER}"
-      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
-      POSTGRES_DB: "${POSTGRES_DB}"
-
-      # App credentials you want created at init time
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
       OSSS_DB_USER: ${OSSS_DB_USER}
       OSSS_DB_PASSWORD: ${OSSS_DB_PASSWORD}
       OSSS_DB_NAME: ${OSSS_DB_NAME}
-
-      # (optional) stricter auth for host connections on fresh init
-      POSTGRES_INITDB_ARGS: "${POSTGRES_INITDB_ARGS}"
-
-    networks: [ osss-net ]
+      POSTGRES_INITDB_ARGS: ${POSTGRES_INITDB_ARGS}
+    networks:
+    - osss-net
     ports:
-      - "5433:5432"
+    - 5433:5432
     volumes:
-      - osss_postgres_data:/var/lib/postgresql/data
-      # Mount an init script that creates role/db on first init only
-      - ./scripts/init-osss.sh:/docker-entrypoint-initdb.d/20-init-osss.sh:ro
+    - osss_postgres_data:/var/lib/postgresql/data
+    - ./scripts/init-osss.sh:/docker-entrypoint-initdb.d/20-init-osss.sh:ro
     healthcheck:
-      # Use the configured superuser & db (NOTE the $$ to escape for Compose)
-      test: pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}" -h 127.0.0.1 -p 5432 || exit 1
+      test: pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}" -h 127.0.0.1 -p
+        5432 || exit 1
       interval: 5s
       timeout: 5s
       retries: 20
-
-
   redis:
     image: redis:7-alpine
-    profiles: ["app"]
-    cpus: 0.50
+    profiles:
+    - app
+    cpus: 0.5
     mem_limit: 512m
     mem_reservation: 256m
     container_name: redis
-    command: [ "redis-server", "--appendonly", "yes" ]
+    command:
+    - redis-server
+    - --appendonly
+    - 'yes'
     ports:
-      - "6379:6379"        # optional for host access; containers use 'redis:6379'
-    networks: [ osss-net ]
+    - 6379:6379
+    networks:
+    - osss-net
     volumes:
-      - redis-data:/data
+    - redis-data:/data
     healthcheck:
-      test: [ "CMD", "redis-cli", "ping" ]
+      test:
+      - CMD
+      - redis-cli
+      - ping
       interval: 5s
       timeout: 3s
       retries: 20
     restart: unless-stopped
-
-
   kc_postgres:
     image: postgres:16
-    profiles: ["keycloak"]
-    cpus: 1.00
+    profiles:
+    - keycloak
+    cpus: 1.0
     mem_limit: 1536m
     mem_reservation: 1g
     container_name: kc_postgres
@@ -338,27 +303,29 @@ services:
       POSTGRES_DB: ${KC_DB_NAME}
       POSTGRES_USER: ${KC_DB_USERNAME}
       POSTGRES_PASSWORD: ${KC_DB_PASSWORD}
-
-    networks: [ osss-net ]
+    networks:
+    - osss-net
     volumes:
-      - kc_postgres_data:/var/lib/postgresql/data
+    - kc_postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: pg_isready -U ${KC_DB_USERNAME:-keycloak} -d ${KC_DB_NAME:-keycloak} -h 127.0.0.1 -p 5432 || exit 1
+      test: pg_isready -U ${KC_DB_USERNAME:-keycloak} -d ${KC_DB_NAME:-keycloak} -h
+        127.0.0.1 -p 5432 || exit 1
       interval: 5s
       timeout: 5s
       retries: 30
       start_period: 10s
     restart: always
-
   keycloak:
     build:
       context: .
       dockerfile: docker/keycloak/Dockerfile
-    profiles: ["keycloak"]
+    profiles:
+    - keycloak
     container_name: keycloak
     networks:
       osss-net:
-        aliases: [ keycloak.local ]
+        aliases:
+        - keycloak.local
     environment:
       KC_DB: ${KC_DB}
       KC_DB_URL: jdbc:postgresql://${KC_DB_HOST}:${KC_DB_PORT}/${KC_DB_NAME}
@@ -366,96 +333,70 @@ services:
       KC_DB_PASSWORD: ${KC_DB_PASSWORD}
       KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN}
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
-      KC_HEALTH_ENABLED: "true"
-      KC_HOSTNAME: "${KC_HOSTNAME}"
-      KC_DB_SCHEMA: "${KC_DB_SCHEMA}"
-      #KC_SPI_EVENTS_LISTENER_MAPPERSYNC_ENABLED: "false"
-
-      # ✅ Force Quarkus to ignore any persistence.xml during the BUILD step
-      QUARKUS_HIBERNATE_ORM_PERSISTENCE_XML_IGNORE: "true"
-
-      JAVA_OPTS: "${JAVA_OPTS}"
-
-
-      # Pool tuning (fine)
-      KC_DB_POOL_INITIAL_SIZE: "20"
-      KC_DB_POOL_MIN_SIZE: "20"
-      KC_DB_POOL_MAX_SIZE: "50"
-
-
-      # Optional verbose logging while you debug imports
-      KC_LOG_LEVEL: "${KC_LOG_LEVEL}"
-
-      # Make tokens & well-known advertise the external URL (what your app expects)
-      KC_HOSTNAME_URL: "${KC_HOSTNAME_URL}"              # public URL (what users/browsers hit)
-      KC_HOSTNAME_ADMIN_URL: "${KC_HOSTNAME_ADMIN_URL}"      # admin too
-
-      # good practice when sitting behind any port mapping / proxy
-      KC_PROXY: "${KC_PROXY}"
-      # ensure HTTP is enabled in dev (since you’re not on TLS locally)
-      KC_HTTP_ENABLED: "${KC_HTTP_ENABLED}"
-      # optional: tolerate mixed inbound Host headers during dev
-      KC_HOSTNAME_STRICT: "${KC_HOSTNAME_STRICT}"
-
-      ADMIN_USER: "${KEYCLOAK_ADMIN}"
-      ADMIN_PWD: "${KEYCLOAK_ADMIN_PASSWORD}"
-      KC_URL: "${KC_URL}"
-
+      KC_HEALTH_ENABLED: 'true'
+      KC_HOSTNAME: ${KC_HOSTNAME}
+      KC_DB_SCHEMA: ${KC_DB_SCHEMA}
+      QUARKUS_HIBERNATE_ORM_PERSISTENCE_XML_IGNORE: 'true'
+      JAVA_OPTS: ${JAVA_OPTS}
+      KC_DB_POOL_INITIAL_SIZE: '20'
+      KC_DB_POOL_MIN_SIZE: '20'
+      KC_DB_POOL_MAX_SIZE: '50'
+      KC_LOG_LEVEL: ${KC_LOG_LEVEL}
+      KC_HOSTNAME_URL: ${KC_HOSTNAME_URL}
+      KC_HOSTNAME_ADMIN_URL: ${KC_HOSTNAME_ADMIN_URL}
+      KC_PROXY: ${KC_PROXY}
+      KC_HTTP_ENABLED: ${KC_HTTP_ENABLED}
+      KC_HOSTNAME_STRICT: ${KC_HOSTNAME_STRICT}
+      ADMIN_USER: ${KEYCLOAK_ADMIN}
+      ADMIN_PWD: ${KEYCLOAK_ADMIN_PASSWORD}
+      KC_URL: ${KC_URL}
     volumes:
-      # File(s) must live at /opt/keycloak/data/import inside the container and be .json
-      - ./realm-export.json:/opt/keycloak/data/import/10-OSSS.json:ro
-      - ./docker/keycloak/quarkus.properties:/opt/keycloak/conf/quarkus.properties:ro
-
-      # If you split files, mount them all here with .json suffixes (Keycloak merges by realm name)
-      # - ./OSSS-roles.json:/opt/keycloak/data/import/20-roles.json:ro
-      # - ./OSSS-clients.json:/opt/keycloak/data/import/30-clients.json:ro
-      # - ./OSSS-groups.json:/opt/keycloak/data/import/40-groups.json:ro
-      # - ./OSSS-users.json:/opt/keycloak/data/import/50-users.json:ro
+    - ./realm-export.json:/opt/keycloak/data/import/10-OSSS.json:ro
+    - ./docker/keycloak/quarkus.properties:/opt/keycloak/conf/quarkus.properties:ro
     ports:
-      - "8080:8080"   # add this so host can reach keycloak:8080
-
-    cpus: 2.00
-    mem_limit: 2g             # honored by non-Swarm compose
+    - 8080:8080
+    cpus: 2.0
+    mem_limit: 2g
     mem_reservation: 1g
     depends_on:
       kc_postgres:
         condition: service_healthy
     restart: always
     healthcheck:
-      test: [ "CMD", "/opt/keycloak/healthcheck.sh" ]
+      test:
+      - CMD
+      - /opt/keycloak/healthcheck.sh
       interval: 10s
       timeout: 10s
       retries: 190
-
   vault:
-    #build:
-    #  context: .                      # repo root
-    #  dockerfile: docker/vault/Dockerfile
     image: hashicorp/vault:1.20.3
     container_name: vault
-    cpus: 1.00
+    cpus: 1.0
     mem_limit: 1g
     mem_reservation: 512m
-    profiles: ["vault"]
+    profiles:
+    - vault
     pull_policy: always
-    ports: [ "8200:8200" ]
-    cap_add: [ "IPC_LOCK" ]
-    # ⬇️ Put Vault on the host network so `localhost:8080` is reachable
-    networks: [ osss-net ]
+    ports:
+    - 8200:8200
+    cap_add:
+    - IPC_LOCK
+    networks:
+    - osss-net
     environment:
-      VAULT_DEV_ROOT_TOKEN_ID: "${VAULT_DEV_ROOT_TOKEN_ID}"
-      VAULT_DEV_LISTEN_ADDRESS: "${VAULT_DEV_LISTEN_ADDRESS}"
-      VAULT_UI: "${VAULT_UI}"
-      # internal address used by other containers
-      VAULT_API_ADDR: "${VAULT_API_ADDR}"
+      VAULT_DEV_ROOT_TOKEN_ID: ${VAULT_DEV_ROOT_TOKEN_ID}
+      VAULT_DEV_LISTEN_ADDRESS: ${VAULT_DEV_LISTEN_ADDRESS}
+      VAULT_UI: ${VAULT_UI}
+      VAULT_API_ADDR: ${VAULT_API_ADDR}
     depends_on:
       keycloak:
         condition: service_healthy
     command:
-      - server
-      - -dev
-      - -dev-root-token-id=root
-      - -dev-listen-address=0.0.0.0:8200
+    - server
+    - -dev
+    - -dev-root-token-id=root
+    - -dev-listen-address=0.0.0.0:8200
     healthcheck:
       test: wget -qO- http://127.0.0.1:8200/v1/sys/health | grep -q '"initialized":true'
       interval: 10s
@@ -463,141 +404,145 @@ services:
       retries: 30
       start_period: 10s
     restart: unless-stopped
-
   vault-oidc-setup:
-    profiles: ["vault"]
+    profiles:
+    - vault
     container_name: vault-oidc-setup
     build:
-      context: .                      # repo root
+      context: .
       dockerfile: docker/vault-oidc-setup/Dockerfile
-    networks: [ osss-net ]
-    cpus: 0.50
+    networks:
+    - osss-net
+    cpus: 0.5
     mem_limit: 512m
     mem_reservation: 256m
-
     depends_on:
       vault:
         condition: service_healthy
       keycloak:
         condition: service_healthy
     environment:
-      VERBOSE: "1"
-      DEBUG: "1"
-      # Vault CLI logs
-      VAULT_LOG_LEVEL: "debug"
-
-      # If any Go-based client is used, get HTTP/2 timing (optional)
-      GODEBUG: "http2debug=2"
-
-      # talk to Vault via service DNS inside the compose network
-      VAULT_ADDR: "${VAULT_ADDR}"
-      VAULT_TOKEN: "${VAULT_TOKEN}"
-
-      # Keycloak issuer (discovery URL without the /.well-known suffix)]
-      OIDC_DISCOVERY_URL: "${OIDC_DISCOVERY_URL}"
-      VAULT_OIDC_DISCOVERY_URL: "${VAULT_OIDC_DISCOVERY_URL}"
-      VAULT_OIDC_CLIENT_ID: "${VAULT_OIDC_CLIENT_ID}"
-      VAULT_OIDC_CLIENT_SECRET: "${VAULT_OIDC_CLIENT_SECRET}"
-      VAULT_OIDC_ROLE: "${VAULT_OIDC_ROLE}"
-      VAULT_TOKEN_FILE: "/root/.vault-token"
-      OIDC_ADMIN_GROUP: "/vault-admin"
-
-      # Allow both 127.0.0.1 and localhost for UI & CLI
-      VAULT_UI_REDIRECT_1: "http://127.0.0.1:8200/ui/vault/auth/oidc/oidc/callback"
-      VAULT_UI_REDIRECT_2: "http://localhost:8200/ui/vault/auth/oidc/oidc/callback"
-      VAULT_UI_REDIRECT_3: "http://vault:8200/ui/vault/auth/oidc/oidc/callback"
-
-      VAULT_CLI_REDIRECT_1: "http://127.0.0.1:8250/oidc/callback"
-      VAULT_CLI_REDIRECT_2: "http://localhost:8250/oidc/callback"
-      VAULT_CLI_REDIRECT_3: "http://vault:8250/oidc/callback"
-
-    volumes: [ "./scripts/vault-oidc-setup.sh:/setup.sh:ro","~/.vault-token:/root/.vault-token:ro" ]
-    entrypoint: [ "/bin/sh","-lc","/setup.sh" ]
-    restart: "no"
-
-
+      VERBOSE: '1'
+      DEBUG: '1'
+      VAULT_LOG_LEVEL: debug
+      GODEBUG: http2debug=2
+      VAULT_ADDR: ${VAULT_ADDR}
+      VAULT_TOKEN: ${VAULT_TOKEN}
+      OIDC_DISCOVERY_URL: ${OIDC_DISCOVERY_URL}
+      VAULT_OIDC_DISCOVERY_URL: ${VAULT_OIDC_DISCOVERY_URL}
+      VAULT_OIDC_CLIENT_ID: ${VAULT_OIDC_CLIENT_ID}
+      VAULT_OIDC_CLIENT_SECRET: ${VAULT_OIDC_CLIENT_SECRET}
+      VAULT_OIDC_ROLE: ${VAULT_OIDC_ROLE}
+      VAULT_TOKEN_FILE: /root/.vault-token
+      OIDC_ADMIN_GROUP: /vault-admin
+      VAULT_UI_REDIRECT_1: http://127.0.0.1:8200/ui/vault/auth/oidc/oidc/callback
+      VAULT_UI_REDIRECT_2: http://localhost:8200/ui/vault/auth/oidc/oidc/callback
+      VAULT_UI_REDIRECT_3: http://vault:8200/ui/vault/auth/oidc/oidc/callback
+      VAULT_CLI_REDIRECT_1: http://127.0.0.1:8250/oidc/callback
+      VAULT_CLI_REDIRECT_2: http://localhost:8250/oidc/callback
+      VAULT_CLI_REDIRECT_3: http://vault:8250/oidc/callback
+    volumes:
+    - ./scripts/vault-oidc-setup.sh:/setup.sh:ro
+    - ~/.vault-token:/root/.vault-token:ro
+    entrypoint:
+    - /bin/sh
+    - -lc
+    - /setup.sh
+    restart: 'no'
   vault-seed:
     image: alpine:3.20
-    profiles: ["vault"]
+    profiles:
+    - vault
     container_name: vault-seed
     env_file: .env
-    networks: [ osss-net ]
+    networks:
+    - osss-net
     cpus: 0.25
     mem_limit: 256m
     mem_reservation: 128m
-
     environment:
-      VAULT_ADDR: "http://vault:8200"
-      VAULT_TOKEN: "${VAULT_TOKEN:-root}"
-      VAULT_KV_PATH: "${VAULT_KV_PATH:-app}"
-      SEED_VAULT_TOKEN: "${VAULT_TOKEN:-root}"
-      VERBOSE: "1"   # set to 0 to quiet logs
-      DEBUG: "1"     # set to 1 for shell trace
+      VAULT_ADDR: http://vault:8200
+      VAULT_TOKEN: ${VAULT_TOKEN:-root}
+      VAULT_KV_PATH: ${VAULT_KV_PATH:-app}
+      SEED_VAULT_TOKEN: ${VAULT_TOKEN:-root}
+      VERBOSE: '1'
+      DEBUG: '1'
     depends_on:
       vault:
         condition: service_healthy
     volumes:
-      - ./scripts/seed-vault.sh:/usr/local/bin/seed-vault:ro
-    entrypoint: [ "/bin/sh","-lc","/usr/local/bin/seed-vault" ]
-    restart: "no"
-
-
+    - ./scripts/seed-vault.sh:/usr/local/bin/seed-vault:ro
+    entrypoint:
+    - /bin/sh
+    - -lc
+    - /usr/local/bin/seed-vault
+    restart: 'no'
   shared-vol-init:
     image: alpine:3.20
-    user: "0:0"
-    volumes: [ es-shared:/shared ]
+    user: 0:0
+    volumes:
+    - es-shared:/shared
     container_name: shared-vol-init
-    cpus: 0.10
+    cpus: 0.1
     mem_limit: 128m
     mem_reservation: 64m
-    entrypoint: [ "sh","-lc" ]
-    command: |
-      set -e
-      mkdir -p /shared
-      chmod 0777 /shared         # or 0770 with a shared group if you prefer
-    profiles: [ "elastic" ]
-    networks: [ osss-net ]
+    entrypoint:
+    - sh
+    - -lc
+    command: 'set -e
 
+      mkdir -p /shared
+
+      chmod 0777 /shared         # or 0770 with a shared group if you prefer
+
+      '
+    profiles:
+    - elastic
+    networks:
+    - osss-net
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.14.3
-    profiles: [ "elastic" ]
+    profiles:
+    - elastic
     container_name: elasticsearch
-    cpus: 2.00
+    cpus: 2.0
     mem_limit: 2g
     mem_reservation: 1g
-    # ES_JAVA_OPTS is already -Xmx512m; the container needs extra headroom.
     environment:
-      - discovery.type=single-node
-      - xpack.security.enabled=true            # ← was false
-      - xpack.security.http.ssl.enabled=false
-      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}   # password for the built-in 'elastic' superuser
-      - ES_JAVA_OPTS=-Xms512m -Xmx512m
-      - network.host=0.0.0.0
+    - discovery.type=single-node
+    - xpack.security.enabled=true
+    - xpack.security.http.ssl.enabled=false
+    - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
+    - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    - network.host=0.0.0.0
     ulimits:
-      memlock: { soft: -1, hard: -1 }
+      memlock:
+        soft: -1
+        hard: -1
     ports:
-      - "9200:9200"
-      - "9300:9300"
-
-    networks: [ osss-net ]
+    - 9200:9200
+    - 9300:9300
+    networks:
+    - osss-net
     volumes:
-      - es-data:/usr/share/elasticsearch/data
-      - ./elastic/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml:ro
-
+    - es-data:/usr/share/elasticsearch/data
+    - ./config_files/elastic/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml:ro
     healthcheck:
-      # 👇 use the service DNS name instead of localhost so we catch misbinds early
-      test: [ 'CMD-SHELL', 'curl -fsS -u elastic:${ELASTIC_PASSWORD} http://elasticsearch:9200/_cluster/health?wait_for_status=yellow&timeout=60s >/dev/null || exit 1' ]
+      test:
+      - CMD-SHELL
+      - curl -fsS -u elastic:${ELASTIC_PASSWORD} http://elasticsearch:9200/_cluster/health?wait_for_status=yellow&timeout=60s
+        >/dev/null || exit 1
       interval: 30s
       timeout: 10s
       retries: 50
-
     restart: unless-stopped
-
   kibana-pass-init:
     image: curlimages/curl:8.8.0
-    networks: [ osss-net ]
-    profiles: [ "elastic" ]
-    cpus: 0.50
+    networks:
+    - osss-net
+    profiles:
+    - elastic
+    cpus: 0.5
     mem_limit: 512m
     mem_reservation: 256m
     container_name: kibana-pass-init
@@ -608,86 +553,194 @@ services:
       ELASTIC_PASSWORD: ${ELASTIC_PASSWORD}
       KIBANA_PASSWORD: ${KIBANA_PASSWORD}
       ES_URL: http://elasticsearch:9200
-    entrypoint: [ "sh","-lc" ]
+    entrypoint:
+    - sh
+    - -lc
     command:
-      - >
-        set -euo pipefail;
-        now() { date -Iseconds; };
-        log() { printf '%s %s\n' "$$(now)" "$$*"; };
-        mask() { s="$$1"; [ -z "$$s" ] && printf '(empty)\n' || { [ "$${#s}" -le 8 ] && printf '******\n' || printf '%s******\n' "$${s%??????}"; }; };
-        log "ES_URL=$$ES_URL";
-        log "ELASTIC_PASSWORD=$$(mask "$$ELASTIC_PASSWORD")";
-        log "KIBANA_PASSWORD=$$(mask "$$KIBANA_PASSWORD")";
-        log "Waiting for Elasticsearch cluster health...";
-        __tries=0;
+    - "set -euo pipefail; now() { date -Iseconds; }; log() { printf '%s %s\\n' \"\
+      $$(now)\" \"$$*\"; }; mask() { s=\"$$1\"; [ -z \"$$s\" ] && printf '(empty)\\\
+      n' || { [ \"$${#s}\" -le 8 ] && printf '******\\n' || printf '%s******\\n' \"\
+      $${s%??????}\"; }; }; log \"ES_URL=$$ES_URL\"; log \"ELASTIC_PASSWORD=$$(mask\
+      \ \"$$ELASTIC_PASSWORD\")\"; log \"KIBANA_PASSWORD=$$(mask \"$$KIBANA_PASSWORD\"\
+      )\"; log \"Waiting for Elasticsearch cluster health...\"; __tries=0; while :;\
+      \ do\n  __code=\"$$(curl -sS -o /dev/null -w '%{http_code}' -u \"elastic:$$ELASTIC_PASSWORD\"\
+      \ \"$$ES_URL/_cluster/health\" || echo 000)\";\n  log \"cluster health http_code=$$__code\"\
+      ;\n  [ \"$$__code\" = \"200\" ] && break;\n  __tries=$$((__tries+1)); [ \"$$__tries\"\
+      \ -le 180 ] || { log \"Elasticsearch not ready after 180 attempts\"; exit 1;\
+      \ };\n  sleep 3;\ndone; log \"Elasticsearch reachable\"; log \"Setting kibana_system\
+      \ password...\"; __resp=\"$$(curl -sS -u \"elastic:$$ELASTIC_PASSWORD\" -H 'Content-Type:\
+      \ application/json' -w '\\nHTTP_STATUS:%{http_code}\\n' -X POST \"$$ES_URL/_security/user/kibana_system/_password\"\
+      \ -d \"{\\\"password\\\":\\\"$$KIBANA_PASSWORD\\\"}\")\"; __rc=\"$$(printf '%s'\
+      \ \"$$__resp\" | sed -n 's/^HTTP_STATUS://p')\"; __body=\"$$(printf '%s' \"\
+      $$__resp\" | sed '$$d')\"; log \"POST /_security/user/kibana_system/_password\
+      \ -> $$__rc\"; if [ -z \"$$__rc\" ] || [ \"$$__rc\" -ge 400 ]; then log \"Failed\
+      \ to set kibana_system password; response follows:\"; printf '%s\\n' \"$$__body\"\
+      ; exit 1; fi; log \"kibana_system password set\"; log \"Verifying kibana_system\
+      \ authentication...\"; __v=\"$$(curl -sS -u \"kibana_system:$$KIBANA_PASSWORD\"\
+      \ -w '\\nHTTP_STATUS:%{http_code}\\n' \"$$ES_URL/_security/_authenticate\" ||\
+      \ true)\"; __v_code=\"$$(printf '%s' \"$$__v\" | sed -n 's/^HTTP_STATUS://p')\"\
+      ; __v_body=\"$$(printf '%s' \"$$__v\" | sed '$$d')\"; log \"GET /_security/_authenticate\
+      \ as kibana_system -> $$__v_code\"; [ \"$$__v_code\" = \"200\" ] || { printf\
+      \ '%s\\n' \"$$__v_body\"; exit 1; }; log \"kibana-pass-init complete.\";\n"
+    restart: 'no'
+
+  es-rolemap-kibana-admins:
+    image: curlimages/curl:8.8.0
+    profiles: [ "elastic" ]
+    cpus: 0.5
+    mem_limit: 512m
+    mem_reservation: 256m
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    environment:
+      # Must already be set the same way you set it for Elasticsearch/Kibana
+      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD}
+      ES_URL: "http://elasticsearch:9200"
+    networks:
+      - osss-net
+    entrypoint:
+      - sh
+      - -ceu
+      - |
+        echo "[rolemap] Starting; ES_URL=${ES_URL}"
+        deadline=$(( $(date +%s) + 300 ))  # 5 minute max wait
+
+        # Show cluster reachability attempts (no -s)
         while :; do
-          __code="$$(curl -sS -o /dev/null -w '%{http_code}' -u "elastic:$$ELASTIC_PASSWORD" "$$ES_URL/_cluster/health" || echo 000)";
-          log "cluster health http_code=$$__code";
-          [ "$$__code" = "200" ] && break;
-          __tries=$$((__tries+1)); [ "$$__tries" -le 180 ] || { log "Elasticsearch not ready after 180 attempts"; exit 1; };
-          sleep 3;
-        done;
-        log "Elasticsearch reachable";
-        log "Setting kibana_system password...";
-        __resp="$$(curl -sS -u "elastic:$$ELASTIC_PASSWORD" -H 'Content-Type: application/json' -w '\nHTTP_STATUS:%{http_code}\n' -X POST "$$ES_URL/_security/user/kibana_system/_password" -d "{\"password\":\"$$KIBANA_PASSWORD\"}")";
-        __rc="$$(printf '%s' "$$__resp" | sed -n 's/^HTTP_STATUS://p')";
-        __body="$$(printf '%s' "$$__resp" | sed '$$d')";
-        log "POST /_security/user/kibana_system/_password -> $$__rc";
-        if [ -z "$$__rc" ] || [ "$$__rc" -ge 400 ]; then log "Failed to set kibana_system password; response follows:"; printf '%s\n' "$$__body"; exit 1; fi;
-        log "kibana_system password set";
-        log "Verifying kibana_system authentication...";
-        __v="$$(curl -sS -u "kibana_system:$$KIBANA_PASSWORD" -w '\nHTTP_STATUS:%{http_code}\n' "$$ES_URL/_security/_authenticate" || true)";
-        __v_code="$$(printf '%s' "$$__v" | sed -n 's/^HTTP_STATUS://p')";
-        __v_body="$$(printf '%s' "$$__v" | sed '$$d')";
-        log "GET /_security/_authenticate as kibana_system -> $$__v_code";
-        [ "$$__v_code" = "200" ] || { printf '%s\n' "$$__v_body"; exit 1; };
-        log "kibana-pass-init complete.";
+          code=$(curl -u "elastic:${ELASTIC_PASSWORD}" \
+                      -o /dev/null -w "%{http_code}" \
+                      "${ES_URL}/_cluster/health?wait_for_status=yellow&timeout=10s" || true)
+          echo "[rolemap] /_cluster/health → HTTP ${code}"
+          [ "$code" = "200" ] && break
+          [ $(date +%s) -ge $deadline ] && {
+            echo "[rolemap] Timed out waiting for Elasticsearch to become yellow/200" >&2
+            exit 1
+          }
+          sleep 3
+        done
+
+        echo "[rolemap] Applying kibana_admins role mapping…"
+        curl --fail-with-body -v \
+             -u "elastic:${ELASTIC_PASSWORD}" \
+             -H 'Content-Type: application/json' \
+             -X PUT "${ES_URL}/_security/role_mapping/kibana_admins" \
+             -d @- <<'JSON'
+        {
+          "roles": ["kibana_admin"],
+          "rules": { "all": [
+            { "field": { "realm.name": "oidc1" }},
+            { "field": { "groups": "kibana-admins" }}
+          ]},
+          "enabled": true
+        }
+        JSON
+
+        echo "[rolemap] Done."
+
+    restart: "no"
+
+  es-rolemap-kibana-users:
+    image: curlimages/curl:8.8.0
+    profiles: [ "elastic" ]
+    cpus: 0.5
+    mem_limit: 512m
+    mem_reservation: 256m
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    environment:
+      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD}
+      ES_URL: "http://elasticsearch:9200"
+    networks: [ osss-net ]
+    entrypoint:
+      - sh
+      - -ceu
+      - |
+        echo "[rolemap-users] Starting; ES_URL=${ES_URL}"
+        deadline=$(( $(date +%s) + 300 ))  # max 5 minutes
+
+        # Wait for ES to be reachable (show each attempt)
+        while :; do
+          code=$(curl -u "elastic:${ELASTIC_PASSWORD}" \
+                      -o /dev/null -w "%{http_code}" \
+                      "${ES_URL}/_cluster/health?wait_for_status=yellow&timeout=10s" || true)
+          echo "[rolemap-users] /_cluster/health → HTTP ${code}"
+          [ "$code" = "200" ] && break
+          [ "$(date +%s)" -ge "$deadline" ] && {
+            echo "[rolemap-users] Timed out waiting for Elasticsearch to become yellow/200" >&2
+            exit 1
+          }
+          sleep 3
+        done
+
+        echo "[rolemap-users] Applying kibana_users role mapping…"
+        curl --fail-with-body -v \
+             -u "elastic:${ELASTIC_PASSWORD}" \
+             -H 'Content-Type: application/json' \
+             -X PUT "${ES_URL}/_security/role_mapping/kibana_users" \
+             -d @- <<'JSON'
+        {
+          "roles": ["kibana_user"],
+          "rules": { "all": [
+            { "field": { "realm.name": "oidc1" }},
+            { "field": { "groups": "kibana-users" }}
+          ]},
+          "enabled": true
+        }
+        JSON
+
+        echo "[rolemap-users] Verifying role mapping…"
+        curl -u "elastic:${ELASTIC_PASSWORD}" \
+             -sS "${ES_URL}/_security/role_mapping/kibana_users"
+        echo
+        echo "[rolemap-users] Done."
+
     restart: "no"
 
 
   kibana:
     image: docker.elastic.co/kibana/kibana:8.14.3
-    profiles: [ "elastic" ]
+    profiles:
+    - elastic
     container_name: kibana
-    cpus: 1.00
+    cpus: 1.0
     mem_limit: 1g
     mem_reservation: 512m
     volumes:
-      - ./elastic/kibana.yml:/usr/share/kibana/config/kibana.yml:ro
+    - ./config_files/elastic/kibana.yml:/usr/share/kibana/config/kibana.yml:ro
     depends_on:
       elasticsearch:
         condition: service_healthy
       kibana-pass-init:
         condition: service_completed_successfully
-
     environment:
-      ELASTICSEARCH_HOSTS: "http://elasticsearch:9200"
-      SERVER_PUBLICBASEURL: "http://localhost:5601"
-      LOGGING_VERBOSE: "true"
-      ELASTICSEARCH_USERNAME: "kibana_system"
-      ELASTICSEARCH_PASSWORD: "${KIBANA_PASSWORD}"
-
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+      SERVER_PUBLICBASEURL: http://localhost:5601
+      LOGGING_VERBOSE: 'true'
+      ELASTICSEARCH_USERNAME: kibana_system
+      ELASTICSEARCH_PASSWORD: ${KIBANA_PASSWORD}
     ports:
-      - "5601:5601"
-    networks: [ osss-net ]
+    - 5601:5601
+    networks:
+    - osss-net
     restart: unless-stopped
     healthcheck:
       test: curl -fsS -I http://localhost:5601/login | grep -q '200'
       interval: 20s
       timeout: 5s
       retries: 30
-
-
   api-key-init:
     image: curlimages/curl:8.8.0
-    networks: [ osss-net ]
-    profiles: [ "elastic" ]
-    cpus: 0.50
+    networks:
+    - osss-net
+    profiles:
+    - elastic
+    cpus: 0.5
     mem_limit: 512m
     mem_reservation: 256m
-
     container_name: api-key-init
-    user: "0:0"                 # <-- root
+    user: 0:0
     environment:
       ELASTIC_PASSWORD: ${ELASTIC_PASSWORD}
       ES_URL: http://elasticsearch:9200
@@ -697,63 +750,44 @@ services:
       elasticsearch:
         condition: service_healthy
     volumes:
-      - ./:/work
-      - es-shared:/shared
+    - ./:/work
+    - es-shared:/shared
     working_dir: /work
-    entrypoint: [ "sh","-lc" ]
+    entrypoint:
+    - sh
+    - -lc
     command:
-      - |
-        set -eu
-
-        # Wait for ES
-        echo "[wait] for Elasticsearch..."
-        __n=0
-        while :; do
-          __code="$$(curl -sS -o /dev/null -w '%{http_code}' "$$ES_URL" || echo 000)"
-          case "$$__code" in 200|401|302) break ;; esac
-          __n=$$((__n+1)); [ "$$__n" -le 180 ] || { echo "ES not reachable (code=$$__code)" >&2; exit 1; }
-          sleep 5
-        done
-
-        echo "[mint] API key for filebeat writer..."
-        body='{
-          "name": "filebeat_osss_ingest",
-          "role_descriptors": {
-            "filebeat_writer": {
-              "cluster": ["monitor","read_ilm","read_pipeline"],
-              "index": [
-                { "names": ["logs-*","filebeat-*"], "privileges": ["auto_configure","create_doc","view_index_metadata"] }
-              ]
-            }
-          }
-        }'
-
-        resp=$$(curl -fsS -u "elastic:$$ELASTIC_PASSWORD" \
-                 -H "Content-Type: application/json" \
-                 -d "$$body" "$$ES_URL/_security/api_key")
-
-        id=$$(printf '%s' "$$resp" | sed -n 's/.*"id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
-        key=$$(printf '%s' "$$resp" | sed -n 's/.*"api_key"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
-        [ -n "$$id" ] && [ -n "$$key" ] || { echo "ERROR: could not parse API key: $$resp" >&2; exit 1; }
-
-        echo "ELASTIC_API_KEY=$$id:$$key" > .env.apikey
-        echo "[ok] wrote .env.apikey"
-
-        echo "ELASTIC_API_KEY=$$id:$$key" > /shared/filebeat.apikey.env
-        chmod 600 /shared/filebeat.apikey.env
-        echo "[ok] wrote /shared/filebeat.apikey.env"
-
-
+    - "set -eu\n\n# Wait for ES\necho \"[wait] for Elasticsearch...\"\n__n=0\nwhile\
+      \ :; do\n  __code=\"$$(curl -sS -o /dev/null -w '%{http_code}' \"$$ES_URL\"\
+      \ || echo 000)\"\n  case \"$$__code\" in 200|401|302) break ;; esac\n  __n=$$((__n+1));\
+      \ [ \"$$__n\" -le 180 ] || { echo \"ES not reachable (code=$$__code)\" >&2;\
+      \ exit 1; }\n  sleep 5\ndone\n\necho \"[mint] API key for filebeat writer...\"\
+      \nbody='{\n  \"name\": \"filebeat_osss_ingest\",\n  \"role_descriptors\": {\n\
+      \    \"filebeat_writer\": {\n      \"cluster\": [\"monitor\",\"read_ilm\",\"\
+      read_pipeline\"],\n      \"index\": [\n        { \"names\": [\"logs-*\",\"filebeat-*\"\
+      ], \"privileges\": [\"auto_configure\",\"create_doc\",\"view_index_metadata\"\
+      ] }\n      ]\n    }\n  }\n}'\n\nresp=$$(curl -fsS -u \"elastic:$$ELASTIC_PASSWORD\"\
+      \ \\\n         -H \"Content-Type: application/json\" \\\n         -d \"$$body\"\
+      \ \"$$ES_URL/_security/api_key\")\n\nid=$$(printf '%s' \"$$resp\" | sed -n 's/.*\"\
+      id\"[[:space:]]*:[[:space:]]*\"\\([^\"]*\\)\".*/\\1/p')\nkey=$$(printf '%s'\
+      \ \"$$resp\" | sed -n 's/.*\"api_key\"[[:space:]]*:[[:space:]]*\"\\([^\"]*\\\
+      )\".*/\\1/p')\n[ -n \"$$id\" ] && [ -n \"$$key\" ] || { echo \"ERROR: could\
+      \ not parse API key: $$resp\" >&2; exit 1; }\n\necho \"ELASTIC_API_KEY=$$id:$$key\"\
+      \ > .env.apikey\necho \"[ok] wrote .env.apikey\"\n\necho \"ELASTIC_API_KEY=$$id:$$key\"\
+      \ > /shared/filebeat.apikey.env\nchmod 600 /shared/filebeat.apikey.env\necho\
+      \ \"[ok] wrote /shared/filebeat.apikey.env\"\n"
   filebeat-setup:
     image: docker.elastic.co/beats/filebeat:8.14.3
-    networks: [ osss-net ]
-    profiles: [ "elastic" ]
+    networks:
+    - osss-net
+    profiles:
+    - elastic
     container_name: filebeat-setup
-    cpus: 0.50
+    cpus: 0.5
     mem_limit: 512m
     mem_reservation: 256m
     env_file:
-      - .env
+    - .env
     depends_on:
       elasticsearch:
         condition: service_healthy
@@ -762,41 +796,33 @@ services:
       api-key-init:
         condition: service_completed_successfully
     volumes:
-      - ./filebeat.setup.yml:/usr/share/filebeat/filebeat.yml:ro
-    entrypoint: [ "sh","-lc" ]
+    - ./config_files/filebeat/filebeat.setup.yml:/usr/share/filebeat/filebeat.yml:ro
+    entrypoint:
+    - sh
+    - -lc
     command:
-      - |
-        set -eu
-        echo "[wait] for Kibana..."
-        i=0
-        until code="$$(curl -sS -o /dev/null -w '%{http_code}' "$$KIBANA_URL/api/status")" \
-          && { [ "$$code" = "200" ] || [ "$$code" = "302" ] || [ "$$code" = "401" ]; }; do
-          i=$$((i+1)); [ $$i -le 180 ] || { echo "Kibana not reachable (last http_code=$$code)"; exit 1; }
-          sleep 1
-        done
-
-        echo "[setup] ILM/templates/dashboards"
-        filebeat setup \
-          -E setup.ilm.overwrite=true \
-          -E setup.dashboards.enabled=true \
-          -E setup.kibana.hosts=["$$KIBANA_URL"] \
-          -E setup.kibana.username="$$KIBANA_USERNAME" \
-          -E setup.kibana.password="$$KIBANA_PASSWORD" \
-          -E output.elasticsearch.hosts=["$$ES_URL"] \
-          -E output.elasticsearch.username="elastic" \
-          -E output.elasticsearch.password="$$ELASTIC_PASSWORD"
-
-  # --- RUNTIME FILEBEAT (no kibana creds, api_key only to ES) ---
+    - "set -eu\necho \"[wait] for Kibana...\"\ni=0\nuntil code=\"$$(curl -sS -o /dev/null\
+      \ -w '%{http_code}' \"$$KIBANA_URL/api/status\")\" \\\n  && { [ \"$$code\" =\
+      \ \"200\" ] || [ \"$$code\" = \"302\" ] || [ \"$$code\" = \"401\" ]; }; do\n\
+      \  i=$$((i+1)); [ $$i -le 180 ] || { echo \"Kibana not reachable (last http_code=$$code)\"\
+      ; exit 1; }\n  sleep 1\ndone\n\necho \"[setup] ILM/templates/dashboards\"\n\
+      filebeat setup \\\n  -E setup.ilm.overwrite=true \\\n  -E setup.dashboards.enabled=true\
+      \ \\\n  -E setup.kibana.hosts=[\"$$KIBANA_URL\"] \\\n  -E setup.kibana.username=\"\
+      $$KIBANA_USERNAME\" \\\n  -E setup.kibana.password=\"$$KIBANA_PASSWORD\" \\\n\
+      \  -E output.elasticsearch.hosts=[\"$$ES_URL\"] \\\n  -E output.elasticsearch.username=\"\
+      elastic\" \\\n  -E output.elasticsearch.password=\"$$ELASTIC_PASSWORD\"\n"
   filebeat:
     image: docker.elastic.co/beats/filebeat:8.14.3
     container_name: filebeat-podman
-    networks: [ osss-net ]
-    profiles: [ "elastic" ]
-    cpus: 0.50
+    networks:
+    - osss-net
+    profiles:
+    - elastic
+    cpus: 0.5
     mem_limit: 512m
     mem_reservation: 256m
     env_file:
-      - .env
+    - .env
     environment:
       ELASTICSEARCH_HOSTS: http://elasticsearch:9200
     depends_on:
@@ -804,100 +830,66 @@ services:
         condition: service_completed_successfully
       filebeat-setup:
         condition: service_completed_successfully
-    # NOTE: Podman stores container logs under /var/lib/containers/storage/overlay-containers/*/userdata/ctr.log
     volumes:
-      - ./filebeat.podman.yml:/usr/share/filebeat/filebeat.yml:ro
-      - /var/lib/containers/storage/overlay-containers:/var/lib/containers/storage/overlay-containers:ro
-      - es-shared:/shared
+    - ./config_files/filebeat/filebeat.podman.yml:/usr/share/filebeat/filebeat.yml:ro
+    - /var/lib/containers/storage/overlay-containers:/var/lib/containers/storage/overlay-containers:ro
+    - es-shared:/shared
     command:
-      - sh
-      - -c
-      - |
-        set -eu
-        echo "[wait] for /shared/filebeat.apikey.env..."
-        i=0
-        while [ $$i -lt 180 ]; do
-          [ -s /shared/filebeat.apikey.env ] && break
-          i=$$((i+1))
-          sleep 1
-        done
-        [ -s /shared/filebeat.apikey.env ] || { echo "missing API key file"; exit 1; }
-        set -a
-        . /shared/filebeat.apikey.env
-        echo "[ok] ELASTIC_API_KEY loaded (id=$${ELASTIC_API_KEY%%:*})"
-        exec filebeat -e --strict.perms=false
-
-
-  # -----------------------------
-  # Trino
-  # -----------------------------
-
+    - sh
+    - -c
+    - "set -eu\necho \"[wait] for /shared/filebeat.apikey.env...\"\ni=0\nwhile [ $$i\
+      \ -lt 180 ]; do\n  [ -s /shared/filebeat.apikey.env ] && break\n  i=$$((i+1))\n\
+      \  sleep 1\ndone\n[ -s /shared/filebeat.apikey.env ] || { echo \"missing API\
+      \ key file\"; exit 1; }\nset -a\n. /shared/filebeat.apikey.env\necho \"[ok]\
+      \ ELASTIC_API_KEY loaded (id=$${ELASTIC_API_KEY%%:*})\"\nexec filebeat -e --strict.perms=false\n"
   trino:
     image: trinodb/trino:443
     container_name: trino
-    profiles: ["trino"]
-    user: "1000:1000"               # match the trino user inside the image
-    cpus: 2.00
+    profiles:
+    - trino
+    user: 1000:1000
+    cpus: 2.0
     mem_limit: 3g
     mem_reservation: 2560m
-
     restart: unless-stopped
     ports:
-      - 8444:8443   # expose HTTPS for UI/API
-      #- "8080:8080"               # Trino UI/API
+    - 8444:8443
     environment:
-      KEYCLOAK_URL: "http://keycloak:8080"   # use the service DNS name inside the network
-      JAVA_TOOL_OPTIONS: >-
-        -Djavax.net.ssl.trustStore=/etc/trino/keystore/trino-keystore.p12
-        -Djavax.net.ssl.trustStorePassword=changeit
-        -Djavax.net.ssl.trustStoreType=PKCS12
-
-    
-
+      KEYCLOAK_URL: http://keycloak:8080
+      JAVA_TOOL_OPTIONS: -Djavax.net.ssl.trustStore=/etc/trino/keystore/trino-keystore.p12
+        -Djavax.net.ssl.trustStorePassword=changeit -Djavax.net.ssl.trustStoreType=PKCS12
     volumes:
-      - ./trino_data:/var/trino
-      - ./trino/etc:/etc/trino:ro # create local ./trino/etc with catalogs
-      # mount keystore dir (already lives under ./trino/etc/keystore)
-      - ./trino/etc/keystore:/etc/trino/keystore:ro
-    networks: [ osss-net ]
-
-
-
-
-
-  # Minimal local catalogs example (create files in ./trino/etc/catalog):
-  #   jmx.properties:
-  #     connector.name=jmx
-  #   tpch.properties:
-  #     connector.name=tpch
-  # You can add more connectors as needed.
-
-  # -----------------------------
-  # Apache Superset
-  # -----------------------------
-
+    - ./config_files/trino_data:/var/trino
+    - ./config_files/trino/etc:/etc/trino:ro
+    - ./config_files/trino/etc/keystore:/etc/trino/keystore:ro
+    networks:
+    - osss-net
   superset_redis:
     image: redis:7-alpine
-    profiles: [ "superset" ]
+    profiles:
+    - superset
     container_name: superset_redis
     restart: unless-stopped
-    command: [ "redis-server", "--appendonly", "yes" ]
-    cpus: 0.50
+    command:
+    - redis-server
+    - --appendonly
+    - 'yes'
+    cpus: 0.5
     mem_limit: 512m
     mem_reservation: 256m
     volumes:
-      - superset_redis_data:/data
+    - superset_redis_data:/data
     ports:
-      - "6380:6379"
-    networks: [ osss-net ]
-
-
+    - 6380:6379
+    networks:
+    - osss-net
   postgres-superset:
     image: postgres:16
-    profiles: ["superset"]
+    profiles:
+    - superset
     container_name: postgres-superset
     restart: unless-stopped
-    cpus: 1.00
+    cpus: 1.0
     mem_limit: 1536m
     mem_reservation: 1g
     environment:
@@ -905,219 +897,222 @@ services:
       POSTGRES_PASSWORD: osss
       POSTGRES_DB: superset
     volumes:
-      - pg_superset_data:/var/lib/postgresql/data
+    - pg_superset_data:/var/lib/postgresql/data
     ports:
-      - "5434:5432"          # local:5434 → container:5432
-    networks: [ osss-net ]
-
-  # one-off init job
+    - 5434:5432
+    networks:
+    - osss-net
   superset-init:
     image: apache/superset:latest
-    profiles: ["superset"]
-    depends_on: [ postgres-superset ]
-    cpus: 0.50
+    profiles:
+    - superset
+    depends_on:
+    - postgres-superset
+    cpus: 0.5
     mem_limit: 512m
     mem_reservation: 256m
-    networks: [ osss-net ]
+    networks:
+    - osss-net
     environment:
-      # Force Postgres (set both keys to cover all Superset versions)
-      SUPERSET__SQLALCHEMY_DATABASE_URI: "postgresql+psycopg2://osss:osss@postgres-superset:5432/superset"
-      SQLALCHEMY_DATABASE_URI: "postgresql+psycopg2://osss:osss@postgres-superset:5432/superset"
-    entrypoint: [ "/bin/bash", "-lc" ]
-    command: >
-      superset db upgrade &&
-      superset fab create-admin --username admin --firstname Admin --lastname User
-      --email admin@example.com --password admin || true &&
+      SUPERSET__SQLALCHEMY_DATABASE_URI: postgresql+psycopg2://osss:osss@postgres-superset:5432/superset
+      SQLALCHEMY_DATABASE_URI: postgresql+psycopg2://osss:osss@postgres-superset:5432/superset
+    entrypoint:
+    - /bin/bash
+    - -lc
+    command: 'superset db upgrade && superset fab create-admin --username admin --firstname
+      Admin --lastname User --email admin@example.com --password admin || true &&
       superset init
 
+      '
   superset:
     image: apache/superset:latest
     container_name: superset
-    profiles: ["superset"]
+    profiles:
+    - superset
     restart: unless-stopped
-    cpus: 2.00
-    mem_limit: 3g                   # gunicorn -w 4 can climb
+    cpus: 2.0
+    mem_limit: 3g
     mem_reservation: 2g
     environment:
-      SUPERSET_SECRET_KEY: "please_change_me"
-      # Force Postgres at runtime too
-      SUPERSET__SQLALCHEMY_DATABASE_URI: "postgresql+psycopg2://osss:osss@postgres-superset:5432/superset"
-      SQLALCHEMY_DATABASE_URI: "postgresql+psycopg2://osss:osss@postgres-superset:5432/superset"
-      FLASK_LIMITER_ENABLED: "false"   # quiet dev warning
+      SUPERSET_SECRET_KEY: please_change_me
+      SUPERSET__SQLALCHEMY_DATABASE_URI: postgresql+psycopg2://osss:osss@postgres-superset:5432/superset
+      SQLALCHEMY_DATABASE_URI: postgresql+psycopg2://osss:osss@postgres-superset:5432/superset
+      FLASK_LIMITER_ENABLED: 'false'
     depends_on:
-      - postgres-superset
-      - superset_redis
-      - superset-init
+    - postgres-superset
+    - superset_redis
+    - superset-init
     ports:
-      - "8088:8088"
-    # Use exec form + a single-line shell so flags can't split
-    command: [ "gunicorn","-w","4","--timeout","300","-b","0.0.0.0:8088","superset.app:create_app()" ]
-    networks: [ osss-net ]
-
-  # -----------------------------
-  # Apache Airflow (LocalExecutor)
-  # -----------------------------
+    - 8088:8088
+    command:
+    - gunicorn
+    - -w
+    - '4'
+    - --timeout
+    - '300'
+    - -b
+    - 0.0.0.0:8088
+    - superset.app:create_app()
+    networks:
+    - osss-net
   postgres-airflow:
     image: postgres:16
-    profiles: ["airflow"]
-    cpus: 1.00
+    profiles:
+    - airflow
+    cpus: 1.0
     mem_limit: 1536m
     mem_reservation: 1g
     environment:
       POSTGRES_USER: airflow
       POSTGRES_PASSWORD: airflow
       POSTGRES_DB: airflow
-    volumes: [airflow-pgdata:/var/lib/postgresql/data]
-    networks: [ osss-net ]
+    volumes:
+    - airflow-pgdata:/var/lib/postgresql/data
+    networks:
+    - osss-net
     ports:
-      - "5435:5432"          # local:5434 → container:5432
-
+    - 5435:5432
   airflow-init:
     image: apache/airflow:2.9.3-python3.11
-    profiles: ["airflow"]
-    depends_on: [ postgres-airflow ]
-    cpus: 1.00
+    profiles:
+    - airflow
+    depends_on:
+    - postgres-airflow
+    cpus: 1.0
     mem_limit: 1g
     mem_reservation: 768m
     environment:
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres-airflow/airflow
     entrypoint: /bin/bash
-    command: -lc 'airflow db migrate && airflow users create \
-      --username admin --firstname Admin --lastname User --role Admin \
-      --email admin@example.com --password admin'
+    command: -lc 'airflow db migrate && airflow users create \ --username admin --firstname
+      Admin --lastname User --role Admin \ --email admin@example.com --password admin'
     volumes:
-      - ./airflow/dags:/opt/airflow/dags
-    networks: [ osss-net ]
-
+    - ./config_files/airflow/dags:/opt/airflow/dags
+    networks:
+    - osss-net
   airflow-webserver:
     image: apache/airflow:2.9.3-python3.11
-    profiles: ["airflow"]
-    depends_on: [ airflow-init ]
-    cpus: 1.00
+    profiles:
+    - airflow
+    depends_on:
+    - airflow-init
+    cpus: 1.0
     mem_limit: 1536m
     mem_reservation: 1g
     environment:
-      AIRFLOW__WEBSERVER__WEB_SERVER_CONFIG: "/opt/airflow/webserver_config.py"
+      AIRFLOW__WEBSERVER__WEB_SERVER_CONFIG: /opt/airflow/webserver_config.py
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres-airflow/airflow
-      AIRFLOW__WEBSERVER__AUTHENTICATE: "True"
-      AIRFLOW__WEBSERVER__BASE_URL: "http://localhost:8083"
-      # Optional but recommended: set a stable secret key
-      AIRFLOW__WEBSERVER__SECRET_KEY: "change-this-in-prod"
-      AIRFLOW__WEBSERVER__ENABLE_PROXY_FIX: "True"   # safe even without a proxy
-
-      # Pass Keycloak settings used by webserver_config.py
-      KEYCLOAK_URL: "http://keycloak.local:8080"
-      KEYCLOAK_REALM: "OSSS"
-      KEYCLOAK_AIRFLOW_CLIENT_ID: "airflow"
-      KEYCLOAK_AIRFLOW_CLIENT_SECRET: "password"
-
+      AIRFLOW__WEBSERVER__AUTHENTICATE: 'True'
+      AIRFLOW__WEBSERVER__BASE_URL: http://localhost:8083
+      AIRFLOW__WEBSERVER__SECRET_KEY: change-this-in-prod
+      AIRFLOW__WEBSERVER__ENABLE_PROXY_FIX: 'True'
+      KEYCLOAK_URL: http://keycloak.local:8080
+      KEYCLOAK_REALM: OSSS
+      KEYCLOAK_AIRFLOW_CLIENT_ID: airflow
+      KEYCLOAK_AIRFLOW_CLIENT_SECRET: password
     command: webserver
-    ports: [ "8083:8080" ]
+    ports:
+    - 8083:8080
     volumes:
-      - ./airflow/dags:/opt/airflow/dags
-      - ./airflow/webserver_config.py:/opt/airflow/webserver_config.py:ro
-
-    networks: [ osss-net ]
-
+    - ./config_files/airflow/dags:/opt/airflow/dags
+    - ./config_files/airflow/webserver_config.py:/opt/airflow/webserver_config.py:ro
+    networks:
+    - osss-net
   airflow-scheduler:
     image: apache/airflow:2.9.3-python3.11
-    profiles: ["airflow"]
-    depends_on: [ airflow-init ]
-    cpus: 1.00
+    profiles:
+    - airflow
+    depends_on:
+    - airflow-init
+    cpus: 1.0
     mem_limit: 1536m
     mem_reservation: 1g
     environment:
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres-airflow/airflow
-      # (Optional) mirror env for role mapping consistency
-      KEYCLOAK_URL: "http://keycloak.local:8080"
-      KEYCLOAK_REALM: "OSSS"
+      KEYCLOAK_URL: http://keycloak.local:8080
+      KEYCLOAK_REALM: OSSS
     command: scheduler
     volumes:
-      - ./airflow/dags:/opt/airflow/dags
-      - ./airflow/webserver_config.py:/opt/airflow/webserver_config.py:ro
-
-    networks: [ osss-net ]
-
-  # -----------------------------
-  # OpenMetadata (server only; minimal)
-  # -----------------------------
-
-  # OpenMetadata prefers MySQL (Postgres supported in newer versions, but MySQL is safest)
-  # The OpenMetadata server
+    - ./config_files/airflow/dags:/opt/airflow/dags
+    - ./config_files/airflow/webserver_config.py:/opt/airflow/webserver_config.py:ro
+    networks:
+    - osss-net
   openmetadata-server:
     image: openmetadata/server:1.4.0
-    profiles: ["openmetadata"]
+    profiles:
+    - openmetadata
     container_name: openmetadata-server
-    networks: [ osss-net ]
+    networks:
+    - osss-net
     restart: always
     ports:
-      - "8585:8585"
+    - 8585:8585
     environment:
-      # Database configuration
-      - DB_SCHEMAS_STORE=jdbc:mysql://mysql/openmetadata_db
-      - DB_SCHEMAS_STORE_USER=openmetadata_user
-      - DB_SCHEMAS_STORE_PASSWORD=openmetadata_password
-      - DB_SCHEMAS_STORE_HOST=mysql
-      # Elasticsearch configuration
-      - ELASTICSEARCH_HOST=elasticsearch
-      - ELASTICSEARCH_PORT=9200
-      - ELASTICSEARCH_PROTOCOL=http
-      # Ingestion framework configuration
-      - PIPELINE_SERVICE_CLIENT_ENDPOINT=http://openmetadata-ingestion:8080
-    command: [ "./wait-for-db.sh", "mysql", "3306", "java", "-jar", "/app/openmetadata.jar" ]
+    - DB_SCHEMAS_STORE=jdbc:mysql://mysql/openmetadata_db
+    - DB_SCHEMAS_STORE_USER=openmetadata_user
+    - DB_SCHEMAS_STORE_PASSWORD=openmetadata_password
+    - DB_SCHEMAS_STORE_HOST=mysql
+    - ELASTICSEARCH_HOST=elasticsearch
+    - ELASTICSEARCH_PORT=9200
+    - ELASTICSEARCH_PROTOCOL=http
+    - PIPELINE_SERVICE_CLIENT_ENDPOINT=http://openmetadata-ingestion:8080
+    command:
+    - ./wait-for-db.sh
+    - mysql
+    - '3306'
+    - java
+    - -jar
+    - /app/openmetadata.jar
     volumes:
-      - ./scripts/wait-for-db.sh:/wait-for-db.sh:ro
-
+    - ./scripts/wait-for-db.sh:/wait-for-db.sh:ro
     depends_on:
       mysql:
         condition: service_healthy
-
-
-  # The database service (MySQL by default)
   mysql:
     image: mysql:8.0
     container_name: openmetadata-mysql
-    networks: [ osss-net ]
-    profiles: ["openmetadata"]
+    networks:
+    - osss-net
+    profiles:
+    - openmetadata
     restart: always
     ports:
-      - "3306:3306"
+    - 3306:3306
     environment:
-      - MYSQL_ROOT_PASSWORD=openmetadata_password
-      - MYSQL_DATABASE=openmetadata_db
-      - MYSQL_USER=openmetadata_user
-      - MYSQL_PASSWORD=openmetadata_password
+    - MYSQL_ROOT_PASSWORD=openmetadata_password
+    - MYSQL_DATABASE=openmetadata_db
+    - MYSQL_USER=openmetadata_user
+    - MYSQL_PASSWORD=openmetadata_password
     volumes:
-      - mysql_data:/var/lib/mysql
+    - mysql_data:/var/lib/mysql
     healthcheck:
-      test: [ "CMD-SHELL", "mysqladmin ping -h localhost -u root --password=openmetadata_password" ]
+      test:
+      - CMD-SHELL
+      - mysqladmin ping -h localhost -u root --password=openmetadata_password
       interval: 10s
       timeout: 5s
       retries: 5
-
-
-
-
-  # The ingestion framework (Apache Airflow)
   openmetadata-ingestion:
     image: openmetadata/ingestion-base:1.6.0
     container_name: openmetadata-ingestion
-    networks: [ osss-net ]
-    profiles: ["openmetadata"]
+    networks:
+    - osss-net
+    profiles:
+    - openmetadata
     restart: always
     environment:
-      - AIRFLOW__CORE__DAGS_FOLDER=/usr/local/airflow/dags
-      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
-      - AIRFLOW__CORE__LOAD_EXAMPLES=False
-      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=mysql://openmetadata_user:openmetadata_password@mysql:3306/openmetadata_db
-
+    - AIRFLOW__CORE__DAGS_FOLDER=/usr/local/airflow/dags
+    - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+    - AIRFLOW__CORE__LOAD_EXAMPLES=False
+    - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=mysql://openmetadata_user:openmetadata_password@mysql:3306/openmetadata_db
     volumes:
-      - ingestion_data:/usr/local/airflow
+    - ingestion_data:/usr/local/airflow
     ports:
-      - "8080:8080"
-    command: [ "/bin/bash", "-c", "airflow standalone" ]
+    - 8080:8080
+    command:
+    - /bin/bash
+    - -c
+    - airflow standalone
     depends_on:
       mysql:
         condition: service_healthy
-
-
