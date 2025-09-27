@@ -352,7 +352,9 @@
           "airflow_admin": "false",
           "airflow_user": "false",
           "openmetadata_admin": "false",
-          "openmetadata_user": "false"
+          "openmetadata_user": "false",
+          "keycloak_admin": "false",
+          "keycloak_user": "false"
         },
         {
           "name": "board_vice_chair",
@@ -574,7 +576,9 @@
           "airflow_admin": "false",
           "airflow_user": "false",
           "openmetadata_admin": "false",
-          "openmetadata_user": "false"
+          "openmetadata_user": "false",
+          "keycloak_admin": "false",
+          "keycloak_user": "false"
         },
         {
           "name": "board_clerk",
@@ -820,7 +824,9 @@
           "airflow_admin": "false",
           "airflow_user": "false",
           "openmetadata_admin": "false",
-          "openmetadata_user": "false"
+          "openmetadata_user": "false",
+          "keycloak_admin": "false",
+          "keycloak_user": "false"
         },
         {
           "name": "school_board_member_trustee",
@@ -1044,7 +1050,9 @@
           "airflow_admin": "false",
           "airflow_user": "false",
           "openmetadata_admin": "false",
-          "openmetadata_user": "false"
+          "openmetadata_user": "false",
+          "keycloak_admin": "false",
+          "keycloak_user": "false"
         }
       ],
       "children": [
@@ -1432,7 +1440,9 @@
               "airflow_admin": "false",
               "airflow_user": "false",
               "openmetadata_admin": "false",
-              "openmetadata_user": "false"
+              "openmetadata_user": "false",
+              "keycloak_admin": "false",
+              "keycloak_user": "false"
             },
             {
               "name": "head_of_school",
@@ -1647,7 +1657,9 @@
               "airflow_admin": "false",
               "airflow_user": "false",
               "openmetadata_admin": "false",
-              "openmetadata_user": "false"
+              "openmetadata_user": "false",
+              "keycloak_admin": "false",
+              "keycloak_user": "false"
             },
             {
               "name": "deputy_superintendent",
@@ -1855,7 +1867,9 @@
               "airflow_admin": "false",
               "airflow_user": "false",
               "openmetadata_admin": "false",
-              "openmetadata_user": "false"
+              "openmetadata_user": "false",
+              "keycloak_admin": "false",
+              "keycloak_user": "false"
             },
             {
               "name": "associate_superintendent",
@@ -2207,7 +2221,9 @@
               "airflow_admin": "false",
               "airflow_user": "false",
               "openmetadata_admin": "false",
-              "openmetadata_user": "false"
+              "openmetadata_user": "false",
+              "keycloak_admin": "false",
+              "keycloak_user": "false"
             },
             {
               "name": "assistant_superintendent",
@@ -2433,7 +2449,9 @@
               "airflow_admin": "false",
               "airflow_user": "false",
               "openmetadata_admin": "false",
-              "openmetadata_user": "false"
+              "openmetadata_user": "false",
+              "keycloak_admin": "false",
+              "keycloak_user": "false"
             },
             {
               "name": "chief_of_staff",
@@ -2653,7 +2671,9 @@
               "airflow_admin": "false",
               "airflow_user": "false",
               "openmetadata_admin": "false",
-              "openmetadata_user": "false"
+              "openmetadata_user": "false",
+              "keycloak_admin": "false",
+              "keycloak_user": "false"
             },
             {
               "name": "general_counsel",
@@ -2874,7 +2894,9 @@
               "airflow_admin": "false",
               "airflow_user": "false",
               "openmetadata_admin": "false",
-              "openmetadata_user": "false"
+              "openmetadata_user": "false",
+              "keycloak_admin": "false",
+              "keycloak_user": "false"
             },
             {
               "name": "ombudsperson",
@@ -3094,7 +3116,9 @@
               "airflow_admin": "false",
               "airflow_user": "false",
               "openmetadata_admin": "false",
-              "openmetadata_user": "false"
+              "openmetadata_user": "false",
+              "keycloak_admin": "false",
+              "keycloak_user": "false"
             },
             {
               "name": "chief_equity_officer",
@@ -3314,7 +3338,9 @@
               "airflow_admin": "false",
               "airflow_user": "false",
               "openmetadata_admin": "false",
-              "openmetadata_user": "false"
+              "openmetadata_user": "false",
+              "keycloak_admin": "false",
+              "keycloak_user": "false"
             }
           ],
           "children": [
@@ -3661,7 +3687,9 @@
                   "airflow_admin": "false",
                   "airflow_user": "false",
                   "openmetadata_admin": "false",
-                  "openmetadata_user": "false"
+                  "openmetadata_user": "false",
+                  "keycloak_admin": "false",
+                  "keycloak_user": "false"
                 }
               ],
               "children": [
@@ -4099,7 +4127,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "assistant_principal",
@@ -4399,7 +4429,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "associate_principal",
@@ -4763,7 +4795,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "vice_principal",
@@ -5127,7 +5161,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "dean_of_students",
@@ -5372,7 +5408,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "dean_of_academics",
@@ -5641,11 +5679,13 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "grade_level_dean",
-                      "description": "Oversees a grade’s academic and behavioral support systems.",
+                      "description": "Oversees a grade\u2019s academic and behavioral support systems.",
                       "permissions": [
                         "read:academic_terms",
                         "read:accommodations",
@@ -5861,7 +5901,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "director_of_residential_life",
@@ -6081,7 +6123,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "activities_director",
@@ -6307,7 +6351,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "athletics_director",
@@ -6527,7 +6573,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "assistant_athletics_director",
@@ -6747,7 +6795,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "head_of_upper_school",
@@ -6967,7 +7017,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "head_of_middle_school",
@@ -7187,7 +7239,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "head_of_lower_school",
@@ -7407,7 +7461,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     }
                   ],
                   "children": [
@@ -7558,7 +7614,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "elementary_teacher",
@@ -7684,7 +7742,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "middle_school_teacher",
@@ -7810,7 +7870,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "high_school_teacher",
@@ -7936,7 +7998,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "art_teacher",
@@ -8062,7 +8126,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "music_teacher",
@@ -8188,7 +8254,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "band_director",
@@ -8314,7 +8382,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "choir_director",
@@ -8440,7 +8510,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "theater_teacher",
@@ -8566,7 +8638,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "physical_education_teacher",
@@ -8692,7 +8766,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "health_teacher",
@@ -8818,7 +8894,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "world_languages_teacher",
@@ -8944,7 +9022,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "computer_science_teacher",
@@ -9070,7 +9150,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "cte_teacher",
@@ -9196,7 +9278,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "early_childhood_teacher",
@@ -9322,7 +9406,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "reading_interventionist",
@@ -9448,7 +9534,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "math_interventionist",
@@ -9574,7 +9662,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "instructional_coach",
@@ -9700,7 +9790,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "literacy_coach",
@@ -9826,7 +9918,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "math_coach",
@@ -9952,7 +10046,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "mentor_teacher",
@@ -10078,7 +10174,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "media_specialist",
@@ -10284,7 +10382,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "teacher_librarian",
@@ -10420,7 +10520,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "substitute_teacher",
@@ -10546,7 +10648,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "long_term_substitute",
@@ -10672,7 +10776,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "teacher_resident",
@@ -10798,7 +10904,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "student_teacher",
@@ -10924,7 +11032,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "instructional_fellow",
@@ -11050,7 +11160,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         }
                       ]
                     },
@@ -11253,7 +11365,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "guidance_counselor",
@@ -11428,7 +11542,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "school_social_worker",
@@ -11558,7 +11674,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "family_liaison",
@@ -11688,7 +11806,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "school_nurse",
@@ -11761,7 +11881,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "health_aide",
@@ -11891,7 +12013,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "attendance_officer",
@@ -12021,7 +12145,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "truancy_officer",
@@ -12151,7 +12277,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "homeless_liaison",
@@ -12281,7 +12409,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "foster_care_liaison",
@@ -12411,7 +12541,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "behavior_support_coach",
@@ -12541,7 +12673,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "restorative_practices_coordinator",
@@ -12671,7 +12805,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "mtss_coordinator",
@@ -12801,7 +12937,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "rti_coordinator",
@@ -12931,7 +13069,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "registrar",
@@ -13116,7 +13256,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "records_clerk",
@@ -13247,7 +13389,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "testing_and_assessment_coordinator",
@@ -13377,7 +13521,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "college_counselor",
@@ -13552,7 +13698,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "financial_aid_advisor",
@@ -13682,7 +13830,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         }
                       ]
                     },
@@ -13820,7 +13970,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "administrative_assistant",
@@ -13940,7 +14092,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "office_manager",
@@ -14060,7 +14214,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "receptionist",
@@ -14180,7 +14336,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "attendance_clerk",
@@ -14300,7 +14458,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "student_services_clerk",
@@ -14420,7 +14580,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "data_clerk",
@@ -14540,7 +14702,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "sis_clerk",
@@ -14660,7 +14824,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "health_office_clerk",
@@ -14780,7 +14946,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         }
                       ]
                     },
@@ -14902,7 +15070,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "assistant_coach",
@@ -15014,7 +15184,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "athletic_trainer",
@@ -15126,7 +15298,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "strength_and_conditioning_coach",
@@ -15238,7 +15412,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "club_sponsor",
@@ -15350,7 +15526,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "activity_sponsor",
@@ -15462,7 +15640,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "robotics_coach",
@@ -15574,7 +15754,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "debate_coach",
@@ -15686,7 +15868,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "esports_coach",
@@ -15798,7 +15982,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "yearbook_advisor",
@@ -15910,7 +16096,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "student_government_advisor",
@@ -16022,7 +16210,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "performing_arts_director",
@@ -16134,7 +16324,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "theater_director",
@@ -16246,7 +16438,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         }
                       ]
                     },
@@ -16366,7 +16560,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "preschool_teacher",
@@ -16477,7 +16673,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "preschool_assistant",
@@ -16588,7 +16786,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "before_school_program_director",
@@ -16699,7 +16899,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "after_school_program_director",
@@ -16810,7 +17012,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "extended_day_coordinator",
@@ -16921,7 +17125,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "summer_school_coordinator",
@@ -17032,7 +17238,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "enrichment_coordinator",
@@ -17143,7 +17351,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         }
                       ]
                     },
@@ -17263,7 +17473,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "campus_minister",
@@ -17374,7 +17586,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "religion_teacher",
@@ -17485,7 +17699,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "theology_teacher",
@@ -17596,7 +17812,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         },
                         {
                           "name": "service_learning_coordinator",
@@ -17707,7 +17925,9 @@
                           "airflow_admin": "false",
                           "airflow_user": "false",
                           "openmetadata_admin": "false",
-                          "openmetadata_user": "false"
+                          "openmetadata_user": "false",
+                          "keycloak_admin": "false",
+                          "keycloak_user": "false"
                         }
                       ]
                     }
@@ -17871,7 +18091,9 @@
                   "airflow_admin": "false",
                   "airflow_user": "false",
                   "openmetadata_admin": "false",
-                  "openmetadata_user": "false"
+                  "openmetadata_user": "false",
+                  "keycloak_admin": "false",
+                  "keycloak_user": "false"
                 },
                 {
                   "name": "director_of_student_support_services",
@@ -18002,7 +18224,9 @@
                   "airflow_admin": "false",
                   "airflow_user": "false",
                   "openmetadata_admin": "false",
-                  "openmetadata_user": "false"
+                  "openmetadata_user": "false",
+                  "keycloak_admin": "false",
+                  "keycloak_user": "false"
                 }
               ],
               "children": [
@@ -18152,7 +18376,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "director_of_assessment_research_evaluation",
@@ -18278,7 +18504,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "director_of_accountability",
@@ -18404,7 +18632,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "director_of_data_analytics",
@@ -18530,7 +18760,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "instructional_materials_coordinator",
@@ -18656,7 +18888,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "textbook_coordinator",
@@ -18782,7 +19016,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "professional_development_coordinator",
@@ -18908,7 +19144,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "teacher_induction_coordinator",
@@ -19034,7 +19272,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "accreditation_coordinator",
@@ -19160,7 +19400,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     }
                   ]
                 },
@@ -19286,7 +19528,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "special_education_teacher",
@@ -19400,7 +19644,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "sped_case_manager",
@@ -19514,7 +19760,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "school_psychologist",
@@ -19628,7 +19876,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "speech_language_pathologist",
@@ -19742,7 +19992,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "occupational_therapist",
@@ -19856,7 +20108,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "certified_occupational_therapy_assistant",
@@ -19970,7 +20224,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "physical_therapist",
@@ -20084,7 +20340,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "physical_therapist_assistant",
@@ -20198,7 +20456,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "board_certified_behavior_analyst",
@@ -20312,7 +20572,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "behavior_interventionist",
@@ -20426,7 +20688,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "vision_specialist",
@@ -20540,7 +20804,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "orientation_and_mobility_specialist",
@@ -20654,7 +20920,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "deaf_hard_of_hearing_teacher",
@@ -20768,7 +21036,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "504_coordinator",
@@ -20882,7 +21152,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "sped_compliance_coordinator",
@@ -20996,7 +21268,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "paraprofessional",
@@ -21110,7 +21384,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "instructional_aide",
@@ -21224,7 +21500,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "teachers_aide",
@@ -21338,7 +21616,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "sign_language_interpreter",
@@ -21452,7 +21732,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "transition_specialist",
@@ -21566,7 +21848,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "vocational_specialist",
@@ -21680,7 +21964,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     }
                   ]
                 },
@@ -21802,7 +22088,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "virtual_online_program_director",
@@ -21914,7 +22202,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "cte_director",
@@ -22026,7 +22316,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "pathways_coordinator",
@@ -22138,7 +22430,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "apprenticeship_coordinator",
@@ -22250,7 +22544,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "international_student_program_director",
@@ -22362,7 +22658,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "homestay_coordinator",
@@ -22474,7 +22772,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "testing_site_manager",
@@ -22586,7 +22886,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "ib_coordinator",
@@ -22698,7 +23000,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "ap_coordinator",
@@ -22810,7 +23114,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "librarian",
@@ -22901,7 +23207,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "archivist",
@@ -23013,7 +23321,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "print_shop_manager",
@@ -23125,7 +23435,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "mailroom_clerk",
@@ -23237,7 +23549,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "volunteer_coordinator",
@@ -23349,7 +23663,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     }
                   ]
                 }
@@ -23509,7 +23825,9 @@
                   "airflow_admin": "false",
                   "airflow_user": "false",
                   "openmetadata_admin": "false",
-                  "openmetadata_user": "false"
+                  "openmetadata_user": "false",
+                  "keycloak_admin": "false",
+                  "keycloak_user": "false"
                 }
               ],
               "children": [
@@ -23661,7 +23979,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "facilities_manager",
@@ -23734,7 +24054,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "plant_manager",
@@ -23861,7 +24183,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "maintenance_technician",
@@ -23988,7 +24312,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "electrician",
@@ -24115,7 +24441,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "plumber",
@@ -24242,7 +24570,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "hvac_technician",
@@ -24369,7 +24699,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "carpenter",
@@ -24496,7 +24828,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "painter",
@@ -24623,7 +24957,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "locksmith",
@@ -24750,7 +25086,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "groundskeeper",
@@ -24877,7 +25215,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "irrigation_technician",
@@ -25004,7 +25344,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "custodial_supervisor",
@@ -25131,7 +25473,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "custodian",
@@ -25258,7 +25602,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "porter",
@@ -25385,7 +25731,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "night_lead",
@@ -25512,7 +25860,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "warehouse_receiving",
@@ -25639,7 +25989,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "inventory_specialist",
@@ -25766,7 +26118,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "energy_manager",
@@ -25893,7 +26247,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "sustainability_manager",
@@ -26020,7 +26376,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     }
                   ]
                 },
@@ -26146,7 +26504,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "routing_scheduling_coordinator",
@@ -26260,7 +26620,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "dispatcher",
@@ -26374,7 +26736,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "bus_driver",
@@ -26488,7 +26852,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "activity_driver",
@@ -26602,7 +26968,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "bus_aide_monitor",
@@ -26716,7 +27084,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "fleet_manager",
@@ -26830,7 +27200,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "mechanic",
@@ -26944,7 +27316,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "diesel_technician",
@@ -27058,7 +27432,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "shop_foreman",
@@ -27172,7 +27548,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "crossing_guard",
@@ -27286,7 +27664,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     }
                   ]
                 },
@@ -27406,7 +27786,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "food_service_director",
@@ -27517,7 +27899,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "cafeteria_manager",
@@ -27628,7 +28012,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "kitchen_manager",
@@ -27739,7 +28125,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "cook",
@@ -27850,7 +28238,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "prep_cook",
@@ -27961,7 +28351,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "baker",
@@ -28072,7 +28464,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "cashier_point_of_sale_operator",
@@ -28183,7 +28577,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "dietitian",
@@ -28294,7 +28690,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "nutritionist",
@@ -28405,7 +28803,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     }
                   ]
                 },
@@ -28529,7 +28929,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "emergency_management_director",
@@ -28642,7 +29044,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "school_resource_officer",
@@ -28755,7 +29159,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "campus_police_officer",
@@ -28868,7 +29274,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "security_guard",
@@ -28981,7 +29389,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "campus_supervisor",
@@ -29094,7 +29504,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "emergency_preparedness_coordinator",
@@ -29207,7 +29619,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     }
                   ]
                 }
@@ -29379,7 +29793,9 @@
                   "airflow_admin": "false",
                   "airflow_user": "false",
                   "openmetadata_admin": "false",
-                  "openmetadata_user": "false"
+                  "openmetadata_user": "false",
+                  "keycloak_admin": "false",
+                  "keycloak_user": "false"
                 }
               ],
               "children": [
@@ -29553,7 +29969,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "controller",
@@ -29690,7 +30108,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "accountant",
@@ -29827,7 +30247,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "payroll_manager",
@@ -29962,7 +30384,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "payroll_specialist",
@@ -30097,7 +30521,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "accounts_payable_specialist",
@@ -30234,7 +30660,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "accounts_receivable_specialist",
@@ -30369,7 +30797,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "grants_manager",
@@ -30504,7 +30934,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "grant_writer",
@@ -30639,7 +31071,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "federal_programs_director",
@@ -30774,7 +31208,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "purchasing_director",
@@ -30909,7 +31345,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "buyer",
@@ -31044,7 +31482,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "risk_manager",
@@ -31180,7 +31620,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "insurance_coordinator",
@@ -31315,7 +31757,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "compliance_officer",
@@ -31450,7 +31894,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "records_retention_manager",
@@ -31586,7 +32032,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "e_rate_coordinator",
@@ -31721,7 +32169,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     }
                   ]
                 }
@@ -31869,7 +32319,9 @@
                   "airflow_admin": "false",
                   "airflow_user": "false",
                   "openmetadata_admin": "false",
-                  "openmetadata_user": "false"
+                  "openmetadata_user": "false",
+                  "keycloak_admin": "false",
+                  "keycloak_user": "false"
                 },
                 {
                   "name": "human_resources_director",
@@ -31993,7 +32445,9 @@
                   "airflow_admin": "false",
                   "airflow_user": "false",
                   "openmetadata_admin": "false",
-                  "openmetadata_user": "false"
+                  "openmetadata_user": "false",
+                  "keycloak_admin": "false",
+                  "keycloak_user": "false"
                 }
               ],
               "children": [
@@ -32139,7 +32593,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "hr_generalist",
@@ -32263,7 +32719,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "recruiter",
@@ -32387,7 +32845,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "benefits_manager",
@@ -32511,7 +32971,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "benefits_specialist",
@@ -32635,7 +33097,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     }
                   ]
                 }
@@ -32773,7 +33237,9 @@
                   "airflow_admin": "false",
                   "airflow_user": "true",
                   "openmetadata_admin": "false",
-                  "openmetadata_user": "true"
+                  "openmetadata_user": "true",
+                  "keycloak_admin": "false",
+                  "keycloak_user": "true"
                 },
                 {
                   "name": "chief_technology_officer",
@@ -32891,7 +33357,9 @@
                   "airflow_admin": "true",
                   "airflow_user": "false",
                   "openmetadata_admin": "true",
-                  "openmetadata_user": "false"
+                  "openmetadata_user": "false",
+                  "keycloak_admin": "true",
+                  "keycloak_user": "false"
                 }
               ],
               "children": [
@@ -33027,7 +33495,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "it_director",
@@ -33145,7 +33615,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "network_administrator",
@@ -33263,7 +33735,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "systems_administrator",
@@ -33381,7 +33855,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "cloud_administrator",
@@ -33499,7 +33975,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "server_administrator",
@@ -33617,7 +34095,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "information_security_officer",
@@ -33735,7 +34215,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "database_administrator",
@@ -33853,7 +34335,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "help_desk_manager",
@@ -33971,7 +34455,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "help_desk_technician",
@@ -34089,7 +34575,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "field_technician",
@@ -34207,7 +34695,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "web_administrator",
@@ -34325,7 +34815,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "webmaster",
@@ -34443,7 +34935,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "av_media_technician",
@@ -34561,7 +35055,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     }
                   ]
                 },
@@ -34697,7 +35193,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "data_engineer",
@@ -34815,7 +35313,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "data_analyst",
@@ -34933,7 +35433,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "etl_developer",
@@ -35051,7 +35553,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     }
                   ]
                 }
@@ -35182,7 +35686,9 @@
                   "airflow_admin": "false",
                   "airflow_user": "false",
                   "openmetadata_admin": "false",
-                  "openmetadata_user": "false"
+                  "openmetadata_user": "false",
+                  "keycloak_admin": "false",
+                  "keycloak_user": "false"
                 }
               ],
               "children": [
@@ -35311,7 +35817,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "public_relations_director",
@@ -35427,7 +35935,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "media_relations_manager",
@@ -35543,7 +36053,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "family_engagement_coordinator",
@@ -35659,7 +36171,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "community_engagement_coordinator",
@@ -35775,7 +36289,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "translation_services_coordinator",
@@ -35891,7 +36407,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "interpreter_services_coordinator",
@@ -36007,7 +36525,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "alumni_relations_director",
@@ -36123,7 +36643,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "advancement_development_director",
@@ -36239,7 +36761,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "annual_giving_manager",
@@ -36355,7 +36879,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "capital_campaign_manager",
@@ -36471,7 +36997,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "major_gifts_officer",
@@ -36587,7 +37115,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "admissions_director",
@@ -36703,7 +37233,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "enrollment_director",
@@ -36819,7 +37351,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "financial_aid_director",
@@ -36935,7 +37469,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "marketing_director",
@@ -37051,7 +37587,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "marketing_manager",
@@ -37167,7 +37705,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "graphic_designer",
@@ -37283,7 +37823,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     },
                     {
                       "name": "social_media_manager",
@@ -37399,7 +37941,9 @@
                       "airflow_admin": "false",
                       "airflow_user": "false",
                       "openmetadata_admin": "false",
-                      "openmetadata_user": "false"
+                      "openmetadata_user": "false",
+                      "keycloak_admin": "false",
+                      "keycloak_user": "false"
                     }
                   ]
                 }

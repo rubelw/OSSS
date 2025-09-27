@@ -327,12 +327,15 @@ services:
         aliases:
         - keycloak.local
     environment:
+      KC_HTTP_PORT: 8080
       KC_DB: ${KC_DB}
       KC_DB_URL: jdbc:postgresql://${KC_DB_HOST}:${KC_DB_PORT}/${KC_DB_NAME}
       KC_DB_USERNAME: ${KC_DB_USERNAME}
       KC_DB_PASSWORD: ${KC_DB_PASSWORD}
       KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN}
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+      KC_HTTPS_CERTIFICATE_FILE: /opt/keycloak/conf/tls/server.crt
+      KC_HTTPS_CERTIFICATE_KEY_FILE: /opt/keycloak/conf/tls/server.key
       KC_HEALTH_ENABLED: 'true'
       KC_HOSTNAME: ${KC_HOSTNAME}
       KC_DB_SCHEMA: ${KC_DB_SCHEMA}
@@ -342,18 +345,20 @@ services:
       KC_DB_POOL_MIN_SIZE: '20'
       KC_DB_POOL_MAX_SIZE: '50'
       KC_LOG_LEVEL: ${KC_LOG_LEVEL}
-      KC_HOSTNAME_URL: ${KC_HOSTNAME_URL}
-      KC_HOSTNAME_ADMIN_URL: ${KC_HOSTNAME_ADMIN_URL}
       KC_PROXY: ${KC_PROXY}
       KC_HTTP_ENABLED: ${KC_HTTP_ENABLED}
       KC_HOSTNAME_STRICT: ${KC_HOSTNAME_STRICT}
       ADMIN_USER: ${KEYCLOAK_ADMIN}
       ADMIN_PWD: ${KEYCLOAK_ADMIN_PASSWORD}
       KC_URL: ${KC_URL}
+
     volumes:
     - ./realm-export.json:/opt/keycloak/data/import/10-OSSS.json:ro
     - ./docker/keycloak/quarkus.properties:/opt/keycloak/conf/quarkus.properties:ro
+    - ./config_files/keycloak/secrets/keycloak:/opt/keycloak/conf/tls:ro
+
     ports:
+    - 8443:8443
     - 8080:8080
     cpus: 2.0
     mem_limit: 2g
@@ -509,6 +514,8 @@ services:
     mem_limit: 2g
     mem_reservation: 1g
     environment:
+    - # put the secret in your .env instead of hardcoding here
+    - OIDC_CLIENT_SECRET=${KIBANA_OIDC_CLIENT_SECRET}
     - discovery.type=single-node
     - xpack.security.enabled=true
     - xpack.security.http.ssl.enabled=false
@@ -524,9 +531,17 @@ services:
     - 9300:9300
     networks:
     - osss-net
+    command: [ "/bin/bash","-lc","set -euo pipefail; \
+        [ -f config/elasticsearch.keystore ] || bin/elasticsearch-keystore create; \
+        if ! bin/elasticsearch-keystore list | grep -qx 'xpack.security.authc.realms.oidc.oidc1.rp.client_secret'; then \
+          echo \"$OIDC_CLIENT_SECRET\" | bin/elasticsearch-keystore add -xf xpack.security.authc.realms.oidc.oidc1.rp.client_secret; \
+        fi; \
+        exec /usr/local/bin/docker-entrypoint.sh eswrapper" ]
     volumes:
     - es-data:/usr/share/elasticsearch/data
     - ./config_files/elastic/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml:ro
+    - ./config_files/keycloak/secrets/ca/ca.crt:/usr/share/elasticsearch/config/keycloak-ca.crt:ro
+
     healthcheck:
       test:
       - CMD-SHELL
@@ -855,7 +870,7 @@ services:
     ports:
     - 8444:8443
     environment:
-      KEYCLOAK_URL: http://keycloak:8080
+      KEYCLOAK_URL: https://keycloak:8443
       JAVA_TOOL_OPTIONS: -Djavax.net.ssl.trustStore=/etc/trino/keystore/trino-keystore.p12
         -Djavax.net.ssl.trustStorePassword=changeit -Djavax.net.ssl.trustStoreType=PKCS12
     volumes:
@@ -1006,7 +1021,7 @@ services:
       AIRFLOW__WEBSERVER__BASE_URL: http://localhost:8083
       AIRFLOW__WEBSERVER__SECRET_KEY: change-this-in-prod
       AIRFLOW__WEBSERVER__ENABLE_PROXY_FIX: 'True'
-      KEYCLOAK_URL: http://keycloak.local:8080
+      KEYCLOAK_URL: https://keycloak.local:8443
       KEYCLOAK_REALM: OSSS
       KEYCLOAK_AIRFLOW_CLIENT_ID: airflow
       KEYCLOAK_AIRFLOW_CLIENT_SECRET: password
@@ -1029,7 +1044,7 @@ services:
     mem_reservation: 1g
     environment:
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres-airflow/airflow
-      KEYCLOAK_URL: http://keycloak.local:8080
+      KEYCLOAK_URL: https://keycloak.local:8443
       KEYCLOAK_REALM: OSSS
     command: scheduler
     volumes:

@@ -123,6 +123,7 @@ source .venv/bin/activate
 osss <TAB>
 
 # Keycloak http://localhost:8080 with username 'admin' and password 'admin'
+# Keycloak login to OSSS realm: https://keycloak.local:8443/realms/OSSS/account
 # FastApi  http://localhost:8081/docs# username 'activities_director@osss.local' and password 'password'
 # Web: http://localhost:3000 username 'activities_director@osss.local' and password 'password'
 # Vault: http://localhost:8200 username 'chief_technology_officer@osss.local and password 'password'

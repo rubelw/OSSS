@@ -20,3 +20,4 @@ class CourseTeacher(UUIDMixin, Base):
     teacher: Mapped[UserProfile] = relationship(back_populates="teaching_assignments")
 
     __table_args__ = (UniqueConstraint("course_id", "user_id", name="uq_teacher_course_user"),)
+

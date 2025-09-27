@@ -27,3 +27,4 @@ class GuardianInvitation(UUIDMixin, Base):
     student: Mapped[UserProfile] = relationship()
     user: Mapped["User"] = relationship("User", back_populates="guardianinvitation")
 
+

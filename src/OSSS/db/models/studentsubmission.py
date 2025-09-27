@@ -38,3 +38,5 @@ class StudentSubmission(UUIDMixin, Base):
     __table_args__ = (
         UniqueConstraint("coursework_id", "user_id", name="uq_submission_coursework_user"),
     )
+
+

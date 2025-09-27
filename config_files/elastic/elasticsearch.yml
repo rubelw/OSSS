@@ -1,21 +1,32 @@
 cluster.name: "docker-cluster"
 discovery.type: single-node
 
-xpack.security.enabled: false
 xpack.security.http.ssl.enabled: false
 
-# --- OIDC realm for Keycloak (name: oidc1)
+# REQUIRED for OIDC realms
+xpack.security.authc.token.enabled: true
+
+# elasticsearch.yml
+xpack.security.enabled: true
+
 xpack.security.authc.realms.oidc.oidc1:
   order: 2
-  # RP (Kibana) registration at Keycloak
-  rp.client_id: "kibana"
-  rp.client_secret: "password"
-  rp.response_type: "code"
-  rp.redirect_uri: "http://localhost:5601/api/security/oidc/callback"
-
-  # Use discovery from Keycloak
+  # RP (Elasticsearch/Kibana) settings
+  rp.client_id: "kibana"                      # or your actual client id
+  rp.response_type: code
+  rp.redirect_uri: "http://kibana:5601/api/security/oidc/callback"
+  rp.post_logout_redirect_uri: "http://kibana:5601/logout"
+  rp.requested_scopes: ["openid","profile","email"]
+  # OP (Keycloak) endpoints
   op.issuer: "http://keycloak.local:8080/realms/OSSS"
+  op.authorization_endpoint: "http://keycloak.local:8080/realms/OSSS/protocol/openid-connect/auth"
+  op.token_endpoint: "http://keycloak.local:8080/realms/OSSS/protocol/openid-connect/token"
+  op.userinfo_endpoint: "http://keycloak.local:8080/realms/OSSS/protocol/openid-connect/userinfo"
+  op.jwkset_path: "http://keycloak.local:8080/realms/OSSS/protocol/openid-connect/certs"
+  op.endsession_endpoint: "http://keycloak.local:8080/realms/OSSS/protocol/openid-connect/logout"
+  # Map the principal
+  claims.principal: preferred_username
 
-  # Map token claims
-  claims.principal: "preferred_username"
-  claims.groups: "groups"
+  # Trust our dev CA
+  op.ssl.certificate_authorities: [ "/usr/share/elasticsearch/config/keycloak-ca.crt" ]
+  op.ssl.verification_mode: full
