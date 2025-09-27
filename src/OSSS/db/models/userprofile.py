@@ -31,3 +31,5 @@ class UserProfile(UUIDMixin, Base):
     teaching_assignments: Mapped[list["CourseTeacher"]] = relationship(back_populates="teacher", cascade="all,delete-orphan")
     enrollments: Mapped[list["CourseStudent"]] = relationship(back_populates="student", cascade="all,delete-orphan")
     user: Mapped["User"] = relationship("User", back_populates="userprofile")
+
+

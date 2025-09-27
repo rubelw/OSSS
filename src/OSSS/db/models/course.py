@@ -44,3 +44,4 @@ class Course(UUIDMixin, Base):
     announcements: Mapped[list["Announcement"]] = relationship(back_populates="course", cascade="all,delete-orphan")
     coursework: Mapped[list["CourseWork"]] = relationship(back_populates="course", cascade="all,delete-orphan")
     user: Mapped["User"] = relationship("User", back_populates="course")
+

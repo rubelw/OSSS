@@ -6,6 +6,32 @@
 # - Runs build_realm.py after Keycloak is up
 
 set -Eeuo pipefail
+
+# --- Bash 3.x compatibility shims (macOS default shell lacks mapfile/readarray) ---
+if ! command -v mapfile >/dev/null 2>&1; then
+  mapfile() {
+    # supports: mapfile -t ARRAY  (reads from stdin)
+    local strip=0 OPTIND=1 OPTARG
+    while getopts "t" opt; do
+      case "$opt" in
+        t) strip=1 ;;
+      esac
+    done
+    shift $((OPTIND-1))
+    local __arr_name="$1"
+    local __i=0 __line
+    # ensure target exists as an array
+    eval "$__arr_name=()"
+    while IFS= read -r __line; do
+      # -t behavior: strip trailing newline
+      (( strip )) && __line="${__line%$'\n'}"
+      eval "$__arr_name[__i]=\$__line"
+      __i=$((__i+1))
+    done
+  }
+fi
+
+
 # --- External networks create-only helper (called by start_* funcs) ---
 ensure_external_networks_exist() {
   # Ensure external networks referenced by compose exist.
@@ -19,18 +45,42 @@ ensure_external_networks_exist() {
 
 # -------- Podman install/start checks --------
 ensure_podman_installed() {
+  # If podman isn't installed, nothing to do here.
   if ! command -v podman >/dev/null 2>&1; then
-    echo "❌ Podman is not installed."
-    echo
-    echo "👉 Please install Podman before using this script:"
-    echo "   - Fedora/RHEL/CentOS:  sudo dnf install podman"
-    echo "   - Ubuntu/Debian:       sudo apt-get install podman"
-    echo "   - macOS (Homebrew):    brew install podman"
-    echo "   - Windows (Winget):    winget install -e --id RedHat.Podman"
-    echo
-    read -rp "Press Enter to exit, or type 'ignore' to continue anyway: " ans || true
-    [[ "${ans:-}" == "ignore" ]] || exit 1
+    return 0
   fi
+
+  # If Podman is already responding, we're good.
+  if podman info --debug >/dev/null 2>&1; then
+    return 0
+  fi
+
+  echo "⚠️  Podman not reachable; attempting to (init|start) podman machine…"
+
+  local NAME="${PODMAN_MACHINE_NAME:-default}"
+  local CPUS="${PODMAN_MACHINE_CPUS:-12}"
+  local MEM_MB="${PODMAN_MACHINE_MEM_MB:-40960}"
+  local DISK_GB="${PODMAN_MACHINE_DISK_GB:-100}"
+
+  # On macOS/Windows, podman uses a VM ("podman machine").
+  if podman machine list >/dev/null 2>&1; then
+    # If the machine doesn't exist, init it; otherwise start it.
+    if ! podman machine inspect "$NAME" >/dev/null 2>&1; then
+      echo "+ podman machine init --cpus $CPUS --memory $MEM_MB --disk-size $DISK_GB $NAME"
+      podman machine init --cpus "$CPUS" --memory "$MEM_MB" --disk-size "$DISK_GB" "$NAME"
+    fi
+    echo "+ podman machine start $NAME"
+    podman machine start "$NAME"
+  fi
+
+  # One more try after starting
+  if podman info --debug >/dev/null 2>&1; then
+    echo "✅ Podman is up."
+    return 0
+  fi
+
+  echo "❌ Podman still unreachable. Try: 'podman system connection list' or restart Podman Desktop."
+  return 1
 }
 
 # Ensures Podman is ready. On macOS/Windows, ensures a Podman machine exists and is running.
@@ -168,8 +218,55 @@ ensure_podman_started() {
   fi
 }
 
-ensure_podman_installed
-ensure_podman_started
+
+# --- Podman preflight (idempotent) ---
+podman_ready_once() {
+  # Only run once per process
+  [[ "${__OSSS_PODMAN_READY:-}" == "1" ]] && return 0
+  command -v podman >/dev/null 2>&1 || { __OSSS_PODMAN_READY=1; export __OSSS_PODMAN_READY; return 0; }
+
+  # Fast path: if the VM is already running, don't touch it
+  if podman machine -h >/dev/null 2>&1; then
+    local NAME="${PODMAN_MACHINE_NAME:-default}"
+    if podman machine ls --format '{{.Name}} {{.Running}}' \
+       | awk -v n="$NAME" '$1==n && $2=="true"{ok=1} END{exit ok?0:1}'; then
+      __OSSS_PODMAN_READY=1; export __OSSS_PODMAN_READY; return 0
+    fi
+  fi
+
+  # If CLI is already connected, we're good
+  if podman info --debug >/dev/null 2>&1; then
+    __OSSS_PODMAN_READY=1; export __OSSS_PODMAN_READY; return 0
+  fi
+
+  # Init/start only when needed
+  local NAME="${PODMAN_MACHINE_NAME:-default}"
+  if podman machine -h >/dev/null 2>&1; then
+    if ! podman machine inspect "$NAME" >/dev/null 2>&1; then
+      podman machine init \
+        --cpus  "${PODMAN_MACHINE_CPUS:-6}" \
+        --memory "${PODMAN_MACHINE_MEM_MB:-8192}" \
+        --disk-size "${PODMAN_MACHINE_DISK_GB:-50}" \
+        "$NAME"
+    fi
+    podman machine start "$NAME"
+
+    # Ensure the default connection matches the running machine
+    if podman system connection list --format '{{.Name}}' | grep -qx "$NAME"; then
+      podman system connection default "$NAME" >/dev/null 2>&1 || true
+    elif podman system connection list --format '{{.Name}}' | grep -qx "${NAME}-root"; then
+      podman system connection default "${NAME}-root" >/dev/null 2>&1 || true
+    fi
+  fi
+
+  # Final health check
+  podman info --debug >/dev/null 2>&1 || { echo "❌ Podman not reachable"; exit 1; }
+  __OSSS_PODMAN_READY=1; export __OSSS_PODMAN_READY
+}
+
+
+podman_ready_once
+
 
 # -------- dotenv loader --------
 load_dotenv() {
@@ -290,6 +387,50 @@ ensure_python_venv() {
 
 ensure_python_venv "$@"
 
+# --- Require Podman to be reachable (macOS: init/start VM, fix default connection) ---
+podman_require_ready_or_die() {
+  # If podman not installed, nothing to enforce here.
+  command -v podman >/dev/null 2>&1 || return 0
+
+  # Already healthy?
+  if podman info --debug >/dev/null 2>&1; then
+    return 0
+  fi
+
+  local NAME="${PODMAN_MACHINE_NAME:-default}"
+  local CPUS="${PODMAN_MACHINE_CPUS:-6}"
+  local MEM_MB="${PODMAN_MACHINE_MEM_MB:-8192}"
+  local DISK_GB="${PODMAN_MACHINE_DISK_GB:-50}"
+
+  # On macOS/Windows, ensure a VM exists and is running
+  if podman machine -h >/dev/null 2>&1; then
+    if ! podman machine inspect "$NAME" >/dev/null 2>&1; then
+      echo "+ podman machine init --cpus $CPUS --memory $MEM_MB --disk-size $DISK_GB $NAME"
+      podman machine init --cpus "$CPUS" --memory "$MEM_MB" --disk-size "$DISK_GB" "$NAME"
+    fi
+    echo "+ podman machine start $NAME"
+    podman machine start "$NAME" >/dev/null 2>&1 || true
+
+    # Make the connection that matches this machine the default (rootless preferred)
+    if podman system connection list --format '{{.Name}}' | grep -qx "$NAME"; then
+      podman system connection default "$NAME" >/dev/null 2>&1 || true
+    elif podman system connection list --format '{{.Name}}' | grep -qx "${NAME}-root"; then
+      podman system connection default "${NAME}-root" >/dev/null 2>&1 || true
+    fi
+  fi
+
+  # Wait for port forward / service to come up
+  for i in {1..30}; do
+    if podman info --debug >/dev/null 2>&1; then return 0; fi
+    sleep 1
+  done
+
+  echo "❌ Podman connection is not ready (default connection likely stale).
+     Try:  podman system connection list
+           podman system connection default <VALID_NAME>" >&2
+  exit 1
+}
+
 
 # Extra services to remove when downing a given profile (Bash 3–friendly).
 # Extend this case list as needed.
@@ -340,6 +481,7 @@ services_for_profile_from_yaml() {
   ' "$file" | sort -u
 }
 
+
 # -------- Podman compose selection --------
 compose_cmd() {
   # Prefer podman compose; fall back to podman-compose or docker compose.
@@ -368,6 +510,7 @@ ensure_compose_file() {
   [[ -f "$COMPOSE_FILE" ]] || { echo "❌ Compose file not found: $COMPOSE_FILE" >&2; exit 1; }
 }
 
+podman_ready_once
 COMPOSE="$(compose_cmd)"
 ensure_compose_file
 
@@ -1340,6 +1483,8 @@ start_profile_superset()     { start_profile_with_build_prompt superset; }
 # Falls back to a sequenced bring-up for 'elastic' if the provider throws
 # a "depends on container … not found in input list" error.
 up_profile_with_podman() {
+  podman_require_ready_or_die() { podman_ready_once; }
+
   set -Eeuo pipefail
 
   local CMD; CMD="$(__compose_cmd)" || return $?
@@ -1719,7 +1864,7 @@ start_keycloak_services() {
 
 # -------- Trino cert helpers --------
 create_trino_cert() {
-  local dir="trino/etc/keystore"
+  local dir="config_files/trino/etc/keystore"
   local ks="$dir/trino-keystore.p12"
   mkdir -p "$dir"
 
@@ -1743,6 +1888,32 @@ create_trino_cert() {
   echo "✅ Trino keystore created: $ks (password: changeit)"
   echo "🔎 Keystore contents:"
   keytool -list -keystore "$ks" -storepass changeit
+  prompt_return
+}
+
+# -------- keycloak cert helpers --------
+create_keycloak_cert() {
+  local dir="config_files/keycloak/"
+
+  # CA
+  openssl req -x509 -nodes -newkey rsa:2048 -days 365 \
+    -keyout config_files/keycloak/secrets/ca/ca.key -out config_files/keycloak/secrets/ca/ca.crt \
+    -subj "/CN=osss-dev-ca"
+
+  # Keycloak CSR (SAN: keycloak)
+  openssl req -new -nodes -newkey rsa:2048 \
+    -keyout config_files/keycloak/secrets/keycloak/server.key \
+    -out config_files/keycloak/secrets/keycloak/server.csr \
+    -subj "/CN=keycloak" \
+    -addext "subjectAltName=DNS:keycloak,DNS:localhost,DNS:keycloak.local,IP:127.0.0.1"
+
+  # Sign server cert with our CA
+  openssl x509 -req -in config_files/keycloak/secrets/keycloak/server.csr \
+    -CA config_files/keycloak/secrets/ca/ca.crt -CAkey config_files/keycloak/secrets/ca/ca.key -CAcreateserial \
+    -out config_files/keycloak/secrets/keycloak/server.crt -days 365 \
+    -extfile <(printf "subjectAltName=DNS:keycloak")
+
+
   prompt_return
 }
 
@@ -2413,6 +2584,42 @@ down_profile_interactive() {
 
 
 
+# -------- Podman VM management --------
+podman_vm_name() {
+  echo "${PODMAN_MACHINE_NAME:-default}"
+}
+podman_vm_stop() {
+  if ! command -v podman >/dev/null 2>&1; then
+    echo "Podman not installed."
+    return 1
+  fi
+  local NAME; NAME="$(podman_vm_name)"
+  echo "▶️  Stopping podman machine '$NAME'…"
+  podman machine stop "$NAME" || {
+    echo "(already stopped or not present)"
+    return 0
+  }
+  echo "✅ Stopped."
+}
+podman_vm_destroy() {
+  if ! command -v podman >/dev/null 2>&1; then
+    echo "Podman not installed."
+    return 1
+  fi
+  local NAME; NAME="$(podman_vm_name)"
+  echo "⚠️  This will remove the Podman VM '$NAME' and its data (images/containers inside the VM)."
+  read -rp "Type the machine name '$NAME' to confirm destroy (or leave blank to cancel): " ans || return 1
+  if [[ "$ans" != "$NAME" ]]; then
+    echo "Cancelled."
+    return 1
+  fi
+  echo "▶️  Stopping (if running)…"; podman machine stop "$NAME" >/dev/null 2>&1 || true
+  echo "🗑  Removing podman machine '$NAME'…"
+  podman machine rm -f "$NAME"
+  echo "✅ Destroyed podman machine '$NAME'."
+}
+
+
 # -------- menu --------
 refresh_services() { :; } # compatibility no-op
 
@@ -2484,7 +2691,10 @@ menu() {
     echo "14) Show status"
     echo "15) Logs submenu"
     echo "16) Create Trino server certificate + keystore"
-    echo "17) Reset Podman machine (wipe & restart)"
+    echo "17) Create Keycloak server certificate"
+    echo "18) Reset Podman machine (wipe & restart)"
+    echo "19) Stop Podman VM"
+    echo "20) Destroy Podman VM"
     echo "  q) Quit"
     echo "-----------------------------------------------"
     read -rp "Select an option: " ans || exit 0
@@ -2505,7 +2715,10 @@ menu() {
       14) show_status; prompt_return ;;
       15) logs_menu ;;
       16) create_trino_cert ;;
-      17) reset_podman_machine ;;
+      17) create_keycloak_cert ;;
+      18) reset_podman_machine ;;
+      19) podman_vm_stop ;;
+      20) podman_vm_destroy ;;
       q|Q) echo "Bye!"; exit 0 ;;
       *)   echo "Unknown choice: ${ans}"; prompt_return ;;
     esac

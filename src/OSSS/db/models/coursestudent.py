@@ -20,3 +20,4 @@ class CourseStudent(UUIDMixin, Base):
     student: Mapped[UserProfile] = relationship(back_populates="enrollments")
 
     __table_args__ = (UniqueConstraint("course_id", "user_id", name="uq_student_course_user"),)
+

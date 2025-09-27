@@ -21,3 +21,4 @@ class Guardian(UUIDMixin, Base):
     guardian_profile: Mapped[Optional[UserProfile]] = relationship(foreign_keys=[guardian_user_id])
 
     __table_args__ = (Index("ix_guardian_student_email", "student_user_id", "guardian_email"),)
+

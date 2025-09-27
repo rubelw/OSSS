@@ -22,12 +22,86 @@ import json
 import re
 import sys
 from pathlib import Path
-from typing import Iterable
 import sqlalchemy as sa
-from typing import Any, Dict, List, Optional, Union
+from typing import Iterable, Any, Dict, List, Optional, Union
 from datetime import datetime, timezone
 
 from pydantic import BaseModel, Field, ConfigDict, model_validator
+
+def _upsert_client_scope(scopes: list, new_scope: dict) -> None:
+    """Insert or merge a clientScope by name (idempotent)."""
+    existing = next((s for s in scopes if s.get("name") == new_scope["name"]), None)
+    if existing:
+        existing["protocol"] = new_scope.get("protocol", existing.get("protocol", "openid-connect"))
+        existing["attributes"] = {**existing.get("attributes", {}), **new_scope.get("attributes", {})}
+        existing_mappers = {m["name"]: m for m in existing.get("protocolMappers", [])}
+        for m in new_scope.get("protocolMappers", []):
+            existing_mappers[m["name"]] = m
+        existing["protocolMappers"] = list(existing_mappers.values())
+    else:
+        scopes.append(new_scope)
+
+
+def ensure_client_scopes(realm: dict) -> None:
+    """Ensure 'web-origins' and 'roles' client scopes exist and are defaults."""
+    realm.setdefault("clientScopes", [])
+    scopes = realm["clientScopes"]
+
+    web_origins = {
+        "name": "web-origins",
+        "protocol": "openid-connect",
+        "attributes": {"display.on.consent.screen": "false"},
+        "protocolMappers": [
+            {
+                "name": "allowed web origins",
+                "protocol": "openid-connect",
+                "protocolMapper": "oidc-allowed-origins-mapper",
+                "config": {}
+            }
+        ]
+    }
+
+    roles_scope = {
+        "name": "roles",
+        "protocol": "openid-connect",
+        "attributes": {"display.on.consent.screen": "false"},
+        "protocolMappers": [
+            {
+                "name": "realm roles",
+                "protocol": "openid-connect",
+                "protocolMapper": "oidc-usermodel-realm-role-mapper",
+                "config": {
+                    "claim.name": "realm_access.roles",
+                    "jsonType.label": "String",
+                    "multivalued": "true",
+                    "id.token.claim": "true",
+                    "access.token.claim": "true"
+                }
+            },
+            {
+                "name": "client roles",
+                "protocol": "openid-connect",
+                "protocolMapper": "oidc-usermodel-client-role-mapper",
+                "config": {
+                    "claim.name": "resource_access.${client_id}.roles",
+                    "jsonType.label": "String",
+                    "multivalued": "true",
+                    "id.token.claim": "true",
+                    "access.token.claim": "true"
+                }
+            }
+        ]
+    }
+
+    _upsert_client_scope(scopes, web_origins)
+    _upsert_client_scope(scopes, roles_scope)
+
+    # Make sure these are defaults (and keep common defaults if present)
+    realm.setdefault("defaultDefaultClientScopes", [])
+    for name in ("roles", "web-origins", "profile", "email"):
+        if name not in realm["defaultDefaultClientScopes"]:
+            realm["defaultDefaultClientScopes"].append(name)
+
 
 # Remove // line comments and /* block */ comments
 _COMMENT_BLOCK_RE = re.compile(r"/\*.*?\*/", re.S)
@@ -265,7 +339,7 @@ def emit_table_dbml(table: sa.Table) -> str:
         dflt = _default_to_str(col)
         if dflt is not None:
             # escape braces/quotes lightly
-            dflt_clean = str(dflt).replace("{", "\{").replace("}", "\}")
+            dflt_clean = str(dflt).replace("{", r"\{").replace("}", r"\}")
             attrs.append(f'default: "{dflt_clean}"')
         if getattr(col, "autoincrement", False):
             attrs.append("increment")
@@ -337,6 +411,20 @@ def _normalize_attrs(attrs: Optional[Dict[str, Any]]) -> Dict[str, List[str]]:
         else:
             out[k] = [str(v)]
     return out
+
+def ensure_default_scopes(realm, required=("roles", "account-audience")):
+    """
+    Make sure realm['defaultDefaultClientScopes'] contains the scopes we need.
+    Idempotent: won't duplicate existing entries.
+    """
+    scopes = realm.setdefault("defaultDefaultClientScopes", [])
+    # be resilient if someone set it to a string by mistake
+    if not isinstance(scopes, list):
+        scopes = [scopes]
+    for s in required:
+        if s not in scopes:
+            scopes.append(s)
+    realm["defaultDefaultClientScopes"] = scopes
 
 # ---------------------------------------------------------------------
 # Models (subset of Keycloak export schema)
@@ -554,15 +642,43 @@ class RealmBuilder:
         return current
 
     def _finalize_for_export(self) -> Dict[str, Any]:
-        data = self.realm.model_dump(exclude_none=True)  # make sure exclude_none=True is used
-        if not data.get("authenticationFlows"):
-            # Drop realm-level bindings so KC uses built-ins
-            for k in ("browserFlow", "registrationFlow", "directGrantFlow",
-                      "resetCredentialsFlow", "clientAuthenticationFlow", "dockerAuthenticationFlow"):
-                data.pop(k, None)
-            # Drop client-level overrides
-            for c in data.get("clients", []):
-                c.pop("authenticationFlowBindingOverrides", None)
+        data = self.realm.model_dump(mode="json", exclude_none=True)
+
+        # --- ensure default realm role is set (required by Keycloak) ---
+        realm_name = data.get("realm")
+        if realm_name:
+            default_role_name = f"default-roles-{realm_name}"
+            # set the defaultRole pointer
+            data["defaultRole"] = {"name": default_role_name}
+
+            # make sure the role actually exists in roles.realm[]
+            roles = data.setdefault("roles", {}).setdefault("realm", [])
+            if not any(r.get("name") == default_role_name for r in roles):
+                roles.append({
+                    "name": default_role_name,
+                    "description": "${role_default-roles}",
+                    "composite": True,
+                    "clientRole": False,
+                    "attributes": {},
+                    "composites": {
+                        "realm": ["offline_access", "uma_authorization"],
+                        "client": {
+                            "account": [
+                                "manage-account",
+                                "manage-account-links",
+                                "view-profile",
+                                "delete-account"
+                            ]
+                        }
+                    },
+                })
+        # ---------------------------------------------------------------
+
+        # 👉 ensure default client scopes *here* (mutate the dict you are returning)
+        ensure_default_scopes(data, required=("roles", "account-audience"))
+
+        # existing cleanup/normalization below (keep your current code)
+        # e.g. strip empty arrays, sort keys, etc.
         return data
 
     # --- roles ---
@@ -650,10 +766,93 @@ class RealmBuilder:
                 return self
         return self.add_realm_role(name, description, **kwargs)
 
-    def add_client_role(self, client_id: str, name: str, description: Optional[str] = None, **kwargs) -> "RealmBuilder":
-        role = RoleRepresentation(name=name, description=description, clientRole=True, containerId=client_id, **kwargs)
+    from typing import Optional
 
-        self.realm.roles.client.setdefault(client_id, []).append(role)
+    def add_client_role(
+            self,
+            client_id: str,
+            name: str,
+            description: Optional[str] = None,
+            *,
+            attributes: Optional[Dict[str, Any]] = None,
+            composites: Optional[Dict[str, Any]] = None,
+            composite: bool = False,
+            overwrite: bool = False,
+            **kwargs: Any,
+    ) -> "RealmBuilder":
+        """
+        Add (or upsert) a client role under roles.client[client_id].
+
+        - Do NOT set containerId; Keycloak resolves it on import.
+        - Ensures we create a RoleRepresentation (no plain dicts).
+        - Ignores unknown kwargs (e.g. max_results).
+        """
+
+        # --- REQUIRED: use the SAME RoleRepresentation class your models use ---
+        # Make sure RoleRepresentation is imported in this module:
+        #   from <your_models_module> import RoleRepresentation
+        role_cls = RoleRepresentation  # noqa: F821  (must be imported above)
+
+        # Only keep fields actually valid for a role
+        payload = {
+            "name": name.strip(),
+            "description": (description or "").strip(),
+            "composite": bool(composite),
+            "clientRole": True,
+            "attributes": attributes or {},
+        }
+        if composites:
+            payload["composites"] = composites
+
+        # Never allow containerId or random extras to leak in
+        kwargs.pop("containerId", None)  # must not be set
+        # Ignore any other unexpected kwargs entirely (e.g. max_results)
+        # -> no payload.update(kwargs)
+
+        # Instantiate the proper Pydantic model (v2-safe)
+        role = (
+            role_cls.model_validate(payload)  # Pydantic v2
+            if hasattr(role_cls, "model_validate")
+            else role_cls(**payload)  # Pydantic v1
+        )
+
+        # Ensure roles container exists (supports attribute- or dict-style)
+        roles_container = getattr(self.realm, "roles", None)
+        if roles_container is None:
+            # If your realm is dict-like:
+            if isinstance(self.realm, dict):
+                self.realm.setdefault("roles", {"client": {}, "realm": []})
+                roles_container = self.realm["roles"]
+            else:
+                # attribute-style container
+                self.realm.roles = type("Roles", (), {"client": {}, "realm": []})()
+                roles_container = self.realm.roles
+
+        # Get the client roles map
+        try:
+            client_roles_map = roles_container.client  # attribute-style
+        except Exception:
+            if isinstance(roles_container, dict):
+                client_roles_map = roles_container.setdefault("client", {})
+            else:
+                setattr(roles_container, "client", {})
+                client_roles_map = roles_container.client
+
+        roles_list: List[Any] = client_roles_map.setdefault(client_id, [])
+
+        # Find existing role by name (works for both model and dict, just in case)
+        def role_name(r: Any) -> str:
+            return getattr(r, "name", None) or (r.get("name") if isinstance(r, dict) else "")
+
+        idx = next((i for i, r in enumerate(roles_list) if role_name(r) == role.name), None)
+
+        if idx is not None:
+            if overwrite:
+                roles_list[idx] = role
+            # else: already present; leave as-is
+        else:
+            roles_list.append(role)
+
         return self
 
     # --- clients ---
@@ -1044,6 +1243,8 @@ class RealmBuilder:
 
                 raw_vault_admin = seg(pos.get("vault_admin"))
                 raw_vault_user = seg(pos.get("vault_user"))
+                raw_keycloak_admin = seg(pos.get("keycloak_admin"))
+                raw_keycloak_user = seg(pos.get("keycloak_user"))
                 raw_consul_admin = seg(pos.get("consul_admin"))
                 raw_consul_user = seg(pos.get("consul_user"))
                 raw_kibana_admin = seg(pos.get("kibana_admin"))
@@ -1057,12 +1258,25 @@ class RealmBuilder:
 
                 # Use PLURAL group names to match Vault's bound_claims
                 extra_groups = []
+                my_client_roles ={}
 
                 if raw_vault_admin == "true":
                     extra_groups.append("vault-admins")
 
                 if raw_vault_user == "true":
                     extra_groups.append("vault-users")
+
+                if raw_keycloak_admin == "true":
+                    extra_groups.append("keycloak-admin")
+                    my_client_roles= {
+                        "account": ["view-profile", "manage-account", "view-applications"],
+                    }
+
+                if raw_keycloak_user == "true":
+                    extra_groups.append("keycloak-admin")
+                    my_client_roles = {
+                        "account": ["view-profile", "view-applications"],
+                    }
 
                 if raw_consul_admin == "true":
                     extra_groups.append("consul-admin")
@@ -1136,8 +1350,9 @@ class RealmBuilder:
                     groups=groups_for_user,
                     attributes=attrs,
                     enabled=True,
-                    email_verified=False,
+                    email_verified=True,
                     password=pw,
+                    client_roles=my_client_roles,
                     temporary_password=temporary_password,
                 )
                 LOG.debug(
@@ -1171,7 +1386,7 @@ class RealmBuilder:
                     groups=[unit_path],
                     attributes=attrs,
                     enabled=True,
-                    email_verified=False,
+                    email_verified=True,
                     password=pw,
                     temporary_password=temporary_password,
                 )
@@ -1394,6 +1609,10 @@ if __name__ == "__main__":
     rb.add_realm_role("vault-users", "Standard Vault users", composite=False)
     rb.add_realm_role("vault-admins", "Administrators for Vault", composite=False)
 
+    rb.add_realm_role("keycloak-users", "Standard Keycloak users", composite=False)
+    rb.add_realm_role("keycloak-admins", "Administrators for Keycloak", composite=False)
+
+
     rb.add_realm_role("kibana-users", "Standard Kibana users", composite=False)
     rb.add_realm_role("kibana-admins", "Administrators for Kibana", composite=False)
 
@@ -1407,10 +1626,29 @@ if __name__ == "__main__":
     rb.add_realm_role("openmetadata-admins", "Administrators for Openmetadata", composite=False)
 
 
-
-
     rb.add_realm_role("offline_access", "Offline Access", composite=False)
     rb.add_realm_role("uma_authorization", "UMA Authorization", composite=False)
+
+    rb.add_realm_role(
+        "default-roles-OSSS",
+        description="Default roles for all users in OSSS realm",
+        composite=True,
+        composites={
+            "realm": ["offline_access", "uma_authorization"],
+            "client": {
+                "account": [
+                    "manage-account",
+                    "manage-account-links",
+                    "view-profile",
+                    "view-applications",
+                    "delete-account",
+                ]
+            },
+        },
+    )
+
+
+
 
 
     if not args.skip_email_scope:
@@ -1427,26 +1665,6 @@ if __name__ == "__main__":
     # Ensure built-ins user asked for
     rb.add_builtin_oidc_scopes()
 
-    # Composite default-roles for this realm
-    rb.add_realm_role(
-        "default-roles-test",
-        "Default test role",
-        composite=True,
-        composites={
-            "realm": ["offline_access", "uma_authorization"],
-            "client": {
-                "account": ["manage-account", "delete-account"],
-                "realm-management": [
-                    "query-groups", "manage-clients", "realm-admin", "manage-users",
-                    "query-realms", "view-events", "view-realm", "view-clients",
-                    "manage-events", "create-client", "manage-identity-providers",
-                    "manage-authorization", "query-users", "view-identity-providers",
-                    "impersonation", "query-clients", "view-authorization",
-                    "manage-realm", "view-users",
-                ],
-            },
-        },
-    )
 
     # --- Clients ---
 
@@ -1554,64 +1772,6 @@ if __name__ == "__main__":
 
     )
 
-    # admin-cli client (service accounts on; no browser flow)
-    rb.add_client(
-        client_id="admin-cli",
-        name="admin-cli",
-        protocol="openid-connect",
-        public_client=False,
-        service_accounts_enabled=True,
-        standard_flow_enabled=False,
-        direct_access_grants_enabled=False,
-        bearer_only=False,
-        client_authenticator_type="client-secret",
-        secret="password",
-        enabled=True,
-        full_scope_allowed=True,
-        default_client_scopes=["roles", "profile", "email", "roles"],
-        optional_client_scopes=[ "offline_access"],
-        authorization_services_enabled=True,
-        attributes={
-            "id.token.as.detached.signature": "false",
-            "saml.assertion.signature": "false",
-            "saml.force.post.binding": "false",
-            "saml.multivalued.roles": "false",
-            "saml.encrypt": "false",
-            "oauth2.device.authorization.grant.enabled": "true",
-            "backchannel.logout.revoke.offline.tokens": "false",
-            "saml.server.signature": "false",
-            "saml.server.signature.keyinfo.ext": "false",
-            "use.refresh.tokens": "true",
-            "exclude.session.state.from.auth.response": "false",
-            "oidc.ciba.grant.enabled": "false",
-            "saml.artifact.binding": "false",
-            "backchannel.logout.session.required": "false",
-            "client_credentials.use_refresh_token": "false",
-            "saml_force_name_id_format": "false",
-            "require.pushed.authorization.requests": "false",
-            "saml.client.signature": "false",
-            "tls.client.certificate.bound.access.tokens": "false",
-            "saml.authnstatement": "false",
-            "display.on.consent.screen": "false",
-            "saml.onetimeuse.condition": "false",
-        },
-        authorization_settings={
-            "allowRemoteResourceManagement": True,
-            "policyEnforcementMode": "ENFORCING",
-            "resources": [
-                {
-                    "name": "Default Resource",
-                    "type": "urn:osss-api:resources:default",
-                    "ownerManagedAccess": False,
-                    "attributes": {},
-                    "uris": ["/*"],
-                }
-            ],
-            "policies": [],
-            "scopes": [],
-            "decisionStrategy": "UNANIMOUS",
-        },
-    )
 
     # Vault (OIDC for HashiCorp Vault dev)
     rb.add_client(
@@ -1633,7 +1793,7 @@ if __name__ == "__main__":
         secret="password",
         attributes={"post.logout.redirect.uris": "+", "oidc.cida.grant.enabled": "false"},
         default_client_scopes=["profile", "email", "groups-claim"],
-        optional_client_scopes=["roles", "web-origins", "address", "phone", "offline_access"],
+        optional_client_scopes=["roles",    "offline_access"],
     )
 
     rb.add_client(
@@ -1653,7 +1813,7 @@ if __name__ == "__main__":
         secret="password",
         attributes={"post.logout.redirect.uris": "+", "oidc.cida.grant.enabled": "false"},
         default_client_scopes=["profile", "email", "groups-claim", "consul-audience"],
-        optional_client_scopes=["roles", "web-origins", "address", "phone", "offline_access"],
+        optional_client_scopes=["roles",    "offline_access"],
     )
 
     # Kibana
@@ -1675,7 +1835,7 @@ if __name__ == "__main__":
         secret="password",
         attributes={"post.logout.redirect.uris": "+", "oidc.cida.grant.enabled": "false"},
         default_client_scopes=["profile", "email", "groups-claim"],
-        optional_client_scopes=["roles", "web-origins", "address", "phone", "offline_access"],
+        optional_client_scopes=["roles",    "offline_access"],
     )
 
     rb.add_client(
@@ -1695,7 +1855,7 @@ if __name__ == "__main__":
         secret="password",
         attributes={"post.logout.redirect.uris": "+", "oidc.cida.grant.enabled": "false"},
         default_client_scopes=["profile", "email", "groups-claim"],
-        optional_client_scopes=["roles", "web-origins", "address", "phone", "offline_access"],
+        optional_client_scopes=["roles",    "offline_access"],
     )
 
     rb.add_client(
@@ -1715,7 +1875,7 @@ if __name__ == "__main__":
         secret="password",
         attributes={"post.logout.redirect.uris": "+", "oidc.cida.grant.enabled": "false"},
         default_client_scopes=["profile", "email", "groups-claim"],
-        optional_client_scopes=["roles", "web-origins", "address", "phone", "offline_access"],
+        optional_client_scopes=["roles",    "offline_access"],
     )
 
     rb.add_client(
@@ -1735,8 +1895,14 @@ if __name__ == "__main__":
         secret="password",
         attributes={"post.logout.redirect.uris": "+", "oidc.cida.grant.enabled": "false"},
         default_client_scopes=["profile", "email", "groups-claim"],
-        optional_client_scopes=["roles", "web-origins", "address", "phone", "offline_access"],
+        optional_client_scopes=["roles",    "offline_access"],
     )
+
+
+
+
+
+
 
     # --- Client scopes (define explicit mappers so tokens contain claims) ---
 
@@ -1758,6 +1924,18 @@ if __name__ == "__main__":
     rb.add_group(
         name="vault-admins",
         realm_roles=["vault-admins"]
+    )
+
+    rb.add_group(
+        name="keycloak-users",
+        realm_roles=["keycloak-users"]
+    )
+
+
+    rb.add_group(
+        name="keycloak-admins",
+        realm_roles=["keycloak-admins"]
+
     )
 
     rb.add_group(
@@ -1892,6 +2070,7 @@ if __name__ == "__main__":
         ],
     )
 
+
     rb.add_client_role("osss-api", "api.user", description="Baseline access to OSSS API")
     rb.add_client_role("osss-api", "api.admin", description="Administrative access to OSSS API")
     rb.add_client_role(
@@ -1983,6 +2162,8 @@ if __name__ == "__main__":
             },
         )
 
+
+
     path = Path("RBAC.json")  # replace with your file
     with path.open("r", encoding="utf-8") as f:
         organizational_structure = json.load(f)  # dict or list
@@ -2032,7 +2213,9 @@ if __name__ == "__main__":
         attributes={"role": ["teacher"]},
     )
 
+
     out = rb.export()
+
 
     # with this (singular name, if that's how you defined it):
     out = rb._finalize_for_export()
@@ -2109,6 +2292,8 @@ def _normalize_realm_dict(realm: Any) -> dict:
         realm = dict(realm.__dict__)
     if not isinstance(realm, dict):
         raise TypeError("RealmBuilder build/render must produce a dict-like structure")
+    ensure_client_scopes(realm)
+
     return realm
 
 # Wrap/define build:

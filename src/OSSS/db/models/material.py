@@ -25,3 +25,4 @@ class Material(UUIDMixin, Base):
 
     announcement: Mapped[Optional[Announcement]] = relationship(back_populates="materials")
     coursework: Mapped[Optional[CourseWork]] = relationship(back_populates="materials")
+
