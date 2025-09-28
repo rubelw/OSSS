@@ -23,8 +23,12 @@ SANITIZED_IMPORT="/tmp/realm-import.json"
 
 REALM="${REALM:-OSSS}"
 
-# Resolve the URL kcadm should hit during bootstrap (HTTP; dev mode)
-KC_BOOT_URL="http://$KC_HOSTNAME:${KC_HTTP_PORT}"
+# kcadm config file (avoid global ~/.keycloak)
+export KCADM_CONFIG="${KCADM_CONFIG:-/tmp/kcadm.config}"
+
+# Resolve the URL kcadm should hit during bootstrap (use loopback; no TLS)
+KC_BOOT_URL="http://127.0.0.1:${KC_HTTP_PORT}"
+
 # Resolve canonical origin for webOrigins/front-end URL
 BASE_URL="${KC_HOSTNAME_URL:-https://${KC_HOSTNAME}:${KC_HTTPS_PORT}}"
 # ORIGIN like "https://keycloak.local:8443" (no trailing slash)
@@ -38,55 +42,71 @@ if [ ! -s "$CERT" ] || [ ! -s "$KEYF" ]; then
   exit 1
 fi
 
+# --- simple logger to stderr to keep stdout clean for command substitutions ---
+log() { printf "%s\n" "$*" >&2; }
+
 # --- Prepare import file in /tmp (optionally sanitize) ---
 if [ -f "$IMPORT_FILE_ORIG" ]; then
   cp "$IMPORT_FILE_ORIG" "$SANITIZED_IMPORT"
-  # If your export still references deleted built-ins, you can scrub them:
-  # sed -i 's/"web-origins"//g; s/"address"//g; s/"phone"//g' "$SANITIZED_IMPORT" || true
-  # sed -i 's/,,/,/g; s/\[,/[/g; s/,]/]/g' "$SANITIZED_IMPORT" || true
 else
   echo "❌ Import file not found: $IMPORT_FILE_ORIG"
   exit 1
 fi
 
-echo "▶️  Starting bootstrap Keycloak (DEV)…"
+log "▶️  Starting bootstrap Keycloak (DEV)…"
 /opt/keycloak/bin/kc.sh start-dev \
   --http-port="$KC_HTTP_PORT" \
   --hostname="$KC_HOSTNAME" \
   --log-level=info \
-  &
+  >/tmp/kc-dev.log 2>&1 &
 BOOT_PID=$!
 
 # Ensure we clean up the bootstrap server on exit
 trap 'kill "$BOOT_PID" 2>/dev/null || true; wait "$BOOT_PID" 2>/dev/null || true' EXIT
 
 # Wait for admin CLI login
-echo "⏳ Waiting for Keycloak to accept kcadm credentials at $KC_BOOT_URL…"
+log "⏳ Waiting for Keycloak to accept kcadm credentials at $KC_BOOT_URL…"
 until /opt/keycloak/bin/kcadm.sh config credentials \
   --server "$KC_BOOT_URL" --realm master \
   --user "$ADMIN_USER" --password "$ADMIN_PWD" --insecure >/dev/null 2>&1
 do
   sleep 2
 done
-echo "🔐 Logged into admin CLI."
+log "🔐 Logged into admin CLI."
 
-# Realm import (idempotent)
-if /opt/keycloak/bin/kcadm.sh get "realms/$REALM" --server "$KC_BOOT_URL" --realm master --insecure >/dev/null 2>&1; then
-  echo "♻️  Realm '$REALM' exists. Applying partial import (OVERWRITE)…"
-  /opt/keycloak/bin/kcadm.sh create "realms/$REALM/partialImport" \
-    --server "$KC_BOOT_URL" --realm "$REALM" --insecure \
-    -s ifResourceExists=OVERWRITE -f "$SANITIZED_IMPORT" >/dev/null
+# --- Ensure realm exists (create empty shell if missing) ---
+if /opt/keycloak/bin/kcadm.sh get "realms/$REALM" --realm master --server "$KC_BOOT_URL" --insecure >/dev/null 2>&1; then
+  log "♻️  Realm '$REALM' exists."
 else
-  echo "📦 Creating realm '$REALM' from export…"
-  /opt/keycloak/bin/kcadm.sh create realms \
-    --server "$KC_BOOT_URL" --realm master --insecure \
-    -f "$SANITIZED_IMPORT" >/dev/null
+  log "🆕 Creating empty realm '$REALM'…"
+  /opt/keycloak/bin/kcadm.sh create realms --realm master --server "$KC_BOOT_URL" --insecure \
+    -f - <<JSON >/dev/null
+{"realm":"$REALM","enabled":true}
+JSON
+fi
+
+# --- Apply partial import from export JSON ---
+# IMPORTANT: keep --realm master so the master admin token can import *into* $REALM
+log "📥 Applying partial import into '$REALM' (SKIP on existing)…"
+if ! /opt/keycloak/bin/kcadm.sh create "realms/$REALM/partialImport" \
+    --realm master --server "$KC_BOOT_URL" --insecure \
+    -s ifResourceExists=SKIP -f "$SANITIZED_IMPORT" >/dev/null 2>&1
+then
+  log "⚠️  Partial import returned non-zero; continuing to post-setup…"
 fi
 
 # ---------- Helpers (jq-free) ----------
 extract_first_id() {
   # Extracts the first "id" value from JSON
   sed -n 's/.*\"id\"[[:space:]]*:[[:space:]]*\"\([^\"]\+\)\".*/\1/p' | head -n1
+}
+
+is_uuid36() {
+  # Rough UUID v4/v1 format check (36 chars, hex+hyphen)
+  case "$1" in
+    (*[!0-9a-fA-F-]*|????????-????-????-????-????????????) return 1 ;;
+    (????????-????-????-????-????????????) return 0 ;;
+  esac
 }
 
 get_client_scope_id() {
@@ -99,10 +119,12 @@ ensure_client_scope() {
   local id
   id="$(get_client_scope_id "$1" "$2")"
   if [ -z "${id:-}" ]; then
-    echo "➕ Creating client scope '$2'…"
+    log "➕ Creating client scope '$2'…"
     /opt/keycloak/bin/kcadm.sh create client-scopes -r "$1" --server "$KC_BOOT_URL" --insecure \
       -s "name=$2" -s protocol=openid-connect >/dev/null
     id="$(get_client_scope_id "$1" "$2")"
+  else
+    log "ℹ️  '$2' scope exists (id=$id). Skipping create."
   fi
   printf %s "$id"
 }
@@ -116,7 +138,7 @@ protocol_mapper_exists() {
 ensure_audience_mapper() {
   # $1 = realm, $2 = scope_id, $3 = target client-id, $4 = mapper display name
   if ! protocol_mapper_exists "$1" "$2" "$4"; then
-    echo "➕ Adding audience mapper '$4' to scope id $2…"
+    log "➕ Adding audience mapper '$4' to scope id $2…"
     /opt/keycloak/bin/kcadm.sh create "client-scopes/$2/protocol-mappers/models" -r "$1" --server "$KC_BOOT_URL" --insecure -f - <<JSON >/dev/null
 { "name":"$4", "protocol":"openid-connect", "protocolMapper":"oidc-audience-mapper",
   "config":{"included.client.audience":"$3","access.token.claim":"true","id.token.claim":"true","userinfo.token.claim":"false"}}
@@ -126,24 +148,25 @@ JSON
 
 ensure_default_scope_attached() {
   # $1 = realm, $2 = scope name
-  # Using += is additive and safe even if already present
   /opt/keycloak/bin/kcadm.sh update "realms/$1" --server "$KC_BOOT_URL" --insecure \
     -s "defaultDefaultClientScopes+=$2" >/dev/null 2>&1 || true
 }
 
-# ---------- Ensure 'roles' scope + mappers ----------
+# ---------- Ensure 'roles' client scope + mappers ----------
 CS_ROLES_ID=$(
   /opt/keycloak/bin/kcadm.sh get client-scopes -r "$REALM" --server "$KC_BOOT_URL" --insecure -q name=roles --fields id,name 2>/dev/null \
   | extract_first_id || true
 )
 if [ -z "${CS_ROLES_ID:-}" ]; then
-  echo "➕ Creating 'roles' client scope…"
+  log "➕ Creating 'roles' client scope…"
   /opt/keycloak/bin/kcadm.sh create client-scopes -r "$REALM" --server "$KC_BOOT_URL" --insecure \
     -s name=roles -s protocol=openid-connect >/dev/null
   CS_ROLES_ID=$(
     /opt/keycloak/bin/kcadm.sh get client-scopes -r "$REALM" --server "$KC_BOOT_URL" --insecure -q name=roles --fields id,name \
     | extract_first_id
   )
+else
+  log "ℹ️  'roles' scope exists (id=$CS_ROLES_ID). Skipping create."
 fi
 
 # Add the two standard role mappers (ignore 409)
@@ -169,19 +192,23 @@ ensure_default_scope_attached "$REALM" "email"
 # ---------- Ensure 'account-audience' scope + audience mapper -> account ----------
 CS_ACC_AUD_ID="$(ensure_client_scope "$REALM" "account-audience")"
 
-# Nice-to-have attributes
+# Validate scope id before using it in URLs
+if ! is_uuid36 "$CS_ACC_AUD_ID"; then
+  log "❌ Bad client-scope id for 'account-audience': $CS_ACC_AUD_ID"
+  exit 1
+fi
+
 /opt/keycloak/bin/kcadm.sh update "client-scopes/$CS_ACC_AUD_ID" -r "$REALM" --server "$KC_BOOT_URL" --insecure \
   -s 'attributes."display.on.consent.screen"=false' \
   -s 'attributes."consent.screen.text"=' \
   -s 'attributes."include.in.token.scope"=true' >/dev/null 2>&1 || true
-
 ensure_audience_mapper "$REALM" "$CS_ACC_AUD_ID" "account" "audience account"
 ensure_default_scope_attached "$REALM" "account-audience"
 
 # ---------- Configure built-in account-console as SPA ----------
 ACC_CONSOLE_ID=$(/opt/keycloak/bin/kcadm.sh get clients -r "$REALM" --server "$KC_BOOT_URL" --insecure -q clientId=account-console --fields id | extract_first_id || true)
 if [ -n "${ACC_CONSOLE_ID:-}" ]; then
-  echo "🛠  Configuring 'account-console' as public SPA…"
+  log "🛠  Configuring 'account-console' as public SPA…"
   /opt/keycloak/bin/kcadm.sh update "clients/$ACC_CONSOLE_ID" -r "$REALM" --server "$KC_BOOT_URL" --insecure \
     -s publicClient=true \
     -s standardFlowEnabled=true \
@@ -202,10 +229,10 @@ fi
   -s 'defaultDefaultClientScopes+=roles' \
   -s 'defaultDefaultClientScopes+=account-audience' >/dev/null 2>&1 || true
 
-# ---------- CORS/webOrigins for security-admin-console ----------
+# ---------- CORS/webOrigins for security-admin-console + account ----------
 set_weborigins() {
   _CID="$(/opt/keycloak/bin/kcadm.sh get clients -r "$REALM" --server "$KC_BOOT_URL" --insecure -q clientId="$1" --fields id 2>/dev/null | extract_first_id || true)"
-  [ -z "$_CID" ] && { echo "ℹ️  Client '$1' not found in realm '$REALM' (skipping)"; return 0; }
+  [ -z "$_CID" ] && { log "ℹ️  Client '$1' not found in realm '$REALM' (skipping)"; return 0; }
   /opt/keycloak/bin/kcadm.sh update "clients/$_CID" -r "$REALM" --server "$KC_BOOT_URL" --insecure \
     -s 'webOrigins=["+"]' >/dev/null 2>&1 || true
   /opt/keycloak/bin/kcadm.sh update "clients/$_CID" -r "$REALM" --server "$KC_BOOT_URL" --insecure \
@@ -213,35 +240,27 @@ set_weborigins() {
 }
 set_weborigins "security-admin-console"
 
-# ---------- Grant realm-management roles to 'osss-api' service account (if present) ----------
-CLIENT_ID="osss-api"
-CID=$(/opt/keycloak/bin/kcadm.sh get "clients" -r "$REALM" --server "$KC_BOOT_URL" --insecure -q clientId="$CLIENT_ID" --fields id 2>/dev/null | extract_first_id || true)
-if [ -n "${CID:-}" ]; then
-  SVC_UID=$(/opt/keycloak/bin/kcadm.sh get "clients/$CID/service-account-user" -r "$REALM" --server "$KC_BOOT_URL" --insecure --fields id 2>/dev/null | extract_first_id || true)
-  if [ -n "${SVC_UID:-}" ]; then
-    /opt/keycloak/bin/kcadm.sh add-roles -r "$REALM" --server "$KC_BOOT_URL" --insecure --uusername "$SVC_UID" \
-      --cclientid realm-management \
-      --rolename manage-clients --rolename manage-users --rolename manage-realm \
-      --rolename view-users --rolename view-realm --rolename query-users \
-      --rolename query-clients --rolename query-groups --rolename view-events \
-      --rolename view-clients --rolename view-authorization \
-      --rolename manage-authorization --rolename impersonation >/dev/null 2>&1 || true
-    /opt/keycloak/bin/kcadm.sh add-roles -r "$REALM" --server "$KC_BOOT_URL" --insecure --uusername "$SVC_UID" \
-      --cclientid account --rolename manage-account --rolename delete-account >/dev/null 2>&1 || true
-  fi
+# === Normalize the built-in 'account' client webOrigins ===
+ACC_ID=$(/opt/keycloak/bin/kcadm.sh get clients -r "$REALM" --server "$KC_BOOT_URL" --insecure -q clientId=account --fields id | extract_first_id || true)
+if [ -n "${ACC_ID:-}" ]; then
+  log "🔧 Normalizing webOrigins for 'account' client..."
+  set +e
+  /opt/keycloak/bin/kcadm.sh update "clients/$ACC_ID" -r "$REALM" --server "$KC_BOOT_URL" --insecure -s 'webOrigins=["+"]' >/dev/null 2>&1
+  /opt/keycloak/bin/kcadm.sh update "clients/$ACC_ID" -r "$REALM" --server "$KC_BOOT_URL" --insecure -s "webOrigins+=$ORIGIN" >/dev/null 2>&1
+  set -e
 fi
 
-echo "🛑 Stopping bootstrap Keycloak…"
+log "🛑 Stopping bootstrap Keycloak…"
 kill "$BOOT_PID" || true
 wait "$BOOT_PID" 2>/dev/null || true
 trap - EXIT
 
 # --- Build (once) with DB provider; runtime flags are ignored here by design ---
-echo "🔧 Building Keycloak with Postgres provider…"
+log "🔧 Building Keycloak with Postgres provider…"
 /opt/keycloak/bin/kc.sh build --db=postgres
 
 # --- Final prod server (PID 1). NOTE: no --import-realm (we already imported) ---
-echo "🚀 Starting Keycloak (prod)…"
+log "🚀 Starting Keycloak (prod)…"
 exec /opt/keycloak/bin/kc.sh start \
   --http-enabled="$KC_HTTP_ENABLED" \
   --http-port="$KC_HTTP_PORT" \

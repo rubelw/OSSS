@@ -2853,13 +2853,13 @@ Table work_orders {
 Ref: academic_terms.school_id > schools.id [delete: CASCADE]
 Ref: accommodations.iep_plan_id > iep_plans.id [delete: CASCADE]
 Ref: activities.school_id > schools.id [delete: SET NULL]
+Ref: agenda_item_approvals.approver_id > users.id
 Ref: agenda_item_approvals.step_id > agenda_workflow_steps.id [delete: CASCADE]
 Ref: agenda_item_approvals.item_id > agenda_items.id [delete: CASCADE]
-Ref: agenda_item_approvals.approver_id > users.id
 Ref: agenda_item_files.agenda_item_id > agenda_items.id [delete: CASCADE]
 Ref: agenda_item_files.file_id > files.id [delete: CASCADE]
-Ref: agenda_items.parent_id > agenda_items.id [delete: CASCADE]
 Ref: agenda_items.meeting_id > meetings.id [delete: CASCADE]
+Ref: agenda_items.parent_id > agenda_items.id [delete: CASCADE]
 Ref: agenda_workflow_steps.workflow_id > agenda_workflows.id [delete: CASCADE]
 Ref: asset_parts.part_id > parts.id [delete: CASCADE]
 Ref: asset_parts.asset_id > assets.id [delete: CASCADE]
@@ -3059,8 +3059,8 @@ Ref: motions.agenda_item_id > agenda_items.id [delete: CASCADE]
 Ref: motions.moved_by_id > users.id
 Ref: motions.seconded_by_id > users.id
 Ref: move_orders.person_id > users.id [delete: SET NULL]
-Ref: move_orders.project_id > projects.id [delete: SET NULL]
 Ref: move_orders.from_space_id > spaces.id [delete: SET NULL]
+Ref: move_orders.project_id > projects.id [delete: SET NULL]
 Ref: move_orders.to_space_id > spaces.id [delete: SET NULL]
 Ref: notifications.user_id > users.id [delete: CASCADE]
 Ref: nurse_visits.student_id > students.id [delete: CASCADE]

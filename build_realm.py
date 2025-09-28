@@ -61,40 +61,10 @@ def ensure_client_scopes(realm: dict) -> None:
         ]
     }
 
-    roles_scope = {
-        "name": "roles",
-        "protocol": "openid-connect",
-        "attributes": {"display.on.consent.screen": "false"},
-        "protocolMappers": [
-            {
-                "name": "realm roles",
-                "protocol": "openid-connect",
-                "protocolMapper": "oidc-usermodel-realm-role-mapper",
-                "config": {
-                    "claim.name": "realm_access.roles",
-                    "jsonType.label": "String",
-                    "multivalued": "true",
-                    "id.token.claim": "true",
-                    "access.token.claim": "true"
-                }
-            },
-            {
-                "name": "client roles",
-                "protocol": "openid-connect",
-                "protocolMapper": "oidc-usermodel-client-role-mapper",
-                "config": {
-                    "claim.name": "resource_access.${client_id}.roles",
-                    "jsonType.label": "String",
-                    "multivalued": "true",
-                    "id.token.claim": "true",
-                    "access.token.claim": "true"
-                }
-            }
-        ]
-    }
+
 
     _upsert_client_scope(scopes, web_origins)
-    _upsert_client_scope(scopes, roles_scope)
+    _upsert_client_scope(scopes)
 
     # Make sure these are defaults (and keep common defaults if present)
     realm.setdefault("defaultDefaultClientScopes", [])
@@ -139,6 +109,20 @@ _TABLE_RE = re.compile(
 # ---------------------------------------------------------------------
 
 LOG = logging.getLogger("realm_builder")
+
+
+
+
+# --- Added by patch: ensure 'groups-claim' is global (realm defaultDefaultClientScopes) ---
+# --- ensure 'groups-claim' scope exists and is global ---
+try:
+    _ensure_groups_claim_scope(realm)
+    _ensure_groups_claim_global(realm)
+except Exception as _e:
+    try:
+        LOG.debug("groups-claim ensure skipped: %s", _e)
+    except Exception:
+        pass
 
 def configure_logging(debug: bool = False, trace: bool = False) -> None:
     level = logging.DEBUG if (debug or os.getenv("KC_DEBUG") == "1") else logging.INFO
@@ -412,7 +396,7 @@ def _normalize_attrs(attrs: Optional[Dict[str, Any]]) -> Dict[str, List[str]]:
             out[k] = [str(v)]
     return out
 
-def ensure_default_scopes(realm, required=("roles", "account-audience")):
+def ensure_default_scopes(realm, required=()):
     """
     Make sure realm['defaultDefaultClientScopes'] contains the scopes we need.
     Idempotent: won't duplicate existing entries.
@@ -674,8 +658,7 @@ class RealmBuilder:
                 })
         # ---------------------------------------------------------------
 
-        # 👉 ensure default client scopes *here* (mutate the dict you are returning)
-        ensure_default_scopes(data, required=("roles", "account-audience"))
+
 
         # existing cleanup/normalization below (keep your current code)
         # e.g. strip empty arrays, sort keys, etc.
@@ -745,12 +728,7 @@ class RealmBuilder:
             },
         )
 
-        # If "roles" exists, make sure it has mappers; otherwise create it.
-        for cs in self.realm.clientScopes:
-            if cs.name == "roles":
-                if not cs.protocolMappers or len(cs.protocolMappers) == 0:
-                    cs.protocolMappers = [realm_roles_pm, client_roles_pm]
-                return self
+
 
         # Not found: create it
         return self.add_client_scope(
@@ -1269,7 +1247,7 @@ class RealmBuilder:
                 if raw_keycloak_admin == "true":
                     extra_groups.append("keycloak-admin")
                     my_client_roles= {
-                        "account": ["view-profile", "manage-account", "view-applications"],
+                        "realm-management": ["view-profile", "manage-realms"],
                     }
 
                 if raw_keycloak_user == "true":
@@ -1359,6 +1337,7 @@ class RealmBuilder:
                     "add_users_from_rbac_positions: added POSITION user '%s' (group=%s, has_pw=%s, temp=%s)",
                     uname, path, bool(pw), temporary_password
                 )
+
                 added += 1
 
             # 2) LEAF-UNIT USER (unchanged)
@@ -1555,6 +1534,23 @@ class RealmBuilder:
         )
         return data
 
+
+def _to_partial_import(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Convert a full realm export payload into a Keycloak partial import payload.
+    This removes the top-level "realm" (e.g., "OSSS") so the file can be imported
+    into an already-selected realm. We also drop "id" if present and add
+    "ifResourceExists": "SKIP" (Keycloak will skip duplicates).
+    """
+    # Make a shallow copy so we don't mutate the original
+    data = dict(payload)
+    # Remove realm identifier and id from the root for partial import usage
+    data.pop("realm", None)
+    data.pop("id", None)
+    # Add/override partial-import behavior
+    if "ifResourceExists" not in data:
+        data["ifResourceExists"] = "SKIP"
+    return data
 # ---------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------
@@ -1592,6 +1588,8 @@ if __name__ == "__main__":
     parser.add_argument("--out", default="realm-export.json", help="Output file path")
     parser.add_argument("--debug", action="store_true", help="Enable DEBUG logging (or KC_DEBUG=1)")
     parser.add_argument("--trace", action="store_true", help="Ultra-verbose logging below DEBUG")
+    parser.add_argument("--mode", choices=["partial", "full"], default="partial",
+                        help="Output format. 'partial' omits top-level realm for partial import (default).")
     parser.add_argument("--skip-email-scope", action="store_true", help="Do not add 'email' client scope")
     args = parser.parse_args()
 
@@ -2104,6 +2102,8 @@ if __name__ == "__main__":
     )
 
 
+
+
     # --- Rebuild DBML from models ----
     import_all_models("OSSS.db.models")
     # Import the Base that models registered on
@@ -2181,7 +2181,6 @@ if __name__ == "__main__":
     )
 
     rb.add_builtin_oidc_scopes()  # currently creates names only (no mappers) :contentReference[oaicite:2]{index=2}
-    rb.ensure_roles_scope_with_mappers()
     rb.ensure_client_roles_scope("osss-api", scope_name="osss-api-roles")
     rb.ensure_client_roles_scope("osss-web", scope_name="osss-web-roles")
 
@@ -2195,24 +2194,6 @@ if __name__ == "__main__":
         temporary_password=False
     )
 
-    rb.add_user(
-        username="teacher@osss.local",
-        email="teacher@osss.local",
-        first_name="Pat",
-        last_name="Teacher",
-        enabled=True,
-        totp=False,
-        email_verified=True,
-        password="password",
-        temporary_password=False,
-        realm_roles=["uma_authorization"],
-        client_roles={
-            "account": ["view-profile"],
-            "osss-api": ["api.user", "api.teacher"],  # create a "user" role on your osss-api
-        },
-        attributes={"role": ["teacher"]},
-    )
-
 
     out = rb.export()
 
@@ -2220,9 +2201,15 @@ if __name__ == "__main__":
     # with this (singular name, if that's how you defined it):
     out = rb._finalize_for_export()
 
+    if args.mode == "partial":
+        out = _to_partial_import(out)
+        LOG.info("Prepared partial import (no top-level realm).")
+    else:
+        LOG.info("Prepared full realm export.")
+
     with open(args.out, "w") as f:
         json.dump(out, f, indent=2)
-    LOG.info("Wrote realm export to %s", args.out)
+    LOG.info("Wrote %s export to %s", args.mode, args.out)
 
 # ---- RealmBuilder override/refactor shim ------------------------------------
 from typing import Mapping, Any, Callable
@@ -2335,3 +2322,79 @@ else:
             )
         RealmBuilder.build = _rb_build_min  # type: ignore[attr-defined]
 # -----------------------------------------------------------------------------
+
+def _ensure_groups_claim_scope(realm: dict) -> None:
+    """Create a 'groups-claim' client scope when referenced but missing.
+
+    Detects references in realm['defaultDefaultClientScopes'] and in each client's
+    'defaultClientScopes'. If referenced and missing, creates a scope named
+    'groups-claim' with an OIDC group-membership mapper that emits a 'groups'
+    array in access, ID, and userinfo tokens.
+    """
+    try:
+        name = "groups-claim"
+        realm.setdefault("clientScopes", [])
+        scopes = realm["clientScopes"]
+        # Check if scope already exists
+        if any((s.get("name") == name) for s in scopes):
+            return
+
+        # Check references at realm level
+        realm_refs = set(realm.get("defaultDefaultClientScopes") or [])
+        referenced = name in realm_refs
+
+        # Check client-level references
+        for c in (realm.get("clients") or []):
+            dcs = c.get("defaultClientScopes") or []
+            if name in dcs:
+                referenced = True
+                break
+
+        if not referenced:
+            return  # nothing to do
+
+        scope = {
+            "name": name,
+            "protocol": "openid-connect",
+            "attributes": {"display.on.consent.screen": "false"},
+            "protocolMappers": [
+                {
+                    "name": "groups",
+                    "protocol": "openid-connect",
+                    "protocolMapper": "oidc-group-membership-mapper",
+                    "consentRequired": False,
+                    "config": {
+                        "full.path": "false",
+                        "id.token.claim": "true",
+                        "access.token.claim": "true",
+                        "userinfo.token.claim": "true",
+                        "claim.name": "groups",
+                        "jsonType.label": "String",
+                    },
+                }
+            ],
+        }
+        scopes.append(scope)
+        try:
+            LOG.info("Created missing client scope 'groups-claim' with group-membership mapper")
+        except Exception:
+            pass
+    except Exception as e:
+        try:
+            LOG.warning("Failed to ensure 'groups-claim' scope: %s", e)
+        except Exception:
+            pass
+
+
+def _ensure_groups_claim_global(realm: dict) -> None:
+    """Ensure 'groups-claim' is included globally in defaultDefaultClientScopes."""
+    name = "groups-claim"
+    ddefs = realm.setdefault("defaultDefaultClientScopes", [])
+    if name not in ddefs:
+        ddefs.append(name)
+        if 'LOG' in globals():
+            try:
+                LOG.info("Added 'groups-claim' to realm defaultDefaultClientScopes")
+            except Exception:
+                pass
+
