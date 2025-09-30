@@ -31,3 +31,11 @@ class Topic(UUIDMixin, Base):
 
     # relationship back to User
     user: Mapped["User"] = relationship("User", back_populates="topic")
+
+    courseworks: Mapped[List["CourseWork"]] = relationship(
+        "CourseWork",
+        back_populates="topic",
+        cascade="all, delete-orphan",
+        foreign_keys="CourseWork.topic_id",
+        passive_deletes=True,
+    )

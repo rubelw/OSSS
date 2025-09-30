@@ -33,7 +33,9 @@ class UserProfile(UUIDMixin, Base):
     user: Mapped["User"] = relationship("User", back_populates="userprofile")
 
     submissions: Mapped[list["StudentSubmission"]] = relationship(
-        "StudentSubmission", back_populates="student", cascade="all,delete-orphan"
+        "StudentSubmission",
+        primaryjoin=lambda: UserProfile.user_id == foreign(StudentSubmission.student_user_id),
+        viewonly=True,  # not directly writable (no FK path)
+        overlaps="submissions,user",  # optional: silences overlap warnings if you see them
     )
-
 

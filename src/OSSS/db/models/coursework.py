@@ -22,7 +22,10 @@ class CourseWork(UUIDMixin, Base):
     )
 
     course_id: Mapped[int] = mapped_column(ForeignKey("courses.id", ondelete="CASCADE"), index=True, nullable=False)
-    topic_id: Mapped[Optional[int]] = mapped_column(ForeignKey("topics.id", ondelete="SET NULL"))
+    topic_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        GUID, sa.ForeignKey("topics.id", ondelete="SET NULL"),
+        index=True, nullable=True
+    )
 
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[Optional[str]] = mapped_column(Text)
@@ -44,14 +47,15 @@ class CourseWork(UUIDMixin, Base):
     # relationships
     course: Mapped["Course"] = relationship(
         "Course",
-        back_populates="courseworks",
+        back_populates="coursework",
         passive_deletes=True,
     )
 
     topic: Mapped[Optional["Topic"]] = relationship(
         "Topic",
         back_populates="courseworks",
-        passive_deletes=True,
+        foreign_keys=[topic_id],
+        passive_deletes=True,  # harmless with SET NULL
     )
 
     materials: Mapped[List["Material"]] = relationship(
@@ -71,6 +75,6 @@ class CourseWork(UUIDMixin, Base):
 
     user: Mapped["User"] = relationship(
         "User",
-        back_populates="coursework",  # <-- make sure User has `courseworks = relationship("CourseWork", back_populates="user", ...)`
+        back_populates="coursework",  # <-- make sure User has `coursework = relationship("CourseWork", back_populates="user", ...)`
         passive_deletes=True,
     )

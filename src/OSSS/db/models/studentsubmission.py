@@ -29,7 +29,7 @@ class StudentSubmission(UUIDMixin, Base):
 
     # which coursework
     coursework_id: Mapped[uuid.UUID] = mapped_column(
-        GUID, ForeignKey("courseworks.id", ondelete="CASCADE"),
+        GUID, ForeignKey("coursework.id", ondelete="CASCADE"),
         index=True, nullable=False
     )
 
@@ -57,3 +57,8 @@ class StudentSubmission(UUIDMixin, Base):
         foreign_keys="StudentSubmission.coursework_id",
         passive_deletes=True,
     )
+    user_profile_id: Mapped[uuid.UUID | None] = mapped_column(
+        GUID, sa.ForeignKey("user_profiles.id", ondelete="SET NULL"), index=True
+    )
+    profile: Mapped["UserProfile"] = relationship("UserProfile", back_populates="submissions")
+
