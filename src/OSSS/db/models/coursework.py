@@ -13,7 +13,7 @@ from OSSS.db.base import Base, GUID, UUIDMixin
 
 
 class CourseWork(UUIDMixin, Base):
-    __tablename__ = "courseworks"
+    __tablename__ = "coursework"
 
     # who created/owns this coursework
     user_id: Mapped[uuid.UUID] = mapped_column(
@@ -71,6 +71,6 @@ class CourseWork(UUIDMixin, Base):
 
     user: Mapped["User"] = relationship(
         "User",
-        back_populates="courseworks",  # <-- make sure User has `courseworks = relationship("CourseWork", back_populates="user", ...)`
+        back_populates="coursework",  # <-- make sure User has `courseworks = relationship("CourseWork", back_populates="user", ...)`
         passive_deletes=True,
     )
