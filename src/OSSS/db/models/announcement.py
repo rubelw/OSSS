@@ -31,5 +31,5 @@ class Announcement(UUIDMixin, Base):
     course: Mapped[Course] = relationship(back_populates="announcements")
     materials: Mapped[list["Material"]] = relationship(back_populates="announcement", cascade="all,delete-orphan")
 
-    user: Mapped["User"] = relationship("User", back_populates="annoucement")
+    user: Mapped["User"] = relationship("User", back_populates="announcement")
 

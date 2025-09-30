@@ -34,12 +34,19 @@ from .governing_bodies import *
 from .buildings import *
 from .bus_routes import *
 from .bus_stop_times import *
+from .topic import *
+from .turn_in import *
+from .turn_out import *
+from .tutor import *
+from .tutor_spec import *
+from .tutor_session import *
 from .bus_stops import *
 from .calendar_days import *
 from .calendars import *
 from .camp_registrations import *
 from .camps import *
 from .channels import *
+from .announcement import *
 from .committees import *
 from .concession_items import *
 from .concession_sale_items import *
@@ -85,6 +92,9 @@ from .contacts import *
 from .course_prerequisites import *
 from .course_sections import *
 from .courses import *
+from .coursework import *
+from .coursestudent import *
+from .courseteacher import *
 from .curricula import *
 from .curriculum_units import *
 from .curriculum_version import *
@@ -249,6 +259,7 @@ from .student_transportation_assignments import *
 from .students import *
 from .subjects import *
 from .subscriptions import *
+from .studentsubmission import *
 from .tags import *
 from .teacher_section_assignments import *
 from .test_administrations import *

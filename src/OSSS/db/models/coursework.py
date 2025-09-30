@@ -1,8 +1,8 @@
 from __future__ import annotations
-from typing import Optional, List
-from datetime import datetime
+from typing import Optional, List, Any
+from datetime import datetime, date, time
 from sqlalchemy import (
-    String, Integer, DateTime, Boolean, Text, JSON, ForeignKey, Enum as SQLEnum
+    String, Integer, DateTime, Boolean, Text, JSON, ForeignKey, Date, Time, Float, Enum as SQLEnum
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -34,5 +34,8 @@ class CourseWork(UUIDMixin, Base):
     course: Mapped[Course] = relationship(back_populates="coursework")
     topic: Mapped[Optional[Topic]] = relationship()
     materials: Mapped[list["Material"]] = relationship(back_populates="coursework", cascade="all,delete-orphan")
-    submissions: Mapped[list["StudentSubmission"]] = relationship(back_populates="coursework", cascade="all,delete-orphan")
+    submissions: Mapped[list["StudentSubmission"]] = relationship(
+        "StudentSubmission", back_populates="coursework", cascade="all,delete-orphan"
+    )
+
     user: Mapped["User"] = relationship("User", back_populates="coursework")

@@ -1,57 +1,41 @@
+# src/OSSS/db/models/tutor_spec.py
 from __future__ import annotations
 
-from typing import List
+from typing import Optional, Any, TYPE_CHECKING
 import sqlalchemy as sa
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import String, ForeignKey, Text
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from OSSS.db.base import Base, UUIDMixin, JSONB
+from OSSS.db.base import Base, UUIDMixin, GUID
 
-__all__ = ["TutorSpec"]
+if TYPE_CHECKING:
+    from .tutor import Tutor
 
 
 class TutorSpec(UUIDMixin, Base):
     __tablename__ = "tutor_spec"
-    __allow_unmapped__ = True
+    __allow_unmapped__ = True  # keep NOTE strings (if any) out of the mapper
 
-    NOTE: str = (
-        "owner=curriculum_instruction_assessment | division_of_schools | ai_tutor_system; "
-        "description=Specification for invoking a particular tutor/agent. "
-        "References related entities via: turn_in. "
-        "Includes standard audit timestamps (created_at). "
-        "4 column(s) defined. "
-        "Primary key is `id`. "
-        "No foreign key field(s) detected."
-    )
-
-    __table_args__ = {
-        "comment": (
-            "Specification for invoking a particular tutor/agent. "
-            "References related entities via: turn_in. "
-            "Includes standard audit timestamps (created_at). "
-            "4 column(s) defined. "
-            "Primary key is `id`. "
-            "No foreign key field(s) detected."
-        ),
-        "info": {
-            "note": NOTE,
-            "description": (
-                "Specification for invoking a particular tutor/agent. "
-                "References related entities via: turn_in. "
-                "Includes standard audit timestamps (created_at). "
-                "4 column(s) defined. "
-                "Primary key is `id`. "
-                "No foreign key field(s) detected."
-            ),
-        },
-    }
-
-    # --- Columns ---
-    tutor_id: Mapped[str] = mapped_column("id", sa.Text, nullable=False, index=True)
-    weight: Mapped[float] = mapped_column(sa.Float, nullable=False, server_default="1.0")
-    domain: Mapped[List[str]] = mapped_column(JSONB, nullable=False, server_default="[]")
-
-    created_at: Mapped[sa.DateTime] = mapped_column(
-        sa.DateTime(timezone=True),
-        server_default=sa.func.now(),
+    # Keep UUIDMixin.id as the sole primary key. Do NOT declare another "id".
+    tutor_id: Mapped[Any] = mapped_column(
+        GUID(),
+        ForeignKey("tutors.id", ondelete="CASCADE"),
+        index=True,
         nullable=False,
+        unique=True,
     )
+
+    # Example fields (adjust to your schema)
+    spec_json: Mapped[Optional[dict]] = mapped_column(sa.JSON, nullable=True)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    # Audit timestamps
+    created_at: Mapped[sa.DateTime] = mapped_column(
+        sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
+    )
+    updated_at: Mapped[sa.DateTime] = mapped_column(
+        sa.DateTime(timezone=True), server_default=sa.func.now(), onupdate=sa.func.now(), nullable=False
+    )
+
+    # Relationships
+    tutor: Mapped["Tutor"] = relationship(back_populates="spec")

@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from typing import List
+from typing import Any, List, Optional
 import sqlalchemy as sa
+from sqlalchemy import ForeignKey, Text
 from sqlalchemy.orm import Mapped, mapped_column
+from OSSS.db.base import Base, UUIDMixin, JSONB, GUID
 
-from OSSS.db.base import Base, UUIDMixin, JSONB
 
 __all__ = ["TurnIn"]
 
@@ -46,11 +47,9 @@ class TurnIn(UUIDMixin, Base):
     }
 
     # --- Columns ---
-    session_id: Mapped[str] = mapped_column(
-        sa.Text,
-        sa.ForeignKey("sessions.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True,
+    # match sessions.id (UUID via UUIDMixin) -> use GUID()
+    session_id: Mapped[Any] = mapped_column(
+        GUID(), ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False, index=True
     )
 
     prompt: Mapped[str] = mapped_column(sa.Text, nullable=False)
