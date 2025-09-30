@@ -49,6 +49,13 @@ class User(UUIDMixin, TimestampMixin, Base):
         "Announcement", back_populates="user", cascade="all, delete-orphan"
     )
 
+    submissions: Mapped[list["StudentSubmission"]] = relationship(
+        "StudentSubmission",
+        back_populates="student",
+        cascade="all, delete-orphan",
+    )
+
+
     def __repr__(self) -> str:
         return f"User(id={self.id!r}, username={self.username!r})"
 

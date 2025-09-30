@@ -14,10 +14,12 @@ from OSSS.db.base import Base,GUID, UUIDMixin, JSONB  # keep if JSONB is a cross
 class StudentSubmission(UUIDMixin, Base):
     __tablename__ = "student_submissions"
 
-    student_user_id: Mapped[Any] = mapped_column(
-        GUID(), ForeignKey("user_profiles.id", ondelete="CASCADE"), index=True, nullable=False
+    # define FK column first
+    student_user_id: Mapped[uuid.UUID] = mapped_column(
+        GUID, ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
     )
-    coursework_id: Mapped[Any] = mapped_column(
+
+    coursework_id: Mapped[uuid.UUID] = mapped_column(
         GUID(), ForeignKey("coursework.id", ondelete="CASCADE"), index=True, nullable=False
     )
 
@@ -30,10 +32,10 @@ class StudentSubmission(UUIDMixin, Base):
     update_time: Mapped[Optional[datetime]] = mapped_column(DateTime)
 
     # ✅ relationships must reference the FK column explicitly when there are multiple FKs to same table
-    student: Mapped["UserProfile"] = relationship(
-        "UserProfile",
+    student: Mapped["User"] = relationship(
+        "User",
+        back_populates="submissions",
         foreign_keys=[student_user_id],
-        back_populates="submissions",  # <-- make sure UserProfile has .submissions
     )
 
     coursework: Mapped["CourseWork"] = relationship(
