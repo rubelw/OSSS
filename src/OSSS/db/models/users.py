@@ -1,12 +1,9 @@
 from __future__ import annotations
 
-import uuid
-from datetime import datetime, date, time
-from sqlalchemy.types import TypeDecorator, CHAR   # <-- required for the GUID shim
 import sqlalchemy as sa
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from typing import List
-from OSSS.db.base import Base, UUIDMixin, GUID, JSONB, TimestampMixin
+
+from OSSS.db.base import Base, UUIDMixin, TimestampMixin
 
 
 class User(UUIDMixin, TimestampMixin, Base):
@@ -20,44 +17,37 @@ class User(UUIDMixin, TimestampMixin, Base):
         )
     }
 
-    username: Mapped[str] = mapped_column(sa.Text, unique=True, nullable=False)
-    email: Mapped[str] = mapped_column(sa.Text, unique=True, nullable=False)
-    userprofile: Mapped[List["UserProfile"]] = relationship(
+    username: Mapped[str] = mapped_column(sa.Text, unique=True, nullable=False, index=True)
+    email: Mapped[str] = mapped_column(sa.Text, unique=True, nullable=False, index=True)
+
+    # --- One-to-manys to other models ---
+    userprofile: Mapped[list["UserProfile"]] = relationship(
         "UserProfile", back_populates="user", cascade="all, delete-orphan"
     )
-    topic: Mapped[List["Topic"]] = relationship(
+    topic: Mapped[list["Topic"]] = relationship(
         "Topic", back_populates="user", cascade="all, delete-orphan"
     )
-
-    studentsubmission: Mapped[List["StudentSubmission"]] = relationship(
-        "StudentSubmission", back_populates="user", cascade="all, delete-orphan"
-    )
-
-    guardianinvitation: Mapped[List["GuardianInvitation"]] = relationship(
+    guardianinvitation: Mapped[list["GuardianInvitation"]] = relationship(
         "GuardianInvitation", back_populates="user", cascade="all, delete-orphan"
     )
-
-    coursework: Mapped[List["CourseWork"]] = relationship(
+    coursework: Mapped[list["CourseWork"]] = relationship(
         "CourseWork", back_populates="user", cascade="all, delete-orphan"
     )
-
-    course: Mapped[List["Course"]] = relationship(
+    course: Mapped[list["Course"]] = relationship(
         "Course", back_populates="user", cascade="all, delete-orphan"
     )
-
-    announcement: Mapped[List["Announcement"]] = relationship(
+    announcement: Mapped[list["Announcement"]] = relationship(
         "Announcement", back_populates="user", cascade="all, delete-orphan"
     )
 
+    # --- Reverse side of StudentSubmission.student ---
     submissions: Mapped[list["StudentSubmission"]] = relationship(
         "StudentSubmission",
         back_populates="student",
-        cascade="all, delete-orphan",
         foreign_keys="StudentSubmission.student_user_id",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )
 
     def __repr__(self) -> str:
         return f"User(id={self.id!r}, username={self.username!r})"
-
-
-
