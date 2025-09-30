@@ -1,11 +1,9 @@
-# --- Stage 1: build self-contained curl and jq bundles (binaries + NON-glibc libs + CA)
-FROM registry.access.redhat.com/ubi9/ubi-minimal AS curlbundle
+# --- Stage 1: build self-contained curl, jq, and awk bundles (binaries + NON-glibc libs + CA)
+FROM registry.access.redhat.com/ubi9/ubi-minimal AS toolbundle
 
-# Ensure CA certs; install curl-minimal and jq if missing
+# Ensure CA certs; install curl-minimal, jq, and gawk
 RUN set -eux; \
-    microdnf -y install ca-certificates && microdnf clean all; \
-    test -x /usr/bin/curl || (microdnf -y install curl-minimal && microdnf clean all); \
-    test -x /usr/bin/jq   || (microdnf -y install jq && microdnf clean all)
+    microdnf -y install ca-certificates curl-minimal jq gawk && microdnf clean all
 
 # ---- curl bundle
 RUN set -eux; \
@@ -37,7 +35,7 @@ exec /opt/curl/bin/curl-real "$@"
 SH
 RUN chmod +x /out/opt/curl/bin/curl
 
-# ---- jq bundle (same idea)
+# ---- jq bundle
 RUN set -eux; \
     mkdir -p /out/opt/jq/bin /out/opt/jq/lib; \
     cp -a /usr/bin/jq /out/opt/jq/bin/jq-real; \
@@ -49,7 +47,6 @@ RUN set -eux; \
           *) cp -L "$lib" "/out/opt/jq/lib/$base" ;; \
         esac; \
       done; \
-    # include common extras if present
     for extra in /lib64/libonig.so.* /lib64/libjq.so.* /lib64/libz.so.*; do \
       [ -e "$extra" ] && cp -L "$extra" "/out/opt/jq/lib/$(basename "$extra")" || true; \
     done; \
@@ -60,16 +57,41 @@ exec /opt/jq/bin/jq-real "$@"
 SH
 RUN chmod +x /out/opt/jq/bin/jq
 
+# ---- awk (gawk) bundle
+RUN set -eux; \
+    mkdir -p /out/opt/awk/bin /out/opt/awk/lib; \
+    cp -a /usr/bin/gawk /out/opt/awk/bin/gawk-real; \
+    # symlink name 'awk' for convenience
+    ln -s gawk-real /out/opt/awk/bin/awk-real; \
+    ldd /usr/bin/gawk | awk '{print $3}' | grep -E '^/' | \
+      while read -r lib; do \
+        base="$(basename "$lib")"; \
+        case "$base" in \
+          libc.so.*|libm.so.*|libdl.so.*|libpthread.so.*|librt.so.*|libresolv.so.*|libnsl.so.*|ld-linux*.so.*) ;; \
+          *) cp -L "$lib" "/out/opt/awk/lib/$base" ;; \
+        esac; \
+      done; \
+    for extra in /lib64/libreadline.so.* /lib64/libz.so.*; do \
+      [ -e "$extra" ] && cp -L "$extra" "/out/opt/awk/lib/$(basename "$extra")" || true; \
+    done; \
+    cat > /out/opt/awk/bin/gawk <<'SH'
+#!/bin/sh
+export LD_LIBRARY_PATH="/opt/awk/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+exec /opt/awk/bin/gawk-real "$@"
+SH
+RUN chmod +x /out/opt/awk/bin/gawk; ln -s gawk /out/opt/awk/bin/awk
+
 # --- Stage 2: Keycloak image (no package manager)
 FROM quay.io/keycloak/keycloak:25.0.6
 
 USER root
-# Add the curl & jq bundles under /opt (no touching /lib* or /etc/*)
-COPY --from=curlbundle /out/opt/curl /opt/curl
-COPY --from=curlbundle /out/opt/jq   /opt/jq
+# Add the tool bundles under /opt (no touching /lib* or /etc/*)
+COPY --from=toolbundle /out/opt/curl /opt/curl
+COPY --from=toolbundle /out/opt/jq   /opt/jq
+COPY --from=toolbundle /out/opt/awk  /opt/awk
 
 # Put our tools on PATH (no global LD_LIBRARY_PATH!)
-ENV PATH="/opt/curl/bin:/opt/jq/bin:${PATH}"
+ENV PATH="/opt/curl/bin:/opt/jq/bin:/opt/awk/bin:${PATH}"
 
 # Your init/start scripts
 COPY scripts/kc-init-and-start.sh /opt/keycloak/init-and-start.sh

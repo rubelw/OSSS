@@ -64,4 +64,10 @@ class Student(UUIDMixin, Base):
     created_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), server_default=sa.func.now(), onupdate=sa.func.now(), nullable=False)
 
+    sessions: Mapped[List["TutorSession"]] = relationship(
+        "TutorSession",
+        back_populates="student",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 

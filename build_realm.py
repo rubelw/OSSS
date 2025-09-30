@@ -61,10 +61,40 @@ def ensure_client_scopes(realm: dict) -> None:
         ]
     }
 
-
+    roles_scope = {
+        "name": "roles",
+        "protocol": "openid-connect",
+        "attributes": {"display.on.consent.screen": "false"},
+        "protocolMappers": [
+            {
+                "name": "realm roles",
+                "protocol": "openid-connect",
+                "protocolMapper": "oidc-usermodel-realm-role-mapper",
+                "config": {
+                    "claim.name": "realm_access.roles",
+                    "jsonType.label": "String",
+                    "multivalued": "true",
+                    "id.token.claim": "true",
+                    "access.token.claim": "true"
+                }
+            },
+            {
+                "name": "client roles",
+                "protocol": "openid-connect",
+                "protocolMapper": "oidc-usermodel-client-role-mapper",
+                "config": {
+                    "claim.name": "resource_access.${client_id}.roles",
+                    "jsonType.label": "String",
+                    "multivalued": "true",
+                    "id.token.claim": "true",
+                    "access.token.claim": "true"
+                }
+            }
+        ]
+    }
 
     _upsert_client_scope(scopes, web_origins)
-    _upsert_client_scope(scopes)
+    _upsert_client_scope(scopes, roles_scope)
 
     # Make sure these are defaults (and keep common defaults if present)
     realm.setdefault("defaultDefaultClientScopes", [])
@@ -396,7 +426,7 @@ def _normalize_attrs(attrs: Optional[Dict[str, Any]]) -> Dict[str, List[str]]:
             out[k] = [str(v)]
     return out
 
-def ensure_default_scopes(realm, required=()):
+def ensure_default_scopes(realm, required=("roles", "account-audience")):
     """
     Make sure realm['defaultDefaultClientScopes'] contains the scopes we need.
     Idempotent: won't duplicate existing entries.
@@ -658,7 +688,8 @@ class RealmBuilder:
                 })
         # ---------------------------------------------------------------
 
-
+        # 👉 ensure default client scopes *here* (mutate the dict you are returning)
+        ensure_default_scopes(data, required=("roles", "account-audience"))
 
         # existing cleanup/normalization below (keep your current code)
         # e.g. strip empty arrays, sort keys, etc.
@@ -728,7 +759,12 @@ class RealmBuilder:
             },
         )
 
-
+        # If "roles" exists, make sure it has mappers; otherwise create it.
+        for cs in self.realm.clientScopes:
+            if cs.name == "roles":
+                if not cs.protocolMappers or len(cs.protocolMappers) == 0:
+                    cs.protocolMappers = [realm_roles_pm, client_roles_pm]
+                return self
 
         # Not found: create it
         return self.add_client_scope(
@@ -834,6 +870,78 @@ class RealmBuilder:
         return self
 
     # --- clients ---
+    def _normalize_client_lists(self, c: ClientRepresentation) -> None:
+        """Ensure list-y client fields are lists and deduped + stable-sorted."""
+
+        def _dedupe(seq):
+            if seq is None:
+                return None
+            seen, out = set(), []
+            for x in seq:
+                if x not in seen:
+                    seen.add(x)
+                    out.append(x)
+            return out
+
+        if c.redirectUris is not None and not isinstance(c.redirectUris, list):
+            c.redirectUris = [c.redirectUris]
+        if c.webOrigins is not None and not isinstance(c.webOrigins, list):
+            c.webOrigins = [c.webOrigins]
+        if c.defaultClientScopes is not None and not isinstance(c.defaultClientScopes, list):
+            c.defaultClientScopes = [c.defaultClientScopes]
+        if c.optionalClientScopes is not None and not isinstance(c.optionalClientScopes, list):
+            c.optionalClientScopes = [c.optionalClientScopes]
+
+        c.redirectUris = _dedupe(c.redirectUris or [])
+        c.webOrigins = _dedupe(c.webOrigins or [])
+        c.defaultClientScopes = _dedupe(c.defaultClientScopes or [])
+        c.optionalClientScopes = _dedupe(c.optionalClientScopes or [])
+
+    def ensure_client(self, client_id: str, **kwargs) -> "RealmBuilder":
+        """Upsert a Client by clientId. Merges list fields & attributes; doesn't
+        drop existing settings unless explicitly overridden."""
+        kw = dict(kwargs)
+        keymap = {
+            "root_url": "rootUrl", "base_url": "baseUrl", "admin_url": "adminUrl",
+            "public_client": "publicClient", "bearer_only": "bearerOnly",
+            "direct_access_grants_enabled": "directAccessGrantsEnabled",
+            "service_accounts_enabled": "serviceAccountsEnabled",
+            "standard_flow_enabled": "standardFlowEnabled",
+            "implicit_flow_enabled": "implicitFlowEnabled",
+            "frontchannel_logout": "frontchannelLogout",
+            "redirect_uris": "redirectUris", "web_origins": "webOrigins",
+            "default_client_scopes": "defaultClientScopes",
+            "optional_client_scopes": "optionalClientScopes",
+            "client_authenticator_type": "clientAuthenticatorType",
+            "full_scope_allowed": "fullScopeAllowed",
+            "authorization_services_enabled": "authorizationServicesEnabled",
+            "authorization_settings": "authorizationSettings",
+        }
+        for snake, camel in keymap.items():
+            if snake in kw and camel not in kw:
+                kw[camel] = kw.pop(snake)
+
+        existing = next((c for c in self.realm.clients if getattr(c, "clientId", None) == client_id), None)
+        if existing:
+            for k, v in kw.items():
+                if v is None:
+                    continue
+                if k in ("redirectUris", "webOrigins", "defaultClientScopes", "optionalClientScopes"):
+                    cur = getattr(existing, k, []) or []
+                    if not isinstance(v, list):
+                        v = [v]
+                    setattr(existing, k, sorted(set(cur).union(v)))
+                elif k == "attributes":
+                    cur = getattr(existing, "attributes", {}) or {}
+                    cur.update(v or {})
+                    existing.attributes = cur
+                else:
+                    setattr(existing, k, v)
+            self._normalize_client_lists(existing)
+            LOG.debug("Upserted existing client '%s'", client_id)
+            return self
+        return self.add_client(client_id, **kw)
+
     def add_client(self, client_id: str, **kwargs) -> "RealmBuilder":
 
         kw = dict(kwargs)
@@ -1535,22 +1643,35 @@ class RealmBuilder:
         return data
 
 
-def _to_partial_import(payload: Dict[str, Any]) -> Dict[str, Any]:
+# --------------------- Partial Import Helper ---------------------
+from typing import Dict, Any
+
+def _to_partial_import(payload: Dict[str, Any], if_exists: str = "SKIP") -> Dict[str, Any]:
     """
-    Convert a full realm export payload into a Keycloak partial import payload.
-    This removes the top-level "realm" (e.g., "OSSS") so the file can be imported
-    into an already-selected realm. We also drop "id" if present and add
-    "ifResourceExists": "SKIP" (Keycloak will skip duplicates).
+    Convert a full Keycloak realm export payload to a safe *partial import* payload.
+    - Removes top-level realm/config keys (e.g., "realm", timeouts, etc.)
+    - Keeps only allowed resource arrays/maps: roles, groups, users, clients, clientScopes, etc.
+    - Adds "ifResourceExists": SKIP|OVERWRITE|FAIL (default SKIP)
     """
-    # Make a shallow copy so we don't mutate the original
-    data = dict(payload)
-    # Remove realm identifier and id from the root for partial import usage
-    data.pop("realm", None)
-    data.pop("id", None)
-    # Add/override partial-import behavior
-    if "ifResourceExists" not in data:
-        data["ifResourceExists"] = "SKIP"
-    return data
+    allowed = {
+        "users",
+        "groups",
+        "clients",
+        "clientScopes",
+        "roles",
+        "identityProviders",
+        "components",
+        "clientScopeMappings",
+        "scopeMappings",
+        "authenticationFlows",
+        "authenticatorConfig",
+        "requiredActions",
+    }
+    out: Dict[str, Any] = {"ifResourceExists": str(if_exists).upper() if if_exists else "SKIP"}
+    for k in allowed:
+        if k in payload and payload[k] not in (None, [], {}):
+            out[k] = payload[k]
+    return out
 # ---------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------
@@ -1590,6 +1711,8 @@ if __name__ == "__main__":
     parser.add_argument("--trace", action="store_true", help="Ultra-verbose logging below DEBUG")
     parser.add_argument("--mode", choices=["partial", "full"], default="partial",
                         help="Output format. 'partial' omits top-level realm for partial import (default).")
+    parser.add_argument("--if-exists", choices=["SKIP","OVERWRITE","FAIL"], default="SKIP",
+                        help="Policy for partial import when resources already exist.")
     parser.add_argument("--skip-email-scope", action="store_true", help="Do not add 'email' client scope")
     args = parser.parse_args()
 
@@ -1667,7 +1790,7 @@ if __name__ == "__main__":
     # --- Clients ---
 
     # Primary test client: allow password + auth code for tests
-    rb.add_client(
+    rb.ensure_client(
         client_id="osss-api",
         name="osss-api",
         redirect_uris=["http://localhost:8081/*"],
@@ -1726,7 +1849,7 @@ if __name__ == "__main__":
 
     )
 
-    rb.add_client(
+    rb.ensure_client(
         client_id="osss-web",
         name="osss-web",
         root_url="http://localhost:3000",
@@ -1772,7 +1895,7 @@ if __name__ == "__main__":
 
 
     # Vault (OIDC for HashiCorp Vault dev)
-    rb.add_client(
+    rb.ensure_client(
         client_id="vault",
         name="vault",
         redirect_uris=["http://localhost:8250/oidc/callback",
@@ -1794,7 +1917,7 @@ if __name__ == "__main__":
         optional_client_scopes=["roles",    "offline_access"],
     )
 
-    rb.add_client(
+    rb.ensure_client(
         client_id="consul",
         name="consul",
         redirect_uris=["http://localhost:8500/ui/*",
@@ -1815,7 +1938,7 @@ if __name__ == "__main__":
     )
 
     # Kibana
-    rb.add_client(
+    rb.ensure_client(
         client_id="kibana",
         name="kibana",
         redirect_uris=["http://localhost:5601/api/security/oidc/callback",
@@ -1836,7 +1959,7 @@ if __name__ == "__main__":
         optional_client_scopes=["roles",    "offline_access"],
     )
 
-    rb.add_client(
+    rb.ensure_client(
         client_id="trino",
         name="trino",
         redirect_uris=["https://localhost:8444/oauth2/callback",
@@ -1856,7 +1979,7 @@ if __name__ == "__main__":
         optional_client_scopes=["roles",    "offline_access"],
     )
 
-    rb.add_client(
+    rb.ensure_client(
         client_id="airflow",
         name="airflow",
         redirect_uris=["http://localhost:8083/oauth-authorized/keycloak",
@@ -1876,7 +1999,7 @@ if __name__ == "__main__":
         optional_client_scopes=["roles",    "offline_access"],
     )
 
-    rb.add_client(
+    rb.ensure_client(
         client_id="openmetadata",
         name="openmetadata",
         redirect_uris=["http://localhost:8585/callback",
@@ -2181,6 +2304,7 @@ if __name__ == "__main__":
     )
 
     rb.add_builtin_oidc_scopes()  # currently creates names only (no mappers) :contentReference[oaicite:2]{index=2}
+    rb.ensure_roles_scope_with_mappers()
     rb.ensure_client_roles_scope("osss-api", scope_name="osss-api-roles")
     rb.ensure_client_roles_scope("osss-web", scope_name="osss-web-roles")
 
@@ -2200,13 +2324,11 @@ if __name__ == "__main__":
 
     # with this (singular name, if that's how you defined it):
     out = rb._finalize_for_export()
-
     if args.mode == "partial":
-        out = _to_partial_import(out)
-        LOG.info("Prepared partial import (no top-level realm).")
+        out = _to_partial_import(out, if_exists=args.if_exists)
+        LOG.info("Prepared partial import payload (policy=%s)", args.if_exists)
     else:
         LOG.info("Prepared full realm export.")
-
     with open(args.out, "w") as f:
         json.dump(out, f, indent=2)
     LOG.info("Wrote %s export to %s", args.mode, args.out)
