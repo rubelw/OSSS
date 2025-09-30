@@ -10,6 +10,8 @@ set -Eeuo pipefail
 # --- Bash 3.x compatibility shims (macOS default shell lacks mapfile/readarray) ---
 if ! command -v mapfile >/dev/null 2>&1; then
   mapfile() {
+
+
     # supports: mapfile -t ARRAY  (reads from stdin)
     local strip=0 OPTIND=1 OPTARG
     while getopts "t" opt; do
@@ -31,6 +33,47 @@ if ! command -v mapfile >/dev/null 2>&1; then
   }
 fi
 
+
+# Bash 3.x on macOS doesn't have readarray; alias it to mapfile.
+if ! command -v readarray >/dev/null 2>&1; then
+  readarray() { mapfile "$@"; }
+fi
+
+# Return the container engine binary ("podman" or "docker") matching the compose provider
+get_compose_engine() {
+  local CMD
+  CMD="$(__compose_cmd)" || return 127
+  case "$CMD" in
+    "podman compose"|podman-compose) echo "podman";;
+    "docker compose"|docker-compose) echo "docker";;
+    *)
+      # Best-effort default
+      echo "podman"
+      ;;
+  esac
+}
+
+# Run an engine command with nice diagnostics
+# --- engine_exec: trace to STDERR, emit only command STDOUT to caller ---
+engine_exec() {
+  local ENGINE="$1"; shift
+  # Trace → STDERR (so callers reading STDOUT only see command output)
+  >&2 echo "[engine_exec] Invoked with ENGINE='${ENGINE}' and args: $*"
+  >&2 echo "[engine_exec] Running dry run (stderr only) to capture errors..."
+  # Dry run just to surface errors to the logs; discard stdout, keep rc
+  local drc=0
+  { "$ENGINE" "$@" 1>/dev/null; } 2> >(cat >&2) || drc=$?
+  >&2 echo "[engine_exec] Dry run exit code: $drc"
+  [[ $drc -ne 0 ]] && {
+    >&2 echo "[engine_exec] Captured stderr above (if any)"
+  }
+  >&2 echo "[engine_exec] Running command for real..."
+  # REAL run: forward stdout (for callers) and stderr (for logs)
+  local rc=0
+  "$ENGINE" "$@" 2> >(cat >&2) || rc=$?
+  >&2 echo "[engine_exec] Final exit code: $rc"
+  return $rc
+}
 
 # --- External networks create-only helper (called by start_* funcs) ---
 ensure_external_networks_exist() {
@@ -1897,25 +1940,28 @@ create_keycloak_cert() {
 
   # CA
   openssl req -x509 -nodes -newkey rsa:2048 -days 365 \
-    -keyout config_files/keycloak/secrets/ca/ca.key -out config_files/keycloak/secrets/ca/ca.crt \
+    -keyout ${dir}secrets/ca/ca.key \
+    -out ${dir}secrets/ca/ca.crt \
     -subj "/CN=osss-dev-ca"
 
-  # Keycloak CSR (SAN: keycloak)
+  # Keycloak CSR with SANs
   openssl req -new -nodes -newkey rsa:2048 \
-    -keyout config_files/keycloak/secrets/keycloak/server.key \
-    -out config_files/keycloak/secrets/keycloak/server.csr \
+    -keyout ${dir}secrets/keycloak/server.key \
+    -out ${dir}secrets/keycloak/server.csr \
     -subj "/CN=keycloak" \
-    -addext "subjectAltName=DNS:keycloak,DNS:localhost,DNS:keycloak.local,IP:127.0.0.1"
+    -addext "subjectAltName=DNS:keycloak,DNS:keycloak.local,DNS:localhost,IP:127.0.0.1"
 
-  # Sign server cert with our CA
-  openssl x509 -req -in config_files/keycloak/secrets/keycloak/server.csr \
-    -CA config_files/keycloak/secrets/ca/ca.crt -CAkey config_files/keycloak/secrets/ca/ca.key -CAcreateserial \
-    -out config_files/keycloak/secrets/keycloak/server.crt -days 365 \
-    -extfile <(printf "subjectAltName=DNS:keycloak")
-
+  # Sign server cert with our CA and include SANs
+  openssl x509 -req -in ${dir}secrets/keycloak/server.csr \
+    -CA ${dir}secrets/ca/ca.crt \
+    -CAkey ${dir}secrets/ca/ca.key \
+    -CAcreateserial \
+    -out ${dir}secrets/keycloak/server.crt -days 365 \
+    -extfile <(printf "subjectAltName=DNS:keycloak,DNS:keycloak.local,DNS:localhost,IP:127.0.0.1")
 
   prompt_return
 }
+
 
 # -------- teardown & cleanup --------
 
@@ -2044,30 +2090,40 @@ compose_named_vols_for_services_cli() {
   local PROFILE="$1"; shift
   local SERVICES=("$@")
   local CMD; CMD="$(__compose_cmd)" || return 0
+
+  # split "podman compose" / "docker compose" into argv
+  local -a CMD_ARR; IFS=' ' read -r -a CMD_ARR <<< "$CMD"
+
   local FILE="${COMPOSE_FILE:-docker-compose.yml}"
-
-  # Pull normalized config once (services + expanded volumes)
-  local cfg
-  if ! cfg="$("$CMD" -f "$FILE" --profile "$PROFILE" config 2>/dev/null)"; then
-    return 0
+  local cfg=""
+  if ! cfg="$("${CMD_ARR[@]}" -f "$FILE" --profile "$PROFILE" config 2>/dev/null)"; then
+    cfg="$("${CMD_ARR[@]}" -f "$FILE" config 2>/dev/null || true)"
   fi
+  [[ -z "$cfg" ]] && return 0
 
-  # awk: collect 'volumes:' sources for the target services (ignore bind mounts)
-  awk -v list="$(printf '%s ' "${SERVICES[@]}")" '
+  # ✅ correct way to pass a shell var to BSD awk:
+  local list; list="$(printf '%s ' "${SERVICES[@]}")"
+
+  printf '%s\n' "$cfg" | awk -v list="$list" '
     function has(x, s,   i,n,a){ n=split(s,a," "); for(i=1;i<=n;i++) if(a[i]==x) return 1; return 0 }
-    function indent(s){ match(s, /^[ \t]*/); return RLENGTH }
+    function indent(s){ match(s,/^[ \t]*/); return RLENGTH }
+
     BEGIN { in_services=0; in_target=0; in_vols=0; in_item=0; sind=-1; vind=-1; svc="" }
+
     /^[ \t]*services:[ \t]*$/ { in_services=1; sind=indent($0); next }
+
     in_services {
       lin=indent($0)
       # leaving services section
       if (lin <= sind && $0 !~ /^[ \t]*$/) { in_services=0; in_target=0; in_vols=0; in_item=0; next }
+
       # service header "<name>:"
       if (match($0,/^[ \t]*([A-Za-z0-9._-]+):[ \t]*$/,m)) { svc=m[1]; in_target=has(svc,list); in_vols=0; in_item=0; next }
       if (!in_target) next
 
       # start of volumes block
       if ($0 ~ /^[ \t]*volumes:[ \t]*$/) { in_vols=1; vind=lin; in_item=0; next }
+
       # inline volumes: [a:/x, b:/y]
       if ($0 ~ /^[ \t]*volumes:[ \t]*\[/) {
         s=$0; sub(/^[^[]*\[/,"",s); sub(/\].*$/,"",s)
@@ -2078,9 +2134,11 @@ compose_named_vols_for_services_cli() {
         }
         next
       }
+
       if (in_vols) {
         # end of block when dedent or new key
         if (lin <= vind && $0 !~ /^[ \t]*$/) { in_vols=0; in_item=0; next }
+
         # short form: "- vol:/path"
         if ($0 ~ /^[ \t]*-[ \t]*[^:]+:[^:]+$/) {
           item=$0; sub(/^[^ -]*-[ \t]*/,"",item)
@@ -2088,19 +2146,21 @@ compose_named_vols_for_services_cli() {
           if (src !~ /^(\/|\.\/|\$\{)/ && src!="") print src
           next
         }
+
         # start of long form item "-"
         if ($0 ~ /^[ \t]*-[ \t]*$/) { in_item=1; next }
+
         # long form field "source: volname"
         if (in_item && $0 ~ /^[ \t]*source:[ \t]*/) {
           src=$0; sub(/^[^:]*:[ \t]*/,"",src); gsub(/^[ \t]+|[ \t]+$/,"",src)
           if (src !~ /^(\/|\.\/|\$\{)/ && src!="") print src
           next
         }
+
         # next item
         if (in_item && $0 ~ /^[ \t]*-[ \t]*/) { in_item=0 }
       }
-    }
-  ' <<<"$cfg" | awk 'NF && !seen[$0]++'
+    }'
 }
 
 # --- remove project volumes for selected services (works even if no containers exist) ---
@@ -2109,9 +2169,12 @@ remove_volumes_for_services() {
   local prof="$1"; shift
   local svcs=("$@")
 
+  # Which engine are we talking to?
+  local ENGINE; ENGINE="$(get_compose_engine)"
+
   # 1) Collect attached volumes from existing containers (if any)
   local project_label service_label
-  if [[ "$(get_compose_engine)" == "podman" ]]; then
+  if [[ "$ENGINE" == "podman" ]]; then
     project_label="io.podman.compose.project"
     service_label="io.podman.compose.service"
   else
@@ -2120,45 +2183,63 @@ remove_volumes_for_services() {
   fi
 
   local -a ps_args=('ps' '-a' '--format' '{{.ID}}' '--filter' "label=${project_label}=${project}")
-  for s in "${svcs[@]}"; do ps_args+=('--filter' "label=${service_label}=${s}"); done
+  local s
+  for s in "${svcs[@]}"; do
+    ps_args+=(--filter "label=${service_label}=${s}")
+  done
 
   local CIDS
-  CIDS="$(engine_exec "$(get_compose_engine)" "${ps_args[@]}" | awk 'NF')" || CIDS=""
+  CIDS="$(engine_exec "$ENGINE" "${ps_args[@]}" | awk 'NF')" || CIDS=""
 
   local VOL_ATTACHED=""
   if [[ -n "$CIDS" ]]; then
-    VOL_ATTACHED="$(engine_exec "$(get_compose_engine)" inspect -f '{{range .Mounts}}{{if eq .Type "volume"}}{{.Name}}{{"\n"}}{{end}}{{end}}' $CIDS \
-                    | awk 'NF && !seen[$0]++')"
+    VOL_ATTACHED="$(
+      engine_exec "$ENGINE" inspect -f '{{range .Mounts}}{{if eq .Type "volume"}}{{.Name}}{{"\n"}}{{end}}{{end}}' $CIDS \
+        | awk 'NF && !seen[$0]++'
+    )"
   fi
 
   # 2) Collect named volumes from compose config for the same services
-  local -a base_vols
-  readarray -t base_vols < <(compose_named_vols_for_services_cli "$prof" "${svcs[@]}")
+  local -a base_vols=()
+  # readarray is shimmed to mapfile in this script for Bash 3.x
+  # tolerate awk/parse failure without tripping set -euo pipefail
+  if ! readarray -t base_vols < <(compose_named_vols_for_services_cli "$prof" "${svcs[@]}" 2>/dev/null || true); then
+    base_vols=()
+  fi
+
   # Elastic-specific safety net (if parsing ever returns empty)
-  if [[ "${prof}" == "elastic" && ${#base_vols[@]} -eq 0 ]]; then
+  if [[ "$prof" == "elastic" && ${#base_vols[@]} -eq 0 ]]; then
     base_vols=(es-data es-shared)
   fi
 
   # 3) Union of everything we’ve found
   local -a to_remove=()
   if [[ -n "$VOL_ATTACHED" ]]; then
-    while IFS= read -r v; do [[ -n "$v" ]] && to_remove+=("$v"); done <<<"$VOL_ATTACHED"
+    while IFS= read -r v; do
+      [[ -n "$v" ]] && to_remove+=("$v")
+    done <<<"$VOL_ATTACHED"
   fi
-  for v in "${base_vols[@]}"; do
-    to_remove+=("$v" "${project}_${v}")
-  done
 
-  # 4) Dedup and remove only those that actually exist
-  local -A seen; local vname
-  for vname in "${to_remove[@]}"; do
-    [[ -n "$vname" && -z "${seen[$vname]:-}" ]] || continue
-    seen[$vname]=1
-    # Check existence before removing
-    if podman volume inspect "$vname" >/dev/null 2>&1; then
-      echo "🧹 Removing volume: $vname"
-      podman volume rm -f "$vname" >/dev/null 2>&1 || true
-    fi
-  done
+  if ((${#base_vols[@]})); then
+    for v in "${base_vols[@]}"; do
+      to_remove+=("$v" "${project}_${v}")
+    done
+  fi
+
+  # 4) Dedup (portable) and remove only those that actually exist
+  #    (mapfile is shimmed on macOS Bash 3.x)
+  mapfile -t to_remove < <(printf '%s\n' "${to_remove[@]}" | awk 'NF && !seen[$0]++')
+
+  if ((${#to_remove[@]})); then
+    local vname
+    for vname in "${to_remove[@]}"; do
+      # Check existence before removing
+      if $ENGINE volume inspect "$vname" >/dev/null 2>&1; then
+        echo "🧹 Removing volume: $vname"
+        $ENGINE volume rm -f "$vname" >/dev/null 2>&1 || true
+      fi
+    done
+  fi
 }
 
 
@@ -2297,26 +2378,7 @@ preflight_podman_storage() {
 
 
 
-# --- engine_exec: trace to STDERR, emit only command STDOUT to caller ---
-engine_exec() {
-  local ENGINE="$1"; shift
-  # Trace → STDERR (so callers reading STDOUT only see command output)
-  >&2 echo "[engine_exec] Invoked with ENGINE='${ENGINE}' and args: $*"
-  >&2 echo "[engine_exec] Running dry run (stderr only) to capture errors..."
-  # Dry run just to surface errors to the logs; discard stdout, keep rc
-  local drc=0
-  { "$ENGINE" "$@" 1>/dev/null; } 2> >(cat >&2) || drc=$?
-  >&2 echo "[engine_exec] Dry run exit code: $drc"
-  [[ $drc -ne 0 ]] && {
-    >&2 echo "[engine_exec] Captured stderr above (if any)"
-  }
-  >&2 echo "[engine_exec] Running command for real..."
-  # REAL run: forward stdout (for callers) and stderr (for logs)
-  local rc=0
-  "$ENGINE" "$@" 2> >(cat >&2) || rc=$?
-  >&2 echo "[engine_exec] Final exit code: $rc"
-  return $rc
-}
+
 
 
 # Run a compose command; print only the command's stdout.
@@ -2695,6 +2757,7 @@ menu() {
     echo "18) Reset Podman machine (wipe & restart)"
     echo "19) Stop Podman VM"
     echo "20) Destroy Podman VM"
+    echo "21) Run tests with Keycloak CA bundle"
     echo "  q) Quit"
     echo "-----------------------------------------------"
     read -rp "Select an option: " ans || exit 0
@@ -2719,6 +2782,13 @@ menu() {
       18) reset_podman_machine ;;
       19) podman_vm_stop ;;
       20) podman_vm_destroy ;;
+      21)
+        echo "▶️ Running pytest with OSSS Keycloak CA bundle..."
+        export OSSS_TEST_CA_BUNDLE=config_files/keycloak/secrets/keycloak/server.crt
+        export REQUESTS_CA_BUNDLE=config_files/keycloak/secrets/keycloak/server.crt
+        pytest -q
+        prompt_return
+        ;;
       q|Q) echo "Bye!"; exit 0 ;;
       *)   echo "Unknown choice: ${ans}"; prompt_return ;;
     esac

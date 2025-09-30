@@ -9,6 +9,8 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship, foreign
 import sqlalchemy as sa
 import uuid
 
+from .studentsubmission import StudentSubmission
+
 from OSSS.db.base import Base, GUID, UUIDMixin, JSONB  # keep if JSONB is a cross-dialect alias; else use sa.JSON
 
 class UserProfile(UUIDMixin, Base):
@@ -36,6 +38,6 @@ class UserProfile(UUIDMixin, Base):
         "StudentSubmission",
         primaryjoin=lambda: UserProfile.user_id == foreign(StudentSubmission.student_user_id),
         viewonly=True,
-        overlaps="submissions,user",
+        overlaps="user,submissions,student",  # quiet overlap warnings if you have User.submissions too
     )
 
