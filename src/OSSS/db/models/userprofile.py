@@ -5,7 +5,7 @@ from sqlalchemy import (
     String, Integer, DateTime, Boolean, Text, JSON, ForeignKey, Enum as SQLEnum
 )
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship, foreign
 import sqlalchemy as sa
 import uuid
 
@@ -35,7 +35,7 @@ class UserProfile(UUIDMixin, Base):
     submissions: Mapped[list["StudentSubmission"]] = relationship(
         "StudentSubmission",
         primaryjoin=lambda: UserProfile.user_id == foreign(StudentSubmission.student_user_id),
-        viewonly=True,  # not directly writable (no FK path)
-        overlaps="submissions,user",  # optional: silences overlap warnings if you see them
+        viewonly=True,
+        overlaps="submissions,user",
     )
 
