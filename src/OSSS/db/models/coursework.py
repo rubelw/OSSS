@@ -35,7 +35,11 @@ class CourseWork(UUIDMixin, Base):
     topic: Mapped[Optional[Topic]] = relationship()
     materials: Mapped[list["Material"]] = relationship(back_populates="coursework", cascade="all,delete-orphan")
     submissions: Mapped[list["StudentSubmission"]] = relationship(
-        "StudentSubmission", back_populates="coursework", cascade="all,delete-orphan"
+        "StudentSubmission",
+        back_populates="coursework",
+        foreign_keys="StudentSubmission.coursework_id",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )
 
     user: Mapped["User"] = relationship("User", back_populates="coursework")
