@@ -1,49 +1,56 @@
 from __future__ import annotations
-from typing import Optional, List
+
+from typing import Optional
 from datetime import datetime
-from sqlalchemy import (
-    String, Integer, DateTime, Boolean, Text, JSON, ForeignKey, Float, UniqueConstraint, Enum as SQLEnum
-)
-from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-from .enums import *
-import sqlalchemy as sa
 import uuid
-from OSSS.db.base import Base,GUID, UUIDMixin, JSONB  # keep if JSONB is a cross-dialect alias; else use sa.JSON
+
+import sqlalchemy as sa
+from sqlalchemy import (
+    String, DateTime, Boolean, Float, ForeignKey, UniqueConstraint, Enum as SQLEnum
+)
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from OSSS.db.base import Base, GUID, UUIDMixin
+from .enums import SubmissionState
+
 
 class StudentSubmission(UUIDMixin, Base):
     __tablename__ = "student_submissions"
+    __table_args__ = (
+        # one submission per student per coursework
+        UniqueConstraint("student_user_id", "coursework_id", name="uq_student_coursework"),
+    )
 
-    # define FK column first
+    # FK columns
     student_user_id: Mapped[uuid.UUID] = mapped_column(
         GUID, ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
     )
 
     coursework_id: Mapped[uuid.UUID] = mapped_column(
-        GUID(), ForeignKey("coursework.id", ondelete="CASCADE"), index=True, nullable=False
+        GUID, ForeignKey("coursework.id", ondelete="CASCADE"), index=True, nullable=False
     )
 
-    coursework_id: Mapped[int] = mapped_column(ForeignKey("coursework.id", ondelete="CASCADE"), index=True)
-    state: Mapped[SubmissionState] = mapped_column(SQLEnum(SubmissionState), default=SubmissionState.NEW)
-    late: Mapped[bool] = mapped_column(Boolean, default=False)
+    # data columns
+    state: Mapped[SubmissionState] = mapped_column(
+        SQLEnum(SubmissionState), default=SubmissionState.NEW, nullable=False
+    )
+    late: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     assigned_grade: Mapped[Optional[float]] = mapped_column(Float)
     draft_grade: Mapped[Optional[float]] = mapped_column(Float)
     alternate_link: Mapped[Optional[str]] = mapped_column(String(512))
     update_time: Mapped[Optional[datetime]] = mapped_column(DateTime)
 
-    # ✅ relationships must reference the FK column explicitly when there are multiple FKs to same table
-    student: Mapped["User"] = relationship(
+    # relationships
+    # NOTE: `User` likely has: submissions = relationship("StudentSubmission", back_populates="user", ...)
+    user: Mapped["User"] = relationship(
         "User",
         back_populates="submissions",
-        foreign_keys=[student_user_id],
+        foreign_keys=lambda: [StudentSubmission.student_user_id],  # defer lookup
     )
 
+    # NOTE: ensure CourseWork model defines: submissions = relationship("StudentSubmission", back_populates="coursework", ...)
     coursework: Mapped["CourseWork"] = relationship(
         "CourseWork",
-        foreign_keys=[coursework_id],
-        back_populates="submissions",  # <-- make sure CourseWork has .submissions
+        back_populates="submissions",
+        foreign_keys=lambda: [StudentSubmission.coursework_id],  # defer lookup
     )
-
-
-
-
