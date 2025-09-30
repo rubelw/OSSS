@@ -52,9 +52,8 @@ class User(UUIDMixin, TimestampMixin, Base):
     submissions: Mapped[list["StudentSubmission"]] = relationship(
         "StudentSubmission",
         back_populates="student",
-        foreign_keys="StudentSubmission.student_user_id",
         cascade="all, delete-orphan",
-        passive_deletes=True,
+        foreign_keys="StudentSubmission.student_user_id",
     )
 
     def __repr__(self) -> str:

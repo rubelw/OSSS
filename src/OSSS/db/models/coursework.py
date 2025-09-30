@@ -37,9 +37,8 @@ class CourseWork(UUIDMixin, Base):
     submissions: Mapped[list["StudentSubmission"]] = relationship(
         "StudentSubmission",
         back_populates="coursework",
-        foreign_keys="StudentSubmission.coursework_id",
         cascade="all, delete-orphan",
-        passive_deletes=True,
+        foreign_keys="StudentSubmission.coursework_id",
     )
 
     user: Mapped["User"] = relationship("User", back_populates="coursework")
