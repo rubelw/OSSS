@@ -226,7 +226,11 @@ services:
     depends_on:
       app:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
+      REDIS_URL: 'redis://redis:6379/0'
+      NODE_EXTRA_CA_CERTS: '/app/certs/keycloak-ca.crt'
       NODE_ENV: development
       CHOKIDAR_USEPOLLING: 'true'
       WATCHPACK_POLLING: 'true'
@@ -234,6 +238,7 @@ services:
     volumes:
     - ./src/osss-web:/app:cached
     - /app/node_modules
+    - ./config_files/keycloak/secrets/ca/ca.crt:/app/certs/keycloak-ca.crt:ro,Z
     working_dir: /app
     ports:
     - 3000:3000
