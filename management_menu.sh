@@ -2784,8 +2784,15 @@ menu() {
       20) podman_vm_destroy ;;
       21)
         echo "▶️ Running pytest with OSSS Keycloak CA bundle..."
+        export REQUESTS_CA_BUNDLE="$(pwd)/config_files/keycloak/secrets/ca/ca.crt"
+        export OSSS_CA_BUNDLE="$REQUESTS_CA_BUNDLE"
+
         export OSSS_TEST_CA_BUNDLE=config_files/keycloak/secrets/keycloak/server.crt
         export REQUESTS_CA_BUNDLE=config_files/keycloak/secrets/keycloak/server.crt
+
+        # make sure nothing forces container-only hostnames or HTTP defaults
+        unset KEYCLOAK_BASE_URL
+
         pytest -q
         prompt_return
         ;;

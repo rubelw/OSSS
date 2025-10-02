@@ -1,12 +1,177 @@
 #!/bin/sh
 set -eu
 
+# === worker subcommand for parallel batch role mapping ===
+if [ "${1:-}" = "__apply_one_batch__" ]; then
+  shift
+  command -v log >/dev/null 2>&1 || log() { printf "%s\n" "$*" >&2; }
+  command -v _kc  >/dev/null 2>&1 || _kc() { /opt/keycloak/bin/kcadm.sh "$@" --config "$KCADM_BASE_CONFIG"; }
+  [ "${DEBUG_WORKER:-0}" = 1 ] && log "[child] ok: SELF=$0 args=$*"
+
+  # 👇 add this tiny helper so the worker doesn’t depend on later definitions
+  _group_id_from_cache() {
+    _cache="$1"; _path="$2"
+    jq -r --arg p "$_path" '.[] | select(.path==$p) | .id' "$_cache"
+  }
+
+  # Worker-local helpers (independent from the rest of the file)
+
+  _group_id_by_name_under() {
+    _realm="$1"; _parent="$2"; _name="$3"
+    if [ -z "${_parent:-}" ]; then
+      _kc get groups -r "$_realm" --server "$KC_BOOT_URL" --insecure \
+        --fields id,name,path -q "search=${_name}" -q first=0 -q max=2000 2>/dev/null \
+      | jq -r '.[]? | select(.path=="/'"$_name"'") | .id' | head -n1
+    else
+      _kc get "groups/$_parent/children" -r "$_realm" --server "$KC_BOOT_URL" --insecure \
+        --fields id,name -q first=0 -q max=2000 2>/dev/null \
+      | jq -r '.[]? | select(.name=="'"$_name"'") | .id' | head -n1
+    fi
+  }
+
+  _resolve_gid_by_path() {
+    _realm="$1"; _path="${2#/}"
+    [ -z "$_path" ] && { echo ""; return 1; }
+    parent=""
+    oldIFS=$IFS; IFS='/' ; set -- $_path ; IFS=$oldIFS
+    for seg in "$@"; do
+      [ -z "$seg" ] && continue
+      parent="$(_group_id_by_name_under "$_realm" "$parent" "$seg" || true)"
+      [ -z "$parent" ] && { echo ""; return 1; }
+    done
+    printf '%s\n' "$parent"
+  }
+
+  __worker_apply_one_batch() {
+    _realm="$1"; _group_cache="$2"; _cache_dir="$3"; _batch_dir="$4"
+
+    roles_file="$_batch_dir/roles.txt"
+    if [ ! -f "$_batch_dir/path" ]; then log "⚠️  [child] batch dir missing path file: $_batch_dir"; return 0; fi
+    if [ ! -f "$roles_file" ]; then log "⚠️  [child] batch dir missing roles.txt: $_batch_dir"; return 0; fi
+
+    gpath="$(cat "$_batch_dir/path")"
+    cid="$(cat "$_batch_dir/clientId")"
+
+    [ -s "$roles_file" ] || return 0
+
+    # New: try cache (with/without leading slash), then live walk
+    gid="$(_group_id_from_cache "$_group_cache" "$gpath")"
+    [ -z "$gid" ] && gid="$(_group_id_from_cache "$_group_cache" "${gpath#/}")"
+    if [ -z "$gid" ]; then
+      gid="$(_resolve_gid_by_path "$_realm" "$gpath")"
+    fi
+    if [ -z "$gid" ]; then
+      [ "${DEBUG_WORKER:-0}" = 1 ] && {
+        log "❌ [child] Cache+fallback miss for '$gpath' — sampling available paths:"
+        _kc get groups -r "$_realm" --server "$KC_BOOT_URL" --insecure --fields path,id 2>/dev/null \
+          | jq -r '.[].path' \
+          | grep -F "$(printf '%s' "$gpath" | awk -F/ '{print $2}')" \
+          | head -n 5 | sed 's/^/   • /' >&2 || true
+      }
+      return 0
+    fi
+
+    cuuid="$(awk -F'\t' -v C="$cid" '$1==C{print $2}' "$_cache_dir/client_map.tsv" | head -n1)"
+    if [ -z "$cuuid" ]; then
+      log "❌ [child] Unknown clientId '$cid' (skipping $gpath)"
+      return 0
+    fi
+
+    roles_json="$_cache_dir/roles-$cuuid.json"
+    if [ ! -s "$roles_json" ]; then
+      log "❌ [child] No roles cache for client '$cid' ($cuuid) (skipping $gpath)"
+      return 0
+    fi
+
+    wanted="$(sort -u "$roles_file" | jq -R -s 'split("\n") | map(select(length>0))')"
+
+    body="$_batch_dir/body.json"
+    jq -c --argjson wanted "$wanted" '
+      [ .[] | select(.name as $n | $wanted | index($n)) | {id,name} ]
+    ' "$roles_json" >"$body"
+
+    # --- DEBUG/DRY-RUN (worker) ---
+    command -v ts  >/dev/null 2>&1 || ts(){ date +"%H:%M:%S"; }
+    command -v log >/dev/null 2>&1 || log(){ printf "%s\n" "$*" >&2; }
+
+    [ "${DEBUG_WORKER:-0}" = 1 ] && {
+      cnt="$(jq 'length' "$body")"
+      printf "%s [child] POST groups/%s/role-mappings/clients/%s  roles=%s  path=%s  clientId=%s\n" \
+        "$(ts)" "$gid" "$cuuid" "$cnt" "$gpath" "$cid" >&2
+      jq -r '.[].name' "$body" | head -n 10 | sed 's/^/   • /' >&2
+    }
+
+    if [ "${DRY_RUN:-0}" = "1" ]; then
+      log "👟 [child] DRY_RUN=1 — skipping POST for group '$gpath' client '$cid'"
+      return 0
+    fi
+
+
+
+    if [ "$(jq 'length' "$body")" -eq 0 ]; then
+      log "⚠️  [child] No matching roles under client '$cid' for group '$gpath' (skip)"
+      return 0
+    fi
+
+    if _kc create "groups/$gid/role-mappings/clients/$cuuid" \
+         -r "$_realm" --server "$KC_BOOT_URL" --insecure -f "$body" >/dev/null 2>&1
+    then
+      cnt="$(jq 'length' "$body")"
+      log "🔐 [child] Mapped $cnt role(s) from client '$cid' to group '$gpath'"
+    else
+      log "❌ [child] Failed batch mapping for client '$cid' to group '$gpath'"
+      return 1
+    fi
+  }
+
+  __worker_apply_one_batch "$@"
+  exit 0
+fi
+
+
+# --- early env so KC_BOOT_URL is safe before any kcadm usage -----------------
+# (set these BEFORE any call that references KC_* vars)
+KC_HTTP_PORT="${KC_HTTP_PORT:-8080}"
+KC_HOSTNAME="${KC_HOSTNAME:-keycloak.local}"
+KC_HTTPS_PORT="${KC_HTTPS_PORT:-8443}"
+KC_BOOT_URL="${KC_BOOT_URL:-http://127.0.0.1:${KC_HTTP_PORT}}"
+
 # --- choose an import source safely -----------------------------------------
+
 # Original export (read-only)
 IMPORT_DIR_ORIG="${IMPORT_DIR:-/opt/keycloak/data/import}"
 IMPORT_FILE_ORIG="${IMPORT_FILE:-$IMPORT_DIR_ORIG/10-OSSS.json}"
 # Sanitized copy (may not exist yet)
 SANITIZED_DIR="/opt/keycloak/data/tmp"
+KCADM_PARALLEL=8   # try 2–6 depending on Keycloak/server headroom
+DEBUG_KC=1          # set to 1 for very verbose
+KCADM_PARALLEL_DEEP=16
+KCADM_PAGE_SIZE=10000
+ROLE_CREATE_PAR=24
+
+
+# ---- kcadm config isolation ----
+KCADM_CONFIG_DIR="$(mktemp -d)"
+KCADM_BASE_CONFIG="$KCADM_CONFIG_DIR/base.config"
+export KCADM_BASE_CONFIG KCADM_CONFIG_DIR
+
+# NOTE: we will log in to this config *after* Keycloak is up.
+
+
+_kc() {  # _kc <args...>
+  /opt/keycloak/bin/kcadm.sh "$@" --config "$KCADM_BASE_CONFIG"
+}
+
+
+_kc_base() {
+  # Wrapper to echo commands when DEBUG_KC=1
+  if [ "${DEBUG_KC:-0}" = "1" ]; then
+    echo "+ kcadm $*" >&2
+  fi
+  /opt/keycloak/bin/kcadm.sh "$@" --config "$KCADM_BASE_CONFIG"
+}
+
+
 mkdir -p "$SANITIZED_DIR"
 SANITIZED_IMPORT="${SANITIZED_DIR}/realm-import.json"
 # Use sanitized file if it exists and is non-empty, else fall back to original
@@ -22,33 +187,263 @@ if ! command -v log >/dev/null 2>&1; then
   log() { printf "%s\n" "$*" >&2; }
 fi
 
-# ---------- Group helpers (define BEFORE first use) ----------
-group_id_by_name_under() {
-  # $1 realm, $2 parent_id (or empty for root), $3 name
-  _realm="$1"; _parent="$2"; _name="$3"
-
-  if [ -z "${_parent:-}" ]; then
-    # ROOT LOOKUP: use search + path match to avoid pagination issues.
-    # Return the id of the root group whose path is exactly "/<name>"
-    /opt/keycloak/bin/kcadm.sh get "realms/$_realm/groups" \
-      --server "$KC_BOOT_URL" --insecure \
-      --fields id,name,path \
-      -q "search=${_name}" -q first=0 -q max=2000 2>/dev/null \
-    | jq -r '.[]? | select(.path=="/'"$_name"'") | .id' \
-    | head -n1
+# ---- debug helpers ----------------------------------------------------------
+ts() { date +"%H:%M:%S"; }
+dbg() { [ "${DEBUG_INIT:-0}" = 1 ] && printf "%s %s\n" "$(ts)" "$*" >&2; }
+dump_head() {  # dump_head <label> <file> [N]
+  _lab="$1"; _f="$2"; _n="${3:-20}"
+  if [ -s "$_f" ]; then
+    printf "%s %s — first %s line(s):\n" "$(ts)" "$_lab" "$_n" >&2
+    sed -n "1,${_n}p" "$_f" | sed 's/^/   │ /' >&2
   else
-    # CHILD LOOKUP: fetch children with a large page to avoid pagination misses.
-    /opt/keycloak/bin/kcadm.sh get "groups/$_parent/children" -r "$_realm" \
-      --server "$KC_BOOT_URL" --insecure \
-      --fields id,name \
-      -q first=0 -q max=2000 2>/dev/null \
-    | jq -r '.[]? | select(.name=="'"$_name"'") | .id' \
-    | head -n1
+    printf "%s %s — (empty or missing)\n" "$(ts)" "$_lab" >&2
   fi
 }
 
+# Pretty jq counts with label
+jq_count() {  # jq_count <label> <jqexpr> <file>
+  _lab="$1"; _expr="$2"; _f="$3"
+  _c="$(jq -r "$_expr" "$_f" 2>/dev/null || printf 0)"
+  printf "%s %s: %s\n" "$(ts)" "$_lab" "$_c" >&2
+}
+
+# Limit very chatty worker logs
+DEBUG_WORKER="${DEBUG_WORKER:-1}"          # 1 = child processes log details
+DEBUG_BATCH="${DEBUG_BATCH:-1}"            # 1 = print batch directory samples
+DEBUG_INIT="${DEBUG_INIT:-1}"              # 1 = print high-level debug in parent
+DRY_RUN="${DRY_RUN:-0}"                    # 1 = don’t POST mappings, just log
+
+# Build a mapping source that definitely contains groups[].clientRoles.
+# If _src already has clientRoles, use it as-is.
+# Otherwise, overlay clientRoles from the original export by matching group .path.
+_prepare_mapping_source() {
+  _src="$1"
+  _orig="${2:-$IMPORT_FILE_ORIG}"
+
+  # Fast path: _src already has clientRoles
+  if jq -e '(.groups // []) | .. | objects | .clientRoles? | type=="object" and (length>0)' "$_src" >/dev/null 2>&1; then
+    printf '%s\n' "$_src"; return 0
+  fi
+
+  # If no original, nothing we can do
+  [ -s "$_orig" ] || { printf '%s\n' "$_src"; return 0; }
+
+  tmp_map="/tmp/orig-cr-map.json"
+  jq -c '
+    def walkg($p):
+      . as $g
+      | (if ($g.path? and ($g.path|type)=="string" and ($g.path|length)>0)
+           then $g.path
+           else ($p + (if $p=="" then "" else "/" end) + ($g.name // ""))
+         end) as $q
+      | {path:$q, cr: ($g.clientRoles // {})}
+      , ( ($g.subGroups // [])[] | walkg($q) );
+    [ (.groups // [])[] | walkg("")
+      | select((.cr|type)=="object" and (.cr|length)>0 and (.path|length)>0) ]
+    | map({key:.path, value:.cr})
+    | from_entries
+  ' "$_orig" > "$tmp_map"
+
+  tmp_out="/tmp/mapping-src.json"
+  jq --slurpfile M "$tmp_map" '
+    def path_of($g; $p):
+      if ($g.path? | type)=="string" and ($g.path|length)>0
+        then $g.path
+        else $p + (if $p=="" then "" else "/" end) + ($g.name // "")
+      end;
+
+    def patch($p):
+      . as $g
+      | (path_of($g; $p)) as $q
+      | (if ($M[0][$q]? | type)=="object" then (.clientRoles = $M[0][$q]) else . end)
+      | ( .subGroups |= ( ( . // [] ) | map( patch($q) ) ) );
+
+    (.groups |= ( ( . // [] ) | map( patch("") ) ))
+  ' "$_src" > "$tmp_out"
+
+  # inside _prepare_mapping_source(), right before: printf '%s\n' "$tmp_out"
+  if [ "${DEBUG_INIT:-0}" = 1 ]; then
+    jq_count "[map-src] objects with clientRoles" \
+             '[..|objects|.clientRoles?|select(type=="object")]|length' "$tmp_out"
+    # Top 10 clientIds referenced by clientRoles
+    printf "%s [map-src] top clientIds:\n" "$(ts)" >&2
+    jq -r '
+      [..|objects|.clientRoles?|keys[]] | group_by(.) | map({k:.[0], n:length})
+      | sort_by(-.n) | .[0:10][] | "\(.k)\t(\(.n))"
+    ' "$tmp_out" 2>/dev/null | sed 's/^/   • /' >&2 || true
+  fi
+
+  printf '%s\n' "$tmp_out"
+}
+
+# --- Group helpers ---
+_group_id_by_name_under() {
+  _realm="$1"; _parent="$2"; _name="$3"
+  if [ -z "${_parent:-}" ]; then
+    _kc get groups -r "$_realm" --server "$KC_BOOT_URL" --insecure \
+      --fields id,name,path -q "search=${_name}" -q first=0 -q max=2000 2>/dev/null \
+    | jq -r '.[]? | select(.path=="/'"$_name"'") | .id' | head -n1
+  else
+    _kc get "groups/$_parent/children" -r "$_realm" --server "$KC_BOOT_URL" --insecure \
+      --fields id,name -q first=0 -q max=2000 2>/dev/null \
+    | jq -r '.[]? | select(.name=="'"$_name"'") | .id' | head -n1
+  fi
+}
+
+# ✅ Back-compat alias for existing callers:
+group_id_by_name_under() { _group_id_by_name_under "$@"; }
+
+
+# NEW: walk /a/b/c using live lookups (used if cache misses)
+_resolve_gid_by_path() {
+  _realm="$1"; _path="${2#/}"
+  [ -z "$_path" ] && { echo ""; return 1; }
+  parent=""
+  oldIFS=$IFS; IFS='/' ; set -- $_path ; IFS=$oldIFS
+  for seg in "$@"; do
+    [ -z "$seg" ] && continue
+    parent="$(_group_id_by_name_under "$_realm" "$parent" "$seg" || true)"
+    [ -z "$parent" ] && { echo ""; return 1; }
+  done
+  printf '%s\n' "$parent"
+}
+
+# Create any client roles that are referenced in mapping source but missing in KC
+_create_missing_client_roles() {
+  _realm="$1"; _src="$2"
+  log "[create-roles] Ensuring client roles exist for referenced (clientId, role) pairs…"
+
+  # Build unique pairs: clientId \t roleName
+  tmp_pairs="/tmp/mapping-role-pairs.tsv"
+  jq -r '
+    def walkg($p):
+      . as $g
+      | (if ($g.path? and ($g.path|type)=="string" and ($g.path|length)>0)
+           then $g.path
+           else ($p + (if $p=="" then "" else "/" end) + ($g.name // ""))
+         end) as $q
+      | {path:$q, cr: ($g.clientRoles // {})}
+      , ( ($g.subGroups // [])[] | walkg($q) );
+    (.groups // [])[] | walkg("")
+    | select(.cr != null)
+    | .cr
+    | to_entries[] as $e
+    | $e.key as $client
+    | $e.value[] as $role
+    | [$client, $role] | @tsv
+  ' "$_src" | sort -u >"$tmp_pairs"
+
+  # Resolve each clientId -> uuid once, cache roles list once per client
+  while IFS=$'\t' read -r cid rname; do
+    [ -n "$cid$rname" ] || continue
+    cuuid="$(_kc get clients -r "$_realm" --server "$KC_BOOT_URL" --insecure \
+               -q "clientId=$cid" --fields id 2>/dev/null | jq -r '.[0].id // empty')"
+    if [ -z "$cuuid" ]; then
+      log "[create-roles] ⚠️  clientId '$cid' not found; skipping role '$rname'"
+      continue
+    fi
+
+    # Check if role exists
+    if _kc get "clients/$cuuid/roles-by-name/$rname" -r "$_realm" --server "$KC_BOOT_URL" --insecure >/dev/null 2>&1; then
+      [ "${DEBUG_INIT:-0}" = 1 ] && log "[create-roles] exists  cid=$cid  role=$rname"
+      continue
+    fi
+
+    # Create role
+    if _kc create "clients/$cuuid/roles" -r "$_realm" --server "$KC_BOOT_URL" --insecure \
+         -s name="$rname" >/dev/null 2>&1; then
+      log "[create-roles] ➕ created  cid=$cid  role=$rname"
+    else
+      log "[create-roles] ❌ failed   cid=$cid  role=$rname"
+    fi
+  done < "$tmp_pairs"
+}
+
+# Fast path: create missing client roles using raw REST API + curl in parallel
+ensure_client_roles_from_mapping_curl() {
+  _realm="$1"; _cache_dir="$2"; _map_src="$3"
+  log "[roles] (curl) Ensuring client roles exist (parallel=${ROLE_CREATE_PAR:-24})…"
+
+  # 0) admin token once
+  CURL_INSECURE=""
+  case "$KC_BOOT_URL" in https://*) CURL_INSECURE="-k" ;; esac
+  token="$(curl -sS $CURL_INSECURE -X POST \
+            -H 'Content-Type: application/x-www-form-urlencoded' \
+            --data "client_id=admin-cli&username=$ADMIN_USER&password=$ADMIN_PWD&grant_type=password" \
+            "$KC_BOOT_URL/realms/master/protocol/openid-connect/token" | jq -r '.access_token')"
+  if [ -z "$token" ] || [ "$token" = "null" ]; then
+    log "[roles] ERROR: could not obtain admin token from $KC_BOOT_URL"; return 1
+  fi
+
+  # 1) extract wanted pairs: clientId \t roleName
+  want="/tmp/wanted-client-roles.tsv"
+  jq -r '
+    def walkg($p):
+      . as $g
+      | (if ($g.path? and ($g.path|type)=="string" and ($g.path|length)>0)
+           then $g.path
+           else ($p + (if $p=="" then "" else "/" end) + ($g.name // ""))
+         end) as $q
+      | {path:$q, cr: ($g.clientRoles // {})}
+      , ( ($g.subGroups // [])[] | walkg($q) );
+    (.groups // [])[] | walkg("")
+    | .cr | to_entries[] | [.key, (.value[])] | @tsv
+  ' "$_map_src" | sort -u >"$want"
+
+  # 2) per client: compute missing roles and create in parallel with curl
+  awk -F'\t' '{print $1}' "$want" | sort -u | while read -r cid; do
+    [ -z "$cid" ] && continue
+    cuuid="$(awk -F'\t' -v C="$cid" '$1==C{print $2}' "$_cache_dir/client_map.tsv" | head -n1)"
+    if [ -z "$cuuid" ]; then
+      log "[roles] WARN: mapping references clientId '$cid' not present in realm '$_realm' — skipping"
+      continue
+    fi
+
+    rfile="$_cache_dir/roles-$cuuid.json"
+    [ -s "$rfile" ] || printf '[]' > "$rfile"
+    have_file="/tmp/have-$cuuid.txt"
+    jq -r '.[].name' "$rfile" | sort -u > "$have_file"
+
+    want_file="/tmp/want-$cuuid.txt"
+    awk -F'\t' -v C="$cid" '$1==C{print $2}' "$want" | sort -u > "$want_file"
+
+    miss_file="/tmp/miss-$cuuid.txt"
+    comm -13 "$have_file" "$want_file" > "$miss_file" || true
+    M=$(wc -l < "$miss_file" | tr -d ' ')
+    if [ "$M" -eq 0 ]; then
+      printf "%s [roles] client %-24s already has all referenced roles\n" "$(ts)" "$cid" >&2
+      continue
+    fi
+    printf "%s [roles] client %-24s create %s missing role(s)\n" "$(ts)" "$cid" "$M" >&2
+
+    export KC_BOOT_URL token CURL_INSECURE
+    export REALM="$_realm" CUUID="$cuuid" CID="$cid"
+    # Parallel POSTs (one curl per role name)
+    xargs -r -n1 -P "${ROLE_CREATE_PAR:-24}" -I@ sh -c '
+      rn="$1"
+      http=$(curl -sS $CURL_INSECURE -o /dev/null -w "%{http_code}" \
+              -X POST "$KC_BOOT_URL/admin/realms/$REALM/clients/$CUUID/roles" \
+              -H "Authorization: Bearer $token" \
+              -H "Content-Type: application/json" \
+              --data "{\"name\":\"$rn\"}")
+      # 201=created, 409=already exists (race)
+      if [ "$http" != "201" ] && [ "$http" != "409" ]; then
+        echo "$(date +%H:%M:%S) [create-roles] WARN http $http cid=$CID role=$rn" >&2
+      else
+        [ "$http" = "201" ] && echo "$(date +%H:%M:%S) [create-roles] ➕ created  cid=$CID  role=$rn" >&2
+      fi
+    ' sh < "$miss_file"
+
+    # refresh cache for this client (so mapping picks up the new IDs)
+    curl -sS $CURL_INSECURE -H "Authorization: Bearer $token" \
+      "$KC_BOOT_URL/admin/realms/$_realm/clients/$cuuid/roles?first=0&max=5000" \
+    | jq -c '[ .[] | {id,name} ]' > "$rfile"
+    rc="$(jq 'length' "$rfile" 2>/dev/null || printf 0)"
+    printf "%s [cache] client %-24s → %s role(s)\n" "$(ts)" "$cid" "$rc" >&2
+  done
+}
+
 ensure_group_path() {
-  # $1 realm, $2 full path like /a/b/c (leading slash optional)
   realm="$1"; path="${2#/}"
   [ -z "$path" ] && { log "⚠️ Skipping empty group path"; return 0; }
   oldIFS=$IFS; IFS='/'; set -- $path; IFS=$oldIFS
@@ -58,11 +453,19 @@ ensure_group_path() {
     gid="$(group_id_by_name_under "$realm" "$parent" "$seg" || true)"
     if [ -z "${gid:-}" ]; then
       if [ -z "${parent:-}" ]; then
-        /opt/keycloak/bin/kcadm.sh create "realms/$realm/groups" --server "$KC_BOOT_URL" --insecure -s "name=$seg" >/dev/null 2>&1 || true
-        gid="$(group_id_by_name_under "$realm" "" "$seg" || true)"
+        # create ROOT
+        if _kc create groups -r "$realm" --server "$KC_BOOT_URL" --insecure -s "name=$seg" >/dev/null 2>&1; then
+          gid="$(group_id_by_name_under "$realm" "" "$seg" || true)"
+        else
+          log "❌ Failed to create root group '$seg'"; return 1
+        fi
       else
-        /opt/keycloak/bin/kcadm.sh create "groups/$parent/children" -r "$realm" --server "$KC_BOOT_URL" --insecure -s "name=$seg" >/dev/null 2>&1 || true
-        gid="$(group_id_by_name_under "$realm" "$parent" "$seg" || true)"
+        # create CHILD
+        if _kc create "groups/$parent/children" -r "$realm" --server "$KC_BOOT_URL" --insecure -s "name=$seg" >/dev/null 2>&1; then
+          gid="$(group_id_by_name_under "$realm" "$parent" "$seg" || true)"
+        else
+          log "❌ Failed to create child '$seg' under '$parent'"; return 1
+        fi
       fi
       [ -n "$gid" ] && log "   + ensured group '${seg}' (parentId=${parent:-root})"
     fi
@@ -92,6 +495,7 @@ REALM="${REALM:-OSSS}"
 # kcadm config, URLs, origin …
 export KCADM_CONFIG="${KCADM_CONFIG:-/tmp/kcadm.config}"
 KC_BOOT_URL="http://127.0.0.1:${KC_HTTP_PORT}"
+export KC_BOOT_URL
 BASE_URL="${KC_HOSTNAME_URL:-https://${KC_HOSTNAME}:${KC_HTTPS_PORT}}"
 ORIGIN="$(printf %s "$BASE_URL" | sed -E 's~/*$~~; s~^((https?)://[^/]+).*$~\1~')"
 
@@ -105,7 +509,7 @@ log "▶️  Starting bootstrap Keycloak (DEV)…"
 BOOT_PID=$!
 trap 'kill "$BOOT_PID" 2>/dev/null || true; wait "$BOOT_PID" 2>/dev/null || true' EXIT
 log "⏳ Waiting for Keycloak to accept kcadm credentials at $KC_BOOT_URL…"
-until /opt/keycloak/bin/kcadm.sh config credentials \
+until _kc config credentials \
   --server "$KC_BOOT_URL" --realm master \
   --user "$ADMIN_USER" --password "$ADMIN_PWD" --insecure >/dev/null 2>&1
 do
@@ -113,12 +517,19 @@ do
 done
 log "🔐 Logged into admin CLI."
 
+# Seed the base kcadm config file now that KC is reachable (avoids file locks in workers)
+/opt/keycloak/bin/kcadm.sh config credentials \
+  --server "$KC_BOOT_URL" --realm master \
+  --user "$ADMIN_USER" --password "$ADMIN_PWD" \
+  --insecure --config "$KCADM_BASE_CONFIG" >/dev/null 2>&1 || true
+
+
 # --- Ensure realm exists BEFORE any group ops ---
-if /opt/keycloak/bin/kcadm.sh get "realms/$REALM" --realm master --server "$KC_BOOT_URL" --insecure >/dev/null 2>&1; then
+if _kc get "realms/$REALM" --realm master --server "$KC_BOOT_URL" --insecure >/dev/null 2>&1; then
   log "♻️  Realm '$REALM' exists."
 else
   log "🆕 Creating empty realm '$REALM'…"
-  /opt/keycloak/bin/kcadm.sh create realms --realm master --server "$KC_BOOT_URL" --insecure \
+  _kc create realms --realm master --server "$KC_BOOT_URL" --insecure \
     -f - <<JSON >/dev/null
 {"realm":"$REALM","enabled":true}
 JSON
@@ -165,7 +576,7 @@ log "🧹 Removing stray root groups that have a canonical parent in the export�
 awk -F/ '{print $NF "\t"$0}' "$GROUP_PATHS_FILE" | sort -u > /tmp/leaf2canon.tsv
 
 # List root groups once
-/opt/keycloak/bin/kcadm.sh get "realms/$REALM/groups" \
+_kc get "realms/$REALM/groups" \
   --server "$KC_BOOT_URL" --insecure --fields id,name > /tmp/root-groups.json 2>/dev/null || true
 
 jq -c '.[]? | {id, name}' /tmp/root-groups.json | while read -r row; do
@@ -194,12 +605,12 @@ jq -c '.[]? | {id, name}' /tmp/root-groups.json | while read -r row; do
       existing="$(group_id_by_name_under "$REALM" "$pid" "$gname" || true)"
       if [ -z "$existing" ]; then
         # Create missing canonical leaf
-        /opt/keycloak/bin/kcadm.sh create "groups/$pid/children" -r "$REALM" \
+        _kc create "groups/$pid/children" -r "$REALM" \
           --server "$KC_BOOT_URL" --insecure -s "name=$gname" >/dev/null 2>&1 || true
         log "   ➕ Created canonical '$canon'"
       fi
       # Now delete root stray
-      /opt/keycloak/bin/kcadm.sh delete "groups/$gid" -r "$REALM" --server "$KC_BOOT_URL" --insecure >/dev/null 2>&1 || true
+      _kc delete "groups/$gid" -r "$REALM" --server "$KC_BOOT_URL" --insecure >/dev/null 2>&1 || true
       log "   🗑️  Deleted stray root group '$gname' (moved to '$canon')"
     fi
   fi
@@ -211,20 +622,436 @@ log "✅ Root cleanup complete."
 # If you still do sectioned imports, skip 'groups' section entirely.
 section_import() {
   key="$1"
+  src="${2:-$SRC_FILE}"   # allow override
+
   [ "$key" = "groups" ] && { log "⏭️  Skipping groups section (handled manually)"; return 0; }
+
   body="/tmp/partial-${key}.json"
-  jq -c --arg k "$key" '{ ifResourceExists:"SKIP", ($k):(.[$k] // []) }' "$SRC_FILE" > "$body"
-  /opt/keycloak/bin/kcadm.sh create "realms/$REALM/partialImport" \
+  jq -c --arg k "$key" '{ ifResourceExists:"SKIP", ($k):(.[$k] // []) }' "$src" > "$body"
+  _kc create "realms/$REALM/partialImport" \
     --realm master --server "$KC_BOOT_URL" --insecure -f "$body" 2>"/tmp/partial-${key}.err" \
     || { log "  ⚠️  ${key} import failed:"; sed 's/^/    │ /' "/tmp/partial-${key}.err" >&2; }
 }
+
+
+
+# Refresh admin CLI token before partial imports
+_kc config credentials \
+  --server "$KC_BOOT_URL" --realm master \
+  --user "$ADMIN_USER" --password "$ADMIN_PWD" --insecure >/dev/null 2>&1 || true
+
 
 # Example call order (without groups):
 section_import clientScopes
 section_import clients
 section_import roles
-# section_import groups  # intentionally skipped (groups handled above)
-section_import users
+
+# Refresh admin CLI token before partial imports
+_kc config credentials \
+  --server "$KC_BOOT_URL" --realm master \
+  --user "$ADMIN_USER" --password "$ADMIN_PWD" --insecure >/dev/null 2>&1 || true
+
+# --- Faster: Apply clientRoles to groups in batches -------------------------------
+client_uuid_by_clientId() {
+  # $1 realm, $2 clientId
+  _kc get clients -r "$1" --server "$KC_BOOT_URL" --insecure \
+    -q "clientId=$2" --fields id,clientId 2>/dev/null \
+  | jq -r '.[0]?.id // empty'
+}
+
+# Cache all groups once: build path -> id map
+_cache_group_paths() {
+  _realm="$1"; _out="${2:-/tmp/kc_group_map.json}"
+
+  _kc get groups -r "$_realm" --server "$KC_BOOT_URL" --insecure \
+    > /tmp/kc_groups_raw.json 2> /tmp/kc_groups_raw.err || {
+      echo "ERR: GET groups failed for realm=$_realm : $(sed -n '1,3p' /tmp/kc_groups_raw.err)" >&2
+      return 1
+    }
+
+  jq -c '
+    def walkg($base):
+      . as $g
+      | ($g.name // "") as $n
+      | ($g.path // ($base + "/" + $n)) as $p
+      | {path: $p, id: $g.id}
+      , ( ($g.subGroups // [])[] | walkg($p) );
+    [ .[] | walkg("") ]
+    | map(.path |= ( if startswith("//") then ( .[1:] ) else . end ))  # normalize // -> /
+    | unique_by(.path)
+  ' /tmp/kc_groups_raw.json > "$_out"
+
+  printf '%s' "$_out"
+}
+
+
+# Lookup group id by path using cache
+_group_id_from_cache() {
+  _cache="$1"; _path="$2"
+  jq -r --arg p "$_path" '.[] | select(.path==$p) | .id' "$_cache"
+}
+
+_cache_clients_and_roles() {
+  _realm="$1"; _src="$2"; _dir="${3:-/tmp/kc_cache}"
+  mkdir -p "$_dir"
+
+  dbg "[cache] extracting clientIds from mapping source: $_src"
+  jq -r '
+    def walkg($p):
+      . as $g
+      | (if ($g.path? and ($g.path|type)=="string" and ($g.path|length)>0)
+           then $g.path
+           else ($p + (if $p=="" then "" else "/" end) + ($g.name // ""))
+         end) as $q
+      | {path:$q, cr: ($g.clientRoles // {})}
+      , ( ($g.subGroups // [])[] | walkg($q) );
+    (.groups // [])[] | walkg("")
+    | select(.path != null and .path != "")
+    | .cr | keys[]' "$_src" \
+  | sort -u >"$_dir/clients.txt"
+
+  local N
+  N="$(wc -l <"$_dir/clients.txt" | tr -d ' ')"
+  printf "%s [cache] %s unique clientId(s) in mapping source\n" "$(ts)" "$N" >&2
+  [ "${DEBUG_INIT:-0}" = 1 ] && dump_head "[cache] clients.txt" "$_dir/clients.txt" 15
+
+  : >"$_dir/client_map.tsv"
+  ok=0; miss=0
+  while IFS= read -r cid; do
+    [ -z "$cid" ] && continue
+    cuuid="$(client_uuid_by_clientId "$_realm" "$cid" || true)"
+    if [ -n "$cuuid" ]; then
+      printf '%s\t%s\n' "$cid" "$cuuid" >>"$_dir/client_map.tsv"
+      rfile="$_dir/roles-$cuuid.json"
+      _kc get "clients/$cuuid/roles" -r "$_realm" --server "$KC_BOOT_URL" --insecure \
+        -q first=0 -q max=5000 2>/dev/null \
+      | jq -c '[ .[] | {id,name} ]' >"$rfile"
+      rc="$(jq 'length' "$rfile" 2>/dev/null || printf 0)"
+      printf "%s [cache] client %-24s → %s role(s)\n" "$(ts)" "$cid" "$rc" >&2
+      ok=$((ok+1))
+    else
+      printf "%s [cache] WARN: clientId '%s' not found in realm '%s'\n" "$(ts)" "$cid" "$_realm" >&2
+      miss=$((miss+1))
+    fi
+  done <"$_dir/clients.txt"
+
+  printf "%s [cache] clients resolved: %s ok, %s missing\n" "$(ts)" "$ok" "$miss" >&2
+  printf '%s\n' "$_dir"
+}
+
+# Ensure all client roles referenced by the mapping source exist in KC
+ensure_client_roles_from_mapping() {
+  _realm="$1"; _cache_dir="$2"; _map_src="$3"
+
+  log "[roles] Ensuring client roles exist before mapping…"
+
+  # Build "clientId<TAB>roleName" list from mapping source
+  want="/tmp/wanted-client-roles.tsv"
+  jq -r '
+    def walkg($p):
+      . as $g
+      | (if ($g.path? and ($g.path|type)=="string" and ($g.path|length)>0)
+           then $g.path
+           else ($p + (if $p=="" then "" else "/" end) + ($g.name // ""))
+         end) as $q
+      | {path:$q, cr: ($g.clientRoles // {})}
+      , ( ($g.subGroups // [])[] | walkg($q) );
+    (.groups // [])[] | walkg("")
+    | .cr | to_entries[] | [.key, (.value[])] | @tsv
+  ' "$_map_src" | sort -u >"$want"
+
+  # For each client, create any missing roles
+  awk -F'\t' '{print $1}' "$want" | sort -u | while read -r cid; do
+    [ -z "$cid" ] && continue
+    cuuid="$(awk -F'\t' -v C="$cid" '$1==C{print $2}' "$_cache_dir/client_map.tsv" | head -n1)"
+    if [ -z "$cuuid" ]; then
+      log "[roles] WARN: mapping references clientId '$cid' that is not in realm '$_realm' — skipping"
+      continue
+    fi
+
+    # existing roles (names) for this client
+    rfile="$_cache_dir/roles-$cuuid.json"
+    [ -s "$rfile" ] || printf '[]' > "$rfile"
+    have_names="$(jq -r '.[].name' "$rfile" | sort -u)"
+
+    # wanted names for this client
+    grep -F "$cid" "$want" | cut -f2 | sort -u > /tmp/want-"$cuuid".txt
+
+    # existing roles (names) for this client
+    rfile="$_cache_dir/roles-$cuuid.json"
+    [ -s "$rfile" ] || printf '[]' > "$rfile"
+
+    # prepare sorted lists for comm
+    have_names_file="/tmp/have-$cuuid.txt"
+    jq -r '.[].name' "$rfile" | sort -u > "$have_names_file"
+    want_names_file="/tmp/want-$cuuid.txt"
+    grep -F "$cid" "$want" | cut -f2 | sort -u > "$want_names_file"
+
+    # compute missing = wanted - have
+    miss_file="/tmp/miss-$cuuid.txt"
+    comm -13 "$have_names_file" "$want_names_file" > "$miss_file" || true
+    M=$(wc -l < "$miss_file" | tr -d ' ')
+    if [ "$M" -gt 0 ]; then
+      printf "%s [roles] client %-24s create %s missing role(s)\n" "$(ts)" "$cid" "$M" >&2
+
+      # parallel branch (fallback to serial if xargs absent or ROLE_CREATE_PAR=1)
+      if command -v xargs >/dev/null 2>&1 && [ "${ROLE_CREATE_PAR:-1}" -gt 1 ]; then
+        # use the binary directly in workers (don’t rely on shell functions)
+        export KC_BOOT_URL KCADM_BASE_CONFIG
+        xargs -r -n1 -P"${ROLE_CREATE_PAR:-8}" -a "$miss_file" \
+          /opt/keycloak/bin/kcadm.sh create "clients/$cuuid/roles" \
+            -r "$_realm" --server "$KC_BOOT_URL" --insecure --config "$KCADM_BASE_CONFIG" \
+            -s name=@@ >/dev/null 2>&1
+        # NOTE: with older xargs that doesn’t support -a or placeholder, use:
+        #   cat "$miss_file" | xargs -r -n1 -P"${ROLE_CREATE_PAR:-8}" sh -c '
+        #     /opt/keycloak/bin/kcadm.sh create "clients/'"$cuuid"'/roles" \
+        #       -r "'"$_realm"'" --server "$KC_BOOT_URL" --insecure --config "$KCADM_BASE_CONFIG" \
+        #       -s name="$0" >/dev/null 2>&1
+        #   '
+      else
+        # serial fallback
+        while IFS= read -r rn; do
+          [ -z "$rn" ] && continue
+          /opt/keycloak/bin/kcadm.sh create "clients/$cuuid/roles" \
+            -r "$_realm" --server "$KC_BOOT_URL" --insecure --config "$KCADM_BASE_CONFIG" \
+            -s name="$rn" >/dev/null 2>&1 || true
+        done < "$miss_file"
+      fi
+
+      # refresh cache for this client so the mapping step has the IDs immediately
+      /opt/keycloak/bin/kcadm.sh get "clients/$cuuid/roles" \
+        -r "$_realm" --server "$KC_BOOT_URL" --insecure --config "$KCADM_BASE_CONFIG" \
+        -q first=0 -q max=5000 2>/dev/null \
+      | jq -c '[ .[] | {id,name} ]' >"$rfile"
+    else
+      printf "%s [roles] client %-24s already has all referenced roles\n" "$(ts)" "$cid" >&2
+    fi
+  done
+}
+
+
+_build_batches() {
+  _src="$1"; _workdir="${2:-/tmp/kc_batches}"
+  rm -rf "$_workdir"; mkdir -p "$_workdir"
+
+  dbg "[batch] building from $_src"
+  jq -r '
+    def walkg($p):
+      . as $g
+      | (if ($g.path? and ($g.path|type)=="string" and ($g.path|length)>0)
+           then $g.path
+           else ($p + (if $p=="" then "" else "/" end) + ($g.name // ""))
+         end) as $q
+      | {path:$q, cr: ($g.clientRoles // {})}
+      , ( ($g.subGroups // [])[] | walkg($q) );
+    (.groups // [])[] | walkg("")
+    | select(.path != null and .path != "")
+    | . as $row
+    | $row.cr
+    | to_entries[] as $e
+    | $e.key as $client
+    | $e.value[] as $r
+    | [$row.path, $client, $r] | @tsv
+  ' "$_src" \
+  | sort -u \
+  | while IFS=$'\t' read -r gpath client_id role_name; do
+      [ -z "$gpath$client_id$role_name" ] && continue
+      key="$(printf '%s|%s' "$gpath" "$client_id" | md5sum | awk '{print $1}')"
+      d="$_workdir/$key"
+      mkdir -p "$d"
+      printf '%s\n' "$gpath"       >"$d/path"
+      printf '%s\n' "$client_id"   >"$d/clientId"
+      printf '%s\n' "$role_name"  >>"$d/roles.txt"
+    done
+
+  B="$(find "$_workdir" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')"
+  printf "%s [batch] built %s (group,client) batch dir(s)\n" "$(ts)" "$B" >&2
+  if [ "${DEBUG_BATCH:-0}" = 1 ]; then
+    # show 5 batches
+    for d in $(find "$_workdir" -mindepth 1 -maxdepth 1 -type d | head -n 5); do
+      dump_head "[batch] $(basename "$d")/path" "$d/path" 1
+      dump_head "[batch] $(basename "$d")/clientId" "$d/clientId" 1
+      dump_head "[batch] $(basename "$d")/roles.txt" "$d/roles.txt" 10
+    done
+  fi
+
+  printf '%s\n' "$_workdir"
+}
+
+
+# Single batch apply for one (group, client): builds a single JSON array for all roles in that batch
+_apply_one_batch() {
+  _realm="$1"; _group_cache="$2"; _cache_dir="$3"; _batch_dir="$4"
+
+  gpath="$(cat "$_batch_dir/path")"
+  cid="$(cat "$_batch_dir/clientId")"
+  roles_file="$_batch_dir/roles.txt"
+
+  [ -s "$roles_file" ] || return 0
+
+  # New: try cache (with/without leading slash), then live walk
+    gid="$(_group_id_from_cache "$_group_cache" "$gpath")"
+    [ -z "$gid" ] && gid="$(_group_id_from_cache "$_group_cache" "${gpath#/}")"
+    if [ -z "$gid" ]; then
+      gid="$(_resolve_gid_by_path "$_realm" "$gpath")"
+    fi
+    if [ -z "$gid" ]; then
+      [ "${DEBUG_WORKER:-0}" = 1 ] && {
+        log "❌ [child] Cache+fallback miss for '$gpath' — sampling available paths:"
+        _kc get groups -r "$_realm" --server "$KC_BOOT_URL" --insecure --fields path,id 2>/dev/null \
+          | jq -r '.[].path' \
+          | grep -F "$(printf '%s' "$gpath" | awk -F/ '{print $2}')" \
+          | head -n 5 | sed 's/^/   • /' >&2 || true
+      }
+      return 0
+    fi
+
+  cuuid="$(awk -F'\t' -v C="$cid" '$1==C{print $2}' "$_cache_dir/client_map.tsv" | head -n1)"
+  if [ -z "$cuuid" ]; then
+    log "❌ Unknown clientId '$cid' (skipping $gpath)"
+    return 0
+  fi
+
+  roles_json="$_cache_dir/roles-$cuuid.json"
+  if [ ! -s "$roles_json" ]; then
+    log "❌ No roles cache for client '$cid' ($cuuid) (skipping $gpath)"
+    return 0
+  fi
+
+  # Build wanted list (unique)
+  wanted="$(sort -u "$roles_file" | jq -R -s 'split("\n") | map(select(length>0))')"
+
+  body="$_batch_dir/body.json"
+  jq -c --argjson wanted "$wanted" '
+    [ .[]
+      | select(.name as $n | $wanted | index($n))
+      | {id,name}
+    ]
+  ' "$roles_json" >"$body"
+
+  # Empty? nothing to map.
+  if [ "$(jq 'length' "$body")" -eq 0 ]; then
+    log "⚠️  No matching roles under client '$cid' for group '$gpath' (skip)"
+    return 0
+  fi
+
+  if _kc create "groups/$gid/role-mappings/clients/$cuuid" \
+       -r "$_realm" --server "$KC_BOOT_URL" --insecure -f "$body" >/dev/null 2>&1
+  then
+    cnt="$(jq 'length' "$body")"
+    log "🔐 Mapped $cnt role(s) from client '$cid' to group '$gpath' (batched)"
+  else
+    log "❌ Failed batch mapping for client '$cid' to group '$gpath'"
+    return 1
+  fi
+}
+
+# Public entry: batched + cached role mappings
+apply_group_client_roles() {
+  _realm="$1"; _src="$2"
+  log "🔗 Applying group clientRoles (batched)…"
+
+  # 0) Pick a source that *has* clientRoles (overlay from original if needed)
+  MAPPING_SRC="$(_prepare_mapping_source "$_src" "$IMPORT_FILE_ORIG")"
+  [ "${DEBUG_WORKER:-0}" = "1" ] && log "[debug] mapping src: $MAPPING_SRC"
+  GROUP_CACHE="$(_cache_group_paths "$_realm")" || { log "❌ Failed to cache groups"; return 1; }
+  CACHED_DIR="$(_cache_clients_and_roles "$_realm" "$MAPPING_SRC")" || { log "❌ Failed to cache clients/roles"; return 1; }
+
+  # 🚀 NEW: fast, parallel role creation via curl (creates ONLY missing roles)
+  ensure_client_roles_from_mapping_curl "$_realm" "$CACHED_DIR" "$MAPPING_SRC"
+
+  # Sanity on the mapping source
+  jq_count "[apply] mapping-src clientRoles objects" \
+           '[..|objects|.clientRoles?|select(type=="object")]|length' "$MAPPING_SRC"
+  jq_count "[apply] KC group count (cache)" 'length' "$(_cache_group_paths "$_realm")"  # quick sample count
+
+
+  [ "${DEBUG_WORKER:-0}" = "1" ] && log "[debug] mapping src: $MAPPING_SRC"
+
+  # 1) Build caches (clients → uuid, existing roles; and KC group tree)
+
+  # (optional) visibility before role creation
+  jq_count "[apply] cached KC groups" 'length' "$GROUP_CACHE"
+  printf "%s [apply] cached clients with roles: %s file(s)\n" \
+    "$(ts)" "$(ls -1 "$CACHED_DIR"/roles-*.json 2>/dev/null | wc -l | tr -d ' ')" >&2
+  [ "${DEBUG_INIT:-0}" = 1 ] && dump_head "[apply] client map (cid → uuid)" "$CACHED_DIR/client_map.tsv" 20
+
+  # 🚀 NEW: fast, parallel role creation via curl (creates ONLY missing roles)
+  ensure_client_roles_from_mapping_curl "$_realm" "$CACHED_DIR" "$MAPPING_SRC"
+
+  # (optional) quick post-create visibility (cache files are refreshed per client already)
+  printf "%s [apply] cached clients with roles (post-create): %s file(s)\n" \
+    "$(ts)" "$(ls -1 "$CACHED_DIR"/roles-*.json 2>/dev/null | wc -l | tr -d ' ')" >&2
+
+  # 2) Build batches
+  BATCH_DIR="$(_build_batches "$MAPPING_SRC")"
+
+  if [ "${DEBUG_BATCH:-0}" = 1 ]; then
+    printf "%s [apply] batch root: %s\n" "$(ts)" "$BATCH_DIR" >&2
+    find "$BATCH_DIR" -mindepth 1 -maxdepth 1 -type d | head -n 5 | while read d; do
+      dump_head "[apply] sample $(basename "$d")/path" "$d/path" 1
+      dump_head "[apply] sample $(basename "$d")/clientId" "$d/clientId" 1
+      dump_head "[apply] sample $(basename "$d")/roles.txt" "$d/roles.txt" 10
+    done
+  fi
+
+  # Optional visibility when nothing to do
+  if [ "$(find "$BATCH_DIR" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')" -eq 0 ]; then
+    log "ℹ️  No (group,client) role batches were produced. Likely no clientRoles present in export."
+    return 0
+  fi
+
+  # 3) Prepare for worker reinvocation (unchanged)
+  SELF="${SELF:-$0}"
+  case "$SELF" in
+    /*) : ;;
+    *) SELF="$(readlink -f "$SELF" 2>/dev/null || realpath "$SELF" 2>/dev/null || printf '%s/%s' "$PWD" "$SELF")"
+  esac
+  export KC_BOOT_URL KCADM_BASE_CONFIG KCADM_CONFIG_DIR
+
+  # 4) Apply (parallel or serial) … (leave your existing xargs/serial code here)
+  PAR="${KCADM_PARALLEL:-1}"
+  if command -v xargs >/dev/null 2>&1 && [ "$PAR" -gt 1 ]; then
+    find "$BATCH_DIR" -mindepth 1 -maxdepth 1 -type d -print0 \
+    | xargs -0 -P"$PAR" -I{} sh -c '
+        [ "${DEBUG_WORKER:-0}" = "1" ] && printf "[spawn] %s __apply_one_batch__ %s %s %s %s\n" "$0" "$1" "$2" "$3" "$4" >&2
+        exec "$0" __apply_one_batch__ "$1" "$2" "$3" "$4"
+      ' "$SELF" "$_realm" "$GROUP_CACHE" "$CACHED_DIR" {}
+  else
+    for d in "$BATCH_DIR"/*; do
+      [ -d "$d" ] || continue
+      [ "${DEBUG_WORKER:-0}" = "1" ] && log "[spawn-serial] $SELF __apply_one_batch__ $_realm $GROUP_CACHE $CACHED_DIR $d"
+      "$SELF" __apply_one_batch__ "$_realm" "$GROUP_CACHE" "$CACHED_DIR" "$d"
+    done
+  fi
+
+  log "✅ Finished applying group clientRoles (batched)."
+}
+
+
+# Run it using the same SRC_FILE that powered group-tree creation
+set +e
+apply_group_client_roles "$REALM" "$SRC_FILE"
+rc=$?
+set -e
+log "[apply] group clientRoles rc=$rc"
+
+if jq -e '.users | type=="array" and length>0' "$IMPORT_FILE_ORIG" >/dev/null 2>&1; then
+  n="$(jq '.users|length' "$IMPORT_FILE_ORIG")"
+  log "👥 Chunked user import: $n users from $(basename "$IMPORT_FILE_ORIG")"
+  i=0
+  while :; do
+    chunk="/tmp/users-chunk-$i.json"
+    jq -c --argjson s $((i*500)) --argjson l 500 '
+      { ifResourceExists:"SKIP", users: (.users // [])[ $s : ($s+$l) ] }
+    ' "$IMPORT_FILE_ORIG" > "$chunk"
+    [ "$(jq '.users|length' "$chunk")" -eq 0 ] && break
+    _kc create "realms/$REALM/partialImport" --realm master --server "$KC_BOOT_URL" --insecure -f "$chunk" || true
+    i=$((i+1))
+  done
+else
+  log "ℹ️  No users found in $(basename "$IMPORT_FILE_ORIG"); skipping user import."
+fi
 
 
 
@@ -268,7 +1095,7 @@ scope_id_by_name() {
 
   log "🔎 Looking up client scope '$_scope_name' in realm '$_realm'…"
 
-  _id="$(/opt/keycloak/bin/kcadm.sh get client-scopes -r "$_realm" --server "$KC_BOOT_URL" --insecure \
+  _id="$(_kc get client-scopes -r "$_realm" --server "$KC_BOOT_URL" --insecure \
            -q "name=$_scope_name" --fields id,name 2>/dev/null \
          | jq -r '.[]? | select(.name=="'"$_scope_name"'") | .id' \
          | head -n1 || true)"
@@ -312,7 +1139,7 @@ ensure_client_scope() {
 
   if [ -z "${_id:-}" ]; then
     log "➕ Client scope '$_scope_name' does not exist. Creating…"
-    if /opt/keycloak/bin/kcadm.sh create client-scopes -r "$_realm" --server "$KC_BOOT_URL" --insecure \
+    if _kc create client-scopes -r "$_realm" --server "$KC_BOOT_URL" --insecure \
         -s "name=$_scope_name" -s protocol=openid-connect >/dev/null 2>&1
     then
       _id="$(scope_id_by_name "$_realm" "$_scope_name" || true)"
@@ -353,7 +1180,7 @@ ensure_client_scope() {
 #       echo "Mapper exists"
 #     fi
 protocol_mapper_exists() {
-  /opt/keycloak/bin/kcadm.sh get "client-scopes/$2/protocol-mappers/models" -r "$1" --server "$KC_BOOT_URL" --insecure 2>/dev/null \
+  _kc get "client-scopes/$2/protocol-mappers/models" -r "$1" --server "$KC_BOOT_URL" --insecure 2>/dev/null \
     | jq -e '.[]? | select(.name=="'"$3"'")' >/dev/null 2>&1
 }
 
@@ -370,7 +1197,7 @@ ensure_audience_mapper() {
     log "✅ Audience mapper '$_mapper_name' already exists in scope id=$_scope_id. Skipping."
   else
     log "➕ Creating new audience mapper '$_mapper_name' in scope id=$_scope_id for audience client '$_aud_client'…"
-    if /opt/keycloak/bin/kcadm.sh create "client-scopes/$_scope_id/protocol-mappers/models" \
+    if _kc create "client-scopes/$_scope_id/protocol-mappers/models" \
          -r "$_realm" --server "$KC_BOOT_URL" --insecure -f - <<JSON >/dev/null 2>&1
 { "name":"$_mapper_name", "protocol":"openid-connect", "protocolMapper":"oidc-audience-mapper",
   "config":{
@@ -437,7 +1264,7 @@ ensure_client_role_mapper_scope() {
 
   log "➕ Creating new protocol mapper '$_mapper_name' for client '$_client_id' in scope '$_scope_name'…"
 
-  if /opt/keycloak/bin/kcadm.sh create "client-scopes/$sid/protocol-mappers/models" \
+  if _kc create "client-scopes/$sid/protocol-mappers/models" \
        -r "$_realm" --server "$KC_BOOT_URL" --insecure -f - \
        >/tmp/create-protocol-mapper.log 2>&1 <<JSON
 { "name":"$_mapper_name", "protocol":"openid-connect", "protocolMapper":"oidc-usermodel-client-role-mapper",
@@ -485,7 +1312,7 @@ JSON
 #     ensure_default_scope_attached "OSSS" "roles"
 #     → Ensures the `roles` client scope is part of the default token scopes for the OSSS realm.
 ensure_default_scope_attached() {
-  /opt/keycloak/bin/kcadm.sh update "realms/$1" --server "$KC_BOOT_URL" --insecure \
+  _kc update "realms/$1" --server "$KC_BOOT_URL" --insecure \
     -s "defaultDefaultClientScopes+=$2" >/dev/null 2>&1 || true
 }
 
@@ -516,6 +1343,22 @@ is_uuid36() {
   esac
 }
 
+# --- If sanitized $SRC_FILE has no users, hydrate from original export ---
+if ! jq -e '.users | type=="array" and length>0' "$SRC_FILE" >/dev/null 2>&1; then
+  if [ -s "$IMPORT_FILE_ORIG" ] && jq -e '.users | type=="array" and length>0' "$IMPORT_FILE_ORIG" >/dev/null 2>&1; then
+    log "👥 'users' missing from $(basename "$SRC_FILE"); hydrating from $(basename "$IMPORT_FILE_ORIG")…"
+    # 1) the create payloads (one JSON per line)
+    jq -c '.users[]' "$IMPORT_FILE_ORIG" > /tmp/users-to-create.json
+    # 2) their group memberships for the fallback join logic
+    mkdir -p /tmp/user-groups
+    jq -r '.users[] | select(.groups|type=="array") | [.username, (.groups[])] | @tsv' "$IMPORT_FILE_ORIG" \
+      | while IFS=$'\t' read -r uname gpath; do
+          [ -n "$uname" ] && [ -n "$gpath" ] && printf '%s\n' "$gpath" >> "/tmp/user-groups/$uname.txt"
+        done
+  else
+    log "ℹ️  No users in sanitized or original export; skipping user creation."
+  fi
+fi
 
 # ==================== Manual user import fallback ====================
 # If users weren't created by partial import, create from JSON
@@ -558,7 +1401,7 @@ user_exists() {
   log "🔎 Checking if user '$_user' exists in realm '$_realm'…"
 
   # Query Keycloak for user
-  raw_json="$(/opt/keycloak/bin/kcadm.sh get users -r "$_realm" --server "$KC_BOOT_URL" --insecure \
+  raw_json="$(_kc get users -r "$_realm" --server "$KC_BOOT_URL" --insecure \
                 -q "username=$_user" --fields id,username 2>/dev/null || true)"
 
   if printf '%s' "$raw_json" | jq -e '.[0]?.id? | strings' >/dev/null 2>&1; then
@@ -581,13 +1424,13 @@ if [ -s /tmp/users-to-create.json ]; then
 
     if user_exists "$REALM" "$uname"; then
       log "ℹ️  User '$uname' already exists. Skipping create."
-      uid="$(/opt/keycloak/bin/kcadm.sh get users -r "$REALM" --server "$KC_BOOT_URL" --insecure -q "username=$uname" --fields id 2>/dev/null | json_first_id || true)"
+      uid="$(_kc get users -r "$REALM" --server "$KC_BOOT_URL" --insecure -q "username=$uname" --fields id 2>/dev/null | json_first_id || true)"
     else
       # create without credentials/groups (kcadm supports JSON via -f -)
       printf '%s' "$ujson" | jq 'del(.credentials, .groups, .requiredActions)' \
-        | /opt/keycloak/bin/kcadm.sh create users -r "$REALM" --server "$KC_BOOT_URL" --insecure -f - >/tmp/create-user.out 2>/dev/null || true
+        | _kc create users -r "$REALM" --server "$KC_BOOT_URL" --insecure -f - >/tmp/create-user.out 2>/dev/null || true
       # fetch id
-      uid="$(/opt/keycloak/bin/kcadm.sh get users -r "$REALM" --server "$KC_BOOT_URL" --insecure -q "username=$uname" --fields id 2>/dev/null | json_first_id || true)"
+      uid="$(_kc get users -r "$REALM" --server "$KC_BOOT_URL" --insecure -q "username=$uname" --fields id 2>/dev/null | json_first_id || true)"
       [ -n "$uid" ] && log "✅ Created user '$uname' (id=$uid)"
     fi
 
@@ -596,7 +1439,7 @@ if [ -s /tmp/users-to-create.json ]; then
     # set requiredActions if any
     req_json="$(printf '%s' "$ujson" | jq -c '.requiredActions | select(length>0)')"
     if [ -n "${req_json:-}" ]; then
-      /opt/keycloak/bin/kcadm.sh update "users/$uid" -r "$REALM" --server "$KC_BOOT_URL" --insecure \
+      _kc update "users/$uid" -r "$REALM" --server "$KC_BOOT_URL" --insecure \
         -s "requiredActions+=$(printf '%s' "$req_json")" >/dev/null 2>&1 || true
     fi
 
@@ -604,7 +1447,7 @@ if [ -s /tmp/users-to-create.json ]; then
     pass_val="$(printf '%s' "$ujson" | jq -r '.credentials[0]?.value // empty')"
     temp_flag="$(printf '%s' "$ujson" | jq -r '.credentials[0]?.temporary // false')"
     if [ -n "$pass_val" ] && [ "$pass_val" != "null" ]; then
-      /opt/keycloak/bin/kcadm.sh set-password -r "$REALM" --server "$KC_BOOT_URL" --insecure \
+      _kc set-password -r "$REALM" --server "$KC_BOOT_URL" --insecure \
         --userid "$uid" --new-password "$pass_val" $( [ "$temp_flag" = "true" ] && printf -- --temporary ) >/dev/null 2>&1 || true
     fi
 
@@ -623,7 +1466,7 @@ if [ -s /tmp/users-to-create.json ]; then
         done
         gid="$parent"
         if [ -n "${gid:-}" ]; then
-          /opt/keycloak/bin/kcadm.sh update "users/$uid/groups/$gid" -r "$REALM" --server "$KC_BOOT_URL" --insecure -n >/dev/null 2>&1 || true
+          _kc update "users/$uid/groups/$gid" -r "$REALM" --server "$KC_BOOT_URL" --insecure -n >/dev/null 2>&1 || true
         fi
       done
     fi
@@ -637,14 +1480,14 @@ fi
 # ---------- Ensure 'roles' client scope + mappers ----------
 CS_ROLES_ID="$(ensure_client_scope "$REALM" "roles")"
 if ! protocol_mapper_exists "$REALM" "$CS_ROLES_ID" "realm roles"; then
-  /opt/keycloak/bin/kcadm.sh create "client-scopes/$CS_ROLES_ID/protocol-mappers/models" -r "$REALM" --server "$KC_BOOT_URL" --insecure -f - <<'JSON' >/dev/null 2>&1 || true
+  _kc create "client-scopes/$CS_ROLES_ID/protocol-mappers/models" -r "$REALM" --server "$KC_BOOT_URL" --insecure -f - <<'JSON' >/dev/null 2>&1 || true
 { "name":"realm roles","protocol":"openid-connect","protocolMapper":"oidc-usermodel-realm-role-mapper",
   "config":{"multivalued":"true","userinfo.token.claim":"true","id.token.claim":"true","access.token.claim":"true",
             "claim.name":"realm_access.roles","jsonType.label":"String"}}
 JSON
 fi
 if ! protocol_mapper_exists "$REALM" "$CS_ROLES_ID" "client roles"; then
-  /opt/keycloak/bin/kcadm.sh create "client-scopes/$CS_ROLES_ID/protocol-mappers/models" -r "$REALM" --server "$KC_BOOT_URL" --insecure -f - <<'JSON' >/dev/null 2>&1 || true
+  _kc create "client-scopes/$CS_ROLES_ID/protocol-mappers/models" -r "$REALM" --server "$KC_BOOT_URL" --insecure -f - <<'JSON' >/dev/null 2>&1 || true
 { "name":"client roles","protocol":"openid-connect","protocolMapper":"oidc-usermodel-client-role-mapper",
   "config":{"multivalued":"true","userinfo.token.claim":"true","id.token.claim":"true","access.token.claim":"true",
             "usermodel.clientRoleMapping.clientId":"*",
@@ -658,7 +1501,7 @@ ensure_default_scope_attached "$REALM" "email"
 # ---------- Ensure 'account-audience' scope + audience mapper -> account ----------
 CS_ACC_AUD_ID="$(ensure_client_scope "$REALM" "account-audience")"
 if is_uuid36 "$CS_ACC_AUD_ID"; then
-  /opt/keycloak/bin/kcadm.sh update "client-scopes/$CS_ACC_AUD_ID" -r "$REALM" --server "$KC_BOOT_URL" --insecure \
+  _kc update "client-scopes/$CS_ACC_AUD_ID" -r "$REALM" --server "$KC_BOOT_URL" --insecure \
     -s 'attributes."display.on.consent.screen"=false' \
     -s 'attributes."consent.screen.text"=' \
     -s 'attributes."include.in.token.scope"=true' >/dev/null 2>&1 || true
@@ -672,16 +1515,16 @@ fi
 ensure_client_role_mapper_scope "$REALM" "osss-api-roles" "osss-api" "osss-api client roles"
 CS_API_AUD_ID="$(ensure_client_scope "$REALM" "osss-api-audience")"
 if is_uuid36 "$CS_API_AUD_ID"; then
-  /opt/keycloak/bin/kcadm.sh update "client-scopes/$CS_API_AUD_ID" -r "$REALM" --server "$KC_BOOT_URL" --insecure \
+  _kc update "client-scopes/$CS_API_AUD_ID" -r "$REALM" --server "$KC_BOOT_URL" --insecure \
     -s 'attributes."include.in.token.scope"=true' >/dev/null 2>&1 || true
   ensure_audience_mapper "$REALM" "$CS_API_AUD_ID" "osss-api" "audience: osss-api"
 fi
 
 # ---------- Configure built-in account-console as SPA ----------
-ACC_CONSOLE_ID=$(/opt/keycloak/bin/kcadm.sh get clients -r "$REALM" --server "$KC_BOOT_URL" --insecure -q clientId=account-console --fields id | json_first_id || true)
+ACC_CONSOLE_ID=$(_kc get clients -r "$REALM" --server "$KC_BOOT_URL" --insecure -q clientId=account-console --fields id | json_first_id || true)
 if [ -n "${ACC_CONSOLE_ID:-}" ]; then
   log "🛠  Configuring 'account-console' as public SPA…"
-  /opt/keycloak/bin/kcadm.sh update "clients/$ACC_CONSOLE_ID" -r "$REALM" --server "$KC_BOOT_URL" --insecure \
+  _kc update "clients/$ACC_CONSOLE_ID" -r "$REALM" --server "$KC_BOOT_URL" --insecure \
     -s publicClient=true \
     -s standardFlowEnabled=true \
     -s implicitFlowEnabled=false \
@@ -694,7 +1537,7 @@ if [ -n "${ACC_CONSOLE_ID:-}" ]; then
 fi
 
 # ---------- Realm tweaks: frontendUrl + (re)attach defaults ----------
-/opt/keycloak/bin/kcadm.sh update "realms/$REALM" --server "$KC_BOOT_URL" --insecure \
+_kc update "realms/$REALM" --server "$KC_BOOT_URL" --insecure \
   -s "attributes.frontendUrl=$ORIGIN" \
   -s 'defaultDefaultClientScopes+=profile' \
   -s 'defaultDefaultClientScopes+=email' \
@@ -730,20 +1573,20 @@ fi
 #     set_weborigins "security-admin-console"
 #     → Ensures that the `security-admin-console` client in `$REALM` accepts requests from `+` and `$ORIGIN`.
 set_weborigins() {
-  _CID="$(/opt/keycloak/bin/kcadm.sh get clients -r "$REALM" --server "$KC_BOOT_URL" --insecure -q clientId="$1" --fields id 2>/dev/null | json_first_id || true)"
+  _CID="$(_kc get clients -r "$REALM" --server "$KC_BOOT_URL" --insecure -q clientId="$1" --fields id 2>/dev/null | json_first_id || true)"
   [ -z "$_CID" ] && { log "ℹ️  Client '$1' not found in realm '$REALM' (skipping)"; return 0; }
-  /opt/keycloak/bin/kcadm.sh update "clients/$_CID" -r "$REALM" --server "$KC_BOOT_URL" --insecure \
+  _kc update "clients/$_CID" -r "$REALM" --server "$KC_BOOT_URL" --insecure \
     -s 'webOrigins=["+"]' >/dev/null 2>&1 || true
-  /opt/keycloak/bin/kcadm.sh update "clients/$_CID" -r "$REALM" --server "$KC_BOOT_URL" --insecure \
+  _kc update "clients/$_CID" -r "$REALM" --server "$KC_BOOT_URL" --insecure \
     -s "webOrigins+=$ORIGIN" >/dev/null 2>&1 || true
 }
 set_weborigins "security-admin-console"
-ACC_ID=$(/opt/keycloak/bin/kcadm.sh get clients -r "$REALM" --server "$KC_BOOT_URL" --insecure -q clientId=account --fields id | json_first_id || true)
+ACC_ID=$(_kc get clients -r "$REALM" --server "$KC_BOOT_URL" --insecure -q clientId=account --fields id | json_first_id || true)
 if [ -n "${ACC_ID:-}" ]; then
   log "🔧 Normalizing webOrigins for 'account' client..."
   set +e
-  /opt/keycloak/bin/kcadm.sh update "clients/$ACC_ID" -r "$REALM" --server "$KC_BOOT_URL" --insecure -s 'webOrigins=["+"]' >/dev/null 2>&1
-  /opt/keycloak/bin/kcadm.sh update "clients/$ACC_ID" -r "$REALM" --server "$KC_BOOT_URL" --insecure -s "webOrigins+=$ORIGIN" >/dev/null 2>&1
+  _kc update "clients/$ACC_ID" -r "$REALM" --server "$KC_BOOT_URL" --insecure -s 'webOrigins=["+"]' >/dev/null 2>&1
+  _kc update "clients/$ACC_ID" -r "$REALM" --server "$KC_BOOT_URL" --insecure -s "webOrigins+=$ORIGIN" >/dev/null 2>&1
   set -e
 fi
 
@@ -794,18 +1637,18 @@ ensure_client() {
   log "🔎 Ensuring client '$_clientId' exists in realm '$_realm'…"
 
   # Try to look up client ID
-  cid="$(/opt/keycloak/bin/kcadm.sh get clients -r "$_realm" --server "$KC_BOOT_URL" --insecure \
+  cid="$(_kc get clients -r "$_realm" --server "$KC_BOOT_URL" --insecure \
           -q clientId="$_clientId" --fields id | json_first_id || true)"
 
   if [ -z "${cid:-}" ]; then
     log "⚠️  Client '$_clientId' not found. Creating new client with name='$_name'…"
-    if /opt/keycloak/bin/kcadm.sh create clients -r "$_realm" --server "$KC_BOOT_URL" --insecure \
+    if _kc create clients -r "$_realm" --server "$KC_BOOT_URL" --insecure \
          -s clientId="$_clientId" -s name="$_name" -s protocol=openid-connect \
          -s publicClient=false -s standardFlowEnabled=true -s directAccessGrantsEnabled=false \
          -s serviceAccountsEnabled=false -s 'attributes."post.logout.redirect.uris"=+' >/dev/null 2>&1; then
       log "✅ Successfully created client '$_clientId'"
       # Fetch id again
-      cid="$(/opt/keycloak/bin/kcadm.sh get clients -r "$_realm" --server "$KC_BOOT_URL" --insecure \
+      cid="$(_kc get clients -r "$_realm" --server "$KC_BOOT_URL" --insecure \
               -q clientId="$_clientId" --fields id | json_first_id || true)"
       [ -n "${cid:-}" ] && log "🔑 Client '$_clientId' has id=$cid"
     else
@@ -824,7 +1667,7 @@ assign_all_client_roles () {
 
   # Resolve client UUID
   local _cid
-  _cid="$(/opt/keycloak/bin/kcadm.sh get clients -r "$_realm" --server "$KC_BOOT_URL" --insecure \
+  _cid="$(_kc get clients -r "$_realm" --server "$KC_BOOT_URL" --insecure \
             -q clientId="$_clientId" --fields id 2>/dev/null | jq -r '.[0].id // empty')"
   if [ -z "${_cid:-}" ]; then
     log "⚠️  Client '$_clientId' not found in realm '$_realm'; skipping."
@@ -834,13 +1677,13 @@ assign_all_client_roles () {
 
   # Build payload: id,name,clientRole,containerId required for client-role mapping
   local _roles_json _count
-  _roles_json="$(/opt/keycloak/bin/kcadm.sh get "clients/$_cid/roles" -r "$_realm" --server "$KC_BOOT_URL" --insecure 2>/dev/null \
+  _roles_json="$(_kc get "clients/$_cid/roles" -r "$_realm" --server "$KC_BOOT_URL" --insecure 2>/dev/null \
                   | jq -c '[.[]? | {id:.id,name:.name,clientRole:true,containerId:"'"$_cid"'"}]')"
   _count="$(printf '%s' "$_roles_json" | jq 'length')"
   if [ "${_count:-0}" -gt 0 ]; then
     log "➕ Assigning ${_count} roles from client '$_clientId'…"
     if printf '%s' "$_roles_json" \
-       | /opt/keycloak/bin/kcadm.sh create "users/$_uid/role-mappings/clients/$_cid" \
+       | _kc create "users/$_uid/role-mappings/clients/$_cid" \
            -r "$_realm" --server "$KC_BOOT_URL" --insecure -f - >/dev/null 2>&1; then
       log "✅ Assigned ${_count} roles from '$_clientId'"
     else
@@ -857,13 +1700,13 @@ assign_all_realm_roles () {
 
   # Build payload: id + name is sufficient for realm-role mapping
   local _roles_json _count
-  _roles_json="$(/opt/keycloak/bin/kcadm.sh get roles -r "$_realm" --server "$KC_BOOT_URL" --insecure 2>/dev/null \
+  _roles_json="$(_kc get roles -r "$_realm" --server "$KC_BOOT_URL" --insecure 2>/dev/null \
                   | jq -c '[.[]? | {id:.id,name:.name}]')"
   _count="$(printf '%s' "$_roles_json" | jq 'length')"
   if [ "${_count:-0}" -gt 0 ]; then
     log "➕ Assigning ${_count} REALM roles in '$_realm'…"
     if printf '%s' "$_roles_json" \
-       | /opt/keycloak/bin/kcadm.sh create "users/$_uid/role-mappings/realm" \
+       | _kc create "users/$_uid/role-mappings/realm" \
            -r "$_realm" --server "$KC_BOOT_URL" --insecure -f - >/dev/null 2>&1; then
       log "✅ Assigned ${_count} REALM roles"
     else
@@ -920,7 +1763,7 @@ attach_scope_to_client() {
   log "🔎 Attaching scope '$_scope' to client '$_clientId' in realm '$_realm'…"
 
   # Lookup client id
-  cid="$(/opt/keycloak/bin/kcadm.sh get clients -r "$_realm" --server "$KC_BOOT_URL" --insecure \
+  cid="$(_kc get clients -r "$_realm" --server "$KC_BOOT_URL" --insecure \
           -q clientId="$_clientId" --fields id | json_first_id || true)"
 
   if [ -z "${cid:-}" ]; then
@@ -940,7 +1783,7 @@ attach_scope_to_client() {
   fi
 
   # Attach scope
-  if /opt/keycloak/bin/kcadm.sh update "clients/$cid" -r "$_realm" --server "$KC_BOOT_URL" --insecure \
+  if _kc update "clients/$cid" -r "$_realm" --server "$KC_BOOT_URL" --insecure \
        -s "defaultClientScopes+=$_scope" >/dev/null 2>&1; then
     log "🎯 Successfully attached scope '$_scope' to client '$_clientId' (id=$cid)"
   else
@@ -1000,7 +1843,7 @@ user_id_by_username() {
   _username="$2"
 
   log "🔎 Looking up user '$_username' in realm '$_realm'…"
-  _id="$(/opt/keycloak/bin/kcadm.sh get users -r "$_realm" --server "$KC_BOOT_URL" --insecure \
+  _id="$(_kc get users -r "$_realm" --server "$KC_BOOT_URL" --insecure \
           -q "username=$_username" --fields id,username 2>/dev/null | json_first_id || true)"
 
   if [ -n "${_id:-}" ]; then
@@ -1069,7 +1912,7 @@ grant_admin_mappings () {
   _uid="$(user_id_by_username "$_realm" "$_user" || true)"
   if [ -z "${_uid:-}" ]; then
     log "➕ Creating user $_user in realm $_realm…"
-    /opt/keycloak/bin/kcadm.sh create users -r "$_realm" --server "$KC_BOOT_URL" --insecure \
+    _kc create users -r "$_realm" --server "$KC_BOOT_URL" --insecure \
       -s "username=$_user" -s "email=$_user" -s enabled=true -s emailVerified=true \
       >/dev/null 2>&1 || log "⚠️ Failed to create user $_user"
     _uid="$(user_id_by_username "$_realm" "$_user" || true)"
@@ -1080,7 +1923,7 @@ grant_admin_mappings () {
 
   if [ -n "${_uid:-}" ]; then
     log "🔑 Setting password for user $_user in realm $_realm…"
-    /opt/keycloak/bin/kcadm.sh set-password -r "$_realm" --server "$KC_BOOT_URL" --insecure \
+    _kc set-password -r "$_realm" --server "$KC_BOOT_URL" --insecure \
       --userid "$_uid" --new-password "$CTO_PASS" --temporary=false >/dev/null 2>&1 \
       && log "✅ Password set for $_user" || log "⚠️ Failed to set password for $_user"
 
@@ -1088,9 +1931,9 @@ grant_admin_mappings () {
     assign_all_realm_roles "$_realm" "$_uid"
 
     # 2) Grant ALL client roles from EVERY client in the realm
-    client_count="$(/opt/keycloak/bin/kcadm.sh get clients -r "$_realm" --server "$KC_BOOT_URL" --insecure 2>/dev/null | jq 'length')"
+    client_count="$(_kc get clients -r "$_realm" --server "$KC_BOOT_URL" --insecure 2>/dev/null | jq 'length')"
     log "🔎 Enumerating ${client_count:-0} clients in realm '$_realm' for role assignment…"
-    /opt/keycloak/bin/kcadm.sh get clients -r "$_realm" --server "$KC_BOOT_URL" --insecure 2>/dev/null \
+    _kc get clients -r "$_realm" --server "$KC_BOOT_URL" --insecure 2>/dev/null \
       | jq -r '.[].clientId' \
       | sort -u \
       | while IFS= read -r _clientId; do

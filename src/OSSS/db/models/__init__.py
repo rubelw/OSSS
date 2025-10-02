@@ -93,8 +93,8 @@ from .course_prerequisites import *
 from .course_sections import *
 from .courses import *
 from .coursework import *
-from .coursestudent import *
-from .courseteacher import *
+from .course_students import *
+from .course_teachers import *
 from .curricula import *
 from .curriculum_units import *
 from .curriculum_version import *
