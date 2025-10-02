@@ -3,11 +3,12 @@ from __future__ import annotations
 
 import os
 from functools import lru_cache
-from typing import Optional, Dict, Any, Iterable
 import time
 import requests
 from requests import exceptions as req_exc
 from fastapi import APIRouter, Request, Response, Form, HTTPException
+from typing import Optional, Dict, Any, Iterable
+from urllib.parse import urlparse, urlunparse
 
 from OSSS.app_logger import get_logger
 from OSSS.sessions import (
@@ -33,6 +34,33 @@ def _mask_email(email: Optional[str]) -> str:
         return f"{head}***{tail}@{domain}"
     except Exception:
         return "***"
+
+# ---- consistency/guardrails --------------------------------------------------
+def _same_origin(a: Optional[str], b: Optional[str]) -> bool:
+    pa, pb = urlparse(a or ""), urlparse(b or "")
+    return (pa.scheme, pa.hostname, pa.port) == (pb.scheme, pb.hostname, pb.port)
+
+def _assert_consistent(issuer: Optional[str], token: Optional[str], jwks: Optional[str]) -> None:
+    if not token:
+        raise HTTPException(status_code=502, detail="token_endpoint_unresolved")
+    if jwks and not _same_origin(token, jwks):
+        raise RuntimeError(f"OIDC endpoints mismatch (token vs jwks): {token} vs {jwks}")
+    if issuer:
+        pi, pt = urlparse(issuer), urlparse(token)
+        if pi.scheme != pt.scheme:
+            raise RuntimeError(f"Issuer/token scheme mismatch: {issuer} vs {token}")
+
+def _upgrade_http_8443(u: Optional[str]) -> Optional[str]:
+    """Auto-upgrade http://...:8443 to https://...:8443 (common misconfig)."""
+    if not u:
+        return u
+    p = urlparse(u)
+    if p.scheme == "http" and (p.port == 8443 or (p.netloc or "").endswith(":8443")):
+        new = urlunparse(("https", p.netloc, p.path, p.params, p.query, p.fragment))
+        log.warning("Upgrading OIDC URL from HTTP on TLS port 8443: %s -> %s", u, new)
+        return new
+    return u
+
 
 # ---- OIDC / Keycloak config --------------------------------------------------
 # External/public issuer (what Keycloak advertises in tokens)
@@ -116,11 +144,16 @@ def _discover() -> Dict[str, str]:
     """
     # Shortcut: if both internal token and jwks are provided, skip discovery
     if KC_TOKEN_URL_INTERNAL and KC_JWKS_URL:
+        token_ep = _upgrade_http_8443(KC_TOKEN_URL_INTERNAL)
+        jwks_uri = _upgrade_http_8443(KC_JWKS_URL)
+        _assert_consistent(KC_ISSUER, token_ep, jwks_uri)
+
         resolved = {
             "issuer": KC_ISSUER,
-            "token_endpoint": KC_TOKEN_URL_INTERNAL,
-            "jwks_uri": KC_JWKS_URL,
+            "token_endpoint": token_ep,
+            "jwks_uri": jwks_uri,
         }
+
         log.debug(
             "OIDC discovery shortcut via env: token=%s jwks=%s issuer=%s",
             resolved["token_endpoint"], resolved["jwks_uri"], resolved["issuer"]
@@ -178,11 +211,24 @@ def _discover() -> Dict[str, str]:
             disc_token, token_endpoint
         )
 
+    # Auto-upgrade accidental http://...:8443 to https://...:8443 (common foot-gun)
+    token_endpoint = _upgrade_http_8443(token_endpoint)
+    jwks_uri = _upgrade_http_8443(KC_JWKS_URL or data.get("jwks_uri"))
+
+    # Validate consistency (fail-fast instead of 502 later)
+    _assert_consistent(issuer, token_endpoint, jwks_uri)
+
+    # Auto-upgrade accidental http://...:8443 and then validate
+    token_endpoint = _upgrade_http_8443(token_endpoint)
+    jwks_uri = _upgrade_http_8443(KC_JWKS_URL or data.get("jwks_uri"))
+    _assert_consistent(issuer, token_endpoint, jwks_uri)
+
     resolved = {
         "issuer": issuer,
         "token_endpoint": token_endpoint,
-        "jwks_uri": KC_JWKS_URL or data.get("jwks_uri"),
+        "jwks_uri": jwks_uri,
     }
+
     log.debug(
         "OIDC discovery resolved: discovery=%s token_endpoint=%s issuer=%s",
         discovery_url, resolved["token_endpoint"], resolved["issuer"]

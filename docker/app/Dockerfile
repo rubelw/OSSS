@@ -1,18 +1,30 @@
-# Dockerfile
+# Dockerfile (with CA baked in)
 FROM python:3.11-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1
 
-# + iproute2 (ss) and net-tools (netstat)
+# Install dependencies + trust store tooling
 RUN apt-get update && apt-get install -y --no-install-recommends \
       postgresql-client \
       curl \
       jq \
       iproute2 \
       net-tools \
-    && rm -rf /var/lib/apt/lists/*
+      ca-certificates \
+      openssl \
+ && rm -rf /var/lib/apt/lists/*
+
+# ---- Add your CA (PEM) and trust it ----
+# Copy CA from repo into system trust store
+COPY config_files/keycloak/secrets/ca/ca.crt /usr/local/share/ca-certificates/keycloak-ca.crt
+RUN chmod 0644 /usr/local/share/ca-certificates/keycloak-ca.crt && update-ca-certificates
+
+# Nice fallback envs pointing to the system bundle
+ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt \
+    SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt \
+    CURL_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
 
 WORKDIR /app
 

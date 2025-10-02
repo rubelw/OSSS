@@ -2793,7 +2793,13 @@ menu() {
         # make sure nothing forces container-only hostnames or HTTP defaults
         unset KEYCLOAK_BASE_URL
 
-        pytest -q
+        # Run pytest but don't fail the script if tests fail
+        PYTEST_RC=0
+        pytest -q || PYTEST_RC=$?
+
+        if [ "$PYTEST_RC" -ne 0 ]; then
+          echo "⚠️  pytest failed (exit $PYTEST_RC), continuing…"
+        fi
         prompt_return
         ;;
       q|Q) echo "Bye!"; exit 0 ;;

@@ -493,7 +493,7 @@ def create_app() -> FastAPI:
                 # --- optional app-level OIDC tracing ---
                 if os.getenv("OSSS_VERBOSE_AUTH", "0") == "1":
                     _enable_verbose_oidc_logging()
-                    issuer = _env("OIDC_ISSUER", "http://localhost:8080/realms/OSSS")
+                    issuer = _env("OIDC_ISSUER", "http://localhost:8443/realms/OSSS")
                     jwks = _env("OIDC_JWKS_URL")
                     client_id = _env("OIDC_CLIENT_ID", "osss-api")
                     client_secret = _env("OIDC_CLIENT_SECRET")

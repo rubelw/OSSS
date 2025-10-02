@@ -131,6 +131,7 @@ services:
     - ./:/workspace:cached
     - ./docker/logging.yml:/workspace/docker/logging.yaml:ro
     - ./scripts/app-entrypoint.sh:/usr/local/bin/app-entrypoint.sh:ro
+
     labels:
       co.elastic.logs/enabled: 'true'
       co.elastic.logs/processors.1.decode_json_fields.fields: message
@@ -159,10 +160,18 @@ services:
       WATCHFILES_FORCE_POLLING: 'true'
       CORS_ALLOW_ORIGINS: ${CORS_ALLOW_ORIGINS}
       CORS_ORIGINS: ${CORS_ORIGINS}
+
+      # Using the baked-in system trust from your Dockerfile:
+      REQUESTS_CA_BUNDLE: "/etc/ssl/certs/ca-certificates.crt"
+      SSL_CERT_FILE: "/etc/ssl/certs/ca-certificates.crt"
+      CURL_CA_BUNDLE: "/etc/ssl/certs/ca-certificates.crt"
+
+      OIDC_DISCOVERY_URL_INTERNAL: "${OIDC_DISCOVERY_URL_INTERNAL}"
+      OIDC_TOKEN_URL_INTERNAL: "${OIDC_TOKEN_URL_INTERNAL}"
+      OIDC_JWKS_URL_INTERNAL: "${OIDC_JWKS_URL_INTERNAL}"
+      KEYCLOAK_INTERNAL_BASE: "${KEYCLOAK_INTERNAL_BASE}"
+
       OIDC_ISSUER: ${OIDC_ISSUER}
-      OIDC_DISCOVERY_URL_INTERNAL: ${OIDC_DISCOVERY_URL_INTERNAL}
-      OIDC_TOKEN_URL_INTERNAL: ${OIDC_TOKEN_URL_INTERNAL}
-      OIDC_JWKS_URL: ${OIDC_JWKS_URL}
       OIDC_CLIENT_ID: osss-api
       OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-password}
       OSSS_PUBLIC_BASE_URL: http://localhost:8081
