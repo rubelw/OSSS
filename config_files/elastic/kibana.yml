@@ -8,9 +8,5 @@ elasticsearch.hosts: ["http://elasticsearch:9200"]
 xpack.encryptedSavedObjects.encryptionKey: "please_change_me_to_any_32+_char_secret"
 
 xpack.security.authc.providers:
-  oidc.oidc1:
-    order: 0
-    realm: "oidc1"                # must match the ES realm name above
-    description: "Login with Keycloak"
   basic.basic1:
     order: 1                      # keep basic as a fallback for emergencies

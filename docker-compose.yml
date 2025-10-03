@@ -460,9 +460,13 @@ services:
       VAULT_CLI_REDIRECT_1: http://127.0.0.1:8250/oidc/callback
       VAULT_CLI_REDIRECT_2: http://localhost:8250/oidc/callback
       VAULT_CLI_REDIRECT_3: http://vault:8250/oidc/callback
+      # Trust Keycloak CA inside this container:
+      CURL_CA_BUNDLE: /etc/ssl/certs/keycloak-ca.crt
+      SSL_CERT_FILE: /etc/ssl/certs/keycloak-ca.crt
     volumes:
     - ./scripts/vault-oidc-setup.sh:/setup.sh:ro
     - ~/.vault-token:/root/.vault-token:ro
+    - ./config_files/keycloak/secrets/ca/ca.crt:/etc/ssl/certs/keycloak-ca.crt:ro,Z
     entrypoint:
     - /bin/sh
     - -lc
@@ -500,25 +504,26 @@ services:
     image: alpine:3.20
     user: 0:0
     volumes:
-    - es-shared:/shared
+      - es-shared:/shared
     container_name: shared-vol-init
     cpus: 0.1
     mem_limit: 128m
     mem_reservation: 64m
     entrypoint:
-    - sh
-    - -lc
+      - sh
+      - -lc
     command: 'set -e
 
-      mkdir -p /shared
+        mkdir -p /shared
 
-      chmod 0777 /shared         # or 0770 with a shared group if you prefer
+        chmod 0777 /shared         # or 0770 with a shared group if you prefer
 
-      '
+        '
     profiles:
-    - elastic
+      - elastic
     networks:
-    - osss-net
+      - osss-net
+
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.14.3
     profiles:
@@ -613,119 +618,6 @@ services:
       \ '%s\\n' \"$$__v_body\"; exit 1; }; log \"kibana-pass-init complete.\";\n"
     restart: 'no'
 
-  es-rolemap-kibana-admins:
-    image: curlimages/curl:8.8.0
-    profiles: [ "elastic" ]
-    cpus: 0.5
-    mem_limit: 512m
-    mem_reservation: 256m
-    depends_on:
-      elasticsearch:
-        condition: service_healthy
-    environment:
-      # Must already be set the same way you set it for Elasticsearch/Kibana
-      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD}
-      ES_URL: "http://elasticsearch:9200"
-    networks:
-      - osss-net
-    entrypoint:
-      - sh
-      - -ceu
-      - |
-        echo "[rolemap] Starting; ES_URL=${ES_URL}"
-        deadline=$(( $(date +%s) + 300 ))  # 5 minute max wait
-
-        # Show cluster reachability attempts (no -s)
-        while :; do
-          code=$(curl -u "elastic:${ELASTIC_PASSWORD}" \
-                      -o /dev/null -w "%{http_code}" \
-                      "${ES_URL}/_cluster/health?wait_for_status=yellow&timeout=10s" || true)
-          echo "[rolemap] /_cluster/health → HTTP ${code}"
-          [ "$code" = "200" ] && break
-          [ $(date +%s) -ge $deadline ] && {
-            echo "[rolemap] Timed out waiting for Elasticsearch to become yellow/200" >&2
-            exit 1
-          }
-          sleep 3
-        done
-
-        echo "[rolemap] Applying kibana_admins role mapping…"
-        curl --fail-with-body -v \
-             -u "elastic:${ELASTIC_PASSWORD}" \
-             -H 'Content-Type: application/json' \
-             -X PUT "${ES_URL}/_security/role_mapping/kibana_admins" \
-             -d @- <<'JSON'
-        {
-          "roles": ["kibana_admin"],
-          "rules": { "all": [
-            { "field": { "realm.name": "oidc1" }},
-            { "field": { "groups": "kibana-admins" }}
-          ]},
-          "enabled": true
-        }
-        JSON
-
-        echo "[rolemap] Done."
-
-    restart: "no"
-
-  es-rolemap-kibana-users:
-    image: curlimages/curl:8.8.0
-    profiles: [ "elastic" ]
-    cpus: 0.5
-    mem_limit: 512m
-    mem_reservation: 256m
-    depends_on:
-      elasticsearch:
-        condition: service_healthy
-    environment:
-      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD}
-      ES_URL: "http://elasticsearch:9200"
-    networks: [ osss-net ]
-    entrypoint:
-      - sh
-      - -ceu
-      - |
-        echo "[rolemap-users] Starting; ES_URL=${ES_URL}"
-        deadline=$(( $(date +%s) + 300 ))  # max 5 minutes
-
-        # Wait for ES to be reachable (show each attempt)
-        while :; do
-          code=$(curl -u "elastic:${ELASTIC_PASSWORD}" \
-                      -o /dev/null -w "%{http_code}" \
-                      "${ES_URL}/_cluster/health?wait_for_status=yellow&timeout=10s" || true)
-          echo "[rolemap-users] /_cluster/health → HTTP ${code}"
-          [ "$code" = "200" ] && break
-          [ "$(date +%s)" -ge "$deadline" ] && {
-            echo "[rolemap-users] Timed out waiting for Elasticsearch to become yellow/200" >&2
-            exit 1
-          }
-          sleep 3
-        done
-
-        echo "[rolemap-users] Applying kibana_users role mapping…"
-        curl --fail-with-body -v \
-             -u "elastic:${ELASTIC_PASSWORD}" \
-             -H 'Content-Type: application/json' \
-             -X PUT "${ES_URL}/_security/role_mapping/kibana_users" \
-             -d @- <<'JSON'
-        {
-          "roles": ["kibana_user"],
-          "rules": { "all": [
-            { "field": { "realm.name": "oidc1" }},
-            { "field": { "groups": "kibana-users" }}
-          ]},
-          "enabled": true
-        }
-        JSON
-
-        echo "[rolemap-users] Verifying role mapping…"
-        curl -u "elastic:${ELASTIC_PASSWORD}" \
-             -sS "${ES_URL}/_security/role_mapping/kibana_users"
-        echo
-        echo "[rolemap-users] Done."
-
-    restart: "no"
 
 
   kibana:
@@ -749,6 +641,7 @@ services:
       LOGGING_VERBOSE: 'true'
       ELASTICSEARCH_USERNAME: kibana_system
       ELASTICSEARCH_PASSWORD: ${KIBANA_PASSWORD}
+      KBN_SERVER_PUBLICBASEURL: http://localhost:5601
     ports:
     - 5601:5601
     networks:
@@ -817,6 +710,8 @@ services:
     mem_reservation: 256m
     env_file:
     - .env
+    environment:
+      KIBANA_URL: ${KIBANA_URL:-http://kibana:5601}
     depends_on:
       elasticsearch:
         condition: service_healthy
@@ -854,6 +749,7 @@ services:
     - .env
     environment:
       ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+      KIBANA_URL: ${KIBANA_URL:-http://kibana:5601}
     depends_on:
       api-key-init:
         condition: service_completed_successfully
@@ -861,7 +757,7 @@ services:
         condition: service_completed_successfully
     volumes:
     - ./config_files/filebeat/filebeat.podman.yml:/usr/share/filebeat/filebeat.yml:ro
-    - /var/lib/containers/storage/overlay-containers:/var/lib/containers/storage/overlay-containers:ro
+    - ${PODMAN_OVERLAY_DIR:-/var/lib/containers/storage/overlay-containers}:/var/lib/containers/storage/overlay-containers:ro
     - es-shared:/shared
     command:
     - sh

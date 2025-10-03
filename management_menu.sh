@@ -7,6 +7,180 @@
 
 set -Eeuo pipefail
 
+DEBUG=1
+
+ensure_podman_ready() {
+  # Debug/trace toggle
+  local _had_xtrace=
+  if [ "${DEBUG:-0}" = "1" ]; then
+    set -x
+    _had_xtrace=1
+  fi
+
+  # Tiny logger helpers
+  _log()  { printf "\033[1;34m[ensure_podman_ready]\033[0m %s\n" "$*"; }
+  _ok()   { printf "\033[1;32m[OK]\033[0m %s\n" "$*"; }
+  _warn() { printf "\033[1;33m[WARN]\033[0m %s\n" "$*"; }
+  _err()  { printf "\033[1;31m[ERR]\033[0m %s\n" "$*"; }
+
+  _log "Podman bootstrap starting…"
+  _log "Shell: $SHELL  |  User: $(id -un)  |  Host: $(hostname)"
+
+  # ---------- Podman binary & version ----------
+  if ! command -v podman >/dev/null 2>&1; then
+    _err "Podman is not installed (podman not found in PATH)"
+    return 1
+  fi
+  _log "podman path: $(command -v podman)"
+  _log "podman version: $(podman --version 2>&1 || true)"
+  _log "podman env: XDG_RUNTIME_DIR='${XDG_RUNTIME_DIR:-}'  PATH='$PATH'"
+
+  # ---------- Current connection (if any) ----------
+  local _uri=""
+  _uri="$(podman system connection show -f '{{.URI}}' 2>/dev/null || true)"
+  [ -n "$_uri" ] && _log "Current connection URI: ${_uri}" || _warn "No active podman system connection URI detected"
+
+  _log "Connections:"
+  podman system connection list || _warn "Failed to list connections"
+
+  # ---------- Quick health check ----------
+  if podman info --debug >/dev/null 2>&1; then
+    _ok "Podman is reachable (host-side)"
+  else
+    _warn "podman info failed; attempting machine bootstrap if available…"
+
+    # ---------- macOS/Windows (podman machine flow) ----------
+    if podman machine --help >/dev/null 2>&1; then
+      local NAME="${PODMAN_MACHINE_NAME:-default}"
+      _log "Using Podman VM name: '${NAME}'"
+
+      # If VM missing, clean stale connections and init
+      if ! podman machine inspect "$NAME" >/dev/null 2>&1; then
+        _log "No VM named '${NAME}' found; checking for stale system connections…"
+        if podman system connection list --format '{{.Name}}' | grep -qx "$NAME"; then
+          _warn "Removing stale system connection '$NAME'…"
+          podman system connection rm "$NAME" >/dev/null 2>&1 || _warn "Failed to remove stale '$NAME' (continuing)"
+        fi
+        if podman system connection list --format '{{.Name}}' | grep -qx "${NAME}-root"; then
+          _warn "Removing stale system connection '${NAME}-root'…"
+          podman system connection rm "${NAME}-root" >/dev/null 2>&1 || _warn "Failed to remove stale '${NAME}-root' (continuing)"
+        fi
+
+        _log "Initializing Podman VM '${NAME}'…"
+        _log "Resources: CPUs=${PODMAN_MACHINE_CPUS:-12}  MEM(MB)=${PODMAN_MACHINE_MEM_MB:-40960}  DISK(GB)=${PODMAN_MACHINE_DISK_GB:-100}"
+        podman machine init "$NAME" \
+          --cpus "${PODMAN_MACHINE_CPUS:-12}" \
+          --memory "${PODMAN_MACHINE_MEM_MB:-40960}" \
+          --disk-size "${PODMAN_MACHINE_DISK_GB:-100}" || {
+            _err "podman machine init failed"; return 1; }
+      fi
+
+      # Start if not running
+      local _state
+      _state="$(podman machine inspect "$NAME" --format '{{.State}}' 2>/dev/null || echo 'unknown')"
+      _log "VM '${NAME}' state: ${_state}"
+      if ! printf "%s" "$_state" | grep -qx Running; then
+        _log "Starting Podman VM '${NAME}'…"
+        podman machine start "$NAME" || { _err "Failed to start VM '${NAME}'"; return 1; }
+      fi
+
+      # Prefer matching default connection (rootless first)
+      if podman system connection list --format '{{.Name}}' | grep -qx "$NAME"; then
+        podman system connection default "$NAME" >/dev/null 2>&1 || _warn "Could not set default connection '$NAME'"
+      elif podman system connection list --format '{{.Name}}' | grep -qx "${NAME}-root"; then
+        podman system connection default "${NAME}-root" >/dev/null 2>&1 || _warn "Could not set default connection '${NAME}-root'"
+      fi
+
+      _ok "Podman VM '${NAME}' initialized/started"
+    else
+      _err "podman info failed and 'podman machine' is unavailable on this platform"
+      return 1
+    fi
+  fi
+
+  # ---------- Final host-side health check ----------
+  if ! podman info --debug >/dev/null 2>&1; then
+    _err "Podman not reachable after bootstrap"
+    _log "Helpful next steps:"
+    _log "  podman system connection list"
+    _log "  podman system connection default <VALID_NAME>"
+    return 1
+  fi
+  _ok "Podman is reachable (post-bootstrap)"
+
+  # ---------- Ensure podman-compose inside VM (macOS/Windows) ----------
+  if podman machine --help >/dev/null 2>&1; then
+    local NAME="${PODMAN_MACHINE_NAME:-default}"
+    local _vm_state
+    _vm_state="$(podman machine inspect "$NAME" --format '{{.State}}' 2>/dev/null || echo 'unknown')"
+    _log "VM '${NAME}' state check before compose install: ${_vm_state}"
+
+    if printf "%s" "$_vm_state" | grep -qx Running; then
+      _log "Checking for podman-compose inside VM '${NAME}'…"
+      if ! podman machine ssh "$NAME" -- bash -lc 'command -v podman-compose >/dev/null 2>&1'; then
+        _warn "podman-compose not present; installing via rpm-ostree…"
+        podman machine ssh "$NAME" -- sudo rpm-ostree install -y podman-compose || {
+          _err "Failed to install podman-compose via rpm-ostree"; return 1; }
+
+        _log "Restarting VM '${NAME}' to apply rpm-ostree changes…"
+        podman machine stop "$NAME" || { _err "Failed to stop VM '${NAME}'"; return 1; }
+        podman machine start "$NAME" || { _err "Failed to start VM '${NAME}'"; return 1; }
+
+        _log "Verifying podman-compose after reboot…"
+        podman machine ssh "$NAME" -- bash -lc 'podman-compose --version' || {
+          _err "podman-compose not available after reboot"; return 1; }
+        _ok "podman-compose installed and active in VM '${NAME}'"
+      else
+        _ok "podman-compose already present in VM '${NAME}' ($(podman machine ssh "$NAME" -- bash -lc 'podman-compose --version 2>/dev/null' || echo 'unknown'))"
+      fi
+    else
+      _warn "VM '${NAME}' is not running; skipping compose install. (state=${_vm_state})"
+    fi
+  fi
+
+  # ---------- Pin CONTAINER_HOST so podman-compose uses the same connection ----------
+  if command -v podman >/dev/null 2>&1; then
+    export CONTAINER_HOST="$(podman system connection show -f '{{.URI}}' 2>/dev/null || echo '')"
+    if [ -n "$CONTAINER_HOST" ]; then
+      _ok "Pinned CONTAINER_HOST=$CONTAINER_HOST"
+    else
+      _warn "Could not determine CONTAINER_HOST from current connection"
+    fi
+  fi
+
+  # ---------- Diagnostics: machine + networks ----------
+  _log "Diagnostics snapshot:"
+  _log "podman machine list:"
+  podman machine list || true
+
+  _log "Host-side networks (current connection):"
+  podman network ls || true
+
+  if podman machine --help >/dev/null 2>&1; then
+    local NAME="${PODMAN_MACHINE_NAME:-default}"
+    _log "VM '${NAME}' networks:"
+    podman machine ssh "$NAME" -- podman network ls || true
+  fi
+
+  _ok "Podman bootstrap completed."
+
+  # Disable xtrace if we enabled it
+  if [ "$_had_xtrace" = "1" ]; then set +x; fi
+}
+
+ensure_podman_ready
+
+HOST_PROJ="$(pwd -P)"
+COMPOSE_PROFILES_VERBOSE=1
+export PODMAN_MACHINE=default
+export PODMAN_OVERLAY_DIR="$(
+  podman machine ssh "${PODMAN_MACHINE:-$(podman machine active 2>/dev/null || echo default)}" -- \
+    podman info | awk -F': *' 'tolower($1) ~ /graphroot/ { gsub(/[[:space:]]+/,"",$2); print $2 "/overlay-containers"; exit }'
+)"
+echo "$PODMAN_OVERLAY_DIR"   # sanity check; should exist inside VM
+
+
+
 # --- Bash 3.x compatibility shims (macOS default shell lacks mapfile/readarray) ---
 if ! command -v mapfile >/dev/null 2>&1; then
   mapfile() {
@@ -55,25 +229,6 @@ get_compose_engine() {
 
 # Run an engine command with nice diagnostics
 # --- engine_exec: trace to STDERR, emit only command STDOUT to caller ---
-engine_exec() {
-  local ENGINE="$1"; shift
-  # Trace → STDERR (so callers reading STDOUT only see command output)
-  >&2 echo "[engine_exec] Invoked with ENGINE='${ENGINE}' and args: $*"
-  >&2 echo "[engine_exec] Running dry run (stderr only) to capture errors..."
-  # Dry run just to surface errors to the logs; discard stdout, keep rc
-  local drc=0
-  { "$ENGINE" "$@" 1>/dev/null; } 2> >(cat >&2) || drc=$?
-  >&2 echo "[engine_exec] Dry run exit code: $drc"
-  [[ $drc -ne 0 ]] && {
-    >&2 echo "[engine_exec] Captured stderr above (if any)"
-  }
-  >&2 echo "[engine_exec] Running command for real..."
-  # REAL run: forward stdout (for callers) and stderr (for logs)
-  local rc=0
-  "$ENGINE" "$@" 2> >(cat >&2) || rc=$?
-  >&2 echo "[engine_exec] Final exit code: $rc"
-  return $rc
-}
 
 # --- External networks create-only helper (called by start_* funcs) ---
 ensure_external_networks_exist() {
@@ -86,181 +241,6 @@ ensure_external_networks_exist() {
 }
 
 
-# -------- Podman install/start checks --------
-ensure_podman_installed() {
-  # If podman isn't installed, nothing to do here.
-  if ! command -v podman >/dev/null 2>&1; then
-    return 0
-  fi
-
-  # If Podman is already responding, we're good.
-  if podman info --debug >/dev/null 2>&1; then
-    return 0
-  fi
-
-  echo "⚠️  Podman not reachable; attempting to (init|start) podman machine…"
-
-  local NAME="${PODMAN_MACHINE_NAME:-default}"
-  local CPUS="${PODMAN_MACHINE_CPUS:-12}"
-  local MEM_MB="${PODMAN_MACHINE_MEM_MB:-40960}"
-  local DISK_GB="${PODMAN_MACHINE_DISK_GB:-100}"
-
-  # On macOS/Windows, podman uses a VM ("podman machine").
-  if podman machine list >/dev/null 2>&1; then
-    # If the machine doesn't exist, init it; otherwise start it.
-    if ! podman machine inspect "$NAME" >/dev/null 2>&1; then
-      echo "+ podman machine init --cpus $CPUS --memory $MEM_MB --disk-size $DISK_GB $NAME"
-      podman machine init --cpus "$CPUS" --memory "$MEM_MB" --disk-size "$DISK_GB" "$NAME"
-    fi
-    echo "+ podman machine start $NAME"
-    podman machine start "$NAME"
-  fi
-
-  # One more try after starting
-  if podman info --debug >/dev/null 2>&1; then
-    echo "✅ Podman is up."
-    return 0
-  fi
-
-  echo "❌ Podman still unreachable. Try: 'podman system connection list' or restart Podman Desktop."
-  return 1
-}
-
-# Ensures Podman is ready. On macOS/Windows, ensures a Podman machine exists and is running.
-# On Linux, Podman is daemonless; we just verify `podman info`. If the user session has
-# systemd, we try starting the user socket as a convenience.
-ensure_podman_started() {
-  # Already healthy?
-  if podman info >/dev/null 2>&1; then
-    return 0
-  fi
-
-  # --- If there are existing connections, let user choose one ---
-  local has_connections=0
-  local -a CONN_NAMES=()
-  local -a CONN_URIS=()
-  local -a CONN_DEFAULT=()
-
-  if podman system connection list >/dev/null 2>&1; then
-    has_connections=1
-    # Collect connections (name, default flag, uri)
-    # Format: "{{.Name}}\t{{.Default}}\t{{.URI}}"
-    while IFS=$'\t' read -r cname cdef curi; do
-      [[ -z "$cname" ]] && continue
-      CONN_NAMES+=("$cname")
-      CONN_DEFAULT+=("$cdef")
-      CONN_URIS+=("$curi")
-    done < <(podman system connection list --format '{{.Name}}\t{{.Default}}\t{{.URI}}' 2>/dev/null || true)
-
-    if ((${#CONN_NAMES[@]} > 0)); then
-      local sel=""
-      if [[ -t 0 ]]; then
-        echo "🔌 Available Podman connections:"
-        local i
-        for ((i=0; i<${#CONN_NAMES[@]}; i++)); do
-          local mark=""
-          [[ "${CONN_DEFAULT[$i]}" == "true" ]] && mark=" (default)"
-          printf "  %2d) %s%s\n      ↳ %s\n" "$((i+1))" "${CONN_NAMES[$i]}" "$mark" "${CONN_URIS[$i]}"
-        done
-        echo "  q) Cancel selection (keep current)"
-        read -r -p "Select a connection by number (Enter to keep current): " sel || true
-      fi
-
-      # Non-TTY or empty input → keep current default if any
-      if [[ -z "${sel:-}" ]]; then
-        : # do nothing; keep current default
-      elif [[ "$sel" =~ ^[Qq]$ ]]; then
-        : # do nothing; keep current default
-      elif [[ "$sel" =~ ^[0-9]+$ ]] && (( sel>=1 && sel<=${#CONN_NAMES[@]} )); then
-        local chosen="${CONN_NAMES[$((sel-1))]}"
-        echo "✅ Setting default connection: ${chosen}"
-        podman system connection default "$chosen" >/dev/null 2>&1 || true
-      else
-        echo "⚠️  Invalid selection. Keeping current default."
-      fi
-    fi
-  fi
-
-  # Try again after potential default switch
-  if podman info >/dev/null 2>&1; then
-    return 0
-  fi
-
-  # --- macOS/Windows: ensure a machine is running for the chosen/default connection ---
-  if podman machine -h >/dev/null 2>&1; then
-    # Infer which machine to start from the default connection, if any
-    local def_name=""
-    def_name="$(podman system connection list --format '{{if .Default}}{{.Name}}{{end}}' 2>/dev/null | awk 'NF' | head -n1 || true)"
-
-    # Heuristic: connection names commonly equal machine name or end with "-root"
-    local mname=""
-    if [[ -n "$def_name" ]]; then
-      mname="${def_name%-root}"
-    else
-      # Fall back to first machine name if no default conn
-      mname="$(podman machine ls --format '{{.Name}}' 2>/dev/null | head -n1 || true)"
-    fi
-
-    # If no machines exist, create one
-    if ! podman machine ls --format '{{.Name}}' 2>/dev/null | awk 'NF' | grep -q .; then
-      echo "🖥️  No Podman machine found. Initializing a default machine…"
-      if ! podman machine init --now 2>/dev/null; then
-        podman machine init || true
-        podman machine start || true
-      fi
-    else
-      # Ensure the inferred/first machine is running
-      if [[ -z "$mname" ]]; then
-        mname="$(podman machine ls --format '{{.Name}}' | head -n1)"
-      fi
-      # Start if not running
-      if ! podman machine ls --format '{{.Name}} {{.Running}}' | awk -v n="$mname" '$1==n && $2=="true"{f=1} END{exit !f}'; then
-        echo "▶️  Starting Podman machine '${mname}'…"
-        podman machine start "$mname" || true
-      fi
-    fi
-
-    # After machine start, ensure we have a sensible default connection
-    if ! podman info >/dev/null 2>&1; then
-      # Prefer a conn matching the machine name (rootless first)
-      local cand=""
-      cand="$(podman system connection list --format '{{.Name}}' | awk -v n="$mname" '$0==n{print; exit}')" || true
-      if [[ -z "$cand" ]]; then
-        cand="$(podman system connection list --format '{{.Name}}' | awk -v n="$mname-root" '$0==n{print; exit}')" || true
-      fi
-      if [[ -n "$cand" ]]; then
-        echo "✅ Setting default connection: ${cand}"
-        podman system connection default "$cand" >/dev/null 2>&1 || true
-      fi
-    fi
-
-    # Re-check health
-    if podman info >/dev/null 2>&1; then
-      return 0
-    fi
-  fi
-
-  # --- Linux/systemd convenience: try user socket (ignore failures) ---
-  if command -v systemctl >/dev/null 2>&1; then
-    systemctl --user start podman.socket >/dev/null 2>&1 || true
-  fi
-
-  # Final health check
-  if ! podman info >/dev/null 2>&1; then
-    echo "⚠️  Podman is installed but not ready (cannot connect)."
-    echo "   • macOS/Windows: try 'podman machine start' or pick a valid connection:"
-    echo "       podman system connection list"
-    echo "       podman system connection default <NAME>"
-    echo "   • Linux: verify your user can run Podman; user socket may help:"
-    echo "       systemctl --user start podman.socket"
-    podman system connection list 2>/dev/null || true
-    if [[ -t 0 ]]; then
-      read -rp "Press Enter to continue anyway, or type 'exit' to quit: " ans || true
-      [[ "${ans:-}" == "exit" ]] && exit 1
-    fi
-  fi
-}
-
 
 # --- Podman preflight (idempotent) ---
 podman_ready_once() {
@@ -269,9 +249,9 @@ podman_ready_once() {
   command -v podman >/dev/null 2>&1 || { __OSSS_PODMAN_READY=1; export __OSSS_PODMAN_READY; return 0; }
 
   # Fast path: if the VM is already running, don't touch it
-  if podman machine -h >/dev/null 2>&1; then
+  if pm_ssh -h >/dev/null 2>&1; then
     local NAME="${PODMAN_MACHINE_NAME:-default}"
-    if podman machine ls --format '{{.Name}} {{.Running}}' \
+    if pm_ssh ls --format '{{.Name}} {{.Running}}' \
        | awk -v n="$NAME" '$1==n && $2=="true"{ok=1} END{exit ok?0:1}'; then
       __OSSS_PODMAN_READY=1; export __OSSS_PODMAN_READY; return 0
     fi
@@ -284,15 +264,15 @@ podman_ready_once() {
 
   # Init/start only when needed
   local NAME="${PODMAN_MACHINE_NAME:-default}"
-  if podman machine -h >/dev/null 2>&1; then
-    if ! podman machine inspect "$NAME" >/dev/null 2>&1; then
-      podman machine init \
+  if pm_ssh -h >/dev/null 2>&1; then
+    if ! pm_ssh inspect "$NAME" >/dev/null 2>&1; then
+      pm_ssh init \
         --cpus  "${PODMAN_MACHINE_CPUS:-6}" \
         --memory "${PODMAN_MACHINE_MEM_MB:-8192}" \
         --disk-size "${PODMAN_MACHINE_DISK_GB:-50}" \
         "$NAME"
     fi
-    podman machine start "$NAME"
+    pm_ssh start "$NAME"
 
     # Ensure the default connection matches the running machine
     if podman system connection list --format '{{.Name}}' | grep -qx "$NAME"; then
@@ -375,6 +355,20 @@ ensure_hosts_keycloak() {
   fi
 }
 
+# Press Enter to continue (no-op in non-interactive runs)
+prompt_return() {
+  local msg="${1:-Press Enter to continue...}"
+  if [ -t 0 ]; then
+    printf '%s' "$msg"
+    IFS= read -r _ || true   # don't exit even if read fails (e.g., set -e)
+    printf '\n'
+  else
+    # stdin isn't a TTY (piped/CI) — skip the pause
+    printf '\n'
+  fi
+}
+
+
 # -------- Python venv (optional) --------
 ensure_python_cmd() {
   command -v python3 >/dev/null 2>&1 && { echo python3; return; }
@@ -430,124 +424,40 @@ ensure_python_venv() {
 
 ensure_python_venv "$@"
 
-# --- Require Podman to be reachable (macOS: init/start VM, fix default connection) ---
-podman_require_ready_or_die() {
-  # If podman not installed, nothing to enforce here.
-  command -v podman >/dev/null 2>&1 || return 0
-
-  # Already healthy?
-  if podman info --debug >/dev/null 2>&1; then
-    return 0
-  fi
-
-  local NAME="${PODMAN_MACHINE_NAME:-default}"
-  local CPUS="${PODMAN_MACHINE_CPUS:-6}"
-  local MEM_MB="${PODMAN_MACHINE_MEM_MB:-8192}"
-  local DISK_GB="${PODMAN_MACHINE_DISK_GB:-50}"
-
-  # On macOS/Windows, ensure a VM exists and is running
-  if podman machine -h >/dev/null 2>&1; then
-    if ! podman machine inspect "$NAME" >/dev/null 2>&1; then
-      echo "+ podman machine init --cpus $CPUS --memory $MEM_MB --disk-size $DISK_GB $NAME"
-      podman machine init --cpus "$CPUS" --memory "$MEM_MB" --disk-size "$DISK_GB" "$NAME"
-    fi
-    echo "+ podman machine start $NAME"
-    podman machine start "$NAME" >/dev/null 2>&1 || true
-
-    # Make the connection that matches this machine the default (rootless preferred)
-    if podman system connection list --format '{{.Name}}' | grep -qx "$NAME"; then
-      podman system connection default "$NAME" >/dev/null 2>&1 || true
-    elif podman system connection list --format '{{.Name}}' | grep -qx "${NAME}-root"; then
-      podman system connection default "${NAME}-root" >/dev/null 2>&1 || true
-    fi
-  fi
-
-  # Wait for port forward / service to come up
-  for i in {1..30}; do
-    if podman info --debug >/dev/null 2>&1; then return 0; fi
-    sleep 1
-  done
-
-  echo "❌ Podman connection is not ready (default connection likely stale).
-     Try:  podman system connection list
-           podman system connection default <VALID_NAME>" >&2
-  exit 1
-}
 
 
 # Extra services to remove when downing a given profile (Bash 3–friendly).
 # Extend this case list as needed.
-cascade_services_for_profile() {
-  case "$1" in
-    airflow)
-      # OpenMetadata's MySQL that you want removed with Airflow
-      echo "mysql"
-      ;;
-    # Add more cascades here if you like, e.g.:
-    # openmetadata) echo "mysql elasticsearch" ;;
-  esac
-}
 
 # Parse docker-compose.yml and list services that include a given profile, without needing compose on the host.
 # Usage: services_for_profile_from_yaml "elastic"
-services_for_profile_from_yaml() {
-  local prof="$1" file="${COMPOSE_FILE:-docker-compose.yml}"
-  awk -v prof="$prof" '
-    BEGIN{in_services=0; svc=""; in_prof=0}
-    /^[[:space:]]*services[[:space:]]*:/ {in_services=1; next}
-    in_services {
-      # end of services block if dedented to column 0
-      if ($0 ~ /^[^[:space:]]/ && $0 !~ /^[[:space:]]/) {in_services=0; next}
-      # service header at 2 spaces indentation: "  name:"
-      if ($0 ~ /^[[:space:]]{2}[A-Za-z0-9._-]+:[[:space:]]*$/) {
-        line=$0; sub(/^[[:space:]]+/, "", line); sub(/:.*/, "", line)
-        svc=line; in_prof=0; next
-      }
-      # inline list: profiles: [ "elastic", "foo" ]
-      if (svc && $0 ~ /^[[:space:]]{4}profiles:[[:space:]]*\[/) {
-        s=$0; sub(/^[^[]*\[/, "", s); sub(/\].*$/, "", s)
-        gsub(/[[:space:]"\047]/, "", s)
-        n=split(s, arr, ",")
-        for (i=1;i<=n;i++) if (arr[i]==prof) { print svc; break }
-        next
-      }
-      # block list start: profiles:
-      if (svc && $0 ~ /^[[:space:]]{4}profiles:[[:space:]]*$/) { in_prof=1; next }
-      # list item lines:       - elastic
-      if (in_prof && $0 ~ /^[[:space:]]{6}-[[:space:]]*[^[:space:]]+/) {
-        p=$0; sub(/^[^ -]*-/, "", p); gsub(/^[[:space:]]+|[[:space:]]+$/, "", p)
-        if (p==prof) print svc; next
-      }
-      # next service / end of profiles block
-      if (in_prof && $0 ~ /^[[:space:]]{4}[A-Za-z0-9._-]+:/) { in_prof=0 }
-    }
-  ' "$file" | sort -u
-}
 
 
 # -------- Podman compose selection --------
 compose_cmd() {
-  # Prefer podman compose; fall back to podman-compose or docker compose.
-  if command -v podman >/dev/null 2>&1 && podman --help | grep -qE '\bcompose\b'; then
+  # Prefer native `podman compose` (try it directly)
+  if podman compose version >/dev/null 2>&1; then
     echo "podman compose"
-  elif command -v podman-compose >/dev/null 2>&1; then
-    echo "podman-compose"
-  else
-    echo "❌ Neither podman-compose nor podman compose was found." >&2
-    return 127
+    return 0
   fi
+
+  # Fallback to podman-compose if installed on host
+  if command -v podman-compose >/dev/null 2>&1; then
+    echo "podman-compose"
+    return 0
+  fi
+
+  # Last-resort: run compose inside the Podman VM (macOS)
+  if podman machine --help >/dev/null 2>&1; then
+    echo "podman machine ssh -- podman compose"
+    return 0
+  fi
+
+  echo "❌ Neither 'podman compose' nor 'podman-compose' is available." >&2
+  return 127
 }
 
-__compose_cmd() {
-  if command -v podman >/dev/null 2>&1 && podman --help | grep -qE '\bcompose\b'; then
-    echo "podman compose"
-  elif command -v podman-compose >/dev/null 2>&1; then
-    echo "podman-compose"
-  else
-    echo "❌ Neither podman-compose nor podman compose found." >&2
-    return 127
-  fi
-}
+__compose_cmd() { compose_cmd; }
 
 ensure_compose_file() {
   [[ -f "$COMPOSE_FILE" ]] || { echo "❌ Compose file not found: $COMPOSE_FILE" >&2; exit 1; }
@@ -760,29 +670,7 @@ compose_down_profile() {
 }
 
 # list profiles (quote-safe)
-__compose_profiles() {
-  awk '
-    BEGIN{in_services=0; svc=""; in_profiles=0}
-    /^[[:space:]]*services[[:space:]]*:/ {in_services=1; next}
-    in_services {
-      if ($0 ~ /^[^[:space:]]/ && $0 !~ /^[[:space:]]/) {in_services=0; next}
-      if ($0 ~ /^[[:space:]][[:space:]][A-Za-z0-9._-]+:[[:space:]]*$/) { svc=$0; sub(/^[[:space:]]+/, "", svc); sub(/:.*/, "", svc); in_profiles=0; next }
-      if (svc && $0 ~ /^[[:space:]]{4}profiles:[[:space:]]*\[/) {
-        s=$0; sub(/^[^[]*\[/,"",s); sub(/\].*$/,"",s)
-        gsub(/[[:space:]"]/,"",s); gsub(/[[:space:]]'\''/,"",s)
-        n=split(s, arr, ","); for(i=1;i<=n;i++) if (arr[i]!="") seen[arr[i]]=1
-        next
-      }
-      if (svc && $0 ~ /^[[:space:]]{4}profiles:[[:space:]]*$/) { in_profiles=1; next }
-      if (in_profiles && $0 ~ /^[[:space:]]{6}-[[:space:]]*/) {
-        p=$0; sub(/^[^ -]*-/,"",p); gsub(/^[[:space:]'"'"'"]+|[[:space:]'"'"'"]+$/,"",p)
-        if (p!="") seen[p]=1; next
-      }
-      if (in_profiles && $0 ~ /^[[:space:]]{4}[A-Za-z0-9._-]+:/) { in_profiles=0 }
-    }
-    END{ for (k in seen) print k }
-  ' "${COMPOSE_FILE:-docker-compose.yml}" | sort -u
-}
+# List unique compose profiles (multi-file aware, verbose when COMPOSE_PROFILES_VERBOSE/VERBOSE/DEBUG set)
 
 # Back-compat shim for older callsites
 __compose_services_for_profile() { compose_services_for_profile "$@"; }
@@ -858,33 +746,79 @@ maybe_build_profile() {
 
 compose_profiles() {
   # Emits unique profile names found in services.*.profiles (inline list or multiline).
-  awk '
-    BEGIN{in_services=0; svc=""; in_profiles=0}
-    /^[[:space:]]*services[[:space:]]*:/ {in_services=1; next}
+  local file="${COMPOSE_FILE:-docker-compose.yml}"
+  local v=0
+  [[ -n "$COMPOSE_PROFILES_VERBOSE" || -n "$VERBOSE" || -n "$DEBUG" ]] && v=1
+
+  awk -v verbose="$v" -v FILE="$file" '
+    function dbg(msg){ if (verbose) print msg > "/dev/stderr" }
+
+    BEGIN{
+      in_services=0; svc=""; in_profiles=0
+      dbg("» scanning compose file: " FILE)
+    }
+
+    /^[[:space:]]*services[[:space:]]*:/ {
+      in_services=1
+      dbg(sprintf("[L%05d] enter services", NR))
+      next
+    }
+
     in_services {
       # top-level key ends services
-      if ($0 ~ /^[^[:space:]]/ && $0 !~ /^[[:space:]]/) {in_services=0; next}
+      if ($0 ~ /^[^[:space:]]/ && $0 !~ /^[[:space:]]/) {
+        dbg(sprintf("[L%05d] leave services", NR))
+        in_services=0; next
+      }
+
       # service header (two spaces then "name:")
       if ($0 ~ /^[[:space:]][[:space:]][A-Za-z0-9._-]+:[[:space:]]*$/) {
-        svc=$0; sub(/^[[:space:]]+/, "", svc); sub(/:.*/, "", svc); in_profiles=0; next
-      }
-      # inline profiles: "    profiles: [a,b,c]"
-      if (svc && $0 ~ /^[[:space:]]{4}profiles:[[:space:]]*\[/) {
-        s=$0; sub(/^[^[]*\[/,"",s); sub(/\].*$/,"",s); gsub(/[[:space:]]/,"",s)
-        n=split(s, arr, ","); for(i=1;i<=n;i++) if (arr[i]!="") seen[arr[i]]=1
+        svc=$0; sub(/^[[:space:]]+/, "", svc); sub(/:.*/, "", svc); in_profiles=0
+        dbg(sprintf("[L%05d] service: %s", NR, svc))
         next
       }
+
+      # inline profiles: "    profiles: [a,b,c]"
+      if (svc && $0 ~ /^[[:space:]]{4}profiles:[[:space:]]*\[/) {
+        s=$0; sub(/^[^[]*\[/,"",s); sub(/\].*$/,"",s)
+        raw=s
+        gsub(/[[:space:]]/,"",s)
+        dbg(sprintf("[L%05d] %s: inline profiles raw: [%s]", NR, svc, raw))
+        n=split(s, arr, ",")
+        for(i=1;i<=n;i++) if (arr[i]!="") { seen[arr[i]]=1; dbg("           -> +" arr[i]) }
+        next
+      }
+
       # multiline profiles: start
-      if (svc && $0 ~ /^[[:space:]]{4}profiles:[[:space:]]*$/) { in_profiles=1; next }
+      if (svc && $0 ~ /^[[:space:]]{4}profiles:[[:space:]]*$/) {
+        in_profiles=1
+        dbg(sprintf("[L%05d] %s: profiles list start", NR, svc))
+        next
+      }
+
       # multiline items: "      - prof"
       if (in_profiles && $0 ~ /^[[:space:]]{6}-[[:space:]]*[A-Za-z0-9._-]+/) {
-        p=$0; sub(/^[^ -]*-/,"",p); gsub(/^[[:space:]]+|[[:space:]]+$/,"",p); if(p!="") seen[p]=1; next
+        p=$0; sub(/^[^ -]*-/,"",p); gsub(/^[[:space:]]+|[[:space:]]+$/,"",p)
+        if (p!="") { seen[p]=1; dbg("           -> +" p) }
+        next
       }
+
       # any new key at indent 4 ends profiles block
-      if (in_profiles && $0 ~ /^[[:space:]]{4}[A-Za-z0-9._-]+:/) { in_profiles=0 }
+      if (in_profiles && $0 ~ /^[[:space:]]{4}[A-Za-z0-9._-]+:/) {
+        in_profiles=0
+        dbg(sprintf("[L%05d] %s: profiles list end", NR, svc))
+      }
     }
-    END{ for (k in seen) print k }
-  ' "${COMPOSE_FILE:-docker-compose.yml}" | sort -u
+
+    END{
+      if (verbose) {
+        dbg("== collected profiles ==")
+        for (k in seen) dbg("  * " k)
+        dbg("== end ==")
+      }
+      for (k in seen) print k
+    }
+  ' "$file" | sort -u
 }
 
 compose_services_base() {
@@ -915,37 +849,6 @@ compose_services_all() {
 }
 
 # -------- Host info --------
-show_status(){
-  # Derive the project exactly as compose will
-  local PROJECT; PROJECT="$(__compose_project_name)"
-
-  # Show connection/debug info
-  local CONN; CONN="$(podman system connection list --format '{{if .Default}}{{.Name}}{{end}}' 2>/dev/null | awk 'NF' || true)"
-  echo "▶️  Containers (project ${PROJECT})  [conn: ${CONN:-unknown}]"
-  printf "NAMES\tSTATUS\tNETWORKS\n"
-
-  # Match by labels (authoritative), covering both podman-compose and docker compose labels
-  {
-    podman ps -a \
-      --filter "label=io.podman.compose.project=${PROJECT}" \
-      --format '{{.Names}}\t{{.Status}}\t{{.Networks}}' 2>/dev/null
-    podman ps -a \
-      --filter "label=com.docker.compose.project=${PROJECT}" \
-      --format '{{.Names}}\t{{.Status}}\t{{.Networks}}' 2>/dev/null
-  } | awk 'NF' || true
-
-  echo
-  echo "▶️  Networks containing '${PROJECT}_':"
-  podman network ls | (head -n1; grep -E " ${PROJECT}_" || true)
-
-  # Fallback hint: if nothing matched, show a quick glance at everything
-  if ! podman ps -a --filter "label=io.podman.compose.project=${PROJECT}" -q | awk 'NF' \
-     && ! podman ps -a --filter "label=com.docker.compose.project=${PROJECT}" -q | awk 'NF'; then
-    echo
-    echo "ℹ️  No containers found for project='${PROJECT}'. Showing all containers for reference:"
-    podman ps -a --format '{{.Names}}\t{{.Status}}\t{{.Networks}}' | sed 's/^/  /' || true
-  fi
-}
 
 
 
@@ -1029,22 +932,6 @@ set_default_tail(){
 }
 
 # --- Return-to-menu prompt ---
-prompt_return() {
-  echo
-  echo "[prompt_return] Function invoked"
-  # don’t die if stdin isn’t a tty; just sleep briefly so users see output
-  if [[ -t 0 ]]; then
-    echo "[prompt_return] stdin is a TTY → waiting for user input"
-    read -r -p "✅ Done. Press Enter to return to the menu..." _
-    echo "[prompt_return] User pressed Enter → returning to menu"
-  else
-    echo "[prompt_return] stdin is NOT a TTY → skipping interactive prompt"
-    echo "✅ Done. Returning to menu…"
-    echo "[prompt_return] Sleeping briefly so user can see output"
-    sleep 1
-  fi
-  echo "[prompt_return] Completed"
-}
 
 
 # Force-recreate all services in a given profile (works with both `podman compose` and `podman-compose`)
@@ -1120,63 +1007,10 @@ up_force_profile() {
   return 0
 }
 
-# -------- profile helpers --------
-start_profiles_blind() {
-  local args=( -f "$COMPOSE_FILE" )
-  echo "[start_profiles_blind] Invoked with profiles: $*"
-  echo "▶️  Starting services for profiles: $* …"
-  echo "[start_profiles_blind] Using compose file: $COMPOSE_FILE"
-
-  if compose_supports_profile; then
-    echo "[start_profiles_blind] Backend supports profiles"
-    for p in "$@"; do
-      echo "[start_profiles_blind] Preparing profile: $p"
-      maybe_build_profile "$p"
-      echo "[start_profiles_blind] Adding profile '$p' to compose args"
-      args+=( --profile "$p" )
-    done
-    echo "[start_profiles_blind] Final compose command: $COMPOSE ${args[*]} up -d"
-    run $COMPOSE "${args[@]}" up -d
-    echo "[start_profiles_blind] Compose up complete (with profile support)"
-  else
-    echo "[start_profiles_blind] Backend does NOT support profiles → falling back to manual service resolution"
-    local all_svcs=()
-    for p in "$@"; do
-      echo "[start_profiles_blind] Resolving services for profile: $p"
-      maybe_build_profile "$p"
-      while read -r s; do
-        if [[ -n "$s" ]]; then
-          echo "[start_profiles_blind] Found service '$s' for profile '$p'"
-          all_svcs+=("$s")
-        fi
-      done < <(compose_services_for_profile "$p")
-    done
-
-    echo "[start_profiles_blind] Deduplicating resolved services..."
-    mapfile -t all_svcs < <(printf '%s\n' "${all_svcs[@]}" | awk 'NF && !seen[$0]++')
-
-    if ((${#all_svcs[@]}==0)); then
-      echo "⚠️  No services resolved for given profiles: $*"
-    else
-      echo "⚠️  Backend lacks profile support; starting services only: ${all_svcs[*]}"
-      echo "[start_profiles_blind] Running compose_up_services with: ${all_svcs[*]}"
-      compose_up_services "${all_svcs[@]}"
-      echo "[start_profiles_blind] Compose up complete (manual fallback)"
-    fi
-  fi
-
-  echo "[start_profiles_blind] Finished execution"
-}
-
 
 
 start_profile_with_build_prompt() {
   local prof="$1"
-  echo "[start_profile_with_build_prompt] Invoked with profile: '$prof'"
-
-  echo "[start_profile_with_build_prompt] Ensuring hosts entry for keycloak..."
-  ensure_hosts_keycloak
-  echo "[start_profile_with_build_prompt] Done ensuring hosts"
 
   echo "[start_profile_with_build_prompt] Maybe building profile: '$prof'"
   maybe_build_profile "$prof"
@@ -1252,10 +1086,6 @@ start_profile_services() {
 start_keycloak_services() {
   echo "[start_keycloak_services] Invoked"
 
-  echo "[start_keycloak_services] Ensuring hosts entry for keycloak..."
-  ensure_hosts_keycloak
-  echo "[start_keycloak_services] Done ensuring hosts"
-
   echo "[start_keycloak_services] Determining compose command..."
   local CMD; CMD="$(__compose_cmd)" || {
     echo "[start_keycloak_services] Failed to determine compose command → exiting"
@@ -1269,7 +1099,6 @@ start_keycloak_services() {
   echo "[start_keycloak_services] Compose file: ${COMPOSE_FILE:-docker-compose.yml}"
 
   echo "[start_keycloak_services] Ensuring external networks exist (non-destructive)..."
-  ensure_external_networks_exist
   echo "[start_keycloak_services] External networks ensured"
 
   local svcs=()
@@ -1336,74 +1165,117 @@ start_keycloak_services() {
 
 # --- Run a compose command *inside* the Podman VM (macOS) ---
 # Usage: vm_compose_in_dir "$PWD" -f docker-compose.yml up -d svc1 svc2 ...
-vm_compose_in_dir() {
-  local host_dir="$1"; shift
-  local q_dir; q_dir="$(printf %q "$host_dir")"
-  local q_args=""; while (($#)); do q_args+=$(printf " %q" "$1"); shift; done
 
-  # Remote script: ensure a working compose provider (prefer docker-compose plugin),
-  # then exec with the ARGS we passed.
-  local remote='
-set -Eeuo pipefail
-cd '"$q_dir"'
 
-have_podman_compose() { podman compose version >/dev/null 2>&1; }
-install_compose_plugin() {
-  # Install docker-compose v2 plugin into ~/.docker/cli-plugins/docker-compose
-  # Pick arch automatically; allow override via COMPOSE_PLUGIN_VERSION env.
-  local ver="${COMPOSE_PLUGIN_VERSION:-v2.29.7}"
-  local arch="$(uname -m)"
-  case "$arch" in
-    x86_64|amd64) arch="x86_64" ;;
-    aarch64|arm64) arch="aarch64" ;;
-    *) echo "❌ Unsupported arch: $arch"; return 1 ;;
-  esac
-  local url="https://github.com/docker/compose/releases/download/${ver}/docker-compose-linux-${arch}"
-  local dst="$HOME/.docker/cli-plugins/docker-compose"
-  mkdir -p "$(dirname "$dst")"
-  echo "⬇️  Installing docker-compose plugin ${ver} for ${arch} -> $dst"
-  curl -fsSL "$url" -o "$dst"
-  chmod +x "$dst"
+# Return list of services in a profile (1 per line)
+__services_for_profile() {
+  local prof="$1"
+  $COMPOSE -f "$COMPOSE_FILE" --profile "$prof" config --services 2>/dev/null | awk 'NF'
 }
 
-install_podman_compose_py() {
-  # Last resort: get pip, then podman-compose (Python)
-  echo "ℹ️  Installing podman-compose via pip (user)…"
-  if ! python3 -m pip --version >/dev/null 2>&1; then
-    echo "ℹ️  Bootstrapping pip (user)…"
-    curl -fsSL https://bootstrap.pypa.io/get-pip.py -o /tmp/get-pip.py
-    python3 /tmp/get-pip.py --user
-    export PATH="$HOME/.local/bin:$PATH"
-  fi
-  python3 -m pip install --user --upgrade podman-compose
-  export PATH="$HOME/.local/bin:$PATH"
-}
+__rm_existing_for_profile() {
+  local prof="$1"
+  local project; project="$(__compose_project_name)"
+  mapfile -t svcs < <(__services_for_profile "$prof")
+  ((${#svcs[@]})) || return 0
 
-PROVIDER=""
-if have_podman_compose; then
-  PROVIDER="podman compose"
-else
-  # Try installing the compose v2 plugin first (no root required)
-  if install_compose_plugin && have_podman_compose; then
-    PROVIDER="podman compose"
+  # Use VM if present to avoid host/VM storage path issues
+  if pm_ssh -h >/dev/null 2>&1; then
+    for s in "${svcs[@]}"; do
+      local cmd="podman ps -a \
+        --filter 'label=io.podman.compose.project=${project}' \
+        --filter 'label=io.podman.compose.service=${s}' -q \
+        | xargs -r podman rm -f -v || true
+      if [ \$(podman ps -a \
+        --filter 'label=com.docker.compose.project=${project}' \
+        --filter 'label=com.docker.compose.service=${s}' -q | wc -l) -gt 0 ]; then
+        podman ps -a \
+          --filter 'label=com.docker.compose.project=${project}' \
+          --filter 'label=com.docker.compose.service=${s}' -q \
+          | xargs -r podman rm -f -v || true
+      fi"
+      echo "  - VM cleanup for service: $s"
+      pm_ssh ssh -- bash -lc "$cmd"
+    done
   else
-    # Fallback to python podman-compose (needs pip)
-    if command -v podman-compose >/dev/null 2>&1; then
-      PROVIDER="podman-compose"
-    else
-      install_podman_compose_py
-      PROVIDER="podman-compose"
-    fi
+    # Host fallback
+    for s in "${svcs[@]}"; do
+      mapfile -t ids < <(podman ps -a \
+        --filter "label=io.podman.compose.project=${project}" \
+        --filter "label=io.podman.compose.service=${s}" -q 2>/dev/null)
+      ((${#ids[@]}==0)) && mapfile -t ids < <(podman ps -a \
+        --filter "label=com.docker.compose.project=${project}" \
+        --filter "label=com.docker.compose.service=${s}" -q 2>/dev/null)
+      ((${#ids[@]})) || continue
+      podman rm -f "${ids[@]}" >/dev/null 2>&1 || true
+    done
   fi
-fi
-
-echo "ℹ️  Compose provider in VM: $PROVIDER"
-exec $PROVIDER '"${q_args# }"'
-'
-  echo "+ podman machine ssh -- bash -lc \"$remote\""
-  podman machine ssh -- bash -lc "$remote"
 }
 
+
+# Detect whether the Podman VM has the overlay-containers path (needed by filebeat-podman)
+__podman_vm_has_overlay() {
+  if command -v podman >/dev/null 2>&1 && pm_ssh -h >/dev/null 2>&1; then
+    pm_ssh ssh -- test -d /var/lib/containers/storage/overlay-containers
+    return $?
+  fi
+  return 1
+}
+
+# Recreate all containers in a given profile (stop → rm → maybe build → up)
+recreate_profile() {
+  local prof="${1:-elastic}"
+  echo "🔄 Recreating all containers for profile: ${prof}"
+
+  echo "# 0) Ensure external networks"
+  prompt_return
+
+  echo "# 1) Down (ignore noisy 'no such container') --profile ${prof}"
+  prompt_return
+  compose_stop_rm_profile "$prof"
+
+  echo "# 2) Extra cleanup of anything lingering with compose labels (profile-scoped)"
+  __rm_existing_for_profile "$prof"
+
+  echo "# 3) Rebuild images if needed"
+  maybe_build_profile "$prof"
+
+  echo "# 4) Decide service set (optionally skip filebeat-podman if VM path missing)"
+  local -a SVCS=()
+  mapfile -t SVCS < <($COMPOSE -f "$COMPOSE_FILE" --profile "$prof" config --services 2>/dev/null | awk 'NF')
+
+  # Drop filebeat-podman when overlay path isn’t visible in the Podman VM
+  if [[ " ${SVCS[*]} " == *" filebeat-podman "* ]] && ! __podman_vm_has_overlay; then
+    echo "⚠️  Skipping 'filebeat-podman' (Podman VM overlay path not visible)."
+    SVCS=("${SVCS[@]/filebeat-podman}")
+  fi
+
+  echo "# 5) Up"
+  if ((${#SVCS[@]})); then
+    echo "▶️  Up: ${SVCS[*]}"
+    $COMPOSE -f "$COMPOSE_FILE" --profile "$prof" up -d --force-recreate "${SVCS[@]}"
+  else
+    echo "ℹ️  No services resolved for profile '${prof}'"
+  fi
+}
+
+
+# Simple interactive prompt
+prompt_recreate_profile() {
+  echo
+  echo "🔧 Recreate Containers"
+  echo "======================"
+  echo "This will stop, remove, rebuild, and restart all containers in a profile."
+  echo
+  echo "Available profiles:"
+  compose_profiles
+  echo
+  read -rp "Enter profile to recreate [elastic]: " prof
+  prof="${prof:-elastic}"
+  read -rp "Are you sure you want to recreate ALL containers in profile '${prof}'? [y/N] " ans
+  [[ "$ans" =~ ^[Yy]$ ]] || { echo "❌ Cancelled."; return 0; }
+  recreate_profile "$prof"
+}
 
 
 down_all() {
@@ -1497,16 +1369,16 @@ down_all() {
 
 start_profile_elastic() {
   echo "[start_profile_elastic] Ensuring hosts entry for keycloak..."
-  ensure_hosts_keycloak
-  echo "[start_profile_elastic] Hosts entry ensured"
 
-  # Ensure external networks exist (create-only)
-  ensure_external_networks_exist
+
+
 
   # Start elastic stack in one shot
+  prompt_recreate_profile elastic
   up_profile_with_podman elastic || { echo "❌ compose up failed (elastic)"; prompt_return; return 1; }
   prompt_return
 }
+
 
 
 
@@ -1515,7 +1387,6 @@ start_profile_web_app()      { start_profile_with_build_prompt web-app; }
 start_profile_vault()        { start_profile_with_build_prompt vault; }
 
 start_profile_trino() {
-  ensure_hosts_keycloak
   up_force_profile trino
 }
 
@@ -1535,6 +1406,12 @@ up_profile_with_podman() {
   local PROFILE="${1:-elastic}"
   local PROJECT; PROJECT="$(__compose_project_name)"
 
+  echo "CMD: ${CMD}"
+  echo "FILE: ${FILE}"
+  echo "PROFILE: ${PROFILE}"
+  echo "PROJECT: ${PROJECT}"
+  prompt_return             # defaults to "Press Enter to continue..."
+
   # Split provider ("podman compose" vs "podman-compose") into argv
   local -a CMDA; IFS=' ' read -r -a CMDA <<<"$CMD"
 
@@ -1547,18 +1424,35 @@ up_profile_with_podman() {
   fi
   ((${#SVCS[@]})) || { echo "⚠️  No services for profile '$PROFILE' in $FILE"; return 1; }
 
+
+
+
   echo "[up_profile_with_podman] Provider: $CMD"
   echo "[up_profile_with_podman] File: $FILE   Profile: $PROFILE"
   echo "[up_profile_with_podman] Services: ${SVCS[*]}"
   echo "[up_profile_with_podman] 🧹 Pre-clean stale containers/pods for this profile…"
 
+  prompt_return
+
   # Targeted cleanup: remove only containers/pods for these services (by label)
   local s ids pods
   for s in "${SVCS[@]}"; do
+
+    echo "SVCS: ${s}"
+
     ids="$(podman ps -a --filter "label=io.podman.compose.project=${PROJECT}" \
                       --filter "label=io.podman.compose.service=${s}" -q 2>/dev/null || true)"
+
+    echo "ids: ${ids}"
+    prompt_return
+
+
     if [[ -n "$ids" ]]; then
       pods="$(podman inspect -f '{{.PodName}}' $ids 2>/dev/null | awk 'NF && $0!="<no value>" && !seen[$0]++' || true)"
+
+      echo "about ready to stop these pods: ${pods}"
+      prompt_return
+
       [[ -n "$pods" ]] && { echo "  - stopping pods: $pods"; podman pod stop $pods >/dev/null 2>&1 || true; }
       echo "  - removing containers: $ids"
       podman rm -f -v $ids >/dev/null 2>&1 || true
@@ -1578,22 +1472,30 @@ up_profile_with_podman() {
   if [[ "$PROFILE" == "elastic" ]]; then
     echo "[up_profile_with_podman] ⚠️ Compose failed; using elastic fallback sequencer…"
 
-    # phase 1: core
+    echo "# starting phase 1: core"
+    prompt_return             # defaults to "Press Enter to continue..."
+
     "${CMDA[@]}" -f "$FILE" --profile elastic up -d --no-deps shared-vol-init elasticsearch
     _wait_health "elasticsearch" 180
 
-    # phase 2: init + kibana
+    echo "# starting phase 2: init + kibana"
+    prompt_return             # defaults to "Press Enter to continue..."
+
     "${CMDA[@]}" -f "$FILE" --profile elastic up -d --no-deps kibana-pass-init
     _wait_exit0 "kibana-pass-init" 180
     "${CMDA[@]}" -f "$FILE" --profile elastic up -d --no-deps kibana
 
-    # phase 3: api key init
+    echo "# starting phase 3: api key init"
+    prompt_return             # defaults to "Press Enter to continue..."
+
     if "${CMDA[@]}" -f "$FILE" --profile elastic config --services 2>/dev/null | grep -qx 'api-key-init'; then
       "${CMDA[@]}" -f "$FILE" --profile elastic up -d --no-deps api-key-init
       _wait_exit0 "api-key-init" 180
     fi
 
-    # phase 4: filebeat (optional)
+    echo "# starting phase 4: filebeat (optional)"
+    prompt_return             # defaults to "Press Enter to continue..."
+
     if "${CMDA[@]}" -f "$FILE" --profile elastic config --services 2>/dev/null | grep -qx 'filebeat-setup'; then
       "${CMDA[@]}" -f "$FILE" --profile elastic up -d --no-deps filebeat-setup
       _wait_exit0 "filebeat-setup" 180
@@ -1646,7 +1548,7 @@ _wait_exit0() {
 
 start_profile_openmetadata() {
   echo "▶️  Starting profile 'openmetadata' inside the Podman VM (dependencies honored)…"
-  podman machine ssh -- bash -lc "
+  pm_ssh ssh -- bash -lc "
 set -Eeuo pipefail
 
 # 👉 Adjust this to your project path inside the Podman VM if needed
@@ -1764,146 +1666,34 @@ run_build_realm() {
 }
 
 # --- stop + remove containers for a profile, independent of shim limitations ---
+# Stop & remove ONLY the services in the given profile (keeps other profiles running)
 compose_stop_rm_profile() {
   local prof="$1"
-  local CMD; CMD="$(__compose_cmd)" || return $?
+  # get services belonging to this profile from the compose file
+  mapfile -t svcs < <(services_for_profile_from_yaml "$prof")
+  if ((${#svcs[@]}==0)); then
+    echo "ℹ️ No services found for profile '$prof' in $COMPOSE_FILE"; return 0
+  fi
 
-  # Which services are in this profile?
-  mapfile -t SVCS < <($CMD -f "$COMPOSE_FILE" --profile "$prof" config --services 2>/dev/null | awk 'NF')
-  ((${#SVCS[@]})) || { echo "No services found for profile '$prof'."; return 0; }
+  echo "+ $COMPOSE -f \"$COMPOSE_FILE\" stop ${svcs[*]}"
+  $COMPOSE -f "$COMPOSE_FILE" stop "${svcs[@]}" || true
 
-  echo "+ $CMD -f \"$COMPOSE_FILE\" stop ${SVCS[*]}"
-
-  # --- remove containers belonging to this profile ---
-  # Split "__compose_cmd" into array so we can detect "podman compose" vs "podman-compose"
-  local -a CMDA
-  IFS=' ' read -r -a CMDA <<< "$CMD"
-
-  # Try a native "rm" if available (docker compose / podman compose)
-  if $CMD rm -h >/dev/null 2>&1; then
-    echo "+ $CMD -f \"$COMPOSE_FILE\" --profile \"$prof\" rm -s -f -v ${SVCS[*]}"
-    $CMD -f "$COMPOSE_FILE" --profile "$prof" rm -s -f -v "${SVCS[@]}" || true
-
-  # Fallback for podman-compose (no 'rm' subcommand): remove by labels
+  # Try native 'rm'; if unavailable (podman-compose), fall back to label-based rm
+  if $COMPOSE -f "$COMPOSE_FILE" rm -f -v "${svcs[@]}" 2>/dev/null; then
+    :
   else
-    echo "ℹ️  Using label-based cleanup (podman-compose has no 'rm')"
-    # Determine correct label keys for engine
-    local project_label service_label
-    if [[ "${CMDA[0]}" == "podman" && "${CMDA[1]:-}" == "compose" ]]; then
-      project_label="io.podman.compose.project"
-      service_label="io.podman.compose.service"
-    else
-      # When $CMD actually invokes 'podman-compose'
-      project_label="io.podman.compose.project"
-      service_label="io.podman.compose.service"
-    fi
-
-    # Remove containers service-by-service using labels
-    for s in "${SVCS[@]}"; do
-      ids="$(podman ps -a \
-        --filter "label=${project_label}=${COMPOSE_PROJECT_NAME}" \
-        --filter "label=${service_label}=${s}" \
-        -q 2>/dev/null || true)"
-      [[ -n "$ids" ]] && podman rm -f -v $ids >/dev/null 2>&1 || true
+    echo "ℹ️  Using label-based cleanup (compose provider has no 'rm')"
+    local project; project="$(__compose_project_name)"
+    for s in "${svcs[@]}"; do
+      # Remove containers just for this service in this project
+      podman ps -a \
+        --filter "label=com.docker.compose.project=${project}" \
+        --filter "label=com.docker.compose.service=${s}" -q \
+      | xargs -r podman rm -f -v
     done
   fi
 }
 
-
-# --- Override: start_keycloak_services (ensure network first) ---
-ensure_osss_net() {
-  # If COMPOSE_FILE declares osss-net as external, make sure it's present.
-  # We only create if missing; we never modify or remove existing networks.
-  if ! podman network exists osss-net 2>/dev/null; then
-    echo "➕ Creating external network: osss-net"
-    podman network create osss-net >/dev/null || echo "⚠️  Could not create osss-net (continuing)"
-  fi
-}
-start_keycloak_services() {
-  echo "[start_keycloak_services] Invoked"
-
-  echo "[start_keycloak_services] Ensuring hosts entry for keycloak..."
-  ensure_hosts_keycloak
-  echo "[start_keycloak_services] Hosts entry ensured"
-
-  echo "[start_keycloak_services] Determining compose command..."
-  local CMD; CMD="$(__compose_cmd)" || {
-    echo "[start_keycloak_services] Failed to determine compose command → exiting"
-    return $?
-  }
-  echo "[start_keycloak_services] Using compose command: $CMD"
-
-  echo "[start_keycloak_services] Determining project name..."
-  local PROJECT; PROJECT="$(__compose_project_name)"
-  echo "[start_keycloak_services] Project: $PROJECT"
-  echo "[start_keycloak_services] Compose file: ${COMPOSE_FILE:-docker-compose.yml}"
-
-  echo "[start_keycloak_services] Ensuring external 'osss-net' exists (create-only)..."
-  ensure_osss_net
-  echo "[start_keycloak_services] 'osss-net' checked/created"
-
-  # Query services under the profile (or fallback to service names)
-  local svcs=()
-  if compose_supports_profile; then
-    echo "[start_keycloak_services] Backend supports profiles, querying profile 'keycloak'..."
-    mapfile -t svcs < <($CMD -f "$COMPOSE_FILE" --profile "keycloak" config --services 2>/dev/null | awk 'NF')
-    echo "[start_keycloak_services] Found ${#svcs[@]} service(s) from CLI: ${svcs[*]:-<none>}"
-
-    if [ "${#svcs[@]}" -eq 0 ]; then
-      echo "[start_keycloak_services] Falling back to compose_services_for_profile..."
-      mapfile -t svcs < <(compose_services_for_profile "keycloak" 2>/dev/null || true)
-      echo "[start_keycloak_services] Found ${#svcs[@]} service(s) via fallback: ${svcs[*]:-<none>}"
-    fi
-  else
-    echo "[start_keycloak_services] Backend does NOT support profiles → skipping profile query"
-  fi
-
-  if ((${#svcs[@]})); then
-    echo "[start_keycloak_services] Profile 'keycloak' detected with ${#svcs[@]} service(s): ${svcs[*]}"
-    echo "[start_keycloak_services] Maybe building profile 'keycloak'..."
-    maybe_build_profile keycloak
-    echo "[start_keycloak_services] Build check complete"
-
-    echo "[start_keycloak_services] Running: $CMD --profile keycloak up -d --no-deps ${svcs[*]}"
-    $CMD --profile keycloak up -d --no-deps "${svcs[@]}"
-    echo "[start_keycloak_services] Compose up complete for profile 'keycloak'"
-    echo "[start_keycloak_services] Returning to menu..."
-    prompt_return
-    echo "[start_keycloak_services] Finished execution"
-    return 0
-  fi
-
-  echo "[start_keycloak_services] No profile 'keycloak' found → falling back to direct service detection"
-  mapfile -t ALL_SERVS < <(compose_list_services)
-  echo "[start_keycloak_services] All services discovered: ${ALL_SERVS[*]:-<none>}"
-
-  want=(keycloak kc_postgres)
-  chosen=()
-  for w in "${want[@]}"; do
-    for s in "${ALL_SERVS[@]}"; do
-      if [[ "$s" == "$w" ]]; then
-        echo "[start_keycloak_services] Matched service '$w'"
-        chosen+=("$w")
-        break
-      fi
-    done
-  done
-
-  if ((${#chosen[@]}==0)); then
-    echo "⚠️  Neither a 'keycloak' profile nor 'keycloak' service was detected."
-    echo "   Services available: ${ALL_SERVS[*]}"
-    echo "[start_keycloak_services] Exiting, nothing to start"
-    prompt_return
-    return 1
-  fi
-
-  echo "[start_keycloak_services] Starting services directly (no profile): ${chosen[*]}"
-  compose_up_services "${chosen[@]}"
-  echo "[start_keycloak_services] Compose up complete (direct services)"
-  echo "[start_keycloak_services] Returning to menu..."
-  prompt_return
-  echo "[start_keycloak_services] Finished execution"
-}
 
 # -------- Trino cert helpers --------
 create_trino_cert() {
@@ -2275,46 +2065,44 @@ reset_podman_machine() {
 
   set -euo pipefail
 
-  # 0) Show versions (optional, for sanity)
   podman --version || true
-  podman machine --help | head -n 1 || true
 
-  # 1) Stop machine if Podman thinks it exists
-  podman machine stop podman-machine-default || true
-  podman machine stop || true
+  # Decide a machine name: use active if present, else 'default'
+  NAME="${PODMAN_MACHINE_NAME:-$(podman machine active 2>/dev/null || echo default)}"
 
-  # 2) Drop stale connections
-  for c in podman-machine-default podman-machine-default-root; do
-    podman system connection rm "$c" 2>/dev/null || true
-  done
-
-  # 3) Try to remove any machine records
-  podman machine rm -f podman-machine-default 2>/dev/null || true
-  podman machine rm -f 2>/dev/null || true
-
-  # 4) Nuke leftover local state (macOS)
-  rm -rf \
-    ~/.config/containers/podman/machine \
-    ~/.local/share/containers/podman/machine \
-    ~/.local/share/containers/podman/machine/qemu/podman-machine-default \
-    ~/.ssh/podman-machine-default* 2>/dev/null || true
-
-  # 5) Recreate the VM
-  if podman machine init --help | grep -qE 'machine init.*\[NAME\]'; then
-    podman machine init podman-machine-default --cpus 4 --memory 6144 --disk-size 60
+  # 1) Stop if it exists
+  if podman machine inspect "$NAME" >/dev/null 2>&1; then
+    echo "▶️  Stopping podman machine '$NAME'…"
+    podman machine stop "$NAME" || true
+    echo "🗑  Removing '$NAME'…"
+    podman machine rm -f "$NAME" || true
   else
-    podman machine init --cpus 4 --memory 6144 --disk-size 60
+    echo "(no VM named '$NAME' to stop/remove)"
   fi
 
-  # 6) Start the VM
-  podman machine start
+  # 2) Drop stale connections (both rootless/root)
+  podman system connection rm "$NAME" "$NAME-root" 2>/dev/null || true
 
-  # 7) Make it the default connection if needed
-  podman system connection default podman-machine-default 2>/dev/null || true
+  # 3) macOS: clear any leftover local state safely (best-effort)
+  if [[ "$(uname -s)" == "Darwin" ]]; then
+    rm -rf ~/.config/containers/podman/machine \
+           ~/.local/share/containers/podman/machine \
+           ~/.ssh/"$NAME"* 2>/dev/null || true
+  fi
 
-  # 8) Quick test
+  # 4) Recreate + start
+  echo "🛠  Initializing '$NAME'…"
+  podman machine init "$NAME" --cpus 4 --memory 6144 --disk-size 60
+  echo "▶️  Starting '$NAME'…"
+  podman machine start "$NAME"
+
+  # 5) Make it the default connection if possible
+  podman system connection default "$NAME" 2>/dev/null \
+    || podman system connection default "$NAME-root" 2>/dev/null \
+    || true
+
+  # 6) Sanity test
   podman run --rm quay.io/podman/hello || true
-
   prompt_return
 }
 
@@ -2356,8 +2144,8 @@ preflight_podman_storage() {
   fi
 
   # 5) If still empty on macOS, ask inside the VM directly
-  if [[ -z "$GRAPHROOT" && "$(uname -s)" == "Darwin" ]] && podman machine inspect >/dev/null 2>&1; then
-    GRAPHROOT="$(podman machine ssh -- podman info --format '{{ .Store.GraphRoot }}' 2>/dev/null || true)"
+  if [[ -z "$GRAPHROOT" && "$(uname -s)" == "Darwin" ]] && pm_ssh inspect >/dev/null 2>&1; then
+    GRAPHROOT="$(pm_ssh ssh -- podman info --format '{{ .Store.GraphRoot }}' 2>/dev/null || true)"
     echo "[preflight_podman_storage] Queried VM for GraphRoot."
   fi
 
@@ -2368,7 +2156,7 @@ preflight_podman_storage() {
     podman info --format '{{json .Store}}' || true
     echo "   Tip: ensure your default connection is the VM:"
     echo "        podman system connection default podman-machine-default"
-    echo "        podman machine start"
+    echo "        pm_ssh start"
     return 1
   fi
 
@@ -2394,62 +2182,6 @@ compose_exec() {
 
 # --- main -----------------------------------------------------------------
 
-down_profile_clean() {
-  set -Eeuo pipefail
-  local PROFILE="$1"
-  local CMD; CMD="$(__compose_cmd)"
-  local FILE="${COMPOSE_FILE:-docker-compose.yml}"
-  local PROJECT; PROJECT="$(__compose_project_name 2>/dev/null || echo "${COMPOSE_PROJECT_NAME:-osss}")"
-
-  echo "ℹ️  Using compose: $CMD   project=$PROJECT   file=$FILE"
-
-  # Resolve services cleanly (no debug noise)
-  mapfile -t SVCS < <(compose_services_for_profile "$CMD" "$FILE" "$PROFILE")
-  if ((${#SVCS[@]}==0)); then
-    echo "⚠️  No services for profile '$PROFILE' in $FILE"; return 1
-  fi
-  echo "🔎 Services in '$PROFILE': ${SVCS[*]}"
-
-  # 1) Ask compose to stop, then rm (labels-aware)
-  echo "▶️  compose stop ${SVCS[*]}"
-  compose_exec "$CMD" -f "$FILE" stop "${SVCS[@]}" || true
-
-  echo "🗑️  compose rm -f ${SVCS[*]}"
-  compose_exec "$CMD" -f "$FILE" rm -f "${SVCS[@]}" || true
-
-  # 2) Fallback: if any service containers still exist *without* compose labels, remove them.
-  #    We match by BOTH typical compose names and raw service names.
-  echo "🔍 Fallback sweep for unlabeled containers…"
-  for s in "${SVCS[@]}"; do
-    # Common compose name patterns:
-    #   <project>_<service>_1, <project>-<service>-1, exact <service>
-    local patt1="^/${PROJECT}[._-]${s}(_|-)??[0-9]*$"
-    local patt2="^/${s}$"
-    # list candidate IDs
-    local ids id
-    ids="$(podman ps -a --format '{{.ID}}\t{{.Names}}\t{{.Image}}' | awk -v p1="$patt1" -v p2="$patt2" '
-      $2 ~ p1 || $2 ~ p2 { print $1 }')"
-    # filter out ones that DO have compose labels already (compose handled them)
-    if [[ -n "$ids" ]]; then
-      while IFS= read -r id; do
-        [[ -z "$id" ]] && continue
-        # If container has compose project label matching ours, skip (already handled)
-        if podman inspect "$id" --format '{{index .Config.Labels "com.docker.compose.project"}}' 2>/dev/null | grep -qx "$PROJECT"; then
-          continue
-        fi
-        echo "🧹 Removing leftover container (no compose label): $id ($s)"
-        podman rm -f "$id" || true
-      done <<<"$ids"
-    fi
-  done
-
-  # 3) Optional: volumes attached to those containers (named volumes only)
-  echo "🧹 Pruning named volumes attached to just-removed containers (best effort)…"
-  # Safe no-op if none:
-  podman volume prune -f >/dev/null || true
-
-  echo "✅ Done with profile '$PROFILE'."
-}
 
 
 down_profile_interactive() {
@@ -2477,7 +2209,7 @@ down_profile_interactive() {
   if [[ "$ENGINE" == podman* ]]; then
     if ! preflight_podman_storage "$ENGINE"; then
       echo "⚠️  Podman storage/VM looks unhealthy. Aborting teardown to avoid errors." >&2
-      echo "   Run: 'podman machine start' and/or 'podman system migrate', then retry." >&2
+      echo "   Run: 'pm_ssh start' and/or 'podman system migrate', then retry." >&2
       prompt_return
       return 1
     fi
@@ -2519,104 +2251,114 @@ down_profile_interactive() {
     echo "✅ Selected by name: $prof"
   fi
 
-  # Normalize quotes
-  prof="${prof%\"}"; prof="${prof#\"}"; prof="${prof%\'}"; prof="${prof#\'}"
-  echo "ℹ️  Normalized profile: $prof"
-
-  echo "[down_profile_interactive] Resolving services for profile '$prof' (authoritative via compose)..."
-  mapfile -t SVCS < <(compose_exec "${CMD_ARR[@]}" -f "$COMPOSE_FILE_LOCAL" --profile "$prof" config --services 2>/dev/null | awk 'NF')
-  # If compose_exec returned the sentinel 200, the pipeline will be empty; we still proceed to fallback
-  echo "[down_profile_interactive] Services from CLI: ${SVCS[*]:-<none>}"
-  if [ "${#SVCS[@]}" -eq 0 ]; then
-    echo "[down_profile_interactive] Falling back to compose_services_for_profile '$prof'..."
-    mapfile -t SVCS < <(compose_services_for_profile "$prof" 2>/dev/null || true)
-    echo "[down_profile_interactive] Services via fallback: ${SVCS[*]:-<none>}"
-  fi
-
-  echo "🔎 Services in profile '$prof': ${SVCS[*]:-(none)}"
-  if [ "${#SVCS[@]}" -eq 0 ]; then
-    echo "⚠️  No services declare profile '${prof}'. Nothing to do."
-    echo "[down_profile_interactive] Exiting (no services)"
-    return 0
-  fi
-
-  echo "[down_profile_interactive] Computing cascade (linked services)..."
-  mapfile -t __CASCADE < <(cascade_services_for_profile "$prof" || true)
-  if ((${#__CASCADE[@]})); then
-    echo "🔗 Cascade: also including linked service(s): ${__CASCADE[*]}"
-    SVCS+=("${__CASCADE[@]}")
-  else
-    echo "[down_profile_interactive] No cascade services detected"
-  fi
-
-  echo "🚧 Taking down profile '${prof}' services: ${SVCS[*]}"
 
   {
     echo "[down_profile_interactive] Entering teardown (set -x enabled for commands)"
     set -x
 
     echo "ℹ️ Stop and remove via compose first (engine-agnostic)"
-    compose_exec "${CMD_ARR[@]}" -f "$COMPOSE_FILE_LOCAL" stop "${SVCS[@]}" || true
+    #compose_exec "${CMD_ARR[@]}" -f "$COMPOSE_FILE_LOCAL" stop "${SVCS[@]}" || true
 
-    if "${CMD_ARR[@]}" rm -h >/dev/null 2>&1; then
-      compose_exec "${CMD_ARR[@]}" -f "$COMPOSE_FILE_LOCAL" rm -s -f -v "${SVCS[@]}" || true
-    fi
+    # On the HOST shell (where $PWD is your project)
+      podman machine ssh default -- bash -lc "
+        set -euo pipefail
+        HOST_PROJ=$HOST_PROJ
+        SERVICE=$prof
+        PODMAN_OVERLAY_DIR=$PODMAN_OVERLAY_DIR
+        declare -a SVCS=()
+        declare -a CIDS=()
+        declare -a VOLS=()
 
-    echo "ℹ️ Label-based cleanup with engine; catch statfs and abort gracefully"
-    # Build ps args safely by array to avoid "--filter--filter" concatenation bug
-    local project_label service_label
-    if [[ "$ENGINE" == "podman" ]]; then
-      project_label="io.podman.compose.project"
-      service_label="io.podman.compose.service"
-    else
-      project_label="com.docker.compose.project"
-      service_label="com.docker.compose.service"
-    fi
+        echo \"HOST_PROJ: \${HOST_PROJ}\"
+        echo \"PODMAN_OVERLAY_DIR: \${PODMAN_OVERLAY_DIR}\"
+        cd \"\$HOST_PROJ\" || { echo '❌ Path not visible inside VM:' \"\$HOST_PROJ\"; exit 1; }
 
-    # Collect container IDs for these services
-    local -a ps_args=(ps -a --format '{{.ID}}')
-    ps_args+=(--filter "label=${project_label}=${PROJECT}")
-    for s in "${SVCS[@]}"; do
-      ps_args+=(--filter "label=${service_label}=${s}")
-    done
+        test -r docker-compose.yml || { echo \"❌ docker-compose.yml not readable here: \$PWD\"; ls -la; exit 1; }
 
-    CIDS=()
-    while read -r id; do
-      [[ -n "$id" ]] && CIDS+=("$id")
-    done < <(engine_exec "$ENGINE" "${ps_args[@]}" 2>/dev/null || true)
 
-    # If we found any, inspect them (in array form) to collect *attached* volumes
-    VOL_ATTACHED=()
-    if ((${#CIDS[@]})); then
-      while read -r v; do
-        [[ -n "$v" ]] && VOL_ATTACHED+=("$v")
-      done < <(engine_exec "$ENGINE" inspect "${CIDS[@]}" \
-              -f '{{range .Mounts}}{{if eq .Type "volume"}}{{.Name}}{{"\n"}}{{end}}{{end}}' \
-              2>/dev/null | awk 'NF && !seen[$0]++' || true)
+        # Pick compose provider + the correct remove-volumes flag
+        if podman compose version >/dev/null 2>&1; then
+          COMPOSE=\"podman compose\"
+          DOWN_VOL_FLAG=\"--volumes\"
+        elif command -v podman-compose >/dev/null 2>&1; then
+          COMPOSE=\"podman-compose\"
+          DOWN_VOL_FLAG=\"-v\"
+        else
+          echo \"❌ Neither podman compose nor podman-compose found.\"
+          exit 1
+        fi
 
-      # Remove those containers
-      engine_exec "$ENGINE" rm -f "${CIDS[@]}" >/dev/null 2>&1 || true
-    fi
+        # Ensure project name matches compose default (lowercased basename)
+        PROJECT=\"\${COMPOSE_PROJECT_NAME:-\$(basename \"\$PWD\" | tr '[:upper:]' '[:lower:]')}\"
+        export COMPOSE_PROJECT_NAME=\"\$PROJECT\"
+        echo \"PROJECT: \$PROJECT\"
+        echo \"▶️  Teardown for profile=\$SERVICE (targeted: services & volumes only)\"
 
-    declare -a VOL_ATTACHED=()
-    if ((${#CIDS[@]})); then
-      while read -r v; do [[ -n "$v" ]] && VOL_ATTACHED+=("$v"); done < <(
-        engine_exec "$ENGINE" inspect "${CIDS[@]}" \
-          -f '{{range .Mounts}}{{if eq .Type "volume"}}{{.Name}}{{"\n"}}{{end}}{{end}}' 2>/dev/null | awk 'NF && !seen[$0]++' || true
-      )
-      engine_exec "$ENGINE" rm -f "${CIDS[@]}" >/dev/null 2>&1 || true
-    fi
+        # Services in this profile
+        SVCS=()  # ensure declared under set -u
+        mapfile -t SVCS < <(\$COMPOSE -f \"\$HOST_PROJ/docker-compose.yml\" --profile \"\$SERVICE\" \
+          config --services 2>/dev/null | awk 'NF') || true
 
-    echo "ℹ️ Services are: ${SVCS}"
-    echo "ℹ️ Fallback: remove by service name (handles engine quirks)"
-    engine_exec "$ENGINE" rm -f "${SVCS[@]}" >/dev/null 2>&1 || true
+        if ((\${#SVCS[@]}==0)); then
+          echo \"ℹ️ No services found for profile '\$SERVICE' (nothing to clean).\"
+          exit 0
+        fi
 
-    PROJECT="$(__compose_project_name)"
-    echo "ℹ️  … stop/rm containers first …"
-    REMOVE_VOLUMES=1 FORCE_VOLUME_REMOVE=1 remove_volumes_for_services "$PROJECT" "elastic" "${SVCS[@]}"
+        # 2) Pick correct compose label keys (keep for logs only)
+        # 2) Pick correct compose label keys (keep for logs only)
+        project_label=\"io.podman.compose.project\"
+        service_label=\"io.podman.compose.service\"
+        if ! podman ps -a --filter \"label=\${project_label}=\${PROJECT}\" -q | grep -q .; then
+          project_label=\"com.docker.compose.project\"
+          service_label=\"com.docker.compose.service\"
+        fi
 
-    set +x
-    echo "[down_profile_interactive] Teardown commands complete (set -x disabled)"
+        # Containers for this project + those services (UNION both label namespaces)
+        CIDS=() VOLS=()
+        tmp_ids=()
+        for s in \"\${SVCS[@]}\"; do
+          mapfile -t ids1 < <(podman ps -a -q \
+            --filter \"label=io.podman.compose.project=\${PROJECT}\" \
+            --filter \"label=io.podman.compose.service=\${s}\" 2>/dev/null || true)
+          mapfile -t ids2 < <(podman ps -a -q \
+            --filter \"label=com.docker.compose.project=\${PROJECT}\" \
+            --filter \"label=com.docker.compose.service=\${s}\" 2>/dev/null || true)
+          tmp_ids+=(\"\${ids1[@]:-}\" \"\${ids2[@]:-}\")
+        done
+        # unique
+        mapfile -t CIDS < <(printf '%s\n' \"\${tmp_ids[@]:-}\" | awk 'NF && !seen[\$0]++')
+        echo \"→ Matched \${#CIDS[@]} container(s) for services: \${SVCS[*]}\"
+
+        if ((\${#CIDS[@]})); then
+          # Volumes mounted by those containers
+          mapfile -t VOLS < <(
+            podman inspect -f '{{range .Mounts}}{{if eq .Type \"volume\"}}{{.Name}}{{\"\n\"}}{{end}}{{end}}' \
+              \"\${CIDS[@]}\" | awk 'NF && !seen[\$0]++'
+          ) || true
+
+          echo \"⏹  Stopping containers...\"
+          podman stop -t 10 \"\${CIDS[@]}\" >/dev/null 2>&1 || true
+          echo \"🗑️  Removing containers...\"
+          podman rm -f \"\${CIDS[@]}\" >/dev/null 2>&1 || true
+
+
+
+
+
+          if ((\${#VOLS[@]})); then
+            echo \"🧹 Removing profile volumes: \${VOLS[*]}\"
+            podman volume rm -f \"\${VOLS[@]}\" >/dev/null 2>&1 || true
+          else
+            echo \"ℹ️ No named volumes attached to \${SVCS[*]}.\"
+          fi
+        else
+          echo \"ℹ️ No containers found for services: \${SVCS[*]}\"
+          echo \"   (Tip: containers may exist under the other label namespace or a different project name)\"
+        fi
+
+      "
+
+
   }
 
   echo "ℹ️ Post-teardown hook (optional per-profile cleanup)"
@@ -2631,33 +2373,38 @@ down_profile_interactive() {
   fi
 
 
-  echo "[down_profile_interactive] Listing remaining containers for project='$PROJECT'..."
-  engine_exec "$ENGINE" ps --format '{{.ID}}\t{{.Image}}\t{{.Names}}\t{{.Status}}\t{{.Ports}}' \
-    --filter "label=com.docker.compose.project=${PROJECT}" | sed 's/^/  /' || true
-
-  echo "[down_profile_interactive] Removing compose-declared named volumes for these services (helper)..."
-  remove_volumes_for_services "$PROJECT" --volumes "${SVCS[@]}" || true
-
   echo "✅ Done with profile '${prof}'."
   echo "[down_profile_interactive] Returning to menu..."
   prompt_return
   echo "[down_profile_interactive] Finished execution"
+  set +x
 }
 
 
 
 # -------- Podman VM management --------
-podman_vm_name() {
-  echo "${PODMAN_MACHINE_NAME:-default}"
+# Returns the name of a running VM, or "default" if none running
+__podman_vm_name() {
+  local n
+  n="$(pm_ssh list --format '{{.Name}} {{.Running}}' 2>/dev/null \
+       | awk '$2=="true"{print $1; exit}')" || true
+  echo "${n:-default}"
 }
+
+# Run a command inside the VM (nounset-safe)
+pm_ssh() {
+  local vm; vm="$(__podman_vm_name)"
+  podman machine ssh "$vm" -- "$@"
+}
+
 podman_vm_stop() {
   if ! command -v podman >/dev/null 2>&1; then
     echo "Podman not installed."
     return 1
   fi
   local NAME; NAME="$(podman_vm_name)"
-  echo "▶️  Stopping podman machine '$NAME'…"
-  podman machine stop "$NAME" || {
+  echo "▶️  Stopping pm_ssh '$NAME'…"
+  pm_ssh stop "$NAME" || {
     echo "(already stopped or not present)"
     return 0
   }
@@ -2675,10 +2422,10 @@ podman_vm_destroy() {
     echo "Cancelled."
     return 1
   fi
-  echo "▶️  Stopping (if running)…"; podman machine stop "$NAME" >/dev/null 2>&1 || true
-  echo "🗑  Removing podman machine '$NAME'…"
-  podman machine rm -f "$NAME"
-  echo "✅ Destroyed podman machine '$NAME'."
+  echo "▶️  Stopping (if running)…"; pm_ssh stop "$NAME" >/dev/null 2>&1 || true
+  echo "🗑  Removing pm_ssh '$NAME'…"
+  pm_ssh rm -f "$NAME"
+  echo "✅ Destroyed pm_ssh '$NAME'."
 }
 
 
@@ -2689,22 +2436,55 @@ logs_menu() {
   local tail_n="${TAIL:-$DEFAULT_TAIL}"
   local choice svc_count svc
   local __LOG_SERVICES=()
+
+  # Resolve compose command into an ARRAY (handles spaces in "podman compose" or "podman machine ssh -- podman compose")
+  local -a C
+  IFS=' ' read -r -a C <<< "${COMPOSE:-podman compose}"
+
+  local file="${COMPOSE_FILE:-docker-compose.yml}"
+  local project="${COMPOSE_PROJECT_NAME:-$(basename "$PWD")}"
+
+  echo
+  echo "[logs_menu] COMPOSE: ${COMPOSE:-podman compose}"
+  echo "[logs_menu] COMPOSE_FILE: ${file}"
+  echo "[logs_menu] COMPOSE_PROJECT_NAME: ${project}"
+  echo "[logs_menu] TAIL lines: ${tail_n}"
+  if [[ -n "${SERVICE:-}" ]]; then
+    echo "[logs_menu] SERVICE env detected: ${SERVICE}  (note: unrelated to compose services)"
+  fi
+
   while true; do
-    mapfile -t __LOG_SERVICES < <(compose_services_all)
+    # Prefer running services; fall back to all defined services
+    if mapfile -t __LOG_SERVICES < <("${C[@]}" -f "$file" ps --services 2>/dev/null); then
+      :
+    else
+      __LOG_SERVICES=()
+    fi
+    if (( ${#__LOG_SERVICES[@]} == 0 )); then
+      mapfile -t __LOG_SERVICES < <("${C[@]}" -f "$file" config --services 2>/dev/null || true)
+    fi
+
     svc_count="${#__LOG_SERVICES[@]}"
     echo
-    echo "==== Logs Menu ===="
+    echo "==== Logs Menu (${project}) ===="
     echo "Enter a number to follow that service's logs."
     echo "a) follow ALL services"
-    echo "t) tail ALL services"
+    echo "t) tail ALL services (no follow)"
     echo "s) set default tail (currently ${DEFAULT_TAIL})"
     echo "r) refresh services   b) back   q) quit"
     echo
+
     if (( svc_count == 0 )); then
-      echo "(No services found for project ${COMPOSE_PROJECT_NAME})"
+      echo "(No services found for project ${project})"
+      echo "[diag] '${C[*]} -f \"$file\" config --services' returned:"
+      "${C[@]}" -f "$file" config --services 2>&1 | sed 's/^/  > /'
     else
-      local i; for ((i=0;i<svc_count;i++)); do printf "  %2d) %s\n" "$((i+1))" "${__LOG_SERVICES[$i]}"; done
+      local i
+      for ((i=0;i<svc_count;i++)); do
+        printf "  %2d) %s\n" "$((i+1))" "${__LOG_SERVICES[$i]}"
+      done
     fi
+
     read -rp "Choice: " choice || return 0
     case "$choice" in
       b|B) return 0 ;;
@@ -2713,14 +2493,17 @@ logs_menu() {
       s|S) set_default_tail ;;
       a|A)
         echo "Following logs for ALL services. Ctrl-C to return…"
-        ( trap - INT; $COMPOSE -f "$COMPOSE_FILE" logs -f --tail "$tail_n" ) || true
+        ( trap - INT; "${C[@]}" -f "$file" logs -f --tail "$tail_n" ) || true
         ;;
-      t|T) logs_tail_all_any "$tail_n" ;;
+      t|T)
+        echo "Tailing (no follow) logs for ALL services…"
+        "${C[@]}" -f "$file" logs --tail "$tail_n" || true
+        ;;
       *)
         if [[ "$choice" =~ ^[0-9]+$ ]] && (( choice>=1 && choice<=svc_count )); then
           svc="${__LOG_SERVICES[$((choice-1))]}"
           echo "Following logs for service: ${svc} (Ctrl-C to return)…"
-          ( trap - INT; logs_follow_service_any "$svc" ) || true
+          ( trap - INT; "${C[@]}" -f "$file" logs -f --tail "$tail_n" "$svc" ) || true
         else
           echo "Unknown choice: ${choice}"
         fi
@@ -2729,8 +2512,443 @@ logs_menu() {
   done
 }
 
+
+# --- Override: start_keycloak_services (ensure network first) ---
+ensure_osss_net() {
+  if ! podman network exists osss-net 2>/dev/null; then
+    echo "➕ Creating external network: osss-net"
+    podman network create osss-net >/dev/null || echo "⚠️  Could not create osss-net (continuing)"
+  fi
+}
+
+
+# Follow logs for a single container; Ctrl-C cleanly returns to menu
+logs_follow_container() {
+  local name="$1"
+  local tail_n="${TAIL:-$DEFAULT_TAIL}"
+
+  # Detect VM (macOS) vs host
+  local use_vm="0" vm state
+  if podman machine --help >/dev/null 2>&1; then
+    vm="$(podman machine active 2>/dev/null || echo default)"
+    state="$(podman machine inspect "$vm" --format '{{.State}}' 2>/dev/null || echo '')"
+    [[ "$state" == "Running" ]] && use_vm="1"
+  fi
+
+  # Existence checks
+  if [[ "$use_vm" == "1" ]]; then
+    if ! podman machine ssh "$vm" -- bash -lc "podman container exists \"$name\""; then
+      echo "⚠️  Container '$name' not found in VM '$vm'."
+      podman machine ssh "$vm" -- podman ps -a --format "table {{.Names}}\t{{.Status}}" | sed 's/^/  > /'
+      return 0
+    fi
+  else
+    if ! podman container exists "$name"; then
+      echo "⚠️  Container '$name' not found on host."
+      podman ps -a --format "table {{.Names}}\t{{.Status}}" | sed 's/^/  > /'
+      return 0
+    fi
+  fi
+
+  echo "▶️  Following logs for '${name}' (tail=${tail_n}). Press Ctrl-C to return…"
+
+  # Start logs in background
+  local child pgid interrupted=0
+  if [[ "$use_vm" == "1" ]]; then
+    # exec so the remote bash is replaced by podman logs (cleaner signal behavior)
+    podman machine ssh "$vm" -- bash -lc "exec podman logs -f --tail ${tail_n} \"$name\"" &
+  else
+    podman logs -f --tail "$tail_n" "$name" &
+  fi
+  child=$!
+
+  # Get the process group id of the background job
+  pgid="$(ps -o pgid= -p "$child" 2>/dev/null | tr -d ' ')"
+
+  # Trap Ctrl-C: kill the whole group (ssh wrapper + remote), then return
+  trap '
+    interrupted=1
+    echo; echo "↩ Returning to menu…"
+    if [[ -n "'"$pgid"'" ]]; then kill -INT -'"$pgid"' 2>/dev/null || true; fi
+    kill -INT '"$child"' 2>/dev/null || true
+  ' INT
+
+  # Wait for the logs process to exit (normal end or SIGINT)
+  wait "$child" 2>/dev/null || true
+
+  # Cleanup trap and finish
+  trap - INT
+  [[ $interrupted -eq 1 ]] && echo "↩ Back to menu." || echo "✔️  Logs ended."
+  return 0
+}
+
+
+
+logs_menu() {
+  while true; do
+    echo
+    echo "==============================================="
+    echo " Logs"
+    echo "==============================================="
+    echo " 1) Logs container 'api-key-init'"
+    echo " 2) Logs container 'app'"
+    echo " 3) Logs container 'consul'"
+    echo " 4) Logs container 'consul-jwt-init'"
+    echo " 5) Logs container 'elasticsearch'"
+    echo " 6) Logs container 'filebeat-podman'"
+    echo " 7) Logs container 'filebeat-setup'"
+    echo " 8) Logs container 'kc_postgres'"
+    echo " 9) Logs container 'keycloak'"
+    echo "10) Logs container 'kibana'"
+    echo "11) Logs container 'kibana-pass-init'"
+    echo "12) Logs container 'openmetadata-ingestion'"
+    echo "13) Logs container 'openmetadata-mysql'"
+    echo "14) Logs container 'openmetadata-server'"
+    echo "15) Logs container 'osss_postgres'"
+    echo "16) Logs container 'postgres-superset'"
+    echo "17) Logs container 'redis'"
+    echo "18) Logs container 'shared-vol-init'"
+    echo "19) Logs container 'superset'"
+    echo "20) Logs container 'superset_redis'"
+    echo "21) Logs container 'trino'"
+    echo "22) Logs container 'vault'"
+    echo "23) Logs container 'vault-oidc-setup'"
+    echo "24) Logs container 'vault-seed'"
+    echo "25) Logs container 'web'"
+    echo "  q) Back"
+    echo "-----------------------------------------------"
+    read -rp "Select an option: " choice || return 0
+    case "$choice" in
+      1)  logs_follow_container "api-key-init" ;;
+      2)  logs_follow_container "app" ;;
+      3)  logs_follow_container "consul" ;;
+      4)  logs_follow_container "consul-jwt-init" ;;
+      5)  logs_follow_container "elasticsearch" ;;
+      6)  logs_follow_container "filebeat-podman" ;;
+      7)  logs_follow_container "filebeat-setup" ;;
+      8)  logs_follow_container "kc_postgres" ;;
+      9)  logs_follow_container "keycloak" ;;
+      10) logs_follow_container "kibana" ;;
+      11) logs_follow_container "kibana-pass-init" ;;
+      12) logs_follow_container "openmetadata-ingestion" ;;
+      13) logs_follow_container "openmetadata-mysql" ;;
+      14) logs_follow_container "openmetadata-server" ;;
+      15) logs_follow_container "osss_postgres" ;;
+      16) logs_follow_container "postgres-superset" ;;
+      17) logs_follow_container "redis" ;;
+      18) logs_follow_container "shared-vol-init" ;;
+      19) logs_follow_container "superset" ;;
+      20) logs_follow_container "superset_redis" ;;
+      21) logs_follow_container "trino" ;;
+      22) logs_follow_container "vault" ;;
+      23) logs_follow_container "vault-oidc-setup" ;;
+      24) logs_follow_container "vault-seed" ;;
+      25) logs_follow_container "web" ;;
+      q|Q|b|B) return 0 ;;
+      *) echo "Unknown choice: ${choice}" ;;
+    esac
+  done
+}
+
+
+down_profiles_menu() {
+  while true; do
+    echo
+    echo "==============================================="
+    echo " Utilities"
+    echo "==============================================="
+    echo " 1) Destroy profile 'keycloak'"
+    echo " 2) Destroy profile 'app'"
+    echo " 3) Destroy profile 'web-app'"
+    echo " 4) Destroy profile 'elastic'"
+    echo " 5) Destroy profile 'vault'"
+    echo " 6) Destroy profile 'consul'"
+    echo " 7) Destroy profile 'trino'"
+    echo " 8) Destroy profile 'airflow'"
+    echo "9) Destroy profile 'superset'"
+    echo "10) Destroy profile 'openmetadata'"
+    echo "  q) Back"
+    echo "-----------------------------------------------"
+    read -rp "Select an option: " choice || return 0
+    case "$choice" in
+      1)
+        # Destroy keycloak'
+        podman machine ssh default -- bash -lc "
+          set -euo pipefail
+          HOST_PROJ=$HOST_PROJ
+          SERVICE=\"keycloak\"
+          PODMAN_OVERLAY_DIR=$PODMAN_OVERLAY_DIR
+        "
+        prompt_return
+        ;;
+      2)
+        # Destroy app'
+        podman machine ssh default -- bash -lc "
+          set -euo pipefail
+          HOST_PROJ=$HOST_PROJ
+          SERVICE=\"app\"
+          PODMAN_OVERLAY_DIR=$PODMAN_OVERLAY_DIR
+        "
+        prompt_return
+        ;;
+      3)
+        # Destroy web-app'
+        podman machine ssh default -- bash -lc "
+          set -euo pipefail
+          HOST_PROJ=$HOST_PROJ
+          SERVICE=\"web-app\"
+          PODMAN_OVERLAY_DIR=$PODMAN_OVERLAY_DIR
+        "
+        prompt_return
+        ;;
+      4)
+        # Destroy elastic
+        podman machine ssh default -- bash -lc "
+          set -euo pipefail
+          HOST_PROJ=$HOST_PROJ
+          PODMAN_OVERLAY_DIR=$PODMAN_OVERLAY_DIR
+          SERVICE=\"elastic\"
+          PROJECT_ELASTIC=\"osss-elastic\"
+
+          cd \"\$HOST_PROJ\" || { echo \"❌ Path not visible inside VM:\" \"\$HOST_PROJ\"; exit 1; }
+
+          # Pick compose provider + correct remove-volumes flag
+          COMPOSE=() ; DOWN_VOL_FLAG=\"\"
+          if podman compose version >/dev/null 2>&1; then
+            COMPOSE=(podman compose)
+            DOWN_VOL_FLAG=\"--volumes\"
+          elif command -v podman-compose >/dev/null 2>&1; then
+            COMPOSE=(podman-compose)
+            DOWN_VOL_FLAG=\"-v\"
+          else
+            echo \"❌ Neither podman compose nor podman-compose found.\"
+            exit 1
+          fi
+
+          for cname in kibana-pass-init elasticsearch kibana; do
+            echo \"🗑️  Attempting to remove container '\$cname' (with volumes)…\"
+
+            # First stop it if running
+            if podman inspect \"\$cname\" --format '{{.State.Running}}' 2>/dev/null | grep -qi true; then
+              echo \"⏹️  Container '\$cname' is running, stopping it first…\"
+              if podman stop -t 15 \"\$cname\" >/dev/null 2>&1; then
+                echo \"✅ Stopped container: \$cname\"
+              else
+                echo \"⚠️  Failed to stop container '\$cname' (continuing anyway)\"
+              fi
+            else
+              echo \"ℹ️  Container '\$cname' is not running (or does not exist)\"
+            fi
+
+            # Then remove with volumes
+            if podman rm -v \"\$cname\" >/dev/null 2>&1; then
+              echo \"✅ Successfully removed container: \$cname (including anonymous volumes)\"
+              continue
+            else
+              echo \"⚠️  Could not remove container '\$cname'.\"
+              echo \"   - It may not exist, or it may still be running under a different name.\"
+              echo \"   - Current container list (filtered for \$cname):\"
+              podman ps -a --format \"table {{.Names}}\\t{{.Status}}\\t{{.CreatedAt}}\" | grep -E \"NAMES|\$cname\" || true
+            fi
+          done
+
+          for cid in \$(podman ps -a -q --filter volume=osss-elastic_es-data); do
+            echo \"Removing container \$cid using volume…\"
+            podman stop \"\$cid\" || true
+            podman rm -f \"\$cid\"
+          done
+          podman volume rm osss-elastic_es-data
+
+
+
+        "
+
+
+        prompt_return
+        ;;
+      5)
+        # Destroy vault'
+        podman machine ssh default -- bash -lc "
+          set -euo pipefail
+          HOST_PROJ=$HOST_PROJ
+          SERVICE=\"vault\"
+          PODMAN_OVERLAY_DIR=$PODMAN_OVERLAY_DIR
+          PROJECT_ELASTIC=\"osss-vault\"
+
+          cd \"\$HOST_PROJ\" || { echo \"❌ Path not visible inside VM:\" \"\$HOST_PROJ\"; exit 1; }
+
+          # Pick compose provider + correct remove-volumes flag
+          COMPOSE=() ; DOWN_VOL_FLAG=\"\"
+          if podman compose version >/dev/null 2>&1; then
+            COMPOSE=(podman compose)
+            DOWN_VOL_FLAG=\"--volumes\"
+          elif command -v podman-compose >/dev/null 2>&1; then
+            COMPOSE=(podman-compose)
+            DOWN_VOL_FLAG=\"-v\"
+          else
+            echo \"❌ Neither podman compose nor podman-compose found.\"
+            exit 1
+          fi
+
+          for cname in vault vault-oidc-setup vault-seed; do
+            echo \"🗑️  Attempting to remove container '\$cname' (with volumes)…\"
+
+            # First stop it if running
+            if podman inspect \"\$cname\" --format '{{.State.Running}}' 2>/dev/null | grep -qi true; then
+              echo \"⏹️  Container '\$cname' is running, stopping it first…\"
+              if podman stop -t 15 \"\$cname\" >/dev/null 2>&1; then
+                echo \"✅ Stopped container: \$cname\"
+              else
+                echo \"⚠️  Failed to stop container '\$cname' (continuing anyway)\"
+              fi
+            else
+              echo \"ℹ️  Container '\$cname' is not running (or does not exist)\"
+            fi
+
+            # Then remove with volumes
+            if podman rm -v \"\$cname\" >/dev/null 2>&1; then
+              echo \"✅ Successfully removed container: \$cname (including anonymous volumes)\"
+              continue
+            else
+              echo \"⚠️  Could not remove container '\$cname'.\"
+              echo \"   - It may not exist, or it may still be running under a different name.\"
+              echo \"   - Current container list (filtered for \$cname):\"
+              podman ps -a --format \"table {{.Names}}\\t{{.Status}}\\t{{.CreatedAt}}\" | grep -E \"NAMES|\$cname\" || true
+            fi
+          done
+
+          for cid in \$(podman ps -a -q --filter volume=osss-elastic_es-data); do
+            echo \"Removing container \$cid using volume…\"
+            podman stop \"\$cid\" || true
+            podman rm -f \"\$cid\"
+          done
+
+
+
+        "
+
+        prompt_return
+        ;;
+      6)
+        # Destroy consol'
+        podman machine ssh default -- bash -lc "
+          set -euo pipefail
+          HOST_PROJ=$HOST_PROJ
+          SERVICE=\"consol\"
+          PODMAN_OVERLAY_DIR=$PODMAN_OVERLAY_DIR
+        "
+        prompt_return
+        ;;
+      7)
+        # Destroy trino'
+        podman machine ssh default -- bash -lc "
+          set -euo pipefail
+          HOST_PROJ=$HOST_PROJ
+          SERVICE=\"trino\"
+          PODMAN_OVERLAY_DIR=$PODMAN_OVERLAY_DIR
+        "
+        prompt_return
+        ;;
+      8)
+        # Destroy airflow'
+        podman machine ssh default -- bash -lc "
+          set -euo pipefail
+          HOST_PROJ=$HOST_PROJ
+          SERVICE=\"airflow\"
+          PODMAN_OVERLAY_DIR=$PODMAN_OVERLAY_DIR
+        "
+        prompt_return
+        ;;
+      9)
+        # Destroy superset'
+        podman machine ssh default -- bash -lc "
+          set -euo pipefail
+          HOST_PROJ=$HOST_PROJ
+          SERVICE=\"superset\"
+          PODMAN_OVERLAY_DIR=$PODMAN_OVERLAY_DIR
+        "
+        prompt_return
+        ;;
+      10)
+        # Destroy openmetadata'
+        podman machine ssh default -- bash -lc "
+          set -euo pipefail
+          HOST_PROJ=$HOST_PROJ
+          SERVICE=\"openmetadata\"
+          PODMAN_OVERLAY_DIR=$PODMAN_OVERLAY_DIR
+        "
+        prompt_return
+        ;;
+      q|Q|b|B) return 0 ;;
+      *) echo "Unknown choice: ${choice}" ;;
+    esac
+  done
+}
+
+
+utilities_menu() {
+  while true; do
+    echo
+    echo "==============================================="
+    echo " Utilities"
+    echo "==============================================="
+    echo " 1) Show Podman version inside the VM"
+    echo " 2) Show Podman GraphRoot inside the VM"
+    echo " 3) Install podman-compose inside the VM"
+    echo " 4) Stop podman machine default"
+    echo " 5) Remove podman machine default"
+    echo " 6) Connect to default machine"
+    echo "  q) Back"
+    echo "-----------------------------------------------"
+    read -rp "Select an option: " choice || return 0
+    case "$choice" in
+      1)
+        # Pick an active VM if available, otherwise use 'default'
+        local vm
+        vm="$(podman machine active 2>/dev/null || echo default)"
+        echo "▶️ Podman version in VM '${vm}':"
+        podman machine ssh "$vm" -- bash -lc 'podman --version || podman version' || \
+          echo "⚠️ Could not get Podman version inside VM '${vm}'."
+        prompt_return
+        ;;
+      2)
+        local vm
+        vm="$(podman machine active 2>/dev/null || echo default)"
+        echo "▶️ Podman version in VM '${vm}':"
+        PODMAN_GRAPHROOT="$(
+        podman machine ssh default -- podman info | awk -F': *' 'tolower($1) ~ /graphroot/ { print $2; exit }')" && echo "PODMAN_GRAPHROOT=$PODMAN_GRAPHROOT" || \
+        echo "⚠️ Could not get Podman GraphRoot inside VM '${vm}'."
+        prompt_return
+        ;;
+      3)
+        local vm
+        vm="$(podman machine active 2>/dev/null || echo default)"
+        echo "▶️ Podman version in VM '${vm}':"
+        podman machine ssh default -- sudo rpm-ostree install podman-compose
+        podman machine stop default && podman machine start default
+        prompt_return
+        ;;
+      4)
+        podman machine stop default
+        prompt_return
+        ;;
+      5)
+        podman machine rm -f default
+        prompt_return
+        ;;
+      6)
+        podman system connection default default
+        prompt_return
+        ;;
+      q|Q|b|B) return 0 ;;
+      *) echo "Unknown choice: ${choice}" ;;
+    esac
+  done
+}
+
 menu() {
   ensure_hosts_keycloak
+
   while true; do
     echo
     echo "==============================================="
@@ -2743,46 +2961,235 @@ menu() {
     echo " 4) Start profile 'elastic'"
     echo " 5) Start profile 'vault' (keycloak must be up)"
     echo " 6) Start profile 'consul'"
-    echo " 7) Start ALL services (enable all profiles)"
-    echo " 8) Start profile 'trino' (keycloak must be up)"
-    echo " 9) Start profile 'airflow' (keycloak must be up)"
-    echo "10) Start profile 'superset' (keycloak must be up)"
-    echo "11) Start profile 'openmetadata' (elastic+keycloak should be up)"
-    echo "12) Down a profile (remove-orphans, volumes)"
-    echo "13) Down ALL (remove-orphans, volumes)"
-    echo "14) Show status"
-    echo "15) Logs submenu"
-    echo "16) Create Trino server certificate + keystore"
-    echo "17) Create Keycloak server certificate"
-    echo "18) Reset Podman machine (wipe & restart)"
-    echo "19) Stop Podman VM"
-    echo "20) Destroy Podman VM"
-    echo "21) Run tests with Keycloak CA bundle"
+    echo " 7) Start profile 'trino' (keycloak must be up)"
+    echo " 8) Start profile 'airflow' (keycloak must be up)"
+    echo "9) Start profile 'superset' (keycloak must be up)"
+    echo "10) Start profile 'openmetadata' (elastic+keycloak should be up)"
+    echo "11) Down a profile (remove-orphans, volumes)"
+    echo "12) Down ALL (remove-orphans, volumes)"
+    echo "13) Show status"
+    echo "14) Logs submenu"
+    echo "15) Create Trino server certificate + keystore"
+    echo "16) Create Keycloak server certificate"
+    echo "17) Reset Podman machine (wipe & restart)"
+    echo "18) Stop Podman VM"
+    echo "19) Destroy Podman VM"
+    echo "20) Run tests with Keycloak CA bundle"
+    echo "21) Utilities"
     echo "  q) Quit"
     echo "-----------------------------------------------"
     read -rp "Select an option: " ans || exit 0
     case "${ans}" in
-      1)  start_keycloak_services ;;
-      2)  start_profile_app ;;
-      3)  start_profile_web_app ;;
-      4)  start_profile_elastic ;;
-      5)  start_profile_vault ;;
-      6)  start_profile_consul ;;
-      7)  start_profiles_blind $(compose_profiles) ;;
-      8)  start_profile_trino ;;
-      9)  start_profile_airflow ;;
-      10) start_profile_superset ;;
-      11) start_profile_openmetadata ;;
-      12) down_profile_interactive ;;
-      13) down_all ;;
-      14) show_status; prompt_return ;;
-      15) logs_menu ;;
-      16) create_trino_cert ;;
-      17) create_keycloak_cert ;;
-      18) reset_podman_machine ;;
-      19) podman_vm_stop ;;
-      20) podman_vm_destroy ;;
-      21)
+      1)
+        podman machine ssh default -- bash -lc '
+          set -e
+          podman network exists osss-net >/dev/null 2>&1 || podman network create osss-net
+          cd '"$(printf %q "$HOST_PROJ")"'
+          # (optional) show which provider we’re using
+          command -v podman-compose >/dev/null && podman-compose --version || true
+
+          # run compose (use podman-compose explicitly to avoid provider lookup noise)
+          COMPOSE_PROJECT_NAME=osss-keycloak podman-compose -f docker-compose.yml --profile keycloak up -d
+        '
+        ;;
+      2)
+        podman machine ssh default -- bash -lc '
+        set -e
+        cd '"$(printf %q "$HOST_PROJ")"'
+        # (optional) show which provider we’re using
+        command -v podman-compose >/dev/null && podman-compose --version || true
+        # run compose (use podman-compose explicitly to avoid provider lookup noise)
+        COMPOSE_PROJECT_NAME=osss-app podman-compose -f docker-compose.yml --profile app up -d
+        '
+        ;;
+      3)
+        podman machine ssh default -- bash -lc '
+        set -e
+        cd '"$(printf %q "$HOST_PROJ")"'
+        # (optional) show which provider we’re using
+        command -v podman-compose >/dev/null && podman-compose --version || true
+        # run compose (use podman-compose explicitly to avoid provider lookup noise)
+        COMPOSE_PROJECT_NAME=osss-web-app podman-compose -f docker-compose.yml --profile web-app up -d
+        '
+        ;;
+      4)
+        podman machine ssh default -- bash -lc "
+          set -euo pipefail
+          HOST_PROJ=\$HOST_PROJ
+          PODMAN_OVERLAY_DIR=\$PODMAN_OVERLAY_DIR
+
+          echo \"🔧 [elastic-start] Entered elastic stack startup script\"
+          echo \"   HOST_PROJ=\$HOST_PROJ\"
+          echo \"   PODMAN_OVERLAY_DIR=\$PODMAN_OVERLAY_DIR\"
+          echo
+
+          # --- change dir ---
+          if cd \"\$HOST_PROJ\"; then
+            echo \"📂 Changed directory to: \$HOST_PROJ\"
+          else
+            echo \"❌ Path not visible inside VM: \$HOST_PROJ\"
+            exit 1
+          fi
+
+          # --- Base stack ---
+          echo
+          echo \"🚀 [elastic-start] Starting base stack (elasticsearch + kibana + kibana-pass-init + api-key-init)\"
+          echo \"    Using compose file: \$HOST_PROJ/docker-compose.yml\"
+          COMPOSE_PROJECT_NAME=osss-elastic podman compose -f \"\$HOST_PROJ/docker-compose.yml\" --profile elastic up -d \\
+            --force-recreate --remove-orphans \\
+            elasticsearch kibana kibana-pass-init api-key-init
+          echo \"✅ Base stack containers launched\"
+
+          # --- Setup job ---
+          echo
+          echo \"🛠️  [elastic-start] Running setup job: filebeat-setup\"
+          COMPOSE_PROJECT_NAME=osss-elastic podman compose -f \"\$HOST_PROJ/docker-compose.yml\" --profile elastic up -d \\
+            --no-deps --no-recreate filebeat-setup
+
+          echo \"📜 Logs (last 2m) for filebeat-setup:\"
+          if ! podman logs --since 2m filebeat-setup; then
+            echo \"⚠️  No recent logs found for filebeat-setup (container may have exited too fast)\"
+          else
+            echo \"✅ filebeat-setup logs captured\"
+          fi
+
+          # --- Running filebeat ---
+          echo
+          echo \"📡 [elastic-start] Starting filebeat (no deps, no recreate)\"
+          COMPOSE_PROJECT_NAME=osss-elastic podman compose -f \"\$HOST_PROJ/docker-compose.yml\" --profile elastic up -d \\
+            --no-deps --no-recreate filebeat
+          echo \"✅ filebeat launched\"
+
+          # --- show running containers ---
+          echo
+          echo \"== 📋 Running containers (name | status | ports) ==\"
+          if ! podman ps --format \"table {{.Names}}\\t{{.Status}}\\t{{.Ports}}\"; then
+            echo \"❌ Failed to list containers\"
+          fi
+          echo \"== End of container list ==\"
+        " || true
+        prompt_return
+        ;;
+      5)
+        # Ask on host whether to rebuild the setup images
+        REBUILD_FLAG=0
+        if [ -t 0 ]; then
+          read -r -p "🔧 Rebuild images for 'vault-oidc-setup' and 'vault-seed' before running? [y/N] " ans || true
+          [[ ${ans:-} =~ ^[Yy]$ ]] && REBUILD_FLAG=1
+        fi
+
+        podman machine ssh default -- bash -lc "
+        set -euo pipefail
+        HOST_PROJ=$HOST_PROJ
+        PODMAN_OVERLAY_DIR=$PODMAN_OVERLAY_DIR
+        cd \"\$HOST_PROJ\" || { echo '❌ Path not visible inside VM:' \"\$HOST_PROJ\"; exit 1; }
+        # (optional) show which provider we’re using
+        command -v podman-compose >/dev/null && podman-compose --version || true
+
+        # Optional image rebuild for setup jobs (guarded by service presence)
+        if [ \"$REBUILD_FLAG\" = 1 ]; then
+          have_oidc=\$(podman-compose -f docker-compose.yml config --services | grep -qx 'vault-oidc-setup' && echo 1 || echo 0)
+          have_seed=\$(podman-compose -f docker-compose.yml config --services | grep -qx 'vault-seed' && echo 1 || echo 0)
+          if [ \$have_oidc -eq 0 ] && [ \$have_seed -eq 0 ]; then
+            echo '⚠️  Compose file has no services named vault-oidc-setup or vault-seed here; skipping build.'
+          else
+            echo '▶️  Building images: vault-oidc-setup vault-seed'
+            podman-compose -f docker-compose.yml build \
+              \$( [ \$have_oidc -eq 1 ] && echo vault-oidc-setup ) \
+              \$( [ \$have_seed -eq 1 ] && echo vault-seed ) || true
+          fi
+        fi
+
+        # run compose (use podman-compose explicitly to avoid provider lookup noise)
+        COMPOSE_PROJECT_NAME=osss-vault podman-compose -f docker-compose.yml --profile vault up -d --no-deps --no-recreate vault
+
+        # Wait for Vault container health=healthy
+        echo \"[wait] Vault (container=vault) healthcheck...\"
+        i=0
+        while :; do
+          # if inspect fails, treat as not ready
+          status=\"\$(podman inspect -f '{{.State.Health.Status}}' vault 2>/dev/null || echo \\\"unknown\\\")\"
+          running=\"\$(podman inspect -f '{{.State.Running}}' vault 2>/dev/null || echo \\\"false\\\")\"
+
+          if [ \"\$running\" != \"true\" ]; then
+            echo \"❌ vault container is not running\"; podman ps -a --filter name='^vault$' --format 'table {{.ID}}\\t{{.Names}}\\t{{.Status}}'; exit 1
+          fi
+
+          if [ \"\$status\" = \"healthy\" ]; then
+            echo \"[ok] Vault is healthy\"
+            break
+          fi
+
+          i=\$((i+1))
+          [ \"\$i\" -le 180 ] || { echo \"❌ timed out waiting for Vault health (last=\$status)\"; podman logs --tail 200 vault || true; exit 1; }
+          sleep 2
+        done
+
+        COMPOSE_PROJECT_NAME=osss-vault podman-compose -f docker-compose.yml --profile vault up -d --no-deps --no-recreate vault-oidc-setup
+        COMPOSE_PROJECT_NAME=osss-vault podman-compose -f docker-compose.yml --profile vault up -d --no-deps --no-recreate vault-seed
+        "
+
+        ;;
+      6)
+        podman machine ssh default -- bash -lc '
+        set -e
+        cd '"$(printf %q "$HOST_PROJ")"'
+        # (optional) show which provider we’re using
+        command -v podman-compose >/dev/null && podman-compose --version || true
+        # run compose (use podman-compose explicitly to avoid provider lookup noise)
+        COMPOSE_PROJECT_NAME=osss-consul podman-compose -f docker-compose.yml --profile consul up -d --no-deps --no-recreate consul
+        '
+        ;;
+      7)
+        podman machine ssh default -- bash -lc '
+        set -e
+        cd '"$(printf %q "$HOST_PROJ")"'
+        # (optional) show which provider we’re using
+        command -v podman-compose >/dev/null && podman-compose --version || true
+        # run compose (use podman-compose explicitly to avoid provider lookup noise)
+        COMPOSE_PROJECT_NAME=osss-trino podman-compose -f docker-compose.yml --profile trino up -d --no-deps --no-recreate trino
+        '
+        ;;
+      8)
+        podman machine ssh default -- bash -lc '
+        set -e
+        cd '"$(printf %q "$HOST_PROJ")"'
+        # (optional) show which provider we’re using
+        command -v podman-compose >/dev/null && podman-compose --version || true
+        # run compose (use podman-compose explicitly to avoid provider lookup noise)
+        COMPOSE_PROJECT_NAME=osss-airflow podman-compose -f docker-compose.yml --profile airflow up -d --no-deps --no-recreate airflow
+        '
+        ;;
+      9)
+        podman machine ssh default -- bash -lc '
+        set -e
+        cd '"$(printf %q "$HOST_PROJ")"'
+        # (optional) show which provider we’re using
+        command -v podman-compose >/dev/null && podman-compose --version || true
+        # run compose (use podman-compose explicitly to avoid provider lookup noise)
+        COMPOSE_PROJECT_NAME=osss-superset podman-compose -f docker-compose.yml --profile superset up -d --no-deps --no-recreate superset
+        '
+        ;;
+      10)
+        podman machine ssh default -- bash -lc '
+        set -e
+        cd '"$(printf %q "$HOST_PROJ")"'
+        # (optional) show which provider we’re using
+        command -v podman-compose >/dev/null && podman-compose --version || true
+        # run compose (use podman-compose explicitly to avoid provider lookup noise)
+        COMPOSE_PROJECT_NAME=osss-openmetadata podman-compose -f docker-compose.yml --profile openmetadata up -d --no-deps --no-recreate openmetadata
+        '
+        ;;
+      11) down_profiles_menu ;;
+      12) down_all ;;
+      13) show_status; prompt_return ;;
+      14) logs_menu ;;
+      15) create_trino_cert ;;
+      16) create_keycloak_cert ;;
+      17) reset_podman_machine ;;
+      18) podman_vm_stop ;;
+      19) podman_vm_destroy ;;
+      20)
         echo "▶️ Running pytest with OSSS Keycloak CA bundle..."
         export REQUESTS_CA_BUNDLE="$(pwd)/config_files/keycloak/secrets/ca/ca.crt"
         export OSSS_CA_BUNDLE="$REQUESTS_CA_BUNDLE"
@@ -2802,6 +3209,7 @@ menu() {
         fi
         prompt_return
         ;;
+      21) utilities_menu ;;
       q|Q) echo "Bye!"; exit 0 ;;
       *)   echo "Unknown choice: ${ans}"; prompt_return ;;
     esac
