@@ -5,5 +5,5 @@ bind_addr   = "0.0.0.0"
 client_addr = "0.0.0.0"
 
 # Single-container server (dev-ish). For a client, set server = false.
-server            = true
+server            = false
 bootstrap_expect  = 1

@@ -2834,8 +2834,56 @@ down_profiles_menu() {
         podman machine ssh default -- bash -lc "
           set -euo pipefail
           HOST_PROJ=$HOST_PROJ
-          SERVICE=\"consol\"
+          SERVICE=\"consul\"
           PODMAN_OVERLAY_DIR=$PODMAN_OVERLAY_DIR
+          cd \"\$HOST_PROJ\" || { echo \"❌ Path not visible inside VM:\" \"\$HOST_PROJ\"; exit 1; }
+
+          # Pick compose provider + correct remove-volumes flag
+          COMPOSE=() ; DOWN_VOL_FLAG=\"\"
+          if podman compose version >/dev/null 2>&1; then
+            COMPOSE=(podman compose)
+            DOWN_VOL_FLAG=\"--volumes\"
+          elif command -v podman-compose >/dev/null 2>&1; then
+            COMPOSE=(podman-compose)
+            DOWN_VOL_FLAG=\"-v\"
+          else
+            echo \"❌ Neither podman compose nor podman-compose found.\"
+            exit 1
+          fi
+
+          for cname in consul consul-jwt-init; do
+            echo \"🗑️  Attempting to remove container '\$cname' (with volumes)…\"
+
+            # First stop it if running
+            if podman inspect \"\$cname\" --format '{{.State.Running}}' 2>/dev/null | grep -qi true; then
+              echo \"⏹️  Container '\$cname' is running, stopping it first…\"
+              if podman stop -t 15 \"\$cname\" >/dev/null 2>&1; then
+                echo \"✅ Stopped container: \$cname\"
+              else
+                echo \"⚠️  Failed to stop container '\$cname' (continuing anyway)\"
+              fi
+            else
+              echo \"ℹ️  Container '\$cname' is not running (or does not exist)\"
+            fi
+
+            # Then remove with volumes
+            if podman rm -v \"\$cname\" >/dev/null 2>&1; then
+              echo \"✅ Successfully removed container: \$cname (including anonymous volumes)\"
+              continue
+            else
+              echo \"⚠️  Could not remove container '\$cname'.\"
+              echo \"   - It may not exist, or it may still be running under a different name.\"
+              echo \"   - Current container list (filtered for \$cname):\"
+              podman ps -a --format \"table {{.Names}}\\t{{.Status}}\\t{{.CreatedAt}}\" | grep -E \"NAMES|\$cname\" || true
+            fi
+          done
+
+          for cid in \$(podman ps -a -q --filter volume=osss-consul_dat); do
+            echo \"Removing container \$cid using volume…\"
+            podman stop \"\$cid\" || true
+            podman rm -f \"\$cid\"
+          done
+
         "
         prompt_return
         ;;

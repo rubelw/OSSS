@@ -27,20 +27,20 @@ networks:
     external: true
     name: osss-net
 volumes:
-  consul_data: null
-  kc_postgres_data: null
-  osss_postgres_data: null
-  redis-data: null
-  es-data: null
-  filebeat-data: null
-  es-shared: null
-  pg_superset_data: null
-  superset_redis_data: null
-  trino_data: null
-  mysql_data: null
-  airflow-pgdata: null
-  ingestion_data: null
-  elasticsearch_data: null
+  consul_data: {}
+  kc_postgres_data: {}
+  osss_postgres_data: {}
+  redis-data: {}
+  es-data: {}
+  filebeat-data: {}
+  es-shared: {}
+  pg_superset_data: {}
+  superset_redis_data: {}
+  trino_data: {}
+  mysql_data: {}
+  airflow-pgdata: {}
+  ingestion_data: {}
+  elasticsearch_data: {}
 services:
   consul:
     image: hashicorp/consul:1.18
@@ -59,15 +59,15 @@ services:
     mem_limit: 512m
     mem_reservation: 256m
     ports:
-    - 8500:8500
-    - 8600:8600/tcp
-    - 8600:8600/udp
+      - 8500:8500
+      - 8600:8600/tcp
+      - 8600:8600/udp
     volumes:
-    - ./config_files/consul_data:/consul/data
-    - ./config_files/consul/config:/consul/config:rw
-    - ./config_files/consul/jwt:/consul/jwt:rw
+      - ./config_files/consul_data:/consul/data
+      - ./config_files/consul/config:/consul/config:rw
+      - ./config_files/consul/jwt:/consul/jwt:rw
     networks:
-    - osss-net
+      - osss-net
     environment:
       CONSUL_HTTP_TOKEN: ${CONSUL_HTTP_TOKEN:-}
     healthcheck:
@@ -79,23 +79,23 @@ services:
   consul-jwt-init:
     image: hashicorp/consul:1.18
     profiles:
-    - consul
+      - consul
     container_name: consul-jwt-init
     networks:
-    - osss-net
+      - osss-net
     depends_on:
-    - consul
+      - consul
     environment:
       CONSUL_HTTP_ADDR: http://consul:8500
       CONSUL_HTTP_TOKEN: ${CONSUL_HTTP_TOKEN}
     volumes:
-    - ./config_files/consul/jwt/jwt.json:/cfg/jwt.json:ro
-    - ./config_files/consul/init-jwt.sh:/cfg/init-jwt.sh:ro
+      - ./config_files/consul/jwt/jwt.json:/cfg/jwt.json:ro
+      - ./config_files/consul/init-jwt.sh:/cfg/init-jwt.sh:ro
     entrypoint:
-    - /bin/sh
-    - -exc
+      - /bin/sh
+      - -exc
     command:
-    - /cfg/init-jwt.sh
+      - /cfg/init-jwt.sh
     restart: 'no'
   app:
     profiles:

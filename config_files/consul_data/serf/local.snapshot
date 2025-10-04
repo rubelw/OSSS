@@ -1,28 +1,2 @@
-alive: consul-1 10.89.0.142:8301
+alive: consul-1 10.89.0.47:8301
 event-clock: 1
-alive: consul-1 10.89.0.84:8301
-event-clock: 2
-alive: consul-1 10.89.0.87:8301
-event-clock: 3
-alive: consul-1 10.89.0.91:8301
-event-clock: 4
-alive: consul-1 10.89.0.93:8301
-event-clock: 5
-alive: consul-1 10.89.0.95:8301
-event-clock: 6
-alive: consul-1 10.89.0.102:8301
-event-clock: 7
-alive: consul-1 10.89.0.4:8301
-event-clock: 8
-alive: consul-1 10.89.0.4:8301
-event-clock: 9
-alive: consul-1 10.89.0.4:8301
-event-clock: 10
-alive: consul-1 10.89.0.54:8301
-event-clock: 11
-alive: consul-1 10.89.0.55:8301
-event-clock: 12
-alive: consul-1 10.89.0.57:8301
-event-clock: 13
-alive: consul-1 10.89.0.59:8301
-event-clock: 14

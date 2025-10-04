@@ -4,10 +4,10 @@
     {
       "name": "keycloak",
       "address": "keycloak",
-      "port": 8080,
+      "port": 8443,
       "tags": [
         "keycloak",
-        "http"
+        "https"
       ],
       "checks": [
         {

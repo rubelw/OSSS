@@ -2224,7 +2224,28 @@ if __name__ == "__main__":
         ],
     )
 
-
+    # Groups scope: emit `groups` in ID/access/userinfo (Vault expects this)
+    rb.add_client_scope(
+        name="groups-claim",
+        description="Adds 'groups' claim into ID, access, and userinfo tokens",
+        protocol="openid-connect",
+        attributes={"include.in.token.scope": "true"},
+        protocol_mappers=[
+            ProtocolMapperRepresentation(
+                name="groups",
+                protocol="openid-connect",
+                protocolMapper="oidc-group-membership-mapper",
+                consentRequired=False,
+                config={
+                    "full.path": "false",
+                    "id.token.claim": "true",
+                    "access.token.claim": "true",
+                    "userinfo.token.claim": "true",
+                    "claim.name": "groups"
+                },
+            )
+        ],
+    )
 
 
     # --- Rebuild DBML from models ----
