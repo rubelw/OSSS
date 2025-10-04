@@ -355,17 +355,79 @@ ensure_hosts_keycloak() {
   fi
 }
 
-# Press Enter to continue (no-op in non-interactive runs)
-prompt_return() {
-  local msg="${1:-Press Enter to continue...}"
-  if [ -t 0 ]; then
-    printf '%s' "$msg"
-    IFS= read -r _ || true   # don't exit even if read fails (e.g., set -e)
-    printf '\n'
-  else
-    # stdin isn't a TTY (piped/CI) — skip the pause
-    printf '\n'
+build_trino_truststore() {
+  echo "🛠️  Building Trino truststore..."
+
+  # --- Config/paths ---
+  local KEYSTORE_DIR="./config_files/trino/etc/keystore"
+  local TRINO_P12="${KEYSTORE_DIR}/trino-keystore.p12"
+  local TRINO_CRT="${KEYSTORE_DIR}/trino.crt"
+  local TRUSTSTORE="${KEYSTORE_DIR}/truststore.jks"
+  local STOREPASS="changeit"
+
+  # --- Preflight: keytool ---
+  if ! command -v keytool >/dev/null 2>&1; then
+    echo "❌ keytool not found."
+    echo "   On macOS: brew install --cask temurin || brew install openjdk"
+    echo "   On Linux:  apt-get install -y openjdk-17-jre-headless (or equivalent)"
+    return 1
   fi
+  echo "✅ keytool found: $(command -v keytool)"
+
+  # Make sure keystore directory exists
+  mkdir -p "${KEYSTORE_DIR}"
+
+  # --- Check inputs ---
+  if [ ! -f "${TRINO_P12}" ]; then
+    echo "❌ Missing ${TRINO_P12}"
+    echo "   Ensure your Trino server keystore (PKCS12) is at that path."
+    return 1
+  fi
+
+  # --- Step 1: Export the server cert (PEM) from the PKCS12 keystore ---
+  echo "→ Exporting server certificate from ${TRINO_P12} -> ${TRINO_CRT}"
+  if ! keytool -exportcert \
+      -alias trino \
+      -keystore "${TRINO_P12}" \
+      -storetype PKCS12 -rfc \
+      -storepass "${STOREPASS}" \
+      -file "${TRINO_CRT}"; then
+    echo "❌ Failed to export certificate with keytool."
+    return 1
+  fi
+  echo "✅ Exported: ${TRINO_CRT}"
+
+  # --- Step 2: Import that cert into the truststore (JKS) ---
+  # Create an empty truststore if it doesn't exist yet (avoids type-detection issues)
+  if [ ! -f "${TRUSTSTORE}" ]; then
+    echo "→ Creating empty JKS truststore at ${TRUSTSTORE}"
+    # create by importing /dev/null won't work; instead import the first cert will create it
+  fi
+
+  echo "→ Importing server cert into truststore (${TRUSTSTORE}) as alias 'trino-server'"
+  # Delete existing alias if present to make operation idempotent
+  keytool -delete -alias trino-server -keystore "${TRUSTSTORE}" \
+          -storepass "${STOREPASS}" -storetype JKS >/dev/null 2>&1 || true
+
+  if ! keytool -importcert \
+      -alias trino-server \
+      -file "${TRINO_CRT}" \
+      -keystore "${TRUSTSTORE}" \
+      -storetype JKS -storepass "${STOREPASS}" -noprompt; then
+    echo "❌ Failed to import certificate into truststore."
+    return 1
+  fi
+  echo "✅ Imported into truststore: ${TRUSTSTORE}"
+
+  # --- Step 3: Sanity check: list contents of the truststore ---
+  echo "→ Sanity check: listing truststore entries"
+  if ! keytool -list -keystore "${TRUSTSTORE}" -storepass "${STOREPASS}" -storetype JKS; then
+    echo "❌ keytool -list failed on ${TRUSTSTORE}"
+    return 1
+  fi
+
+  echo "🎉 Trino truststore build complete."
+  echo "   Mount this truststore into the container at /etc/trino/keystore/truststore.jks"
 }
 
 
@@ -932,6 +994,14 @@ set_default_tail(){
 }
 
 # --- Return-to-menu prompt ---
+
+prompt_return() {
+  # Print a subtle prompt and wait for the user to press Enter
+  printf "\n↩ Press Enter to return to the menu..."
+  # shellcheck disable=SC2162
+  read _
+  printf "\n"
+}
 
 
 # Force-recreate all services in a given profile (works with both `podman compose` and `podman-compose`)
@@ -2523,6 +2593,7 @@ ensure_osss_net() {
 
 
 # Follow logs for a single container; Ctrl-C cleanly returns to menu
+# Follow logs for a single container; Ctrl-C cleanly returns to menu
 logs_follow_container() {
   local name="$1"
   local tail_n="${TAIL:-$DEFAULT_TAIL}"
@@ -2535,7 +2606,7 @@ logs_follow_container() {
     [[ "$state" == "Running" ]] && use_vm="1"
   fi
 
-  # Existence checks
+  # Existence checks (same behavior as before)
   if [[ "$use_vm" == "1" ]]; then
     if ! podman machine ssh "$vm" -- bash -lc "podman container exists \"$name\""; then
       echo "⚠️  Container '$name' not found in VM '$vm'."
@@ -2550,35 +2621,19 @@ logs_follow_container() {
     fi
   fi
 
-  echo "▶️  Following logs for '${name}' (tail=${tail_n}). Press Ctrl-C to return…"
+  echo "Following logs for container: ${name} (Ctrl-C to return)…"
 
-  # Start logs in background
-  local child pgid interrupted=0
+  # Run follower in a subshell; clear INT trap inside child so Ctrl-C stops it,
+  # and don't let set -e kill the menu on nonzero exit.
+  set +e
   if [[ "$use_vm" == "1" ]]; then
-    # exec so the remote bash is replaced by podman logs (cleaner signal behavior)
-    podman machine ssh "$vm" -- bash -lc "exec podman logs -f --tail ${tail_n} \"$name\"" &
+    ( trap - INT; podman machine ssh "$vm" -- bash -lc "podman logs -f --tail ${tail_n} \"$name\"" ) || true
   else
-    podman logs -f --tail "$tail_n" "$name" &
+    ( trap - INT; podman logs -f --tail "$tail_n" "$name" ) || true
   fi
-  child=$!
+  set -e
 
-  # Get the process group id of the background job
-  pgid="$(ps -o pgid= -p "$child" 2>/dev/null | tr -d ' ')"
-
-  # Trap Ctrl-C: kill the whole group (ssh wrapper + remote), then return
-  trap '
-    interrupted=1
-    echo; echo "↩ Returning to menu…"
-    if [[ -n "'"$pgid"'" ]]; then kill -INT -'"$pgid"' 2>/dev/null || true; fi
-    kill -INT '"$child"' 2>/dev/null || true
-  ' INT
-
-  # Wait for the logs process to exit (normal end or SIGINT)
-  wait "$child" 2>/dev/null || true
-
-  # Cleanup trap and finish
-  trap - INT
-  [[ $interrupted -eq 1 ]] && echo "↩ Back to menu." || echo "✔️  Logs ended."
+  echo "↩ Back to menu"
   return 0
 }
 
@@ -2894,6 +2949,52 @@ down_profiles_menu() {
           HOST_PROJ=$HOST_PROJ
           SERVICE=\"trino\"
           PODMAN_OVERLAY_DIR=$PODMAN_OVERLAY_DIR
+          PROJECT_ELASTIC=\"osss-trino\"
+
+          cd \"\$HOST_PROJ\" || { echo \"❌ Path not visible inside VM:\" \"\$HOST_PROJ\"; exit 1; }
+
+          # Pick compose provider + correct remove-volumes flag
+          COMPOSE=() ; DOWN_VOL_FLAG=\"\"
+          if podman compose version >/dev/null 2>&1; then
+            COMPOSE=(podman compose)
+            DOWN_VOL_FLAG=\"--volumes\"
+          elif command -v podman-compose >/dev/null 2>&1; then
+            COMPOSE=(podman-compose)
+            DOWN_VOL_FLAG=\"-v\"
+          else
+            echo \"❌ Neither podman compose nor podman-compose found.\"
+            exit 1
+          fi
+
+          for cname in trino; do
+            echo \"🗑️  Attempting to remove container '\$cname' (with volumes)…\"
+
+            # First stop it if running
+            if podman inspect \"\$cname\" --format '{{.State.Running}}' 2>/dev/null | grep -qi true; then
+              echo \"⏹️  Container '\$cname' is running, stopping it first…\"
+              if podman stop -t 15 \"\$cname\" >/dev/null 2>&1; then
+                echo \"✅ Stopped container: \$cname\"
+              else
+                echo \"⚠️  Failed to stop container '\$cname' (continuing anyway)\"
+              fi
+            else
+              echo \"ℹ️  Container '\$cname' is not running (or does not exist)\"
+            fi
+
+            # Then remove with volumes
+            if podman rm -v \"\$cname\" >/dev/null 2>&1; then
+              echo \"✅ Successfully removed container: \$cname (including anonymous volumes)\"
+              continue
+            else
+              echo \"⚠️  Could not remove container '\$cname'.\"
+              echo \"   - It may not exist, or it may still be running under a different name.\"
+              echo \"   - Current container list (filtered for \$cname):\"
+              podman ps -a --format \"table {{.Names}}\\t{{.Status}}\\t{{.CreatedAt}}\" | grep -E \"NAMES|\$cname\" || true
+            fi
+          done
+
+
+
         "
         prompt_return
         ;;
@@ -3024,44 +3125,58 @@ menu() {
     echo "19) Destroy Podman VM"
     echo "20) Run tests with Keycloak CA bundle"
     echo "21) Utilities"
+    echo "22) Create Trino truststore"
     echo "  q) Quit"
     echo "-----------------------------------------------"
     read -rp "Select an option: " ans || exit 0
     case "${ans}" in
       1)
         # Deploy keycloak
-        podman machine ssh default -- bash -lc '
-          set -e
-          podman network exists osss-net >/dev/null 2>&1 || podman network create osss-net
-          cd '"$(printf %q "$HOST_PROJ")"'
+        podman machine ssh default -- bash -lc "
+          set -euo pipefail
+          HOST_PROJ=$HOST_PROJ
+          PODMAN_OVERLAY_DIR=$PODMAN_OVERLAY_DIR
+          cd \"\$HOST_PROJ\" || { echo '❌ Path not visible inside VM:' \"\$HOST_PROJ\"; exit 1; }
           # (optional) show which provider we’re using
           command -v podman-compose >/dev/null && podman-compose --version || true
 
+          podman network exists osss-net >/dev/null 2>&1 || podman network create osss-net
+
           # run compose (use podman-compose explicitly to avoid provider lookup noise)
           COMPOSE_PROJECT_NAME=osss-keycloak podman-compose -f docker-compose.yml --profile keycloak up -d
-        '
+        "
         ;;
       2)
         # Deploy app
-        podman machine ssh default -- bash -lc '
-        set -e
-        cd '"$(printf %q "$HOST_PROJ")"'
-        # (optional) show which provider we’re using
-        command -v podman-compose >/dev/null && podman-compose --version || true
-        # run compose (use podman-compose explicitly to avoid provider lookup noise)
-        COMPOSE_PROJECT_NAME=osss-app podman-compose -f docker-compose.yml --profile app up -d
-        '
+        podman machine ssh default -- bash -lc "
+          set -euo pipefail
+          HOST_PROJ=$HOST_PROJ
+          PODMAN_OVERLAY_DIR=$PODMAN_OVERLAY_DIR
+          cd \"\$HOST_PROJ\" || { echo '❌ Path not visible inside VM:' \"\$HOST_PROJ\"; exit 1; }
+          # (optional) show which provider we’re using
+          command -v podman-compose >/dev/null && podman-compose --version || true
+
+          podman network exists osss-net >/dev/null 2>&1 || podman network create osss-net
+
+          # run compose (use podman-compose explicitly to avoid provider lookup noise)
+          COMPOSE_PROJECT_NAME=osss-app podman-compose -f docker-compose.yml --profile app up -d
+        "
         ;;
       3)
         # Deploy webapp
-        podman machine ssh default -- bash -lc '
-        set -e
-        cd '"$(printf %q "$HOST_PROJ")"'
-        # (optional) show which provider we’re using
-        command -v podman-compose >/dev/null && podman-compose --version || true
-        # run compose (use podman-compose explicitly to avoid provider lookup noise)
-        COMPOSE_PROJECT_NAME=osss-web-app podman-compose -f docker-compose.yml --profile web-app up -d  --no-deps --no-recreate
-        '
+        podman machine ssh default -- bash -lc "
+          set -euo pipefail
+          HOST_PROJ=$HOST_PROJ
+          PODMAN_OVERLAY_DIR=$PODMAN_OVERLAY_DIR
+          cd \"\$HOST_PROJ\" || { echo '❌ Path not visible inside VM:' \"\$HOST_PROJ\"; exit 1; }
+          # (optional) show which provider we’re using
+          command -v podman-compose >/dev/null && podman-compose --version || true
+
+          podman network exists osss-net >/dev/null 2>&1 || podman network create osss-net
+
+          # run compose (use podman-compose explicitly to avoid provider lookup noise)
+          COMPOSE_PROJECT_NAME=osss-web-app podman-compose -f docker-compose.yml --profile web-app up -d --no-deps --no-recreate
+        "
         ;;
       4)
         # Deploy elastic
@@ -3196,47 +3311,102 @@ menu() {
         ;;
       7)
         # Deploy trino
-        podman machine ssh default -- bash -lc '
-        set -e
-        cd '"$(printf %q "$HOST_PROJ")"'
-        # (optional) show which provider we’re using
-        command -v podman-compose >/dev/null && podman-compose --version || true
-        # run compose (use podman-compose explicitly to avoid provider lookup noise)
-        COMPOSE_PROJECT_NAME=osss-trino podman-compose -f docker-compose.yml --profile trino up -d --no-deps --no-recreate trino
-        '
+        # Ask on host whether to rebuild the setup images
+        REBUILD_FLAG=0
+        if [ -t 0 ]; then
+          read -r -p "🔧 Rebuild images for 'trino' before running? [y/N] " ans || true
+          [[ ${ans:-} =~ ^[Yy]$ ]] && REBUILD_FLAG=1
+        fi
+
+        podman machine ssh default -- bash -lc "
+          set -euo pipefail
+          HOST_PROJ=$HOST_PROJ
+          PODMAN_OVERLAY_DIR=$PODMAN_OVERLAY_DIR
+          REBUILD_FLAG=$REBUILD_FLAG
+          cd \"\$HOST_PROJ\" || { echo '❌ Path not visible inside VM:' \"\$HOST_PROJ\"; exit 1; }
+          # (optional) show which provider we’re using
+          command -v podman-compose >/dev/null && podman-compose --version || true
+
+          # Optional image rebuild for setup jobs (guarded by service presence)
+          if [ \"$REBUILD_FLAG\" = 1 ]; then
+            echo '▶️  Building images: trino'
+            podman build -f docker/trino/Dockerfile -t trino:local .
+
+          fi
+
+          echo \"# run compose (use podman-compose explicitly to avoid provider lookup noise)\"
+          COMPOSE_PROJECT_NAME=osss-trino podman-compose -f docker-compose.yml --profile trino up -d --no-deps trino
+
+          # Wait for Trino container health=healthy
+          echo \"[wait] Trino (container=trino) healthcheck...\"
+          i=0
+          while :; do
+            # if inspect fails, treat as not ready
+            status=\"\$(podman inspect -f '{{.State.Health.Status}}' trino 2>/dev/null || echo \\\"unknown\\\")\"
+            running=\"\$(podman inspect -f '{{.State.Running}}' trino 2>/dev/null || echo \\\"false\\\")\"
+
+            if [ \"\$running\" != \"true\" ]; then
+              echo \"❌ trino container is not running\"; podman ps -a --filter name='^trino$' --format 'table {{.ID}}\\t{{.Names}}\\t{{.Status}}'; exit 1
+            fi
+
+            if [ \"\$status\" = \"healthy\" ]; then
+              echo \"[ok] Trino is healthy\"
+              break
+            fi
+
+            i=\$((i+1))
+            [ \"\$i\" -le 180 ] || { echo \"❌ timed out waiting for Trino health (last=\$status)\"; podman logs --tail 200 vault || true; exit 1; }
+            sleep 2
+          done
+        "
         ;;
       8)
         # Deploy airflow
-        podman machine ssh default -- bash -lc '
-        set -e
-        cd '"$(printf %q "$HOST_PROJ")"'
-        # (optional) show which provider we’re using
-        command -v podman-compose >/dev/null && podman-compose --version || true
-        # run compose (use podman-compose explicitly to avoid provider lookup noise)
-        COMPOSE_PROJECT_NAME=osss-airflow podman-compose -f docker-compose.yml --profile airflow up -d --no-deps --no-recreate airflow
-        '
+        podman machine ssh default -- bash -lc "
+          set -euo pipefail
+          HOST_PROJ=$HOST_PROJ
+          PODMAN_OVERLAY_DIR=$PODMAN_OVERLAY_DIR
+          cd \"\$HOST_PROJ\" || { echo '❌ Path not visible inside VM:' \"\$HOST_PROJ\"; exit 1; }
+          # (optional) show which provider we’re using
+          command -v podman-compose >/dev/null && podman-compose --version || true
+
+          podman network exists osss-net >/dev/null 2>&1 || podman network create osss-net
+
+          # run compose (use podman-compose explicitly to avoid provider lookup noise)
+          COMPOSE_PROJECT_NAME=osss-airflow podman-compose -f docker-compose.yml --profile airflow up -d
+        "
         ;;
       9)
         # Deploy superset
-        podman machine ssh default -- bash -lc '
-        set -e
-        cd '"$(printf %q "$HOST_PROJ")"'
-        # (optional) show which provider we’re using
-        command -v podman-compose >/dev/null && podman-compose --version || true
-        # run compose (use podman-compose explicitly to avoid provider lookup noise)
-        COMPOSE_PROJECT_NAME=osss-superset podman-compose -f docker-compose.yml --profile superset up -d --no-deps --no-recreate superset
-        '
+        podman machine ssh default -- bash -lc "
+          set -euo pipefail
+          HOST_PROJ=$HOST_PROJ
+          PODMAN_OVERLAY_DIR=$PODMAN_OVERLAY_DIR
+          cd \"\$HOST_PROJ\" || { echo '❌ Path not visible inside VM:' \"\$HOST_PROJ\"; exit 1; }
+          # (optional) show which provider we’re using
+          command -v podman-compose >/dev/null && podman-compose --version || true
+
+          podman network exists osss-net >/dev/null 2>&1 || podman network create osss-net
+
+          # run compose (use podman-compose explicitly to avoid provider lookup noise)
+          COMPOSE_PROJECT_NAME=osss-superset podman-compose -f docker-compose.yml --profile superset up -d --no-deps --no-recreate
+        "
         ;;
       10)
         # Deploy openmetadata
-        podman machine ssh default -- bash -lc '
-        set -e
-        cd '"$(printf %q "$HOST_PROJ")"'
-        # (optional) show which provider we’re using
-        command -v podman-compose >/dev/null && podman-compose --version || true
-        # run compose (use podman-compose explicitly to avoid provider lookup noise)
-        COMPOSE_PROJECT_NAME=osss-openmetadata podman-compose -f docker-compose.yml --profile openmetadata up -d --no-deps --no-recreate openmetadata
-        '
+        podman machine ssh default -- bash -lc "
+          set -euo pipefail
+          HOST_PROJ=$HOST_PROJ
+          PODMAN_OVERLAY_DIR=$PODMAN_OVERLAY_DIR
+          cd \"\$HOST_PROJ\" || { echo '❌ Path not visible inside VM:' \"\$HOST_PROJ\"; exit 1; }
+          # (optional) show which provider we’re using
+          command -v podman-compose >/dev/null && podman-compose --version || true
+
+          podman network exists osss-net >/dev/null 2>&1 || podman network create osss-net
+
+          # run compose (use podman-compose explicitly to avoid provider lookup noise)
+          COMPOSE_PROJECT_NAME=osss-openmetadata podman-compose -f docker-compose.yml --profile openmetadata up -d --no-deps --no-recreate openmetadata
+        "
         ;;
       11) down_profiles_menu ;;
       12) down_all ;;
@@ -3268,6 +3438,12 @@ menu() {
         prompt_return
         ;;
       21) utilities_menu ;;
+      22)
+        echo "🛠️  Building Trino truststore..."
+        build_trino_truststore
+        prompt_return
+        ;;
+
       q|Q) echo "Bye!"; exit 0 ;;
       *)   echo "Unknown choice: ${ans}"; prompt_return ;;
     esac
