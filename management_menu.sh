@@ -3029,6 +3029,7 @@ menu() {
     read -rp "Select an option: " ans || exit 0
     case "${ans}" in
       1)
+        # Deploy keycloak
         podman machine ssh default -- bash -lc '
           set -e
           podman network exists osss-net >/dev/null 2>&1 || podman network create osss-net
@@ -3041,6 +3042,7 @@ menu() {
         '
         ;;
       2)
+        # Deploy app
         podman machine ssh default -- bash -lc '
         set -e
         cd '"$(printf %q "$HOST_PROJ")"'
@@ -3051,16 +3053,18 @@ menu() {
         '
         ;;
       3)
+        # Deploy webapp
         podman machine ssh default -- bash -lc '
         set -e
         cd '"$(printf %q "$HOST_PROJ")"'
         # (optional) show which provider we’re using
         command -v podman-compose >/dev/null && podman-compose --version || true
         # run compose (use podman-compose explicitly to avoid provider lookup noise)
-        COMPOSE_PROJECT_NAME=osss-web-app podman-compose -f docker-compose.yml --profile web-app up -d
+        COMPOSE_PROJECT_NAME=osss-web-app podman-compose -f docker-compose.yml --profile web-app up -d  --no-deps --no-recreate
         '
         ;;
       4)
+        # Deploy elastic
         podman machine ssh default -- bash -lc "
           set -euo pipefail
           HOST_PROJ=\$HOST_PROJ
@@ -3119,6 +3123,7 @@ menu() {
         prompt_return
         ;;
       5)
+        # Deploy vault
         # Ask on host whether to rebuild the setup images
         REBUILD_FLAG=0
         if [ -t 0 ]; then
@@ -3179,6 +3184,7 @@ menu() {
 
         ;;
       6)
+        # Deploy consul
         podman machine ssh default -- bash -lc '
         set -e
         cd '"$(printf %q "$HOST_PROJ")"'
@@ -3189,6 +3195,7 @@ menu() {
         '
         ;;
       7)
+        # Deploy trino
         podman machine ssh default -- bash -lc '
         set -e
         cd '"$(printf %q "$HOST_PROJ")"'
@@ -3199,6 +3206,7 @@ menu() {
         '
         ;;
       8)
+        # Deploy airflow
         podman machine ssh default -- bash -lc '
         set -e
         cd '"$(printf %q "$HOST_PROJ")"'
@@ -3209,6 +3217,7 @@ menu() {
         '
         ;;
       9)
+        # Deploy superset
         podman machine ssh default -- bash -lc '
         set -e
         cd '"$(printf %q "$HOST_PROJ")"'
@@ -3219,6 +3228,7 @@ menu() {
         '
         ;;
       10)
+        # Deploy openmetadata
         podman machine ssh default -- bash -lc '
         set -e
         cd '"$(printf %q "$HOST_PROJ")"'
