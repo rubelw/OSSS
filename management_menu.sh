@@ -3068,7 +3068,7 @@ down_profiles_menu() {
             exit 1
           fi
 
-          for cname in superset superset-init superset-redis postgres-superset ; do
+          for cname in superset superset-init superset_redis postgres-superset ; do
             echo \"🗑️  Attempting to remove container '\$cname' (with volumes)…\"
 
             # First stop it if running
@@ -3447,8 +3447,6 @@ menu() {
 
           echo \"# run compose (use podman-compose explicitly to avoid provider lookup noise)\"
           COMPOSE_PROJECT_NAME=osss-trino podman-compose -f docker-compose.yml --profile trino up -d --no-deps trino
-
-
         "
         ;;
       8)
@@ -3480,7 +3478,13 @@ menu() {
           podman network exists osss-net >/dev/null 2>&1 || podman network create osss-net
 
           # run compose (use podman-compose explicitly to avoid provider lookup noise)
-          COMPOSE_PROJECT_NAME=osss-superset podman-compose -f docker-compose.yml --profile superset up -d --no-deps --no-recreate
+          COMPOSE_PROJECT_NAME=osss-superset COMPOSE_PROFILES=superset podman-compose -f docker-compose.yml config --services
+          COMPOSE_PROJECT_NAME=osss-superset podman-compose -f docker-compose.yml --profile superset up --build superset-build --force-recreate
+          COMPOSE_PROJECT_NAME=osss-superset podman-compose -f docker-compose.yml --profile superset up -d postgres-superset --no-deps
+          COMPOSE_PROJECT_NAME=osss-superset podman-compose -f docker-compose.yml --profile superset up -d superset_redis --no-deps
+
+          COMPOSE_PROJECT_NAME=osss-superset podman-compose -f docker-compose.yml --profile superset up superset-init --force-recreate --no-deps
+          COMPOSE_PROJECT_NAME=osss-superset podman-compose -f docker-compose.yml --profile superset up -d superset --force-recreate --no-deps
         "
         ;;
       10)
@@ -3496,7 +3500,7 @@ menu() {
           podman network exists osss-net >/dev/null 2>&1 || podman network create osss-net
 
           # run compose (use podman-compose explicitly to avoid provider lookup noise)
-          COMPOSE_PROJECT_NAME=osss-openmetadata podman-compose -f docker-compose.yml --profile openmetadata up -d --no-deps --no-recreate openmetadata
+          COMPOSE_PROJECT_NAME=osss-openmetadata podman-compose -f docker-compose.yml --profile openmetadata up -d
         "
         ;;
       11) down_profiles_menu ;;

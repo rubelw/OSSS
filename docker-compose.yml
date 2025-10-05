@@ -1,3 +1,6 @@
+# build once, reuse the same image name for both services
+x-superset-image: &superset_image osss/superset:with-drivers
+
 x-kc-db-env:
   KC_DB: ${KC_DB}
   KC_DB_URL_HOST: ${KC_DB_URL_HOST}
@@ -792,12 +795,19 @@ services:
     - ./config_files/trino/opt/osss-truststore.p12:/opt/trust/osss-truststore.p12:ro
     networks:
     - osss-net
+  superset-build:
+    build:
+      context: .
+      dockerfile: docker/superset/Dockerfile
+    image: *superset_image
+    profiles: [ "superset" ]
+    command: [ "true" ]   # no-op build target
   superset_redis:
     image: redis:7-alpine
     profiles:
     - superset
     container_name: superset_redis
-    hostname: superset_trino
+    hostname: superset_redis
     restart: unless-stopped
     command:
     - redis-server
@@ -809,18 +819,14 @@ services:
     volumes:
     - superset_redis_data:/data
     ports:
-    - 6380:6379
+    - 6381:6379
     networks:
     - osss-net
     healthcheck:
-      test: [ "CMD", "bash", "-ec",
-        "curl -fsS --cacert /etc/trino/keystore/trino.crt https://trino:8443/v1/info \
-         | jq -e '.starting == false and .coordinator == true' >/dev/null"
-      ]
-      interval: 10s
-      timeout: 5s
-      start_period: 40s
-      retries: 12
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
   postgres-superset:
     image: postgres:16
     profiles:
@@ -841,36 +847,43 @@ services:
     - 5434:5432
     networks:
     - osss-net
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U osss -d superset -h 127.0.0.1 -p 5432 || exit 1" ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
   superset-init:
-    image: apache/superset:latest
+    image: *superset_image
     container_name: superset-init
-    hostname: sueprset-init
-    profiles:
-    - superset
+    hostname: superset-init
+    profiles: [ superset ]
     depends_on:
-    - postgres-superset
-    cpus: 0.5
-    mem_limit: 512m
-    mem_reservation: 256m
-    networks:
-    - osss-net
+      postgres-superset:
+        condition: service_healthy
+    networks: [ osss-net ]
     environment:
-      SUPERSET__SQLALCHEMY_DATABASE_URI: postgresql+psycopg2://osss:osss@postgres-superset:5432/superset
-      SQLALCHEMY_DATABASE_URI: postgresql+psycopg2://osss:osss@postgres-superset:5432/superset
-    entrypoint:
-    - /bin/bash
-    - -lc
-    command: 'superset db upgrade && superset fab create-admin --username admin --firstname
-      Admin --lastname User --email admin@example.com --password admin || true &&
-      superset init
-
-      '
+      SUPERSET_CONFIG_PATH: /app/pythonpath/superset_config.py
+      PYTHONUNBUFFERED: '1'
+      PYTHONPATH: /app/pythonpath:/app/superset_home/pythonpath
+    volumes:
+      - ./config_files/superset:/app/pythonpath:ro
+    command:
+      - bash
+      - -lc
+      - >
+        set -euo pipefail &&
+        echo "[deps] installing wheels into /app/superset_home/pythonpath..." &&
+        pip install --no-cache-dir --target /app/superset_home/pythonpath "psycopg2-binary==2.9.*" pillow redis &&
+        echo "[init] db upgrade..." && /app/.venv/bin/superset db upgrade &&
+        echo "[init] create admin if missing..." && /app/.venv/bin/superset fab create-admin --username admin --firstname Admin --lastname User --email admin@example.com --password admin || true &&
+        echo "[init] superset init..." && /app/.venv/bin/superset init &&
+        echo "[init] done."
   superset:
-    image: apache/superset:latest
+    image: *superset_image
     container_name: superset
     hostname: superset
-    profiles:
-    - superset
+    profiles: [ superset ]
     restart: unless-stopped
     cpus: 2.0
     mem_limit: 3g
@@ -879,24 +892,33 @@ services:
       SUPERSET_SECRET_KEY: please_change_me
       SUPERSET__SQLALCHEMY_DATABASE_URI: postgresql+psycopg2://osss:osss@postgres-superset:5432/superset
       SQLALCHEMY_DATABASE_URI: postgresql+psycopg2://osss:osss@postgres-superset:5432/superset
-      FLASK_LIMITER_ENABLED: 'false'
+      FLASK_LIMITER_ENABLED: 'false'     # already present, keep it
+      GUNICORN_CMD_ARGS: "--limit-request-field_size 65536 --limit-request-line 16384"
+      RATELIMIT_STORAGE_URI: "redis://superset_redis:6379/1"   # optional: removes in-memory warning
+      ENABLE_PROXY_FIX: 'true'           # optional: if behind a proxy
+      PYTHONPATH: /app/pythonpath:/app/superset_home/pythonpath
     depends_on:
-    - postgres-superset
-    - superset_redis
-    - superset-init
+      postgres-superset:
+        condition: service_healthy
+      superset_redis:
+        condition: service_healthy
+      superset-init:
+        condition: service_completed_successfully
     ports:
-    - 8088:8088
+      - 8088:8088
+    volumes:
+      - ./config_files/superset:/app/pythonpath:ro
     command:
-    - gunicorn
-    - -w
-    - '4'
-    - --timeout
-    - '300'
-    - -b
-    - 0.0.0.0:8088
-    - superset.app:create_app()
-    networks:
-    - osss-net
+      - bash
+      - -lc
+      - >
+        set -euo pipefail &&
+        echo "[deps] installing wheels into /app/superset_home/pythonpath..." &&
+        pip install --no-cache-dir --target /app/superset_home/pythonpath "psycopg2-binary==2.9.*" pillow redis &&
+        exec /app/.venv/bin/gunicorn -w 4 --timeout 300 -b 0.0.0.0:8088 'superset.app:create_app()'
+
+    networks: [ osss-net ]
+
   postgres-airflow:
     image: postgres:16
     container_name: postgres-airflow
@@ -921,21 +943,28 @@ services:
     container_name: airflow-init
     hostname: airflow-init
     profiles:
-    - airflow
+      - airflow
     depends_on:
-    - postgres-airflow
+      - postgres-airflow
     cpus: 1.0
     mem_limit: 1g
     mem_reservation: 768m
     environment:
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres-airflow/airflow
-    entrypoint: /bin/bash
-    command: -lc 'airflow db migrate && airflow users create \ --username admin --firstname
-      Admin --lastname User --role Admin \ --email admin@example.com --password admin'
+    entrypoint: [ "/bin/bash", "-lc" ]
+    command: >
+      airflow db migrate &&
+      airflow users create
+        --username admin
+        --firstname Admin
+        --lastname User
+        --role Admin
+        --email admin@example.com
+        --password admin
     volumes:
-    - ./config_files/airflow/dags:/opt/airflow/dags
+      - ./config_files/airflow/dags:/opt/airflow/dags
     networks:
-    - osss-net
+      - osss-net
   airflow-webserver:
     image: apache/airflow:2.9.3-python3.11
     container_name: airflow-webserver
