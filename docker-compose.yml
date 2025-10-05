@@ -797,6 +797,7 @@ services:
     profiles:
     - superset
     container_name: superset_redis
+    hostname: superset_trino
     restart: unless-stopped
     command:
     - redis-server
@@ -825,6 +826,7 @@ services:
     profiles:
     - superset
     container_name: postgres-superset
+    hostname: postgres-superset
     restart: unless-stopped
     cpus: 1.0
     mem_limit: 1536m
@@ -841,6 +843,8 @@ services:
     - osss-net
   superset-init:
     image: apache/superset:latest
+    container_name: superset-init
+    hostname: sueprset-init
     profiles:
     - superset
     depends_on:
@@ -864,6 +868,7 @@ services:
   superset:
     image: apache/superset:latest
     container_name: superset
+    hostname: superset
     profiles:
     - superset
     restart: unless-stopped
@@ -894,6 +899,8 @@ services:
     - osss-net
   postgres-airflow:
     image: postgres:16
+    container_name: postgres-airflow
+    hostname: postgres-airflow
     profiles:
     - airflow
     cpus: 1.0
@@ -911,6 +918,8 @@ services:
     - 5435:5432
   airflow-init:
     image: apache/airflow:2.9.3-python3.11
+    container_name: airflow-init
+    hostname: airflow-init
     profiles:
     - airflow
     depends_on:
@@ -929,10 +938,13 @@ services:
     - osss-net
   airflow-webserver:
     image: apache/airflow:2.9.3-python3.11
+    container_name: airflow-webserver
+    hostname: airflow-webserver
     profiles:
     - airflow
     depends_on:
     - airflow-init
+    - airflow-redis
     cpus: 1.0
     mem_limit: 1536m
     mem_reservation: 1g
@@ -947,16 +959,28 @@ services:
       KEYCLOAK_REALM: OSSS
       KEYCLOAK_AIRFLOW_CLIENT_ID: airflow
       KEYCLOAK_AIRFLOW_CLIENT_SECRET: password
+      AIRFLOW__FAB__LIMITER_ENABLED: 'True'
+      FAB_LIMITER_STORAGE_URI: redis://airflow-redis:6379/0
+      RATELIMIT_STORAGE_URI: redis://airflow-redis:6379/0
+      GUNICORN_CMD_ARGS: "--limit-request-field_size 65536 --limit-request-line 16384"
+      REQUESTS_CA_BUNDLE: /etc/ssl/certs/keycloak-ca.crt
+      SSL_CERT_FILE: /etc/ssl/certs/keycloak-ca.crt
+      CURL_CA_BUNDLE: /etc/ssl/certs/keycloak-ca.crt
+
     command: webserver
     ports:
     - 8083:8080
     volumes:
     - ./config_files/airflow/dags:/opt/airflow/dags
     - ./config_files/airflow/webserver_config.py:/opt/airflow/webserver_config.py:ro
+    - ./config_files/keycloak/secrets/ca/ca.crt:/etc/ssl/certs/keycloak-ca.crt:ro,Z
+    - ./config_files/keycloak/secrets/ca/ca-chain.pem:/etc/ssl/certs/osss-dev-ca-chain.pem:ro,Z
     networks:
     - osss-net
   airflow-scheduler:
     image: apache/airflow:2.9.3-python3.11
+    container_name: airflow-scheduler
+    hostname: airflow-scheduler
     profiles:
     - airflow
     depends_on:
@@ -974,11 +998,27 @@ services:
     - ./config_files/airflow/webserver_config.py:/opt/airflow/webserver_config.py:ro
     networks:
     - osss-net
+  airflow-redis:
+    image: redis:7-alpine
+    container_name: airflow-redis
+    hostname: airflow-redis
+    profiles: [ airflow ]
+    networks: [ osss-net ]
+    restart: unless-stopped
+    ports:
+      - "6380:6379"   # external host port 6380 → internal Redis port 6379
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
   openmetadata-server:
     image: openmetadata/server:1.4.0
     profiles:
     - openmetadata
     container_name: openmetadata-server
+    hostname: openmetadata-server
     networks:
     - osss-net
     restart: always
@@ -1007,7 +1047,8 @@ services:
         condition: service_healthy
   mysql:
     image: mysql:8.0
-    container_name: openmetadata-mysql
+    container_name: mysql
+    hostname: mysql
     networks:
     - osss-net
     profiles:
@@ -1032,6 +1073,7 @@ services:
   openmetadata-ingestion:
     image: openmetadata/ingestion-base:1.6.0
     container_name: openmetadata-ingestion
+    hostname: openmetadata-ingestion
     networks:
     - osss-net
     profiles:

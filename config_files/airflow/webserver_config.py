@@ -29,3 +29,4 @@ OAUTH_PROVIDERS = [{
 ui = OAUTH_PROVIDERS[0].get("userinfo_endpoint", "")
 if not (ui.startswith("http://") or ui.startswith("https://")):
     OAUTH_PROVIDERS[0]["userinfo_endpoint"] = f"{BASE}/userinfo"
+

@@ -1805,6 +1805,13 @@ create_keycloak_cert() {
     -out ${dir}secrets/keycloak/server.crt -days 365 \
     -extfile <(printf "subjectAltName=DNS:keycloak,DNS:keycloak.local,DNS:localhost,IP:127.0.0.1")
 
+  # Generate a PEM chain file (copy of CA, or verbose description if desired)
+  # Option 1: usable PEM (recommended for Airflow, TLS trust)
+  cp ${dir}secrets/ca/ca.crt ${dir}secrets/ca/ca-chain.pem
+
+  # Option 2: human-readable certificate info (optional)
+  # openssl x509 -in ${dir}secrets/ca/ca.crt -text -noout > ${dir}secrets/ca/ca-chain.pem
+
   prompt_return
 }
 
@@ -2631,60 +2638,72 @@ logs_menu() {
     echo "==============================================="
     echo " Logs"
     echo "==============================================="
-    echo " 1) Logs container 'api-key-init'"
-    echo " 2) Logs container 'app'"
-    echo " 3) Logs container 'consul'"
-    echo " 4) Logs container 'consul-jwt-init'"
-    echo " 5) Logs container 'elasticsearch'"
-    echo " 6) Logs container 'filebeat-podman'"
-    echo " 7) Logs container 'filebeat-setup'"
-    echo " 8) Logs container 'kc_postgres'"
-    echo " 9) Logs container 'keycloak'"
-    echo "10) Logs container 'kibana'"
-    echo "11) Logs container 'kibana-pass-init'"
-    echo "12) Logs container 'openmetadata-ingestion'"
-    echo "13) Logs container 'openmetadata-mysql'"
-    echo "14) Logs container 'openmetadata-server'"
-    echo "15) Logs container 'osss_postgres'"
-    echo "16) Logs container 'postgres-superset'"
-    echo "17) Logs container 'redis'"
-    echo "18) Logs container 'shared-vol-init'"
-    echo "19) Logs container 'superset'"
-    echo "20) Logs container 'superset_redis'"
-    echo "21) Logs container 'trino'"
-    echo "22) Logs container 'vault'"
-    echo "23) Logs container 'vault-oidc-setup'"
-    echo "24) Logs container 'vault-seed'"
-    echo "25) Logs container 'web'"
+    echo "1) Logs container 'airflow-init'"
+    echo "2) Logs container 'airflow-redis'"
+    echo "3) Logs container 'airflow-scheduler'"
+    echo "4) Logs container 'airflow-webserver'"
+    echo "5) Logs container 'api-key-init'"
+    echo "6) Logs container 'app'"
+    echo "7) Logs container 'consul'"
+    echo "8) Logs container 'consul-jwt-init'"
+    echo "9) Logs container 'elasticsearch'"
+    echo "10) Logs container 'filebeat-podman'"
+    echo "11) Logs container 'filebeat-setup'"
+    echo "12) Logs container 'kc_postgres'"
+    echo "13) Logs container 'keycloak'"
+    echo "14) Logs container 'kibana'"
+    echo "15) Logs container 'kibana-pass-init'"
+    echo "16) Logs container 'openmetadata-ingestion'"
+    echo "17) Logs container 'openmetadata-mysql'"
+    echo "18) Logs container 'openmetadata-server'"
+    echo "19) Logs container 'osss_postgres'"
+    echo "20) Logs container 'postgres-airflow'"
+    echo "21) Logs container 'postgres-superset'"
+    echo "22) Logs container 'redis'"
+    echo "23) Logs container 'shared-vol-init'"
+    echo "24) Logs container 'superset'"
+    echo "25) Logs container 'superset-init'"
+    echo "26) Logs container 'superset_redis'"
+    echo "27) Logs container 'trino'"
+    echo "28) Logs container 'vault'"
+    echo "29) Logs container 'vault-oidc-setup'"
+    echo "30) Logs container 'vault-seed'"
+    echo "31) Logs container 'web'"
     echo "  q) Back"
     echo "-----------------------------------------------"
     read -rp "Select an option: " choice || return 0
     case "$choice" in
-      1)  logs_follow_container "api-key-init" ;;
-      2)  logs_follow_container "app" ;;
-      3)  logs_follow_container "consul" ;;
-      4)  logs_follow_container "consul-jwt-init" ;;
-      5)  logs_follow_container "elasticsearch" ;;
-      6)  logs_follow_container "filebeat-podman" ;;
-      7)  logs_follow_container "filebeat-setup" ;;
-      8)  logs_follow_container "kc_postgres" ;;
-      9)  logs_follow_container "keycloak" ;;
-      10) logs_follow_container "kibana" ;;
-      11) logs_follow_container "kibana-pass-init" ;;
-      12) logs_follow_container "openmetadata-ingestion" ;;
-      13) logs_follow_container "openmetadata-mysql" ;;
-      14) logs_follow_container "openmetadata-server" ;;
-      15) logs_follow_container "osss_postgres" ;;
-      16) logs_follow_container "postgres-superset" ;;
-      17) logs_follow_container "redis" ;;
-      18) logs_follow_container "shared-vol-init" ;;
-      19) logs_follow_container "superset" ;;
-      20) logs_follow_container "superset_redis" ;;
-      21) logs_follow_container "trino" ;;
-      22) logs_follow_container "vault" ;;
-      23) logs_follow_container "vault-oidc-setup" ;;
-      24) logs_follow_container "vault-seed" ;;
-      25) logs_follow_container "web" ;;
+      1)  logs_follow_container "airflow-init" ;;
+      2)  logs_follow_container "airflow-redis" ;;
+      3)  logs_follow_container "airflow-scheduler" ;;
+      4)  logs_follow_container "airflow-webserver" ;;
+      5)  logs_follow_container "api-key-init" ;;
+      6)  logs_follow_container "app" ;;
+      7)  logs_follow_container "consul" ;;
+      8)  logs_follow_container "consul-jwt-init" ;;
+      9)  logs_follow_container "elasticsearch" ;;
+      10)  logs_follow_container "filebeat-podman" ;;
+      11)  logs_follow_container "filebeat-setup" ;;
+      12)  logs_follow_container "kc_postgres" ;;
+      13)  logs_follow_container "keycloak" ;;
+      14) logs_follow_container "kibana" ;;
+      15) logs_follow_container "kibana-pass-init" ;;
+      16) logs_follow_container "openmetadata-ingestion" ;;
+      17) logs_follow_container "openmetadata-mysql" ;;
+      18) logs_follow_container "openmetadata-server" ;;
+      19) logs_follow_container "osss_postgres" ;;
+      20) logs_follow_container "postgres-airflow" ;;
+      21) logs_follow_container "postgres-superset" ;;
+      22) logs_follow_container "redis" ;;
+      23) logs_follow_container "shared-vol-init" ;;
+      24) logs_follow_container "superset" ;;
+      25) logs_follow_container "superset-init" ;;
+      26) logs_follow_container "superset_redis" ;;
+      27) logs_follow_container "trino" ;;
+      28) logs_follow_container "vault" ;;
+      29) logs_follow_container "vault-oidc-setup" ;;
+      30) logs_follow_container "vault-seed" ;;
+      31) logs_follow_container "web" ;;
       q|Q|b|B) return 0 ;;
       *) echo "Unknown choice: ${choice}" ;;
     esac
@@ -2799,12 +2818,7 @@ down_profiles_menu() {
             podman rm -f \"\$cid\"
           done
           podman volume rm osss-elastic_es-data
-
-
-
         "
-
-
         prompt_return
         ;;
       5)
@@ -2863,11 +2877,7 @@ down_profiles_menu() {
             podman stop \"\$cid\" || true
             podman rm -f \"\$cid\"
           done
-
-
-
         "
-
         prompt_return
         ;;
       6)
@@ -2978,19 +2988,59 @@ down_profiles_menu() {
               podman ps -a --format \"table {{.Names}}\\t{{.Status}}\\t{{.CreatedAt}}\" | grep -E \"NAMES|\$cname\" || true
             fi
           done
-
-
-
         "
         prompt_return
         ;;
       8)
         # Destroy airflow'
-        podman machine ssh default -- bash -lc "
+        podman machine ssh default -- bash -lc  "
           set -euo pipefail
           HOST_PROJ=$HOST_PROJ
-          SERVICE=\"airflow\"
+          SERVICE=\"trino\"
           PODMAN_OVERLAY_DIR=$PODMAN_OVERLAY_DIR
+          PROJECT_ELASTIC=\"osss-airflow\"
+
+          cd \"\$HOST_PROJ\" || { echo \"❌ Path not visible inside VM:\" \"\$HOST_PROJ\"; exit 1; }
+
+          # Pick compose provider + correct remove-volumes flag
+          COMPOSE=() ; DOWN_VOL_FLAG=\"\"
+          if podman compose version >/dev/null 2>&1; then
+            COMPOSE=(podman compose)
+            DOWN_VOL_FLAG=\"--volumes\"
+          elif command -v podman-compose >/dev/null 2>&1; then
+            COMPOSE=(podman-compose)
+            DOWN_VOL_FLAG=\"-v\"
+          else
+            echo \"❌ Neither podman compose nor podman-compose found.\"
+            exit 1
+          fi
+
+          for cname in airflow-webserver airflow-scheduler airflow-init postgres-airflow airflow-redis; do
+            echo \"🗑️  Attempting to remove container '\$cname' (with volumes)…\"
+
+            # First stop it if running
+            if podman inspect \"\$cname\" --format '{{.State.Running}}' 2>/dev/null | grep -qi true; then
+              echo \"⏹️  Container '\$cname' is running, stopping it first…\"
+              if podman stop -t 15 \"\$cname\" >/dev/null 2>&1; then
+                echo \"✅ Stopped container: \$cname\"
+              else
+                echo \"⚠️  Failed to stop container '\$cname' (continuing anyway)\"
+              fi
+            else
+              echo \"ℹ️  Container '\$cname' is not running (or does not exist)\"
+            fi
+
+            # Then remove with volumes
+            if podman rm -v \"\$cname\" >/dev/null 2>&1; then
+              echo \"✅ Successfully removed container: \$cname (including anonymous volumes)\"
+              continue
+            else
+              echo \"⚠️  Could not remove container '\$cname'.\"
+              echo \"   - It may not exist, or it may still be running under a different name.\"
+              echo \"   - Current container list (filtered for \$cname):\"
+              podman ps -a --format \"table {{.Names}}\\t{{.Status}}\\t{{.CreatedAt}}\" | grep -E \"NAMES|\$cname\" || true
+            fi
+          done
         "
         prompt_return
         ;;
@@ -2999,8 +3049,51 @@ down_profiles_menu() {
         podman machine ssh default -- bash -lc "
           set -euo pipefail
           HOST_PROJ=$HOST_PROJ
-          SERVICE=\"superset\"
+          SERVICE=\"trino\"
           PODMAN_OVERLAY_DIR=$PODMAN_OVERLAY_DIR
+          PROJECT_ELASTIC=\"osss-superset\"
+
+          cd \"\$HOST_PROJ\" || { echo \"❌ Path not visible inside VM:\" \"\$HOST_PROJ\"; exit 1; }
+
+          # Pick compose provider + correct remove-volumes flag
+          COMPOSE=() ; DOWN_VOL_FLAG=\"\"
+          if podman compose version >/dev/null 2>&1; then
+            COMPOSE=(podman compose)
+            DOWN_VOL_FLAG=\"--volumes\"
+          elif command -v podman-compose >/dev/null 2>&1; then
+            COMPOSE=(podman-compose)
+            DOWN_VOL_FLAG=\"-v\"
+          else
+            echo \"❌ Neither podman compose nor podman-compose found.\"
+            exit 1
+          fi
+
+          for cname in superset superset-init superset-redis postgres-superset ; do
+            echo \"🗑️  Attempting to remove container '\$cname' (with volumes)…\"
+
+            # First stop it if running
+            if podman inspect \"\$cname\" --format '{{.State.Running}}' 2>/dev/null | grep -qi true; then
+              echo \"⏹️  Container '\$cname' is running, stopping it first…\"
+              if podman stop -t 15 \"\$cname\" >/dev/null 2>&1; then
+                echo \"✅ Stopped container: \$cname\"
+              else
+                echo \"⚠️  Failed to stop container '\$cname' (continuing anyway)\"
+              fi
+            else
+              echo \"ℹ️  Container '\$cname' is not running (or does not exist)\"
+            fi
+
+            # Then remove with volumes
+            if podman rm -v \"\$cname\" >/dev/null 2>&1; then
+              echo \"✅ Successfully removed container: \$cname (including anonymous volumes)\"
+              continue
+            else
+              echo \"⚠️  Could not remove container '\$cname'.\"
+              echo \"   - It may not exist, or it may still be running under a different name.\"
+              echo \"   - Current container list (filtered for \$cname):\"
+              podman ps -a --format \"table {{.Names}}\\t{{.Status}}\\t{{.CreatedAt}}\" | grep -E \"NAMES|\$cname\" || true
+            fi
+          done
         "
         prompt_return
         ;;
@@ -3009,8 +3102,51 @@ down_profiles_menu() {
         podman machine ssh default -- bash -lc "
           set -euo pipefail
           HOST_PROJ=$HOST_PROJ
-          SERVICE=\"openmetadata\"
+          SERVICE=\"trino\"
           PODMAN_OVERLAY_DIR=$PODMAN_OVERLAY_DIR
+          PROJECT_ELASTIC=\"osss-openmetadata\"
+
+          cd \"\$HOST_PROJ\" || { echo \"❌ Path not visible inside VM:\" \"\$HOST_PROJ\"; exit 1; }
+
+          # Pick compose provider + correct remove-volumes flag
+          COMPOSE=() ; DOWN_VOL_FLAG=\"\"
+          if podman compose version >/dev/null 2>&1; then
+            COMPOSE=(podman compose)
+            DOWN_VOL_FLAG=\"--volumes\"
+          elif command -v podman-compose >/dev/null 2>&1; then
+            COMPOSE=(podman-compose)
+            DOWN_VOL_FLAG=\"-v\"
+          else
+            echo \"❌ Neither podman compose nor podman-compose found.\"
+            exit 1
+          fi
+
+          for cname in superset openmetadata-server mysql ; do
+            echo \"🗑️  Attempting to remove container '\$cname' (with volumes)…\"
+
+            # First stop it if running
+            if podman inspect \"\$cname\" --format '{{.State.Running}}' 2>/dev/null | grep -qi true; then
+              echo \"⏹️  Container '\$cname' is running, stopping it first…\"
+              if podman stop -t 15 \"\$cname\" >/dev/null 2>&1; then
+                echo \"✅ Stopped container: \$cname\"
+              else
+                echo \"⚠️  Failed to stop container '\$cname' (continuing anyway)\"
+              fi
+            else
+              echo \"ℹ️  Container '\$cname' is not running (or does not exist)\"
+            fi
+
+            # Then remove with volumes
+            if podman rm -v \"\$cname\" >/dev/null 2>&1; then
+              echo \"✅ Successfully removed container: \$cname (including anonymous volumes)\"
+              continue
+            else
+              echo \"⚠️  Could not remove container '\$cname'.\"
+              echo \"   - It may not exist, or it may still be running under a different name.\"
+              echo \"   - Current container list (filtered for \$cname):\"
+              podman ps -a --format \"table {{.Names}}\\t{{.Status}}\\t{{.CreatedAt}}\" | grep -E \"NAMES|\$cname\" || true
+            fi
+          done
         "
         prompt_return
         ;;
