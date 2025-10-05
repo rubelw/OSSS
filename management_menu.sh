@@ -356,79 +356,66 @@ ensure_hosts_keycloak() {
 }
 
 build_trino_truststore() {
-  echo "🛠️  Building Trino truststore..."
+  echo "🛠️  Building Trino PKCS12 truststore (CA-based)…"
 
   # --- Config/paths ---
-  local KEYSTORE_DIR="./config_files/trino/etc/keystore"
-  local TRINO_P12="${KEYSTORE_DIR}/trino-keystore.p12"
-  local TRINO_CRT="${KEYSTORE_DIR}/trino.crt"
-  local TRUSTSTORE="${KEYSTORE_DIR}/truststore.jks"
+  local OUT_DIR="./config_files/trino/opt"
+  local TRUSTSTORE_P12="${OUT_DIR}/osss-truststore.p12"
   local STOREPASS="changeit"
 
-  # --- Preflight: keytool ---
+  # Your Keycloak CA (from create_keycloak_cert)
+  local CA_CRT="./config_files/keycloak/secrets/ca/ca.crt"
+  local CA_ALIAS="osss-dev-ca"
+
+  # --- Preflight ---
   if ! command -v keytool >/dev/null 2>&1; then
     echo "❌ keytool not found."
-    echo "   On macOS: brew install --cask temurin || brew install openjdk"
-    echo "   On Linux:  apt-get install -y openjdk-17-jre-headless (or equivalent)"
+    echo "   macOS: brew install --cask temurin || brew install openjdk"
+    echo "   Linux: apt-get install -y openjdk-17-jre-headless (or similar)"
     return 1
   fi
-  echo "✅ keytool found: $(command -v keytool)"
+  echo "✅ keytool: $(command -v keytool)"
 
-  # Make sure keystore directory exists
-  mkdir -p "${KEYSTORE_DIR}"
+  mkdir -p "${OUT_DIR}"
 
-  # --- Check inputs ---
-  if [ ! -f "${TRINO_P12}" ]; then
-    echo "❌ Missing ${TRINO_P12}"
-    echo "   Ensure your Trino server keystore (PKCS12) is at that path."
+  if [ ! -f "${CA_CRT}" ]; then
+    echo "❌ Missing CA certificate at ${CA_CRT}"
+    echo "   Run your create_keycloak_cert step first."
     return 1
   fi
 
-  # --- Step 1: Export the server cert (PEM) from the PKCS12 keystore ---
-  echo "→ Exporting server certificate from ${TRINO_P12} -> ${TRINO_CRT}"
-  if ! keytool -exportcert \
-      -alias trino \
-      -keystore "${TRINO_P12}" \
-      -storetype PKCS12 -rfc \
-      -storepass "${STOREPASS}" \
-      -file "${TRINO_CRT}"; then
-    echo "❌ Failed to export certificate with keytool."
-    return 1
-  fi
-  echo "✅ Exported: ${TRINO_CRT}"
-
-  # --- Step 2: Import that cert into the truststore (JKS) ---
-  # Create an empty truststore if it doesn't exist yet (avoids type-detection issues)
-  if [ ! -f "${TRUSTSTORE}" ]; then
-    echo "→ Creating empty JKS truststore at ${TRUSTSTORE}"
-    # create by importing /dev/null won't work; instead import the first cert will create it
-  fi
-
-  echo "→ Importing server cert into truststore (${TRUSTSTORE}) as alias 'trino-server'"
-  # Delete existing alias if present to make operation idempotent
-  keytool -delete -alias trino-server -keystore "${TRUSTSTORE}" \
-          -storepass "${STOREPASS}" -storetype JKS >/dev/null 2>&1 || true
+  # --- Build CA-only PKCS12 truststore (idempotent) ---
+  echo "→ Creating PKCS12 truststore at ${TRUSTSTORE_P12} with alias '${CA_ALIAS}'"
+  rm -f "${TRUSTSTORE_P12}"
 
   if ! keytool -importcert \
-      -alias trino-server \
-      -file "${TRINO_CRT}" \
-      -keystore "${TRUSTSTORE}" \
-      -storetype JKS -storepass "${STOREPASS}" -noprompt; then
-    echo "❌ Failed to import certificate into truststore."
+        -alias "${CA_ALIAS}" \
+        -file "${CA_CRT}" \
+        -keystore "${TRUSTSTORE_P12}" \
+        -storetype PKCS12 \
+        -storepass "${STOREPASS}" -noprompt; then
+    echo "❌ Failed to create ${TRUSTSTORE_P12}"
     return 1
   fi
-  echo "✅ Imported into truststore: ${TRUSTSTORE}"
 
-  # --- Step 3: Sanity check: list contents of the truststore ---
+  # --- Sanity check ---
   echo "→ Sanity check: listing truststore entries"
-  if ! keytool -list -keystore "${TRUSTSTORE}" -storepass "${STOREPASS}" -storetype JKS; then
-    echo "❌ keytool -list failed on ${TRUSTSTORE}"
+  if ! keytool -list -v \
+        -keystore "${TRUSTSTORE_P12}" \
+        -storetype PKCS12 -storepass "${STOREPASS}"; then
+    echo "❌ keytool -list failed on ${TRUSTSTORE_P12}"
     return 1
   fi
 
-  echo "🎉 Trino truststore build complete."
-  echo "   Mount this truststore into the container at /etc/trino/keystore/truststore.jks"
+  echo "🎉 Truststore ready: ${TRUSTSTORE_P12}"
+  echo "   Mount in docker-compose as read-only:"
+  echo "     - ./config_files/trino/opt/osss-truststore.p12:/opt/trust/osss-truststore.p12:ro"
+  echo "   And set JAVA_TOOL_OPTIONS:"
+  echo "     -Djavax.net.ssl.trustStore=/opt/trust/osss-truststore.p12"
+  echo "     -Djavax.net.ssl.trustStorePassword=changeit"
+  echo "     -Djavax.net.ssl.trustStoreType=PKCS12"
 }
+
 
 
 # -------- Python venv (optional) --------
@@ -1783,7 +1770,7 @@ create_trino_cert() {
     -storepass changeit -keypass changeit \
     -validity 825 \
     -dname "CN=trino" \
-    -ext "SAN=dns:localhost,dns:trino,dns:trino.local,ip:127.0.0.1" \
+    -ext "SAN=dns:localhost,dns:trino,dns:trino.local,dns:trino.osss.local,dns:host.docker.internal,ip:127.0.0.1,ip:0.0.0.0" \
     -ext "BasicConstraints=ca:false" \
     -ext "ExtendedKeyUsage=serverAuth" \
     -noprompt || { echo "❌ keytool failed"; prompt_return; return 1; }
@@ -1793,7 +1780,6 @@ create_trino_cert() {
   keytool -list -keystore "$ks" -storepass changeit
   prompt_return
 }
-
 # -------- keycloak cert helpers --------
 create_keycloak_cert() {
   local dir="config_files/keycloak/"
@@ -3311,53 +3297,22 @@ menu() {
         ;;
       7)
         # Deploy trino
-        # Ask on host whether to rebuild the setup images
-        REBUILD_FLAG=0
-        if [ -t 0 ]; then
-          read -r -p "🔧 Rebuild images for 'trino' before running? [y/N] " ans || true
-          [[ ${ans:-} =~ ^[Yy]$ ]] && REBUILD_FLAG=1
-        fi
 
         podman machine ssh default -- bash -lc "
           set -euo pipefail
           HOST_PROJ=$HOST_PROJ
           PODMAN_OVERLAY_DIR=$PODMAN_OVERLAY_DIR
-          REBUILD_FLAG=$REBUILD_FLAG
+
           cd \"\$HOST_PROJ\" || { echo '❌ Path not visible inside VM:' \"\$HOST_PROJ\"; exit 1; }
           # (optional) show which provider we’re using
           command -v podman-compose >/dev/null && podman-compose --version || true
 
-          # Optional image rebuild for setup jobs (guarded by service presence)
-          if [ \"$REBUILD_FLAG\" = 1 ]; then
-            echo '▶️  Building images: trino'
-            podman build -f docker/trino/Dockerfile -t trino:local .
 
-          fi
 
           echo \"# run compose (use podman-compose explicitly to avoid provider lookup noise)\"
           COMPOSE_PROJECT_NAME=osss-trino podman-compose -f docker-compose.yml --profile trino up -d --no-deps trino
 
-          # Wait for Trino container health=healthy
-          echo \"[wait] Trino (container=trino) healthcheck...\"
-          i=0
-          while :; do
-            # if inspect fails, treat as not ready
-            status=\"\$(podman inspect -f '{{.State.Health.Status}}' trino 2>/dev/null || echo \\\"unknown\\\")\"
-            running=\"\$(podman inspect -f '{{.State.Running}}' trino 2>/dev/null || echo \\\"false\\\")\"
 
-            if [ \"\$running\" != \"true\" ]; then
-              echo \"❌ trino container is not running\"; podman ps -a --filter name='^trino$' --format 'table {{.ID}}\\t{{.Names}}\\t{{.Status}}'; exit 1
-            fi
-
-            if [ \"\$status\" = \"healthy\" ]; then
-              echo \"[ok] Trino is healthy\"
-              break
-            fi
-
-            i=\$((i+1))
-            [ \"\$i\" -le 180 ] || { echo \"❌ timed out waiting for Trino health (last=\$status)\"; podman logs --tail 200 vault || true; exit 1; }
-            sleep 2
-          done
         "
         ;;
       8)
