@@ -1842,6 +1842,35 @@ EOF
   prompt_return
 }
 
+# -------- openmetadata truststore (for OIDC over HTTPS) --------
+create_openmetadata_truststore() {
+  set -euo pipefail
+  local ca="config_files/keycloak/secrets/ca/ca.crt"     # from your create_keycloak_cert()
+  local dir="config_files/openmetadata/certs"
+  local ts="$dir/om-truststore.p12"
+  mkdir -p "$dir"
+
+  if [[ ! -s "$ca" ]]; then
+    echo "❌ CA not found at $ca. Run create_keycloak_cert first."
+    prompt_return; return 1
+  fi
+
+  echo "▶️  Recreating OpenMetadata truststore at $ts"
+  rm -f "$ts"
+
+  keytool -importcert \
+    -alias keycloak-ca \
+    -file "$ca" \
+    -storetype PKCS12 \
+    -keystore "$ts" \
+    -storepass changeit \
+    -noprompt
+
+  echo "✅ Truststore created: $ts (password: changeit)"
+  echo "🔎 Contents:"
+  keytool -list -keystore "$ts" -storepass changeit
+  prompt_return
+}
 
 # -------- teardown & cleanup --------
 
@@ -3440,6 +3469,7 @@ menu() {
     echo "20) Run tests with Keycloak CA bundle"
     echo "21) Utilities"
     echo "22) Create Trino truststore"
+    echo "23) Create Openmetadata truststore"
     echo "  q) Quit"
     echo "-----------------------------------------------"
     read -rp "Select an option: " ans || exit 0
@@ -3730,7 +3760,11 @@ menu() {
         build_trino_truststore
         prompt_return
         ;;
-
+      23)
+        echo "🛠️  Building Openmetadata truststore..."
+        create_openmetadata_truststore
+        prompt_return
+        ;;
       q|Q) echo "Bye!"; exit 0 ;;
       *)   echo "Unknown choice: ${ans}"; prompt_return ;;
     esac

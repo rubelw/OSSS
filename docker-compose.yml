@@ -1108,6 +1108,19 @@ services:
       # Migration
       MIGRATION_LIMIT_PARAM: ${MIGRATION_LIMIT_PARAM:-1200}
 
+      # OIDC
+      AUTHENTICATION_PROVIDER: ${OM_AUTHENTICATION_PROVIDER:-basic}
+      CUSTOM_OIDC_AUTHENTICATION_PROVIDER_NAME: ${CUSTOM_OIDC_AUTHENTICATION_PROVIDER_NAME:-"Keycloak"}
+      AUTHENTICATION_RESPONSE_TYPE: ${OM_AUTHENTICATION_RESPONSE_TYPE:-id_token}
+      AUTHENTICATION_CALLBACK_URL: ${OM_AUTHENTICATION_CALLBACK_URL:-http://localhost:8585/callback}
+      AUTHENTICATION_ENABLE_SELF_SIGNUP: ${AUTHENTICATION_ENABLE_SELF_SIGNUP:-true}
+      AUTHENTICATION_JWT_PRINCIPAL_CLAIMS_MAPPING: ${AUTHENTICATION_JWT_PRINCIPAL_CLAIMS_MAPPING:-[]}
+      # --- OIDC (these are the ones pac4j needs) ---
+      OIDC_DISCOVERY_URI: ${OM_OIDC_DISCOVERY_URI:-""}
+      OIDC_CLIENT_ID: ${OM_OIDC_CLIENT_ID:-""}
+      OIDC_CLIENT_SECRET: ${OM_OIDC_CLIENT_SECRET:-""}
+      OIDC_SCOPES: "openid profile email"
+
       # OpenMetadata Server Authentication Configuration
       AUTHORIZER_CLASS_NAME: ${AUTHORIZER_CLASS_NAME:-org.openmetadata.service.security.DefaultAuthorizer}
       AUTHORIZER_REQUEST_FILTER: ${AUTHORIZER_REQUEST_FILTER:-org.openmetadata.service.security.JwtFilter}
@@ -1118,23 +1131,14 @@ services:
       AUTHORIZER_ALLOWED_DOMAINS: ${AUTHORIZER_ALLOWED_DOMAINS:-[]}
       AUTHORIZER_ENFORCE_PRINCIPAL_DOMAIN: ${AUTHORIZER_ENFORCE_PRINCIPAL_DOMAIN:-false}
       AUTHORIZER_ENABLE_SECURE_SOCKET: ${AUTHORIZER_ENABLE_SECURE_SOCKET:-false}
-      AUTHENTICATION_PROVIDER: ${AUTHENTICATION_PROVIDER:-basic}
-      AUTHENTICATION_RESPONSE_TYPE: ${AUTHENTICATION_RESPONSE_TYPE:-id_token}
-      CUSTOM_OIDC_AUTHENTICATION_PROVIDER_NAME: ${CUSTOM_OIDC_AUTHENTICATION_PROVIDER_NAME:-""}
       AUTHENTICATION_PUBLIC_KEYS: ${AUTHENTICATION_PUBLIC_KEYS:-[http://localhost:8585/api/v1/system/config/jwks]}
       AUTHENTICATION_AUTHORITY: ${AUTHENTICATION_AUTHORITY:-https://accounts.google.com}
       AUTHENTICATION_CLIENT_ID: ${AUTHENTICATION_CLIENT_ID:-""}
-      AUTHENTICATION_CALLBACK_URL: ${AUTHENTICATION_CALLBACK_URL:-""}
-      AUTHENTICATION_JWT_PRINCIPAL_CLAIMS: ${AUTHENTICATION_JWT_PRINCIPAL_CLAIMS:-[email,preferred_username,sub]}
       AUTHENTICATION_JWT_PRINCIPAL_CLAIMS_MAPPING: ${AUTHENTICATION_JWT_PRINCIPAL_CLAIMS_MAPPING:-[]}
-      AUTHENTICATION_ENABLE_SELF_SIGNUP: ${AUTHENTICATION_ENABLE_SELF_SIGNUP:-true}
       AUTHENTICATION_CLIENT_TYPE: ${AUTHENTICATION_CLIENT_TYPE:-public}
       #For OIDC Authentication, when client is confidential
-      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-""}
       OIDC_TYPE: ${OIDC_TYPE:-""} # google, azure etc.
-      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-""}
       OIDC_SCOPE: ${OIDC_SCOPE:-"openid email profile"}
-      OIDC_DISCOVERY_URI: ${OIDC_DISCOVERY_URI:-""}
       OIDC_USE_NONCE: ${OIDC_USE_NONCE:-true}
       OIDC_PREFERRED_JWS: ${OIDC_PREFERRED_JWS:-"RS256"}
       OIDC_RESPONSE_TYPE: ${OIDC_RESPONSE_TYPE:-"code"}
@@ -1304,6 +1308,15 @@ services:
       #Cache
       WEB_CONF_CACHE_CONTROL: ${WEB_CONF_CACHE_CONTROL:-""}
       WEB_CONF_PRAGMA: ${WEB_CONF_PRAGMA:-""}
+
+      JAVA_TOOL_OPTIONS: >-
+        -Djavax.net.ssl.trustStore=/opt/om-trust/om-truststore.p12
+        -Djavax.net.ssl.trustStorePassword=changeit
+        -Djavax.net.ssl.trustStoreType=PKCS12
+
+    volumes:
+      - ./config_files/openmetadata/openmetadata.yaml:/usr/local/openmetadata/conf/openmetadata.yaml:ro
+      - ./config_files/openmetadata/certs:/opt/om-trust:ro
     depends_on:
       om-elasticsearch:
         condition: service_healthy
@@ -1325,6 +1338,21 @@ services:
       SERVER_ADMIN_PORT: ${SERVER_ADMIN_PORT:-8586}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
 
+      # OIDC
+      AUTHENTICATION_PROVIDER: ${OM_AUTHENTICATION_PROVIDER:-basic}
+      CUSTOM_OIDC_AUTHENTICATION_PROVIDER_NAME: ${CUSTOM_OIDC_AUTHENTICATION_PROVIDER_NAME:-"Keycloak"}
+      AUTHENTICATION_RESPONSE_TYPE: ${OM_AUTHENTICATION_RESPONSE_TYPE:-id_token}
+      AUTHENTICATION_CALLBACK_URL: ${OM_AUTHENTICATION_CALLBACK_URL:-http://localhost:8585/callback}
+      AUTHENTICATION_ENABLE_SELF_SIGNUP: ${AUTHENTICATION_ENABLE_SELF_SIGNUP:-true}
+      AUTHENTICATION_JWT_PRINCIPAL_CLAIMS_MAPPING: ${AUTHENTICATION_JWT_PRINCIPAL_CLAIMS_MAPPING:-[]}
+      # --- OIDC (these are the ones pac4j needs) ---
+      OIDC_DISCOVERY_URI: ${OM_OIDC_DISCOVERY_URI:-""}
+      OIDC_CLIENT_ID: ${OM_OIDC_CLIENT_ID:-""}
+      OIDC_CLIENT_SECRET: ${OM_OIDC_CLIENT_SECRET:-""}
+      OIDC_SCOPES: "openid profile email"
+
+
+
       # OpenMetadata Server Authentication Configuration
       AUTHORIZER_CLASS_NAME: ${AUTHORIZER_CLASS_NAME:-org.openmetadata.service.security.DefaultAuthorizer}
       AUTHORIZER_REQUEST_FILTER: ${AUTHORIZER_REQUEST_FILTER:-org.openmetadata.service.security.JwtFilter}
@@ -1335,23 +1363,17 @@ services:
       AUTHORIZER_ALLOWED_DOMAINS: ${AUTHORIZER_ALLOWED_DOMAINS:-[]}
       AUTHORIZER_ENFORCE_PRINCIPAL_DOMAIN: ${AUTHORIZER_ENFORCE_PRINCIPAL_DOMAIN:-false}
       AUTHORIZER_ENABLE_SECURE_SOCKET: ${AUTHORIZER_ENABLE_SECURE_SOCKET:-false}
-      AUTHENTICATION_PROVIDER: ${AUTHENTICATION_PROVIDER:-basic}
-      AUTHENTICATION_RESPONSE_TYPE: ${AUTHENTICATION_RESPONSE_TYPE:-id_token}
-      CUSTOM_OIDC_AUTHENTICATION_PROVIDER_NAME: ${CUSTOM_OIDC_AUTHENTICATION_PROVIDER_NAME:-""}
-      AUTHENTICATION_PUBLIC_KEYS: ${AUTHENTICATION_PUBLIC_KEYS:-[http://localhost:8585/api/v1/system/config/jwks]}
-      AUTHENTICATION_AUTHORITY: ${AUTHENTICATION_AUTHORITY:-https://accounts.google.com}
-      AUTHENTICATION_CLIENT_ID: ${AUTHENTICATION_CLIENT_ID:-""}
-      AUTHENTICATION_CALLBACK_URL: ${AUTHENTICATION_CALLBACK_URL:-""}
+      AUTHENTICATION_OIDC_DISCOVERY_URI: ${OM_AUTHENTICATION_OIDC_DISCOVERY_URI:-https://keycloak.local:8443/realms/OSSS/.well-known/openid-configuration}
+      AUTHENTICATION_PUBLIC_KEYS: ${OM_AUTHENTICATION_PUBLIC_KEYS:-[http://localhost:8585/api/v1/system/config/jwks]}
+      AUTHENTICATION_AUTHORITY: ${OM_AUTHENTICATION_AUTHORITY:-https://accounts.google.com}
+      AUTHENTICATION_CLIENT_ID: ${OM_AUTHENTICATION_CLIENT_ID:-""}
+      AUTHENTICATION_CLIENT_SECRET: ${OM_AUTHENTICATION_CLIENT_SECRET:-password}
+      AUTHENTICATION_SCOPE: ${OM_AUTHENTICATION_SCOPE:-"openid profile email groups"}
       AUTHENTICATION_JWT_PRINCIPAL_CLAIMS: ${AUTHENTICATION_JWT_PRINCIPAL_CLAIMS:-[email,preferred_username,sub]}
-      AUTHENTICATION_JWT_PRINCIPAL_CLAIMS_MAPPING: ${AUTHENTICATION_JWT_PRINCIPAL_CLAIMS_MAPPING:-[]}
-      AUTHENTICATION_ENABLE_SELF_SIGNUP: ${AUTHENTICATION_ENABLE_SELF_SIGNUP:-true}
-      AUTHENTICATION_CLIENT_TYPE: ${AUTHENTICATION_CLIENT_TYPE:-public}
+      AUTHENTICATION_CLIENT_TYPE: ${OM_AUTHENTICATION_CLIENT_TYPE:-public}
       #For OIDC Authentication, when client is confidential
-      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-""}
       OIDC_TYPE: ${OIDC_TYPE:-""} # google, azure etc.
-      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-""}
       OIDC_SCOPE: ${OIDC_SCOPE:-"openid email profile"}
-      OIDC_DISCOVERY_URI: ${OIDC_DISCOVERY_URI:-""}
       OIDC_USE_NONCE: ${OIDC_USE_NONCE:-true}
       OIDC_PREFERRED_JWS: ${OIDC_PREFERRED_JWS:-"RS256"}
       OIDC_RESPONSE_TYPE: ${OIDC_RESPONSE_TYPE:-"code"}
@@ -1511,6 +1533,13 @@ services:
       WEB_CONF_CACHE_CONTROL: ${WEB_CONF_CACHE_CONTROL:-""}
       WEB_CONF_PRAGMA: ${WEB_CONF_PRAGMA:-""}
 
+      JAVA_TOOL_OPTIONS: >-
+        -Djavax.net.ssl.trustStore=/opt/om-trust/om-truststore.p12
+        -Djavax.net.ssl.trustStorePassword=changeit
+        -Djavax.net.ssl.trustStoreType=PKCS12
+
+
+
     expose:
       - 8585
       - 8586
@@ -1526,6 +1555,8 @@ services:
         condition: service_completed_successfully
     volumes:
       - ./config_files/openmetadata/openmetadata.yaml:/usr/local/openmetadata/conf/openmetadata.yaml:ro
+      - ./config_files/openmetadata/certs:/opt/om-trust:ro
+
     networks:
       - osss-net
     healthcheck:
