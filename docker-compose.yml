@@ -866,24 +866,40 @@ services:
       SUPERSET_CONFIG_PATH: /app/pythonpath/superset_config.py
       PYTHONUNBUFFERED: '1'
       PYTHONPATH: /app/pythonpath:/app/superset_home/pythonpath
+      REQUESTS_CA_BUNDLE: /etc/ssl/certs/osss-dev-ca-chain.pem
+      SSL_CERT_FILE: /etc/ssl/certs/osss-dev-ca-chain.pem
+      OAUTHLIB_INSECURE_TRANSPORT: 0
+
+
       # --- Keycloak OIDC ---
       KEYCLOAK_CLIENT_ID: superset
       KEYCLOAK_CLIENT_SECRET: password
       KEYCLOAK_BASE_URL: https://keycloak.local:8443/realms/OSSS
       KEYCLOAK_TOKEN_URL: https://keycloak.local:8443/realms/OSSS/protocol/openid-connect/token
       KEYCLOAK_AUTH_URL: https://keycloak.local:8443/realms/OSSS/protocol/openid-connect/auth
+      KEYCLOAK_REALM: OSSS
+      KEYCLOAK_HOST: keycloak.local:8443
+
 
     volumes:
       - ./config_files/superset:/app/pythonpath:ro
+      - ./config_files/keycloak/secrets/ca/ca.crt:/etc/ssl/certs/keycloak-ca.crt:ro,Z
+      - ./config_files/keycloak/secrets/ca/ca-chain.pem:/etc/ssl/certs/osss-dev-ca-chain.pem:ro,Z
+
+
     command:
       - bash
       - -lc
       - >
         set -euo pipefail &&
         echo "[deps] installing wheels into /app/superset_home/pythonpath..." &&
-        pip install --no-cache-dir --target /app/superset_home/pythonpath "psycopg2-binary==2.9.*" pillow redis Authlib &&
+        REQUESTS_CA_BUNDLE= SSL_CERT_FILE= PIP_CERT= \
+          pip install --no-cache-dir --target /app/superset_home/pythonpath \
+          "psycopg2-binary==2.9.*" pillow redis Authlib &&
         echo "[init] db upgrade..." && /app/.venv/bin/superset db upgrade &&
-        echo "[init] create admin if missing..." && /app/.venv/bin/superset fab create-admin --username admin --firstname Admin --lastname User --email admin@example.com --password admin || true &&
+        echo "[init] create admin if missing..." && /app/.venv/bin/superset fab create-admin \
+          --username admin --firstname Admin --lastname User \
+          --email admin@example.com --password admin || true &&
         echo "[init] superset init..." && /app/.venv/bin/superset init &&
         echo "[init] done."
 
@@ -905,6 +921,21 @@ services:
       RATELIMIT_STORAGE_URI: "redis://superset_redis:6379/1"   # optional: removes in-memory warning
       ENABLE_PROXY_FIX: 'true'           # optional: if behind a proxy
       PYTHONPATH: /app/pythonpath:/app/superset_home/pythonpath
+      REQUESTS_CA_BUNDLE: /etc/ssl/certs/osss-dev-ca-chain.pem
+      SSL_CERT_FILE: /etc/ssl/certs/osss-dev-ca-chain.pem
+      OAUTHLIB_INSECURE_TRANSPORT: 0
+
+      # --- Keycloak OIDC ---
+      KEYCLOAK_CLIENT_ID: superset
+      KEYCLOAK_CLIENT_SECRET: password
+      KEYCLOAK_BASE_URL: https://keycloak.local:8443/realms/OSSS
+      KEYCLOAK_TOKEN_URL: https://keycloak.local:8443/realms/OSSS/protocol/openid-connect/token
+      KEYCLOAK_AUTH_URL: https://keycloak.local:8443/realms/OSSS/protocol/openid-connect/auth
+      KEYCLOAK_REALM: OSSS
+      KEYCLOAK_HOST: keycloak.local:8443
+
+
+
     depends_on:
       postgres-superset:
         condition: service_healthy
@@ -916,13 +947,19 @@ services:
       - 8088:8088
     volumes:
       - ./config_files/superset:/app/pythonpath:ro
+      - ./config_files/keycloak/secrets/ca/ca.crt:/etc/ssl/certs/keycloak-ca.crt:ro,Z
+      - ./config_files/keycloak/secrets/ca/ca-chain.pem:/etc/ssl/certs/osss-dev-ca-chain.pem:ro,Z
+
+    # superset (web)
     command:
       - bash
       - -lc
       - >
         set -euo pipefail &&
         echo "[deps] installing wheels into /app/superset_home/pythonpath..." &&
-        pip install --no-cache-dir --target /app/superset_home/pythonpath "psycopg2-binary==2.9.*" pillow redis Authlib &&
+        REQUESTS_CA_BUNDLE= SSL_CERT_FILE= PIP_CERT= \
+          pip install --no-cache-dir --target /app/superset_home/pythonpath \
+          "psycopg2-binary==2.9.*" pillow redis Authlib &&
         exec /app/.venv/bin/gunicorn -w 4 --timeout 300 -b 0.0.0.0:8088 'superset.app:create_app()'
     
 

@@ -1782,35 +1782,62 @@ create_trino_cert() {
 }
 # -------- keycloak cert helpers --------
 create_keycloak_cert() {
-  local dir="config_files/keycloak/"
+  set -euo pipefail
+  local dir="config_files/keycloak"
+  mkdir -p "${dir}/secrets/ca" "${dir}/secrets/keycloak"
 
-  # CA
+  # 1) Root CA (self-signed)
+  #    Includes CA extensions so it’s clearly a CA cert
   openssl req -x509 -nodes -newkey rsa:2048 -days 365 \
-    -keyout ${dir}secrets/ca/ca.key \
-    -out ${dir}secrets/ca/ca.crt \
-    -subj "/CN=osss-dev-ca"
+    -subj "/CN=osss-dev-ca" \
+    -keyout "${dir}/secrets/ca/ca.key" \
+    -out    "${dir}/secrets/ca/ca.crt" \
+    -addext "basicConstraints = critical, CA:true" \
+    -addext "keyUsage = critical, keyCertSign, cRLSign"
 
-  # Keycloak CSR with SANs
+  # 2) Keycloak server key + CSR with SANs
   openssl req -new -nodes -newkey rsa:2048 \
-    -keyout ${dir}secrets/keycloak/server.key \
-    -out ${dir}secrets/keycloak/server.csr \
     -subj "/CN=keycloak" \
-    -addext "subjectAltName=DNS:keycloak,DNS:keycloak.local,DNS:localhost,IP:127.0.0.1"
+    -keyout "${dir}/secrets/keycloak/server.key" \
+    -out    "${dir}/secrets/keycloak/server.csr" \
+    -addext "subjectAltName = DNS:keycloak, DNS:keycloak.local, DNS:localhost, IP:127.0.0.1"
 
-  # Sign server cert with our CA and include SANs
-  openssl x509 -req -in ${dir}secrets/keycloak/server.csr \
-    -CA ${dir}secrets/ca/ca.crt \
-    -CAkey ${dir}secrets/ca/ca.key \
+  # 3) Sign the server cert with the CA, adding server extensions
+  #    Use a temporary extfile to include SAN + EKU/KU, and ensure CA:false
+  tmp_ext="$(mktemp)"
+  cat > "$tmp_ext" <<'EOF'
+basicConstraints = CA:false
+keyUsage = digitalSignature, keyEncipherment
+extendedKeyUsage = serverAuth
+subjectAltName = DNS:keycloak, DNS:keycloak.local, DNS:localhost, IP:127.0.0.1
+EOF
+
+  openssl x509 -req -days 365 \
+    -in  "${dir}/secrets/keycloak/server.csr" \
+    -CA  "${dir}/secrets/ca/ca.crt" \
+    -CAkey "${dir}/secrets/ca/ca.key" \
     -CAcreateserial \
-    -out ${dir}secrets/keycloak/server.crt -days 365 \
-    -extfile <(printf "subjectAltName=DNS:keycloak,DNS:keycloak.local,DNS:localhost,IP:127.0.0.1")
+    -out "${dir}/secrets/keycloak/server.crt" \
+    -extfile "$tmp_ext"
 
-  # Generate a PEM chain file (copy of CA, or verbose description if desired)
-  # Option 1: usable PEM (recommended for Airflow, TLS trust)
-  cp ${dir}secrets/ca/ca.crt ${dir}secrets/ca/ca-chain.pem
+  rm -f "$tmp_ext" "${dir}/secrets/ca/ca.srl" 2>/dev/null || true
 
-  # Option 2: human-readable certificate info (optional)
-  # openssl x509 -in ${dir}secrets/ca/ca.crt -text -noout > ${dir}secrets/ca/ca-chain.pem
+  # 4) Create a proper CA bundle (PEM **only**). Since you have no intermediates,
+  #    the CA bundle is just the CA certificate.
+  cp "${dir}/secrets/ca/ca.crt" "${dir}/secrets/ca/ca-bundle.pem"
+
+  # 5) Quick sanity checks
+  echo "== Bundle BEGIN markers =="
+  grep -n "BEGIN CERTIFICATE" "${dir}/secrets/ca/ca-bundle.pem"
+  echo "== Verify server against CA =="
+  openssl verify -CAfile "${dir}/secrets/ca/ca-bundle.pem" "${dir}/secrets/keycloak/server.crt" || true
+
+  echo "✅ Created:"
+  echo "  CA key:   ${dir}/secrets/ca/ca.key"
+  echo "  CA cert:  ${dir}/secrets/ca/ca.crt"
+  echo "  Bundle:   ${dir}/secrets/ca/ca-bundle.pem"
+  echo "  Server key: ${dir}/secrets/keycloak/server.key"
+  echo "  Server crt: ${dir}/secrets/keycloak/server.crt"
 
   prompt_return
 }
