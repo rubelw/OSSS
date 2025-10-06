@@ -1665,14 +1665,14 @@ echo \"ℹ️  Compose provider in VM: \$PROVIDER\"
 
 
 # --- Phase 2: wait until MySQL is healthy ---
-echo \"⏳ waiting for openmetadata-mysql to be healthy…\"
+echo \"⏳ waiting for mysql to be healthy…\"
 for i in \$(seq 1 240); do
   # get the exact container id
-  CID=\$(podman ps -aq --filter name=^openmetadata-mysql\$ | head -n1)
+  CID=\$(podman ps -aq --filter name=^mysql\$ | head -n1)
   echo \"\$CID\"
 
   if [ -z \"\$CID\" ]; then
-    echo \"❌ openmetadata-mysql not found\"
+    echo \"❌ mysql not found\"
     exit 1
   fi
 
@@ -1682,7 +1682,7 @@ for i in \$(seq 1 240); do
   echo \"state=\$state health=\$health\"
 
   if [ \"\$health\" = \"healthy\" ] || { [ \"\$health\" = \"none\" ] && [ \"\$state\" = \"running\" ]; }; then
-    echo \"✅ openmetadata-mysql is ready\"
+    echo \"✅ mysql is ready\"
     break   # keep if this lives inside a wait loop
   fi
 
@@ -2674,28 +2674,30 @@ logs_menu() {
     echo "7) Logs container 'consul'"
     echo "8) Logs container 'consul-jwt-init'"
     echo "9) Logs container 'elasticsearch'"
-    echo "10) Logs container 'filebeat-podman'"
-    echo "11) Logs container 'filebeat-setup'"
-    echo "12) Logs container 'kc_postgres'"
-    echo "13) Logs container 'keycloak'"
-    echo "14) Logs container 'kibana'"
-    echo "15) Logs container 'kibana-pass-init'"
-    echo "16) Logs container 'openmetadata-ingestion'"
-    echo "17) Logs container 'openmetadata-mysql'"
-    echo "18) Logs container 'openmetadata-server'"
-    echo "19) Logs container 'osss_postgres'"
-    echo "20) Logs container 'postgres-airflow'"
-    echo "21) Logs container 'postgres-superset'"
-    echo "22) Logs container 'redis'"
-    echo "23) Logs container 'shared-vol-init'"
-    echo "24) Logs container 'superset'"
-    echo "25) Logs container 'superset-init'"
-    echo "26) Logs container 'superset_redis'"
-    echo "27) Logs container 'trino'"
-    echo "28) Logs container 'vault'"
-    echo "29) Logs container 'vault-oidc-setup'"
-    echo "30) Logs container 'vault-seed'"
-    echo "31) Logs container 'web'"
+    echo "10) Logs container 'execute_migrate_all'"
+    echo "11) Logs container 'filebeat-podman'"
+    echo "12) Logs container 'filebeat-setup'"
+    echo "13) Logs container 'kc_postgres'"
+    echo "14) Logs container 'keycloak'"
+    echo "15) Logs container 'kibana'"
+    echo "16) Logs container 'kibana-pass-init'"
+    echo "17) Logs container 'om-elasticsearch'"
+    echo "18) Logs container 'openmetadata-ingestion'"
+    echo "19) Logs container 'openmetadata-mysql'"
+    echo "20) Logs container 'openmetadata-server'"
+    echo "21) Logs container 'osss_postgres'"
+    echo "22) Logs container 'postgres-airflow'"
+    echo "23) Logs container 'postgres-superset'"
+    echo "24) Logs container 'redis'"
+    echo "25) Logs container 'shared-vol-init'"
+    echo "26) Logs container 'superset'"
+    echo "27) Logs container 'superset-init'"
+    echo "28) Logs container 'superset_redis'"
+    echo "29) Logs container 'trino'"
+    echo "30) Logs container 'vault'"
+    echo "31) Logs container 'vault-oidc-setup'"
+    echo "32) Logs container 'vault-seed'"
+    echo "33) Logs container 'web'"
     echo "  q) Back"
     echo "-----------------------------------------------"
     read -rp "Select an option: " choice || return 0
@@ -2709,28 +2711,30 @@ logs_menu() {
       7)  logs_follow_container "consul" ;;
       8)  logs_follow_container "consul-jwt-init" ;;
       9)  logs_follow_container "elasticsearch" ;;
-      10)  logs_follow_container "filebeat-podman" ;;
-      11)  logs_follow_container "filebeat-setup" ;;
-      12)  logs_follow_container "kc_postgres" ;;
-      13)  logs_follow_container "keycloak" ;;
-      14) logs_follow_container "kibana" ;;
-      15) logs_follow_container "kibana-pass-init" ;;
-      16) logs_follow_container "openmetadata-ingestion" ;;
-      17) logs_follow_container "openmetadata-mysql" ;;
-      18) logs_follow_container "openmetadata-server" ;;
-      19) logs_follow_container "osss_postgres" ;;
-      20) logs_follow_container "postgres-airflow" ;;
-      21) logs_follow_container "postgres-superset" ;;
-      22) logs_follow_container "redis" ;;
-      23) logs_follow_container "shared-vol-init" ;;
-      24) logs_follow_container "superset" ;;
-      25) logs_follow_container "superset-init" ;;
-      26) logs_follow_container "superset_redis" ;;
-      27) logs_follow_container "trino" ;;
-      28) logs_follow_container "vault" ;;
-      29) logs_follow_container "vault-oidc-setup" ;;
-      30) logs_follow_container "vault-seed" ;;
-      31) logs_follow_container "web" ;;
+      10) logs_follow_container "execute_migrate_all" ;;
+      11)  logs_follow_container "filebeat-podman" ;;
+      12)  logs_follow_container "filebeat-setup" ;;
+      13)  logs_follow_container "kc_postgres" ;;
+      14)  logs_follow_container "keycloak" ;;
+      15) logs_follow_container "kibana" ;;
+      16) logs_follow_container "kibana-pass-init" ;;
+      17) logs_follow_container "om-elasticsearch" ;;
+      18) logs_follow_container "openmetadata-ingestion" ;;
+      19) logs_follow_container "mysql" ;;
+      20) logs_follow_container "openmetadata-server" ;;
+      21) logs_follow_container "osss_postgres" ;;
+      22) logs_follow_container "postgres-airflow" ;;
+      23) logs_follow_container "postgres-superset" ;;
+      24) logs_follow_container "redis" ;;
+      25) logs_follow_container "shared-vol-init" ;;
+      26) logs_follow_container "superset" ;;
+      27) logs_follow_container "superset-init" ;;
+      28) logs_follow_container "superset_redis" ;;
+      29) logs_follow_container "trino" ;;
+      30) logs_follow_container "vault" ;;
+      31) logs_follow_container "vault-oidc-setup" ;;
+      32) logs_follow_container "vault-seed" ;;
+      33) logs_follow_container "web" ;;
       q|Q|b|B) return 0 ;;
       *) echo "Unknown choice: ${choice}" ;;
     esac
@@ -2814,7 +2818,8 @@ down_profiles_menu() {
             podman stop \"\$cid\" || true
             podman rm -f \"\$cid\"
           done
-          podman volume rm  osss-keycloak_kc_postgres_data
+          podman volume rm  osss-keycloak_kc_postgres_data 2>&1 | grep -q 'no such volume' && \
+  echo "⚠️  Volume not found, skipping" || true
         "
 
         prompt_return
@@ -2895,7 +2900,8 @@ down_profiles_menu() {
             podman stop \"\$cid\" || true
             podman rm -f \"\$cid\"
           done
-          podman volume rm osss-elastic_es-data
+          podman volume rm osss-elastic_es-data 2>&1 | grep -q 'no such volume' && \
+  echo "⚠️  Volume not found, skipping" || true
         "
         prompt_return
         ;;
@@ -3172,6 +3178,25 @@ down_profiles_menu() {
               podman ps -a --format \"table {{.Names}}\\t{{.Status}}\\t{{.CreatedAt}}\" | grep -E \"NAMES|\$cname\" || true
             fi
           done
+
+          for cid in \$(podman ps -a -q --filter volume=osss-superset_pg_superset_data); do
+            echo \"Removing container \$cid using volume…\"
+            podman stop \"\$cid\" || true
+            podman rm -f \"\$cid\"
+          done
+          podman volume rm osss-superset_pg_superset_data 2>&1 | grep -q 'no such volume' && \
+  echo "⚠️  Volume not found, skipping" || true
+
+          for cid in \$(podman ps -a -q --filter volume=osss-superset_superset_redis_data); do
+            echo \"Removing container \$cid using volume…\"
+            podman stop \"\$cid\" || true
+            podman rm -f \"\$cid\"
+          done
+          podman volume rm osss-superset_superset_redis_data 2>&1 | grep -q 'no such volume' && \
+  echo "⚠️  Volume not found, skipping" || true
+
+
+
         "
         prompt_return
         ;;
@@ -3199,32 +3224,121 @@ down_profiles_menu() {
             exit 1
           fi
 
-          for cname in superset openmetadata-server mysql ; do
-            echo \"🗑️  Attempting to remove container '\$cname' (with volumes)…\"
+          # --- Remove known service containers (with dependents & anon volumes) ---
+          for cname in execute_migrate_all openmetadata-server om-elasticsearch openmetadata-ingestion mysql ; do
+            echo \"🗑️  Attempting to remove container '\$cname' (with volumes & dependents)…\"
 
+            # Stop if running
+            if podman inspect \"\$cname\" --format '{{.State.Running}}' 2>/dev/null | grep -qi true; then
+              echo \"⏹️  '\$cname' is running, stopping…\"
+              podman stop -t 15 \"\$cname\" >/dev/null 2>&1 || echo \"⚠️  Failed to stop '\$cname' (continuing)\"
+            else
+              echo \"ℹ️  '\$cname' is not running (or does not exist)\"
+            fi
+
+            # Remove container + its dependents + anonymous volumes (best-effort)
+            if podman rm -fv --depend \"\$cname\" >/dev/null 2>&1; then
+              echo \"✅ Removed: \$cname (and any dependents; anon volumes too)\"
+            else
+              echo \"⚠️  Could not remove '\$cname' (might not exist or named differently).\"
+              echo \"   Current matches:\"
+              podman ps -a --format \"table {{.Names}}\t{{.Status}}\t{{.CreatedAt}}\" | grep -E \"NAMES|\$cname\" || true
+            fi
+          done
+
+          # --- NEW: remove ALL pods that include any container with 'mysql' in its name ---
+
+          # 1) Pods whose *pod name* contains 'mysql'
+          echo \"🔎 Looking for pods with 'mysql' in the pod name…\"
+          for pod in \$(podman pod ps -a --format '{{.Name}}' | grep -i 'mysql' || true); do
+            echo \"🗑️  Removing pod (by name): \$pod\"
+            podman pod rm -f \"\$pod\" || true
+          done
+
+          # 2) Pods that *contain a container* whose name contains 'mysql' (even if pod name doesn't)
+          echo \"🔎 Looking for pods that contain a *mysql* container…\"
+          mapfile -t MYSQL_PODS < <(
+            podman ps -a --format '{{.Names}}' \
+            | grep -i 'mysql' \
+            | xargs -r -n1 sh -c 'podman inspect \"\$0\" --format \"{{.PodName}}\" 2>/dev/null' \
+            | awk \"NF\" | sort -u
+          )
+          for pod in \"\${MYSQL_PODS[@]}\"; do
+            # Sometimes standalone containers print \"<no value>\" for PodName; skip those
+            if [ -n \"\$pod\" ] && [ \"\$pod\" != \"<no value>\" ]; then
+              echo \"🗑️  Removing pod (by membership): \$pod\"
+              podman pod rm -f \"\$pod\" || true
+            fi
+          done
+
+          # --- Remove known service containers (with dependents & anon volumes) ---
+          for cname in execute_migrate_all openmetadata-server om-elasticsearch openmetadata-ingestion mysql ; do
+            echo \"🗑️ Attempting to remove container '\$cname' (with volumes)…\"
             # First stop it if running
             if podman inspect \"\$cname\" --format '{{.State.Running}}' 2>/dev/null | grep -qi true; then
-              echo \"⏹️  Container '\$cname' is running, stopping it first…\"
+              echo \"⏹️ Container '\$cname' is running, stopping it first…\"
               if podman stop -t 15 \"\$cname\" >/dev/null 2>&1; then
-                echo \"✅ Stopped container: \$cname\"
-              else
-                echo \"⚠️  Failed to stop container '\$cname' (continuing anyway)\"
+                echo \"✅ Stopped container: \$cname\" else echo \"⚠️ Failed to stop container '\$cname' (continuing anyway)\"
               fi
             else
-              echo \"ℹ️  Container '\$cname' is not running (or does not exist)\"
+              echo \"ℹ️ Container '\$cname' is not running (or does not exist)\"
             fi
 
             # Then remove with volumes
             if podman rm -v \"\$cname\" >/dev/null 2>&1; then
-              echo \"✅ Successfully removed container: \$cname (including anonymous volumes)\"
-              continue
+              echo \"✅ Successfully removed container: \$cname (including anonymous volumes)\" continue
             else
-              echo \"⚠️  Could not remove container '\$cname'.\"
-              echo \"   - It may not exist, or it may still be running under a different name.\"
-              echo \"   - Current container list (filtered for \$cname):\"
+              echo \"⚠️ Could not remove container '\$cname'.\" echo \" - It may not exist, or it may still be running under a different name.\"
+              echo \" - Current container list (filtered for \$cname):\"
               podman ps -a --format \"table {{.Names}}\\t{{.Status}}\\t{{.CreatedAt}}\" | grep -E \"NAMES|\$cname\" || true
             fi
           done
+
+
+
+
+          for cid in \$(podman ps -a -q --filter volume=osss-openmetadata_mysql_data); do
+            echo \"Removing container \$cid using volume…\"
+            podman stop \"\$cid\" || true
+            podman rm -f \"\$cid\"
+          done
+          podman volume rm osss-openmetadata_mysql_data 2>&1 | grep -q 'no such volume' && \
+  echo "⚠️  Volume not found, skipping" || true
+
+          for cid in \$(podman ps -a -q --filter volume=osss-openmetadata_om-es-data); do
+            echo \"Removing container \$cid using volume…\"
+            podman stop \"\$cid\" || true
+            podman rm -f \"\$cid\"
+          done
+          podman volume rm osss-openmetadata_om-es-data 2>&1 | grep -q 'no such volume' && \
+  echo "⚠️  Volume not found, skipping" || true
+
+          for cid in \$(podman ps -a -q --filter volume=osss-openmetadata_ingestion-volume-dag-airflow); do
+            echo \"Removing container \$cid using volume…\"
+            podman stop \"\$cid\" || true
+            podman rm -f \"\$cid\"
+          done
+          podman volume rm osss-openmetadata_ingestion-volume-dag-airflow 2>&1 | grep -q 'no such volume' && \
+  echo "⚠️  Volume not found, skipping" || true
+
+          for cid in \$(podman ps -a -q --filter volume=osss-openmetadata_ingestion-volume-dags); do
+            echo \"Removing container \$cid using volume…\"
+            podman stop \"\$cid\" || true
+            podman rm -f \"\$cid\"
+          done
+          podman volume rm osss-openmetadata_ingestion-volume-dags 2>&1 | grep -q 'no such volume' && \
+  echo "⚠️  Volume not found, skipping" || true
+
+          for cid in \$(podman ps -a -q --filter volume=osss-openmetadata_ingestion-volume-tmp); do
+            echo \"Removing container \$cid using volume…\"
+            podman stop \"\$cid\" || true
+            podman rm -f \"\$cid\"
+          done
+          podman volume rm osss-openmetadata_ingestion-volume-tmp 2>&1 | grep -q 'no such volume' && \
+  echo "⚠️  Volume not found, skipping" || true
+
+
+
         "
         prompt_return
         ;;
@@ -3578,7 +3692,7 @@ menu() {
           podman network exists osss-net >/dev/null 2>&1 || podman network create osss-net
 
           # run compose (use podman-compose explicitly to avoid provider lookup noise)
-          COMPOSE_PROJECT_NAME=osss-openmetadata podman-compose -f docker-compose.yml --profile openmetadata up -d
+          COMPOSE_PROJECT_NAME=osss-openmetadata podman-compose -f docker-compose.yml --profile openmetadata up -d --force-recreate --remove-orphans --renew-anon-volumes
         "
         ;;
       11) down_profiles_menu ;;
