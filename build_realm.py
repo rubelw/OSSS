@@ -1339,6 +1339,8 @@ class RealmBuilder:
                 raw_trino_user = seg(pos.get("trino_user"))
                 raw_airflow_admin = seg(pos.get("airflow_admin"))
                 raw_airflow_user = seg(pos.get("airflow_user"))
+                raw_superset_admin = seg(pos.get("superset_admin"))
+                raw_superset_user = seg(pos.get("superset_user"))
                 raw_openmetadata_admin = seg(pos.get("openmetadata_admin"))
                 raw_openmetadata_user = seg(pos.get("openmetadata_user"))
 
@@ -1387,6 +1389,12 @@ class RealmBuilder:
 
                 if raw_airflow_user == "true":
                     extra_groups.append("airflow-user")
+
+                if raw_superset_admin == "true":
+                    extra_groups.append("superset-admin")
+
+                if raw_superset_user == "true":
+                    extra_groups.append("superset-user")
 
                 if raw_openmetadata_admin == "true":
                     extra_groups.append("openmetadata-admin")
@@ -1743,6 +1751,9 @@ if __name__ == "__main__":
     rb.add_realm_role("airflow-users", "Standard Airflow users", composite=False)
     rb.add_realm_role("airflow-admins", "Administrators for Airflow", composite=False)
 
+    rb.add_realm_role("superset-users", "Standard Superset users", composite=False)
+    rb.add_realm_role("superset-admins", "Administrators for Superset", composite=False)
+
     rb.add_realm_role("openmetadata-users", "Standard Openmetadata users", composite=False)
     rb.add_realm_role("openmetadata-admins", "Administrators for Openmetadata", composite=False)
 
@@ -2019,6 +2030,24 @@ if __name__ == "__main__":
         optional_client_scopes=["roles",    "offline_access"],
     )
 
+    rb.ensure_client(
+        client_id="superset",
+        name="superset",
+        redirect_uris=["http://localhost:8088/oauth-authorized/keycloak"],
+        protocol="openid-connect",
+        web_origins=["+"],
+        enabled=True,
+        public_client=False,
+        direct_access_grants_enabled=False,
+        service_accounts_enabled=False,
+        standard_flow_enabled=True,
+        client_authenticator_type="client-secret",
+        authorization_services_enabled=True,
+        secret="password",
+        attributes={"post.logout.redirect.uris": "+", "oidc.cida.grant.enabled": "false"},
+        default_client_scopes=["profile", "email", "groups-claim"],
+        optional_client_scopes=["roles",    "offline_access"],
+    )
 
 
 
@@ -2099,6 +2128,16 @@ if __name__ == "__main__":
         realm_roles=["openmetadata-admins"]
     )
 
+
+    rb.add_group(
+        name="superset-users",
+        realm_roles=["superset-users"]
+    )
+
+    rb.add_group(
+        name="superset-admins",
+        realm_roles=["superset-admins"]
+    )
 
     # Groups scope: emit `groups` in ID/access/userinfo (Vault expects this)
     rb.add_client_scope(
