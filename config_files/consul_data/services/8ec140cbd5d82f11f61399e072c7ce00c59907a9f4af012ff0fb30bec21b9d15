@@ -1,1 +1,0 @@
-{"Token":"password","Service":{"ID":"osss-api-ddf36141e63d-8081","Service":"osss-api","Tags":["fastapi","osss","v1"],"Address":"host.docker.internal","Meta":null,"Port":8081,"Weights":{"Passing":1,"Warning":1},"EnableTagOverride":false,"Proxy":{"Mode":"","MeshGateway":{},"Expose":{}},"Connect":{},"PeerName":"","CreateIndex":0,"ModifyIndex":0},"Source":"remote"}

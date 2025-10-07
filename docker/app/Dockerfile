@@ -40,7 +40,9 @@ RUN pip install --no-cache-dir \
       "gunicorn>=21" \
       "uvicorn[standard]>=0.30" \
       "asyncpg>=0.29" \
-      "psycopg2-binary>=2.9"
+      "psycopg2-binary>=2.9" \
+      "httpx>=0.27" \
+      "prometheus-client>=0.20"
 
 EXPOSE 8000
 ENV HOST=0.0.0.0 PORT=8000 LOG_LEVEL=info

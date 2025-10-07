@@ -48,6 +48,12 @@ volumes:
   ingestion-volume-dags: {}
   ingestion-volume-tmp: {}
   om-es-data: {}
+  ollama_data: {}
+  web_node_modules: {}
+  qdrant_data: {}
+  minio_data: {}
+  ai_pg_data: {}
+  ai_redis_data: {}
 
 services:
   consul:
@@ -111,6 +117,7 @@ services:
     networks:
     - osss-net
     container_name: app
+    hostname: app
     cpus: 2.0
     mem_limit: 3g
     mem_reservation: 2g
@@ -224,6 +231,7 @@ services:
     networks:
     - osss-net
     container_name: web
+    hostname: web
     cpus: 2.0
     mem_limit: 2g
     mem_reservation: 1g
@@ -245,7 +253,7 @@ services:
       OSSS_API_URL: ${OSSS_API_URL}
     volumes:
     - ./src/osss-web:/app:cached
-    - /app/node_modules
+    - web_node_modules:/app/node_modules   # <— use the named volume
     - ./config_files/keycloak/secrets/ca/ca.crt:/app/certs/keycloak-ca.crt:ro,Z
     working_dir: /app
     ports:
@@ -257,6 +265,14 @@ services:
       co.elastic.logs/processors.1.decode_json_fields.overwrite_keys: 'true'
       co.elastic.logs/processors.2.add_fields.target: app
       co.elastic.logs/processors.2.add_fields.fields.service: osss-web
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - node -e "fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
   osss_postgres:
     image: postgres:16-alpine
     profiles:
@@ -349,6 +365,8 @@ services:
         aliases:
         - keycloak.local
     environment:
+      KC_HTTP_MANAGEMENT_PORT: "9000"
+      KC_HTTP_MANAGEMENT_SCHEME: "http"
       KC_HTTP_PORT: 8080
       KC_DB: ${KC_DB}
       KC_DB_URL: jdbc:postgresql://${KC_DB_HOST}:${KC_DB_PORT}/${KC_DB_NAME}
@@ -381,7 +399,7 @@ services:
 
     ports:
     - 8443:8443
-    - 8080:8080
+    #- 8080:8080
     cpus: 2.0
     mem_limit: 2g
     mem_reservation: 1g
@@ -391,11 +409,14 @@ services:
     restart: always
     healthcheck:
       test:
-      - CMD
-      - /opt/keycloak/healthcheck.sh
+        - CMD-SHELL
+        - |
+          set -e
+          curl -fsSk "https://127.0.0.1:${KC_MANAGEMENT_HTTP_PORT:-9000}/health/ready" >/dev/null
       interval: 10s
       timeout: 10s
-      retries: 190
+      retries: 600
+      start_period: 300s
   vault:
     image: hashicorp/vault:1.20.3
     container_name: vault
@@ -1657,3 +1678,107 @@ services:
       - ingestion-volume-dag-airflow:/opt/airflow/dag_generated_configs
       - ingestion-volume-dags:/opt/airflow/dags
       - ingestion-volume-tmp:/tmp
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    profiles: [ ai ]
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >
+          ollama list >/dev/null 2>&1
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+    networks: [ osss-net ]
+
+  # === Vector DB for RAG ===
+  qdrant:
+    build:
+      context: .
+      dockerfile: docker/qdrant/Dockerfile
+    container_name: qdrant
+    hostname: qdrant
+    profiles: [ ai ]
+    ports:
+      - "6333:6333"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    healthcheck:
+      test: [ "CMD", "curl", "-fsS", "http://localhost:6333/readyz" ]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 15s
+    networks: [ osss-net ]
+
+  # === Object Storage for curriculum/corpus ===
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    hostname: minio
+    profiles: [ ai ]
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${AI_MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${AI_MINIO_ROOT_PASSWORD}
+    ports:
+      - "9000:9000"  # S3 API
+      - "9001:9001"  # Web console
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: [ "CMD", "curl", "-fsS", "http://localhost:9000/minio/health/ready" ]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+    networks: [ osss-net ]
+
+  # === Redis for caching answers / sessions ===
+  ai-redis:
+    image: redis:7
+    container_name: ai-redis
+    hostname: ai-redis
+    profiles: [ ai ]
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    ports:
+      - "6382:6379"
+    volumes:
+      - ai_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    networks: [osss-net]
+
+  # === Postgres for audit, usage, metadata ===
+  ai-postgres:
+    image: postgres:15
+    container_name: ai-postgres
+    hostname: ai-postgres
+    profiles: [ ai ]
+    environment:
+      POSTGRES_DB: ${AI_POSTGRES_DB}
+      POSTGRES_USER: ${AI_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${AI_POSTGRES_PASSWORD}
+    ports:
+      - "5436:5432"
+    volumes:
+      - ai_pg_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB -h localhost" ]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+    networks: [ osss-net ]
+

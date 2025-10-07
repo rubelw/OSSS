@@ -97,8 +97,5 @@ ENV PATH="/opt/curl/bin:/opt/jq/bin:/opt/awk/bin:${PATH}"
 COPY scripts/kc-init-and-start.sh /opt/keycloak/init-and-start.sh
 RUN chmod +x /opt/keycloak/init-and-start.sh
 
-COPY scripts/keycloak_healthcheck.sh /opt/keycloak/healthcheck.sh
-RUN chmod +x /opt/keycloak/healthcheck.sh
-
 USER 1000
 ENTRYPOINT ["/opt/keycloak/init-and-start.sh"]
