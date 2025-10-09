@@ -158,6 +158,9 @@ src/osss-web/package-lock.json
 !src/osss-web/lib/
 !src/osss-web/lib/**
 
+consul_data/
+consul_data/**
+
 # Ollama cache / models (huge)
 ollama_data/
 ollama_data/**
