@@ -1,0 +1,2635 @@
+{
+  "insert_order": [
+    "addresses",
+    "agenda_workflows",
+    "ap_vendors",
+    "attendance_codes",
+    "behavior_codes",
+    "comm_search_index",
+    "consequence_types",
+    "contacts",
+    "data_quality_issues",
+    "data_sharing_agreements",
+    "document_permissions",
+    "earning_codes",
+    "education_associations",
+    "embeds",
+    "entity_tags",
+    "evaluation_templates",
+    "export_runs",
+    "external_ids",
+    "fiscal_years",
+    "frameworks",
+    "gl_accounts",
+    "gl_segments",
+    "guardians",
+    "immunizations",
+    "journal_batches",
+    "medications",
+    "organizations",
+    "parts",
+    "pay_periods",
+    "permissions",
+    "persons",
+    "plan_assignments",
+    "retention_rules",
+    "reviewers",
+    "roles",
+    "scan_requests",
+    "sis_import_jobs",
+    "staff",
+    "standardized_tests",
+    "state_reporting_snapshots",
+    "states",
+    "tags",
+    "users",
+    "vendors",
+    "webhooks",
+    "agenda_workflow_steps",
+    "evaluation_sections",
+    "fiscal_periods",
+    "standards",
+    "gl_segment_values",
+    "hr_positions",
+    "governing_bodies",
+    "folders",
+    "channels",
+    "policies",
+    "feature_flags",
+    "plans",
+    "evaluation_cycles",
+    "schools",
+    "students",
+    "library_fines",
+    "person_contacts",
+    "person_addresses",
+    "emergency_contacts",
+    "user_accounts",
+    "consents",
+    "role_permissions",
+    "requirements",
+    "personal_notes",
+    "google_accounts",
+    "files",
+    "notifications",
+    "deduction_codes",
+    "evaluation_questions",
+    "journal_entries",
+    "gl_account_balances",
+    "gl_account_segments",
+    "posts",
+    "pages",
+    "subscriptions",
+    "policy_workflows",
+    "policy_versions",
+    "policy_search_index",
+    "plan_filters",
+    "goals",
+    "scorecards",
+    "plan_search_index",
+    "evaluation_assignments",
+    "bell_schedules",
+    "bus_routes",
+    "committees",
+    "grade_scales",
+    "fees",
+    "hr_employees",
+    "rooms",
+    "library_items",
+    "grade_levels",
+    "activities",
+    "incidents",
+    "academic_terms",
+    "calendars",
+    "test_administrations",
+    "projects",
+    "departments",
+    "facilities",
+    "student_guardians",
+    "section504_plans",
+    "nurse_visits",
+    "ell_plans",
+    "meal_eligibility_statuses",
+    "student_program_enrollments",
+    "immunization_records",
+    "meal_accounts",
+    "special_education_cases",
+    "medication_administrations",
+    "health_profiles",
+    "student_school_enrollments",
+    "attendance_daily_summary",
+    "family_portal_access",
+    "behavior_interventions",
+    "invoices",
+    "waivers",
+    "audit_logs",
+    "messages",
+    "evaluation_reports",
+    "journal_entry_lines",
+    "payroll_runs",
+    "post_attachments",
+    "deliveries",
+    "policy_workflow_steps",
+    "policy_publications",
+    "policy_files",
+    "policy_legal_refs",
+    "policy_comments",
+    "objectives",
+    "evaluation_files",
+    "evaluation_signoffs",
+    "evaluation_responses",
+    "periods",
+    "bus_stops",
+    "memberships",
+    "meetings",
+    "grade_scale_bands",
+    "hr_position_assignments",
+    "library_checkouts",
+    "library_holds",
+    "events",
+    "incident_participants",
+    "gpa_calculations",
+    "grading_periods",
+    "class_ranks",
+    "report_cards",
+    "calendar_days",
+    "test_results",
+    "project_tasks",
+    "subjects",
+    "department_position_index",
+    "buildings",
+    "meal_transactions",
+    "iep_plans",
+    "payments",
+    "message_recipients",
+    "paychecks",
+    "employee_deductions",
+    "employee_earnings",
+    "policy_approvals",
+    "initiatives",
+    "kpis",
+    "student_transportation_assignments",
+    "bus_stop_times",
+    "minutes",
+    "agenda_items",
+    "meeting_permissions",
+    "resolutions",
+    "meeting_files",
+    "attendance",
+    "meeting_search_index",
+    "meeting_publications",
+    "publications",
+    "orders",
+    "ticket_types",
+    "consequences",
+    "courses",
+    "leases",
+    "floors",
+    "accommodations",
+    "kpi_datapoints",
+    "scorecard_kpis",
+    "plan_alignments",
+    "motions",
+    "agenda_item_approvals",
+    "agenda_item_files",
+    "tickets",
+    "order_line_items",
+    "course_prerequisites",
+    "course_sections",
+    "transcript_lines",
+    "spaces",
+    "votes",
+    "ticket_scans",
+    "scan_results",
+    "assignment_categories",
+    "student_section_enrollments",
+    "section_room_assignments",
+    "final_grades",
+    "section_meetings",
+    "teacher_section_assignments",
+    "move_orders",
+    "space_reservations",
+    "part_locations",
+    "assets",
+    "assignments",
+    "attendance_events",
+    "asset_parts",
+    "pm_plans",
+    "meters",
+    "compliance_records",
+    "warranties",
+    "gradebook_entries",
+    "pm_work_generators",
+    "alignments",
+    "approvals",
+    "curricula",
+    "curriculum_units",
+    "curriculum_versions",
+    "document_activity",
+    "document_links",
+    "document_notifications",
+    "document_search_index",
+    "document_versions",
+    "documents",
+    "maintenance_requests",
+    "meeting_documents",
+    "proposal_documents",
+    "proposal_reviews",
+    "proposal_standard_map",
+    "proposals",
+    "review_requests",
+    "review_rounds",
+    "reviews",
+    "round_decisions",
+    "unit_standard_map",
+    "work_order_parts",
+    "work_order_tasks",
+    "work_order_time_logs",
+    "work_orders"
+  ],
+  "data": {
+    "addresses": [
+      {
+        "id": "cccbcc45-22a1-53d9-abb6-d280ac573ade",
+        "line1": "Sample addresses line1",
+        "city": "Sample addresses city",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "agenda_workflows": [
+      {
+        "id": "c163dff6-975d-521b-8114-452f00c05b4b",
+        "created_at": "2025-09-05T18:25:42Z",
+        "active": true,
+        "updated_at": "2025-09-05T18:25:42Z",
+        "name": "Sample agenda_workflows name"
+      }
+    ],
+    "ap_vendors": [
+      {
+        "id": "0dacdad6-903d-5d46-84d0-75121ddc7f27",
+        "created_at": "2025-09-05T18:25:42Z",
+        "active": true,
+        "updated_at": "2025-09-05T18:25:42Z",
+        "vendor_no": "Sample ap_vendors vendor_no",
+        "name": "Sample ap_vendors name"
+      }
+    ],
+    "attendance_codes": [
+      {
+        "code": "Sample attendance_codes code",
+        "is_present": "Sample attendance_codes is_present",
+        "is_excused": "Sample attendance_codes is_excused",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "behavior_codes": [
+      {
+        "code": "Sample behavior_codes code",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "created_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "comm_search_index": [
+      {
+        "id": "ada6eadf-c819-5568-b24a-0f2c4c461b86",
+        "entity_type": "Sample comm_search_index entity_type",
+        "entity_id": "Sample comm_search_index entity_id"
+      }
+    ],
+    "consequence_types": [
+      {
+        "code": "Sample consequence_types code",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "created_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "contacts": [
+      {
+        "id": "d893a355-8a88-5726-b20c-6ea3886bf931",
+        "value": "Sample contacts value",
+        "type": "Sample contacts type",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "data_quality_issues": [
+      {
+        "id": "880ffcd7-5149-58d1-a27e-c82224ef3a88",
+        "detected_at": "2025-09-05T18:25:42Z",
+        "entity_type": "Sample data_quality_issues entity_type",
+        "entity_id": "Sample data_quality_issues entity_id",
+        "rule": "Sample data_quality_issues rule",
+        "severity": "Sample data_quality_issues severity",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "data_sharing_agreements": [
+      {
+        "id": "f9622ba6-8048-53c5-a68d-d0fe6e89f6f7",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "created_at": "2025-09-05T18:25:42Z",
+        "vendor": "Sample data_sharing_agreements vendor"
+      }
+    ],
+    "document_permissions": [
+      {
+        "id": "a755fea4-1b96-58be-98bd-b4fd213c81fc",
+        "permission": "Sample document_permissions permission",
+        "resource_id": "Sample document_permissions resource_id",
+        "resource_type": "Sample document_permissions resource_type",
+        "principal_type": "Sample document_permissions principal_type",
+        "principal_id": "Sample document_permissions principal_id"
+      }
+    ],
+    "earning_codes": [
+      {
+        "id": "da1f5630-b3f9-5d8f-967e-ccb69b022687",
+        "taxable": true,
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "code": "Sample earning_codes code",
+        "name": "Sample earning_codes name"
+      }
+    ],
+    "education_associations": [
+      {
+        "id": "29edc490-d46a-51e0-914b-2f809b25a746",
+        "name": "Sample education_associations name",
+        "created_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "embeds": [
+      {
+        "id": "d32e8008-d484-5792-a0e3-b2dcc29c4d91",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "created_at": "2025-09-05T18:25:42Z",
+        "provider": "Sample embeds provider",
+        "url": "Sample embeds url"
+      }
+    ],
+    "entity_tags": [
+      {
+        "id": "fce6ee3e-d621-5808-8b7a-04e09a21c608",
+        "tag_id": "e8a610a4-e8da-5448-82d4-5de2fd052df0",
+        "entity_type": "Sample entity_tags entity_type",
+        "entity_id": "9f38660f-798a-50e3-827a-0263a46e256e",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "evaluation_templates": [
+      {
+        "id": "7c234dd1-f86d-5d63-804e-1a095da906a6",
+        "version": 1,
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "is_active": true,
+        "name": "Sample evaluation_templates name"
+      }
+    ],
+    "export_runs": [
+      {
+        "id": "0c7d73b9-dc8c-5f14-b24f-d8a5a995f0bc",
+        "export_name": "Sample export_runs export_name",
+        "created_at": "2025-09-05T18:25:42Z",
+        "status": "Sample export_runs status",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "ran_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "external_ids": [
+      {
+        "id": "d1916d02-6137-5a0c-b521-da554704cfe9",
+        "external_id": "Sample external_ids external_id",
+        "entity_type": "Sample external_ids entity_type",
+        "system": "Sample external_ids system",
+        "entity_id": "Sample external_ids entity_id",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "fiscal_years": [
+      {
+        "id": "82755717-dcdd-5e44-875c-10877e600189",
+        "year": 1,
+        "created_at": "2025-09-05T18:25:42Z",
+        "start_date": "2025-09-05",
+        "is_closed": true,
+        "updated_at": "2025-09-05T18:25:42Z",
+        "end_date": "2025-09-05"
+      }
+    ],
+    "frameworks": [
+      {
+        "id": "cc9b41e8-e950-5343-be79-c6ed5ba8d3db",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "code": "Sample frameworks code",
+        "name": "Sample frameworks name"
+      }
+    ],
+    "gl_accounts": [
+      {
+        "id": "0b1a3d2e-8794-5f2a-9ca9-caf54aaa100f",
+        "created_at": "2025-09-05T18:25:42Z",
+        "acct_type": "Sample gl_accounts acct_type",
+        "active": true,
+        "updated_at": "2025-09-05T18:25:42Z",
+        "code": "Sample gl_accounts code",
+        "name": "Sample gl_accounts name"
+      }
+    ],
+    "gl_segments": [
+      {
+        "id": "a9dfa149-2865-559d-9a52-539dd9c5780c",
+        "required": true,
+        "seq": 1,
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "code": "Sample gl_segments code",
+        "name": "Sample gl_segments name"
+      }
+    ],
+    "guardians": [
+      {
+        "id": "5c8b8273-366e-554a-9f43-2cd7639df5de",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "created_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "immunizations": [
+      {
+        "id": "98485b31-b111-5497-bd35-52a1ad793f13",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "created_at": "2025-09-05T18:25:42Z",
+        "name": "Sample immunizations name",
+        "code": "Sample immunizations code"
+      }
+    ],
+    "journal_batches": [
+      {
+        "id": "9ee89b96-f160-53eb-8b69-0253052cb54c",
+        "batch_no": "Sample journal_batches batch_no",
+        "created_at": "2025-09-05T18:25:42Z",
+        "status": "Sample journal_batches status",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "medications": [
+      {
+        "id": "3ab4eb58-7ee4-51eb-b8a7-83f481cba0e9",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "created_at": "2025-09-05T18:25:42Z",
+        "name": "Sample medications name"
+      }
+    ],
+    "organizations": [
+      {
+        "id": "00fe9a4d-239e-5839-9bc5-7b9667a3ed5e",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "created_at": "2025-09-05T18:25:42Z",
+        "name": "Sample organizations name",
+        "code": "Sample organizations code"
+      }
+    ],
+    "parts": [
+      {
+        "id": "ff002436-6dc5-58db-a737-8e250e76c8e3",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "created_at": "2025-09-05T18:25:42Z",
+        "name": "Sample parts name"
+      }
+    ],
+    "pay_periods": [
+      {
+        "id": "a0c69bb3-80af-5a49-8808-ce78cc3aea46",
+        "created_at": "2025-09-05T18:25:42Z",
+        "start_date": "2025-09-05",
+        "status": "Sample pay_periods status",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "end_date": "2025-09-05",
+        "pay_date": "2025-09-05",
+        "code": "Sample pay_periods code"
+      }
+    ],
+    "permissions": [
+      {
+        "id": "01ef3d90-6308-5e05-b128-08e2f996705b",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "created_at": "2025-09-05T18:25:42Z",
+        "code": "Sample permissions code"
+      }
+    ],
+    "persons": [
+      {
+        "id": "5c6ecd7f-1795-56cb-a251-533278674a9e",
+        "first_name": "Sample persons first_name",
+        "last_name": "Sample persons last_name",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "plan_assignments": [
+      {
+        "id": "10eb24df-d3ae-5922-b2a5-495b7d4966f0",
+        "assignee_type": "Sample plan_assignments assignee_type",
+        "entity_type": "Sample plan_assignments entity_type",
+        "assignee_id": "Sample plan_assignments assignee_id",
+        "entity_id": "Sample plan_assignments entity_id"
+      }
+    ],
+    "retention_rules": [
+      {
+        "id": "c8d48e32-ad75-5281-bc12-2aeadac9bfe8",
+        "entity_type": "Sample retention_rules entity_type",
+        "policy": {},
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "reviewers": [
+      {
+        "id": "224b10de-f838-51ba-890f-7a93ec237d72",
+        "email": "Sample reviewers email",
+        "created_at": "2025-09-05T18:25:42Z",
+        "active": true,
+        "updated_at": "2025-09-05T18:25:42Z",
+        "name": "Sample reviewers name"
+      }
+    ],
+    "roles": [
+      {
+        "id": "5a7199b0-5600-5a7b-b2fe-d09b52153333",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "created_at": "2025-09-05T18:25:42Z",
+        "name": "Sample roles name"
+      }
+    ],
+    "scan_requests": [
+      {
+        "id": "aa4ab358-f699-504a-ae2f-751928fc5d9f",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "created_at": "2025-09-05T18:25:42Z",
+        "qr_code": "Sample scan_requests qr_code"
+      }
+    ],
+    "sis_import_jobs": [
+      {
+        "id": "4d541c0d-b31a-5ec3-8b07-9cc1ef933cd1",
+        "source": "Sample sis_import_jobs source",
+        "created_at": "2025-09-05T18:25:42Z",
+        "started_at": "2025-09-05T18:25:42Z",
+        "status": "Sample sis_import_jobs status",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "staff": [
+      {
+        "id": "1bb20c8c-889b-5b1c-b225-3408cec07866",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "created_at": "2025-09-05T18:25:42Z",
+        "title": "Sample staff title"
+      }
+    ],
+    "standardized_tests": [
+      {
+        "id": "981e382e-b172-5eff-aaef-0cf154f5e15a",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "created_at": "2025-09-05T18:25:42Z",
+        "name": "Sample standardized_tests name"
+      }
+    ],
+    "state_reporting_snapshots": [
+      {
+        "id": "61accf37-dec6-597e-853b-9de24c6bf3a2",
+        "as_of_date": "2025-09-05",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "states": [
+      {
+        "code": "Sample states code",
+        "name": "Sample states name"
+      }
+    ],
+    "tags": [
+      {
+        "id": "9171371e-d670-5b74-bf71-a73ad4d3cbda",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "created_at": "2025-09-05T18:25:42Z",
+        "label": "Sample tags label"
+      }
+    ],
+    "users": [
+      {
+        "id": "02af070d-4e8a-543f-b9d5-4fbdda232c69",
+        "email": "Sample users email",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "username": "Sample users username"
+      }
+    ],
+    "vendors": [
+      {
+        "id": "d3b33b9b-4289-5f0e-a7fa-ee0044358462",
+        "created_at": "2025-09-05T18:25:42Z",
+        "active": true,
+        "updated_at": "2025-09-05T18:25:42Z",
+        "name": "Sample vendors name"
+      }
+    ],
+    "webhooks": [
+      {
+        "id": "751d930e-563d-56be-8af2-9058bc9cb1f6",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "target_url": "Sample webhooks target_url",
+        "created_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "agenda_workflow_steps": [
+      {
+        "id": "a71820b4-acea-5ee1-9c04-899be78147df",
+        "workflow_id": "c163dff6-975d-521b-8114-452f00c05b4b",
+        "step_no": 1,
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "approver_type": "Sample agenda_workflow_steps approver_type"
+      }
+    ],
+    "evaluation_sections": [
+      {
+        "id": "580926cd-bbc6-5c4f-a29e-6c5f0a74ef06",
+        "template_id": "7c234dd1-f86d-5d63-804e-1a095da906a6",
+        "title": "Sample evaluation_sections title",
+        "order_no": 1,
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "fiscal_periods": [
+      {
+        "id": "71b6983a-d20c-5fbd-9311-2ab109a8533f",
+        "year_number": "82755717-dcdd-5e44-875c-10877e600189",
+        "period_no": 1,
+        "created_at": "2025-09-05T18:25:42Z",
+        "start_date": "2025-09-05",
+        "is_closed": true,
+        "updated_at": "2025-09-05T18:25:42Z",
+        "end_date": "2025-09-05"
+      }
+    ],
+    "standards": [
+      {
+        "id": "d2f9f6dc-30ad-5fda-b7af-725201ba7f4e",
+        "parent_id": "d2f9f6dc-30ad-5fda-b7af-725201ba7f4e",
+        "framework_id": "cc9b41e8-e950-5343-be79-c6ed5ba8d3db",
+        "description": "Sample standards description",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "code": "Sample standards code"
+      }
+    ],
+    "gl_segment_values": [
+      {
+        "id": "fe6bb1c5-3735-58fb-894c-e3321117e3a5",
+        "segment_id": "a9dfa149-2865-559d-9a52-539dd9c5780c",
+        "created_at": "2025-09-05T18:25:42Z",
+        "active": true,
+        "updated_at": "2025-09-05T18:25:42Z",
+        "code": "Sample gl_segment_values code",
+        "name": "Sample gl_segment_values name"
+      }
+    ],
+    "hr_positions": [
+      {
+        "id": "802a1af2-dfe2-514d-bb11-93dd54128230",
+        "department_segment_id": "a9dfa149-2865-559d-9a52-539dd9c5780c",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "title": "Sample hr_positions title",
+        "created_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "governing_bodies": [
+      {
+        "id": "a9e1cb6c-23ca-5ff0-86f7-ea734aaf8c22",
+        "org_id": "00fe9a4d-239e-5839-9bc5-7b9667a3ed5e",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "name": "Sample governing_bodies name"
+      }
+    ],
+    "folders": [
+      {
+        "id": "ac2eb89f-1fe0-5b9d-860d-2befe9358ca5",
+        "org_id": "00fe9a4d-239e-5839-9bc5-7b9667a3ed5e",
+        "parent_id": "ac2eb89f-1fe0-5b9d-860d-2befe9358ca5",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "is_public": true,
+        "name": "Sample folders name"
+      }
+    ],
+    "channels": [
+      {
+        "id": "ff2ee3b3-f3ff-5378-a908-6db636b748df",
+        "org_id": "00fe9a4d-239e-5839-9bc5-7b9667a3ed5e",
+        "audience": "Sample channels audience",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "name": "Sample channels name"
+      }
+    ],
+    "policies": [
+      {
+        "id": "e0ba17b2-e0ca-5d31-a22a-478a04c5a0a4",
+        "org_id": "00fe9a4d-239e-5839-9bc5-7b9667a3ed5e",
+        "title": "Sample policies title",
+        "created_at": "2025-09-05T18:25:42Z",
+        "status": "Sample policies status",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "code": "Sample policies code"
+      }
+    ],
+    "feature_flags": [
+      {
+        "id": "576ab218-5110-54d3-b046-66877bce9721",
+        "org_id": "00fe9a4d-239e-5839-9bc5-7b9667a3ed5e",
+        "enabled": "Sample feature_flags enabled",
+        "key": "Sample feature_flags key"
+      }
+    ],
+    "plans": [
+      {
+        "id": "e6588f29-9cd7-5f1e-91ac-7fbd741c52fa",
+        "org_id": "00fe9a4d-239e-5839-9bc5-7b9667a3ed5e",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "name": "Sample plans name"
+      }
+    ],
+    "evaluation_cycles": [
+      {
+        "id": "7555f44f-5c24-5ea2-87b7-f9739f239534",
+        "org_id": "00fe9a4d-239e-5839-9bc5-7b9667a3ed5e",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "name": "Sample evaluation_cycles name"
+      }
+    ],
+    "schools": [
+      {
+        "id": "a08e9a86-7bc6-5963-8689-a2b7499d2984",
+        "organization_id": "00fe9a4d-239e-5839-9bc5-7b9667a3ed5e",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "name": "Sample schools name"
+      }
+    ],
+    "students": [
+      {
+        "id": "e7ad61df-58ea-5471-b0d4-a7259521d9ee",
+        "person_id": "5c6ecd7f-1795-56cb-a251-533278674a9e",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "library_fines": [
+      {
+        "id": "cdbaf96b-4dbd-5038-b300-187e3ced5f81",
+        "person_id": "5c6ecd7f-1795-56cb-a251-533278674a9e",
+        "created_at": "2025-09-05T18:25:42Z",
+        "amount": 1.0,
+        "assessed_on": "2025-09-05",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "person_contacts": [
+      {
+        "id": "144568ae-6667-5a23-aae8-d8ca4f2cb8da",
+        "person_id": "5c6ecd7f-1795-56cb-a251-533278674a9e",
+        "contact_id": "d893a355-8a88-5726-b20c-6ea3886bf931",
+        "is_primary": "Sample person_contacts is_primary",
+        "created_at": "2025-09-05T18:25:42Z",
+        "is_emergency": "Sample person_contacts is_emergency",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "person_addresses": [
+      {
+        "id": "2073cff9-640a-54f8-a133-d5a29cfe985d",
+        "address_id": "cccbcc45-22a1-53d9-abb6-d280ac573ade",
+        "person_id": "5c6ecd7f-1795-56cb-a251-533278674a9e",
+        "is_primary": "Sample person_addresses is_primary",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "emergency_contacts": [
+      {
+        "id": "c5bc3b58-2543-530d-87e0-64db0b4765e9",
+        "person_id": "5c6ecd7f-1795-56cb-a251-533278674a9e",
+        "contact_name": "Sample emergency_contacts contact_name",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "user_accounts": [
+      {
+        "id": "46e35108-5d74-5494-babd-e6a24ef0b80c",
+        "person_id": "5c6ecd7f-1795-56cb-a251-533278674a9e",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "is_active": true,
+        "username": "Sample user_accounts username"
+      }
+    ],
+    "consents": [
+      {
+        "id": "c9f5e996-0fb6-548e-9788-247c176f1357",
+        "person_id": "5c6ecd7f-1795-56cb-a251-533278674a9e",
+        "consent_type": "Sample consents consent_type",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "effective_date": "2025-09-05",
+        "granted": true
+      }
+    ],
+    "role_permissions": [
+      {
+        "id": "a5d91e68-edfd-5d16-a12d-091bed0ab35b",
+        "role_id": "5a7199b0-5600-5a7b-b2fe-d09b52153333",
+        "permission_id": "01ef3d90-6308-5e05-b128-08e2f996705b",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "requirements": [
+      {
+        "id": "389316c8-6605-5aaa-a9e2-76208de426bc",
+        "state_code": "Sample states code",
+        "title": "Sample requirements title",
+        "created_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "personal_notes": [
+      {
+        "id": "0c33fad8-6bd9-51af-bcf2-dc805ce26092",
+        "user_id": "02af070d-4e8a-543f-b9d5-4fbdda232c69",
+        "entity_type": "Sample personal_notes entity_type",
+        "entity_id": "Sample personal_notes entity_id",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "google_accounts": [
+      {
+        "id": "e1b4d473-dcda-58ee-81a3-0c67999d5759",
+        "user_id": "02af070d-4e8a-543f-b9d5-4fbdda232c69",
+        "client_secret": "Sample google_accounts client_secret",
+        "client_id": "Sample google_accounts client_id",
+        "access_token": "Sample google_accounts access_token",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "token_uri": "Sample google_accounts token_uri"
+      }
+    ],
+    "files": [
+      {
+        "id": "47ca7254-c4fb-5e1a-aefa-daef8be41f95",
+        "created_by": "02af070d-4e8a-543f-b9d5-4fbdda232c69",
+        "filename": "Sample files name",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "storage_key": "Sample files storage_key"
+      }
+    ],
+    "notifications": [
+      {
+        "id": "c4fed9fd-1644-5d52-b641-a25f85fad152",
+        "user_id": "02af070d-4e8a-543f-b9d5-4fbdda232c69",
+        "type": "Sample notifications type",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "deduction_codes": [
+      {
+        "id": "b17a82dc-e27c-53c9-a0b7-f97b1daf26f9",
+        "vendor_id": "d3b33b9b-4289-5f0e-a7fa-ee0044358462",
+        "pretax": true,
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "code": "Sample deduction_codes code",
+        "name": "Sample deduction_codes name"
+      }
+    ],
+    "evaluation_questions": [
+      {
+        "id": "52a90f3f-c982-5de8-905a-822918c4771c",
+        "section_id": "580926cd-bbc6-5c4f-a29e-6c5f0a74ef06",
+        "text": "Sample evaluation_questions text",
+        "type": "Sample evaluation_questions type",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "journal_entries": [
+      {
+        "id": "49e3c460-b21c-5479-b8ca-3d907dc476fd",
+        "fiscal_period_id": "71b6983a-d20c-5fbd-9311-2ab109a8533f",
+        "batch_id": "9ee89b96-f160-53eb-8b69-0253052cb54c",
+        "je_no": "Sample journal_entries je_no",
+        "total_credits": 1.0,
+        "total_debits": 1.0,
+        "created_at": "2025-09-05T18:25:42Z",
+        "status": "Sample journal_entries status",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "journal_date": "2025-09-05"
+      }
+    ],
+    "gl_account_balances": [
+      {
+        "id": "e4baf771-83f3-5927-abd5-1bd7cebc8b0a",
+        "account_id": "0b1a3d2e-8794-5f2a-9ca9-caf54aaa100f",
+        "fiscal_period_id": "71b6983a-d20c-5fbd-9311-2ab109a8533f",
+        "begin_balance": 1.0,
+        "updated_at": "2025-09-05T18:25:42Z",
+        "credit_total": 1.0,
+        "created_at": "2025-09-05T18:25:42Z",
+        "debit_total": 1.0,
+        "end_balance": 1.0
+      }
+    ],
+    "gl_account_segments": [
+      {
+        "id": "d65bd95b-bf1c-5587-bf59-2aebfd4f9a93",
+        "value_id": "fe6bb1c5-3735-58fb-894c-e3321117e3a5",
+        "segment_id": "a9dfa149-2865-559d-9a52-539dd9c5780c",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "created_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "posts": [
+      {
+        "id": "533a9821-a941-5913-9e4d-b7d6a2a248c2",
+        "channel_id": "ff2ee3b3-f3ff-5378-a908-6db636b748df",
+        "author_id": "02af070d-4e8a-543f-b9d5-4fbdda232c69",
+        "title": "Sample posts title",
+        "created_at": "2025-09-05T18:25:42Z",
+        "status": "Sample posts status",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "pages": [
+      {
+        "id": "4b3ac384-32f0-57ec-9ecf-8b6767992f66",
+        "channel_id": "ff2ee3b3-f3ff-5378-a908-6db636b748df",
+        "title": "Sample pages title",
+        "slug": "Sample pages slug",
+        "created_at": "2025-09-05T18:25:42Z",
+        "status": "Sample pages status",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "subscriptions": [
+      {
+        "id": "45166d09-89cc-5431-bef8-0f570fb17619",
+        "channel_id": "ff2ee3b3-f3ff-5378-a908-6db636b748df",
+        "principal_type": "Sample subscriptions principal_type",
+        "principal_id": "Sample subscriptions principal_id",
+        "created_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "policy_workflows": [
+      {
+        "id": "048c4720-455a-5b91-9366-5b68b49df2b8",
+        "policy_id": "e0ba17b2-e0ca-5d31-a22a-478a04c5a0a4",
+        "created_at": "2025-09-05T18:25:42Z",
+        "active": true,
+        "updated_at": "2025-09-05T18:25:42Z",
+        "name": "Sample policy_workflows name"
+      }
+    ],
+    "policy_versions": [
+      {
+        "id": "7914439f-cade-53d8-8bb3-611b0ce16b6a",
+        "created_by": "02af070d-4e8a-543f-b9d5-4fbdda232c69",
+        "policy_id": "e0ba17b2-e0ca-5d31-a22a-478a04c5a0a4",
+        "supersedes_version_id": "7914439f-cade-53d8-8bb3-611b0ce16b6a",
+        "version_no": 1,
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "policy_search_index": [
+      {
+        "policy_id": "e0ba17b2-e0ca-5d31-a22a-478a04c5a0a4"
+      }
+    ],
+    "plan_filters": [
+      {
+        "id": "de1aacfe-e9a1-5ab6-a806-a1caad622a33",
+        "plan_id": "e6588f29-9cd7-5f1e-91ac-7fbd741c52fa",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "name": "Sample plan_filters name"
+      }
+    ],
+    "goals": [
+      {
+        "id": "d77ca3a9-6d17-56de-9462-b0c7a4f23bc1",
+        "plan_id": "e6588f29-9cd7-5f1e-91ac-7fbd741c52fa",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "name": "Sample goals name"
+      }
+    ],
+    "scorecards": [
+      {
+        "id": "0e471a99-4679-569e-b289-01e9eae1b8ae",
+        "plan_id": "e6588f29-9cd7-5f1e-91ac-7fbd741c52fa",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "name": "Sample scorecards name"
+      }
+    ],
+    "plan_search_index": [
+      {
+        "plan_id": "e6588f29-9cd7-5f1e-91ac-7fbd741c52fa"
+      }
+    ],
+    "evaluation_assignments": [
+      {
+        "id": "1fbd0dd2-7d1f-5902-80a7-ebf0221be5d8",
+        "subject_user_id": "02af070d-4e8a-543f-b9d5-4fbdda232c69",
+        "template_id": "7c234dd1-f86d-5d63-804e-1a095da906a6",
+        "cycle_id": "7555f44f-5c24-5ea2-87b7-f9739f239534",
+        "evaluator_user_id": "02af070d-4e8a-543f-b9d5-4fbdda232c69",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "bell_schedules": [
+      {
+        "id": "5826e237-75c4-5fce-8e0e-d0a4c13bf6e2",
+        "school_id": "a08e9a86-7bc6-5963-8689-a2b7499d2984",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "name": "Sample bell_schedules name"
+      }
+    ],
+    "bus_routes": [
+      {
+        "id": "2b59233a-1156-5bb1-b7c7-811d18d2e486",
+        "school_id": "a08e9a86-7bc6-5963-8689-a2b7499d2984",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "created_at": "2025-09-05T18:25:42Z",
+        "name": "Sample bus_routes name"
+      }
+    ],
+    "committees": [
+      {
+        "id": "b7d76103-9d9d-5c4d-a81e-b50a7e3b0339",
+        "school_id": "a08e9a86-7bc6-5963-8689-a2b7499d2984",
+        "organization_id": "00fe9a4d-239e-5839-9bc5-7b9667a3ed5e",
+        "created_at": "2025-09-05T18:25:42Z",
+        "status": "Sample committees status",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "name": "Sample committees name"
+      }
+    ],
+    "grade_scales": [
+      {
+        "id": "439a47cf-f089-528a-8aeb-bfd4c0438172",
+        "school_id": "a08e9a86-7bc6-5963-8689-a2b7499d2984",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "name": "Sample grade_scales name"
+      }
+    ],
+    "fees": [
+      {
+        "id": "be449363-6dd5-5ff6-bba5-ddaf1217f036",
+        "school_id": "a08e9a86-7bc6-5963-8689-a2b7499d2984",
+        "created_at": "2025-09-05T18:25:42Z",
+        "amount": 1.0,
+        "updated_at": "2025-09-05T18:25:42Z",
+        "name": "Sample fees name"
+      }
+    ],
+    "hr_employees": [
+      {
+        "id": "6cad28d3-a80b-5f37-8064-02e44b2abf7c",
+        "primary_school_id": "a08e9a86-7bc6-5963-8689-a2b7499d2984",
+        "department_segment_id": "a9dfa149-2865-559d-9a52-539dd9c5780c",
+        "person_id": "5c6ecd7f-1795-56cb-a251-533278674a9e",
+        "created_at": "2025-09-05T18:25:42Z",
+        "status": "Sample hr_employees status",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "employee_no": "Sample hr_employees employee_no"
+      }
+    ],
+    "rooms": [
+      {
+        "id": "491acd2f-985b-54af-a93b-863d571093bd",
+        "school_id": "a08e9a86-7bc6-5963-8689-a2b7499d2984",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "name": "Sample rooms name"
+      }
+    ],
+    "library_items": [
+      {
+        "id": "4d155a84-9909-5821-acd7-97f5223cb885",
+        "school_id": "a08e9a86-7bc6-5963-8689-a2b7499d2984",
+        "title": "Sample library_items title",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "grade_levels": [
+      {
+        "id": "af3081cb-c3c1-5eb5-a389-503df4d182ed",
+        "school_id": "a08e9a86-7bc6-5963-8689-a2b7499d2984",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "name": "Sample grade_levels name"
+      }
+    ],
+    "activities": [
+      {
+        "id": "717d7678-f92e-5bde-b584-3cc6919b9e10",
+        "school_id": "a08e9a86-7bc6-5963-8689-a2b7499d2984",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "is_active": "Sample activities is_active",
+        "name": "Sample activities name"
+      }
+    ],
+    "incidents": [
+      {
+        "id": "732bf460-db56-5704-b0ba-7cee3a979a62",
+        "behavior_code": "Sample behavior_codes code",
+        "school_id": "a08e9a86-7bc6-5963-8689-a2b7499d2984",
+        "created_at": "2025-09-05T18:25:42Z",
+        "occurred_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "academic_terms": [
+      {
+        "id": "241693b1-fb07-5cdf-9ab5-a16d02ac5d10",
+        "school_id": "a08e9a86-7bc6-5963-8689-a2b7499d2984",
+        "created_at": "2025-09-05T18:25:42Z",
+        "start_date": "2025-09-05",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "end_date": "2025-09-05",
+        "name": "Sample academic_terms name"
+      }
+    ],
+    "calendars": [
+      {
+        "id": "b2b3c208-63e3-5f42-b02f-d1f38e6fedc4",
+        "school_id": "a08e9a86-7bc6-5963-8689-a2b7499d2984",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "name": "Sample calendars name"
+      }
+    ],
+    "test_administrations": [
+      {
+        "id": "3a882ee0-47aa-5ebf-9ec9-aa2c077b12fe",
+        "test_id": "981e382e-b172-5eff-aaef-0cf154f5e15a",
+        "school_id": "a08e9a86-7bc6-5963-8689-a2b7499d2984",
+        "administration_date": "2025-09-05",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "projects": [
+      {
+        "id": "c318848e-a130-5984-af7f-67c25b7f77dc",
+        "school_id": "a08e9a86-7bc6-5963-8689-a2b7499d2984",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "created_at": "2025-09-05T18:25:42Z",
+        "name": "Sample projects name"
+      }
+    ],
+    "departments": [
+      {
+        "id": "94a49d9d-9d52-578c-a82c-2d748230946f",
+        "school_id": "a08e9a86-7bc6-5963-8689-a2b7499d2984",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "name": "Sample departments name"
+      }
+    ],
+    "facilities": [
+      {
+        "id": "0b0107d7-427e-5148-a354-aa5a4917df7e",
+        "school_id": "a08e9a86-7bc6-5963-8689-a2b7499d2984",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "name": "Sample facilities name",
+        "code": "Sample facilities code"
+      }
+    ],
+    "student_guardians": [
+      {
+        "id": "df28ebee-8ceb-5464-b48a-9e09d906d9b7",
+        "guardian_id": "5c8b8273-366e-554a-9f43-2cd7639df5de",
+        "student_id": "e7ad61df-58ea-5471-b0d4-a7259521d9ee",
+        "is_primary": "Sample student_guardians is_primary",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "section504_plans": [
+      {
+        "id": "a4ea094d-e294-509d-b1ab-d9a4993d7e23",
+        "student_id": "e7ad61df-58ea-5471-b0d4-a7259521d9ee",
+        "created_at": "2025-09-05T18:25:42Z",
+        "effective_start": "2025-09-05",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "nurse_visits": [
+      {
+        "id": "cfec8ed6-3bb0-5ad4-8e50-cf3942b6d5df",
+        "student_id": "e7ad61df-58ea-5471-b0d4-a7259521d9ee",
+        "visited_at": "2025-09-05T18:25:42Z",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "ell_plans": [
+      {
+        "id": "f3d9702f-ab3d-526f-9f1f-6921394e800b",
+        "student_id": "e7ad61df-58ea-5471-b0d4-a7259521d9ee",
+        "created_at": "2025-09-05T18:25:42Z",
+        "effective_start": "2025-09-05",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "meal_eligibility_statuses": [
+      {
+        "id": "dc7f145f-de38-501d-b238-d479fbe82fbd",
+        "student_id": "e7ad61df-58ea-5471-b0d4-a7259521d9ee",
+        "created_at": "2025-09-05T18:25:42Z",
+        "effective_start": "2025-09-05",
+        "status": "Sample meal_eligibility_statuses status",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "student_program_enrollments": [
+      {
+        "id": "8d1184d9-3f1d-5138-9f2f-8ac551282865",
+        "student_id": "e7ad61df-58ea-5471-b0d4-a7259521d9ee",
+        "program_name": "Sample student_program_enrollments program_name",
+        "created_at": "2025-09-05T18:25:42Z",
+        "start_date": "2025-09-05",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "immunization_records": [
+      {
+        "id": "abf9c47f-3f56-5ee8-8a7b-175e593ad2d0",
+        "immunization_id": "98485b31-b111-5497-bd35-52a1ad793f13",
+        "student_id": "e7ad61df-58ea-5471-b0d4-a7259521d9ee",
+        "date_administered": "2025-09-05",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "meal_accounts": [
+      {
+        "id": "8fa891b4-ed33-52a0-a22b-d5a7b5b60367",
+        "student_id": "e7ad61df-58ea-5471-b0d4-a7259521d9ee",
+        "created_at": "2025-09-05T18:25:42Z",
+        "balance": 1.0,
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "special_education_cases": [
+      {
+        "id": "e3ca3408-3c35-50dd-8994-b59c5e66f051",
+        "student_id": "e7ad61df-58ea-5471-b0d4-a7259521d9ee",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "medication_administrations": [
+      {
+        "id": "42d701a8-376a-53cd-90b7-2abed388e07b",
+        "student_id": "e7ad61df-58ea-5471-b0d4-a7259521d9ee",
+        "medication_id": "3ab4eb58-7ee4-51eb-b8a7-83f481cba0e9",
+        "administered_at": "2025-09-05T18:25:42Z",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "health_profiles": [
+      {
+        "id": "c6e6520f-9498-5fd2-b710-7f0a759543d0",
+        "student_id": "e7ad61df-58ea-5471-b0d4-a7259521d9ee",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "student_school_enrollments": [
+      {
+        "id": "5d1dcadb-69f0-50a4-a8a8-d567036a565f",
+        "student_id": "e7ad61df-58ea-5471-b0d4-a7259521d9ee",
+        "school_id": "a08e9a86-7bc6-5963-8689-a2b7499d2984",
+        "created_at": "2025-09-05T18:25:42Z",
+        "status": "Sample student_school_enrollments status",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "entry_date": "2025-09-05"
+      }
+    ],
+    "attendance_daily_summary": [
+      {
+        "id": "1e18d5a8-c486-5077-b929-295fac4487ac",
+        "student_id": "e7ad61df-58ea-5471-b0d4-a7259521d9ee",
+        "tardy_minutes": 1,
+        "present_minutes": 1,
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "absent_minutes": 1,
+        "date": "2025-09-05"
+      }
+    ],
+    "family_portal_access": [
+      {
+        "id": "023e5a15-920b-599b-b5c0-7e6c86e02e2b",
+        "guardian_id": "5c8b8273-366e-554a-9f43-2cd7639df5de",
+        "student_id": "e7ad61df-58ea-5471-b0d4-a7259521d9ee",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "behavior_interventions": [
+      {
+        "id": "6c9bfb80-ba78-5484-89c3-650ab9db86fc",
+        "student_id": "e7ad61df-58ea-5471-b0d4-a7259521d9ee",
+        "intervention": "Sample behavior_interventions intervention",
+        "created_at": "2025-09-05T18:25:42Z",
+        "start_date": "2025-09-05",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "invoices": [
+      {
+        "id": "6b60e27f-4f2c-5528-84f0-7a09a26a09c8",
+        "student_id": "e7ad61df-58ea-5471-b0d4-a7259521d9ee",
+        "issued_on": "2025-09-05",
+        "created_at": "2025-09-05T18:25:42Z",
+        "status": "Sample invoices status",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "waivers": [
+      {
+        "id": "5aac5bca-aadd-5019-bab4-b736f3b82679",
+        "student_id": "e7ad61df-58ea-5471-b0d4-a7259521d9ee",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "audit_logs": [
+      {
+        "id": "83b2ae1a-df33-5540-9c17-ffc5c899d1c8",
+        "actor_id": "46e35108-5d74-5494-babd-e6a24ef0b80c",
+        "entity_type": "Sample audit_logs entity_type",
+        "entity_id": "Sample audit_logs entity_id",
+        "created_at": "2025-09-05T18:25:42Z",
+        "occurred_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "action": "Sample audit_logs action"
+      }
+    ],
+    "messages": [
+      {
+        "id": "3b1794f2-e0f0-5dd8-87d0-30bcf016a481",
+        "sender_id": "46e35108-5d74-5494-babd-e6a24ef0b80c",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "created_at": "2025-09-05T18:25:42Z",
+        "channel": "Sample messages channel"
+      }
+    ],
+    "evaluation_reports": [
+      {
+        "id": "b5fdd2b4-b398-5aa4-a77b-396ef757d8c5",
+        "cycle_id": "7555f44f-5c24-5ea2-87b7-f9739f239534",
+        "file_id": "47ca7254-c4fb-5e1a-aefa-daef8be41f95",
+        "generated_at": "2025-09-05T18:25:42Z",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "journal_entry_lines": [
+      {
+        "id": "f631fba8-0a50-5cd5-b555-50e70ef62dff",
+        "account_id": "0b1a3d2e-8794-5f2a-9ca9-caf54aaa100f",
+        "entry_id": "49e3c460-b21c-5479-b8ca-3d907dc476fd",
+        "credit": 1.0,
+        "line_no": 1,
+        "created_at": "2025-09-05T18:25:42Z",
+        "debit": 1.0,
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "payroll_runs": [
+      {
+        "id": "909cea3a-4bf9-56c7-afba-f7bb899ba4c6",
+        "pay_period_id": "a0c69bb3-80af-5a49-8808-ce78cc3aea46",
+        "posted_entry_id": "49e3c460-b21c-5479-b8ca-3d907dc476fd",
+        "created_by_user_id": "02af070d-4e8a-543f-b9d5-4fbdda232c69",
+        "created_at": "2025-09-05T18:25:42Z",
+        "status": "Sample payroll_runs status",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "run_no": 1
+      }
+    ],
+    "post_attachments": [
+      {
+        "id": "080cb557-b51c-530b-9ea8-4f51f63d08f0",
+        "post_id": "533a9821-a941-5913-9e4d-b7d6a2a248c2",
+        "file_id": "47ca7254-c4fb-5e1a-aefa-daef8be41f95"
+      }
+    ],
+    "deliveries": [
+      {
+        "id": "0a468326-137d-5600-bf6e-49da1dc7c8bf",
+        "user_id": "02af070d-4e8a-543f-b9d5-4fbdda232c69",
+        "post_id": "533a9821-a941-5913-9e4d-b7d6a2a248c2",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "policy_workflow_steps": [
+      {
+        "id": "d19595b2-97c5-514f-824c-6ef497e40908",
+        "workflow_id": "048c4720-455a-5b91-9366-5b68b49df2b8",
+        "step_no": 1,
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "approver_type": "Sample policy_workflow_steps approver_type"
+      }
+    ],
+    "policy_publications": [
+      {
+        "policy_version_id": "7914439f-cade-53d8-8bb3-611b0ce16b6a",
+        "published_at": "2025-09-05T18:25:42Z",
+        "is_current": true
+      }
+    ],
+    "policy_files": [
+      {
+        "id": "1eecbbc1-99d5-5901-8f5f-17a49d03b0a9",
+        "file_id": "47ca7254-c4fb-5e1a-aefa-daef8be41f95",
+        "policy_version_id": "7914439f-cade-53d8-8bb3-611b0ce16b6a",
+        "created_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "policy_legal_refs": [
+      {
+        "id": "860b5f8d-d3bc-54e8-b7d1-67fdd3818f69",
+        "policy_version_id": "7914439f-cade-53d8-8bb3-611b0ce16b6a",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "citation": "Sample policy_legal_refs citation"
+      }
+    ],
+    "policy_comments": [
+      {
+        "id": "7ddf8555-b429-515a-9f13-e191cfdb21de",
+        "user_id": "02af070d-4e8a-543f-b9d5-4fbdda232c69",
+        "policy_version_id": "7914439f-cade-53d8-8bb3-611b0ce16b6a",
+        "text": "Sample policy_comments text",
+        "visibility": "Sample policy_comments visibility",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "objectives": [
+      {
+        "id": "67057db6-c50c-550b-ae31-70a2c42c279b",
+        "goal_id": "d77ca3a9-6d17-56de-9462-b0c7a4f23bc1",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "name": "Sample objectives name"
+      }
+    ],
+    "evaluation_files": [
+      {
+        "id": "c1f900d3-287a-5ec6-89ea-c3bb2715177c",
+        "assignment_id": "1fbd0dd2-7d1f-5902-80a7-ebf0221be5d8",
+        "file_id": "47ca7254-c4fb-5e1a-aefa-daef8be41f95"
+      }
+    ],
+    "evaluation_signoffs": [
+      {
+        "id": "b1210bad-2192-5e1c-a68e-ca8434e1a343",
+        "assignment_id": "1fbd0dd2-7d1f-5902-80a7-ebf0221be5d8",
+        "signer_id": "02af070d-4e8a-543f-b9d5-4fbdda232c69",
+        "signed_at": "2025-09-05T18:25:42Z",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "evaluation_responses": [
+      {
+        "id": "2fccb8ce-a18a-5927-a99e-3a1a7ae78c28",
+        "assignment_id": "1fbd0dd2-7d1f-5902-80a7-ebf0221be5d8",
+        "question_id": "52a90f3f-c982-5de8-905a-822918c4771c",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "periods": [
+      {
+        "id": "04bbe899-ce6f-5e46-bb80-9b89d6ff473a",
+        "bell_schedule_id": "5826e237-75c4-5fce-8e0e-d0a4c13bf6e2",
+        "created_at": "2025-09-05T18:25:42Z",
+        "end_time": "X-periods-end_time",
+        "start_time": "X-periods-start_time",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "name": "Sample periods name"
+      }
+    ],
+    "bus_stops": [
+      {
+        "id": "2eb15ded-86e6-5925-b81e-7763d2b7578a",
+        "route_id": "2b59233a-1156-5bb1-b7c7-811d18d2e486",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "name": "Sample bus_stops name"
+      }
+    ],
+    "memberships": [
+      {
+        "id": "49dcbe7f-6225-5a0c-8322-ca476a4e9a1b",
+        "committee_id": "b7d76103-9d9d-5c4d-a81e-b50a7e3b0339",
+        "person_id": "5c6ecd7f-1795-56cb-a251-533278674a9e",
+        "voting_member": true,
+        "updated_at": "2025-09-05T18:25:42Z",
+        "created_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "meetings": [
+      {
+        "id": "a1382238-1ce3-5f6f-9ac1-6c66e74a4ee1",
+        "governing_body_id": "a9e1cb6c-23ca-5ff0-86f7-ea734aaf8c22",
+        "org_id": "00fe9a4d-239e-5839-9bc5-7b9667a3ed5e",
+        "committee_id": "b7d76103-9d9d-5c4d-a81e-b50a7e3b0339",
+        "title": "Sample meetings title",
+        "starts_at": "2025-09-05T18:25:42Z",
+        "scheduled_at": "2025-09-05T18:25:42Z",
+        "is_public": true,
+        "created_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "grade_scale_bands": [
+      {
+        "id": "52a21aaf-0c1f-53af-abc7-fdcc2079a417",
+        "grade_scale_id": "439a47cf-f089-528a-8aeb-bfd4c0438172",
+        "label": "Sample grade_scale_bands label",
+        "max_value": 1.0,
+        "created_at": "2025-09-05T18:25:42Z",
+        "min_value": 1.0,
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "hr_position_assignments": [
+      {
+        "id": "a5b3d00c-1402-5e98-8de0-01fd4a472077",
+        "position_id": "802a1af2-dfe2-514d-bb11-93dd54128230",
+        "employee_id": "6cad28d3-a80b-5f37-8064-02e44b2abf7c",
+        "created_at": "2025-09-05T18:25:42Z",
+        "start_date": "2025-09-05",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "library_checkouts": [
+      {
+        "id": "efd4bed0-a085-5bcc-81b7-fa310ad54f26",
+        "item_id": "4d155a84-9909-5821-acd7-97f5223cb885",
+        "person_id": "5c6ecd7f-1795-56cb-a251-533278674a9e",
+        "checked_out_on": "2025-09-05",
+        "due_on": "2025-09-05",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "library_holds": [
+      {
+        "id": "d2cd5596-ba3e-5d5e-b328-066efe0452d3",
+        "person_id": "5c6ecd7f-1795-56cb-a251-533278674a9e",
+        "item_id": "4d155a84-9909-5821-acd7-97f5223cb885",
+        "placed_on": "2025-09-05",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "events": [
+      {
+        "id": "8e05f034-722e-5926-be91-43763ea26c41",
+        "activity_id": "717d7678-f92e-5bde-b584-3cc6919b9e10",
+        "school_id": "a08e9a86-7bc6-5963-8689-a2b7499d2984",
+        "title": "Sample events title",
+        "starts_at": "2025-09-05T18:25:42Z",
+        "created_at": "2025-09-05T18:25:42Z",
+        "status": "Sample events status",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "incident_participants": [
+      {
+        "id": "222e0218-1556-5b8b-9f28-04dfc7e13f56",
+        "incident_id": "732bf460-db56-5704-b0ba-7cee3a979a62",
+        "person_id": "5c6ecd7f-1795-56cb-a251-533278674a9e",
+        "role": "Sample incident_participants role",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "gpa_calculations": [
+      {
+        "id": "87c68c1a-fdc5-594a-98fa-cb9b66e0a423",
+        "student_id": "e7ad61df-58ea-5471-b0d4-a7259521d9ee",
+        "term_id": "241693b1-fb07-5cdf-9ab5-a16d02ac5d10",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "gpa": 1.0
+      }
+    ],
+    "grading_periods": [
+      {
+        "id": "19855e5e-3a8e-5f57-8c87-3df977a651da",
+        "term_id": "241693b1-fb07-5cdf-9ab5-a16d02ac5d10",
+        "created_at": "2025-09-05T18:25:42Z",
+        "start_date": "2025-09-05",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "end_date": "2025-09-05",
+        "name": "Sample grading_periods name"
+      }
+    ],
+    "class_ranks": [
+      {
+        "id": "a9d56672-8c1a-5215-ac0f-6cc066840f8e",
+        "term_id": "241693b1-fb07-5cdf-9ab5-a16d02ac5d10",
+        "student_id": "e7ad61df-58ea-5471-b0d4-a7259521d9ee",
+        "school_id": "a08e9a86-7bc6-5963-8689-a2b7499d2984",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "rank": 1
+      }
+    ],
+    "report_cards": [
+      {
+        "id": "cb35fee7-c1c0-54ac-836e-3d5066900ff8",
+        "student_id": "e7ad61df-58ea-5471-b0d4-a7259521d9ee",
+        "term_id": "241693b1-fb07-5cdf-9ab5-a16d02ac5d10",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "calendar_days": [
+      {
+        "id": "7e7fafe9-3a64-5dd2-8a52-f7b6cdeb55f7",
+        "calendar_id": "b2b3c208-63e3-5f42-b02f-d1f38e6fedc4",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "day_type": "Sample calendar_days day_type",
+        "created_at": "2025-09-05T18:25:42Z",
+        "date": "2025-09-05"
+      }
+    ],
+    "test_results": [
+      {
+        "id": "73413023-068d-53ee-bd60-99d65a7b35e3",
+        "administration_id": "3a882ee0-47aa-5ebf-9ec9-aa2c077b12fe",
+        "student_id": "e7ad61df-58ea-5471-b0d4-a7259521d9ee",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "project_tasks": [
+      {
+        "id": "54c7a163-d964-5d61-924c-ccb481f57ef8",
+        "project_id": "c318848e-a130-5984-af7f-67c25b7f77dc",
+        "assignee_user_id": "02af070d-4e8a-543f-b9d5-4fbdda232c69",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "name": "Sample project_tasks name"
+      }
+    ],
+    "subjects": [
+      {
+        "id": "4d281ced-da7b-5c61-965b-5d1ce0e71830",
+        "department_id": "94a49d9d-9d52-578c-a82c-2d748230946f",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "created_at": "2025-09-05T18:25:42Z",
+        "name": "Sample subjects name",
+        "code": "Sample subjects code"
+      }
+    ],
+    "department_position_index": [
+      {
+        "id": "afe7e906-decf-5a4b-8568-18cf18d0a157",
+        "department_id": "94a49d9d-9d52-578c-a82c-2d748230946f",
+        "position_id": "802a1af2-dfe2-514d-bb11-93dd54128230",
+        "created_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "buildings": [
+      {
+        "id": "b966627f-da21-5522-9d86-88d0cdf22732",
+        "facility_id": "0b0107d7-427e-5148-a354-aa5a4917df7e",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "name": "Sample buildings name",
+        "code": "Sample buildings code"
+      }
+    ],
+    "meal_transactions": [
+      {
+        "id": "b8448cef-1c28-569e-bd44-3bafce7beb7f",
+        "account_id": "8fa891b4-ed33-52a0-a22b-d5a7b5b60367",
+        "transacted_at": "2025-09-05T18:25:42Z",
+        "created_at": "2025-09-05T18:25:42Z",
+        "amount": 1.0,
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "iep_plans": [
+      {
+        "id": "070883ae-7f26-52f2-ba21-6ec3eea9bda7",
+        "special_ed_case_id": "e3ca3408-3c35-50dd-8994-b59c5e66f051",
+        "created_at": "2025-09-05T18:25:42Z",
+        "effective_start": "2025-09-05",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "payments": [
+      {
+        "id": "e6c4621f-764e-5321-867f-b5e81ec48c7a",
+        "invoice_id": "6b60e27f-4f2c-5528-84f0-7a09a26a09c8",
+        "paid_on": "2025-09-05",
+        "created_at": "2025-09-05T18:25:42Z",
+        "amount": 1.0,
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "message_recipients": [
+      {
+        "id": "7085e4cd-450b-5a73-a88a-b7b75f1cc277",
+        "person_id": "5c6ecd7f-1795-56cb-a251-533278674a9e",
+        "message_id": "3b1794f2-e0f0-5dd8-87d0-30bcf016a481",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "paychecks": [
+      {
+        "id": "b7741fc8-5be5-545c-a04a-f11a2e77b411",
+        "run_id": "909cea3a-4bf9-56c7-afba-f7bb899ba4c6",
+        "employee_id": "6cad28d3-a80b-5f37-8064-02e44b2abf7c",
+        "gross_pay": 1.0,
+        "created_at": "2025-09-05T18:25:42Z",
+        "net_pay": 1.0,
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "employee_deductions": [
+      {
+        "id": "a1584a79-789d-561b-825f-0215202c1049",
+        "deduction_code_id": "b17a82dc-e27c-53c9-a0b7-f97b1daf26f9",
+        "employee_id": "6cad28d3-a80b-5f37-8064-02e44b2abf7c",
+        "run_id": "909cea3a-4bf9-56c7-afba-f7bb899ba4c6",
+        "created_at": "2025-09-05T18:25:42Z",
+        "amount": 1.0,
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "employee_earnings": [
+      {
+        "id": "3ddbadcc-903f-5d30-afac-db4be731b76e",
+        "run_id": "909cea3a-4bf9-56c7-afba-f7bb899ba4c6",
+        "employee_id": "6cad28d3-a80b-5f37-8064-02e44b2abf7c",
+        "earning_code_id": "da1f5630-b3f9-5d8f-967e-ccb69b022687",
+        "created_at": "2025-09-05T18:25:42Z",
+        "amount": 1.0,
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "policy_approvals": [
+      {
+        "id": "7efc4afd-2bc1-51e1-873a-a6a61939ea69",
+        "policy_version_id": "7914439f-cade-53d8-8bb3-611b0ce16b6a",
+        "approver_id": "02af070d-4e8a-543f-b9d5-4fbdda232c69",
+        "step_id": "d19595b2-97c5-514f-824c-6ef497e40908",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "initiatives": [
+      {
+        "id": "fcaf8a01-a991-596a-8aff-d846c6aabfa3",
+        "objective_id": "67057db6-c50c-550b-ae31-70a2c42c279b",
+        "owner_id": "02af070d-4e8a-543f-b9d5-4fbdda232c69",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "name": "Sample initiatives name"
+      }
+    ],
+    "kpis": [
+      {
+        "id": "3678ef1c-6d62-564f-9843-e226e4053870",
+        "goal_id": "d77ca3a9-6d17-56de-9462-b0c7a4f23bc1",
+        "objective_id": "67057db6-c50c-550b-ae31-70a2c42c279b",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "created_at": "2025-09-05T18:25:42Z",
+        "name": "Sample kpis name"
+      }
+    ],
+    "student_transportation_assignments": [
+      {
+        "id": "c3fd11e6-396a-54ef-bd2d-e77d46794406",
+        "route_id": "2b59233a-1156-5bb1-b7c7-811d18d2e486",
+        "student_id": "e7ad61df-58ea-5471-b0d4-a7259521d9ee",
+        "stop_id": "2eb15ded-86e6-5925-b81e-7763d2b7578a",
+        "created_at": "2025-09-05T18:25:42Z",
+        "effective_start": "2025-09-05",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "bus_stop_times": [
+      {
+        "id": "fb8b510e-c135-5147-af5f-f32b66b99cc0",
+        "route_id": "2b59233a-1156-5bb1-b7c7-811d18d2e486",
+        "stop_id": "2eb15ded-86e6-5925-b81e-7763d2b7578a",
+        "arrival_time": "X-bus_stop_times-arrival_time",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "minutes": [
+      {
+        "id": "2cfc467e-0b01-5686-b1ec-93efa3c3ffd5",
+        "meeting_id": "a1382238-1ce3-5f6f-9ac1-6c66e74a4ee1",
+        "author_id": "02af070d-4e8a-543f-b9d5-4fbdda232c69",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "created_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "agenda_items": [
+      {
+        "id": "e3b7f0d9-f7dd-5777-b5ee-2edce8f21c58",
+        "meeting_id": "a1382238-1ce3-5f6f-9ac1-6c66e74a4ee1",
+        "parent_id": "e3b7f0d9-f7dd-5777-b5ee-2edce8f21c58",
+        "title": "Sample agenda_items title",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "position": 1
+      }
+    ],
+    "meeting_permissions": [
+      {
+        "id": "a1429986-68be-5c88-a005-8585331f4081",
+        "meeting_id": "a1382238-1ce3-5f6f-9ac1-6c66e74a4ee1",
+        "user_id": "02af070d-4e8a-543f-b9d5-4fbdda232c69",
+        "can_view": true,
+        "created_at": "2025-09-05T18:25:42Z",
+        "can_manage": "Sample meeting_permissions can_manage",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "can_edit": "Sample meeting_permissions can_edit"
+      }
+    ],
+    "resolutions": [
+      {
+        "id": "e8824936-363e-5228-be94-8c9693177848",
+        "meeting_id": "a1382238-1ce3-5f6f-9ac1-6c66e74a4ee1",
+        "title": "Sample resolutions title",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "meeting_files": [
+      {
+        "id": "cb9ecd7c-16d8-5ac2-9579-62207bba9126",
+        "file_id": "47ca7254-c4fb-5e1a-aefa-daef8be41f95",
+        "meeting_id": "a1382238-1ce3-5f6f-9ac1-6c66e74a4ee1"
+      }
+    ],
+    "attendance": [
+      {
+        "id": "9b4ab82d-a685-5143-9c8a-a52fd1bc5c0d",
+        "meeting_id": "a1382238-1ce3-5f6f-9ac1-6c66e74a4ee1",
+        "user_id": "02af070d-4e8a-543f-b9d5-4fbdda232c69"
+      }
+    ],
+    "meeting_search_index": [
+      {
+        "meeting_id": "a1382238-1ce3-5f6f-9ac1-6c66e74a4ee1"
+      }
+    ],
+    "meeting_publications": [
+      {
+        "meeting_id": "a1382238-1ce3-5f6f-9ac1-6c66e74a4ee1",
+        "published_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "publications": [
+      {
+        "id": "f4a0056e-8a68-51d2-af1d-dbec20fde969",
+        "meeting_id": "a1382238-1ce3-5f6f-9ac1-6c66e74a4ee1",
+        "is_final": "Sample publications is_final",
+        "created_at": "2025-09-05T18:25:42Z",
+        "published_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "orders": [
+      {
+        "id": "3ed7049e-b232-56a8-9332-bf95e62728db",
+        "event_id": "8e05f034-722e-5926-be91-43763ea26c41",
+        "purchaser_user_id": "02af070d-4e8a-543f-b9d5-4fbdda232c69",
+        "total_cents": 1,
+        "created_at": "2025-09-05T18:25:42Z",
+        "currency": "Sample orders currency",
+        "status": "Sample orders status",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "ticket_types": [
+      {
+        "id": "edd7aa44-5c47-59c5-8884-e04e9fc2e02e",
+        "event_id": "8e05f034-722e-5926-be91-43763ea26c41",
+        "price_cents": 1,
+        "created_at": "2025-09-05T18:25:42Z",
+        "quantity_total": 1,
+        "updated_at": "2025-09-05T18:25:42Z",
+        "quantity_sold": 1,
+        "name": "Sample ticket_types name"
+      }
+    ],
+    "consequences": [
+      {
+        "id": "3b3a1946-408b-5e4b-85bc-c91afe8d55b9",
+        "participant_id": "222e0218-1556-5b8b-9f28-04dfc7e13f56",
+        "consequence_code": "Sample consequence_types code",
+        "incident_id": "732bf460-db56-5704-b0ba-7cee3a979a62",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "courses": [
+      {
+        "id": "d611e635-a211-55de-9c45-7ae777929ef0",
+        "school_id": "a08e9a86-7bc6-5963-8689-a2b7499d2984",
+        "subject_id": "4d281ced-da7b-5c61-965b-5d1ce0e71830",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "name": "Sample courses name",
+        "code": "Sample courses code"
+      }
+    ],
+    "leases": [
+      {
+        "id": "579f10e2-0b93-5e01-9580-354e3a820574",
+        "building_id": "b966627f-da21-5522-9d86-88d0cdf22732",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "created_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "floors": [
+      {
+        "id": "005bddd0-aff4-5867-af28-68511e66c392",
+        "building_id": "b966627f-da21-5522-9d86-88d0cdf22732",
+        "level_code": "Sample floors level_code",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "name": "Sample floors name"
+      }
+    ],
+    "accommodations": [
+      {
+        "id": "91723a39-03ed-58d9-b730-45db103e74e4",
+        "iep_plan_id": "070883ae-7f26-52f2-ba21-6ec3eea9bda7",
+        "description": "Sample accommodations description",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "kpi_datapoints": [
+      {
+        "id": "055cb812-d338-50b7-a508-844eb5d32031",
+        "kpi_id": "3678ef1c-6d62-564f-9843-e226e4053870",
+        "value": 1.0,
+        "created_at": "2025-09-05T18:25:42Z",
+        "as_of": "2025-09-05",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "scorecard_kpis": [
+      {
+        "id": "77ca05b9-060a-5989-afc6-751e549e9c68",
+        "scorecard_id": "0e471a99-4679-569e-b289-01e9eae1b8ae",
+        "kpi_id": "3678ef1c-6d62-564f-9843-e226e4053870"
+      }
+    ],
+    "plan_alignments": [
+      {
+        "id": "10f90426-377b-51b2-9126-805496e29191",
+        "agenda_item_id": "e3b7f0d9-f7dd-5777-b5ee-2edce8f21c58",
+        "objective_id": "67057db6-c50c-550b-ae31-70a2c42c279b",
+        "policy_id": "e0ba17b2-e0ca-5d31-a22a-478a04c5a0a4",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "created_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "motions": [
+      {
+        "id": "60942c36-d1b9-5666-9313-046fb2887ccd",
+        "moved_by_id": "02af070d-4e8a-543f-b9d5-4fbdda232c69",
+        "agenda_item_id": "e3b7f0d9-f7dd-5777-b5ee-2edce8f21c58",
+        "seconded_by_id": "02af070d-4e8a-543f-b9d5-4fbdda232c69",
+        "text": "Sample motions text",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "agenda_item_approvals": [
+      {
+        "id": "7366bcf0-f458-5c6f-a924-cf283a9ca6f0",
+        "item_id": "e3b7f0d9-f7dd-5777-b5ee-2edce8f21c58",
+        "approver_id": "02af070d-4e8a-543f-b9d5-4fbdda232c69",
+        "step_id": "a71820b4-acea-5ee1-9c04-899be78147df",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "agenda_item_files": [
+      {
+        "id": "19a3c6f0-728e-5c5e-aafb-8569e0a86813",
+        "agenda_item_id": "e3b7f0d9-f7dd-5777-b5ee-2edce8f21c58",
+        "file_id": "47ca7254-c4fb-5e1a-aefa-daef8be41f95"
+      }
+    ],
+    "tickets": [
+      {
+        "id": "945fff71-1877-5356-be9d-efb29731ae7b",
+        "ticket_type_id": "edd7aa44-5c47-59c5-8884-e04e9fc2e02e",
+        "order_id": "3ed7049e-b232-56a8-9332-bf95e62728db",
+        "holder_person_id": "5c6ecd7f-1795-56cb-a251-533278674a9e",
+        "price_cents": 1,
+        "issued_at": "2025-09-05T18:25:42Z",
+        "created_at": "2025-09-05T18:25:42Z",
+        "serial_no": 1,
+        "status": "Sample tickets status",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "order_line_items": [
+      {
+        "id": "55c18ecd-ddce-5fee-b160-60246645c548",
+        "order_id": "3ed7049e-b232-56a8-9332-bf95e62728db",
+        "ticket_type_id": "edd7aa44-5c47-59c5-8884-e04e9fc2e02e",
+        "created_at": "2025-09-05T18:25:42Z",
+        "quantity": 1,
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "course_prerequisites": [
+      {
+        "id": "61f25887-22ac-55f4-a169-2ce9bc9a9b07",
+        "prereq_course_id": "d611e635-a211-55de-9c45-7ae777929ef0",
+        "course_id": "d611e635-a211-55de-9c45-7ae777929ef0",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "course_sections": [
+      {
+        "id": "5e2a2f65-3b88-5985-a974-d53e2d78c0ed",
+        "course_id": "d611e635-a211-55de-9c45-7ae777929ef0",
+        "term_id": "241693b1-fb07-5cdf-9ab5-a16d02ac5d10",
+        "school_id": "a08e9a86-7bc6-5963-8689-a2b7499d2984",
+        "section_number": "Sample course_sections section_number",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "transcript_lines": [
+      {
+        "id": "1ceab282-1d69-51ee-b798-13634eb833ab",
+        "course_id": "d611e635-a211-55de-9c45-7ae777929ef0",
+        "term_id": "241693b1-fb07-5cdf-9ab5-a16d02ac5d10",
+        "student_id": "e7ad61df-58ea-5471-b0d4-a7259521d9ee",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "spaces": [
+      {
+        "id": "c2251d74-598c-5fd9-8837-257402edc906",
+        "floor_id": "005bddd0-aff4-5867-af28-68511e66c392",
+        "building_id": "b966627f-da21-5522-9d86-88d0cdf22732",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "code": "Sample spaces code",
+        "name": "Sample spaces name"
+      }
+    ],
+    "votes": [
+      {
+        "id": "96893145-1256-5066-8041-ce8e0379953e",
+        "motion_id": "60942c36-d1b9-5666-9313-046fb2887ccd",
+        "voter_id": "02af070d-4e8a-543f-b9d5-4fbdda232c69",
+        "value": "Sample votes value",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "ticket_scans": [
+      {
+        "id": "dd38b1e6-6da1-5d0b-b0e0-f710c40ec22e",
+        "scanned_by_user_id": "02af070d-4e8a-543f-b9d5-4fbdda232c69",
+        "ticket_id": "945fff71-1877-5356-be9d-efb29731ae7b",
+        "scanned_at": "2025-09-05T18:25:42Z",
+        "created_at": "2025-09-05T18:25:42Z",
+        "result": "Sample ticket_scans result",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "scan_results": [
+      {
+        "id": "fa23038f-a02f-543f-b6b4-bdfeca40eb60",
+        "ticket_id": "945fff71-1877-5356-be9d-efb29731ae7b",
+        "message": "Sample scan_results message",
+        "ok": true,
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "assignment_categories": [
+      {
+        "id": "24ea5a52-a803-53c5-a1c6-f43fc2123de3",
+        "section_id": "5e2a2f65-3b88-5985-a974-d53e2d78c0ed",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "name": "Sample assignment_categories name"
+      }
+    ],
+    "student_section_enrollments": [
+      {
+        "id": "b7f09bb4-76ce-5460-a71f-2fc0df8463f1",
+        "student_id": "e7ad61df-58ea-5471-b0d4-a7259521d9ee",
+        "section_id": "5e2a2f65-3b88-5985-a974-d53e2d78c0ed",
+        "added_on": "2025-09-05",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "section_room_assignments": [
+      {
+        "id": "0c2ec153-85a1-56aa-bf17-74ecfddba050",
+        "room_id": "491acd2f-985b-54af-a93b-863d571093bd",
+        "section_id": "5e2a2f65-3b88-5985-a974-d53e2d78c0ed",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "final_grades": [
+      {
+        "id": "f45abb2e-699b-5283-9d1f-1204be097da6",
+        "student_id": "e7ad61df-58ea-5471-b0d4-a7259521d9ee",
+        "section_id": "5e2a2f65-3b88-5985-a974-d53e2d78c0ed",
+        "grading_period_id": "19855e5e-3a8e-5f57-8c87-3df977a651da",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "section_meetings": [
+      {
+        "id": "bf697726-5438-53dd-a4d0-623800fdc6b5",
+        "period_id": "04bbe899-ce6f-5e46-bb80-9b89d6ff473a",
+        "room_id": "491acd2f-985b-54af-a93b-863d571093bd",
+        "section_id": "5e2a2f65-3b88-5985-a974-d53e2d78c0ed",
+        "day_of_week": 1,
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "teacher_section_assignments": [
+      {
+        "id": "cb3731dc-685d-5901-a386-655018ef0e39",
+        "staff_id": "1bb20c8c-889b-5b1c-b225-3408cec07866",
+        "section_id": "5e2a2f65-3b88-5985-a974-d53e2d78c0ed",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "created_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "move_orders": [
+      {
+        "id": "2b03da7d-fcf9-520b-96ba-6d5a70a2c6aa",
+        "person_id": "02af070d-4e8a-543f-b9d5-4fbdda232c69",
+        "from_space_id": "c2251d74-598c-5fd9-8837-257402edc906",
+        "project_id": "c318848e-a130-5984-af7f-67c25b7f77dc",
+        "to_space_id": "c2251d74-598c-5fd9-8837-257402edc906",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "created_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "space_reservations": [
+      {
+        "id": "0e5a99c9-8cf7-5405-8458-e88f6a71b747",
+        "booked_by_user_id": "02af070d-4e8a-543f-b9d5-4fbdda232c69",
+        "space_id": "c2251d74-598c-5fd9-8837-257402edc906",
+        "end_at": "2025-09-05T18:25:42Z",
+        "start_at": "2025-09-05T18:25:42Z",
+        "created_at": "2025-09-05T18:25:42Z",
+        "status": "Sample space_reservations status",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "part_locations": [
+      {
+        "id": "8c235ca6-ff61-5485-b235-79b928564139",
+        "part_id": "ff002436-6dc5-58db-a737-8e250e76c8e3",
+        "space_id": "c2251d74-598c-5fd9-8837-257402edc906",
+        "building_id": "b966627f-da21-5522-9d86-88d0cdf22732",
+        "qty_on_hand": 1.0,
+        "updated_at": "2025-09-05T18:25:42Z",
+        "created_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "assets": [
+      {
+        "id": "c1c45de6-4bfb-5c8c-8213-9a4e356d6bef",
+        "building_id": "b966627f-da21-5522-9d86-88d0cdf22732",
+        "parent_asset_id": "c1c45de6-4bfb-5c8c-8213-9a4e356d6bef",
+        "space_id": "c2251d74-598c-5fd9-8837-257402edc906",
+        "tag": "Sample assets tag",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "assignments": [
+      {
+        "id": "4643cdb4-c00e-5535-869f-fcda7bd84abd",
+        "category_id": "24ea5a52-a803-53c5-a1c6-f43fc2123de3",
+        "section_id": "5e2a2f65-3b88-5985-a974-d53e2d78c0ed",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "name": "Sample assignments name"
+      }
+    ],
+    "attendance_events": [
+      {
+        "id": "ebecb32c-2dd6-5d13-8fdd-a227723568d9",
+        "student_id": "e7ad61df-58ea-5471-b0d4-a7259521d9ee",
+        "section_meeting_id": "bf697726-5438-53dd-a4d0-623800fdc6b5",
+        "code": "Sample attendance_codes code",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "date": "2025-09-05"
+      }
+    ],
+    "asset_parts": [
+      {
+        "id": "596bb255-5b12-5de6-82d0-77b574340936",
+        "part_id": "ff002436-6dc5-58db-a737-8e250e76c8e3",
+        "asset_id": "c1c45de6-4bfb-5c8c-8213-9a4e356d6bef",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "created_at": "2025-09-05T18:25:42Z",
+        "qty": 1.0
+      }
+    ],
+    "pm_plans": [
+      {
+        "id": "230241c4-0ad3-5713-910c-197b8fce0bfa",
+        "building_id": "b966627f-da21-5522-9d86-88d0cdf22732",
+        "asset_id": "c1c45de6-4bfb-5c8c-8213-9a4e356d6bef",
+        "created_at": "2025-09-05T18:25:42Z",
+        "active": true,
+        "updated_at": "2025-09-05T18:25:42Z",
+        "name": "Sample pm_plans name"
+      }
+    ],
+    "meters": [
+      {
+        "id": "cb7482f4-b79b-5042-b512-52184203b553",
+        "building_id": "b966627f-da21-5522-9d86-88d0cdf22732",
+        "asset_id": "c1c45de6-4bfb-5c8c-8213-9a4e356d6bef",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "created_at": "2025-09-05T18:25:42Z",
+        "name": "Sample meters name"
+      }
+    ],
+    "compliance_records": [
+      {
+        "id": "61fc009e-dab3-54b2-9156-30b8473d2195",
+        "building_id": "b966627f-da21-5522-9d86-88d0cdf22732",
+        "asset_id": "c1c45de6-4bfb-5c8c-8213-9a4e356d6bef",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "created_at": "2025-09-05T18:25:42Z",
+        "record_type": "Sample compliance_records record_type"
+      }
+    ],
+    "warranties": [
+      {
+        "id": "7a803302-9815-5d3e-b09d-e0c4c140cae8",
+        "vendor_id": "d3b33b9b-4289-5f0e-a7fa-ee0044358462",
+        "asset_id": "c1c45de6-4bfb-5c8c-8213-9a4e356d6bef",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "created_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "gradebook_entries": [
+      {
+        "id": "64752fea-0b8d-5f39-b792-054103c9b745",
+        "student_id": "e7ad61df-58ea-5471-b0d4-a7259521d9ee",
+        "assignment_id": "4643cdb4-c00e-5535-869f-fcda7bd84abd",
+        "created_at": "2025-09-05T18:25:42Z",
+        "late": "Sample gradebook_entries late",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "pm_work_generators": [
+      {
+        "id": "9231035d-ed9e-5f61-9abc-fcc1d02c55a4",
+        "pm_plan_id": "230241c4-0ad3-5713-910c-197b8fce0bfa",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "created_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "alignments": [
+      {
+        "id": "0aa749a5-e2ec-53f8-a90f-bfcb61eaff06",
+        "requirement_id": "389316c8-6605-5aaa-a9e2-76208de426bc",
+        "curriculum_version_id": "df36bb87-a986-583e-be86-7b185baeb5b6",
+        "alignment_level": "Sample alignments alignment_level",
+        "created_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "approvals": [
+      {
+        "id": "6502407c-c5d2-5fc7-b7ac-b56f1b03868f",
+        "proposal_id": "96c3e5db-d04c-51bc-a626-f0a466dcbbd3",
+        "association_id": "Sample approvals association_id",
+        "approved_at": "2025-09-05T18:25:42Z",
+        "status": "Sample approvals status",
+        "created_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "curricula": [
+      {
+        "id": "05f66fde-a950-545c-98f7-d8b31b8eed64",
+        "organization_id": "00fe9a4d-239e-5839-9bc5-7b9667a3ed5e",
+        "proposal_id": "96c3e5db-d04c-51bc-a626-f0a466dcbbd3",
+        "title": "Sample curricula title",
+        "status": "Sample curricula status",
+        "name": "Sample curricula name",
+        "created_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "curriculum_units": [
+      {
+        "id": "11d5bc78-a63a-57fb-b622-95fb134eacae",
+        "curriculum_id": "05f66fde-a950-545c-98f7-d8b31b8eed64",
+        "title": "Sample curriculum_units title",
+        "order_index": 1,
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "curriculum_versions": [
+      {
+        "id": "df36bb87-a986-583e-be86-7b185baeb5b6",
+        "curriculum_id": "05f66fde-a950-545c-98f7-d8b31b8eed64",
+        "version": "Sample curriculum_versions version",
+        "status": "Sample curriculum_versions status",
+        "created_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "document_activity": [
+      {
+        "id": "6173c883-3075-543d-ad3a-875c5fd943af",
+        "document_id": "575f3c24-6786-5fcd-adca-7736afce0c37",
+        "actor_id": "02af070d-4e8a-543f-b9d5-4fbdda232c69",
+        "at": "2025-09-05T18:25:42Z",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "action": "Sample document_activity action"
+      }
+    ],
+    "document_links": [
+      {
+        "id": "a6e02543-fdf6-5ad4-83ac-a2b25095f7f7",
+        "document_id": "575f3c24-6786-5fcd-adca-7736afce0c37",
+        "entity_type": "Sample document_links entity_type",
+        "entity_id": "Sample document_links entity_id",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "document_notifications": [
+      {
+        "id": "75f3c22e-7f13-52a1-b1a2-67d72c93e5fb",
+        "user_id": "02af070d-4e8a-543f-b9d5-4fbdda232c69",
+        "document_id": "575f3c24-6786-5fcd-adca-7736afce0c37",
+        "subscribed": true
+      }
+    ],
+    "document_search_index": [
+      {
+        "document_id": "575f3c24-6786-5fcd-adca-7736afce0c37"
+      }
+    ],
+    "document_versions": [
+      {
+        "id": "8c8202e6-22e7-52fc-9e6e-9ea586003cf3",
+        "file_id": "47ca7254-c4fb-5e1a-aefa-daef8be41f95",
+        "created_by": "02af070d-4e8a-543f-b9d5-4fbdda232c69",
+        "document_id": "575f3c24-6786-5fcd-adca-7736afce0c37",
+        "version_no": 1,
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "documents": [
+      {
+        "id": "575f3c24-6786-5fcd-adca-7736afce0c37",
+        "folder_id": "ac2eb89f-1fe0-5b9d-860d-2befe9358ca5",
+        "current_version_id": "8c8202e6-22e7-52fc-9e6e-9ea586003cf3",
+        "title": "Sample documents title",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "is_public": true
+      }
+    ],
+    "maintenance_requests": [
+      {
+        "id": "6d4b7c16-b027-582b-869f-522924bb0851",
+        "asset_id": "c1c45de6-4bfb-5c8c-8213-9a4e356d6bef",
+        "school_id": "a08e9a86-7bc6-5963-8689-a2b7499d2984",
+        "converted_work_order_id": "55edd688-cf32-52e7-a4bf-870530c97814",
+        "building_id": "b966627f-da21-5522-9d86-88d0cdf22732",
+        "submitted_by_user_id": "02af070d-4e8a-543f-b9d5-4fbdda232c69",
+        "space_id": "c2251d74-598c-5fd9-8837-257402edc906",
+        "summary": "Sample maintenance_requests summary",
+        "created_at": "2025-09-05T18:25:42Z",
+        "status": "Sample maintenance_requests status",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "meeting_documents": [
+      {
+        "id": "b2225f5a-9521-5a8e-b262-66076b1d717b",
+        "document_id": "575f3c24-6786-5fcd-adca-7736afce0c37",
+        "meeting_id": "a1382238-1ce3-5f6f-9ac1-6c66e74a4ee1",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "created_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "proposal_documents": [
+      {
+        "id": "dbd37e98-f910-5e62-b075-f4d25b09ac3b",
+        "document_id": "575f3c24-6786-5fcd-adca-7736afce0c37",
+        "proposal_id": "96c3e5db-d04c-51bc-a626-f0a466dcbbd3",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "created_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "proposal_reviews": [
+      {
+        "id": "464c6cd1-04dc-5752-9fdc-6ff50a22ce29",
+        "review_round_id": "710be92e-92a4-5dfd-9d9b-bcfdd0a8f859",
+        "proposal_id": "96c3e5db-d04c-51bc-a626-f0a466dcbbd3",
+        "reviewer_id": "5c6ecd7f-1795-56cb-a251-533278674a9e",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "proposal_standard_map": [
+      {
+        "proposal_id": "96c3e5db-d04c-51bc-a626-f0a466dcbbd3",
+        "standard_id": "d2f9f6dc-30ad-5fda-b7af-725201ba7f4e"
+      }
+    ],
+    "proposals": [
+      {
+        "id": "96c3e5db-d04c-51bc-a626-f0a466dcbbd3",
+        "committee_id": "b7d76103-9d9d-5c4d-a81e-b50a7e3b0339",
+        "school_id": "a08e9a86-7bc6-5963-8689-a2b7499d2984",
+        "curriculum_id": "05f66fde-a950-545c-98f7-d8b31b8eed64",
+        "course_id": "d611e635-a211-55de-9c45-7ae777929ef0",
+        "submitted_by_id": "5c6ecd7f-1795-56cb-a251-533278674a9e",
+        "subject_id": "4d281ced-da7b-5c61-965b-5d1ce0e71830",
+        "title": "Sample proposals title",
+        "status": "Sample proposals status",
+        "created_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "review_requests": [
+      {
+        "id": "50151a70-407c-54af-ad6e-47b3faf53242",
+        "association_id": "29edc490-d46a-51e0-914b-2f809b25a746",
+        "curriculum_version_id": "df36bb87-a986-583e-be86-7b185baeb5b6",
+        "status": "Sample review_requests status",
+        "created_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "review_rounds": [
+      {
+        "id": "710be92e-92a4-5dfd-9d9b-bcfdd0a8f859",
+        "proposal_id": "96c3e5db-d04c-51bc-a626-f0a466dcbbd3",
+        "round_no": 1,
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "reviews": [
+      {
+        "id": "3a19cb3f-58c0-5ec9-b7a4-195621e755e7",
+        "reviewer_id": "224b10de-f838-51ba-890f-7a93ec237d72",
+        "review_round_id": "710be92e-92a4-5dfd-9d9b-bcfdd0a8f859",
+        "created_at": "2025-09-05T18:25:42Z",
+        "status": "Sample reviews status",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "round_decisions": [
+      {
+        "id": "bb26d544-a85a-5c90-ace8-b6ec7ac5cd2a",
+        "review_round_id": "710be92e-92a4-5dfd-9d9b-bcfdd0a8f859",
+        "decision": "Sample round_decisions decision",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "unit_standard_map": [
+      {
+        "unit_id": "11d5bc78-a63a-57fb-b622-95fb134eacae",
+        "standard_id": "d2f9f6dc-30ad-5fda-b7af-725201ba7f4e"
+      }
+    ],
+    "work_order_parts": [
+      {
+        "id": "8ccbba26-820c-5f19-a658-1645a7919e7d",
+        "part_id": "ff002436-6dc5-58db-a737-8e250e76c8e3",
+        "work_order_id": "55edd688-cf32-52e7-a4bf-870530c97814",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "qty": 1.0
+      }
+    ],
+    "work_order_tasks": [
+      {
+        "id": "cdb45d36-3da5-52b8-afa6-7fd0a7035812",
+        "work_order_id": "55edd688-cf32-52e7-a4bf-870530c97814",
+        "seq": 1,
+        "title": "Sample work_order_tasks title",
+        "created_at": "2025-09-05T18:25:42Z",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "is_mandatory": "Sample work_order_tasks is_mandatory"
+      }
+    ],
+    "work_order_time_logs": [
+      {
+        "id": "b5d4df05-4e70-56c6-b2c0-2ca816205a3b",
+        "work_order_id": "55edd688-cf32-52e7-a4bf-870530c97814",
+        "user_id": "02af070d-4e8a-543f-b9d5-4fbdda232c69",
+        "updated_at": "2025-09-05T18:25:42Z",
+        "created_at": "2025-09-05T18:25:42Z"
+      }
+    ],
+    "work_orders": [
+      {
+        "id": "55edd688-cf32-52e7-a4bf-870530c97814",
+        "asset_id": "c1c45de6-4bfb-5c8c-8213-9a4e356d6bef",
+        "building_id": "b966627f-da21-5522-9d86-88d0cdf22732",
+        "school_id": "a08e9a86-7bc6-5963-8689-a2b7499d2984",
+        "space_id": "c2251d74-598c-5fd9-8837-257402edc906",
+        "assigned_to_user_id": "02af070d-4e8a-543f-b9d5-4fbdda232c69",
+        "request_id": "6d4b7c16-b027-582b-869f-522924bb0851",
+        "summary": "Sample work_orders summary",
+        "created_at": "2025-09-05T18:25:42Z",
+        "status": "Sample work_orders status",
+        "updated_at": "2025-09-05T18:25:42Z"
+      }
+    ]
+  },
+  "meta": {
+    "generated_at": "2025-09-05T18:25:42Z",
+    "source": "schema.dbml",
+    "note": "Heuristic seed from DBML. Verify required fields/defaults per model before loading."
+  }
+}
