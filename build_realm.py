@@ -2579,4 +2579,3 @@ def _ensure_groups_claim_global(realm: dict) -> None:
                 LOG.info("Added 'groups-claim' to realm defaultDefaultClientScopes")
             except Exception:
                 pass
-

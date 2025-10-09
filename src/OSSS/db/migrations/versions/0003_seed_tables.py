@@ -6,6 +6,10 @@ import os
 import uuid
 from typing import Any, Iterable
 import logging
+<<<<<<< HEAD
+=======
+from datetime import datetime, date, timezone
+>>>>>>> main
 
 from alembic import op, context
 import sqlalchemy as sa
@@ -13,6 +17,7 @@ from sqlalchemy import Table, MetaData
 from sqlalchemy.engine import Connection
 from sqlalchemy.exc import IntegrityError, ProgrammingError, DataError
 from sqlalchemy.dialects.postgresql import insert as pg_insert
+<<<<<<< HEAD
 
 # add these near your other imports
 from uuid import uuid4
@@ -22,6 +27,9 @@ from datetime import datetime, date, timezone, time
 from sqlalchemy.dialects.postgresql import UUID as PGUUID, TSVECTOR  # keep PGUUID; add TSVECTOR
 from sqlalchemy.orm import Session
 
+=======
+from sqlalchemy.dialects.postgresql import UUID as PGUUID
+>>>>>>> main
 
 # ---- Alembic identifiers ----
 revision = "0003_seed_tables"
@@ -46,6 +54,7 @@ def _emit(msg: str) -> None:
     except Exception:
         print(msg)
 
+<<<<<<< HEAD
 def _patch_missing_required(table: Table, row: dict[str, Any], session: Session) -> dict[str, Any]:
     out = dict(row)
     now = datetime.now(timezone.utc)
@@ -86,6 +95,8 @@ def _patch_missing_required(table: Table, row: dict[str, Any], session: Session)
                 out["organization_id"] = oid
 
     return out
+=======
+>>>>>>> main
 
 def _load_seed() -> tuple[list[str], dict[str, list[dict[str, Any]]]]:
     path = next((p for p in CANDIDATE_PATHS if p and os.path.exists(p)), None)
@@ -116,6 +127,7 @@ def _load_seed() -> tuple[list[str], dict[str, list[dict[str, Any]]]]:
 
     return insert_order, fixed
 
+<<<<<<< HEAD
 def _autofill_required_columns(table: Table, engine, session, row: dict[str, Any]) -> dict[str, Any]:
     """Fill in any NOT NULL, no-server-default columns that are missing/None using sample_for_column."""
     patched = dict(row)
@@ -135,6 +147,8 @@ def _autofill_required_columns(table: Table, engine, session, row: dict[str, Any
 
     return patched
 
+=======
+>>>>>>> main
 
 def _reflect_table(conn: Connection, name: str) -> Table | None:
     md = MetaData()
@@ -201,6 +215,7 @@ def _coerce_int(value: Any) -> int | None:
     except Exception:
         return None
 
+<<<<<<< HEAD
 def _coerce_time(value: Any) -> time | None:
     if value is None or isinstance(value, time):
         return value
@@ -215,6 +230,14 @@ def _coerce_time(value: Any) -> time | None:
 
 
 def _filter_and_coerce_row(table: Table, row: dict[str, Any]) -> dict[str, Any]:
+=======
+
+def _filter_and_coerce_row(table: Table, row: dict[str, Any]) -> dict[str, Any]:
+    """
+    Keep only known columns and coerce common types from JSON strings/placeholders
+    (UUID, date, datetime, boolean, integer).
+    """
+>>>>>>> main
     out: dict[str, Any] = {}
     for col in table.columns:
         name = col.name
@@ -222,17 +245,29 @@ def _filter_and_coerce_row(table: Table, row: dict[str, Any]) -> dict[str, Any]:
             continue
         val = row[name]
 
+<<<<<<< HEAD
         # UUID
+=======
+        # UUID detection
+>>>>>>> main
         is_uuid_col = False
         try:
             is_uuid_col = isinstance(col.type, PGUUID) or (getattr(col.type, "python_type", None) is uuid.UUID)
         except Exception:
             pass
+<<<<<<< HEAD
+=======
+
+>>>>>>> main
         if is_uuid_col:
             out[name] = _coerce_uuid(val, table=str(table.name), column=name)
             continue
 
+<<<<<<< HEAD
         # Datetime / Date / Time
+=======
+        # Datetime / Date
+>>>>>>> main
         try:
             if isinstance(col.type, sa.DateTime):
                 out[name] = _coerce_datetime(val)
@@ -240,9 +275,12 @@ def _filter_and_coerce_row(table: Table, row: dict[str, Any]) -> dict[str, Any]:
             if isinstance(col.type, sa.Date):
                 out[name] = _coerce_date(val)
                 continue
+<<<<<<< HEAD
             if isinstance(col.type, sa.Time):
                 out[name] = _coerce_time(val)
                 continue
+=======
+>>>>>>> main
         except Exception:
             pass
 
@@ -258,11 +296,17 @@ def _filter_and_coerce_row(table: Table, row: dict[str, Any]) -> dict[str, Any]:
         # Integer-ish
         try:
             if isinstance(col.type, (sa.Integer, sa.BigInteger, sa.SmallInteger)):
+<<<<<<< HEAD
                 out[name] = _coerce_int(val)
+=======
+                coerced = _coerce_int(val)
+                out[name] = coerced
+>>>>>>> main
                 continue
         except Exception:
             pass
 
+<<<<<<< HEAD
         # TSVECTOR: ignore whatever came from JSON; let DB compute
         try:
             if isinstance(col.type, TSVECTOR):
@@ -307,6 +351,17 @@ def _filter_and_coerce_row(table: Table, row: dict[str, Any]) -> dict[str, Any]:
 
 
 
+=======
+        # Default: pass through
+        out[name] = val
+    # Drop Nones for NOT NULL columns that also have server defaults (let DB fill)
+    for col in table.columns:
+        if out.get(col.name) is None and not col.nullable and col.server_default is not None:
+            out.pop(col.name, None)
+    return out
+
+
+>>>>>>> main
 # ---- insert helpers ----------------------------------------------------------
 
 def _insert_rows_batch(conn: Connection, table: Table, rows: list[dict[str, Any]]):
@@ -343,6 +398,7 @@ def _insert_row_single(conn: Connection, table: Table, row: dict[str, Any]):
         stmt = sa.insert(table).values(**row)
     conn.execute(stmt)
 
+<<<<<<< HEAD
 # ----- Synthetic sample row helpers ------------------------------------------
 
 # in 0003_seed_tables.py
@@ -462,6 +518,11 @@ def upgrade() -> None:
     conn: Connection = op.get_bind()
     sess = Session(bind=conn)
 
+=======
+
+def upgrade() -> None:
+    conn: Connection = op.get_bind()
+>>>>>>> main
     insert_order, data = _load_seed()
 
     for name in insert_order:
@@ -474,6 +535,7 @@ def upgrade() -> None:
         if not raw_rows:
             continue
 
+<<<<<<< HEAD
         prepared = []
         for r in raw_rows:
             coerced = _filter_and_coerce_row(tbl, r)
@@ -482,12 +544,21 @@ def upgrade() -> None:
             patched = _patch_missing_required(tbl, coerced, sess)
             ensured = _ensure_fk_targets(sess, tbl, patched)
             prepared.append(ensured)
+=======
+        # Prepare & coerce
+        prepared = []
+        for r in raw_rows:
+            coerced = _filter_and_coerce_row(tbl, r)
+            if coerced:
+                prepared.append(coerced)
+>>>>>>> main
 
         if not prepared:
             continue
 
         _emit(f"[seed] inserting into {name}: {len(prepared)} row(s)")
 
+<<<<<<< HEAD
         # batch attempt in savepoint
         try:
             with conn.begin_nested():
@@ -497,6 +568,19 @@ def upgrade() -> None:
             _emit(f"[seed] batch insert failed for {name}: {e}; rolling back and retrying per-row")
 
         # per-row fallback
+=======
+        # 1) Try batch inside its own savepoint
+        try:
+            with conn.begin_nested():  # create SAVEPOINT; auto rollback on error only to this point
+                _insert_rows_batch(conn, tbl, prepared)
+            continue  # success for this table
+        except (IntegrityError, ProgrammingError, DataError) as e:
+            _emit(
+                f"[seed] batch insert failed for {name}: {e}; rolling back and retrying per-row"
+            )
+
+        # 2) Fall back to row-wise, each in its own savepoint; skip offenders
+>>>>>>> main
         for r in prepared:
             try:
                 with conn.begin_nested():
@@ -504,6 +588,11 @@ def upgrade() -> None:
             except (IntegrityError, ProgrammingError, DataError) as e:
                 _emit(f"[seed] skipping row in {name}: {e}")
 
+<<<<<<< HEAD
+=======
+    # let Alembic commit the outer transaction
+
+>>>>>>> main
 
 def downgrade() -> None:
     conn: Connection = op.get_bind()
