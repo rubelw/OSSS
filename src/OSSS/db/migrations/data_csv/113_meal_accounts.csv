@@ -1,2 +1,3 @@
-id,student_id,created_at,balance,updated_at
-8fa891b4-ed33-52a0-a22b-d5a7b5b60367,e7ad61df-58ea-5471-b0d4-a7259521d9ee,2025-09-05T18:25:42Z,1.0,2025-09-05T18:25:42Z
+version https://git-lfs.github.com/spec/v1
+oid sha256:f25818e0866bc1e01a58f2b259cf560aef1bba5fdd85db3eca4809b844824e49
+size 166

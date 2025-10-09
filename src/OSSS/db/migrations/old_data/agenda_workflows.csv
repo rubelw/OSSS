@@ -1,13 +1,3 @@
-name,active
-Standard Meeting Workflow,True
-Policy Adoption Workflow,True
-Budget Approval Workflow,True
-Facilities Project Workflow,True
-Curriculum Adoption Workflow,True
-Personnel Action Workflow,True
-Vendor Contract Workflow,True
-Student Discipline Hearing Workflow,False
-Emergency Meeting Workflow,True
-Closed Session Workflow,False
-Audit Review Workflow,True
-Annual Organizational Meeting Workflow,True
+version https://git-lfs.github.com/spec/v1
+oid sha256:0f2a69527c8497df066407fe20dc14f0d336cd9947f53061f7e4f4e9c1a3a747
+size 419

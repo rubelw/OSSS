@@ -1,2 +1,3 @@
-id,course_id,term_id,school_id,section_number,created_at,updated_at
-5e2a2f65-3b88-5985-a974-d53e2d78c0ed,d611e635-a211-55de-9c45-7ae777929ef0,241693b1-fb07-5cdf-9ab5-a16d02ac5d10,a08e9a86-7bc6-5963-8689-a2b7499d2984,Sample course_sections section_number,2025-09-05T18:25:42Z,2025-09-05T18:25:42Z
+version https://git-lfs.github.com/spec/v1
+oid sha256:b777d340a00176c8fe9e61f9fb71d42e4e05cde5f4e4894de937a3d6d79d4fbc
+size 298

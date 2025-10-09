@@ -19,18 +19,21 @@ from fastapi.exceptions import HTTPException as StarletteHTTPException
 from ..guardrails import redact_pii
 
 # ---------- Optional imports with safe fallbacks ----------
-try:  # real auth dep from your project
-    from OSSS.auth.deps import require_auth  # type: ignore
-except Exception:  # safe fallback for local/dev
-    async def require_auth() -> Optional[dict]:
-        return None
+#try:  # real auth dep from your project
+#    from OSSS.auth.deps import require_auth  # type: ignore
+#except Exception:  # safe fallback for local/dev
+#    async def require_auth() -> Optional[dict]:
+#        return None
+
+async def require_auth() -> Optional[dict]:
+    return None
 
 try:
     from OSSS.config import settings  # type: ignore
 except Exception:
     class _Settings:
         PROMETHEUS_ENABLED: bool = os.getenv("PROMETHEUS_ENABLED", "1") not in ("0", "false", "False")
-        VLLM_ENDPOINT: str = os.getenv("VLLM_ENDPOINT", "http://ollama:11434/v1")
+        VLLM_ENDPOINT: str = os.getenv("VLLM_ENDPOINT", "http://ollama:11434")
         TUTOR_TEMPERATURE: float = float(os.getenv("TUTOR_TEMPERATURE", "0.2"))
         TUTOR_MAX_TOKENS: int = int(os.getenv("TUTOR_MAX_TOKENS", "512"))
     settings = _Settings()  # type: ignore
@@ -122,32 +125,35 @@ async def metrics():
 @router.get("/v1/models")
 async def list_models(_: dict | None = Depends(require_auth)):
     REQS.labels("/v1/models").inc()
-    # vLLM OpenAI-compatible servers usually expose GET /models; some use /v1/models
-    base = getattr(settings, "VLLM_ENDPOINT", "http://ollama:11434/v1")
-    url_candidates = [
-        f"{base}/models",
-        f"{base.rstrip('/')}/v1/models",
-    ]
-    last_exc: Optional[Exception] = None
+    base = getattr(settings, "VLLM_ENDPOINT", "http://ollama:11434")
+    upstream_v1 = f"{base.rstrip('/')}/v1/models"
+    upstream_tags = f"{base.rstrip('/')}/api/tags"
     async with httpx.AsyncClient(timeout=10.0) as client:
-        for u in url_candidates:
-            try:
-                r = await client.get(u)
-                if r.status_code < 400:
-                    return JSONResponse(r.json())
-                last_exc = HTTPException(status_code=r.status_code, detail=r.text)
-            except Exception as e:
-                last_exc = e
-    if isinstance(last_exc, HTTPException):
-        raise last_exc
-    raise HTTPException(status_code=502, detail=_to_str(last_exc or "upstream error"))
+        try:
+            r = await client.get(upstream_v1)
+            if r.status_code == 404:
+                # Ollama native
+                t = await client.get(upstream_tags)
+                t.raise_for_status()
+                tags = t.json() or []
+                # Map Ollama tags -> OpenAI model list
+                data = {
+                    "object": "list",
+                    "data": [{"id": tag.get("name"), "object": "model", "owned_by": "ollama"} for tag in tags],
+                }
+                return JSONResponse(data)
+            r.raise_for_status()
+            return JSONResponse(r.json())
+        except httpx.HTTPError as e:
+            raise HTTPException(status_code=502, detail=str(e))
+
 
 @router.post("/v1/chat/completions")
 async def chat_completions(
     request: Request,
     _: dict | None = Depends(require_auth),
-    raw: bytes | None = Body(default=None),
 ):
+    # Require JSON
     ct = (request.headers.get("content-type") or "").lower()
     if "application/json" not in ct:
         raise HTTPException(
@@ -155,15 +161,29 @@ async def chat_completions(
             detail="Content-Type must be application/json",
         )
 
+    # Raw body
+    raw = await request.body()
     if not raw:
         raise HTTPException(status_code=400, detail="Request body is empty")
 
+    # Parse JSON (be tolerant of a bare string body)
     try:
-        payload = ChatRequest.model_validate_json(raw)
+        parsed = json.loads(raw)
+    except json.JSONDecodeError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid JSON: {e.msg}")
+
+    if isinstance(parsed, str):
+        # Auto-wrap a plain prompt into a minimal OpenAI-style request
+        parsed = {
+            "model": getattr(settings, "DEFAULT_MODEL", "llama3.1"),
+            "messages": [{"role": "user", "content": parsed}],
+        }
+
+    # Validate against your schema
+    try:
+        payload = ChatRequest.model_validate(parsed)
     except ValidationError as ve:
         raise HTTPException(status_code=400, detail=ve.errors())
-    except ValueError as ve:
-        raise HTTPException(status_code=400, detail=_to_str(ve))
 
     # Defaults
     if payload.temperature is None:
@@ -171,44 +191,99 @@ async def chat_completions(
     if payload.max_tokens is None:
         payload.max_tokens = getattr(settings, "TUTOR_MAX_TOKENS", 512)
 
-    # Redact
+    # Model aliasing
+    model = (payload.model or "").strip()
+    if model == "llama3":
+        model = "llama3.1"
+
+    # Redact inbound messages
     for m in payload.messages:
-        m.content = redact_pii(m.content)
+        if isinstance(m.content, str):
+            m.content = redact_pii(m.content)
 
     REQS.labels("/v1/chat/completions").inc()
 
-    upstream_url = f"{getattr(settings, 'VLLM_ENDPOINT', 'http://ollama:11434/v1')}/chat/completions"
-    try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            r = await client.post(upstream_url, json=payload.model_dump())
-    except httpx.RequestError as e:
-        raise HTTPException(status_code=502, detail=_to_str(e))
+    # Prefer host-local Ollama by default
+    base = getattr(settings, "VLLM_ENDPOINT", "http://127.0.0.1:11434").rstrip("/")
+    upstream_v1 = f"{base}/v1/chat/completions"  # OpenAI-compatible (if present)
+    upstream_api = f"{base}/api/chat"           # Native Ollama
 
-    if r.status_code >= 400:
-        detail = r.text if r.text else _to_str(r.content)
-        raise HTTPException(status_code=r.status_code, detail=detail)
+    openai_req = {
+        "model": model,
+        "messages": [m.model_dump() for m in payload.messages],
+        "temperature": payload.temperature,
+        "max_tokens": payload.max_tokens,
+    }
 
-    # If upstream isn't JSON, pass bytes through untouched
-    try:
-        data = r.json()
-    except ValueError:
-        return Response(content=r.content, media_type=r.headers.get("content-type", "text/plain"))
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        try:
+            # 1) Try OpenAI-compatible endpoint first
+            r = await client.post(upstream_v1, json=openai_req)
+            if r.status_code == 404:
+                # 2) Fallback to Ollama native endpoint
+                ollama_req = {
+                    "model": model,
+                    "messages": [m.model_dump() for m in payload.messages],
+                    "options": {
+                        "temperature": payload.temperature,
+                        # num_predict corresponds roughly to max_tokens
+                        "num_predict": payload.max_tokens,
+                    },
+                }
+                r = await client.post(upstream_api, json=ollama_req)
+                if r.status_code >= 400:
+                    raise HTTPException(status_code=r.status_code, detail=r.text or r.content.decode("utf-8", "replace"))
 
-    # Metrics
-    usage = data.get("usage") or {}
-    try:
-        TOKENS_IN.inc(usage.get("prompt_tokens") or 0)
-        TOKENS_OUT.inc(usage.get("completion_tokens") or 0)
-    except Exception:
-        pass
+                data = r.json()
 
-    # Scrub assistant output
-    try:
-        for choice in data.get("choices", []):
-            msg = choice.get("message", {})
-            if isinstance(msg.get("content"), str):
-                msg["content"] = redact_pii(msg["content"])
-    except Exception:
-        pass
+                # Ollama returns: {"message":{"role","content"},"done":true,...}
+                msg = (data or {}).get("message") or {}
+                out = {
+                    "id": data.get("id") or "ollama-chat",
+                    "object": "chat.completion",
+                    "created": 0,  # Ollama's created_at is a string; skip converting here
+                    "model": model,
+                    "choices": [{
+                        "index": 0,
+                        "message": {
+                            "role": msg.get("role") or "assistant",
+                            "content": redact_pii(msg.get("content") or ""),
+                        },
+                        "finish_reason": "stop",
+                    }],
+                    "usage": {
+                        "prompt_tokens": 0,
+                        "completion_tokens": 0,
+                        "total_tokens": 0,
+                    },
+                }
+                try:
+                    TOKENS_IN.inc(0); TOKENS_OUT.inc(0)
+                except Exception:
+                    pass
+                return JSONResponse(out)
 
-    return JSONResponse(data)
+            # If OpenAI-compatible endpoint responded with something else
+            if r.status_code >= 400:
+                raise HTTPException(status_code=r.status_code, detail=r.text or r.content.decode("utf-8", "replace"))
+
+            data = r.json()
+
+            # Metrics from OpenAI-style usage, if present
+            usage = data.get("usage") or {}
+            try:
+                TOKENS_IN.inc(usage.get("prompt_tokens") or 0)
+                TOKENS_OUT.inc(usage.get("completion_tokens") or 0)
+            except Exception:
+                pass
+
+            # Redact outbound assistant content
+            for choice in data.get("choices", []):
+                msg = choice.get("message") or {}
+                if isinstance(msg.get("content"), str):
+                    msg["content"] = redact_pii(msg["content"])
+
+            return JSONResponse(data)
+
+        except httpx.RequestError as e:
+            raise HTTPException(status_code=502, detail=str(e))

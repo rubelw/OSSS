@@ -1,2 +1,3 @@
-id,org_id,enabled,key
-576ab218-5110-54d3-b046-66877bce9721,00fe9a4d-239e-5839-9bc5-7b9667a3ed5e,Sample feature_flags enabled,Sample feature_flags key
+version https://git-lfs.github.com/spec/v1
+oid sha256:65f22aee1a2fe8c73633387215dcad90e2567e3e2d2e71b08be0b5c52695d91d
+size 152

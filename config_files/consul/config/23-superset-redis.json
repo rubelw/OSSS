@@ -1,0 +1,17 @@
+{
+  "service": {
+    "name": "postgres-superset",
+    "id": "postgres-superset-5432",
+    "address": "postgres-superset",
+    "port": 5432,
+    "tags": ["profile:superset","db:postgres"],
+    "checks": [
+      {
+        "name": "postgres-superset-tcp",
+        "tcp": "postgres-superset:5432",
+        "interval": "10s",
+        "timeout": "5s"
+      }
+    ]
+  }
+}

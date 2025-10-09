@@ -391,6 +391,11 @@ services:
       ADMIN_USER: ${KEYCLOAK_ADMIN}
       ADMIN_PWD: ${KEYCLOAK_ADMIN_PASSWORD}
       KC_URL: ${KC_URL}
+      # 👇 make management listen on all interfaces (not just loopback)
+      QUARKUS_MANAGEMENT_HOST: "0.0.0.0"
+      # (optional but explicit)
+      QUARKUS_MANAGEMENT_ENABLED: "true"
+      QUARKUS_MANAGEMENT_PORT: "9000"
 
     volumes:
     - ./realm-export.json:/opt/keycloak/data/import/10-OSSS.json:ro
@@ -558,6 +563,7 @@ services:
     profiles:
     - elastic
     container_name: elasticsearch
+    hostname: elasticsearch
     cpus: 2.0
     mem_limit: 2g
     mem_reservation: 1g
@@ -1010,33 +1016,39 @@ services:
     - osss-net
     ports:
     - 5435:5432
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U airflow -d airflow -h 127.0.0.1 -p 5432 || exit 1" ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
   airflow-init:
     image: apache/airflow:2.9.3-python3.11
     container_name: airflow-init
     hostname: airflow-init
-    profiles:
-      - airflow
+    profiles: [ airflow ]
     depends_on:
-      - postgres-airflow
+      postgres-airflow:
+        condition: service_healthy
     cpus: 1.0
     mem_limit: 1g
     mem_reservation: 768m
     environment:
-      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres-airflow/airflow
+      # use the same DSN you already had, but quote it to be safe
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: "postgresql+psycopg2://airflow:airflow@postgres-airflow/airflow"
+      # optional: keep init fast & quiet
+      AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+      AIRFLOW__LOGGING__LOGGING_LEVEL: "INFO"
     entrypoint: [ "/bin/bash", "-lc" ]
-    command: >
-      airflow db migrate &&
-      airflow users create
-        --username admin
-        --firstname Admin
-        --lastname User
-        --role Admin
-        --email admin@example.com
-        --password admin
+    entrypoint: [ "/bin/bash", "-lc" ]
+    command:
+      - |
+        set -euo pipefail
+        airflow db migrate
+        airflow users create --username admin --firstname Admin --lastname User --role Admin --email admin@example.com --password admin || true
     volumes:
       - ./config_files/airflow/dags:/opt/airflow/dags
-    networks:
-      - osss-net
+    networks: [ osss-net ]
   airflow-webserver:
     image: apache/airflow:2.9.3-python3.11
     container_name: airflow-webserver
@@ -1044,8 +1056,10 @@ services:
     profiles:
     - airflow
     depends_on:
-    - airflow-init
-    - airflow-redis
+      airflow-init:
+        condition: service_completed_successfully
+      airflow-redis:
+        condition: service_healthy
     cpus: 1.0
     mem_limit: 1536m
     mem_reservation: 1g
@@ -1085,7 +1099,11 @@ services:
     profiles:
     - airflow
     depends_on:
-    - airflow-init
+      airflow-init:
+        condition: service_completed_successfully
+      airflow-redis:
+        condition: service_healthy
+
     cpus: 1.0
     mem_limit: 1536m
     mem_reservation: 1g
@@ -1686,17 +1704,31 @@ services:
     ports:
       - "11434:11434"
     volumes:
-      - ollama_data:/root/.ollama
+      - ollama_data:/root/.ollama    # <-- named volume
+    entrypoint: >                     # (entrypoint from section #1)
+      sh -c '
+        set -e
+        ollama serve &
+        echo "Waiting..."
+        i=0
+        while [ "$i" -lt 60 ]; do
+          if ollama list >/dev/null 2>&1; then break; fi
+          i=$((i+1)); sleep 1
+        done
+        if ! ollama list | grep -q "^llama3\\.1"; then
+          ollama pull llama3.1
+        fi
+        wait
+      '
     healthcheck:
-      test:
-        - CMD-SHELL
-        - >
-          ollama list >/dev/null 2>&1
+      test: [ "CMD-SHELL", "ollama list | grep -q '^llama3\\.1'" ]
       interval: 10s
       timeout: 5s
       retries: 30
       start_period: 60s
     networks: [ osss-net ]
+    restart: unless-stopped
+
 
   # === Vector DB for RAG ===
   qdrant:
@@ -1717,6 +1749,8 @@ services:
       retries: 20
       start_period: 15s
     networks: [ osss-net ]
+    restart: unless-stopped
+
 
   # === Object Storage for curriculum/corpus ===
   minio:
@@ -1734,12 +1768,14 @@ services:
     volumes:
       - minio_data:/data
     healthcheck:
-      test: [ "CMD", "curl", "-fsS", "http://localhost:9000/minio/health/ready" ]
+      test: [ "CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/9000 && exec 3>&-" ]
       interval: 10s
       timeout: 5s
       retries: 20
       start_period: 20s
     networks: [ osss-net ]
+    restart: unless-stopped
+
 
   # === Redis for caching answers / sessions ===
   ai-redis:
@@ -1758,6 +1794,8 @@ services:
       timeout: 5s
       retries: 20
     networks: [osss-net]
+    restart: unless-stopped
+
 
   # === Postgres for audit, usage, metadata ===
   ai-postgres:
@@ -1781,4 +1819,6 @@ services:
       retries: 20
       start_period: 20s
     networks: [ osss-net ]
+    restart: unless-stopped
+
 

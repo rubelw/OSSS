@@ -1,2 +1,3 @@
-id,reviewer_id,review_round_id,created_at,status,updated_at
-3a19cb3f-58c0-5ec9-b7a4-195621e755e7,224b10de-f838-51ba-890f-7a93ec237d72,710be92e-92a4-5dfd-9d9b-bcfdd0a8f859,2025-09-05T18:25:42Z,Sample reviews status,2025-09-05T18:25:42Z
+version https://git-lfs.github.com/spec/v1
+oid sha256:a8310b0c15a7811d6ec7d67d8996c0cab899d6647431b8f4db30a7aa460f2ad2
+size 237

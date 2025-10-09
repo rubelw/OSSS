@@ -1,6 +1,98 @@
 #!/bin/sh
 set -eu
 
+export DEBUG_INIT=1 DEBUG_KC=1 DEBUG_WORKER=1
+
+# ---- debug helpers ----------------------------------------------------------
+ts() { date +"%H:%M:%S"; }
+dbg() { [ "${DEBUG_INIT:-0}" = 1 ] && printf "%s %s\n" "$(ts)" "$*" >&2; }
+dump_head() {  # dump_head <label> <file> [N]
+  _lab="$1"; _f="$2"; _n="${3:-20}"
+  if [ -s "$_f" ]; then
+    printf "%s %s — first %s line(s):\n" "$(ts)" "$_lab" "$_n" >&2
+    sed -n "1,${_n}p" "$_f" | sed 's/^/   │ /' >&2
+  else
+    printf "%s %s — (empty or missing)\n" "$(ts)" "$_lab" >&2
+  fi
+}
+
+# Pretty jq counts with label
+jq_count() {  # jq_count <label> <jqexpr> <file>
+  _lab="$1"; _expr="$2"; _f="$3"
+  _c="$(jq -r "$_expr" "$_f" 2>/dev/null || printf 0)"
+  printf "%s %s: %s\n" "$(ts)" "$_lab" "$_c" >&2
+}
+
+# Limit very chatty worker logs
+DEBUG_WORKER="${DEBUG_WORKER:-1}"          # 1 = child processes log details
+DEBUG_BATCH="${DEBUG_BATCH:-1}"            # 1 = print batch directory samples
+DEBUG_INIT="${DEBUG_INIT:-1}"              # 1 = print high-level debug in parent
+DRY_RUN="${DRY_RUN:-0}"                    # 1 = don’t POST mappings, just log
+
+# Build a mapping source that definitely contains groups[].clientRoles.
+# If _src already has clientRoles, use it as-is.
+# Otherwise, overlay clientRoles from the original export by matching group .path.
+_prepare_mapping_source() {
+  _src="$1"
+  _orig="${2:-$IMPORT_FILE_ORIG}"
+
+  # Fast path: _src already has clientRoles
+  if jq -e '(.groups // []) | .. | objects | .clientRoles? | type=="object" and (length>0)' "$_src" >/dev/null 2>&1; then
+    printf '%s\n' "$_src"; return 0
+  fi
+
+  # If no original, nothing we can do
+  [ -s "$_orig" ] || { printf '%s\n' "$_src"; return 0; }
+
+  tmp_map="/tmp/orig-cr-map.json"
+  jq -c '
+    def walkg($p):
+      . as $g
+      | (if ($g.path? and ($g.path|type)=="string" and ($g.path|length)>0)
+           then $g.path
+           else ($p + (if $p=="" then "" else "/" end) + ($g.name // ""))
+         end) as $q
+      | {path:$q, cr: ($g.clientRoles // {})}
+      , ( ($g.subGroups // [])[] | walkg($q) );
+    [ (.groups // [])[] | walkg("")
+      | select((.cr|type)=="object" and (.cr|length)>0 and (.path|length)>0) ]
+    | map({key:.path, value:.cr})
+    | from_entries
+  ' "$_orig" > "$tmp_map"
+
+  tmp_out="/tmp/mapping-src.json"
+  jq --slurpfile M "$tmp_map" '
+    def path_of($g; $p):
+      if ($g.path? | type)=="string" and ($g.path|length)>0
+        then $g.path
+        else $p + (if $p=="" then "" else "/" end) + ($g.name // "")
+      end;
+
+    def patch($p):
+      . as $g
+      | (path_of($g; $p)) as $q
+      | (if ($M[0][$q]? | type)=="object" then (.clientRoles = $M[0][$q]) else . end)
+      | ( .subGroups |= ( ( . // [] ) | map( patch($q) ) ) );
+
+    (.groups |= ( ( . // [] ) | map( patch("") ) ))
+  ' "$_src" > "$tmp_out"
+
+  # inside _prepare_mapping_source(), right before: printf '%s\n' "$tmp_out"
+  if [ "${DEBUG_INIT:-0}" = 1 ]; then
+    jq_count "[map-src] objects with clientRoles" \
+             '[..|objects|.clientRoles?|select(type=="object")]|length' "$tmp_out"
+    # Top 10 clientIds referenced by clientRoles
+    printf "%s [map-src] top clientIds:\n" "$(ts)" >&2
+    jq -r '
+      [..|objects|.clientRoles?|keys[]] | group_by(.) | map({k:.[0], n:length})
+      | sort_by(-.n) | .[0:10][] | "\(.k)\t(\(.n))"
+    ' "$tmp_out" 2>/dev/null | sed 's/^/   • /' >&2 || true
+  fi
+
+  printf '%s\n' "$tmp_out"
+}
+
+
 # === worker subcommand for parallel batch role mapping ===
 if [ "${1:-}" = "__apply_one_batch__" ]; then
   shift
@@ -181,100 +273,233 @@ else
   SRC_FILE="$IMPORT_FILE_ORIG"
 fi
 
+# --- robust attach of DEFAULT client-scope, portable across KC versions ---
+_attach_default_scope() { # _attach_default_scope <realm> <clientUUID> <scopeId> <scopeName>
+  _realm="$1"; _cuid="$2"; _sid="$3"; _sname="$4"
+
+  # 1) Newer kcadm (collection POST w/ id in body)
+  if _kc create "clients/${_cuid}/default-client-scopes" -r "$_realm" --server "$KC_BOOT_URL" --insecure \
+       -s "id=${_sid}" >/dev/null 2>&1; then
+    log "🎯 attached DEFAULT scope '${_sname}' (collection POST)"
+    return 0
+  fi
+
+  # 2) Older kcadm (subresource POST with scopeId in path)
+  if _kc create "clients/${_cuid}/default-client-scopes/${_sid}" -r "$_realm" --server "$KC_BOOT_URL" --insecure \
+       >/dev/null 2>&1; then
+    log "🎯 attached DEFAULT scope '${_sname}' (subresource POST)"
+    return 0
+  fi
+
+  # 3) Admin REST fallback: PUT subresource (treat 204/409 as success)
+  CURL_INSECURE=""; case "$KC_BOOT_URL" in https://*) CURL_INSECURE="-k" ;; esac
+  token="$(curl -sS $CURL_INSECURE -X POST \
+            -H 'Content-Type: application/x-www-form-urlencoded' \
+            --data "client_id=admin-cli&username=$ADMIN_USER&password=$ADMIN_PWD&grant_type=password" \
+            "$KC_BOOT_URL/realms/master/protocol/openid-connect/token" | jq -r '.access_token')"
+  [ -z "$token" -o "$token" = "null" ] && { log "⚠️  attach fallback: no admin token"; return 1; }
+
+  http=$(curl -sS $CURL_INSECURE -o /dev/null -w "%{http_code}" \
+          -X PUT "$KC_BOOT_URL/admin/realms/${_realm}/clients/${_cuid}/default-client-scopes/${_sid}" \
+          -H "Authorization: Bearer $token")
+  case "$http" in
+    204|409) log "🎯 attached DEFAULT scope '${_sname}' (curl PUT http=$http)"; return 0 ;;
+    *)       log "⚠️  attach '${_sname}' failed (curl PUT http=$http)"; return 1 ;;
+  esac
+}
+
+
+# === ensure DEFAULT client-scopes from import JSON (camelCase + snake_case) ===
+ensure_defaults_from_export_v2() {
+  local realm="$REALM" server="$KC_BOOT_URL" src="${SRC_FILE:-}"
+  if [ -z "${src:-}" ] || [ ! -f "$src" ]; then
+    log "⚠️  ensure_defaults_from_export_v2: SRC_FILE not set or missing"; return 0
+  fi
+  if ! jq -e . "$src" >/dev/null 2>&1; then
+    log "⚠️  ensure_defaults_from_export_v2: SRC_FILE is not valid JSON"; return 0
+  fi
+
+  log "🔎 Scanning import JSON for clients with default scopes…"
+
+  # For each client, read defaultClientScopes (camel) OR default_client_scopes (snake)
+  jq -r '
+    .clients // []
+    | map({cid: (.clientId // ""), defs: ((.defaultClientScopes // .default_client_scopes // []) | unique) })
+    | map(select(.cid != "" and (.defs | length) > 0))
+    | .[] | [.cid, (.defs | join(","))] | @tsv
+  ' "$src" 2>/dev/null \
+  | while IFS=$'\t' read -r clientId scopes_csv; do
+      [ -z "${clientId:-}" ] && continue
+
+      # Resolve client UUID
+      local CUID="$(_kc get clients -r "$realm" --server "$server" --insecure -q clientId="$clientId" --fields id | jq -r '.[0].id // empty')"
+      if [ -z "${CUID:-}" ]; then
+        log "⚠️  client '${clientId}' not found; skipping"; continue
+      fi
+
+      # Iterate scopes
+      IFS=',' read -ra SCOPES_ARR <<< "${scopes_csv:-}"
+      for s in "${SCOPES_ARR[@]}"; do
+        s="${s#"${s%%[![:space:]]*}"}"; s="${s%"${s##*[![:space:]]}"}"  # trim
+        [ -z "$s" ] && continue
+
+        # Ensure the scope exists (use ensure_client_scope if present; otherwise resolve)
+        local SID=""
+        if command -v ensure_client_scope >/dev/null 2>&1; then
+          SID="$(ensure_client_scope "$realm" "$s" || true)"
+        fi
+        if [ -z "${SID:-}" ]; then
+          SID="$(
+            _kc get client-scopes -r "$realm" --server "$server" --insecure --fields id,name 2>/dev/null \
+              | jq -r --arg n "$s" '.[] | select(.name==$n) | .id' | head -n1
+          )"
+        fi
+        if [ -z "${SID:-}" ]; then
+          log "⚠️  could not ensure/resolve scope '${s}'; skipping attach for client '${clientId}'"
+          continue
+        fi
+
+        # Special case: for groups-claim, ensure the group-membership mapper
+        if [ "$s" = "groups-claim" ]; then
+          if ! _kc get "client-scopes/${SID}/protocol-mappers/models" -r "$realm" --server "$server" --insecure 2>/dev/null \
+            | jq -e '[.[]? | select(.protocolMapper=="oidc-group-membership-mapper")] | length>0' >/dev/null; then
+            _kc create "client-scopes/${SID}/protocol-mappers/models" -r "$realm" --server "$server" --insecure \
+              -s name=groups -s protocol=openid-connect -s protocolMapper=oidc-group-membership-mapper \
+              -s 'config."full.path"=false' -s 'config."id.token.claim"=true' \
+              -s 'config."access.token.claim"=true' -s 'config."userinfo.token.claim"=true' \
+              -s 'config."claim.name"=groups' >/dev/null 2>&1 \
+              && log "✅ added group-membership mapper to 'groups-claim'" \
+              || log "⚠️  failed to add group-membership mapper to 'groups-claim'"
+          fi
+        fi
+
+        # Attach as DEFAULT client-scope if missing
+        if ! _kc get "clients/${CUID}/default-client-scopes" -r "$realm" --server "$server" --insecure 2>/dev/null \
+          | jq -e --arg id "$SID" --arg n "$s" '.[] | select(.id==$id or .name==$n)' >/dev/null; then
+          if _attach_default_scope "$realm" "$CUID" "$SID" "$s"; then
+            : # success already logged
+          else
+            log "⚠️  failed to attach DEFAULT scope '${s}' to client '${clientId}'"
+          fi
+        else
+          log "ℹ️  '${s}' already present in DEFAULT client-scopes for '${clientId}'"
+        fi
+      done
+    done
+}
+
+
+# --- early debug helpers (must be defined before first use) ---
+
+# === ensure default client-scopes from import JSON ==============================
+# For each client in $SRC_FILE that declares "defaultClientScopes": [...],
+# ensure each of those scopes exists and is attached as a DEFAULT client-scope.
+ensure_defaults_from_export() {
+  local realm="$REALM" server="$KC_BOOT_URL"
+  local src="${SRC_FILE:-}"
+  if [ -z "${src:-}" ] || [ ! -f "$src" ]; then
+    log "⚠️  ensure_defaults_from_export: SRC_FILE not set or missing"; return 0
+  fi
+  if ! jq -e . "$src" >/dev/null 2>&1; then
+    log "⚠️  ensure_defaults_from_export: SRC_FILE is not valid JSON"; return 0
+  fi
+
+  log "🔎 Scanning import JSON for clients with defaultClientScopes…"
+
+  # Iterate clients that declare defaultClientScopes
+  jq -r '
+    .clients // [] | map(select((.defaultClientScopes // []) | length > 0)) |
+    .[] | @tsv "\(.clientId)\t\(.defaultClientScopes | join(","))"
+  ' "$src" 2>/dev/null \
+  | while IFS=$'\t' read -r clientId scopes_csv; do
+      [ -z "${clientId:-}" ] && continue
+      local CUID="$(_kc get clients -r "$realm" --server "$server" --insecure -q clientId="$clientId" --fields id | jq -r '.[0].id // empty')"
+      if [ -z "${CUID:-}" ]; then
+        log "⚠️  client '${clientId}' not found; skipping"; continue
+      fi
+
+      IFS=',' read -ra SCOPES_ARR <<< "${scopes_csv:-}"
+      for s in "${SCOPES_ARR[@]}"; do
+        # trim whitespace
+        s="${s#"${s%%[![:space:]]*}"}"; s="${s%"${s##*[![:space:]]}"}"
+        [ -z "$s" ] && continue
+
+        # Ensure the scope exists (reuse ensure_client_scope if present)
+        local SID=""
+        if command -v ensure_client_scope >/dev/null 2>&1; then
+          SID="$(ensure_client_scope "$realm" "$s" || true)"
+        fi
+        if [ -z "${SID:-}" ]; then
+          SID="$(
+            _kc get client-scopes -r "$realm" --server "$server" --insecure --fields id,name 2>/dev/null \
+              | jq -r --arg n "$s" '.[] | select(.name==$n) | .id' | head -n1
+          )"
+        fi
+        if [ -z "${SID:-}" ]; then
+          log "⚠️  scope '$s' could not be ensured; skipping attach for client '${clientId}'"
+          continue
+        fi
+
+        # Attach as DEFAULT client-scope if missing
+        if ! _kc get "clients/${CUID}/default-client-scopes" -r "$realm" --server "$server" --insecure 2>/dev/null \
+          | jq -e --arg id "$SID" --arg n "$s" '.[] | select(.id==$id or .name==$n)' >/dev/null; then
+          if _kc create "clients/${CUID}/default-client-scopes/${SID}" -r "$realm" --server "$server" --insecure >/dev/null 2>&1; then
+            log "🎯 attached DEFAULT scope '${s}' to client '${clientId}'"
+          else
+            log "⚠️  failed to attach DEFAULT scope '${s}' to client '${clientId}'"
+          fi
+        else
+          log "ℹ️  '${s}' already present in DEFAULT client-scopes for '${clientId}'"
+        fi
+
+        # Special case: ensure groups-claim has the group-membership mapper
+        if [ "$s" = "groups-claim" ]; then
+          if ! _kc get "client-scopes/${SID}/protocol-mappers/models" -r "$realm" --server "$server" --insecure 2>/dev/null \
+            | jq -e '[.[]? | select(.protocolMapper=="oidc-group-membership-mapper")] | length>0' >/dev/null; then
+            _kc create "client-scopes/${SID}/protocol-mappers/models" -r "$realm" --server "$server" --insecure \
+              -s name=groups -s protocol=openid-connect -s protocolMapper=oidc-group-membership-mapper \
+              -s 'config."full.path"=false' -s 'config."id.token.claim"=true' \
+              -s 'config."access.token.claim"=true' -s 'config."userinfo.token.claim"=true' \
+              -s 'config."claim.name"=groups' >/dev/null 2>&1 \
+              && log "✅ added group-membership mapper to 'groups-claim'" \
+              || log "⚠️  failed to add group-membership mapper to 'groups-claim'"
+          fi
+        fi
+      done
+    done
+}
+# ================================================================================
+command -v ts  >/dev/null 2>&1 || ts(){ date +"%H:%M:%S"; }
+command -v log >/dev/null 2>&1 || log(){ printf "%s %s\n" "$(ts)" "$*" >&2; }
+command -v dump_head >/dev/null 2>&1 || dump_head(){
+  _label="$1"; _file="$2"; _n="${3:-40}"
+  printf "%s %s — first %s line(s):\n" "$(ts)" "$_label" "$_n" >&2
+  if [ -s "$_file" ]; then head -n "$_n" "$_file" | sed 's/^/   │ /' >&2; else echo "   │ (missing: $_file)" >&2; fi
+}
+
+# --- JSON normalization: strip UTF-8 BOM + CRLF into a clean copy ---
+normalize_json(){
+  in="$1"; out="$2"
+  # strip BOM only on first line; strip CR on all lines
+  awk 'NR==1{sub(/^\xef\xbb\xbf/,"")} {sub(/\r$/,""); print}' "$in" > "$out"
+}
+
+# --- visibility: which file are we importing from, and does it have groups-claim? ---
+echo "$(ts) [import-src] SRC_FILE=$SRC_FILE" >&2
+dump_head "[import-src] head of SRC_FILE" "$SRC_FILE" 12
+
+jq '{
+      clientScopes_cnt: (.clientScopes // [] | length),
+      has_groups_claim: ((.clientScopes // []) | map(.name) | index("groups-claim")) != null,
+      groups_claim_mappers: ((.clientScopes // []) | map(select(.name=="groups-claim")) | .[0].protocolMappers // [])
+    }' "$SRC_FILE" 2>/dev/null || echo "$(ts) [import-src] jq failed to parse SRC_FILE" >&2
+
 # --- simple logger to stderr to keep stdout clean for command substitutions ---
 # (define BEFORE any use)
 if ! command -v log >/dev/null 2>&1; then
   log() { printf "%s\n" "$*" >&2; }
 fi
 
-# ---- debug helpers ----------------------------------------------------------
-ts() { date +"%H:%M:%S"; }
-dbg() { [ "${DEBUG_INIT:-0}" = 1 ] && printf "%s %s\n" "$(ts)" "$*" >&2; }
-dump_head() {  # dump_head <label> <file> [N]
-  _lab="$1"; _f="$2"; _n="${3:-20}"
-  if [ -s "$_f" ]; then
-    printf "%s %s — first %s line(s):\n" "$(ts)" "$_lab" "$_n" >&2
-    sed -n "1,${_n}p" "$_f" | sed 's/^/   │ /' >&2
-  else
-    printf "%s %s — (empty or missing)\n" "$(ts)" "$_lab" >&2
-  fi
-}
-
-# Pretty jq counts with label
-jq_count() {  # jq_count <label> <jqexpr> <file>
-  _lab="$1"; _expr="$2"; _f="$3"
-  _c="$(jq -r "$_expr" "$_f" 2>/dev/null || printf 0)"
-  printf "%s %s: %s\n" "$(ts)" "$_lab" "$_c" >&2
-}
-
-# Limit very chatty worker logs
-DEBUG_WORKER="${DEBUG_WORKER:-1}"          # 1 = child processes log details
-DEBUG_BATCH="${DEBUG_BATCH:-1}"            # 1 = print batch directory samples
-DEBUG_INIT="${DEBUG_INIT:-1}"              # 1 = print high-level debug in parent
-DRY_RUN="${DRY_RUN:-0}"                    # 1 = don’t POST mappings, just log
-
-# Build a mapping source that definitely contains groups[].clientRoles.
-# If _src already has clientRoles, use it as-is.
-# Otherwise, overlay clientRoles from the original export by matching group .path.
-_prepare_mapping_source() {
-  _src="$1"
-  _orig="${2:-$IMPORT_FILE_ORIG}"
-
-  # Fast path: _src already has clientRoles
-  if jq -e '(.groups // []) | .. | objects | .clientRoles? | type=="object" and (length>0)' "$_src" >/dev/null 2>&1; then
-    printf '%s\n' "$_src"; return 0
-  fi
-
-  # If no original, nothing we can do
-  [ -s "$_orig" ] || { printf '%s\n' "$_src"; return 0; }
-
-  tmp_map="/tmp/orig-cr-map.json"
-  jq -c '
-    def walkg($p):
-      . as $g
-      | (if ($g.path? and ($g.path|type)=="string" and ($g.path|length)>0)
-           then $g.path
-           else ($p + (if $p=="" then "" else "/" end) + ($g.name // ""))
-         end) as $q
-      | {path:$q, cr: ($g.clientRoles // {})}
-      , ( ($g.subGroups // [])[] | walkg($q) );
-    [ (.groups // [])[] | walkg("")
-      | select((.cr|type)=="object" and (.cr|length)>0 and (.path|length)>0) ]
-    | map({key:.path, value:.cr})
-    | from_entries
-  ' "$_orig" > "$tmp_map"
-
-  tmp_out="/tmp/mapping-src.json"
-  jq --slurpfile M "$tmp_map" '
-    def path_of($g; $p):
-      if ($g.path? | type)=="string" and ($g.path|length)>0
-        then $g.path
-        else $p + (if $p=="" then "" else "/" end) + ($g.name // "")
-      end;
-
-    def patch($p):
-      . as $g
-      | (path_of($g; $p)) as $q
-      | (if ($M[0][$q]? | type)=="object" then (.clientRoles = $M[0][$q]) else . end)
-      | ( .subGroups |= ( ( . // [] ) | map( patch($q) ) ) );
-
-    (.groups |= ( ( . // [] ) | map( patch("") ) ))
-  ' "$_src" > "$tmp_out"
-
-  # inside _prepare_mapping_source(), right before: printf '%s\n' "$tmp_out"
-  if [ "${DEBUG_INIT:-0}" = 1 ]; then
-    jq_count "[map-src] objects with clientRoles" \
-             '[..|objects|.clientRoles?|select(type=="object")]|length' "$tmp_out"
-    # Top 10 clientIds referenced by clientRoles
-    printf "%s [map-src] top clientIds:\n" "$(ts)" >&2
-    jq -r '
-      [..|objects|.clientRoles?|keys[]] | group_by(.) | map({k:.[0], n:length})
-      | sort_by(-.n) | .[0:10][] | "\(.k)\t(\(.n))"
-    ' "$tmp_out" 2>/dev/null | sed 's/^/   • /' >&2 || true
-  fi
-
-  printf '%s\n' "$tmp_out"
-}
 
 # --- Group helpers ---
 _group_id_by_name_under() {
@@ -640,10 +865,51 @@ _kc config credentials \
   --server "$KC_BOOT_URL" --realm master \
   --user "$ADMIN_USER" --password "$ADMIN_PWD" --insecure >/dev/null 2>&1 || true
 
+echo "$(ts) [kc] listing client-scopes before import…" >&2
+_kc get client-scopes -r "$REALM" --server "$KC_BOOT_URL" --insecure --fields name,protocol 2>/dev/null \
+  | jq -r '.[]? | "\(.name)\t\(.protocol // "n/a")"' | sed 's/^/   • /' >&2 || true
+
+echo "$(ts) [kc] does groups-claim exist pre-import?" >&2
+if _kc get client-scopes -r "$REALM" --server "$KC_BOOT_URL" --insecure -q name=groups-claim >/dev/null 2>&1; then
+  echo "   ✅ groups-claim exists (pre-import)" >&2
+  _CID="$(_kc get client-scopes -r "$REALM" --server "$KC_BOOT_URL" --insecure -q name=groups-claim --fields id | jq -r '.[0].id')"
+  echo "   id=$_CID" >&2
+  _kc get "client-scopes/${_CID}/protocol-mappers/models" -r "$REALM" --server "$KC_BOOT_URL" --insecure 2>/dev/null \
+    | jq -r '.[]?| "\(.name)\t\(.protocolMapper)"' | sed 's/^/      mapper: /' >&2 || true
+else
+  echo "   ❌ groups-claim not present (pre-import)" >&2
+fi
 
 # Example call order (without groups):
 section_import clientScopes
+
+echo "$(ts) [kc] ensuring client-scope 'groups-claim' exists…" >&2
+if ! _kc get client-scopes -r "$REALM" --server "$KC_BOOT_URL" --insecure -q name=groups-claim >/dev/null 2>&1; then
+  echo "   • creating client-scope 'groups-claim'…" >&2
+  if _kc create client-scopes -r "$REALM" --server "$KC_BOOT_URL" --insecure \
+       -s name=groups-claim -s protocol=openid-connect >/dev/null 2>&1; then
+    echo "   ✅ created 'groups-claim'" >&2
+  else
+    echo "   ❌ failed creating 'groups-claim'" >&2
+  fi
+
+  _CID="$(_kc get client-scopes -r "$REALM" --server "$KC_BOOT_URL" --insecure -q name=groups-claim --fields id | jq -r '.[0].id')"
+  if [ -n "$_CID" ] && [ "$_CID" != "null" ]; then
+    echo "   • adding oidc-group-membership-mapper…" >&2
+    _kc create "client-scopes/${_CID}/protocol-mappers/models" -r "$REALM" --server "$KC_BOOT_URL" --insecure \
+      -s name=groups -s protocol=openid-connect -s protocolMapper=oidc-group-membership-mapper \
+      -s 'config."full.path"=false' -s 'config."id.token.claim"=true' \
+      -s 'config."access.token.claim"=true' -s 'config."userinfo.token.claim"=true' \
+      -s 'config."claim.name"=groups' >/dev/null 2>&1 \
+      && echo "   ✅ mapper added" >&2 || echo "   ❌ failed to add mapper" >&2
+  fi
+else
+  echo "   ✅ already present (skipping create)" >&2
+fi
+
+
 section_import clients
+ensure_defaults_from_export_v2  # ensure DEFAULT client-scopes from import JSON
 section_import roles
 
 # Refresh admin CLI token before partial imports

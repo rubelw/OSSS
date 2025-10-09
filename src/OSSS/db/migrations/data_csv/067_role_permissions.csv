@@ -1,2 +1,3 @@
-id,role_id,permission_id,created_at,updated_at
-a5d91e68-edfd-5d16-a12d-091bed0ab35b,5a7199b0-5600-5a7b-b2fe-d09b52153333,01ef3d90-6308-5e05-b128-08e2f996705b,2025-09-05T18:25:42Z,2025-09-05T18:25:42Z
+version https://git-lfs.github.com/spec/v1
+oid sha256:564d39188cf4945f9787448905739011c992cdd8364efa878330184cb2689396
+size 202

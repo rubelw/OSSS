@@ -1,18 +1,3 @@
-code,description
-TARD,Tardy to class
-SKIP,Skipping class / Unexcused absence
-DRSG,Dress code violation
-DISR,Disruptive behavior in class
-DISO,Disobedience / Insubordination
-INAP,Inappropriate language / gestures
-FGT,Fighting / Physical aggression
-HRAS,Harassment / Bullying
-THRT,Threat / Intimidation
-VAND,Vandalism / Property damage
-THEF,Theft
-TOB,Tobacco possession/use
-DRUG,Drugs / Alcohol possession or use
-WEAP,Weapon possession
-CHEA,Academic dishonesty / Cheating
-TECH,"Technology misuse (e.g., inappropriate internet use)"
-OTHR,Other (uncategorized behavior)
+version https://git-lfs.github.com/spec/v1
+oid sha256:dbfb0c495c0e969c651f9857f6402c47c3f5bda85cc1bf96d667f3655358cc60
+size 584

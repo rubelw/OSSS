@@ -1,0 +1,17 @@
+{
+  "service": {
+    "name": "ollama",
+    "id": "ollama-11434",
+    "address": "ollama",
+    "port": 11434,
+    "tags": ["profile:ai", "app:ollama", "http:11434"],
+    "checks": [
+      {
+        "name": "ollama-tcp",
+        "tcp": "ollama:11434",
+        "interval": "10s",
+        "timeout": "5s"
+      }
+    ]
+  }
+}

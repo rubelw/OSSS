@@ -130,6 +130,9 @@ osss <TAB>
 # Consul: http://localhost:8500
 # Kibana: http://localhost:5601
 # ElasticSearch: http://localhost:9200
+# Airflow: http://localhost:8083
+# Openmetadata: http://localhost:8585
+# Superset: http://localhost:8088
 ```
 
 Build the static site to `./documentation/`:

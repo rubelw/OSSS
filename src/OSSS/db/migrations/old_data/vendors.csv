@@ -1,31 +1,3 @@
-id,name,contact_name,contact_email,contact_phone,active,notes
-4f0fbbc9-0dfe-51dc-bba1-d82ec89492d0,Nimbus Services Ltd.,Avery Williams,avery.williams@nimbus-services-ltd.com,555-808-9064,"1",RFP finalist last cycle
-e688388b-0013-5047-af05-ca3b42d60641,Evergreen Assessment Group,Avery Gonzalez,avery.gonzalez@evergreen-assessment-group.com,555-204-6030,"1",RFP finalist last cycle
-006bd302-b533-5995-a649-6474f02cd6a3,Skyline Services Systems,Drew Wilson,drew.wilson@skyline-services-systems.com,555-449-7854,"1",Legacy integration; monitor SLAs
-0bca4052-9283-59a5-bbdf-00cd55a90ba0,Prairie Facilities Inc.,Riley Smith,riley.smith@prairie-facilities-inc.com,555-867-9006,"1",Preferred vendor
-45d900b5-a0e6-5892-9aaf-76424631e721,Riverview Transportation Solutions,Avery Lopez,avery.lopez@riverview-transportation-solutions.com,555-902-5530,"1",Contract pending renewal
-78cbecc8-f20f-57df-a18d-e69d4b7562e1,Nimbus Communications LLC,Reese Martinez,reese.martinez@nimbus-communications-llc.com,555-811-3026,"1",Legacy integration; monitor SLAs
-e897cfb6-38b9-5b94-93cd-489561460053,Blue Ridge Textbooks LLC,Morgan Wilson,morgan.wilson@blue-ridge-textbooks-llc.com,555-780-9854,"1",Onboarding complete
-e801737f-79e0-5e72-99f4-ee3a687e50f4,Riverview Consulting Ltd.,Riley Moore,riley.moore@riverview-consulting-ltd.com,555-747-3608,"1",Preferred vendor
-9e7ee76b-29bd-5263-ada1-cec33ec8a49c,Skyline Transportation Inc.,Casey Brown,casey.brown@skyline-transportation-inc.com,555-934-4350,"1",RFP finalist last cycle
-cce47bcf-e080-52bf-9461-01106c3fbe2e,Oakstone Technology Inc.,Reese Williams,reese.williams@oakstone-technology-inc.com,555-385-9512,"1",
-393a7f87-01e8-5370-8017-672a7a6db362,Oakstone Technology Solutions,Hayden Garcia,hayden.garcia@oakstone-technology-solutions.com,555-800-9442,"1",RFP finalist last cycle
-463cf31c-a099-57b2-afa8-bc32275a0211,Granite Technology Co.,Casey Rodriguez,casey.rodriguez@granite-technology-co.com,555-479-5528,"1",Preferred vendor
-1ad48b8d-5389-572b-97e6-9ea5e1854105,Aurora Curriculum Ltd.,Taylor Lopez,taylor.lopez@aurora-curriculum-ltd.com,555-302-7923,"1",RFP finalist last cycle
-e1e86d26-3a1f-524d-bbff-71a1abd4f4e7,Meridian Education LLC,Quinn Johnson,quinn.johnson@meridian-education-llc.com,555-496-3358,false,
-dff03856-a832-5f2b-96d6-5dd0c7e19260,Beacon Cloud Inc.,Hayden Garcia,hayden.garcia@beacon-cloud-inc.com,555-748-4584,"1",Legacy integration; monitor SLAs
-1c43ca1e-5dd7-5f64-ad53-cf745c2704c7,Terrace Wellness Ltd.,Emerson Lopez,emerson.lopez@terrace-wellness-ltd.com,555-834-2767,"1",RFP finalist last cycle
-55d98682-2d67-5628-9bd7-a25549919386,Westfield Education Co.,Emerson Rodriguez,emerson.rodriguez@westfield-education-co.com,555-313-3449,"1",Legacy integration; monitor SLAs
-0842c185-e2c9-50cc-a67b-0ed9f674bfb5,Vertex Janitorial LLC,Avery Rodriguez,avery.rodriguez@vertex-janitorial-llc.com,555-793-7924,"1",
-59365c03-ca03-50ff-99ef-138c144a4c6b,Riverview Cloud LLC,Rowan Martinez,rowan.martinez@riverview-cloud-llc.com,555-912-9683,"1",Pilot in two schools
-fe6466af-9c1f-535c-8f01-4bf5487187a0,Cedar Maintenance Systems,Emerson Smith,emerson.smith@cedar-maintenance-systems.com,555-464-3634,"1",Onboarding complete
-ccd1fcea-88df-555e-8802-708df455f856,Meridian Curriculum Solutions,Drew Lopez,drew.lopez@meridian-curriculum-solutions.com,555-720-5493,"1",
-b7e4799a-20aa-51db-aae3-bd8de5bf4393,Vertex Textbooks Group,Riley Johnson,riley.johnson@vertex-textbooks-group.com,555-644-1429,"1",Legacy integration; monitor SLAs
-d6314575-01e8-57d9-a613-8260e5d75857,Westfield Consulting Systems,Jordan Hernandez,jordan.hernandez@westfield-consulting-systems.com,555-428-1276,"1",Pilot in two schools
-e0c8444b-42ac-525d-8791-52e2ccaf8773,Nimbus Curriculum Co.,Avery Thomas,avery.thomas@nimbus-curriculum-co.com,555-255-4560,"1",RFP finalist last cycle
-9518441c-a431-5b61-bfcf-cdab4fb162b2,Redwood Wellness Partners,Drew Hernandez,drew.hernandez@redwood-wellness-partners.com,555-768-5720,"1",Legacy integration; monitor SLAs
-ffd79bec-4ac7-5a86-ae45-aa814ac4291c,Vertex Foodservice Group,Taylor Lopez,taylor.lopez@vertex-foodservice-group.com,555-353-3348,"1",
-8f32b17d-1be0-59be-b86e-f1c17a8707d8,Summit Maintenance Inc.,Rowan Hernandez,rowan.hernandez@summit-maintenance-inc.com,555-490-5795,"1",Contract pending renewal
-e3cb4553-aafc-512e-842e-d3f4e133d2a7,Beacon Textbooks Ltd.,Riley Jones,riley.jones@beacon-textbooks-ltd.com,555-772-6228,"1",
-321ce23b-9ee6-572b-891c-205446b0657f,Vertex Consulting Co.,Jordan Williams,jordan.williams@vertex-consulting-co.com,555-214-1822,"1",
-fb637ccc-904a-5c32-aa99-c78315642cee,Riverview Maintenance Solutions,Riley Garcia,riley.garcia@riverview-maintenance-solutions.com,555-656-6180,"1",Onboarding complete
+version https://git-lfs.github.com/spec/v1
+oid sha256:59eec513375e68f0682b2be217f71e3e10e2cbc883b5313d7c32efb82da9963f
+size 4737

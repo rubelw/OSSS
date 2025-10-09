@@ -1,0 +1,17 @@
+{
+  "service": {
+    "name": "superset",
+    "id": "superset-8088",
+    "address": "superset",
+    "port": 8088,
+    "tags": ["profile:superset","http"],
+    "checks": [
+      {
+        "name": "superset-http",
+        "http": "http://superset:8088/",
+        "interval": "15s",
+        "timeout": "5s"
+      }
+    ]
+  }
+}

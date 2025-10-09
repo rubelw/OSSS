@@ -1,2 +1,3 @@
-id,prereq_course_id,course_id,created_at,updated_at
-61f25887-22ac-55f4-a169-2ce9bc9a9b07,d611e635-a211-55de-9c45-7ae777929ef0,d611e635-a211-55de-9c45-7ae777929ef0,2025-09-05T18:25:42Z,2025-09-05T18:25:42Z
+version https://git-lfs.github.com/spec/v1
+oid sha256:c862517287f25fe9b3124cc8d15c29460ca0ab6fcb4dfa6bce49a72a65e27f7f
+size 207

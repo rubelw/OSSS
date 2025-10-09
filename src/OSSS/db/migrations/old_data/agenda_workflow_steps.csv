@@ -1,25 +1,3 @@
-workflow_id,step_no,approver_type,approver_id,rule
-0b13a9d3-435a-4fce-afc7-e4d5f672a6da,1,role,,auto-approve
-0b13a9d3-435a-4fce-afc7-e4d5f672a6da,2,role,,manual
-357b4101-b33e-4459-bc69-b1e0de1fd876,1,principal,,unanimous
-357b4101-b33e-4459-bc69-b1e0de1fd876,2,principal,,unanimous
-4804cb53-a862-4698-8f16-97aeff6e990a,1,assistant_principal,,unanimous
-4804cb53-a862-4698-8f16-97aeff6e990a,2,principal,,threshold
-63ee87bf-1868-46dc-b1c0-1044502954f0,1,assistant_principal,,threshold
-63ee87bf-1868-46dc-b1c0-1044502954f0,2,superintendent,,threshold
-81bbe6fe-57cd-49d5-9894-3f580cb9fa29,1,superintendent,,threshold
-81bbe6fe-57cd-49d5-9894-3f580cb9fa29,2,role,,auto-approve
-83abac5b-52dd-47f0-85f5-647d35147caf,1,assistant_principal,,majority
-83abac5b-52dd-47f0-85f5-647d35147caf,2,principal,,manual
-88cc0486-23ea-4e8f-a9f1-a73cf90b4393,1,role,,auto-approve
-88cc0486-23ea-4e8f-a9f1-a73cf90b4393,2,superintendent,,manual
-8907c15b-fc40-4045-8320-ca343f1574d9,1,role,,threshold
-8907c15b-fc40-4045-8320-ca343f1574d9,2,role,,majority
-aaa60925-699b-4e9d-bbca-f26c32420737,1,principal,,majority
-aaa60925-699b-4e9d-bbca-f26c32420737,2,assistant_principal,6f28b052-5226-4dd6-9f44-a1137306793f,threshold
-dc6049cd-96de-4776-b321-d46091b3c8df,1,role,,manual
-dc6049cd-96de-4776-b321-d46091b3c8df,2,assistant_principal,,majority
-dff4aac7-5f08-4303-b9bf-f9a8aa145ebf,1,principal,,threshold
-dff4aac7-5f08-4303-b9bf-f9a8aa145ebf,2,superintendent,,threshold
-e8e499fb-d7fb-40b0-88ed-455535746430,1,assistant_principal,,threshold
-e8e499fb-d7fb-40b0-88ed-455535746430,2,board,,threshold
+version https://git-lfs.github.com/spec/v1
+oid sha256:4386d6f74ad63b67419d9775d036a33388b4638de3898fb383d856f81a2a5ee6
+size 1586

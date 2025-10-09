@@ -1,2 +1,3 @@
-id,created_at,acct_type,active,updated_at,code,name
-0b1a3d2e-8794-5f2a-9ca9-caf54aaa100f,2025-09-05T18:25:42Z,Sample gl_accounts acct_type,True,2025-09-05T18:25:42Z,Sample gl_accounts code,Sample gl_accounts name
+version https://git-lfs.github.com/spec/v1
+oid sha256:f6e4b26c2634e72d4b4b8b9f239ed48a215a1b3d23e123f8fe01177df4bc6a68
+size 215

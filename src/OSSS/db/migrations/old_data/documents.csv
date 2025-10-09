@@ -1,26 +1,3 @@
-folder_name,title,current_version_id,is_public
-District Documents,Finance Training Report,,false
-Series 100: Educational Philosophy,Safety HVAC Outline,,false
-Contracts,Maintenance Custodial Form,,false
-Board Policies,Procurement Budget Summary,,false
-Student Handbooks,IT Inventory Memo,,false
-Series 100: Educational Philosophy,Safety Compliance Procedure,,false
-Meeting Minutes,Transport Custodial SOP,,true
-Board Policies,Admin Security Form,,false
-Series 200: Board of Directors,Finance Custodial Procedure,,false
-Series 200: Board of Directors,Facilities Inventory Form,,false
-Student Handbooks,Procurement Vendors Policy,,false
-Student Handbooks,Maintenance Budget Notice,,false
-District Documents,HR Emergency Procedure,,false
-Board Policies,Athletics Training Procedure,,true
-Meeting Minutes,Transport Training Summary,,false
-District Documents,Finance HVAC Procedure,,false
-District Documents,Safety Budget Summary,,false
-Series 200: Board of Directors,Procurement HVAC Memo,,false
-Board Policies,Maintenance Security Policy,,false
-Meeting Minutes,Finance Compliance Template,,false
-Board Policies,Safety Budget Notice,,false
-Meeting Minutes,HR Events Summary,,true
-Series 200: Board of Directors,HR Compliance Form,,false
-Series 100: Educational Philosophy,IT Inventory Notice,,false
-Contracts,Food Service Compliance Outline,,true
+version https://git-lfs.github.com/spec/v1
+oid sha256:0488faa5e01d626c4da2948268c7bbcfe92dec6290386e373cceef875a281fa0
+size 1369

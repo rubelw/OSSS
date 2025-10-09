@@ -1,22 +1,19 @@
 {
-  "datacenter": "dc1",
-  "services": [
-    {
-      "name": "keycloak",
-      "address": "keycloak",
-      "port": 8443,
-      "tags": [
-        "keycloak",
-        "https"
-      ],
-      "checks": [
-        {
-          "http": "http://keycloak:9000/health/ready",
-          "interval": "10s",
-          "timeout": "3s",
-          "DeregisterCriticalServiceAfter": "1m"
-        }
-      ]
-    }
-  ]
+  "service": {
+    "name": "keycloak",
+    "address": "keycloak",
+    "port": 9000,
+    "tags": ["keycloak","mgmt","https"],
+    "checks": [
+      {
+        "name": "kc-ready",
+        "method": "GET",
+        "http": "https://keycloak:9000/health/ready",
+        "tls_skip_verify": true,
+        "interval": "10s",
+        "timeout": "5s",
+        "DeregisterCriticalServiceAfter": "1m"
+      }
+    ]
+  }
 }

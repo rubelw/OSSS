@@ -1,22 +1,3 @@
-type,value
-website,https://www.dc-g-oak-view.k12.us
-phone,(974) 821-7247
-attendance_phone,(365) 542-7580
-email,contact@dallas-center-elementary.school.org
-fax,(582) 703-5775
-counseling_email,office@dallas-center-elementary.school.org
-website,https://www.dallas-center-grimes-high-school.k12.us
-counseling_email,office@dallas-center-grimes-high-school.school.org
-fax,(798) 832-7147
-phone,(920) 579-3379
-fax,(813) 530-7092
-email,support@dallas-center-grimes-middle-school.edu
-counseling_email,office@heritage-elementary.school.org
-fax,(527) 827-3362
-attendance_phone,(546) 510-9107
-counseling_email,admin@north-ridge-elementary.k12.us
-website,https://www.north-ridge-elementary.edu
-phone,(829) 796-6995
-fax,(836) 678-6286
-counseling_email,admin@south-prairie-elementary.edu
-email,hello@south-prairie-elementary.k12.example
+version https://git-lfs.github.com/spec/v1
+oid sha256:5d4bc8bd7119e8727e25a8dde857e68e502e1f52b4795d4954869c41d1b6ea30
+size 843

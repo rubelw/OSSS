@@ -1,2 +1,3 @@
-id,position_id,employee_id,created_at,start_date,updated_at
-a5b3d00c-1402-5e98-8de0-01fd4a472077,802a1af2-dfe2-514d-bb11-93dd54128230,6cad28d3-a80b-5f37-8064-02e44b2abf7c,2025-09-05T18:25:42Z,2025-09-05,2025-09-05T18:25:42Z
+version https://git-lfs.github.com/spec/v1
+oid sha256:036753bb104a344f6a3b42dfa0400205c94c8edf86fb6e66f9678a227038324d
+size 226

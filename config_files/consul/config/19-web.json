@@ -1,0 +1,17 @@
+{
+  "service": {
+    "name": "web",
+    "id": "web-3000",
+    "address": "web",
+    "port": 3000,
+    "tags": ["profile:web-app"],
+    "checks": [
+      {
+        "name": "web-http",
+        "http": "http://web:3000/",
+        "interval": "10s",
+        "timeout": "5s"
+      }
+    ]
+  }
+}

@@ -1,2 +1,3 @@
-id,assignment_id,signer_id,signed_at,created_at,updated_at
-b1210bad-2192-5e1c-a68e-ca8434e1a343,1fbd0dd2-7d1f-5902-80a7-ebf0221be5d8,02af070d-4e8a-543f-b9d5-4fbdda232c69,2025-09-05T18:25:42Z,2025-09-05T18:25:42Z,2025-09-05T18:25:42Z
+version https://git-lfs.github.com/spec/v1
+oid sha256:15184f68e413fb57eb128842291391e4e7ba173f8afb12d3b8e08538b00adef8
+size 235

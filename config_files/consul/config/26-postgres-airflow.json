@@ -1,0 +1,17 @@
+{
+  "service": {
+    "name": "postgres-airflow",
+    "id": "postgres-airflow-5432",
+    "address": "postgres-airflow",
+    "port": 5432,
+    "tags": ["profile:airflow","db:postgres"],
+    "checks": [
+      {
+        "name": "postgres-airflow-tcp",
+        "tcp": "postgres-airflow:5432",
+        "interval": "10s",
+        "timeout": "5s"
+      }
+    ]
+  }
+}

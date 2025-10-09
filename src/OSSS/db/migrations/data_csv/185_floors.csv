@@ -1,2 +1,3 @@
-id,building_id,level_code,created_at,updated_at,name
-005bddd0-aff4-5867-af28-68511e66c392,b966627f-da21-5522-9d86-88d0cdf22732,Sample floors level_code,2025-09-05T18:25:42Z,2025-09-05T18:25:42Z,Sample floors name
+version https://git-lfs.github.com/spec/v1
+oid sha256:ce04f41fbcc165f6cb4ae235e123b07070b79f65733c23f66dafa4db893d197e
+size 215

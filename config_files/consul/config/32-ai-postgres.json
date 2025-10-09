@@ -1,0 +1,17 @@
+{
+  "service": {
+    "name": "ai-postgres",
+    "id": "ai-postgres-5432",
+    "address": "ai-postgres",
+    "port": 5432,
+    "tags": ["profile:ai", "db:postgres", "tcp:5432"],
+    "checks": [
+      {
+        "name": "ai-postgres-tcp",
+        "tcp": "ai-postgres:5432",
+        "interval": "10s",
+        "timeout": "5s"
+      }
+    ]
+  }
+}

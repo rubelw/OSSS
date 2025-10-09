@@ -1,2 +1,3 @@
-id,updated_at,created_at,provider,url
-d32e8008-d484-5792-a0e3-b2dcc29c4d91,2025-09-05T18:25:42Z,2025-09-05T18:25:42Z,Sample embeds provider,Sample embeds url
+version https://git-lfs.github.com/spec/v1
+oid sha256:fb5b1316dd91f098d784de54ee447b0be853e540df680bfb6e76cdece1d15582
+size 160

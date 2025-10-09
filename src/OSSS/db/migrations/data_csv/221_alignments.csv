@@ -1,2 +1,3 @@
-id,requirement_id,curriculum_version_id,alignment_level,created_at
-0aa749a5-e2ec-53f8-a90f-bfcb61eaff06,389316c8-6605-5aaa-a9e2-76208de426bc,df36bb87-a986-583e-be86-7b185baeb5b6,Sample alignments alignment_level,2025-09-05T18:25:42Z
+version https://git-lfs.github.com/spec/v1
+oid sha256:894ea4a6b5a1a402eb4d6e0ae909e2cd55a89213ae485f0cf594b2812aa68410
+size 235

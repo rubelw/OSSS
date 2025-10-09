@@ -7,9 +7,14 @@
       "port": 9200,
       "checks": [
         {
-          "http": "http://elasticsearch:9200",
+          "name": "es-http-health",
+          "method": "GET",
+          "http": "http://elasticsearch:9200/_cluster/health?local=true",
+          "header": {
+            "Authorization": ["Basic ZWxhc3RpYzpwYXNzd29yZA=="]
+          },
           "interval": "10s",
-          "timeout": "3s"
+          "timeout": "5s"
         }
       ]
     }

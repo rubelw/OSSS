@@ -1,0 +1,16 @@
+{
+  "service": {
+    "name": "openmetadata-server",
+    "address": "openmetadata-server",
+    "port": 8585,
+    "checks": [
+      {
+        "name": "om-ui-liveness",
+        "http": "http://openmetadata-server:8585/",
+        "method": "GET",
+        "interval": "10s",
+        "timeout": "5s"
+      }
+    ]
+  }
+}
