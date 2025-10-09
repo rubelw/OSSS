@@ -1,2 +1,3 @@
-id,scanned_by_user_id,ticket_id,scanned_at,created_at,result,updated_at
-dd38b1e6-6da1-5d0b-b0e0-f710c40ec22e,02af070d-4e8a-543f-b9d5-4fbdda232c69,945fff71-1877-5356-be9d-efb29731ae7b,2025-09-05T18:25:42Z,2025-09-05T18:25:42Z,Sample ticket_scans result,2025-09-05T18:25:42Z
+version https://git-lfs.github.com/spec/v1
+oid sha256:ba0dc6b3b35cfcfebe8faff0e1fcae9a75afb361c097b5087a13c83dd798edc4
+size 275

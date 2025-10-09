@@ -157,3 +157,10 @@ src/osss-web/package-lock.json
 # Allow Next.js lib directory
 !src/osss-web/lib/
 !src/osss-web/lib/**
+
+# Ollama cache / models (huge)
+ollama_data/
+ollama_data/**
+# (Optional: explicit key files)
+ollama_data/id_ed25519
+ollama_data/id_ed25519.pub

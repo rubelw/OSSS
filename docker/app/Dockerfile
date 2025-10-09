@@ -1,50 +1,49 @@
-# Dockerfile
+# Dockerfile (with CA baked in)
 FROM python:3.11-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1
 
-# System deps (psql client & curl for diagnostics; libpq-dev/build-essential not required if using psycopg2-binary)
+# Install dependencies + trust store tooling
 RUN apt-get update && apt-get install -y --no-install-recommends \
       postgresql-client \
       curl \
       jq \
-    && rm -rf /var/lib/apt/lists/*
+      iproute2 \
+      net-tools \
+      ca-certificates \
+      openssl \
+ && rm -rf /var/lib/apt/lists/*
+
+# ---- Add your CA (PEM) and trust it ----
+# Copy CA from repo into system trust store
+COPY config_files/keycloak/secrets/ca/ca.crt /usr/local/share/ca-certificates/keycloak-ca.crt
+RUN chmod 0644 /usr/local/share/ca-certificates/keycloak-ca.crt && update-ca-certificates
+
+# Nice fallback envs pointing to the system bundle
+ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt \
+    SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt \
+    CURL_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
 
 WORKDIR /app
 
-# Install build tools first for better caching
 COPY pyproject.toml ./
 RUN python -m pip install --upgrade pip setuptools wheel
 
-# Copy source & gunicorn config
 COPY src ./src
 COPY gunicorn.conf.py ./
-
-# Make src importable as "OSSS"
 ENV PYTHONPATH=/app/src
-
-# Install your application (from pyproject)
 RUN pip install .
 
-# Runtime deps:
-# - gunicorn: master process
-# - uvicorn[standard]: uvicorn worker with uvloop, httptools, etc.
-# - asyncpg: async PostgreSQL driver for SQLAlchemy async engine
-# - psycopg2-binary: sync driver for Alembic migrations
 RUN pip install --no-cache-dir \
       "gunicorn>=21" \
       "uvicorn[standard]>=0.30" \
       "asyncpg>=0.29" \
-      "psycopg2-binary>=2.9"
+      "psycopg2-binary>=2.9" \
+      "httpx>=0.27" \
+      "prometheus-client>=0.20"
 
 EXPOSE 8000
-
-# Sensible defaults; override with env at runtime if needed
-ENV HOST=0.0.0.0 \
-    PORT=8000 \
-    LOG_LEVEL=info
-
-# gunicorn reads settings (incl. app import) from gunicorn.conf.py
+ENV HOST=0.0.0.0 PORT=8000 LOG_LEVEL=info
 CMD ["gunicorn", "-c", "gunicorn.conf.py"]

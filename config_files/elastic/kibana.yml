@@ -1,0 +1,12 @@
+server.host: "0.0.0.0"
+# How users reach Kibana from the browser (host side)
+server.publicBaseUrl: "http://localhost:5601"
+
+elasticsearch.hosts: ["http://elasticsearch:9200"]
+
+#xpack.security.enabled: false
+xpack.encryptedSavedObjects.encryptionKey: "please_change_me_to_any_32+_char_secret"
+
+xpack.security.authc.providers:
+  basic.basic1:
+    order: 1                      # keep basic as a fallback for emergencies

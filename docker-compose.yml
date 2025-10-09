@@ -1,264 +1,209 @@
-name: osss
+# build once, reuse the same image name for both services
+x-superset-image: &superset_image osss/superset:with-drivers
 
-x-kc-db-env: &kc_db_env
+x-kc-db-env:
   KC_DB: ${KC_DB}
   KC_DB_URL_HOST: ${KC_DB_URL_HOST}
   KC_DB_URL_PORT: ${KC_DB_URL_PORT}
   KC_DB_URL_DATABASE: ${KC_DB_NAME}
   KC_DB_USERNAME: ${KC_DB_USERNAME}
   KC_DB_PASSWORD: ${KC_DB_PASSWORD}
-  KC_DB_URL: "${KC_DB_URL}"
-  # optional JDBC params; the importer will append them with a leading "?"
-  KC_DB_URL_PROPERTIES: "${KC_DB_URL_PROPERTIES}"
-  KC_LOG_LEVEL: "TRACE"
-  QUARKUS_TRANSACTION_MANAGER_DEFAULT_TRANSACTION_TIMEOUT: "PT30M"
-  QUARKUS_DATASOURCE_JDBC_ACQUISITION_TIMEOUT: "600s"
-  QUARKUS_DATASOURCE_JDBC_BACKGROUND_VALIDATION_INTERVAL: "30S"
-  QUARKUS_DATASOURCE_JDBC_VALIDATION_QUERY: "SELECT 1"
-  QUARKUS_LOG_LEVEL: "INFO"
-  KC_DB_POOL_INITIAL_SIZE: "1"
-  KC_DB_POOL_MIN_SIZE: "1"
-  KC_DB_POOL_MAX_SIZE: "5"
-  KEYCLOAK_URL: "${KEYCLOAK_URL}"
-  KEYCLOAK_ADMIN: "admin"
-  KEYCLOAK_ADMIN_PASSWORD: "admin"
-  KEYCLOAK_REALM: "OSSS"
-  KEYCLOAK_HEALTH_URL: "${KEYCLOAK_HEALTH_URL}"
-  # Force canonical base URL used in discovery/issuer:
-  KC_FEATURES: "hostname:v1"
-
-
+  KC_DB_URL: ${KC_DB_URL}
+  KC_DB_URL_PROPERTIES: ${KC_DB_URL_PROPERTIES}
+  KC_LOG_LEVEL: TRACE
+  QUARKUS_TRANSACTION_MANAGER_DEFAULT_TRANSACTION_TIMEOUT: PT30M
+  QUARKUS_DATASOURCE_JDBC_ACQUISITION_TIMEOUT: 600s
+  QUARKUS_DATASOURCE_JDBC_BACKGROUND_VALIDATION_INTERVAL: 30S
+  QUARKUS_DATASOURCE_JDBC_VALIDATION_QUERY: SELECT 1
+  QUARKUS_LOG_LEVEL: INFO
+  KC_DB_POOL_INITIAL_SIZE: '1'
+  KC_DB_POOL_MIN_SIZE: '1'
+  KC_DB_POOL_MAX_SIZE: '5'
+  KEYCLOAK_URL: ${KEYCLOAK_URL}
+  KEYCLOAK_ADMIN: admin
+  KEYCLOAK_ADMIN_PASSWORD: admin
+  KEYCLOAK_REALM: OSSS
+  KEYCLOAK_HEALTH_URL: ${KEYCLOAK_HEALTH_URL}
+  KC_FEATURES: hostname:v1
 networks:
-  osss-net: {}
-
-
-
+  osss-net:
+    external: true
+    name: osss-net
 volumes:
-  consul_data:
-  kc_postgres_data:
-  osss_postgres_data:
-  redis-data:
-  es-data:
-  filebeat-data:
-  es-shared:
-
-
-
+  consul_data: {}
+  kc_postgres_data: {}
+  osss_postgres_data: {}
+  redis-data: {}
+  es-data: {}
+  filebeat-data: {}
+  es-shared: {}
+  pg_superset_data: {}
+  superset_redis_data: {}
+  trino_data: {}
+  mysql_data: {}
+  airflow-pgdata: {}
+  ingestion_data: {}
+  elasticsearch_data: {}
+  ingestion-volume-dag-airflow: {}
+  ingestion-volume-dags: {}
+  ingestion-volume-tmp: {}
+  om-es-data: {}
+  ollama_data: {}
+  web_node_modules: {}
+  qdrant_data: {}
+  minio_data: {}
+  ai_pg_data: {}
+  ai_redis_data: {}
 
 services:
-
-
-
-  # HashiCorp Consul (dev mode) — service discovery, DNS, UI
   consul:
     image: hashicorp/consul:1.18
-    profiles: ["consol"]
+    profiles:
+    - consul
     container_name: consul
-    command: [ "agent","-dev","-client=0.0.0.0","-ui","-log-level=INFO" ]
+    command:
+    - agent
+    - -server
+    - -bootstrap-expect=1
+    - -client=0.0.0.0
+    - -ui
+    - -log-level=INFO
+    - -config-dir=/consul/config
+    cpus: 0.5
+    mem_limit: 512m
+    mem_reservation: 256m
     ports:
-      - "8500:8500"          # HTTP UI/API
-      - "8600:8600/tcp"      # DNS (TCP)
-      - "8600:8600/udp"      # DNS (UDP)
+      - 8500:8500
+      - 8600:8600/tcp
+      - 8600:8600/udp
     volumes:
-      - consul_data:/consul/data
-    networks: [ osss-net ]
+      - ./config_files/consul_data:/consul/data
+      - ./config_files/consul/config:/consul/config:rw
+      - ./config_files/consul/jwt:/consul/jwt:rw
+    networks:
+      - osss-net
     environment:
-      # Registers services with Consul; Consul runs these checks from inside the container
-      CONSUL_LOCAL_CONFIG: |
-        {
-          "datacenter": "dc1",
-          "services": [
-            {
-              "name": "osss-postgres",
-              "address": "osss_postgres",
-              "port": 5432,
-              "checks": [
-                { "tcp": "osss_postgres:5432", "interval": "10s", "timeout": "2s" }
-              ]
-            },
-            {
-              "name": "kc-postgres",
-              "address": "kc_postgres",
-              "port": 5432,
-              "checks": [
-                { "tcp": "kc_postgres:5432", "interval": "10s", "timeout": "2s" }
-              ]
-            },
-            {
-              "name": "redis",
-              "address": "redis",
-              "port": 6379,
-              "tags": ["cache", "redis"],
-              "checks": [
-                { "tcp": "redis:6379", "interval": "10s", "timeout": "2s" }
-              ]
-            },
-            {
-              "name": "vault",
-              "address": "vault",
-              "port": 8200,
-              "tags": ["vault", "http"],
-              "checks": [
-                {
-                  "http": "http://vault:8200/v1/sys/health?standbyok=true&sealedcode=503&standbycode=200&activecode=200",
-                  "interval": "10s",
-                  "timeout": "3s"
-                }
-              ]
-            },
-            {
-              "name": "keycloak",
-              "address": "keycloak",
-              "port": 8080,
-              "tags": ["keycloak", "http"],
-              "checks": [
-                {
-                  "http": "http://keycloak:9000/health/ready",
-                  "interval": "10s",
-                  "timeout": "3s",
-                  "DeregisterCriticalServiceAfter": "1m"
-                }
-              ]
-            },
-            {
-              "name":"elasticsearch",
-              "address":"elasticsearch",
-              "port":9200,
-              "checks":[
-                {"http":"http://elasticsearch:9200","interval":"10s","timeout":"3s"}
-              ]
-            },
-            {
-              "name":"kibana",
-              "address":"kibana",
-              "port":5601,
-              "checks":[
-                {"http":"http://kibana:5601/api/status","interval":"10s","timeout":"3s"}
-              ]
-            }
-          ]
-        }
-
+      CONSUL_HTTP_TOKEN: ${CONSUL_HTTP_TOKEN:-}
     healthcheck:
-      test: [ "CMD-SHELL", "consul info >/dev/null 2>&1" ]
+      test: consul info >/dev/null 2>&1 || exit 1
       interval: 5s
       timeout: 3s
       retries: 20
     restart: unless-stopped
-
-
-
+  consul-jwt-init:
+    image: hashicorp/consul:1.18
+    profiles:
+      - consul
+    container_name: consul-jwt-init
+    networks:
+      - osss-net
+    depends_on:
+      - consul
+    environment:
+      CONSUL_HTTP_ADDR: http://consul:8500
+      CONSUL_HTTP_TOKEN: ${CONSUL_HTTP_TOKEN}
+    volumes:
+      - ./config_files/consul/jwt/jwt.json:/cfg/jwt.json:ro
+      - ./config_files/consul/init-jwt.sh:/cfg/init-jwt.sh:ro
+    entrypoint:
+      - /bin/sh
+      - -exc
+    command:
+      - /cfg/init-jwt.sh
+    restart: 'no'
   app:
-    profiles: ["app"]
-    networks: [ osss-net ]
+    profiles:
+    - app
+    networks:
+    - osss-net
     container_name: app
+    hostname: app
+    cpus: 2.0
+    mem_limit: 3g
+    mem_reservation: 2g
     build:
       context: .
       dockerfile: docker/app/Dockerfile
     command:
-      - uvicorn
-      - src.OSSS.main:app
-      - --host
-      - 0.0.0.0
-      - --port
-      - "8000"
-      - --reload
-      - --log-level
-      - info
-      - --no-use-colors        # ← was "--use-colors false"
-      - --access-log
-      - --log-config
-      - /workspace/docker/logging.json
+    - uvicorn
+    - src.OSSS.main:app
+    - --host
+    - 0.0.0.0
+    - --port
+    - '8000'
+    - --reload
+    - --log-level
+    - info
+    - --access-log
+    - --log-config
+    - /workspace/docker/logging.yaml
     working_dir: /workspace
     ports:
-      - "8081:8000"     # host:container
-    entrypoint: ["/usr/local/bin/app-entrypoint.sh"]
-
+    - 127.0.0.1:8081:8000
+    entrypoint:
+    - /usr/local/bin/app-entrypoint.sh
     volumes:
-      - ./:/workspace:cached
-      - ./docker/logging.yml:/workspace/docker/logging.yaml:ro
-      - ./scripts/app-entrypoint.sh:/usr/local/bin/app-entrypoint.sh:ro   # file -> file ✅
+    - ./:/workspace:cached
+    - ./docker/logging.yml:/workspace/docker/logging.yaml:ro
+    - ./scripts/app-entrypoint.sh:/usr/local/bin/app-entrypoint.sh:ro
 
     labels:
-      co.elastic.logs/enabled: "true"
-      co.elastic.logs/processors.1.decode_json_fields.fields: 'message'
+      co.elastic.logs/enabled: 'true'
+      co.elastic.logs/processors.1.decode_json_fields.fields: message
       co.elastic.logs/processors.1.decode_json_fields.target: ''
       co.elastic.logs/processors.1.decode_json_fields.overwrite_keys: 'true'
-      co.elastic.logs/processors.2.add_fields.target: 'app'
-      co.elastic.logs/processors.2.add_fields.fields.service: 'osss-api'
-
-
+      co.elastic.logs/processors.2.add_fields.target: app
+      co.elastic.logs/processors.2.add_fields.fields.service: osss-api
     environment:
-      # --- verbose logging knobs ---
-      OSSS_VERBOSE_AUTH: "1"
-      PYTHONUNBUFFERED: "1"
-      PYTHONLOGLEVEL: DEBUG         # stdlib logging default
-      LOG_LEVEL: DEBUG              # if your app reads this
+      OSSS_VERBOSE_AUTH: '1'
+      PYTHONUNBUFFERED: '1'
+      PYTHONLOGLEVEL: DEBUG
+      LOG_LEVEL: DEBUG
       UVICORN_LOG_LEVEL: debug
-      UVICORN_ACCESS_LOG: "1"
-
-      KEYCLOAK_ISSUER: "${KEYCLOAK_ISSUER}"   # if your code also checks this
-      KEYCLOAK_JWKS_URL: "${KEYCLOAK_JWKS_URL}"
-
-
-      # Auth/OIDC stacks you might be using
-      AUTHLIB_DEBUG: "1"            # Authlib (common with OIDC)
-      OAUTHLIB_INSECURE_TRANSPORT: "1"  # allow http redirect/token exchange in dev
-
-      # HTTP client debug (pick whichever your app uses)
+      UVICORN_ACCESS_LOG: '1'
+      KEYCLOAK_ISSUER: ${KEYCLOAK_ISSUER}
+      KEYCLOAK_JWKS_URL: ${KEYCLOAK_JWKS_URL}
+      AUTHLIB_DEBUG: '1'
+      OAUTHLIB_INSECURE_TRANSPORT: '1'
       HTTPX_LOG_LEVEL: DEBUG
       REQUESTS_LOG_LEVEL: DEBUG
-
-      # JWT/JWK libs often used under the hood
       JOSE_LOG_LEVEL: DEBUG
       JWcrypto_LOG_LEVEL: DEBUG
-
       HOST: 0.0.0.0
-      PORT: "8000"
+      PORT: '8000'
       PYTHONPATH: /workspace/src
-      WATCHFILES_FORCE_POLLING: "true"
-      # OIDC (unchanged)
-      CORS_ALLOW_ORIGINS: "${CORS_ALLOW_ORIGINS}"
-      CORS_ORIGINS: "${CORS_ORIGINS}"
+      WATCHFILES_FORCE_POLLING: 'true'
+      CORS_ALLOW_ORIGINS: ${CORS_ALLOW_ORIGINS}
+      CORS_ORIGINS: ${CORS_ORIGINS}
 
+      # Using the baked-in system trust from your Dockerfile:
+      REQUESTS_CA_BUNDLE: "/etc/ssl/certs/ca-certificates.crt"
+      SSL_CERT_FILE: "/etc/ssl/certs/ca-certificates.crt"
+      CURL_CA_BUNDLE: "/etc/ssl/certs/ca-certificates.crt"
 
-      # external/public issuer (what tokens advertise)
-      OIDC_ISSUER: "${OIDC_ISSUER}"
-
-      # internal container-to-container paths (what your app should call)
       OIDC_DISCOVERY_URL_INTERNAL: "${OIDC_DISCOVERY_URL_INTERNAL}"
       OIDC_TOKEN_URL_INTERNAL: "${OIDC_TOKEN_URL_INTERNAL}"
-      # optional (if you verify via JWKS directly)
-      OIDC_JWKS_URL: "${OIDC_JWKS_URL}"
+      OIDC_JWKS_URL_INTERNAL: "${OIDC_JWKS_URL_INTERNAL}"
+      KEYCLOAK_INTERNAL_BASE: "${KEYCLOAK_INTERNAL_BASE}"
 
-      # OIDC — must match how Keycloak issues tokens
+      OIDC_ISSUER: ${OIDC_ISSUER}
       OIDC_CLIENT_ID: osss-api
-      # If client is confidential:
       OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-password}
-      # Public URLs your API advertises/uses for redirects
       OSSS_PUBLIC_BASE_URL: http://localhost:8081
       OIDC_REDIRECT_URL: http://localhost:8081/callback
       OIDC_LOGOUT_REDIRECT_URL: http://localhost:8081/
-      # Helpful toggles while wiring up
-      OIDC_VERIFY_AUD: "0"          # flip to "1" after adding audience mapper
-      ALLOWED_CLOCK_SKEW: "60"
-      # Sessions/Redis (you already fixed the host)
+      OIDC_VERIFY_AUD: '0'
+      ALLOWED_CLOCK_SKEW: '60'
       REDIS_URL: redis://redis:6379/0
       SESSION_REDIS_HOST: redis
-      SESSION_REDIS_PORT: "6379"
+      SESSION_REDIS_PORT: '6379'
       KEYCLOAK_CLIENT_ID: osss-api
-      KEYCLOAK_CLIENT_SECRET: password   # <-- use the real secret from Keycloak
-
-      # This one is used by your async engine at runtime:
+      KEYCLOAK_CLIENT_SECRET: password
       ASYNC_DATABASE_URL: postgresql+asyncpg://${OSSS_DB_USER}:${OSSS_DB_PASSWORD}@osss_postgres:5432/${OSSS_DB_NAME}
       ALEMBIC_DATABASE_URL: postgresql+asyncpg://${OSSS_DB_USER}:${OSSS_DB_PASSWORD}@osss_postgres:5432/${OSSS_DB_NAME}
-
       OIDC_JWKS_URL_INTERNAL: ${OIDC_JWKS_URL_INTERNAL}
-
-      # keep issuer verification on now that we pinned it correctly
-      OIDC_VERIFY_ISS: "${OIDC_VERIFY_ISS}"
-
-      MIGRATIONS_DIR: /app/src/OSSS/db/migrations   # <-- adjust to your repo
+      OIDC_VERIFY_ISS: ${OIDC_VERIFY_ISS}
+      MIGRATIONS_DIR: /app/src/OSSS/db/migrations
       REPO_ROOT: /app
       ALEMBIC_CMD: alembic
       ALEMBIC_INI: /app/alembic.ini
@@ -268,30 +213,28 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
-      DATABASE_URL: ${ASYNC_DATABASE_URL}   # keep them in lockstep
-
-
-
+      DATABASE_URL: ${ASYNC_DATABASE_URL}
     depends_on:
       redis:
-        condition: service_healthy   # ✅ wait for redis to be ready
+        condition: service_healthy
       osss_postgres:
         condition: service_started
-      keycloak:
-        condition: service_healthy
-    healthcheck: # ✅ let compose decide if the app is ready
-      test: [ "CMD-SHELL","curl -fsS http://localhost:8000/healthz >/dev/null || exit 1" ]
+    healthcheck:
+      test: curl -fsS http://localhost:8000/healthz >/dev/null || exit 1
       interval: 5s
       timeout: 3s
       retries: 90
       start_period: 20s
-
-
-
   web:
-    profiles: ["web-app"]
-    networks: [ osss-net ]
+    profiles:
+    - web-app
+    networks:
+    - osss-net
     container_name: web
+    hostname: web
+    cpus: 2.0
+    mem_limit: 2g
+    mem_reservation: 1g
     build:
       context: ./src/osss-web
       dockerfile: ../../docker/osss-web/Dockerfile
@@ -299,325 +242,378 @@ services:
     depends_on:
       app:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
+      REDIS_URL: 'redis://redis:6379/0'
+      NODE_EXTRA_CA_CERTS: '/app/certs/keycloak-ca.crt'
       NODE_ENV: development
-      # These make file watching reliable in containers:
-      CHOKIDAR_USEPOLLING: "true"
-      WATCHPACK_POLLING: "true"
-      # Point web at the API container:
-      OSSS_API_URL: "${OSSS_API_URL}"
+      CHOKIDAR_USEPOLLING: 'true'
+      WATCHPACK_POLLING: 'true'
+      OSSS_API_URL: ${OSSS_API_URL}
     volumes:
-      - ./src/osss-web:/app:cached
-      - /app/node_modules
+    - ./src/osss-web:/app:cached
+    - web_node_modules:/app/node_modules   # <— use the named volume
+    - ./config_files/keycloak/secrets/ca/ca.crt:/app/certs/keycloak-ca.crt:ro,Z
     working_dir: /app
     ports:
-      - "3000:3000"
+    - 3000:3000
     labels:
-      co.elastic.logs/enabled: "true"
-      co.elastic.logs/processors.1.decode_json_fields.fields: 'message'
+      co.elastic.logs/enabled: 'true'
+      co.elastic.logs/processors.1.decode_json_fields.fields: message
       co.elastic.logs/processors.1.decode_json_fields.target: ''
       co.elastic.logs/processors.1.decode_json_fields.overwrite_keys: 'true'
-      co.elastic.logs/processors.2.add_fields.target: 'app'
-      co.elastic.logs/processors.2.add_fields.fields.service: 'osss-web'
-
-
-
+      co.elastic.logs/processors.2.add_fields.target: app
+      co.elastic.logs/processors.2.add_fields.fields.service: osss-web
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - node -e "fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
   osss_postgres:
     image: postgres:16-alpine
-    profiles: [ "app" ]
+    profiles:
+    - app
     container_name: osss_postgres
+    cpus: 1.0
+    mem_limit: 1536m
+    mem_reservation: 1g
     environment:
-      # Primary bootstrap user for the cluster
-      POSTGRES_USER: "${POSTGRES_USER}"
-      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
-      POSTGRES_DB: "${POSTGRES_DB}"
-
-      # App credentials you want created at init time
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
       OSSS_DB_USER: ${OSSS_DB_USER}
       OSSS_DB_PASSWORD: ${OSSS_DB_PASSWORD}
       OSSS_DB_NAME: ${OSSS_DB_NAME}
-
-      # (optional) stricter auth for host connections on fresh init
-      POSTGRES_INITDB_ARGS: "${POSTGRES_INITDB_ARGS}"
-
-    networks: [ osss-net ]
+      POSTGRES_INITDB_ARGS: ${POSTGRES_INITDB_ARGS}
+    networks:
+    - osss-net
     ports:
-      - "5433:5432"
+    - 5433:5432
     volumes:
-      - osss_postgres_data:/var/lib/postgresql/data
-      # Mount an init script that creates role/db on first init only
-      - ./scripts/init-osss.sh:/docker-entrypoint-initdb.d/20-init-osss.sh:ro
+    - osss_postgres_data:/var/lib/postgresql/data
+    - ./scripts/init-osss.sh:/docker-entrypoint-initdb.d/20-init-osss.sh:ro
     healthcheck:
-      # Use the configured superuser & db (NOTE the $$ to escape for Compose)
-      test: [ "CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\" -h 127.0.0.1 -p 5432 || exit 1" ]
+      test: pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}" -h 127.0.0.1 -p
+        5432 || exit 1
       interval: 5s
       timeout: 5s
       retries: 20
-
-
   redis:
     image: redis:7-alpine
-    profiles: ["app"]
+    profiles:
+    - app
+    cpus: 0.5
+    mem_limit: 512m
+    mem_reservation: 256m
     container_name: redis
-    command: [ "redis-server", "--appendonly", "yes" ]
+    command:
+    - redis-server
+    - --appendonly
+    - 'yes'
     ports:
-      - "6379:6379"        # optional for host access; containers use 'redis:6379'
-    networks: [ osss-net ]
+    - 6379:6379
+    networks:
+    - osss-net
     volumes:
-      - redis-data:/data
+    - redis-data:/data
     healthcheck:
-      test: [ "CMD", "redis-cli", "ping" ]
+      test:
+      - CMD
+      - redis-cli
+      - ping
       interval: 5s
       timeout: 3s
       retries: 20
     restart: unless-stopped
-
-
   kc_postgres:
     image: postgres:16
-    profiles: ["keycloak"]
+    profiles:
+    - keycloak
+    cpus: 1.0
+    mem_limit: 1536m
+    mem_reservation: 1g
     container_name: kc_postgres
     environment:
       POSTGRES_DB: ${KC_DB_NAME}
       POSTGRES_USER: ${KC_DB_USERNAME}
       POSTGRES_PASSWORD: ${KC_DB_PASSWORD}
-
-    networks: [ osss-net ]
+    networks:
+    - osss-net
     volumes:
-      - kc_postgres_data:/var/lib/postgresql/data
+    - kc_postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: [ "CMD-SHELL","pg_isready -U ${KC_DB_USERNAME:-keycloak} -d ${KC_DB_NAME:-keycloak} -h 127.0.0.1 -p 5432 || exit 1" ]
+      test: pg_isready -U ${KC_DB_USERNAME:-keycloak} -d ${KC_DB_NAME:-keycloak} -h
+        127.0.0.1 -p 5432 || exit 1
       interval: 5s
       timeout: 5s
       retries: 30
       start_period: 10s
     restart: always
-
   keycloak:
     build:
       context: .
       dockerfile: docker/keycloak/Dockerfile
-    profiles: ["keycloak"]
+    profiles:
+    - keycloak
     container_name: keycloak
     networks:
       osss-net:
-        aliases: [ keycloak.local ]
+        aliases:
+        - keycloak.local
     environment:
+      KC_HTTP_MANAGEMENT_PORT: "9000"
+      KC_HTTP_MANAGEMENT_SCHEME: "http"
+      KC_HTTP_PORT: 8080
       KC_DB: ${KC_DB}
       KC_DB_URL: jdbc:postgresql://${KC_DB_HOST}:${KC_DB_PORT}/${KC_DB_NAME}
       KC_DB_USERNAME: ${KC_DB_USERNAME}
       KC_DB_PASSWORD: ${KC_DB_PASSWORD}
       KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN}
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
-      KC_HEALTH_ENABLED: "true"
-      KC_HOSTNAME: "${KC_HOSTNAME}"
-      KC_DB_SCHEMA: "${KC_DB_SCHEMA}"
-      #KC_SPI_EVENTS_LISTENER_MAPPERSYNC_ENABLED: "false"
-
-      # ✅ Force Quarkus to ignore any persistence.xml during the BUILD step
-      QUARKUS_HIBERNATE_ORM_PERSISTENCE_XML_IGNORE: "true"
-
-      JAVA_OPTS: "${JAVA_OPTS}"
-
-
-      # Pool tuning (fine)
-      KC_DB_POOL_INITIAL_SIZE: "20"
-      KC_DB_POOL_MIN_SIZE: "20"
-      KC_DB_POOL_MAX_SIZE: "50"
-
-
-      # Optional verbose logging while you debug imports
-      KC_LOG_LEVEL: "${KC_LOG_LEVEL}"
-
-      # Make tokens & well-known advertise the external URL (what your app expects)
-      KC_HOSTNAME_URL: "${KC_HOSTNAME_URL}"              # public URL (what users/browsers hit)
-      KC_HOSTNAME_ADMIN_URL: "${KC_HOSTNAME_ADMIN_URL}"      # admin too
-
-      # good practice when sitting behind any port mapping / proxy
-      KC_PROXY: "${KC_PROXY}"
-      # ensure HTTP is enabled in dev (since you’re not on TLS locally)
-      KC_HTTP_ENABLED: "${KC_HTTP_ENABLED}"
-      # optional: tolerate mixed inbound Host headers during dev
-      KC_HOSTNAME_STRICT: "${KC_HOSTNAME_STRICT}"
-
-      ADMIN_USER: "${KEYCLOAK_ADMIN}"
-      ADMIN_PWD: "${KEYCLOAK_ADMIN_PASSWORD}"
-      KC_URL: "${KC_URL}"
+      KC_HTTPS_CERTIFICATE_FILE: /opt/keycloak/conf/tls/server.crt
+      KC_HTTPS_CERTIFICATE_KEY_FILE: /opt/keycloak/conf/tls/server.key
+      KC_HEALTH_ENABLED: 'true'
+      KC_HOSTNAME: ${KC_HOSTNAME}
+      KC_DB_SCHEMA: ${KC_DB_SCHEMA}
+      QUARKUS_HIBERNATE_ORM_PERSISTENCE_XML_IGNORE: 'true'
+      JAVA_OPTS: ${JAVA_OPTS}
+      KC_DB_POOL_INITIAL_SIZE: '20'
+      KC_DB_POOL_MIN_SIZE: '20'
+      KC_DB_POOL_MAX_SIZE: '50'
+      KC_LOG_LEVEL: ${KC_LOG_LEVEL}
+      KC_PROXY: ${KC_PROXY}
+      KC_HTTP_ENABLED: ${KC_HTTP_ENABLED}
+      KC_HOSTNAME_STRICT: ${KC_HOSTNAME_STRICT}
+      ADMIN_USER: ${KEYCLOAK_ADMIN}
+      ADMIN_PWD: ${KEYCLOAK_ADMIN_PASSWORD}
+      KC_URL: ${KC_URL}
+      # 👇 make management listen on all interfaces (not just loopback)
+      QUARKUS_MANAGEMENT_HOST: "0.0.0.0"
+      # (optional but explicit)
+      QUARKUS_MANAGEMENT_ENABLED: "true"
+      QUARKUS_MANAGEMENT_PORT: "9000"
 
     volumes:
-      # File(s) must live at /opt/keycloak/data/import inside the container and be .json
-      - ./realm-export.json:/opt/keycloak/data/import/10-OSSS.json:ro
-      - ./docker/keycloak/quarkus.properties:/opt/keycloak/conf/quarkus.properties:ro
+    - ./realm-export.json:/opt/keycloak/data/import/10-OSSS.json:ro
+    - ./docker/keycloak/quarkus.properties:/opt/keycloak/conf/quarkus.properties:ro
+    - ./config_files/keycloak/secrets/keycloak:/opt/keycloak/conf/tls:ro
 
-      # If you split files, mount them all here with .json suffixes (Keycloak merges by realm name)
-      # - ./OSSS-roles.json:/opt/keycloak/data/import/20-roles.json:ro
-      # - ./OSSS-clients.json:/opt/keycloak/data/import/30-clients.json:ro
-      # - ./OSSS-groups.json:/opt/keycloak/data/import/40-groups.json:ro
-      # - ./OSSS-users.json:/opt/keycloak/data/import/50-users.json:ro
     ports:
-      - "8080:8080"   # add this so host can reach keycloak:8080
-
-    mem_limit: 2g             # honored by non-Swarm compose
+    - 8443:8443
+    #- 8080:8080
+    cpus: 2.0
+    mem_limit: 2g
     mem_reservation: 1g
     depends_on:
       kc_postgres:
         condition: service_healthy
     restart: always
     healthcheck:
-      test: [ "CMD", "/opt/keycloak/healthcheck.sh" ]
+      test:
+        - CMD-SHELL
+        - |
+          set -e
+          curl -fsSk "https://127.0.0.1:${KC_MANAGEMENT_HTTP_PORT:-9000}/health/ready" >/dev/null
       interval: 10s
       timeout: 10s
-      retries: 190
-
+      retries: 600
+      start_period: 300s
   vault:
-    #build:
-    #  context: .                      # repo root
-    #  dockerfile: docker/vault/Dockerfile
     image: hashicorp/vault:1.20.3
     container_name: vault
-    profiles: ["vault"]
+    cpus: 1.0
+    mem_limit: 1g
+    mem_reservation: 512m
+    profiles:
+    - vault
     pull_policy: always
-    ports: [ "8200:8200" ]
-    cap_add: [ "IPC_LOCK" ]
-    # ⬇️ Put Vault on the host network so `localhost:8080` is reachable
-    networks: [ osss-net ]
+    ports:
+    - 8200:8200
+    cap_add:
+    - IPC_LOCK
+    networks:
+    - osss-net
     environment:
-      VAULT_DEV_ROOT_TOKEN_ID: "${VAULT_DEV_ROOT_TOKEN_ID}"
-      VAULT_DEV_LISTEN_ADDRESS: "${VAULT_DEV_LISTEN_ADDRESS}"
-      VAULT_UI: "${VAULT_UI}"
-      # internal address used by other containers
-      VAULT_API_ADDR: "${VAULT_API_ADDR}"
+      VAULT_DEV_ROOT_TOKEN_ID: ${VAULT_DEV_ROOT_TOKEN_ID}
+      VAULT_DEV_LISTEN_ADDRESS: ${VAULT_DEV_LISTEN_ADDRESS}
+      VAULT_UI: ${VAULT_UI}
+      VAULT_API_ADDR: ${VAULT_API_ADDR}
     depends_on:
       keycloak:
         condition: service_healthy
     command:
-      - server
-      - -dev
-      - -dev-root-token-id=root
-      - -dev-listen-address=0.0.0.0:8200
+    - server
+    - -dev
+    - -dev-root-token-id=root
+    - -dev-listen-address=0.0.0.0:8200
     healthcheck:
-      test: [ "CMD-SHELL","wget -qO- http://127.0.0.1:8200/v1/sys/health | grep -q '\"initialized\":true'" ]
+      test: wget -qO- http://127.0.0.1:8200/v1/sys/health | grep -q '"initialized":true'
       interval: 10s
       timeout: 5s
       retries: 30
       start_period: 10s
     restart: unless-stopped
-
   vault-oidc-setup:
-    profiles: ["vault"]
+    profiles:
+    - vault
     container_name: vault-oidc-setup
     build:
-      context: .                      # repo root
+      context: .
       dockerfile: docker/vault-oidc-setup/Dockerfile
-    networks: [ osss-net ]
+    networks:
+    - osss-net
+    cpus: 0.5
+    mem_limit: 512m
+    mem_reservation: 256m
     depends_on:
       vault:
         condition: service_healthy
       keycloak:
         condition: service_healthy
     environment:
-      VERBOSE: "1"
-      DEBUG: "1"
-      # Vault CLI logs
-      VAULT_LOG_LEVEL: "debug"
-
-      # If any Go-based client is used, get HTTP/2 timing (optional)
-      GODEBUG: "http2debug=2"
-
-      # talk to Vault via service DNS inside the compose network
-      VAULT_ADDR: "${VAULT_ADDR}"
-      VAULT_TOKEN: "${VAULT_TOKEN}"
-
-      # Keycloak issuer (discovery URL without the /.well-known suffix)]
-      OIDC_DISCOVERY_URL: "${OIDC_DISCOVERY_URL}"
-      VAULT_OIDC_DISCOVERY_URL: "${VAULT_OIDC_DISCOVERY_URL}"
-      VAULT_OIDC_CLIENT_ID: "${VAULT_OIDC_CLIENT_ID}"
-      VAULT_OIDC_CLIENT_SECRET: "${VAULT_OIDC_CLIENT_SECRET}"
-      VAULT_OIDC_ROLE: "${VAULT_OIDC_ROLE}"
-      VAULT_TOKEN_FILE: "/root/.vault-token"
-      OIDC_ADMIN_GROUP: "/vault-admin"
-
-      # Allow both 127.0.0.1 and localhost for UI & CLI
-      VAULT_UI_REDIRECT_1: "http://127.0.0.1:8200/ui/vault/auth/oidc/oidc/callback"
-      VAULT_UI_REDIRECT_2: "http://localhost:8200/ui/vault/auth/oidc/oidc/callback"
-      VAULT_UI_REDIRECT_3: "http://vault:8200/ui/vault/auth/oidc/oidc/callback"
-
-      VAULT_CLI_REDIRECT_1: "http://127.0.0.1:8250/oidc/callback"
-      VAULT_CLI_REDIRECT_2: "http://localhost:8250/oidc/callback"
-      VAULT_CLI_REDIRECT_3: "http://vault:8250/oidc/callback"
-
-    volumes: [ "./scripts/vault-oidc-setup.sh:/setup.sh:ro","~/.vault-token:/root/.vault-token:ro" ]
-    entrypoint: [ "/bin/sh","-lc","/setup.sh" ]
-    restart: "no"
-
-
+      VERBOSE: '1'
+      DEBUG: '1'
+      VAULT_LOG_LEVEL: debug
+      GODEBUG: http2debug=2
+      VAULT_ADDR: ${VAULT_ADDR}
+      VAULT_TOKEN: ${VAULT_TOKEN}
+      OIDC_DISCOVERY_URL: ${OIDC_DISCOVERY_URL}
+      VAULT_OIDC_DISCOVERY_URL: ${VAULT_OIDC_DISCOVERY_URL}
+      VAULT_OIDC_CLIENT_ID: ${VAULT_OIDC_CLIENT_ID}
+      VAULT_OIDC_CLIENT_SECRET: ${VAULT_OIDC_CLIENT_SECRET}
+      VAULT_OIDC_ROLE: ${VAULT_OIDC_ROLE}
+      VAULT_TOKEN_FILE: /root/.vault-token
+      OIDC_ADMIN_GROUP: /vault-admin
+      VAULT_UI_REDIRECT_1: http://127.0.0.1:8200/ui/vault/auth/oidc/oidc/callback
+      VAULT_UI_REDIRECT_2: http://localhost:8200/ui/vault/auth/oidc/oidc/callback
+      VAULT_UI_REDIRECT_3: http://vault:8200/ui/vault/auth/oidc/oidc/callback
+      VAULT_CLI_REDIRECT_1: http://127.0.0.1:8250/oidc/callback
+      VAULT_CLI_REDIRECT_2: http://localhost:8250/oidc/callback
+      VAULT_CLI_REDIRECT_3: http://vault:8250/oidc/callback
+      # Trust Keycloak CA inside this container:
+      CURL_CA_BUNDLE: /etc/ssl/certs/keycloak-ca.crt
+      SSL_CERT_FILE: /etc/ssl/certs/keycloak-ca.crt
+    volumes:
+    - ./scripts/vault-oidc-setup.sh:/setup.sh:ro
+    - ~/.vault-token:/root/.vault-token:ro
+    - ./config_files/keycloak/secrets/ca/ca.crt:/etc/ssl/certs/keycloak-ca.crt:ro,Z
+    entrypoint:
+    - /bin/sh
+    - -lc
+    - /setup.sh
+    restart: 'no'
   vault-seed:
     image: alpine:3.20
-    profiles: ["vault"]
+    profiles:
+    - vault
     container_name: vault-seed
     env_file: .env
-    networks: [ osss-net ]
+    networks:
+    - osss-net
+    cpus: 0.25
+    mem_limit: 256m
+    mem_reservation: 128m
     environment:
-      VAULT_ADDR: "http://vault:8200"
-      VAULT_TOKEN: "${VAULT_TOKEN:-root}"
-      VAULT_KV_PATH: "${VAULT_KV_PATH:-app}"
-      SEED_VAULT_TOKEN: "${VAULT_TOKEN:-root}"
-      VERBOSE: "1"   # set to 0 to quiet logs
-      DEBUG: "1"     # set to 1 for shell trace
+      VAULT_ADDR: http://vault:8200
+      VAULT_TOKEN: ${VAULT_TOKEN:-root}
+      VAULT_KV_PATH: ${VAULT_KV_PATH:-app}
+      SEED_VAULT_TOKEN: ${VAULT_TOKEN:-root}
+      VERBOSE: '1'
+      DEBUG: '1'
     depends_on:
       vault:
         condition: service_healthy
     volumes:
-      - ./scripts/seed-vault.sh:/usr/local/bin/seed-vault:ro
-    entrypoint: [ "/bin/sh","-lc","/usr/local/bin/seed-vault" ]
-    restart: "no"
-
-
+    - ./scripts/seed-vault.sh:/usr/local/bin/seed-vault:ro
+    entrypoint:
+    - /bin/sh
+    - -lc
+    - /usr/local/bin/seed-vault
+    restart: 'no'
   shared-vol-init:
     image: alpine:3.20
-    user: "0:0"
-    volumes: [ es-shared:/shared ]
+    user: 0:0
+    volumes:
+      - es-shared:/shared
     container_name: shared-vol-init
-    entrypoint: [ "sh","-lc" ]
-    command: |
-      set -e
-      mkdir -p /shared
-      chmod 0777 /shared         # or 0770 with a shared group if you prefer
-    profiles: [ "elastic" ]
-    networks: [ osss-net ]
+    cpus: 0.1
+    mem_limit: 128m
+    mem_reservation: 64m
+    entrypoint:
+      - sh
+      - -lc
+    command: 'set -e
+
+        mkdir -p /shared
+
+        chmod 0777 /shared         # or 0770 with a shared group if you prefer
+
+        '
+    profiles:
+      - elastic
+    networks:
+      - osss-net
 
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.14.3
-    profiles: ["elastic"]
+    profiles:
+    - elastic
     container_name: elasticsearch
+    hostname: elasticsearch
+    cpus: 2.0
+    mem_limit: 2g
+    mem_reservation: 1g
     environment:
-      - discovery.type=single-node
-      - xpack.security.enabled=true            # ← was false
-      - xpack.security.http.ssl.enabled=false
-      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}   # password for the built-in 'elastic' superuser
-      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    - # put the secret in your .env instead of hardcoding here
+    - OIDC_CLIENT_SECRET=${KIBANA_OIDC_CLIENT_SECRET}
+    - discovery.type=single-node
+    - xpack.security.enabled=true
+    - xpack.security.http.ssl.enabled=false
+    - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
+    - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    - network.host=0.0.0.0
     ulimits:
-      memlock: { soft: -1, hard: -1 }
+      memlock:
+        soft: -1
+        hard: -1
     ports:
-      - "9200:9200"
-    networks: [ osss-net ]
+    - 9200:9200
+    - 9300:9300
+    networks:
+    - osss-net
+    command: [ "/bin/bash","-lc","set -euo pipefail; \
+        [ -f config/elasticsearch.keystore ] || bin/elasticsearch-keystore create; \
+        if ! bin/elasticsearch-keystore list | grep -qx 'xpack.security.authc.realms.oidc.oidc1.rp.client_secret'; then \
+          echo \"$OIDC_CLIENT_SECRET\" | bin/elasticsearch-keystore add -xf xpack.security.authc.realms.oidc.oidc1.rp.client_secret; \
+        fi; \
+        exec /usr/local/bin/docker-entrypoint.sh eswrapper" ]
     volumes:
-      - es-data:/usr/share/elasticsearch/data
+    - es-data:/usr/share/elasticsearch/data
+    - ./config_files/elastic/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml:ro
+    - ./config_files/keycloak/secrets/ca/ca.crt:/usr/share/elasticsearch/config/keycloak-ca.crt:ro
+
     healthcheck:
       test:
-        [
-          "CMD-SHELL",
-          "curl -fsS -u elastic:${ELASTIC_PASSWORD} http://localhost:9200/_cluster/health?wait_for_status=yellow\\&timeout=60s >/dev/null"
-        ]
+      - CMD-SHELL
+      - curl -fsS -u elastic:${ELASTIC_PASSWORD} http://elasticsearch:9200/_cluster/health?wait_for_status=yellow&timeout=60s
+        >/dev/null || exit 1
       interval: 30s
       timeout: 10s
       retries: 50
     restart: unless-stopped
-
   kibana-pass-init:
     image: curlimages/curl:8.8.0
-    networks: [ osss-net ]
-    profiles: [ "elastic" ]
+    networks:
+    - osss-net
+    profiles:
+    - elastic
+    cpus: 0.5
+    mem_limit: 512m
+    mem_reservation: 256m
     container_name: kibana-pass-init
     depends_on:
       elasticsearch:
@@ -626,77 +622,82 @@ services:
       ELASTIC_PASSWORD: ${ELASTIC_PASSWORD}
       KIBANA_PASSWORD: ${KIBANA_PASSWORD}
       ES_URL: http://elasticsearch:9200
-    entrypoint: [ "sh","-lc" ]
+    entrypoint:
+    - sh
+    - -lc
     command:
-      - >
-        set -euo pipefail;
-        now() { date -Iseconds; };
-        log() { printf '%s %s\n' "$$(now)" "$$*"; };
-        mask() { s="$$1"; [ -z "$$s" ] && printf '(empty)\n' || { [ "$${#s}" -le 8 ] && printf '******\n' || printf '%s******\n' "$${s%??????}"; }; };
-        log "ES_URL=$$ES_URL";
-        log "ELASTIC_PASSWORD=$$(mask "$$ELASTIC_PASSWORD")";
-        log "KIBANA_PASSWORD=$$(mask "$$KIBANA_PASSWORD")";
-        log "Waiting for Elasticsearch cluster health...";
-        __tries=0;
-        while :; do
-          __code="$$(curl -sS -o /dev/null -w '%{http_code}' -u "elastic:$$ELASTIC_PASSWORD" "$$ES_URL/_cluster/health" || echo 000)";
-          log "cluster health http_code=$$__code";
-          [ "$$__code" = "200" ] && break;
-          __tries=$$((__tries+1)); [ "$$__tries" -le 180 ] || { log "Elasticsearch not ready after 180 attempts"; exit 1; };
-          sleep 3;
-        done;
-        log "Elasticsearch reachable";
-        log "Setting kibana_system password...";
-        __resp="$$(curl -sS -u "elastic:$$ELASTIC_PASSWORD" -H 'Content-Type: application/json' -w '\nHTTP_STATUS:%{http_code}\n' -X POST "$$ES_URL/_security/user/kibana_system/_password" -d "{\"password\":\"$$KIBANA_PASSWORD\"}")";
-        __rc="$$(printf '%s' "$$__resp" | sed -n 's/^HTTP_STATUS://p')";
-        __body="$$(printf '%s' "$$__resp" | sed '$$d')";
-        log "POST /_security/user/kibana_system/_password -> $$__rc";
-        if [ -z "$$__rc" ] || [ "$$__rc" -ge 400 ]; then log "Failed to set kibana_system password; response follows:"; printf '%s\n' "$$__body"; exit 1; fi;
-        log "kibana_system password set";
-        log "Verifying kibana_system authentication...";
-        __v="$$(curl -sS -u "kibana_system:$$KIBANA_PASSWORD" -w '\nHTTP_STATUS:%{http_code}\n' "$$ES_URL/_security/_authenticate" || true)";
-        __v_code="$$(printf '%s' "$$__v" | sed -n 's/^HTTP_STATUS://p')";
-        __v_body="$$(printf '%s' "$$__v" | sed '$$d')";
-        log "GET /_security/_authenticate as kibana_system -> $$__v_code";
-        [ "$$__v_code" = "200" ] || { printf '%s\n' "$$__v_body"; exit 1; };
-        log "kibana-pass-init complete.";
-    restart: "no"
+    - "set -euo pipefail; now() { date -Iseconds; }; log() { printf '%s %s\\n' \"\
+      $$(now)\" \"$$*\"; }; mask() { s=\"$$1\"; [ -z \"$$s\" ] && printf '(empty)\\\
+      n' || { [ \"$${#s}\" -le 8 ] && printf '******\\n' || printf '%s******\\n' \"\
+      $${s%??????}\"; }; }; log \"ES_URL=$$ES_URL\"; log \"ELASTIC_PASSWORD=$$(mask\
+      \ \"$$ELASTIC_PASSWORD\")\"; log \"KIBANA_PASSWORD=$$(mask \"$$KIBANA_PASSWORD\"\
+      )\"; log \"Waiting for Elasticsearch cluster health...\"; __tries=0; while :;\
+      \ do\n  __code=\"$$(curl -sS -o /dev/null -w '%{http_code}' -u \"elastic:$$ELASTIC_PASSWORD\"\
+      \ \"$$ES_URL/_cluster/health\" || echo 000)\";\n  log \"cluster health http_code=$$__code\"\
+      ;\n  [ \"$$__code\" = \"200\" ] && break;\n  __tries=$$((__tries+1)); [ \"$$__tries\"\
+      \ -le 180 ] || { log \"Elasticsearch not ready after 180 attempts\"; exit 1;\
+      \ };\n  sleep 3;\ndone; log \"Elasticsearch reachable\"; log \"Setting kibana_system\
+      \ password...\"; __resp=\"$$(curl -sS -u \"elastic:$$ELASTIC_PASSWORD\" -H 'Content-Type:\
+      \ application/json' -w '\\nHTTP_STATUS:%{http_code}\\n' -X POST \"$$ES_URL/_security/user/kibana_system/_password\"\
+      \ -d \"{\\\"password\\\":\\\"$$KIBANA_PASSWORD\\\"}\")\"; __rc=\"$$(printf '%s'\
+      \ \"$$__resp\" | sed -n 's/^HTTP_STATUS://p')\"; __body=\"$$(printf '%s' \"\
+      $$__resp\" | sed '$$d')\"; log \"POST /_security/user/kibana_system/_password\
+      \ -> $$__rc\"; if [ -z \"$$__rc\" ] || [ \"$$__rc\" -ge 400 ]; then log \"Failed\
+      \ to set kibana_system password; response follows:\"; printf '%s\\n' \"$$__body\"\
+      ; exit 1; fi; log \"kibana_system password set\"; log \"Verifying kibana_system\
+      \ authentication...\"; __v=\"$$(curl -sS -u \"kibana_system:$$KIBANA_PASSWORD\"\
+      \ -w '\\nHTTP_STATUS:%{http_code}\\n' \"$$ES_URL/_security/_authenticate\" ||\
+      \ true)\"; __v_code=\"$$(printf '%s' \"$$__v\" | sed -n 's/^HTTP_STATUS://p')\"\
+      ; __v_body=\"$$(printf '%s' \"$$__v\" | sed '$$d')\"; log \"GET /_security/_authenticate\
+      \ as kibana_system -> $$__v_code\"; [ \"$$__v_code\" = \"200\" ] || { printf\
+      \ '%s\\n' \"$$__v_body\"; exit 1; }; log \"kibana-pass-init complete.\";\n"
+    restart: 'no'
+
 
 
   kibana:
     image: docker.elastic.co/kibana/kibana:8.14.3
-    profiles: ["elastic"]
+    profiles:
+    - elastic
     container_name: kibana
+    cpus: 1.0
+    mem_limit: 1g
+    mem_reservation: 512m
+    volumes:
+    - ./config_files/elastic/kibana.yml:/usr/share/kibana/config/kibana.yml:ro
     depends_on:
       elasticsearch:
         condition: service_healthy
       kibana-pass-init:
         condition: service_completed_successfully
-
     environment:
-      ELASTICSEARCH_HOSTS: "http://elasticsearch:9200"
-      SERVER_PUBLICBASEURL: "http://localhost:5601"
-      LOGGING_VERBOSE: "true"
-      ELASTICSEARCH_USERNAME: "kibana_system"
-      ELASTICSEARCH_PASSWORD: "${KIBANA_PASSWORD}"
-
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+      SERVER_PUBLICBASEURL: http://localhost:5601
+      LOGGING_VERBOSE: 'true'
+      ELASTICSEARCH_USERNAME: kibana_system
+      ELASTICSEARCH_PASSWORD: ${KIBANA_PASSWORD}
+      KBN_SERVER_PUBLICBASEURL: http://localhost:5601
     ports:
-      - "5601:5601"
-    networks: [ osss-net ]
+    - 5601:5601
+    networks:
+    - osss-net
     restart: unless-stopped
     healthcheck:
-      test: [ "CMD-SHELL","curl -fsS -I http://localhost:5601/login | grep -q '200'" ]
+      test: curl -fsS -I http://localhost:5601/login | grep -q '200'
       interval: 20s
       timeout: 5s
       retries: 30
-
-
   api-key-init:
     image: curlimages/curl:8.8.0
-    networks: [ osss-net ]
-    profiles: [ "elastic" ]
+    networks:
+    - osss-net
+    profiles:
+    - elastic
+    cpus: 0.5
+    mem_limit: 512m
+    mem_reservation: 256m
     container_name: api-key-init
-    user: "0:0"                 # <-- root
+    user: 0:0
     environment:
       ELASTIC_PASSWORD: ${ELASTIC_PASSWORD}
       ES_URL: http://elasticsearch:9200
@@ -706,60 +707,46 @@ services:
       elasticsearch:
         condition: service_healthy
     volumes:
-      - ./:/work
-      - es-shared:/shared
+    - ./:/work
+    - es-shared:/shared
     working_dir: /work
-    entrypoint: [ "sh","-lc" ]
+    entrypoint:
+    - sh
+    - -lc
     command:
-      - |
-        set -eu
-
-        # Wait for ES
-        echo "[wait] for Elasticsearch..."
-        __n=0
-        while :; do
-          __code="$$(curl -sS -o /dev/null -w '%{http_code}' "$$ES_URL" || echo 000)"
-          case "$$__code" in 200|401|302) break ;; esac
-          __n=$$((__n+1)); [ "$$__n" -le 180 ] || { echo "ES not reachable (code=$$__code)" >&2; exit 1; }
-          sleep 5
-        done
-
-        echo "[mint] API key for filebeat writer..."
-        body='{
-          "name": "filebeat_osss_ingest",
-          "role_descriptors": {
-            "filebeat_writer": {
-              "cluster": ["monitor","read_ilm","read_pipeline"],
-              "index": [
-                { "names": ["logs-*","filebeat-*"], "privileges": ["auto_configure","create_doc","view_index_metadata"] }
-              ]
-            }
-          }
-        }'
-
-        resp=$$(curl -fsS -u "elastic:$$ELASTIC_PASSWORD" \
-                 -H "Content-Type: application/json" \
-                 -d "$$body" "$$ES_URL/_security/api_key")
-
-        id=$$(printf '%s' "$$resp" | sed -n 's/.*"id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
-        key=$$(printf '%s' "$$resp" | sed -n 's/.*"api_key"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
-        [ -n "$$id" ] && [ -n "$$key" ] || { echo "ERROR: could not parse API key: $$resp" >&2; exit 1; }
-
-        echo "ELASTIC_API_KEY=$$id:$$key" > .env.apikey
-        echo "[ok] wrote .env.apikey"
-        
-        echo "ELASTIC_API_KEY=$$id:$$key" > /shared/filebeat.apikey.env
-        chmod 600 /shared/filebeat.apikey.env
-        echo "[ok] wrote /shared/filebeat.apikey.env"
-  
-
+    - "set -eu\n\n# Wait for ES\necho \"[wait] for Elasticsearch...\"\n__n=0\nwhile\
+      \ :; do\n  __code=\"$$(curl -sS -o /dev/null -w '%{http_code}' \"$$ES_URL\"\
+      \ || echo 000)\"\n  case \"$$__code\" in 200|401|302) break ;; esac\n  __n=$$((__n+1));\
+      \ [ \"$$__n\" -le 180 ] || { echo \"ES not reachable (code=$$__code)\" >&2;\
+      \ exit 1; }\n  sleep 5\ndone\n\necho \"[mint] API key for filebeat writer...\"\
+      \nbody='{\n  \"name\": \"filebeat_osss_ingest\",\n  \"role_descriptors\": {\n\
+      \    \"filebeat_writer\": {\n      \"cluster\": [\"monitor\",\"read_ilm\",\"\
+      read_pipeline\"],\n      \"index\": [\n        { \"names\": [\"logs-*\",\"filebeat-*\"\
+      ], \"privileges\": [\"auto_configure\",\"create_doc\",\"view_index_metadata\"\
+      ] }\n      ]\n    }\n  }\n}'\n\nresp=$$(curl -fsS -u \"elastic:$$ELASTIC_PASSWORD\"\
+      \ \\\n         -H \"Content-Type: application/json\" \\\n         -d \"$$body\"\
+      \ \"$$ES_URL/_security/api_key\")\n\nid=$$(printf '%s' \"$$resp\" | sed -n 's/.*\"\
+      id\"[[:space:]]*:[[:space:]]*\"\\([^\"]*\\)\".*/\\1/p')\nkey=$$(printf '%s'\
+      \ \"$$resp\" | sed -n 's/.*\"api_key\"[[:space:]]*:[[:space:]]*\"\\([^\"]*\\\
+      )\".*/\\1/p')\n[ -n \"$$id\" ] && [ -n \"$$key\" ] || { echo \"ERROR: could\
+      \ not parse API key: $$resp\" >&2; exit 1; }\n\necho \"ELASTIC_API_KEY=$$id:$$key\"\
+      \ > .env.apikey\necho \"[ok] wrote .env.apikey\"\n\necho \"ELASTIC_API_KEY=$$id:$$key\"\
+      \ > /shared/filebeat.apikey.env\nchmod 600 /shared/filebeat.apikey.env\necho\
+      \ \"[ok] wrote /shared/filebeat.apikey.env\"\n"
   filebeat-setup:
     image: docker.elastic.co/beats/filebeat:8.14.3
-    networks: [ osss-net ]
-    profiles: ["elastic"]
+    networks:
+    - osss-net
+    profiles:
+    - elastic
     container_name: filebeat-setup
+    cpus: 0.5
+    mem_limit: 512m
+    mem_reservation: 256m
     env_file:
-      - .env
+    - .env
+    environment:
+      KIBANA_URL: ${KIBANA_URL:-http://kibana:5601}
     depends_on:
       elasticsearch:
         condition: service_healthy
@@ -768,66 +755,1068 @@ services:
       api-key-init:
         condition: service_completed_successfully
     volumes:
-      - ./filebeat.setup.yml:/usr/share/filebeat/filebeat.yml:ro
-    entrypoint: [ "sh","-lc" ]
+    - ./config_files/filebeat/filebeat.setup.yml:/usr/share/filebeat/filebeat.yml:ro
+    entrypoint:
+    - sh
+    - -lc
     command:
-      - |
-        set -eu
-        echo "[wait] for Kibana..."
-        i=0
-        until code="$$(curl -sS -o /dev/null -w '%{http_code}' "$$KIBANA_URL/api/status")" \
-          && { [ "$$code" = "200" ] || [ "$$code" = "302" ] || [ "$$code" = "401" ]; }; do
-          i=$$((i+1)); [ $$i -le 180 ] || { echo "Kibana not reachable (last http_code=$$code)"; exit 1; }
-          sleep 1
-        done
-  
-        echo "[setup] ILM/templates/dashboards"
-        filebeat setup \
-          -E setup.ilm.overwrite=true \
-          -E setup.dashboards.enabled=true \
-          -E setup.kibana.hosts=["$$KIBANA_URL"] \
-          -E setup.kibana.username="$$KIBANA_USERNAME" \
-          -E setup.kibana.password="$$KIBANA_PASSWORD" \
-          -E output.elasticsearch.hosts=["$$ES_URL"] \
-          -E output.elasticsearch.username="elastic" \
-          -E output.elasticsearch.password="$$ELASTIC_PASSWORD"
-
-  # --- RUNTIME FILEBEAT (no kibana creds, api_key only to ES) ---
+    - "set -eu\necho \"[wait] for Kibana...\"\ni=0\nuntil code=\"$$(curl -sS -o /dev/null\
+      \ -w '%{http_code}' \"$$KIBANA_URL/api/status\")\" \\\n  && { [ \"$$code\" =\
+      \ \"200\" ] || [ \"$$code\" = \"302\" ] || [ \"$$code\" = \"401\" ]; }; do\n\
+      \  i=$$((i+1)); [ $$i -le 180 ] || { echo \"Kibana not reachable (last http_code=$$code)\"\
+      ; exit 1; }\n  sleep 1\ndone\n\necho \"[setup] ILM/templates/dashboards\"\n\
+      filebeat setup \\\n  -E setup.ilm.overwrite=true \\\n  -E setup.dashboards.enabled=true\
+      \ \\\n  -E setup.kibana.hosts=[\"$$KIBANA_URL\"] \\\n  -E setup.kibana.username=\"\
+      $$KIBANA_USERNAME\" \\\n  -E setup.kibana.password=\"$$KIBANA_PASSWORD\" \\\n\
+      \  -E output.elasticsearch.hosts=[\"$$ES_URL\"] \\\n  -E output.elasticsearch.username=\"\
+      elastic\" \\\n  -E output.elasticsearch.password=\"$$ELASTIC_PASSWORD\"\n"
   filebeat:
     image: docker.elastic.co/beats/filebeat:8.14.3
-    container_name: filebeat
-    networks: [ osss-net ]
-    profiles: [ "elastic" ]
-    user: root
+    container_name: filebeat-podman
+    networks:
+    - osss-net
+    profiles:
+    - elastic
+    cpus: 0.5
+    mem_limit: 512m
+    mem_reservation: 256m
     env_file:
-      - .env
+    - .env
     environment:
       ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+      KIBANA_URL: ${KIBANA_URL:-http://kibana:5601}
     depends_on:
       api-key-init:
         condition: service_completed_successfully
       filebeat-setup:
         condition: service_completed_successfully
     volumes:
-      - ./filebeat.docker.yml:/usr/share/filebeat/filebeat.yml:ro
-      - /var/lib/docker/containers:/var/lib/docker/containers:ro
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - es-shared:/shared
-    # keep the default entrypoint, but tell it to run a shell
+    - ./config_files/filebeat/filebeat.podman.yml:/usr/share/filebeat/filebeat.yml:ro
+    - ${PODMAN_OVERLAY_DIR:-/var/lib/containers/storage/overlay-containers}:/var/lib/containers/storage/overlay-containers:ro
+    - es-shared:/shared
     command:
-      - sh
-      - -c
+    - sh
+    - -c
+    - "set -eu\necho \"[wait] for /shared/filebeat.apikey.env...\"\ni=0\nwhile [ $$i\
+      \ -lt 180 ]; do\n  [ -s /shared/filebeat.apikey.env ] && break\n  i=$$((i+1))\n\
+      \  sleep 1\ndone\n[ -s /shared/filebeat.apikey.env ] || { echo \"missing API\
+      \ key file\"; exit 1; }\nset -a\n. /shared/filebeat.apikey.env\necho \"[ok]\
+      \ ELASTIC_API_KEY loaded (id=$${ELASTIC_API_KEY%%:*})\"\nexec filebeat -e --strict.perms=false\n"
+  trino:
+    image: trinodb/trino:latest
+    container_name: trino
+    hostname: trino
+    profiles:
+    - trino
+    user: 1000:1000
+    cpus: 2.0
+    mem_limit: 3g
+    mem_reservation: 2560m
+    restart: unless-stopped
+    ports:
+    - 8444:8443
+    environment:
+      #KEYCLOAK_URL: https://keycloak:8443
+      JAVA_TOOL_OPTIONS: >
+        -Djavax.net.ssl.trustStore=/opt/trust/osss-truststore.p12
+        -Djavax.net.ssl.trustStorePassword=changeit
+        -Djavax.net.ssl.trustStoreType=PKCS12
+    volumes:
+    - ./config_files/trino_data:/var/trino
+    - ./config_files/trino/etc:/etc/trino:ro
+    - ./config_files/trino/opt/osss-truststore.p12:/opt/trust/osss-truststore.p12:ro
+    networks:
+    - osss-net
+  superset-build:
+    build:
+      context: .
+      dockerfile: docker/superset/Dockerfile
+    image: *superset_image
+    profiles: [ "superset" ]
+    command: [ "true" ]   # no-op build target
+  superset_redis:
+    image: redis:7-alpine
+    profiles:
+    - superset
+    container_name: superset_redis
+    hostname: superset_redis
+    restart: unless-stopped
+    command:
+    - redis-server
+    - --appendonly
+    - 'yes'
+    cpus: 0.5
+    mem_limit: 512m
+    mem_reservation: 256m
+    volumes:
+    - superset_redis_data:/data
+    ports:
+    - 6381:6379
+    networks:
+    - osss-net
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  postgres-superset:
+    image: postgres:16
+    profiles:
+    - superset
+    container_name: postgres-superset
+    hostname: postgres-superset
+    restart: unless-stopped
+    cpus: 1.0
+    mem_limit: 1536m
+    mem_reservation: 1g
+    environment:
+      POSTGRES_USER: osss
+      POSTGRES_PASSWORD: osss
+      POSTGRES_DB: superset
+    volumes:
+    - pg_superset_data:/var/lib/postgresql/data
+    ports:
+    - 5434:5432
+    networks:
+    - osss-net
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U osss -d superset -h 127.0.0.1 -p 5432 || exit 1" ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+  superset-init:
+    image: *superset_image
+    container_name: superset-init
+    hostname: superset-init
+    profiles: [ superset ]
+    depends_on:
+      postgres-superset:
+        condition: service_healthy
+    networks: [ osss-net ]
+    environment:
+      SUPERSET_CONFIG_PATH: /app/pythonpath/superset_config.py
+      PYTHONUNBUFFERED: '1'
+      PYTHONPATH: /app/pythonpath:/app/superset_home/pythonpath
+      REQUESTS_CA_BUNDLE: /etc/ssl/certs/osss-dev-ca-chain.pem
+      SSL_CERT_FILE: /etc/ssl/certs/osss-dev-ca-chain.pem
+      OAUTHLIB_INSECURE_TRANSPORT: 0
+
+
+      # --- Keycloak OIDC ---
+      KEYCLOAK_CLIENT_ID: superset
+      KEYCLOAK_CLIENT_SECRET: password
+      KEYCLOAK_BASE_URL: https://keycloak.local:8443/realms/OSSS
+      KEYCLOAK_TOKEN_URL: https://keycloak.local:8443/realms/OSSS/protocol/openid-connect/token
+      KEYCLOAK_AUTH_URL: https://keycloak.local:8443/realms/OSSS/protocol/openid-connect/auth
+      KEYCLOAK_REALM: OSSS
+      KEYCLOAK_HOST: keycloak.local:8443
+
+
+    volumes:
+      - ./config_files/superset:/app/pythonpath:ro
+      - ./config_files/keycloak/secrets/ca/ca.crt:/etc/ssl/certs/keycloak-ca.crt:ro,Z
+      - ./config_files/keycloak/secrets/ca/ca-chain.pem:/etc/ssl/certs/osss-dev-ca-chain.pem:ro,Z
+
+
+    command:
+      - bash
+      - -lc
+      - >
+        set -euo pipefail &&
+        echo "[deps] installing wheels into /app/superset_home/pythonpath..." &&
+        REQUESTS_CA_BUNDLE= SSL_CERT_FILE= PIP_CERT= \
+          pip install --no-cache-dir --target /app/superset_home/pythonpath \
+          "psycopg2-binary==2.9.*" pillow redis Authlib &&
+        echo "[init] db upgrade..." && /app/.venv/bin/superset db upgrade &&
+        echo "[init] create admin if missing..." && /app/.venv/bin/superset fab create-admin \
+          --username admin --firstname Admin --lastname User \
+          --email admin@example.com --password admin || true &&
+        echo "[init] superset init..." && /app/.venv/bin/superset init &&
+        echo "[init] done."
+
+  superset:
+    image: *superset_image
+    container_name: superset
+    hostname: superset
+    profiles: [ superset ]
+    restart: unless-stopped
+    cpus: 2.0
+    mem_limit: 3g
+    mem_reservation: 2g
+    environment:
+      SUPERSET_SECRET_KEY: please_change_me
+      SUPERSET__SQLALCHEMY_DATABASE_URI: postgresql+psycopg2://osss:osss@postgres-superset:5432/superset
+      SQLALCHEMY_DATABASE_URI: postgresql+psycopg2://osss:osss@postgres-superset:5432/superset
+      FLASK_LIMITER_ENABLED: 'false'     # already present, keep it
+      GUNICORN_CMD_ARGS: "--limit-request-field_size 65536 --limit-request-line 16384"
+      RATELIMIT_STORAGE_URI: "redis://superset_redis:6379/1"   # optional: removes in-memory warning
+      ENABLE_PROXY_FIX: 'true'           # optional: if behind a proxy
+      PYTHONPATH: /app/pythonpath:/app/superset_home/pythonpath
+      REQUESTS_CA_BUNDLE: /etc/ssl/certs/osss-dev-ca-chain.pem
+      SSL_CERT_FILE: /etc/ssl/certs/osss-dev-ca-chain.pem
+      OAUTHLIB_INSECURE_TRANSPORT: 0
+
+      # --- Keycloak OIDC ---
+      KEYCLOAK_CLIENT_ID: superset
+      KEYCLOAK_CLIENT_SECRET: password
+      KEYCLOAK_BASE_URL: https://keycloak.local:8443/realms/OSSS
+      KEYCLOAK_TOKEN_URL: https://keycloak.local:8443/realms/OSSS/protocol/openid-connect/token
+      KEYCLOAK_AUTH_URL: https://keycloak.local:8443/realms/OSSS/protocol/openid-connect/auth
+      KEYCLOAK_REALM: OSSS
+      KEYCLOAK_HOST: keycloak.local:8443
+
+
+
+    depends_on:
+      postgres-superset:
+        condition: service_healthy
+      superset_redis:
+        condition: service_healthy
+      superset-init:
+        condition: service_completed_successfully
+    ports:
+      - 8088:8088
+    volumes:
+      - ./config_files/superset:/app/pythonpath:ro
+      - ./config_files/keycloak/secrets/ca/ca.crt:/etc/ssl/certs/keycloak-ca.crt:ro,Z
+      - ./config_files/keycloak/secrets/ca/ca-chain.pem:/etc/ssl/certs/osss-dev-ca-chain.pem:ro,Z
+
+    # superset (web)
+    command:
+      - bash
+      - -lc
+      - >
+        set -euo pipefail &&
+        echo "[deps] installing wheels into /app/superset_home/pythonpath..." &&
+        REQUESTS_CA_BUNDLE= SSL_CERT_FILE= PIP_CERT= \
+          pip install --no-cache-dir --target /app/superset_home/pythonpath \
+          "psycopg2-binary==2.9.*" pillow redis Authlib &&
+        exec /app/.venv/bin/gunicorn -w 4 --timeout 300 -b 0.0.0.0:8088 'superset.app:create_app()'
+    
+
+    networks: [ osss-net ]
+
+  postgres-airflow:
+    image: postgres:16
+    container_name: postgres-airflow
+    hostname: postgres-airflow
+    profiles:
+    - airflow
+    cpus: 1.0
+    mem_limit: 1536m
+    mem_reservation: 1g
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+    - airflow-pgdata:/var/lib/postgresql/data
+    networks:
+    - osss-net
+    ports:
+    - 5435:5432
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U airflow -d airflow -h 127.0.0.1 -p 5432 || exit 1" ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+  airflow-init:
+    image: apache/airflow:2.9.3-python3.11
+    container_name: airflow-init
+    hostname: airflow-init
+    profiles: [ airflow ]
+    depends_on:
+      postgres-airflow:
+        condition: service_healthy
+    cpus: 1.0
+    mem_limit: 1g
+    mem_reservation: 768m
+    environment:
+      # use the same DSN you already had, but quote it to be safe
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: "postgresql+psycopg2://airflow:airflow@postgres-airflow/airflow"
+      # optional: keep init fast & quiet
+      AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+      AIRFLOW__LOGGING__LOGGING_LEVEL: "INFO"
+    entrypoint: [ "/bin/bash", "-lc" ]
+    entrypoint: [ "/bin/bash", "-lc" ]
+    command:
       - |
-        set -eu
-        echo "[wait] for /shared/filebeat.apikey.env..."
+        set -euo pipefail
+        airflow db migrate
+        airflow users create --username admin --firstname Admin --lastname User --role Admin --email admin@example.com --password admin || true
+    volumes:
+      - ./config_files/airflow/dags:/opt/airflow/dags
+    networks: [ osss-net ]
+  airflow-webserver:
+    image: apache/airflow:2.9.3-python3.11
+    container_name: airflow-webserver
+    hostname: airflow-webserver
+    profiles:
+    - airflow
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+      airflow-redis:
+        condition: service_healthy
+    cpus: 1.0
+    mem_limit: 1536m
+    mem_reservation: 1g
+    environment:
+      AIRFLOW__WEBSERVER__WEB_SERVER_CONFIG: /opt/airflow/webserver_config.py
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres-airflow/airflow
+      AIRFLOW__WEBSERVER__AUTHENTICATE: 'True'
+      AIRFLOW__WEBSERVER__BASE_URL: http://localhost:8083
+      AIRFLOW__WEBSERVER__SECRET_KEY: change-this-in-prod
+      AIRFLOW__WEBSERVER__ENABLE_PROXY_FIX: 'True'
+      KEYCLOAK_URL: https://keycloak.local:8443
+      KEYCLOAK_REALM: OSSS
+      KEYCLOAK_AIRFLOW_CLIENT_ID: airflow
+      KEYCLOAK_AIRFLOW_CLIENT_SECRET: password
+      AIRFLOW__FAB__LIMITER_ENABLED: 'True'
+      FAB_LIMITER_STORAGE_URI: redis://airflow-redis:6379/0
+      RATELIMIT_STORAGE_URI: redis://airflow-redis:6379/0
+      GUNICORN_CMD_ARGS: "--limit-request-field_size 65536 --limit-request-line 16384"
+      REQUESTS_CA_BUNDLE: /etc/ssl/certs/keycloak-ca.crt
+      SSL_CERT_FILE: /etc/ssl/certs/keycloak-ca.crt
+      CURL_CA_BUNDLE: /etc/ssl/certs/keycloak-ca.crt
+
+    command: webserver
+    ports:
+    - 8083:8080
+    volumes:
+    - ./config_files/airflow/dags:/opt/airflow/dags
+    - ./config_files/airflow/webserver_config.py:/opt/airflow/webserver_config.py:ro
+    - ./config_files/keycloak/secrets/ca/ca.crt:/etc/ssl/certs/keycloak-ca.crt:ro,Z
+    - ./config_files/keycloak/secrets/ca/ca-chain.pem:/etc/ssl/certs/osss-dev-ca-chain.pem:ro,Z
+    networks:
+    - osss-net
+  airflow-scheduler:
+    image: apache/airflow:2.9.3-python3.11
+    container_name: airflow-scheduler
+    hostname: airflow-scheduler
+    profiles:
+    - airflow
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+      airflow-redis:
+        condition: service_healthy
+
+    cpus: 1.0
+    mem_limit: 1536m
+    mem_reservation: 1g
+    environment:
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres-airflow/airflow
+      KEYCLOAK_URL: https://keycloak.local:8443
+      KEYCLOAK_REALM: OSSS
+    command: scheduler
+    volumes:
+    - ./config_files/airflow/dags:/opt/airflow/dags
+    - ./config_files/airflow/webserver_config.py:/opt/airflow/webserver_config.py:ro
+    networks:
+    - osss-net
+  airflow-redis:
+    image: redis:7-alpine
+    container_name: airflow-redis
+    hostname: airflow-redis
+    profiles: [ airflow ]
+    networks: [ osss-net ]
+    restart: unless-stopped
+    ports:
+      - "6380:6379"   # external host port 6380 → internal Redis port 6379
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  execute-migrate-all:
+    container_name: execute_migrate_all
+    hostname: execute_migrate_all
+    profiles: [ openmetadata ]
+    image: docker.getcollate.io/openmetadata/server:1.9.12
+    command: "./bootstrap/openmetadata-ops.sh migrate"
+    environment:
+      OPENMETADATA_CLUSTER_NAME: ${OPENMETADATA_CLUSTER_NAME:-openmetadata}
+      SERVER_PORT: ${SERVER_PORT:-8585}
+      SERVER_ADMIN_PORT: ${SERVER_ADMIN_PORT:-8586}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+
+      # Migration
+      MIGRATION_LIMIT_PARAM: ${MIGRATION_LIMIT_PARAM:-1200}
+
+      # OIDC
+      AUTHENTICATION_PROVIDER: ${OM_AUTHENTICATION_PROVIDER:-basic}
+      CUSTOM_OIDC_AUTHENTICATION_PROVIDER_NAME: ${CUSTOM_OIDC_AUTHENTICATION_PROVIDER_NAME:-"Keycloak"}
+      AUTHENTICATION_RESPONSE_TYPE: ${OM_AUTHENTICATION_RESPONSE_TYPE:-id_token}
+      AUTHENTICATION_CALLBACK_URL: ${OM_AUTHENTICATION_CALLBACK_URL:-http://localhost:8585/callback}
+      AUTHENTICATION_ENABLE_SELF_SIGNUP: ${AUTHENTICATION_ENABLE_SELF_SIGNUP:-true}
+      AUTHENTICATION_JWT_PRINCIPAL_CLAIMS_MAPPING: ${AUTHENTICATION_JWT_PRINCIPAL_CLAIMS_MAPPING:-[]}
+      # --- OIDC (these are the ones pac4j needs) ---
+      OIDC_DISCOVERY_URI: ${OM_OIDC_DISCOVERY_URI:-""}
+      OIDC_CLIENT_ID: ${OM_OIDC_CLIENT_ID:-""}
+      OIDC_CLIENT_SECRET: ${OM_OIDC_CLIENT_SECRET:-""}
+      OIDC_SCOPES: "openid profile email"
+
+      # OpenMetadata Server Authentication Configuration
+      AUTHORIZER_CLASS_NAME: ${AUTHORIZER_CLASS_NAME:-org.openmetadata.service.security.DefaultAuthorizer}
+      AUTHORIZER_REQUEST_FILTER: ${AUTHORIZER_REQUEST_FILTER:-org.openmetadata.service.security.JwtFilter}
+      AUTHORIZER_ADMIN_PRINCIPALS: ${AUTHORIZER_ADMIN_PRINCIPALS:-[admin]}
+      AUTHORIZER_ALLOWED_REGISTRATION_DOMAIN: ${AUTHORIZER_ALLOWED_REGISTRATION_DOMAIN:-["all"]}
+      AUTHORIZER_INGESTION_PRINCIPALS: ${AUTHORIZER_INGESTION_PRINCIPALS:-[ingestion-bot]}
+      AUTHORIZER_PRINCIPAL_DOMAIN: ${AUTHORIZER_PRINCIPAL_DOMAIN:-"open-metadata.org"}
+      AUTHORIZER_ALLOWED_DOMAINS: ${AUTHORIZER_ALLOWED_DOMAINS:-[]}
+      AUTHORIZER_ENFORCE_PRINCIPAL_DOMAIN: ${AUTHORIZER_ENFORCE_PRINCIPAL_DOMAIN:-false}
+      AUTHORIZER_ENABLE_SECURE_SOCKET: ${AUTHORIZER_ENABLE_SECURE_SOCKET:-false}
+      AUTHENTICATION_PUBLIC_KEYS: ${AUTHENTICATION_PUBLIC_KEYS:-[http://localhost:8585/api/v1/system/config/jwks]}
+      AUTHENTICATION_AUTHORITY: ${AUTHENTICATION_AUTHORITY:-https://accounts.google.com}
+      AUTHENTICATION_CLIENT_ID: ${AUTHENTICATION_CLIENT_ID:-""}
+      AUTHENTICATION_JWT_PRINCIPAL_CLAIMS_MAPPING: ${AUTHENTICATION_JWT_PRINCIPAL_CLAIMS_MAPPING:-[]}
+      AUTHENTICATION_CLIENT_TYPE: ${AUTHENTICATION_CLIENT_TYPE:-public}
+      #For OIDC Authentication, when client is confidential
+      OIDC_TYPE: ${OIDC_TYPE:-""} # google, azure etc.
+      OIDC_SCOPE: ${OIDC_SCOPE:-"openid email profile"}
+      OIDC_USE_NONCE: ${OIDC_USE_NONCE:-true}
+      OIDC_PREFERRED_JWS: ${OIDC_PREFERRED_JWS:-"RS256"}
+      OIDC_RESPONSE_TYPE: ${OIDC_RESPONSE_TYPE:-"code"}
+      OIDC_DISABLE_PKCE: ${OIDC_DISABLE_PKCE:-true}
+      OIDC_CALLBACK: ${OIDC_CALLBACK:-"http://localhost:8585/callback"}
+      OIDC_SERVER_URL: ${OIDC_SERVER_URL:-"http://localhost:8585"}
+      OIDC_CLIENT_AUTH_METHOD: ${OIDC_CLIENT_AUTH_METHOD:-"client_secret_post"}
+      OIDC_TENANT: ${OIDC_TENANT:-""}
+      OIDC_MAX_CLOCK_SKEW: ${OIDC_MAX_CLOCK_SKEW:-""}
+      OIDC_CUSTOM_PARAMS: ${OIDC_CUSTOM_PARAMS:-}
+      OIDC_MAX_AGE: ${OIDC_MAX_AGE:-"0"}
+      OIDC_PROMPT_TYPE: ${OIDC_PROMPT_TYPE:-"consent"}
+      OIDC_SESSION_EXPIRY: ${OIDC_SESSION_EXPIRY:-"604800"}
+      # For SAML Authentication
+      # SAML_DEBUG_MODE: ${SAML_DEBUG_MODE:-false}
+      # SAML_IDP_ENTITY_ID: ${SAML_IDP_ENTITY_ID:-""}
+      # SAML_IDP_SSO_LOGIN_URL: ${SAML_IDP_SSO_LOGIN_URL:-""}
+      # SAML_IDP_CERTIFICATE: ${SAML_IDP_CERTIFICATE:-""}
+      # SAML_AUTHORITY_URL: ${SAML_AUTHORITY_URL:-"http://localhost:8585/api/v1/saml/login"}
+      # SAML_IDP_NAME_ID: ${SAML_IDP_NAME_ID:-"urn:oasis:names:tc:SAML:2.0:nameid-format:emailAddress"}
+      # SAML_SP_ENTITY_ID: ${SAML_SP_ENTITY_ID:-"http://localhost:8585/api/v1/saml/metadata"}
+      # SAML_SP_ACS: ${SAML_SP_ACS:-"http://localhost:8585/api/v1/saml/acs"}
+      # SAML_SP_CERTIFICATE: ${SAML_SP_CERTIFICATE:-""}
+      # SAML_SP_CALLBACK: ${SAML_SP_CALLBACK:-"http://localhost:8585/saml/callback"}
+      # SAML_STRICT_MODE: ${SAML_STRICT_MODE:-false}
+      # SAML_SP_TOKEN_VALIDITY: ${SAML_SP_TOKEN_VALIDITY:-"3600"}
+      # SAML_SEND_ENCRYPTED_NAME_ID: ${SAML_SEND_ENCRYPTED_NAME_ID:-false}
+      # SAML_SEND_SIGNED_AUTH_REQUEST: ${SAML_SEND_SIGNED_AUTH_REQUEST:-false}
+      # SAML_SIGNED_SP_METADATA: ${SAML_SIGNED_SP_METADATA:-false}
+      # SAML_WANT_MESSAGE_SIGNED: ${SAML_WANT_MESSAGE_SIGNED:-false}
+      # SAML_WANT_ASSERTION_SIGNED: ${SAML_WANT_ASSERTION_SIGNED:-false}
+      # SAML_WANT_ASSERTION_ENCRYPTED: ${SAML_WANT_ASSERTION_ENCRYPTED:-false}
+      # SAML_WANT_NAME_ID_ENCRYPTED: ${SAML_WANT_NAME_ID_ENCRYPTED:-false}
+      # SAML_KEYSTORE_FILE_PATH: ${SAML_KEYSTORE_FILE_PATH:-""}
+      # SAML_KEYSTORE_ALIAS: ${SAML_KEYSTORE_ALIAS:-""}
+      # SAML_KEYSTORE_PASSWORD: ${SAML_KEYSTORE_PASSWORD:-""}
+      # For LDAP Authentication
+      # AUTHENTICATION_LDAP_HOST: ${AUTHENTICATION_LDAP_HOST:-}
+      # AUTHENTICATION_LDAP_PORT: ${AUTHENTICATION_LDAP_PORT:-}
+      # AUTHENTICATION_LOOKUP_ADMIN_DN: ${AUTHENTICATION_LOOKUP_ADMIN_DN:-""}
+      # AUTHENTICATION_LOOKUP_ADMIN_PWD: ${AUTHENTICATION_LOOKUP_ADMIN_PWD:-""}
+      # AUTHENTICATION_USER_LOOKUP_BASEDN: ${AUTHENTICATION_USER_LOOKUP_BASEDN:-""}
+      # AUTHENTICATION_USER_MAIL_ATTR: ${AUTHENTICATION_USER_MAIL_ATTR:-}
+      # AUTHENTICATION_LDAP_POOL_SIZE: ${AUTHENTICATION_LDAP_POOL_SIZE:-3}
+      # AUTHENTICATION_LDAP_SSL_ENABLED: ${AUTHENTICATION_LDAP_SSL_ENABLED:-}
+      # AUTHENTICATION_LDAP_TRUSTSTORE_TYPE: ${AUTHENTICATION_LDAP_TRUSTSTORE_TYPE:-TrustAll}
+      # AUTHENTICATION_LDAP_TRUSTSTORE_PATH: ${AUTHENTICATION_LDAP_TRUSTSTORE_PATH:-}
+      # AUTHENTICATION_LDAP_KEYSTORE_PASSWORD: ${AUTHENTICATION_LDAP_KEYSTORE_PASSWORD:-}
+      # AUTHENTICATION_LDAP_SSL_KEY_FORMAT: ${AUTHENTICATION_LDAP_SSL_KEY_FORMAT:-}
+      # AUTHENTICATION_LDAP_ALLOW_WILDCARDS: ${AUTHENTICATION_LDAP_ALLOW_WILDCARDS:-}
+      # AUTHENTICATION_LDAP_ALLOWED_HOSTNAMES: ${AUTHENTICATION_LDAP_ALLOWED_HOSTNAMES:-[]}
+      # AUTHENTICATION_LDAP_SSL_VERIFY_CERT_HOST: ${AUTHENTICATION_LDAP_SSL_VERIFY_CERT_HOST:-}
+      # AUTHENTICATION_LDAP_EXAMINE_VALIDITY_DATES: ${AUTHENTICATION_LDAP_EXAMINE_VALIDITY_DATES:-true}
+
+      # JWT Configuration
+      RSA_PUBLIC_KEY_FILE_PATH: ${RSA_PUBLIC_KEY_FILE_PATH:-"./conf/public_key.der"}
+      RSA_PRIVATE_KEY_FILE_PATH: ${RSA_PRIVATE_KEY_FILE_PATH:-"./conf/private_key.der"}
+      JWT_ISSUER: ${JWT_ISSUER:-"open-metadata.org"}
+      JWT_KEY_ID: ${JWT_KEY_ID:-"Gb389a-9f76-gdjs-a92j-0242bk94356"}
+      # OpenMetadata Server Pipeline Service Client Configuration
+      PIPELINE_SERVICE_CLIENT_ENDPOINT: ${PIPELINE_SERVICE_CLIENT_ENDPOINT:-http://ingestion:8080}
+      PIPELINE_SERVICE_CLIENT_HEALTH_CHECK_INTERVAL: ${PIPELINE_SERVICE_CLIENT_HEALTH_CHECK_INTERVAL:-300}
+      SERVER_HOST_API_URL: ${SERVER_HOST_API_URL:-http://openmetadata-server:8585/api}
+      PIPELINE_SERVICE_CLIENT_VERIFY_SSL: ${PIPELINE_SERVICE_CLIENT_VERIFY_SSL:-"no-ssl"}
+      PIPELINE_SERVICE_CLIENT_SSL_CERT_PATH: ${PIPELINE_SERVICE_CLIENT_SSL_CERT_PATH:-""}
+      # Database configuration for MySQL
+      DB_DRIVER_CLASS: ${DB_DRIVER_CLASS:-com.mysql.cj.jdbc.Driver}
+      DB_SCHEME: ${DB_SCHEME:-mysql}
+      DB_PARAMS: ${DB_PARAMS:-allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC}
+      DB_USER: ${DB_USER:-openmetadata_user}
+      DB_USER_PASSWORD: ${DB_USER_PASSWORD:-openmetadata_password}
+      DB_HOST: ${DB_HOST:-mysql}
+      DB_PORT: ${DB_PORT:-3306}
+      OM_DATABASE: ${OM_DATABASE:-openmetadata}
+      # ElasticSearch Configurations
+      ELASTICSEARCH_HOST: ${OM_ELASTICSEARCH_HOST:-om-elasticsearch}
+      ELASTICSEARCH_PORT: ${OM_ELASTICSEARCH_PORT:-9201}
+      ELASTICSEARCH_SCHEME: ${ELASTICSEARCH_SCHEME:-http}
+      ELASTICSEARCH_USER: ${ELASTICSEARCH_USER:-""}
+      ELASTICSEARCH_PASSWORD: ${ELASTICSEARCH_PASSWORD:-""}
+      SEARCH_TYPE: ${SEARCH_TYPE:- "elasticsearch"}
+      ELASTICSEARCH_TRUST_STORE_PATH: ${ELASTICSEARCH_TRUST_STORE_PATH:-""}
+      ELASTICSEARCH_TRUST_STORE_PASSWORD: ${ELASTICSEARCH_TRUST_STORE_PASSWORD:-""}
+      ELASTICSEARCH_CONNECTION_TIMEOUT_SECS: ${ELASTICSEARCH_CONNECTION_TIMEOUT_SECS:-5}
+      ELASTICSEARCH_SOCKET_TIMEOUT_SECS: ${ELASTICSEARCH_SOCKET_TIMEOUT_SECS:-60}
+      ELASTICSEARCH_KEEP_ALIVE_TIMEOUT_SECS: ${ELASTICSEARCH_KEEP_ALIVE_TIMEOUT_SECS:-600}
+      ELASTICSEARCH_BATCH_SIZE: ${ELASTICSEARCH_BATCH_SIZE:-100}
+      ELASTICSEARCH_PAYLOAD_BYTES_SIZE: ${ELASTICSEARCH_PAYLOAD_BYTES_SIZE:-10485760}   #max payLoadSize in Bytes
+      ELASTICSEARCH_INDEX_MAPPING_LANG: ${ELASTICSEARCH_INDEX_MAPPING_LANG:-EN}
+
+      #eventMonitoringConfiguration
+      EVENT_MONITOR: ${EVENT_MONITOR:-prometheus}
+      EVENT_MONITOR_BATCH_SIZE: ${EVENT_MONITOR_BATCH_SIZE:-10}
+      EVENT_MONITOR_PATH_PATTERN: ${EVENT_MONITOR_PATH_PATTERN:-["/api/v1/tables/*", "/api/v1/health-check"]}
+      EVENT_MONITOR_LATENCY: ${EVENT_MONITOR_LATENCY:-[]}
+
+      #pipelineServiceClientConfiguration
+      PIPELINE_SERVICE_CLIENT_ENABLED: ${PIPELINE_SERVICE_CLIENT_ENABLED:-true}
+      PIPELINE_SERVICE_CLIENT_CLASS_NAME: ${PIPELINE_SERVICE_CLIENT_CLASS_NAME:-"org.openmetadata.service.clients.pipeline.airflow.AirflowRESTClient"}
+      PIPELINE_SERVICE_IP_INFO_ENABLED: ${PIPELINE_SERVICE_IP_INFO_ENABLED:-false}
+      PIPELINE_SERVICE_CLIENT_HOST_IP: ${PIPELINE_SERVICE_CLIENT_HOST_IP:-""}
+      PIPELINE_SERVICE_CLIENT_SECRETS_MANAGER_LOADER: ${PIPELINE_SERVICE_CLIENT_SECRETS_MANAGER_LOADER:-"noop"}
+      #airflow parameters
+      AIRFLOW_USERNAME: ${AIRFLOW_USERNAME:-admin}
+      AIRFLOW_PASSWORD: ${AIRFLOW_PASSWORD:-admin}
+      AIRFLOW_TIMEOUT: ${AIRFLOW_TIMEOUT:-10}
+      AIRFLOW_TRUST_STORE_PATH: ${AIRFLOW_TRUST_STORE_PATH:-""}
+      AIRFLOW_TRUST_STORE_PASSWORD: ${AIRFLOW_TRUST_STORE_PASSWORD:-""}
+      FERNET_KEY: ${FERNET_KEY:-jJ/9sz0g0OHxsfxOoSfdFdmk3ysNmPRnH3TUAbz3IHA=}
+
+      #secretsManagerConfiguration
+      SECRET_MANAGER: ${SECRET_MANAGER:-db}
+      # AWS:
+      OM_SM_REGION: ${OM_SM_REGION:-""}
+      OM_SM_ACCESS_KEY_ID: ${OM_SM_ACCESS_KEY_ID:-""}
+      OM_SM_ACCESS_KEY: ${OM_SM_ACCESS_KEY:-""}
+      # Azure:
+      OM_SM_VAULT_NAME: ${OM_SM_VAULT_NAME:-""}
+      OM_SM_CLIENT_ID: ${OM_SM_CLIENT_ID:-""}
+      OM_SM_CLIENT_SECRET: ${OM_SM_CLIENT_SECRET:-""}
+      OM_SM_TENANT_ID: ${OM_SM_TENANT_ID:-""}
+
+      #email configuration:
+      OM_EMAIL_ENTITY: ${OM_EMAIL_ENTITY:-"OpenMetadata"}
+      OM_SUPPORT_URL: ${OM_SUPPORT_URL:-"https://slack.open-metadata.org"}
+      AUTHORIZER_ENABLE_SMTP : ${AUTHORIZER_ENABLE_SMTP:-false}
+      OPENMETADATA_SERVER_URL: ${OPENMETADATA_SERVER_URL:-""}
+      OPENMETADATA_SMTP_SENDER_MAIL: ${OPENMETADATA_SMTP_SENDER_MAIL:-""}
+      SMTP_SERVER_ENDPOINT: ${SMTP_SERVER_ENDPOINT:-""}
+      SMTP_SERVER_PORT: ${SMTP_SERVER_PORT:-""}
+      SMTP_SERVER_USERNAME: ${SMTP_SERVER_USERNAME:-""}
+      SMTP_SERVER_PWD: ${SMTP_SERVER_PWD:-""}
+      SMTP_SERVER_STRATEGY: ${SMTP_SERVER_STRATEGY:-"SMTP_TLS"}
+
+      # Heap OPTS Configurations
+      OPENMETADATA_HEAP_OPTS: ${OPENMETADATA_HEAP_OPTS:--Xmx1G -Xms1G}
+      # Mask passwords values in UI
+      MASK_PASSWORDS_API: ${MASK_PASSWORDS_API:-false}
+
+      #OpenMetadata Web Configuration
+      WEB_CONF_URI_PATH: ${WEB_CONF_URI_PATH:-"/api"}
+      #HSTS
+      WEB_CONF_HSTS_ENABLED: ${WEB_CONF_HSTS_ENABLED:-false}
+      WEB_CONF_HSTS_MAX_AGE: ${WEB_CONF_HSTS_MAX_AGE:-"365 days"}
+      WEB_CONF_HSTS_INCLUDE_SUBDOMAINS: ${WEB_CONF_HSTS_INCLUDE_SUBDOMAINS:-"true"}
+      WEB_CONF_HSTS_PRELOAD: ${WEB_CONF_HSTS_PRELOAD:-"true"}
+      #Frame Options
+      WEB_CONF_FRAME_OPTION_ENABLED: ${WEB_CONF_FRAME_OPTION_ENABLED:-false}
+      WEB_CONF_FRAME_OPTION: ${WEB_CONF_FRAME_OPTION:-"SAMEORIGIN"}
+      WEB_CONF_FRAME_ORIGIN: ${WEB_CONF_FRAME_ORIGIN:-""}
+      #Content Type
+      WEB_CONF_CONTENT_TYPE_OPTIONS_ENABLED: ${WEB_CONF_CONTENT_TYPE_OPTIONS_ENABLED:-false}
+      #XSS-Protection
+      WEB_CONF_XSS_PROTECTION_ENABLED: ${WEB_CONF_XSS_PROTECTION_ENABLED:-false}
+      WEB_CONF_XSS_PROTECTION_ON: ${WEB_CONF_XSS_PROTECTION_ON:-true}
+      WEB_CONF_XSS_PROTECTION_BLOCK: ${WEB_CONF_XSS_PROTECTION_BLOCK:-true}
+      #CSP
+      WEB_CONF_XSS_CSP_ENABLED: ${WEB_CONF_XSS_CSP_ENABLED:-false}
+      WEB_CONF_XSS_CSP_POLICY: ${WEB_CONF_XSS_CSP_POLICY:-"default-src 'self'"}
+      WEB_CONF_XSS_CSP_REPORT_ONLY_POLICY: ${WEB_CONF_XSS_CSP_REPORT_ONLY_POLICY:-""}
+      #Referrer-Policy
+      WEB_CONF_REFERRER_POLICY_ENABLED: ${WEB_CONF_REFERRER_POLICY_ENABLED:-false}
+      WEB_CONF_REFERRER_POLICY_OPTION: ${WEB_CONF_REFERRER_POLICY_OPTION:-"SAME_ORIGIN"}
+      #Permission-Policy
+      WEB_CONF_PERMISSION_POLICY_ENABLED: ${WEB_CONF_PERMISSION_POLICY_ENABLED:-false}
+      WEB_CONF_PERMISSION_POLICY_OPTION: ${WEB_CONF_PERMISSION_POLICY_OPTION:-""}
+      #Cache
+      WEB_CONF_CACHE_CONTROL: ${WEB_CONF_CACHE_CONTROL:-""}
+      WEB_CONF_PRAGMA: ${WEB_CONF_PRAGMA:-""}
+
+      JAVA_TOOL_OPTIONS: >-
+        -Djavax.net.ssl.trustStore=/opt/om-trust/om-truststore.p12
+        -Djavax.net.ssl.trustStorePassword=changeit
+        -Djavax.net.ssl.trustStoreType=PKCS12
+
+    volumes:
+      - ./config_files/openmetadata/openmetadata.yaml:/usr/local/openmetadata/conf/openmetadata.yaml:ro
+      - ./config_files/openmetadata/certs:/opt/om-trust:ro
+    depends_on:
+      om-elasticsearch:
+        condition: service_healthy
+      mysql:
+        condition: service_healthy
+    networks:
+      - osss-net
+
+
+  openmetadata-server:
+    container_name: openmetadata-server
+    hostname: openmetadata-server
+    profiles: [ openmetadata ]
+    restart: always
+    image: docker.getcollate.io/openmetadata/server:1.9.12
+    environment:
+      OPENMETADATA_CLUSTER_NAME: ${OPENMETADATA_CLUSTER_NAME:-openmetadata}
+      SERVER_PORT: ${SERVER_PORT:-8585}
+      SERVER_ADMIN_PORT: ${SERVER_ADMIN_PORT:-8586}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+
+      # OIDC
+      AUTHENTICATION_PROVIDER: ${OM_AUTHENTICATION_PROVIDER:-basic}
+      CUSTOM_OIDC_AUTHENTICATION_PROVIDER_NAME: ${CUSTOM_OIDC_AUTHENTICATION_PROVIDER_NAME:-"Keycloak"}
+      AUTHENTICATION_RESPONSE_TYPE: ${OM_AUTHENTICATION_RESPONSE_TYPE:-id_token}
+      AUTHENTICATION_CALLBACK_URL: ${OM_AUTHENTICATION_CALLBACK_URL:-http://localhost:8585/callback}
+      AUTHENTICATION_ENABLE_SELF_SIGNUP: ${AUTHENTICATION_ENABLE_SELF_SIGNUP:-true}
+      AUTHENTICATION_JWT_PRINCIPAL_CLAIMS_MAPPING: ${AUTHENTICATION_JWT_PRINCIPAL_CLAIMS_MAPPING:-[]}
+      # --- OIDC (these are the ones pac4j needs) ---
+      OIDC_DISCOVERY_URI: ${OM_OIDC_DISCOVERY_URI:-""}
+      OIDC_CLIENT_ID: ${OM_OIDC_CLIENT_ID:-""}
+      OIDC_CLIENT_SECRET: ${OM_OIDC_CLIENT_SECRET:-""}
+      OIDC_SCOPES: "openid profile email"
+
+
+
+      # OpenMetadata Server Authentication Configuration
+      AUTHORIZER_CLASS_NAME: ${AUTHORIZER_CLASS_NAME:-org.openmetadata.service.security.DefaultAuthorizer}
+      AUTHORIZER_REQUEST_FILTER: ${AUTHORIZER_REQUEST_FILTER:-org.openmetadata.service.security.JwtFilter}
+      AUTHORIZER_ADMIN_PRINCIPALS: ${AUTHORIZER_ADMIN_PRINCIPALS:-[admin]}
+      AUTHORIZER_ALLOWED_REGISTRATION_DOMAIN: ${AUTHORIZER_ALLOWED_REGISTRATION_DOMAIN:-["all"]}
+      AUTHORIZER_INGESTION_PRINCIPALS: ${AUTHORIZER_INGESTION_PRINCIPALS:-[ingestion-bot]}
+      AUTHORIZER_PRINCIPAL_DOMAIN: ${AUTHORIZER_PRINCIPAL_DOMAIN:-"open-metadata.org"}
+      AUTHORIZER_ALLOWED_DOMAINS: ${AUTHORIZER_ALLOWED_DOMAINS:-[]}
+      AUTHORIZER_ENFORCE_PRINCIPAL_DOMAIN: ${AUTHORIZER_ENFORCE_PRINCIPAL_DOMAIN:-false}
+      AUTHORIZER_ENABLE_SECURE_SOCKET: ${AUTHORIZER_ENABLE_SECURE_SOCKET:-false}
+      AUTHENTICATION_OIDC_DISCOVERY_URI: ${OM_AUTHENTICATION_OIDC_DISCOVERY_URI:-https://keycloak.local:8443/realms/OSSS/.well-known/openid-configuration}
+      AUTHENTICATION_PUBLIC_KEYS: ${OM_AUTHENTICATION_PUBLIC_KEYS:-[http://localhost:8585/api/v1/system/config/jwks]}
+      AUTHENTICATION_AUTHORITY: ${OM_AUTHENTICATION_AUTHORITY:-https://accounts.google.com}
+      AUTHENTICATION_CLIENT_ID: ${OM_AUTHENTICATION_CLIENT_ID:-""}
+      AUTHENTICATION_CLIENT_SECRET: ${OM_AUTHENTICATION_CLIENT_SECRET:-password}
+      AUTHENTICATION_SCOPE: ${OM_AUTHENTICATION_SCOPE:-"openid profile email groups"}
+      AUTHENTICATION_JWT_PRINCIPAL_CLAIMS: ${AUTHENTICATION_JWT_PRINCIPAL_CLAIMS:-[email,preferred_username,sub]}
+      AUTHENTICATION_CLIENT_TYPE: ${OM_AUTHENTICATION_CLIENT_TYPE:-public}
+      #For OIDC Authentication, when client is confidential
+      OIDC_TYPE: ${OIDC_TYPE:-""} # google, azure etc.
+      OIDC_SCOPE: ${OIDC_SCOPE:-"openid email profile"}
+      OIDC_USE_NONCE: ${OIDC_USE_NONCE:-true}
+      OIDC_PREFERRED_JWS: ${OIDC_PREFERRED_JWS:-"RS256"}
+      OIDC_RESPONSE_TYPE: ${OIDC_RESPONSE_TYPE:-"code"}
+      OIDC_DISABLE_PKCE: ${OIDC_DISABLE_PKCE:-true}
+      OIDC_CALLBACK: ${OIDC_CALLBACK:-"http://localhost:8585/callback"}
+      OIDC_SERVER_URL: ${OIDC_SERVER_URL:-"http://localhost:8585"}
+      OIDC_CLIENT_AUTH_METHOD: ${OIDC_CLIENT_AUTH_METHOD:-"client_secret_post"}
+      OIDC_TENANT: ${OIDC_TENANT:-""}
+      OIDC_MAX_CLOCK_SKEW: ${OIDC_MAX_CLOCK_SKEW:-""}
+      OIDC_CUSTOM_PARAMS: ${OIDC_CUSTOM_PARAMS:-}
+      OIDC_MAX_AGE: ${OIDC_MAX_AGE:-"0"}
+      OIDC_PROMPT_TYPE: ${OIDC_PROMPT_TYPE:-"consent"}
+      OIDC_SESSION_EXPIRY: ${OIDC_SESSION_EXPIRY:-"604800"}
+      # For SAML Authentication
+      # SAML_DEBUG_MODE: ${SAML_DEBUG_MODE:-false}
+      # SAML_IDP_ENTITY_ID: ${SAML_IDP_ENTITY_ID:-""}
+      # SAML_IDP_SSO_LOGIN_URL: ${SAML_IDP_SSO_LOGIN_URL:-""}
+      # SAML_IDP_CERTIFICATE: ${SAML_IDP_CERTIFICATE:-""}
+      # SAML_AUTHORITY_URL: ${SAML_AUTHORITY_URL:-"http://localhost:8585/api/v1/saml/login"}
+      # SAML_IDP_NAME_ID: ${SAML_IDP_NAME_ID:-"urn:oasis:names:tc:SAML:2.0:nameid-format:emailAddress"}
+      # SAML_SP_ENTITY_ID: ${SAML_SP_ENTITY_ID:-"http://localhost:8585/api/v1/saml/metadata"}
+      # SAML_SP_ACS: ${SAML_SP_ACS:-"http://localhost:8585/api/v1/saml/acs"}
+      # SAML_SP_CERTIFICATE: ${SAML_SP_CERTIFICATE:-""}
+      # SAML_SP_CALLBACK: ${SAML_SP_CALLBACK:-"http://localhost:8585/saml/callback"}
+      # SAML_STRICT_MODE: ${SAML_STRICT_MODE:-false}
+      # SAML_SP_TOKEN_VALIDITY: ${SAML_SP_TOKEN_VALIDITY:-"3600"}
+      # SAML_SEND_ENCRYPTED_NAME_ID: ${SAML_SEND_ENCRYPTED_NAME_ID:-false}
+      # SAML_SEND_SIGNED_AUTH_REQUEST: ${SAML_SEND_SIGNED_AUTH_REQUEST:-false}
+      # SAML_SIGNED_SP_METADATA: ${SAML_SIGNED_SP_METADATA:-false}
+      # SAML_WANT_MESSAGE_SIGNED: ${SAML_WANT_MESSAGE_SIGNED:-false}
+      # SAML_WANT_ASSERTION_SIGNED: ${SAML_WANT_ASSERTION_SIGNED:-false}
+      # SAML_WANT_ASSERTION_ENCRYPTED: ${SAML_WANT_ASSERTION_ENCRYPTED:-false}
+      # SAML_WANT_NAME_ID_ENCRYPTED: ${SAML_WANT_NAME_ID_ENCRYPTED:-false}
+      # SAML_KEYSTORE_FILE_PATH: ${SAML_KEYSTORE_FILE_PATH:-""}
+      # SAML_KEYSTORE_ALIAS: ${SAML_KEYSTORE_ALIAS:-""}
+      # SAML_KEYSTORE_PASSWORD: ${SAML_KEYSTORE_PASSWORD:-""}
+      # For LDAP Authentication
+      # AUTHENTICATION_LDAP_HOST: ${AUTHENTICATION_LDAP_HOST:-}
+      # AUTHENTICATION_LDAP_PORT: ${AUTHENTICATION_LDAP_PORT:-}
+      # AUTHENTICATION_LOOKUP_ADMIN_DN: ${AUTHENTICATION_LOOKUP_ADMIN_DN:-""}
+      # AUTHENTICATION_LOOKUP_ADMIN_PWD: ${AUTHENTICATION_LOOKUP_ADMIN_PWD:-""}
+      # AUTHENTICATION_USER_LOOKUP_BASEDN: ${AUTHENTICATION_USER_LOOKUP_BASEDN:-""}
+      # AUTHENTICATION_USER_MAIL_ATTR: ${AUTHENTICATION_USER_MAIL_ATTR:-}
+      # AUTHENTICATION_LDAP_POOL_SIZE: ${AUTHENTICATION_LDAP_POOL_SIZE:-3}
+      # AUTHENTICATION_LDAP_SSL_ENABLED: ${AUTHENTICATION_LDAP_SSL_ENABLED:-}
+      # AUTHENTICATION_LDAP_TRUSTSTORE_TYPE: ${AUTHENTICATION_LDAP_TRUSTSTORE_TYPE:-TrustAll}
+      # AUTHENTICATION_LDAP_TRUSTSTORE_PATH: ${AUTHENTICATION_LDAP_TRUSTSTORE_PATH:-}
+      # AUTHENTICATION_LDAP_KEYSTORE_PASSWORD: ${AUTHENTICATION_LDAP_KEYSTORE_PASSWORD:-}
+      # AUTHENTICATION_LDAP_SSL_KEY_FORMAT: ${AUTHENTICATION_LDAP_SSL_KEY_FORMAT:-}
+      # AUTHENTICATION_LDAP_ALLOW_WILDCARDS: ${AUTHENTICATION_LDAP_ALLOW_WILDCARDS:-}
+      # AUTHENTICATION_LDAP_ALLOWED_HOSTNAMES: ${AUTHENTICATION_LDAP_ALLOWED_HOSTNAMES:-[]}
+      # AUTHENTICATION_LDAP_SSL_VERIFY_CERT_HOST: ${AUTHENTICATION_LDAP_SSL_VERIFY_CERT_HOST:-}
+      # AUTHENTICATION_LDAP_EXAMINE_VALIDITY_DATES: ${AUTHENTICATION_LDAP_EXAMINE_VALIDITY_DATES:-true}
+
+      # JWT Configuration
+      RSA_PUBLIC_KEY_FILE_PATH: ${RSA_PUBLIC_KEY_FILE_PATH:-"./conf/public_key.der"}
+      RSA_PRIVATE_KEY_FILE_PATH: ${RSA_PRIVATE_KEY_FILE_PATH:-"./conf/private_key.der"}
+      JWT_ISSUER: ${JWT_ISSUER:-"open-metadata.org"}
+      JWT_KEY_ID: ${JWT_KEY_ID:-"Gb389a-9f76-gdjs-a92j-0242bk94356"}
+      # OpenMetadata Server Pipeline Service Client Configuration
+      PIPELINE_SERVICE_CLIENT_ENDPOINT: ${PIPELINE_SERVICE_CLIENT_ENDPOINT:-http://ingestion:8082}
+      PIPELINE_SERVICE_CLIENT_HEALTH_CHECK_INTERVAL: ${PIPELINE_SERVICE_CLIENT_HEALTH_CHECK_INTERVAL:-300}
+      SERVER_HOST_API_URL: ${SERVER_HOST_API_URL:-http://openmetadata-server:8585/api}
+      PIPELINE_SERVICE_CLIENT_VERIFY_SSL: ${PIPELINE_SERVICE_CLIENT_VERIFY_SSL:-"no-ssl"}
+      PIPELINE_SERVICE_CLIENT_SSL_CERT_PATH: ${PIPELINE_SERVICE_CLIENT_SSL_CERT_PATH:-""}
+      # Database configuration for MySQL
+      DB_DRIVER_CLASS: ${DB_DRIVER_CLASS:-com.mysql.cj.jdbc.Driver}
+      DB_SCHEME: ${DB_SCHEME:-mysql}
+      DB_PARAMS: ${DB_PARAMS:-allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC}
+      DB_USER: ${DB_USER:-openmetadata_user}
+      DB_USER_PASSWORD: ${DB_USER_PASSWORD:-openmetadata_password}
+      DB_HOST: ${DB_HOST:-mysql}
+      DB_PORT: ${DB_PORT:-3306}
+      OM_DATABASE: ${OM_DATABASE:-openmetadata}
+      # ElasticSearch Configurations
+      ELASTICSEARCH_HOST: ${OM_ELASTICSEARCH_HOST:-om-elasticsearch}
+      ELASTICSEARCH_PORT: ${OM_ELASTICSEARCH_PORT:-9201}
+      ELASTICSEARCH_SCHEME: ${ELASTICSEARCH_SCHEME:-http}
+      ELASTICSEARCH_USER: ${ELASTICSEARCH_USER:-""}
+      ELASTICSEARCH_PASSWORD: ${ELASTICSEARCH_PASSWORD:-""}
+      SEARCH_TYPE: ${SEARCH_TYPE:- "elasticsearch"}
+      ELASTICSEARCH_TRUST_STORE_PATH: ${ELASTICSEARCH_TRUST_STORE_PATH:-""}
+      ELASTICSEARCH_TRUST_STORE_PASSWORD: ${ELASTICSEARCH_TRUST_STORE_PASSWORD:-""}
+      ELASTICSEARCH_CONNECTION_TIMEOUT_SECS: ${ELASTICSEARCH_CONNECTION_TIMEOUT_SECS:-5}
+      ELASTICSEARCH_SOCKET_TIMEOUT_SECS: ${ELASTICSEARCH_SOCKET_TIMEOUT_SECS:-60}
+      ELASTICSEARCH_KEEP_ALIVE_TIMEOUT_SECS: ${ELASTICSEARCH_KEEP_ALIVE_TIMEOUT_SECS:-600}
+      ELASTICSEARCH_BATCH_SIZE: ${ELASTICSEARCH_BATCH_SIZE:-100}
+      ELASTICSEARCH_PAYLOAD_BYTES_SIZE: ${ELASTICSEARCH_PAYLOAD_BYTES_SIZE:-10485760}   #max payLoadSize in Bytes
+      ELASTICSEARCH_INDEX_MAPPING_LANG: ${ELASTICSEARCH_INDEX_MAPPING_LANG:-EN}
+
+      #eventMonitoringConfiguration
+      EVENT_MONITOR: ${EVENT_MONITOR:-prometheus}
+      EVENT_MONITOR_BATCH_SIZE: ${EVENT_MONITOR_BATCH_SIZE:-10}
+      EVENT_MONITOR_PATH_PATTERN: ${EVENT_MONITOR_PATH_PATTERN:-["/api/v1/tables/*", "/api/v1/health-check"]}
+      EVENT_MONITOR_LATENCY: ${EVENT_MONITOR_LATENCY:-[]}
+
+      #pipelineServiceClientConfiguration
+      PIPELINE_SERVICE_CLIENT_ENABLED: ${PIPELINE_SERVICE_CLIENT_ENABLED:-true}
+      PIPELINE_SERVICE_CLIENT_CLASS_NAME: ${PIPELINE_SERVICE_CLIENT_CLASS_NAME:-"org.openmetadata.service.clients.pipeline.airflow.AirflowRESTClient"}
+      PIPELINE_SERVICE_IP_INFO_ENABLED: ${PIPELINE_SERVICE_IP_INFO_ENABLED:-false}
+      PIPELINE_SERVICE_CLIENT_HOST_IP: ${PIPELINE_SERVICE_CLIENT_HOST_IP:-""}
+      PIPELINE_SERVICE_CLIENT_SECRETS_MANAGER_LOADER: ${PIPELINE_SERVICE_CLIENT_SECRETS_MANAGER_LOADER:-"noop"}
+      #airflow parameters
+      AIRFLOW_USERNAME: ${AIRFLOW_USERNAME:-admin}
+      AIRFLOW_PASSWORD: ${AIRFLOW_PASSWORD:-admin}
+      AIRFLOW_TIMEOUT: ${AIRFLOW_TIMEOUT:-10}
+      AIRFLOW_TRUST_STORE_PATH: ${AIRFLOW_TRUST_STORE_PATH:-""}
+      AIRFLOW_TRUST_STORE_PASSWORD: ${AIRFLOW_TRUST_STORE_PASSWORD:-""}
+      FERNET_KEY: ${FERNET_KEY:-jJ/9sz0g0OHxsfxOoSfdFdmk3ysNmPRnH3TUAbz3IHA=}
+
+      #secretsManagerConfiguration
+      SECRET_MANAGER: ${SECRET_MANAGER:-db}
+      #parameters:
+      OM_SM_REGION: ${OM_SM_REGION:-""}
+      OM_SM_ACCESS_KEY_ID: ${OM_SM_ACCESS_KEY_ID:-""}
+      OM_SM_ACCESS_KEY: ${OM_SM_ACCESS_KEY:-""}
+
+      #email configuration:
+      OM_EMAIL_ENTITY: ${OM_EMAIL_ENTITY:-"OpenMetadata"}
+      OM_SUPPORT_URL: ${OM_SUPPORT_URL:-"https://slack.open-metadata.org"}
+      AUTHORIZER_ENABLE_SMTP: ${AUTHORIZER_ENABLE_SMTP:-false}
+      OPENMETADATA_SERVER_URL: ${OPENMETADATA_SERVER_URL:-""}
+      OPENMETADATA_SMTP_SENDER_MAIL: ${OPENMETADATA_SMTP_SENDER_MAIL:-""}
+      SMTP_SERVER_ENDPOINT: ${SMTP_SERVER_ENDPOINT:-""}
+      SMTP_SERVER_PORT: ${SMTP_SERVER_PORT:-""}
+      SMTP_SERVER_USERNAME: ${SMTP_SERVER_USERNAME:-""}
+      SMTP_SERVER_PWD: ${SMTP_SERVER_PWD:-""}
+      SMTP_SERVER_STRATEGY: ${SMTP_SERVER_STRATEGY:-"SMTP_TLS"}
+
+      # Heap OPTS Configurations
+      OPENMETADATA_HEAP_OPTS: ${OPENMETADATA_HEAP_OPTS:--Xmx1G -Xms1G}
+      # Mask passwords values in UI
+      MASK_PASSWORDS_API: ${MASK_PASSWORDS_API:-false}
+
+      #OpenMetadata Web Configuration
+      WEB_CONF_URI_PATH: ${WEB_CONF_URI_PATH:-"/api"}
+      #HSTS
+      WEB_CONF_HSTS_ENABLED: ${WEB_CONF_HSTS_ENABLED:-false}
+      WEB_CONF_HSTS_MAX_AGE: ${WEB_CONF_HSTS_MAX_AGE:-"365 days"}
+      WEB_CONF_HSTS_INCLUDE_SUBDOMAINS: ${WEB_CONF_HSTS_INCLUDE_SUBDOMAINS:-"true"}
+      WEB_CONF_HSTS_PRELOAD: ${WEB_CONF_HSTS_PRELOAD:-"true"}
+      #Frame Options
+      WEB_CONF_FRAME_OPTION_ENABLED: ${WEB_CONF_FRAME_OPTION_ENABLED:-false}
+      WEB_CONF_FRAME_OPTION: ${WEB_CONF_FRAME_OPTION:-"SAMEORIGIN"}
+      WEB_CONF_FRAME_ORIGIN: ${WEB_CONF_FRAME_ORIGIN:-""}
+      #Content Type
+      WEB_CONF_CONTENT_TYPE_OPTIONS_ENABLED: ${WEB_CONF_CONTENT_TYPE_OPTIONS_ENABLED:-false}
+      #XSS-Protection
+      WEB_CONF_XSS_PROTECTION_ENABLED: ${WEB_CONF_XSS_PROTECTION_ENABLED:-false}
+      WEB_CONF_XSS_PROTECTION_ON: ${WEB_CONF_XSS_PROTECTION_ON:-true}
+      WEB_CONF_XSS_PROTECTION_BLOCK: ${WEB_CONF_XSS_PROTECTION_BLOCK:-true}
+      #CSP
+      WEB_CONF_XSS_CSP_ENABLED: ${WEB_CONF_XSS_CSP_ENABLED:-false}
+      WEB_CONF_XSS_CSP_POLICY: ${WEB_CONF_XSS_CSP_POLICY:-"default-src 'self'"}
+      WEB_CONF_XSS_CSP_REPORT_ONLY_POLICY: ${WEB_CONF_XSS_CSP_REPORT_ONLY_POLICY:-""}
+      #Cache
+      WEB_CONF_CACHE_CONTROL: ${WEB_CONF_CACHE_CONTROL:-""}
+      WEB_CONF_PRAGMA: ${WEB_CONF_PRAGMA:-""}
+
+      JAVA_TOOL_OPTIONS: >-
+        -Djavax.net.ssl.trustStore=/opt/om-trust/om-truststore.p12
+        -Djavax.net.ssl.trustStorePassword=changeit
+        -Djavax.net.ssl.trustStoreType=PKCS12
+
+
+
+    expose:
+      - 8585
+      - 8586
+    ports:
+      - "8585:8585"
+      - "8586:8586"
+    depends_on:
+      om-elasticsearch:
+        condition: service_healthy
+      mysql:
+        condition: service_healthy
+      execute-migrate-all:
+        condition: service_completed_successfully
+    volumes:
+      - ./config_files/openmetadata/openmetadata.yaml:/usr/local/openmetadata/conf/openmetadata.yaml:ro
+      - ./config_files/openmetadata/certs:/opt/om-trust:ro
+
+    networks:
+      - osss-net
+    healthcheck:
+      test: [ "CMD", "wget", "-q", "--spider",  "http://localhost:8586/healthcheck" ]
+
+  mysql:
+    image: docker.getcollate.io/openmetadata/db:1.9.12
+    container_name: mysql
+    hostname: mysql
+    profiles: [ openmetadata ]
+    networks:
+    - osss-net
+    profiles:
+    - openmetadata
+    restart: always
+    ports:
+    - 3306:3306
+    environment:
+      - MYSQL_ROOT_PASSWORD=password
+      - MYSQL_DATABASE=openmetadata
+      - MYSQL_USER=openmetadata_user
+      - MYSQL_PASSWORD=openmetadata_password
+    command: "--sort_buffer_size=10M"
+
+
+    volumes:
+    - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: mysql --user=root --password=$$MYSQL_ROOT_PASSWORD --silent --execute "use openmetadata"
+      interval: 15s
+      timeout: 10s
+      retries: 10
+
+  om-elasticsearch:
+      profiles: [ openmetadata ]
+      image: docker.elastic.co/elasticsearch/elasticsearch:8.11.4
+      container_name: om-elasticsearch
+      hostname: om-elasticsearch
+      environment:
+        - discovery.type=single-node
+        - ES_JAVA_OPTS=-Xms1024m -Xmx1024m
+        - xpack.security.enabled=false
+      networks:
+        - osss-net
+      ports:
+        - "9201:9200"
+        - "9301:9300"
+      healthcheck:
+        test: "curl -s http://localhost:9200/_cluster/health?pretty | grep status | grep -qE 'green|yellow' || exit 1"
+        interval: 15s
+        timeout: 10s
+        retries: 10
+      volumes:
+        - om-es-data:/usr/share/elasticsearch/data
+
+  ingestion:
+    container_name: openmetadata-ingestion
+    hostname: openmetadata-ingestion
+    profiles: [ openmetadata ]
+    image: docker.getcollate.io/openmetadata/ingestion:1.9.12
+    depends_on:
+      om-elasticsearch:
+        condition: service_started
+      mysql:
+        condition: service_healthy
+      openmetadata-server:
+        condition: service_started
+    environment:
+      AIRFLOW__API__AUTH_BACKENDS: "airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session"
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__OPENMETADATA_AIRFLOW_APIS__DAG_GENERATED_CONFIGS: "/opt/airflow/dag_generated_configs"
+      DB_HOST: ${AIRFLOW_DB_HOST:-mysql}
+      DB_PORT: ${AIRFLOW_DB_PORT:-3306}
+      AIRFLOW_DB: ${AIRFLOW_DB:-airflow_db}
+      DB_SCHEME: ${AIRFLOW_DB_SCHEME:-mysql+mysqldb}
+      DB_USER: ${AIRFLOW_DB_USER:-airflow_user}
+      DB_PASSWORD: ${AIRFLOW_DB_PASSWORD:-airflow_pass}
+      # extra connection-string properties for the database
+      # EXAMPLE
+      # require SSL (only for Postgres)
+      # properties: "?sslmode=require"
+      DB_PROPERTIES: ${AIRFLOW_DB_PROPERTIES:-}
+      # To test the lineage backend
+      # AIRFLOW__LINEAGE__BACKEND: airflow_provider_openmetadata.lineage.backend.OpenMetadataLineageBackend
+      # AIRFLOW__LINEAGE__AIRFLOW_SERVICE_NAME: local_airflow
+      # AIRFLOW__LINEAGE__OPENMETADATA_API_ENDPOINT: http://openmetadata-server:8585/api
+      # AIRFLOW__LINEAGE__JWT_TOKEN: ...
+    entrypoint: /bin/bash
+    command:
+      - "/opt/airflow/ingestion_dependency.sh"
+    expose:
+      - 8082
+    ports:
+      - "8082:8080"
+    networks:
+      - osss-net
+    volumes:
+      - ingestion-volume-dag-airflow:/opt/airflow/dag_generated_configs
+      - ingestion-volume-dags:/opt/airflow/dags
+      - ingestion-volume-tmp:/tmp
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    profiles: [ ai ]
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama    # <-- named volume
+    entrypoint: >                     # (entrypoint from section #1)
+      sh -c '
+        set -e
+        ollama serve &
+        echo "Waiting..."
         i=0
-        while [ $i -lt 180 ]; do
-          [ -s /shared/filebeat.apikey.env ] && break
-          i=$((i+1))
-          sleep 1
+        while [ "$i" -lt 60 ]; do
+          if ollama list >/dev/null 2>&1; then break; fi
+          i=$((i+1)); sleep 1
         done
-        [ -s /shared/filebeat.apikey.env ] || { echo "missing API key file"; exit 1; }
-        set -a
-        . /shared/filebeat.apikey.env
-        echo "[ok] ELASTIC_API_KEY loaded (id=$${ELASTIC_API_KEY%%:*})"
-        exec filebeat -e --strict.perms=false
+        if ! ollama list | grep -q "^llama3\\.1"; then
+          ollama pull llama3.1
+        fi
+        wait
+      '
+    healthcheck:
+      test: [ "CMD-SHELL", "ollama list | grep -q '^llama3\\.1'" ]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+    networks: [ osss-net ]
+    restart: unless-stopped
+
+
+  # === Vector DB for RAG ===
+  qdrant:
+    build:
+      context: .
+      dockerfile: docker/qdrant/Dockerfile
+    container_name: qdrant
+    hostname: qdrant
+    profiles: [ ai ]
+    ports:
+      - "6333:6333"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    healthcheck:
+      test: [ "CMD", "curl", "-fsS", "http://localhost:6333/readyz" ]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 15s
+    networks: [ osss-net ]
+    restart: unless-stopped
+
+
+  # === Object Storage for curriculum/corpus ===
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    hostname: minio
+    profiles: [ ai ]
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${AI_MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${AI_MINIO_ROOT_PASSWORD}
+    ports:
+      - "9000:9000"  # S3 API
+      - "9001:9001"  # Web console
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: [ "CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/9000 && exec 3>&-" ]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+    networks: [ osss-net ]
+    restart: unless-stopped
+
+
+  # === Redis for caching answers / sessions ===
+  ai-redis:
+    image: redis:7
+    container_name: ai-redis
+    hostname: ai-redis
+    profiles: [ ai ]
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    ports:
+      - "6382:6379"
+    volumes:
+      - ai_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    networks: [osss-net]
+    restart: unless-stopped
+
+
+  # === Postgres for audit, usage, metadata ===
+  ai-postgres:
+    image: postgres:15
+    container_name: ai-postgres
+    hostname: ai-postgres
+    profiles: [ ai ]
+    environment:
+      POSTGRES_DB: ${AI_POSTGRES_DB}
+      POSTGRES_USER: ${AI_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${AI_POSTGRES_PASSWORD}
+    ports:
+      - "5436:5432"
+    volumes:
+      - ai_pg_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB -h localhost" ]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+    networks: [ osss-net ]
+    restart: unless-stopped

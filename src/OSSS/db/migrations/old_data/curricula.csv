@@ -1,6 +1,3 @@
-organization_id,proposal_id,title,subject,grade_range,description,attributes,name,status,published_at,metadata
-70b8d508-f6fe-4042-a996-83e4076ad0f0,,Music Curriculum 1,Music,9-12,Auto-seeded Music curriculum for 9-12.,"{""seed"": ""curricula_seed_v1"", ""rand"": 7026}",Music Curriculum 1,adopted,2024-08-01T00:00:00Z,"{""tags"": [""music"", ""9-12""], ""seed"": true}"
-70b8d508-f6fe-4042-a996-83e4076ad0f0,,ELA Curriculum 2,ELA,9-12,Auto-seeded ELA curriculum for 9-12.,"{""seed"": ""curricula_seed_v1"", ""rand"": 459}",ELA Curriculum 2,draft,,"{""tags"": [""ela"", ""9-12""], ""seed"": true}"
-70b8d508-f6fe-4042-a996-83e4076ad0f0,,History Curriculum 3,History,6-8,Auto-seeded History curriculum for 6-8.,"{""seed"": ""curricula_seed_v1"", ""rand"": 6895}",History Curriculum 3,adopted,2024-08-01T00:00:00Z,"{""tags"": [""history"", ""6-8""], ""seed"": true}"
-70b8d508-f6fe-4042-a996-83e4076ad0f0,,ELA Curriculum 4,ELA,K-2,Auto-seeded ELA curriculum for K-2.,"{""seed"": ""curricula_seed_v1"", ""rand"": 4751}",ELA Curriculum 4,retired,,"{""tags"": [""ela"", ""K-2""], ""seed"": true}"
-70b8d508-f6fe-4042-a996-83e4076ad0f0,,Science Curriculum 5,Science,K-2,Auto-seeded Science curriculum for K-2.,"{""seed"": ""curricula_seed_v1"", ""rand"": 4095}",Science Curriculum 5,retired,,"{""tags"": [""science"", ""K-2""], ""seed"": true}"
+version https://git-lfs.github.com/spec/v1
+oid sha256:7648a51e091e6bff312915837aeb650f5605b67c0499821dd86bc08e11a4942a
+size 1340

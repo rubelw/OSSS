@@ -1,6 +1,3 @@
-curriculum_version_id,requirement_id,alignment_level,evidence_url,notes
-1fa6be99-c276-4c22-baf7-7b55eeab289c,1c346b32-bfaa-4756-820f-4e8479b96187,partial,,Seeded Alignment (alembic)
-40584d4c-a74c-43f9-8047-58cf079d27d0,156c9009-1174-4a9c-9a9f-c825e7fca6fc,unknown,,Seeded Alignment (alembic)
-a9b52a86-d06f-4904-a587-41eb95ba59ab,7d80eb76-89c5-4f93-bcf5-63181d88442f,unknown,,Seeded Alignment (alembic)
-ab28dd78-5a9b-4c1d-a289-ff4b13b6a805,c2d20e22-0496-45cb-9773-3d1afa24e551,aligned,,Seeded Alignment (alembic)
-d45a0030-4814-4eb7-b4d5-5bb60b6a9436,c18cc0a4-b828-45f0-8d4f-23f8a3409ccc,unknown,,Seeded Alignment (alembic)
+version https://git-lfs.github.com/spec/v1
+oid sha256:0e15e6ef80770144e1360469a6c80ea56fbf9b9999acce35db28533e0c1e6c18
+size 628

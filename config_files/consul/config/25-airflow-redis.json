@@ -1,0 +1,17 @@
+{
+  "service": {
+    "name": "airflow-redis",
+    "id": "airflow-redis-6379",
+    "address": "airflow-redis",
+    "port": 6379,
+    "tags": ["profile:airflow","cache:redis"],
+    "checks": [
+      {
+        "name": "airflow-redis-tcp",
+        "tcp": "airflow-redis:6379",
+        "interval": "10s",
+        "timeout": "3s"
+      }
+    ]
+  }
+}

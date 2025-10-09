@@ -1,0 +1,17 @@
+{
+  "datacenter": "dc1",
+  "services": [
+    {
+      "name": "kibana",
+      "address": "kibana",
+      "port": 5601,
+      "checks": [
+        {
+          "http": "http://kibana:5601/api/status",
+          "interval": "10s",
+          "timeout": "3s"
+        }
+      ]
+    }
+  ]
+}

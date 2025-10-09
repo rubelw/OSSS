@@ -1,13 +1,3 @@
-name,code
-"DTaP (Diphtheria, Tetanus, acellular Pertussis)",DTaP
-"Tdap (Tetanus, diphtheria, acellular Pertussis)",Tdap
-Polio (IPV),IPV
-"MMR (Measles, Mumps, Rubella)",MMR
-Varicella (Chickenpox),VAR
-Hepatitis B,HepB
-Hepatitis A,HepA
-Hib (Haemophilus influenzae type b),Hib
-Pneumococcal Conjugate,PCV
-Meningococcal ACWY,MCV4
-HPV (Human Papillomavirus),HPV
-Influenza (Seasonal),Flu
+version https://git-lfs.github.com/spec/v1
+oid sha256:658a4c7555078906245ea441f84d140c480c992fda649e0ea661c351c2ba5727
+size 393

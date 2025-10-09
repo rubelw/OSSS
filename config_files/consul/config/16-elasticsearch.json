@@ -1,0 +1,22 @@
+{
+  "datacenter": "dc1",
+  "services": [
+    {
+      "name": "elasticsearch",
+      "address": "elasticsearch",
+      "port": 9200,
+      "checks": [
+        {
+          "name": "es-http-health",
+          "method": "GET",
+          "http": "http://elasticsearch:9200/_cluster/health?local=true",
+          "header": {
+            "Authorization": ["Basic ZWxhc3RpYzpwYXNzd29yZA=="]
+          },
+          "interval": "10s",
+          "timeout": "5s"
+        }
+      ]
+    }
+  ]
+}

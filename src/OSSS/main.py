@@ -19,7 +19,7 @@ from fastapi.routing import APIRoute
 
 from starlette.middleware.sessions import SessionMiddleware
 
-from sqlalchemy.orm import class_mapper
+from sqlalchemy.orm import class_mapper, configure_mappers
 from sqlalchemy.orm.exc import UnmappedClassError
 from sqlalchemy.inspection import inspect as sa_inspect
 
@@ -39,6 +39,7 @@ from consul import Consul
 
 # New auth deps
 from OSSS.auth.deps import ensure_access_token, get_current_user
+from OSSS.api.ai_gateway import router as ai_gateway_router
 
 from OSSS.sessions import (
     attach_session_store,
@@ -57,6 +58,11 @@ from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, Asyn
 from starlette.responses import JSONResponse
 from sqlalchemy.exc import IntegrityError
 from pythonjsonlogger import jsonlogger
+import json
+from fastapi.responses import JSONResponse
+from fastapi import HTTPException as FastapiHTTPException
+from starlette.exceptions import HTTPException as StarletteHTTPException
+
 
 # If you might be on Postgres/asyncpg, these imports let us detect specific violation types
 try:
@@ -142,6 +148,14 @@ def pick_healthy_service(consul: Consul, name: str) -> tuple[str, int]:
     return svc["Address"], svc["Port"]
 
 
+# --- helpers used by JSON-safe exception plumbing ---
+def _to_str(x) -> str:
+    if isinstance(x, (bytes, bytearray)):
+        try:
+            return x.decode("utf-8")
+        except Exception:
+            return x.decode("utf-8", "replace")
+    return str(x)
 
 def _discover_Base():
     """Best-effort discovery of the SQLAlchemy Declarative Base."""
@@ -366,6 +380,10 @@ def create_app() -> FastAPI:
         """
         # ---------------- STARTUP ----------------
 
+        # Import the package that eagerly imports *all* model modules
+        import OSSS.db.models  # must import camp, camp_registration, etc.
+        configure_mappers()  # raises immediately if any relationship is mismatched
+
         # DB engine/sessionmaker bound to THIS loop
         app.state.db_engine = create_async_engine(
             settings.DATABASE_URL,
@@ -468,6 +486,7 @@ def create_app() -> FastAPI:
         app.include_router(probe)
         app.include_router(sessions_diag_router)
         app.include_router(logout_router)
+        app.include_router(ai_gateway_router)
 
         @app.get("/whoami", tags=["debug"])
         async def whoami(consul: Consul = Depends(consul_client)):
@@ -489,7 +508,7 @@ def create_app() -> FastAPI:
                 # --- optional app-level OIDC tracing ---
                 if os.getenv("OSSS_VERBOSE_AUTH", "0") == "1":
                     _enable_verbose_oidc_logging()
-                    issuer = _env("OIDC_ISSUER", "http://localhost:8080/realms/OSSS")
+                    issuer = _env("OIDC_ISSUER", "http://localhost:8443/realms/OSSS")
                     jwks = _env("OIDC_JWKS_URL")
                     client_id = _env("OIDC_CLIENT_ID", "osss-api")
                     client_secret = _env("OIDC_CLIENT_SECRET")
@@ -588,6 +607,51 @@ def create_app() -> FastAPI:
         generate_unique_id_function=generate_unique_id,
         lifespan=lifespan,
     )
+
+    # --- begin JSON-safe exception plumbing (install once) ---
+    # Prevent double-registration under watchfiles/uvicorn reloads
+    if not getattr(app.state, "_exc_json_patch_installed", False):
+
+        @app.middleware("http")
+        async def _coerce_http_exception_detail(request, call_next):
+            try:
+                return await call_next(request)
+            except (FastapiHTTPException, StarletteHTTPException) as exc:
+                detail = exc.detail
+                try:
+                    json.dumps(detail)  # ensure JSON-serializable
+                except Exception:
+                    detail = _to_str(detail)
+                raise FastapiHTTPException(
+                    status_code=exc.status_code,
+                    detail=detail,
+                    headers=exc.headers,
+                )
+
+        @app.exception_handler(FastapiHTTPException)
+        async def _fastapi_http_exc_handler(request, exc: FastapiHTTPException):
+            detail = exc.detail
+            try:
+                json.dumps(detail)
+            except Exception:
+                detail = _to_str(detail)
+            return JSONResponse({"detail": detail}, status_code=exc.status_code, headers=exc.headers)
+
+        @app.exception_handler(StarletteHTTPException)
+        async def _starlette_http_exc_handler(request, exc: StarletteHTTPException):
+            detail = exc.detail
+            try:
+                json.dumps(detail)
+            except Exception:
+                detail = _to_str(detail)
+            return JSONResponse({"detail": detail}, status_code=exc.status_code, headers=exc.headers)
+
+        @app.exception_handler(Exception)
+        async def _any_exc_handler(request, exc: Exception):
+            return JSONResponse({"detail": _to_str(exc)}, status_code=500)
+
+        app.state._exc_json_patch_installed = True
+    # --- end JSON-safe exception plumbing ---
 
     attach_session_store(app)  # adds startup/shutdown hooks + app.state.session_store
 

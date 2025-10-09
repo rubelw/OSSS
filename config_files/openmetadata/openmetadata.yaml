@@ -1,0 +1,12 @@
+server:
+  type: default
+  applicationConnectors:
+    - type: http
+      port: 8585
+      requestHeaderSize: 65536
+      responseHeaderSize: 65536
+  adminConnectors:
+    - type: http
+      port: 8586
+      requestHeaderSize: 65536
+      responseHeaderSize: 65536

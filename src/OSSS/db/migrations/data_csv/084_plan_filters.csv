@@ -1,2 +1,3 @@
-id,plan_id,created_at,updated_at,name
-de1aacfe-e9a1-5ab6-a806-a1caad622a33,e6588f29-9cd7-5f1e-91ac-7fbd741c52fa,2025-09-05T18:25:42Z,2025-09-05T18:25:42Z,Sample plan_filters name
+version https://git-lfs.github.com/spec/v1
+oid sha256:4f72e1abc3615f601f70f94ec0593c1a958ab0998af6c583ab96b954ce02fe3f
+size 181

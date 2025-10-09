@@ -1,0 +1,27 @@
+# Minimal Filebeat for Podman (reads k8s-file/CRI-style ctr.log files)
+filebeat.inputs:
+  - type: filestream
+    id: podman-containers
+    enabled: true
+    paths:
+      - /var/lib/containers/storage/overlay-containers/*/userdata/ctr.log
+    parsers:
+      - container: {}   # parse CRI-style container log lines
+    # optional: ignore Filebeat’s own container to avoid loops
+    exclude_files:
+      - 'filebeat.*ctr\.log$'
+
+processors:
+  - add_fields:
+      target: 'agent'
+      fields:
+        runtime: 'podman'
+
+output.elasticsearch:
+  hosts: ["${ELASTICSEARCH_HOSTS:http://elasticsearch:9200}"]
+  api_key: "${ELASTIC_API_KEY}"
+  # fallback to user/pass if api key not present
+  username: "${ELASTIC_USERNAME:}"
+  password: "${ELASTIC_PASSWORD:}"
+setup.template.enabled: true
+setup.ilm.enabled: true

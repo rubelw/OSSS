@@ -1,16 +1,3 @@
-curriculum_id,title,order_index,summary,metadata
-3a3ee7bd-1aae-4d70-8db3-951cc2841c18,Unit 1 for 3a3ee7bd,1,Seeded Curriculum Unit,"{""seed"": true, ""idx"": 1}"
-3a3ee7bd-1aae-4d70-8db3-951cc2841c18,Unit 2 for 3a3ee7bd,2,Seeded Curriculum Unit,"{""seed"": true, ""idx"": 2}"
-3a3ee7bd-1aae-4d70-8db3-951cc2841c18,Unit 3 for 3a3ee7bd,3,Seeded Curriculum Unit,"{""seed"": true, ""idx"": 3}"
-406b367e-bb93-4bc0-a16b-f8c2ee160e0d,Unit 1 for 406b367e,1,Seeded Curriculum Unit,"{""seed"": true, ""idx"": 1}"
-406b367e-bb93-4bc0-a16b-f8c2ee160e0d,Unit 2 for 406b367e,2,Seeded Curriculum Unit,"{""seed"": true, ""idx"": 2}"
-406b367e-bb93-4bc0-a16b-f8c2ee160e0d,Unit 3 for 406b367e,3,Seeded Curriculum Unit,"{""seed"": true, ""idx"": 3}"
-53db19dc-67cf-4f2a-bfdc-955a8c5457d6,Unit 1 for 53db19dc,1,Seeded Curriculum Unit,"{""seed"": true, ""idx"": 1}"
-53db19dc-67cf-4f2a-bfdc-955a8c5457d6,Unit 2 for 53db19dc,2,Seeded Curriculum Unit,"{""seed"": true, ""idx"": 2}"
-53db19dc-67cf-4f2a-bfdc-955a8c5457d6,Unit 3 for 53db19dc,3,Seeded Curriculum Unit,"{""seed"": true, ""idx"": 3}"
-af714ea2-0bf6-4323-8583-d40d688082a4,Unit 1 for af714ea2,1,Seeded Curriculum Unit,"{""seed"": true, ""idx"": 1}"
-af714ea2-0bf6-4323-8583-d40d688082a4,Unit 2 for af714ea2,2,Seeded Curriculum Unit,"{""seed"": true, ""idx"": 2}"
-af714ea2-0bf6-4323-8583-d40d688082a4,Unit 3 for af714ea2,3,Seeded Curriculum Unit,"{""seed"": true, ""idx"": 3}"
-b42b153b-916d-4c6f-9a7d-97fc99967246,Unit 1 for b42b153b,1,Seeded Curriculum Unit,"{""seed"": true, ""idx"": 1}"
-b42b153b-916d-4c6f-9a7d-97fc99967246,Unit 2 for b42b153b,2,Seeded Curriculum Unit,"{""seed"": true, ""idx"": 2}"
-b42b153b-916d-4c6f-9a7d-97fc99967246,Unit 3 for b42b153b,3,Seeded Curriculum Unit,"{""seed"": true, ""idx"": 3}"
+version https://git-lfs.github.com/spec/v1
+oid sha256:3c9ff7695b352856ef9280a6aa2623f54691e14ed7238a7fb0eb81f959dad0a7
+size 1760

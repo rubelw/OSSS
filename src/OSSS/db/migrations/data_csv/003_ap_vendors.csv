@@ -1,2 +1,3 @@
-id,created_at,active,updated_at,vendor_no,name
-0dacdad6-903d-5d46-84d0-75121ddc7f27,2025-09-05T18:25:42Z,True,2025-09-05T18:25:42Z,Sample ap_vendors vendor_no,Sample ap_vendors name
+version https://git-lfs.github.com/spec/v1
+oid sha256:6776c8c356be45ceddcc8ea65231a457e5f8d7d45eb01717ca6427f3c5b8099b
+size 184

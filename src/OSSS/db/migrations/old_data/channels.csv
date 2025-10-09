@@ -1,19 +1,3 @@
-id,org_id,name,audience,description
-66db8d77-96f8-4aaf-a066-fde96f1c93ba,70b8d508-f6fe-4042-a996-83e4076ad0f0,Events,staff,Official updates and news for the district.
-20c83974-c3dc-4f44-aa32-44c80a8c827e,70b8d508-f6fe-4042-a996-83e4076ad0f0,Technology,public,Updates from the school board.
-700d44c6-0e36-411d-94eb-ca039237aa8d,70b8d508-f6fe-4042-a996-83e4076ad0f0,Community,staff,Official updates and news for the district.
-052383a5-5a3f-4ee2-ab44-31add486739f,70b8d508-f6fe-4042-a996-83e4076ad0f0,Music,public,Updates from the school board.
-f156af1c-408f-4a23-b5c9-23773d640093,70b8d508-f6fe-4042-a996-83e4076ad0f0,Principals,public,Information for staff and internal announcements.
-88bd0bb7-fdaa-432a-9f8f-a13d63aa132d,70b8d508-f6fe-4042-a996-83e4076ad0f0,Superintendent,public,Updates from the school board.
-dac3c9c8-0383-46f1-9251-182383cc5c43,70b8d508-f6fe-4042-a996-83e4076ad0f0,Family Portal,staff,Updates from the school board.
-50dcd80b-e227-4098-a5a3-b479b0629a5e,70b8d508-f6fe-4042-a996-83e4076ad0f0,Curriculum,public,
-68624e61-9883-41e7-b332-5df34cdc9da5,70b8d508-f6fe-4042-a996-83e4076ad0f0,Transportation,public,Transportation notices and route updates.
-2e75c3e0-811e-41d0-901a-74b820995b46,70b8d508-f6fe-4042-a996-83e4076ad0f0,Announcements,public,Upcoming events and activities.
-49eda8e1-cd00-4f3a-bbde-6830cfb32633,70b8d508-f6fe-4042-a996-83e4076ad0f0,Special Education,public,Health and safety reminders.
-ea9a2d73-820c-41c2-95f2-94dfbcd2cbe3,70b8d508-f6fe-4042-a996-83e4076ad0f0,Facilities,staff,
-67cbfc3c-bb13-41cc-a75c-d6526f472a6b,70b8d508-f6fe-4042-a996-83e4076ad0f0,Staff Updates,public,Technology tips and service notices.
-a5ff628e-86d6-496b-9b81-950add9dcb70,70b8d508-f6fe-4042-a996-83e4076ad0f0,District News,public,
-a5369279-deac-405a-ad0c-858489fcf202,70b8d508-f6fe-4042-a996-83e4076ad0f0,Athletics,public,
-95085e85-f95c-4a6c-b777-cfda5cd5d7ca,70b8d508-f6fe-4042-a996-83e4076ad0f0,Food Services,public,"Arts, music, and theater highlights."
-eea560e6-fc40-4438-8f30-5662fdbcc115,70b8d508-f6fe-4042-a996-83e4076ad0f0,Clubs,public,
-c232f740-402e-49b5-915e-8fd93a8dfa10,70b8d508-f6fe-4042-a996-83e4076ad0f0,Library,staff,
+version https://git-lfs.github.com/spec/v1
+oid sha256:e1d6a61020581e4217ab6bca893a6adb290176c22cfba3e5039d5f6f513ea4ca
+size 2164

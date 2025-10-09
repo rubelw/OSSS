@@ -1,0 +1,136 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000" viewBox="0 0 1600 1000" style="background:#0F172A">
+<style>@import url("https://fonts.googleapis.com/css2?family=Inter:wght@500;700&display=swap"); text{font-family:Inter,system-ui,sans-serif}</style>
+<rect x="24" y="20" width="1552" height="34" rx="8" fill="#334155" />
+<text x="36" y="42" fill="#E5E7EB" font-size="16" font-weight="700">osss-net (user-defined network)</text>
+<rect x="24" y="70" width="360" height="34" rx="8" fill="#334155" />
+<text x="36" y="92" fill="#E5E7EB" font-size="16" font-weight="700">Keycloak</text>
+<rect x="24" y="104" width="360" height="256" rx="12" fill="#111827" stroke="#334155" stroke-width="2"/>
+<rect x="44" y="120" width="180" height="40" rx="10" fill="#1F2937" stroke="#94A3B8" />
+<text x="56" y="145" fill="#E5E7EB" font-size="14" font-weight="600">kc_postgres</text>
+<text x="216" y="145" fill="#CBD5E1" font-size="12" text-anchor="end">5432</text>
+<rect x="44" y="175" width="180" height="40" rx="10" fill="#1F2937" stroke="#94A3B8" />
+<text x="56" y="200" fill="#E5E7EB" font-size="14" font-weight="600">keycloak</text>
+<text x="216" y="200" fill="#CBD5E1" font-size="12" text-anchor="end">8080 / 8443</text>
+<rect x="24" y="380" width="360" height="34" rx="8" fill="#334155" />
+<text x="36" y="402" fill="#E5E7EB" font-size="16" font-weight="700">Vault</text>
+<rect x="24" y="414" width="360" height="216" rx="12" fill="#111827" stroke="#334155" stroke-width="2"/>
+<rect x="44" y="430" width="180" height="40" rx="10" fill="#1F2937" stroke="#94A3B8" />
+<text x="56" y="455" fill="#E5E7EB" font-size="14" font-weight="600">vault</text>
+<text x="216" y="455" fill="#CBD5E1" font-size="12" text-anchor="end">8200</text>
+<rect x="44" y="485" width="180" height="40" rx="10" fill="#1F2937" stroke="#94A3B8" />
+<text x="56" y="510" fill="#E5E7EB" font-size="14" font-weight="600">vault-oidc-setup</text>
+<rect x="44" y="540" width="180" height="40" rx="10" fill="#1F2937" stroke="#94A3B8" />
+<text x="56" y="565" fill="#E5E7EB" font-size="14" font-weight="600">vault-seed</text>
+<rect x="24" y="650" width="360" height="34" rx="8" fill="#334155" />
+<text x="36" y="672" fill="#E5E7EB" font-size="16" font-weight="700">Elasticsearch + Kibana + Beats</text>
+<rect x="24" y="684" width="360" height="266" rx="12" fill="#111827" stroke="#334155" stroke-width="2"/>
+<rect x="44" y="700" width="180" height="40" rx="10" fill="#1F2937" stroke="#94A3B8" />
+<text x="56" y="725" fill="#E5E7EB" font-size="14" font-weight="600">elasticsearch</text>
+<text x="216" y="725" fill="#CBD5E1" font-size="12" text-anchor="end">9200, 9300</text>
+<rect x="44" y="755" width="180" height="40" rx="10" fill="#1F2937" stroke="#94A3B8" />
+<text x="56" y="780" fill="#E5E7EB" font-size="14" font-weight="600">kibana</text>
+<text x="216" y="780" fill="#CBD5E1" font-size="12" text-anchor="end">5601</text>
+<rect x="44" y="810" width="180" height="40" rx="10" fill="#1F2937" stroke="#94A3B8" />
+<text x="56" y="835" fill="#E5E7EB" font-size="14" font-weight="600">filebeat-setup</text>
+<rect x="44" y="865" width="180" height="40" rx="10" fill="#1F2937" stroke="#94A3B8" />
+<text x="56" y="890" fill="#E5E7EB" font-size="14" font-weight="600">filebeat-podman</text>
+<rect x="200" y="810" width="180" height="40" rx="10" fill="#1F2937" stroke="#94A3B8" />
+<text x="212" y="835" fill="#E5E7EB" font-size="14" font-weight="600">api-key-init</text>
+<rect x="200" y="865" width="180" height="40" rx="10" fill="#1F2937" stroke="#94A3B8" />
+<text x="212" y="890" fill="#E5E7EB" font-size="14" font-weight="600">shared-vol-init</text>
+<rect x="410" y="70" width="370" height="34" rx="8" fill="#334155" />
+<text x="422" y="92" fill="#E5E7EB" font-size="16" font-weight="700">App + Web</text>
+<rect x="410" y="104" width="370" height="256" rx="12" fill="#111827" stroke="#334155" stroke-width="2"/>
+<rect x="430" y="120" width="180" height="40" rx="10" fill="#1F2937" stroke="#94A3B8" />
+<text x="442" y="145" fill="#E5E7EB" font-size="14" font-weight="600">web</text>
+<text x="602" y="145" fill="#CBD5E1" font-size="12" text-anchor="end">3000 → host</text>
+<rect x="430" y="175" width="180" height="40" rx="10" fill="#1F2937" stroke="#94A3B8" />
+<text x="442" y="200" fill="#E5E7EB" font-size="14" font-weight="600">app</text>
+<text x="602" y="200" fill="#CBD5E1" font-size="12" text-anchor="end">8000 → host</text>
+<rect x="430" y="230" width="180" height="40" rx="10" fill="#1F2937" stroke="#94A3B8" />
+<text x="442" y="255" fill="#E5E7EB" font-size="14" font-weight="600">redis</text>
+<text x="602" y="255" fill="#CBD5E1" font-size="12" text-anchor="end">6379</text>
+<rect x="430" y="285" width="180" height="40" rx="10" fill="#1F2937" stroke="#94A3B8" />
+<text x="442" y="310" fill="#E5E7EB" font-size="14" font-weight="600">osss_postgres</text>
+<text x="602" y="310" fill="#CBD5E1" font-size="12" text-anchor="end">5432 → host</text>
+<rect x="410" y="380" width="370" height="34" rx="8" fill="#334155" />
+<text x="422" y="402" fill="#E5E7EB" font-size="16" font-weight="700">Consul</text>
+<rect x="410" y="414" width="370" height="216" rx="12" fill="#111827" stroke="#334155" stroke-width="2"/>
+<rect x="430" y="430" width="180" height="40" rx="10" fill="#1F2937" stroke="#94A3B8" />
+<text x="442" y="455" fill="#E5E7EB" font-size="14" font-weight="600">consul</text>
+<text x="602" y="455" fill="#CBD5E1" font-size="12" text-anchor="end">8500, 8600</text>
+<rect x="430" y="485" width="180" height="40" rx="10" fill="#1F2937" stroke="#94A3B8" />
+<text x="442" y="510" fill="#E5E7EB" font-size="14" font-weight="600">consul-join-init</text>
+<rect x="800" y="70" width="776" height="34" rx="8" fill="#334155" />
+<text x="812" y="92" fill="#E5E7EB" font-size="16" font-weight="700">Datalake</text>
+<rect x="800" y="104" width="776" height="846" rx="12" fill="#111827" stroke="#334155" stroke-width="2"/>
+<rect x="820" y="110" width="360" height="34" rx="8" fill="#334155" />
+<text x="832" y="132" fill="#E5E7EB" font-size="16" font-weight="700">Trino</text>
+<rect x="820" y="144" width="360" height="116" rx="12" fill="#111827" stroke="#334155" stroke-width="2"/>
+<rect x="840" y="160" width="180" height="40" rx="10" fill="#1F2937" stroke="#94A3B8" />
+<text x="852" y="185" fill="#E5E7EB" font-size="14" font-weight="600">trino</text>
+<text x="1012" y="185" fill="#CBD5E1" font-size="12" text-anchor="end">8443 → host</text>
+<rect x="1200" y="110" width="356" height="34" rx="8" fill="#334155" />
+<text x="1212" y="132" fill="#E5E7EB" font-size="16" font-weight="700">Superset</text>
+<rect x="1200" y="144" width="356" height="206" rx="12" fill="#111827" stroke="#334155" stroke-width="2"/>
+<rect x="1220" y="160" width="180" height="40" rx="10" fill="#1F2937" stroke="#94A3B8" />
+<text x="1232" y="185" fill="#E5E7EB" font-size="14" font-weight="600">superset</text>
+<text x="1392" y="185" fill="#CBD5E1" font-size="12" text-anchor="end">8088</text>
+<rect x="1220" y="215" width="180" height="40" rx="10" fill="#1F2937" stroke="#94A3B8" />
+<text x="1232" y="240" fill="#E5E7EB" font-size="14" font-weight="600">superset_redis</text>
+<text x="1392" y="240" fill="#CBD5E1" font-size="12" text-anchor="end">6379 → host</text>
+<rect x="1220" y="270" width="180" height="40" rx="10" fill="#1F2937" stroke="#94A3B8" />
+<text x="1232" y="295" fill="#E5E7EB" font-size="14" font-weight="600">postgres-superset</text>
+<text x="1392" y="295" fill="#CBD5E1" font-size="12" text-anchor="end">5432 → host</text>
+<rect x="820" y="290" width="360" height="34" rx="8" fill="#334155" />
+<text x="832" y="312" fill="#E5E7EB" font-size="16" font-weight="700">Airflow</text>
+<rect x="820" y="324" width="360" height="246" rx="12" fill="#111827" stroke="#334155" stroke-width="2"/>
+<rect x="840" y="340" width="180" height="40" rx="10" fill="#1F2937" stroke="#94A3B8" />
+<text x="852" y="365" fill="#E5E7EB" font-size="14" font-weight="600">airflow-init</text>
+<rect x="840" y="395" width="180" height="40" rx="10" fill="#1F2937" stroke="#94A3B8" />
+<text x="852" y="420" fill="#E5E7EB" font-size="14" font-weight="600">postgres-airflow</text>
+<text x="1012" y="420" fill="#CBD5E1" font-size="12" text-anchor="end">5432 → host</text>
+<rect x="840" y="450" width="180" height="40" rx="10" fill="#1F2937" stroke="#94A3B8" />
+<text x="852" y="475" fill="#E5E7EB" font-size="14" font-weight="600">airflow-scheduler</text>
+<rect x="840" y="505" width="180" height="40" rx="10" fill="#1F2937" stroke="#94A3B8" />
+<text x="852" y="530" fill="#E5E7EB" font-size="14" font-weight="600">airflow-webserver</text>
+<text x="1012" y="530" fill="#CBD5E1" font-size="12" text-anchor="end">8080 → host</text>
+<rect x="1200" y="380" width="356" height="34" rx="8" fill="#334155" />
+<text x="1212" y="402" fill="#E5E7EB" font-size="16" font-weight="700">OpenMetadata</text>
+<rect x="1200" y="414" width="356" height="246" rx="12" fill="#111827" stroke="#334155" stroke-width="2"/>
+<rect x="1220" y="430" width="180" height="40" rx="10" fill="#1F2937" stroke="#94A3B8" />
+<text x="1232" y="455" fill="#E5E7EB" font-size="14" font-weight="600">mysql</text>
+<text x="1392" y="455" fill="#CBD5E1" font-size="12" text-anchor="end">3306</text>
+<rect x="1220" y="485" width="180" height="40" rx="10" fill="#1F2937" stroke="#94A3B8" />
+<text x="1232" y="510" fill="#E5E7EB" font-size="14" font-weight="600">openmetadata-ingestion</text>
+<text x="1392" y="510" fill="#CBD5E1" font-size="12" text-anchor="end">8080</text>
+<rect x="1220" y="540" width="180" height="40" rx="10" fill="#1F2937" stroke="#94A3B8" />
+<text x="1232" y="565" fill="#E5E7EB" font-size="14" font-weight="600">openmetadata-server</text>
+<text x="1392" y="565" fill="#CBD5E1" font-size="12" text-anchor="end">8585</text>
+<defs><marker id="tri" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#94A3B8"/></marker></defs>
+<defs><marker id="tri" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#94A3B8"/></marker></defs>
+<defs><marker id="tri" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#94A3B8"/></marker></defs>
+<defs><marker id="tri" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#94A3B8"/></marker></defs>
+<defs><marker id="tri" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#94A3B8"/></marker></defs>
+<defs><marker id="tri" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#94A3B8"/></marker></defs>
+<defs><marker id="tri" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#94A3B8"/></marker></defs>
+<defs><marker id="tri" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#94A3B8"/></marker></defs>
+<defs><marker id="tri" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#94A3B8"/></marker></defs>
+<defs><marker id="tri" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#94A3B8"/></marker></defs>
+<defs><marker id="tri" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#94A3B8"/></marker></defs>
+
+<defs><marker id="tri" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#94A3B8"/></marker></defs>
+<defs><marker id="tri" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#94A3B8"/></marker></defs>
+<defs><marker id="tri" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#94A3B8"/></marker></defs>
+<defs><marker id="tri" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#94A3B8"/></marker></defs>
+<defs><marker id="tri" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#94A3B8"/></marker></defs>
+<rect x="1180" y="680" width="376" height="220" rx="12" fill="#111827" stroke="#334155" />
+<text x="1196" y="710" fill="#E5E7EB" font-size="16" font-weight="700">Legend</text>
+<rect x="1196" y="726" width="20" height="20" rx="6" fill="#1F2937" stroke="#94A3B8" />
+<text x="1226" y="741" fill="#CBD5E1" font-size="14">Service (port)</text>
+<text x="1226" y="772" fill="#CBD5E1" font-size="14">Dependency / data flow</text>
+<rect x="1196" y="790" width="340" height="28" rx="8" fill="#334155" />
+<text x="1204" y="809" fill="#E5E7EB" font-size="13">All services are on the shared network: osss-net</text>
+<text x="1196" y="848" fill="#CBD5E1" font-size="13">“→ host” means a port is published to your host</text>
+<text x="1196" y="874" fill="#CBD5E1" font-size="13">Omitted init/seed helpers are simplified for clarity</text>
+</svg>

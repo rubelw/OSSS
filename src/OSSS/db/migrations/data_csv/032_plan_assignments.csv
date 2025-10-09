@@ -1,2 +1,3 @@
-id,assignee_type,entity_type,assignee_id,entity_id
-10eb24df-d3ae-5922-b2a5-495b7d4966f0,Sample plan_assignments assignee_type,Sample plan_assignments entity_type,Sample plan_assignments assignee_id,Sample plan_assignments entity_id
+version https://git-lfs.github.com/spec/v1
+oid sha256:9f77c3af646620e72d6ad3561b1b45e872ab45efb407f8f1c41e1f1ce652d11d
+size 234

@@ -1,2 +1,3 @@
-id,item_id,person_id,checked_out_on,due_on,created_at,updated_at
-efd4bed0-a085-5bcc-81b7-fa310ad54f26,4d155a84-9909-5821-acd7-97f5223cb885,5c6ecd7f-1795-56cb-a251-533278674a9e,2025-09-05,2025-09-05,2025-09-05T18:25:42Z,2025-09-05T18:25:42Z
+version https://git-lfs.github.com/spec/v1
+oid sha256:3ebe3e2a9392b6a374bbbb2a25805fbbdba3a17161609c297dd44bef961e96e5
+size 242

@@ -17,7 +17,7 @@
 </p>
 <!-- badges: end -->
 
-> Open Student Support System (K-12 SIS) — FastAPI + Keycloak + SQLAlchemy; governance + student info.
+> Open Source School Software (K-12 SIS) — FastAPI + Keycloak + SQLAlchemy + Datalake; governance + student info + accounting + activites + transportation.
 
 
 A community-driven, modular suite of applications for K-12 districts.
@@ -31,6 +31,18 @@ generated from source:
 - **Frontend (TypeScript)** → TypeDoc → Markdown (`docs/api/web/*`)
 - **Backend (Python)** → mkdocstrings renders code objects from `src/OSSS`
 - **REST (OpenAPI)** → exported JSON rendered with ReDoc
+
+---
+## Network diagram
+
+<p align="center">
+  <img src="./docs/img/osss-network.png"
+       alt="OSSS network architecture (draw.io)"
+       width="100%" />
+</p>
+
+---
+# Screen Shots
 
 The static site is output to `./documentation/`.
 
@@ -57,6 +69,14 @@ Keycloak example:
 When Artificial General Intelligence (AGI) starts to emerge—potentially by 2030—districts will need to adjust governance, safety filters, and curricula rapidly. That kind of agility is exactly what community-maintained, open-source software delivers—without waiting on a vendor roadmap. Today, many incumbent systems are tied to legacy architectures and slow release cycles. While AI is already reshaping mainstream apps, most school platforms haven’t meaningfully evolved to leverage it.
 
 I’m building the next generation of school software as an open, participatory project. Administrators, staff, students, and families will be able to propose enhancements, contribute code, and ship improvements together—so the platform keeps pace with classroom needs and policy changes.
+
+---
+# Development Environment Configuration
+```commandline
+docker-compose version 1.29.2, build 5becea4c
+docker-py version: 5.0.0
+CPython version: 3.9.0
+OpenSSL version: OpenSSL 1.1.1h  22 Sep 2020
 
 ---
 # Minimum System Requirements
@@ -103,12 +123,16 @@ source .venv/bin/activate
 osss <TAB>
 
 # Keycloak http://localhost:8080 with username 'admin' and password 'admin'
+# Keycloak login to OSSS realm: https://keycloak.local:8443/realms/OSSS/account
 # FastApi  http://localhost:8081/docs# username 'activities_director@osss.local' and password 'password'
 # Web: http://localhost:3000 username 'activities_director@osss.local' and password 'password'
 # Vault: http://localhost:8200 username 'chief_technology_officer@osss.local and password 'password'
 # Consul: http://localhost:8500
 # Kibana: http://localhost:5601
 # ElasticSearch: http://localhost:9200
+# Airflow: http://localhost:8083
+# Openmetadata: http://localhost:8585
+# Superset: http://localhost:8088
 ```
 
 Build the static site to `./documentation/`:
@@ -341,4 +365,3 @@ jobs:
 ## 📜 License
 
 Apache-2.0 (see `LICENSE`).
-

@@ -1,0 +1,19 @@
+{
+  "service": {
+    "name": "keycloak",
+    "address": "keycloak",
+    "port": 9000,
+    "tags": ["keycloak","mgmt","https"],
+    "checks": [
+      {
+        "name": "kc-ready",
+        "method": "GET",
+        "http": "https://keycloak:9000/health/ready",
+        "tls_skip_verify": true,
+        "interval": "10s",
+        "timeout": "5s",
+        "DeregisterCriticalServiceAfter": "1m"
+      }
+    ]
+  }
+}

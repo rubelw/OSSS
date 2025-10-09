@@ -6,7 +6,10 @@ import os
 import uuid
 from typing import Any, Iterable
 import logging
+<<<<<<< HEAD
+=======
 from datetime import datetime, date, timezone
+>>>>>>> main
 
 from alembic import op, context
 import sqlalchemy as sa
@@ -14,7 +17,19 @@ from sqlalchemy import Table, MetaData
 from sqlalchemy.engine import Connection
 from sqlalchemy.exc import IntegrityError, ProgrammingError, DataError
 from sqlalchemy.dialects.postgresql import insert as pg_insert
+<<<<<<< HEAD
+
+# add these near your other imports
+from uuid import uuid4
+from sqlalchemy.orm import Session
+
+from datetime import datetime, date, timezone, time
+from sqlalchemy.dialects.postgresql import UUID as PGUUID, TSVECTOR  # keep PGUUID; add TSVECTOR
+from sqlalchemy.orm import Session
+
+=======
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
+>>>>>>> main
 
 # ---- Alembic identifiers ----
 revision = "0003_seed_tables"
@@ -39,6 +54,49 @@ def _emit(msg: str) -> None:
     except Exception:
         print(msg)
 
+<<<<<<< HEAD
+def _patch_missing_required(table: Table, row: dict[str, Any], session: Session) -> dict[str, Any]:
+    out = dict(row)
+    now = datetime.now(timezone.utc)
+
+    # common timestamps (if schema has them)
+    for ts in ("created_at", "updated_at"):
+        if ts in table.c and out.get(ts) is None:
+            out[ts] = now
+
+    if table.name == "fiscal_periods":
+        if out.get("year_number") is None:
+            src = out.get("start_date") or out.get("end_date") or date.today()
+            out["year_number"] = (src.year if isinstance(src, date) else date.today().year)
+        out.setdefault("period_no", 1)
+        out.setdefault("is_closed", False)
+
+    if table.name == "periods":
+        out.setdefault("start_time", time(8, 30, 0))
+        out.setdefault("end_time", time(9, 15, 0))
+
+    if table.name == "bus_stop_times":
+        out.setdefault("arrival_time", time(7, 45, 0))
+
+    if table.name == "orders":
+        # supply a school_id if missing (use first school)
+        if out.get("school_id") is None:
+            sid = session.execute(sa.text("select id from schools limit 1")).scalar_one_or_none()
+            if sid:
+                out["school_id"] = sid
+        out.setdefault("currency", "USD")
+        out.setdefault("status", "PENDING")
+
+    if table.name == "curricula":
+        # safety: ensure organization_id exists or fallback to first org
+        if out.get("organization_id") is None:
+            oid = session.execute(sa.text("select id from organizations limit 1")).scalar_one_or_none()
+            if oid:
+                out["organization_id"] = oid
+
+    return out
+=======
+>>>>>>> main
 
 def _load_seed() -> tuple[list[str], dict[str, list[dict[str, Any]]]]:
     path = next((p for p in CANDIDATE_PATHS if p and os.path.exists(p)), None)
@@ -69,6 +127,28 @@ def _load_seed() -> tuple[list[str], dict[str, list[dict[str, Any]]]]:
 
     return insert_order, fixed
 
+<<<<<<< HEAD
+def _autofill_required_columns(table: Table, engine, session, row: dict[str, Any]) -> dict[str, Any]:
+    """Fill in any NOT NULL, no-server-default columns that are missing/None using sample_for_column."""
+    patched = dict(row)
+    for col in table.columns:
+        # Skip generated/computed columns
+        if col.server_default is not None and getattr(col.server_default, "arg", None) is not None:
+            continue
+        need = (patched.get(col.name) is None) and (not col.nullable) and not getattr(col, "autoincrement", False)
+        if need:
+            val = sample_for_column(col, engine, session)
+            if val != "__OMIT__" and val is not None:
+                patched[col.name] = val
+
+    # Per-table touch-ups (optional but handy)
+    if table.name == "order_line_items" and "unit_price_cents" in [c.name for c in table.columns]:
+        patched.setdefault("unit_price_cents", 100)
+
+    return patched
+
+=======
+>>>>>>> main
 
 def _reflect_table(conn: Connection, name: str) -> Table | None:
     md = MetaData()
@@ -135,12 +215,29 @@ def _coerce_int(value: Any) -> int | None:
     except Exception:
         return None
 
+<<<<<<< HEAD
+def _coerce_time(value: Any) -> time | None:
+    if value is None or isinstance(value, time):
+        return value
+    s = str(value).strip()
+    # accept HH:MM[:SS]
+    for fmt in ("%H:%M:%S", "%H:%M"):
+        try:
+            return datetime.strptime(s, fmt).time()
+        except Exception:
+            pass
+    return None
+
+
+def _filter_and_coerce_row(table: Table, row: dict[str, Any]) -> dict[str, Any]:
+=======
 
 def _filter_and_coerce_row(table: Table, row: dict[str, Any]) -> dict[str, Any]:
     """
     Keep only known columns and coerce common types from JSON strings/placeholders
     (UUID, date, datetime, boolean, integer).
     """
+>>>>>>> main
     out: dict[str, Any] = {}
     for col in table.columns:
         name = col.name
@@ -148,18 +245,29 @@ def _filter_and_coerce_row(table: Table, row: dict[str, Any]) -> dict[str, Any]:
             continue
         val = row[name]
 
+<<<<<<< HEAD
+        # UUID
+=======
         # UUID detection
+>>>>>>> main
         is_uuid_col = False
         try:
             is_uuid_col = isinstance(col.type, PGUUID) or (getattr(col.type, "python_type", None) is uuid.UUID)
         except Exception:
             pass
+<<<<<<< HEAD
+=======
 
+>>>>>>> main
         if is_uuid_col:
             out[name] = _coerce_uuid(val, table=str(table.name), column=name)
             continue
 
+<<<<<<< HEAD
+        # Datetime / Date / Time
+=======
         # Datetime / Date
+>>>>>>> main
         try:
             if isinstance(col.type, sa.DateTime):
                 out[name] = _coerce_datetime(val)
@@ -167,6 +275,12 @@ def _filter_and_coerce_row(table: Table, row: dict[str, Any]) -> dict[str, Any]:
             if isinstance(col.type, sa.Date):
                 out[name] = _coerce_date(val)
                 continue
+<<<<<<< HEAD
+            if isinstance(col.type, sa.Time):
+                out[name] = _coerce_time(val)
+                continue
+=======
+>>>>>>> main
         except Exception:
             pass
 
@@ -182,12 +296,62 @@ def _filter_and_coerce_row(table: Table, row: dict[str, Any]) -> dict[str, Any]:
         # Integer-ish
         try:
             if isinstance(col.type, (sa.Integer, sa.BigInteger, sa.SmallInteger)):
+<<<<<<< HEAD
+                out[name] = _coerce_int(val)
+=======
                 coerced = _coerce_int(val)
                 out[name] = coerced
+>>>>>>> main
                 continue
         except Exception:
             pass
 
+<<<<<<< HEAD
+        # TSVECTOR: ignore whatever came from JSON; let DB compute
+        try:
+            if isinstance(col.type, TSVECTOR):
+                continue
+        except Exception:
+            pass
+
+        # String truncation to fit column length
+        try:
+            if isinstance(col.type, sa.String) and isinstance(val, str):
+                n = getattr(col.type, "length", None)
+                out[name] = val if not n or len(val) <= n else val[:n]
+                continue
+        except Exception:
+            pass
+
+        # default: pass through
+        out[name] = val
+
+    # Drop Nones for NOT NULL columns that also have server defaults
+    for col in table.columns:
+        if out.get(col.name) is None and not col.nullable and col.server_default is not None:
+            out.pop(col.name, None)
+
+    # ---- Per-table fallbacks for NOT NULL, no server default ----
+    if table.name == "fiscal_periods":
+        if out.get("year_number") is None:
+            sd = out.get("start_date")
+            out["year_number"] = sd.year if isinstance(sd, date) else datetime.now(timezone.utc).year
+        if out.get("period_no") is None:
+            out["period_no"] = 1
+
+    if table.name == "periods":
+        # supply sane defaults if missing
+        if out.get("start_time") is None:
+            out["start_time"] = time(8, 0)
+        if out.get("end_time") is None:
+            out["end_time"] = time(8, 45)
+
+    return out
+
+
+
+
+=======
         # Default: pass through
         out[name] = val
     # Drop Nones for NOT NULL columns that also have server defaults (let DB fill)
@@ -197,6 +361,7 @@ def _filter_and_coerce_row(table: Table, row: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
+>>>>>>> main
 # ---- insert helpers ----------------------------------------------------------
 
 def _insert_rows_batch(conn: Connection, table: Table, rows: list[dict[str, Any]]):
@@ -233,9 +398,131 @@ def _insert_row_single(conn: Connection, table: Table, row: dict[str, Any]):
         stmt = sa.insert(table).values(**row)
     conn.execute(stmt)
 
+<<<<<<< HEAD
+# ----- Synthetic sample row helpers ------------------------------------------
+
+# in 0003_seed_tables.py
+
+def sample_for_column(col, engine, session):
+    name = col.name.lower()
+    t = col.type
+
+    # --- FKs: only RETURN an id; do not insert here ---
+    if col.foreign_keys:
+        fk = next(iter(col.foreign_keys))
+        parent_tbl = fk.column.table
+        parent_pk = fk.column
+
+        # try to pick any existing parent id
+        pid = session.execute(
+            parent_tbl.select().with_only_columns(parent_pk).limit(1)
+        ).scalar_one_or_none()
+
+        if pid is not None:
+            return pid
+
+        # generate a plausible id of the correct type; real insert happens later
+        from sqlalchemy.dialects.postgresql import UUID as PGUUID
+        if isinstance(parent_pk.type, PGUUID):
+            return uuid4()
+
+        # numeric/other PKs
+        from sqlalchemy import Integer, BigInteger, SmallInteger
+        if isinstance(parent_pk.type, (Integer, BigInteger, SmallInteger)):
+            return 1
+
+        return None  # let later patchers handle if needed
+
+
+def build_row(table, engine, session):
+    row = {}
+    for col in table.columns:
+        # skip generated/server-default (e.g., tsvector computed)
+        if col.server_default is not None and getattr(col.server_default, "arg", None) is not None:
+            continue
+        val = sample_for_column(col, engine, session)
+        if val == "__OMIT__" or (val is None and col.nullable):
+            continue
+        row[col.name] = val
+    # per-table tweaks
+    if table.name == "order_line_items" and "unit_price_cents" in [c.name for c in table.columns]:
+        row.setdefault("unit_price_cents", 100)
+    return row
+
+
+# add import near the top if not present
+# import sqlalchemy as sa
+
+def _ensure_fk_targets(session: Session, table: Table, row: dict[str, Any]) -> dict[str, Any]:
+    """
+    For each FK col in `table` that is present in `row`, ensure the referenced parent exists.
+    If not, insert a minimal stub parent row.
+    """
+    conn = session.bind
+    for col in table.columns:
+        if not col.foreign_keys:
+            continue
+        if col.name not in row or row[col.name] is None:
+            continue
+
+        fk = next(iter(col.foreign_keys))
+        parent_tbl = fk.column.table
+        parent_pk = fk.column
+        parent_id = row[col.name]
+
+        has = session.execute(
+            parent_tbl.select().with_only_columns(parent_pk).where(parent_pk == parent_id).limit(1)
+        ).scalar_one_or_none()
+        if has is not None:
+            continue
+
+        # build stub parent row: fill only *required* columns
+        stub = {}
+        for pcol in parent_tbl.columns:
+            if pcol is parent_pk:
+                stub[pcol.name] = parent_id
+            elif pcol.nullable or pcol.server_default is not None or pcol.autoincrement:
+                # let DB defaults / nullables handle themselves
+                continue
+            else:
+                # primitive defaults by type/name; no recursive inserts here
+                v = sample_for_column(pcol, conn, session)
+                if v is None and str(pcol.type).lower().startswith("timestamp"):
+                    v = datetime.now(timezone.utc)
+                if v is None and pcol.name in ("name", "title"):
+                    v = f"sample {parent_tbl.name}"
+                if v is None and pcol.name in ("slug",):
+                    v = "sample-" + parent_tbl.name.replace("_", "-")
+                if v is None and str(pcol.type).lower().startswith("boolean"):
+                    v = True
+                stub[pcol.name] = v
+
+        # Special case: organizations often have stricter NOT NULLs
+        if parent_tbl.name == "organizations":
+            stub.setdefault("name", "Sample Organization")
+            stub.setdefault("slug", "sample-organization")
+            stub.setdefault("created_at", datetime.now(timezone.utc))
+            stub.setdefault("updated_at", datetime.now(timezone.utc))
+
+        # insert inside a savepoint; ignore duplicates
+        try:
+            with conn.begin_nested():
+                session.execute(parent_tbl.insert().values(**stub))
+        except Exception:
+            # if it races / violates, let it slide (someone else created it)
+            pass
+
+    return row
 
 def upgrade() -> None:
     conn: Connection = op.get_bind()
+    sess = Session(bind=conn)
+
+=======
+
+def upgrade() -> None:
+    conn: Connection = op.get_bind()
+>>>>>>> main
     insert_order, data = _load_seed()
 
     for name in insert_order:
@@ -248,18 +535,40 @@ def upgrade() -> None:
         if not raw_rows:
             continue
 
+<<<<<<< HEAD
+        prepared = []
+        for r in raw_rows:
+            coerced = _filter_and_coerce_row(tbl, r)
+            if not coerced:
+                continue
+            patched = _patch_missing_required(tbl, coerced, sess)
+            ensured = _ensure_fk_targets(sess, tbl, patched)
+            prepared.append(ensured)
+=======
         # Prepare & coerce
         prepared = []
         for r in raw_rows:
             coerced = _filter_and_coerce_row(tbl, r)
             if coerced:
                 prepared.append(coerced)
+>>>>>>> main
 
         if not prepared:
             continue
 
         _emit(f"[seed] inserting into {name}: {len(prepared)} row(s)")
 
+<<<<<<< HEAD
+        # batch attempt in savepoint
+        try:
+            with conn.begin_nested():
+                _insert_rows_batch(conn, tbl, prepared)
+            continue
+        except (IntegrityError, ProgrammingError, DataError) as e:
+            _emit(f"[seed] batch insert failed for {name}: {e}; rolling back and retrying per-row")
+
+        # per-row fallback
+=======
         # 1) Try batch inside its own savepoint
         try:
             with conn.begin_nested():  # create SAVEPOINT; auto rollback on error only to this point
@@ -271,6 +580,7 @@ def upgrade() -> None:
             )
 
         # 2) Fall back to row-wise, each in its own savepoint; skip offenders
+>>>>>>> main
         for r in prepared:
             try:
                 with conn.begin_nested():
@@ -278,8 +588,11 @@ def upgrade() -> None:
             except (IntegrityError, ProgrammingError, DataError) as e:
                 _emit(f"[seed] skipping row in {name}: {e}")
 
+<<<<<<< HEAD
+=======
     # let Alembic commit the outer transaction
 
+>>>>>>> main
 
 def downgrade() -> None:
     conn: Connection = op.get_bind()

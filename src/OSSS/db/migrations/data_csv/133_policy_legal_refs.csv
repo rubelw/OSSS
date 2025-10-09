@@ -1,2 +1,3 @@
-id,policy_version_id,created_at,updated_at,citation
-860b5f8d-d3bc-54e8-b7d1-67fdd3818f69,7914439f-cade-53d8-8bb3-611b0ce16b6a,2025-09-05T18:25:42Z,2025-09-05T18:25:42Z,Sample policy_legal_refs citation
+version https://git-lfs.github.com/spec/v1
+oid sha256:dcba29603326a65b9b97dc6aa04c6ff39c81c2130cd5028d8b69e776c982d3cb
+size 204

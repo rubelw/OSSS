@@ -10,6 +10,19 @@ if [ "$DEBUG" = "1" ]; then
   set -x
 fi
 
+# -------- scope knobs (NEW) --------
+# Comma-separated list of scopes Vault should request.
+# Default: request only built-ins that Keycloak always provides.
+: "${VAULT_OIDC_SCOPES:=openid,profile,email}"
+
+# If set to 1, also include "microprofile-jwt" in the scopes list (recommended when you need groups/roles).
+# IMPORTANT: In Keycloak, attach client scope "microprofile-jwt" to the 'vault' client (Default or Optional).
+: "${INCLUDE_MICROPROFILE_JWT:=0}"
+
+# If you insist on a custom scope name (e.g., groups-claim), set it here and make sure it exists
+# in Keycloak and is attached to the 'vault' client.
+: "${CUSTOM_SCOPE_NAME:=}"
+
 # -------- small utils --------
 now() { date -Iseconds; }
 log() { printf '%s %s\n' "$(now)" "$*"; }
@@ -71,6 +84,27 @@ json_array_from_envs() {
   printf '[%s]' "$vals"
 }
 
+# Convert a comma-separated list to a JSON array of strings
+json_array_from_csv() {
+  IFS=','
+  set -- $1
+  unset IFS
+  out="["
+  first=1
+  for item in "$@"; do
+    item_tr="$(printf '%s' "$item" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
+    [ -z "$item_tr" ] && continue
+    if [ $first -eq 1 ]; then
+      out="${out}\"${item_tr}\""
+      first=0
+    else
+      out="${out}, \"${item_tr}\""
+    fi
+  done
+  out="${out}]"
+  printf '%s' "$out"
+}
+
 # -------- env summary (with masking) --------
 log "🔧 VAULT_ADDR=${VAULT_ADDR-}"
 log "🔧 OIDC_DISCOVERY_URL=${OIDC_DISCOVERY_URL-}"
@@ -93,6 +127,29 @@ ALLOWED_REDIRECTS="$(json_array_from_envs \
   VAULT_CLI_REDIRECT_1 VAULT_CLI_REDIRECT_2 VAULT_CLI_REDIRECT_3)"
 [ "${VERBOSE}" = "1" ] && log "🔧 Computed allowed_redirect_uris=${ALLOWED_REDIRECTS}"
 
+# Compose final scopes list (string, comma-separated)
+SCOPES_LIST="${VAULT_OIDC_SCOPES}"
+if [ "${INCLUDE_MICROPROFILE_JWT}" = "1" ]; then
+  case ",${SCOPES_LIST}," in
+    *,microprofile-jwt,*) : ;; # already present
+    *) SCOPES_LIST="${SCOPES_LIST},microprofile-jwt" ;;
+  esac
+fi
+if [ -n "${CUSTOM_SCOPE_NAME}" ]; then
+  case ",${SCOPES_LIST}," in
+    *,"${CUSTOM_SCOPE_NAME}",*) : ;;
+    *) SCOPES_LIST="${SCOPES_LIST},${CUSTOM_SCOPE_NAME}" ;;
+  esac
+fi
+SCOPES_JSON="$(json_array_from_csv "${SCOPES_LIST}")"
+[ "${VERBOSE}" = "1" ] && log "🔧 Computed oidc_scopes=${SCOPES_JSON}"
+if printf '%s' "${SCOPES_LIST}" | grep -q 'microprofile-jwt'; then
+  log "ℹ️  Include 'microprofile-jwt' requires that Keycloak client scope 'microprofile-jwt' is attached to the 'vault' client."
+fi
+if [ -n "${CUSTOM_SCOPE_NAME}" ]; then
+  log "ℹ️  Custom scope '${CUSTOM_SCOPE_NAME}' must exist in Keycloak and be attached to the 'vault' client (Default/Optional)."
+fi
+
 # -------- readiness waits --------
 log "⏳ Waiting for Vault health at ${VAULT_ADDR}…"
 i=0
@@ -106,13 +163,13 @@ done
 log "✅ Vault reachable"
 
 log "⏳ Waiting for Keycloak discovery…"
-until curl -fsS "http://keycloak:8080/realms/OSSS/.well-known/openid-configuration" >/dev/null 2>&1; do
+until curl -fsS "https://keycloak:8443/realms/OSSS/.well-known/openid-configuration" >/dev/null 2>&1; do
   sleep 2
 done
 log "✅ Keycloak discovery reachable"
 
 # Discover actual issuer from well-known (avoid mismatch errors)
-DISCOVERY_JSON="$(curl -fsS "http://keycloak:8080/realms/OSSS/.well-known/openid-configuration")"
+DISCOVERY_JSON="$(curl -fsS "https://keycloak:8443/realms/OSSS/.well-known/openid-configuration")"
 ISSUER="$(echo "$DISCOVERY_JSON" | jq -r '.issuer')"
 [ -n "$ISSUER" ] || { log "❌ Could not parse issuer from discovery"; exit 1; }
 log "📛 Using issuer: ${ISSUER}"
@@ -127,6 +184,12 @@ curl -fsS "${OIDC_DISCOVERY_URL_RESOLVED}/.well-known/openid-configuration" >/de
   || { log "❌ Issuer host not reachable from setup container: ${OIDC_DISCOVERY_URL_RESOLVED}"; \
        log "   Tip: ensure vault & setup can resolve the issuer host (e.g., add extra_hosts for keycloak.local)"; \
        exit 1; }
+
+# -------- load CA for TLS trust in Vault's OIDC config --------
+# JSON-escape the PEM so it's safe to embed in the request body
+CA_PEM_JSON="$(jq -Rs . </etc/ssl/certs/keycloak-ca.crt)" || CA_PEM_JSON=""
+[ -n "$CA_PEM_JSON" ] || { log "❌ Missing or unreadable /etc/ssl/certs/keycloak-ca.crt"; exit 1; }
+
 
 # -------- validate token and mounts --------
 log "🔍 Validating VAULT_TOKEN…"
@@ -153,6 +216,7 @@ log "➡️  Writing OIDC config (phase 1: without bound_issuer)…"
 req POST "${VAULT_ADDR}/v1/auth/oidc/config" \
 '{
   "oidc_discovery_url": "'"${OIDC_DISCOVERY_URL_RESOLVED}"'",
+  "oidc_discovery_ca_pem": '"$CA_PEM_JSON"',
   "oidc_client_id": "'"${VAULT_OIDC_CLIENT_ID}"'",
   "oidc_client_secret": "'"${VAULT_OIDC_CLIENT_SECRET}"'",
   "default_role": "'"${VAULT_OIDC_ROLE}"'"
@@ -162,6 +226,7 @@ log "➡️  Updating OIDC config (phase 2: add bound_issuer from discovery)…"
 req POST "${VAULT_ADDR}/v1/auth/oidc/config" \
 '{
   "oidc_discovery_url": "'"${OIDC_DISCOVERY_URL_RESOLVED}"'",
+  "oidc_discovery_ca_pem": '"$CA_PEM_JSON"',
   "bound_issuer": "'"${ISSUER}"'",
   "oidc_client_id": "'"${VAULT_OIDC_CLIENT_ID}"'",
   "oidc_client_secret": "'"${VAULT_OIDC_CLIENT_SECRET}"'",
@@ -191,15 +256,8 @@ req POST "${VAULT_ADDR}/v1/auth/oidc/role/${VAULT_OIDC_ROLE}" \
 
   "bound_claims": { "groups": ["vault-users","vault-admins"] },
 
-  "oidc_scopes": ["openid","groups-claim"],
-  "allowed_redirect_uris": [
-    "'"${VAULT_UI_REDIRECT_1}"'",
-    "'"${VAULT_UI_REDIRECT_2}"'",
-    "'"${VAULT_UI_REDIRECT_3}"'",
-    "'"${VAULT_CLI_REDIRECT_1}"'",
-    "'"${VAULT_CLI_REDIRECT_2}"'",
-    "'"${VAULT_CLI_REDIRECT_3}"'"
-  ],
+  "oidc_scopes": '"${SCOPES_JSON}"',
+  "allowed_redirect_uris": '"${ALLOWED_REDIRECTS}"',
   "policies": ["kv-read"],
   "ttl": "1h",
   "verbose_oidc_logging": true
@@ -251,6 +309,8 @@ if [ "${VERBOSE}" = "1" ]; then
   curl -fsS -H "X-Vault-Token: ${VAULT_TOKEN}" "${VAULT_ADDR}/v1/sys/auth" | jq .
   log "📋 oidc config:"
   curl -fsS -H "X-Vault-Token: ${VAULT_TOKEN}" "${VAULT_ADDR}/v1/auth/oidc/config" | jq .
+  log "📋 role '${VAULT_OIDC_ROLE}':"
+  curl -fsS -H "X-Vault-Token: ${VAULT_TOKEN}" "${VAULT_ADDR}/v1/auth/oidc/role/${VAULT_OIDC_ROLE}" | jq .
 fi
 
 log "✅ OIDC setup complete."

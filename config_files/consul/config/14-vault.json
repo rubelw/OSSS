@@ -1,0 +1,21 @@
+{
+  "datacenter": "dc1",
+  "services": [
+    {
+      "name": "vault",
+      "address": "vault",
+      "port": 8200,
+      "tags": [
+        "vault",
+        "http"
+      ],
+      "checks": [
+        {
+          "http": "http://vault:8200/v1/sys/health?standbyok=true&sealedcode=503&standbycode=200&activecode=200",
+          "interval": "10s",
+          "timeout": "3s"
+        }
+      ]
+    }
+  ]
+}

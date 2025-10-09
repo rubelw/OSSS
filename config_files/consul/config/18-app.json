@@ -1,0 +1,17 @@
+{
+  "service": {
+    "name": "app",
+    "id": "app-8000",
+    "address": "app",
+    "port": 8000,
+    "tags": ["profile:app"],
+    "checks": [
+      {
+        "name": "app-http",
+        "http": "http://app:8000/healthz",
+        "interval": "10s",
+        "timeout": "3s"
+      }
+    ]
+  }
+}

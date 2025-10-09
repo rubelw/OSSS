@@ -1,15 +1,3 @@
-code,description,is_present,is_excused,created_at,updated_at
-P,Present,True,False,2025-08-29T14:07:46Z,2025-08-29T14:07:46Z
-A-EXC,"Absent, Excused",False,True,2025-08-29T14:07:46Z,2025-08-29T14:07:46Z
-A-UNX,"Absent, Unexcused",False,False,2025-08-29T14:07:46Z,2025-08-29T14:07:46Z
-T-EXC,"Tardy, Excused",True,True,2025-08-29T14:07:46Z,2025-08-29T14:07:46Z
-T-UNX,"Tardy, Unexcused",True,False,2025-08-29T14:07:46Z,2025-08-29T14:07:46Z
-ED-EXC,"Early Dismissal, Excused",True,True,2025-08-29T14:07:46Z,2025-08-29T14:07:46Z
-ED-UNX,"Early Dismissal, Unexcused",True,False,2025-08-29T14:07:46Z,2025-08-29T14:07:46Z
-SA,School Activity (counts as Present per policy),True,True,2025-08-29T14:07:46Z,2025-08-29T14:07:46Z
-MED,Medical (district/state rules determine excused status),False,True,2025-08-29T14:07:46Z,2025-08-29T14:07:46Z
-ISS,In-School Suspension (mapped per policy),False,True,2025-08-29T14:07:46Z,2025-08-29T14:07:46Z
-OSS,Out-of-School Suspension (mapped per policy),False,True,2025-08-29T14:07:46Z,2025-08-29T14:07:46Z
-FAM,Approved Family/Personal (excused),False,True,2025-08-29T14:07:46Z,2025-08-29T14:07:46Z
-UN,Unverified/No reason provided (unexcused),False,False,2025-08-29T14:07:46Z,2025-08-29T14:07:46Z
-QUA,State-directed Quarantine,False,True,2025-08-29T14:07:46Z,2025-08-29T14:07:46Z
+version https://git-lfs.github.com/spec/v1
+oid sha256:cd558575003c44f1d7ef6ad431c8dea6269b85ef29a42faf1b628a4292e17d0c
+size 1313

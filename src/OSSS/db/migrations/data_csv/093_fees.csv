@@ -1,2 +1,3 @@
-id,school_id,created_at,amount,updated_at,name
-be449363-6dd5-5ff6-bba5-ddaf1217f036,a08e9a86-7bc6-5963-8689-a2b7499d2984,2025-09-05T18:25:42Z,1.0,2025-09-05T18:25:42Z,Sample fees name
+version https://git-lfs.github.com/spec/v1
+oid sha256:cf9b8b9c637532ed96f43e9980f53371c4af862aa8f0063f8149e0a8eaba7e24
+size 186

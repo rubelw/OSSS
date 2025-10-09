@@ -1,1 +1,3 @@
-agenda_item_id,text,moved_by_id,seconded_by_id,passed,tally_for,tally_against,tally_abstain
+version https://git-lfs.github.com/spec/v1
+oid sha256:ed363f9efbbc0d8001e5e17dcdee292822f110fc6cc35e2932ff8ce06dc5e087
+size 93

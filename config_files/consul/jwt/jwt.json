@@ -1,0 +1,7 @@
+{
+  "OIDCDiscoveryURL": "https://keycloak.local:8443/realms/OSSS",
+  "BoundIssuer": "https://keycloak.local:8443/realms/OSSS",
+  "BoundAudiences": ["consul"],
+  "ClaimMappings": { "email": "email" },
+  "ListClaimMappings": { "roles": "realm_access.roles" }
+}

@@ -116,6 +116,13 @@ class Settings(BaseSettings):
 
     OIDC_SCOPE: str = "openid profile email offline_access"
 
+    QDRANT_URL: str = "http://qdrant:6333"
+    S3_ENDPOINT: str = "http://minio:9000"
+    S3_BUCKET: str = "curriculum"
+    S3_ACCESS_KEY: str = "minio"
+    S3_SECRET_KEY: str = "minio123"
+
+
 
     @property
     def SESSION_SECRET(self) -> str:

@@ -1,0 +1,40 @@
+from enum import Enum
+
+
+
+
+class WorkType(str, Enum):
+    ASSIGNMENT = "ASSIGNMENT"
+    SHORT_ANSWER_QUESTION = "SHORT_ANSWER_QUESTION"
+    MULTIPLE_CHOICE_QUESTION = "MULTIPLE_CHOICE_QUESTION"
+    MATERIAL = "MATERIAL"
+
+class SubmissionState(str, Enum):
+    NEW = "NEW"
+    CREATED = "CREATED"
+    TURNED_IN = "TURNED_IN"
+    RETURNED = "RETURNED"
+    RECLAIMED_BY_STUDENT = "RECLAIMED_BY_STUDENT"
+
+class GuardianInvitationState(str, Enum):
+    GUARDIAN_INVITATION_STATE_UNSPECIFIED = "GUARDIAN_INVITATION_STATE_UNSPECIFIED"
+    PENDING = "PENDING"
+    COMPLETE = "COMPLETE"
+
+class MaterialType(str, Enum):
+    DRIVE_FILE = "DRIVE_FILE"
+    YOUTUBE = "YOUTUBE"
+    LINK = "LINK"
+    FORM = "FORM"
+
+class CourseState(str, Enum):
+    PROVISIONED = "PROVISIONED"
+    ACTIVE = "ACTIVE"
+    ARCHIVED = "ARCHIVED"
+    DECLINED = "DECLINED"
+    SUSPENDED = "SUSPENDED"
+
+class PublicationState(str, Enum):
+    PUBLISHED = "PUBLISHED"
+    DRAFT = "DRAFT"
+    SCHEDULED = "SCHEDULED"

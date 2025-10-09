@@ -1,8 +1,3 @@
-name,nces_school_id,building_code
-Dallas Center Elementary,190852000705,436
-Dallas Center-Grimes High School,190852000451,109
-Dallas Center-Grimes Middle School,190852000453,209
-DC-G Oak View,190852002174,218
-Heritage Elementary,190852002242,437
-North Ridge Elementary,190852002099,418
-South Prairie Elementary,190852002029,427
+version https://git-lfs.github.com/spec/v1
+oid sha256:0abd0f4dd51e37f713eb216ef52828927f37ec5745e43a7ec0a244c1241d1163
+size 328

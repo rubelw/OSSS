@@ -276,13 +276,60 @@ maybe_run_alembic() {
   log "alembic migrations complete."
 }
 
+check_python_deps() {
+  log "checking required Python packages…"
+  python - <<'PY'
+import importlib, sys
+req = ("httpx", "prometheus_client")
+missing = []
+for m in req:
+    try:
+        importlib.import_module(m)
+    except Exception as e:
+        print(f"[deps] MISSING: {m} -> {e}")
+        missing.append(m)
+if missing:
+    print("[deps] One or more required packages are missing:", ", ".join(missing))
+    sys.exit(23)
+print("[deps] OK")
+PY
+}
+
+check_fk_integrity() {
+  # Detect rows in work_orders referencing a non-existent maintenance_requests row
+  log "checking FK integrity between work_orders.request_id -> maintenance_requests.id…"
+  local sql="
+    SELECT COUNT(*) AS broken
+    FROM work_orders w
+    LEFT JOIN maintenance_requests r ON r.id = w.request_id
+    WHERE r.id IS NULL;
+  "
+  if ! broken=$(PGPASSWORD="$APP_PASS" psql "host=$PGHOST port=$PGPORT dbname=$APP_DB user=$APP_USER sslmode=disable" \
+         -Atqc "$sql" 2>/dev/null); then
+    log "WARN: could not run FK check (psql failed); continuing."
+    return 0
+  fi
+  if [[ "${broken}" != "0" ]]; then
+    log "ERROR: ${broken} work_orders row(s) reference missing maintenance_requests."
+    log "Fix your seed order: seed maintenance_requests BEFORE work_orders."
+    log "Tip: run this once to create a stub parent row for a specific missing request_id:"
+    log "  INSERT INTO maintenance_requests (id, school_id, building_id, space_id, asset_id, status, summary, created_at, updated_at)"
+    log "  VALUES ('<missing-request-id>'::uuid, '<school>'::uuid, '<building>'::uuid, '<space>'::uuid, '<asset>'::uuid, 'open', 'Seed parent for FK', now(), now())"
+    log "  ON CONFLICT (id) DO NOTHING;"
+    exit 16
+  fi
+  log "FK check OK."
+}
+
 
 main() {
   dump_env_summary               # now shows encoded ALEMBIC URL
   dump_password_diagnostics
   wait_for_pg
   sanity_check_app_creds
+  check_python_deps
   maybe_run_alembic
+  check_fk_integrity
   log "starting application: $*"
   unset DATABASE_URL SQLALCHEMY_DATABASE_URI SQLALCHEMY_URL
 
@@ -300,7 +347,21 @@ async def main():
 asyncio.run(main())
 PY
 
+    # If no command was provided, run uvicorn with sane defaults (bind to all interfaces)
+  if [[ $# -eq 0 ]]; then
+    HOST="${HOST:-0.0.0.0}"
+    PORT="${PORT:-8000}"
+    set -- uvicorn src.OSSS.main:app \
+      --host "$HOST" \
+      --port "$PORT" \
+      --reload \
+      --log-level "${UVICORN_LOG_LEVEL:-info}" \
+      --access-log \
+      --log-config /workspace/docker/logging.yaml
+  fi
+
   exec "$@"
+
 }
 
 main "$@"
