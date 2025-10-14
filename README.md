@@ -36,7 +36,7 @@ generated from source:
 ## Network diagram
 
 <p align="center">
-  <img src="docs/img/osss-network.png.bak"
+  <img src="docs/img/osss-network.png"
        alt="OSSS network architecture (draw.io)"
        width="100%" />
 </p>
