@@ -1,27 +1,35 @@
-# Minimal Filebeat for Podman (reads k8s-file/CRI-style ctr.log files)
+# /work/config_files/filebeat/filebeat.podman.yml
 filebeat.inputs:
-  - type: filestream
-    id: podman-containers
-    enabled: true
+  - type: container
+    id: podman-container-logs
+    stream: all
+    # Podman writes one ctr.log per container:
     paths:
       - /var/lib/containers/storage/overlay-containers/*/userdata/ctr.log
     parsers:
-      - container: {}   # parse CRI-style container log lines
-    # optional: ignore Filebeat’s own container to avoid loops
-    exclude_files:
-      - 'filebeat.*ctr\.log$'
+      - container: {}   # parse timestamp/stream JSON lines when present
 
-processors:
-  - add_fields:
-      target: 'agent'
-      fields:
-        runtime: 'podman'
+    processors:
+      - add_docker_metadata:
+          host: "unix:///var/run/podman.sock"
+          match_fields: ["container.id"]
+          match_pids: ["process.pid", "process.parent.pid"]
+          cleanup_timeout: 60s
 
+# Ship straight to ES
 output.elasticsearch:
-  hosts: ["${ELASTICSEARCH_HOSTS:http://elasticsearch:9200}"]
+  hosts: [ "http://host.containers.internal:9200" ]
   api_key: "${ELASTIC_API_KEY}"
-  # fallback to user/pass if api key not present
-  username: "${ELASTIC_USERNAME:}"
-  password: "${ELASTIC_PASSWORD:}"
-setup.template.enabled: true
-setup.ilm.enabled: true
+
+# (optional) Kibana
+setup.kibana.host: "http://host.containers.internal:5601"
+
+http.enabled: true
+http.host: 0.0.0.0
+http.port: 5066
+logging.level: debug
+
+# fast flush for tiny batches
+queue.mem:
+  flush.min_events: 1
+  flush.timeout: 1s

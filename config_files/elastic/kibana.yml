@@ -10,3 +10,12 @@ xpack.encryptedSavedObjects.encryptionKey: "please_change_me_to_any_32+_char_sec
 xpack.security.authc.providers:
   basic.basic1:
     order: 1                      # keep basic as a fallback for emergencies
+
+telemetry.optIn: false
+telemetry.allowChangingOptInStatus: false
+telemetry.enabled: false
+
+logging.root.level: debug
+
+elasticsearch.username: "kibana_system"
+elasticsearch.password: "password"

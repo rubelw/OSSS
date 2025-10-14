@@ -33,9 +33,8 @@
 <rect x="44" y="810" width="180" height="40" rx="10" fill="#1F2937" stroke="#94A3B8" />
 <text x="56" y="835" fill="#E5E7EB" font-size="14" font-weight="600">filebeat-setup</text>
 <rect x="44" y="865" width="180" height="40" rx="10" fill="#1F2937" stroke="#94A3B8" />
-<text x="56" y="890" fill="#E5E7EB" font-size="14" font-weight="600">filebeat-podman</text>
+<text x="56" y="890" fill="#E5E7EB" font-size="14" font-weight="600">filebeat</text>
 <rect x="200" y="810" width="180" height="40" rx="10" fill="#1F2937" stroke="#94A3B8" />
-<text x="212" y="835" fill="#E5E7EB" font-size="14" font-weight="600">api-key-init</text>
 <rect x="200" y="865" width="180" height="40" rx="10" fill="#1F2937" stroke="#94A3B8" />
 <text x="212" y="890" fill="#E5E7EB" font-size="14" font-weight="600">shared-vol-init</text>
 <rect x="410" y="70" width="370" height="34" rx="8" fill="#334155" />

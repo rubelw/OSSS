@@ -7,178 +7,252 @@
 
 set -Eeuo pipefail
 
+: "${TMP_COMPOSE:=/tmp/osss-elastic.compose.yml}"
+export TMP_COMPOSE
+: "${VM_NAME:=${PODMAN_MACHINE_NAME:-${PODMAN_MACHINE:-default}}}"
+export VM_NAME
+: "${VM_TMP:=/tmp/osss-elastic.compose.yml}"
+export VM_TMP
+
 DEBUG=1
 
+
+
+
+
+# Resolve correct VM podman.sock path: rootful (uid 0) vs rootless (uid 1000)
+resolve_vm_podman_sock() {
+  local NAME="${PODMAN_MACHINE_NAME:-default}"
+  if podman machine ssh "$NAME" -- test -S /run/user/0/podman/podman.sock; then
+    echo /run/user/0/podman/podman.sock
+    return 0
+  fi
+  if podman machine ssh "$NAME" -- test -S /run/user/1000/podman/podman.sock; then
+    echo /run/user/1000/podman/podman.sock
+    return 0
+  fi
+  echo /run/user/1000/podman/podman.sock
+}
+VM_PODMAN_SOCK="$(resolve_vm_podman_sock)"
+export VM_PODMAN_SOCK
+
 ensure_podman_ready() {
-  # Debug/trace toggle
-  local _had_xtrace=
-  if [ "${DEBUG:-0}" = "1" ]; then
-    set -x
-    _had_xtrace=1
-  fi
+  set -euo pipefail
+  echo "[ensure_podman_ready] checking podman…"
 
-  # Tiny logger helpers
-  _log()  { printf "\033[1;34m[ensure_podman_ready]\033[0m %s\n" "$*"; }
-  _ok()   { printf "\033[1;32m[OK]\033[0m %s\n" "$*"; }
-  _warn() { printf "\033[1;33m[WARN]\033[0m %s\n" "$*"; }
-  _err()  { printf "\033[1;31m[ERR]\033[0m %s\n" "$*"; }
+  # 0) avoid forcing local/broken sockets on macOS
+  unset CONTAINER_HOST PODMAN_HOST XDG_RUNTIME_DIR DOCKER_HOST
 
-  _log "Podman bootstrap starting…"
-  _log "Shell: $SHELL  |  User: $(id -un)  |  Host: $(hostname)"
+  os="$(uname -s || echo unknown)"
+  is_macos=false; case "$os" in Darwin) is_macos=true ;; esac
 
-  # ---------- Podman binary & version ----------
+  # treat any non-empty value as true
+  want_rootful="${PODMAN_ROOTFUL:-1}"  # default to 1 since you want rootful now
+
   if ! command -v podman >/dev/null 2>&1; then
-    _err "Podman is not installed (podman not found in PATH)"
-    return 1
-  fi
-  _log "podman path: $(command -v podman)"
-  _log "podman version: $(podman --version 2>&1 || true)"
-  _log "podman env: XDG_RUNTIME_DIR='${XDG_RUNTIME_DIR:-}'  PATH='$PATH'"
-
-  # ---------- Current connection (if any) ----------
-  local _uri=""
-  _uri="$(podman system connection show -f '{{.URI}}' 2>/dev/null || true)"
-  [ -n "$_uri" ] && _log "Current connection URI: ${_uri}" || _warn "No active podman system connection URI detected"
-
-  _log "Connections:"
-  podman system connection list || _warn "Failed to list connections"
-
-  # ---------- Quick health check ----------
-  if podman info --debug >/dev/null 2>&1; then
-    _ok "Podman is reachable (host-side)"
-  else
-    _warn "podman info failed; attempting machine bootstrap if available…"
-
-    # ---------- macOS/Windows (podman machine flow) ----------
-    if podman machine --help >/dev/null 2>&1; then
-      local NAME="${PODMAN_MACHINE_NAME:-default}"
-      _log "Using Podman VM name: '${NAME}'"
-
-      # If VM missing, clean stale connections and init
-      if ! podman machine inspect "$NAME" >/dev/null 2>&1; then
-        _log "No VM named '${NAME}' found; checking for stale system connections…"
-        if podman system connection list --format '{{.Name}}' | grep -qx "$NAME"; then
-          _warn "Removing stale system connection '$NAME'…"
-          podman system connection rm "$NAME" >/dev/null 2>&1 || _warn "Failed to remove stale '$NAME' (continuing)"
-        fi
-        if podman system connection list --format '{{.Name}}' | grep -qx "${NAME}-root"; then
-          _warn "Removing stale system connection '${NAME}-root'…"
-          podman system connection rm "${NAME}-root" >/dev/null 2>&1 || _warn "Failed to remove stale '${NAME}-root' (continuing)"
-        fi
-
-        _log "Initializing Podman VM '${NAME}'…"
-        _log "Resources: CPUs=${PODMAN_MACHINE_CPUS:-12}  MEM(MB)=${PODMAN_MACHINE_MEM_MB:-40960}  DISK(GB)=${PODMAN_MACHINE_DISK_GB:-100}"
-        podman machine init "$NAME" \
-          --cpus "${PODMAN_MACHINE_CPUS:-12}" \
-          --memory "${PODMAN_MACHINE_MEM_MB:-40960}" \
-          --disk-size "${PODMAN_MACHINE_DISK_GB:-100}" || {
-            _err "podman machine init failed"; return 1; }
-      fi
-
-      # Start if not running
-      local _state
-      _state="$(podman machine inspect "$NAME" --format '{{.State}}' 2>/dev/null || echo 'unknown')"
-      _log "VM '${NAME}' state: ${_state}"
-      if ! printf "%s" "$_state" | grep -qx Running; then
-        _log "Starting Podman VM '${NAME}'…"
-        podman machine start "$NAME" || { _err "Failed to start VM '${NAME}'"; return 1; }
-      fi
-
-      # Prefer matching default connection (rootless first)
-      if podman system connection list --format '{{.Name}}' | grep -qx "$NAME"; then
-        podman system connection default "$NAME" >/dev/null 2>&1 || _warn "Could not set default connection '$NAME'"
-      elif podman system connection list --format '{{.Name}}' | grep -qx "${NAME}-root"; then
-        podman system connection default "${NAME}-root" >/dev/null 2>&1 || _warn "Could not set default connection '${NAME}-root'"
-      fi
-
-      _ok "Podman VM '${NAME}' initialized/started"
+    if $is_macos && command -v brew >/dev/null 2>&1; then
+      echo "[ensure_podman_ready] installing podman via Homebrew…"
+      brew install podman >/dev/null
     else
-      _err "podman info failed and 'podman machine' is unavailable on this platform"
+      echo "[ensure_podman_ready][ERR] podman not found; install it and retry."
       return 1
     fi
   fi
 
-  # ---------- Final host-side health check ----------
-  if ! podman info --debug >/dev/null 2>&1; then
-    _err "Podman not reachable after bootstrap"
-    _log "Helpful next steps:"
-    _log "  podman system connection list"
-    _log "  podman system connection default <VALID_NAME>"
-    return 1
+  # Quick local pass
+  if podman info >/dev/null 2>&1; then
+    echo "[ensure_podman_ready] podman info ok"
+    return 0
   fi
-  _ok "Podman is reachable (post-bootstrap)"
 
-  # ---------- Ensure podman-compose inside VM (macOS/Windows) ----------
-  if podman machine --help >/dev/null 2>&1; then
-    local NAME="${PODMAN_MACHINE_NAME:-default}"
-    local _vm_state
-    _vm_state="$(podman machine inspect "$NAME" --format '{{.State}}' 2>/dev/null || echo 'unknown')"
-    _log "VM '${NAME}' state check before compose install: ${_vm_state}"
+  if $is_macos; then
+    echo "[ensure_podman_ready] ensuring podman machine 'default' exists and is running…"
 
-    if printf "%s" "$_vm_state" | grep -qx Running; then
-      _log "Checking for podman-compose inside VM '${NAME}'…"
-      if ! podman machine ssh "$NAME" -- bash -lc 'command -v podman-compose >/dev/null 2>&1'; then
-        _warn "podman-compose not present; installing via rpm-ostree…"
-        podman machine ssh "$NAME" -- sudo rpm-ostree install -y podman-compose || {
-          _err "Failed to install podman-compose via rpm-ostree"; return 1; }
+    if [ -x /opt/homebrew/opt/podman/libexec/podman-mac-helper ]; then
+      sudo /opt/homebrew/opt/podman/libexec/podman-mac-helper install || true
+    fi
 
-        _log "Restarting VM '${NAME}' to apply rpm-ostree changes…"
-        podman machine stop "$NAME" || { _err "Failed to stop VM '${NAME}'"; return 1; }
-        podman machine start "$NAME" || { _err "Failed to start VM '${NAME}'"; return 1; }
+    if ! podman machine inspect default >/dev/null 2>&1; then
+      podman machine init default \
+        --cpus "${PODMAN_MACHINE_CPUS:-12}" \
+        --memory "${PODMAN_MACHINE_MEM_MB:-40960}" \
+        --disk-size "${PODMAN_MACHINE_DISK_GB:-100}" \
+        --volume "${PWD}:/work" >/dev/null 2>&1 || true
+    fi
 
-        _log "Verifying podman-compose after reboot…"
-        podman machine ssh "$NAME" -- bash -lc 'podman-compose --version' || {
-          _err "podman-compose not available after reboot"; return 1; }
-        _ok "podman-compose installed and active in VM '${NAME}'"
-      else
-        _ok "podman-compose already present in VM '${NAME}' ($(podman machine ssh "$NAME" -- bash -lc 'podman-compose --version 2>/dev/null' || echo 'unknown'))"
+    podman machine start default >/dev/null 2>&1 || true
+    i=0; while [ $i -lt 120 ]; do
+      state="$(podman machine inspect --format '{{.State}}' default 2>/dev/null || true)"
+      [ "$state" = "running" ] && break
+      i=$((i+1)); sleep 2
+    done
+    if ! podman machine inspect --format '{{.State}}' default 2>/dev/null | grep -qi running; then
+      echo "[ensure_podman_ready][ERR] VM did not reach running state."
+      podman machine list || true
+      podman machine inspect default || true
+      return 1
+    fi
+
+    # Rootless user socket (kept for compatibility)
+    echo "[ensure_podman_ready] enabling rootless podman socket inside the VM…"
+    podman machine ssh default -- bash -lc "set -e
+      uid=\$(id -u)
+      export XDG_RUNTIME_DIR=/run/user/\$uid
+      mkdir -p \"\$XDG_RUNTIME_DIR\" || true
+      loginctl enable-linger \"\$(id -un)\" >/dev/null 2>&1 || true
+      systemctl --user enable --now podman.socket >/dev/null 2>&1 || true
+      test -S \"\$XDG_RUNTIME_DIR/podman/podman.sock\" && echo \"rootless podman.sock is up at \$XDG_RUNTIME_DIR/podman/podman.sock\"
+    " || true
+
+    # ROOTFUL: system (root) socket in the VM
+    if [ -n "$want_rootful" ]; then
+      echo "[ensure_podman_ready] enabling ROOTFUL podman socket inside the VM…"
+      podman machine ssh default -- bash -lc "set -e
+        sudo systemctl enable --now podman.socket >/dev/null 2>&1 || true
+        test -S /run/podman/podman.sock && echo \"rootful podman.sock is up at /run/podman/podman.sock\"
+      " || true
+    fi
+
+    echo "[ensure_podman_ready] probing existing system connections…"
+    _any_ok=false
+    podman system connection list 2>/dev/null | awk 'NR>1 {print $1}' > /tmp/.pod_conn_names.$$ || true
+    for prefer in machine-default podman-machine-default default default-root; do
+      if grep -qx "$prefer" /tmp/.pod_conn_names.$$ 2>/dev/null; then
+        echo "$prefer"
+        sed -i '' -e "/^$prefer$/d" /tmp/.pod_conn_names.$$ 2>/dev/null || true
       fi
-    else
-      _warn "VM '${NAME}' is not running; skipping compose install. (state=${_vm_state})"
+    done > /tmp/.pod_conn_ordered.$$
+    cat /tmp/.pod_conn_names.$$ >> /tmp/.pod_conn_ordered.$$ 2>/dev/null || true
+    rm -f /tmp/.pod_conn_names.$$
+
+    while IFS= read -r _name || [ -n "${_name:-}" ]; do
+      [ -z "${_name:-}" ] && continue
+      if podman --connection "$_name" info >/dev/null 2>&1; then
+        podman system connection default "$_name" >/dev/null 2>&1 || true
+        echo "[ensure_podman_ready] podman info ok via connection '${_name}'"
+        _any_ok=true
+        break
+      fi
+    done < /tmp/.pod_conn_ordered.$$
+    rm -f /tmp/.pod_conn_ordered.$$
+
+    # ROOTFUL: add a dedicated connection that targets /run/podman/podman.sock
+    if [ -n "$want_rootful" ]; then
+      echo "[ensure_podman_ready] creating/refreshing 'machine-default-root' connection (rootful)…"
+      _host="$(podman machine inspect --format '{{.ConnectionInfo.HostIP}}' default 2>/dev/null || echo 127.0.0.1)"
+      _port="$(podman machine inspect --format '{{.ConnectionInfo.Port}}' default 2>/dev/null || echo 22)"
+      _user="$(podman machine inspect --format '{{.ConnectionInfo.RemoteUsername}}' default 2>/dev/null || echo core)"
+      _root_uri="ssh://${_user}@${_host}:${_port}/run/podman/podman.sock"
+      podman system connection rm -f machine-default-root >/dev/null 2>&1 || true
+      podman system connection add machine-default-root "$_root_uri" >/dev/null 2>&1 || true
+      # don’t make it default automatically; you’ll opt into it when needed
+      podman --connection machine-default-root info >/dev/null 2>&1 && \
+        echo "[ensure_podman_ready] rootful connection works (machine-default-root)"
+    fi
+
+    # If we didn’t have any working connection yet, try the synthesized rootless URI
+    if [ "$_any_ok" != true ]; then
+      echo "[ensure_podman_ready] synthesizing rootless VM connection…"
+      _uri="$(podman machine inspect --format '{{.ConnectionInfo.URI}}' default 2>/dev/null || true)"
+      if [ -z "${_uri:-}" ]; then
+        _host="$(podman machine inspect --format '{{.ConnectionInfo.HostIP}}' default 2>/dev/null || echo 127.0.0.1)"
+        _port="$(podman machine inspect --format '{{.ConnectionInfo.Port}}' default 2>/dev/null || echo 22)"
+        _user="$(podman machine inspect --format '{{.ConnectionInfo.RemoteUsername}}' default 2>/dev/null || echo core)"
+        _sock="$(podman machine inspect --format '{{.ConnectionInfo.PodmanSocket.RemoteSocket.Path}}' default 2>/dev/null || echo /run/user/501/podman/podman.sock)"
+        _uri="ssh://${_user}@${_host}:${_port}${_sock}"
+      fi
+      podman system connection rm -f machine-default >/dev/null 2>&1 || true
+      podman system connection add machine-default "$_uri" >/dev/null 2>&1 || true
+      podman system connection default machine-default >/dev/null 2>&1 || true
+      podman info >/dev/null 2>&1 && echo "[ensure_podman_ready] podman info ok via synthesized rootless VM connection"
+    fi
+
+    podman volume ls || true
+    return 0
+  fi
+
+  # (non-macOS fallback unchanged) …
+  _pi_err="$(podman info 2>&1 || true)"
+  if printf '%s\n' "$_pi_err" | grep -q 'lstat /run: no such file'; then
+    if [ -r /etc/os-release ] && grep -qiE 'fedora|coreos' /etc/os-release; then
+      uid="$(id -u)"
+      sudo mkdir -p "/run/user/$uid" && sudo chown "$USER:$USER" "/run/user/$uid" && sudo chmod 700 "/run/user/$uid"
+      export XDG_RUNTIME_DIR="/run/user/$uid"
+      if podman info >/dev/null 2>&1; then
+        echo "[ensure_podman_ready] podman info ok after VM runtime fix"
+        podman volume ls || true
+        return 0
+      fi
     fi
   fi
 
-  # ---------- Pin CONTAINER_HOST so podman-compose uses the same connection ----------
-  if command -v podman >/dev/null 2>&1; then
-    export CONTAINER_HOST="$(podman system connection show -f '{{.URI}}' 2>/dev/null || echo '')"
-    if [ -n "$CONTAINER_HOST" ]; then
-      _ok "Pinned CONTAINER_HOST=$CONTAINER_HOST"
-    else
-      _warn "Could not determine CONTAINER_HOST from current connection"
-    fi
-  fi
-
-  # ---------- Diagnostics: machine + networks ----------
-  _log "Diagnostics snapshot:"
-  _log "podman machine list:"
-  podman machine list || true
-
-  _log "Host-side networks (current connection):"
-  podman network ls || true
-
-  if podman machine --help >/dev/null 2>&1; then
-    local NAME="${PODMAN_MACHINE_NAME:-default}"
-    _log "VM '${NAME}' networks:"
-    podman machine ssh "$NAME" -- podman network ls || true
-  fi
-
-  _ok "Podman bootstrap completed."
-
-  # Disable xtrace if we enabled it
-  if [ "$_had_xtrace" = "1" ]; then set +x; fi
+  echo "[ensure_podman_ready][ERR] podman info still failing."
+  echo "---- podman info stderr ----"
+  podman info 2>&1 || true
+  return 1
 }
 
-ensure_podman_ready
+
+
+# Ensure the rootless Podman user socket is running inside the Podman VM
+# Usage: vm_enable_rootless_podman_socket [vm_name]
+vm_enable_rootless_podman_socket() {
+  local VM="${1:-default}"
+  echo "🔌 Ensuring rootless podman.socket is active in VM '${VM}'…"
+  podman machine ssh "$VM" -- bash -lc '
+    set -euo pipefail
+    ME="$(id -un)"
+    MY_UID="$(id -u)"                           # <-- do NOT assign to $UID (readonly)
+    SOCK="/run/user/${MY_UID}/podman/podman.sock"
+
+    # If the socket is already there, we are done.
+    if [ -S "$SOCK" ]; then
+      echo "[ok] socket already present: $SOCK"
+      ls -l "$SOCK" || true
+      exit 0
+    fi
+
+    # Make sure lingering is enabled, otherwise user services won’t survive/log in
+    if ! loginctl show-user "$ME" 2>/dev/null | grep -q "^Linger=yes$"; then
+      echo "[info] enabling linger for $ME"
+      loginctl enable-linger "$ME" || true
+    fi
+
+    # Enable & start the user socket
+    systemctl --user enable --now podman.socket
+
+    # Wait briefly for the socket to appear
+    for i in $(seq 1 30); do
+      if [ -S "$SOCK" ]; then
+        echo "[ok] user socket is up: $SOCK"
+        ls -l "$SOCK" || true
+        exit 0
+      fi
+      sleep 0.5
+    done
+
+    echo "[err] user socket did not appear at $SOCK"
+    echo "— journalctl (user podman.socket) —"
+    journalctl --no-pager --user -u podman.socket -n 100 || true
+    exit 1
+  '
+}
+
+
+# Run readiness checks *before* any other podman calls from this script
+ensure_podman_ready || { echo "[ERR] podman is not ready. Run this on your Mac with 'podman machine' running, or inside the VM with XDG_RUNTIME_DIR set."; exit 1; }
+vm_enable_rootless_podman_socket "${PODMAN_MACHINE:-default}"
+
 
 HOST_PROJ="$(pwd -P)"
 COMPOSE_PROFILES_VERBOSE=1
-export PODMAN_MACHINE=default
+export PODMAN_MACHINE="${PODMAN_MACHINE:-default}"
+# Only compute overlay dir *after* ensure_podman_ready succeeded.
 export PODMAN_OVERLAY_DIR="$(
-  podman machine ssh "${PODMAN_MACHINE:-$(podman machine active 2>/dev/null || echo default)}" -- \
-    podman info | awk -F': *' 'tolower($1) ~ /graphroot/ { gsub(/[[:space:]]+/,"",$2); print $2 "/overlay-containers"; exit }'
+  podman machine ssh "${PODMAN_MACHINE}" -- \
+    sudo podman info | awk -F': *' 'tolower($1) ~ /graphroot/ { gsub(/[[:space:]]+/,"",$2); print $2 "/overlay-containers"; exit }'
 )"
 echo "$PODMAN_OVERLAY_DIR"   # sanity check; should exist inside VM
-
 
 # --- Ollama preflight check (volume-aware, nounset-safe) ---
 # Ensure host Ollama is ready and that MODEL is present in ./ollama_data/models
@@ -275,11 +349,11 @@ get_compose_engine() {
   local CMD
   CMD="$(__compose_cmd)" || return 127
   case "$CMD" in
-    "podman compose"|podman-compose) echo "podman";;
+    "podman compose"|podman-compose) echo "sudo podman";;
     "docker compose"|docker-compose) echo "docker";;
     *)
       # Best-effort default
-      echo "podman"
+      echo "sudo podman"
       ;;
   esac
 }
@@ -293,7 +367,7 @@ ensure_external_networks_exist() {
   # For now we only create 'osss-net' if missing (create-only; no deletes).
   if ! podman network exists osss-net 2>/dev/null; then
     echo "➕ Creating external network: osss-net"
-    podman network create osss-net >/dev/null || echo "⚠️  Could not create osss-net (continuing)"
+    sudo podman network create osss-net >/dev/null || echo "⚠️  Could not create osss-net (continuing)"
   fi
 }
 
@@ -303,7 +377,7 @@ ensure_external_networks_exist() {
 podman_ready_once() {
   # Only run once per process
   [[ "${__OSSS_PODMAN_READY:-}" == "1" ]] && return 0
-  command -v podman >/dev/null 2>&1 || { __OSSS_PODMAN_READY=1; export __OSSS_PODMAN_READY; return 0; }
+  command -v sudo podman >/dev/null 2>&1 || { __OSSS_PODMAN_READY=1; export __OSSS_PODMAN_READY; return 0; }
 
   # Fast path: if the VM is already running, don't touch it
   if pm_ssh -h >/dev/null 2>&1; then
@@ -332,15 +406,15 @@ podman_ready_once() {
     pm_ssh start "$NAME"
 
     # Ensure the default connection matches the running machine
-    if podman system connection list --format '{{.Name}}' | grep -qx "$NAME"; then
-      podman system connection default "$NAME" >/dev/null 2>&1 || true
-    elif podman system connection list --format '{{.Name}}' | grep -qx "${NAME}-root"; then
-      podman system connection default "${NAME}-root" >/dev/null 2>&1 || true
+    if sudo podman system connection list --format '{{.Name}}' | grep -qx "$NAME"; then
+      sudo podman system connection default "$NAME" >/dev/null 2>&1 || true
+    elif sudo podman system connection list --format '{{.Name}}' | grep -qx "${NAME}-root"; then
+      sudo podman system connection default "${NAME}-root" >/dev/null 2>&1 || true
     fi
   fi
 
   # Final health check
-  podman info --debug >/dev/null 2>&1 || { echo "❌ Podman not reachable"; exit 1; }
+  sudo podman info --debug >/dev/null 2>&1 || { echo "❌ Podman not reachable"; exit 1; }
   __OSSS_PODMAN_READY=1; export __OSSS_PODMAN_READY
 }
 
@@ -542,14 +616,14 @@ ensure_python_venv "$@"
 # -------- Podman compose selection --------
 compose_cmd() {
   # Prefer native `podman compose` (try it directly)
-  if podman compose version >/dev/null 2>&1; then
-    echo "podman compose"
+  if sudo podman compose version >/dev/null 2>&1; then
+    echo "sudo podman compose"
     return 0
   fi
 
   # Fallback to podman-compose if installed on host
-  if command -v podman-compose >/dev/null 2>&1; then
-    echo "podman-compose"
+  if command -v sudo podman-compose >/dev/null 2>&1; then
+    echo "sudo podman-compose"
     return 0
   fi
 
@@ -966,13 +1040,13 @@ load_config
 
 last_container_id() {
   local svc="$1" newest="" created_newest="" id created
-  mapfile -t ids < <(podman ps -a \
+  mapfile -t ids < <(sudo podman ps -a \
   --filter "label=io.podman.compose.project=${COMPOSE_PROJECT_NAME}" \
   --filter "label=io.podman.compose.service=${svc}" \
   -q 2>/dev/null || true)
 
   for id in "${ids[@]:-}"; do
-    created=$(podman inspect -f '{{.Created}}' "$id" 2>/dev/null || true)
+    created=$(sudo podman inspect -f '{{.Created}}' "$id" 2>/dev/null || true)
     [[ -z "$created" ]] && continue
     if [[ -z "$created_newest" || "$created" > "$created_newest" ]]; then created_newest="$created"; newest="$id"; fi
   done
@@ -991,7 +1065,7 @@ logs_tail_service_any(){
     local cid; cid=$(last_container_id "$svc" || true)
     if [[ -n "${cid:-}" ]]; then
       echo "(compose logs unavailable; showing last container $cid)"
-      podman logs --tail "$lines" "$cid" || true
+      sudo podman logs --tail "$lines" "$cid" || true
     else
       echo "(no logs found for service '$svc')"
     fi
@@ -1010,7 +1084,7 @@ logs_follow_service_any(){
     local cid; cid=$(last_container_id "$svc" || true)
     if [[ -n "${cid:-}" ]]; then
       echo "(compose stream unavailable; following last container $cid)"
-      podman logs -f --tail "$DEFAULT_TAIL" "$cid" || true
+      sudo podman logs -f --tail "$DEFAULT_TAIL" "$cid" || true
     else
       echo "(no container found to follow for service '$svc')"
     fi
@@ -1048,7 +1122,7 @@ prompt_return() {
 }
 
 
-# Force-recreate all services in a given profile (works with both `podman compose` and `podman-compose`)
+# Force-recreate all services in a given profile (works with both `sudo podman compose` and `sudo podman-compose`)
 up_force_profile() {
   local prof="$1"
   echo "[up_force_profile] Invoked with profile: '$prof'"
@@ -1084,25 +1158,25 @@ up_force_profile() {
   # Hard-stop & remove any existing containers/pods that belong to these services
   for svc in "${svcs[@]}"; do
     echo "[up_force_profile] Checking for existing containers of service '$svc'..."
-    ids=$(podman ps -a \
+    ids=$(sudo podman ps -a \
       --filter "label=io.podman.compose.project=${COMPOSE_PROJECT_NAME}" \
       --filter "label=io.podman.compose.service=${svc}" -q 2>/dev/null)
 
     if [[ -n "$ids" ]]; then
       echo "[up_force_profile] Found containers for '$svc': $ids"
-      pods=$(podman inspect -f '{{.PodName}}' $ids 2>/dev/null | awk 'NF && $0!="<no value>" && !seen[$0]++')
+      pods=$(sudo podman inspect -f '{{.PodName}}' $ids 2>/dev/null | awk 'NF && $0!="<no value>" && !seen[$0]++')
 
       if [[ -n "$pods" ]]; then
         echo "[up_force_profile] Stopping pods: $pods"
-        podman pod stop $pods >/dev/null 2>&1
+        sudo podman pod stop $pods >/dev/null 2>&1
       fi
 
       echo "[up_force_profile] Removing containers + anon volumes for '$svc'..."
-      podman rm -f -v $ids >/dev/null 2>&1
+      sudo podman rm -f -v $ids >/dev/null 2>&1
 
       if [[ -n "$pods" ]]; then
         echo "[up_force_profile] Removing pods: $pods"
-        podman pod rm -f $pods >/dev/null 2>&1
+        sudo podman pod rm -f $pods >/dev/null 2>&1
       fi
     else
       echo "[up_force_profile] No containers found for service '$svc'"
@@ -1296,17 +1370,17 @@ __rm_existing_for_profile() {
   # Use VM if present to avoid host/VM storage path issues
   if pm_ssh -h >/dev/null 2>&1; then
     for s in "${svcs[@]}"; do
-      local cmd="podman ps -a \
+      local cmd="sudo podman ps -a \
         --filter 'label=io.podman.compose.project=${project}' \
         --filter 'label=io.podman.compose.service=${s}' -q \
         | xargs -r podman rm -f -v || true
-      if [ \$(podman ps -a \
+      if [ \$(sudo podman ps -a \
         --filter 'label=com.docker.compose.project=${project}' \
         --filter 'label=com.docker.compose.service=${s}' -q | wc -l) -gt 0 ]; then
-        podman ps -a \
+        sudo podman ps -a \
           --filter 'label=com.docker.compose.project=${project}' \
           --filter 'label=com.docker.compose.service=${s}' -q \
-          | xargs -r podman rm -f -v || true
+          | xargs -r sudo podman rm -f -v || true
       fi"
       echo "  - VM cleanup for service: $s"
       pm_ssh ssh -- bash -lc "$cmd"
@@ -1314,22 +1388,22 @@ __rm_existing_for_profile() {
   else
     # Host fallback
     for s in "${svcs[@]}"; do
-      mapfile -t ids < <(podman ps -a \
+      mapfile -t ids < <(sudo podman ps -a \
         --filter "label=io.podman.compose.project=${project}" \
         --filter "label=io.podman.compose.service=${s}" -q 2>/dev/null)
-      ((${#ids[@]}==0)) && mapfile -t ids < <(podman ps -a \
+      ((${#ids[@]}==0)) && mapfile -t ids < <(sudo podman ps -a \
         --filter "label=com.docker.compose.project=${project}" \
         --filter "label=com.docker.compose.service=${s}" -q 2>/dev/null)
       ((${#ids[@]})) || continue
-      podman rm -f "${ids[@]}" >/dev/null 2>&1 || true
+      sudo podman rm -f "${ids[@]}" >/dev/null 2>&1 || true
     done
   fi
 }
 
 
-# Detect whether the Podman VM has the overlay-containers path (needed by filebeat-podman)
+# Detect whether the Podman VM has the overlay-containers path (needed by filebeat)
 __podman_vm_has_overlay() {
-  if command -v podman >/dev/null 2>&1 && pm_ssh -h >/dev/null 2>&1; then
+  if command -v sudo podman >/dev/null 2>&1 && pm_ssh -h >/dev/null 2>&1; then
     pm_ssh ssh -- test -d /var/lib/containers/storage/overlay-containers
     return $?
   fi
@@ -1354,14 +1428,14 @@ recreate_profile() {
   echo "# 3) Rebuild images if needed"
   maybe_build_profile "$prof"
 
-  echo "# 4) Decide service set (optionally skip filebeat-podman if VM path missing)"
+  echo "# 4) Decide service set (optionally skip filebeat if VM path missing)"
   local -a SVCS=()
   mapfile -t SVCS < <($COMPOSE -f "$COMPOSE_FILE" --profile "$prof" config --services 2>/dev/null | awk 'NF')
 
-  # Drop filebeat-podman when overlay path isn’t visible in the Podman VM
-  if [[ " ${SVCS[*]} " == *" filebeat-podman "* ]] && ! __podman_vm_has_overlay; then
-    echo "⚠️  Skipping 'filebeat-podman' (Podman VM overlay path not visible)."
-    SVCS=("${SVCS[@]/filebeat-podman}")
+  # Drop filebeat when overlay path isn’t visible in the Podman VM
+  if [[ " ${SVCS[*]} " == *" filebeat "* ]] && ! __podman_vm_has_overlay; then
+    echo "⚠️  Skipping 'filebeat' (Podman VM overlay path not visible)."
+    SVCS=("${SVCS[@]/filebeat}")
   fi
 
   echo "# 5) Up"
@@ -1389,6 +1463,22 @@ prompt_recreate_profile() {
   read -rp "Are you sure you want to recreate ALL containers in profile '${prof}'? [y/N] " ans
   [[ "$ans" =~ ^[Yy]$ ]] || { echo "❌ Cancelled."; return 0; }
   recreate_profile "$prof"
+}
+
+# --- Helper: resolve the current Podman VM name (Bash 3 & nounset safe) ---
+podman_vm_name() {
+  # Prefer explicit envs, fall back to active machine, then 'default'
+  local name="${PODMAN_MACHINE_NAME:-${PODMAN_MACHINE:-}}"
+  if [ -n "$name" ]; then
+    printf '%s\n' "$name"
+    return 0
+  fi
+  name="$(podman machine active 2>/dev/null || true)"
+  if [ -n "$name" ]; then
+    printf '%s\n' "$name"
+  else
+    printf '%s\n' "default"
+  fi
 }
 
 # helper: try to remove a list of names if they exist
@@ -1658,7 +1748,7 @@ up_profile_with_podman() {
 
     echo "SVCS: ${s}"
 
-    ids="$(podman ps -a --filter "label=io.podman.compose.project=${PROJECT}" \
+    ids="$(sudo podman ps -a --filter "label=io.podman.compose.project=${PROJECT}" \
                       --filter "label=io.podman.compose.service=${s}" -q 2>/dev/null || true)"
 
     echo "ids: ${ids}"
@@ -1666,15 +1756,15 @@ up_profile_with_podman() {
 
 
     if [[ -n "$ids" ]]; then
-      pods="$(podman inspect -f '{{.PodName}}' $ids 2>/dev/null | awk 'NF && $0!="<no value>" && !seen[$0]++' || true)"
+      pods="$(sudo podman inspect -f '{{.PodName}}' $ids 2>/dev/null | awk 'NF && $0!="<no value>" && !seen[$0]++' || true)"
 
       echo "about ready to stop these pods: ${pods}"
       prompt_return
 
-      [[ -n "$pods" ]] && { echo "  - stopping pods: $pods"; podman pod stop $pods >/dev/null 2>&1 || true; }
+      [[ -n "$pods" ]] && { echo "  - stopping pods: $pods"; sudo podman pod stop $pods >/dev/null 2>&1 || true; }
       echo "  - removing containers: $ids"
-      podman rm -f -v $ids >/dev/null 2>&1 || true
-      [[ -n "$pods" ]] && { echo "  - removing pods: $pods"; podman pod rm -f $pods >/dev/null 2>&1 || true; }
+      sudo podman rm -f -v $ids >/dev/null 2>&1 || true
+      [[ -n "$pods" ]] && { echo "  - removing pods: $pods"; sudo podman pod rm -f $pods >/dev/null 2>&1 || true; }
     fi
   done
 
@@ -1706,11 +1796,6 @@ up_profile_with_podman() {
     echo "# starting phase 3: api key init"
     prompt_return             # defaults to "Press Enter to continue..."
 
-    if "${CMDA[@]}" -f "$FILE" --profile elastic config --services 2>/dev/null | grep -qx 'api-key-init'; then
-      "${CMDA[@]}" -f "$FILE" --profile elastic up -d --no-deps api-key-init
-      _wait_exit0 "api-key-init" 180
-    fi
-
     echo "# starting phase 4: filebeat (optional)"
     prompt_return             # defaults to "Press Enter to continue..."
 
@@ -1735,8 +1820,8 @@ _wait_health() {
   while :; do
     cid="$(last_container_id "$svc" || true)"
     [[ -n "$cid" ]] || sleep 1
-    state="$(podman inspect -f '{{.State.Status}}' "$cid" 2>/dev/null || true)"
-    health="$(podman inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$cid" 2>/dev/null || true)"
+    state="$(sudo podman inspect -f '{{.State.Status}}' "$cid" 2>/dev/null || true)"
+    health="$(sudo podman inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$cid" 2>/dev/null || true)"
     if { [[ "$health" == "healthy" ]] || { [[ "$health" == "none" ]] && [[ "$state" == "running" ]]; }; }; then
       echo "✅ $svc is ready"
       break
@@ -1746,6 +1831,70 @@ _wait_health() {
   done
 }
 
+# Install podman-compose inside the VM (system package) and configure Podman to use it
+install_podman_compose_vm() {
+  set -euo pipefail
+
+  local vm
+  vm="$(podman machine active 2>/dev/null || echo default)"
+  echo "▶️ Target VM: ${vm}"
+
+  echo "▶️ Installing system podman-compose in '${vm}' (rpm-ostree)…"
+  podman machine ssh "${vm}" -- bash -s <<'VM1'
+set -euo pipefail
+# 1) remove any user shim to avoid loops
+rm -f "$HOME/bin/podman-compose" || true
+
+# 2) install system podman-compose (requires reboot to apply)
+sudo rpm-ostree install -y podman-compose || { echo "rpm-ostree install failed"; exit 1; }
+
+echo "Rebooting VM to apply rpm-ostree changes…"
+nohup sh -lc "sleep 1; sudo systemctl reboot" >/dev/null 2>&1 &
+VM1
+
+  # Give the VM time to actually go down, then come back up
+  echo "▶️ Waiting for VM reboot…"
+  sleep 5
+  # Ensure it is started (idempotent)
+  podman machine start "${vm}" >/dev/null || true
+
+  # Wait until SSH is responsive
+  for i in {1..60}; do
+    if podman machine ssh "${vm}" -- true >/dev/null 2>&1; then
+      break
+    fi
+    sleep 2
+  done
+
+  echo "▶️ Configuring Podman to use the external provider 'podman-compose'…"
+  podman machine ssh "${vm}" -- bash -s <<'VM2'
+set -euo pipefail
+
+# 3) Set compose_providers to use podman-compose
+mkdir -p "$HOME/.config/containers"
+cat > "$HOME/.config/containers/containers.conf" <<'EOF'
+[engine]
+compose_providers=["podman-compose"]
+EOF
+
+# 4) Sanity checks
+echo "--- containers.conf ---"
+grep -n '^compose_providers' "$HOME/.config/containers/containers.conf" || true
+
+echo
+echo "-- which podman-compose --"
+command -v podman-compose || { echo "podman-compose not found on PATH"; exit 1; }
+
+echo
+echo "-- podman compose version --"
+podman compose version 2>&1 | sed -n '1,6p'
+VM2
+
+  echo "✅ podman-compose installed & configured for VM '${vm}'."
+}
+
+
+
 # Wait until an init/one-off container exits with code 0
 _wait_exit0() {
   local svc="$1" timeout="${2:-180}" start now cid code
@@ -1753,7 +1902,7 @@ _wait_exit0() {
   while :; do
     cid="$(last_container_id "$svc" || true)"
     [[ -n "$cid" ]] || { sleep 1; continue; }
-    code="$(podman inspect -f '{{.State.ExitCode}}' "$cid" 2>/dev/null || echo '')"
+    code="$(sudo podman inspect -f '{{.State.ExitCode}}' "$cid" 2>/dev/null || echo '')"
     if [[ "$code" == "0" ]]; then
       echo "✅ $svc completed successfully"
       break
@@ -1773,7 +1922,7 @@ set -Eeuo pipefail
 cd /Users/rubelw/projects/OSSS
 
 # --- Pick a compose provider in the VM ---
-have_podman_compose() { podman compose version >/dev/null 2>&1; }
+have_podman_compose() { sudo podman compose version >/dev/null 2>&1; }
 
 install_compose_plugin() {
   # Install docker-compose v2 plugin into ~/.docker/cli-plugins/docker-compose (no root needed)
@@ -1805,16 +1954,16 @@ install_podman_compose_py() {
 
 PROVIDER=\"\"
 if have_podman_compose; then
-  PROVIDER=\"podman compose\"
+  PROVIDER=\"sudo podman compose\"
 else
   if install_compose_plugin && have_podman_compose; then
-    PROVIDER=\"podman compose\"
+    PROVIDER=\"sudo podman compose\"
   else
     if command -v podman-compose >/dev/null 2>&1; then
-      PROVIDER=\"podman-compose\"
+      PROVIDER=\"sudo podman-compose\"
     else
       install_podman_compose_py
-      PROVIDER=\"podman-compose\"
+      PROVIDER=\"sudo podman-compose\"
     fi
   fi
 fi
@@ -1829,7 +1978,7 @@ echo \"ℹ️  Compose provider in VM: \$PROVIDER\"
 echo \"⏳ waiting for mysql to be healthy…\"
 for i in \$(seq 1 240); do
   # get the exact container id
-  CID=\$(podman ps -aq --filter name=^mysql\$ | head -n1)
+  CID=\$(sudo podman ps -aq --filter name=^mysql\$ | head -n1)
   echo \"\$CID\"
 
   if [ -z \"\$CID\" ]; then
@@ -1838,8 +1987,8 @@ for i in \$(seq 1 240); do
   fi
 
   # read state + health (health can be nil if no healthcheck)
-  state=\$(podman inspect -f '{{.State.Status}}' \"\$CID\" 2>/dev/null || echo unknown)
-  health=\$(podman inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' \"\$CID\" 2>/dev/null || echo unknown)
+  state=\$(sudo podman inspect -f '{{.State.Status}}' \"\$CID\" 2>/dev/null || echo unknown)
+  health=\$(sudo podman inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' \"\$CID\" 2>/dev/null || echo unknown)
   echo \"state=\$state health=\$health\"
 
   if [ \"\$health\" = \"healthy\" ] || { [ \"\$health\" = \"none\" ] && [ \"\$state\" = \"running\" ]; }; then
@@ -1896,7 +2045,7 @@ compose_stop_rm_profile() {
   echo "+ $COMPOSE -f \"$COMPOSE_FILE\" stop ${svcs[*]}"
   $COMPOSE -f "$COMPOSE_FILE" stop "${svcs[@]}" || true
 
-  # Try native 'rm'; if unavailable (podman-compose), fall back to label-based rm
+  # Try native 'rm'; if unavailable (sudo podman-compose), fall back to label-based rm
   if $COMPOSE -f "$COMPOSE_FILE" rm -f -v "${svcs[@]}" 2>/dev/null; then
     :
   else
@@ -1904,10 +2053,10 @@ compose_stop_rm_profile() {
     local project; project="$(__compose_project_name)"
     for s in "${svcs[@]}"; do
       # Remove containers just for this service in this project
-      podman ps -a \
+      sudo podman ps -a \
         --filter "label=com.docker.compose.project=${project}" \
         --filter "label=com.docker.compose.service=${s}" -q \
-      | xargs -r podman rm -f -v
+      | xargs -r sudo podman rm -f -v
     done
   fi
 }
@@ -2108,7 +2257,7 @@ __compose_named_volumes_for_service() {
 compose_supports_profile() {
   local cmd="$(__compose_cmd)" || return 1
   # crude but reliable: podman-compose is a python wrapper and doesn't accept 'help --profile'
-  if command -v podman-compose >/dev/null 2>&1 && [[ "$cmd" == podman-compose* ]]; then
+  if command -v sudo podman-compose >/dev/null 2>&1 && [[ "$cmd" == podman-compose* ]]; then
     return 1
   fi
   return 0
@@ -2238,14 +2387,14 @@ show_status(){
   echo "▶️  Containers (all projects)"
   printf "NAMES\tSTATUS\tNETWORKS\n"
 
-  podman ps -a --format '{{.Names}}\t{{.Status}}\t{{.Networks}}' | awk 'NF' || true
+  sudo podman ps -a --format '{{.Names}}\t{{.Status}}\t{{.Networks}}' | awk 'NF' || true
 
   echo
   echo "▶️  Networks:"
-  podman network ls | (head -n1; awk 'NR==1{print}; NR>1{print "  "$0}') || true
+  sudo podman network ls | (head -n1; awk 'NR==1{print}; NR>1{print "  "$0}') || true
 
   echo
-  echo "ℹ️  Hint: use 'podman logs <container>' or 'podman inspect <container>' for details."
+  echo "ℹ️  Hint: use 'podman logs <container>' or 'sudo podman inspect <container>' for details."
 }
 
 
@@ -2362,7 +2511,7 @@ reset_podman_machine() {
 
   set -euo pipefail
 
-  podman --version || true
+  sudo podman --version || true
 
   # Decide a machine name: use active if present, else 'default'
   NAME="${PODMAN_MACHINE_NAME:-$(podman machine active 2>/dev/null || echo default)}"
@@ -2389,9 +2538,15 @@ reset_podman_machine() {
 
   # 4) Recreate + start
   echo "🛠  Initializing '$NAME'…"
-  podman machine init "$NAME" --cpus 4 --memory 6144 --disk-size 60
+  podman machine init "$NAME" \
+  --cpus "${PODMAN_MACHINE_CPUS:-12}" \
+  --memory "${PODMAN_MACHINE_MEM_MB:-40960}" \
+  --disk-size "${PODMAN_MACHINE_DISK_GB:-100}" \
+  --volume "${PWD}:/work"
+
   echo "▶️  Starting '$NAME'…"
   podman machine start "$NAME"
+
 
   # 5) Make it the default connection if possible
   podman system connection default "$NAME" 2>/dev/null \
@@ -2399,7 +2554,7 @@ reset_podman_machine() {
     || true
 
   # 6) Sanity test
-  podman run --rm quay.io/podman/hello || true
+  sudo podman run --rm quay.io/podman/hello || true
   prompt_return
 }
 
@@ -2412,9 +2567,9 @@ preflight_podman_storage() {
 
   # 1) Grab JSON info (prefer this over plain text/greps)
   local INFO RC
-  INFO="$(podman info --format '{{json .}}' 2>/dev/null)"; RC=$?
+  INFO="$(sudo podman info --format '{{json .}}' 2>/dev/null)"; RC=$?
   if ((RC!=0)) || [[ -z "$INFO" ]]; then
-    echo "[preflight_podman_storage] ❌ Could not run 'podman info' (rc=$RC)"
+    echo "[preflight_podman_storage] ❌ Could not run 'sudo podman info' (rc=$RC)"
     return 1
   fi
   echo "[preflight_podman_storage] Successfully retrieved 'podman info'"
@@ -2437,7 +2592,7 @@ preflight_podman_storage() {
 
   # 4) If empty, try Go template key (works across many versions)
   if [[ -z "$GRAPHROOT" ]]; then
-    GRAPHROOT="$(podman info --format '{{ .Store.GraphRoot }}' 2>/dev/null || true)"
+    GRAPHROOT="$(sudo podman info --format '{{ .Store.GraphRoot }}' 2>/dev/null || true)"
   fi
 
   # 5) If still empty on macOS, ask inside the VM directly
@@ -2450,7 +2605,7 @@ preflight_podman_storage() {
   if [[ -z "$GRAPHROOT" ]]; then
     echo "[preflight_podman_storage] ⚠️  Could not detect GraphRoot in this Podman build."
     echo "[preflight_podman_storage] Store section follows (for debugging):"
-    podman info --format '{{json .Store}}' || true
+    sudo podman info --format '{{json .Store}}' || true
     echo "   Tip: ensure your default connection is the VM:"
     echo "        podman system connection default podman-machine-default"
     echo "        pm_ssh start"
@@ -2559,7 +2714,7 @@ down_profile_interactive() {
     # On the HOST shell (where $PWD is your project)
       podman machine ssh default -- bash -lc "
         set -euo pipefail
-        HOST_PROJ=$HOST_PROJ
+        HOST_PROJ=\"/work\"
         SERVICE=$prof
         PODMAN_OVERLAY_DIR=$PODMAN_OVERLAY_DIR
         declare -a SVCS=()
@@ -2574,11 +2729,11 @@ down_profile_interactive() {
 
 
         # Pick compose provider + the correct remove-volumes flag
-        if podman compose version >/dev/null 2>&1; then
-          COMPOSE=\"podman compose\"
+        if sudo podman compose version >/dev/null 2>&1; then
+          COMPOSE=\"sudo podman compose\"
           DOWN_VOL_FLAG=\"--volumes\"
-        elif command -v podman-compose >/dev/null 2>&1; then
-          COMPOSE=\"podman-compose\"
+        elif command -v sudo podman-compose >/dev/null 2>&1; then
+          COMPOSE=\"sudo podman-compose\"
           DOWN_VOL_FLAG=\"-v\"
         else
           echo \"❌ Neither podman compose nor podman-compose found.\"
@@ -2614,10 +2769,10 @@ down_profile_interactive() {
         CIDS=() VOLS=()
         tmp_ids=()
         for s in \"\${SVCS[@]}\"; do
-          mapfile -t ids1 < <(podman ps -a -q \
+          mapfile -t ids1 < <(sudo podman ps -a -q \
             --filter \"label=io.podman.compose.project=\${PROJECT}\" \
             --filter \"label=io.podman.compose.service=\${s}\" 2>/dev/null || true)
-          mapfile -t ids2 < <(podman ps -a -q \
+          mapfile -t ids2 < <(sudo podman ps -a -q \
             --filter \"label=com.docker.compose.project=\${PROJECT}\" \
             --filter \"label=com.docker.compose.service=\${s}\" 2>/dev/null || true)
           tmp_ids+=(\"\${ids1[@]:-}\" \"\${ids2[@]:-}\")
@@ -2629,14 +2784,14 @@ down_profile_interactive() {
         if ((\${#CIDS[@]})); then
           # Volumes mounted by those containers
           mapfile -t VOLS < <(
-            podman inspect -f '{{range .Mounts}}{{if eq .Type \"volume\"}}{{.Name}}{{\"\n\"}}{{end}}{{end}}' \
+            sudo podman inspect -f '{{range .Mounts}}{{if eq .Type \"volume\"}}{{.Name}}{{\"\n\"}}{{end}}{{end}}' \
               \"\${CIDS[@]}\" | awk 'NF && !seen[\$0]++'
           ) || true
 
           echo \"⏹  Stopping containers...\"
-          podman stop -t 10 \"\${CIDS[@]}\" >/dev/null 2>&1 || true
+          sudo podman stop -t 10 \"\${CIDS[@]}\" >/dev/null 2>&1 || true
           echo \"🗑️  Removing containers...\"
-          podman rm -f \"\${CIDS[@]}\" >/dev/null 2>&1 || true
+          sudo podman rm -f \"\${CIDS[@]}\" >/dev/null 2>&1 || true
 
 
 
@@ -2644,7 +2799,7 @@ down_profile_interactive() {
 
           if ((\${#VOLS[@]})); then
             echo \"🧹 Removing profile volumes: \${VOLS[*]}\"
-            podman volume rm -f \"\${VOLS[@]}\" >/dev/null 2>&1 || true
+            sudo podman volume rm -f \"\${VOLS[@]}\" >/dev/null 2>&1 || true
           else
             echo \"ℹ️ No named volumes attached to \${SVCS[*]}.\"
           fi
@@ -2708,7 +2863,7 @@ podman_vm_stop() {
   echo "✅ Stopped."
 }
 podman_vm_destroy() {
-  if ! command -v podman >/dev/null 2>&1; then
+  if ! command -v sudo podman >/dev/null 2>&1; then
     echo "Podman not installed."
     return 1
   fi
@@ -2812,9 +2967,9 @@ logs_menu() {
 
 # --- Override: start_keycloak_services (ensure network first) ---
 ensure_osss_net() {
-  if ! podman network exists osss-net 2>/dev/null; then
+  if ! sudo podman network exists osss-net 2>/dev/null; then
     echo "➕ Creating external network: osss-net"
-    podman network create osss-net >/dev/null || echo "⚠️  Could not create osss-net (continuing)"
+    sudo podman network create osss-net >/dev/null || echo "⚠️  Could not create osss-net (continuing)"
   fi
 }
 
@@ -2843,7 +2998,7 @@ logs_follow_container() {
   else
     if ! podman container exists "$name"; then
       echo "⚠️  Container '$name' not found on host."
-      podman ps -a --format "table {{.Names}}\t{{.Status}}" | sed 's/^/  > /'
+      sudo podman ps -a --format "table {{.Names}}\t{{.Status}}" | sed 's/^/  > /'
       return 0
     fi
   fi
@@ -2854,9 +3009,9 @@ logs_follow_container() {
   # and don't let set -e kill the menu on nonzero exit.
   set +e
   if [[ "$use_vm" == "1" ]]; then
-    ( trap - INT; podman machine ssh "$vm" -- bash -lc "podman logs -f --tail ${tail_n} \"$name\"" ) || true
+    ( trap - INT; podman machine ssh "$vm" -- bash -lc "sudo podman logs -f --tail ${tail_n} \"$name\"" ) || true
   else
-    ( trap - INT; podman logs -f --tail "$tail_n" "$name" ) || true
+    ( trap - INT; sudo podman logs -f --tail "$tail_n" "$name" ) || true
   fi
   set -e
 
@@ -2878,38 +3033,37 @@ logs_menu() {
     echo "4) Logs container 'airflow-redis'"
     echo "5) Logs container 'airflow-scheduler'"
     echo "6) Logs container 'airflow-webserver'"
-    echo "7) Logs container 'api-key-init'"
-    echo "8) Logs container 'app'"
-    echo "9) Logs container 'consul'"
-    echo "10) Logs container 'consul-jwt-init'"
-    echo "11) Logs container 'elasticsearch'"
-    echo "12) Logs container 'execute_migrate_all'"
-    echo "13) Logs container 'filebeat-podman'"
-    echo "14) Logs container 'filebeat-setup'"
-    echo "15) Logs container 'kc_postgres'"
-    echo "16) Logs container 'keycloak'"
-    echo "17) Logs container 'kibana'"
-    echo "18) Logs container 'kibana-pass-init'"
-    echo "19) Logs container 'minio'"
-    echo "20) Logs container 'ollama'"
-    echo "21) Logs container 'om-elasticsearch'"
-    echo "22) Logs container 'openmetadata-ingestion'"
-    echo "23) Logs container 'openmetadata-mysql'"
-    echo "24) Logs container 'openmetadata-server'"
-    echo "25) Logs container 'osss_postgres'"
-    echo "26) Logs container 'postgres-airflow'"
-    echo "27) Logs container 'postgres-superset'"
-    echo "28) Logs container 'qdrant'"
-    echo "29) Logs container 'redis'"
-    echo "30) Logs container 'shared-vol-init'"
-    echo "31) Logs container 'superset'"
-    echo "32) Logs container 'superset-init'"
-    echo "33) Logs container 'superset_redis'"
-    echo "34) Logs container 'trino'"
-    echo "35) Logs container 'vault'"
-    echo "36) Logs container 'vault-oidc-setup'"
-    echo "37) Logs container 'vault-seed'"
-    echo "38) Logs container 'web'"
+    echo "7) Logs container 'app'"
+    echo "8) Logs container 'consul'"
+    echo "9) Logs container 'consul-jwt-init'"
+    echo "10) Logs container 'elasticsearch'"
+    echo "11) Logs container 'execute_migrate_all'"
+    echo "12) Logs container 'filebeat'"
+    echo "13) Logs container 'filebeat-setup'"
+    echo "14) Logs container 'kc_postgres'"
+    echo "15) Logs container 'keycloak'"
+    echo "16) Logs container 'kibana'"
+    echo "17) Logs container 'kibana-pass-init'"
+    echo "18) Logs container 'minio'"
+    echo "19) Logs container 'ollama'"
+    echo "20) Logs container 'om-elasticsearch'"
+    echo "21) Logs container 'openmetadata-ingestion'"
+    echo "22) Logs container 'openmetadata-mysql'"
+    echo "23) Logs container 'openmetadata-server'"
+    echo "24) Logs container 'osss_postgres'"
+    echo "25) Logs container 'postgres-airflow'"
+    echo "26) Logs container 'postgres-superset'"
+    echo "27) Logs container 'qdrant'"
+    echo "28) Logs container 'redis'"
+    echo "29) Logs container 'shared-vol-init'"
+    echo "30) Logs container 'superset'"
+    echo "31) Logs container 'superset-init'"
+    echo "32) Logs container 'superset_redis'"
+    echo "33) Logs container 'trino'"
+    echo "34) Logs container 'vault'"
+    echo "35) Logs container 'vault-oidc-setup'"
+    echo "36) Logs container 'vault-seed'"
+    echo "37) Logs container 'web'"
     echo "  q) Back"
     echo "-----------------------------------------------"
     read -rp "Select an option: " choice || return 0
@@ -2920,28 +3074,27 @@ logs_menu() {
       4)  logs_follow_container "airflow-redis" ;;
       5)  logs_follow_container "airflow-scheduler" ;;
       6)  logs_follow_container "airflow-webserver" ;;
-      7)  logs_follow_container "api-key-init" ;;
-      8)  logs_follow_container "app" ;;
-      9)  logs_follow_container "consul" ;;
-      10)  logs_follow_container "consul-jwt-init" ;;
-      11)  logs_follow_container "elasticsearch" ;;
-      12) logs_follow_container "execute_migrate_all" ;;
-      13)  logs_follow_container "filebeat-podman" ;;
-      14)  logs_follow_container "filebeat-setup" ;;
-      15)  logs_follow_container "kc_postgres" ;;
-      16)  logs_follow_container "keycloak" ;;
-      17) logs_follow_container "kibana" ;;
-      18) logs_follow_container "kibana-pass-init" ;;
-      19) logs_follow_container "minio" ;;
-      20) logs_follow_container "ollama" ;;
-      21) logs_follow_container "om-elasticsearch" ;;
-      22) logs_follow_container "openmetadata-ingestion" ;;
-      23) logs_follow_container "mysql" ;;
-      24) logs_follow_container "openmetadata-server" ;;
-      25) logs_follow_container "osss_postgres" ;;
-      26) logs_follow_container "postgres-airflow" ;;
-      27) logs_follow_container "postgres-superset" ;;
-      28) logs_follow_container "qdrant" ;;
+      7)  logs_follow_container "app" ;;
+      8)  logs_follow_container "consul" ;;
+      9)  logs_follow_container "consul-jwt-init" ;;
+      10)  logs_follow_container "elasticsearch" ;;
+      11) logs_follow_container "execute_migrate_all" ;;
+      12)  logs_follow_container "filebeat" ;;
+      13)  logs_follow_container "filebeat-setup" ;;
+      14)  logs_follow_container "kc_postgres" ;;
+      15)  logs_follow_container "keycloak" ;;
+      16) logs_follow_container "kibana" ;;
+      17) logs_follow_container "kibana-pass-init" ;;
+      18) logs_follow_container "minio" ;;
+      19) logs_follow_container "ollama" ;;
+      20) logs_follow_container "om-elasticsearch" ;;
+      21) logs_follow_container "openmetadata-ingestion" ;;
+      22) logs_follow_container "mysql" ;;
+      23) logs_follow_container "openmetadata-server" ;;
+      24) logs_follow_container "osss_postgres" ;;
+      25) logs_follow_container "postgres-airflow" ;;
+      26) logs_follow_container "postgres-superset" ;;
+      27) logs_follow_container "qdrant" ;;
       28) logs_follow_container "redis" ;;
       29) logs_follow_container "shared-vol-init" ;;
       30) logs_follow_container "superset" ;;
@@ -2984,14 +3137,14 @@ down_profiles_menu() {
         # Destroy keycloak'
         podman machine ssh default -- bash -lc "
         set -Eeuo pipefail
-        HOST_PROJ=$HOST_PROJ
+        HOST_PROJ=\"/work\"
         PODMAN_OVERLAY_DIR=$PODMAN_OVERLAY_DIR
         SERVICE=\"keycloak\"
         PROJECT_ELASTIC=\"osss-keycloak\"
 
         log(){ printf '%(%F %T)T %s\n' -1 \"\$*\"; }
 
-        HOST_PROJ=\${HOST_PROJ:?HOST_PROJ not set}
+        HOST_PROJ=\"/work\"
         PROJECT_KEYCLOAK=\${PROJECT_KEYCLOAK:-osss-keycloak}
         PROJECT_DEFAULT=\${PROJECT_DEFAULT:-\$(basename \"\$HOST_PROJ\")}
 
@@ -2999,12 +3152,12 @@ down_profiles_menu() {
 
         # choose compose
         COMPOSE=() ; DOWN_VOL_FLAG=\"\"
-        if podman compose version >/dev/null 2>&1; then
-          COMPOSE=(podman compose); DOWN_VOL_FLAG=\"--volumes\"
-        elif command -v podman-compose >/dev/null 2>&1; then
-          COMPOSE=(podman-compose); DOWN_VOL_FLAG=\"-v\"
+        if sudo podman compose version >/dev/null 2>&1; then
+          COMPOSE=(sudo podman compose); DOWN_VOL_FLAG=\"--volumes\"
+        elif command -v sudo podman-compose >/dev/null 2>&1; then
+          COMPOSE=(sudo podman-compose); DOWN_VOL_FLAG=\"-v\"
         else
-          log \"❌ Neither podman compose nor podman-compose found.\"; exit 1
+          log \"❌ Neither sudo podman compose nor sudo podman-compose found.\"; exit 1
         fi
 
         # bring down for both possible project names (handles past runs with/without -p)
@@ -3018,7 +3171,7 @@ down_profiles_menu() {
         collect_by_label() {
           local proj=\"\$1\" out=\"\"
           for k in \"\${COMPOSE_LABEL_KEYS[@]}\"; do
-            out+=\" \$(podman ps -a --filter label=\$k=\$proj -q 2>/dev/null || true)\"
+            out+=\" \$(sudo podman ps -a --filter label=\$k=\$proj -q 2>/dev/null || true)\"
           done
           printf '%s\n' \$out | awk 'NF' | sort -u
         }
@@ -3031,17 +3184,17 @@ down_profiles_menu() {
           local id=\"\$1\" err rc
 
           # if part of a pod, remove the pod (takes everything with it)
-          local pod; pod=\$(podman inspect -f '{{.Pod}}' \"\$id\" 2>/dev/null || true)
+          local pod; pod=\$(sudo podman inspect -f '{{.Pod}}' \"\$id\" 2>/dev/null || true)
           if [ -n \"\$pod\" ] && [ \"\$pod\" != \"<no value>\" ]; then
             log \"🧺 removing pod \$pod (contains \$id)\"
-            podman pod stop -t 10 \"\$pod\" >/dev/null 2>&1 || true
-            podman pod rm -f \"\$pod\"     >/dev/null 2>&1 || true
+            sudo podman pod stop -t 10 \"\$pod\" >/dev/null 2>&1 || true
+            sudo podman pod rm -f \"\$pod\"     >/dev/null 2>&1 || true
             return 0
           fi
 
-          podman stop -t 10 \"\$id\" >/dev/null 2>&1 || true
+          sudo podman stop -t 10 \"\$id\" >/dev/null 2>&1 || true
           set +e
-          err=\$(podman rm -f \"\$id\" 2>&1); rc=\$?
+          err=\$(sudo podman rm -f \"\$id\" 2>&1); rc=\$?
           set -e
 
           if [ \$rc -eq 0 ]; then
@@ -3055,7 +3208,7 @@ down_profiles_menu() {
             if ((\${#DEPS[@]})); then
               log \"🔗 removing dependents: \${DEPS[*]}\"
               for d in \"\${DEPS[@]}\"; do rm_with_dependents \"\$d\"; done
-              podman rm -f \"\$id\" >/dev/null 2>&1 || true
+              sudo podman rm -f \"\$id\" >/dev/null 2>&1 || true
               log \"🗑️  removed \$id after dependents\"
               return 0
             fi
@@ -3081,39 +3234,39 @@ down_profiles_menu() {
         done
         mapfile -t CAND < <(printf '%s\n' \"\${CAND[@]}\" | awk '!seen[\$0]++')
         for n in \"\${CAND[@]}\"; do
-          podman inspect \"\$n\" >/dev/null 2>&1 && rm_with_dependents \"\$n\"
+          sudo podman inspect \"\$n\" >/dev/null 2>&1 && rm_with_dependents \"\$n\"
         done
 
         # 3) remove any leftover pods matching project name
-        mapfile -t PODS < <(podman pod ps -a --format '{{.ID}} {{.Name}}' | \
+        mapfile -t PODS < <(sudo podman pod ps -a --format '{{.ID}} {{.Name}}' | \
                             awk -v p1=\"\$PROJECT_KEYCLOAK\" -v p2=\"\$PROJECT_DEFAULT\" '\$2 ~ \"^\"p1\"[-_]\" || \$2 ~ \"^\"p2\"[-_]\" {print \$1}')
         if ((\${#PODS[@]})); then
           log \"🧺 removing leftover pods: \${PODS[*]}\"
-          podman pod stop -t 10 \"\${PODS[@]}\" >/dev/null 2>&1 || true
-          podman pod rm -f \"\${PODS[@]}\"     >/dev/null 2>&1 || true
+          sudo podman pod stop -t 10 \"\${PODS[@]}\" >/dev/null 2>&1 || true
+          sudo podman pod rm -f \"\${PODS[@]}\"     >/dev/null 2>&1 || true
         fi
 
         # 4) volumes (project-scoped and known names)
-        mapfile -t VOLS < <(podman volume ls --format '{{.Name}}' | \
+        mapfile -t VOLS < <(sudo podman volume ls --format '{{.Name}}' | \
           grep -E \"^(\${PROJECT_KEYCLOAK}|\${PROJECT_DEFAULT})_\" || true)
         VOLS+=( \"\${PROJECT_KEYCLOAK}_kc_postgres_data\" \"\${PROJECT_DEFAULT}_kc_postgres_data\" )
         mapfile -t VOLS < <(printf '%s\n' \"\${VOLS[@]}\" | awk 'NF' | sort -u)
 
         for v in \"\${VOLS[@]}\"; do
-          podman volume inspect \"\$v\" >/dev/null 2>&1 || continue
+          sudo podman volume inspect \"\$v\" >/dev/null 2>&1 || continue
           log \"📦 removing volume \$v\"
-          mapfile -t USING < <(podman ps -a -q --filter \"volume=\$v\" || true)
+          mapfile -t USING < <(sudo podman ps -a -q --filter \"volume=\$v\" || true)
           if ((\${#USING[@]})); then
-            podman stop -t 10 \"\${USING[@]}\" >/dev/null 2>&1 || true
+            sudo podman stop -t 10 \"\${USING[@]}\" >/dev/null 2>&1 || true
             for u in \"\${USING[@]}\"; do rm_with_dependents \"\$u\"; done
           fi
-          podman volume rm -f \"\$v\" >/dev/null 2>&1 || true
+          sudo podman volume rm -f \"\$v\" >/dev/null 2>&1 || true
         done
 
         log \"🧽 prune leftovers\"
-        podman container prune -f >/dev/null 2>&1 || true
-        podman volume prune -f    >/dev/null 2>&1 || true
-        podman network prune -f   >/dev/null 2>&1 || true
+        sudo podman container prune -f >/dev/null 2>&1 || true
+        sudo podman volume prune -f    >/dev/null 2>&1 || true
+        sudo podman network prune -f   >/dev/null 2>&1 || true
 
         log \"✅ keycloak stack removed\"
         "
@@ -3124,7 +3277,7 @@ down_profiles_menu() {
         # Destroy app'
         podman machine ssh default -- bash -lc "
           set -euo pipefail
-          HOST_PROJ=$HOST_PROJ
+          HOST_PROJ=\"/work\"
           PODMAN_OVERLAY_DIR=$PODMAN_OVERLAY_DIR
           SERVICE=\"app\"
           PROJECT_ELASTIC=\"osss-app\"
@@ -3133,14 +3286,14 @@ down_profiles_menu() {
 
           # Pick compose provider + correct remove-volumes flag
           COMPOSE=() ; DOWN_VOL_FLAG=\"\"
-          if podman compose version >/dev/null 2>&1; then
-            COMPOSE=(podman compose)
+          if sudo podman compose version >/dev/null 2>&1; then
+            COMPOSE=(sudo podman compose)
             DOWN_VOL_FLAG=\"--volumes\"
-          elif command -v podman-compose >/dev/null 2>&1; then
-            COMPOSE=(podman-compose)
+          elif command -v sudo podman-compose >/dev/null 2>&1; then
+            COMPOSE=(sudo podman-compose)
             DOWN_VOL_FLAG=\"-v\"
           else
-            echo \"❌ Neither podman compose nor podman-compose found.\"
+            echo \"❌ Neither sudo podman compose nor sudo podman-compose found.\"
             exit 1
           fi
 
@@ -3148,9 +3301,9 @@ down_profiles_menu() {
             echo \"🗑️  Attempting to remove container '\$cname' (with volumes)…\"
 
             # First stop it if running
-            if podman inspect \"\$cname\" --format '{{.State.Running}}' 2>/dev/null | grep -qi true; then
+            if sudo podman inspect \"\$cname\" --format '{{.State.Running}}' 2>/dev/null | grep -qi true; then
               echo \"⏹️  Container '\$cname' is running, stopping it first…\"
-              if podman stop -t 15 \"\$cname\" >/dev/null 2>&1; then
+              if sudo podman stop -t 15 \"\$cname\" >/dev/null 2>&1; then
                 echo \"✅ Stopped container: \$cname\"
               else
                 echo \"⚠️  Failed to stop container '\$cname' (continuing anyway)\"
@@ -3160,31 +3313,31 @@ down_profiles_menu() {
             fi
 
             # Then remove with volumes
-            if podman rm -v \"\$cname\" >/dev/null 2>&1; then
+            if sudo podman rm -v \"\$cname\" >/dev/null 2>&1; then
               echo \"✅ Successfully removed container: \$cname (including anonymous volumes)\"
               continue
             else
               echo \"⚠️  Could not remove container '\$cname'.\"
               echo \"   - It may not exist, or it may still be running under a different name.\"
               echo \"   - Current container list (filtered for \$cname):\"
-              podman ps -a --format \"table {{.Names}}\\t{{.Status}}\\t{{.CreatedAt}}\" | grep -E \"NAMES|\$cname\" || true
+              sudo podman ps -a --format \"table {{.Names}}\\t{{.Status}}\\t{{.CreatedAt}}\" | grep -E \"NAMES|\$cname\" || true
             fi
           done
 
-          for cid in \$(podman ps -a -q --filter volume= osss-app_osss_postgres_data); do
+          for cid in \$(sudo podman ps -a -q --filter volume= osss-app_osss_postgres_data); do
             echo \"Removing container \$cid using volume…\"
-            podman stop \"\$cid\" || true
-            podman rm -f \"\$cid\"
+            sudo podman stop \"\$cid\" || true
+            sudo podman rm -f \"\$cid\"
           done
-          podman volume rm  osss-app_osss_postgres_data 2>&1 | grep -q 'no such volume' && \
+          sudo podman volume rm  osss-app_osss_postgres_data 2>&1 | grep -q 'no such volume' && \
   echo "⚠️  Volume not found, skipping" || true
 
-          for cid in \$(podman ps -a -q --filter volume= osss-app_redis-data); do
+          for cid in \$(sudo podman ps -a -q --filter volume= osss-app_redis-data); do
             echo \"Removing container \$cid using volume…\"
-            podman stop \"\$cid\" || true
-            podman rm -f \"\$cid\"
+            sudo podman stop \"\$cid\" || true
+            sudo podman rm -f \"\$cid\"
           done
-          podman volume rm  osss-app_redis-data 2>&1 | grep -q 'no such volume' && \
+          sudo podman volume rm  osss-app_redis-data 2>&1 | grep -q 'no such volume' && \
   echo "⚠️  Volume not found, skipping" || true
 
         "
@@ -3195,7 +3348,7 @@ down_profiles_menu() {
         podman machine ssh default -- bash -lc "
           set -euo pipefail
 
-          HOST_PROJ=${HOST_PROJ}
+          HOST_PROJ=\"/work\"
           cd \"\${HOST_PROJ}\" || { echo '❌ Path not visible inside VM:' \"\${HOST_PROJ}\"; exit 1; }
 
           PROJECT=osss-web-app       # compose project name
@@ -3203,52 +3356,52 @@ down_profiles_menu() {
           VOLUME_NAME=\${PROJECT}_web_node_modules
 
           # Prefer podman compose if present
-          if podman compose version >/dev/null 2>&1; then
-            COMPOSE=(podman compose)
+          if sudo podman compose version >/dev/null 2>&1; then
+            COMPOSE=(sudo podman compose)
             DOWN_VOL_FLAG=\"--volumes\"
-          elif command -v podman-compose >/dev/null 2>&1; then
-            COMPOSE=(podman-compose)
+          elif command -v sudo podman-compose >/dev/null 2>&1; then
+            COMPOSE=(sudo podman-compose)
             DOWN_VOL_FLAG=\"-v\"
           else
-            echo '❌ Neither podman compose nor podman-compose found.'
+            echo '❌ Neither sudo podman compose nor sudo podman-compose found.'
             exit 1
           fi
 
           echo '🔎 Resolving container(s) by compose labels…'
-          CIDS=\$(podman ps -a \
+          CIDS=\$(sudo podman ps -a \
             --filter label=io.podman.compose.project=\${PROJECT} \
             --filter label=io.podman.compose.service=\${SERVICE} \
             -q)
 
           if [ -n \"\${CIDS}\" ]; then
             echo \"⏹️  Stopping containers: \${CIDS}\"
-            podman stop \${CIDS} || true
+            sudo podman stop \${CIDS} || true
             echo \"🗑️  Removing containers: \${CIDS}\"
-            podman rm -f \${CIDS} || true
+            sudo podman rm -f \${CIDS} || true
           else
             echo 'ℹ️  No containers matched by labels; showing all for reference:'
-            podman ps -a --format '  {{.Names}}\t{{.Image}}\t{{.Status}}' | sed '1s/^/  NAMES\\tIMAGE\\tSTATUS\\n/'
+            sudo podman ps -a --format '  {{.Names}}\t{{.Image}}\t{{.Status}}' | sed '1s/^/  NAMES\\tIMAGE\\tSTATUS\\n/'
           fi
 
           echo '🧹 Compose down (service-specific, removes orphans & anon volumes if supported)…'
           COMPOSE_PROJECT_NAME=\${PROJECT} \"\${COMPOSE[@]}\" -f docker-compose.yml down \${DOWN_VOL_FLAG} --remove-orphans || true
 
           # Extra safety: remove service-specific container by NAME if one exists with plain name 'web'
-          if podman inspect web >/dev/null 2>&1; then
+          if sudo podman inspect web >/dev/null 2>&1; then
             echo '🗑️  Removing leftover container named \"web\"'
-            podman stop web || true
-            podman rm -f web || true
+            sudo podman stop web || true
+            sudo podman rm -f web || true
           fi
 
           echo '🗂️  Removing named volume if present: '\${VOLUME_NAME}
-          if podman volume exists \"\${VOLUME_NAME}\"; then
+          if sudo podman volume exists \"\${VOLUME_NAME}\"; then
             # stop any container still using the volume (just in case)
-            for cid in \$(podman ps -a -q --filter volume=\${VOLUME_NAME}); do
+            for cid in \$(sudo podman ps -a -q --filter volume=\${VOLUME_NAME}); do
               echo \"  - stopping \$cid (uses \${VOLUME_NAME})\"
-              podman stop \"\$cid\" || true
-              podman rm -f \"\$cid\" || true
+              sudo podman stop \"\$cid\" || true
+              sudo podman rm -f \"\$cid\" || true
             done
-            podman volume rm -f \"\${VOLUME_NAME}\" || true
+            sudo podman volume rm -f \"\${VOLUME_NAME}\" || true
             echo '✅ Volume removed'
           else
             echo '⚠️  Volume not found; skipping'
@@ -3268,7 +3421,7 @@ down_profiles_menu() {
           fi
 
           echo '✅ Done. Current containers (project filter):'
-          podman ps -a --filter label=io.podman.compose.project=\${PROJECT} \
+          sudo podman ps -a --filter label=io.podman.compose.project=\${PROJECT} \
                     --format '{{.Names}}\t{{.Image}}\t{{.Status}}' || true
         "
 
@@ -3281,24 +3434,25 @@ down_profiles_menu() {
 
           log(){ printf '%(%F %T)T %s\n' -1 \"\$*\"; }
 
-          HOST_PROJ=$HOST_PROJ
+          HOST_PROJ=\"/work\"
+
           PODMAN_OVERLAY_DIR=$PODMAN_OVERLAY_DIR
           SERVICE=\"elastic\"
           PROJECT_ELASTIC=\${PROJECT_ELASTIC:-osss-elastic}
           PROJECT_DEFAULT=\${PROJECT_DEFAULT:-\$(basename \"\$HOST_PROJ\")}
 
-          cd \"\$HOST_PROJ\" || { log \"❌ Path not visible inside VM: \$HOST_PROJ\"; exit 1; }
+          cd \"\${HOST_PROJ}\" || { echo '❌ Path not visible inside VM:' \"\${HOST_PROJ}\"; exit 1; }
 
           # Pick compose provider + correct remove-volumes flag
           COMPOSE=() ; DOWN_VOL_FLAG=\"\"
-          if podman compose version >/dev/null 2>&1; then
-            COMPOSE=(podman compose)
+          if sudo podman compose version >/dev/null 2>&1; then
+            COMPOSE=(sudo podman compose)
             DOWN_VOL_FLAG=\"--volumes\"
-          elif command -v podman-compose >/dev/null 2>&1; then
-            COMPOSE=(podman-compose)
+          elif command -v sudo podman-compose >/dev/null 2>&1; then
+            COMPOSE=(sudo podman-compose)
             DOWN_VOL_FLAG=\"-v\"
           else
-            log \"❌ Neither podman compose nor podman-compose found.\"; exit 1
+            log \"❌ Neither sudo podman compose nor sudo podman-compose found.\"; exit 1
           fi
 
           # Try bringing down with both likely project names (handles past runs with/without -p)
@@ -3319,15 +3473,15 @@ down_profiles_menu() {
           }
 
           # Services in the elastic profile (remove dependents first; we'll loop anyway)
-          SRV=( shared-vol-init api-key-init filebeat-setup filebeat kibana-pass-init kibana elasticsearch )
+          SRV=( shared-vol-init filebeat-setup filebeat kibana-pass-init kibana elasticsearch )
 
           # Multi-pass to resolve dependency chains
           for pass in 1 2 3; do
             log \"🧹 pass #\$pass: remove containers by label (projects: \$PROJECT_ELASTIC, \$PROJECT_DEFAULT)\"
             mapfile -t IDS < <(collect_by_label \"\$PROJECT_ELASTIC\"; collect_by_label \"\$PROJECT_DEFAULT\")
             if (( \${#IDS[@]} )); then
-              podman stop -t 15 \"\${IDS[@]}\" >/dev/null 2>&1 || true
-              podman rm -f \"\${IDS[@]}\"     >/dev/null 2>&1 || true
+              sudo podman stop -t 15 \"\${IDS[@]}\" >/dev/null 2>&1 || true
+              sudo podman rm -f \"\${IDS[@]}\"     >/dev/null 2>&1 || true
             fi
 
             # Remove by explicit names & common compose variants
@@ -3342,22 +3496,22 @@ down_profiles_menu() {
             mapfile -t CAND < <(printf '%s\n' \"\${CAND[@]}\" | awk '!seen[\$0]++')
             EXIST=()
             for n in \"\${CAND[@]}\"; do
-              podman inspect \"\$n\" >/dev/null 2>&1 && EXIST+=(\"\$n\")
+              sudo podman inspect \"\$n\" >/dev/null 2>&1 && EXIST+=(\"\$n\")
             done
             if (( \${#EXIST[@]} )); then
               log \"🛑 stopping/removing by name: \${EXIST[*]}\"
-              podman stop -t 10 \"\${EXIST[@]}\" >/dev/null 2>&1 || true
-              podman rm -f \"\${EXIST[@]}\"     >/dev/null 2>&1 || true
+              sudo podman stop -t 10 \"\${EXIST[@]}\" >/dev/null 2>&1 || true
+              sudo podman rm -f \"\${EXIST[@]}\"     >/dev/null 2>&1 || true
             fi
           done
 
           # If Compose created pods, remove those too
-          mapfile -t PODS < <(podman pod ps -a --format '{{.Name}}' 2>/dev/null | \
+          mapfile -t PODS < <(sudo podman pod ps -a --format '{{.Name}}' 2>/dev/null | \
                               grep -E '^(\\Q'\"\$PROJECT_ELASTIC\"'\\E|\\Q'\"\$PROJECT_DEFAULT\"'\\E)[-_]' || true)
           if (( \${#PODS[@]} )); then
             log \"🧺 removing pods: \${PODS[*]}\"
-            podman pod stop -t 10 \"\${PODS[@]}\" >/dev/null 2>&1 || true
-            podman pod rm -f \"\${PODS[@]}\"     >/dev/null 2>&1 || true
+            sudo podman pod stop -t 10 \"\${PODS[@]}\" >/dev/null 2>&1 || true
+            sudo podman pod rm -f \"\${PODS[@]}\"     >/dev/null 2>&1 || true
           fi
 
           # Clean volumes; correct names are es-data and es-shared
@@ -3366,26 +3520,26 @@ down_profiles_menu() {
                  osss_es-data osss_es-shared )
 
           # Also add any existing volumes that match these patterns
-          mapfile -t EXTRA_V < <(podman volume ls --format '{{.Name}}' | \
+          mapfile -t EXTRA_V < <(sudo podman volume ls --format '{{.Name}}' | \
                                  grep -E '^(\\Q'\"\$PROJECT_ELASTIC\"'\\E|\\Q'\"\$PROJECT_DEFAULT\"'\\E|osss)[-_]es-(data|shared)$' || true)
           VOLS+=(\"\${EXTRA_V[@]}\")
           mapfile -t VOLS < <(printf '%s\n' \"\${VOLS[@]}\" | awk '!seen[\$0]++')
 
           for v in \"\${VOLS[@]}\"; do
-            podman volume inspect \"\$v\" >/dev/null 2>&1 || { log \"ℹ️  volume \$v not present\"; continue; }
+            sudo podman volume inspect \"\$v\" >/dev/null 2>&1 || { log \"ℹ️  volume \$v not present\"; continue; }
             log \"📦 cleaning volume \$v\"
-            mapfile -t USING < <(podman ps -a -q --filter \"volume=\$v\" || true)
+            mapfile -t USING < <(sudo podman ps -a -q --filter \"volume=\$v\" || true)
             if (( \${#USING[@]} )); then
-              podman stop -t 10 \"\${USING[@]}\" >/dev/null 2>&1 || true
-              podman rm -f    \"\${USING[@]}\" >/dev/null 2>&1 || true
+              sudo podman stop -t 10 \"\${USING[@]}\" >/dev/null 2>&1 || true
+              sudo podman rm -f    \"\${USING[@]}\" >/dev/null 2>&1 || true
             fi
-            podman volume rm -f \"\$v\" >/dev/null 2>&1 || true
+            sudo podman volume rm -f \"\$v\" >/dev/null 2>&1 || true
           done
 
           log \"🧽 prune leftovers\"
-          podman container prune -f >/dev/null 2>&1 || true
-          podman volume prune -f    >/dev/null 2>&1 || true
-          podman network prune -f   >/dev/null 2>&1 || true
+          sudo podman container prune -f >/dev/null 2>&1 || true
+          sudo podman volume prune -f    >/dev/null 2>&1 || true
+          sudo podman network prune -f   >/dev/null 2>&1 || true
 
           log \"✅ elastic stack resources cleaned\"
         "
@@ -3396,7 +3550,7 @@ down_profiles_menu() {
         # Destroy vault'
         podman machine ssh default -- bash -lc "
           set -euo pipefail
-          HOST_PROJ=$HOST_PROJ
+          HOST_PROJ=\"/work\"
           SERVICE=\"vault\"
           PODMAN_OVERLAY_DIR=$PODMAN_OVERLAY_DIR
           PROJECT_ELASTIC=\"osss-vault\"
@@ -3405,14 +3559,14 @@ down_profiles_menu() {
 
           # Pick compose provider + correct remove-volumes flag
           COMPOSE=() ; DOWN_VOL_FLAG=\"\"
-          if podman compose version >/dev/null 2>&1; then
-            COMPOSE=(podman compose)
+          if sudo podman compose version >/dev/null 2>&1; then
+            COMPOSE=(sudo podman compose)
             DOWN_VOL_FLAG=\"--volumes\"
-          elif command -v podman-compose >/dev/null 2>&1; then
-            COMPOSE=(podman-compose)
+          elif command -v sudo podman-compose >/dev/null 2>&1; then
+            COMPOSE=(sudo podman-compose)
             DOWN_VOL_FLAG=\"-v\"
           else
-            echo \"❌ Neither podman compose nor podman-compose found.\"
+            echo \"❌ Neither sudo podman compose nor sudo podman-compose found.\"
             exit 1
           fi
 
@@ -3420,9 +3574,9 @@ down_profiles_menu() {
             echo \"🗑️  Attempting to remove container '\$cname' (with volumes)…\"
 
             # First stop it if running
-            if podman inspect \"\$cname\" --format '{{.State.Running}}' 2>/dev/null | grep -qi true; then
+            if sudo podman inspect \"\$cname\" --format '{{.State.Running}}' 2>/dev/null | grep -qi true; then
               echo \"⏹️  Container '\$cname' is running, stopping it first…\"
-              if podman stop -t 15 \"\$cname\" >/dev/null 2>&1; then
+              if sudo podman stop -t 15 \"\$cname\" >/dev/null 2>&1; then
                 echo \"✅ Stopped container: \$cname\"
               else
                 echo \"⚠️  Failed to stop container '\$cname' (continuing anyway)\"
@@ -3432,21 +3586,21 @@ down_profiles_menu() {
             fi
 
             # Then remove with volumes
-            if podman rm -v \"\$cname\" >/dev/null 2>&1; then
+            if sudo podman rm -v \"\$cname\" >/dev/null 2>&1; then
               echo \"✅ Successfully removed container: \$cname (including anonymous volumes)\"
               continue
             else
               echo \"⚠️  Could not remove container '\$cname'.\"
               echo \"   - It may not exist, or it may still be running under a different name.\"
               echo \"   - Current container list (filtered for \$cname):\"
-              podman ps -a --format \"table {{.Names}}\\t{{.Status}}\\t{{.CreatedAt}}\" | grep -E \"NAMES|\$cname\" || true
+              sudo podman ps -a --format \"table {{.Names}}\\t{{.Status}}\\t{{.CreatedAt}}\" | grep -E \"NAMES|\$cname\" || true
             fi
           done
 
-          for cid in \$(podman ps -a -q --filter volume=osss-elastic_es-data); do
+          for cid in \$(sudo podman ps -a -q --filter volume=osss-elastic_es-data); do
             echo \"Removing container \$cid using volume…\"
-            podman stop \"\$cid\" || true
-            podman rm -f \"\$cid\"
+            sudo podman stop \"\$cid\" || true
+            sudo podman rm -f \"\$cid\"
           done
         "
         prompt_return
@@ -3455,21 +3609,21 @@ down_profiles_menu() {
         # Destroy consol'
         podman machine ssh default -- bash -lc "
           set -euo pipefail
-          HOST_PROJ=$HOST_PROJ
+          HOST_PROJ=\"/work\"
           SERVICE=\"consul\"
           PODMAN_OVERLAY_DIR=$PODMAN_OVERLAY_DIR
           cd \"\$HOST_PROJ\" || { echo \"❌ Path not visible inside VM:\" \"\$HOST_PROJ\"; exit 1; }
 
           # Pick compose provider + correct remove-volumes flag
           COMPOSE=() ; DOWN_VOL_FLAG=\"\"
-          if podman compose version >/dev/null 2>&1; then
-            COMPOSE=(podman compose)
+          if sudo podman compose version >/dev/null 2>&1; then
+            COMPOSE=(sudo podman compose)
             DOWN_VOL_FLAG=\"--volumes\"
-          elif command -v podman-compose >/dev/null 2>&1; then
-            COMPOSE=(podman-compose)
+          elif command -v sudo podman-compose >/dev/null 2>&1; then
+            COMPOSE=(sudo podman-compose)
             DOWN_VOL_FLAG=\"-v\"
           else
-            echo \"❌ Neither podman compose nor podman-compose found.\"
+            echo \"❌ Neither sudo podman compose nor sudo podman-compose found.\"
             exit 1
           fi
 
@@ -3477,7 +3631,7 @@ down_profiles_menu() {
             echo \"🗑️  Attempting to remove container '\$cname' (with volumes)…\"
 
             # First stop it if running
-            if podman inspect \"\$cname\" --format '{{.State.Running}}' 2>/dev/null | grep -qi true; then
+            if sudo podman inspect \"\$cname\" --format '{{.State.Running}}' 2>/dev/null | grep -qi true; then
               echo \"⏹️  Container '\$cname' is running, stopping it first…\"
               if podman stop -t 15 \"\$cname\" >/dev/null 2>&1; then
                 echo \"✅ Stopped container: \$cname\"
@@ -3489,21 +3643,21 @@ down_profiles_menu() {
             fi
 
             # Then remove with volumes
-            if podman rm -v \"\$cname\" >/dev/null 2>&1; then
+            if sudo podman rm -v \"\$cname\" >/dev/null 2>&1; then
               echo \"✅ Successfully removed container: \$cname (including anonymous volumes)\"
               continue
             else
               echo \"⚠️  Could not remove container '\$cname'.\"
               echo \"   - It may not exist, or it may still be running under a different name.\"
               echo \"   - Current container list (filtered for \$cname):\"
-              podman ps -a --format \"table {{.Names}}\\t{{.Status}}\\t{{.CreatedAt}}\" | grep -E \"NAMES|\$cname\" || true
+              sudo podman ps -a --format \"table {{.Names}}\\t{{.Status}}\\t{{.CreatedAt}}\" | grep -E \"NAMES|\$cname\" || true
             fi
           done
 
-          for cid in \$(podman ps -a -q --filter volume=osss-consul_dat); do
+          for cid in \$(sudo podman ps -a -q --filter volume=osss-consul_dat); do
             echo \"Removing container \$cid using volume…\"
-            podman stop \"\$cid\" || true
-            podman rm -f \"\$cid\"
+            sudo podman stop \"\$cid\" || true
+            sudo podman rm -f \"\$cid\"
           done
 
         "
@@ -3513,7 +3667,7 @@ down_profiles_menu() {
         # Destroy trino'
         podman machine ssh default -- bash -lc "
           set -euo pipefail
-          HOST_PROJ=$HOST_PROJ
+          HOST_PROJ=\"/work\"
           SERVICE=\"trino\"
           PODMAN_OVERLAY_DIR=$PODMAN_OVERLAY_DIR
           PROJECT_ELASTIC=\"osss-trino\"
@@ -3522,14 +3676,14 @@ down_profiles_menu() {
 
           # Pick compose provider + correct remove-volumes flag
           COMPOSE=() ; DOWN_VOL_FLAG=\"\"
-          if podman compose version >/dev/null 2>&1; then
-            COMPOSE=(podman compose)
+          if sudo podman compose version >/dev/null 2>&1; then
+            COMPOSE=(sudo podman compose)
             DOWN_VOL_FLAG=\"--volumes\"
-          elif command -v podman-compose >/dev/null 2>&1; then
-            COMPOSE=(podman-compose)
+          elif command -v sudo podman-compose >/dev/null 2>&1; then
+            COMPOSE=(sudo podman-compose)
             DOWN_VOL_FLAG=\"-v\"
           else
-            echo \"❌ Neither podman compose nor podman-compose found.\"
+            echo \"❌ Neither sudo podman compose nor sudo podman-compose found.\"
             exit 1
           fi
 
@@ -3537,9 +3691,9 @@ down_profiles_menu() {
             echo \"🗑️  Attempting to remove container '\$cname' (with volumes)…\"
 
             # First stop it if running
-            if podman inspect \"\$cname\" --format '{{.State.Running}}' 2>/dev/null | grep -qi true; then
+            if sudo podman inspect \"\$cname\" --format '{{.State.Running}}' 2>/dev/null | grep -qi true; then
               echo \"⏹️  Container '\$cname' is running, stopping it first…\"
-              if podman stop -t 15 \"\$cname\" >/dev/null 2>&1; then
+              if sudo podman stop -t 15 \"\$cname\" >/dev/null 2>&1; then
                 echo \"✅ Stopped container: \$cname\"
               else
                 echo \"⚠️  Failed to stop container '\$cname' (continuing anyway)\"
@@ -3549,14 +3703,14 @@ down_profiles_menu() {
             fi
 
             # Then remove with volumes
-            if podman rm -v \"\$cname\" >/dev/null 2>&1; then
+            if sudo podman rm -v \"\$cname\" >/dev/null 2>&1; then
               echo \"✅ Successfully removed container: \$cname (including anonymous volumes)\"
               continue
             else
               echo \"⚠️  Could not remove container '\$cname'.\"
               echo \"   - It may not exist, or it may still be running under a different name.\"
               echo \"   - Current container list (filtered for \$cname):\"
-              podman ps -a --format \"table {{.Names}}\\t{{.Status}}\\t{{.CreatedAt}}\" | grep -E \"NAMES|\$cname\" || true
+              sudo podman ps -a --format \"table {{.Names}}\\t{{.Status}}\\t{{.CreatedAt}}\" | grep -E \"NAMES|\$cname\" || true
             fi
           done
         "
@@ -3566,58 +3720,57 @@ down_profiles_menu() {
         # Destroy airflow'
         podman machine ssh default -- bash -lc "
           set -euo pipefail
-
-          HOST_PROJ=$HOST_PROJ
+          HOST_PROJ=\"/work\"
           cd \"\$HOST_PROJ\" || { echo '❌ Path not visible inside VM:' \"\$HOST_PROJ\"; exit 1; }
 
           PROJECT='osss-airflow'
           TARGET_VOL='osss-airflow_airflow-pgdata'
 
           echo '🔻 Compose down (volumes + orphans) if available…'
-          if podman compose version >/dev/null 2>&1; then
-            podman compose -p \"\$PROJECT\" down --volumes --remove-orphans || true
-          elif command -v podman-compose >/dev/null 2>&1; then
-            COMPOSE_PROJECT_NAME=\"\$PROJECT\" podman-compose down -v --remove-orphans || true
+          if sudo podman compose version >/dev/null 2>&1; then
+            sudo podman compose -p \"\$PROJECT\" down --volumes --remove-orphans || true
+          elif command -v sudo podman-compose >/dev/null 2>&1; then
+            COMPOSE_PROJECT_NAME=\"\$PROJECT\" sudo podman-compose down -v --remove-orphans || true
           else
             echo 'ℹ️  No compose frontend found; continuing with raw cleanup…'
           fi
 
           echo '🧺 Stop & remove any project containers (by compose labels)…'
-          mapfile -t PCTRS < <(podman ps -a -q --filter label=io.podman.compose.project=\"\$PROJECT\")
-          mapfile -t DCTRS < <(podman ps -a -q --filter label=com.docker.compose.project=\"\$PROJECT\")
+          mapfile -t PCTRS < <(sudo podman ps -a -q --filter label=io.podman.compose.project=\"\$PROJECT\")
+          mapfile -t DCTRS < <(sudo podman ps -a -q --filter label=com.docker.compose.project=\"\$PROJECT\")
           ALL_CTRS=(\"\${PCTRS[@]}\" \"\${DCTRS[@]}\")
           if ((\${#ALL_CTRS[@]})); then
-            podman stop -t 15 \"\${ALL_CTRS[@]}\" >/dev/null 2>&1 || true
-            podman rm   -f   \"\${ALL_CTRS[@]}\" >/dev/null 2>&1 || true
+            sudo podman stop -t 15 \"\${ALL_CTRS[@]}\" >/dev/null 2>&1 || true
+            sudo podman rm   -f   \"\${ALL_CTRS[@]}\" >/dev/null 2>&1 || true
           fi
 
           echo '🧺 Also remove known service names (belt & suspenders)…'
           for cname in airflow-webserver airflow-scheduler airflow-init postgres-airflow airflow-redis; do
-            if podman ps -a --format '{{.Names}}' | grep -Fxq \"\$cname\"; then
-              podman stop -t 15 \"\$cname\" >/dev/null 2>&1 || true
-              podman rm -f      \"\$cname\" >/dev/null 2>&1 || true
+            if sudo podman ps -a --format '{{.Names}}' | grep -Fxq \"\$cname\"; then
+              sudo podman stop -t 15 \"\$cname\" >/dev/null 2>&1 || true
+              sudo podman rm -f      \"\$cname\" >/dev/null 2>&1 || true
             fi
           done
 
           echo '🫙 Remove any pods for this compose project…'
-          mapfile -t PPODS < <(podman pod ps -a -q --filter label=io.podman.compose.project=\"\$PROJECT\")
-          mapfile -t DPODS < <(podman pod ps -a -q --filter label=com.docker.compose.project=\"\$PROJECT\")
+          mapfile -t PPODS < <(sudo podman pod ps -a -q --filter label=io.podman.compose.project=\"\$PROJECT\")
+          mapfile -t DPODS < <(sudo podman pod ps -a -q --filter label=com.docker.compose.project=\"\$PROJECT\")
           ALL_PODS=(\"\${PPODS[@]}\" \"\${DPODS[@]}\")
           if ((\${#ALL_PODS[@]})); then
-            podman pod rm -f \"\${ALL_PODS[@]}\" >/dev/null 2>&1 || true
+            sudo podman pod rm -f \"\${ALL_PODS[@]}\" >/dev/null 2>&1 || true
           fi
 
           echo \"🔎 Verifying target volume exists: '\$TARGET_VOL'…\"
-          if ! podman volume ls --format '{{.Name}}' | grep -Fxq \"\$TARGET_VOL\"; then
+          if ! sudo podman volume ls --format '{{.Name}}' | grep -Fxq \"\$TARGET_VOL\"; then
             echo 'ℹ️  Target volume not found. Current airflow/osss volumes:'
-            podman volume ls --format '{{.Name}}' | grep -E '^osss-airflow_|airflow|osss' || true
+            sudo podman volume ls --format '{{.Name}}' | grep -E '^osss-airflow_|airflow|osss' || true
             exit 0
           fi
 
           echo '🔗 Finding containers that still reference the volume…'
           mapfile -t USERS < <(
-            podman ps -a -q | while read -r cid; do
-              podman inspect \"\$cid\" --format '{{.ID}} {{.Name}} {{range .Mounts}}{{if .Name}}{{.Name}} {{end}}{{end}}' 2>/dev/null
+            sudo podman ps -a -q | while read -r cid; do
+              sudo podman inspect \"\$cid\" --format '{{.ID}} {{.Name}} {{range .Mounts}}{{if .Name}}{{.Name}} {{end}}{{end}}' 2>/dev/null
             done | awk -v v=\"\$TARGET_VOL\" '{
               cid=\$1; name=\$2;
               for (i=3;i<=NF;i++) if (\$i==v) { gsub(\"^/\",\"\",name); print cid\" \"name; break }
@@ -3629,34 +3782,34 @@ down_profiles_menu() {
             printf '   - %s\n' \"\${USERS[@]}\"
             for pair in \"\${USERS[@]}\"; do
               cid=\${pair%% *}
-              podman stop -t 10 \"\$cid\" >/dev/null 2>&1 || true
-              podman rm -f       \"\$cid\" >/dev/null 2>&1 || true
+              sudo podman stop -t 10 \"\$cid\" >/dev/null 2>&1 || true
+              sudo podman rm -f       \"\$cid\" >/dev/null 2>&1 || true
             done
           else
             echo '✅ No containers reference the volume.'
           fi
 
           echo '🧽 Removing the volume…'
-          podman volume rm \"\$TARGET_VOL\" >/dev/null 2>&1 || podman volume rm -f \"\$TARGET_VOL\" >/dev/null 2>&1 || {
+          sudo podman volume rm \"\$TARGET_VOL\" >/dev/null 2>&1 || sudo podman volume rm -f \"\$TARGET_VOL\" >/dev/null 2>&1 || {
             echo '❌ Could not remove volume. Inspecting:'
-            podman volume inspect \"\$TARGET_VOL\" || true
+            sudo podman volume inspect \"\$TARGET_VOL\" || true
             echo '🧰 System mounts with names (for debug):'
-            podman ps -a --format 'table {{.ID}}\\t{{.Names}}\\t{{.Mounts}}'
+            sudo podman ps -a --format 'table {{.ID}}\\t{{.Names}}\\t{{.Mounts}}'
             exit 1
           }
           echo '✅ Volume removed.'
 
           echo
           echo '🧹 Final prune (dangling only)…'
-          podman volume prune -f >/dev/null 2>&1 || true
+          sudo podman volume prune -f >/dev/null 2>&1 || true
 
           echo
           echo '✅ Post-clean containers (airflow/* should be gone):'
-          podman ps -a --format 'table {{.Names}}\\t{{.Status}}' | (grep -E '^airflow-|^postgres-airflow$' || true)
+          sudo podman ps -a --format 'table {{.Names}}\\t{{.Status}}' | (grep -E '^airflow-|^postgres-airflow$' || true)
 
           echo
           echo '✅ Post-clean volumes (project/pattern match):'
-          podman volume ls --format '{{.Name}}' | (grep -E '^osss-airflow_|airflow|osss' || true)
+          sudo podman volume ls --format '{{.Name}}' | (grep -E '^osss-airflow_|airflow|osss' || true)
         "
 
         prompt_return
@@ -3665,7 +3818,7 @@ down_profiles_menu() {
         # Destroy superset'
         podman machine ssh default -- bash -lc "
           set -euo pipefail
-          HOST_PROJ=$HOST_PROJ
+          HOST_PROJ=\"/work\"
           SERVICE=\"trino\"
           PODMAN_OVERLAY_DIR=$PODMAN_OVERLAY_DIR
           PROJECT_ELASTIC=\"osss-superset\"
@@ -3674,14 +3827,14 @@ down_profiles_menu() {
 
           # Pick compose provider + correct remove-volumes flag
           COMPOSE=() ; DOWN_VOL_FLAG=\"\"
-          if podman compose version >/dev/null 2>&1; then
-            COMPOSE=(podman compose)
+          if sudo podman compose version >/dev/null 2>&1; then
+            COMPOSE=(sudo podman compose)
             DOWN_VOL_FLAG=\"--volumes\"
-          elif command -v podman-compose >/dev/null 2>&1; then
-            COMPOSE=(podman-compose)
+          elif command -v sudo podman-compose >/dev/null 2>&1; then
+            COMPOSE=(sudo podman-compose)
             DOWN_VOL_FLAG=\"-v\"
           else
-            echo \"❌ Neither podman compose nor podman-compose found.\"
+            echo \"❌ Neither sudo podman compose nor sudo podman-compose found.\"
             exit 1
           fi
 
@@ -3689,9 +3842,9 @@ down_profiles_menu() {
             echo \"🗑️  Attempting to remove container '\$cname' (with volumes)…\"
 
             # First stop it if running
-            if podman inspect \"\$cname\" --format '{{.State.Running}}' 2>/dev/null | grep -qi true; then
+            if sudo podman inspect \"\$cname\" --format '{{.State.Running}}' 2>/dev/null | grep -qi true; then
               echo \"⏹️  Container '\$cname' is running, stopping it first…\"
-              if podman stop -t 15 \"\$cname\" >/dev/null 2>&1; then
+              if sudo podman stop -t 15 \"\$cname\" >/dev/null 2>&1; then
                 echo \"✅ Stopped container: \$cname\"
               else
                 echo \"⚠️  Failed to stop container '\$cname' (continuing anyway)\"
@@ -3701,31 +3854,31 @@ down_profiles_menu() {
             fi
 
             # Then remove with volumes
-            if podman rm -v \"\$cname\" >/dev/null 2>&1; then
+            if sudo podman rm -v \"\$cname\" >/dev/null 2>&1; then
               echo \"✅ Successfully removed container: \$cname (including anonymous volumes)\"
               continue
             else
               echo \"⚠️  Could not remove container '\$cname'.\"
               echo \"   - It may not exist, or it may still be running under a different name.\"
               echo \"   - Current container list (filtered for \$cname):\"
-              podman ps -a --format \"table {{.Names}}\\t{{.Status}}\\t{{.CreatedAt}}\" | grep -E \"NAMES|\$cname\" || true
+              sudo podman ps -a --format \"table {{.Names}}\\t{{.Status}}\\t{{.CreatedAt}}\" | grep -E \"NAMES|\$cname\" || true
             fi
           done
 
-          for cid in \$(podman ps -a -q --filter volume=osss-superset_pg_superset_data); do
+          for cid in \$(sudo podman ps -a -q --filter volume=osss-superset_pg_superset_data); do
             echo \"Removing container \$cid using volume…\"
-            podman stop \"\$cid\" || true
-            podman rm -f \"\$cid\"
+            sudo podman stop \"\$cid\" || true
+            sudo podman rm -f \"\$cid\"
           done
-          podman volume rm osss-superset_pg_superset_data 2>&1 | grep -q 'no such volume' && \
+          sudo podman volume rm osss-superset_pg_superset_data 2>&1 | grep -q 'no such volume' && \
   echo "⚠️  Volume not found, skipping" || true
 
-          for cid in \$(podman ps -a -q --filter volume=osss-superset_superset_redis_data); do
+          for cid in \$(sudo podman ps -a -q --filter volume=osss-superset_superset_redis_data); do
             echo \"Removing container \$cid using volume…\"
-            podman stop \"\$cid\" || true
-            podman rm -f \"\$cid\"
+            sudo podman stop \"\$cid\" || true
+            sudo podman rm -f \"\$cid\"
           done
-          podman volume rm osss-superset_superset_redis_data 2>&1 | grep -q 'no such volume' && \
+          sudo podman volume rm osss-superset_superset_redis_data 2>&1 | grep -q 'no such volume' && \
   echo "⚠️  Volume not found, skipping" || true
 
 
@@ -3737,7 +3890,7 @@ down_profiles_menu() {
         # Destroy openmetadata'
         podman machine ssh default -- bash -lc "
           set -euo pipefail
-          HOST_PROJ=$HOST_PROJ
+          HOST_PROJ=\"/work\"
           SERVICE=\"trino\"
           PODMAN_OVERLAY_DIR=$PODMAN_OVERLAY_DIR
           PROJECT_ELASTIC=\"osss-openmetadata\"
@@ -3746,14 +3899,14 @@ down_profiles_menu() {
 
           # Pick compose provider + correct remove-volumes flag
           COMPOSE=() ; DOWN_VOL_FLAG=\"\"
-          if podman compose version >/dev/null 2>&1; then
-            COMPOSE=(podman compose)
+          if sudo podman compose version >/dev/null 2>&1; then
+            COMPOSE=(sudo podman compose)
             DOWN_VOL_FLAG=\"--volumes\"
-          elif command -v podman-compose >/dev/null 2>&1; then
-            COMPOSE=(podman-compose)
+          elif command -v sudo podman-compose >/dev/null 2>&1; then
+            COMPOSE=(sudo podman-compose)
             DOWN_VOL_FLAG=\"-v\"
           else
-            echo \"❌ Neither podman compose nor podman-compose found.\"
+            echo \"❌ Neither sudo podman compose nor sudo podman-compose found.\"
             exit 1
           fi
 
@@ -3762,20 +3915,20 @@ down_profiles_menu() {
             echo \"🗑️  Attempting to remove container '\$cname' (with volumes & dependents)…\"
 
             # Stop if running
-            if podman inspect \"\$cname\" --format '{{.State.Running}}' 2>/dev/null | grep -qi true; then
+            if sudo podman inspect \"\$cname\" --format '{{.State.Running}}' 2>/dev/null | grep -qi true; then
               echo \"⏹️  '\$cname' is running, stopping…\"
-              podman stop -t 15 \"\$cname\" >/dev/null 2>&1 || echo \"⚠️  Failed to stop '\$cname' (continuing)\"
+              sudo podman stop -t 15 \"\$cname\" >/dev/null 2>&1 || echo \"⚠️  Failed to stop '\$cname' (continuing)\"
             else
               echo \"ℹ️  '\$cname' is not running (or does not exist)\"
             fi
 
             # Remove container + its dependents + anonymous volumes (best-effort)
-            if podman rm -fv --depend \"\$cname\" >/dev/null 2>&1; then
+            if sudo podman rm -fv --depend \"\$cname\" >/dev/null 2>&1; then
               echo \"✅ Removed: \$cname (and any dependents; anon volumes too)\"
             else
               echo \"⚠️  Could not remove '\$cname' (might not exist or named differently).\"
               echo \"   Current matches:\"
-              podman ps -a --format \"table {{.Names}}\t{{.Status}}\t{{.CreatedAt}}\" | grep -E \"NAMES|\$cname\" || true
+              sudo podman ps -a --format \"table {{.Names}}\t{{.Status}}\t{{.CreatedAt}}\" | grep -E \"NAMES|\$cname\" || true
             fi
           done
 
@@ -3783,24 +3936,24 @@ down_profiles_menu() {
 
           # 1) Pods whose *pod name* contains 'mysql'
           echo \"🔎 Looking for pods with 'mysql' in the pod name…\"
-          for pod in \$(podman pod ps -a --format '{{.Name}}' | grep -i 'mysql' || true); do
+          for pod in \$(sudo podman pod ps -a --format '{{.Name}}' | grep -i 'mysql' || true); do
             echo \"🗑️  Removing pod (by name): \$pod\"
-            podman pod rm -f \"\$pod\" || true
+            sudo podman pod rm -f \"\$pod\" || true
           done
 
           # 2) Pods that *contain a container* whose name contains 'mysql' (even if pod name doesn't)
           echo \"🔎 Looking for pods that contain a *mysql* container…\"
           mapfile -t MYSQL_PODS < <(
-            podman ps -a --format '{{.Names}}' \
+            sudo podman ps -a --format '{{.Names}}' \
             | grep -i 'mysql' \
-            | xargs -r -n1 sh -c 'podman inspect \"\$0\" --format \"{{.PodName}}\" 2>/dev/null' \
+            | xargs -r -n1 sh -c 'sudo podman inspect \"\$0\" --format \"{{.PodName}}\" 2>/dev/null' \
             | awk \"NF\" | sort -u
           )
           for pod in \"\${MYSQL_PODS[@]}\"; do
             # Sometimes standalone containers print \"<no value>\" for PodName; skip those
             if [ -n \"\$pod\" ] && [ \"\$pod\" != \"<no value>\" ]; then
               echo \"🗑️  Removing pod (by membership): \$pod\"
-              podman pod rm -f \"\$pod\" || true
+              sudo podman pod rm -f \"\$pod\" || true
             fi
           done
 
@@ -3808,9 +3961,9 @@ down_profiles_menu() {
           for cname in execute_migrate_all openmetadata-server om-elasticsearch openmetadata-ingestion mysql ; do
             echo \"🗑️ Attempting to remove container '\$cname' (with volumes)…\"
             # First stop it if running
-            if podman inspect \"\$cname\" --format '{{.State.Running}}' 2>/dev/null | grep -qi true; then
+            if sudo podman inspect \"\$cname\" --format '{{.State.Running}}' 2>/dev/null | grep -qi true; then
               echo \"⏹️ Container '\$cname' is running, stopping it first…\"
-              if podman stop -t 15 \"\$cname\" >/dev/null 2>&1; then
+              if sudo podman stop -t 15 \"\$cname\" >/dev/null 2>&1; then
                 echo \"✅ Stopped container: \$cname\" else echo \"⚠️ Failed to stop container '\$cname' (continuing anyway)\"
               fi
             else
@@ -3818,56 +3971,53 @@ down_profiles_menu() {
             fi
 
             # Then remove with volumes
-            if podman rm -v \"\$cname\" >/dev/null 2>&1; then
+            if sudo podman rm -v \"\$cname\" >/dev/null 2>&1; then
               echo \"✅ Successfully removed container: \$cname (including anonymous volumes)\" continue
             else
               echo \"⚠️ Could not remove container '\$cname'.\" echo \" - It may not exist, or it may still be running under a different name.\"
               echo \" - Current container list (filtered for \$cname):\"
-              podman ps -a --format \"table {{.Names}}\\t{{.Status}}\\t{{.CreatedAt}}\" | grep -E \"NAMES|\$cname\" || true
+              sudo podman ps -a --format \"table {{.Names}}\\t{{.Status}}\\t{{.CreatedAt}}\" | grep -E \"NAMES|\$cname\" || true
             fi
           done
 
-
-
-
           for cid in \$(podman ps -a -q --filter volume=osss-openmetadata_mysql_data); do
             echo \"Removing container \$cid using volume…\"
-            podman stop \"\$cid\" || true
-            podman rm -f \"\$cid\"
+            sudo podman stop \"\$cid\" || true
+            sudo podman rm -f \"\$cid\"
           done
-          podman volume rm osss-openmetadata_mysql_data 2>&1 | grep -q 'no such volume' && \
+          sudo podman volume rm osss-openmetadata_mysql_data 2>&1 | grep -q 'no such volume' && \
   echo "⚠️  Volume not found, skipping" || true
 
-          for cid in \$(podman ps -a -q --filter volume=osss-openmetadata_om-es-data); do
+          for cid in \$(sudo podman ps -a -q --filter volume=osss-openmetadata_om-es-data); do
             echo \"Removing container \$cid using volume…\"
-            podman stop \"\$cid\" || true
-            podman rm -f \"\$cid\"
+            sudo podman stop \"\$cid\" || true
+            sudo podman rm -f \"\$cid\"
           done
-          podman volume rm osss-openmetadata_om-es-data 2>&1 | grep -q 'no such volume' && \
+          sudo podman volume rm osss-openmetadata_om-es-data 2>&1 | grep -q 'no such volume' && \
   echo "⚠️  Volume not found, skipping" || true
 
-          for cid in \$(podman ps -a -q --filter volume=osss-openmetadata_ingestion-volume-dag-airflow); do
+          for cid in \$(sudo podman ps -a -q --filter volume=osss-openmetadata_ingestion-volume-dag-airflow); do
             echo \"Removing container \$cid using volume…\"
-            podman stop \"\$cid\" || true
-            podman rm -f \"\$cid\"
+            sudo podman stop \"\$cid\" || true
+            sudo podman rm -f \"\$cid\"
           done
-          podman volume rm osss-openmetadata_ingestion-volume-dag-airflow 2>&1 | grep -q 'no such volume' && \
+          sudo podman volume rm osss-openmetadata_ingestion-volume-dag-airflow 2>&1 | grep -q 'no such volume' && \
   echo "⚠️  Volume not found, skipping" || true
 
-          for cid in \$(podman ps -a -q --filter volume=osss-openmetadata_ingestion-volume-dags); do
+          for cid in \$(sudo podman ps -a -q --filter volume=osss-openmetadata_ingestion-volume-dags); do
             echo \"Removing container \$cid using volume…\"
-            podman stop \"\$cid\" || true
-            podman rm -f \"\$cid\"
+            sudo podman stop \"\$cid\" || true
+            sudo podman rm -f \"\$cid\"
           done
-          podman volume rm osss-openmetadata_ingestion-volume-dags 2>&1 | grep -q 'no such volume' && \
+          sudo podman volume rm osss-openmetadata_ingestion-volume-dags 2>&1 | grep -q 'no such volume' && \
   echo "⚠️  Volume not found, skipping" || true
 
-          for cid in \$(podman ps -a -q --filter volume=osss-openmetadata_ingestion-volume-tmp); do
+          for cid in \$(sudo podman ps -a -q --filter volume=osss-openmetadata_ingestion-volume-tmp); do
             echo \"Removing container \$cid using volume…\"
-            podman stop \"\$cid\" || true
-            podman rm -f \"\$cid\"
+            sudo podman stop \"\$cid\" || true
+            sudo podman rm -f \"\$cid\"
           done
-          podman volume rm osss-openmetadata_ingestion-volume-tmp 2>&1 | grep -q 'no such volume' && \
+          sudo podman volume rm osss-openmetadata_ingestion-volume-tmp 2>&1 | grep -q 'no such volume' && \
   echo "⚠️  Volume not found, skipping" || true
 
 
@@ -3879,8 +4029,7 @@ down_profiles_menu() {
         # Destroy ai'
         podman machine ssh default -- bash -lc "
           set -euo pipefail
-
-          HOST_PROJ=$HOST_PROJ
+          HOST_PROJ=\"/work\"
           cd \"\$HOST_PROJ\" || { echo '❌ Path not visible inside VM:' \"\$HOST_PROJ\"; exit 1; }
 
           PROJECT='osss-ai'
@@ -3888,48 +4037,48 @@ down_profiles_menu() {
           KNOWN_VOL_NAMES=(ollama_data qdrant_data minio_data ai_redis_data ai_pg_data)
 
           echo '🔻 Compose down (volumes + orphans) if available…'
-          if podman compose version >/dev/null 2>&1; then
-            podman compose -p \"\$PROJECT\" down --volumes --remove-orphans || true
-          elif command -v podman-compose >/dev/null 2>&1; then
-            podman-compose -p \"\$PROJECT\" down -v --remove-orphans || true
+          if sudo podman compose version >/dev/null 2>&1; then
+            sudo podman compose -p \"\$PROJECT\" down --volumes --remove-orphans || true
+          elif command -v sudo podman-compose >/dev/null 2>&1; then
+            sudo podman-compose -p \"\$PROJECT\" down -v --remove-orphans || true
           else
             echo 'ℹ️  No compose frontend found; proceeding with raw cleanup…'
           fi
 
           echo '🧺 Stop & remove any project containers (by compose labels)…'
-          mapfile -t PCTRS < <(podman ps -a -q --filter label=io.podman.compose.project=\"\$PROJECT\")
-          mapfile -t DCTRS < <(podman ps -a -q --filter label=com.docker.compose.project=\"\$PROJECT\")
+          mapfile -t PCTRS < <(sudo podman ps -a -q --filter label=io.podman.compose.project=\"\$PROJECT\")
+          mapfile -t DCTRS < <(sudo podman ps -a -q --filter label=com.docker.compose.project=\"\$PROJECT\")
           ALL_CTRS=(\"\${PCTRS[@]}\" \"\${DCTRS[@]}\")
           if ((\${#ALL_CTRS[@]})); then
-            podman stop -t 15 \"\${ALL_CTRS[@]}\" >/dev/null 2>&1 || true
-            podman rm -f \"\${ALL_CTRS[@]}\"   >/dev/null 2>&1 || true
+            sudo podman stop -t 15 \"\${ALL_CTRS[@]}\" >/dev/null 2>&1 || true
+            sudo podman rm -f \"\${ALL_CTRS[@]}\"   >/dev/null 2>&1 || true
           fi
 
           echo '🧺 Also remove known service names (belt & suspenders)…'
           for cname in ollama qdrant minio ai-redis ai-postgres gateway; do
-            if podman ps -a --format '{{.Names}}' | grep -Fxq \"\$cname\"; then
-              podman stop -t 15 \"\$cname\" >/dev/null 2>&1 || true
-              podman rm -f \"\$cname\"          >/dev/null 2>&1 || true
+            if sudo podman ps -a --format '{{.Names}}' | grep -Fxq \"\$cname\"; then
+              sudo podman stop -t 15 \"\$cname\" >/dev/null 2>&1 || true
+              sudo podman rm -f \"\$cname\"          >/dev/null 2>&1 || true
             fi
           done
 
           echo '🫙 Remove any pods for this compose project…'
-          mapfile -t PPODS < <(podman pod ps -a -q --filter label=io.podman.compose.project=\"\$PROJECT\")
-          mapfile -t DPODS < <(podman pod ps -a -q --filter label=com.docker.compose.project=\"\$PROJECT\")
+          mapfile -t PPODS < <(sudo podman pod ps -a -q --filter label=io.podman.compose.project=\"\$PROJECT\")
+          mapfile -t DPODS < <(sudo podman pod ps -a -q --filter label=com.docker.compose.project=\"\$PROJECT\")
           ALL_PODS=(\"\${PPODS[@]}\" \"\${DPODS[@]}\")
           if ((\${#ALL_PODS[@]})); then
-            podman pod rm -f \"\${ALL_PODS[@]}\" >/dev/null 2>&1 || true
+            sudo podman pod rm -f \"\${ALL_PODS[@]}\" >/dev/null 2>&1 || true
           fi
 
           echo '📦 Build set of volumes to remove…'
           # By labels (compose-managed)
-          mapfile -t PVOLS < <(podman volume ls -q --filter label=io.podman.compose.project=\"\$PROJECT\")
-          mapfile -t DVOLS < <(podman volume ls -q --filter label=com.docker.compose.project=\"\$PROJECT\")
+          mapfile -t PVOLS < <(sudo podman volume ls -q --filter label=io.podman.compose.project=\"\$PROJECT\")
+          mapfile -t DVOLS < <(sudo podman volume ls -q --filter label=com.docker.compose.project=\"\$PROJECT\")
           # By deterministic names (compose prefixes with <project>_)
           NAME_VOLSET=()
           for base in \"\${KNOWN_VOL_NAMES[@]}\"; do
             vname=\"\${PROJECT}_\$base\"
-            if podman volume ls --format '{{.Name}}' | grep -Fxq \"\$vname\"; then
+            if sudo podman volume ls --format '{{.Name}}' | grep -Fxq \"\$vname\"; then
               NAME_VOLSET+=(\"\$vname\")
             fi
           done
@@ -3947,8 +4096,8 @@ down_profiles_menu() {
 
               # Find containers that still reference the volume by .Mounts[].Name
               mapfile -t USERS < <(
-                podman ps -a -q | while read -r cid; do
-                  podman inspect \"\$cid\" --format '{{.ID}} {{.Name}} {{range .Mounts}}{{if .Name}}{{.Name}} {{end}}{{end}}' 2>/dev/null
+                sudo podman ps -a -q | while read -r cid; do
+                  sudo podman inspect \"\$cid\" --format '{{.ID}} {{.Name}} {{range .Mounts}}{{if .Name}}{{.Name}} {{end}}{{end}}' 2>/dev/null
                 done | awk -v v=\"\$V\" '{
                   cid=\$1; name=\$2;
                   for (i=3;i<=NF;i++) if (\$i==v) { gsub(\"^/\",\"\",name); print cid\" \"name; break }
@@ -3960,15 +4109,15 @@ down_profiles_menu() {
                 printf '     - %s\n' \"\${USERS[@]}\"
                 for pair in \"\${USERS[@]}\"; do
                   cid=\${pair%% *}
-                  podman stop -t 10 \"\$cid\" >/dev/null 2>&1 || true
-                  podman rm -f       \"\$cid\" >/dev/null 2>&1 || true
+                  sudo podman stop -t 10 \"\$cid\" >/dev/null 2>&1 || true
+                  sudo podman rm -f       \"\$cid\" >/dev/null 2>&1 || true
                 done
               fi
 
               # Remove volume (force as needed)
-              podman volume rm \"\$V\" >/dev/null 2>&1 || podman volume rm -f \"\$V\" >/dev/null 2>&1 || {
+              sudo podman volume rm \"\$V\" >/dev/null 2>&1 || sudo podman volume rm -f \"\$V\" >/dev/null 2>&1 || {
                 echo \"   ❌ Could not remove volume '\$V' (still referenced). Inspect:\"
-                podman volume inspect \"\$V\" || true
+                sudo podman volume inspect \"\$V\" || true
               }
             done <<< \"\$VOLSET\"
           else
@@ -3977,16 +4126,16 @@ down_profiles_menu() {
 
           echo
           echo '🧹 Final prune (dangling only)…'
-          podman volume prune -f >/dev/null 2>&1 || true
-          podman image  prune -f >/dev/null 2>&1 || true
+          sudo podman volume prune -f >/dev/null 2>&1 || true
+          sudo podman image  prune -f >/dev/null 2>&1 || true
 
           echo
           echo '✅ Post-clean containers (ai/* expected gone):'
-          podman ps -a --format 'table {{.Names}}\\t{{.Status}}' | (grep -E '^ollama$|^qdrant$|^minio$|^ai-redis$|^ai-postgres$|^gateway$' || true)
+          sudo podman ps -a --format 'table {{.Names}}\\t{{.Status}}' | (grep -E '^ollama$|^qdrant$|^minio$|^ai-redis$|^ai-postgres$|^gateway$' || true)
 
           echo
           echo '✅ Post-clean volumes (project/pattern match):'
-          podman volume ls --format '{{.Name}}' | (grep -E '^\${PROJECT}_|ollama|qdrant|minio|ai_redis|ai_pg' || true)
+          sudo podman volume ls --format '{{.Name}}' | (grep -E '^\${PROJECT}_|ollama|qdrant|minio|ai_redis|ai_pg' || true)
         "
 
         prompt_return
@@ -4033,11 +4182,8 @@ utilities_menu() {
         prompt_return
         ;;
       3)
-        local vm
-        vm="$(podman machine active 2>/dev/null || echo default)"
-        echo "▶️ Podman version in VM '${vm}':"
-        podman machine ssh default -- sudo rpm-ostree install podman-compose
-        podman machine stop default && podman machine start default
+        # Install podman-compose inside the VM"
+        install_podman_compose_vm
         prompt_return
         ;;
       4)
@@ -4099,23 +4245,22 @@ menu() {
         # Deploy keycloak
         podman machine ssh default -- bash -lc "
           set -euo pipefail
-
-          HOST_PROJ=$HOST_PROJ
+          HOST_PROJ=\"/work\"
           PODMAN_OVERLAY_DIR=$PODMAN_OVERLAY_DIR
           PROJECT=osss-keycloak
           COMPOSE_FILE=docker-compose.yml
           PROFILE=keycloak
 
           cd \"\$HOST_PROJ\" || { echo '❌ Path not visible inside VM:' \"\$HOST_PROJ\"; exit 1; }
-          command -v podman-compose >/dev/null && podman-compose --version || true
+          command -v sudo podman-compose >/dev/null && podman-compose --version || true
 
           # Ensure network exists
-          podman network exists osss-net >/dev/null 2>&1 || podman network create osss-net
+          sudo podman network exists osss-net >/dev/null 2>&1 || sudo podman network create osss-net
 
           # Helper: get container id for a compose service in a given project
           cid_for() {
             local svc=\"\$1\"
-            podman ps -a \
+            sudo podman ps -a \
               --filter label=io.podman.compose.project=\$PROJECT \
               --filter label=com.docker.compose.project=\$PROJECT \
               --filter label=io.podman.compose.service=\$svc \
@@ -4131,8 +4276,8 @@ menu() {
             while :; do
               cid=\$(cid_for \"\$svc\" || true)
               if [ -n \"\$cid\" ]; then
-                status=\$(podman inspect -f '{{.State.Health.Status}}' \"\$cid\" 2>/dev/null || true)
-                running=\$(podman inspect -f '{{.State.Running}}' \"\$cid\" 2>/dev/null || echo false)
+                status=\$(sudo podman inspect -f '{{.State.Health.Status}}' \"\$cid\" 2>/dev/null || true)
+                running=\$(sudo podman inspect -f '{{.State.Running}}' \"\$cid\" 2>/dev/null || echo false)
                 if [ \"\$status\" = \"healthy\" ] || { [ -z \"\$status\" ] && [ \"\$running\" = \"true\" ]; }; then
                   echo \"✅ \$svc is ready (\${status:-running})\"
                   break
@@ -4140,7 +4285,7 @@ menu() {
               fi
               if [ \$(( \$(date +%s) - start )) -ge \"\$timeout\" ]; then
                 echo \"❌ Timeout waiting for '\$svc' to become healthy\"
-                [ -n \"\$cid\" ] && podman logs --tail=200 \"\$cid\" || true
+                [ -n \"\$cid\" ] && sudo podman logs --tail=200 \"\$cid\" || true
                 exit 1
               fi
               sleep 2
@@ -4151,7 +4296,7 @@ menu() {
           bring_up() {
             local svc=\"\$1\"
             echo \"🚀 Starting \$svc...\"
-            COMPOSE_PROJECT_NAME=\$PROJECT podman-compose -f \"\$COMPOSE_FILE\" --profile \"\$PROFILE\" \
+            COMPOSE_PROJECT_NAME=\$PROJECT sudo podman-compose -f \"\$COMPOSE_FILE\" --profile \"\$PROFILE\" \
               up -d --force-recreate --remove-orphans --renew-anon-volumes \"\$svc\"
           }
 
@@ -4159,12 +4304,12 @@ menu() {
           build_svc() {
             local svc=\"\$1\"
             echo \"🔨 Building image for \$svc...\"
-            COMPOSE_PROJECT_NAME=\$PROJECT podman-compose -f \"\$COMPOSE_FILE\" --profile \"\$PROFILE\" \
+            COMPOSE_PROJECT_NAME=\$PROJECT sudo podman-compose -f \"\$COMPOSE_FILE\" --profile \"\$PROFILE\" \
               build \"\$svc\"
           }
 
           # 1) kc-postgres (if you name it differently, update here)
-          if podman-compose -f \"\$COMPOSE_FILE\" --profile \"\$PROFILE\" config --services | grep -q '^kc-postgres$'; then
+          if sudo podman-compose -f \"\$COMPOSE_FILE\" --profile \"\$PROFILE\" config --services | grep -q '^kc-postgres$'; then
             bring_up kc-postgres
             wait_healthy kc-postgres 180
           fi
@@ -4177,32 +4322,35 @@ menu() {
           wait_healthy keycloak 300
 
           # 4) Optional: kc-init one-shot job (only if present)
-          if podman-compose -f \"\$COMPOSE_FILE\" --profile \"\$PROFILE\" config --services | grep -q '^kc-init$'; then
+          if sudo podman-compose -f \"\$COMPOSE_FILE\" --profile \"\$PROFILE\" config --services | grep -q '^kc-init$'; then
             echo \"▶️  Running kc-init...\"
-            COMPOSE_PROJECT_NAME=\$PROJECT podman-compose -f \"\$COMPOSE_FILE\" --profile \"\$PROFILE\" up -d kc-init
+            COMPOSE_PROJECT_NAME=\$PROJECT sudo podman-compose -f \"\$COMPOSE_FILE\" --profile \"\$PROFILE\" up -d kc-init
             # If kc-init has no healthcheck, just show last logs
             cid=\$(cid_for kc-init || true)
-            [ -n \"\$cid\" ] && podman logs --tail=200 \"\$cid\" || true
+            [ -n \"\$cid\" ] && sudo podman logs --tail=200 \"\$cid\" || true
           fi
 
           echo
           echo '▶️  Keycloak stack is up (project:' \$PROJECT ')'
-          podman ps --filter label=io.podman.compose.project=\$PROJECT --format '{{.Names}}\t{{.Status}}' || true
+          sudo podman ps --filter label=io.podman.compose.project=\$PROJECT --format '{{.Names}}\t{{.Status}}' || true
         "
         ;;
       2)
         # Deploy app
         podman machine ssh default -- bash -lc "
           set -euo pipefail
-
           # ---------- Inputs / sanity ----------
-          HOST_PROJ=\"${HOST_PROJ:-}\"
+          HOST_PROJ=\"/work\"
           PODMAN_OVERLAY_DIR=\"\${PODMAN_OVERLAY_DIR:-}\"
           REBUILD_FLAG=\"\${REBUILD_FLAG:-0}\"
 
           PROJECT=osss-app
           PROFILE=app
           COMPOSE_FILE=docker-compose.yml
+
+          cd \"\$HOST_PROJ\" || { echo '❌ Path not visible inside VM:' \"\$HOST_PROJ\"; exit 1; }
+          command -v sudo podman-compose >/dev/null && sudo podman-compose --version || true
+
 
           if [[ -z \${HOST_PROJ} ]]; then
             echo '❌ HOST_PROJ not set' >&2; exit 1
@@ -4213,10 +4361,10 @@ menu() {
           cd \"\${HOST_PROJ}\"
 
           # Pick compose provider
-          if podman compose version >/dev/null 2>&1; then
+          if sudo podman compose version >/dev/null 2>&1; then
             COMPOSE=(podman compose)
-          elif command -v podman-compose >/dev/null 2>&1; then
-            COMPOSE=(podman-compose)
+          elif command -v sudo podman-compose >/dev/null 2>&1; then
+            COMPOSE=(sudo podman-compose)
           else
             echo '❌ Neither podman compose nor podman-compose installed' >&2; exit 1
           fi
@@ -4229,9 +4377,9 @@ menu() {
           echo \"📄 Using compose file: \${COMPOSE_FILE}\"
 
           # Ensure network
-          podman network exists osss-net >/dev/null 2>&1 || podman network create osss-net
+          sudo podman network exists osss-net >/dev/null 2>&1 || sudo podman network create osss-net
 
-          echo '▶️ Podman:'; podman --version || true
+          echo '▶️ Podman:'; sudo podman --version || true
           echo '▶️ Compose:'; \"\${COMPOSE[@]}\" version || true
 
           # ---------- Service discovery ----------
@@ -4247,7 +4395,7 @@ menu() {
             CANDIDATE=\$(COMPOSE_PROJECT_NAME=\${PROJECT} \"\${COMPOSE[@]}\" -f \"\${COMPOSE_FILE}\" config --services | grep -E '^(app|api|osss-api|backend)$' | head -n1 || true)
             if [[ -z \${CANDIDATE} ]]; then
               echo '❌ Could not find a suitable service to build (looked for app/api/osss-api/backend).' >&2
-              echo '   Tip:  podman-compose -f docker-compose.yml config --services'
+              echo '   Tip:  sudo podman-compose -f docker-compose.yml config --services'
               exit 2
             fi
             SERVICE=\"\${CANDIDATE}\"
@@ -4262,7 +4410,7 @@ menu() {
           # ---------- Helpers (AI deploy style) ----------
           cid_for() {
             local svc=\"\$1\"
-            podman ps -a \
+            sudo podman ps -a \
               --filter label=io.podman.compose.project=\${PROJECT} \
               --filter label=com.docker.compose.project=\${PROJECT} \
               --filter label=io.podman.compose.service=\${svc} \
@@ -4277,8 +4425,8 @@ menu() {
             while :; do
               cid=\$(cid_for \"\$svc\" || true)
               if [ -n \"\$cid\" ]; then
-                status=\$(podman inspect -f '{{.State.Health.Status}}' \"\$cid\" 2>/dev/null || true)
-                running=\$(podman inspect -f '{{.State.Running}}' \"\$cid\" 2>/dev/null || echo false)
+                status=\$(sudo podman inspect -f '{{.State.Health.Status}}' \"\$cid\" 2>/dev/null || true)
+                running=\$(sudo podman inspect -f '{{.State.Running}}' \"\$cid\" 2>/dev/null || echo false)
                 if [ \"\$status\" = \"healthy\" ] || { [ -z \"\$status\" ] && [ \"\$running\" = \"true\" ]; }; then
                   echo \"✅ \$svc is ready (\${status:-running})\"
                   break
@@ -4286,7 +4434,7 @@ menu() {
               fi
               if [ \$(( \$(date +%s) - start )) -ge \"\$timeout\" ]; then
                 echo \"❌ Timeout waiting for '\$svc' to become healthy\"
-                [ -n \"\$cid\" ] && podman logs --tail=200 \"\$cid\" || true
+                [ -n \"\$cid\" ] && sudo podman logs --tail=200 \"\$cid\" || true
                 exit 1
               fi
               sleep 2
@@ -4314,21 +4462,21 @@ menu() {
 
           # ---------- Pre-state ----------
           echo '🧭 Existing containers (target):'
-          podman ps -a --filter label=io.podman.compose.project=\${PROJECT} \
+          sudo podman ps -a --filter label=io.podman.compose.project=\${PROJECT} \
                     --filter label=io.podman.compose.service=\${SERVICE} \
                     --format '{{.ID}}  {{.Names}}  {{.Image}}  {{.Status}}' || true
 
           echo '🧭 Existing images (target-ish):'
-          podman images --format '{{.Repository}}:{{.Tag}}  {{.ID}}  {{.Created}}' | grep -E '\${PROJECT}_|\${SERVICE}' || true
+          sudo podman images --format '{{.Repository}}:{{.Tag}}  {{.ID}}  {{.Created}}' | grep -E '\${PROJECT}_|\${SERVICE}' || true
 
           # Optional hard rebuild cleanups when REBUILD_FLAG=1
           if [[ \"\${REBUILD_FLAG}\" = 1 ]]; then
             echo '🛑 Stopping/removing old containers for the target service…'
-            podman ps -a --filter label=io.podman.compose.project=\${PROJECT} \
+            sudo podman ps -a --filter label=io.podman.compose.project=\${PROJECT} \
                        --filter label=io.podman.compose.service=\${SERVICE} -q | xargs -r podman rm -f
 
             echo '🧹 Removing old project-tagged images (best-effort)…'
-            podman images --format '{{.Repository}}:{{.Tag}} {{.ID}}' \
+            sudo podman images --format '{{.Repository}}:{{.Tag}} {{.ID}}' \
               | awk -v proj=\"\${PROJECT}_\" '\$1 ~ proj {print \$2}' | xargs -r podman rmi -f || true
           fi
 
@@ -4339,13 +4487,13 @@ menu() {
 
           echo
           echo '▶️  App is up (project:' \${PROJECT} ')'
-          podman ps --filter label=io.podman.compose.project=\${PROJECT} --format '{{.Names}}\t{{.Status}}' || true
+          sudo podman ps --filter label=io.podman.compose.project=\${PROJECT} --format '{{.Names}}\t{{.Status}}' || true
 
           CID=\$(cid_for \"\${SERVICE}\" || true)
           if [[ -n \${CID} ]]; then
             echo \"📦 Container: \${CID}\"
             echo '🔍 Health:'
-            podman inspect \"\${CID}\" --format '{{json .State.Health}}' | jq . || echo '  (no healthcheck)'
+            sudo podman inspect \"\${CID}\" --format '{{json .State.Health}}' | jq . || echo '  (no healthcheck)'
           else
             echo '❌ No container found after up.' >&2; exit 3
           fi
@@ -4361,13 +4509,17 @@ menu() {
           set -euo pipefail
 
           # ---------- Inputs / sanity ----------
-          HOST_PROJ=\"${HOST_PROJ:-}\"
-          PODMAN_OVERLAY_DIR=\"\${PODMAN_OVERLAY_DIR:-}\"
+          HOST_PROJ=\"/work\"
+          PODMAN_OVERLAY_DIR=\"${PODMAN_OVERLAY_DIR:-}\"
           REBUILD_FLAG=\"\${REBUILD_FLAG:-0}\"
 
           PROJECT=osss-web-app
           PROFILE=web-app
           COMPOSE_FILE=docker-compose.yml
+
+          cd \"\$HOST_PROJ\" || { echo '❌ Path not visible inside VM:' \"\$HOST_PROJ\"; exit 1; }
+          command -v sudo podman-compose >/dev/null && sudo podman-compose --version || true
+
 
           if [[ -z \${HOST_PROJ} ]]; then
             echo '❌ HOST_PROJ not set' >&2; exit 1
@@ -4378,12 +4530,12 @@ menu() {
           cd \"\${HOST_PROJ}\"
 
           # Pick compose provider
-          if podman compose version >/dev/null 2>&1; then
-            COMPOSE=(podman compose)
-          elif command -v podman-compose >/dev/null 2>&1; then
-            COMPOSE=(podman-compose)
+          if sudo podman compose version >/dev/null 2>&1; then
+            COMPOSE=(sudo podman compose)
+          elif command -v psudo odman-compose >/dev/null 2>&1; then
+            COMPOSE=(sudo podman-compose)
           else
-            echo '❌ Neither podman compose nor podman-compose installed' >&2; exit 1
+            echo '❌ Neither sudo podman compose nor sudo podman-compose installed' >&2; exit 1
           fi
 
           # Compose file
@@ -4394,9 +4546,9 @@ menu() {
           echo \"📄 Using compose file: \${COMPOSE_FILE}\"
 
           # Ensure network
-          podman network exists osss-net >/dev/null 2>&1 || podman network create osss-net
+          sudo podman network exists osss-net >/dev/null 2>&1 || podman network create osss-net
 
-          echo '▶️ Podman:'; podman --version || true
+          echo '▶️ Podman:'; sudo podman --version || true
           echo '▶️ Compose:'; \"\${COMPOSE[@]}\" version || true
 
           # ---------- Service discovery ----------
@@ -4413,7 +4565,7 @@ menu() {
                        grep -E '^(web|web-app|frontend|app|nginx)$' | head -n1 || true)
             if [[ -z \${CANDIDATE} ]]; then
               echo '❌ Could not find a suitable service to build (looked for web/web-app/frontend/app/nginx).' >&2
-              echo '   Tip:  podman-compose -f docker-compose.yml --profile \${PROFILE} config --services'
+              echo '   Tip:  sudo podman-compose -f docker-compose.yml --profile \${PROFILE} config --services'
               exit 2
             fi
             SERVICE=\"\${CANDIDATE}\"
@@ -4428,7 +4580,7 @@ menu() {
           # ---------- Helpers (AI deploy style) ----------
           cid_for() {
             local svc=\"\$1\"
-            podman ps -a \
+            sudo podman ps -a \
               --filter label=io.podman.compose.project=\${PROJECT} \
               --filter label=com.docker.compose.project=\${PROJECT} \
               --filter label=io.podman.compose.service=\${svc} \
@@ -4443,8 +4595,8 @@ menu() {
             while :; do
               cid=\$(cid_for \"\$svc\" || true)
               if [ -n \"\$cid\" ]; then
-                status=\$(podman inspect -f '{{.State.Health.Status}}' \"\$cid\" 2>/dev/null || true)
-                running=\$(podman inspect -f '{{.State.Running}}' \"\$cid\" 2>/dev/null || echo false)
+                status=\$(sudo podman inspect -f '{{.State.Health.Status}}' \"\$cid\" 2>/dev/null || true)
+                running=\$(sudo podman inspect -f '{{.State.Running}}' \"\$cid\" 2>/dev/null || echo false)
                 if [ \"\$status\" = \"healthy\" ] || { [ -z \"\$status\" ] && [ \"\$running\" = \"true\" ]; }; then
                   echo \"✅ \$svc is ready (\${status:-running})\"
                   break
@@ -4452,7 +4604,7 @@ menu() {
               fi
               if [ \$(( \$(date +%s) - start )) -ge \"\$timeout\" ]; then
                 echo \"❌ Timeout waiting for '\$svc' to become healthy\"
-                [ -n \"\$cid\" ] && podman logs --tail=200 \"\$cid\" || true
+                [ -n \"\$cid\" ] && sudo podman logs --tail=200 \"\$cid\" || true
                 exit 1
               fi
               sleep 2
@@ -4480,22 +4632,22 @@ menu() {
 
           # ---------- Pre-state ----------
           echo '🧭 Existing containers (target):'
-          podman ps -a --filter label=io.podman.compose.project=\${PROJECT} \
+          sudo podman ps -a --filter label=io.podman.compose.project=\${PROJECT} \
                     --filter label=io.podman.compose.service=\${SERVICE} \
                     --format '{{.ID}}  {{.Names}}  {{.Image}}  {{.Status}}' || true
 
           echo '🧭 Existing images (target-ish):'
-          podman images --format '{{.Repository}}:{{.Tag}}  {{.ID}}  {{.Created}}' | grep -E '\${PROJECT}_|\${SERVICE}' || true
+          sudo podman images --format '{{.Repository}}:{{.Tag}}  {{.ID}}  {{.Created}}' | grep -E '\${PROJECT}_|\${SERVICE}' || true
 
           # Optional hard rebuild cleanups when REBUILD_FLAG=1
           if [[ \"\${REBUILD_FLAG}\" = 1 ]]; then
             echo '🛑 Stopping/removing old containers for the target service…'
-            podman ps -a --filter label=io.podman.compose.project=\${PROJECT} \
-                       --filter label=io.podman.compose.service=\${SERVICE} -q | xargs -r podman rm -f
+            sudo podman ps -a --filter label=io.podman.compose.project=\${PROJECT} \
+                       --filter label=io.podman.compose.service=\${SERVICE} -q | xargs -r sudo podman rm -f
 
             echo '🧹 Removing old project-tagged images (best-effort)…'
             podman images --format '{{.Repository}}:{{.Tag}} {{.ID}}' \
-              | awk -v proj=\"\${PROJECT}_\" '\$1 ~ proj {print \$2}' | xargs -r podman rmi -f || true
+              | awk -v proj=\"\${PROJECT}_\" '\$1 ~ proj {print \$2}' | xargs -r sudo podman rmi -f || true
           fi
 
           # ---------- Build, Up, Wait ----------
@@ -4505,13 +4657,13 @@ menu() {
 
           echo
           echo '▶️  Web app is up (project:' \${PROJECT} ')'
-          podman ps --filter label=io.podman.compose.project=\${PROJECT} --format '{{.Names}}\t{{.Status}}' || true
+          sudo podman ps --filter label=io.podman.compose.project=\${PROJECT} --format '{{.Names}}\t{{.Status}}' || true
 
           CID=\$(cid_for \"\${SERVICE}\" || true)
           if [[ -n \${CID} ]]; then
             echo \"📦 Container: \${CID}\"
             echo '🔍 Health:'
-            podman inspect \"\${CID}\" --format '{{json .State.Health}}' | jq . || echo '  (no healthcheck)'
+            sudo podman inspect \"\${CID}\" --format '{{json .State.Health}}' | jq . || echo '  (no healthcheck)'
           else
             echo '❌ No container found after up.' >&2; exit 3
           fi
@@ -4521,77 +4673,161 @@ menu() {
 
         ;;
       4)
-        # Deploy elastic
-        podman machine ssh default -- bash -lc "
+        # Deploy elastic (VM-local, same pattern as Keycloak)
+        podman machine ssh default -- bash -lc '
           set -euo pipefail
-          HOST_PROJ=$HOST_PROJ
-          PODMAN_OVERLAY_DIR=$PODMAN_OVERLAY_DIR
 
-          echo \"🔧 [elastic-start] Entered elastic stack startup script\"
-          echo \"   HOST_PROJ=\$HOST_PROJ\"
-          echo \"   PODMAN_OVERLAY_DIR=\$PODMAN_OVERLAY_DIR\"
-          echo
+          # Project path inside the VM (your 9p mount)
+          HOST_PROJ="/work"
 
-          # --- change dir ---
-          if cd \"\$HOST_PROJ\"; then
-            echo \"📂 Changed directory to: \$HOST_PROJ\"
+          PROJECT=osss-elastic
+          PROFILE=elastic
+          COMPOSE_FILE=docker-compose.yml
+
+          ensure_regular_file() {
+            local SRC="$1" DST="$2"
+            [ -d "$DST" ] && rm -rf "$DST"
+            if [ -f "$SRC" ]; then
+              install -D -m0644 "$SRC" "$DST"
+            else
+              install -d -m0755 "$(dirname "$DST")"
+              cat > "$DST" <<'"EOF_MIN_FBEAT"'
+filebeat.inputs: []
+output.console:
+  pretty: true
+EOF_MIN_FBEAT
+              chmod 0644 "$DST"
+            fi
+          }
+
+          verify_file() { local P="$1"; stat -c "%F %n" "$P" || ls -ld "$P"; echo "----"; head -n 20 "$P" || true; }
+
+          # Make sure the Filebeat config exists inside the VM
+          FBEAT_SRC="${HOST_PROJ}/config_files/filebeat/filebeat.podman.yml"
+          FBEAT_DST="/var/home/core/OSSS/config_files/filebeat/filebeat.podman.yml"
+          ensure_regular_file "$FBEAT_SRC" "$FBEAT_DST"
+          verify_file "$FBEAT_DST"
+
+          cd "$HOST_PROJ" || { echo "❌ Path not visible inside VM: $HOST_PROJ"; exit 1; }
+
+          # Choose a rootful compose frontend
+          export PODMAN_COMPOSE_PROVIDER=native
+          if sudo -E podman compose version >/dev/null 2>&1; then
+            pc="sudo -E PODMAN_COMPOSE_PROVIDER=native podman compose"
+          elif command -v sudo podman-compose >/dev/null 2>&1; then
+            pc="sudo -E podman-compose"   # fallback
           else
-            echo \"❌ Path not visible inside VM: \$HOST_PROJ\"
-            exit 1
+            echo "❌ Neither podman compose nor podman-compose installed" >&2; exit 1
           fi
+          echo "▶️ Compose provider (rootful): $pc"
 
-          # --- Base stack ---
-          echo
-          echo \"🚀 [elastic-start] Starting base stack (elasticsearch + kibana + kibana-pass-init + api-key-init)\"
-          echo \"    Using compose file: \$HOST_PROJ/docker-compose.yml\"
-          COMPOSE_PROJECT_NAME=osss-elastic podman compose -f \"\$HOST_PROJ/docker-compose.yml\" --profile elastic up -d \\
-            --force-recreate --remove-orphans \\
-            elasticsearch kibana kibana-pass-init api-key-init
-          echo \"✅ Base stack containers launched\"
+          # Ensure network (rootful)
+          sudo podman network exists osss-net >/dev/null 2>&1 || sudo podman network create osss-net
 
-          # --- Setup job ---
-          echo
-          echo \"🛠️  [elastic-start] Running setup job: filebeat-setup\"
-          COMPOSE_PROJECT_NAME=osss-elastic podman compose -f \"\$HOST_PROJ/docker-compose.yml\" --profile elastic up -d \\
-            --no-deps --no-recreate filebeat-setup
+          # Helpers (rootful inspection)
+          cid_for() {
+            local svc="$1"
+            sudo podman ps -a \
+              --filter label=io.podman.compose.project=$PROJECT \
+              --filter label=com.docker.compose.project=$PROJECT \
+              --filter label=io.podman.compose.service=$svc \
+              --filter label=com.docker.compose.service=$svc \
+              --format "{{.ID}}" | head -n1
+          }
 
-          echo \"📜 Logs (last 2m) for filebeat-setup:\"
-          if ! podman logs --since 2m filebeat-setup; then
-            echo \"⚠️  No recent logs found for filebeat-setup (container may have exited too fast)\"
-          else
-            echo \"✅ filebeat-setup logs captured\"
-          fi
+          wait_completed_ok() {
+            local svc="$1"; local timeout="${2:-600}"; local start=$(date +%s)
+            local cid status code
+            echo "⏳ Waiting for one-shot '\''$svc'\'' to complete..."
+            while :; do
+              cid=$(cid_for "$svc" || true)
+              if [ -n "$cid" ]; then
+                status=$(sudo podman inspect -f "{{.State.Status}}" "$cid" 2>/dev/null || true)
+                code=$(sudo podman inspect -f "{{.State.ExitCode}}" "$cid" 2>/dev/null || echo 1)
+                if [ "$status" = "exited" ]; then
+                  if [ "$code" = "0" ]; then
+                    echo "✅ $svc exited 0 (success)"
+                    break
+                  else
+                    echo "❌ $svc exited non-zero ($code). Recent logs:" >&2
+                    sudo podman logs --tail=200 "$cid" || true
+                    exit 1
+                  fi
+                fi
+              fi
+              if [ $(( $(date +%s) - start )) -ge "$timeout" ]; then
+                echo "❌ Timeout waiting for '\''$svc'\'' to complete" >&2
+                [ -n "$cid" ] && sudo podman logs --tail=200 "$cid" || true
+                exit 1
+              fi
+              sleep 2
+            done
+          }
 
-          # --- Running filebeat ---
-          echo
-          echo \"📡 [elastic-start] Starting filebeat (no deps, no recreate)\"
-          COMPOSE_PROJECT_NAME=osss-elastic podman compose -f \"\$HOST_PROJ/docker-compose.yml\" --profile elastic up -d \\
-            --no-deps --no-recreate filebeat
-          echo \"✅ filebeat launched\"
+          wait_http_200_401() {
+            local url="$1" timeout="${2:-300}" start=$(date +%s) code
+            echo "⏳ Waiting for HTTP 200/401 from $url..."
+            while :; do
+              code=$(curl -s -o /dev/null -w "%{http_code}" "$url" || true)
+              if [ "$code" = "200" ] || [ "$code" = "401" ]; then
+                echo "✅ $url responded $code"
+                break
+              fi
+              if [ $(( $(date +%s) - start )) -ge "$timeout" ]; then
+                echo "❌ Timeout waiting for $url (last code=$code)" >&2
+                exit 1
+              fi
+              sleep 3
+            done
+          }
 
-          # --- show running containers ---
-          echo
-          echo \"== 📋 Running containers (name | status | ports) ==\"
-          if ! podman ps --format \"table {{.Names}}\\t{{.Status}}\\t{{.Ports}}\"; then
-            echo \"❌ Failed to list containers\"
-          fi
-          echo \"== End of container list ==\"
-        " || true
-        prompt_return
+          echo "🚀 [elastic-start] Using compose file: $HOST_PROJ/$COMPOSE_FILE"
+
+          # Bring up ES + Kibana (rootful)
+          COMPOSE_PROJECT_NAME=$PROJECT $pc -f "$COMPOSE_FILE" --profile "$PROFILE" up -d \
+            --force-recreate --remove-orphans elasticsearch kibana kibana-pass-init api-key-init shared-vol-init
+
+          # Quick readiness checks (ES first, then Kibana)
+          echo "⏳ Waiting for TCP localhost:9200..."
+          timeout 300 bash -lc '\''while ! (echo > /dev/tcp/localhost/9200) 2>/dev/null; do sleep 2; done'\'' && echo "✅ TCP localhost:9200 is accepting connections"
+          wait_http_200_401 "http://localhost:9200" 300
+
+          echo "⏳ Waiting for TCP localhost:5601..."
+          timeout 600 bash -lc '\''while ! (echo > /dev/tcp/localhost/5601) 2>/dev/null; do sleep 3; done'\'' || { echo "❌ Kibana port not open in time"; exit 1; }
+          # Optional: give Kibana a breath to finish boot
+          sleep 5
+
+          # Run setup as a one-shot (rootful)
+          COMPOSE_PROJECT_NAME=$PROJECT $pc -f "$COMPOSE_FILE" --profile "$PROFILE" up -d --no-deps --no-recreate filebeat-setup
+          wait_completed_ok filebeat-setup 600
+
+          # Start filebeat after setup completed OK (rootful)
+          COMPOSE_PROJECT_NAME=$PROJECT $pc -f "$COMPOSE_FILE" --profile "$PROFILE" up -d --no-deps --no-recreate filebeat
+
+          echo "📋 Active (rootful) containers:"
+          sudo podman ps --filter label=io.podman.compose.project=$PROJECT --format "{{.Names}}\t{{.Status}}"
+        '
+
+
         ;;
       5)
         # Deploy vault
         podman machine ssh default -- bash -lc "
           set -euo pipefail
 
+
           # ---------- Inputs / sanity ----------
-          HOST_PROJ=\"${HOST_PROJ:-}\"
+          HOST_PROJ=\"/work\"
           PODMAN_OVERLAY_DIR=\"\${PODMAN_OVERLAY_DIR:-}\"
           REBUILD_FLAG=\"\${REBUILD_FLAG:-0}\"
 
           PROJECT=osss-vault
           PROFILE=vault
           COMPOSE_FILE=docker-compose.yml
+
+          cd \"\$HOST_PROJ\" || { echo '❌ Path not visible inside VM:' \"\$HOST_PROJ\"; exit 1; }
+          command -v sudo podman-compose >/dev/null && sudo podman-compose --version || true
+
 
           if [[ -z \${HOST_PROJ} ]]; then
             echo '❌ HOST_PROJ not set' >&2; exit 1
@@ -4602,12 +4838,12 @@ menu() {
           cd \"\${HOST_PROJ}\"
 
           # Pick compose provider
-          if podman compose version >/dev/null 2>&1; then
-            COMPOSE=(podman compose)
-          elif command -v podman-compose >/dev/null 2>&1; then
-            COMPOSE=(podman-compose)
+          if sudo podman compose version >/dev/null 2>&1; then
+            COMPOSE=(sudo podman compose)
+          elif command -v sudo podman-compose >/dev/null 2>&1; then
+            COMPOSE=(sudo podman-compose)
           else
-            echo '❌ Neither podman compose nor podman-compose installed' >&2; exit 1
+            echo '❌ Neither sudo podman compose nor sudo podman-compose installed' >&2; exit 1
           fi
 
           # Compose file
@@ -4618,9 +4854,9 @@ menu() {
           echo \"📄 Using compose file: \${COMPOSE_FILE}\"
 
           # Ensure network
-          podman network exists osss-net >/dev/null 2>&1 || podman network create osss-net
+          sudo podman network exists osss-net >/dev/null 2>&1 || sudo podman network create osss-net
 
-          echo '▶️ Podman:'; podman --version || true
+          echo '▶️ Podman:'; sudo podman --version || true
           echo '▶️ Compose:'; \"\${COMPOSE[@]}\" version || true
 
           # ---------- Helpers (AI deploy style) ----------
@@ -4632,7 +4868,7 @@ menu() {
 
           cid_for() {
             local svc=\"\$1\"
-            podman ps -a \
+            sudo podman ps -a \
               --filter label=io.podman.compose.project=\${PROJECT} \
               --filter label=com.docker.compose.project=\${PROJECT} \
               --filter label=io.podman.compose.service=\${svc} \
@@ -4647,8 +4883,8 @@ menu() {
             while :; do
               cid=\$(cid_for \"\$svc\" || true)
               if [ -n \"\$cid\" ]; then
-                status=\$(podman inspect -f '{{.State.Health.Status}}' \"\$cid\" 2>/dev/null || true)
-                running=\$(podman inspect -f '{{.State.Running}}' \"\$cid\" 2>/dev/null || echo false)
+                status=\$(sudo podman inspect -f '{{.State.Health.Status}}' \"\$cid\" 2>/dev/null || true)
+                running=\$(sudo podman inspect -f '{{.State.Running}}' \"\$cid\" 2>/dev/null || echo false)
                 if [ \"\$status\" = \"healthy\" ] || { [ -z \"\$status\" ] && [ \"\$running\" = \"true\" ]; }; then
                   echo \"✅ \$svc is ready (\${status:-running})\"
                   break
@@ -4656,7 +4892,7 @@ menu() {
               fi
               if [ \$(( \$(date +%s) - start )) -ge \"\$timeout\" ]; then
                 echo \"❌ Timeout waiting for '\$svc' to become healthy\"
-                [ -n \"\$cid\" ] && podman logs --tail=200 \"\$cid\" || true
+                [ -n \"\$cid\" ] && sudo podman logs --tail=200 \"\$cid\" || true
                 exit 1
               fi
               sleep 2
@@ -4731,37 +4967,46 @@ menu() {
 
           echo
           echo '▶️  Vault stack is up (project:' \${PROJECT} ')'
-          podman ps --filter label=io.podman.compose.project=\${PROJECT} --format '{{.Names}}\t{{.Status}}' || true
+          sudo podman ps --filter label=io.podman.compose.project=\${PROJECT} --format '{{.Names}}\t{{.Status}}' || true
         "
 
 
         ;;
       6)
         # Deploy consul
-        podman machine ssh default -- bash -lc '
+        podman machine ssh default -- bash -lc "
         set -e
-        cd '"$(printf %q "$HOST_PROJ")"'
+
+        cd \"\$HOST_PROJ\" || { echo '❌ Path not visible inside VM:' \"\$HOST_PROJ\"; exit 1; }
+          command -v sudo podman-compose >/dev/null && sudo podman-compose --version || true
+
+        cd \"\$(printf %q \"\$HOST_PROJ\")\"
         # (optional) show which provider we’re using
-        command -v podman-compose >/dev/null && podman-compose --version || true
-        # run compose (use podman-compose explicitly to avoid provider lookup noise)
+        command -v sudo podman-compose >/dev/null && sudo podman-compose --version || true
+        # run compose (use sudo podman-compose explicitly to avoid provider lookup noise)
         COMPOSE_PROJECT_NAME=osss-consul podman-compose -f docker-compose.yml --profile consul up -d --force-recreate --remove-orphans --renew-anon-volumes --no-deps consul
-        '
+        "
         ;;
       7)
         # Deploy trino
 
         podman machine ssh default -- bash -lc "
           set -euo pipefail
-          HOST_PROJ=$HOST_PROJ
+
+          cd \"\$HOST_PROJ\" || { echo '❌ Path not visible inside VM:' \"\$HOST_PROJ\"; exit 1; }
+          command -v sudo podman-compose >/dev/null && sudo podman-compose --version || true
+
+
+          HOST_PROJ=\"/work\"
           PODMAN_OVERLAY_DIR=$PODMAN_OVERLAY_DIR
 
           cd \"\$HOST_PROJ\" || { echo '❌ Path not visible inside VM:' \"\$HOST_PROJ\"; exit 1; }
           # (optional) show which provider we’re using
-          command -v podman-compose >/dev/null && podman-compose --version || true
+          command -v sudo podman-compose >/dev/null && sudo podman-compose --version || true
 
 
 
-          echo \"# run compose (use podman-compose explicitly to avoid provider lookup noise)\"
+          echo \"# run compose (use sudo podman-compose explicitly to avoid provider lookup noise)\"
           COMPOSE_PROJECT_NAME=osss-trino podman-compose -f docker-compose.yml --profile trino up -d --force-recreate --remove-orphans --renew-anon-volumes --no-deps trino
         "
         ;;
@@ -4770,22 +5015,22 @@ menu() {
         podman machine ssh default -- bash -lc "
           set -euo pipefail
 
-          HOST_PROJ=$HOST_PROJ
-          cd \"$HOST_PROJ\" || { echo '❌ Path not visible inside VM:' \"$HOST_PROJ\"; exit 1; }
+          HOST_PROJ=\"/work\"
+          cd \"\$HOST_PROJ\" || { echo '❌ Path not visible inside VM:' \"\$HOST_PROJ\"; exit 1; }
 
-          # Prefer podman-compose explicitly
-          if ! command -v podman-compose >/dev/null 2>&1; then
-            echo '❌ podman-compose not found'; exit 1
+          # Prefer sudo podman-compose explicitly
+          if ! command -v sudo podman-compose >/dev/null 2>&1; then
+            echo '❌ sudo podman-compose not found'; exit 1
           fi
-          podman-compose --version || true
+          sudo podman-compose --version || true
 
           # Ensure network exists
-          podman network exists osss-net >/dev/null 2>&1 || podman network create osss-net
+          sudo podman network exists osss-net >/dev/null 2>&1 || sudo podman network create osss-net
 
           export COMPOSE_PROJECT_NAME=osss-airflow
 
           # Helpers
-          hc_status() { podman inspect --format '{{.State.Healthcheck.Status}}' \"\$1\" 2>/dev/null || echo 'none'; }
+          hc_status() { sudo podman inspect --format '{{.State.Healthcheck.Status}}' \"\$1\" 2>/dev/null || echo 'none'; }
           wait_healthy() {
             local name=\"\$1\" tries=\${2:-120} sleep_s=\${3:-2}
             echo \"⏳ Waiting for '\$name' to become healthy...\"
@@ -4799,20 +5044,20 @@ menu() {
               sleep \"\$sleep_s\"
             done
             echo \"❌ Timed out waiting for '\$name' (last status='\$s')\"
-            podman ps -a --format 'table {{.Names}}\\t{{.Status}}' | grep -E 'airflow|postgres'
+            sudo podman ps -a --format 'table {{.Names}}\\t{{.Status}}' | grep -E 'airflow|postgres'
             echo '--- logs (tail) ---'
-            podman logs --tail 200 \"\$name\" || true
+            sudo podman logs --tail 200 \"\$name\" || true
             exit 1
           }
           wait_exit0() {
             local name=\"\$1\"
             echo \"⏳ Waiting for '\$name' to complete...\"
             # If it's not up yet, start just this service
-            podman-compose -f docker-compose.yml --profile airflow up -d \"\$name\"
-            code=\$(podman wait \"\$name\")
+            sudo podman-compose -f docker-compose.yml --profile airflow up -d \"\$name\"
+            code=\$(sudo podman wait \"\$name\")
             if [ \"\$code\" != 0 ]; then
               echo \"❌ '\$name' exited with code \$code\"
-              podman logs \"\$name\" || true
+              sudo podman logs \"\$name\" || true
               exit \"\$code\"
             fi
             echo \"✅ '\$name' completed successfully\"
@@ -4820,12 +5065,12 @@ menu() {
 
           # 1) DB first
           echo '▶️  Starting postgres-airflow...'
-          podman-compose -f docker-compose.yml --profile airflow up -d postgres-airflow
+          sudo podman-compose -f docker-compose.yml --profile airflow up -d postgres-airflow
           wait_healthy postgres-airflow 180 2
 
           # 2) Redis next
           echo '▶️  Starting airflow-redis...'
-          podman-compose -f docker-compose.yml --profile airflow up -d airflow-redis
+          sudo podman-compose -f docker-compose.yml --profile airflow up -d airflow-redis
           wait_healthy airflow-redis 120 2
 
           # 3) Run DB migrations/init (one-shot)
@@ -4834,15 +5079,15 @@ menu() {
 
           # 4) Webserver
           echo '▶️  Starting airflow-webserver...'
-          podman-compose -f docker-compose.yml --profile airflow up -d airflow-webserver
+          sudo podman-compose -f docker-compose.yml --profile airflow up -d airflow-webserver
 
           # 5) Scheduler
           echo '▶️  Starting airflow-scheduler...'
-          podman-compose -f docker-compose.yml --profile airflow up -d airflow-scheduler
+          sudo podman-compose -f docker-compose.yml --profile airflow up -d airflow-scheduler
 
           echo
           echo '✅ Airflow bring-up complete. Current statuses:'
-          podman ps -a --format 'table {{.Names}}\\t{{.Status}}' | grep -E 'airflow|postgres' || true
+          sudo podman ps -a --format 'table {{.Names}}\\t{{.Status}}' | grep -E 'airflow|postgres' || true
         "
 
         ;;
@@ -4850,15 +5095,15 @@ menu() {
         # Deploy superset
         podman machine ssh default -- bash -lc "
           set -euo pipefail
-          HOST_PROJ=$HOST_PROJ
+          HOST_PROJ=\"/work\"
           PODMAN_OVERLAY_DIR=$PODMAN_OVERLAY_DIR
           cd \"\$HOST_PROJ\" || { echo '❌ Path not visible inside VM:' \"\$HOST_PROJ\"; exit 1; }
           # (optional) show which provider we’re using
-          command -v podman-compose >/dev/null && podman-compose --version || true
+          command -v sudo podman-compose >/dev/null && sudo podman-compose --version || true
 
-          podman network exists osss-net >/dev/null 2>&1 || podman network create osss-net
+          sudo podman network exists osss-net >/dev/null 2>&1 || sudo podman network create osss-net
 
-          # run compose (use podman-compose explicitly to avoid provider lookup noise)
+          # run compose (use sudo podman-compose explicitly to avoid provider lookup noise)
           COMPOSE_PROJECT_NAME=osss-superset COMPOSE_PROFILES=superset podman-compose -f docker-compose.yml config --services
           COMPOSE_PROJECT_NAME=osss-superset podman-compose -f docker-compose.yml --profile superset up --build superset-build --force-recreate
           COMPOSE_PROJECT_NAME=osss-superset podman-compose -f docker-compose.yml --profile superset up -d postgres-superset --no-deps
@@ -4872,15 +5117,15 @@ menu() {
         # Deploy openmetadata
         podman machine ssh default -- bash -lc "
           set -euo pipefail
-          HOST_PROJ=$HOST_PROJ
+          HOST_PROJ=\"/work\"
           PODMAN_OVERLAY_DIR=$PODMAN_OVERLAY_DIR
           cd \"\$HOST_PROJ\" || { echo '❌ Path not visible inside VM:' \"\$HOST_PROJ\"; exit 1; }
           # (optional) show which provider we’re using
-          command -v podman-compose >/dev/null && podman-compose --version || true
+          command -v sudo podman-compose >/dev/null && sudo podman-compose --version || true
 
-          podman network exists osss-net >/dev/null 2>&1 || podman network create osss-net
+          sudo podman network exists osss-net >/dev/null 2>&1 || sudo podman network create osss-net
 
-          # run compose (use podman-compose explicitly to avoid provider lookup noise)
+          # run compose (use sudo podman-compose explicitly to avoid provider lookup noise)
           COMPOSE_PROJECT_NAME=osss-openmetadata podman-compose -f docker-compose.yml --profile openmetadata up -d --force-recreate --remove-orphans --renew-anon-volumes
         "
         ;;
@@ -4888,23 +5133,22 @@ menu() {
         # Deploy ai
         podman machine ssh default -- bash -lc "
           set -euo pipefail
-
-          HOST_PROJ=$HOST_PROJ
+          HOST_PROJ=\"/work\"
           PODMAN_OVERLAY_DIR=$PODMAN_OVERLAY_DIR
           PROJECT=osss-ai
           COMPOSE_FILE=docker-compose.yml
           PROFILE=ai
 
           cd \"\$HOST_PROJ\" || { echo '❌ Path not visible inside VM:' \"\$HOST_PROJ\"; exit 1; }
-          command -v podman-compose >/dev/null && podman-compose --version || true
+          command -v sudo podman-compose >/dev/null && sudo podman-compose --version || true
 
           # Ensure network exists
-          podman network exists osss-net >/dev/null 2>&1 || podman network create osss-net
+          sudo podman network exists osss-net >/dev/null 2>&1 || sudo podman network create osss-net
 
           # Helper: get container id for a compose service in a given project
           cid_for() {
             local svc=\"\$1\"
-            podman ps -a \
+            sudo podman ps -a \
               --filter label=io.podman.compose.project=\$PROJECT \
               --filter label=com.docker.compose.project=\$PROJECT \
               --filter label=io.podman.compose.service=\$svc \
@@ -4920,8 +5164,8 @@ menu() {
             while :; do
               cid=\$(cid_for \"\$svc\" || true)
               if [ -n \"\$cid\" ]; then
-                status=\$(podman inspect -f '{{.State.Health.Status}}' \"\$cid\" 2>/dev/null || true)
-                running=\$(podman inspect -f '{{.State.Running}}' \"\$cid\" 2>/dev/null || echo false)
+                status=\$(sudo podman inspect -f '{{.State.Health.Status}}' \"\$cid\" 2>/dev/null || true)
+                running=\$(sudo podman inspect -f '{{.State.Running}}' \"\$cid\" 2>/dev/null || echo false)
                 if [ \"\$status\" = \"healthy\" ] || { [ -z \"\$status\" ] && [ \"\$running\" = \"true\" ]; }; then
                   echo \"✅ \$svc is ready (\${status:-running})\"
                   break
@@ -4929,7 +5173,7 @@ menu() {
               fi
               if [ \$(( \$(date +%s) - start )) -ge \"\$timeout\" ]; then
                 echo \"❌ Timeout waiting for '\$svc' to become healthy\"
-                podman logs --tail=200 \"\$cid\" || true
+                sudo podman logs --tail=200 \"\$cid\" || true
                 exit 1
               fi
               sleep 2
@@ -4940,7 +5184,7 @@ menu() {
           bring_up() {
             local svc=\"\$1\"
             echo \"🚀 Starting \$svc...\"
-            COMPOSE_PROJECT_NAME=\$PROJECT podman-compose -f \"\$COMPOSE_FILE\" --profile \"\$PROFILE\" \
+            COMPOSE_PROJECT_NAME=\$PROJECT sudo podman-compose -f \"\$COMPOSE_FILE\" --profile \"\$PROFILE\" \
               up -d \"\$svc\"
           }
 
@@ -4966,7 +5210,7 @@ menu() {
 
           echo
           echo '▶️  AI services are up (project:' \$PROJECT ')'
-          podman ps --filter label=io.podman.compose.project=\$PROJECT --format '{{.Names}}\t{{.Status}}' || true
+          sudo podman ps --filter label=io.podman.compose.project=\$PROJECT --format '{{.Names}}\t{{.Status}}' || true
         "
         ;;
       12) down_profiles_menu ;;

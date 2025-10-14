@@ -1,6 +1,8 @@
 # build once, reuse the same image name for both services
 x-superset-image: &superset_image osss/superset:with-drivers
 
+x-podman-sock: &podman_sock "${VM_PODMAN_SOCK:-/run/podman/podman.sock}"
+
 x-kc-db-env:
   KC_DB: ${KC_DB}
   KC_DB_URL_HOST: ${KC_DB_URL_HOST}
@@ -36,7 +38,7 @@ volumes:
   redis-data: {}
   es-data: {}
   filebeat-data: {}
-  es-shared: {}
+  filebeat-logs: { }
   pg_superset_data: {}
   superset_redis_data: {}
   trino_data: {}
@@ -54,6 +56,9 @@ volumes:
   minio_data: {}
   ai_pg_data: {}
   ai_redis_data: {}
+  filebeat_data: {}
+  es-shared:
+    name: es-shared   # <— add this line
 
 services:
   consul:
@@ -77,9 +82,9 @@ services:
       - 8600:8600/tcp
       - 8600:8600/udp
     volumes:
-      - ./config_files/consul_data:/consul/data
-      - ./config_files/consul/config:/consul/config:rw
-      - ./config_files/consul/jwt:/consul/jwt:rw
+      - ./config_files/consul_data:/consul/data:z
+      - ./config_files/consul/config:/consul/config:rw,z
+      - ./config_files/consul/jwt:/consul/jwt:rw,z
     networks:
       - osss-net
     environment:
@@ -98,13 +103,14 @@ services:
     networks:
       - osss-net
     depends_on:
-      - consul
+      consul:
+        condition: service_healthy
     environment:
       CONSUL_HTTP_ADDR: http://consul:8500
       CONSUL_HTTP_TOKEN: ${CONSUL_HTTP_TOKEN}
     volumes:
-      - ./config_files/consul/jwt/jwt.json:/cfg/jwt.json:ro
-      - ./config_files/consul/init-jwt.sh:/cfg/init-jwt.sh:ro
+      - ./config_files/consul/jwt/jwt.json:/cfg/jwt.json:ro,z
+      - ./config_files/consul/init-jwt.sh:/cfg/init-jwt.sh:ro,z
     entrypoint:
       - /bin/sh
       - -exc
@@ -115,7 +121,7 @@ services:
     profiles:
     - app
     networks:
-    - osss-net
+      - osss-net
     container_name: app
     hostname: app
     cpus: 2.0
@@ -125,27 +131,27 @@ services:
       context: .
       dockerfile: docker/app/Dockerfile
     command:
-    - uvicorn
-    - src.OSSS.main:app
-    - --host
-    - 0.0.0.0
-    - --port
-    - '8000'
-    - --reload
-    - --log-level
-    - info
-    - --access-log
-    - --log-config
-    - /workspace/docker/logging.yaml
+      - uvicorn
+      - src.OSSS.main:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - '8000'
+      - --reload
+      - --log-level
+      - info
+      - --access-log
+      - --log-config
+      - /workspace/docker/logging.yaml
     working_dir: /workspace
     ports:
-    - 127.0.0.1:8081:8000
+      - 127.0.0.1:8081:8000
     entrypoint:
-    - /usr/local/bin/app-entrypoint.sh
+      - /usr/local/bin/app-entrypoint.sh
     volumes:
-    - ./:/workspace:cached
-    - ./docker/logging.yml:/workspace/docker/logging.yaml:ro
-    - ./scripts/app-entrypoint.sh:/usr/local/bin/app-entrypoint.sh:ro
+      - ./:/workspace:cached
+      - ./docker/logging.yml:/workspace/docker/logging.yaml:ro,z
+      - ./scripts/app-entrypoint.sh:/usr/local/bin/app-entrypoint.sh:ro,z
 
     labels:
       co.elastic.logs/enabled: 'true'
@@ -154,6 +160,10 @@ services:
       co.elastic.logs/processors.1.decode_json_fields.overwrite_keys: 'true'
       co.elastic.logs/processors.2.add_fields.target: app
       co.elastic.logs/processors.2.add_fields.fields.service: osss-api
+      # if your app logs JSON:
+      co.elastic.logs/json.keys_under_root: "true"
+      co.elastic.logs/json.add_error_key: "true"
+      co.elastic.logs/json.overwrite_keys: "true"
     environment:
       OSSS_VERBOSE_AUTH: '1'
       PYTHONUNBUFFERED: '1'
@@ -225,11 +235,21 @@ services:
       timeout: 3s
       retries: 90
       start_period: 20s
+    logging:
+      driver: k8s-file
+      options:
+        max-size: 10m
+
   web:
     profiles:
     - web-app
     networks:
-    - osss-net
+      - osss-net
+    logging:
+      driver: k8s-file
+      options:
+        max-size: 10m
+
     container_name: web
     hostname: web
     cpus: 2.0
@@ -253,8 +273,8 @@ services:
       OSSS_API_URL: ${OSSS_API_URL}
     volumes:
     - ./src/osss-web:/app:cached
-    - web_node_modules:/app/node_modules   # <— use the named volume
-    - ./config_files/keycloak/secrets/ca/ca.crt:/app/certs/keycloak-ca.crt:ro,Z
+    - web_node_modules:/app/node_modules:z   # <— use the named volume
+    - ./config_files/keycloak/secrets/ca/ca.crt:/app/certs/keycloak-ca.crt:ro,z
     working_dir: /app
     ports:
     - 3000:3000
@@ -290,18 +310,23 @@ services:
       OSSS_DB_NAME: ${OSSS_DB_NAME}
       POSTGRES_INITDB_ARGS: ${POSTGRES_INITDB_ARGS}
     networks:
-    - osss-net
+      - osss-net
     ports:
     - 5433:5432
     volumes:
-    - osss_postgres_data:/var/lib/postgresql/data
-    - ./scripts/init-osss.sh:/docker-entrypoint-initdb.d/20-init-osss.sh:ro
+    - osss_postgres_data:/var/lib/postgresql/data:z
+    - ./scripts/init-osss.sh:/docker-entrypoint-initdb.d/20-init-osss.sh:ro,z
     healthcheck:
       test: pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}" -h 127.0.0.1 -p
         5432 || exit 1
       interval: 5s
       timeout: 5s
       retries: 20
+    logging:
+      driver: k8s-file
+      options:
+        max-size: 10m
+
   redis:
     image: redis:7-alpine
     profiles:
@@ -317,9 +342,9 @@ services:
     ports:
     - 6379:6379
     networks:
-    - osss-net
+      - osss-net
     volumes:
-    - redis-data:/data
+    - redis-data:/data:z
     healthcheck:
       test:
       - CMD
@@ -329,6 +354,11 @@ services:
       timeout: 3s
       retries: 20
     restart: unless-stopped
+    logging:
+      driver: k8s-file
+      options:
+        max-size: 10m
+
   kc_postgres:
     image: postgres:16
     profiles:
@@ -342,9 +372,9 @@ services:
       POSTGRES_USER: ${KC_DB_USERNAME}
       POSTGRES_PASSWORD: ${KC_DB_PASSWORD}
     networks:
-    - osss-net
+      - osss-net
     volumes:
-    - kc_postgres_data:/var/lib/postgresql/data
+    - kc_postgres_data:/var/lib/postgresql/data:z
     healthcheck:
       test: pg_isready -U ${KC_DB_USERNAME:-keycloak} -d ${KC_DB_NAME:-keycloak} -h
         127.0.0.1 -p 5432 || exit 1
@@ -353,6 +383,11 @@ services:
       retries: 30
       start_period: 10s
     restart: always
+    logging:
+      driver: k8s-file
+      options:
+        max-size: 10m
+
   keycloak:
     build:
       context: .
@@ -360,6 +395,11 @@ services:
     profiles:
     - keycloak
     container_name: keycloak
+    logging:
+      driver: k8s-file
+      options:
+        max-size: 10m
+
     networks:
       osss-net:
         aliases:
@@ -398,9 +438,9 @@ services:
       QUARKUS_MANAGEMENT_PORT: "9000"
 
     volumes:
-    - ./realm-export.json:/opt/keycloak/data/import/10-OSSS.json:ro
-    - ./docker/keycloak/quarkus.properties:/opt/keycloak/conf/quarkus.properties:ro
-    - ./config_files/keycloak/secrets/keycloak:/opt/keycloak/conf/tls:ro
+    - ./realm-export.json:/opt/keycloak/data/import/10-OSSS.json:ro,z
+    - ./docker/keycloak/quarkus.properties:/opt/keycloak/conf/quarkus.properties:ro,z
+    - ./config_files/keycloak/secrets/keycloak:/opt/keycloak/conf/tls:ro,z
 
     ports:
     - 8443:8443
@@ -425,6 +465,11 @@ services:
   vault:
     image: hashicorp/vault:1.20.3
     container_name: vault
+    logging:
+      driver: k8s-file
+      options:
+        max-size: 10m
+
     cpus: 1.0
     mem_limit: 1g
     mem_reservation: 512m
@@ -436,7 +481,7 @@ services:
     cap_add:
     - IPC_LOCK
     networks:
-    - osss-net
+      - osss-net
     environment:
       VAULT_DEV_ROOT_TOKEN_ID: ${VAULT_DEV_ROOT_TOKEN_ID}
       VAULT_DEV_LISTEN_ADDRESS: ${VAULT_DEV_LISTEN_ADDRESS}
@@ -461,6 +506,11 @@ services:
     profiles:
     - vault
     container_name: vault-oidc-setup
+    logging:
+      driver: k8s-file
+      options:
+        max-size: 10m
+
     build:
       context: .
       dockerfile: docker/vault-oidc-setup/Dockerfile
@@ -498,9 +548,9 @@ services:
       CURL_CA_BUNDLE: /etc/ssl/certs/keycloak-ca.crt
       SSL_CERT_FILE: /etc/ssl/certs/keycloak-ca.crt
     volumes:
-    - ./scripts/vault-oidc-setup.sh:/setup.sh:ro
-    - ~/.vault-token:/root/.vault-token:ro
-    - ./config_files/keycloak/secrets/ca/ca.crt:/etc/ssl/certs/keycloak-ca.crt:ro,Z
+    - ./scripts/vault-oidc-setup.sh:/setup.sh:ro,z
+    - ~/.vault-token:/root/.vault-token:ro,z
+    - ./config_files/keycloak/secrets/ca/ca.crt:/etc/ssl/certs/keycloak-ca.crt:ro,z
     entrypoint:
     - /bin/sh
     - -lc
@@ -511,9 +561,14 @@ services:
     profiles:
     - vault
     container_name: vault-seed
+    logging:
+      driver: k8s-file
+      options:
+        max-size: 10m
+
     env_file: .env
     networks:
-    - osss-net
+      - osss-net
     cpus: 0.25
     mem_limit: 256m
     mem_reservation: 128m
@@ -528,18 +583,29 @@ services:
       vault:
         condition: service_healthy
     volumes:
-    - ./scripts/seed-vault.sh:/usr/local/bin/seed-vault:ro
+    - ./scripts/seed-vault.sh:/usr/local/bin/seed-vault:ro,z
     entrypoint:
     - /bin/sh
     - -lc
     - /usr/local/bin/seed-vault
     restart: 'no'
+
   shared-vol-init:
     image: alpine:3.20
     user: 0:0
+    networks:
+      - osss-net
     volumes:
-      - es-shared:/shared
+      - es-shared:/shared:z
     container_name: shared-vol-init
+    security_opt:
+      - seccomp=unconfined
+      - label=disable
+    logging:
+      driver: k8s-file
+      options:
+        max-size: 10m
+
     cpus: 0.1
     mem_limit: 128m
     mem_reservation: 64m
@@ -558,15 +624,43 @@ services:
     networks:
       - osss-net
 
+  es-shared-init:
+    image: alpine:3.19
+    profiles: [ elastic ]
+    security_opt:
+      - seccomp=unconfined
+      - label=disable
+    networks:
+      - osss-net
+    command: >
+      sh -lc "mkdir -p /shared/filebeat-{data,logs} &&
+              chown -R 501:501 /shared/filebeat-{data,logs} &&
+              chmod -R 775 /shared/filebeat-{data,logs} &&
+              ls -ld /shared/filebeat-*"
+    volumes:
+      - es-shared:/shared:z
+    user: "0:0"
+    depends_on:
+      shared-vol-init:
+        condition: service_completed_successfully
+
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.14.3
     profiles:
     - elastic
     container_name: elasticsearch
     hostname: elasticsearch
+    logging:
+      driver: k8s-file
+      options:
+        max-size: 10m
+
     cpus: 2.0
     mem_limit: 2g
     mem_reservation: 1g
+    security_opt:
+      - seccomp=unconfined
+      - label=disable
     environment:
     - # put the secret in your .env instead of hardcoding here
     - OIDC_CLIENT_SECRET=${KIBANA_OIDC_CLIENT_SECRET}
@@ -584,7 +678,7 @@ services:
     - 9200:9200
     - 9300:9300
     networks:
-    - osss-net
+      - osss-net
     command: [ "/bin/bash","-lc","set -euo pipefail; \
         [ -f config/elasticsearch.keystore ] || bin/elasticsearch-keystore create; \
         if ! bin/elasticsearch-keystore list | grep -qx 'xpack.security.authc.realms.oidc.oidc1.rp.client_secret'; then \
@@ -592,9 +686,9 @@ services:
         fi; \
         exec /usr/local/bin/docker-entrypoint.sh eswrapper" ]
     volumes:
-    - es-data:/usr/share/elasticsearch/data
-    - ./config_files/elastic/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml:ro
-    - ./config_files/keycloak/secrets/ca/ca.crt:/usr/share/elasticsearch/config/keycloak-ca.crt:ro
+    - es-data:/usr/share/elasticsearch/data:z
+    - ./config_files/elastic/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml:ro,z
+    - ./config_files/keycloak/secrets/ca/ca.crt:/usr/share/elasticsearch/config/keycloak-ca.crt:ro,z
 
     healthcheck:
       test:
@@ -608,11 +702,14 @@ services:
   kibana-pass-init:
     image: curlimages/curl:8.8.0
     networks:
-    - osss-net
+      - osss-net
     profiles:
     - elastic
     cpus: 0.5
     mem_limit: 512m
+    security_opt:
+      - seccomp=unconfined
+      - label=disable
     mem_reservation: 256m
     container_name: kibana-pass-init
     depends_on:
@@ -653,8 +750,6 @@ services:
       \ '%s\\n' \"$$__v_body\"; exit 1; }; log \"kibana-pass-init complete.\";\n"
     restart: 'no'
 
-
-
   kibana:
     image: docker.elastic.co/kibana/kibana:8.14.3
     profiles:
@@ -663,8 +758,16 @@ services:
     cpus: 1.0
     mem_limit: 1g
     mem_reservation: 512m
+    logging:
+      driver: k8s-file
+      options:
+        max-size: 10m
+
+    security_opt:
+      - seccomp=unconfined
+      - label=disable
     volumes:
-    - ./config_files/elastic/kibana.yml:/usr/share/kibana/config/kibana.yml:ro
+    - ./config_files/elastic/kibana.yml:/usr/share/kibana/config/kibana.yml:ro,z
     depends_on:
       elasticsearch:
         condition: service_healthy
@@ -672,140 +775,158 @@ services:
         condition: service_completed_successfully
     environment:
       ELASTICSEARCH_HOSTS: http://elasticsearch:9200
-      SERVER_PUBLICBASEURL: http://localhost:5601
+      SERVER_PUBLICBASEURL: http://kibana:5601
       LOGGING_VERBOSE: 'true'
       ELASTICSEARCH_USERNAME: kibana_system
       ELASTICSEARCH_PASSWORD: ${KIBANA_PASSWORD}
       KBN_SERVER_PUBLICBASEURL: http://localhost:5601
+      XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY: caeb7879368e3dd66d7302f6810daec1
+      XPACK_REPORTING_ENCRYPTIONKEY: c1c89f500966ac710f7fa5eaf2939976
+      XPACK_SECURITY_ENCRYPTIONKEY: e1458d710ffb321e4a4f4eb792c78b2b
     ports:
     - 5601:5601
     networks:
-    - osss-net
+      - osss-net
     restart: unless-stopped
     healthcheck:
       test: curl -fsS -I http://localhost:5601/login | grep -q '200'
       interval: 20s
       timeout: 5s
       retries: 30
+
   api-key-init:
     image: curlimages/curl:8.8.0
-    networks:
-    - osss-net
-    profiles:
-    - elastic
-    cpus: 0.5
-    mem_limit: 512m
-    mem_reservation: 256m
     container_name: api-key-init
-    user: 0:0
+    profiles: [ elastic ]
+    networks: [ osss-net ]
+    logging:
+      driver: k8s-file
+      options:
+        max-size: 10m
+    user: "0:0"
     environment:
-      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD}
       ES_URL: http://elasticsearch:9200
+      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:-password}
     depends_on:
       shared-vol-init:
         condition: service_completed_successfully
       elasticsearch:
         condition: service_healthy
+    security_opt:
+      - seccomp=unconfined
+      - label=disable
     volumes:
-    - ./:/work
-    - es-shared:/shared
-    working_dir: /work
-    entrypoint:
-    - sh
-    - -lc
+      # mount the script read-only into a fixed path:
+      - ./config_files/filebeat/mint_apikey.sh:/usr/local/bin/mint_apikey.sh:ro,z
+      # the shared volume where the .env.apikey file will be written
+      - es-shared:/shared:z
+    # Use command-only (no entrypoint) and give the shell + strict flags
     command:
-    - "set -eu\n\n# Wait for ES\necho \"[wait] for Elasticsearch...\"\n__n=0\nwhile\
-      \ :; do\n  __code=\"$$(curl -sS -o /dev/null -w '%{http_code}' \"$$ES_URL\"\
-      \ || echo 000)\"\n  case \"$$__code\" in 200|401|302) break ;; esac\n  __n=$$((__n+1));\
-      \ [ \"$$__n\" -le 180 ] || { echo \"ES not reachable (code=$$__code)\" >&2;\
-      \ exit 1; }\n  sleep 5\ndone\n\necho \"[mint] API key for filebeat writer...\"\
-      \nbody='{\n  \"name\": \"filebeat_osss_ingest\",\n  \"role_descriptors\": {\n\
-      \    \"filebeat_writer\": {\n      \"cluster\": [\"monitor\",\"read_ilm\",\"\
-      read_pipeline\"],\n      \"index\": [\n        { \"names\": [\"logs-*\",\"filebeat-*\"\
-      ], \"privileges\": [\"auto_configure\",\"create_doc\",\"view_index_metadata\"\
-      ] }\n      ]\n    }\n  }\n}'\n\nresp=$$(curl -fsS -u \"elastic:$$ELASTIC_PASSWORD\"\
-      \ \\\n         -H \"Content-Type: application/json\" \\\n         -d \"$$body\"\
-      \ \"$$ES_URL/_security/api_key\")\n\nid=$$(printf '%s' \"$$resp\" | sed -n 's/.*\"\
-      id\"[[:space:]]*:[[:space:]]*\"\\([^\"]*\\)\".*/\\1/p')\nkey=$$(printf '%s'\
-      \ \"$$resp\" | sed -n 's/.*\"api_key\"[[:space:]]*:[[:space:]]*\"\\([^\"]*\\\
-      )\".*/\\1/p')\n[ -n \"$$id\" ] && [ -n \"$$key\" ] || { echo \"ERROR: could\
-      \ not parse API key: $$resp\" >&2; exit 1; }\n\necho \"ELASTIC_API_KEY=$$id:$$key\"\
-      \ > .env.apikey\necho \"[ok] wrote .env.apikey\"\n\necho \"ELASTIC_API_KEY=$$id:$$key\"\
-      \ > /shared/filebeat.apikey.env\nchmod 600 /shared/filebeat.apikey.env\necho\
-      \ \"[ok] wrote /shared/filebeat.apikey.env\"\n"
-  filebeat-setup:
-    image: docker.elastic.co/beats/filebeat:8.14.3
-    networks:
-    - osss-net
-    profiles:
-    - elastic
-    container_name: filebeat-setup
+      - /bin/sh
+      - -exc
+      - |
+        echo "[api-key-init] begin"
+        ls -l /usr/local/bin/mint_apikey.sh || { echo "missing mint_apikey.sh" >&2; exit 1; }
+        # run script explicitly; we don't need +x on the file this way
+        /bin/sh /usr/local/bin/mint_apikey.sh
+
+        echo "[verify] checking /shared/.env.apikey"
+        ls -l /shared || true
+        if [ -s /shared/.env.apikey ]; then
+          echo "[verify] permissions/owner for /shared/.env.apikey"
+          stat -c 'mode=%a owner=%U group=%G' /shared/.env.apikey || true
+          echo "[verify] masked key preview"
+          awk -F= '/^ELASTIC_API_KEY=/{print "ELASTIC_API_KEY=" substr($$2,1,6) "..."}' /shared/.env.apikey || true
+        else
+          echo "❌ /shared/.env.apikey missing or empty" >&2
+          exit 2
+        fi
+        echo "[api-key-init] done"
     cpus: 0.5
     mem_limit: 512m
     mem_reservation: 256m
-    env_file:
-    - .env
+
+  filebeat-setup:
+    image: docker.elastic.co/beats/filebeat:8.14.3
+    container_name: filebeat-setup
+    profiles: [ elastic ]
+    networks: [ osss-net ]
+    user: "0:0"
+    security_opt: [ seccomp=unconfined, label=disable ]
     environment:
-      KIBANA_URL: ${KIBANA_URL:-http://kibana:5601}
+      KIBANA_URL: "http://host.containers.internal:5601"
+      ES_URL: "http://host.containers.internal:9200"
+      KIBANA_USERNAME: ${KIBANA_USERNAME:-elastic}
+      KIBANA_PASSWORD: ${ELASTIC_PASSWORD:-password}
+      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:-password}
+    logging:
+      driver: k8s-file
+      options:
+        max-size: 10m
+
     depends_on:
       elasticsearch:
         condition: service_healthy
       kibana:
         condition: service_healthy
-      api-key-init:
+      es-shared-init:
         condition: service_completed_successfully
     volumes:
-    - ./config_files/filebeat/filebeat.setup.yml:/usr/share/filebeat/filebeat.yml:ro
-    entrypoint:
-    - sh
-    - -lc
-    command:
-    - "set -eu\necho \"[wait] for Kibana...\"\ni=0\nuntil code=\"$$(curl -sS -o /dev/null\
-      \ -w '%{http_code}' \"$$KIBANA_URL/api/status\")\" \\\n  && { [ \"$$code\" =\
-      \ \"200\" ] || [ \"$$code\" = \"302\" ] || [ \"$$code\" = \"401\" ]; }; do\n\
-      \  i=$$((i+1)); [ $$i -le 180 ] || { echo \"Kibana not reachable (last http_code=$$code)\"\
-      ; exit 1; }\n  sleep 1\ndone\n\necho \"[setup] ILM/templates/dashboards\"\n\
-      filebeat setup \\\n  -E setup.ilm.overwrite=true \\\n  -E setup.dashboards.enabled=true\
-      \ \\\n  -E setup.kibana.hosts=[\"$$KIBANA_URL\"] \\\n  -E setup.kibana.username=\"\
-      $$KIBANA_USERNAME\" \\\n  -E setup.kibana.password=\"$$KIBANA_PASSWORD\" \\\n\
-      \  -E output.elasticsearch.hosts=[\"$$ES_URL\"] \\\n  -E output.elasticsearch.username=\"\
-      elastic\" \\\n  -E output.elasticsearch.password=\"$$ELASTIC_PASSWORD\"\n"
+      - ./config_files/filebeat/filebeat.setup.yml:/usr/share/filebeat/filebeat.yml:ro,z
+      - es-shared:/shared:z
+      - ./config_files/filebeat/setup.sh:/usr/local/bin/setup.sh:ro,z
+      - filebeat-data:/usr/share/filebeat/data:z
+      - filebeat-logs:/usr/share/filebeat/logs:z
+    entrypoint: [ "sh", "-lc" ]
+    command: "/usr/local/bin/setup.sh"
+
   filebeat:
     image: docker.elastic.co/beats/filebeat:8.14.3
-    container_name: filebeat-podman
-    networks:
-    - osss-net
-    profiles:
-    - elastic
-    cpus: 0.5
-    mem_limit: 512m
-    mem_reservation: 256m
-    env_file:
-    - .env
+    container_name: filebeat
+    user: "0:0"
+    hostname: filebeat
+    security_opt: [ "label=disable" ]
+    group_add: [ "0", "190" ]
     environment:
-      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
-      KIBANA_URL: ${KIBANA_URL:-http://kibana:5601}
-    depends_on:
-      api-key-init:
-        condition: service_completed_successfully
-      filebeat-setup:
-        condition: service_completed_successfully
+      DOCKER_HOST: "unix:///var/run/podman.sock"
+      VM_PROJ: "/home/core/OSSS"
+    env_file:
+      - /var/lib/containers/storage/volumes/es-shared/_data/.env.apikey
     volumes:
-    - ./config_files/filebeat/filebeat.podman.yml:/usr/share/filebeat/filebeat.yml:ro
-    - ${PODMAN_OVERLAY_DIR:-/var/lib/containers/storage/overlay-containers}:/var/lib/containers/storage/overlay-containers:ro
-    - es-shared:/shared
+      - es-shared:/shared:z
+      - ./:/work:ro
+      # host journals, read-only + rslave + selinux relabel
+      - /run/systemd/journal:/run/systemd/journal:ro,rslave,z
+      - /run/log/journal:/run/log/journal:ro,rslave,z
+      - /var/log/journal:/var/log/journal:ro,rslave,z
+      # machine-id helps the reader on some hosts
+      - /etc/machine-id:/etc/machine-id:ro,z
+      - /var/lib/containers:/var/lib/containers:ro,rslave,z     # Podman container logs
+      - /run/podman/podman.sock:/var/run/podman.sock:ro         # Podman’s Docker-compat socket
     command:
-    - sh
-    - -c
-    - "set -eu\necho \"[wait] for /shared/filebeat.apikey.env...\"\ni=0\nwhile [ $$i\
-      \ -lt 180 ]; do\n  [ -s /shared/filebeat.apikey.env ] && break\n  i=$$((i+1))\n\
-      \  sleep 1\ndone\n[ -s /shared/filebeat.apikey.env ] || { echo \"missing API\
-      \ key file\"; exit 1; }\nset -a\n. /shared/filebeat.apikey.env\necho \"[ok]\
-      \ ELASTIC_API_KEY loaded (id=$${ELASTIC_API_KEY%%:*})\"\nexec filebeat -e --strict.perms=false\n"
+      - filebeat
+      - -e
+      - -c
+      - /work/config_files/filebeat/filebeat.podman.yml
+      - -E
+      - path.data=/shared/filebeat-data
+      - -E
+      - path.logs=/shared/filebeat-logs
+      - -E
+      - logging.level=debug
+      - -E
+      - logging.selectors=journald
+
+
   trino:
     image: trinodb/trino:latest
     container_name: trino
     hostname: trino
+    logging:
+      driver: k8s-file
+      options:
+        max-size: 10m
+
     profiles:
     - trino
     user: 1000:1000
@@ -822,9 +943,9 @@ services:
         -Djavax.net.ssl.trustStorePassword=changeit
         -Djavax.net.ssl.trustStoreType=PKCS12
     volumes:
-    - ./config_files/trino_data:/var/trino
-    - ./config_files/trino/etc:/etc/trino:ro
-    - ./config_files/trino/opt/osss-truststore.p12:/opt/trust/osss-truststore.p12:ro
+    - ./config_files/trino_data:/var/trino:z
+    - ./config_files/trino/etc:/etc/trino:ro,z
+    - ./config_files/trino/opt/osss-truststore.p12:/opt/trust/osss-truststore.p12:ro,z
     networks:
     - osss-net
   superset-build:
@@ -841,6 +962,11 @@ services:
     container_name: superset_redis
     hostname: superset_redis
     restart: unless-stopped
+    logging:
+      driver: k8s-file
+      options:
+        max-size: 10m
+
     command:
     - redis-server
     - --appendonly
@@ -849,7 +975,7 @@ services:
     mem_limit: 512m
     mem_reservation: 256m
     volumes:
-    - superset_redis_data:/data
+    - superset_redis_data:/data:z
     ports:
     - 6381:6379
     networks:
@@ -868,13 +994,18 @@ services:
     restart: unless-stopped
     cpus: 1.0
     mem_limit: 1536m
+    logging:
+      driver: k8s-file
+      options:
+        max-size: 10m
+
     mem_reservation: 1g
     environment:
       POSTGRES_USER: osss
       POSTGRES_PASSWORD: osss
       POSTGRES_DB: superset
     volumes:
-    - pg_superset_data:/var/lib/postgresql/data
+    - pg_superset_data:/var/lib/postgresql/data:z
     ports:
     - 5434:5432
     networks:
@@ -890,6 +1021,11 @@ services:
     container_name: superset-init
     hostname: superset-init
     profiles: [ superset ]
+    logging:
+      driver: k8s-file
+      options:
+        max-size: 10m
+
     depends_on:
       postgres-superset:
         condition: service_healthy
@@ -902,7 +1038,6 @@ services:
       SSL_CERT_FILE: /etc/ssl/certs/osss-dev-ca-chain.pem
       OAUTHLIB_INSECURE_TRANSPORT: 0
 
-
       # --- Keycloak OIDC ---
       KEYCLOAK_CLIENT_ID: superset
       KEYCLOAK_CLIENT_SECRET: password
@@ -912,12 +1047,10 @@ services:
       KEYCLOAK_REALM: OSSS
       KEYCLOAK_HOST: keycloak.local:8443
 
-
     volumes:
-      - ./config_files/superset:/app/pythonpath:ro
-      - ./config_files/keycloak/secrets/ca/ca.crt:/etc/ssl/certs/keycloak-ca.crt:ro,Z
-      - ./config_files/keycloak/secrets/ca/ca-chain.pem:/etc/ssl/certs/osss-dev-ca-chain.pem:ro,Z
-
+      - ./config_files/superset:/app/pythonpath:ro:z
+      - ./config_files/keycloak/secrets/ca/ca.crt:/etc/ssl/certs/keycloak-ca.crt:ro,z
+      - ./config_files/keycloak/secrets/ca/ca-chain.pem:/etc/ssl/certs/osss-dev-ca-chain.pem:ro,z
 
     command:
       - bash
@@ -941,6 +1074,11 @@ services:
     hostname: superset
     profiles: [ superset ]
     restart: unless-stopped
+    logging:
+      driver: k8s-file
+      options:
+        max-size: 10m
+
     cpus: 2.0
     mem_limit: 3g
     mem_reservation: 2g
@@ -966,8 +1104,6 @@ services:
       KEYCLOAK_REALM: OSSS
       KEYCLOAK_HOST: keycloak.local:8443
 
-
-
     depends_on:
       postgres-superset:
         condition: service_healthy
@@ -978,9 +1114,9 @@ services:
     ports:
       - 8088:8088
     volumes:
-      - ./config_files/superset:/app/pythonpath:ro
-      - ./config_files/keycloak/secrets/ca/ca.crt:/etc/ssl/certs/keycloak-ca.crt:ro,Z
-      - ./config_files/keycloak/secrets/ca/ca-chain.pem:/etc/ssl/certs/osss-dev-ca-chain.pem:ro,Z
+      - ./config_files/superset:/app/pythonpath:ro,z
+      - ./config_files/keycloak/secrets/ca/ca.crt:/etc/ssl/certs/keycloak-ca.crt:ro,z
+      - ./config_files/keycloak/secrets/ca/ca-chain.pem:/etc/ssl/certs/osss-dev-ca-chain.pem:ro,z
 
     # superset (web)
     command:
@@ -993,7 +1129,7 @@ services:
           pip install --no-cache-dir --target /app/superset_home/pythonpath \
           "psycopg2-binary==2.9.*" pillow redis Authlib &&
         exec /app/.venv/bin/gunicorn -w 4 --timeout 300 -b 0.0.0.0:8088 'superset.app:create_app()'
-    
+
 
     networks: [ osss-net ]
 
@@ -1004,6 +1140,11 @@ services:
     profiles:
     - airflow
     cpus: 1.0
+    logging:
+      driver: k8s-file
+      options:
+        max-size: 10m
+
     mem_limit: 1536m
     mem_reservation: 1g
     environment:
@@ -1011,7 +1152,7 @@ services:
       POSTGRES_PASSWORD: airflow
       POSTGRES_DB: airflow
     volumes:
-    - airflow-pgdata:/var/lib/postgresql/data
+    - airflow-pgdata:/var/lib/postgresql/data:z
     networks:
     - osss-net
     ports:
@@ -1027,6 +1168,11 @@ services:
     container_name: airflow-init
     hostname: airflow-init
     profiles: [ airflow ]
+    logging:
+      driver: k8s-file
+      options:
+        max-size: 10m
+
     depends_on:
       postgres-airflow:
         condition: service_healthy
@@ -1040,19 +1186,23 @@ services:
       AIRFLOW__CORE__LOAD_EXAMPLES: "False"
       AIRFLOW__LOGGING__LOGGING_LEVEL: "INFO"
     entrypoint: [ "/bin/bash", "-lc" ]
-    entrypoint: [ "/bin/bash", "-lc" ]
     command:
       - |
         set -euo pipefail
         airflow db migrate
         airflow users create --username admin --firstname Admin --lastname User --role Admin --email admin@example.com --password admin || true
     volumes:
-      - ./config_files/airflow/dags:/opt/airflow/dags
+      - ./config_files/airflow/dags:/opt/airflow/dags:z
     networks: [ osss-net ]
   airflow-webserver:
     image: apache/airflow:2.9.3-python3.11
     container_name: airflow-webserver
     hostname: airflow-webserver
+    logging:
+      driver: k8s-file
+      options:
+        max-size: 10m
+
     profiles:
     - airflow
     depends_on:
@@ -1086,16 +1236,21 @@ services:
     ports:
     - 8083:8080
     volumes:
-    - ./config_files/airflow/dags:/opt/airflow/dags
-    - ./config_files/airflow/webserver_config.py:/opt/airflow/webserver_config.py:ro
-    - ./config_files/keycloak/secrets/ca/ca.crt:/etc/ssl/certs/keycloak-ca.crt:ro,Z
-    - ./config_files/keycloak/secrets/ca/ca-chain.pem:/etc/ssl/certs/osss-dev-ca-chain.pem:ro,Z
+    - ./config_files/airflow/dags:/opt/airflow/dags:z
+    - ./config_files/airflow/webserver_config.py:/opt/airflow/webserver_config.py:ro,z
+    - ./config_files/keycloak/secrets/ca/ca.crt:/etc/ssl/certs/keycloak-ca.crt:ro,z
+    - ./config_files/keycloak/secrets/ca/ca-chain.pem:/etc/ssl/certs/osss-dev-ca-chain.pem:ro,z
     networks:
     - osss-net
   airflow-scheduler:
     image: apache/airflow:2.9.3-python3.11
     container_name: airflow-scheduler
     hostname: airflow-scheduler
+    logging:
+      driver: k8s-file
+      options:
+        max-size: 10m
+
     profiles:
     - airflow
     depends_on:
@@ -1113,8 +1268,8 @@ services:
       KEYCLOAK_REALM: OSSS
     command: scheduler
     volumes:
-    - ./config_files/airflow/dags:/opt/airflow/dags
-    - ./config_files/airflow/webserver_config.py:/opt/airflow/webserver_config.py:ro
+    - ./config_files/airflow/dags:/opt/airflow/dags:z
+    - ./config_files/airflow/webserver_config.py:/opt/airflow/webserver_config.py:ro,z
     networks:
     - osss-net
   airflow-redis:
@@ -1122,6 +1277,11 @@ services:
     container_name: airflow-redis
     hostname: airflow-redis
     profiles: [ airflow ]
+    logging:
+      driver: k8s-file
+      options:
+        max-size: 10m
+
     networks: [ osss-net ]
     restart: unless-stopped
     ports:
@@ -1354,8 +1514,8 @@ services:
         -Djavax.net.ssl.trustStoreType=PKCS12
 
     volumes:
-      - ./config_files/openmetadata/openmetadata.yaml:/usr/local/openmetadata/conf/openmetadata.yaml:ro
-      - ./config_files/openmetadata/certs:/opt/om-trust:ro
+      - ./config_files/openmetadata/openmetadata.yaml:/usr/local/openmetadata/conf/openmetadata.yaml:ro,z
+      - ./config_files/openmetadata/certs:/opt/om-trust:ro,z
     depends_on:
       om-elasticsearch:
         condition: service_healthy
@@ -1364,11 +1524,15 @@ services:
     networks:
       - osss-net
 
-
   openmetadata-server:
     container_name: openmetadata-server
     hostname: openmetadata-server
     profiles: [ openmetadata ]
+    logging:
+      driver: k8s-file
+      options:
+        max-size: 10m
+
     restart: always
     image: docker.getcollate.io/openmetadata/server:1.9.12
     environment:
@@ -1389,8 +1553,6 @@ services:
       OIDC_CLIENT_ID: ${OM_OIDC_CLIENT_ID:-""}
       OIDC_CLIENT_SECRET: ${OM_OIDC_CLIENT_SECRET:-""}
       OIDC_SCOPES: "openid profile email"
-
-
 
       # OpenMetadata Server Authentication Configuration
       AUTHORIZER_CLASS_NAME: ${AUTHORIZER_CLASS_NAME:-org.openmetadata.service.security.DefaultAuthorizer}
@@ -1577,8 +1739,6 @@ services:
         -Djavax.net.ssl.trustStorePassword=changeit
         -Djavax.net.ssl.trustStoreType=PKCS12
 
-
-
     expose:
       - 8585
       - 8586
@@ -1593,8 +1753,8 @@ services:
       execute-migrate-all:
         condition: service_completed_successfully
     volumes:
-      - ./config_files/openmetadata/openmetadata.yaml:/usr/local/openmetadata/conf/openmetadata.yaml:ro
-      - ./config_files/openmetadata/certs:/opt/om-trust:ro
+      - ./config_files/openmetadata/openmetadata.yaml:/usr/local/openmetadata/conf/openmetadata.yaml:ro,z
+      - ./config_files/openmetadata/certs:/opt/om-trust:ro,z
 
     networks:
       - osss-net
@@ -1605,14 +1765,19 @@ services:
     image: docker.getcollate.io/openmetadata/db:1.9.12
     container_name: mysql
     hostname: mysql
+    logging:
+      driver: k8s-file
+      options:
+        max-size: 10m
+
     profiles: [ openmetadata ]
     networks:
-    - osss-net
+      - osss-net
     profiles:
-    - openmetadata
+      - openmetadata
     restart: always
     ports:
-    - 3306:3306
+      - 3306:3306
     environment:
       - MYSQL_ROOT_PASSWORD=password
       - MYSQL_DATABASE=openmetadata
@@ -1620,9 +1785,8 @@ services:
       - MYSQL_PASSWORD=openmetadata_password
     command: "--sort_buffer_size=10M"
 
-
     volumes:
-    - mysql_data:/var/lib/mysql
+    - mysql_data:/var/lib/mysql:z
     healthcheck:
       test: mysql --user=root --password=$$MYSQL_ROOT_PASSWORD --silent --execute "use openmetadata"
       interval: 15s
@@ -1634,6 +1798,11 @@ services:
       image: docker.elastic.co/elasticsearch/elasticsearch:8.11.4
       container_name: om-elasticsearch
       hostname: om-elasticsearch
+      logging:
+        driver: k8s-file
+        options:
+          max-size: 10m
+
       environment:
         - discovery.type=single-node
         - ES_JAVA_OPTS=-Xms1024m -Xmx1024m
@@ -1644,18 +1813,23 @@ services:
         - "9201:9200"
         - "9301:9300"
       healthcheck:
-        test: "curl -s http://localhost:9200/_cluster/health?pretty | grep status | grep -qE 'green|yellow' || exit 1"
-        interval: 15s
-        timeout: 10s
-        retries: 10
+        test: [ "CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB -h 127.0.0.1 -p 5432 || exit 1" ]
+        interval: 5s
+        timeout: 5s
+        retries: 20
       volumes:
-        - om-es-data:/usr/share/elasticsearch/data
+        - om-es-data:/usr/share/elasticsearch/data:z
 
   ingestion:
     container_name: openmetadata-ingestion
     hostname: openmetadata-ingestion
     profiles: [ openmetadata ]
     image: docker.getcollate.io/openmetadata/ingestion:1.9.12
+    logging:
+      driver: k8s-file
+      options:
+        max-size: 10m
+
     depends_on:
       om-elasticsearch:
         condition: service_started
@@ -1693,18 +1867,31 @@ services:
     networks:
       - osss-net
     volumes:
-      - ingestion-volume-dag-airflow:/opt/airflow/dag_generated_configs
-      - ingestion-volume-dags:/opt/airflow/dags
-      - ingestion-volume-tmp:/tmp
+      - ingestion-volume-dag-airflow:/opt/airflow/dag_generated_configs:z
+      - ingestion-volume-dags:/opt/airflow/dags:z
+      - ingestion-volume-tmp:/tmp:z
 
   ollama:
     image: ollama/ollama:latest
     container_name: ollama
+    hostname: ollama
+    logging:
+      driver: k8s-file
+      options:
+        max-size: 10m
+
+    labels:
+      co.elastic.logs/enabled: "true"
+      co.elastic.logs.ollama: "true"
+      co.elastic.logs.format: "plain"   # (use "json" if you log JSON)
+      co.elastic.logs.processors.add_fields.target: ""
+      co.elastic.logs.processors.add_fields.fields.service: "ollama"
+      co.elastic.logs.processors.add_fields.fields.stack: "ai"
     profiles: [ ai ]
     ports:
       - "11434:11434"
     volumes:
-      - ollama_data:/root/.ollama    # <-- named volume
+      - ollama_data:/root/.ollama:z    # <-- named volume
     entrypoint: >                     # (entrypoint from section #1)
       sh -c '
         set -e
@@ -1729,7 +1916,6 @@ services:
     networks: [ osss-net ]
     restart: unless-stopped
 
-
   # === Vector DB for RAG ===
   qdrant:
     build:
@@ -1738,10 +1924,15 @@ services:
     container_name: qdrant
     hostname: qdrant
     profiles: [ ai ]
+    logging:
+      driver: k8s-file
+      options:
+        max-size: 10m
+
     ports:
       - "6333:6333"
     volumes:
-      - qdrant_data:/qdrant/storage
+      - qdrant_data:/qdrant/storage:z
     healthcheck:
       test: [ "CMD", "curl", "-fsS", "http://localhost:6333/readyz" ]
       interval: 10s
@@ -1751,13 +1942,17 @@ services:
     networks: [ osss-net ]
     restart: unless-stopped
 
-
   # === Object Storage for curriculum/corpus ===
   minio:
     image: minio/minio:latest
     container_name: minio
     hostname: minio
     profiles: [ ai ]
+    logging:
+      driver: k8s-file
+      options:
+        max-size: 10m
+
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: ${AI_MINIO_ROOT_USER}
@@ -1766,7 +1961,7 @@ services:
       - "9000:9000"  # S3 API
       - "9001:9001"  # Web console
     volumes:
-      - minio_data:/data
+      - minio_data:/data:z
     healthcheck:
       test: [ "CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/9000 && exec 3>&-" ]
       interval: 10s
@@ -1776,7 +1971,6 @@ services:
     networks: [ osss-net ]
     restart: unless-stopped
 
-
   # === Redis for caching answers / sessions ===
   ai-redis:
     image: redis:7
@@ -1784,10 +1978,15 @@ services:
     hostname: ai-redis
     profiles: [ ai ]
     command: ["redis-server", "--save", "", "--appendonly", "no"]
+    logging:
+      driver: k8s-file
+      options:
+        max-size: 10m
+
     ports:
       - "6382:6379"
     volumes:
-      - ai_redis_data:/data
+      - ai_redis_data:/data:z
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -1796,13 +1995,17 @@ services:
     networks: [osss-net]
     restart: unless-stopped
 
-
   # === Postgres for audit, usage, metadata ===
   ai-postgres:
     image: postgres:15
     container_name: ai-postgres
     hostname: ai-postgres
     profiles: [ ai ]
+    logging:
+      driver: k8s-file
+      options:
+        max-size: 10m
+
     environment:
       POSTGRES_DB: ${AI_POSTGRES_DB}
       POSTGRES_USER: ${AI_POSTGRES_USER}
@@ -1810,7 +2013,7 @@ services:
     ports:
       - "5436:5432"
     volumes:
-      - ai_pg_data:/var/lib/postgresql/data
+      - ai_pg_data:/var/lib/postgresql/data:z
 
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB -h localhost" ]

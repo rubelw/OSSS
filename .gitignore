@@ -167,3 +167,9 @@ ollama_data/**
 # (Optional: explicit key files)
 ollama_data/id_ed25519
 ollama_data/id_ed25519.pub
+
+.env.apikey
+
+work/
+work/**
+
