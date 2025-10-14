@@ -61,7 +61,8 @@ Keycloak example:
 
 ![Example Keycloak](docs/img/keycloak_example.png)
 
-
+Kibana example:
+![Example Kibana](docs/img/kibana_example.png)
 ---
 
 ## Why This Is Important

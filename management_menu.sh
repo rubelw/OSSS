@@ -4252,7 +4252,7 @@ menu() {
           PROFILE=keycloak
 
           cd \"\$HOST_PROJ\" || { echo '❌ Path not visible inside VM:' \"\$HOST_PROJ\"; exit 1; }
-          command -v sudo podman-compose >/dev/null && podman-compose --version || true
+          command -v sudo podman-compose >/dev/null && sudo podman-compose --version || true
 
           # Ensure network exists
           sudo podman network exists osss-net >/dev/null 2>&1 || sudo podman network create osss-net
