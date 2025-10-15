@@ -96,7 +96,13 @@ OpenSSL version: OpenSSL 1.1.1h  22 Sep 2020
   - 9200 (Elasticsearch)  
   - 8200 (Vault)  
   - 8500 (Consul)
-  - 
+  - 8444 (Trino)
+  - 8088 (Superset)
+  - 8083 (Airflow)
+  - 8585 (OpenMetadata)
+  - 8082 (OpenMetadata Ingestion)
+  
+  
 ---
 
 ## 📖 Documentation Quick Start
