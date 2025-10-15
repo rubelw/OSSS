@@ -81,7 +81,10 @@ volumes:
   ai_redis_data:
     name: ai_redis_data
   es-shared:
-    name: es-shared   # <— add this line
+    name: es-shared
+  dvc-cache:
+    name: dvc-cache
+
 
 services:
   consul:
@@ -2042,3 +2045,21 @@ services:
       start_period: 20s
     networks: [ osss-net ]
     restart: unless-stopped
+
+  dvc:
+    image: python:3.11-slim
+    container_name: dvc
+    working_dir: /workspace
+    entrypoint: [ "bash","-lc","pip install --no-cache-dir 'dvc[s3]' && sleep infinity" ]
+    volumes:
+      - ./:/workspace
+      - dvc-cache:/workspace/.dvc/cache
+      - dvc-cache:/root/.cache/dvc
+    environment:
+      # for S3/MinIO remotes (optional)
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-minioadmin}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-minioadmin}
+      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:-us-east-1}
+    networks:
+      - osss-net
+    profiles: [ "ai" ]
