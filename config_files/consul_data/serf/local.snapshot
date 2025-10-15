@@ -28,3 +28,5 @@ alive: consul-1 10.89.0.27:8301
 event-clock: 14
 alive: consul-1 10.89.0.59:8301
 event-clock: 15
+alive: consul-1 10.89.0.254:8301
+event-clock: 16

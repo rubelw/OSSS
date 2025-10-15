@@ -1,0 +1,20 @@
+{
+  "datacenter": "dc1",
+  "services": [
+    {
+      "name": "dvc",
+      "address": "dvc",
+      "port": 8000,
+      "tags": ["dvc"],
+      "checks": [
+        {
+          "name": "dvc-http",
+          "http": "http://dvc:8010/health",
+          "method": "GET",
+          "interval": "10s",
+          "timeout": "2s"
+        }
+      ]
+    }
+  ]
+}
