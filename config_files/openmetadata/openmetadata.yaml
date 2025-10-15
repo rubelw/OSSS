@@ -10,3 +10,10 @@ server:
       port: 8586
       requestHeaderSize: 65536
       responseHeaderSize: 65536
+
+authenticationConfiguration:
+  provider: custom-oidc
+  clientType: confidential
+  responseType: code
+  publicKeyUrls:
+    - https://keycloak.local:8443/realms/OSSS/protocol/openid-connect/certs

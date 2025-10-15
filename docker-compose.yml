@@ -32,31 +32,54 @@ networks:
     external: true
     name: osss-net
 volumes:
-  consul_data: {}
-  kc_postgres_data: {}
-  osss_postgres_data: {}
-  redis-data: {}
-  es-data: {}
-  filebeat-data: {}
-  filebeat-logs: { }
-  pg_superset_data: {}
-  superset_redis_data: {}
-  trino_data: {}
-  mysql_data: {}
-  airflow-pgdata: {}
-  ingestion_data: {}
-  elasticsearch_data: {}
-  ingestion-volume-dag-airflow: {}
-  ingestion-volume-dags: {}
-  ingestion-volume-tmp: {}
-  om-es-data: {}
-  ollama_data: {}
-  web_node_modules: {}
-  qdrant_data: {}
-  minio_data: {}
-  ai_pg_data: {}
-  ai_redis_data: {}
-  filebeat_data: {}
+  consul_data:
+    name: consul_data
+  kc_postgres_data:
+    name: kc_postgres_data
+  osss_postgres_data:
+    name: osss_postgres_data
+  redis-data:
+    name: redis-data
+  es-data:
+    name: es-data
+  filebeat-data:
+    name: filebeat-data
+  filebeat-logs:
+    name: filebeat-logs
+  pg_superset_data:
+    name: pg_superset_data
+  superset_redis_data:
+    name: superset_redis_data
+  trino_data:
+    name: trino_data
+  mysql_data:
+    name: mysql_data
+  airflow-pgdata:
+    name: airflow-pgdata
+  ingestion_data:
+    name: ingestion_data
+  elasticsearch_data:
+    name: elasticsearch_data
+  ingestion-volume-dag-airflow:
+    name: ingestion-volume-dag-airflow
+  ingestion-volume-dags:
+    name: ingestion-volume-daga
+  ingestion-volume-tmp:
+    name: ingestion-volume-tmp
+  om-es-data:
+    name: om-es-data
+  ollama_data:
+    name: ollama_data
+  web_node_modules:
+    name: web_node_modules
+  qdrant_data:
+    name: qdrant_data
+  minio_data:
+    name: minio_data
+  ai_pg_data:
+    name: ai_pg_data
+  ai_redis_data:
+    name: ai_redis_data
   es-shared:
     name: es-shared   # <— add this line
 
@@ -66,14 +89,8 @@ services:
     profiles:
     - consul
     container_name: consul
-    command:
-    - agent
-    - -server
-    - -bootstrap-expect=1
-    - -client=0.0.0.0
-    - -ui
-    - -log-level=INFO
-    - -config-dir=/consul/config
+    command: [ "/bin/sh","-lc","update-ca-certificates || true; exec consul agent -server -bootstrap-expect=1 -client=0.0.0.0 -ui -log-level=INFO -config-dir=/consul/config" ]
+
     cpus: 0.5
     mem_limit: 512m
     mem_reservation: 256m
@@ -85,6 +102,8 @@ services:
       - ./config_files/consul_data:/consul/data:z
       - ./config_files/consul/config:/consul/config:rw,z
       - ./config_files/consul/jwt:/consul/jwt:rw,z
+      - ./config_files/keycloak/secrets/ca/ca.crt:/usr/local/share/ca-certificates/keycloak-ca.crt:ro
+
     networks:
       - osss-net
     environment:
@@ -242,7 +261,7 @@ services:
 
   web:
     profiles:
-    - web-app
+      - web-app
     networks:
       - osss-net
     logging:
@@ -259,11 +278,11 @@ services:
       context: ./src/osss-web
       dockerfile: ../../docker/osss-web/Dockerfile
     command: npm run dev -- --port 3000
-    depends_on:
-      app:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+    #depends_on:
+      #app:
+      #  condition: service_healthy
+      #redis:
+      #  condition: service_healthy
     environment:
       REDIS_URL: 'redis://redis:6379/0'
       NODE_EXTRA_CA_CERTS: '/app/certs/keycloak-ca.crt'
@@ -309,6 +328,7 @@ services:
       OSSS_DB_PASSWORD: ${OSSS_DB_PASSWORD}
       OSSS_DB_NAME: ${OSSS_DB_NAME}
       POSTGRES_INITDB_ARGS: ${POSTGRES_INITDB_ARGS}
+
     networks:
       - osss-net
     ports:
@@ -436,6 +456,8 @@ services:
       # (optional but explicit)
       QUARKUS_MANAGEMENT_ENABLED: "true"
       QUARKUS_MANAGEMENT_PORT: "9000"
+      QUARKUS_HTTP_HOST: 0.0.0.0               # optional: bind to all
+
 
     volumes:
     - ./realm-export.json:/opt/keycloak/data/import/10-OSSS.json:ro,z
@@ -487,9 +509,6 @@ services:
       VAULT_DEV_LISTEN_ADDRESS: ${VAULT_DEV_LISTEN_ADDRESS}
       VAULT_UI: ${VAULT_UI}
       VAULT_API_ADDR: ${VAULT_API_ADDR}
-    depends_on:
-      keycloak:
-        condition: service_healthy
     command:
     - server
     - -dev
@@ -521,8 +540,6 @@ services:
     mem_reservation: 256m
     depends_on:
       vault:
-        condition: service_healthy
-      keycloak:
         condition: service_healthy
     environment:
       VERBOSE: '1'
@@ -885,6 +902,7 @@ services:
     container_name: filebeat
     user: "0:0"
     hostname: filebeat
+    profiles: [ elastic ]
     security_opt: [ "label=disable" ]
     group_add: [ "0", "190" ]
     environment:
@@ -926,7 +944,6 @@ services:
       driver: k8s-file
       options:
         max-size: 10m
-
     profiles:
     - trino
     user: 1000:1000
@@ -1048,7 +1065,7 @@ services:
       KEYCLOAK_HOST: keycloak.local:8443
 
     volumes:
-      - ./config_files/superset:/app/pythonpath:ro:z
+      - ./config_files/superset:/app/pythonpath:ro,z
       - ./config_files/keycloak/secrets/ca/ca.crt:/etc/ssl/certs/keycloak-ca.crt:ro,z
       - ./config_files/keycloak/secrets/ca/ca-chain.pem:/etc/ssl/certs/osss-dev-ca-chain.pem:ro,z
 
@@ -1114,7 +1131,7 @@ services:
     ports:
       - 8088:8088
     volumes:
-      - ./config_files/superset:/app/pythonpath:ro,z
+      - ./config_files/superset:/app/pythonpath:ro
       - ./config_files/keycloak/secrets/ca/ca.crt:/etc/ssl/certs/keycloak-ca.crt:ro,z
       - ./config_files/keycloak/secrets/ca/ca-chain.pem:/etc/ssl/certs/osss-dev-ca-chain.pem:ro,z
 
@@ -1330,7 +1347,6 @@ services:
       AUTHORIZER_ALLOWED_DOMAINS: ${AUTHORIZER_ALLOWED_DOMAINS:-[]}
       AUTHORIZER_ENFORCE_PRINCIPAL_DOMAIN: ${AUTHORIZER_ENFORCE_PRINCIPAL_DOMAIN:-false}
       AUTHORIZER_ENABLE_SECURE_SOCKET: ${AUTHORIZER_ENABLE_SECURE_SOCKET:-false}
-      AUTHENTICATION_PUBLIC_KEYS: ${AUTHENTICATION_PUBLIC_KEYS:-[http://localhost:8585/api/v1/system/config/jwks]}
       AUTHENTICATION_AUTHORITY: ${AUTHENTICATION_AUTHORITY:-https://accounts.google.com}
       AUTHENTICATION_CLIENT_ID: ${AUTHENTICATION_CLIENT_ID:-""}
       AUTHENTICATION_JWT_PRINCIPAL_CLAIMS_MAPPING: ${AUTHENTICATION_JWT_PRINCIPAL_CLAIMS_MAPPING:-[]}
@@ -1514,7 +1530,8 @@ services:
         -Djavax.net.ssl.trustStoreType=PKCS12
 
     volumes:
-      - ./config_files/openmetadata/openmetadata.yaml:/usr/local/openmetadata/conf/openmetadata.yaml:ro,z
+      - ./config_files/openmetadata/openmetadata.yaml:/usr/local/openmetadata/conf/openmetadata.yaml:ro
+      - ./config_files/openmetadata/openmetadata.yaml:/openmetadata/conf/openmetadata.yaml:ro
       - ./config_files/openmetadata/certs:/opt/om-trust:ro,z
     depends_on:
       om-elasticsearch:
@@ -1565,7 +1582,6 @@ services:
       AUTHORIZER_ENFORCE_PRINCIPAL_DOMAIN: ${AUTHORIZER_ENFORCE_PRINCIPAL_DOMAIN:-false}
       AUTHORIZER_ENABLE_SECURE_SOCKET: ${AUTHORIZER_ENABLE_SECURE_SOCKET:-false}
       AUTHENTICATION_OIDC_DISCOVERY_URI: ${OM_AUTHENTICATION_OIDC_DISCOVERY_URI:-https://keycloak.local:8443/realms/OSSS/.well-known/openid-configuration}
-      AUTHENTICATION_PUBLIC_KEYS: ${OM_AUTHENTICATION_PUBLIC_KEYS:-[http://localhost:8585/api/v1/system/config/jwks]}
       AUTHENTICATION_AUTHORITY: ${OM_AUTHENTICATION_AUTHORITY:-https://accounts.google.com}
       AUTHENTICATION_CLIENT_ID: ${OM_AUTHENTICATION_CLIENT_ID:-""}
       AUTHENTICATION_CLIENT_SECRET: ${OM_AUTHENTICATION_CLIENT_SECRET:-password}
@@ -1813,10 +1829,13 @@ services:
         - "9201:9200"
         - "9301:9300"
       healthcheck:
-        test: [ "CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB -h 127.0.0.1 -p 5432 || exit 1" ]
-        interval: 5s
-        timeout: 5s
-        retries: 20
+        test:
+          - CMD-SHELL
+          - curl -fsS -u elastic:${ELASTIC_PASSWORD} http://om-elasticsearch:9200/_cluster/health?wait_for_status=yellow&timeout=60s
+            >/dev/null || exit 1
+        interval: 30s
+        timeout: 10s
+        retries: 50
       volumes:
         - om-es-data:/usr/share/elasticsearch/data:z
 

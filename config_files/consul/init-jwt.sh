@@ -1,5 +1,8 @@
 #!/bin/sh
 set -euo pipefail
+
+update-ca-certificates || true;
+
 export PS4='+ [consul-jwt-init:${LINENO}] '
 echo "== ENV =="; env | sort
 

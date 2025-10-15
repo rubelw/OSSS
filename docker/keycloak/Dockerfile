@@ -1,9 +1,11 @@
-# --- Stage 1: build self-contained curl, jq, and awk bundles (binaries + NON-glibc libs + CA)
+# --- Stage 1: build self-contained curl, jq, awk, and ss bundles (binaries + NON-glibc libs + CA)
 FROM registry.access.redhat.com/ubi9/ubi-minimal AS toolbundle
 
-# Ensure CA certs; install curl-minimal, jq, and gawk
+# Add ps (procps-ng) in the builder so we can copy its binary + deps
 RUN set -eux; \
-    microdnf -y install ca-certificates curl-minimal jq gawk && microdnf clean all
+    microdnf -y install ca-certificates curl-minimal jq gawk iproute procps-ng && microdnf clean all
+
+
 
 # ---- curl bundle
 RUN set -eux; \
@@ -61,7 +63,6 @@ RUN chmod +x /out/opt/jq/bin/jq
 RUN set -eux; \
     mkdir -p /out/opt/awk/bin /out/opt/awk/lib; \
     cp -a /usr/bin/gawk /out/opt/awk/bin/gawk-real; \
-    # symlink name 'awk' for convenience
     ln -s gawk-real /out/opt/awk/bin/awk-real; \
     ldd /usr/bin/gawk | awk '{print $3}' | grep -E '^/' | \
       while read -r lib; do \
@@ -81,17 +82,65 @@ exec /opt/awk/bin/gawk-real "$@"
 SH
 RUN chmod +x /out/opt/awk/bin/gawk; ln -s gawk /out/opt/awk/bin/awk
 
+# ---- ss (from iproute) bundle (discover real path)
+RUN set -eux; \
+    ss_path="$(command -v ss)"; \
+    echo "Using ss at: $ss_path"; \
+    mkdir -p /out/opt/ss/bin /out/opt/ss/lib; \
+    cp -a "$ss_path" /out/opt/ss/bin/ss-real; \
+    ldd "$ss_path" | awk '{print $3}' | grep -E '^/' | \
+      while read -r lib; do \
+        base="$(basename "$lib")"; \
+        case "$base" in \
+          libc.so.*|libm.so.*|libdl.so.*|libpthread.so.*|librt.so.*|libresolv.so.*|libnsl.so.*|ld-linux*.so.*) ;; \
+          *) cp -L "$lib" "/out/opt/ss/lib/$base" ;; \
+        esac; \
+      done; \
+    for extra in /lib64/libmnl.so.* /lib64/libcap.so.* /lib64/libelf.so.* /lib64/libbpf.so.*; do \
+      [ -e "$extra" ] && cp -L "$extra" "/out/opt/ss/lib/$(basename "$extra")" || true; \
+    done; \
+    cat > /out/opt/ss/bin/ss <<'SH'
+#!/bin/sh
+export LD_LIBRARY_PATH="/opt/ss/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+exec /opt/ss/bin/ss-real "$@"
+SH
+RUN chmod +x /out/opt/ss/bin/ss
+
+# ---- ps (from procps-ng) bundle  👈 NEW
+RUN set -eux; \
+    ps_path="$(command -v ps)"; \
+    echo "Using ps at: $ps_path"; \
+    mkdir -p /out/opt/ps/bin /out/opt/ps/lib; \
+    cp -a "$ps_path" /out/opt/ps/bin/ps-real; \
+    # copy linked libs except the core glibc set
+    ldd "$ps_path" | awk '{print $3}' | grep -E '^/' | while read -r lib; do \
+      base="$(basename "$lib")"; \
+      case "$base" in \
+        libc.so.*|libm.so.*|libdl.so.*|libpthread.so.*|librt.so.*|libresolv.so.*|libnsl.so.*|ld-linux*.so.*) ;; \
+        *) cp -L "$lib" "/out/opt/ps/lib/$base" ;; \
+      esac; \
+    done; \
+    # wrapper to set local LD_LIBRARY_PATH without polluting the image
+    cat > /out/opt/ps/bin/ps <<'SH'
+#!/bin/sh
+export LD_LIBRARY_PATH="/opt/ps/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+exec /opt/ps/bin/ps-real "$@"
+SH
+RUN chmod +x /out/opt/ps/bin/ps
+
 # --- Stage 2: Keycloak image (no package manager)
 FROM quay.io/keycloak/keycloak:25.0.6
 
 USER root
-# Add the tool bundles under /opt (no touching /lib* or /etc/*)
+# Add the tool bundles under /opt
 COPY --from=toolbundle /out/opt/curl /opt/curl
 COPY --from=toolbundle /out/opt/jq   /opt/jq
 COPY --from=toolbundle /out/opt/awk  /opt/awk
+COPY --from=toolbundle /out/opt/ss   /opt/ss
+COPY --from=toolbundle /out/opt/ps   /opt/ps
 
-# Put our tools on PATH (no global LD_LIBRARY_PATH!)
-ENV PATH="/opt/curl/bin:/opt/jq/bin:/opt/awk/bin:${PATH}"
+# Put our tools on PATH
+ENV PATH="/opt/curl/bin:/opt/jq/bin:/opt/awk/bin:/opt/ss/bin:/opt/ps/bin:${PATH}"
 
 # Your init/start scripts
 COPY scripts/kc-init-and-start.sh /opt/keycloak/init-and-start.sh

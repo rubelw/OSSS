@@ -52,8 +52,8 @@ const nextConfig = {
   // Only proxy requests under /api/osss/** to your FastAPI service
   // Example: GET /api/osss/behaviorcodes  →  http://localhost:8081/behaviorcodes
   //          POST /api/osss/admin/users   →  http://localhost:8081/admin/users
-  source: \"/api/osss/:path*\",
-  destination: \"http://localhost:8081/:path*\",
+  source: "/api/osss/:path*",
+  destination: "http://localhost:8081/:path*",
 },
 
       // do NOT add a catch-all /api/:path* rewrite — it would capture Next's own API routes and
