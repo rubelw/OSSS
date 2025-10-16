@@ -1,4 +1,67 @@
 #!/usr/bin/env bash
+
+# --- Podman auto-install helpers -------------------------------------------------
+have_cmd() { command -v "$1" >/dev/null 2>&1; }
+err() { printf "ERROR: %s\n" "$*" >&2; }
+
+install_podman_macos() {
+  if have_cmd brew; then
+    echo "Installing Podman via Homebrew..."
+    brew update >/dev/null 2>&1 || true
+    brew install podman || return 1
+  else
+    echo "Homebrew not found. Installing Homebrew non-interactively..."
+    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" || return 1
+    # Load brew into current shell if installed to common prefixes
+    if [ -x /opt/homebrew/bin/brew ]; then
+      eval "$(/opt/homebrew/bin/brew shellenv)"
+    elif [ -x /usr/local/bin/brew ]; then
+      eval "$(/usr/local/bin/brew shellenv)"
+    fi
+    brew install podman || return 1
+  fi
+  return 0
+}
+
+install_podman_ubuntu() {
+  echo "Installing Podman via apt..."
+  export DEBIAN_FRONTEND=noninteractive
+  sudo apt-get update -y && sudo apt-get install -y podman || return 1
+  return 0
+}
+
+ensure_podman() {
+  if have_cmd podman; then
+    return 0
+  fi
+  os_name="$(uname -s)"
+  case "$os_name" in
+    Darwin)
+      install_podman_macos || { err "Failed to install Podman on macOS."; return 1; }
+      ;;
+    Linux)
+      # Detect Ubuntu
+      if [ -r /etc/os-release ] && grep -qi '^ID=ubuntu' /etc/os-release; then
+        install_podman_ubuntu || { err "Failed to install Podman on Ubuntu."; return 1; }
+      else
+        err "Automatic Podman install not supported for this Linux distro. Please install Podman manually."
+        return 1
+      fi
+      ;;
+    *)
+      err "Unsupported OS ($os_name) for automatic Podman install."
+      return 1
+      ;;
+  esac
+
+  if ! have_cmd podman; then
+    err "Podman still not found after installation attempt."
+    return 1
+  fi
+  return 0
+}
+# -------------------------------------------------------------------------------
+
 # management_menu.sh (Podman-only)
 # - Uses Podman + Podman Compose exclusively
 # - Adds 127.0.0.1 keycloak.local to /etc/hosts if missing
@@ -15,7 +78,7 @@ export VM_NAME
 : "${PODMAN_MACHINE_ROOTFUL:=1}"
 export PODMAN_MACHINE_ROOTFUL
 : "${PODMAN_ENABLE_ROOTLESS:=0}"
-export PODMAN_ENABLE_ROOTLESS
+export PODMAN_ENABLjE_ROOTLESS
 : "${VM_TMP:=/tmp/osss-elastic.compose.yml}"
 export VM_TMP
 
@@ -33,9 +96,7 @@ err(){ printf "❌  %s\n" "$*" >&2; }
 have_cmd(){ command -v "$1" >/dev/null 2>&1; }
 
 need_cmd(){ if ! have_cmd "$1"; then err "Missing required command: $1"; exit 127; fi; }
-
-need_cmd podman
-
+ensure_podman || exit 127
 _pm() { podman machine "$@"; }
 
 # Wait until `podman machine ssh` actually works (no manual port scraping)
@@ -696,6 +757,51 @@ export PODMAN_OVERLAY_DIR="$(
 )"
 echo "$PODMAN_OVERLAY_DIR"   # sanity check; should exist inside VM
 
+
+
+# --- Install Ollama if missing (macOS + Ubuntu/Debian) ---
+ensure_ollama_installed() {
+  # Return 0 if ollama is present (do nothing), non-zero if we failed to install
+  if command -v ollama >/dev/null 2>&1; then
+    return 0
+  fi
+
+  echo "🧠 'ollama' not found — attempting install…"
+  case "$(uname -s)" in
+    Darwin)
+      if ! command -v brew >/dev/null 2>&1; then
+        echo "❌ Homebrew not found. Install Homebrew first: https://brew.sh"
+        return 1
+      fi
+      brew install --cask ollama || return 1
+      # ensure CLI is usable even if the app bundle isn’t launched yet
+      (OLLAMA_MODELS="${HOME}/.ollama/models" ollama serve >/dev/null 2>&1 & disown; sleep 2; pkill -f 'ollama serve' || true)
+      ;;
+
+    Linux)
+      # Prefer the official one-liner (sets up apt repo on Ubuntu/Debian)
+      if command -v curl >/dev/null 2>&1; then
+        curl -fsSL https://ollama.com/install.sh | sh || return 1
+      else
+        echo "❌ curl not found. Install curl and re-run."
+        return 1
+      fi
+      # Start service if available (Ubuntu/Debian package)
+      sudo systemctl enable --now ollama 2>/dev/null || {
+        # Fallback: run a short-lived server to initialize key/materials
+        (OLLAMA_MODELS="${HOME}/.ollama/models" ollama serve >/dev/null 2>&1 & disown; sleep 2; pkill -f 'ollama serve' || true)
+      }
+      ;;
+
+    *)
+      echo "❌ Unsupported OS for auto-install. Install Ollama manually: https://ollama.com"
+      return 1
+      ;;
+  esac
+
+  command -v ollama >/dev/null 2>&1
+}
+
 # --- Ollama preflight check (volume-aware, nounset-safe) ---
 # Ensure host Ollama is ready and that MODEL is present in ./ollama_data/models
 # Usage: check_ollama_ready [model_name]
@@ -703,46 +809,36 @@ check_ollama_ready() {
   set -euo pipefail
 
   local MODEL_NAME="${1:-llama3.1}"
-  # Allow override via env; default to ./ollama_data
   local OLLAMA_DATA_DIR="${OLLAMA_DATA_DIR:-./ollama_data}"
   local MODELS_DIR="${OLLAMA_DATA_DIR%/}/models"
 
   echo "🧠 Checking host Ollama and model '${MODEL_NAME}' …"
 
-  # 1) Host ollama binary
+  # 1) Ensure ollama exists (auto-install if missing)
   if ! command -v ollama >/dev/null 2>&1; then
-    echo "❌ 'ollama' not found in PATH. On macOS: brew install --cask ollama"
-    exit 1
+    ensure_ollama_installed || {
+      echo "❌ Could not install 'ollama' automatically. On macOS: 'brew install --cask ollama'. On Ubuntu/Debian: 'curl -fsSL https://ollama.com/install.sh | sh'."
+      exit 1
+    }
   fi
   echo "✅ Ollama found: $(command -v ollama)"
   echo "   Version: $(ollama --version 2>/dev/null || echo 'unknown')"
 
-  # 2) Ensure Ollama key dir exists (~/.ollama) and key is present
-  if [ ! -d "${HOME}/.ollama" ]; then
-    echo "📂 Creating ${HOME}/.ollama"
-    mkdir -p "${HOME}/.ollama"
-  fi
+  # 2) Ensure ~/.ollama key exists
+  mkdir -p "${HOME}/.ollama"
   if [ ! -f "${HOME}/.ollama/id_ed25519" ]; then
     echo "🔑 Initializing Ollama registry key (~/.ollama/id_ed25519)"
-    # Try the easy way (starts server briefly which generates the key)
-    (OLLAMA_MODELS="${MODELS_DIR}" ollama serve >/dev/null 2>&1 & sleep 2; kill $! >/dev/null 2>&1 || true) || true
-    # Fallback: generate a key if it still doesn't exist
-    if [ ! -f "${HOME}/.ollama/id_ed25519" ]; then
-      ssh-keygen -t ed25519 -f "${HOME}/.ollama/id_ed25519" -N "" >/dev/null
-    fi
+    (OLLAMA_MODELS="${MODELS_DIR}" ollama serve >/dev/null 2>&1 & disown; sleep 2; pkill -f 'ollama serve' || true)
+    [ -f "${HOME}/.ollama/id_ed25519" ] || ssh-keygen -t ed25519 -f "${HOME}/.ollama/id_ed25519" -N "" >/dev/null
   fi
 
   # 3) Ensure custom models dir exists
-  if [ ! -d "${MODELS_DIR}" ]; then
-    echo "📂 Creating models directory at ${MODELS_DIR}"
-    mkdir -p "${MODELS_DIR}"
-  fi
+  mkdir -p "${MODELS_DIR}"
   echo "📦 Using OLLAMA_MODELS=${MODELS_DIR}"
 
-  # Helper to run ollama against our models dir
   _ollama() { OLLAMA_MODELS="${MODELS_DIR}" ollama "$@"; }
 
-  # 4) Check model; pull if missing
+  # 4) Pull model if missing
   if ! _ollama show "${MODEL_NAME}" >/dev/null 2>&1; then
     echo "⬇️  Pulling '${MODEL_NAME}' into ${MODELS_DIR} …"
     _ollama pull "${MODEL_NAME}"
@@ -750,7 +846,6 @@ check_ollama_ready() {
 
   echo "✅ Model '${MODEL_NAME}' available in ${MODELS_DIR}"
 }
-
 
 check_ollama_ready
 
