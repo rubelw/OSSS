@@ -1,0 +1,20 @@
+version: "3.1"
+
+intents:
+  - greet
+  - goodbye
+  - affirm
+  - deny
+  - ask_help
+
+responses:
+  utter_greet:
+    - text: "Hey there! I'm your OSSS Mentor. How can I help today?"
+  utter_goodbye:
+    - text: "Goodbye! Keep learning 🚀"
+  utter_ask_help:
+    - text: "Sure — what topic do you need help with?"
+
+session_config:
+  session_expiration_time: 60
+  carry_over_slots_to_new_session: true

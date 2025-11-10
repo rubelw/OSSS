@@ -2109,6 +2109,35 @@ services:
         condition: service_started
       ai-redis:
         condition: service_healthy
-
-
-
+  rasa-mentor:
+    image: rasa/rasa:3.6.20
+    profiles: [ "ai" ]
+    container_name: rasa-mentor
+    entrypoint: [ ]   # <— clear "rasa" entrypoint so bash runs
+    command: >
+      bash -lc "set -euo pipefail;
+                mkdir -p models;
+                rasa train --fixed-model-name current &&
+                exec rasa run
+                    --enable-api
+                    --cors '*'
+                    --model models/current.tar.gz
+                    --port 5005
+                    --debug"
+    working_dir: /app
+    ports: [ "5005:5005" ]
+    volumes:
+      - ./rasa:/app
+    environment:
+      - TZ=America/Chicago
+      - RASA_TELEMETRY_ENABLED=false
+      - SQLALCHEMY_SILENCE_UBER_WARNING=1
+      - SANIC_REQUEST_MAX_SIZE=104857600        # 100MB bodies (safe default)
+      - SANIC_REQUEST_MAX_HEADER_SIZE=65536     # 64KB headers
+    restart: unless-stopped
+    networks: [ osss-net ]
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -fsS http://localhost:5005/status >/dev/null || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10

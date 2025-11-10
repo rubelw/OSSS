@@ -6,41 +6,76 @@
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <style>
     body { font-family: system-ui, -apple-system, Roboto, "Segoe UI", Arial; background:#f6f7fb; color:#111; margin:0; padding:0; display:flex; height:100vh; }
-    .app { margin:auto; width:720px; max-width:95%; background:white; border-radius:8px; box-shadow:0 8px 30px rgba(0,0,0,0.08); overflow:hidden; display:flex; flex-direction:column; min-height:560px; }
-    header { padding:16px 20px; border-bottom:1px solid #eee; font-weight:600; }
-    .messages { padding:16px; flex:1; overflow:auto; }
-    .msg { margin:10px 0; display:flex; }
+    .app { margin:auto; width:860px; max-width:96%; background:white; border-radius:12px; box-shadow:0 8px 30px rgba(0,0,0,0.08); overflow:hidden; display:flex; flex-direction:column; min-height:620px; }
+    header { padding:14px 18px; border-bottom:1px solid #eee; font-weight:600; display:flex; justify-content:space-between; align-items:center; }
+    .meta { font-size:12px; color:#666; padding:8px 16px; border-bottom:1px solid #f1f1f1; background:#fbfcff; }
+    .messages { padding:16px; flex:1; overflow:auto; background:#fff; }
+    .msg { margin:10px 0; display:flex; gap:8px; }
     .msg.user { justify-content:flex-end; }
-    .bubble { max-width:70%; padding:10px 14px; border-radius:12px; line-height:1.4; }
+    .bubble { max-width:75%; padding:10px 14px; border-radius:12px; line-height:1.45; }
     .bubble.user { background:#2b6ef6; color:white; border-bottom-right-radius:4px; }
     .bubble.bot { background:#f1f3f5; color:#111; border-bottom-left-radius:4px; }
+    .toolbar { display:flex; gap:10px; align-items:center; padding:10px 16px; border-bottom:1px solid #eee; background:#fafbff; flex-wrap:wrap; }
+    .toolbar select, .toolbar input[type="text"] { padding:6px 8px; border:1px solid #ddd; border-radius:8px; font-size:13px; }
+    .toolbar label { font-size:12px; color:#555; display:flex; gap:6px; align-items:center; }
+    .quick { display:flex; gap:8px; flex-wrap:wrap; margin-left:auto; }
+    .quick button { background:#eef2ff; color:#2b3a67; border:1px solid #e3e7fd; padding:6px 8px; border-radius:8px; cursor:pointer; font-size:12px; }
     .composer { padding:12px; border-top:1px solid #eee; display:flex; gap:8px; }
-    textarea { flex:1; padding:10px; min-height:48px; resize:vertical; border-radius:8px; border:1px solid #ddd; font-size:14px; }
-    button { background:#2b6ef6; color:white; border:none; padding:10px 14px; border-radius:8px; cursor:pointer; }
-    .meta { font-size:12px; color:#666; padding:8px 16px; border-bottom:1px solid #f1f1f1; background:#fbfcff; }
+    textarea { flex:1; padding:10px; min-height:56px; resize:vertical; border-radius:8px; border:1px solid #ddd; font-size:14px; }
+    button.primary { background:#2b6ef6; color:white; border:none; padding:10px 14px; border-radius:8px; cursor:pointer; }
     footer { font-size:12px; color:#777; padding:8px 12px; text-align:center; }
-    /* Optional: basic formatting for rendered HTML */
-    .bubble.bot h1,.bubble.bot h2,.bubble.bot h3 { margin:8px 0 6px; }
-    .bubble.bot p, .bubble.bot ul, .bubble.bot ol { margin:6px 0; }
-    .bubble.bot code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; font-size: 12px; background:#fff; padding:1px 4px; border-radius:4px; }
-    .bubble.bot pre { background:#fff; padding:10px; border-radius:6px; overflow:auto; }
+    code.inline { background:#f3f4f6; padding:2px 6px; border-radius:6px; border:1px solid #eee; }
+    pre { background:#0b1020; color:#eaeefc; padding:12px; border-radius:10px; overflow:auto; font-size:12.5px; }
   </style>
 </head>
 <body>
   <div class="app" role="application">
-    <header>Local Chat UI — Use responsibly</header>
+    <header>
+      <div>Local Chat UI — Use responsibly</div>
+      <div style="font-size:12px;color:#666;">Backends: <code class="inline">LLM</code> • <code class="inline">Rasa Chat</code> • <code class="inline">Rasa Parse</code></div>
+    </header>
+
     <div class="meta">
-      Connected to local proxy at <code>/v1/chat/completions</code>. This UI must not be used for targeted political persuasion or harassment.
-      <label style="float:right; font-weight:500;">
-        <input id="renderHtml" type="checkbox" checked>
-        Format responses
+      Connected to local proxies:
+      <code class="inline">/v1/chat/completions</code>,
+      <code class="inline">/rasa/chat</code>,
+      <code class="inline">/rasa/parse</code>.
+      This UI must not be used for targeted political persuasion or harassment.
+    </div>
+
+    <div class="toolbar">
+      <label>
+        Backend
+        <select id="backend">
+          <option value="llm">LLM (OpenAI-compatible)</option>
+          <option value="rasa-chat">Rasa Chat</option>
+          <option value="rasa-parse">Rasa Parse (NLU)</option>
+        </select>
       </label>
+
+      <label title="Sender id passed to Rasa Chat">
+        Sender
+        <input id="sender" type="text" placeholder="user" style="width:140px"/>
+      </label>
+
+      <label title="Ask server to render HTML/Markdown">
+        <input id="asHtml" type="checkbox"/> Render as HTML/Markdown
+      </label>
+
+      <div class="quick">
+        <button type="button" data-example="hello">hello</button>
+        <button type="button" data-example="what can you do?">what can you do?</button>
+        <button type="button" data-example="help me schedule a meeting">help me schedule a meeting</button>
+      </div>
     </div>
+
     <div id="messages" class="messages" aria-live="polite"></div>
+
     <div class="composer">
-      <textarea id="input" placeholder="Type your question (examples: 'How to cook pasta', 'Summarize this paragraph')"></textarea>
-      <button id="send">Send</button>
+      <textarea id="input" placeholder="Type your message… (Ctrl/Cmd+Enter to send)"></textarea>
+      <button id="send" class="primary">Send</button>
     </div>
+
     <footer>Local model proxy — for experimentation and allowed use only.</footer>
   </div>
 
@@ -48,76 +83,112 @@
   const messagesEl = document.getElementById("messages");
   const inputEl = document.getElementById("input");
   const sendBtn = document.getElementById("send");
-  const renderHtmlEl = document.getElementById("renderHtml");
+  const backendEl = document.getElementById("backend");
+  const senderEl = document.getElementById("sender");
+  const asHtmlEl = document.getElementById("asHtml");
 
-  function appendMessage(text, who, { asHtml = false } = {}){
+  document.querySelectorAll(".quick button").forEach(b=>{
+    b.addEventListener("click", ()=>{
+      inputEl.value = b.getAttribute("data-example");
+      inputEl.focus();
+    });
+  });
+
+  function appendMessage(content, who, isHtml=false) {
     const wrapper = document.createElement("div");
-    wrapper.className = "msg " + (who==="user"?"user":"bot");
+    wrapper.className = "msg " + (who==="user" ? "user" : "bot");
     const bubble = document.createElement("div");
-    bubble.className = "bubble " + (who==="user"?"user":"bot");
-    if (asHtml) {
-      bubble.innerHTML = text;      // server already rendered Markdown → HTML
+    bubble.className = "bubble " + (who==="user" ? "user" : "bot");
+    if (isHtml) {
+      bubble.innerHTML = content;
+    } else if (typeof content === "object") {
+      bubble.innerHTML = "<pre>"+escapeHtml(JSON.stringify(content, null, 2))+"</pre>";
     } else {
-      bubble.textContent = text;    // plain text fallback
+      bubble.textContent = content;
     }
     wrapper.appendChild(bubble);
     messagesEl.appendChild(wrapper);
     messagesEl.scrollTop = messagesEl.scrollHeight;
   }
 
+  function escapeHtml(s){
+    return String(s)
+      .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+      .replace(/"/g,"&quot;").replace(/'/g,"&#039;");
+  }
+
   async function send(){
     const text = inputEl.value.trim();
     if(!text) return;
+
+    const backend = backendEl.value;
+    const sender = (senderEl.value || "user").trim();
+    const wantHtml = asHtmlEl.checked;
+
     appendMessage(text, "user");
     inputEl.value = "";
     sendBtn.disabled = true;
 
-    const body = {
-      model: "llama3.1",
-      messages: [{ role: "user", content: text }]
-    };
-
-    const wantHtml = !!renderHtmlEl?.checked;
-
     try {
-      if (wantHtml) {
-        // Ask the proxy to return HTML (server.js renders Markdown via marked)
-        const resp = await fetch("/chat-html", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Accept": "text/html"
-          },
-          body: JSON.stringify(body)
-        });
+      let url, body, headers = { "Content-Type":"application/json" };
+      if (wantHtml) headers["Accept"] = "text/html"; else headers["Accept"] = "application/json";
+
+      if (backend === "llm") {
+        url = "/v1/chat/completions";
+        body = {
+          model: "llama3.1",
+          messages: [{ role: "user", content: text }]
+        };
+      } else if (backend === "rasa-chat") {
+        url = "/rasa/chat";
+        body = { sender, message: text };
+      } else if (backend === "rasa-parse") {
+        url = "/rasa/parse";
+        body = { text };
+      }
+
+      const resp = await fetch(url, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(body)
+      });
+
+      const isOK = resp.ok;
+      const ct = (resp.headers.get("content-type") || "").toLowerCase();
+
+      if (wantHtml && ct.includes("text/html")) {
         const html = await resp.text();
-        if (!resp.ok) {
-          appendMessage("Error: " + resp.status + " " + html, "bot");
+        appendMessage(html || "<em>(empty)</em>", "bot", true);
+        return;
+      }
+
+      // JSON (or fallback to text)
+      let data, textRaw;
+      try { data = await resp.json(); }
+      catch { textRaw = await resp.text(); }
+
+      if (!isOK) {
+        appendMessage(data || textRaw || ("HTTP " + resp.status), "bot");
+        return;
+      }
+
+      if (backend === "llm") {
+        let reply = "";
+        if (data?.choices?.[0]?.message?.content) reply = data.choices[0].message.content;
+        else if (data?.choices?.[0]?.text) reply = data.choices[0].text;
+        else if (data?.result?.[0]?.content) reply = data.result[0].content;
+        else reply = JSON.stringify(data, null, 2);
+        appendMessage(reply, "bot");
+      } else if (backend === "rasa-chat") {
+        // Expect an array of messages from Rasa REST channel
+        if (Array.isArray(data)) {
+          const combined = data.map(m => m.text || m.image || m.custom || "").filter(Boolean).join("\n\n");
+          appendMessage(combined || "(no response)", "bot");
         } else {
-          appendMessage(html, "bot", { asHtml: true });
+          appendMessage(data, "bot");
         }
-      } else {
-        // Original JSON behavior
-        const resp = await fetch("/v1/chat/completions", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "Accept": "application/json" },
-          body: JSON.stringify(body)
-        });
-        if(!resp.ok){
-          const t = await resp.text();
-          appendMessage("Error: " + resp.status + " " + t, "bot");
-        } else {
-          const j = await resp.json();
-          let reply = "";
-          if (j?.choices?.[0]?.message?.content) {
-            reply = j.choices[0].message.content;
-          } else if (j?.result?.[0]?.content) {
-            reply = j.result[0].content;
-          } else {
-            reply = JSON.stringify(j);
-          }
-          appendMessage(reply, "bot");
-        }
+      } else if (backend === "rasa-parse") {
+        appendMessage(data, "bot"); // pretty-printed in appendMessage
       }
     } catch (err) {
       appendMessage("Network error: " + String(err), "bot");
@@ -127,9 +198,7 @@
   }
 
   sendBtn.addEventListener("click", send);
-  inputEl.addEventListener("keydown", (e) => {
-    if(e.key === "Enter" && (e.ctrlKey || e.metaKey)) send();
-  });
+  inputEl.addEventListener("keydown", (e) => { if(e.key === "Enter" && (e.ctrlKey || e.metaKey)) send(); });
 </script>
 </body>
 </html>

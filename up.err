@@ -1,3 +1,5 @@
 [4m>>>> Executing external compose provider "/usr/sbin/podman-compose". Please see podman-compose(1) for how to disable this message. <<<<
 
-[0m
+[0mtime="2025-11-10T13:08:43-06:00" level=warning msg="StopSignal SIGTERM failed to stop container ollama in 10 seconds, resorting to SIGKILL"
+time="2025-11-10T13:08:53-06:00" level=warning msg="StopSignal SIGTERM failed to stop container dvc in 10 seconds, resorting to SIGKILL"
+time="2025-11-10T13:09:03-06:00" level=warning msg="StopSignal SIGTERM failed to stop container chat-ui in 10 seconds, resorting to SIGKILL"

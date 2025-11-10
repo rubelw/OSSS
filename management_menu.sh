@@ -2616,6 +2616,73 @@ EOF
   prompt_return
 }
 
+# compose_diagnose_restart: ask for a container name and show compose/service logs
+# --- Diagnose why a container is restarting (rootful compose aware) ---
+compose_diagnose_restart() {
+  local vm name qname
+  vm="$(podman machine active 2>/dev/null || echo default)"
+
+  if [[ -z "${1:-}" ]]; then
+    read -rp "Container name to diagnose (e.g., chat-ui): " name
+  else
+    name="$1"
+  fi
+  [[ -z "$name" ]] && { echo "❌ Cancelled."; return 1; }
+
+  # Escape for safe insertion into the remote heredoc
+  qname="$(printf "%q" "$name")"
+
+  echo "🔎 Inspecting container '$name' in VM '$vm'…"
+
+  # 1) Inspect + recent logs + compose labels + compose logs
+  podman machine ssh "$vm" 'bash -s' <<EOF
+set -euo pipefail
+NAME=$qname
+
+if ! sudo podman inspect "\$NAME" >/dev/null 2>&1; then
+  echo "⚠️  Container not found: \$NAME"
+  exit 1
+fi
+
+echo "— state —"
+sudo podman inspect --format 'Status={{.State.Status}}  ExitCode={{.State.ExitCode}}  OOM={{.State.OOMKilled}}  StartedAt={{.State.StartedAt}}  FinishedAt={{.State.FinishedAt}}' "\$NAME" || true
+
+echo
+echo "— recent logs (tail 200) —"
+sudo podman logs --tail 200 "\$NAME" || true
+
+echo
+echo "— compose labels —"
+proj=\$(sudo podman inspect --format '{{ index .Config.Labels "io.podman.compose.project" }}' "\$NAME" 2>/dev/null || true)
+[[ -z "\$proj" ]] && proj=\$(sudo podman inspect --format '{{ index .Config.Labels "com.docker.compose.project" }}' "\$NAME" 2>/dev/null || true)
+svc=\$(sudo podman inspect --format '{{ index .Config.Labels "io.podman.compose.service" }}' "\$NAME" 2>/dev/null || true)
+[[ -z "\$svc" ]] && svc=\$(sudo podman inspect --format '{{ index .Config.Labels "com.docker.compose.service" }}' "\$NAME" 2>/dev/null || true)
+echo " project: \${proj:-<none>}"
+echo " service: \${svc:-<none>}"
+
+if [[ -n "\$proj" && -n "\$svc" ]]; then
+  echo
+  echo "— compose logs (tail 100) for \${proj}/\${svc} —"
+  if [[ -f /work/docker-compose.yml ]]; then
+    sudo podman compose -p "\$proj" -f /work/docker-compose.yml logs --tail 100 --no-color "\$svc" || true
+  else
+    sudo podman compose -p "\$proj" logs --tail 100 --no-color "\$svc" || true
+  fi
+fi
+EOF
+
+  # 2) Optional live follow
+  read -rp "▶ Follow live logs? (y/N) " yn
+  if [[ "$yn" =~ ^[Yy]$ ]]; then
+    podman machine ssh "$vm" 'bash -s' <<EOF
+set +e
+sudo podman logs -f --tail 50 $qname || true
+EOF
+  fi
+}
+
+
+
 # -------- openmetadata truststore (for OIDC over HTTPS) --------
 create_openmetadata_truststore() {
   set -euo pipefail
@@ -3524,6 +3591,7 @@ logs_menu() {
     echo "36) Logs container 'vault-seed'"
     echo "37) Logs container 'web'"
     echo "38) Logs container 'chat-ui'"
+    echo "39) Logs container 'rasa-mentor'"
     echo "  q) Back"
     echo "-----------------------------------------------"
     read -rp "Select an option: " choice || return 0
@@ -3566,6 +3634,7 @@ logs_menu() {
       36) logs_follow_container "vault-seed" ;;
       37) logs_follow_container "web" ;;
       38) logs_follow_container "chat-ui" ;;
+      39) logs_follow_container "rasa-mentor" ;;
       q|Q|b|B) return 0 ;;
       *) echo "Unknown choice: ${choice}" ;;
     esac
@@ -3871,6 +3940,7 @@ utilities_menu() {
     echo " 7) List running containers in VM"
     echo " 8) List images"
     echo " 9) Delete specific rootful Podman image"
+    echo " 10) Diagnose container restart"
     echo "  q) Back"
     echo "-----------------------------------------------"
     read -rp "Select an option: " choice || return 0
@@ -3960,6 +4030,12 @@ REMOTE
           podman machine ssh default -- sudo podman rmi -f "$img" && echo "✅ Image '$img' deleted." || echo "❌ Failed to delete image '$img'."
         fi
         prompt_return
+        ;;
+      10)
+        # Diagnose a container that keeps restarting
+        read -rp "Container name to diagnose (e.g., chat-ui): " cname
+        [[ -z "$cname" ]] && { echo "❌ Cancelled."; continue; }
+        compose_diagnose_restart "$cname"
         ;;
       q|Q|b|B)
         return 0

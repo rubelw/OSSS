@@ -1,0 +1,15 @@
+<!doctype html><meta charset="utf-8"><title>Rasa REST quick test</title>
+<textarea id=t rows=3 cols=60 placeholder="Type a message..."></textarea>
+<button onclick="send()">Send</button>
+<pre id=o></pre>
+<script>
+async function send(){
+  const m = document.getElementById('t').value.trim();
+  if(!m) return;
+  const r = await fetch('http://localhost:5005/webhooks/rest/webhook',{
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({sender:'web', message:m})
+  });
+  document.getElementById('o').textContent = await r.text();
+}
+</script>
