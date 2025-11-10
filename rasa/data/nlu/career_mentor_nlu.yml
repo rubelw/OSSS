@@ -1,0 +1,108 @@
+version: "3.1"
+nlu:
+  - intent: start_career_mentor
+    examples: |
+      - I want help picking a career
+      - help me choose a career path
+      - career guidance
+      - not sure what job I want
+      - explore careers
+
+  - intent: provide_interests
+    examples: |
+      - I'm interested in [technology](interest)
+      - I like [art](interest) and [design](interest)
+      - [healthcare](interest) and [helping people](interest)
+      - [building things](interest)
+      - [business](interest), [marketing](interest)
+      - [outdoors](interest), [animals](interest)
+
+  - intent: provide_subject_strengths
+    examples: |
+      - I'm good at [math](subject)
+      - Strong in [science](subject) and [physics](subject)
+      - I enjoy [English](subject) and [history](subject)
+      - [computer science](subject)
+      - [shop class](subject)
+
+  - intent: provide_values
+    examples: |
+      - I want a career that [helps people](value)
+      - I care about [high salary](value)
+      - I want [work-life balance](value)
+      - I like [creativity](value)
+      - [job stability](value) matters
+
+  - intent: provide_constraints
+    examples: |
+      - I don't want to go to [college](constraint)
+      - I can only do a [two-year program](constraint)
+      - I prefer [apprenticeships](constraint)
+      - I need something with [local jobs](constraint)
+
+  - intent: affirm
+    examples: |
+      - yes
+      - sounds good
+      - sure
+      - okay
+
+  - intent: deny
+    examples: |
+      - no
+      - not really
+      - nope
+
+  - intent: restart
+    examples: |
+      - restart
+      - start over
+      - begin again
+
+  - lookup: interest
+    examples: |
+      - technology
+      - coding
+      - software
+      - design
+      - art
+      - healthcare
+      - medicine
+      - helping people
+      - building
+      - trades
+      - business
+      - marketing
+      - finance
+      - outdoors
+      - animals
+
+  - lookup: subject
+    examples: |
+      - math
+      - algebra
+      - geometry
+      - science
+      - biology
+      - chemistry
+      - physics
+      - english
+      - history
+      - computer science
+      - shop
+
+  - lookup: value
+    examples: |
+      - helps people
+      - high salary
+      - creativity
+      - work-life balance
+      - job stability
+      - remote work
+
+  - lookup: constraint
+    examples: |
+      - college
+      - two-year program
+      - apprenticeship
+      - local jobs

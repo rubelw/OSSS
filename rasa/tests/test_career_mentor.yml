@@ -1,0 +1,32 @@
+version: "3.1"
+test_stories:
+  - story: Career mentor happy path
+    steps:
+      - user: |
+          I want help picking a career
+        intent: start_career_mentor
+      - action: career_mentor_form
+      - active_loop: career_mentor_form
+      - user: |
+          10
+        intent: inform
+      - action: career_mentor_form
+      - user: |
+          technology and design
+        intent: provide_interests
+      - action: career_mentor_form
+      - user: |
+          computer science and math
+        intent: provide_subject_strengths
+      - action: career_mentor_form
+      - user: |
+          creativity and high salary
+        intent: provide_values
+      - action: career_mentor_form
+      - user: |
+          two-year program
+        intent: provide_constraints
+      - action: career_mentor_form
+      - active_loop: null
+      - action: action_suggest_careers
+      - action: utter_career_followup

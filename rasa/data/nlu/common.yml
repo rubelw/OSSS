@@ -1,0 +1,31 @@
+version: "3.1"
+nlu:
+  - intent: greet
+    examples: |
+      - hi
+      - hello
+      - hey
+
+  - intent: goodbye
+    examples: |
+      - bye
+      - goodbye
+      - see you
+
+  - intent: ask_help
+    examples: |
+      - help
+      - what can you do?
+      - how do I use this?
+
+  - intent: inform
+    examples: |
+      - 8
+      - 9
+      - 10
+      - 11
+      - 12
+      - technology and design
+      - math and computer science
+      - I value creativity and high salary
+      - two-year program

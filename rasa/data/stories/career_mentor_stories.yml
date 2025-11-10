@@ -1,0 +1,12 @@
+version: "3.1"
+stories:
+  - story: Happy path career mentor
+    steps:
+      - intent: start_career_mentor
+      - action: career_mentor_form
+      - active_loop: career_mentor_form
+      - active_loop: null
+      - action: action_suggest_careers
+      - action: utter_career_followup
+      - intent: affirm
+      - action: utter_career_resources
