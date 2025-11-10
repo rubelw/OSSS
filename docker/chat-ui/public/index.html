@@ -1,0 +1,135 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>Local Chat UI (safe use)</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <style>
+    body { font-family: system-ui, -apple-system, Roboto, "Segoe UI", Arial; background:#f6f7fb; color:#111; margin:0; padding:0; display:flex; height:100vh; }
+    .app { margin:auto; width:720px; max-width:95%; background:white; border-radius:8px; box-shadow:0 8px 30px rgba(0,0,0,0.08); overflow:hidden; display:flex; flex-direction:column; min-height:560px; }
+    header { padding:16px 20px; border-bottom:1px solid #eee; font-weight:600; }
+    .messages { padding:16px; flex:1; overflow:auto; }
+    .msg { margin:10px 0; display:flex; }
+    .msg.user { justify-content:flex-end; }
+    .bubble { max-width:70%; padding:10px 14px; border-radius:12px; line-height:1.4; }
+    .bubble.user { background:#2b6ef6; color:white; border-bottom-right-radius:4px; }
+    .bubble.bot { background:#f1f3f5; color:#111; border-bottom-left-radius:4px; }
+    .composer { padding:12px; border-top:1px solid #eee; display:flex; gap:8px; }
+    textarea { flex:1; padding:10px; min-height:48px; resize:vertical; border-radius:8px; border:1px solid #ddd; font-size:14px; }
+    button { background:#2b6ef6; color:white; border:none; padding:10px 14px; border-radius:8px; cursor:pointer; }
+    .meta { font-size:12px; color:#666; padding:8px 16px; border-bottom:1px solid #f1f1f1; background:#fbfcff; }
+    footer { font-size:12px; color:#777; padding:8px 12px; text-align:center; }
+    /* Optional: basic formatting for rendered HTML */
+    .bubble.bot h1,.bubble.bot h2,.bubble.bot h3 { margin:8px 0 6px; }
+    .bubble.bot p, .bubble.bot ul, .bubble.bot ol { margin:6px 0; }
+    .bubble.bot code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; font-size: 12px; background:#fff; padding:1px 4px; border-radius:4px; }
+    .bubble.bot pre { background:#fff; padding:10px; border-radius:6px; overflow:auto; }
+  </style>
+</head>
+<body>
+  <div class="app" role="application">
+    <header>Local Chat UI — Use responsibly</header>
+    <div class="meta">
+      Connected to local proxy at <code>/v1/chat/completions</code>. This UI must not be used for targeted political persuasion or harassment.
+      <label style="float:right; font-weight:500;">
+        <input id="renderHtml" type="checkbox" checked>
+        Format responses
+      </label>
+    </div>
+    <div id="messages" class="messages" aria-live="polite"></div>
+    <div class="composer">
+      <textarea id="input" placeholder="Type your question (examples: 'How to cook pasta', 'Summarize this paragraph')"></textarea>
+      <button id="send">Send</button>
+    </div>
+    <footer>Local model proxy — for experimentation and allowed use only.</footer>
+  </div>
+
+<script>
+  const messagesEl = document.getElementById("messages");
+  const inputEl = document.getElementById("input");
+  const sendBtn = document.getElementById("send");
+  const renderHtmlEl = document.getElementById("renderHtml");
+
+  function appendMessage(text, who, { asHtml = false } = {}){
+    const wrapper = document.createElement("div");
+    wrapper.className = "msg " + (who==="user"?"user":"bot");
+    const bubble = document.createElement("div");
+    bubble.className = "bubble " + (who==="user"?"user":"bot");
+    if (asHtml) {
+      bubble.innerHTML = text;      // server already rendered Markdown → HTML
+    } else {
+      bubble.textContent = text;    // plain text fallback
+    }
+    wrapper.appendChild(bubble);
+    messagesEl.appendChild(wrapper);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  async function send(){
+    const text = inputEl.value.trim();
+    if(!text) return;
+    appendMessage(text, "user");
+    inputEl.value = "";
+    sendBtn.disabled = true;
+
+    const body = {
+      model: "llama3.1",
+      messages: [{ role: "user", content: text }]
+    };
+
+    const wantHtml = !!renderHtmlEl?.checked;
+
+    try {
+      if (wantHtml) {
+        // Ask the proxy to return HTML (server.js renders Markdown via marked)
+        const resp = await fetch("/chat-html", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Accept": "text/html"
+          },
+          body: JSON.stringify(body)
+        });
+        const html = await resp.text();
+        if (!resp.ok) {
+          appendMessage("Error: " + resp.status + " " + html, "bot");
+        } else {
+          appendMessage(html, "bot", { asHtml: true });
+        }
+      } else {
+        // Original JSON behavior
+        const resp = await fetch("/v1/chat/completions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Accept": "application/json" },
+          body: JSON.stringify(body)
+        });
+        if(!resp.ok){
+          const t = await resp.text();
+          appendMessage("Error: " + resp.status + " " + t, "bot");
+        } else {
+          const j = await resp.json();
+          let reply = "";
+          if (j?.choices?.[0]?.message?.content) {
+            reply = j.choices[0].message.content;
+          } else if (j?.result?.[0]?.content) {
+            reply = j.result[0].content;
+          } else {
+            reply = JSON.stringify(j);
+          }
+          appendMessage(reply, "bot");
+        }
+      }
+    } catch (err) {
+      appendMessage("Network error: " + String(err), "bot");
+    } finally {
+      sendBtn.disabled = false;
+    }
+  }
+
+  sendBtn.addEventListener("click", send);
+  inputEl.addEventListener("keydown", (e) => {
+    if(e.key === "Enter" && (e.ctrlKey || e.metaKey)) send();
+  });
+</script>
+</body>
+</html>

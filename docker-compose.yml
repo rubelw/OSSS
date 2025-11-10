@@ -215,7 +215,6 @@ services:
 
       OIDC_DISCOVERY_URL_INTERNAL: "${OIDC_DISCOVERY_URL_INTERNAL}"
       OIDC_TOKEN_URL_INTERNAL: "${OIDC_TOKEN_URL_INTERNAL}"
-      OIDC_JWKS_URL_INTERNAL: "${OIDC_JWKS_URL_INTERNAL}"
       KEYCLOAK_INTERNAL_BASE: "${KEYCLOAK_INTERNAL_BASE}"
 
       OIDC_ISSUER: ${OIDC_ISSUER}
@@ -641,8 +640,7 @@ services:
         '
     profiles:
       - elastic
-    networks:
-      - osss-net
+
 
   es-shared-init:
     image: alpine:3.19
@@ -682,14 +680,13 @@ services:
       - seccomp=unconfined
       - label=disable
     environment:
-    - # put the secret in your .env instead of hardcoding here
-    - OIDC_CLIENT_SECRET=${KIBANA_OIDC_CLIENT_SECRET}
-    - discovery.type=single-node
-    - xpack.security.enabled=true
-    - xpack.security.http.ssl.enabled=false
-    - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
-    - ES_JAVA_OPTS=-Xms512m -Xmx512m
-    - network.host=0.0.0.0
+      OIDC_CLIENT_SECRET: ${KIBANA_OIDC_CLIENT_SECRET}
+      discovery.type: single-node
+      xpack.security.enabled: "true"
+      xpack.security.http.ssl.enabled: "false"
+      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD}
+      ES_JAVA_OPTS: "-Xms512m -Xmx512m"
+      network.host: "0.0.0.0"
     ulimits:
       memlock:
         soft: -1
@@ -1333,7 +1330,6 @@ services:
       AUTHENTICATION_RESPONSE_TYPE: ${OM_AUTHENTICATION_RESPONSE_TYPE:-id_token}
       AUTHENTICATION_CALLBACK_URL: ${OM_AUTHENTICATION_CALLBACK_URL:-http://localhost:8585/callback}
       AUTHENTICATION_ENABLE_SELF_SIGNUP: ${AUTHENTICATION_ENABLE_SELF_SIGNUP:-true}
-      AUTHENTICATION_JWT_PRINCIPAL_CLAIMS_MAPPING: ${AUTHENTICATION_JWT_PRINCIPAL_CLAIMS_MAPPING:-[]}
       # --- OIDC (these are the ones pac4j needs) ---
       OIDC_DISCOVERY_URI: ${OM_OIDC_DISCOVERY_URI:-""}
       OIDC_CLIENT_ID: ${OM_OIDC_CLIENT_ID:-""}
@@ -1792,8 +1788,6 @@ services:
     profiles: [ openmetadata ]
     networks:
       - osss-net
-    profiles:
-      - openmetadata
     restart: always
     ports:
       - 3306:3306
@@ -2095,4 +2089,26 @@ services:
     networks:
       - osss-net
     profiles: [ "ai" ]
+  chat-ui:
+    profiles: [ "ai" ]
+    build:
+      context: ./docker/chat-ui
+      dockerfile: Dockerfile
+    image: osss-ai_chat-ui:latest
+    container_name: chat-ui
+    hostname: chat-ui
+    ports:
+      - "3001:3000"
+    environment:
+      - TARGET_HOST=http://host.docker.internal:8081
+    restart: unless-stopped
+    networks:
+      - osss-net
+    depends_on:
+      ai-postgres:
+        condition: service_started
+      ai-redis:
+        condition: service_healthy
+
+
 

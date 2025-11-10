@@ -1,67 +1,4 @@
 #!/usr/bin/env bash
-
-# --- Podman auto-install helpers -------------------------------------------------
-have_cmd() { command -v "$1" >/dev/null 2>&1; }
-err() { printf "ERROR: %s\n" "$*" >&2; }
-
-install_podman_macos() {
-  if have_cmd brew; then
-    echo "Installing Podman via Homebrew..."
-    brew update >/dev/null 2>&1 || true
-    brew install podman || return 1
-  else
-    echo "Homebrew not found. Installing Homebrew non-interactively..."
-    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" || return 1
-    # Load brew into current shell if installed to common prefixes
-    if [ -x /opt/homebrew/bin/brew ]; then
-      eval "$(/opt/homebrew/bin/brew shellenv)"
-    elif [ -x /usr/local/bin/brew ]; then
-      eval "$(/usr/local/bin/brew shellenv)"
-    fi
-    brew install podman || return 1
-  fi
-  return 0
-}
-
-install_podman_ubuntu() {
-  echo "Installing Podman via apt..."
-  export DEBIAN_FRONTEND=noninteractive
-  sudo apt-get update -y && sudo apt-get install -y podman || return 1
-  return 0
-}
-
-ensure_podman() {
-  if have_cmd podman; then
-    return 0
-  fi
-  os_name="$(uname -s)"
-  case "$os_name" in
-    Darwin)
-      install_podman_macos || { err "Failed to install Podman on macOS."; return 1; }
-      ;;
-    Linux)
-      # Detect Ubuntu
-      if [ -r /etc/os-release ] && grep -qi '^ID=ubuntu' /etc/os-release; then
-        install_podman_ubuntu || { err "Failed to install Podman on Ubuntu."; return 1; }
-      else
-        err "Automatic Podman install not supported for this Linux distro. Please install Podman manually."
-        return 1
-      fi
-      ;;
-    *)
-      err "Unsupported OS ($os_name) for automatic Podman install."
-      return 1
-      ;;
-  esac
-
-  if ! have_cmd podman; then
-    err "Podman still not found after installation attempt."
-    return 1
-  fi
-  return 0
-}
-# -------------------------------------------------------------------------------
-
 # management_menu.sh (Podman-only)
 # - Uses Podman + Podman Compose exclusively
 # - Adds 127.0.0.1 keycloak.local to /etc/hosts if missing
@@ -70,6 +7,21 @@ ensure_podman() {
 
 set -Eeuo pipefail
 
+# ---- debug harness ----------------------------------------------------------
+: "${OSSS_DEBUG:=0}"         # set OSSS_DEBUG=0 to silence
+if [[ "$OSSS_DEBUG" == "1" ]]; then
+  export SHELLOPTS  # so 'set -o' is inherited in subshells
+  set -o errtrace
+  PS4='+ [${BASH_SOURCE##*/}:${LINENO}](${FUNCNAME[0]:-main}) '
+  set -x
+  trap 'echo "🔥 ERR at ${BASH_SOURCE##*/}:${LINENO} (in ${FUNCNAME[0]:-main}) running: ${BASH_COMMAND}"' ERR
+fi
+
+dbg() { [[ "$OSSS_DEBUG" == "1" ]] && echo "🪵 DBG: $*" 1>&2; }
+# ---------------------------------------------------------------------------
+
+
+: "${OSSS_VENV_BOOTSTRAPPED:=0}"
 : "${TMP_COMPOSE:=/tmp/osss-elastic.compose.yml}"
 export TMP_COMPOSE
 : "${VM_NAME:=${PODMAN_MACHINE_NAME:-${PODMAN_MACHINE:-default}}}"
@@ -78,7 +30,7 @@ export VM_NAME
 : "${PODMAN_MACHINE_ROOTFUL:=1}"
 export PODMAN_MACHINE_ROOTFUL
 : "${PODMAN_ENABLE_ROOTLESS:=0}"
-export PODMAN_ENABLjE_ROOTLESS
+export PODMAN_ENABLE_ROOTLESS
 : "${VM_TMP:=/tmp/osss-elastic.compose.yml}"
 export VM_TMP
 
@@ -96,8 +48,12 @@ err(){ printf "❌  %s\n" "$*" >&2; }
 have_cmd(){ command -v "$1" >/dev/null 2>&1; }
 
 need_cmd(){ if ! have_cmd "$1"; then err "Missing required command: $1"; exit 127; fi; }
-ensure_podman || exit 127
+
+need_cmd podman
+
 _pm() { podman machine "$@"; }
+
+pm_ssh() { podman machine "$@"; }
 
 # Wait until `podman machine ssh` actually works (no manual port scraping)
 wait_vm_ssh(){
@@ -314,6 +270,7 @@ ensure_podman_ready() {
     echo "[ensure_podman_ready] init VM '$vm' (one time)…"
     created_new_vm=1
     podman machine init "$vm" \
+      --rootful \
       --cpus "${PODMAN_MACHINE_CPUS:-12}" \
       --memory "${PODMAN_MACHINE_MEM_MB:-40960}" \
       --disk-size "${PODMAN_MACHINE_DISK_GB:-100}" \
@@ -550,6 +507,7 @@ ensure_vm_ready() {
   if ! podman machine inspect "$NAME" >/dev/null 2>&1; then
     echo "🆕 No Podman VM named '$NAME' found. Initializing…"
     podman machine init "$NAME" \
+      --rootful \
       --cpus "${PODMAN_MACHINE_CPUS:-12}" \
       --memory "${PODMAN_MACHINE_MEM_MB:-40960}" \
       --disk-size "${PODMAN_MACHINE_DISK_GB:-100}" \
@@ -647,9 +605,26 @@ vm_enable_rootless_podman_socket_safe() {
 
 vm_enable_rootful_podman_socket_safe() {
   local NAME="${1:-default}"
-  echo "🔌 Ensuring rootful podman.socket is active in VM '$NAME'…"
-  podman machine ssh "$NAME" 'sudo systemctl enable --now podman.socket; sudo systemctl status --no-pager podman.socket || true'
+  echo "🔌 Enabling rootful podman services (systemd) in VM '${NAME}' …"
+  podman machine ssh "$NAME" -- bash -lc '
+    set -euo pipefail
+    sudo systemctl daemon-reload || true
+    sudo systemctl enable --now podman.socket || true
+    sudo systemctl enable --now podman.service || true
+    echo "🩺 podman.service:"; sudo systemctl --no-pager --full status podman.service || true
+    echo "🩺 podman.socket:";  sudo systemctl --no-pager --full status podman.socket  || true
+    if sudo test -S /run/podman/podman.sock; then
+      echo "✅ Rootful API socket is present at /run/podman/podman.sock"
+    else
+      echo "❌ Rootful API socket missing. Attempting restart…"
+      sudo systemctl restart podman.socket podman.service || true
+      sleep 1
+      sudo test -S /run/podman/podman.sock || { echo "❌ Still missing rootful API socket."; exit 1; }
+      echo "✅ Rootful API socket appeared after restart."
+    fi
+  '
 }
+
 
 # Enable sockets on *host* (Linux without VM)
 host_enable_rootless_podman_socket_maybe() {
@@ -757,51 +732,6 @@ export PODMAN_OVERLAY_DIR="$(
 )"
 echo "$PODMAN_OVERLAY_DIR"   # sanity check; should exist inside VM
 
-
-
-# --- Install Ollama if missing (macOS + Ubuntu/Debian) ---
-ensure_ollama_installed() {
-  # Return 0 if ollama is present (do nothing), non-zero if we failed to install
-  if command -v ollama >/dev/null 2>&1; then
-    return 0
-  fi
-
-  echo "🧠 'ollama' not found — attempting install…"
-  case "$(uname -s)" in
-    Darwin)
-      if ! command -v brew >/dev/null 2>&1; then
-        echo "❌ Homebrew not found. Install Homebrew first: https://brew.sh"
-        return 1
-      fi
-      brew install --cask ollama || return 1
-      # ensure CLI is usable even if the app bundle isn’t launched yet
-      (OLLAMA_MODELS="${HOME}/.ollama/models" ollama serve >/dev/null 2>&1 & disown; sleep 2; pkill -f 'ollama serve' || true)
-      ;;
-
-    Linux)
-      # Prefer the official one-liner (sets up apt repo on Ubuntu/Debian)
-      if command -v curl >/dev/null 2>&1; then
-        curl -fsSL https://ollama.com/install.sh | sh || return 1
-      else
-        echo "❌ curl not found. Install curl and re-run."
-        return 1
-      fi
-      # Start service if available (Ubuntu/Debian package)
-      sudo systemctl enable --now ollama 2>/dev/null || {
-        # Fallback: run a short-lived server to initialize key/materials
-        (OLLAMA_MODELS="${HOME}/.ollama/models" ollama serve >/dev/null 2>&1 & disown; sleep 2; pkill -f 'ollama serve' || true)
-      }
-      ;;
-
-    *)
-      echo "❌ Unsupported OS for auto-install. Install Ollama manually: https://ollama.com"
-      return 1
-      ;;
-  esac
-
-  command -v ollama >/dev/null 2>&1
-}
-
 # --- Ollama preflight check (volume-aware, nounset-safe) ---
 # Ensure host Ollama is ready and that MODEL is present in ./ollama_data/models
 # Usage: check_ollama_ready [model_name]
@@ -809,36 +739,46 @@ check_ollama_ready() {
   set -euo pipefail
 
   local MODEL_NAME="${1:-llama3.1}"
+  # Allow override via env; default to ./ollama_data
   local OLLAMA_DATA_DIR="${OLLAMA_DATA_DIR:-./ollama_data}"
   local MODELS_DIR="${OLLAMA_DATA_DIR%/}/models"
 
   echo "🧠 Checking host Ollama and model '${MODEL_NAME}' …"
 
-  # 1) Ensure ollama exists (auto-install if missing)
+  # 1) Host ollama binary
   if ! command -v ollama >/dev/null 2>&1; then
-    ensure_ollama_installed || {
-      echo "❌ Could not install 'ollama' automatically. On macOS: 'brew install --cask ollama'. On Ubuntu/Debian: 'curl -fsSL https://ollama.com/install.sh | sh'."
-      exit 1
-    }
+    echo "❌ 'ollama' not found in PATH. On macOS: brew install --cask ollama"
+    exit 1
   fi
   echo "✅ Ollama found: $(command -v ollama)"
   echo "   Version: $(ollama --version 2>/dev/null || echo 'unknown')"
 
-  # 2) Ensure ~/.ollama key exists
-  mkdir -p "${HOME}/.ollama"
+  # 2) Ensure Ollama key dir exists (~/.ollama) and key is present
+  if [ ! -d "${HOME}/.ollama" ]; then
+    echo "📂 Creating ${HOME}/.ollama"
+    mkdir -p "${HOME}/.ollama"
+  fi
   if [ ! -f "${HOME}/.ollama/id_ed25519" ]; then
     echo "🔑 Initializing Ollama registry key (~/.ollama/id_ed25519)"
-    (OLLAMA_MODELS="${MODELS_DIR}" ollama serve >/dev/null 2>&1 & disown; sleep 2; pkill -f 'ollama serve' || true)
-    [ -f "${HOME}/.ollama/id_ed25519" ] || ssh-keygen -t ed25519 -f "${HOME}/.ollama/id_ed25519" -N "" >/dev/null
+    # Try the easy way (starts server briefly which generates the key)
+    (OLLAMA_MODELS="${MODELS_DIR}" ollama serve >/dev/null 2>&1 & sleep 2; kill $! >/dev/null 2>&1 || true) || true
+    # Fallback: generate a key if it still doesn't exist
+    if [ ! -f "${HOME}/.ollama/id_ed25519" ]; then
+      ssh-keygen -t ed25519 -f "${HOME}/.ollama/id_ed25519" -N "" >/dev/null
+    fi
   fi
 
   # 3) Ensure custom models dir exists
-  mkdir -p "${MODELS_DIR}"
+  if [ ! -d "${MODELS_DIR}" ]; then
+    echo "📂 Creating models directory at ${MODELS_DIR}"
+    mkdir -p "${MODELS_DIR}"
+  fi
   echo "📦 Using OLLAMA_MODELS=${MODELS_DIR}"
 
+  # Helper to run ollama against our models dir
   _ollama() { OLLAMA_MODELS="${MODELS_DIR}" ollama "$@"; }
 
-  # 4) Pull model if missing
+  # 4) Check model; pull if missing
   if ! _ollama show "${MODEL_NAME}" >/dev/null 2>&1; then
     echo "⬇️  Pulling '${MODEL_NAME}' into ${MODELS_DIR} …"
     _ollama pull "${MODEL_NAME}"
@@ -846,6 +786,7 @@ check_ollama_ready() {
 
   echo "✅ Model '${MODEL_NAME}' available in ${MODELS_DIR}"
 }
+
 
 check_ollama_ready
 
@@ -910,54 +851,50 @@ ensure_external_networks_exist() {
 
 
 
-# --- Podman preflight (idempotent) ---
+# --- Podman preflight (idempotent & errexit-safe) ---
 podman_ready_once() {
-  # Only run once per process
-  [[ "${__OSSS_PODMAN_READY:-}" == "1" ]] && return 0
-  command -v sudo podman >/dev/null 2>&1 || { __OSSS_PODMAN_READY=1; export __OSSS_PODMAN_READY; return 0; }
-
-  # Fast path: if the VM is already running, don't touch it
-  if pm_ssh -h >/dev/null 2>&1; then
-    local NAME="${PODMAN_MACHINE_NAME:-default}"
-    if pm_ssh ls --format '{{.Name}} {{.Running}}' \
-       | awk -v n="$NAME" '$1==n && $2=="true"{ok=1} END{exit ok?0:1}'; then
-      __OSSS_PODMAN_READY=1; export __OSSS_PODMAN_READY; return 0
-    fi
+  echo "### Running podman_ready_once (enter)"
+  # short-circuit if already done
+  if [[ "${__OSSS_PODMAN_READY:-}" == "1" ]]; then
+    echo "### Running podman_ready_once (skip)"
+    return 0
   fi
 
-  # If CLI is already connected, we're good
-  if podman info --debug >/dev/null 2>&1; then
-    __OSSS_PODMAN_READY=1; export __OSSS_PODMAN_READY; return 0
+  # Temporarily relax errexit for probes; restore it on exit
+  local _had_errexit=0
+  case $- in *e*) _had_errexit=1 ;; esac
+  set +e
+
+  # If podman is not on PATH, there is nothing to prep
+  if ! command -v podman >/dev/null 2>&1; then
+    # restore errexit and mark ready
+    [[ $_had_errexit -eq 1 ]] && set -e
+    __OSSS_PODMAN_READY=1; export __OSSS_PODMAN_READY
+    echo "### Running podman_ready_once (no podman on PATH; done)"
+    return 0
   fi
 
-  # Init/start only when needed
-  local NAME="${PODMAN_MACHINE_NAME:-default}"
-  if pm_ssh -h >/dev/null 2>&1; then
-    if ! pm_ssh inspect "$NAME" >/dev/null 2>&1; then
-      pm_ssh init \
-        --cpus  "${PODMAN_MACHINE_CPUS:-6}" \
-        --memory "${PODMAN_MACHINE_MEM_MB:-8192}" \
-        --disk-size "${PODMAN_MACHINE_DISK_GB:-50}" \
-        "$NAME"
+  if [[ "$(uname -s)" == "Darwin" ]]; then
+    local NAME="${PODMAN_MACHINE_NAME:-${PODMAN_MACHINE:-default}}"
+    # Don't let inspect failures abort
+    local state
+    state="$(podman machine inspect "$NAME" --format '{{.State}}' 2>/dev/null || echo "")"
+    if [[ "$state" != "running" ]]; then
+      # Best-effort init/start; all errors swallowed
+      podman machine inspect "$NAME" >/dev/null 2>&1 \
+        || podman machine init --rootful "$NAME" >/dev/null 2>&1 || true
+      podman machine start "$NAME" >/dev/null 2>&1 || true
     fi
-    pm_ssh start "$NAME"
-
-    # Ensure the default connection matches the running machine
-    if sudo podman system connection list --format '{{.Name}}' | grep -qx "$NAME"; then
-      sudo podman system connection default "$NAME" >/dev/null 2>&1 || true
-    elif sudo podman system connection list --format '{{.Name}}' | grep -qx "${NAME}-root"; then
-      sudo podman system connection default "${NAME}-root" >/dev/null 2>&1 || true
-    fi
+    # Probe info but never fail the script
+    podman info >/dev/null 2>&1 || true
   fi
 
-  # Final health check
-  if [ "$(uname -s)" = "Darwin" ]; then
-  podman info >/dev/null 2>&1 || { echo "❌ Podman not reachable"; exit 1; }
-else
-  # Linux: try plain first, then sudo as fallback
-  podman info >/dev/null 2>&1 || sudo podman info --debug >/dev/null 2>&1 || { echo "❌ Podman not reachable"; exit 1; }
-fi
+  # Restore errexit exactly as it was
+  [[ $_had_errexit -eq 1 ]] && set -e
+
   __OSSS_PODMAN_READY=1; export __OSSS_PODMAN_READY
+  echo "### Running podman_ready_once (ok)"
+  return 0
 }
 
 
@@ -1097,6 +1034,32 @@ ensure_python_cmd() {
   command -v python  >/dev/null 2>&1 && { echo python;  return; }
   echo "❌ Python 3 not found." >&2; exit 1
 }
+
+ensure_node_installed() {
+  if ! command -v node >/dev/null 2>&1; then
+    echo "⚙️  Node.js not found. Installing Node.js..."
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+      if command -v brew >/dev/null 2>&1; then
+        brew install node
+      else
+        echo "❌ Homebrew not found. Please install Homebrew first: https://brew.sh/"
+        exit 1
+      fi
+    elif [[ -f /etc/debian_version ]]; then
+      sudo apt update && sudo apt install -y nodejs npm
+    elif [[ -f /etc/redhat-release ]]; then
+      sudo dnf install -y nodejs npm
+    else
+      echo "⚠️  Unsupported OS. Please install Node.js manually: https://nodejs.org/"
+      exit 1
+    fi
+  else
+    echo "✅ Node.js is already installed: $(node -v)"
+  fi
+}
+
+
+
 in_venv() { [[ -n "${VIRTUAL_ENV:-}" ]]; }
 
 find_upwards() {
@@ -1118,76 +1081,94 @@ install_from_pyproject() {
   )
 }
 
-ensure_python_venv() {
-  [[ "${OSSS_SKIP_VENV_CHECK:-0}" == "1" ]] && return 0
-  [[ "${OSSS_VENV_BOOTSTRAPPED:-0}" == "1" ]] && return 0
-  local script_dir; script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-  local pyproject; pyproject="$(find_upwards "pyproject.toml" "$script_dir" || true)"
-  [[ -z "$pyproject" ]] && return 0
+# ---- entrypoint (keep this near the end of the file) ----
 
-  local proj_root; proj_root="$(dirname "$pyproject")"
-  local py; py="$(ensure_python_cmd)"
-  if in_venv; then
-    echo "✅ Python virtual environment detected."
+# 1) One-time virtualenv bootstrap that re-execs the script once
+ensure_python_venv() {
+  # Already bootstrapped? do nothing.
+  if [[ "${OSSS_VENV_BOOTSTRAPPED:-}" == "1" ]]; then
     return 0
   fi
-  echo "⚠️  Not running inside a Python virtual environment."
-  read -r -p "Create and use '$proj_root/.venv' and install packages from pyproject.toml? [Y/n] " ans || true
-  if [[ -z "${ans:-}" || "${ans}" =~ ^[Yy]$ ]]; then
-    [[ -d "$proj_root/.venv" ]] || "$py" -m venv "$proj_root/.venv"
-    # shellcheck disable=SC1091
-    source "$proj_root/.venv/bin/activate"
-    py="python"
-    install_from_pyproject "$proj_root" "$py"
-    export OSSS_VENV_BOOTSTRAPPED=1
-    exec "$0" "$@"
+
+  # Detect venv; if missing, create it and re-exec this script once
+  if [[ -z "${VIRTUAL_ENV:-}" && ! -d ".venv" ]]; then
+    echo "⚠️  Not running inside a Python virtual environment."
+    read -r -p "Create and use '$(pwd)/.venv' and install packages from pyproject.toml? [Y/n] " ans
+    ans=${ans:-Y}
+    if [[ "$ans" =~ ^[Yy]$ ]]; then
+      python3 -m venv .venv
+      . .venv/bin/activate
+      pip install -U pip setuptools wheel
+      # If you have a pyproject.toml in repo:
+      pip install .
+      # IMPORTANT: mark as bootstrapped and re-exec so the rest of the script runs inside the venv
+      export OSSS_VENV_BOOTSTRAPPED=1
+      exec "$0" "$@"
+    fi
   fi
 }
 
+# 2) Always run bootstrap (it’s a no-op after first run)
 ensure_python_venv "$@"
 
-
-
-# Extra services to remove when downing a given profile (Bash 3–friendly).
-# Extend this case list as needed.
 
 # Parse docker-compose.yml and list services that include a given profile, without needing compose on the host.
 # Usage: services_for_profile_from_yaml "elastic"
 
 
-# -------- Podman compose selection --------
+# -------- Podman compose selection (canonical) --------
 compose_cmd() {
-  # Prefer native `podman compose` (try it directly)
-  if podman compose version >/dev/null 2>&1; then
-    echo "sudo podman compose"
+  if [[ "$(uname -s)" == "Darwin" ]]; then
+    local name="${PODMAN_MACHINE_NAME:-default}"
+    local active=""
+    active="$(podman machine active 2>/dev/null || true)"
+
+    if [[ -z "$active" ]]; then
+      if ! podman machine list >/dev/null 2>&1; then
+        echo "⚠️  'podman machine list' failed; is Podman installed?" >&2
+        return 1
+      fi
+      if ! podman machine list | awk 'NR>1{print $1}' | sed "s/\*$//" | grep -qx "$name"; then
+        echo "⚠️  No Podman machine named '\$name' found. Create it with:" >&2
+        echo "    podman machine init --rootful && podman machine start" >&2
+        return 1
+      fi
+    fi
+
+    # Force provider + scrub Docker creds INSIDE the VM:
+    #   - CONTAINERS_COMPOSE_PROVIDER=podman-compose
+    #   - unset DOCKER_CONFIG/DOCKER_AUTH_CONFIG
+    echo "podman machine ssh $name -- env -u DOCKER_CONFIG -u DOCKER_AUTH_CONFIG CONTAINERS_COMPOSE_PROVIDER=podman-compose sudo podman compose"
     return 0
   fi
 
-  # Fallback to podman-compose if installed on host
-  if command -v podman-compose >/dev/null 2>&1; then
-    echo "sudo podman-compose"
-    return 0
-  fi
-
-  # Last-resort: run compose inside the Podman VM (macOS)
-  if podman machine --help >/dev/null 2>&1; then
-    echo "podman machine ssh -- podman compose"
-    return 0
-  fi
-
-  echo "❌ Neither 'podman compose' nor 'podman-compose' is available." >&2
-  return 127
+  echo "podman compose"
+  return 0
 }
 
 __compose_cmd() { compose_cmd; }
+
 
 ensure_compose_file() {
   [[ -f "$COMPOSE_FILE" ]] || { echo "❌ Compose file not found: $COMPOSE_FILE" >&2; exit 1; }
 }
 
+
+echo "### Running podman_ready_once"
 podman_ready_once
-COMPOSE="$(compose_cmd)"
+
+# SAFE: catch compose_cmd failures explicitly under `set -e`
+if ! COMPOSE="$(compose_cmd)"; then
+  echo "❌ compose_cmd failed. On macOS ensure a VM named '${PODMAN_MACHINE_NAME:-${PODMAN_MACHINE:-default}}' exists and is running:"
+  echo "   podman machine list"
+  echo "   podman machine init --rootful && podman machine start"
+  exit 1
+fi
+export COMPOSE
+
+echo "### Running ensure_compose_file"
 ensure_compose_file
+
 
 # Convenience wrappers
 run() { echo "+ $*"; "$@"; }
@@ -1461,7 +1442,9 @@ maybe_build_profile() {
     [[ "$ans" =~ ^[Yy]$ ]] && nocache="--no-cache"
 
     echo "+ $COMPOSE -f \"$COMPOSE_FILE\" --profile \"$prof\" build $nocache ${build_svcs[*]}"
+    env -u DOCKER_CONFIG -u DOCKER_AUTH_CONFIG -u DOCKER_HOST -u CONTAINER_HOST \
     $COMPOSE -f "$COMPOSE_FILE" --profile "$prof" build $nocache "${build_svcs[@]}"
+
   fi
 }
 
@@ -2243,6 +2226,7 @@ start_profile_trino() {
 start_profile_airflow()      { start_profile_with_build_prompt airflow; }
 start_profile_superset()     { start_profile_with_build_prompt superset; }
 
+
 # ✅ Start all services for a profile in ONE compose call.
 # Falls back to a sequenced bring-up for 'elastic' if the provider throws
 # a "depends on container … not found in input list" error.
@@ -3019,6 +3003,7 @@ reset_podman_machine() {
   # 4) Recreate + start
   echo "🛠  Initializing '$NAME'…"
   podman machine init "$NAME" \
+  --rootful \
   --cpus "${PODMAN_MACHINE_CPUS:-12}" \
   --memory "${PODMAN_MACHINE_MEM_MB:-40960}" \
   --disk-size "${PODMAN_MACHINE_DISK_GB:-100}" \
@@ -3293,6 +3278,7 @@ down_profile_interactive() {
 
   }
 
+
   echo "ℹ️ Post-teardown hook (optional per-profile cleanup)"
   if type down_profile_clean >/dev/null 2>&1; then
     # Run for all profiles…
@@ -3455,50 +3441,43 @@ ensure_osss_net() {
 
 
 # Follow logs for a single container; Ctrl-C cleanly returns to menu
-# Follow logs for a single container; Ctrl-C cleanly returns to menu
 logs_follow_container() {
   local name="$1"
-  local tail_n="${TAIL:-$DEFAULT_TAIL}"
+  local tail_n="${2:-$DEFAULT_TAIL}"
+  local vm use_vm="0" state rc=0
 
-  # Detect VM (macOS) vs host
-  local use_vm="0" vm state
-  if podman machine --help >/dev/null 2>&1; then
-    vm="$(podman machine active 2>/dev/null || echo default)"
-    state="$(podman machine inspect "$vm" --format '{{.State}}' 2>/dev/null || echo '')"
-    [[ "$state" == "Running" ]] && use_vm="1"
-  fi
-
-  # Existence checks (same behavior as before)
-  if [[ "$use_vm" == "1" ]]; then
-    if ! podman machine ssh "$vm" -- bash -lc "podman container exists \"$name\""; then
-      echo "⚠️  Container '$name' not found in VM '$vm'."
-      podman machine ssh "$vm" -- podman ps -a --format "table {{.Names}}\t{{.Status}}" | sed 's/^/  > /'
-      return 0
-    fi
-  else
-    if ! podman container exists "$name"; then
-      echo "⚠️  Container '$name' not found on host."
-      sudo podman ps -a --format "table {{.Names}}\t{{.Status}}" | sed 's/^/  > /'
-      return 0
-    fi
-  fi
+  # Detect active VM and whether it's running
+  vm="$(podman machine active 2>/dev/null || echo default)"
+  state="$(podman machine inspect "$vm" --format '{{.State}}' 2>/dev/null || echo '')"
+  case "$state" in
+    running|Running) use_vm="1" ;;
+  esac
 
   echo "Following logs for container: ${name} (Ctrl-C to return)…"
 
-  # Run follower in a subshell; clear INT trap inside child so Ctrl-C stops it,
-  # and don't let set -e kill the menu on nonzero exit.
+  # Run follower in a subshell; clear INT trap so Ctrl-C stops it; don't kill menu on nonzero exit
   set +e
   if [[ "$use_vm" == "1" ]]; then
-    ( trap - INT; podman machine ssh "$vm" -- bash -lc "sudo podman logs -f --tail ${tail_n} \"$name\"" ) || true
+    # Ensure ROOTFUL podman.socket is up inside the VM, then follow logs via rootful engine
+    (
+      trap - INT
+      podman machine ssh "$vm" -- bash -lc '
+        # make sure rootful socket is active (idempotent)
+        sudo systemctl enable --now podman.socket >/dev/null 2>&1 || true
+        # follow logs using ROOTFUL podman
+        sudo podman logs -f --tail '"$tail_n"' "'"$name"'"
+      '
+    ) || true
   else
+    # Fallback: host (Linux without VM)
     ( trap - INT; sudo podman logs -f --tail "$tail_n" "$name" ) || true
   fi
+  rc=$?
   set -e
 
   echo "↩ Back to menu"
-  return 0
+  return $rc
 }
-
 
 
 logs_menu() {
@@ -3544,6 +3523,7 @@ logs_menu() {
     echo "35) Logs container 'vault-oidc-setup'"
     echo "36) Logs container 'vault-seed'"
     echo "37) Logs container 'web'"
+    echo "38) Logs container 'chat-ui'"
     echo "  q) Back"
     echo "-----------------------------------------------"
     read -rp "Select an option: " choice || return 0
@@ -3585,6 +3565,7 @@ logs_menu() {
       35) logs_follow_container "vault-oidc-setup" ;;
       36) logs_follow_container "vault-seed" ;;
       37) logs_follow_container "web" ;;
+      38) logs_follow_container "chat-ui" ;;
       q|Q|b|B) return 0 ;;
       *) echo "Unknown choice: ${choice}" ;;
     esac
@@ -3827,7 +3808,7 @@ down_profiles_menu() {
         prompt_return
         ;;
       11)
-        # Destroy ai'
+        # Destroy ai
         podman machine ssh default -- bash -lc '
           set -euo pipefail
           cd /work || { echo "❌ Path not visible inside VM: /work"; exit 1; }
@@ -3836,15 +3817,36 @@ down_profiles_menu() {
           PROFILE="ai"
           PROJECT="osss-ai"
           FILE="/work/docker-compose.yml"
-          REMOVE_VOLUMES="--volumes"   # set to "" if you want to keep volumes
+          REMOVE_VOLUMES="--volumes"
 
           [ -f "$SCRIPT" ] || { echo "❌ Not found: $SCRIPT"; ls -la /work/scripts || true; exit 1; }
+          [ -f "$FILE" ]   || { echo "❌ Not found: $FILE"; ls -la /work || true; exit 1; }
           chmod +x "$SCRIPT" || true
-          [ -f "$FILE" ] || { echo "❌ Not found: $FILE"; ls -la /work || true; exit 1; }
 
           echo "▶ Running: $SCRIPT --profile $PROFILE --project $PROJECT --file $FILE $REMOVE_VOLUMES"
+          # Force the project name for every compose operation in the script
+          export COMPOSE_PROJECT_NAME="$PROJECT"
+
           "$SCRIPT" --profile "$PROFILE" --project "$PROJECT" --file "$FILE" $REMOVE_VOLUMES
+
+          echo "— post-clean check for stragglers —"
+          # If any service containers lack the compose project label, kill them explicitly.
+          for name in chat-ui dvc ai-postgres ai-redis minio qdrant ollama; do
+            if sudo podman ps -a --format "{{.Names}}" | grep -qx "$name"; then
+              # Remove only if container is NOT labeled with our compose project
+              lbl="$(sudo podman inspect --format "{{ index .Config.Labels \"com.docker.compose.project\"}}" "$name" 2>/dev/null || true)"
+              plbl="$(sudo podman inspect --format "{{ index .Config.Labels \"io.podman.compose.project\"}}" "$name" 2>/dev/null || true)"
+              if [ "$lbl" != "$PROJECT" ] && [ "$plbl" != "$PROJECT" ]; then
+                echo "⚠️  Removing stray container not owned by project ($name)"
+                sudo podman rm -f "$name" || true
+              fi
+            fi
+          done
+
+          # Also nuke the compose pod if it’s around
+          sudo podman pod rm -f "$PROJECT" 2>/dev/null || true
         '
+
         prompt_return
         ;;
       q|Q|b|B) return 0 ;;
@@ -3866,6 +3868,9 @@ utilities_menu() {
     echo " 4) Stop podman machine default"
     echo " 5) Remove podman machine default"
     echo " 6) Connect to default machine"
+    echo " 7) List running containers in VM"
+    echo " 8) List images"
+    echo " 9) Delete specific rootful Podman image"
     echo "  q) Back"
     echo "-----------------------------------------------"
     read -rp "Select an option: " choice || return 0
@@ -3877,44 +3882,91 @@ utilities_menu() {
         echo "▶️ Podman version in VM '${vm}':"
         podman machine ssh "$vm" -- bash -lc 'podman --version || podman version' || \
           echo "⚠️ Could not get Podman version inside VM '${vm}'."
-        prompt_return
         ;;
       2)
         local vm
         vm="$(podman machine active 2>/dev/null || echo default)"
-        echo "▶️ Podman version in VM '${vm}':"
-        PODMAN_GRAPHROOT="$(
-        podman machine ssh default -- podman info | awk -F': *' 'tolower($1) ~ /graphroot/ { print $2; exit }')" && echo "PODMAN_GRAPHROOT=$PODMAN_GRAPHROOT" || \
-        echo "⚠️ Could not get Podman GraphRoot inside VM '${vm}'."
-        prompt_return
+        echo "▶️ Podman GraphRoot in VM '${vm}':"
+        podman machine ssh "$vm" -- bash -lc 'podman info --format "{{ .Store.GraphRoot }}"' || \
+          echo "⚠️ Could not get GraphRoot inside VM '${vm}'."
         ;;
       3)
-        # Install podman-compose inside the VM"
-        install_podman_compose_vm
-# Point host podman CLI at the VM's API connection
-ensure_host_podman_connection "$VM_CHOSEN"
-
-# Final macOS health check (no sudo)
-if ! podman info >/dev/null 2>&1; then
-  echo "❌ Podman not reachable (host CLI not connected to VM API). Try: podman system connection ls"
-  exit 1
-fi
-        prompt_return
+        local vm
+        vm="$(podman machine active 2>/dev/null || echo default)"
+        echo "▶️ Installing podman-compose inside VM '${vm}' (if missing)…"
+        podman machine ssh "$vm" -- bash -lc '
+          set -euo pipefail
+          if ! command -v podman-compose >/dev/null 2>&1; then
+            sudo dnf -y install podman-compose || sudo apt-get update && sudo apt-get -y install podman-compose
+          else
+            echo "podman-compose already installed."
+          fi
+        ' || echo "⚠️ Install may have failed inside VM '${vm}'."
         ;;
       4)
-        podman machine stop default
-        prompt_return
+        podman_vm_stop
         ;;
       5)
-        podman machine rm -f default
-        prompt_return
+        podman_vm_destroy
         ;;
       6)
-        podman system connection default default
+        # Attach a shell to the active/default VM
+        local vm
+        vm="$(podman machine active 2>/dev/null || echo default)"
+        echo "🔌 Connecting to VM '${vm}'… (exit to return)"
+        podman machine ssh "$vm"
+        ;;
+      7)
+        # List running containers in the VM (both rootless + rootful)
+        vm="$(podman machine active 2>/dev/null || echo default)"
+        echo "📦 Running containers in VM '${vm}':"
+        podman machine ssh "$vm" 'bash -s' <<'REMOTE'
+set -euo pipefail
+
+echo "── rootless (podman ps) ─────────────────────────────────"
+if podman ps --format '{{.ID}}' >/dev/null 2>&1; then
+  podman ps --format 'table {{.ID}}\t{{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}' || true
+else
+  podman ps || true
+fi
+
+echo
+echo "── rootful (sudo podman ps) ─────────────────────────────"
+if sudo podman ps --format '{{.ID}}' >/dev/null 2>&1; then
+  sudo podman ps --format 'table {{.ID}}\t{{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}' || true
+else
+  sudo podman ps || true
+fi
+
+echo
+echo "Tip: your compose runs with 'sudo podman', so containers will appear in the rootful section."
+REMOTE
+        ;;
+      8)
+        echo "📸 Rootful Podman images in VM 'default':"
+        podman machine ssh default -- sudo podman images || echo "❌ Unable to list images."
         prompt_return
         ;;
-      q|Q|b|B) return 0 ;;
-      *) echo "Unknown choice: ${choice}" ;;
+      9)
+        echo "🗑️ Delete a specific rootful Podman image in VM 'default'"
+        echo "📸 Current images:"
+        podman machine ssh default -- sudo podman images || true
+        echo ""
+        read -rp "Enter IMAGE ID or NAME:TAG to delete (or blank to cancel): " img
+        if [[ -z "$img" ]]; then
+          echo "❌ Cancelled."
+        else
+          echo "⚠️ Deleting image '$img'..."
+          podman machine ssh default -- sudo podman rmi -f "$img" && echo "✅ Image '$img' deleted." || echo "❌ Failed to delete image '$img'."
+        fi
+        prompt_return
+        ;;
+      q|Q|b|B)
+        return 0
+        ;;
+      *)
+        echo "Unknown choice: ${choice}"
+        ;;
     esac
   done
 }
@@ -4312,28 +4364,230 @@ EOF_MIN_FBEAT
         '
         ;;
       11)
-        # Deploy ai
-        podman machine ssh default -- bash -lc '
+                # Deploy ai (with optional rebuild + clean redeploy)
+        PROFILE="ai"
+        PROJECT="osss-ai"
+        FILE="docker-compose.yml"
+        SCRIPT="/work/scripts/deploy-profile.sh"
+
+        # Host-side helper (used only in the first validation call where we use double quotes)
+        VM_COMPOSE='sudo -E env PATH=/usr/sbin:/usr/bin:/usr/local/bin:$PATH CONTAINERS_COMPOSE_PROVIDER=podman-compose podman compose'
+
+        # Rebuild prompt (host-side only; actual build happens in-VM)
+        echo "🧱 Services in profile (${PROFILE}) that have build steps can be rebuilt before deploy."
+        _nocache=""
+        read -r -p "Rebuild images for profile '${PROFILE}' now? [y/N] " _rb || true
+        if [[ "${_rb}" =~ ^[Yy]$ ]]; then
+          read -r -p "Use --no-cache for the rebuild? [y/N] " _nc || true
+          [[ "${_nc}" =~ ^[Yy]$ ]] && _nocache="--no-cache"
+        else
+          echo "⏭️  Skipping image rebuild."
+        fi
+
+        # Clean redeploy?
+        _redeploy="0"
+        read -r -p "Do a clean redeploy (down + scrub + up) for '${PROFILE}'? [y/N] " _rd || true
+        [[ "${_rd}" =~ ^[Yy]$ ]] && _redeploy="1"
+
+        # (A) Validate compose inside the VM (double-quoted so $VM_COMPOSE expands on host)
+        podman machine ssh default -- bash -lc "
           set -euo pipefail
-          cd /work || { echo "❌ Path not visible inside VM: /work"; exit 1; }
+          cd /work
+          echo \"+ $VM_COMPOSE -f docker-compose.yml --profile ai config (validation)\"
+          $VM_COMPOSE -f docker-compose.yml --profile ai config >/dev/null
+        "
 
-          # Ensure the external network exists (idempotent)
-          if ! sudo podman network exists osss-net 2>/dev/null; then
-            echo "🌐 Creating external network: osss-net"
-            sudo podman network create osss-net >/dev/null
-          else
-            echo "🌐 Network osss-net already exists"
-          fi
+        # (B) Optional clean redeploy (full scrub to avoid "proxy already running")
+        if [[ "${_redeploy}" = "1" ]]; then
+          podman machine ssh default 'bash -s' <<'VMSCRUB'
+set -euo pipefail
+cd /work
 
-          SCRIPT="/work/scripts/deploy-profile.sh"
-          PROFILE="ai"
-          PROJECT="osss-ai"
-          FILE="/work/docker-compose.yml"
+# Ensure compose provider is discoverable in this shell and via sudo
+export PATH=/usr/sbin:/usr/bin:/usr/local/bin:$PATH
+export CONTAINERS_COMPOSE_PROVIDER=podman-compose
+COMPOSE='sudo -E env PATH=/usr/sbin:/usr/bin:/usr/local/bin:$PATH CONTAINERS_COMPOSE_PROVIDER=podman-compose podman compose'
 
-          echo "▶ Running: $SCRIPT $PROFILE -p $PROJECT -f $FILE"
-          "$SCRIPT" "$PROFILE" -p "$PROJECT" -f "$FILE"
-        '
+echo "== down --remove-orphans --volumes =="
+$COMPOSE -f docker-compose.yml --profile ai down --remove-orphans --volumes || true
+
+echo "== kill stale port-forward proxies =="
+sudo pkill -f rootlessport  || true
+sudo pkill -f slirp4netns   || true
+sudo pkill -f gvproxy       || true
+sudo pkill -f pasta         || true
+sudo pkill -f conmon        || true
+
+echo "== rm named containers =="
+sudo podman rm -f ollama qdrant minio ai-redis ai-postgres dvc chat-ui 2>/dev/null || true
+
+echo "== rm pods (project + leftovers) =="
+sudo podman pod rm -f osss-ai 2>/dev/null || true
+sudo podman pod rm -fa 2>/dev/null || true
+
+echo "== prune networks (ignore errors) =="
+sudo podman network rm osss-ai_default 2>/dev/null || true
+sudo podman network rm osss-net        2>/dev/null || true
+
+echo "== recreate external network =="
+sudo podman network create osss-net >/dev/null
+VMSCRUB
+        else
+          # Ensure external network exists
+          podman machine ssh default 'bash -s' <<'VMNET'
+set -euo pipefail
+cd /work
+export PATH=/usr/sbin:/usr/bin:/usr/local/bin:$PATH
+export CONTAINERS_COMPOSE_PROVIDER=podman-compose
+
+if ! sudo podman network exists osss-net 2>/dev/null; then
+  echo "🌐 Creating external network: osss-net"
+  sudo podman network create osss-net >/dev/null
+else
+  echo "🌐 Network osss-net already exists"
+fi
+VMNET
+        fi
+
+        # (C) Build inside the VM (use wrapper; inject NOCACHE via env)
+        echo "+ VM build ${_nocache:-"(cached)"}"
+        podman machine ssh default "NOCACHE_FLAG=${_nocache}" 'bash -s' <<'VMBUILD'
+set -euo pipefail
+cd /work
+export PATH=/usr/sbin:/usr/bin:/usr/local/bin:$PATH
+export CONTAINERS_COMPOSE_PROVIDER=podman-compose
+COMPOSE='sudo -E env PATH=/usr/sbin:/usr/bin:/usr/local/bin:$PATH CONTAINERS_COMPOSE_PROVIDER=podman-compose podman compose'
+
+echo "+ $COMPOSE -f docker-compose.yml --profile ai build ${NOCACHE_FLAG}"
+$COMPOSE -f docker-compose.yml --profile ai build ${NOCACHE_FLAG}
+VMBUILD
+
+        # (D) Bring up (force-recreate) with auto-heal for "proxy already running"
+        podman machine ssh default "COMPOSE_PROJECT_NAME=${PROJECT}" 'bash -s' <<'VMUP'
+set -euo pipefail
+cd /work
+
+export PATH=/usr/sbin:/usr/bin:/usr/local/bin:$PATH
+export CONTAINERS_COMPOSE_PROVIDER=podman-compose
+COMPOSE='sudo -E env PATH=/usr/sbin:/usr/bin:/usr/local/bin:$PATH CONTAINERS_COMPOSE_PROVIDER=podman-compose podman compose'
+
+attempt_up() {
+  echo "▶ Up: ${COMPOSE_PROJECT_NAME} profile ai (force-recreate)"
+  env -u DOCKER_CONFIG -u DOCKER_AUTH_CONFIG \
+    $COMPOSE -f docker-compose.yml --profile ai up -d --force-recreate
+}
+
+deep_scrub_ports() {
+  echo "⚠️  Detected stale port proxy; performing deep scrub..."
+  $COMPOSE -f docker-compose.yml --profile ai down --remove-orphans --volumes || true
+
+  echo "— show who’s listening on our ports —"
+  (command -v ss >/dev/null && \
+    sudo ss -ltnp | grep -E ":11434|:6333|:9000|:9001|:6382|:5436|:3001" || true)
+
+  echo "— kill known helpers (best-effort) —"
+  sudo pkill -f rootlessport || true
+  sudo pkill -f gvproxy      || true
+  sudo pkill -f slirp4netns  || true
+  sudo pkill -f pasta        || true
+  sudo pkill -f conmon       || true
+
+  echo "— purge runtime dirs —"
+  sudo rm -rf /run/netavark/*           2>/dev/null || true
+  sudo rm -rf /run/podman/*             2>/dev/null || true
+  sudo rm -rf /run/libpod/*             2>/dev/null || true
+  sudo rm -rf /run/user/*/libpod/tmp/*  2>/dev/null || true
+  sudo rm -rf /run/user/*/podman/pasta* 2>/dev/null || true
+  for d in /var/lib/containers/storage/overlay-containers/*/userdata; do
+    [ -d "$d" ] && sudo rm -rf "$d"/rootlessport* "$d"/pasta* 2>/dev/null || true
+  done
+
+  echo "— restart podman services —"
+  sudo systemctl restart podman.socket || true
+  sudo systemctl restart podman        || true
+
+  echo "— prune & recreate external network —"
+  sudo podman network rm osss-net 2>/dev/null || true
+  sudo podman network prune -f 2>/dev/null || true
+  sudo podman network create osss-net >/dev/null
+
+  echo "— sanity after scrub —"
+  (command -v ss >/dev/null && \
+    sudo ss -ltnp | grep -E ":11434|:6333|:9000|:9001|:6382|:5436|:3001" || true)
+}
+
+hard_reset_daemon() {
+  echo "🧹 Hard reset of Podman runtime (no image wipe)"
+  sudo systemctl stop podman podman.socket || true
+  sudo pkill -9 -f "(conmon|rootlessport|gvproxy|slirp4netns|pasta|netavark)" || true
+  sudo rm -rf /run/podman/* /run/libpod/* /run/netavark/* /run/containers/* 2>/dev/null || true
+  sudo systemctl start podman.socket || true
+  sudo systemctl start podman || true
+  sudo podman network create osss-net >/dev/null 2>&1 || true
+}
+
+# First attempt
+if attempt_up 2>up.err; then
+  echo "✅ Up succeeded"
+  exit 0
+fi
+
+if grep -qi "proxy already running" up.err; then
+  echo "⛔ First up failed with proxy error:"
+  cat up.err
+  deep_scrub_ports
+
+  echo "🔁 Retrying up after deep scrub..."
+  rm -f up.err
+  if attempt_up 2>up.err; then
+    echo "✅ Up succeeded after deep scrub"
+    exit 0
+  fi
+
+  echo "🧹 Hard reset of Podman runtime (no image wipe)"
+  hard_reset_daemon
+
+  echo "🔁 Final retry after hard reset…"
+  rm -f up.err
+  if attempt_up 2>up.err; then
+    echo "✅ Up succeeded after hard reset"
+    exit 0
+  fi
+
+  if grep -qi "proxy already running" up.err; then
+    echo "🧪 Applying targeted host-network override for ollama (bypass port proxy)…"
+    cat >/work/docker-compose.ollama-hostnet.yml <<'YAML'
+services:
+  ollama:
+    network_mode: host
+    networks: null   # ensure inherited networks are removed
+    ports: []        # no port publishing when using host network
+YAML
+    echo "🔁 Retrying with override file (ollama on host network)…"
+    $COMPOSE -f /work/docker-compose.yml -f /work/docker-compose.ollama-hostnet.yml --profile ai down --remove-orphans || true
+    if $COMPOSE -f /work/docker-compose.yml -f /work/docker-compose.ollama-hostnet.yml --profile ai up -d --force-recreate; then
+      echo "✅ Up succeeded with ollama host-network override"
+      exit 0
+    else
+      echo "❌ Up failed even with host-network override:"
+      cat up.err || true
+      exit 125
+    fi
+  fi
+
+  echo "❌ Up failed after hard reset (different error):"
+  cat up.err
+  exit 125
+else
+  echo "❌ Up failed (non-proxy error):"
+  cat up.err
+  exit 125
+fi
+VMUP
+
+        echo "✅ Deploy complete for profile '${PROFILE}'."
         ;;
+
       12) down_profiles_menu ;;
       13) down_all ;;
       14) show_status; prompt_return ;;
@@ -4379,5 +4633,6 @@ EOF_MIN_FBEAT
     esac
   done
 }
+
 
 menu
