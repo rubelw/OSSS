@@ -19,7 +19,7 @@ from sqlalchemy.dialects.postgresql import UUID as PGUUID
 # ---- Alembic identifiers ----
 revision = "0003_seed_tables"
 down_revision = "0002_add_tables"
-branch_labels = None
+branch_labels = ("core",)
 depends_on = None
 
 log = logging.getLogger("alembic.runtime.migration")

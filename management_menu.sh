@@ -165,6 +165,41 @@ show_connections(){
   podman system connection list || true
 }
 
+# --- Ensure psql and alembic installed -------------------------------------
+ensure_postgres_tools() {
+  echo "🔍 Checking for PostgreSQL client (psql)…"
+  if ! command -v psql >/dev/null 2>&1; then
+    echo "⚙️  Installing PostgreSQL client..."
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+      if command -v brew >/dev/null 2>&1; then
+        brew install libpq
+        brew link --force libpq
+      else
+        echo "❌ Homebrew not found. Please install Homebrew or manually install PostgreSQL tools."
+        return 1
+      fi
+    elif [[ -f /etc/debian_version ]]; then
+      sudo apt update && sudo apt install -y postgresql-client
+    elif [[ -f /etc/redhat-release ]]; then
+      sudo dnf install -y postgresql
+    else
+      echo "⚠️  Unsupported OS. Please install PostgreSQL client manually."
+    fi
+  else
+    echo "✅ psql found: $(psql --version)"
+  fi
+
+  echo "🔍 Checking for Alembic (Python migration tool)…"
+  if ! command -v alembic >/dev/null 2>&1; then
+    echo "⚙️  Installing Alembic via pip..."
+    python3 -m pip install --upgrade pip setuptools wheel
+    python3 -m pip install alembic psycopg2-binary
+  else
+    echo "✅ Alembic found: $(alembic --version 2>/dev/null || echo 'unknown')"
+  fi
+}
+
+ensure_postgres_tools
 
 
 
@@ -3057,18 +3092,19 @@ list_tutor_tables() {
 
 # -------- Podman reset helper --------
 reset_podman_machine() {
-  echo "⚠️  Thqis will wipe all Podman machine state and start clean."
+  echo "⚠️  This will wipe all Podman machine state and start clean."
   read -rp "Proceed? [y/N] " ans || true
   [[ ! "$ans" =~ ^[Yy]$ ]] && { echo "❌ Cancelled."; prompt_return; return 0; }
 
   set -euo pipefail
 
-  sudo podman --version || true
+  sudo podman --version >/dev/null 2>&1 || true
 
   # Decide a machine name: use active if present, else 'default'
+  local NAME
   NAME="${PODMAN_MACHINE_NAME:-$(podman machine active 2>/dev/null || echo default)}"
 
-  # 1) Stop if it exists
+  # 1) Stop/remove existing VM
   if podman machine inspect "$NAME" >/dev/null 2>&1; then
     echo "▶️  Stopping podman machine '$NAME'…"
     podman machine stop "$NAME" || true
@@ -3078,36 +3114,101 @@ reset_podman_machine() {
     echo "(no VM named '$NAME' to stop/remove)"
   fi
 
-  # 2) Drop stale connections (both rootless/root)
+  # 2) Drop any stale host connections
   podman system connection rm "$NAME" "$NAME-root" 2>/dev/null || true
+  podman system connection rm "machine-$NAME" "machine-$NAME-root" 2>/dev/null || true
 
-  # 3) macOS: clear any leftover local state safely (best-effort)
+  # 3) macOS: clear leftover local state (best-effort)
   if [[ "$(uname -s)" == "Darwin" ]]; then
     rm -rf ~/.config/containers/podman/machine \
            ~/.local/share/containers/podman/machine \
            ~/.ssh/"$NAME"* 2>/dev/null || true
   fi
 
-  # 4) Recreate + start
+  # 4) Recreate + start (rootful) with your resource/env knobs
   echo "🛠  Initializing '$NAME'…"
   podman machine init "$NAME" \
-  --rootful \
-  --cpus "${PODMAN_MACHINE_CPUS:-12}" \
-  --memory "${PODMAN_MACHINE_MEM_MB:-40960}" \
-  --disk-size "${PODMAN_MACHINE_DISK_GB:-100}" \
-  --volume "${PWD}:/work"
+    --rootful \
+    --cpus    "${PODMAN_MACHINE_CPUS:-12}" \
+    --memory  "${PODMAN_MACHINE_MEM_MB:-40960}" \
+    --disk-size "${PODMAN_MACHINE_DISK_GB:-100}" \
+    --volume "${PWD}:/work"
 
   echo "▶️  Starting '$NAME'…"
   podman machine start "$NAME"
 
+  # 5) Wait until ssh is usable (helper defined earlier)
+  if command -v wait_vm_ssh >/dev/null 2>&1; then
+    wait_vm_ssh
+  else
+    # minimal inline wait if helper not present
+    for _ in $(seq 1 120); do
+      if podman machine ssh "$NAME" -- true >/dev/null 2>&1; then break; fi
+      sleep 1
+    done
+  fi
 
-  # 5) Make it the default connection if possible
-  podman system connection default "$NAME" 2>/dev/null \
-    || podman system connection default "$NAME-root" 2>/dev/null \
-    || true
+  # 6) Ensure rootful socket/services are up inside VM
+  if command -v vm_enable_rootful_podman_socket_safe >/dev/null 2>&1; then
+    vm_enable_rootful_podman_socket_safe "$NAME"
+  else
+    podman machine ssh "$NAME" -- bash -lc 'set -e
+      sudo systemctl enable --now podman.socket || true
+      sudo systemctl --no-pager --full status podman.socket || true
+      test -S /run/podman/podman.sock || { echo "❌ rootful socket missing"; exit 1; }
+    '
+  fi
 
-  # 6) Sanity test
-  sudo podman run --rm quay.io/podman/hello || true
+  # 7) Install & configure podman-compose inside the VM (idempotent; may reboot VM)
+  if command -v install_podman_compose_vm >/dev/null 2>&1; then
+    install_podman_compose_vm "$NAME"
+  else
+    # fallback: quick install without extra niceties
+    podman machine ssh "$NAME" -- bash -lc '
+      set -e
+      if ! rpm -q podman-compose >/dev/null 2>&1; then
+        sudo rpm-ostree install -y podman-compose python3-dotenv
+        nohup sh -lc "sleep 1; sudo systemctl reboot" >/dev/null 2>&1 &
+        exit 0
+      fi
+    ' || true
+    # wait for reboot if it happened
+    for _ in $(seq 1 240); do
+      if podman machine ssh "$NAME" -- true >/dev/null 2>&1; then break; fi
+      sleep 1
+    done
+    # set compose provider
+    podman machine ssh "$NAME" -- bash -lc '
+      mkdir -p ~/.config/containers
+      grep -q "compose_providers" ~/.config/containers/containers.conf 2>/dev/null || cat >~/.config/containers/containers.conf <<EOF
+[engine]
+compose_providers=["podman-compose"]
+EOF
+    '
+  fi
+
+  # 8) Re-assert sockets after any reboot
+  if command -v vm_enable_rootful_podman_socket_safe >/dev/null 2>&1; then
+    vm_enable_rootful_podman_socket_safe "$NAME"
+  fi
+
+  # 9) Make rootful connection the default on the host
+  if command -v ensure_rootful_connection_on_host >/dev/null 2>&1; then
+    ensure_rootful_connection_on_host "$NAME"
+  else
+    # minimal host connection setup
+    PORT="$(podman machine inspect --format '{{ (index .ConnectionInfo.PodmanSSHConfig 0).Port }}' "$NAME" 2>/dev/null)"
+    IDENTITY="$(podman machine inspect --format '{{ (index .ConnectionInfo.PodmanSSHConfig 0).IdentityPath }}' "$NAME" 2>/dev/null)"
+    URI="ssh://core@127.0.0.1/run/podman/podman.sock?identity=${IDENTITY}&port=${PORT}"
+    podman system connection remove "${NAME}-root" >/dev/null 2>&1 || true
+    podman system connection add "${NAME}-root" "${URI}" >/dev/null 2>&1 || true
+    podman system connection default "${NAME}-root" >/dev/null 2>&1 || true
+  fi
+
+  # 10) Sanity
+  podman info >/dev/null && echo "✅ Podman API reachable (rootful)."
+  podman system connection ls || true
+
   prompt_return
 }
 

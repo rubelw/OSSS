@@ -3,7 +3,7 @@ from alembic import op
 # Revision identifiers, used by Alembic.
 revision = "2025_11_10_000001"
 down_revision = None
-branch_labels = None
+branch_labels = ("tutor",)
 depends_on = None
 
 def upgrade():
