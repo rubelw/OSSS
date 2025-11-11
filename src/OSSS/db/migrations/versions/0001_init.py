@@ -6,7 +6,6 @@ import uuid
 
 revision = "0001_init"
 down_revision = None
-branch_labels = ("core",)
 depends_on = None
 
 def upgrade():

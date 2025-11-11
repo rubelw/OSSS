@@ -1,37 +1,47 @@
 from alembic import op
+from sqlalchemy import text
+import sys
 
-# Revision identifiers, used by Alembic.
+# revision identifiers
 revision = "2025_11_10_000001"
-down_revision = None
+down_revision = None            # separate branch; not linked to core
 branch_labels = ("tutor",)
 depends_on = None
 
+def _should_run() -> bool:
+    # correct API: read tag passed from env.py's context.configure(tag="tutor")
+    try:
+        tag = op.get_context().get_tag_argument()
+    except Exception:
+        tag = None
+    print(f"[tutor rev {revision}] tag={tag!r}", file=sys.stderr)
+    # Allow either explicit "tutor" or None (when running ad-hoc tests)
+    return tag in (None, "tutor")
+
 def upgrade():
-    # pgvector extension (needs superuser or granted privileges)
+    if not _should_run():
+        print(f"[tutor rev {revision}] SKIPPED due to tag mismatch", file=sys.stderr)
+        return
+
+    print(f"[tutor rev {revision}] RUNNING upgrade()", file=sys.stderr)
+
+    # ensure pgvector (your 5437 container already has it)
     op.execute("CREATE EXTENSION IF NOT EXISTS vector;")
+    # gen_random_uuid() needs pgcrypto in some images; enable defensively
+    op.execute("CREATE EXTENSION IF NOT EXISTS pgcrypto;")
 
-    # main table
     op.execute("""
-    CREATE TABLE IF NOT EXISTS tutor_chunks (
-      tutor_id    text NOT NULL,
-      chunk_id    text PRIMARY KEY,
-      source      text,
-      page        int,
-      text        text,
-      embedding   vector(768)
-    );
-    """)
-
-    # indexes
-    op.execute("CREATE INDEX IF NOT EXISTS tutor_chunks_tutor_idx ON tutor_chunks (tutor_id);")
-    op.execute("""
-    CREATE INDEX IF NOT EXISTS tutor_chunks_embed_idx
-      ON tutor_chunks USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
+        CREATE TABLE IF NOT EXISTS tutor_chunks (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            doc_id TEXT NOT NULL,
+            chunk_idx INTEGER NOT NULL,
+            embedding vector(1536),
+            content TEXT,
+            created_at TIMESTAMPTZ DEFAULT now() NOT NULL
+        )
     """)
 
 def downgrade():
-    op.execute("DROP INDEX IF EXISTS tutor_chunks_embed_idx;")
-    op.execute("DROP INDEX IF EXISTS tutor_chunks_tutor_idx;")
-    op.execute("DROP TABLE IF EXISTS tutor_chunks;")
-    # leave extension in place (safe), or uncomment to drop:
-    # op.execute("DROP EXTENSION IF EXISTS vector;")
+    if not _should_run():
+        return
+    op.execute("DROP TABLE IF EXISTS tutor_chunks")
