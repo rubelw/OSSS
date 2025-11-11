@@ -20,7 +20,6 @@ log = logging.getLogger(__name__)
 # ---- Alembic identifiers ----
 revision = "0002_add_tables"
 down_revision = "0001_init"
-branch_labels = ("core",)
 depends_on = None
 
 
