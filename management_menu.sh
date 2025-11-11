@@ -3078,7 +3078,7 @@ list_tutor_tables() {
 
   # Temporarily disable 'exit on error' to avoid terminating the parent script
   set +e
-  PGPASSWORD=postgres psql -h localhost -p 5437 -U postgres -d postgres -c "\dt *.*"
+  PGPASSWORD=postgres psql -h localhost -p 5437 -U postgres -d postgres -c "\dt public.tutor_chunks"
   rc=$?
   set -e
 

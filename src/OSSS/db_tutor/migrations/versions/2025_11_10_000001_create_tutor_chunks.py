@@ -1,47 +1,63 @@
 from alembic import op
-from sqlalchemy import text
-import sys
+import sqlalchemy as sa
 
-# revision identifiers
 revision = "2025_11_10_000001"
-down_revision = None            # separate branch; not linked to core
+down_revision = None
 branch_labels = ("tutor",)
 depends_on = None
 
-def _should_run() -> bool:
-    # correct API: read tag passed from env.py's context.configure(tag="tutor")
-    try:
-        tag = op.get_context().get_tag_argument()
-    except Exception:
-        tag = None
-    print(f"[tutor rev {revision}] tag={tag!r}", file=sys.stderr)
-    # Allow either explicit "tutor" or None (when running ad-hoc tests)
-    return tag in (None, "tutor")
-
 def upgrade():
-    if not _should_run():
-        print(f"[tutor rev {revision}] SKIPPED due to tag mismatch", file=sys.stderr)
-        return
-
-    print(f"[tutor rev {revision}] RUNNING upgrade()", file=sys.stderr)
-
-    # ensure pgvector (your 5437 container already has it)
-    op.execute("CREATE EXTENSION IF NOT EXISTS vector;")
-    # gen_random_uuid() needs pgcrypto in some images; enable defensively
-    op.execute("CREATE EXTENSION IF NOT EXISTS pgcrypto;")
-
+    # enable pgvector only if available
     op.execute("""
-        CREATE TABLE IF NOT EXISTS tutor_chunks (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            doc_id TEXT NOT NULL,
-            chunk_idx INTEGER NOT NULL,
-            embedding vector(1536),
-            content TEXT,
-            created_at TIMESTAMPTZ DEFAULT now() NOT NULL
-        )
+    DO $$
+    BEGIN
+      IF EXISTS (SELECT 1 FROM pg_available_extensions WHERE name='vector') THEN
+        CREATE EXTENSION IF NOT EXISTS vector;
+      END IF;
+    END$$;
+    """)
+
+    # create table once
+    op.execute("""
+    DO $$
+    BEGIN
+      IF to_regclass('public.tutor_chunks') IS NULL THEN
+        CREATE TABLE public.tutor_chunks (
+          id         VARCHAR(36) PRIMARY KEY,
+          doc_id     VARCHAR(36) NOT NULL,
+          text       TEXT NOT NULL,
+          embedding  DOUBLE PRECISION[],
+          created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+      END IF;
+    END$$;
+    """)
+
+    # create indexes once
+    op.execute("""
+    DO $$
+    BEGIN
+      IF to_regclass('public.ix_tutor_chunks_doc_id') IS NULL THEN
+        CREATE INDEX ix_tutor_chunks_doc_id ON public.tutor_chunks (doc_id);
+      END IF;
+      IF to_regclass('public.idx_tutor_chunks_embedding') IS NULL THEN
+        CREATE INDEX idx_tutor_chunks_embedding ON public.tutor_chunks (id);
+      END IF;
+    END$$;
     """)
 
 def downgrade():
-    if not _should_run():
-        return
-    op.execute("DROP TABLE IF EXISTS tutor_chunks")
+    op.execute("""
+    DO $$
+    BEGIN
+      IF to_regclass('public.ix_tutor_chunks_doc_id') IS NOT NULL THEN
+        DROP INDEX public.ix_tutor_chunks_doc_id;
+      END IF;
+      IF to_regclass('public.idx_tutor_chunks_embedding') IS NOT NULL THEN
+        DROP INDEX public.idx_tutor_chunks_embedding;
+      END IF;
+      IF to_regclass('public.tutor_chunks') IS NOT NULL THEN
+        DROP TABLE public.tutor_chunks;
+      END IF;
+    END$$;
+    """)

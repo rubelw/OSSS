@@ -69,6 +69,49 @@ def _encode_url(url_str: str) -> str:
     query = urlencode(q)
     return urlunsplit((scheme, netloc, p.path, query, p.fragment))
 
+# --- add this helper (near _xargs / _encode_url helpers) --------------------
+def _cli_sqlalchemy_url_override() -> str | None:
+    x = context.get_x_argument(as_dictionary=True)
+    val = x.get("sqlalchemy_url") or x.get("url")
+    return val
+
+# --- add this offline runner -----------------------------------------------
+def _run_offline(url: str, version_table: str, versions_path: str) -> None:
+    """
+    Render SQL (offline) for a single branch/versions dir + version table.
+    """
+    url2 = _encode_url(url)
+
+    original_script = config.get_main_option("script_location")
+    original_vl = config.get_main_option("version_locations")
+    try:
+        # limit discovery to this branch
+        config.set_main_option("script_location", versions_path)
+        config.set_main_option("version_locations", versions_path)
+
+        print(f"[alembic-env] OFFLINE versions_path={versions_path}")
+        print(f"[alembic-env] OFFLINE url={url2}  version_table={version_table}")
+
+        context.configure(
+            url=url2,
+            target_metadata=target_metadata,
+            literal_binds=True,
+            include_schemas=True,
+            version_table=version_table,
+        )
+        with context.begin_transaction():
+            context.run_migrations()
+    finally:
+        if original_script is None:
+            config.remove_main_option("script_location")
+        else:
+            config.set_main_option("script_location", original_script)
+
+        if original_vl is None:
+            config.remove_main_option("version_locations")
+        else:
+            config.set_main_option("version_locations", original_vl)
+
 def _choose_main_url() -> str:
     # NOTE: CLI -x sqlalchemy_url is NOT used for core; keep env-driven behavior for core.
     for k in ("DATABASE_URL","ALEMBIC_DATABASE_URL","SQLALCHEMY_DATABASE_URL","OSSS_DB_URL","OSSS_DATABASE_URL"):
@@ -138,10 +181,11 @@ def _choose_tutor_url_favor_x() -> str | None:
 
     return None
 
-def _run_online(url: str, version_table: str, versions_path: str, *, tag: str | None = None) -> None:
+
+def _run_online(url: str, version_table: str, versions_path: str, tag: str | None = None) -> None:
     """
-    Run one ONLINE pass scoped to a single versions dir + version table.
-    We DO NOT touch script_location (must stay pointing at the env dir).
+    Run one ONLINE pass, scoping Alembic to exactly one versions directory
+    and one version table. Restores config afterward.
     """
     url2 = _encode_url(url)
 
@@ -149,12 +193,18 @@ def _run_online(url: str, version_table: str, versions_path: str, *, tag: str | 
     cfg = dict(base_cfg) if base_cfg else {}
     cfg["sqlalchemy.url"] = url2
 
-    # remember and temporarily narrow ONLY version_locations
+    # Derive a proper migrations root from the versions_path
+    # (.../db_tutor/migrations/versions -> .../db_tutor/migrations)
+    migrations_root = str(Path(versions_path).parent)
+
+    original_script = config.get_main_option("script_location")
     original_vl = config.get_main_option("version_locations")
     try:
+        # ✅ Point Alembic at the migrations ROOT, not the versions folder
+        config.set_main_option("script_location", migrations_root)
+        # ✅ Still restrict discovery to exactly this versions folder
         config.set_main_option("version_locations", versions_path)
 
-        # (optional) show what Alembic sees from this lane
         sd = ScriptDirectory.from_config(config)
         heads = list(sd.get_heads())
         print(f"[alembic-env] versions_path={versions_path}")
@@ -162,26 +212,35 @@ def _run_online(url: str, version_table: str, versions_path: str, *, tag: str | 
         print(f"[alembic-env] url={url2}  version_table={version_table}")
 
         connectable = engine_from_config(cfg, prefix="sqlalchemy.", poolclass=pool.NullPool, future=True)
-        with connectable.connect() as connection:
-            row = connection.exec_driver_sql(
-                "select current_database(), current_user, current_schema, setting "
-                "from pg_settings where name='search_path'"
-            ).fetchone()
-            print(f"[alembic-env] DB session: db={row[0]} user={row[1]} schema={row[2]} search_path={row[3]}")
+        try:
+            with connectable.connect() as connection:
+                row = connection.exec_driver_sql(
+                    "select current_database(), current_user, current_schema, setting "
+                    "from pg_settings where name='search_path'"
+                ).fetchone()
+                print(f"[alembic-env] DB session: db={row[0]} user={row[1]} schema={row[2]} search_path={row[3]}")
+                print(f"[alembic-env] CONNECT OK -> {url2}", file=sys.stderr)
 
-            context.configure(
-                connection=connection,
-                target_metadata=target_metadata,
-                compare_type=True,
-                compare_server_default=True,
-                version_table=version_table,
-                version_locations=[versions_path],
-                tag=tag,  # pass "tutor" when running tutor lane
-            )
-            print("[alembic-env] About to run migrations…")
-            with context.begin_transaction():
-                context.run_migrations()
+                context.configure(
+                    connection=connection,
+                    target_metadata=target_metadata,
+                    compare_type=True,
+                    compare_server_default=True,
+                    version_table=version_table,
+                    # pass a marker the revision can read *if* you still want it
+                    tag=tag,
+                )
+                print("[alembic-env] About to run migrations…")
+                with context.begin_transaction():
+                    context.run_migrations()
+        finally:
+            connectable.dispose()
     finally:
+        if original_script is None:
+            config.remove_main_option("script_location")
+        else:
+            config.set_main_option("script_location", original_script)
+
         if original_vl is None:
             config.remove_main_option("version_locations")
         else:
@@ -190,8 +249,19 @@ def _run_online(url: str, version_table: str, versions_path: str, *, tag: str | 
 # ----- runners ---------------------------------------------------------------
 
 def run_migrations_offline() -> None:
-    # Disable offline to avoid silent no-ops
-    raise RuntimeError("Offline migrations disabled. Run online only.")
+    which = _which_branch()
+    if which != "tutor":
+        # keep offline disabled for core
+        raise RuntimeError("Offline migrations enabled only for tutor. Run online for core.")
+
+    # choose URL (CLI override wins)
+    cli_url = _cli_sqlalchemy_url_override()
+    chosen = cli_url or _choose_tutor_url(_choose_main_url())
+    if not chosen:
+        raise RuntimeError("No URL for tutor branch (offline). Provide -x sqlalchemy_url=...")
+
+    vt = config.get_main_option("tutor_version_table") or "alembic_version_tutor"
+    _run_offline(chosen, vt, TUTOR_VERSIONS)
 
 def run_migrations_online() -> None:
     x = _xargs()
@@ -210,26 +280,18 @@ def run_migrations_online() -> None:
 
     # ---- TUTOR ----
     if which in {"tutor", "both"}:
-        # explicit CLI override ALWAYS wins for tutor
-        if override_url:
-            tutor_url = override_url
-            print("[alembic-env] TUTOR using CLI override sqlalchemy_url")
-        else:
-            if _truthy(os.getenv("TUTOR_SKIP")):
-                print("[alembic-env] TUTOR skipped (TUTOR_SKIP=1)")
-                tutor_url = None
-            else:
-                tutor_url = _choose_tutor_url(_choose_main_url())
-
+        tutor_url = _choose_tutor_url(_choose_main_url())
         if not tutor_url:
             print("[alembic-env] TUTOR skipped (no tutor URL)")
         else:
             vt = config.get_main_option("tutor_version_table") or "alembic_version_tutor"
-            print(f"[alembic-env] TUTOR chosen_url={tutor_url!r} vt={vt}")
+            print(f"[alembic-env] TUTOR url: {tutor_url}  version_table={vt}")
             _run_online(tutor_url, vt, TUTOR_VERSIONS, tag="tutor")
-
 
 if context.is_offline_mode():
     run_migrations_offline()
 else:
     run_migrations_online()
+
+
+
