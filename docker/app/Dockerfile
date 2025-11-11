@@ -37,6 +37,7 @@ ENV PYTHONPATH=/app/src
 RUN pip install .
 
 RUN pip install --no-cache-dir \
+      "alembic>=1.13" \
       "gunicorn>=21" \
       "uvicorn[standard]>=0.30" \
       "asyncpg>=0.29" \

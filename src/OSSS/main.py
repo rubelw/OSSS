@@ -63,6 +63,11 @@ from fastapi.responses import JSONResponse
 from fastapi import HTTPException as FastapiHTTPException
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+try:
+    from OSSS.tutors.router import router as tutors_router
+except Exception:
+    tutors_router = None
+
 
 # If you might be on Postgres/asyncpg, these imports let us detect specific violation types
 try:
@@ -607,6 +612,11 @@ def create_app() -> FastAPI:
         generate_unique_id_function=generate_unique_id,
         lifespan=lifespan,
     )
+
+    # Mount multi-tutor routes (if module present)
+    if tutors_router:
+        app.include_router(tutors_router, prefix="")
+
 
     # --- begin JSON-safe exception plumbing (install once) ---
     # Prevent double-registration under watchfiles/uvicorn reloads

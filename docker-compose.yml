@@ -38,6 +38,8 @@ volumes:
     name: kc_postgres_data
   osss_postgres_data:
     name: osss_postgres_data
+  tutor_postgres_data:
+    name: tutor_postgres_data
   redis-data:
     name: redis-data
   es-data:
@@ -174,7 +176,6 @@ services:
       - ./:/workspace:cached
       - ./docker/logging.yml:/workspace/docker/logging.yaml:ro,z
       - ./scripts/app-entrypoint.sh:/usr/local/bin/app-entrypoint.sh:ro,z
-
     labels:
       co.elastic.logs/enabled: 'true'
       co.elastic.logs/processors.1.decode_json_fields.fields: message
@@ -187,6 +188,7 @@ services:
       co.elastic.logs/json.add_error_key: "true"
       co.elastic.logs/json.overwrite_keys: "true"
     environment:
+      #SKIP_ALEMBIC: "1"
       OSSS_VERBOSE_AUTH: '1'
       PYTHONUNBUFFERED: '1'
       PYTHONLOGLEVEL: DEBUG
@@ -245,10 +247,23 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
       DATABASE_URL: ${ASYNC_DATABASE_URL}
+      TUTOR_CONFIG_DIR: /app/config/tutors
+      OLLAMA_BASE: http://ollama:11434
+
+      OSSS_TUTOR_DB_USER: ${OSSS_TUTOR_DB_USER}
+      OSSS_TUTOR_DB_PASSWORD: ${OSSS_TUTOR_DB_PASSWORD}
+      OSSS_TUTOR_DB_NAME: ${OSSS_TUTOR_DB_NAME}
+      # optional if you want to be explicit:
+      OSSS_TUTOR_DB_HOST: tutor-db
+      OSSS_TUTOR_DB_PORT: "5432"
+
+
     depends_on:
       redis:
         condition: service_healthy
       osss_postgres:
+        condition: service_started
+      tutor-db:
         condition: service_started
     healthcheck:
       test: curl -fsS http://localhost:8000/healthz >/dev/null || exit 1
@@ -260,6 +275,27 @@ services:
       driver: k8s-file
       options:
         max-size: 10m
+
+  tutor-db:
+    profiles:
+      - app
+    image: pgvector/pgvector:pg16  # Postgres 16 with pgvector preinstalled
+    container_name: tutor-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+      OSSS_DB_USER: osss
+      OSSS_DB_PASSWORD: password
+      OSSS_DB_NAME: osss
+      POSTGRES_INITDB_ARGS: ${POSTGRES_INITDB_ARGS}
+
+    volumes:
+      - tutor_postgres_data:/var/lib/postgresql/data:z
+
+    ports: [ "5437:5432" ]
+    networks: [ osss-net ]
+
 
   web:
     profiles:
@@ -2141,3 +2177,4 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+

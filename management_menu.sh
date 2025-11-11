@@ -3034,9 +3034,30 @@ compose_services_for_profile() {
   "$CMD" -f "$FILE" --profile "$prof" config --services 2>/dev/null | awk 'NF'
 }
 
+# ------------------------------------------------------------------------
+# Tutor DB: List tables
+# ------------------------------------------------------------------------
+# List tables in the tutor-db service, robust to rootful Podman + compose renames
+list_tutor_tables() {
+  echo "Listing tables in tutor-db (database: postgres)..."
+
+  # Temporarily disable 'exit on error' to avoid terminating the parent script
+  set +e
+  PGPASSWORD=postgres psql -h localhost -p 5437 -U postgres -d postgres -c "\dt *.*"
+  rc=$?
+  set -e
+
+  if [ $rc -ne 0 ]; then
+    echo "⚠️  Failed to list tables from tutor-db. (psql exited with code $rc)"
+    echo "    Check that the database is running and accessible on port 5437."
+  fi
+}
+
+
+
 # -------- Podman reset helper --------
 reset_podman_machine() {
-  echo "⚠️  This will wipe all Podman machine state and start clean."
+  echo "⚠️  Thqis will wipe all Podman machine state and start clean."
   read -rp "Proceed? [y/N] " ans || true
   [[ ! "$ans" =~ ^[Yy]$ ]] && { echo "❌ Cancelled."; prompt_return; return 0; }
 
@@ -3383,34 +3404,114 @@ pm_ssh() {
 }
 
 podman_vm_stop() {
+  # Stop the rootful Podman VM safely
   if ! command -v podman >/dev/null 2>&1; then
-    echo "Podman not installed."
+    echo "❌ Podman not installed on host."
     return 1
   fi
-  local NAME; NAME="$(podman_vm_name)"
-  echo "▶️  Stopping pm_ssh '$NAME'…"
-  pm_ssh stop "$NAME" || {
-    echo "(already stopped or not present)"
+
+  # Determine VM name, default to 'default' if not set
+  local NAME
+  NAME="$(podman_vm_name 2>/dev/null || podman machine active 2>/dev/null || echo default)"
+
+  echo "▶️  Attempting to stop rootful Podman VM '${NAME}' …"
+
+  # Check whether VM exists
+  if ! podman machine inspect "$NAME" >/dev/null 2>&1; then
+    echo "⚠️  No Podman VM named '${NAME}' found."
     return 0
-  }
-  echo "✅ Stopped."
+  fi
+
+  # Detect rootful status
+  local IS_ROOTFUL
+  IS_ROOTFUL="$(podman machine inspect --format '{{.Config.Rootful}}' "$NAME" 2>/dev/null || echo false)"
+
+  if [[ "$IS_ROOTFUL" != "true" ]]; then
+    echo "⚠️  VM '${NAME}' is not currently configured as rootful."
+    echo "   To convert: podman machine set --rootful '${NAME}'"
+  fi
+
+  # Stop any active rootful services inside VM before shutting down
+  echo "🩺 Checking for active rootful socket inside VM '${NAME}'…"
+  podman machine ssh "$NAME" -- bash -lc '
+    set -euo pipefail
+    if sudo systemctl is-active podman.socket >/dev/null 2>&1; then
+      echo "🔌 Disabling rootful podman.socket before shutdown…"
+      sudo systemctl stop podman.socket || true
+    fi
+    if sudo systemctl is-active podman.service >/dev/null 2>&1; then
+      echo "🔌 Stopping rootful podman.service before shutdown…"
+      sudo systemctl stop podman.service || true
+    fi
+  ' >/dev/null 2>&1 || true
+
+  echo "⏹️  Stopping VM '${NAME}' …"
+  if podman machine stop "$NAME" >/dev/null 2>&1; then
+    echo "✅ Rootful Podman VM '${NAME}' stopped successfully."
+  else
+    echo "⚠️  VM '${NAME}' may already be stopped or unreachable."
+  fi
 }
+
+
 podman_vm_destroy() {
-  if ! command -v sudo podman >/dev/null 2>&1; then
-    echo "Podman not installed."
+  # Destroy the rootful Podman VM and all its data
+  if ! command -v podman >/dev/null 2>&1; then
+    echo "❌ Podman not installed on host."
     return 1
   fi
-  local NAME; NAME="$(podman_vm_name)"
-  echo "⚠️  This will remove the Podman VM '$NAME' and its data (images/containers inside the VM)."
-  read -rp "Type the machine name '$NAME' to confirm destroy (or leave blank to cancel): " ans || return 1
+
+  # Determine VM name, default to 'default'
+  local NAME
+  NAME="$(podman_vm_name 2>/dev/null || podman machine active 2>/dev/null || echo default)"
+
+  echo "⚠️  This will completely remove the rootful Podman VM '${NAME}' and all data (images, containers, volumes inside the VM)."
+  read -rp "Type '${NAME}' to confirm destroy (or press Enter to cancel): " ans || return 1
   if [[ "$ans" != "$NAME" ]]; then
-    echo "Cancelled."
+    echo "❎ Cancelled by user."
     return 1
   fi
-  echo "▶️  Stopping (if running)…"; pm_ssh stop "$NAME" >/dev/null 2>&1 || true
-  echo "🗑  Removing pm_ssh '$NAME'…"
-  pm_ssh rm -f "$NAME"
-  echo "✅ Destroyed pm_ssh '$NAME'."
+
+  # Confirm VM exists
+  if ! podman machine inspect "$NAME" >/dev/null 2>&1; then
+    echo "⚠️  No Podman VM named '${NAME}' found — nothing to destroy."
+    return 0
+  fi
+
+  # Detect whether VM is rootful
+  local IS_ROOTFUL
+  IS_ROOTFUL="$(podman machine inspect --format '{{.Config.Rootful}}' "$NAME" 2>/dev/null || echo false)"
+  if [[ "$IS_ROOTFUL" == "true" ]]; then
+    echo "🩺 Confirmed: VM '${NAME}' is configured as rootful."
+  else
+    echo "⚠️  VM '${NAME}' is not rootful. Proceeding anyway."
+  fi
+
+  # Attempt to gracefully stop rootful services before destruction
+  echo "▶️  Stopping Podman services inside VM '${NAME}' (if active)…"
+  podman machine ssh "$NAME" -- bash -lc '
+    set -euo pipefail
+    if sudo systemctl is-active podman.service >/dev/null 2>&1; then
+      echo "⏹️  Stopping rootful podman.service..."
+      sudo systemctl stop podman.service || true
+    fi
+    if sudo systemctl is-active podman.socket >/dev/null 2>&1; then
+      echo "⏹️  Stopping rootful podman.socket..."
+      sudo systemctl stop podman.socket || true
+    fi
+  ' >/dev/null 2>&1 || true
+
+  # Stop VM (ignore if already stopped)
+  echo "⏹️  Stopping VM '${NAME}'..."
+  podman machine stop "$NAME" >/dev/null 2>&1 || echo "ℹ️  VM '${NAME}' already stopped or not reachable."
+
+  # Remove VM (force)
+  echo "🗑️  Removing VM '${NAME}' (rootful)..."
+  if podman machine rm -f "$NAME"; then
+    echo "✅ Successfully destroyed rootful Podman VM '${NAME}'."
+  else
+    echo "⚠️  Could not fully remove VM '${NAME}'. It may have been partially deleted."
+  fi
 }
 
 
@@ -3592,6 +3693,7 @@ logs_menu() {
     echo "37) Logs container 'web'"
     echo "38) Logs container 'chat-ui'"
     echo "39) Logs container 'rasa-mentor'"
+    echo "40) Logs container 'tutor-db'"
     echo "  q) Back"
     echo "-----------------------------------------------"
     read -rp "Select an option: " choice || return 0
@@ -3635,6 +3737,7 @@ logs_menu() {
       37) logs_follow_container "web" ;;
       38) logs_follow_container "chat-ui" ;;
       39) logs_follow_container "rasa-mentor" ;;
+      40) logs_follow_container "tutor-db" ;;
       q|Q|b|B) return 0 ;;
       *) echo "Unknown choice: ${choice}" ;;
     esac
@@ -3941,6 +4044,8 @@ utilities_menu() {
     echo " 8) List images"
     echo " 9) Delete specific rootful Podman image"
     echo " 10) Diagnose container restart"
+    echo " 11) List tutor-db tables"
+    echo " 12) Delete a container by name/ID"
     echo "  q) Back"
     echo "-----------------------------------------------"
     read -rp "Select an option: " choice || return 0
@@ -3949,29 +4054,80 @@ utilities_menu() {
         # Pick an active VM if available, otherwise use 'default'
         local vm
         vm="$(podman machine active 2>/dev/null || echo default)"
-        echo "▶️ Podman version in VM '${vm}':"
-        podman machine ssh "$vm" -- bash -lc 'podman --version || podman version' || \
-          echo "⚠️ Could not get Podman version inside VM '${vm}'."
-        ;;
-      2)
-        local vm
-        vm="$(podman machine active 2>/dev/null || echo default)"
-        echo "▶️ Podman GraphRoot in VM '${vm}':"
-        podman machine ssh "$vm" -- bash -lc 'podman info --format "{{ .Store.GraphRoot }}"' || \
-          echo "⚠️ Could not get GraphRoot inside VM '${vm}'."
-        ;;
-      3)
-        local vm
-        vm="$(podman machine active 2>/dev/null || echo default)"
-        echo "▶️ Installing podman-compose inside VM '${vm}' (if missing)…"
+        echo "▶️ Rootful Podman version inside VM '${vm}':"
+
         podman machine ssh "$vm" -- bash -lc '
           set -euo pipefail
-          if ! command -v podman-compose >/dev/null 2>&1; then
-            sudo dnf -y install podman-compose || sudo apt-get update && sudo apt-get -y install podman-compose
+          if sudo test -S /run/podman/podman.sock; then
+            echo "✅ Rootful socket detected at /run/podman/podman.sock"
+            echo "🩺 Executing: sudo podman --version"
+            sudo podman --version || sudo podman version
           else
-            echo "podman-compose already installed."
+            echo "⚠️ No rootful socket found; showing rootless version instead."
+            podman --version || podman version
           fi
-        ' || echo "⚠️ Install may have failed inside VM '${vm}'."
+        ' || echo "⚠️ Could not get rootful Podman version inside VM '${vm}'."
+        ;;
+      2)
+        # Pick an active VM if available, otherwise use 'default'
+        local vm
+        vm="$(podman machine active 2>/dev/null || echo default)"
+        echo "▶️ Rootful Podman GraphRoot in VM '${vm}':"
+
+        podman machine ssh "$vm" -- bash -lc '
+          set -euo pipefail
+          if sudo test -S /run/podman/podman.sock; then
+            echo "✅ Rootful socket detected at /run/podman/podman.sock"
+            echo "🩺 Executing: sudo podman info --format \"{{ .Store.GraphRoot }}\""
+            sudo podman info --format "{{ .Store.GraphRoot }}"
+          else
+            echo "⚠️ No rootful socket found; showing rootless GraphRoot instead."
+            podman info --format "{{ .Store.GraphRoot }}"
+          fi
+        ' || echo "⚠️ Could not get rootful GraphRoot inside VM '${vm}'."
+        ;;
+      3)
+        # Pick an active VM if available, otherwise use 'default'
+        local vm
+        vm="$(podman machine active 2>/dev/null || echo default)"
+        echo "▶️ Installing podman-compose inside rootful VM '${vm}' (if missing)…"
+
+        podman machine ssh "$vm" -- bash -lc '
+          set -euo pipefail
+          if sudo test -S /run/podman/podman.sock; then
+            echo "✅ Rootful socket detected at /run/podman/podman.sock"
+            echo "🩺 Checking for podman-compose (rootful)…"
+            if ! sudo command -v podman-compose >/dev/null 2>&1; then
+              echo "⬇️ Installing podman-compose (rootful mode)…"
+              if command -v dnf >/dev/null 2>&1; then
+                sudo dnf -y install podman-compose
+              elif command -v apt-get >/dev/null 2>&1; then
+                sudo apt-get update -y && sudo apt-get -y install podman-compose
+              elif command -v rpm-ostree >/dev/null 2>&1; then
+                sudo rpm-ostree install -y podman-compose
+                echo "🔄 Rebooting VM to apply rpm-ostree layer…"
+                nohup sh -lc "sleep 1; sudo systemctl reboot" >/dev/null 2>&1 &
+              else
+                echo "⚠️ No supported package manager found."
+              fi
+            else
+              echo "✅ podman-compose already installed (rootful)."
+            fi
+          else
+            echo "⚠️ No rootful socket found; performing user-level install instead."
+            if ! command -v podman-compose >/dev/null 2>&1; then
+              if command -v dnf >/dev/null 2>&1; then
+                sudo dnf -y install podman-compose
+              elif command -v apt-get >/dev/null 2>&1; then
+                sudo apt-get update -y && sudo apt-get -y install podman-compose
+              elif command -v rpm-ostree >/dev/null 2>&1; then
+                sudo rpm-ostree install -y podman-compose
+              fi
+            else
+              echo "✅ podman-compose already installed (rootless fallback)."
+            fi
+          fi
+        ' || echo "⚠️ podman-compose install may have failed inside VM '${vm}'."
         ;;
       4)
         podman_vm_stop
@@ -4011,6 +4167,7 @@ fi
 echo
 echo "Tip: your compose runs with 'sudo podman', so containers will appear in the rootful section."
 REMOTE
+        prompt_return
         ;;
       8)
         echo "📸 Rootful Podman images in VM 'default':"
@@ -4036,6 +4193,71 @@ REMOTE
         read -rp "Container name to diagnose (e.g., chat-ui): " cname
         [[ -z "$cname" ]] && { echo "❌ Cancelled."; continue; }
         compose_diagnose_restart "$cname"
+        ;;
+      11)
+        list_tutor_tables ;;
+      12)
+        vm="$(podman machine active 2>/dev/null || echo default)"
+        echo "📦 Running containers in VM '${vm}':"
+        podman machine ssh "$vm" 'bash -s' <<'REMOTE'
+set -euo pipefail
+
+echo "── rootless (podman ps) ─────────────────────────────────"
+if podman ps --format '{{.ID}}' >/dev/null 2>&1; then
+  podman ps --format 'table {{.ID}}\t{{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}' || true
+else
+  podman ps || true
+fi
+
+echo
+echo "── rootful (sudo podman ps) ─────────────────────────────"
+if sudo podman ps --format '{{.ID}}' >/dev/null 2>&1; then
+  sudo podman ps --format 'table {{.ID}}\t{{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}' || true
+else
+  sudo podman ps || true
+fi
+
+echo
+echo "Tip: your compose runs with 'sudo podman', so containers will appear in the rootful section."
+REMOTE
+
+        echo
+        # Pick context to delete from
+        printf "Delete from which context? [r=rootless, R=rootful] (default R): "
+        IFS= read -r ctx
+        [ -z "$ctx" ] && ctx="R"
+        case "$ctx" in
+          r) remote_prefix="podman";      ctx_name="rootless" ;;
+          R) remote_prefix="sudo podman"; ctx_name="rootful"  ;;
+          *) echo "❌ Invalid choice. Cancelled."; break ;;
+        esac
+
+        # Pick container name or ID
+        printf "Enter container NAME or ID to delete: "
+        IFS= read -r cid
+        if [ -z "$cid" ]; then
+          echo "↩️  Cancelled."
+          break
+        fi
+
+        printf "⚠️  Confirm delete [%s] '%s' in VM '%s' (force)? [y/N] " "$ctx_name" "$cid" "$vm"
+        IFS= read -r ans
+        case "$ans" in y|Y) ;; *) echo "↩️  Cancelled."; break ;; esac
+
+        # Execute the deletion inside the VM, keeping spaces in $remote_prefix safe
+        if podman machine ssh "$vm" env CID="$cid" BECOME="$remote_prefix" bash -lc '$BECOME rm -f -- "$CID"'; then
+          echo "✅ Removed [$ctx_name]: $cid"
+        else
+          echo "⚠️  Direct rm failed; attempting stop+rm…"
+          podman machine ssh "$vm" env CID="$cid" BECOME="$remote_prefix" bash -lc '$BECOME stop -- "$CID" || true'
+          if podman machine ssh "$vm" env CID="$cid" BECOME="$remote_prefix" bash -lc '$BECOME rm -f -- "$CID"'; then
+            echo "✅ Removed after stop [$ctx_name]: $cid"
+          else
+            echo "❌ Failed to remove [$ctx_name]: $cid"
+            echo "   Tried: $remote_prefix stop \"$cid\" && $remote_prefix rm -f \"$cid\""
+            echo "   Hint: ensure the container exists in the selected context."
+          fi
+        fi
         ;;
       q|Q|b|B)
         return 0
