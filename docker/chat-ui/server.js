@@ -15,6 +15,10 @@ const TARGET_HOST =
 const RASA_URL =
   process.env.RASA_URL || "http://rasa-mentor:5005";
 
+// FastAPI "safe" endpoint (usually same host as TARGET_HOST)
+const SAFE_BASE = process.env.SAFE_BASE || TARGET_HOST;
+const SAFE_PATH = process.env.SAFE_PATH || "/v1/chat/safe";
+
 // Tutor (FastAPI) base — default builds off TARGET_HOST
 // Example overrides:
 //   TUTOR_HOST=http://host.containers.internal:8081/tutor
@@ -40,6 +44,57 @@ function extractTextFromUpstream(json) {
   if (json?.result?.[0]?.content) return json.result[0].content;
   // Fallback: stringify
   return typeof json === "string" ? json : JSON.stringify(json);
+}
+
+function joinRasaBubbles(raw) {
+  try {
+    const arr = JSON.parse(raw);
+    if (Array.isArray(arr)) {
+      return arr
+        .map(m => m.text || m.image || (typeof m.custom === "string" ? m.custom : ""))
+        .filter(Boolean)
+        .join("\n\n");
+    }
+    return typeof arr === "string" ? arr : raw;
+  } catch {
+    return raw;
+  }
+}
+
+function stripGuardNoise(s) {
+  if (typeof s !== "string") return s;
+  let out = s.trim();
+
+  // Remove VERBATIM prefix and wrapping quotes
+  out = out.replace(/^VERBATIM[:\-]?\s*/i, "");
+  if ((out.startsWith('"') && out.endsWith('"')) ||
+      (out.startsWith("'") && out.endsWith("'"))) {
+    out = out.slice(1, -1);
+  }
+
+  // Patterns for boilerplate safety lines
+  const drop = [
+    /^(?:this )?candidate (?:text|response) (?:appears to be )?safe(?: and compliant)?\.?$/i,
+    /^(?:the )?candidate text is safe\.?$/i,
+    /^safe(?: and compliant)?\.?$/i,
+    /^no issues found.*$/i,
+    /^compliant(?: with.*)?\.?$/i,
+    /^the text you provided seems safe and compliant to output as is\.?$/i,
+    /^the provided text appears safe and compliant\.?$/i,
+    /^the candidate text appears to be safe and compliant\.?$/i, // NEW
+    /^this content appears safe and compliant\.?$/i,
+    /^output deemed safe and compliant\.?$/i,
+    /^no changes have been made\.?$/i // NEW
+  ];
+
+  // Remove any line that matches a boilerplate pattern
+  out = out
+    .split(/\r?\n/)
+    .filter(line => !drop.some(rx => rx.test(line.trim())))
+    .join("\n")
+    .trim();
+
+  return out;
 }
 
 // ---------- LLM chat proxies ----------
@@ -75,7 +130,7 @@ async function handleChatProxy(req, res, { forceHtml = false, upstreamPath = "/v
         const html = marked.parse(raw || "");
         return res.status(upstreamResp.status).type("html").send(html);
       }
-      const text = extractTextFromUpstream(json);
+      const text = stripGuardNoise(extractTextFromUpstream(json));
       const html = marked.parse(text || "");
       return res.status(upstreamResp.status).type("html").send(html);
     }
@@ -111,6 +166,132 @@ app.post("/chat-safe-html", (req, res) =>
 );
 
 // ---------- Rasa proxies ----------
+// Chat with Rasa, then pass the response through the FastAPI /v1/chat/safe guard
+// Body: { sender: "user-id", message: "hi there" }
+app.post("/rasa/chat-safe", async (req, res) => {
+  try {
+    if (!req.is("application/json")) {
+      return res.status(400).json({ error: "Only application/json is accepted" });
+    }
+    const { sender, message, metadata } = req.body || {};
+    if (!message) return res.status(400).json({ error: "Body must include 'message'." });
+
+    // 1) Ask Rasa first
+    const rasaPayload = {
+      sender: sender || "user",
+      message,
+      ...(metadata ? { metadata } : {}),
+    };
+    const rasaResp = await fetch(`${RASA_URL}/webhooks/rest/webhook`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify(rasaPayload),
+    });
+    const rasaRaw = await rasaResp.text();
+
+    // If Rasa failed, bubble the failure up
+    if (!rasaResp.ok) {
+      res.status(rasaResp.status);
+      try { return res.json(JSON.parse(rasaRaw)); }
+      catch { return res.type("text").send(rasaRaw); }
+    }
+
+    // 2) Normalize Rasa bubbles into one candidate reply
+    const candidate = joinRasaBubbles(rasaRaw) || "";
+
+    // 3) Send candidate through the guard
+    //    System prompt tells the guard to pass through safe text verbatim,
+    //    otherwise refuse/trim.
+    const guardMessages = [
+      {
+        role: "system",
+        content:
+          "You are an output safety gateway. If the provided 'candidate' text is safe and compliant, " +
+          "return it VERBATIM as your message. If unsafe, refuse with a brief safe alternative.",
+      },
+      { role: "user", content: `candidate:\n${candidate}` },
+    ];
+
+    const safeResp = await fetch(`${SAFE_BASE}${SAFE_PATH}`, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        // Forward auth if you use it on the FastAPI side:
+        Authorization: req.get("Authorization") || "",
+      },
+      body: JSON.stringify({
+        model: "llama3.1",
+        messages: guardMessages,
+        temperature: 0.2,
+        max_tokens: 512,
+        stream: false,
+      }),
+    });
+
+    const safeRaw = await safeResp.text();
+
+    // If the guard returned HTML and the client wants HTML, just pass it through
+    if (wantsHTML(req) && (safeResp.headers.get("content-type") || "").toLowerCase().includes("text/html")) {
+      return res.status(safeResp.status).type("html").send(safeRaw);
+    }
+
+    // Try JSON parse of guard result
+    let safeJson;
+    try { safeJson = JSON.parse(safeRaw); } catch { /* leave undefined */ }
+
+    if (!safeResp.ok) {
+      // Show guard reason / payload
+      const reason =
+        safeJson?.detail?.reason ||
+        safeJson?.detail ||
+        safeJson ||
+        safeRaw ||
+        ("HTTP " + safeResp.status);
+      return res.status(safeResp.status).json({ error: "guard_block", detail: reason });
+    }
+
+    // 4) Success: extract message content from guard
+    let guarded =
+      safeJson?.message?.content ??
+      safeJson?.choices?.[0]?.message?.content ??
+      safeJson?.choices?.[0]?.text ??
+      safeRaw;
+
+    // Clean up guard output
+    if (typeof guarded === "string") {
+      guarded = guarded.trim();
+
+      // Remove VERBATIM: label (case-insensitive)
+      guarded = guarded.replace(/^VERBATIM[:\-]?\s*/i, "");
+
+      // Remove wrapping quotes
+      if ((guarded.startsWith('"') && guarded.endsWith('"')) ||
+          (guarded.startsWith("'") && guarded.endsWith("'"))) {
+        guarded = guarded.slice(1, -1);
+      }
+
+      // Remove generic “safe/compliant” confirmation lines
+      guarded = guarded.replace(
+        /This candidate response appears to be safe and compliant.*$/i,
+        ""
+      ).trim();
+    }
+
+
+    // If the client asked for HTML, render Markdown nicely
+    if (wantsHTML(req)) {
+      return res.status(200).type("html").send(marked.parse(guarded || ""));
+    }
+
+    // Otherwise, return JSON in the same "Rasa-like array" shape so the UI path stays simple
+    return res.status(200).json([{ recipient_id: sender || "user", text: guarded }]);
+
+  } catch (err) {
+    console.error("Rasa chat-safe proxy error:", err);
+    res.status(500).json({ error: "Rasa chat-safe proxy error", detail: String(err) });
+  }
+});
 
 // Chat with Rasa (dialogue via REST channel)
 // Body: { sender: "user-id", message: "hi there" }

@@ -71,6 +71,9 @@ Rasa Mentor example:
 AI Tutor Example:
 ![Math Tutor](docs/img/math_tutor.png)
 
+AI Guardrail Example:
+![Mentor Guardrail](docs/img/mentor_guardrail.png)
+
 
 ## Why This Is Important
 

@@ -47,7 +47,7 @@
     <div class="meta">
       Connected to local proxies:
       <code class="inline">/v1/chat/safe</code>,
-      <code class="inline">/rasa/chat</code>,
+      <code class="inline">/rasa/chat-safe</code>,
       <code class="inline">/rasa/parse</code>,
       <code class="inline">/tutor/tutors</code>,
       This UI must not be used for targeted political persuasion or harassment.
@@ -291,7 +291,7 @@
           body = { model: "llama3.1", messages, temperature: 0.2, max_tokens: 256, stream: false };
 
         } else if (backend === "rasa-chat") {
-          url = "/rasa/chat";
+          url = "/rasa/chat-safe";
           body = { sender, message: text };
 
         } else if (backend === "rasa-parse") {
