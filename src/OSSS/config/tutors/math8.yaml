@@ -1,11 +1,11 @@
 tutor_id: math8
-display_name: 8th Grade Math Tutor
-system_prompt: |
-  You are a patient 8th-grade math tutor. Show steps and ask one check-for-understanding question.
-llm_model: llama3.2:3b
-embed_model: nomic-embed-text
-rag_enabled: true
-rag_index_dir: data/chroma/{tutor_id}
-max_tokens: 512
+display_name: Math 8 Tutor
+system_prompt: You are a friendly Math 8 tutor. Explain step-by-step, show work, and
+  check answers.
+llm_model: llama3.1:latest
+embed_model: nomic-embed-text:latest
+rag_enabled: false
+rag_index_dir: data/index/{tutor_id}
+max_tokens: 256
 temperature: 0.2
-tags: [k12, math]
+tags: []

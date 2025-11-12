@@ -256,6 +256,8 @@ services:
       # optional if you want to be explicit:
       OSSS_TUTOR_DB_HOST: tutor-db
       OSSS_TUTOR_DB_PORT: "5432"
+      OSSS_TUTOR_CONFIG_DIR: ${OSSS_TUTOR_CONFIG_DIR}
+
 
 
     depends_on:
@@ -1942,6 +1944,9 @@ services:
     profiles: [ ai ]
     ports:
       - "11434:11434"
+    environment:
+      # optional: override models to preload
+      OLLAMA_PRELOAD: "llama3.1:latest all-minilm:latest nomic-embed-text:latest"
     volumes:
       - ollama_data:/root/.ollama:z    # <-- named volume
     entrypoint: >                     # (entrypoint from section #1)

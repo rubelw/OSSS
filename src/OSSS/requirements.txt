@@ -8,3 +8,7 @@ rich>=13.7
 tomli-w>=1.0
 tomli>=2.0; python_version < "3.11"
 prometheus-client>=0.20
+chromadb==0.5.5
+pypdf==4.3.1
+
+

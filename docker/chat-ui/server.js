@@ -6,10 +6,21 @@ const path = require("path");
 const { marked } = require("marked"); // <-- markdown renderer
 
 const PORT = process.env.PORT || 3000;
+
+// LLM proxy target (OpenAI-compatible)
 const TARGET_HOST =
-  process.env.TARGET_HOST || "http://host.docker.internal:8081"; // LLM proxy target
+  process.env.TARGET_HOST || "http://host.docker.internal:8081";
+
+// Rasa service
 const RASA_URL =
-  process.env.RASA_URL || "http://rasa-mentor:5005"; // Rasa service inside compose
+  process.env.RASA_URL || "http://rasa-mentor:5005";
+
+// Tutor (FastAPI) base — default builds off TARGET_HOST
+// Example overrides:
+//   TUTOR_HOST=http://host.containers.internal:8081/tutor
+//   TUTOR_HOST=http://app:8081/tutor   (when sharing a compose network)
+const TUTOR_HOST = (process.env.TUTOR_HOST || `${TARGET_HOST}/tutor`).replace(/\/+$/,"");
+
 const app = express();
 
 app.use(express.static(path.join(__dirname, "public")));
@@ -218,6 +229,88 @@ app.get("/rasa/status", async (_req, res) => {
   }
 });
 
+// ---------- Tutor (FastAPI) proxies ----------
+function tutorUrl(path) {
+  // Incoming path starts with /tutor/... → strip the /tutor prefix
+  // then append to TUTOR_HOST (which already ends with /tutor)
+  return TUTOR_HOST + path.replace(/^\/tutor/, "");
+}
+
+// List tutors
+app.get("/tutor/tutors", async (req, res) => {
+  try {
+    const upstream = tutorUrl(req.path);
+    const r = await fetch(upstream, { headers: { Accept: "application/json" } });
+    const raw = await r.text();
+    res.status(r.status);
+    try { res.json(JSON.parse(raw)); } catch { res.type("text").send(raw); }
+  } catch (e) {
+    console.error("Tutor list proxy error:", e);
+    res.status(502).json({ error: "Tutor proxy error", detail: String(e) });
+  }
+});
+
+// Upsert (create/update) tutor
+app.post("/tutor/tutors", async (req, res) => {
+  try {
+    const upstream = tutorUrl(req.path);
+    const r = await fetch(upstream, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify(req.body),
+    });
+    const raw = await r.text();
+    res.status(r.status);
+    try { res.json(JSON.parse(raw)); } catch { res.type("text").send(raw); }
+  } catch (e) {
+    console.error("Tutor upsert proxy error:", e);
+    res.status(502).json({ error: "Tutor proxy error", detail: String(e) });
+  }
+});
+
+// Chat with a tutor
+// Body: { message, history, use_rag, max_tokens }
+app.post("/tutor/tutors/:id/chat", async (req, res) => {
+  try {
+    if (!req.is("application/json")) {
+      return res.status(400).json({ error: "Only application/json is accepted" });
+    }
+    const upstream = tutorUrl(req.path);
+    const r = await fetch(upstream, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: req.headers.accept || "application/json",
+      },
+      body: JSON.stringify(req.body),
+    });
+    const raw = await r.text();
+    res.status(r.status);
+    try { res.json(JSON.parse(raw)); } catch { res.type("text").send(raw); }
+  } catch (e) {
+    console.error("Tutor chat proxy error:", e);
+    res.status(502).json({ error: "Tutor proxy error", detail: String(e) });
+  }
+});
+
+// Optional: ingest endpoint passthrough
+app.post("/tutor/tutors/:id/ingest", async (req, res) => {
+  try {
+    const upstream = tutorUrl(req.originalUrl); // keep querystring
+    const r = await fetch(upstream, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify(req.body || {}),
+    });
+    const raw = await r.text();
+    res.status(r.status);
+    try { res.json(JSON.parse(raw)); } catch { res.type("text").send(raw); }
+  } catch (e) {
+    console.error("Tutor ingest proxy error:", e);
+    res.status(502).json({ error: "Tutor proxy error", detail: String(e) });
+  }
+});
+
 // ---------- Health ----------
 app.get("/healthz", (_req, res) => res.json({ ok: true }));
 
@@ -225,5 +318,6 @@ app.listen(PORT, () => {
   console.log(`Chat UI server listening on port ${PORT}`);
   console.log(`Proxying LLM requests to ${TARGET_HOST}/v1/chat/completions`);
   console.log(`Rasa base URL: ${RASA_URL}`);
+  console.log(`Tutor base URL: ${TUTOR_HOST}`);
   console.log(`Tip: add "?format=html" or send "Accept: text/html" to get rendered HTML.`);
 });

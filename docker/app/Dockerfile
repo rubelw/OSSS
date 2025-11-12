@@ -43,7 +43,10 @@ RUN pip install --no-cache-dir \
       "asyncpg>=0.29" \
       "psycopg2-binary>=2.9" \
       "httpx>=0.27" \
-      "prometheus-client>=0.20"
+      "prometheus-client>=0.20" \
+      "chromadb==0.5.5" \
+      "pypdf==4.3.1"
+
 
 EXPOSE 8000
 ENV HOST=0.0.0.0 PORT=8000 LOG_LEVEL=info

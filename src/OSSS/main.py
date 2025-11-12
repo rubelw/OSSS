@@ -63,10 +63,13 @@ from fastapi.responses import JSONResponse
 from fastapi import HTTPException as FastapiHTTPException
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+# ⬇️ import the actual APIRouter instance
 try:
-    from OSSS.tutors.router import router as tutors_router
+    # preferred if you added __init__.py above
+    from OSSS.tutors import tutor_router
 except Exception:
-    tutors_router = None
+    # fallback: import directly from the module
+    from OSSS.tutors.router import router as tutor_router
 
 
 # If you might be on Postgres/asyncpg, these imports let us detect specific violation types
@@ -613,10 +616,8 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
-    # Mount multi-tutor routes (if module present)
-    if tutors_router:
-        app.include_router(tutors_router, prefix="")
-
+    # Register with a clear prefix so your path becomes /tutor/ingest
+    app.include_router(tutor_router, prefix="/tutor", tags=["tutor"])
 
     # --- begin JSON-safe exception plumbing (install once) ---
     # Prevent double-registration under watchfiles/uvicorn reloads

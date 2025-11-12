@@ -6,8 +6,8 @@ class TutorConfig(BaseModel):
     tutor_id: str
     display_name: str
     system_prompt: str
-    llm_model: str = "llama3.2:3b"
-    embed_model: str = "nomic-embed-text"
+    llm_model: str = "llama3.1:latest"
+    embed_model: str = "all-minilm"
     rag_enabled: bool = True
     rag_index_dir: str = "data/chroma/{tutor_id}"
     max_tokens: int = 512
@@ -19,10 +19,23 @@ class ChatTurn(BaseModel):
     content: str
 
 class ChatRequest(BaseModel):
-    message: str
-    history: Optional[List[ChatTurn]] = None
-    use_rag: Optional[bool] = None  # default: inherit from tutor config
-    max_tokens: Optional[int] = None
+    message: str = Field("How to add 1 + 1", example="How to add 1 + 1")
+    history: Optional[List[ChatTurn]] = Field(
+        default_factory=lambda: [{"role": "user", "content": "We are doing addition."}],
+        example=[{"role": "user", "content": "We are doing addition."}]
+    )
+    use_rag: Optional[bool] = Field(False, example=False)
+    max_tokens: Optional[int] = Field(128, example=128)
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "message": "How to add 1 + 1",
+                "history": [{"role": "user", "content": "We are doing addition."}],
+                "use_rag": False,
+                "max_tokens": 128,
+            }
+        }
 
 class ChatResponse(BaseModel):
     tutor_id: str

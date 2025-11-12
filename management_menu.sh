@@ -447,6 +447,7 @@ ensure_podman_ready() {
     exit 1
   fi
 
+  export PODMAN_HOST=unix:///run/podman/podman.sock
   echo "[ensure_podman_ready] ready."
 }
 
@@ -4247,6 +4248,14 @@ utilities_menu() {
         # List running containers in the VM (both rootless + rootful)
         vm="$(podman machine active 2>/dev/null || echo default)"
         echo "📦 Running containers in VM '${vm}':"
+
+        if [[ -z "${vm:-}" ]]; then
+          echo "📦 Running containers in VM: (none)"
+          echo "❌ No Podman VM found."
+          echo "➡️  Create one with:  podman machine init && podman machine start"
+          prompt_return
+        fi
+
         podman machine ssh "$vm" 'bash -s' <<'REMOTE'
 set -euo pipefail
 
