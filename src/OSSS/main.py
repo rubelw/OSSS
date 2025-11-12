@@ -616,6 +616,9 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
+    from .routes_guarded import router as guarded_router
+    app.include_router(guarded_router)
+
     # Register with a clear prefix so your path becomes /tutor/ingest
     app.include_router(tutor_router, prefix="/tutor", tags=["tutor"])
 

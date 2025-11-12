@@ -42,8 +42,8 @@ function extractTextFromUpstream(json) {
   return typeof json === "string" ? json : JSON.stringify(json);
 }
 
-// ---------- OpenAI-compatible chat proxy ----------
-async function handleChatProxy(req, res, { forceHtml = false } = {}) {
+// ---------- LLM chat proxies ----------
+async function handleChatProxy(req, res, { forceHtml = false, upstreamPath = "/v1/chat/completions" } = {}) {
   try {
     if (!req.is("application/json")) {
       return res.status(400).json({ error: "Only application/json is accepted" });
@@ -53,7 +53,7 @@ async function handleChatProxy(req, res, { forceHtml = false } = {}) {
       return res.status(400).json({ error: "Request must include messages array" });
     }
 
-    const upstream = `${TARGET_HOST}/v1/chat/completions`;
+    const upstream = `${TARGET_HOST}${upstreamPath}`;
     const upstreamResp = await fetch(upstream, {
       method: "POST",
       headers: {
@@ -94,13 +94,20 @@ async function handleChatProxy(req, res, { forceHtml = false } = {}) {
 }
 
 // --- Routes (LLM) ---
-// JSON by default
+// Legacy OpenAI-compatible path
 app.post("/v1/chat/completions", (req, res) =>
-  handleChatProxy(req, res, { forceHtml: false })
+  handleChatProxy(req, res, { forceHtml: false, upstreamPath: "/v1/chat/completions" })
 );
-// Always HTML
+// Guarded path (FastAPI safety endpoint)
+app.post("/v1/chat/safe", (req, res) =>
+  handleChatProxy(req, res, { forceHtml: false, upstreamPath: "/v1/chat/safe" })
+);
+// Always-HTML helpers (optional)
 app.post("/chat-html", (req, res) =>
-  handleChatProxy(req, res, { forceHtml: true })
+  handleChatProxy(req, res, { forceHtml: true, upstreamPath: "/v1/chat/completions" })
+);
+app.post("/chat-safe-html", (req, res) =>
+  handleChatProxy(req, res, { forceHtml: true, upstreamPath: "/v1/chat/safe" })
 );
 
 // ---------- Rasa proxies ----------

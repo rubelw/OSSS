@@ -46,7 +46,7 @@
 
     <div class="meta">
       Connected to local proxies:
-      <code class="inline">/v1/chat/completions</code>,
+      <code class="inline">/v1/chat/safe</code>,
       <code class="inline">/rasa/chat</code>,
       <code class="inline">/rasa/parse</code>,
       <code class="inline">/tutor/tutors</code>,
@@ -127,6 +127,9 @@
   const maxTokensEl = document.getElementById("maxTokens");
 
   const chatHistory = []; // [{role:'user'|'assistant', content:'...'}]
+
+
+
 
   // Force default ON at startup
   asHtmlEl.checked = true;
@@ -257,115 +260,153 @@
   // Re-entrancy guard
   let sending = false;
 
-  async function send(){
-    if (sending) return;
-    const text = inputEl.value.trim();
-    if(!text) return;
+  async function send() {
+      if (sending) return;
+      const text = inputEl.value.trim();
+      if (!text) return;
 
-    sending = true;
-    const backend = backendEl.value;
-    const sender = (senderEl.value || "user").trim();
-    const wantHtml = asHtmlEl.checked;
+      sending = true;
+      const backend = backendEl.value;
+      const sender = (senderEl.value || "user").trim();
+      const wantHtml = asHtmlEl.checked;
 
-    appendMessage(text, "user");
-    if (backend === "tutor") chatHistory.push({ role: "user", content: text });
-    inputEl.value = "";
-    sendBtn.disabled = true;
+      appendMessage(text, "user");
+      chatHistory.push({ role: "user", content: text });
+      inputEl.value = "";
+      sendBtn.disabled = true;
 
-    try {
-      let url, body, headers = { "Content-Type":"application/json" };
-      headers["Accept"] = wantHtml ? "text/html" : "application/json";
+      try {
+        let url = "";
+        let body = null;
+        const headers = { "Content-Type": "application/json" };
+        headers["Accept"] = wantHtml ? "text/html" : "application/json";
 
-      if (backend === "llm") {
-        url = "/v1/chat/completions";
-        body = { model: "llama3.1", messages: [{ role: "user", content: text }] };
-      } else if (backend === "rasa-chat") {
-        url = "/rasa/chat";
-        body = { sender, message: text };
-      } else if (backend === "rasa-parse") {
-        url = "/rasa/parse";
-        body = { text };
-      } else if (backend === "tutor") {
-        const needsLoad = !tutorIdEl.options.length || (tutorIdEl.options.length === 1 && !tutorIdEl.value);
-        if (needsLoad) await loadTutors();
+        if (backend === "llm") {
+          // Hit FastAPI directly (avoid node proxy 404 on /v1/chat/safe)
+          url = `/v1/chat/safe`;
+          headers["Accept"] = "application/json"; // force JSON; we render markdown client-side
+          const hasSystem = chatHistory.some(m => m.role === "system");
+          const messages = (hasSystem ? [] : [{ role: "system", content: "You are a helpful assistant." }])
+            .concat(chatHistory);
+          body = { model: "llama3.1", messages, temperature: 0.2, max_tokens: 256, stream: false };
 
-        const selected = tutorIdEl.value;
-        if (!selected) {
-          appendMessage("(No tutor available — open /tutor/tutors to verify, then click ↻)", "bot");
+        } else if (backend === "rasa-chat") {
+          url = "/rasa/chat";
+          body = { sender, message: text };
+
+        } else if (backend === "rasa-parse") {
+          url = "/rasa/parse";
+          body = { text };
+
+        } else if (backend === "tutor") {
+          const needsLoad = !tutorIdEl.options.length || (tutorIdEl.options.length === 1 && !tutorIdEl.value);
+          if (needsLoad) await loadTutors();
+          const selected = tutorIdEl.value;
+          if (!selected) {
+            appendMessage("(No tutor available — open /tutor/tutors to verify, then click ↻)", "bot");
+            return;
+          }
+          url = `${TUTOR_API_BASE}/tutors/${encodeURIComponent(selected)}/chat`;
+          body = {
+            message: text,
+            history: chatHistory.filter(m => m.role !== "system").slice(0, -1),
+            use_rag: !!useRagEl.checked,
+            max_tokens: Number(maxTokensEl.value) || 128
+          };
+        }
+
+        const resp = await fetch(url, { method: "POST", headers, body: JSON.stringify(body) });
+
+        const isOK = resp.ok;
+        const contentType = (resp.headers.get("content-type") || "").toLowerCase();
+
+        // If server sent ready-made HTML, render as-is
+        if (wantHtml && contentType.includes("text/html")) {
+          const html = await resp.text();
+          appendMessage(html || "<em>(empty)</em>", "bot", true);
           return;
         }
 
-        url = `${TUTOR_API_BASE}/tutors/${encodeURIComponent(selected)}/chat`;
-        body = {
-          message: text,
-          history: chatHistory.slice(0, -1),
-          use_rag: !!useRagEl.checked,
-          max_tokens: Number(maxTokensEl.value) || 128
-        };
-      }
+        // Parse once
+        const textBody = await resp.text();
+        let payload = null;
+        try { payload = JSON.parse(textBody); } catch { /* leave as text */ }
 
-      const resp = await fetch(url, { method: "POST", headers, body: JSON.stringify(body) });
-
-      const isOK = resp.ok;
-      const ct = (resp.headers.get("content-type") || "").toLowerCase();
-
-      // If server already sent HTML, render as-is
-      if (wantHtml && ct.includes("text/html")) {
-        const html = await resp.text();
-        appendMessage(html || "<em>(empty)</em>", "bot", true);
-        return;
-      }
-
-      let data, textRaw;
-      try { data = await resp.json(); }
-      catch { textRaw = await resp.text(); }
-
-      if (!isOK) {
-        appendMessage(data || textRaw || ("HTTP " + resp.status), "bot");
-        return;
-      }
-
-      if (backend === "llm") {
-        const reply = data?.choices?.[0]?.message?.content || data?.choices?.[0]?.text || data?.result?.[0]?.content || JSON.stringify(data, null, 2);
-        const out = wantHtml ? mdToHtml(reply) : reply;
-        appendMessage(out, "bot", wantHtml);
-        chatHistory.push({ role: "assistant", content: reply });
-      } else if (backend === "rasa-chat") {
-        let combined;
-        if (Array.isArray(data)) {
-          combined = data.map(m => m.text || m.image || m.custom || "").filter(Boolean).join("\n\n");
-        } else {
-          combined = typeof data === "string" ? data : JSON.stringify(data, null, 2);
+        if (!isOK) {
+          const reason =
+            payload?.detail?.reason ||
+            payload?.detail ||
+            payload ||
+            textBody ||
+            ("HTTP " + resp.status);
+          appendMessage(typeof reason === "string" ? reason : JSON.stringify(reason, null, 2), "bot");
+          return;
         }
-        const out = wantHtml ? mdToHtml(combined) : combined;
-        appendMessage(out, "bot", wantHtml);
-        if (combined) chatHistory.push({ role: "assistant", content: combined });
-      } else if (backend === "rasa-parse") {
-        const textOut = typeof data === "string" ? data : JSON.stringify(data, null, 2);
-        const out = wantHtml ? mdToHtml(textOut) : textOut;
-        appendMessage(out, "bot", wantHtml);
-      } else if (backend === "tutor") {
-        if (data && typeof data === "object" && ("answer" in data)) {
-          let reply = data.answer || "";
-          if (Array.isArray(data.sources) && data.sources.length) {
-            reply += "\n\nSources:\n" + data.sources.map((s, i) => `  ${i+1}. ${s.source || s.file || "doc"} (p${s.page ?? "?"})`).join("\n");
-          }
-          const out = wantHtml ? mdToHtml(reply) : reply;   // <-- render Markdown for Tutor
+
+        // Success handling per backend
+        if (backend === "llm") {
+          const reply =
+            payload?.message?.content ??                       // FastAPI /v1/chat/safe
+            payload?.choices?.[0]?.message?.content ??         // OpenAI-like
+            payload?.choices?.[0]?.text ??                     // some OSS
+            payload?.result?.[0]?.content ??                   // others
+            (typeof payload === "string" ? payload : JSON.stringify(payload ?? textBody, null, 2));
+
+          const out = wantHtml ? mdToHtml(reply) : reply;
           appendMessage(out, "bot", wantHtml);
-          chatHistory.push({ role: "assistant", content: data.answer || "" });
-        } else {
-          const textOut = typeof data === "string" ? data : JSON.stringify(data, null, 2);
+          chatHistory.push({ role: "assistant", content: reply });
+          return;
+        }
+
+        if (backend === "rasa-chat") {
+          let combined;
+          if (Array.isArray(payload)) {
+            combined = payload.map(m => m.text || m.image || m.custom || "")
+                              .filter(Boolean)
+                              .join("\n\n");
+          } else {
+            combined = typeof payload === "string" ? payload : (textBody || "");
+          }
+          const out = wantHtml ? mdToHtml(combined) : combined;
+          appendMessage(out, "bot", wantHtml);
+          if (combined) chatHistory.push({ role: "assistant", content: combined });
+          return;
+        }
+
+        if (backend === "rasa-parse") {
+          const textOut = typeof payload === "string" ? payload : (textBody || JSON.stringify(payload, null, 2));
           const out = wantHtml ? mdToHtml(textOut) : textOut;
           appendMessage(out, "bot", wantHtml);
+          return;
         }
+
+        if (backend === "tutor") {
+          if (payload && typeof payload === "object" && ("answer" in payload)) {
+            let reply = payload.answer || "";
+            if (Array.isArray(payload.sources) && payload.sources.length) {
+              reply += "\n\nSources:\n" + payload.sources.map((s, i) =>
+                `  ${i+1}. ${s.source || s.file || "doc"} (p${s.page ?? "?"})`
+              ).join("\n");
+            }
+            const out = wantHtml ? mdToHtml(reply) : reply;
+            appendMessage(out, "bot", wantHtml);
+            chatHistory.push({ role: "assistant", content: payload.answer || "" });
+          } else {
+            const textOut = typeof payload === "string" ? payload : (textBody || JSON.stringify(payload, null, 2));
+            const out = wantHtml ? mdToHtml(textOut) : textOut;
+            appendMessage(out, "bot", wantHtml);
+          }
+          return;
+        }
+
+      } catch (err) {
+        appendMessage("Network error: " + String(err), "bot");
+      } finally {
+        sendBtn.disabled = false;
+        sending = false;
       }
-    } catch (err) {
-      appendMessage("Network error: " + String(err), "bot");
-    } finally {
-      sendBtn.disabled = false;
-      sending = false;
-    }
   }
+
 
   sendBtn.addEventListener("click", send);
   inputEl.addEventListener("keydown", (e) => { if(e.key === "Enter" && (e.ctrlKey || e.metaKey)) send(); });

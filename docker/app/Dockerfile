@@ -44,8 +44,17 @@ RUN pip install --no-cache-dir \
       "psycopg2-binary>=2.9" \
       "httpx>=0.27" \
       "prometheus-client>=0.20" \
+      "PyJWT>=2.8,<3" \
       "chromadb==0.5.5" \
-      "pypdf==4.3.1"
+      "pypdf==4.3.1" \
+      "guardrails-ai>=0.6.7" \
+      "pydantic>=2.7" \
+      "openai>=1.39"
+
+# Talk to Ollama or your proxy using OpenAI-compatible /v1
+ENV OPENAI_BASE_URL="http://ollama:11434/v1" \
+    OPENAI_API_KEY="none" \
+    LLM_MODEL="llama3.1"
 
 
 EXPOSE 8000
