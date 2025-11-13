@@ -1,3 +1,5 @@
+version: "3.1"
+
 intents:
   - start_geography_mentor
   - provide_geo_topic

@@ -27,7 +27,6 @@ export default function AIPage() {
             className="rounded-lg border p-4 hover:bg-gray-50 transition"
           >
             <h2 className="font-medium">{c.title}</h2>
-            <p className="text-sm text-gray-600">{c.blurb}</p>
           </Link>
         ))}
       </div>

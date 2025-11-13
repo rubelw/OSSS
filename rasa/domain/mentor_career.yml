@@ -10,6 +10,9 @@ intents:
   - deny
   - restart
   - inform   # (optional, used if you send plain numbers/text for grade)
+  - greet
+  - goodbye
+  - ask_help
 
 entities:
   - interest
@@ -122,5 +125,10 @@ responses:
   utter_career_resources:
     - text: "Great. I can list HS courses, CTE options, dual-credit, and starter certifications aligned to those paths."
 
+  utter_greet:
+    - text: "Hi there! You can say 'start career mentor' or 'start geography mentor'."
+
+  utter_goodbye:
+    - text: "Thanks for chatting. Goodbye!"
 actions:
   - action_suggest_careers

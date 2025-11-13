@@ -1,22 +1,19 @@
+# data/rules/career_mentor_rules.yml
 version: "3.1"
+
 rules:
   - rule: Start career mentor
     steps:
       - intent: start_career_mentor
+      - action: utter_greet_career
       - action: career_mentor_form
       - active_loop: career_mentor_form
 
-  - rule: Submit career mentor
+  - rule: Submit career mentor form
     condition:
       - active_loop: career_mentor_form
     steps:
       - action: career_mentor_form
       - active_loop: null
       - action: action_suggest_careers
-      - action: utter_career_followup
-
-  - rule: Restart flow
-    steps:
-      - intent: restart
-      - action: action_restart
-      - action: utter_greet_career
+      - action: utter_career_followup   # if you want it right after suggestions

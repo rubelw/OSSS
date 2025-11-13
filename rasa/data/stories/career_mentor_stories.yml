@@ -3,6 +3,7 @@ stories:
   - story: Happy path career mentor
     steps:
       - intent: start_career_mentor
+      - action: utter_greet_career
       - action: career_mentor_form
       - active_loop: career_mentor_form
       - active_loop: null
