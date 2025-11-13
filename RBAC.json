@@ -130,6 +130,21 @@
       "parent": null,
       "positions": [
         {
+          "unit": "parent_guardian",
+          "description": "Parent or guardian.",
+          "permissions": []
+        },
+        {
+          "unit": "student",
+          "description": "Student.",
+          "permissions": []
+        },
+        {
+          "unit": "public",
+          "description": "Public Access.",
+          "permissions": []
+        },
+        {
           "name": "board_chair",
           "description": "Leads the governing board; sets agendas and presides over meetings.",
           "permissions": [

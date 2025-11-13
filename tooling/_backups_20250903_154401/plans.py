@@ -15,7 +15,7 @@ class Plan(UUIDMixin, Base):
     __tablename__ = "plans"
 
     org_id: Mapped[uuid.UUID] = mapped_column(
-        GUID(), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+        GUID(), ForeignKey("mentors.id", ondelete="CASCADE"), nullable=False
     )
     name: Mapped[str] = mapped_column(sa.String(255), nullable=False)
     cycle_start: Mapped[Optional[date]] = mapped_column(sa.Date)

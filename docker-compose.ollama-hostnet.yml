@@ -1,5 +1,0 @@
-services:
-  ollama:
-    network_mode: host
-    # remove ports to avoid conflicts; host network exposes 11434 directly
-    ports: []

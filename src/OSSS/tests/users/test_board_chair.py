@@ -678,7 +678,7 @@ async def test_get_list_endpoint(client, permissions, list_path, auth_headers):
 @pytest.mark.skipif(not (LIVE_MODE and REAL_AUTH), reason="Requires live app + real Keycloak auth")
 async def test_create_organization(client, auth_headers):
     """
-    Create an Organization named 'test' via /api/organizations using OrganizationCreate schema.
+    Create an Organization named 'test' via /api/mentors using OrganizationCreate schema.
     Accept 200/201 for success. If it already exists and your API returns 409, treat that as ok.
     """
     payload = {
@@ -686,7 +686,7 @@ async def test_create_organization(client, auth_headers):
         # "code": None,  # include only if your API allows/ignores explicit null
     }
 
-    url = _url("/api/organizations")
+    url = _url("/api/mentors")
     r = await _apost(client, url, json=payload, headers=auth_headers, timeout=12)
 
     # Server errors should give a clear message (string!)

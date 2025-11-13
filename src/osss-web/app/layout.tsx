@@ -69,6 +69,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   <Link href="/parent-communications">Parent Communications</Link>
                   <Link href="/human-resources">Human Resources</Link>
                   <Link href="/administration">Administration</Link>
+                  <Link href="/ai">AI</Link>
+
                 </section>
               </aside>
 

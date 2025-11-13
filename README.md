@@ -100,7 +100,6 @@ OpenSSL version: OpenSSL 1.1.1h  22 Sep 2020
 - **Ports:**  
   - 8081 (API)  
   - 3000 (web)  
-  - 3001 (chat-ui)
   - 8080 (Keycloak)  
   - 5433/5434 (Postgres)  
   - 5601 (Kibana)  

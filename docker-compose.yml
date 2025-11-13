@@ -2083,26 +2083,6 @@ services:
     networks:
       - osss-net
     profiles: [ "ai" ]
-  chat-ui:
-    profiles: [ "ai" ]
-    build:
-      context: ./docker/chat-ui
-      dockerfile: Dockerfile
-    image: osss-ai_chat-ui:latest
-    container_name: chat-ui
-    hostname: chat-ui
-    ports:
-      - "3001:3000"
-    environment:
-      - TARGET_HOST=http://host.docker.internal:8081
-    restart: unless-stopped
-    networks:
-      - osss-net
-    depends_on:
-      ai-postgres:
-        condition: service_started
-      ai-redis:
-        condition: service_healthy
   rasa-mentor:
     image: rasa/rasa:3.6.20
     profiles: [ "ai" ]

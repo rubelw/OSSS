@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field, AliasChoices, ConfigDict, model_validator
 class MeetingBase(BaseModel):
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
-    org_id: uuid.UUID = Field(..., description="FK to organizations.id")
+    org_id: uuid.UUID = Field(..., description="FK to mentors.id")
 
     # Keep legacy alias 'body_id' → governing_body_id (drop 'committee_id' alias)
     governing_body_id: Optional[uuid.UUID] = Field(

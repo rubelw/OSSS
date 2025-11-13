@@ -31,14 +31,36 @@ class ChatRequest(BaseModel):
 @router.post("/chat/safe")
 async def chat_safe(req: ChatRequest):
     """Protected chat endpoint with input/output safety checks."""
-    # Convert messages for the safety layer
     blocked, content = await guarded_chat([m.model_dump() for m in req.messages])
     if blocked:
-        raise HTTPException(status_code=400, detail={"blocked": True, "reason": content})
+        raise HTTPException(
+            status_code=400,
+            detail={"blocked": True, "reason": content},
+        )
 
+    if not content or not content.strip():
+        content = "(Guarded chat returned an empty reply from the model.)"
+
+    # OpenAI-style response
     return {
+        "id": "chatcmpl-safe-1",
+        "object": "chat.completion",
         "model": req.model,
-        "message": {"role": "assistant", "content": content},
+        "choices": [
+            {
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "content": content,
+                },
+                "finish_reason": "stop",
+            }
+        ],
+        "usage": {
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "total_tokens": 0,
+        },
         "meta": {
             "guarded": True,
             "temperature": req.temperature,

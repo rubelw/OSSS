@@ -34,7 +34,7 @@ class Committee(UUIDMixin, Base):
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
     organization_id: Mapped[Optional[Any]] = mapped_column(
-        GUID(), ForeignKey("organizations.id", ondelete="SET NULL")
+        GUID(), ForeignKey("mentors.id", ondelete="SET NULL")
     )
     school_id = sa.Column(GUID(), ForeignKey("schools.id", ondelete="SET NULL"))
     name = sa.Column(sa.Text, nullable=False)

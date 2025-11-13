@@ -3855,9 +3855,8 @@ logs_menu() {
     echo "34) Logs container 'vault-oidc-setup'"
     echo "35) Logs container 'vault-seed'"
     echo "36) Logs container 'web'"
-    echo "37) Logs container 'chat-ui'"
-    echo "38) Logs container 'rasa-mentor'"
-    echo "39) Logs container 'tutor-db'"
+    echo "37) Logs container 'rasa-mentor'"
+    echo "38) Logs container 'tutor-db'"
     echo "  q) Back"
     echo "-----------------------------------------------"
     read -rp "Select an option: " choice || return 0
@@ -3898,9 +3897,8 @@ logs_menu() {
       34) logs_follow_container "vault-oidc-setup" ;;
       35) logs_follow_container "vault-seed" ;;
       36) logs_follow_container "web" ;;
-      37) logs_follow_container "chat-ui" ;;
-      38) logs_follow_container "rasa-mentor" ;;
-      39) logs_follow_container "tutor-db" ;;
+      37) logs_follow_container "rasa-mentor" ;;
+      38) logs_follow_container "tutor-db" ;;
       q|Q|b|B) return 0 ;;
       *) echo "Unknown choice: ${choice}" ;;
     esac
@@ -4166,7 +4164,7 @@ down_profiles_menu() {
 
           echo "— post-clean check for stragglers —"
           # If any service containers lack the compose project label, kill them explicitly.
-          for name in chat-ui dvc ai-postgres ai-redis minio qdrant; do
+          for name in dvc ai-postgres ai-redis minio qdrant; do
             if sudo podman ps -a --format "{{.Names}}" | grep -qx "$name"; then
               # Remove only if container is NOT labeled with our compose project
               lbl="$(sudo podman inspect --format "{{ index .Config.Labels \"com.docker.compose.project\"}}" "$name" 2>/dev/null || true)"
@@ -4910,7 +4908,7 @@ sudo pkill -f pasta         || true
 sudo pkill -f conmon        || true
 
 echo "== rm named containers =="
-sudo podman rm -f qdrant minio ai-redis ai-postgres dvc chat-ui 2>/dev/null || true
+sudo podman rm -f qdrant minio ai-redis ai-postgres dvc 2>/dev/null || true
 
 echo "== rm pods (project + leftovers) =="
 sudo podman pod rm -f osss-ai 2>/dev/null || true

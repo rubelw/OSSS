@@ -13,7 +13,7 @@ from OSSS.db.base import Base, UUIDMixin, GUID, JSONB
 class School(UUIDMixin, Base):
     __tablename__ = "schools"
 
-    organization_id: Mapped[Any] = mapped_column(GUID(), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    organization_id: Mapped[Any] = mapped_column(GUID(), ForeignKey("mentors.id", ondelete="CASCADE"), nullable=False)
     name: Mapped[str] = mapped_column(sa.Text, nullable=False)
     school_code: Mapped[Optional[str]] = mapped_column(sa.Text, unique=True)
     nces_school_id: Mapped[Optional[str]] = mapped_column(sa.Text)

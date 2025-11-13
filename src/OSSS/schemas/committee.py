@@ -16,7 +16,7 @@ class _CommitteeBase(APIModel):
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
     organization_id: Optional[uuid.UUID] = Field(
-        default=None, description="FK to organizations.id (nullable)."
+        default=None, description="FK to mentors.id (nullable)."
     )
     school_id: Optional[uuid.UUID] = Field(
         default=None, description="FK to schools.id (nullable)."
@@ -46,7 +46,7 @@ class CommitteeCreate(APIModel):
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
     organization_id: Optional[uuid.UUID] = Field(
-        default=None, description="FK to organizations.id (nullable)."
+        default=None, description="FK to mentors.id (nullable)."
     )
     school_id: Optional[uuid.UUID] = Field(
         default=None, description="FK to schools.id (nullable)."

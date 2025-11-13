@@ -81,7 +81,7 @@ def _patch_missing_required(table: Table, row: dict[str, Any], session: Session)
     if table.name == "curricula":
         # safety: ensure organization_id exists or fallback to first org
         if out.get("organization_id") is None:
-            oid = session.execute(sa.text("select id from organizations limit 1")).scalar_one_or_none()
+            oid = session.execute(sa.text("select id from mentors limit 1")).scalar_one_or_none()
             if oid:
                 out["organization_id"] = oid
 
@@ -441,8 +441,8 @@ def _ensure_fk_targets(session: Session, table: Table, row: dict[str, Any]) -> d
                     v = True
                 stub[pcol.name] = v
 
-        # Special case: organizations often have stricter NOT NULLs
-        if parent_tbl.name == "organizations":
+        # Special case: mentors often have stricter NOT NULLs
+        if parent_tbl.name == "mentors":
             stub.setdefault("name", "Sample Organization")
             stub.setdefault("slug", "sample-organization")
             stub.setdefault("created_at", datetime.now(timezone.utc))

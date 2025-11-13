@@ -15,7 +15,7 @@ from ._helpers import ts_cols
 class CICCommittee(UUIDMixin, Base):
     __tablename__ = "cic_committees"
 
-    organization_id: Mapped[Optional[Any]] = mapped_column(GUID(), ForeignKey("organizations.id", ondelete="SET NULL"))
+    organization_id: Mapped[Optional[Any]] = mapped_column(GUID(), ForeignKey("mentors.id", ondelete="SET NULL"))
     school_id   = sa.Column(GUID(), ForeignKey("schools.id",   ondelete="SET NULL"))
     name        = sa.Column(sa.Text, nullable=False)
     description = sa.Column(sa.Text)

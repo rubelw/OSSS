@@ -10,7 +10,7 @@ class Curriculum(UUIDMixin, Base):
     __tablename__ = "curricula"
 
     organization_id: Mapped = mapped_column(
-        GUID(), sa.ForeignKey("organizations.id", ondelete="CASCADE"),
+        GUID(), sa.ForeignKey("mentors.id", ondelete="CASCADE"),
         nullable=False, index=True
     )
 

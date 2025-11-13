@@ -16,7 +16,7 @@ class Meeting(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "meetings"
 
     org_id: Mapped[uuid.UUID] = mapped_column(
-        GUID(), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+        GUID(), ForeignKey("mentors.id", ondelete="CASCADE"), nullable=False
     )
 
     # Renamed + retargeted FK: bodies.id -> governing_bodies.id

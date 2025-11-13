@@ -12,7 +12,7 @@ from OSSS.db.base import Base, UUIDMixin, GUID, JSONB, TimestampMixin
 
 
 class Organization(UUIDMixin, TimestampMixin, Base):
-    __tablename__ = "organizations"
+    __tablename__ = "mentors"
 
     name: Mapped[str] = mapped_column(sa.String(255), unique=True, nullable=False)
     code: Mapped[Optional[str]] = mapped_column(sa.Text, unique=True)

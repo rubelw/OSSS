@@ -1,7 +1,0 @@
-# Only send the files the Dockerfile actually COPYs
-*
-!Dockerfile
-!server.js
-!package.json
-!package-lock.json
-!public/

@@ -12,12 +12,12 @@ from OSSS.db.base import Base, UUIDMixin, GUID, JSONB, TimestampMixin
 
 
 class Organization(UUIDMixin, TimestampMixin, Base):
-    __tablename__ = "organizations"
+    __tablename__ = "mentors"
     __allow_unmapped__ = True  # keep NOTE out of the SQLAlchemy mapper
 
     NOTE: ClassVar[str] =     (
         "owner=division_of_technology_data; "
-        "description=Stores organizations records for the application. "
+        "description=Stores mentors records for the application. "
         "Key attributes include name, code. "
         "Includes standard audit timestamps (created_at, updated_at). "
         "5 column(s) defined. "
@@ -26,7 +26,7 @@ class Organization(UUIDMixin, TimestampMixin, Base):
 
     __table_args__ = {
         "comment":         (
-            "Stores organizations records for the application. "
+            "Stores mentors records for the application. "
             "Key attributes include name, code. "
             "Includes standard audit timestamps (created_at, updated_at). "
             "5 column(s) defined. "
@@ -35,7 +35,7 @@ class Organization(UUIDMixin, TimestampMixin, Base):
         "info": {
             "note": NOTE,
             "description":         (
-            "Stores organizations records for the application. "
+            "Stores mentors records for the application. "
             "Key attributes include name, code. "
             "Includes standard audit timestamps (created_at, updated_at). "
             "5 column(s) defined. "

@@ -46,10 +46,14 @@ def basic_input_check(text: str):
         raise ValueError("Blocked input: contains PII or link-like content.")
 
 def basic_output_check(text: str):
+    # 1) Still hard-block PII / links
     if PII_LINK_PATTERN.search(text):
         raise ValueError("Blocked output: contains PII or link-like content.")
-    if not (len(text.strip()) >= 10 or re.search(r"[#*_`>\-\+]", text)):
-        raise ValueError("Output too short or not markdown-like.")
+
+    # 2) Otherwise, do not block on length/markdown/emptiness here.
+    #    Length / markdown issues are handled more gently in guarded_chat().
+    return
+
 
 # ---- Optional: remove boilerplate "safe/compliant" chatter from a guard LLM ----
 _GUARD_NOISE_LINES = [
@@ -117,7 +121,9 @@ def coerce_to_tutor_reply(raw: str) -> str:
 async def guarded_chat(messages: list) -> Tuple[bool, str]:
     # 1) Pre-check (system+user only)
     try:
-        user_text = "\n".join(m["content"] for m in messages if m["role"] in ("system", "user"))
+        user_text = "\n".join(
+            m["content"] for m in messages if m["role"] in ("system", "user")
+        )
         basic_input_check(user_text)
     except Exception as e:
         return True, f"Blocked (input): {e}"
@@ -139,8 +145,17 @@ async def guarded_chat(messages: list) -> Tuple[bool, str]:
 
     # 3) Post-check + coerce
     try:
+        # First, strip guard boilerplate
         text = strip_guard_noise(raw)
+
+        # If stripping removed *everything*, fall back to the raw model output
+        # (so we don't block just because the guard-chatter was removed)
+        if not text.strip():
+            text = raw.strip()
+
+        # Now enforce only the PII/link rule
         basic_output_check(text)
+
     except Exception as e:
         return True, f"Blocked (output): {e}"
 
