@@ -148,6 +148,9 @@ async function handleChatProxy(req, res, { forceHtml = false, upstreamPath = "/v
   }
 }
 
+
+
+
 // --- Routes (LLM) ---
 // Legacy OpenAI-compatible path
 app.post("/v1/chat/completions", (req, res) =>
@@ -458,26 +461,98 @@ app.post("/tutor/tutors", async (req, res) => {
 
 // Chat with a tutor
 // Body: { message, history, use_rag, max_tokens }
+// Chat with a tutor — ALWAYS guarded through /v1/chat/safe
 app.post("/tutor/tutors/:id/chat", async (req, res) => {
   try {
     if (!req.is("application/json")) {
       return res.status(400).json({ error: "Only application/json is accepted" });
     }
-    const upstream = tutorUrl(req.path);
-    const r = await fetch(upstream, {
+
+    // 1) Call upstream Tutor /chat first (to get the candidate + sources)
+    const upstream = tutorUrl(req.path); // maps /tutor/... to ${TUTOR_HOST}/...
+    const tutorResp = await fetch(upstream, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify(req.body || {})
+    });
+    const tutorRaw = await tutorResp.text();
+
+    if (!tutorResp.ok) {
+      res.status(tutorResp.status);
+      try { return res.json(JSON.parse(tutorRaw)); }
+      catch { return res.type("text").send(tutorRaw); }
+    }
+
+    // 2) Normalize Tutor reply -> candidate + keep sources
+    let tutorJson;
+    try { tutorJson = JSON.parse(tutorRaw); } catch { tutorJson = tutorRaw; }
+
+    const candidate =
+      (tutorJson && typeof tutorJson === "object" && "answer" in tutorJson)
+        ? String(tutorJson.answer || "")
+        : (typeof tutorJson === "string" ? tutorJson : JSON.stringify(tutorJson));
+
+    const sources =
+      (tutorJson && typeof tutorJson === "object" && Array.isArray(tutorJson.sources))
+        ? tutorJson.sources
+        : [];
+
+    // 3) Run candidate through guard (/v1/chat/safe)
+    const guardMessages = [
+      {
+        role: "system",
+        content:
+          "You are an output safety gateway. If the provided 'candidate' text is safe and compliant, " +
+          "return it VERBATIM as your message. If unsafe, refuse with a brief safe alternative."
+      },
+      { role: "user", content: `candidate:\n${candidate}` }
+    ];
+
+    const safeResp = await fetch(`${SAFE_BASE}${SAFE_PATH}`, {
       method: "POST",
       headers: {
+        Accept: "application/json",
         "Content-Type": "application/json",
-        Accept: req.headers.accept || "application/json",
+        Authorization: req.get("Authorization") || ""
       },
-      body: JSON.stringify(req.body),
+      body: JSON.stringify({
+        model: "llama3.1",
+        messages: guardMessages,
+        temperature: 0.2,
+        max_tokens: 512,
+        stream: false
+      })
     });
-    const raw = await r.text();
-    res.status(r.status);
-    try { res.json(JSON.parse(raw)); } catch { res.type("text").send(raw); }
+
+    const safeRaw = await safeResp.text();
+    let safeJson;
+    try { safeJson = JSON.parse(safeRaw); } catch {}
+
+    if (!safeResp.ok) {
+      const reason =
+        safeJson?.detail?.reason ||
+        safeJson?.detail ||
+        safeJson ||
+        safeRaw ||
+        ("HTTP " + safeResp.status);
+      return res.status(safeResp.status).json({ error: "guard_block", detail: reason });
+    }
+
+    // 4) Extract + clean final answer
+    let guarded =
+      safeJson?.message?.content ??
+      safeJson?.choices?.[0]?.message?.content ??
+      safeJson?.choices?.[0]?.text ??
+      safeRaw;
+
+    guarded = stripGuardNoise(guarded || "");
+
+    // 5) Return Tutor-shaped JSON so the UI remains unchanged
+    return res.status(200).json({ answer: guarded, sources });
+
   } catch (e) {
-    console.error("Tutor chat proxy error:", e);
-    res.status(502).json({ error: "Tutor proxy error", detail: String(e) });
+    console.error("Tutor chat (guarded) proxy error:", e);
+    res.status(502).json({ error: "Tutor chat (guarded) proxy error", detail: String(e) });
   }
 });
 
