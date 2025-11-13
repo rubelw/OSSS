@@ -45,71 +45,81 @@ export default function MentorClient() {
     []
   );
 
-  // ✅ RESET + NEW SENDER ID
+  // ✅ RESET + NEW SENDER ID — CAREER
   const handleQuickCareer = () => {
-    setMessages([]);          // clear chat UI
+    setMessages([]); // clear chat UI
     setInput("start career mentor"); // pre-fill
     setSender("user_" + Date.now()); // 🔥 new conversation session
   };
 
-  const handleSend = useCallback(async () => {
-    if (sending) return;
-    const text = input.trim();
-    if (!text) return;
+  // ✅ RESET + NEW SENDER ID — GEOGRAPHY
+  const handleQuickGeography = () => {
+    setMessages([]); // clear chat UI
+    setInput("start geography mentor"); // pre-fill
+    setSender("user_" + Date.now()); // 🔥 new conversation session
+  };
 
-    setSending(true);
-    appendMessage("user", text, false);
-    setInput("");
+  const handleSend = useCallback(
+    async () => {
+      if (sending) return;
+      const text = input.trim();
+      if (!text) return;
 
-    try {
-      const url = `${API_BASE}/rasa/chat-safe`;
-      const body = { sender, message: text }; // 🔥 NEW sender each reset
+      setSending(true);
+      appendMessage("user", text, false);
+      setInput("");
 
-      const resp = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        body: JSON.stringify(body),
-      });
-
-      const raw = await resp.text();
-
-      let payload: any = null;
       try {
-        payload = JSON.parse(raw);
-      } catch {}
+        const url = `${API_BASE}/rasa/chat-safe`;
+        const body = { sender, message: text }; // 🔥 NEW sender each reset
 
-      if (!resp.ok) {
-        const msg =
-          payload?.detail?.reason ||
-          payload?.detail ||
-          raw ||
-          `HTTP ${resp.status}`;
-        appendMessage("bot", String(msg), false);
-        setSending(false);
-        return;
+        const resp = await fetch(url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify(body),
+        });
+
+        const raw = await resp.text();
+
+        let payload: any = null;
+        try {
+          payload = JSON.parse(raw);
+        } catch {}
+
+        if (!resp.ok) {
+          const msg =
+            payload?.detail?.reason ||
+            payload?.detail ||
+            raw ||
+            `HTTP ${resp.status}`;
+          appendMessage("bot", String(msg), false);
+          setSending(false);
+          return;
+        }
+
+        let combined = "";
+        if (Array.isArray(payload)) {
+          combined = payload
+            .map((m: any) => m.text || m.image || m.custom || "")
+            .filter(Boolean)
+            .join("\n\n");
+        } else {
+          combined = typeof payload === "string" ? payload : raw;
+        }
+
+        const out = mdToHtml(combined || "");
+        appendMessage("bot", out || "<em>(empty)</em>", true);
+      } catch (err: any) {
+        appendMessage("bot", `Network error: ${String(err)}`, false);
       }
 
-      let combined = "";
-      if (Array.isArray(payload)) {
-        combined = payload
-          .map((m: any) => m.text || m.image || m.custom || "")
-          .filter(Boolean)
-          .join("\n\n");
-      } else {
-        combined = typeof payload === "string" ? payload : raw;
-      }
-
-      const out = mdToHtml(combined || "");
-      appendMessage("bot", out || "<em>(empty)</em>", true);
-    } catch (err: any) {
-      appendMessage("bot", `Network error: ${String(err)}`, false);
-    }
-
-    setSending(false);
-  }, [appendMessage, input, sending, sender]);
+      setSending(false);
+    },
+    [appendMessage, input, sending, sender]
+  );
 
   const handleKeyDown: React.KeyboardEventHandler<HTMLTextAreaElement> = (e) => {
     if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
@@ -121,7 +131,7 @@ export default function MentorClient() {
   return (
     <div className="mentor-container">
       <div className="mentor-header">
-        <div>Career Mentor — Use responsibly</div>
+        <div>Career & Geography Mentors — Use responsibly</div>
         <div className="mentor-header-right">
           <code className="inline-code">Rasa Chat</code>
         </div>
@@ -135,6 +145,13 @@ export default function MentorClient() {
           onClick={handleQuickCareer}
         >
           🎓 Career Mentor
+        </button>
+        <button
+          type="button"
+          className="mentor-quick-button"
+          onClick={handleQuickGeography}
+        >
+          🌍 Geography Mentor
         </button>
       </div>
 
@@ -151,7 +168,11 @@ export default function MentorClient() {
             key={m.id}
             className={`mentor-msg ${m.who === "user" ? "user" : "bot"}`}
           >
-            <div className={`mentor-bubble ${m.who === "user" ? "user" : "bot"}`}>
+            <div
+              className={`mentor-bubble ${
+                m.who === "user" ? "user" : "bot"
+              }`}
+            >
               {m.isHtml ? (
                 <div dangerouslySetInnerHTML={{ __html: m.content }} />
               ) : (

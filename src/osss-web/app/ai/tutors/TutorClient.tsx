@@ -1,10 +1,9 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 
 const API_BASE = process.env.NEXT_PUBLIC_CHAT_API_BASE ?? "";
 const TUTOR_API_BASE = API_BASE ? `${API_BASE}/tutor` : "/tutor";
-const MATH_TUTOR_ID = "math8";
 
 interface UiMessage {
   id: number;
@@ -13,19 +12,18 @@ interface UiMessage {
   isHtml?: boolean;
 }
 
-function mdToHtml(src: string): string {
-  let s = src
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
+interface TutorInfo {
+  tutor_id: string;
+  display_name?: string;
+}
 
+function mdToHtml(src: string): string {
+  let s = src.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   s = s.replace(/```([\s\S]*?)```/g, (_m, code) => {
     return `<pre><code>${code.replace(/&/g, "&amp;")}</code></pre>`;
   });
-
   s = s.replace(/`([^`]+)`/g, "<code>$1</code>");
   s = s.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
-
   return s.replace(/\n/g, "<br/>");
 }
 
@@ -34,10 +32,45 @@ export default function TutorClient() {
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
 
-  // History we send to the tutor backend
+  const [tutors, setTutors] = useState<TutorInfo[]>([]);
+  const [selectedTutorId, setSelectedTutorId] = useState<string>("");
+
   const [chatHistory, setChatHistory] = useState<
     { role: "user" | "assistant"; content: string }[]
   >([]);
+
+  // Load /tutor/tutors
+  useEffect(() => {
+    const loadTutors = async () => {
+      try {
+        const resp = await fetch(`${TUTOR_API_BASE}/tutors`, {
+          headers: { Accept: "application/json" },
+        });
+
+        if (!resp.ok) return;
+
+        const data = await resp.json();
+        if (!Array.isArray(data)) return;
+
+        const mapped: TutorInfo[] = data.map((t: any) => ({
+          tutor_id: t.tutor_id,
+          display_name: t.display_name,
+        }));
+
+        setTutors(mapped);
+
+        // Prefer math8 if present
+        const math8 = mapped.find(
+          (t) => (t.tutor_id || "").toLowerCase() === "math8"
+        );
+        setSelectedTutorId(math8 ? math8.tutor_id : mapped[0]?.tutor_id ?? "");
+      } catch (err) {
+        console.error("Error loading tutors", err);
+      }
+    };
+
+    void loadTutors();
+  }, []);
 
   const appendMessage = useCallback(
     (who: "user" | "bot", content: string, isHtml = false) => {
@@ -49,17 +82,15 @@ export default function TutorClient() {
     []
   );
 
-  // ✅ RESET + EXAMPLE
-  const handleQuickMath = () => {
-    setMessages([]); // clear UI chat bubbles
-    setChatHistory([]); // clear history sent to backend
-    setInput("How do I add 1 + 1?"); // pre-fill starter question
-  };
-
   const handleSend = useCallback(async () => {
     if (sending) return;
     const text = input.trim();
     if (!text) return;
+
+    if (!selectedTutorId) {
+      appendMessage("bot", "No tutor is selected.", false);
+      return;
+    }
 
     setSending(true);
     appendMessage("user", text, false);
@@ -67,10 +98,9 @@ export default function TutorClient() {
 
     try {
       const url = `${TUTOR_API_BASE}/tutors/${encodeURIComponent(
-        MATH_TUTOR_ID
+        selectedTutorId
       )}/chat`;
 
-      // ✅ Use a snapshot that includes this new user turn
       const historySnapshot = [
         ...chatHistory,
         { role: "user" as const, content: text },
@@ -78,12 +108,11 @@ export default function TutorClient() {
 
       const body = {
         message: text,
-        history: historySnapshot, // FastAPI tutor expects role/content pairs
+        history: historySnapshot,
         use_rag: false,
         max_tokens: 256,
       };
 
-      // Save updated history for future turns
       setChatHistory(historySnapshot);
 
       const resp = await fetch(url, {
@@ -100,9 +129,7 @@ export default function TutorClient() {
       let payload: any = null;
       try {
         payload = JSON.parse(raw);
-      } catch {
-        /* ignore */
-      }
+      } catch {}
 
       if (!resp.ok) {
         const msg =
@@ -115,13 +142,13 @@ export default function TutorClient() {
         return;
       }
 
-      // Tutor-style response: { answer, sources? }
+      // --- Tutor response parsing ---
       let replyText = "";
       if (payload && typeof payload === "object" && "answer" in payload) {
         replyText = payload.answer || "";
 
         if (Array.isArray(payload.sources) && payload.sources.length) {
-          const sourcesText =
+          replyText +=
             "\n\nSources:\n" +
             payload.sources
               .map(
@@ -131,7 +158,6 @@ export default function TutorClient() {
                   } (p${s.page ?? "?"})`
               )
               .join("\n");
-          replyText += sourcesText;
         }
       } else {
         replyText =
@@ -144,7 +170,6 @@ export default function TutorClient() {
       const out = mdToHtml(safeReply);
       appendMessage("bot", out, true);
 
-      // Add assistant turn to history (only the plain answer part if present)
       const plainAnswer =
         payload && typeof payload === "object" && "answer" in payload
           ? payload.answer || ""
@@ -156,12 +181,12 @@ export default function TutorClient() {
           { role: "assistant", content: plainAnswer },
         ]);
       }
-    } catch (err: any) {
+    } catch (err) {
       appendMessage("bot", `Network error: ${String(err)}`, false);
     }
 
     setSending(false);
-  }, [appendMessage, chatHistory, input, sending]);
+  }, [appendMessage, chatHistory, input, sending, selectedTutorId]);
 
   const handleKeyDown: React.KeyboardEventHandler<HTMLTextAreaElement> = (e) => {
     if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
@@ -170,32 +195,51 @@ export default function TutorClient() {
     }
   };
 
+  const activeTutor = tutors.find((t) => t.tutor_id === selectedTutorId);
+  const headerTitle =
+    activeTutor?.display_name || (selectedTutorId ? `Tutor: ${selectedTutorId}` : "Tutor");
+
   return (
     <div className="mentor-container">
       {/* Header */}
       <div className="mentor-header">
-        <div>Math 8 Tutor — Use responsibly</div>
+        <div>{headerTitle} — Use responsibly</div>
         <div className="mentor-header-right">
           <code className="inline-code">Tutor (FastAPI)</code>
         </div>
       </div>
 
-      {/* Toolbar: quick example + reset */}
+      {/* Toolbar: only the dropdown now */}
       <div className="mentor-toolbar">
-        <button
-          type="button"
-          className="mentor-quick-button"
-          onClick={handleQuickMath}
-        >
-          📐 Math 8 example
-        </button>
+        <label className="mentor-label">
+          Tutor
+          <select
+            className="mentor-select"
+            value={selectedTutorId}
+            onChange={(e) => {
+              setSelectedTutorId(e.target.value);
+              setMessages([]);
+              setChatHistory([]);
+              setInput("");
+            }}
+          >
+            {tutors.length === 0 && (
+              <option value="">(no tutors found)</option>
+            )}
+            {tutors.map((t) => (
+              <option key={t.tutor_id} value={t.tutor_id}>
+                {t.display_name || t.tutor_id}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
 
-      {/* Messages area */}
+      {/* Messages */}
       <div className="mentor-messages" aria-live="polite">
         {messages.length === 0 && (
           <div className="mentor-empty-hint">
-            Ask the Math 8 tutor a question (for example: “How do I add 1 + 1?”).
+            Select a tutor, then ask a question (e.g. Math 8 or Geography 8 topics).
           </div>
         )}
 
@@ -205,9 +249,7 @@ export default function TutorClient() {
             className={`mentor-msg ${m.who === "user" ? "user" : "bot"}`}
           >
             <div
-              className={`mentor-bubble ${
-                m.who === "user" ? "user" : "bot"
-              }`}
+              className={`mentor-bubble ${m.who === "user" ? "user" : "bot"}`}
             >
               {m.isHtml ? (
                 <div dangerouslySetInnerHTML={{ __html: m.content }} />
@@ -223,7 +265,7 @@ export default function TutorClient() {
       <div className="mentor-composer">
         <textarea
           className="mentor-input"
-          placeholder="Type your math question… (Ctrl/Cmd+Enter to send)"
+          placeholder="Type your question… (Ctrl/Cmd+Enter to send)"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
@@ -232,7 +274,7 @@ export default function TutorClient() {
           type="button"
           className="mentor-send primary"
           onClick={() => void handleSend()}
-          disabled={sending}
+          disabled={sending || !selectedTutorId}
         >
           {sending ? "Sending…" : "Send"}
         </button>

@@ -2091,7 +2091,7 @@ services:
     command: >
       bash -lc "set -euo pipefail;
                 mkdir -p models;
-                rasa train --fixed-model-name current &&
+                rasa train --domain domain --data data --fixed-model-name current &&
                 exec rasa run
                     --enable-api
                     --cors '*'

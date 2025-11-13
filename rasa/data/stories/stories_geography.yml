@@ -1,0 +1,17 @@
+version: "3.1"
+
+stories:
+  - story: geography mentor happy path
+    steps:
+      - intent: start_geography_mentor
+      - action: utter_greet_geography
+      - action: geography_mentor_form
+      - active_loop: geography_mentor_form
+      - slot_was_set:
+          - geo_topic: "world capitals"
+      - slot_was_set:
+          - geo_level: "basic"
+      - slot_was_set:
+          - geo_question: "What are the seven continents?"
+      - active_loop: null
+      - action: utter_geography_answer

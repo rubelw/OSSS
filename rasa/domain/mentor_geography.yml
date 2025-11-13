@@ -1,0 +1,92 @@
+intents:
+  - start_geography_mentor
+  - provide_geo_topic
+  - provide_geo_level
+  - ask_geo_question
+
+entities:
+  - geo_topic
+  - geo_level
+
+slots:
+  geo_topic:
+    type: text
+    influence_conversation: true
+    mappings:
+      - type: from_entity
+        entity: geo_topic
+        not_intent: deny
+        conditions:
+          - active_loop: geography_mentor_form
+            requested_slot: geo_topic
+      - type: from_text
+        conditions:
+          - active_loop: geography_mentor_form
+            requested_slot: geo_topic
+
+  geo_level:
+    type: categorical
+    values: ["basic", "intermediate", "advanced"]
+    influence_conversation: true
+    mappings:
+      - type: from_entity
+        entity: geo_level
+        not_intent: deny
+        conditions:
+          - active_loop: geography_mentor_form
+            requested_slot: geo_level
+      - type: from_text
+        conditions:
+          - active_loop: geography_mentor_form
+            requested_slot: geo_level
+
+  geo_question:
+    type: text
+    influence_conversation: true
+    mappings:
+      - type: from_text
+        conditions:
+          - active_loop: geography_mentor_form
+            requested_slot: geo_question
+
+forms:
+  # existing career_mentor_form stays
+  geography_mentor_form:
+    required_slots:
+      - geo_topic
+      - geo_level
+      - geo_question
+
+responses:
+  # GREETING
+  utter_greet_geography:
+    - text: >
+        Let’s work on geography together! 🌍  
+        I’ll ask a couple quick questions, then we’ll break things down step by step.
+
+  # FORM QUESTIONS
+  utter_ask_geography_mentor_form_geo_topic:
+    - text: >
+        What geography topic do you want help with?
+        (e.g. world capitals, continents and oceans, climate zones, maps and coordinates)
+
+  utter_ask_geography_mentor_form_geo_level:
+    - text: >
+        Roughly what level are you at? You can say basic, intermediate, or advanced.
+
+  utter_ask_geography_mentor_form_geo_question:
+    - text: >
+        Great. What specific question or problem are you working on?
+
+  # ANSWER TEMPLATE (for simple version without custom actions)
+  utter_geography_answer:
+    - text: >
+        Here’s a helpful way to think about that: 
+        {geo_question}
+        \n\nFor {geo_topic} at a {geo_level} level, I’d explain it like this…
+        \n\n(You can now adjust this response logic or hook it up to another service.)
+
+actions:
+  # keep your existing actions like action_suggest_careers
+  # if you later create a Python custom action, add it here, e.g.:
+  - action_answer_geography

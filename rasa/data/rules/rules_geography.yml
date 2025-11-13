@@ -1,0 +1,17 @@
+version: "3.1"
+
+rules:
+  - rule: Start geography mentor
+    steps:
+      - intent: start_geography_mentor
+      - action: utter_greet_geography
+      - action: geography_mentor_form
+      - active_loop: geography_mentor_form
+
+  - rule: Submit geography mentor form
+    condition:
+      - active_loop: geography_mentor_form
+    steps:
+      - action: geography_mentor_form
+      - active_loop: null
+      - action: utter_geography_answer
