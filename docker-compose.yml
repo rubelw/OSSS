@@ -70,8 +70,6 @@ volumes:
     name: ingestion-volume-tmp
   om-es-data:
     name: om-es-data
-  ollama_data:
-    name: ollama_data
   web_node_modules:
     name: web_node_modules
   qdrant_data:
@@ -248,7 +246,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
       DATABASE_URL: ${ASYNC_DATABASE_URL}
       TUTOR_CONFIG_DIR: /app/config/tutors
-      OLLAMA_BASE: http://ollama:11434
+      OLLAMA_BASE: http://host.containers.internal:11434
 
       OSSS_TUTOR_DB_USER: ${OSSS_TUTOR_DB_USER}
       OSSS_TUTOR_DB_PASSWORD: ${OSSS_TUTOR_DB_PASSWORD}
@@ -257,8 +255,9 @@ services:
       OSSS_TUTOR_DB_HOST: tutor-db
       OSSS_TUTOR_DB_PORT: "5432"
       OSSS_TUTOR_CONFIG_DIR: ${OSSS_TUTOR_CONFIG_DIR}
-
-
+      SAFE_OPENAI_API_BASE: ${SAFE_OPENAI_API_BASE}
+      OPENAI_API_BASE: ${OPENAI_API_BASE}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
 
     depends_on:
       redis:
@@ -1925,53 +1924,7 @@ services:
       - ingestion-volume-dags:/opt/airflow/dags:z
       - ingestion-volume-tmp:/tmp:z
 
-  ollama:
-    image: ollama/ollama:latest
-    container_name: ollama
-    hostname: ollama
-    logging:
-      driver: k8s-file
-      options:
-        max-size: 10m
 
-    labels:
-      co.elastic.logs/enabled: "true"
-      co.elastic.logs.ollama: "true"
-      co.elastic.logs.format: "plain"   # (use "json" if you log JSON)
-      co.elastic.logs.processors.add_fields.target: ""
-      co.elastic.logs.processors.add_fields.fields.service: "ollama"
-      co.elastic.logs.processors.add_fields.fields.stack: "ai"
-    profiles: [ ai ]
-    ports:
-      - "11434:11434"
-    environment:
-      # optional: override models to preload
-      OLLAMA_PRELOAD: "llama3.1:latest all-minilm:latest nomic-embed-text:latest"
-    volumes:
-      - ollama_data:/root/.ollama:z    # <-- named volume
-    entrypoint: >                     # (entrypoint from section #1)
-      sh -c '
-        set -e
-        ollama serve &
-        echo "Waiting..."
-        i=0
-        while [ "$i" -lt 60 ]; do
-          if ollama list >/dev/null 2>&1; then break; fi
-          i=$((i+1)); sleep 1
-        done
-        if ! ollama list | grep -q "^llama3\\.1"; then
-          ollama pull llama3.1
-        fi
-        wait
-      '
-    healthcheck:
-      test: [ "CMD-SHELL", "ollama list | grep -q '^llama3\\.1'" ]
-      interval: 10s
-      timeout: 5s
-      retries: 30
-      start_period: 60s
-    networks: [ osss-net ]
-    restart: unless-stopped
 
   # === Vector DB for RAG ===
   qdrant:

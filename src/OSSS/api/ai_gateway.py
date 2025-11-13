@@ -30,7 +30,7 @@ try:
 except Exception:
     class _Settings:
         PROMETHEUS_ENABLED: bool = os.getenv("PROMETHEUS_ENABLED", "1") not in ("0", "false", "False")
-        VLLM_ENDPOINT: str = os.getenv("VLLM_ENDPOINT", "http://ollama:11434")
+        VLLM_ENDPOINT: str = os.getenv("VLLM_ENDPOINT", "http://host.containers.internal:11434")
         TUTOR_TEMPERATURE: float = float(os.getenv("TUTOR_TEMPERATURE", "0.2"))
         TUTOR_MAX_TOKENS: int = int(os.getenv("TUTOR_MAX_TOKENS", "512"))
         DEFAULT_MODEL: str = os.getenv("DEFAULT_MODEL", "llama3.1")
@@ -117,7 +117,7 @@ async def metrics():
 @router.get("/v1/models")
 async def list_models(_: dict | None = Depends(require_auth)):
     REQS.labels("/v1/models").inc()
-    base = getattr(settings, "VLLM_ENDPOINT", "http://ollama:11434").rstrip("/")
+    base = getattr(settings, "VLLM_ENDPOINT", "http://host.containers.internal:11434").rstrip("/")
     upstream_v1 = f"{base}/v1/models"
     upstream_tags = f"{base}/api/tags"
     async with httpx.AsyncClient(timeout=10.0) as client:

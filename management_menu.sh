@@ -165,6 +165,69 @@ show_connections(){
   podman system connection list || true
 }
 
+# --- Ensure Ollama is installed and running locally with preloaded models ---
+ensure_ollama_local() {
+  echo "🧠 Ensuring Ollama is installed and running locally with preloaded models…"
+  local MODELS=("llama3.1:latest" "all-minilm:latest" "nomic-embed-text:latest")
+  local OLLAMA_HOST="0.0.0.0:11434"
+
+  # 1) Check for Ollama binary
+  if ! command -v ollama >/dev/null 2>&1; then
+    echo "⚙️  Ollama not found — installing via Homebrew..."
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+      if command -v brew >/dev/null 2>&1; then
+        brew install --cask ollama
+      else
+        echo "❌ Homebrew not found. Please install it from https://brew.sh/"
+        exit 1
+      fi
+    else
+      echo "⚠️  Unsupported OS — please install Ollama manually."
+      exit 1
+    fi
+  fi
+
+  echo "✅ Ollama found: $(ollama --version 2>/dev/null || echo 'unknown')"
+
+  # 2) Ensure Ollama service is running
+  if ! pgrep -f "ollama serve" >/dev/null 2>&1; then
+    echo "▶️  Starting Ollama service on ${OLLAMA_HOST}…"
+    export OLLAMA_HOST="${OLLAMA_HOST}"
+    nohup ollama serve >/tmp/ollama.log 2>&1 &
+    sleep 3
+  else
+    echo "✅ Ollama service already running."
+  fi
+
+  # 3) Verify it’s reachable
+  if curl -sf "http://localhost:11434/api/tags" >/dev/null 2>&1; then
+    echo "✅ Ollama API reachable at http://localhost:11434"
+  else
+    echo "⚠️  Ollama API not responding — waiting up to 20s..."
+    for i in {1..20}; do
+      if curl -sf "http://localhost:11434/api/tags" >/dev/null 2>&1; then
+        echo "✅ Ollama API reachable now."
+        break
+      fi
+      sleep 1
+    done
+  fi
+
+  # 4) Preload requested models
+  for model in "${MODELS[@]}"; do
+    echo "📦 Ensuring model '${model}' is available..."
+    if ! ollama show "${model%%:*}" >/dev/null 2>&1; then
+      echo "⬇️  Pulling ${model}..."
+      ollama pull "${model}"
+    else
+      echo "✅ Model '${model}' already present."
+    fi
+  done
+
+  echo "🎉 Ollama setup complete. Listening on ${OLLAMA_HOST}"
+}
+
+
 # --- Ensure psql and alembic installed -------------------------------------
 ensure_postgres_tools() {
   echo "🔍 Checking for PostgreSQL client (psql)…"
@@ -824,7 +887,7 @@ check_ollama_ready() {
 }
 
 
-check_ollama_ready
+ensure_ollama_local
 
 # --- Bash 3.x compatibility shims (macOS default shell lacks mapfile/readarray) ---
 if ! command -v mapfile >/dev/null 2>&1; then
@@ -3774,28 +3837,27 @@ logs_menu() {
     echo "16) Logs container 'kibana'"
     echo "17) Logs container 'kibana-pass-init'"
     echo "18) Logs container 'minio'"
-    echo "19) Logs container 'ollama'"
-    echo "20) Logs container 'om-elasticsearch'"
-    echo "21) Logs container 'openmetadata-ingestion'"
-    echo "22) Logs container 'openmetadata-mysql'"
-    echo "23) Logs container 'openmetadata-server'"
-    echo "24) Logs container 'osss_postgres'"
-    echo "25) Logs container 'postgres-airflow'"
-    echo "26) Logs container 'postgres-superset'"
-    echo "27) Logs container 'qdrant'"
-    echo "28) Logs container 'redis'"
-    echo "29) Logs container 'shared-vol-init'"
-    echo "30) Logs container 'superset'"
-    echo "31) Logs container 'superset-init'"
-    echo "32) Logs container 'superset_redis'"
-    echo "33) Logs container 'trino'"
-    echo "34) Logs container 'vault'"
-    echo "35) Logs container 'vault-oidc-setup'"
-    echo "36) Logs container 'vault-seed'"
-    echo "37) Logs container 'web'"
-    echo "38) Logs container 'chat-ui'"
-    echo "39) Logs container 'rasa-mentor'"
-    echo "40) Logs container 'tutor-db'"
+    echo "19) Logs container 'om-elasticsearch'"
+    echo "20) Logs container 'openmetadata-ingestion'"
+    echo "21) Logs container 'openmetadata-mysql'"
+    echo "22) Logs container 'openmetadata-server'"
+    echo "23) Logs container 'osss_postgres'"
+    echo "24) Logs container 'postgres-airflow'"
+    echo "25) Logs container 'postgres-superset'"
+    echo "26) Logs container 'qdrant'"
+    echo "27) Logs container 'redis'"
+    echo "28) Logs container 'shared-vol-init'"
+    echo "29) Logs container 'superset'"
+    echo "30) Logs container 'superset-init'"
+    echo "31) Logs container 'superset_redis'"
+    echo "32) Logs container 'trino'"
+    echo "33) Logs container 'vault'"
+    echo "34) Logs container 'vault-oidc-setup'"
+    echo "35) Logs container 'vault-seed'"
+    echo "36) Logs container 'web'"
+    echo "37) Logs container 'chat-ui'"
+    echo "38) Logs container 'rasa-mentor'"
+    echo "39) Logs container 'tutor-db'"
     echo "  q) Back"
     echo "-----------------------------------------------"
     read -rp "Select an option: " choice || return 0
@@ -3818,28 +3880,27 @@ logs_menu() {
       16) logs_follow_container "kibana" ;;
       17) logs_follow_container "kibana-pass-init" ;;
       18) logs_follow_container "minio" ;;
-      19) logs_follow_container "ollama" ;;
-      20) logs_follow_container "om-elasticsearch" ;;
-      21) logs_follow_container "openmetadata-ingestion" ;;
-      22) logs_follow_container "mysql" ;;
-      23) logs_follow_container "openmetadata-server" ;;
-      24) logs_follow_container "osss_postgres" ;;
-      25) logs_follow_container "postgres-airflow" ;;
-      26) logs_follow_container "postgres-superset" ;;
-      27) logs_follow_container "qdrant" ;;
-      28) logs_follow_container "redis" ;;
-      29) logs_follow_container "shared-vol-init" ;;
-      30) logs_follow_container "superset" ;;
-      31) logs_follow_container "superset-init" ;;
-      32) logs_follow_container "superset_redis" ;;
-      33) logs_follow_container "trino" ;;
-      34) logs_follow_container "vault" ;;
-      35) logs_follow_container "vault-oidc-setup" ;;
-      36) logs_follow_container "vault-seed" ;;
-      37) logs_follow_container "web" ;;
-      38) logs_follow_container "chat-ui" ;;
-      39) logs_follow_container "rasa-mentor" ;;
-      40) logs_follow_container "tutor-db" ;;
+      19) logs_follow_container "om-elasticsearch" ;;
+      20) logs_follow_container "openmetadata-ingestion" ;;
+      21) logs_follow_container "mysql" ;;
+      22) logs_follow_container "openmetadata-server" ;;
+      23) logs_follow_container "osss_postgres" ;;
+      24) logs_follow_container "postgres-airflow" ;;
+      25) logs_follow_container "postgres-superset" ;;
+      26) logs_follow_container "qdrant" ;;
+      27) logs_follow_container "redis" ;;
+      28) logs_follow_container "shared-vol-init" ;;
+      29) logs_follow_container "superset" ;;
+      30) logs_follow_container "superset-init" ;;
+      31) logs_follow_container "superset_redis" ;;
+      32) logs_follow_container "trino" ;;
+      33) logs_follow_container "vault" ;;
+      34) logs_follow_container "vault-oidc-setup" ;;
+      35) logs_follow_container "vault-seed" ;;
+      36) logs_follow_container "web" ;;
+      37) logs_follow_container "chat-ui" ;;
+      38) logs_follow_container "rasa-mentor" ;;
+      39) logs_follow_container "tutor-db" ;;
       q|Q|b|B) return 0 ;;
       *) echo "Unknown choice: ${choice}" ;;
     esac
@@ -4105,7 +4166,7 @@ down_profiles_menu() {
 
           echo "— post-clean check for stragglers —"
           # If any service containers lack the compose project label, kill them explicitly.
-          for name in chat-ui dvc ai-postgres ai-redis minio qdrant ollama; do
+          for name in chat-ui dvc ai-postgres ai-redis minio qdrant; do
             if sudo podman ps -a --format "{{.Names}}" | grep -qx "$name"; then
               # Remove only if container is NOT labeled with our compose project
               lbl="$(sudo podman inspect --format "{{ index .Config.Labels \"com.docker.compose.project\"}}" "$name" 2>/dev/null || true)"
@@ -4772,7 +4833,7 @@ EOF_MIN_FBEAT
         '
         ;;
       11)
-                # Deploy ai (with optional rebuild + clean redeploy)
+        # Deploy ai (with optional rebuild + clean redeploy)
         PROFILE="ai"
         PROJECT="osss-ai"
         FILE="docker-compose.yml"
@@ -4805,6 +4866,28 @@ EOF_MIN_FBEAT
           $VM_COMPOSE -f docker-compose.yml --profile ai config >/dev/null
         "
 
+        # (A.1) Preflight: verify local Ollama is reachable from host AND from the VM
+        echo "🔎 Preflight: checking local Ollama on host and from VM ..."
+        if ! curl -fsS http://localhost:11434/api/version >/dev/null; then
+          echo "❌ Host cannot reach local Ollama at http://localhost:11434"
+          echo "   Start it with:  ollama serve   (and ensure OLLAMA_HOST=0.0.0.0 if needed)"
+          exit 1
+        fi
+
+        podman machine ssh default -- bash -lc '
+          set -euo pipefail
+          if ! curl -fsS http://host.containers.internal:11434/api/tags >/dev/null; then
+            echo "❌ VM cannot reach host Ollama at http://host.containers.internal:11434"
+            echo "   Ensure the host service is listening on 0.0.0.0 and Podman VM can resolve host.containers.internal"
+            exit 2
+          fi
+        '
+        echo "✅ Preflight OK: host + VM can reach local Ollama"
+
+        # --- optional: export a default for compose if your compose uses ${OLLAMA_BASE} ---
+        export OLLAMA_BASE=${OLLAMA_BASE:-http://host.containers.internal:11434}
+
+
         # (B) Optional clean redeploy (full scrub to avoid "proxy already running")
         if [[ "${_redeploy}" = "1" ]]; then
           podman machine ssh default 'bash -s' <<'VMSCRUB'
@@ -4827,7 +4910,7 @@ sudo pkill -f pasta         || true
 sudo pkill -f conmon        || true
 
 echo "== rm named containers =="
-sudo podman rm -f ollama qdrant minio ai-redis ai-postgres dvc chat-ui 2>/dev/null || true
+sudo podman rm -f qdrant minio ai-redis ai-postgres dvc chat-ui 2>/dev/null || true
 
 echo "== rm pods (project + leftovers) =="
 sudo podman pod rm -f osss-ai 2>/dev/null || true
@@ -4940,57 +5023,6 @@ if attempt_up 2>up.err; then
   exit 0
 fi
 
-if grep -qi "proxy already running" up.err; then
-  echo "⛔ First up failed with proxy error:"
-  cat up.err
-  deep_scrub_ports
-
-  echo "🔁 Retrying up after deep scrub..."
-  rm -f up.err
-  if attempt_up 2>up.err; then
-    echo "✅ Up succeeded after deep scrub"
-    exit 0
-  fi
-
-  echo "🧹 Hard reset of Podman runtime (no image wipe)"
-  hard_reset_daemon
-
-  echo "🔁 Final retry after hard reset…"
-  rm -f up.err
-  if attempt_up 2>up.err; then
-    echo "✅ Up succeeded after hard reset"
-    exit 0
-  fi
-
-  if grep -qi "proxy already running" up.err; then
-    echo "🧪 Applying targeted host-network override for ollama (bypass port proxy)…"
-    cat >/work/docker-compose.ollama-hostnet.yml <<'YAML'
-services:
-  ollama:
-    network_mode: host
-    networks: null   # ensure inherited networks are removed
-    ports: []        # no port publishing when using host network
-YAML
-    echo "🔁 Retrying with override file (ollama on host network)…"
-    $COMPOSE -f /work/docker-compose.yml -f /work/docker-compose.ollama-hostnet.yml --profile ai down --remove-orphans || true
-    if $COMPOSE -f /work/docker-compose.yml -f /work/docker-compose.ollama-hostnet.yml --profile ai up -d --force-recreate; then
-      echo "✅ Up succeeded with ollama host-network override"
-      exit 0
-    else
-      echo "❌ Up failed even with host-network override:"
-      cat up.err || true
-      exit 125
-    fi
-  fi
-
-  echo "❌ Up failed after hard reset (different error):"
-  cat up.err
-  exit 125
-else
-  echo "❌ Up failed (non-proxy error):"
-  cat up.err
-  exit 125
-fi
 VMUP
 
         echo "✅ Deploy complete for profile '${PROFILE}'."

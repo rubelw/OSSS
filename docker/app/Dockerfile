@@ -52,7 +52,7 @@ RUN pip install --no-cache-dir \
       "openai>=1.39"
 
 # Talk to Ollama or your proxy using OpenAI-compatible /v1
-ENV OPENAI_BASE_URL="http://ollama:11434/v1" \
+ENV OPENAI_BASE_URL="http://host.containers.internal:11434/v1" \
     OPENAI_API_KEY="none" \
     LLM_MODEL="llama3.1"
 

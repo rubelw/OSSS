@@ -15,7 +15,7 @@ CFG_DIR = Path(os.getenv("OSSS_TUTOR_CONFIG_DIR", "/app/config/tutors")).expandu
 log.info("Tutor config dir = %s", CFG_DIR)
 
 
-OLLAMA_BASE = os.getenv("OLLAMA_BASE", "http://ollama:11434")
+OLLAMA_BASE = os.getenv("OLLAMA_BASE", "http://host.containers.internal:11434")
 log.info("Tutor: using OLLAMA_BASE=%s", OLLAMA_BASE)
 
 # Reusable short, sane timeouts: 5s connect, 30s read, 35s total
@@ -47,7 +47,7 @@ async def ollama_chat(model, messages, num_predict=512, temperature=0.2) -> str:
                 raise RuntimeError(
                     f"Ollama not found at {OLLAMA_BASE}/api/chat. "
                     f'Check OLLAMA_BASE. Example values: '
-                    f'"http://ollama:11434" (same network), '
+                    f'"http://host.containers.internal:11434" (same network), '
                     f'"http://host.containers.internal:11434" (host).'
                 )
             r.raise_for_status()
