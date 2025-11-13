@@ -1,20 +1,26 @@
-
 import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import Providers from "./providers";
-import Head from 'next/head';
+import Head from "next/head";
 import "./globals.css";
-import { SignOutButton } from '@/components/SignOutButton';
-import { SignInButton } from '@/components/SignInButton';
-
-
-
+import { SignOutButton } from "@/components/SignOutButton";
+import { SignInButton } from "@/components/SignInButton";
+import { isFeatureEnabled } from "../featureFlags";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const activitiesEnabled = isFeatureEnabled("activities");
+  const schoolBoardEnabled = isFeatureEnabled("schoolBoard");
+  const sisEnabled = isFeatureEnabled("sis");
+  const facilitiesEnabled = isFeatureEnabled("facilities");
+  const transportationEnabled = isFeatureEnabled("transportation");
+  const financeEnabled = isFeatureEnabled("finance");
+  const parentCommEnabled = isFeatureEnabled("parentCommunications");
+  const hrEnabled = isFeatureEnabled("humanResources");
+
   return (
     <html lang="en">
-    <Head>
+      <Head>
         <link rel="icon" href="/favicon.ico" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <link rel="manifest" href="/site.webmanifest" />
@@ -26,7 +32,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <header className="topbar">
               <div className="container topbar-inner">
                 <Link href="/" className="brand" aria-label="OSSS Home">
-                <Image
+                  <Image
                     src="/logo.png"
                     alt="OSSS logo"
                     width={28}
@@ -38,11 +44,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 </Link>
 
                 <nav className="topnav" aria-label="Primary">
-                  <Link href="/events">Activities/Events</Link>
+                  {activitiesEnabled && <Link href="/events">Activities/Events</Link>}
                 </nav>
 
                 <div className="actions">
-                  {/* Swap to real auth buttons if desired */}
                   <SignInButton />
                   <SignOutButton />
                 </div>
@@ -55,22 +60,23 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <section>
                   <h4>Quick Links</h4>
                   <Link href="/">Home</Link>
-                  <Link href="/events">Activities/Events</Link>
+                  {activitiesEnabled && <Link href="/events">Activities/Events</Link>}
                 </section>
 
                 <section>
                   <h4>Modules</h4>
-                  <Link href="/activities">Activities</Link>
-                  <Link href="/school-board">School Board</Link>
-                  <Link href="/sis">Student Information System</Link>
-                  <Link href="/facilities">Facilities</Link>
-                  <Link href="/transportation">Transportation</Link>
-                  <Link href="/finance">Finance</Link>
-                  <Link href="/parent-communications">Parent Communications</Link>
-                  <Link href="/human-resources">Human Resources</Link>
+                  {activitiesEnabled && <Link href="/activities">Activities</Link>}
+                  {schoolBoardEnabled && <Link href="/school-board">School Board</Link>}
+                  {sisEnabled && <Link href="/sis">Student Information System</Link>}
+                  {facilitiesEnabled && <Link href="/facilities">Facilities</Link>}
+                  {transportationEnabled && <Link href="/transportation">Transportation</Link>}
+                  {financeEnabled && <Link href="/finance">Finance</Link>}
+                  {parentCommEnabled && (
+                    <Link href="/parent-communications">Parent Communications</Link>
+                  )}
+                  {hrEnabled && <Link href="/human-resources">Human Resources</Link>}
                   <Link href="/administration">Administration</Link>
                   <Link href="/ai">AI</Link>
-
                 </section>
               </aside>
 
