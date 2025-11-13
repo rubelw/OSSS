@@ -381,22 +381,6 @@ jobs:
 ```
 ---
 
-### Running Chat
-
-```commandline
- curl -X POST \
-  'http://localhost:8081/v1/chat/completions' \
-  -H 'accept: application/json' \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "model": "llama3.1",     
-    "messages": [
-      {"role": "user", "content": "hello"}
-    ]
-  }'
-{"id":"chatcmpl-435","object":"chat.completion","created":1762655455,"model":"llama3.1","system_fingerprint":"fp_ollama","choices":[{"index":0,"message":{"role":"assistant","content":"Hello! How are you today? Is there something I can help you with or would you like to chat?"},"finish_reason":"stop"}],"usage":{"prompt_tokens":11,"completion_tokens":23,"total_tokens":34}}%  
-
-```
 
 ## 📜 License
 
