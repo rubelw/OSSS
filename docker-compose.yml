@@ -2090,14 +2090,9 @@ services:
     entrypoint: [ ]   # <— clear "rasa" entrypoint so bash runs
     command: >
       bash -lc "set -euo pipefail;
-                mkdir -p models;
-                rasa train --domain domain --data data --fixed-model-name current &&
-                exec rasa run
-                    --enable-api
-                    --cors '*'
-                    --model models/current.tar.gz
-                    --port 5005
-                    --debug"
+          mkdir -p models;
+          rasa train --domain domain --data data --fixed-model-name current;
+          exec rasa run --enable-api --cors '*' --model models/current.tar.gz --port 5005 --debug"
     working_dir: /app
     ports: [ "5005:5005" ]
     volumes:

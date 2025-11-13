@@ -71,6 +71,8 @@ except Exception:
     # fallback: import directly from the module
     from OSSS.tutors.router import router as tutor_router
 
+from OSSS.api.mentors import router as mentors_router
+
 
 # If you might be on Postgres/asyncpg, these imports let us detect specific violation types
 try:
@@ -495,6 +497,9 @@ def create_app() -> FastAPI:
         app.include_router(sessions_diag_router)
         app.include_router(logout_router)
         app.include_router(ai_gateway_router)
+
+        app.include_router(mentors_router, prefix="/rasa", tags=["mentors"])
+
 
         @app.get("/whoami", tags=["debug"])
         async def whoami(consul: Consul = Depends(consul_client)):
