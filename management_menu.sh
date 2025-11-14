@@ -37,6 +37,7 @@ export VM_TMP
 DEBUG=1
 
 
+
 VM_NAME="${VM_NAME:-default}"
 NONINTERACTIVE="${NONINTERACTIVE:-0}"
 
@@ -165,11 +166,58 @@ show_connections(){
   podman system connection list || true
 }
 
+start_ollama() {
+  echo "🧠 Starting Ollama service (menu action)…"
+  local OLLAMA_HOST="0.0.0.0"
+  local OLLAMA_PORT=11434
+
+  # If it's already running, just report status and exit
+  if pgrep -f "ollama serve" >/dev/null 2>&1; then
+    echo "✅ Ollama service already running."
+  else
+    echo "▶️  Ollama not running, starting on ${OLLAMA_HOST}:${OLLAMA_PORT}…"
+
+    # Ensure env vars are set for this server
+    export OLLAMA_HOST="${OLLAMA_HOST}"
+    export OLLAMA_PORT="${OLLAMA_PORT}"
+
+    # Start in background and log to /tmp
+    nohup ollama serve >/tmp/ollama.log 2>&1 &
+    sleep 3
+  fi
+
+  # Verify API is reachable on 11434
+  if curl -sf "http://localhost:${OLLAMA_PORT}/api/tags" >/dev/null 2>&1; then
+    echo "✅ Ollama API reachable at http://localhost:${OLLAMA_PORT}"
+  else
+    echo "⚠️  Ollama API not responding — waiting up to 20s..."
+    for i in {1..20}; do
+      if curl -sf "http://localhost:${OLLAMA_PORT}/api/tags" >/dev/null 2>&1; then
+        echo "✅ Ollama API reachable now at http://localhost:${OLLAMA_PORT}"
+        break
+      fi
+      sleep 1
+    done
+
+    # Final check
+    if ! curl -sf "http://localhost:${OLLAMA_PORT}/api/tags" >/dev/null 2>&1; then
+      echo "❌ Failed to confirm Ollama API on http://localhost:${OLLAMA_PORT}"
+    fi
+  fi
+
+  # Optional pause if you use this helper elsewhere
+  if type press_any_key_to_continue >/dev/null 2>&1; then
+    press_any_key_to_continue
+  fi
+}
+
+
 # --- Ensure Ollama is installed and running locally with preloaded models ---
 ensure_ollama_local() {
   echo "🧠 Ensuring Ollama is installed and running locally with preloaded models…"
   local MODELS=("llama3.1:latest" "all-minilm:latest" "nomic-embed-text:latest")
-  local OLLAMA_HOST="0.0.0.0:11434"
+  local OLLAMA_HOST="0.0.0.0"
+  local OLLAMA_PORT=11434
 
   # 1) Check for Ollama binary
   if ! command -v ollama >/dev/null 2>&1; then
@@ -515,7 +563,13 @@ ensure_podman_ready() {
 }
 
 
-
+rebuild_additional_llm_index() {
+  echo "🧠 Rebuilding additional_llm_data PDF index for Ollama…"
+  ensure_ollama_local          # already defined earlier
+  ensure_python_venv "$@"      # your existing venv bootstrap
+  python3 scripts/index_additional_llm_data_with_ollama.py
+  echo "✅ Index rebuild complete."
+}
 
 
 # Ensure the rootless Podman user socket is running inside the Podman VM
@@ -3276,6 +3330,42 @@ EOF
   prompt_return
 }
 
+stop_ollama() {
+  echo "🛑 Stopping Ollama service…"
+
+  # 1) Try Homebrew service (if installed that way)
+  if command -v brew >/dev/null 2>&1; then
+    if brew services list 2>/dev/null | grep -q "^ollama\b"; then
+      echo " - Stopping ollama via brew services…"
+      brew services stop ollama || true
+    fi
+  fi
+
+  # 2) Try launchctl (default macOS service)
+  if command -v launchctl >/dev/null 2>&1 && launchctl list 2>/dev/null | grep -q "io.ollama"; then
+    echo " - Stopping io.ollama via launchctl…"
+    launchctl stop io.ollama || true
+  fi
+
+  # 3) Kill any leftover user processes (like ones started by management_menu.sh)
+  if pgrep -f "ollama" >/dev/null 2>&1; then
+    echo " - Killing remaining ollama processes…"
+    pkill -f "ollama" || true
+  fi
+
+  # 4) Verify status
+  if curl -sSf http://localhost:11434/api/tags >/dev/null 2>&1; then
+    echo "⚠️ Ollama still appears to be running on http://localhost:11434"
+  else
+    echo "✅ Ollama appears to be stopped."
+  fi
+
+  # If you already have this helper in your script:
+  if type press_any_key_to_continue >/dev/null 2>&1; then
+    press_any_key_to_continue
+  fi
+}
+
 
 # Return 0 if safe to proceed; nonzero if storage looks broken.
 # Logs only; does NOT modify system state. You can opt-in to auto fixes via env flags.
@@ -3615,6 +3705,26 @@ podman_vm_stop() {
     echo "✅ Rootful Podman VM '${NAME}' stopped successfully."
   else
     echo "⚠️  VM '${NAME}' may already be stopped or unreachable."
+  fi
+}
+
+delete_additional_llm_embeddings() {
+  local INDEX_DIR="$(dirname "$0")/vector_index_additional_llm_data"
+
+  echo "🧹 Deleting existing PDF embeddings index…"
+  echo "Target directory: $INDEX_DIR"
+
+  if [[ ! -d "$INDEX_DIR" ]]; then
+    echo "⚠️ No embeddings directory exists. Nothing to delete."
+    return
+  fi
+
+  read -p "This will PERMANENTLY delete all embeddings. Continue? (y/N): " REPLY
+  if [[ "$REPLY" =~ ^[Yy]$ ]]; then
+    rm -rf "$INDEX_DIR"
+    echo "✅ Embeddings index deleted."
+  else
+    echo "❎ Cancelled."
   fi
 }
 
@@ -4207,6 +4317,10 @@ utilities_menu() {
     echo " 10) Diagnose container restart"
     echo " 11) List tutor-db tables"
     echo " 12) Delete a container by name/ID"
+    echo " 13) Rebuild LLM index"
+    echo " 14) Stop Ollama"
+    echo " 15) Start Ollama"
+    echo " 16) Delete LLM embeddings"
     echo "  q) Back"
     echo "-----------------------------------------------"
     read -rp "Select an option: " choice || return 0
@@ -4427,6 +4541,17 @@ REMOTE
             echo "   Hint: ensure the container exists in the selected context."
           fi
         fi
+        ;;
+      13) rebuild_additional_llm_index
+        ;;
+      14)
+        stop_ollama
+        ;;
+      15)
+        start_ollama
+        ;;
+      16)
+        delete_additional_llm_embeddings
         ;;
       q|Q|b|B)
         return 0
