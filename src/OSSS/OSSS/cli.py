@@ -19,7 +19,7 @@ from rich.prompt import Confirm
 
 # --- TOML IO (py3.11 stdlib reader + tomli_w for writing) ---
 try:
-    import tomllib  # Python 3.11+
+    import tomllib  # Python 3.10+
 except ModuleNotFoundError:  # pragma: no cover
     import tomli as tomllib  # type: ignore
 from tomli_w import dump as toml_dump

@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "open-schools"
 version = "0.0.0.dev2"  # static to avoid dynamic import during build
 description = "Open Source School Software(OSSS)"
-requires-python = ">=3.11"
+requires-python = ">=3.10"
 license = { text = "Apache-2.0" }  # SPDX, avoids the classifier warning
 keywords = ["Keycloak", "FastAPI", "Authentication", "Authorization", "School"]
 
@@ -95,7 +95,6 @@ dependencies = [
     "rich",
     "tomli_w",
 
-
     "python-keycloak-client>=0.2.3",
     "python-consul2>=0.1.5",
     "python-json-logger>=3.3.0",
@@ -109,8 +108,6 @@ dependencies = [
     "pypdf>=4.0.0",
     "chromadb>=0.5.5",
 ]
-
-
 
 [project.optional-dependencies]
 server = ["gunicorn>=21.2"]
@@ -129,11 +126,9 @@ dev = [
     "sortedcontainers>=2.4.0",
     "trio>=0.30.0",
     "pytest-dotenv>=0.5.2",
-    "python-consul2>=0.1.5"
-
-
-
+    "python-consul2>=0.1.5",
 ]
+
 
 [project.urls]
 documentation = "https://osss.com/"
@@ -144,7 +139,6 @@ issues = "https://github.com/rubelw/OSSS/issues"
 [tool.setuptools]
 package-dir = {"" = "src"}
 
-# Make package discovery explicit; exclude non-package folders to avoid flat-layout conflicts
 [tool.setuptools.packages.find]
 where = ["src"]
 include = ["OSSS*"]
@@ -153,7 +147,6 @@ exclude = ["tests*", "apps*", "examples*", "scripts*", "alembic*"]
 [tool.setuptools.dynamic]
 readme = { file = ["README.md"], content-type = "text/markdown" }
 
-# include non-Python files (menu.json, etc.)
 [tool.setuptools.package-data]
 "osss_cli" = ["assets/*.json"]
 

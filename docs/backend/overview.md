@@ -3,7 +3,7 @@
 _This page documents the **backend** application located at:_  
 `src/OSSS` (commit **e7c3fcf69557527d1c09b9d47096fac63c0af246**).
 
-The backend is built with **FastAPI** and **Python 3.11+**. It exposes REST endpoints with an
+The backend is built with **FastAPI** and **Python 3.10+**. It exposes REST endpoints with an
 OpenAPI schema, integrates with **Keycloak** for authentication (OIDC), and is designed to run in
 containers for local and production environments.
 

@@ -213,9 +213,11 @@ start_ollama() {
 
 
 # --- Ensure Ollama is installed and running locally with preloaded models ---
+# --- Ensure Ollama is installed and running locally with preloaded models ---
 ensure_ollama_local() {
   echo "🧠 Ensuring Ollama is installed and running locally with preloaded models…"
-  local MODELS=("llama3.1:latest" "all-minilm:latest" "nomic-embed-text:latest")
+  # Use Mistral as the main chat model, keep embed models as-is
+  local MODELS=("mistral:latest" "all-minilm:latest" "nomic-embed-text:latest")
   local OLLAMA_HOST="0.0.0.0"
   local OLLAMA_PORT=11434
 
@@ -248,13 +250,13 @@ ensure_ollama_local() {
   fi
 
   # 3) Verify it’s reachable
-  if curl -sf "http://localhost:11434/api/tags" >/dev/null 2>&1; then
-    echo "✅ Ollama API reachable at http://localhost:11434"
+  if curl -sf "http://localhost:${OLLAMA_PORT}/api/tags" >/dev/null 2>&1; then
+    echo "✅ Ollama API reachable at http://localhost:${OLLAMA_PORT}"
   else
     echo "⚠️  Ollama API not responding — waiting up to 20s..."
     for i in {1..20}; do
-      if curl -sf "http://localhost:11434/api/tags" >/dev/null 2>&1; then
-        echo "✅ Ollama API reachable now."
+      if curl -sf "http://localhost:${OLLAMA_PORT}/api/tags" >/dev/null 2>&1; then
+        echo "✅ Ollama API reachable now at http://localhost:${OLLAMA_PORT}"
         break
       fi
       sleep 1
@@ -888,10 +890,14 @@ echo "$PODMAN_OVERLAY_DIR"   # sanity check; should exist inside VM
 # --- Ollama preflight check (volume-aware, nounset-safe) ---
 # Ensure host Ollama is ready and that MODEL is present in ./ollama_data/models
 # Usage: check_ollama_ready [model_name]
+# --- Ollama preflight check (volume-aware, nounset-safe) ---
+# Ensure host Ollama is ready and that MODEL is present in ./ollama_data/models
+# Usage: check_ollama_ready [model_name]
 check_ollama_ready() {
   set -euo pipefail
 
-  local MODEL_NAME="${1:-llama3.1}"
+  # Default to Mistral if no explicit model passed
+  local MODEL_NAME="${1:-mistral}"
   # Allow override via env; default to ./ollama_data
   local OLLAMA_DATA_DIR="${OLLAMA_DATA_DIR:-./ollama_data}"
   local MODELS_DIR="${OLLAMA_DATA_DIR%/}/models"
@@ -913,9 +919,7 @@ check_ollama_ready() {
   fi
   if [ ! -f "${HOME}/.ollama/id_ed25519" ]; then
     echo "🔑 Initializing Ollama registry key (~/.ollama/id_ed25519)"
-    # Try the easy way (starts server briefly which generates the key)
     (OLLAMA_MODELS="${MODELS_DIR}" ollama serve >/dev/null 2>&1 & sleep 2; kill $! >/dev/null 2>&1 || true) || true
-    # Fallback: generate a key if it still doesn't exist
     if [ ! -f "${HOME}/.ollama/id_ed25519" ]; then
       ssh-keygen -t ed25519 -f "${HOME}/.ollama/id_ed25519" -N "" >/dev/null
     fi
@@ -928,7 +932,6 @@ check_ollama_ready() {
   fi
   echo "📦 Using OLLAMA_MODELS=${MODELS_DIR}"
 
-  # Helper to run ollama against our models dir
   _ollama() { OLLAMA_MODELS="${MODELS_DIR}" ollama "$@"; }
 
   # 4) Check model; pull if missing
@@ -1234,6 +1237,44 @@ install_from_pyproject() {
   )
 }
 
+train_rasa_locally() {
+  # Resolve repo root based on this script’s location
+  local ROOT_DIR
+  ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
+  local RASA_DIR="$ROOT_DIR/rasa"
+
+  if [[ ! -d "$RASA_DIR" ]]; then
+    echo "❌ Could not find Rasa project at: $RASA_DIR"
+    echo "   (Expected OSSS repo layout with 'rasa/' next to management_menu.sh.)"
+    return 1
+  fi
+
+
+  (
+    cd "$RASA_DIR" || exit 1
+
+
+    # Install Rasa into THIS venv if it's not already available
+    if ! command -v rasa >/dev/null 2>&1; then
+      echo "📦 Installing Rasa into current venv"
+      pip install -U pip setuptools wheel
+      pip install "rasa[full]>=3.5,<3.7" "rasa-sdk>=3.5,<3.7"
+    fi
+
+    # Now actually train
+    rasa train --domain domain
+  ) || {
+    echo "❌ rasa train failed."
+    return 1
+  }
+
+  echo
+  echo "✅ Rasa model trained successfully."
+  echo "   To apply it in the Podman stack, restart the rasa-mentor service, for example:"
+  echo "     podman-compose restart rasa-mentor"
+}
+
+
 # ---- entrypoint (keep this near the end of the file) ----
 
 # 1) One-time virtualenv bootstrap that re-execs the script once
@@ -1246,20 +1287,34 @@ ensure_python_venv() {
   # Detect venv; if missing, create it and re-exec this script once
   if [[ -z "${VIRTUAL_ENV:-}" && ! -d ".venv" ]]; then
     echo "⚠️  Not running inside a Python virtual environment."
-    read -r -p "Create and use '$(pwd)/.venv' and install packages from pyproject.toml? [Y/n] " ans
+    read -r -p "Create and use '$(pwd)/.venv' with Python 3.10 (fallback to system python3) and install packages from pyproject.toml? [Y/n] " ans
     ans=${ans:-Y}
     if [[ "$ans" =~ ^[Yy]$ ]]; then
-      python3 -m venv .venv
+      # Prefer python3.10, allow override via OSSS_PYTHON_BIN, then fall back
+      local PY_BIN="${OSSS_PYTHON_BIN:-python3.10}"
+      if ! command -v "$PY_BIN" >/dev/null 2>&1; then
+        echo "⚠️  ${PY_BIN} not found; falling back to system Python (python3/python)."
+        # ensure_python_cmd is defined earlier in this script
+        PY_BIN="$(ensure_python_cmd)"
+      fi
+
+      echo "📦 Creating virtualenv with: $PY_BIN"
+      "$PY_BIN" -m venv .venv
       . .venv/bin/activate
       pip install -U pip setuptools wheel
+
       # If you have a pyproject.toml in repo:
-      pip install .
+      if [[ -f "pyproject.toml" ]]; then
+        pip install .
+      fi
+
       # IMPORTANT: mark as bootstrapped and re-exec so the rest of the script runs inside the venv
       export OSSS_VENV_BOOTSTRAPPED=1
       exec "$0" "$@"
     fi
   fi
 }
+
 
 # 2) Always run bootstrap (it’s a no-op after first run)
 ensure_python_venv "$@"
@@ -4321,6 +4376,7 @@ utilities_menu() {
     echo " 14) Stop Ollama"
     echo " 15) Start Ollama"
     echo " 16) Delete LLM embeddings"
+    echo " 17) Train RASA locally"
     echo "  q) Back"
     echo "-----------------------------------------------"
     read -rp "Select an option: " choice || return 0
@@ -4552,6 +4608,9 @@ REMOTE
         ;;
       16)
         delete_additional_llm_embeddings
+        ;;
+      17)
+        train_rasa_locally
         ;;
       q|Q|b|B)
         return 0

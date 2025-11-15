@@ -57,18 +57,25 @@ export function stripGuardNoise(s: string): string {
 export function joinRasaBubbles(raw: string): string {
   try {
     const arr = JSON.parse(raw);
+
     if (Array.isArray(arr)) {
-      return arr
-        .map(
-          (m) =>
-            m.text ||
-            m.image ||
-            (typeof m.custom === "string" ? m.custom : "")
+      // Extract and clean message bubbles
+      let candidate = arr
+        .map((m) =>
+          (m.text ?? m.image ?? (typeof m.custom === "string" ? m.custom : "") ?? "")
+            .toString()
+            .trim()
         )
         .filter(Boolean)
-        .join("\n\n");
+        .join("\n"); // ← single newline, not "\n\n"
+
+      // Collapse accidental multiple newlines (3+ → 1)
+      candidate = candidate.replace(/\n{2,}/g, "\n").trim();
+
+      return candidate;
     }
-    return typeof arr === "string" ? arr : raw;
+
+    return typeof arr === "string" ? arr.trim() : raw;
   } catch {
     return raw;
   }

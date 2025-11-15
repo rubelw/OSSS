@@ -63,66 +63,79 @@ export async function POST(req: NextRequest) {
     const candidate = joinRasaBubbles(rasaRaw) || "";
 
     // 3) Send candidate through guard
-    const guardMessages = [
-      {
-        role: "system",
-        content:
-          "You are an output safety gateway. If the provided 'candidate' text is safe and compliant, " +
-          "return it VERBATIM as your message. If unsafe, refuse with a brief safe alternative.",
-      },
-      { role: "user", content: `candidate:\n${candidate}` },
-    ];
+    // const guardMessages = [
+    //  {
+    //    role: "system",
+    //    content:
+    //      "You are an output safety gateway. If the provided 'candidate' text is safe and compliant, " +
+    //      "return it VERBATIM as your message. If unsafe, refuse with a brief safe alternative.",
+    //  },
+    //  { role: "user", content: `candidate:\n${candidate}` },
+    // ];
 
-    const safeResp = await fetch(`${SAFE_BASE}${SAFE_PATH}`, {
-      method: "POST",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-        Authorization: req.headers.get("authorization") ?? "",
-      },
-      body: JSON.stringify({
-        model: "llama3.1",
-        messages: guardMessages,
-        temperature: 0.2,
-        max_tokens: 512,
-        stream: false,
-      }),
-    });
+    // const safeResp = await fetch(`${SAFE_BASE}${SAFE_PATH}`, {
+    //   method: "POST",
+    //   headers: {
+    //     Accept: "application/json",
+    //     "Content-Type": "application/json",
+    //     Authorization: req.headers.get("authorization") ?? "",
+    //   },
+    //   body: JSON.stringify({
+    //     model: "llama3.1",
+    //     messages: guardMessages,
+    //     temperature: 0.2,
+    //     max_tokens: 512,
+    //     stream: false,
+    //   }),
+    // });
 
-    const safeRaw = await safeResp.text();
-    let safeJson: any;
-    try {
-      safeJson = JSON.parse(safeRaw);
-    } catch {
-      safeJson = undefined;
-    }
+    // const safeRaw = await safeResp.text();
+    // let safeJson: any;
+    // try {
+    //   safeJson = JSON.parse(safeRaw);
+    // } catch {
+    //   safeJson = undefined;
+    // }
 
-    if (!safeResp.ok) {
-      const reason =
-        safeJson?.detail?.reason ||
-        safeJson?.detail ||
-        safeJson ||
-        safeRaw ||
-        `HTTP ${safeResp.status}`;
-      return NextResponse.json(
-        { error: "guard_block", detail: reason },
-        { status: safeResp.status }
-      );
-    }
+    // if (!safeResp.ok) {
+    //   const reason =
+    //     safeJson?.detail?.reason ||
+    //     safeJson?.detail ||
+    //     safeJson ||
+    //     safeRaw ||
+    //     `HTTP ${safeResp.status}`;
+    //   return NextResponse.json(
+    //     { error: "guard_block", detail: reason },
+    //     { status: safeResp.status }
+    //   );
+    // }
 
-    let guarded =
-      safeJson?.message?.content ??
-      safeJson?.choices?.[0]?.message?.content ??
-      safeJson?.choices?.[0]?.text ??
-      safeRaw;
+    // let guarded =
+    //   safeJson?.message?.content ??
+    //   safeJson?.choices?.[0]?.message?.content ??
+    //   safeJson?.choices?.[0]?.text ??
+    //   safeRaw;
 
-    guarded = stripGuardNoise(guarded || "");
+    // guarded = stripGuardNoise(guarded || "");
 
     // ChatClient expects Rasa-like array: [{ recipient_id, text }]
+    // return NextResponse.json(
+    //   [{ recipient_id: sender || "user", text: guarded }],
+    //   { status: 200 }
+    // );
+
+    // 3) Return Rasa's candidate directly (no guard)
     return NextResponse.json(
-      [{ recipient_id: sender || "user", text: guarded }],
+      [
+        {
+          recipient_id: sender || "user",
+          text: candidate,
+        },
+      ],
       { status: 200 }
     );
+
+
   } catch (err: any) {
     console.error("Rasa chat-safe proxy error:", err);
     return NextResponse.json(

@@ -72,7 +72,7 @@ I’m building the next generation of school software as an open, participatory 
 
 ### Prerequisites
 - Git, Docker (or Podman), Docker Compose
-- Node.js LTS (for the web UI), Python 3.11+ (for FastAPI) — per app stack
+- Node.js LTS (for the web UI), Python 3.10+ (for FastAPI) — per app stack
 
 ### Quick start
 ```bash
@@ -118,7 +118,7 @@ Visit the app-specific README(s) for service URLs (e.g. API docs at `/docs`, web
 
 ## Backend (FastAPI) highlights
 
-- **Python 3.11+ FastAPI service** with typed routers, Pydantic models, and OpenAPI docs.
+- **Python 3.10+ FastAPI service** with typed routers, Pydantic models, and OpenAPI docs.
 - **Auth integration** (Keycloak/SSO ready), database setup, and migration tooling (Alembic).
 - **Testing** via `pytest`, configuration via `pyproject.toml`/`setup.cfg`.
 
