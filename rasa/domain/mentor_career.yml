@@ -6,6 +6,7 @@ intents:
   - provide_subject_strengths
   - provide_values
   - provide_constraints
+  - provide_grade_level
   - affirm
   - deny
   - restart
@@ -101,6 +102,18 @@ forms:
       - constraints
 
 responses:
+  utter_start_career_mentor:
+    - text: >
+        Welcome to the career mentor. I’ll ask a few quick questions
+        about your interests, strengths, values, and constraints, then 
+        suggest some possible paths you can explore.
+
+  utter_career_summary:
+    - text: >
+        Here’s a quick summary of what you shared and some potential 
+        paths to explore. You can ask me to go deeper on any of them.
+
+
   utter_greet_career:
     - text: "Let’s explore some career paths together. I’ll ask a few quick questions."
 
@@ -126,9 +139,11 @@ responses:
     - text: "Great. I can list HS courses, CTE options, dual-credit, and starter certifications aligned to those paths."
 
   utter_greet:
-    - text: "Hi there! You can say 'start career mentor' or 'start geography mentor'."
+    - text: "Hi there! You can say 'start career mentor'."
 
   utter_goodbye:
     - text: "Thanks for chatting. Goodbye!"
+
 actions:
   - action_suggest_careers
+  - action_career_mentor_summary

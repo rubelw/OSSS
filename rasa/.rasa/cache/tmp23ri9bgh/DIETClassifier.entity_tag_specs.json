@@ -1,0 +1,44 @@
+[
+  {
+    "tag_name": "entity",
+    "ids_to_tags": {
+      "1": "B-constraint",
+      "2": "I-constraint",
+      "3": "L-constraint",
+      "4": "U-constraint",
+      "5": "B-interest",
+      "6": "I-interest",
+      "7": "L-interest",
+      "8": "U-interest",
+      "9": "B-subject",
+      "10": "I-subject",
+      "11": "L-subject",
+      "12": "U-subject",
+      "13": "B-value",
+      "14": "I-value",
+      "15": "L-value",
+      "16": "U-value",
+      "0": "O"
+    },
+    "tags_to_ids": {
+      "B-constraint": 1,
+      "I-constraint": 2,
+      "L-constraint": 3,
+      "U-constraint": 4,
+      "B-interest": 5,
+      "I-interest": 6,
+      "L-interest": 7,
+      "U-interest": 8,
+      "B-subject": 9,
+      "I-subject": 10,
+      "L-subject": 11,
+      "U-subject": 12,
+      "B-value": 13,
+      "I-value": 14,
+      "L-value": 15,
+      "U-value": 16,
+      "O": 0
+    },
+    "num_tags": 17
+  }
+]

@@ -43,8 +43,7 @@ async def list_mentors() -> List[MentorInfo]:
 
     mentors: list[MentorInfo] = []
 
-    # In your domain JSON, intents is a list of strings:
-    # "affirm", "start_career_mentor", "start_geography_mentor", ...
+    # In your domain JSON, intents is a list of strings:, "start_geography_mentor", ...
     for item in intents:
         if isinstance(item, str):
             name = item

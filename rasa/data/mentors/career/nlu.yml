@@ -1,0 +1,47 @@
+version: "3.1"
+nlu:
+  - intent: start_career_mentor
+    examples: |
+      - start career mentor
+      - start the career mentor
+      - open the career mentor
+      - I want help picking a career
+      - help me choose a career path
+      - career guidance
+      - not sure what job I want
+      - explore careers
+
+  - intent: provide_interests
+    examples: |
+      - I'm interested in technology and coding
+      - I like helping people and working with kids
+      - I'm into art and design
+      - I enjoy sports and being active
+
+  - intent: provide_subject_strengths
+    examples: |
+      - I'm good at math and science
+      - I usually do well in English
+      - history and social studies are my best
+      - I get good grades in computer science
+
+  - intent: provide_values
+    examples: |
+      - I want to help people
+      - I care about making a difference
+      - I want a stable job with good pay
+      - flexibility is important to me
+
+  - intent: provide_constraints
+    examples: |
+      - I have to stay near my hometown
+      - I can't work evenings
+      - I don't have a car
+      - I need something that works with my health needs
+
+  - intent: provide_grade_level
+    examples: |
+      - I'm in 8th grade
+      - I'm a freshman in high school
+      - I'm a junior
+      - I'm in 12th grade

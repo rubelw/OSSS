@@ -1237,6 +1237,70 @@ install_from_pyproject() {
   )
 }
 
+
+_restart_rasa_mentor_container() {
+  local NAME="rasa-mentor"
+
+  # Pick an active Podman VM; fall back to 'default'
+  local vm
+  vm="$(podman machine active 2>/dev/null || echo default)"
+
+  if [[ -z "${vm:-}" ]]; then
+    echo "[rasa-restart] No Podman machine found; cannot restart '$NAME'."
+    echo "    Start one with:"
+    echo "        podman machine init && podman machine start"
+    return 1
+  fi
+
+  echo "[rasa-restart] Looking for container '$NAME' in Podman VM '${vm}' (rootful → rootless)…"
+
+  # Detect whether the container lives in rootful or rootless context inside the VM
+  local remote_prefix="" ctx_name=""
+
+  # Rootful first
+  if podman machine ssh "$vm" -- sudo podman ps -a --format '{{.Names}}' 2>/dev/null | grep -wq "$NAME"; then
+    remote_prefix="sudo podman"
+    ctx_name="rootful"
+  # Then rootless
+  elif podman machine ssh "$vm" -- podman ps -a --format '{{.Names}}' 2>/dev/null | grep -wq "$NAME"; then
+    remote_prefix="podman"
+    ctx_name="rootless"
+  else
+    echo "⚠️  Container '$NAME' not found in VM '${vm}' (rootful or rootless)."
+    echo "    From the OSSS repo inside the VM you can create it with something like:"
+    echo "        podman machine ssh ${vm} -- bash -lc 'cd /work/OSSS && sudo podman compose up -d ${NAME}'"
+    return 1
+  fi
+
+  echo "[rasa-restart] Found '$NAME' in [${ctx_name}] context inside VM '${vm}'."
+  echo "[rasa-restart] Restarting via: ${remote_prefix} …"
+
+  # Restart (or start) inside the VM using the chosen context
+  if podman machine ssh "$vm" -- bash -lc "
+set -euo pipefail
+NAME='$NAME'
+BECOME='$remote_prefix'
+
+if \$BECOME ps --format '{{.Names}}' 2>/dev/null | grep -wq \"\$NAME\"; then
+  echo '♻️  Restarting '\"\$NAME\"'…'
+  \$BECOME restart \"\$NAME\"
+else
+  echo '▶️  '\"\$NAME\"' exists but is stopped. Starting…'
+  \$BECOME start \"\$NAME\"
+fi
+"; then
+    echo "✅ '$NAME' restarted/started successfully inside VM '${vm}' [${ctx_name}]."
+    return 0
+  else
+    echo "❌ Failed to restart/start '$NAME' inside VM '${vm}' [${ctx_name}]."
+    echo "   Try running manually:"
+    echo "     podman machine ssh ${vm} -- ${remote_prefix} restart ${NAME}"
+    return 1
+  fi
+}
+
+
+
 train_rasa_locally() {
   # Resolve repo root based on this script’s location
   local ROOT_DIR
@@ -1245,33 +1309,29 @@ train_rasa_locally() {
 
   if [[ ! -d "$RASA_DIR" ]]; then
     echo "❌ Could not find Rasa project at: $RASA_DIR"
-    echo "   (Expected OSSS repo layout with 'rasa/' next to management_menu.sh.)"
     return 1
   fi
-
 
   (
     cd "$RASA_DIR" || exit 1
 
-
-    # Install Rasa into THIS venv if it's not already available
     if ! command -v rasa >/dev/null 2>&1; then
       echo "📦 Installing Rasa into current venv"
       pip install -U pip setuptools wheel
-      pip install "rasa[full]>=3.5,<3.7" "rasa-sdk>=3.5,<3.7"
+      pip install "rasa[full]==3.6.20" "rasa-sdk==3.6.2"
     fi
 
-    # Now actually train
-    rasa train --domain domain
+    echo "🧠 Training Rasa model…"
+    rasa train --domain domain --data data --fixed-model-name current
   ) || {
     echo "❌ rasa train failed."
     return 1
   }
 
-  echo
-  echo "✅ Rasa model trained successfully."
-  echo "   To apply it in the Podman stack, restart the rasa-mentor service, for example:"
-  echo "     podman-compose restart rasa-mentor"
+  echo "✅ Rasa model trained (models/current.tar.gz)."
+  echo "♻️ Restarting rasa-mentor container…"
+
+  _restart_rasa_mentor_container
 }
 
 

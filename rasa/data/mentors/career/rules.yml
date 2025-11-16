@@ -1,0 +1,24 @@
+version: "3.1"
+
+rules:
+  - rule: Start career mentor
+    steps:
+      - intent: start_career_mentor
+      - action: utter_greet_career          # short intro
+      - action: career_mentor_form          # start form
+      - active_loop: career_mentor_form
+
+  - rule: Submit career mentor form
+    condition:
+      - active_loop: career_mentor_form
+    steps:
+      - action: career_mentor_form
+      - active_loop: null                   # form is done
+      - action: action_suggest_careers      # compute suggested careers
+      - action: utter_career_followup       # "Want resources for any?"
+
+  - rule: Restart flow
+    steps:
+      - intent: restart
+      - action: action_restart
+      - action: utter_greet_career

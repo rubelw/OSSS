@@ -29,7 +29,6 @@ interface Mentor {
 
 const STATIC_MENTORS: Mentor[] = [
   { id: "career", intent: "start_career_mentor", label: "Career Mentor" },
-  { id: "geography", intent: "start_geography_mentor", label: "Geography Mentor" },
 ];
 
 function mdToHtml(src: string): string {
