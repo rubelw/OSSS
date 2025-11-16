@@ -575,7 +575,7 @@ rebuild_additional_llm_index() {
   API_BASE="http://localhost:8081"
 
   echo "🔁 Telling FastAPI to reload additional_llm_data embeddings..."
-  curl -s -X POST "${API_BASE}/ai/admin/reload-additional-index" \
+  curl -s -X POST q"${API_BASE}/ai/admin/reload-additional-index" \
     -H "Accept: application/json" \
     || echo "⚠️ Warning: failed to hit reload-additional-index endpoint"
 }
