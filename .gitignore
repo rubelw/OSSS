@@ -178,3 +178,11 @@ rasa/.rasa-venv/*
 
 rasa/models/
 rasa/models/*
+
+rasa/.rasa/
+rasa/.rasa/*
+
+vector_index_additional_llm_data/
+vector_index_additional_llm_data/*
+
+vector_index_*/

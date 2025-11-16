@@ -571,6 +571,13 @@ rebuild_additional_llm_index() {
   ensure_python_venv "$@"      # your existing venv bootstrap
   python3 scripts/index_additional_llm_data_with_ollama.py
   echo "✅ Index rebuild complete."
+
+  API_BASE="http://localhost:8081"
+
+  echo "🔁 Telling FastAPI to reload additional_llm_data embeddings..."
+  curl -s -X POST "${API_BASE}/ai/admin/reload-additional-index" \
+    -H "Accept: application/json" \
+    || echo "⚠️ Warning: failed to hit reload-additional-index endpoint"
 }
 
 

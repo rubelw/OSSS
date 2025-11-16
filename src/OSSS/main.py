@@ -63,6 +63,8 @@ from fastapi.responses import JSONResponse
 from fastapi import HTTPException as FastapiHTTPException
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from OSSS.ai import admin_additional_index_router
+
 # ⬇️ import the actual APIRouter instance
 try:
     # preferred if you added __init__.py above
@@ -492,6 +494,8 @@ def create_app() -> FastAPI:
                     }
                 },
             )
+
+        app.include_router(admin_additional_index_router.router)
 
         app.include_router(probe)
         app.include_router(sessions_diag_router)

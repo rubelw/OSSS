@@ -32,7 +32,7 @@ except Exception:
         PROMETHEUS_ENABLED: bool = os.getenv("PROMETHEUS_ENABLED", "1") not in ("0", "false", "False")
         VLLM_ENDPOINT: str = os.getenv("VLLM_ENDPOINT", "http://host.containers.internal:11434")
         TUTOR_TEMPERATURE: float = float(os.getenv("TUTOR_TEMPERATURE", "0.2"))
-        TUTOR_MAX_TOKENS: int = int(os.getenv("TUTOR_MAX_TOKENS", "512"))
+        TUTOR_MAX_TOKENS: int = int(os.getenv("TUTOR_MAX_TOKENS", "2048"))
         DEFAULT_MODEL: str = os.getenv("DEFAULT_MODEL", "llama3.1")
     settings = _Settings()  # type: ignore
 
@@ -168,7 +168,7 @@ async def chat_completions(
             model=getattr(settings, "DEFAULT_MODEL", "llama3.1"),
             messages=[ChatMessage(role="user", content=payload)],
             temperature=getattr(settings, "TUTOR_TEMPERATURE", 0.2),
-            max_tokens=getattr(settings, "TUTOR_MAX_TOKENS", 512),
+            max_tokens=getattr(settings, "TUTOR_MAX_TOKENS", 2048),
             stream=False,
         )
 
@@ -176,8 +176,26 @@ async def chat_completions(
     model = (payload.model or getattr(settings, "DEFAULT_MODEL", "llama3.1")).strip()
     if model == "llama3":  # simple alias
         model = "llama3.1"
-    temperature = payload.temperature if payload.temperature is not None else getattr(settings, "TUTOR_TEMPERATURE", 0.2)
-    max_tokens = payload.max_tokens if payload.max_tokens is not None else getattr(settings, "TUTOR_MAX_TOKENS", 512)
+
+    temperature = (
+        payload.temperature
+        if payload.temperature is not None
+        else getattr(settings, "TUTOR_TEMPERATURE", 0.2)
+    )
+
+    # ----- Option A: enforce a minimum completion size -----
+    DEFAULT_MAX_TOKENS = getattr(settings, "TUTOR_MAX_TOKENS", 2048)
+    MIN_COMPLETION_TOKENS = getattr(settings, "MIN_COMPLETION_TOKENS", 512)
+
+    requested = payload.max_tokens
+
+    if requested is None:
+        # No explicit max_tokens from client → use default
+        max_tokens = DEFAULT_MAX_TOKENS
+    else:
+        # Client provided a value → enforce a floor so we don't chop answers
+        max_tokens = max(requested, MIN_COMPLETION_TOKENS)
+    # ------------------------------------------------------
 
     # Redact inbound
     for m in payload.messages:
@@ -193,15 +211,27 @@ async def chat_completions(
         "model": model,
         "messages": [m.model_dump() for m in payload.messages],
         "temperature": temperature,
-        "max_tokens": max_tokens,
         "stream": False,
     }
 
-    async with httpx.AsyncClient(timeout=60.0) as client:
+    if max_tokens is not None:
+        openai_req["max_tokens"] = max_tokens
+
+    timeout = httpx.Timeout(
+        connect=10.0,
+        read=None,  # allow long responses
+        write=10.0,
+        pool=10.0,
+    )
+
+    async with httpx.AsyncClient(timeout=timeout) as client:
         try:
-            # Try OpenAI-compatible first
-            # Try OpenAI-compatible first
             r = await client.post(upstream_v1, json=openai_req)
+
+            print(
+                f"[chat_completions] upstream_v1 status={r.status_code} "
+                f"bytes={len(r.content)}"
+            )
 
             # Decide whether to fall back to Ollama native
             fallback = False
@@ -226,16 +256,21 @@ async def chat_completions(
 
             if fallback:
                 # Fallback to Ollama native /api/chat
+                options: dict = {
+                    "temperature": temperature,
+                }
+
+                if max_tokens is not None:
+                    # num_predict ~= max_tokens in Ollama
+                    options["num_predict"] = max_tokens
+
                 ollama_req = {
                     "model": model,
                     "messages": [m.model_dump() for m in payload.messages],
-                    "options": {
-                        "temperature": temperature,
-                        # num_predict ~= max_tokens
-                        "num_predict": max_tokens,
-                    },
+                    "options": options,
                     "stream": False,
                 }
+
                 r = await client.post(upstream_api, json=ollama_req)
                 if r.status_code >= 400:
                     raise HTTPException(
@@ -261,7 +296,7 @@ async def chat_completions(
                     "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
                 }
                 try:
-                    TOKENS_IN.inc(0);
+                    TOKENS_IN.inc(0)
                     TOKENS_OUT.inc(0)
                 except Exception:
                     pass
@@ -276,6 +311,89 @@ async def chat_completions(
 
             data = r.json()
 
+            # -------- DEBUG + optional auto-continue on bad tail --------
+            try:
+                choices = data.get("choices") or []
+                first = choices[0] if choices else {}
+                finish_reason = first.get("finish_reason")
+                usage = data.get("usage") or {}
+                msg = first.get("message") or {}
+                content = msg.get("content", "")
+
+                print(
+                    "[/v1/chat/completions] finish_reason=",
+                    finish_reason,
+                    " prompt_tokens=",
+                    usage.get("prompt_tokens"),
+                    " completion_tokens=",
+                    usage.get("completion_tokens"),
+                    " content_len=",
+                    len(content),
+                )
+                print("[/v1/chat/completions] content tail:", repr(content[-200:]))
+
+                # --- Heuristic: did we stop right after starting Consequences? ---
+                stripped = content.strip()
+                bad_tail = (
+                        stripped.endswith("**Consequences**")
+                        or stripped.endswith("**Consequences**\n*")
+                        or stripped.endswith("**Consequences**\n\n*")
+                        or stripped.endswith("\n**Consequences**\n\n*")
+                )
+
+                # Only try to auto-continue if we actually have some text
+                # AND we hit our heuristic pattern.
+                if bad_tail:
+                    print("[/v1/chat/completions] Detected truncated Consequences section, auto-continuing…")
+
+                    # Build a follow-up request that tells the model to finish the list.
+                    followup_messages = [m.model_dump() for m in payload.messages]
+                    followup_messages.append({
+                        "role": "user",
+                        "content": (
+                            "Please continue your previous answer. You just started the "
+                            "'Consequences' section and then stopped at a single bullet. "
+                            "Finish listing the consequences clearly as bullet points or "
+                            "short paragraphs, without repeating the entire earlier answer."
+                        ),
+                    })
+
+                    followup_req = {
+                        "model": model,
+                        "messages": followup_messages,
+                        "temperature": temperature,
+                        "stream": False,
+                    }
+                    if max_tokens is not None:
+                        followup_req["max_tokens"] = max_tokens
+
+                    r2 = await client.post(upstream_v1, json=followup_req)
+                    if r2.status_code < 400:
+                        data2 = r2.json()
+                        choices2 = data2.get("choices") or []
+                        if choices2:
+                            msg2 = (choices2[0].get("message") or {})
+                            extra = msg2.get("content") or ""
+                            print(
+                                "[/v1/chat/completions] auto-continue added",
+                                len(extra),
+                                "chars"
+                            )
+                            # Append continuation to original content
+                            msg["content"] = content.rstrip() + "\n\n" + extra
+
+                            # Optionally, update finish_reason to whatever the second call had
+                            first["finish_reason"] = choices2[0].get("finish_reason") or "stop"
+                    else:
+                        print(
+                            "[/v1/chat/completions] auto-continue followup failed "
+                            f"status={r2.status_code}"
+                        )
+
+            except Exception as e:
+                print("[/v1/chat/completions] debug/auto-continue inspection failed:", e)
+            # --------------------------------------------------------
+
             # Metrics (OpenAI-style)
             usage = data.get("usage") or {}
             try:
@@ -289,6 +407,24 @@ async def chat_completions(
                 msg = choice.get("message") or {}
                 if isinstance(msg.get("content"), str):
                     msg["content"] = redact_pii(msg["content"])
+
+            # --- Clean up stray trailing Markdown bullets like "*" after headers ---
+            for choice in data.get("choices", []):
+                msg = choice.get("message") or {}
+                content = msg.get("content", "")
+
+                # Remove cases like:
+                # "Consequences\n\n*"
+                content = content.replace("**Consequences**\n\n*", "**Consequences**\n")
+                content = content.replace("Consequences\n\n*", "Consequences\n")
+
+                # Remove any line that ONLY contains "*"
+                cleaned_lines = []
+                for line in content.splitlines():
+                    if line.strip() == "*":
+                        continue
+                    cleaned_lines.append(line)
+                msg["content"] = "\n".join(cleaned_lines)
 
             return JSONResponse(data)
 

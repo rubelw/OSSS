@@ -35,7 +35,7 @@ except Exception:
         PROMETHEUS_ENABLED: bool = os.getenv("PROMETHEUS_ENABLED", "1") not in ("0", "false", "False")
         VLLM_ENDPOINT: str = os.getenv("VLLM_ENDPOINT", "http://host.containers.internal:11434")
         TUTOR_TEMPERATURE: float = float(os.getenv("TUTOR_TEMPERATURE", "0.2"))
-        TUTOR_MAX_TOKENS: int = int(os.getenv("TUTOR_MAX_TOKENS", "512"))
+        TUTOR_MAX_TOKENS: int = int(os.getenv("TUTOR_MAX_TOKENS", "2048"))
     settings = _Settings()  # type: ignore
 
 # Prometheus (optional)
@@ -189,7 +189,7 @@ async def chat_completions(
     if payload.temperature is None:
         payload.temperature = getattr(settings, "TUTOR_TEMPERATURE", 0.2)
     if payload.max_tokens is None:
-        payload.max_tokens = getattr(settings, "TUTOR_MAX_TOKENS", 512)
+        payload.max_tokens = getattr(settings, "TUTOR_MAX_TOKENS", 2048)
 
     # Model aliasing
     model = (payload.model or "").strip()

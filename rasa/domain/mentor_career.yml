@@ -10,7 +10,6 @@ intents:
   - affirm
   - deny
   - restart
-  - inform   # (optional, used if you send plain numbers/text for grade)
   - greet
   - goodbye
   - ask_help

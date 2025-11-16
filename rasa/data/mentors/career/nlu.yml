@@ -4,12 +4,13 @@ nlu:
     examples: |
       - start career mentor
       - start the career mentor
+      - launch the career mentor
+      - begin the career mentor
       - open the career mentor
-      - I want help picking a career
-      - help me choose a career path
-      - career guidance
-      - not sure what job I want
-      - explore careers
+      - start career guidance
+      - I want to explore career options
+      - help me pick a career path
+      - I need help choosing a future job
 
   - intent: provide_interests
     examples: |
@@ -45,3 +46,4 @@ nlu:
       - I'm a freshman in high school
       - I'm a junior
       - I'm in 12th grade
+    
