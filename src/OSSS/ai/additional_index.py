@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 import os
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import numpy as np
 
@@ -84,3 +84,28 @@ def force_reload(path: Optional[str] = None) -> int:
     _DOCS = _load_index()
     _LOADED = True
     return len(_DOCS)
+
+def _cosine(a: np.ndarray, b: np.ndarray) -> float:
+    """Cosine similarity between two 1D vectors."""
+    na = np.linalg.norm(a)
+    nb = np.linalg.norm(b)
+    if na == 0.0 or nb == 0.0:
+        return 0.0
+    return float(np.dot(a, b) / (na * nb))
+
+
+def top_k(
+    query_embedding: np.ndarray,
+    k: int = 8,
+) -> list[tuple[float, IndexedChunk]]:
+    """
+    Return top-k most similar chunks to the query embedding.
+    """
+    docs = get_docs()
+    scored: list[tuple[float, IndexedChunk]] = []
+    for chunk in docs:
+        sim = _cosine(query_embedding, chunk.embedding)
+        scored.append((sim, chunk))
+
+    scored.sort(key=lambda t: t[0], reverse=True)
+    return scored[:k]

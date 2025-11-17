@@ -111,12 +111,20 @@ export default function ChatClient() {
       let payload: any = null;
       try {
         payload = JSON.parse(raw);
-      } catch {}
+      } catch {
+        // if it isn't JSON, just show raw text
+        appendMessage("bot", raw || "(Non-JSON response from /v1/chat/safe)", false);
+        setSending(false);
+        return;
+      }
+
+      // Most /v1/chat/safe responses wrap the OpenAI-style object in `answer`
+      const core = payload?.answer ?? payload;
 
       if (!resp.ok) {
         const msg =
-          payload?.detail?.reason ||
-          payload?.detail ||
+          core?.detail?.reason ||
+          core?.detail ||
           raw ||
           `HTTP ${resp.status}`;
         appendMessage("bot", String(msg), false);
@@ -125,18 +133,24 @@ export default function ChatClient() {
       }
 
       let reply: string =
-        payload?.message?.content ??
-        payload?.choices?.[0]?.message?.content ??
-        payload?.choices?.[0]?.text ??
-        (typeof payload === "string" ? payload : raw);
+        core?.message?.content ??
+        core?.choices?.[0]?.message?.content ??
+        core?.choices?.[0]?.text ??
+        (typeof core === "string" ? core : raw);
 
-      if (!reply?.trim()) reply = "(Empty reply from /v1/chat/safe)";
+      if (!reply?.trim()) {
+        reply = "(Empty reply from /v1/chat/safe)";
+      }
 
       const outHtml = mdToHtml(String(reply));
       appendMessage("bot", outHtml, true);
 
       // Add assistant turn to history
-      setChatHistory((prev) => [...prev, { role: "assistant", content: String(reply) }]);
+      setChatHistory((prev) => [
+        ...prev,
+        { role: "assistant", content: String(reply) },
+      ]);
+
     } catch (err: any) {
       appendMessage("bot", `Network error: ${String(err)}`, false);
     }

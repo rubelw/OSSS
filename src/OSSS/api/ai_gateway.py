@@ -321,7 +321,7 @@ async def chat_completions(
                 content = msg.get("content", "")
 
                 print(
-                    "[/v1/chat/completions] finish_reason=",
+                    "[/ai/chat/rag] finish_reason=",
                     finish_reason,
                     " prompt_tokens=",
                     usage.get("prompt_tokens"),
@@ -330,7 +330,7 @@ async def chat_completions(
                     " content_len=",
                     len(content),
                 )
-                print("[/v1/chat/completions] content tail:", repr(content[-200:]))
+                print("[/ai/chat/rag] content tail:", repr(content[-200:]))
 
                 # --- Heuristic: did we stop right after starting Consequences? ---
                 stripped = content.strip()
@@ -344,7 +344,7 @@ async def chat_completions(
                 # Only try to auto-continue if we actually have some text
                 # AND we hit our heuristic pattern.
                 if bad_tail:
-                    print("[/v1/chat/completions] Detected truncated Consequences section, auto-continuing…")
+                    print("[/ai/chat/rag] Detected truncated Consequences section, auto-continuing…")
 
                     # Build a follow-up request that tells the model to finish the list.
                     followup_messages = [m.model_dump() for m in payload.messages]
@@ -375,7 +375,7 @@ async def chat_completions(
                             msg2 = (choices2[0].get("message") or {})
                             extra = msg2.get("content") or ""
                             print(
-                                "[/v1/chat/completions] auto-continue added",
+                                "[/ai/chat/rag] auto-continue added",
                                 len(extra),
                                 "chars"
                             )
@@ -386,12 +386,12 @@ async def chat_completions(
                             first["finish_reason"] = choices2[0].get("finish_reason") or "stop"
                     else:
                         print(
-                            "[/v1/chat/completions] auto-continue followup failed "
+                            "[/ai/chat/rag] auto-continue followup failed "
                             f"status={r2.status_code}"
                         )
 
             except Exception as e:
-                print("[/v1/chat/completions] debug/auto-continue inspection failed:", e)
+                print("[/ai/chat/rag] debug/auto-continue inspection failed:", e)
             # --------------------------------------------------------
 
             # Metrics (OpenAI-style)

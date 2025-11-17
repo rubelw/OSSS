@@ -64,6 +64,8 @@ from fastapi import HTTPException as FastapiHTTPException
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from OSSS.ai import admin_additional_index_router
+from OSSS.ai import rag_router
+
 
 # ⬇️ import the actual APIRouter instance
 try:
@@ -496,6 +498,8 @@ def create_app() -> FastAPI:
             )
 
         app.include_router(admin_additional_index_router.router)
+        app.include_router(rag_router.router)
+
 
         app.include_router(probe)
         app.include_router(sessions_diag_router)
