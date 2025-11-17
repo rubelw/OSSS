@@ -10,7 +10,7 @@ import requests
 # ---- CONFIG ----
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 INDEX_PATH = os.path.join(
-    PROJECT_ROOT, "vector_index_additional_llm_data", "embeddings.jsonl"
+    PROJECT_ROOT, "vector_indexes/main", "embeddings.jsonl"
 )
 
 OLLAMA_URL = "http://localhost:11434"

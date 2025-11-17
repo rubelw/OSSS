@@ -26,7 +26,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 # project root = one level up from scripts
 PROJECT_ROOT = os.path.abspath(os.path.join(BASE_DIR, ".."))
 DATA_ROOT = os.path.join(PROJECT_ROOT, "additional_llm_data")
-OUT_DIR = os.path.join(PROJECT_ROOT, "vector_index_additional_llm_data")
+OUT_DIR = os.path.join(PROJECT_ROOT, "vector_indexes/main")
 OUT_FILE = os.path.join(OUT_DIR, "embeddings.jsonl")
 
 # Where extracted images will be stored

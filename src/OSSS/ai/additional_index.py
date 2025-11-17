@@ -14,7 +14,7 @@ REPO_ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
 
 DEFAULT_INDEX_PATH = os.environ.get(
     "OSSS_ADDITIONAL_INDEX_PATH",
-    os.path.join(REPO_ROOT, "vector_index_additional_llm_data", "embeddings.jsonl"),
+    os.path.join(REPO_ROOT, "vector_indexes/main", "embeddings.jsonl"),
 )
 
 

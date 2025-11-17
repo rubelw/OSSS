@@ -258,7 +258,7 @@ services:
       SAFE_OPENAI_API_BASE: ${SAFE_OPENAI_API_BASE}
       OPENAI_API_BASE: ${OPENAI_API_BASE}
       OPENAI_API_KEY: ${OPENAI_API_KEY}
-      OSSS_ADDITIONAL_INDEX_PATH: /workspace/vector_index_additional_llm_data/embeddings.jsonl
+      OSSS_ADDITIONAL_INDEX_PATH: /workspace/vector_indexes/main/embeddings.jsonl
 
 
     depends_on:

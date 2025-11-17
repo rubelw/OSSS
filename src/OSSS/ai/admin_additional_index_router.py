@@ -38,7 +38,7 @@ def reload_additional_index(_=Depends(_admin_guard)):
     Reload the additional_llm_data embeddings index from disk.
 
     Call this after running the management menu option that rebuilds
-    vector_index_additional_llm_data/embeddings.jsonl.
+    vector_indexes/main/embeddings.jsonl.
     """
     count = force_reload()
     return {"status": "ok", "chunks_loaded": count}

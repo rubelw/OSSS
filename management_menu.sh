@@ -3903,7 +3903,7 @@ podman_vm_stop() {
 }
 
 delete_additional_llm_embeddings() {
-  local INDEX_DIR="$(dirname "$0")/vector_index_additional_llm_data"
+  local INDEX_DIR="$(dirname "$0")/vector_indexes/main"
 
   echo "🧹 Deleting existing PDF embeddings index…"
   echo "Target directory: $INDEX_DIR"

@@ -185,4 +185,7 @@ rasa/.rasa/*
 vector_index_additional_llm_data/
 vector_index_additional_llm_data/*
 
+vector_indexes/*
+vector_indexes/
+
 vector_index_*/
