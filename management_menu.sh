@@ -569,13 +569,46 @@ rebuild_additional_llm_index() {
   echo "🧠 Rebuilding additional_llm_data PDF index for Ollama…"
   ensure_ollama_local          # already defined earlier
   ensure_python_venv "$@"      # your existing venv bootstrap
-  python3 scripts/index_additional_llm_data_with_ollama.py
+  python3 scripts/index_additional_llm_data_with_ollama.py --index main
   echo "✅ Index rebuild complete."
 
   API_BASE="http://localhost:8081"
 
   echo "🔁 Telling FastAPI to reload additional_llm_data embeddings..."
-  curl -X POST "${API_BASE}/ai/admin/reload-additional-index" \
+  curl -X POST "${API_BASE}/ai/admin/reload-additional-index?index=main" \
+    -H "Accept: application/json" \
+    -d '{}' \
+    || echo "⚠️ Warning: failed to hit reload-additional-index endpoint"
+}
+
+
+rebuild_additional_llm_index_tutor() {
+  echo "🧠 Rebuilding additional_llm_data PDF index for Ollama…"
+  ensure_ollama_local          # already defined earlier
+  ensure_python_venv "$@"      # your existing venv bootstrap
+  python3 scripts/index_additional_llm_data_with_ollama.py --index tutor
+  echo "✅ Index rebuild complete."
+
+  API_BASE="http://localhost:8081"
+
+  echo "🔁 Telling FastAPI to reload additional_llm_data embeddings..."
+  curl -X POST "${API_BASE}/ai/admin/reload-additional-index?index=tutor" \
+    -H "Accept: application/json" \
+    -d '{}' \
+    || echo "⚠️ Warning: failed to hit reload-additional-index endpoint"
+}
+
+rebuild_additional_llm_index_agent() {
+  echo "🧠 Rebuilding additional_llm_data PDF index for Ollama…"
+  ensure_ollama_local          # already defined earlier
+  ensure_python_venv "$@"      # your existing venv bootstrap
+  python3 scripts/index_additional_llm_data_with_ollama.py --index agent
+  echo "✅ Index rebuild complete."
+
+  API_BASE="http://localhost:8081"
+
+  echo "🔁 Telling FastAPI to reload additional_llm_data embeddings..."
+  curl -X POST "${API_BASE}/ai/admin/reload-additional-index?index=agent" \
     -H "Accept: application/json" \
     -d '{}' \
     || echo "⚠️ Warning: failed to hit reload-additional-index endpoint"
@@ -4511,11 +4544,13 @@ utilities_menu() {
     echo " 10) Diagnose container restart"
     echo " 11) List tutor-db tables"
     echo " 12) Delete a container by name/ID"
-    echo " 13) Rebuild LLM index"
+    echo " 13) Rebuild LLM index - main"
     echo " 14) Stop Ollama"
     echo " 15) Start Ollama"
     echo " 16) Delete LLM embeddings"
     echo " 17) Train RASA locally"
+    echo " 18) Rebuild LLM index - tutors"
+    echo " 19) Rebuild LLM index - agents"
     echo "  q) Back"
     echo "-----------------------------------------------"
     read -rp "Select an option: " choice || return 0
@@ -4750,6 +4785,10 @@ REMOTE
         ;;
       17)
         train_rasa_locally
+        ;;
+      18) rebuild_additional_llm_index_tutor
+        ;;
+      19) rebuild_additional_llm_index_agent
         ;;
       q|Q|b|B)
         return 0

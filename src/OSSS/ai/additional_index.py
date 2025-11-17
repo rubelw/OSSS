@@ -4,18 +4,28 @@ from __future__ import annotations
 import json
 import os
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
-# Repo root = src/OSSS/.. (adjust if you mount differently in Docker)
 HERE = os.path.dirname(__file__)
-REPO_ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
+# Repo root = one level above src (…/workspace), not …/workspace/src
+REPO_ROOT = os.path.abspath(os.path.join(HERE, "..", "..", ".."))
 
-DEFAULT_INDEX_PATH = os.environ.get(
-    "OSSS_ADDITIONAL_INDEX_PATH",
-    os.path.join(REPO_ROOT, "vector_indexes/main", "embeddings.jsonl"),
-)
+# Supported index kinds
+INDEX_KINDS: Tuple[str, ...] = ("main", "tutor", "agent")
+
+# Default paths for each index, overridable via environment variables:
+#   OSSS_ADDITIONAL_INDEX_MAIN_PATH
+#   OSSS_ADDITIONAL_INDEX_TUTOR_PATH
+#   OSSS_ADDITIONAL_INDEX_AGENT_PATH
+DEFAULT_INDEX_PATHS: Dict[str, str] = {
+    kind: os.environ.get(
+        f"OSSS_ADDITIONAL_INDEX_{kind.upper()}_PATH",
+        os.path.join(REPO_ROOT, "vector_indexes", kind, "embeddings.jsonl"),
+    )
+    for kind in INDEX_KINDS
+}
 
 
 @dataclass
@@ -26,23 +36,36 @@ class IndexedChunk:
     filename: str
     chunk_index: int
     embedding: np.ndarray
-    # NEW: optional metadata from the indexer
+    # optional metadata from the indexer
     page_index: Optional[int] = None
     page_chunk_index: Optional[int] = None
     image_paths: Optional[List[str]] = None
 
 
-_DOCS: List[IndexedChunk] = []
-_INDEX_PATH: str = DEFAULT_INDEX_PATH
-_LOADED: bool = False
+# Per-index in-memory caches
+_DOCS: Dict[str, List[IndexedChunk]] = {kind: [] for kind in INDEX_KINDS}
+_INDEX_PATH: Dict[str, str] = DEFAULT_INDEX_PATHS.copy()
+_LOADED: Dict[str, bool] = {kind: False for kind in INDEX_KINDS}
 
 
-def _load_index(path: Optional[str] = None) -> List[IndexedChunk]:
-    """Load the JSONL index from disk into memory."""
-    index_path = path or _INDEX_PATH
+def _normalize_index_name(index: str) -> str:
+    """Ensure index name is one of the supported kinds."""
+    if index not in INDEX_KINDS:
+        raise ValueError(
+            f"Unknown index '{index}'. Expected one of: {', '.join(INDEX_KINDS)}"
+        )
+    return index
+
+
+def _load_index(index: str, path: Optional[str] = None) -> List[IndexedChunk]:
+    """Load the JSONL index for a given index name from disk into memory."""
+    index = _normalize_index_name(index)
+    index_path = path or _INDEX_PATH[index]
+
+    print(f"[additional_index:{index}] REPO_ROOT={REPO_ROOT} index_path={index_path}")
 
     if not os.path.exists(index_path):
-        print(f"[additional_index] No embeddings file found at {index_path}")
+        print(f"[additional_index:{index}] No embeddings file found at {index_path}")
         return []
 
     docs: List[IndexedChunk] = []
@@ -63,7 +86,7 @@ def _load_index(path: Optional[str] = None) -> List[IndexedChunk]:
             filename = obj.get("filename", "")
             chunk_index = int(obj.get("chunk_index", 0))
 
-            # NEW: optional metadata
+            # optional metadata
             page_index = obj.get("page_index")
             if page_index is not None:
                 try:
@@ -85,7 +108,7 @@ def _load_index(path: Optional[str] = None) -> List[IndexedChunk]:
 
             docs.append(
                 IndexedChunk(
-                    id=obj.get("id", f"chunk-{line_idx}"),
+                    id=obj.get("id", f"{index}-chunk-{line_idx}"),
                     text=text,
                     source=source,
                     filename=filename,
@@ -96,32 +119,43 @@ def _load_index(path: Optional[str] = None) -> List[IndexedChunk]:
                     image_paths=image_paths,
                 )
             )
-    print(f"[additional_index] Loaded {len(docs)} chunks from {index_path}")
+    print(f"[additional_index:{index}] Loaded {len(docs)} chunks from {index_path}")
     return docs
 
 
-def get_docs() -> List[IndexedChunk]:
-    """Return currently loaded chunks (lazy-load on first access)."""
+def get_docs(index: str = "main") -> List[IndexedChunk]:
+    """
+    Return currently loaded chunks for the given index (lazy-load on first access).
+
+    :param index: which index to use ("main", "tutor", or "agent").
+                  Defaults to "main" for backwards compatibility.
+    """
+    index = _normalize_index_name(index)
     global _DOCS, _LOADED
-    if not _LOADED:
-        _DOCS = _load_index()
-        _LOADED = True
-    return _DOCS
+    if not _LOADED[index]:
+        _DOCS[index] = _load_index(index)
+        _LOADED[index] = True
+    return _DOCS[index]
 
 
-def force_reload(path: Optional[str] = None) -> int:
+def force_reload(index: str = "main", path: Optional[str] = None) -> int:
     """
     Force a reload of the index from disk.
     Returns the number of chunks loaded.
+
+    :param index: which index to reload ("main", "tutor", or "agent").
+    :param path:  optional explicit path to the index file for this index.
+                  If provided, it updates the stored path for future loads.
     """
+    index = _normalize_index_name(index)
     global _DOCS, _LOADED, _INDEX_PATH
 
     if path is not None:
-        _INDEX_PATH = path
+        _INDEX_PATH[index] = path
 
-    _DOCS = _load_index()
-    _LOADED = True
-    return len(_DOCS)
+    _DOCS[index] = _load_index(index, path=path)
+    _LOADED[index] = True
+    return len(_DOCS[index])
 
 
 def _cosine(a: np.ndarray, b: np.ndarray) -> float:
@@ -136,11 +170,17 @@ def _cosine(a: np.ndarray, b: np.ndarray) -> float:
 def top_k(
     query_embedding: np.ndarray,
     k: int = 8,
+    index: str = "main",
 ) -> list[tuple[float, IndexedChunk]]:
     """
-    Return top-k most similar chunks to the query embedding.
+    Return top-k most similar chunks to the query embedding for the given index.
+
+    :param query_embedding: numpy array representing the query embedding.
+    :param k:               number of results to return.
+    :param index:           which index to query ("main", "tutor", or "agent").
     """
-    docs = get_docs()
+    index = _normalize_index_name(index)
+    docs = get_docs(index=index)
     scored: list[tuple[float, IndexedChunk]] = []
     for chunk in docs:
         sim = _cosine(query_embedding, chunk.embedding)

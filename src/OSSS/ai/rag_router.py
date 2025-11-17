@@ -8,7 +8,7 @@ import numpy as np
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from OSSS.ai.additional_index import top_k
+from OSSS.ai.additional_index import top_k, INDEX_KINDS
 
 # Try to reuse the same ChatMessage model from your gateway
 try:
@@ -64,6 +64,8 @@ class RAGRequest(BaseModel):
     max_tokens: Optional[int] = 2048
     temperature: Optional[float] = 0.1
     debug: Optional[bool] = False
+    # NEW: which additional index to query ("main", "tutor", or "agent")
+    index: Optional[str] = "main"
 
 
 def _normalize_dcg_expansion(text: str) -> str:
@@ -179,11 +181,25 @@ async def chat_rag(
         query_emb = np.array(vec, dtype="float32")
 
     # ---- 3) top-k neighbors ----
+    # Choose which additional index to query: main / tutor / agent
+    requested_index = (payload.index or "main").strip()
+    if requested_index not in INDEX_KINDS:
+        print(
+            f"[/ai/chat/rag] WARNING: unknown index '{requested_index}', "
+            f"falling back to 'main'. Valid values: {', '.join(INDEX_KINDS)}"
+        )
+        requested_index = "main"
+
     # Broader retrieval so the model can see more staff-directory chunks
-    neighbors = top_k(query_emb, k=32)
+    neighbors = top_k(query_emb, k=32, index=requested_index)
 
     # Detailed debug of retrieval
-    print("[/ai/chat/rag] retrieved_neighbors_count=", len(neighbors))
+    print(
+        "[/ai/chat/rag] retrieved_neighbors_count=",
+        len(neighbors),
+        " index=",
+        requested_index,
+    )
     for i, (score, chunk) in enumerate(neighbors[:3]):
         print(
             f"[/ai/chat/rag] hit#{i} score={score:.4f} file={getattr(chunk, 'filename', '?')} "
@@ -195,7 +211,7 @@ async def chat_rag(
     else:
         parts = []
         for score, chunk in neighbors:
-            # NEW: image metadata in the context (for the model, optional)
+            # image metadata in the context (for the model, optional)
             image_paths = getattr(chunk, "image_paths", None) or []
             meta = f"[score={score:.3f} | file={chunk.filename} | idx={chunk.chunk_index}]"
             if image_paths:
@@ -203,12 +219,13 @@ async def chat_rag(
             parts.append(f"{meta}\n{chunk.text}")
         context = "\n\n".join(parts)
 
-    # DEBUG: log what we retrieved so you can verify it’s using staff directory
+    # DEBUG: log what we retrieved so you can verify it’s using the right index
     print("[/ai/chat/rag] retrieved_chunks=", len(neighbors))
     if neighbors:
         first_score, first_chunk = neighbors[0]
         print(
             "[/ai/chat/rag] first_chunk_snippet=",
+            f"index={requested_index} "
             f"score={first_score:.3f} file={getattr(first_chunk, 'filename', '?')} "
             f"idx={getattr(first_chunk, 'chunk_index', '?')} ",
             repr(first_chunk.text[:300]),
@@ -367,7 +384,7 @@ async def chat_rag(
                         "filename": getattr(chunk, "filename", None),
                         "chunk_index": getattr(chunk, "chunk_index", None),
                         "text_preview": chunk.text[:800],
-                        # NEW: image paths from the indexer (relative to project root)
+                        # image paths from the indexer (relative to project root)
                         "image_paths": getattr(chunk, "image_paths", None),
                         "page_index": getattr(chunk, "page_index", None),
                         "page_chunk_index": getattr(chunk, "page_chunk_index", None),
@@ -376,6 +393,7 @@ async def chat_rag(
             return {
                 "answer": data,
                 "retrieved_chunks": debug_neighbors,
+                "index": requested_index,
             }
 
         return data

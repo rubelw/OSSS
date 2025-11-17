@@ -12,6 +12,7 @@ import fitz  # PyMuPDF
 from PIL import Image
 import io
 import pdfplumber
+import time  # needed for retry backoff in embed_batch
 
 # Optional OCR (pytesseract)
 try:
@@ -25,12 +26,21 @@ except Exception:
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 # project root = one level up from scripts
 PROJECT_ROOT = os.path.abspath(os.path.join(BASE_DIR, ".."))
-DATA_ROOT = os.path.join(PROJECT_ROOT, "additional_llm_data")
-OUT_DIR = os.path.join(PROJECT_ROOT, "vector_indexes/main")
-OUT_FILE = os.path.join(OUT_DIR, "embeddings.jsonl")
 
-# Where extracted images will be stored
+# Default data root for "main"; overridden in main() based on --index
+DATA_ROOT = os.path.join(PROJECT_ROOT, "additional_llm_data")
+
+# Default index is "main"; will be overridden in main() based on --index
+OUT_DIR = os.path.join(PROJECT_ROOT, "vector_indexes", "main")
+OUT_FILE = os.path.join(OUT_DIR, "embeddings.jsonl")
 IMAGES_ROOT = os.path.join(OUT_DIR, "images")
+
+# Mapping index name -> data subdirectory
+INDEX_DATA_DIRS = {
+    "main": "additional_llm_data",
+    "tutor": "additional_llm_data_for_tutors",
+    "agent": "additional_llm_data_for_agents",
+}
 
 OLLAMA_EMBED_URL = "http://localhost:11434/api/embeddings"
 # Keep this in sync with what you use at query time
@@ -39,10 +49,11 @@ EMBED_MODEL = "nomic-embed-text"
 # Chunking tuned for policies
 MAX_CHARS = 900        # 800–1200 recommended
 OVERLAP_CHARS = 180    # 150–250 recommended
-# -----------------
 
 # Maximum characters fed into embedding model (prevents Ollama crashes)
 MAX_EMBED_CHARS = 8000   # safe limit; you can lower to 4000 if needed
+# -----------------
+
 
 def log(msg: str) -> None:
     print(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}")
@@ -130,13 +141,11 @@ def extract_images_from_page(doc: fitz.Document, page_index: int, pdf_basename: 
                 # Run OCR if available
                 if HAS_PYTESSERACT:
                     try:
-
                         ocr_text_raw = pytesseract.image_to_string(
                             pil_img,
                             lang="eng",
                             config="--oem 1 --psm 6"
                         )
-
                         ocr_text = (ocr_text_raw or "").strip()
                         if ocr_text:
                             log(f"    OCR: extracted {len(ocr_text)} chars from image {img_name}")
@@ -338,22 +347,39 @@ def embed_batch(texts: list[str]):
                     continue
                 else:
                     log(f"  !! Giving up on chunk {i}, skipping this chunk.")
-                    # Option 1: append a zero-vector or None placeholder
-                    # Option 2 (cleaner): skip this chunk entirely:
-                    #   don't append embedding and also drop corresponding text
-                    # For now, we'll append a tiny zero-vector to preserve indexing:
-                    all_embeddings.append([0.0])  # or handle specially in your retriever
+                    # For now, append a tiny zero-vector to preserve indexing:
+                    all_embeddings.append([0.0])
                     break
 
     return all_embeddings
 
+
 def parse_args():
     parser = argparse.ArgumentParser(
         description=(
-            "Index documents under additional_llm_data/ (PDF, TXT, CSV) into a JSONL file using "
-            "Ollama embeddings, including OCR text from embedded images in PDFs."
+            "Index documents into JSONL files using Ollama embeddings, including OCR text from "
+            "embedded images in PDFs.\n"
+            "Data roots:\n"
+            "  main  -> ./additional_llm_data\n"
+            "  tutor -> ./additional_llm_data_for_tutors\n"
+            "  agent -> ./additional_llm_data_for_agents"
         )
     )
+
+    parser.add_argument(
+        "--index",
+        type=str,
+        choices=["main", "tutor", "agent"],
+        default="main",
+        help=(
+            "Which index to write to. Controls BOTH the input data directory and the "
+            "output under vector_indexes/.\n"
+            "main  -> additional_llm_data\n"
+            "tutor -> additional_llm_data_for_tutors\n"
+            "agent -> additional_llm_data_for_agents"
+        ),
+    )
+
     parser.add_argument(
         "--max-pdfs",
         type=int,
@@ -451,7 +477,7 @@ def process_pdf(pdf_path: str, idx: int, total: int, args):
         for doc_id, chunk, emb_idx, m in zip(doc_ids, all_chunks, range(len(all_chunks)), meta):
             record = {
                 "id": doc_id,
-                "source": rel,                      # relative path under additional_llm_data
+                "source": rel,                      # relative path under this index's data root
                 "filename": filename,               # base filename for prompts / UI
                 "chunk_index": emb_idx,             # global chunk index within this PDF
                 "page_index": m["page_index"],      # original page index
@@ -532,15 +558,27 @@ def process_text_or_csv(doc_path: str, idx: int, total: int, args):
 
 def main():
     print("\n============================================================")
-    print(" Rebuilding index from additional_llm_data/ for Ollama RAG (JSONL, no Chroma)")
+    print(" Rebuilding index for Ollama RAG (JSONL, no Chroma)")
     print(" (PDFs with OCR + TXT and CSV files)")
     print("============================================================\n")
 
     args = parse_args()
 
+    # Recompute DATA_ROOT, OUT_DIR, OUT_FILE, IMAGES_ROOT based on --index
+    global DATA_ROOT, OUT_DIR, OUT_FILE, IMAGES_ROOT
+
+    data_subdir = INDEX_DATA_DIRS.get(args.index, "additional_llm_data")
+    DATA_ROOT = os.path.join(PROJECT_ROOT, data_subdir)
+
+    OUT_DIR = os.path.join(PROJECT_ROOT, "vector_indexes", args.index)
+    OUT_FILE = os.path.join(OUT_DIR, "embeddings.jsonl")
+    IMAGES_ROOT = os.path.join(OUT_DIR, "images")
+
     log(f"Current working dir: {os.getcwd()}")
     log(f"Project root:        {PROJECT_ROOT}")
+    log(f"Data subdir:         {data_subdir}")
     log(f"Data root:           {DATA_ROOT}")
+    log(f"Index name:          {args.index}")
     log(f"Out dir:             {OUT_DIR}")
     log(f"Out file:            {OUT_FILE}")
     log(f"Images dir:          {IMAGES_ROOT}")
@@ -568,7 +606,7 @@ def main():
         text_files: List[str] = []
     else:
         all_pdfs = list(iter_pdfs(DATA_ROOT))
-        log(f"Found {len(all_pdfs)} PDFs total.")
+        log(f"Found {len(all_pdfs)} PDFs total in {DATA_ROOT}.")
         if args.max_pdfs is not None:
             pdfs = all_pdfs[:args.max_pdfs]
             log(f"Limiting to first {args.max_pdfs} PDFs.")
@@ -576,7 +614,7 @@ def main():
             pdfs = all_pdfs
 
         text_files = list(iter_text_files(DATA_ROOT))
-        log(f"Found {len(text_files)} TXT/CSV files total.")
+        log(f"Found {len(text_files)} TXT/CSV files total in {DATA_ROOT}.")
 
     docs = pdfs + text_files
 

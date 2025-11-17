@@ -259,6 +259,8 @@ services:
       OPENAI_API_BASE: ${OPENAI_API_BASE}
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       OSSS_ADDITIONAL_INDEX_PATH: /workspace/vector_indexes/main/embeddings.jsonl
+      TUTOR_INDEX_PATH: /workspace/vector_indexes/tutor/embeddings.jsonl
+      AGENT_INDEX_PATH: /workspace/vector_indexes/agent/embeddings.jsonl
 
 
     depends_on:

@@ -1,7 +1,7 @@
 # src/OSSS/ai/admin_additional_index_router.py
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 
-from OSSS.ai.additional_index import force_reload
+from OSSS.ai.additional_index import force_reload, INDEX_KINDS
 
 router = APIRouter(
     prefix="/ai/admin",
@@ -33,12 +33,26 @@ except Exception:
 
 
 @router.post("/reload-additional-index")
-def reload_additional_index(_=Depends(_admin_guard)):
+def reload_additional_index(
+    _=Depends(_admin_guard),
+    index: str = Query(
+        "main",
+        description=f"Which additional index to reload. One of: {', '.join(INDEX_KINDS)}",
+    ),
+):
     """
     Reload the additional_llm_data embeddings index from disk.
 
-    Call this after running the management menu option that rebuilds
-    vector_indexes/main/embeddings.jsonl.
+    Call this after running the management menu option that rebuilds:
+      - vector_indexes/main/embeddings.jsonl   (index=main)
+      - vector_indexes/tutor/embeddings.jsonl  (index=tutor)
+      - vector_indexes/agent/embeddings.jsonl  (index=agent)
     """
-    count = force_reload()
-    return {"status": "ok", "chunks_loaded": count}
+    if index not in INDEX_KINDS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown index '{index}'. Expected one of: {', '.join(INDEX_KINDS)}",
+        )
+
+    count = force_reload(index=index)
+    return {"status": "ok", "index": index, "chunks_loaded": count}
