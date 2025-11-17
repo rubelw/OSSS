@@ -261,6 +261,8 @@ services:
       OSSS_ADDITIONAL_INDEX_PATH: /workspace/vector_indexes/main/embeddings.jsonl
       TUTOR_INDEX_PATH: /workspace/vector_indexes/tutor/embeddings.jsonl
       AGENT_INDEX_PATH: /workspace/vector_indexes/agent/embeddings.jsonl
+      METAGPT_URL: http://metagpt:8001
+
 
 
     depends_on:
@@ -280,6 +282,25 @@ services:
       driver: k8s-file
       options:
         max-size: 10m
+  metagpt:
+    profiles:
+      - app
+    build:
+      context: .
+      dockerfile: docker/metagpt/Dockerfile
+    container_name: metagpt
+    hostname: metagpt
+    environment:
+      - OLLAMA_HOST=http://host.containers.internal:11434
+    volumes:
+      - .:/work
+    networks:
+      - osss-net
+    depends_on:
+      - app
+    ports:
+      - "8001:8001"
+
 
   tutor-db:
     profiles:
@@ -318,8 +339,8 @@ services:
     mem_limit: 2g
     mem_reservation: 1g
     build:
-      context: ./src/osss-web
-      dockerfile: ../../docker/osss-web/Dockerfile
+      context: .
+      dockerfile: docker/osss-web/Dockerfile
     command: npm run dev -- --port 3000
     #depends_on:
       #app:

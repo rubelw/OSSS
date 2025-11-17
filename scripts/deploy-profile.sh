@@ -3,7 +3,7 @@
 set -euo pipefail
 
 usage() {
-  echo "Usage: $(basename "$0") <profile> [-p <project>] [-f <compose-file>] [REBUILD]" >&2
+  echo "Usage: $(basename "$0") <profile> [-p <project>] [-f <compose-file>]" >&2
   exit 2
 }
 
@@ -12,6 +12,8 @@ PROFILE=""
 PROJECT="${PROJECT:-$(basename "${PWD:-/work}")}"
 FILE="${FILE:-/work/docker-compose.yml}"
 DOTENV="${DOTENV:-/work/.env}"
+# REBUILD comes from env (e.g. management_menu.sh); default to 0 if not set
+REBUILD="${REBUILD:-0}"
 
 # ---- Parse args (bash3-safe) ----
 [ $# -ge 1 ] || usage
@@ -19,15 +21,27 @@ PROFILE="$1"; shift || true
 
 while [ $# -gt 0 ]; do
   case "$1" in
-    -p|--project) shift || usage; PROJECT="${1:-}"; [ -n "${PROJECT}" ] || usage; shift || true ;;
-    -f|--file)    shift || usage; FILE="${1:-}";    [ -n "${FILE}" ]    || usage; shift || true ;;
-    -h|--help)    usage ;;
-    *) echo "Unknown arg: $1" >&2; usage ;;
+    -p|--project)
+      shift || usage
+      PROJECT="${1:-}"
+      [ -n "${PROJECT}" ] || usage
+      shift || true
+      ;;
+    -f|--file)
+      shift || usage
+      FILE="${1:-}"
+      [ -n "${FILE}" ] || usage
+      shift || true
+      ;;
+    -h|--help)
+      usage
+      ;;
+    *)
+      echo "Unknown arg: $1" >&2
+      usage
+      ;;
   esac
 done
-
-# ---- Optional final positional: REBUILD (0/1). Default 0 ----
-REBUILD="${1:-0}"
 
 # ---- Sanity ----
 [ -f "$FILE" ] || { echo "❌ Compose file not found: $FILE" >&2; exit 1; }

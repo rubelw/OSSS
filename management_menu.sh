@@ -4194,6 +4194,7 @@ logs_menu() {
     echo "36) Logs container 'web'"
     echo "37) Logs container 'rasa-mentor'"
     echo "38) Logs container 'tutor-db'"
+    echo "39) Logs container 'metagpt'"
     echo "  q) Back"
     echo "-----------------------------------------------"
     read -rp "Select an option: " choice || return 0
@@ -4236,6 +4237,7 @@ logs_menu() {
       36) logs_follow_container "web" ;;
       37) logs_follow_container "rasa-mentor" ;;
       38) logs_follow_container "tutor-db" ;;
+      39) logs_follow_container "metagpt" ;;
       q|Q|b|B) return 0 ;;
       *) echo "Unknown choice: ${choice}" ;;
     esac
