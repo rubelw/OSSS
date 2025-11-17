@@ -26,6 +26,10 @@ class IndexedChunk:
     filename: str
     chunk_index: int
     embedding: np.ndarray
+    # NEW: optional metadata from the indexer
+    page_index: Optional[int] = None
+    page_chunk_index: Optional[int] = None
+    image_paths: Optional[List[str]] = None
 
 
 _DOCS: List[IndexedChunk] = []
@@ -43,19 +47,53 @@ def _load_index(path: Optional[str] = None) -> List[IndexedChunk]:
 
     docs: List[IndexedChunk] = []
     with open(index_path, "r", encoding="utf-8") as f:
-        for line in f:
+        for line_idx, line in enumerate(f, start=1):
             if not line.strip():
                 continue
             obj = json.loads(line)
-            emb = np.array(obj["embedding"], dtype="float32")
+
+            emb_list = obj.get("embedding")
+            if not emb_list:
+                # Skip malformed records
+                continue
+            emb = np.array(emb_list, dtype="float32")
+
+            text = obj.get("text", "")
+            source = obj.get("source", "")
+            filename = obj.get("filename", "")
+            chunk_index = int(obj.get("chunk_index", 0))
+
+            # NEW: optional metadata
+            page_index = obj.get("page_index")
+            if page_index is not None:
+                try:
+                    page_index = int(page_index)
+                except (TypeError, ValueError):
+                    page_index = None
+
+            page_chunk_index = obj.get("page_chunk_index")
+            if page_chunk_index is not None:
+                try:
+                    page_chunk_index = int(page_chunk_index)
+                except (TypeError, ValueError):
+                    page_chunk_index = None
+
+            image_paths = obj.get("image_paths") or []
+            if not isinstance(image_paths, list):
+                # Normalize to list[str]
+                image_paths = [str(image_paths)]
+
             docs.append(
                 IndexedChunk(
-                    id=obj.get("id", ""),
-                    text=obj["text"],
-                    source=obj.get("source", ""),
-                    filename=obj.get("filename", ""),
-                    chunk_index=int(obj.get("chunk_index", 0)),
+                    id=obj.get("id", f"chunk-{line_idx}"),
+                    text=text,
+                    source=source,
+                    filename=filename,
+                    chunk_index=chunk_index,
                     embedding=emb,
+                    page_index=page_index,
+                    page_chunk_index=page_chunk_index,
+                    image_paths=image_paths,
                 )
             )
     print(f"[additional_index] Loaded {len(docs)} chunks from {index_path}")
@@ -84,6 +122,7 @@ def force_reload(path: Optional[str] = None) -> int:
     _DOCS = _load_index()
     _LOADED = True
     return len(_DOCS)
+
 
 def _cosine(a: np.ndarray, b: np.ndarray) -> float:
     """Cosine similarity between two 1D vectors."""

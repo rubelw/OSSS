@@ -575,10 +575,12 @@ rebuild_additional_llm_index() {
   API_BASE="http://localhost:8081"
 
   echo "🔁 Telling FastAPI to reload additional_llm_data embeddings..."
-  curl -s -X POST q"${API_BASE}/ai/admin/reload-additional-index" \
+  curl -X POST "${API_BASE}/ai/admin/reload-additional-index" \
     -H "Accept: application/json" \
+    -d '{}' \
     || echo "⚠️ Warning: failed to hit reload-additional-index endpoint"
 }
+
 
 
 # Ensure the rootless Podman user socket is running inside the Podman VM
@@ -1198,6 +1200,37 @@ ensure_python_cmd() {
   echo "❌ Python 3 not found." >&2; exit 1
 }
 
+ensure_tesseract_installed() {
+  echo "🔍 Checking for Tesseract OCR…"
+
+  if ! command -v tesseract >/dev/null 2>&1; then
+    echo "⚙️  Tesseract not found — installing…"
+
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+      if command -v brew >/dev/null 2>&1; then
+        echo "📦 Installing Tesseract via Homebrew…"
+        brew install tesseract
+      else
+        echo "❌ Homebrew not found. Please install Homebrew from https://brew.sh/"
+        return 1
+      fi
+    elif [[ -f /etc/debian_version ]]; then
+      echo "📦 Installing Tesseract on Debian/Ubuntu…"
+      sudo apt-get update
+      sudo apt-get install -y tesseract-ocr
+    elif [[ -f /etc/redhat-release ]]; then
+      echo "📦 Installing Tesseract on RHEL/CentOS…"
+      sudo dnf install -y tesseract
+    else
+      echo "⚠️ Unsupported OS. Please install Tesseract manually:"
+      echo "   https://tesseract-ocr.github.io/tessdoc/Installation.html"
+      return 1
+    fi
+  else
+    echo "✅ Tesseract is already installed: $(tesseract --version | head -n1)"
+  fi
+}
+
 ensure_node_installed() {
   if ! command -v node >/dev/null 2>&1; then
     echo "⚙️  Node.js not found. Installing Node.js..."
@@ -1235,14 +1268,45 @@ find_upwards() {
   return 1
 }
 
-install_from_pyproject() {
+install_from_pyproject_if_needed() {
   local proj_root="$1" py="$2"
-  echo "📦 Installing project dependencies from pyproject.toml in: $proj_root"
-  ( cd "$proj_root"
+
+  # No pyproject.toml, nothing to do
+  if [[ ! -f "$proj_root/pyproject.toml" ]]; then
+    return 0
+  fi
+
+  local stamp_dir="$proj_root/.venv/.osss-meta"
+  local stamp_file="$stamp_dir/pyproject.sha"
+  local current_sha
+
+  # Hash the pyproject.toml to detect changes
+  current_sha="$(shasum "$proj_root/pyproject.toml" | awk '{print $1}')"
+
+  if [[ -f "$stamp_file" ]]; then
+    local old_sha
+    old_sha="$(cat "$stamp_file" 2>/dev/null || true)"
+    if [[ "$old_sha" == "$current_sha" ]]; then
+      echo "📦 pyproject.toml unchanged; skipping dependency install."
+      return 0
+    fi
+  fi
+
+  echo "📦 pyproject.toml changed or first run; installing dependencies from pyproject.toml…"
+  mkdir -p "$stamp_dir"
+
+  (
+    cd "$proj_root"
     "$py" -m pip install --upgrade pip setuptools wheel
     "$py" -m pip install .
-  )
+  ) || {
+    echo "❌ Dependency install from pyproject.toml failed."
+    return 1
+  }
+
+  echo "$current_sha" > "$stamp_file"
 }
+
 
 
 _restart_rasa_mentor_container() {
@@ -1386,6 +1450,14 @@ ensure_python_venv() {
 # 2) Always run bootstrap (it’s a no-op after first run)
 ensure_python_venv "$@"
 
+# After venv is active, always re-install from pyproject.toml
+#if [[ -n "${VIRTUAL_ENV:-}" && -f "pyproject.toml" ]]; then
+#  PY_BIN="$(command -v python3)"
+#  install_from_pyproject_if_needed "$(pwd)" "$PY_BIN"
+#fi
+
+
+ensure_tesseract_installed
 
 # Parse docker-compose.yml and list services that include a given profile, without needing compose on the host.
 # Usage: services_for_profile_from_yaml "elastic"

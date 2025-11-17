@@ -31,7 +31,8 @@ except Exception:  # fallback, same as in your ai_gateway
     class _Settings:
         VLLM_ENDPOINT: str = "http://host.containers.internal:11434"
         TUTOR_TEMPERATURE: float = 0.2
-        TUTOR_MAX_TOKENS: int = 512
+        # Allow up to 2048 tokens by default
+        TUTOR_MAX_TOKENS: int = 2048
         DEFAULT_MODEL: str = "mistral"
 
     settings = _Settings()  # type: ignore
@@ -59,9 +60,43 @@ except Exception:
 class RAGRequest(BaseModel):
     model: Optional[str] = "mistral"
     messages: List[ChatMessage]
-    max_tokens: Optional[int] = 512
+    # Default to 2048 if the client doesn't specify
+    max_tokens: Optional[int] = 2048
     temperature: Optional[float] = 0.1
-    debug: Optional[bool] = True
+    debug: Optional[bool] = False
+
+
+def _normalize_dcg_expansion(text: str) -> str:
+    """
+    Force 'DCG' to only mean Dallas Center-Grimes Community School District
+    in the final answer. Fixes common wrong expansions from the model.
+    """
+    if not isinstance(text, str):
+        return text
+
+    wrong_phrases = [
+        "Des Moines Christian School",
+        "Des Moines Christian Schools",
+        "Des Moines Christian",
+        "Des Moines Community School District",
+        "Des Moines Community Schools",
+        "Des Moines Community School",
+    ]
+
+    for wrong in wrong_phrases:
+        if wrong in text:
+            text = text.replace(
+                wrong,
+                "Dallas Center-Grimes Community School District",
+            )
+
+    # Optional: make the expansion nice when it's used with DCG
+    text = text.replace(
+        "DCG (Dallas Center-Grimes Community School District)",
+        "DCG (Dallas Center-Grimes Community School District)",
+    )
+
+    return text
 
 
 @router.post("/chat/rag")
@@ -94,7 +129,18 @@ async def chat_rag(
         if payload.temperature is not None
         else getattr(settings, "TUTOR_TEMPERATURE", 0.1)
     )
-    max_tokens = payload.max_tokens or getattr(settings, "TUTOR_MAX_TOKENS", 512)
+
+    # Respect caller's max_tokens but cap at 2048, with sane defaults
+    requested_max = (
+        payload.max_tokens
+        if payload.max_tokens is not None
+        else getattr(settings, "TUTOR_MAX_TOKENS", 2048)
+    )
+    try:
+        requested_max_int = int(requested_max)
+    except (TypeError, ValueError):
+        requested_max_int = 2048
+    max_tokens = max(1, min(requested_max_int, 2048))
 
     # ---- 1) last user message ----
     user_messages = [m for m in payload.messages if m.role == "user"]
@@ -133,7 +179,8 @@ async def chat_rag(
         query_emb = np.array(vec, dtype="float32")
 
     # ---- 3) top-k neighbors ----
-    neighbors = top_k(query_emb, k=8)
+    # Broader retrieval so the model can see more staff-directory chunks
+    neighbors = top_k(query_emb, k=32)
 
     # Detailed debug of retrieval
     print("[/ai/chat/rag] retrieved_neighbors_count=", len(neighbors))
@@ -148,9 +195,12 @@ async def chat_rag(
     else:
         parts = []
         for score, chunk in neighbors:
-            parts.append(
-                f"[score={score:.3f} | file={chunk.filename} | idx={chunk.chunk_index}]\n{chunk.text}"
-            )
+            # NEW: image metadata in the context (for the model, optional)
+            image_paths = getattr(chunk, "image_paths", None) or []
+            meta = f"[score={score:.3f} | file={chunk.filename} | idx={chunk.chunk_index}]"
+            if image_paths:
+                meta += f" | images={len(image_paths)} attached"
+            parts.append(f"{meta}\n{chunk.text}")
         context = "\n\n".join(parts)
 
     # DEBUG: log what we retrieved so you can verify it’s using staff directory
@@ -167,6 +217,10 @@ async def chat_rag(
     # ---- 4) build grounded system prompt ----
     system_text = (
         "You are a local assistant for the Dallas Center-Grimes (DCG) Community School District.\n"
+        "In this conversation, the acronym 'DCG' ALWAYS means 'Dallas Center-Grimes Community "
+        "School District' and never anything else. It does NOT mean Des Moines Christian or any "
+        "other organization. If you expand 'DCG', expand it only as 'Dallas Center-Grimes "
+        "Community School District'.\n"
         "Use ONLY the information in the CONTEXT below when answering questions about staff, "
         "roles, titles, or district details.\n"
         "If the answer is not explicitly in the context, reply exactly:\n"
@@ -190,6 +244,7 @@ async def chat_rag(
     }
 
     async with httpx.AsyncClient(timeout=60.0) as client:
+        # ---- first completion call ----
         r = await client.post(chat_url, json=chat_req)
 
         print(
@@ -204,7 +259,71 @@ async def chat_rag(
 
         data = r.json()
 
-        # quick debug on model behavior
+        # ---- AUTO-CONTINUE LOOP: if finish_reason == 'length', keep going ----
+        try:
+            choices = data.get("choices") or []
+            first = choices[0] if choices else {}
+            finish_reason = first.get("finish_reason")
+            msg = first.get("message") or {}
+            content = msg.get("content", "") or ""
+
+            full_content = content
+            continue_count = 0
+            max_continues = 5  # safety guard; bump if you want even more
+
+            while finish_reason == "length" and continue_count < max_continues:
+                continue_count += 1
+                print(
+                    f"[/ai/chat/rag] auto-continue pass={continue_count} "
+                    f"current_len={len(full_content)}"
+                )
+
+                # Extend the conversation with the previous assistant text and a "continue" request
+                messages.append({"role": "assistant", "content": content})
+                messages.append(
+                    {
+                        "role": "user",
+                        "content": (
+                            "Continue the previous list from where you left off. "
+                            "Do NOT repeat any previous names; only add new ones based on the same CONTEXT."
+                        ),
+                    }
+                )
+                chat_req["messages"] = messages
+
+                r2 = await client.post(chat_url, json=chat_req)
+                print(
+                    "[/ai/chat/rag] upstream_v1 (continue) status=",
+                    r2.status_code,
+                    " bytes=",
+                    len(r2.content),
+                )
+                if r2.status_code >= 400:
+                    print(
+                        "[/ai/chat/rag] auto-continue aborted: upstream error",
+                        r2.status_code,
+                    )
+                    break
+
+                data2 = r2.json()
+                choices2 = data2.get("choices") or []
+                first2 = choices2[0] if choices2 else {}
+                finish_reason = first2.get("finish_reason")
+                msg2 = first2.get("message") or {}
+                content = msg2.get("content", "") or ""
+
+                full_content += content
+                data = data2  # keep latest metadata for usage / finish_reason logs
+
+            # Ensure final `data` carries the stitched-together content
+            if data.get("choices"):
+                data["choices"][0].setdefault("message", {})
+                data["choices"][0]["message"]["content"] = full_content
+
+        except Exception as e:
+            print("[/ai/chat/rag] auto-continue failed:", e)
+
+        # ---- quick debug on final model behavior ----
         try:
             choices = data.get("choices") or []
             first = choices[0] if choices else {}
@@ -227,11 +346,16 @@ async def chat_rag(
         except Exception as e:
             print("[/ai/chat/rag] debug inspection failed:", e)
 
-        # redact outbound if needed
+        # normalize DCG expansion + redact outbound if needed
         for choice in data.get("choices", []):
             msg = choice.get("message") or {}
             if isinstance(msg.get("content"), str):
-                msg["content"] = redact_pii(msg["content"])
+                content = msg["content"]
+                # 1) fix any wrong DCG expansions
+                content = _normalize_dcg_expansion(content)
+                # 2) apply your existing PII redaction
+                content = redact_pii(content)
+                msg["content"] = content
 
         # ---- debug payload: return neighbors along with the answer ----
         if debug:
@@ -243,6 +367,10 @@ async def chat_rag(
                         "filename": getattr(chunk, "filename", None),
                         "chunk_index": getattr(chunk, "chunk_index", None),
                         "text_preview": chunk.text[:800],
+                        # NEW: image paths from the indexer (relative to project root)
+                        "image_paths": getattr(chunk, "image_paths", None),
+                        "page_index": getattr(chunk, "page_index", None),
+                        "page_chunk_index": getattr(chunk, "page_chunk_index", None),
                     }
                 )
             return {

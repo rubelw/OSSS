@@ -11,6 +11,16 @@ interface UiMessage {
   isHtml?: boolean;
 }
 
+interface RetrievedChunk {
+  score?: number;
+  filename?: string;
+  chunk_index?: number;
+  text_preview?: string;
+  image_paths?: string[] | null;
+  page_index?: number | null;
+  page_chunk_index?: number | null;
+}
+
 function mdToHtml(src: string): string {
   let s = src
     .replace(/&/g, "&amp;")
@@ -37,6 +47,9 @@ export default function ChatClient() {
     { role: "user" | "assistant" | "system"; content: string }[]
   >([]);
 
+  // NEW: debug / RAG context from backend (with images)
+  const [retrievedChunks, setRetrievedChunks] = useState<RetrievedChunk[]>([]);
+
   const appendMessage = useCallback(
     (who: "user" | "bot", content: string, isHtml = false) => {
       setMessages((prev) => {
@@ -47,14 +60,11 @@ export default function ChatClient() {
     []
   );
 
-  const handleQuickGeneral = () => {
-    setInput("Hello!");
-  };
-
-  // ✅ NEW: Reset conversation
+  // ✅ Reset conversation
   const handleReset = () => {
     setMessages([]);
     setChatHistory([]);
+    setRetrievedChunks([]);
     setInput("");
   };
 
@@ -93,7 +103,7 @@ export default function ChatClient() {
         model: "llama3.1",
         messages: messagesPayload,
         temperature: 0.2,
-        max_tokens: 256,
+        // Let backend / model decide max tokens; you can override if desired
         stream: false,
       };
 
@@ -116,6 +126,14 @@ export default function ChatClient() {
         appendMessage("bot", raw || "(Non-JSON response from /v1/chat/safe)", false);
         setSending(false);
         return;
+      }
+
+      // NEW: pick up retrieved_chunks (if this is a RAG-style response)
+      const maybeChunks = payload?.retrieved_chunks;
+      if (Array.isArray(maybeChunks)) {
+        setRetrievedChunks(maybeChunks as RetrievedChunk[]);
+      } else {
+        setRetrievedChunks([]);
       }
 
       // Most /v1/chat/safe responses wrap the OpenAI-style object in `answer`
@@ -150,7 +168,6 @@ export default function ChatClient() {
         ...prev,
         { role: "assistant", content: String(reply) },
       ]);
-
     } catch (err: any) {
       appendMessage("bot", `Network error: ${String(err)}`, false);
     }
@@ -175,7 +192,7 @@ export default function ChatClient() {
         </div>
       </div>
 
-      {/* Toolbar: quick example + RESET */}
+      {/* Toolbar: RESET */}
       <div className="mentor-toolbar">
         <button
           type="button"
@@ -207,6 +224,62 @@ export default function ChatClient() {
           </div>
         ))}
       </div>
+
+      {/* Retrieved RAG context (with images) */}
+      {retrievedChunks.length > 0 && (
+        <div className="rag-debug-panel">
+          <div className="rag-debug-title">Retrieved context</div>
+          <div className="rag-debug-list">
+            {retrievedChunks.map((c, idx) => {
+              const key =
+                `${c.filename ?? "chunk"}-${c.chunk_index ?? idx}-${c.page_index ?? "p"}`;
+              return (
+                <div className="rag-chunk-card" key={key}>
+                  <div className="rag-chunk-header">
+                    <span className="rag-chunk-filename">
+                      {c.filename ?? "Unknown file"}
+                    </span>
+                    {typeof c.score === "number" && (
+                      <span className="rag-chunk-score">
+                        score: {c.score.toFixed(3)}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Images */}
+                  {c.image_paths && c.image_paths.length > 0 && (
+                    <div className="rag-chunk-images">
+                      {c.image_paths.map((p, i) => {
+                        if (!p) return null;
+                        // If backend serves images under /rag-images, prefix here.
+                        // If your API exposes full URLs already, you can just use `p`.
+                        const src = p.startsWith("http")
+                          ? p
+                          : `/rag-images/${p}`;
+                        return (
+                          <img
+                            key={`${key}-img-${i}`}
+                            src={src}
+                            alt={c.text_preview?.slice(0, 80) || "RAG image"}
+                            className="rag-image"
+                          />
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Text preview */}
+                  {c.text_preview && (
+                    <div className="rag-chunk-text">
+                      {c.text_preview}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Composer */}
       <div className="mentor-composer">

@@ -107,6 +107,7 @@ dependencies = [
 
     "pypdf>=4.0.0",
     "chromadb>=0.5.5",
+    "rasa==3.6.20",
 ]
 
 [project.optional-dependencies]
@@ -127,6 +128,8 @@ dev = [
     "trio>=0.30.0",
     "pytest-dotenv>=0.5.2",
     "python-consul2>=0.1.5",
+    "pdfplumber==0.11.8",
+    "pytesseract==0.3.13",
 ]
 
 
