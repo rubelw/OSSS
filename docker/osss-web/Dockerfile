@@ -1,22 +1,17 @@
-# Use official Node.js LTS Alpine base
+# Option B: Dev-friendly bind mount + runtime npm install
 FROM node:20-alpine
 
-# Set working directory
+# Work inside /app
 WORKDIR /app
 
-# Install dependencies first (better layer caching)
-COPY package.json package-lock.json* ./
-RUN npm install
-
-# At runtime the source code will be bind-mounted from host
-# so we don't COPY it here to keep dev iterations fast.
-
-# Environment defaults (can be overridden in docker-compose.yml)
+# Environment for reliable file watching
 ENV NODE_ENV=development \
     CHOKIDAR_USEPOLLING=true \
     WATCHPACK_POLLING=true
 
 EXPOSE 3000
 
-# Default command: run Next.js dev server
-CMD ["npm", "run", "dev", "--", "--port", "3000"]
+# At runtime we will:
+#  1. npm install  (into /app/node_modules which is a named volume)
+#  2. start next dev
+CMD ["sh", "-c", "npm install && npm run dev -- --port 3000"]

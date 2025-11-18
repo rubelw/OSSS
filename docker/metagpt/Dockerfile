@@ -21,7 +21,7 @@ RUN mkdir -p /root/.metagpt && \
 'llm:' \
 '  api_type: "ollama"' \
 '  base_url: "http://host.containers.internal:11434/api"' \
-'  model: "mistral:latest"' \
+'  model: "llama3.2-vision:latest"' \
 > /root/.metagpt/config2.yaml
 
 # copy just the MetaGPT source into the image

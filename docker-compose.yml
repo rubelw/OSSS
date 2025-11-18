@@ -361,9 +361,8 @@ services:
     mem_limit: 2g
     mem_reservation: 1g
     build:
-      context: .
-      dockerfile: docker/osss-web/Dockerfile
-    command: npm run dev -- --port 3000
+      context: ./src/osss-web
+      dockerfile: ../../docker/osss-web/Dockerfile
     #depends_on:
       #app:
       #  condition: service_healthy

@@ -217,7 +217,7 @@ start_ollama() {
 ensure_ollama_local() {
   echo "🧠 Ensuring Ollama is installed and running locally with preloaded models…"
   # Use Mistral as the main chat model, keep embed models as-is
-  local MODELS=("mistral:latest" "all-minilm:latest" "nomic-embed-text:latest")
+  local MODELS=("llama3.2-vision:latest" "all-minilm:latest" "nomic-embed-text:latest")
   local OLLAMA_HOST="0.0.0.0"
   local OLLAMA_PORT=11434
 
@@ -939,7 +939,7 @@ check_ollama_ready() {
   set -euo pipefail
 
   # Default to Mistral if no explicit model passed
-  local MODEL_NAME="${1:-mistral}"
+  local MODEL_NAME="${1:-llama3.2-vision}"
   # Allow override via env; default to ./ollama_data
   local OLLAMA_DATA_DIR="${OLLAMA_DATA_DIR:-./ollama_data}"
   local MODELS_DIR="${OLLAMA_DATA_DIR%/}/models"
@@ -4546,11 +4546,11 @@ utilities_menu() {
     echo " 10) Diagnose container restart"
     echo " 11) List tutor-db tables"
     echo " 12) Delete a container by name/ID"
-    echo " 13) Rebuild LLM index - main"
-    echo " 14) Stop Ollama"
-    echo " 15) Start Ollama"
-    echo " 16) Delete LLM embeddings"
-    echo " 17) Train RASA locally"
+    echo " 13) Stop Ollama"
+    echo " 14) Start Ollama"
+    echo " 15) Delete LLM embeddings"
+    echo " 16) Train RASA locally"
+    echo " 17) Rebuild LLM index - main"
     echo " 18) Rebuild LLM index - tutors"
     echo " 19) Rebuild LLM index - agents"
     echo "  q) Back"
@@ -4774,19 +4774,19 @@ REMOTE
           fi
         fi
         ;;
-      13) rebuild_additional_llm_index
-        ;;
-      14)
+      13)
         stop_ollama
         ;;
-      15)
+      14)
         start_ollama
         ;;
-      16)
+      15)
         delete_additional_llm_embeddings
         ;;
-      17)
+      16)
         train_rasa_locally
+        ;;
+      17) rebuild_additional_llm_index
         ;;
       18) rebuild_additional_llm_index_tutor
         ;;

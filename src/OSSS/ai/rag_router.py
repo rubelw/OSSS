@@ -33,7 +33,7 @@ except Exception:  # fallback, same as in your ai_gateway
         TUTOR_TEMPERATURE: float = 0.2
         # Allow up to 2048 tokens by default
         TUTOR_MAX_TOKENS: int = 2048
-        DEFAULT_MODEL: str = "mistral"
+        DEFAULT_MODEL: str = "llama3.2-vision"
 
     settings = _Settings()  # type: ignore
 
@@ -58,7 +58,7 @@ except Exception:
 
 
 class RAGRequest(BaseModel):
-    model: Optional[str] = "mistral"
+    model: Optional[str] = "llama3.2-vision"
     messages: List[ChatMessage]
     # Default to 2048 if the client doesn't specify
     max_tokens: Optional[int] = 2048
@@ -120,11 +120,11 @@ async def chat_rag(
     chat_url = f"{base}/v1/chat/completions"
 
     # ---- model / params ----
-    model = (payload.model or getattr(settings, "DEFAULT_MODEL", "mistral")).strip()
+    model = (payload.model or getattr(settings, "DEFAULT_MODEL", "llama3.2-vision")).strip()
     debug = bool(getattr(payload, "debug", False))
 
-    if model == "mistral":
-        model = "mistral"
+    if model == "llama3.2-vision":
+        model = "llama3.2-vision"
 
     temperature = (
         payload.temperature
