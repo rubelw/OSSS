@@ -5,7 +5,10 @@ import asyncio
 from fastapi import FastAPI
 from pydantic import BaseModel
 
-from OSSS.agents.metagpt_osss_agent import run_osss_metagpt_agent
+from MetaGPT.metagpt_osss_agent import (
+    run_osss_metagpt_agent,
+    run_two_osss_agents_conversation,  # if you're using this
+)
 
 app = FastAPI(title="OSSS MetaGPT Sidecar")
 
@@ -14,6 +17,9 @@ class RunRequest(BaseModel):
     requirement: str
     investment: float | None = 2.0
     workspace: str | None = None
+
+class ConversationRequest(BaseModel):
+    prompt: str
 
 
 @app.get("/health")
@@ -29,7 +35,7 @@ async def run_agent(req: RunRequest):
     The heavy MetaGPT logic lives in run_osss_metagpt_agent; this endpoint
     just starts it in the background and returns immediately.
     """
-    workspace = req.workspace or "./metagpt_workspace/osss_sidecar"
+    workspace = req.workspace or "/workspace/osss_sidecar"
 
     asyncio.create_task(
       run_osss_metagpt_agent(
@@ -40,3 +46,11 @@ async def run_agent(req: RunRequest):
     )
 
     return {"message": "MetaGPT run started", "workspace": workspace}
+
+@app.post("/converse")
+async def converse(req: ConversationRequest):
+    """
+    Run two MetaGPT agents that talk to each other and return their messages.
+    """
+    messages = await run_two_osss_agents_conversation(req.prompt)
+    return {"messages": messages}

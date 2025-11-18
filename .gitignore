@@ -189,3 +189,6 @@ vector_indexes/*
 vector_indexes/
 
 vector_index_*/
+
+workspace/
+workspace/*

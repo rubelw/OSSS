@@ -28,10 +28,11 @@ ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt \
 
 WORKDIR /app
 
-COPY pyproject.toml ./
+COPY pyproject.toml ./pyproject.toml
+COPY README.md ./README.md
+COPY src ./src
 RUN python -m pip install --upgrade pip setuptools wheel
 
-COPY src ./src
 COPY gunicorn.conf.py ./
 ENV PYTHONPATH=/app/src
 RUN pip install .

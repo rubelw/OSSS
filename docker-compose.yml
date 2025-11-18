@@ -291,9 +291,9 @@ services:
     container_name: metagpt
     hostname: metagpt
     environment:
-      - OLLAMA_HOST=http://host.containers.internal:11434
     volumes:
-      - .:/work
+      - ./src/MetaGPT:/work/src/MetaGPT
+      - ./MetaGPT_workspace:/workspace
     networks:
       - osss-net
     depends_on:
