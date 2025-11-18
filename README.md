@@ -112,6 +112,7 @@ OpenSSL version: OpenSSL 1.1.1h  22 Sep 2020
   - 8585 (OpenMetadata)
   - 8082 (OpenMetadata Ingestion)
   - 5005 (Rasa Mentor)
+  - 8086 (A2A Server)
   
   
 ---
