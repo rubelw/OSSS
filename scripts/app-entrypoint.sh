@@ -418,6 +418,7 @@ PY
     set -- uvicorn src.OSSS.main:app \
       --host "$HOST" --port "$PORT" \
       --reload \
+      --reload-dir /workspace/src/OSSS \
       --log-level "${UVICORN_LOG_LEVEL:-info}" \
       --access-log \
       --log-config /workspace/docker/logging.yaml

@@ -24,8 +24,10 @@ RUN mkdir -p /root/.metagpt && \
 '  model: "mistral:latest"' \
 > /root/.metagpt/config2.yaml
 
-# Code is provided at runtime via bind mount (see docker-compose)
-# so no COPY src here.
+# copy just the MetaGPT source into the image
+COPY src/MetaGPT /work/src/MetaGPT
+
+
 
 CMD ["uvicorn", "MetaGPT.metagpt_server:app", \
      "--host", "0.0.0.0", \

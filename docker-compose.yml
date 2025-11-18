@@ -160,6 +160,8 @@ services:
       - --port
       - '8000'
       - --reload
+      - --reload-dir
+      - /workspace/src/OSSS
       - --log-level
       - info
       - --access-log
@@ -263,8 +265,6 @@ services:
       AGENT_INDEX_PATH: /workspace/vector_indexes/agent/embeddings.jsonl
       METAGPT_URL: http://metagpt:8001
 
-
-
     depends_on:
       redis:
         condition: service_healthy
@@ -290,14 +290,36 @@ services:
       dockerfile: docker/metagpt/Dockerfile
     container_name: metagpt
     hostname: metagpt
+    working_dir: /work
     environment:
+      WATCHFILES_FORCE_POLLING: 'true'   # 👈 add this
+    # Explicit uvicorn command so behavior is obvious in compose
+    # (even though the Dockerfile's CMD already sets this)
+    command:
+      - uvicorn
+      - MetaGPT.metagpt_server:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8001"
+      - --reload
+      - --reload-dir
+      - /work/src/MetaGPT      # 🚀 Only reload MetaGPT code
+
     volumes:
-      - ./src/MetaGPT:/work/src/MetaGPT
+      # Mount ONLY MetaGPT code, not the whole repo
+      - ./src/MetaGPT:/work/src/MetaGPT:cached
+      # Workspace for MetaGPT agent logs/output
       - ./MetaGPT_workspace:/workspace
+      - ./MetaGPT_workspace/projects:/work/workspace
+
+
     networks:
       - osss-net
+
     depends_on:
       - app
+
     ports:
       - "8001:8001"
 
