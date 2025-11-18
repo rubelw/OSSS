@@ -13,6 +13,7 @@ from PIL import Image
 import io
 import pdfplumber
 import time  # needed for retry backoff in embed_batch
+import shutil  # <-- NEW: for copying PDFs
 
 # Optional OCR (pytesseract)
 try:
@@ -34,6 +35,7 @@ DATA_ROOT = os.path.join(PROJECT_ROOT, "additional_llm_data")
 OUT_DIR = os.path.join(PROJECT_ROOT, "vector_indexes", "main")
 OUT_FILE = os.path.join(OUT_DIR, "embeddings.jsonl")
 IMAGES_ROOT = os.path.join(OUT_DIR, "images")
+PDFS_ROOT = os.path.join(OUT_DIR, "pdfs")  # <-- NEW: where we keep a copy of PDFs
 
 # Mapping index name -> data subdirectory
 INDEX_DATA_DIRS = {
@@ -80,6 +82,12 @@ def ensure_out_dir():
         log(f"Created images dir: {IMAGES_ROOT}")
     else:
         log(f"Images dir exists: {IMAGES_ROOT}")
+
+    if not os.path.exists(PDFS_ROOT):  # <-- NEW
+        os.makedirs(PDFS_ROOT, exist_ok=True)
+        log(f"Created pdfs dir: {PDFS_ROOT}")
+    else:
+        log(f"Pdfs dir exists: {PDFS_ROOT}")
 
 
 def iter_pdfs(root: str):
@@ -402,6 +410,27 @@ def parse_args():
     return parser.parse_args()
 
 
+def save_pdf_to_pdfs_folder(pdf_path: str):
+    """
+    Copy the processed PDF into the pdfs folder under OUT_DIR.
+    If a file with the same name already exists, we keep the existing one.
+    """
+    try:
+        os.makedirs(PDFS_ROOT, exist_ok=True)
+        dest_name = os.path.basename(pdf_path)
+        dest_path = os.path.join(PDFS_ROOT, dest_name)
+
+        if not os.path.exists(dest_path):
+            shutil.copy2(pdf_path, dest_path)
+            rel_dest = os.path.relpath(dest_path, PROJECT_ROOT)
+            log(f"  Saved source PDF copy to {rel_dest}")
+        else:
+            rel_dest = os.path.relpath(dest_path, PROJECT_ROOT)
+            log(f"  PDF copy already exists at {rel_dest}")
+    except Exception as e:
+        log(f"  ! Failed to copy PDF into pdfs folder: {e}")
+
+
 def process_pdf(pdf_path: str, idx: int, total: int, args):
     log(f"\n---- [{idx}/{total}] Processing PDF ----")
     log(f"PDF path: {pdf_path}")
@@ -411,6 +440,9 @@ def process_pdf(pdf_path: str, idx: int, total: int, args):
     if not pages:
         log("  ! No readable text or images, skipping.")
         return
+
+    # Save a copy of the PDF into the pdfs folder
+    save_pdf_to_pdfs_folder(pdf_path)
 
     # Build per-chunk data: text + metadata (page index, image paths, OCR texts)
     all_chunks: List[str] = []
@@ -564,8 +596,8 @@ def main():
 
     args = parse_args()
 
-    # Recompute DATA_ROOT, OUT_DIR, OUT_FILE, IMAGES_ROOT based on --index
-    global DATA_ROOT, OUT_DIR, OUT_FILE, IMAGES_ROOT
+    # Recompute DATA_ROOT, OUT_DIR, OUT_FILE, IMAGES_ROOT, PDFS_ROOT based on --index
+    global DATA_ROOT, OUT_DIR, OUT_FILE, IMAGES_ROOT, PDFS_ROOT
 
     data_subdir = INDEX_DATA_DIRS.get(args.index, "additional_llm_data")
     DATA_ROOT = os.path.join(PROJECT_ROOT, data_subdir)
@@ -573,6 +605,7 @@ def main():
     OUT_DIR = os.path.join(PROJECT_ROOT, "vector_indexes", args.index)
     OUT_FILE = os.path.join(OUT_DIR, "embeddings.jsonl")
     IMAGES_ROOT = os.path.join(OUT_DIR, "images")
+    PDFS_ROOT = os.path.join(OUT_DIR, "pdfs")  # <-- recompute per index
 
     log(f"Current working dir: {os.getcwd()}")
     log(f"Project root:        {PROJECT_ROOT}")
@@ -582,6 +615,7 @@ def main():
     log(f"Out dir:             {OUT_DIR}")
     log(f"Out file:            {OUT_FILE}")
     log(f"Images dir:          {IMAGES_ROOT}")
+    log(f"Pdfs dir:            {PDFS_ROOT}")
     log(f"Embedding model:     {EMBED_MODEL}")
     log(f"Chunk size/overlap:  {MAX_CHARS}/{OVERLAP_CHARS}")
     log(f"OCR available:       {HAS_PYTESSERACT}")
