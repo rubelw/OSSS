@@ -4196,6 +4196,8 @@ logs_menu() {
     echo "38) Logs container 'tutor-db'"
     echo "39) Logs container 'metagpt'"
     echo "40) Logs container 'a2a'"
+    echo "41) Logs container 'a2a-agent'"
+
 
     echo "  q) Back"
     echo "-----------------------------------------------"
@@ -4241,6 +4243,8 @@ logs_menu() {
       38) logs_follow_container "tutor-db" ;;
       39) logs_follow_container "metagpt" ;;
       40) logs_follow_container "a2a" ;;
+      41) logs_follow_container "a2a-agent" ;;
+
       q|Q|b|B) return 0 ;;
       *) echo "Unknown choice: ${choice}" ;;
     esac

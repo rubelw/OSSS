@@ -1,91 +1,54 @@
-"""
-MetaGPT FastAPI Sidecar with unified logging
-"""
-
-from __future__ import annotations
-
-import asyncio
-import logging
-from logging.handlers import RotatingFileHandler
-from pathlib import Path
-
-from fastapi import FastAPI
+# src/MetaGPT/metagpt_server.py
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
-from MetaGPT.metagpt_osss_agent import (
-    run_osss_metagpt_agent,
-    run_two_osss_agents_conversation,
-)
+from MetaGPT.roles_registry import ROLE_REGISTRY, DEFAULT_ROLE_NAME
 
-# -----------------------------------------------------------
-# Logging Setup → /workspace/MetaGPT_workspace/logs/sidecar.log
-# -----------------------------------------------------------
-LOG_DIR = Path("/workspace/MetaGPT_workspace/logs")
-LOG_DIR.mkdir(parents=True, exist_ok=True)
-
-LOG_FILE = LOG_DIR / "sidecar.log"
-
-logger = logging.getLogger("metagpt_sidecar")
-logger.setLevel(logging.INFO)
-
-handler = RotatingFileHandler(
-    LOG_FILE,
-    maxBytes=5_000_000,
-    backupCount=5,
-)
-formatter = logging.Formatter(
-    "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
-)
-handler.setFormatter(formatter)
-logger.addHandler(handler)
-
-logger.info("🚀 MetaGPT sidecar starting…")
-
-# FastAPI App
-app = FastAPI(title="OSSS MetaGPT Sidecar")
+app = FastAPI()
 
 
 class RunRequest(BaseModel):
-    requirement: str
-    investment: float | None = 2.0
-    workspace: str | None = None
-    rag_index: str | None = None
+    query: str
+    role: str | None = None   # e.g. "analyst", "data_interpreter"
 
 
-class ConverseRequest(BaseModel):
-    prompt: str
+class RunResponse(BaseModel):
+    role: str
+    result: dict | str        # custom roles might return dicts; builtin ones strings
 
 
-@app.get("/health")
-async def health() -> dict:
-    logger.info("Health check OK")
-    return {"status": "ok"}
+@app.on_event("startup")
+async def startup_event():
+    """
+    Instantiate one role object per role name and store in app.state.
+    """
+    instances = {}
+    for role_name, RoleCls in ROLE_REGISTRY.items():
+        instances[role_name] = RoleCls()
+    app.state.role_instances = instances
 
 
-@app.post("/run")
-async def run_agent(req: RunRequest):
-    logger.info(f"🔥 /run called requirement={req.requirement} rag_index={req.rag_index}")
-
-    workspace = req.workspace or "/workspace/MetaGPT_workspace/osss_sidecar"
-
-    asyncio.create_task(
-        run_osss_metagpt_agent(
-            requirement=req.requirement,
-            investment=req.investment or 2.0,
-            workspace=workspace,
-            rag_index=req.rag_index,
-        )
-    )
-
-    return {"message": "MetaGPT run started", "workspace": workspace}
+@app.get("/roles")
+async def list_roles():
+    """
+    Simple discovery endpoint – handy for debugging and for the A2A layer.
+    """
+    return {"roles": sorted(ROLE_REGISTRY.keys())}
 
 
-@app.post("/converse")
-async def converse(req: ConverseRequest):
-    logger.info(f"🤖 Two-agent conversation started prompt={req.prompt}")
+@app.post("/run", response_model=RunResponse)
+async def run(req: RunRequest):
+    role_name = req.role or DEFAULT_ROLE_NAME
+    instances = app.state.role_instances
 
-    result = await run_two_osss_agents_conversation(req.prompt)
+    if role_name not in instances:
+        raise HTTPException(status_code=400, detail=f"Unknown role: {role_name}")
 
-    logger.info(f"🤖 Two-agent conversation result={result}")
+    agent = instances[role_name]
+    result = await agent.run(req.query)
 
-    return result
+    # Make sure the result is JSON-serializable
+    if not isinstance(result, (str, dict, list, int, float, bool, type(None))):
+        result = str(result)
+
+    return RunResponse(role=role_name, result=result)

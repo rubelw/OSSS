@@ -20,7 +20,9 @@ RUN pip install --no-cache-dir \
     "metagpt==0.8.1" \
     "uvicorn[standard]" \
     httpx \
-    openai
+    openai \
+    python-a2a
+
 
 # Minimal MetaGPT config for Ollama
 RUN mkdir -p /root/.metagpt && \
@@ -38,4 +40,3 @@ RUN mkdir -p /root/.metagpt && \
 # make /app/src importable as top-level package root
 ENV PYTHONPATH=/app/src
 
-CMD ["uvicorn", "a2a_server.main:app", "--host", "0.0.0.0", "--port", "8086", "--reload", "--reload-dir", "/app/src"]

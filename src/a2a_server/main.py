@@ -1,118 +1,85 @@
 # src/a2a_server/main.py
-from fastapi import FastAPI
+
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import List, Optional
-from datetime import datetime, timezone
-import uuid
+
+from a2a_server.orchestrator import orchestrator  # local orchestrator
 
 app = FastAPI()
 
-origins = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-]
-
+# ---- CORS (for Next.js admin UI on 3000) ----
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ],
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# ---------- models used by the admin UI ----------
 
-class Agent(BaseModel):
-    id: str
-    name: str
-    description: Optional[str] = None
+# ---- Request models ----
 
-class Run(BaseModel):
-    id: str
-    agent_id: str
-    status: str
-    created_at: Optional[str] = None
-    updated_at: Optional[str] = None
-    input_preview: Optional[str] = None
-    output_preview: Optional[str] = None
-
-class RunCreate(BaseModel):
+class TriggerPayload(BaseModel):
     agent_id: str
     input: str
 
-# simple in-memory store so UI isn't empty
-AGENTS: list[Agent] = [
-    Agent(
-        id="two-osss-agents",
-        name="Two OSSS Agents (stub)",
-        description="Stub agent – later will call MetaGPT team.run()",
-    )
-]
-RUNS: dict[str, Run] = {}
 
-def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
-
-# ---------- ADMIN endpoints used by Next.js dashboard ----------
+# ---- ADMIN API -----
 
 @app.get("/admin/health")
 async def admin_health():
-    return {"ok": True, "status": "alive"}
+    return {"ok": True, "status": "orchestrator loaded"}
 
-@app.get("/admin/agents", response_model=List[Agent])
+
+@app.get("/admin/agents")
 async def list_agents():
-    return AGENTS
+    return orchestrator.list_agents()
+
 
 @app.get("/admin/runs")
 async def list_runs(limit: int = 50):
-    runs = list(RUNS.values())
-    runs = sorted(runs, key=lambda r: r.created_at or "", reverse=True)
-    return {"runs": runs[:limit]}
+    return orchestrator.list_runs(limit=limit)
+
+
+@app.post("/admin/trigger")
+async def trigger(payload: TriggerPayload):
+    """
+    Triggers an A2A-backed MetaGPT agent.
+
+    - Creates a Run
+    - Calls the A2A agent (python-a2a) via orchestrator.run_agent(...)
+    - Returns the updated Run record
+    """
+    if not payload.agent_id:
+        raise HTTPException(status_code=400, detail="agent_id is required")
+
+    if not payload.input.strip():
+        raise HTTPException(status_code=400, detail="input is required")
+
+    # Important: orchestrator.run_agent is async now, so we MUST await it.
+    run = await orchestrator.run_agent(payload.agent_id, payload.input)
+    return run
+
 
 @app.get("/admin/runs/{run_id}")
 async def get_run(run_id: str):
-    run = RUNS.get(run_id)
+    run = orchestrator.get_run(run_id)
     if not run:
-        return {"error": "run not found"}
+        raise HTTPException(status_code=404, detail="Run not found")
     return run
 
-@app.post("/admin/trigger")
-async def trigger_run(payload: RunCreate):
-    run_id = str(uuid.uuid4())
-    run = Run(
-        id=run_id,
-        agent_id=payload.agent_id,
-        status="queued",
-        created_at=_now_iso(),
-        updated_at=_now_iso(),
-        input_preview=payload.input[:200],
-        output_preview=None,
-    )
-    RUNS[run_id] = run
-    # TODO: enqueue background job that actually calls MetaGPT
-    return {"id": run_id, "status": "queued"}
 
-# ---------- health/root ----------
+# ---- Simple health/debug endpoints ----
 
 @app.get("/health")
-async def bare_health():
+async def health():
     return {"status": "ok"}
+
 
 @app.get("/")
 async def root():
-    return {"message": "A2A server is alive"}
-
-# ---------- endpoint metagpt-server expects ----------
-
-class MetaGPTConversationRequest(BaseModel):
-    prompt: str
-    rag_index: Optional[str] = None
-
-@app.post("/agents/two-osss-agents/conversation")
-async def two_osss_agents_conversation(body: MetaGPTConversationRequest):
-    # stub implementation; you can replace later with real MetaGPT call
-    return {
-        "response": f"[stub from a2a] would run two-osss-agents on: {body.prompt}",
-        "rag_index": body.rag_index,
-    }
+    return {"message": "A2A server is alive!!!"}

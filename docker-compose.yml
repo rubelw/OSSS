@@ -282,46 +282,6 @@ services:
       driver: k8s-file
       options:
         max-size: 10m
-  metagpt:
-    profiles:
-      - app
-    build:
-      context: .
-      dockerfile: docker/metagpt/Dockerfile
-    container_name: metagpt
-    hostname: metagpt
-    working_dir: /work
-    environment:
-      WATCHFILES_FORCE_POLLING: 'true'   # 👈 add this
-    # Explicit uvicorn command so behavior is obvious in compose
-    # (even though the Dockerfile's CMD already sets this)
-    command:
-      - uvicorn
-      - MetaGPT.metagpt_server:app
-      - --host
-      - 0.0.0.0
-      - --port
-      - "8001"
-      - --reload
-      - --reload-dir
-      - /work/src/MetaGPT      # 🚀 Only reload MetaGPT code
-
-    volumes:
-      # Mount ONLY MetaGPT code, not the whole repo
-      - ./src/MetaGPT:/work/src/MetaGPT:cached
-      # Workspace for MetaGPT agent logs/output
-      - ./MetaGPT_workspace:/workspace
-      - ./MetaGPT_workspace/projects:/work/workspace
-
-
-    networks:
-      - osss-net
-
-    depends_on:
-      - app
-
-    ports:
-      - "8001:8001"
 
 
   tutor-db:
@@ -2183,6 +2143,10 @@ services:
       OPENAI_API_BASE: http://ollama:11434/v1
       OPENAI_API_KEY: "ollama"          # Ollama doesn’t actually check; any non-empty string is fine
       A2A_MODEL_NAME: llama3.2-vision          # or llama3:8b-instruct, mistral, etc.
+      WATCHFILES_FORCE_POLLING: 'true'
+      METAGPT_BASE_URL: http://metagpt:8001
+
+
 
     working_dir: /app
     command: >
@@ -2190,10 +2154,13 @@ services:
       --host 0.0.0.0
       --port 8086
       --reload
-      --reload-dir /app/src
+      --reload-dir /app/src/a2a_server
+      --reload-include '*.py'
+      --log-level info
+
     volumes:
       # Mount host source into container
-      - ./src:/app/src               # mount the whole src tree
+      - ./src:/app/src:rw               # mount the whole src tree
 
 
     ports:
@@ -2208,6 +2175,81 @@ services:
       # - ollama
       # - rasa
       [ ]
+
+    profiles:
+      - ai
+
+  metagpt:
+    profiles:
+      - ai
+    build:
+      context: .
+      dockerfile: docker/metagpt/Dockerfile
+    container_name: metagpt
+    hostname: metagpt
+    working_dir: /work
+    environment:
+      # whatever else you need, plus Ollama already configured in Dockerfile
+      PYTHONUNBUFFERED: 1
+      WATCHFILES_FORCE_POLLING: 'true'   # 👈 add this
+    # Explicit uvicorn command so behavior is obvious in compose
+    # (even though the Dockerfile's CMD already sets this)
+    command:
+      - uvicorn
+      - MetaGPT.metagpt_server:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8001"
+      - --reload
+      - --reload-dir
+      - /work/src/MetaGPT      # 🚀 Only reload MetaGPT code
+
+    volumes:
+      # Mount ONLY MetaGPT code, not the whole repo
+      - ./src/MetaGPT:/work/src/MetaGPT:cached
+      # Workspace for MetaGPT agent logs/output
+      - ./MetaGPT_workspace:/workspace
+      - ./MetaGPT_workspace/projects:/work/workspace
+
+    networks:
+      - osss-net
+
+    ports:
+      - "8001:8001"
+
+  a2a-agent:
+    container_name: a2a-agent
+    hostname: a2a-agent
+
+    # Reuse the same build as the admin service
+    build:
+      context: .
+      dockerfile: docker/a2a-agent/Dockerfile
+
+    restart: never
+
+    environment:
+      PYTHONPATH: /app/src
+      METAGPT_BASE_URL: http://metagpt:8001
+
+    working_dir: /app
+
+    # Run the python-a2a agent server (our a2a_agent.py)
+    command: >
+      python -m a2a_server.a2a_agent
+
+    volumes:
+      - ./src:/app/src:rw
+
+    # Only needs to be reachable inside the network; no host port mapping required
+    expose:
+      - "9000"
+
+    networks: [ osss-net ]
+
+    depends_on:
+      - metagpt
 
     profiles:
       - ai
