@@ -63,6 +63,8 @@ app.add_middleware(
 # --------------------------------------------------------------------
 # Request Models
 # --------------------------------------------------------------------
+class ParentStudentCheckinPayload(BaseModel):
+    grades_text: str
 
 class TriggerPayload(BaseModel):
     """
@@ -173,6 +175,23 @@ async def get_run(run_id: str):
 
     return run
 
+@app.post("/admin/parent-student-checkin")
+async def parent_student_checkin(payload: ParentStudentCheckinPayload):
+    """
+    Orchestrate a simple parent→student interaction about grades:
+
+      1) Use the parent-agent to draft a question to the student.
+      2) Use the student-agent to answer that question as the student.
+
+    Body example:
+      {
+        "grades_text": "Math: B-, English: A, Science: C+, ...",
+      }
+    """
+    result = await orchestrator.parent_student_grade_checkin(
+        grades_text=payload.grades_text,
+    )
+    return result
 
 # --------------------------------------------------------------------
 # Public / Debug / Dev Endpoints

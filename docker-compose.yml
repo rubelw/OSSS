@@ -2161,6 +2161,8 @@ services:
     volumes:
       # Mount host source into container
       - ./src:/app/src:rw               # mount the whole src tree
+      - ./MetaGPT_workspace:/logs:rw
+
 
 
     ports:
@@ -2241,6 +2243,7 @@ services:
 
     volumes:
       - ./src:/app/src:rw
+      - ./MetaGPT_workspace:/logs:rw
 
     # Only needs to be reachable inside the network; no host port mapping required
     expose:

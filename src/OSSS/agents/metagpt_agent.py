@@ -21,6 +21,8 @@ class MetaGptRunRequest(BaseModel):
     investment: float = 2.0
     workspace: str | None = None
     rag_index: str | None = None   # <-- forwarded to sidecar
+    role: str | None = None  # optional
+
 
 
 class MetaGptRunResponse(BaseModel):
@@ -33,19 +35,23 @@ class TwoAgentConversationRequest(BaseModel):
     rag_index: str | None = None   # optional: let convo pick an index too
 
 
-async def _call_sidecar(req: MetaGptRunRequest) -> dict:
+async def _call_sidecar_with_role(req: MetaGptRunRequest, default_role: str) -> dict:
     """
     Low-level client that POSTs to the MetaGPT sidecar /run endpoint.
     """
     url = f"{METAGPT_BASE_URL}/run"
 
-    payload: dict = {
+    payload = {
         "requirement": req.requirement,
         "investment": req.investment,
         "workspace": req.workspace,
+        "role": default_role,
     }
+
     if req.rag_index is not None:
         payload["rag_index"] = req.rag_index
+    if role is not None:
+        payload["role"] = role
 
     try:
         async with httpx.AsyncClient(timeout=60.0) as client:
@@ -88,17 +94,20 @@ async def run_two_agents_via_sidecar(
     return resp.json()
 
 
+# -------------------------------------------------------------------
+# Existing OSSS agent endpoint
+# -------------------------------------------------------------------
+
 @router.post("/osss-agent", response_model=MetaGptRunResponse)
 async def run_osss_metagpt_via_sidecar(req: MetaGptRunRequest) -> MetaGptRunResponse:
     """
-    FastAPI endpoint that proxies to the MetaGPT sidecar.
+    FastAPI endpoint that proxies to the MetaGPT sidecar
+    for OSSS-focused work.
 
-    Your Next.js / API clients should call:
+    Clients call:
       POST /metagpt/osss-agent
-
-    This route will talk to the metagpt container internally.
     """
-    data = await _call_sidecar(req)
+    data = await _call_sidecar_with_role(req, default_role="analyst")
 
     return MetaGptRunResponse(
         message=data.get("message", "MetaGPT run started"),
@@ -108,6 +117,147 @@ async def run_osss_metagpt_via_sidecar(req: MetaGptRunRequest) -> MetaGptRunResp
         ),
     )
 
+
+# -------------------------------------------------------------------
+# NEW: Persona-specific agent endpoints
+# -------------------------------------------------------------------
+
+@router.post("/accountability-partner-agent", response_model=MetaGptRunResponse)
+async def run_accountability_partner_agent(req: MetaGptRunRequest) -> MetaGptRunResponse:
+    """
+    Endpoint for an 'accountability partner' persona.
+
+    Clients call:
+      POST /metagpt/accountability-partner-agent
+    """
+    data = await _call_sidecar_with_role(req, default_role="accountability_partner")
+
+    return MetaGptRunResponse(
+        message=data.get("message", "MetaGPT accountability partner run started"),
+        workspace=data.get(
+            "workspace",
+            req.workspace or "./metagpt_workspace/accountability_partner_sidecar",
+        ),
+    )
+
+
+@router.post("/parent-agent", response_model=MetaGptRunResponse)
+async def run_parent_agent(req: MetaGptRunRequest) -> MetaGptRunResponse:
+    """
+    Endpoint for a 'parent' persona.
+
+    Clients call:
+      POST /metagpt/parent-agent
+    """
+    data = await _call_sidecar_with_role(req, default_role="parent")
+
+    return MetaGptRunResponse(
+        message=data.get("message", "MetaGPT parent run started"),
+        workspace=data.get(
+            "workspace",
+            req.workspace or "./metagpt_workspace/parent_sidecar",
+        ),
+    )
+
+
+@router.post("/student-agent", response_model=MetaGptRunResponse)
+async def run_student_agent(req: MetaGptRunRequest) -> MetaGptRunResponse:
+    """
+    Endpoint for a 'student' persona.
+
+    Clients call:
+      POST /metagpt/student-agent
+    """
+    data = await _call_sidecar_with_role(req, default_role="student")
+
+    return MetaGptRunResponse(
+        message=data.get("message", "MetaGPT student run started"),
+        workspace=data.get(
+            "workspace",
+            req.workspace or "./metagpt_workspace/student_sidecar",
+        ),
+    )
+
+
+@router.post("/superintendent-agent", response_model=MetaGptRunResponse)
+async def run_superintendent_agent(req: MetaGptRunRequest) -> MetaGptRunResponse:
+    """
+    Endpoint for a 'superintendent' persona.
+
+    Clients call:
+      POST /metagpt/superintendent-agent
+    """
+    data = await _call_sidecar_with_role(req, default_role="superintendent")
+
+    return MetaGptRunResponse(
+        message=data.get("message", "MetaGPT superintendent run started"),
+        workspace=data.get(
+            "workspace",
+            req.workspace or "./metagpt_workspace/superintendent_sidecar",
+        ),
+    )
+
+
+@router.post("/school-board-agent", response_model=MetaGptRunResponse)
+async def run_school_board_agent(req: MetaGptRunRequest) -> MetaGptRunResponse:
+    """
+    Endpoint for a 'school board' persona.
+
+    Clients call:
+      POST /metagpt/school-board-agent
+    """
+    data = await _call_sidecar_with_role(req, default_role="school_board")
+
+    return MetaGptRunResponse(
+        message=data.get("message", "MetaGPT school board run started"),
+        workspace=data.get(
+            "workspace",
+            req.workspace or "./metagpt_workspace/school_board_sidecar",
+        ),
+    )
+
+
+@router.post("/principal-agent", response_model=MetaGptRunResponse)
+async def run_principal_agent(req: MetaGptRunRequest) -> MetaGptRunResponse:
+    """
+    Endpoint for a 'principal' persona.
+
+    Clients call:
+      POST /metagpt/principal-agent
+    """
+    data = await _call_sidecar_with_role(req, default_role="principal")
+
+    return MetaGptRunResponse(
+        message=data.get("message", "MetaGPT principal run started"),
+        workspace=data.get(
+            "workspace",
+            req.workspace or "./metagpt_workspace/principal_sidecar",
+        ),
+    )
+
+
+@router.post("/teacher-agent", response_model=MetaGptRunResponse)
+async def run_teacher_agent(req: MetaGptRunRequest) -> MetaGptRunResponse:
+    """
+    Endpoint for a 'teacher' persona.
+
+    Clients call:
+      POST /metagpt/teacher-agent
+    """
+    data = await _call_sidecar_with_role(req, default_role="teacher")
+
+    return MetaGptRunResponse(
+        message=data.get("message", "MetaGPT teacher run started"),
+        workspace=data.get(
+            "workspace",
+            req.workspace or "./metagpt_workspace/teacher_sidecar",
+        ),
+    )
+
+
+# -------------------------------------------------------------------
+# Two-agent conversation endpoint (unchanged)
+# -------------------------------------------------------------------
 
 @router.post("/agents/talk")
 async def agents_talk(req: TwoAgentConversationRequest):

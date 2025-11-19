@@ -24,11 +24,19 @@ const SKILL_OPTIONS = [
   { value: "", label: "Default (analyst)" },
   { value: "analyst", label: "analyst" },
 
-  // --- Principal Persona Skills ---
+  // Principal Persona Skills
   { value: "principal", label: "principal (general)" },
   { value: "principal_email", label: "principal_email" },
   { value: "principal_discipline", label: "principal_discipline" },
   { value: "principal_announcement", label: "principal_announcement" },
+
+  // Other personas (if you wire these into a2a_agent.py)
+  { value: "teacher", label: "teacher" },
+  { value: "student", label: "student" },
+  { value: "superintendent", label: "superintendent" },
+  { value: "school_board", label: "school_board" },
+  { value: "parent", label: "parent" },
+  { value: "accountability_partner", label: "accountability_partner" },
 ];
 
 export default function A2AAdminPage() {
