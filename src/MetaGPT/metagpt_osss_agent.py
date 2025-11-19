@@ -14,6 +14,8 @@ from metagpt.roles import ProductManager, Architect, ProjectManager, Engineer
 import json
 from textwrap import indent
 import ast
+import os
+import httpx
 
 
 def _pretty_log_role_output(logger, role_name: str, raw: dict) -> None:
@@ -193,6 +195,15 @@ async def run_osss_metagpt_agent(
 
 
 async def run_two_osss_agents_conversation(prompt: str):
+    """
+    Call the external A2A server to run a two-agent OSSS conversation.
+
+    Expects A2A to expose something like:
+      POST {A2A_SERVER_URL}/agents/two-osss-agents/conversation
+      body: { "prompt": "<user prompt>" }
+      response: { "response": "<reply text>", ... }
+    """
+    # --- Logging setup (unchanged) ---
     conv_dir = Path("/workspace/MetaGPT_workspace/conversations")
     conv_dir.mkdir(parents=True, exist_ok=True)
 
@@ -203,7 +214,8 @@ async def run_two_osss_agents_conversation(prompt: str):
 
     if not logger.handlers:
         handler = RotatingFileHandler(
-            log_file, maxBytes=5_000_000, backupCount=5)
+            log_file, maxBytes=5_000_000, backupCount=5
+        )
         handler.setFormatter(
             logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
         )
@@ -211,9 +223,29 @@ async def run_two_osss_agents_conversation(prompt: str):
 
     logger.info(f"🗣 Conversation start prompt={prompt}")
 
-    # Your simple 2-agent conversation logic
-    reply = f"Two-agent reply to: {prompt}"
+    # --- A2A server call ---
+    base_url = os.getenv("A2A_SERVER_URL", "http://a2a:8086")
+    # adjust path to match your actual A2A endpoint
+    url = base_url.rstrip("/") + "/agents/two-osss-agents/conversation"
+    payload = {"prompt": prompt}
 
-    logger.info(f"🗣 Conversation result={reply}")
+    try:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            resp = await client.post(url, json=payload)
+        resp.raise_for_status()
+        data = resp.json()
+
+        # Try a few likely keys; fall back to full JSON if needed
+        reply = (
+            data.get("response")
+            or data.get("reply")
+            or data.get("message")
+            or json.dumps(data, ensure_ascii=False)
+        )
+        logger.info(f"🗣 Conversation result_from_a2a={reply!r}")
+
+    except Exception as exc:
+        logger.exception("❌ A2A two-agent conversation failed")
+        reply = f"[A2A error: {exc}]"
 
     return {"response": reply}

@@ -4,14 +4,14 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from OSSS.ai.additional_index import force_reload, INDEX_KINDS
 
 router = APIRouter(
-    prefix="/ai/admin",
-    tags=["ai-admin"],
+    prefix="/ai/a2a",
+    tags=["ai-a2a"],
 )
 
 # ---- Admin guard (Step 2-ish, but safe) ----
 
 try:
-    # If you already have a real admin dependency, use it here.
+    # If you already have a real a2a dependency, use it here.
     # Adjust the import / name to match your repo, e.g.:
     #   from OSSS.auth.deps import require_admin
     from OSSS.auth.deps import require_admin  # type: ignore

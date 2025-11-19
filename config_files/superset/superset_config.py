@@ -10,7 +10,7 @@ AUTH_ROLES_SYNC_AT_LOGIN = True
 
 # Map Keycloak groups/roles to Superset roles
 AUTH_ROLES_MAPPING = {
-    "superset-admin": ["Admin"],
+    "superset-a2a": ["Admin"],
     "superset-alpha": ["Alpha"],
     "superset-gamma": ["Gamma"],
     "superset-granter": ["Gamma", "sql_lab"],

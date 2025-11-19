@@ -22,8 +22,8 @@ x-kc-db-env:
   KC_DB_POOL_MIN_SIZE: '1'
   KC_DB_POOL_MAX_SIZE: '5'
   KEYCLOAK_URL: ${KEYCLOAK_URL}
-  KEYCLOAK_ADMIN: admin
-  KEYCLOAK_ADMIN_PASSWORD: admin
+  KEYCLOAK_ADMIN: a2a
+  KEYCLOAK_ADMIN_PASSWORD: a2a
   KEYCLOAK_REALM: OSSS
   KEYCLOAK_HEALTH_URL: ${KEYCLOAK_HEALTH_URL}
   KC_FEATURES: hostname:v1
@@ -375,6 +375,8 @@ services:
       CHOKIDAR_USEPOLLING: 'true'
       WATCHPACK_POLLING: 'true'
       OSSS_API_URL: ${OSSS_API_URL}
+      NEXT_PUBLIC_A2A_SERVER_URL: http://localhost:8086
+
     volumes:
     - ./src/osss-web:/app:cached
     - web_node_modules:/app/node_modules:z   # <— use the named volume
@@ -413,6 +415,8 @@ services:
       OSSS_DB_PASSWORD: ${OSSS_DB_PASSWORD}
       OSSS_DB_NAME: ${OSSS_DB_NAME}
       POSTGRES_INITDB_ARGS: ${POSTGRES_INITDB_ARGS}
+      A2A_SERVER_URL: http://a2a:8086
+
 
     networks:
       - osss-net
@@ -639,7 +643,7 @@ services:
       VAULT_OIDC_CLIENT_SECRET: ${VAULT_OIDC_CLIENT_SECRET}
       VAULT_OIDC_ROLE: ${VAULT_OIDC_ROLE}
       VAULT_TOKEN_FILE: /root/.vault-token
-      OIDC_ADMIN_GROUP: /vault-admin
+      OIDC_ADMIN_GROUP: /vault-a2a
       VAULT_UI_REDIRECT_1: http://127.0.0.1:8200/ui/vault/auth/oidc/oidc/callback
       VAULT_UI_REDIRECT_2: http://localhost:8200/ui/vault/auth/oidc/oidc/callback
       VAULT_UI_REDIRECT_3: http://vault:8200/ui/vault/auth/oidc/oidc/callback
@@ -1422,7 +1426,7 @@ services:
       # OpenMetadata Server Authentication Configuration
       AUTHORIZER_CLASS_NAME: ${AUTHORIZER_CLASS_NAME:-org.openmetadata.service.security.DefaultAuthorizer}
       AUTHORIZER_REQUEST_FILTER: ${AUTHORIZER_REQUEST_FILTER:-org.openmetadata.service.security.JwtFilter}
-      AUTHORIZER_ADMIN_PRINCIPALS: ${AUTHORIZER_ADMIN_PRINCIPALS:-[admin]}
+      AUTHORIZER_ADMIN_PRINCIPALS: ${AUTHORIZER_ADMIN_PRINCIPALS:-[a2a]}
       AUTHORIZER_ALLOWED_REGISTRATION_DOMAIN: ${AUTHORIZER_ALLOWED_REGISTRATION_DOMAIN:-["all"]}
       AUTHORIZER_INGESTION_PRINCIPALS: ${AUTHORIZER_INGESTION_PRINCIPALS:-[ingestion-bot]}
       AUTHORIZER_PRINCIPAL_DOMAIN: ${AUTHORIZER_PRINCIPAL_DOMAIN:-"open-metadata.org"}
@@ -1539,8 +1543,8 @@ services:
       PIPELINE_SERVICE_CLIENT_HOST_IP: ${PIPELINE_SERVICE_CLIENT_HOST_IP:-""}
       PIPELINE_SERVICE_CLIENT_SECRETS_MANAGER_LOADER: ${PIPELINE_SERVICE_CLIENT_SECRETS_MANAGER_LOADER:-"noop"}
       #airflow parameters
-      AIRFLOW_USERNAME: ${AIRFLOW_USERNAME:-admin}
-      AIRFLOW_PASSWORD: ${AIRFLOW_PASSWORD:-admin}
+      AIRFLOW_USERNAME: ${AIRFLOW_USERNAME:-a2a}
+      AIRFLOW_PASSWORD: ${AIRFLOW_PASSWORD:-a2a}
       AIRFLOW_TIMEOUT: ${AIRFLOW_TIMEOUT:-10}
       AIRFLOW_TRUST_STORE_PATH: ${AIRFLOW_TRUST_STORE_PATH:-""}
       AIRFLOW_TRUST_STORE_PASSWORD: ${AIRFLOW_TRUST_STORE_PASSWORD:-""}
@@ -1656,7 +1660,7 @@ services:
       # OpenMetadata Server Authentication Configuration
       AUTHORIZER_CLASS_NAME: ${AUTHORIZER_CLASS_NAME:-org.openmetadata.service.security.DefaultAuthorizer}
       AUTHORIZER_REQUEST_FILTER: ${AUTHORIZER_REQUEST_FILTER:-org.openmetadata.service.security.JwtFilter}
-      AUTHORIZER_ADMIN_PRINCIPALS: ${AUTHORIZER_ADMIN_PRINCIPALS:-[admin]}
+      AUTHORIZER_ADMIN_PRINCIPALS: ${AUTHORIZER_ADMIN_PRINCIPALS:-[a2a]}
       AUTHORIZER_ALLOWED_REGISTRATION_DOMAIN: ${AUTHORIZER_ALLOWED_REGISTRATION_DOMAIN:-["all"]}
       AUTHORIZER_INGESTION_PRINCIPALS: ${AUTHORIZER_INGESTION_PRINCIPALS:-[ingestion-bot]}
       AUTHORIZER_PRINCIPAL_DOMAIN: ${AUTHORIZER_PRINCIPAL_DOMAIN:-"open-metadata.org"}
@@ -1776,8 +1780,8 @@ services:
       PIPELINE_SERVICE_CLIENT_HOST_IP: ${PIPELINE_SERVICE_CLIENT_HOST_IP:-""}
       PIPELINE_SERVICE_CLIENT_SECRETS_MANAGER_LOADER: ${PIPELINE_SERVICE_CLIENT_SECRETS_MANAGER_LOADER:-"noop"}
       #airflow parameters
-      AIRFLOW_USERNAME: ${AIRFLOW_USERNAME:-admin}
-      AIRFLOW_PASSWORD: ${AIRFLOW_PASSWORD:-admin}
+      AIRFLOW_USERNAME: ${AIRFLOW_USERNAME:-a2a}
+      AIRFLOW_PASSWORD: ${AIRFLOW_PASSWORD:-a2a}
       AIRFLOW_TIMEOUT: ${AIRFLOW_TIMEOUT:-10}
       AIRFLOW_TRUST_STORE_PATH: ${AIRFLOW_TRUST_STORE_PATH:-""}
       AIRFLOW_TRUST_STORE_PASSWORD: ${AIRFLOW_TRUST_STORE_PASSWORD:-""}
@@ -2174,11 +2178,22 @@ services:
       OSSS_ENV: "dev"
       A2A_SERVER_HOST: 0.0.0.0
       A2A_SERVER_PORT: 8086
-
+      PYTHONPATH: /app/src
       # add any provider keys / config your A2A agent needs, for example:
       OPENAI_API_BASE: http://ollama:11434/v1
       OPENAI_API_KEY: "ollama"          # Ollama doesn’t actually check; any non-empty string is fine
       A2A_MODEL_NAME: llama3.2-vision          # or llama3:8b-instruct, mistral, etc.
+
+    working_dir: /app
+    command: >
+      uvicorn a2a_server.main:app
+      --host 0.0.0.0
+      --port 8086
+      --reload
+      --reload-dir /app/src
+    volumes:
+      # Mount host source into container
+      - ./src:/app/src               # mount the whole src tree
 
 
     ports:

@@ -1,5 +1,6 @@
 [4m>>>> Executing external compose provider "/usr/sbin/podman-compose". Please see podman-compose(1) for how to disable this message. <<<<
 
-[0mError: no container with name or ID "a2a" found: no such container
-time="2025-11-18T17:01:55-06:00" level=warning msg="StopSignal SIGTERM failed to stop container dvc in 10 seconds, resorting to SIGKILL"
-Error: "a2a" does not refer to a container: no such container
+[0mtime="2025-11-18T20:22:54-06:00" level=warning msg="Can't read link \"/var/lib/containers/storage/overlay/l/WRQNBNL4U6KQUXK6LWCIWEXSRY\" because it does not exist. A storage corruption might have occurred, attempting to recreate the missing symlinks. It might be best wipe the storage to avoid further errors due to storage corruption."
+Error: readlink /var/lib/containers/storage/overlay: invalid argument
+Error: no container with name or ID "rasa-mentor" found: no such container
+Error: executing /usr/sbin/podman-compose -f docker-compose.yml --profile ai up -d --force-recreate: exit status 125

@@ -45,7 +45,7 @@ class GoogleSettings(BaseSettings):
     )
     google_sa_json_path: Optional[str] = None
     google_sa_json: Optional[str] = None  # raw JSON string
-    google_workspace_impersonate: Optional[str] = None  # e.g., admin@yourdomain.org
+    google_workspace_impersonate: Optional[str] = None  # e.g., a2a@yourdomain.org
 
     # --- Classroom scopes ---
     google_classroom_scopes: List[str] = Field(default_factory=_default_gc_scopes)

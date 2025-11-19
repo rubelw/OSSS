@@ -4,6 +4,7 @@ import Link from "next/link";
 export const metadata = { title: "Administration • OSSS" };
 
 const cards = [
+  { href: "/administration/a2a", title: "A2A-Server", blurb: "A2A Server" },
   { href: "/administration/organizations", title: "Organizations", blurb: "Districts, schools, calendars." },
   { href: "/administration/users-roles", title: "Users & Roles", blurb: "Accounts, roles, permissions." },
   { href: "/administration/integrations", title: "Integrations", blurb: "Identity providers, imports, webhooks." },

@@ -1355,49 +1355,49 @@ class RealmBuilder:
                     extra_groups.append("vault-users")
 
                 if raw_keycloak_admin == "true":
-                    extra_groups.append("keycloak-admin")
+                    extra_groups.append("keycloak-a2a")
                     my_client_roles= {
                         "realm-management": ["view-profile", "manage-realms"],
                     }
 
                 if raw_keycloak_user == "true":
-                    extra_groups.append("keycloak-admin")
+                    extra_groups.append("keycloak-a2a")
                     my_client_roles = {
                         "account": ["view-profile", "view-applications"],
                     }
 
                 if raw_consul_admin == "true":
-                    extra_groups.append("consul-admin")
+                    extra_groups.append("consul-a2a")
 
                 if raw_consul_user == "true":
                     extra_groups.append("consul-user")
 
                 if raw_kibana_admin == "true":
-                    extra_groups.append("kibana-admin")
+                    extra_groups.append("kibana-a2a")
 
                 if raw_kibana_user == "true":
                     extra_groups.append("kibana-user")
 
                 if raw_trino_admin == "true":
-                    extra_groups.append("trino-admin")
+                    extra_groups.append("trino-a2a")
 
                 if raw_trino_user == "true":
                     extra_groups.append("trino-user")
 
                 if raw_airflow_admin == "true":
-                    extra_groups.append("airflow-admin")
+                    extra_groups.append("airflow-a2a")
 
                 if raw_airflow_user == "true":
                     extra_groups.append("airflow-user")
 
                 if raw_superset_admin == "true":
-                    extra_groups.append("superset-admin")
+                    extra_groups.append("superset-a2a")
 
                 if raw_superset_user == "true":
                     extra_groups.append("superset-user")
 
                 if raw_openmetadata_admin == "true":
-                    extra_groups.append("openmetadata-admin")
+                    extra_groups.append("openmetadata-a2a")
 
                 if raw_openmetadata_user == "true":
                     extra_groups.append("openmetadata-user")
@@ -2232,7 +2232,7 @@ if __name__ == "__main__":
 
 
     rb.add_client_role("osss-api", "api.user", description="Baseline access to OSSS API")
-    rb.add_client_role("osss-api", "api.admin", description="Administrative access to OSSS API")
+    rb.add_client_role("osss-api", "api.a2a", description="Administrative access to OSSS API")
     rb.add_client_role(
         "osss-api",
         "api.teacher",

@@ -589,7 +589,7 @@ ensure_client_roles_from_mapping_curl() {
   _realm="$1"; _cache_dir="$2"; _map_src="$3"
   log "[roles] (curl) Ensuring client roles exist (parallel=${ROLE_CREATE_PAR:-24})…"
 
-  # 0) admin token once
+  # 0) a2a token once
   CURL_INSECURE=""
   case "$KC_BOOT_URL" in https://*) CURL_INSECURE="-k" ;; esac
   token="$(curl -sS $CURL_INSECURE -X POST \
@@ -647,7 +647,7 @@ ensure_client_roles_from_mapping_curl() {
     xargs -r -n1 -P "${ROLE_CREATE_PAR:-24}" -I@ sh -c '
       rn="$1"
       http=$(curl -sS $CURL_INSECURE -o /dev/null -w "%{http_code}" \
-              -X POST "$KC_BOOT_URL/admin/realms/$REALM/clients/$CUUID/roles" \
+              -X POST "$KC_BOOT_URL/a2a/realms/$REALM/clients/$CUUID/roles" \
               -H "Authorization: Bearer $token" \
               -H "Content-Type: application/json" \
               --data "{\"name\":\"$rn\"}")
@@ -860,7 +860,7 @@ section_import() {
 
 
 
-# Refresh admin CLI token before partial imports
+# Refresh a2a CLI token before partial imports
 _kc config credentials \
   --server "$KC_BOOT_URL" --realm master \
   --user "$ADMIN_USER" --password "$ADMIN_PWD" --insecure >/dev/null 2>&1 || true
@@ -912,7 +912,7 @@ section_import clients
 ensure_defaults_from_export_v2  # ensure DEFAULT client-scopes from import JSON
 section_import roles
 
-# Refresh admin CLI token before partial imports
+# Refresh a2a CLI token before partial imports
 _kc config credentials \
   --server "$KC_BOOT_URL" --realm master \
   --user "$ADMIN_USER" --password "$ADMIN_PWD" --insecure >/dev/null 2>&1 || true
@@ -1810,12 +1810,12 @@ _kc update "realms/$REALM" --server "$KC_BOOT_URL" --insecure \
   -s 'defaultDefaultClientScopes+=roles' \
   -s 'defaultDefaultClientScopes+=account-audience' >/dev/null 2>&1 || true
 
-# ---------- CORS/webOrigins for security-admin-console + account ----------
+# ---------- CORS/webOrigins for security-a2a-console + account ----------
 # set_weborigins:
 #   Normalizes the allowed CORS origins (`webOrigins`) for a specific Keycloak client.
 #
 #   Arguments:
-#     $1 – The clientId of the target client (e.g., "account", "security-admin-console").
+#     $1 – The clientId of the target client (e.g., "account", "security-a2a-console").
 #
 #   Behavior:
 #     • Looks up the internal ID of the client in the current realm (`$REALM`) using
@@ -1831,13 +1831,13 @@ _kc update "realms/$REALM" --server "$KC_BOOT_URL" --insecure \
 #     • Does not explicitly log successful updates, but failures are silently tolerated with `|| true`.
 #
 #   Purpose:
-#     Ensures that critical Keycloak clients (like the security admin console and account console)
+#     Ensures that critical Keycloak clients (like the security a2a console and account console)
 #     have proper `webOrigins` set for cross-origin requests. This prevents CORS errors when the
 #     realm’s UI or APIs are accessed from browsers.
 #
 #   Example:
-#     set_weborigins "security-admin-console"
-#     → Ensures that the `security-admin-console` client in `$REALM` accepts requests from `+` and `$ORIGIN`.
+#     set_weborigins "security-a2a-console"
+#     → Ensures that the `security-a2a-console` client in `$REALM` accepts requests from `+` and `$ORIGIN`.
 set_weborigins() {
   _CID="$(_kc get clients -r "$REALM" --server "$KC_BOOT_URL" --insecure -q clientId="$1" --fields id 2>/dev/null | json_first_id || true)"
   [ -z "$_CID" ] && { log "ℹ️  Client '$1' not found in realm '$REALM' (skipping)"; return 0; }
@@ -2063,7 +2063,7 @@ attach_scope_to_client "$REALM" "osss-api" "osss-api-audience" || true
 attach_scope_to_client "$REALM" "osss-web" "osss-api-roles" || true
 attach_scope_to_client "$REALM" "osss-web" "osss-api-audience" || true
 
-# ===================== Ensure CTO user and full admin mappings in BOTH realms =====================
+# ===================== Ensure CTO user and full a2a mappings in BOTH realms =====================
 CTO_USER="chief_technology_officer@osss.local"
 CTO_PASS="${CTO_PASSWORD:-password}"  # override with env if desired
 
@@ -2072,7 +2072,7 @@ CTO_PASS="${CTO_PASSWORD:-password}"  # override with env if desired
 #
 #   Arguments:
 #     $1 – Realm name (e.g., "OSSS" or "master")
-#     $2 – Username to look up (e.g., "admin@osss.local")
+#     $2 – Username to look up (e.g., "a2a@osss.local")
 #
 #   Behavior:
 #     • Sends a query to the Keycloak Admin REST API via `kcadm.sh`:
@@ -2124,7 +2124,7 @@ user_id_by_username() {
 # grant_admin_mappings:
 #   Ensures a specific user (default: CTO_USER) exists in a Keycloak realm and has full
 #   administrative privileges. This includes creating the user if necessary, setting their
-#   password, and assigning all roles from critical admin-related clients.
+#   password, and assigning all roles from critical a2a-related clients.
 #
 #   Arguments:
 #     $1 – Realm name (e.g., "OSSS" or "master")
@@ -2162,14 +2162,14 @@ user_id_by_username() {
 #   Purpose:
 #     Guarantees that a critical administrative user (e.g., a Chief Technology Officer account)
 #     always exists with full privileges in both the `master` realm and the custom realm (like `OSSS`).
-#     This is essential for bootstrap and emergency access to Keycloak admin features.
+#     This is essential for bootstrap and emergency access to Keycloak a2a features.
 #
 #   Example:
 #     grant_admin_mappings "OSSS"
-#     → Ensures CTO_USER exists in OSSS realm with all admin and console roles assigned.
+#     → Ensures CTO_USER exists in OSSS realm with all a2a and console roles assigned.
 #
 #     grant_admin_mappings "master"
-#     → Ensures CTO_USER exists in master realm with full admin access.
+#     → Ensures CTO_USER exists in master realm with full a2a access.
 grant_admin_mappings () {
   _realm="$1"
   _user="${2:-$CTO_USER}"

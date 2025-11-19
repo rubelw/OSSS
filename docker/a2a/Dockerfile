@@ -17,17 +17,25 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # If you eventually add the A2A server to pyproject.toml, you can do `pip install .` instead.
 RUN pip install --no-cache-dir \
     fastapi \
+    "metagpt==0.8.1" \
     "uvicorn[standard]" \
     httpx \
     openai
 
-# --- App code ---
-# Copy OSSS shared code if your A2A server imports from it (optional but probably useful)
-COPY ./src/a2a_server ./a2a_server
+# Minimal MetaGPT config for Ollama
+RUN mkdir -p /root/.metagpt && \
+    printf '%s\n' \
+'llm:' \
+'  api_type: "ollama"' \
+'  base_url: "http://host.containers.internal:11434/api"' \
+'  model: "llama3.2-vision:latest"' \
+> /root/.metagpt/config2.yaml
 
 
-# --- Uvicorn entrypoint ---
-# Must match the actual module path: a2a_server/main.py with `app = FastAPI(...)`
-CMD ["uvicorn", "a2a_server.main:app", "--host", "0.0.0.0", "--port", "8086"]
+# if you’re building code inside the image
+# COPY src ./src
 
+# make /app/src importable as top-level package root
+ENV PYTHONPATH=/app/src
 
+CMD ["uvicorn", "a2a_server.main:app", "--host", "0.0.0.0", "--port", "8086", "--reload", "--reload-dir", "/app/src"]

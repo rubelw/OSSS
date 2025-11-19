@@ -32,8 +32,8 @@ log() { printf '%s %s\n' "[$(date '+%Y-%m-%dT%H:%M:%S%z')]" "$*" >&2; }
 
 KC_URL="${KEYCLOAK_URL:-http://keycloak:8080}"
 REALM="${KEYCLOAK_REALM:-OSSS}"
-ADMIN="${KEYCLOAK_ADMIN:-admin}"
-ADMIN_PASS="${KEYCLOAK_ADMIN_PASSWORD:-admin}"
+ADMIN="${KEYCLOAK_ADMIN:-a2a}"
+ADMIN_PASS="${KEYCLOAK_ADMIN_PASSWORD:-a2a}"
 POLICY="${KEYCLOAK_IMPORT_POLICY:-OVERWRITE}"  # OVERWRITE|SKIP|FAIL
 
 # Where to look for files like *-OSSS-roles.json, *-OSSS-clients.json, etc.

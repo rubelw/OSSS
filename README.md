@@ -74,6 +74,9 @@ AI Tutor Example:
 AI Guardrail Example:
 ![Mentor Guardrail](docs/img/mentor_guardrail.png)
 
+A2A Dashboard Example:
+![A2A Dashboard](docs/img/a2a_dashboard.png)
+
 
 ## Why This Is Important
 

@@ -282,7 +282,7 @@ if [ -z "$GID" ]; then
 else
   curl -sS -H "X-Vault-Token: ${VAULT_TOKEN}" -H "Content-Type: application/json" \
     -X POST "${VAULT_ADDR}/v1/identity/group/id/${GID}" \
-    -d '{"policies":["vault-admin"]}' >/dev/null
+    -d '{"policies":["vault-a2a"]}' >/dev/null
   log "✅ Using existing identity group id: ${GID}"
 fi
 

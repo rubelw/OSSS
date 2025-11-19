@@ -93,7 +93,7 @@ source .venv/bin/activate
 # to run the cli
 osss <TAB>
 
-# Keycloak http://localhost:8080 with username 'admin' and password 'admin'
+# Keycloak http://localhost:8080 with username 'a2a' and password 'a2a'
 # FastApi  http://localhost:8081/docs# username 'activities_director@osss.local' and password 'password'
 # Web: http://localhost:3000 username 'activities_director@osss.local' and password 'password'
 ```

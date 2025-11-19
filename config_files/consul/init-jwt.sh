@@ -48,10 +48,10 @@ session_prefix "" { policy = "read" }
 event_prefix "" { policy = "read" }
 query_prefix "" { policy = "read" }'
 
-if ! consul acl policy read -name consul-admin >/dev/null 2>&1; then
-  printf '%s\n' "$ADMIN_RULES" | consul acl policy create -name consul-admin -description "Full admin via Keycloak group" -rules -
+if ! consul acl policy read -name consul-a2a >/dev/null 2>&1; then
+  printf '%s\n' "$ADMIN_RULES" | consul acl policy create -name consul-a2a -description "Full admin via Keycloak group" -rules -
 else
-  printf '%s\n' "$ADMIN_RULES" | consul acl policy update -name consul-admin -rules -
+  printf '%s\n' "$ADMIN_RULES" | consul acl policy update -name consul-a2a -rules -
 fi
 
 if ! consul acl policy read -name consul-user >/dev/null 2>&1; then
