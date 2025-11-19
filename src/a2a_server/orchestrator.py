@@ -32,15 +32,27 @@ class InMemoryOrchestrator:
         self._agents: Dict[str, Agent] = {}
         self._runs: Dict[str, Run] = {}
 
-    def _call_a2a_agent(self, text: str) -> str:
+    # ---------- A2A CLIENT CALL ----------
+
+    def _call_a2a_agent(self, text: str, skill: Optional[str] = None) -> str:
         """
         Call the MetaGPT A2A agent (python-a2a server) and return its text result.
 
-        A2AClient.ask(...) is synchronous and returns a plain string,
-        so we must NOT 'await' it.
+        Since A2AClient.ask(...) in your version does NOT accept a `skill` kwarg,
+        we encode the desired skill into the text as a simple header:
+
+            [role:analyst]
+            actual user text...
+
+        MetaGPTA2AAgent can then parse this header to decide which MetaGPT role to use.
         """
-        client = A2AClient("http://a2a-agent:9000")  # or http://a2a-server:9000 if that's your service name
-        result = client.ask(text)
+        client = A2AClient("http://a2a-agent:9000")  # service name from docker-compose
+
+        decorated_text = text
+        if skill:
+            decorated_text = f"[role:{skill}]\n{text}"
+
+        result = client.ask(decorated_text)
         return result
 
     # ---------- AGENT REGISTRATION ----------
@@ -70,7 +82,20 @@ class InMemoryOrchestrator:
             return {"error": "run_not_found", "id": run_id}
         return self._run_to_dict(run)
 
-    async def run_agent(self, agent_id: str, input_text: str) -> dict:
+    async def run_agent(
+        self,
+        agent_id: str,
+        input_text: str,
+        skill: Optional[str] = None,
+    ) -> dict:
+        """
+        Create a Run and actually execute it by calling the A2A agent.
+
+        - Validates agent_id
+        - Creates a Run with status 'running'
+        - Calls the MetaGPT A2A agent via python-a2a
+        - Updates Run with 'succeeded' or 'failed' and an output_preview
+        """
         if agent_id not in self._agents:
             return {"error": "unknown_agent", "agent_id": agent_id}
 
@@ -89,8 +114,8 @@ class InMemoryOrchestrator:
         self._runs[run_id] = run
 
         try:
-            # _call_a2a_agent is sync now
-            output_text = self._call_a2a_agent(input_text)
+            # Call the A2A agent and capture its output
+            output_text = self._call_a2a_agent(input_text, skill=skill)
 
             run.status = "succeeded"
             run.updated_at = datetime.now(timezone.utc)
@@ -120,7 +145,7 @@ class InMemoryOrchestrator:
 # Global orchestrator instance that main.py imports
 orchestrator = InMemoryOrchestrator()
 
-# Register the real MetaGPT A2A-backed agent (instead of the old stub)
+# Register the real MetaGPT A2A-backed agent
 orchestrator.register_agent(
     id="metagpt-a2a",
     name="MetaGPT A2A Agent",

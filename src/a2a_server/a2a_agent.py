@@ -110,10 +110,11 @@ class MetaGPTA2AAgent(A2AServer):
         """
         Decide which MetaGPT role to use for a given task.
 
-        Common patterns you can support:
-        - The orchestrator sets `task.skill` to a skill name (e.g., "analyst").
-        - Or the orchestrator sets `task.message.metadata.role`.
-        - Fallback to 'analyst'.
+        Priority:
+        1) task.skill (from python-a2a)
+        2) task.message.metadata.role
+        3) [role:...] header at top of content.text
+        4) fallback to 'analyst'
         """
         role = None
 
@@ -129,10 +130,33 @@ class MetaGPTA2AAgent(A2AServer):
             if candidate in SUPPORTED_ROLES:
                 role = candidate
 
+        # 3) Fallback: parse [role:...] header from the first line of text
+        if not role:
+            content = msg.get("content", {})
+            text_candidate = ""
+            if isinstance(content, dict):
+                text_candidate = content.get("text", "") or ""
+
+            if isinstance(text_candidate, str) and text_candidate.startswith("[role:"):
+                first_line, _, _ = text_candidate.partition("\n")
+                inner = ""
+                if first_line.endswith("]"):
+                    inner = first_line[len("[role:"):-1]
+                else:
+                    inner = first_line[len("[role:"):]
+                inner = inner.strip()
+
+                if inner in SUPPORTED_ROLES:
+                    role = inner
+
         if not role:
             role = "analyst"
 
-        logger.info("Using MetaGPT role '%s' for task %s", role, getattr(task, "id", ""))
+        logger.info(
+            "Using MetaGPT role '%s' for task %s",
+            role,
+            getattr(task, "id", ""),
+        )
         return role
 
     def _extract_text_from_task(self, task) -> str:
@@ -149,6 +173,9 @@ class MetaGPTA2AAgent(A2AServer):
             },
             "metadata": {...}
         }
+
+        We also strip an optional leading [role:...] header that the orchestrator
+        may have added to steer role selection.
         """
         msg: Dict[str, Any] = task.message or {}
         content = msg.get("content", {})
@@ -159,6 +186,13 @@ class MetaGPTA2AAgent(A2AServer):
 
         if not text:
             text = "No user text provided."
+        else:
+            # Strip [role:...] header if present
+            if text.startswith("[role:"):
+                first_line, sep, rest = text.partition("\n")
+                # Only strip if the first line looks like a header
+                if sep:  # there was a newline
+                    text = rest or ""
 
         logger.info(
             "Extracted text for task %s: %.80r",

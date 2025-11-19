@@ -26,6 +26,8 @@ app.add_middleware(
 class TriggerPayload(BaseModel):
     agent_id: str
     input: str
+    skill: str | None = None
+
 
 
 # ---- ADMIN API -----
@@ -61,7 +63,11 @@ async def trigger(payload: TriggerPayload):
         raise HTTPException(status_code=400, detail="input is required")
 
     # Important: orchestrator.run_agent is async now, so we MUST await it.
-    run = await orchestrator.run_agent(payload.agent_id, payload.input)
+    run = await orchestrator.run_agent(
+        agent_id=payload.agent_id,
+        input_text=payload.input,
+        skill=payload.skill,
+    )
     return run
 
 
