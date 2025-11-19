@@ -23,7 +23,12 @@ type A2ARun = {
 const SKILL_OPTIONS = [
   { value: "", label: "Default (analyst)" },
   { value: "analyst", label: "analyst" },
-  { value: "data_interpreter", label: "data_interpreter" },
+
+  // --- Principal Persona Skills ---
+  { value: "principal", label: "principal (general)" },
+  { value: "principal_email", label: "principal_email" },
+  { value: "principal_discipline", label: "principal_discipline" },
+  { value: "principal_announcement", label: "principal_announcement" },
 ];
 
 export default function A2AAdminPage() {

@@ -4,6 +4,7 @@ from pydantic import BaseModel
 
 from MetaGPT.roles_registry import ROLE_REGISTRY, DEFAULT_ROLE_NAME
 
+
 app = FastAPI()
 
 
