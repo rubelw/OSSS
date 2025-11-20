@@ -27,7 +27,8 @@ from python_a2a import A2AClient
 LOGGED_AGENTS = {
     "parent-agent",
     "student-agent",
-    "teacher-agent"
+    "teacher-agent",
+    "angry-student-agent",
     # add "principal-agent", etc. if you want
 }
 
@@ -296,19 +297,27 @@ class InMemoryOrchestrator:
         }
 
     # -------------------------------------------------------------------
-    # PARENT → STUDENT CHECK-IN WORKFLOW
-    # -------------------------------------------------------------------
-
-    # -------------------------------------------------------------------
     # PARENT → STUDENT → (OPTIONAL) TEACHER CHECK-IN WORKFLOW
     # -------------------------------------------------------------------
 
-    async def parent_student_grade_checkin(self, grades_text: str) -> dict:
+    async def parent_student_grade_checkin(
+        self,
+        grades_text: str,
+        parent_agent_id: str = "parent-agent",
+        student_agent_id: str = "student-agent",
+        teacher_agent_id: Optional[str] = "teacher-agent",
+        parent_skill: Optional[str] = "parent",
+        student_skill: Optional[str] = "student",
+        teacher_skill: Optional[str] = "teacher",
+    ) -> dict:
         """
         1) parent-agent drafts a question to the student about grades
         2) student-agent responds as the student
         3) IF the student mentions talking to a teacher, call teacher-agent
            to draft a short, supportive teacher response.
+
+        All agent IDs and skills are configurable so you can plug in
+        alternate student / teacher personas from the API.
 
         Returns:
           {
@@ -330,12 +339,11 @@ class InMemoryOrchestrator:
         )
 
         parent_run = await self.run_agent(
-            agent_id="parent-agent",
+            agent_id=parent_agent_id,
             input_text=parent_prompt,
-            skill="parent",
+            skill=parent_skill,
         )
 
-        # Use the preview as the question shown to the student.
         parent_question = parent_run.get("output_preview") or ""
 
         # ---- 2) Student responds to the parent's question ----
@@ -347,29 +355,29 @@ class InMemoryOrchestrator:
             "what challenges you're facing, and what help or next steps would be useful."
         )
 
-        # First, run via run_agent so it is logged & tracked.
+        # Logged / tracked run
         student_run = await self.run_agent(
-            agent_id="student-agent",
+            agent_id=student_agent_id,
             input_text=student_prompt,
-            skill="student",
+            skill=student_skill,
         )
 
-        # Then, get the FULL student answer by calling python-a2a directly.
-        # (run_agent only stores a 200-char preview in output_preview.)
+        # Full student answer via direct A2A call (no 200-char truncation)
         try:
             student_full_answer = self._call_a2a_agent(
                 text=student_prompt,
-                skill="student",
+                skill=student_skill,
             )
         except Exception as e:
-            logger.exception("parent_student_grade_checkin: failed to get full student answer")
+            logger.exception(
+                "parent_student_grade_checkin: failed to get full student answer"
+            )
             student_full_answer = f"(Error retrieving full student response: {e})"
 
         # ---- 3) Detect if the student wants to talk to a teacher ----
         teacher_run: Optional[dict] = None
         lowered = (student_full_answer or "").lower()
 
-        # Simple heuristic: look for mentions of teacher or talking to one.
         trigger_phrases = [
             " teacher",
             "teacher ",
@@ -381,7 +389,7 @@ class InMemoryOrchestrator:
         ]
         should_call_teacher = any(phrase in lowered for phrase in trigger_phrases)
 
-        if should_call_teacher:
+        if should_call_teacher and teacher_agent_id:
             # ---- 4) Teacher-agent step ----
             teacher_prompt = (
                 "You are the student's teacher.\n\n"
@@ -396,9 +404,9 @@ class InMemoryOrchestrator:
             )
 
             teacher_run = await self.run_agent(
-                agent_id="teacher-agent",
+                agent_id=teacher_agent_id,
                 input_text=teacher_prompt,
-                skill="teacher",
+                skill=teacher_skill,
             )
 
         return {
@@ -447,6 +455,15 @@ orchestrator.register_agent(
     description="Student persona: questions, reflections, and planning.",
     default_skill="student",
 )
+
+# Angry Student-focused logical agent
+orchestrator.register_agent(
+    id="angry-student-agent",
+    name="Angry Student Agent",
+    description="Angry Student persona: questions, reflections, and planning.",
+    default_skill="angry_student",
+)
+
 
 # Parent-focused logical agent
 orchestrator.register_agent(
