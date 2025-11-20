@@ -2196,6 +2196,9 @@ services:
       WATCHFILES_FORCE_POLLING: 'true'   # 👈 add this
     # Explicit uvicorn command so behavior is obvious in compose
     # (even though the Dockerfile's CMD already sets this)
+      OLLAMA_BASE_URL: "http://host.containers.internal:11434"
+      OLLAMA_MODEL: "llama3.2-vision:latest"   # <-- EXACT MODEL NAME
+      RAG_INDEX_PATH: "/workspace/vector_indexes/main/embeddings.jsonl"
     command:
       - uvicorn
       - MetaGPT.metagpt_server:app
@@ -2211,8 +2214,8 @@ services:
       # Mount ONLY MetaGPT code, not the whole repo
       - ./src/MetaGPT:/work/src/MetaGPT:cached
       # Workspace for MetaGPT agent logs/output
-      - ./MetaGPT_workspace:/workspace
-      - ./MetaGPT_workspace/projects:/work/workspace
+      - ./MetaGPT_workspace:/work/logs:rw
+      - ./vector_indexes:/vector_indexes
 
     networks:
       - osss-net

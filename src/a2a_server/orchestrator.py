@@ -12,12 +12,14 @@ Responsibilities:
 """
 
 from __future__ import annotations
+
 from dataclasses import dataclass, asdict
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
 import uuid
 from pathlib import Path
-import logging  # <-- NEW
+import logging
+import os
 
 from python_a2a import A2AClient
 
@@ -43,7 +45,7 @@ class Agent:
     id: str
     name: str
     description: Optional[str] = None
-    # optional default skill for this agent
+    # optional default skill for this agent (maps to MetaGPT role)
     default_skill: Optional[str] = None
 
 
@@ -72,6 +74,10 @@ class InMemoryOrchestrator:
         # All runs keyed by run_id (simple in-memory log)
         self._runs: Dict[str, Run] = {}
 
+        # Allow overriding A2A agent URL via env
+        self._a2a_url = os.getenv("A2A_AGENT_URL", "http://a2a-agent:9000")
+        logger.info("InMemoryOrchestrator using A2A agent URL: %s", self._a2a_url)
+
     # -------------------------------------------------------------------
     # A2A CLIENT CALL — ACTUAL AGENT EXECUTION
     # -------------------------------------------------------------------
@@ -87,13 +93,18 @@ class InMemoryOrchestrator:
 
         a2a_agent.py parses that header and chooses the MetaGPT role.
         """
-        client = A2AClient("http://a2a-agent:9000")
+        client = A2AClient(self._a2a_url)
 
         decorated_text = text
         if skill:
             decorated_text = f"[role:{skill}]\n{text}"
 
-        logger.info("Calling a2a-agent with skill=%r", skill)
+        logger.info(
+            "Calling a2a-agent at %s with skill=%r, text_preview=%r",
+            self._a2a_url,
+            skill,
+            decorated_text[:120],
+        )
         result = client.ask(decorated_text)
         return result
 
@@ -300,6 +311,7 @@ class InMemoryOrchestrator:
             f"GRADES:\n{grades_text}\n"
         )
 
+        # This will send [role:parent] + prompt to a2a-agent
         parent_run = await self.run_agent(
             agent_id="parent-agent",
             input_text=parent_prompt,
@@ -316,6 +328,7 @@ class InMemoryOrchestrator:
             "what challenges you're facing, and what help or next steps would be useful."
         )
 
+        # This will send [role:student] + prompt to a2a-agent
         student_run = await self.run_agent(
             agent_id="student-agent",
             input_text=student_prompt,

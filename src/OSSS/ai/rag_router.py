@@ -6,7 +6,7 @@ from typing import Optional, List
 import httpx
 import numpy as np
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from OSSS.ai.additional_index import top_k, INDEX_KINDS
 
@@ -59,7 +59,13 @@ except Exception:
 
 class RAGRequest(BaseModel):
     model: Optional[str] = "llama3.2-vision"
-    messages: List[ChatMessage]
+    messages: List[ChatMessage] = Field(
+        default=[
+            ChatMessage(role="system", content="You are a helpful assistant."),
+            ChatMessage(role="user", content="who is dcg's superintendent?"),
+        ],
+        description="Conversation messages for the model",
+    )
     # Default to 2048 if the client doesn't specify
     max_tokens: Optional[int] = 2048
     temperature: Optional[float] = 0.1

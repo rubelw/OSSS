@@ -10,14 +10,18 @@ Overall flow:
 
 1. The orchestrator sends a Task (with text + optional [role:...] header).
 2. python-a2a calls `MetaGPTA2AAgent.handle_task(task)`.
-3. We decide which MetaGPT role to use (analyst, data_interpreter, etc.).
+3. We decide which MetaGPT role to use (analyst, parent, student, etc.).
 4. We call MetaGPT's /run endpoint with {query, role}.
 5. We wrap MetaGPT's result in A2A artifacts and mark the task COMPLETED.
 """
 
 import os
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, Tuple
+import json
+from datetime import datetime, timezone
+from pathlib import Path
+import re
 
 import httpx
 from python_a2a import (
@@ -34,30 +38,31 @@ from python_a2a import (
 # --------------------------------------------------------------------
 
 # Where the MetaGPT FastAPI sidecar is reachable *from this container*.
-# In docker-compose, the MetaGPT service is typically named "metagpt"
-# and exposes its FastAPI on port 8001.
-#
-# Example docker-compose snippet:
-#   metagpt:
-#       container_name: metagpt
-#       ports:
-#         - "8001:8001"
-#
-# We default to that internal service name, but allow overrides via env.
 METAGPT_BASE_URL = os.getenv("METAGPT_BASE_URL", "http://metagpt:8001")
 
-# Supported MetaGPT roles that this A2A agent knows how to route to.
-# These must match the role names in your MetaGPT roles_registry (team setup).
+# Supported MetaGPT roles that this A2A agent knows how to *advertise*.
+# We won't restrict to this list when actually calling MetaGPT.
 SUPPORTED_ROLES = [
     "analyst",
     "principal",
     "principal_email",
     "principal_discipline",
     "principal_announcement",
+    "teacher",
+    "student",
+    "parent",
+    "superintendent",
+    "school_board",
+    "accountability_partner",
 ]
+
+# Directory to write per-call logs for this A2A agent.
+A2A_AGENT_LOG_DIR = os.getenv("A2A_AGENT_LOG_DIR", "/logs/a2a-agent")
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
+
+ROLE_HEADER_RE = re.compile(r"^\[role:(?P<role>[a-zA-Z0-9_\-]+)\]\s*$")
 
 
 # --------------------------------------------------------------------
@@ -67,45 +72,24 @@ logging.basicConfig(level=logging.INFO)
 class MetaGPTA2AAgent(A2AServer):
     """
     A python-a2a Agent that proxies tasks to a MetaGPT sidecar.
-
-    Responsibilities:
-      - Advertise itself and its capabilities (AgentCard + AgentSkill list)
-      - Accept A2A Tasks via HTTP (handled by python-a2a)
-      - Decide which MetaGPT role to use per task
-      - Call MetaGPT's `/run` endpoint with (query, role)
-      - Return results back to the A2A client as text artifacts
     """
 
     def __init__(self) -> None:
-        """
-        Initialize the agent and register its "card" with python-a2a.
-
-        The AgentCard is like a business card for this agent:
-          - name / description / version / url
-          - list of skills (e.g., analyst, data_interpreter)
-
-        Other services (like your orchestrator or a registry) can discover
-        what this agent does by reading this metadata.
-        """
         card = AgentCard(
             name="MetaGPT Multi-Role Agent",
             description=(
-                "Wraps multiple MetaGPT roles (analyst, data_interpreter) "
+                "Wraps multiple MetaGPT roles (analyst, principal, parent, student, etc.) "
                 "and exposes them over the A2A protocol."
             ),
-            # URL where this agent is reachable inside docker-compose.
-            # This is informational metadata for discovery/docs; python-a2a
-            # already knows the local bind address when run_server(...) is used.
-            url="http://a2a-agent:9000",  # or "" if you don't want a public URL
+            url="http://a2a-agent:9000",
             version="0.1.0",
             skills=[
                 AgentSkill(
                     name="analyst",
-                    description="Use MetaGPT's MyAnalystRole for structured analysis.",
+                    description="Use MetaGPT's analyst role for structured analysis.",
                     tags=["metagpt", "analysis"],
                     examples=["Analyze the local economic impact of AI adoption."],
                 ),
-                # ---- principal variants ----
                 AgentSkill(
                     name="principal",
                     description="Generalist school principal: parent communication, staff notes, operations.",
@@ -130,12 +114,45 @@ class MetaGPTA2AAgent(A2AServer):
                     tags=["metagpt", "education", "principal", "announcement"],
                     examples=["Draft a weekly principal newsletter for families."],
                 ),
+                AgentSkill(
+                    name="teacher",
+                    description="Teacher-facing drafting, classroom communication, and planning.",
+                    tags=["metagpt", "education", "teacher"],
+                    examples=["Write a message to parents about upcoming tests."],
+                ),
+                AgentSkill(
+                    name="parent",
+                    description="Parent voice and communication support.",
+                    tags=["metagpt", "education", "parent"],
+                    examples=["Draft a question to ask a student about their grades."],
+                ),
+                AgentSkill(
+                    name="student",
+                    description="Student persona: questions, reflections, and planning.",
+                    tags=["metagpt", "education", "student"],
+                    examples=["Respond to a parent about how you feel about your grades."],
+                ),
+                AgentSkill(
+                    name="superintendent",
+                    description="District-level communications and strategy reflections.",
+                    tags=["metagpt", "education", "superintendent"],
+                    examples=["Draft a district-wide statement about a new initiative."],
+                ),
+                AgentSkill(
+                    name="school_board",
+                    description="Board meeting prep, resolutions, and community messages.",
+                    tags=["metagpt", "education", "school_board"],
+                    examples=["Draft a short board resolution about a new program."],
+                ),
+                AgentSkill(
+                    name="accountability_partner",
+                    description="Helps set goals and follow-through steps as an accountability partner.",
+                    tags=["metagpt", "coaching", "accountability"],
+                    examples=["Help me plan and stay on track with weekly goals."],
+                ),
             ],
         )
 
-        # Initialize the base A2AServer with this card so that:
-        # - python-a2a can serve metadata about this agent
-        # - incoming tasks are routed to handle_task(...)
         super().__init__(agent_card=card)
 
     # ------------------------- MetaGPT call ------------------------- #
@@ -144,189 +161,164 @@ class MetaGPTA2AAgent(A2AServer):
         """
         Call the MetaGPT FastAPI sidecar's /run endpoint.
 
-        Expectation: your MetaGPT FastAPI exposes something like:
-
-            POST /run
-            {
-                "query": "...",     # user text / prompt
-                "role": "analyst"   # role name, e.g., "analyst" or "data_interpreter"
-            }
-
-        And it returns a JSON payload, e.g.:
-
-            {
-                "role": "analyst",
-                "result": "<anything JSON-serializable>"
-            }
-
-        We return the "result" portion if present, or the full response body.
+        IMPORTANT: we do NOT silently rewrite unknown roles to 'analyst'.
+        Whatever role we resolved gets passed straight through.
         """
-        # Sanity check the requested role; default to analyst if unknown.
         if role not in SUPPORTED_ROLES:
-            logger.warning("Unknown role '%s', defaulting to 'analyst'", role)
-            role = "analyst"
+            logger.warning(
+                "[MetaGPTA2AAgent] Role '%s' not in SUPPORTED_ROLES; passing through anyway",
+                role,
+            )
 
         payload = {"query": text, "role": role}
-        logger.info("Calling MetaGPT at %s/run with role=%s", METAGPT_BASE_URL, role)
+
+        logger.info(
+            "[MetaGPTA2AAgent] Sending to MetaGPT/Ollama: role=%s payload_preview=%r",
+            role,
+            text[:300],
+        )
 
         try:
             resp = httpx.post(
                 f"{METAGPT_BASE_URL}/run",
                 json=payload,
-                timeout=600.0,  # generous timeout for large MetaGPT chains
+                timeout=600.0,
             )
+
+            raw_body = resp.text
+
+            logger.info(
+                "[MetaGPTA2AAgent] Raw response from MetaGPT sidecar [%s]: %s",
+                resp.status_code,
+                raw_body[:2000],
+            )
+
             resp.raise_for_status()
         except Exception as e:
-            # Log stack trace for server logs.
             logger.exception("Error calling MetaGPT sidecar")
-            # Return an error payload as the "result" so the caller
-            # gets something structured back, rather than exploding.
             return {"error": f"Error calling MetaGPT: {e}"}
 
         data = resp.json()
-        # Common pattern: { "role": "...", "result": <payload> }
-        return data.get("result", data)
-
-    # ------------------------- Task parsing ------------------------- #
-
-    def _extract_role_from_task(self, task) -> str:
-        """
-        Decide which MetaGPT role to use for a given task.
-
-        We support several ways to specify role, in this order of precedence:
-
-        1) task.skill (set by the A2A client / orchestrator)
-           - This is the canonical place for the "skill" name in python-a2a.
-
-        2) task.message.metadata.role
-           - For clients that stuff the role into message metadata.
-
-        3) [role:...] header at the top of message.content.text
-           - For clients that only send text but encode control hints in-band:
-             e.g., "[role:data_interpreter]\\nPlease inspect this CSV..."
-
-        4) If nothing matches, default to 'analyst'.
-        """
-        role = None
-
-        # 1) If python-a2a Task exposes a `skill` attribute and it matches our roles.
-        if getattr(task, "skill", None) in SUPPORTED_ROLES:
-            role = task.skill
-
-        # 2) If there's metadata on the message and it has a valid role.
-        msg: Dict[str, Any] = task.message or {}
-        metadata = msg.get("metadata", {})
-        if not role and isinstance(metadata, dict):
-            candidate = metadata.get("role")
-            if candidate in SUPPORTED_ROLES:
-                role = candidate
-
-        # 3) Fallback: parse [role:...] header from the first line of text
-        if not role:
-            content = msg.get("content", {})
-            text_candidate = ""
-            if isinstance(content, dict):
-                text_candidate = content.get("text", "") or ""
-
-            # Look for a first-line header like: [role:data_interpreter]
-            if isinstance(text_candidate, str) and text_candidate.startswith("[role:"):
-                first_line, _, _ = text_candidate.partition("\n")
-                inner = ""
-                if first_line.endswith("]"):
-                    # Strip leading "[role:" and trailing "]"
-                    inner = first_line[len("[role:"):-1]
-                else:
-                    # Fallback if the closing ']' is missing
-                    inner = first_line[len("[role:"):]
-                inner = inner.strip()
-
-                if inner in SUPPORTED_ROLES:
-                    role = inner
-
-        # 4) Default role if nothing else matched
-        if not role:
-            role = "analyst"
+        result = data.get("result", data)
 
         logger.info(
-            "Using MetaGPT role '%s' for task %s",
+            "[MetaGPTA2AAgent] Extracted result for role=%s: %r",
             role,
-            getattr(task, "id", ""),
+            result,
         )
-        return role
 
-    def _extract_text_from_task(self, task) -> str:
+        self._log_metagpt_call(
+            role=role,
+            text=text,
+            raw_response_text=raw_body,
+            result=result,
+        )
+
+        return result
+
+    # ------------------------- Logging ------------------------- #
+
+    def _log_metagpt_call(
+        self,
+        role: str,
+        text: str,
+        raw_response_text: str,
+        result: Any,
+    ) -> None:
+        base_dir = Path(A2A_AGENT_LOG_DIR)
+        base_dir.mkdir(parents=True, exist_ok=True)
+
+        ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        safe_role = role.replace("/", "_")
+        log_path = base_dir / f"{ts}-{safe_role}.log"
+
+        try:
+            with log_path.open("w", encoding="utf-8") as f:
+                f.write(f"--- MetaGPTA2AAgent Call ---\n")
+                f.write(f"timestamp: {ts}\n")
+                f.write(f"role: {role}\n\n")
+
+                f.write("INPUT (query text sent to MetaGPT):\n")
+                f.write(text)
+                f.write("\n\n")
+
+                f.write("RAW HTTP RESPONSE FROM METAGPT SIDECAR:\n")
+                f.write(raw_response_text)
+                f.write("\n\n")
+
+                f.write("PARSED RESULT OBJECT:\n")
+                try:
+                    f.write(json.dumps(result, indent=2, ensure_ascii=False))
+                except TypeError:
+                    f.write(repr(result))
+                f.write("\n")
+        except Exception:
+            logger.exception(
+                "[MetaGPTA2AAgent] Failed to write per-call log at %s",
+                log_path,
+            )
+
+    # ------------------------- Role/Text parsing ------------------------- #
+
+    def _extract_role_and_text_from_task(self, task) -> Tuple[str, str]:
         """
-        Extract the user-visible text from the A2A task's message.
+        Parse the [role:...] header from the raw text and return (role, text_without_header).
 
-        A typical python-a2a Task.message structure looks like:
-
-            task.message = {
-                "role": "user",
-                "content": {
-                    "text": "...",
-                    ...
-                },
-                "metadata": {...}
-            }
-
-        We:
-          - Safely extract `content["text"]`
-          - Provide a fallback message if empty
-          - Strip an optional leading [role:...] header that the orchestrator
-            may have added, so that MetaGPT doesn't see control headers.
+        This is the single source of truth for the MetaGPT role:
+        - We ignore task.skill and metadata for now.
+        - If there's a [role:XYZ] header on the first line, use XYZ.
+        - Otherwise, default to 'analyst'.
         """
         msg: Dict[str, Any] = task.message or {}
         content = msg.get("content", {})
 
-        text = ""
+        raw_text = ""
         if isinstance(content, dict):
-            text = content.get("text", "") or ""
-
-        if not text:
-            # If no text was provided at all, pass a placeholder.
-            text = "No user text provided."
+            raw_text = content.get("text", "") or ""
+        elif isinstance(content, str):
+            raw_text = content
         else:
-            # Strip [role:...] header if present in the first line.
-            if text.startswith("[role:"):
-                first_line, sep, rest = text.partition("\n")
-                # Only strip if there is at least one newline following the header.
-                if sep:  # sep == '\n' if a newline was found
-                    text = rest or ""
+            raw_text = ""
 
-        logger.info(
-            "Extracted text for task %s: %.80r",
-            getattr(task, "id", ""),
-            text,
-        )
-        return text
+        if not raw_text:
+            logger.info("No text in task %s; defaulting to role=analyst", getattr(task, "id", ""))
+            return "analyst", "No user text provided."
+
+        lines = raw_text.splitlines()
+        if not lines:
+            return "analyst", raw_text
+
+        first = lines[0].strip()
+        m = ROLE_HEADER_RE.match(first)
+        if m:
+            role = m.group("role").strip() or "analyst"
+            rest = "\n".join(lines[1:]).lstrip("\n")
+            logger.info(
+                "[MetaGPTA2AAgent] Resolved role from header: %r for task %s",
+                role,
+                getattr(task, "id", ""),
+            )
+            return role, rest or "No user text provided."
+        else:
+            logger.info(
+                "[MetaGPTA2AAgent] No [role:...] header found for task %s; defaulting to 'analyst'",
+                getattr(task, "id", ""),
+            )
+            return "analyst", raw_text
 
     # -------------------------- A2A hook --------------------------- #
 
     def handle_task(self, task):
         """
-        The main entry point called by python-a2a for each incoming Task.
-
-        High-level sequence:
-          1) Determine which MetaGPT role to use for this task.
-          2) Extract the user text from the task.
-          3) Call MetaGPT's /run endpoint.
-          4) Wrap the result in an A2A artifact.
-          5) Mark the task COMPLETED and return it.
-
-        python-a2a handles the HTTP plumbing and JSON decoding/encoding;
-        you only implement this method to wire business logic.
+        Main entry point called by python-a2a for each incoming Task.
         """
-        # 1) Resolve the MetaGPT role.
-        role = self._extract_role_from_task(task)
+        # 1) Resolve role + text from the task (using [role:...] header)
+        role, text = self._extract_role_and_text_from_task(task)
 
-        # 2) Extract the text to be sent as MetaGPT "query".
-        text = self._extract_text_from_task(task)
-
-        # 3) Call the MetaGPT sidecar with that text + role.
+        # 2) Call MetaGPT with that role + text
         result = self._call_metagpt(text, role=role)
 
-        # 4) A2A artifact schema: we create a single artifact with one text part.
-        #    More complex agents might add multiple artifacts, files, images, etc.
+        # 3) Wrap in A2A artifact
         task.artifacts = [
             {
                 "parts": [
@@ -338,9 +330,9 @@ class MetaGPTA2AAgent(A2AServer):
             }
         ]
 
-        # 5) Mark the task as COMPLETED in the A2A protocol.
+        # 4) Mark completed
         task.status = TaskStatus(state=TaskState.COMPLETED)
-        logger.info("Task %s completed", getattr(task, "id", ""))
+        logger.info("Task %s completed (role=%s)", getattr(task, "id", ""), role)
         return task
 
 
@@ -349,23 +341,9 @@ class MetaGPTA2AAgent(A2AServer):
 # --------------------------------------------------------------------
 
 def main() -> None:
-    """
-    Standard Python entrypoint to run this agent as a standalone HTTP server.
-
-    By default, we:
-      - Bind to 0.0.0.0 (inside a container)
-      - Listen on port 9000
-      - Let python-a2a's `run_server` handle HTTP + routing details
-    """
     agent = MetaGPTA2AAgent()
     run_server(agent, host="0.0.0.0", port=9000)
 
 
 if __name__ == "__main__":
-    # If this module is executed as a script (`python a2a_agent.py`),
-    # start the agent server. In docker-compose, you typically run:
-    #
-    #   command: python -m a2a_server.a2a_agent
-    #
-    # which will also land here.
     main()

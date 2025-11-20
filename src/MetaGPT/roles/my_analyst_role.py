@@ -1,4 +1,11 @@
+from __future__ import annotations
+
+from typing import List, Dict, Any
+
 from metagpt.roles import Role
+from .rag.jsonl_retriever import JsonlRagRetriever
+from .llm.ollama_client import OllamaChatClient
+
 
 
 class MyAnalystRole(Role):
