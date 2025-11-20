@@ -27,6 +27,7 @@ from python_a2a import A2AClient
 LOGGED_AGENTS = {
     "parent-agent",
     "student-agent",
+    "teacher-agent"
     # add "principal-agent", etc. if you want
 }
 
@@ -298,11 +299,28 @@ class InMemoryOrchestrator:
     # PARENT → STUDENT CHECK-IN WORKFLOW
     # -------------------------------------------------------------------
 
+    # -------------------------------------------------------------------
+    # PARENT → STUDENT → (OPTIONAL) TEACHER CHECK-IN WORKFLOW
+    # -------------------------------------------------------------------
+
     async def parent_student_grade_checkin(self, grades_text: str) -> dict:
         """
         1) parent-agent drafts a question to the student about grades
         2) student-agent responds as the student
+        3) IF the student mentions talking to a teacher, call teacher-agent
+           to draft a short, supportive teacher response.
+
+        Returns:
+          {
+            "parent_run": {...},
+            "student_run": {...},
+            "parent_question": "<string>",
+            "student_full_answer": "<string>",
+            "teacher_run": {...} | null
+          }
         """
+
+        # ---- 1) Parent drafts the question ----
         parent_prompt = (
             "You are a caring, constructive parent.\n\n"
             "Below is a description of the student's current grades.\n"
@@ -311,34 +329,84 @@ class InMemoryOrchestrator:
             f"GRADES:\n{grades_text}\n"
         )
 
-        # This will send [role:parent] + prompt to a2a-agent
         parent_run = await self.run_agent(
             agent_id="parent-agent",
             input_text=parent_prompt,
             skill="parent",
         )
 
+        # Use the preview as the question shown to the student.
         parent_question = parent_run.get("output_preview") or ""
 
+        # ---- 2) Student responds to the parent's question ----
         student_prompt = (
             "You are the student responding honestly and respectfully to your parent.\n\n"
             "Your parent asks you this question about your grades:\n\n"
-            f'"{parent_question}"\n\n'
+            f"\"{parent_question}\"\n\n"
             "Reply in your own words, explaining how you feel about your grades,\n"
             "what challenges you're facing, and what help or next steps would be useful."
         )
 
-        # This will send [role:student] + prompt to a2a-agent
+        # First, run via run_agent so it is logged & tracked.
         student_run = await self.run_agent(
             agent_id="student-agent",
             input_text=student_prompt,
             skill="student",
         )
 
+        # Then, get the FULL student answer by calling python-a2a directly.
+        # (run_agent only stores a 200-char preview in output_preview.)
+        try:
+            student_full_answer = self._call_a2a_agent(
+                text=student_prompt,
+                skill="student",
+            )
+        except Exception as e:
+            logger.exception("parent_student_grade_checkin: failed to get full student answer")
+            student_full_answer = f"(Error retrieving full student response: {e})"
+
+        # ---- 3) Detect if the student wants to talk to a teacher ----
+        teacher_run: Optional[dict] = None
+        lowered = (student_full_answer or "").lower()
+
+        # Simple heuristic: look for mentions of teacher or talking to one.
+        trigger_phrases = [
+            " teacher",
+            "teacher ",
+            "talk to my teacher",
+            "talk to the teacher",
+            "talk to my science teacher",
+            "mrs.",
+            "mr.",
+        ]
+        should_call_teacher = any(phrase in lowered for phrase in trigger_phrases)
+
+        if should_call_teacher:
+            # ---- 4) Teacher-agent step ----
+            teacher_prompt = (
+                "You are the student's teacher.\n\n"
+                "The parent and student just had this exchange about the student's grades.\n\n"
+                f"GRADES:\n{grades_text}\n\n"
+                f"PARENT QUESTION:\n{parent_question}\n\n"
+                f"STUDENT RESPONSE:\n{student_full_answer}\n\n"
+                "Write a short, supportive message you would give as the teacher, "
+                "explaining what support you can offer (office hours, extra help, "
+                "makeup work, etc.) and concrete steps the student can take to get "
+                "back on track in your class."
+            )
+
+            teacher_run = await self.run_agent(
+                agent_id="teacher-agent",
+                input_text=teacher_prompt,
+                skill="teacher",
+            )
+
         return {
             "parent_run": parent_run,
             "student_run": student_run,
             "parent_question": parent_question,
+            "student_full_answer": student_full_answer,
+            "teacher_run": teacher_run,
         }
 
 
