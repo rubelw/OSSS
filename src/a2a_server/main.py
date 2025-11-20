@@ -65,6 +65,9 @@ app.add_middleware(
 # --------------------------------------------------------------------
 class ParentStudentCheckinPayload(BaseModel):
     grades_text: str
+    # NEW: allow overriding which parent agent & skill to use
+    parent_agent_id: str | None = "parent-agent"
+    parent_skill: str | None = "parent"
     # NEW: allow overriding which student agent & skill to use
     student_agent_id: str | None = "student-agent"
     student_skill: str | None = "student"
@@ -187,19 +190,23 @@ async def parent_student_checkin(payload: ParentStudentCheckinPayload):
     """
     Orchestrate a simple parent→student interaction about grades:
 
-      1) Use the parent-agent to draft a question to the student.
+      1) Use the (configurable) parent-agent to draft a question to the student.
       2) Use the (configurable) student-agent to answer that question as the student.
       3) Orchestrator may optionally involve teacher-agent based on the student's response.
 
     Body example:
       {
         "grades_text": "Math: B-, English: A, Science: C+, ...",
+        "parent_agent_id": "angry-parent-agent",
+        "parent_skill": "angry_parent",
         "student_agent_id": "angry-student-agent",
         "student_skill": "angry_student"
       }
     """
     result = await orchestrator.parent_student_grade_checkin(
         grades_text=payload.grades_text,
+        parent_agent_id=payload.parent_agent_id or "parent-agent",
+        parent_skill=payload.parent_skill or "parent",
         student_agent_id=payload.student_agent_id or "student-agent",
         student_skill=payload.student_skill or "student",
         # if/when you expose teacher overrides on the payload, pass them here too

@@ -4,7 +4,7 @@ from MetaGPT.roles.teacher import TeacherRole
 from MetaGPT.roles.superintendent import SuperintendentRole
 from MetaGPT.roles.student import StudentRole
 from MetaGPT.roles.angry_student import AngryStudentRole
-
+from MetaGPT.roles.angry_parent import AngryParentRole
 from MetaGPT.roles.parent import ParentRole
 from MetaGPT.roles.school_board import SchoolBoardRole
 from MetaGPT.roles.accountability_partner import AccountabilityPartnerRole
@@ -24,6 +24,7 @@ ROLE_REGISTRY = {
     "student": StudentRole,
     "angry_student": AngryStudentRole,
     "parent": ParentRole,
+    "angry_parent": AngryParentRole,
     "school_board": SchoolBoardRole,
     "accountability_partner": AccountabilityPartnerRole,
 }

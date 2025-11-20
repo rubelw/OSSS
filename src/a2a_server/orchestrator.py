@@ -29,6 +29,8 @@ LOGGED_AGENTS = {
     "student-agent",
     "teacher-agent",
     "angry-student-agent",
+    "angry-parent-agent"
+
     # add "principal-agent", etc. if you want
 }
 
@@ -301,22 +303,20 @@ class InMemoryOrchestrator:
     # -------------------------------------------------------------------
 
     async def parent_student_grade_checkin(
-        self,
-        grades_text: str,
-        parent_agent_id: str = "parent-agent",
-        student_agent_id: str = "student-agent",
-        teacher_agent_id: Optional[str] = "teacher-agent",
-        parent_skill: Optional[str] = "parent",
-        student_skill: Optional[str] = "student",
-        teacher_skill: Optional[str] = "teacher",
+            self,
+            grades_text: str,
+            parent_agent_id: str = "parent-agent",
+            parent_skill: str = "parent",
+            student_agent_id: str = "student-agent",
+            student_skill: str = "student",
+            # teacher_agent_id: str = "teacher-agent",
+            # teacher_skill: str = "teacher",
     ) -> dict:
         """
         1) parent-agent drafts a question to the student about grades
         2) (configurable) student-agent responds as the student
-        3) IF the student:
-             - mentions talking to a teacher, OR
-             - shows concerning / dismissive / risky attitudes
-           THEN teacher-agent drafts a short, supportive response.
+        3) IF the student mentions talking to a teacher, call teacher-agent
+           to draft a short, supportive teacher response.
 
         Returns:
           {
@@ -324,13 +324,28 @@ class InMemoryOrchestrator:
             "student_run": {...},
             "parent_question": "<string>",
             "student_full_answer": "<string>",
-            "teacher_run": {...} | None,
+            "teacher_run": {...} | None
           }
         """
 
-        # ---- 1) Parent drafts the question ----
+        # ---- 1) Choose parent persona text based on agent/skill ----
+        # Default: caring/constructive parent
+        if parent_skill == "angry_parent" or parent_agent_id == "angry-parent-agent":
+            parent_persona = (
+                "You are an uncaring, frustrated, and impatient parent.\n"
+                "You are critical and easily annoyed about school performance.\n"
+                "You still must not be abusive or threatening, but your tone is sharp,\n"
+                "disappointed, and not very empathetic.\n"
+            )
+        else:
+            parent_persona = (
+                "You are a caring, constructive parent.\n"
+                "You want to understand your child's feelings and support them,\n"
+                "while still holding them accountable in a kind, clear way.\n"
+            )
+
         parent_prompt = (
-            "You are a caring, constructive parent.\n\n"
+            f"{parent_persona}\n"
             "Below is a description of the student's current grades.\n"
             "Write a single, clear question you would ask the student "
             "to understand how they feel about their grades and what support they need.\n\n"
@@ -343,6 +358,7 @@ class InMemoryOrchestrator:
             skill=parent_skill,
         )
 
+        # Use the preview as the question shown to the student.
         parent_question = parent_run.get("output_preview") or ""
 
         # ---- 2) Student responds to the parent's question ----
@@ -354,13 +370,15 @@ class InMemoryOrchestrator:
             "what challenges you're facing, and what help or next steps would be useful."
         )
 
+        # First, run via run_agent so it is logged & tracked.
         student_run = await self.run_agent(
             agent_id=student_agent_id,
             input_text=student_prompt,
             skill=student_skill,
         )
 
-        # Full (untruncated) answer via direct A2A call
+        # Then, get the FULL student answer by calling python-a2a directly.
+        # (run_agent only stores a 200-char preview in output_preview.)
         try:
             student_full_answer = self._call_a2a_agent(
                 text=student_prompt,
@@ -372,11 +390,11 @@ class InMemoryOrchestrator:
             )
             student_full_answer = f"(Error retrieving full student response: {e})"
 
-        # ---- 3) Decide whether to involve the teacher-agent ----
+        # ---- 3) Detect if the student wants to talk to a teacher ----
         teacher_run: Optional[dict] = None
         lowered = (student_full_answer or "").lower()
 
-        teacher_ref_phrases = [
+        trigger_phrases = [
             " teacher",
             "teacher ",
             "talk to my teacher",
@@ -385,62 +403,25 @@ class InMemoryOrchestrator:
             "mrs.",
             "mr.",
         ]
-        wants_teacher_help = any(phrase in lowered for phrase in teacher_ref_phrases)
-
-        concerning_phrases = [
-            "not really worried about my grades",
-            "i'm not really worried about my grades",
-            "not a big deal",
-            "i don't really care about my grades",
-            "i don’t really care about my grades",
-            "skip school",
-            "skipping school",
-            "road trip with my friends",
-            "tell my teacher i'm sick",
-            "tell my teacher im sick",
-            "she'll never know",
-            "she will never know",
-            "they'll never know",
-            "they will never know",
-            "i'll just lie",
-            "i will just lie",
-        ]
-        concerning_attitude = any(p in lowered for p in concerning_phrases)
-
-        should_call_teacher = (
-            teacher_agent_id is not None and (wants_teacher_help or concerning_attitude)
-        )
+        should_call_teacher = any(phrase in lowered for phrase in trigger_phrases)
 
         if should_call_teacher:
-            reasons = []
-            if wants_teacher_help:
-                reasons.append("the student explicitly mentioned talking to a teacher")
-            if concerning_attitude:
-                reasons.append(
-                    "the student expressed a dismissive or risky attitude about "
-                    "grades, attendance, or honesty"
-                )
-            reasons_text = "; ".join(reasons) if reasons else "general concern."
-
             teacher_prompt = (
-                "You are the student's teacher in the Dallas Center-Grimes (DCG) Community School District.\n\n"
-                "A parent and student just had the following exchange about the student's grades.\n\n"
+                "You are the student's teacher.\n\n"
+                "The parent and student just had this exchange about the student's grades.\n\n"
                 f"GRADES:\n{grades_text}\n\n"
                 f"PARENT QUESTION:\n{parent_question}\n\n"
                 f"STUDENT RESPONSE:\n{student_full_answer}\n\n"
-                f"Context for why you're being looped in: {reasons_text}\n\n"
-                "Write a short, supportive message you would provide as the teacher. "
-                "Your message should:\n"
-                "- Acknowledge the student's feelings and current mindset.\n"
-                "- Address any dismissive or risky attitudes (e.g., skipping school, not caring, lying) calmly but clearly.\n"
-                "- Offer concrete support options (office hours, extra help, makeup work, clearer expectations).\n"
-                "- Suggest specific next steps for the student and how you’ll partner with the parent.\n"
+                "Write a short, supportive message you would give as the teacher, "
+                "explaining what support you can offer (office hours, extra help, "
+                "makeup work, etc.) and concrete steps the student can take to get "
+                "back on track in your class."
             )
 
             teacher_run = await self.run_agent(
-                agent_id=teacher_agent_id,
+                agent_id="teacher-agent",
                 input_text=teacher_prompt,
-                skill=teacher_skill,
+                skill="teacher",
             )
 
         return {
@@ -450,6 +431,7 @@ class InMemoryOrchestrator:
             "student_full_answer": student_full_answer,
             "teacher_run": teacher_run,
         }
+
 
 # -------------------------------------------------------------------
 # GLOBAL ORCHESTRATOR INSTANCE
@@ -495,6 +477,14 @@ orchestrator.register_agent(
     name="Angry Student Agent",
     description="Angry Student persona: questions, reflections, and planning.",
     default_skill="angry_student",
+)
+
+# Parent-focused logical agent
+orchestrator.register_agent(
+    id="angry-parent-agent",
+    name="Angry Parent Agent",
+    description="Angry Parent voice and communication support.",
+    default_skill="angry_parent",
 )
 
 
