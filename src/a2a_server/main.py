@@ -65,13 +65,12 @@ app.add_middleware(
 # --------------------------------------------------------------------
 class ParentStudentCheckinPayload(BaseModel):
     grades_text: str
-    # NEW: allow caller to override which agents/skills are used
-    parent_agent_id: str | None = None
-    student_agent_id: str | None = None
-    teacher_agent_id: str | None = None
-    parent_skill: str | None = None
-    student_skill: str | None = None
-    teacher_skill: str | None = None
+    # NEW: allow overriding which student agent & skill to use
+    student_agent_id: str | None = "student-agent"
+    student_skill: str | None = "student"
+    # You can also make teacher overridable later if you want:
+    # teacher_agent_id: str | None = "teacher-agent"
+    # teacher_skill: str | None = "teacher"
 
 
 class TriggerPayload(BaseModel):
@@ -186,28 +185,26 @@ async def get_run(run_id: str):
 @app.post("/admin/parent-student-checkin")
 async def parent_student_checkin(payload: ParentStudentCheckinPayload):
     """
-    Orchestrate a parent→student (→ optional teacher) interaction about grades.
+    Orchestrate a simple parent→student interaction about grades:
 
       1) Use the parent-agent to draft a question to the student.
-      2) Use the student-agent to answer that question as the student.
-      3) Optionally involve a teacher-agent if the student mentions talking
-         to a teacher.
+      2) Use the (configurable) student-agent to answer that question as the student.
+      3) Orchestrator may optionally involve teacher-agent based on the student's response.
 
     Body example:
       {
         "grades_text": "Math: B-, English: A, Science: C+, ...",
-        "student_agent_id": "student-reflection-agent",   // optional
-        "student_skill": "student_reflection"             // optional
+        "student_agent_id": "angry-student-agent",
+        "student_skill": "angry_student"
       }
     """
     result = await orchestrator.parent_student_grade_checkin(
         grades_text=payload.grades_text,
-        parent_agent_id=payload.parent_agent_id or "parent-agent",
         student_agent_id=payload.student_agent_id or "student-agent",
-        teacher_agent_id=payload.teacher_agent_id or "teacher-agent",
-        parent_skill=payload.parent_skill or "parent",
         student_skill=payload.student_skill or "student",
-        teacher_skill=payload.teacher_skill or "teacher",
+        # if/when you expose teacher overrides on the payload, pass them here too
+        # teacher_agent_id=payload.teacher_agent_id or "teacher-agent",
+        # teacher_skill=payload.teacher_skill or "teacher",
     )
     return result
 
