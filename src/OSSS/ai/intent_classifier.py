@@ -87,7 +87,7 @@ async def classify_intent(text: str) -> IntentResult:
         '"after_school_homework_club", "student_feedback_forms", "school_compliance_with_regulations", "student_parking_policy", "school_security_training", "student_assessment_results", "parental_consent_for_medical_treatment", '
         '"after_school_club_meetings", "student_graduation_credentials", "school_nutrition_program", "school_evacuations_plan", "school_transportation_policies", "student_virtual_learning_support", "school_closure_policies", '
         '"afterschool_tutoring_programs", "student_admission_fees", "school_peer_mentoring", "student_workstudy_opportunities", "parent_feedback_for_school_policies", "parent_teacher_association_meetings", '
-        '"student_volunteer_opportunities", "school_athletic_events", "school_talent_shows", "school_debate_teams", "school_uniforms"'
+        '"student_volunteer_opportunities", "register_new_student", "school_athletic_events", "school_talent_shows", "school_debate_teams", "school_uniforms"'
     )
 
     messages = [

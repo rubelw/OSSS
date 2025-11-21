@@ -54,6 +54,7 @@ SUPPORTED_ROLES = [
     "superintendent",
     "school_board",
     "accountability_partner",
+    "registration"
 ]
 
 # Directory to write per-call logs for this A2A agent.
@@ -149,6 +150,12 @@ class MetaGPTA2AAgent(A2AServer):
                     description="Helps set goals and follow-through steps as an accountability partner.",
                     tags=["metagpt", "coaching", "accountability"],
                     examples=["Help me plan and stay on track with weekly goals."],
+                ),
+                AgentSkill(
+                    name="registration",
+                    description="Helps with student registration.",
+                    tags=["metagpt", "registration"],
+                    examples=["Help me register new students."],
                 ),
             ],
         )
@@ -265,9 +272,8 @@ class MetaGPTA2AAgent(A2AServer):
         Parse the [role:...] header from the raw text and return (role, text_without_header).
 
         This is the single source of truth for the MetaGPT role:
-        - We ignore task.skill and metadata for now.
         - If there's a [role:XYZ] header on the first line, use XYZ.
-        - Otherwise, default to 'analyst'.
+        - Otherwise, default to 'general' or any other fallback role.
         """
         msg: Dict[str, Any] = task.message or {}
         content = msg.get("content", {})
@@ -281,17 +287,17 @@ class MetaGPTA2AAgent(A2AServer):
             raw_text = ""
 
         if not raw_text:
-            logger.info("No text in task %s; defaulting to role=analyst", getattr(task, "id", ""))
-            return "analyst", "No user text provided."
+            logger.info("No text in task %s; defaulting to role=general", getattr(task, "id", ""))
+            return "general", "No user text provided."
 
         lines = raw_text.splitlines()
         if not lines:
-            return "analyst", raw_text
+            return "general", raw_text
 
         first = lines[0].strip()
         m = ROLE_HEADER_RE.match(first)
         if m:
-            role = m.group("role").strip() or "analyst"
+            role = m.group("role").strip() or "general"  # Defaulting to 'general' if no role found
             rest = "\n".join(lines[1:]).lstrip("\n")
             logger.info(
                 "[MetaGPTA2AAgent] Resolved role from header: %r for task %s",
@@ -301,10 +307,10 @@ class MetaGPTA2AAgent(A2AServer):
             return role, rest or "No user text provided."
         else:
             logger.info(
-                "[MetaGPTA2AAgent] No [role:...] header found for task %s; defaulting to 'analyst'",
+                "[MetaGPTA2AAgent] No [role:...] header found for task %s; defaulting to 'general'",
                 getattr(task, "id", ""),
             )
-            return "analyst", raw_text
+            return "general", raw_text
 
     # -------------------------- A2A hook --------------------------- #
 

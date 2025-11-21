@@ -218,6 +218,7 @@ class Intent(str, Enum):
     INTERNATIONAL_STUDENT_SUPPORT = "international_student_support"
     MATH_INTERVENTION_PROGRAM = "math_intervention_program"
     READING_INTERVENTION_PROGRAM = "reading_intervention_program"
+    REGISTER_NEW_STUDENT = "register_new_student"
 
 
 class IntentResult(BaseModel):
