@@ -100,8 +100,6 @@ from typing import Optional
 from urllib.parse import urljoin
 # --- END: verbose OIDC helpers imports ---
 
-
-
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
@@ -119,18 +117,16 @@ LOGGING = {
         },
     },
     "loggers": {
-        "":               {"handlers": ["console"], "level": "DEBUG"},
-        "uvicorn":        {"handlers": ["console"], "level": "DEBUG", "propagate": False},
-        "uvicorn.error":  {"handlers": ["console"], "level": "INFO", "propagate": False},
-        "uvicorn.access": {"handlers": ["console"], "level": "INFO", "propagate": False},
-        "startup":        {"handlers": ["console"], "level": "DEBUG", "propagate": False},
-
-        # 👇 add these lines
-        "watchfiles":         {"handlers": ["console"], "level": "ERROR", "propagate": False},
-        "watchfiles.main":    {"handlers": ["console"], "level": "ERROR", "propagate": False},
-        "watchfiles.watcher": {"handlers": ["console"], "level": "ERROR", "propagate": False},
+        "": {"handlers": ["console"], "level": "DEBUG"},
+        "uvicorn": {"handlers": ["console"], "level": "DEBUG", "propagate": False},
+        "uvicorn.error": {"handlers": ["console"], "level": "CRITICAL", "propagate": False},
+        "uvicorn.access": {"handlers": ["console"], "level": "CRITICAL", "propagate": False},  # Suppress access logs
+        "startup": {"handlers": ["console"], "level": "DEBUG", "propagate": False},
+        "main": {"handlers": ["console"], "level": "ERROR", "propagate": False},  # Suppress logs for 'main'
+        "OSSS.sessions": {"handlers": ["console"], "level": "ERROR", "propagate": False},
     },
 }
+
 
 logging.config.dictConfig(LOGGING)
 
@@ -779,7 +775,17 @@ def create_app() -> FastAPI:
                             except Exception as e:
                                 log.warning("proactive refresh failed: %s", e)
         finally:
-            response = await call_next(request)
+
+            # Suppress logging for /healthz
+            if request.url.path == "/healthz":
+                log.setLevel(logging.CRITICAL)  # Suppress logs for health check
+
+            response = await call_next(request)  # process first to avoid masking errors
+
+            # Restore the logging level after the health check
+            if request.url.path == "/healthz":
+                log.setLevel(logging.INFO)  # Restore the log level for other requests
+
         return response
 
     # -----------------------------
@@ -787,7 +793,17 @@ def create_app() -> FastAPI:
     # -----------------------------
     @app.middleware("http")
     async def session_tracker(request: Request, call_next):
+
+        # Suppress logging for /healthz
+        if request.url.path == "/healthz":
+            log.setLevel(logging.CRITICAL)  # Suppress logs for health check
+
         response = await call_next(request)  # process first to avoid masking errors
+
+        # Restore the logging level after the health check
+        if request.url.path == "/healthz":
+            log.setLevel(logging.INFO)  # Restore the log level for other requests
+
         try:
             sid = await ensure_sid_cookie_and_store(request, response)
             request.state.sid = sid

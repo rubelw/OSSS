@@ -29,7 +29,8 @@ LOGGED_AGENTS = {
     "student-agent",
     "teacher-agent",
     "angry-student-agent",
-    "angry-parent-agent"
+    "angry-parent-agent",
+    "registration-agent"
 
     # add "principal-agent", etc. if you want
 }
@@ -170,6 +171,7 @@ class InMemoryOrchestrator:
         agent_id: str,
         input_text: str,
         skill: Optional[str] = None,
+        additional_data: Optional[dict] = None
     ) -> dict:
         """
         Execute a new run of the selected agent.
@@ -432,6 +434,48 @@ class InMemoryOrchestrator:
             "teacher_run": teacher_run,
         }
 
+    async def register_student(
+            self,
+            query: str,
+            registration_agent_id: str,
+            registration_skill: str,
+            intent: str,  # New parameter to accept the intent
+            context_id: str  # New parameter to accept the context_id
+    ):
+        # Log the incoming intent and context_id for debugging purposes
+        logger.info(f"Registering student with query: {query}, intent: {intent}, context_id: {context_id}")
+
+        # Define the registration persona (this could be more elaborate depending on your requirements)
+        registration_persona = (
+            "You are a caring and patient parent. You approach every conversation with empathy and understanding.\n"
+            "Your goal is to register a new student with the school.\n"
+        )
+
+        # Create the registration prompt
+        registration_prompt = f"{registration_persona}\n{query}\n\n"
+
+        # Create the action data including context_id and intent
+        action_data = {
+            "query": query,
+            "registration_agent_id": registration_agent_id,
+            "registration_skill": registration_skill,
+            "intent": intent,  # Pass the intent to the agent
+            "context_id": context_id  # Pass the context_id to the agent
+        }
+
+        # Run the agent with the provided context and intent
+        registration_run = await self.run_agent(
+            agent_id=registration_agent_id,
+            input_text=registration_prompt,
+            skill=registration_skill,
+            additional_data=action_data  # Ensure additional data (intent and context_id) is passed
+        )
+
+        # Return the registration result
+        return {
+            "registration_run": registration_run
+        }
+
 
 # -------------------------------------------------------------------
 # GLOBAL ORCHESTRATOR INSTANCE
@@ -503,6 +547,15 @@ orchestrator.register_agent(
     description="District-level communications and strategy reflections.",
     default_skill="superintendent",
 )
+
+# School registration agent
+orchestrator.register_agent(
+    id="registration-agent",
+    name="School Registration Agent",
+    description="School Registration Agent.",
+    default_skill="registration",
+)
+
 
 # School board-focused logical agent
 orchestrator.register_agent(

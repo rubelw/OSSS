@@ -1,0 +1,22 @@
+2025-11-21 11:52:18.574 | INFO     | MetaGPT.roles.registration:__init__:35 - RegistrationRole initializing with Ollama base_url=%s model=%s
+2025-11-21 11:52:18.575 | WARNING  | MetaGPT.roles.rag.jsonl_retriever:__init__:57 - JsonlRagRetriever: index file does not exist at %s; RAG will return no chunks
+2025-11-21 12:22:51.017 | INFO     | MetaGPT.roles.registration:__init__:35 - RegistrationRole initializing with Ollama base_url=%s model=%s
+2025-11-21 12:22:51.018 | WARNING  | MetaGPT.roles.rag.jsonl_retriever:__init__:57 - JsonlRagRetriever: index file does not exist at %s; RAG will return no chunks
+2025-11-21 12:23:36.370 | INFO     | MetaGPT.roles.registration:__init__:35 - RegistrationRole initializing with Ollama base_url=%s model=%s
+2025-11-21 12:23:36.370 | WARNING  | MetaGPT.roles.rag.jsonl_retriever:__init__:57 - JsonlRagRetriever: index file does not exist at %s; RAG will return no chunks
+2025-11-21 12:57:52.429 | INFO     | MetaGPT.roles.registration:__init__:35 - RegistrationRole initializing with Ollama base_url=%s model=%s
+2025-11-21 12:57:52.430 | WARNING  | MetaGPT.roles.rag.jsonl_retriever:__init__:57 - JsonlRagRetriever: index file does not exist at %s; RAG will return no chunks
+2025-11-21 13:00:48.966 | INFO     | MetaGPT.roles.registration:__init__:35 - RegistrationRole initializing with Ollama base_url=%s model=%s
+2025-11-21 13:00:48.967 | WARNING  | MetaGPT.roles.rag.jsonl_retriever:__init__:57 - JsonlRagRetriever: index file does not exist at %s; RAG will return no chunks
+2025-11-21 13:02:54.210 | INFO     | MetaGPT.roles.registration:__init__:26 - RegistrationRole initializing with Ollama base_url=%s model=%s
+2025-11-21 13:02:54.210 | WARNING  | MetaGPT.roles.rag.jsonl_retriever:__init__:57 - JsonlRagRetriever: index file does not exist at %s; RAG will return no chunks
+2025-11-21 13:02:54.210 | INFO     | MetaGPT.roles.registration:perform_action:104 - Performing registration with data: how to register a new student
+2025-11-21 13:07:58.707 | INFO     | MetaGPT.roles.registration:__init__:26 - RegistrationRole initializing with Ollama base_url=%s model=%s
+2025-11-21 13:07:58.708 | WARNING  | MetaGPT.roles.rag.jsonl_retriever:__init__:57 - JsonlRagRetriever: index file does not exist at %s; RAG will return no chunks
+2025-11-21 13:07:58.708 | INFO     | MetaGPT.roles.registration:perform_action:104 - Performing registration with data: {'user_name': 'John Doe', 'student_id': '12345'}
+2025-11-21 14:24:54.447 | INFO     | MetaGPT.roles.registration:__init__:26 - RegistrationRole initializing with Ollama base_url=%s model=%s
+2025-11-21 14:24:54.447 | WARNING  | MetaGPT.roles.rag.jsonl_retriever:__init__:57 - JsonlRagRetriever: index file does not exist at %s; RAG will return no chunks
+2025-11-21 14:24:54.448 | INFO     | MetaGPT.roles.registration:perform_action:104 - Performing registration with data: {'user_name': 'John Doe', 'student_id': '12345'}
+2025-11-21 14:31:36.554 | INFO     | MetaGPT.roles.registration:__init__:26 - RegistrationRole initializing with Ollama base_url=%s model=%s
+2025-11-21 14:31:36.555 | WARNING  | MetaGPT.roles.rag.jsonl_retriever:__init__:57 - JsonlRagRetriever: index file does not exist at %s; RAG will return no chunks
+2025-11-21 14:31:36.555 | INFO     | MetaGPT.roles.registration:perform_action:104 - Performing registration with data: {'user_name': 'John Doe', 'student_id': '12345'}

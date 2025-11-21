@@ -21,6 +21,7 @@ The Orchestrator holds state in memory; this API simply provides HTTP access.
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from typing import Optional
 
 # Import the global orchestrator instance (created in orchestrator.py)
 # We do not create a new one here — we use the shared module-level one.
@@ -216,6 +217,38 @@ async def parent_student_checkin(payload: ParentStudentCheckinPayload):
     return result
 
 
+# Define the payload schema for registration
+class RegistrationPayload(BaseModel):
+    query: str
+    registration_agent_id: str
+    registration_skill: str
+    context_id: Optional[str] = None  # Assuming this is an optional field
+    intent: Optional[str] = "register_new_student"  # Default to 'register_new_student'
+
+
+# Define the registration route
+@app.post("/admin/registration")
+async def register_student(payload: RegistrationPayload):
+    """
+    Orchestrate the registration process by triggering the registration agent.
+
+    Body example:
+      {
+        "query": "Please help me register a new student named John Doe...",
+        "student_agent_id": "registration-agent",
+        "student_skill": "registration"
+      }
+    """
+    # Call the orchestrator or agent logic
+    result = await orchestrator.register_student(
+        query=payload.query,  # The query that the user submits
+        registration_agent_id="registration-agent",  # Your agent ID
+        registration_skill="registration",  # The skill you're using for registration
+        intent=payload.intent,  # Pass the 'intent' from the payload or session
+        context_id=payload.context_id  # Pass the 'context_id' from the payload or session
+    )
+
+    return result
 # --------------------------------------------------------------------
 # Public / Debug / Dev Endpoints
 # --------------------------------------------------------------------

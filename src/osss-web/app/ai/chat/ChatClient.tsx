@@ -1,11 +1,15 @@
 "use client";
 
+
 import React, {
   useState,
   useCallback,
   useEffect,
   useRef,
 } from "react";
+
+// Reference the image from the public folder
+const uploadIcon = "/add.png"; // Path from public directory
 
 const API_BASE = process.env.NEXT_PUBLIC_CHAT_API_BASE ?? "/api/osss";
 
@@ -764,13 +768,14 @@ function describeIntent(intent: string): string {
         return "school debate teams";
     case "school_uniforms":
         return "school uniforms";
+    case "register_new_student":
+        return "register new student"
     // Adding additional cases here:
     case "general":
     default:
       return "general information / mixed audience";
   }
 }
-
 
 export default function ChatClient() {
   const [messages, setMessages] = useState<UiMessage[]>([]);
@@ -781,19 +786,29 @@ export default function ChatClient() {
     { role: "user" | "assistant" | "system"; content: string }[]
   >([]);
 
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]); // Store File objects
+  const [uploadedFilesNames, setUploadedFilesNames] = useState<string[]>([]); // Store file names
+
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [retrievedChunks, setRetrievedChunks] = useState<RetrievedChunk[]>([]);
 
-  const messagesEndRef = useRef<HTMLDivElement | null>(null);
-
-  // Auto-scroll to bottom when messages change
-  useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({
-        behavior: "smooth",
-        block: "end",
-      });
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (files) {
+      const fileArray = Array.from(files);
+      setUploadedFiles((prevFiles) => [...prevFiles, ...fileArray]);
+      const fileNames = fileArray.map((file) => file.name);
+      setUploadedFilesNames((prevNames) => [...prevNames, ...fileNames]);
     }
-  }, [messages]);
+  };
+
+  const handleReset = () => {
+    setMessages([]);
+    setChatHistory([]);
+    setInput("");
+    setUploadedFiles([]); // Reset uploaded files
+    setUploadedFilesNames([]); // Reset file names
+  };
 
   const appendMessage = useCallback(
     (who: "user" | "bot", content: string, isHtml = false) => {
@@ -805,172 +820,97 @@ export default function ChatClient() {
     []
   );
 
-  const handleReset = () => {
-    setMessages([]);
-    setChatHistory([]);
-    setRetrievedChunks([]);
-    setInput("");
-  };
-
   const handleSend = useCallback(async () => {
-    if (sending) return;
-    const text = input.trim();
-    if (!text) return;
+      if (sending) return;
+      const text = input.trim();
+      if (!text && uploadedFiles.length === 0) return; // Ensure that there's something to send
 
-    setSending(true);
-    appendMessage("user", text, false);
-    setInput("");
+      setSending(true);
+      appendMessage("user", text, false);
+      setInput("");
 
-    // ---- 1) Update chat history for conversation memory -------------
-    const historySnapshot = [
-      ...chatHistory,
-      { role: "user" as const, content: text },
-    ];
+      const historySnapshot = [
+        ...chatHistory,
+        { role: "user" as const, content: text },
+      ];
 
-    const hasSystem = historySnapshot.some((m) => m.role === "system");
-    const baseSys = hasSystem
-      ? []
-      : [
-          {
-            role: "system" as const,
-            content:
-              "You are a helpful assistant for Dallas Center-Grimes Community School District (DCG) in Iowa. " +
-              "When the user mentions 'DCG' or 'Dallas Center Grimes', they mean the school district, NOT the Dallas Cowboys. " +
-              "Prefer information drawn from the provided DCG documents. " +
-              "Respond in clear Markdown with at least 2 sentences. " +
-              "Avoid including personal emails, phone numbers, or long URLs in your answer; refer to documents by title and page.",
-          },
-        ];
+      const hasSystem = historySnapshot.some((m) => m.role === "system");
+      const baseSys = hasSystem
+        ? []
+        : [
+            {
+              role: "system" as const,
+              content:
+                "You are a helpful assistant for Dallas Center-Grimes Community School District (DCG) in Iowa. " +
+                "When the user mentions 'DCG' or 'Dallas Center Grimes', they mean the school district, NOT the Dallas Cowboys. " +
+                "Prefer information drawn from the provided DCG documents. " +
+                "Respond in clear Markdown with at least 2 sentences. " +
+                "Avoid including personal emails, phone numbers, or long URLs in your answer; refer to documents by title and page.",
+            },
+          ];
 
-    const messagesForHistory = [...baseSys, ...historySnapshot];
-    setChatHistory(messagesForHistory);
+      const messagesForHistory = [...baseSys, ...historySnapshot];
+      setChatHistory(messagesForHistory);
 
-    // ---- 2) Build messages payload for RAG using FULL conversation ---
-    const messagesForRag = messagesForHistory;
+      // Prepare formData with text and files ---
+      const formData = new FormData();
+      formData.append("text", text);
 
-    try {
-      const url = `${API_BASE}/ai/chat/rag`;
-      const body = {
-        model: "llama3.2-vision",
-        messages: messagesForRag,
-        temperature: 0.2,
-        stream: false,
-        index: "main",
-      };
+      // Append files only if they exist
+      if (uploadedFiles.length > 0) {
+        uploadedFiles.forEach((file, index) => {
+          formData.append(`file${index}`, file); // Add each file with a unique key
+        });
+      }
 
-      const resp = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        body: JSON.stringify(body),
-      });
+      // Log FormData entries for debugging
+      for (let pair of formData.entries()) {
+        console.log(pair[0] + ': ' + pair[1]);
+      }
 
-      const raw = await resp.text();
-
-      let payload: any = null;
       try {
-        payload = JSON.parse(raw);
-      } catch {
-        appendMessage(
-          "bot",
-          raw || "(Non-JSON response from /ai/chat/rag)",
-          false
-        );
-        setSending(false);
-        return;
+        const url = `${API_BASE}/ai/chat/rag`;
+
+        const resp = await fetch(url, {
+          method: "POST",
+          body: formData, // Send formData instead of JSON
+        });
+
+        if (!resp.ok) {
+          const msg = await resp.text();
+          appendMessage("bot", msg, false);
+          setSending(false);
+          return;
+        }
+
+        const payload = await resp.json();
+
+        // Handle the response and process it
+        const maybeChunks = payload?.retrieved_chunks || [];
+        setRetrievedChunks(maybeChunks); // Set the retrieved chunks state
+
+        let reply = payload?.answer?.message?.content ?? payload?.choices?.[0]?.message?.content;
+
+        if (!reply?.trim()) {
+          reply = "(Empty reply from /ai/chat/rag)";
+        }
+
+        reply = sanitizeForGuard(reply);
+
+        appendMessage("bot", reply, false);
+        setChatHistory((prev) => [
+          ...prev,
+          { role: "assistant", content: reply },
+        ]);
+      } catch (err: any) {
+        appendMessage("bot", `Network error: ${String(err)}`, false);
       }
 
-      // ---- 3) retrieved_chunks -> store for UI ONLY ------------------
-      const maybeChunks = payload?.retrieved_chunks;
-      let chunksForThisReply: RetrievedChunk[] = [];
+      setSending(false);
+    }, [appendMessage, chatHistory, input, sending, uploadedFiles]);
 
-      if (Array.isArray(maybeChunks)) {
-        const chunks = maybeChunks as RetrievedChunk[];
-        chunksForThisReply = chunks;
-        setRetrievedChunks(chunks);
-      } else {
-        setRetrievedChunks([]);
-      }
 
-      console.log("SAFE raw payload:", payload);
-      console.log("retrieved_chunks (if any):", payload?.retrieved_chunks);
-
-      const core = payload?.answer ?? payload;
-
-      if (!resp.ok) {
-        const msg =
-          core?.detail?.reason ||
-          core?.detail ||
-          raw ||
-          `HTTP ${resp.status}`;
-        appendMessage("bot", String(msg), false);
-        setSending(false);
-        return;
-      }
-
-      // ---- 4) Text reply --------------------------------------------
-      let reply: string =
-        core?.message?.content ??
-        core?.choices?.[0]?.message?.content ??
-        core?.choices?.[0]?.text ??
-        (typeof core === "string" ? core : raw);
-
-      if (!reply?.trim()) {
-        reply = "(Empty reply from /ai/chat/rag)";
-      }
-
-      // Strip PII / URLs / markdown links from what goes back into history
-      reply = sanitizeForGuard(reply);
-
-      // ---- 5) Attach classifier intent from server response ----------
-      // We assume rag_router returns these fields; fall back gracefully.
-      const classifierIntent: string =
-        payload?.intent ??
-        payload?.intent_label ??
-        payload?.meta?.intent ??
-        "general";
-
-      const intentConfidence: number | null =
-        typeof payload?.intent_confidence === "number"
-          ? payload.intent_confidence
-          : typeof payload?.confidence === "number"
-          ? payload.confidence
-          : typeof payload?.meta?.intent_confidence === "number"
-          ? payload.meta.intent_confidence
-          : null;
-
-      const intentDescription = describeIntent(classifierIntent);
-
-      reply += `\n\n---\n_Intent (classifier): ${intentDescription} (${classifierIntent}${
-        intentConfidence != null ? `, ${intentConfidence.toFixed(2)}` : ""
-      })_`;
-
-      // Convert to HTML (with bullet list support)
-      const outHtml = mdToHtml(String(reply));
-
-      // Append "Sources" block with PDF links
-      const sourcesHtml = buildSourcesHtmlFromChunks(chunksForThisReply);
-      const finalHtml = outHtml + sourcesHtml;
-
-      appendMessage("bot", finalHtml, true);
-
-      // Store sanitized reply in history (no URLs / link-like patterns)
-      setChatHistory((prev) => [
-        ...prev,
-        { role: "assistant", content: String(reply) },
-      ]);
-    } catch (err: any) {
-      appendMessage("bot", `Network error: ${String(err)}`, false);
-    }
-
-    setSending(false);
-  }, [appendMessage, chatHistory, input, sending]);
-
-  const handleKeyDown: React.KeyboardEventHandler<HTMLTextAreaElement> = (
-    e
-  ) => {
+  const handleKeyDown: React.KeyboardEventHandler<HTMLTextAreaElement> = (e) => {
     if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
       void handleSend();
@@ -978,93 +918,115 @@ export default function ChatClient() {
   };
 
   return (
-    <div
-      className="mentor-container"
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        height: "100vh",
-        maxHeight: "100vh",
-      }}
-    >
-      {/* Header */}
-      <div className="mentor-header">
+    <div className="mentor-container" style={{ display: "flex", flexDirection: "column", height: "100vh", maxHeight: "100vh" }}>
+      {/* Header with New Chat Button */}
+      <div className="mentor-header" style={{ display: "flex", justifyContent: "space-between" }}>
         <div>General Chat — Use responsibly</div>
-        <div className="mentor-header-right">
-          <code className="inline-code">LLM (OpenAI-compatible)</code>
-        </div>
-      </div>
-
-      {/* Toolbar: RESET */}
-      <div className="mentor-toolbar">
         <button
           type="button"
           className="mentor-quick-button"
           onClick={handleReset}
+          style={{
+            backgroundColor: "#4CAF50",
+            color: "white",
+            border: "none",
+            padding: "10px",
+            cursor: "pointer",
+            fontSize: "16px",
+          }}
         >
-          🔄 New chat
+          New Chat
         </button>
       </div>
 
-      {/* Messages */}
-      <div
-        className="mentor-messages"
-        aria-live="polite"
-        style={{
-          flex: 1,
-          overflowY: "auto",
-          minHeight: 0,
-        }}
-      >
-        {messages.length === 0 && (
-          <div className="mentor-empty-hint">Say hello to begin.</div>
+      {/* Uploaded files display */}
+      <div className="uploaded-files">
+        {uploadedFilesNames.length > 0 && (
+          <div>
+            <strong>Uploaded Files:</strong>
+            <ul>
+              {uploadedFilesNames.map((file, index) => (
+                <li key={index}>{file}</li>
+              ))}
+            </ul>
+          </div>
         )}
+      </div>
 
+      {/* Messages */}
+      <div className="mentor-messages" style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
+        {messages.length === 0 && <div className="mentor-empty-hint">Say hello to begin.</div>}
         {messages.map((m) => (
-          <div
-            key={m.id}
-            className={`mentor-msg ${m.who === "user" ? "user" : "bot"}`}
-          >
-            <div
-              className={`mentor-bubble ${
-                m.who === "user" ? "user" : "bot"
-              }`}
-            >
-              {m.isHtml ? (
-                <div dangerouslySetInnerHTML={{ __html: m.content }} />
-              ) : (
-                m.content
-              )}
+          <div key={m.id} className={`mentor-msg ${m.who === "user" ? "user" : "bot"}`}>
+            <div className={`mentor-bubble ${m.who === "user" ? "user" : "bot"}`}>
+              {m.isHtml ? <div dangerouslySetInnerHTML={{ __html: m.content }} /> : m.content}
             </div>
           </div>
         ))}
-
-        <div ref={messagesEndRef} />
       </div>
 
       {/* Composer */}
       <div className="mentor-composer">
-        <textarea
-          className="mentor-input"
-          placeholder="Type your message… (Ctrl/Cmd+Enter to send)"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={handleKeyDown}
-        />
+        <div className="textarea-container" style={{ position: "relative", width: "100%" }}>
+          {/* Invisible file input */}
+          <input
+            type="file"
+            ref={fileInputRef}
+            style={{ display: "none" }}
+            onChange={handleFileUpload}
+            multiple // Allow multiple file uploads
+          />
+          {/* Button to trigger file selection */}
+          <button
+            type="button"
+            className="file-upload-btn"
+            style={{
+              position: "absolute",
+              left: "10px",
+              top: "50%",
+              transform: "translateY(-50%)",
+              background: "transparent",
+              border: "none",
+              cursor: "pointer",
+              marginRight: "10px", // Add space between the button and the textarea
+            }}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <img
+              src={uploadIcon}
+              alt="Upload"
+              style={{
+                width: "20px",   // Adjust size of the image if necessary
+                height: "20px",
+              }}
+            />
+          </button>
+
+          <textarea
+            className="mentor-input"
+            placeholder="Type your message… (Ctrl/Cmd+Enter to send)"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            style={{
+              paddingLeft: "50px",   // Create space for the button
+              width: "100%",         // Make the textarea span the entire width
+              boxSizing: "border-box", // Ensure padding doesn't affect the width
+            }}
+          />
+        </div>
 
         <button
           type="button"
           className="mentor-send primary"
-          onClick={() => void handleSend()}
+          onClick={handleSend}
           disabled={sending}
         >
           {sending ? "Sending…" : "Send"}
         </button>
       </div>
 
-      <div className="mentor-footer">
-        Local model proxy — for experimentation and allowed use only.
-      </div>
+      <div className="mentor-footer">Local model proxy — for experimentation and allowed use only.</div>
     </div>
   );
 }

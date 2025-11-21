@@ -1,11 +1,7 @@
-# Dockerfile (with CA baked in)
+# Main application container (Production stage)
 FROM python:3.11-slim
 
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1
-
-# Install dependencies + trust store tooling
+# Install dependencies needed for the app
 RUN apt-get update && apt-get install -y --no-install-recommends \
       postgresql-client \
       curl \
@@ -14,30 +10,39 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       net-tools \
       ca-certificates \
       openssl \
+      git \
  && rm -rf /var/lib/apt/lists/*
 
 # ---- Add your CA (PEM) and trust it ----
-# Copy CA from repo into system trust store
 COPY config_files/keycloak/secrets/ca/ca.crt /usr/local/share/ca-certificates/keycloak-ca.crt
 RUN chmod 0644 /usr/local/share/ca-certificates/keycloak-ca.crt && update-ca-certificates
 
-# Nice fallback envs pointing to the system bundle
+# Set up environment variables for SSL certificates
 ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt \
     SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt \
     CURL_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
 
 WORKDIR /app
 
+# Copy the app source code and installed dependencies
 COPY pyproject.toml ./pyproject.toml
 COPY README.md ./README.md
-COPY src ./src
 RUN python -m pip install --upgrade pip setuptools wheel
+RUN pip install --upgrade typing-extensions>=4.14.1
+
+COPY src ./src
+
 
 COPY gunicorn.conf.py ./
 ENV PYTHONPATH=/app/src
-RUN pip install .
+RUN pip install . --use-deprecated=legacy-resolver
 
-RUN pip install --no-cache-dir \
+
+# Install remaining dependencies
+RUN pip install --use-deprecated=legacy-resolver --no-cache-dir \
+      "metagpt==0.8.2" \
+      "fastapi>=0.95" \
+      "starlette>=0.21.0" \
       "alembic>=1.13" \
       "gunicorn>=21" \
       "uvicorn[standard]>=0.30" \
@@ -50,13 +55,39 @@ RUN pip install --no-cache-dir \
       "pypdf==4.3.1" \
       "guardrails-ai>=0.6.7" \
       "pydantic>=2.7" \
-      "openai>=1.39"
+      "openai>=1.39.0"
+      #"itsdangerous>=2.0" \
+      #"pydantic-settings" \
+      #"python-jose" \
+      #"redis>=4" \
+      #"python-multipart" \
+      #"python-dotenv" \
+      #"passlib" \
+      #"celery" \
+      #"pytest" \
+      #"pytest-asyncio" \
+      #"databases" \
+      #"sqlalchemy" \
+      #"python-consul" \
+      #"python-json-logger"
+
+RUN pip install --upgrade typing-extensions>=4.14.1
+
+# Minimal MetaGPT config for Ollama
+RUN mkdir -p /root/.metagpt && \
+    printf '%s\n' \
+'llm:' \
+'  api_type: "ollama"' \
+'  base_url: "http://host.containers.internal:11434/api"' \
+'  model: "llama3.2-vision:latest"' \
+'  api_key: "local-ollama"' \
+
+> /root/.metagpt/config2.yaml
 
 # Talk to Ollama or your proxy using OpenAI-compatible /v1
 ENV OPENAI_BASE_URL="http://host.containers.internal:11434/v1" \
     OPENAI_API_KEY="none" \
-    LLM_MODEL="llama3.1"
-
+    LLM_MODEL="llama3.2-vision"
 
 EXPOSE 8000
 ENV HOST=0.0.0.0 PORT=8000 LOG_LEVEL=info

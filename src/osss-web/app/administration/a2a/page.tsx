@@ -37,6 +37,8 @@ const SKILL_OPTIONS = [
   { value: "school_board", label: "school_board" },
   { value: "parent", label: "parent" },
   { value: "accountability_partner", label: "accountability_partner" },
+  { value: "registration", label: "registration" },
+
 ];
 
 export default function A2AAdminPage() {

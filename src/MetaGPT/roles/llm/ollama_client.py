@@ -9,7 +9,6 @@ from httpx import HTTPStatusError
 
 logger = logging.getLogger(__name__)
 
-
 def _messages_to_prompt(messages: List[Dict[str, str]]) -> str:
     """
     Convert chat-style messages into a single prompt string suitable for /api/generate.
@@ -27,7 +26,6 @@ def _messages_to_prompt(messages: List[Dict[str, str]]) -> str:
         else:
             lines.append(f"{role.capitalize()}: {content}")
     return "\n\n".join(lines) + "\n\nAssistant:"
-
 
 class OllamaChatClient:
     """
@@ -76,7 +74,10 @@ class OllamaChatClient:
                 "model": self.model,
                 "messages": messages,
                 "stream": False,
+                "max_tokens": 2048,
+
             }
+
 
             logger.info(
                 "OllamaChatClient.chat -> %s model=%s payload_preview=%r",
@@ -125,6 +126,8 @@ class OllamaChatClient:
                 "model": self.model,
                 "prompt": prompt,
                 "stream": False,
+                "max_tokens": 2048,
+
             }
 
             logger.info(
