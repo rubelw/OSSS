@@ -127,7 +127,7 @@ dev = [
 
 ai = [
     "openai>=1.39",
-    "guardrails-ai>=0.6.7",
+    "guardrails-ai>=0.2.3",
     "chromadb>=0.5.5",
     "pypdf>=4.0.0",
 
