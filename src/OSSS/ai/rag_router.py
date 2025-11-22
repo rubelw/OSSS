@@ -190,6 +190,7 @@ async def chat_rag(
             # with open(f"./uploads/{file.filename}", "wb") as f:
             #     f.write(contents)
 
+
     # Respect caller's max_tokens but cap at 2048, with sane defaults
     requested_max = (
         rag.max_tokens
@@ -207,6 +208,132 @@ async def chat_rag(
     if not user_messages:
         raise HTTPException(status_code=400, detail="No user message found")
     query = user_messages[-1].content
+
+    # ---- Intent Classification ----
+    intent = "general"  # Default to general intent if none specified
+    try:
+        # Use a function to classify the intent of the query
+        intent_result = await classify_intent(query)
+        intent = intent_result.intent
+        logger.info(f"Classified intent: {intent}")
+    except Exception as e:
+        logger.error(f"Error classifying intent: {e}")
+
+    logger.info(f"Intent for the query: {intent}")
+
+    # ---- Handle special routing for specific intents (e.g., registration) ----
+    if intent == "register_new_student":
+        logger.info(f"Processing registration for new student with query: {query}")
+
+        # Prepare action data as a dictionary
+        action_data = {
+            "query": query,
+            "registration_agent_id": "registration-agent",
+            "registration_skill": "registration",
+        }
+
+        registration_url = "http://a2a:8086/admin/registration"
+
+        try:
+            response = requests.post(
+                registration_url,
+                headers={"Content-Type": "application/json"},
+                data=json.dumps(action_data),
+                timeout=60,
+            )
+
+            if response.status_code == 200:
+                result = response.json()
+                result["intent"] = "register_new_student"
+
+                logger.info(f"Registration raw result from A2A: {result}")
+
+                registration_run = result.get("registration_run", {}) or {}
+                registration_status = registration_run.get("status", "Unknown")
+                registration_message = registration_run.get(
+                    "output_preview",
+                    "No details available.",
+                )
+
+                # Build a debug_neighbors-style list so the frontend can treat it
+                # like retrieved_chunks from RAG.
+                debug_neighbors = [
+                    {
+                        "score": 1.0,  # synthetic score – always 'most relevant'
+                        "filename": "registration_run",
+                        "chunk_index": None,
+                        "text_preview": registration_message[:800],
+                        "image_paths": None,
+                        "page_index": None,
+                        "page_chunk_index": None,
+                    }
+                ]
+
+                # Shape the response exactly like the RAG debug format:
+                # {
+                #   "answer": <LLM-like object or message>,
+                #   "retrieved_chunks": [...],
+                #   "index": <str>,
+                #   "intent": <str>
+                # }
+                user_response = {
+                    "answer": {
+                        # Minimal shape needed for ChatClient.tsx:
+                        # it reads core?.message?.content
+                        "message": {
+                            "role": "assistant",
+                            "content": registration_message,
+                        },
+                        # Optional extras if you want to mimic Ollama/OpenAI more closely:
+                        "status": registration_status,
+                    },
+                    "retrieved_chunks": debug_neighbors,
+                    "index": "registration",
+                    "intent": "register_new_student",
+                }
+
+                logger.info(f"Registration user_response: {user_response}")
+                return user_response
+
+            else:
+                logger.error(
+                    f"Failed to register student: HTTP {response.status_code} {response.text}"
+                )
+                return {
+                    "answer": {
+                        "message": {
+                            "role": "assistant",
+                            "content": (
+                                "Registration failed while contacting the registration service. "
+                                "Please try again or contact support."
+                            ),
+                        }
+                    },
+                    "retrieved_chunks": [],
+                    "index": "registration",
+                    "intent": "register_new_student",
+                    "error": "Registration failed",
+                    "details": response.text,
+                }
+
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Network error during registration: {e}")
+            return {
+                "answer": {
+                    "message": {
+                        "role": "assistant",
+                        "content": (
+                            "There was a network error while trying to start registration. "
+                            "Please try again shortly."
+                        ),
+                    }
+                },
+                "retrieved_chunks": [],
+                "index": "registration",
+                "intent": "register_new_student",
+                "error": "Network error",
+                "details": str(e),
+            }
 
     # ---- 2) embed query ----
     async with httpx.AsyncClient(timeout=10.0) as client:
@@ -429,7 +556,20 @@ async def chat_rag(
                 content = redact_pii(content)
                 msg["content"] = content
 
+        # ---- normalize intent for JSON payload back to the client ----
+        intent_label: str | None = None
+        try:
+            # If you imported Intent at the top: from OSSS.ai.intents import Intent
+            if isinstance(intent, Intent):
+                intent_label = intent.value
+            elif isinstance(intent, str):
+                intent_label = intent
+        except NameError:
+            # 'intent' not defined in this code path
+            intent_label = None
+
         # ---- debug rag: return neighbors along with the answer ----
+
 
         debug_neighbors = []
         for score, chunk in neighbors:
@@ -449,4 +589,6 @@ async def chat_rag(
             "answer": data,
             "retrieved_chunks": debug_neighbors,
             "index": requested_index,
+            "intent": intent_label,
         }
+

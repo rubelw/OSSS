@@ -113,7 +113,7 @@ async def retrieve_context_with_chunks(
 
       {
         "id": "...",
-        "source": "dcg_school_board_meetings/3_10_25/Board Workshop Strategic Planning.pdf",
+        "source": "school_board/2025-3-10/Board Workshop Strategic Planning.pdf",
         "filename": "Board Workshop Strategic Planning.pdf",
         "chunk_index": 0,
         "page_index": 0,

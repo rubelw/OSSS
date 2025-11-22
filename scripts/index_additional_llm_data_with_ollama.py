@@ -439,6 +439,34 @@ def save_pdf_to_pdfs_folder(pdf_path: str):
     except Exception as e:
         log(f"  ! Failed to copy PDF into pdfs folder: {e}")
 
+def build_pdf_context_prefix(pdf_path: str):
+    """
+    Build a short, structured context prefix for a PDF based on its directory path
+    relative to DATA_ROOT.
+
+    Returns:
+        rel (str): relative path to DATA_ROOT
+        dir_rel (str): relative directory path (without filename)
+        context_prefix (str): text prefix to prepend for embedding_text
+    """
+    # Path relative to the active DATA_ROOT (e.g. additional_llm_data/...)
+    rel = os.path.relpath(pdf_path, DATA_ROOT)
+    dir_rel = os.path.dirname(rel)
+
+    if not dir_rel or dir_rel == ".":
+        # No meaningful directory context
+        context_prefix = ""
+    else:
+        # Turn 'school_board/2025-02-10/attachments' into
+        # 'school_board / 2025-02-10 / attachments'
+        pretty_dir = dir_rel.replace(os.sep, " / ")
+        context_prefix = (
+            f"Directory context: {pretty_dir}. "
+            "This text is from a PDF associated with that context.\n\n"
+        )
+
+    return rel, dir_rel, context_prefix
+
 
 def process_pdf(pdf_path: str, idx: int, total: int, args):
     log(f"\n---- [{idx}/{total}] Processing PDF ----")
@@ -487,6 +515,7 @@ def process_pdf(pdf_path: str, idx: int, total: int, args):
                     "page_chunk_index": page_chunk_idx,
                     "image_paths": image_paths,
                     "image_ocr_texts": image_ocr_texts,
+                    "global_chunk_index": global_chunk_index,
                 }
             )
             global_chunk_index += 1
@@ -495,16 +524,29 @@ def process_pdf(pdf_path: str, idx: int, total: int, args):
         log("  ! No chunks produced for this PDF, skipping.")
         return
 
+    # Build directory-based context prefix and relative paths
+    rel, dir_rel, context_prefix = build_pdf_context_prefix(pdf_path)
+    filename = os.path.basename(pdf_path)
+
+    # Build embedding_text by prepending the directory context to each chunk
+    if context_prefix:
+        embedding_texts = [context_prefix + chunk for chunk in all_chunks]
+    else:
+        embedding_texts = list(all_chunks)
+
+    log(f"  Directory context for embeddings: {dir_rel or '(none)'}")
+    if context_prefix:
+        log(f"  Example embedding prefix: {context_prefix[:120]!r}...")
+
     if args.extract_only:
         log("DEBUG: --extract-only set; not calling Ollama.")
         return
 
-    rel = os.path.relpath(pdf_path, DATA_ROOT)
-    filename = os.path.basename(pdf_path)
     doc_ids = [str(uuid.uuid4()) for _ in all_chunks]
 
     try:
-        embeddings = embed_batch(all_chunks)
+        # IMPORTANT: embed the enriched text, not the raw chunk
+        embeddings = embed_batch(embedding_texts)
     except Exception as e:
         log(f"  ! Embedding error, skipping this PDF: {e}")
         return
@@ -513,23 +555,26 @@ def process_pdf(pdf_path: str, idx: int, total: int, args):
         log(f"  ! Embedding count mismatch: {len(embeddings)} vs {len(all_chunks)}")
         return
 
-
     # Now continue with appending to the file
     # Append to the file only if the ID doesn't already exist
     with open(OUT_FILE, "a", encoding="utf-8") as out_f:
         for doc_id, chunk, emb_idx in zip(doc_ids, all_chunks, range(len(all_chunks))):
             if not id_exists_in_index(doc_id, OUT_FILE):  # Only append if the ID is not already in the file
+                m = meta[emb_idx]
+
                 record = {
                     "id": doc_id,
-                    "source": rel,
+                    "source": rel,                 # path relative to DATA_ROOT
                     "filename": filename,
                     "chunk_index": emb_idx,
-                    "page_index": None,  # no pages for TXT/CSV
-                    "page_chunk_index": None,
-                    "text": chunk,
+                    "page_index": m["page_index"],
+                    "page_chunk_index": m["page_chunk_index"],
+                    "text": chunk,                 # raw clean chunk text (no directory prefix)
+                    "embedding_text": embedding_texts[emb_idx],  # what we actually embedded
                     "embedding": embeddings[emb_idx],
-                    "image_paths": [],
-                    "image_ocr_texts": [],
+                    "image_paths": m.get("image_paths", []),
+                    "image_ocr_texts": m.get("image_ocr_texts", []),
+                    "directory_context": dir_rel,  # e.g. "school_board/2025-02-10/attachments"
                 }
                 out_f.write(json.dumps(record) + "\n")
 
@@ -561,16 +606,30 @@ def process_text_or_csv(doc_path: str, idx: int, total: int, args):
         log("  ! No chunks produced, skipping.")
         return
 
+    # Build directory-based context prefix and relative paths
+    # Reuse the same helper used for PDFs; it just looks at the path and DATA_ROOT.
+    rel, dir_rel, context_prefix = build_pdf_context_prefix(doc_path)
+    filename = os.path.basename(doc_path)
+
+    # Build embedding_text by prepending the directory context to each chunk
+    if context_prefix:
+        embedding_texts = [context_prefix + chunk for chunk in all_chunks]
+    else:
+        embedding_texts = list(all_chunks)
+
+    log(f"  Directory context for embeddings: {dir_rel or '(none)'}")
+    if context_prefix:
+        log(f"  Example embedding prefix: {context_prefix[:120]!r}...")
+
     if args.extract_only:
         log("DEBUG: --extract-only set; not calling Ollama.")
         return
 
-    rel = os.path.relpath(doc_path, DATA_ROOT)
-    filename = os.path.basename(doc_path)
     doc_ids = [str(uuid.uuid4()) for _ in all_chunks]
 
     try:
-        embeddings = embed_batch(all_chunks)
+        # IMPORTANT: embed the enriched text, not the raw chunk
+        embeddings = embed_batch(embedding_texts)
     except Exception as e:
         log(f"  ! Embedding error, skipping this document: {e}")
         return
@@ -579,7 +638,6 @@ def process_text_or_csv(doc_path: str, idx: int, total: int, args):
         log(f"  ! Embedding count mismatch: {len(embeddings)} vs {len(all_chunks)}")
         return
 
-
     # Now continue with appending to the file
     # Append to the file only if the ID doesn't already exist
     with open(OUT_FILE, "a", encoding="utf-8") as out_f:
@@ -587,15 +645,17 @@ def process_text_or_csv(doc_path: str, idx: int, total: int, args):
             if not id_exists_in_index(doc_id, OUT_FILE):  # Only append if the ID is not already in the file
                 record = {
                     "id": doc_id,
-                    "source": rel,
+                    "source": rel,                  # path relative to DATA_ROOT
                     "filename": filename,
                     "chunk_index": emb_idx,
-                    "page_index": None,  # no pages for TXT/CSV
+                    "page_index": None,             # no pages for TXT/CSV
                     "page_chunk_index": None,
-                    "text": chunk,
+                    "text": chunk,                  # raw clean chunk text
+                    "embedding_text": embedding_texts[emb_idx],  # what we actually embedded
                     "embedding": embeddings[emb_idx],
-                    "image_paths": [],
+                    "image_paths": [],              # no images for TXT/CSV
                     "image_ocr_texts": [],
+                    "directory_context": dir_rel,   # e.g. "school_board/2025-11-10/notes"
                 }
                 out_f.write(json.dumps(record) + "\n")
 

@@ -975,6 +975,15 @@ export default function ChatClient() {
 
       const intentDescription = describeIntent(classifierIntent);
 
+      // 3A: Get INTENT returned directly from the server
+      const returnedIntent: string | null =
+        typeof payload?.intent === "string" ? payload.intent : null;
+
+      // Render returned intent ABOVE the classifier intent block
+      if (returnedIntent) {
+        reply = `**Intent:** ${returnedIntent}\n\n` + reply;
+      }
+
       reply += `\n\n---\n_Intent (classifier): ${intentDescription} (${classifierIntent}${
         intentConfidence != null ? `, ${intentConfidence.toFixed(2)}` : ""
       })_`;
