@@ -69,6 +69,15 @@ def log_mem(tag: str = ""):
     else:
         log(f"[MEM] ru_maxrss={rss}")
 
+def id_exists_in_index(doc_id, index_file):
+    """Check if the given doc_id already exists in the index file."""
+    if os.path.exists(index_file):
+        with open(index_file, "r", encoding="utf-8") as out_f:
+            for line in out_f:
+                record = json.loads(line)
+                if record['id'] == doc_id:
+                    return True  # ID exists in the file
+    return False  # ID does not exist in the file
 
 def ensure_out_dir():
     if not os.path.exists(OUT_DIR):
@@ -504,24 +513,25 @@ def process_pdf(pdf_path: str, idx: int, total: int, args):
         log(f"  ! Embedding count mismatch: {len(embeddings)} vs {len(all_chunks)}")
         return
 
-    # Append to JSONL
+
+    # Now continue with appending to the file
+    # Append to the file only if the ID doesn't already exist
     with open(OUT_FILE, "a", encoding="utf-8") as out_f:
-        for doc_id, chunk, emb_idx, m in zip(doc_ids, all_chunks, range(len(all_chunks)), meta):
-            record = {
-                "id": doc_id,
-                "source": rel,                      # relative path under this index's data root
-                "filename": filename,               # base filename for prompts / UI
-                "chunk_index": emb_idx,             # global chunk index within this PDF
-                "page_index": m["page_index"],      # original page index
-                "page_chunk_index": m["page_chunk_index"],
-                "text": chunk,
-                "embedding": embeddings[emb_idx],
-                # local image paths (relative to PROJECT_ROOT)
-                "image_paths": m.get("image_paths", []),
-                # OCR text per image on that page (may be empty strings)
-                "image_ocr_texts": m.get("image_ocr_texts", []),
-            }
-            out_f.write(json.dumps(record) + "\n")
+        for doc_id, chunk, emb_idx in zip(doc_ids, all_chunks, range(len(all_chunks))):
+            if not id_exists_in_index(doc_id, OUT_FILE):  # Only append if the ID is not already in the file
+                record = {
+                    "id": doc_id,
+                    "source": rel,
+                    "filename": filename,
+                    "chunk_index": emb_idx,
+                    "page_index": None,  # no pages for TXT/CSV
+                    "page_chunk_index": None,
+                    "text": chunk,
+                    "embedding": embeddings[emb_idx],
+                    "image_paths": [],
+                    "image_ocr_texts": [],
+                }
+                out_f.write(json.dumps(record) + "\n")
 
     log(f"  ✔ Wrote {len(all_chunks)} chunks for {rel} to JSONL")
 
@@ -569,21 +579,25 @@ def process_text_or_csv(doc_path: str, idx: int, total: int, args):
         log(f"  ! Embedding count mismatch: {len(embeddings)} vs {len(all_chunks)}")
         return
 
+
+    # Now continue with appending to the file
+    # Append to the file only if the ID doesn't already exist
     with open(OUT_FILE, "a", encoding="utf-8") as out_f:
         for doc_id, chunk, emb_idx in zip(doc_ids, all_chunks, range(len(all_chunks))):
-            record = {
-                "id": doc_id,
-                "source": rel,
-                "filename": filename,
-                "chunk_index": emb_idx,
-                "page_index": None,          # no pages for TXT/CSV
-                "page_chunk_index": None,
-                "text": chunk,
-                "embedding": embeddings[emb_idx],
-                "image_paths": [],
-                "image_ocr_texts": [],
-            }
-            out_f.write(json.dumps(record) + "\n")
+            if not id_exists_in_index(doc_id, OUT_FILE):  # Only append if the ID is not already in the file
+                record = {
+                    "id": doc_id,
+                    "source": rel,
+                    "filename": filename,
+                    "chunk_index": emb_idx,
+                    "page_index": None,  # no pages for TXT/CSV
+                    "page_chunk_index": None,
+                    "text": chunk,
+                    "embedding": embeddings[emb_idx],
+                    "image_paths": [],
+                    "image_ocr_texts": [],
+                }
+                out_f.write(json.dumps(record) + "\n")
 
     log(f"  ✔ Wrote {len(all_chunks)} chunks for {rel} to JSONL")
 

@@ -170,6 +170,9 @@ start_ollama() {
   echo "🧠 Starting Ollama service (menu action)…"
   local OLLAMA_HOST="0.0.0.0"
   local OLLAMA_PORT=11434
+  local EMBEDDINGS_FILE="vector_indexes/main/embeddings.jsonl"  # Replace with your actual file path
+  local BATCH_SIZE=50  # Number of lines per batch
+  local MODEL="llama3.2-vision"
 
   # If it's already running, just report status and exit
   if pgrep -f "ollama serve" >/dev/null 2>&1; then
@@ -181,9 +184,9 @@ start_ollama() {
     export OLLAMA_HOST="${OLLAMA_HOST}"
     export OLLAMA_PORT="${OLLAMA_PORT}"
 
-    # Start in background and log to /tmp
+    # Start Ollama in the background and log to /tmp
     nohup ollama serve >/tmp/ollama.log 2>&1 &
-    sleep 3
+    sleep 3  # Allow Ollama a few seconds to start up
   fi
 
   # Verify API is reachable on 11434
@@ -196,7 +199,7 @@ start_ollama() {
         echo "✅ Ollama API reachable now at http://localhost:${OLLAMA_PORT}"
         break
       fi
-      sleep 1
+      sleep 2
     done
 
     # Final check
@@ -205,10 +208,31 @@ start_ollama() {
     fi
   fi
 
-  # Optional pause if you use this helper elsewhere
-  if type press_any_key_to_continue >/dev/null 2>&1; then
-    press_any_key_to_continue
-  fi
+  # Load the embeddings file in smaller batches
+  echo "🧠 Loading the embeddings file into Ollama in smaller batches..."
+
+  # Split the JSONL file into batches and send each batch
+  split -l ${BATCH_SIZE} "${EMBEDDINGS_FILE}" "${EMBEDDINGS_FILE}_batch_"
+
+  for batch_file in ${EMBEDDINGS_FILE}_batch_*; do
+    echo "📦 Sending batch: $batch_file"
+    curl --max-time 600 --connect-timeout 300 -X POST "http://localhost:${OLLAMA_PORT}/api/embeddings?model=${MODEL}" \
+      -H "Content-Type: application/json" \
+      --data-binary @"$batch_file"
+
+    if [ $? -eq 0 ]; then
+      echo "✅ Batch $batch_file loaded successfully."
+    else
+      echo "❌ Failed to load batch $batch_file into Ollama."
+    fi
+
+    # Optionally remove the batch file after sending
+    rm "$batch_file"
+  done
+
+
+
+  echo "🧠 All batches have been processed and sent to Ollama."
 }
 
 

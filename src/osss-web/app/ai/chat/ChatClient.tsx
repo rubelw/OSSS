@@ -7,6 +7,9 @@ import React, {
   useRef,
 } from "react";
 
+// Reference the image from the public folder
+const uploadIcon = "/add.png"; // Path from public directory
+
 const API_BASE = process.env.NEXT_PUBLIC_CHAT_API_BASE ?? "/api/osss";
 
 interface UiMessage {
@@ -781,7 +784,22 @@ export default function ChatClient() {
     { role: "user" | "assistant" | "system"; content: string }[]
   >([]);
 
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]); // Store File objects
+  const [uploadedFilesNames, setUploadedFilesNames] = useState<string[]>([]); // Store file names
+
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
   const [retrievedChunks, setRetrievedChunks] = useState<RetrievedChunk[]>([]);
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (files) {
+      const fileArray = Array.from(files);
+      setUploadedFiles((prevFiles) => [...prevFiles, ...fileArray]);
+      const fileNames = fileArray.map((file) => file.name);
+      setUploadedFilesNames((prevNames) => [...prevNames, ...fileNames]);
+    }
+  };
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
@@ -810,12 +828,14 @@ export default function ChatClient() {
     setChatHistory([]);
     setRetrievedChunks([]);
     setInput("");
+    setUploadedFiles([]); // Reset uploaded files
+    setUploadedFilesNames([]); // Reset file names
   };
 
   const handleSend = useCallback(async () => {
     if (sending) return;
     const text = input.trim();
-    if (!text) return;
+    if (!text && uploadedFiles.length === 0) return; // Ensure that there's something to send
 
     setSending(true);
     appendMessage("user", text, false);
@@ -858,16 +878,29 @@ export default function ChatClient() {
         index: "main",
       };
 
+
+      // 2) Create FormData and put raw JSON string under "payload"
+      const form = new FormData();
+      form.append("payload", JSON.stringify(body));
+
+      // If you support upload:
+      // if (uploadedFiles && uploadedFiles.length > 0) {
+      //   Array.from(uploadedFiles).forEach((file) => {
+      //     form.append("files", file);          // 👈 must match `files: list[UploadFile]`
+      //   });
+      // }
+
       const resp = await fetch(url, {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
           Accept: "application/json",
         },
-        body: JSON.stringify(body),
+        body: form,
       });
 
       const raw = await resp.text();
+      console.log("RAG raw response:", resp.status, raw);
+
 
       let payload: any = null;
       try {
@@ -887,9 +920,8 @@ export default function ChatClient() {
       let chunksForThisReply: RetrievedChunk[] = [];
 
       if (Array.isArray(maybeChunks)) {
-        const chunks = maybeChunks as RetrievedChunk[];
-        chunksForThisReply = chunks;
-        setRetrievedChunks(chunks);
+        chunksForThisReply = maybeChunks;
+        setRetrievedChunks(chunksForThisReply);
       } else {
         setRetrievedChunks([]);
       }
@@ -978,93 +1010,115 @@ export default function ChatClient() {
   };
 
   return (
-    <div
-      className="mentor-container"
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        height: "100vh",
-        maxHeight: "100vh",
-      }}
-    >
-      {/* Header */}
-      <div className="mentor-header">
+    <div className="mentor-container" style={{ display: "flex", flexDirection: "column", height: "100vh", maxHeight: "100vh" }}>
+      {/* Header with New Chat Button */}
+      <div className="mentor-header" style={{ display: "flex", justifyContent: "space-between" }}>
         <div>General Chat — Use responsibly</div>
-        <div className="mentor-header-right">
-          <code className="inline-code">LLM (OpenAI-compatible)</code>
-        </div>
-      </div>
-
-      {/* Toolbar: RESET */}
-      <div className="mentor-toolbar">
         <button
           type="button"
           className="mentor-quick-button"
           onClick={handleReset}
+          style={{
+            backgroundColor: "#4CAF50",
+            color: "white",
+            border: "none",
+            padding: "10px",
+            cursor: "pointer",
+            fontSize: "16px",
+          }}
         >
-          🔄 New chat
+          New Chat
         </button>
       </div>
 
-      {/* Messages */}
-      <div
-        className="mentor-messages"
-        aria-live="polite"
-        style={{
-          flex: 1,
-          overflowY: "auto",
-          minHeight: 0,
-        }}
-      >
-        {messages.length === 0 && (
-          <div className="mentor-empty-hint">Say hello to begin.</div>
+      {/* Uploaded files display */}
+      <div className="uploaded-files">
+        {uploadedFilesNames.length > 0 && (
+          <div>
+            <strong>Uploaded Files:</strong>
+            <ul>
+              {uploadedFilesNames.map((file, index) => (
+                <li key={index}>{file}</li>
+              ))}
+            </ul>
+          </div>
         )}
+      </div>
 
+      {/* Messages */}
+      <div className="mentor-messages" style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
+        {messages.length === 0 && <div className="mentor-empty-hint">Say hello to begin.</div>}
         {messages.map((m) => (
-          <div
-            key={m.id}
-            className={`mentor-msg ${m.who === "user" ? "user" : "bot"}`}
-          >
-            <div
-              className={`mentor-bubble ${
-                m.who === "user" ? "user" : "bot"
-              }`}
-            >
-              {m.isHtml ? (
-                <div dangerouslySetInnerHTML={{ __html: m.content }} />
-              ) : (
-                m.content
-              )}
+          <div key={m.id} className={`mentor-msg ${m.who === "user" ? "user" : "bot"}`}>
+            <div className={`mentor-bubble ${m.who === "user" ? "user" : "bot"}`}>
+              {m.isHtml ? <div dangerouslySetInnerHTML={{ __html: m.content }} /> : m.content}
             </div>
           </div>
         ))}
-
-        <div ref={messagesEndRef} />
       </div>
 
       {/* Composer */}
       <div className="mentor-composer">
-        <textarea
-          className="mentor-input"
-          placeholder="Type your message… (Ctrl/Cmd+Enter to send)"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={handleKeyDown}
-        />
+        <div className="textarea-container" style={{ position: "relative", width: "100%" }}>
+          {/* Invisible file input */}
+          <input
+            type="file"
+            ref={fileInputRef}
+            style={{ display: "none" }}
+            onChange={handleFileUpload}
+            multiple // Allow multiple file uploads
+          />
+          {/* Button to trigger file selection */}
+          <button
+            type="button"
+            className="file-upload-btn"
+            style={{
+              position: "absolute",
+              left: "10px",
+              top: "50%",
+              transform: "translateY(-50%)",
+              background: "transparent",
+              border: "none",
+              cursor: "pointer",
+              marginRight: "10px", // Add space between the button and the textarea
+            }}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <img
+              src={uploadIcon}
+              alt="Upload"
+              style={{
+                width: "20px",   // Adjust size of the image if necessary
+                height: "20px",
+              }}
+            />
+          </button>
+
+          <textarea
+            className="mentor-input"
+            placeholder="Type your message… (Ctrl/Cmd+Enter to send)"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            style={{
+              paddingLeft: "50px",   // Create space for the button
+              width: "100%",         // Make the textarea span the entire width
+              boxSizing: "border-box", // Ensure padding doesn't affect the width
+            }}
+          />
+        </div>
 
         <button
           type="button"
           className="mentor-send primary"
-          onClick={() => void handleSend()}
+          onClick={handleSend}
           disabled={sending}
         >
           {sending ? "Sending…" : "Send"}
         </button>
       </div>
 
-      <div className="mentor-footer">
-        Local model proxy — for experimentation and allowed use only.
-      </div>
+      <div className="mentor-footer">Local model proxy — for experimentation and allowed use only.</div>
     </div>
   );
 }
