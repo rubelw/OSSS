@@ -336,9 +336,22 @@ async def chat_rag(
 
     # ---- Intent Classification (this turn) --------------------------
     classified: str | Intent | None = "general"
+    action: str | None = "read"
+    action_confidence: float | None = None
+
     try:
         intent_result = await classify_intent(query)
         classified = intent_result.intent
+        # NEW: CRUD-style action, default to "read" if classifier returns None
+        action = getattr(intent_result, "action", None) or "read"
+        action_confidence = getattr(intent_result, "action_confidence", None)
+
+        logger.info(
+            "Classified intent=%s action=%s action_confidence=%s",
+            getattr(classified, "value", classified),
+            action,
+            action_confidence,
+        )
         logger.info(f"Classified intent: {classified}")
     except Exception as e:
         logger.error(f"Error classifying intent: {e}")
@@ -527,6 +540,8 @@ async def chat_rag(
                     "session_files": session_files,
                     "agent_id": registration_agent_id,
                     "agent_name": registration_agent_name,
+                    "action": action,
+                    "action_confidence": action_confidence,
                 }
 
                 logger.info(
@@ -559,6 +574,8 @@ async def chat_rag(
                     "session_files": session_files,
                     "agent_id": agent_id,
                     "agent_name": agent_name,
+                    "action": action,
+                    "action_confidence": action_confidence,
                 }
 
                 logger.info(
@@ -589,6 +606,8 @@ async def chat_rag(
                 "session_files": session_files,
                 "agent_id": agent_id,
                 "agent_name": agent_name,
+                "action": action,
+                "action_confidence": action_confidence,
             }
 
             logger.info(
@@ -824,6 +843,8 @@ async def chat_rag(
             "session_files": session_files,  # list of filenames in temp dir for this session
             "agent_id": agent_id,            # echo agent_id to ChatClient.tsx
             "agent_name": agent_name,        # echo agent_name to ChatClient.tsx
+            "action": action,
+            "action_confidence": action_confidence,
         }
 
         # 🔍 Log the final response going back to ChatClient.tsx

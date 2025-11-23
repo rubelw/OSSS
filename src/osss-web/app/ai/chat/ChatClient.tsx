@@ -1167,6 +1167,9 @@ useEffect(() => {
           ? payload.agent_session_id
           : sessionId;
 
+
+
+
       // NEW: agent info returned by backend
       const returnedAgentId: string | null =
         typeof payload?.agent_id === "string" ? payload.agent_id : null;
@@ -1174,13 +1177,22 @@ useEffect(() => {
       const returnedAgentName: string | null =
         typeof payload?.agent_name === "string" ? payload.agent_name : null;
 
+      // 🔹 NEW: action + action_confidence from backend
+      const returnedAction: string | null =
+        typeof payload?.action === "string" ? payload.action : null;
+
+      const returnedActionConfidence: number | null =
+        typeof payload?.action_confidence === "number"
+          ? payload.action_confidence
+          : null;
+
       const sessionFiles: string[] = Array.isArray(payload?.session_files)
         ? payload.session_files.filter((x: unknown): x is string => typeof x === "string")
         : [];
 
       replyForDisplay = (replyForDisplay ?? "").trimEnd();
 
-      // Only show debug info (intent, agent_id, session, session_files) when debug is on
+            // Only show debug info (intent, agent_id, action, session, session_files) when debug is on
       if (showDebug) {
         const debugLines: string[] = [];
 
@@ -1206,6 +1218,14 @@ useEffect(() => {
           `**Agent:** name=${agentNameDisplay}, id=\`${agentIdDisplay}\``
         );
 
+        // 👇 NEW: Action line (CRUD-ish)
+        const actionDisplay = returnedAction ?? "(none)";
+        const actionConfText =
+          returnedActionConfidence != null
+            ? ` (confidence ${returnedActionConfidence.toFixed(2)})`
+            : "";
+        debugLines.push(`**Action:** ${actionDisplay}${actionConfText}`);
+
         if (returnedSessionId) {
           debugLines.push(`**Agent session:** \`${returnedSessionId}\``);
         }
@@ -1219,6 +1239,8 @@ useEffect(() => {
           replyForDisplay += `\n\n---\n` + debugLines.join("\n");
         }
       }
+
+
 
       const outHtml = mdToHtml(String(replyForDisplay));
       const sourcesHtml = buildSourcesHtmlFromChunks(chunksForThisReply);

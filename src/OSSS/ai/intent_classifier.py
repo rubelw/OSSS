@@ -1,4 +1,3 @@
-# src/OSSS/ai/intent_classifier.py
 from __future__ import annotations
 
 from typing import Optional
@@ -29,11 +28,23 @@ class IntentResult(BaseModel):
     confidence: Optional[float] = None
     raw: Optional[dict] = None
 
+    # NEW: CRUD-style action classification
+    # action ∈ {"read", "create", "update", "delete"} (or None if unknown)
+    action: Optional[str] = None
+    action_confidence: Optional[float] = None
+
 
 async def classify_intent(text: str) -> IntentResult:
     """
-    Call the local LLM (Ollama / vLLM) to classify the user's text
-    into one of the common Intent values.
+    Call the local LLM (Ollama / vLLM) to classify the user's text into:
+      1) a semantic intent (OSSS.ai.intents.Intent), and
+      2) a CRUD-style action: "read", "create", "update", or "delete".
+
+    Examples:
+      - "Show me the school calendar"       -> intent: school_calendar, action: "read"
+      - "Register a new student"            -> intent: register_new_student, action: "create"
+      - "Change my address on file"         -> intent: contact_information, action: "update"
+      - "Remove my child from the bus list" -> intent: transportation_routes, action: "delete"
     """
     base = getattr(settings, "VLLM_ENDPOINT", "http://host.containers.internal:11434").rstrip("/")
     chat_url = f"{base}/v1/chat/completions"
@@ -51,9 +62,20 @@ async def classify_intent(text: str) -> IntentResult:
     )
 
     system = (
-        "You are an intent classifier for questions about Dallas Center-Grimes (DCG) schools. "
+        "You are an intent classifier for questions about Dallas Center-Grimes (DCG) schools.\n"
         "You must respond with ONLY a single JSON object on one line, for example:\n"
-        '{"intent":"general","confidence":0.92}\n'
+        '{"intent":"general","confidence":0.92,"action":"read","action_confidence":0.88}\n'
+        "\n"
+        "The JSON must contain these keys:\n"
+        '  - \"intent\": one of the valid OSSS.ai.intents.Intent values listed below\n'
+        '  - \"confidence\": a float between 0 and 1 for how confident you are in the `intent`\n'
+        '  - \"action\": one of: \"read\", \"create\", \"update\", \"delete\"\n'
+        '    * use \"read\" when the user mainly wants to look up, retrieve, or understand information\n'
+        '    * use \"create\" when the user wants to add or register something new (e.g., register a new student, create a plan)\n'
+        '    * use \"update\" when the user wants to change existing information (e.g., change address, update schedule)\n'
+        '    * use \"delete\" when the user wants to remove or cancel something (e.g., unenroll, remove from list)\n'
+        '  - \"action_confidence\": a float between 0 and 1 for how confident you are in the `action`\n'
+        "\n"
         "Valid intents (enum OSSS.ai.intents.Intent): "
         '"general", "staff_directory", "student_counts", "transfers", "superintendent_goals", "board_policy", "teacher", "enrollment", "school_calendar", "schedule_meeting", "bullying_concern", "student_portal", '
         '"student_dress_code", "school_hours", "food_allergy_policy", "visitor_safety", "student_transition_support", "volunteering", "board_feedback", "board_meeting_access", "board_records", "grade_appeal", "dei_initiatives", '
@@ -125,6 +147,8 @@ async def classify_intent(text: str) -> IntentResult:
             intent=fallback_intent,
             confidence=None,
             raw={"error": str(e)},
+            action=None,
+            action_confidence=None,
         )
 
     # ---- Extract raw content -----------------------------------------------
@@ -142,7 +166,9 @@ async def classify_intent(text: str) -> IntentResult:
     # ---- Try to parse the model output as JSON -----------------------------
     obj = None
     raw_intent = "general"
-    confidence = None
+    confidence: Optional[float] = None
+    raw_action: Optional[str] = None
+    action_confidence: Optional[float] = None
 
     # Only attempt JSON parse if it *looks* like JSON
     if isinstance(content, str) and content.lstrip().startswith("{"):
@@ -152,26 +178,35 @@ async def classify_intent(text: str) -> IntentResult:
             obj = json.loads(content)
             raw_intent = obj.get("intent", "general")
             confidence = obj.get("confidence")
+
+            raw_action = obj.get("action")
+            action_confidence = obj.get("action_confidence")
+
             logger.info(
-                "[intent_classifier] parsed JSON obj=%s raw_intent=%r confidence=%r",
+                "[intent_classifier] parsed JSON obj=%s raw_intent=%r confidence=%r "
+                "raw_action=%r action_confidence=%r",
                 obj,
                 raw_intent,
                 confidence,
+                raw_action,
+                action_confidence,
             )
         except Exception as e:
             logger.warning(
                 "[intent_classifier] JSON parse failed for content prefix=%r error=%s "
-                "(falling back to general intent)",
+                "(falling back to general intent/read action)",
                 content[:120],
                 e,
             )
             obj = None
             raw_intent = "general"
             confidence = None
+            raw_action = None
+            action_confidence = None
     else:
         # Model ignored instructions and returned prose
         logger.info(
-            "[intent_classifier] model returned non-JSON content, falling back to general intent"
+            "[intent_classifier] model returned non-JSON content, falling back to general intent/read action"
         )
 
     # ---- Map string -> Intent enum safely ----------------------------------
@@ -185,11 +220,31 @@ async def classify_intent(text: str) -> IntentResult:
         )
         intent = Intent.GENERAL if hasattr(Intent, "GENERAL") else Intent("general")
 
+    # Normalize action to one of the allowed values if present
+    if isinstance(raw_action, str):
+        action_norm = raw_action.lower().strip()
+        if action_norm not in {"read", "create", "update", "delete"}:
+            logger.warning(
+                "[intent_classifier] unknown action %r, setting action=None",
+                raw_action,
+            )
+            action_norm = None
+    else:
+        action_norm = None
+
     logger.info(
-        "[intent_classifier] final intent=%s confidence=%r",
+        "[intent_classifier] final intent=%s confidence=%r action=%r action_confidence=%r",
         getattr(intent, "value", str(intent)),
         confidence,
+        action_norm,
+        action_confidence,
     )
 
     # Keep the parsed JSON (if any) or the full raw data around for debugging in callers
-    return IntentResult(intent=intent, confidence=confidence, raw=obj or data)
+    return IntentResult(
+        intent=intent,
+        confidence=confidence,
+        raw=obj or data,
+        action=action_norm,
+        action_confidence=action_confidence,
+    )
