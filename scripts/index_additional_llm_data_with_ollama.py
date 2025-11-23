@@ -13,7 +13,7 @@ from PIL import Image
 import io
 import pdfplumber
 import time  # needed for retry backoff in embed_batch
-import shutil  # <-- NEW: for copying PDFs
+import shutil
 
 # Optional OCR (pytesseract)
 try:
@@ -22,6 +22,9 @@ try:
 except Exception:
     pytesseract = None
     HAS_PYTESSERACT = False
+
+# Toggle OCR usage (even if pytesseract is installed)
+ENABLE_OCR = True  # set to True if you want OCR on images
 
 # ---- CONFIG ----
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -35,7 +38,7 @@ DATA_ROOT = os.path.join(PROJECT_ROOT, "additional_llm_data")
 OUT_DIR = os.path.join(PROJECT_ROOT, "vector_indexes", "main")
 OUT_FILE = os.path.join(OUT_DIR, "embeddings.jsonl")
 IMAGES_ROOT = os.path.join(OUT_DIR, "images")
-PDFS_ROOT = os.path.join(OUT_DIR, "pdfs")  # <-- NEW: where we keep a copy of PDFs
+PDFS_ROOT = os.path.join(OUT_DIR, "pdfs")
 
 # Mapping index name -> data subdirectory
 INDEX_DATA_DIRS = {
@@ -44,7 +47,10 @@ INDEX_DATA_DIRS = {
     "agent": "additional_llm_data_for_agents",
 }
 
-OLLAMA_EMBED_URL = "http://localhost:11434/api/embeddings"
+# Use Ollama's embed endpoint that supports batching
+OLLAMA_EMBED_URL = "http://localhost:11434/api/embed"
+# Fallback single-embedding endpoint (older style)
+OLLAMA_SINGLE_EMBED_URL = "http://localhost:11434/api/embeddings"
 # Keep this in sync with what you use at query time
 EMBED_MODEL = "nomic-embed-text"
 
@@ -53,7 +59,10 @@ MAX_CHARS = 900        # 800–1200 recommended
 OVERLAP_CHARS = 180    # 150–250 recommended
 
 # Maximum characters fed into embedding model (prevents Ollama crashes)
-MAX_EMBED_CHARS = 8000   # safe limit; you can lower to 4000 if needed
+MAX_EMBED_CHARS = 4000   # gentler on Ollama
+
+# Batch size for embedding requests
+BATCH_SIZE = 4
 # -----------------
 
 
@@ -69,15 +78,21 @@ def log_mem(tag: str = ""):
     else:
         log(f"[MEM] ru_maxrss={rss}")
 
+
 def id_exists_in_index(doc_id, index_file):
-    """Check if the given doc_id already exists in the index file."""
+    """Check if the given doc_id already exists in the index file.
+
+    NOTE: not used in full-rebuild mode (we truncate OUT_FILE at startup
+    and use UUIDs, so collisions are effectively impossible).
+    """
     if os.path.exists(index_file):
         with open(index_file, "r", encoding="utf-8") as out_f:
             for line in out_f:
                 record = json.loads(line)
-                if record['id'] == doc_id:
+                if record["id"] == doc_id:
                     return True  # ID exists in the file
     return False  # ID does not exist in the file
+
 
 def ensure_out_dir():
     if not os.path.exists(OUT_DIR):
@@ -88,15 +103,15 @@ def ensure_out_dir():
 
     if not os.path.exists(IMAGES_ROOT):
         os.makedirs(IMAGES_ROOT, exist_ok=True)
-        log(f"Created images dir: {IMAGES_ROOT}")
+        log(f"Created images base dir: {IMAGES_ROOT}")
     else:
-        log(f"Images dir exists: {IMAGES_ROOT}")
+        log(f"Images base dir exists: {IMAGES_ROOT}")
 
-    if not os.path.exists(PDFS_ROOT):  # <-- NEW
+    if not os.path.exists(PDFS_ROOT):
         os.makedirs(PDFS_ROOT, exist_ok=True)
-        log(f"Created pdfs dir: {PDFS_ROOT}")
+        log(f"Created pdfs base dir: {PDFS_ROOT}")
     else:
-        log(f"Pdfs dir exists: {PDFS_ROOT}")
+        log(f"Pdfs base dir exists: {PDFS_ROOT}")
 
 
 def iter_pdfs(root: str):
@@ -115,12 +130,68 @@ def iter_text_files(root: str, exts=(".txt", ".csv")):
                 yield os.path.join(dirpath, name)
 
 
-def extract_images_from_page(doc: fitz.Document, page_index: int, pdf_basename: str) -> List[dict]:
+def build_pdf_context_prefix(path: str):
     """
-    Extract images from a single page and save them to disk.
+    Build a short, structured context prefix for a document based on its
+    directory path relative to DATA_ROOT.
+
+    Returns:
+        rel (str): relative path to DATA_ROOT
+        dir_rel (str): relative directory path (without filename)
+        context_prefix (str): text prefix to prepend for embedding_text
+    """
+    # Path relative to the active DATA_ROOT (e.g. responsibilities/...)
+    rel = os.path.relpath(path, DATA_ROOT)
+    dir_rel = os.path.dirname(rel)
+
+    if not dir_rel or dir_rel == ".":
+        # No meaningful directory context
+        context_prefix = ""
+    else:
+        # Turn 'school_board/2025-02-10/attachments' into
+        # 'school_board / 2025-02-10 / attachments'
+        pretty_dir = dir_rel.replace(os.sep, " / ")
+        context_prefix = (
+            f"Directory context: {pretty_dir}. "
+            "This text is from a document associated with that context.\n\n"
+        )
+
+    return rel, dir_rel, context_prefix
+
+
+def get_asset_dir_for_path(path: str, base_root: str):
+    """
+    For a given source document path (under DATA_ROOT), compute the directory
+    under base_root where we will store assets, mirroring the source directory
+    structure.
+
+    Example (PDF):
+      DATA_ROOT/additional_llm_data/responsibilities/RBAC_positions_and_table_access.pdf
+      base_root = vector_indexes/main/pdfs
+      -> asset_dir = vector_indexes/main/pdfs/responsibilities
+    """
+    rel, dir_rel, _ = build_pdf_context_prefix(path)
+
+    if not dir_rel or dir_rel == ".":
+        asset_dir = base_root
+    else:
+        asset_dir = os.path.join(base_root, dir_rel)
+
+    os.makedirs(asset_dir, exist_ok=True)
+    return asset_dir, rel, dir_rel
+
+
+def extract_images_from_page(
+    doc: fitz.Document,
+    page_index: int,
+    pdf_basename: str,
+    asset_dir: str,
+) -> List[dict]:
+    """
+    Extract images from a single page and save them to disk in asset_dir.
     Returns a list of dicts:
       {
-        "path": <relative image path>,
+        "path": <relative image path from PROJECT_ROOT>,
         "ocr_text": <text from OCR or "" if none/failed>
       }
     """
@@ -145,23 +216,23 @@ def extract_images_from_page(doc: fitz.Document, page_index: int, pdf_basename: 
 
         ext = base_image.get("ext", "png")
         img_name = f"{pdf_basename}_p{page_index+1}_{uuid.uuid4().hex[:8]}.{ext}"
-        img_path = os.path.join(IMAGES_ROOT, img_name)
+        img_path = os.path.join(asset_dir, img_name)
 
         rel_path = os.path.relpath(img_path, PROJECT_ROOT)
         ocr_text = ""
 
         try:
             with Image.open(io.BytesIO(img_bytes)) as pil_img:
-                # Save the image to disk
+                # Save the image to disk (under IMAGES_ROOT mirrored structure)
                 pil_img.save(img_path)
 
-                # Run OCR if available
-                if HAS_PYTESSERACT:
+                # Run OCR if available and enabled
+                if HAS_PYTESSERACT and ENABLE_OCR:
                     try:
                         ocr_text_raw = pytesseract.image_to_string(
                             pil_img,
                             lang="eng",
-                            config="--oem 1 --psm 6"
+                            config="--oem 1 --psm 6",
                         )
                         ocr_text = (ocr_text_raw or "").strip()
                         if ocr_text:
@@ -169,7 +240,7 @@ def extract_images_from_page(doc: fitz.Document, page_index: int, pdf_basename: 
                     except Exception as oe:
                         log(f"    ! OCR failed for image {img_name}: {oe}")
                 else:
-                    # Only log once per run ideally, but this is simple and safe.
+                    # OCR disabled or unavailable
                     pass
         except Exception as e:
             log(f"  ! Failed to process/save image {img_name}: {e}")
@@ -205,12 +276,18 @@ def extract_pages_with_images(path: str):
     Uses:
       - pdfplumber for text extraction (better layout-aware text)
       - PyMuPDF (fitz) + pytesseract for image extraction/OCR.
+
+    Images are saved under IMAGES_ROOT in a directory mirroring the source
+    directory structure relative to DATA_ROOT.
     """
     log(f"Reading PDF (pdfplumber + PyMuPDF): {path}")
     log_mem("before_pdf_open")
 
     pages = []
     pdf_basename = os.path.splitext(os.path.basename(path))[0]
+
+    # Where to store images for this PDF (mirrors source structure under IMAGES_ROOT)
+    asset_dir, _, _ = get_asset_dir_for_path(path, IMAGES_ROOT)
 
     # Open pdfplumber and fitz docs
     pdf_doc = None
@@ -248,7 +325,12 @@ def extract_pages_with_images(path: str):
 
             if fitz_doc is not None:
                 try:
-                    image_infos = extract_images_from_page(fitz_doc, i, pdf_basename)
+                    image_infos = extract_images_from_page(
+                        fitz_doc,
+                        i,
+                        pdf_basename,
+                        asset_dir,
+                    )
                     image_paths = [info["path"] for info in image_infos]
                     image_ocr_texts = [info["ocr_text"] for info in image_infos if info.get("ocr_text")]
                 except Exception as e:
@@ -321,53 +403,121 @@ def chunk_text(text: str, max_chars: int = MAX_CHARS, overlap: int = OVERLAP_CHA
     return chunks
 
 
+def embed_single_text(text: str, idx: int | None = None) -> list[float]:
+    """
+    Fallback: embed a single text using the older /api/embeddings endpoint.
+    If it fails, return a tiny zero-vector.
+    """
+    t = text
+    if len(t) > MAX_EMBED_CHARS:
+        if idx is not None:
+            log(f"  [fallback] Truncating chunk {idx} from {len(t)} to {MAX_EMBED_CHARS} chars for embedding")
+        t = t[:MAX_EMBED_CHARS]
+
+    for attempt in range(3):
+        resp = None
+        try:
+            if idx is not None:
+                log(f"  [fallback embed chunk {idx}] attempt {attempt+1}")
+            resp = requests.post(
+                OLLAMA_SINGLE_EMBED_URL,
+                json={"model": EMBED_MODEL, "prompt": t},
+                timeout=600,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            emb = data.get("embedding")
+            if not emb:
+                raise RuntimeError(f"Unexpected single-embedding response: {data}")
+            return emb
+        except Exception as e:
+            log(f"  ! Fallback embedding error (attempt {attempt+1}): {e}")
+            status = getattr(resp, "status_code", None) if resp is not None else None
+            if status and 500 <= status < 600 and attempt < 2:
+                time.sleep(2 * (attempt + 1))
+                continue
+            else:
+                log("  !! Giving up on this chunk, using zero-vector.")
+                return [0.0]
+
+
 def embed_batch(texts: list[str]):
+    """
+    Batch embeddings using Ollama's /api/embed endpoint with 'input': [...].
+
+    - Truncates texts to MAX_EMBED_CHARS.
+    - Processes in batches of BATCH_SIZE.
+    - On batch failure after retries, falls back to per-chunk embedding via
+      /api/embeddings so we don't lose the entire batch.
+    """
     if not texts:
         log("  DEBUG: embed_batch called with empty texts; returning []")
         return []
 
-    all_embeddings: list[list[float]] = []
     total = len(texts)
+    all_embeddings: list[list[float]] = []
 
+    # Preprocess (truncate) texts
+    processed: list[str] = []
     for i, original_t in enumerate(texts, start=1):
         t = original_t
         if len(t) > MAX_EMBED_CHARS:
             log(f"  Truncating chunk {i} from {len(t)} to {MAX_EMBED_CHARS} chars for embedding")
             t = t[:MAX_EMBED_CHARS]
+        processed.append(t)
+
+    # Process in batches
+    for start_idx in range(0, total, BATCH_SIZE):
+        batch = processed[start_idx : start_idx + BATCH_SIZE]
+        batch_num = start_idx // BATCH_SIZE + 1
+        log(
+            f"  [embed batch {batch_num}] size={len(batch)} "
+            f"(chunks {start_idx+1}-{start_idx+len(batch)} of {total})"
+        )
+        log_mem(f"before_embeddings_batch_{batch_num}")
+
+        batch_success = False
+        resp = None
 
         for attempt in range(3):
-            log(f"  [embed {i}/{total}] Requesting embedding from Ollama… (attempt {attempt+1})")
-            log_mem(f"before_embeddings_{i}")
-
             try:
                 resp = requests.post(
                     OLLAMA_EMBED_URL,
-                    json={"model": EMBED_MODEL, "prompt": t},
+                    json={"model": EMBED_MODEL, "input": batch},
                     timeout=600,
                 )
                 resp.raise_for_status()
                 data = resp.json()
-                emb = data.get("embedding")
-                if not emb:
+                emb_list = data.get("embeddings")
+
+                if not emb_list or len(emb_list) != len(batch):
                     raise RuntimeError(f"Unexpected embeddings response: {data}")
 
-                all_embeddings.append(emb)
-                log_mem(f"after_embeddings_{i}")
+                all_embeddings.extend(emb_list)
+                log_mem(f"after_embeddings_batch_{batch_num}")
+                batch_success = True
                 break  # success, break retry loop
 
             except Exception as e:
-                log(f"  ! Embedding error for chunk {i} (attempt {attempt+1}): {e}")
+                log(f"  ! Embedding error for batch {batch_num} (attempt {attempt+1}): {e}")
+                status = getattr(resp, "status_code", None) if resp is not None else None
                 # If server error and we have retries left, backoff and retry
-                status = getattr(resp, "status_code", None)
                 if status and 500 <= status < 600 and attempt < 2:
                     time.sleep(2 * (attempt + 1))
                     continue
                 else:
-                    log(f"  !! Giving up on chunk {i}, skipping this chunk.")
-                    # For now, append a tiny zero-vector to preserve indexing:
-                    all_embeddings.append([0.0])
-                    break
+                    break  # break out of retry loop; we'll fallback to per-chunk
 
+        if not batch_success:
+            # Fallback: embed each chunk individually using /api/embeddings
+            log(f"  !! Batch {batch_num} failed after retries; falling back to per-chunk embeddings.")
+            for offset, t in enumerate(batch):
+                idx_global = start_idx + offset + 1  # 1-based index for logging
+                emb = embed_single_text(t, idx=idx_global)
+                all_embeddings.append(emb)
+
+    if len(all_embeddings) != total:
+        log(f"  !! embed_batch produced {len(all_embeddings)} embeddings for {total} texts")
     return all_embeddings
 
 
@@ -421,13 +571,13 @@ def parse_args():
 
 def save_pdf_to_pdfs_folder(pdf_path: str):
     """
-    Copy the processed PDF into the pdfs folder under OUT_DIR.
-    If a file with the same name already exists, we keep the existing one.
+    Copy the processed PDF into PDFS_ROOT mirroring the source directory structure
+    relative to DATA_ROOT, so PDF copies live under vector_indexes/<index>/pdfs/...
     """
     try:
-        os.makedirs(PDFS_ROOT, exist_ok=True)
+        asset_dir, rel, dir_rel = get_asset_dir_for_path(pdf_path, PDFS_ROOT)
         dest_name = os.path.basename(pdf_path)
-        dest_path = os.path.join(PDFS_ROOT, dest_name)
+        dest_path = os.path.join(asset_dir, dest_name)
 
         if not os.path.exists(dest_path):
             shutil.copy2(pdf_path, dest_path)
@@ -437,35 +587,7 @@ def save_pdf_to_pdfs_folder(pdf_path: str):
             rel_dest = os.path.relpath(dest_path, PROJECT_ROOT)
             log(f"  PDF copy already exists at {rel_dest}")
     except Exception as e:
-        log(f"  ! Failed to copy PDF into pdfs folder: {e}")
-
-def build_pdf_context_prefix(pdf_path: str):
-    """
-    Build a short, structured context prefix for a PDF based on its directory path
-    relative to DATA_ROOT.
-
-    Returns:
-        rel (str): relative path to DATA_ROOT
-        dir_rel (str): relative directory path (without filename)
-        context_prefix (str): text prefix to prepend for embedding_text
-    """
-    # Path relative to the active DATA_ROOT (e.g. additional_llm_data/...)
-    rel = os.path.relpath(pdf_path, DATA_ROOT)
-    dir_rel = os.path.dirname(rel)
-
-    if not dir_rel or dir_rel == ".":
-        # No meaningful directory context
-        context_prefix = ""
-    else:
-        # Turn 'school_board/2025-02-10/attachments' into
-        # 'school_board / 2025-02-10 / attachments'
-        pretty_dir = dir_rel.replace(os.sep, " / ")
-        context_prefix = (
-            f"Directory context: {pretty_dir}. "
-            "This text is from a PDF associated with that context.\n\n"
-        )
-
-    return rel, dir_rel, context_prefix
+        log(f"  ! Failed to copy PDF into mirrored pdfs folder: {e}")
 
 
 def process_pdf(pdf_path: str, idx: int, total: int, args):
@@ -478,7 +600,7 @@ def process_pdf(pdf_path: str, idx: int, total: int, args):
         log("  ! No readable text or images, skipping.")
         return
 
-    # Save a copy of the PDF into the pdfs folder
+    # Save a copy of the PDF into the mirrored structure under PDFS_ROOT
     save_pdf_to_pdfs_folder(pdf_path)
 
     # Build per-chunk data: text + metadata (page index, image paths, OCR texts)
@@ -555,30 +677,43 @@ def process_pdf(pdf_path: str, idx: int, total: int, args):
         log(f"  ! Embedding count mismatch: {len(embeddings)} vs {len(all_chunks)}")
         return
 
-    # Now continue with appending to the file
-    # Append to the file only if the ID doesn't already exist
+    log(f"  Finished embeddings for {filename}, preparing to write {len(all_chunks)} chunks to JSONL")
+
+    written_count = 0
+    skipped_count = 0
+
+    # Now continue with appending to the file (no per-id existence check in full rebuild)
     with open(OUT_FILE, "a", encoding="utf-8") as out_f:
         for doc_id, chunk, emb_idx in zip(doc_ids, all_chunks, range(len(all_chunks))):
-            if not id_exists_in_index(doc_id, OUT_FILE):  # Only append if the ID is not already in the file
-                m = meta[emb_idx]
+            m = meta[emb_idx]
+            emb = embeddings[emb_idx]
 
-                record = {
-                    "id": doc_id,
-                    "source": rel,                 # path relative to DATA_ROOT
-                    "filename": filename,
-                    "chunk_index": emb_idx,
-                    "page_index": m["page_index"],
-                    "page_chunk_index": m["page_chunk_index"],
-                    "text": chunk,                 # raw clean chunk text (no directory prefix)
-                    "embedding_text": embedding_texts[emb_idx],  # what we actually embedded
-                    "embedding": embeddings[emb_idx],
-                    "image_paths": m.get("image_paths", []),
-                    "image_ocr_texts": m.get("image_ocr_texts", []),
-                    "directory_context": dir_rel,  # e.g. "school_board/2025-02-10/attachments"
-                }
-                out_f.write(json.dumps(record) + "\n")
+            # Skip chunks where embedding fell back to a zero-vector
+            if isinstance(emb, list) and len(emb) == 1 and emb[0] == 0.0:
+                skipped_count += 1
+                continue
 
-    log(f"  ✔ Wrote {len(all_chunks)} chunks for {rel} to JSONL")
+            record = {
+                "id": doc_id,
+                "source": rel,  # path relative to DATA_ROOT
+                "filename": filename,
+                "chunk_index": emb_idx,
+                "page_index": m["page_index"],
+                "page_chunk_index": m["page_chunk_index"],
+                "text": chunk,  # raw clean chunk text (no directory prefix)
+                "embedding_text": embedding_texts[emb_idx],  # what we actually embedded
+                "embedding": emb,
+                "image_paths": m.get("image_paths", []),
+                "image_ocr_texts": m.get("image_ocr_texts", []),
+                "directory_context": dir_rel,  # e.g. "responsibilities"
+            }
+            out_f.write(json.dumps(record) + "\n")
+            written_count += 1
+
+    log(
+        f"  ✔ Wrote {written_count} chunks for {rel} to JSONL "
+        f"(skipped {skipped_count} chunks with failed embeddings)"
+    )
 
 
 def process_text_or_csv(doc_path: str, idx: int, total: int, args):
@@ -607,7 +742,6 @@ def process_text_or_csv(doc_path: str, idx: int, total: int, args):
         return
 
     # Build directory-based context prefix and relative paths
-    # Reuse the same helper used for PDFs; it just looks at the path and DATA_ROOT.
     rel, dir_rel, context_prefix = build_pdf_context_prefix(doc_path)
     filename = os.path.basename(doc_path)
 
@@ -638,34 +772,48 @@ def process_text_or_csv(doc_path: str, idx: int, total: int, args):
         log(f"  ! Embedding count mismatch: {len(embeddings)} vs {len(all_chunks)}")
         return
 
-    # Now continue with appending to the file
-    # Append to the file only if the ID doesn't already exist
+    log(f"  Finished embeddings for {filename}, preparing to write {len(all_chunks)} chunks to JSONL")
+
+    written_count = 0
+    skipped_count = 0
+
+    # Now continue with appending to the file (no per-id existence check in full rebuild)
     with open(OUT_FILE, "a", encoding="utf-8") as out_f:
         for doc_id, chunk, emb_idx in zip(doc_ids, all_chunks, range(len(all_chunks))):
-            if not id_exists_in_index(doc_id, OUT_FILE):  # Only append if the ID is not already in the file
-                record = {
-                    "id": doc_id,
-                    "source": rel,                  # path relative to DATA_ROOT
-                    "filename": filename,
-                    "chunk_index": emb_idx,
-                    "page_index": None,             # no pages for TXT/CSV
-                    "page_chunk_index": None,
-                    "text": chunk,                  # raw clean chunk text
-                    "embedding_text": embedding_texts[emb_idx],  # what we actually embedded
-                    "embedding": embeddings[emb_idx],
-                    "image_paths": [],              # no images for TXT/CSV
-                    "image_ocr_texts": [],
-                    "directory_context": dir_rel,   # e.g. "school_board/2025-11-10/notes"
-                }
-                out_f.write(json.dumps(record) + "\n")
+            emb = embeddings[emb_idx]
 
-    log(f"  ✔ Wrote {len(all_chunks)} chunks for {rel} to JSONL")
+            # Skip chunks where embedding fell back to a zero-vector
+            if isinstance(emb, list) and len(emb) == 1 and emb[0] == 0.0:
+                skipped_count += 1
+                continue
+
+            record = {
+                "id": doc_id,
+                "source": rel,  # path relative to DATA_ROOT
+                "filename": filename,
+                "chunk_index": emb_idx,
+                "page_index": None,  # no pages for TXT/CSV
+                "page_chunk_index": None,
+                "text": chunk,  # raw clean chunk text
+                "embedding_text": embedding_texts[emb_idx],  # what we actually embedded
+                "embedding": emb,
+                "image_paths": [],  # no images for TXT/CSV
+                "image_ocr_texts": [],
+                "directory_context": dir_rel,  # e.g. "school_board/2025-11-10/notes"
+            }
+            out_f.write(json.dumps(record) + "\n")
+            written_count += 1
+
+    log(
+        f"  ✔ Wrote {written_count} chunks for {rel} to JSONL "
+        f"(skipped {skipped_count} chunks with failed embeddings)"
+    )
 
 
 def main():
     print("\n============================================================")
     print(" Rebuilding index for Ollama RAG (JSONL, no Chroma)")
-    print(" (PDFs with OCR + TXT and CSV files)")
+    print(" (PDFs with optional OCR + TXT and CSV files)")
     print("============================================================\n")
 
     args = parse_args()
@@ -679,7 +827,7 @@ def main():
     OUT_DIR = os.path.join(PROJECT_ROOT, "vector_indexes", args.index)
     OUT_FILE = os.path.join(OUT_DIR, "embeddings.jsonl")
     IMAGES_ROOT = os.path.join(OUT_DIR, "images")
-    PDFS_ROOT = os.path.join(OUT_DIR, "pdfs")  # <-- recompute per index
+    PDFS_ROOT = os.path.join(OUT_DIR, "pdfs")
 
     log(f"Current working dir: {os.getcwd()}")
     log(f"Project root:        {PROJECT_ROOT}")
@@ -688,13 +836,14 @@ def main():
     log(f"Index name:          {args.index}")
     log(f"Out dir:             {OUT_DIR}")
     log(f"Out file:            {OUT_FILE}")
-    log(f"Images dir:          {IMAGES_ROOT}")
-    log(f"Pdfs dir:            {PDFS_ROOT}")
+    log(f"Images base dir:     {IMAGES_ROOT}")
+    log(f"Pdfs base dir:       {PDFS_ROOT}")
     log(f"Embedding model:     {EMBED_MODEL}")
     log(f"Chunk size/overlap:  {MAX_CHARS}/{OVERLAP_CHARS}")
     log(f"OCR available:       {HAS_PYTESSERACT}")
-    if not HAS_PYTESSERACT:
-        log("  WARNING: pytesseract not installed or tesseract not available; OCR text will NOT be extracted.")
+    log(f"OCR enabled:         {ENABLE_OCR}")
+    if not HAS_PYTESSERACT or not ENABLE_OCR:
+        log("  NOTE: OCR text from images will NOT be extracted (either pytesseract missing or OCR disabled).")
     log(f"Args: {args}")
     log_mem("startup")
 

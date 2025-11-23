@@ -20,6 +20,7 @@ interface UiMessage {
 }
 
 interface RetrievedChunk {
+  source?: string;           // 👈 add this
   score?: number;
   filename?: string;
   chunk_index?: number;
@@ -28,6 +29,7 @@ interface RetrievedChunk {
   page_index?: number | null;
   page_chunk_index?: number | null;
 }
+
 
 // Strip PII / link-like content from TEXT that goes back into chatHistory
 function sanitizeForGuard(src: string): string {
@@ -132,11 +134,58 @@ function buildSourcesHtmlFromChunks(chunks: RetrievedChunk[]): string {
   const items: string[] = [];
 
   for (const c of chunks) {
-    const filename = c.filename ?? "Unknown file";
-    if (!filename || filename === "Unknown file") continue;
+    let sourcePath: string | null = null;
 
-    const safeName = encodeURIComponent(filename);
-    const href = `/rag-pdfs/main/${safeName}`;
+    // 1) Prefer `source` if backend ever starts sending it
+    if (typeof (c as any).source === "string" && (c as any).source.length > 0) {
+      sourcePath = (c as any).source;
+    }
+
+    // 2) Otherwise, try to derive from the first image path
+    if (!sourcePath && c.image_paths && c.image_paths.length > 0) {
+      const firstImage = c.image_paths[0]; // e.g. "vector_indexes/main/images/school_board/DCG-SchoolBoard/2025-6-10/.../Dr. Scott Blum ..._p2_15bc9f20.jpeg"
+      const prefix = "vector_indexes/main/images/";
+
+      if (firstImage.startsWith(prefix)) {
+        const rel = firstImage.slice(prefix.length); // "school_board/DCG-SchoolBoard/2025-6-10/.../Dr. Scott Blum ..._p2_15bc9f20.jpeg"
+
+        const lastSlash = rel.lastIndexOf("/");
+        const dir = lastSlash >= 0 ? rel.slice(0, lastSlash + 1) : "";
+        const fileWithSuffix = lastSlash >= 0 ? rel.slice(lastSlash + 1) : rel;
+
+        // Try to strip `_p<page>_<hash>.(jpg|png)` and turn into `.pdf`
+        let pdfName: string;
+        const m = fileWithSuffix.match(/^(.*)_p\d+_[^.]+\.(?:jpe?g|png)$/i);
+        if (m && m[1]) {
+          pdfName = `${m[1]}.pdf`;
+        } else if (c.filename) {
+          // Fallback to filename if pattern didn't match
+          pdfName = c.filename;
+        } else {
+          // Very last-resort fallback
+          pdfName = fileWithSuffix.replace(/\.(jpe?g|png)$/i, ".pdf");
+        }
+
+        sourcePath = dir + pdfName; // e.g. "school_board/DCG-SchoolBoard/2025-6-10/.../Dr. Scott Blum ...pdf"
+      }
+    }
+
+    // 3) Final fallback: just use filename (old behavior)
+    if (!sourcePath && c.filename) {
+      sourcePath = c.filename;
+    }
+
+    if (!sourcePath) continue;
+
+    // Encode each path segment so `/` stays as `/`
+    const safeSegments = sourcePath.split("/").map((seg) => encodeURIComponent(seg));
+    const href = `/rag-pdfs/main/${safeSegments.join("/")}`;
+
+    // Shown text: just the last part
+    const displayName =
+      sourcePath.split("/").pop() ||
+      c.filename ||
+      "Unknown file";
 
     const metaParts: string[] = [];
     if (typeof c.page_index === "number") {
@@ -149,7 +198,7 @@ function buildSourcesHtmlFromChunks(chunks: RetrievedChunk[]): string {
       metaParts.length > 0 ? ` – ${metaParts.join(" – ")}` : "";
 
     items.push(
-      `<li><a href="${href}" target="_blank" rel="noreferrer">${filename}</a>${meta}</li>`
+      `<li><a href="${href}" target="_blank" rel="noreferrer">${displayName}</a>${meta}</li>`
     );
   }
 
@@ -164,6 +213,7 @@ function buildSourcesHtmlFromChunks(chunks: RetrievedChunk[]): string {
     </div>
   `;
 }
+
 
 /**
  * Map the raw intent label to a more descriptive explanation.
@@ -953,8 +1003,12 @@ export default function ChatClient() {
         reply = "(Empty reply from /ai/chat/rag)";
       }
 
-      // Strip PII / URLs / markdown links from what goes back into history
-      reply = sanitizeForGuard(reply);
+      // Keep two versions:
+      // - replyForDisplay: full markdown with newlines
+      // - replyForHistory: sanitized for future prompts
+      let replyForDisplay = reply;
+      const replyForHistory = sanitizeForGuard(reply);
+
 
       // ---- 5) Attach classifier intent from server response ----------
       // We assume rag_router returns these fields; fall back gracefully.
@@ -979,17 +1033,22 @@ export default function ChatClient() {
       const returnedIntent: string | null =
         typeof payload?.intent === "string" ? payload.intent : null;
 
-      // Render returned intent ABOVE the classifier intent block
+      // Work on the display version (preserve newlines)
+      replyForDisplay = (replyForDisplay ?? "").trimEnd();
+
+      // Append router intent + classifier info *after* the answer
       if (returnedIntent) {
-        reply = `**Intent:** ${returnedIntent}\n\n` + reply;
+        replyForDisplay += `\n\n---\n**Intent:** ${returnedIntent}`;
       }
 
-      reply += `\n\n---\n_Intent (classifier): ${intentDescription} (${classifierIntent}${
+      replyForDisplay += `\n\n_Intent (classif: ${intentDescription} (${classifierIntent}${
         intentConfidence != null ? `, ${intentConfidence.toFixed(2)}` : ""
       })_`;
 
+
+
       // Convert to HTML (with bullet list support)
-      const outHtml = mdToHtml(String(reply));
+      const outHtml = mdToHtml(String(replyForDisplay));
 
       // Append "Sources" block with PDF links
       const sourcesHtml = buildSourcesHtmlFromChunks(chunksForThisReply);
@@ -997,11 +1056,12 @@ export default function ChatClient() {
 
       appendMessage("bot", finalHtml, true);
 
-      // Store sanitized reply in history (no URLs / link-like patterns)
+      // Store sanitized reply (without extra markdown cruft) in history
       setChatHistory((prev) => [
         ...prev,
-        { role: "assistant", content: String(reply) },
+        { role: "assistant", content: String(replyForHistory) },
       ]);
+
     } catch (err: any) {
       appendMessage("bot", `Network error: ${String(err)}`, false);
     }

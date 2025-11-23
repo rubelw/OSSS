@@ -18,13 +18,13 @@ sys.path.append('/workspace/src/MetaGPT')
 from MetaGPT.roles_registry import ROLE_REGISTRY
 from MetaGPT.roles.registration import RegistrationRole  # Import the registration role
 
-from OSSS.ai.additional_index import top_k, INDEX_KINDS
+from OSSS.ai import additional_index
 from OSSS.ai.intent_classifier import classify_intent
 from OSSS.ai.intents import Intent
 
 logger = logging.getLogger("OSSS.ai.rag_router")
 
-from OSSS.ai.additional_index import top_k, INDEX_KINDS
+from OSSS.ai.additional_index import top_k, INDEX_KINDS, get_docs
 
 # Try to reuse the same ChatMessage model from your gateway
 try:
@@ -135,6 +135,44 @@ DEFAULT_PAYLOAD = (
     '"debug":false,'
     '"index":"main"}'
 )
+
+
+@router.get("/debug/rag-sample")
+def rag_sample(index: str = "main"):
+    """
+    Quick debug endpoint to inspect a few chunks from the loaded in-memory index.
+
+    Effective URL: /ai/debug/rag-sample  (because router has prefix="/ai")
+    """
+    # Ensure the index name is valid; raises ValueError if not
+    if index not in INDEX_KINDS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown index '{index}'. Valid values: {', '.join(INDEX_KINDS)}",
+        )
+
+    # This will lazy-load from JSONL on first call, then re-use _DOCS cache
+    chunks = get_docs(index=index)
+
+    if not chunks:
+        return {
+            "index": index,
+            "samples": [],
+            "message": "Index loaded but contains no chunks. Check your embeddings.jsonl.",
+        }
+
+    samples = []
+    for c in chunks[:5]:
+        samples.append(
+            {
+                "source": getattr(c, "source", None),
+                "filename": getattr(c, "filename", None),
+                "chunk_index": getattr(c, "chunk_index", None),
+                "text_preview": getattr(c, "text", "")[:200],
+            }
+        )
+
+    return {"index": index, "samples": samples}
 
 
 @router.post("/chat/rag")
@@ -569,7 +607,6 @@ async def chat_rag(
             intent_label = None
 
         # ---- debug rag: return neighbors along with the answer ----
-
 
         debug_neighbors = []
         for score, chunk in neighbors:

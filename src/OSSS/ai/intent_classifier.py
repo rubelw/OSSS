@@ -116,13 +116,16 @@ async def classify_intent(text: str) -> IntentResult:
             data = resp.json()
     except httpx.HTTPError as e:
         logger.error(
-            "[intent_classifier] HTTP error when calling %s: %s",
+            "[intent_classifier] HTTP error when calling %s: %s (falling back to general intent)",
             chat_url,
             e,
-            exc_info=True,
         )
-        # Let the caller's try/except decide how to fall back
-        raise
+        fallback_intent = Intent.GENERAL if hasattr(Intent, "GENERAL") else Intent("general")
+        return IntentResult(
+            intent=fallback_intent,
+            confidence=None,
+            raw={"error": str(e)},
+        )
 
     # ---- Extract raw content -----------------------------------------------
     content = (
@@ -137,28 +140,39 @@ async def classify_intent(text: str) -> IntentResult:
     )
 
     # ---- Try to parse the model output as JSON -----------------------------
-    try:
-        import json
+    obj = None
+    raw_intent = "general"
+    confidence = None
 
-        obj = json.loads(content)
-        raw_intent = obj.get("intent", "general")
-        confidence = obj.get("confidence")
+    # Only attempt JSON parse if it *looks* like JSON
+    if isinstance(content, str) and content.lstrip().startswith("{"):
+        try:
+            import json
+
+            obj = json.loads(content)
+            raw_intent = obj.get("intent", "general")
+            confidence = obj.get("confidence")
+            logger.info(
+                "[intent_classifier] parsed JSON obj=%s raw_intent=%r confidence=%r",
+                obj,
+                raw_intent,
+                confidence,
+            )
+        except Exception as e:
+            logger.warning(
+                "[intent_classifier] JSON parse failed for content prefix=%r error=%s "
+                "(falling back to general intent)",
+                content[:120],
+                e,
+            )
+            obj = None
+            raw_intent = "general"
+            confidence = None
+    else:
+        # Model ignored instructions and returned prose
         logger.info(
-            "[intent_classifier] parsed JSON obj=%s raw_intent=%r confidence=%r",
-            obj,
-            raw_intent,
-            confidence,
+            "[intent_classifier] model returned non-JSON content, falling back to general intent"
         )
-    except Exception as e:
-        logger.error(
-            "[intent_classifier] JSON parse failed for content=%r error=%s",
-            content,
-            e,
-            exc_info=True,
-        )
-        obj = None
-        raw_intent = "general"
-        confidence = None
 
     # ---- Map string -> Intent enum safely ----------------------------------
     try:
@@ -177,5 +191,5 @@ async def classify_intent(text: str) -> IntentResult:
         confidence,
     )
 
-    # Keep the full raw data around for debugging in callers
-    return IntentResult(intent=intent, confidence=confidence, raw=data)
+    # Keep the parsed JSON (if any) or the full raw data around for debugging in callers
+    return IntentResult(intent=intent, confidence=confidence, raw=obj or data)
