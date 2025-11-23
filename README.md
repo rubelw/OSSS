@@ -78,6 +78,7 @@ A2A Dashboard Example:
 ![A2A Dashboard](docs/img/a2a_dashboard.png)
 
 General AI Chat Example:
+
 ![General AI Chat](docs/img/general_ai_chat.png)
 
 ## Why This Is Important
