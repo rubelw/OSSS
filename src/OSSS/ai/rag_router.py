@@ -106,6 +106,9 @@ class RAGRequest(BaseModel):
     index: Optional[str] = "main"
     agent_session_id: Optional[str] = None  # Context ID for session tracking
     intent: Optional[str] = None  # Optional field to override intent classification
+    # NEW: optional agent_id flag, echoed through to registration + response
+    agent_id: Optional[str] = None
+    agent_name: Optional[str] = None
 
 
 def _normalize_dcg_expansion(text: str) -> str:
@@ -209,10 +212,15 @@ async def chat_rag(
     except Exception as e:
         raise HTTPException(400, f"Invalid rag JSON: {e}")
 
+    # Extract optional agent_id from the request
+    agent_id: Optional[str] = rag.agent_id
+    agent_name: Optional[str] = rag.agent_name
+
     # Now you MUST use rag.model, rag.messages, rag.index, etc.
     print("MODEL:", rag.model)
     print("MESSAGES:", rag.messages)
     print("INDEX:", rag.index)
+    print("AGENT_ID:", agent_id)
     print("RAG:", str(rag))
 
     # --- Session pruning + temp-file cleanup -------------------------
@@ -352,11 +360,14 @@ async def chat_rag(
     if intent_label == "register_new_student":
         logger.info(f"Processing registration for new student with query: {query}")
 
+        # NEW: forward optional agent_id to registration agent
         action_data = {
             "query": query,
             "registration_agent_id": "registration-agent",
             "registration_skill": "registration",
             "agent_session_id": agent_session_id,
+            "agent_id": agent_id,   # may be None
+            "agent_name": "registration",
         }
 
         registration_url = "http://a2a:8086/admin/registration"
@@ -406,17 +417,24 @@ async def chat_rag(
                     "index": "registration",
                     "intent": "register_new_student",
                     "agent_session_id": agent_session_id,
-                    "session_files": session_files,  # 👈 include temp files list
+                    "session_files": session_files,
+                    "agent_id": agent_id,       # echo agent_id back to client
+                    "agent_name": agent_name,   # echo agent_name back to client
                 }
 
-                logger.info(f"Registration user_response: {user_response}")
+                # 🔍 Log the final response going back to ChatClient
+                logger.info(
+                    "[RAG] response to client (registration success): %s",
+                    json.dumps(user_response, ensure_ascii=False)[:4000],
+                )
+
                 return user_response
 
             else:
                 logger.error(
                     f"Failed to register student: HTTP {response.status_code} {response.text}"
                 )
-                return {
+                error_response = {
                     "answer": {
                         "message": {
                             "role": "assistant",
@@ -432,12 +450,21 @@ async def chat_rag(
                     "error": "Registration failed",
                     "details": response.text,
                     "agent_session_id": agent_session_id,
-                    "session_files": session_files,  # 👈 include temp files list
+                    "session_files": session_files,
+                    "agent_id": agent_id,
+                    "agent_name": agent_name,
                 }
+
+                logger.info(
+                    "[RAG] response to client (registration error): %s",
+                    json.dumps(error_response, ensure_ascii=False)[:4000],
+                )
+
+                return error_response
 
         except requests.exceptions.RequestException as e:
             logger.error(f"Network error during registration: {e}")
-            return {
+            network_error_response = {
                 "answer": {
                     "message": {
                         "role": "assistant",
@@ -453,8 +480,17 @@ async def chat_rag(
                 "error": "Network error",
                 "details": str(e),
                 "agent_session_id": agent_session_id,
-                "session_files": session_files,  # 👈 include temp files list
+                "session_files": session_files,
+                "agent_id": agent_id,
+                "agent_name": agent_name,
             }
+
+            logger.info(
+                "[RAG] response to client (registration network error): %s",
+                json.dumps(network_error_response, ensure_ascii=False)[:4000],
+            )
+
+            return network_error_response
 
     # ---- 2) embed query ----
     async with httpx.AsyncClient(timeout=10.0) as client:
@@ -673,11 +709,24 @@ async def chat_rag(
                 }
             )
 
-        return {
+        response_payload = {
             "answer": data,
             "retrieved_chunks": debug_neighbors,
             "index": requested_index,
             "intent": intent_label,
             "agent_session_id": agent_session_id,
-            "session_files": session_files,  # 👈 list of filenames in temp dir for this session
+            "session_files": session_files,  # list of filenames in temp dir for this session
+            "agent_id": agent_id,            # echo agent_id to ChatClient.tsx
+            "agent_name": agent_name,        # echo agent_name to ChatClient.tsx
         }
+
+        # 🔍 Log the final response going back to ChatClient.tsx
+        try:
+            logger.info(
+                "[RAG] response to client (rag): %s",
+                json.dumps(response_payload, ensure_ascii=False)[:4000],
+            )
+        except Exception as e:
+            logger.warning(f"[RAG] failed to json.dumps response_payload: {e}")
+
+        return response_payload

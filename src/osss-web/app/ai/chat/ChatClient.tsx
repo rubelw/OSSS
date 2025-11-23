@@ -786,13 +786,14 @@ function describeIntent(intent: string): string {
 }
 
 export default function ChatClient() {
-  const [messages, setMessages] = useState<UiMessage[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
 
+  const [messages, setMessages] = useState<UiMessage[]>([]);
   const [chatHistory, setChatHistory] = useState<
     { role: "user" | "assistant" | "system"; content: string }[]
   >([]);
+
 
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]); // Store File objects
   const [uploadedFilesNames, setUploadedFilesNames] = useState<string[]>([]); // Store file names
@@ -805,12 +806,31 @@ export default function ChatClient() {
   const [showDebug, setShowDebug] = useState<boolean>(false);
 
   // 👇 per-chat session id (persists until "New Chat")
-  const [sessionId, setSessionId] = useState<string>(() => {
-    if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-      return crypto.randomUUID();
-    }
-    return `session-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-  });
+  // 👇 per-chat session id (persists across page refresh in this tab)
+    const [sessionId, setSessionId] = useState<string>(() => {
+      // Default/fallback value if storage isn't available
+      let initial = `session-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+      if (typeof window !== "undefined") {
+        try {
+          const stored = window.sessionStorage.getItem("osss_chat_session_id");
+          if (stored && typeof stored === "string") {
+            return stored; // reuse existing session id
+          }
+
+          // No stored id -> generate, store, and use it
+          if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+            initial = crypto.randomUUID();
+          }
+
+          window.sessionStorage.setItem("osss_chat_session_id", initial);
+        } catch {
+          // ignore storage errors, fall back to generated `initial`
+        }
+      }
+
+      return initial;
+    });
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
@@ -834,6 +854,75 @@ export default function ChatClient() {
     }
   }, [messages]);
 
+   // On mount: load messages, history, and sessionId from sessionStorage
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    try {
+      const storedMessages = window.sessionStorage.getItem("osss_chat_messages");
+      if (storedMessages) {
+        setMessages(JSON.parse(storedMessages) as UiMessage[]);
+      }
+
+      const storedHistory = window.sessionStorage.getItem("osss_chat_history");
+      if (storedHistory) {
+        setChatHistory(
+          JSON.parse(storedHistory) as {
+            role: "user" | "assistant" | "system";
+            content: string;
+          }[]
+        );
+      }
+
+      const storedSession = window.sessionStorage.getItem("osss_chat_session_id");
+
+      if (storedSession) {
+        setSessionId(storedSession);
+      } else {
+        let initial = `session-${Date.now()}-${Math.random()
+          .toString(36)
+          .slice(2)}`;
+
+        if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+          initial = crypto.randomUUID();
+        }
+
+        window.sessionStorage.setItem("osss_chat_session_id", initial);
+        setSessionId(initial);
+      }
+    } catch {
+      // ignore storage errors
+    }
+  }, []);
+
+
+  // Persist messages across refresh (per tab)
+useEffect(() => {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(
+      "osss_chat_messages",
+      JSON.stringify(messages)
+    );
+  } catch {
+    // ignore storage errors
+  }
+}, [messages]);
+
+// Persist chatHistory across refresh (per tab)
+useEffect(() => {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(
+      "osss_chat_history",
+      JSON.stringify(chatHistory)
+    );
+  } catch {
+    // ignore storage errors
+  }
+}, [chatHistory]);
+
+
   const appendMessage = useCallback(
     (who: "user" | "bot", content: string, isHtml = false) => {
       setMessages((prev) => {
@@ -845,23 +934,53 @@ export default function ChatClient() {
   );
 
   const handleReset = () => {
-    setMessages([]);
-    setChatHistory([]);
-    setRetrievedChunks([]);
-    setInput("");
-    setUploadedFiles([]); // Reset uploaded files
-    setUploadedFilesNames([]); // Reset file names
+  // Clear in-memory UI state
+  setMessages([]);
+  setChatHistory([]);
+  setRetrievedChunks([]);
+  setInput("");
+  setUploadedFiles([]);
+  setUploadedFilesNames([]);
 
-    // 🔄 New chat = new session id
-    if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-      setSessionId(crypto.randomUUID());
-    } else {
-      setSessionId(`session-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+  // Clear persisted messages/history
+  if (typeof window !== "undefined") {
+    try {
+      window.sessionStorage.removeItem("osss_chat_messages");
+      window.sessionStorage.removeItem("osss_chat_history");
+    } catch {
+      // ignore storage errors
     }
-  };
+  }
+
+  // 🔄 New chat = new session id (and persist it)
+  let newId: string;
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    newId = crypto.randomUUID();
+  } else {
+    newId = `session-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  }
+
+  setSessionId(newId);
+
+  if (typeof window !== "undefined") {
+    try {
+      window.sessionStorage.setItem("osss_chat_session_id", newId);
+    } catch {
+      // ignore storage errors
+    }
+  }
+};
+
 
   const handleSend = useCallback(async () => {
     if (sending) return;
+    if (!sessionId) {
+      // session not initialized yet; you can show a toast/log instead if you want
+      console.warn("Session not ready yet");
+      return;
+    }
+
+
     const text = input.trim();
     if (!text && uploadedFiles.length === 0) return; // Ensure that there's something to send
 
@@ -933,6 +1052,8 @@ export default function ChatClient() {
         index: "main",
         max_tokens: 8000,
         agent_session_id: sessionId,
+        agent_id: "main-rag-agent",
+        agent_name: "General RAG",
       };
 
       const form = new FormData();
@@ -1046,25 +1167,44 @@ export default function ChatClient() {
           ? payload.agent_session_id
           : sessionId;
 
+      // NEW: agent info returned by backend
+      const returnedAgentId: string | null =
+        typeof payload?.agent_id === "string" ? payload.agent_id : null;
+
+      const returnedAgentName: string | null =
+        typeof payload?.agent_name === "string" ? payload.agent_name : null;
+
       const sessionFiles: string[] = Array.isArray(payload?.session_files)
         ? payload.session_files.filter((x: unknown): x is string => typeof x === "string")
         : [];
 
       replyForDisplay = (replyForDisplay ?? "").trimEnd();
 
-      // Only show debug info (intent, session, session_files) when debug is on
+      // Only show debug info (intent, agent_id, session, session_files) when debug is on
       if (showDebug) {
         const debugLines: string[] = [];
 
+        // Always compute display text for agent info, even if null
+        const agentIdDisplay = returnedAgentId ?? "(none)";
+        const agentNameDisplay = returnedAgentName ?? "(none)";
+
+        // Intent line (own line)
         if (returnedIntent) {
           const confText =
             intentConfidence != null
               ? `, confidence ${intentConfidence.toFixed(2)}`
               : "";
-          debugLines.push(
-            `**Intent:** ${returnedIntent} (${intentDescription}${confText})`
-          );
+
+          const intentLine = `**Intent:** ${returnedIntent} (${intentDescription}${confText})`;
+          debugLines.push(intentLine);
+        } else {
+          debugLines.push("**Intent:** (none)");
         }
+
+        // 👇 Agent line on its own line, always shown
+        debugLines.push(
+          `**Agent:** name=${agentNameDisplay}, id=\`${agentIdDisplay}\``
+        );
 
         if (returnedSessionId) {
           debugLines.push(`**Agent session:** \`${returnedSessionId}\``);
@@ -1090,10 +1230,6 @@ export default function ChatClient() {
         ...prev,
         { role: "assistant", content: String(replyForHistory) },
       ]);
-
-      // (Optional) If you want to clear the local attachments after a successful send:
-      // setUploadedFiles([]);
-      // setUploadedFilesNames([]);
 
     } catch (err: any) {
       appendMessage("bot", `Network error: ${String(err)}`, false);
