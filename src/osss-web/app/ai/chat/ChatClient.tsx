@@ -809,6 +809,18 @@ export default function ChatClient() {
 
   const [retrievedChunks, setRetrievedChunks] = useState<RetrievedChunk[]>([]);
 
+  // 👇 New: toggle to show/hide intent + session info
+  const [showDebug, setShowDebug] = useState<boolean>(false);
+
+  // 👇 New: per-chat session id (persists until "New Chat")
+  const [sessionId, setSessionId] = useState<string>(() => {
+    if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+      return crypto.randomUUID();
+    }
+    // Fallback if randomUUID isn't available
+    return `session-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  });
+
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (files) {
@@ -848,6 +860,13 @@ export default function ChatClient() {
     setInput("");
     setUploadedFiles([]); // Reset uploaded files
     setUploadedFilesNames([]); // Reset file names
+
+    // 🔄 New chat = new session id
+    if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+      setSessionId(crypto.randomUUID());
+    } else {
+      setSessionId(`session-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    }
   };
 
   const handleSend = useCallback(async () => {
@@ -895,6 +914,8 @@ export default function ChatClient() {
         stream: false,
         index: "main",
         max_tokens: 8000,
+        agent_session_id: sessionId,   // 👈 send session to backend
+
 
       };
 
@@ -1003,14 +1024,27 @@ export default function ChatClient() {
       const returnedIntent: string | null =
         typeof payload?.intent === "string" ? payload.intent : null;
 
+      // 👇 Prefer the server's view of the session id, fall back to local
+      const returnedSessionId: string | null =
+        typeof payload?.agent_session_id === "string"
+          ? payload.agent_session_id
+          : sessionId;
+
       // Work on the display version (preserve newlines)
       replyForDisplay = (replyForDisplay ?? "").trimEnd();
 
-      // Append router intent *only* (no classifier detail line)
-      if (returnedIntent) {
-        replyForDisplay += `\n\n---\n**Intent:** ${returnedIntent}`;
+      // Append intent + session id block
+      // Append intent + session id block ONLY when debug is on
+      if (showDebug) {
+        if (returnedIntent) {
+          replyForDisplay += `\n\n---\n**Intent:** ${returnedIntent}`;
+          if (returnedSessionId) {
+            replyForDisplay += `\n**Agent session:** \`${returnedSessionId}\``;
+          }
+        } else if (returnedSessionId) {
+          replyForDisplay += `\n\n---\n**Agent session:** \`${returnedSessionId}\``;
+        }
       }
-
 
 
       // Convert to HTML (with bullet list support)
@@ -1049,21 +1083,41 @@ export default function ChatClient() {
       {/* Header with New Chat Button */}
       <div className="mentor-header" style={{ display: "flex", justifyContent: "space-between" }}>
         <div>General Chat — Use responsibly</div>
-        <button
-          type="button"
-          className="mentor-quick-button"
-          onClick={handleReset}
-          style={{
-            backgroundColor: "#4CAF50",
-            color: "white",
-            border: "none",
-            padding: "10px",
-            cursor: "pointer",
-            fontSize: "16px",
-          }}
-        >
-          New Chat
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+          {/* Debug toggle */}
+          <label
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              fontSize: "14px",
+              cursor: "pointer",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={showDebug}
+              onChange={(e) => setShowDebug(e.target.checked)}
+            />
+            Debug
+          </label>
+
+          <button
+            type="button"
+            className="mentor-quick-button"
+            onClick={handleReset}
+            style={{
+              backgroundColor: "#4CAF50",
+              color: "white",
+              border: "none",
+              padding: "10px",
+              cursor: "pointer",
+              fontSize: "16px",
+            }}
+          >
+            New Chat
+          </button>
+        </div>
       </div>
 
       {/* Uploaded files display */}

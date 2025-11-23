@@ -201,6 +201,10 @@ async def chat_rag(
     print("INDEX:", rag.index)
     print("RAG:", str(rag))
 
+    # 👇 NEW: access the agent_session_id sent from the frontend
+    agent_session_id = rag.agent_session_id
+    logger.info(f"RAG agent_session_id={agent_session_id}")
+
     base = getattr(settings, "VLLM_ENDPOINT", "http://host.containers.internal:11434").rstrip("/")
     embed_url = f"{base}/api/embeddings"
     chat_url = f"{base}/v1/chat/completions"
@@ -268,6 +272,9 @@ async def chat_rag(
             "query": query,
             "registration_agent_id": "registration-agent",
             "registration_skill": "registration",
+            # 👇 optionally forward the session id to A2A as well
+            "agent_session_id": agent_session_id,
+
         }
 
         registration_url = "http://a2a:8086/admin/registration"
@@ -328,6 +335,8 @@ async def chat_rag(
                     "retrieved_chunks": debug_neighbors,
                     "index": "registration",
                     "intent": "register_new_student",
+                    # 👇 echo back session id
+                    "agent_session_id": agent_session_id,
                 }
 
                 logger.info(f"Registration user_response: {user_response}")
@@ -352,6 +361,7 @@ async def chat_rag(
                     "intent": "register_new_student",
                     "error": "Registration failed",
                     "details": response.text,
+                    "agent_session_id": agent_session_id,
                 }
 
         except requests.exceptions.RequestException as e:
@@ -371,6 +381,7 @@ async def chat_rag(
                 "intent": "register_new_student",
                 "error": "Network error",
                 "details": str(e),
+                "agent_session_id": agent_session_id,
             }
 
     # ---- 2) embed query ----
@@ -631,4 +642,5 @@ async def chat_rag(
             "retrieved_chunks": debug_neighbors,
             "index": requested_index,
             "intent": intent_label,
+            "agent_session_id": agent_session_id,
         }
