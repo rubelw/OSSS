@@ -20,7 +20,7 @@ interface UiMessage {
 }
 
 interface RetrievedChunk {
-  source?: string;           // 👈 add this
+  source?: string;
   score?: number;
   filename?: string;
   chunk_index?: number;
@@ -28,10 +28,8 @@ interface RetrievedChunk {
   image_paths?: string[] | null;
   page_index?: number | null;
   page_chunk_index?: number | null;
-  pdf_index_path?: string | null; // 👈 add this
-
+  pdf_index_path?: string | null;
 }
-
 
 // Strip PII / link-like content from TEXT that goes back into chatHistory
 function sanitizeForGuard(src: string): string {
@@ -139,8 +137,8 @@ function buildSourcesHtmlFromChunks(chunks: RetrievedChunk[]): string {
     // 👇 centralize how we compute the source path
     const sourcePath: string | undefined =
       (c as any).pdf_index_path || // best: mirrored path under vector_indexes/.../pdfs
-      (c as any).source ||         // next best: source path from indexer
-      c.filename ||                // fallback: bare filename
+      (c as any).source || // next best: source path from indexer
+      c.filename || // fallback: bare filename
       undefined;
 
     if (!sourcePath) continue;
@@ -182,11 +180,6 @@ function buildSourcesHtmlFromChunks(chunks: RetrievedChunk[]): string {
   `;
 }
 
-
-/**
- * Map the raw intent label to a more descriptive explanation.
- * This is aligned with server-side intents.
- */
 /**
  * Map the raw intent label to a more descriptive explanation.
  * This is aligned with server-side intents.
@@ -308,490 +301,489 @@ function describeIntent(intent: string): string {
     case "contact_information":
       return "contact information";
     case "staff_recruit":
-        return "staff recruitment";
+      return "staff recruitment";
     case "student_behavior_interventions":
-        return "student behavior interventions";
+      return "student behavior interventions";
     case "school_fundraising":
-        return "school fundraising";
+      return "school fundraising";
     case "parent_involvement":
-        return "parent involvement";
+      return "parent involvement";
     case "school_infrastructure":
-        return "school infrastructure";
+      return "school infrastructure";
     case "special_education":
-        return "special education";
+      return "special education";
     case "student_assessment":
-        return "student assessment";
+      return "student assessment";
     case "after_school_programs":
-        return "after school programs";
+      return "after school programs";
     case "diversity_inclusion_policy":
-        return "diversity and inclusion policy";
+      return "diversity and inclusion policy";
     case "health_services":
-        return "health services";
+      return "health services";
     case "school_security":
-        return "school security";
+      return "school security";
     case "parent_communication":
-        return "parent communication";
+      return "parent communication";
     case "student_discipline":
-        return "student discipline";
+      return "student discipline";
     case "college_preparation":
-        return "college preparation";
+      return "college preparation";
     case "social_emotional_learning":
-        return "social emotional learning";
+      return "social emotional learning";
     case "technology_access":
-        return "technology access";
+      return "technology access";
     case "school_improvement_plan":
-        return "school improvement plan";
+      return "school improvement plan";
     case "student_feedback":
-        return "student feedback";
+      return "student feedback";
     case "community_partnerships":
-        return "community partnerships";
+      return "community partnerships";
     case "alumni_relations":
-        return "alumni relations";
+      return "alumni relations";
     case "miscarriage_policy":
-        return "miscarriage policy";
+      return "miscarriage policy";
     case "early_childhood_education":
-        return "early childhood education";
+      return "early childhood education";
     case "student_mentorship":
-        return "student mentorship";
+      return "student mentorship";
     case "cultural_events":
-        return "cultural events";
+      return "cultural events";
     case "school_lunch_program":
-        return "school lunch program";
+      return "school lunch program";
     case "homeroom_structure":
-        return "homeroom structure";
+      return "homeroom structure";
     case "student_enrichment":
-        return "student enrichment";
+      return "student enrichment";
     case "student_inclusion":
-        return "student inclusion";
+      return "student inclusion";
     case "school_illness_policy":
-        return "school illness policy";
+      return "school illness policy";
     case "volunteer_opportunities":
-        return "volunteer opportunities";
+      return "volunteer opportunities";
     case "collaborative_teaching":
-        return "collaborative teaching";
+      return "collaborative teaching";
     case "student_retention":
-        return "student retention";
+      return "student retention";
     case "school_evacuation_plans":
-        return "school evacuation plans";
+      return "school evacuation plans";
     case "intervention_strategies":
-        return "intervention strategies";
+      return "intervention strategies";
     case "school_awards":
-        return "school awards";
+      return "school awards";
     case "dropout_prevention":
-        return "dropout prevention";
+      return "dropout prevention";
     case "teacher_evaluation":
-        return "teacher evaluation";
+      return "teacher evaluation";
     case "special_events":
-        return "special events";
+      return "special events";
     case "curriculum_integration":
-        return "curriculum integration";
+      return "curriculum integration";
     case "field_trips":
-        return "field trips";
+      return "field trips";
     case "student_attendance":
-        return "student attendance";
+      return "student attendance";
     case "school_spirit":
-        return "school spirit";
+      return "school spirit";
     case "classroom_management":
-        return "classroom management";
+      return "classroom management";
     case "student_health_records":
-        return "student health records";
+      return "student health records";
     case "parent_involvement_events":
-        return "parent involvement events";
+      return "parent involvement events";
     case "teacher_training":
-        return "teacher training";
+      return "teacher training";
     case "school_uniform_policy":
-        return "school uniform policy";
+      return "school uniform policy";
     case "school_cultural_committees":
-        return "school cultural committees";
+      return "school cultural committees";
     case "school_business_partnerships":
-        return "school business partnerships";
+      return "school business partnerships";
     case "school_community_outreach":
-        return "school community outreach";
+      return "school community outreach";
     case "equal_access_to_opportunities":
-        return "equal access to opportunities";
+      return "equal access to opportunities";
     case "counselor_support":
-        return "counselor support";
+      return "counselor support";
     case "diversity_equity_policy":
-        return "diversity equity policy";
+      return "diversity equity policy";
     case "student_recognition_programs":
-        return "student recognition programs";
+      return "student recognition programs";
     case "teacher_mentoring":
-        return "teacher mentoring";
+      return "teacher mentoring";
     case "peer_tutoring":
-        return "peer tutoring";
+      return "peer tutoring";
     case "school_closures":
-        return "school closures";
+      return "school closures";
     case "district_budget":
-        return "district budget";
+      return "district budget";
     case "parent_surveys":
-        return "parent surveys";
+      return "parent surveys";
     case "student_portfolios":
-        return "student portfolios";
+      return "student portfolios";
     case "activity_fee_policy":
-        return "activity fee policy";
+      return "activity fee policy";
     case "school_photography":
-        return "school photography";
+      return "school photography";
     case "student_policies":
-        return "student policies";
+      return "student policies";
     case "student_graduation_plan":
-        return "student graduation plan";
+      return "student graduation plan";
     case "math_support_program":
-        return "math support program";
+      return "math support program";
     case "reading_support_program":
-        return "reading support program";
+      return "reading support program";
     case "school_budget_oversight":
-        return "school budget oversight";
+      return "school budget oversight";
     case "student_travel_policy":
-        return "student travel policy";
+      return "student travel policy";
     case "extrahelp_tutoring":
-        return "extrahelp tutoring";
+      return "extrahelp tutoring";
     case "enrichment_programs":
-        return "enrichment programs";
+      return "enrichment programs";
     case "school_compliance":
-        return "school compliance";
+      return "school compliance";
     case "parent_teacher_association":
-        return "parent teacher association";
+      return "parent teacher association";
     case "student_career_services":
-        return "student career services";
+      return "student career services";
     case "student_scholarship_opportunities":
-        return "student scholarship opportunities";
+      return "student scholarship opportunities";
     case "student_support_services":
-        return "student support services";
+      return "student support services";
     case "school_conflict_resolution":
-        return "school conflict resolution";
+      return "school conflict resolution";
     case "dropout_intervention":
-        return "dropout intervention";
+      return "dropout intervention";
     case "student_assignment_tracking":
-        return "student assignment tracking";
+      return "student assignment tracking";
     case "support_for_special_populations":
-        return "support for special populations";
+      return "support for special populations";
     case "student_voice":
-        return "student voice";
+      return "student voice";
     case "grading_policy":
-        return "grading policy";
+      return "grading policy";
     case "facility_repairs":
-        return "facility repairs";
+      return "facility repairs";
     case "afterschool_clubs":
-        return "afterschool clubs";
+      return "afterschool clubs";
     case "peer_relationships":
-        return "peer relationships";
+      return "peer relationships";
     case "early_intervention":
-        return "early intervention";
+      return "early intervention";
     case "school_mascot":
-        return "school mascot";
+      return "school mascot";
     case "student_leadership":
-        return "student leadership";
+      return "student leadership";
     case "parental_rights":
-        return "parental rights";
+      return "parental rights";
     case "alumni_engagement":
-        return "alumni engagement";
+      return "alumni engagement";
     case "bullying_training":
-        return "bullying training";
+      return "bullying training";
     case "school_funding":
-        return "school funding";
+      return "school funding";
     case "school_disaster_preparedness":
-        return "school disaster preparedness";
+      return "school disaster preparedness";
     case "student_health_screenings":
-        return "student health screenings";
+      return "student health screenings";
     case "accessibility_in_education":
-        return "accessibility in education";
+      return "accessibility in education";
     case "inclusion_policy":
-        return "inclusion policy";
+      return "inclusion policy";
     case "school_community_events":
-        return "school community events";
+      return "school community events";
     case "internal_communication":
-        return "internal communication";
+      return "internal communication";
     case "extracurricular_funding":
-        return "extracurricular funding";
+      return "extracurricular funding";
     case "student_orientation":
-        return "student orientation";
+      return "student orientation";
     case "school_culture_initiatives":
-        return "school culture initiatives";
+      return "school culture initiatives";
     case "student_retention_strategies":
-        return "student retention strategies";
+      return "student retention strategies";
     case "family_school_partnerships":
-        return "family school partnerships";
+      return "family school partnerships";
     case "campus_cleanliness":
-        return "campus cleanliness";
+      return "campus cleanliness";
     case "professional_development_evaluation":
-        return "professional development evaluation";
+      return "professional development evaluation";
     case "student_behavior_monitoring":
-        return "student behavior monitoring";
+      return "student behavior monitoring";
     case "diversity_and_inclusion_training":
-        return "diversity and inclusion training";
+      return "diversity and inclusion training";
     case "school_broadcasts":
-        return "school broadcasts";
+      return "school broadcasts";
     case "food_nutrition_programs":
-        return "food nutrition programs";
+      return "food nutrition programs";
     case "school_climate_surveys":
-        return "school climate surveys";
+      return "school climate surveys";
     case "athletic_funding":
-        return "athletic funding";
+      return "athletic funding";
     case "teacher_feedback_mechanisms":
-        return "teacher feedback mechanisms";
+      return "teacher feedback mechanisms";
     case "gifted_education":
-        return "gifted education";
+      return "gifted education";
     case "campus_recreation":
-        return "campus recreation";
+      return "campus recreation";
     case "peer_mediation":
-        return "peer mediation";
+      return "peer mediation";
     case "alumni_network":
-        return "alumni network";
+      return "alumni network";
     case "student_financial_aid":
-        return "student financial aid";
+      return "student financial aid";
     case "parental_involvement_training":
-        return "parental involvement training";
+      return "parental involvement training";
     case "school_partnerships":
-        return "school partnerships";
+      return "school partnerships";
     case "school_building_maintenance":
-        return "school building maintenance";
+      return "school building maintenance";
     case "school_engagement_measurements":
-        return "school engagement measurements";
+      return "school engagement measurements";
     case "community_outreach_programs":
-        return "community outreach programs";
+      return "community outreach programs";
     case "student_transportation_support":
-        return "student transportation support";
+      return "student transportation support";
     case "recruitment_and_retention_for_support_staff":
-        return "recruitment and retention for support staff";
+      return "recruitment and retention for support staff";
     case "school_leadership_development":
-        return "school leadership development";
+      return "school leadership development";
     case "school_business_partnerships":
-        return "school business partnerships";
+      return "school business partnerships";
     case "student_medical_accommodations":
-        return "student medical accommodations";
+      return "student medical accommodations";
     case "parent_teacher_conferences":
-        return "parent teacher conferences";
+      return "parent teacher conferences";
     case "extra_credit_opportunities":
-        return "extra credit opportunities";
+      return "extra credit opportunities";
     case "teacher_assistant_support":
-        return "teacher assistant support";
+      return "teacher assistant support";
     case "financial_aid_training":
-        return "financial aid training";
+      return "financial aid training";
     case "student_mobility":
-        return "student mobility";
+      return "student mobility";
     case "student_promotions":
-        return "student promotions";
+      return "student promotions";
     case "student_arts_programs":
-        return "student arts programs";
+      return "student arts programs";
     case "alumni_engagement_events":
-        return "alumni engagement events";
+      return "alumni engagement events";
     case "student_community_service":
-        return "student community service";
+      return "student community service";
     case "school_closure_protocols":
-        return "school closure protocols";
+      return "school closure protocols";
     case "school_psychological_support":
-        return "school psychological support";
+      return "school psychological support";
     case "parent_support_groups":
-        return "parent support groups";
+      return "parent support groups";
     case "conflict_of_interest_policies":
-        return "conflict of interest policies";
+      return "conflict of interest policies";
     case "interschool_collaboration":
-        return "interschool collaboration";
+      return "interschool collaboration";
     case "school_event_scheduling":
-        return "school event scheduling";
+      return "school event scheduling";
     case "teacher_contract_negotiations":
-        return "teacher contract negotiations";
+      return "teacher contract negotiations";
     case "summer_learning_programs":
-        return "summer learning programs";
+      return "summer learning programs";
     case "student_mobility_and_transition":
-        return "student mobility and transition";
+      return "student mobility and transition";
     case "staff_wellness":
-        return "staff wellness";
+      return "staff wellness";
     case "technology_support_for_teachers":
-        return "technology support for teachers";
+      return "technology support for teachers";
     case "community_feedback_on_school_policy":
-        return "community feedback on school policy";
+      return "community feedback on school policy";
     case "peer_support_networks":
-        return "peer support networks";
+      return "peer support networks";
     case "school_enrollment_forecasting":
-        return "school enrollment forecasting";
+      return "school enrollment forecasting";
     case "student_activity_registration":
-        return "student activity registration";
+      return "student activity registration";
     case "school_computer_lab_access":
-        return "school computer lab access";
+      return "school computer lab access";
     case "school_website_access":
-        return "school website access";
+      return "school website access";
     case "online_courses":
-        return "online courses";
+      return "online courses";
     case "student_report_cards":
-        return "student report cards";
+      return "student report cards";
     case "teacher_facilitator":
-        return "teacher facilitator";
+      return "teacher facilitator";
     case "student_mental_health_support":
-        return "student mental health support";
+      return "student mental health support";
     case "teacher_collaboration":
-        return "teacher collaboration";
+      return "teacher collaboration";
     case "school_policies_oversight":
-        return "school policies oversight";
+      return "school policies oversight";
     case "school_closure_notifications":
-        return "school closure notifications";
+      return "school closure notifications";
     case "parent_school_communication":
-        return "parent school communication";
+      return "parent school communication";
     case "student_tutoring_services":
-        return "student tutoring services";
+      return "student tutoring services";
     case "international_student_support":
-        return "international student support";
+      return "international student support";
     case "math_intervention_program":
-        return "math intervention program";
+      return "math intervention program";
     case "reading_intervention_program":
-        return "reading intervention program";
+      return "reading intervention program";
     case "extra_credit_opportunities":
-        return "extra credit opportunities";
+      return "extra credit opportunities";
     case "student_retention_strategies":
-        return "student retention strategies";
+      return "student retention strategies";
     case "staff_training_opportunities":
-        return "staff training opportunities";
+      return "staff training opportunities";
     case "school_inspection_reports":
-        return "school inspection reports";
+      return "school inspection reports";
     case "student_homework_help":
-        return "student homework help";
+      return "student homework help";
     case "student_field_trip_permission":
-        return "student field trip permission";
+      return "student field trip permission";
     case "student_participation_fees":
-        return "student participation fees";
+      return "student participation fees";
     case "school_disaster_recovery":
-        return "school disaster recovery";
+      return "school disaster recovery";
     case "student_behavior_rewards":
-        return "student behavior rewards";
+      return "student behavior rewards";
     case "school_bullying_policy":
-        return "school bullying policy";
+      return "school bullying policy";
     case "parent_feedback_surveys":
-        return "parent feedback surveys";
+      return "parent feedback surveys";
     case "student_mental_health_evaluation":
-        return "student mental health evaluation";
+      return "student mental health evaluation";
     case "college_readiness_programs":
-        return "college readiness programs";
+      return "college readiness programs";
     case "student_extracurricular_registration":
-        return "student extracurricular registration";
+      return "student extracurricular registration";
     case "student_school_id":
-        return "student school ID";
+      return "student school ID";
     case "school_uniform_policy":
-        return "school uniform policy";
+      return "school uniform policy";
     case "transportation_routes":
-        return "transportation routes";
+      return "transportation routes";
     case "student_reporting_system":
-        return "student reporting system";
+      return "student reporting system";
     case "academic_intervention_teams":
-        return "academic intervention teams";
+      return "academic intervention teams";
     case "school_reading_programs":
-        return "school reading programs";
+      return "school reading programs";
     case "parent_portal_setup":
-        return "parent portal setup";
+      return "parent portal setup";
     case "student_behavior_contracts":
-        return "student behavior contracts";
+      return "student behavior contracts";
     case "student_counseling_services":
-        return "student counseling services";
+      return "student counseling services";
     case "student_financial_aid_opportunities":
-        return "student financial aid opportunities";
+      return "student financial aid opportunities";
     case "school_community_partnerships":
-        return "school community partnerships";
+      return "school community partnerships";
     case "school_bus_route_planning":
-        return "school bus route planning";
+      return "school bus route planning";
     case "campus_security_updates":
-        return "campus security updates";
+      return "campus security updates";
     case "parent_participation_in_school_events":
-        return "parent participation in school events";
+      return "parent participation in school events";
     case "student_drop_out_prevention":
-        return "student drop-out prevention";
+      return "student drop-out prevention";
     case "school_performance_reports":
-        return "school performance reports";
+      return "school performance reports";
     case "special_education_programs":
-        return "special education programs";
+      return "special education programs";
     case "school_nurse_services":
-        return "school nurse services";
+      return "school nurse services";
     case "student_career_exploration":
-        return "student career exploration";
+      return "student career exploration";
     case "school_partnership_with_local_businesses":
-        return "school partnership with local businesses";
+      return "school partnership with local businesses";
     case "school_school_mascot":
-        return "school mascot";
+      return "school mascot";
     case "parent_communication_platform":
-        return "parent communication platform";
+      return "parent communication platform";
     case "after_school_study_sessions":
-        return "after school study sessions";
+      return "after school study sessions";
     case "student_financial_assistance_requests":
-        return "student financial assistance requests";
+      return "student financial assistance requests";
     case "specialized_school_services":
-        return "specialized school services";
+      return "specialized school services";
     case "student_aid_requests":
-        return "student aid requests";
+      return "student aid requests";
     case "school_gardening_programs":
-        return "school gardening programs";
+      return "school gardening programs";
     case "school_sports_teams":
-        return "school sports teams";
+      return "school sports teams";
     case "school_property_insurance":
-        return "school property insurance";
+      return "school property insurance";
     case "school_budget_allocations":
-        return "school budget allocations";
+      return "school budget allocations";
     case "student_computer_accessibility":
-        return "student computer accessibility";
+      return "student computer accessibility";
     case "parent_teacher_conferences":
-        return "parent teacher conferences";
+      return "parent teacher conferences";
     case "student_discipline_policy":
-        return "student discipline policy";
+      return "student discipline policy";
     case "school_graduation_ceremonies":
-        return "school graduation ceremonies";
+      return "school graduation ceremonies";
     case "after_school_extra_credit_opportunities":
-        return "after school extra credit opportunities";
+      return "after school extra credit opportunities";
     case "student_transportation_services":
-        return "student transportation services";
+      return "student transportation services";
     case "diversity_and_inclusion_training":
-        return "diversity and inclusion training";
+      return "diversity and inclusion training";
     case "after_school_homework_club":
-        return "after school homework club";
+      return "after school homework club";
     case "student_feedback_forms":
-        return "student feedback forms";
+      return "student feedback forms";
     case "school_compliance_with_regulations":
-        return "school compliance with regulations";
+      return "school compliance with regulations";
     case "student_parking_policy":
-        return "student parking policy";
+      return "student parking policy";
     case "school_security_training":
-        return "school security training";
+      return "school security training";
     case "student_assessment_results":
-        return "student assessment results";
+      return "student assessment results";
     case "parental_consent_for_medical_treatment":
-        return "parental consent for medical treatment";
+      return "parental consent for medical treatment";
     case "after_school_club_meetings":
-        return "after school club meetings";
+      return "after school club meetings";
     case "student_graduation_credentials":
-        return "student graduation credentials";
+      return "student graduation credentials";
     case "school_nutrition_program":
-        return "school nutrition program";
+      return "school nutrition program";
     case "school_evacuations_plan":
-        return "school evacuations plan";
+      return "school evacuations plan";
     case "school_transportation_policies":
-        return "school transportation policies";
+      return "school transportation policies";
     case "student_virtual_learning_support":
-        return "student virtual learning support";
+      return "student virtual learning support";
     case "afterschool_tutoring_programs":
-        return "afterschool tutoring programs";
+      return "afterschool tutoring programs";
     case "student_admission_fees":
-        return "student admission fees";
+      return "student admission fees";
     case "school_peer_mentoring":
-        return "school peer mentoring";
+      return "school peer mentoring";
     case "student_workstudy_opportunities":
-        return "student work-study opportunities";
+      return "student work-study opportunities";
     case "parent_feedback_for_school_policies":
-        return "parent feedback for school policies";
+      return "parent feedback for school policies";
     case "parent_teacher_association_meetings":
-        return "parent teacher association meetings";
+      return "parent teacher association meetings";
     case "student_volunteer_opportunities":
-        return "student volunteer opportunities";
+      return "student volunteer opportunities";
     case "school_athletic_events":
-        return "school athletic events";
+      return "school athletic events";
     case "school_talent_shows":
-        return "school talent shows";
+      return "school talent shows";
     case "school_debate_teams":
-        return "school debate teams";
+      return "school debate teams";
     case "school_uniforms":
-        return "school uniforms";
+      return "school uniforms";
     // Adding additional cases here:
     case "general":
     default:
       return "general information / mixed audience";
   }
 }
-
 
 export default function ChatClient() {
   const [messages, setMessages] = useState<UiMessage[]>([]);
@@ -809,15 +801,14 @@ export default function ChatClient() {
 
   const [retrievedChunks, setRetrievedChunks] = useState<RetrievedChunk[]>([]);
 
-  // 👇 New: toggle to show/hide intent + session info
+  // 👇 toggle to show/hide intent + session info
   const [showDebug, setShowDebug] = useState<boolean>(false);
 
-  // 👇 New: per-chat session id (persists until "New Chat")
+  // 👇 per-chat session id (persists until "New Chat")
   const [sessionId, setSessionId] = useState<string>(() => {
     if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
       return crypto.randomUUID();
     }
-    // Fallback if randomUUID isn't available
     return `session-${Date.now()}-${Math.random().toString(36).slice(2)}`;
   });
 
@@ -874,9 +865,36 @@ export default function ChatClient() {
     const text = input.trim();
     if (!text && uploadedFiles.length === 0) return; // Ensure that there's something to send
 
+    // Snapshot filenames for THIS turn (so UI isn't affected if state changes later)
+    const attachedNamesForThisTurn = [...uploadedFilesNames];
+
     setSending(true);
-    appendMessage("user", text, false);
     setInput("");
+
+    // --- Build user bubble content (text + attached filenames) ------
+    let userHtml = "";
+
+    if (text) {
+      userHtml += mdToHtml(text);
+    } else {
+      userHtml += "<em>(No message text)</em>";
+    }
+
+    if (attachedNamesForThisTurn.length > 0) {
+      userHtml += `
+        <div style="margin-top:8px; font-size: 0.9em;">
+          <strong>Attached files:</strong>
+          <ul style="padding-left:16px; margin:4px 0 0 0;">
+            ${attachedNamesForThisTurn
+              .map((name) => `<li>${name}</li>`)
+              .join("")}
+          </ul>
+        </div>
+      `;
+    }
+
+    // Show the user message (with attachments) in the chat window BEFORE calling /chat/rag
+    appendMessage("user", userHtml, true);
 
     // ---- 1) Update chat history for conversation memory -------------
     const historySnapshot = [
@@ -914,22 +932,18 @@ export default function ChatClient() {
         stream: false,
         index: "main",
         max_tokens: 8000,
-        agent_session_id: sessionId,   // 👈 send session to backend
-
-
+        agent_session_id: sessionId,
       };
 
-
-      // 2) Create FormData and put raw JSON string under "payload"
       const form = new FormData();
       form.append("payload", JSON.stringify(body));
 
-      // If you support upload:
-      // if (uploadedFiles && uploadedFiles.length > 0) {
-      //   Array.from(uploadedFiles).forEach((file) => {
-      //     form.append("files", file);          // 👈 must match `files: list[UploadFile]`
-      //   });
-      // }
+      // Send attached files to the backend
+      if (uploadedFiles && uploadedFiles.length > 0) {
+        uploadedFiles.forEach((file) => {
+          form.append("files", file); // must match `files: list[UploadFile]` on FastAPI
+        });
+      }
 
       const resp = await fetch(url, {
         method: "POST",
@@ -942,7 +956,6 @@ export default function ChatClient() {
       const raw = await resp.text();
       console.log("RAG raw response:", resp.status, raw);
 
-
       let payload: any = null;
       try {
         payload = JSON.parse(raw);
@@ -952,6 +965,11 @@ export default function ChatClient() {
           raw || "(Non-JSON response from /ai/chat/rag)",
           false
         );
+
+        // Clear attachments locally for next turn
+        setUploadedFiles([]);
+        setUploadedFilesNames([]);
+
         setSending(false);
         return;
       }
@@ -979,6 +997,11 @@ export default function ChatClient() {
           raw ||
           `HTTP ${resp.status}`;
         appendMessage("bot", String(msg), false);
+
+        // Clear attachments locally for next turn
+        setUploadedFiles([]);
+        setUploadedFilesNames([]);
+
         setSending(false);
         return;
       }
@@ -994,15 +1017,10 @@ export default function ChatClient() {
         reply = "(Empty reply from /ai/chat/rag)";
       }
 
-      // Keep two versions:
-      // - replyForDisplay: full markdown with newlines
-      // - replyForHistory: sanitized for future prompts
       let replyForDisplay = reply;
       const replyForHistory = sanitizeForGuard(reply);
 
-
-      // ---- 5) Attach classifier intent from server response ----------
-      // We assume rag_router returns these fields; fall back gracefully.
+      // ---- 5) Attach classifier intent + debug info -----------------
       const classifierIntent: string =
         payload?.intent ??
         payload?.intent_label ??
@@ -1020,54 +1038,78 @@ export default function ChatClient() {
 
       const intentDescription = describeIntent(classifierIntent);
 
-      // 3A: Get INTENT returned directly from the server
       const returnedIntent: string | null =
         typeof payload?.intent === "string" ? payload.intent : null;
 
-      // 👇 Prefer the server's view of the session id, fall back to local
       const returnedSessionId: string | null =
         typeof payload?.agent_session_id === "string"
           ? payload.agent_session_id
           : sessionId;
 
-      // Work on the display version (preserve newlines)
+      const sessionFiles: string[] = Array.isArray(payload?.session_files)
+        ? payload.session_files.filter((x: unknown): x is string => typeof x === "string")
+        : [];
+
       replyForDisplay = (replyForDisplay ?? "").trimEnd();
 
-      // Append intent + session id block
-      // Append intent + session id block ONLY when debug is on
+      // Only show debug info (intent, session, session_files) when debug is on
       if (showDebug) {
+        const debugLines: string[] = [];
+
         if (returnedIntent) {
-          replyForDisplay += `\n\n---\n**Intent:** ${returnedIntent}`;
-          if (returnedSessionId) {
-            replyForDisplay += `\n**Agent session:** \`${returnedSessionId}\``;
-          }
-        } else if (returnedSessionId) {
-          replyForDisplay += `\n\n---\n**Agent session:** \`${returnedSessionId}\``;
+          const confText =
+            intentConfidence != null
+              ? `, confidence ${intentConfidence.toFixed(2)}`
+              : "";
+          debugLines.push(
+            `**Intent:** ${returnedIntent} (${intentDescription}${confText})`
+          );
+        }
+
+        if (returnedSessionId) {
+          debugLines.push(`**Agent session:** \`${returnedSessionId}\``);
+        }
+
+        if (sessionFiles.length > 0) {
+          const filesList = sessionFiles.map((name) => `- ${name}`).join("\n");
+          debugLines.push(`**Session files:**\n${filesList}`);
+        }
+
+        if (debugLines.length > 0) {
+          replyForDisplay += `\n\n---\n` + debugLines.join("\n");
         }
       }
 
-
-      // Convert to HTML (with bullet list support)
       const outHtml = mdToHtml(String(replyForDisplay));
-
-      // Append "Sources" block with PDF links
       const sourcesHtml = buildSourcesHtmlFromChunks(chunksForThisReply);
       const finalHtml = outHtml + sourcesHtml;
 
       appendMessage("bot", finalHtml, true);
 
-      // Store sanitized reply (without extra markdown cruft) in history
       setChatHistory((prev) => [
         ...prev,
         { role: "assistant", content: String(replyForHistory) },
       ]);
+
+      // (Optional) If you want to clear the local attachments after a successful send:
+      // setUploadedFiles([]);
+      // setUploadedFilesNames([]);
 
     } catch (err: any) {
       appendMessage("bot", `Network error: ${String(err)}`, false);
     }
 
     setSending(false);
-  }, [appendMessage, chatHistory, input, sending]);
+  }, [
+    appendMessage,
+    chatHistory,
+    input,
+    sending,
+    uploadedFiles,
+    uploadedFilesNames,
+    sessionId,
+    showDebug,
+  ]);
 
   const handleKeyDown: React.KeyboardEventHandler<HTMLTextAreaElement> = (
     e
@@ -1079,9 +1121,15 @@ export default function ChatClient() {
   };
 
   return (
-    <div className="mentor-container" style={{ display: "flex", flexDirection: "column", height: "100vh", maxHeight: "100vh" }}>
+    <div
+      className="mentor-container"
+      style={{ display: "flex", flexDirection: "column", height: "100vh", maxHeight: "100vh" }}
+    >
       {/* Header with New Chat Button */}
-      <div className="mentor-header" style={{ display: "flex", justifyContent: "space-between" }}>
+      <div
+        className="mentor-header"
+        style={{ display: "flex", justifyContent: "space-between" }}
+      >
         <div>General Chat — Use responsibly</div>
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
           {/* Debug toggle */}
@@ -1135,20 +1183,36 @@ export default function ChatClient() {
       </div>
 
       {/* Messages */}
-      <div className="mentor-messages" style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
-        {messages.length === 0 && <div className="mentor-empty-hint">Say hello to begin.</div>}
+      <div
+        className="mentor-messages"
+        style={{ flex: 1, overflowY: "auto", minHeight: 0 }}
+      >
+        {messages.length === 0 && (
+          <div className="mentor-empty-hint">Say hello to begin.</div>
+        )}
         {messages.map((m) => (
-          <div key={m.id} className={`mentor-msg ${m.who === "user" ? "user" : "bot"}`}>
+          <div
+            key={m.id}
+            className={`mentor-msg ${m.who === "user" ? "user" : "bot"}`}
+          >
             <div className={`mentor-bubble ${m.who === "user" ? "user" : "bot"}`}>
-              {m.isHtml ? <div dangerouslySetInnerHTML={{ __html: m.content }} /> : m.content}
+              {m.isHtml ? (
+                <div dangerouslySetInnerHTML={{ __html: m.content }} />
+              ) : (
+                m.content
+              )}
             </div>
           </div>
         ))}
+        <div ref={messagesEndRef} />
       </div>
 
       {/* Composer */}
       <div className="mentor-composer">
-        <div className="textarea-container" style={{ position: "relative", width: "100%" }}>
+        <div
+          className="textarea-container"
+          style={{ position: "relative", width: "100%" }}
+        >
           {/* Invisible file input */}
           <input
             type="file"
@@ -1169,7 +1233,7 @@ export default function ChatClient() {
               background: "transparent",
               border: "none",
               cursor: "pointer",
-              marginRight: "10px", // Add space between the button and the textarea
+              marginRight: "10px",
             }}
             onClick={() => fileInputRef.current?.click()}
           >
@@ -1177,7 +1241,7 @@ export default function ChatClient() {
               src={uploadIcon}
               alt="Upload"
               style={{
-                width: "20px",   // Adjust size of the image if necessary
+                width: "20px",
                 height: "20px",
               }}
             />
@@ -1190,8 +1254,8 @@ export default function ChatClient() {
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             style={{
-              paddingLeft: "50px",   // Create space for the button
-              width: "100%",         // Make the textarea span the entire width
+              paddingLeft: "50px", // Create space for the button
+              width: "100%", // Make the textarea span the entire width
               boxSizing: "border-box", // Ensure padding doesn't affect the width
             }}
           />
@@ -1207,7 +1271,9 @@ export default function ChatClient() {
         </button>
       </div>
 
-      <div className="mentor-footer">Local model proxy — for experimentation and allowed use only.</div>
+      <div className="mentor-footer">
+        Local model proxy — for experimentation and allowed use only.
+      </div>
     </div>
   );
 }

@@ -12,6 +12,9 @@ from pydantic import BaseModel, Field
 import requests
 import json
 import sys
+from pathlib import Path
+import shutil
+import os
 
 sys.path.append('/workspace/src/MetaGPT')
 
@@ -25,6 +28,13 @@ from OSSS.ai.intents import Intent
 logger = logging.getLogger("OSSS.ai.rag_router")
 
 from OSSS.ai.additional_index import top_k, INDEX_KINDS, get_docs
+
+from OSSS.ai.session_store import (
+    get_or_create_session,
+    touch_session,
+    prune_expired_sessions,
+    RagSession,
+)
 
 # Try to reuse the same ChatMessage model from your gateway
 try:
@@ -50,8 +60,12 @@ except Exception:  # fallback, same as in your ai_gateway
         # Allow up to 2048 tokens by default
         TUTOR_MAX_TOKENS: int = 8192
         DEFAULT_MODEL: str = "llama3.2-vision"
+        RAG_UPLOAD_ROOT: str = "/tmp/osss_rag_uploads"
 
     settings = _Settings()  # type: ignore
+
+# Root directory for per-session temp files
+RAG_UPLOAD_ROOT = Path(getattr(settings, "RAG_UPLOAD_ROOT", "/tmp/osss_rag_uploads"))
 
 
 router = APIRouter(
@@ -94,7 +108,6 @@ class RAGRequest(BaseModel):
     intent: Optional[str] = None  # Optional field to override intent classification
 
 
-
 def _normalize_dcg_expansion(text: str) -> str:
     """
     Force 'DCG' to only mean Dallas Center-Grimes Community School District
@@ -126,6 +139,7 @@ def _normalize_dcg_expansion(text: str) -> str:
     )
 
     return text
+
 
 DEFAULT_PAYLOAD = (
     '{"model":"llama3.2-vision",'
@@ -201,9 +215,31 @@ async def chat_rag(
     print("INDEX:", rag.index)
     print("RAG:", str(rag))
 
-    # 👇 NEW: access the agent_session_id sent from the frontend
-    agent_session_id = rag.agent_session_id
-    logger.info(f"RAG agent_session_id={agent_session_id}")
+    # --- Session pruning + temp-file cleanup -------------------------
+    expired_ids = prune_expired_sessions()
+    if expired_ids:
+        logger.info(f"[RAG] pruned {len(expired_ids)} expired sessions")
+        for sid in expired_ids:
+            sess_dir = RAG_UPLOAD_ROOT / sid
+            if sess_dir.exists():
+                try:
+                    shutil.rmtree(sess_dir)
+                    logger.info(f"[RAG] removed temp dir for expired session {sid}: {sess_dir}")
+                except Exception as e:
+                    logger.warning(
+                        f"[RAG] failed to remove temp dir for session {sid} at {sess_dir}: {e}"
+                    )
+
+    # --- Session handling (persistent store) -------------------------
+    session = get_or_create_session(rag.agent_session_id)
+    agent_session_id = session.id
+
+    logger.info(
+        f"[RAG] agent_session_id={agent_session_id} "
+        f"turns={session.turns} "
+        f"created_at={session.created_at.isoformat()} "
+        f"last_access={session.last_access.isoformat()}"
+    )
 
     base = getattr(settings, "VLLM_ENDPOINT", "http://host.containers.internal:11434").rstrip("/")
     embed_url = f"{base}/api/embeddings"
@@ -222,18 +258,53 @@ async def chat_rag(
         else getattr(settings, "TUTOR_TEMPERATURE", 0.1)
     )
 
-    # Handle file processing (you can save or process files here)
+    # Handle file processing: store under a per-session temp directory
     if files:
+        session_dir = RAG_UPLOAD_ROOT / agent_session_id
+        try:
+            session_dir.mkdir(parents=True, exist_ok=True)
+        except Exception as e:
+            logger.error(f"[RAG] failed to create session upload dir {session_dir}: {e}")
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to create session upload directory",
+            )
+
         for file in files:
-            contents = await file.read()
-            logger.info(f"Processing file: {file.filename}")
-            # Optionally save the file or use the contents for further processing
-            # For example, you can save the file to disk:
-            # with open(f"./uploads/{file.filename}", "wb") as f:
-            #     f.write(contents)
+            try:
+                contents = await file.read()
+                dest_path = session_dir / file.filename
+                # Overwrite if exists (open with "wb") – ensures latest upload wins
+                with open(dest_path, "wb") as f:
+                    f.write(contents)
+                logger.info(
+                    f"[RAG] saved uploaded file for session {agent_session_id}: {dest_path}"
+                )
+            except Exception as e:
+                logger.error(
+                    f"[RAG] failed to save uploaded file {file.filename} "
+                    f"for session {agent_session_id}: {e}"
+                )
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Failed to save uploaded file {file.filename}",
+                )
 
+    # ---- Gather list of files currently in this session's temp dir ---
+    session_files: list[str] = []
+    session_dir = RAG_UPLOAD_ROOT / agent_session_id
+    if session_dir.exists() and session_dir.is_dir():
+        try:
+            for p in session_dir.iterdir():
+                if p.is_file():
+                    session_files.append(p.name)
+        except Exception as e:
+            logger.warning(
+                f"[RAG] failed to list files for session {agent_session_id} "
+                f"at {session_dir}: {e}"
+            )
 
-    # Respect caller's max_tokens but cap at 2048, with sane defaults
+    # Respect caller's max_tokens but cap at 8192, with sane defaults
     requested_max = (
         rag.max_tokens
         if rag.max_tokens is not None
@@ -252,9 +323,8 @@ async def chat_rag(
     query = user_messages[-1].content
 
     # ---- Intent Classification ----
-    intent = "general"  # Default to general intent if none specified
+    intent: str | Intent | None = "general"  # Default to general intent if none specified
     try:
-        # Use a function to classify the intent of the query
         intent_result = await classify_intent(query)
         intent = intent_result.intent
         logger.info(f"Classified intent: {intent}")
@@ -263,18 +333,30 @@ async def chat_rag(
 
     logger.info(f"Intent for the query: {intent}")
 
+    # ---- normalize intent for storage/response ----------------------
+    if isinstance(intent, Intent):
+        intent_label: str | None = intent.value
+    elif isinstance(intent, str):
+        intent_label = intent
+    else:
+        intent_label = None
+
+    # Update persistent session metadata (including last_access timestamp)
+    touch_session(
+        agent_session_id,
+        intent=intent_label,
+        query=query,
+    )
+
     # ---- Handle special routing for specific intents (e.g., registration) ----
-    if intent == "register_new_student":
+    if intent_label == "register_new_student":
         logger.info(f"Processing registration for new student with query: {query}")
 
-        # Prepare action data as a dictionary
         action_data = {
             "query": query,
             "registration_agent_id": "registration-agent",
             "registration_skill": "registration",
-            # 👇 optionally forward the session id to A2A as well
             "agent_session_id": agent_session_id,
-
         }
 
         registration_url = "http://a2a:8086/admin/registration"
@@ -300,11 +382,9 @@ async def chat_rag(
                     "No details available.",
                 )
 
-                # Build a debug_neighbors-style list so the frontend can treat it
-                # like retrieved_chunks from RAG.
                 debug_neighbors = [
                     {
-                        "score": 1.0,  # synthetic score – always 'most relevant'
+                        "score": 1.0,
                         "filename": "registration_run",
                         "chunk_index": None,
                         "text_preview": registration_message[:800],
@@ -314,29 +394,19 @@ async def chat_rag(
                     }
                 ]
 
-                # Shape the response exactly like the RAG debug format:
-                # {
-                #   "answer": <LLM-like object or message>,
-                #   "retrieved_chunks": [...],
-                #   "index": <str>,
-                #   "intent": <str>
-                # }
                 user_response = {
                     "answer": {
-                        # Minimal shape needed for ChatClient.tsx:
-                        # it reads core?.message?.content
                         "message": {
                             "role": "assistant",
                             "content": registration_message,
                         },
-                        # Optional extras if you want to mimic Ollama/OpenAI more closely:
                         "status": registration_status,
                     },
                     "retrieved_chunks": debug_neighbors,
                     "index": "registration",
                     "intent": "register_new_student",
-                    # 👇 echo back session id
                     "agent_session_id": agent_session_id,
+                    "session_files": session_files,  # 👈 include temp files list
                 }
 
                 logger.info(f"Registration user_response: {user_response}")
@@ -362,6 +432,7 @@ async def chat_rag(
                     "error": "Registration failed",
                     "details": response.text,
                     "agent_session_id": agent_session_id,
+                    "session_files": session_files,  # 👈 include temp files list
                 }
 
         except requests.exceptions.RequestException as e:
@@ -382,11 +453,11 @@ async def chat_rag(
                 "error": "Network error",
                 "details": str(e),
                 "agent_session_id": agent_session_id,
+                "session_files": session_files,  # 👈 include temp files list
             }
 
     # ---- 2) embed query ----
     async with httpx.AsyncClient(timeout=10.0) as client:
-        # Ollama /api/embeddings expects {"model": "...", "prompt": "..."}
         embed_req = {"model": "nomic-embed-text", "prompt": query}
         er = await client.post(embed_url, json=embed_req)
         if er.status_code >= 400:
@@ -395,10 +466,6 @@ async def chat_rag(
         ej = er.json()
         print("[/ai/chat/rag] embed_raw:", ej)
 
-        # Handle multiple possible schemas:
-        # 1) OpenAI-style: {"data":[{"embedding":[...]}]}
-        # 2) Ollama-style: {"embedding":[...]}
-        # 3) Some servers: {"embeddings":[[...], [...]]}
         if isinstance(ej, dict) and "data" in ej:
             vec = ej["data"][0]["embedding"]
         elif isinstance(ej, dict) and "embedding" in ej:
@@ -406,7 +473,6 @@ async def chat_rag(
         elif isinstance(ej, dict) and "embeddings" in ej:
             vec = ej["embeddings"][0]
         else:
-            # Surface the full response so you can see what's going on
             raise HTTPException(
                 status_code=500,
                 detail={"error": "Unexpected embedding response schema", "response": ej},
@@ -415,7 +481,6 @@ async def chat_rag(
         query_emb = np.array(vec, dtype="float32")
 
     # ---- 3) top-k neighbors ----
-    # Choose which additional index to query: main / tutor / agent
     requested_index = (rag.index or "main").strip()
     if requested_index not in INDEX_KINDS:
         print(
@@ -424,10 +489,8 @@ async def chat_rag(
         )
         requested_index = "main"
 
-    # Broader retrieval so the model can see more staff-directory chunks
     neighbors = top_k(query_emb, k=12, index=requested_index)
 
-    # Detailed debug of retrieval
     print(
         "[/ai/chat/rag] retrieved_neighbors_count=",
         len(neighbors),
@@ -445,7 +508,6 @@ async def chat_rag(
     else:
         parts = []
         for score, chunk in neighbors:
-            # image metadata in the context (for the model, optional)
             image_paths = getattr(chunk, "image_paths", None) or []
             meta = f"[score={score:.3f} | file={chunk.filename} | idx={chunk.chunk_index}]"
             if image_paths:
@@ -453,7 +515,6 @@ async def chat_rag(
             parts.append(f"{meta}\n{chunk.text}")
         context = "\n\n".join(parts)
 
-    # DEBUG: log what we retrieved so you can verify it’s using the right index
     print("[/ai/chat/rag] retrieved_chunks=", len(neighbors))
     if neighbors:
         first_score, first_chunk = neighbors[0]
@@ -465,7 +526,6 @@ async def chat_rag(
             repr(first_chunk.text[:300]),
         )
 
-    # ---- 4) build grounded system prompt ----
     system_text = (
         "In this conversation, the acronym 'DCG' ALWAYS means 'Dallas Center-Grimes Community "
         "School District' and never anything else. It does NOT mean Des Moines Christian or any "
@@ -492,7 +552,6 @@ async def chat_rag(
     }
 
     async with httpx.AsyncClient(timeout=60.0) as client:
-        # ---- first completion call ----
         r = await client.post(chat_url, json=chat_req)
 
         print(
@@ -507,7 +566,6 @@ async def chat_rag(
 
         data = r.json()
 
-        # ---- AUTO-CONTINUE LOOP: if finish_reason == 'length', keep going ----
         try:
             choices = data.get("choices") or []
             first = choices[0] if choices else {}
@@ -517,7 +575,7 @@ async def chat_rag(
 
             full_content = content
             continue_count = 0
-            max_continues = 20  # safety guard; bump if you want even more
+            max_continues = 20
 
             while finish_reason == "length" and continue_count < max_continues:
                 continue_count += 1
@@ -526,7 +584,6 @@ async def chat_rag(
                     f"current_len={len(full_content)}"
                 )
 
-                # Extend the conversation with the previous assistant text and a "continue" request
                 messages.append({"role": "assistant", "content": content})
                 messages.append(
                     {
@@ -561,9 +618,8 @@ async def chat_rag(
                 content = msg2.get("content", "") or ""
 
                 full_content += content
-                data = data2  # keep latest metadata for usage / finish_reason logs
+                data = data2
 
-            # Ensure final `data` carries the stitched-together content
             if data.get("choices"):
                 data["choices"][0].setdefault("message", {})
                 data["choices"][0]["message"]["content"] = full_content
@@ -571,7 +627,6 @@ async def chat_rag(
         except Exception as e:
             print("[/ai/chat/rag] auto-continue failed:", e)
 
-        # ---- quick debug on final model behavior ----
         try:
             choices = data.get("choices") or []
             first = choices[0] if choices else {}
@@ -594,30 +649,13 @@ async def chat_rag(
         except Exception as e:
             print("[/ai/chat/rag] debug inspection failed:", e)
 
-        # normalize DCG expansion + redact outbound if needed
         for choice in data.get("choices", []):
             msg = choice.get("message") or {}
             if isinstance(msg.get("content"), str):
                 content = msg["content"]
-                # 1) fix any wrong DCG expansions
                 content = _normalize_dcg_expansion(content)
-                # 2) apply your existing PII redaction
                 content = redact_pii(content)
                 msg["content"] = content
-
-        # ---- normalize intent for JSON payload back to the client ----
-        intent_label: str | None = None
-        try:
-            # If you imported Intent at the top: from OSSS.ai.intents import Intent
-            if isinstance(intent, Intent):
-                intent_label = intent.value
-            elif isinstance(intent, str):
-                intent_label = intent
-        except NameError:
-            # 'intent' not defined in this code path
-            intent_label = None
-
-        # ---- debug rag: return neighbors along with the answer ----
 
         debug_neighbors = []
         for score, chunk in neighbors:
@@ -627,11 +665,9 @@ async def chat_rag(
                     "filename": getattr(chunk, "filename", None),
                     "chunk_index": getattr(chunk, "chunk_index", None),
                     "text_preview": chunk.text[:800],
-                    # image paths from the indexer (relative to project root)
                     "image_paths": getattr(chunk, "image_paths", None),
                     "page_index": getattr(chunk, "page_index", None),
                     "page_chunk_index": getattr(chunk, "page_chunk_index", None),
-                    # NEW: propagate these from the indexed record
                     "source": getattr(chunk, "source", None),
                     "pdf_index_path": getattr(chunk, "pdf_index_path", None),
                 }
@@ -643,4 +679,5 @@ async def chat_rag(
             "index": requested_index,
             "intent": intent_label,
             "agent_session_id": agent_session_id,
+            "session_files": session_files,  # 👈 list of filenames in temp dir for this session
         }
