@@ -894,6 +894,8 @@ export default function ChatClient() {
         temperature: 0.2,
         stream: false,
         index: "main",
+        max_tokens: 8000,
+
       };
 
 
@@ -1004,14 +1006,10 @@ export default function ChatClient() {
       // Work on the display version (preserve newlines)
       replyForDisplay = (replyForDisplay ?? "").trimEnd();
 
-      // Append router intent + classifier info *after* the answer
+      // Append router intent *only* (no classifier detail line)
       if (returnedIntent) {
         replyForDisplay += `\n\n---\n**Intent:** ${returnedIntent}`;
       }
-
-      replyForDisplay += `\n\n_Intent (classif: ${intentDescription} (${classifierIntent}${
-        intentConfidence != null ? `, ${intentConfidence.toFixed(2)}` : ""
-      })_`;
 
 
 

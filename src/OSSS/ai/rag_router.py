@@ -48,7 +48,7 @@ except Exception:  # fallback, same as in your ai_gateway
         VLLM_ENDPOINT: str = "http://host.containers.internal:11434"
         TUTOR_TEMPERATURE: float = 0.2
         # Allow up to 2048 tokens by default
-        TUTOR_MAX_TOKENS: int = 2048
+        TUTOR_MAX_TOKENS: int = 8192
         DEFAULT_MODEL: str = "llama3.2-vision"
 
     settings = _Settings()  # type: ignore
@@ -85,7 +85,7 @@ class RAGRequest(BaseModel):
         description="Conversation messages for the model",
     )
     # Default to 2048 if the client doesn't specify
-    max_tokens: Optional[int] = 2048
+    max_tokens: Optional[int] = 8192
     temperature: Optional[float] = 0.1
     debug: Optional[bool] = False
     # NEW: which additional index to query ("main", "tutor", or "agent")
@@ -130,7 +130,7 @@ def _normalize_dcg_expansion(text: str) -> str:
 DEFAULT_PAYLOAD = (
     '{"model":"llama3.2-vision",'
     '"messages":[{"role":"system","content":"You are a helpful assistant."}],'
-    '"max_tokens":2048,'
+    '"max_tokens":8192,'
     '"temperature":0.1,'
     '"debug":false,'
     '"index":"main"}'
@@ -233,13 +233,13 @@ async def chat_rag(
     requested_max = (
         rag.max_tokens
         if rag.max_tokens is not None
-        else getattr(settings, "TUTOR_MAX_TOKENS", 2048)
+        else getattr(settings, "TUTOR_MAX_TOKENS", 8192)
     )
     try:
         requested_max_int = int(requested_max)
     except (TypeError, ValueError):
         requested_max_int = 2048
-    max_tokens = max(1, min(requested_max_int, 2048))
+    max_tokens = max(1, min(requested_max_int, 8192))
 
     # ---- 1) last user message ----
     user_messages = [m for m in rag.messages if m.role == "user"]
@@ -506,7 +506,7 @@ async def chat_rag(
 
             full_content = content
             continue_count = 0
-            max_continues = 5  # safety guard; bump if you want even more
+            max_continues = 20  # safety guard; bump if you want even more
 
             while finish_reason == "length" and continue_count < max_continues:
                 continue_count += 1
