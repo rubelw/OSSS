@@ -620,12 +620,15 @@ async def chat_rag(
                     "image_paths": getattr(chunk, "image_paths", None),
                     "page_index": getattr(chunk, "page_index", None),
                     "page_chunk_index": getattr(chunk, "page_chunk_index", None),
+                    # NEW: propagate these from the indexed record
+                    "source": getattr(chunk, "source", None),
+                    "pdf_index_path": getattr(chunk, "pdf_index_path", None),
                 }
             )
+
         return {
             "answer": data,
             "retrieved_chunks": debug_neighbors,
             "index": requested_index,
             "intent": intent_label,
         }
-

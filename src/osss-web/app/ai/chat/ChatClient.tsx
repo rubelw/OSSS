@@ -28,6 +28,8 @@ interface RetrievedChunk {
   image_paths?: string[] | null;
   page_index?: number | null;
   page_chunk_index?: number | null;
+  pdf_index_path?: string | null; // 👈 add this
+
 }
 
 
@@ -134,46 +136,12 @@ function buildSourcesHtmlFromChunks(chunks: RetrievedChunk[]): string {
   const items: string[] = [];
 
   for (const c of chunks) {
-    let sourcePath: string | null = null;
-
-    // 1) Prefer `source` if backend ever starts sending it
-    if (typeof (c as any).source === "string" && (c as any).source.length > 0) {
-      sourcePath = (c as any).source;
-    }
-
-    // 2) Otherwise, try to derive from the first image path
-    if (!sourcePath && c.image_paths && c.image_paths.length > 0) {
-      const firstImage = c.image_paths[0]; // e.g. "vector_indexes/main/images/school_board/DCG-SchoolBoard/2025-6-10/.../Dr. Scott Blum ..._p2_15bc9f20.jpeg"
-      const prefix = "vector_indexes/main/images/";
-
-      if (firstImage.startsWith(prefix)) {
-        const rel = firstImage.slice(prefix.length); // "school_board/DCG-SchoolBoard/2025-6-10/.../Dr. Scott Blum ..._p2_15bc9f20.jpeg"
-
-        const lastSlash = rel.lastIndexOf("/");
-        const dir = lastSlash >= 0 ? rel.slice(0, lastSlash + 1) : "";
-        const fileWithSuffix = lastSlash >= 0 ? rel.slice(lastSlash + 1) : rel;
-
-        // Try to strip `_p<page>_<hash>.(jpg|png)` and turn into `.pdf`
-        let pdfName: string;
-        const m = fileWithSuffix.match(/^(.*)_p\d+_[^.]+\.(?:jpe?g|png)$/i);
-        if (m && m[1]) {
-          pdfName = `${m[1]}.pdf`;
-        } else if (c.filename) {
-          // Fallback to filename if pattern didn't match
-          pdfName = c.filename;
-        } else {
-          // Very last-resort fallback
-          pdfName = fileWithSuffix.replace(/\.(jpe?g|png)$/i, ".pdf");
-        }
-
-        sourcePath = dir + pdfName; // e.g. "school_board/DCG-SchoolBoard/2025-6-10/.../Dr. Scott Blum ...pdf"
-      }
-    }
-
-    // 3) Final fallback: just use filename (old behavior)
-    if (!sourcePath && c.filename) {
-      sourcePath = c.filename;
-    }
+    // 👇 centralize how we compute the source path
+    const sourcePath: string | undefined =
+      (c as any).pdf_index_path || // best: mirrored path under vector_indexes/.../pdfs
+      (c as any).source ||         // next best: source path from indexer
+      c.filename ||                // fallback: bare filename
+      undefined;
 
     if (!sourcePath) continue;
 

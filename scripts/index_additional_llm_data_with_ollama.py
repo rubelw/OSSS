@@ -569,10 +569,14 @@ def parse_args():
     return parser.parse_args()
 
 
-def save_pdf_to_pdfs_folder(pdf_path: str):
+def save_pdf_to_pdfs_folder(pdf_path: str) -> str | None:
     """
     Copy the processed PDF into PDFS_ROOT mirroring the source directory structure
     relative to DATA_ROOT, so PDF copies live under vector_indexes/<index>/pdfs/...
+
+    Returns:
+        str | None: path to the copied PDF relative to PDFS_ROOT
+                    e.g. "school_board/DCG-SchoolBoard/2025-6-10/.../Dr. Scott Blum ....pdf"
     """
     try:
         asset_dir, rel, dir_rel = get_asset_dir_for_path(pdf_path, PDFS_ROOT)
@@ -581,14 +585,19 @@ def save_pdf_to_pdfs_folder(pdf_path: str):
 
         if not os.path.exists(dest_path):
             shutil.copy2(pdf_path, dest_path)
-            rel_dest = os.path.relpath(dest_path, PROJECT_ROOT)
-            log(f"  Saved source PDF copy to {rel_dest}")
+            rel_dest_root = os.path.relpath(dest_path, PROJECT_ROOT)
+            log(f"  Saved source PDF copy to {rel_dest_root}")
         else:
-            rel_dest = os.path.relpath(dest_path, PROJECT_ROOT)
-            log(f"  PDF copy already exists at {rel_dest}")
+            rel_dest_root = os.path.relpath(dest_path, PROJECT_ROOT)
+            log(f"  PDF copy already exists at {rel_dest_root}")
+
+        # Return path relative to the PDFS_ROOT (this is what the API will append)
+        rel_dest_pdf_root = os.path.relpath(dest_path, PDFS_ROOT)
+        return rel_dest_pdf_root
+
     except Exception as e:
         log(f"  ! Failed to copy PDF into mirrored pdfs folder: {e}")
-
+        return None
 
 def process_pdf(pdf_path: str, idx: int, total: int, args):
     log(f"\n---- [{idx}/{total}] Processing PDF ----")
@@ -601,7 +610,8 @@ def process_pdf(pdf_path: str, idx: int, total: int, args):
         return
 
     # Save a copy of the PDF into the mirrored structure under PDFS_ROOT
-    save_pdf_to_pdfs_folder(pdf_path)
+    # and get the path relative to PDFS_ROOT (e.g. "school_board/.../Dr. Scott ....pdf")
+    pdf_index_rel = save_pdf_to_pdfs_folder(pdf_path)
 
     # Build per-chunk data: text + metadata (page index, image paths, OCR texts)
     all_chunks: List[str] = []
@@ -615,7 +625,6 @@ def process_pdf(pdf_path: str, idx: int, total: int, args):
         image_ocr_texts = page_data.get("image_ocr_texts", []) or []
 
         if not page_text:
-            # If truly no text even after OCR, skip
             continue
 
         # Normalize whitespace before chunking
@@ -650,7 +659,7 @@ def process_pdf(pdf_path: str, idx: int, total: int, args):
     rel, dir_rel, context_prefix = build_pdf_context_prefix(pdf_path)
     filename = os.path.basename(pdf_path)
 
-    # Build embedding_text by prepending the directory context to each chunk
+    # embedding_text = directory context + chunk text
     if context_prefix:
         embedding_texts = [context_prefix + chunk for chunk in all_chunks]
     else:
@@ -667,7 +676,6 @@ def process_pdf(pdf_path: str, idx: int, total: int, args):
     doc_ids = [str(uuid.uuid4()) for _ in all_chunks]
 
     try:
-        # IMPORTANT: embed the enriched text, not the raw chunk
         embeddings = embed_batch(embedding_texts)
     except Exception as e:
         log(f"  ! Embedding error, skipping this PDF: {e}")
@@ -682,11 +690,9 @@ def process_pdf(pdf_path: str, idx: int, total: int, args):
     written_count = 0
     skipped_count = 0
 
-    # Now continue with appending to the file (no per-id existence check in full rebuild)
     with open(OUT_FILE, "a", encoding="utf-8") as out_f:
-        for doc_id, chunk, emb_idx in zip(doc_ids, all_chunks, range(len(all_chunks))):
+        for emb_idx, (doc_id, chunk, emb) in enumerate(zip(doc_ids, all_chunks, embeddings)):
             m = meta[emb_idx]
-            emb = embeddings[emb_idx]
 
             # Skip chunks where embedding fell back to a zero-vector
             if isinstance(emb, list) and len(emb) == 1 and emb[0] == 0.0:
@@ -700,12 +706,15 @@ def process_pdf(pdf_path: str, idx: int, total: int, args):
                 "chunk_index": emb_idx,
                 "page_index": m["page_index"],
                 "page_chunk_index": m["page_chunk_index"],
-                "text": chunk,  # raw clean chunk text (no directory prefix)
-                "embedding_text": embedding_texts[emb_idx],  # what we actually embedded
+                "text": chunk,  # raw clean chunk text
+                "embedding_text": embedding_texts[emb_idx],
                 "embedding": emb,
                 "image_paths": m.get("image_paths", []),
                 "image_ocr_texts": m.get("image_ocr_texts", []),
-                "directory_context": dir_rel,  # e.g. "responsibilities"
+                "directory_context": dir_rel,
+                # 👇 NEW: path to the mirrored PDF under vector_indexes/<index>/pdfs
+                # e.g. "school_board/DCG-SchoolBoard/2025-6-10/special_meeting/attachments/Dr. Scott Blum ....pdf"
+                "pdf_index_path": pdf_index_rel,
             }
             out_f.write(json.dumps(record) + "\n")
             written_count += 1
