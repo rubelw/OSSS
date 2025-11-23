@@ -8,6 +8,7 @@ import httpx
 import numpy as np
 from fastapi import APIRouter, Depends, HTTPException, Form, File, UploadFile
 from pydantic import BaseModel, Field
+import ast
 
 import requests
 import json
@@ -330,24 +331,40 @@ async def chat_rag(
         raise HTTPException(status_code=400, detail="No user message found")
     query = user_messages[-1].content
 
-    # ---- Intent Classification ----
-    intent: str | Intent | None = "general"  # Default to general intent if none specified
+    # ---- Look at any prior session intent ---------------------------
+    session_intent = getattr(session, "intent", None)
+
+    # ---- Intent Classification (this turn) --------------------------
+    classified: str | Intent | None = "general"
     try:
         intent_result = await classify_intent(query)
-        intent = intent_result.intent
-        logger.info(f"Classified intent: {intent}")
+        classified = intent_result.intent
+        logger.info(f"Classified intent: {classified}")
     except Exception as e:
         logger.error(f"Error classifying intent: {e}")
 
-    logger.info(f"Intent for the query: {intent}")
-
-    # ---- normalize intent for storage/response ----------------------
-    if isinstance(intent, Intent):
-        intent_label: str | None = intent.value
-    elif isinstance(intent, str):
-        intent_label = intent
+    # Normalize classified intent
+    if isinstance(classified, Intent):
+        classified_label: str | None = classified.value
+    elif isinstance(classified, str):
+        classified_label = classified
     else:
-        intent_label = None
+        classified_label = None
+
+    # ---- Make registration intent "sticky" --------------------------
+    # If the session was already in registration mode, stay there.
+    if session_intent == "register_new_student":
+        intent_label = "register_new_student"
+    else:
+        # Otherwise, use the freshly classified label (or fall back)
+        intent_label = classified_label or session_intent or "general"
+
+    logger.info(
+        "Effective intent for this turn: %r (session_intent=%r, classified=%r)",
+        intent_label,
+        session_intent,
+        classified_label,
+    )
 
     # Update persistent session metadata (including last_access timestamp)
     touch_session(
@@ -360,13 +377,12 @@ async def chat_rag(
     if intent_label == "register_new_student":
         logger.info(f"Processing registration for new student with query: {query}")
 
-        # NEW: forward optional agent_id to registration agent
         action_data = {
             "query": query,
             "registration_agent_id": "registration-agent",
             "registration_skill": "registration",
             "agent_session_id": agent_session_id,
-            "agent_id": agent_id,   # may be None
+            "agent_id": agent_id,  # may be None, caller can override
             "agent_name": "registration",
         }
 
@@ -382,47 +398,137 @@ async def chat_rag(
 
             if response.status_code == 200:
                 result = response.json()
-                result["intent"] = "register_new_student"
-
-                logger.info(f"Registration raw result from A2A: {result}")
+                logger.info("Registration raw result from A2A: %s", result)
 
                 registration_run = result.get("registration_run", {}) or {}
-                registration_status = registration_run.get("status", "Unknown")
-                registration_message = registration_run.get(
-                    "output_preview",
-                    "No details available.",
-                )
 
+                # ---- 1) Pull the inner payload from output_preview --------
+                inner_payload = None
+
+                # (a) If registration_run["answer"] is already a dict, use it
+                if isinstance(registration_run.get("answer"), dict):
+                    inner_payload = registration_run["answer"]
+                else:
+                    op = registration_run.get("output_preview")
+                    if isinstance(op, dict):
+                        inner_payload = op
+                    elif isinstance(op, str):
+                        # Always *try* to parse, don’t require perfect { ... } wrapping,
+                        # since the service may truncate or pad the string.
+                        try:
+                            import ast
+                            inner_payload = ast.literal_eval(op)
+                        except Exception as e:
+                            logger.warning(
+                                "Failed to parse output_preview as dict: %s op=%r",
+                                e,
+                                op[:200],
+                            )
+                            inner_payload = None
+
+                # ---- 2) Normalize to simple fields ------------------------
+                if isinstance(inner_payload, dict):
+                    registration_answer_text = (
+                            inner_payload.get("answer")
+                            or inner_payload.get("message")
+                            or "No details available."
+                    )
+
+                    registration_intent = inner_payload.get(
+                        "intent",
+                        registration_run.get("intent", "register_new_student"),
+                    )
+
+                    # Prefer what the registration agent says; then run-level; then static fallback
+                    registration_agent_id = (
+                            inner_payload.get("agent_id")
+                            or registration_run.get("agent_id")
+                            or "registration-agent"
+                    )
+
+                    registration_agent_name = (
+                            inner_payload.get("agent_name")
+                            or registration_run.get("agent_name")
+                            or "Registration"
+                    )
+
+                    registration_session_id = (
+                            inner_payload.get("agent_session_id")
+                            or registration_run.get("agent_session_id")
+                            or agent_session_id
+                    )
+                else:
+                    # Could not parse, fall back to the raw preview string
+                    op = registration_run.get("output_preview") or "No details available."
+                    registration_answer_text = str(op)
+
+                    registration_intent = registration_run.get(
+                        "intent",
+                        "register_new_student",
+                    )
+
+                    registration_agent_id = (
+                            registration_run.get("agent_id")
+                            or "registration-agent"
+                    )
+
+                    registration_agent_name = (
+                            registration_run.get("agent_name")
+                            or "Registration"
+                    )
+
+                    registration_session_id = (
+                            registration_run.get("agent_session_id")
+                            or agent_session_id
+                    )
+
+                # After you have registration_answer_text set:
+                if isinstance(registration_answer_text, str):
+                    stripped = registration_answer_text.strip()
+                    # If the *answer itself* still looks like a dict string, try to unwrap again
+                    if stripped.startswith("{") and ("'answer'" in stripped or '"answer"' in stripped):
+                        try:
+                            maybe_dict = ast.literal_eval(stripped)
+                            if isinstance(maybe_dict, dict) and "answer" in maybe_dict:
+                                registration_answer_text = maybe_dict["answer"]
+                        except Exception as e:
+                            logger.warning(
+                                "Failed to normalize registration_answer_text as dict: %s text=%r",
+                                e,
+                                stripped[:200],
+                            )
+
+                # ---- 3) Build retrieved_chunks -----------------------------
                 debug_neighbors = [
                     {
                         "score": 1.0,
                         "filename": "registration_run",
                         "chunk_index": None,
-                        "text_preview": registration_message[:800],
+                        "text_preview": str(registration_answer_text)[:800],
                         "image_paths": None,
                         "page_index": None,
                         "page_chunk_index": None,
                     }
                 ]
 
+                # ---- 4) FINAL payload: same shape as normal RAG -----------
                 user_response = {
                     "answer": {
                         "message": {
                             "role": "assistant",
-                            "content": registration_message,
+                            "content": registration_answer_text,
                         },
-                        "status": registration_status,
+                        "status": registration_run.get("status", "ok"),
                     },
                     "retrieved_chunks": debug_neighbors,
                     "index": "registration",
-                    "intent": "register_new_student",
-                    "agent_session_id": agent_session_id,
+                    "intent": registration_intent,
+                    "agent_session_id": registration_session_id,
                     "session_files": session_files,
-                    "agent_id": agent_id,       # echo agent_id back to client
-                    "agent_name": agent_name,   # echo agent_name back to client
+                    "agent_id": registration_agent_id,
+                    "agent_name": registration_agent_name,
                 }
 
-                # 🔍 Log the final response going back to ChatClient
                 logger.info(
                     "[RAG] response to client (registration success): %s",
                     json.dumps(user_response, ensure_ascii=False)[:4000],
