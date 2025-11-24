@@ -2,7 +2,7 @@
 set -e
 
 # ---------------------------
-# Postgres bootstrap (unchanged)
+# Postgres bootstrap: role + DBs
 # ---------------------------
 psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<SQL
 DO \$\$
@@ -19,9 +19,57 @@ END
 \$\$;
 SQL
 
-# Create DB (will error if it already exists; harmless on first init)
+# Drop + recreate OSSS and Tutor DBs
 psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<SQL
+DROP DATABASE IF EXISTS "${OSSS_DB_NAME}";
+DROP DATABASE IF EXISTS "${OSSS_TUTOR_DB_NAME:-osss_tutor}";
+
 CREATE DATABASE "${OSSS_DB_NAME}" OWNER "${OSSS_DB_USER}";
+CREATE DATABASE "${OSSS_TUTOR_DB_NAME:-osss_tutor}" OWNER "${OSSS_DB_USER}";
+SQL
+
+# ---------------------------
+# OSSS Tutor DB + tutor_chunks table
+# ---------------------------
+
+# In the tutor DB, create extension/table/indexes idempotently
+psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "${OSSS_TUTOR_DB_NAME:-osss_tutor}" <<'SQL'
+-- enable pgvector only if available
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_available_extensions WHERE name = 'vector') THEN
+    CREATE EXTENSION IF NOT EXISTS vector;
+  END IF;
+END
+$$;
+
+-- create table once
+DO $$
+BEGIN
+  IF to_regclass('public.tutor_chunks') IS NULL THEN
+    CREATE TABLE public.tutor_chunks (
+      id         VARCHAR(36) PRIMARY KEY,
+      doc_id     VARCHAR(36) NOT NULL,
+      text       TEXT NOT NULL,
+      embedding  DOUBLE PRECISION[],
+      created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+  END IF;
+END
+$$;
+
+-- create indexes once
+DO $$
+BEGIN
+  IF to_regclass('public.ix_tutor_chunks_doc_id') IS NULL THEN
+    CREATE INDEX ix_tutor_chunks_doc_id ON public.tutor_chunks (doc_id);
+  END IF;
+
+  IF to_regclass('public.idx_tutor_chunks_embedding') IS NULL THEN
+    CREATE INDEX idx_tutor_chunks_embedding ON public.tutor_chunks (id);
+  END IF;
+END
+$$;
 SQL
 
 # ---------------------------
@@ -85,13 +133,10 @@ realm_exists() {
     "$KC_URL/admin/realms/$REALM" >/dev/null 2>&1
 }
 
-# Inject ifResourceExists into a top-level JSON object without jq
-# Assumes the file is a single JSON object {...}
 inject_policy() {
   file="$1"
   policy="$2"
-  # strip leading BOM and whitespace, remove first '{' and last '}', then rewrap with ifResourceExists
-  content=$(cat "$file" | sed '1s/^\xEF\xBB\xBF//' )
+  content=$(cat "$file" | sed '1s/^\xEF\xBB\xBF//')
   body=$(printf '{"ifResourceExists":"%s",%s}' "$policy" \
         "$(printf '%s' "$content" | sed -e '1s/^[[:space:]]*{//' -e '$s/}[[:space:]]*$//')")
   printf '%s' "$body"
@@ -106,10 +151,9 @@ partial_import() {
     -H "Authorization: Bearer $TOKEN" \
     -H "Content-Type: application/json" \
     --data-binary "$body" >/dev/null
-  log "Keycloak partial import (${kind}) from $(basename "$file") with policy=${POLICY}"
+  log "Keycloak partial import ($kind) from $(basename "$file") with policy=$POLICY"
 }
 
-# Do the thing
 if wait_for_kc; then
   TOKEN="$(get_admin_token || true)"
   if [ -z "$TOKEN" ]; then
@@ -119,8 +163,6 @@ if wait_for_kc; then
 
   if realm_exists "$TOKEN"; then
     log "Realm '$REALM' exists — applying partial imports."
-    # NOTE: realm file is typically for creation; we skip creating realm here
-    # and import fragments (roles/clients/groups/users).
     [ -n "$CLIENTS_FILE" ] && partial_import "$CLIENTS_FILE" "clients"
     [ -n "$ROLES_FILE" ]   && partial_import "$ROLES_FILE"   "roles"
     [ -n "$GROUPS_FILE" ]  && partial_import "$GROUPS_FILE"  "groups"

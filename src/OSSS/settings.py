@@ -121,6 +121,8 @@ class Settings(BaseSettings):
     S3_BUCKET: str = "curriculum"
     S3_ACCESS_KEY: str = "minio"
     S3_SECRET_KEY: str = "minio123"
+    DISABLE_AUTH: bool = True
+
 
 
 

@@ -133,13 +133,22 @@ def generate_routers_for_all_models(prefix_base: str = "/api"):
             if tablename and not prefix.endswith(tablename):
                 log.debug("[register_all] model %s: tablename=%s prefix=%s", model.__name__, tablename, prefix)
 
+            #r = create_router_for_model(
+            #    model,
+            #    prefix=prefix,
+            #    require_auth=True,  # flip on auth for these endpoints
+            #    get_current_user=auth_get_current_user,  # <-- make it explicit
+            #    roles_map=_roles_for_table(tablename),
+            #)
+
             r = create_router_for_model(
                 model,
                 prefix=prefix,
-                require_auth=True,  # flip on auth for these endpoints
+                require_auth=False,  # <-- turn off auth for this model
                 get_current_user=auth_get_current_user,  # <-- make it explicit
-                roles_map=_roles_for_table(tablename),
+                roles_map=None,  # <-- ensure no role deps either
             )
+
             routers.append((model.__name__, r))
         except Exception:
             log.exception("[register_all] skipping %s", model.__name__)

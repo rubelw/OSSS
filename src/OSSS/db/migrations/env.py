@@ -1,297 +1,175 @@
+# src/OSSS/db/migrations/env.py
 from __future__ import annotations
+
 import os
-from pathlib import Path
+import logging
 from logging.config import fileConfig
+
 from alembic import context
-from sqlalchemy import engine_from_config, pool
-from urllib.parse import urlsplit, urlunsplit, urlencode, parse_qs, quote
-from alembic.script import ScriptDirectory
-import sys
+from sqlalchemy import create_engine, pool, MetaData
+from sqlalchemy.engine.url import make_url, URL
+from urllib.parse import urlencode, urlsplit, urlunsplit, quote, parse_qs
 
-print(f"[alembic-env] loaded: {__file__}", file=sys.stderr)
-
-# Alembic Config object
 config = context.config
 
-# Logging
+# Logging from alembic.ini
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Import metadata (optional for --autogenerate; safe if absent)
+log = logging.getLogger("alembic.env")
+
+# Import ONLY the metadata (avoid app side-effects)
 try:
-    from OSSS.db.models import Base as CoreBase
-except Exception:
-    CoreBase = None
-try:
-    from OSSS.db_tutor.models import Base as TutorBase
-except Exception:
-    TutorBase = None
+    from OSSS.models.base import Base
+    target_metadata = Base.metadata
+except Exception:  # pragma: no cover
+    target_metadata = MetaData()
 
-target_metadata = [m.metadata for m in (CoreBase, TutorBase) if m is not None] or None
+# ---------------------------------------------------------------------------
 
-# ----- paths (relative to THIS env.py) ---------------------------------------
+def ensure_sync_url(url_str: str) -> str:
+    """Force a sync driver (psycopg2) for Alembic, without masking the password."""
+    u: URL = make_url(url_str)
+    if u.get_backend_name() == "postgresql" and u.get_driver_name() in {"asyncpg", "aiopg", "psycopg"}:
+        u = u.set(drivername="postgresql+psycopg2")
+    if u.get_backend_name() == "postgresql" and (u.get_driver_name() in {None, ""}):
+        u = u.set(drivername="postgresql+psycopg2")
+    # DO NOT use str(u); it masks the password as ***
+    return u.render_as_string(hide_password=False)
 
-ENV_DIR = Path(__file__).resolve().parent                  # .../src/OSSS/db/migrations
-MAIN_VERSIONS = str(ENV_DIR / "versions")                  # .../src/OSSS/db/migrations/versions
-TUTOR_VERSIONS = str(ENV_DIR.parent.parent / "db_tutor" / "migrations" / "versions")
-# (script_location stays as configured in alembic.ini; do NOT override it globally)
+def encode_password_and_ssl(url_str: str) -> str:
+    """
+    Percent-encode password in DSN and ensure sslmode=disable if not set.
+    Returns the literal DSN (no masking).
+    """
+    url_str = ensure_sync_url(url_str)
 
-# ----- helpers ---------------------------------------------------------------
-
-def _xargs():
-    return context.get_x_argument(as_dictionary=True)
-
-def _which_branch() -> str:
-    # 'core' (default) | 'tutor' | 'both'
-    which = _xargs().get("only", "").strip().lower()
-    return which if which in {"core", "tutor", "both"} else "core"
-
-
-def _encode_url(url_str: str) -> str:
-    """Force psycopg2 + percent-encode password + add sslmode=disable if missing."""
     p = urlsplit(url_str)
-    # ensure driver
-    scheme = p.scheme
-    if scheme == "postgresql" or scheme.startswith("postgresql+"):
-        if "+psycopg2" not in scheme:
-            scheme = "postgresql+psycopg2"
-    # encode password only
+
+    # Rebuild netloc, encoding only the password (username left as-is)
     netloc = p.netloc
+    userinfo, hostport = "", netloc
     if "@" in netloc:
         userinfo, hostport = netloc.split("@", 1)
+    if userinfo:
         if ":" in userinfo:
             u, pw = userinfo.split(":", 1)
             userinfo = f"{u}:{quote(pw, safe='')}"
         netloc = f"{userinfo}@{hostport}"
-    # ensure sslmode
+    else:
+        netloc = hostport
+
+    # Ensure sslmode present (don’t override if already set)
     q = {k: (v[0] if isinstance(v, list) else v) for k, v in parse_qs(p.query).items()}
     q.setdefault("sslmode", "disable")
     query = urlencode(q)
-    return urlunsplit((scheme, netloc, p.path, query, p.fragment))
 
-# --- add this helper (near _xargs / _encode_url helpers) --------------------
-def _cli_sqlalchemy_url_override() -> str | None:
+    return urlunsplit((p.scheme, netloc, p.path, query, p.fragment))
+
+def choose_url() -> tuple[str, str]:
+    """
+    Return (raw_url, source). Do NOT normalize here—callers will.
+    """
     x = context.get_x_argument(as_dictionary=True)
-    val = x.get("sqlalchemy_url") or x.get("url")
-    return val
+    if x.get("sqlalchemy_url"):
+        return x["sqlalchemy_url"], "-x sqlalchemy_url"
 
-# --- add this offline runner -----------------------------------------------
-def _run_offline(url: str, version_table: str, versions_path: str) -> None:
+    env_candidates = (
+        "ALEMBIC_DATABASE_URL",
+        "DATABASE_URL",
+        "SQLALCHEMY_DATABASE_URL",
+        "ASYNC_DATABASE_URL",
+        "OSSS_DATABASE_URL",
+        "OSSS_DB_URL",
+    )
+    for name in env_candidates:
+        v = os.getenv(name)
+        if v:
+            return v, f"env:{name}"
+
+    ini_url = config.get_main_option("sqlalchemy.url")
+    if ini_url:
+        return ini_url, "alembic.ini sqlalchemy.url"
+
+    # Final fallback (explicit string; no SQLAlchemy URL objects here)
+    host = os.getenv("OSSS_DB_HOST", "localhost")
+    port = os.getenv("OSSS_DB_PORT", "5432")
+    name = os.getenv("OSSS_DB_NAME", "osss")
+    user = os.getenv("OSSS_DB_USER", "osss")
+    pwd  = os.getenv("OSSS_DB_PASSWORD", "password")
+    return f"postgresql+psycopg2://{user}:{pwd}@{host}:{port}/{name}", "OSSS_DB_* fallback"
+
+def _print_url(src: str, raw: str, url: str) -> None:
     """
-    Render SQL (offline) for a single branch/versions dir + version table.
+    Print the chosen URL and its source to stdout so it’s visible even if logging is quiet.
     """
-    url2 = _encode_url(url)
+    print(f"[alembic-env] URL source: {src}")
+    print(f"[alembic-env] URL raw (may be async): {raw}")
+    print(f"[alembic-env] URL normalized (sync/encoded): {url}")
 
-    original_script = config.get_main_option("script_location")
-    original_vl = config.get_main_option("version_locations")
-    try:
-        # limit discovery to this branch
-        config.set_main_option("script_location", versions_path)
-        config.set_main_option("version_locations", versions_path)
+# Optional CLI toggles: -x echo=true -x log=DEBUG
+_x = context.get_x_argument(as_dictionary=True)
+if _x.get("echo", "").lower() in {"1", "true", "yes"}:
+    config.set_main_option("sqlalchemy.echo", "true")
 
-        print(f"[alembic-env] OFFLINE versions_path={versions_path}")
-        print(f"[alembic-env] OFFLINE url={url2}  version_table={version_table}")
+lvl = _x.get("log", "").upper()
+if lvl in {"DEBUG", "INFO", "WARNING", "ERROR"}:
+    logging.getLogger("alembic").setLevel(lvl)
+    logging.getLogger("sqlalchemy.engine").setLevel(lvl)
 
+# ---------------------------------------------------------------------------
+
+def run_migrations_offline() -> None:
+    raw, src = choose_url()
+    url = encode_password_and_ssl(raw)
+
+    # Guard: fail fast if a masked password ('***') slipped in
+    from urllib.parse import urlsplit  # you already import this at top; keep or remove this line
+    if urlsplit(raw).password == "***" or urlsplit(url).password == "***":
+        raise RuntimeError("Masked password (***) detected in DSN. Pass the real secret, not the masked value.")
+
+    # (rest unchanged)
+    log.debug("URL source: %s", src)
+    log.debug("URL raw (may be async): %s", raw)
+    log.debug("URL normalized (sync/encoded): %s", url)
+    log.info("Running OFFLINE migrations using %s", url)
+    context.configure(
+        url=url,
+        target_metadata=target_metadata,
+        literal_binds=True,
+        compare_type=True,
+        compare_server_default=True,
+    )
+    with context.begin_transaction():
+        context.run_migrations()
+
+def run_migrations_online() -> None:
+    raw, src = choose_url()
+    url = encode_password_and_ssl(raw)
+
+    # Guard: fail fast if a masked password ('***') slipped in
+    from urllib.parse import urlsplit  # you already import this at top; keep or remove this line
+    if urlsplit(raw).password == "***" or urlsplit(url).password == "***":
+        raise RuntimeError("Masked password (***) detected in DSN. Pass the real secret, not the masked value.")
+
+    # (rest unchanged)
+    log.debug("URL source: %s", src)
+    log.debug("URL raw (may be async): %s", raw)
+    log.debug("URL normalized (sync/encoded): %s", url)
+    log.info("Running ONLINE migrations using %s", url)
+    engine = create_engine(url, pool_pre_ping=True, poolclass=pool.NullPool, future=True)
+    with engine.connect() as connection:
         context.configure(
-            url=url2,
+            connection=connection,
             target_metadata=target_metadata,
-            literal_binds=True,
-            include_schemas=True,
-            version_table=version_table,
+            compare_type=True,
+            compare_server_default=True,
         )
         with context.begin_transaction():
             context.run_migrations()
-    finally:
-        if original_script is None:
-            config.remove_main_option("script_location")
-        else:
-            config.set_main_option("script_location", original_script)
 
-        if original_vl is None:
-            config.remove_main_option("version_locations")
-        else:
-            config.set_main_option("version_locations", original_vl)
-
-def _choose_main_url() -> str:
-    # NOTE: CLI -x sqlalchemy_url is NOT used for core; keep env-driven behavior for core.
-    for k in ("DATABASE_URL","ALEMBIC_DATABASE_URL","SQLALCHEMY_DATABASE_URL","OSSS_DB_URL","OSSS_DATABASE_URL"):
-        v = os.getenv(k)
-        if v:
-            return v
-    return "postgresql+psycopg2://postgres:postgres@localhost:5432/postgres"
-
-# ---- add below _choose_main_url() ------------------------------------------
-def _truthy(v: str | None) -> bool:
-    return str(v).lower() in {"1", "true", "yes", "y", "on"}
-
-def _choose_tutor_url(main_url: str) -> str | None:
-    """
-    Pick the tutor DB URL unless TUTOR_SKIP is set.
-    Falls back to main_url if no tutor-specific var is set.
-    """
-    if _truthy(os.getenv("TUTOR_SKIP")):
-        return None
-
-    # Try common env names you’ve been using
-    for k in (
-        "TUTOR_DB_URL",
-        "TUTOR_ALEMBIC_DATABASE_URL",
-        "OSSS_TUTOR_DB_URL",
-        "TUTOR_DATABASE_URL",
-        "TUTOR_ASYNC_DATABASE_URL",   # will be normalized by _encode_url()
-    ):
-        v = os.getenv(k)
-        if v:
-            return v
-    return main_url
-
-# (Optional) if you want to allow using localhost when run outside containers:
-def _rewrite_localhost_host(url_str: str) -> str:
-    """
-    If not running in containers or when explicitly allowed, return url as-is.
-    Otherwise this can be used to rewrite localhost to service DNS.
-    Not used by default; call if needed.
-    """
-    return url_str
-
-def _choose_tutor_url_favor_x() -> str | None:
-    """
-    Prefer CLI -x sqlalchemy_url for tutor runs. If absent, use TUTOR_* envs.
-    Do NOT silently fall back to main unless explicitly allowed.
-    """
-    x = _xargs()
-    url = x.get("sqlalchemy_url")
-    if url:
-        return url
-
-    for k in (
-        "TUTOR_DB_URL",
-        "TUTOR_ALEMBIC_DATABASE_URL",
-        "OSSS_TUTOR_DB_URL",
-        "TUTOR_DATABASE_URL",
-        "TUTOR_ASYNC_DATABASE_URL",
-    ):
-        v = os.getenv(k)
-        if v:
-            return v
-
-    # Optional fallback to main if caller wants it:
-    if _truthy(os.getenv("TUTOR_FALLBACK_TO_MAIN")):
-        return _choose_main_url()
-
-    return None
-
-
-def _run_online(url: str, version_table: str, versions_path: str, tag: str | None = None) -> None:
-    """
-    Run one ONLINE pass, scoping Alembic to exactly one versions directory
-    and one version table. Restores config afterward.
-    """
-    url2 = _encode_url(url)
-
-    base_cfg = config.get_section(config.config_ini_section)
-    cfg = dict(base_cfg) if base_cfg else {}
-    cfg["sqlalchemy.url"] = url2
-
-    # Derive a proper migrations root from the versions_path
-    # (.../db_tutor/migrations/versions -> .../db_tutor/migrations)
-    migrations_root = str(Path(versions_path).parent)
-
-    original_script = config.get_main_option("script_location")
-    original_vl = config.get_main_option("version_locations")
-    try:
-        # ✅ Point Alembic at the migrations ROOT, not the versions folder
-        config.set_main_option("script_location", migrations_root)
-        # ✅ Still restrict discovery to exactly this versions folder
-        config.set_main_option("version_locations", versions_path)
-
-        sd = ScriptDirectory.from_config(config)
-        heads = list(sd.get_heads())
-        print(f"[alembic-env] versions_path={versions_path}")
-        print(f"[alembic-env] discovered_heads={heads}")
-        print(f"[alembic-env] url={url2}  version_table={version_table}")
-
-        connectable = engine_from_config(cfg, prefix="sqlalchemy.", poolclass=pool.NullPool, future=True)
-        try:
-            with connectable.connect() as connection:
-                row = connection.exec_driver_sql(
-                    "select current_database(), current_user, current_schema, setting "
-                    "from pg_settings where name='search_path'"
-                ).fetchone()
-                print(f"[alembic-env] DB session: db={row[0]} user={row[1]} schema={row[2]} search_path={row[3]}")
-                print(f"[alembic-env] CONNECT OK -> {url2}", file=sys.stderr)
-
-                context.configure(
-                    connection=connection,
-                    target_metadata=target_metadata,
-                    compare_type=True,
-                    compare_server_default=True,
-                    version_table=version_table,
-                    # pass a marker the revision can read *if* you still want it
-                    tag=tag,
-                )
-                print("[alembic-env] About to run migrations…")
-                with context.begin_transaction():
-                    context.run_migrations()
-        finally:
-            connectable.dispose()
-    finally:
-        if original_script is None:
-            config.remove_main_option("script_location")
-        else:
-            config.set_main_option("script_location", original_script)
-
-        if original_vl is None:
-            config.remove_main_option("version_locations")
-        else:
-            config.set_main_option("version_locations", original_vl)
-
-# ----- runners ---------------------------------------------------------------
-
-def run_migrations_offline() -> None:
-    which = _which_branch()
-    if which != "tutor":
-        # keep offline disabled for core
-        raise RuntimeError("Offline migrations enabled only for tutor. Run online for core.")
-
-    # choose URL (CLI override wins)
-    cli_url = _cli_sqlalchemy_url_override()
-    chosen = cli_url or _choose_tutor_url(_choose_main_url())
-    if not chosen:
-        raise RuntimeError("No URL for tutor branch (offline). Provide -x sqlalchemy_url=...")
-
-    vt = config.get_main_option("tutor_version_table") or "alembic_version_tutor"
-    _run_offline(chosen, vt, TUTOR_VERSIONS)
-
-def run_migrations_online() -> None:
-    x = _xargs()
-    which = (x.get("only", "") or "core").lower()
-    if which not in {"core", "tutor", "both"}:
-        which = "core"
-
-    override_url = x.get("sqlalchemy_url")
-
-    # ---- CORE ----
-    if which in {"core", "both"}:
-        core_url = override_url or _choose_main_url()
-        vt = config.get_main_option("version_table") or "alembic_version"
-        print(f"[alembic-env] CORE chosen_url={core_url!r} vt={vt}")
-        _run_online(core_url, vt, MAIN_VERSIONS)
-
-    # ---- TUTOR ----
-    if which in {"tutor", "both"}:
-        tutor_url = _choose_tutor_url(_choose_main_url())
-        if not tutor_url:
-            print("[alembic-env] TUTOR skipped (no tutor URL)")
-        else:
-            vt = config.get_main_option("tutor_version_table") or "alembic_version_tutor"
-            print(f"[alembic-env] TUTOR url: {tutor_url}  version_table={vt}")
-            _run_online(tutor_url, vt, TUTOR_VERSIONS, tag="tutor")
 
 if context.is_offline_mode():
     run_migrations_offline()
 else:
     run_migrations_online()
-
-
-

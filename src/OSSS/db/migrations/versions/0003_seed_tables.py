@@ -1,87 +1,165 @@
-# src/OSSS/db/migrations/versions/0003_seed_tables.py
 from __future__ import annotations
 
-import json
 import os
 import uuid
-from typing import Any, Iterable
-import logging
-from datetime import datetime, date, timezone
+from typing import Any, Dict, List
+from datetime import datetime, date, time, timezone
 
 from alembic import op, context
 import sqlalchemy as sa
-from sqlalchemy import Table, MetaData
+from sqlalchemy import MetaData, Table
 from sqlalchemy.engine import Connection
 from sqlalchemy.exc import IntegrityError, ProgrammingError, DataError
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
+from sqlalchemy.dialects import postgresql as psql
 
-# ---- Alembic identifiers ----
+# ---- Alembic Identifiers ----
 revision = "0003_seed_tables"
 down_revision = "0002_add_tables"
 depends_on = None
 
-log = logging.getLogger("alembic.runtime.migration")
-
-# --- Config -------------------------------------------------------------------
-CANDIDATE_PATHS = [
-    os.getenv("SEED_JSON_PATH"),
-    os.path.join(os.path.dirname(__file__), "..", "data", "seed_full_school.json"),
-    os.path.join(os.path.dirname(__file__), "..", "..", "seeds", "seed_full_school.json"),
-    "/mnt/data/seed_full_school.json",
+# ------------------------------------------------------------------------------
+# CONFIG: DBML FILE LOCATIONS
+# ------------------------------------------------------------------------------
+CANDIDATE_DBML_PATHS = [
+    os.getenv("SCHEMA_DBML_PATH"),
+    os.path.join(os.path.dirname(__file__), "..", "schema.dbml"),
+    os.path.join(os.path.dirname(__file__), "..", "..", "schema.dbml"),
 ]
 
+# Tables we NEVER want placeholder rows for (pure index/join tables etc.)
+PLACEHOLDER_SKIP_TABLES: set[str] = {
+    "materials",
+    "document_search_index",
+    "policy_publications",
+    "proposal_standard_map",
+    "unit_standard_map",
+}
 
-def _emit(msg: str) -> None:
+
+def _emit(msg: str):
     try:
         context.config.print_stdout(msg)
     except Exception:
         print(msg)
 
 
-
-def _load_seed() -> tuple[list[str], dict[str, list[dict[str, Any]]]]:
-    path = next((p for p in CANDIDATE_PATHS if p and os.path.exists(p)), None)
+# ------------------------------------------------------------------------------
+# Minimal DBML Parser → Extract table names & rough order
+# ------------------------------------------------------------------------------
+def _load_dbml_tables() -> List[str]:
+    path = next((p for p in CANDIDATE_DBML_PATHS if p and os.path.exists(p)), None)
     if not path:
         raise RuntimeError(
-            "Seed JSON not found. Set SEED_JSON_PATH or drop seed_full_school.json in one of:\n"
-            + "\n".join(f"  - {p}" for p in CANDIDATE_PATHS if p)
+            "schema.dbml not found.\n"
+            "Set SCHEMA_DBML_PATH or place schema.dbml in:\n"
+            + "\n".join(f"  - {p}" for p in CANDIDATE_DBML_PATHS if p)
         )
 
+    _emit(f"[seed] using DBML: {path}")
+
+    tables: List[str] = []
+    current = None
     with open(path, "r", encoding="utf-8") as f:
-        payload = json.load(f)
+        for raw in f:
+            line = raw.strip()
+            if line.startswith("Table "):
+                # E.g. Table users {  OR Table "users" {
+                name = line.split()[1].strip('"`[]{}')
+                current = name
+                tables.append(name)
+                continue
+            if current and line.startswith("}"):
+                current = None
 
-    if isinstance(payload, dict) and "data" in payload:
-        insert_order = list(payload.get("insert_order") or payload["data"].keys())
-        data = payload["data"]
-    else:
-        data = payload
-        insert_order = list(data.keys())
-
-    fixed: dict[str, list[dict[str, Any]]] = {}
-    for table, rows in data.items():
-        if rows is None:
-            fixed[table] = []
-        elif isinstance(rows, dict):
-            fixed[table] = [rows]
-        else:
-            fixed[table] = list(rows)
-
-    return insert_order, fixed
+    return tables
 
 
-
-def _reflect_table(conn: Connection, name: str) -> Table | None:
+# ------------------------------------------------------------------------------
+# Reflection + FK dependency graph
+# ------------------------------------------------------------------------------
+def _reflect_all(conn: Connection) -> Dict[str, Table]:
     md = MetaData()
+    md.reflect(bind=conn)
+    return dict(md.tables)
+
+
+def _build_dep_graph(tables: Dict[str, Table]) -> Dict[str, set]:
+    """
+    Graph: table_name -> set of parent_table_names it depends on via FKs.
+    """
+    deps: Dict[str, set] = {name: set() for name in tables.keys()}
+    for name, tbl in tables.items():
+        parents = set()
+        for fk in tbl.foreign_keys:
+            parent_tbl = fk.column.table
+            if parent_tbl is not None and parent_tbl.name in tables:
+                parents.add(parent_tbl.name)
+        deps[name] = parents
+    return deps
+
+
+def _toposort_tables(all_tables: Dict[str, Table], dbml_order: List[str]) -> List[str]:
+    """
+    Topologically sort tables using FK dependencies, but bias to DBML order
+    for stability.
+    """
+    deps = _build_dep_graph(all_tables)
+    # Compute reverse deps for Kahn
+    dependents: Dict[str, set] = {name: set() for name in all_tables.keys()}
+    for child, parents in deps.items():
+        for p in parents:
+            dependents.setdefault(p, set()).add(child)
+
+    # In-degree
+    indegree: Dict[str, int] = {name: len(parents) for name, parents in deps.items()}
+
+    # Start queue with zero-dep nodes, ordered by dbml_order if present
+    dbml_index = {name: i for i, name in enumerate(dbml_order)}
+    queue = sorted(
+        [n for n, d in indegree.items() if d == 0],
+        key=lambda n: dbml_index.get(n, 10_000),
+    )
+
+    ordered: List[str] = []
+
+    while queue:
+        n = queue.pop(0)
+        ordered.append(n)
+        for child in dependents.get(n, set()):
+            indegree[child] -= 1
+            if indegree[child] == 0:
+                queue.append(child)
+        queue.sort(key=lambda x: dbml_index.get(x, 10_000))
+
+    # Any remaining nodes are in cycles; just append them in DBML-ish order
+    remaining = [n for n, d in indegree.items() if d > 0 and n not in ordered]
+    remaining.sort(key=lambda n: dbml_index.get(n, 10_000))
+    ordered.extend(remaining)
+
+    return ordered
+
+
+# ------------------------------------------------------------------------------
+# Type helpers
+# ------------------------------------------------------------------------------
+def _is_uuid_type(t: sa.types.TypeEngine) -> bool:
     try:
-        return Table(name, md, autoload_with=conn)
+        if isinstance(t, PGUUID):
+            return True
     except Exception:
-        return None
+        pass
+    try:
+        # Many UUID-ish types report python_type = uuid.UUID
+        return getattr(t, "python_type", None) is uuid.UUID
+    except NotImplementedError:
+        return False
+    except Exception:
+        return False
 
 
-# ---- coercions ---------------------------------------------------------------
-
-def _coerce_uuid(value: Any, *, table: str, column: str) -> uuid.UUID | None:
+def _coerce_uuid(value: Any, *, table: str, column: str):
     if value is None:
         return None
     if isinstance(value, uuid.UUID):
@@ -90,35 +168,32 @@ def _coerce_uuid(value: Any, *, table: str, column: str) -> uuid.UUID | None:
     try:
         return uuid.UUID(s)
     except Exception:
-        # Deterministic, so identical placeholders map consistently across rows
         return uuid.uuid5(uuid.NAMESPACE_URL, f"{table}.{column}:{s}")
 
-def _coerce_datetime(value: Any) -> datetime | None:
+
+def _coerce_datetime(value: Any):
     if value is None or isinstance(value, datetime):
         return value
     s = str(value).strip()
-    # Accept ISO8601 with 'Z'
     if s.endswith("Z"):
         s = s[:-1] + "+00:00"
     try:
         return datetime.fromisoformat(s)
     except Exception:
-        try:
-            # Fallback: seconds only
-            return datetime.strptime(str(value), "%Y-%m-%d %H:%M:%S")
-        except Exception:
-            return None
+        return None
 
-def _coerce_date(value: Any) -> date | None:
-    if value is None or isinstance(value, date) and not isinstance(value, datetime):
+
+def _coerce_date(value: Any):
+    if value is None or isinstance(value, date):
         return value
-    s = str(value).split("T", 1)[0]
+    s = str(value).split("T")[0]
     try:
         return date.fromisoformat(s)
     except Exception:
         return None
 
-def _coerce_bool(value: Any) -> bool | None:
+
+def _coerce_bool(value: Any):
     if value is None or isinstance(value, bool):
         return value
     s = str(value).strip().lower()
@@ -128,8 +203,9 @@ def _coerce_bool(value: Any) -> bool | None:
         return False
     return None
 
-def _coerce_int(value: Any) -> int | None:
-    if value is None or isinstance(value, int) and not isinstance(value, bool):
+
+def _coerce_int(value: Any):
+    if value is None or isinstance(value, int):
         return value
     try:
         return int(str(value).strip())
@@ -137,186 +213,230 @@ def _coerce_int(value: Any) -> int | None:
         return None
 
 
+# ------------------------------------------------------------------------------
+# Placeholder row builder (for tables with NO foreign keys)
+# ------------------------------------------------------------------------------
+def _make_placeholder_row(table: Table) -> dict[str, Any] | None:
+    """
+    Build a single 'safe-ish' placeholder row for a table
+    that has *no foreign keys*.
 
-def _filter_and_coerce_row(table: Table, row: dict[str, Any]) -> dict[str, Any]:
+    Assumption: caller has already ensured table.foreign_keys is empty.
     """
-    Keep only known columns and coerce common types from JSON strings/placeholders
-    (UUID, date, datetime, boolean, integer).
-    """
-    out: dict[str, Any] = {}
+    now = datetime.now(timezone.utc)
+    row: dict[str, Any] = {}
+
     for col in table.columns:
         name = col.name
-        if name not in row:
-            continue
-        val = row[name]
+        t = col.type
 
-
-        # UUID detection
-        is_uuid_col = False
-        try:
-            is_uuid_col = isinstance(col.type, PGUUID) or (getattr(col.type, "python_type", None) is uuid.UUID)
-        except Exception:
-            pass
-
-        if is_uuid_col:
-            out[name] = _coerce_uuid(val, table=str(table.name), column=name)
+        # Let server defaults handle their own columns
+        if col.server_default is not None:
             continue
 
+        # Primary key
+        if col.primary_key:
+            if _is_uuid_type(t):
+                row[name] = uuid.uuid5(uuid.NAMESPACE_URL, f"placeholder:{table.name}")
+                continue
+            if isinstance(t, (sa.Integer, sa.BigInteger, sa.SmallInteger)):
+                row[name] = 1
+                continue
+            if isinstance(t, sa.String):
+                length = getattr(t, "length", None)
+                if length and length > 0:
+                    base = (table.name[:length] or "x" * length)
+                    row[name] = base[:length]
+                else:
+                    row[name] = f"{table.name}_pk"
+                continue
+            # fallback
+            row[name] = f"{table.name}_pk"
+            continue
 
-        # Datetime / Date
+        # Nullable? let it be NULL
+        if col.nullable:
+            row[name] = None
+            continue
+
+        # Non-nullable, type-based defaults
+        if _is_uuid_type(t):
+            row[name] = uuid.uuid5(
+                uuid.NAMESPACE_URL, f"placeholder:{table.name}.{name}"
+            )
+            continue
+        if isinstance(t, sa.Boolean):
+            row[name] = False
+            continue
+        if isinstance(t, (sa.Integer, sa.BigInteger, sa.SmallInteger)):
+            row[name] = 1
+            continue
+        if isinstance(t, (sa.Numeric, sa.Float, psql.DOUBLE_PRECISION)):
+            row[name] = 0
+            continue
+        if isinstance(t, (sa.String, sa.Text)):
+            row[name] = ""
+            continue
+        if isinstance(t, sa.Date):
+            row[name] = date.today()
+            continue
+        if isinstance(t, sa.DateTime):
+            row[name] = now
+            continue
+        if isinstance(t, sa.Time):
+            row[name] = time(0, 0, 0)
+            continue
+
+        # Enums → pick first value, or bail out if none
+        enum_types = (sa.Enum,)
         try:
-            if isinstance(col.type, sa.DateTime):
-                out[name] = _coerce_datetime(val)
-                continue
-            if isinstance(col.type, sa.Date):
-                out[name] = _coerce_date(val)
-                continue
+            from sqlalchemy.dialects.postgresql import ENUM as PGEnum
 
+            enum_types = (sa.Enum, PGEnum)
         except Exception:
             pass
 
-        # Boolean
+        if isinstance(t, enum_types):
+            enums = getattr(t, "enums", None) or getattr(t, "enum_values", None) or []
+            if enums:
+                row[name] = enums[0]
+                continue
+            _emit(
+                f"[seed] table {table.name}: Enum column {name} has no values; skipping"
+            )
+            return None
+
+        # JSON-ish
         try:
-            if isinstance(col.type, sa.Boolean):
-                coerced = _coerce_bool(val)
-                out[name] = bool(coerced) if coerced is not None else None
+            from sqlalchemy.dialects.postgresql import JSONB, JSON
+
+            if isinstance(t, (JSONB, JSON, sa.JSON)):
+                row[name] = {}
                 continue
         except Exception:
-            pass
-
-        # Integer-ish
-        try:
-            if isinstance(col.type, (sa.Integer, sa.BigInteger, sa.SmallInteger)):
-
-                coerced = _coerce_int(val)
-                out[name] = coerced
+            if isinstance(t, sa.JSON):
+                row[name] = {}
                 continue
-        except Exception:
-            pass
+
+        # Fallback: NULL (if this hits a CHECK, we’ll log and skip)
+        row[name] = None
+
+    return row
 
 
-        # Default: pass through
-        out[name] = val
-    # Drop Nones for NOT NULL columns that also have server defaults (let DB fill)
+def _filter_and_coerce_row(table: Table, row: Dict[str, Any]) -> Dict[str, Any]:
+    out: Dict[str, Any] = {}
+    for col in table.columns:
+        if col.name not in row:
+            continue
+        val = row[col.name]
+        t = col.type
+
+        if _is_uuid_type(t):
+            out[col.name] = _coerce_uuid(val, table=str(table.name), column=col.name)
+            continue
+
+        if isinstance(t, sa.DateTime):
+            out[col.name] = _coerce_datetime(val)
+            continue
+
+        if isinstance(t, sa.Date):
+            out[col.name] = _coerce_date(val)
+            continue
+
+        if isinstance(t, sa.Boolean):
+            coerced = _coerce_bool(val)
+            out[col.name] = bool(coerced) if coerced is not None else None
+            continue
+
+        if isinstance(t, (sa.Integer, sa.BigInteger, sa.SmallInteger)):
+            out[col.name] = _coerce_int(val)
+            continue
+
+        out[col.name] = val
+
+    # allow server defaults to fill NOT NULL
     for col in table.columns:
         if out.get(col.name) is None and not col.nullable and col.server_default is not None:
             out.pop(col.name, None)
+
     return out
 
 
-# ---- insert helpers ----------------------------------------------------------
-
-def _insert_rows_batch(conn: Connection, table: Table, rows: list[dict[str, Any]]):
-    """Single statement batch insert (with ON CONFLICT DO NOTHING on PG)."""
-    if not rows:
-        return
-    is_pg = conn.dialect.name == "postgresql"
-    pk_cols = [c for c in table.primary_key.columns]
-    if is_pg and pk_cols:
-        stmt = (
-            pg_insert(table)
-            .values(rows)
-            .on_conflict_do_nothing(index_elements=[c.name for c in pk_cols])
-        )
-    else:
-        stmt = sa.insert(table)
-    if stmt is sa.insert(table):
-        conn.execute(stmt, rows)
-    else:
-        conn.execute(stmt)
-
-
-def _insert_row_single(conn: Connection, table: Table, row: dict[str, Any]):
-    """Per-row insert with conflict-ignore semantics on PG."""
-    is_pg = conn.dialect.name == "postgresql"
-    pk_cols = [c for c in table.primary_key.columns]
-    if is_pg and pk_cols:
-        stmt = (
-            pg_insert(table)
-            .values(row)
-            .on_conflict_do_nothing(index_elements=[c.name for c in pk_cols])
-        )
-    else:
-        stmt = sa.insert(table).values(**row)
-    conn.execute(stmt)
-
-
-
+# ------------------------------------------------------------------------------
+# Alembic Upgrade: DBML + FK-aware seeding
+# ------------------------------------------------------------------------------
 def upgrade() -> None:
     conn: Connection = op.get_bind()
-    insert_order, data = _load_seed()
 
-    for name in insert_order:
-        tbl = _reflect_table(conn, name)
-        if tbl is None:
-            _emit(f"[seed] skip missing table: {name}")
+    dbml_tables = _load_dbml_tables()
+    all_reflected = _reflect_all(conn)
+
+    # Filter to tables that exist in DB and are in DBML
+    tables: Dict[str, Table] = {
+        name: tbl for name, tbl in all_reflected.items() if name in dbml_tables
+    }
+
+    if not tables:
+        _emit("[seed] no tables found to seed (DBML vs DB mismatch?)")
+        return
+
+    order = _toposort_tables(tables, dbml_tables)
+    _emit(f"[seed] final FK-aware table order: {order}")
+
+    for name in order:
+        tbl = tables[name]
+
+        # Skip explicit no-placeholder tables
+        if name in PLACEHOLDER_SKIP_TABLES:
+            _emit(f"[seed] table {name}: in placeholder skip list; skipping")
             continue
 
-        raw_rows = data.get(name, []) or []
-        if not raw_rows:
+        # 🚨 NEW: don't seed tables with any foreign keys
+        if tbl.foreign_keys:
+            _emit(f"[seed] table {name}: has foreign keys; skipping placeholder for this table")
             continue
 
-
-        # Prepare & coerce
-        prepared = []
-        for r in raw_rows:
-            coerced = _filter_and_coerce_row(tbl, r)
-            if coerced:
-                prepared.append(coerced)
-
-        if not prepared:
+        placeholder = _make_placeholder_row(tbl)
+        if placeholder is None:
+            _emit(f"[seed] table {name}: could not build placeholder row; skipping")
             continue
 
-        _emit(f"[seed] inserting into {name}: {len(prepared)} row(s)")
+        prepared = _filter_and_coerce_row(tbl, placeholder)
 
+        _emit(f"[seed] inserting placeholder row into {name}")
 
-        # 1) Try batch inside its own savepoint
         try:
-            with conn.begin_nested():  # create SAVEPOINT; auto rollback on error only to this point
-                _insert_rows_batch(conn, tbl, prepared)
-            continue  # success for this table
+            with conn.begin_nested():
+                pk_cols = [c for c in tbl.primary_key.columns]
+                if conn.dialect.name == "postgresql" and pk_cols:
+                    stmt = (
+                        pg_insert(tbl)
+                        .values(prepared)
+                        .on_conflict_do_nothing(index_elements=[c.name for c in pk_cols])
+                    )
+                else:
+                    stmt = sa.insert(tbl).values(**prepared)
+
+                conn.execute(stmt)
+
         except (IntegrityError, ProgrammingError, DataError) as e:
-            _emit(
-                f"[seed] batch insert failed for {name}: {e}; rolling back and retrying per-row"
-            )
-
-        # 2) Fall back to row-wise, each in its own savepoint; skip offenders
-        for r in prepared:
-            try:
-                with conn.begin_nested():
-                    _insert_row_single(conn, tbl, r)
-            except (IntegrityError, ProgrammingError, DataError) as e:
-                _emit(f"[seed] skipping row in {name}: {e}")
+            _emit(f"[seed] failed for {name}: {e!r}")
 
 
-    # let Alembic commit the outer transaction
-
-
+# ------------------------------------------------------------------------------
+# Downgrade: wipe all seeded rows (simple strategy)
+# ------------------------------------------------------------------------------
 def downgrade() -> None:
     conn: Connection = op.get_bind()
-    insert_order, data = _load_seed()
+    dbml_tables = _load_dbml_tables()
+    all_reflected = _reflect_all(conn)
+    tables: Dict[str, Table] = {
+        name: tbl for name, tbl in all_reflected.items() if name in dbml_tables
+    }
 
-    for name in reversed(insert_order):
-        tbl = _reflect_table(conn, name)
-        if tbl is None:
-            continue
-        rows = data.get(name, []) or []
-        if not rows:
-            continue
-
-        # Coerce so WHERE matches types
-        prepared = [_filter_and_coerce_row(tbl, r) for r in rows]
-
-        # Build PK-based delete in per-row savepoints to avoid aborting all on one FK
-        for r in prepared:
-            pk_cols = [c for c in tbl.primary_key.columns]
-            if not pk_cols:
-                continue
-            if not all(col.name in r for col in pk_cols):
-                continue
-            cond = sa.and_(*[(col == r[col.name]) for col in pk_cols])
-            try:
-                with conn.begin_nested():
-                    conn.execute(sa.delete(tbl).where(cond))
-            except Exception as e:
-                _emit(f"[seed] downgrade skip row in {name}: {e}")
+    order = _toposort_tables(tables, dbml_tables)
+    for name in reversed(order):
+        tbl = tables[name]
+        _emit(f"[seed] clearing table {name}")
+        conn.execute(sa.delete(tbl))

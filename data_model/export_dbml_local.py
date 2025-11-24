@@ -18,10 +18,26 @@ def parse_args():
         description="Export DBML from local SQLAlchemy models (FastAPI project)."
     )
     default_src = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src"))
-    parser.add_argument("--src-root", default=default_src, help="Path that contains the 'OSSS' package (default: ../src)")
-    parser.add_argument("--models-package", default="OSSS.db.models", help="Dotted package path to your models (default: OSSS.db.models)")
-    parser.add_argument("--output", default="schema.dbml", help="Output DBML filename")
-    parser.add_argument("--verbose", action="store_true", help="Enable verbose logs")
+    parser.add_argument(
+        "--src-root",
+        default=default_src,
+        help="Path that contains the 'OSSS' package (default: ../src)",
+    )
+    parser.add_argument(
+        "--models-package",
+        default="OSSS.db.models",
+        help="Dotted package path to your models (default: OSSS.db.models)",
+    )
+    parser.add_argument(
+        "--output",
+        default="schema.dbml",
+        help="Output DBML filename",
+    )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Enable verbose logs",
+    )
     return parser.parse_args()
 
 
@@ -53,7 +69,9 @@ def import_all_models(root_pkg: str) -> None:
             importlib.import_module(fullname)
             logging.getLogger(__name__).debug("Imported %s", fullname)
         except Exception as exc:
-            logging.getLogger(__name__).warning("Skipping %s due to import error: %s", fullname, exc)
+            logging.getLogger(__name__).warning(
+                "Skipping %s due to import error: %s", fullname, exc
+            )
 
 
 # ---------------------------
@@ -166,7 +184,11 @@ def emit_table_dbml(table: sa.Table) -> str:
             if idx.unique:
                 flags.append("unique")
             idx_name = f' name: "{idx.name}"' if idx.name else ""
-            flag_str = f" [{', '.join(flags)}{(',' if flags and idx_name else '')}{idx_name.strip()}]" if (flags or idx_name) else ""
+            flag_str = (
+                f" [{', '.join(flags)}{(',' if flags and idx_name else '')}{idx_name.strip()}]"
+                if (flags or idx_name)
+                else ""
+            )
             lines.append(f"    ({cols}){flag_str}")
         lines.append("  }")
 
@@ -248,19 +270,35 @@ def main():
 
     dbml = "\n\n".join(chunks).strip() + "\n"
 
+    # 1) Write to the requested output path (default: ./schema.dbml)
     with open(args.output, "w", encoding="utf-8") as f:
         f.write(dbml)
-
     logging.info("Wrote DBML to %s (%d tables)", args.output, len(md.tables))
+
+    # 2) Also copy/overwrite schema.dbml into ../src/OSSS/db/migrations
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    migrations_dir = os.path.abspath(
+        os.path.join(script_dir, "..", "src", "OSSS", "db", "migrations")
+    )
+    os.makedirs(migrations_dir, exist_ok=True)
+    dest_path = os.path.join(migrations_dir, "schema.dbml")
+    with open(dest_path, "w", encoding="utf-8") as f:
+        f.write(dbml)
+    logging.info("Copied DBML to %s", dest_path)
 
 
 if __name__ == "__main__":
     main()
 
+
 def emit_table_dbml(table) -> str:
     """Emit a single Table {...} block in DBML, including table/column notes."""
     lines = []
-    schema_prefix = f"{table.schema}." if getattr(table, "schema", None) and table.schema != "public" else ""
+    schema_prefix = (
+        f"{table.schema}."
+        if getattr(table, "schema", None) and table.schema != "public"
+        else ""
+    )
     lines.append(f"Table {schema_prefix}{table.name} {{")
 
     # Columns
@@ -280,15 +318,20 @@ def emit_table_dbml(table) -> str:
             attrs.append(f"default: {dflt}")
 
         # Column note from SQLAlchemy (comment, info['note'], or doc)
-        c_note = getattr(col, 'comment', None) or getattr(col, 'doc', None)
+        c_note = getattr(col, "comment", None) or getattr(col, "doc", None)
         try:
-            info_note = getattr(col, 'info', {}).get('note')
+            info_note = getattr(col, "info", {}).get("note")
         except Exception:
             info_note = None
         if not c_note and info_note:
             c_note = info_note
         if c_note:
-            note_clean = str(c_note).replace('\\', '\\\\').replace("'", "\\'").replace("\n", " | ")
+            note_clean = (
+                str(c_note)
+                .replace("\\", "\\\\")
+                .replace("'", "\\'")
+                .replace("\n", " | ")
+            )
             attrs.append(f"note: '{note_clean}'")
 
         if attrs:
@@ -296,9 +339,9 @@ def emit_table_dbml(table) -> str:
         lines.append(" ".join(parts))
 
     # Table-level note (multi-line)
-    t_note = getattr(table, 'comment', None)
+    t_note = getattr(table, "comment", None)
     try:
-        t_info_note = getattr(table, 'info', {}).get('note')
+        t_info_note = getattr(table, "info", {}).get("note")
     except Exception:
         t_info_note = None
     if not t_note and t_info_note:

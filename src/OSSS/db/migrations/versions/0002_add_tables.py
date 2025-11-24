@@ -133,15 +133,34 @@ def upgrade() -> None:
     if bind.dialect.name == "postgresql":
         op.execute("CREATE EXTENSION IF NOT EXISTS pgcrypto;")
 
-    # Make sure users.id is UUID so FKs can reference it
+    # 1) Simple canary: prove we can create *something*
+    op.create_table(
+        "alembic_canary",
+        sa.Column("id", sa.Integer, primary_key=True),
+        sa.Column("created_at", sa.DateTime, nullable=False, server_default=sa.func.now()),
+    )
+
+    # 2) Make sure users.id is UUID so FKs can reference it
     _ensure_users_id_is_uuid()
 
+    # 3) Import models and inspect metadata
     _import_models()
     from OSSS.db.base import Base
+
+    tables = list(Base.metadata.tables.keys())
+    log.warning("0002_add_tables: Base.metadata has %d tables: %s", len(tables), tables)
+
+    # 4) Create all ORM tables
     Base.metadata.create_all(bind=bind)
+    log.warning("0002_add_tables: create_all() finished")
+
+
 
 
 def downgrade() -> None:
+
+    op.drop_table("alembic_canary")
+
     # Import models so Base.metadata knows about all tables to drop
     _import_models()
     from OSSS.db.base import Base

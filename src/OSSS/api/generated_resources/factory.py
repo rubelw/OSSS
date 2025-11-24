@@ -16,9 +16,17 @@ from sqlalchemy.exc import IntegrityError, OperationalError, DBAPIError
 from .factory_helpers import to_snake, pluralize_snake, resource_name_for_model
 from .serialization import to_dict
 
-from OSSS.auth.deps import require_roles
-from OSSS.sessions import RedisSession
 
+
+from OSSS.sessions import RedisSession
+from OSSS.auth.deps import require_roles, get_current_user as deps_get_current_user
+import os
+import logging
+
+log = logging.getLogger("generated_resources.factory")
+
+log = logging.getLogger("db")
+DEV_DB_DEBUG = os.getenv("OSSS_DEBUG_DB", "0") in ("1", "true", "yes")
 
 # Make sure the parameter is typed
 async def bind_session_store(request: Request) -> None:
@@ -54,27 +62,8 @@ def _discover_get_db() -> Callable[[], Iterable[Session | AsyncSession]]:
 
 
 def _discover_get_current_user() -> Callable[..., Any]:
-    candidates = [
-        "OSSS.auth.dependencies:get_current_user",
-        "OSSS.api.dependencies:get_current_user",
-        "OSSS.api.auth:get_current_user",
-        "OSSS.dependencies:get_current_user",
-        "OSSS.auth.deps:get_current_user",
-    ]
-    for cand in candidates:
-        try:
-            mod_name, func_name = cand.split(":")
-            mod = __import__(mod_name, fromlist=[func_name])
-            func = getattr(mod, func_name)
-            if callable(func):
-                return func
-        except Exception:
-            continue
-
-    def _unauthenticated(*_args, **_kwargs):
-        return None
-
-    return _unauthenticated
+    # For now we hard-bind to OSSS.auth.deps.get_current_user so DISABLE_AUTH works.
+    return deps_get_current_user
 
 
 DEFAULT_GET_DB = _discover_get_db()
@@ -199,10 +188,18 @@ async def _db_execute_scalars_all(db: Session | AsyncSession, stmt):
         res = db.execute(stmt)
         return list(res.scalars().all())
     except (OperationalError, DBAPIError, OSError) as e:
-        # Connection refused / closed / broken pipe / etc. → surface as 503
-        # (SQLAlchemy typically wraps driver errors in OperationalError/DBAPIError)
-        raise HTTPException(status_code=503, detail="Database unavailable") from e
+        # 🔍 Log the real cause
+        log.error("DB error in _db_execute_scalars_all: %r stmt=%r", e, stmt, exc_info=True)
 
+        # In dev, surface the exact error so it shows up in the HTTP response
+        if DEV_DB_DEBUG:
+            raise HTTPException(
+                status_code=500,
+                detail=f"DB error: {repr(e)}"
+            ) from e
+
+        # In prod, keep it generic
+        raise HTTPException(status_code=503, detail="Database unavailable") from e
 
 
 async def _db_commit_refresh(db: Session | AsyncSession, obj: Any | None = None):
@@ -282,8 +279,14 @@ def _wrap_db_dependency(get_db_callable: Callable):
 # Authorization helpers
 # -----------------------------------------------------------------------------
 def _ensure_authenticated(user: Any):
+    # Dev bypass: when OSSS_DISABLE_AUTH is enabled, skip auth enforcement
+    if DISABLE_AUTH:
+        return
     if user is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+        )
 
 
 AuthorizeFn = Callable[[str, Any, Optional[Any], Type[Any]], None]
@@ -344,7 +347,15 @@ def create_router_for_model(
                 any_of = set(spec.get("any_of") or [])
                 all_of = set(spec.get("all_of") or [])
                 client_id = spec.get("client_id")
-                deps.append(Depends(require_roles(any_of=any_of, all_of=all_of, client_id=client_id)))
+                deps.append(
+                    Depends(
+                        require_roles(
+                            any_of=any_of,
+                            all_of=all_of,
+                            client_id=client_id,
+                        )
+                    )
+                )
         return deps
 
     def _authz(action: str, user: Any, instance: Optional[Any] = None):
