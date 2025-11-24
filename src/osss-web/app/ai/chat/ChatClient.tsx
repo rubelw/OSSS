@@ -548,8 +548,6 @@ function describeIntent(intent: string): string {
       return "recruitment and retention for support staff";
     case "school_leadership_development":
       return "school leadership development";
-    case "school_business_partnerships":
-      return "school business partnerships";
     case "student_medical_accommodations":
       return "student medical accommodations";
     case "parent_teacher_conferences":
@@ -628,10 +626,6 @@ function describeIntent(intent: string): string {
       return "math intervention program";
     case "reading_intervention_program":
       return "reading intervention program";
-    case "extra_credit_opportunities":
-      return "extra credit opportunities";
-    case "student_retention_strategies":
-      return "student retention strategies";
     case "staff_training_opportunities":
       return "staff training opportunities";
     case "school_inspection_reports":
@@ -658,8 +652,6 @@ function describeIntent(intent: string): string {
       return "student extracurricular registration";
     case "student_school_id":
       return "student school ID";
-    case "school_uniform_policy":
-      return "school uniform policy";
     case "transportation_routes":
       return "transportation routes";
     case "student_reporting_system":
@@ -718,8 +710,6 @@ function describeIntent(intent: string): string {
       return "school budget allocations";
     case "student_computer_accessibility":
       return "student computer accessibility";
-    case "parent_teacher_conferences":
-      return "parent teacher conferences";
     case "student_discipline_policy":
       return "student discipline policy";
     case "school_graduation_ceremonies":
@@ -728,8 +718,6 @@ function describeIntent(intent: string): string {
       return "after school extra credit opportunities";
     case "student_transportation_services":
       return "student transportation services";
-    case "diversity_and_inclusion_training":
-      return "diversity and inclusion training";
     case "after_school_homework_club":
       return "after school homework club";
     case "student_feedback_forms":
@@ -778,7 +766,6 @@ function describeIntent(intent: string): string {
       return "school debate teams";
     case "school_uniforms":
       return "school uniforms";
-    // Adding additional cases here:
     case "general":
     default:
       return "general information / mixed audience";
@@ -794,43 +781,43 @@ export default function ChatClient() {
     { role: "user" | "assistant" | "system"; content: string }[]
   >([]);
 
-
-  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]); // Store File objects
-  const [uploadedFilesNames, setUploadedFilesNames] = useState<string[]>([]); // Store file names
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+  const [uploadedFilesNames, setUploadedFilesNames] = useState<string[]>([]);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-
   const [retrievedChunks, setRetrievedChunks] = useState<RetrievedChunk[]>([]);
 
-  // 👇 toggle to show/hide intent + session info
   const [showDebug, setShowDebug] = useState<boolean>(false);
 
-  // 👇 per-chat session id (persists until "New Chat")
-  // 👇 per-chat session id (persists across page refresh in this tab)
-    const [sessionId, setSessionId] = useState<string>(() => {
-      // Default/fallback value if storage isn't available
-      let initial = `session-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  // NEW: toggle "Sources" block on/off
+  const [showSources, setShowSources] = useState<boolean>(true);
 
-      if (typeof window !== "undefined") {
-        try {
-          const stored = window.sessionStorage.getItem("osss_chat_session_id");
-          if (stored && typeof stored === "string") {
-            return stored; // reuse existing session id
-          }
+  // main RAG session id (per tab)
+  const [sessionId, setSessionId] = useState<string>(() => {
+    let initial = `session-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
-          // No stored id -> generate, store, and use it
-          if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-            initial = crypto.randomUUID();
-          }
-
-          window.sessionStorage.setItem("osss_chat_session_id", initial);
-        } catch {
-          // ignore storage errors, fall back to generated `initial`
+    if (typeof window !== "undefined") {
+      try {
+        const stored = window.sessionStorage.getItem("osss_chat_session_id");
+        if (stored && typeof stored === "string") {
+          return stored;
         }
+        if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+          initial = crypto.randomUUID();
+        }
+        window.sessionStorage.setItem("osss_chat_session_id", initial);
+      } catch {
+        // ignore storage errors
       }
+    }
 
-      return initial;
-    });
+    return initial;
+  });
+
+  // NEW: subagent session id (e.g. registration workflow)
+  const [subagentSessionId, setSubagentSessionId] = useState<string | null>(null);
+
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
@@ -842,9 +829,6 @@ export default function ChatClient() {
     }
   };
 
-  const messagesEndRef = useRef<HTMLDivElement | null>(null);
-
-  // Auto-scroll to bottom when messages change
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({
@@ -854,7 +838,7 @@ export default function ChatClient() {
     }
   }, [messages]);
 
-   // On mount: load messages, history, and sessionId from sessionStorage
+  // On mount: restore messages & history
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -875,7 +859,6 @@ export default function ChatClient() {
       }
 
       const storedSession = window.sessionStorage.getItem("osss_chat_session_id");
-
       if (storedSession) {
         setSessionId(storedSession);
       } else {
@@ -895,33 +878,31 @@ export default function ChatClient() {
     }
   }, []);
 
+  // Persist messages
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.sessionStorage.setItem(
+        "osss_chat_messages",
+        JSON.stringify(messages)
+      );
+    } catch {
+      // ignore storage errors
+    }
+  }, [messages]);
 
-  // Persist messages across refresh (per tab)
-useEffect(() => {
-  if (typeof window === "undefined") return;
-  try {
-    window.sessionStorage.setItem(
-      "osss_chat_messages",
-      JSON.stringify(messages)
-    );
-  } catch {
-    // ignore storage errors
-  }
-}, [messages]);
-
-// Persist chatHistory across refresh (per tab)
-useEffect(() => {
-  if (typeof window === "undefined") return;
-  try {
-    window.sessionStorage.setItem(
-      "osss_chat_history",
-      JSON.stringify(chatHistory)
-    );
-  } catch {
-    // ignore storage errors
-  }
-}, [chatHistory]);
-
+  // Persist chat history
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.sessionStorage.setItem(
+        "osss_chat_history",
+        JSON.stringify(chatHistory)
+      );
+    } catch {
+      // ignore storage errors
+    }
+  }, [chatHistory]);
 
   const appendMessage = useCallback(
     (who: "user" | "bot", content: string, isHtml = false) => {
@@ -934,63 +915,57 @@ useEffect(() => {
   );
 
   const handleReset = () => {
-  // Clear in-memory UI state
-  setMessages([]);
-  setChatHistory([]);
-  setRetrievedChunks([]);
-  setInput("");
-  setUploadedFiles([]);
-  setUploadedFilesNames([]);
+    setMessages([]);
+    setChatHistory([]);
+    setRetrievedChunks([]);
+    setInput("");
+    setUploadedFiles([]);
+    setUploadedFilesNames([]);
+    setSubagentSessionId(null);
 
-  // Clear persisted messages/history
-  if (typeof window !== "undefined") {
-    try {
-      window.sessionStorage.removeItem("osss_chat_messages");
-      window.sessionStorage.removeItem("osss_chat_history");
-    } catch {
-      // ignore storage errors
+    if (typeof window !== "undefined") {
+      try {
+        window.sessionStorage.removeItem("osss_chat_messages");
+        window.sessionStorage.removeItem("osss_chat_history");
+      } catch {
+        // ignore storage errors
+      }
     }
-  }
 
-  // 🔄 New chat = new session id (and persist it)
-  let newId: string;
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-    newId = crypto.randomUUID();
-  } else {
-    newId = `session-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-  }
-
-  setSessionId(newId);
-
-  if (typeof window !== "undefined") {
-    try {
-      window.sessionStorage.setItem("osss_chat_session_id", newId);
-    } catch {
-      // ignore storage errors
+    let newId: string;
+    if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+      newId = crypto.randomUUID();
+    } else {
+      newId = `session-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     }
-  }
-};
+
+    setSessionId(newId);
+
+    if (typeof window !== "undefined") {
+      try {
+        window.sessionStorage.setItem("osss_chat_session_id", newId);
+      } catch {
+        // ignore storage errors
+      }
+    }
+  };
 
 
   const handleSend = useCallback(async () => {
     if (sending) return;
     if (!sessionId) {
-      // session not initialized yet; you can show a toast/log instead if you want
       console.warn("Session not ready yet");
       return;
     }
 
-
     const text = input.trim();
-    if (!text && uploadedFiles.length === 0) return; // Ensure that there's something to send
+    if (!text && uploadedFiles.length === 0) return;
 
-    // Snapshot filenames for THIS turn (so UI isn't affected if state changes later)
     const attachedNamesForThisTurn = [...uploadedFilesNames];
 
     setSending(true);
     setInput("");
 
-    // --- Build user bubble content (text + attached filenames) ------
     let userHtml = "";
 
     if (text) {
@@ -1012,10 +987,8 @@ useEffect(() => {
       `;
     }
 
-    // Show the user message (with attachments) in the chat window BEFORE calling /chat/rag
     appendMessage("user", userHtml, true);
 
-    // ---- 1) Update chat history for conversation memory -------------
     const historySnapshot = [
       ...chatHistory,
       { role: "user" as const, content: text },
@@ -1039,12 +1012,11 @@ useEffect(() => {
     const messagesForHistory = [...baseSys, ...historySnapshot];
     setChatHistory(messagesForHistory);
 
-    // ---- 2) Build messages payload for RAG using FULL conversation ---
     const messagesForRag = messagesForHistory;
 
     try {
       const url = `${API_BASE}/ai/chat/rag`;
-      const body = {
+      const body: any = {
         model: "llama3.2-vision",
         messages: messagesForRag,
         temperature: 0.2,
@@ -1056,13 +1028,17 @@ useEffect(() => {
         agent_name: "General RAG",
       };
 
+      // If we're inside a subagent workflow, send the subagent session id
+      if (subagentSessionId) {
+        body.subagent_session_id = subagentSessionId;
+      }
+
       const form = new FormData();
       form.append("payload", JSON.stringify(body));
 
-      // Send attached files to the backend
       if (uploadedFiles && uploadedFiles.length > 0) {
         uploadedFiles.forEach((file) => {
-          form.append("files", file); // must match `files: list[UploadFile]` on FastAPI
+          form.append("files", file);
         });
       }
 
@@ -1087,7 +1063,6 @@ useEffect(() => {
           false
         );
 
-        // Clear attachments locally for next turn
         setUploadedFiles([]);
         setUploadedFilesNames([]);
 
@@ -1095,7 +1070,6 @@ useEffect(() => {
         return;
       }
 
-      // ---- 3) retrieved_chunks -> store for UI ONLY ------------------
       const maybeChunks = payload?.retrieved_chunks;
       let chunksForThisReply: RetrievedChunk[] = [];
 
@@ -1119,7 +1093,6 @@ useEffect(() => {
           `HTTP ${resp.status}`;
         appendMessage("bot", String(msg), false);
 
-        // Clear attachments locally for next turn
         setUploadedFiles([]);
         setUploadedFilesNames([]);
 
@@ -1127,7 +1100,6 @@ useEffect(() => {
         return;
       }
 
-      // ---- 4) Text reply --------------------------------------------
       let reply: string =
         core?.message?.content ??
         core?.choices?.[0]?.message?.content ??
@@ -1141,7 +1113,6 @@ useEffect(() => {
       let replyForDisplay = reply;
       const replyForHistory = sanitizeForGuard(reply);
 
-      // ---- 5) Attach classifier intent + debug info -----------------
       const classifierIntent: string =
         payload?.intent ??
         payload?.intent_label ??
@@ -1167,17 +1138,21 @@ useEffect(() => {
           ? payload.agent_session_id
           : sessionId;
 
+      const returnedSubagentSessionId: string | null =
+        typeof payload?.subagent_session_id === "string" &&
+        payload.subagent_session_id.trim().length > 0
+          ? payload.subagent_session_id
+          : null;
 
+      // Update local subagent session state
+      setSubagentSessionId(returnedSubagentSessionId);
 
-
-      // NEW: agent info returned by backend
       const returnedAgentId: string | null =
         typeof payload?.agent_id === "string" ? payload.agent_id : null;
 
       const returnedAgentName: string | null =
         typeof payload?.agent_name === "string" ? payload.agent_name : null;
 
-      // 🔹 NEW: action + action_confidence from backend
       const returnedAction: string | null =
         typeof payload?.action === "string" ? payload.action : null;
 
@@ -1187,20 +1162,25 @@ useEffect(() => {
           : null;
 
       const sessionFiles: string[] = Array.isArray(payload?.session_files)
-        ? payload.session_files.filter((x: unknown): x is string => typeof x === "string")
+        ? payload.session_files.filter(
+            (x: unknown): x is string => typeof x === "string"
+          )
         : [];
+
+      // NEW: agent debug information from registration agent (or others)
+      const agentDebugInformation: any =
+        payload && typeof payload.agent_debug_information === "object"
+          ? payload.agent_debug_information
+          : null;
 
       replyForDisplay = (replyForDisplay ?? "").trimEnd();
 
-            // Only show debug info (intent, agent_id, action, session, session_files) when debug is on
       if (showDebug) {
         const debugLines: string[] = [];
 
-        // Always compute display text for agent info, even if null
         const agentIdDisplay = returnedAgentId ?? "(none)";
         const agentNameDisplay = returnedAgentName ?? "(none)";
 
-        // Intent line (own line)
         if (returnedIntent) {
           const confText =
             intentConfidence != null
@@ -1213,12 +1193,10 @@ useEffect(() => {
           debugLines.push("**Intent:** (none)");
         }
 
-        // 👇 Agent line on its own line, always shown
         debugLines.push(
           `**Agent:** name=${agentNameDisplay}, id=\`${agentIdDisplay}\``
         );
 
-        // 👇 NEW: Action line (CRUD-ish)
         const actionDisplay = returnedAction ?? "(none)";
         const actionConfText =
           returnedActionConfidence != null
@@ -1230,9 +1208,36 @@ useEffect(() => {
           debugLines.push(`**Agent session:** \`${returnedSessionId}\``);
         }
 
+        const subagentSessionDisplay =
+          returnedSubagentSessionId && returnedSubagentSessionId.length > 0
+            ? returnedSubagentSessionId
+            : "(none)";
+
+        debugLines.push(
+          `**Subagent session:** \`${subagentSessionDisplay}\``
+        );
+
         if (sessionFiles.length > 0) {
           const filesList = sessionFiles.map((name) => `- ${name}`).join("\n");
           debugLines.push(`**Session files:**\n${filesList}`);
+        }
+
+        // 🔍 NEW: include agent_debug_information as JSON when present
+        if (agentDebugInformation) {
+          try {
+            const debugJson = JSON.stringify(agentDebugInformation, null, 2);
+            debugLines.push(
+              "**Agent debug information (JSON):**\n\n```json\n" +
+                debugJson +
+                "\n```"
+            );
+          } catch (e) {
+            debugLines.push(
+              `**Agent debug information (JSON):**\n\n(unable to stringify: ${String(
+                e
+              )})`
+            );
+          }
         }
 
         if (debugLines.length > 0) {
@@ -1240,12 +1245,11 @@ useEffect(() => {
         }
       }
 
-
-
       const outHtml = mdToHtml(String(replyForDisplay));
-      const sourcesHtml = buildSourcesHtmlFromChunks(chunksForThisReply);
+      const sourcesHtml = showSources
+        ? buildSourcesHtmlFromChunks(chunksForThisReply)
+        : "";
       const finalHtml = outHtml + sourcesHtml;
-
       appendMessage("bot", finalHtml, true);
 
       setChatHistory((prev) => [
@@ -1257,6 +1261,8 @@ useEffect(() => {
       appendMessage("bot", `Network error: ${String(err)}`, false);
     }
 
+    setUploadedFiles([]);
+    setUploadedFilesNames([]);
     setSending(false);
   }, [
     appendMessage,
@@ -1267,6 +1273,8 @@ useEffect(() => {
     uploadedFilesNames,
     sessionId,
     showDebug,
+    subagentSessionId,
+    showSources,
   ]);
 
   const handleKeyDown: React.KeyboardEventHandler<HTMLTextAreaElement> = (
@@ -1290,7 +1298,6 @@ useEffect(() => {
       >
         <div>General Chat — Use responsibly</div>
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-          {/* Debug toggle */}
           <label
             style={{
               display: "flex",
@@ -1306,6 +1313,24 @@ useEffect(() => {
               onChange={(e) => setShowDebug(e.target.checked)}
             />
             Debug
+          </label>
+
+          {/* NEW: Sources toggle */}
+          <label
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              fontSize: "14px",
+              cursor: "pointer",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={showSources}
+              onChange={(e) => setShowSources(e.target.checked)}
+            />
+            Sources
           </label>
 
           <button
@@ -1325,6 +1350,35 @@ useEffect(() => {
           </button>
         </div>
       </div>
+
+      {/* Subagent banner */}
+      {subagentSessionId && (
+        <div
+          style={{
+            padding: "8px 12px",
+            backgroundColor: "#e0f2ff",
+            borderBottom: "1px solid #b3daff",
+            fontSize: "14px",
+          }}
+        >
+          <strong>Subagent workflow active.</strong>{" "}
+          <span style={{ fontFamily: "monospace" }}>
+            session: {subagentSessionId}
+          </span>{" "}
+          <button
+            type="button"
+            onClick={() => setSubagentSessionId(null)}
+            style={{
+              marginLeft: "8px",
+              padding: "2px 8px",
+              fontSize: "12px",
+              cursor: "pointer",
+            }}
+          >
+            Exit subagent
+          </button>
+        </div>
+      )}
 
       {/* Uploaded files display */}
       <div className="uploaded-files">
@@ -1371,15 +1425,13 @@ useEffect(() => {
           className="textarea-container"
           style={{ position: "relative", width: "100%" }}
         >
-          {/* Invisible file input */}
           <input
             type="file"
             ref={fileInputRef}
             style={{ display: "none" }}
             onChange={handleFileUpload}
-            multiple // Allow multiple file uploads
+            multiple
           />
-          {/* Button to trigger file selection */}
           <button
             type="button"
             className="file-upload-btn"
@@ -1412,9 +1464,9 @@ useEffect(() => {
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             style={{
-              paddingLeft: "50px", // Create space for the button
-              width: "100%", // Make the textarea span the entire width
-              boxSizing: "border-box", // Ensure padding doesn't affect the width
+              paddingLeft: "50px",
+              width: "100%",
+              boxSizing: "border-box",
             }}
           />
         </div>
