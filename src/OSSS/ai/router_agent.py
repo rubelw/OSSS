@@ -24,6 +24,7 @@ from OSSS.ai.session_store import RagSession, touch_session
 
 # 👇 Force-load student registration agents so @register_agent runs
 import OSSS.ai.agents.student.registration  # noqa: F401
+from OSSS.ai.agent_routing_config import first_matching_intent, build_alias_map
 
 YEAR_PATTERN = re.compile(r"(20[2-9][0-9])[-/](?:20[2-9][0-9]|[0-9]{2})")
 
@@ -57,12 +58,9 @@ except Exception:  # fallback, same as in your ai_gateway
     settings = _Settings()  # type: ignore
 
 
-# Intent aliases: map classifier labels to agent-owned canonical names
-INTENT_ALIASES: dict[str, str] = {
-    "enrollment": "register_new_student",
-    "new_student_registration": "register_new_student",
-    # add more synonyms as you create more agents
-}
+# Centralized alias map from config
+ALIAS_MAP: dict[str, str] = build_alias_map()
+
 
 def _looks_like_school_year(text: str) -> bool:
     """
@@ -94,7 +92,7 @@ class IntentResolution(BaseModel):
 
 class IntentResolver:
     """
-    Encapsulates intent classification, aliasing, and registration-flow heuristics.
+    Encapsulates intent classification, aliasing, and simple heuristic overrides.
     """
 
     async def resolve(
@@ -103,26 +101,13 @@ class IntentResolver:
         session: RagSession,
         query: str,
     ) -> IntentResolution:
-        ql = (query or "").lower()
+        ql = (query or "").lower()  # currently unused, but harmless
 
         # Explicit override from client (if provided)
         manual_label = rag.intent
 
-        # Domain heuristic: registration
-        forced_intent: str | None = None
-        if "register" in ql and "new student" in ql:
-            forced_intent = "register_new_student"
-            logger.info(
-                "RouterAgent: forcing intent to %s based on query text=%r",
-                forced_intent,
-                query[:200],
-            )
-        elif _looks_like_school_year(query):
-            forced_intent = "register_new_student"
-            logger.info(
-                "RouterAgent: treating bare school-year answer as registration; query=%r",
-                query[:200],
-            )
+        # Heuristic override (domain-specific, but config-driven)
+        forced_intent: str | None = first_matching_intent(query)
 
         # Prior session intent (sticky)
         session_intent = getattr(session, "intent", None)
@@ -154,22 +139,20 @@ class IntentResolver:
         else:
             classified_label = None
 
-        # Registration-flow stickiness
+        # Flow stickiness (generic, not tied only to registration)
         within_registration_flow = False
-
         if session_intent == "register_new_student":
             within_registration_flow = True
         elif rag.subagent_session_id and (
-            classified_label in (None, "general", "enrollment", "register_new_student")
-            or session_intent in (None, "register_new_student")
+            classified_label in (None, "general", session_intent)
+            or session_intent is not None
         ):
-            within_registration_flow = True
-        elif _looks_like_school_year(query):
+            # "We are mid-subagent session, and classifier did not strongly pull away"
             within_registration_flow = True
 
         # Base label priority
-        if within_registration_flow:
-            base_label = "register_new_student"
+        if within_registration_flow and session_intent:
+            base_label = session_intent
         else:
             base_label = (
                 manual_label
@@ -179,11 +162,12 @@ class IntentResolver:
                 or "general"
             )
 
-        # Apply aliases
-        intent_label = INTENT_ALIASES.get(base_label, base_label)
+        # Apply aliases via config
+        intent_label = ALIAS_MAP.get(base_label, base_label)
 
         logger.info(
-            "Effective intent for this turn: %r (manual=%r, forced=%r, session_intent=%r, classified=%r, aliased_from=%r)",
+            "Effective intent for this turn: %r (manual=%r, forced=%r, session_intent=%r, "
+            "classified=%r, aliased_from=%r)",
             intent_label,
             manual_label,
             forced_intent,
@@ -203,17 +187,13 @@ class IntentResolver:
             manual_label=manual_label,
         )
 
+
 class AgentDispatcher:
     """
     Responsible for:
-      - Looking up the agent for a given intent
-      - Falling back to registration agent when needed
+      - Looking up the agent for a given intent (via registry)
       - Building AgentContext
       - Calling agent.run and normalizing its result into the /ai/chat/rag shape
-
-    Returns:
-      - A fully-formed response dict if an agent handled the turn
-      - None if no agent exists for this intent (caller should fall back to RAG)
     """
 
     async def dispatch(
@@ -231,44 +211,24 @@ class AgentDispatcher:
         agent_id: Optional[str] = rag.agent_id
         agent_name: Optional[str] = rag.agent_name
 
-        # Look up agent from registry
         agent = get_agent(intent_label)
-
-        # Hard fallback for registration if wiring ever breaks
-        if agent is None and intent_label == "register_new_student":
-            try:
-                from OSSS.ai.agents.student.registration import RegisterNewStudentAgent
-
-                logger.info(
-                    "No registry agent found for intent=%s; "
-                    "falling back to direct RegisterNewStudentAgent()",
-                    intent_label,
-                )
-                agent = RegisterNewStudentAgent()
-            except Exception as e:
-                logger.exception(
-                    "Failed to import/instantiate RegisterNewStudentAgent for "
-                    "intent=%s: %s",
-                    intent_label,
-                    e,
-                )
-
         if agent is None:
             # No agent for this intent; caller should use RAG fallback
+            logger.debug("No agent registered for intent=%s; using RAG fallback", intent_label)
             return None
 
         logger.info("Dispatching to agent for intent=%s", intent_label)
 
         ctx = AgentContext(
             query=query,
-            session_id=agent_session_id,  # current / logical session
+            session_id=agent_session_id,
             agent_id=agent_id,
             agent_name=agent_name,
             intent=intent_label,
             action=action,
             action_confidence=action_confidence,
-            main_session_id=agent_session_id,  # top-level RAG session
-            subagent_session_id=rag.subagent_session_id,  # registration sub-session
+            main_session_id=agent_session_id,
+            subagent_session_id=rag.subagent_session_id,
             metadata={"session_files": session_files},
             retrieved_chunks=[],
         )
@@ -359,6 +319,7 @@ class AgentDispatcher:
             json.dumps(user_response, ensure_ascii=False)[:4000],
         )
         return user_response
+
 
 class RagEngine:
     """
@@ -594,6 +555,7 @@ class RagEngine:
 
             return response_payload
 
+
 class RouterAgent:
     """
     Top-level orchestrator for RAG + intent-based agents.
@@ -823,5 +785,3 @@ def _build_agent_trace(root_child: Any | None, intent_label: str | None) -> dict
         "intent": effective_intent,
         "children": [leaf],
     }
-
-
