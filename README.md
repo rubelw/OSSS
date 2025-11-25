@@ -83,6 +83,7 @@ General AI Chat Example:
 ![General AI Chat](docs/img/general_ai_chat.png)
 
 AI Slot-Agent Example:
+
 ![AI Slot-Agent](docs/img/ai_slot_agent.png)
 
 
