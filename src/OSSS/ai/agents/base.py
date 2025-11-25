@@ -105,6 +105,9 @@ class AgentContext(BaseModel):
     # ---- Multi-turn session chaining -----------------------------------------
     main_session_id: Optional[str] = None
     subagent_session_id: Optional[str] = None
+    session_files: List[str] = Field(default_factory=list)
+
+
 
     # ---- Arbitrary structured metadata ---------------------------------------
     metadata: Dict[str, Any] = Field(default_factory=dict)

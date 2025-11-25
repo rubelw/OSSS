@@ -296,6 +296,7 @@ class AgentDispatcher:
             subagent_session_id=rag.subagent_session_id,
             metadata={"session_files": session_files},
             retrieved_chunks=[],
+            session_files=session_files,
         )
 
         try:

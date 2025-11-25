@@ -53,7 +53,8 @@ class RegisterNewStudentAgent:
       - Decides whether we’re starting a NEW registration or CONTINUING one.
       - Loads & updates RegistrationSessionState from a store.
       - Uses dialog policy to decide whether to prompt or proceed.
-      - Optionally calls the RegistrationServiceClient.
+      - Optionally calls the RegistrationServiceClient (currently disabled in favor
+        of a simple thank-you + handoff back to general RAG once the dialog is complete).
       - Returns a RegistrationAgentResult with debug trace for the UI.
     """
 
@@ -62,7 +63,7 @@ class RegisterNewStudentAgent:
         self._reasoning_steps: List[ReasoningStep] = []
 
     # ------------------------------------------------------------------
-    # Reasoning helpers (fixes the missing reset_reasoning)
+    # Reasoning helpers
     # ------------------------------------------------------------------
     def reset_reasoning(self) -> None:
         self._reasoning_steps = []
@@ -173,7 +174,7 @@ class RegisterNewStudentAgent:
             phase="dialog_policy",
             thought=(
                 "Given the current session_mode and session_state, decide whether "
-                "we have enough information to call the registration service, or "
+                "we have enough information to finish the registration dialog, or "
                 "whether we must prompt the user for missing fields."
             ),
             action="evaluate_dialog_slots(...)",
@@ -198,7 +199,7 @@ class RegisterNewStudentAgent:
 
         resolved_state = dialog_result.session_state or state
 
-        # Ensure the resolved_state also has session_mode set
+        # Ensure the resolved_state also has session_mode set (until completion)
         resolved_state.session_mode = session_mode
 
         # -------------------------------
@@ -213,41 +214,44 @@ class RegisterNewStudentAgent:
             "registration_session_id": session_id,
             "student_type": getattr(resolved_state, "student_type", None),
             "school_year": getattr(resolved_state, "school_year", None),
-            # pull from state instead of always None / {}
             "registration_run": getattr(resolved_state, "registration_run", None),
             "inner_data": getattr(resolved_state, "inner_data", {}) or {},
             "reasoning_steps": self.export_reasoning(),
         }
 
         # -------------------------------
-        # 5) If we must prompt the user, do so now (no A2A call)
+        # 5) STILL IN FLOW → prompt user
         # -------------------------------
-        if dialog_result.prompt_answer_text:
-            logger.info(
-                "[RegisterNewStudentAgent] Prompting user; phase=%s status=%s",
-                dialog_result.prompt_phase,
-                dialog_result.prompt_status,
-            )
-
-            return RegistrationAgentResult(
-                answer_text=dialog_result.prompt_answer_text,
-                status="ok",
-                intent="register_new_student",
-                extra_chunks=[],
-                index="main",
-                agent_session_id=session_id,
-                agent_id=ctx.agent_id,
-                agent_name=ctx.agent_name,
-                data={"agent_debug_information": debug_info},
-                children=[],
-            )
-
-        # If we got here without permission to proceed, just bail gracefully.
         if not dialog_result.proceed:
+            # We are still collecting required slots (documents, school_year,
+            # parent info, attended-before flag, file upload, etc.).
+            # Just return the prompt and keep the subagent_session_id active.
+            if dialog_result.prompt_answer_text:
+                logger.info(
+                    "[RegisterNewStudentAgent] Prompting user; phase=%s status=%s",
+                    dialog_result.prompt_phase,
+                    dialog_result.prompt_status,
+                )
+
+                return RegistrationAgentResult(
+                    answer_text=dialog_result.prompt_answer_text,
+                    status="ok",
+                    intent="register_new_student",
+                    extra_chunks=[],
+                    index="main",
+                    agent_session_id=session_id,
+                    # 🔹 keep the registration dialog active
+                    subagent_session_id=session_id,
+                    agent_id=ctx.agent_id,
+                    agent_name=ctx.agent_name,
+                    data={"agent_debug_information": debug_info},
+                    children=[],
+                )
+
+            # Should be rare: no prompt text but also not allowed to proceed
             fallback_text = (
                 "I’m still gathering the details for this registration. "
-                "Please clarify whether you’re registering a new or existing student, "
-                "and for which school year."
+                "Please clarify or try again."
             )
             logger.warning(
                 "[RegisterNewStudentAgent] dialog_result.proceed=False but no prompt; "
@@ -260,6 +264,7 @@ class RegisterNewStudentAgent:
                 extra_chunks=[],
                 index="main",
                 agent_session_id=session_id,
+                subagent_session_id=session_id,
                 agent_id=ctx.agent_id,
                 agent_name=ctx.agent_name,
                 data={"agent_debug_information": debug_info},
@@ -267,104 +272,38 @@ class RegisterNewStudentAgent:
             )
 
         # -------------------------------
-        # 6) We have enough info: call registration service
+        # 6) FLOW COMPLETE → thank you + handoff
         # -------------------------------
-        self.append_reasoning_step(
-            phase="call_service",
-            thought="Call the registration back-end with the resolved session_state.",
-            action="registration_client.submit_registration(session_state)",
-            observation=None,
+        # At this point, all required dialog slots are filled, including the
+        # proof_of_residency_upload. Instead of calling the registration
+        # service, we:
+        #  - thank the user,
+        #  - mark the registration dialog as complete, and
+        #  - clear the subagent_session_id so the router goes back to general RAG.
+        thank_you = (
+            "Thank you! I've received your Proof of Residency document and saved it with "
+            "your registration details. You're all set for now.\n\n"
+            "If you have any other questions, feel free to ask."
         )
 
-        # inside RegisterNewStudentAgent.run, around the service call:
+        # Mark session as complete so this flow is no longer treated as active.
+        resolved_state.session_mode = None
+        await _state_store.save(resolved_state)
 
-        try:
-            service_response = await _registration_client.submit_registration(
-                resolved_state
-            )
-            self.update_last_observation(
-                {
-                    "service_call": "ok",
-                    "service_response_preview": repr(service_response)[:500],
-                }
-            )
-        except Exception as e:
-            import httpx  # local import is fine
-
-            logger.exception(
-                "[RegisterNewStudentAgent] Error calling registration service"
-            )
-
-            # Default debug info
-            error_meta: dict[str, Any] = {
-                "service_call": "error",
-                "error": str(e),
-            }
-
-            # If this is an HTTPStatusError, capture status + body
-            if isinstance(e, httpx.HTTPStatusError):
-                resp = e.response
-                if resp is not None:
-                    error_meta["http_status"] = resp.status_code
-                    try:
-                        error_meta["response_text"] = resp.text[:2000]
-                    except Exception:
-                        error_meta["response_text"] = "<unavailable>"
-
-            self.update_last_observation(error_meta)
-            debug_info["registration_run"] = "error"
-            debug_info.update(error_meta)
-
-            error_text = (
-                "I tried to start the registration, but the registration system "
-                "rejected the request. Your school office can help complete this "
-                "registration if the problem continues."
-            )
-
-            return RegistrationAgentResult(
-                answer_text=error_text,
-                status="error",
-                intent="register_new_student",
-                extra_chunks=[],
-                index="main",
-                agent_session_id=session_id,
-                agent_id=ctx.agent_id,
-                agent_name=ctx.agent_name,
-                data={"agent_debug_information": debug_info},
-                children=[],
-            )
-
-        # -------------------------------
-        # 7) Success path
-        # -------------------------------
-        debug_info["registration_run"] = "success"
-
-        student_label = resolved_state.student_type or "student"
-        year_label = (
-            f" for **{resolved_state.school_year}**"
-            if resolved_state.school_year
-            else ""
-        )
-
-        success_text = (
-            f"I’ve started the online registration for a **{student_label}**{year_label}.\n\n"
-            "You’ll receive a follow-up from the Dallas Center-Grimes registration system "
-            "with a link or next steps to complete the process. If you don’t see it within "
-            "a few minutes, please check your spam folder or contact the school office."
-        )
+        debug_info["registration_run"] = "complete"
 
         return RegistrationAgentResult(
-            answer_text=success_text,
+            answer_text=thank_you,
             status="ok",
             intent="register_new_student",
             extra_chunks=[],
             index="main",
             agent_session_id=session_id,
+            # ❌ Explicitly clear the subagent_session_id so the next turn
+            # falls back to the general RAG agent instead of this dialog.
+            subagent_session_id=None,
             agent_id=ctx.agent_id,
             agent_name=ctx.agent_name,
-            data={
-                "agent_debug_information": debug_info,
-                "registration_response": repr(service_response)[:2000],
-            },
+            data={"agent_debug_information": debug_info},
             children=[],
         )

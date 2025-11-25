@@ -4293,6 +4293,7 @@ down_profiles_menu() {
     echo "9) Destroy profile 'superset'"
     echo "10) Destroy profile 'openmetadata'"
     echo "11) Destroy profile 'ai'"
+    echo "12) Destroy profile 'chat'"
     echo "  q) Back"
     echo "-----------------------------------------------"
     read -rp "Select an option: " choice || return 0
@@ -4550,6 +4551,27 @@ down_profiles_menu() {
           sudo podman pod rm -f "$PROJECT" 2>/dev/null || true
         '
 
+        prompt_return
+        ;;
+      12)
+        # Destroy web-app'
+        podman machine ssh default -- bash -lc '
+          set -euo pipefail
+          cd /work || { echo "❌ Path not visible inside VM: /work"; exit 1; }
+
+          SCRIPT="/work/scripts/destroy-profile.sh"
+          PROFILE="chat"
+          PROJECT="osss-chat"
+          FILE="/work/docker-compose.yml"
+          REMOVE_VOLUMES="--volumes"   # set to "" if you want to keep volumes
+
+          [ -f "$SCRIPT" ] || { echo "❌ Not found: $SCRIPT"; ls -la /work/scripts || true; exit 1; }
+          chmod +x "$SCRIPT" || true
+          [ -f "$FILE" ] || { echo "❌ Not found: $FILE"; ls -la /work || true; exit 1; }
+
+          echo "▶ Running: $SCRIPT --profile $PROFILE --project $PROJECT --file $FILE $REMOVE_VOLUMES"
+          "$SCRIPT" --profile "$PROFILE" --project "$PROJECT" --file "$FILE" $REMOVE_VOLUMES
+        '
         prompt_return
         ;;
       q|Q|b|B) return 0 ;;
@@ -4893,19 +4915,20 @@ menu() {
     echo "9) Start profile 'superset' (keycloak must be up)"
     echo "10) Start profile 'openmetadata' (keycloak should be up)"
     echo "11) Start profile 'ai' (keycloak should be up)"
-    echo "12) Down a profile (remove-orphans, volumes)"
-    echo "13) Down ALL (remove-orphans, volumes)"
-    echo "14) Show status"
-    echo "15) Logs submenu"
-    echo "16) Create Trino server certificate + keystore"
-    echo "17) Create Keycloak server certificate"
-    echo "18) Reset Podman machine (wipe & restart)"
-    echo "19) Stop Podman VM"
-    echo "20) Destroy Podman VM"
-    echo "21) Run tests with Keycloak CA bundle"
-    echo "22) Utilities"
-    echo "23) Create Trino truststore"
-    echo "24) Create Openmetadata truststore"
+    echo "12) Start profile 'chat'"
+    echo "13) Down a profile (remove-orphans, volumes)"
+    echo "14) Down ALL (remove-orphans, volumes)"
+    echo "15) Show status"
+    echo "16) Logs submenu"
+    echo "17) Create Trino server certificate + keystore"
+    echo "18) Create Keycloak server certificate"
+    echo "19) Reset Podman machine (wipe & restart)"
+    echo "20) Stop Podman VM"
+    echo "21) Destroy Podman VM"
+    echo "22) Run tests with Keycloak CA bundle"
+    echo "23) Utilities"
+    echo "24) Create Trino truststore"
+    echo "25) Create Openmetadata truststore"
     echo "  q) Quit"
     echo "-----------------------------------------------"
     read -rp "Select an option: " ans || exit 0
@@ -5421,16 +5444,43 @@ VMUP
         echo "✅ Deploy complete for profile '${PROFILE}'."
         ;;
 
-      12) down_profiles_menu ;;
-      13) down_all ;;
-      14) show_status; prompt_return ;;
-      15) logs_menu ;;
-      16) create_trino_cert ;;
-      17) create_keycloak_cert ;;
-      18) reset_podman_machine ;;
-      19) podman_vm_stop ;;
-      20) podman_vm_destroy ;;
-      21)
+      12)
+        # Deploy app
+        if prompt_rebuild; then
+          REBUILD=1
+        else
+          REBUILD=0
+        fi
+
+        podman machine ssh default -- bash -lc "
+          set -euo pipefail;
+          export REBUILD=$REBUILD;
+          echo \"Rebuild is: \${REBUILD}\"
+
+          cd /work || { echo '❌ Path not visible inside VM: /work'; exit 1; };
+
+          SCRIPT='/work/scripts/deploy-profile.sh';
+          PROFILE='chat';
+          PROJECT='osss-chat';
+          REBUILD=\$REBUILD;
+          FILE='/work/docker-compose.yml';
+
+          echo '▶ Running:' \"\$SCRIPT\" \"\$PROFILE\" -p \"\$PROJECT\" -f \"\$FILE\" '(REBUILD='\$REBUILD')'; \
+          \"\$SCRIPT\" \"\$PROFILE\" -p \"\$PROJECT\" -f \"\$FILE\"
+        "
+        prompt_return
+
+        ;;
+      13) down_profiles_menu ;;
+      14) down_all ;;
+      15) show_status; prompt_return ;;
+      16) logs_menu ;;
+      17) create_trino_cert ;;
+      18) create_keycloak_cert ;;
+      19) reset_podman_machine ;;
+      20) podman_vm_stop ;;
+      21) podman_vm_destroy ;;
+      22)
         echo "▶️ Running pytest with OSSS Keycloak CA bundle..."
         export REQUESTS_CA_BUNDLE="$(pwd)/config_files/keycloak/secrets/ca/ca.crt"
         export OSSS_CA_BUNDLE="$REQUESTS_CA_BUNDLE"
@@ -5450,13 +5500,13 @@ VMUP
         fi
         prompt_return
         ;;
-      22) utilities_menu ;;
-      23)
+      23) utilities_menu ;;
+      24)
         echo "🛠️  Building Trino truststore..."
         build_trino_truststore
         prompt_return
         ;;
-      24)
+      25)
         echo "🛠️  Building Openmetadata truststore..."
         create_openmetadata_truststore
         prompt_return

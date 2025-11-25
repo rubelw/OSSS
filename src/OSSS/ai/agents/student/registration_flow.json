@@ -6,7 +6,8 @@
     "parent_first_name",
     "parent_last_name",
     "parent_email",
-    "student_has_attended_before"
+    "student_has_attended_before",
+    "proof_of_residency_upload"
   ],
   "steps": [
     {
@@ -71,6 +72,15 @@
       "prompt": "Has any student you are registering **attended DC-G Schools in the past**?\n\n1. Yes, at least one student has attended DC-G Schools before\n2. No, none of the students have attended DC-G Schools before\n\nReply with the **number** of your choice: 1 or 2.",
       "retry_prompt": "I wasn't able to tell if you selected **Yes** or **No**.\n\nHas any student you are registering attended DC-G Schools in the past?\n\n1. Yes, at least one student has attended DC-G Schools before\n2. No, none of the students have attended DC-G Schools before\n\nReply with the **number** of your choice: 1 or 2.",
       "parser": "yes_no_numeric",
+      "next": "upload_proof_of_residency"
+    },
+    {
+      "id": "upload_proof_of_residency",
+      "slot": "proof_of_residency_upload",
+      "type": "file_upload",
+      "prompt": "Almost done! Please upload your **Proof of Residency** document now.\n\nAccepted examples:\n• Utility bill\n• Lease agreement\n• Mortgage statement\n• Property tax notice\n\nUpload your file to continue.",
+      "retry_prompt": "I didn't receive a file.\n\nPlease upload a valid **Proof of Residency** document to continue.",
+      "parser": "file_upload",
       "next": null
     }
   ]

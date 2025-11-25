@@ -134,17 +134,27 @@ def infer_school_year_from_query(
     return extract_school_year(query)
 
 
-def _parser_yes_no_numeric(text: str, state: RegistrationSessionState) -> Optional[bool]:
+# ----------------- parser helpers -----------------
+def _parser_yes_no_numeric(
+    text: str,
+    state: RegistrationSessionState,
+) -> Optional[bool]:
     """Use shared numeric 1/2 -> True/False parser."""
     return parse_numeric_yes_no(text)
 
 
-def _parser_yes_no_any(text: str, state: RegistrationSessionState) -> Optional[bool]:
+def _parser_yes_no_any(
+    text: str,
+    state: RegistrationSessionState,
+) -> Optional[bool]:
     """Allow 1/2 and yes/no/y/n."""
     return parse_yes_no_choice(text)
 
 
-def _parser_school_year_choice(text: str, state: RegistrationSessionState) -> Optional[str]:
+def _parser_school_year_choice(
+    text: str,
+    state: RegistrationSessionState,
+) -> Optional[str]:
     """
     Use existing school-year choice logic on top of our default options.
     """
@@ -158,16 +168,44 @@ def _parser_school_year_choice(text: str, state: RegistrationSessionState) -> Op
     return parse_school_year_choice(text, options)
 
 
-def _parser_non_empty_text(text: str, state: RegistrationSessionState) -> Optional[str]:
+def _parser_non_empty_text(
+    text: str,
+    state: RegistrationSessionState,
+) -> Optional[str]:
     value = (text or "").strip()
     return value or None
 
 
-def _parser_email(text: str, state: RegistrationSessionState) -> Optional[str]:
+def _parser_email(
+    text: str,
+    state: RegistrationSessionState,
+) -> Optional[str]:
     value = (text or "").strip()
     if "@" not in value or "." not in value:
         return None
     return value
+
+
+def _parser_file_upload(
+    text: str,
+    state: RegistrationSessionState,
+) -> Optional[str]:
+    """
+    File-upload slot parser.
+
+    The router/agent should attach the uploaded file path to
+    state.proof_of_residency_upload before this runs.
+
+    We:
+    - Prefer that pre-attached value if present.
+    - Otherwise, fall back to any non-empty text (for manual testing).
+    """
+    existing = getattr(state, "proof_of_residency_upload", None)
+    if existing:
+        return existing
+
+    value = (text or "").strip()
+    return value or None
 
 
 PARSERS = {
@@ -176,8 +214,8 @@ PARSERS = {
     "school_year_choice": _parser_school_year_choice,
     "non_empty_text": _parser_non_empty_text,
     "email": _parser_email,
+    "file_upload": _parser_file_upload,
 }
-
 
 class DialogEngine:
     """
@@ -414,6 +452,37 @@ def _dialog_via_engine_pure(
     inner = session_state.inner_data or {}
     last_step_id = inner.get("last_step_id")
 
+    # 🔹 SPECIAL CASE: file upload step
+    # If we are currently on the upload_proof_of_residency step AND there
+    # is a file attached for this turn, attach it to the state so that
+    # the 'file_upload' parser can succeed even if ctx.query == "".
+    try:
+        if last_step_id == "upload_proof_of_residency":
+            files = getattr(ctx, "session_files", None) or []
+            if files and getattr(session_state, "proof_of_residency_upload", None) is None:
+                # You are saving uploads under:
+                #   /tmp/osss_rag_uploads/<agent_session_id>/<filename>
+                agent_session_id = getattr(ctx, "agent_session_id", None)
+                if agent_session_id:
+                    upload_dir = Path("/tmp/osss_rag_uploads") / agent_session_id
+                    full_path = str(upload_dir / files[0])
+                else:
+                    # Fallback: just store the filename
+                    full_path = files[0]
+
+                session_state.proof_of_residency_upload = full_path
+                logger.info(
+                    "[registration_dialog] Attached uploaded proof-of-residency "
+                    "file to state: %s",
+                    full_path,
+                )
+    except Exception as exc:
+        logger.exception(
+            "[registration_dialog] Failed to attach uploaded file to state: %s",
+            exc,
+        )
+
+    # Now run the JSON-driven engine as usual
     prompt, updated_state, next_step_id = _ENGINE.handle_turn(
         state=session_state,
         user_query=ctx.query or "",
@@ -512,7 +581,41 @@ async def evaluate_dialog_slots(
     - Delegates to JSON-driven dialog helpers (easy to update via registration_flow.json).
     - Handles persistence via RegistrationStateStore.
     """
+
+    # ------------------------------------------------------
+    # Special handling: file upload for proof_of_residency
+    # ------------------------------------------------------
+    inner = session_state.inner_data or {}
+    last_step_id = inner.get("last_step_id")
+
+    uploaded_files = getattr(ctx, "session_files", None) or []
+    logger.debug(
+        "[evaluate_dialog_slots] last_step_id=%r uploaded_files=%r",
+        last_step_id,
+        uploaded_files,
+    )
+
+    if last_step_id == "upload_proof_of_residency" and uploaded_files:
+        # Use the first uploaded file as the stored proof-of-residency token.
+        file_label = uploaded_files[0]
+        logger.info(
+            "[evaluate_dialog_slots] Captured proof_of_residency_upload=%r "
+            "for session=%s",
+            file_label,
+            session_state.session_id,
+        )
+
+        session_state.proof_of_residency_upload = file_label
+
+        # Clear last_step_id so the engine won't retry this step
+        inner["last_step_id"] = None
+        session_state.inner_data = inner
+
+        await state_store.save(session_state)
+
+    # ------------------------------------------------------
     # CONTINUE mode
+    # ------------------------------------------------------
     if session_mode == "continue":
         result, updated_state = dialog_for_continue_mode_pure(ctx, session_state)
         await state_store.save(updated_state)
@@ -524,8 +627,6 @@ async def evaluate_dialog_slots(
         await state_store.save(updated_state)
         return result
 
-    # NOTE: With the simplified decide_session_mode, we should not hit the
-    # ambiguous path anymore. As a safety net, we just proceed.
     logger.debug(
         "[evaluate_dialog_slots] Fallback path; proceeding with session=%s "
         "(session_mode=%r)",

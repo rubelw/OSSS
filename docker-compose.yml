@@ -84,6 +84,12 @@ volumes:
     name: es-shared
   dvc-cache:
     name: dvc-cache
+  zulip_data:
+    name: zulip_data
+  zulip_postgres_data:
+    name: zulip_postgres_data
+  zulip_redis_data:
+    name: zulip_redis_data
 
 
 services:
@@ -2260,3 +2266,105 @@ services:
 
     profiles:
       - ai
+
+  zulip:
+    image: zulip/docker-zulip:11.4-0
+    container_name: zulip
+    hostname: zulip
+    profiles:
+      - chat
+    networks:
+      - osss-net
+    depends_on:
+      zulip-db:
+        condition: service_healthy
+      zulip-memcached:
+        condition: service_healthy
+      zulip-redis:
+        condition: service_healthy
+
+    environment:
+      DB_HOST: zulip-db                  # 👈 point to zulip-db
+      DB_USER: zulip                     # 👈 match zulip-db env
+      DB_PASS: zulip                     # 👈 match zulip-db env
+      DB_NAME: zulip
+      SETTING_MEMCACHED_LOCATION: "memcached:11211"
+      SETTING_EXTERNAL_HOST: "localhost"
+      REDIS_HOST: zulip-redis
+      REDIS_PORT: 6379
+
+      SETTING_ZULIP_ADMINISTRATOR: "admin@example.com"
+      SETTING_EMAIL_HOST: "smtp"
+      SETTING_EMAIL_PORT: "587"
+      SETTING_EMAIL_USE_TLS: "False"
+      SETTING_EMAIL_USE_SSL: "False"
+    ports:
+      - "8111:80"
+    volumes:
+      - ./zulip/zulip-data:/data:rw,z
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -fsS http://localhost || exit 1" ]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  zulip-db:
+    image: postgres:16-alpine
+    container_name: zulip-db
+    profiles:
+      - chat
+    cpus: 1.0
+    mem_limit: 1024m
+    mem_reservation: 512m
+    environment:
+      POSTGRES_DB: zulip
+      POSTGRES_USER: zulip
+      POSTGRES_PASSWORD: zulip
+    ports:
+      - 5437:5432
+    networks:
+      - osss-net
+    volumes:
+      - zulip_postgres_data:/var/lib/postgresql/data:z
+    healthcheck:
+      test: pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}" -h 127.0.0.1 -p 5432 || exit 1
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  zulip-memcached:
+    image: memcached:1.6-alpine
+    container_name: zulip-memcached
+    profiles:
+      - chat
+    networks:
+      - osss-net
+    command:
+      - memcached
+      - -m
+      - "256"
+    restart: unless-stopped
+
+  zulip-redis:
+    image: redis:7-alpine
+    profiles:
+      - chat
+    container_name: zulip-redis
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+    networks:
+      - osss-net
+    ports:
+      - 6382:6379
+    volumes:
+      - zulip_redis_data:/data:z
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped

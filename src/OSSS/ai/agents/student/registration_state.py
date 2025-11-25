@@ -42,6 +42,8 @@ class RegistrationSessionState(BaseModel):
 
     # Freeform scratch space used by dialog engine
     inner_data: Dict[str, Any] = Field(default_factory=dict)
+    proof_of_residency_upload: Optional[str] = None
+
 
 
 class RegistrationStateStore:

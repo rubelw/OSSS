@@ -3,11 +3,19 @@ from __future__ import annotations
 
 from typing import Optional, List
 import logging
-from pathlib import Path
 import shutil
 import json
+import shutil
 
-from fastapi import APIRouter, Depends, HTTPException, Form, File, UploadFile
+from pathlib import Path
+from datetime import datetime
+from typing import List
+
+from pydantic import BaseModel
+import os
+
+
+from fastapi import APIRouter, Depends, HTTPException, Form, File, UploadFile, Query
 
 from OSSS.ai.router_agent import RAGRequest, RouterAgent
 from OSSS.ai.additional_index import INDEX_KINDS, get_docs
@@ -78,10 +86,225 @@ DEFAULT_PAYLOAD = (
     '"index":"main"}'
 )
 
+class UploadedFileInfo(BaseModel):
+    name: str
+    path: str          # full local path (for debugging)
+    size_bytes: int
+    modified_at: datetime
+
+
+class SessionFilesResponse(BaseModel):
+    agent_session_id: str
+    files: List[UploadedFileInfo]
+
+class UploadedFileWithSession(BaseModel):
+    agent_session_id: str
+    filename: str
+    path: str
+    size_bytes: int
+    modified_at: datetime
+
+class UploadedFileInfo(BaseModel):
+    filename: str
+    path: str
+    size_bytes: int
+    modified_at: datetime
 
 # ======================================================================
 # DEBUG ENDPOINT — VIEW SOME INDEX CHUNKS
 # ======================================================================
+@router.get("/chat/files", response_model=SessionFilesResponse)
+async def list_uploaded_files(
+    agent_session_id: str = Query(..., description="RAG agent_session_id to inspect"),
+) -> SessionFilesResponse:
+    """
+    List files uploaded for a given agent_session_id.
+
+    Files are read from /tmp/osss_rag_uploads/<agent_session_id>/.
+    """
+    session_dir = RAG_UPLOAD_ROOT / agent_session_id
+
+    if not session_dir.exists() or not session_dir.is_dir():
+        # No files uploaded for this session (or bad id) – return empty set
+        return SessionFilesResponse(agent_session_id=agent_session_id, files=[])
+
+    files: List[UploadedFileInfo] = []
+    for p in sorted(session_dir.iterdir()):
+        if not p.is_file():
+            continue
+        st = p.stat()
+        files.append(
+            UploadedFileInfo(
+                name=p.name,
+                path=str(p),  # local path; your front-end / tools can transform this to a URL
+                size_bytes=st.st_size,
+                modified_at=datetime.fromtimestamp(st.st_mtime),
+            )
+        )
+
+    return SessionFilesResponse(agent_session_id=agent_session_id, files=files)
+
+@router.get("/chat/files/all", response_model=List[UploadedFileWithSession])
+async def list_all_uploaded_files() -> List[UploadedFileWithSession]:
+    """
+    List all uploaded files under UPLOAD_ROOT across all agent_session_ids.
+
+    Directory layout:
+        UPLOAD_ROOT / <agent_session_id> / <filename>
+    """
+    results: List[UploadedFileWithSession] = []
+
+    if not RAG_UPLOAD_ROOT.exists() or not RAG_UPLOAD_ROOT.is_dir():
+        logger.info(
+            "[RAG] list_all_uploaded_files: upload root %s does not exist or is not a dir",
+            RAG_UPLOAD_ROOT,
+        )
+        return results
+
+    for session_dir in RAG_UPLOAD_ROOT.iterdir():
+        if not session_dir.is_dir():
+            continue
+
+        agent_session_id = session_dir.name
+
+        for p in session_dir.iterdir():
+            if not p.is_file():
+                continue
+
+            stat = p.stat()
+            results.append(
+                UploadedFileWithSession(
+                    agent_session_id=agent_session_id,
+                    filename=p.name,
+                    path=str(p),
+                    size_bytes=stat.st_size,
+                    modified_at=datetime.fromtimestamp(stat.st_mtime),
+                )
+            )
+
+    logger.info(
+        "[RAG] list_all_uploaded_files: returning %d files from %s",
+        len(results),
+        RAG_UPLOAD_ROOT,
+    )
+    return results
+
+
+@router.delete("/chat/files")
+async def delete_session_files(
+    agent_session_id: str = Query(..., description="RAG agent_session_id whose files to delete"),
+) -> dict:
+    """
+    Delete all uploaded files for a single RAG agent_session_id.
+
+    This removes the session-specific directory:
+        UPLOAD_ROOT / agent_session_id
+    """
+    session_dir = RAG_UPLOAD_ROOT / agent_session_id
+
+    if not session_dir.exists():
+        # Nothing to delete, but treat as success
+        logger.info(
+            "[RAG] delete_session_files: no session dir found for %s at %s",
+            agent_session_id,
+            session_dir,
+        )
+        return {
+            "status": "ok",
+            "message": f"No upload directory found for session {agent_session_id}",
+            "agent_session_id": agent_session_id,
+            "deleted": False,
+            "deleted_entries": 0,
+        }
+
+    if not session_dir.is_dir():
+        logger.warning(
+            "[RAG] delete_session_files: path for %s is not a directory: %s",
+            agent_session_id,
+            session_dir,
+        )
+        raise HTTPException(
+            status_code=400,
+            detail=f"Upload path for {agent_session_id} is not a directory",
+        )
+
+    deleted_entries = 0
+    for child in session_dir.iterdir():
+        try:
+            if child.is_dir():
+                shutil.rmtree(child)
+            else:
+                child.unlink()
+            deleted_entries += 1
+        except Exception as exc:
+            logger.exception(
+                "[RAG] delete_session_files: failed to delete %s for session %s: %s",
+                child,
+                agent_session_id,
+                exc,
+            )
+
+    # Optionally remove the now-empty session dir itself
+    try:
+        session_dir.rmdir()
+    except OSError:
+        # Not empty or some other issue — non-fatal
+        logger.debug(
+            "[RAG] delete_session_files: could not rmdir %s (may not be empty)",
+            session_dir,
+        )
+
+    logger.info(
+        "[RAG] delete_session_files: cleared %d entries for session %s under %s",
+        deleted_entries,
+        agent_session_id,
+        session_dir,
+    )
+
+    return {
+        "status": "ok",
+        "message": f"Deleted uploaded files for session {agent_session_id}",
+        "agent_session_id": agent_session_id,
+        "deleted": deleted_entries > 0,
+        "deleted_entries": deleted_entries,
+    }
+
+@router.delete("/chat/files/clear-all")
+async def clear_all_uploaded_files() -> dict:
+    """
+    Danger zone: delete ALL uploaded RAG temp files for ALL sessions.
+
+    This recursively removes everything under UPLOAD_ROOT
+    (default: /tmp/osss_rag_uploads).
+    """
+    if not RAG_UPLOAD_ROOT.exists():
+        # Nothing to clear
+        return {
+            "status": "ok",
+            "message": f"No upload directory to clear at {RAG_UPLOAD_ROOT}",
+            "deleted_root": False,
+            "deleted_entries": 0,
+        }
+
+    deleted_entries = 0
+    for child in RAG_UPLOAD_ROOT.iterdir():
+        deleted_entries += 1
+    shutil.rmtree(RAG_UPLOAD_ROOT)
+    return {
+        "status": "ok",
+        "message": f"Removed upload root directory {RAG_UPLOAD_ROOT}",
+        "deleted_root": True,
+        "deleted_entries": deleted_entries,
+    }
+
+    return {
+        "status": "ok",
+        "message": f"Cleared all uploaded files under {UPLOAD_ROOT}",
+        "deleted_root": False,
+        "deleted_entries": deleted_entries,
+    }
+
+
 @router.get("/debug/rag-sample")
 def rag_sample(index: str = "main"):
     """
