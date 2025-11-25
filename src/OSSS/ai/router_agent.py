@@ -4,13 +4,13 @@ from __future__ import annotations
 from typing import Optional, List, Any
 import logging
 import json
+import re
+import sys
 
 import httpx
 import numpy as np
 from pydantic import BaseModel, Field
-import re
 
-import sys
 sys.path.append("/workspace/src/MetaGPT")
 
 from MetaGPT.roles_registry import ROLE_REGISTRY  # noqa: F401
@@ -21,10 +21,10 @@ from OSSS.ai.intents import Intent
 from OSSS.ai.agents import AgentContext, get_agent
 from OSSS.ai.additional_index import top_k, INDEX_KINDS
 from OSSS.ai.session_store import RagSession, touch_session
+from OSSS.ai.agent_routing_config import build_alias_map, first_matching_intent
 
 # 👇 Force-load student registration agents so @register_agent runs
-import OSSS.ai.agents.student.registration  # noqa: F401
-from OSSS.ai.agent_routing_config import first_matching_intent, build_alias_map
+import OSSS.ai.agents.student.registration_agent  # noqa: F401
 
 YEAR_PATTERN = re.compile(r"(20[2-9][0-9])[-/](?:20[2-9][0-9]|[0-9]{2})")
 
@@ -58,7 +58,7 @@ except Exception:  # fallback, same as in your ai_gateway
     settings = _Settings()  # type: ignore
 
 
-# Centralized alias map from config
+# Build alias map once at import time from config
 ALIAS_MAP: dict[str, str] = build_alias_map()
 
 
@@ -92,7 +92,8 @@ class IntentResolution(BaseModel):
 
 class IntentResolver:
     """
-    Encapsulates intent classification, aliasing, and simple heuristic overrides.
+    Encapsulates intent classification, aliasing, and flow stickiness
+    (especially for registration).
     """
 
     async def resolve(
@@ -101,13 +102,21 @@ class IntentResolver:
         session: RagSession,
         query: str,
     ) -> IntentResolution:
-        ql = (query or "").lower()  # currently unused, but harmless
+        ql = (query or "").lower().strip()
 
         # Explicit override from client (if provided)
         manual_label = rag.intent
 
-        # Heuristic override (domain-specific, but config-driven)
+        # Config-driven domain heuristics (patterns in agent_routing_config)
         forced_intent: str | None = first_matching_intent(query)
+
+        # Extra domain heuristic: bare school-year answer => registration
+        if forced_intent is None and _looks_like_school_year(query):
+            forced_intent = "register_new_student"
+            logger.info(
+                "IntentResolver: treating bare school-year answer as registration; query=%r",
+                query[:200],
+            )
 
         # Prior session intent (sticky)
         session_intent = getattr(session, "intent", None)
@@ -139,15 +148,26 @@ class IntentResolver:
         else:
             classified_label = None
 
-        # Flow stickiness (generic, not tied only to registration)
+        # ---- Flow stickiness, esp. for registration -------------------
         within_registration_flow = False
-        if session_intent == "register_new_student":
+
+        # User clearly says "continue..." while last session intent was registration
+        wants_continue = ql.startswith("continue") or "continue registration" in ql
+
+        if session_intent == "register_new_student" and (
+            wants_continue
+            or forced_intent == "register_new_student"
+            or classified_label in (None, "general", "enrollment", "register_new_student")
+        ):
+            # Stay in registration flow unless classifier VERY strongly pulls away
             within_registration_flow = True
+
+        # If a subagent_session_id is present, we’re mid-subagent conversation;
+        # and classifier didn't steer somewhere else strongly.
         elif rag.subagent_session_id and (
             classified_label in (None, "general", session_intent)
             or session_intent is not None
         ):
-            # "We are mid-subagent session, and classifier did not strongly pull away"
             within_registration_flow = True
 
         # Base label priority
@@ -167,13 +187,15 @@ class IntentResolver:
 
         logger.info(
             "Effective intent for this turn: %r (manual=%r, forced=%r, session_intent=%r, "
-            "classified=%r, aliased_from=%r)",
+            "classified=%r, aliased_from=%r, wants_continue=%r, within_flow=%r)",
             intent_label,
             manual_label,
             forced_intent,
             session_intent,
             classified_label,
             base_label,
+            wants_continue,
+            within_registration_flow,
         )
 
         return IntentResolution(
@@ -194,6 +216,10 @@ class AgentDispatcher:
       - Looking up the agent for a given intent (via registry)
       - Building AgentContext
       - Calling agent.run and normalizing its result into the /ai/chat/rag shape
+
+    Returns:
+      - A fully-formed response dict if an agent handled the turn
+      - None if no agent exists for this intent (caller should fall back to RAG)
     """
 
     async def dispatch(
@@ -214,7 +240,9 @@ class AgentDispatcher:
         agent = get_agent(intent_label)
         if agent is None:
             # No agent for this intent; caller should use RAG fallback
-            logger.debug("No agent registered for intent=%s; using RAG fallback", intent_label)
+            logger.debug(
+                "No agent registered for intent=%s; using RAG fallback", intent_label
+            )
             return None
 
         logger.info("Dispatching to agent for intent=%s", intent_label)
