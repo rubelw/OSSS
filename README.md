@@ -386,6 +386,276 @@ jobs:
           name: osss-docs
           path: documentation
 ```
+## 🧪 Creating New AI Agent
+
+0. Mental model: how agents hook in
+
+At a high level:
+* RouterAgent decides an intent for the turn.
+* It calls AgentDispatcher, which does get_agent(intent_label).
+* get_agent comes from your registry (OSSS.ai.agents.registry).
+* Agents implement the Agent protocol and return AgentResult.
+
+So to add a new agent you basically:
+* Define a new intent_name and agent class.
+* Register it with the registry (@register_agent).
+* Optionally add heuristics / aliases so RouterAgent actually routes to it.
+
+(Optionally) give it a dedicated RAG index or rely on main.
+
+1. Pick an intent and file location
+
+* Decide:
+
+Canonical intent name used inside OSSS, e.g.:
+
+```bash
+intent_name = "lunch_menu"
+```
+
+* Module path for the agent.
+
+For example, for a district-facing agent:
+```bash
+src/OSSS/ai/agents/district/lunch_menu_agent.py
+```
+
+Or if it’s more general:
+
+```bash
+src/OSSS/ai/agents/lunch_menu_agent.py
+```
+
+You’re already using OSSS/ai/agents/student/ for student stuff, so this keeps things tidy per domain.
+
+2. Implement the agent class
+
+Use your AgentContext / AgentResult patterns and the registry decorator.
+
+Example: OSSS/ai/agents/district/lunch_menu_agent.py
+```bash
+from __future__ import annotations
+
+import logging
+from typing import Any, Dict, List
+
+from OSSS.ai.agents import register_agent
+from OSSS.ai.agents.base import AgentContext, AgentResult
+
+logger = logging.getLogger("OSSS.ai.agents.lunch_menu")
+
+@register_agent("lunch_menu")
+class LunchMenuAgent:
+    """
+    Example agent that answers questions about the school lunch menu.
+
+    This is intentionally simple: it reads from a fixed source or RAG context
+    and returns a formatted answer + debug metadata.
+    """
+
+    intent_name = "lunch_menu"
+
+    async def run(self, ctx: AgentContext) -> AgentResult:
+        logger.info(
+            "[LunchMenuAgent.run] query=%r session_id=%s",
+            ctx.query,
+            ctx.session_id,
+        )
+
+        # TODO: replace this with your real data source / RAG lookup
+        answer_text = (
+            "Here’s the lunch menu for today at Dallas Center-Grimes "
+            "Community School District:\n\n"
+            "- Main: Cheese pizza\n"
+            "- Side: Garden salad\n"
+            "- Fruit: Apple slices\n"
+            "- Milk: 1% or chocolate\n"
+        )
+
+        # Minimal debug chunk so the “Sources:” UI has something to show
+        debug_neighbors: List[Dict[str, Any]] = [
+            {
+                "score": 1.0,
+                "filename": "lunch_menu_stub",
+                "chunk_index": None,
+                "text_preview": answer_text[:800],
+                "image_paths": None,
+                "page_index": None,
+                "page_chunk_index": None,
+                "source": "lunch_menu_agent",
+                "pdf_index_path": None,
+            }
+        ]
+
+        data: Dict[str, Any] = {
+            "agent_debug_information": {
+                "phase": "final",
+                "query": ctx.query,
+                "session_mode": None,
+                "registration_session_id": None,
+                "extra": {
+                    "notes": "This is a stub lunch menu agent.",
+                },
+            }
+        }
+
+        return AgentResult(
+            answer_text=answer_text,
+            intent=self.intent_name,
+            index="main",  # or a dedicated index like "lunch"
+            agent_id=ctx.agent_id or "lunch-menu-agent",
+            agent_name=ctx.agent_name or "Lunch Menu",
+            extra_chunks=debug_neighbors,
+            status="ok",
+            agent_session_id=ctx.session_id,
+            data=data,
+        )
+
+```
+
+Key points:
+
+@register_agent("lunch_menu") wires it into your registry.
+
+It returns an AgentResult with:
+
+* answer_text for the user
+* extra_chunks for Sources
+  * data.agent_debug_information for your debug UI
+  * You already have very nice patterns from RegisterNewStudentAgent—you can copy+adapt that structure.
+
+3. Make sure the agent module is auto-imported
+
+You already have a dynamic loader like:
+
+```bash
+# src/OSSS/ai/agents/__init__.py (or similar)
+import pkgutil
+import importlib
+import OSSS.ai.agents as agents_pkg
+
+def load_all_agents() -> None:
+    package_path = agents_pkg.__path__
+    package_name = agents_pkg.__name__ + "."
+    for finder, name, ispkg in pkgutil.walk_packages(package_path, package_name):
+        # Avoid base/registry so we don’t register those as agents
+        if name.endswith(".base") or name.endswith(".registry"):
+            continue
+        importlib.import_module(name)
+
+```
+
+Make sure this function is called at startup somewhere (for example in your FastAPI app init, or in router_agent module import path).
+
+As long as your new agent file lives under OSSS.ai.agents, that import will run its @register_agent decorator.
+
+4. Add an intent alias (optional but nice)
+
+In router_agent.py you have:
+
+```bash
+INTENT_ALIASES: dict[str, str] = {
+    "enrollment": "register_new_student",
+    "new_student_registration": "register_new_student",
+    # ...
+}
+```
+
+If your classifier returns labels like "lunch" or "cafeteria", map them:
+
+```bash
+INTENT_ALIASES.update(
+    {
+        "lunch": "lunch_menu",
+        "cafeteria_menu": "lunch_menu",
+        "today_lunch": "lunch_menu",
+    }
+)
+```
+
+That way, regardless of the raw label coming back from the classifier, the effective intent will be "lunch_menu" and your agent gets called.
+
+5. (Optional) Add routing heuristics in IntentResolver
+
+If you want the router to force your agent when certain patterns appear, add a small heuristic in IntentResolver.resolve (in router_agent.py), just like you did for registration.
+
+Something like:
+
+```bash
+class IntentResolver:
+    async def resolve(...):
+        ql = (query or "").lower()
+        manual_label = rag.intent
+
+        forced_intent: str | None = None
+
+        # Existing registration heuristics...
+        # ...
+
+        # New lunch-menu heuristic
+        if any(kw in ql for kw in ["lunch menu", "what's for lunch", "school lunch"]):
+            forced_intent = "lunch_menu"
+            logger.info(
+                "RouterAgent: forcing intent to %s based on lunch keywords; query=%r",
+                forced_intent,
+                query[:200],
+            )
+
+        # ...rest of the resolve flow follows unchanged
+
+```
+
+Now even if the classifier is uncertain, the heuristic can route directly to your new agent.
+
+6. (Optional) Teach the intent classifier about it
+
+If your classify_intent function is using a model / rule set you control, you may want to:
+
+* Add "lunch_menu" as a new Intent enum value (if you’re using an enum).
+* Feed it some few-shot examples so it learns to output lunch_menu or lunch (which you then alias).
+
+But the OSSS router already has:
+
+* manual override (rag.intent),
+* forced intent heuristics,
+* aliasing via INTENT_ALIASES,
+
+so you can ship a new agent even before classifier training is perfect.
+
+7. (Optional) Give your agent its own index / data
+
+If the agent needs its own RAG index (like your planned tutor / agent indexes), you can:
+
+1. Add a new index kind in additional_index.py (INDEX_KINDS / load path).
+2. Set index="tutor" or whatever in your agent’s AgentResult.
+3. Or have the agent call top_k itself based on a dedicated index.
+
+For simple agents (like the registration one), you don’t need an index at all.
+
+8. Frontend considerations (ChatClient)
+
+If you want to force a specific agent from the UI (e.g., “Mentor mode” button), just:
+
+Set intent in the RAGRequest payload from the client:
+
+```bash
+// In ChatClient.tsx when building `payload`
+const payload = {
+  ...,
+  intent: "lunch_menu",  // manual override
+};
+```
+
+Your IntentResolver already respects manual_label = rag.intent, so that will short-circuit a lot of routing ambiguity.
+
+TL;DR – Add-a-new-agent recipe
+1. Create a module under OSSS/ai/agents/... with a new @register_agent("your_intent") class.
+2. Implement run(self, ctx) returning AgentResult (use RegisterNewStudentAgent as a pattern).
+3. Ensure auto-loading via load_all_agents() at startup.
+4. Add aliases in INTENT_ALIASES for classifier labels → your canonical intent.
+5. (Optional) Add heuristics in IntentResolver and train the intent classifier.
+6. (Optional) Wire a custom RAG index or external data source as needed.
+
 ---
 
 
