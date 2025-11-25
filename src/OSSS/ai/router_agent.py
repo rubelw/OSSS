@@ -36,6 +36,7 @@ from OSSS.ai.session_store import RagSession, touch_session
 # global agent registry as soon as this module is imported.
 import OSSS.ai.agents.student.registration_agent  # noqa: F401
 
+
 # Pattern used to detect user replies that *look like* school years.
 # E.g. "2025-26", "2025/26", "2030-31", etc.
 YEAR_PATTERN = re.compile(r"(20[2-9][0-9])[-/](?:20[2-9][0-9]|[0-9]{2})")

@@ -22,6 +22,9 @@ from .registration_state import (
     RegistrationStateStore,
 )
 
+from OSSS.ai.agents.reasoning import ReasoningTraceMixin, ReasoningStep
+
+
 # Dedicated logger for the "agent-level" orchestration logic.
 # All high-level flow decisions, external calls, and parsing behaviors
 # should be visible through this logger at INFO/DEBUG.
@@ -29,7 +32,7 @@ logger = logging.getLogger("OSSS.ai.agents.registration.agent")
 
 
 @register_agent("register_new_student")
-class RegisterNewStudentAgent:
+class RegisterNewStudentAgent(ReasoningTraceMixin):
     """
     High-level agent for orchestrating the **student registration** workflow.
 
@@ -67,28 +70,17 @@ class RegisterNewStudentAgent:
         service_client: Optional[RegistrationServiceClient] = None,
     ) -> None:
         """
-        Initialize the registration agent.
-
-        Parameters
-        ----------
-        state_store : RegistrationStateStore, optional
-            Storage backend for registration session state. If omitted,
-            an in-memory implementation is used (suitable for dev/tests).
-        service_client : RegistrationServiceClient, optional
-            HTTP client used to talk to the A2A registration service. If
-            omitted, defaults to a client that talks to "http://a2a:8086".
+        Initialize the registration agent with a state store and HTTP client.
 
         Notes
         -----
-        - In production, you will likely inject a shared, non-in-memory
-          `RegistrationStateStore` implementation.
-        - The default `RegistrationServiceClient` target URL should be
-          configured according to your deployment environment.
+        - Uses an in-memory state store by default (dev/testing).
+        - Uses a default A2A base_url of "http://a2a:8086"; override via DI
+          in production.
         """
-        # Defaults for DI: dev-friendly in-memory state + fixed URL.
-        # These defaults make it trivial to spin up this agent in a test
-        # environment without extra wiring, while still allowing full
-        # customization via dependency injection.
+        # Initialize mixin (ReasoningTraceMixin) + any potential future bases.
+        super().__init__()
+
         self.state_store: RegistrationStateStore = (
             state_store or InMemoryRegistrationStateStore()
         )
@@ -126,6 +118,9 @@ class RegisterNewStudentAgent:
           - A final or intermediate answer from the A2A service.
           - An error state if network/JSON parsing fails.
         """
+        # New: start a fresh ReAct-style reasoning trace for this turn.
+        self.reset_reasoning_trace()
+
         logger.info(
             "[run] Starting registration flow | query=%r subagent_session_id=%r "
             "agent_id=%r agent_name=%r",
@@ -141,17 +136,21 @@ class RegisterNewStudentAgent:
         agent_name = ctx.agent_name or "Registration"
 
         # --------------------------------------------------------------
-        # 1) Decide session mode (new/continue/ambiguous) + session_id
+        # 1) Decide session mode (Thought → Action → Observation)
         # --------------------------------------------------------------
-        # This encapsulates the "do we start a new registration vs continue an
-        # existing one" decision, and yields a session_id that ties all turns
-        # of a registration together.
-        session_mode, session_id = decide_session_mode(ctx)
+        step_session_mode: ReasoningStep = self.add_reasoning_step(
+            phase="session_mode",
+            thought=(
+                "Decide whether this turn continues an existing registration "
+                "session or starts a new one, based on ctx.subagent_session_id "
+                "and simple intent triggers (new vs continue)."
+            ),
+            action="decide_session_mode(ctx)",
+        )
 
+        session_mode, session_id = decide_session_mode(ctx)
         if session_id is None:
-            # Defensive: theoretically shouldn't happen, because decide_session_mode
-            # always tries to generate an ID when needed; however, we guard
-            # against None so that downstream code never has to.
+            # Defensive: ensure we never propagate a None session_id.
             import uuid
 
             session_id = str(uuid.uuid4())
@@ -160,45 +159,79 @@ class RegisterNewStudentAgent:
                 session_id,
             )
 
-        logger.info(
-            "[run] session_mode=%r session_id=%r subagent_session_id=%r",
-            session_mode,
-            session_id,
-            ctx.subagent_session_id,
+        self.update_reasoning_observation(
+            step_session_mode,
+            {
+                "session_mode": session_mode,
+                "session_id": session_id,
+                "existing_subagent_session_id": ctx.subagent_session_id,
+            },
         )
 
         # --------------------------------------------------------------
         # 2) Retrieve existing state (if any) or create a fresh one
         # --------------------------------------------------------------
-        # state_store abstracts the persistence layer (in-memory, Redis, DB, etc.).
-        # We always operate on a RegistrationSessionState object as the single
-        # source of truth for this agent's "memory" per session.
+        step_load_state: ReasoningStep = self.add_reasoning_step(
+            phase="load_state",
+            thought=(
+                "Load any prior RegistrationSessionState for this session_id so we "
+                "can continue slot-filling across turns."
+            ),
+            action="state_store.get(session_id)",
+        )
+
         existing_state = await self.state_store.get(session_id)
         if existing_state is None:
-            # No state yet for this session_id -> first time we've seen it.
             existing_state = RegistrationSessionState(session_id=session_id)
+            found_existing = False
             logger.debug(
                 "[run] No prior state found; created new RegistrationSessionState(session_id=%s)",
                 session_id,
             )
         else:
+            found_existing = True
             logger.debug(
                 "[run] Loaded existing RegistrationSessionState for session_id=%s: %s",
                 session_id,
                 existing_state,
             )
 
+        self.update_reasoning_observation(
+            step_load_state,
+            {
+                "found_existing_state": found_existing,
+                "state_repr": repr(existing_state),
+            },
+        )
+
         # --------------------------------------------------------------
         # 3) Run dialog policy (slot filling)
         # --------------------------------------------------------------
-        # The dialog policy decides whether we have enough information to
-        # proceed (e.g., student_type/school_year filled in), or whether we
-        # need to ask the user more questions before hitting A2A.
+        step_dialog: ReasoningStep = self.add_reasoning_step(
+            phase="dialog_policy",
+            thought=(
+                "Given the current session_mode and session_state, decide whether "
+                "we have enough information to call the registration service, or "
+                "whether we must prompt the user for missing fields."
+            ),
+            action="evaluate_dialog_slots(...)",
+        )
+
         dialog_result = await evaluate_dialog_slots(
             ctx=ctx,
             session_mode=session_mode,
             session_state=existing_state,
             state_store=self.state_store,
+        )
+
+        self.update_reasoning_observation(
+            step_dialog,
+            {
+                "proceed": dialog_result.proceed,
+                "prompt_phase": dialog_result.prompt_phase,
+                "prompt_status": dialog_result.prompt_status,
+                "has_prompt": dialog_result.prompt_answer_text is not None,
+            },
         )
 
         # 3a) If the dialog engine says "we need to ask the user something",
@@ -211,7 +244,7 @@ class RegisterNewStudentAgent:
                 dialog_result.prompt_phase,
                 dialog_result.prompt_status,
             )
-            return self._make_prompt_result(
+            prompt_result = self._make_prompt_result(
                 ctx=ctx,
                 agent_id=agent_id,
                 agent_name=agent_name,
@@ -219,15 +252,25 @@ class RegisterNewStudentAgent:
                 dialog=dialog_result,
                 session_mode=session_mode,
             )
+            # Attach full reasoning trace for introspection in the UI/logs.
+            self.attach_reasoning_to_agent_result(prompt_result)
+            return prompt_result
 
         # At this point, dialog_result indicates we can proceed to call A2A.
-        # If dialog_result.session_state is None for some reason, we fall back
-        # to existing_state to avoid operating on a None state.
         state = dialog_result.session_state or existing_state
 
         # --------------------------------------------------------------
         # 4) Call the external A2A registration service
         # --------------------------------------------------------------
+        step_http: ReasoningStep = self.add_reasoning_step(
+            phase="http_call",
+            thought=(
+                "We have sufficient dialog info. Build the payload and POST it to "
+                "the A2A /admin/registration endpoint."
+            ),
+            action="service_client.register(payload)",
+        )
+
         # This is the integration boundary: we translate our internal state
         # and context into a JSON payload for the external service.
         payload = self._build_action_payload(ctx, agent_id, agent_name, state)
@@ -237,12 +280,23 @@ class RegisterNewStudentAgent:
             # service_client wraps an httpx.AsyncClient and will raise
             # httpx.HTTPError on network issues or non-2xx responses.
             response = await self.service_client.register(payload)
+            self.update_reasoning_observation(
+                step_http,
+                {
+                    "status_code": response.status_code,
+                    "ok": response.status_code < 400,
+                },
+            )
         except httpx.HTTPError as e:
             # Covers both "pure" network errors and HTTPStatusError (4xx/5xx).
             # We do not attempt to recover here; instead we return an error
             # result with a user-friendly message and detailed debug info.
             logger.error("Registration HTTP error: %s", e, exc_info=True)
-            return self._make_error_result(
+            self.update_reasoning_observation(
+                step_http,
+                {"error": "http_error", "details": str(e)},
+            )
+            error_result = self._make_error_result(
                 ctx=ctx,
                 agent_id=agent_id,
                 agent_name=agent_name,
@@ -259,10 +313,21 @@ class RegisterNewStudentAgent:
                 reason="http_error",
                 inner_data={"error": "http_error", "details": str(e)},
             )
+            self.attach_reasoning_to_agent_result(error_result)
+            return error_result
 
         # --------------------------------------------------------------
         # 4b) Parse JSON body
         # --------------------------------------------------------------
+        step_parse_json: ReasoningStep = self.add_reasoning_step(
+            phase="parse_response",
+            thought=(
+                "Parse JSON from A2A and unwrap registration_run into answer_text "
+                "and metadata."
+            ),
+            action="response.json() + _parse_a2a_response(...)",
+        )
+
         # At this point we have a successful HTTP response. The next failure
         # condition is malformed or unexpected JSON.
         try:
@@ -275,7 +340,14 @@ class RegisterNewStudentAgent:
                 e,
                 response.text[:2000],
             )
-            return self._make_error_result(
+            self.update_reasoning_observation(
+                step_parse_json,
+                {
+                    "error": "json_parse_error",
+                    "body_preview": response.text[:2000],
+                },
+            )
+            error_result = self._make_error_result(
                 ctx=ctx,
                 agent_id=agent_id,
                 agent_name=agent_name,
@@ -295,6 +367,8 @@ class RegisterNewStudentAgent:
                     "body": response.text[:2000],
                 },
             )
+            self.attach_reasoning_to_agent_result(error_result)
+            return error_result
 
         logger.info("[run] Registration raw result from A2A: %s", raw)
 
@@ -317,6 +391,17 @@ class RegisterNewStudentAgent:
             fallback_agent_id=agent_id,
             fallback_agent_name=agent_name,
             fallback_session_id=session_id,
+        )
+
+        self.update_reasoning_observation(
+            step_parse_json,
+            {
+                "final_intent": final_intent,
+                "final_agent_id": final_agent_id,
+                "final_agent_name": final_agent_name,
+                "final_session_id": final_session_id,
+                "status": registration_run.get("status", "ok"),
+            },
         )
 
         # Optional prefix describing whether we started a new or continued
@@ -366,6 +451,22 @@ class RegisterNewStudentAgent:
             state.school_year,
         )
 
+        # Final ReAct-style summary step for this turn.
+        step_finalize: ReasoningStep = self.add_reasoning_step(
+            phase="finalize",
+            thought=(
+                "Persist final registration state and construct the AgentResult "
+                "returned to the router/UI."
+            ),
+            action="state_store.upsert(...) + build AgentResult",
+            observation={
+                "session_mode": session_mode,
+                "final_session_id": final_session_id,
+                "student_type": state.student_type,
+                "school_year": state.school_year,
+            },
+        )
+
         # agent_debug_information is the "single pane of glass" for understanding
         # what this agent saw and decided at this turn.
         debug_payload = {
@@ -380,7 +481,7 @@ class RegisterNewStudentAgent:
             "inner_data": inner_data,
         }
 
-        return AgentResult(
+        result = AgentResult(
             answer_text=answer_text,
             intent=final_intent or self.intent_name,
             index="registration",
@@ -397,6 +498,10 @@ class RegisterNewStudentAgent:
                 "agent_debug_information": debug_payload,
             },
         )
+
+        # Attach full reasoning trace into agent_debug_information["reasoning_steps"].
+        self.attach_reasoning_to_agent_result(result)
+        return result
 
     # ------------------------------------------------------------------
     # Helper methods
@@ -417,27 +522,6 @@ class RegisterNewStudentAgent:
         This is used when the dialog policy indicates we are missing critical
         information (e.g., "new vs existing student", or school year) and must
         ask the user a question before proceeding.
-
-        Parameters
-        ----------
-        ctx : AgentContext
-            Full context of the current turn.
-        agent_id : str
-            The ID of this agent, as visible in the final result.
-        agent_name : str
-            Human-readable name of this agent.
-        session_id : str
-            The active registration session identifier.
-        dialog : DialogStepResult
-            The result of the dialog evaluation, which contains the
-            prompt text, phase, status, and reason.
-        session_mode : Optional[SessionMode]
-            "new", "continue", or None (ambiguous).
-
-        Returns
-        -------
-        AgentResult
-            An AgentResult that will be sent directly to the user as a prompt.
         """
         # Compact debug snapshot for this specific prompt phase.
         debug_payload = {
@@ -503,18 +587,6 @@ class RegisterNewStudentAgent:
 
         The error information is captured in `data` for debugging,
         and a user-friendly message is returned in `answer_text`.
-
-        Parameters
-        ----------
-        phase : str
-            High-level label for where the error occurred
-            (e.g., "http_error", "json_parse_error").
-        message : str
-            Human-facing error message (safe to show in UI).
-        reason : str
-            Machine-readable reason string, also echoed in `data["reason"]`.
-        inner_data : Dict[str, Any]
-            Internal error details for debugging/logging.
         """
         debug_payload = {
             "phase": phase,
@@ -562,22 +634,6 @@ class RegisterNewStudentAgent:
     ) -> Dict[str, Any]:
         """
         Build the JSON payload sent to the A2A registration service.
-
-        Parameters
-        ----------
-        ctx : AgentContext
-            Current user query and context.
-        agent_id : str
-            The ID of this agent.
-        agent_name : str
-            The human-readable name of this agent.
-        state : RegistrationSessionState
-            The current registration state (session_id, student_type, school_year).
-
-        Returns
-        -------
-        Dict[str, Any]
-            A dictionary ready to be serialized to JSON for the A2A POST.
         """
         # Base fields that are always sent to A2A.
         payload: Dict[str, Any] = {
@@ -609,29 +665,6 @@ class RegisterNewStudentAgent:
     ) -> Tuple[str, str, str, str, str, Dict[str, Any], Dict[str, Any]]:
         """
         Parse the A2A service response into structured fields.
-
-        Returns
-        -------
-        (
-            answer_text,
-            intent,
-            agent_id,
-            agent_name,
-            session_id,
-            registration_run,
-            inner_data
-        )
-
-        Where:
-          - answer_text: final human-readable message from A2A (may be normalized)
-          - intent:      reported intent from A2A (or fallback)
-          - agent_id:    agent ID reported by A2A (or fallback)
-          - agent_name:  agent name reported by A2A (or fallback)
-          - session_id:  session tracking ID reported by A2A (or fallback)
-          - registration_run: raw "registration_run" object from A2A,
-                              or empty dict
-          - inner_data:  parsed inner payload, if present (e.g., details,
-                         metadata, etc.)
         """
         # A2A is expected to wrap useful information into a `registration_run`
         # field, but we never trust its presence blindly; hence the `or {}`.
@@ -810,17 +843,6 @@ class RegisterNewStudentAgent:
           - Confirmation that a new registration was started OR
           - Confirmation that an existing registration was continued
           - The explicit registration session ID for reference.
-
-        Parameters
-        ----------
-        answer_text : str
-            The core answer text from A2A (or fallback).
-        session_mode : Optional[SessionMode]
-            "new", "continue", or None.
-        session_id : str
-            The registration session identifier to display.
-        had_existing_session : bool
-            Whether there was a pre-existing session when this turn started.
         """
         prefix_lines: List[str] = []
 
