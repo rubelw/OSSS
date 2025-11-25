@@ -17,7 +17,7 @@
 </p>
 <!-- badges: end -->
 
-> Open Source School Software (K-12 SIS) — FastAPI + Keycloak + SQLAlchemy + Datalake; governance + student info + accounting + activites + transportation.
+> Open Source School Software (K-12 SIS) — FastAPI + Keycloak + SQLAlchemy + Datalake + Ollama + MetaGPT + A2A; governance + student info + accounting + activites + transportation.
 
 
 A community-driven, modular suite of applications for K-12 districts.
@@ -31,6 +31,7 @@ generated from source:
 - **Frontend (TypeScript)** → TypeDoc → Markdown (`docs/api/web/*`)
 - **Backend (Python)** → mkdocstrings renders code objects from `src/OSSS`
 - **REST (OpenAPI)** → exported JSON rendered with ReDoc
+- **AI (Ollama + MetaGPT + A2A)**
 
 ---
 ## Network diagram

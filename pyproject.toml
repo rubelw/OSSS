@@ -131,6 +131,7 @@ ai = [
     "chromadb>=0.5.5",
     "pypdf>=4.0.0",
 
+
 ]
 
 [project.urls]

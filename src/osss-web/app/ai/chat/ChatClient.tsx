@@ -17,6 +17,8 @@ interface UiMessage {
   who: "user" | "bot";
   content: string;
   isHtml?: boolean;
+  fullWidth?: boolean; // 👈 NEW
+
 }
 
 interface RetrievedChunk {
@@ -819,6 +821,32 @@ export default function ChatClient() {
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
+  const handleExitSubagent = useCallback(async () => {
+    // Nothing to do if we don't have an active subagent session
+    if (!subagentSessionId) return;
+
+    try {
+      // Call backend to reset/clear the subagent session.
+      // You will need to implement this endpoint server-side.
+      await fetch(`${API_BASE}/ai/chat/subagent/reset`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          agent_session_id: sessionId,
+          subagent_session_id: subagentSessionId,
+        }),
+      });
+    } catch (err) {
+      console.error("Failed to reset subagent session", err);
+    } finally {
+      // Always clear local state so we stop sending subagent_session_id
+      setSubagentSessionId(null);
+    }
+  }, [sessionId, subagentSessionId]);
+
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (files) {
@@ -905,14 +933,23 @@ export default function ChatClient() {
   }, [chatHistory]);
 
   const appendMessage = useCallback(
-    (who: "user" | "bot", content: string, isHtml = false) => {
-      setMessages((prev) => {
-        const lastId = prev.length ? prev[prev.length - 1].id : 0;
-        return [...prev, { id: lastId + 1, who, content, isHtml }];
-      });
-    },
-    []
-  );
+      (
+        who: "user" | "bot",
+        content: string,
+        isHtml = false,
+        fullWidth = false,        // 👈 NEW
+      ) => {
+        setMessages((prev) => {
+          const lastId = prev.length ? prev[prev.length - 1].id : 0;
+          return [
+            ...prev,
+            { id: lastId + 1, who, content, isHtml, fullWidth }, // 👈 store it
+          ];
+        });
+      },
+      []
+    );
+
 
   const handleReset = () => {
     setMessages([]);
@@ -1016,6 +1053,9 @@ export default function ChatClient() {
 
     try {
       const url = `${API_BASE}/ai/chat/rag`;
+
+      // 🔧 ALWAYS include subagent_session_id, even if it's null.
+      // This tells the backend whether we're in a subagent flow or not.
       const body: any = {
         model: "llama3.2-vision",
         messages: messagesForRag,
@@ -1026,12 +1066,8 @@ export default function ChatClient() {
         agent_session_id: sessionId,
         agent_id: "main-rag-agent",
         agent_name: "General RAG",
+        subagent_session_id: subagentSessionId ?? null,
       };
-
-      // If we're inside a subagent workflow, send the subagent session id
-      if (subagentSessionId) {
-        body.subagent_session_id = subagentSessionId;
-      }
 
       const form = new FormData();
       form.append("payload", JSON.stringify(body));
@@ -1250,7 +1286,7 @@ export default function ChatClient() {
         ? buildSourcesHtmlFromChunks(chunksForThisReply)
         : "";
       const finalHtml = outHtml + sourcesHtml;
-      appendMessage("bot", finalHtml, true);
+      appendMessage("bot", finalHtml, true, showDebug);
 
       setChatHistory((prev) => [
         ...prev,
@@ -1366,17 +1402,18 @@ export default function ChatClient() {
             session: {subagentSessionId}
           </span>{" "}
           <button
-            type="button"
-            onClick={() => setSubagentSessionId(null)}
-            style={{
-              marginLeft: "8px",
-              padding: "2px 8px",
-              fontSize: "12px",
-              cursor: "pointer",
-            }}
-          >
-            Exit subagent
-          </button>
+              type="button"
+              onClick={handleExitSubagent}
+              style={{
+                marginLeft: "8px",
+                padding: "2px 8px",
+                fontSize: "12px",
+                cursor: "pointer",
+              }}
+            >
+              Exit subagent
+            </button>
+
         </div>
       )}
 
@@ -1406,8 +1443,36 @@ export default function ChatClient() {
           <div
             key={m.id}
             className={`mentor-msg ${m.who === "user" ? "user" : "bot"}`}
+            style={
+              m.fullWidth
+                ? {
+                    width: "100%",
+                    display: "flex",
+                    justifyContent: "stretch",   // or "flex-start"
+                  }
+                : undefined
+            }
           >
-            <div className={`mentor-bubble ${m.who === "user" ? "user" : "bot"}`}>
+            <div
+              className={`mentor-bubble ${m.who === "user" ? "user" : "bot"}`}
+              style={
+                m.fullWidth
+                  ? {
+                      width: "100%",
+                      maxWidth: "100%",
+                      alignSelf: "stretch",
+                      paddingRight: "12px",            // 👈 prevents JSON from touching the edge
+                      paddingLeft: "12px",             // 👈 improves readability
+                      boxSizing: "border-box",
+
+                      /* These prevent <pre> from overflowing */
+                      overflowX: "auto",
+                      whiteSpace: "pre-wrap",
+                      wordBreak: "break-word",
+                    }
+                  : undefined
+              }
+            >
               {m.isHtml ? (
                 <div dangerouslySetInnerHTML={{ __html: m.content }} />
               ) : (

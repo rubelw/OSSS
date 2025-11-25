@@ -151,34 +151,48 @@ async def chat_rag(
             - runs the LLM
             - optionally chains sub-agents
       5. Returning the unified structured payload back to the UI.
-
-    The router SHOULD NOT:
-      - perform RAG logic directly
-      - classify intents
-      - call LLMs
-      - parse embeddings
-      - route to multiple agents itself
-
-    Those responsibilities live in RouterAgent or deeper in the agent stack.
     """
 
     # ------------------------------------------------------------------
     # 1) Deserialize JSON payload into RAGRequest
+    #    (now via dict so we can preserve extra fields like subagent_session_id)
     # ------------------------------------------------------------------
     try:
-        rag = RAGRequest.model_validate_json(payload)
+        raw_payload = json.loads(payload)
+    except Exception as e:
+        raise HTTPException(400, f"Invalid rag JSON (not JSON): {e}")
+
+    try:
+        rag = RAGRequest.model_validate(raw_payload)
     except Exception as e:
         raise HTTPException(400, f"Invalid rag JSON: {e}")
+
+    # Extract subagent_session_id from the raw payload (what the client sent)
+    raw_subagent_session_id = raw_payload.get("subagent_session_id")
+    logger.info(
+        "[RAG] incoming subagent_session_id=%r for agent_session_id=%r",
+        raw_subagent_session_id,
+        raw_payload.get("agent_session_id"),
+    )
+
+    # Force-attach it onto the RAGRequest model so RouterAgent can see it
+    # even if RAGRequest doesn't formally declare this field.
+    try:
+        setattr(rag, "subagent_session_id", raw_subagent_session_id)
+    except Exception as e:
+        logger.warning(
+            "[RAG] failed to set rag.subagent_session_id=%r: %s",
+            raw_subagent_session_id,
+            e,
+        )
 
     # ------------------------------------------------------------------
     # 2) SESSION EXPIRATION & CLEANUP
     # ------------------------------------------------------------------
-    # prune_expired_sessions returns a list of session IDs that exceeded expiry time.
     expired_ids = prune_expired_sessions()
     if expired_ids:
         logger.info(f"[RAG] pruned {len(expired_ids)} expired sessions")
 
-        # For each expired session, remove its upload directory entirely.
         for sid in expired_ids:
             sess_dir = RAG_UPLOAD_ROOT / sid
             if sess_dir.exists():
@@ -196,9 +210,6 @@ async def chat_rag(
     # ------------------------------------------------------------------
     # 3) SESSION HANDLING (persistent conversation)
     # ------------------------------------------------------------------
-    # get_or_create_session() either retrieves an existing session object
-    # or creates a fresh one. This allows RAG + agents to maintain memory
-    # across multiple turns.
     session = get_or_create_session(rag.agent_session_id)
     agent_session_id = session.id
 
@@ -212,10 +223,6 @@ async def chat_rag(
     # ------------------------------------------------------------------
     # 4) PROCESS UPLOADED FILES (optional)
     # ------------------------------------------------------------------
-    # These files (typically PDFs, images, docs) become immediate RAG sources.
-    # Files are stored ONLY for the duration of this session, inside:
-    #   RAG_UPLOAD_ROOT / <session_id> / <filename>
-    # They are *not* indexed system-wide.
     if files:
         session_dir = RAG_UPLOAD_ROOT / agent_session_id
         try:
@@ -251,8 +258,6 @@ async def chat_rag(
     # ------------------------------------------------------------------
     # 5) GET LIST OF FILES ALREADY SAVED FOR THIS SESSION
     # ------------------------------------------------------------------
-    # We gather filenames only (not absolute paths); RouterAgent
-    # can convert these into public URLs or ingest as file contents.
     session_files: list[str] = []
     session_dir = RAG_UPLOAD_ROOT / agent_session_id
 
@@ -270,12 +275,6 @@ async def chat_rag(
     # ------------------------------------------------------------------
     # 6) INVOKE THE MAIN ROUTER AGENT
     # ------------------------------------------------------------------
-    # RouterAgent handles:
-    #   • Intent classification
-    #   • Selecting the correct agent (registration, general RAG, safety, etc.)
-    #   • Running embedding retrieval
-    #   • Running the LLM
-    #   • Returning structured results + metadata
     router_agent = RouterAgent()
 
     try:
@@ -285,10 +284,8 @@ async def chat_rag(
             session_files=session_files,
         )
     except ValueError as e:
-        # RouterAgent raise ValueError for “bad input”
         raise HTTPException(status_code=400, detail=str(e))
     except RuntimeError as e:
-        # RouterAgent raise RuntimeError for upstream embedding/LLM issues
         raise HTTPException(status_code=502, detail=str(e))
 
     # ------------------------------------------------------------------

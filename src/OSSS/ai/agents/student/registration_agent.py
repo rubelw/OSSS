@@ -133,10 +133,7 @@ class RegisterNewStudentAgent:
 
         # Fallback: if decide_session_mode didn’t give us an id, derive one.
         if not session_id:
-            session_id = (
-                ctx.subagent_session_id
-                or ctx.session_id
-            )
+            session_id = ctx.subagent_session_id or ctx.session_id
 
         # -------------------------------
         # 2) Load or create session state
@@ -157,6 +154,10 @@ class RegisterNewStudentAgent:
             found_existing = False
         else:
             found_existing = True
+
+        # Keep track of dialog mode in the persisted state
+        if session_mode is not None:
+            state.session_mode = session_mode
 
         self.update_last_observation(
             {
@@ -197,21 +198,24 @@ class RegisterNewStudentAgent:
 
         resolved_state = dialog_result.session_state or state
 
+        # Ensure the resolved_state also has session_mode set
+        resolved_state.session_mode = session_mode
+
         # -------------------------------
         # 4) Build debug info blob
         # -------------------------------
         debug_info: dict[str, Any] = {
-            "phase": dialog_result.prompt_phase or (
-                "proceed" if dialog_result.proceed else "unknown"
-            ),
+            "phase": dialog_result.prompt_phase
+            or ("proceed" if dialog_result.proceed else "unknown"),
             "query": ctx.query,
             "session_mode": session_mode,
             "existing_registration_session_id": ctx.subagent_session_id,
             "registration_session_id": session_id,
             "student_type": getattr(resolved_state, "student_type", None),
             "school_year": getattr(resolved_state, "school_year", None),
-            "registration_run": None,
-            "inner_data": {},
+            # pull from state instead of always None / {}
+            "registration_run": getattr(resolved_state, "registration_run", None),
+            "inner_data": getattr(resolved_state, "inner_data", {}) or {},
             "reasoning_steps": self.export_reasoning(),
         }
 
@@ -272,9 +276,9 @@ class RegisterNewStudentAgent:
             observation=None,
         )
 
+        # inside RegisterNewStudentAgent.run, around the service call:
+
         try:
-            # Keep the signature here minimal & generic so it works with your
-            # RegistrationServiceClient implementation.
             service_response = await _registration_client.submit_registration(
                 resolved_state
             )
@@ -285,22 +289,38 @@ class RegisterNewStudentAgent:
                 }
             )
         except Exception as e:
+            import httpx  # local import is fine
+
             logger.exception(
                 "[RegisterNewStudentAgent] Error calling registration service"
             )
-            self.update_last_observation(
-                {
-                    "service_call": "error",
-                    "error": str(e),
-                }
-            )
+
+            # Default debug info
+            error_meta: dict[str, Any] = {
+                "service_call": "error",
+                "error": str(e),
+            }
+
+            # If this is an HTTPStatusError, capture status + body
+            if isinstance(e, httpx.HTTPStatusError):
+                resp = e.response
+                if resp is not None:
+                    error_meta["http_status"] = resp.status_code
+                    try:
+                        error_meta["response_text"] = resp.text[:2000]
+                    except Exception:
+                        error_meta["response_text"] = "<unavailable>"
+
+            self.update_last_observation(error_meta)
             debug_info["registration_run"] = "error"
+            debug_info.update(error_meta)
 
             error_text = (
-                "I tried to start the registration, but there was a problem "
-                "contacting the registration system. Please try again in a few "
-                "minutes or contact the school office."
+                "I tried to start the registration, but the registration system "
+                "rejected the request. Your school office can help complete this "
+                "registration if the problem continues."
             )
+
             return RegistrationAgentResult(
                 answer_text=error_text,
                 status="error",

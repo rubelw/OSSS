@@ -25,32 +25,22 @@ except Exception:  # pragma: no cover - test / fallback
 
 
 class RegistrationServiceResponse(BaseModel):
-    """
-    Normalized view of the registration service response.
-
-    We keep it flexible because the real service schema may evolve.
-    """
-
     confirmation_id: Optional[str] = None
     status: Optional[str] = None
     raw: Dict[str, Any]
 
 
 class RegistrationServiceClient:
-    """
-    Thin async HTTP client for the student registration backend.
-
-    You can extend this with more methods as your service grows
-    (validate_registration, get_registration, etc.).
-    """
-
     def __init__(
         self,
         base_url: Optional[str] = None,
         endpoint_path: Optional[str] = None,
         timeout: float = 10.0,
     ) -> None:
-        self.base_url = (base_url or getattr(settings, "REGISTRATION_SERVICE_URL", "http://a2a:8086")).rstrip("/")
+        self.base_url = (
+            base_url
+            or getattr(settings, "REGISTRATION_SERVICE_URL", "http://a2a:8086")
+        ).rstrip("/")
         self.endpoint_path = endpoint_path or getattr(
             settings,
             "REGISTRATION_ENDPOINT_PATH",
@@ -69,17 +59,43 @@ class RegistrationServiceClient:
         """
         Submit the registration represented by `state` to the backend service.
 
-        Returns a normalized RegistrationServiceResponse.
+        For `session_mode == "continue"`, send only the minimal identifiers but
+        still include all fields required by the A2A FastAPI model:
+        - query
+        - registration_agent_id
+        - registration_skill
         """
-        payload: Dict[str, Any] = {
+
+        # Base payload for a NEW registration
+        base_payload: Dict[str, Any] = {
             "session_id": state.session_id,
             "session_mode": state.session_mode,
+            # These three are REQUIRED by the A2A endpoint (per 422 error):
+            "query": "start registration",                 # or any label you like
+            "registration_agent_id": "register_new_student",
+            "registration_skill": "student_registration",
+            # Your existing fields:
             "student_type": state.student_type,
             "school_year": state.school_year,
-            "student_first_name": state.student_first_name,
-            "student_last_name": state.student_last_name,
+            "student_first_name": getattr(state, "student_first_name", None),
+            "student_last_name": getattr(state, "student_last_name", None),
             # add more fields as you extend RegistrationSessionState
         }
+
+        if state.session_mode == "continue":
+            # For CONTINUE, keep it minimal but still satisfy A2A's required fields
+            payload: Dict[str, Any] = {
+                "session_id": state.session_id,
+                "session_mode": state.session_mode,
+                "query": "continue registration",
+                "registration_agent_id": "register_new_student",
+                "registration_skill": "student_registration",
+            }
+        else:
+            payload = base_payload
+
+        # Strip out any None values so we don't send nulls unnecessarily
+        payload = {k: v for k, v in payload.items() if v is not None}
 
         logger.info(
             "Calling registration service at %s with payload=%r",
@@ -89,10 +105,17 @@ class RegistrationServiceClient:
 
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             resp = await client.post(self.registration_url, json=payload)
-            resp.raise_for_status()
+
+            if resp.status_code >= 400:
+                logger.error(
+                    "[RegistrationServiceClient] A2A returned %s: %s",
+                    resp.status_code,
+                    resp.text[:2000],
+                )
+                resp.raise_for_status()
+
             data = resp.json()
 
-        # Try to pull out a confirmation identifier from common keys
         confirmation_id = (
             data.get("confirmation_id")
             or data.get("id")

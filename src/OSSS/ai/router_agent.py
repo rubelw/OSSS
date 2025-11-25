@@ -5,13 +5,18 @@ from typing import Optional, List, Any
 import logging
 import json
 import re
-import sys
 
 import httpx
 import numpy as np
 from pydantic import BaseModel, Field
 
-sys.path.append("/workspace/src/MetaGPT")
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[2]  # .../src
+METAGPT_PATH = ROOT / "MetaGPT"
+sys.path.append(str(METAGPT_PATH))
+
 
 from MetaGPT.roles_registry import ROLE_REGISTRY  # noqa: F401
 from MetaGPT.roles.registration import RegistrationRole  # noqa: F401
@@ -121,6 +126,17 @@ class IntentResolver:
         # Prior session intent (sticky)
         session_intent = getattr(session, "intent", None)
 
+        # 🩹 If we have an active subagent_session_id but no stored session_intent,
+        #     infer that we're in the registration flow for now.
+        #     (Currently, only the student registration agent creates subagent sessions.)
+        if session_intent is None and rag.subagent_session_id:
+            session_intent = "register_new_student"
+            logger.info(
+                "IntentResolver: inferring session_intent='register_new_student' "
+                "from active subagent_session_id=%r",
+                rag.subagent_session_id,
+            )
+
         # Classifier call
         classified: str | Intent | None = "general"
         action: str | None = "read"
@@ -223,17 +239,19 @@ class AgentDispatcher:
     """
 
     async def dispatch(
-        self,
-        *,
-        intent_label: str,
-        query: str,
-        rag: "RAGRequest",
-        session: RagSession,
-        session_files: list[str],
-        action: str | None,
-        action_confidence: float | None,
+            self,
+            *,
+            intent_label: str,
+            query: str,
+            rag: "RAGRequest",
+            session: RagSession,
+            session_files: list[str],
+            action: str | None,
+            action_confidence: float | None,
     ) -> dict | None:
         agent_session_id = session.id
+
+        # Defaults from the incoming RAG request (usually "main-rag-agent"/"General RAG")
         agent_id: Optional[str] = rag.agent_id
         agent_name: Optional[str] = rag.agent_name
 
@@ -245,7 +263,11 @@ class AgentDispatcher:
             )
             return None
 
-        logger.info("Dispatching to agent for intent=%s", intent_label)
+        # For a specialized agent, override the labels so the UI shows the real agent
+        agent_id = intent_label
+        agent_name = getattr(agent, "__class__", type(agent)).__name__
+
+        logger.info("Dispatching to agent %s for intent=%s", agent_name, intent_label)
 
         ctx = AgentContext(
             query=query,
@@ -574,6 +596,17 @@ class RagEngine:
                 "action": action,
                 "action_confidence": action_confidence,
                 "agent_trace": agent_trace,
+                # 🔍 NEW: debug info for General RAG / rag_fallback
+                "agent_debug_information": {
+                    "phase": "general_rag",
+                    "query": query,
+                    "intent": intent_label,
+                    "action": action,
+                    "action_confidence": action_confidence,
+                    "retrieval_count": len(debug_neighbors or []),
+                    "agent_session_id": agent_session_id,
+                    "subagent_session_id": rag.subagent_session_id,
+                },
             }
 
             logger.info(
