@@ -88,6 +88,7 @@ class IntentResolution(BaseModel):
     intent: str
     action: str | None = None
     action_confidence: float | None = None
+    # now means "within current flow", not registration-specific
     within_registration_flow: bool = False
     classified_label: str | None = None
     forced_intent: str | None = None
@@ -97,8 +98,7 @@ class IntentResolution(BaseModel):
 
 class IntentResolver:
     """
-    Encapsulates intent classification, aliasing, and flow stickiness
-    (especially for registration).
+    Encapsulates intent classification, aliasing, and flow stickiness.
     """
 
     async def resolve(
@@ -124,11 +124,12 @@ class IntentResolver:
             )
 
         # Prior session intent (sticky)
+        # Prior session intent (sticky)
         session_intent = getattr(session, "intent", None)
 
-        # 🩹 If we have an active subagent_session_id but no stored session_intent,
-        #     infer that we're in the registration flow for now.
-        #     (Currently, only the student registration agent creates subagent sessions.)
+        # 🩹 Bridge: if we have an active subagent session but no stored session_intent,
+        # infer that we're in the registration flow. Right now, only the student
+        # registration agent creates subagent sessions.
         if session_intent is None and rag.subagent_session_id:
             session_intent = "register_new_student"
             logger.info(
@@ -164,30 +165,44 @@ class IntentResolver:
         else:
             classified_label = None
 
-        # ---- Flow stickiness, esp. for registration -------------------
-        within_registration_flow = False
+        # ---- Flow stickiness (generic, not per-agent) ---------------------
+        within_flow = False
 
-        # User clearly says "continue..." while last session intent was registration
+        # User clearly says "continue..." while we already have a session intent
         wants_continue = ql.startswith("continue") or "continue registration" in ql
 
-        if session_intent == "register_new_student" and (
-            wants_continue
-            or forced_intent == "register_new_student"
-            or classified_label in (None, "general", "enrollment", "register_new_student")
-        ):
-            # Stay in registration flow unless classifier VERY strongly pulls away
-            within_registration_flow = True
+        # Treat "general" and "None" as "weak" labels that shouldn't override an
+        # existing session_intent unless we have an explicit forced_intent.
+        weak_labels: set[Any] = {None, "general"}
 
-        # If a subagent_session_id is present, we’re mid-subagent conversation;
-        # and classifier didn't steer somewhere else strongly.
-        elif rag.subagent_session_id and (
-            classified_label in (None, "general", session_intent)
-            or session_intent is not None
+        if session_intent:
+            # Normalize classifier via alias map
+            normalized_classified = ALIAS_MAP.get(classified_label, classified_label)
+
+            if wants_continue:
+                within_flow = True
+            elif forced_intent == session_intent:
+                within_flow = True
+            elif normalized_classified == session_intent:
+                within_flow = True
+            elif classified_label in weak_labels and forced_intent is None:
+                within_flow = True
+
+        # If a subagent_session_id is active and we have a session_intent,
+        # default to staying in the same flow unless a forced_intent disagrees.
+        if (
+            rag.subagent_session_id
+            and session_intent
+            and forced_intent not in (None, session_intent)
+            and not within_flow
         ):
-            within_registration_flow = True
+            # strong forced_intent that differs -> allow switching flows
+            pass
+        elif rag.subagent_session_id and session_intent and not within_flow:
+            within_flow = True
 
         # Base label priority
-        if within_registration_flow and session_intent:
+        if within_flow and session_intent:
             base_label = session_intent
         else:
             base_label = (
@@ -211,14 +226,14 @@ class IntentResolver:
             classified_label,
             base_label,
             wants_continue,
-            within_registration_flow,
+            within_flow,
         )
 
         return IntentResolution(
             intent=intent_label,
             action=action,
             action_confidence=action_confidence,
-            within_registration_flow=within_registration_flow,
+            within_registration_flow=within_flow,  # now generic flow stickiness
             classified_label=classified_label,
             forced_intent=forced_intent,
             session_intent=session_intent,
@@ -239,15 +254,15 @@ class AgentDispatcher:
     """
 
     async def dispatch(
-            self,
-            *,
-            intent_label: str,
-            query: str,
-            rag: "RAGRequest",
-            session: RagSession,
-            session_files: list[str],
-            action: str | None,
-            action_confidence: float | None,
+        self,
+        *,
+        intent_label: str,
+        query: str,
+        rag: "RAGRequest",
+        session: RagSession,
+        session_files: list[str],
+        action: str | None,
+        action_confidence: float | None,
     ) -> dict | None:
         agent_session_id = session.id
 

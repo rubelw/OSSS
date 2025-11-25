@@ -82,6 +82,10 @@ General AI Chat Example:
 
 ![General AI Chat](docs/img/general_ai_chat.png)
 
+AI Slot-Agent Example:
+![AI Slot-Agent](docs/img/ai_slot_agent.png)
+
+
 ## Why This Is Important
 
 When Artificial General Intelligence (AGI) starts to emerge—potentially by 2030—districts will need to adjust governance, safety filters, and curricula rapidly. That kind of agility is exactly what community-maintained, open-source software delivers—without waiting on a vendor roadmap. Today, many incumbent systems are tied to legacy architectures and slow release cycles. While AI is already reshaping mainstream apps, most school platforms haven’t meaningfully evolved to leverage it.

@@ -28,6 +28,8 @@ class RegistrationSessionState(BaseModel):
     parent_email: Optional[str] = None
     parent_email_verify: Optional[str] = None
 
+    student_documents_confirmed: Optional[bool] = None
+
     # Student fields if needed (slot 4)
     student_first_name: Optional[str] = None
     student_last_name: Optional[str] = None
