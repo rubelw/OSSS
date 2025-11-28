@@ -88,6 +88,13 @@ class IntentResolution(BaseModel):
     intent: str
     action: str | None = None
     action_confidence: float | None = None
+    # urgency and tone from the classifier
+    urgency: str | None = None
+    urgency_confidence: float | None = None
+    tone_major: str | None = None
+    tone_major_confidence: float | None = None
+    tone_minor: str | None = None
+    tone_minor_confidence: float | None = None
     # now means "within current flow", not registration-specific
     within_registration_flow: bool = False
     classified_label: str | None = None
@@ -124,7 +131,6 @@ class IntentResolver:
             )
 
         # Prior session intent (sticky)
-        # Prior session intent (sticky)
         session_intent = getattr(session, "intent", None)
 
         # 🩹 Bridge: if we have an active subagent session but no stored session_intent,
@@ -142,17 +148,39 @@ class IntentResolver:
         classified: str | Intent | None = "general"
         action: str | None = "read"
         action_confidence: float | None = None
+        urgency: str | None = None
+        urgency_confidence: float | None = None
+        tone_major: str | None = None
+        tone_major_confidence: float | None = None
+        tone_minor: str | None = None
+        tone_minor_confidence: float | None = None
 
         try:
             intent_result = await classify_intent(query)
             classified = intent_result.intent
             action = getattr(intent_result, "action", None) or "read"
             action_confidence = getattr(intent_result, "action_confidence", None)
+            urgency = getattr(intent_result, "urgency", None)
+            urgency_confidence = getattr(intent_result, "urgency_confidence", None)
+            tone_major = getattr(intent_result, "tone_major", None)
+            tone_major_confidence = getattr(intent_result, "tone_major_confidence", None)
+            tone_minor = getattr(intent_result, "tone_minor", None)
+            tone_minor_confidence = getattr(intent_result, "tone_minor_confidence", None)
+
             logger.info(
-                "Classified intent=%s action=%s action_confidence=%s",
+                "Classified intent=%s action=%s action_confidence=%s "
+                "urgency=%s urgency_confidence=%s "
+                "tone_major=%s tone_major_confidence=%s "
+                "tone_minor=%s tone_minor_confidence=%s",
                 getattr(classified, "value", classified),
                 action,
                 action_confidence,
+                urgency,
+                urgency_confidence,
+                tone_major,
+                tone_major_confidence,
+                tone_minor,
+                tone_minor_confidence,
             )
         except Exception as e:
             logger.error("Error classifying intent: %s", e)
@@ -233,6 +261,12 @@ class IntentResolver:
             intent=intent_label,
             action=action,
             action_confidence=action_confidence,
+            urgency=urgency,
+            urgency_confidence=urgency_confidence,
+            tone_major=tone_major,
+            tone_major_confidence=tone_major_confidence,
+            tone_minor=tone_minor,
+            tone_minor_confidence=tone_minor_confidence,
             within_registration_flow=within_flow,  # now generic flow stickiness
             classified_label=classified_label,
             forced_intent=forced_intent,
@@ -263,6 +297,12 @@ class AgentDispatcher:
         session_files: list[str],
         action: str | None,
         action_confidence: float | None,
+        urgency: str | None,
+        urgency_confidence: float | None,
+        tone_major: str | None,
+        tone_major_confidence: float | None,
+        tone_minor: str | None,
+        tone_minor_confidence: float | None,
     ) -> dict | None:
         agent_session_id = session.id
 
@@ -284,6 +324,19 @@ class AgentDispatcher:
 
         logger.info("Dispatching to agent %s for intent=%s", agent_name, intent_label)
 
+        # Pack extra classifier metadata into metadata rather than AgentContext kwargs
+        metadata = {
+            "session_files": session_files,
+            "intent_action": action,
+            "intent_action_confidence": action_confidence,
+            "intent_urgency": urgency,
+            "intent_urgency_confidence": urgency_confidence,
+            "intent_tone_major": tone_major,
+            "intent_tone_major_confidence": tone_major_confidence,
+            "intent_tone_minor": tone_minor,
+            "intent_tone_minor_confidence": tone_minor_confidence,
+        }
+
         ctx = AgentContext(
             query=query,
             session_id=agent_session_id,
@@ -294,7 +347,7 @@ class AgentDispatcher:
             action_confidence=action_confidence,
             main_session_id=agent_session_id,
             subagent_session_id=rag.subagent_session_id,
-            metadata={"session_files": session_files},
+            metadata=metadata,
             retrieved_chunks=[],
             session_files=session_files,
         )
@@ -327,6 +380,12 @@ class AgentDispatcher:
                 "agent_name": agent_name,
                 "action": action,
                 "action_confidence": action_confidence,
+                "urgency": urgency,
+                "urgency_confidence": urgency_confidence,
+                "tone_major": tone_major,
+                "tone_major_confidence": tone_major_confidence,
+                "tone_minor": tone_minor,
+                "tone_minor_confidence": tone_minor_confidence,
                 "agent_trace": _build_agent_trace(
                     {
                         "agent": getattr(agent, "__class__", type(agent)).__name__,
@@ -364,6 +423,12 @@ class AgentDispatcher:
             "agent_name": getattr(agent_result, "agent_name", agent_name),
             "action": action,
             "action_confidence": action_confidence,
+            "urgency": urgency,
+            "urgency_confidence": urgency_confidence,
+            "tone_major": tone_major,
+            "tone_major_confidence": tone_major_confidence,
+            "tone_minor": tone_minor,
+            "tone_minor_confidence": tone_minor_confidence,
             "agent_trace": agent_trace,
         }
 
@@ -373,7 +438,19 @@ class AgentDispatcher:
             if isinstance(data_field, dict):
                 debug_info = data_field.get("agent_debug_information")
                 if debug_info is not None:
-                    user_response["agent_debug_information"] = debug_info
+                    # merge classifier metadata into debug info non-destructively
+                    merged_debug = {
+                        **debug_info,
+                        "intent_action": action,
+                        "intent_action_confidence": action_confidence,
+                        "intent_urgency": urgency,
+                        "intent_urgency_confidence": urgency_confidence,
+                        "intent_tone_major": tone_major,
+                        "intent_tone_major_confidence": tone_major_confidence,
+                        "intent_tone_minor": tone_minor,
+                        "intent_tone_minor_confidence": tone_minor_confidence,
+                    }
+                    user_response["agent_debug_information"] = merged_debug
         except Exception:
             logger.exception(
                 "Failed to extract agent_debug_information from AgentResult"
@@ -407,6 +484,12 @@ class RagEngine:
         session_files: list[str],
         action: str | None,
         action_confidence: float | None,
+        urgency: str | None,
+        urgency_confidence: float | None,
+        tone_major: str | None,
+        tone_major_confidence: float | None,
+        tone_minor: str | None,
+        tone_minor_confidence: float | None,
     ) -> dict:
         agent_session_id = session.id
         agent_id: Optional[str] = rag.agent_id
@@ -611,14 +694,26 @@ class RagEngine:
                 "agent_name": agent_name,
                 "action": action,
                 "action_confidence": action_confidence,
+                "urgency": urgency,
+                "urgency_confidence": urgency_confidence,
+                "tone_major": tone_major,
+                "tone_major_confidence": tone_major_confidence,
+                "tone_minor": tone_minor,
+                "tone_minor_confidence": tone_minor_confidence,
                 "agent_trace": agent_trace,
-                # 🔍 NEW: debug info for General RAG / rag_fallback
+                # 🔍 debug info for General RAG / rag_fallback
                 "agent_debug_information": {
                     "phase": "general_rag",
                     "query": query,
                     "intent": intent_label,
                     "action": action,
                     "action_confidence": action_confidence,
+                    "urgency": urgency,
+                    "urgency_confidence": urgency_confidence,
+                    "tone_major": tone_major,
+                    "tone_major_confidence": tone_major_confidence,
+                    "tone_minor": tone_minor,
+                    "tone_minor_confidence": tone_minor_confidence,
                     "retrieval_count": len(debug_neighbors or []),
                     "agent_session_id": agent_session_id,
                     "subagent_session_id": rag.subagent_session_id,
@@ -706,6 +801,12 @@ class RouterAgent:
         intent_label = resolution.intent
         action = resolution.action
         action_confidence = resolution.action_confidence
+        urgency = resolution.urgency
+        urgency_confidence = resolution.urgency_confidence
+        tone_major = resolution.tone_major
+        tone_major_confidence = resolution.tone_major_confidence
+        tone_minor = resolution.tone_minor
+        tone_minor_confidence = resolution.tone_minor_confidence
 
         # ---- persist session metadata ---------------------------------
         touch_session(
@@ -723,6 +824,12 @@ class RouterAgent:
             session_files=session_files,
             action=action,
             action_confidence=action_confidence,
+            urgency=urgency,
+            urgency_confidence=urgency_confidence,
+            tone_major=tone_major,
+            tone_major_confidence=tone_major_confidence,
+            tone_minor=tone_minor,
+            tone_minor_confidence=tone_minor_confidence,
         )
 
         if agent_response is not None:
@@ -737,6 +844,12 @@ class RouterAgent:
             session_files=session_files,
             action=action,
             action_confidence=action_confidence,
+            urgency=urgency,
+            urgency_confidence=urgency_confidence,
+            tone_major=tone_major,
+            tone_major_confidence=tone_major_confidence,
+            tone_minor=tone_minor,
+            tone_minor_confidence=tone_minor_confidence,
         )
 
 

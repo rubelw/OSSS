@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 # --- SAFE SETTINGS IMPORT (same pattern as rag_router) -----------------
 try:
     from OSSS.config import settings as _settings  # type: ignore
+
     settings = _settings
 except Exception:
     # Fallback for local/dev or tests
@@ -28,25 +29,70 @@ class IntentResult(BaseModel):
     confidence: Optional[float] = None
     raw: Optional[dict] = None
 
-    # NEW: CRUD-style action classification
+    # CRUD-style action classification
     # action ∈ {"read", "create", "update", "delete"} (or None if unknown)
     action: Optional[str] = None
     action_confidence: Optional[float] = None
+
+    # Urgency classification for routing / triage
+    # urgency ∈ {"low", "medium", "high"} (or None if unknown)
+    urgency: Optional[str] = None
+    urgency_confidence: Optional[float] = None
+
+    # Tone classification
+    # Major tone category ∈ {
+    #   "formal_professional", "informal_casual",
+    #   "emotional_attitude", "action_persuasive", "other"
+    # }
+    tone_major: Optional[str] = None
+    tone_major_confidence: Optional[float] = None
+
+    # Minor tone category (more specific tone label)
+    # ∈ {
+    #   "formal", "objective", "authoritative", "respectful",
+    #   "informal", "casual", "friendly", "enthusiastic",
+    #   "humorous", "optimistic", "pessimistic", "serious",
+    #   "empathetic_compassionate", "assertive", "sarcastic",
+    #   "persuasive", "encouraging", "didactic", "curious",
+    #   "candid", "apologetic", "dramatic", "concerned"
+    # }
+    tone_minor: Optional[str] = None
+    tone_minor_confidence: Optional[float] = None
 
 
 async def classify_intent(text: str) -> IntentResult:
     """
     Call the local LLM (Ollama / vLLM) to classify the user's text into:
-      1) a semantic intent (OSSS.ai.intents.Intent), and
-      2) a CRUD-style action: "read", "create", "update", or "delete".
+      1) a semantic intent (OSSS.ai.intents.Intent),
+      2) a CRUD-style action: "read", "create", "update", or "delete",
+      3) an urgency level: "low", "medium", or "high",
+      4) a major tone category and a more specific minor tone label.
 
     Examples:
-      - "Show me the school calendar"       -> intent: school_calendar, action: "read"
-      - "Register a new student"            -> intent: register_new_student, action: "create"
-      - "Change my address on file"         -> intent: contact_information, action: "update"
-      - "Remove my child from the bus list" -> intent: transportation_routes, action: "delete"
+      - "Show me the school calendar"
+          -> intent: school_calendar,
+             action: "read",
+             urgency: "low",
+             tone_major: "informal_casual" or "formal_professional",
+             tone_minor: "neutral-ish" like "formal" or "informal" depending on phrasing
+
+      - "Register a new student"
+          -> intent: register_new_student,
+             action: "create",
+             urgency: "medium",
+             tone_major: "formal_professional" or "informal_casual",
+             tone_minor: "formal", "professional", or "friendly"
+
+      - "My child is being bullied on the bus and I'm very worried"
+          -> intent: bullying_concern,
+             action: "update" or "create",
+             urgency: "high",
+             tone_major: "emotional_attitude",
+             tone_minor: "concerned", "serious", or "empathetic_compassionate"
     """
-    base = getattr(settings, "VLLM_ENDPOINT", "http://host.containers.internal:11434").rstrip("/")
+    base = getattr(settings, "VLLM_ENDPOINT", "http://host.containers.internal:11434").rstrip(
+        "/"
+    )
     chat_url = f"{base}/v1/chat/completions"
     model = getattr(settings, "INTENT_MODEL", "llama3.2-vision")
 
@@ -64,7 +110,11 @@ async def classify_intent(text: str) -> IntentResult:
     system = (
         "You are an intent classifier for questions about Dallas Center-Grimes (DCG) schools.\n"
         "You must respond with ONLY a single JSON object on one line, for example:\n"
-        '{"intent":"general","confidence":0.92,"action":"read","action_confidence":0.88}\n'
+        '{"intent":"general","confidence":0.92,'
+        '"action":"read","action_confidence":0.88,'
+        '"urgency":"low","urgency_confidence":0.74,'
+        '"tone_major":"informal_casual","tone_major_confidence":0.80,'
+        '"tone_minor":"friendly","tone_minor_confidence":0.83}\n"
         "\n"
         "The JSON must contain these keys:\n"
         '  - \"intent\": one of the valid OSSS.ai.intents.Intent values listed below\n'
@@ -75,6 +125,28 @@ async def classify_intent(text: str) -> IntentResult:
         '    * use \"update\" when the user wants to change existing information (e.g., change address, update schedule)\n'
         '    * use \"delete\" when the user wants to remove or cancel something (e.g., unenroll, remove from list)\n'
         '  - \"action_confidence\": a float between 0 and 1 for how confident you are in the `action`\n'
+        '  - \"urgency\": one of: \"low\", \"medium\", \"high\"\n'
+        "    * use \"low\" when the request is informational or routine and can be handled at the district's normal pace\n"
+        "    * use \"medium\" when the request should be handled reasonably soon (e.g., within a few days) but is not an emergency\n"
+        "    * use \"high\" when the message sounds urgent, time-critical, or related to safety/well-being (e.g., bullying, threats, medical issues, immediate transportation problems)\n"
+        '  - \"urgency_confidence\": a float between 0 and 1 for how confident you are in the `urgency`\n'
+        "\n"
+        "Tone classification:\n"
+        '  - \"tone_major\": one of the following major tone categories:\n'
+        '       * \"formal_professional\"  (formal, objective, authoritative, respectful)\n'
+        '       * \"informal_casual\"      (informal, casual, friendly, enthusiastic)\n'
+        '       * \"emotional_attitude\"   (humorous, optimistic, pessimistic, serious, empathetic_compassionate, assertive, sarcastic)\n'
+        '       * \"action_persuasive\"    (persuasive, encouraging, assertive, didactic)\n'
+        '       * \"other\"                (curious, candid, apologetic, dramatic, concerned, or any tone that does not fit clearly above)\n'
+        '  - \"tone_major_confidence\": float between 0 and 1 for how confident you are in the major tone\n'
+        '  - \"tone_minor\": one specific minor tone label, chosen from:\n'
+        '       \"formal\", \"objective\", \"authoritative\", \"respectful\",\n'
+        '       \"informal\", \"casual\", \"friendly\", \"enthusiastic\",\n'
+        '       \"humorous\", \"optimistic\", \"pessimistic\", \"serious\",\n'
+        '       \"empathetic_compassionate\", \"assertive\", \"sarcastic\",\n'
+        '       \"persuasive\", \"encouraging\", \"didactic\", \"curious\",\n'
+        '       \"candid\", \"apologetic\", \"dramatic\", \"concerned\"\n'
+        '  - \"tone_minor_confidence\": float between 0 and 1 for how confident you are in the minor tone\n'
         "\n"
         "Valid intents (enum OSSS.ai.intents.Intent): "
         '"general", "staff_directory", "student_counts", "transfers", "superintendent_goals", "board_policy", "teacher", "enrollment", "school_calendar", "schedule_meeting", "bullying_concern", "student_portal", '
@@ -149,6 +221,12 @@ async def classify_intent(text: str) -> IntentResult:
             raw={"error": str(e)},
             action=None,
             action_confidence=None,
+            urgency=None,
+            urgency_confidence=None,
+            tone_major=None,
+            tone_major_confidence=None,
+            tone_minor=None,
+            tone_minor_confidence=None,
         )
 
     # ---- Extract raw content -----------------------------------------------
@@ -169,6 +247,12 @@ async def classify_intent(text: str) -> IntentResult:
     confidence: Optional[float] = None
     raw_action: Optional[str] = None
     action_confidence: Optional[float] = None
+    raw_urgency: Optional[str] = None
+    urgency_confidence: Optional[float] = None
+    raw_tone_major: Optional[str] = None
+    tone_major_confidence: Optional[float] = None
+    raw_tone_minor: Optional[str] = None
+    tone_minor_confidence: Optional[float] = None
 
     # Only attempt JSON parse if it *looks* like JSON
     if isinstance(content, str) and content.lstrip().startswith("{"):
@@ -182,14 +266,31 @@ async def classify_intent(text: str) -> IntentResult:
             raw_action = obj.get("action")
             action_confidence = obj.get("action_confidence")
 
+            raw_urgency = obj.get("urgency")
+            urgency_confidence = obj.get("urgency_confidence")
+
+            raw_tone_major = obj.get("tone_major")
+            tone_major_confidence = obj.get("tone_major_confidence")
+
+            raw_tone_minor = obj.get("tone_minor")
+            tone_minor_confidence = obj.get("tone_minor_confidence")
+
             logger.info(
                 "[intent_classifier] parsed JSON obj=%s raw_intent=%r confidence=%r "
-                "raw_action=%r action_confidence=%r",
+                "raw_action=%r action_confidence=%r raw_urgency=%r urgency_confidence=%r "
+                "raw_tone_major=%r tone_major_confidence=%r "
+                "raw_tone_minor=%r tone_minor_confidence=%r",
                 obj,
                 raw_intent,
                 confidence,
                 raw_action,
                 action_confidence,
+                raw_urgency,
+                urgency_confidence,
+                raw_tone_major,
+                tone_major_confidence,
+                raw_tone_minor,
+                tone_minor_confidence,
             )
         except Exception as e:
             logger.warning(
@@ -203,6 +304,12 @@ async def classify_intent(text: str) -> IntentResult:
             confidence = None
             raw_action = None
             action_confidence = None
+            raw_urgency = None
+            urgency_confidence = None
+            raw_tone_major = None
+            tone_major_confidence = None
+            raw_tone_minor = None
+            tone_minor_confidence = None
     else:
         # Model ignored instructions and returned prose
         logger.info(
@@ -232,12 +339,90 @@ async def classify_intent(text: str) -> IntentResult:
     else:
         action_norm = None
 
+    # Normalize urgency to one of the allowed values if present
+    if isinstance(raw_urgency, str):
+        urgency_norm = raw_urgency.lower().strip()
+        if urgency_norm not in {"low", "medium", "high"}:
+            logger.warning(
+                "[intent_classifier] unknown urgency %r, setting urgency=None",
+                raw_urgency,
+            )
+            urgency_norm = None
+    else:
+        urgency_norm = None
+
+    # Normalize tone_major to allowed values
+    valid_tone_major = {
+        "formal_professional",
+        "informal_casual",
+        "emotional_attitude",
+        "action_persuasive",
+        "other",
+    }
+    if isinstance(raw_tone_major, str):
+        tone_major_norm = raw_tone_major.lower().strip()
+        if tone_major_norm not in valid_tone_major:
+            logger.warning(
+                "[intent_classifier] unknown tone_major %r, setting tone_major=None",
+                raw_tone_major,
+            )
+            tone_major_norm = None
+    else:
+        tone_major_norm = None
+
+    # Normalize tone_minor to allowed values
+    valid_tone_minor = {
+        "formal",
+        "objective",
+        "authoritative",
+        "respectful",
+        "informal",
+        "casual",
+        "friendly",
+        "enthusiastic",
+        "humorous",
+        "optimistic",
+        "pessimistic",
+        "serious",
+        "empathetic_compassionate",
+        "assertive",
+        "sarcastic",
+        "persuasive",
+        "encouraging",
+        "didactic",
+        "curious",
+        "candid",
+        "apologetic",
+        "dramatic",
+        "concerned",
+    }
+    if isinstance(raw_tone_minor, str):
+        tone_minor_norm = raw_tone_minor.lower().strip()
+        if tone_minor_norm not in valid_tone_minor:
+            logger.warning(
+                "[intent_classifier] unknown tone_minor %r, setting tone_minor=None",
+                raw_tone_minor,
+            )
+            tone_minor_norm = None
+    else:
+        tone_minor_norm = None
+
     logger.info(
-        "[intent_classifier] final intent=%s confidence=%r action=%r action_confidence=%r",
+        "[intent_classifier] final intent=%s confidence=%r "
+        "action=%r action_confidence=%r "
+        "urgency=%r urgency_confidence=%r "
+        "tone_major=%r tone_major_confidence=%r "
+        "tone_minor=%r tone_minor_confidence=%r",
         getattr(intent, "value", str(intent)),
         confidence,
         action_norm,
         action_confidence,
+        urgency_norm,
+        urgency_confidence,
+        tone_major_norm,
+        tone_major_confidence,
+        tone_minor_norm,
+        tone_minor_confidence,
     )
 
     # Keep the parsed JSON (if any) or the full raw data around for debugging in callers
@@ -247,4 +432,10 @@ async def classify_intent(text: str) -> IntentResult:
         raw=obj or data,
         action=action_norm,
         action_confidence=action_confidence,
+        urgency=urgency_norm,
+        urgency_confidence=urgency_confidence,
+        tone_major=tone_major_norm,
+        tone_major_confidence=tone_major_confidence,
+        tone_minor=tone_minor_norm,
+        tone_minor_confidence=tone_minor_confidence,
     )
