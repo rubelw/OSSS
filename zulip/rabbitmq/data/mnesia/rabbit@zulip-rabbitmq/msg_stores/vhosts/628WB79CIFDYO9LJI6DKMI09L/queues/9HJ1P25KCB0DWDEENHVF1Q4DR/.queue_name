@@ -1,0 +1,2 @@
+VHOST: /
+QUEUE: deferred_email_senders

@@ -2268,7 +2268,9 @@ services:
       - ai
 
   zulip:
-    image: zulip/docker-zulip:11.4-0
+    build:
+      context: .
+      dockerfile: docker/zulip/Dockerfile
     container_name: zulip
     hostname: zulip
     profiles:
@@ -2279,39 +2281,67 @@ services:
       zulip-db:
         condition: service_healthy
       zulip-memcached:
-        condition: service_healthy
+        condition: service_started
       zulip-redis:
-        condition: service_healthy
+        condition: service_started
 
     environment:
-      DB_HOST: zulip-db                  # 👈 point to zulip-db
-      DB_USER: zulip                     # 👈 match zulip-db env
-      DB_PASS: zulip                     # 👈 match zulip-db env
+      # Database
+      DB_HOST: zulip-db
+      DB_USER: zulip
+      DB_PASS: zulip
       DB_NAME: zulip
-      SETTING_MEMCACHED_LOCATION: "memcached:11211"
-      SETTING_EXTERNAL_HOST: "localhost"
-      REDIS_HOST: zulip-redis
-      REDIS_PORT: 6379
+      SECRETS_postgres_password: "zulip"
 
-      SETTING_ZULIP_ADMINISTRATOR: "admin@example.com"
-      SETTING_EMAIL_HOST: "smtp"
-      SETTING_EMAIL_PORT: "587"
-      SETTING_EMAIL_USE_TLS: "False"
-      SETTING_EMAIL_USE_SSL: "False"
+      # Cache / Redis
+      SETTING_MEMCACHED_LOCATION: "zulip-memcached:11211"
+      SETTING_REDIS_HOST: "zulip-redis"
+      # optional, if you want a non-default port:
+      SETTING_REDIS_PORT: "6379"
+      SECRETS_redis_password: "super-secret-redis-pass"
+
+      SETTING_RATE_LIMITING: "False"
+
+
+      # Zulip admin + basic email (you can fix SMTP later)
+      SETTING_ZULIP_ADMINISTRATOR: "admin@localhost"
+      SETTING_EMAIL_BACKEND: "django.core.mail.backends.console.EmailBackend"
+
+
+      # Run HTTP only, behind port 8111
+      DISABLE_HTTPS: "true"
+      SSL_CERTIFICATE_GENERATION: "self-signed"
+      SETTING_EXTERNAL_HOST: "localhost:8111"
+      SETTING_EXTERNAL_URI_SCHEME: "http://"
+      SETTING_EXTERNAL_PORT: "8111"
+      # 👆 No SETTING_ALLOWED_HOSTS – let Zulip derive it from EXTERNAL_HOST
+
+      # Dev only; change later if you care
+      SECRETS_secret_key: "dev-change-me-secret"
+
+      SETTING_RABBITMQ_HOST: "zulip-rabbitmq"
+      SECRETS_rabbitmq_password: "zulip"
+      SETTING_EMAIL_HOST: ""
+
     ports:
       - "8111:80"
+
     volumes:
       - ./zulip/zulip-data:/data:rw,z
-    healthcheck:
-      test: [ "CMD-SHELL", "curl -fsS http://localhost || exit 1" ]
-      interval: 15s
-      timeout: 5s
-      retries: 20
+      # Only keep these if you *want* to override what’s baked into the image
+      - ./docker/zulip/entrypoint.sh:/sbin/entrypoint.sh:ro,z
+      - ./docker/zulip/certbot-deploy-hook:/sbin/certbot-deploy-hook:ro,z
+      - ./docker/zulip/settings.py:/etc/zulip/settings.py:z
+
+
     restart: unless-stopped
 
+
+
   zulip-db:
-    image: postgres:16-alpine
+    image: zulip/zulip-postgresql:14
     container_name: zulip-db
+    hostname: zulip-db
     profiles:
       - chat
     cpus: 1.0
@@ -2322,7 +2352,7 @@ services:
       POSTGRES_USER: zulip
       POSTGRES_PASSWORD: zulip
     ports:
-      - 5437:5432
+      - 5438:5432
     networks:
       - osss-net
     volumes:
@@ -2337,6 +2367,7 @@ services:
   zulip-memcached:
     image: memcached:1.6-alpine
     container_name: zulip-memcached
+    hostname: zulip-memcached
     profiles:
       - chat
     networks:
@@ -2352,19 +2383,44 @@ services:
     profiles:
       - chat
     container_name: zulip-redis
+    hostname: zulip-redis
     command:
       - redis-server
+      - --requirepass
+      - "super-secret-redis-pass"
       - --appendonly
       - "yes"
     networks:
       - osss-net
     ports:
-      - 6382:6379
+      - 6383:6379
     volumes:
       - zulip_redis_data:/data:z
     healthcheck:
-      test: [ "CMD", "redis-cli", "ping" ]
+      test: [ "CMD", "redis-cli", "-a", "super-secret-redis-pass", "ping" ]
       interval: 5s
       timeout: 3s
       retries: 20
+    restart: unless-stopped
+
+  zulip-rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: zulip-rabbitmq
+    hostname: zulip-rabbitmq
+    networks:
+      - osss-net
+    environment:
+      RABBITMQ_DEFAULT_USER: zulip
+      RABBITMQ_DEFAULT_PASS: zulip
+      # 👇 Force file-based logging instead of stdout
+      RABBITMQ_LOGS: "/var/log/rabbitmq/rabbit.log"
+      RABBITMQ_SASL_LOGS: "/var/log/rabbitmq/rabbit-sasl.log"
+
+    ports:
+      - "15672:15672"   # Management UI
+      - "5672:5672"   # (optional) AMQP port on host, not required for Zulip
+    volumes:
+      # Optional: persist RabbitMQ data + logs on host
+      - ./zulip/rabbitmq/data:/var/lib/rabbitmq
+      - ./zulip/rabbitmq/logs:/var/log/rabbitmq
     restart: unless-stopped

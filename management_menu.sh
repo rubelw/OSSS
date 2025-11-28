@@ -4221,6 +4221,10 @@ logs_menu() {
     echo "39) Logs container 'metagpt'"
     echo "40) Logs container 'a2a'"
     echo "41) Logs container 'a2a-agent'"
+    echo "42) Logs container 'zulip'"
+    echo "43) Logs container 'zulip-db'"
+    echo "44) Logs container 'zulip-redis'"
+    echo "45) Logs container 'zulip-memcached'"
 
 
     echo "  q) Back"
@@ -4268,6 +4272,10 @@ logs_menu() {
       39) logs_follow_container "metagpt" ;;
       40) logs_follow_container "a2a" ;;
       41) logs_follow_container "a2a-agent" ;;
+      42) logs_follow_container 'zulip' ;;
+      43) logs_follow_container 'zulip-db' ;;
+      44) logs_follow_container 'zulip-redis' ;;
+      45) logs_follow_container 'zulip-memcached' ;;
 
       q|Q|b|B) return 0 ;;
       *) echo "Unknown choice: ${choice}" ;;

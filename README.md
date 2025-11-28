@@ -64,6 +64,11 @@ Keycloak example:
 
 Kibana example:
 ![Example Kibana](docs/img/kibana_example.png)
+
+Zulip (Chat) example:
+![Example Zulip](docs/img/zulip_example.png)
+
+
 ---
 
 Rasa Mentor example:
