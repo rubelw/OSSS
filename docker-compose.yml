@@ -2415,6 +2415,8 @@ services:
     image: rabbitmq:3.13-management-alpine
     container_name: zulip-rabbitmq
     hostname: zulip-rabbitmq
+    profiles:
+      - chat
     networks:
       - osss-net
     environment:
@@ -2438,9 +2440,12 @@ services:
   taiga-db:
     image: postgres:16
     container_name: taiga-db
+    hostname: taiga-db
     profiles:
       - taiga
     restart: unless-stopped
+    ports:
+      - "5439:5432"   # Added
     environment:
       POSTGRES_DB: taiga
       POSTGRES_USER: ${TAIGA_DB_USER:-taiga}
@@ -2458,9 +2463,13 @@ services:
   taiga-rabbitmq:
     image: rabbitmq:3.13-management
     container_name: taiga-rabbitmq
+    hostname: taiga-rabbitmq
     profiles:
       - taiga
     restart: unless-stopped
+    ports:
+      - "8161:15672"   # RabbitMQ mgmt UI
+      - "8162:5672"    # AMQP
     environment:
       RABBITMQ_DEFAULT_USER: ${TAIGA_RABBITMQ_USER:-taiga}
       RABBITMQ_DEFAULT_PASS: ${TAIGA_RABBITMQ_PASS:-taiga}
@@ -2479,6 +2488,7 @@ services:
   taiga-back:
     image: taigaio/taiga-back:latest
     container_name: taiga-back
+    hostname: taiga-back
     profiles:
       - taiga
     restart: unless-stopped
@@ -2492,6 +2502,7 @@ services:
       RABBITMQ_HOST: taiga-rabbitmq
       RABBITMQ_USER: ${TAIGA_RABBITMQ_USER:-taiga}
       RABBITMQ_PASSWORD: ${TAIGA_RABBITMQ_PASS:-taiga}
+      TAIGA_SECRET_KEY: ${TAIGA_SECRET_KEY:-changeme-super-secret}
     volumes:
       - taiga_static_data:/taiga-back/static
       - taiga_media_data:/taiga-back/media
@@ -2503,9 +2514,12 @@ services:
     networks:
       - osss-net
 
+
+
   taiga-async:
     image: taigaio/taiga-back:latest
     container_name: taiga-async
+    hostname: taiga-async
     profiles:
       - taiga
     restart: unless-stopped
@@ -2534,9 +2548,12 @@ services:
   taiga-events:
     image: taigaio/taiga-events:latest
     container_name: taiga-events
+    hostname: taiga-events
     profiles:
       - taiga
     restart: unless-stopped
+    ports:
+      - "8188:8888"    # Events WebSocket
     env_file:
       - .env
     environment:
@@ -2553,9 +2570,12 @@ services:
   taiga-protected:
     image: taigaio/taiga-protected:latest
     container_name: taiga-protected
+    hostname: taiga-protected
     profiles:
       - taiga
     restart: unless-stopped
+    ports:
+      - "8103:8003"   # optional — for debugging protected media
     env_file:
       - .env
     volumes:
@@ -2569,13 +2589,13 @@ services:
   taiga-front:
     image: taigaio/taiga-front:latest
     container_name: taiga-front
+    hostname: taiga-front
     profiles:
       - taiga
     restart: unless-stopped
     env_file:
       - .env
     environment:
-      # Public URL for your Taiga UI (host:port from the gateway below)
       TAIGA_URL: "http://localhost:8120"
       TAIGA_WEBSOCKETS_URL: "ws://localhost:8120"
       TAIGA_SUBPATH: ""
@@ -2590,14 +2610,14 @@ services:
   taiga-gateway:
     image: nginx:1.27-alpine
     container_name: taiga-gateway
+    hostname: taiga-gateway
     profiles:
       - taiga
     restart: unless-stopped
     ports:
-      # ⬇️ choose a host port that doesn't collide with existing services
-      - "8120:80"
+      - "8120:80"    # Public UI
     volumes:
-      - ./docker/tiaga/taiga-gateway.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./docker/taiga/taiga-gateway.conf:/etc/nginx/conf.d/default.conf:ro
       - taiga_static_data:/taiga/static
       - taiga_media_data:/taiga/media
     depends_on:
@@ -2609,3 +2629,41 @@ services:
         condition: service_started
     networks:
       - osss-net
+
+  taiga-init-admin:
+    image: taigaio/taiga-back:latest
+    container_name: taiga-init-admin
+    hostname: taiga-init-admin
+    profiles:
+      - taiga
+    depends_on:
+      taiga-db:
+        condition: service_healthy
+      taiga-rabbitmq:
+        condition: service_healthy     # 👈 important
+    env_file:
+      - .env
+    environment:
+      POSTGRES_HOST: taiga-db
+      POSTGRES_DB: taiga
+      POSTGRES_USER: ${TAIGA_DB_USER:-taiga}
+      POSTGRES_PASSWORD: ${TAIGA_DB_PASSWORD:-taiga}
+      RABBITMQ_HOST: taiga-rabbitmq        # 👈 MUST match the service name
+      RABBITMQ_USER: ${TAIGA_RABBITMQ_USER:-taiga}
+      RABBITMQ_PASSWORD: ${TAIGA_RABBITMQ_PASS:-taiga}
+      TAIGA_SECRET_KEY: ${TAIGA_SECRET_KEY:-changeme-super-secret}
+
+      DJANGO_SUPERUSER_USERNAME: admin
+      DJANGO_SUPERUSER_EMAIL: admin@example.com
+      DJANGO_SUPERUSER_PASSWORD: admin
+
+    entrypoint: [ "/bin/bash", "-lc" ]
+    command: >
+      cd /taiga-back &&
+      /opt/venv/bin/python manage.py createsuperuser --noinput || true
+
+    restart: "no"
+    networks:
+      - osss-net
+
+

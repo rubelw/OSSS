@@ -68,6 +68,9 @@ Kibana example:
 Zulip (Chat) example:
 ![Example Zulip](docs/img/zulip_example.png)
 
+Taiga (Task/Project Management) example:
+![Example Taiga](docs/img/taiga_example.png)
+
 
 ---
 
@@ -132,6 +135,17 @@ OpenSSL version: OpenSSL 1.1.1h  22 Sep 2020
   - 8086 (A2A Server)
   - 9000 (A2A Agent)
   - 8111 (Zulip Chat)
+  - 15672 (Zulip RabbitMQ Management UI)
+  - 5672 (Zulip RabbitMQ AMQP)
+  - 6383 (Zulip Redis)
+  - 5438 (Zulip DB)
+  - 8120 (Taiga-Gateway)
+  - 8103 (Taiga-Protected)
+  - 8188 (Taiga-Events)
+  - 8100 (Taiga-Back)
+  - 8161 (Taiga-RabbitMQ Management UI) 
+  - 8162 (Taiga-RabbitMQ AMQP)
+  - 5439 (Taiga-DB)
   
   
 ---

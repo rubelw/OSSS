@@ -4225,14 +4225,15 @@ logs_menu() {
     echo "43) Logs container 'zulip-db'"
     echo "44) Logs container 'zulip-redis'"
     echo "45) Logs container 'zulip-memcached'"
-    echo "46) Logs container 'taiga-db'" ;;
-    echo "47) Logs container 'taiga-rabbitmq'" ;;
-    echo "48) Logs container 'taiga-back'" ;;
-    echo "49) Logs container 'taiga-async'" ;;
-    echo "50) Logs container 'taiga-events'" ;;
-    echo "51) Logs container 'taiga-protected'" ;;
-    echo "52) Logs container 'taiga-front'" ;;
-    echo "53) Logs container 'taiga-gateway'" ;;
+    echo "46) Logs container 'taiga-db'"
+    echo "47) Logs container 'taiga-rabbitmq'"
+    echo "48) Logs container 'taiga-back'"
+    echo "49) Logs container 'taiga-async'"
+    echo "50) Logs container 'taiga-events'"
+    echo "51) Logs container 'taiga-protected'"
+    echo "52) Logs container 'taiga-front'"
+    echo "53) Logs container 'taiga-gateway'"
+    echo "54) Logs container 'taiga-init-admin'"
 
 
     echo "  q) Back"
@@ -4292,6 +4293,7 @@ logs_menu() {
       51) logs_follow_container 'taiga-protected' ;;
       52) logs_follow_container 'taiga-front' ;;
       53) logs_follow_container 'taiga-gateway' ;;
+      54) logs_follow_container 'taiga-init-admin' ;;
       q|Q|b|B) return 0 ;;
       *) echo "Unknown choice: ${choice}" ;;
     esac
@@ -4317,7 +4319,7 @@ down_profiles_menu() {
     echo "10) Destroy profile 'openmetadata'"
     echo "11) Destroy profile 'ai'"
     echo "12) Destroy profile 'chat'"
-    echo "13) Destroy profile 'tiaga'"
+    echo "13) Destroy profile 'taiga'"
     echo "  q) Back"
     echo "-----------------------------------------------"
     read -rp "Select an option: " choice || return 0
@@ -4605,8 +4607,8 @@ down_profiles_menu() {
           cd /work || { echo "❌ Path not visible inside VM: /work"; exit 1; }
 
           SCRIPT="/work/scripts/destroy-profile.sh"
-          PROFILE="tiaga"
-          PROJECT="osss-tiaga"
+          PROFILE="taiga"
+          PROJECT="osss-taiga"
           FILE="/work/docker-compose.yml"
           REMOVE_VOLUMES="--volumes"   # set to "" if you want to keep volumes
 
@@ -4961,7 +4963,7 @@ menu() {
     echo "10) Start profile 'openmetadata' (keycloak should be up)"
     echo "11) Start profile 'ai' (keycloak should be up)"
     echo "12) Start profile 'chat'"
-    echo "13) Start profile 'tiaga'"
+    echo "13) Start profile 'taiga'"
     echo "14) Down a profile (remove-orphans, volumes)"
     echo "15) Down ALL (remove-orphans, volumes)"
     echo "16) Show status"
@@ -5533,8 +5535,8 @@ VMUP
           cd /work || { echo '❌ Path not visible inside VM: /work'; exit 1; };
 
           SCRIPT='/work/scripts/deploy-profile.sh';
-          PROFILE='tiaga';
-          PROJECT='osss-tiaga';
+          PROFILE='taiga';
+          PROJECT='osss-taiga';
           REBUILD=\$REBUILD;
           FILE='/work/docker-compose.yml';
 
