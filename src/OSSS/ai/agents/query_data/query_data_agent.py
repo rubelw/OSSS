@@ -14,6 +14,127 @@ logger = logging.getLogger("OSSS.ai.agents.query_data.agent")
 API_BASE = "http://host.containers.internal:8081"
 
 
+# ---------------------------------------------------------------------------
+# Data / tool layer: pure functions over the external "tables" (APIs)
+# ---------------------------------------------------------------------------
+
+
+class QueryDataError(Exception):
+    """Raised when querying the students/persons APIs fails."""
+
+    def __init__(self, message: str, *, students_url: str, persons_url: str) -> None:
+        super().__init__(message)
+        self.students_url = students_url
+        self.persons_url = persons_url
+
+
+async def _fetch_students_and_persons(
+    *, skip: int = 0, limit: int = 100
+) -> Dict[str, List[Dict[str, Any]]]:
+    """
+    Low-level tool: call the external students and persons APIs
+    and return the raw JSON payloads.
+    """
+    students_url = f"{API_BASE}/api/students"
+    persons_url = f"{API_BASE}/api/persons"
+    params = {"skip": skip, "limit": limit}
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            # Fetch students
+            students_resp = await client.get(students_url, params=params)
+            students_resp.raise_for_status()
+            students: List[Dict[str, Any]] = students_resp.json()
+
+            # Fetch persons
+            persons_resp = await client.get(persons_url, params=params)
+            persons_resp.raise_for_status()
+            persons: List[Dict[str, Any]] = persons_resp.json()
+
+    except Exception as e:
+        logger.exception("Error calling students/persons API")
+        raise QueryDataError(
+            f"Error querying students/persons API: {e}",
+            students_url=students_url,
+            persons_url=persons_url,
+        ) from e
+
+    return {"students": students, "persons": persons}
+
+
+def _combine_students_and_persons(
+    students: List[Dict[str, Any]],
+    persons: List[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    """
+    Pure function: combine students + persons into a unified row list.
+    """
+    # Index persons by id
+    persons_by_id = {p["id"]: p for p in persons if "id" in p}
+
+    combined_rows: List[Dict[str, Any]] = []
+    for s in students:
+        pid = s.get("person_id")
+        if not pid:
+            continue
+
+        person = persons_by_id.get(pid)
+        if not person:
+            continue
+
+        combined_rows.append(
+            {
+                # person fields (all of them)
+                "person_id": person.get("id"),
+                "first_name": person.get("first_name"),
+                "middle_name": person.get("middle_name"),
+                "last_name": person.get("last_name"),
+                "dob": person.get("dob"),
+                "email": person.get("email"),
+                "phone": person.get("phone"),
+                "gender": person.get("gender"),
+                "person_created_at": person.get("created_at"),
+                "person_updated_at": person.get("updated_at"),
+                # student fields
+                "student_id": s.get("id"),
+                "student_number": s.get("student_number"),
+                "graduation_year": s.get("graduation_year"),
+                "student_created_at": s.get("created_at"),
+                "student_updated_at": s.get("updated_at"),
+            }
+        )
+
+    return combined_rows
+
+
+async def query_data_tool(
+    *, skip: int = 0, limit: int = 100
+) -> Dict[str, Any]:
+    """
+    High-level data/tool function that the AI agent calls.
+
+    Responsibilities:
+      - Calls the underlying APIs
+      - Combines student and person records
+      - Returns structured data (no formatting, no LLM)
+    """
+    payload = await _fetch_students_and_persons(skip=skip, limit=limit)
+    students = payload["students"]
+    persons = payload["persons"]
+    combined_rows = _combine_students_and_persons(students, persons)
+
+    return {
+        "students": students,
+        "persons": persons,
+        "combined_rows": combined_rows,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Formatting helpers (still "dumb" utilities, not agents)
+# ---------------------------------------------------------------------------
+
+
 def _build_markdown_table(rows: List[Dict[str, Any]]) -> str:
     """Return student/person combined rows as a markdown table."""
     if not rows:
@@ -62,82 +183,47 @@ def _build_csv(rows: List[Dict[str, Any]]) -> str:
     return output.getvalue()
 
 
+# ---------------------------------------------------------------------------
+# Thin AI agent layer: delegates all data work to query_data_tool()
+# ---------------------------------------------------------------------------
+
+
 @register_agent("query_data")
 class QueryDataAgent:
     async def run(self, ctx: AgentContext) -> AgentResult:
-        students_url = f"{API_BASE}/api/students"
-        persons_url = f"{API_BASE}/api/persons"
-        params = {"skip": 0, "limit": 100}
+        # In the future we could read skip/limit or filters from ctx,
+        # but for now we preserve the old behavior.
+        skip = 0
+        limit = 100
 
         try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                # Fetch students
-                students_resp = await client.get(students_url, params=params)
-                students_resp.raise_for_status()
-                students: List[Dict[str, Any]] = students_resp.json()
-
-                # Fetch persons
-                persons_resp = await client.get(persons_url, params=params)
-                persons_resp.raise_for_status()
-                persons: List[Dict[str, Any]] = persons_resp.json()
-
-        except Exception as e:
-            logger.exception("Error calling students/persons API")
+            data = await query_data_tool(skip=skip, limit=limit)
+        except QueryDataError as e:
+            # Agent just translates tool error into router-friendly AgentResult
+            logger.exception("query_data_tool failed")
             return AgentResult(
                 answer_text=(
                     "I attempted to query the students and persons APIs but "
                     "encountered an error.\n\n"
-                    f"Students URL: {students_url}\nPersons URL: {persons_url}"
+                    f"Students URL: {e.students_url}\nPersons URL: {e.persons_url}"
                 ),
                 status="error",
                 intent="query_data",
                 agent_id="query_data",
-                agent_name="QueryStudentsAgent",
-                # 🔑 router_agent will look at data['agent_debug_information']
+                agent_name="QueryDataAgent",
                 data={
                     "agent_debug_information": {
                         "phase": "query_data",
                         "error": str(e),
-                        "students_url": students_url,
-                        "persons_url": persons_url,
+                        "students_url": e.students_url,
+                        "persons_url": e.persons_url,
                     }
                 },
             )
 
-        # Index persons by id
-        persons_by_id = {p["id"]: p for p in persons if "id" in p}
-
-        combined_rows: List[Dict[str, Any]] = []
-        for s in students:
-            pid = s.get("person_id")
-            if not pid:
-                continue
-
-            person = persons_by_id.get(pid)
-            if not person:
-                continue
-
-            combined_rows.append(
-                {
-                    # person fields (all of them)
-                    "person_id": person.get("id"),
-                    "first_name": person.get("first_name"),
-                    "middle_name": person.get("middle_name"),
-                    "last_name": person.get("last_name"),
-                    "dob": person.get("dob"),
-                    "email": person.get("email"),
-                    "phone": person.get("phone"),
-                    "gender": person.get("gender"),
-                    "person_created_at": person.get("created_at"),
-                    "person_updated_at": person.get("updated_at"),
-                    # student fields
-                    "student_id": s.get("id"),
-                    "student_number": s.get("student_number"),
-                    "graduation_year": s.get("graduation_year"),
-                    "student_created_at": s.get("created_at"),
-                    "student_updated_at": s.get("updated_at"),
-                }
-            )
+        students: List[Dict[str, Any]] = data["students"]
+        persons: List[Dict[str, Any]] = data["persons"]
+        combined_rows: List[Dict[str, Any]] = data["combined_rows"]
 
         markdown_table = _build_markdown_table(combined_rows)
         csv_data = _build_csv(combined_rows)
@@ -162,7 +248,7 @@ class QueryDataAgent:
             # 🔑 these drive the footer in your UI
             intent="query_data",
             agent_id="query_data",
-            agent_name="QueryStudentsAgent",
+            agent_name="QueryDataAgent",
             # 🔑 this is what router_agent surfaces as `agent_debug_information`
             data={"agent_debug_information": debug_info},
         )
