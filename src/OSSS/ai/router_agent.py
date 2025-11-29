@@ -30,6 +30,8 @@ from OSSS.ai.agent_routing_config import build_alias_map, first_matching_intent
 
 # 👇 Force-load student registration agents so @register_agent runs
 import OSSS.ai.agents.student.registration_agent  # noqa: F401
+import OSSS.ai.agents.query_students  # noqa: F401
+
 
 YEAR_PATTERN = re.compile(r"(20[2-9][0-9])[-/](?:20[2-9][0-9]|[0-9]{2})")
 
@@ -495,31 +497,107 @@ class RagEngine:
         agent_id: Optional[str] = rag.agent_id
         agent_name: Optional[str] = rag.agent_name
 
+        requested_index = (rag.index or "main").strip()
+
         # --- embeddings ------------------------------------------------
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            embed_req = {"model": "nomic-embed-text", "prompt": query}
-            er = await client.post(self.embed_url, json=embed_req)
-            if er.status_code >= 400:
-                raise RuntimeError(
-                    f"Embedding endpoint error {er.status_code}: {er.text}"
-                )
+        try:
+            async with httpx.AsyncClient(timeout=20.0) as client:
+                embed_req = {"model": "nomic-embed-text", "prompt": query}
+                er = await client.post(self.embed_url, json=embed_req)
+                if er.status_code >= 400:
+                    raise RuntimeError(
+                        f"Embedding endpoint error {er.status_code}: {er.text}"
+                    )
 
-            ej = er.json()
-            if isinstance(ej, dict) and "data" in ej:
-                vec = ej["data"][0]["embedding"]
-            elif isinstance(ej, dict) and "embedding" in ej:
-                vec = ej["embedding"]
-            elif isinstance(ej, dict) and "embeddings" in ej:
-                vec = ej["embeddings"][0]
-            else:
-                raise RuntimeError(
-                    f"Unexpected embedding response schema: {ej!r}"
-                )
+                ej = er.json()
+                if isinstance(ej, dict) and "data" in ej:
+                    vec = ej["data"][0]["embedding"]
+                elif isinstance(ej, dict) and "embedding" in ej:
+                    vec = ej["embedding"]
+                elif isinstance(ej, dict) and "embeddings" in ej:
+                    vec = ej["embeddings"][0]
+                else:
+                    raise RuntimeError(
+                        f"Unexpected embedding response schema: {ej!r}"
+                    )
 
-            query_emb = np.array(vec, dtype="float32")
+                query_emb = np.array(vec, dtype="float32")
+
+        except (httpx.HTTPError, RuntimeError, ValueError) as e:
+            # If embedding fails, do NOT crash the whole /ai/chat/rag endpoint.
+            logger.error(
+                "[RAG] embedding request failed to %s: %s",
+                self.embed_url,
+                e,
+                exc_info=True,
+            )
+
+            rag_fallback_leaf = {
+                "agent": "rag_fallback",
+                "status": "error",
+                "intent": intent_label,
+                "children": [],
+            }
+            agent_trace = _build_agent_trace(
+                rag_fallback_leaf, intent_label=intent_label
+            )
+
+            response_payload = {
+                "answer": {
+                    "message": {
+                        "role": "assistant",
+                        "content": (
+                            "Sorry, I’m having trouble reaching the local document search "
+                            "service right now, so I can’t safely answer from the DCG "
+                            "directory. Please try again in a bit."
+                        ),
+                    },
+                    "status": "error",
+                },
+                "retrieved_chunks": [],
+                "index": requested_index,
+                "intent": intent_label,
+                "agent_session_id": agent_session_id,
+                "session_files": session_files,
+                "agent_id": agent_id,
+                "agent_name": agent_name,
+                "action": action,
+                "action_confidence": action_confidence,
+                "urgency": urgency,
+                "urgency_confidence": urgency_confidence,
+                "tone_major": tone_major,
+                "tone_major_confidence": tone_major_confidence,
+                "tone_minor": tone_minor,
+                "tone_minor_confidence": tone_minor_confidence,
+                "agent_trace": agent_trace,
+                "agent_debug_information": {
+                    "phase": "general_rag",
+                    "query": query,
+                    "intent": intent_label,
+                    "action": action,
+                    "action_confidence": action_confidence,
+                    "urgency": urgency,
+                    "urgency_confidence": urgency_confidence,
+                    "tone_major": tone_major,
+                    "tone_major_confidence": tone_major_confidence,
+                    "tone_minor": tone_minor,
+                    "tone_minor_confidence": tone_minor_confidence,
+                    "retrieval_count": 0,
+                    "agent_session_id": agent_session_id,
+                    "subagent_session_id": rag.subagent_session_id,
+                    "error": "embedding_backend_unavailable",
+                    "error_details": str(e),
+                    "embed_url": self.embed_url,
+                },
+            }
+
+            logger.info(
+                "[RAG] response (rag_fallback:embed_error): %s",
+                json.dumps(response_payload, ensure_ascii=False)[:4000],
+            )
+            return response_payload
 
         # --- retrieval -------------------------------------------------
-        requested_index = (rag.index or "main").strip()
         if requested_index not in INDEX_KINDS:
             logger.warning(
                 "Unknown index '%s', falling back to 'main'. Valid values: %s",
