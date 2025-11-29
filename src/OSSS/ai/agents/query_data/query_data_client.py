@@ -5,7 +5,7 @@ from typing import Any, List, Optional
 
 import httpx
 
-logger = logging.getLogger("OSSS.ai.agents.query_students.client")
+logger = logging.getLogger("OSSS.ai.agents.query_data.client")
 
 # Safe settings import (same pattern you used elsewhere)
 try:
@@ -42,7 +42,7 @@ class StudentsServiceClient:
         params = {"skip": skip, "limit": limit}
 
         logger.info(
-            "[query_students.client] GET %s params=%s",
+            "[query_data.client] GET %s params=%s",
             url,
             params,
         )
@@ -50,7 +50,7 @@ class StudentsServiceClient:
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             resp = await client.get(url, params=params)
             logger.info(
-                "[query_students.client] status=%s bytes=%s",
+                "[query_data.client] status=%s bytes=%s",
                 resp.status_code,
                 len(resp.content),
             )
@@ -64,14 +64,14 @@ class StudentsServiceClient:
             students = data
         else:
             logger.warning(
-                "[query_students.client] unexpected response shape: %r",
+                "[query_data.client] unexpected response shape: %r",
                 data,
             )
             students = []
 
         if not isinstance(students, list):
             logger.warning(
-                "[query_students.client] students is not a list: %r",
+                "[query_data.client] students is not a list: %r",
                 students,
             )
             return []

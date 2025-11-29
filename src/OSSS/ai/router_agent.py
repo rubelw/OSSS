@@ -30,7 +30,7 @@ from OSSS.ai.agent_routing_config import build_alias_map, first_matching_intent
 
 # 👇 Force-load student registration agents so @register_agent runs
 import OSSS.ai.agents.student.registration_agent  # noqa: F401
-import OSSS.ai.agents.query_students  # noqa: F401
+import OSSS.ai.agents.query_data  # noqa: F401
 
 
 YEAR_PATTERN = re.compile(r"(20[2-9][0-9])[-/](?:20[2-9][0-9]|[0-9]{2})")

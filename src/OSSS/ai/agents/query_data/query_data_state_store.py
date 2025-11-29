@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Dict
 
-from .students_state import StudentQueryState
+from .query_data_state import StudentQueryState
 
 
 class StudentQueryStateStore:

@@ -9,7 +9,7 @@ import io
 from OSSS.ai.agents import register_agent
 from OSSS.ai.agents.base import AgentContext, AgentResult
 
-logger = logging.getLogger("OSSS.ai.agents.query_students.agent")
+logger = logging.getLogger("OSSS.ai.agents.query_data.agent")
 
 API_BASE = "http://host.containers.internal:8081"
 
@@ -62,8 +62,8 @@ def _build_csv(rows: List[Dict[str, Any]]) -> str:
     return output.getvalue()
 
 
-@register_agent("query_students")
-class QueryStudentsAgent:
+@register_agent("query_data")
+class QueryDataAgent:
     async def run(self, ctx: AgentContext) -> AgentResult:
         students_url = f"{API_BASE}/api/students"
         persons_url = f"{API_BASE}/api/persons"
@@ -90,13 +90,13 @@ class QueryStudentsAgent:
                     f"Students URL: {students_url}\nPersons URL: {persons_url}"
                 ),
                 status="error",
-                intent="query_students",
-                agent_id="query_students",
+                intent="query_data",
+                agent_id="query_data",
                 agent_name="QueryStudentsAgent",
                 # 🔑 router_agent will look at data['agent_debug_information']
                 data={
                     "agent_debug_information": {
-                        "phase": "query_students",
+                        "phase": "query_data",
                         "error": str(e),
                         "students_url": students_url,
                         "persons_url": persons_url,
@@ -143,7 +143,7 @@ class QueryStudentsAgent:
         csv_data = _build_csv(combined_rows)
 
         debug_info = {
-            "phase": "query_students",
+            "phase": "query_data",
             "student_count": len(students),
             "person_count": len(persons),
             "combined_count": len(combined_rows),
@@ -160,8 +160,8 @@ class QueryStudentsAgent:
             answer_text=markdown_table,
             status="ok",
             # 🔑 these drive the footer in your UI
-            intent="query_students",
-            agent_id="query_students",
+            intent="query_data",
+            agent_id="query_data",
             agent_name="QueryStudentsAgent",
             # 🔑 this is what router_agent surfaces as `agent_debug_information`
             data={"agent_debug_information": debug_info},

@@ -219,7 +219,7 @@ class Intent(str, Enum):
     MATH_INTERVENTION_PROGRAM = "math_intervention_program"
     READING_INTERVENTION_PROGRAM = "reading_intervention_program"
     REGISTER_NEW_STUDENT = "register_new_student"
-    QUERY_STUDENTS = "query_students"
+    QUERY_STUDENTS = "query_data"
 
 
 class IntentResult(BaseModel):

@@ -4,9 +4,9 @@ import logging
 
 from OSSS.ai.agents.base import AgentContext
 
-from .students_state import StudentQueryState
+from .query_data_state import StudentQueryState
 
-logger = logging.getLogger("OSSS.ai.agents.query_students.dialog")
+logger = logging.getLogger("OSSS.ai.agents.query_data.dialog")
 
 
 async def evaluate_student_query_slots(
@@ -40,17 +40,17 @@ async def evaluate_student_query_slots(
         if skip is not None:
             state.skip = max(0, int(skip))
     except Exception:
-        logger.warning("[query_students.dialog] invalid skip=%r, keeping %s", skip, state.skip)
+        logger.warning("[query_data.dialog] invalid skip=%r, keeping %s", skip, state.skip)
 
     try:
         if limit is not None:
             # keep it sane; adjust if you want bigger pages
             state.limit = max(1, min(int(limit), 500))
     except Exception:
-        logger.warning("[query_students.dialog] invalid limit=%r, keeping %s", limit, state.limit)
+        logger.warning("[query_data.dialog] invalid limit=%r, keeping %s", limit, state.limit)
 
     logger.info(
-        "[query_students.dialog] evaluated slots: session_id=%s skip=%s limit=%s",
+        "[query_data.dialog] evaluated slots: session_id=%s skip=%s limit=%s",
         state.session_id,
         state.skip,
         state.limit,

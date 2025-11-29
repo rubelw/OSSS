@@ -7,7 +7,7 @@ from pydantic import BaseModel
 
 class StudentQueryState(BaseModel):
     """
-    Minimal per-session state for the query_students flow.
+    Minimal per-session state for the query_data flow.
 
     You can expand this later (filters, search term, grade level, etc.).
     """
