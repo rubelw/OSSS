@@ -3,9 +3,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import re
-from typing import Pattern, Callable, Iterable
+from typing import Pattern
 
-from OSSS.ai.intents import Intent
+from OSSS.ai.intents import Intent  # noqa: F401  # (kept for future use)
 
 
 @dataclass(frozen=True)
@@ -26,9 +26,15 @@ class HeuristicRule:
 
 # --- Aliases ---------------------------------------------------------
 INTENT_ALIASES: list[IntentAlias] = [
+    # Existing aliases
     IntentAlias("enrollment", "register_new_student"),
     IntentAlias("new_student_registration", "register_new_student"),
-    # Add more without touching router_agent.py
+
+    # NEW: map classifier labels related to student counts/listing
+    # to the query_students agent.
+    IntentAlias("student_counts", "query_students"),
+    IntentAlias("students", "query_students"),          # optional, but often useful
+    IntentAlias("list_students", "query_students"),     # if classifier ever uses this
 ]
 
 
@@ -47,6 +53,16 @@ HEURISTIC_RULES: list[HeuristicRule] = [
         pattern=re.compile(r"(20[2-9][0-9])[-/](?:20[2-9][0-9]|[0-9]{2})"),
         intent="register_new_student",
         description="Bare school-year style answer",
+    ),
+
+    # NEW: queries that clearly want a list of students → query_students
+    HeuristicRule(
+        pattern=re.compile(
+            r"\b(list|show|get|give me|display)\b.*\b(student|students)\b",
+            re.IGNORECASE,
+        ),
+        intent="query_students",
+        description="Listing / showing all students (e.g. 'list all student names')",
     ),
 ]
 

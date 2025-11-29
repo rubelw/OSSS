@@ -2,100 +2,160 @@ from __future__ import annotations
 
 import logging
 from typing import Any, Dict, List
-
 import httpx
+import csv
+import io
 
 from OSSS.ai.agents import register_agent
 from OSSS.ai.agents.base import AgentContext, AgentResult
 
 logger = logging.getLogger("OSSS.ai.agents.query_students.agent")
 
-
-# You can later move this into OSSS.config.settings if you want.
-# For now, default to host.containers.internal so it can hit your host's port 8081.
 API_BASE = "http://host.containers.internal:8081"
-# If you really want tutor-api once networking is right:
-# API_BASE = "http://tutor-api:8081"
+
+
+def _build_markdown_table(rows: List[Dict[str, Any]]) -> str:
+    """Return student/person combined rows as a markdown table."""
+
+    if not rows:
+        return "No students were found in the system."
+
+    header = (
+        "| # | First | Middle | Last | DOB | Email | Phone | Gender | "
+        "Person ID | Created At | Updated At | "
+        "Student ID | Student Number | Graduation Year |\n"
+        "|---|-------|--------|------|-----|-------|-------|--------|"
+        "-----------|-------------|-------------|"
+        "------------|----------------|----------------|\n"
+    )
+
+    lines = []
+    for idx, r in enumerate(rows, start=1):
+        lines.append(
+            f"| {idx} | "
+            f"{r.get('first_name','')} | "
+            f"{r.get('middle_name','')} | "
+            f"{r.get('last_name','')} | "
+            f"{r.get('dob','')} | "
+            f"{r.get('email','')} | "
+            f"{r.get('phone','')} | "
+            f"{r.get('gender','')} | "
+            f"{r.get('person_id','')} | "
+            f"{r.get('person_created_at','')} | "
+            f"{r.get('person_updated_at','')} | "
+            f"{r.get('student_id','')} | "
+            f"{r.get('student_number','')} | "
+            f"{r.get('graduation_year','')} |"
+        )
+
+    return header + "\n".join(lines)
+
+
+def _build_csv(rows: List[Dict[str, Any]]) -> str:
+    """Return CSV string containing all combined fields."""
+    if not rows:
+        return "No Data"
+
+    output = io.StringIO()
+    writer = csv.DictWriter(output, fieldnames=list(rows[0].keys()))
+    writer.writeheader()
+    writer.writerows(rows)
+
+    return output.getvalue()
 
 
 @register_agent("query_students")
 class QueryStudentsAgent:
     async def run(self, ctx: AgentContext) -> AgentResult:
-        url = f"{API_BASE}/api/students"
+        students_url = f"{API_BASE}/api/students"
+        persons_url = f"{API_BASE}/api/persons"
         params = {"skip": 0, "limit": 100}
 
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
-                resp = await client.get(url, params=params)
-                resp.raise_for_status()
-                students: List[Dict[str, Any]] = resp.json()
+                # get students
+                students_resp = await client.get(students_url, params=params)
+                students_resp.raise_for_status()
+                students = students_resp.json()
+
+                # get persons
+                persons_resp = await client.get(persons_url, params=params)
+                persons_resp.raise_for_status()
+                persons = persons_resp.json()
+
         except Exception as e:
-            logger.exception("Error calling students API")
-
-            # IMPORTANT: construct AgentResult with answer_text + data
-            answer_text = (
-                "I tried to query the students service, but there was a "
-                "network error reaching it. Please verify the students API "
-                f"is running and accessible at {url}."
-            )
-
+            logger.exception("Error calling students/persons API")
             return AgentResult(
-                answer_text=answer_text,
+                answer_text=(
+                    "I attempted to query the students and persons APIs but "
+                    "encountered an error.\n\n"
+                    f"Students URL: {students_url}\nPersons URL: {persons_url}"
+                ),
                 status="error",
+                # 🔑 make sure intent/agent fields are set even on error
                 intent="query_students",
                 agent_id="query_students",
                 agent_name="QueryStudentsAgent",
-                data={
-                    "error": str(e),
-                    "url": url,
-                    "agent_debug_information": {
-                        "phase": "query_students_error",
-                        "query": ctx.query,
-                    },
-                },
+                extra_data={"error": str(e)},
             )
 
-        count = len(students)
-        if count == 0:
-            answer_text = (
-                "I queried the students service, but it did not return any students."
-            )
-        else:
-            sample = students[:5]
-            answer_text = (
-                f"I found {count} students from the students API. "
-                f"Here are the first {len(sample)} entries:\n\n"
-            )
-            for idx, s in enumerate(sample, start=1):
-                name = (
-                    s.get("name")
-                    or s.get("full_name")
-                    or s.get("student_name")
-                    or "Unknown"
-                )
-                sid = s.get("id") or s.get("student_id")
-                grade = s.get("grade_level") or s.get("grade")
+        # index persons by id
+        persons_by_id = {p["id"]: p for p in persons if "id" in p}
 
-                line = f"- {idx}. {name}"
-                if grade is not None:
-                    line += f" (grade {grade})"
-                if sid is not None:
-                    line += f" [id: {sid}]"
-                answer_text += line + "\n"
+        combined_rows: List[Dict[str, Any]] = []
+        for s in students:
+            pid = s.get("person_id")
+            if not pid:
+                continue
+
+            person = persons_by_id.get(pid)
+            if not person:
+                continue
+
+            combined_rows.append(
+                {
+                    # person fields (all of them)
+                    "person_id": person.get("id"),
+                    "first_name": person.get("first_name"),
+                    "middle_name": person.get("middle_name"),
+                    "last_name": person.get("last_name"),
+                    "dob": person.get("dob"),
+                    "email": person.get("email"),
+                    "phone": person.get("phone"),
+                    "gender": person.get("gender"),
+                    "person_created_at": person.get("created_at"),
+                    "person_updated_at": person.get("updated_at"),
+                    # student fields
+                    "student_id": s.get("id"),
+                    "student_number": s.get("student_number"),
+                    "graduation_year": s.get("graduation_year"),
+                    "student_created_at": s.get("created_at"),
+                    "student_updated_at": s.get("updated_at"),
+                }
+            )
+
+        markdown_table = _build_markdown_table(combined_rows)
+        csv_data = _build_csv(combined_rows)
+
+        payload = {
+            "student_count": len(students),
+            "person_count": len(persons),
+            "combined_count": len(combined_rows),
+            "students": students,
+            "persons": persons,
+            "combined": combined_rows,
+            "csv": csv_data,
+            "csv_filename": "students_export.csv",
+        }
 
         return AgentResult(
-            answer_text=answer_text,
+            # what shows up in the chat window
+            answer_text=markdown_table,
             status="ok",
+            # 🔑 these are what your router uses for the debug footer
             intent="query_students",
             agent_id="query_students",
             agent_name="QueryStudentsAgent",
-            data={
-                "students": students,
-                "count": count,
-                "agent_debug_information": {
-                    "phase": "query_students",
-                    "query": ctx.query,
-                    "returned_count": count,
-                },
-            },
+            # full JSON + CSV for the UI to consume
+            extra_data=payload,
         )

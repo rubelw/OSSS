@@ -214,14 +214,14 @@ def _coerce_int(value: Any):
 
 
 # ------------------------------------------------------------------------------
-# Placeholder row builder (for tables with NO foreign keys)
+# Placeholder row builder (for tables with NO foreign keys by default)
 # ------------------------------------------------------------------------------
 def _make_placeholder_row(table: Table) -> dict[str, Any] | None:
     """
-    Build a single 'safe-ish' placeholder row for a table
-    that has *no foreign keys*.
+    Build a single 'safe-ish' placeholder row for a table.
 
-    Assumption: caller has already ensured table.foreign_keys is empty.
+    By default this is intended for tables without foreign keys, but the
+    caller may choose to use it for specific FK tables (e.g. 'students').
     """
     now = datetime.now(timezone.utc)
     row: dict[str, Any] = {}
@@ -392,16 +392,89 @@ def upgrade() -> None:
             _emit(f"[seed] table {name}: in placeholder skip list; skipping")
             continue
 
-        # 🚨 NEW: don't seed tables with any foreign keys
-        if tbl.foreign_keys:
-            _emit(f"[seed] table {name}: has foreign keys; skipping placeholder for this table")
-            continue
+        # --------------------------------------------------------------
+        # OPTION B:
+        #  - For *most* tables with foreign keys, skip seeding.
+        #  - But for the `students` table, we *do* seed a row and
+        #    explicitly wire its person_id to an existing `persons` row.
+        # --------------------------------------------------------------
+        if name == "students":
+            # special-case: students has person_id → persons.id
 
-        placeholder = _make_placeholder_row(tbl)
-        if placeholder is None:
-            _emit(f"[seed] table {name}: could not build placeholder row; skipping")
-            continue
+            # ❌ old (bad):
+            # persons_tbl = tables.get("persons") or all_reflected.get("persons")
 
+            # ✅ new (no truthiness on Table objects):
+            persons_tbl = tables.get("persons")
+            if persons_tbl is None:
+                persons_tbl = all_reflected.get("persons")
+
+            if persons_tbl is None:
+                _emit("[seed] table students: no persons table found; skipping")
+                continue
+
+            # Ensure there is at least one persons row (seed if needed)
+            person_id = conn.execute(
+                sa.select(persons_tbl.c.id).limit(1)
+            ).scalar_one_or_none()
+
+            if person_id is None:
+                _emit("[seed] persons: no rows found; inserting placeholder person")
+                person_placeholder = _make_placeholder_row(persons_tbl)
+                if person_placeholder is None:
+                    _emit("[seed] persons: could not build placeholder row; skipping students")
+                    continue
+
+                person_prepared = _filter_and_coerce_row(persons_tbl, person_placeholder)
+                try:
+                    with conn.begin_nested():
+                        pk_cols = [c for c in persons_tbl.primary_key.columns]
+                        if conn.dialect.name == "postgresql" and pk_cols:
+                            stmt = (
+                                pg_insert(persons_tbl)
+                                .values(person_prepared)
+                                .on_conflict_do_nothing(
+                                    index_elements=[c.name for c in pk_cols]
+                                )
+                            )
+                        else:
+                            stmt = sa.insert(persons_tbl).values(**person_prepared)
+
+                        conn.execute(stmt)
+                except (IntegrityError, ProgrammingError, DataError) as e:
+                    _emit(f"[seed] failed for persons (needed by students): {e!r}")
+                    continue
+
+                # Re-read the person id after insertion
+                person_id = conn.execute(
+                    sa.select(persons_tbl.c.id).limit(1)
+                ).scalar_one_or_none()
+
+                if person_id is None:
+                    _emit("[seed] persons: still no row after placeholder insert; skipping students")
+                    continue
+
+            # Now build a students placeholder row and override person_id
+            placeholder = _make_placeholder_row(tbl)
+            if placeholder is None:
+                _emit("[seed] table students: could not build placeholder row; skipping")
+                continue
+
+            # 🔑 Force FK to point at a real person row
+            placeholder["person_id"] = person_id
+
+        else:
+            # Generic path: skip tables that have FKs
+            if tbl.foreign_keys:
+                _emit(f"[seed] table {name}: has foreign keys; skipping placeholder for this table")
+                continue
+
+            placeholder = _make_placeholder_row(tbl)
+            if placeholder is None:
+                _emit(f"[seed] table {name}: could not build placeholder row; skipping")
+                continue
+
+        # Common insert path
         prepared = _filter_and_coerce_row(tbl, placeholder)
 
         _emit(f"[seed] inserting placeholder row into {name}")
