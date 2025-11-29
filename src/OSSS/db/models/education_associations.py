@@ -44,7 +44,8 @@ class EducationAssociation(UUIDMixin, Base):
     name: Mapped[str] = mapped_column(sa.String(255), unique=True, nullable=False)
     contact: Mapped[dict | None] = mapped_column(sa.JSON, nullable=True)
     attributes: Mapped[dict | None] = mapped_column(sa.JSON, nullable=True)
-    created_at, updated_at = ts_cols()
+    created_at = sa.Column(sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now())
+    updated_at = sa.Column(sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now())
 
     reviews = relationship("ReviewRequest", back_populates="association")
 

@@ -72,7 +72,8 @@ class Meeting(UUIDMixin, TimestampMixin, Base):
     is_public: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, server_default=sa.sql.true())
     stream_url: Mapped[Optional[str]] = mapped_column(sa.String(1024))
 
-    created_at, updated_at = ts_cols()
+    created_at = sa.Column(sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now())
+    updated_at = sa.Column(sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now())
 
     # Relationships
     committee      = relationship("Committee", back_populates="meetings")

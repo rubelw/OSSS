@@ -52,7 +52,8 @@ class Requirement(UUIDMixin, Base):
     effective_date: Mapped[sa.Date | None] = mapped_column(sa.Date)
     reference_url: Mapped[str | None] = mapped_column(sa.String(512))
     attributes: Mapped[dict | None] = mapped_column(sa.JSON, nullable=True)
-    created_at, updated_at = ts_cols()
+    created_at = sa.Column(sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now())
+    updated_at = sa.Column(sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now())
 
     state = relationship("State", back_populates="requirements", lazy="joined")
     alignments = relationship("Alignment", back_populates="requirement", cascade="all, delete-orphan")

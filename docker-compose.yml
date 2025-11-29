@@ -98,6 +98,9 @@ volumes:
     name: taiga_static_data
   taiga_media_data:
     name: taiga_media_data
+  redis-data_csv:
+    name: redis-data
+
 
 
 services:

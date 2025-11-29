@@ -40,7 +40,6 @@ class User(UUIDMixin, TimestampMixin, Base):
         "Announcement", back_populates="user", cascade="all, delete-orphan"
     )
 
-    # --- Reverse side of StudentSubmission.student ---
     submissions: Mapped[list["StudentSubmission"]] = relationship(
         "StudentSubmission",
         back_populates="student",

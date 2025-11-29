@@ -41,7 +41,8 @@ class Proposal(UUIDMixin, TimestampMixin, Base):
     submitted_at: Mapped[Optional[sa.DateTime]] = mapped_column(sa.DateTime(timezone=True))
     attributes                          = mapped_column(JSON, nullable=True)
 
-    created_at, updated_at = ts_cols()
+    created_at = sa.Column(sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now())
+    updated_at = sa.Column(sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now())
 
     curriculum_id: Mapped[Optional[str]] = mapped_column(
         GUID(),

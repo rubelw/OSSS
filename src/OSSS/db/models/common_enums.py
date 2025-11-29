@@ -4,6 +4,8 @@ from datetime import datetime
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy import Enum, DateTime
 from sqlalchemy.orm import declarative_base
+from sqlalchemy.sql import func
+
 import enum
 
 try:
@@ -16,8 +18,17 @@ try:
     from OSSS.db.mixins import TimestampMixin  # type: ignore
 except Exception:
     class TimestampMixin:
-        created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
-        updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+        created_at: Mapped[datetime] = mapped_column(
+            DateTime(timezone=True),
+            server_default=func.now(),
+            nullable=False,
+        )
+        updated_at: Mapped[datetime] = mapped_column(
+            DateTime(timezone=True),
+            server_default=func.now(),
+            onupdate=func.now(),
+            nullable=False,
+        )
 
 class Level(str, enum.Enum):
     Varsity = "Varsity"

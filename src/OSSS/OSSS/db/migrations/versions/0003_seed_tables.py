@@ -1,4 +1,4 @@
-# src/OSSS/db/migrations/versions/0003_seed_tables.py
+# src/OSSS/db/migrations/versions/0005_seed_tables.py
 from __future__ import annotations
 
 import json
@@ -345,7 +345,7 @@ def _insert_row_single(conn: Connection, table: Table, row: dict[str, Any]):
 
 # ----- Synthetic sample row helpers ------------------------------------------
 
-# in 0003_seed_tables.py
+# in 0005_seed_tables.py
 
 def sample_for_column(col, engine, session):
     name = col.name.lower()

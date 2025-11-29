@@ -16,7 +16,6 @@ API_BASE = "http://host.containers.internal:8081"
 
 def _build_markdown_table(rows: List[Dict[str, Any]]) -> str:
     """Return student/person combined rows as a markdown table."""
-
     if not rows:
         return "No students were found in the system."
 
@@ -33,19 +32,19 @@ def _build_markdown_table(rows: List[Dict[str, Any]]) -> str:
     for idx, r in enumerate(rows, start=1):
         lines.append(
             f"| {idx} | "
-            f"{r.get('first_name','')} | "
-            f"{r.get('middle_name','')} | "
-            f"{r.get('last_name','')} | "
-            f"{r.get('dob','')} | "
-            f"{r.get('email','')} | "
-            f"{r.get('phone','')} | "
-            f"{r.get('gender','')} | "
-            f"{r.get('person_id','')} | "
-            f"{r.get('person_created_at','')} | "
-            f"{r.get('person_updated_at','')} | "
-            f"{r.get('student_id','')} | "
-            f"{r.get('student_number','')} | "
-            f"{r.get('graduation_year','')} |"
+            f"{r.get('first_name', '')} | "
+            f"{r.get('middle_name', '')} | "
+            f"{r.get('last_name', '')} | "
+            f"{r.get('dob', '')} | "
+            f"{r.get('email', '')} | "
+            f"{r.get('phone', '')} | "
+            f"{r.get('gender', '')} | "
+            f"{r.get('person_id', '')} | "
+            f"{r.get('person_created_at', '')} | "
+            f"{r.get('person_updated_at', '')} | "
+            f"{r.get('student_id', '')} | "
+            f"{r.get('student_number', '')} | "
+            f"{r.get('graduation_year', '')} |"
         )
 
     return header + "\n".join(lines)
@@ -54,13 +53,12 @@ def _build_markdown_table(rows: List[Dict[str, Any]]) -> str:
 def _build_csv(rows: List[Dict[str, Any]]) -> str:
     """Return CSV string containing all combined fields."""
     if not rows:
-        return "No Data"
+        return ""
 
     output = io.StringIO()
     writer = csv.DictWriter(output, fieldnames=list(rows[0].keys()))
     writer.writeheader()
     writer.writerows(rows)
-
     return output.getvalue()
 
 
@@ -73,15 +71,15 @@ class QueryStudentsAgent:
 
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
-                # get students
+                # Fetch students
                 students_resp = await client.get(students_url, params=params)
                 students_resp.raise_for_status()
-                students = students_resp.json()
+                students: List[Dict[str, Any]] = students_resp.json()
 
-                # get persons
+                # Fetch persons
                 persons_resp = await client.get(persons_url, params=params)
                 persons_resp.raise_for_status()
-                persons = persons_resp.json()
+                persons: List[Dict[str, Any]] = persons_resp.json()
 
         except Exception as e:
             logger.exception("Error calling students/persons API")
@@ -92,14 +90,21 @@ class QueryStudentsAgent:
                     f"Students URL: {students_url}\nPersons URL: {persons_url}"
                 ),
                 status="error",
-                # 🔑 make sure intent/agent fields are set even on error
                 intent="query_students",
                 agent_id="query_students",
                 agent_name="QueryStudentsAgent",
-                extra_data={"error": str(e)},
+                # 🔑 router_agent will look at data['agent_debug_information']
+                data={
+                    "agent_debug_information": {
+                        "phase": "query_students",
+                        "error": str(e),
+                        "students_url": students_url,
+                        "persons_url": persons_url,
+                    }
+                },
             )
 
-        # index persons by id
+        # Index persons by id
         persons_by_id = {p["id"]: p for p in persons if "id" in p}
 
         combined_rows: List[Dict[str, Any]] = []
@@ -137,25 +142,27 @@ class QueryStudentsAgent:
         markdown_table = _build_markdown_table(combined_rows)
         csv_data = _build_csv(combined_rows)
 
-        payload = {
+        debug_info = {
+            "phase": "query_students",
             "student_count": len(students),
             "person_count": len(persons),
             "combined_count": len(combined_rows),
             "students": students,
             "persons": persons,
             "combined": combined_rows,
+            # 🔑 CSV is here
             "csv": csv_data,
             "csv_filename": "students_export.csv",
         }
 
         return AgentResult(
-            # what shows up in the chat window
+            # What shows up in the chat body
             answer_text=markdown_table,
             status="ok",
-            # 🔑 these are what your router uses for the debug footer
+            # 🔑 these drive the footer in your UI
             intent="query_students",
             agent_id="query_students",
             agent_name="QueryStudentsAgent",
-            # full JSON + CSV for the UI to consume
-            extra_data=payload,
+            # 🔑 this is what router_agent surfaces as `agent_debug_information`
+            data={"agent_debug_information": debug_info},
         )

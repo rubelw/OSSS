@@ -51,7 +51,8 @@ class Alignment(UUIDMixin, Base):
     evidence_url: Mapped[str | None] = mapped_column(sa.String(512))
     notes: Mapped[str | None] = mapped_column(sa.Text)
 
-    created_at, updated_at = ts_cols()
+    created_at = sa.Column(sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now())
+    updated_at = sa.Column(sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now())
 
     curriculum_version = relationship("CurriculumVersion", back_populates="alignments", lazy="joined")
     requirement = relationship("Requirement", back_populates="alignments", lazy="joined")

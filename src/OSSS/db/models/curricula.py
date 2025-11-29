@@ -62,7 +62,10 @@ class Curriculum(UUIDMixin, Base):
     grade_range: Mapped[Optional[str]] = mapped_column(sa.String(64))
     description: Mapped[Optional[str]] = mapped_column(sa.Text)
     attributes: Mapped[Optional[dict]] = mapped_column(sa.JSON, nullable=True)
-    created_at, updated_at = ts_cols()
+    created_at = sa.Column(sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now())
+    updated_at = sa.Column(sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now())
+
+
 
     name: Mapped[str] = mapped_column(sa.String(255), nullable=False)
     status: Mapped[str] = mapped_column(
