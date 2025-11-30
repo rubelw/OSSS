@@ -3068,7 +3068,7 @@
         "association_id": "1847681b-91d0-5837-b218-0ff99fc78b32",
         "approved_at": "2025-09-05T18:25:42+00:00",
         "expires_at": "2025-09-05T18:25:42+00:00",
-        "status": "Sample approvals status",
+        "status": "active",
         "proposal_id": "addfbe1f-2486-5fd7-ae92-e0ac00c3c7f2",
         "updated_at": "2025-09-05T18:25:42+00:00",
         "id": "ed92407c-cb8b-5784-a7cc-025b969b5966"
@@ -3122,7 +3122,7 @@
         "attributes": "Sample curricula attributes",
         "updated_at": "2025-09-05T18:25:42+00:00",
         "name": "Sample curricula name",
-        "status": "Sample curricula status",
+        "status": "draft",
         "published_at": "2025-09-05T18:25:42+00:00",
         "metadata": "Sample curricula metadata",
         "id": "84487a6c-ca3c-5f82-923c-8b092506d2a9"
@@ -3144,7 +3144,7 @@
       {
         "curriculum_id": "84487a6c-ca3c-5f82-923c-8b092506d2a9",
         "version": "Sample curriculum_versions version",
-        "status": "Sample curriculum_versions status",
+        "status": "draft",
         "submitted_at": "2025-09-05T18:25:42+00:00",
         "decided_at": "2025-09-05T18:25:42+00:00",
         "notes": "Sample curriculum_versions notes",
@@ -3439,7 +3439,7 @@
         "round_no": 1,
         "opened_at": "2025-09-05T18:25:42+00:00",
         "closed_at": "2025-09-05T18:25:42+00:00",
-        "status": "Sample review_rounds status",
+        "status": "open",
         "proposal_id": "addfbe1f-2486-5fd7-ae92-e0ac00c3c7f2",
         "id": "2edeaeaa-ab63-57b2-ad28-a3a9584fbbe0",
         "created_at": "2025-09-05T18:25:42+00:00",
@@ -3450,7 +3450,7 @@
       {
         "review_round_id": "2edeaeaa-ab63-57b2-ad28-a3a9584fbbe0",
         "reviewer_id": "d02186d6-2225-518b-a8bd-4bf494683441",
-        "status": "Sample reviews status",
+        "status": "submitted",
         "submitted_at": "2025-09-05T18:25:42+00:00",
         "content": "Sample reviews content",
         "id": "9cbd777f-bdb1-5879-971a-8734fd32beae",
@@ -3461,7 +3461,7 @@
     "round_decisions": [
       {
         "review_round_id": "2edeaeaa-ab63-57b2-ad28-a3a9584fbbe0",
-        "decision": "Sample round_decisions decision",
+        "decision": "approved",
         "decided_at": "2025-09-05T18:25:42+00:00",
         "notes": "Sample round_decisions notes",
         "id": "697fe80a-01f6-5034-9aa4-b1bb8d197592",

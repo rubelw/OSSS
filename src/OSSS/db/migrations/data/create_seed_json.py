@@ -202,7 +202,8 @@ def parse_enums(dbml_text: str) -> Dict[str, List[str]]:
 
     for m in ENUM_HEADER_RE.finditer(dbml_text):
         raw_name = m.group(1)
-        enum_name = strip_quotes(raw_name)
+        # 🔽 normalize enum name to lowercase
+        enum_name = strip_quotes(raw_name).lower()
 
         # Find { ... } block for Enum
         start_brace = dbml_text.find("{", m.start())
@@ -234,6 +235,7 @@ def parse_enums(dbml_text: str) -> Dict[str, List[str]]:
             enums[enum_name] = values
 
     return enums
+
 
 
 # ---------------------------------------------------------------------
@@ -302,7 +304,9 @@ def base_type_name(db_type: str) -> str:
     t = t.rstrip("?")
     # remove array markers like "guardianinvitationstate[]"
     t = t.rstrip("[]")
-    return t
+    # 🔽 normalize to lowercase so it matches parse_enums() keys
+    return t.lower()
+
 
 
 def sample_value(table: Table, col: Column, enums: Dict[str, List[str]]) -> Any:
@@ -380,6 +384,106 @@ def sample_value(table: Table, col: Column, enums: Dict[str, List[str]]) -> Any:
                     return v
             return vals[0]
         return "TURNED_IN"
+
+    # curriculum_units.status :: curriculum_status
+    if table.name == "curriculum_units" and name == "status":
+        vals = enums.get("curriculum_status") or enums.get(base_t)
+        if vals:
+            # prefer a sane default
+            for v in vals:
+                if v.lower() in ("draft", "adopted", "retired"):
+                    return v
+            return vals[0]
+        return "draft"
+
+    # curricula.status :: curriculum_status
+    if table.name == "curricula" and name == "status":
+        vals = enums.get("curriculum_status") or enums.get(base_t)
+        if vals:
+            for v in vals:
+                if v.lower() in ("draft", "adopted", "retired"):
+                    return v
+            return vals[0]
+        return "draft"
+
+    if table.name == "curriculum_versions" and name == "status":
+        vals = enums.get("curriculum_versions") or enums.get(base_t)
+        if vals:
+            for v in vals:
+                if v.lower() in ("draft", "adopted", "retired"):
+                    return v
+            return vals[0]
+        return "draft"
+
+    # approvals.status :: approval_status
+    if table.name == "approvals" and name == "status":
+        # Try explicit enum name first, then fall back to the base type
+        vals = enums.get("approval_status") or enums.get(base_t)
+        if vals:
+            # Prefer an "active" status if available
+            for v in vals:
+                if v.lower() == "active":
+                    return v
+            # Otherwise, just use the first declared enum value
+            return vals[0]
+        # Last-resort fallback if enum didn’t parse for some reason
+        return "active"
+
+    # review_rounds.status :: review_round_status
+    if table.name == "review_rounds" and name == "status":
+        # Try explicit enum name first, then fall back to base_t
+        vals = enums.get("review_round_status") or enums.get(base_t)
+        if vals:
+            # Prefer something that sounds like an active/in-review state if present
+            preferred = ( "open", "closed", "canceled")
+            for pref in preferred:
+                for v in vals:
+                    if v.lower() == pref:
+                        return v
+            # Otherwise just take the first declared enum value
+            return vals[0]
+        # Last resort fallback if enum didn’t parse for some reason
+        return "open"
+
+    # reviews.status :: review_status (or similar)
+    if table.name == "reviews" and name == "status":
+        # Try explicit enum name first, then fall back to base_t
+        vals = enums.get("review_status") or enums.get(base_t)
+        if vals:
+            preferred = ("draft", "submitted")
+            for pref in preferred:
+                for v in vals:
+                    if v.lower() == pref:
+                        return v
+            # Otherwise just take the first declared enum value
+            return vals[0]
+        # Last resort fallback if enum didn’t parse for some reason
+        return "submitted"
+
+    # round_decisions.decision :: round_decision
+    if table.name == "round_decisions" and name == "decision":
+        # Enum round_decision only accepts: approved, approved_wi.., revisions_r.., rejected
+        vals = enums.get("round_decision") or enums.get(base_t)
+        if vals:
+            # Prefer "approved" if present
+            for v in vals:
+                if v.lower().startswith("approved"):
+                    return v
+            return vals[0]
+        # Last resort: hard-code a valid value
+        return "approved"
+
+    # -----------------------------------------------------------------
+    # Special case: any column typed as curriculum_status
+    # -----------------------------------------------------------------
+    if "curriculum_status" in t or base_t == "curriculum_status":
+        vals = enums.get("curriculum_status", [])
+        if vals:
+            for v in vals:
+                if v.lower() in ("draft", "adopted", "retired"):
+                    return v
+            return vals[0]
+        return "draft"
 
     # -----------------------------------------------------------------
     # Generic enum handling
