@@ -683,8 +683,292 @@ TL;DR – Add-a-new-agent recipe
 6. (Optional) Wire a custom RAG index or external data source as needed.
 
 ---
+## 🧪 Adding A New AI Query Agent Handler (API backed data views)
+
+The `query_data` agent is a *meta-agent* that fans out to multiple small
+“dataset handlers” under `OSSS.ai.agents.query_data`. Each handler knows how to:
+
+- Call one OSSS API endpoint (students, scorecards, live scoring, materials, …)
+- Format the rows as a markdown table / CSV
+- Register itself in a small registry so `QueryDataAgent` can route to it
+
+This lets you add **hundreds** of data-backed queries without creating a brand-new
+agent each time.
+
+### 1. Files involved (where to change things)
+
+To add a new dataset handler, you will usually touch:
+
+1. **New handler module**
+
+   ```text
+   src/OSSS/ai/agents/query_data/handlers/<your_handler_name>_handler.py
+   ```
+   
+QueryData registry (mode detection + registration)
+
+```
+src/OSSS/ai/agents/query_data/query_data_registry.py
+```
+
+QueryData agent (force-import handler once)
+
+```
+src/OSSS/ai/agents/query_data/query_data_agent.py
+```
+
+(Optional, but recommended) Intent classifier / routing
+
+Classifier “action” / heuristics so the LLM can ask for your handler:
+
+```
+src/OSSS/ai/intent_classifier.py
+```
+
+High-level intent → query_data aliasing (already set up for materials/live scoring/etc):
+
+```
+src/OSSS/ai/agent_routing_config.py
+```
+
+Most of the time you’ll only need (1)–(3), plus a tiny tweak in (4) to teach the
+classifier the new action name.
+
+2. Implement a new handler
+Example: materials handler that calls GET /api/materials.
+
+Create:
+
+```
+src/OSSS/ai/agents/query_data/handlers/materials_handler.py
+```
+
+with something like:
+
+```python
+from __future__ import annotations
+
+import csv
+import io
+import logging
+from typing import Any, Dict, List
+
+import httpx
+
+from OSSS.ai.agents.base import AgentContext
+from OSSS.ai.agents.query_data.query_data_registry import (
+    FetchResult,
+    QueryHandler,
+    register_handler,
+)
+
+logger = logging.getLogger("OSSS.ai.agents.query_data.materials")
+
+API_BASE = "http://host.containers.internal:8081"
 
 
+class MaterialsHandler:
+    """
+    QueryData handler for the /api/materials endpoint.
+    """
+
+    mode = "materials"
+    keywords = ["materials", "materials list", "supply list"]
+    source_label = "your DCG OSSS materials service"
+
+    async def fetch(self, ctx: AgentContext, skip: int, limit: int) -> FetchResult:
+        url = f"{API_BASE}/api/materials"
+        params = {"skip": skip, "limit": limit}
+
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(url, params=params)
+            resp.raise_for_status()
+            rows: List[Dict[str, Any]] = resp.json()
+
+        return {
+            "rows": rows,
+            "materials_count": len(rows),
+            "materials_url": url,
+        }
+
+    def to_markdown(self, rows: List[Dict[str, Any]]) -> str:
+        if not rows:
+            return "No materials were found in the system."
+
+        header = (
+            "| # | Type | Title | URL | Drive File ID | Announcement ID | "
+            "Coursework ID | Created At | Updated At |\n"
+            "|---|------|-------|-----|--------------|-----------------|"
+            "--------------|------------|------------|\n"
+        )
+
+        lines: List[str] = []
+        for idx, r in enumerate(rows, start=1):
+            lines.append(
+                f"| {idx} | "
+                f"{r.get('type', '')} | "
+                f"{r.get('title', '')} | "
+                f"{r.get('url', '')} | "
+                f"{r.get('drive_file_id', '')} | "
+                f"{r.get('announcement_id', '')} | "
+                f"{r.get('coursework_id', '')} | "
+                f"{r.get('created_at', '')} | "
+                f"{r.get('updated_at', '')} |"
+            )
+
+        return header + "\n".join(lines)
+
+    def to_csv(self, rows: List[Dict[str, Any]]) -> str:
+        if not rows:
+            return ""
+
+        output = io.StringIO()
+        fieldnames = [
+            "type",
+            "title",
+            "url",
+            "drive_file_id",
+            "announcement_id",
+            "coursework_id",
+            "created_at",
+            "updated_at",
+            "id",
+        ]
+        writer = csv.DictWriter(output, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
+        return output.getvalue()
+
+```
+
+# Register the handler at import time
+register_handler(MaterialsHandler())
+Key points:
+
+Implements the QueryHandler protocol from query_data_registry.py.
+
+Sets mode = "materials" — this becomes the key the registry uses.
+
+Exposes keywords to help the registry match simple queries via text.
+
+fetch returns a FetchResult with at least a rows list.
+
+to_markdown and to_csv handle formatting in one place.
+
+3. Make sure the handler is imported once
+QueryDataAgent force-imports each handler module so the register_handler(...)
+call actually runs.
+
+Update:
+
+```
+src/OSSS/ai/agents/query_data/query_data_agent.py
+```
+
+to include your new handler import (one line):
+
+```python
+from OSSS.ai.agents.query_data.handlers import live_scorings_handler  # noqa: F401
+from OSSS.ai.agents.query_data.handlers import students_handler       # noqa: F401
+from OSSS.ai.agents.query_data.handlers import scorecards_handler     # noqa: F401
+from OSSS.ai.agents.query_data.handlers import materials_handler      # noqa: F401  # ⬅️ new
+```
+
+No other changes are required in QueryDataAgent if you used the registry
+pattern correctly.
+
+4. Wire intent → mode in the QueryData registry
+QueryDataAgent does not see the raw classifier output directly. Instead:
+
+The router passes ctx.metadata["intent_raw_model_output"] into
+detect_mode_from_context.
+
+query_data_registry.py parses that blob and chooses a mode.
+
+Open:
+
+```
+src/OSSS/ai/agents/query_data/query_data_registry.py
+```
+
+and make sure _mode_from_intent_raw_model_output knows about your action,
+for example:
+
+```python
+def _mode_from_intent_raw_model_output(raw: str | None) -> str | None:
+    # ...existing code...
+    llm = obj.get("llm") or {}
+    action = (llm.get("action") or "").lower()
+
+    # Map specific actions to modes
+    if action == "show_materials_list":
+        return "materials"
+    # existing mappings...
+```
+
+You can also lean on keywords and direct heuristics already present in
+detect_mode_from_context:
+
+materials_handler.keywords is indexed in _KEYWORD_INDEX.
+
+detect_mode_from_context checks both classifier metadata and plain-text
+query before falling back to the default students mode.
+
+5. (Optional) Teach the intent classifier / router about your action
+If you want the LLM classifier to explicitly emit an action like
+"show_materials_list", update:
+
+```
+src/OSSS/ai/intent_classifier.py
+```
+
+Ensure "show_materials_list" is a plausible action the prompt talks about
+(and/or add a heuristic rule so “materials list” → that action).
+
+The classifier’s JSON gets stuffed into intent_raw_model_output, which
+query_data_registry already parses.
+
+At the router level, all of these map to the same top-level intent "query_data"
+via aliases in:
+
+```
+src/OSSS/ai/agent_routing_config.py
+```
+
+For example:
+
+```python
+INTENT_ALIASES: list[IntentAlias] = [
+    # ...
+    IntentAlias("show_materials_list", "query_data"),
+]
+```
+
+After that:
+
+Router sends the turn to QueryDataAgent (intent=query_data).
+
+QueryDataAgent calls detect_mode_from_context(...).
+
+The registry picks mode="materials" and hands off to MaterialsHandler.
+
+6. TL;DR – Add-a-new QueryData handler
+Create src/OSSS/ai/agents/query_data/handlers/<name>_handler.py
+implementing QueryHandler and calling your OSSS API.
+
+Register it with register_handler(...) at module import time.
+
+Add one import line in query_data_agent.py so the handler module is
+imported on startup.
+
+Map classifier output / action → mode inside query_data_registry.py
+(and optionally in intent_classifier.py + agent_routing_config.py).
+
+Done: query_data can now answer “show me <your dataset>” using the new
+handler, and the debug JSON will include mode="<your_mode>" and the raw
+rows/csv.
+
+---
 ## 📜 License
 
 This project is licensed under the [Apache License 2.0](./LICENSE).
