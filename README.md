@@ -94,6 +94,10 @@ AI Slot-Agent Example:
 
 ![AI Slot-Agent](docs/img/ai_slot_agent.png)
 
+AI Query Agent Example:
+
+![AI Query Agent](docs/img/ai_query_agent.png)
+
 
 ## Why This Is Important
 
