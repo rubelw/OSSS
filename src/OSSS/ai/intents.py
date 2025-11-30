@@ -222,6 +222,7 @@ class Intent(str, Enum):
     QUERY_STUDENTS = "query_data"
     SCORECARDS = "scorecards"
     LIVE_SCORING_QUERY = "live_scoring_query"
+    SHOW_MATERIALS_LIST = "show_materials_list"
 
 
 class IntentResult(BaseModel):
