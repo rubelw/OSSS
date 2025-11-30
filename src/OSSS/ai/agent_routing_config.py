@@ -35,6 +35,8 @@ INTENT_ALIASES: list[IntentAlias] = [
     IntentAlias("student_counts", "query_data"),
     IntentAlias("students", "query_data"),          # optional, but often useful
     IntentAlias("list_students", "query_data"),     # if classifier ever uses this
+    IntentAlias("scorecards", "query_data"),
+    IntentAlias("live_scoring_query", "query_data"),
 ]
 
 

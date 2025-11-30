@@ -103,6 +103,8 @@ class IntentResolution(BaseModel):
     forced_intent: str | None = None
     session_intent: str | None = None
     manual_label: str | None = None
+    # NEW: raw model output string from the intent classifier
+    intent_raw_model_output: str | None = None
 
 
 class IntentResolver:
@@ -156,6 +158,7 @@ class IntentResolver:
         tone_major_confidence: float | None = None
         tone_minor: str | None = None
         tone_minor_confidence: float | None = None
+        raw_model_output: str | None = None
 
         try:
             intent_result = await classify_intent(query)
@@ -169,11 +172,30 @@ class IntentResolver:
             tone_minor = getattr(intent_result, "tone_minor", None)
             tone_minor_confidence = getattr(intent_result, "tone_minor_confidence", None)
 
+            # 1) Prefer the explicit raw_model_output from IntentResult
+            raw_model_output = getattr(intent_result, "raw_model_output", None)
+
+            # 2) If that is missing/None, synthesize from .raw for debugging
+            if raw_model_output is None:
+                raw_attr = getattr(intent_result, "raw", None)
+                if raw_attr is not None:
+                    try:
+                        raw_model_output = json.dumps(raw_attr, ensure_ascii=False)
+                        logger.info(
+                            "IntentResolver: synthesized raw_model_output from intent_result.raw"
+                        )
+                    except TypeError as te:
+                        logger.warning(
+                            "IntentResolver: failed to JSON-encode intent_result.raw: %s",
+                            te,
+                        )
+
             logger.info(
                 "Classified intent=%s action=%s action_confidence=%s "
                 "urgency=%s urgency_confidence=%s "
                 "tone_major=%s tone_major_confidence=%s "
-                "tone_minor=%s tone_minor_confidence=%s",
+                "tone_minor=%s tone_minor_confidence=%s "
+                "raw_model_output_present=%s",
                 getattr(classified, "value", classified),
                 action,
                 action_confidence,
@@ -183,7 +205,9 @@ class IntentResolver:
                 tone_major_confidence,
                 tone_minor,
                 tone_minor_confidence,
+                raw_model_output is not None,
             )
+
         except Exception as e:
             logger.error("Error classifying intent: %s", e)
 
@@ -274,7 +298,9 @@ class IntentResolver:
             forced_intent=forced_intent,
             session_intent=session_intent,
             manual_label=manual_label,
+            intent_raw_model_output=raw_model_output,
         )
+
 
 
 class AgentDispatcher:
@@ -305,6 +331,7 @@ class AgentDispatcher:
         tone_major_confidence: float | None,
         tone_minor: str | None,
         tone_minor_confidence: float | None,
+        intent_raw_model_output: str | None,
     ) -> dict | None:
         agent_session_id = session.id
 
@@ -337,6 +364,7 @@ class AgentDispatcher:
             "intent_tone_major_confidence": tone_major_confidence,
             "intent_tone_minor": tone_minor,
             "intent_tone_minor_confidence": tone_minor_confidence,
+            "intent_raw_model_output": intent_raw_model_output,
         }
 
         ctx = AgentContext(
@@ -451,6 +479,7 @@ class AgentDispatcher:
                         "intent_tone_major_confidence": tone_major_confidence,
                         "intent_tone_minor": tone_minor,
                         "intent_tone_minor_confidence": tone_minor_confidence,
+                        "intent_raw_model_output": intent_raw_model_output,
                     }
                     user_response["agent_debug_information"] = merged_debug
         except Exception:
@@ -492,6 +521,7 @@ class RagEngine:
         tone_major_confidence: float | None,
         tone_minor: str | None,
         tone_minor_confidence: float | None,
+        intent_raw_model_output: str | None,
     ) -> dict:
         agent_session_id = session.id
         agent_id: Optional[str] = rag.agent_id
@@ -585,6 +615,7 @@ class RagEngine:
                     "retrieval_count": 0,
                     "agent_session_id": agent_session_id,
                     "subagent_session_id": rag.subagent_session_id,
+                    "intent_raw_model_output": intent_raw_model_output,
                     "error": "embedding_backend_unavailable",
                     "error_details": str(e),
                     "embed_url": self.embed_url,
@@ -795,6 +826,7 @@ class RagEngine:
                     "retrieval_count": len(debug_neighbors or []),
                     "agent_session_id": agent_session_id,
                     "subagent_session_id": rag.subagent_session_id,
+                    "intent_raw_model_output": intent_raw_model_output,
                 },
             }
 
@@ -885,6 +917,7 @@ class RouterAgent:
         tone_major_confidence = resolution.tone_major_confidence
         tone_minor = resolution.tone_minor
         tone_minor_confidence = resolution.tone_minor_confidence
+        intent_raw_model_output = resolution.intent_raw_model_output
 
         # ---- persist session metadata ---------------------------------
         touch_session(
@@ -908,6 +941,7 @@ class RouterAgent:
             tone_major_confidence=tone_major_confidence,
             tone_minor=tone_minor,
             tone_minor_confidence=tone_minor_confidence,
+            intent_raw_model_output=intent_raw_model_output,
         )
 
         if agent_response is not None:
@@ -928,6 +962,7 @@ class RouterAgent:
             tone_major_confidence=tone_major_confidence,
             tone_minor=tone_minor,
             tone_minor_confidence=tone_minor_confidence,
+            intent_raw_model_output=intent_raw_model_output,
         )
 
 
@@ -976,6 +1011,7 @@ def _normalize_dcg_expansion(text: str) -> str:
         "Des Moines Community School",
     ]
 
+    # Iterate over the known wrong phrases, not characters of `text`
     for wrong in wrong_phrases:
         if wrong in text:
             text = text.replace(
@@ -983,12 +1019,8 @@ def _normalize_dcg_expansion(text: str) -> str:
                 "Dallas Center-Grimes Community School District",
             )
 
-    text = text.replace(
-        "DCG (Dallas Center-Grimes Community School District)",
-        "DCG (Dallas Center-Grimes Community School District)",
-    )
-
     return text
+
 
 
 def _agent_result_to_trace_leaf(result: Any) -> dict:
