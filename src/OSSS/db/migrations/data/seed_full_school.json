@@ -264,11 +264,11 @@
     "warranties",
     "gradebook_entries",
     "pm_work_generators",
-    "alignments",
     "approvals",
     "curricula",
     "curriculum_units",
     "curriculum_versions",
+    "alignments",
     "document_activity",
     "document_links",
     "document_notifications",
@@ -278,18 +278,18 @@
     "maintenance_requests",
     "meeting_documents",
     "proposal_documents",
-    "proposal_reviews",
     "proposal_standard_map",
     "proposals",
     "review_requests",
     "review_rounds",
+    "proposal_reviews",
     "reviews",
     "round_decisions",
     "unit_standard_map",
-    "work_order_parts",
-    "work_order_tasks",
+    "work_orders",
     "work_order_time_logs",
-    "work_orders"
+    "work_order_tasks",
+    "work_order_parts"
   ],
   "data": {
     "addresses": [
@@ -3290,7 +3290,17 @@
         "id": "c466cee5-1758-5d5a-9af8-9265d530330a"
       }
     ],
-    "alignments": [],
+    "alignments": [
+      {
+        "curriculum_version_id": "a1b4ec17-6275-5e56-b063-5f726a42536c",
+        "requirement_id": "1eb22191-16b1-5b68-906e-59b06de001ec",
+        "alignment_level": "Sample alignments alignment_level",
+        "evidence_url": "Sample alignments evidence_url",
+        "notes": "Sample alignments notes",
+        "updated_at": "2025-09-05T18:25:42+00:00",
+        "id": "8144229c-9268-5ba2-9fa5-eacd0df6e4a8"
+      }
+    ],
     "approvals": [
       {
         "association_id": "1847681b-91d0-5837-b218-0ff99fc78b32",
@@ -3448,8 +3458,25 @@
         "id": "9b99de97-4e6f-59ec-afd6-c37279ad3be3"
       }
     ],
-    "proposal_reviews": [],
-    "proposal_standard_map": [],
+    "proposal_reviews": [
+      {
+        "proposal_id": "addfbe1f-2486-5fd7-ae92-e0ac00c3c7f2",
+        "review_round_id": "2edeaeaa-ab63-57b2-ad28-a3a9584fbbe0",
+        "reviewer_id": "798f7960-1df4-5472-bc35-ff0e6e8c768b",
+        "decision": "Sample proposal_reviews decision",
+        "decided_at": "2025-09-05T18:25:42+00:00",
+        "comment": "Sample proposal_reviews comment",
+        "created_at": "2025-09-05T18:25:42+00:00",
+        "updated_at": "2025-09-05T18:25:42+00:00",
+        "id": "5ec263ef-9670-5d28-996c-7616313ae8bb"
+      }
+    ],
+    "proposal_standard_map": [
+      {
+        "proposal_id": "addfbe1f-2486-5fd7-ae92-e0ac00c3c7f2",
+        "standard_id": "e7edfdfc-c80c-5776-a5e9-f4c21b333657"
+      }
+    ],
     "proposals": [
       {
         "organization_id": "26f0d696-5a22-5140-949f-2b07fcae5bcb",
@@ -3523,9 +3550,48 @@
         "standard_id": "e7edfdfc-c80c-5776-a5e9-f4c21b333657"
       }
     ],
-    "work_order_parts": [],
-    "work_order_tasks": [],
-    "work_order_time_logs": [],
+    "work_order_parts": [
+      {
+        "work_order_id": "bab25a6a-46bf-5326-b8f4-6c0a383ecfb1",
+        "part_id": "5ce53c51-5599-5919-9065-2a7f08e956ea",
+        "qty": 1,
+        "unit_cost": 1,
+        "extended_cost": 1,
+        "notes": "Sample work_order_parts notes",
+        "created_at": "2025-09-05T18:25:42+00:00",
+        "updated_at": "2025-09-05T18:25:42+00:00",
+        "id": "9c6aa98a-4ac8-52da-b3be-304ca302a22b"
+      }
+    ],
+    "work_order_tasks": [
+      {
+        "work_order_id": "bab25a6a-46bf-5326-b8f4-6c0a383ecfb1",
+        "seq": 1,
+        "title": "Sample work_order_tasks title",
+        "is_mandatory": "Sample work_order_tasks is_mandatory",
+        "status": "Sample work_order_tasks status",
+        "completed_at": "2025-09-05T18:25:42+00:00",
+        "notes": "Sample work_order_tasks notes",
+        "created_at": "2025-09-05T18:25:42+00:00",
+        "updated_at": "2025-09-05T18:25:42+00:00",
+        "id": "fe1e7982-3db1-5456-9947-fe0018c9d016"
+      }
+    ],
+    "work_order_time_logs": [
+      {
+        "work_order_id": "bab25a6a-46bf-5326-b8f4-6c0a383ecfb1",
+        "user_id": "1de77659-3293-56be-8983-b8f0baee41b3",
+        "started_at": "2025-09-05T18:25:42+00:00",
+        "ended_at": "2025-09-05T18:25:42+00:00",
+        "hours": 1,
+        "hourly_rate": 1,
+        "cost": 1,
+        "notes": "Sample work_order_time_logs notes",
+        "created_at": "2025-09-05T18:25:42+00:00",
+        "updated_at": "2025-09-05T18:25:42+00:00",
+        "id": "2c068584-dcfd-5f1a-84d5-bf40304eef7e"
+      }
+    ],
     "work_orders": [
       {
         "school_id": "98ef531c-cef7-5c21-b02b-d2b6b6930a51",

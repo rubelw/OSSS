@@ -604,12 +604,12 @@ def build_seed(
 
     # Tables we won't seed at all
     SKIP_TABLES = {
-        "proposal_standard_map",
-        "alignments",  # we already decided to skip
-        "proposal_reviews",  # skip FK headache here too
-        "work_order_parts",  # NEW: don't seed children of work_orders
-        "work_order_tasks",  # NEW
-        "work_order_time_logs"  # NEW
+        #"proposal_standard_map",
+        #"alignments",  # we already decided to skip
+        #"proposal_reviews",  # skip FK headache here too
+        #"work_order_parts",  # NEW: don't seed children of work_orders
+        #"work_order_tasks",  # NEW
+        #"work_order_time_logs"  # NEW
     }
 
     # FK relationships we do NOT want the patcher to "fix"
@@ -703,6 +703,22 @@ def build_seed(
     return data
 
 
+def ensure_parent_before_child(order: list[str], parent: str, child: str) -> None:
+    """
+    If `child` appears before `parent` in the list, move `child`
+    to immediately after `parent`. Operates in-place.
+    """
+    if parent not in order or child not in order:
+        return
+    pi = order.index(parent)
+    ci = order.index(child)
+    if ci < pi:
+        # remove child from its old spot
+        order.pop(ci)
+        # parent index may have shifted if ci < pi
+        pi = order.index(parent)
+        order.insert(pi + 1, child)
+
 # ---------------------------------------------------------------------
 # Main Entry
 # ---------------------------------------------------------------------
@@ -724,6 +740,17 @@ def main():
     # Correct call: only two arguments
     order = compute_insert_order(tables, fks)
     data = build_seed(tables, fks, order, enums)
+
+    # --- manual fixes for cyclic clusters ---
+    ensure_parent_before_child(order, "assets", "asset_parts")
+    ensure_parent_before_child(order, "review_rounds", "proposal_reviews")
+    ensure_parent_before_child(order, "curriculum_versions", "alignments")
+
+    # ✅ work_orders before its children
+    ensure_parent_before_child(order, "work_orders", "work_order_parts")
+    ensure_parent_before_child(order, "work_orders", "work_order_tasks")
+    ensure_parent_before_child(order, "work_orders", "work_order_time_logs")
+
 
     payload = {"insert_order": order, "data": data}
 
