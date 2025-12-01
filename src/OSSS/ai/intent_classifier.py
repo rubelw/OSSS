@@ -206,6 +206,26 @@ HEURISTIC_RULES: List[IntentHeuristicRule] = [
         tone_minor="friendly",
         metadata={"mode": "work_order_tasks"},
     ),
+    IntentHeuristicRule(
+        name="work_order_parts_query_rule",
+        contains_any=[
+            "work order parts",
+            "work_order_parts",
+            "wo parts",
+            "parts used",
+            "parts used on work orders",
+            "maintenance parts",
+            "show work order parts",
+            "show parts used",
+        ],
+        intent="query_data",
+        action="read",
+        urgency="low",
+        tone_major="informal_casual",
+        tone_minor="friendly",
+        metadata={"mode": "work_order_parts"},
+    ),
+
 
 
 
@@ -267,7 +287,7 @@ TABLES = [
     "subscriptions", "tags", "teacher_section_assignments", "test_administrations",
     "test_results", "ticket_scans", "ticket_types", "tickets", "transcript_lines",
     "unit_standard_map", "user_accounts", "users", "vendors", "votes", "waivers",
-    "warranties", "webhooks", "work_order_parts",
+    "warranties", "webhooks",
     "work_orders",
 ]
 
