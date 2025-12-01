@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import logging
+import pkgutil
+import importlib
 from typing import Any, Dict
 
+from OSSS.ai.agents.query_data.handler_loader import load_all_query_handlers
 from OSSS.ai.agents import register_agent
 from OSSS.ai.agents.base import AgentContext, AgentResult
 from OSSS.ai.agents.query_data.query_data_registry import (
@@ -25,12 +28,33 @@ class QueryDataAgentResult:
             setattr(self, k, v)
 
 
-# ⬇ Force-import all handlers once so they self-register into the registry.
-#    (you can also move this into OSSS.ai.agents.query_data.__init__ if preferred)
-from OSSS.ai.agents.query_data.handlers import live_scorings_handler  # noqa: F401
-from OSSS.ai.agents.query_data.handlers import students_handler  # noqa: F401
-from OSSS.ai.agents.query_data.handlers import scorecards_handler  # noqa: F401
-from OSSS.ai.agents.query_data.handlers import materials_handler  # noqa: F401
+# ------------------------------------------------------------------------------
+# AUTO-DISCOVER AND IMPORT ALL HANDLER MODULES
+# Ensures every handler file is imported and thus self-registers.
+# ------------------------------------------------------------------------------
+
+def _import_all_handlers() -> None:
+    """
+    Dynamically import all modules inside:
+        OSSS.ai.agents.query_data.handlers
+    so that each handler can call register_handler() at import time.
+    """
+    import OSSS.ai.agents.query_data.handlers as handler_package
+
+    package_path = handler_package.__path__
+    package_name = handler_package.__name__
+
+    for module_info in pkgutil.iter_modules(package_path):
+        module_name = f"{package_name}.{module_info.name}"
+        try:
+            importlib.import_module(module_name)
+            logger.debug("Loaded QueryData handler module: %s", module_name)
+        except Exception as e:
+            logger.exception("Failed to import handler module %s: %s", module_name, e)
+
+
+# Load handlers AFTER agent registry exists
+load_all_query_handlers()
 
 
 @register_agent("query_data")
@@ -50,7 +74,6 @@ class QueryDataAgent:
             handler = get_handler(mode)
 
         if handler is None:
-            # Absolute last-resort guardrail
             logger.error("No handler found even for fallback 'students' mode")
             return AgentResult(
                 answer_text="I couldn't find a data handler for this request.",
@@ -74,8 +97,6 @@ class QueryDataAgent:
         )
 
         try:
-            # Handler contract:
-            #   fetch(ctx, skip, limit) -> dict with at least {"rows": [...]}
             fetch_result: Dict[str, Any] = await handler.fetch(ctx, skip, limit)
             rows = fetch_result.get("rows", [])
 
@@ -89,7 +110,6 @@ class QueryDataAgent:
                 "csv": csv_data,
                 "csv_filename": f"{mode}_export.csv",
             }
-            # keep all handler-specific fields in debug
             debug_info.update(fetch_result)
 
             answer = (
@@ -108,25 +128,13 @@ class QueryDataAgent:
             )
 
         except QueryDataError as e:
-            # Structured error with backend URLs from any handler
             logger.exception("QueryDataAgent encountered QueryDataError")
+
             lines = [
                 "I attempted to query the backend APIs but encountered an error.",
                 "",
                 str(e),
             ]
-
-            # Optionally attach known URLs if present on the error
-            for attr_name, label in [
-                ("students_url", "Students URL"),
-                ("persons_url", "Persons URL"),
-                ("scorecards_url", "Scorecards URL"),
-                ("live_scorings_url", "Live scoring URL"),
-                ("materials_url", "Materials URL"),
-            ]:
-                url = getattr(e, attr_name, None)
-                if url:
-                    lines.append(f"{label}: {url}")
 
             return AgentResult(
                 answer_text="\n".join(lines),
@@ -139,11 +147,6 @@ class QueryDataAgent:
                         "phase": "query_data",
                         "mode": mode,
                         "error": str(e),
-                        "students_url": getattr(e, "students_url", None),
-                        "persons_url": getattr(e, "persons_url", None),
-                        "scorecards_url": getattr(e, "scorecards_url", None),
-                        "live_scorings_url": getattr(e, "live_scorings_url", None),
-                        "materials_url": getattr(e, "materials_url", None),
                     }
                 },
             )
