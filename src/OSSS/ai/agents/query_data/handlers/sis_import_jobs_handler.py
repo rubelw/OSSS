@@ -18,50 +18,106 @@ logger = logging.getLogger("OSSS.ai.agents.query_data.sis_import_jobs")
 
 API_BASE = "http://host.containers.internal:8081"
 
+# Safety cap for markdown output
+SAFE_MAX_ROWS = 200
 
-async def _fetch_sis_import_jobs(skip: int = 0, limit: int = 100) -> List[Dict[str, Any]]:
+
+# -------------------------------------------------------------------
+# API Fetch
+# -------------------------------------------------------------------
+async def _fetch_sis_import_jobs(
+    skip: int = 0,
+    limit: int = 100,
+) -> List[Dict[str, Any]]:
+    """
+    Call the OSSS data service for sis_import_jobs records.
+
+    Returns a list of dicts, each representing one sis_import_jobs row.
+    Raises QueryDataError on HTTP / payload issues.
+    """
     url = f"{API_BASE}/api/sis_import_jobs"
     params = {"skip": skip, "limit": limit}
+
     try:
         async with httpx.AsyncClient(timeout=10.0, verify=False) as client:
             resp = await client.get(url, params=params)
             resp.raise_for_status()
             data = resp.json()
+
+    except httpx.HTTPStatusError as e:
+        status = (
+            e.response.status_code
+            if getattr(e, "response", None) is not None
+            else "unknown"
+        )
+        logger.exception("HTTP error calling sis_import_jobs API")
+        # Keep QueryDataError simple/compatible: single message argument
+        raise QueryDataError(
+            f"HTTP {status} error querying sis_import_jobs API: {str(e)}"
+        ) from e
+
     except Exception as e:
         logger.exception("Error calling sis_import_jobs API")
         raise QueryDataError(
-            f"Error querying sis_import_jobs API: {e}",
-            sis_import_jobs_url=url,
+            f"Error querying sis_import_jobs API: {str(e)}"
         ) from e
 
     if not isinstance(data, list):
         raise QueryDataError(
-            f"Unexpected sis_import_jobs payload type: {type(data)!r}",
-            sis_import_jobs_url=url,
+            f"Unexpected sis_import_jobs payload type: {type(data)!r}"
         )
+
     return data
 
 
+# -------------------------------------------------------------------
+# Helpers
+# -------------------------------------------------------------------
+def _stringify_cell(value: Any, max_len: int = 120) -> str:
+    """
+    Convert a value to a trimmed, safe string for markdown tables.
+    Prevents huge blobs from wrecking the chat view.
+    """
+    if value is None:
+        return ""
+    s = str(value)
+    return s if len(s) <= max_len else s[: max_len - 3] + "..."
+
+
+# -------------------------------------------------------------------
+# Markdown Builder
+# -------------------------------------------------------------------
 def _build_sis_import_jobs_markdown_table(rows: List[Dict[str, Any]]) -> str:
     if not rows:
         return "No sis_import_jobs records were found in the system."
+
+    # Enforce safety limit
+    rows = rows[:SAFE_MAX_ROWS]
 
     fieldnames = list(rows[0].keys())
     if not fieldnames:
         return "No sis_import_jobs records were found in the system."
 
+    # Put id last if present
+    if "id" in fieldnames:
+        fieldnames = [f for f in fieldnames if f != "id"] + ["id"]
+
     header_cells = ["#"] + fieldnames
     header = "| " + " | ".join(header_cells) + " |\n"
     separator = "| " + " | ".join(["---"] * len(header_cells)) + " |\n"
 
-    lines: List[str] = []
-    for idx, r in enumerate(rows, start=1):
-        row_cells = [str(idx)] + [str(r.get(f, "")) for f in fieldnames]
-        lines.append("| " + " | ".join(row_cells) + " |")
+    body_lines: List[str] = []
+    for idx, rec in enumerate(rows, start=1):
+        row_cells: List[str] = [_stringify_cell(idx)]
+        row_cells.extend(_stringify_cell(rec.get(f, "")) for f in fieldnames)
+        body_lines.append("| " + " | ".join(row_cells) + " |")
 
-    return header + separator + "\n".join(lines)
+    return header + separator + "\n".join(body_lines)
 
 
+# -------------------------------------------------------------------
+# CSV Builder
+# -------------------------------------------------------------------
 def _build_sis_import_jobs_csv(rows: List[Dict[str, Any]]) -> str:
     if not rows:
         return ""
@@ -74,18 +130,32 @@ def _build_sis_import_jobs_csv(rows: List[Dict[str, Any]]) -> str:
     return output.getvalue()
 
 
+# -------------------------------------------------------------------
+# Handler
+# -------------------------------------------------------------------
 class SisImportJobsHandler(QueryHandler):
     mode = "sis_import_jobs"
     keywords = [
         "sis_import_jobs",
         "sis import jobs",
+        "SIS import history",
+        "SIS sync jobs",
+        "import job status",
+        "SIS data imports",
+        "student information system imports",
+        "show sis import jobs",
+        "list sis import jobs",
     ]
     source_label = "your DCG OSSS data service (sis_import_jobs)"
 
     async def fetch(
-        self, ctx: AgentContext, skip: int, limit: int
+        self,
+        ctx: AgentContext,
+        skip: int,
+        limit: int,
     ) -> FetchResult:
         rows = await _fetch_sis_import_jobs(skip=skip, limit=limit)
+        # Expose both generic "rows" and a typed key
         return {"rows": rows, "sis_import_jobs": rows}
 
     def to_markdown(self, rows: List[Dict[str, Any]]) -> str:
