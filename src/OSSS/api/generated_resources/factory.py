@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Iterable, Optional, Type, Tuple, Callable
 import inspect
+import textwrap  # NEW
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Body, Path, status, Request
 from pydantic import ValidationError
@@ -16,8 +17,6 @@ from sqlalchemy.exc import IntegrityError, OperationalError, DBAPIError
 from .factory_helpers import to_snake, pluralize_snake, resource_name_for_model
 from .serialization import to_dict
 
-
-
 from OSSS.sessions import RedisSession
 from OSSS.auth.deps import require_roles, get_current_user as deps_get_current_user
 import os
@@ -27,6 +26,7 @@ log = logging.getLogger("generated_resources.factory")
 
 log = logging.getLogger("db")
 DEV_DB_DEBUG = os.getenv("OSSS_DEBUG_DB", "0") in ("1", "true", "yes")
+
 
 # Make sure the parameter is typed
 async def bind_session_store(request: Request) -> None:
@@ -168,6 +168,60 @@ def _safe_to_dict(obj: Any) -> Dict[str, Any]:
     if "metadata" in data:
         data = _coerce_metadata_for_output(obj, data, "metadata")
     return data
+
+
+# -----------------------------------------------------------------------------
+# NOTE helpers (use model.NOTE to drive OpenAPI text)
+# -----------------------------------------------------------------------------
+def _get_model_note(model: Type[Any]) -> str:
+    """
+    Return the NOTE attribute from the model if present.
+    Whitespace is normalized.
+    """
+    note = getattr(model, "NOTE", "") or ""
+    note = note.strip()
+    if not note:
+        return ""
+    # collapse multiple spaces
+    return " ".join(note.split())
+
+
+def _note_summary(note: str, default: str) -> str:
+    """
+    Derive a short summary from the NOTE.
+
+    Strategy:
+    - If 'description=' appears, use the text after that, up to ';' or '.'
+    - Otherwise, fall back to the whole NOTE
+    - If everything is empty, use `default`
+    """
+    if not note:
+        return default
+
+    lower = note.lower()
+    idx = lower.find("description=")
+    if idx != -1:
+        start = idx + len("description=")
+        desc = note[start:]
+    else:
+        desc = note
+
+    for sep in (";", "."):
+        if sep in desc:
+            desc = desc.split(sep, 1)[0]
+            break
+
+    desc = desc.strip()
+    return desc or default
+
+
+def _with_model_note(note: str, extra: str) -> str:
+    """
+    Prepend NOTE to the endpoint description if present.
+    """
+    if note:
+        return textwrap.dedent(f"""{note}\n\n{extra}""").strip()
+    return extra
 
 
 # -----------------------------------------------------------------------------
@@ -331,6 +385,27 @@ def create_router_for_model(
     cols = set(_model_columns(model))
     op = pluralize_snake(model.__name__.lower())
 
+    # ---- NOTE-based summaries from model.NOTE ----
+    table_name = getattr(model, "__tablename__", model.__name__.lower())
+    table_label = table_name.replace("_", " ").title()
+
+    model_note = _get_model_note(model)
+    note_summary = _note_summary(model_note, default=f"{table_label} List")
+
+    list_summary = note_summary
+    get_summary = note_summary
+    create_summary = note_summary
+    update_summary = note_summary
+    delete_summary = note_summary
+
+    log.info(
+        "API router for %s (%s): NOTE=%r summary=%r",
+        model.__name__,
+        table_name,
+        model_note,
+        note_summary,
+    )
+
     # Pydantic schemas (if present)
     CreateSchema = _resolve_schema(model, "Create")
     ReplaceSchema = _resolve_schema(model, "Replace")
@@ -365,10 +440,19 @@ def create_router_for_model(
             authorize(action, user, instance, model)
 
     # ---------- LIST ----------
-    @router.get(_prefix, tags=_tags,
-                name=f"{op}_list",
-                operation_id=f"{op}_list",
-                dependencies=_deps_for("list"))
+    @router.get(
+        _prefix,
+        tags=_tags,
+        name=f"{op}_list",
+        operation_id=f"{op}_list",
+        summary=list_summary,
+        description=_with_model_note(
+            model_note,
+            f"Retrieve a paginated list of `{table_name}` records. "
+            "Use `skip` and `limit` query parameters for pagination.",
+        ),
+        dependencies=_deps_for("list"),
+    )
     async def list_items(
         skip: int = Query(0, ge=0),
         limit: int = Query(100, ge=1, le=1000),
@@ -382,10 +466,19 @@ def create_router_for_model(
         return [_safe_to_dict(o) for o in rows]
 
     # ---------- GET ----------
-    @router.get(f"{_prefix}/{{item_id}}", tags=_tags,
-                name=f"{op}_get",
-                operation_id=f"{op}_get",
-                dependencies=_deps_for("retrieve"))
+    @router.get(
+        f"{_prefix}/{{item_id}}",
+        tags=_tags,
+        name=f"{op}_get",
+        operation_id=f"{op}_get",
+        summary=get_summary,
+        description=_with_model_note(
+            model_note,
+            f"Retrieve a single `{table_name}` record by primary key. "
+            "Returns HTTP 404 if the record is not found.",
+        ),
+        dependencies=_deps_for("retrieve"),
+    )
     async def get_item(
         item_id: str = Path(...),
         db: Session | AsyncSession = Depends(get_db_dep),
@@ -398,10 +491,20 @@ def create_router_for_model(
         return _safe_to_dict(obj)
 
     # ---------- CREATE ----------
-    @router.post(_prefix, status_code=201, tags=_tags,
-                 name=f"{op}_create",
-                 operation_id=f"{op}_create",
-                 dependencies=_deps_for("create"))
+    @router.post(
+        _prefix,
+        status_code=201,
+        tags=_tags,
+        name=f"{op}_create",
+        operation_id=f"{op}_create",
+        summary=create_summary,
+        description=_with_model_note(
+            model_note,
+            f"Create a new `{table_name}` record using the provided request body. "
+            "On success, returns the newly created resource including its generated ID.",
+        ),
+        dependencies=_deps_for("create"),
+    )
     async def create_item(
         payload: Dict[str, Any] | Any = Body(...),
         db: Session | AsyncSession = Depends(get_db_dep),
@@ -432,10 +535,19 @@ def create_router_for_model(
         return _safe_to_dict(obj)
 
     # ---------- PATCH ----------
-    @router.patch(f"{_prefix}/{{item_id}}", tags=_tags,
-                  name=f"{op}_update",
-                  operation_id=f"{op}_update",
-                  dependencies=_deps_for("update"))
+    @router.patch(
+        f"{_prefix}/{{item_id}}",
+        tags=_tags,
+        name=f"{op}_update",
+        operation_id=f"{op}_update",
+        summary=update_summary,
+        description=_with_model_note(
+            model_note,
+            f"Partially update an existing `{table_name}` record. "
+            "Returns the updated resource or HTTP 404 if it does not exist.",
+        ),
+        dependencies=_deps_for("update"),
+    )
     async def update_item(
         item_id: str,
         payload: Dict[str, Any] | Any = Body(...),
@@ -470,10 +582,19 @@ def create_router_for_model(
         return _safe_to_dict(obj)
 
     # ---------- PUT (replace) ----------
-    @router.put(f"{_prefix}/{{item_id}}", tags=_tags,
-                name=f"{op}_replace",
-                operation_id=f"{op}_replace",
-                dependencies=_deps_for("update"))
+    @router.put(
+        f"{_prefix}/{{item_id}}",
+        tags=_tags,
+        name=f"{op}_replace",
+        operation_id=f"{op}_replace",
+        summary=update_summary,
+        description=_with_model_note(
+            model_note,
+            f"Replace an existing `{table_name}` record with the provided body. "
+            "If PUT-create is enabled and the record does not exist, it may be created.",
+        ),
+        dependencies=_deps_for("update"),
+    )
     async def replace_item(
         item_id: str,
         payload: Dict[str, Any] | Any = Body(...),
@@ -527,10 +648,20 @@ def create_router_for_model(
         return _safe_to_dict(obj)
 
     # ---------- DELETE ----------
-    @router.delete(f"{_prefix}/{{item_id}}", status_code=204, tags=_tags,
-                   name=f"{op}_delete",
-                   operation_id=f"{op}_delete",
-                   dependencies=_deps_for("delete"))
+    @router.delete(
+        f"{_prefix}/{{item_id}}",
+        status_code=204,
+        tags=_tags,
+        name=f"{op}_delete",
+        operation_id=f"{op}_delete",
+        summary=delete_summary,
+        description=_with_model_note(
+            model_note,
+            f"Delete a `{table_name}` record by primary key. "
+            "Returns HTTP 204 on success. If the record does not exist, the operation is idempotent.",
+        ),
+        dependencies=_deps_for("delete"),
+    )
     async def delete_item(
         item_id: str,
         db: Session | AsyncSession = Depends(get_db_dep),
