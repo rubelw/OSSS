@@ -108,12 +108,59 @@ HEURISTIC_RULES: List[IntentHeuristicRule] = [
         tone_minor="friendly",
         metadata={"mode": "live_scorings"},
     ),
+    IntentHeuristicRule(
+        name="immunization_records_query_rule",
+        contains_any=["immunization records", "student immunizations", "student shots"],
+        intent="query_data",
+        action="read",
+        metadata={"mode": "immunization_records"},
+    ),
+    IntentHeuristicRule(
+        name="incident_participants_query_rule",
+        contains_any=[
+            "incident_participants",          # snake_case
+            "incident participants",          # with space
+            "show incident participants",     # full phrase you just tried
+            "show incident_participants",
+        ],
+        intent="query_data",
+        action="read",
+        urgency="low",
+        tone_major="informal_casual",
+        tone_minor="friendly",
+        metadata={"mode": "incident_participants"},
+    ),
+    IntentHeuristicRule(
+        name="person_addresses_query_rule",
+        contains_any=[
+            "person addresses",
+            "person_addresses",
+            "show person addresses",
+            "show person_addresses",
+        ],
+        intent="query_data",
+        action="read",
+        urgency="low",
+        tone_major="informal_casual",
+        tone_minor="friendly",
+        metadata={"mode": "person_addresses"},
+    ),
+    IntentHeuristicRule(
+        name="addresses_query_rule",
+        contains_any=["addresses", "show addresses", "addresses query"],
+        intent="query_data",
+        action="read",
+        metadata={"mode": "addresses"},
+    ),
+
+
+
 
     # -------------------- AUTO-GENERATED RULES --------------------
 ]
 
 TABLES = [
-    "academic_terms", "accommodations", "activities", "addresses", "agenda_item_approvals",
+    "academic_terms", "accommodations", "activities", "agenda_item_approvals",
     "agenda_item_files", "agenda_items", "agenda_workflow_steps", "agenda_workflows",
     "alembic_version", "alignments", "ap_vendors", "approvals", "asset_parts", "assets",
     "assignment_categories", "assignments", "attendance", "attendance_codes",
@@ -137,8 +184,8 @@ TABLES = [
     "gl_segments", "goals", "google_accounts", "governing_bodies", "gpa_calculations",
     "grade_levels", "grade_scale_bands", "grade_scales", "gradebook_entries",
     "grading_periods", "guardians", "health_profiles", "hr_employees",
-    "hr_position_assignments", "hr_positions", "iep_plans", "immunization_records",
-    "immunizations", "incident_participants", "incidents", "initiatives", "invoices",
+    "hr_position_assignments", "hr_positions", "iep_plans",
+    "immunizations", "incidents", "initiatives", "invoices",
     "journal_batches", "journal_entries", "journal_entry_lines", "kpi_datapoints", "kpis",
     "leases", "library_checkouts", "library_fines", "library_holds", "library_items",
     "maintenance_requests", "meal_accounts", "meal_eligibility_statuses",
@@ -148,7 +195,7 @@ TABLES = [
     "messages", "meters", "minutes", "motions", "move_orders", "notifications",
     "nurse_visits", "objectives", "order_line_items", "orders", "organizations",
     "pages", "part_locations", "parts", "pay_periods", "paychecks", "payments",
-    "payroll_runs", "periods", "permissions", "person_addresses", "person_contacts",
+    "payroll_runs", "periods", "permissions", "person_contacts",
     "personal_notes", "persons", "plan_alignments", "plan_assignments", "plan_filters",
     "plan_search_index", "plans", "pm_plans", "pm_work_generators", "policies",
     "policy_approvals", "policy_comments", "policy_files", "policy_legal_refs",

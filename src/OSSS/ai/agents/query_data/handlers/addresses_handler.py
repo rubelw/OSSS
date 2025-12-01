@@ -12,7 +12,7 @@ from OSSS.ai.agents.query_data.query_data_registry import (
     FetchResult,
     register_handler,
 )
-from OSSS.ai.agents.query_data.query_data_errors import QueryDataError  # optional
+from OSSS.ai.agents.query_data.query_data_errors import QueryDataError
 
 logger = logging.getLogger("OSSS.ai.agents.query_data.addresses")
 
@@ -20,8 +20,9 @@ API_BASE = "http://host.containers.internal:8081"
 
 
 async def _fetch_addresses(skip: int = 0, limit: int = 100) -> List[Dict[str, Any]]:
-    url = f"{API_BASE}/api/addresses"
+    url = f"{API_BASE}/api/addresss"
     params = {"skip": skip, "limit": limit}
+
     try:
         async with httpx.AsyncClient(timeout=10.0, verify=False) as client:
             resp = await client.get(url, params=params)
@@ -29,27 +30,24 @@ async def _fetch_addresses(skip: int = 0, limit: int = 100) -> List[Dict[str, An
             data = resp.json()
     except Exception as e:
         logger.exception("Error calling addresses API")
+        # 🚫 NO addresses_url kwarg here
         raise QueryDataError(
-            f"Error querying addresses API: {e}",
-            addresses_url=url,
+            f"Error querying addresses API: {e}"
         ) from e
 
     if not isinstance(data, list):
         raise QueryDataError(
             f"Unexpected addresses payload type: {type(data)!r}",
-            addresses_url=url,
         )
+
     return data
 
 
-def _build_addresses_markdown_table(rows: List[Dict[str, Any]]) -> str:
+def _build_addresses_markdown(rows: List[Dict[str, Any]]) -> str:
     if not rows:
-        return "No addresses records were found in the system."
+        return "No address records were found in the system."
 
     fieldnames = list(rows[0].keys())
-    if not fieldnames:
-        return "No addresses records were found in the system."
-
     header_cells = ["#"] + fieldnames
     header = "| " + " | ".join(header_cells) + " |\n"
     separator = "| " + " | ".join(["---"] * len(header_cells)) + " |\n"
@@ -78,22 +76,20 @@ class AddressesHandler(QueryHandler):
     mode = "addresses"
     keywords = [
         "addresses",
-        "addresses",
+        "address records",
+        "addresses table",
     ]
     source_label = "your DCG OSSS data service (addresses)"
 
-    async def fetch(
-        self, ctx: AgentContext, skip: int, limit: int
-    ) -> FetchResult:
+    async def fetch(self, ctx: AgentContext, skip: int, limit: int) -> FetchResult:
         rows = await _fetch_addresses(skip=skip, limit=limit)
         return {"rows": rows, "addresses": rows}
 
     def to_markdown(self, rows: List[Dict[str, Any]]) -> str:
-        return _build_addresses_markdown_table(rows)
+        return _build_addresses_markdown(rows)
 
     def to_csv(self, rows: List[Dict[str, Any]]) -> str:
         return _build_addresses_csv(rows)
 
 
-# register on import
 register_handler(AddressesHandler())
