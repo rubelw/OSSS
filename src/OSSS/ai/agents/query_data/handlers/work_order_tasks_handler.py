@@ -12,54 +12,71 @@ from OSSS.ai.agents.query_data.query_data_registry import (
     FetchResult,
     register_handler,
 )
-from OSSS.ai.agents.query_data.query_data_errors import QueryDataError  # optional
+from OSSS.ai.agents.query_data.query_data_errors import QueryDataError
 
 logger = logging.getLogger("OSSS.ai.agents.query_data.work_order_tasks")
 
 API_BASE = "http://host.containers.internal:8081"
 
 
-async def _fetch_work_order_tasks(skip: int = 0, limit: int = 100) -> List[Dict[str, Any]]:
-    url = f"{API_BASE}/api/work_order_tasks"
-    params = {"skip": skip, "limit": limit}
+# ------------------------------------------------------------------------------
+# FETCH HELPERS
+# ------------------------------------------------------------------------------
+
+async def _fetch_json(url: str, params: dict | None = None) -> Any:
     try:
         async with httpx.AsyncClient(timeout=10.0, verify=False) as client:
             resp = await client.get(url, params=params)
             resp.raise_for_status()
-            data = resp.json()
+            return resp.json()
     except Exception as e:
-        logger.exception("Error calling work_order_tasks API")
-        raise QueryDataError(
-            f"Error querying work_order_tasks API: {e}",
-            work_order_tasks_url=url,
-        ) from e
+        logger.exception("Error calling API: %s", url)
+        raise QueryDataError(f"Error calling API: {url} -> {e}")
+
+
+async def _fetch_work_order_tasks(skip: int = 0, limit: int = 100) -> List[Dict[str, Any]]:
+    url = f"{API_BASE}/api/work_order_tasks"
+    data = await _fetch_json(url, {"skip": skip, "limit": limit})
 
     if not isinstance(data, list):
-        raise QueryDataError(
-            f"Unexpected work_order_tasks payload type: {type(data)!r}",
-            work_order_tasks_url=url,
-        )
+        raise QueryDataError(f"Unexpected work_order_tasks response type: {type(data)}")
+
     return data
 
+
+async def _fetch_work_orders() -> Dict[str, Dict[str, Any]]:
+    """Return work_orders as a dict keyed by id."""
+    url = f"{API_BASE}/api/work_orders"
+    data = await _fetch_json(url, {"skip": 0, "limit": 5000})
+    return {row["id"]: row for row in data if "id" in row}
+
+
+async def _fetch_users() -> Dict[str, Dict[str, Any]]:
+    """Return users as dict keyed by id."""
+    url = f"{API_BASE}/api/users"
+    data = await _fetch_json(url, {"skip": 0, "limit": 5000})
+    return {row["id"]: row for row in data if "id" in row}
+
+
+# ------------------------------------------------------------------------------
+# TABLE BUILDERS
+# ------------------------------------------------------------------------------
 
 def _build_work_order_tasks_markdown_table(rows: List[Dict[str, Any]]) -> str:
     if not rows:
         return "No work_order_tasks records were found in the system."
 
     fieldnames = list(rows[0].keys())
-    if not fieldnames:
-        return "No work_order_tasks records were found in the system."
 
-    header_cells = ["#"] + fieldnames
-    header = "| " + " | ".join(header_cells) + " |\n"
-    separator = "| " + " | ".join(["---"] * len(header_cells)) + " |\n"
+    header = "| # | " + " | ".join(fieldnames) + " |\n"
+    separator = "|---|" + "|".join(["---"] * len(fieldnames)) + "|\n"
 
-    lines: List[str] = []
+    body_lines = []
     for idx, r in enumerate(rows, start=1):
-        row_cells = [str(idx)] + [str(r.get(f, "")) for f in fieldnames]
-        lines.append("| " + " | ".join(row_cells) + " |")
+        body = " | ".join(str(r.get(f, "")) for f in fieldnames)
+        body_lines.append(f"| {idx} | {body} |")
 
-    return header + separator + "\n".join(lines)
+    return header + separator + "\n".join(body_lines)
 
 
 def _build_work_order_tasks_csv(rows: List[Dict[str, Any]]) -> str:
@@ -67,26 +84,68 @@ def _build_work_order_tasks_csv(rows: List[Dict[str, Any]]) -> str:
         return ""
 
     fieldnames = list(rows[0].keys())
-    output = io.StringIO()
-    writer = csv.DictWriter(output, fieldnames=fieldnames)
+
+    buf = io.StringIO()
+    writer = csv.DictWriter(buf, fieldnames=fieldnames)
     writer.writeheader()
     writer.writerows(rows)
-    return output.getvalue()
+    return buf.getvalue()
 
+
+# ------------------------------------------------------------------------------
+# QUERY HANDLER
+# ------------------------------------------------------------------------------
 
 class WorkOrderTasksHandler(QueryHandler):
     mode = "work_order_tasks"
     keywords = [
         "work_order_tasks",
         "work order tasks",
+        "wo tasks",
+        "maintenance tasks",
+        "work order task list",
     ]
     source_label = "your DCG OSSS data service (work_order_tasks)"
 
     async def fetch(
         self, ctx: AgentContext, skip: int, limit: int
     ) -> FetchResult:
+
         rows = await _fetch_work_order_tasks(skip=skip, limit=limit)
-        return {"rows": rows, "work_order_tasks": rows}
+
+        # ------------------------------------------------------------------
+        # Optional enrichment: Join work_order + user information
+        # ------------------------------------------------------------------
+
+        try:
+            work_orders = await _fetch_work_orders()
+        except Exception:
+            work_orders = {}
+
+        try:
+            users = await _fetch_users()
+        except Exception:
+            users = {}
+
+        enriched = []
+        for r in rows:
+            wo = work_orders.get(r.get("work_order_id"))
+            user = users.get(r.get("user_id"))
+
+            enriched.append({
+                **r,
+                "work_order_name": wo.get("name") if wo else None,
+                "user_name": user.get("name") if user else None,
+            })
+
+        return {
+            "rows": enriched,
+            "work_order_tasks": enriched,
+            "enrichment": {
+                "work_orders_loaded": len(work_orders),
+                "users_loaded": len(users)
+            }
+        }
 
     def to_markdown(self, rows: List[Dict[str, Any]]) -> str:
         return _build_work_order_tasks_markdown_table(rows)
@@ -95,5 +154,5 @@ class WorkOrderTasksHandler(QueryHandler):
         return _build_work_order_tasks_csv(rows)
 
 
-# register on import
+# auto-register on import
 register_handler(WorkOrderTasksHandler())
