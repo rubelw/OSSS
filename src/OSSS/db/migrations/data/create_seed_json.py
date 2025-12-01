@@ -3,6 +3,7 @@
 import json
 import re
 import uuid
+import csv
 from dataclasses import dataclass, field
 from typing import Any, Dict, List
 
@@ -12,6 +13,7 @@ from typing import Any, Dict, List
 # ---------------------------------------------------------------------
 DBML_PATH = "../../../../../data_model/schema.dbml"
 OUT_JSON_PATH = "./seed_full_school.json"
+STATES_CSV_PATH = "../data_csv/205_states.csv"
 
 
 # ---------------------------------------------------------------------
@@ -602,6 +604,92 @@ TSVECTOR_CREATED_AT_TABLES = {
 # Build Seed Data
 # ---------------------------------------------------------------------
 
+# ---------------------------------------------------------------------
+# States CSV helpers
+# ---------------------------------------------------------------------
+def load_states_from_csv(path: str = STATES_CSV_PATH) -> List[Dict[str, str]]:
+    """
+    Load states from a CSV file.
+
+    Expected columns (preferred): code,name
+
+    If there is no header, assumes two columns in order: code,name.
+    """
+    rows: List[Dict[str, str]] = []
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            # Try DictReader first (header present)
+            reader = csv.DictReader(f)
+            if "code" in (reader.fieldnames or []) and "name" in (reader.fieldnames or []):
+                for r in reader:
+                    if not r.get("code"):
+                        continue
+                    rows.append(
+                        {
+                            "code": r["code"].strip(),
+                            "name": r["name"].strip(),
+                        }
+                    )
+                return rows
+
+        # Fallback: no header, treat as plain two-column CSV
+        with open(path, "r", encoding="utf-8") as f2:
+            simple_reader = csv.reader(f2)
+            for raw in simple_reader:
+                if not raw or len(raw) < 2:
+                    continue
+                code = raw[0].strip()
+                name = raw[1].strip()
+                if not code:
+                    continue
+                rows.append({"code": code, "name": name})
+    except FileNotFoundError:
+        # If the file doesn't exist, just return empty and let generic seeding handle it
+        return []
+
+    return rows
+
+
+def build_states_rows(
+    table: Table,
+    enums: Dict[str, List[str]],
+    states_defns: List[Dict[str, str]],
+) -> List[Dict[str, Any]]:
+    """
+    Build rows for the states table using the CSV values.
+
+    We map:
+      - code/name (or similar synonyms) from the CSV
+      - id and other fields via sample_value(), but in a stable way
+    """
+    rows: List[Dict[str, Any]] = []
+
+    for st in states_defns:
+        code = st["code"]
+        name = st["name"]
+
+        row: Dict[str, Any] = {}
+
+        for col in table.columns:
+            col_name = col.name
+
+            # Map obvious / common patterns
+            if col_name in ("code", "state_code", "abbr", "abbreviation"):
+                row[col_name] = code
+            elif col_name in ("name", "state_name", "full_name"):
+                row[col_name] = name
+            elif col_name == "id" and is_uuid_col(col):
+                # stable UUID per code
+                row[col_name] = stable_uuid(f"states:{code}")
+            else:
+                # fall back to generic sample_value for other columns
+                row[col_name] = sample_value(table, col, enums)
+
+        rows.append(row)
+
+    return rows
+
+
 def build_seed(
     tables: Dict[str, Table],
     fks: List[ForeignKey],
@@ -641,6 +729,17 @@ def build_seed(
             continue
 
         t = tables[tname]
+
+        # -----------------------------------------------------------------
+        # Special-case: states → populate from CSV
+        # -----------------------------------------------------------------
+        if tname == "states":
+            states_defns = load_states_from_csv()
+            if states_defns:
+                data[tname] = build_states_rows(t, enums, states_defns)
+                continue
+            # If CSV missing/empty, fall through to generic behavior
+
         row: Dict[str, Any] = {}
 
         # Per-table exclusions (e.g. created_at tsvector)
@@ -666,9 +765,6 @@ def build_seed(
 
         if tname == "maintenance_requests":
             row["converted_work_order_id"] = None
-
-        # NOTE: we NO LONGER force work_order_id = None here.
-        # FK patcher will later attach these to the seeded work_orders row.
 
         data[tname] = [row]
 
