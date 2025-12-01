@@ -72,6 +72,18 @@ EXTRA_FKS: List[ForeignKey] = [
         child_table="work_order_time_logs",
         child_col="work_order_id",
     ),
+    ForeignKey(
+        parent_table="assets",
+        parent_col="id",
+        child_table="asset_parts",
+        child_col="asset_id",
+    ),
+    ForeignKey(
+        parent_table="parts",
+        parent_col="id",
+        child_table="asset_parts",
+        child_col="part_id",
+    ),
 ]
 
 
@@ -249,12 +261,16 @@ def compute_insert_order(tables: Dict[str, Table], fks: List[ForeignKey]) -> Lis
     indegree = {t: 0 for t in all_tables}
 
     for fk in fks:
+        # 🚫 Ignore self-FKs; they just create cycles for seeding
+        if fk.parent_table == fk.child_table:
+            continue
+
         if fk.parent_table in all_tables and fk.child_table in all_tables:
             if fk.child_table not in edges[fk.parent_table]:
                 edges[fk.parent_table].add(fk.child_table)
                 indegree[fk.child_table] += 1
 
-    # Kahn’s algorithm
+    # Kahn’s algorithm as before
     queue = sorted([t for t in all_tables if indegree[t] == 0])
     order: List[str] = []
 
@@ -266,7 +282,6 @@ def compute_insert_order(tables: Dict[str, Table], fks: List[ForeignKey]) -> Lis
             if indegree[child] == 0:
                 queue.append(child)
 
-    # Append any remaining (cycles)
     leftovers = [t for t in all_tables if t not in order]
     return order + sorted(leftovers)
 
@@ -473,6 +488,33 @@ def sample_value(table: Table, col: Column, enums: Dict[str, List[str]]) -> Any:
         # Last resort: hard-code a valid value
         return "approved"
 
+    # work_assignments.status :: assignment_status
+    if table.name == "work_assignments" and name == "status":
+        # assignment_status: pending, confirmed, declined, completed
+        vals = enums.get("assignment_status") or enums.get(base_t)
+        if vals:
+            for pref in ("pending", "confirmed", "declined", "completed"):
+                for v in vals:
+                    if v.lower() == pref:
+                        return v
+            return vals[0]
+        # fallback if enum didn't parse for some reason
+        return "pending"
+
+    # orders.status :: order_status
+    if table.name == "orders" and name == "status":
+        # order_status: pending, paid, refunded, canceled
+        vals = enums.get("order_status") or enums.get(base_t)
+        if vals:
+            for pref in ("pending", "paid", "canceled"):
+                for v in vals:
+                    if v.lower() == pref:
+                        return v
+            # fallback: first declared enum value
+            return vals[0]
+        # last-resort fallback if enum map is weird/missing
+        return "pending"
+
     # -----------------------------------------------------------------
     # Special case: any column typed as curriculum_status
     # -----------------------------------------------------------------
@@ -562,7 +604,6 @@ def build_seed(
 
     # Tables we won't seed at all
     SKIP_TABLES = {
-        "asset_parts",
         "proposal_standard_map",
         "alignments",  # we already decided to skip
         "proposal_reviews",  # skip FK headache here too
@@ -635,6 +676,21 @@ def build_seed(
             parent_row = data[parent_table][0]
             if parent_col in parent_row:
                 row[child_col] = parent_row[parent_col]
+
+    # -----------------------------------------------------------------
+    # Special case: asset_parts -> tie to the seeded asset and part
+    # -----------------------------------------------------------------
+    if data.get("asset_parts"):
+        ap_row = data["asset_parts"][0]
+
+        asset_row = (data.get("assets") or [None])[0]
+        part_row = (data.get("parts") or [None])[0]
+
+        if asset_row is not None:
+            ap_row["asset_id"] = asset_row["id"]
+        if part_row is not None:
+            ap_row["part_id"] = part_row["id"]
+
 
     # -----------------------------------------------------------------
     # Final safety scrub: ensure no created_at leaked into tsvector tables

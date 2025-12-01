@@ -59,11 +59,13 @@
     "agenda_workflow_steps",
     "evaluation_sections",
     "fiscal_periods",
+    "standards",
     "gl_segment_values",
     "hr_positions",
     "channels",
     "evaluation_cycles",
     "feature_flags",
+    "folders",
     "governing_bodies",
     "plans",
     "policies",
@@ -97,6 +99,7 @@
     "plan_search_index",
     "scorecards",
     "policy_search_index",
+    "policy_versions",
     "policy_workflows",
     "academic_terms",
     "activities",
@@ -151,6 +154,10 @@
     "evaluation_responses",
     "evaluation_signoffs",
     "objectives",
+    "policy_comments",
+    "policy_files",
+    "policy_legal_refs",
+    "policy_publications",
     "policy_workflow_steps",
     "class_ranks",
     "gpa_calculations",
@@ -188,12 +195,14 @@
     "paychecks",
     "initiatives",
     "kpis",
+    "policy_approvals",
     "concession_sales",
     "orders",
     "ticket_types",
     "work_assignments",
     "bus_stop_times",
     "student_transportation_assignments",
+    "agenda_items",
     "attendance",
     "meeting_files",
     "meeting_permissions",
@@ -218,6 +227,10 @@
     "concession_sale_items",
     "order_line_items",
     "tickets",
+    "agenda_item_approvals",
+    "agenda_item_files",
+    "motions",
+    "plan_alignments",
     "announcements",
     "course_prerequisites",
     "course_sections",
@@ -228,6 +241,7 @@
     "spaces",
     "scan_results",
     "ticket_scans",
+    "votes",
     "assignment_categories",
     "final_grades",
     "section_meetings",
@@ -235,6 +249,7 @@
     "student_section_enrollments",
     "teacher_section_assignments",
     "coursework",
+    "assets",
     "move_orders",
     "part_locations",
     "space_reservations",
@@ -242,15 +257,15 @@
     "attendance_events",
     "materials",
     "student_submissions",
+    "asset_parts",
+    "compliance_records",
+    "meters",
+    "pm_plans",
+    "warranties",
     "gradebook_entries",
-    "agenda_item_approvals",
-    "agenda_item_files",
-    "agenda_items",
+    "pm_work_generators",
     "alignments",
     "approvals",
-    "asset_parts",
-    "assets",
-    "compliance_records",
     "curricula",
     "curriculum_units",
     "curriculum_versions",
@@ -260,20 +275,8 @@
     "document_search_index",
     "document_versions",
     "documents",
-    "folders",
     "maintenance_requests",
     "meeting_documents",
-    "meters",
-    "motions",
-    "plan_alignments",
-    "pm_plans",
-    "pm_work_generators",
-    "policy_approvals",
-    "policy_comments",
-    "policy_files",
-    "policy_legal_refs",
-    "policy_publications",
-    "policy_versions",
     "proposal_documents",
     "proposal_reviews",
     "proposal_standard_map",
@@ -282,10 +285,7 @@
     "review_rounds",
     "reviews",
     "round_decisions",
-    "standards",
     "unit_standard_map",
-    "votes",
-    "warranties",
     "work_order_parts",
     "work_order_tasks",
     "work_order_time_logs",
@@ -901,6 +901,21 @@
         "updated_at": "2025-09-05T18:25:42+00:00"
       }
     ],
+    "standards": [
+      {
+        "framework_id": "8532fee2-715b-5bf0-a2d5-20ffb877a674",
+        "code": "Sample standards code",
+        "description": "Sample standards description",
+        "parent_id": "e7edfdfc-c80c-5776-a5e9-f4c21b333657",
+        "grade_band": "Sample standards grade_band",
+        "effective_from": "2025-09-05",
+        "effective_to": "2025-09-05",
+        "attributes": "Sample standards attributes",
+        "id": "e7edfdfc-c80c-5776-a5e9-f4c21b333657",
+        "created_at": "2025-09-05T18:25:42+00:00",
+        "updated_at": "2025-09-05T18:25:42+00:00"
+      }
+    ],
     "gl_segment_values": [
       {
         "code": "Sample gl_segment_values code",
@@ -952,6 +967,18 @@
         "org_id": "62c8babb-d38a-55a1-970d-d91075a44fa8",
         "key": "Sample feature_flags key",
         "enabled": "Sample feature_flags enabled"
+      }
+    ],
+    "folders": [
+      {
+        "org_id": "62c8babb-d38a-55a1-970d-d91075a44fa8",
+        "parent_id": "a8448842-b648-5223-9503-4fc44885334b",
+        "name": "Sample folders name",
+        "is_public": true,
+        "sort_order": 1,
+        "id": "a8448842-b648-5223-9503-4fc44885334b",
+        "created_at": "2025-09-05T18:25:42+00:00",
+        "updated_at": "2025-09-05T18:25:42+00:00"
       }
     ],
     "governing_bodies": [
@@ -1318,6 +1345,19 @@
       {
         "policy_id": "c2b5d777-ee65-59f8-a170-4648fab905ea",
         "ts": "Sample policy_search_index ts"
+      }
+    ],
+    "policy_versions": [
+      {
+        "policy_id": "c2b5d777-ee65-59f8-a170-4648fab905ea",
+        "version_no": 1,
+        "content": "Sample policy_versions content",
+        "effective_date": "2025-09-05",
+        "supersedes_version_id": "ba9accda-ba90-58ec-be9f-62b29329e7b9",
+        "created_by": "1de77659-3293-56be-8983-b8f0baee41b3",
+        "id": "ba9accda-ba90-58ec-be9f-62b29329e7b9",
+        "created_at": "2025-09-05T18:25:42+00:00",
+        "updated_at": "2025-09-05T18:25:42+00:00"
       }
     ],
     "policy_workflows": [
@@ -1918,6 +1958,43 @@
         "updated_at": "2025-09-05T18:25:42+00:00"
       }
     ],
+    "policy_comments": [
+      {
+        "policy_version_id": "ba9accda-ba90-58ec-be9f-62b29329e7b9",
+        "user_id": "1de77659-3293-56be-8983-b8f0baee41b3",
+        "text": "Sample policy_comments text",
+        "visibility": "Sample policy_comments visibility",
+        "id": "cba93059-4537-5ab7-bc70-0c5861b536d5",
+        "created_at": "2025-09-05T18:25:42+00:00",
+        "updated_at": "2025-09-05T18:25:42+00:00"
+      }
+    ],
+    "policy_files": [
+      {
+        "id": "b3581c32-3ca8-5cfa-bcf1-e9ee867cb2ac",
+        "policy_version_id": "ba9accda-ba90-58ec-be9f-62b29329e7b9",
+        "file_id": "f663bf01-eb93-5e7f-bca1-75c322456c0c",
+        "created_at": "2025-09-05T18:25:42+00:00"
+      }
+    ],
+    "policy_legal_refs": [
+      {
+        "policy_version_id": "ba9accda-ba90-58ec-be9f-62b29329e7b9",
+        "citation": "Sample policy_legal_refs citation",
+        "url": "Sample policy_legal_refs url",
+        "id": "fb02578f-1496-5473-a6cd-283c6c14473c",
+        "created_at": "2025-09-05T18:25:42+00:00",
+        "updated_at": "2025-09-05T18:25:42+00:00"
+      }
+    ],
+    "policy_publications": [
+      {
+        "policy_version_id": "ba9accda-ba90-58ec-be9f-62b29329e7b9",
+        "published_at": "2025-09-05T18:25:42+00:00",
+        "public_url": "Sample policy_publications public_url",
+        "is_current": true
+      }
+    ],
     "policy_workflow_steps": [
       {
         "workflow_id": "2568f8a5-4c68-5767-a0ef-3a1768525ee8",
@@ -2356,6 +2433,19 @@
         "updated_at": "2025-09-05T18:25:42+00:00"
       }
     ],
+    "policy_approvals": [
+      {
+        "policy_version_id": "ba9accda-ba90-58ec-be9f-62b29329e7b9",
+        "step_id": "d9be6252-0ec3-5c22-83fa-bdba59c58fb0",
+        "approver_id": "1de77659-3293-56be-8983-b8f0baee41b3",
+        "decision": "Sample policy_approvals decision",
+        "decided_at": "2025-09-05T18:25:42+00:00",
+        "comment": "Sample policy_approvals comment",
+        "id": "30c3375b-7cf5-51af-a137-3a5d818f30b0",
+        "created_at": "2025-09-05T18:25:42+00:00",
+        "updated_at": "2025-09-05T18:25:42+00:00"
+      }
+    ],
     "concession_sales": [
       {
         "stand_id": "6bbac879-f7de-511b-a566-53be0ddbf0b2",
@@ -2383,7 +2473,7 @@
         "buyer_email": "Sample orders buyer_email",
         "total_cents": 1,
         "currency": "Sample orders currency",
-        "status": "Sample orders status",
+        "status": "pending",
         "external_ref": "Sample orders external_ref",
         "attributes": "Sample orders attributes",
         "created_at": "2025-09-05T18:25:42+00:00",
@@ -2411,7 +2501,7 @@
         "event_id": "98f19f89-cf2d-5bd7-95de-1adf9476f77d",
         "worker_id": "989a384b-a375-5a61-841e-57ab5ea4e8fd",
         "stipend_cents": 1,
-        "status": "Sample work_assignments status",
+        "status": "pending",
         "assigned_at": "2025-09-05T18:25:42+00:00",
         "checked_in_at": "2025-09-05T18:25:42+00:00",
         "completed_at": "2025-09-05T18:25:42+00:00",
@@ -2442,6 +2532,21 @@
         "created_at": "2025-09-05T18:25:42+00:00",
         "updated_at": "2025-09-05T18:25:42+00:00",
         "id": "fc5a3dd9-ddf7-5663-b83c-b15b0f3c7611"
+      }
+    ],
+    "agenda_items": [
+      {
+        "meeting_id": "58eacceb-53fc-524a-937b-09abd44cd429",
+        "parent_id": "d1f7ec58-aba2-5a18-ac7b-94ee57390369",
+        "position": 1,
+        "title": "Sample agenda_items title",
+        "description": "Sample agenda_items description",
+        "linked_policy_id": "2bc7e3dc-4a18-50bb-9e4d-7bd7e4a18c3c",
+        "linked_objective_id": "fe711ec6-d5bb-571f-9218-174a2c7b98f1",
+        "time_allocated": 1,
+        "id": "d1f7ec58-aba2-5a18-ac7b-94ee57390369",
+        "created_at": "2025-09-05T18:25:42+00:00",
+        "updated_at": "2025-09-05T18:25:42+00:00"
       }
     ],
     "attendance": [
@@ -2711,6 +2816,55 @@
         "updated_at": "2025-09-05T18:25:42+00:00"
       }
     ],
+    "agenda_item_approvals": [
+      {
+        "item_id": "d1f7ec58-aba2-5a18-ac7b-94ee57390369",
+        "step_id": "0c9bdc8a-cb45-520a-b015-32ba4726652e",
+        "approver_id": "1de77659-3293-56be-8983-b8f0baee41b3",
+        "decision": "Sample agenda_item_approvals decision",
+        "decided_at": "2025-09-05T18:25:42+00:00",
+        "comment": "Sample agenda_item_approvals comment",
+        "id": "f71b533a-c122-5f89-9a40-aebf37581fde",
+        "created_at": "2025-09-05T18:25:42+00:00",
+        "updated_at": "2025-09-05T18:25:42+00:00"
+      }
+    ],
+    "agenda_item_files": [
+      {
+        "created_at": "2025-09-05T18:25:42+00:00",
+        "updated_at": "2025-09-05T18:25:42+00:00",
+        "id": "ffe1ecc8-e9bf-5e26-bef0-7831df2db96a",
+        "agenda_item_id": "d1f7ec58-aba2-5a18-ac7b-94ee57390369",
+        "file_id": "f663bf01-eb93-5e7f-bca1-75c322456c0c",
+        "caption": "Sample agenda_item_files caption"
+      }
+    ],
+    "motions": [
+      {
+        "agenda_item_id": "d1f7ec58-aba2-5a18-ac7b-94ee57390369",
+        "text": "Sample motions text",
+        "moved_by_id": "1de77659-3293-56be-8983-b8f0baee41b3",
+        "seconded_by_id": "1de77659-3293-56be-8983-b8f0baee41b3",
+        "passed": true,
+        "tally_for": 1,
+        "tally_against": 1,
+        "tally_abstain": 1,
+        "id": "ffe355d2-ac03-5d11-b8dc-3a9a5277156c",
+        "created_at": "2025-09-05T18:25:42+00:00",
+        "updated_at": "2025-09-05T18:25:42+00:00"
+      }
+    ],
+    "plan_alignments": [
+      {
+        "note": "Sample plan_alignments note",
+        "agenda_item_id": "d1f7ec58-aba2-5a18-ac7b-94ee57390369",
+        "policy_id": "c2b5d777-ee65-59f8-a170-4648fab905ea",
+        "objective_id": "8f56d427-08dd-59ec-9083-fb458bea4cd4",
+        "id": "823b270b-853f-57a9-a5c4-4f4baf223f19",
+        "created_at": "2025-09-05T18:25:42+00:00",
+        "updated_at": "2025-09-05T18:25:42+00:00"
+      }
+    ],
     "announcements": [
       {
         "user_id": "1de77659-3293-56be-8983-b8f0baee41b3",
@@ -2828,6 +2982,16 @@
         "id": "47475e47-d2de-5dd8-add3-7498eaf7b186"
       }
     ],
+    "votes": [
+      {
+        "motion_id": "ffe355d2-ac03-5d11-b8dc-3a9a5277156c",
+        "voter_id": "1de77659-3293-56be-8983-b8f0baee41b3",
+        "value": "Sample votes value",
+        "id": "637bcd98-98b2-5db6-98ba-cea42cef6b0c",
+        "created_at": "2025-09-05T18:25:42+00:00",
+        "updated_at": "2025-09-05T18:25:42+00:00"
+      }
+    ],
     "assignment_categories": [
       {
         "section_id": "4bfc7b12-7914-52fa-a8df-68d31dc249f2",
@@ -2912,6 +3076,26 @@
         "id": "a0bcb2ea-b232-566d-afd7-787154b091e3",
         "created_at": "2025-09-05T18:25:42+00:00",
         "updated_at": "2025-09-05T18:25:42+00:00"
+      }
+    ],
+    "assets": [
+      {
+        "building_id": "dc8d2b6d-4208-5b38-ae82-ab4bfc42c578",
+        "space_id": "a78ed294-65ac-536f-b670-062cebd23a8f",
+        "parent_asset_id": "2075b1eb-1b92-5f16-86ac-b7c1b5336d74",
+        "tag": "Sample assets tag",
+        "serial_no": "Sample assets serial_no",
+        "manufacturer": "Sample assets manufacturer",
+        "model": "Sample assets model",
+        "category": "Sample assets category",
+        "status": "Sample assets status",
+        "install_date": "2025-09-05",
+        "warranty_expires_at": "2025-09-05",
+        "expected_life_months": 1,
+        "attributes": "Sample assets attributes",
+        "created_at": "2025-09-05T18:25:42+00:00",
+        "updated_at": "2025-09-05T18:25:42+00:00",
+        "id": "2075b1eb-1b92-5f16-86ac-b7c1b5336d74"
       }
     ],
     "move_orders": [
@@ -3012,87 +3196,14 @@
         "updated_at": "2025-09-05T18:25:42+00:00"
       }
     ],
-    "gradebook_entries": [
-      {
-        "assignment_id": "4b046509-7e3c-53db-9add-27ffaa825cf9",
-        "student_id": "6eff14cc-a22d-5b3f-806f-516ae7a06f98",
-        "score": 1,
-        "submitted_at": "2025-09-05T18:25:42+00:00",
-        "late": "Sample gradebook_entries late",
-        "created_at": "2025-09-05T18:25:42+00:00",
-        "updated_at": "2025-09-05T18:25:42+00:00",
-        "id": "3581ba31-b4bd-5805-9e76-587dd8dabcb5"
-      }
-    ],
-    "agenda_item_approvals": [
-      {
-        "item_id": "d1f7ec58-aba2-5a18-ac7b-94ee57390369",
-        "step_id": "0c9bdc8a-cb45-520a-b015-32ba4726652e",
-        "approver_id": "1de77659-3293-56be-8983-b8f0baee41b3",
-        "decision": "Sample agenda_item_approvals decision",
-        "decided_at": "2025-09-05T18:25:42+00:00",
-        "comment": "Sample agenda_item_approvals comment",
-        "id": "f71b533a-c122-5f89-9a40-aebf37581fde",
-        "created_at": "2025-09-05T18:25:42+00:00",
-        "updated_at": "2025-09-05T18:25:42+00:00"
-      }
-    ],
-    "agenda_item_files": [
+    "asset_parts": [
       {
         "created_at": "2025-09-05T18:25:42+00:00",
         "updated_at": "2025-09-05T18:25:42+00:00",
-        "id": "ffe1ecc8-e9bf-5e26-bef0-7831df2db96a",
-        "agenda_item_id": "d1f7ec58-aba2-5a18-ac7b-94ee57390369",
-        "file_id": "f663bf01-eb93-5e7f-bca1-75c322456c0c",
-        "caption": "Sample agenda_item_files caption"
-      }
-    ],
-    "agenda_items": [
-      {
-        "meeting_id": "58eacceb-53fc-524a-937b-09abd44cd429",
-        "parent_id": "d1f7ec58-aba2-5a18-ac7b-94ee57390369",
-        "position": 1,
-        "title": "Sample agenda_items title",
-        "description": "Sample agenda_items description",
-        "linked_policy_id": "2bc7e3dc-4a18-50bb-9e4d-7bd7e4a18c3c",
-        "linked_objective_id": "fe711ec6-d5bb-571f-9218-174a2c7b98f1",
-        "time_allocated": 1,
-        "id": "d1f7ec58-aba2-5a18-ac7b-94ee57390369",
-        "created_at": "2025-09-05T18:25:42+00:00",
-        "updated_at": "2025-09-05T18:25:42+00:00"
-      }
-    ],
-    "alignments": [],
-    "approvals": [
-      {
-        "association_id": "1847681b-91d0-5837-b218-0ff99fc78b32",
-        "approved_at": "2025-09-05T18:25:42+00:00",
-        "expires_at": "2025-09-05T18:25:42+00:00",
-        "status": "active",
-        "proposal_id": "addfbe1f-2486-5fd7-ae92-e0ac00c3c7f2",
-        "updated_at": "2025-09-05T18:25:42+00:00",
-        "id": "ed92407c-cb8b-5784-a7cc-025b969b5966"
-      }
-    ],
-    "asset_parts": [],
-    "assets": [
-      {
-        "building_id": "dc8d2b6d-4208-5b38-ae82-ab4bfc42c578",
-        "space_id": "a78ed294-65ac-536f-b670-062cebd23a8f",
-        "parent_asset_id": "2075b1eb-1b92-5f16-86ac-b7c1b5336d74",
-        "tag": "Sample assets tag",
-        "serial_no": "Sample assets serial_no",
-        "manufacturer": "Sample assets manufacturer",
-        "model": "Sample assets model",
-        "category": "Sample assets category",
-        "status": "Sample assets status",
-        "install_date": "2025-09-05",
-        "warranty_expires_at": "2025-09-05",
-        "expected_life_months": 1,
-        "attributes": "Sample assets attributes",
-        "created_at": "2025-09-05T18:25:42+00:00",
-        "updated_at": "2025-09-05T18:25:42+00:00",
-        "id": "2075b1eb-1b92-5f16-86ac-b7c1b5336d74"
+        "id": "392241f0-75dc-57ca-a45b-46c155cda1d9",
+        "asset_id": "2075b1eb-1b92-5f16-86ac-b7c1b5336d74",
+        "part_id": "5ce53c51-5599-5919-9065-2a7f08e956ea",
+        "qty": 1
       }
     ],
     "compliance_records": [
@@ -3109,6 +3220,86 @@
         "created_at": "2025-09-05T18:25:42+00:00",
         "updated_at": "2025-09-05T18:25:42+00:00",
         "id": "f35cdd30-5a15-5f55-ac88-cd4c05e33b5a"
+      }
+    ],
+    "meters": [
+      {
+        "asset_id": "2075b1eb-1b92-5f16-86ac-b7c1b5336d74",
+        "building_id": "dc8d2b6d-4208-5b38-ae82-ab4bfc42c578",
+        "name": "Sample meters name",
+        "meter_type": "Sample meters meter_type",
+        "uom": "Sample meters uom",
+        "last_read_value": 1,
+        "last_read_at": "2025-09-05T18:25:42+00:00",
+        "attributes": "Sample meters attributes",
+        "created_at": "2025-09-05T18:25:42+00:00",
+        "updated_at": "2025-09-05T18:25:42+00:00",
+        "id": "4cbcea3f-1f29-5e1e-aa30-2377035aacbf"
+      }
+    ],
+    "pm_plans": [
+      {
+        "asset_id": "2075b1eb-1b92-5f16-86ac-b7c1b5336d74",
+        "building_id": "dc8d2b6d-4208-5b38-ae82-ab4bfc42c578",
+        "name": "Sample pm_plans name",
+        "frequency": "Sample pm_plans frequency",
+        "next_due_at": "2025-09-05T18:25:42+00:00",
+        "last_completed_at": "2025-09-05T18:25:42+00:00",
+        "active": true,
+        "procedure": "Sample pm_plans procedure",
+        "attributes": "Sample pm_plans attributes",
+        "created_at": "2025-09-05T18:25:42+00:00",
+        "updated_at": "2025-09-05T18:25:42+00:00",
+        "id": "dcd09af2-62f0-56a1-9df1-53bdc2a38cbb"
+      }
+    ],
+    "warranties": [
+      {
+        "asset_id": "2075b1eb-1b92-5f16-86ac-b7c1b5336d74",
+        "vendor_id": "77fa5393-73db-5a2f-9e62-36ddd1223467",
+        "policy_no": "Sample warranties policy_no",
+        "start_date": "2025-09-05",
+        "end_date": "2025-09-05",
+        "terms": "Sample warranties terms",
+        "attributes": "Sample warranties attributes",
+        "created_at": "2025-09-05T18:25:42+00:00",
+        "updated_at": "2025-09-05T18:25:42+00:00",
+        "id": "cf5c0c0b-48fb-56ae-af99-0a735cfabc70"
+      }
+    ],
+    "gradebook_entries": [
+      {
+        "assignment_id": "4b046509-7e3c-53db-9add-27ffaa825cf9",
+        "student_id": "6eff14cc-a22d-5b3f-806f-516ae7a06f98",
+        "score": 1,
+        "submitted_at": "2025-09-05T18:25:42+00:00",
+        "late": "Sample gradebook_entries late",
+        "created_at": "2025-09-05T18:25:42+00:00",
+        "updated_at": "2025-09-05T18:25:42+00:00",
+        "id": "3581ba31-b4bd-5805-9e76-587dd8dabcb5"
+      }
+    ],
+    "pm_work_generators": [
+      {
+        "pm_plan_id": "dcd09af2-62f0-56a1-9df1-53bdc2a38cbb",
+        "last_generated_at": "2025-09-05T18:25:42+00:00",
+        "lookahead_days": 1,
+        "attributes": "Sample pm_work_generators attributes",
+        "created_at": "2025-09-05T18:25:42+00:00",
+        "updated_at": "2025-09-05T18:25:42+00:00",
+        "id": "c466cee5-1758-5d5a-9af8-9265d530330a"
+      }
+    ],
+    "alignments": [],
+    "approvals": [
+      {
+        "association_id": "1847681b-91d0-5837-b218-0ff99fc78b32",
+        "approved_at": "2025-09-05T18:25:42+00:00",
+        "expires_at": "2025-09-05T18:25:42+00:00",
+        "status": "active",
+        "proposal_id": "addfbe1f-2486-5fd7-ae92-e0ac00c3c7f2",
+        "updated_at": "2025-09-05T18:25:42+00:00",
+        "id": "ed92407c-cb8b-5784-a7cc-025b969b5966"
       }
     ],
     "curricula": [
@@ -3217,18 +3408,6 @@
         "updated_at": "2025-09-05T18:25:42+00:00"
       }
     ],
-    "folders": [
-      {
-        "org_id": "62c8babb-d38a-55a1-970d-d91075a44fa8",
-        "parent_id": "a8448842-b648-5223-9503-4fc44885334b",
-        "name": "Sample folders name",
-        "is_public": true,
-        "sort_order": 1,
-        "id": "a8448842-b648-5223-9503-4fc44885334b",
-        "created_at": "2025-09-05T18:25:42+00:00",
-        "updated_at": "2025-09-05T18:25:42+00:00"
-      }
-    ],
     "maintenance_requests": [
       {
         "school_id": "98ef531c-cef7-5c21-b02b-d2b6b6930a51",
@@ -3256,137 +3435,6 @@
         "created_at": "2025-09-05T18:25:42+00:00",
         "updated_at": "2025-09-05T18:25:42+00:00",
         "id": "4c914c57-5ded-5ef8-aa09-2cd1b9d5a86f"
-      }
-    ],
-    "meters": [
-      {
-        "asset_id": "2075b1eb-1b92-5f16-86ac-b7c1b5336d74",
-        "building_id": "dc8d2b6d-4208-5b38-ae82-ab4bfc42c578",
-        "name": "Sample meters name",
-        "meter_type": "Sample meters meter_type",
-        "uom": "Sample meters uom",
-        "last_read_value": 1,
-        "last_read_at": "2025-09-05T18:25:42+00:00",
-        "attributes": "Sample meters attributes",
-        "created_at": "2025-09-05T18:25:42+00:00",
-        "updated_at": "2025-09-05T18:25:42+00:00",
-        "id": "4cbcea3f-1f29-5e1e-aa30-2377035aacbf"
-      }
-    ],
-    "motions": [
-      {
-        "agenda_item_id": "d1f7ec58-aba2-5a18-ac7b-94ee57390369",
-        "text": "Sample motions text",
-        "moved_by_id": "1de77659-3293-56be-8983-b8f0baee41b3",
-        "seconded_by_id": "1de77659-3293-56be-8983-b8f0baee41b3",
-        "passed": true,
-        "tally_for": 1,
-        "tally_against": 1,
-        "tally_abstain": 1,
-        "id": "ffe355d2-ac03-5d11-b8dc-3a9a5277156c",
-        "created_at": "2025-09-05T18:25:42+00:00",
-        "updated_at": "2025-09-05T18:25:42+00:00"
-      }
-    ],
-    "plan_alignments": [
-      {
-        "note": "Sample plan_alignments note",
-        "agenda_item_id": "d1f7ec58-aba2-5a18-ac7b-94ee57390369",
-        "policy_id": "c2b5d777-ee65-59f8-a170-4648fab905ea",
-        "objective_id": "8f56d427-08dd-59ec-9083-fb458bea4cd4",
-        "id": "823b270b-853f-57a9-a5c4-4f4baf223f19",
-        "created_at": "2025-09-05T18:25:42+00:00",
-        "updated_at": "2025-09-05T18:25:42+00:00"
-      }
-    ],
-    "pm_plans": [
-      {
-        "asset_id": "2075b1eb-1b92-5f16-86ac-b7c1b5336d74",
-        "building_id": "dc8d2b6d-4208-5b38-ae82-ab4bfc42c578",
-        "name": "Sample pm_plans name",
-        "frequency": "Sample pm_plans frequency",
-        "next_due_at": "2025-09-05T18:25:42+00:00",
-        "last_completed_at": "2025-09-05T18:25:42+00:00",
-        "active": true,
-        "procedure": "Sample pm_plans procedure",
-        "attributes": "Sample pm_plans attributes",
-        "created_at": "2025-09-05T18:25:42+00:00",
-        "updated_at": "2025-09-05T18:25:42+00:00",
-        "id": "dcd09af2-62f0-56a1-9df1-53bdc2a38cbb"
-      }
-    ],
-    "pm_work_generators": [
-      {
-        "pm_plan_id": "dcd09af2-62f0-56a1-9df1-53bdc2a38cbb",
-        "last_generated_at": "2025-09-05T18:25:42+00:00",
-        "lookahead_days": 1,
-        "attributes": "Sample pm_work_generators attributes",
-        "created_at": "2025-09-05T18:25:42+00:00",
-        "updated_at": "2025-09-05T18:25:42+00:00",
-        "id": "c466cee5-1758-5d5a-9af8-9265d530330a"
-      }
-    ],
-    "policy_approvals": [
-      {
-        "policy_version_id": "ba9accda-ba90-58ec-be9f-62b29329e7b9",
-        "step_id": "d9be6252-0ec3-5c22-83fa-bdba59c58fb0",
-        "approver_id": "1de77659-3293-56be-8983-b8f0baee41b3",
-        "decision": "Sample policy_approvals decision",
-        "decided_at": "2025-09-05T18:25:42+00:00",
-        "comment": "Sample policy_approvals comment",
-        "id": "30c3375b-7cf5-51af-a137-3a5d818f30b0",
-        "created_at": "2025-09-05T18:25:42+00:00",
-        "updated_at": "2025-09-05T18:25:42+00:00"
-      }
-    ],
-    "policy_comments": [
-      {
-        "policy_version_id": "ba9accda-ba90-58ec-be9f-62b29329e7b9",
-        "user_id": "1de77659-3293-56be-8983-b8f0baee41b3",
-        "text": "Sample policy_comments text",
-        "visibility": "Sample policy_comments visibility",
-        "id": "cba93059-4537-5ab7-bc70-0c5861b536d5",
-        "created_at": "2025-09-05T18:25:42+00:00",
-        "updated_at": "2025-09-05T18:25:42+00:00"
-      }
-    ],
-    "policy_files": [
-      {
-        "id": "b3581c32-3ca8-5cfa-bcf1-e9ee867cb2ac",
-        "policy_version_id": "ba9accda-ba90-58ec-be9f-62b29329e7b9",
-        "file_id": "f663bf01-eb93-5e7f-bca1-75c322456c0c",
-        "created_at": "2025-09-05T18:25:42+00:00"
-      }
-    ],
-    "policy_legal_refs": [
-      {
-        "policy_version_id": "ba9accda-ba90-58ec-be9f-62b29329e7b9",
-        "citation": "Sample policy_legal_refs citation",
-        "url": "Sample policy_legal_refs url",
-        "id": "fb02578f-1496-5473-a6cd-283c6c14473c",
-        "created_at": "2025-09-05T18:25:42+00:00",
-        "updated_at": "2025-09-05T18:25:42+00:00"
-      }
-    ],
-    "policy_publications": [
-      {
-        "policy_version_id": "ba9accda-ba90-58ec-be9f-62b29329e7b9",
-        "published_at": "2025-09-05T18:25:42+00:00",
-        "public_url": "Sample policy_publications public_url",
-        "is_current": true
-      }
-    ],
-    "policy_versions": [
-      {
-        "policy_id": "c2b5d777-ee65-59f8-a170-4648fab905ea",
-        "version_no": 1,
-        "content": "Sample policy_versions content",
-        "effective_date": "2025-09-05",
-        "supersedes_version_id": "ba9accda-ba90-58ec-be9f-62b29329e7b9",
-        "created_by": "1de77659-3293-56be-8983-b8f0baee41b3",
-        "id": "ba9accda-ba90-58ec-be9f-62b29329e7b9",
-        "created_at": "2025-09-05T18:25:42+00:00",
-        "updated_at": "2025-09-05T18:25:42+00:00"
       }
     ],
     "proposal_documents": [
@@ -3469,49 +3517,10 @@
         "updated_at": "2025-09-05T18:25:42+00:00"
       }
     ],
-    "standards": [
-      {
-        "framework_id": "8532fee2-715b-5bf0-a2d5-20ffb877a674",
-        "code": "Sample standards code",
-        "description": "Sample standards description",
-        "parent_id": "e7edfdfc-c80c-5776-a5e9-f4c21b333657",
-        "grade_band": "Sample standards grade_band",
-        "effective_from": "2025-09-05",
-        "effective_to": "2025-09-05",
-        "attributes": "Sample standards attributes",
-        "id": "e7edfdfc-c80c-5776-a5e9-f4c21b333657",
-        "created_at": "2025-09-05T18:25:42+00:00",
-        "updated_at": "2025-09-05T18:25:42+00:00"
-      }
-    ],
     "unit_standard_map": [
       {
         "unit_id": "9b60a2a9-fbd9-5ee2-9acd-87f2e54ed55d",
         "standard_id": "e7edfdfc-c80c-5776-a5e9-f4c21b333657"
-      }
-    ],
-    "votes": [
-      {
-        "motion_id": "ffe355d2-ac03-5d11-b8dc-3a9a5277156c",
-        "voter_id": "1de77659-3293-56be-8983-b8f0baee41b3",
-        "value": "Sample votes value",
-        "id": "637bcd98-98b2-5db6-98ba-cea42cef6b0c",
-        "created_at": "2025-09-05T18:25:42+00:00",
-        "updated_at": "2025-09-05T18:25:42+00:00"
-      }
-    ],
-    "warranties": [
-      {
-        "asset_id": "2075b1eb-1b92-5f16-86ac-b7c1b5336d74",
-        "vendor_id": "77fa5393-73db-5a2f-9e62-36ddd1223467",
-        "policy_no": "Sample warranties policy_no",
-        "start_date": "2025-09-05",
-        "end_date": "2025-09-05",
-        "terms": "Sample warranties terms",
-        "attributes": "Sample warranties attributes",
-        "created_at": "2025-09-05T18:25:42+00:00",
-        "updated_at": "2025-09-05T18:25:42+00:00",
-        "id": "cf5c0c0b-48fb-56ae-af99-0a735cfabc70"
       }
     ],
     "work_order_parts": [],
