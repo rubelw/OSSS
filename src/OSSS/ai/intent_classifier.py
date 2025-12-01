@@ -152,8 +152,41 @@ HEURISTIC_RULES: List[IntentHeuristicRule] = [
         action="read",
         metadata={"mode": "addresses"},
     ),
-
-
+    IntentHeuristicRule(
+        name="attendance_query_rule",
+        contains_any=[
+            "attendance",
+            "attendances",
+            "show attendance",
+            "show attendances",
+            "attendance events",
+        ],
+        intent="query_data",
+        action="read",
+        urgency="low",
+        tone_major="informal_casual",
+        tone_minor="friendly",
+        metadata={"mode": "attendances"},  # MUST MATCH handler.mode
+    ),
+    IntentHeuristicRule(
+        name="work_order_time_logs_query_rule",
+        contains_any=[
+            "work order time logs",
+            "work_order_time_logs",
+            "work order logs",
+            "time logs",
+            "show work order time logs",
+            "show time logs",
+            "maintenance time logs",
+            "wo logs",
+        ],
+        intent="query_data",
+        action="read",
+        urgency="low",
+        tone_major="informal_casual",
+        tone_minor="friendly",
+        metadata={"mode": "work_order_time_logs"}
+    ),
 
 
     # -------------------- AUTO-GENERATED RULES --------------------
@@ -163,7 +196,7 @@ TABLES = [
     "academic_terms", "accommodations", "activities", "agenda_item_approvals",
     "agenda_item_files", "agenda_items", "agenda_workflow_steps", "agenda_workflows",
     "alembic_version", "alignments", "ap_vendors", "approvals", "asset_parts", "assets",
-    "assignment_categories", "assignments", "attendance", "attendance_codes",
+    "assignment_categories", "assignments", "attendance_codes",
     "attendance_daily_summary", "attendance_events", "audit_logs", "behavior_codes",
     "behavior_interventions", "bell_schedules", "buildings", "bus_routes", "bus_stop_times",
     "bus_stops", "calendar_days", "calendars", "channels", "class_ranks", "comm_search_index",
@@ -215,7 +248,7 @@ TABLES = [
     "test_results", "ticket_scans", "ticket_types", "tickets", "transcript_lines",
     "unit_standard_map", "user_accounts", "users", "vendors", "votes", "waivers",
     "warranties", "webhooks", "work_order_parts", "work_order_tasks",
-    "work_order_time_logs", "work_orders",
+    "work_orders",
 ]
 
 # Auto-extend HEURISTIC_RULES
