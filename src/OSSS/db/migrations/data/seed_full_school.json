@@ -2808,7 +2808,7 @@
         "ticket_type_id": "63086020-579a-5df5-9c1d-f20bf3315307",
         "event_id": "98f19f89-cf2d-5bd7-95de-1adf9476f77d",
         "qr_code": "Sample tickets qr_code",
-        "status": "Sample tickets status",
+        "status": "pending",
         "issued_at": "2025-09-05T18:25:42+00:00",
         "redeemed_at": "2025-09-05T18:25:42+00:00",
         "id": "f92cb34c-0abc-55a5-beb4-8a675a1ac9f6",

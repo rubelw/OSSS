@@ -14,16 +14,16 @@ from OSSS.ai.agents.query_data.query_data_registry import (
 )
 from OSSS.ai.agents.query_data.query_data_errors import QueryDataError
 
-logger = logging.getLogger("OSSS.ai.agents.query_data.users")
+logger = logging.getLogger("OSSS.ai.agents.query_data.warranties")
 
 API_BASE = "http://host.containers.internal:8081"
 
 
 # ---------------------------------------------------------------------------
-# FETCH
+# Fetch Low-Level API Call
 # ---------------------------------------------------------------------------
-async def _fetch_users(skip: int = 0, limit: int = 100) -> List[Dict[str, Any]]:
-    url = f"{API_BASE}/api/users"
+async def _fetch_warranties(skip: int = 0, limit: int = 100) -> List[Dict[str, Any]]:
+    url = f"{API_BASE}/api/warrantys"
     params = {"skip": skip, "limit": limit}
 
     try:
@@ -33,59 +33,40 @@ async def _fetch_users(skip: int = 0, limit: int = 100) -> List[Dict[str, Any]]:
             data = resp.json()
 
     except Exception as e:
-        logger.exception("Error calling users API")
-        raise QueryDataError(f"Error querying users API: {e}") from e
+        logger.exception("Error calling warranties API")
+        raise QueryDataError(f"Error querying warrantys API: {e}") from e
 
     if not isinstance(data, list):
         raise QueryDataError(
-            f"Unexpected users payload type: {type(data)!r}"
+            f"Unexpected warrantys payload type: {type(data)!r}"
         )
 
     return data
 
 
 # ---------------------------------------------------------------------------
-# SORTING
-# ---------------------------------------------------------------------------
-def _sort_rows(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    if not rows:
-        return rows
-
-    sample = rows[0]
-    key = None
-
-    if "updated_at" in sample:
-        key = "updated_at"
-    elif "created_at" in sample:
-        key = "created_at"
-
-    if not key:
-        return rows
-
-    try:
-        return sorted(rows, key=lambda r: (r.get(key) or ""), reverse=True)
-    except Exception:
-        logger.debug("Unable to sort users by %s", key)
-        return rows
-
-
-# ---------------------------------------------------------------------------
-# FIELD ORDERING
+# Sorting & Field Prioritization Helpers
 # ---------------------------------------------------------------------------
 def _preferred_field_order(fields: List[str]) -> List[str]:
     preferred = [
         "id",
-        "email",
-        "username",
-        "first_name",
-        "last_name",
-        "role",
-        "active",
+        "asset_id",
+        "vendor_id",
+        "provider",
+        "coverage_type",
+        "start_date",
+        "end_date",
+        "is_active",
         "created_at",
         "updated_at",
     ]
 
-    ordered = [f for f in preferred if f in fields]
+    ordered = []
+    for f in preferred:
+        if f in fields:
+            ordered.append(f)
+
+    # Append any fields not in preferred order
     for f in fields:
         if f not in ordered:
             ordered.append(f)
@@ -93,12 +74,31 @@ def _preferred_field_order(fields: List[str]) -> List[str]:
     return ordered
 
 
-# ---------------------------------------------------------------------------
-# MARKDOWN
-# ---------------------------------------------------------------------------
-def _build_users_markdown_table(rows: List[Dict[str, Any]]) -> str:
+def _sort_rows(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     if not rows:
-        return "No users records were found in the system."
+        return rows
+
+    sample = rows[0]
+    if "updated_at" in sample:
+        key_field = "updated_at"
+    elif "created_at" in sample:
+        key_field = "created_at"
+    else:
+        return rows
+
+    try:
+        return sorted(rows, key=lambda r: (r.get(key_field) or ""), reverse=True)
+    except Exception:
+        logger.debug("Could not sort warranties by %s; returning unsorted.", key_field)
+        return rows
+
+
+# ---------------------------------------------------------------------------
+# Markdown & CSV Builders
+# ---------------------------------------------------------------------------
+def _build_warranties_markdown_table(rows: List[Dict[str, Any]]) -> str:
+    if not rows:
+        return "No warranties records were found in the system."
 
     rows = _sort_rows(rows)
     raw_fields = list(rows[0].keys())
@@ -107,18 +107,15 @@ def _build_users_markdown_table(rows: List[Dict[str, Any]]) -> str:
     header = "| # | " + " | ".join(fields) + " |\n"
     separator = "|---|" + "|".join(["---"] * len(fields)) + "|\n"
 
-    body_lines = []
+    lines = []
     for idx, r in enumerate(rows, start=1):
-        cells = [str(r.get(f, "")) for f in fields]
-        body_lines.append(f"| {idx} | " + " | ".join(cells) + " |")
+        row_cells = [str(r.get(f, "")) for f in fields]
+        lines.append(f"| {idx} | " + " | ".join(row_cells) + " |")
 
-    return header + separator + "\n".join(body_lines)
+    return header + separator + "\n".join(lines)
 
 
-# ---------------------------------------------------------------------------
-# CSV
-# ---------------------------------------------------------------------------
-def _build_users_csv(rows: List[Dict[str, Any]]) -> str:
+def _build_warranties_csv(rows: List[Dict[str, Any]]) -> str:
     if not rows:
         return ""
 
@@ -130,43 +127,40 @@ def _build_users_csv(rows: List[Dict[str, Any]]) -> str:
     writer = csv.DictWriter(output, fieldnames=fields)
     writer.writeheader()
     writer.writerows(rows)
+
     return output.getvalue()
 
 
 # ---------------------------------------------------------------------------
-# HANDLER
+# QueryData Handler
 # ---------------------------------------------------------------------------
-class UsersHandler(QueryHandler):
-    mode = "users"
-
+class WarrantiesHandler(QueryHandler):
+    mode = "warranties"
     keywords = [
-        "users",
-        "user accounts",
-        "user list",
-        "system users",
-        "application users",
-        "auth users",
-        "registered users",
-        "login accounts",
+        "warranties",
+        "warranty",
+        "asset warranties",
+        "equipment warranty",
     ]
-
-    source_label = "your DCG OSSS data service (users)"
+    source_label = "your DCG OSSS data service (warranties)"
 
     async def fetch(
         self, ctx: AgentContext, skip: int, limit: int
     ) -> FetchResult:
-
-        rows = await _fetch_users(skip=skip, limit=limit)
+        rows = await _fetch_warranties(skip=skip, limit=limit)
         rows = _sort_rows(rows)
 
-        return {"rows": rows, "users": rows}
+        return {
+            "rows": rows,
+            "warranties": rows,
+        }
 
     def to_markdown(self, rows: List[Dict[str, Any]]) -> str:
-        return _build_users_markdown_table(rows)
+        return _build_warranties_markdown_table(rows)
 
     def to_csv(self, rows: List[Dict[str, Any]]) -> str:
-        return _build_users_csv(rows)
+        return _build_warranties_csv(rows)
 
 
-# Register handler on import
-register_handler(UsersHandler())
+# Register handler
+register_handler(WarrantiesHandler())

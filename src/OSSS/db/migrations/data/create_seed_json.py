@@ -501,6 +501,20 @@ def sample_value(table: Table, col: Column, enums: Dict[str, List[str]]) -> Any:
         # fallback if enum didn't parse for some reason
         return "pending"
 
+    # tickets.status :: order_status
+    if table.name == "tickets" and name == "status":
+        # Mirror orders.status behavior, but keep it simple:
+        # we know the valid values are: pending, paid, refunded, canceled
+        vals = enums.get("order_status") or enums.get(base_t)
+        if vals:
+            for pref in ("pending", "paid", "canceled", "refunded"):
+                for v in vals:
+                    if v.lower() == pref:
+                        return v
+            return vals[0]
+        # even if enums didn't parse, we know "pending" is valid
+        return "pending"
+
     # orders.status :: order_status
     if table.name == "orders" and name == "status":
         # order_status: pending, paid, refunded, canceled
