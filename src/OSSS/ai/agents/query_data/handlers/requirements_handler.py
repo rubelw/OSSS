@@ -12,13 +12,19 @@ from OSSS.ai.agents.query_data.query_data_registry import (
     FetchResult,
     register_handler,
 )
-from OSSS.ai.agents.query_data.query_data_errors import QueryDataError  # optional
+from OSSS.ai.agents.query_data.query_data_errors import QueryDataError
 
 logger = logging.getLogger("OSSS.ai.agents.query_data.requirements")
 
 API_BASE = "http://host.containers.internal:8081"
 
+# Safety cap for markdown output
+SAFE_MAX_ROWS = 200
 
+
+# -------------------------------------------------------------------
+# API Fetch
+# -------------------------------------------------------------------
 async def _fetch_requirements(skip: int = 0, limit: int = 100) -> List[Dict[str, Any]]:
     url = f"{API_BASE}/api/requirements"
     params = {"skip": skip, "limit": limit}
@@ -27,46 +33,94 @@ async def _fetch_requirements(skip: int = 0, limit: int = 100) -> List[Dict[str,
             resp = await client.get(url, params=params)
             resp.raise_for_status()
             data = resp.json()
+
+    except httpx.HTTPStatusError as e:
+        status = (
+            e.response.status_code
+            if getattr(e, "response", None) is not None
+            else "unknown"
+        )
+        logger.exception("HTTP error calling requirements API")
+        raise QueryDataError(
+            f"HTTP {status} error querying requirements API: {str(e)}"
+        ) from e
+
     except Exception as e:
         logger.exception("Error calling requirements API")
         raise QueryDataError(
-            f"Error querying requirements API: {e}",
-            requirements_url=url,
+            f"Error querying requirements API: {str(e)}"
         ) from e
 
     if not isinstance(data, list):
         raise QueryDataError(
-            f"Unexpected requirements payload type: {type(data)!r}",
-            requirements_url=url,
+            f"Unexpected requirements payload type: {type(data)!r}"
         )
     return data
 
 
+# -------------------------------------------------------------------
+# Helpers
+# -------------------------------------------------------------------
+def _stringify_cell(value: Any, max_len: int = 140) -> str:
+    """Convert a value to a trimmed, safe string for markdown tables."""
+    if value is None:
+        return ""
+    s = str(value)
+    return s if len(s) <= max_len else s[: max_len - 3] + "..."
+
+
+# -------------------------------------------------------------------
+# Markdown Builder
+# -------------------------------------------------------------------
 def _build_requirements_markdown_table(rows: List[Dict[str, Any]]) -> str:
     if not rows:
         return "No requirements records were found in the system."
+
+    # Enforce safety limit
+    rows = rows[:SAFE_MAX_ROWS]
 
     fieldnames = list(rows[0].keys())
     if not fieldnames:
         return "No requirements records were found in the system."
 
+    # Put id last if present
+    if "id" in fieldnames:
+        fieldnames = [f for f in fieldnames if f != "id"] + ["id"]
+
     header_cells = ["#"] + fieldnames
     header = "| " + " | ".join(header_cells) + " |\n"
     separator = "| " + " | ".join(["---"] * len(header_cells)) + " |\n"
 
-    lines: List[str] = []
-    for idx, r in enumerate(rows, start=1):
-        row_cells = [str(idx)] + [str(r.get(f, "")) for f in fieldnames]
-        lines.append("| " + " | ".join(row_cells) + " |")
+    body_lines: List[str] = []
+    for idx, rec in enumerate(rows, start=1):
+        row_cells: List[str] = [_stringify_cell(idx)]
+        row_cells.extend(_stringify_cell(rec.get(f, "")) for f in fieldnames)
+        body_lines.append("| " + " | ".join(row_cells) + " |")
 
-    return header + separator + "\n".join(lines)
+    return header + separator + "\n".join(body_lines)
 
 
+# -------------------------------------------------------------------
+# CSV Builder
+# -------------------------------------------------------------------
 def _build_requirements_csv(rows: List[Dict[str, Any]]) -> str:
     if not rows:
         return ""
 
-    fieldnames = list(rows[0].keys())
+    first = rows[0]
+
+    # Normal case: list of dicts from FastAPI
+    if isinstance(first, dict):
+        fieldnames = list(first.keys())
+    else:
+        # Fallbacks for object-like rows
+        try:
+            fieldnames = list(first.__dict__.keys())
+            rows = [getattr(r, "__dict__", {"value": r}) for r in rows]
+        except Exception:
+            fieldnames = ["value"]
+            rows = [{"value": r} for r in rows]
+
     output = io.StringIO()
     writer = csv.DictWriter(output, fieldnames=fieldnames)
     writer.writeheader()
@@ -74,12 +128,26 @@ def _build_requirements_csv(rows: List[Dict[str, Any]]) -> str:
     return output.getvalue()
 
 
+# -------------------------------------------------------------------
+# Handler
+# -------------------------------------------------------------------
 class RequirementsHandler(QueryHandler):
     mode = "requirements"
+
     keywords = [
         "requirements",
-        "requirements",
+        "requirement records",
+        "list requirements",
+        "show requirements",
+        "program requirements",
+        "graduation requirements",
+        "course requirements",
+        "eligibility requirements",
+        "policy requirements",
+        "dcg requirements",
+        "osss requirements",
     ]
+
     source_label = "your DCG OSSS data service (requirements)"
 
     async def fetch(

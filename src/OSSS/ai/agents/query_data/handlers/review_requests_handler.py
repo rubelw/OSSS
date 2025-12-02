@@ -12,14 +12,26 @@ from OSSS.ai.agents.query_data.query_data_registry import (
     FetchResult,
     register_handler,
 )
-from OSSS.ai.agents.query_data.query_data_errors import QueryDataError  # optional
+from OSSS.ai.agents.query_data.query_data_errors import QueryDataError
 
 logger = logging.getLogger("OSSS.ai.agents.query_data.review_requests")
 
 API_BASE = "http://host.containers.internal:8081"
 
+# Safety cap for markdown output
+SAFE_MAX_ROWS = 200
 
+
+# -------------------------------------------------------------------
+# API Fetch
+# -------------------------------------------------------------------
 async def _fetch_review_requests(skip: int = 0, limit: int = 100) -> List[Dict[str, Any]]:
+    """
+    Call the backend review_requests API and return a list of dict rows.
+
+    Raises:
+        QueryDataError: if the HTTP call fails or the payload is not a list.
+    """
     url = f"{API_BASE}/api/review_requests"
     params = {"skip": skip, "limit": limit}
     try:
@@ -27,46 +39,103 @@ async def _fetch_review_requests(skip: int = 0, limit: int = 100) -> List[Dict[s
             resp = await client.get(url, params=params)
             resp.raise_for_status()
             data = resp.json()
+
+    except httpx.HTTPStatusError as e:
+        status = (
+            e.response.status_code
+            if getattr(e, "response", None) is not None
+            else "unknown"
+        )
+        logger.exception("HTTP error calling review_requests API")
+        raise QueryDataError(
+            f"HTTP {status} error querying review_requests API: {str(e)}"
+        ) from e
+
     except Exception as e:
         logger.exception("Error calling review_requests API")
         raise QueryDataError(
-            f"Error querying review_requests API: {e}",
-            review_requests_url=url,
+            f"Error querying review_requests API: {str(e)}"
         ) from e
 
     if not isinstance(data, list):
         raise QueryDataError(
-            f"Unexpected review_requests payload type: {type(data)!r}",
-            review_requests_url=url,
+            f"Unexpected review_requests payload type: {type(data)!r}"
         )
     return data
 
 
+# -------------------------------------------------------------------
+# Helpers
+# -------------------------------------------------------------------
+def _stringify_cell(value: Any, max_len: int = 120) -> str:
+    """Convert a value to a trimmed, safe string for markdown tables."""
+    if value is None:
+        return ""
+    s = str(value)
+    return s if len(s) <= max_len else s[: max_len - 3] + "..."
+
+
+# -------------------------------------------------------------------
+# Markdown Builder
+# -------------------------------------------------------------------
 def _build_review_requests_markdown_table(rows: List[Dict[str, Any]]) -> str:
+    """
+    Build a markdown table for review_requests, with row and cell safety limits.
+    """
     if not rows:
         return "No review_requests records were found in the system."
+
+    # Enforce safety limit
+    rows = rows[:SAFE_MAX_ROWS]
 
     fieldnames = list(rows[0].keys())
     if not fieldnames:
         return "No review_requests records were found in the system."
 
+    # Put id last if present for readability
+    if "id" in fieldnames:
+        fieldnames = [f for f in fieldnames if f != "id"] + ["id"]
+
     header_cells = ["#"] + fieldnames
     header = "| " + " | ".join(header_cells) + " |\n"
     separator = "| " + " | ".join(["---"] * len(header_cells)) + " |\n"
 
-    lines: List[str] = []
-    for idx, r in enumerate(rows, start=1):
-        row_cells = [str(idx)] + [str(r.get(f, "")) for f in fieldnames]
-        lines.append("| " + " | ".join(row_cells) + " |")
+    body_lines: List[str] = []
+    for idx, rec in enumerate(rows, start=1):
+        row_cells: List[str] = [_stringify_cell(idx)]
+        row_cells.extend(_stringify_cell(rec.get(f, "")) for f in fieldnames)
+        body_lines.append("| " + " | ".join(row_cells) + " |")
 
-    return header + separator + "\n".join(lines)
+    return header + separator + "\n".join(body_lines)
 
 
+# -------------------------------------------------------------------
+# CSV Builder
+# -------------------------------------------------------------------
 def _build_review_requests_csv(rows: List[Dict[str, Any]]) -> str:
+    """
+    Build a CSV string from review_requests rows.
+
+    Assumes rows is a list of dict-like objects (standard FastAPI/ORM JSON).
+    Falls back to __dict__ or a single 'value' column if structure is odd.
+    """
     if not rows:
         return ""
 
-    fieldnames = list(rows[0].keys())
+    first = rows[0]
+
+    if isinstance(first, dict):
+        fieldnames = list(first.keys())
+    else:
+        # Extremely defensive: try treating as objects with attributes
+        try:
+            fieldnames = list(first.__dict__.keys())
+            rows = [getattr(r, "__dict__", {"value": r}) for r in rows]
+        except Exception:
+            # Last resort: store whole object in one column
+            fieldnames = ["value"]
+            rows = [{"value": r} for r in rows]
+
     output = io.StringIO()
     writer = csv.DictWriter(output, fieldnames=fieldnames)
     writer.writeheader()
@@ -74,11 +143,26 @@ def _build_review_requests_csv(rows: List[Dict[str, Any]]) -> str:
     return output.getvalue()
 
 
+# -------------------------------------------------------------------
+# Handler
+# -------------------------------------------------------------------
 class ReviewRequestsHandler(QueryHandler):
+    """
+    QueryData handler for review_requests.
+
+    Exposes:
+      - mode: 'review_requests'
+      - data keys: 'rows', 'review_requests'
+    """
     mode = "review_requests"
     keywords = [
-        "review_requests",
         "review requests",
+        "review_requests",
+        "pending review requests",
+        "requests for review",
+        "policy review requests",
+        "proposal review requests",
+        "document review requests",
     ]
     source_label = "your DCG OSSS data service (review_requests)"
 
