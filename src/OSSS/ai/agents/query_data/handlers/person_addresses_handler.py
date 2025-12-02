@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+from typing import Any, Dict, List, Sequence
 import httpx
 import csv
 import io
 import logging
-from typing import Any, Dict, List
+import os
 
 from OSSS.ai.agents.base import AgentContext
 from OSSS.ai.agents.query_data.query_data_registry import (
@@ -14,171 +15,223 @@ from OSSS.ai.agents.query_data.query_data_registry import (
 )
 from OSSS.ai.agents.query_data.query_data_errors import QueryDataError
 
-logger = logging.getLogger("OSSS.ai.agents.query_data.person_addresss")
+logger = logging.getLogger("OSSS.ai.agents.query_data.person_addresses")
 
-API_BASE = "http://host.containers.internal:8081"
+API_BASE = os.getenv(
+    "OSSS_PERSON_ADDRESSES_API_BASE",
+    "http://host.containers.internal:8081",
+)
+PERSON_ADDRESSES_ENDPOINT = "/api/person_addresss"
 
-
-# -----------------------------
-# Fetch helpers
-# -----------------------------
-
-async def _fetch_person_addresss(skip: int, limit: int) -> List[Dict[str, Any]]:
-    url = f"{API_BASE}/api/person_addresss"
-    params = {"skip": skip, "limit": limit}
-    try:
-        async with httpx.AsyncClient(timeout=10, verify=False) as client:
-            resp = await client.get(url, params=params)
-            resp.raise_for_status()
-            return resp.json()
-    except Exception as e:
-        logger.exception("Error calling person_addresss API")
-        raise QueryDataError(f"Error querying person_addresss API: {e}") from e
+MAX_MARKDOWN_ROWS = 50
+MAX_CSV_ROWS = 2_000
 
 
-async def _fetch_persons(limit: int = 5000) -> List[Dict[str, Any]]:
-    url = f"{API_BASE}/api/persons"
-    params = {"skip": 0, "limit": limit}
-    try:
-        async with httpx.AsyncClient(timeout=10, verify=False) as client:
-            resp = await client.get(url, params=params)
-            resp.raise_for_status()
-            return resp.json()
-    except Exception as e:
-        logger.exception("Error calling persons API")
-        raise QueryDataError(f"Error querying persons API: {e}") from e
-
-
-async def _fetch_addresss(limit: int = 5000) -> List[Dict[str, Any]]:
-    url = f"{API_BASE}/api/addresss"
-    params = {"skip": 0, "limit": limit}
-    try:
-        async with httpx.AsyncClient(timeout=10, verify=False) as client:
-            resp = await client.get(url, params=params)
-            resp.raise_for_status()
-            return resp.json()
-    except Exception as e:
-        logger.exception("Error calling addresss API")
-        raise QueryDataError(f"Error querying addresss API: {e}") from e
-
-
-# -----------------------------
-# Join person + address + join
-# -----------------------------
-
-def _join_person_addresss(
-    pa_rows: List[Dict[str, Any]],
-    persons: List[Dict[str, Any]],
-    addresses: List[Dict[str, Any]],
+async def _fetch_person_addresses(
+    skip: int = 0,
+    limit: int = 100,
 ) -> List[Dict[str, Any]]:
+    url = f"{API_BASE}{PERSON_ADDRESSES_ENDPOINT}"
+    params = {"skip": skip, "limit": limit}
 
-    person_map = {p["id"]: p for p in persons}
-    address_map = {a["id"]: a for a in addresses}
+    logger.debug(
+        "Fetching person_addresses from %s with params skip=%s, limit=%s",
+        url,
+        skip,
+        limit,
+    )
 
-    joined = []
+    try:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(10.0), verify=False) as client:
+            resp = await client.get(url, params=params)
+            resp.raise_for_status()
+            try:
+                data = resp.json()
+            except ValueError as json_err:
+                logger.exception("Failed to decode person_addresses API JSON")
+                raise QueryDataError(
+                    f"Error decoding person_addresses API JSON: {json_err}",
+                    person_addresses_url=url,
+                ) from json_err
+    except httpx.RequestError as e:
+        logger.exception("Network error calling person_addresses API")
+        raise QueryDataError(
+            f"Network error querying person_addresses API: {e}",
+            person_addresses_url=url,
+        ) from e
+    except httpx.HTTPStatusError as e:
+        status = getattr(e.response, "status_code", None)
+        logger.exception("person_addresses API returned HTTP %s", status)
+        raise QueryDataError(
+            f"person_addresses API returned HTTP {status}",
+            person_addresses_url=url,
+        ) from e
+    except Exception as e:
+        logger.exception("Unexpected error calling person_addresses API")
+        raise QueryDataError(
+            f"Unexpected error querying person_addresses API: {e}",
+            person_addresses_url=url,
+        ) from e
 
-    for pa in pa_rows:
-        person = person_map.get(pa["person_id"])
-        addr = address_map.get(pa["address_id"])
+    if not isinstance(data, list):
+        logger.error("Unexpected person_addresses payload type: %r", type(data))
+        raise QueryDataError(
+            f"Unexpected person_addresses payload type: {type(data)!r}",
+            person_addresses_url=url,
+        )
 
-        joined.append({
-            "person_addresss_id": pa.get("id"),
-            "is_primary": pa.get("is_primary"),
-            "pa_created_at": pa.get("created_at"),
-            "pa_updated_at": pa.get("updated_at"),
+    cleaned: List[Dict[str, Any]] = []
+    for i, item in enumerate(data):
+        if not isinstance(item, dict):
+            logger.warning(
+                "Skipping non-dict item at index %s in person_addresses payload: %r",
+                i,
+                type(item),
+            )
+            continue
+        cleaned.append(item)
 
-            # Person info
-            "person_id": pa.get("person_id"),
-            "first_name": person.get("first_name") if person else None,
-            "last_name": person.get("last_name") if person else None,
-            "email": person.get("email") if person else None,
-
-            # Address info
-            "address_id": pa.get("address_id"),
-            "line1": addr.get("line1") if addr else None,
-            "line2": addr.get("line2") if addr else None,
-            "city": addr.get("city") if addr else None,
-            "state": addr.get("state") if addr else None,
-            "postal_code": addr.get("postal_code") if addr else None,
-            "country": addr.get("country") if addr else None,
-            "address_created_at": addr.get("created_at") if addr else None,
-            "address_updated_at": addr.get("updated_at") if addr else None,
-        })
-
-    return joined
+    logger.debug(
+        "Fetched %d person_addresses records (skip=%s, limit=%s)",
+        len(cleaned),
+        skip,
+        limit,
+    )
+    return cleaned
 
 
-# -----------------------------
-# Markdown rendering
-# -----------------------------
+def _escape_md(value: Any) -> str:
+    text = "" if value is None else str(value)
+    return text.replace("|", r"\|").replace("`", r"\`")
 
-def _build_person_addresss_markdown(rows: List[Dict[str, Any]]) -> str:
+
+def _select_person_addresses_fields(rows: Sequence[Dict[str, Any]]) -> List[str]:
     if not rows:
-        return "No person address records were found in the system."
+        return []
 
-    fieldnames = list(rows[0].keys())
-    header = "| # | " + " | ".join(fieldnames) + " |\n"
-    sep = "|---|" + "|".join(["---"] * len(fieldnames)) + "|\n"
+    preferred_order = [
+        "id",
+        "person_id",
+        "person_code",
+        "address_type",
+        "line1",
+        "line2",
+        "city",
+        "state",
+        "postal_code",
+        "country",
+        "is_primary",
+        "status",
+        "created_at",
+        "updated_at",
+    ]
 
-    lines = []
-    for idx, row in enumerate(rows, start=1):
-        values = [str(row.get(fn, "")) for fn in fieldnames]
-        lines.append(f"| {idx} | " + " | ".join(values) + " |")
+    all_keys: List[str] = []
+    for r in rows:
+        for k in r.keys():
+            if k not in all_keys:
+                all_keys.append(k)
 
-    return header + sep + "\n".join(lines)
+    ordered: List[str] = [c for c in preferred_order if c in all_keys]
+    ordered.extend(c for c in all_keys if c not in ordered)
+    return ordered
 
 
-# -----------------------------
-# CSV export
-# -----------------------------
+def _build_person_addresses_markdown_table(rows: List[Dict[str, Any]]) -> str:
+    if not rows:
+        return "No person_addresses records were found in the system."
 
-def _build_person_addresss_csv(rows: List[Dict[str, Any]]) -> str:
+    total = len(rows)
+    display = rows[:MAX_MARKDOWN_ROWS]
+    fieldnames = _select_person_addresses_fields(display)
+    if not fieldnames:
+        return "No person_addresses records were found in the system."
+
+    header_cells = ["#"] + fieldnames
+    header = "| " + " | ".join(header_cells) + " |\n"
+    separator = "| " + " | ".join(["---"] * len(header_cells)) + " |\n"
+    lines: List[str] = []
+
+    for idx, r in enumerate(display, start=1):
+        cells = [_escape_md(idx)] + [_escape_md(r.get(f, "")) for f in fieldnames]
+        lines.append("| " + " | ".join(cells) + " |")
+
+    table = header + separator + "\n".join(lines)
+    if total > MAX_MARKDOWN_ROWS:
+        table += (
+            f"\n\n_Showing first {MAX_MARKDOWN_ROWS} of {total} person address records. "
+            "You can request CSV to see the full dataset._"
+        )
+    return table
+
+
+def _build_person_addresses_csv(rows: List[Dict[str, Any]]) -> str:
     if not rows:
         return ""
-    fieldnames = list(rows[0].keys())
+
+    total = len(rows)
+    display = rows[:MAX_CSV_ROWS]
+    fieldnames = _select_person_addresses_fields(display)
+    if not fieldnames:
+        return ""
+
     output = io.StringIO()
-    writer = csv.DictWriter(output, fieldnames=fieldnames)
+    writer = csv.DictWriter(output, fieldnames=fieldnames, extrasaction="ignore")
     writer.writeheader()
-    writer.writerows(rows)
-    return output.getvalue()
+    writer.writerows(display)
+
+    csv_text = output.getvalue()
+    if total > MAX_CSV_ROWS:
+        csv_text += (
+            f"# Truncated to first {MAX_CSV_ROWS} of {total} person address rows\n"
+        )
+    return csv_text
 
 
-# -----------------------------
-# Handler
-# -----------------------------
+class PersonAddressesHandler(QueryHandler):
+    """
+    QueryData handler for the OSSS 'person_addresses' data service.
+    """
 
-class PersonAddresssHandler(QueryHandler):
-    mode = "person_addresss"
+    mode = "person_addresses"
     keywords = [
         "person addresses",
-        "person_addresss",
-        "show person addresses",
-        "address assignments",
-        "student addresses",
+        "home address",
+        "mailing address",
+        "person_addresses",
+        "dcg person addresses",
     ]
-    source_label = "your DCG OSSS data service (person_addresss)"
+    source_label = "DCG OSSS data service (person_addresses)"
 
-    async def fetch(self, ctx: AgentContext, skip: int, limit: int) -> FetchResult:
-
-        pa_rows = await _fetch_person_addresss(skip, limit)
-        persons = await _fetch_persons()
-        addresses = await _fetch_addresss()
-
-        combined = _join_person_addresss(pa_rows, persons, addresses)
-
+    async def fetch(
+        self,
+        ctx: AgentContext,
+        skip: int,
+        limit: int,
+    ) -> FetchResult:
+        logger.debug(
+            "PersonAddressesHandler.fetch(skip=%s, limit=%s, user=%s)",
+            skip,
+            limit,
+            getattr(ctx, "user_id", None),
+        )
+        rows = await _fetch_person_addresses(skip=skip, limit=limit)
         return {
-            "rows": combined,
-            "person_addresss": pa_rows,
-            "persons": persons,
-            "addresses": addresses,
-            "combined": combined,
+            "rows": rows,
+            "person_addresses": rows,
+            "meta": {
+                "skip": skip,
+                "limit": limit,
+                "count": len(rows),
+                "source": self.source_label,
+            },
         }
 
     def to_markdown(self, rows: List[Dict[str, Any]]) -> str:
-        return _build_person_addresss_markdown(rows)
+        return _build_person_addresses_markdown_table(rows)
 
     def to_csv(self, rows: List[Dict[str, Any]]) -> str:
-        return _build_person_addresss_csv(rows)
+        return _build_person_addresses_csv(rows)
 
 
-register_handler(PersonAddresssHandler())
+register_handler(PersonAddressesHandler())
