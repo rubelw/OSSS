@@ -85,10 +85,10 @@ class School(UUIDMixin, Base):
     )
 
     # class name must be exactly "School"
-    fan_app_settings: Mapped[list["FanAppSetting"]] = relationship(
-        back_populates="school",
-        cascade="all, delete-orphan",
-    )
+    #fan_app_settings: Mapped[list["FanAppSetting"]] = relationship(
+    #    back_populates="school",
+    #    cascade="all, delete-orphan",
+    #)
 
     # Reverse side for FanPage.school
     fan_pages: Mapped[List["FanPage"]] = relationship(

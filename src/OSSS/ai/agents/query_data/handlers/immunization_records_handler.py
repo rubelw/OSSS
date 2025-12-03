@@ -1,216 +1,265 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, DefaultDict
-import httpx
+from typing import Any, Dict, List, Sequence
 import csv
+import httpx
 import io
 import logging
-from collections import defaultdict
+import os
 
 from OSSS.ai.agents.base import AgentContext
 from OSSS.ai.agents.query_data.query_data_registry import (
-    QueryHandler,
     FetchResult,
+    QueryHandler,
     register_handler,
 )
 from OSSS.ai.agents.query_data.query_data_errors import QueryDataError
 
-logger = logging.getLogger("OSSS.ai.agents.query_data.immunization_records")
+logger = logging.getLogger(
+    "OSSS.ai.agents.query_data.immunization_records"
+)
 
-API_BASE = "http://host.containers.internal:8081"
+API_BASE = os.getenv(
+    "OSSS_IMMUNIZATION_RECORDS_API_BASE",
+    "http://host.containers.internal:8081",
+)
+IMMUNIZATION_RECORDS_ENDPOINT = "/api/immunization_records"
+
+MAX_MARKDOWN_ROWS = 50
+MAX_CSV_ROWS = 2_000
 
 
-# ----------------------------------------------------------------------
-# FETCH IMMUNIZATION RECORDS
-# ----------------------------------------------------------------------
-async def _fetch_immunization_records(skip: int = 0, limit: int = 500) -> List[Dict[str, Any]]:
-    url = f"{API_BASE}/api/immunization_records"
+async def _fetch_immunization_records(
+    skip: int = 0,
+    limit: int = 100,
+) -> List[Dict[str, Any]]:
+    url = f"{API_BASE}{IMMUNIZATION_RECORDS_ENDPOINT}"
     params = {"skip": skip, "limit": limit}
 
+    logger.debug(
+        "Fetching immunization_records from %s with params skip=%s, limit=%s",
+        url,
+        skip,
+        limit,
+    )
+
     try:
-        async with httpx.AsyncClient(timeout=10.0, verify=False) as client:
+        async with httpx.AsyncClient(
+            timeout=httpx.Timeout(10.0),
+            verify=False,
+        ) as client:
             resp = await client.get(url, params=params)
             resp.raise_for_status()
-            data = resp.json()
-    except Exception as e:
+            try:
+                data = resp.json()
+            except ValueError as json_err:
+                logger.exception(
+                    "Failed to decode immunization_records API JSON",
+                )
+                raise QueryDataError(
+                    "Error decoding immunization_records API JSON: "
+                    f"{json_err}",
+                    immunization_records_url=url,
+                ) from json_err
+    except httpx.RequestError as e:
+        logger.exception("Network error calling immunization_records API")
         raise QueryDataError(
-            f"Error querying immunization_records API: {e}",
-            immunization_records_url=url
+            f"Network error querying immunization_records API: {e}",
+            immunization_records_url=url,
+        ) from e
+    except httpx.HTTPStatusError as e:
+        status = getattr(e.response, "status_code", None)
+        logger.exception(
+            "immunization_records API returned HTTP %s",
+            status,
+        )
+        raise QueryDataError(
+            f"immunization_records API returned HTTP {status}",
+            immunization_records_url=url,
+        ) from e
+    except Exception as e:
+        logger.exception(
+            "Unexpected error calling immunization_records API",
+        )
+        raise QueryDataError(
+            "Unexpected error querying immunization_records API: "
+            f"{e}",
+            immunization_records_url=url,
         ) from e
 
     if not isinstance(data, list):
+        logger.error(
+            "Unexpected immunization_records payload type: %r",
+            type(data),
+        )
         raise QueryDataError(
-            f"Unexpected payload type: {type(data)!r}",
-            immunization_records_url=url
+            "Unexpected immunization_records payload type: "
+            f"{type(data)!r}",
+            immunization_records_url=url,
         )
 
-    return data
-
-
-# ----------------------------------------------------------------------
-# FETCH STUDENTS
-# id, person_id, student_number, graduation_year
-# ----------------------------------------------------------------------
-async def _fetch_students(skip: int = 0, limit: int = 1000) -> List[Dict[str, Any]]:
-    url = f"{API_BASE}/api/students"
-    params = {"skip": skip, "limit": min(limit, 1000)}
-
-    try:
-        async with httpx.AsyncClient(timeout=10.0, verify=False) as client:
-            resp = await client.get(url, params=params)
-            resp.raise_for_status()
-            data = resp.json()
-    except Exception as e:
-        raise QueryDataError(
-            f"Error querying students API: {e}",
-            students_url=url
-        ) from e
-
-    if not isinstance(data, list):
-        raise QueryDataError(
-            f"Unexpected students payload type: {type(data)!r}",
-            students_url=url
-        )
-
-    return data
-
-
-# ----------------------------------------------------------------------
-# FETCH PERSONS
-# id, first_name, last_name, dob, email, phone, gender, created_at, ...
-# ----------------------------------------------------------------------
-async def _fetch_persons(skip: int = 0, limit: int = 1000) -> List[Dict[str, Any]]:
-    url = f"{API_BASE}/api/persons"
-    params = {"skip": skip, "limit": min(limit, 1000)}
-
-    try:
-        async with httpx.AsyncClient(timeout=10.0, verify=False) as client:
-            resp = await client.get(url, params=params)
-            resp.raise_for_status()
-            data = resp.json()
-    except Exception as e:
-        raise QueryDataError(
-            f"Error querying persons API: {e}",
-            persons_url=url
-        ) from e
-
-    if not isinstance(data, list):
-        raise QueryDataError(
-            f"Unexpected persons payload type: {type(data)!r}",
-            persons_url=url
-        )
-
-    return data
-
-
-# ----------------------------------------------------------------------
-# BUILD MARKDOWN (grouped by student)
-# ----------------------------------------------------------------------
-def _build_markdown(rows: List[Dict[str, Any]]) -> str:
-    if not rows:
-        return "No student immunization records were found."
-
-    grouped: DefaultDict[str, List[Dict[str, Any]]] = defaultdict(list)
-    for r in rows:
-        grouped[r["student_id"]].append(r)
-
-    out = []
-
-    for student_id, items in grouped.items():
-        first = items[0].get("first_name", "")
-        last = items[0].get("last_name", "")
-        student_num = items[0].get("student_number", "")
-        dob = items[0].get("dob", "")
-
-        out.append(f"## 🧑‍🎓 {first} {last} ({student_num})")
-        out.append(f"**Student ID:** {student_id}  ")
-        out.append(f"**DOB:** {dob}\n")
-
-        for r in items:
-            out.append(
-                f"- **{r.get('immunization_name','')}** — "
-                f"*{r.get('status','')}* ({r.get('date','')})"
+    cleaned: List[Dict[str, Any]] = []
+    for i, item in enumerate(data):
+        if not isinstance(item, dict):
+            logger.warning(
+                "Skipping non-dict item at index %s in "
+                "immunization_records payload: %r",
+                i,
+                type(item),
             )
+            continue
+        cleaned.append(item)
 
-        out.append("")  # spacing
+    logger.debug(
+        "Fetched %d immunization_records records (skip=%s, limit=%s)",
+        len(cleaned),
+        skip,
+        limit,
+    )
+    return cleaned
 
-    return "\n".join(out)
+
+def _escape_md(value: Any) -> str:
+    text = "" if value is None else str(value)
+    return text.replace("|", r"\|").replace("`", r"\`")
 
 
-# ----------------------------------------------------------------------
-# BUILD CSV
-# ----------------------------------------------------------------------
-def _build_csv(rows: List[Dict[str, Any]]) -> str:
+def _select_immunization_records_fields(
+    rows: Sequence[Dict[str, Any]],
+) -> List[str]:
+    if not rows:
+        return []
+
+    preferred_order = [
+        "id",
+        "student_id",
+        "student_code",
+        "student_name",
+        "immunization_id",
+        "immunization_code",
+        "immunization_name",
+        "dose_number",
+        "date_administered",
+        "administered_by",
+        "location",
+        "source",
+        "is_compliant",
+        "notes",
+        "created_at",
+        "updated_at",
+    ]
+
+    all_keys: List[str] = []
+    for r in rows:
+        for k in r.keys():
+            if k not in all_keys:
+                all_keys.append(k)
+
+    ordered = [k for k in preferred_order if k in all_keys]
+    ordered.extend(x for x in all_keys if x not in ordered)
+    return ordered
+
+
+def _build_immunization_records_markdown_table(
+    rows: List[Dict[str, Any]],
+) -> str:
+    if not rows:
+        return "No immunization_records records were found in the system."
+
+    total = len(rows)
+    display = rows[:MAX_MARKDOWN_ROWS]
+
+    fieldnames = _select_immunization_records_fields(display)
+    if not fieldnames:
+        return "No immunization_records records were found in the system."
+
+    header_cells = ["#"] + fieldnames
+    header = f"| {' | '.join(header_cells)} |\n"
+    separator = f"| {' | '.join(['---'] * len(header_cells))} |\n"
+
+    lines: List[str] = []
+    for idx, r in enumerate(display, start=1):
+        cells = [_escape_md(idx)] + [
+            _escape_md(r.get(f, "")) for f in fieldnames
+        ]
+        lines.append(f"| {' | '.join(cells)} |")
+
+    table = header + separator + "\n".join(lines)
+    if total > MAX_MARKDOWN_ROWS:
+        table += (
+            f"\n\n_Showing first {MAX_MARKDOWN_ROWS} of "
+            f"{total} immunization record rows. "
+            "You can request CSV to see the full dataset._"
+        )
+    return table
+
+
+def _build_immunization_records_csv(rows: List[Dict[str, Any]]) -> str:
     if not rows:
         return ""
 
-    out = io.StringIO()
-    writer = csv.DictWriter(out, fieldnames=list(rows[0].keys()))
+    total = len(rows)
+    display = rows[:MAX_CSV_ROWS]
+
+    fieldnames = _select_immunization_records_fields(display)
+    if not fieldnames:
+        return ""
+
+    output = io.StringIO()
+    writer = csv.DictWriter(
+        output, fieldnames=fieldnames, extrasaction="ignore"
+    )
     writer.writeheader()
-    writer.writerows(rows)
-    return out.getvalue()
+    writer.writerows(display)
+
+    csv_text = output.getvalue()
+    if total > MAX_CSV_ROWS:
+        csv_text += (
+            f"# Truncated to first {MAX_CSV_ROWS} of "
+            f"{total} immunization record rows\n"
+        )
+    return csv_text
 
 
-# ----------------------------------------------------------------------
-# HANDLER CLASS
-# ----------------------------------------------------------------------
 class ImmunizationRecordsHandler(QueryHandler):
     mode = "immunization_records"
     keywords = [
         "immunization records",
+        "immunization_records",
         "student immunizations",
-        "vaccination records",
-        "shots",
         "vaccine records",
     ]
-    source_label = "DCG OSSS student immunization records"
+    source_label = "your DCG OSSS data service (immunization_records)"
 
-    async def fetch(self, ctx: AgentContext, skip: int, limit: int) -> FetchResult:
-
-        # Fetch all three datasets
-        records = await _fetch_immunization_records(skip, limit)
-        students = await _fetch_students()
-        persons = await _fetch_persons()
-
-        # Build lookups
-        student_lookup = {s["id"]: s for s in students}
-        person_lookup = {p["id"]: p for p in persons}
-
-        # Merge → student → person
-        combined = []
-        for r in records:
-            sid = r["student_id"]
-            student = student_lookup.get(sid, {})
-            person = person_lookup.get(student.get("person_id"))
-
-            combined.append({
-                **r,
-
-                # student information
-                "student_number": student.get("student_number"),
-                "graduation_year": student.get("graduation_year"),
-
-                # person information
-                "first_name": person.get("first_name") if person else None,
-                "last_name": person.get("last_name") if person else None,
-                "dob": person.get("dob") if person else None,
-                "email": person.get("email") if person else None,
-            })
-
+    async def fetch(
+        self,
+        ctx: AgentContext,
+        skip: int,
+        limit: int,
+    ) -> FetchResult:
+        logger.debug(
+            "ImmunizationRecordsHandler.fetch(skip=%s, limit=%s, user=%s)",
+            skip,
+            limit,
+            getattr(ctx, "user_id", None),
+        )
+        rows = await _fetch_immunization_records(skip=skip, limit=limit)
         return {
-            "rows": combined,
-            "records": records,
-            "students_count": len(students),
-            "persons_count": len(persons),
-            "combined_rows": combined,
+            "rows": rows,
+            "immunization_records": rows,
+            "meta": {
+                "skip": skip,
+                "limit": limit,
+                "count": len(rows),
+                "source": self.source_label,
+            },
         }
 
     def to_markdown(self, rows: List[Dict[str, Any]]) -> str:
-        return _build_markdown(rows)
+        return _build_immunization_records_markdown_table(rows)
 
     def to_csv(self, rows: List[Dict[str, Any]]) -> str:
-        return _build_csv(rows)
+        return _build_immunization_records_csv(rows)
 
 
-# Register handler on import
 register_handler(ImmunizationRecordsHandler())

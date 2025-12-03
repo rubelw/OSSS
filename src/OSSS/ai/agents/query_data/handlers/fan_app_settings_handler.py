@@ -15,31 +15,35 @@ from OSSS.ai.agents.query_data.query_data_registry import (
 )
 from OSSS.ai.agents.query_data.query_data_errors import QueryDataError
 
-logger = logging.getLogger("OSSS.ai.agents.query_data.health_profiles")
+logger = logging.getLogger("OSSS.ai.agents.query_data.fan_app_settings")
 
 API_BASE = os.getenv(
-    "OSSS_HEALTH_PROFILES_API_BASE",
+    "OSSS_FAN_APP_SETTINGS_API_BASE",
     "http://host.containers.internal:8081",
 )
-HEALTH_PROFILES_ENDPOINT = "/api/health_profiles"
+FAN_APP_SETTINGS_ENDPOINT = "/api/fan_app_settings"
 
 MAX_MARKDOWN_ROWS = 50
 MAX_CSV_ROWS = 2_000
 
 
-async def _fetch_health_profiles(
+async def _fetch_fan_app_settings(
     skip: int = 0,
     limit: int = 100,
 ) -> List[Dict[str, Any]]:
-    url = f"{API_BASE}{HEALTH_PROFILES_ENDPOINT}"
+    """
+    Fetch fan_app_settings rows from the OSSS data API with robust error handling.
+    """
+    url = f"{API_BASE}{FAN_APP_SETTINGS_ENDPOINT}"
     params = {"skip": skip, "limit": limit}
 
     logger.debug(
-        "Fetching health_profiles from %s with params skip=%s, limit=%s",
+        "Fetching fan_app_settings from %s with params skip=%s, limit=%s",
         url,
         skip,
         limit,
     )
+
     try:
         async with httpx.AsyncClient(
             timeout=httpx.Timeout(10.0),
@@ -50,50 +54,44 @@ async def _fetch_health_profiles(
             try:
                 data = resp.json()
             except ValueError as json_err:
-                logger.exception(
-                    "Failed to decode health_profiles API JSON",
-                )
+                logger.exception("Failed to decode fan_app_settings API JSON")
                 raise QueryDataError(
-                    "Error decoding health_profiles API JSON: "
-                    f"{json_err}",
-                    health_profiles_url=url,
+                    f"Error decoding fan_app_settings API JSON: {json_err}",
+                    fan_app_settings_url=url,
                 ) from json_err
+
     except httpx.RequestError as e:
-        logger.exception("Network error calling health_profiles API")
+        logger.exception("Network error calling fan_app_settings API")
         raise QueryDataError(
-            f"Network error querying health_profiles API: {e}",
-            health_profiles_url=url,
+            f"Network error querying fan_app_settings API: {e}",
+            fan_app_settings_url=url,
         ) from e
     except httpx.HTTPStatusError as e:
         status = getattr(e.response, "status_code", None)
-        logger.exception("health_profiles API returned HTTP %s", status)
+        logger.exception("fan_app_settings API returned HTTP %s", status)
         raise QueryDataError(
-            f"health_profiles API returned HTTP {status}",
-            health_profiles_url=url,
+            f"fan_app_settings API returned HTTP {status}",
+            fan_app_settings_url=url,
         ) from e
     except Exception as e:
-        logger.exception("Unexpected error calling health_profiles API")
+        logger.exception("Unexpected error calling fan_app_settings API")
         raise QueryDataError(
-            f"Unexpected error querying health_profiles API: {e}",
-            health_profiles_url=url,
+            f"Unexpected error querying fan_app_settings API: {e}",
+            fan_app_settings_url=url,
         ) from e
 
     if not isinstance(data, list):
-        logger.error(
-            "Unexpected health_profiles payload type: %r",
-            type(data),
-        )
+        logger.error("Unexpected fan_app_settings payload type: %r", type(data))
         raise QueryDataError(
-            "Unexpected health_profiles payload type: "
-            f"{type(data)!r}",
-            health_profiles_url=url,
+            f"Unexpected fan_app_settings payload type: {type(data)!r}",
+            fan_app_settings_url=url,
         )
 
     cleaned: List[Dict[str, Any]] = []
     for i, item in enumerate(data):
         if not isinstance(item, dict):
             logger.warning(
-                "Skipping non-dict item at index %s in health_profiles payload: %r",
+                "Skipping non-dict item at index %s in fan_app_settings payload: %r",
                 i,
                 type(item),
             )
@@ -101,7 +99,7 @@ async def _fetch_health_profiles(
         cleaned.append(item)
 
     logger.debug(
-        "Fetched %d health_profiles records (skip=%s, limit=%s)",
+        "Fetched %d fan_app_settings records (skip=%s, limit=%s)",
         len(cleaned),
         skip,
         limit,
@@ -114,25 +112,21 @@ def _escape_md(value: Any) -> str:
     return text.replace("|", r"\|").replace("`", r"\`")
 
 
-def _select_health_profiles_fields(
+def _select_fan_app_settings_fields(
     rows: Sequence[Dict[str, Any]],
 ) -> List[str]:
+    """
+    Choose a stable field ordering for fan_app_settings results.
+    """
     if not rows:
         return []
 
     preferred_order = [
         "id",
-        "student_id",
-        "student_code",
-        "student_name",
-        "primary_physician",
-        "primary_hospital",
-        "medical_conditions",
-        "allergies",
-        "medications",
-        "emergency_plan",
-        "restrictions",
-        "notes",
+        "school_id",
+        "key",
+        "value",
+        "settings",      # JSON blob of config
         "created_at",
         "updated_at",
     ]
@@ -148,17 +142,18 @@ def _select_health_profiles_fields(
     return ordered
 
 
-def _build_health_profiles_markdown_table(
+def _build_fan_app_settings_markdown_table(
     rows: List[Dict[str, Any]],
 ) -> str:
     if not rows:
-        return "No health_profiles records were found in the system."
+        return "No fan_app_settings records were found in the system."
 
     total = len(rows)
     display = rows[:MAX_MARKDOWN_ROWS]
-    fieldnames = _select_health_profiles_fields(display)
+
+    fieldnames = _select_fan_app_settings_fields(display)
     if not fieldnames:
-        return "No health_profiles records were found in the system."
+        return "No fan_app_settings records were found in the system."
 
     header_cells = ["#"] + fieldnames
     header = f"| {' | '.join(header_cells)} |\n"
@@ -174,14 +169,13 @@ def _build_health_profiles_markdown_table(
     table = header + separator + "\n".join(lines)
     if total > MAX_MARKDOWN_ROWS:
         table += (
-            f"\n\n_Showing first {MAX_MARKDOWN_ROWS} of "
-            f"{total} health profile records. "
+            f"\n\n_Showing first {MAX_MARKDOWN_ROWS} of {total} fan_app_settings records. "
             "You can request CSV to see the full dataset._"
         )
     return table
 
 
-def _build_health_profiles_csv(
+def _build_fan_app_settings_csv(
     rows: List[Dict[str, Any]],
 ) -> str:
     if not rows:
@@ -189,7 +183,8 @@ def _build_health_profiles_csv(
 
     total = len(rows)
     display = rows[:MAX_CSV_ROWS]
-    fieldnames = _select_health_profiles_fields(display)
+
+    fieldnames = _select_fan_app_settings_fields(display)
     if not fieldnames:
         return ""
 
@@ -205,21 +200,23 @@ def _build_health_profiles_csv(
     csv_text = output.getvalue()
     if total > MAX_CSV_ROWS:
         csv_text += (
-            f"# Truncated to first {MAX_CSV_ROWS} of "
-            f"{total} health profile rows\n"
+            f"# Truncated to first {MAX_CSV_ROWS} of {total} fan_app_settings rows\n"
         )
     return csv_text
 
 
-class HealthProfilesHandler(QueryHandler):
-    mode = "health_profiles"
+class FanAppSettingsHandler(QueryHandler):
+    mode = "fan_app_settings"
     keywords = [
-        "health profiles",
-        "health_profiles",
-        "student health profiles",
-        "medical profiles",
+        "fan_app_settings",
+        "fan app settings",
+        "fan app config",
+        "fan app configuration",
+        "fan app preferences",
+        "athletics app settings",
+        "fan experience settings",
     ]
-    source_label = "your DCG OSSS data service (health_profiles)"
+    source_label = "your DCG OSSS data service (fan_app_settings)"
 
     async def fetch(
         self,
@@ -228,15 +225,15 @@ class HealthProfilesHandler(QueryHandler):
         limit: int,
     ) -> FetchResult:
         logger.debug(
-            "HealthProfilesHandler.fetch(skip=%s, limit=%s, user=%s)",
+            "FanAppSettingsHandler.fetch(skip=%s, limit=%s, user=%s)",
             skip,
             limit,
             getattr(ctx, "user_id", None),
         )
-        rows = await _fetch_health_profiles(skip=skip, limit=limit)
+        rows = await _fetch_fan_app_settings(skip=skip, limit=limit)
         return {
             "rows": rows,
-            "health_profiles": rows,
+            "fan_app_settings": rows,
             "meta": {
                 "skip": skip,
                 "limit": limit,
@@ -245,17 +242,12 @@ class HealthProfilesHandler(QueryHandler):
             },
         }
 
-    def to_markdown(
-        self,
-        rows: List[Dict[str, Any]],
-    ) -> str:
-        return _build_health_profiles_markdown_table(rows)
+    def to_markdown(self, rows: List[Dict[str, Any]]) -> str:
+        return _build_fan_app_settings_markdown_table(rows)
 
-    def to_csv(
-        self,
-        rows: List[Dict[str, Any]],
-    ) -> str:
-        return _build_health_profiles_csv(rows)
+    def to_csv(self, rows: List[Dict[str, Any]]) -> str:
+        return _build_fan_app_settings_csv(rows)
 
 
-register_handler(HealthProfilesHandler())
+# register on import
+register_handler(FanAppSettingsHandler())
