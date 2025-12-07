@@ -223,6 +223,8 @@ class Intent(str, Enum):
     SCORECARDS = "scorecards"
     LIVE_SCORING_QUERY = "live_scoring_query"
     SHOW_MATERIALS_LIST = "show_materials_list"
+    LANGCHAIN_AGENT = "langchain_agent"
+
 
 
 class IntentResult(BaseModel):

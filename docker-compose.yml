@@ -284,6 +284,10 @@ services:
       METAGPT_URL: http://metagpt:8001
       SEED_JSON_PATH: /mnt/data/seed_full_school.json
 
+      OSSS_LANGCHAIN_PROVIDER: "ollama"
+      OLLAMA_BASE_URL: "http://host.containers.internal:11434"
+      OSSS_LANGCHAIN_MODEL: "llama3.2-vision"
+
 
     depends_on:
       redis:

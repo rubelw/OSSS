@@ -32,6 +32,7 @@ from OSSS.ai.agent_routing_config import build_alias_map, first_matching_intent
 import OSSS.ai.agents.student.registration_agent  # noqa: F401
 import OSSS.ai.agents.query_data  # noqa: F401
 
+from OSSS.ai.langchain_agent import run_agent as run_langchain_agent
 
 YEAR_PATTERN = re.compile(r"(20[2-9][0-9])[-/](?:20[2-9][0-9]|[0-9]{2})")
 
@@ -126,27 +127,8 @@ class IntentResolver:
         # Config-driven domain heuristics (patterns in agent_routing_config)
         forced_intent: str | None = first_matching_intent(query)
 
-        # Extra domain heuristic: bare school-year answer => registration
-        #if forced_intent is None and _looks_like_school_year(query):
-        #    forced_intent = "register_new_student"
-        #    logger.info(
-        #        "IntentResolver: treating bare school-year answer as registration; query=%r",
-        #        query[:200],
-        #    )
-
         # Prior session intent (sticky)
         session_intent = getattr(session, "intent", None)
-
-        # 🩹 Bridge: if we have an active subagent session but no stored session_intent,
-        # infer that we're in the registration flow. Right now, only the student
-        # registration agent creates subagent sessions.
-        #if session_intent is None and rag.subagent_session_id:
-        #    session_intent = "register_new_student"
-        #    logger.info(
-        #        "IntentResolver: inferring session_intent='register_new_student' "
-        #        "from active subagent_session_id=%r",
-        #        rag.subagent_session_id,
-        #    )
 
         # Classifier call
         classified: str | Intent | None = "general"
@@ -255,7 +237,7 @@ class IntentResolver:
         elif rag.subagent_session_id and session_intent and not within_flow:
             within_flow = True
 
-        # Base label priority
+        # ---- Base label priority (ALWAYS set base_label) -------------------
         if within_flow and session_intent:
             base_label = session_intent
         else:
@@ -267,12 +249,32 @@ class IntentResolver:
                 or "general"
             )
 
+        # ---- Look inside raw_model_output for LLM intent -------------------
+        llm_intent: str | None = None
+        if raw_model_output:
+            try:
+                raw = json.loads(raw_model_output)
+                llm_block = raw.get("llm") or {}
+                cand = llm_block.get("intent")
+                if isinstance(cand, str):
+                    llm_intent = cand
+            except Exception:
+                logger.exception("IntentResolver: failed to parse intent_raw_model_output")
+
+        # ---- SPECIAL CASE: route student_info -> LangChain -----------------
+        # We treat "student_info" as a signal that this should go to the
+        # LangChain pipeline, regardless of the high-level classifier label.
+        if base_label == "student_info" or llm_intent == "student_info":
+            effective_base = "langchain_agent"
+        else:
+            effective_base = base_label
+
         # Apply aliases via config
-        intent_label = ALIAS_MAP.get(base_label, base_label)
+        intent_label = ALIAS_MAP.get(effective_base, effective_base)
 
         logger.info(
             "Effective intent for this turn: %r (manual=%r, forced=%r, session_intent=%r, "
-            "classified=%r, aliased_from=%r, wants_continue=%r, within_flow=%r)",
+            "classified=%r, aliased_from=%r, wants_continue=%r, within_flow=%r, llm_intent=%r)",
             intent_label,
             manual_label,
             forced_intent,
@@ -281,6 +283,7 @@ class IntentResolver:
             base_label,
             wants_continue,
             within_flow,
+            llm_intent,
         )
 
         return IntentResolution(
@@ -300,7 +303,6 @@ class IntentResolver:
             manual_label=manual_label,
             intent_raw_model_output=raw_model_output,
         )
-
 
 
 class AgentDispatcher:
@@ -926,6 +928,76 @@ class RouterAgent:
             query=query,
         )
 
+        # ---- LangChain agent short-circuit -----------------------------
+        # Route both explicit "langchain_agent" and the classifier's "student_info"
+        # intent through the LangChain pipeline instead of the MetaGPT agents/RAG.
+        if intent_label in ("langchain_agent", "student_info"):
+            logger.info("Routing to LangChain agent for intent=%s", intent_label)
+
+            lc_result = await run_langchain_agent(
+                message=query,
+                session_id=str(agent_session_id),
+            )
+
+            reply_text = lc_result.get("reply", "")
+
+            response_payload = {
+                "answer": {
+                    "message": {
+                        "role": "assistant",
+                        "content": reply_text,
+                    },
+                    "status": "ok",
+                },
+                "retrieved_chunks": [],
+                "index": getattr(rag, "index", "main"),
+                "intent": intent_label,
+                "agent_session_id": agent_session_id,
+                "subagent_session_id": None,
+                "session_files": session_files,
+                "agent_id": "langchain_agent",
+                "agent_name": "LangChainAgent",
+                "action": action,
+                "action_confidence": action_confidence,
+                "urgency": urgency,
+                "urgency_confidence": urgency_confidence,
+                "tone_major": tone_major,
+                "tone_major_confidence": tone_major_confidence,
+                "tone_minor": tone_minor,
+                "tone_minor_confidence": tone_minor_confidence,
+                "agent_trace": _build_agent_trace(
+                    {
+                        "agent": "LangChainAgent",
+                        "status": "ok",
+                        "intent": intent_label,
+                        "children": [],
+                    },
+                    intent_label=intent_label,
+                ),
+                "agent_debug_information": {
+                    "phase": "langchain_agent",
+                    "query": query,
+                    "intent": intent_label,
+                    "action": action,
+                    "action_confidence": action_confidence,
+                    "urgency": urgency,
+                    "urgency_confidence": urgency_confidence,
+                    "tone_major": tone_major,
+                    "tone_major_confidence": tone_major_confidence,
+                    "tone_minor": tone_minor,
+                    "tone_minor_confidence": tone_minor_confidence,
+                    "agent_session_id": agent_session_id,
+                    "subagent_session_id": rag.subagent_session_id,
+                    "intent_raw_model_output": intent_raw_model_output,
+                },
+            }
+
+            logger.info(
+                "[RAG] response (langchain_agent): %s",
+                json.dumps(response_payload, ensure_ascii=False)[:4000],
+            )
+            return response_payload
+
         # ---- try agent path -------------------------------------------
         agent_response = await self.agent_dispatcher.dispatch(
             intent_label=intent_label,
@@ -964,6 +1036,7 @@ class RouterAgent:
             tone_minor_confidence=tone_minor_confidence,
             intent_raw_model_output=intent_raw_model_output,
         )
+
 
 
 class RAGRequest(BaseModel):

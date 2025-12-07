@@ -34,13 +34,17 @@ class HeuristicRule:
 # --- Aliases ---------------------------------------------------------
 INTENT_ALIASES: list[IntentAlias] = [
     # Existing aliases
+    IntentAlias("langchain", "langchain_agent"),
+    IntentAlias("general_llm", "langchain_agent"),
     IntentAlias("enrollment", "register_new_student"),
     IntentAlias("new_student_registration", "register_new_student"),
 
     # Map classifier labels related to student counts/listing to query_data
     IntentAlias("student_counts", "query_data"),
-    IntentAlias("students", "query_data"),
-    IntentAlias("list_students", "query_data"),
+    #IntentAlias("students", "query_data"),
+    IntentAlias("student_info", "langchain_agent"),
+
+IntentAlias("list_students", "query_data"),
     IntentAlias("scorecards", "query_data"),
     IntentAlias("live_scoring_query", "query_data"),
     IntentAlias("show_materials_list", "query_data"),

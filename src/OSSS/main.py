@@ -69,6 +69,7 @@ from OSSS.ai import rag_files
 
 from OSSS.agents import metagpt_agent
 
+from OSSS.ai.router_langchain import router as langchain_router
 
 
 
@@ -501,6 +502,8 @@ def create_app() -> FastAPI:
                     }
                 },
             )
+
+        app.include_router(langchain_router)
 
         app.include_router(admin_additional_index_router.router)
         app.include_router(rag_router.router)

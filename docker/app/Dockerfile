@@ -53,9 +53,13 @@ RUN pip install --use-deprecated=legacy-resolver --no-cache-dir \
       "PyJWT>=2.8,<3" \
       "chromadb==0.5.5" \
       "pypdf==4.3.1" \
-      "guardrails-ai>=0.6.7" \
+      #"guardrails-ai>=0.6.7" \
       "pydantic>=2.7" \
-      "openai>=1.39.0"
+      "openai>=1.39.0" \
+      "langchain-core>=1.1.0,<2.0.0" \
+      "langchain-openai>=1.1.0,<2.0.0" \
+      "langchain-ollama>=0.1.0,<1.0.0" \
+      "langgraph>=0.4.0"
       #"itsdangerous>=2.0" \
       #"pydantic-settings" \
       #"python-jose" \
@@ -87,7 +91,9 @@ RUN mkdir -p /root/.metagpt && \
 # Talk to Ollama or your proxy using OpenAI-compatible /v1
 ENV OPENAI_BASE_URL="http://host.containers.internal:11434/v1" \
     OPENAI_API_KEY="none" \
-    LLM_MODEL="llama3.2-vision"
+    LLM_MODEL="llama3.2-vision" \
+    OSSS_LANGCHAIN_MODEL="llama3.2-vision"
+
 
 EXPOSE 8000
 ENV HOST=0.0.0.0 PORT=8000 LOG_LEVEL=info
