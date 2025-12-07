@@ -52,7 +52,7 @@ class School(UUIDMixin, Base):
 
     # --- columns --------------------------------------------------------------
     organization_id: Mapped[Any] = mapped_column(
-        GUID(), ForeignKey("mentors.id", ondelete="CASCADE"), nullable=False
+        GUID(), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
     )
 
     # changed to String(255) + index=True per your integration request

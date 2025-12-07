@@ -278,7 +278,7 @@ def main():
     # 2) Also copy/overwrite schema.dbml into ../src/OSSS/db/migrations
     script_dir = os.path.dirname(os.path.abspath(__file__))
     migrations_dir = os.path.abspath(
-        os.path.join(script_dir, "..", "src", "OSSS", "db", "migrations")
+        os.path.join(script_dir, "..", "src", "OSSS", "db", "migrations","versions","seed_csvs")
     )
     os.makedirs(migrations_dir, exist_ok=True)
     dest_path = os.path.join(migrations_dir, "schema.dbml")

@@ -127,12 +127,12 @@ class IntentResolver:
         forced_intent: str | None = first_matching_intent(query)
 
         # Extra domain heuristic: bare school-year answer => registration
-        if forced_intent is None and _looks_like_school_year(query):
-            forced_intent = "register_new_student"
-            logger.info(
-                "IntentResolver: treating bare school-year answer as registration; query=%r",
-                query[:200],
-            )
+        #if forced_intent is None and _looks_like_school_year(query):
+        #    forced_intent = "register_new_student"
+        #    logger.info(
+        #        "IntentResolver: treating bare school-year answer as registration; query=%r",
+        #        query[:200],
+        #    )
 
         # Prior session intent (sticky)
         session_intent = getattr(session, "intent", None)
@@ -140,13 +140,13 @@ class IntentResolver:
         # 🩹 Bridge: if we have an active subagent session but no stored session_intent,
         # infer that we're in the registration flow. Right now, only the student
         # registration agent creates subagent sessions.
-        if session_intent is None and rag.subagent_session_id:
-            session_intent = "register_new_student"
-            logger.info(
-                "IntentResolver: inferring session_intent='register_new_student' "
-                "from active subagent_session_id=%r",
-                rag.subagent_session_id,
-            )
+        #if session_intent is None and rag.subagent_session_id:
+        #    session_intent = "register_new_student"
+        #    logger.info(
+        #        "IntentResolver: inferring session_intent='register_new_student' "
+        #        "from active subagent_session_id=%r",
+        #        rag.subagent_session_id,
+        #    )
 
         # Classifier call
         classified: str | Intent | None = "general"

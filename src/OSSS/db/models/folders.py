@@ -52,7 +52,7 @@ class Folder(UUIDMixin, Base):
 
 
     org_id: Mapped[uuid.UUID] = mapped_column(
-        GUID(), ForeignKey("mentors.id", ondelete="CASCADE"), nullable=False
+        GUID(), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
     )
     parent_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         GUID(), ForeignKey("folders.id", ondelete="CASCADE")

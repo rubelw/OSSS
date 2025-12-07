@@ -49,7 +49,7 @@ class GoverningBody(UUIDMixin, TimestampMixin, Base):
 
 
     org_id: Mapped[str] = mapped_column(
-        GUID(), sa.ForeignKey("mentors.id", ondelete="CASCADE"), nullable=False
+        GUID(), sa.ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
     )
     name: Mapped[str] = mapped_column(sa.String(255), nullable=False)
     type: Mapped[Optional[str]] = mapped_column(sa.String(50))

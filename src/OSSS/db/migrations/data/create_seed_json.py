@@ -4,8 +4,12 @@ import json
 import re
 import uuid
 import csv
+import numbers
+import random
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Callable, Tuple, Set
+from pathlib import Path
+from decimal import Decimal, InvalidOperation
 
 
 # ---------------------------------------------------------------------
@@ -14,7 +18,17 @@ from typing import Any, Dict, List
 DBML_PATH = "../../../../../data_model/schema.dbml"
 OUT_JSON_PATH = "./seed_full_school.json"
 STATES_CSV_PATH = "../data_csv/205_states.csv"
+ORGANIZATIONS_CSV_PATH = "../data_csv/000_organizations.csv"
+DATA_CSV_DIR = "../data_csv"
 
+# NEW: import the modular builders
+from table_overrides.states import (
+    load_states_definitions,
+    build_states_rows_from_defns,
+)
+from table_overrides.organizations import (
+    build_organizations_rows_from_csv,
+)
 
 # ---------------------------------------------------------------------
 # Data Models
@@ -39,6 +53,7 @@ class ForeignKey:
     parent_col: str
     child_table: str
     child_col: str
+
 
 EXTRA_FKS: List[ForeignKey] = [
     # alignments.curriculum_version_id -> curriculum_versions.id
@@ -101,6 +116,216 @@ ENUM_HEADER_RE = re.compile(r"Enum\s+([A-Za-z_0-9\"']+)\s*\{")
 
 
 # ---------------------------------------------------------------------
+# Generic CSV loaders (for hundreds of tables)
+# ---------------------------------------------------------------------
+
+# pattern: 000_organizations.csv → table "organizations"
+#          205_states.csv         → table "states"
+#          users.csv              → table "users"
+CSV_FILENAME_RE = re.compile(
+    r"^(?P<prefix>\d+_)?(?P<table>[A-Za-z0-9_]+)\.csv$"
+)
+
+def to_decimal(val, default=0):
+    """Best-effort convert to Decimal; fall back to default on junk."""
+    try:
+        if isinstance(val, (int, float, Decimal)):
+            return Decimal(str(val))
+        return Decimal(str(val))
+    except (InvalidOperation, TypeError, ValueError):
+        return Decimal(default)
+
+def discover_table_csv_files(
+    data_dir: str | Path = DATA_CSV_DIR,
+) -> Dict[str, Path]:
+    """
+    Scan DATA_CSV_DIR for CSV files and map them to table names.
+
+    Convention:
+      * NNN_table_name.csv  → table_name
+      * table_name.csv      → table_name
+    """
+    root = Path(data_dir)
+    mapping: Dict[str, Path] = {}
+
+    if not root.exists():
+        return mapping
+
+    for p in root.glob("*.csv"):
+        m = CSV_FILENAME_RE.match(p.name)
+        if not m:
+            continue
+        table_name = m.group("table")
+        mapping[table_name] = p
+
+    return mapping
+
+
+def load_generic_csv_rows(csv_path: Path) -> List[Dict[str, str]]:
+    """
+    Load rows from an arbitrary CSV using DictReader.
+
+    - Strips whitespace off keys and values.
+    - Skips completely empty rows.
+    """
+    rows: List[Dict[str, str]] = []
+    with csv_path.open("r", encoding="utf-8", newline="") as f:
+        reader = csv.DictReader(f)
+        if not reader.fieldnames:
+            return rows
+
+        fieldnames = [fn.strip() for fn in reader.fieldnames]  # noqa: F841
+        for raw in reader:
+            # Normalize keys and values
+            row = {}
+            empty = True
+            for k, v in raw.items():
+                if k is None:
+                    continue
+                key = k.strip()
+                val = v.strip() if isinstance(v, str) else v
+                if val not in (None, ""):
+                    empty = False
+                row[key] = val
+            if not empty:
+                rows.append(row)
+    return rows
+
+
+def coerce_csv_value(raw: Any, col: Column) -> Any:
+    """
+    Best-effort coercion from CSV string to the column's Python type.
+    Keep it simple: ints, bools, and leave the rest as strings.
+    """
+    if raw is None:
+        return None
+
+    s = str(raw).strip()
+    if s == "":
+        return None
+
+    t = col.db_type.lower()
+
+    # Integer-ish types
+    if any(kw in t for kw in ("int", "bigint", "smallint")):
+        try:
+            return int(s)
+        except ValueError:
+            return s
+
+    # Boolean-ish
+    if "bool" in t:
+        if s.lower() in ("true", "t", "1", "yes", "y"):
+            return True
+        if s.lower() in ("false", "f", "0", "no", "n"):
+            return False
+        return s
+
+    # Leave everything else as string
+    return s
+
+
+def build_rows_from_csv(
+    table: Table,
+    csv_rows: List[Dict[str, str]],
+    enums: Dict[str, List[str]],
+) -> List[Dict[str, Any]]:
+    rows: List[Dict[str, Any]] = []
+
+    for idx, raw in enumerate(csv_rows):
+        row: Dict[str, Any] = {}
+
+        for col in table.columns:
+            col_name = col.name
+
+            if is_tsvector_col(col):
+                continue
+
+            raw_val = raw.get(col_name)
+
+            if raw_val not in (None, ""):
+                row[col_name] = coerce_csv_value(raw_val, col)
+            else:
+                if col_name == "id" and is_uuid_col(col):
+                    seed = f"{table.name}:{idx}:{json.dumps(raw, sort_keys=True)}"
+                    row[col_name] = stable_uuid(seed)
+                else:
+                    row[col_name] = sample_value(table, col, enums)
+
+        # 🔹 Ensure bus_stop_times always has non-null times
+        if table.name == "bus_stop_times":
+            if not row.get("arrival_time"):
+                row["arrival_time"] = "08:00:00"
+            if not row.get("departure_time"):
+                row["departure_time"] = "08:10:00"
+
+        rows.append(row)
+
+    return rows
+
+
+# ---------------------------------------------------------------------
+# Per-table override registry
+# ---------------------------------------------------------------------
+
+# Signature:
+#   loader(table, enums, csv_rows) -> list[dict]
+TableLoader = Callable[
+    ["Table", Dict[str, List[str]], List[Dict[str, str]]],
+    List[Dict[str, Any]],
+]
+
+CUSTOM_TABLE_LOADERS: Dict[str, TableLoader] = {}
+
+
+def register_table_loader(table_name: str) -> Callable[[TableLoader], TableLoader]:
+    """
+    Decorator to register a custom loader for a specific table.
+
+    Example:
+
+        @register_table_loader("education_associations")
+        def load_education_associations(table, enums, csv_rows):
+            rows = []
+            ...
+            return rows
+    """
+    def decorator(func: TableLoader) -> TableLoader:
+        CUSTOM_TABLE_LOADERS[table_name] = func
+        return func
+    return decorator
+
+
+# ---------------------------------------------------------------------
+# Auto-import all table override modules from table_overrides/
+# ---------------------------------------------------------------------
+import importlib
+import pkgutil
+import pathlib
+import sys
+
+
+def load_table_override_modules():
+    overrides_dir = pathlib.Path(__file__).parent / "table_overrides"
+
+    if not overrides_dir.exists():
+        return
+
+    # Add parent dir to Python path so imports resolve
+    sys.path.insert(0, str(overrides_dir.parent))
+
+    package_name = "table_overrides"
+
+    for module_info in pkgutil.iter_modules([str(overrides_dir)]):
+        mod_name = f"{package_name}.{module_info.name}"
+        importlib.import_module(mod_name)
+
+
+# Load overrides NOW (they register themselves via decorator)
+load_table_override_modules()
+
+
+# ---------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------
 
@@ -132,7 +357,7 @@ def parse_tables(dbml_text: str) -> Dict[str, Table]:
                 depth -= 1
             i += 1
 
-        block = dbml_text[start_brace + 1 : i - 1]
+        block = dbml_text[start_brace + 1: i - 1]
 
         t = Table(name=table_name)
         parse_table_block(t, block)
@@ -174,7 +399,7 @@ def parse_table_block(table: Table, block: str) -> None:
 
         attrs = ""
         if "[" in line and "]" in line:
-            attrs = line[line.index("[") + 1 : line.index("]")]
+            attrs = line[line.index("[") + 1: line.index("]")]
         is_pk = "pk" in attrs.replace(" ", "").lower()
 
         table.columns.append(Column(name=col_name, db_type=col_type, is_pk=is_pk))
@@ -230,7 +455,7 @@ def parse_enums(dbml_text: str) -> Dict[str, List[str]]:
                 depth -= 1
             i += 1
 
-        block = dbml_text[start_brace + 1 : i - 1]
+        block = dbml_text[start_brace + 1: i - 1]
 
         values: List[str] = []
         for raw_line in block.splitlines():
@@ -249,7 +474,6 @@ def parse_enums(dbml_text: str) -> Dict[str, List[str]]:
             enums[enum_name] = values
 
     return enums
-
 
 
 # ---------------------------------------------------------------------
@@ -272,7 +496,7 @@ def compute_insert_order(tables: Dict[str, Table], fks: List[ForeignKey]) -> Lis
                 edges[fk.parent_table].add(fk.child_table)
                 indegree[fk.child_table] += 1
 
-    # Kahn’s algorithm as before
+    # Kahn’s algorithm
     queue = sorted([t for t in all_tables if indegree[t] == 0])
     order: List[str] = []
 
@@ -325,12 +549,29 @@ def base_type_name(db_type: str) -> str:
     return t.lower()
 
 
-
 def sample_value(table: Table, col: Column, enums: Dict[str, List[str]]) -> Any:
     name = col.name
     t = col.db_type.lower()
     base_t = base_type_name(col.db_type)
 
+
+    # -----------------------------------------------------------------
+    # GENERIC NUMERIC HANDLING
+    # -----------------------------------------------------------------
+    # If the DB type looks numeric, return a simple numeric value instead
+    # of random text so we don't get InvalidTextRepresentation errors.
+    if any(x in base_t for x in ("int", "numeric", "decimal", "real", "double", "float")):
+        # Use small non-zero values that won't violate typical constraints
+        if name in ("qty", "quantity", "hours"):
+            return 1
+        if name in ("unit_cost", "extended_cost", "hourly_rate", "cost", "materials_cost", "labor_cost", "other_cost"):
+            return 50
+        # generic numeric default
+        return 1
+
+    # payroll_runs.posted_entry_id → start NULL so we never point at a ghost.
+    if table.name == "payroll_runs" and name == "posted_entry_id":
+        return None
     # -----------------------------------------------------------------
     # HARD OVERRIDES FOR KNOWN ENUM COLUMNS
     # -----------------------------------------------------------------
@@ -452,7 +693,7 @@ def sample_value(table: Table, col: Column, enums: Dict[str, List[str]]) -> Any:
         vals = enums.get("review_round_status") or enums.get(base_t)
         if vals:
             # Prefer something that sounds like an active/in-review state if present
-            preferred = ( "open", "closed", "canceled")
+            preferred = ("open", "closed", "canceled")
             for pref in preferred:
                 for v in vals:
                     if v.lower() == pref:
@@ -543,9 +784,15 @@ def sample_value(table: Table, col: Column, enums: Dict[str, List[str]]) -> Any:
             return vals[0]
         return "draft"
 
+    # Work order parts: force numeric fields to be numeric
+    if table.name == "work_order_parts" and name in ("qty", "unit_cost", "extended_cost"):
+        return 1
+
     # -----------------------------------------------------------------
     # Generic enum handling
     # -----------------------------------------------------------------
+
+
     if base_t in enums:
         vals = enums[base_t]
         if vals:
@@ -604,98 +851,324 @@ TSVECTOR_CREATED_AT_TABLES = {
 # Build Seed Data
 # ---------------------------------------------------------------------
 
-# ---------------------------------------------------------------------
-# States CSV helpers
-# ---------------------------------------------------------------------
-def load_states_from_csv(path: str = STATES_CSV_PATH) -> List[Dict[str, str]]:
+def normalize_ids_for_table(table: Table, rows: List[Dict[str, Any]]) -> None:
     """
-    Load states from a CSV file.
-
-    Expected columns (preferred): code,name
-
-    If there is no header, assumes two columns in order: code,name.
+    Ensure that any UUID-style primary key 'id' columns are generated
+    via stable_uuid, ignoring CSV / override-provided values.
     """
-    rows: List[Dict[str, str]] = []
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            # Try DictReader first (header present)
-            reader = csv.DictReader(f)
-            if "code" in (reader.fieldnames or []) and "name" in (reader.fieldnames or []):
-                for r in reader:
-                    if not r.get("code"):
-                        continue
-                    rows.append(
-                        {
-                            "code": r["code"].strip(),
-                            "name": r["name"].strip(),
-                        }
-                    )
-                return rows
-
-        # Fallback: no header, treat as plain two-column CSV
-        with open(path, "r", encoding="utf-8") as f2:
-            simple_reader = csv.reader(f2)
-            for raw in simple_reader:
-                if not raw or len(raw) < 2:
-                    continue
-                code = raw[0].strip()
-                name = raw[1].strip()
-                if not code:
-                    continue
-                rows.append({"code": code, "name": name})
-    except FileNotFoundError:
-        # If the file doesn't exist, just return empty and let generic seeding handle it
-        return []
-
-    return rows
-
-
-def build_states_rows(
-    table: Table,
-    enums: Dict[str, List[str]],
-    states_defns: List[Dict[str, str]],
-) -> List[Dict[str, Any]]:
-    """
-    Build rows for the states table using the CSV values.
-
-    We map:
-      - code/name (or similar synonyms) from the CSV
-      - id and other fields via sample_value(), but in a stable way
-    """
-    rows: List[Dict[str, Any]] = []
-
-    for st in states_defns:
-        code = st["code"]
-        name = st["name"]
-
-        row: Dict[str, Any] = {}
-
+    for idx, row in enumerate(rows):
         for col in table.columns:
-            col_name = col.name
+            if col.name == "id" and is_uuid_col(col):
+                # build a seed that ignores whatever 'id' was there before
+                seed_payload = {k: v for k, v in row.items() if k != "id"}
+                seed = f"{table.name}:{idx}:{json.dumps(seed_payload, sort_keys=True)}"
+                row["id"] = stable_uuid(seed)
 
-            # Map obvious / common patterns
-            if col_name in ("code", "state_code", "abbr", "abbreviation"):
-                row[col_name] = code
-            elif col_name in ("name", "state_name", "full_name"):
-                row[col_name] = name
-            elif col_name == "id" and is_uuid_col(col):
-                # stable UUID per code
-                row[col_name] = stable_uuid(f"states:{code}")
+def patch_fk_all(
+    data: Dict[str, List[Dict[str, Any]]],
+    child_table: str,
+    child_col: str,
+    parent_table: str,
+    parent_col: str = "id",
+) -> None:
+    """
+    Ensure every row in child_table[child_col] points at an existing parent_table[parent_col].
+
+    If the parent table has no rows, we drop the child rows to avoid FK violations.
+    """
+    rows = data.get(child_table) or []
+    parents = data.get(parent_table) or []
+
+    if not rows:
+        return
+
+    # If we have no parents, it's safer to not seed this child table at all
+    if not parents:
+        data[child_table] = []
+        return
+
+    parent_id = parents[0].get(parent_col)
+    if parent_id is None:
+        data[child_table] = []
+        return
+
+    for row in rows:
+        row[child_col] = parent_id
+
+def fix_tutor_out_numeric_fields(data):
+    """Force tutor_out.score and tutor_out.confidence to valid floats."""
+    rows = data.get("tutor_out", [])
+    new_rows = []
+    for row in rows:
+        for col in ("score", "confidence"):
+            v = row.get(col)
+            # if it's already numeric, keep it
+            if isinstance(v, (int, float)):
+                continue
+            # try to parse numeric-looking strings
+            try:
+                row[col] = float(v)
+            except (TypeError, ValueError):
+                # otherwise just give it a dummy float in [0,1)
+                # (or whatever makes sense for you)
+                row[col] = 0.0
+        new_rows.append(row)
+    data["tutor_out"] = new_rows
+
+def patch_numeric_columns(data, table, cols, default=0):
+    rows = data.get(table, [])
+    if not rows:
+        return
+
+    for row in rows:
+        for col in cols:
+            if col not in row:
+                continue
+            v = row[col]
+            # keep ints/floats as-is
+            if isinstance(v, numbers.Number):
+                continue
+            # try to coerce numeric-looking strings
+            if isinstance(v, str):
+                try:
+                    row[col] = int(v)
+                    continue
+                except ValueError:
+                    try:
+                        row[col] = float(v)
+                        continue
+                    except ValueError:
+                        pass
+            # fallback to default
+            row[col] = default
+
+def patch_numeric_fk(data, child_table, child_col, parent_table, parent_col):
+    """
+    Ensure child[child_col] is one of the parent[parent_col].
+    If there are no parents, drop all child rows.
+    """
+    parents = {row[parent_col] for row in data.get(parent_table, []) if parent_col in row}
+    if not parents:
+        # no valid parent rows: drop children so we stay FK-clean
+        data[child_table] = []
+        return
+
+    parent_any = next(iter(parents))
+
+    new_rows = []
+    for row in data.get(child_table, []):
+        if row.get(child_col) not in parents:
+            row[child_col] = parent_any
+        new_rows.append(row)
+    data[child_table] = new_rows
+
+def patch_self_fk(data, table, fk_col):
+    """
+    For a self-referencing FK like standards.parent_id -> standards.id.
+    If fk_col not in the table's own ids, null it out.
+    """
+    rows = data.get(table, [])
+    ids = {row["id"] for row in rows if "id" in row}
+
+    new_rows = []
+    for row in rows:
+        pid = row.get(fk_col)
+        if pid is not None and pid not in ids:
+            # simplest: no parent
+            row[fk_col] = None
+        new_rows.append(row)
+
+    data[table] = new_rows
+
+def fix_payroll_runs_posted_entry(data: Dict[str, List[Dict[str, Any]]]) -> None:
+    """
+    Ensure payroll_runs.posted_entry_id either points at a real journal_entries.id
+    or is set to NULL so it won't violate the FK.
+    """
+    rows = data.get("payroll_runs") or []
+    if not rows:
+        return
+
+    je_ids = {row.get("id") for row in data.get("journal_entries", []) if row.get("id")}
+    # If there are no journal_entries at all, just null out posted_entry_id
+    if not je_ids:
+        for row in rows:
+            row["posted_entry_id"] = None
+        return
+
+    canonical = next(iter(je_ids))
+    for row in rows:
+        if row.get("posted_entry_id") not in je_ids:
+            row["posted_entry_id"] = canonical
+    data["payroll_runs"] = rows
+
+
+def fix_bus_stop_times_times(data: Dict[str, List[Dict[str, Any]]]) -> None:
+    """
+    Ensure bus_stop_times.arrival_time / departure_time are never NULL
+    (even if CSV or synthetic generation left them blank).
+    """
+    rows = data.get("bus_stop_times") or []
+    if not rows:
+        return
+
+    for row in rows:
+        # Treat empty string / None as missing
+        if not row.get("arrival_time"):
+            row["arrival_time"] = "08:00:00"
+        if not row.get("departure_time"):
+            row["departure_time"] = "08:10:00"
+
+    data["bus_stop_times"] = rows
+
+
+
+def fix_bus_stop_times(data: Dict[str, List[Dict[str, Any]]]) -> None:
+    """
+    Ensure bus_stop_times.arrival_time / departure_time are valid, non-null
+    time strings, not 'X-...' or 'Sample ...'.
+    """
+    rows = data.get("bus_stop_times") or []
+    if not rows:
+        return
+
+    for row in rows:
+        at = row.get("arrival_time")
+        dt = row.get("departure_time")
+
+        # Treat missing or sentinel-style strings as invalid
+        if not at or (isinstance(at, str) and at.startswith("X-")):
+            row["arrival_time"] = "08:00:00"
+
+        if not dt or (isinstance(dt, str) and dt.startswith("X-") or dt == f"Sample bus_stop_times departure_time"):
+            row["departure_time"] = "08:10:00"
+
+    data["bus_stop_times"] = rows
+
+
+def fix_bool_fields(data, table, cols, default=False):
+    rows = data.get(table, [])
+    for row in rows:
+        for c in cols:
+            v = row.get(c)
+            if isinstance(v, bool):
+                continue
+            # coerce some common string-y truthy/falsey if you like
+            if isinstance(v, str) and v.lower() in ("true", "t", "yes", "y", "1"):
+                row[c] = True
+            elif isinstance(v, str) and v.lower() in ("false", "f", "no", "n", "0"):
+                row[c] = False
             else:
-                # fall back to generic sample_value for other columns
-                row[col_name] = sample_value(table, col, enums)
+                row[c] = default
 
-        rows.append(row)
+    data[table] = rows
 
-    return rows
 
+def fix_gl_fiscal_fk_cluster(data: Dict[str, List[Dict[str, Any]]]) -> None:
+    """
+    Option B for GL:
+      - Keep the GL demo rows
+      - Realign fiscal_period_id / entry_id to *existing* parents so we never get
+        FK violations like:
+          gl_account_balances.fiscal_period_id -> fiscal_periods.id
+          journal_entries.fiscal_period_id     -> fiscal_periods.id
+          journal_entry_lines.entry_id         -> journal_entries.id
+    """
+    fiscal_periods = data.get("fiscal_periods") or []
+    if not fiscal_periods:
+        # No fiscal periods at all: safest is to drop the GL kids
+        data["gl_account_balances"] = []
+        data["journal_entries"] = []
+        data["journal_entry_lines"] = []
+        return
+
+    valid_period_ids = {row.get("id") for row in fiscal_periods if row.get("id")}
+    if not valid_period_ids:
+        data["gl_account_balances"] = []
+        data["journal_entries"] = []
+        data["journal_entry_lines"] = []
+        return
+
+    canonical_period_id = next(iter(valid_period_ids))
+
+    # 1) Align GL tables' fiscal_period_id
+    for tbl in ("gl_account_balances", "journal_entries"):
+        rows = data.get(tbl) or []
+        if not rows:
+            continue
+        for row in rows:
+            if row.get("fiscal_period_id") not in valid_period_ids:
+                row["fiscal_period_id"] = canonical_period_id
+        data[tbl] = rows
+
+    # 2) Align journal_entry_lines.entry_id with real journal_entries
+    journal_entries = data.get("journal_entries") or []
+    entry_ids = {row.get("id") for row in journal_entries if row.get("id")}
+    if not entry_ids:
+        data["journal_entry_lines"] = []
+        return
+
+    canonical_entry_id = next(iter(entry_ids))
+
+    jel_rows = data.get("journal_entry_lines") or []
+    new_rows = []
+    for row in jel_rows:
+        if row.get("entry_id") not in entry_ids:
+            row["entry_id"] = canonical_entry_id
+        new_rows.append(row)
+    data["journal_entry_lines"] = new_rows
+
+import random  # make sure this import is present near the top
+
+# ...
+
+def patch_work_orders_request_id(data: dict) -> None:
+    """Ensure work_orders.request_id points at a real maintenance_requests.id.
+
+    If we have no maintenance_requests at all, we null out request_id so the FK
+    check passes cleanly.
+    """
+    work_orders = data.get("work_orders") or []
+    maintenance_requests = data.get("maintenance_requests") or []
+
+    if not work_orders:
+        return
+
+    if not maintenance_requests:
+        # No parents → drop the FK so we don't fail FK checks.
+        for row in work_orders:
+            row["request_id"] = None
+        return
+
+    # Collect valid parent IDs
+    mr_ids = [mr["id"] for mr in maintenance_requests if "id" in mr]
+    if not mr_ids:
+        for row in work_orders:
+            row["request_id"] = None
+        return
+
+    # For each work_order, if request_id is missing or invalid, assign a real one
+    for row in work_orders:
+        rid = row.get("request_id")
+        if rid not in mr_ids:
+            row["request_id"] = random.choice(mr_ids)
 
 def build_seed(
     tables: Dict[str, Table],
     fks: List[ForeignKey],
     order: List[str],
     enums: Dict[str, List[str]],
-) -> Dict[str, List[Dict[str, Any]]]:
+) -> Tuple[Dict[str, List[Dict[str, Any]]], Dict[str, Set[str]]]:
+    """
+    Build seed data for all tables, combining:
+      * per-table custom loaders via CUSTOM_TABLE_LOADERS,
+      * generic CSV loaders for any table with a matching file,
+      * and the original sample_value-based synthetic rows.
+
+    Returns:
+      (data, seed_stats) where seed_stats has "csv", "override", "synthetic" sets.
+    """
+    # Map child_table -> list of (child_col, parent_table, parent_col)
     fk_map: Dict[str, List[Any]] = {}
     for fk in fks:
         fk_map.setdefault(fk.child_table, []).append(
@@ -706,19 +1179,25 @@ def build_seed(
 
     # Tables we won't seed at all
     SKIP_TABLES = {
-        #"proposal_standard_map",
-        #"alignments",  # we already decided to skip
-        #"proposal_reviews",  # skip FK headache here too
-        #"work_order_parts",  # NEW: don't seed children of work_orders
-        #"work_order_tasks",  # NEW
-        #"work_order_time_logs"  # NEW
+        # keep your existing skip list here
     }
 
     # FK relationships we do NOT want the patcher to "fix"
     BLOCKED_FKS = {
         ("maintenance_requests", "converted_work_order_id"),
-        # NOTE: work_order_* FKs removed here so they CAN be patched.
+        # keep any others you already had
     }
+
+    # Discover all CSVs once
+    csv_files_by_table = discover_table_csv_files()
+    csv_rows_by_table: Dict[str, List[Dict[str, str]]] = {
+        tname: load_generic_csv_rows(path)
+        for tname, path in csv_files_by_table.items()
+    }
+
+    # Track origin of rows
+    tables_seeded_from_csv: Set[str] = set()       # generic/special CSV (including states)
+    tables_seeded_from_override: Set[str] = set()  # per-table custom loaders
 
     # -----------------------------------------------------------------
     # Initial rows
@@ -729,54 +1208,65 @@ def build_seed(
             continue
 
         t = tables[tname]
+        csv_rows = csv_rows_by_table.get(tname, [])
 
-        # -----------------------------------------------------------------
-        # Special-case: states → populate from CSV
-        # -----------------------------------------------------------------
-        if tname == "states":
-            states_defns = load_states_from_csv()
-            if states_defns:
-                data[tname] = build_states_rows(t, enums, states_defns)
-                continue
-            # If CSV missing/empty, fall through to generic behavior
+        rows: List[Dict[str, Any]]
 
-        row: Dict[str, Any] = {}
+        # 1) Per-table override (e.g. agenda_workflows, addresses, organizations, etc.)
+        loader = CUSTOM_TABLE_LOADERS.get(tname)
+        if loader is not None:
+            rows = loader(t, enums, csv_rows)
+            tables_seeded_from_override.add(tname)
 
-        # Per-table exclusions (e.g. created_at tsvector)
-        excluded_cols = set()
-        if tname in TSVECTOR_CREATED_AT_TABLES:
-            excluded_cols.add("created_at")
+        # 2) Generic CSV → seed rows from CSV data
+        elif csv_rows:
+            rows = build_rows_from_csv(t, csv_rows, enums)
+            tables_seeded_from_csv.add(tname)
 
-        for col in t.columns:
-            # Skip real tsvector cols anywhere
-            if is_tsvector_col(col):
-                continue
+        # 3) Synthetic fallback (old behavior)
+        else:
+            row: Dict[str, Any] = {}
 
-            # Skip known-excluded cols (tsvector created_at, etc.)
-            if col.name in excluded_cols:
-                continue
+            excluded_cols = set()
+            if tname in TSVECTOR_CREATED_AT_TABLES:
+                excluded_cols.add("created_at")
 
-            row[col.name] = sample_value(t, col, enums)
+            for col in t.columns:
+                if is_tsvector_col(col):
+                    continue
+                if col.name in excluded_cols:
+                    continue
+                row[col.name] = sample_value(t, col, enums)
 
-        # Table-specific hacks
-        if tname == "bus_stop_times":
-            row["arrival_time"] = "08:00:00"
-            row["departure_time"] = "08:10:00"
+            # table-specific hacks...
+            if tname == "bus_stop_times":
+                row["arrival_time"] = "08:00:00"
+                row["departure_time"] = "08:10:00"
+            if tname == "maintenance_requests":
+                row["converted_work_order_id"] = None
 
-        if tname == "maintenance_requests":
-            row["converted_work_order_id"] = None
+            rows = [row]
 
-        data[tname] = [row]
+        # 🔑 Ensure IDs are always generated dynamically, ignoring CSV id values
+        normalize_ids_for_table(t, rows)
+
+        data[tname] = rows
 
     # -----------------------------------------------------------------
     # Patch FK references (except the ones we've explicitly blocked)
     # -----------------------------------------------------------------
     for tname in order:
+        # 👉 Do NOT patch tables whose data came from CSV or overrides;
+        #    we assume they already have correct FK values.
+        if tname in tables_seeded_from_csv or tname in tables_seeded_from_override:
+            continue
+
         if tname not in fk_map:
             continue
         if not data.get(tname):
             continue
 
+        # Existing logic: only patch first row
         row = data[tname][0]
         for child_col, parent_table, parent_col in fk_map[tname]:
             if (tname, child_col) in BLOCKED_FKS:
@@ -788,19 +1278,621 @@ def build_seed(
                 row[child_col] = parent_row[parent_col]
 
     # -----------------------------------------------------------------
-    # Special case: asset_parts -> tie to the seeded asset and part
+    # Any additional manual FK patches you already had belong here
     # -----------------------------------------------------------------
-    if data.get("asset_parts"):
-        ap_row = data["asset_parts"][0]
 
-        asset_row = (data.get("assets") or [None])[0]
-        part_row = (data.get("parts") or [None])[0]
+    # -------------------------------
+    # work_order_time_logs – fix numeric fields
+    # -------------------------------
+    # Faker gave us nonsense strings for numeric columns (hours, hourly_rate, cost).
+    # Normalize them to sane numeric values so Postgres numeric columns accept them.
 
-        if asset_row is not None:
-            ap_row["asset_id"] = asset_row["id"]
-        if part_row is not None:
-            ap_row["part_id"] = part_row["id"]
+    for row in data.get("work_order_time_logs", []):
+        # Default hours between 0.5 and 8.0 (or just hard-code if you prefer)
+        try:
+            # If it's already numeric-ish, keep it; otherwise overwrite
+            hours_val = float(row.get("hours", 1.0))
+        except (TypeError, ValueError):
+            hours_val = 1.0
 
+        try:
+            rate_val = float(row.get("hourly_rate", 50.0))
+        except (TypeError, ValueError):
+            rate_val = 50.0
+
+        # Simple cost model; if existing cost isn’t numeric, recompute
+        try:
+            cost_val = float(row.get("cost", hours_val * rate_val))
+        except (TypeError, ValueError):
+            cost_val = hours_val * rate_val
+
+        row["hours"] = hours_val
+        row["hourly_rate"] = rate_val
+        row["cost"] = cost_val
+
+    # -------------------------------
+    # work_order_time_logs – fix user_id FK
+    # -------------------------------
+    # Make sure all work_order_time_logs.user_id values point to real users.
+
+    users = data.get("users", [])
+    valid_user_ids = {u["id"] for u in users}
+
+    if users:
+        # Prefer a maintenance/admin-ish user if one exists, otherwise first user
+        def pick_fallback_user_id() -> str:
+            for u in users:
+                email = (u.get("email") or "").lower()
+                role = (u.get("role") or "").lower()
+                if "maintenance" in email or "maintenance" in role or "admin" in email or "admin" in role:
+                    return u["id"]
+            return users[0]["id"]
+
+        fallback_user_id = pick_fallback_user_id()
+
+        for row in data.get("work_order_time_logs", []):
+            if row.get("user_id") not in valid_user_ids:
+                row["user_id"] = fallback_user_id
+    else:
+        # If there are literally no users, just drop the FK to avoid failures
+        for row in data.get("work_order_time_logs", []):
+            row["user_id"] = None
+
+    # -------------------------------
+    # Organization-scoped tables
+    # -------------------------------
+    patch_fk_all(data, "evaluation_cycles", "org_id", "organizations")
+    patch_fk_all(data, "feature_flags", "org_id", "organizations")
+    patch_fk_all(data, "folders", "org_id", "organizations")
+    patch_fk_all(data, "governing_bodies", "org_id", "organizations")
+    patch_fk_all(data, "plans", "org_id", "organizations")
+    patch_fk_all(data, "policies", "org_id", "organizations")
+    patch_fk_all(data, "schools", "organization_id", "organizations")
+    patch_fk_all(data, "committees", "organization_id", "organizations")
+    patch_fk_all(data, "channels", "org_id", "organizations")
+
+    # -------------------------------
+    # Sports / activities
+    # -------------------------------
+    patch_fk_all(data, "teams", "season_id", "seasons")
+
+    # -------------------------------
+    # Student-related (sessions)
+    # -------------------------------
+    patch_fk_all(data, "sessions", "student_id", "students")
+    # Student health / services / enrollment / finance
+    patch_fk_all(data, "medication_administrations", "student_id", "students")
+    patch_fk_all(data, "nurse_visits", "student_id", "students")
+    patch_fk_all(data, "section504_plans", "student_id", "students")
+    patch_fk_all(data, "special_education_cases", "student_id", "students")
+    patch_fk_all(data, "student_program_enrollments", "student_id", "students")
+    patch_fk_all(data, "student_school_enrollments", "student_id", "students")
+    patch_fk_all(data, "waivers", "student_id", "students")
+
+    # -------------------------------
+    # User-scoped / user-related tables
+    # -------------------------------
+    patch_fk_all(data, "files", "created_by", "users")
+    patch_fk_all(data, "notifications", "user_id", "users")
+    patch_fk_all(data, "personal_notes", "user_id", "users")
+    patch_fk_all(data, "deliveries", "user_id", "users")
+    patch_fk_all(data, "evaluation_signoffs", "signer_id", "users")
+    patch_fk_all(data, "policy_comments", "user_id", "users")
+
+    # Role / auth / accounts
+    patch_fk_all(data, "role_permissions", "permission_id", "permissions")
+    patch_fk_all(data, "audit_logs", "actor_id", "user_accounts")
+    patch_fk_all(data, "messages", "sender_id", "user_accounts")
+
+    # Posts / evaluations / policies → users
+    patch_fk_all(data, "posts", "author_id", "users")
+    patch_fk_all(data, "evaluation_assignments", "subject_user_id", "users")
+    patch_fk_all(data, "evaluation_assignments", "evaluator_user_id", "users")
+    patch_fk_all(data, "policy_versions", "created_by", "users")
+
+    # Courses → Users (owner/teacher)
+    patch_fk_all(data, "courses", "user_id", "users")
+
+    # -------------------------------
+    # Files / attachments
+    # -------------------------------
+    patch_fk_all(data, "evaluation_reports", "file_id", "files")
+    patch_fk_all(data, "post_attachments", "file_id", "files")
+    patch_fk_all(data, "evaluation_files", "file_id", "files")
+    patch_fk_all(data, "policy_files", "file_id", "files")
+    patch_fk_all(data, "agenda_item_files", "file_id", "files")
+    patch_fk_all(data, "meeting_files", "file_id", "files")
+
+    # -------------------------------
+    # Finance / accounting
+    # -------------------------------
+    patch_fk_all(data, "journal_entry_lines", "entry_id", "journal_entries")
+    patch_fk_all(data, "payroll_runs", "pay_period_id", "pay_periods")
+
+    patch_fk_all(data, "gl_account_balances", "account_id", "gl_accounts")
+    patch_fk_all(data, "gl_account_balances", "fiscal_period_id", "fiscal_periods")
+    patch_fk_all(data, "journal_entries", "fiscal_period_id", "fiscal_periods")
+
+    patch_fk_all(data, "gl_account_segments", "segment_id", "gl_segments")
+    patch_fk_all(data, "gl_account_segments", "value_id", "gl_segment_values")
+    patch_fk_all(data, "gl_segment_values", "segment_id", "gl_segments")
+
+    # HR / staffing – tie employees to GL department segment
+    patch_fk_all(data, "hr_employees", "department_segment_id", "gl_segments")
+    patch_fk_all(data, "hr_positions", "department_segment_id", "gl_segments")
+
+    patch_fk_all(data, "gl_segments", "org_id", "organizations")
+
+    # --- Payroll / HR demo relationships ---
+    patch_fk_all(data, "payroll_runs", "posted_entry_id", "journal_entries")
+    patch_fk_all(data, "payroll_runs", "created_by_user_id", "users")
+
+    patch_fk_all(data, "employee_deductions", "employee_id", "hr_employees")
+    patch_fk_all(data, "employee_deductions", "deduction_code_id", "deduction_codes")
+
+    patch_fk_all(data, "employee_earnings", "employee_id", "hr_employees")
+    patch_fk_all(data, "employee_earnings", "earning_code_id", "earning_codes")
+
+    patch_fk_all(data, "paychecks", "employee_id", "hr_employees")
+
+    # --- Messaging ---
+    patch_fk_all(data, "message_recipients", "message_id", "messages")
+    patch_fk_all(data, "message_recipients", "person_id", "persons")
+
+    # --- SIS guardians / family portal ---
+    patch_fk_all(data, "family_portal_access", "student_id", "students")
+    patch_fk_all(data, "student_guardians", "student_id", "students")
+
+    # --- Strategic initiatives / owners ---
+    patch_fk_all(data, "initiatives", "owner_id", "users")
+
+    # --- Policy workflow ---
+    patch_fk_all(data, "policy_approvals", "step_id", "policy_workflow_steps")
+    patch_fk_all(data, "policy_approvals", "approver_id", "users")
+
+    # --- Orders / ecommerce ---
+    patch_fk_all(data, "orders", "purchaser_user_id", "users")
+
+    # --- Student transportation ---
+    patch_fk_all(data, "student_transportation_assignments", "student_id", "students")
+
+    # --- Event staffing ---
+    patch_fk_all(data, "work_assignments", "worker_id", "workers")
+
+    # -------------------------------
+    # Evaluations
+    # -------------------------------
+    patch_fk_all(data, "evaluation_responses", "question_id", "evaluation_questions")
+
+    # -------------------------------
+    # Work orders cluster
+    # -------------------------------
+    patch_fk_all(data, "work_orders", "school_id", "schools")
+    patch_fk_all(data, "work_orders", "building_id", "buildings")
+    patch_fk_all(data, "work_orders", "space_id", "spaces")
+    patch_fk_all(data, "work_orders", "asset_id", "assets")
+    patch_fk_all(data, "work_orders", "request_id", "maintenance_requests")
+    patch_fk_all(data, "work_orders", "assigned_to_user_id", "users")
+
+    patch_fk_all(data, "work_order_tasks", "work_order_id", "work_orders")
+    patch_fk_all(data, "work_order_time_logs", "work_order_id", "work_orders")
+    patch_fk_all(data, "work_order_parts", "work_order_id", "work_orders")
+
+    # -------------------------------
+    # Assets / parts
+    # -------------------------------
+    # Make sure assets themselves have valid parents
+    patch_fk_all(data, "assets", "building_id", "buildings")
+    patch_fk_all(data, "assets", "space_id", "spaces")
+    patch_self_fk(data, "assets", "parent_asset_id")
+
+    # Children that reference assets
+    patch_fk_all(data, "asset_parts", "asset_id", "assets")
+    patch_fk_all(data, "asset_parts", "part_id", "parts")
+
+    patch_fk_all(data, "compliance_records", "asset_id", "assets")
+    patch_fk_all(data, "meters", "asset_id", "assets")
+    patch_fk_all(data, "pm_plans", "asset_id", "assets")
+    patch_fk_all(data, "warranties", "asset_id", "assets")
+    patch_fk_all(data, "warranties", "vendor_id", "vendors")
+
+    # ==========================
+    # Payroll / journal entries
+    # ==========================
+    patch_fk_all(data, "payroll_runs", "posted_entry_id", "journal_entries")
+    patch_fk_all(data, "payroll_runs", "created_by_user_id", "users")
+
+    # ==========================
+    # Academic / student-linked
+    # ==========================
+    patch_fk_all(data, "class_ranks", "student_id", "students")
+    patch_fk_all(data, "gpa_calculations", "student_id", "students")
+    patch_fk_all(data, "test_results", "student_id", "students")
+    patch_fk_all(data, "test_results", "administration_id", "test_administrations")
+
+    # ==========================
+    # Governance / committees
+    # ==========================
+    patch_fk_all(data, "meetings", "committee_id", "committees")
+    patch_fk_all(data, "memberships", "committee_id", "committees")
+
+    # ==========================
+    # Person-centric tables
+    # ==========================
+    patch_fk_all(data, "memberships", "person_id", "persons")
+    patch_fk_all(data, "incident_participants", "person_id", "persons")
+    patch_fk_all(data, "library_checkouts", "person_id", "persons")
+    patch_fk_all(data, "library_holds", "person_id", "persons")
+
+    # ==========================
+    # HR / positions
+    # ==========================
+    patch_fk_all(data, "hr_position_assignments", "employee_id", "hr_employees")
+
+    # ==========================
+    # Projects / tasks
+    # ==========================
+    patch_fk_all(data, "project_tasks", "assignee_user_id", "users")
+
+    # ==========================
+    # AR / payments
+    # ==========================
+    patch_fk_all(data, "payments", "invoice_id", "invoices")
+
+    # ==========================
+    # Tutoring / Turn In
+    # ==========================
+    patch_fk_all(data, "turn_in", "session_id", "sessions")
+
+    # -------------------------------
+    # Meetings cluster
+    # -------------------------------
+    patch_fk_all(data, "meeting_publications", "meeting_id", "meetings")
+    patch_fk_all(data, "meeting_search_index", "meeting_id", "meetings")
+    patch_fk_all(data, "minutes", "meeting_id", "meetings")
+    patch_fk_all(data, "publications", "meeting_id", "meetings")
+    patch_fk_all(data, "resolutions", "meeting_id", "meetings")
+
+    # Attendance / permissions / authors → users
+    patch_fk_all(data, "attendance", "user_id", "users")
+    patch_fk_all(data, "meeting_permissions", "user_id", "users")
+    patch_fk_all(data, "minutes", "author_id", "users")
+
+    # Governance / meetings
+    patch_fk_all(data, "meetings", "org_id", "organizations")
+    patch_fk_all(data, "memberships", "committee_id", "committees")
+
+    # -------------------------------
+    # Behavior / discipline cluster
+    # -------------------------------
+    patch_fk_all(data, "consequences", "participant_id", "incident_participants")
+    patch_fk_all(data, "consequences", "incident_id", "incidents")
+
+    # -------------------------------
+    # Student supports (ELL / health / behavior / finance)
+    # -------------------------------
+    patch_fk_all(data, "attendance_daily_summary", "student_id", "students")
+    patch_fk_all(data, "behavior_interventions", "student_id", "students")
+    patch_fk_all(data, "ell_plans", "student_id", "students")
+    patch_fk_all(data, "health_profiles", "student_id", "students")
+    patch_fk_all(data, "immunization_records", "student_id", "students")
+    patch_fk_all(data, "immunization_records", "immunization_id", "immunizations")
+    patch_fk_all(data, "invoices", "student_id", "students")
+    patch_fk_all(data, "meal_accounts", "student_id", "students")
+    patch_fk_all(data, "meal_eligibility_statuses", "student_id", "students")
+
+    # Payroll runs creator user
+    patch_fk_all(data, "payroll_runs", "created_by_user_id", "users")
+
+    # -------------------------------
+    # Accommodations / IEP
+    # -------------------------------
+    patch_fk_all(data, "accommodations", "iep_plan_id", "iep_plans")
+
+    # -------------------------------
+    # Ticketing / orders
+    # -------------------------------
+    patch_fk_all(data, "order_line_items", "order_id", "orders")
+    patch_fk_all(data, "order_line_items", "ticket_type_id", "ticket_types")
+
+    patch_fk_all(data, "tickets", "order_id", "orders")
+    patch_fk_all(data, "scan_results", "ticket_id", "tickets")
+    patch_fk_all(data, "ticket_scans", "ticket_id", "tickets")
+    patch_fk_all(data, "ticket_scans", "scanned_by_user_id", "users")
+
+    # -------------------------------
+    # Standards: framework_id + parent_id
+    # -------------------------------
+    patch_fk_all(data, "standards", "framework_id", "frameworks")
+    patch_self_fk(data, "standards", "parent_id")
+
+    # -------------------------------
+    # Person-scoped tables
+    # -------------------------------
+    fix_bool_fields(data, "person_addresses", ["is_primary"], default=True)
+    fix_bool_fields(data, "person_contacts", ["is_primary", "is_emergency"], default=False)
+
+    patch_fk_all(data, "consents", "person_id", "persons")
+    patch_fk_all(data, "emergency_contacts", "person_id", "persons")
+    patch_fk_all(data, "library_fines", "person_id", "persons")
+
+    patch_fk_all(data, "person_addresses", "person_id", "persons")
+    patch_fk_all(data, "person_addresses", "address_id", "addresses")
+
+    patch_fk_all(data, "person_contacts", "person_id", "persons")
+    patch_fk_all(data, "person_contacts", "contact_id", "contacts")
+
+    patch_fk_all(data, "students", "person_id", "persons")
+    patch_fk_all(data, "user_accounts", "person_id", "persons")
+    patch_fk_all(data, "hr_employees", "person_id", "persons")
+
+    # -------------------------------
+    # Agenda items / workflows
+    # -------------------------------
+    patch_fk_all(data, "agenda_item_approvals", "step_id", "agenda_workflow_steps")
+    patch_fk_all(data, "agenda_item_approvals", "item_id", "agenda_items")
+    patch_fk_all(data, "agenda_item_approvals", "approver_id", "users")
+
+    patch_fk_all(data, "agenda_item_files", "agenda_item_id", "agenda_items")
+
+    patch_fk_all(data, "motions", "agenda_item_id", "agenda_items")
+    patch_fk_all(data, "motions", "moved_by_id", "users")
+    patch_fk_all(data, "motions", "seconded_by_id", "users")
+
+    patch_fk_all(data, "votes", "motion_id", "motions")
+    patch_fk_all(data, "votes", "voter_id", "users")
+
+    # -------------------------------
+    # Courses / sections / transcripts
+    # -------------------------------
+    patch_fk_all(data, "course_prerequisites", "course_id", "courses")
+    patch_fk_all(data, "course_prerequisites", "prereq_course_id", "courses")
+
+    patch_fk_all(data, "course_sections", "course_id", "courses")
+    patch_fk_all(data, "course_sections", "term_id", "academic_terms")
+
+    patch_fk_all(data, "transcript_lines", "course_id", "courses")
+
+    patch_fk_all(data, "assignment_categories", "section_id", "course_sections")
+    patch_fk_all(data, "final_grades", "section_id", "course_sections")
+
+    # Section-based tables should all point at an existing course_section
+    patch_fk_all(data, "assignment_categories", "section_id", "course_sections")
+    patch_fk_all(data, "final_grades", "section_id", "course_sections")
+    patch_fk_all(data, "section_meetings", "section_id", "course_sections")
+    patch_fk_all(data, "section_meetings", "period_id", "periods")
+    patch_fk_all(data, "section_room_assignments", "section_id", "course_sections")
+    patch_fk_all(data, "teacher_section_assignments", "section_id", "course_sections")
+    patch_fk_all(data, "student_section_enrollments", "section_id", "course_sections")
+
+    # student_section_enrollments must reference real students too
+    patch_fk_all(data, "student_section_enrollments", "student_id", "students")
+
+    patch_fk_all(data, "transcript_lines", "student_id", "students")
+    patch_fk_all(data, "transcript_lines", "term_id", "academic_terms")
+    patch_fk_all(data, "final_grades", "student_id", "students")
+    patch_fk_all(data, "final_grades", "grading_period_id", "grading_periods")
+
+    # Grading / GPA / ranks / report cards
+    patch_fk_all(data, "class_ranks", "term_id", "academic_terms")
+
+    patch_fk_all(data, "gpa_calculations", "student_id", "students")
+    patch_fk_all(data, "gpa_calculations", "term_id", "academic_terms")
+
+    patch_fk_all(data, "grading_periods", "term_id", "academic_terms")
+
+    # Gradebook / assignments
+    patch_fk_all(data, "gradebook_entries", "student_id", "students")
+    patch_fk_all(data, "gradebook_entries", "assignment_id", "assignments")
+
+
+    patch_fk_all(data, "report_cards", "student_id", "students")
+    patch_fk_all(data, "report_cards", "term_id", "academic_terms")
+
+    # -------------------------------
+    # Tutor topics
+    # -------------------------------
+    patch_fk_all(data, "topics", "user_id", "users")
+    patch_fk_all(data, "topics", "course_id", "courses")
+
+    # -------------------------------
+    # Facilities / spaces
+    # -------------------------------
+    patch_fk_all(data, "spaces", "floor_id", "floors")
+    patch_fk_all(data, "spaces", "building_id", "buildings")
+
+    # -------------------------------
+    # Maintenance requests / work orders
+    # -------------------------------
+    patch_fk_all(data, "maintenance_requests", "space_id", "spaces")
+    patch_fk_all(data, "maintenance_requests", "building_id", "buildings")
+    patch_fk_all(data, "maintenance_requests", "school_id", "schools")
+    patch_fk_all(data, "maintenance_requests", "asset_id", "assets")
+    patch_fk_all(data, "maintenance_requests", "submitted_by_user_id", "users")
+
+    # Make sure converted_work_order_id only points at real work_orders
+    #patch_fk_all(data, "maintenance_requests", "converted_work_order_id", "work_orders")
+
+    # -------------------------------
+    # Maintenance requests / work orders – break cyclic FKs in seed
+    # -------------------------------
+    # We don't want seed data to enforce the two-way relationship
+    # between maintenance_requests and work_orders, because the
+    # random UUIDs and load order cause FK problems.
+
+    # 1) Nuke maintenance_requests.converted_work_order_id
+    for row in data.get("maintenance_requests", []):
+        # Regardless of what's in the source, don't link to work_orders
+        row["converted_work_order_id"] = None
+
+    # 2) Nuke work_orders.request_id
+    for row in data.get("work_orders", []):
+        # Avoid FK to maintenance_requests and the uq_work_orders_request_id constraint
+        row["request_id"] = None
+
+
+    # Extra safety: if anything slipped through, null out bad converted_work_order_id values
+    valid_work_order_ids = {row["id"] for row in data.get("work_orders", [])}
+    for row in data.get("maintenance_requests", []):
+        cid = row.get("converted_work_order_id")
+        if cid and cid not in valid_work_order_ids:
+            row["converted_work_order_id"] = None
+
+    # -------------------------------
+    # Curriculum versions / standards / reviews
+    # -------------------------------
+    patch_fk_all(data, "alignments", "curriculum_version_id", "curriculum_versions")
+    patch_fk_all(data, "alignments", "requirement_id", "requirements")
+
+    patch_fk_all(data, "review_requests", "curriculum_version_id", "curriculum_versions")
+    patch_fk_all(data, "review_requests", "association_id", "education_associations")
+
+    patch_fk_all(data, "unit_standard_map", "unit_id", "curriculum_units")
+    patch_fk_all(data, "unit_standard_map", "standard_id", "standards")
+
+    patch_fk_all(data, "proposal_standard_map", "proposal_id", "proposals")
+    patch_fk_all(data, "proposal_standard_map", "standard_id", "standards")
+
+    patch_fk_all(data, "proposals", "course_id", "courses")
+    patch_fk_all(data, "proposals", "curriculum_id", "curricula")
+    patch_fk_all(data, "proposals", "organization_id", "organizations")
+    patch_fk_all(data, "proposals", "association_id", "education_associations")
+    patch_fk_all(data, "proposals", "committee_id", "committees")
+    patch_fk_all(data, "proposals", "submitted_by_id", "users")
+    patch_fk_all(data, "proposals", "school_id", "schools")
+    patch_fk_all(data, "proposals", "subject_id", "subjects")
+
+    patch_fk_all(data, "proposal_reviews", "proposal_id", "proposals")
+    patch_fk_all(data, "proposal_reviews", "review_round_id", "review_rounds")
+    # 🔹 Reviewer is a PERSON here
+    patch_fk_all(data, "proposal_reviews", "reviewer_id", "persons")
+
+    patch_fk_all(data, "reviews", "review_round_id", "review_rounds")
+    patch_fk_all(data, "reviews", "reviewer_id", "reviewers")
+
+    patch_fk_all(data, "round_decisions", "review_round_id", "review_rounds")
+
+    # Curricula itself must point at real orgs / proposals
+    patch_fk_all(data, "curricula", "organization_id", "organizations")
+    patch_fk_all(data, "curricula", "proposal_id", "proposals")
+
+
+    # -------------------------------
+    # Documents / activity / versions
+    # -------------------------------
+    patch_fk_all(data, "document_activity", "actor_id", "users")
+    patch_fk_all(data, "document_activity", "document_id", "documents")
+
+    patch_fk_all(data, "document_notifications", "user_id", "users")
+    patch_fk_all(data, "document_notifications", "document_id", "documents")
+
+    patch_fk_all(data, "document_versions", "document_id", "documents")
+    patch_fk_all(data, "document_versions", "file_id", "files")
+    patch_fk_all(data, "document_versions", "created_by", "users")
+
+    # -------------------------------
+    # Space / asset usage & logistics
+    # -------------------------------
+    patch_fk_all(data, "move_orders", "project_id", "projects")
+    patch_fk_all(data, "move_orders", "person_id", "users")
+    patch_fk_all(data, "move_orders", "from_space_id", "spaces")
+    patch_fk_all(data, "move_orders", "to_space_id", "spaces")
+
+    patch_fk_all(data, "part_locations", "part_id", "parts")
+    patch_fk_all(data, "part_locations", "building_id", "buildings")
+    patch_fk_all(data, "part_locations", "space_id", "spaces")
+
+    patch_fk_all(data, "space_reservations", "space_id", "spaces")
+    patch_fk_all(data, "space_reservations", "booked_by_user_id", "users")
+
+    # -------------------------------
+    # Coursework / assignments / attendance_events
+    # -------------------------------
+    patch_fk_all(data, "assignments", "section_id", "course_sections")
+    patch_fk_all(data, "assignments", "category_id", "assignment_categories")
+
+    patch_fk_all(data, "attendance_events", "student_id", "students")
+    patch_fk_all(data, "attendance_events", "section_meeting_id", "section_meetings")
+    patch_fk_all(data, "attendance_events", "code", "attendance_codes")
+
+    # -------------------------------
+    # Student submissions: enum mismatch
+    # -------------------------------
+    # The DB enum submission_state does not accept our generated values
+    # (e.g. "submitted"), and we can't see the allowed labels here.
+    # For now, drop all demo rows so seeding doesn't fail.
+    if "student_submissions" in data:
+        data["student_submissions"] = []
+
+    # -------------------------------
+    # Fiscal years / periods (numeric)
+    # -------------------------------
+    patch_numeric_fk(
+        data,
+        child_table="fiscal_periods",
+        child_col="year_number",
+        parent_table="fiscal_years",
+        parent_col="year_number",
+    )
+
+    # Normalize numeric cost fields in work_orders
+    patch_numeric_columns(
+        data,
+        "work_orders",
+        ["materials_cost", "labor_cost", "other_cost"],
+        default=0,
+    )
+
+    # 1) Make sure work_orders.request_id points at existing maintenance_requests.id,
+    #    without violating the unique constraint uq_work_orders_request_id.
+    maintenance_requests = data.get("maintenance_requests", [])
+    work_orders = data.get("work_orders", [])
+
+    if maintenance_requests and work_orders:
+        # All valid maintenance request IDs
+        valid_mr_ids = [
+            row["id"] for row in maintenance_requests
+            if row.get("id")
+        ]
+        valid_mr_ids_set = set(valid_mr_ids)
+        print(f"[seed] maintenance_requests ids: {valid_mr_ids_set}")
+
+        used_mr_ids = set()
+        needing_request: list[dict] = []
+
+        # Pass 1: keep at most one work_order per maintenance_request;
+        # clear invalid or duplicate request_ids.
+        for wo in work_orders:
+            rid = wo.get("request_id")
+            if rid in valid_mr_ids_set and rid not in used_mr_ids:
+                # First time we've seen this MR id: keep it
+                used_mr_ids.add(rid)
+            else:
+                # Either invalid or duplicate -> clear and mark for reassignment
+                if "request_id" in wo:
+                    wo["request_id"] = None
+                needing_request.append(wo)
+
+        # Pass 2: assign any still-unused maintenance_requests.id values to
+        # work_orders that need one, at most one per work_order.
+        available_mr_ids = [
+            mr_id for mr_id in valid_mr_ids
+            if mr_id not in used_mr_ids
+        ]
+
+        for wo, mr_id in zip(needing_request, available_mr_ids):
+            wo["request_id"] = mr_id
+
+        # Any remaining work_orders in needing_request will keep request_id=NULL,
+        # which is valid under uq_work_orders_request_id.
+
+    # 🔎 Option B: realign GL demo rows to valid fiscal periods / entries
+    fix_gl_fiscal_fk_cluster(data)
+
+
+    # Final cleanup / safety passes
+    fix_bus_stop_times_times(data)
+    fix_tutor_out_numeric_fields(data)
 
     # -----------------------------------------------------------------
     # Final safety scrub: ensure no created_at leaked into tsvector tables
@@ -810,10 +1902,72 @@ def build_seed(
             for row in data[tname]:
                 row.pop("created_at", None)
 
-    return data
+
+    # -----------------------------------------------------------------
+    # Final hard overrides for known troublemakers
+    # -----------------------------------------------------------------
+
+    # 1) payroll_runs.posted_entry_id → always FK-safe
+    pr_rows = data.get("payroll_runs") or []
+    if pr_rows:
+        journal_entries = data.get("journal_entries") or []
+        # If we have at least one journal_entry, point at it.
+        # Otherwise leave posted_entry_id as NULL to satisfy the FK.
+        je_id = journal_entries[0].get("id") if journal_entries else None
+        for row in pr_rows:
+            row["posted_entry_id"] = je_id
+        data["payroll_runs"] = pr_rows
+
+    # -------------------------------
+    # work_order_parts – fix numeric fields
+    # -------------------------------
+
+    wop_rows = data.get("work_order_parts", [])
+
+    for row in wop_rows:
+        # qty: at least 1, integer
+        qty_dec = to_decimal(row.get("qty"), default=1)
+        if qty_dec <= 0:
+            qty_dec = Decimal(1)
+        row["qty"] = int(qty_dec)
+
+        # unit_cost: default to something reasonable like $25
+        unit_cost_dec = to_decimal(row.get("unit_cost"), default=25)
+        if unit_cost_dec < 0:
+            unit_cost_dec = abs(unit_cost_dec)
+        row["unit_cost"] = float(unit_cost_dec)
+
+        # extended_cost: if invalid or <=0, compute qty * unit_cost
+        ext_dec = to_decimal(row.get("extended_cost"), default=0)
+        if ext_dec <= 0:
+            ext_dec = qty_dec * unit_cost_dec
+        row["extended_cost"] = float(ext_dec)
+
+    # -----------------------------------------------------------------
+    # Build seed_stats for reporting
+    # -----------------------------------------------------------------
+    all_table_names: Set[str] = set(tables.keys())
+    synthetic_tables: Set[str] = (
+        all_table_names - tables_seeded_from_csv - tables_seeded_from_override
+    )
+
+    seed_stats: Dict[str, Set[str]] = {
+        "csv": tables_seeded_from_csv,
+        "override": tables_seeded_from_override,
+        "synthetic": synthetic_tables,
+    }
+
+    # 🔧 Fix any weird/sentinel values in bus_stop_times
+    fix_bus_stop_times(data)
+
+    fix_tutor_out_numeric_fields(data)
 
 
-def ensure_parent_before_child(order: list[str], parent: str, child: str) -> None:
+    return data, seed_stats
+
+
+
+def ensure_parent_before_child(order: List[str], parent: str, child: str) -> None:
     """
     If `child` appears before `parent` in the list, move `child`
     to immediately after `parent`. Operates in-place.
@@ -829,9 +1983,7 @@ def ensure_parent_before_child(order: list[str], parent: str, child: str) -> Non
         pi = order.index(parent)
         order.insert(pi + 1, child)
 
-# ---------------------------------------------------------------------
-# Main Entry
-# ---------------------------------------------------------------------
+
 # ---------------------------------------------------------------------
 # Main Entry
 # ---------------------------------------------------------------------
@@ -847,9 +1999,8 @@ def main():
     # Add known FKs that DBML doesn't express clearly
     fks.extend(EXTRA_FKS)
 
-    # Correct call: only two arguments
     order = compute_insert_order(tables, fks)
-    data = build_seed(tables, fks, order, enums)
+    data, seed_stats = build_seed(tables, fks, order, enums)
 
     # --- manual fixes for cyclic clusters ---
     ensure_parent_before_child(order, "assets", "asset_parts")
@@ -861,6 +2012,62 @@ def main():
     ensure_parent_before_child(order, "work_orders", "work_order_tasks")
     ensure_parent_before_child(order, "work_orders", "work_order_time_logs")
 
+    # ✅ GL / finance cluster
+    ensure_parent_before_child(order, "fiscal_periods", "gl_account_balances")
+    ensure_parent_before_child(order, "fiscal_periods", "journal_entries")
+    ensure_parent_before_child(order, "journal_entries", "journal_entry_lines")
+
+    # Payroll / journal cluster
+    ensure_parent_before_child(order, "journal_entries", "payroll_runs")
+
+    # Students before student-linked tables
+    ensure_parent_before_child(order, "students", "class_ranks")
+    ensure_parent_before_child(order, "students", "gpa_calculations")
+    ensure_parent_before_child(order, "students", "test_results")
+    ensure_parent_before_child(order, "test_administrations", "test_results")
+
+    # Governance / committees & memberships
+    ensure_parent_before_child(order, "committees", "meetings")
+    ensure_parent_before_child(order, "committees", "memberships")
+
+    # Persons before all the person-based tables
+    ensure_parent_before_child(order, "persons", "memberships")
+    ensure_parent_before_child(order, "persons", "incident_participants")
+    ensure_parent_before_child(order, "persons", "library_checkouts")
+    ensure_parent_before_child(order, "persons", "library_holds")
+
+    # HR cluster
+    ensure_parent_before_child(order, "hr_employees", "hr_position_assignments")
+
+    # Projects & tasks
+    ensure_parent_before_child(order, "projects", "project_tasks")
+    ensure_parent_before_child(order, "users", "project_tasks")
+
+    # Invoices / payments
+    ensure_parent_before_child(order, "invoices", "payments")
+
+    # Sessions / Turn In
+    ensure_parent_before_child(order, "sessions", "turn_in")
+
+    # ✅ GL segments / HR
+    ensure_parent_before_child(order, "gl_segments", "hr_employees")
+
+    # ✅ Students before all student-support tables
+    ensure_parent_before_child(order, "students", "medication_administrations")
+    ensure_parent_before_child(order, "students", "nurse_visits")
+    ensure_parent_before_child(order, "students", "section504_plans")
+    ensure_parent_before_child(order, "students", "special_education_cases")
+    ensure_parent_before_child(order, "students", "student_program_enrollments")
+    ensure_parent_before_child(order, "students", "student_school_enrollments")
+    ensure_parent_before_child(order, "students", "waivers")
+
+    # ✅ Academic terms before term-based tables
+    ensure_parent_before_child(order, "academic_terms", "class_ranks")
+    ensure_parent_before_child(order, "academic_terms", "gpa_calculations")
+    ensure_parent_before_child(order, "academic_terms", "grading_periods")
+
+    # ✅ Users before payroll_runs
+    ensure_parent_before_child(order, "users", "payroll_runs")
 
     payload = {"insert_order": order, "data": data}
 
@@ -870,6 +2077,25 @@ def main():
     print(f"✔️ Seed file generated:\n{OUT_JSON_PATH}")
     print(f"✔️ Tables: {len(order)}")
     print(f"✔️ Enums detected: {sorted(enums.keys())}")
+
+    # Seeding summary: CSV vs overrides vs synthetic
+    csv_tables = sorted(seed_stats["csv"])
+    override_tables = sorted(seed_stats["override"])
+    synthetic_tables = sorted(seed_stats["synthetic"])
+
+    print("✔️ Seeding summary:")
+    print(
+        f"  CSV tables ({len(csv_tables)}): "
+        f"{', '.join(csv_tables) if csv_tables else '-'}"
+    )
+    print(
+        f"  Override tables ({len(override_tables)}): "
+        f"{', '.join(override_tables) if override_tables else '-'}"
+    )
+    print(
+        f"  Synthetic tables ({len(synthetic_tables)}): "
+        f"{', '.join(synthetic_tables) if synthetic_tables else '-'}"
+    )
 
 
 if __name__ == "__main__":

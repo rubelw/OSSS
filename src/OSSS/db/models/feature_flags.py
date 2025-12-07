@@ -42,6 +42,6 @@ class FeatureFlag(Base):
 
     id: Mapped[str] = mapped_column(GUID(), primary_key=True, server_default=text("gen_random_uuid()"))
 
-    org_id: Mapped[str] = mapped_column(GUID(), sa.ForeignKey("mentors.id", ondelete="CASCADE"), nullable=False, index=True)
+    org_id: Mapped[str] = mapped_column(GUID(), sa.ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
     key:    Mapped[str] = mapped_column(sa.String(64), nullable=False)
     enabled: Mapped[bool] = mapped_column(sa.Text, nullable=False, server_default=text("0"))

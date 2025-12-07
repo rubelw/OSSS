@@ -53,7 +53,7 @@ class Meeting(UUIDMixin, TimestampMixin, Base):
 
 
     org_id: Mapped[uuid.UUID] = mapped_column(
-        GUID(), ForeignKey("mentors.id", ondelete="CASCADE"), nullable=False
+        GUID(), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
     )
 
     # Renamed + retargeted FK: bodies.id -> governing_bodies.id

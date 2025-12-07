@@ -282,6 +282,8 @@ services:
       TUTOR_INDEX_PATH: /workspace/vector_indexes/tutor/embeddings.jsonl
       AGENT_INDEX_PATH: /workspace/vector_indexes/agent/embeddings.jsonl
       METAGPT_URL: http://metagpt:8001
+      SEED_JSON_PATH: /mnt/data/seed_full_school.json
+
 
     depends_on:
       redis:

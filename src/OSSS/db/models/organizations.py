@@ -12,12 +12,15 @@ from OSSS.db.base import Base, UUIDMixin, GUID, JSONB, TimestampMixin
 
 
 class Organization(UUIDMixin, TimestampMixin, Base):
-    __tablename__ = "mentors"
-    __allow_unmapped__ = True  # keep NOTE out of the SQLAlchemy mapper
+    __tablename__ = "organizations"   # <-- change this
 
-    NOTE: ClassVar[str] =     (
+    __allow_unmapped__ = True
+
+    # NOTE / __table_args__ can stay the same, but you probably
+    # want to update the wording from "mentors" -> "organizations"
+    NOTE: ClassVar[str] = (
         "owner=division_of_technology_data; "
-        "description=Stores mentors records for the application. "
+        "description=Stores organizations records for the application. "
         "Key attributes include name, code. "
         "Includes standard audit timestamps (created_at, updated_at). "
         "5 column(s) defined. "
@@ -25,8 +28,8 @@ class Organization(UUIDMixin, TimestampMixin, Base):
     )
 
     __table_args__ = {
-        "comment":         (
-            "Stores mentors records for the application. "
+        "comment": (
+            "Stores organizations records for the application. "
             "Key attributes include name, code. "
             "Includes standard audit timestamps (created_at, updated_at). "
             "5 column(s) defined. "
@@ -34,21 +37,19 @@ class Organization(UUIDMixin, TimestampMixin, Base):
         ),
         "info": {
             "note": NOTE,
-            "description":         (
-            "Stores mentors records for the application. "
-            "Key attributes include name, code. "
-            "Includes standard audit timestamps (created_at, updated_at). "
-            "5 column(s) defined. "
-            "Primary key is `id`."
-        ),
+            "description": (
+                "Stores organizations records for the application. "
+                "Key attributes include name, code. "
+                "Includes standard audit timestamps (created_at, updated_at). "
+                "5 column(s) defined. "
+                "Primary key is `id`."
+            ),
         },
     }
-
 
     name: Mapped[str] = mapped_column(sa.String(255), unique=True, nullable=False)
     code: Mapped[Optional[str]] = mapped_column(sa.Text, unique=True)
 
-    # Renamed: bodies -> governing_bodies
     governing_bodies: Mapped[List["GoverningBody"]] = relationship(
         "GoverningBody",
         back_populates="organization",
@@ -56,18 +57,9 @@ class Organization(UUIDMixin, TimestampMixin, Base):
         lazy="selectin",
     )
 
-    # Optional: temporary backwards-compat alias (read-only) to avoid breaking callers.
-    # Remove once all references are migrated off `.bodies`.
-    @property
-    def bodies(self) -> List["GoverningBody"]:
-        return self.governing_bodies
-
-    # Keep existing curricula relationship as-is
     curricula: Mapped[List["Curriculum"]] = relationship(
         "Curriculum",
         back_populates="organization",
         cascade="all, delete-orphan",
         lazy="selectin",
     )
-
-

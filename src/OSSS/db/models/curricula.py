@@ -47,7 +47,7 @@ class Curriculum(UUIDMixin, Base):
 
 
     organization_id: Mapped = mapped_column(
-        GUID(), sa.ForeignKey("mentors.id", ondelete="CASCADE"),
+        GUID(), sa.ForeignKey("organizations.id", ondelete="CASCADE"),
         nullable=False, index=True
     )
 
@@ -98,19 +98,19 @@ class Curriculum(UUIDMixin, Base):
     # one Curriculum is linked to zero/one Proposal that birthed it (via curriculum.proposal_id)
     proposal: Mapped[Optional["Proposal"]] = relationship(
         "Proposal",
-        back_populates="curriculum",  # matches Proposal.resulting_curriculum above
+        backref="curricula",  # or back_populates="curriculum" if you add it explicitly
         foreign_keys="Curriculum.proposal_id",
-        uselist=False,
+        uselist=False,  # 1 curriculum ↔ 1 proposal
         lazy="joined",
     )
 
     # one Curriculum is referenced by many Proposals (via Proposal.curriculum_id)
-    proposals: Mapped[list["Proposal"]] = relationship(
-        "Proposal",
-        back_populates="curriculum",
-        foreign_keys="Proposal.curriculum_id",
-        cascade="all, delete-orphan",
-        passive_deletes=True,
-    )
+    #proposals: Mapped[list["Proposal"]] = relationship(
+    #    "Proposal",
+    #    back_populates="curriculum",
+    #    foreign_keys="Proposal.curriculum_id",
+    #    cascade="all, delete-orphan",
+    #    passive_deletes=True,
+    #)
 
 

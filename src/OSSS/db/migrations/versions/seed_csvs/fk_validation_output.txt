@@ -1,0 +1,3079 @@
+[INFO] DBML: /Users/rubelw/projects/OSSS/src/OSSS/db/migrations/versions/seed_csvs/schema.dbml
+[INFO] CSV Directory: /Users/rubelw/projects/OSSS/src/OSSS/db/migrations/versions/csv
+
+=== Heuristic FK inference ===
+  inferred concession_sales.school_id -> schools.id
+  inferred courses.calendar_id -> calendars.id
+  inferred entity_tags.tag_id -> tags.id
+  inferred proposals.organization_id -> organizations.id
+  inferred tutor_out.tutor_id -> tutors.id
+=== End heuristic inference ===
+
+[INFO] Loaded 5 values for bus_stops.id
+[INFO] Loaded 5 values for students.id
+[INFO] Loaded 5 values for user_profiles.id
+[INFO] Loaded 5 values for bell_schedules.id
+[INFO] Loaded 5 values for sports.id
+[INFO] Loaded 5 values for store_products.id
+[INFO] Loaded 5 values for officials.id
+[INFO] Loaded 1 values for states.code
+[INFO] Loaded 5 values for persons.id
+[INFO] Loaded 5 values for evaluation_questions.id
+[INFO] Loaded 5 values for grading_periods.id
+[INFO] Loaded 5 values for contacts.id
+[INFO] Loaded 5 values for projects.id
+[INFO] Loaded 5 values for reviewers.id
+[INFO] Loaded 5 values for library_items.id
+[INFO] Loaded 5 values for meal_accounts.id
+[INFO] Loaded 5 values for goals.id
+[INFO] Loaded 5 values for facilities.id
+[INFO] Loaded 5 values for spaces.id
+[INFO] Loaded 5 values for evaluation_assignments.id
+[INFO] Loaded 5 values for curriculum_versions.id
+[INFO] Loaded 5 values for review_rounds.id
+[INFO] Loaded 5 values for behavior_codes.code
+[INFO] Loaded 5 values for test_administrations.id
+[INFO] Loaded 5 values for orders.id
+[INFO] Loaded 5 values for posts.id
+[INFO] Loaded 5 values for immunizations.id
+[INFO] Loaded 5 values for document_versions.id
+[INFO] Loaded 5 values for meetings.id
+[INFO] Loaded 5 values for announcements.id
+[INFO] Loaded 5 values for messages.id
+[INFO] Loaded 5 values for gl_accounts.id
+[INFO] Loaded 5 values for schools.id
+[INFO] Loaded 5 values for assets.id
+[INFO] Loaded 5 values for journal_entries.id
+[INFO] Loaded 5 values for tickets.id
+[INFO] Loaded 5 values for evaluation_templates.id
+[INFO] Loaded 5 values for motions.id
+[INFO] Loaded 5 values for deduction_codes.id
+[INFO] Loaded 5 values for bus_routes.id
+[INFO] Loaded 5 values for gl_segment_values.id
+[INFO] Loaded 5 values for coursework.id
+[INFO] Loaded 5 values for attendance_codes.code
+[INFO] Loaded 5 values for tutors.id
+[INFO] Loaded 5 values for rooms.id
+[INFO] Loaded 5 values for sessions.id
+[INFO] Loaded 5 values for gl_segments.id
+[INFO] Loaded 5 values for concession_items.id
+[INFO] Loaded 5 values for proposals.id
+[INFO] Loaded 5 values for policy_versions.id
+[INFO] Loaded 5 values for policy_workflow_steps.id
+[INFO] Loaded 5 values for guardians.id
+[INFO] Loaded 5 values for topics.id
+[INFO] Loaded 5 values for vendors.id
+[INFO] Loaded 5 values for permissions.id
+[INFO] Loaded 5 values for calendars.id
+[INFO] Loaded 5 values for consequence_types.code
+[INFO] Loaded 5 values for hr_employees.id
+[INFO] Loaded 5 values for plans.id
+[INFO] Loaded 5 values for ticket_types.id
+[INFO] Loaded 5 values for departments.id
+[INFO] Loaded 5 values for curriculum_units.id
+[INFO] Loaded 5 values for payroll_runs.id
+[INFO] Loaded 5 values for incident_participants.id
+[INFO] Loaded 5 values for journal_batches.id
+[INFO] Loaded 5 values for committees.id
+[INFO] Loaded 5 values for files.id
+[INFO] Loaded 5 values for subjects.id
+[INFO] Loaded 5 values for pm_plans.id
+[INFO] Loaded 5 values for activities.id
+[INFO] Loaded 5 values for assignments.id
+[INFO] Loaded 5 values for fundraising_campaigns.id
+[INFO] Loaded 5 values for users.id
+[INFO] Loaded 5 values for courses.id
+[INFO] Loaded 5 values for medications.id
+[INFO] Loaded 5 values for policies.id
+[INFO] Loaded 5 values for channels.id
+[INFO] Loaded 5 values for curricula.id
+[INFO] Loaded 5 values for teams.id
+[INFO] Loaded 5 values for games.id
+[INFO] Loaded 5 values for section_meetings.id
+[INFO] Loaded 5 values for requirements.id
+[INFO] Loaded 5 values for roles.id
+[INFO] Loaded 5 values for frameworks.id
+[INFO] Loaded 5 values for maintenance_requests.id
+[INFO] Loaded 5 values for parts.id
+[INFO] Loaded 5 values for organizations.id
+[INFO] Loaded 5 values for addresses.id
+[INFO] Loaded 5 values for agenda_workflow_steps.id
+[INFO] Loaded 5 values for agenda_workflows.id
+[INFO] Loaded 5 values for scorecards.id
+[INFO] Loaded 5 values for store_orders.id
+[INFO] Loaded 5 values for evaluation_sections.id
+[INFO] Loaded 5 values for buildings.id
+[INFO] Loaded 5 values for staff.id
+[INFO] Loaded 5 values for standardized_tests.id
+[INFO] Loaded 5 values for camps.id
+[INFO] Loaded 5 values for floors.id
+[INFO] Loaded 5 values for documents.id
+[INFO] Loaded 5 values for fiscal_years.year
+[INFO] Loaded 5 values for tags.id
+[INFO] Loaded 5 values for periods.id
+[INFO] Loaded 5 values for education_associations.id
+[INFO] Loaded 5 values for workers.id
+[INFO] Loaded 5 values for incidents.id
+[INFO] Loaded 5 values for iep_plans.id
+[INFO] Loaded 5 values for grade_scales.id
+[INFO] Loaded 5 values for concession_stands.id
+[INFO] Loaded 5 values for evaluation_cycles.id
+[INFO] Loaded 5 values for standards.id
+[INFO] Loaded 5 values for invoices.id
+[INFO] Loaded 5 values for pay_periods.id
+[INFO] Loaded 5 values for course_sections.id
+[INFO] Loaded 5 values for concession_sales.id
+[INFO] Loaded 5 values for hr_positions.id
+[INFO] Loaded 5 values for folders.id
+[INFO] Loaded 5 values for earning_codes.id
+[INFO] Loaded 5 values for agenda_items.id
+[INFO] Loaded 5 values for academic_terms.id
+[INFO] Loaded 5 values for assignment_categories.id
+[INFO] Loaded 5 values for governing_bodies.id
+[INFO] Loaded 5 values for seasons.id
+[INFO] Loaded 5 values for objectives.id
+[INFO] Loaded 5 values for kpis.id
+[INFO] Loaded 5 values for work_orders.id
+[INFO] Loaded 5 values for user_accounts.id
+[INFO] Loaded 5 values for fiscal_periods.id
+[INFO] Loaded 5 values for special_education_cases.id
+[INFO] Loaded 5 values for events.id
+[INFO] Loaded 5 values for policy_workflows.id
+
+=== FK Validation ===
+
+Checking academic_terms
+  FAIL school_id -> schools.id (5 violations)
+      row 1: 1944c8da-c02e-56a5-a48f-e3e664d3a456
+      row 2: b74c7468-3211-5bc5-ad64-3397a1b31690
+      row 3: ee4c3735-889e-51fc-b815-d15997348070
+      row 4: 9148f13f-c785-51ee-a428-e07f1265e650
+      row 5: fdec2ee2-adb0-596c-b850-b9c734071c08
+
+Checking accommodations
+  FAIL iep_plan_id -> iep_plans.id (5 violations)
+      row 1: b36c6863-d2b3-5bad-9788-36dcc347dced
+      row 2: c1a8b353-47e0-5469-9804-19d1ccc02053
+      row 3: 6391aa86-ac5a-574b-90fd-8b078b196ef8
+      row 4: ddcef017-f5e4-5781-a95e-c70a3637dae3
+      row 5: f440643e-ec21-505c-89b6-1e77a42a8e7d
+
+Checking activities
+  FAIL school_id -> schools.id (5 violations)
+      row 1: e37d27d0-79c6-544d-978b-39dd54d7e462
+      row 2: 54233150-6498-5386-9a4e-e9b26261cd10
+      row 3: e8e7606a-705c-568e-97b8-dd13885a6b9c
+      row 4: 21263ed2-de86-5ff9-8db8-68df482df0bc
+      row 5: aaf8f9c7-79ae-5b28-9729-890417f39fbd
+
+Checking agenda_item_approvals
+  FAIL approver_id -> users.id (5 violations)
+      row 1: ab116a95-38ee-5db6-ab65-136e3df5371d
+      row 2: f1749e1d-23fa-5808-ab6b-62d86c98a8e5
+      row 3: a1bda1e8-9ac0-50a5-bee2-174f7b3cc7f7
+      row 4: 664d6f88-01ee-5a04-9fa7-ee3ebfc9c2e2
+      row 5: 6adc9d4f-3a1f-5afe-9270-1eadfec6d068
+  FAIL item_id -> agenda_items.id (5 violations)
+      row 1: ac551fde-fb03-571c-b382-ccc0cc426bcf
+      row 2: 1443a853-d514-5557-ada7-65a718bb7057
+      row 3: 94f9d596-22b3-5ba8-a55b-8efa2ae62c9a
+      row 4: 1a74545d-0836-5f04-86f7-bcd7e57a124f
+      row 5: a81b33cd-4793-5ed5-bfa1-aff7a6f96a16
+  FAIL step_id -> agenda_workflow_steps.id (5 violations)
+      row 1: 5cd8a389-451a-5091-8b36-cf3635bfe306
+      row 2: d7d12f3d-da77-50e9-8fda-0add1d2bdb23
+      row 3: f96492f9-071b-5e65-8f5d-282f7c633742
+      row 4: 5e58494b-47e1-5ded-9104-92b16db1fdca
+      row 5: cc53ae87-23a5-556d-97f0-1cb57c865973
+
+Checking agenda_item_files
+  FAIL file_id -> files.id (5 violations)
+      row 1: ac709a83-43b3-5640-956f-546e6171af2b
+      row 2: 1b1d23d9-0bf7-5c9c-83d5-7e96565c6dd0
+      row 3: a79d1ae0-5085-5735-933e-53ae09c155c3
+      row 4: dbb7b726-a263-5257-9231-483e8aad0887
+      row 5: fad62367-701b-5f73-aed8-04c702a9b229
+  FAIL agenda_item_id -> agenda_items.id (5 violations)
+      row 1: 23e57451-53a7-5984-a25b-f725ff755bd0
+      row 2: 5162c51e-4eae-589a-8c02-6397299d471f
+      row 3: 90ecd49b-b463-593b-9715-458557d56ae1
+      row 4: 0fb47d23-9093-56e9-a85c-7c0fbd76d2e0
+      row 5: 2d7270c4-8665-5155-88f3-6d516b03573b
+
+Checking agenda_items
+  FAIL meeting_id -> meetings.id (5 violations)
+      row 1: 8adac62a-0b92-56f2-a9d2-f8bd23236858
+      row 2: 6e75a14d-80ed-559c-90a5-163278775557
+      row 3: df961bae-de5d-5657-ab42-bfb4b8a39c20
+      row 4: 892f37ad-3303-57d5-a3fe-bffd45504685
+      row 5: 34c0e089-bd5e-5e44-b094-157f3f101e85
+  FAIL parent_id -> agenda_items.id (5 violations)
+      row 1: 1722fce6-0533-5c64-b83e-caa8097450dd
+      row 2: 5ded8263-789b-5bac-a3c9-3826fe8c9e21
+      row 3: 88866f2a-430b-527a-b8c6-3d4cfabd5faa
+      row 4: 9997dd5e-67f1-5795-adee-de932ebd95a3
+      row 5: 8a1e90b4-f2d3-521c-92fd-eab71be668d5
+
+Checking agenda_workflow_steps
+  FAIL workflow_id -> agenda_workflows.id (5 violations)
+      row 1: 5d590109-76ec-5e3c-ab0d-2eed07e2d5b3
+      row 2: 43e01b98-a00f-52ac-9684-72639d6fce80
+      row 3: d2f3badf-5ecc-5675-8a5c-c5675867b427
+      row 4: 8c40b8e1-de68-59ba-b853-abc11385ceb1
+      row 5: 331080d3-3fdd-5987-ad58-f0f6fc229864
+
+Checking alignments
+  FAIL curriculum_version_id -> curriculum_versions.id (5 violations)
+      row 1: e91ff457-584c-5e23-8456-89d3d1334b64
+      row 2: c4d0f3c2-ce70-5200-84b3-4dbfbb2677b4
+      row 3: b07472bc-9971-574c-9d68-bce90d15556b
+      row 4: 86a7c439-409f-5a54-8e15-f18cb05a338e
+      row 5: d56fe097-284c-5163-80a6-747895971274
+  FAIL requirement_id -> requirements.id (5 violations)
+      row 1: 110ad515-08ab-5e00-8b1f-58febbb967f3
+      row 2: 991acd67-3560-537c-b6af-71fae909b878
+      row 3: 295e5146-5873-539a-9558-c326bdabd242
+      row 4: 1eaa812b-d74f-555c-9a90-e67c3189bc3f
+      row 5: 740430db-d1da-5944-97e3-de6bdd9902d7
+
+Checking announcements
+  FAIL course_id -> courses.id (5 violations)
+      row 1: 50460f3c-e724-56ce-8dab-a4742a08e180
+      row 2: 384d63f7-6877-5372-93aa-028cbeb8fc05
+      row 3: 1a0dbc1a-771d-5563-a5c9-470c11fe4bce
+      row 4: 599d298b-1e20-5643-88a3-c287a129c985
+      row 5: 110c529e-3abe-5164-b736-420421763635
+  FAIL user_id -> users.id (5 violations)
+      row 1: a8170e2b-b4cb-53d2-90c0-7d13422b5f8b
+      row 2: bd049824-54f7-5cbd-9846-9778b02e83d7
+      row 3: 65a40886-3686-5429-82ed-0a823fe0a77d
+      row 4: 986fe4cf-c55c-5b0d-8a65-58906f4b6a73
+      row 5: a82a60b6-48a3-562b-a509-2c4152257be6
+
+Checking approvals
+  FAIL proposal_id -> proposals.id (5 violations)
+      row 1: 525ae6a7-b957-57f8-8e3e-5c7c16e07bc8
+      row 2: e4e2f031-dd07-569c-8c8a-4d67d7a19d22
+      row 3: 1856f299-64d8-5bdf-9462-b9c1bc004949
+      row 4: abfa0973-b2f5-5868-9249-d831199f8abe
+      row 5: 52063e18-3a0f-5cfe-95fd-d5e3ff6f024b
+
+Checking asset_parts
+  FAIL part_id -> parts.id (5 violations)
+      row 1: e3fcc85a-457f-5b28-85d1-2e4f3175e27b
+      row 2: 315d75d7-01b7-5241-a994-a9a0329490b8
+      row 3: df0a6d79-c3e5-5457-b0f2-7aeae277106f
+      row 4: b86e4cd0-7a3d-5770-aa3a-7eb7ab8de695
+      row 5: 9eda05d3-28c2-509e-8aaa-bdbd4e47feb7
+  FAIL asset_id -> assets.id (5 violations)
+      row 1: 2a17a820-14cf-5527-9034-40061f69dbe3
+      row 2: 659fbcda-0e4d-56ac-9378-576dfa339fb0
+      row 3: b167d533-b189-5b5a-b441-027b0bb03965
+      row 4: 7fba77b3-23aa-5ce2-b5aa-58267d1f7a2d
+      row 5: 32280c4c-a740-5b61-823d-c236230c6e73
+
+Checking assets
+  FAIL space_id -> spaces.id (5 violations)
+      row 1: bef08f3f-07bc-5e36-a409-13ef66575309
+      row 2: 14f9a0d6-48d1-52c4-ad11-f6d8502f8950
+      row 3: a0d03c57-d227-5f96-815d-8bfeeaa8cc52
+      row 4: 1147e850-ecea-5055-9bd3-885af4d64eaa
+      row 5: 31764637-f7cd-52cf-ae98-5f31e95eddd0
+  FAIL building_id -> buildings.id (5 violations)
+      row 1: e2fb431a-d75f-531e-bc20-22c492a83bc8
+      row 2: 632f3b00-43de-585b-91cc-f0c5dba0bb52
+      row 3: 99d161a1-e69c-5a3b-8eea-ac82618b54f1
+      row 4: 98901054-42b2-50fa-a6a5-65abce81c2aa
+      row 5: 9c1d2297-f83b-5225-9873-dc35e366caad
+  FAIL parent_asset_id -> assets.id (5 violations)
+      row 1: 8506a4f5-a445-55fe-8372-628a096c65d4
+      row 2: 98e12226-749b-5ca0-95f1-2438fc6dd83f
+      row 3: eac7692d-5ffd-5f56-b8ee-67464b74a165
+      row 4: eca5a081-2c9f-53a5-b466-93b956fa415f
+      row 5: 95652f37-6722-5658-ab27-337988e88316
+
+Checking assignment_categories
+  FAIL section_id -> course_sections.id (5 violations)
+      row 1: 12ce08fb-a1bd-50eb-b76d-6755a9934f5c
+      row 2: 12dc19fc-8f49-5baa-a7fa-7af148b13653
+      row 3: 9012b528-7a68-5de6-8d47-95dbc81d1f37
+      row 4: 30ceac0d-b1c6-583c-89f4-75adf142302d
+      row 5: d2f93405-05fc-5d4d-8b40-687716786562
+
+Checking assignments
+  FAIL category_id -> assignment_categories.id (5 violations)
+      row 1: 891d0e14-bbf1-52c7-a581-21269def9677
+      row 2: 956c2336-12d2-5f9e-9490-de8d43cc23a6
+      row 3: 234dd5e8-5318-5279-97ca-576262abd533
+      row 4: 225907a1-4cd8-5f39-97c4-8b2c36a62f55
+      row 5: 994dfe12-eae3-59f1-bf3c-b6b1abe02001
+  FAIL section_id -> course_sections.id (5 violations)
+      row 1: d373af17-0db5-5e61-a846-b09f6ebe99d2
+      row 2: 0ca26f8b-eeab-59d0-b866-a6dd89b7d13f
+      row 3: e9a960f8-3ef1-51eb-8161-3dd93aeb2f3b
+      row 4: 0848f85b-71c5-53ab-a55f-17c40674d4ae
+      row 5: e99d23e8-e747-5ef7-aff2-04b18b2b2a41
+
+Checking attendance
+  FAIL meeting_id -> meetings.id (5 violations)
+      row 1: 736d2af2-154e-506d-a16f-fb9f4ca6561e
+      row 2: 52aed121-0839-524a-b1bb-d41659ebf483
+      row 3: 6e290ffe-d4fa-5129-986d-c3e256a4ffeb
+      row 4: e13ef44f-ded0-5fe5-ae1b-8a5e0d69269b
+      row 5: 377e340e-7239-5ae1-8022-aa7b1ed557a8
+  FAIL user_id -> users.id (5 violations)
+      row 1: bd52b2de-3d70-5ffc-87e6-e74a5bafdae5
+      row 2: 238be2ab-fb95-5bcf-b7c9-e8867f9eed50
+      row 3: 0313dd22-f7b3-5fcf-9742-97ee9eb4ba3b
+      row 4: b53a2bd5-34ad-5c26-a085-6aef79ab4908
+      row 5: 1c549f9d-2ce4-5cf7-bb86-aa9e731b4009
+
+Checking attendance_daily_summary
+  FAIL student_id -> students.id (5 violations)
+      row 1: 504762b7-0d89-5056-83eb-f1962deea200
+      row 2: 07706095-d839-5fb8-bbff-3d9898d1e7ed
+      row 3: 83aa2066-afa4-5a21-82cc-4ddda739d094
+      row 4: 8a23cd78-64a1-5802-bb75-bc6e831e1e54
+      row 5: 249015d6-69c6-53ea-8732-fcdf712f4fe9
+
+Checking attendance_events
+  FAIL student_id -> students.id (5 violations)
+      row 1: e7c682cb-cfde-5dc4-9287-79098f2b3f0c
+      row 2: 26177048-10ab-50e3-924b-1043d6e8e5f4
+      row 3: 1f0a0286-1e9e-59f6-9f87-3d84e8f3359d
+      row 4: d8d86d47-f386-567c-9dd7-28678e740f9b
+      row 5: 938b4bd2-e02f-5066-8de4-09d5d42d4dce
+  FAIL section_meeting_id -> section_meetings.id (5 violations)
+      row 1: af632e66-263e-54b9-86ec-8024a5bd6804
+      row 2: 7a7db36e-0ba8-55bb-b0ba-685aef50eb46
+      row 3: d40e198e-40fb-5c37-a28a-26789e5290dd
+      row 4: 27844427-df9c-5ee8-9325-e58ea75ddb24
+      row 5: 312aeaec-00df-5afd-a4a0-efb625395355
+  FAIL code -> attendance_codes.code (5 violations)
+      row 1: attendance_events_code_1
+      row 2: attendance_events_code_2
+      row 3: attendance_events_code_3
+      row 4: attendance_events_code_4
+      row 5: attendance_events_code_5
+
+Checking audit_logs
+  FAIL actor_id -> user_accounts.id (5 violations)
+      row 1: 94fcdcef-bf2b-56ae-aa88-7d0794208849
+      row 2: e694ccaf-9872-5e14-907d-115700547b1c
+      row 3: 816c75a6-566d-5ac4-bb67-a219b5d54b6b
+      row 4: ffc9039e-7ef9-5c26-bbf5-afdd5ea96343
+      row 5: 5690b0a1-741f-5303-98a9-6d1d9b09253f
+
+Checking behavior_interventions
+  FAIL student_id -> students.id (5 violations)
+      row 1: 323f15b4-4cb9-5867-b4e9-3f682ef5e75d
+      row 2: c2e72f73-1573-505f-8b2d-9637249bcf7a
+      row 3: ac72fcbe-9114-59f9-9adb-c190b248fdba
+      row 4: ca843bf8-462a-5602-a579-44cccaddf66d
+      row 5: cdeb7f88-89ca-54e5-a529-355c90d5ab74
+
+Checking bell_schedules
+  FAIL school_id -> schools.id (5 violations)
+      row 1: 203afb36-17e6-5555-8446-82476101bb51
+      row 2: 2b321239-9ba5-55e2-bd40-9c5cdffd40f1
+      row 3: 1f3f66db-4dfb-5ab1-bd2e-3092b795a630
+      row 4: 417fdc2b-f8c9-51b3-be11-61b0e8b37665
+      row 5: 133dc3c2-2db1-5656-a0b3-dcab775089c6
+
+Checking buildings
+  FAIL facility_id -> facilities.id (5 violations)
+      row 1: 2a922a32-1427-5b94-9de0-1816109be199
+      row 2: 3ff9a09e-7815-5c0d-bccf-ef5d96e0c9bc
+      row 3: 397c224b-59f8-5aca-8719-4940d0501dd4
+      row 4: c3f33169-1847-531d-8b3e-12399b464f2f
+      row 5: 0f66fc59-3423-54be-85df-990f476259d1
+
+Checking bus_routes
+  FAIL school_id -> schools.id (5 violations)
+      row 1: 217aae30-4042-5ec2-9793-3b07077bf698
+      row 2: 3fa1ec4d-29e0-55cb-b280-fa7581ac07cb
+      row 3: 9c988519-6c84-5ac0-a14d-886952f4967b
+      row 4: 910ddafd-78ca-5529-8db8-0bb15c27a39a
+      row 5: c4e345ca-1f02-5896-87ef-132cb44340c5
+
+Checking bus_stop_times
+  FAIL stop_id -> bus_stops.id (5 violations)
+      row 1: 51e2f5df-4b66-5b18-b433-a11b78d9e0e5
+      row 2: 2f9676b5-798a-5b42-85c1-8e78218ab6ab
+      row 3: 5a490e9e-abc4-5a36-8081-9f307761ecc6
+      row 4: 68f923a2-a111-52cc-b81b-32f8adf0b7b3
+      row 5: 6c599818-4e09-5dc8-ac68-7c1adb2717d1
+  FAIL route_id -> bus_routes.id (5 violations)
+      row 1: 4def6118-96f3-5a09-a6c8-54c46e259278
+      row 2: 5a89d7d5-08ab-5379-b5f4-1a05ae65894f
+      row 3: 0fc69dea-18cd-573d-860e-6e97a181e1fe
+      row 4: 4cef5225-11c7-5677-8b1f-fbee301aba22
+      row 5: f87540b8-0ebe-5835-beae-aec38ef3ff6b
+
+Checking bus_stops
+  FAIL route_id -> bus_routes.id (5 violations)
+      row 1: b8477f42-4fa3-5fb2-aace-cb2efbb210fd
+      row 2: 0006ec2e-9d51-5ca2-88ee-d15258729be1
+      row 3: 35123eac-1e28-5e95-ab49-903e56347c33
+      row 4: 243e65e1-cb3d-5612-b5c4-627db98591e1
+      row 5: a9ccf559-2f77-56a0-861a-f5fcce8941bc
+
+Checking calendar_days
+  FAIL calendar_id -> calendars.id (5 violations)
+      row 1: dfbae39e-980e-5152-bc13-179cd38288d5
+      row 2: c13fd09b-9eff-5aaf-b103-3320e63d1b9a
+      row 3: 1a07d3de-5b28-5fe7-9dd2-7c272105470e
+      row 4: 37fc0cc8-d74e-55e8-84cd-46b9caaf3399
+      row 5: bd21dbf9-0616-59ab-a8fb-1d4f6974612c
+
+Checking calendars
+  FAIL school_id -> schools.id (5 violations)
+      row 1: 9708ed56-e376-52a1-93b9-9f60e318b267
+      row 2: 8f1cd01e-b6c2-5af2-ab49-e2d95cee5de9
+      row 3: c6dd4f73-8765-5a1a-8dd2-7ff574837e80
+      row 4: 2ffbc3d5-ee2f-55ee-92fe-68ff1e2798ee
+      row 5: 24b52e88-c0a0-58dd-8373-fdbb3cdbe5ee
+
+Checking camp_registrations
+  FAIL camp_id -> camps.id (5 violations)
+      row 1: ddce5a44-51ac-5a84-9352-856d50a0e6a8
+      row 2: 5cbb4946-946f-5e96-ad24-190a936aa58e
+      row 3: a337d4c4-a547-5889-af94-7538dba639e7
+      row 4: fd0bd9eb-402a-5186-956c-e0d296428234
+      row 5: 64513464-3799-5f0f-98aa-e9a803cc3195
+  FAIL school_id -> schools.id (5 violations)
+      row 1: 02a0c544-b657-54ad-a5a4-97be7b661dd5
+      row 2: 09e96bfb-dca1-5d27-8000-147d49620fed
+      row 3: f0b88d23-7e2b-537f-9b5e-37aa41470930
+      row 4: fd328713-d5cc-5645-bd1a-69083ce2a2e3
+      row 5: 4aee5d0c-068f-57f9-926b-7b9087436738
+
+Checking camps
+  FAIL school_id -> schools.id (5 violations)
+      row 1: 0632ca9d-a90e-527d-984e-836a82228016
+      row 2: cf4a9b66-8764-540e-9241-b74e413cda98
+      row 3: 6af9046e-8cca-5183-9b2c-140bffdfb105
+      row 4: 2b129e0b-d555-5ef0-a2b8-2bc1b3a9b681
+      row 5: c80a01d5-322a-506f-9713-f709948cc85c
+
+Checking channels
+  FAIL org_id -> organizations.id (5 violations)
+      row 1: 7eb0d871-8677-5829-8c15-15df7af6b274
+      row 2: a6d61f7d-c2c9-5a56-ac9d-82e74057f1fa
+      row 3: c624995e-00fc-5dcb-a79b-61cd73afa4df
+      row 4: 68c9350e-a1f3-5814-aa6b-52ffa2ea0e2b
+      row 5: 71d99fb6-e7d8-58ff-b241-1cf83d491b80
+
+Checking class_ranks
+  FAIL school_id -> schools.id (5 violations)
+      row 1: 7284c4aa-5723-5af9-bc8d-e44b65884865
+      row 2: c358c44d-6860-532e-8718-d86faab0473d
+      row 3: 4baa2a96-09bd-58a2-86a6-30eb207aa597
+      row 4: f597c670-e6e1-5070-a600-0e6a382e04b8
+      row 5: 32885cfb-9b45-5c99-b5d4-670e7043276f
+  FAIL term_id -> academic_terms.id (5 violations)
+      row 1: fc68c730-d513-5efa-b4b3-de972a514baf
+      row 2: e77f0d1e-e348-5b22-97f8-0bbe15ebcb44
+      row 3: 64427a11-f3e6-5729-b340-9e2405c13d0c
+      row 4: cf441042-99f7-5244-8c7c-e361b0848670
+      row 5: 1838b74f-8fe3-51c5-9dd9-6e41d580bbef
+  FAIL student_id -> students.id (5 violations)
+      row 1: ee9a9b9b-92d1-54c3-ab3c-ba733e808cf3
+      row 2: 8fd9e154-cdca-5cb8-b122-cb841c2eb62c
+      row 3: 53437eb2-57f4-586b-a102-8543af6a527a
+      row 4: 7528ba17-d1e1-5ff3-83d5-dc44b409750b
+      row 5: 3f97a67f-1fca-5a53-a72d-f62611f235d5
+
+Checking committees
+  FAIL school_id -> schools.id (5 violations)
+      row 1: 6f505e23-af1c-5a61-bec8-675956b638d2
+      row 2: b2d040ef-5d2d-560f-8416-077eeb822c15
+      row 3: 0ef2bb24-cfb1-5706-bb81-4ee4b552bbb8
+      row 4: 839885c6-d1e0-5af9-b995-20711db058cc
+      row 5: 736cd4bd-7ff5-5a63-97fb-4138a6cd4d35
+  FAIL organization_id -> organizations.id (5 violations)
+      row 1: dc289ed0-6a39-5936-8b1c-651e40809d6b
+      row 2: f5b574dd-8b76-5d2b-ad65-ec294d21bcee
+      row 3: 3c7178b9-1df6-5dde-b0ec-f66c88842e5c
+      row 4: 2ffeece9-4c4d-56a3-8e67-069d026ec01f
+      row 5: 8977a3cf-9481-5d92-b12a-b3a1b5111361
+
+Checking compliance_records
+  FAIL building_id -> buildings.id (5 violations)
+      row 1: 64a71b8a-c55a-5e59-9efb-39b12ce3ab09
+      row 2: 70399636-5323-5c01-8446-d6d97589f4cd
+      row 3: 8c295ef0-cce1-55f9-b087-775f8283bd9a
+      row 4: e8edd7d0-bd34-5c9a-9d06-969e69e01872
+      row 5: b8d90267-f9ad-51f9-a3a0-f30f3385580d
+  FAIL asset_id -> assets.id (5 violations)
+      row 1: 527d4ec9-8bf0-5bc7-8c3e-03b8978c3903
+      row 2: a72b586a-b264-5a02-832b-2d270aaa77e8
+      row 3: 1b6c9620-2c39-5dad-892d-41680844a95f
+      row 4: ad6a0dc3-4011-54c7-8913-6443e48dc7f8
+      row 5: c6060d98-f88a-50f1-857c-f564d70a4181
+
+Checking concession_items
+  FAIL school_id -> schools.id (5 violations)
+      row 1: d17d2ae3-80b3-5a3c-9171-8e216e791115
+      row 2: d5970248-d106-56f1-9b05-68b676f7eaf7
+      row 3: 2e0223d7-7987-5da2-a125-b23e7867a49b
+      row 4: 6f771362-ba53-5920-8b1d-b035aa755f43
+      row 5: 9d322ba6-e1e8-5600-905e-29d68c9dd4b0
+  FAIL stand_id -> concession_stands.id (5 violations)
+      row 1: 52945901-6070-5daa-aaa9-defe4c97853e
+      row 2: aacf6f6c-51a4-5a0d-b2a6-be7f236712e5
+      row 3: ef8232c8-8ab1-5e95-aef2-5d4c6b159850
+      row 4: 77f364a4-b150-5857-9a4d-741a2c57a08d
+      row 5: 3b012f0b-4311-5152-8776-98d0c2850692
+
+Checking concession_sale_items
+  FAIL item_id -> concession_items.id (5 violations)
+      row 1: 3f57afd2-e813-539d-b033-aa3ed21a28f3
+      row 2: 14928e64-0977-545d-8d8b-0801b4db5195
+      row 3: cdd0d61c-fe1e-50ba-aaab-5d924834ae1a
+      row 4: bc570462-6472-514a-be21-1916ccd002a3
+      row 5: 39235196-5e0d-56c7-9b0b-e00d49d7fc00
+  FAIL sale_id -> concession_sales.id (5 violations)
+      row 1: 5b53bb95-8109-5b98-9ace-11235fb82c81
+      row 2: ca4d9749-94cb-5c4b-aef7-1258c91f106e
+      row 3: 5cd2373b-4bf1-5ae7-a006-254b6716654b
+      row 4: 6b5e97b8-df3f-56e0-9838-6499e60e885e
+      row 5: 9cb159f3-66d4-58eb-85de-4ca421c5855a
+
+Checking concession_sales
+  FAIL stand_id -> concession_stands.id (5 violations)
+      row 1: a6560aab-db2b-5ee9-a80c-51a59b47a786
+      row 2: b9b5eabc-997e-5827-b3a1-9a5707a6b424
+      row 3: 57cbfb44-0793-5e47-9fe3-7bcdc7d17c31
+      row 4: 3eb42408-2118-59c9-9c13-acc5539f1d30
+      row 5: 37546c90-0cd2-57f9-aaad-368c32b75043
+  FAIL event_id -> events.id (5 violations)
+      row 1: 47133278-fdbf-5111-b698-528f441aec22
+      row 2: 7c55c233-6f3a-579d-a7f8-01586e2d7827
+      row 3: 7545a0d5-a10f-58e6-8c49-d0bb78427fcf
+      row 4: 7f10593d-3def-5221-9f5e-0bb768f41371
+      row 5: 465b798c-2593-526f-aaee-fa8a86bc06ea
+  FAIL school_id -> schools.id (5 violations)
+      row 1: 5670e2b4-0548-548d-b6cd-979bafde947f
+      row 2: 2e5fb5e0-78e5-5e41-8371-cdbf8e3487fa
+      row 3: b4e09819-9b8c-5363-8295-8dd32f336dc2
+      row 4: 5a19ecad-4dcf-5533-a7cd-18747e4a5130
+      row 5: 4e7e2519-4f0c-5b81-8ee3-f04a0ecf8c20
+
+Checking consents
+  FAIL person_id -> persons.id (5 violations)
+      row 1: 1f300cdf-9733-5556-be89-5680ea229cbd
+      row 2: bf676e0c-fc05-5029-9134-ce9f6bf47497
+      row 3: fcd42a15-56b0-5c9f-a28e-1c883875bed9
+      row 4: f87a095a-5caf-554f-ba25-2b2a69caca88
+      row 5: 9781ac0e-7f9e-5645-80f5-0b345a97014c
+
+Checking consequences
+  FAIL consequence_code -> consequence_types.code (5 violations)
+      row 1: consequences_consequence_code_1
+      row 2: consequences_consequence_code_2
+      row 3: consequences_consequence_code_3
+      row 4: consequences_consequence_code_4
+      row 5: consequences_consequence_code_5
+  FAIL incident_id -> incidents.id (5 violations)
+      row 1: 4dae7286-0fe9-5ccd-8add-8deaa130bd68
+      row 2: 6742d99d-0418-5045-a86c-d6911ea7f400
+      row 3: d601d2a4-20f2-5f33-b465-66c4385d772d
+      row 4: 068f4f7e-4e40-520e-9690-adb564f1bd43
+      row 5: 5f69b820-38c2-56cd-a2c3-e5c3d297c5b7
+  FAIL participant_id -> incident_participants.id (5 violations)
+      row 1: c64fece9-5a8e-57b1-81f1-9c811fe53ed3
+      row 2: 06f7d61e-0ae4-562d-b0f5-d9979100a65f
+      row 3: 7e9f7538-9cf3-52ec-a59c-b0fc5134279d
+      row 4: 80074459-182d-5218-97e4-32a2368b884f
+      row 5: 87533cf6-afae-503d-a86a-2e41c82d86b1
+
+Checking course_prerequisites
+  FAIL prereq_course_id -> courses.id (5 violations)
+      row 1: b31ff813-0fb9-5c5c-a1f9-601d70765609
+      row 2: 7a6cd5c6-c716-5b0f-a845-6fa2d712b822
+      row 3: b051d072-1fc9-57dd-9c9f-4ad016f9759e
+      row 4: c183e701-4106-5a6d-93a4-6c0f8708899f
+      row 5: 9bb2b184-989e-576f-bd75-2b721f9cb144
+  FAIL course_id -> courses.id (5 violations)
+      row 1: 9cd99c64-e6fe-57af-839a-d7c0b61a5ca9
+      row 2: f328a2a0-186a-5657-9173-3f1cf2cc7346
+      row 3: f88444ca-d239-5da5-8930-bbcf86c5a745
+      row 4: 3f83de68-2afd-5c26-a786-34556c2b643d
+      row 5: 7bbf9cc0-35af-56f1-8fe2-bcadf4e577f9
+
+Checking course_sections
+  FAIL school_id -> schools.id (5 violations)
+      row 1: cc404c16-35b6-5e75-ac0b-23bc2013beb8
+      row 2: 25ac4e87-23d4-5e87-8acb-fba12b714feb
+      row 3: 400169ce-37d9-52b5-b032-21a8b6578ae0
+      row 4: 07bb0032-3de9-5325-828b-dedf44b21dd4
+      row 5: 042568ef-c519-517b-9b76-5497aa2550ec
+  FAIL term_id -> academic_terms.id (5 violations)
+      row 1: 62eb3ab0-9472-5398-994b-6faee3095e5d
+      row 2: 622bd65d-db62-5e10-8802-74e54b5862a6
+      row 3: 1f088d95-ec8c-50d1-8bd8-1dc5f630c0ee
+      row 4: 0649a76e-92ad-546d-845f-e19e6ec87376
+      row 5: 94805e44-1274-5f2c-805b-402946e1fcdc
+  FAIL course_id -> courses.id (5 violations)
+      row 1: 3d9fa930-6e49-5834-b134-f20d2c9aca70
+      row 2: a4d2bf86-a41d-57de-8a1b-97e6fcc2d74a
+      row 3: e40f3bde-0c32-5db3-9984-ce81e65a3063
+      row 4: 4b8954f6-65e1-5841-8505-f813e86f100e
+      row 5: 0a9b0efc-5eb3-57fd-8a89-632fa808859c
+
+Checking course_students
+  FAIL course_id -> courses.id (5 violations)
+      row 1: d6889625-9b1f-5884-8137-8486a341f2ef
+      row 2: ed4dc436-4819-5352-9c4f-65161a0dcebc
+      row 3: 45f7d318-b48e-5e23-897c-e4c4f9ac55a8
+      row 4: 22e781e8-9092-5102-8605-a187066ba320
+      row 5: b7a6fcb8-1152-5f29-b38d-855c8d01bed2
+  FAIL user_id -> user_profiles.id (5 violations)
+      row 1: c1508649-c4a3-50bb-9a50-de14aa54ec53
+      row 2: 7af13b3c-49a5-5542-ba20-59c2b271eecf
+      row 3: a779d506-eeb8-5820-9b5e-dcd5bb5c4892
+      row 4: 13d546b1-0759-5b73-acc4-4a48d69f8483
+      row 5: 1b62eadc-b165-595e-9a23-f1a9797b5603
+
+Checking course_teachers
+  FAIL course_id -> courses.id (5 violations)
+      row 1: 48efe952-0235-5c03-beec-a007281a9136
+      row 2: c4270078-d22a-522f-bd4e-d11c95e992a5
+      row 3: 2142249c-bd07-54db-a9c8-e8725c2158b1
+      row 4: e4e35eff-b1eb-5c23-8b13-d5d4da3241de
+      row 5: 29eb85db-2bc3-56a1-890e-932660602079
+  FAIL user_id -> user_profiles.id (5 violations)
+      row 1: bb06c551-0cd3-5285-be6c-a8f5628fb5b8
+      row 2: cdf7a024-deb0-57ff-8710-00c9f2b2844d
+      row 3: 9b0e6f69-87fb-5807-8e49-edf375574fc0
+      row 4: ec0a923f-993e-5d17-bbab-faaf075a593b
+      row 5: 897f0413-c494-57be-9807-8ff861dd761e
+
+Checking courses
+  FAIL user_id -> users.id (5 violations)
+      row 1: 09a9f842-9e22-5940-821c-d6914af60339
+      row 2: fc62c936-73cf-560b-a14b-27a48079ae9a
+      row 3: b268070d-9f25-5c87-aa1b-d0d1eb298752
+      row 4: ba6fff87-127e-5bf9-86c4-39433974b306
+      row 5: ccbf2e66-dd26-5d4d-9c58-938f6b3c38d8
+  FAIL school_id -> schools.id (5 violations)
+      row 1: 00ef463e-776d-5d8e-aa13-8641b0f17d37
+      row 2: 85bbd713-9b2f-5288-a9cb-477ef5490d1b
+      row 3: b5f241ea-24aa-5eac-a464-6aba56501671
+      row 4: 2768ffd8-beed-5554-85ae-14eaf264de10
+      row 5: 9fd9499c-61e0-529c-a30d-a833ea8557a4
+  FAIL subject_id -> subjects.id (5 violations)
+      row 1: 1d6ce72f-3b30-5c82-889b-b76a37ffe297
+      row 2: c02eac2b-9cc0-5772-9197-84c16e72f361
+      row 3: bb8b7317-aa32-5996-9697-511b7f5a0f09
+      row 4: 026d859d-dc65-5d0e-85d9-f1efa9acc562
+      row 5: 88521616-077b-5908-af13-b1bcdad09cde
+  FAIL calendar_id -> calendars.id (5 violations)
+      row 1: e2079666-ee9c-5b2d-8a87-8a4e1120bde7
+      row 2: 4aadaf5c-c660-562d-9994-57f51082ac17
+      row 3: 56110219-fa72-5c13-83b9-d4a5fd558385
+      row 4: d3316756-e0d4-5e8f-8339-1c4f6689370f
+      row 5: d9b683ec-3110-5413-af8e-57238ebfbb66
+
+Checking coursework
+  FAIL user_id -> users.id (5 violations)
+      row 1: f8594c03-0c38-5dc8-8616-7323c16ab347
+      row 2: a2881f69-151a-59f8-a54d-d5972d56ca43
+      row 3: 4d122529-0730-5dfe-8762-94be71639d92
+      row 4: ff53b40c-f736-5e0d-a9b4-ba26b05bed81
+      row 5: 42ada058-c2e7-5c71-971f-834f8a758235
+  FAIL course_id -> courses.id (5 violations)
+      row 1: ee8a68dd-4033-5fb1-a47c-277634b5152a
+      row 2: 2c462158-a4f1-52eb-9811-03ba899faa9f
+      row 3: d2cb311f-88c7-531d-aa99-6ef8ded40024
+      row 4: e2064e21-f99c-5987-b82b-eaf7a508eff6
+      row 5: 82de9669-37ad-58e5-8edc-13a74e4b0315
+  FAIL topic_id -> topics.id (5 violations)
+      row 1: e6bc1450-53cf-5bda-b60a-9caabe64b895
+      row 2: 2fefc0b1-5ac2-5bb6-9155-950ef4c844d5
+      row 3: f4805944-d98c-50d1-bfb5-d70ea182d9f6
+      row 4: 1ae300fa-eedb-5a13-adc0-1422614a00ef
+      row 5: 072809bb-fadb-5b0b-b786-2b831c942d0a
+
+Checking curricula
+  FAIL proposal_id -> proposals.id (5 violations)
+      row 1: ff0d153a-e30c-5555-8739-e54fb69a904e
+      row 2: a0580b69-98ec-5e58-989b-eb4c4d44c6b8
+      row 3: 118a9885-a88d-5ef7-ae37-dfd140245677
+      row 4: 1d65d579-5a48-5de2-9a0f-b3a4f9b4ec02
+      row 5: fdbba9df-39dc-5f49-81ea-6958897f6180
+  FAIL organization_id -> organizations.id (5 violations)
+      row 1: 27b0b0e2-7017-5347-9698-1b5a6fd6dc2d
+      row 2: d4bd0589-30a3-5127-a31b-d39d28c013a9
+      row 3: 892814ce-f00a-54d0-bb21-f1eb0f4a86bb
+      row 4: 473df061-00fe-56b8-825b-1dcc830c11d5
+      row 5: 6a00ff2c-d29c-593c-bd78-9e41c0bd48a0
+
+Checking curriculum_units
+  FAIL curriculum_id -> curricula.id (5 violations)
+      row 1: cda42dfc-a175-513c-a759-b3b4e05f9c20
+      row 2: 450104db-7f38-55cc-8270-54481d856ada
+      row 3: b392c52e-0703-5f71-9c5b-ef96866b8a38
+      row 4: 8dae7d59-066a-551d-b4b6-a42df93fef7c
+      row 5: ca547368-1cba-5f51-8924-c531ffacc9e2
+
+Checking curriculum_versions
+  FAIL curriculum_id -> curricula.id (5 violations)
+      row 1: 72ff08d1-39b9-51b9-8240-a661b6cebd4f
+      row 2: 25163f11-8d56-5a77-8321-8a145edbae70
+      row 3: d1a61f5a-f44a-5831-b588-c85db822061f
+      row 4: 6bbb8bad-a117-5ea6-b2ce-e470d2f67bf7
+      row 5: 7338c06b-4b75-5910-af73-ed0a78866da8
+
+Checking deduction_codes
+  FAIL vendor_id -> vendors.id (5 violations)
+      row 1: ae009e5e-6393-5611-bcc6-44b6c0c4d57d
+      row 2: 0ea83d9a-a08a-547a-8458-7095431a5eb3
+      row 3: 9e693196-24ef-5f06-86af-180e55fb46ab
+      row 4: 58fd96d0-0742-5d6d-a069-a75b4341f17f
+      row 5: 9cb07b51-f50b-5e14-889a-2dd64a9a6ae5
+
+Checking deliveries
+  FAIL post_id -> posts.id (5 violations)
+      row 1: 92b51f3e-8500-5b9e-955c-c9158711c48e
+      row 2: 54e2f2f8-443b-58c9-b6b1-a3be0fdc30b0
+      row 3: 4f689416-bc44-5fe2-a88e-77fe1feb2505
+      row 4: 89dd6dee-0213-5327-91af-7bc7e33ccf78
+      row 5: 59730192-6a69-5951-bb38-fd46c6bce9dc
+  FAIL user_id -> users.id (5 violations)
+      row 1: 9c5a0430-bd3e-5cae-8f7e-79f4a73f8419
+      row 2: 6fc87daa-4eab-5062-92dd-261edb9e23eb
+      row 3: 45be8f44-82c6-51ac-b11f-217b1fc27d0a
+      row 4: 9c4830a0-9ab3-5d41-b367-45ab8f107e43
+      row 5: 7a8396ef-9be0-537d-bee6-e263806e1bec
+
+Checking department_position_index
+  FAIL department_id -> departments.id (5 violations)
+      row 1: e489ec76-526c-5775-8191-80f8e82c3751
+      row 2: babf1072-0159-5af2-964d-202594c444f9
+      row 3: d7e1bd4d-2a90-5d54-a0d0-a9fccad91b37
+      row 4: 56069e16-07aa-5682-9de5-900fa1521c6b
+      row 5: 00548175-98d9-5a51-acd7-e3d9bc897378
+  FAIL position_id -> hr_positions.id (5 violations)
+      row 1: c6e1dda4-e8d0-5545-9f40-df692015e6df
+      row 2: 31dd0bda-0ede-54b3-ba9e-84f081242515
+      row 3: 114b4b14-7732-5983-a4a4-434cd0122938
+      row 4: 599355f1-3343-5719-9494-5ee7b43adc72
+      row 5: e80b90ae-9281-50dd-8355-ddf699595153
+
+Checking departments
+  FAIL school_id -> schools.id (5 violations)
+      row 1: 735417e1-5ffd-508e-8692-93287a81dfdc
+      row 2: c5468bc3-2321-5353-a22d-79fc02f460d9
+      row 3: 1adaa0ad-dbab-5e04-ae20-3e2efda51ffa
+      row 4: 4c6b90b9-d635-55d7-978d-5a1842052d70
+      row 5: 29bf8ca9-1933-5450-bb50-1ab4f096501b
+
+Checking document_activity
+  FAIL actor_id -> users.id (5 violations)
+      row 1: d532e15f-954d-52bc-9c10-a8da4e78faa3
+      row 2: b1074862-d07f-535a-be6f-bda4d51d7898
+      row 3: c757c778-0e45-5e7e-a091-6989f6628178
+      row 4: 2b507331-e169-56f4-a93c-5a96225a996a
+      row 5: e8ebee64-5660-5259-9f81-a9ff33c3ca9f
+  FAIL document_id -> documents.id (5 violations)
+      row 1: 94cc6252-322d-5e8b-8ef8-682060ef9510
+      row 2: f0a7a9d6-9764-5d26-814c-c591d6e5e53b
+      row 3: 65cc77e0-5858-521b-9e62-0979c92d0427
+      row 4: 6340eaad-f1e1-56c6-acc7-b07aaf36b837
+      row 5: b4634d96-74b2-52d4-b8d1-052fb8e0613d
+
+Checking document_links
+  FAIL document_id -> documents.id (5 violations)
+      row 1: 163d73f1-8704-55cf-be78-0e0a3b34b8a5
+      row 2: 1a76f0db-26be-53ff-91ae-1e8990c06f9e
+      row 3: 467dd833-dfd4-5859-a5e7-d41d461c96e1
+      row 4: 0de9a1c6-1559-5436-87b7-f9dea4a5be7d
+      row 5: 25bedee2-803f-5734-8d62-0aa012d5544c
+
+Checking document_notifications
+  FAIL user_id -> users.id (5 violations)
+      row 1: 8bbf728c-8b53-549c-959b-353aee9eb3a0
+      row 2: a98ff248-df6b-5da3-9e21-04edaa3e4160
+      row 3: f3b60a26-6a0b-5891-90a2-2327c5f7169a
+      row 4: ad048fd3-0bdc-5903-989f-6ec383af14fb
+      row 5: 6be39e46-5b50-5128-8a93-95726ba48fe2
+  FAIL document_id -> documents.id (5 violations)
+      row 1: 4cc7fb90-eb78-56c5-9821-4f175950c9a7
+      row 2: ea26cc11-3e99-589b-a72c-2c0afe2c0b6e
+      row 3: 279cc56e-b29a-5549-8528-068c38987714
+      row 4: e9f079d7-6ad4-57fe-8716-5511f526b68a
+      row 5: bb60e35d-eb57-59ab-95ef-e722787e30d3
+
+Checking document_search_index
+  FAIL document_id -> documents.id (5 violations)
+      row 1: 91f091de-e844-5ab4-95d1-89a14c4a1617
+      row 2: f1f5f241-193d-581d-b99b-e87e0b3b0b6c
+      row 3: b7389caa-5744-5f26-ae84-04c0f4c40347
+      row 4: 9424870f-2aa1-5d35-9217-41f3c7dbd2a4
+      row 5: 6d392725-d60d-5fd7-b576-b4e5d282b70e
+
+Checking document_versions
+  FAIL created_by -> users.id (5 violations)
+      row 1: 20c37b7c-a88a-55ce-b3b4-1bafbcd8e1cd
+      row 2: c4165b8b-09a0-5837-a17b-3b1437d966ba
+      row 3: fd7ebcae-77f8-5c91-aa99-f674a0ede815
+      row 4: 2484cca7-6e76-5344-ade6-2fc099b20ea5
+      row 5: 46ec24d8-8a6c-5acf-8b6b-fd69de72e957
+  FAIL file_id -> files.id (5 violations)
+      row 1: 57c6b039-6352-50a5-b5cc-ffb452d680b6
+      row 2: 2b3c216d-25e1-55ad-a6a7-47524c02d602
+      row 3: b05c0ea4-5fff-5a64-a3b4-26557165b5ce
+      row 4: d20b3d29-54ca-56c4-ba58-bd5a10567a34
+      row 5: d0fd28c0-cfb4-59ff-88a9-22ab91329b72
+  FAIL document_id -> documents.id (5 violations)
+      row 1: 573bdc35-0943-5865-8410-730fb04b765d
+      row 2: 4350b12c-9d02-52d7-9630-117dbe7d882e
+      row 3: 9781c907-bab4-5e12-aeb9-8ffc6d445026
+      row 4: 20d987e6-c91b-55cc-b88b-6a6592fcb209
+      row 5: fc6f133e-3b77-537a-aec6-b1d39f6c82ec
+
+Checking documents
+  FAIL current_version_id -> document_versions.id (5 violations)
+      row 1: bf3df9ce-27d6-5fe6-8031-9d93aa6ff183
+      row 2: c2626acd-5d69-5016-9832-5689507b65e1
+      row 3: 68ebfdda-1794-531c-b4e6-4516c2a75a79
+      row 4: 77f99b34-0ee3-515c-913d-12a477c50d31
+      row 5: b211bad7-1d12-5654-bf8b-1c32535aeb34
+  FAIL folder_id -> folders.id (5 violations)
+      row 1: 54b64852-2582-5959-ae6e-4f9ae9fe979f
+      row 2: 7324a376-c4a8-5ca8-a03a-0858bda6f826
+      row 3: 3b5337e7-8275-5eaa-ba46-b91fb969bd35
+      row 4: c217193f-5942-5c81-ba00-21f8660a0f21
+      row 5: fb5a24cc-3a78-5d27-8dfe-663a1772e85b
+
+Checking donations
+  FAIL school_id -> schools.id (5 violations)
+      row 1: c418892b-c986-56e2-9cff-511e4a0b2fa2
+      row 2: b5aa09e0-f1b1-5f66-b3b8-a83b18c5436a
+      row 3: 9a65f48f-f5f6-5685-a7ff-da50cf129456
+      row 4: 35d538aa-1eaf-57b5-bea1-fb2fedea03c4
+      row 5: fb76e46d-fa66-5ad5-af48-25bf70e31792
+  FAIL campaign_id -> fundraising_campaigns.id (5 violations)
+      row 1: 7ad33d3a-340c-54b7-a7a4-76aac8b22dbb
+      row 2: 3139f78b-306b-5c08-b3a3-b23f7e7888f9
+      row 3: 2e59728f-404b-5311-9991-96d79a6183bb
+      row 4: 567355c5-a0cc-5eef-bf1e-21874494c671
+      row 5: 51b6be8e-bf63-59e0-b554-d02ef0e161e6
+
+Checking ell_plans
+  FAIL student_id -> students.id (5 violations)
+      row 1: da2c87da-5a58-5b9f-95ad-cff1b655a1b4
+      row 2: 7e55aaf9-8596-55bc-a480-cd525b441d41
+      row 3: 3cfbbd91-a9ac-589b-a3d4-b54933c8a42d
+      row 4: 42de84da-c726-5f1b-9b4c-6530519b37a0
+      row 5: c110c9bb-6004-5aa3-a199-9f61815b4039
+
+Checking emergency_contacts
+  FAIL person_id -> persons.id (5 violations)
+      row 1: d84a7bcf-d399-591d-91b4-5132458082df
+      row 2: 1af6c01d-1a00-5011-b29f-ecce338db1cf
+      row 3: c2e8a278-0ecc-5dd9-932f-6d3b2a09cf84
+      row 4: 804f51ce-a309-562a-8617-67590bc1e6d4
+      row 5: c229121e-dba1-586b-b09c-8b556c78ee74
+
+Checking employee_deductions
+  FAIL deduction_code_id -> deduction_codes.id (5 violations)
+      row 1: 263df4df-d83b-52f0-891b-6d76a29f404f
+      row 2: 13b1eb2b-6257-5428-b8a7-538c4fe2bee1
+      row 3: d54912ba-00d3-5b5a-bb81-abdc4f654123
+      row 4: 0b41de6b-d07a-5d8b-acf6-39fa94999310
+      row 5: ca8d3f2e-5c37-5cc2-90d1-ccb4f317f35d
+  FAIL employee_id -> hr_employees.id (5 violations)
+      row 1: 45e34be3-e70d-5b53-a50c-0ee4d6140a54
+      row 2: 436ddba0-53b4-5131-90cb-98d0c21c2e8a
+      row 3: a4637dc8-9960-59b2-abaa-a0e1124ccef9
+      row 4: f4bd84b6-0aab-5f9e-a59e-edefce565711
+      row 5: 8897746c-f119-5174-b04b-b3c7fbe8562a
+  FAIL run_id -> payroll_runs.id (5 violations)
+      row 1: d3005ca3-5241-538f-aa15-301d4b963309
+      row 2: bc081d1e-4450-5613-baeb-cc17f63f3b96
+      row 3: fc67fd6b-071b-505d-8149-b065da89b6e4
+      row 4: b553564c-d5c8-58f8-88d9-478726a114ab
+      row 5: ea7418a9-9656-58a4-83b8-e89375cd4ba3
+
+Checking employee_earnings
+  FAIL employee_id -> hr_employees.id (5 violations)
+      row 1: 2f0efc2d-5ba8-56ff-9a29-fdea79667fd7
+      row 2: 1a6a8f09-957b-5982-88c6-734e429c3ae2
+      row 3: 3bde6323-8b4a-56ce-8b64-16d1dca0686e
+      row 4: d5f4424c-b20a-5f80-b4f1-43be657307cd
+      row 5: 4edda250-662a-5dad-8e08-5a8468ceed83
+  FAIL earning_code_id -> earning_codes.id (5 violations)
+      row 1: 15142d90-3ce6-58a5-9d06-626c1c6cb5f4
+      row 2: fe6c0fdb-2b8f-58a2-b908-f1b4433cb281
+      row 3: f85e05b8-8649-5801-a4d3-3bf2ad251753
+      row 4: be1bd391-2bd4-5a5f-87af-25c77add44c5
+      row 5: 55578cec-ea7a-517a-aa7d-54df82d6cce7
+  FAIL run_id -> payroll_runs.id (5 violations)
+      row 1: c0c5cd31-0df6-5fc9-a269-a68918d375db
+      row 2: 1c71300c-eb4b-54c3-a772-17a4d921e03a
+      row 3: e18c340e-9bb3-58e1-9e0c-5eceb809c733
+      row 4: a14aad2f-e38f-5b83-98bd-758420690325
+      row 5: 60da2dbb-1bf8-522d-8645-ec6a1909996c
+
+Checking entity_tags
+  FAIL tag_id -> tags.id (5 violations)
+      row 1: 35aa727a-1edb-5d8c-9b3e-ee1fc39432f6
+      row 2: 421c7bc4-82ae-5394-8937-1b73f4c94c85
+      row 3: 16f25b68-902d-5276-b2bd-43a01669ae90
+      row 4: fb5d8176-df19-55c0-90f8-661cc61fd615
+      row 5: acddcd8b-64f1-5392-8cb2-8e6124e6137d
+
+Checking evaluation_assignments
+  FAIL cycle_id -> evaluation_cycles.id (5 violations)
+      row 1: eba4da15-a296-53de-88f8-9edde6ed69dd
+      row 2: f9aab94e-b8aa-5ace-a609-17ec6350182c
+      row 3: a1c16ed4-3575-5e97-bb46-8896e7cc7933
+      row 4: 82bd0e5a-ef6e-5d1c-8eeb-be97abd02be5
+      row 5: 6e03ca98-0f2a-5cd0-bd90-4380c228408a
+  FAIL template_id -> evaluation_templates.id (5 violations)
+      row 1: 0080871f-5326-5f1f-8af1-f45ebef1254a
+      row 2: abed2b12-0ea8-52da-87cf-cc82d6b9ade8
+      row 3: e7c84228-30bb-5c45-a819-9f850e25e456
+      row 4: 8c08b285-1769-5183-8f16-c528f3de778f
+      row 5: 6f361408-3ce0-5a83-9781-58625e4f3557
+  FAIL subject_user_id -> users.id (5 violations)
+      row 1: c6db7381-de72-5cd2-ab8f-2854fa3b1b90
+      row 2: e05fa491-f4e2-56a6-aa1f-bcf0713a6821
+      row 3: f760bf2a-d2c5-5efb-a913-03ef9e2d72ae
+      row 4: 45f9a2c6-3229-5a7f-b3ba-45ac386634ed
+      row 5: 1fedf6d6-5add-5e93-8c77-7adf522c6f98
+  FAIL evaluator_user_id -> users.id (5 violations)
+      row 1: c9815ec4-400c-5442-a40e-d448865c90b2
+      row 2: 6a969fd4-e407-5bf5-9ce6-7bc911dae75c
+      row 3: 16e1261b-bf0d-5512-9d01-e8192c172a45
+      row 4: 912f9a9b-99a5-55fb-a66c-b8f44513527e
+      row 5: 6abf6c5f-dbc8-5af7-9af2-86f37888881e
+
+Checking evaluation_cycles
+  FAIL org_id -> organizations.id (5 violations)
+      row 1: b29e4da0-cff4-59f6-be48-3b10aabddae1
+      row 2: 7e8b5033-a9a5-5875-940c-67249eed5db1
+      row 3: e7e83ee5-1b06-5c22-ae8d-abe4542d7374
+      row 4: b0d5b56c-d392-5b6b-b472-34619237b1e1
+      row 5: 63cab15e-69bf-55c5-991b-daeac2cddddb
+
+Checking evaluation_files
+  FAIL file_id -> files.id (5 violations)
+      row 1: 27ea08fb-3c0b-55fe-ae0f-20c9fe0a0d77
+      row 2: 21502fe9-3582-5220-9960-4052be35dd14
+      row 3: 7f7dc6db-86a2-5b28-bcea-b7a73d8f41a2
+      row 4: 868c3ff4-fe6a-56d2-8e9f-dec769b8a74f
+      row 5: 8c69c97e-3e9a-5801-8c22-56664e1d9c95
+  FAIL assignment_id -> evaluation_assignments.id (5 violations)
+      row 1: 22718348-b1b1-52ad-b858-731b61cefb01
+      row 2: 3e5f00fb-78f9-5cf6-abad-56be6155b3db
+      row 3: bb57a6e6-88e5-50e0-b687-977ae5b385ef
+      row 4: 067e68a6-2c31-5294-bcdb-ac665f550f4a
+      row 5: 71a91f2a-01f1-529e-945e-d38832df28b2
+
+Checking evaluation_questions
+  FAIL section_id -> evaluation_sections.id (5 violations)
+      row 1: 974f29fb-c3f4-5ab2-818c-f16a1c7415ec
+      row 2: 2b9f4614-bcd2-5078-ac9b-be91621ca91a
+      row 3: 60b5ef38-82b5-567a-94bd-34ba181be733
+      row 4: f8991a5d-fbe0-5745-80bf-99c2604e51e6
+      row 5: bebf49d0-edfe-5581-a6e3-16449e31cb49
+
+Checking evaluation_reports
+  FAIL cycle_id -> evaluation_cycles.id (5 violations)
+      row 1: a28b7b33-baae-5991-9b5c-d953128df1df
+      row 2: ed675a86-6f30-51ed-a2af-68dba2627e50
+      row 3: 10c086a3-7bab-560e-91ac-587e1376be8e
+      row 4: ce4f779f-189a-5345-9a84-2b92d1d89915
+      row 5: 6f00ef72-429c-59e9-b001-644324266f4a
+  FAIL file_id -> files.id (5 violations)
+      row 1: 8985733b-678e-59e3-8356-8954b187de7e
+      row 2: d38ba9fd-3c3a-5c4b-b06f-d81c1837fb10
+      row 3: 94d67177-fcd8-5922-aac8-c783f2449a84
+      row 4: ab9a584f-162e-5edc-96cf-21faec1ff730
+      row 5: c87a05a1-3143-5c8c-a30b-53a001fc9b17
+
+Checking evaluation_responses
+  FAIL question_id -> evaluation_questions.id (5 violations)
+      row 1: af13c2f6-5a3c-5671-a575-d6a7c77392e1
+      row 2: ac3b0a5b-8934-5399-90a4-b93820fb237b
+      row 3: 87f1fc5a-de70-5380-b0e9-283dddeb3d0c
+      row 4: d9077f7a-194f-5fa6-bada-97b3f7b039f7
+      row 5: 6b87ed3b-c642-5ee8-90df-2ea1183e4c35
+  FAIL assignment_id -> evaluation_assignments.id (5 violations)
+      row 1: 8594d846-bd6a-58ea-b671-815271a87dda
+      row 2: 21b0cdec-a55e-5ca3-b11b-4380604ab9c5
+      row 3: a9b75656-cb9c-55eb-8469-4589fd4b7b25
+      row 4: 649eb895-3900-5b99-bf6a-5ebd9a64a2d5
+      row 5: d8f535a4-2bf4-5cb6-a99c-d8589837d0bc
+
+Checking evaluation_sections
+  FAIL template_id -> evaluation_templates.id (5 violations)
+      row 1: 87994de9-0d80-51e7-97c6-ea4adc434cf2
+      row 2: 13aea992-c654-5bfd-9949-abd6d4f8b19a
+      row 3: a3b3987a-4cd2-502f-91cb-ea3b61bda583
+      row 4: f1012fda-1859-5758-9f44-b801cc5e902a
+      row 5: 27c389da-1191-588e-b0fa-73a76a3c9ba8
+
+Checking evaluation_signoffs
+  FAIL assignment_id -> evaluation_assignments.id (5 violations)
+      row 1: 958dc26d-7f41-5795-91a5-9e0cb771d2fb
+      row 2: 308ba914-515e-5832-a8f0-bdcc219f11ae
+      row 3: 6ca11846-89bf-58f5-bbd1-0d407f5f8bf2
+      row 4: 8aa80d6a-c56b-53cd-a716-d37c96d7767e
+      row 5: e05ee881-85df-58f9-a918-03034300de7b
+  FAIL signer_id -> users.id (5 violations)
+      row 1: c88d218a-4dca-5f0e-a0c1-37cdf5af0d32
+      row 2: d7717b47-7583-57d9-982d-32923ef0c0c9
+      row 3: 68f2181d-e61f-5f51-af12-9557dce68200
+      row 4: b3dc36a9-27e3-5364-bcd5-b2feefe76986
+      row 5: cd22a6e3-f447-53f3-93c1-acd7d76160c2
+
+Checking events
+  FAIL activity_id -> activities.id (5 violations)
+      row 1: 963b284e-b12d-5da5-be4b-05d6016057f5
+      row 2: c5e353c5-8472-5878-b562-942237cd4d8c
+      row 3: 66f4e80a-440f-5250-a91b-1820ba30e5d0
+      row 4: 9e839cdb-7509-590f-a128-acc7dfa6bc2f
+      row 5: 4e8b5f76-43a3-56eb-bc33-1eee46fb1489
+  FAIL school_id -> schools.id (5 violations)
+      row 1: 248f1b7a-1e6d-50b1-9cbb-ece0ad32f9ba
+      row 2: 683800ce-37a4-5d39-89ff-dad67dfbb5dd
+      row 3: 956a9fb1-af1b-5cbb-9b58-d820b520670b
+      row 4: faf43a8e-16b2-55ed-bbe5-3da503a62a24
+      row 5: 96e74d24-fb6a-5c3e-82f2-25346c9df49e
+
+Checking facilities
+  FAIL school_id -> schools.id (5 violations)
+      row 1: 3f81b195-437d-57bf-bb7c-4f2082a7d725
+      row 2: ce5ab683-125a-5c67-8a91-b42866a5ad5e
+      row 3: 63444cb6-36c5-57e0-a53a-ed4c121517a1
+      row 4: ea67cebf-5af1-52e9-953c-d6e5b85e87bb
+      row 5: d3496471-940e-5ecb-92af-16ad666fa03c
+
+Checking family_portal_access
+  FAIL guardian_id -> guardians.id (5 violations)
+      row 1: 2702592b-132c-567e-854b-4ade879b46f1
+      row 2: 6be50730-05be-5b0c-8780-21a2e15ccd15
+      row 3: 829e64d6-fbd5-5c71-8701-485a707b4799
+      row 4: de278898-0fa2-5e48-bc63-13ab2f8ca03f
+      row 5: 44a3e6c4-3ea7-54ad-bf21-b44fd2d73607
+  FAIL student_id -> students.id (5 violations)
+      row 1: 28e12f55-0125-5010-ab11-42234816f4ca
+      row 2: 20991878-5ecb-5205-862b-47a788a0b65d
+      row 3: 02309ba0-0b50-513f-8fb9-97677180ce09
+      row 4: e8f7b281-4195-56a5-b043-aae4a8aa53b4
+      row 5: 2a6c6611-f367-5837-b44a-ceec439670f3
+
+Checking fan_app_settings
+  FAIL school_id -> schools.id (5 violations)
+      row 1: c4449c86-27de-5871-82cd-136152d89c21
+      row 2: 4ec0b5c4-960d-5bd3-9074-16d2ea4bbc40
+      row 3: b6b961f4-7092-5172-bc6e-195ad99b9603
+      row 4: 17d92581-c086-5bdd-bc16-0f35ecc3965b
+      row 5: 93df99e2-8f1a-578e-b149-d4ba47be854a
+
+Checking fan_pages
+  FAIL school_id -> schools.id (5 violations)
+      row 1: 735f0364-a6f3-551a-b762-b71e75a73ea0
+      row 2: fc2a3a2d-e9a9-5357-90ee-aa1aba3d1664
+      row 3: 9aa533e6-56e3-5fb8-8670-96e9340cd0af
+      row 4: 8d6fbb33-9990-57eb-99bc-acd99498b92b
+      row 5: 79582780-0641-5111-9bb9-0403769deeea
+
+Checking feature_flags
+  FAIL org_id -> organizations.id (5 violations)
+      row 1: 4cf44d92-ba11-5337-a84c-70fb9c03850d
+      row 2: 6b8362fa-cc0c-5c76-9f08-b34b506ec277
+      row 3: eebf3e2e-5215-517c-8a5f-331fd4ec7ed7
+      row 4: 26fd7358-1689-59c1-bfc1-8f8a007e5d53
+      row 5: a03ebddb-f3d5-50b6-8378-ab408b33f28c
+
+Checking fees
+  FAIL school_id -> schools.id (5 violations)
+      row 1: fa3b31de-0034-5c91-a112-aacebfae3693
+      row 2: fc9bf52f-fc1f-5c16-8674-0f896ca6a516
+      row 3: 30337a0b-9377-56db-ab11-7ed2930a59b2
+      row 4: 25636eed-795d-531c-88c5-693eefe7ea22
+      row 5: 5341809c-f5ad-591f-bfa0-50a997666052
+
+Checking files
+  FAIL created_by -> users.id (5 violations)
+      row 1: 69d84976-a5c4-5338-a2ef-012b5b1fd8f5
+      row 2: 2e82768f-5ac2-527c-8085-0f65a507ab24
+      row 3: 2b18a004-39fd-5523-8cb9-8c9103e5d6dd
+      row 4: 3a9b33d8-c06b-5d88-9fa5-8a364c647737
+      row 5: 58ea747f-8052-5619-b5c5-b60ca3058689
+
+Checking final_grades
+  FAIL grading_period_id -> grading_periods.id (5 violations)
+      row 1: 9acd163b-b25e-5332-9df8-ab85c4bc33c8
+      row 2: 46a5afdc-59d5-5b8a-8625-90e8c9044592
+      row 3: a07b9f2c-120d-5360-af79-8a89c048b268
+      row 4: a7fac6a9-64e9-54ab-bbee-f80a765ee15a
+      row 5: 11fc9279-a6a6-5fe8-9de5-a3d48ee9339e
+  FAIL section_id -> course_sections.id (5 violations)
+      row 1: 01174b15-c2bc-5d55-8d65-7449e0f71b8e
+      row 2: 676dabd6-c3c3-5713-adf5-ffa3dbc25a8b
+      row 3: 9f7aaadf-c7ec-5d90-9e8f-823d47c32bc9
+      row 4: 8938a295-c89c-515c-877b-e83f5551d0c6
+      row 5: b85b7e08-843d-53f5-b0f7-b07529524294
+  FAIL student_id -> students.id (5 violations)
+      row 1: b006acff-92ac-57be-97b7-dbf5bed49ce3
+      row 2: 3045ea9e-3c96-54f7-8e59-0c21169e2c1b
+      row 3: 612ab478-bb60-5146-90b9-5e9438b37111
+      row 4: 1d90b4e7-bc41-5320-8dff-f5550fdd7003
+      row 5: 3c497c23-005f-5ca4-bf0d-ea196148b5c4
+
+Checking fiscal_periods
+  OK   year_number -> fiscal_years.year
+
+Checking floors
+  FAIL building_id -> buildings.id (5 violations)
+      row 1: 410e7254-e86f-530e-8c63-bdcf76af068c
+      row 2: 23705bdc-2689-557f-99dc-4fc0d06fa58a
+      row 3: 14c3d376-965a-5636-8ede-61c2c3d88556
+      row 4: 08676f9f-212f-5d76-86a0-a65c9f06376e
+      row 5: 1e08bd1c-535d-5ca6-a602-6918d85b817a
+
+Checking folders
+  FAIL parent_id -> folders.id (5 violations)
+      row 1: 1fbb8761-9c64-5812-a413-36b8fbbb1881
+      row 2: 7f2a8721-bc31-55d6-9060-effb9233eafb
+      row 3: 4a4b00a6-b4a4-508e-802c-de48df038662
+      row 4: 2931086d-0b51-5f54-8e95-6951f3e904d8
+      row 5: 6179d024-4258-5ab4-8476-12c0891fa8fd
+  FAIL org_id -> organizations.id (5 violations)
+      row 1: af5f9bbb-f044-5ccf-914d-9382ad30857e
+      row 2: cffc4466-c5bc-5e51-aa74-1b652c06987b
+      row 3: 98a3035e-4fec-5f6f-ab2c-112e2701df05
+      row 4: 944d7274-13c6-5bf9-9575-130bec5c37da
+      row 5: e69ba205-1409-53ce-8ff1-f19353424ae2
+
+Checking fundraising_campaigns
+  FAIL school_id -> schools.id (5 violations)
+      row 1: 1053aab2-9c3e-5d7c-b07a-dcf96acfde1f
+      row 2: 4c8bf38d-bf5e-548c-88c7-8c46e3b42995
+      row 3: a1f52d5b-abef-5d73-a4d7-7e83cb0c7765
+      row 4: 07602e09-f43e-5d08-8dfc-0a5d143a29ac
+      row 5: a9060c7b-8cba-59c7-94b8-a122729f360f
+
+Checking game_official_contracts
+  FAIL game_id -> games.id (5 violations)
+      row 1: 89663a64-3ca4-5691-b5c8-327cc09dad5e
+      row 2: 5aec8fd0-55df-5f8c-b7c7-ea69a22943f8
+      row 3: abb6a41f-5afc-5d60-9cce-93598e8528d8
+      row 4: 6242a590-2037-589a-91a6-6572f9efc371
+      row 5: e548f140-c820-51c7-b9cc-ff05e6e6a9aa
+  FAIL official_id -> officials.id (5 violations)
+      row 1: 81d8100a-f2ba-5f38-85f3-11069aa55c76
+      row 2: 38f85c07-ca0f-5b04-b930-38d5998fbd04
+      row 3: 3bae7f9b-4253-5811-b4ef-ad9174420983
+      row 4: 3b968b89-8155-5964-a6fe-77252107a4c4
+      row 5: ce8c02d3-76a3-5ef7-9551-272e0573b012
+
+Checking game_programs
+  FAIL game_id -> games.id (5 violations)
+      row 1: 701a7750-bb57-58dc-b1b8-ff9456cd288a
+      row 2: bf45d433-9123-5593-ba3b-2f4ea290956c
+      row 3: 40244948-38aa-56cd-8f3b-7662e0cd5560
+      row 4: 4421236a-0021-5eb3-ba04-4540b63e29d4
+      row 5: ef20bf84-d996-5ffb-adb8-bc0f57844f94
+
+Checking game_reports
+  FAIL game_id -> games.id (5 violations)
+      row 1: 4aa9e509-4146-5d26-a6b3-70a48585ff81
+      row 2: 57ea2559-7161-535c-991b-50a9bcba8623
+      row 3: 238899c9-62e5-5d8d-9c7b-ebc99893c332
+      row 4: 0b6f6ed1-4689-5132-b5e2-0f4d43f617a2
+      row 5: 15512210-1407-5d13-9f18-dae1aa9a9cd2
+
+Checking games
+  FAIL season_id -> seasons.id (5 violations)
+      row 1: 919e6c7a-122b-5d25-a95d-01278ee871b2
+      row 2: a5100936-25d5-5ece-a983-ff927b8e3753
+      row 3: 1666dac2-ab99-5094-b7ad-ddc23b90ea2d
+      row 4: 65d65a58-1d3c-5002-9552-b1cc13592455
+      row 5: 3aa4489f-b02f-5d87-8451-4cda720e703a
+  FAIL team_id -> teams.id (5 violations)
+      row 1: d00acd0f-2cdb-59a6-8c1d-215a53581121
+      row 2: 8d36e061-dbe2-52da-a959-1e903080fe61
+      row 3: a6841e4b-ebac-5d2f-8c33-f3547dda1347
+      row 4: 8592479b-388f-5f68-babd-f890a602f67b
+      row 5: 2a1a796b-4b90-5dcd-a5dc-382a0109e1f0
+
+Checking gl_account_balances
+  FAIL account_id -> gl_accounts.id (5 violations)
+      row 1: d70c8b9a-d48f-58da-890c-a68b9750e24d
+      row 2: 5ee4597e-6095-5a57-8b63-3ed81ee8e815
+      row 3: 0eb9e10c-a05a-57ae-9b3f-63621d1ee89e
+      row 4: dac07c77-b743-5596-ae97-208a2201b970
+      row 5: 8469c7c2-9e5c-5d39-abb8-77ed9f8af228
+  FAIL fiscal_period_id -> fiscal_periods.id (5 violations)
+      row 1: 7b52366f-5d30-5c0d-893a-42bb4be75945
+      row 2: 761119a6-3051-52fe-b602-2cce3b9fda25
+      row 3: 870aa272-cc3a-5a29-baa9-3ff8862053b1
+      row 4: 81e2e79b-970f-599c-9898-4be9c754b56a
+      row 5: 69c801b8-6a63-52fe-ba85-060401fd44b4
+
+Checking gl_account_segments
+  FAIL value_id -> gl_segment_values.id (5 violations)
+      row 1: d906c5a6-04a7-506d-8116-201c90e9053b
+      row 2: 9941b866-68e1-5c37-aacb-688cec7d3cdc
+      row 3: 4436c6f3-55ef-5064-b825-daa8f0ef9c68
+      row 4: 1bc38ad8-f849-59b4-a6f1-4151c49271d5
+      row 5: ade0a1b7-924e-5d73-ba9a-46785922ff9a
+  FAIL segment_id -> gl_segments.id (5 violations)
+      row 1: ac3579c1-28d2-5e99-88dd-4c659a436f40
+      row 2: 5ab8059a-3493-5aa5-b25c-cf7285cf0981
+      row 3: 82fdb12a-c266-5876-95cc-804b67f62028
+      row 4: e3ed4ca4-840f-56c4-84ee-27c48fa98b11
+      row 5: c5947c2a-6f12-593c-8015-50ff26d2b366
+
+Checking gl_segment_values
+  FAIL segment_id -> gl_segments.id (5 violations)
+      row 1: 6071b84c-fda6-5a89-acc1-0de2a73675ea
+      row 2: 4f416db5-a965-57ec-b9e5-2cb97eb4c46e
+      row 3: dce164d8-7703-5d9e-8221-c8f609908ee8
+      row 4: 208a66a8-8db7-521d-b549-329bc2532de0
+      row 5: 9a39cd41-b3ed-53c9-811e-083f1121f152
+
+Checking goals
+  FAIL plan_id -> plans.id (5 violations)
+      row 1: 041dace6-bc5a-5f4a-bf19-3f497f1fc727
+      row 2: 26aac8c3-d103-54bd-9bb0-cb765abe2a16
+      row 3: 26446c68-e64b-5014-a697-840516f6c79d
+      row 4: aa09ab73-082d-50f9-8eac-5569d0a4696a
+      row 5: 33a98d02-0760-5774-ad6a-49d4ec78278c
+
+Checking governing_bodies
+  FAIL org_id -> organizations.id (5 violations)
+      row 1: 27698a77-d890-5df7-99c3-a76694c4793b
+      row 2: fb9829cc-384a-5f5e-9ed1-1d7d95dec340
+      row 3: 2da31f59-9c52-5de6-a559-8a6f3ee0f869
+      row 4: 03725386-fa4f-5c42-aed4-bfd2637945f9
+      row 5: 6dc8dbbd-92fc-56e3-ba1f-e48a291e53fb
+
+Checking gpa_calculations
+  FAIL student_id -> students.id (5 violations)
+      row 1: def863d4-e0d0-5103-b433-d72488925e09
+      row 2: 191a636b-38a3-5c4a-8bbb-942327476e54
+      row 3: 0669fccf-072f-53f6-abb6-4cccd9794feb
+      row 4: dea2fc91-9115-5b72-ac6c-a635650660a5
+      row 5: b470c2e8-6a4a-5c45-b49c-e0ca79d17cf0
+  FAIL term_id -> academic_terms.id (5 violations)
+      row 1: 39dde955-ed13-53c7-a7f3-04cce621cb3f
+      row 2: 0be242f9-9e11-5a96-89ab-7d2d5decde68
+      row 3: 41717882-93be-5cb1-ae0a-bdf1d6be885d
+      row 4: 5e4bb72e-466d-5ffd-b18c-c0b0c5fe4d4e
+      row 5: a806006f-3aa4-5c27-b1b8-d79bcfcbea02
+
+Checking grade_levels
+  FAIL school_id -> schools.id (5 violations)
+      row 1: eae74b3c-75bb-563d-9083-3fdc42d012f6
+      row 2: 113446a2-43d0-5edc-9f4d-529eaf9a2ea4
+      row 3: 809dd7b6-82c0-59a6-aac6-f08c339738bb
+      row 4: 53041011-3de3-55d4-b8df-923afe3ff608
+      row 5: de917d63-a723-5703-b058-dade2a1a82e7
+
+Checking grade_scale_bands
+  FAIL grade_scale_id -> grade_scales.id (5 violations)
+      row 1: c9f04f40-3bdd-52b3-8309-7abe275c4956
+      row 2: bd0eed36-55a5-5dbd-bebb-859438478f5c
+      row 3: 4923985a-ddcf-5ab7-86eb-e08d94a4ee1a
+      row 4: 3263114d-388b-5f9f-8cb6-df9e0d77f26e
+      row 5: 8b82ccd8-2d30-5fcd-bbc7-b699e1cb735e
+
+Checking grade_scales
+  FAIL school_id -> schools.id (5 violations)
+      row 1: 75931f8b-6d45-5226-923f-c838fd43f8ef
+      row 2: d8a9ff89-5a2b-5e1e-82fa-d2aac9de912a
+      row 3: 0c2e4780-87ed-5fc2-9443-40d5d5eb3001
+      row 4: b1338987-d418-5fe7-adad-a217d459ebdc
+      row 5: d421f87d-5fd9-5307-a680-979026d6f24a
+
+Checking gradebook_entries
+  FAIL student_id -> students.id (5 violations)
+      row 1: 13f286e5-f181-5d3d-89d4-4c1a253d912d
+      row 2: bcf96d4d-118f-52b7-8fed-9dd2fb2d92c9
+      row 3: 97e9134c-8af7-531e-bb93-13a8ea57e8e1
+      row 4: 184100ca-c72b-5aa0-8c37-916e9bd86f67
+      row 5: 6502c3c4-d8e3-596d-9e8b-a1b8dd216d21
+  FAIL assignment_id -> assignments.id (5 violations)
+      row 1: a84fa068-51e9-53ca-8dae-c623cf8ca56a
+      row 2: 69d0ddfc-9ecb-5d6e-91ec-215963171642
+      row 3: cd856f80-22eb-5c08-93a2-c649a73c5a0a
+      row 4: 39926ff9-969f-5167-9a64-775e35e8bb78
+      row 5: ae74e34a-d3b9-530a-89e6-b93ebc50dc82
+
+Checking grading_periods
+  FAIL term_id -> academic_terms.id (5 violations)
+      row 1: 3c51c451-e59b-55f5-b6ff-1f70d3151938
+      row 2: 42d31007-419b-5cfb-9881-66c5141cfb69
+      row 3: fc9d3742-f048-59ad-b680-7010ffddcfaf
+      row 4: e9c7b471-9f70-5c81-aee7-40eec5b2eac6
+      row 5: a8dc9a60-8f8f-549b-9ad1-7b1f976c8d00
+
+Checking guardian_invitations
+  FAIL student_user_id -> user_profiles.id (5 violations)
+      row 1: 9c7a9ce8-f984-5a38-8480-63b8709f3fe6
+      row 2: 517bb848-d0fd-5029-b407-0fcc0b4ceb08
+      row 3: 846c08c6-6442-5686-99df-be8ba2772ccd
+      row 4: 597d740a-28af-54f1-8ba9-0661b6d65adf
+      row 5: cb60da18-3ed9-5e24-827b-ab82e3de4ef3
+  FAIL user_id -> users.id (5 violations)
+      row 1: 1262fbd8-313e-5dd6-bb11-571f500864f2
+      row 2: 2df6ed7a-b291-57c9-a783-6df2641621f7
+      row 3: ec5fcc45-3701-5451-9d09-f845f22965d6
+      row 4: 441cb11b-63da-598f-80ac-10340f4b5dc7
+      row 5: 477c35b0-cfc2-5457-81c1-323f75acbace
+
+Checking guardians
+  FAIL guardian_user_id -> user_profiles.id (5 violations)
+      row 1: 9b8e24dc-26ed-5ff1-9485-d2b4a6214280
+      row 2: f08c1b7c-8c90-5dc6-8cfd-709457e7ec25
+      row 3: f2b2c4b3-f869-5664-9ae3-283f5f28db6a
+      row 4: f99ffea9-368f-5097-b77d-e737c224f21a
+      row 5: df73fa92-f689-5b70-a2f6-33719ce2b390
+  FAIL student_user_id -> user_profiles.id (5 violations)
+      row 1: 640ae6cf-84db-5112-8181-e706c35a8e92
+      row 2: eac5663e-a78a-53b3-8950-26ddbbecc1e9
+      row 3: 6a897598-6b28-596e-aa5c-bf508a728300
+      row 4: ec638467-abaa-5cf4-803b-d3950091a041
+      row 5: a2c2ce2d-5570-5992-89f5-070037a464f0
+
+Checking health_profiles
+  FAIL student_id -> students.id (5 violations)
+      row 1: 220b4d64-c118-5faf-a38f-091e784ee1bf
+      row 2: c23dc336-b888-5a78-b170-abe971feaeda
+      row 3: 3ec7edc2-3838-50e1-b522-ec40e0c8f358
+      row 4: 645ab51e-f99f-5fbf-a784-820ce94a30db
+      row 5: 2da2a3a5-8ce0-5d26-87ea-906b5ba1874a
+
+Checking hr_employees
+  FAIL department_segment_id -> gl_segments.id (5 violations)
+      row 1: 6e42c87d-4ff1-5c56-8b2e-a688dfac4356
+      row 2: 6d189c42-b375-5987-a0cf-c83a2fb11a4a
+      row 3: f0327222-a6e8-5e0b-877e-6bb5ffffd502
+      row 4: ec6535d5-1671-577c-89c6-5d7c1319dbf3
+      row 5: aba18023-d654-543e-9046-bdb5c4163047
+  FAIL person_id -> persons.id (5 violations)
+      row 1: 63995bf9-23a1-5f73-86a9-3488bdbd4875
+      row 2: e28bd672-ef7c-5972-9d57-7a8c6894a3c6
+      row 3: 75bfd7e9-9054-5bfe-997f-d8816fcbf57b
+      row 4: b2642325-144e-5e11-9982-f1a96e6546b2
+      row 5: d0112298-376e-51d1-b9c4-21cd52c50618
+  FAIL primary_school_id -> schools.id (5 violations)
+      row 1: 96b9c7ec-b514-5b80-b29d-90dcc0a919ba
+      row 2: 5783f4c3-61a6-599e-a2c1-ede9576ebd04
+      row 3: 99ddec5a-5842-56f8-860b-99d1057c09c4
+      row 4: aa6eccc4-3836-5b37-9939-5cec1a43e30d
+      row 5: 67c2750b-7ff4-5e3b-b901-1794d150307f
+
+Checking hr_position_assignments
+  FAIL employee_id -> hr_employees.id (5 violations)
+      row 1: b085922d-7127-5d9b-9708-2f3172a1b96b
+      row 2: dcd9887a-45db-57b1-8cc5-5bdde736f82f
+      row 3: 1ead07a8-76a0-52f3-94ea-21447f74678a
+      row 4: ffab8f55-8867-5b2f-85b0-94ad215ef034
+      row 5: b6b97bdc-4d1c-591b-8773-94d83d571983
+  FAIL position_id -> hr_positions.id (5 violations)
+      row 1: 236babcc-6ea7-5b26-b19d-022ff72b6ed7
+      row 2: 8589b21a-7418-5c9e-9581-00c16ab73593
+      row 3: 9558a7bd-4000-5a1f-b710-5f9f6efe1801
+      row 4: bc5f48f1-bf7b-506d-a239-81afff5b3919
+      row 5: d45ca5a9-f954-5380-8ab2-9f9bd13c3b3b
+
+Checking hr_positions
+  FAIL department_segment_id -> gl_segments.id (5 violations)
+      row 1: 1c82e671-be29-5e86-929e-18919dfa0533
+      row 2: 90eb6264-63bd-51c8-a3d2-0d6ef42a2b08
+      row 3: 80385f67-85f5-51e8-adce-c2cc232eecb9
+      row 4: 588f31dd-b52a-5c70-953f-222d80839a3f
+      row 5: 979ea8a4-9777-5877-9ea3-637dc5e92f44
+
+Checking iep_plans
+  FAIL special_ed_case_id -> special_education_cases.id (5 violations)
+      row 1: aa8b0b8a-456f-577a-a198-5c2910f89c11
+      row 2: 58c598e4-c52e-5242-b087-27c888b755b9
+      row 3: e53afb3f-f4ff-5f0b-942f-99ad686f4c05
+      row 4: 55cea68b-f4cc-5cc9-8c18-498cce7ae184
+      row 5: bdb4348f-b289-5b34-b1e5-a9b2a4b53963
+
+Checking immunization_records
+  FAIL immunization_id -> immunizations.id (5 violations)
+      row 1: b4126dd4-c8f6-547d-bf79-8a0a0f9dc47f
+      row 2: 32911e5d-0c6d-52e6-af59-142fbd89d119
+      row 3: bb62d6cd-e608-5ce9-a898-a31e23e1e74e
+      row 4: e967aa77-59e8-5009-b9df-1b5c1b1b9ecf
+      row 5: e70d5949-f99b-5bff-8ee7-817c5784ff5b
+  FAIL student_id -> students.id (5 violations)
+      row 1: 2b163a66-06e0-5a05-a460-281e9fbba0ab
+      row 2: 40ee5af7-1385-5f02-ad11-666c057d5e7d
+      row 3: b04eaddd-3864-583f-98bc-69e7949f32aa
+      row 4: 969f2229-0a8c-5f82-a48e-58f169f9a0f0
+      row 5: b920ebcc-89bc-565b-88cb-35e817ee0d2b
+
+Checking incident_participants
+  FAIL person_id -> persons.id (5 violations)
+      row 1: 4e58a630-11d6-503e-be53-aa8f0711a40b
+      row 2: 0657b1e0-c188-5824-a4ee-17f2717b8a9e
+      row 3: 291f0c0b-801b-51df-b5ed-b53fb979b052
+      row 4: 18183cd0-4bdc-58ab-83a3-953703053c33
+      row 5: 7cd7e20b-68f5-52a8-9241-543ead1c95a9
+  FAIL incident_id -> incidents.id (5 violations)
+      row 1: 04ce0119-14db-518d-bfa3-2c3e73dc6084
+      row 2: 6abbbc31-81cb-562d-90af-a62f97e2bc0a
+      row 3: 515ebd40-54b5-58f1-bd55-f6fa482f057a
+      row 4: 81faa3f4-7006-5421-b344-5c1e246ded09
+      row 5: 26cce3ce-cbb3-56e6-b0e4-79da2a02ddce
+
+Checking incidents
+  FAIL behavior_code -> behavior_codes.code (5 violations)
+      row 1: incidents_behavior_code_1
+      row 2: incidents_behavior_code_2
+      row 3: incidents_behavior_code_3
+      row 4: incidents_behavior_code_4
+      row 5: incidents_behavior_code_5
+  FAIL school_id -> schools.id (5 violations)
+      row 1: 90bb7503-d596-5e06-b9b8-b4558b9f09f5
+      row 2: eed475a9-6a50-5fd7-aacb-1abfb757c20e
+      row 3: 542197be-14bf-5d00-bf86-8b2c40d8551d
+      row 4: 5aff4132-26fa-540c-962b-83ccb091529b
+      row 5: b63a3e3d-a091-5769-a8ee-6b17b21a3994
+
+Checking initiatives
+  FAIL owner_id -> users.id (5 violations)
+      row 1: be319868-14cd-503b-89fd-23239ab5cc7a
+      row 2: d4a63801-3691-535b-b80b-2e0b9b5ea337
+      row 3: 3bf5c399-4d44-5ee3-8827-66aeb39b9d27
+      row 4: f5bf1535-5fa6-5387-a666-cd83025cf742
+      row 5: fd02cf74-802a-5385-8782-27278abc89df
+  FAIL objective_id -> objectives.id (5 violations)
+      row 1: a2425be2-c8ff-5688-99b5-cdb343b372b5
+      row 2: 02c1d678-a175-5314-939d-f94fd1c0ecff
+      row 3: bc9c36f5-a541-5f35-951b-7dbe2ff6c7e1
+      row 4: e2cd7bae-a5cd-5372-9e3e-9acbd296dbeb
+      row 5: 44c83f76-d921-5d54-a993-5140c50116f8
+
+Checking invoices
+  FAIL student_id -> students.id (5 violations)
+      row 1: f587cffd-34df-5635-83c9-e93c10c88562
+      row 2: 8354f01f-d61d-5b6b-a209-800088af1f35
+      row 3: e25205cb-1ea8-5f4a-9221-f7df70e35f0c
+      row 4: cc8b48d4-870d-5235-88c0-65d27b4119db
+      row 5: ec086f36-2c12-50b8-94d6-484aa6c5ae54
+
+Checking journal_entries
+  FAIL fiscal_period_id -> fiscal_periods.id (5 violations)
+      row 1: 1669de8d-aabb-5b20-9967-d8c59172ddc7
+      row 2: 3888ad32-743b-58be-9b76-8393b43514c5
+      row 3: bd96a47a-40a0-5830-aee3-9adbcbb297d5
+      row 4: 2e507e15-974f-5b95-9966-9d8440846526
+      row 5: c9e108ae-e1ee-5e60-baee-efbc123deea3
+  FAIL batch_id -> journal_batches.id (5 violations)
+      row 1: 33aa61ec-c1ff-55b1-a671-96f007277891
+      row 2: ac1627bd-97ce-5354-9747-57c09b25af94
+      row 3: 6010d9e1-ec31-5e0d-a5c0-a64dd11c57aa
+      row 4: de23d9db-caa8-5b9b-bb20-cd33a5025d03
+      row 5: afaee4ff-f932-5de7-86c4-ed61f6656a00
+
+Checking journal_entry_lines
+  FAIL account_id -> gl_accounts.id (5 violations)
+      row 1: 5f51f563-4c83-58f1-9864-74adfaaf9013
+      row 2: bb85f9de-2101-5f15-8c72-c8d6d6bce229
+      row 3: 9c855ae7-6627-551e-bb83-e0c6c270c03d
+      row 4: 659d5643-502f-54da-b893-210ceb11dd2d
+      row 5: 33de9224-9145-5cc8-8785-9f03d9c6d2ea
+  FAIL entry_id -> journal_entries.id (5 violations)
+      row 1: 5953a47f-b66d-5b56-928b-0a86ca2eb87b
+      row 2: 6d20b384-5042-5afe-a4a8-d4765ef5c271
+      row 3: 3cb06edb-aeb8-5403-baa3-8b16e74021d4
+      row 4: f53ed6b0-bd20-5dd9-80cf-b1161c4811cd
+      row 5: c24e9b4e-1ac5-5568-8fbc-b662bcb717f0
+
+Checking kpi_datapoints
+  FAIL kpi_id -> kpis.id (5 violations)
+      row 1: 3cbda1b4-02ff-50b2-b135-42d8a5ab1835
+      row 2: 20bde9db-aca1-5a08-81be-1e68093962e9
+      row 3: 32b7ce7d-41c4-509c-8187-88ea10993c9a
+      row 4: 9580ab62-6d7e-5e60-828d-9566de9cf491
+      row 5: 693f6e10-2ffd-559f-9249-7d6ac8096c26
+
+Checking kpis
+  FAIL objective_id -> objectives.id (5 violations)
+      row 1: 71c69c6e-5995-58f8-a445-2062ec2df677
+      row 2: 5925c440-752f-5e79-a009-99711a18193b
+      row 3: 32caa4fc-051d-573e-aff6-45f3fdd2f349
+      row 4: 17cbc68b-78a9-5438-b4c3-4b079bfbca52
+      row 5: ac2c0523-e569-55d4-afe4-03812212cefe
+  FAIL goal_id -> goals.id (5 violations)
+      row 1: eefeabd8-4431-54cd-a36f-2f27240d3fd8
+      row 2: 367572e2-5cdd-5de2-b2c2-a79a68b18ed6
+      row 3: 029e1687-e34d-532e-92df-f8760c89b856
+      row 4: 571c9e13-389d-5e0e-aa37-f00cf1c93d03
+      row 5: 0b1e9c32-0874-5a8d-9fdd-01fe860c4cee
+
+Checking leases
+  FAIL building_id -> buildings.id (5 violations)
+      row 1: c91db748-d1ff-534e-9b0f-01ac6921ac5e
+      row 2: 350b4655-a45a-5896-b1cc-50311adff6a1
+      row 3: 146df51a-e6b9-5194-a665-3e641791275d
+      row 4: dfda0c23-8126-53c8-b549-43d6a608bbec
+      row 5: 108935d6-a9ad-5b4e-8793-deddea1daa34
+
+Checking library_checkouts
+  FAIL item_id -> library_items.id (5 violations)
+      row 1: c8dd3a89-da32-5d61-bb1b-ad2be7b9f63a
+      row 2: 42dbb4cf-6a19-5ccb-8ae6-d4c970c75d2a
+      row 3: fd52ff47-75a9-528d-bca8-02474aa5b494
+      row 4: dc861f72-8fa0-536c-baf2-c366f41307ed
+      row 5: 05a100aa-9a12-593c-a9e4-6ac6919ef0c7
+  FAIL person_id -> persons.id (5 violations)
+      row 1: eed331ac-e4fe-5775-ac21-158b1f6fa660
+      row 2: 754677fe-1c3a-5675-ac2d-9ed9e2154adb
+      row 3: 55f610bc-1e06-5646-97d6-84e38b16369f
+      row 4: d92e1b2e-56f5-5f53-a214-d84294169ddd
+      row 5: 42539eed-e052-50e3-b25f-5837214e7316
+
+Checking library_fines
+  FAIL person_id -> persons.id (5 violations)
+      row 1: f4c37f72-8acb-51b8-92bc-e7085717a5b6
+      row 2: bc345b89-c562-5ce5-ad26-11c677c332e3
+      row 3: 8999e3df-05ba-569a-a322-4f7fc6fd2b26
+      row 4: 57a027be-3f18-5e2b-944e-155ddd5f0cb1
+      row 5: 4a8c5384-f2b3-5361-9e56-60bd788f75de
+
+Checking library_holds
+  FAIL person_id -> persons.id (5 violations)
+      row 1: 089065cb-c4f2-5952-acf9-f0ff07957a8b
+      row 2: 7ad8b970-c239-59ed-96a3-774482bd74c7
+      row 3: 04fe9d0e-99b6-5f5e-874f-70f036760199
+      row 4: 92f5fd44-3515-5a37-9d7c-fa97e2e03327
+      row 5: 323cdef0-e724-5507-ad56-dfbdefc17426
+  FAIL item_id -> library_items.id (5 violations)
+      row 1: 52bb60c0-aa95-5638-ba30-93c5a41c0bd9
+      row 2: 8443ea10-5002-5a9b-af4e-128445ef8809
+      row 3: 0a431e9b-0bc2-53cf-8e3b-a87d2189f3dd
+      row 4: 9989ab2c-323e-5ed7-bb64-839d1fd2a29d
+      row 5: 7edb58f8-db58-5f79-8d07-5c167f846b90
+
+Checking library_items
+  FAIL school_id -> schools.id (5 violations)
+      row 1: b948da7e-2182-5479-9f9f-ff451f87d460
+      row 2: bfef024f-b1b2-52ca-ac11-c59c77130b94
+      row 3: 6b78649b-409e-5757-aa4c-d1cc8489b25c
+      row 4: 38cb98cf-ea10-5c4c-961f-a7d4869daa1d
+      row 5: 836ef9e3-34fb-55a8-873a-490a0c85cba0
+
+Checking live_scoring
+  FAIL game_id -> games.id (5 violations)
+      row 1: 841e573b-2a16-5a10-9ace-da3de919e113
+      row 2: c43609b9-e399-5935-8f7e-c32a92091744
+      row 3: 2a36ae00-fc8d-5333-9681-abe0cc34b17c
+      row 4: 694ce2f7-9f7d-5096-a4e5-acdad4c30bf4
+      row 5: 56d427ba-4bd7-51c9-a582-dc605a70a1e8
+
+Checking maintenance_requests
+  FAIL school_id -> schools.id (5 violations)
+      row 1: fbab52fd-4acf-50ed-9bd8-76a1caab4caa
+      row 2: 39401372-8175-5b92-b792-104662e9e848
+      row 3: 5858fbff-7095-5bc0-84b9-f571b56734ab
+      row 4: 3c8f07b6-0c81-56b0-8f4a-4dd7e53416c0
+      row 5: d5c7abe7-df8f-527a-83b6-c4803c64c365
+  FAIL asset_id -> assets.id (5 violations)
+      row 1: cc29bd4d-d225-5946-bbdc-fb1ea3a665fe
+      row 2: b61dacff-4d34-59c4-90d5-df393b18530b
+      row 3: cc7d5194-9ff8-583d-85cb-d3718db8a44b
+      row 4: b06f1052-b0cd-5c64-a65d-0b53e5f6090c
+      row 5: 3078bacd-5432-51dc-8f7b-cb4b9a4f8aaa
+  FAIL space_id -> spaces.id (5 violations)
+      row 1: a32612af-62c6-5202-b0e4-891cd71e8c34
+      row 2: b75adff5-d297-5d8d-8246-9cd7a3de786d
+      row 3: 24d86066-737c-5b87-992f-4da3e2b83ea0
+      row 4: af7cffc1-a6c5-52cd-a410-7995cc60a8a0
+      row 5: 749f70ff-872d-5f4b-bc9e-8d7c0c4fa5f6
+  FAIL converted_work_order_id -> work_orders.id (5 violations)
+      row 1: 85e9b323-bc69-5d92-9759-edf1f04fc4e5
+      row 2: e2d53deb-ae2d-5007-b67d-6acc2e1689ba
+      row 3: 3c1e191c-a5d9-5805-aab8-548385dee5e6
+      row 4: 5b39aab0-28c6-5146-bc45-ece2589ff03e
+      row 5: b7c0a7a7-ac1f-51d2-bf06-45431f73bde0
+  FAIL submitted_by_user_id -> users.id (5 violations)
+      row 1: c8be3c1a-92da-54c6-87cc-e65d84cfe994
+      row 2: e8162d96-de04-5e46-bba9-617c39218095
+      row 3: ef7d9d21-3c62-5cb7-a8a9-ed6ab9e56fc4
+      row 4: 78bc61dc-9d2d-5ce2-b8c5-21c3815a20d4
+      row 5: 757b77df-6768-5576-91ca-e60c0c17ca8d
+  FAIL building_id -> buildings.id (5 violations)
+      row 1: dac551f4-1d00-59af-9aa4-94f7886bf7ea
+      row 2: 13cd17bf-93a9-5afc-add4-93919f512f8c
+      row 3: 4cc17230-2dac-58af-b253-34aeac343453
+      row 4: 6c4143b4-b8b4-5bca-ab6c-673add5a9e97
+      row 5: aec64609-f07f-5cc9-8d89-aa5c0d779cea
+
+Checking manual_stats
+  FAIL game_id -> games.id (5 violations)
+      row 1: 612060ab-edea-51df-a8a1-9a0927ec7782
+      row 2: e74e199a-9d9f-5222-ae81-f5d7b4a12f05
+      row 3: 7498f9b5-f2ad-51d3-a35f-30711f7e5c2b
+      row 4: 3166bdca-a24d-59b6-b669-c63d62af57fc
+      row 5: 2c1ecd81-ab5c-5656-8b15-08d4c0e00663
+
+Checking materials
+  FAIL announcement_id -> announcements.id (5 violations)
+      row 1: d3f8cd37-089c-5642-8399-00601810ea1d
+      row 2: 61433c71-6dd9-5454-abae-cfdfc71cf6c7
+      row 3: 31581d3d-edc8-59a9-b0de-7033bf46bd6a
+      row 4: a1e7e52b-c456-5460-ab05-ec60b3550836
+      row 5: 7da5f5e6-775b-5c46-8b0f-1e6efc4e561c
+  FAIL coursework_id -> coursework.id (5 violations)
+      row 1: df183f9e-eb46-5a90-b674-5568c6c947c3
+      row 2: 1bb15ec1-4bc3-5de5-8b9d-ce02086e0e92
+      row 3: cf7974fa-c83d-551a-becb-78969565228d
+      row 4: 86b173c3-4a8a-54ee-85e9-851cd5c522f9
+      row 5: bd0ee065-459e-5948-a5ee-20c25fec174b
+
+Checking meal_accounts
+  FAIL student_id -> students.id (5 violations)
+      row 1: eda2b223-3476-5b00-b17c-265ec2212ccd
+      row 2: 73ed33f8-8f42-59a5-b44c-7ad0e58aea01
+      row 3: 31431f78-ce9c-5015-82b9-e79296d5d6af
+      row 4: 43a6d470-5585-5c62-91ad-0f9ac1aa5e5e
+      row 5: 425d4e73-6612-5729-9549-3e48c12fb5a4
+
+Checking meal_eligibility_statuses
+  FAIL student_id -> students.id (5 violations)
+      row 1: fa469ae9-80ff-5c89-9a7f-24e76e9ce8d4
+      row 2: 9f9fa85d-4b92-5560-a627-dfdb77c2bcd9
+      row 3: 55691396-b5d2-54a8-80d0-4f15296d2231
+      row 4: b6bdff28-b314-5c1d-b7a1-985d76bac8e1
+      row 5: 63e75ba0-b5ce-5a2d-937b-a6ad851c6762
+
+Checking meal_transactions
+  FAIL account_id -> meal_accounts.id (5 violations)
+      row 1: 0288ca16-55a5-595b-ba0c-4cd2eb4bead9
+      row 2: bb002611-91a2-540a-b022-a98432a9a908
+      row 3: 5ff26179-88d3-5677-80e7-35c3b253b264
+      row 4: 0af0bf18-1dd9-5705-806f-242e16384d5e
+      row 5: 7e180856-e299-5d41-a5e5-4997812c73e6
+
+Checking medication_administrations
+  FAIL medication_id -> medications.id (5 violations)
+      row 1: f9cb450a-b783-56ef-af83-fee8c42be927
+      row 2: 0792f914-3451-5a27-b1a0-b54a86e72ff3
+      row 3: 8ae609d9-0515-5d95-8cfe-2174dfab0c6f
+      row 4: 3f8103e9-f42b-5d5c-89ce-6ebcae82a1c3
+      row 5: 2f1ab44a-83a3-5637-a6c4-6ce866f83943
+  FAIL student_id -> students.id (5 violations)
+      row 1: 2c166c3c-70e0-5867-877d-a6a7cef7584a
+      row 2: 02441c6a-6378-58d7-b721-dccd13607fdd
+      row 3: ce0fff94-e3ce-50c0-812c-cbbd190e378f
+      row 4: eb7d30e9-13f3-5d51-914c-109cff793c97
+      row 5: ba03b2ab-463d-5d65-8ce2-c656ee2db86e
+
+Checking meeting_documents
+  FAIL meeting_id -> meetings.id (5 violations)
+      row 1: 6860793a-c3d9-52df-887a-bb866b95b101
+      row 2: 35b8ea6e-01e4-5649-b2aa-828c73695d6f
+      row 3: 86cf3274-1b6a-5936-ad4b-256246bbd8e4
+      row 4: cab6cef9-7074-550d-b72d-1698745f4b9b
+      row 5: 55ee7dd9-f4f7-54a0-8589-53e86f530034
+  FAIL document_id -> documents.id (5 violations)
+      row 1: f6c6bfed-eefc-54dd-a493-1fc079582cc0
+      row 2: 2af34b40-8234-5068-82c7-d5573f65ce1c
+      row 3: b0344b88-eb06-5111-adff-f1d064c4e7ae
+      row 4: d8321388-4c12-5180-b052-86d4a6dfbad0
+      row 5: 0cea3992-3f88-55ba-be95-2d0032254a73
+
+Checking meeting_files
+  FAIL meeting_id -> meetings.id (5 violations)
+      row 1: 1287e8fe-edfe-521d-a7cd-fa14d0b58710
+      row 2: e83bebf9-decc-5abb-b300-1c650d5eab14
+      row 3: 8e72f7eb-7760-53db-bd5d-292999c5bfba
+      row 4: fcef3cb1-ee3a-552e-93cc-294336e78bb5
+      row 5: ee5af00e-3164-51c7-b137-ebb6585ff5bf
+  FAIL file_id -> files.id (5 violations)
+      row 1: 8c5dd534-6a46-50d6-9741-f697ef2bd15b
+      row 2: 151a29b0-8658-5508-bb7b-ff3348951ce7
+      row 3: 302f5212-f05e-5c71-8157-4424323dd505
+      row 4: e3e0ccb2-1d1a-5076-a4e4-ced445769ee4
+      row 5: 1a9fc224-68cf-5a25-b4df-e5d5ceddb044
+
+Checking meeting_permissions
+  FAIL user_id -> users.id (5 violations)
+      row 1: 908a8756-ae97-5b5c-b8be-c6216d620675
+      row 2: 8fa09775-5429-5c49-bc15-7c5d7b511c1a
+      row 3: 8877bcf4-7491-54a0-84fb-81c09d384f69
+      row 4: c7035e96-bfd2-596f-82fe-32779de6ec40
+      row 5: 04d04adc-1e82-52f8-88b3-07c7d71f2ee4
+  FAIL meeting_id -> meetings.id (5 violations)
+      row 1: c6473fb4-14e1-5b9f-86c3-7a6a9918bccd
+      row 2: 95fc3695-d9a5-587b-8549-7ccf3c765f62
+      row 3: 6039ef99-4b74-53c5-8bd0-8b2e22bd8fe9
+      row 4: 55bef34c-57a3-570c-9858-4ea27059caa6
+      row 5: 6996878e-23c3-5f98-9b2c-4760642c48c1
+
+Checking meeting_publications
+  FAIL meeting_id -> meetings.id (5 violations)
+      row 1: c18a225f-879e-586a-bc44-f07ae4a3634b
+      row 2: 53a23201-bc25-5bf2-95f6-b449840be5d7
+      row 3: ebf44b06-3ac8-53f6-bde8-07adde1e31df
+      row 4: 7165ffa3-2050-5a16-a8ec-3df6e106ee52
+      row 5: 1ae61e04-3b46-521b-91eb-de8f32196709
+
+Checking meeting_search_index
+  FAIL meeting_id -> meetings.id (5 violations)
+      row 1: a8a7b125-e369-5f98-80c3-a8c1cc2771e1
+      row 2: 45e48d80-328a-589c-9a74-5dc933b9a1af
+      row 3: ee062b00-f7ce-5340-974f-98e10a6473de
+      row 4: 27bde61f-e3da-5962-9277-254d12918c44
+      row 5: 0695e73d-a0b9-59b4-9cfc-2f38f697ab84
+
+Checking meetings
+  FAIL governing_body_id -> governing_bodies.id (5 violations)
+      row 1: 9b101625-07c8-56ed-b50c-a9b1964b45a1
+      row 2: 8fa0027f-1879-533e-a558-f88dd623d407
+      row 3: d26b9b53-6290-5ffe-925b-48efc47d4232
+      row 4: 24e06e84-f242-5ae5-a7c6-189605d24c69
+      row 5: 14d8d205-dd20-5582-9f15-611170e69b66
+  FAIL org_id -> organizations.id (5 violations)
+      row 1: 8fe10454-c603-537e-9ad8-76d828cc7179
+      row 2: 8e3121b2-ed91-5f08-ae34-3e46d5b60294
+      row 3: 647a6d4f-8704-5818-90b2-6941d83d20d5
+      row 4: 3fda7dc4-d8d5-5a9a-997c-47b66bd33673
+      row 5: d7f72faf-3404-5acf-b7ab-44ab2b2182c4
+  FAIL committee_id -> committees.id (5 violations)
+      row 1: 2cd741ed-1207-591a-b419-6039f803c352
+      row 2: 554bd0e4-d863-5e7b-8c25-b91fb23bd0b6
+      row 3: 760a74a1-e2d3-53bb-9ed1-f52c2f4f82ff
+      row 4: 80b00ea1-25a9-5e76-b6dd-eb485f9f93ab
+      row 5: c5366ff2-3bba-501b-b378-c028fdf429bc
+
+Checking memberships
+  FAIL person_id -> persons.id (5 violations)
+      row 1: 20aa733c-b93c-58dc-9e6b-e1abc0006468
+      row 2: ddbb9831-57a2-59c6-b469-a4a581a2e98e
+      row 3: 67976a6f-db64-552f-9bb6-2526f18bba17
+      row 4: 906d3d3b-91da-5236-aaa4-a4d41182305b
+      row 5: 158f0144-070c-5d32-8cc5-14501672499d
+  FAIL committee_id -> committees.id (5 violations)
+      row 1: d115d272-a3b4-5822-9981-3e52416edbf8
+      row 2: 4a1379b1-94ad-5e6d-b9ab-d8c0ff9b6a8f
+      row 3: 3b48cfdf-e604-5ce2-a7ef-84da6dcbd322
+      row 4: dd9b819e-4e0f-5455-8b1d-cf0a0ddcf33c
+      row 5: 2ff4e3f1-89f7-560e-9b9b-90ab1f65aba2
+
+Checking message_recipients
+  FAIL person_id -> persons.id (5 violations)
+      row 1: 6c930cc6-e693-5e73-8b16-657adad97110
+      row 2: 2effdd7e-01b9-5dff-99d4-a758607c3c1f
+      row 3: 30e38890-68b3-5b85-8b00-ea9a5c1b1372
+      row 4: e50819de-a0dd-5cfe-9a3f-ad426e8cad88
+      row 5: fd5b0ddc-701f-5dcd-b50f-0b6d85dad6ff
+  FAIL message_id -> messages.id (5 violations)
+      row 1: c4107dbb-f006-5043-9ae4-62a9ebcc460a
+      row 2: 4dc84f2c-68c9-57f5-a96e-45b8a8946e9f
+      row 3: 7557c566-1aeb-5952-b958-55bc10eb072d
+      row 4: ec417734-706f-586f-86d3-dbeeae04be02
+      row 5: e675b3c8-9da3-5be7-af98-6271e724aaa1
+
+Checking messages
+  FAIL sender_id -> user_accounts.id (5 violations)
+      row 1: d9fcb10d-6f74-5dab-b4d6-3bc335ec12de
+      row 2: 2479759c-ccad-55ff-942b-aa1879247532
+      row 3: 3e461ced-4fcc-522f-acdd-239732b93fae
+      row 4: 74f3f6c5-fcb1-5e30-9c1c-82c1c766fb5b
+      row 5: ae9ec61c-69a5-5ec3-8a4f-384790008d55
+
+Checking meters
+  FAIL building_id -> buildings.id (5 violations)
+      row 1: 07eb033b-b86d-5a2c-9ea1-89b97027fd56
+      row 2: a8b3f3f0-d31f-5697-b33a-d0fe133eb987
+      row 3: 72e32577-be53-5154-a761-143bb424c99d
+      row 4: 44c1d2fe-425f-50d1-b0d1-c11b747d3881
+      row 5: 14598654-1880-52fb-a159-d3cbccfd1a3d
+  FAIL asset_id -> assets.id (5 violations)
+      row 1: b25cb202-8d9a-5a58-b251-d6edf5dd8217
+      row 2: 3ed495fa-04d3-55dd-813e-61ae3e18c691
+      row 3: 3960887f-ab61-5740-a264-dc140f44effa
+      row 4: a49fad89-f64a-5b24-9035-db7b86ffa158
+      row 5: 9a97fde8-fbc1-5efe-9200-d121fc80fda5
+
+Checking minutes
+  FAIL author_id -> users.id (5 violations)
+      row 1: 5532ad42-544d-5991-b602-2af7ad1ba01a
+      row 2: 817c7aef-f1f5-5d75-8240-04f9a7d14a84
+      row 3: cea1a4f2-48ed-5078-91af-87ffb8bb1c6d
+      row 4: 68c7839e-b325-53f5-86c4-82417cc2f071
+      row 5: 3432e0ce-d955-50bc-8086-42a125436dcb
+  FAIL meeting_id -> meetings.id (5 violations)
+      row 1: 476609a2-2cc7-5d28-9346-5582f60d6e3c
+      row 2: 1f702bf6-11a9-5170-8db5-259a27e11faa
+      row 3: c5965776-68d8-5a0b-b420-871aa0758194
+      row 4: 0e9930f0-199d-5a2e-ac25-1407f6709afc
+      row 5: 19930b77-2640-5229-b121-8405fd8ed0c0
+
+Checking motions
+  FAIL moved_by_id -> users.id (5 violations)
+      row 1: ed340fa9-120e-5949-9964-536f9b985eb5
+      row 2: d938307d-31a3-5bdf-8402-ab3936dc25ef
+      row 3: ee53e9b8-7e78-525e-82b8-041c503981e4
+      row 4: 506ecf0e-dce2-53bf-8a52-80c6c99db513
+      row 5: e60fe23f-1fc5-55df-b1b8-d62a10dc0ed2
+  FAIL agenda_item_id -> agenda_items.id (5 violations)
+      row 1: 62ffbcf6-1518-5104-8834-1c4c8931fc3c
+      row 2: b456926c-8900-56b8-8b57-f03bbc966ebe
+      row 3: 71a81cb9-4a70-5ca1-ba5a-8fe236dff025
+      row 4: f7265c00-ba49-5735-870a-7ebfcd1122b0
+      row 5: 0607eb78-9b4c-53d9-be29-8fc7e32bdc5e
+  FAIL seconded_by_id -> users.id (5 violations)
+      row 1: 0a143902-a81f-5d2f-b09e-7044a337f112
+      row 2: 685133c7-74ce-5971-9309-3a9adb5aa091
+      row 3: 8e8da01a-aea2-59ae-9c75-1a2cb4f7834c
+      row 4: 15bd87f2-1979-52d6-a95c-fc023519f8ca
+      row 5: 9fa95aae-bc07-5d6a-bca3-bdbd46b95b9c
+
+Checking move_orders
+  FAIL project_id -> projects.id (5 violations)
+      row 1: c2dbc7aa-008b-5976-8011-bea88a8a2af9
+      row 2: 3d6f5a43-55cd-5299-9d09-aab2eb191eb0
+      row 3: 8e68900f-2d08-52f5-9697-5a260fab96ba
+      row 4: ee713fbd-c854-533c-ab54-874551d8a39b
+      row 5: c822f726-432b-5b23-bc10-1b1c9105b775
+  FAIL from_space_id -> spaces.id (5 violations)
+      row 1: 4c588b13-7a22-5f2d-967d-2f6301c5c184
+      row 2: 1e06b023-346b-583d-af48-4d5213bec30e
+      row 3: 6776e8cf-50d2-5b82-9dd1-de0d6fad9886
+      row 4: d3cb1661-3ea6-53d6-80c7-fe8e31bf6507
+      row 5: d0bc446e-0110-5f9f-9e32-2fe3263bc0b7
+  FAIL person_id -> users.id (5 violations)
+      row 1: 664808ff-a1d7-58c5-87e2-7619ef28cee1
+      row 2: fe8129f3-4c53-55c0-a84c-186a3b7ec985
+      row 3: 4ebe9373-94e6-5da5-a827-a77d386fc47b
+      row 4: 00ce89ae-57d6-58b6-98ea-6e4895d69165
+      row 5: 131f1bdb-f192-576f-9fab-5e930dd42f90
+  FAIL to_space_id -> spaces.id (5 violations)
+      row 1: 1c4be9ea-cfe4-5e3d-a01f-fac48e4f0c0d
+      row 2: cd2f5028-6e55-5498-9bc1-5ebbcbb8296c
+      row 3: 878da6e4-ffc0-5737-a380-27ad7fa57060
+      row 4: c888757d-04c0-5086-ba6e-debc54f6807d
+      row 5: c41ecf72-4792-5872-a93d-b1feba81ee45
+
+Checking notifications
+  FAIL user_id -> users.id (5 violations)
+      row 1: 28dfb16c-fc5e-5a71-a30c-21468e1b4204
+      row 2: 8b586401-b0e6-587c-abcc-3a80e794ede0
+      row 3: 7688897c-43f1-5a73-9a86-f914de6cb4e0
+      row 4: 59a0ec3f-a36b-52be-81ec-8b5ba8acceab
+      row 5: 18f1b6c1-67eb-5da1-bcb3-7a04be4192d1
+
+Checking nurse_visits
+  FAIL student_id -> students.id (5 violations)
+      row 1: 7bc17f99-5fe8-5551-b710-976fe2dd366f
+      row 2: 66ebe42e-260d-57d8-81a6-3e71141c8b84
+      row 3: 3698f181-9cd4-5354-9e95-087dedbb096a
+      row 4: 0d1d76fe-5e3c-5379-9515-c80194490740
+      row 5: dde2d4fb-3efb-5ebf-9010-2e13ae2f40f1
+
+Checking objectives
+  FAIL goal_id -> goals.id (5 violations)
+      row 1: 8c1d26f7-5ff2-5708-9e23-64fb1fa76dc6
+      row 2: 0d3845ed-2106-5cc0-884f-fd11310114a6
+      row 3: 7fb98d9b-23a2-544f-83a3-481f42e4bbe5
+      row 4: aa97a4bc-1842-535f-9b49-e087438741b7
+      row 5: 49cf1689-ae08-5feb-b77e-0ecaaf0813e4
+
+Checking order_line_items
+  FAIL ticket_type_id -> ticket_types.id (5 violations)
+      row 1: add38b32-83bb-5c92-be04-45665bd1ffff
+      row 2: 5a46f70d-769f-5705-a5e1-5d88166203cf
+      row 3: 49ab420c-e9fa-5f6c-98be-17fba763925a
+      row 4: 2b95c14e-b254-5d14-9475-06c397304339
+      row 5: 17bd9ef3-0a6e-5b4e-9312-0585d59373d2
+  FAIL order_id -> orders.id (5 violations)
+      row 1: 6cef17b0-3707-5b44-8966-78c015aedbb4
+      row 2: 395ede91-7e58-5b4d-88d6-c3d932f62c83
+      row 3: 3ba46e5c-8030-5c77-92aa-eb54e223a46b
+      row 4: 49f9b0d0-37ed-506e-8e51-f63993917779
+      row 5: fa339dc1-679d-536b-9670-32e06e14e222
+
+Checking orders
+  FAIL purchaser_user_id -> users.id (5 violations)
+      row 1: efbfd977-4433-5aa4-ac44-f1487db28b69
+      row 2: b00b11b3-2b90-5655-9a9d-64adc384edb3
+      row 3: 76597869-c30b-518c-a9a3-8a42bc697bcd
+      row 4: 316f5893-fefb-5884-8d54-2d6362b1076b
+      row 5: 7d8a4627-1c49-56fe-8396-62d4507bdede
+  FAIL school_id -> schools.id (5 violations)
+      row 1: 78364bbd-d7eb-5959-89d8-26400ce68e82
+      row 2: d33299ba-7ae8-572a-98bb-6d9122cccadb
+      row 3: 393ba445-236b-56d0-b192-12f9ad8c177c
+      row 4: 671464ce-30ad-5aa2-a336-625cd2c69fd2
+      row 5: 92fcfce9-d979-5910-a9f0-1792267c1eb8
+  FAIL event_id -> events.id (5 violations)
+      row 1: ec2f8c30-cfc3-5981-bd01-e2122536a312
+      row 2: 1814f42a-8d09-54ec-8328-8f8458fb38a6
+      row 3: dc6d8e86-4994-57e7-9d15-781416d4d65f
+      row 4: 51686df2-fbe9-5a4c-ac46-da51cdccda79
+      row 5: 764ecd21-32ab-5865-bdc9-813cf67add43
+
+Checking pages
+  FAIL channel_id -> channels.id (5 violations)
+      row 1: 0d88ce09-0239-5593-b3b7-5b2004da626a
+      row 2: 58731b8d-9e4d-56e9-b640-d8568d91c85d
+      row 3: 4e772f14-97f9-5a9b-b982-2c55e38ba719
+      row 4: 29b9f622-e82c-5c67-820b-c6d374a57505
+      row 5: d8997873-74d3-58e2-afcd-7eb3f040e54f
+
+Checking part_locations
+  FAIL space_id -> spaces.id (5 violations)
+      row 1: f0f17a7c-dc33-5e94-a426-52b6e93d0f56
+      row 2: 6f8ea64c-c621-5745-844c-0fa5ce0da793
+      row 3: 2a9aec4e-b985-56b3-9417-8530c9dd9a1e
+      row 4: a640b888-d72c-5a3b-b67f-03d245bc12ce
+      row 5: b1bcb634-0b6f-5a1c-b333-58cc13ddb6fa
+  FAIL building_id -> buildings.id (5 violations)
+      row 1: 3273efe4-a431-542a-8f0e-8847b6a7b031
+      row 2: ae200d04-455c-548f-a5ec-0187ae598d22
+      row 3: 3c759739-c372-5e49-aa84-70590f0778bb
+      row 4: 8da7e25f-4cdd-5fe6-a2b3-5167633bd413
+      row 5: e5eff50e-7257-5ef2-9be1-57ae1e4bc9a1
+  FAIL part_id -> parts.id (5 violations)
+      row 1: 4220e85a-2b00-50ca-8430-5b23e930d30d
+      row 2: 7ed52d92-818f-5081-8741-2529e0351bcf
+      row 3: 6b3d9edd-0443-58b7-8239-f00cad3c05a8
+      row 4: 9031c03c-f5c5-5090-8d92-bfc4ba29d06f
+      row 5: 09a51bd3-b043-5395-a59e-2d35efec3225
+
+Checking passes
+  FAIL school_id -> schools.id (5 violations)
+      row 1: cab26358-06cd-566f-b2d2-af1cb3426c57
+      row 2: 7cb13c14-e599-501d-a37e-5d9210f29677
+      row 3: c308d9b9-993e-53ed-9ddb-db61238e79e5
+      row 4: 5944f92d-7bf1-54fe-b69f-d36f52699269
+      row 5: b4e8e52d-34cb-5c9c-9365-dd04f87b5c74
+
+Checking paychecks
+  FAIL employee_id -> hr_employees.id (5 violations)
+      row 1: 8bb217a6-0c4c-5d3f-99ef-cfbd5302040b
+      row 2: 286ec5d0-d2e7-52e4-8437-c67a9b1bc895
+      row 3: af96ffc6-8a7c-50c9-9e5b-c951f0a81357
+      row 4: 9177267d-b1dd-5bbb-940f-84722ee2f6cc
+      row 5: 6ff719f5-15a0-5e80-8c20-4a783732be88
+  FAIL run_id -> payroll_runs.id (5 violations)
+      row 1: 6c950b28-8e1a-5bda-9b36-c435d5a39e2a
+      row 2: b5f446ac-bbeb-5e49-a563-a2755190a58a
+      row 3: ead4aca9-286e-5e5d-a49d-755c3d703a6b
+      row 4: 9b4082ce-ded0-5c9b-ba86-26ab1353eda2
+      row 5: 000448e3-6333-5ab2-bb5e-7870d8241d2b
+
+Checking payments
+  FAIL invoice_id -> invoices.id (5 violations)
+      row 1: 13b1b927-7c6f-5be5-8e61-4d3819f892bf
+      row 2: a6850a83-ea60-5c33-9add-d55b10749a3b
+      row 3: f6bf57fc-4e65-5836-917a-d3e986698f58
+      row 4: f0f5db1b-75a9-5242-9e18-d9d761aeb7ae
+      row 5: e7273342-5df9-57a0-880b-c12559f8d19b
+
+Checking payroll_runs
+  FAIL posted_entry_id -> journal_entries.id (5 violations)
+      row 1: 5c63ff4b-04c1-5edb-9c52-9d375f35e387
+      row 2: be132672-3d76-59fd-aae4-eafb73f0f92e
+      row 3: bef6e3a4-d395-5219-a14b-6a484772d5b3
+      row 4: 933f7031-2b59-5637-85c7-25ab625981b3
+      row 5: f0255be6-dd4a-5871-bc57-f4f096522d4f
+  FAIL created_by_user_id -> users.id (5 violations)
+      row 1: 1d9609ea-d0d4-53d7-8765-59f1cb5a8838
+      row 2: 85f0b5d3-1ca9-5541-851d-7feba8ccf672
+      row 3: ddfad835-09c2-5b1c-b68a-ce30a2f38cac
+      row 4: 16fc1898-4112-5dfe-bc61-ed0407d443e7
+      row 5: 88dd3107-5d55-5444-8eda-c223258d8597
+  FAIL pay_period_id -> pay_periods.id (5 violations)
+      row 1: 5f5a045e-1ebf-57d3-b0a5-797c4829dd56
+      row 2: 917caa44-70b5-55db-ba8e-fb67850f60a3
+      row 3: 0798781a-fdf7-5d36-b9e5-4b91c0ba2e44
+      row 4: 44ceb814-827f-57d7-8047-e8198238aeea
+      row 5: 54eb0bfa-7a3b-5f05-8552-67ff3143375b
+
+Checking periods
+  FAIL bell_schedule_id -> bell_schedules.id (5 violations)
+      row 1: d73e9003-7508-5f15-8d6d-f2bdfd038197
+      row 2: 2a16c3f1-9e0a-552b-9a8c-a87048a36560
+      row 3: b7b6af86-7274-5364-80d2-692b5e81cc27
+      row 4: 8ab43d78-6ff1-5df4-8034-b87dbde92076
+      row 5: 3dbeb9ed-7b47-5f13-9712-e62a2700606f
+
+Checking person_addresses
+  FAIL person_id -> persons.id (5 violations)
+      row 1: 3e6765fe-30d8-522a-bea1-f1ca6e34f2c6
+      row 2: bf6a92da-accb-5539-bcf9-68cb701ea636
+      row 3: 30dd24ef-c12c-5af9-9a22-cb346db6efb4
+      row 4: bf6ce132-b3d7-505a-a32f-9a10ded895d6
+      row 5: 85003240-06f5-56ad-a1de-6b1595e62601
+  FAIL address_id -> addresses.id (5 violations)
+      row 1: ad2755e9-6d89-5567-8e7a-3e2d336175b1
+      row 2: cd01c04f-0b12-5377-ae01-f2c7c11b965d
+      row 3: c16f8566-0be4-5d42-84e6-21c19a5c9c8c
+      row 4: 8084c855-3d85-5d38-b407-115448389f8f
+      row 5: 059ddf40-c086-53bb-a144-2de27e4b0e54
+
+Checking person_contacts
+  FAIL contact_id -> contacts.id (5 violations)
+      row 1: 2b2380f0-5e13-547b-a7ab-a1a68e6b34ad
+      row 2: cf57ab08-f11f-58d3-9e22-8da9bf6ef58e
+      row 3: ddb84f84-3313-5af6-a237-4d45b982b233
+      row 4: 76541c87-2160-57e2-9656-fd871cf95492
+      row 5: 441cd45d-02de-5d85-837d-93f6308d89d2
+  FAIL person_id -> persons.id (5 violations)
+      row 1: df3f9764-cf48-5303-868d-adb8a2aca220
+      row 2: c24804ae-a5af-511f-8f1d-28bc505b2e37
+      row 3: 8b2c9197-78f7-53dc-80c5-7bab0f955bf1
+      row 4: 61168076-1513-558c-9ac6-ea0b24773a91
+      row 5: 96bf222f-b58f-57d0-9bae-39bbad2c9b7a
+
+Checking personal_notes
+  FAIL user_id -> users.id (5 violations)
+      row 1: 47c7bc63-1f57-5f66-9ee8-e5378bcdb800
+      row 2: d01be16b-0415-5f6a-9dea-70da257136fe
+      row 3: b3352815-19f4-54ba-bc86-6e5743ca65eb
+      row 4: 325ef288-8850-5386-843e-91cbc40de1d7
+      row 5: 5a0c8221-1587-5419-aa13-4ce8f34505ad
+
+Checking plan_alignments
+  FAIL agenda_item_id -> agenda_items.id (5 violations)
+      row 1: f76ef37b-26c0-585c-8222-aea652e77d96
+      row 2: a2eae98f-8dea-5b6b-a42e-939dc484cddd
+      row 3: 7717b165-7a8c-506a-a60a-a80f4b725e0b
+      row 4: 5f3e02ed-227d-56e5-aa2b-6b3bb4b59d13
+      row 5: 536b2420-4402-5a97-96bb-01a4301ccece
+  FAIL objective_id -> objectives.id (5 violations)
+      row 1: cc3440f2-035f-5c4c-a832-2b345da9168a
+      row 2: cd06d828-c640-50a8-b533-39724253c576
+      row 3: 6673b7fb-0bec-57fa-abf9-cde197e4deab
+      row 4: 357be5a5-82d7-57b3-b6ef-326a6f8550b4
+      row 5: 11bec3ab-9529-5ee7-8d99-41a728f00d3c
+  FAIL policy_id -> policies.id (5 violations)
+      row 1: 4d7d2129-b45a-5bb0-9bb6-5b39536e7d18
+      row 2: e08d0ee9-682f-5dd7-b3bf-d79dd1bab8fb
+      row 3: e43fc02f-df6c-5b09-8d91-e61999dfcbb8
+      row 4: e8657956-1bfa-5479-9391-b7313273601f
+      row 5: c42d82e3-2fee-547f-ab72-94afd489a4d2
+
+Checking plan_filters
+  FAIL plan_id -> plans.id (5 violations)
+      row 1: bc64853a-a674-5cd3-8b75-1e3a0a392ad4
+      row 2: 183f21af-d6de-5563-b8d9-61abd72af647
+      row 3: 0f28e921-3592-5d0f-a740-e293a51f8604
+      row 4: daabddaf-2687-501f-8332-eb010c5d81b7
+      row 5: 68e9e618-f2e0-5b7d-8216-7154f2aab11c
+
+Checking plan_search_index
+  FAIL plan_id -> plans.id (5 violations)
+      row 1: fd9b9525-16e0-5ecb-8bfc-1415d595ead8
+      row 2: 896ce416-f399-5817-8ba6-02eb06ff1804
+      row 3: b124c6c8-c629-552c-b9ba-88600e0b6344
+      row 4: a8fcd902-5c29-51f8-a8dc-7a538add3a3d
+      row 5: 8c771d76-a04c-55c1-ab01-a5986aa39203
+
+Checking plans
+  FAIL org_id -> organizations.id (5 violations)
+      row 1: f0b10c5f-a95d-5793-85aa-1215f309b49f
+      row 2: 91e414ce-fb91-516b-897a-1bc908882699
+      row 3: bcae0e86-2898-5741-a2a0-73a8f3f76e7c
+      row 4: 057e5c50-9a71-55bf-98f2-f478b352fed1
+      row 5: 961b57a5-57dc-559c-acc1-d5f04be28b63
+
+Checking pm_plans
+  FAIL asset_id -> assets.id (5 violations)
+      row 1: e8db80f1-23c0-5039-a558-9f5b5d4a6a40
+      row 2: 6e1d680f-ba58-57b6-a127-35563fb59f09
+      row 3: 7d3ef5e0-3c24-57d3-8ad8-57b764335a46
+      row 4: 9d0ff9e7-bb02-56f7-a252-0d5c0a51d4c1
+      row 5: 4a440a65-d46f-584a-bdb9-ec841b3be079
+  FAIL building_id -> buildings.id (5 violations)
+      row 1: 6ba20eb5-a5c6-564c-b93a-16fdb0ed00f6
+      row 2: 4d5276a5-e079-50ad-a13e-ee4078de13e7
+      row 3: 9c3f10ba-083a-5ad6-94a1-de6670b9cd10
+      row 4: 6a5d7870-f9dc-5f65-9149-4a18dea15e1b
+      row 5: 923097df-6059-5223-81db-8dcc2856a689
+
+Checking pm_work_generators
+  FAIL pm_plan_id -> pm_plans.id (5 violations)
+      row 1: d09d15ae-9cfc-56bf-acf8-3b6cab9603c7
+      row 2: 1debae69-b21b-58e0-b6ea-e7011e48fccb
+      row 3: 670b6bd9-959a-589a-8b9d-a7fe3608488f
+      row 4: 0cd59afa-5364-5e8d-96c3-d7035356e505
+      row 5: c1a95076-415e-5bae-9e74-beeecdc0692b
+
+Checking policies
+  FAIL org_id -> organizations.id (5 violations)
+      row 1: 5209f667-32ba-58b4-85fa-4b8c154a81f3
+      row 2: 553110f1-a3cc-5f83-ba84-00b92c43a315
+      row 3: 5b0b1806-f3c6-5a16-984c-4eccd44646eb
+      row 4: ff5a2001-7473-5bc2-b7f3-37ee5a327899
+      row 5: 0db1f7a6-1689-5388-a0a7-e5f512a756b2
+
+Checking policy_approvals
+  FAIL policy_version_id -> policy_versions.id (5 violations)
+      row 1: ffdad4f4-0edf-5a1d-aa0c-b075b70f8f25
+      row 2: ec4ab8a4-c8a0-5893-be12-6d6182b7e42f
+      row 3: aad722ad-386c-592e-939c-17ca1bc40ca4
+      row 4: cd9eb49e-912a-5c47-b526-433eab82e889
+      row 5: 1879354d-7294-59f6-a7a2-e1c6f8d09c45
+  FAIL step_id -> policy_workflow_steps.id (5 violations)
+      row 1: 8d5dfb2b-2a36-5f1b-a351-6e3bc0fc20ac
+      row 2: 7bcd35d3-7e91-534a-9b94-a56a0bee3d32
+      row 3: 2172aab8-45e2-58c0-bf54-c721ca6abb41
+      row 4: f6cffb48-03fc-5150-a012-04edc2cde0c9
+      row 5: 6c39d1c3-3c68-5c15-b43c-32c19f560ab1
+  FAIL approver_id -> users.id (5 violations)
+      row 1: 51f87811-1717-5c7d-adf4-25d7e6d5f30b
+      row 2: 48c2fa97-e246-5628-922c-051c45050de9
+      row 3: b9190de1-9bd4-54c3-a2be-269b24e06b90
+      row 4: 22e38b76-1d36-5ead-b101-2a7816505c33
+      row 5: 8cf8e6f9-b380-565a-8e97-2474a0f34d11
+
+Checking policy_comments
+  FAIL policy_version_id -> policy_versions.id (5 violations)
+      row 1: 9d8981b6-7eda-5d44-9d64-a63b1bb115b3
+      row 2: 455444f0-0980-56c9-b1fb-b0b8ca095780
+      row 3: a644c4b4-c2d6-584a-82ed-479ece851b78
+      row 4: 7db2f113-aa8a-5a00-99bf-e22f6d4ac36e
+      row 5: 06cce520-ef00-5d9d-9e5c-2c6714b5a4e7
+  FAIL user_id -> users.id (5 violations)
+      row 1: ed696a70-ed66-5896-9854-2f7f0371f3a3
+      row 2: f3cade82-44e3-5949-ae45-c1de09624792
+      row 3: 9744e617-a62f-5c14-9237-49d5bcc4d3ba
+      row 4: 281872c4-5b35-58fa-abfa-69274dea34c3
+      row 5: ba39fcd9-7051-5d1f-8e2f-da22b480ddb9
+
+Checking policy_files
+  FAIL policy_version_id -> policy_versions.id (5 violations)
+      row 1: 7e14760c-45a5-5348-a499-ab1aa5a65ecd
+      row 2: 39eda31b-fa90-513e-be88-9697ad90c8be
+      row 3: 3d0701ea-e3fb-58a6-abe0-441779ef08b2
+      row 4: e8315541-4c2a-5669-9e97-36caff1b561e
+      row 5: b6a51156-c5a5-5679-9c81-a27c04fce631
+  FAIL file_id -> files.id (5 violations)
+      row 1: 31aa4441-03f2-50cf-a489-b46de8805b26
+      row 2: 0005da6a-2e2b-58b4-af9d-50dbc6df00d2
+      row 3: 3e0ca633-f700-5e8f-bfe2-b0f1a814d03a
+      row 4: ff27999f-62e9-5aec-a75c-70198c71dc1a
+      row 5: 7769dde2-92b9-5a72-900f-61e007ea9933
+
+Checking policy_legal_refs
+  FAIL policy_version_id -> policy_versions.id (5 violations)
+      row 1: 09c12901-55c2-5a02-9f25-24a1e16656b1
+      row 2: 3c0d1ff5-7732-5b18-b679-916512447151
+      row 3: ce61580e-d7fa-51b4-9e37-a2c8dd293651
+      row 4: 92739188-c9c8-5110-858f-9dcb186de5f2
+      row 5: 1b82a8e3-886c-5631-b4da-6f62a11331ef
+
+Checking policy_publications
+  FAIL policy_version_id -> policy_versions.id (5 violations)
+      row 1: d59918bd-4ca5-5010-9818-dd3d026b64af
+      row 2: 757a2677-756c-55db-8af8-4daf702746b9
+      row 3: e119a5fd-315d-55c0-acd7-5f22dbf48bef
+      row 4: 040bac89-833d-504b-9274-0434d1289101
+      row 5: 253eb097-bd4c-512f-b6ba-3679a9df3d72
+
+Checking policy_search_index
+  FAIL policy_id -> policies.id (5 violations)
+      row 1: 07c2dd3d-1116-5ad0-81fe-33771f1531fa
+      row 2: 1fba35e3-9534-59ea-a4ae-f77f965bc150
+      row 3: 21e3d178-178f-520a-ade9-8fc6ea48cc0a
+      row 4: 90314a27-921f-5cb2-aad8-64c15da7004a
+      row 5: 1e5ff969-a2f4-5774-9162-45c55dae8087
+
+Checking policy_versions
+  FAIL created_by -> users.id (5 violations)
+      row 1: d841db41-0613-54db-b2e2-90925797ae57
+      row 2: fb39d906-9c13-50fb-8752-db08c11fbec7
+      row 3: 0d01872c-55ef-5323-bbd7-b41255f5e382
+      row 4: a9eef7d5-d0c1-5858-97b8-1d15989b682e
+      row 5: 20d8ecf3-3670-5a2f-b990-87494418b1ee
+  FAIL policy_id -> policies.id (5 violations)
+      row 1: 47824f3b-6577-542b-ac78-6e0616bf76f7
+      row 2: 4bf028dd-9d75-5b27-88f6-e20d384cdb70
+      row 3: 8ee49c3d-2c43-55a5-b1b4-c9ca2b53800c
+      row 4: 016b75d5-7f1e-574f-b9a0-86ffda1625e7
+      row 5: ab8e897e-c429-582b-b55e-54d305e0103d
+  FAIL supersedes_version_id -> policy_versions.id (5 violations)
+      row 1: f03057d8-36c0-51d2-b769-27ebbd969534
+      row 2: df83f8f4-8089-5dc2-89e6-eb5e9a123ee1
+      row 3: 99d3e632-6f10-5dd1-b8f1-99e731442571
+      row 4: 7e61193b-8981-50fc-bcad-c2c80b1086c8
+      row 5: 724d1234-229d-51fe-884f-9a417eeb7586
+
+Checking policy_workflow_steps
+  FAIL workflow_id -> policy_workflows.id (5 violations)
+      row 1: d752f166-0dab-55dd-9091-da5f5451c7d9
+      row 2: bfa7013d-14cc-51ea-aed1-c990532b7a1f
+      row 3: 4f429eb8-247a-540d-9807-9fe7bc3d4f86
+      row 4: 6837d6ff-51c1-5601-bd67-963a8a31c077
+      row 5: 3687da16-9014-5345-8cce-23f33f9a9db5
+
+Checking policy_workflows
+  FAIL policy_id -> policies.id (5 violations)
+      row 1: 2213f43a-dabd-549f-b8ab-d07a513b4a28
+      row 2: d055e73d-249b-58e3-9507-5f92d5b84d7d
+      row 3: d0a966e0-d93e-5673-9af9-03f1f77175ce
+      row 4: 5f7751ba-5b7b-54a1-ba0b-0dea43c85bef
+      row 5: 2eb0761f-027d-5612-9bb9-9fc4b2089983
+
+Checking post_attachments
+  FAIL post_id -> posts.id (5 violations)
+      row 1: 4017a729-5e51-5714-91c2-95dc124a8671
+      row 2: de15a24f-aa0e-59b0-ad43-60dcbf04eb0f
+      row 3: bf52e480-5ca2-534b-be41-0945c2786a74
+      row 4: 30fa3df5-2e8e-524f-9f0f-1790528233ae
+      row 5: b5307c53-19d4-51e5-97bc-c6b99d7891f0
+  FAIL file_id -> files.id (5 violations)
+      row 1: 9c2690e1-e78b-523e-a63b-f0eaa687039f
+      row 2: 51da2ab3-adca-588e-bae3-75d66a71482f
+      row 3: 5b0f3372-d72e-570d-8152-a380e41b5c49
+      row 4: 92408b55-05e9-526a-9a5a-73da4e8a9960
+      row 5: 2d0ddde4-531a-57dd-9414-e20fc2e108a7
+
+Checking posts
+  FAIL channel_id -> channels.id (5 violations)
+      row 1: 1bb59409-bf41-52be-811d-698da2af23c1
+      row 2: 2629a1ea-992e-5c2e-abcd-01e66e737112
+      row 3: c97e9698-de1b-53e9-9102-9f5294cfac01
+      row 4: b472cb73-9bea-50c4-a297-c47a0c67774d
+      row 5: 0f1bcc1f-934e-58cd-9c35-60dfe62c4a8d
+  FAIL author_id -> users.id (5 violations)
+      row 1: f75ee247-1e83-5a65-a1eb-1e77c3aa0905
+      row 2: ce10ee89-f6b4-59c0-bc68-33406ba20d32
+      row 3: 3b58e2e2-58ba-56a0-90f8-6d3b75c84c76
+      row 4: ddd25593-64a6-5b1f-86f9-901ce8b5bb41
+      row 5: 4cecb9e6-9f70-5a59-9696-f353a91af693
+
+Checking project_tasks
+  FAIL assignee_user_id -> users.id (5 violations)
+      row 1: 4817041c-cdb8-5d77-beb8-ca073caed4ee
+      row 2: f36db3dd-0172-5510-8923-169d4994601c
+      row 3: 2ba917bd-7035-5986-bce2-d2a3c47a0d0e
+      row 4: 4be5afd2-a10a-561a-a97c-ec764fb2de88
+      row 5: ad272b47-b390-5aed-b61f-075d4dbe2dc4
+  FAIL project_id -> projects.id (5 violations)
+      row 1: dbaf65e5-4a8c-5e6f-8d02-291995a28225
+      row 2: fa8cbdf8-7675-59d4-8e28-f44238b210b7
+      row 3: 3272cffe-0199-5cb1-a07c-82b1ab008ce0
+      row 4: 490c3ddb-d1a9-5480-a7e7-b3dd0058bc17
+      row 5: f16d9274-a77f-597e-bde6-b5f50854b2d4
+
+Checking projects
+  FAIL school_id -> schools.id (5 violations)
+      row 1: 5399aa84-b1fa-5b5a-a84f-c3506384a82e
+      row 2: 5fc2ffb1-e0ce-5807-b06d-cb902fb3e733
+      row 3: b63e66b2-1c8a-55c4-b4b6-f4bb04399e41
+      row 4: a4e10462-9e64-512b-be36-0f8c9d969849
+      row 5: ecf910e0-3e87-50eb-a77d-6208c2062c3f
+
+Checking proposal_documents
+  FAIL proposal_id -> proposals.id (5 violations)
+      row 1: 9ea81c50-ccf0-58ab-8c02-6202f68e5b3e
+      row 2: 2f6c5354-b0e2-5f4b-bc5e-6ab270767c18
+      row 3: 468a673d-57cb-56e7-8558-711a3abd3a4a
+      row 4: d708d1ae-6ea6-59be-81c8-d6bf43b5c59b
+      row 5: 84ea5e9f-d047-5b8f-82cc-2343be2c1b14
+  FAIL document_id -> documents.id (5 violations)
+      row 1: 62cb23a8-8700-52f6-876d-70a418da8695
+      row 2: 733e9126-0b44-5e08-81c7-19afc186a9e5
+      row 3: 8c4836b9-6c3e-50b9-93f4-920a848acd12
+      row 4: 126a516e-7c0c-5352-8302-fd8219a1e509
+      row 5: 2ec84044-9249-5c2f-ab28-26cffa207dcc
+
+Checking proposal_reviews
+  FAIL reviewer_id -> persons.id (5 violations)
+      row 1: f9a100a2-e432-5a74-b7be-7d7d454e8ea2
+      row 2: d97afd20-2d42-54f8-9a13-30c9dcd41185
+      row 3: ca07e4c3-951a-5ee9-b05f-5ab7309ee5cd
+      row 4: d0aa88d6-4285-5e4d-bdde-73129dbb98e5
+      row 5: 5bd18eaf-d5fc-5d04-b7a8-0256c5ab128a
+  FAIL review_round_id -> review_rounds.id (5 violations)
+      row 1: 93be2ca0-8940-57d9-91c9-4eda495ed453
+      row 2: 18f68044-93b7-5ac9-9f12-ee7b0598136a
+      row 3: de6a00b6-8007-5197-9530-89ae813b67c0
+      row 4: b8cf089a-308d-58ab-aa79-cadf43833d75
+      row 5: 44999361-e610-5b1b-ab26-73e7016ce6e7
+  FAIL proposal_id -> proposals.id (5 violations)
+      row 1: 3c8a63fa-1e1d-52ae-9828-c28bfe49a298
+      row 2: 41261ab2-984b-5a47-b09a-78a79360b822
+      row 3: 058981de-f98e-5121-b8d2-b27361293c22
+      row 4: ec7cf63b-908e-5d14-84a7-d5c628325726
+      row 5: 4603bcdb-8c93-5a0e-878c-c2c688825d04
+
+Checking proposal_standard_map
+  FAIL proposal_id -> proposals.id (5 violations)
+      row 1: 62131bad-f767-57e3-850d-70f34df6138f
+      row 2: 822620cc-8013-5c84-810b-950ecb32ceda
+      row 3: 1564e984-bcbd-53a5-b5e5-42fb7c50a12a
+      row 4: dbde60c2-c11a-5baa-983f-73ee052c999c
+      row 5: 55f1a8fc-11c4-530b-b7cd-07154ecba773
+  FAIL standard_id -> standards.id (5 violations)
+      row 1: 33593d2d-219f-5c20-952d-27bc14091d5e
+      row 2: bb0018db-9e2b-5287-93f7-b533908fc688
+      row 3: 98d67383-ef8d-55fa-ac71-f1643c9efab8
+      row 4: 43b9bec6-2e80-543a-956e-301b94c90189
+      row 5: 42541042-2034-5b15-9328-ff377885040d
+
+Checking proposals
+  FAIL course_id -> courses.id (5 violations)
+      row 1: 2aa1088e-1c9b-5c04-abb8-31cb7b688ca3
+      row 2: e56418e0-32f2-5a82-82bb-b87528e03148
+      row 3: 41883abe-f019-5336-9e6e-49f52fd8205a
+      row 4: a8144c3e-1998-5461-b745-4bb3da9a9703
+      row 5: 4388ceae-e820-5b64-88b6-deddd9812198
+  FAIL school_id -> schools.id (5 violations)
+      row 1: 2d752521-4567-5c19-9770-9f54ba7b3cae
+      row 2: b487d831-28af-5372-992c-1f12b9f4578e
+      row 3: e8adf3f0-8b89-5094-8cb3-c444d73e39bb
+      row 4: bbdf8baf-fdbb-5eee-98a2-fbd377f13f74
+      row 5: 62dacf00-ec61-5529-86ee-3fb1c51ca1dd
+  FAIL committee_id -> committees.id (5 violations)
+      row 1: 47db85b7-73b7-5d71-822a-6fca958a0dc3
+      row 2: 744f59d5-aedd-5748-8166-fc0bd85fa84c
+      row 3: a9875b9d-36d7-5345-9153-4de7b37f044f
+      row 4: 5a343461-7099-5c7a-bdd5-42ef640ff3b6
+      row 5: 38dce7f5-48c6-5cb5-89f5-c3978371181f
+  FAIL subject_id -> subjects.id (5 violations)
+      row 1: 40c31637-058e-5227-a63f-7c91f7a7c767
+      row 2: a469dc65-41f9-5456-a9d3-8114b7f692e9
+      row 3: 8dd9f007-420d-500c-b7b0-5b56d8074deb
+      row 4: 2485822b-0fed-5add-ad8c-e6df4117653a
+      row 5: 6cd5f3c7-b4e6-5cf2-a436-a9f056c26aef
+  FAIL submitted_by_id -> persons.id (5 violations)
+      row 1: 55877285-f1b9-5b3b-8bb8-834d1a1f4e34
+      row 2: b615b172-60cb-5bb1-8389-eab3359395d6
+      row 3: 51edbcff-8eae-5d09-b45e-16615c229c3a
+      row 4: 30108de3-41c2-5f86-8b75-c9d9a38c5080
+      row 5: f29fb74b-88c5-5375-a534-3928d4587e71
+  FAIL curriculum_id -> curricula.id (5 violations)
+      row 1: 3698e16e-29ab-59c1-966b-c5cf28d05da3
+      row 2: 8b6b976e-c816-5444-ad1d-2c4ce93cbb35
+      row 3: 57667b44-2772-5eef-b4ff-acefd647e3d2
+      row 4: e93afdd7-6169-5ee1-be68-8462de8f6f9f
+      row 5: 5f57f9fb-1b56-5cb2-8cf7-e2839180a1aa
+  FAIL organization_id -> organizations.id (5 violations)
+      row 1: dc05f8fd-af09-56ce-929a-4b59fc83e4a5
+      row 2: 8e0408b0-0178-5e10-b509-74fa79196645
+      row 3: 7d967bef-a405-5b8f-8395-0ae9b3c43e0a
+      row 4: 381d693f-2b6a-57c9-831a-025893d84677
+      row 5: 3ff37d91-a3c2-5bc4-acda-22e3073045d8
+
+Checking publications
+  FAIL meeting_id -> meetings.id (5 violations)
+      row 1: 7d85ff3b-33ac-54e4-a205-8bb053dc5c2b
+      row 2: ac79526c-3031-59be-8599-8cbe08384e62
+      row 3: 16a3bd4e-ae02-51b3-b0a0-056ffb8b128c
+      row 4: 4cfc7863-b468-56ba-b82d-7659ef96279a
+      row 5: cf70f303-a359-5655-b35c-08e68bbd59d6
+
+Checking report_cards
+  FAIL student_id -> students.id (5 violations)
+      row 1: 81f0c9ac-f1dc-58cf-84b9-b1e49444bdc5
+      row 2: 60541046-075a-53a2-9550-411a517954d3
+      row 3: dc2fc354-329e-5691-b4d2-3e061d56a5b1
+      row 4: b1f62b44-338c-54dd-8417-6d954bc3630f
+      row 5: 473f3282-6747-51c2-81db-cb9979e8ea85
+  FAIL term_id -> academic_terms.id (5 violations)
+      row 1: 11ffe97c-19de-5647-a48f-b12ed5b35d31
+      row 2: ee05ecc2-6b73-5fdf-813f-1049f0fc2543
+      row 3: 113290ac-b3c9-58c2-b173-97464e3d4ea9
+      row 4: cce7849c-b50b-5f22-ab3a-31b32302c36d
+      row 5: 386cf53f-3744-5b1d-b448-88debd0d776f
+
+Checking requirements
+  FAIL state_code -> states.code (5 violations)
+      row 1: re
+      row 2: re
+      row 3: re
+      row 4: re
+      row 5: re
+
+Checking resolutions
+  FAIL meeting_id -> meetings.id (5 violations)
+      row 1: 0849c271-7bf6-5cd3-aa6f-b6f16401cdd2
+      row 2: 3f27173e-1799-557b-b885-6d44310d0f45
+      row 3: b45eb16b-d4da-57b8-b2d8-33b36a5007a5
+      row 4: 9ac08859-190e-5189-aabe-058524902fda
+      row 5: 5d6631bc-7469-5fe3-b4e5-59c483c5b396
+
+Checking review_requests
+  FAIL curriculum_version_id -> curriculum_versions.id (5 violations)
+      row 1: 7c6f9147-fac6-56dc-a7fa-f2b6b86551e2
+      row 2: a3e2bc41-d4fe-5067-b0ee-2f41ac5406e0
+      row 3: 0940c8c4-fd37-5416-bdeb-3d2fd7602f68
+      row 4: d6fea661-fb34-55e8-abd3-38166e7e1840
+      row 5: fb9db2f1-660e-557b-a968-3e618116d621
+  FAIL association_id -> education_associations.id (5 violations)
+      row 1: 514fd6f0-ac7b-5060-91dd-fd62995bca06
+      row 2: 34eeeded-6a3c-521d-9b51-ee3ebf11934b
+      row 3: 9092b21f-45a5-5adf-893e-41abb23ce0cc
+      row 4: a884189a-dd5a-530c-81d3-3760875a66ad
+      row 5: 1265585e-0ead-575d-a06f-71124bedb4ad
+
+Checking review_rounds
+  FAIL proposal_id -> proposals.id (5 violations)
+      row 1: 401a992f-9f27-5cfd-89d9-04c3d96e15ee
+      row 2: b893a3fb-d128-5180-ade9-876911a991a5
+      row 3: 764e3d3e-c619-5b18-b549-72456bbc10b6
+      row 4: 5c0f7aa0-4a5b-52e2-a598-bb185c7b3714
+      row 5: 24f4afff-3512-5830-8547-3b0ca0ef3d88
+
+Checking reviews
+  FAIL reviewer_id -> reviewers.id (5 violations)
+      row 1: e808dce6-855a-5c81-87c5-a0ce8272e5f2
+      row 2: d83ae306-f56a-5c04-b5c7-4b165c7b9b2c
+      row 3: 6127edfa-6634-51e0-a414-9d4e7503af18
+      row 4: 0c81473f-ddee-5050-a811-825e81cdc671
+      row 5: b81155a5-f04b-58c9-aece-92f20a1bac9f
+  FAIL review_round_id -> review_rounds.id (5 violations)
+      row 1: 3ccc341a-bd04-5ef9-a1ac-840f7d9f32c5
+      row 2: 20f342a6-c3be-5d04-96c3-194d5a659146
+      row 3: a779ecba-3cf4-5286-8f9a-1703fecc453a
+      row 4: 8a5fb22b-812c-5535-9b6d-d0d3e001f774
+      row 5: 8d3addf6-bf7f-5156-b7d3-b367871cc139
+
+Checking role_permissions
+  FAIL role_id -> roles.id (5 violations)
+      row 1: 9169e562-173a-5850-85f9-4a57564229c6
+      row 2: 0815f24a-152d-59da-9cd4-c38139781ea1
+      row 3: 0e0727e9-bd42-5a78-ad54-5e5be7b4c355
+      row 4: bdbf21df-ce11-5d41-a84a-0787bbbe66a0
+      row 5: d64f6339-ff0c-5d0f-9fad-26cbaa7248f4
+  FAIL permission_id -> permissions.id (5 violations)
+      row 1: 51d8f8fe-341b-57aa-8ee9-e497a562b5c3
+      row 2: c39e3d2a-c720-5d93-89fb-2dae9d8ca270
+      row 3: 2a072e06-0ddd-5d87-8489-a89b9aa9fe88
+      row 4: 81ac4add-e483-5ed5-8557-3f617fb90dab
+      row 5: 07e7e58c-bb39-5fc2-bc2c-b1fdba42dea6
+
+Checking rooms
+  FAIL school_id -> schools.id (5 violations)
+      row 1: e7b3d1d9-bac0-503e-ae7c-692c3462a28d
+      row 2: 4e8734f4-21fe-5414-9152-92394b1a9137
+      row 3: f4ae66ea-d48a-5764-8c05-2748bcc033e9
+      row 4: ecf38f03-3778-55ea-a211-6f66d899fe80
+      row 5: cb76dc5c-9849-5e0d-b219-957b46f126ef
+
+Checking round_decisions
+  FAIL review_round_id -> review_rounds.id (5 violations)
+      row 1: af94f5c8-fab1-530c-828f-f7b1d59e5280
+      row 2: 23902d57-c070-58f5-a8c9-0d3f43e46cf3
+      row 3: f4228d1b-f888-5c35-9971-3e2c1cf7dafd
+      row 4: a7b55968-5dbf-5ea4-a92f-65f29fa8015c
+      row 5: 01e74d47-6499-5b4b-a735-e0db01f75715
+
+Checking scan_results
+  FAIL ticket_id -> tickets.id (5 violations)
+      row 1: f5fac915-c8cb-5368-8967-a56e1fe7aa30
+      row 2: 4c35ff33-350e-5ffb-9705-560ed11e0843
+      row 3: f269489b-a142-5072-8241-d54083e36857
+      row 4: cc1792af-5954-5ee9-9e17-24c4a082dd8a
+      row 5: 48b94e91-5cdb-53cb-b50c-07dc61b3e830
+
+Checking schools
+  FAIL organization_id -> organizations.id (5 violations)
+      row 1: bb67bc9b-c205-5f21-a90a-e05c34cf1d56
+      row 2: 44f65fb2-4dab-50e1-b9b7-bbf9fdf2e458
+      row 3: 8515f203-ce42-5b99-8bee-4451768f0292
+      row 4: 04573994-a7ea-53cf-8916-7af737d29a0b
+      row 5: 87ed0589-57ec-58a9-8203-382b19e98410
+
+Checking score_entries
+  FAIL game_id -> games.id (5 violations)
+      row 1: fcfba1ef-9b80-5f06-8e20-f34c736dd5dd
+      row 2: 75074ad3-3603-57f8-a06d-cddfae44b3c1
+      row 3: 3a25578e-4e7a-52cd-a812-6f925c3fb889
+      row 4: 66b8891d-7c74-595d-a611-9b54a0335bc3
+      row 5: 5a8743d6-1274-5039-8e36-33ecb97b9715
+  FAIL team_id -> teams.id (5 violations)
+      row 1: a8d9db02-62a0-568a-af37-5902837cec91
+      row 2: ecf0e1a1-13f5-5360-a02e-b255236a2c75
+      row 3: f4431f0c-14c3-5544-b02b-c7e6808bc635
+      row 4: 32097b0b-ba01-599b-9fca-2732ea12c59f
+      row 5: 86a5a349-e685-5e63-b7a6-0e3be22a397a
+
+Checking scorecard_kpis
+  FAIL scorecard_id -> scorecards.id (5 violations)
+      row 1: 1aa4b1eb-3b8f-5853-9543-76d8425b644c
+      row 2: 6d79186e-af34-50d3-a508-86eaf0d5df1f
+      row 3: f297de89-00ac-546b-baed-008e9e17cf34
+      row 4: f617b6ec-6347-5506-aa69-abf3c81d3714
+      row 5: 187e12d1-1b7e-5828-8b31-a28c3f4ad7b6
+  FAIL kpi_id -> kpis.id (5 violations)
+      row 1: 26950106-81fa-5035-9f8c-11dd2466088d
+      row 2: fce7e97d-76cf-55d2-9b71-e8c0acc70b77
+      row 3: b22a450b-e769-5703-b6a2-5ef61b5034c6
+      row 4: 64498c3c-106c-5a53-8aa7-34743cba9f3c
+      row 5: 0651ec97-9707-56e6-981b-a4e3b5bb43da
+
+Checking scorecards
+  FAIL plan_id -> plans.id (5 violations)
+      row 1: b8b9ac6b-7074-561b-9d17-2cfb4ab33838
+      row 2: 1b90d956-f0bc-5914-a1f4-f1bbeb115784
+      row 3: 8b6ec0f9-edd8-5796-92c7-9667e1244101
+      row 4: ae49199b-c04d-5beb-8b41-6d1dbe343215
+      row 5: 130d4cfb-e5e6-5ecc-ba8b-96d147c7fee0
+
+Checking section504_plans
+  FAIL student_id -> students.id (5 violations)
+      row 1: 0058738e-08a4-52da-ae75-4979622329a4
+      row 2: 2771f377-dba7-5bcf-a0a5-4016c7c99d7d
+      row 3: f857e816-7168-505f-9d86-75a914232f40
+      row 4: f94ccdf5-1b3c-54ce-a397-a8edfd824b08
+      row 5: c50446fe-674d-5078-979d-7f71279957c7
+
+Checking section_meetings
+  FAIL room_id -> rooms.id (5 violations)
+      row 1: 36c70434-e2be-55b9-8863-6c4a12c7452c
+      row 2: dc009263-8c68-5219-afd6-9ee16fb811a1
+      row 3: a89bacc2-b4be-5e62-a28c-f78b0d964780
+      row 4: 3b1d9181-9578-5154-aa7c-a5e98b51466b
+      row 5: 260b75ea-5574-50da-824a-aea5e50acd1d
+  FAIL section_id -> course_sections.id (5 violations)
+      row 1: f6329984-c20d-5b78-bff7-96c632c03465
+      row 2: 41f4ac0d-fe43-51e8-93c1-e4d559691561
+      row 3: 2d0ffe81-c2ba-5680-9509-b5b587a11f06
+      row 4: f2a3a616-393a-5659-9f75-391794afe028
+      row 5: 3d6ef6b1-1f32-5bba-8532-cf7f5892ad8c
+  FAIL period_id -> periods.id (5 violations)
+      row 1: d065faa4-0cb5-5a5e-bb81-60a4a7b4512c
+      row 2: 28043418-98cd-5497-a767-47e28f071112
+      row 3: f78f85f4-8a12-5edb-be88-550bd4012a54
+      row 4: f039fed5-5e33-5f02-832a-e0f5cfcea8ef
+      row 5: 3316e1e2-b988-5104-8e4b-03a5c7b7daa9
+
+Checking section_room_assignments
+  FAIL section_id -> course_sections.id (5 violations)
+      row 1: 591af47d-0840-5233-a0b2-e5b84ee6e3d5
+      row 2: 386739b9-b27d-5629-9cd3-029609ff182f
+      row 3: 7e1b471a-42a8-532f-9a02-84b2a05a27c1
+      row 4: 5a08ed1e-c221-5010-a6a5-06bfb7308415
+      row 5: 3302f8e2-fef2-5bd9-bfdb-71cf8e5c1663
+  FAIL room_id -> rooms.id (5 violations)
+      row 1: 092ec076-71c0-5eef-b3cf-67d3382db8f5
+      row 2: 4843f0b0-1133-582e-ab78-209275b3b830
+      row 3: 66123050-27fd-5acb-a6c1-69a3617b3c9e
+      row 4: eccc4842-f2b1-5933-8d3c-9c6aa358a391
+      row 5: ea501f97-ccba-57cd-8bf8-5e4f1205902a
+
+Checking sessions
+  FAIL student_id -> students.id (5 violations)
+      row 1: 3bfcb334-eb71-5551-92e0-fe7a2533f298
+      row 2: 5b955344-dd2c-58a5-b0df-8cbdd81f3a72
+      row 3: 1cb344b8-fa67-5fd3-8754-1bf27e3f9436
+      row 4: 29215ad2-3578-5ab7-bc95-37a49443816a
+      row 5: 518bd708-372b-599c-814a-ddf87998d373
+
+Checking space_reservations
+  FAIL space_id -> spaces.id (5 violations)
+      row 1: 08dbc5e0-f7eb-508e-84b5-7c4ab0d422e8
+      row 2: 4e26f142-f025-5c2f-bee3-948100d49e0a
+      row 3: 46102fd5-8f9f-5f49-986f-7fc57269329d
+      row 4: 9ed79285-9b7a-5b55-9ad8-cf5d7507e65e
+      row 5: 8b2189ce-0881-5656-af16-5a6e399814de
+  FAIL booked_by_user_id -> users.id (5 violations)
+      row 1: 175f547a-157d-5189-9c6e-298888da6e20
+      row 2: 0a5456c9-be0f-5042-b3d8-aeb1b174a47a
+      row 3: 616488ed-83c3-51e7-8e32-1a2e35d8de29
+      row 4: 892296f3-59ce-5d10-b930-1c0e7725bc1f
+      row 5: 5cc401f9-9c04-5d69-a94a-3f9d3ce99335
+
+Checking spaces
+  FAIL building_id -> buildings.id (5 violations)
+      row 1: 46ca338a-c9ea-52db-aec4-768696040cbd
+      row 2: 51458bc9-fb5c-576c-baa3-82b66faf1475
+      row 3: bdba32b5-0cfa-513c-87ac-ab62cc6c1432
+      row 4: a9121a67-6000-51fc-b504-ff9eb189ab1d
+      row 5: b6d8dc5d-b07b-5bc4-8289-e849dd4f99b6
+  FAIL floor_id -> floors.id (5 violations)
+      row 1: 96d10b9f-611f-5df5-aa61-4eb717b95f9c
+      row 2: eddd3a8e-e2c9-5e0b-a03c-ab8e738f1060
+      row 3: a52569c0-4065-54e1-8ee7-33030600b9f4
+      row 4: 1718bca5-b0b5-5634-a6a4-0d33a08e85d2
+      row 5: d161aca4-4394-578e-addc-094fb9319649
+
+Checking special_education_cases
+  FAIL student_id -> students.id (5 violations)
+      row 1: 4e6a8354-ecec-5483-9163-e908eb7f444e
+      row 2: 24fa3770-032c-5483-acb5-9830c945c201
+      row 3: 025e9020-5fe3-5459-9d81-ece20ab665ed
+      row 4: 15103a20-a09b-5d68-b259-d59efadf28fa
+      row 5: aff9dc94-dee8-5b4b-ae79-85509ceef063
+
+Checking standards
+  FAIL parent_id -> standards.id (5 violations)
+      row 1: 8bca7074-fbf2-5d7b-90f6-b27e77146a9c
+      row 2: 545f1ea4-c0bf-5eba-8e0c-f35b4c385d2c
+      row 3: 3005bafa-ced1-5a51-8cec-974300f3c541
+      row 4: 2428a46d-1108-58ce-8548-7a620035377b
+      row 5: a18fe422-4cff-5536-a6d8-3cdc7aca5c58
+  FAIL framework_id -> frameworks.id (5 violations)
+      row 1: 95226e29-c243-5d18-8b14-59d4263a98a2
+      row 2: 1411d54e-6f3b-50b2-9934-401169c9fe98
+      row 3: 87ca91c4-d60c-55b1-9f08-8cf3fde477dc
+      row 4: ab66ba78-66d3-59ff-8766-b9783d0ced1b
+      row 5: 6a2848b8-7602-5f07-8942-ee892ad7c2ae
+
+Checking store_order_items
+  FAIL product_id -> store_products.id (5 violations)
+      row 1: 9b3c82a2-94db-5707-a79a-0c31b0a320ce
+      row 2: a03ebc69-3904-58a6-98ef-9508976488bb
+      row 3: b645c3b1-ee22-5868-84fd-26a0a6aaa780
+      row 4: 17c77bee-d7cd-5262-9054-c84e7179dd6d
+      row 5: cf97c845-fa75-56b7-83b8-76102cee44a8
+  FAIL order_id -> store_orders.id (5 violations)
+      row 1: 84a203a5-1815-5c78-8c5c-983f436a73e8
+      row 2: 0d7f5205-6e34-56a1-ba9a-63f35ceb3514
+      row 3: f165da0a-c2f3-5fab-9050-cdb8edaa448f
+      row 4: dbbe162e-3592-5461-a408-86baebb97367
+      row 5: 84540808-0dc5-5ec5-b794-2d4061748395
+
+Checking student_guardians
+  FAIL student_id -> students.id (5 violations)
+      row 1: 00fa273d-92c8-5d41-9a08-a8f631d5da3e
+      row 2: 1a4e985e-13a1-578e-af1a-087514bffafa
+      row 3: 70a5447d-9f47-5cea-9e4d-450e35f756c9
+      row 4: de0666af-73a3-5c63-8076-8b41448d8105
+      row 5: b76bfa02-3ff8-5322-8cad-bcb769b94df9
+  FAIL guardian_id -> guardians.id (5 violations)
+      row 1: c1ce4541-6194-5a25-901f-8b6464c7d72e
+      row 2: 092fb51c-f8fd-52f7-aae8-578a71b44454
+      row 3: c46f5030-cdd8-54bb-953f-fc9ac0b672f7
+      row 4: ee3f09cf-3841-5733-92d4-fda07300f706
+      row 5: 5655eafe-f265-56c1-9a42-6a8a7a39be20
+
+Checking student_program_enrollments
+  FAIL student_id -> students.id (5 violations)
+      row 1: a574fa6d-0015-57d5-890b-124a0f34848a
+      row 2: 968710ce-75c8-5d5a-a2a3-ff8092ff98bb
+      row 3: d2e751d9-c902-5910-8d18-133638dbe910
+      row 4: 30280955-a746-5292-8225-7200696cbc5d
+      row 5: 88e5fcd9-05e5-514e-b20b-3bb93734d35d
+
+Checking student_school_enrollments
+  FAIL school_id -> schools.id (5 violations)
+      row 1: 9a2bc69c-127f-595c-bfbc-ff0532c10f8d
+      row 2: e527d649-f81f-5994-b8d8-d876856ff6f0
+      row 3: 73f62584-0e12-5f34-a2a8-f152a605cdfc
+      row 4: 65e6dbd6-d6f5-5a2f-b5a5-d97f5cb01550
+      row 5: 4d9676cb-cb03-52a8-a0a2-932c83343b7e
+  FAIL student_id -> students.id (5 violations)
+      row 1: e486d81d-50cf-5594-a440-31a6c02a2200
+      row 2: 78b30f46-f962-5a23-979f-8332abfc3283
+      row 3: cf6596d0-c7bd-5474-8e4c-297a2c73b32b
+      row 4: bbdced78-9513-5605-b501-a7bd3b659016
+      row 5: 218f44b1-e5b1-5ab6-bcd0-003feab17bdb
+
+Checking student_section_enrollments
+  FAIL section_id -> course_sections.id (5 violations)
+      row 1: 311ad847-9d62-5b12-b23d-281115d584b6
+      row 2: a9b80a36-da03-5834-b3ce-4182106c7dcb
+      row 3: db4d65c3-2a0c-5f5a-9e44-bd71dd570041
+      row 4: 71d2d9b4-76f1-5eb7-ab36-fb44c1609975
+      row 5: 3a314caa-e5ad-5c0f-8491-4d0675386adf
+  FAIL student_id -> students.id (5 violations)
+      row 1: fefc8725-3040-5ed7-8468-84c3db5f5e0f
+      row 2: 94853016-fe92-5ff7-b0ee-31e24cefb92c
+      row 3: 489cce3a-40ab-54f1-8cf1-3ff1c904e17b
+      row 4: 991c5bf9-1f5f-59a9-b743-7af1fb0f4eae
+      row 5: b6cd697f-4ad6-5d1e-bd38-f08b7414f3c3
+
+Checking student_submissions
+  FAIL coursework_id -> coursework.id (5 violations)
+      row 1: dec57caf-1aad-5e69-acd0-670113721526
+      row 2: 40fc5031-34f4-5e26-9240-7163498ecd61
+      row 3: b2c0829e-a461-5d9b-816c-75f820582bab
+      row 4: 36fd69b6-59ab-5052-a6ab-8ed7e5c5bae4
+      row 5: eac4def1-fbef-5604-b0b3-d75fed8b6276
+  FAIL student_user_id -> users.id (5 violations)
+      row 1: 11c2e10b-352a-5e56-8203-7f1c929e5176
+      row 2: 7184fbd0-8583-5ce1-9273-116aef3cb9d0
+      row 3: 35d967a2-292d-5a18-a437-9898c68e69d5
+      row 4: 0ba3d1e0-d015-50bc-b3ca-af3a6ca6639a
+      row 5: c95bd7b1-51a1-5730-8a44-3963f0ce4159
+  FAIL user_profile_id -> user_profiles.id (5 violations)
+      row 1: 76778d44-8fb8-5ce4-8c79-3c8eec0b89e0
+      row 2: 6689278a-1f19-58d1-9f5d-c75364c4200f
+      row 3: 1c0f1c9a-ab4c-5169-bd4e-340ef265b143
+      row 4: 68361c3e-60e2-52c8-bec8-d1835cf9309c
+      row 5: ad3b4a69-28a9-56e1-ae7b-0d512fb6bbfc
+
+Checking student_transportation_assignments
+  FAIL stop_id -> bus_stops.id (5 violations)
+      row 1: c9706959-e15a-544e-b732-731e3c2963b0
+      row 2: 211d37fb-a328-50f9-94b2-67141a77e44d
+      row 3: d69b1a0d-b6d3-5ea3-a7c7-36dbccb21835
+      row 4: ea227ff4-7efa-558a-83fa-2fdd06cdcd2d
+      row 5: 4d1458b0-266c-5022-8812-9bca27307265
+  FAIL student_id -> students.id (5 violations)
+      row 1: 6e99683b-ec19-5b2a-8d8a-4ac0799a7a71
+      row 2: 973f5abb-f588-5689-b33e-eed631aa8b90
+      row 3: 25bd55e1-d6ff-5c92-aa01-d5a3afc2f515
+      row 4: cb634261-cc6d-5c1e-bbea-9956d6bf561e
+      row 5: e44a7942-4c9c-5ec3-aa15-73a49f8eceae
+  FAIL route_id -> bus_routes.id (5 violations)
+      row 1: ee55ec7b-1faa-50e5-9297-f86c35d23135
+      row 2: b5f6aab1-c851-5b3b-b383-f64a8c19339c
+      row 3: 6976190c-696f-597e-a31e-5457c50aff63
+      row 4: d630e456-f7c0-58c5-afbc-05e91b2871d5
+      row 5: 58729e02-ced8-5c4f-abd0-ac3888ef0ffa
+
+Checking students
+  FAIL person_id -> persons.id (5 violations)
+      row 1: ca322058-f989-5b8d-8ed0-8ddd4eeab853
+      row 2: 46234c52-2064-5a77-a3aa-19bdfc34eaad
+      row 3: f5a678df-fd67-518f-8616-5bf8a517765d
+      row 4: a75e90cd-65bd-57ef-9ac6-49e989557388
+      row 5: 7405fb1d-624f-511c-ae5f-7bfb91758807
+
+Checking subjects
+  FAIL department_id -> departments.id (5 violations)
+      row 1: 80ec74a5-c3a8-5ab8-b764-364195919266
+      row 2: e9dd6eee-b46d-5d3a-9d52-4169fcb33d64
+      row 3: 2610c0a8-d62c-5591-8281-925c10b1887a
+      row 4: 0def10fb-9c96-5d12-a2df-50ed8b671d17
+      row 5: f1c1d936-d9cc-5d41-aba8-2af6d2996200
+
+Checking subscriptions
+  FAIL channel_id -> channels.id (5 violations)
+      row 1: a02cf46e-df4a-5019-82d4-f266406a0b06
+      row 2: 97097734-0850-55e2-96c5-efb33c857a65
+      row 3: 3a767445-1816-5318-b5ac-b53d574e93a2
+      row 4: 99595a4e-a1b2-5d34-91fe-2a64f2421b65
+      row 5: f5493627-fcdd-57d1-bdfa-1e52b01736cf
+
+Checking teacher_section_assignments
+  FAIL staff_id -> staff.id (5 violations)
+      row 1: 91d3a425-cdc1-5c25-8a37-e6579d1eecdb
+      row 2: 817b1534-2972-58bf-a6cd-93f8b5038add
+      row 3: f0724d93-0d80-5965-af5d-1e2d169bb751
+      row 4: 82bf73ba-625d-55d0-96cd-db5ae05aee25
+      row 5: 13ed4c0d-6c2f-5191-92ff-9ff0d135be77
+  FAIL section_id -> course_sections.id (5 violations)
+      row 1: 7fc765a5-18a4-55fc-827a-1979e0961ad0
+      row 2: 02ead5e4-594e-5933-a59e-a7c1ba5bfff8
+      row 3: e438d299-1f8b-5c6d-946c-d61903a060c1
+      row 4: 3c3c8a7c-80e1-5e88-b68c-f3057275dbdf
+      row 5: 3e59134a-03c5-5f02-b175-fbc60cd48a31
+
+Checking team_messages
+  FAIL team_id -> teams.id (5 violations)
+      row 1: 04951026-bbae-5bb5-b95e-fbfbceb5d0da
+      row 2: 1ecb8746-7761-50b8-99dd-c140786b0d42
+      row 3: 7f665924-5ef1-5081-8804-4e8f24d66b53
+      row 4: 6d0d3b79-533e-542f-b403-0fee33b9cf3f
+      row 5: e88a75aa-2079-5e64-979b-845ab42a9542
+
+Checking teams
+  FAIL season_id -> seasons.id (5 violations)
+      row 1: 03f572bf-669c-5223-be9b-6778232728d5
+      row 2: 0bd30111-ef65-5498-975d-462f1ff08ce6
+      row 3: c52b2c77-52e6-57f6-bbcf-f303704040fe
+      row 4: 989296ae-0725-5308-8a32-2f151360c903
+      row 5: 14c32838-f23c-5114-abd8-f93861b94124
+  FAIL school_id -> schools.id (5 violations)
+      row 1: 27db64ce-902e-5ea5-8b50-5e44ca117df0
+      row 2: d6c52be0-b1d5-5dc7-b87e-8d1b849b2b2a
+      row 3: c4afdc91-c298-54d6-a87a-12817604a6b4
+      row 4: 65a943ea-6e4d-5f13-8c05-fb726f742e46
+      row 5: 133c1d63-d844-5ed3-b2eb-e023ba390d96
+  FAIL sport_id -> sports.id (5 violations)
+      row 1: 69b07771-2e95-576e-a4bb-225736c8c5db
+      row 2: 6b31f82c-8aec-51da-9efe-d4bcaaa005f7
+      row 3: 05b6926a-9ef4-5826-bccb-773ce5754db6
+      row 4: 86ab160c-3f43-5c98-9ac0-d8d860d35eb0
+      row 5: 05ff6e8f-2b32-5084-9eb5-935880fce87a
+
+Checking test_administrations
+  FAIL school_id -> schools.id (5 violations)
+      row 1: 17a088c4-e8bc-5615-9416-7b9c5923c550
+      row 2: ab9cebe9-37e3-5db8-b7cf-9f81d9abd88d
+      row 3: 3e21d739-c362-50c6-804f-aeed40003875
+      row 4: c769bf9a-4318-5911-b97a-9f98e1c3504d
+      row 5: 58836e21-1ee6-5e38-a957-292c22d8736c
+  FAIL test_id -> standardized_tests.id (5 violations)
+      row 1: 1c607366-77ed-57f3-9b01-021e6c361f9e
+      row 2: dbf4ce51-6a33-52d4-ae26-680354c30014
+      row 3: 12fe429d-0987-507e-9852-ceff55ea154d
+      row 4: e8503409-2edf-5707-b8f0-77fd0f572e91
+      row 5: c275d53d-3011-5478-a1a2-2c83d62ee76e
+
+Checking test_results
+  FAIL student_id -> students.id (5 violations)
+      row 1: 95293a05-75ea-5270-9941-041e0f44a7b4
+      row 2: 99af0262-b35f-5208-afac-e8c8afbff063
+      row 3: 293cb7db-9911-50d4-955b-a1afcde3d7d1
+      row 4: 6789559c-fbad-5095-b4ff-20a9c440a7e6
+      row 5: 352f08a2-e71d-5cf6-bb6e-bd7f097367cf
+  FAIL administration_id -> test_administrations.id (5 violations)
+      row 1: bdfd04f9-709c-5abf-9060-577f9183e90b
+      row 2: 737c62f6-6c21-531d-8e85-c47f4f318cfa
+      row 3: fe43a566-f5aa-5ac8-9bca-e583ee3b8d41
+      row 4: 40e9c212-9f91-5b15-8ce0-938e308c351f
+      row 5: dcafabff-4684-5890-8d50-89f82201fe9b
+
+Checking ticket_scans
+  FAIL scanned_by_user_id -> users.id (5 violations)
+      row 1: 025846df-2b23-5364-b7c5-59b8f99df067
+      row 2: 57619902-5c7d-5cdc-af22-42cb7287faaf
+      row 3: d4e77aba-5561-5659-9d55-a279acd57d8c
+      row 4: 6b707414-e59f-591e-ad34-7d2c39681290
+      row 5: 6c7b3ae3-5442-5a33-8fbe-2705f32a1557
+  FAIL ticket_id -> tickets.id (5 violations)
+      row 1: a36b76ae-9920-55e7-811c-5e49f7efad87
+      row 2: 1b9530e2-7a66-5394-b429-f685bf17ec02
+      row 3: 186852dc-e1da-5b96-96ba-abcb1b2b109f
+      row 4: b1ef95c4-3389-5a66-9c0c-a4303d877e35
+      row 5: b2bd7013-1736-5d1b-a7c4-28358a699a5d
+
+Checking ticket_types
+  FAIL event_id -> events.id (5 violations)
+      row 1: 503fc6a4-45f1-59f1-8e75-842b43feb000
+      row 2: a2488c92-a06d-5dcf-84cb-3f8cf4ca5b88
+      row 3: 866fbd6b-254d-5927-ac87-4a8977afa9c8
+      row 4: 882f5117-580e-5e0e-9938-0eec7029eb40
+      row 5: 47efa231-4db7-58d8-89e7-3b75c0b21e61
+
+Checking tickets
+  FAIL ticket_type_id -> ticket_types.id (5 violations)
+      row 1: 7eb318b6-b3aa-5de6-a857-a95708c69810
+      row 2: 0e06bd98-485f-5df2-b8eb-1fe6de9d9369
+      row 3: b2be9447-1877-512c-81ed-c7b44fa8ec3e
+      row 4: 321a19ff-07cc-5971-9a8a-d0d6d66dbf81
+      row 5: f92048c5-dcad-5c81-b7b8-22ccfa3f8fa0
+  FAIL event_id -> events.id (5 violations)
+      row 1: 34931d75-148c-598a-b3d2-7191c99abfb0
+      row 2: cf582133-2336-593e-b597-76fb9e0699c1
+      row 3: 597f7731-4b00-5bb4-b8c5-a7eba2b4f302
+      row 4: a6876f1d-68a3-5017-b590-00baa6d81f3e
+      row 5: 268651ba-c26b-54ac-9302-bb4aae74215d
+  FAIL order_id -> orders.id (5 violations)
+      row 1: c944b17f-7800-59ee-b4ac-ff0de5a52688
+      row 2: e580389b-e4e3-5cc7-8f12-31dae6167903
+      row 3: 9d29e2e9-52ab-57ef-bfd8-7b4855d9a426
+      row 4: 38c4a12d-fb17-5908-9daa-80c02b0199af
+      row 5: c21ac551-3a5c-5acc-9599-04b76dc880bb
+
+Checking topics
+  FAIL course_id -> courses.id (5 violations)
+      row 1: 16f8f6a5-a9b5-5580-b441-74af29d88c92
+      row 2: 51c0d4b7-d0ea-5007-bf15-01274af9b1a2
+      row 3: 9074daa9-5f5f-5cc6-bfff-0123b120962e
+      row 4: 07bae37f-aefe-52cd-8477-346c93151a59
+      row 5: 3e49eae8-fd23-5954-908b-5e9139d463a8
+  FAIL user_id -> users.id (5 violations)
+      row 1: 58b77727-35a7-52c2-aff6-85de6003b5ef
+      row 2: d8faa258-e36a-5ed6-9cd9-77f8ed52ea1a
+      row 3: fbceacc9-042d-5c00-b3f7-7235c0305404
+      row 4: 7c55a43f-751e-5cd3-a343-4d38051d6c64
+      row 5: 347ccedb-ca8c-50f0-ba22-28ed82f3743f
+
+Checking transcript_lines
+  FAIL student_id -> students.id (5 violations)
+      row 1: ebe5bf5c-e7f5-500f-9e77-2cc16fcb25c6
+      row 2: a6261d26-aafd-5a28-a8ea-bd61a19890a9
+      row 3: 960831ff-d030-5ad6-bc2a-2f07c97ecb46
+      row 4: 140e7b19-a6c9-55cc-b91a-9483e9dc84c5
+      row 5: 58e5c596-20e6-5e57-bd62-7d5e688e9d6b
+  FAIL course_id -> courses.id (5 violations)
+      row 1: 1d2a1f2f-8590-5b2e-88a2-1d8301d093f2
+      row 2: 272f1a51-8090-5b1d-9662-cf8f4a34722d
+      row 3: 185ca09c-0820-5d12-bd8f-ede7328e2e81
+      row 4: 63059bc1-24c6-5257-b3f3-78673b6b9ae9
+      row 5: 406581cc-7b34-509b-a9fa-64106f0091e9
+  FAIL term_id -> academic_terms.id (5 violations)
+      row 1: 28c13225-38bf-5d49-9bf4-3fc3087e43c1
+      row 2: e3187864-6575-57c6-9a83-d22fba32770c
+      row 3: ce4df407-6259-52a9-8eeb-0d5eed3a17b6
+      row 4: e2459b5e-6c3e-53b1-835b-919ac0e490f4
+      row 5: 4bda09f0-76a2-5b30-9d2e-86d49407a9ba
+
+Checking turn_in
+  FAIL session_id -> sessions.id (5 violations)
+      row 1: aa89e5c9-dbe6-5999-9eb2-f6dd4b9965fa
+      row 2: 6e98fbcb-36a8-57ad-a43e-2a9b954d9279
+      row 3: f19f8df8-0514-54a6-a7ec-184f1b46f652
+      row 4: d474fc9c-412a-58f8-85da-47e931f8690a
+      row 5: 5b1ff484-b675-5b56-9763-70461b45991f
+
+Checking tutor_out
+  FAIL tutor_id -> tutors.id (5 violations)
+      row 1: 6adaaa3f-05f8-5f4e-84a8-3f3efa45627c
+      row 2: 16c7ef19-6943-5da1-8b49-f73ef3b2f270
+      row 3: ed558766-560b-545c-8b41-663ed1eb9c59
+      row 4: 0c56c722-75d0-5a87-954f-b3506d7b7421
+      row 5: b378e2ba-7bee-5b80-82ba-34e7ec7ab5ff
+
+Checking tutor_spec
+  FAIL tutor_id -> tutors.id (5 violations)
+      row 1: baf5c5f1-52e9-583b-b6a6-6e235bc19708
+      row 2: f05e3071-14ce-5b85-84b8-eead5e5130f8
+      row 3: 30a37d63-5e96-5f8d-b27b-38b1d5c915e8
+      row 4: 332f9df7-5e1d-59f0-bc99-8935cd5f15f8
+      row 5: a15134b3-9e27-5115-9d80-70b4fb694c77
+
+Checking unit_standard_map
+  FAIL standard_id -> standards.id (5 violations)
+      row 1: bfa956f5-3c0c-5caf-9927-ecdadc7c250c
+      row 2: 2129469e-b899-58b6-96c8-a98b64ac6279
+      row 3: d1f52651-b2ac-596d-b9e5-138f60f731e6
+      row 4: d888adbe-dc72-5c4a-8294-441ee4fe5822
+      row 5: 61dce5ae-4db1-5c0a-8f9a-4707bd94c2c3
+  FAIL unit_id -> curriculum_units.id (5 violations)
+      row 1: 84cdf2b0-a34d-5c06-b89e-2b6d4c2aacf2
+      row 2: 71a0ebf7-0c58-5977-a1de-e23329337874
+      row 3: d9382b74-8477-5466-ba93-a74507efe4b2
+      row 4: 4263ad16-219b-5410-aa21-ddc3acc544a3
+      row 5: 11988206-1314-554e-a871-b645a9104dcf
+
+Checking user_accounts
+  FAIL person_id -> persons.id (5 violations)
+      row 1: 93f036c3-56ad-5f08-9112-0b3ae84833de
+      row 2: 5eb870ea-ed16-56b8-a7cb-562112f33847
+      row 3: 5a66d82e-8b86-5a26-a0de-c205dfe0aaba
+      row 4: 32dbc704-3214-5ad4-9ef6-c82bd3a36c93
+      row 5: a6da5c89-abb4-5950-9624-8e71921c08c9
+
+Checking user_profiles
+  FAIL user_id -> users.id (5 violations)
+      row 1: 40551f76-a051-5cfa-aa12-5fb4fbe88d1f
+      row 2: a63ee967-1a8d-5dfa-bf3c-a6ad1d2efeb3
+      row 3: cdcf1e59-9df8-509a-8754-95f435c6d2b3
+      row 4: 622f5871-f5f4-59df-88d7-fbb8a51b655e
+      row 5: 502acfb6-b501-5280-8fc5-3305bc3f71a9
+
+Checking votes
+  FAIL motion_id -> motions.id (5 violations)
+      row 1: 7541ca4b-8544-5a8b-997d-e0f3cfd69543
+      row 2: 558b11a0-5cae-5dea-b5b1-52f047ef006a
+      row 3: be24e7a7-dd0b-5efa-86e9-f157dc4d6499
+      row 4: a78dfa9d-a5b6-560d-8bd3-0be089895f93
+      row 5: 2c3feac2-bc71-5937-9562-d24523befa4c
+  FAIL voter_id -> users.id (5 violations)
+      row 1: 8a473f19-409e-57ea-a9e3-2b39543f9d4c
+      row 2: c811a0d5-7366-5491-a8c4-1133d83b0ad7
+      row 3: e3e0ab61-2b63-5e1f-a592-f8de1964b146
+      row 4: 88c9a085-95b4-5a1e-92d5-afb40ea9f71c
+      row 5: 63061b85-a5ab-5471-8928-e5d0a6ecb7d7
+
+Checking waivers
+  FAIL student_id -> students.id (5 violations)
+      row 1: ca60e3f4-565b-5cd5-bd36-9e510d42e5ac
+      row 2: 55818348-1694-5139-a433-eef9e588aa8d
+      row 3: 1ac5d9b2-eaff-5599-aaf0-f99c148d9587
+      row 4: 56db3fa1-1765-5cdf-a943-32cace9e30c5
+      row 5: 0f2035ee-436c-5dab-aa2d-1497d3f451bb
+
+Checking warranties
+  FAIL vendor_id -> vendors.id (5 violations)
+      row 1: aadb79f7-ce84-5a64-b97e-301bb8a9a622
+      row 2: ab1ce17b-f211-5333-badc-a9ce4fc2c145
+      row 3: 554546c6-4ebd-5177-9957-f6eaa3a9d4cf
+      row 4: 83e08511-d1f1-550e-b3a2-50ef75bb5605
+      row 5: 400a2494-cc3b-55d9-bd41-4a979084a741
+  FAIL asset_id -> assets.id (5 violations)
+      row 1: 0a20fb9b-1079-5620-854b-d6e292f4f80d
+      row 2: 0f9b2fb6-5bde-5023-9074-df80f5e2a408
+      row 3: a2a87d1d-eaa3-5b5f-a7e1-375c8e6ca4de
+      row 4: 35c9c641-81f9-529e-8464-64d58a028c47
+      row 5: 3539bc7b-284d-5b9e-80c2-9a9a9074fe8a
+
+Checking work_assignments
+  FAIL event_id -> events.id (5 violations)
+      row 1: cb5ec528-73e2-5c2a-822d-bc9591a0b294
+      row 2: b41483eb-2f30-5659-9f47-0bc37dc099bf
+      row 3: 11855a35-fefe-5ecc-832e-d84a85989d79
+      row 4: 9562e6fc-8ad9-5e18-aaed-f26b3adab423
+      row 5: 7dc59d98-7adc-5db0-b0d1-3f42e92a9a72
+  FAIL worker_id -> workers.id (5 violations)
+      row 1: ebabbe5a-1505-5828-8a64-ddf17752cd76
+      row 2: 4d8fa3f6-81ef-502b-bc3e-4088a5f55c74
+      row 3: 0163659f-eeec-5483-85bd-2602dfc7a131
+      row 4: eae4630e-4442-57ea-804e-70b376c1ad20
+      row 5: 56aae8e0-cee6-5739-af95-c0d901c505d1
+
+Checking work_order_parts
+  FAIL work_order_id -> work_orders.id (5 violations)
+      row 1: 472303c1-f62c-5f6d-bd87-d843d5ae6a10
+      row 2: 16616889-605e-5544-ac2e-b0779a56bb90
+      row 3: f348dfec-12eb-515f-9917-43b15582dac4
+      row 4: 958b544a-93d9-52cb-9a36-57284f5fd4b4
+      row 5: 5a942b4f-a7d1-596e-9c12-71d6da083e85
+  FAIL part_id -> parts.id (5 violations)
+      row 1: fa59a9e9-281a-52ce-b7a7-153971c94155
+      row 2: a309ddb2-88d1-5577-8a8c-dc3a2ecaeb39
+      row 3: f807aec2-8271-5bd4-aa83-bde08dd7a9c7
+      row 4: b03d2f2a-2724-55fd-a507-567005fe4039
+      row 5: fc6b2f04-79e7-5fa0-ac1a-ff3edf5078eb
+
+Checking work_order_tasks
+  FAIL work_order_id -> work_orders.id (5 violations)
+      row 1: 2619e963-6b00-5c3c-8ad3-e2b0be10a4aa
+      row 2: daa0d393-643e-517c-a102-d8fbe9c71f06
+      row 3: 1b8ab057-93a6-58bf-9270-6fc17029fdee
+      row 4: e5b12aa4-6d67-50ed-b611-501596c6801b
+      row 5: f607dc47-e5e4-5953-9ac2-b6573de3f909
+
+Checking work_order_time_logs
+  FAIL work_order_id -> work_orders.id (5 violations)
+      row 1: 5a58c221-638f-5611-941e-4f47d709a380
+      row 2: 0e2a03e1-1a50-5650-ab20-2c5272ba06fd
+      row 3: da108364-8e39-5306-be40-7f3873894dd1
+      row 4: 72ec51b8-a88d-5222-b9e7-9fc1cb044106
+      row 5: 3150a21f-2699-52ca-8048-dc79567594b7
+  FAIL user_id -> users.id (5 violations)
+      row 1: 1695a9c4-684a-5231-b596-449c3d4f54ec
+      row 2: d4171c8b-c4d1-5d51-af57-2cf3dff5a3f5
+      row 3: ce782d9b-2f5e-5c32-b011-e85087d0c36e
+      row 4: 6c9fe124-78f9-5cee-ab68-43190ef14795
+      row 5: dacfcc58-9a35-5d9d-b903-dd2f332714df
+
+Checking work_orders
+  FAIL asset_id -> assets.id (5 violations)
+      row 1: 002b210b-68cd-5aad-a92e-82cfe950238e
+      row 2: 59d01691-0b2e-5658-9d6a-b0865b1605df
+      row 3: d5c4a201-9257-599d-8b19-9879bb2f6ba7
+      row 4: d31eceb8-2164-5b9a-a6b0-d268130c1d10
+      row 5: cc44ddf5-d33c-517c-8989-03e683dc6f66
+  FAIL assigned_to_user_id -> users.id (5 violations)
+      row 1: 92c38dd7-eb86-5955-b945-80166bba0c20
+      row 2: 9e19492e-f73d-583c-bade-15e2e8f3e78d
+      row 3: 212e344d-dff3-5112-8203-e201f87613f8
+      row 4: 0feda95c-c197-5676-ac21-d9757d27f546
+      row 5: 9b0db250-b20c-5947-9964-2f5f25badcc9
+  FAIL space_id -> spaces.id (5 violations)
+      row 1: d45a6ede-f620-51d5-8205-e252b61fad66
+      row 2: 62c7e8a0-1e2b-5113-8205-beaefa4962fa
+      row 3: d8196ba3-91ed-5a56-a4a4-1d71dce55bfd
+      row 4: b82dc44f-4a3e-582f-8f3a-dd42c1d06771
+      row 5: 8abc4319-1f7b-5870-a38e-06796e26bbdb
+  FAIL building_id -> buildings.id (5 violations)
+      row 1: ba2f6e53-fe88-5ff4-aeb8-58c43dce3f1c
+      row 2: 11bbdf90-015c-5f37-9507-182fb4e24ac0
+      row 3: c2bc39ac-dc07-5cfe-a80d-1428a97bc7f1
+      row 4: 17b00d79-ef35-56da-8f85-eec6937b46a8
+      row 5: 6eb06e4b-12f9-5a6f-ba08-8bcd83d780c6
+  FAIL school_id -> schools.id (5 violations)
+      row 1: 13ab7789-02dc-5ad6-b559-569456ae2e77
+      row 2: e5cb21c1-d1a7-5421-9b60-7ff148dcded9
+      row 3: adea6e1c-5f99-5043-8959-7e2c22c5700d
+      row 4: 377e0917-704a-5947-9357-ed817a50e63a
+      row 5: a1489618-fadd-5069-aebc-2e3404a40e46
+  FAIL request_id -> maintenance_requests.id (5 violations)
+      row 1: 6f500822-1f69-554f-9fb9-9bdc119d07d1
+      row 2: d09ca708-3196-5985-a6ef-399875a2aba7
+      row 3: 9a8b18a5-21cf-5b30-8db6-28b89b71f0d1
+      row 4: d0f9c0e4-baf4-5d9c-bdad-5b9c0ad68d9a
+      row 5: a5d96824-0707-54cc-8e0f-68f1e1884f39
+
+=== Validation Complete ===
+2050 FK violations found

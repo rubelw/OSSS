@@ -390,14 +390,14 @@ main() {
   maybe_run_alembic
 
   # TUTOR migrations (optional)
-  log "TUTOR_URL=${TUTOR_URL:-<empty>}"
-  if [[ -z "${SKIP_ALEMBIC:-}" ]]; then
-    maybe_run_tutor_alembic
-  else
-    log "SKIP_ALEMBIC set; not waiting for tutor DB."
-  fi
+  #log "TUTOR_URL=${TUTOR_URL:-<empty>}"
+  #if [[ -z "${SKIP_ALEMBIC:-}" ]]; then
+  #  maybe_run_tutor_alembic
+  #else
+  #  log "SKIP_ALEMBIC set; not waiting for tutor DB."
+  #fi
 
-  check_fk_integrity
+  #check_fk_integrity
   log "starting application: $*"
   unset DATABASE_URL SQLALCHEMY_DATABASE_URI SQLALCHEMY_URL
 

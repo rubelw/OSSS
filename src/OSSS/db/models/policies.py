@@ -52,7 +52,7 @@ class Policy(UUIDMixin, Base):
 
 
     org_id: Mapped[uuid.UUID] = mapped_column(
-        GUID(), ForeignKey("mentors.id", ondelete="CASCADE"), nullable=False
+        GUID(), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
     )
     code: Mapped[Optional[str]] = mapped_column(sa.String(64))
     title: Mapped[str] = mapped_column(sa.String(255), nullable=False)
