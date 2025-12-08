@@ -1,27 +1,46 @@
 # src/OSSS/ai/langchain/__init__.py
 from __future__ import annotations
 
-from typing import Any, Dict, Awaitable, Callable
+from typing import Any, Dict
 import logging
 
-from OSSS.ai.langchain.agents.student_info_table import run_student_info_table
+from OSSS.ai.langchain.agents.student_info_table_agent import StudentInfoTableAgent
+from OSSS.ai.langchain.registry import (
+    register_langchain_agent,
+    run_agent as registry_run_agent,
+)
 
 logger = logging.getLogger("OSSS.ai.langchain")
 
-# Map high-level intents to LangChain agent names
+# ---------------------------------------------------------------------------
+# Intent → LangChain agent name mapping
+# ---------------------------------------------------------------------------
+
 INTENT_TO_LC_AGENT: dict[str, str] = {
-    "langchain_agent": "lc.student_info_table",        # bridge from old behavior
+    # bridge from old behavior: generic "langchain_agent" goes to student_info_table
+    "langchain_agent": "lc.student_info_table",
     "student_info": "lc.student_info_table",
-    #"students_missing_assignments": "lc.students_missing_assignments",
+    # "students_missing_assignments": "lc.students_missing_assignments",
     # add more as you build them...
 }
 
-# Map LangChain agent names -> concrete callables
-LC_AGENTS: dict[str, Callable[..., Awaitable[Dict[str, Any]]]] = {
-    "lc.student_info_table": run_student_info_table,
-    # "lc.students_missing_assignments": run_students_missing_assignments,
-}
+# ---------------------------------------------------------------------------
+# Register concrete agents with the registry
+# ---------------------------------------------------------------------------
 
+# Student info table agent (uses the StructuredTool internally)
+register_langchain_agent(StudentInfoTableAgent())
+
+# add more agents here as you implement them:
+# from OSSS.ai.langchain.agents.students_missing_assignments_agent import (
+#     StudentsMissingAssignmentsAgent,
+# )
+# register_langchain_agent(StudentsMissingAssignmentsAgent())
+
+
+# ---------------------------------------------------------------------------
+# Public entry point used by RouterAgent
+# ---------------------------------------------------------------------------
 
 async def run_agent(
     *,
@@ -33,7 +52,8 @@ async def run_agent(
     Single entry-point used by RouterAgent.
 
     The router passes in the logical `agent_name` (e.g. "lc.student_info_table"),
-    we look up the concrete async function and invoke it.
+    we delegate to the registry, which looks up the registered LangChain agent
+    object and calls its `run(...)` method.
     """
     logger.info(
         "LangChain.run_agent called: session_id=%s agent_name=%s message=%r",
@@ -42,11 +62,9 @@ async def run_agent(
         message,
     )
 
-    fn = LC_AGENTS.get(agent_name)
-    if fn is None:
-        logger.warning("LangChain: unknown agent %s", agent_name)
-        return {
-            "reply": f"[LC] Unknown agent: {agent_name}",
-        }
-
-    return await fn(message=message, session_id=session_id)
+    # Delegate to the registry implementation
+    return await registry_run_agent(
+        message=message,
+        session_id=session_id,
+        agent_name=agent_name,
+    )

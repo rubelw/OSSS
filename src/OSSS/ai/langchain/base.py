@@ -10,7 +10,31 @@ from langchain_core.messages import HumanMessage, SystemMessage
 
 logger = logging.getLogger("OSSS.ai.langchain.base")
 
-DEFAULT_MODEL = os.getenv("OSSS_LANGCHAIN_MODEL", "gpt-4.1-mini")
+# ---------------------------------------------------------------------------
+# Settings / configuration
+# ---------------------------------------------------------------------------
+
+try:
+    # Prefer your real settings if available
+    from OSSS.config import settings as _settings  # type: ignore
+    settings = _settings
+except Exception:
+    # Fallback for tests / local usage
+    class _Settings:
+        VLLM_ENDPOINT: str = os.getenv(
+            "VLLM_ENDPOINT", "http://host.containers.internal:11434"
+        )
+        OSSS_LANGCHAIN_MODEL: str = os.getenv(
+            "OSSS_LANGCHAIN_MODEL", "llama3.2-vision"
+        )
+
+    settings = _Settings()  # type: ignore
+
+DEFAULT_MODEL = getattr(
+    settings,
+    "OSSS_LANGCHAIN_MODEL",
+    os.getenv("OSSS_LANGCHAIN_MODEL", "llama3.2-vision"),
+).strip()
 
 
 class LangChainAgentProtocol(Protocol):
@@ -20,9 +44,43 @@ class LangChainAgentProtocol(Protocol):
         ...
 
 
+def _get_base_url() -> str:
+    """
+    Return the OpenAI-compatible base URL, always including /v1.
+
+    This is where Ollama / vLLM exposes:
+      - POST /v1/chat/completions
+      - POST /v1/embeddings
+    """
+    base = getattr(
+        settings, "VLLM_ENDPOINT", "http://host.containers.internal:11434"
+    ).rstrip("/")
+    url = f"{base}/v1"
+    logger.debug("LangChain base URL resolved to %s", url)
+    return url
+
+
 def get_llm(model: Optional[str] = None) -> BaseChatModel:
+    """
+    Shared LangChain ChatOpenAI client that talks to your local
+    Ollama / vLLM server using the OpenAI-compatible /v1 API.
+    """
     model_name = (model or DEFAULT_MODEL).strip()
-    return ChatOpenAI(model=model_name, temperature=0.1, max_tokens=2048)
+    base_url = _get_base_url()
+
+    logger.info(
+        "Creating LangChain ChatOpenAI client: model=%s base_url=%s",
+        model_name,
+        base_url,
+    )
+
+    return ChatOpenAI(
+        model=model_name,
+        api_key="not-used",      # Ollama/vLLM ignore this but LangChain requires it
+        base_url=base_url,       # 🔴 THIS ensures /v1/chat/completions, not /chat/completions
+        temperature=0.1,
+        max_tokens=2048,
+    )
 
 
 class SimpleChatAgent:

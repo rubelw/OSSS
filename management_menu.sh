@@ -241,7 +241,7 @@ start_ollama() {
 ensure_ollama_local() {
   echo "🧠 Ensuring Ollama is installed and running locally with preloaded models…"
   # Use Mistral as the main chat model, keep embed models as-is
-  local MODELS=("llama3.2-vision:latest" "all-minilm:latest" "nomic-embed-text:latest")
+  local MODELS=("llama3.2-vision:latest" "all-minilm:latest" "nomic-embed-text:latest","llama3.1:latest")
   local OLLAMA_HOST="0.0.0.0"
   local OLLAMA_PORT=11434
 

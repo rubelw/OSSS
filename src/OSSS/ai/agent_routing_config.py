@@ -42,9 +42,9 @@ INTENT_ALIASES: list[IntentAlias] = [
     # Map classifier labels related to student counts/listing to query_data
     IntentAlias("student_counts", "query_data"),
     #IntentAlias("students", "query_data"),
-    IntentAlias("student_info", "langchain_agent"),
+    #IntentAlias("student_info", "langchain_agent"),
 
-IntentAlias("list_students", "query_data"),
+    IntentAlias("list_students", "query_data"),
     IntentAlias("scorecards", "query_data"),
     IntentAlias("live_scoring_query", "query_data"),
     IntentAlias("show_materials_list", "query_data"),
@@ -133,6 +133,15 @@ HEURISTIC_RULES: list[HeuristicRule] = [
         intent="register_new_student",
         pattern=re.compile(r"(20[2-9][0-9])[-/](?:20[2-9][0-9]|[0-9]{2})"),
         description="Bare school-year style answer",
+    ),
+
+    HeuristicRule(
+        intent="student_info",
+        pattern=re.compile(
+            r"\b(list|show|get|give me|display)\b.*\b(student|students)\b",
+            re.IGNORECASE,
+        ),
+        description="Listing / showing students (e.g. 'list all students')",
     ),
 
     # Queries that clearly want a list of students → query_data

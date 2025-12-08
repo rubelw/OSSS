@@ -134,7 +134,7 @@ body {
 .main {
   flex: 1;
   min-width: 0;
-  padding: 24px;
+  padding: 5px;
 }
 
 /* Buttons */
@@ -155,7 +155,6 @@ body {
 /* === Mentor chat layout – mirror index.html look === */
 .mentor-container {
   margin: 0 auto;
-  width: 860px;
   max-width: 96%;
   background: #ffffff;
   border-radius: 12px;
@@ -243,7 +242,7 @@ body {
 }
 
 .mentor-bubble {
-  max-width: 75%;
+  max-width: 100%;
   padding: 10px 14px;
   border-radius: 12px;
   line-height: 1.45;

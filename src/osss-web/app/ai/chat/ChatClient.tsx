@@ -91,12 +91,78 @@ function mdToHtml(src: string): string {
   // Bold
   s = s.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
 
-  // --- Bullet list handling ----------------------------------------
+  // --- Line-based processing: lists + tables -----------------------
   const lines = s.split(/\n/);
   let inList = false;
   const out: string[] = [];
 
-  for (const line of lines) {
+  const isTableSeparator = (line: string): boolean => {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith("|")) return false;
+    // something like: | --- | --- | --- |
+    return /^\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)+\|?$/.test(trimmed);
+  };
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    // --- TABLE DETECTION -------------------------------------------
+    const trimmed = line.trim();
+    const looksLikeTableRow =
+      trimmed.startsWith("|") && trimmed.includes("|");
+
+    // Header + separator = start of table
+    if (
+      looksLikeTableRow &&
+      i + 1 < lines.length &&
+      isTableSeparator(lines[i + 1])
+    ) {
+      // Close any open list before starting table
+      if (inList) {
+        out.push("</ul>");
+        inList = false;
+      }
+
+      // Header row
+      const headerCells = trimmed
+        .replace(/^\||\|$/g, "") // strip leading/trailing |
+        .split("|")
+        .map((c) => c.trim());
+
+      out.push('<table class="md-table"><thead><tr>');
+      headerCells.forEach((cell) => {
+        out.push(`<th>${cell}</th>`);
+      });
+      out.push("</tr></thead><tbody>");
+
+      // Skip the separator line
+      i += 1;
+
+      // Data rows
+      while (i + 1 < lines.length) {
+        const next = lines[i + 1];
+        const nextTrimmed = next.trim();
+        if (!(nextTrimmed.startsWith("|") && nextTrimmed.includes("|"))) {
+          break;
+        }
+        i += 1;
+        const rowCells = nextTrimmed
+          .replace(/^\||\|$/g, "")
+          .split("|")
+          .map((c) => c.trim());
+
+        out.push("<tr>");
+        rowCells.forEach((cell) => {
+          out.push(`<td>${cell}</td>`);
+        });
+        out.push("</tr>");
+      }
+
+      out.push("</tbody></table>");
+      continue; // handled; go to next line in outer loop
+    }
+
+    // --- BULLET LIST HANDLING --------------------------------------
     const bulletMatch = line.match(/^\s*([*-])\s+(.+)/);
 
     if (bulletMatch) {
@@ -125,6 +191,7 @@ function mdToHtml(src: string): string {
 
   return out.join("");
 }
+
 
 /**
  * Build an HTML "Sources" block appended to the bot reply,

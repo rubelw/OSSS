@@ -261,11 +261,10 @@ class IntentResolver:
             except Exception:
                 logger.exception("IntentResolver: failed to parse intent_raw_model_output")
 
-        # ---- SPECIAL CASE: route student_info -> LangChain -----------------
-        # We treat "student_info" as a signal that this should go to the
-        # LangChain pipeline, regardless of the high-level classifier label.
+        # ---- SPECIAL CASE: student_info should stay student_info ----------
+        # Let "student_info" flow through as-is so it hits INTENT_TO_LC_AGENT
         if base_label == "student_info" or llm_intent == "student_info":
-            effective_base = "langchain_agent"
+            effective_base = "student_info"
         else:
             effective_base = base_label
 
@@ -999,11 +998,17 @@ class RouterAgent:
                 },
             }
 
+            try:
+                debug_json = json.dumps(response_payload, ensure_ascii=False, default=str)[:4000]
+            except TypeError:
+                debug_json = f"<non-serializable payload keys={list(response_payload.keys())}>"
+
             logger.info(
                 "[RAG] response (langchain_agent:%s): %s",
                 lc_agent_name,
-                json.dumps(response_payload, ensure_ascii=False)[:4000],
+                debug_json,
             )
+
             return response_payload
 
         # ---- try agent path -------------------------------------------
@@ -1028,6 +1033,58 @@ class RouterAgent:
             return agent_response
 
         # ---- no agent: generic RAG fallback ---------------------------
+        # Build RAG history based on whether the intent changed
+        last_intent = resolution.session_intent
+        new_intent = intent_label
+
+        # Find (or create) a single system prompt as the base
+        base_system = next(
+            (m for m in rag.messages if m.role == "system"),
+            ChatMessage(role="system", content="You are a helpful assistant."),
+        )
+
+        # All user messages are already collected above; last one is our current query
+        # user_messages was computed earlier in run():
+        #   user_messages = [m for m in rag.messages if m.role == "user"]
+        prior_user_and_assistant: list[ChatMessage] = []
+        for m in rag.messages:
+            if m is base_system:
+                continue
+            # exclude the *current* user turn; keep only prior turns
+            if m.role == "user" and m is user_messages[-1]:
+                continue
+            prior_user_and_assistant.append(m)
+
+        # Keep only a small tail of the previous conversation
+        history_tail = prior_user_and_assistant[-4:]
+
+        if last_intent is not None and new_intent != last_intent:
+            # New intent detected -> start a fresh RAG context so we don't
+            # leak "student_info" style questions into "conflict_of_interest" turns.
+            logger.info(
+                "Intent changed from %r to %r; starting fresh RAG context",
+                last_intent,
+                new_intent,
+            )
+            pruned_messages: list[ChatMessage] = [
+                base_system,
+                user_messages[-1],
+            ]
+        else:
+            # Same intent -> keep a small sliding window of history
+            logger.info(
+                "Intent unchanged (%r); keeping short RAG history window",
+                new_intent,
+            )
+            pruned_messages = [
+                base_system,
+                *history_tail,
+                user_messages[-1],
+            ]
+
+        # Mutate rag.messages so RagEngine.answer uses the pruned history
+        rag.messages = pruned_messages
+
         return await self.rag_engine.answer(
             rag=rag,
             session=session,
@@ -1044,6 +1101,7 @@ class RouterAgent:
             tone_minor_confidence=tone_minor_confidence,
             intent_raw_model_output=intent_raw_model_output,
         )
+
 
 class RAGRequest(BaseModel):
     """

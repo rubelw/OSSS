@@ -5,9 +5,9 @@ from typing import Any, Dict, List, Optional
 from collections import Counter
 from datetime import date
 import logging
-import re
 
 import httpx
+from pydantic import BaseModel, Field
 
 from OSSS.ai.agents.query_data.handlers.students_handler import (
     _fetch_students_and_persons,
@@ -18,214 +18,71 @@ logger = logging.getLogger("OSSS.ai.langchain.student_info_table")
 
 
 # ---------------------------------------------------------------------------
-# Filter extraction helpers
+# Filters schema (used by StructuredTool and by our code)
 # ---------------------------------------------------------------------------
 
-def _extract_last_name_prefix(message: str) -> Optional[str]:
+class StudentInfoFilters(BaseModel):
     """
-    Look for phrases like:
-      - last name beginning with 'S'
-      - last names starting with "Sm"
-      - last name starts with S
-    and return the prefix (uppercased).
+    Filters that can be applied to the OSSS student list.
+    All fields are optional; when omitted, that filter is not applied.
+
+    These fields are exposed to the LLM via the tool schema, so it can
+    directly populate them from natural language like:
+
+      - "show male students"
+      - "students with last name beginning with 'S'"
+      - "THIRD grade female students"
     """
-    patterns = [
-        r"last\s+name[s]?\s+(?:starting|beginning|begins|starts)\s+with\s+['\"]?([A-Za-z]{1,20})['\"]?",
-        r"last\s+name[s]?\s+['\"]?([A-Za-z]{1,20})['\"]?\s+only",
-    ]
-    msg = message or ""
-    for pat in patterns:
-        m = re.search(pat, msg, flags=re.IGNORECASE)
-        if m:
-            return m.group(1).upper()
-    return None
-
-
-def _extract_first_name_prefix(message: str) -> Optional[str]:
-    """
-    Look for phrases like:
-      - first name beginning with 'M'
-      - first names starting with "Mi"
-      - first name starts with J
-    and return the prefix (uppercased).
-    """
-    patterns = [
-        r"first\s+name[s]?\s+(?:starting|beginning|begins|starts)\s+with\s+['\"]?([A-Za-z]{1,20})['\"]?",
-        r"first\s+name[s]?\s+['\"]?([A-Za-z]{1,20})['\"]?\s+only",
-    ]
-    msg = message or ""
-    for pat in patterns:
-        m = re.search(pat, msg, flags=re.IGNORECASE)
-        if m:
-            return m.group(1).upper()
-    return None
-
-
-def _extract_gender_filter(message: str) -> Optional[List[str]]:
-    """
-    Detect simple gender filters in the message.
-
-    Examples:
-      - "show student info for FEMALE"
-      - "girls only"
-      - "boys in THIRD grade"
-    Returns a list like ["FEMALE"] or ["FEMALE", "OTHER"] (uppercased),
-    or None if no obvious gender terms are found.
-    """
-    msg = (message or "").lower()
-    genders: set[str] = set()
-
-    if "female" in msg or "girl" in msg or "girls" in msg:
-        genders.add("FEMALE")
-    if "male" in msg or "boy" in msg or "boys" in msg:
-        genders.add("MALE")
-    if "other" in msg or "nonbinary" in msg or "non-binary" in msg:
-        genders.add("OTHER")
-
-    # Also allow explicit phrases like "gender FEMALE", "gender: male"
-    m = re.search(r"gender\s*[:=]?\s*([A-Za-z]+)", msg)
-    if m:
-        val = m.group(1).upper()
-        if val in {"FEMALE", "MALE", "OTHER"}:
-            genders.add(val)
-
-    return list(genders) if genders else None
-
-
-def _extract_grade_filter(message: str) -> Optional[List[str]]:
-    """
-    Detect grade-level filters in the message.
-
-    Supports:
-      - "PREK", "pre-k", "pre k"
-      - "kindergarten", "kinder", "grade K"
-      - word grades: "first", "second", "third", "fourth", ...
-      - numeric grades: "3rd grade", "grade 3", "grade 10", etc.
-
-    Returns a list of canonical grade labels as used in OSSS:
-      PREK, KINDERGARTEN, FIRST, SECOND, THIRD, FORTH, FIFTH, ...
-    """
-    msg = (message or "").lower()
-    labels: set[str] = set()
-
-    # Explicit tokens for PREK / Kindergarten
-    token_map = {
-        "prek": "PREK",
-        "pre-k": "PREK",
-        "pre k": "PREK",
-        "kindergarten": "KINDERGARTEN",
-        "kinder": "KINDERGARTEN",
-        "grade k": "KINDERGARTEN",
-    }
-    for token, label in token_map.items():
-        if token in msg:
-            labels.add(label)
-
-    # Word-based grades
-    word_map = {
-        "first": "FIRST",
-        "second": "SECOND",
-        "third": "THIRD",
-        # OSSS enum uses FORTH/NINETH – normalize both spellings
-        "fourth": "FORTH",
-        "forth": "FORTH",
-        "fifth": "FIFTH",
-        "sixth": "SIXTH",
-        "seventh": "SEVENTH",
-        "eighth": "EIGHTH",
-        "ninth": "NINETH",
-        "nineth": "NINETH",
-        "tenth": "TENTH",
-        "eleventh": "ELEVENTH",
-        "twelfth": "TWELFTH",
-    }
-    for word, label in word_map.items():
-        if re.search(rf"\b{word}\b", msg):
-            labels.add(label)
-
-    # Numeric grades: "3rd grade", "grade 3"
-    num_map = {
-        1: "FIRST",
-        2: "SECOND",
-        3: "THIRD",
-        4: "FORTH",
-        5: "FIFTH",
-        6: "SIXTH",
-        7: "SEVENTH",
-        8: "EIGHTH",
-        9: "NINETH",
-        10: "TENTH",
-        11: "ELEVENTH",
-        12: "TWELFTH",
-    }
-
-    for m in re.finditer(r"\b([1-9]|1[0-2])(?:st|nd|rd|th)?\s+grade\b", msg):
-        n = int(m.group(1))
-        label = num_map.get(n)
-        if label:
-            labels.add(label)
-
-    for m in re.finditer(r"grade\s+([1-9]|1[0-2])\b", msg):
-        n = int(m.group(1))
-        label = num_map.get(n)
-        if label:
-            labels.add(label)
-
-    # Also allow "grade level THIRD" / "grade level PREK"
-    m = re.search(
-        r"(?:grade\s+level|grade)\s+([A-Za-z]+)",
-        msg,
+    first_name_prefix: Optional[str] = Field(
+        default=None,
+        description=(
+            "If provided, only include students whose FIRST name starts with this "
+            "prefix (case-insensitive). Example: 'Sa' for 'Sarah', 'Sam'."
+        ),
     )
-    if m:
-        word = m.group(1).lower()
-        # reuse word_map / token_map
-        if word in word_map:
-            labels.add(word_map[word])
-        elif word in token_map:
-            labels.add(token_map[word])
-        elif word.upper() in {
-            "PREK",
-            "KINDERGARTEN",
-            "FIRST",
-            "SECOND",
-            "THIRD",
-            "FORTH",
-            "FIFTH",
-            "SIXTH",
-            "SEVENTH",
-            "EIGHTH",
-            "NINETH",
-            "TENTH",
-            "ELEVENTH",
-            "TWELFTH",
-        }:
-            labels.add(word.upper())
+    last_name_prefix: Optional[str] = Field(
+        default=None,
+        description=(
+            "If provided, only include students whose LAST name starts with this "
+            "prefix (case-insensitive). Example: 'S' for 'Smith', 'Saunders'."
+        ),
+    )
+    genders: Optional[List[str]] = Field(
+        default=None,
+        description=(
+            "If provided, only include students whose gender is in this list. "
+            "Typical values: ['MALE'], ['FEMALE'], or ['OTHER']."
+        ),
+    )
+    grade_levels: Optional[List[str]] = Field(
+        default=None,
+        description=(
+            "If provided, only include students whose grade-level label is in this "
+            "list (e.g. ['THIRD'], ['PREK'], ['FIRST']). "
+            "Use UPPERCASE labels when possible."
+        ),
+    )
 
-    return sorted(labels) if labels else None
-
-
-def _name_matches(
-    first_name: str,
-    last_name: str,
-    first_prefix: Optional[str],
-    last_prefix: Optional[str],
-) -> bool:
-    """
-    Apply simple startswith filters for first/last name.
-    If a prefix is None, that dimension is not filtered.
-    """
-    fn = (first_name or "").upper()
-    ln = (last_name or "").upper()
-
-    if first_prefix and not fn.startswith(first_prefix):
-        return False
-    if last_prefix and not ln.startswith(last_prefix):
-        return False
-    return True
+# in student_info_table.py (helper)
+async def run_student_info_table_markdown_only(
+    *,
+    filters: Optional[StudentInfoFilters],
+    session_id: str,
+    skip: int = 0,
+    limit: int = 100,
+) -> str:
+    result = await run_student_info_table_structured(
+        filters=filters,
+        session_id=session_id,
+        skip=skip,
+        limit=limit,
+    )
+    # result["reply"] is your full markdown summary/table text
+    return result["reply"]
 
 
 # ---------------------------------------------------------------------------
-# Grade index builder
+# Grade-level index from enrollments + grade_levels
 # ---------------------------------------------------------------------------
 
 async def _build_student_grade_index(
@@ -235,6 +92,12 @@ async def _build_student_grade_index(
     Build a mapping of student_id -> grade level label using:
       - student_school_enrollments.grade_level_id
       - grade_levels (code/name)
+
+    Strategy:
+      - Fetch all enrollments and grade_levels from the OSSS API.
+      - For each student_id, pick the most recent *active* enrollment if any,
+        otherwise the most recent enrollment by entry_date.
+      - Map grade_level_id to a human-friendly label (code or name).
     """
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
@@ -266,7 +129,7 @@ async def _build_student_grade_index(
         gid = gl.get("id")
         if not gid:
             continue
-        label = gl.get("code") or gl.get("name") or gl.get("grade_name") or "Unknown"
+        label = gl.get("code") or gl.get("name") or gl.get("grade_name") or "UNKNOWN"
         grade_label_by_id[gid] = label
 
     # Group enrollments by student_id
@@ -296,13 +159,11 @@ async def _build_student_grade_index(
 
         # Prefer active enrollments
         active = [
-            e
-            for e in enr_list
+            e for e in enr_list
             if (e.get("status") or "").lower() == "active"
         ]
         candidates = active or enr_list
 
-        # Pick the one with the latest entry_date
         def _key(e: Dict[str, Any]) -> date:
             d = _parse_date(e.get("entry_date"))
             return d or date.min
@@ -313,9 +174,8 @@ async def _build_student_grade_index(
             continue
 
         gid = chosen.get("grade_level_id")
-        label = grade_label_by_id.get(gid)
-        if label:
-            student_grade[sid] = label
+        label = grade_label_by_id.get(gid, "UNKNOWN")
+        student_grade[sid] = label
 
     logger.info(
         "Built student_grade_index for %d students using %d enrollments and %d grade_levels",
@@ -327,110 +187,171 @@ async def _build_student_grade_index(
 
 
 # ---------------------------------------------------------------------------
-# Main agent
+# Internal helper: build full table rows (no filtering)
 # ---------------------------------------------------------------------------
 
-async def run_student_info_table(*, message: str, session_id: str) -> Dict[str, Any]:
+async def _build_student_rows(skip: int = 0, limit: int = 100) -> Dict[str, Any]:
     """
-    LangChain-style agent function for summarizing students.
+    Fetch students + persons + grade-level index and build a unified row list.
 
-    Supports simple natural-language filters like:
-      - "show student info with last name beginning with 'S'"
-      - "show student info with first name starting with 'M'"
-      - "show student info for FEMALE in THIRD grade"
-      - "show student info for girls in 3rd grade whose last name starts with 'S'"
+    Each row includes:
+
+        person_id, first_name, middle_name, last_name, dob,
+        email, phone, gender,
+        person_created_at, person_updated_at,
+        student_id, student_number, graduation_year,
+        student_created_at, student_updated_at,
+        grade_level
     """
-
-    # 1) Pull students + persons from OSSS backend
-    data = await _fetch_students_and_persons(skip=0, limit=100)
+    data = await _fetch_students_and_persons(skip=skip, limit=limit)
     students: List[Dict[str, Any]] = data.get("students", [])
     persons: List[Dict[str, Any]] = data.get("persons", [])
 
     persons_by_id = {p["id"]: p for p in persons}
-    all_students = list(students)  # unfiltered copy
+    student_grade_index = await _build_student_grade_index(skip=skip, limit=limit)
 
-    # 1b) Parse filters from the message
-    first_prefix = _extract_first_name_prefix(message)
-    last_prefix = _extract_last_name_prefix(message)
-    gender_filter = _extract_gender_filter(message)
-    grade_filter = _extract_grade_filter(message)
-
-    if first_prefix or last_prefix or gender_filter or grade_filter:
-        logger.info(
-            "Applying student filters: first_prefix=%r last_prefix=%r gender_filter=%r grade_filter=%r",
-            first_prefix,
-            last_prefix,
-            gender_filter,
-            grade_filter,
-        )
-
-    # 2) Build student_id -> grade_level_label index from enrollments
-    student_grade_index = await _build_student_grade_index(skip=0, limit=100)
-
-    by_grade = Counter()
-    by_gender = Counter()
     rows: List[Dict[str, Any]] = []
-    filtered_students: List[Dict[str, Any]] = []
 
     for s in students:
-        person = persons_by_id.get(s.get("person_id") or "")
+        person = persons_by_id.get(s.get("person_id") or {})
 
         first_name = (person or {}).get("first_name") or ""
+        middle_name = (person or {}).get("middle_name") or ""
         last_name = (person or {}).get("last_name") or ""
 
-        # Name filters first (cheap)
-        if not _name_matches(first_name, last_name, first_prefix, last_prefix):
-            continue
+        gender = (person or {}).get("gender") or s.get("gender") or "UNKNOWN"
 
-        # Gender from person; fallback to student or Unknown
-        gender = (person or {}).get("gender") or s.get("gender") or "Unknown"
-
-        # Grade level priority:
-        #   1) From student_school_enrollments/grade_levels
-        #   2) From student record fields
         grade = (
             student_grade_index.get(s.get("id") or "")
             or s.get("grade_level")
             or s.get("grade_level_name")
             or s.get("grade")
-            or "Unknown"
+            or "UNKNOWN"
         )
-
-        # Gender filter
-        if gender_filter and gender.upper() not in gender_filter:
-            continue
-
-        # Grade filter (compare on uppercase to tolerate case differences)
-        if grade_filter and grade.upper() not in grade_filter:
-            continue
-
-        filtered_students.append(s)
-
-        by_grade[grade] += 1
-        by_gender[gender or "Unknown"] += 1
 
         rows.append(
             {
-                "id": s.get("id"),
-                "student_number": s.get("student_number"),
+                "person_id": (person or {}).get("id"),
                 "first_name": first_name,
+                "middle_name": middle_name,
                 "last_name": last_name,
-                "grade_level": grade,
+                "dob": (person or {}).get("dob"),
+                "email": (person or {}).get("email"),
+                "phone": (person or {}).get("phone"),
                 "gender": gender,
+                "person_created_at": (person or {}).get("created_at"),
+                "person_updated_at": (person or {}).get("updated_at"),
+                "student_id": s.get("id"),
+                "student_number": s.get("student_number"),
+                "graduation_year": s.get("graduation_year"),
+                "student_created_at": s.get("created_at"),
+                "student_updated_at": s.get("updated_at"),
+                "grade_level": grade,
             }
         )
 
-    students = filtered_students
+    return {
+        "rows": rows,
+        "students": students,
+        "persons": persons,
+        "student_grade_index": student_grade_index,
+    }
 
-    # 3) Build markdown table and summary
-    header = "id | student_number | first_name | last_name | grade_level | gender"
-    sep = "--- | --- | --- | --- | --- | ---"
+
+# ---------------------------------------------------------------------------
+# Filtering helper
+# ---------------------------------------------------------------------------
+
+def _apply_filters(
+    rows: List[Dict[str, Any]],
+    filters: Optional[StudentInfoFilters],
+) -> List[Dict[str, Any]]:
+    """Return only rows that pass all active filters."""
+    if not filters:
+        return rows
+
+    logger.info("[student_info_table] Applying filters: %s", filters.model_dump())
+
+    fn_pref = (filters.first_name_prefix or "").lower()
+    ln_pref = (filters.last_name_prefix or "").lower()
+    allowed_genders = {g.upper() for g in (filters.genders or [])}
+    allowed_grades = {g.upper() for g in (filters.grade_levels or [])}
+
+    def _keep(r: Dict[str, Any]) -> bool:
+        fn = (r.get("first_name") or "").lower()
+        ln = (r.get("last_name") or "").lower()
+        gend = (r.get("gender") or "").upper()
+        grade = (r.get("grade_level") or "").upper()
+
+        if fn_pref and not fn.startswith(fn_pref):
+            return False
+        if ln_pref and not ln.startswith(ln_pref):
+            return False
+        if allowed_genders and gend not in allowed_genders:
+            return False
+        if allowed_grades and grade not in allowed_grades:
+            return False
+        return True
+
+    filtered = [r for r in rows if _keep(r)]
+    return filtered
+
+
+# ---------------------------------------------------------------------------
+# Public API 1: legacy unstructured function (no filters)
+# ---------------------------------------------------------------------------
+
+async def run_student_info_table(*, message: str, session_id: str) -> Dict[str, Any]:
+    """
+    Legacy / unstructured version (kept for backward compatibility).
+    Ignores `message` content; returns ALL students.
+    """
+    built = await _build_student_rows(skip=0, limit=100)
+    rows = built["rows"]
+    students = built["students"]
+    persons = built["persons"]
+    student_grade_index = built["student_grade_index"]
+
+    filtered_rows = rows  # no filters here
+
+    by_grade = Counter()
+    by_gender = Counter()
+
+    for r in filtered_rows:
+        by_grade[r["grade_level"]] += 1
+        by_gender[r["gender"] or "UNKNOWN"] += 1
+
+    # Markdown table (same format as structured version)
+    header = (
+        "| # | First | Middle | Last | DOB | Email | Phone | Gender | "
+        "Person ID | Created At | Updated At | Student ID | Student Number | Graduation Year | Grade Level |"
+    )
+    sep = (
+        "|---|-------|--------|------|-----|-------|-------|--------|"
+        "-----------|-------------|-------------|------------|----------------|------------------|------------|"
+    )
     table_lines = [header, sep]
 
-    for r in rows[:20]:  # truncate for display
+    for idx, r in enumerate(filtered_rows[:50], start=1):
         table_lines.append(
-            f"{r['id']} | {r['student_number']} | {r['first_name']} | "
-            f"{r['last_name']} | {r['grade_level']} | {r['gender']}"
+            "| {i} | {fn} | {mn} | {ln} | {dob} | {email} | {phone} | {gender} | "
+            "{pid} | {pcrt} | {pupd} | {sid} | {snum} | {gyear} | {grade} |".format(
+                i=idx,
+                fn=r.get("first_name") or "",
+                mn=r.get("middle_name") or "",
+                ln=r.get("last_name") or "",
+                dob=r.get("dob") or "",
+                email=r.get("email") or "",
+                phone=r.get("phone") or "",
+                gender=r.get("gender") or "",
+                pid=r.get("person_id") or "",
+                pcrt=r.get("person_created_at") or "",
+                pupd=r.get("person_updated_at") or "",
+                sid=r.get("student_id") or "",
+                snum=r.get("student_number") or "",
+                gyear=r.get("graduation_year") or "",
+                grade=r.get("grade_level") or "",
+            )
         )
 
     grade_lines = [
@@ -442,37 +363,15 @@ async def run_student_info_table(*, message: str, session_id: str) -> Dict[str, 
         *[f"- {g}: {c} students" for g, c in by_gender.most_common()],
     ]
 
-    # Header text that reflects filters (if any)
-    if first_prefix or last_prefix or gender_filter or grade_filter:
-        desc_parts: List[str] = []
-        if first_prefix:
-            desc_parts.append(f"first name beginning with '{first_prefix}'")
-        if last_prefix:
-            desc_parts.append(f"last name beginning with '{last_prefix}'")
-        if gender_filter:
-            genders_h = ", ".join(g.title() for g in gender_filter)
-            desc_parts.append(f"gender in [{genders_h}]")
-        if grade_filter:
-            grades_h = ", ".join(grade_filter)
-            desc_parts.append(f"grade level in [{grades_h}]")
-
-        desc = " and ".join(desc_parts)
-        found_line = (
-            f"I found {len(students)} students in the live OSSS backend "
-            f"matching {desc}."
-        )
-    else:
-        found_line = f"I found {len(students)} students in the live OSSS backend."
-
     reply = "\n".join(
         [
-            found_line,
+            f"I found {len(filtered_rows)} students in the live OSSS backend.",
             "",
             *grade_lines,
             "",
             *gender_lines,
             "",
-            "Sample of first 20 students:",
+            "Sample (first 50 students):",
             "",
             *table_lines,
         ]
@@ -480,12 +379,110 @@ async def run_student_info_table(*, message: str, session_id: str) -> Dict[str, 
 
     return {
         "reply": reply,
-        "raw_students": all_students,        # unfiltered
-        "filtered_students": students,       # after all filters
+        "raw_students": students,
         "raw_persons": persons,
         "student_grade_index": student_grade_index,
-        "first_name_prefix": first_prefix,
-        "last_name_prefix": last_prefix,
-        "gender_filter": gender_filter,
-        "grade_filter": grade_filter,
+        "filtered_rows": filtered_rows,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Public API 2: structured version used by the LangChain tool
+# ---------------------------------------------------------------------------
+
+async def run_student_info_table_structured(
+    *,
+    filters: Optional[StudentInfoFilters],
+    session_id: str,
+    skip: int = 0,
+    limit: int = 100,
+) -> Dict[str, Any]:
+    """
+    Structured version for the LangChain tool.
+    Applies the given filters, then computes summary + sample table.
+
+    This is what `student_info_table_tool` should call.
+    """
+    logger.info(
+        "[student_info_table] run_student_info_table_structured called with filters=%s",
+        filters.model_dump() if filters else None,
+    )
+
+    built = await _build_student_rows(skip=skip, limit=limit)
+    rows = built["rows"]
+    students = built["students"]
+    persons = built["persons"]
+    student_grade_index = built["student_grade_index"]
+
+    filtered_rows = _apply_filters(rows, filters)
+
+    by_grade = Counter()
+    by_gender = Counter()
+
+    for r in filtered_rows:
+        by_grade[r["grade_level"]] += 1
+        by_gender[r["gender"] or "UNKNOWN"] += 1
+
+    header = (
+        "| # | First | Middle | Last | DOB | Email | Phone | Gender | "
+        "Person ID | Created At | Updated At | Student ID | Student Number | Graduation Year | Grade Level |"
+    )
+    sep = (
+        "|---|-------|--------|------|-----|-------|-------|--------|"
+        "-----------|-------------|-------------|------------|----------------|------------------|------------|"
+    )
+    table_lines = [header, sep]
+
+    for idx, r in enumerate(filtered_rows[:50], start=1):
+        table_lines.append(
+            "| {i} | {fn} | {mn} | {ln} | {dob} | {email} | {phone} | {gender} | "
+            "{pid} | {pcrt} | {pupd} | {sid} | {snum} | {gyear} | {grade} |".format(
+                i=idx,
+                fn=r.get("first_name") or "",
+                mn=r.get("middle_name") or "",
+                ln=r.get("last_name") or "",
+                dob=r.get("dob") or "",
+                email=r.get("email") or "",
+                phone=r.get("phone") or "",
+                gender=r.get("gender") or "",
+                pid=r.get("person_id") or "",
+                pcrt=r.get("person_created_at") or "",
+                pupd=r.get("person_updated_at") or "",
+                sid=r.get("student_id") or "",
+                snum=r.get("student_number") or "",
+                gyear=r.get("graduation_year") or "",
+                grade=r.get("grade_level") or "",
+            )
+        )
+
+    grade_lines = [
+        "By grade level (top 10):",
+        *[f"- {g}: {c} students" for g, c in by_grade.most_common(10)],
+    ]
+    gender_lines = [
+        "By gender:",
+        *[f"- {g}: {c} students" for g, c in by_gender.most_common()],
+    ]
+
+    reply = "\n".join(
+        [
+            f"I found {len(filtered_rows)} students in the live OSSS backend after applying filters.",
+            "",
+            *grade_lines,
+            "",
+            *gender_lines,
+            "",
+            "Sample (first 50 matching students):",
+            "",
+            *table_lines,
+        ]
+    )
+
+    return {
+        "reply": reply,
+        "raw_students": students,
+        "raw_persons": persons,
+        "student_grade_index": student_grade_index,
+        "filtered_rows": filtered_rows,
+        "filters": filters.model_dump() if filters else None,
     }

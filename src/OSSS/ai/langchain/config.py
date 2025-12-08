@@ -6,7 +6,7 @@ from .registry import register_langchain_agent
 # Intent -> LangChain agent name
 INTENT_TO_LC_AGENT = {
     "student_info": "lc.student_info_table",
-    "students_missing_assignments": "lc.students_missing_assignments",
+    #"students_missing_assignments": "lc.students_missing_assignments",
     # ...
 }
 

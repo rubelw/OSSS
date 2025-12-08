@@ -56,10 +56,12 @@ RUN pip install --use-deprecated=legacy-resolver --no-cache-dir \
       #"guardrails-ai>=0.6.7" \
       "pydantic>=2.7" \
       "openai>=1.39.0" \
-      "langchain-core>=1.1.0,<2.0.0" \
-      "langchain-openai>=1.1.0,<2.0.0" \
       "langchain-ollama>=0.1.0,<1.0.0" \
-      "langgraph>=0.4.0"
+      "langgraph>=0.4.0" \
+      "langchain==0.2.16" \
+      "langchain-core==0.2.34" \
+      "langchain-community==0.2.9" \
+      "langchain-openai==0.1.23"
       #"itsdangerous>=2.0" \
       #"pydantic-settings" \
       #"python-jose" \

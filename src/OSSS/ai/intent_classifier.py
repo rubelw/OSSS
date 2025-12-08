@@ -87,8 +87,43 @@ class IntentHeuristicRule(BaseModel):
 
 
 HEURISTIC_RULES: List[IntentHeuristicRule] = [
+    IntentHeuristicRule(
+        name="student_info_generic",
+        contains_any=[
+            # generic student-info phrases
+            "student info",
+            "show student info",
+            "show students",
+            "students list",
+            "list students",
+            "query student information",
+            "query student info",
 
+            # gender variants
+            "show male students",
+            "show female students",
+            "list male students",
+            "list female students",
+            "query male students",
+            "query female students",
+
+            # richer filters you’re actually using
+            "last name beginning with",
+            "last name starting with",
+            "grade level",
+            "third grade",
+            "grade third",
+        ],
+        intent="student_info",
+        action="read",
+        urgency="low",
+        tone_major="informal_casual",
+        tone_minor="friendly",
+        metadata={"mode": "student_info"},
+    ),
 ]
+
+
 
 TABLES = []
 
