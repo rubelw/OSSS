@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import csv
 import logging
-import os
 
 from alembic import op
 import sqlalchemy as sa
@@ -17,11 +15,48 @@ depends_on = None
 log = logging.getLogger("alembic.runtime.migration")
 
 TABLE_NAME = "education_associations"
-CSV_FILE = os.path.join(os.path.dirname(__file__), "csv", f"{TABLE_NAME}.csv")
+
+SEED_ROWS = [
+    {
+        "id": "d611575d-a62c-41a1-a157-6434d34ffd8f",
+        "name": "Iowa School Boards Association",
+        "type": "professional",
+        "state": "IA",
+        "website": "https://example1.org",
+    },
+    {
+        "id": "9e5c00fd-1a13-416d-b7ff-7c56181b140b",
+        "name": "Midwest Superintendents Council",
+        "type": "professional",
+        "state": "IA",
+        "website": "https://example2.org",
+    },
+    {
+        "id": "0a820ac7-8550-4c18-a26a-8dcac9372e02",
+        "name": "Regional Principals Network",
+        "type": "professional",
+        "state": "IA",
+        "website": "https://example3.org",
+    },
+    {
+        "id": "e815ea58-dc94-4438-931a-478714e65ba9",
+        "name": "State Athletic Association",
+        "type": "professional",
+        "state": "IA",
+        "website": "https://example4.org",
+    },
+    {
+        "id": "210c95a2-0343-4732-afdf-b6857dc5fac4",
+        "name": "Rural Schools Collaborative",
+        "type": "professional",
+        "state": "IA",
+        "website": "https://example5.org",
+    },
+]
 
 
 def _coerce_value(col: sa.Column, raw):
-    """Best-effort coercion from CSV string to appropriate Python value."""
+    """Best-effort coercion from inline value to appropriate DB value."""
     if raw == "" or raw is None:
         return None
 
@@ -35,7 +70,12 @@ def _coerce_value(col: sa.Column, raw):
                 return True
             if v in ("false", "f", "0", "no", "n"):
                 return False
-            log.warning("Invalid boolean for %s.%s: %r; using NULL", TABLE_NAME, col.name, raw)
+            log.warning(
+                "Invalid boolean for %s.%s: %r; using NULL",
+                TABLE_NAME,
+                col.name,
+                raw,
+            )
             return None
         return bool(raw)
 
@@ -44,7 +84,7 @@ def _coerce_value(col: sa.Column, raw):
 
 
 def upgrade() -> None:
-    """Load seed data for {TABLE_NAME} from a CSV file.
+    """Load seed data for education_associations from inline SEED_ROWS.
 
     Each row is inserted inside an explicit nested transaction (SAVEPOINT)
     so a failing row won't abort the whole migration transaction.
@@ -56,25 +96,18 @@ def upgrade() -> None:
         log.warning("Table %s does not exist; skipping seed", TABLE_NAME)
         return
 
-    if not os.path.exists(CSV_FILE):
-        log.warning("CSV file not found for %s: %s; skipping", TABLE_NAME, CSV_FILE)
+    if not SEED_ROWS:
+        log.info("No seed rows defined for %s; skipping", TABLE_NAME)
         return
 
     metadata = sa.MetaData()
     table = sa.Table(TABLE_NAME, metadata, autoload_with=bind)
 
-    with open(CSV_FILE, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
-
-    if not rows:
-        log.info("CSV file for %s is empty: %s", TABLE_NAME, CSV_FILE)
-        return
-
     inserted = 0
-    for raw_row in rows:
+    for raw_row in SEED_ROWS:
         row = {}
 
+        # Only include columns that actually exist on the table
         for col in table.columns:
             if col.name not in raw_row:
                 continue
@@ -100,7 +133,11 @@ def upgrade() -> None:
                 raw_row,
             )
 
-    log.info("Inserted %s rows into %s from %s", inserted, TABLE_NAME, CSV_FILE)
+    log.info(
+        "Inserted %s rows into %s from inline seed data",
+        inserted,
+        TABLE_NAME,
+    )
 
 
 def downgrade() -> None:

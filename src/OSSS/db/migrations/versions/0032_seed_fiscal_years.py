@@ -10,7 +10,7 @@ from sqlalchemy.exc import IntegrityError, DataError, StatementError
 
 # ---- Alembic identifiers ----
 revision = "0032"
-down_revision = "0031"
+down_revision = "0030"
 branch_labels = None
 depends_on = None
 

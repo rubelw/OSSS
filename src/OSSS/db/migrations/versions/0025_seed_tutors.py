@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import csv
 import logging
-import os
 
 from alembic import op
 import sqlalchemy as sa
@@ -17,11 +15,53 @@ depends_on = None
 log = logging.getLogger("alembic.runtime.migration")
 
 TABLE_NAME = "tutors"
-CSV_FILE = os.path.join(os.path.dirname(__file__), "csv", f"{TABLE_NAME}.csv")
+
+SEED_ROWS = [
+    {
+        "id": "82cc4801-378e-47ab-9346-09d78287b3e0",
+        "first_name": "Tutor1",
+        "last_name": "Support",
+        "subject_area": "Math",
+        "email": "tutor1@dcgschools.org",
+        "phone": "515-555-7001",
+    },
+    {
+        "id": "0873156d-9fc3-44d6-9c50-be966405bf98",
+        "first_name": "Tutor2",
+        "last_name": "Support",
+        "subject_area": "Reading",
+        "email": "tutor2@dcgschools.org",
+        "phone": "515-555-7002",
+    },
+    {
+        "id": "3345c4ce-7edc-4990-a51b-7a12693bb104",
+        "first_name": "Tutor3",
+        "last_name": "Support",
+        "subject_area": "Science",
+        "email": "tutor3@dcgschools.org",
+        "phone": "515-555-7003",
+    },
+    {
+        "id": "5ea03681-3806-4165-86ae-65920b90b3ed",
+        "first_name": "Tutor4",
+        "last_name": "Support",
+        "subject_area": "Spanish",
+        "email": "tutor4@dcgschools.org",
+        "phone": "515-555-7004",
+    },
+    {
+        "id": "6c9333d4-cc18-4e6b-b3bd-bab3838d6d8d",
+        "first_name": "Tutor5",
+        "last_name": "Support",
+        "subject_area": "Study Skills",
+        "email": "tutor5@dcgschools.org",
+        "phone": "515-555-7005",
+    },
+]
 
 
 def _coerce_value(col: sa.Column, raw):
-    """Best-effort coercion from CSV string to appropriate Python value."""
+    """Best-effort coercion from inline value to appropriate DB value."""
     if raw == "" or raw is None:
         return None
 
@@ -35,7 +75,12 @@ def _coerce_value(col: sa.Column, raw):
                 return True
             if v in ("false", "f", "0", "no", "n"):
                 return False
-            log.warning("Invalid boolean for %s.%s: %r; using NULL", TABLE_NAME, col.name, raw)
+            log.warning(
+                "Invalid boolean for %s.%s: %r; using NULL",
+                TABLE_NAME,
+                col.name,
+                raw,
+            )
             return None
         return bool(raw)
 
@@ -43,8 +88,24 @@ def _coerce_value(col: sa.Column, raw):
     return raw
 
 
+def _build_name(raw_row: dict) -> str:
+    """Build a full display name from first/last, with sensible fallbacks."""
+    first = (raw_row.get("first_name") or "").strip()
+    last = (raw_row.get("last_name") or "").strip()
+    if first or last:
+        return f"{first} {last}".strip()
+
+    # Fallback: use subject_area or email if somehow first/last are missing
+    if raw_row.get("subject_area"):
+        return f"Tutor - {raw_row['subject_area']}"
+    if raw_row.get("email"):
+        return raw_row["email"]
+
+    return "Tutor"
+
+
 def upgrade() -> None:
-    """Load seed data for {TABLE_NAME} from a CSV file.
+    """Load seed data for tutors from inline SEED_ROWS.
 
     Each row is inserted inside an explicit nested transaction (SAVEPOINT)
     so a failing row won't abort the whole migration transaction.
@@ -56,36 +117,36 @@ def upgrade() -> None:
         log.warning("Table %s does not exist; skipping seed", TABLE_NAME)
         return
 
-    if not os.path.exists(CSV_FILE):
-        log.warning("CSV file not found for %s: %s; skipping", TABLE_NAME, CSV_FILE)
+    if not SEED_ROWS:
+        log.info("No seed rows defined for %s; skipping", TABLE_NAME)
         return
 
     metadata = sa.MetaData()
     table = sa.Table(TABLE_NAME, metadata, autoload_with=bind)
 
-    with open(CSV_FILE, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
-
-    if not rows:
-        log.info("CSV file for %s is empty: %s", TABLE_NAME, CSV_FILE)
-        return
-
     inserted = 0
-    for raw_row in rows:
-        row = {}
+    for raw_row in SEED_ROWS:
+        row: dict[str, object] = {}
 
+        # Only include columns that actually exist on the table
         for col in table.columns:
-            if col.name not in raw_row:
+            raw_val = None
+
+            if col.name in raw_row:
+                raw_val = raw_row[col.name]
+            elif col.name == "name":
+                # Derive the NOT NULL name column from first/last/subject/email
+                raw_val = _build_name(raw_row)
+            else:
+                # Let server defaults handle timestamps, etc.
                 continue
-            raw_val = raw_row[col.name]
+
             value = _coerce_value(col, raw_val)
             row[col.name] = value
 
         if not row:
             continue
 
-        # Explicit nested transaction (SAVEPOINT)
         nested = bind.begin_nested()
         try:
             bind.execute(table.insert().values(**row))
@@ -100,7 +161,11 @@ def upgrade() -> None:
                 raw_row,
             )
 
-    log.info("Inserted %s rows into %s from %s", inserted, TABLE_NAME, CSV_FILE)
+    log.info(
+        "Inserted %s rows into %s from inline seed data",
+        inserted,
+        TABLE_NAME,
+    )
 
 
 def downgrade() -> None:

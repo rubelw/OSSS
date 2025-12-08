@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import csv
 import logging
-import os
 
 from alembic import op
 import sqlalchemy as sa
@@ -17,11 +15,48 @@ depends_on = None
 log = logging.getLogger("alembic.runtime.migration")
 
 TABLE_NAME = "attendance_codes"
-CSV_FILE = os.path.join(os.path.dirname(__file__), "csv", f"{TABLE_NAME}.csv")
+
+SEED_ROWS = [
+    {
+        "id": "b67410c9-0006-441a-a165-f65ea1d10f44",
+        "code": "P",
+        "description": "Present",
+        "is_present": True,
+        "is_excused": False,
+    },
+    {
+        "id": "30f7945f-59da-4212-bf01-22995cf9e5b2",
+        "code": "A",
+        "description": "Unexcused absence",
+        "is_present": False,
+        "is_excused": False,
+    },
+    {
+        "id": "9fc369ea-5911-43c7-b604-29e339aa3424",
+        "code": "E",
+        "description": "Excused absence",
+        "is_present": False,
+        "is_excused": True,
+    },
+    {
+        "id": "fb75d0f5-8b4a-4148-b687-5c4a7630b0cc",
+        "code": "T",
+        "description": "Tardy",
+        "is_present": True,
+        "is_excused": False,
+    },
+    {
+        "id": "2fdf252f-f8a4-454a-8019-aa0fc992cb76",
+        "code": "S",
+        "description": "School activity",
+        "is_present": True,
+        "is_excused": True,
+    },
+]
 
 
 def _coerce_value(col: sa.Column, raw):
-    """Best-effort coercion from CSV string to appropriate Python value."""
+    """Best-effort coercion from CSV-style value to appropriate Python value."""
     if raw == "" or raw is None:
         return None
 
@@ -35,7 +70,12 @@ def _coerce_value(col: sa.Column, raw):
                 return True
             if v in ("false", "f", "0", "no", "n"):
                 return False
-            log.warning("Invalid boolean for %s.%s: %r; using NULL", TABLE_NAME, col.name, raw)
+            log.warning(
+                "Invalid boolean for %s.%s: %r; using NULL",
+                TABLE_NAME,
+                col.name,
+                raw,
+            )
             return None
         return bool(raw)
 
@@ -44,7 +84,7 @@ def _coerce_value(col: sa.Column, raw):
 
 
 def upgrade() -> None:
-    """Load seed data for {TABLE_NAME} from a CSV file.
+    """Load seed data for attendance_codes from inline SEED_ROWS.
 
     Each row is inserted inside an explicit nested transaction (SAVEPOINT)
     so a failing row won't abort the whole migration transaction.
@@ -56,23 +96,15 @@ def upgrade() -> None:
         log.warning("Table %s does not exist; skipping seed", TABLE_NAME)
         return
 
-    if not os.path.exists(CSV_FILE):
-        log.warning("CSV file not found for %s: %s; skipping", TABLE_NAME, CSV_FILE)
+    if not SEED_ROWS:
+        log.info("No seed rows defined for %s; skipping", TABLE_NAME)
         return
 
     metadata = sa.MetaData()
     table = sa.Table(TABLE_NAME, metadata, autoload_with=bind)
 
-    with open(CSV_FILE, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
-
-    if not rows:
-        log.info("CSV file for %s is empty: %s", TABLE_NAME, CSV_FILE)
-        return
-
     inserted = 0
-    for raw_row in rows:
+    for raw_row in SEED_ROWS:
         row = {}
 
         for col in table.columns:
@@ -100,7 +132,11 @@ def upgrade() -> None:
                 raw_row,
             )
 
-    log.info("Inserted %s rows into %s from %s", inserted, TABLE_NAME, CSV_FILE)
+    log.info(
+        "Inserted %s rows into %s from inline seed data",
+        inserted,
+        TABLE_NAME,
+    )
 
 
 def downgrade() -> None:
