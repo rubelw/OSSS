@@ -16,6 +16,12 @@ class SubmissionState(str, Enum):
     RETURNED = "RETURNED"
     RECLAIMED_BY_STUDENT = "RECLAIMED_BY_STUDENT"
 
+class Gender(str, Enum):
+    MALE = "MALE"
+    FEMALE = "FEMALE"
+    OTHER = "OTHER"
+
+
 class GuardianInvitationState(str, Enum):
     GUARDIAN_INVITATION_STATE_UNSPECIFIED = "GUARDIAN_INVITATION_STATE_UNSPECIFIED"
     PENDING = "PENDING"

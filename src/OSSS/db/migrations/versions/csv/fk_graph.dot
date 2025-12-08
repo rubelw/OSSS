@@ -345,9 +345,9 @@ digraph fks {
   "concession_stands" -> "concession_items";
   "concession_items" -> "concession_sale_items";
   "concession_sales" -> "concession_sale_items";
-  "events" -> "concession_sales";
   "concession_stands" -> "concession_sales";
-  "concession_sales" -> "concession_sales";
+  "events" -> "concession_sales";
+  "schools" -> "concession_sales";
   "persons" -> "consents";
   "consequence_types" -> "consequences";
   "incidents" -> "consequences";

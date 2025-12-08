@@ -51,9 +51,11 @@ MANUAL_FK_MAP = {'academic_terms': {'school_id': ('schools', 'id')},
                       'stand_id': ('concession_stands', 'id')},
  'concession_sale_items': {'item_id': ('concession_items', 'id'),
                            'sale_id': ('concession_sales', 'id')},
- 'concession_sales': {'event_id': ('events', 'id'),
-                      'stand_id': ('concession_stands', 'id'),
-                      'school_id': ('concession_sales', 'id')},
+ "concession_sales": {
+     "stand_id": ("concession_stands", "id"),  # if this is your stands table
+     "event_id": ("events", "id"),  # or whatever your event table is called
+     "school_id": ("schools", "id"),  # ✅ THIS is the important fix
+ },
  'consents': {'person_id': ('persons', 'id')},
  'consequences': {'consequence_code': ('consequence_types', 'code'),
                   'incident_id': ('incidents', 'id'),

@@ -1,8 +1,5 @@
 === FK Validation Report ===
 
-Table concession_sales: 5 rows
-  OK   school_id -> concession_sales.id
-
 Table courses: 5 rows
   OK   calendar_id -> calendars.id
 

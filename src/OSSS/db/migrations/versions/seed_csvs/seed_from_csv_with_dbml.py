@@ -39,6 +39,10 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Set, Sequence, Any
 
 from manual_fk_map import MANUAL_FK_MAP
+import os
+import subprocess
+import sys
+import pathlib
 
 # ------------------------------------------------------------
 # Configuration knobs
@@ -71,6 +75,7 @@ UNIQUE_FK_PER_ROW: Set[Tuple[str, str]] = {
     # add more if you hit similar unique FK issues, e.g.:
     # ("user_accounts", "person_id"),
     ("student_school_enrollments", "grade_level_id"),
+    ("student_school_enrollments", "student_id"),
 
 }
 
@@ -150,8 +155,49 @@ ENUM_OVERRIDES: Dict[Tuple[str, str], List[str]] = {
         "TENTH",
         "ELEVENTH",
         "TWELFTH",
+    ],
+    ("persons", "gender"): [
+        "MALE",
+        "FEMALE",
+        "OTHER",
     ]
 }
+
+
+
+ROOT = pathlib.Path(__file__).resolve().parent
+DATA_MODEL_EXPORT = ROOT / "../../../../../../data_model/export_dbml_local.py"
+
+def run_export_dbml():
+    """
+    Always regenerate the schema.dbml from the live SQLAlchemy models
+    before validating CSVs or seeding.
+    """
+    if not DATA_MODEL_EXPORT.exists():
+        print(f"[ERROR] Cannot find export_dbml_local.py at: {DATA_MODEL_EXPORT}")
+        sys.exit(1)
+
+    print(f"[INFO] Running DBML export: {DATA_MODEL_EXPORT}")
+
+    result = subprocess.run(
+        [sys.executable, str(DATA_MODEL_EXPORT)],
+        cwd=str(DATA_MODEL_EXPORT.parent),
+        capture_output=True,
+        text=True,
+    )
+
+    if result.returncode != 0:
+        print("[ERROR] export_dbml_local.py failed!")
+        print(result.stdout)
+        print(result.stderr)
+        sys.exit(result.returncode)
+
+    print("[INFO] DBML export completed successfully.\n")
+
+# -----------------------------------------------------------
+# Run DBML export BEFORE doing anything else
+# -----------------------------------------------------------
+run_export_dbml()
 
 
 def is_relaxed_fk_column(table: str, column: str) -> bool:
@@ -1449,11 +1495,18 @@ def generate_csv_files(
     # Ensure work_order_parts.part_id always points at a real parts.id
     patch_fk_all(generated, "work_order_parts", "part_id", "parts", "id")
 
+    # Ensure concession_sales.school_id always points at a real schools.id
+    patch_fk_all(generated, "concession_sales", "school_id", "schools", "id")
+
+    patch_fk_all(generated, "students", "person_id", "persons", "id")
+
+
+
     # If you want to fix other relationships later, you can add more lines like:
     # patch_fk_all(generated, "some_child_table", "fk_col", "parent_table", "id")
 
     # Re-write patched tables' CSVs
-    for tbl in ("work_order_parts",):
+    for tbl in ("work_order_parts","concession_sales"):
         if tbl in generated:
             write_csv_for_table(tbl, tables, out_dir, generated[tbl])
 
