@@ -347,6 +347,7 @@ digraph fks {
   "concession_sales" -> "concession_sale_items";
   "events" -> "concession_sales";
   "concession_stands" -> "concession_sales";
+  "concession_sales" -> "concession_sales";
   "persons" -> "consents";
   "consequence_types" -> "consequences";
   "incidents" -> "consequences";
@@ -641,6 +642,7 @@ digraph fks {
   "students" -> "student_program_enrollments";
   "schools" -> "student_school_enrollments";
   "students" -> "student_school_enrollments";
+  "grade_levels" -> "student_school_enrollments";
   "course_sections" -> "student_section_enrollments";
   "students" -> "student_section_enrollments";
   "coursework" -> "student_submissions";

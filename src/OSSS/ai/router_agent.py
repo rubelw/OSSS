@@ -17,7 +17,6 @@ ROOT = Path(__file__).resolve().parents[2]  # .../src
 METAGPT_PATH = ROOT / "MetaGPT"
 sys.path.append(str(METAGPT_PATH))
 
-
 from MetaGPT.roles_registry import ROLE_REGISTRY  # noqa: F401
 from MetaGPT.roles.registration import RegistrationRole  # noqa: F401
 
@@ -28,11 +27,12 @@ from OSSS.ai.additional_index import top_k, INDEX_KINDS
 from OSSS.ai.session_store import RagSession, touch_session
 from OSSS.ai.agent_routing_config import build_alias_map, first_matching_intent
 
-# 👇 Force-load student registration agents so @register_agent runs
+# 👇 Force-load agents so @register_agent runs
 import OSSS.ai.agents.student.registration_agent  # noqa: F401
 import OSSS.ai.agents.query_data  # noqa: F401
 
-from OSSS.ai.langchain_agent import run_agent as run_langchain_agent
+from OSSS.ai.langchain import run_agent as run_langchain_agent
+from OSSS.ai.langchain import INTENT_TO_LC_AGENT
 
 YEAR_PATTERN = re.compile(r"(20[2-9][0-9])[-/](?:20[2-9][0-9]|[0-9]{2})")
 
@@ -104,7 +104,7 @@ class IntentResolution(BaseModel):
     forced_intent: str | None = None
     session_intent: str | None = None
     manual_label: str | None = None
-    # NEW: raw model output string from the intent classifier
+    # raw model output string from the intent classifier
     intent_raw_model_output: str | None = None
 
 
@@ -928,15 +928,21 @@ class RouterAgent:
             query=query,
         )
 
-        # ---- LangChain agent short-circuit -----------------------------
-        # Route both explicit "langchain_agent" and the classifier's "student_info"
-        # intent through the LangChain pipeline instead of the MetaGPT agents/RAG.
-        if intent_label in ("langchain_agent", "student_info"):
-            logger.info("Routing to LangChain agent for intent=%s", intent_label)
+        # ---- LangChain short-circuit via mapping ----------------------
+        # If the effective intent is mapped to a LangChain agent, route
+        # directly into the LangChain pipeline instead of MetaGPT/RAG.
+        if intent_label in INTENT_TO_LC_AGENT:
+            lc_agent_name = INTENT_TO_LC_AGENT[intent_label]
+            logger.info(
+                "Routing to LangChain agent %s for intent=%s",
+                lc_agent_name,
+                intent_label,
+            )
 
             lc_result = await run_langchain_agent(
                 message=query,
                 session_id=str(agent_session_id),
+                agent_name=lc_agent_name,
             )
 
             reply_text = lc_result.get("reply", "")
@@ -955,8 +961,8 @@ class RouterAgent:
                 "agent_session_id": agent_session_id,
                 "subagent_session_id": None,
                 "session_files": session_files,
-                "agent_id": "langchain_agent",
-                "agent_name": "LangChainAgent",
+                "agent_id": lc_agent_name,
+                "agent_name": lc_agent_name,
                 "action": action,
                 "action_confidence": action_confidence,
                 "urgency": urgency,
@@ -989,11 +995,13 @@ class RouterAgent:
                     "agent_session_id": agent_session_id,
                     "subagent_session_id": rag.subagent_session_id,
                     "intent_raw_model_output": intent_raw_model_output,
+                    "lc_agent_name": lc_agent_name,
                 },
             }
 
             logger.info(
-                "[RAG] response (langchain_agent): %s",
+                "[RAG] response (langchain_agent:%s): %s",
+                lc_agent_name,
                 json.dumps(response_payload, ensure_ascii=False)[:4000],
             )
             return response_payload
@@ -1036,8 +1044,6 @@ class RouterAgent:
             tone_minor_confidence=tone_minor_confidence,
             intent_raw_model_output=intent_raw_model_output,
         )
-
-
 
 class RAGRequest(BaseModel):
     """
@@ -1093,7 +1099,6 @@ def _normalize_dcg_expansion(text: str) -> str:
             )
 
     return text
-
 
 
 def _agent_result_to_trace_leaf(result: Any) -> dict:

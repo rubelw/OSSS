@@ -53,6 +53,9 @@ class StudentSchoolEnrollment(UUIDMixin, Base):
     exit_date: Mapped[Optional[date]] = mapped_column(sa.Date)
     status: Mapped[str] = mapped_column(sa.Text, nullable=False, server_default=text("'active'"))
     exit_reason: Mapped[Optional[str]] = mapped_column(sa.Text)
+    grade_level_id: Mapped[Optional[Any]] = mapped_column(
+        GUID(), ForeignKey("grade_levels.id", ondelete="SET NULL"), nullable=True
+    )
 
     created_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), server_default=sa.func.now(), onupdate=sa.func.now(), nullable=False)

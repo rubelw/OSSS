@@ -6,18 +6,16 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from OSSS.ai.langchain_agent import run_agent
+from OSSS.ai.langchain import run_agent  # <-- updated
 
 router = APIRouter(
     prefix="/ai/langchain",
     tags=["ai", "langchain"],
 )
 
-
 class ChatRequest(BaseModel):
     message: str
     session_id: Optional[str] = None
-
 
 class ChatResponse(BaseModel):
     reply: str
@@ -26,8 +24,10 @@ class ChatResponse(BaseModel):
 @router.post("/chat", response_model=ChatResponse)
 async def langchain_chat(payload: ChatRequest) -> ChatResponse:
     try:
-        result = await run_agent(payload.message, session_id=payload.session_id)
+        result = await run_agent(
+            payload.message,
+            session_id=payload.session_id,
+        )
         return ChatResponse(reply=result["reply"])
     except Exception as exc:
-        # You can log and/or expose debug info in dev
         raise HTTPException(status_code=500, detail=str(exc)) from exc

@@ -15,9 +15,11 @@ class StudentSchoolEnrollmentOut(APIModel):
     exit_date: date | None = None
     status: str
     exit_reason: str | None = None
+    grade_level_id: Any | None = None
     created_at: datetime
     updated_at: datetime
     id: Any
+
 
 class StudentSchoolEnrollmentCreate(APIModel):
     student_id: Any
@@ -26,8 +28,10 @@ class StudentSchoolEnrollmentCreate(APIModel):
     exit_date: date | None = None
     status: str | None = None
     exit_reason: str | None = None
+    grade_level_id: Any | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
+
 
 class StudentSchoolEnrollmentReplace(APIModel):
     student_id: Any
@@ -36,8 +40,10 @@ class StudentSchoolEnrollmentReplace(APIModel):
     exit_date: date | None = None
     status: str | None = None
     exit_reason: str | None = None
+    grade_level_id: Any | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
+
 
 class StudentSchoolEnrollmentPatch(APIModel):
     student_id: Any | None = None
@@ -46,8 +52,10 @@ class StudentSchoolEnrollmentPatch(APIModel):
     exit_date: date | None = None
     status: str | None = None
     exit_reason: str | None = None
+    grade_level_id: Any | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
+
 
 class StudentSchoolEnrollmentList(APIModel):
     items: list[StudentSchoolEnrollmentOut]

@@ -28,4 +28,9 @@ class ConcessionSale(UUIDMixin, Base):
         cascade="all, delete-orphan",
     )
 
-    school_id = Column(Integer)  # no ForeignKey on purpose
+    # ✅ school_id as UUID FK to schools.id
+    school_id: Mapped[str | None] = mapped_column(
+        GUID(),
+        ForeignKey("schools.id", ondelete="SET NULL"),
+        nullable=True,
+    )

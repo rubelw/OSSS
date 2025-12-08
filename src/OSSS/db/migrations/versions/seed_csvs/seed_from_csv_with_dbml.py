@@ -70,6 +70,8 @@ UNIQUE_FK_PER_ROW: Set[Tuple[str, str]] = {
     ("course_teachers", "user_id"),
     # add more if you hit similar unique FK issues, e.g.:
     # ("user_accounts", "person_id"),
+    ("student_school_enrollments", "grade_level_id"),
+
 }
 
 # For enum-typed columns, provide a list of allowed values so we can
@@ -132,6 +134,22 @@ ENUM_OVERRIDES: Dict[Tuple[str, str], List[str]] = {
     ("reviews", "status"): [
         "draft",
         "submitted"
+    ],
+    ("grade_levels","name"):[
+        "PREK",
+        "KINDERGARTEN",
+        "FIRST",
+        "SECOND",
+        "THIRD",
+        "FORTH",
+        "FIFTH",
+        "SIXTH",
+        "SEVENTH",
+        "EIGHTH",
+        "NINETH",
+        "TENTH",
+        "ELEVENTH",
+        "TWELFTH",
     ]
 }
 
