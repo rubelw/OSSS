@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import csv
 import logging
-import os
 
 from alembic import op
 import sqlalchemy as sa
@@ -17,11 +15,49 @@ depends_on = None
 log = logging.getLogger("alembic.runtime.migration")
 
 TABLE_NAME = "calendars"
-CSV_FILE = os.path.join(os.path.dirname(__file__), "csv", f"{TABLE_NAME}.csv")
+
+# Inline seed rows instead of reading from CSV
+SEED_ROWS = [
+    {
+        "school_id": "af33eba3-d881-554e-9b43-2a7ea376e1f0",
+        "name": "DCG High School Academic Calendar",
+        "created_at": "2024-01-01T01:00:00Z",
+        "updated_at": "2024-01-01T01:00:00Z",
+        "id": "06ccb9f6-6bd6-5e3a-86c4-bbdf6a17c36b",
+    },
+    {
+        "school_id": "119caaef-ef97-5364-b179-388e108bd40d",
+        "name": "DCG Middle School Academic Calendar",
+        "created_at": "2024-01-01T02:00:00Z",
+        "updated_at": "2024-01-01T02:00:00Z",
+        "id": "5ae2c57a-c67b-5056-8fa3-db3eca705d76",
+    },
+    {
+        "school_id": "b122fcb4-2864-593c-9b05-2188ef296db4",
+        "name": "South Prairie Elementary Academic Calendar",
+        "created_at": "2024-01-01T03:00:00Z",
+        "updated_at": "2024-01-01T03:00:00Z",
+        "id": "d0b20f3f-b654-5582-a886-0e8ffc39acf2",
+    },
+    {
+        "school_id": "df4b1423-d755-5c7f-a0ba-6908de77f61b",
+        "name": "Heritage Elementary Academic Calendar",
+        "created_at": "2024-01-01T04:00:00Z",
+        "updated_at": "2024-01-01T04:00:00Z",
+        "id": "2ba4da48-7d35-56f0-847f-9007f468797c",
+    },
+    {
+        "school_id": "634b8058-d620-5a5c-86b5-c0794d3a3b73",
+        "name": "North Ridge Elementary Academic Calendar",
+        "created_at": "2024-01-01T05:00:00Z",
+        "updated_at": "2024-01-01T05:00:00Z",
+        "id": "e95477aa-b0a9-5c6e-bec0-b4b49c953666",
+    },
+]
 
 
 def _coerce_value(col: sa.Column, raw):
-    """Best-effort coercion from CSV string to appropriate Python value."""
+    """Best-effort coercion from seed value to appropriate Python/DB value."""
     if raw == "" or raw is None:
         return None
 
@@ -35,20 +71,21 @@ def _coerce_value(col: sa.Column, raw):
                 return True
             if v in ("false", "f", "0", "no", "n"):
                 return False
-            log.warning("Invalid boolean for %s.%s: %r; using NULL", TABLE_NAME, col.name, raw)
+            log.warning(
+                "Invalid boolean for %s.%s: %r; using NULL",
+                TABLE_NAME,
+                col.name,
+                raw,
+            )
             return None
         return bool(raw)
 
-    # Otherwise, pass raw through and let DB cast
+    # Otherwise, pass raw through and let DB cast (e.g., dates/timestamps/UUIDs)
     return raw
 
 
 def upgrade() -> None:
-    """Load seed data for {TABLE_NAME} from a CSV file.
-
-    Each row is inserted inside an explicit nested transaction (SAVEPOINT)
-    so a failing row won't abort the whole migration transaction.
-    """
+    """Load seed data for calendars from inline SEED_ROWS."""
     bind = op.get_bind()
     inspector = sa.inspect(bind)
 
@@ -56,25 +93,19 @@ def upgrade() -> None:
         log.warning("Table %s does not exist; skipping seed", TABLE_NAME)
         return
 
-    if not os.path.exists(CSV_FILE):
-        log.warning("CSV file not found for %s: %s; skipping", TABLE_NAME, CSV_FILE)
-        return
-
     metadata = sa.MetaData()
     table = sa.Table(TABLE_NAME, metadata, autoload_with=bind)
 
-    with open(CSV_FILE, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
-
+    rows = SEED_ROWS
     if not rows:
-        log.info("CSV file for %s is empty: %s", TABLE_NAME, CSV_FILE)
+        log.info("No inline seed rows defined for %s", TABLE_NAME)
         return
 
     inserted = 0
     for raw_row in rows:
-        row = {}
+        row: dict[str, object] = {}
 
+        # Only include columns that actually exist on the table
         for col in table.columns:
             if col.name not in raw_row:
                 continue
@@ -85,7 +116,6 @@ def upgrade() -> None:
         if not row:
             continue
 
-        # Explicit nested transaction (SAVEPOINT)
         nested = bind.begin_nested()
         try:
             bind.execute(table.insert().values(**row))
@@ -100,7 +130,7 @@ def upgrade() -> None:
                 raw_row,
             )
 
-    log.info("Inserted %s rows into %s from %s", inserted, TABLE_NAME, CSV_FILE)
+    log.info("Inserted %s rows into %s from inline SEED_ROWS", inserted, TABLE_NAME)
 
 
 def downgrade() -> None:

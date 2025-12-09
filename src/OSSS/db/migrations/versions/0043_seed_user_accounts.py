@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import csv
 import logging
-import os
 
 from alembic import op
 import sqlalchemy as sa
@@ -17,17 +15,65 @@ depends_on = None
 log = logging.getLogger("alembic.runtime.migration")
 
 TABLE_NAME = "user_accounts"
-CSV_FILE = os.path.join(os.path.dirname(__file__), "csv", f"{TABLE_NAME}.csv")
+
+# Inline seed data for user_accounts (aligned with UserAccount model)
+SEED_ROWS = [
+    {
+        "person_id": "a09b6c88-3418-40b5-9f14-77800af409f7",
+        "username": "michaelsmith",
+        "password_hash": "password_hash_1",
+        "is_active": "true",
+        "created_at": "2024-01-01T01:00:00Z",
+        "updated_at": "2024-01-01T01:00:00Z",
+        "id": "79869e88-eb05-5023-b28e-d64582430541",
+    },
+    {
+        "person_id": "79d591b1-3536-4493-a88a-8dfd0b481ead",
+        "username": "sarahjohnson",
+        "password_hash": "password_hash_2",
+        "is_active": "true",
+        "created_at": "2024-01-01T02:00:00Z",
+        "updated_at": "2024-01-01T02:00:00Z",
+        "id": "0396f19e-6c9f-56ef-93b1-3934b012e265",
+    },
+    {
+        "person_id": "c473361d-aa2e-4ad0-bd0d-fcb73e3c780b",
+        "username": "jameswilliams",
+        "password_hash": "password_hash_3",
+        "is_active": "true",
+        "created_at": "2024-01-01T03:00:00Z",
+        "updated_at": "2024-01-01T03:00:00Z",
+        "id": "5cd2390e-4c46-57b2-99d2-618d2e529f6b",
+    },
+    {
+        "person_id": "4d7d56ba-8041-4154-b626-6672ca04e989",
+        "username": "emilybrown",
+        "password_hash": "password_hash_4",
+        "is_active": "true",
+        "created_at": "2024-01-01T04:00:00Z",
+        "updated_at": "2024-01-01T04:00:00Z",
+        "id": "2aaa1114-7af4-5002-98a0-4153851825ea",
+    },
+    {
+        "person_id": "2a0942e2-d035-4406-ba6b-fa61ba1f19d8",
+        "username": "davidjones",
+        "password_hash": "password_hash_5",
+        "is_active": "true",
+        "created_at": "2024-01-01T05:00:00Z",
+        "updated_at": "2024-01-01T05:00:00Z",
+        "id": "b6b64171-3b01-5426-bd1d-0d5f92dda002",
+    },
+]
 
 
 def _coerce_value(col: sa.Column, raw):
-    """Best-effort coercion from CSV string to appropriate Python value."""
+    """Best-effort coercion from inline value to appropriate DB-bound value."""
     if raw == "" or raw is None:
         return None
 
     t = col.type
 
-    # Boolean needs special handling because SQLAlchemy is strict
+    # Boolean handling
     if isinstance(t, sa.Boolean):
         if isinstance(raw, str):
             v = raw.strip().lower()
@@ -35,16 +81,21 @@ def _coerce_value(col: sa.Column, raw):
                 return True
             if v in ("false", "f", "0", "no", "n"):
                 return False
-            log.warning("Invalid boolean for %s.%s: %r; using NULL", TABLE_NAME, col.name, raw)
+            log.warning(
+                "Invalid boolean for %s.%s: %r; using NULL",
+                TABLE_NAME,
+                col.name,
+                raw,
+            )
             return None
         return bool(raw)
 
-    # Otherwise, pass raw through and let DB cast
+    # Let DB cast strings for timestamps, UUIDs, etc.
     return raw
 
 
 def upgrade() -> None:
-    """Load seed data for {TABLE_NAME} from a CSV file.
+    """Load seed data for user_accounts from inline SEED_ROWS.
 
     Each row is inserted inside an explicit nested transaction (SAVEPOINT)
     so a failing row won't abort the whole migration transaction.
@@ -56,27 +107,20 @@ def upgrade() -> None:
         log.warning("Table %s does not exist; skipping seed", TABLE_NAME)
         return
 
-    if not os.path.exists(CSV_FILE):
-        log.warning("CSV file not found for %s: %s; skipping", TABLE_NAME, CSV_FILE)
+    if not SEED_ROWS:
+        log.info("No seed rows defined for %s; skipping", TABLE_NAME)
         return
 
     metadata = sa.MetaData()
     table = sa.Table(TABLE_NAME, metadata, autoload_with=bind)
 
-    with open(CSV_FILE, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
-
-    if not rows:
-        log.info("CSV file for %s is empty: %s", TABLE_NAME, CSV_FILE)
-        return
-
     inserted = 0
-    for raw_row in rows:
-        row = {}
+    for raw_row in SEED_ROWS:
+        row: dict[str, object] = {}
 
         for col in table.columns:
             if col.name not in raw_row:
+                # Let created_at/updated_at server defaults fill if not provided
                 continue
             raw_val = raw_row[col.name]
             value = _coerce_value(col, raw_val)
@@ -85,7 +129,6 @@ def upgrade() -> None:
         if not row:
             continue
 
-        # Explicit nested transaction (SAVEPOINT)
         nested = bind.begin_nested()
         try:
             bind.execute(table.insert().values(**row))
@@ -100,9 +143,25 @@ def upgrade() -> None:
                 raw_row,
             )
 
-    log.info("Inserted %s rows into %s from %s", inserted, TABLE_NAME, CSV_FILE)
+    log.info("Inserted %s rows into %s from inline seed data", inserted, TABLE_NAME)
 
 
 def downgrade() -> None:
-    # No-op downgrade; seed data is left in place.
-    pass
+    """Best-effort removal of the seeded user_accounts rows (by known IDs)."""
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+
+    if not inspector.has_table(TABLE_NAME):
+        log.warning("Table %s does not exist; skipping delete", TABLE_NAME)
+        return
+
+    metadata = sa.MetaData()
+    table = sa.Table(TABLE_NAME, metadata, autoload_with=bind)
+
+    ids = [row["id"] for row in SEED_ROWS if row.get("id")]
+    if not ids:
+        log.info("No IDs in SEED_ROWS; nothing to delete for %s", TABLE_NAME)
+        return
+
+    bind.execute(table.delete().where(table.c.id.in_(ids)))
+    log.info("Deleted %s seeded rows from %s", len(ids), TABLE_NAME)

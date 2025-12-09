@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import csv
 import logging
-import os
 
 from alembic import op
 import sqlalchemy as sa
@@ -17,11 +15,49 @@ depends_on = None
 log = logging.getLogger("alembic.runtime.migration")
 
 TABLE_NAME = "camps"
-CSV_FILE = os.path.join(os.path.dirname(__file__), "csv", f"{TABLE_NAME}.csv")
+
+# Inline seed data
+SEED_ROWS = [
+    {
+        "name": "DCG High School Summer Strength & Conditioning Camp",
+        "created_at": "2024-01-01T01:00:00Z",
+        "updated_at": "2024-01-01T01:00:00Z",
+        "school_id": "af33eba3-d881-554e-9b43-2a7ea376e1f0",
+        "id": "241b464c-bfbb-5dbe-a324-0659ae6f6925",
+    },
+    {
+        "name": "DCG Middle School STEM & Robotics Camp",
+        "created_at": "2024-01-01T02:00:00Z",
+        "updated_at": "2024-01-01T02:00:00Z",
+        "school_id": "119caaef-ef97-5364-b179-388e108bd40d",
+        "id": "40a60e7d-3904-5c07-be2f-b8cc955d8a60",
+    },
+    {
+        "name": "South Prairie Elementary Reading & STEAM Camp",
+        "created_at": "2024-01-01T03:00:00Z",
+        "updated_at": "2024-01-01T03:00:00Z",
+        "school_id": "b122fcb4-2864-593c-9b05-2188ef296db4",
+        "id": "17d8da20-62f1-56ae-abd2-3345e8dd57de",
+    },
+    {
+        "name": "Heritage Elementary Arts & Enrichment Camp",
+        "created_at": "2024-01-01T04:00:00Z",
+        "updated_at": "2024-01-01T04:00:00Z",
+        "school_id": "df4b1423-d755-5c7f-a0ba-6908de77f61b",
+        "id": "a9b51d45-85a0-59f6-89d6-9d9c95d712f7",
+    },
+    {
+        "name": "North Ridge Elementary Outdoor Exploration Camp",
+        "created_at": "2024-01-01T05:00:00Z",
+        "updated_at": "2024-01-01T05:00:00Z",
+        "school_id": "634b8058-d620-5a5c-86b5-c0794d3a3b73",
+        "id": "9198ffeb-b0f2-5fa7-8713-56bc8d17813d",
+    },
+]
 
 
 def _coerce_value(col: sa.Column, raw):
-    """Best-effort coercion from CSV string to appropriate Python value."""
+    """Best-effort coercion from Python/CSV-ish value to appropriate Python value."""
     if raw == "" or raw is None:
         return None
 
@@ -35,20 +71,21 @@ def _coerce_value(col: sa.Column, raw):
                 return True
             if v in ("false", "f", "0", "no", "n"):
                 return False
-            log.warning("Invalid boolean for %s.%s: %r; using NULL", TABLE_NAME, col.name, raw)
+            log.warning(
+                "Invalid boolean for %s.%s: %r; using NULL",
+                TABLE_NAME,
+                col.name,
+                raw,
+            )
             return None
         return bool(raw)
 
-    # Otherwise, pass raw through and let DB cast
+    # Otherwise, pass raw through and let DB cast (timestamps, UUIDs, etc.)
     return raw
 
 
 def upgrade() -> None:
-    """Load seed data for {TABLE_NAME} from a CSV file.
-
-    Each row is inserted inside an explicit nested transaction (SAVEPOINT)
-    so a failing row won't abort the whole migration transaction.
-    """
+    """Inline seed data for camps table."""
     bind = op.get_bind()
     inspector = sa.inspect(bind)
 
@@ -56,24 +93,16 @@ def upgrade() -> None:
         log.warning("Table %s does not exist; skipping seed", TABLE_NAME)
         return
 
-    if not os.path.exists(CSV_FILE):
-        log.warning("CSV file not found for %s: %s; skipping", TABLE_NAME, CSV_FILE)
+    if not SEED_ROWS:
+        log.info("No inline seed rows defined for %s; skipping", TABLE_NAME)
         return
 
     metadata = sa.MetaData()
     table = sa.Table(TABLE_NAME, metadata, autoload_with=bind)
 
-    with open(CSV_FILE, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
-
-    if not rows:
-        log.info("CSV file for %s is empty: %s", TABLE_NAME, CSV_FILE)
-        return
-
     inserted = 0
-    for raw_row in rows:
-        row = {}
+    for raw_row in SEED_ROWS:
+        row: dict[str, object] = {}
 
         for col in table.columns:
             if col.name not in raw_row:
@@ -85,7 +114,6 @@ def upgrade() -> None:
         if not row:
             continue
 
-        # Explicit nested transaction (SAVEPOINT)
         nested = bind.begin_nested()
         try:
             bind.execute(table.insert().values(**row))
@@ -94,13 +122,13 @@ def upgrade() -> None:
         except (IntegrityError, DataError, StatementError) as exc:
             nested.rollback()
             log.warning(
-                "Skipping row for %s due to error: %s. Row: %s",
+                "Skipping inline row for %s due to error: %s. Row: %s",
                 TABLE_NAME,
                 exc,
                 raw_row,
             )
 
-    log.info("Inserted %s rows into %s from %s", inserted, TABLE_NAME, CSV_FILE)
+    log.info("Inserted %s inline rows into %s", inserted, TABLE_NAME)
 
 
 def downgrade() -> None:

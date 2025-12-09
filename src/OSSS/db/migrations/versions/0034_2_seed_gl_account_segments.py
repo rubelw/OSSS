@@ -2,22 +2,26 @@ from __future__ import annotations
 
 import csv
 import logging
+from pathlib import Path
 import os
-
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.exc import IntegrityError, DataError, StatementError
 
 # ---- Alembic identifiers ----
-revision = "0059"
-down_revision = "0058"
+revision = "0034_2"
+down_revision = "0034_1"
 branch_labels = None
 depends_on = None
 
 log = logging.getLogger("alembic.runtime.migration")
 
-TABLE_NAME = "gl_segment_values"
-CSV_FILE = os.path.join(os.path.dirname(__file__), "csv", f"{TABLE_NAME}.csv")
+SKIP_GL_SEGMENTS = os.getenv("SKIP_GL_SEGMENTS", "").lower() in ("1", "true", "yes", "on")
+
+TABLE_NAME = "gl_account_segments"
+
+# Path to CSV: ./raw_data/gl_account_segments.csv (relative to migrations root)
+CSV_FILE = Path(__file__).resolve().parent.parent / "versions" / "raw_data" / "gl_account_segments.csv"
 
 
 def _coerce_value(col: sa.Column, raw):
@@ -35,7 +39,12 @@ def _coerce_value(col: sa.Column, raw):
                 return True
             if v in ("false", "f", "0", "no", "n"):
                 return False
-            log.warning("Invalid boolean for %s.%s: %r; using NULL", TABLE_NAME, col.name, raw)
+            log.warning(
+                "Invalid boolean for %s.%s: %r; using NULL",
+                TABLE_NAME,
+                col.name,
+                raw,
+            )
             return None
         return bool(raw)
 
@@ -44,11 +53,15 @@ def _coerce_value(col: sa.Column, raw):
 
 
 def upgrade() -> None:
-    """Load seed data for {TABLE_NAME} from a CSV file.
+    """Load seed data for gl_account_segments from a CSV file.
 
     Each row is inserted inside an explicit nested transaction (SAVEPOINT)
     so a failing row won't abort the whole migration transaction.
     """
+    if SKIP_GL_SEGMENTS:
+        log.warning("SKIP_GL_SEGMENTS flag is ON — skipping seeding for gl_segments")
+        return
+
     bind = op.get_bind()
     inspector = sa.inspect(bind)
 
@@ -56,14 +69,14 @@ def upgrade() -> None:
         log.warning("Table %s does not exist; skipping seed", TABLE_NAME)
         return
 
-    if not os.path.exists(CSV_FILE):
+    if not CSV_FILE.exists():
         log.warning("CSV file not found for %s: %s; skipping", TABLE_NAME, CSV_FILE)
         return
 
     metadata = sa.MetaData()
     table = sa.Table(TABLE_NAME, metadata, autoload_with=bind)
 
-    with open(CSV_FILE, newline="", encoding="utf-8") as f:
+    with CSV_FILE.open(newline="", encoding="utf-8") as f:
         reader = csv.DictReader(f)
         rows = list(reader)
 
@@ -73,7 +86,7 @@ def upgrade() -> None:
 
     inserted = 0
     for raw_row in rows:
-        row = {}
+        row: dict = {}
 
         for col in table.columns:
             if col.name not in raw_row:
@@ -105,4 +118,8 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     # No-op downgrade; seed data is left in place.
+    if SKIP_GL_SEGMENTS:
+        log.warning("SKIP_GL_SEGMENTS flag is ON — skipping seeding for gl_segments")
+        return
+
     pass

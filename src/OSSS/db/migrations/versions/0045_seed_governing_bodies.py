@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import csv
 import logging
-import os
 
 from alembic import op
 import sqlalchemy as sa
@@ -17,11 +15,54 @@ depends_on = None
 log = logging.getLogger("alembic.runtime.migration")
 
 TABLE_NAME = "governing_bodies"
-CSV_FILE = os.path.join(os.path.dirname(__file__), "csv", f"{TABLE_NAME}.csv")
+
+# Inline seed data aligned with GoverningBody model
+SEED_ROWS = [
+    {
+        "org_id": "c201e5e9-60c0-466f-8f63-aecbf868c420",
+        "name": "Dallas Center-Grimes CSD Board of Education",
+        "type": "board_of_education",
+        "id": "4b9ddc27-7c2b-4b4b-8c9b-4d2f3f4c1234",
+        "created_at": "2024-01-01T01:00:00Z",
+        "updated_at": "2024-01-01T01:00:00Z",
+    },
+    {
+        "org_id": "495c02aa-3e2e-4d4e-9623-7880d523bf71",
+        "name": "Grimes Parks & Rec Advisory Board",
+        "type": "advisory_board",
+        "id": "9c8f0c3e-9a39-4a8a-93d4-3a0a2f6a5678",
+        "created_at": "2024-01-01T02:00:00Z",
+        "updated_at": "2024-01-01T02:00:00Z",
+    },
+    {
+        "org_id": "243e4944-068c-44f0-aa26-4ba25ff9339a",
+        "name": "DCG Education Foundation Board",
+        "type": "nonprofit_board",
+        "id": "1f37e3b0-2e4b-4e1d-9f3f-1a2b3c4d9abc",
+        "created_at": "2024-01-01T03:00:00Z",
+        "updated_at": "2024-01-01T03:00:00Z",
+    },
+    {
+        "org_id": "27ecfe2b-fe0d-4522-aa8a-ed65fd5f4419",
+        "name": "Booster Club Executive Board",
+        "type": "booster_board",
+        "id": "7e5a1a8c-3b21-4c4a-8b0e-5f6e7a8b0def",
+        "created_at": "2024-01-01T04:00:00Z",
+        "updated_at": "2024-01-01T04:00:00Z",
+    },
+    {
+        "org_id": "a2e9b7f7-6fc8-48c4-950e-2300dc3f02fc",
+        "name": "Local PTO Council",
+        "type": "pto_council",
+        "id": "d3abf2e1-6a9c-4f77-9b4a-2c5d6e7f0123",
+        "created_at": "2024-01-01T05:00:00Z",
+        "updated_at": "2024-01-01T05:00:00Z",
+    },
+]
 
 
 def _coerce_value(col: sa.Column, raw):
-    """Best-effort coercion from CSV string to appropriate Python value."""
+    """Best-effort coercion from inline value to appropriate DB-bound value."""
     if raw == "" or raw is None:
         return None
 
@@ -39,12 +80,12 @@ def _coerce_value(col: sa.Column, raw):
             return None
         return bool(raw)
 
-    # Otherwise, pass raw through and let DB cast
+    # Otherwise, pass raw through and let DB cast (dates, enums, etc.)
     return raw
 
 
 def upgrade() -> None:
-    """Load seed data for {TABLE_NAME} from a CSV file.
+    """Load seed data for governing_bodies from inline SEED_ROWS.
 
     Each row is inserted inside an explicit nested transaction (SAVEPOINT)
     so a failing row won't abort the whole migration transaction.
@@ -56,28 +97,22 @@ def upgrade() -> None:
         log.warning("Table %s does not exist; skipping seed", TABLE_NAME)
         return
 
-    if not os.path.exists(CSV_FILE):
-        log.warning("CSV file not found for %s: %s; skipping", TABLE_NAME, CSV_FILE)
+    if not SEED_ROWS:
+        log.info("No seed rows defined for %s; skipping", TABLE_NAME)
         return
 
     metadata = sa.MetaData()
     table = sa.Table(TABLE_NAME, metadata, autoload_with=bind)
 
-    with open(CSV_FILE, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
-
-    if not rows:
-        log.info("CSV file for %s is empty: %s", TABLE_NAME, CSV_FILE)
-        return
-
     inserted = 0
-    for raw_row in rows:
-        row = {}
+    for raw_row in SEED_ROWS:
+        row: dict[str, object] = {}
 
         for col in table.columns:
             if col.name not in raw_row:
+                # Let TimestampMixin defaults handle created_at/updated_at if not provided
                 continue
+
             raw_val = raw_row[col.name]
             value = _coerce_value(col, raw_val)
             row[col.name] = value
@@ -100,7 +135,7 @@ def upgrade() -> None:
                 raw_row,
             )
 
-    log.info("Inserted %s rows into %s from %s", inserted, TABLE_NAME, CSV_FILE)
+    log.info("Inserted %s rows into %s from inline seed data", inserted, TABLE_NAME)
 
 
 def downgrade() -> None:

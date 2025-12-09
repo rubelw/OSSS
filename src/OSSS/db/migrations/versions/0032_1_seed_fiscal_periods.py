@@ -9,15 +9,16 @@ import sqlalchemy as sa
 from sqlalchemy.exc import IntegrityError, DataError, StatementError
 
 # ---- Alembic identifiers ----
-revision = "0265"
-down_revision = "0264"
+revision = "0032_1"
+down_revision = "0032"
 branch_labels = None
 depends_on = None
 
 log = logging.getLogger("alembic.runtime.migration")
 
-TABLE_NAME = "gl_account_balances"
-CSV_FILE = os.path.join(os.path.dirname(__file__), "csv", f"{TABLE_NAME}.csv")
+TABLE_NAME = "fiscal_periods"
+# Updated to seed from ./raw_data/fiscal_periods.csv
+CSV_FILE = os.path.join(os.path.dirname(__file__), "raw_data", "fiscal_periods.csv")
 
 
 def _coerce_value(col: sa.Column, raw):
@@ -44,7 +45,7 @@ def _coerce_value(col: sa.Column, raw):
 
 
 def upgrade() -> None:
-    """Load seed data for {TABLE_NAME} from a CSV file.
+    """Load seed data for fiscal_periods from a CSV file.
 
     Each row is inserted inside an explicit nested transaction (SAVEPOINT)
     so a failing row won't abort the whole migration transaction.

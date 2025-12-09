@@ -35,7 +35,12 @@ def _coerce_value(col: sa.Column, raw):
                 return True
             if v in ("false", "f", "0", "no", "n"):
                 return False
-            log.warning("Invalid boolean for %s.%s: %r; using NULL", TABLE_NAME, col.name, raw)
+            log.warning(
+                "Invalid boolean for %s.%s: %r; using NULL",
+                TABLE_NAME,
+                col.name,
+                raw,
+            )
             return None
         return bool(raw)
 
@@ -44,7 +49,7 @@ def _coerce_value(col: sa.Column, raw):
 
 
 def upgrade() -> None:
-    """Load seed data for {TABLE_NAME} from a CSV file.
+    """Inline seed data for feature_flags.
 
     Each row is inserted inside an explicit nested transaction (SAVEPOINT)
     so a failing row won't abort the whole migration transaction.
@@ -56,25 +61,47 @@ def upgrade() -> None:
         log.warning("Table %s does not exist; skipping seed", TABLE_NAME)
         return
 
-    if not os.path.exists(CSV_FILE):
-        log.warning("CSV file not found for %s: %s; skipping", TABLE_NAME, CSV_FILE)
-        return
-
     metadata = sa.MetaData()
     table = sa.Table(TABLE_NAME, metadata, autoload_with=bind)
 
-    with open(CSV_FILE, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
-
-    if not rows:
-        log.info("CSV file for %s is empty: %s", TABLE_NAME, CSV_FILE)
-        return
+    # Inline seed rows
+    rows = [
+        {
+            "id": "458f5e40-e8cb-5f39-9c2b-8a1149dfc966",
+            "org_id": "c201e5e9-60c0-466f-8f63-aecbf868c420",
+            "key": "osss.ai_agents.enabled",
+            "enabled": True,
+        },
+        {
+            "id": "8faacaa0-9fb8-57da-ac9e-a286effd247b",
+            "org_id": "c201e5e9-60c0-466f-8f63-aecbf868c420",
+            "key": "osss.parent_portal.enabled",
+            "enabled": True,
+        },
+        {
+            "id": "df62c65c-e153-5952-82ca-d7ded2f6279b",
+            "org_id": "c201e5e9-60c0-466f-8f63-aecbf868c420",
+            "key": "osss.attendance_auto_alerts.enabled",
+            "enabled": True,
+        },
+        {
+            "id": "997aa698-4d3a-54b7-a40c-d57ffb4d7603",
+            "org_id": "c201e5e9-60c0-466f-8f63-aecbf868c420",
+            "key": "osss.beta.facilities_work_orders",
+            "enabled": False,
+        },
+        {
+            "id": "8244f2b6-e9ca-5f9b-b0ed-83d2dfd6f383",
+            "org_id": "c201e5e9-60c0-466f-8f63-aecbf868c420",
+            "key": "osss.data_quality_dashboard.enabled",
+            "enabled": True,
+        },
+    ]
 
     inserted = 0
     for raw_row in rows:
-        row = {}
-
+        # Coerce based on reflected column types (in case enabled is Boolean later)
+        row: dict[str, object] = {}
         for col in table.columns:
             if col.name not in raw_row:
                 continue
@@ -85,7 +112,6 @@ def upgrade() -> None:
         if not row:
             continue
 
-        # Explicit nested transaction (SAVEPOINT)
         nested = bind.begin_nested()
         try:
             bind.execute(table.insert().values(**row))
@@ -100,7 +126,7 @@ def upgrade() -> None:
                 raw_row,
             )
 
-    log.info("Inserted %s rows into %s from %s", inserted, TABLE_NAME, CSV_FILE)
+    log.info("Inserted %s inline rows into %s", inserted, TABLE_NAME)
 
 
 def downgrade() -> None:

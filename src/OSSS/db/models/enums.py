@@ -46,20 +46,20 @@ class PublicationState(str, Enum):
     SCHEDULED = "SCHEDULED"
 
 class GradeLevels(str, Enum):
-    PREK = "PREK"
-    KINDERGARTEN = "KINDERGARTEN"
-    FIRST = "FIRST"
-    SECOND = "SECOND"
-    THIRD = "THIRD"
-    FORTH = "FORTH"
-    FIFTH = "FIFTH"
-    SIXTH = "SIXTH"
-    SEVENTH = "SEVENTH"
-    EIGHTH = "EIGHTH"
-    NINETH = "NINETH"
-    TENTH = "TENTH"
-    ELEVENTH = "ELEVENTH"
-    TWELFTH = "TWELFTH"
+    PREK = "Pre-Kindergarten"
+    KINDERGARTEN = "Kingergarten"
+    FIRST = "1st_Grade"
+    SECOND = "2nd_Grade"
+    THIRD = "3rd_Grade"
+    FOURTH = "4th_Grade"
+    FIFTH = "5th_Grade"
+    SIXTH = "6th_Grade"
+    SEVENTH = "7th_Grade"
+    EIGHTH = "8th_Grade"
+    NINETH = "9th_Grade"
+    TENTH = "10th_Grade"
+    ELEVENTH = "11th_Grade"
+    TWELFTH = "12th_Grade"
 
 # Canonical grade → ordinal mapping
 GRADE_LEVEL_ORDINALS: dict[GradeLevels, int] = {
@@ -68,7 +68,7 @@ GRADE_LEVEL_ORDINALS: dict[GradeLevels, int] = {
     GradeLevels.FIRST: 2,
     GradeLevels.SECOND: 3,
     GradeLevels.THIRD: 4,
-    GradeLevels.FORTH: 5,
+    GradeLevels.FOURTH: 5,
     GradeLevels.FIFTH: 6,
     GradeLevels.SIXTH: 7,
     GradeLevels.SEVENTH: 8,

@@ -127,6 +127,7 @@ def upgrade() -> None:
     for raw_row in SEED_ROWS:
         row: dict[str, object] = {}
 
+        # Only include columns that actually exist on the table
         for col in table.columns:
             raw_val = None
 
@@ -136,7 +137,7 @@ def upgrade() -> None:
 
             # 2) Special mappings to your actual schema
             elif col.name == "vendor_no":
-                # derive vendor_no from account_number or vendor_name, or fallback
+                # derive vendor_no from account_number or vendor_no, or fallback
                 raw_val = (
                     raw_row.get("account_number")
                     or raw_row.get("vendor_no")
@@ -146,8 +147,11 @@ def upgrade() -> None:
                 raw_val = raw_row["vendor_name"]
             elif col.name == "address1" and "address_line1" in raw_row:
                 raw_val = raw_row["address_line1"]
+            elif col.name == "active":
+                # ensure NOT NULL; default to True if not explicitly provided
+                raw_val = raw_row.get("active", True)
 
-            # 3) Let created_at, updated_at, etc. use server defaults
+            # 3) Let created_at, updated_at, JSON fields, etc. use defaults
             else:
                 continue
 
@@ -157,7 +161,6 @@ def upgrade() -> None:
         if not row:
             continue
 
-        # Explicit nested transaction (SAVEPOINT)
         nested = bind.begin_nested()
         try:
             bind.execute(table.insert().values(**row))

@@ -2,32 +2,36 @@ from __future__ import annotations
 
 import csv
 import logging
+from pathlib import Path
 import os
-
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.exc import IntegrityError, DataError, StatementError
 
 # ---- Alembic identifiers ----
-revision = "0058"
-down_revision = "0057"
+revision = "0034_3"
+down_revision = "0034_2"
 branch_labels = None
 depends_on = None
 
 log = logging.getLogger("alembic.runtime.migration")
 
-TABLE_NAME = "fiscal_periods"
-CSV_FILE = os.path.join(os.path.dirname(__file__), "csv", f"{TABLE_NAME}.csv")
+SKIP_GL_SEGMENTS = os.getenv("SKIP_GL_SEGMENTS", "").lower() in ("1", "true", "yes", "on")
+
+TABLE_NAME = "gl_account_balances"
+
+# Path to CSV: ./raw_data/gl_account_balances.csv (relative to migrations directory)
+CSV_FILE = Path(__file__).resolve().parent.parent / "versions" / "raw_data" / "gl_account_balances.csv"
 
 
 def _coerce_value(col: sa.Column, raw):
     """Best-effort coercion from CSV string to appropriate Python value."""
-    if raw == "" or raw is None:
+    if raw is None or raw == "":
         return None
 
     t = col.type
 
-    # Boolean needs special handling because SQLAlchemy is strict
+    # Boolean coercion
     if isinstance(t, sa.Boolean):
         if isinstance(raw, str):
             v = raw.strip().lower()
@@ -39,31 +43,41 @@ def _coerce_value(col: sa.Column, raw):
             return None
         return bool(raw)
 
-    # Otherwise, pass raw through and let DB cast
+    # Numeric coercion (Decimal / NUMERIC)
+    if isinstance(t, sa.Numeric):
+        try:
+            return raw if isinstance(raw, (int, float)) else float(raw)
+        except Exception:
+            log.warning("Invalid numeric for %s.%s: %r; using NULL", TABLE_NAME, col.name, raw)
+            return None
+
+    # JSON or dict: let SQLAlchemy parse string JSON automatically
     return raw
 
 
 def upgrade() -> None:
-    """Load seed data for {TABLE_NAME} from a CSV file.
+    """Load seed data for gl_account_balances from CSV, with SAVEPOINT per row."""
+    if SKIP_GL_SEGMENTS:
+        log.warning("SKIP_GL_SEGMENTS flag is ON — skipping seeding for gl_segments")
+        return
 
-    Each row is inserted inside an explicit nested transaction (SAVEPOINT)
-    so a failing row won't abort the whole migration transaction.
-    """
     bind = op.get_bind()
     inspector = sa.inspect(bind)
 
+    # Ensure table exists
     if not inspector.has_table(TABLE_NAME):
         log.warning("Table %s does not exist; skipping seed", TABLE_NAME)
         return
 
-    if not os.path.exists(CSV_FILE):
+    # Ensure CSV exists
+    if not CSV_FILE.exists():
         log.warning("CSV file not found for %s: %s; skipping", TABLE_NAME, CSV_FILE)
         return
 
     metadata = sa.MetaData()
     table = sa.Table(TABLE_NAME, metadata, autoload_with=bind)
 
-    with open(CSV_FILE, newline="", encoding="utf-8") as f:
+    with CSV_FILE.open("r", newline="", encoding="utf-8") as f:
         reader = csv.DictReader(f)
         rows = list(reader)
 
@@ -72,12 +86,15 @@ def upgrade() -> None:
         return
 
     inserted = 0
+
     for raw_row in rows:
         row = {}
 
+        # Only use columns that exist on the SQL table
         for col in table.columns:
             if col.name not in raw_row:
                 continue
+
             raw_val = raw_row[col.name]
             value = _coerce_value(col, raw_val)
             row[col.name] = value
@@ -85,24 +102,30 @@ def upgrade() -> None:
         if not row:
             continue
 
-        # Explicit nested transaction (SAVEPOINT)
+        # Nested transaction → SAVEPOINT
         nested = bind.begin_nested()
         try:
             bind.execute(table.insert().values(**row))
             nested.commit()
             inserted += 1
+
         except (IntegrityError, DataError, StatementError) as exc:
             nested.rollback()
             log.warning(
                 "Skipping row for %s due to error: %s. Row: %s",
-                TABLE_NAME,
-                exc,
-                raw_row,
+                TABLE_NAME, exc, raw_row
             )
 
     log.info("Inserted %s rows into %s from %s", inserted, TABLE_NAME, CSV_FILE)
 
 
 def downgrade() -> None:
-    # No-op downgrade; seed data is left in place.
+    """
+    No-op downgrade: consistent with other seed migrations.
+    Seed data is left in place.
+    """
+    if SKIP_GL_SEGMENTS:
+        log.warning("SKIP_GL_SEGMENTS flag is ON — skipping seeding for gl_segments")
+        return
+
     pass

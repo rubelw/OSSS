@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import csv
 import logging
-import os
 
 from alembic import op
 import sqlalchemy as sa
@@ -17,11 +15,57 @@ depends_on = None
 log = logging.getLogger("alembic.runtime.migration")
 
 TABLE_NAME = "files"
-CSV_FILE = os.path.join(os.path.dirname(__file__), "csv", f"{TABLE_NAME}.csv")
+
+# Inline seed data for files
+# Columns mapped to File model:
+#   storage_key, filename, size, mime_type, created_by, id
+# created_at / updated_at are omitted and left to TimestampMixin defaults.
+SEED_ROWS = [
+    {
+        "storage_key": "files_storage_key_1",
+        "filename": "files_filename_1",
+        "size": 1,
+        "mime_type": "files_mime_type_1",
+        "created_by": "de036046-aeed-4e84-960c-07ca8f9b99b9",
+        "id": "39ca63db-2221-5408-ad28-c6dfaac3056d",
+    },
+    {
+        "storage_key": "files_storage_key_2",
+        "filename": "files_filename_2",
+        "size": 2,
+        "mime_type": "files_mime_type_2",
+        "created_by": "de036046-aeed-4e84-960c-07ca8f9b99b9",
+        "id": "e158083b-8b0f-52a8-bd2d-e32586c91b83",
+    },
+    {
+        "storage_key": "files_storage_key_3",
+        "filename": "files_filename_3",
+        "size": 3,
+        "mime_type": "files_mime_type_3",
+        "created_by": "de036046-aeed-4e84-960c-07ca8f9b99b9",
+        "id": "104c31e7-5b1f-54cd-be40-a0e9eed83696",
+    },
+    {
+        "storage_key": "files_storage_key_4",
+        "filename": "files_filename_4",
+        "size": 4,
+        "mime_type": "files_mime_type_4",
+        "created_by": "de036046-aeed-4e84-960c-07ca8f9b99b9",
+        "id": "dd2a8e72-9ad5-52ba-9c35-df913eb4304b",
+    },
+    {
+        "storage_key": "files_storage_key_5",
+        "filename": "files_filename_5",
+        "size": 5,
+        "mime_type": "files_mime_type_5",
+        "created_by": "de036046-aeed-4e84-960c-07ca8f9b99b9",
+        "id": "3487e636-84b1-5531-ac4a-0f78cd56ad32",
+    },
+]
 
 
 def _coerce_value(col: sa.Column, raw):
-    """Best-effort coercion from CSV string to appropriate Python value."""
+    """Best-effort coercion from inline value to appropriate DB-bound value."""
     if raw == "" or raw is None:
         return None
 
@@ -35,16 +79,21 @@ def _coerce_value(col: sa.Column, raw):
                 return True
             if v in ("false", "f", "0", "no", "n"):
                 return False
-            log.warning("Invalid boolean for %s.%s: %r; using NULL", TABLE_NAME, col.name, raw)
+            log.warning(
+                "Invalid boolean for %s.%s: %r; using NULL",
+                TABLE_NAME,
+                col.name,
+                raw,
+            )
             return None
         return bool(raw)
 
-    # Otherwise, pass raw through and let DB cast
+    # Let DB/driver handle everything else (UUID, BigInt, etc.)
     return raw
 
 
 def upgrade() -> None:
-    """Load seed data for {TABLE_NAME} from a CSV file.
+    """Load seed data for files from inline SEED_ROWS.
 
     Each row is inserted inside an explicit nested transaction (SAVEPOINT)
     so a failing row won't abort the whole migration transaction.
@@ -56,28 +105,22 @@ def upgrade() -> None:
         log.warning("Table %s does not exist; skipping seed", TABLE_NAME)
         return
 
-    if not os.path.exists(CSV_FILE):
-        log.warning("CSV file not found for %s: %s; skipping", TABLE_NAME, CSV_FILE)
+    if not SEED_ROWS:
+        log.info("No seed rows defined for %s; skipping", TABLE_NAME)
         return
 
     metadata = sa.MetaData()
     table = sa.Table(TABLE_NAME, metadata, autoload_with=bind)
 
-    with open(CSV_FILE, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
-
-    if not rows:
-        log.info("CSV file for %s is empty: %s", TABLE_NAME, CSV_FILE)
-        return
-
     inserted = 0
-    for raw_row in rows:
-        row = {}
+    for raw_row in SEED_ROWS:
+        row: dict[str, object] = {}
 
         for col in table.columns:
+            # Only fill columns we have explicit values for
             if col.name not in raw_row:
                 continue
+
             raw_val = raw_row[col.name]
             value = _coerce_value(col, raw_val)
             row[col.name] = value
@@ -85,7 +128,6 @@ def upgrade() -> None:
         if not row:
             continue
 
-        # Explicit nested transaction (SAVEPOINT)
         nested = bind.begin_nested()
         try:
             bind.execute(table.insert().values(**row))
@@ -100,7 +142,7 @@ def upgrade() -> None:
                 raw_row,
             )
 
-    log.info("Inserted %s rows into %s from %s", inserted, TABLE_NAME, CSV_FILE)
+    log.info("Inserted %s rows into %s from inline seed data", inserted, TABLE_NAME)
 
 
 def downgrade() -> None:

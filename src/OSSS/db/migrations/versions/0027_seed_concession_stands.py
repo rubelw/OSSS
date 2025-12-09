@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import csv
 import logging
-import os
 
 from alembic import op
 import sqlalchemy as sa
@@ -17,38 +15,38 @@ depends_on = None
 log = logging.getLogger("alembic.runtime.migration")
 
 TABLE_NAME = "concession_stands"
-CSV_FILE = os.path.join(os.path.dirname(__file__), "csv", f"{TABLE_NAME}.csv")
 
-
-def _coerce_value(col: sa.Column, raw):
-    """Best-effort coercion from CSV string to appropriate Python value."""
-    if raw == "" or raw is None:
-        return None
-
-    t = col.type
-
-    # Boolean needs special handling because SQLAlchemy is strict
-    if isinstance(t, sa.Boolean):
-        if isinstance(raw, str):
-            v = raw.strip().lower()
-            if v in ("true", "t", "1", "yes", "y"):
-                return True
-            if v in ("false", "f", "0", "no", "n"):
-                return False
-            log.warning("Invalid boolean for %s.%s: %r; using NULL", TABLE_NAME, col.name, raw)
-            return None
-        return bool(raw)
-
-    # Otherwise, pass raw through and let DB cast
-    return raw
+# Only source data — we will drop all extra fields later
+SEED_ROWS = [
+    {
+        "id": "2e75f487-2ef3-40bf-a9d2-489a24bb86f0",
+        "name": "High School Stadium Concessions",
+        "school_name": "High School Stadium",
+    },
+    {
+        "id": "1376656d-8249-463b-8ad7-5b7e50870c84",
+        "name": "Middle School Gym Concessions",
+        "school_name": "Middle School Gym",
+    },
+    {
+        "id": "c654edbe-80e5-4e8a-88c5-a3dbbb546bcb",
+        "name": "Elementary North Concessions",
+        "school_name": "Elementary North",
+    },
+    {
+        "id": "b1060ab3-a93b-4d7a-a2fc-8aae402ef5b0",
+        "name": "Elementary South Concessions",
+        "school_name": "Elementary South",
+    },
+    {
+        "id": "63da8937-d544-4f4b-84d4-e10f4afd5ebc",
+        "name": "Aquatic Center Concessions",
+        "school_name": "Aquatic Center",
+    },
+]
 
 
 def upgrade() -> None:
-    """Load seed data for {TABLE_NAME} from a CSV file.
-
-    Each row is inserted inside an explicit nested transaction (SAVEPOINT)
-    so a failing row won't abort the whole migration transaction.
-    """
     bind = op.get_bind()
     inspector = sa.inspect(bind)
 
@@ -56,36 +54,19 @@ def upgrade() -> None:
         log.warning("Table %s does not exist; skipping seed", TABLE_NAME)
         return
 
-    if not os.path.exists(CSV_FILE):
-        log.warning("CSV file not found for %s: %s; skipping", TABLE_NAME, CSV_FILE)
-        return
-
     metadata = sa.MetaData()
     table = sa.Table(TABLE_NAME, metadata, autoload_with=bind)
 
-    with open(CSV_FILE, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
-
-    if not rows:
-        log.info("CSV file for %s is empty: %s", TABLE_NAME, CSV_FILE)
-        return
-
     inserted = 0
-    for raw_row in rows:
-        row = {}
 
-        for col in table.columns:
-            if col.name not in raw_row:
-                continue
-            raw_val = raw_row[col.name]
-            value = _coerce_value(col, raw_val)
-            row[col.name] = value
+    for src in SEED_ROWS:
+        row = {
+            "id": src["id"],
+            "name": src["name"],
+            "location": src.get("school_name"),  # ONLY THIS gets mapped
+        }
 
-        if not row:
-            continue
-
-        # Explicit nested transaction (SAVEPOINT)
+        # Explicit SAVEPOINT
         nested = bind.begin_nested()
         try:
             bind.execute(table.insert().values(**row))
@@ -97,12 +78,11 @@ def upgrade() -> None:
                 "Skipping row for %s due to error: %s. Row: %s",
                 TABLE_NAME,
                 exc,
-                raw_row,
+                row,
             )
 
-    log.info("Inserted %s rows into %s from %s", inserted, TABLE_NAME, CSV_FILE)
+    log.info("Inserted %s concession stands", inserted)
 
 
 def downgrade() -> None:
-    # No-op downgrade; seed data is left in place.
     pass

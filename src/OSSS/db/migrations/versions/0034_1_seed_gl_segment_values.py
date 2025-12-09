@@ -9,8 +9,8 @@ import sqlalchemy as sa
 from sqlalchemy.exc import IntegrityError, DataError, StatementError
 
 # ---- Alembic identifiers ----
-revision = "0034"
-down_revision = "0033"
+revision = "0034_1"
+down_revision = "0034"
 branch_labels = None
 depends_on = None
 
@@ -18,55 +18,32 @@ log = logging.getLogger("alembic.runtime.migration")
 
 SKIP_GL_SEGMENTS = os.getenv("SKIP_GL_SEGMENTS", "").lower() in ("1", "true", "yes", "on")
 
-TABLE_NAME = "gl_accounts"
+TABLE_NAME = "gl_segment_values"
 
-# Path to CSV: ./raw_data/gl_accounts.csv (relative to migrations root)
-CSV_PATH = Path(__file__).resolve().parent.parent / "versions" / "raw_data" / "gl_accounts.csv"
-
-
-def _load_seed_rows() -> list[dict]:
-    """
-    Load seed rows for gl_accounts from ./raw_data/gl_accounts.csv.
-
-    Expected columns (at minimum):
-      - id
-      - code
-      - name
-      - acct_type
-      - active
-      - attributes
-    """
-    if not CSV_PATH.exists():
-        log.warning(
-            "CSV raw data file for %s not found at %s; skipping seed",
-            TABLE_NAME,
-            CSV_PATH,
-        )
-        return []
-
-    rows: list[dict] = []
-    with CSV_PATH.open("r", newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            rows.append(row)
-
-    if not rows:
-        log.info("No rows found in %s; nothing to seed for %s", CSV_PATH, TABLE_NAME)
-
-    return rows
+# Path to CSV: ./raw_data/gl_segment_values.csv (relative to migrations root)
+CSV_PATH = Path(__file__).resolve().parent.parent / "versions" / "raw_data" / "gl_segment_values.csv"
 
 
 def _coerce_value(col: sa.Column, raw):
     """
-    Best-effort coercion from CSV string to the DB type.
+    Best-effort coercion from Python/CSV value to appropriate DB-bound value.
 
-    This is mostly relevant for booleans, but will happily pass
-    through strings, dict-like JSON, etc. for the DB to handle.
+    IMPORTANT: for string columns, keep empty strings as "" instead of converting
+    them to NULL, so we don't violate NOT NULL constraints on name/code fields.
     """
-    if raw == "" or raw is None:
+    t = col.type
+
+    # Handle None separately
+    if raw is None:
         return None
 
-    t = col.type
+    # Empty string handling depends on column type
+    if raw == "":
+        # For string-like columns, keep the empty string
+        if isinstance(t, (sa.String, sa.Text)):
+            return ""
+        # For everything else, treat empty as NULL
+        return None
 
     # Boolean needs special handling because SQLAlchemy is strict
     if isinstance(t, sa.Boolean):
@@ -85,16 +62,32 @@ def _coerce_value(col: sa.Column, raw):
             return None
         return bool(raw)
 
-    # Let DB/SQLAlchemy handle other types (String, JSONB, etc.)
+    # Otherwise, pass raw through and let DB/SQLAlchemy cast
     return raw
 
 
-def upgrade() -> None:
-    """Load seed data for gl_accounts from ./raw_data/gl_accounts.csv.
 
-    Each row is inserted inside an explicit nested transaction (SAVEPOINT)
-    so a failing row won't abort the whole migration transaction.
-    """
+def _load_seed_rows_from_csv() -> list[dict]:
+    """Load seed rows for gl_segment_values from CSV file."""
+    if not CSV_PATH.exists():
+        log.warning("CSV file %s not found; skipping seed", CSV_PATH)
+        return []
+
+    rows: list[dict] = []
+    with CSV_PATH.open("r", newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            # Expecting at least: id, code, name, active, segment_id
+            rows.append(row)
+
+    if not rows:
+        log.info("CSV %s is empty; no seed rows loaded", CSV_PATH)
+
+    return rows
+
+
+def upgrade() -> None:
+    """Load seed data for gl_segment_values from CSV."""
     if SKIP_GL_SEGMENTS:
         log.warning("SKIP_GL_SEGMENTS flag is ON — skipping seeding for gl_segments")
         return
@@ -102,6 +95,7 @@ def upgrade() -> None:
     bind = op.get_bind()
     inspector = sa.inspect(bind)
 
+    # Ensure target table exists
     if not inspector.has_table(TABLE_NAME):
         log.warning("Table %s does not exist; skipping seed", TABLE_NAME)
         return
@@ -109,29 +103,29 @@ def upgrade() -> None:
     metadata = sa.MetaData()
     table = sa.Table(TABLE_NAME, metadata, autoload_with=bind)
 
-    seed_rows = _load_seed_rows()
+    seed_rows = _load_seed_rows_from_csv()
     if not seed_rows:
-        log.info("No seed rows loaded for %s; nothing to insert", TABLE_NAME)
+        log.info("No seed rows defined for %s (CSV empty or missing)", TABLE_NAME)
         return
 
     inserted = 0
     for raw_row in seed_rows:
-        row: dict = {}
+        values: dict = {}
 
-        # Only pass columns that actually exist on gl_accounts
+        # Map & coerce by actual table columns
         for col in table.columns:
             if col.name not in raw_row:
                 continue
             raw_val = raw_row[col.name]
             value = _coerce_value(col, raw_val)
-            row[col.name] = value
+            values[col.name] = value
 
-        if not row:
+        if not values:
             continue
 
         nested = bind.begin_nested()
         try:
-            bind.execute(table.insert().values(**row))
+            bind.execute(table.insert().values(**values))
             nested.commit()
             inserted += 1
         except (IntegrityError, DataError, StatementError) as exc:
@@ -152,11 +146,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    """Best-effort removal of the seeded gl_accounts rows.
-
-    Uses the same CSV file ./raw_data/gl_accounts.csv to
-    determine which IDs to delete, so it stays aligned with GLAccount IDs.
-    """
+    """Best-effort removal of the seeded gl_segment_values rows based on CSV ids."""
     if SKIP_GL_SEGMENTS:
         log.warning("SKIP_GL_SEGMENTS flag is ON — skipping seeding for gl_segments")
         return
@@ -168,17 +158,17 @@ def downgrade() -> None:
         log.warning("Table %s does not exist; skipping delete", TABLE_NAME)
         return
 
-    seed_rows = _load_seed_rows()
-    if not seed_rows:
-        log.info("No seed rows loaded for %s; nothing to delete", TABLE_NAME)
-        return
-
     metadata = sa.MetaData()
     table = sa.Table(TABLE_NAME, metadata, autoload_with=bind)
 
+    seed_rows = _load_seed_rows_from_csv()
+    if not seed_rows:
+        log.info("No seed rows loaded from CSV; nothing to delete for %s", TABLE_NAME)
+        return
+
     ids = [row["id"] for row in seed_rows if "id" in row and row["id"]]
     if not ids:
-        log.info("No IDs found in seed rows for %s; nothing to delete", TABLE_NAME)
+        log.info("CSV had no ids; skipping delete for %s", TABLE_NAME)
         return
 
     bind.execute(table.delete().where(table.c.id.in_(ids)))
