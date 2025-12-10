@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import csv
 import logging
-import os
 
 from alembic import op
 import sqlalchemy as sa
@@ -17,11 +15,64 @@ depends_on = None
 log = logging.getLogger("alembic.runtime.migration")
 
 TABLE_NAME = "deduction_codes"
-CSV_FILE = os.path.join(os.path.dirname(__file__), "csv", f"{TABLE_NAME}.csv")
+
+# Inline seed data for deduction_codes
+SEED_ROWS = [
+    {
+        "code": "RETIRE_TSA",
+        "name": "403(b) Tax-Sheltered Annuity",
+        "pretax": False,
+        "vendor_id": "d7b782fe-058c-4344-b6db-15c5b7348607",
+        "attributes": {},
+        "id": "cba98ada-b903-56a3-afc1-574d9e45e19f",
+        "created_at": "2024-01-01T01:00:00Z",
+        "updated_at": "2024-01-01T01:00:00Z",
+    },
+    {
+        "code": "HEALTH_PRETAX",
+        "name": "Health Insurance Premium",
+        "pretax": True,
+        "vendor_id": "d7b782fe-058c-4344-b6db-15c5b7348607",
+        "attributes": {},
+        "id": "f623ef4f-9b06-54ae-bb7c-6521a4bd89fa",
+        "created_at": "2024-01-01T02:00:00Z",
+        "updated_at": "2024-01-01T02:00:00Z",
+    },
+    {
+        "code": "DENTAL_PRETAX",
+        "name": "Dental Insurance Premium",
+        "pretax": False,
+        "vendor_id": "d7b782fe-058c-4344-b6db-15c5b7348607",
+        "attributes": {},
+        "id": "df36e5db-cd96-5563-bea5-40dded4755c7",
+        "created_at": "2024-01-01T03:00:00Z",
+        "updated_at": "2024-01-01T03:00:00Z",
+    },
+    {
+        "code": "FSA_DEP",
+        "name": "FSA Dependent Care",
+        "pretax": True,
+        "vendor_id": "d7b782fe-058c-4344-b6db-15c5b7348607",
+        "attributes": {},
+        "id": "d2b50dc5-a78b-5143-9a50-c8bfbf49ae0d",
+        "created_at": "2024-01-01T04:00:00Z",
+        "updated_at": "2024-01-01T04:00:00Z",
+    },
+    {
+        "code": "UNION_DUES",
+        "name": "Union Dues",
+        "pretax": False,
+        "vendor_id": "d7b782fe-058c-4344-b6db-15c5b7348607",
+        "attributes": {},
+        "id": "b0477d4f-89df-5224-80fd-d8012e2e83a9",
+        "created_at": "2024-01-01T05:00:00Z",
+        "updated_at": "2024-01-01T05:00:00Z",
+    },
+]
 
 
 def _coerce_value(col: sa.Column, raw):
-    """Best-effort coercion from CSV string to appropriate Python value."""
+    """Best-effort coercion from Python value to appropriate DB-bound value."""
     if raw == "" or raw is None:
         return None
 
@@ -44,7 +95,7 @@ def _coerce_value(col: sa.Column, raw):
 
 
 def upgrade() -> None:
-    """Load seed data for {TABLE_NAME} from a CSV file.
+    """Load seed data for deduction_codes from inline SEED_ROWS.
 
     Each row is inserted inside an explicit nested transaction (SAVEPOINT)
     so a failing row won't abort the whole migration transaction.
@@ -56,24 +107,16 @@ def upgrade() -> None:
         log.warning("Table %s does not exist; skipping seed", TABLE_NAME)
         return
 
-    if not os.path.exists(CSV_FILE):
-        log.warning("CSV file not found for %s: %s; skipping", TABLE_NAME, CSV_FILE)
-        return
-
     metadata = sa.MetaData()
     table = sa.Table(TABLE_NAME, metadata, autoload_with=bind)
 
-    with open(CSV_FILE, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
-
-    if not rows:
-        log.info("CSV file for %s is empty: %s", TABLE_NAME, CSV_FILE)
+    if not SEED_ROWS:
+        log.info("No seed rows defined for %s", TABLE_NAME)
         return
 
     inserted = 0
-    for raw_row in rows:
-        row = {}
+    for raw_row in SEED_ROWS:
+        row: dict[str, object] = {}
 
         for col in table.columns:
             if col.name not in raw_row:
@@ -85,7 +128,6 @@ def upgrade() -> None:
         if not row:
             continue
 
-        # Explicit nested transaction (SAVEPOINT)
         nested = bind.begin_nested()
         try:
             bind.execute(table.insert().values(**row))
@@ -100,7 +142,7 @@ def upgrade() -> None:
                 raw_row,
             )
 
-    log.info("Inserted %s rows into %s from %s", inserted, TABLE_NAME, CSV_FILE)
+    log.info("Inserted %s rows into %s (inline seed)", inserted, TABLE_NAME)
 
 
 def downgrade() -> None:

@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import csv
 import logging
-import os
 
 from alembic import op
 import sqlalchemy as sa
@@ -17,11 +15,84 @@ depends_on = None
 log = logging.getLogger("alembic.runtime.migration")
 
 TABLE_NAME = "buildings"
-CSV_FILE = os.path.join(os.path.dirname(__file__), "csv", f"{TABLE_NAME}.csv")
+
+# Inline seed data for buildings
+SEED_ROWS = [
+    {
+        "facility_id": "8b3a1f79-8f2e-4e3e-9bb8-32d4c7aa1101",
+        "name": "DCG High School Main Building",
+        "code": "HS-MAIN",
+        "year_built": 2013,
+        "floors_count": 2,
+        "gross_sqft": 220000,
+        "use_type": "academic",
+        "address": "1600 8th St, Grimes, IA 50111",
+        "attributes": {},
+        "created_at": "2024-01-01T01:00:00Z",
+        "updated_at": "2024-01-01T01:00:00Z",
+        "id": "2fcc53b4-7367-5852-9afb-ffdecafad618",
+    },
+    {
+        "facility_id": "c92f3d44-0c76-4eab-8c8c-97c369fb4a91",
+        "name": "DCG High School Activities Complex",
+        "code": "HS-ACT",
+        "year_built": 2014,
+        "floors_count": 1,
+        "gross_sqft": 75000,
+        "use_type": "athletic",
+        "address": "2100 NE Beaverbrooke Blvd, Grimes, IA 50111",
+        "attributes": {},
+        "created_at": "2024-01-01T02:00:00Z",
+        "updated_at": "2024-01-01T02:00:00Z",
+        "id": "ac05fede-8a71-5021-8aac-111b81fe9040",
+    },
+    {
+        "facility_id": "3fe8b0b5-d22c-4e7b-af46-b08928285c44",
+        "name": "DCG High School Transportation Garage",
+        "code": "HS-GAR",
+        "year_built": 2012,
+        "floors_count": 1,
+        "gross_sqft": 25000,
+        "use_type": "transportation",
+        "address": "1400 NE Destination Dr, Grimes, IA 50111",
+        "attributes": {},
+        "created_at": "2024-01-01T03:00:00Z",
+        "updated_at": "2024-01-01T03:00:00Z",
+        "id": "01d40763-429e-585e-9337-610bb77f6d88",
+    },
+    {
+        "facility_id": "4ad66d0c-bbcc-4a7a-97fe-ff12cf37eb2f",
+        "name": "DCG High School Baseball & Softball Complex",
+        "code": "HS-BSB",
+        "year_built": 2015,
+        "floors_count": 1,
+        "gross_sqft": 15000,
+        "use_type": "athletic",
+        "address": "2100 NE Beaverbrooke Blvd, Grimes, IA 50111",
+        "attributes": {},
+        "created_at": "2024-01-01T04:00:00Z",
+        "updated_at": "2024-01-01T04:00:00Z",
+        "id": "6f71271f-fe6d-5aff-a786-3cd7f6f506a4",
+    },
+    {
+        "facility_id": "1e87bfc8-be83-4bfa-a93b-973df8a2d6cd",
+        "name": "DCG High School Fine Arts Wing",
+        "code": "HS-ART",
+        "year_built": 2016,
+        "floors_count": 2,
+        "gross_sqft": 80000,
+        "use_type": "arts",
+        "address": "1600 8th St, Grimes, IA 50111",
+        "attributes": {},
+        "created_at": "2024-01-01T05:00:00Z",
+        "updated_at": "2024-01-01T05:00:00Z",
+        "id": "750af9d1-af56-5eab-b90b-97eec33808fa",
+    },
+]
 
 
 def _coerce_value(col: sa.Column, raw):
-    """Best-effort coercion from CSV string to appropriate Python value."""
+    """Best-effort coercion from CSV/Python value to appropriate DB-bound value."""
     if raw == "" or raw is None:
         return None
 
@@ -35,16 +106,21 @@ def _coerce_value(col: sa.Column, raw):
                 return True
             if v in ("false", "f", "0", "no", "n"):
                 return False
-            log.warning("Invalid boolean for %s.%s: %r; using NULL", TABLE_NAME, col.name, raw)
+            log.warning(
+                "Invalid boolean for %s.%s: %r; using NULL",
+                TABLE_NAME,
+                col.name,
+                raw,
+            )
             return None
         return bool(raw)
 
-    # Otherwise, pass raw through and let DB cast
+    # Otherwise, pass raw through and let DB cast (e.g., timestamps, ints)
     return raw
 
 
 def upgrade() -> None:
-    """Load seed data for {TABLE_NAME} from a CSV file.
+    """Load seed data for buildings from inline SEED_ROWS.
 
     Each row is inserted inside an explicit nested transaction (SAVEPOINT)
     so a failing row won't abort the whole migration transaction.
@@ -56,28 +132,22 @@ def upgrade() -> None:
         log.warning("Table %s does not exist; skipping seed", TABLE_NAME)
         return
 
-    if not os.path.exists(CSV_FILE):
-        log.warning("CSV file not found for %s: %s; skipping", TABLE_NAME, CSV_FILE)
-        return
-
     metadata = sa.MetaData()
     table = sa.Table(TABLE_NAME, metadata, autoload_with=bind)
 
-    with open(CSV_FILE, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
-
-    if not rows:
-        log.info("CSV file for %s is empty: %s", TABLE_NAME, CSV_FILE)
+    if not SEED_ROWS:
+        log.info("No seed rows defined for %s", TABLE_NAME)
         return
 
     inserted = 0
-    for raw_row in rows:
+
+    for raw_row in SEED_ROWS:
         row = {}
 
         for col in table.columns:
             if col.name not in raw_row:
                 continue
+
             raw_val = raw_row[col.name]
             value = _coerce_value(col, raw_val)
             row[col.name] = value
@@ -85,7 +155,6 @@ def upgrade() -> None:
         if not row:
             continue
 
-        # Explicit nested transaction (SAVEPOINT)
         nested = bind.begin_nested()
         try:
             bind.execute(table.insert().values(**row))
@@ -100,7 +169,7 @@ def upgrade() -> None:
                 raw_row,
             )
 
-    log.info("Inserted %s rows into %s from %s", inserted, TABLE_NAME, CSV_FILE)
+    log.info("Inserted %s rows into %s (inline seed)", inserted, TABLE_NAME)
 
 
 def downgrade() -> None:

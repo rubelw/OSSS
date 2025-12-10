@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import csv
 import logging
-import os
 
 from alembic import op
 import sqlalchemy as sa
@@ -17,11 +15,78 @@ depends_on = None
 log = logging.getLogger("alembic.runtime.migration")
 
 TABLE_NAME = "policies"
-CSV_FILE = os.path.join(os.path.dirname(__file__), "csv", f"{TABLE_NAME}.csv")
+
+# Inline seed data for policies
+# Matches Policy model: id, org_id, code, title, status
+SEED_ROWS = [
+    {
+        "id": "59126d6a-7ad2-4b33-a56e-f5d51701d9d2",
+        "org_id": "c201e5e9-60c0-466f-8f63-aecbf868c420",
+        "code": "100",
+        "title": "Educational Philosophy",
+        "status": "active",
+    },
+    {
+        "id": "af10ef1e-4e4f-4031-b3cd-273c2ff5eb0c",
+        "org_id": "c201e5e9-60c0-466f-8f63-aecbf868c420",
+        "code": "200",
+        "title": "Board of Directors",
+        "status": "active",
+    },
+    {
+        "id": "3ed9e8e5-7f09-4da2-96dd-d5ca8aeec35d",
+        "org_id": "c201e5e9-60c0-466f-8f63-aecbf868c420",
+        "code": "300",
+        "title": "Administration",
+        "status": "active",
+    },
+    {
+        "id": "dbc0bbf2-0f6c-4bd9-94f1-81092173fa0f",
+        "org_id": "c201e5e9-60c0-466f-8f63-aecbf868c420",
+        "code": "400",
+        "title": "Staff Personnel",
+        "status": "active",
+    },
+    {
+        "id": "7bc459bd-f536-4202-ba7c-600b26248dec",
+        "org_id": "c201e5e9-60c0-466f-8f63-aecbf868c420",
+        "code": "500",
+        "title": "Students",
+        "status": "active",
+    },
+    {
+        "id": "2341657a-ff89-45b2-9f92-01e7529aae4e",
+        "org_id": "c201e5e9-60c0-466f-8f63-aecbf868c420",
+        "code": "600",
+        "title": "Educational Program",
+        "status": "active",
+    },
+    {
+        "id": "9dcdc596-fedc-47ea-84a1-63d4b5fe4054",
+        "org_id": "c201e5e9-60c0-466f-8f63-aecbf868c420",
+        "code": "700",
+        "title": "Non-Instructional Operations and Business Services",
+        "status": "active",
+    },
+    {
+        "id": "1c073bed-78e5-4615-b9f5-1a0dcec44587",
+        "org_id": "c201e5e9-60c0-466f-8f63-aecbf868c420",
+        "code": "800",
+        "title": "Buildings and Sites",
+        "status": "active",
+    },
+    {
+        "id": "cdc37603-dbbf-4c20-b51d-9a46965b04ed",
+        "org_id": "c201e5e9-60c0-466f-8f63-aecbf868c420",
+        "code": "1000",
+        "title": "School–Community Relations",
+        "status": "active",
+    },
+]
 
 
 def _coerce_value(col: sa.Column, raw):
-    """Best-effort coercion from CSV string to appropriate Python value."""
+    """Best-effort coercion from Python value to appropriate DB-bound value."""
     if raw == "" or raw is None:
         return None
 
@@ -39,12 +104,12 @@ def _coerce_value(col: sa.Column, raw):
             return None
         return bool(raw)
 
-    # Otherwise, pass raw through and let DB cast
+    # Strings, UUIDs, JSON/dicts, etc. are passed through and cast by SQLAlchemy/DB
     return raw
 
 
 def upgrade() -> None:
-    """Load seed data for {TABLE_NAME} from a CSV file.
+    """Load seed data for policies from inline SEED_ROWS.
 
     Each row is inserted inside an explicit nested transaction (SAVEPOINT)
     so a failing row won't abort the whole migration transaction.
@@ -56,23 +121,15 @@ def upgrade() -> None:
         log.warning("Table %s does not exist; skipping seed", TABLE_NAME)
         return
 
-    if not os.path.exists(CSV_FILE):
-        log.warning("CSV file not found for %s: %s; skipping", TABLE_NAME, CSV_FILE)
-        return
-
     metadata = sa.MetaData()
     table = sa.Table(TABLE_NAME, metadata, autoload_with=bind)
 
-    with open(CSV_FILE, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
-
-    if not rows:
-        log.info("CSV file for %s is empty: %s", TABLE_NAME, CSV_FILE)
+    if not SEED_ROWS:
+        log.info("No seed rows defined for %s", TABLE_NAME)
         return
 
     inserted = 0
-    for raw_row in rows:
+    for raw_row in SEED_ROWS:
         row = {}
 
         for col in table.columns:
@@ -85,7 +142,6 @@ def upgrade() -> None:
         if not row:
             continue
 
-        # Explicit nested transaction (SAVEPOINT)
         nested = bind.begin_nested()
         try:
             bind.execute(table.insert().values(**row))
@@ -100,9 +156,29 @@ def upgrade() -> None:
                 raw_row,
             )
 
-    log.info("Inserted %s rows into %s from %s", inserted, TABLE_NAME, CSV_FILE)
+    log.info("Inserted %s rows into %s from inline SEED_ROWS", inserted, TABLE_NAME)
 
 
 def downgrade() -> None:
-    # No-op downgrade; seed data is left in place.
-    pass
+    """Best-effort removal of the seeded policies rows."""
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+
+    if not inspector.has_table(TABLE_NAME):
+        log.warning("Table %s does not exist; skipping delete", TABLE_NAME)
+        return
+
+    if not SEED_ROWS:
+        log.info("No seed rows defined for %s; nothing to delete", TABLE_NAME)
+        return
+
+    metadata = sa.MetaData()
+    table = sa.Table(TABLE_NAME, metadata, autoload_with=bind)
+
+    ids = [row["id"] for row in SEED_ROWS if "id" in row]
+    if not ids:
+        log.info("No IDs found in seed rows for %s; nothing to delete", TABLE_NAME)
+        return
+
+    bind.execute(table.delete().where(table.c.id.in_(ids)))
+    log.info("Deleted %s seeded rows from %s", len(ids), TABLE_NAME)
