@@ -658,7 +658,7 @@ class RagEngine:
             "other organization. If you expand 'DCG', expand it only as 'Dallas Center-Grimes "
             "Community School District'.\n"
             'If the answer is not explicitly in the context, reply exactly:\n'
-            '"I\'m not sure from the local directory."\n'
+            '"I\'m not sure, can you rephrase or provide more information."\n'
             "Do NOT guess. Do NOT use outside web knowledge.\n\n"
             f"CONTEXT:\n{context}\n\n"
             "Answer clearly. If you mention a staff role (like Superintendent), give the name and role."
@@ -938,10 +938,13 @@ class RouterAgent:
                 intent_label,
             )
 
+            # 🔧 UPDATED: pass rag and session into the new LangGraph wrapper
             lc_result = await run_langchain_agent(
-                message=query,
                 session_id=str(agent_session_id),
                 agent_name=lc_agent_name,
+                rag=rag,
+                session=session,
+                message=query,
             )
 
             reply_text = lc_result.get("reply", "")
@@ -999,9 +1002,13 @@ class RouterAgent:
             }
 
             try:
-                debug_json = json.dumps(response_payload, ensure_ascii=False, default=str)[:4000]
+                debug_json = json.dumps(
+                    response_payload, ensure_ascii=False, default=str
+                )[:4000]
             except TypeError:
-                debug_json = f"<non-serializable payload keys={list(response_payload.keys())}>"
+                debug_json = (
+                    f"<non-serializable payload keys={list(response_payload.keys())}>"
+                )
 
             logger.info(
                 "[RAG] response (langchain_agent:%s): %s",

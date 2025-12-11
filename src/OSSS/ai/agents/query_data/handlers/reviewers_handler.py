@@ -13,7 +13,6 @@ from OSSS.ai.agents.query_data.query_data_registry import (
     register_handler,
 )
 from OSSS.ai.agents.query_data.query_data_errors import QueryDataError
-from OSSS.ai.ai_rules.intent_rules import IntentHeuristicRule
 
 logger = logging.getLogger("OSSS.ai.agents.query_data.report_cards")
 

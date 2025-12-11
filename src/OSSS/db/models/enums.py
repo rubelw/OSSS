@@ -78,3 +78,10 @@ GRADE_LEVEL_ORDINALS: dict[GradeLevels, int] = {
     GradeLevels.ELEVENTH: 12,
     GradeLevels.TWELFTH: 13,
 }
+
+class EnrollmentStatus(str, Enum):
+    ENROLLED = "ENROLLED"
+    WITHDRAWN = "WITHDRAWN"
+    TRANSFERRED = "TRANSFERRED"
+    GRADUATED = "GRADUATED"
+    OTHER = "OTHER"

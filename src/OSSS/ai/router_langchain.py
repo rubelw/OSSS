@@ -25,8 +25,8 @@ class ChatResponse(BaseModel):
 async def langchain_chat(payload: ChatRequest) -> ChatResponse:
     try:
         result = await run_agent(
-            payload.message,
-            session_id=payload.session_id,
+            message=payload.message,
+            session_id=payload.session_id or "default-session",
         )
         return ChatResponse(reply=result["reply"])
     except Exception as exc:

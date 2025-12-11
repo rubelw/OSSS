@@ -100,7 +100,8 @@ volumes:
     name: taiga_media_data
   redis-data_csv:
     name: redis-data
-
+  langgraph_data:
+    name: langgraph_data
 
 
 services:
@@ -193,6 +194,8 @@ services:
       - ./:/workspace:cached
       - ./docker/logging.yml:/workspace/docker/logging.yaml:ro,z
       - ./scripts/app-entrypoint.sh:/usr/local/bin/app-entrypoint.sh:ro,z
+      - langgraph_data:/workspace/langgraph_data:z
+
     labels:
       co.elastic.logs/enabled: 'true'
       co.elastic.logs/processors.1.decode_json_fields.fields: message
