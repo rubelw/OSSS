@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-import csv
+import csv  # kept for consistency with other migrations (unused here)
 import logging
-import os
+import os    # kept for consistency with other migrations (unused here)
 
 from alembic import op
 import sqlalchemy as sa
@@ -17,11 +17,59 @@ depends_on = None
 log = logging.getLogger("alembic.runtime.migration")
 
 TABLE_NAME = "iep_plans"
-CSV_FILE = os.path.join(os.path.dirname(__file__), "csv", f"{TABLE_NAME}.csv")
+
+# Inline seed data (replaces CSV)
+ROWS = [
+    {
+        "special_ed_case_id": "a9b4b679-1daa-58d9-93b4-54f8e4a1c698",
+        "effective_start": "2024-01-02",
+        "effective_end": "2024-01-02",
+        "summary": "iep_plans_summary_1",
+        "created_at": "2024-01-01T01:00:00Z",
+        "updated_at": "2024-01-01T01:00:00Z",
+        "id": "61f759cd-2ba8-5c11-9d52-86388834aaca",
+    },
+    {
+        "special_ed_case_id": "a9b4b679-1daa-58d9-93b4-54f8e4a1c698",
+        "effective_start": "2024-01-03",
+        "effective_end": "2024-01-03",
+        "summary": "iep_plans_summary_2",
+        "created_at": "2024-01-01T02:00:00Z",
+        "updated_at": "2024-01-01T02:00:00Z",
+        "id": "6fb9307c-2c93-5073-a28d-93be4c4a4abe",
+    },
+    {
+        "special_ed_case_id": "a9b4b679-1daa-58d9-93b4-54f8e4a1c698",
+        "effective_start": "2024-01-04",
+        "effective_end": "2024-01-04",
+        "summary": "iep_plans_summary_3",
+        "created_at": "2024-01-01T03:00:00Z",
+        "updated_at": "2024-01-01T03:00:00Z",
+        "id": "e30c9bef-75d7-5af8-95ab-dd0a2048eae7",
+    },
+    {
+        "special_ed_case_id": "a9b4b679-1daa-58d9-93b4-54f8e4a1c698",
+        "effective_start": "2024-01-05",
+        "effective_end": "2024-01-05",
+        "summary": "iep_plans_summary_4",
+        "created_at": "2024-01-01T04:00:00Z",
+        "updated_at": "2024-01-01T04:00:00Z",
+        "id": "c385afd6-cf5e-53d8-baa1-50868318f894",
+    },
+    {
+        "special_ed_case_id": "a9b4b679-1daa-58d9-93b4-54f8e4a1c698",
+        "effective_start": "2024-01-06",
+        "effective_end": "2024-01-06",
+        "summary": "iep_plans_summary_5",
+        "created_at": "2024-01-01T05:00:00Z",
+        "updated_at": "2024-01-01T05:00:00Z",
+        "id": "d0756660-b0d2-5c47-b685-a34a6bb425cc",
+    },
+]
 
 
 def _coerce_value(col: sa.Column, raw):
-    """Best-effort coercion from CSV string to appropriate Python value."""
+    """Best-effort coercion from inline seed rows to appropriate Python value."""
     if raw == "" or raw is None:
         return None
 
@@ -35,20 +83,21 @@ def _coerce_value(col: sa.Column, raw):
                 return True
             if v in ("false", "f", "0", "no", "n"):
                 return False
-            log.warning("Invalid boolean for %s.%s: %r; using NULL", TABLE_NAME, col.name, raw)
+            log.warning(
+                "Invalid boolean for %s.%s: %r; using NULL",
+                TABLE_NAME,
+                col.name,
+                raw,
+            )
             return None
         return bool(raw)
 
-    # Otherwise, pass raw through and let DB cast
+    # Otherwise, pass raw through and let DB cast (UUID, dates, timestamptz, etc.)
     return raw
 
 
 def upgrade() -> None:
-    """Load seed data for {TABLE_NAME} from a CSV file.
-
-    Each row is inserted inside an explicit nested transaction (SAVEPOINT)
-    so a failing row won't abort the whole migration transaction.
-    """
+    """Seed fixed iep_plans rows inline (no CSV file)."""
     bind = op.get_bind()
     inspector = sa.inspect(bind)
 
@@ -56,31 +105,22 @@ def upgrade() -> None:
         log.warning("Table %s does not exist; skipping seed", TABLE_NAME)
         return
 
-    if not os.path.exists(CSV_FILE):
-        log.warning("CSV file not found for %s: %s; skipping", TABLE_NAME, CSV_FILE)
-        return
-
     metadata = sa.MetaData()
     table = sa.Table(TABLE_NAME, metadata, autoload_with=bind)
 
-    with open(CSV_FILE, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
-
-    if not rows:
-        log.info("CSV file for %s is empty: %s", TABLE_NAME, CSV_FILE)
+    if not ROWS:
+        log.info("No inline rows for %s; skipping", TABLE_NAME)
         return
 
     inserted = 0
-    for raw_row in rows:
-        row = {}
+    for raw_row in ROWS:
+        row: dict[str, object] = {}
 
         for col in table.columns:
             if col.name not in raw_row:
                 continue
             raw_val = raw_row[col.name]
-            value = _coerce_value(col, raw_val)
-            row[col.name] = value
+            row[col.name] = _coerce_value(col, raw_val)
 
         if not row:
             continue
@@ -100,7 +140,7 @@ def upgrade() -> None:
                 raw_row,
             )
 
-    log.info("Inserted %s rows into %s from %s", inserted, TABLE_NAME, CSV_FILE)
+    log.info("Inserted %s inline rows into %s", inserted, TABLE_NAME)
 
 
 def downgrade() -> None:

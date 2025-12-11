@@ -54,6 +54,6 @@ class AgendaWorkflowStep(UUIDMixin, Base):
     step_no: Mapped[int] = mapped_column(sa.Integer, nullable=False, server_default="0")
     approver_type: Mapped[str] = mapped_column(sa.String(20), nullable=False)
     approver_id: Mapped[Optional[uuid.UUID]] = mapped_column(GUID())
-    rule: Mapped[Optional[str]] = mapped_column(sa.String(50))
+    rule: Mapped[Optional[str]] = mapped_column(sa.String(255))
 
     workflow: Mapped["AgendaWorkflow"] = relationship("AgendaWorkflow", back_populates="steps", lazy="joined")

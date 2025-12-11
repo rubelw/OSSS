@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import csv
 import logging
-import os
 
 from alembic import op
 import sqlalchemy as sa
@@ -17,11 +15,10 @@ depends_on = None
 log = logging.getLogger("alembic.runtime.migration")
 
 TABLE_NAME = "topics"
-CSV_FILE = os.path.join(os.path.dirname(__file__), "csv", f"{TABLE_NAME}.csv")
 
 
 def _coerce_value(col: sa.Column, raw):
-    """Best-effort coercion from CSV string to appropriate Python value."""
+    """Best-effort coercion from Python value to appropriate DB value."""
     if raw == "" or raw is None:
         return None
 
@@ -44,11 +41,7 @@ def _coerce_value(col: sa.Column, raw):
 
 
 def upgrade() -> None:
-    """Load seed data for {TABLE_NAME} from a CSV file.
-
-    Each row is inserted inside an explicit nested transaction (SAVEPOINT)
-    so a failing row won't abort the whole migration transaction.
-    """
+    """Load seed data for topics from inline rows."""
     bind = op.get_bind()
     inspector = sa.inspect(bind)
 
@@ -56,24 +49,29 @@ def upgrade() -> None:
         log.warning("Table %s does not exist; skipping seed", TABLE_NAME)
         return
 
-    if not os.path.exists(CSV_FILE):
-        log.warning("CSV file not found for %s: %s; skipping", TABLE_NAME, CSV_FILE)
-        return
-
     metadata = sa.MetaData()
     table = sa.Table(TABLE_NAME, metadata, autoload_with=bind)
 
-    with open(CSV_FILE, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
+    # Inline seed rows
+    rows = [
+        {
+            "user_id": "de036046-aeed-4e84-960c-07ca8f9b99b9",
+            "course_id": "a4cddcde-b046-5dd4-8255-593ba99983c6",
+            "name": "Unit 1: Nonfiction & Argument",
+            "update_time": "2024-08-18T15:00:00Z",
+            "id": "7e95d92a-702a-50f0-8eb1-80d59c0a8fb1",
+            "created_at": "2024-08-18T15:00:00Z",
+            "updated_at": "2024-08-18T15:00:00Z",
+        }
+    ]
 
     if not rows:
-        log.info("CSV file for %s is empty: %s", TABLE_NAME, CSV_FILE)
+        log.info("Inline seed rows for %s are empty", TABLE_NAME)
         return
 
     inserted = 0
     for raw_row in rows:
-        row = {}
+        row: dict[str, object] = {}
 
         for col in table.columns:
             if col.name not in raw_row:
@@ -85,7 +83,6 @@ def upgrade() -> None:
         if not row:
             continue
 
-        # Explicit nested transaction (SAVEPOINT)
         nested = bind.begin_nested()
         try:
             bind.execute(table.insert().values(**row))
@@ -100,7 +97,7 @@ def upgrade() -> None:
                 raw_row,
             )
 
-    log.info("Inserted %s rows into %s from %s", inserted, TABLE_NAME, CSV_FILE)
+    log.info("Inserted %s inline rows into %s", inserted, TABLE_NAME)
 
 
 def downgrade() -> None:

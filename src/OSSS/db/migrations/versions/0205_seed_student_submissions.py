@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import csv
 import logging
-import os
 
 from alembic import op
 import sqlalchemy as sa
@@ -17,11 +15,31 @@ depends_on = None
 log = logging.getLogger("alembic.runtime.migration")
 
 TABLE_NAME = "student_submissions"
-CSV_FILE = os.path.join(os.path.dirname(__file__), "csv", f"{TABLE_NAME}.csv")
+
+# Inline seed rows with realistic Classroom-style submissions
+# Columns:
+#   student_user_id, coursework_id, state, late, assigned_grade, draft_grade,
+#   alternate_link, update_time, user_profile_id, id, created_at, updated_at
+SEED_ROWS = [
+    {
+        "student_user_id": "de036046-aeed-4e84-960c-07ca8f9b99b9",
+        "coursework_id": "ad4834b4-ecca-50ef-b359-ef9f4e862e99",
+        "state": "TURNED_IN",
+        "late": False,
+        "assigned_grade": 95,
+        "draft_grade": 95,
+        "alternate_link": "https://classroom.google.com/c/COURSE1/a/ASSIGN1",
+        "update_time": "2024-01-01T01:15:00Z",
+        "user_profile_id": "bf98bfb1-547f-5bd5-9c70-2b789e0bfb4b",
+        "id": "bc601460-6c5a-50ed-b0cc-c1965d491591",
+        "created_at": "2024-01-01T01:00:00Z",
+        "updated_at": "2024-01-01T01:15:00Z",
+    },
+]
 
 
 def _coerce_value(col: sa.Column, raw):
-    """Best-effort coercion from CSV string to appropriate Python value."""
+    """Best-effort coercion from inline values to appropriate Python/DB values."""
     if raw == "" or raw is None:
         return None
 
@@ -35,7 +53,12 @@ def _coerce_value(col: sa.Column, raw):
                 return True
             if v in ("false", "f", "0", "no", "n"):
                 return False
-            log.warning("Invalid boolean for %s.%s: %r; using NULL", TABLE_NAME, col.name, raw)
+            log.warning(
+                "Invalid boolean for %s.%s: %r; using NULL",
+                TABLE_NAME,
+                col.name,
+                raw,
+            )
             return None
         return bool(raw)
 
@@ -44,7 +67,7 @@ def _coerce_value(col: sa.Column, raw):
 
 
 def upgrade() -> None:
-    """Load seed data for {TABLE_NAME} from a CSV file.
+    """Load seed data for student_submissions from inline SEED_ROWS.
 
     Each row is inserted inside an explicit nested transaction (SAVEPOINT)
     so a failing row won't abort the whole migration transaction.
@@ -56,24 +79,17 @@ def upgrade() -> None:
         log.warning("Table %s does not exist; skipping seed", TABLE_NAME)
         return
 
-    if not os.path.exists(CSV_FILE):
-        log.warning("CSV file not found for %s: %s; skipping", TABLE_NAME, CSV_FILE)
-        return
-
     metadata = sa.MetaData()
     table = sa.Table(TABLE_NAME, metadata, autoload_with=bind)
 
-    with open(CSV_FILE, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
-
+    rows = SEED_ROWS
     if not rows:
-        log.info("CSV file for %s is empty: %s", TABLE_NAME, CSV_FILE)
+        log.info("No inline seed rows defined for %s", TABLE_NAME)
         return
 
     inserted = 0
     for raw_row in rows:
-        row = {}
+        row: dict[str, object] = {}
 
         for col in table.columns:
             if col.name not in raw_row:
@@ -100,7 +116,7 @@ def upgrade() -> None:
                 raw_row,
             )
 
-    log.info("Inserted %s rows into %s from %s", inserted, TABLE_NAME, CSV_FILE)
+    log.info("Inserted %s inline seed rows into %s", inserted, TABLE_NAME)
 
 
 def downgrade() -> None:

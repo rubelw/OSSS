@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-import csv
 import logging
-import os
+from datetime import date, datetime, timezone
 
 from alembic import op
 import sqlalchemy as sa
@@ -17,34 +16,30 @@ depends_on = None
 log = logging.getLogger("alembic.runtime.migration")
 
 TABLE_NAME = "journal_entries"
-CSV_FILE = os.path.join(os.path.dirname(__file__), "csv", f"{TABLE_NAME}.csv")
 
+BATCH_ID = "fd7d8eaf-38f2-476d-af02-ea9776c6b082"
 
-def _coerce_value(col: sa.Column, raw):
-    """Best-effort coercion from CSV string to appropriate Python value."""
-    if raw == "" or raw is None:
-        return None
+# Inline seed rows with realistic journal entry data
+SEED_ROWS = [
+    {
+        "id": "e089fc6c-3f15-5a00-b6e7-4e07259293be",
+        "fiscal_period_id": "e03a4e59-941e-4c97-9d53-c4b72c77392e",
+        "je_no": "JE-2024-0001",
+        "journal_date": date(2024, 1, 2),
+        "description": "Accrual for December utilities",
+        "status": "posted",
+        "total_debits": 1250.00,
+        "total_credits": 1250.00,
+        "batch_id": "fd7d8eaf-38f2-476d-af02-ea9776c6b082",
+        "created_at": datetime(2024, 1, 1, 1, 0, tzinfo=timezone.utc),
+        "updated_at": datetime(2024, 1, 1, 1, 0, tzinfo=timezone.utc),
+    },
 
-    t = col.type
-
-    # Boolean needs special handling because SQLAlchemy is strict
-    if isinstance(t, sa.Boolean):
-        if isinstance(raw, str):
-            v = raw.strip().lower()
-            if v in ("true", "t", "1", "yes", "y"):
-                return True
-            if v in ("false", "f", "0", "no", "n"):
-                return False
-            log.warning("Invalid boolean for %s.%s: %r; using NULL", TABLE_NAME, col.name, raw)
-            return None
-        return bool(raw)
-
-    # Otherwise, pass raw through and let DB cast
-    return raw
+]
 
 
 def upgrade() -> None:
-    """Load seed data for {TABLE_NAME} from a CSV file.
+    """Seed journal_entries with inline rows.
 
     Each row is inserted inside an explicit nested transaction (SAVEPOINT)
     so a failing row won't abort the whole migration transaction.
@@ -56,36 +51,21 @@ def upgrade() -> None:
         log.warning("Table %s does not exist; skipping seed", TABLE_NAME)
         return
 
-    if not os.path.exists(CSV_FILE):
-        log.warning("CSV file not found for %s: %s; skipping", TABLE_NAME, CSV_FILE)
-        return
-
     metadata = sa.MetaData()
     table = sa.Table(TABLE_NAME, metadata, autoload_with=bind)
 
-    with open(CSV_FILE, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
-
-    if not rows:
-        log.info("CSV file for %s is empty: %s", TABLE_NAME, CSV_FILE)
-        return
-
     inserted = 0
-    for raw_row in rows:
-        row = {}
-
-        for col in table.columns:
-            if col.name not in raw_row:
-                continue
-            raw_val = raw_row[col.name]
-            value = _coerce_value(col, raw_val)
-            row[col.name] = value
+    for raw_row in SEED_ROWS:
+        # Only include columns that actually exist on the table
+        row = {
+            col.name: raw_row[col.name]
+            for col in table.columns
+            if col.name in raw_row
+        }
 
         if not row:
             continue
 
-        # Explicit nested transaction (SAVEPOINT)
         nested = bind.begin_nested()
         try:
             bind.execute(table.insert().values(**row))
@@ -100,7 +80,7 @@ def upgrade() -> None:
                 raw_row,
             )
 
-    log.info("Inserted %s rows into %s from %s", inserted, TABLE_NAME, CSV_FILE)
+    log.info("Inserted %s rows into %s", inserted, TABLE_NAME)
 
 
 def downgrade() -> None:

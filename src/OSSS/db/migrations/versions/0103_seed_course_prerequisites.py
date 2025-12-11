@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import csv
 import logging
-import os
 
 from alembic import op
 import sqlalchemy as sa
@@ -17,11 +15,50 @@ depends_on = None
 log = logging.getLogger("alembic.runtime.migration")
 
 TABLE_NAME = "course_prerequisites"
-CSV_FILE = os.path.join(os.path.dirname(__file__), "csv", f"{TABLE_NAME}.csv")
+
+# Inline seed data; values are strings so the DB can cast
+# to the correct types (UUID / TIMESTAMPTZ, etc.).
+INLINE_ROWS = [
+    {
+        "id": "6d07a61e-20f7-53ef-b0d1-a409d731e023",
+        "course_id": "a4cddcde-b046-5dd4-8255-593ba99983c6",
+        "prereq_course_id": "a4cddcde-b046-5dd4-8255-593ba99983c6",
+        "created_at": "2024-01-01T01:00:00Z",
+        "updated_at": "2024-01-01T01:00:00Z",
+    },
+    {
+        "id": "64741053-7f89-53f8-977e-1adf1facd2ac",
+        "course_id": "a4cddcde-b046-5dd4-8255-593ba99983c6",
+        "prereq_course_id": "a4cddcde-b046-5dd4-8255-593ba99983c6",
+        "created_at": "2024-01-01T02:00:00Z",
+        "updated_at": "2024-01-01T02:00:00Z",
+    },
+    {
+        "id": "746c85b6-6e26-5d4d-84b8-3718c99721bf",
+        "course_id": "a4cddcde-b046-5dd4-8255-593ba99983c6",
+        "prereq_course_id": "a4cddcde-b046-5dd4-8255-593ba99983c6",
+        "created_at": "2024-01-01T03:00:00Z",
+        "updated_at": "2024-01-01T03:00:00Z",
+    },
+    {
+        "id": "cf3122a5-1616-5fd5-bf4d-fe071c5b7141",
+        "course_id": "a4cddcde-b046-5dd4-8255-593ba99983c6",
+        "prereq_course_id": "a4cddcde-b046-5dd4-8255-593ba99983c6",
+        "created_at": "2024-01-01T04:00:00Z",
+        "updated_at": "2024-01-01T04:00:00Z",
+    },
+    {
+        "id": "c8259287-d068-5f1c-a1bc-d23cc92a3248",
+        "course_id": "a4cddcde-b046-5dd4-8255-593ba99983c6",
+        "prereq_course_id": "a4cddcde-b046-5dd4-8255-593ba99983c6",
+        "created_at": "2024-01-01T05:00:00Z",
+        "updated_at": "2024-01-01T05:00:00Z",
+    },
+]
 
 
 def _coerce_value(col: sa.Column, raw):
-    """Best-effort coercion from CSV string to appropriate Python value."""
+    """Best-effort coercion from inline seed data to appropriate Python value."""
     if raw == "" or raw is None:
         return None
 
@@ -39,12 +76,12 @@ def _coerce_value(col: sa.Column, raw):
             return None
         return bool(raw)
 
-    # Otherwise, pass raw through and let DB cast
+    # Otherwise, pass raw through and let DB cast (UUID, TIMESTAMPTZ, etc.)
     return raw
 
 
 def upgrade() -> None:
-    """Load seed data for {TABLE_NAME} from a CSV file.
+    """Load seed data for course_prerequisites from inline rows.
 
     Each row is inserted inside an explicit nested transaction (SAVEPOINT)
     so a failing row won't abort the whole migration transaction.
@@ -56,23 +93,15 @@ def upgrade() -> None:
         log.warning("Table %s does not exist; skipping seed", TABLE_NAME)
         return
 
-    if not os.path.exists(CSV_FILE):
-        log.warning("CSV file not found for %s: %s; skipping", TABLE_NAME, CSV_FILE)
+    if not INLINE_ROWS:
+        log.info("No inline rows defined for %s; nothing to insert", TABLE_NAME)
         return
 
     metadata = sa.MetaData()
     table = sa.Table(TABLE_NAME, metadata, autoload_with=bind)
 
-    with open(CSV_FILE, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
-
-    if not rows:
-        log.info("CSV file for %s is empty: %s", TABLE_NAME, CSV_FILE)
-        return
-
     inserted = 0
-    for raw_row in rows:
+    for raw_row in INLINE_ROWS:
         row = {}
 
         for col in table.columns:
@@ -100,7 +129,7 @@ def upgrade() -> None:
                 raw_row,
             )
 
-    log.info("Inserted %s rows into %s from %s", inserted, TABLE_NAME, CSV_FILE)
+    log.info("Inserted %s rows into %s from inline seed data", inserted, TABLE_NAME)
 
 
 def downgrade() -> None:

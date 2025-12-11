@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import csv
 import logging
-import os
 
 from alembic import op
 import sqlalchemy as sa
@@ -17,34 +15,72 @@ depends_on = None
 log = logging.getLogger("alembic.runtime.migration")
 
 TABLE_NAME = "proposal_reviews"
-CSV_FILE = os.path.join(os.path.dirname(__file__), "csv", f"{TABLE_NAME}.csv")
 
-
-def _coerce_value(col: sa.Column, raw):
-    """Best-effort coercion from CSV string to appropriate Python value."""
-    if raw == "" or raw is None:
-        return None
-
-    t = col.type
-
-    # Boolean needs special handling because SQLAlchemy is strict
-    if isinstance(t, sa.Boolean):
-        if isinstance(raw, str):
-            v = raw.strip().lower()
-            if v in ("true", "t", "1", "yes", "y"):
-                return True
-            if v in ("false", "f", "0", "no", "n"):
-                return False
-            log.warning("Invalid boolean for %s.%s: %r; using NULL", TABLE_NAME, col.name, raw)
-            return None
-        return bool(raw)
-
-    # Otherwise, pass raw through and let DB cast
-    return raw
+# Inline seed rows for proposal_reviews
+# Columns:
+# proposal_id, review_round_id, reviewer_id, decision, decided_at,
+# comment, created_at, updated_at, id
+SEED_ROWS = [
+    {
+        "proposal_id": "96bc433b-c25c-5870-80e2-b50df1bf1d66",
+        "review_round_id": "4f0cdda3-ce2d-5928-97e9-d20ac96daa47",
+        "reviewer_id": "a09b6c88-3418-40b5-9f14-77800af409f7",
+        "decision": "approved",
+        "decided_at": "2024-01-01T01:00:00Z",
+        "comment": "Proposal meets all rubric criteria and is ready to move forward.",
+        "created_at": "2024-01-01T01:00:00Z",
+        "updated_at": "2024-01-01T01:00:00Z",
+        "id": "54cc27e4-04e6-52e9-abad-7395507cc7a5",
+    },
+    {
+        "proposal_id": "96bc433b-c25c-5870-80e2-b50df1bf1d66",
+        "review_round_id": "4f0cdda3-ce2d-5928-97e9-d20ac96daa47",
+        "reviewer_id": "a09b6c88-3418-40b5-9f14-77800af409f7",
+        "decision": "approved_with_revisions",
+        "decided_at": "2024-01-01T02:00:00Z",
+        "comment": "Approved pending minor edits to the budget narrative and timeline.",
+        "created_at": "2024-01-01T02:00:00Z",
+        "updated_at": "2024-01-01T02:00:00Z",
+        "id": "b556d935-32a3-5711-a552-c081db914d57",
+    },
+    {
+        "proposal_id": "96bc433b-c25c-5870-80e2-b50df1bf1d66",
+        "review_round_id": "4f0cdda3-ce2d-5928-97e9-d20ac96daa47",
+        "reviewer_id": "a09b6c88-3418-40b5-9f14-77800af409f7",
+        "decision": "revisions_requested",
+        "decided_at": "2024-01-01T03:00:00Z",
+        "comment": "Clarify alignment to district strategic priorities and add measurable outcomes.",
+        "created_at": "2024-01-01T03:00:00Z",
+        "updated_at": "2024-01-01T03:00:00Z",
+        "id": "279e6bb5-10ef-57d8-8294-9fc9500d4e1e",
+    },
+    {
+        "proposal_id": "96bc433b-c25c-5870-80e2-b50df1bf1d66",
+        "review_round_id": "4f0cdda3-ce2d-5928-97e9-d20ac96daa47",
+        "reviewer_id": "a09b6c88-3418-40b5-9f14-77800af409f7",
+        "decision": "rejected",
+        "decided_at": "2024-01-01T04:00:00Z",
+        "comment": "Scope and cost are not feasible within the current funding cycle.",
+        "created_at": "2024-01-01T04:00:00Z",
+        "updated_at": "2024-01-01T04:00:00Z",
+        "id": "4e982ed6-516a-54f7-bdb1-2294e6675ef9",
+    },
+    {
+        "proposal_id": "96bc433b-c25c-5870-80e2-b50df1bf1d66",
+        "review_round_id": "4f0cdda3-ce2d-5928-97e9-d20ac96daa47",
+        "reviewer_id": "a09b6c88-3418-40b5-9f14-77800af409f7",
+        "decision": "tabled",
+        "decided_at": "2024-01-01T05:00:00Z",
+        "comment": "Decision deferred pending additional information from the vendor.",
+        "created_at": "2024-01-01T05:00:00Z",
+        "updated_at": "2024-01-01T05:00:00Z",
+        "id": "7e7fa416-0a80-5251-9387-0d9da8cca898",
+    },
+]
 
 
 def upgrade() -> None:
-    """Load seed data for {TABLE_NAME} from a CSV file.
+    """Load seed data for proposal_reviews from inline SEED_ROWS.
 
     Each row is inserted inside an explicit nested transaction (SAVEPOINT)
     so a failing row won't abort the whole migration transaction.
@@ -56,36 +92,21 @@ def upgrade() -> None:
         log.warning("Table %s does not exist; skipping seed", TABLE_NAME)
         return
 
-    if not os.path.exists(CSV_FILE):
-        log.warning("CSV file not found for %s: %s; skipping", TABLE_NAME, CSV_FILE)
-        return
-
     metadata = sa.MetaData()
     table = sa.Table(TABLE_NAME, metadata, autoload_with=bind)
 
-    with open(CSV_FILE, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
-
-    if not rows:
-        log.info("CSV file for %s is empty: %s", TABLE_NAME, CSV_FILE)
-        return
-
     inserted = 0
-    for raw_row in rows:
-        row = {}
-
-        for col in table.columns:
-            if col.name not in raw_row:
-                continue
-            raw_val = raw_row[col.name]
-            value = _coerce_value(col, raw_val)
-            row[col.name] = value
+    for raw_row in SEED_ROWS:
+        # Only include columns that actually exist on the table
+        row: dict[str, object] = {
+            col.name: raw_row[col.name]
+            for col in table.columns
+            if col.name in raw_row
+        }
 
         if not row:
             continue
 
-        # Explicit nested transaction (SAVEPOINT)
         nested = bind.begin_nested()
         try:
             bind.execute(table.insert().values(**row))
@@ -100,7 +121,11 @@ def upgrade() -> None:
                 raw_row,
             )
 
-    log.info("Inserted %s rows into %s from %s", inserted, TABLE_NAME, CSV_FILE)
+    log.info(
+        "Inserted %s rows into %s from inline SEED_ROWS",
+        inserted,
+        TABLE_NAME,
+    )
 
 
 def downgrade() -> None:

@@ -3,6 +3,7 @@ from __future__ import annotations
 import csv
 import logging
 import os
+from datetime import datetime, timezone
 
 from alembic import op
 import sqlalchemy as sa
@@ -19,36 +20,53 @@ log = logging.getLogger("alembic.runtime.migration")
 TABLE_NAME = "team_messages"
 CSV_FILE = os.path.join(os.path.dirname(__file__), "csv", f"{TABLE_NAME}.csv")
 
+# Inline seed data: content, created_at, updated_at, team_id, id
+SEED_ROWS = [
+    {
+        "id": "4464d5ad-75c5-5302-9ca3-cdfc19d6f8c0",
+        "team_id": "ee268bc5-47ec-59b2-b5bb-00492928ca1f",
+        "content": "Welcome to the OSSS implementation channel. We’ll use this space for daily updates and blockers.",
+        "created_at": datetime(2024, 1, 1, 1, 0, 0, tzinfo=timezone.utc),
+        "updated_at": datetime(2024, 1, 1, 1, 0, 0, tzinfo=timezone.utc),
+    },
+    {
+        "id": "8b55e5e0-9716-53e0-8758-7c2cd95f01cb",
+        "team_id": "ee268bc5-47ec-59b2-b5bb-00492928ca1f",
+        "content": "Reminder: data migration dry run is scheduled for Thursday at 3:30 PM. Please confirm your availability.",
+        "created_at": datetime(2024, 1, 1, 2, 0, 0, tzinfo=timezone.utc),
+        "updated_at": datetime(2024, 1, 1, 2, 0, 0, tzinfo=timezone.utc),
+    },
+    {
+        "id": "52dd4c95-e659-5767-b889-98fd74621807",
+        "team_id": "ee268bc5-47ec-59b2-b5bb-00492928ca1f",
+        "content": "Action item: log any student registration issues you see in the OSSS issue tracker by end of day.",
+        "created_at": datetime(2024, 1, 1, 3, 0, 0, tzinfo=timezone.utc),
+        "updated_at": datetime(2024, 1, 1, 3, 0, 0, tzinfo=timezone.utc),
+    },
+    {
+        "id": "5c163b6a-b1dc-548a-91d1-df4e4a0a44f1",
+        "team_id": "ee268bc5-47ec-59b2-b5bb-00492928ca1f",
+        "content": "Today’s focus: verify payroll, attendance, and enrollment syncs in the sandbox environment.",
+        "created_at": datetime(2024, 1, 1, 4, 0, 0, tzinfo=timezone.utc),
+        "updated_at": datetime(2024, 1, 1, 4, 0, 0, tzinfo=timezone.utc),
+    },
+    {
+        "id": "37879934-2419-5e81-91d2-7bd72b131e60",
+        "team_id": "ee268bc5-47ec-59b2-b5bb-00492928ca1f",
+        "content": "Thanks everyone for jumping on the late-afternoon deployment call—great progress on the initial rollout.",
+        "created_at": datetime(2024, 1, 1, 5, 0, 0, tzinfo=timezone.utc),
+        "updated_at": datetime(2024, 1, 1, 5, 0, 0, tzinfo=timezone.utc),
+    },
+]
+
 
 def _coerce_value(col: sa.Column, raw):
-    """Best-effort coercion from CSV string to appropriate Python value."""
-    if raw == "" or raw is None:
-        return None
-
-    t = col.type
-
-    # Boolean needs special handling because SQLAlchemy is strict
-    if isinstance(t, sa.Boolean):
-        if isinstance(raw, str):
-            v = raw.strip().lower()
-            if v in ("true", "t", "1", "yes", "y"):
-                return True
-            if v in ("false", "f", "0", "no", "n"):
-                return False
-            log.warning("Invalid boolean for %s.%s: %r; using NULL", TABLE_NAME, col.name, raw)
-            return None
-        return bool(raw)
-
-    # Otherwise, pass raw through and let DB cast
+    """Inline seeds are already typed correctly; just return the value."""
     return raw
 
 
 def upgrade() -> None:
-    """Load seed data for {TABLE_NAME} from a CSV file.
-
-    Each row is inserted inside an explicit nested transaction (SAVEPOINT)
-    so a failing row won't abort the whole migration transaction.
-    """
+    """Seed team_messages with inline data instead of a CSV file."""
     bind = op.get_bind()
     inspector = sa.inspect(bind)
 
@@ -56,36 +74,22 @@ def upgrade() -> None:
         log.warning("Table %s does not exist; skipping seed", TABLE_NAME)
         return
 
-    if not os.path.exists(CSV_FILE):
-        log.warning("CSV file not found for %s: %s; skipping", TABLE_NAME, CSV_FILE)
-        return
-
     metadata = sa.MetaData()
     table = sa.Table(TABLE_NAME, metadata, autoload_with=bind)
 
-    with open(CSV_FILE, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
-
-    if not rows:
-        log.info("CSV file for %s is empty: %s", TABLE_NAME, CSV_FILE)
-        return
-
     inserted = 0
-    for raw_row in rows:
+    for raw_row in SEED_ROWS:
         row = {}
 
+        # Only populate columns that exist on the table
         for col in table.columns:
             if col.name not in raw_row:
                 continue
-            raw_val = raw_row[col.name]
-            value = _coerce_value(col, raw_val)
-            row[col.name] = value
+            row[col.name] = _coerce_value(col, raw_row[col.name])
 
         if not row:
             continue
 
-        # Explicit nested transaction (SAVEPOINT)
         nested = bind.begin_nested()
         try:
             bind.execute(table.insert().values(**row))
@@ -100,7 +104,7 @@ def upgrade() -> None:
                 raw_row,
             )
 
-    log.info("Inserted %s rows into %s from %s", inserted, TABLE_NAME, CSV_FILE)
+    log.info("Inserted %s inline rows into %s", inserted, TABLE_NAME)
 
 
 def downgrade() -> None:

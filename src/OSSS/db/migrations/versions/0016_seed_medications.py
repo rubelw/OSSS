@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import uuid
 
 from alembic import op
 import sqlalchemy as sa
@@ -17,28 +16,42 @@ log = logging.getLogger("alembic.runtime.migration")
 
 TABLE_NAME = "medications"
 
-# Inline seed rows consistent with the Medication model:
-# id (UUID), name (required), instructions (optional), timestamps use DB defaults
-SEED_ROWS = [
+# Inline seed rows, using realistic names/instructions but fixed IDs/timestamps
+ROWS = [
     {
+        "id": "610838d2-48eb-42a6-89be-650253d65445",
         "name": "Albuterol Inhaler",
         "instructions": "2 puffs via inhaler as needed for asthma symptoms.",
+        "created_at": "2024-01-01T01:00:00Z",
+        "updated_at": "2024-01-01T01:00:00Z",
     },
     {
+        "id": "a78301af-5600-498e-bb75-249735a491bf",
         "name": "Epinephrine Auto-Injector",
-        "instructions": "Inject 0.3 mg in outer thigh for severe allergy; call 911.",
+        "instructions": "Inject 0.3 mg in outer thigh for severe allergic reaction; call 911.",
+        "created_at": "2024-01-01T02:00:00Z",
+        "updated_at": "2024-01-01T02:00:00Z",
     },
     {
+        "id": "3cbb8070-08ac-41c6-9baf-0310d9096d6f",
         "name": "Ibuprofen",
         "instructions": "200 mg by mouth every 6 hours as needed for pain; take with food.",
+        "created_at": "2024-01-01T03:00:00Z",
+        "updated_at": "2024-01-01T03:00:00Z",
     },
     {
+        "id": "6622b2da-b0a4-4326-b4f6-24cba48cbcc0",
         "name": "Acetaminophen",
         "instructions": "325 mg by mouth every 4–6 hours as needed for fever or pain.",
+        "created_at": "2024-01-01T04:00:00Z",
+        "updated_at": "2024-01-01T04:00:00Z",
     },
     {
+        "id": "eb6337eb-7562-4e09-a095-d2a7a9d9da60",
         "name": "Methylphenidate",
         "instructions": "10 mg by mouth once daily in the morning with water.",
+        "created_at": "2024-01-01T05:00:00Z",
+        "updated_at": "2024-01-01T05:00:00Z",
     },
 ]
 
@@ -75,12 +88,12 @@ def upgrade() -> None:
     """
     Seed the medications table with a small catalog of medication definitions.
 
-    This follows the Medication model:
+    Model shape:
 
       id (UUID, PK via UUIDMixin),
       name (Text, not null),
       instructions (Text, nullable),
-      created_at / updated_at (timestamps with server defaults).
+      created_at / updated_at (timestamps).
     """
     bind = op.get_bind()
     inspector = sa.inspect(bind)
@@ -89,27 +102,32 @@ def upgrade() -> None:
         log.warning("Table %s does not exist; skipping seed", TABLE_NAME)
         return
 
-    if not SEED_ROWS:
+    if not ROWS:
         log.info("No seed rows defined for %s; skipping", TABLE_NAME)
         return
 
     metadata = sa.MetaData()
     table = sa.Table(TABLE_NAME, metadata, autoload_with=bind)
 
+    # Optional safety: if there is already data, don't double-seed
+    existing = bind.execute(sa.select(sa.func.count()).select_from(table)).scalar()
+    if existing and existing > 0:
+        log.info(
+            "%s already has %s rows; skipping inline medication seed",
+            TABLE_NAME,
+            existing,
+        )
+        return
+
     inserted = 0
-    for raw_row in SEED_ROWS:
+    for raw_row in ROWS:
         row = {}
 
         for col in table.columns:
-            # Auto-generate UUID for id if not provided
-            if col.name == "id" and "id" not in raw_row:
-                raw_val = str(uuid.uuid4())
-            elif col.name in raw_row:
-                raw_val = raw_row[col.name]
-            else:
-                # Let created_at/updated_at use server defaults; skip any other missing cols
+            if col.name not in raw_row:
+                # Let server defaults handle created_at/updated_at if omitted, etc.
                 continue
-
+            raw_val = raw_row[col.name]
             value = _coerce_value(col, raw_val)
             row[col.name] = value
 
@@ -132,7 +150,7 @@ def upgrade() -> None:
             )
 
     log.info(
-        "Inserted %s rows into %s from inline seed data",
+        "Inserted %s rows into %s from inline medication seed data",
         inserted,
         TABLE_NAME,
     )

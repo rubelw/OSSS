@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-import csv
 import logging
-import os
+from datetime import datetime, date, timezone
 
 from alembic import op
 import sqlalchemy as sa
@@ -17,34 +16,63 @@ depends_on = None
 log = logging.getLogger("alembic.runtime.migration")
 
 TABLE_NAME = "data_sharing_agreements"
-CSV_FILE = os.path.join(os.path.dirname(__file__), "csv", f"{TABLE_NAME}.csv")
 
-
-def _coerce_value(col: sa.Column, raw):
-    """Best-effort coercion from CSV string to appropriate Python value."""
-    if raw == "" or raw is None:
-        return None
-
-    t = col.type
-
-    # Boolean needs special handling because SQLAlchemy is strict
-    if isinstance(t, sa.Boolean):
-        if isinstance(raw, str):
-            v = raw.strip().lower()
-            if v in ("true", "t", "1", "yes", "y"):
-                return True
-            if v in ("false", "f", "0", "no", "n"):
-                return False
-            log.warning("Invalid boolean for %s.%s: %r; using NULL", TABLE_NAME, col.name, raw)
-            return None
-        return bool(raw)
-
-    # Otherwise, pass raw through and let DB cast
-    return raw
+SEED_ROWS = [
+    {
+        "id": "5f8c39ff-e587-4d03-abf9-52b9b20f0c24",
+        "vendor": "Grimes City Public Library",
+        "scope": "Limited directory information for student library card program.",
+        "start_date": date(2024, 8, 2),
+        "end_date": date(2025, 8, 2),
+        "notes": "Agreement with City Library for limited sharing of student name, grade, and school for library card eligibility.",
+        "created_at": datetime(2024, 1, 1, 1, 0, tzinfo=timezone.utc),
+        "updated_at": datetime(2024, 1, 1, 1, 0, tzinfo=timezone.utc),
+    },
+    {
+        "id": "c7ae8f49-0af1-4745-9ef0-9235b17cf07a",
+        "vendor": "Central Iowa Education Service Agency",
+        "scope": "Assessment scores and enrollment data for regional support services.",
+        "start_date": date(2024, 8, 3),
+        "end_date": date(2025, 8, 3),
+        "notes": "Agreement with Educational Service Agency for limited data sharing to support regional professional development and reporting.",
+        "created_at": datetime(2024, 1, 1, 2, 0, tzinfo=timezone.utc),
+        "updated_at": datetime(2024, 1, 1, 2, 0, tzinfo=timezone.utc),
+    },
+    {
+        "id": "7568f4e0-c792-431a-81db-be966b3be22d",
+        "vendor": "Statewide Assessment Vendor",
+        "scope": "Student identifiers and assessment results for state-required testing.",
+        "start_date": date(2024, 8, 4),
+        "end_date": date(2025, 8, 4),
+        "notes": "Agreement with assessment vendor for secure transfer of student rosters and test results for state accountability.",
+        "created_at": datetime(2024, 1, 1, 3, 0, tzinfo=timezone.utc),
+        "updated_at": datetime(2024, 1, 1, 3, 0, tzinfo=timezone.utc),
+    },
+    {
+        "id": "03b4a77e-3af0-451c-89be-f3a6974b028e",
+        "vendor": "Student Transportation Services, LLC",
+        "scope": "Student address and route assignments for bus routing.",
+        "start_date": date(2024, 8, 5),
+        "end_date": date(2025, 8, 5),
+        "notes": "Agreement with transportation contractor for limited sharing of student address, grade, and schedule needed for route planning.",
+        "created_at": datetime(2024, 1, 1, 4, 0, tzinfo=timezone.utc),
+        "updated_at": datetime(2024, 1, 1, 4, 0, tzinfo=timezone.utc),
+    },
+    {
+        "id": "b21d5a3d-a506-4b38-bdfe-79e2d5791c96",
+        "vendor": "After-School Enrichment Partners, Inc.",
+        "scope": "Student contact and enrollment details for after-school programs.",
+        "start_date": date(2024, 8, 6),
+        "end_date": date(2025, 8, 6),
+        "notes": "Agreement with after-school nonprofit for limited sharing of student and guardian contact info for program rosters and communication.",
+        "created_at": datetime(2024, 1, 1, 5, 0, tzinfo=timezone.utc),
+        "updated_at": datetime(2024, 1, 1, 5, 0, tzinfo=timezone.utc),
+    },
+]
 
 
 def upgrade() -> None:
-    """Load seed data for {TABLE_NAME} from a CSV file.
+    """Seed data_sharing_agreements with inline rows.
 
     Each row is inserted inside an explicit nested transaction (SAVEPOINT)
     so a failing row won't abort the whole migration transaction.
@@ -56,36 +84,21 @@ def upgrade() -> None:
         log.warning("Table %s does not exist; skipping seed", TABLE_NAME)
         return
 
-    if not os.path.exists(CSV_FILE):
-        log.warning("CSV file not found for %s: %s; skipping", TABLE_NAME, CSV_FILE)
-        return
-
     metadata = sa.MetaData()
     table = sa.Table(TABLE_NAME, metadata, autoload_with=bind)
 
-    with open(CSV_FILE, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
-
-    if not rows:
-        log.info("CSV file for %s is empty: %s", TABLE_NAME, CSV_FILE)
-        return
-
     inserted = 0
-    for raw_row in rows:
-        row = {}
-
-        for col in table.columns:
-            if col.name not in raw_row:
-                continue
-            raw_val = raw_row[col.name]
-            value = _coerce_value(col, raw_val)
-            row[col.name] = value
+    for raw_row in SEED_ROWS:
+        # Only include columns that actually exist on the table
+        row = {
+            col.name: raw_row[col.name]
+            for col in table.columns
+            if col.name in raw_row
+        }
 
         if not row:
             continue
 
-        # Explicit nested transaction (SAVEPOINT)
         nested = bind.begin_nested()
         try:
             bind.execute(table.insert().values(**row))
@@ -100,7 +113,7 @@ def upgrade() -> None:
                 raw_row,
             )
 
-    log.info("Inserted %s rows into %s from %s", inserted, TABLE_NAME, CSV_FILE)
+    log.info("Inserted %s rows into %s", inserted, TABLE_NAME)
 
 
 def downgrade() -> None:

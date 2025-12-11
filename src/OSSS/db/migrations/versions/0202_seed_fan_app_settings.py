@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import csv
 import logging
-import os
 
 from alembic import op
 import sqlalchemy as sa
@@ -17,11 +15,80 @@ depends_on = None
 log = logging.getLogger("alembic.runtime.migration")
 
 TABLE_NAME = "fan_app_settings"
-CSV_FILE = os.path.join(os.path.dirname(__file__), "csv", f"{TABLE_NAME}.csv")
+
+# Inline seed rows with realistic fan app configuration
+# Columns: key, value, created_at, updated_at, school_id, settings, id
+SEED_ROWS = [
+    {
+        "key": "primary_theme_color",
+        "value": "#004B8D",  # school brand blue
+        "created_at": "2024-01-01T01:00:00Z",
+        "updated_at": "2024-01-01T01:00:00Z",
+        "school_id": "af33eba3-d881-554e-9b43-2a7ea376e1f0",
+        "settings": {
+            "description": "Primary brand color for the fan app UI.",
+            "category": "appearance",
+            "preview_text": "Used for headers, buttons, and highlights.",
+        },
+        "id": "5b052128-2ac8-5f73-a732-87e2ad6d9d47",
+    },
+    {
+        "key": "show_live_scores",
+        "value": "true",
+        "created_at": "2024-01-01T02:00:00Z",
+        "updated_at": "2024-01-01T02:00:00Z",
+        "school_id": "af33eba3-d881-554e-9b43-2a7ea376e1f0",
+        "settings": {
+            "description": "Controls whether fans see live scoring updates.",
+            "type": "boolean",
+            "default": True,
+        },
+        "id": "32b333b6-01d0-5e91-a557-d09820aeb6d3",
+    },
+    {
+        "key": "ticket_portal_url",
+        "value": "https://tickets.examplehs.edu",
+        "created_at": "2024-01-01T03:00:00Z",
+        "updated_at": "2024-01-01T03:00:00Z",
+        "school_id": "af33eba3-d881-554e-9b43-2a7ea376e1f0",
+        "settings": {
+            "description": "Public URL where fans can purchase digital tickets.",
+            "category": "links",
+            "open_in_webview": True,
+        },
+        "id": "28a7dfa8-a1e7-5d05-aedf-18afce9b6812",
+    },
+    {
+        "key": "concessions_enabled",
+        "value": "true",
+        "created_at": "2024-01-01T04:00:00Z",
+        "updated_at": "2024-01-01T04:00:00Z",
+        "school_id": "af33eba3-d881-554e-9b43-2a7ea376e1f0",
+        "settings": {
+            "description": "Enable mobile ordering for concessions in the fan app.",
+            "type": "boolean",
+            "default": False,
+        },
+        "id": "6e48d6f4-d1d8-53ba-aa42-e5548e5f10a0",
+    },
+    {
+        "key": "fan_code_of_conduct_url",
+        "value": "https://examplehs.edu/athletics/fan-code-of-conduct",
+        "created_at": "2024-01-01T05:00:00Z",
+        "updated_at": "2024-01-01T05:00:00Z",
+        "school_id": "af33eba3-d881-554e-9b43-2a7ea376e1f0",
+        "settings": {
+            "description": "Link shown in the app menu for fan expectations and conduct.",
+            "category": "policy",
+            "requires_acknowledgement": True,
+        },
+        "id": "b7fd0b35-ea42-54ee-ba19-f873cb666095",
+    },
+]
 
 
 def _coerce_value(col: sa.Column, raw):
-    """Best-effort coercion from CSV string to appropriate Python value."""
+    """Best-effort coercion from inline values to appropriate Python/DB values."""
     if raw == "" or raw is None:
         return None
 
@@ -35,16 +102,21 @@ def _coerce_value(col: sa.Column, raw):
                 return True
             if v in ("false", "f", "0", "no", "n"):
                 return False
-            log.warning("Invalid boolean for %s.%s: %r; using NULL", TABLE_NAME, col.name, raw)
+            log.warning(
+                "Invalid boolean for %s.%s: %r; using NULL",
+                TABLE_NAME,
+                col.name,
+                raw,
+            )
             return None
         return bool(raw)
 
-    # Otherwise, pass raw through and let DB cast
+    # Otherwise, pass raw through and let DB cast (JSONB, UUID, timestamptz, etc.)
     return raw
 
 
 def upgrade() -> None:
-    """Load seed data for {TABLE_NAME} from a CSV file.
+    """Load seed data for fan_app_settings from inline SEED_ROWS.
 
     Each row is inserted inside an explicit nested transaction (SAVEPOINT)
     so a failing row won't abort the whole migration transaction.
@@ -56,24 +128,17 @@ def upgrade() -> None:
         log.warning("Table %s does not exist; skipping seed", TABLE_NAME)
         return
 
-    if not os.path.exists(CSV_FILE):
-        log.warning("CSV file not found for %s: %s; skipping", TABLE_NAME, CSV_FILE)
-        return
-
     metadata = sa.MetaData()
     table = sa.Table(TABLE_NAME, metadata, autoload_with=bind)
 
-    with open(CSV_FILE, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
-
+    rows = SEED_ROWS
     if not rows:
-        log.info("CSV file for %s is empty: %s", TABLE_NAME, CSV_FILE)
+        log.info("No inline seed rows defined for %s", TABLE_NAME)
         return
 
     inserted = 0
     for raw_row in rows:
-        row = {}
+        row: dict[str, object] = {}
 
         for col in table.columns:
             if col.name not in raw_row:
@@ -100,7 +165,7 @@ def upgrade() -> None:
                 raw_row,
             )
 
-    log.info("Inserted %s rows into %s from %s", inserted, TABLE_NAME, CSV_FILE)
+    log.info("Inserted %s inline seed rows into %s", inserted, TABLE_NAME)
 
 
 def downgrade() -> None:

@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import csv
 import logging
-import os
 
 from alembic import op
 import sqlalchemy as sa
@@ -17,34 +15,66 @@ depends_on = None
 log = logging.getLogger("alembic.runtime.migration")
 
 TABLE_NAME = "library_fines"
-CSV_FILE = os.path.join(os.path.dirname(__file__), "csv", f"{TABLE_NAME}.csv")
 
-
-def _coerce_value(col: sa.Column, raw):
-    """Best-effort coercion from CSV string to appropriate Python value."""
-    if raw == "" or raw is None:
-        return None
-
-    t = col.type
-
-    # Boolean needs special handling because SQLAlchemy is strict
-    if isinstance(t, sa.Boolean):
-        if isinstance(raw, str):
-            v = raw.strip().lower()
-            if v in ("true", "t", "1", "yes", "y"):
-                return True
-            if v in ("false", "f", "0", "no", "n"):
-                return False
-            log.warning("Invalid boolean for %s.%s: %r; using NULL", TABLE_NAME, col.name, raw)
-            return None
-        return bool(raw)
-
-    # Otherwise, pass raw through and let DB cast
-    return raw
+# Inline seed rows for library_fines
+# Columns: person_id, amount, reason, assessed_on, paid_on, created_at, updated_at, id
+# Updated to use realistic fine reason descriptions.
+SEED_ROWS = [
+    {
+        "person_id": "a09b6c88-3418-40b5-9f14-77800af409f7",
+        "amount": 1,
+        "reason": "Overdue fine – 1 day late return",
+        "assessed_on": "2024-01-02",
+        "paid_on": "2024-01-02",
+        "created_at": "2024-01-01T01:00:00Z",
+        "updated_at": "2024-01-01T01:00:00Z",
+        "id": "a82e739c-d95d-58ca-b649-6a9be5081797",
+    },
+    {
+        "person_id": "a09b6c88-3418-40b5-9f14-77800af409f7",
+        "amount": 2,
+        "reason": "Overdue fine – 2 days late return",
+        "assessed_on": "2024-01-03",
+        "paid_on": "2024-01-03",
+        "created_at": "2024-01-01T02:00:00Z",
+        "updated_at": "2024-01-01T02:00:00Z",
+        "id": "31af7326-c117-5f7e-80d9-e30e1fa94540",
+    },
+    {
+        "person_id": "a09b6c88-3418-40b5-9f14-77800af409f7",
+        "amount": 3,
+        "reason": "Overdue fine – 3 days late return",
+        "assessed_on": "2024-01-04",
+        "paid_on": "2024-01-04",
+        "created_at": "2024-01-01T03:00:00Z",
+        "updated_at": "2024-01-01T03:00:00Z",
+        "id": "e72d7ddc-8dba-5a01-bef5-cccabb06101c",
+    },
+    {
+        "person_id": "a09b6c88-3418-40b5-9f14-77800af409f7",
+        "amount": 4,
+        "reason": "Damaged book fee – minor damage",
+        "assessed_on": "2024-01-05",
+        "paid_on": "2024-01-05",
+        "created_at": "2024-01-01T04:00:00Z",
+        "updated_at": "2024-01-01T04:00:00Z",
+        "id": "ef2edccd-a4bd-55c1-8e46-2c7cbc35c533",
+    },
+    {
+        "person_id": "a09b6c88-3418-40b5-9f14-77800af409f7",
+        "amount": 5,
+        "reason": "Replacement fee – item declared lost",
+        "assessed_on": "2024-01-06",
+        "paid_on": "2024-01-06",
+        "created_at": "2024-01-01T05:00:00Z",
+        "updated_at": "2024-01-01T05:00:00Z",
+        "id": "e222a93d-5a7f-5024-8282-9389f20aab57",
+    },
+]
 
 
 def upgrade() -> None:
-    """Load seed data for {TABLE_NAME} from a CSV file.
+    """Load seed data for library_fines from inline SEED_ROWS.
 
     Each row is inserted inside an explicit nested transaction (SAVEPOINT)
     so a failing row won't abort the whole migration transaction.
@@ -56,31 +86,16 @@ def upgrade() -> None:
         log.warning("Table %s does not exist; skipping seed", TABLE_NAME)
         return
 
-    if not os.path.exists(CSV_FILE):
-        log.warning("CSV file not found for %s: %s; skipping", TABLE_NAME, CSV_FILE)
-        return
-
     metadata = sa.MetaData()
     table = sa.Table(TABLE_NAME, metadata, autoload_with=bind)
 
-    with open(CSV_FILE, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
-
-    if not rows:
-        log.info("CSV file for %s is empty: %s", TABLE_NAME, CSV_FILE)
-        return
-
     inserted = 0
-    for raw_row in rows:
-        row = {}
-
+    for raw_row in SEED_ROWS:
+        # Only include columns that actually exist on the table
+        row: dict[str, object] = {}
         for col in table.columns:
-            if col.name not in raw_row:
-                continue
-            raw_val = raw_row[col.name]
-            value = _coerce_value(col, raw_val)
-            row[col.name] = value
+            if col.name in raw_row:
+                row[col.name] = raw_row[col.name]
 
         if not row:
             continue
@@ -100,7 +115,7 @@ def upgrade() -> None:
                 raw_row,
             )
 
-    log.info("Inserted %s rows into %s from %s", inserted, TABLE_NAME, CSV_FILE)
+    log.info("Inserted %s rows into %s from inline SEED_ROWS", inserted, TABLE_NAME)
 
 
 def downgrade() -> None:

@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import csv
 import logging
-import os
 
 from alembic import op
 import sqlalchemy as sa
@@ -17,34 +15,56 @@ depends_on = None
 log = logging.getLogger("alembic.runtime.migration")
 
 TABLE_NAME = "fees"
-CSV_FILE = os.path.join(os.path.dirname(__file__), "csv", f"{TABLE_NAME}.csv")
 
-
-def _coerce_value(col: sa.Column, raw):
-    """Best-effort coercion from CSV string to appropriate Python value."""
-    if raw == "" or raw is None:
-        return None
-
-    t = col.type
-
-    # Boolean needs special handling because SQLAlchemy is strict
-    if isinstance(t, sa.Boolean):
-        if isinstance(raw, str):
-            v = raw.strip().lower()
-            if v in ("true", "t", "1", "yes", "y"):
-                return True
-            if v in ("false", "f", "0", "no", "n"):
-                return False
-            log.warning("Invalid boolean for %s.%s: %r; using NULL", TABLE_NAME, col.name, raw)
-            return None
-        return bool(raw)
-
-    # Otherwise, pass raw through and let DB cast
-    return raw
+# Inline seed rows for fees
+# Columns: school_id, name, amount, created_at, updated_at, id
+# Updated to use realistic fee names.
+SEED_ROWS = [
+    {
+        "school_id": "af33eba3-d881-554e-9b43-2a7ea376e1f0",
+        "name": "General registration fee",
+        "amount": 1,
+        "created_at": "2024-01-01T01:00:00Z",
+        "updated_at": "2024-01-01T01:00:00Z",
+        "id": "13ebc36e-527c-5df9-b532-6f77c52157b3",
+    },
+    {
+        "school_id": "af33eba3-d881-554e-9b43-2a7ea376e1f0",
+        "name": "Instructional materials / textbook fee",
+        "amount": 2,
+        "created_at": "2024-01-01T02:00:00Z",
+        "updated_at": "2024-01-01T02:00:00Z",
+        "id": "0efa23c5-613d-53b6-a644-881a5f737c07",
+    },
+    {
+        "school_id": "af33eba3-d881-554e-9b43-2a7ea376e1f0",
+        "name": "Technology / device usage fee",
+        "amount": 3,
+        "created_at": "2024-01-01T03:00:00Z",
+        "updated_at": "2024-01-01T03:00:00Z",
+        "id": "21547b78-b2d5-5bd1-91bc-060ab08e7e4a",
+    },
+    {
+        "school_id": "af33eba3-d881-554e-9b43-2a7ea376e1f0",
+        "name": "Athletics participation fee",
+        "amount": 4,
+        "created_at": "2024-01-01T04:00:00Z",
+        "updated_at": "2024-01-01T04:00:00Z",
+        "id": "326966e4-5add-5f15-b4ed-d2ee1dc955f4",
+    },
+    {
+        "school_id": "af33eba3-d881-554e-9b43-2a7ea376e1f0",
+        "name": "Field trip / activity fee",
+        "amount": 5,
+        "created_at": "2024-01-01T05:00:00Z",
+        "updated_at": "2024-01-01T05:00:00Z",
+        "id": "baf3ceda-12d7-5d01-8477-a690acaa9f78",
+    },
+]
 
 
 def upgrade() -> None:
-    """Load seed data for {TABLE_NAME} from a CSV file.
+    """Load seed data for fees from inline SEED_ROWS.
 
     Each row is inserted inside an explicit nested transaction (SAVEPOINT)
     so a failing row won't abort the whole migration transaction.
@@ -56,31 +76,16 @@ def upgrade() -> None:
         log.warning("Table %s does not exist; skipping seed", TABLE_NAME)
         return
 
-    if not os.path.exists(CSV_FILE):
-        log.warning("CSV file not found for %s: %s; skipping", TABLE_NAME, CSV_FILE)
-        return
-
     metadata = sa.MetaData()
     table = sa.Table(TABLE_NAME, metadata, autoload_with=bind)
 
-    with open(CSV_FILE, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
-
-    if not rows:
-        log.info("CSV file for %s is empty: %s", TABLE_NAME, CSV_FILE)
-        return
-
     inserted = 0
-    for raw_row in rows:
-        row = {}
-
+    for raw_row in SEED_ROWS:
+        # Only include columns that actually exist on the table
+        row: dict[str, object] = {}
         for col in table.columns:
-            if col.name not in raw_row:
-                continue
-            raw_val = raw_row[col.name]
-            value = _coerce_value(col, raw_val)
-            row[col.name] = value
+            if col.name in raw_row:
+                row[col.name] = raw_row[col.name]
 
         if not row:
             continue
@@ -100,7 +105,7 @@ def upgrade() -> None:
                 raw_row,
             )
 
-    log.info("Inserted %s rows into %s from %s", inserted, TABLE_NAME, CSV_FILE)
+    log.info("Inserted %s rows into %s from inline SEED_ROWS", inserted, TABLE_NAME)
 
 
 def downgrade() -> None:

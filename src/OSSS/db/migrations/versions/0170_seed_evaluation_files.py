@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import csv
 import logging
-import os
 
 from alembic import op
 import sqlalchemy as sa
@@ -17,34 +15,40 @@ depends_on = None
 log = logging.getLogger("alembic.runtime.migration")
 
 TABLE_NAME = "evaluation_files"
-CSV_FILE = os.path.join(os.path.dirname(__file__), "csv", f"{TABLE_NAME}.csv")
 
-
-def _coerce_value(col: sa.Column, raw):
-    """Best-effort coercion from CSV string to appropriate Python value."""
-    if raw == "" or raw is None:
-        return None
-
-    t = col.type
-
-    # Boolean needs special handling because SQLAlchemy is strict
-    if isinstance(t, sa.Boolean):
-        if isinstance(raw, str):
-            v = raw.strip().lower()
-            if v in ("true", "t", "1", "yes", "y"):
-                return True
-            if v in ("false", "f", "0", "no", "n"):
-                return False
-            log.warning("Invalid boolean for %s.%s: %r; using NULL", TABLE_NAME, col.name, raw)
-            return None
-        return bool(raw)
-
-    # Otherwise, pass raw through and let DB cast
-    return raw
+# Inline seed rows for evaluation_files
+# Columns: id, assignment_id, file_id
+SEED_ROWS = [
+    {
+        "id": "ed14ddea-edb5-56ed-a9c6-dd6dfd30f563",
+        "assignment_id": "a5d5a408-430c-57f7-941a-9bd0d8ed9049",
+        "file_id": "39ca63db-2221-5408-ad28-c6dfaac3056d",
+    },
+    {
+        "id": "a624f43d-53dd-5d2b-8abf-a3f2b00edd28",
+        "assignment_id": "a5d5a408-430c-57f7-941a-9bd0d8ed9049",
+        "file_id": "39ca63db-2221-5408-ad28-c6dfaac3056d",
+    },
+    {
+        "id": "e9b21621-fd10-58d6-ac1c-950bbe47a25a",
+        "assignment_id": "a5d5a408-430c-57f7-941a-9bd0d8ed9049",
+        "file_id": "39ca63db-2221-5408-ad28-c6dfaac3056d",
+    },
+    {
+        "id": "6026436b-32a6-5f5f-9c25-439445bd6209",
+        "assignment_id": "a5d5a408-430c-57f7-941a-9bd0d8ed9049",
+        "file_id": "39ca63db-2221-5408-ad28-c6dfaac3056d",
+    },
+    {
+        "id": "81205cc8-ec12-5535-8dff-1ac03c0f7109",
+        "assignment_id": "a5d5a408-430c-57f7-941a-9bd0d8ed9049",
+        "file_id": "39ca63db-2221-5408-ad28-c6dfaac3056d",
+    },
+]
 
 
 def upgrade() -> None:
-    """Load seed data for {TABLE_NAME} from a CSV file.
+    """Load seed data for evaluation_files from inline SEED_ROWS.
 
     Each row is inserted inside an explicit nested transaction (SAVEPOINT)
     so a failing row won't abort the whole migration transaction.
@@ -56,31 +60,17 @@ def upgrade() -> None:
         log.warning("Table %s does not exist; skipping seed", TABLE_NAME)
         return
 
-    if not os.path.exists(CSV_FILE):
-        log.warning("CSV file not found for %s: %s; skipping", TABLE_NAME, CSV_FILE)
-        return
-
     metadata = sa.MetaData()
     table = sa.Table(TABLE_NAME, metadata, autoload_with=bind)
 
-    with open(CSV_FILE, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
-
-    if not rows:
-        log.info("CSV file for %s is empty: %s", TABLE_NAME, CSV_FILE)
-        return
-
     inserted = 0
-    for raw_row in rows:
-        row = {}
 
+    for raw_row in SEED_ROWS:
+        # Only include columns that actually exist on the table
+        row: dict[str, object] = {}
         for col in table.columns:
-            if col.name not in raw_row:
-                continue
-            raw_val = raw_row[col.name]
-            value = _coerce_value(col, raw_val)
-            row[col.name] = value
+            if col.name in raw_row:
+                row[col.name] = raw_row[col.name]
 
         if not row:
             continue
@@ -100,7 +90,11 @@ def upgrade() -> None:
                 raw_row,
             )
 
-    log.info("Inserted %s rows into %s from %s", inserted, TABLE_NAME, CSV_FILE)
+    log.info(
+        "Inserted %s rows into %s from inline SEED_ROWS",
+        inserted,
+        TABLE_NAME,
+    )
 
 
 def downgrade() -> None:

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import csv
+import csv  # kept for consistency with other migrations, even if unused
 import logging
 import os
 
@@ -17,17 +17,36 @@ depends_on = None
 log = logging.getLogger("alembic.runtime.migration")
 
 TABLE_NAME = "plan_alignments"
-CSV_FILE = os.path.join(os.path.dirname(__file__), "csv", f"{TABLE_NAME}.csv")
+CSV_FILE = None  # seeding from inline data instead of CSV
+
+
+# Inline seed data with realistic values:
+# note, agenda_item_id, policy_id, objective_id, id, created_at, updated_at
+SEED_ROWS = [
+    {
+        "note": (
+            "Agenda item aligns with Board Policy 101 on educational equity by "
+            "expanding access to rigorous coursework for all students."
+        ),
+        "agenda_item_id": "ca321d07-eec1-539e-a9f4-17f7d2533683",
+        "policy_id": "59126d6a-7ad2-4b33-a56e-f5d51701d9d2",
+        "objective_id": "8fdb9139-143b-5726-9c7f-a9d0cd10758f",
+        "id": "0e91510b-c35d-540e-9d0c-5f89af058455",
+        "created_at": "2024-01-01T01:00:00Z",
+        "updated_at": "2024-01-01T01:00:00Z",
+    },
+
+]
 
 
 def _coerce_value(col: sa.Column, raw):
-    """Best-effort coercion from CSV string to appropriate Python value."""
+    """Best-effort coercion from inline seed values to appropriate Python/DB values."""
     if raw == "" or raw is None:
         return None
 
     t = col.type
 
-    # Boolean needs special handling because SQLAlchemy is strict
+    # Boolean handling (if we ever add boolean columns here later)
     if isinstance(t, sa.Boolean):
         if isinstance(raw, str):
             v = raw.strip().lower()
@@ -39,16 +58,12 @@ def _coerce_value(col: sa.Column, raw):
             return None
         return bool(raw)
 
-    # Otherwise, pass raw through and let DB cast
+    # Otherwise, let the DB cast (UUID, text, timestamps, etc.)
     return raw
 
 
 def upgrade() -> None:
-    """Load seed data for {TABLE_NAME} from a CSV file.
-
-    Each row is inserted inside an explicit nested transaction (SAVEPOINT)
-    so a failing row won't abort the whole migration transaction.
-    """
+    """Load seed data for plan_alignments from inline SEED_ROWS (no CSV)."""
     bind = op.get_bind()
     inspector = sa.inspect(bind)
 
@@ -56,24 +71,17 @@ def upgrade() -> None:
         log.warning("Table %s does not exist; skipping seed", TABLE_NAME)
         return
 
-    if not os.path.exists(CSV_FILE):
-        log.warning("CSV file not found for %s: %s; skipping", TABLE_NAME, CSV_FILE)
-        return
-
     metadata = sa.MetaData()
     table = sa.Table(TABLE_NAME, metadata, autoload_with=bind)
 
-    with open(CSV_FILE, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
-
+    rows = SEED_ROWS
     if not rows:
-        log.info("CSV file for %s is empty: %s", TABLE_NAME, CSV_FILE)
+        log.info("No inline seed rows defined for %s", TABLE_NAME)
         return
 
     inserted = 0
     for raw_row in rows:
-        row = {}
+        row: dict[str, object] = {}
 
         for col in table.columns:
             if col.name not in raw_row:
@@ -85,7 +93,6 @@ def upgrade() -> None:
         if not row:
             continue
 
-        # Explicit nested transaction (SAVEPOINT)
         nested = bind.begin_nested()
         try:
             bind.execute(table.insert().values(**row))
@@ -100,7 +107,7 @@ def upgrade() -> None:
                 raw_row,
             )
 
-    log.info("Inserted %s rows into %s from %s", inserted, TABLE_NAME, CSV_FILE)
+    log.info("Inserted %s inline seed rows into %s", inserted, TABLE_NAME)
 
 
 def downgrade() -> None:

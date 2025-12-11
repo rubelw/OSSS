@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import csv
 import logging
-import os
 
 from alembic import op
 import sqlalchemy as sa
@@ -17,11 +15,50 @@ depends_on = None
 log = logging.getLogger("alembic.runtime.migration")
 
 TABLE_NAME = "agenda_workflows"
-CSV_FILE = os.path.join(os.path.dirname(__file__), "csv", f"{TABLE_NAME}.csv")
+
+# Inline seed rows with realistic values
+# Columns: name, active, id, created_at, updated_at
+SEED_ROWS = [
+    {
+        "name": "Board Meeting – Standard Agenda Review",
+        "active": False,
+        "id": "bc45163b-5dc1-5781-bf26-15e5033b83ba",
+        "created_at": "2024-01-01T01:00:00Z",
+        "updated_at": "2024-01-01T01:00:00Z",
+    },
+    {
+        "name": "Board Meeting – Policy Adoption Workflow",
+        "active": True,
+        "id": "931d5808-5dd3-5e66-b345-7b60e113f27b",
+        "created_at": "2024-01-01T02:00:00Z",
+        "updated_at": "2024-01-01T02:00:00Z",
+    },
+    {
+        "name": "Work Session – Strategic Planning",
+        "active": False,
+        "id": "7b2a3188-0a5d-59c6-8cab-1aa367130557",
+        "created_at": "2024-01-01T03:00:00Z",
+        "updated_at": "2024-01-01T03:00:00Z",
+    },
+    {
+        "name": "Curriculum & Instruction Committee Workflow",
+        "active": True,
+        "id": "218e90a4-2ab1-57bf-8adb-fc2fad1d8da7",
+        "created_at": "2024-01-01T04:00:00Z",
+        "updated_at": "2024-01-01T04:00:00Z",
+    },
+    {
+        "name": "Facilities & Finance Committee Workflow",
+        "active": False,
+        "id": "f5671af5-fb7e-51c3-895d-29e756a92e62",
+        "created_at": "2024-01-01T05:00:00Z",
+        "updated_at": "2024-01-01T05:00:00Z",
+    },
+]
 
 
 def _coerce_value(col: sa.Column, raw):
-    """Best-effort coercion from CSV string to appropriate Python value."""
+    """Best-effort coercion from inline value to appropriate Python/DB value."""
     if raw == "" or raw is None:
         return None
 
@@ -35,16 +72,21 @@ def _coerce_value(col: sa.Column, raw):
                 return True
             if v in ("false", "f", "0", "no", "n"):
                 return False
-            log.warning("Invalid boolean for %s.%s: %r; using NULL", TABLE_NAME, col.name, raw)
+            log.warning(
+                "Invalid boolean for %s.%s: %r; using NULL",
+                TABLE_NAME,
+                col.name,
+                raw,
+            )
             return None
         return bool(raw)
 
-    # Otherwise, pass raw through and let DB cast
+    # Otherwise, pass raw through and let DB cast (UUID, timestamptz, etc.)
     return raw
 
 
 def upgrade() -> None:
-    """Load seed data for {TABLE_NAME} from a CSV file.
+    """Load seed data for agenda_workflows from inline SEED_ROWS.
 
     Each row is inserted inside an explicit nested transaction (SAVEPOINT)
     so a failing row won't abort the whole migration transaction.
@@ -56,24 +98,16 @@ def upgrade() -> None:
         log.warning("Table %s does not exist; skipping seed", TABLE_NAME)
         return
 
-    if not os.path.exists(CSV_FILE):
-        log.warning("CSV file not found for %s: %s; skipping", TABLE_NAME, CSV_FILE)
+    if not SEED_ROWS:
+        log.info("No inline seed rows defined for %s; nothing to insert", TABLE_NAME)
         return
 
     metadata = sa.MetaData()
     table = sa.Table(TABLE_NAME, metadata, autoload_with=bind)
 
-    with open(CSV_FILE, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
-
-    if not rows:
-        log.info("CSV file for %s is empty: %s", TABLE_NAME, CSV_FILE)
-        return
-
     inserted = 0
-    for raw_row in rows:
-        row = {}
+    for raw_row in SEED_ROWS:
+        row: dict[str, object] = {}
 
         for col in table.columns:
             if col.name not in raw_row:
@@ -85,7 +119,6 @@ def upgrade() -> None:
         if not row:
             continue
 
-        # Explicit nested transaction (SAVEPOINT)
         nested = bind.begin_nested()
         try:
             bind.execute(table.insert().values(**row))
@@ -100,7 +133,11 @@ def upgrade() -> None:
                 raw_row,
             )
 
-    log.info("Inserted %s rows into %s from %s", inserted, TABLE_NAME, CSV_FILE)
+    log.info(
+        "Inserted %s inline seed rows into %s",
+        inserted,
+        TABLE_NAME,
+    )
 
 
 def downgrade() -> None:

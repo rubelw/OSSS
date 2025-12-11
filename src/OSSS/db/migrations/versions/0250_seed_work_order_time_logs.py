@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import csv
 import logging
-import os
 
 from alembic import op
 import sqlalchemy as sa
@@ -17,11 +15,85 @@ depends_on = None
 log = logging.getLogger("alembic.runtime.migration")
 
 TABLE_NAME = "work_order_time_logs"
-CSV_FILE = os.path.join(os.path.dirname(__file__), "csv", f"{TABLE_NAME}.csv")
+
+# Inline seed rows with realistic maintenance time logs
+# for the leaking faucet work order.
+SEED_ROWS = [
+    {
+        # Diagnose leak and isolate water
+        "work_order_id": "3e3aec0f-13ac-5571-93ba-55376121619f",
+        "user_id": "de036046-aeed-4e84-960c-07ca8f9b99b9",
+        "started_at": "2024-01-01T08:30:00Z",
+        "ended_at": "2024-01-01T09:00:00Z",
+        "hours": 0.5,
+        "hourly_rate": 35.0,
+        "cost": 17.50,
+        "notes": "Diagnosed faucet leak and located shutoff for restroom sink.",
+        "created_at": "2024-01-01T08:30:00Z",
+        "updated_at": "2024-01-01T09:00:00Z",
+        "id": "bb3c4939-915f-5ec1-8504-aa90b5d0c337",
+    },
+    {
+        # Disassemble faucet and remove failed cartridge
+        "work_order_id": "3e3aec0f-13ac-5571-93ba-55376121619f",
+        "user_id": "de036046-aeed-4e84-960c-07ca8f9b99b9",
+        "started_at": "2024-01-01T09:00:00Z",
+        "ended_at": "2024-01-01T09:30:00Z",
+        "hours": 0.5,
+        "hourly_rate": 35.0,
+        "cost": 17.50,
+        "notes": "Shut off water, removed handle and trim, and pulled worn cartridge.",
+        "created_at": "2024-01-01T09:00:00Z",
+        "updated_at": "2024-01-01T09:30:00Z",
+        "id": "7500bf7b-ac17-5e69-ae61-4e597e550e3f",
+    },
+    {
+        # Install new cartridge and reassemble
+        "work_order_id": "3e3aec0f-13ac-5571-93ba-55376121619f",
+        "user_id": "de036046-aeed-4e84-960c-07ca8f9b99b9",
+        "started_at": "2024-01-01T09:30:00Z",
+        "ended_at": "2024-01-01T10:00:00Z",
+        "hours": 0.5,
+        "hourly_rate": 35.0,
+        "cost": 17.50,
+        "notes": "Installed replacement cartridge and new O-rings; faucet reassembled.",
+        "created_at": "2024-01-01T09:30:00Z",
+        "updated_at": "2024-01-01T10:00:00Z",
+        "id": "a9201980-9a1e-54fd-b764-92b4d5a0a434",
+    },
+    {
+        # Test for leaks and adjust flow
+        "work_order_id": "3e3aec0f-13ac-5571-93ba-55376121619f",
+        "user_id": "de036046-aeed-4e84-960c-07ca8f9b99b9",
+        "started_at": "2024-01-01T10:00:00Z",
+        "ended_at": "2024-01-01T10:10:00Z",
+        "hours": 0.25,
+        "hourly_rate": 35.0,
+        "cost": 8.75,
+        "notes": "Restored water; checked hot/cold operation and verified no dripping.",
+        "created_at": "2024-01-01T10:00:00Z",
+        "updated_at": "2024-01-01T10:10:00Z",
+        "id": "05f37d74-083f-5c80-88e9-09f0eb6f931f",
+    },
+    {
+        # Cleanup and documentation
+        "work_order_id": "3e3aec0f-13ac-5571-93ba-55376121619f",
+        "user_id": "de036046-aeed-4e84-960c-07ca8f9b99b9",
+        "started_at": "2024-01-01T10:10:00Z",
+        "ended_at": "2024-01-01T10:20:00Z",
+        "hours": 0.25,
+        "hourly_rate": 35.0,
+        "cost": 8.75,
+        "notes": "Cleaned area, removed old parts, and updated work order notes.",
+        "created_at": "2024-01-01T10:10:00Z",
+        "updated_at": "2024-01-01T10:20:00Z",
+        "id": "cbf869d9-22a1-536e-8097-b1c0abfada8b",
+    },
+]
 
 
 def _coerce_value(col: sa.Column, raw):
-    """Best-effort coercion from CSV string to appropriate Python value."""
+    """Best-effort coercion from seed value to appropriate Python/DB value."""
     if raw == "" or raw is None:
         return None
 
@@ -35,20 +107,21 @@ def _coerce_value(col: sa.Column, raw):
                 return True
             if v in ("false", "f", "0", "no", "n"):
                 return False
-            log.warning("Invalid boolean for %s.%s: %r; using NULL", TABLE_NAME, col.name, raw)
+            log.warning(
+                "Invalid boolean for %s.%s: %r; using NULL",
+                TABLE_NAME,
+                col.name,
+                raw,
+            )
             return None
         return bool(raw)
 
-    # Otherwise, pass raw through and let DB cast
+    # Otherwise, pass raw through and let DB/driver cast
     return raw
 
 
 def upgrade() -> None:
-    """Load seed data for {TABLE_NAME} from a CSV file.
-
-    Each row is inserted inside an explicit nested transaction (SAVEPOINT)
-    so a failing row won't abort the whole migration transaction.
-    """
+    """Insert inline seed data for work_order_time_logs."""
     bind = op.get_bind()
     inspector = sa.inspect(bind)
 
@@ -56,28 +129,22 @@ def upgrade() -> None:
         log.warning("Table %s does not exist; skipping seed", TABLE_NAME)
         return
 
-    if not os.path.exists(CSV_FILE):
-        log.warning("CSV file not found for %s: %s; skipping", TABLE_NAME, CSV_FILE)
-        return
-
     metadata = sa.MetaData()
     table = sa.Table(TABLE_NAME, metadata, autoload_with=bind)
 
-    with open(CSV_FILE, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
-
-    if not rows:
-        log.info("CSV file for %s is empty: %s", TABLE_NAME, CSV_FILE)
+    if not SEED_ROWS:
+        log.info("No inline seed rows defined for %s; skipping", TABLE_NAME)
         return
 
     inserted = 0
-    for raw_row in rows:
+
+    for raw_row in SEED_ROWS:
         row = {}
 
         for col in table.columns:
             if col.name not in raw_row:
                 continue
+
             raw_val = raw_row[col.name]
             value = _coerce_value(col, raw_val)
             row[col.name] = value
@@ -100,7 +167,7 @@ def upgrade() -> None:
                 raw_row,
             )
 
-    log.info("Inserted %s rows into %s from %s", inserted, TABLE_NAME, CSV_FILE)
+    log.info("Inserted %s inline rows into %s", inserted, TABLE_NAME)
 
 
 def downgrade() -> None:

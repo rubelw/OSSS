@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import csv
 import logging
-import os
 
 from alembic import op
 import sqlalchemy as sa
@@ -17,34 +15,61 @@ depends_on = None
 log = logging.getLogger("alembic.runtime.migration")
 
 TABLE_NAME = "evaluation_signoffs"
-CSV_FILE = os.path.join(os.path.dirname(__file__), "csv", f"{TABLE_NAME}.csv")
 
-
-def _coerce_value(col: sa.Column, raw):
-    """Best-effort coercion from CSV string to appropriate Python value."""
-    if raw == "" or raw is None:
-        return None
-
-    t = col.type
-
-    # Boolean needs special handling because SQLAlchemy is strict
-    if isinstance(t, sa.Boolean):
-        if isinstance(raw, str):
-            v = raw.strip().lower()
-            if v in ("true", "t", "1", "yes", "y"):
-                return True
-            if v in ("false", "f", "0", "no", "n"):
-                return False
-            log.warning("Invalid boolean for %s.%s: %r; using NULL", TABLE_NAME, col.name, raw)
-            return None
-        return bool(raw)
-
-    # Otherwise, pass raw through and let DB cast
-    return raw
+# Inline seed rows for evaluation_signoffs
+# Columns: note, assignment_id, signer_id, signed_at, id, created_at, updated_at
+# Updated with realistic signoff notes.
+SEED_ROWS = [
+    {
+        "note": "Evaluator sign-off: Formal observation completed and shared with teacher.",
+        "assignment_id": "a5d5a408-430c-57f7-941a-9bd0d8ed9049",
+        "signer_id": "de036046-aeed-4e84-960c-07ca8f9b99b9",
+        "signed_at": "2024-01-01T01:00:00Z",
+        "id": "b459c296-fa9a-507c-8edb-fe872f81dbbd",
+        "created_at": "2024-01-01T01:00:00Z",
+        "updated_at": "2024-01-01T01:00:00Z",
+    },
+    {
+        "note": "Teacher sign-off: I have reviewed the ratings and comments.",
+        "assignment_id": "a5d5a408-430c-57f7-941a-9bd0d8ed9049",
+        "signer_id": "de036046-aeed-4e84-960c-07ca8f9b99b9",
+        "signed_at": "2024-01-01T02:00:00Z",
+        "id": "b68c6afa-7bd5-5d8e-88ea-0f9627e467d8",
+        "created_at": "2024-01-01T02:00:00Z",
+        "updated_at": "2024-01-01T02:00:00Z",
+    },
+    {
+        "note": "Teacher acknowledgement: Sign-off indicates receipt, not agreement with all ratings.",
+        "assignment_id": "a5d5a408-430c-57f7-941a-9bd0d8ed9049",
+        "signer_id": "de036046-aeed-4e84-960c-07ca8f9b99b9",
+        "signed_at": "2024-01-01T03:00:00Z",
+        "id": "a3a9599c-0579-5291-884f-8002af265007",
+        "created_at": "2024-01-01T03:00:00Z",
+        "updated_at": "2024-01-01T03:00:00Z",
+    },
+    {
+        "note": "Administrator sign-off: Post-conference held and next steps documented.",
+        "assignment_id": "a5d5a408-430c-57f7-941a-9bd0d8ed9049",
+        "signer_id": "de036046-aeed-4e84-960c-07ca8f9b99b9",
+        "signed_at": "2024-01-01T04:00:00Z",
+        "id": "8d236fd8-67d1-54ef-b7a7-f870a4ba1509",
+        "created_at": "2024-01-01T04:00:00Z",
+        "updated_at": "2024-01-01T04:00:00Z",
+    },
+    {
+        "note": "Final sign-off: Evaluation cycle for this assignment is complete.",
+        "assignment_id": "a5d5a408-430c-57f7-941a-9bd0d8ed9049",
+        "signer_id": "de036046-aeed-4e84-960c-07ca8f9b99b9",
+        "signed_at": "2024-01-01T05:00:00Z",
+        "id": "f0497ea7-fb98-5405-b3fc-c3589c6a2581",
+        "created_at": "2024-01-01T05:00:00Z",
+        "updated_at": "2024-01-01T05:00:00Z",
+    },
+]
 
 
 def upgrade() -> None:
-    """Load seed data for {TABLE_NAME} from a CSV file.
+    """Load seed data for evaluation_signoffs from inline SEED_ROWS.
 
     Each row is inserted inside an explicit nested transaction (SAVEPOINT)
     so a failing row won't abort the whole migration transaction.
@@ -56,31 +81,16 @@ def upgrade() -> None:
         log.warning("Table %s does not exist; skipping seed", TABLE_NAME)
         return
 
-    if not os.path.exists(CSV_FILE):
-        log.warning("CSV file not found for %s: %s; skipping", TABLE_NAME, CSV_FILE)
-        return
-
     metadata = sa.MetaData()
     table = sa.Table(TABLE_NAME, metadata, autoload_with=bind)
 
-    with open(CSV_FILE, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
-
-    if not rows:
-        log.info("CSV file for %s is empty: %s", TABLE_NAME, CSV_FILE)
-        return
-
     inserted = 0
-    for raw_row in rows:
-        row = {}
-
+    for raw_row in SEED_ROWS:
+        # Only include columns that actually exist on the table
+        row: dict[str, object] = {}
         for col in table.columns:
-            if col.name not in raw_row:
-                continue
-            raw_val = raw_row[col.name]
-            value = _coerce_value(col, raw_val)
-            row[col.name] = value
+            if col.name in raw_row:
+                row[col.name] = raw_row[col.name]
 
         if not row:
             continue
@@ -100,7 +110,11 @@ def upgrade() -> None:
                 raw_row,
             )
 
-    log.info("Inserted %s rows into %s from %s", inserted, TABLE_NAME, CSV_FILE)
+    log.info(
+        "Inserted %s rows into %s from inline SEED_ROWS",
+        inserted,
+        TABLE_NAME,
+    )
 
 
 def downgrade() -> None:

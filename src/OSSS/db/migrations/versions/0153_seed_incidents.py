@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import csv
 import logging
-import os
 
 from alembic import op
 import sqlalchemy as sa
@@ -17,34 +15,61 @@ depends_on = None
 log = logging.getLogger("alembic.runtime.migration")
 
 TABLE_NAME = "incidents"
-CSV_FILE = os.path.join(os.path.dirname(__file__), "csv", f"{TABLE_NAME}.csv")
 
-
-def _coerce_value(col: sa.Column, raw):
-    """Best-effort coercion from CSV string to appropriate Python value."""
-    if raw == "" or raw is None:
-        return None
-
-    t = col.type
-
-    # Boolean needs special handling because SQLAlchemy is strict
-    if isinstance(t, sa.Boolean):
-        if isinstance(raw, str):
-            v = raw.strip().lower()
-            if v in ("true", "t", "1", "yes", "y"):
-                return True
-            if v in ("false", "f", "0", "no", "n"):
-                return False
-            log.warning("Invalid boolean for %s.%s: %r; using NULL", TABLE_NAME, col.name, raw)
-            return None
-        return bool(raw)
-
-    # Otherwise, pass raw through and let DB cast
-    return raw
+# Inline seed rows for incidents
+# Columns: school_id, occurred_at, behavior_code, description, id, created_at, updated_at
+# Updated to use more realistic incident descriptions.
+SEED_ROWS = [
+    {
+        "school_id": "af33eba3-d881-554e-9b43-2a7ea376e1f0",
+        "occurred_at": "2024-01-01T01:00:00Z",
+        "behavior_code": "MINOR",
+        "description": "Student engaged in minor classroom disruption (talking out of turn).",
+        "id": "9868063c-5b19-5bb6-aed1-927b1bc56093",
+        "created_at": "2024-01-01T01:00:00Z",
+        "updated_at": "2024-01-01T01:00:00Z",
+    },
+    {
+        "school_id": "af33eba3-d881-554e-9b43-2a7ea376e1f0",
+        "occurred_at": "2024-01-01T02:00:00Z",
+        "behavior_code": "MINOR",
+        "description": "Student arrived tardy to class without a pass.",
+        "id": "e2b68350-6478-5d10-b7b1-83125cb4d81f",
+        "created_at": "2024-01-01T02:00:00Z",
+        "updated_at": "2024-01-01T02:00:00Z",
+    },
+    {
+        "school_id": "af33eba3-d881-554e-9b43-2a7ea376e1f0",
+        "occurred_at": "2024-01-01T03:00:00Z",
+        "behavior_code": "MINOR",
+        "description": "Student ran in the hallway and ignored posted expectations.",
+        "id": "e0388504-1b71-5cbf-893f-c615cc37030a",
+        "created_at": "2024-01-01T03:00:00Z",
+        "updated_at": "2024-01-01T03:00:00Z",
+    },
+    {
+        "school_id": "af33eba3-d881-554e-9b43-2a7ea376e1f0",
+        "occurred_at": "2024-01-01T04:00:00Z",
+        "behavior_code": "MINOR",
+        "description": "Student used personal device during instruction without permission.",
+        "id": "4f88e51e-c184-5caa-b6f5-b0368ad5e63a",
+        "created_at": "2024-01-01T04:00:00Z",
+        "updated_at": "2024-01-01T04:00:00Z",
+    },
+    {
+        "school_id": "af33eba3-d881-554e-9b43-2a7ea376e1f0",
+        "occurred_at": "2024-01-01T05:00:00Z",
+        "behavior_code": "MINOR",
+        "description": "Student repeatedly off-task and not following teacher directions.",
+        "id": "86140c30-4535-5bbe-b52b-8ade798b696a",
+        "created_at": "2024-01-01T05:00:00Z",
+        "updated_at": "2024-01-01T05:00:00Z",
+    },
+]
 
 
 def upgrade() -> None:
-    """Load seed data for {TABLE_NAME} from a CSV file.
+    """Load seed data for incidents from inline SEED_ROWS.
 
     Each row is inserted inside an explicit nested transaction (SAVEPOINT)
     so a failing row won't abort the whole migration transaction.
@@ -56,31 +81,16 @@ def upgrade() -> None:
         log.warning("Table %s does not exist; skipping seed", TABLE_NAME)
         return
 
-    if not os.path.exists(CSV_FILE):
-        log.warning("CSV file not found for %s: %s; skipping", TABLE_NAME, CSV_FILE)
-        return
-
     metadata = sa.MetaData()
     table = sa.Table(TABLE_NAME, metadata, autoload_with=bind)
 
-    with open(CSV_FILE, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
-
-    if not rows:
-        log.info("CSV file for %s is empty: %s", TABLE_NAME, CSV_FILE)
-        return
-
     inserted = 0
-    for raw_row in rows:
+    for raw_row in SEED_ROWS:
+        # Only include columns that actually exist on the table
         row = {}
-
         for col in table.columns:
-            if col.name not in raw_row:
-                continue
-            raw_val = raw_row[col.name]
-            value = _coerce_value(col, raw_val)
-            row[col.name] = value
+            if col.name in raw_row:
+                row[col.name] = raw_row[col.name]
 
         if not row:
             continue
@@ -100,7 +110,7 @@ def upgrade() -> None:
                 raw_row,
             )
 
-    log.info("Inserted %s rows into %s from %s", inserted, TABLE_NAME, CSV_FILE)
+    log.info("Inserted %s rows into %s from inline SEED_ROWS", inserted, TABLE_NAME)
 
 
 def downgrade() -> None:

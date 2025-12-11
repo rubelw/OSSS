@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-import csv
 import logging
-import os
+from datetime import datetime, timezone
 
 from alembic import op
 import sqlalchemy as sa
@@ -17,38 +16,70 @@ depends_on = None
 log = logging.getLogger("alembic.runtime.migration")
 
 TABLE_NAME = "bus_stop_times"
-CSV_FILE = os.path.join(os.path.dirname(__file__), "csv", f"{TABLE_NAME}.csv")
+
+# Inline seed rows
+# Columns: route_id, stop_id, arrival_time, departure_time, created_at, updated_at, id
+SEED_ROWS = [
+    {
+        # AM pickup at neighborhood stop
+        "id": "54aee847-53a5-59c2-a2d1-b88b9a057868",
+        "route_id": "dc004672-2936-552e-831b-4e2516959a9e",
+        "stop_id": "c6715e2f-3d54-5193-913a-112e1faadb14",
+        "arrival_time": "07:05:00",
+        "departure_time": "07:05:00",
+        "created_at": datetime(2024, 8, 1, 1, 0, 0, tzinfo=timezone.utc),
+        "updated_at": datetime(2024, 8, 1, 1, 0, 0, tzinfo=timezone.utc),
+    },
+    {
+        # AM pickup on a late-start day
+        "id": "d727d002-c487-57fd-988b-9dfe5d178830",
+        "route_id": "dc004672-2936-552e-831b-4e2516959a9e",
+        "stop_id": "c6715e2f-3d54-5193-913a-112e1faadb14",
+        "arrival_time": "08:35:00",
+        "departure_time": "08:35:00",
+        "created_at": datetime(2024, 8, 1, 2, 0, 0, tzinfo=timezone.utc),
+        "updated_at": datetime(2024, 8, 1, 2, 0, 0, tzinfo=timezone.utc),
+    },
+    {
+        # Midday shuttle stop (e.g., program or shared campus)
+        "id": "7ea8ca40-bbbf-598d-a17e-c90dbe38674e",
+        "route_id": "dc004672-2936-552e-831b-4e2516959a9e",
+        "stop_id": "c6715e2f-3d54-5193-913a-112e1faadb14",
+        "arrival_time": "11:30:00",
+        "departure_time": "11:30:00",
+        "created_at": datetime(2024, 8, 1, 3, 0, 0, tzinfo=timezone.utc),
+        "updated_at": datetime(2024, 8, 1, 3, 0, 0, tzinfo=timezone.utc),
+    },
+    {
+        # Early-dismissal run
+        "id": "079340bc-f4e7-57da-9e92-8a43cebc8192",
+        "route_id": "dc004672-2936-552e-831b-4e2516959a9e",
+        "stop_id": "c6715e2f-3d54-5193-913a-112e1faadb14",
+        "arrival_time": "13:15:00",
+        "departure_time": "13:15:00",
+        "created_at": datetime(2024, 8, 1, 4, 0, 0, tzinfo=timezone.utc),
+        "updated_at": datetime(2024, 8, 1, 4, 0, 0, tzinfo=timezone.utc),
+    },
+    {
+        # Regular PM drop-off
+        "id": "e7eada10-3cd0-5dcf-867a-415e6f262b1b",
+        "route_id": "dc004672-2936-552e-831b-4e2516959a9e",
+        "stop_id": "c6715e2f-3d54-5193-913a-112e1faadb14",
+        "arrival_time": "15:25:00",
+        "departure_time": "15:25:00",
+        "created_at": datetime(2024, 8, 1, 5, 0, 0, tzinfo=timezone.utc),
+        "updated_at": datetime(2024, 8, 1, 5, 0, 0, tzinfo=timezone.utc),
+    },
+]
 
 
 def _coerce_value(col: sa.Column, raw):
-    """Best-effort coercion from CSV string to appropriate Python value."""
-    if raw == "" or raw is None:
-        return None
-
-    t = col.type
-
-    # Boolean needs special handling because SQLAlchemy is strict
-    if isinstance(t, sa.Boolean):
-        if isinstance(raw, str):
-            v = raw.strip().lower()
-            if v in ("true", "t", "1", "yes", "y"):
-                return True
-            if v in ("false", "f", "0", "no", "n"):
-                return False
-            log.warning("Invalid boolean for %s.%s: %r; using NULL", TABLE_NAME, col.name, raw)
-            return None
-        return bool(raw)
-
-    # Otherwise, pass raw through and let DB cast
+    """For inline seeds we already provide appropriately-typed values."""
     return raw
 
 
 def upgrade() -> None:
-    """Load seed data for {TABLE_NAME} from a CSV file.
-
-    Each row is inserted inside an explicit nested transaction (SAVEPOINT)
-    so a failing row won't abort the whole migration transaction.
-    """
+    """Seed bus_stop_times with realistic example rows."""
     bind = op.get_bind()
     inspector = sa.inspect(bind)
 
@@ -56,36 +87,22 @@ def upgrade() -> None:
         log.warning("Table %s does not exist; skipping seed", TABLE_NAME)
         return
 
-    if not os.path.exists(CSV_FILE):
-        log.warning("CSV file not found for %s: %s; skipping", TABLE_NAME, CSV_FILE)
-        return
-
     metadata = sa.MetaData()
     table = sa.Table(TABLE_NAME, metadata, autoload_with=bind)
 
-    with open(CSV_FILE, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
-
-    if not rows:
-        log.info("CSV file for %s is empty: %s", TABLE_NAME, CSV_FILE)
-        return
-
     inserted = 0
-    for raw_row in rows:
+    for raw_row in SEED_ROWS:
         row = {}
 
+        # Only include keys that match actual columns
         for col in table.columns:
             if col.name not in raw_row:
                 continue
-            raw_val = raw_row[col.name]
-            value = _coerce_value(col, raw_val)
-            row[col.name] = value
+            row[col.name] = _coerce_value(col, raw_row[col.name])
 
         if not row:
             continue
 
-        # Explicit nested transaction (SAVEPOINT)
         nested = bind.begin_nested()
         try:
             bind.execute(table.insert().values(**row))
@@ -100,7 +117,7 @@ def upgrade() -> None:
                 raw_row,
             )
 
-    log.info("Inserted %s rows into %s from %s", inserted, TABLE_NAME, CSV_FILE)
+    log.info("Inserted %s rows into %s", inserted, TABLE_NAME)
 
 
 def downgrade() -> None:

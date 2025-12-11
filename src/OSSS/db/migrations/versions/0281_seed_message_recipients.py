@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-import csv
 import logging
-import os
+from datetime import datetime, timezone
 
 from alembic import op
 import sqlalchemy as sa
@@ -17,34 +16,63 @@ depends_on = None
 log = logging.getLogger("alembic.runtime.migration")
 
 TABLE_NAME = "message_recipients"
-CSV_FILE = os.path.join(os.path.dirname(__file__), "csv", f"{TABLE_NAME}.csv")
 
+# Same message & person IDs as in the sample, but with realistic statuses
+MESSAGE_ID = "33a2fb0b-263b-5b89-9402-01fa0fdd5bf2"
+PERSON_ID = "a09b6c88-3418-40b5-9f14-77800af409f7"
 
-def _coerce_value(col: sa.Column, raw):
-    """Best-effort coercion from CSV string to appropriate Python value."""
-    if raw == "" or raw is None:
-        return None
-
-    t = col.type
-
-    # Boolean needs special handling because SQLAlchemy is strict
-    if isinstance(t, sa.Boolean):
-        if isinstance(raw, str):
-            v = raw.strip().lower()
-            if v in ("true", "t", "1", "yes", "y"):
-                return True
-            if v in ("false", "f", "0", "no", "n"):
-                return False
-            log.warning("Invalid boolean for %s.%s: %r; using NULL", TABLE_NAME, col.name, raw)
-            return None
-        return bool(raw)
-
-    # Otherwise, pass raw through and let DB cast
-    return raw
+# Inline seed rows representing the lifecycle of a single outbound message
+SEED_ROWS = [
+    {
+        "id": "5737d617-4099-591e-9334-a13d66602e12",
+        "message_id": MESSAGE_ID,
+        "person_id": PERSON_ID,
+        "delivery_status": "queued",
+        "delivered_at": None,
+        "created_at": datetime(2024, 1, 1, 1, 0, tzinfo=timezone.utc),
+        "updated_at": datetime(2024, 1, 1, 1, 0, tzinfo=timezone.utc),
+    },
+    {
+        "id": "1d770c49-669d-5bd9-bc2a-a41982bcf375",
+        "message_id": MESSAGE_ID,
+        "person_id": PERSON_ID,
+        "delivery_status": "sending",
+        "delivered_at": None,
+        "created_at": datetime(2024, 1, 1, 1, 1, tzinfo=timezone.utc),
+        "updated_at": datetime(2024, 1, 1, 1, 1, tzinfo=timezone.utc),
+    },
+    {
+        "id": "44b58e93-4cf5-54e7-8ccb-6956aa8bdb2e",
+        "message_id": MESSAGE_ID,
+        "person_id": PERSON_ID,
+        "delivery_status": "delivered",
+        "delivered_at": datetime(2024, 1, 1, 1, 2, tzinfo=timezone.utc),
+        "created_at": datetime(2024, 1, 1, 1, 2, tzinfo=timezone.utc),
+        "updated_at": datetime(2024, 1, 1, 1, 2, tzinfo=timezone.utc),
+    },
+    {
+        "id": "e4330626-d68d-53c1-bc81-0c2f935c4ba0",
+        "message_id": MESSAGE_ID,
+        "person_id": PERSON_ID,
+        "delivery_status": "opened",
+        "delivered_at": datetime(2024, 1, 1, 1, 5, tzinfo=timezone.utc),
+        "created_at": datetime(2024, 1, 1, 1, 5, tzinfo=timezone.utc),
+        "updated_at": datetime(2024, 1, 1, 1, 5, tzinfo=timezone.utc),
+    },
+    {
+        "id": "8b2c6e4c-2f7e-5f3d-9f19-7122fd93af19",
+        "message_id": MESSAGE_ID,
+        "person_id": PERSON_ID,
+        "delivery_status": "archived",
+        "delivered_at": datetime(2024, 1, 1, 1, 5, tzinfo=timezone.utc),
+        "created_at": datetime(2024, 1, 1, 1, 10, tzinfo=timezone.utc),
+        "updated_at": datetime(2024, 1, 1, 1, 10, tzinfo=timezone.utc),
+    },
+]
 
 
 def upgrade() -> None:
-    """Load seed data for {TABLE_NAME} from a CSV file.
+    """Seed message_recipients with inline rows.
 
     Each row is inserted inside an explicit nested transaction (SAVEPOINT)
     so a failing row won't abort the whole migration transaction.
@@ -56,36 +84,21 @@ def upgrade() -> None:
         log.warning("Table %s does not exist; skipping seed", TABLE_NAME)
         return
 
-    if not os.path.exists(CSV_FILE):
-        log.warning("CSV file not found for %s: %s; skipping", TABLE_NAME, CSV_FILE)
-        return
-
     metadata = sa.MetaData()
     table = sa.Table(TABLE_NAME, metadata, autoload_with=bind)
 
-    with open(CSV_FILE, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
-
-    if not rows:
-        log.info("CSV file for %s is empty: %s", TABLE_NAME, CSV_FILE)
-        return
-
     inserted = 0
-    for raw_row in rows:
-        row = {}
-
-        for col in table.columns:
-            if col.name not in raw_row:
-                continue
-            raw_val = raw_row[col.name]
-            value = _coerce_value(col, raw_val)
-            row[col.name] = value
+    for raw_row in SEED_ROWS:
+        # Only include columns that actually exist on the table
+        row = {
+            col.name: raw_row[col.name]
+            for col in table.columns
+            if col.name in raw_row
+        }
 
         if not row:
             continue
 
-        # Explicit nested transaction (SAVEPOINT)
         nested = bind.begin_nested()
         try:
             bind.execute(table.insert().values(**row))
@@ -100,7 +113,7 @@ def upgrade() -> None:
                 raw_row,
             )
 
-    log.info("Inserted %s rows into %s from %s", inserted, TABLE_NAME, CSV_FILE)
+    log.info("Inserted %s rows into %s", inserted, TABLE_NAME)
 
 
 def downgrade() -> None:

@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 import logging
-import csv
-from pathlib import Path
 import os
+
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.exc import IntegrityError, DataError, StatementError
@@ -20,15 +19,101 @@ SKIP_GL_SEGMENTS = os.getenv("SKIP_GL_SEGMENTS", "").lower() in ("1", "true", "y
 
 TABLE_NAME = "gl_segment_values"
 
-# Path to CSV: ./raw_data/gl_segment_values.csv (relative to migrations root)
-CSV_PATH = Path(__file__).resolve().parent.parent / "versions" / "raw_data" / "gl_segment_values.csv"
+# Inline seed data for gl_segment_values
+# Columns: id, code, name, active, segment_id
+SEED_ROWS = [
+    {
+        "id": "79ddd98c-dc01-44d4-be3a-e6498f7fc53c",
+        "code": "10",
+        "name": "General Fund",
+        "active": True,
+        "segment_id": "2b8a4b38-8e3e-41b2-b58e-9c0f1b4e0a01",
+    },
+    {
+        "id": "5e8399e7-3f97-4adf-8293-8e9621decd0a",
+        "code": "1000",
+        "name": "Instruction",
+        "active": True,
+        "segment_id": "3cf0de8b-5e3a-4f7c-9c65-0c08d8e2b702",
+    },
+    {
+        "id": "33eb8e3b-91ba-4d89-b6ad-de7c0c60e2b2",
+        "code": "000",
+        "name": "Regular Education",
+        "active": True,
+        "segment_id": "9c8b0f24-4d92-4b7f-9b66-32b9d8f3a903",
+    },
+    {
+        "id": "34caeed1-a179-4071-8050-f9ff0daf5f1a",
+        "code": "100",
+        "name": "Salaries",
+        "active": True,
+        "segment_id": "7b2c1534-47d4-4b42-9a39-6a2f9a3f5e04",
+    },
+    {
+        "id": "7276147a-8ed5-4c2f-a900-e449fc27ef50",
+        "code": "0000",
+        "name": "No Project",
+        "active": True,
+        "segment_id": "f10b3d5f-0dd8-4b74-9a6b-bf17a8eddd05",
+    },
+    {
+        "id": "d7891e56-bd80-4da6-a5f4-f014b6017197",
+        "code": "000",
+        "name": "General",
+        "active": True,
+        "segment_id": "6a2f7b8c-3245-4a1f-8e29-0b3c4d5e6f06",
+    },
+    {
+        "id": "7f3b1cfd-aa51-4ce6-a1a8-b9e603c7497f",
+        "code": "10",
+        "name": "General Fund",
+        "active": True,
+        "segment_id": "2b8a4b38-8e3e-41b2-b58e-9c0f1b4e0a01",
+    },
+    {
+        "id": "747cf5ae-9e0c-4adc-a09b-4a522eeb4546",
+        "code": "1000",
+        "name": "Instruction",
+        "active": True,
+        "segment_id": "3cf0de8b-5e3a-4f7c-9c65-0c08d8e2b702",
+    },
+    {
+        "id": "ab82069d-1688-4acd-9b24-5354ec06962b",
+        "code": "000",
+        "name": "Regular Education",
+        "active": True,
+        "segment_id": "9c8b0f24-4d92-4b7f-9b66-32b9d8f3a903",
+    },
+    {
+        "id": "5e963b7c-f9b4-4280-8e99-046a033ae2bb",
+        "code": "100",
+        "name": "Salaries",
+        "active": True,
+        "segment_id": "7b2c1534-47d4-4b42-9a39-6a2f9a3f5e04",
+    },
+    {
+        "id": "0777c43e-016b-47d6-bee3-d0edc89322e7",
+        "code": "0000",
+        "name": "Instructional Support Levy (ISL)",
+        "active": True,
+        "segment_id": "f10b3d5f-0dd8-4b74-9a6b-bf17a8eddd05",
+    },
+    {
+        "id": "4704a543-6909-4387-b306-b3b461a16ef9",
+        "code": "810",
+        "name": "Object 810",
+        "active": True,
+        "segment_id": "6a2f7b8c-3245-4a1f-8e29-0b3c4d5e6f06",
+    },
+]
 
 
 def _coerce_value(col: sa.Column, raw):
     """
-    Best-effort coercion from Python/CSV value to appropriate DB-bound value.
+    Best-effort coercion from Python/inline value to appropriate DB-bound value.
 
-    IMPORTANT: for string columns, keep empty strings as "" instead of converting
+    For string columns, keep empty strings as "" instead of converting
     them to NULL, so we don't violate NOT NULL constraints on name/code fields.
     """
     t = col.type
@@ -39,10 +124,8 @@ def _coerce_value(col: sa.Column, raw):
 
     # Empty string handling depends on column type
     if raw == "":
-        # For string-like columns, keep the empty string
         if isinstance(t, (sa.String, sa.Text)):
             return ""
-        # For everything else, treat empty as NULL
         return None
 
     # Boolean needs special handling because SQLAlchemy is strict
@@ -66,28 +149,8 @@ def _coerce_value(col: sa.Column, raw):
     return raw
 
 
-
-def _load_seed_rows_from_csv() -> list[dict]:
-    """Load seed rows for gl_segment_values from CSV file."""
-    if not CSV_PATH.exists():
-        log.warning("CSV file %s not found; skipping seed", CSV_PATH)
-        return []
-
-    rows: list[dict] = []
-    with CSV_PATH.open("r", newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            # Expecting at least: id, code, name, active, segment_id
-            rows.append(row)
-
-    if not rows:
-        log.info("CSV %s is empty; no seed rows loaded", CSV_PATH)
-
-    return rows
-
-
 def upgrade() -> None:
-    """Load seed data for gl_segment_values from CSV."""
+    """Load seed data for gl_segment_values from inline SEED_ROWS."""
     if SKIP_GL_SEGMENTS:
         log.warning("SKIP_GL_SEGMENTS flag is ON — skipping seeding for gl_segments")
         return
@@ -100,17 +163,16 @@ def upgrade() -> None:
         log.warning("Table %s does not exist; skipping seed", TABLE_NAME)
         return
 
+    if not SEED_ROWS:
+        log.info("No seed rows defined for %s; skipping", TABLE_NAME)
+        return
+
     metadata = sa.MetaData()
     table = sa.Table(TABLE_NAME, metadata, autoload_with=bind)
 
-    seed_rows = _load_seed_rows_from_csv()
-    if not seed_rows:
-        log.info("No seed rows defined for %s (CSV empty or missing)", TABLE_NAME)
-        return
-
     inserted = 0
-    for raw_row in seed_rows:
-        values: dict = {}
+    for raw_row in SEED_ROWS:
+        values: dict[str, object] = {}
 
         # Map & coerce by actual table columns
         for col in table.columns:
@@ -137,44 +199,13 @@ def upgrade() -> None:
                 raw_row,
             )
 
-    log.info(
-        "Inserted %s rows into %s from %s",
-        inserted,
-        TABLE_NAME,
-        CSV_PATH,
-    )
+    log.info("Inserted %s inline seed rows into %s", inserted, TABLE_NAME)
 
 
 def downgrade() -> None:
-    """Best-effort removal of the seeded gl_segment_values rows based on CSV ids."""
+    """No-op downgrade; seed data is left in place."""
     if SKIP_GL_SEGMENTS:
         log.warning("SKIP_GL_SEGMENTS flag is ON — skipping seeding for gl_segments")
         return
 
-    bind = op.get_bind()
-    inspector = sa.inspect(bind)
-
-    if not inspector.has_table(TABLE_NAME):
-        log.warning("Table %s does not exist; skipping delete", TABLE_NAME)
-        return
-
-    metadata = sa.MetaData()
-    table = sa.Table(TABLE_NAME, metadata, autoload_with=bind)
-
-    seed_rows = _load_seed_rows_from_csv()
-    if not seed_rows:
-        log.info("No seed rows loaded from CSV; nothing to delete for %s", TABLE_NAME)
-        return
-
-    ids = [row["id"] for row in seed_rows if "id" in row and row["id"]]
-    if not ids:
-        log.info("CSV had no ids; skipping delete for %s", TABLE_NAME)
-        return
-
-    bind.execute(table.delete().where(table.c.id.in_(ids)))
-    log.info(
-        "Deleted %s seeded rows from %s based on %s",
-        len(ids),
-        TABLE_NAME,
-        CSV_PATH,
-    )
+    pass

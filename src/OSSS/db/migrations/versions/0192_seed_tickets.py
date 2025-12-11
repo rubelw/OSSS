@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import csv
 import logging
-import os
 
 from alembic import op
 import sqlalchemy as sa
@@ -17,34 +15,82 @@ depends_on = None
 log = logging.getLogger("alembic.runtime.migration")
 
 TABLE_NAME = "tickets"
-CSV_FILE = os.path.join(os.path.dirname(__file__), "csv", f"{TABLE_NAME}.csv")
 
-
-def _coerce_value(col: sa.Column, raw):
-    """Best-effort coercion from CSV string to appropriate Python value."""
-    if raw == "" or raw is None:
-        return None
-
-    t = col.type
-
-    # Boolean needs special handling because SQLAlchemy is strict
-    if isinstance(t, sa.Boolean):
-        if isinstance(raw, str):
-            v = raw.strip().lower()
-            if v in ("true", "t", "1", "yes", "y"):
-                return True
-            if v in ("false", "f", "0", "no", "n"):
-                return False
-            log.warning("Invalid boolean for %s.%s: %r; using NULL", TABLE_NAME, col.name, raw)
-            return None
-        return bool(raw)
-
-    # Otherwise, pass raw through and let DB cast
-    return raw
+# Inline seed rows for tickets
+# Columns:
+# order_id, ticket_type_id, event_id, qr_code, status,
+# issued_at, redeemed_at, id, created_at, updated_at
+SEED_ROWS = [
+    {
+        # Ticket 1 – redeemed general admission ticket
+        "order_id": "c4f8bc7f-a2ef-5587-b637-901a3096acec",
+        "ticket_type_id": "4408eb5e-fcb7-5e86-885a-a08b5bf3015c",
+        "event_id": "13e28612-f86c-5753-8964-2ed13f37a8b4",
+        "qr_code": "EVT-20240105-GA-0001",
+        "status": "redeemed",
+        "issued_at": "2024-01-01T01:00:00Z",
+        "redeemed_at": "2024-01-01T01:00:00Z",
+        "id": "026ebaa1-aaed-56e7-9fdf-7fbf70a072d1",
+        "created_at": "2024-01-01T01:00:00Z",
+        "updated_at": "2024-01-01T01:00:00Z",
+    },
+    {
+        # Ticket 2 – redeemed general admission ticket
+        "order_id": "c4f8bc7f-a2ef-5587-b637-901a3096acec",
+        "ticket_type_id": "4408eb5e-fcb7-5e86-885a-a08b5bf3015c",
+        "event_id": "13e28612-f86c-5753-8964-2ed13f37a8b4",
+        "qr_code": "EVT-20240105-GA-0002",
+        "status": "redeemed",
+        "issued_at": "2024-01-01T02:00:00Z",
+        "redeemed_at": "2024-01-01T02:00:00Z",
+        "id": "e761953e-658c-5244-8ea6-0214fdca5183",
+        "created_at": "2024-01-01T02:00:00Z",
+        "updated_at": "2024-01-01T02:00:00Z",
+    },
+    {
+        # Ticket 3 – issued but not yet redeemed
+        "order_id": "c4f8bc7f-a2ef-5587-b637-901a3096acec",
+        "ticket_type_id": "4408eb5e-fcb7-5e86-885a-a08b5bf3015c",
+        "event_id": "13e28612-f86c-5753-8964-2ed13f37a8b4",
+        "qr_code": "EVT-20240105-GA-0003",
+        "status": "issued",
+        "issued_at": "2024-01-01T03:00:00Z",
+        "redeemed_at": None,
+        "id": "36275666-2120-5cfb-ac5b-eabcbec6fb69",
+        "created_at": "2024-01-01T03:00:00Z",
+        "updated_at": "2024-01-01T03:00:00Z",
+    },
+    {
+        # Ticket 4 – voided ticket
+        "order_id": "c4f8bc7f-a2ef-5587-b637-901a3096acec",
+        "ticket_type_id": "4408eb5e-fcb7-5e86-885a-a08b5bf3015c",
+        "event_id": "13e28612-f86c-5753-8964-2ed13f37a8b4",
+        "qr_code": "EVT-20240105-GA-0004",
+        "status": "void",
+        "issued_at": "2024-01-01T04:00:00Z",
+        "redeemed_at": None,
+        "id": "8dbf0cbd-02d6-59ba-9bd1-560f07ac719a",
+        "created_at": "2024-01-01T04:00:00Z",
+        "updated_at": "2024-01-01T04:00:00Z",
+    },
+    {
+        # Ticket 5 – redeemed general admission ticket
+        "order_id": "c4f8bc7f-a2ef-5587-b637-901a3096acec",
+        "ticket_type_id": "4408eb5e-fcb7-5e86-885a-a08b5bf3015c",
+        "event_id": "13e28612-f86c-5753-8964-2ed13f37a8b4",
+        "qr_code": "EVT-20240105-GA-0005",
+        "status": "redeemed",
+        "issued_at": "2024-01-01T05:00:00Z",
+        "redeemed_at": "2024-01-01T05:00:00Z",
+        "id": "09d24686-b617-5d0c-8e64-2a5bd400dd81",
+        "created_at": "2024-01-01T05:00:00Z",
+        "updated_at": "2024-01-01T05:00:00Z",
+    },
+]
 
 
 def upgrade() -> None:
-    """Load seed data for {TABLE_NAME} from a CSV file.
+    """Load seed data for tickets from inline SEED_ROWS.
 
     Each row is inserted inside an explicit nested transaction (SAVEPOINT)
     so a failing row won't abort the whole migration transaction.
@@ -56,36 +102,21 @@ def upgrade() -> None:
         log.warning("Table %s does not exist; skipping seed", TABLE_NAME)
         return
 
-    if not os.path.exists(CSV_FILE):
-        log.warning("CSV file not found for %s: %s; skipping", TABLE_NAME, CSV_FILE)
-        return
-
     metadata = sa.MetaData()
     table = sa.Table(TABLE_NAME, metadata, autoload_with=bind)
 
-    with open(CSV_FILE, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
-
-    if not rows:
-        log.info("CSV file for %s is empty: %s", TABLE_NAME, CSV_FILE)
-        return
-
     inserted = 0
-    for raw_row in rows:
-        row = {}
-
-        for col in table.columns:
-            if col.name not in raw_row:
-                continue
-            raw_val = raw_row[col.name]
-            value = _coerce_value(col, raw_val)
-            row[col.name] = value
+    for raw_row in SEED_ROWS:
+        # Only include columns that actually exist on the table
+        row: dict[str, object] = {
+            col.name: raw_row[col.name]
+            for col in table.columns
+            if col.name in raw_row
+        }
 
         if not row:
             continue
 
-        # Explicit nested transaction (SAVEPOINT)
         nested = bind.begin_nested()
         try:
             bind.execute(table.insert().values(**row))
@@ -100,7 +131,11 @@ def upgrade() -> None:
                 raw_row,
             )
 
-    log.info("Inserted %s rows into %s from %s", inserted, TABLE_NAME, CSV_FILE)
+    log.info(
+        "Inserted %s rows into %s from inline SEED_ROWS",
+        inserted,
+        TABLE_NAME,
+    )
 
 
 def downgrade() -> None:

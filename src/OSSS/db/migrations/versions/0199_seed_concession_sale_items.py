@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import csv
 import logging
-import os
 
 from alembic import op
 import sqlalchemy as sa
@@ -17,34 +15,71 @@ depends_on = None
 log = logging.getLogger("alembic.runtime.migration")
 
 TABLE_NAME = "concession_sale_items"
-CSV_FILE = os.path.join(os.path.dirname(__file__), "csv", f"{TABLE_NAME}.csv")
 
-
-def _coerce_value(col: sa.Column, raw):
-    """Best-effort coercion from CSV string to appropriate Python value."""
-    if raw == "" or raw is None:
-        return None
-
-    t = col.type
-
-    # Boolean needs special handling because SQLAlchemy is strict
-    if isinstance(t, sa.Boolean):
-        if isinstance(raw, str):
-            v = raw.strip().lower()
-            if v in ("true", "t", "1", "yes", "y"):
-                return True
-            if v in ("false", "f", "0", "no", "n"):
-                return False
-            log.warning("Invalid boolean for %s.%s: %r; using NULL", TABLE_NAME, col.name, raw)
-            return None
-        return bool(raw)
-
-    # Otherwise, pass raw through and let DB cast
-    return raw
+# Inline seed rows for concession_sale_items
+# Assumes concession_items include:
+# - cda1201e-... : Buttered Popcorn @ 300 cents
+# - 2d2fd20a-... : Bottled Water @ 200 cents
+# - 7ff7a30e-... : Candy Variety Pack @ 250 cents
+# - 60933907-... : Hot Dog @ 350 cents
+# - 3103982f-... : Nachos with Cheese @ 400 cents
+#
+# And concession_sales IDs from the previous migration (0198).
+SEED_ROWS = [
+    # Jordan Miller buys 2 popcorns and 1 bottled water
+    {
+        "sale_id": "1e46fcec-e57a-58da-bffd-e5d19b233dc8",
+        "item_id": "cda1201e-f031-5175-b6b2-9d036be6d674",  # Buttered Popcorn
+        "quantity": 2,
+        "line_total_cents": 600,  # 2 * 300
+        "id": "e361327f-912a-599f-91f3-41f45c1d8d30",
+        "created_at": "2024-01-01T01:00:00Z",
+        "updated_at": "2024-01-01T01:00:00Z",
+    },
+    {
+        "sale_id": "1e46fcec-e57a-58da-bffd-e5d19b233dc8",
+        "item_id": "2d2fd20a-fba6-50e3-812a-f3d5ae2a8fc9",  # Bottled Water
+        "quantity": 1,
+        "line_total_cents": 200,  # 1 * 200
+        "id": "bdf31601-5528-569c-aa96-bd096833729c",
+        "created_at": "2024-01-01T02:00:00Z",
+        "updated_at": "2024-01-01T02:00:00Z",
+    },
+    # Taylor Nguyen buys 3 hot dogs
+    {
+        "sale_id": "06cd1e96-88f8-54d6-aa3a-cc2de0874326",
+        "item_id": "60933907-914d-5869-a36c-61315747bfdb",  # Hot Dog
+        "quantity": 3,
+        "line_total_cents": 1050,  # 3 * 350
+        "id": "8f392404-4ccf-5c3a-b594-2d9caf6b0c78",
+        "created_at": "2024-01-01T03:00:00Z",
+        "updated_at": "2024-01-01T03:00:00Z",
+    },
+    # Riley Johnson buys 1 order of nachos
+    {
+        "sale_id": "7068ba36-3e34-5679-af63-cf612c10b644",
+        "item_id": "3103982f-31e0-536b-8bb5-25d43ce8b3ed",  # Nachos with Cheese
+        "quantity": 1,
+        "line_total_cents": 400,  # 1 * 400
+        "id": "689bfe4c-3229-5cda-9ebc-3dc75e576423",
+        "created_at": "2024-01-01T04:00:00Z",
+        "updated_at": "2024-01-01T04:00:00Z",
+    },
+    # Alex Martinez buys 2 candy variety packs
+    {
+        "sale_id": "77872e94-4291-508b-b25e-391f58e369c8",
+        "item_id": "7ff7a30e-3e08-55d8-a8af-ea92621cafc8",  # Candy Variety Pack
+        "quantity": 2,
+        "line_total_cents": 500,  # 2 * 250
+        "id": "0b722923-240e-5539-ac5c-1a0036c5d76c",
+        "created_at": "2024-01-01T05:00:00Z",
+        "updated_at": "2024-01-01T05:00:00Z",
+    },
+]
 
 
 def upgrade() -> None:
-    """Load seed data for {TABLE_NAME} from a CSV file.
+    """Load seed data for concession_sale_items from inline SEED_ROWS.
 
     Each row is inserted inside an explicit nested transaction (SAVEPOINT)
     so a failing row won't abort the whole migration transaction.
@@ -56,36 +91,17 @@ def upgrade() -> None:
         log.warning("Table %s does not exist; skipping seed", TABLE_NAME)
         return
 
-    if not os.path.exists(CSV_FILE):
-        log.warning("CSV file not found for %s: %s; skipping", TABLE_NAME, CSV_FILE)
-        return
-
     metadata = sa.MetaData()
     table = sa.Table(TABLE_NAME, metadata, autoload_with=bind)
 
-    with open(CSV_FILE, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
-
-    if not rows:
-        log.info("CSV file for %s is empty: %s", TABLE_NAME, CSV_FILE)
-        return
-
     inserted = 0
-    for raw_row in rows:
-        row = {}
-
-        for col in table.columns:
-            if col.name not in raw_row:
-                continue
-            raw_val = raw_row[col.name]
-            value = _coerce_value(col, raw_val)
-            row[col.name] = value
+    for raw_row in SEED_ROWS:
+        # Only include columns that actually exist on the table
+        row = {col.name: raw_row[col.name] for col in table.columns if col.name in raw_row}
 
         if not row:
             continue
 
-        # Explicit nested transaction (SAVEPOINT)
         nested = bind.begin_nested()
         try:
             bind.execute(table.insert().values(**row))
@@ -100,7 +116,7 @@ def upgrade() -> None:
                 raw_row,
             )
 
-    log.info("Inserted %s rows into %s from %s", inserted, TABLE_NAME, CSV_FILE)
+    log.info("Inserted %s rows into %s from inline SEED_ROWS", inserted, TABLE_NAME)
 
 
 def downgrade() -> None:

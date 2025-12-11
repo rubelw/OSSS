@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import csv
 import logging
-import os
 
 from alembic import op
 import sqlalchemy as sa
@@ -17,11 +15,55 @@ depends_on = None
 log = logging.getLogger("alembic.runtime.migration")
 
 TABLE_NAME = "assignment_categories"
-CSV_FILE = os.path.join(os.path.dirname(__file__), "csv", f"{TABLE_NAME}.csv")
+
+# Inline seed data; values are strings so the DB can cast
+# to the correct types (UUID / NUMERIC / TIMESTAMPTZ, etc.).
+INLINE_ROWS = [
+    {
+        "section_id": "6e9f574f-c3ac-505d-baee-e525351b2788",
+        "name": "assignment_categories_name_1",
+        "weight": "1",
+        "created_at": "2024-01-01T01:00:00Z",
+        "updated_at": "2024-01-01T01:00:00Z",
+        "id": "b4a627d0-7477-55a9-92d2-4bc6f86ea89f",
+    },
+    {
+        "section_id": "6e9f574f-c3ac-505d-baee-e525351b2788",
+        "name": "assignment_categories_name_2",
+        "weight": "2",
+        "created_at": "2024-01-01T02:00:00Z",
+        "updated_at": "2024-01-01T02:00:00Z",
+        "id": "28fb37a8-948a-5d48-ba5e-640d00839c39",
+    },
+    {
+        "section_id": "6e9f574f-c3ac-505d-baee-e525351b2788",
+        "name": "assignment_categories_name_3",
+        "weight": "3",
+        "created_at": "2024-01-01T03:00:00Z",
+        "updated_at": "2024-01-01T03:00:00Z",
+        "id": "84b069e9-fd98-502b-b75d-3f2af8eca98c",
+    },
+    {
+        "section_id": "6e9f574f-c3ac-505d-baee-e525351b2788",
+        "name": "assignment_categories_name_4",
+        "weight": "4",
+        "created_at": "2024-01-01T04:00:00Z",
+        "updated_at": "2024-01-01T04:00:00Z",
+        "id": "2866959e-e188-5ee9-809a-ab913a26ffd8",
+    },
+    {
+        "section_id": "6e9f574f-c3ac-505d-baee-e525351b2788",
+        "name": "assignment_categories_name_5",
+        "weight": "5",
+        "created_at": "2024-01-01T05:00:00Z",
+        "updated_at": "2024-01-01T05:00:00Z",
+        "id": "79399d8a-32d4-5071-9506-4d9653b6c3c9",
+    },
+]
 
 
 def _coerce_value(col: sa.Column, raw):
-    """Best-effort coercion from CSV string to appropriate Python value."""
+    """Best-effort coercion from inline seed data to appropriate Python value."""
     if raw == "" or raw is None:
         return None
 
@@ -35,16 +77,21 @@ def _coerce_value(col: sa.Column, raw):
                 return True
             if v in ("false", "f", "0", "no", "n"):
                 return False
-            log.warning("Invalid boolean for %s.%s: %r; using NULL", TABLE_NAME, col.name, raw)
+            log.warning(
+                "Invalid boolean for %s.%s: %r; using NULL",
+                TABLE_NAME,
+                col.name,
+                raw,
+            )
             return None
         return bool(raw)
 
-    # Otherwise, pass raw through and let DB cast
+    # Otherwise, pass raw through and let DB cast (UUID, NUMERIC, TIMESTAMPTZ, etc.)
     return raw
 
 
 def upgrade() -> None:
-    """Load seed data for {TABLE_NAME} from a CSV file.
+    """Load seed data for assignment_categories from inline rows.
 
     Each row is inserted inside an explicit nested transaction (SAVEPOINT)
     so a failing row won't abort the whole migration transaction.
@@ -56,23 +103,15 @@ def upgrade() -> None:
         log.warning("Table %s does not exist; skipping seed", TABLE_NAME)
         return
 
-    if not os.path.exists(CSV_FILE):
-        log.warning("CSV file not found for %s: %s; skipping", TABLE_NAME, CSV_FILE)
+    if not INLINE_ROWS:
+        log.info("No inline rows defined for %s; nothing to insert", TABLE_NAME)
         return
 
     metadata = sa.MetaData()
     table = sa.Table(TABLE_NAME, metadata, autoload_with=bind)
 
-    with open(CSV_FILE, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
-
-    if not rows:
-        log.info("CSV file for %s is empty: %s", TABLE_NAME, CSV_FILE)
-        return
-
     inserted = 0
-    for raw_row in rows:
+    for raw_row in INLINE_ROWS:
         row = {}
 
         for col in table.columns:
@@ -100,7 +139,11 @@ def upgrade() -> None:
                 raw_row,
             )
 
-    log.info("Inserted %s rows into %s from %s", inserted, TABLE_NAME, CSV_FILE)
+    log.info(
+        "Inserted %s rows into %s from inline seed data",
+        inserted,
+        TABLE_NAME,
+    )
 
 
 def downgrade() -> None:

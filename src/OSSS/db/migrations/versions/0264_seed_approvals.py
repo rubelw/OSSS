@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-import csv
 import logging
-import os
+from datetime import datetime, timezone
 
 from alembic import op
 import sqlalchemy as sa
@@ -17,34 +16,71 @@ depends_on = None
 log = logging.getLogger("alembic.runtime.migration")
 
 TABLE_NAME = "approvals"
-CSV_FILE = os.path.join(os.path.dirname(__file__), "csv", f"{TABLE_NAME}.csv")
 
+PROPOSAL_ID = "96bc433b-c25c-5870-80e2-b50df1bf1d66"
 
-def _coerce_value(col: sa.Column, raw):
-    """Best-effort coercion from CSV string to appropriate Python value."""
-    if raw == "" or raw is None:
-        return None
-
-    t = col.type
-
-    # Boolean needs special handling because SQLAlchemy is strict
-    if isinstance(t, sa.Boolean):
-        if isinstance(raw, str):
-            v = raw.strip().lower()
-            if v in ("true", "t", "1", "yes", "y"):
-                return True
-            if v in ("false", "f", "0", "no", "n"):
-                return False
-            log.warning("Invalid boolean for %s.%s: %r; using NULL", TABLE_NAME, col.name, raw)
-            return None
-        return bool(raw)
-
-    # Otherwise, pass raw through and let DB cast
-    return raw
+# Inline seed rows with realistic approval data
+SEED_ROWS = [
+    {
+        # Active approval – long-lived association
+        "id": "b10df5e0-1444-54d0-a072-d6f5785deb1c",
+        "association_id": "b2a8c0a2-b34a-58ee-8f41-a3cecd20958c",
+        "proposal_id": PROPOSAL_ID,
+        "approved_at": datetime(2024, 1, 1, 13, 0, tzinfo=timezone.utc),
+        "expires_at": datetime(2025, 1, 1, 13, 0, tzinfo=timezone.utc),
+        "status": "active",
+        "created_at": datetime(2024, 1, 1, 13, 0, tzinfo=timezone.utc),
+        "updated_at": datetime(2024, 1, 1, 13, 0, tzinfo=timezone.utc),
+    },
+    {
+        # Approval that has expired
+        "id": "99e50d7a-6728-57da-b878-c68b0bc5edbc",
+        "association_id": "f84d3ccf-b6cb-523d-ae0f-381aa1550d13",
+        "proposal_id": PROPOSAL_ID,
+        "approved_at": datetime(2023, 1, 1, 14, 0, tzinfo=timezone.utc),
+        "expires_at": datetime(2023, 12, 31, 23, 59, tzinfo=timezone.utc),
+        "status": "expired",
+        "created_at": datetime(2023, 1, 1, 14, 0, tzinfo=timezone.utc),
+        "updated_at": datetime(2023, 12, 31, 23, 59, tzinfo=timezone.utc),
+    },
+    {
+        # Approval that was explicitly revoked before expiry
+        "id": "79129f28-8376-5487-98f1-8918519806ce",
+        "association_id": "03a4b657-30fc-5bc6-a4f8-a3a8d81afb18",
+        "proposal_id": PROPOSAL_ID,
+        "approved_at": datetime(2023, 6, 1, 9, 0, tzinfo=timezone.utc),
+        "expires_at": datetime(2026, 6, 1, 9, 0, tzinfo=timezone.utc),
+        "status": "revoked",
+        "created_at": datetime(2023, 6, 1, 9, 0, tzinfo=timezone.utc),
+        "updated_at": datetime(2024, 1, 5, 10, 30, tzinfo=timezone.utc),
+    },
+    {
+        # Another active approval (e.g., renewed or separate association)
+        "id": "a090d7b5-fcb8-5356-8f0f-3a52d4375b6d",
+        "association_id": "f1b88270-8d95-5137-8d10-72c3b1ec6dbe",
+        "proposal_id": PROPOSAL_ID,
+        "approved_at": datetime(2024, 2, 1, 8, 30, tzinfo=timezone.utc),
+        "expires_at": datetime(2026, 2, 1, 8, 30, tzinfo=timezone.utc),
+        "status": "active",
+        "created_at": datetime(2024, 2, 1, 8, 30, tzinfo=timezone.utc),
+        "updated_at": datetime(2024, 2, 1, 8, 30, tzinfo=timezone.utc),
+    },
+    {
+        # Short-term approval that has since expired
+        "id": "1c2634bb-93d7-5e04-b73f-0d652baf6021",
+        "association_id": "f72ed908-20a7-543e-a673-745c4d01d2f0",
+        "proposal_id": PROPOSAL_ID,
+        "approved_at": datetime(2024, 3, 1, 15, 0, tzinfo=timezone.utc),
+        "expires_at": datetime(2024, 6, 1, 15, 0, tzinfo=timezone.utc),
+        "status": "expired",
+        "created_at": datetime(2024, 3, 1, 15, 0, tzinfo=timezone.utc),
+        "updated_at": datetime(2024, 6, 1, 15, 0, tzinfo=timezone.utc),
+    },
+]
 
 
 def upgrade() -> None:
-    """Load seed data for {TABLE_NAME} from a CSV file.
+    """Seed approvals with inline rows.
 
     Each row is inserted inside an explicit nested transaction (SAVEPOINT)
     so a failing row won't abort the whole migration transaction.
@@ -56,36 +92,21 @@ def upgrade() -> None:
         log.warning("Table %s does not exist; skipping seed", TABLE_NAME)
         return
 
-    if not os.path.exists(CSV_FILE):
-        log.warning("CSV file not found for %s: %s; skipping", TABLE_NAME, CSV_FILE)
-        return
-
     metadata = sa.MetaData()
     table = sa.Table(TABLE_NAME, metadata, autoload_with=bind)
 
-    with open(CSV_FILE, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
-
-    if not rows:
-        log.info("CSV file for %s is empty: %s", TABLE_NAME, CSV_FILE)
-        return
-
     inserted = 0
-    for raw_row in rows:
-        row = {}
-
-        for col in table.columns:
-            if col.name not in raw_row:
-                continue
-            raw_val = raw_row[col.name]
-            value = _coerce_value(col, raw_val)
-            row[col.name] = value
+    for raw_row in SEED_ROWS:
+        # Only include columns that actually exist on the table
+        row = {
+            col.name: raw_row[col.name]
+            for col in table.columns
+            if col.name in raw_row
+        }
 
         if not row:
             continue
 
-        # Explicit nested transaction (SAVEPOINT)
         nested = bind.begin_nested()
         try:
             bind.execute(table.insert().values(**row))
@@ -100,7 +121,7 @@ def upgrade() -> None:
                 raw_row,
             )
 
-    log.info("Inserted %s rows into %s from %s", inserted, TABLE_NAME, CSV_FILE)
+    log.info("Inserted %s rows into %s", inserted, TABLE_NAME)
 
 
 def downgrade() -> None:

@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-import csv
 import logging
-import os
+from datetime import datetime, timezone
 
 from alembic import op
 import sqlalchemy as sa
@@ -17,34 +16,61 @@ depends_on = None
 log = logging.getLogger("alembic.runtime.migration")
 
 TABLE_NAME = "scan_results"
-CSV_FILE = os.path.join(os.path.dirname(__file__), "csv", f"{TABLE_NAME}.csv")
 
+TICKET_ID = "026ebaa1-aaed-56e7-9fdf-7fbf70a072d1"
 
-def _coerce_value(col: sa.Column, raw):
-    """Best-effort coercion from CSV string to appropriate Python value."""
-    if raw == "" or raw is None:
-        return None
-
-    t = col.type
-
-    # Boolean needs special handling because SQLAlchemy is strict
-    if isinstance(t, sa.Boolean):
-        if isinstance(raw, str):
-            v = raw.strip().lower()
-            if v in ("true", "t", "1", "yes", "y"):
-                return True
-            if v in ("false", "f", "0", "no", "n"):
-                return False
-            log.warning("Invalid boolean for %s.%s: %r; using NULL", TABLE_NAME, col.name, raw)
-            return None
-        return bool(raw)
-
-    # Otherwise, pass raw through and let DB cast
-    return raw
+# Inline seed rows with realistic scan result data
+SEED_ROWS = [
+    {
+        "id": "8f015159-2e55-5be2-9089-46bd4dbbc447",
+        "ok": False,
+        "ticket_id": TICKET_ID,
+        "status": "invalid_ticket",
+        "message": "Ticket not found or has been revoked.",
+        "created_at": datetime(2024, 1, 15, 13, 0, tzinfo=timezone.utc),
+        "updated_at": datetime(2024, 1, 15, 13, 0, tzinfo=timezone.utc),
+    },
+    {
+        "id": "77e8518a-2b4d-5437-b4b4-29bf6a73b0ea",
+        "ok": True,
+        "ticket_id": TICKET_ID,
+        "status": "success_entry",
+        "message": "Ticket accepted. Entry granted at Main Entrance - Door A.",
+        "created_at": datetime(2024, 1, 15, 13, 5, tzinfo=timezone.utc),
+        "updated_at": datetime(2024, 1, 15, 13, 5, tzinfo=timezone.utc),
+    },
+    {
+        "id": "aeb931e0-2a1f-5807-a386-53dbd7c579f2",
+        "ok": False,
+        "ticket_id": TICKET_ID,
+        "status": "duplicate_scan",
+        "message": "Ticket has already been used for entry at this event.",
+        "created_at": datetime(2024, 1, 15, 13, 7, tzinfo=timezone.utc),
+        "updated_at": datetime(2024, 1, 15, 13, 7, tzinfo=timezone.utc),
+    },
+    {
+        "id": "c51086f7-ff7f-5448-ae1d-a7e690ee42ed",
+        "ok": True,
+        "ticket_id": TICKET_ID,
+        "status": "success_exit",
+        "message": "Ticket scanned for exit at Main Entrance - Door B.",
+        "created_at": datetime(2024, 1, 15, 16, 0, tzinfo=timezone.utc),
+        "updated_at": datetime(2024, 1, 15, 16, 0, tzinfo=timezone.utc),
+    },
+    {
+        "id": "7f081e02-d6a4-5171-b756-d12b32027237",
+        "ok": False,
+        "ticket_id": TICKET_ID,
+        "status": "event_expired",
+        "message": "Event has ended. Ticket can no longer be used for entry.",
+        "created_at": datetime(2024, 1, 16, 12, 0, tzinfo=timezone.utc),
+        "updated_at": datetime(2024, 1, 16, 12, 0, tzinfo=timezone.utc),
+    },
+]
 
 
 def upgrade() -> None:
-    """Load seed data for {TABLE_NAME} from a CSV file.
+    """Seed scan_results with inline rows.
 
     Each row is inserted inside an explicit nested transaction (SAVEPOINT)
     so a failing row won't abort the whole migration transaction.
@@ -56,36 +82,21 @@ def upgrade() -> None:
         log.warning("Table %s does not exist; skipping seed", TABLE_NAME)
         return
 
-    if not os.path.exists(CSV_FILE):
-        log.warning("CSV file not found for %s: %s; skipping", TABLE_NAME, CSV_FILE)
-        return
-
     metadata = sa.MetaData()
     table = sa.Table(TABLE_NAME, metadata, autoload_with=bind)
 
-    with open(CSV_FILE, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
-
-    if not rows:
-        log.info("CSV file for %s is empty: %s", TABLE_NAME, CSV_FILE)
-        return
-
     inserted = 0
-    for raw_row in rows:
-        row = {}
-
-        for col in table.columns:
-            if col.name not in raw_row:
-                continue
-            raw_val = raw_row[col.name]
-            value = _coerce_value(col, raw_val)
-            row[col.name] = value
+    for raw_row in SEED_ROWS:
+        # Only include columns that actually exist on the table
+        row = {
+            col.name: raw_row[col.name]
+            for col in table.columns
+            if col.name in raw_row
+        }
 
         if not row:
             continue
 
-        # Explicit nested transaction (SAVEPOINT)
         nested = bind.begin_nested()
         try:
             bind.execute(table.insert().values(**row))
@@ -100,7 +111,7 @@ def upgrade() -> None:
                 raw_row,
             )
 
-    log.info("Inserted %s rows into %s from %s", inserted, TABLE_NAME, CSV_FILE)
+    log.info("Inserted %s rows into %s", inserted, TABLE_NAME)
 
 
 def downgrade() -> None:

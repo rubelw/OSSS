@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import csv
 import logging
-import os
 
 from alembic import op
 import sqlalchemy as sa
@@ -17,11 +15,80 @@ depends_on = None
 log = logging.getLogger("alembic.runtime.migration")
 
 TABLE_NAME = "turn_in"
-CSV_FILE = os.path.join(os.path.dirname(__file__), "csv", f"{TABLE_NAME}.csv")
+
+# Inline seed rows with realistic data
+# Columns: session_id, prompt, objective_code, tutors, created_at, id, updated_at
+SEED_ROWS = [
+    {
+        "session_id": "28da96d8-0d7c-5def-afa2-7c2996853fb2",
+        "prompt": "I’m stuck on adding fractions with different denominators. Can you walk me through an example?",
+        "objective_code": "MATH-5.NF.1",
+        "tutors": {
+            "primary": "ai_math_tutor",
+            "human_reviewers": ["smith_j"],
+            "mode": "fraction_scaffolding",
+        },
+        "created_at": "2024-01-01T01:00:00Z",
+        "id": "9add3d1b-a74b-5b25-b96c-efd3d36da222",
+        "updated_at": "2024-01-01T01:00:00Z",
+    },
+    {
+        "session_id": "28da96d8-0d7c-5def-afa2-7c2996853fb2",
+        "prompt": "How do I find a common denominator for 2/3 and 5/6?",
+        "objective_code": "MATH-5.NF.1",
+        "tutors": {
+            "primary": "ai_math_tutor",
+            "human_reviewers": ["smith_j", "lee_k"],
+            "mode": "guided_example",
+        },
+        "created_at": "2024-01-01T02:00:00Z",
+        "id": "408d597f-1303-5efa-9bf1-e4cc499c8e34",
+        "updated_at": "2024-01-01T02:00:00Z",
+    },
+    {
+        "session_id": "28da96d8-0d7c-5def-afa2-7c2996853fb2",
+        "prompt": "Can you check if I added these fractions correctly: 3/4 + 1/8?",
+        "objective_code": "MATH-5.NF.2",
+        "tutors": {
+            "primary": "ai_math_tutor",
+            "mode": "answer_check",
+            "flags": {"show_step_feedback": True},
+        },
+        "created_at": "2024-01-01T03:00:00Z",
+        "id": "923bcc54-568d-5386-8122-2aa6e33d79d1",
+        "updated_at": "2024-01-01T03:00:00Z",
+    },
+    {
+        "session_id": "28da96d8-0d7c-5def-afa2-7c2996853fb2",
+        "prompt": "Explain why 2/3 and 4/6 are equivalent fractions using a picture.",
+        "objective_code": "MATH-5.NF.3",
+        "tutors": {
+            "primary": "ai_math_tutor",
+            "mode": "conceptual_explanation",
+            "supports_images": True,
+        },
+        "created_at": "2024-01-01T04:00:00Z",
+        "id": "c0e958c5-2d23-5a35-859f-3710ddee9fa7",
+        "updated_at": "2024-01-01T04:00:00Z",
+    },
+    {
+        "session_id": "28da96d8-0d7c-5def-afa2-7c2996853fb2",
+        "prompt": "Give me a word problem that uses adding fractions with unlike denominators.",
+        "objective_code": "MATH-5.NF.4",
+        "tutors": {
+            "primary": "ai_math_tutor",
+            "mode": "problem_generation",
+            "difficulty": "on_level",
+        },
+        "created_at": "2024-01-01T05:00:00Z",
+        "id": "28a9fb12-a983-5915-a7b0-1b25e9f73deb",
+        "updated_at": "2024-01-01T05:00:00Z",
+    },
+]
 
 
 def _coerce_value(col: sa.Column, raw):
-    """Best-effort coercion from CSV string to appropriate Python value."""
+    """Best-effort coercion from inline values to appropriate Python/DB values."""
     if raw == "" or raw is None:
         return None
 
@@ -35,16 +102,21 @@ def _coerce_value(col: sa.Column, raw):
                 return True
             if v in ("false", "f", "0", "no", "n"):
                 return False
-            log.warning("Invalid boolean for %s.%s: %r; using NULL", TABLE_NAME, col.name, raw)
+            log.warning(
+                "Invalid boolean for %s.%s: %r; using NULL",
+                TABLE_NAME,
+                col.name,
+                raw,
+            )
             return None
         return bool(raw)
 
-    # Otherwise, pass raw through and let DB cast
+    # Otherwise, pass raw through and let DB cast (covers JSONB, UUID, etc.)
     return raw
 
 
 def upgrade() -> None:
-    """Load seed data for {TABLE_NAME} from a CSV file.
+    """Load seed data for turn_in from inline SEED_ROWS.
 
     Each row is inserted inside an explicit nested transaction (SAVEPOINT)
     so a failing row won't abort the whole migration transaction.
@@ -56,24 +128,17 @@ def upgrade() -> None:
         log.warning("Table %s does not exist; skipping seed", TABLE_NAME)
         return
 
-    if not os.path.exists(CSV_FILE):
-        log.warning("CSV file not found for %s: %s; skipping", TABLE_NAME, CSV_FILE)
-        return
-
     metadata = sa.MetaData()
     table = sa.Table(TABLE_NAME, metadata, autoload_with=bind)
 
-    with open(CSV_FILE, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
-
+    rows = SEED_ROWS
     if not rows:
-        log.info("CSV file for %s is empty: %s", TABLE_NAME, CSV_FILE)
+        log.info("No inline seed rows defined for %s", TABLE_NAME)
         return
 
     inserted = 0
     for raw_row in rows:
-        row = {}
+        row: dict[str, object] = {}
 
         for col in table.columns:
             if col.name not in raw_row:
@@ -85,7 +150,6 @@ def upgrade() -> None:
         if not row:
             continue
 
-        # Explicit nested transaction (SAVEPOINT)
         nested = bind.begin_nested()
         try:
             bind.execute(table.insert().values(**row))
@@ -100,7 +164,7 @@ def upgrade() -> None:
                 raw_row,
             )
 
-    log.info("Inserted %s rows into %s from %s", inserted, TABLE_NAME, CSV_FILE)
+    log.info("Inserted %s inline seed rows into %s", inserted, TABLE_NAME)
 
 
 def downgrade() -> None:

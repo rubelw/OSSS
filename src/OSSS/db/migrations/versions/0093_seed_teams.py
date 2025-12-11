@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import csv
 import logging
-import os
 
 from alembic import op
 import sqlalchemy as sa
@@ -17,11 +15,65 @@ depends_on = None
 log = logging.getLogger("alembic.runtime.migration")
 
 TABLE_NAME = "teams"
-CSV_FILE = os.path.join(os.path.dirname(__file__), "csv", f"{TABLE_NAME}.csv")
+
+# Inline seed data for teams
+# Columns: sport_id, name, mascot, created_at, updated_at, season_id, school_id, id
+SEED_ROWS = [
+    {
+        "sport_id": "93200509-52cc-4e08-9732-e987248637cd",
+        "name": "DCG Varsity Football",
+        "mascot": "Mustangs",
+        "created_at": "2024-01-01T01:00:00Z",
+        "updated_at": "2024-01-01T01:00:00Z",
+        "season_id": "c39ad8bc-6fea-4025-9a5f-d1887a04fe6c",
+        "school_id": "af33eba3-d881-554e-9b43-2a7ea376e1f0",
+        "id": "ee268bc5-47ec-59b2-b5bb-00492928ca1f",
+    },
+    {
+        "sport_id": "ed683bdf-bb90-496b-8358-8aa6a23fe671",
+        "name": "DCG Varsity Volleyball",
+        "mascot": "Mustangs",
+        "created_at": "2024-01-01T02:00:00Z",
+        "updated_at": "2024-01-01T02:00:00Z",
+        "season_id": "c39ad8bc-6fea-4025-9a5f-d1887a04fe6c",
+        "school_id": "af33eba3-d881-554e-9b43-2a7ea376e1f0",
+        "id": "adad662e-9253-58d2-8da8-d9c622dfb956",
+    },
+    {
+        "sport_id": "89d5b3f6-5de7-4cf7-9755-09f7c86f09f4",
+        "name": "DCG Boys Basketball",
+        "mascot": "Mustangs",
+        "created_at": "2024-01-01T03:00:00Z",
+        "updated_at": "2024-01-01T03:00:00Z",
+        "season_id": "cc1999cc-7e3e-48de-8d4e-eba85196f3e0",
+        "school_id": "af33eba3-d881-554e-9b43-2a7ea376e1f0",
+        "id": "b8a1ffbe-569a-537b-8810-0a2adf30b845",
+    },
+    {
+        "sport_id": "2cc9830c-d75a-41be-884f-cfcd87b8fa5a",
+        "name": "DCG Middle School Track & Field",
+        "mascot": "Mustangs",
+        "created_at": "2024-01-01T04:00:00Z",
+        "updated_at": "2024-01-01T04:00:00Z",
+        "season_id": "cc1999cc-7e3e-48de-8d4e-eba85196f3e0",
+        "school_id": "119caaef-ef97-5364-b179-388e108bd40d",
+        "id": "94a1040e-de5d-58bf-b3d5-3d02fedc5dc8",
+    },
+    {
+        "sport_id": "5da02e28-1b97-4cc3-a781-ef2019c41e29",
+        "name": "DCG Middle School Baseball",
+        "mascot": "Mustangs",
+        "created_at": "2024-01-01T05:00:00Z",
+        "updated_at": "2024-01-01T05:00:00Z",
+        "season_id": "cc1999cc-7e3e-48de-8d4e-eba85196f3e0",
+        "school_id": "119caaef-ef97-5364-b179-388e108bd40d",
+        "id": "01eead7b-0e60-504b-94b0-e90c97b3e8c1",
+    },
+]
 
 
 def _coerce_value(col: sa.Column, raw):
-    """Best-effort coercion from CSV string to appropriate Python value."""
+    """Best-effort coercion from inline value to appropriate Python/DB value."""
     if raw == "" or raw is None:
         return None
 
@@ -35,20 +87,21 @@ def _coerce_value(col: sa.Column, raw):
                 return True
             if v in ("false", "f", "0", "no", "n"):
                 return False
-            log.warning("Invalid boolean for %s.%s: %r; using NULL", TABLE_NAME, col.name, raw)
+            log.warning(
+                "Invalid boolean for %s.%s: %r; using NULL",
+                TABLE_NAME,
+                col.name,
+                raw,
+            )
             return None
         return bool(raw)
 
-    # Otherwise, pass raw through and let DB cast
+    # Otherwise, let DB/SQLAlchemy cast (UUID, timestamptz, etc.)
     return raw
 
 
 def upgrade() -> None:
-    """Load seed data for {TABLE_NAME} from a CSV file.
-
-    Each row is inserted inside an explicit nested transaction (SAVEPOINT)
-    so a failing row won't abort the whole migration transaction.
-    """
+    """Load seed data for teams from inline SEED_ROWS with per-row SAVEPOINTs."""
     bind = op.get_bind()
     inspector = sa.inspect(bind)
 
@@ -56,36 +109,27 @@ def upgrade() -> None:
         log.warning("Table %s does not exist; skipping seed", TABLE_NAME)
         return
 
-    if not os.path.exists(CSV_FILE):
-        log.warning("CSV file not found for %s: %s; skipping", TABLE_NAME, CSV_FILE)
+    if not SEED_ROWS:
+        log.info("No inline seed rows defined for %s", TABLE_NAME)
         return
 
     metadata = sa.MetaData()
     table = sa.Table(TABLE_NAME, metadata, autoload_with=bind)
 
-    with open(CSV_FILE, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
-
-    if not rows:
-        log.info("CSV file for %s is empty: %s", TABLE_NAME, CSV_FILE)
-        return
-
     inserted = 0
-    for raw_row in rows:
-        row = {}
+    for raw_row in SEED_ROWS:
+        row: dict[str, object] = {}
 
+        # Only include columns that actually exist on the table
         for col in table.columns:
             if col.name not in raw_row:
                 continue
             raw_val = raw_row[col.name]
-            value = _coerce_value(col, raw_val)
-            row[col.name] = value
+            row[col.name] = _coerce_value(col, raw_val)
 
         if not row:
             continue
 
-        # Explicit nested transaction (SAVEPOINT)
         nested = bind.begin_nested()
         try:
             bind.execute(table.insert().values(**row))
@@ -100,7 +144,7 @@ def upgrade() -> None:
                 raw_row,
             )
 
-    log.info("Inserted %s rows into %s from %s", inserted, TABLE_NAME, CSV_FILE)
+    log.info("Inserted %s inline rows into %s", inserted, TABLE_NAME)
 
 
 def downgrade() -> None:

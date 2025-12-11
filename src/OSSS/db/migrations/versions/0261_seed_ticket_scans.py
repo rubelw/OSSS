@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-import csv
 import logging
-import os
+from datetime import datetime, timezone
 
 from alembic import op
 import sqlalchemy as sa
@@ -17,34 +16,91 @@ depends_on = None
 log = logging.getLogger("alembic.runtime.migration")
 
 TABLE_NAME = "ticket_scans"
-CSV_FILE = os.path.join(os.path.dirname(__file__), "csv", f"{TABLE_NAME}.csv")
 
+TICKET_ID = "026ebaa1-aaed-56e7-9fdf-7fbf70a072d1"
+SCANNED_BY_USER_ID = "de036046-aeed-4e84-960c-07ca8f9b99b9"
 
-def _coerce_value(col: sa.Column, raw):
-    """Best-effort coercion from CSV string to appropriate Python value."""
-    if raw == "" or raw is None:
-        return None
-
-    t = col.type
-
-    # Boolean needs special handling because SQLAlchemy is strict
-    if isinstance(t, sa.Boolean):
-        if isinstance(raw, str):
-            v = raw.strip().lower()
-            if v in ("true", "t", "1", "yes", "y"):
-                return True
-            if v in ("false", "f", "0", "no", "n"):
-                return False
-            log.warning("Invalid boolean for %s.%s: %r; using NULL", TABLE_NAME, col.name, raw)
-            return None
-        return bool(raw)
-
-    # Otherwise, pass raw through and let DB cast
-    return raw
+# Inline seed rows with realistic scan data
+SEED_ROWS = [
+    {
+        "id": "ddab33d8-a3bb-517c-9036-c06c8da63821",
+        "ticket_id": TICKET_ID,
+        "scanned_by_user_id": SCANNED_BY_USER_ID,
+        "scanned_at": datetime(2024, 1, 15, 13, 5, tzinfo=timezone.utc),
+        "result": "valid",
+        "location": "Main Entrance - Door A",
+        "meta": {
+            "scanner_id": "HANDHELD-01",
+            "direction": "entry",
+            "source": "barcode",
+        },
+        "created_at": datetime(2024, 1, 15, 13, 5, tzinfo=timezone.utc),
+        "updated_at": datetime(2024, 1, 15, 13, 5, tzinfo=timezone.utc),
+    },
+    {
+        "id": "53166411-3308-58d1-bc58-a103185da982",
+        "ticket_id": TICKET_ID,
+        "scanned_by_user_id": SCANNED_BY_USER_ID,
+        "scanned_at": datetime(2024, 1, 15, 13, 7, tzinfo=timezone.utc),
+        "result": "duplicate",
+        "location": "Main Entrance - Door A",
+        "meta": {
+            "scanner_id": "HANDHELD-01",
+            "direction": "entry",
+            "reason": "ticket_already_used",
+        },
+        "created_at": datetime(2024, 1, 15, 13, 7, tzinfo=timezone.utc),
+        "updated_at": datetime(2024, 1, 15, 13, 7, tzinfo=timezone.utc),
+    },
+    {
+        "id": "2a393cc7-7bee-5ef5-9f68-befae2ed3764",
+        "ticket_id": TICKET_ID,
+        "scanned_by_user_id": SCANNED_BY_USER_ID,
+        "scanned_at": datetime(2024, 1, 15, 13, 30, tzinfo=timezone.utc),
+        "result": "valid",
+        "location": "Gym Entrance - Door C",
+        "meta": {
+            "scanner_id": "WALL-READER-03",
+            "direction": "entry",
+            "source": "qr_code",
+        },
+        "created_at": datetime(2024, 1, 15, 13, 30, tzinfo=timezone.utc),
+        "updated_at": datetime(2024, 1, 15, 13, 30, tzinfo=timezone.utc),
+    },
+    {
+        "id": "4a73d299-5b8c-5052-9348-21f031846c16",
+        "ticket_id": TICKET_ID,
+        "scanned_by_user_id": SCANNED_BY_USER_ID,
+        "scanned_at": datetime(2024, 1, 15, 16, 0, tzinfo=timezone.utc),
+        "result": "exit",
+        "location": "Main Entrance - Door B",
+        "meta": {
+            "scanner_id": "HANDHELD-02",
+            "direction": "exit",
+        },
+        "created_at": datetime(2024, 1, 15, 16, 0, tzinfo=timezone.utc),
+        "updated_at": datetime(2024, 1, 15, 16, 0, tzinfo=timezone.utc),
+    },
+    {
+        "id": "b3dcab1c-93a0-5892-b3ec-dba6cc35ba1f",
+        "ticket_id": TICKET_ID,
+        "scanned_by_user_id": SCANNED_BY_USER_ID,
+        "scanned_at": datetime(2024, 1, 16, 12, 0, tzinfo=timezone.utc),
+        "result": "invalid",
+        "location": "Main Entrance - Door A",
+        "meta": {
+            "scanner_id": "HANDHELD-01",
+            "direction": "entry",
+            "reason": "event_expired",
+        },
+        "created_at": datetime(2024, 1, 16, 12, 0, tzinfo=timezone.utc),
+        "updated_at": datetime(2024, 1, 16, 12, 0, tzinfo=timezone.utc),
+    },
+]
 
 
 def upgrade() -> None:
-    """Load seed data for {TABLE_NAME} from a CSV file.
+    """Seed ticket_scans with inline rows.
 
     Each row is inserted inside an explicit nested transaction (SAVEPOINT)
     so a failing row won't abort the whole migration transaction.
@@ -56,36 +112,21 @@ def upgrade() -> None:
         log.warning("Table %s does not exist; skipping seed", TABLE_NAME)
         return
 
-    if not os.path.exists(CSV_FILE):
-        log.warning("CSV file not found for %s: %s; skipping", TABLE_NAME, CSV_FILE)
-        return
-
     metadata = sa.MetaData()
     table = sa.Table(TABLE_NAME, metadata, autoload_with=bind)
 
-    with open(CSV_FILE, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
-
-    if not rows:
-        log.info("CSV file for %s is empty: %s", TABLE_NAME, CSV_FILE)
-        return
-
     inserted = 0
-    for raw_row in rows:
-        row = {}
-
-        for col in table.columns:
-            if col.name not in raw_row:
-                continue
-            raw_val = raw_row[col.name]
-            value = _coerce_value(col, raw_val)
-            row[col.name] = value
+    for raw_row in SEED_ROWS:
+        # Only include columns that actually exist on the table
+        row = {
+            col.name: raw_row[col.name]
+            for col in table.columns
+            if col.name in raw_row
+        }
 
         if not row:
             continue
 
-        # Explicit nested transaction (SAVEPOINT)
         nested = bind.begin_nested()
         try:
             bind.execute(table.insert().values(**row))
@@ -100,7 +141,7 @@ def upgrade() -> None:
                 raw_row,
             )
 
-    log.info("Inserted %s rows into %s from %s", inserted, TABLE_NAME, CSV_FILE)
+    log.info("Inserted %s rows into %s", inserted, TABLE_NAME)
 
 
 def downgrade() -> None:

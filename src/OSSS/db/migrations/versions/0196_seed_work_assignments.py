@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import csv
 import logging
-import os
 
 from alembic import op
 import sqlalchemy as sa
@@ -17,34 +15,78 @@ depends_on = None
 log = logging.getLogger("alembic.runtime.migration")
 
 TABLE_NAME = "work_assignments"
-CSV_FILE = os.path.join(os.path.dirname(__file__), "csv", f"{TABLE_NAME}.csv")
 
-
-def _coerce_value(col: sa.Column, raw):
-    """Best-effort coercion from CSV string to appropriate Python value."""
-    if raw == "" or raw is None:
-        return None
-
-    t = col.type
-
-    # Boolean needs special handling because SQLAlchemy is strict
-    if isinstance(t, sa.Boolean):
-        if isinstance(raw, str):
-            v = raw.strip().lower()
-            if v in ("true", "t", "1", "yes", "y"):
-                return True
-            if v in ("false", "f", "0", "no", "n"):
-                return False
-            log.warning("Invalid boolean for %s.%s: %r; using NULL", TABLE_NAME, col.name, raw)
-            return None
-        return bool(raw)
-
-    # Otherwise, pass raw through and let DB cast
-    return raw
+# Inline seed rows for work_assignments
+# Columns:
+#   event_id, worker_id, stipend_cents, status,
+#   assigned_at, checked_in_at, completed_at,
+#   id, created_at, updated_at
+SEED_ROWS = [
+    {
+        "event_id": "13e28612-f86c-5753-8964-2ed13f37a8b4",
+        "worker_id": "d5228b09-d142-4827-8c15-7c35920a84eb",
+        "stipend_cents": 5000,  # $50.00
+        "status": "declined",
+        "assigned_at": "2024-01-01T01:00:00Z",
+        "checked_in_at": "2024-01-01T01:00:00Z",
+        "completed_at": "2024-01-01T01:00:00Z",
+        "id": "114a3acb-ffa9-5912-b128-d27d558e7796",
+        "created_at": "2024-01-01T01:00:00Z",
+        "updated_at": "2024-01-01T01:00:00Z",
+    },
+    {
+        "event_id": "13e28612-f86c-5753-8964-2ed13f37a8b4",
+        "worker_id": "d5228b09-d142-4827-8c15-7c35920a84eb",
+        "stipend_cents": 7500,  # $75.00
+        "status": "confirmed",
+        "assigned_at": "2024-01-01T02:00:00Z",
+        "checked_in_at": "2024-01-01T02:00:00Z",
+        "completed_at": "2024-01-01T02:00:00Z",
+        "id": "cbde0516-708f-5e52-ae82-4559865fa81a",
+        "created_at": "2024-01-01T02:00:00Z",
+        "updated_at": "2024-01-01T02:00:00Z",
+    },
+    {
+        "event_id": "13e28612-f86c-5753-8964-2ed13f37a8b4",
+        "worker_id": "d5228b09-d142-4827-8c15-7c35920a84eb",
+        "stipend_cents": 10000,  # $100.00
+        "status": "pending",
+        "assigned_at": "2024-01-01T03:00:00Z",
+        "checked_in_at": "2024-01-01T03:00:00Z",
+        "completed_at": "2024-01-01T03:00:00Z",
+        "id": "68ca497c-e76c-504f-b510-52d1e402070d",
+        "created_at": "2024-01-01T03:00:00Z",
+        "updated_at": "2024-01-01T03:00:00Z",
+    },
+    {
+        "event_id": "13e28612-f86c-5753-8964-2ed13f37a8b4",
+        "worker_id": "d5228b09-d142-4827-8c15-7c35920a84eb",
+        "stipend_cents": 12500,  # $125.00
+        "status": "completed",
+        "assigned_at": "2024-01-01T04:00:00Z",
+        "checked_in_at": "2024-01-01T04:00:00Z",
+        "completed_at": "2024-01-01T04:00:00Z",
+        "id": "e53c25ce-8cb4-5273-b096-1b0f8a9d4e66",
+        "created_at": "2024-01-01T04:00:00Z",
+        "updated_at": "2024-01-01T04:00:00Z",
+    },
+    {
+        "event_id": "13e28612-f86c-5753-8964-2ed13f37a8b4",
+        "worker_id": "d5228b09-d142-4827-8c15-7c35920a84eb",
+        "stipend_cents": 15000,  # $150.00
+        "status": "completed",
+        "assigned_at": "2024-01-01T05:00:00Z",
+        "checked_in_at": "2024-01-01T05:00:00Z",
+        "completed_at": "2024-01-01T05:00:00Z",
+        "id": "24d7609d-ab65-56e7-8bb7-4e0d85d18f0c",
+        "created_at": "2024-01-01T05:00:00Z",
+        "updated_at": "2024-01-01T05:00:00Z",
+    },
+]
 
 
 def upgrade() -> None:
-    """Load seed data for {TABLE_NAME} from a CSV file.
+    """Load seed data for work_assignments from inline SEED_ROWS.
 
     Each row is inserted inside an explicit nested transaction (SAVEPOINT)
     so a failing row won't abort the whole migration transaction.
@@ -56,36 +98,17 @@ def upgrade() -> None:
         log.warning("Table %s does not exist; skipping seed", TABLE_NAME)
         return
 
-    if not os.path.exists(CSV_FILE):
-        log.warning("CSV file not found for %s: %s; skipping", TABLE_NAME, CSV_FILE)
-        return
-
     metadata = sa.MetaData()
     table = sa.Table(TABLE_NAME, metadata, autoload_with=bind)
 
-    with open(CSV_FILE, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
-
-    if not rows:
-        log.info("CSV file for %s is empty: %s", TABLE_NAME, CSV_FILE)
-        return
-
     inserted = 0
-    for raw_row in rows:
-        row = {}
-
-        for col in table.columns:
-            if col.name not in raw_row:
-                continue
-            raw_val = raw_row[col.name]
-            value = _coerce_value(col, raw_val)
-            row[col.name] = value
+    for raw_row in SEED_ROWS:
+        # Only include columns that actually exist on the table
+        row = {col.name: raw_row[col.name] for col in table.columns if col.name in raw_row}
 
         if not row:
             continue
 
-        # Explicit nested transaction (SAVEPOINT)
         nested = bind.begin_nested()
         try:
             bind.execute(table.insert().values(**row))
@@ -100,7 +123,7 @@ def upgrade() -> None:
                 raw_row,
             )
 
-    log.info("Inserted %s rows into %s from %s", inserted, TABLE_NAME, CSV_FILE)
+    log.info("Inserted %s rows into %s from inline SEED_ROWS", inserted, TABLE_NAME)
 
 
 def downgrade() -> None:

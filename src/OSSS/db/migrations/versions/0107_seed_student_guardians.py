@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import csv
 import logging
-import os
 
 from alembic import op
 import sqlalchemy as sa
@@ -17,11 +15,65 @@ depends_on = None
 log = logging.getLogger("alembic.runtime.migration")
 
 TABLE_NAME = "student_guardians"
-CSV_FILE = os.path.join(os.path.dirname(__file__), "csv", f"{TABLE_NAME}.csv")
+
+# Inline seed data; values are strings so the DB can cast
+# to the correct types (UUID / TEXT / INTEGER / TIMESTAMPTZ, etc.).
+INLINE_ROWS = [
+    {
+        "id": "4e5161e6-d3ae-5280-b6ca-f4f63a6d3fe4",
+        "student_id": "d4f53e78-1012-5322-a4f3-4bca2efc51be",
+        "guardian_id": "ba756e0b-7456-5d58-bac4-e6afdd286c3d",
+        "custody": "student_guardians_custody_1",
+        "is_primary": "student_guardians_is_primary_1",
+        "contact_order": "1",
+        "created_at": "2024-01-01T01:00:00Z",
+        "updated_at": "2024-01-01T01:00:00Z",
+    },
+    {
+        "id": "68428b26-5a46-5367-a953-6a9b091451a8",
+        "student_id": "d4f53e78-1012-5322-a4f3-4bca2efc51be",
+        "guardian_id": "ba756e0b-7456-5d58-bac4-e6afdd286c3d",
+        "custody": "student_guardians_custody_2",
+        "is_primary": "student_guardians_is_primary_2",
+        "contact_order": "2",
+        "created_at": "2024-01-01T02:00:00Z",
+        "updated_at": "2024-01-01T02:00:00Z",
+    },
+    {
+        "id": "a0934989-a686-5bdd-9436-f08cefa5ee35",
+        "student_id": "d4f53e78-1012-5322-a4f3-4bca2efc51be",
+        "guardian_id": "ba756e0b-7456-5d58-bac4-e6afdd286c3d",
+        "custody": "student_guardians_custody_3",
+        "is_primary": "student_guardians_is_primary_3",
+        "contact_order": "3",
+        "created_at": "2024-01-01T03:00:00Z",
+        "updated_at": "2024-01-01T03:00:00Z",
+    },
+    {
+        "id": "bf07b024-836f-5d91-82a4-66decc94466e",
+        "student_id": "d4f53e78-1012-5322-a4f3-4bca2efc51be",
+        "guardian_id": "ba756e0b-7456-5d58-bac4-e6afdd286c3d",
+        "custody": "student_guardians_custody_4",
+        "is_primary": "student_guardians_is_primary_4",
+        "contact_order": "4",
+        "created_at": "2024-01-01T04:00:00Z",
+        "updated_at": "2024-01-01T04:00:00Z",
+    },
+    {
+        "id": "1497aeee-c229-52f4-943c-3af3da70c59a",
+        "student_id": "d4f53e78-1012-5322-a4f3-4bca2efc51be",
+        "guardian_id": "ba756e0b-7456-5d58-bac4-e6afdd286c3d",
+        "custody": "student_guardians_custody_5",
+        "is_primary": "student_guardians_is_primary_5",
+        "contact_order": "5",
+        "created_at": "2024-01-01T05:00:00Z",
+        "updated_at": "2024-01-01T05:00:00Z",
+    },
+]
 
 
 def _coerce_value(col: sa.Column, raw):
-    """Best-effort coercion from CSV string to appropriate Python value."""
+    """Best-effort coercion from inline seed data to appropriate Python value."""
     if raw == "" or raw is None:
         return None
 
@@ -39,12 +91,12 @@ def _coerce_value(col: sa.Column, raw):
             return None
         return bool(raw)
 
-    # Otherwise, pass raw through and let DB cast
+    # Otherwise, pass raw through and let DB cast (UUID, TEXT, INTEGER, TIMESTAMPTZ, etc.)
     return raw
 
 
 def upgrade() -> None:
-    """Load seed data for {TABLE_NAME} from a CSV file.
+    """Load seed data for student_guardians from inline rows.
 
     Each row is inserted inside an explicit nested transaction (SAVEPOINT)
     so a failing row won't abort the whole migration transaction.
@@ -56,23 +108,15 @@ def upgrade() -> None:
         log.warning("Table %s does not exist; skipping seed", TABLE_NAME)
         return
 
-    if not os.path.exists(CSV_FILE):
-        log.warning("CSV file not found for %s: %s; skipping", TABLE_NAME, CSV_FILE)
+    if not INLINE_ROWS:
+        log.info("No inline rows defined for %s; nothing to insert", TABLE_NAME)
         return
 
     metadata = sa.MetaData()
     table = sa.Table(TABLE_NAME, metadata, autoload_with=bind)
 
-    with open(CSV_FILE, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
-
-    if not rows:
-        log.info("CSV file for %s is empty: %s", TABLE_NAME, CSV_FILE)
-        return
-
     inserted = 0
-    for raw_row in rows:
+    for raw_row in INLINE_ROWS:
         row = {}
 
         for col in table.columns:
@@ -100,7 +144,11 @@ def upgrade() -> None:
                 raw_row,
             )
 
-    log.info("Inserted %s rows into %s from %s", inserted, TABLE_NAME, CSV_FILE)
+    log.info(
+        "Inserted %s rows into %s from inline seed data",
+        inserted,
+        TABLE_NAME,
+    )
 
 
 def downgrade() -> None:

@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import csv
 import logging
-import os
 
 from alembic import op
 import sqlalchemy as sa
@@ -17,11 +15,69 @@ depends_on = None
 log = logging.getLogger("alembic.runtime.migration")
 
 TABLE_NAME = "posts"
-CSV_FILE = os.path.join(os.path.dirname(__file__), "csv", f"{TABLE_NAME}.csv")
+
+# Inline seed data (replaces CSV)
+ROWS = [
+    {
+        "channel_id": "76330019-00cf-5cab-954e-505b6b74d86d",
+        "title": "posts_title_1",
+        "body": "posts_body_1",
+        "status": "posts_status_1",
+        "publish_at": "2024-01-01T01:00:00Z",
+        "author_id": "de036046-aeed-4e84-960c-07ca8f9b99b9",
+        "created_at": "2024-01-01T01:00:00Z",
+        "updated_at": "2024-01-01T01:00:00Z",
+        "id": "ec1aacab-2074-5b9f-bef5-a7dad72e0e6b",
+    },
+    {
+        "channel_id": "76330019-00cf-5cab-954e-505b6b74d86d",
+        "title": "posts_title_2",
+        "body": "posts_body_2",
+        "status": "posts_status_2",
+        "publish_at": "2024-01-01T02:00:00Z",
+        "author_id": "de036046-aeed-4e84-960c-07ca8f9b99b9",
+        "created_at": "2024-01-01T02:00:00Z",
+        "updated_at": "2024-01-01T02:00:00Z",
+        "id": "6638c28a-1eab-5202-b1dc-7d38fe01932c",
+    },
+    {
+        "channel_id": "76330019-00cf-5cab-954e-505b6b74d86d",
+        "title": "posts_title_3",
+        "body": "posts_body_3",
+        "status": "posts_status_3",
+        "publish_at": "2024-01-01T03:00:00Z",
+        "author_id": "de036046-aeed-4e84-960c-07ca8f9b99b9",
+        "created_at": "2024-01-01T03:00:00Z",
+        "updated_at": "2024-01-01T03:00:00Z",
+        "id": "f1fe96e6-10a9-5cc1-babe-597380a46ba2",
+    },
+    {
+        "channel_id": "76330019-00cf-5cab-954e-505b6b74d86d",
+        "title": "posts_title_4",
+        "body": "posts_body_4",
+        "status": "posts_status_4",
+        "publish_at": "2024-01-01T04:00:00Z",
+        "author_id": "de036046-aeed-4e84-960c-07ca8f9b99b9",
+        "created_at": "2024-01-01T04:00:00Z",
+        "updated_at": "2024-01-01T04:00:00Z",
+        "id": "f225eef1-7dd7-5eb4-81dc-03f9e404495a",
+    },
+    {
+        "channel_id": "76330019-00cf-5cab-954e-505b6b74d86d",
+        "title": "posts_title_5",
+        "body": "posts_body_5",
+        "status": "posts_status_5",
+        "publish_at": "2024-01-01T05:00:00Z",
+        "author_id": "de036046-aeed-4e84-960c-07ca8f9b99b9",
+        "created_at": "2024-01-01T05:00:00Z",
+        "updated_at": "2024-01-01T05:00:00Z",
+        "id": "d2d0c580-e980-5f87-a27e-51fdc76031a6",
+    },
+]
 
 
 def _coerce_value(col: sa.Column, raw):
-    """Best-effort coercion from CSV string to appropriate Python value."""
+    """Best-effort coercion from inline seed rows to appropriate Python value."""
     if raw == "" or raw is None:
         return None
 
@@ -35,20 +91,21 @@ def _coerce_value(col: sa.Column, raw):
                 return True
             if v in ("false", "f", "0", "no", "n"):
                 return False
-            log.warning("Invalid boolean for %s.%s: %r; using NULL", TABLE_NAME, col.name, raw)
+            log.warning(
+                "Invalid boolean for %s.%s: %r; using NULL",
+                TABLE_NAME,
+                col.name,
+                raw,
+            )
             return None
         return bool(raw)
 
-    # Otherwise, pass raw through and let DB cast
+    # Otherwise, let the DB cast (UUID, timestamptz, numeric, etc.)
     return raw
 
 
 def upgrade() -> None:
-    """Load seed data for {TABLE_NAME} from a CSV file.
-
-    Each row is inserted inside an explicit nested transaction (SAVEPOINT)
-    so a failing row won't abort the whole migration transaction.
-    """
+    """Seed fixed posts rows inline (no CSV file)."""
     bind = op.get_bind()
     inspector = sa.inspect(bind)
 
@@ -56,31 +113,22 @@ def upgrade() -> None:
         log.warning("Table %s does not exist; skipping seed", TABLE_NAME)
         return
 
-    if not os.path.exists(CSV_FILE):
-        log.warning("CSV file not found for %s: %s; skipping", TABLE_NAME, CSV_FILE)
-        return
-
     metadata = sa.MetaData()
     table = sa.Table(TABLE_NAME, metadata, autoload_with=bind)
 
-    with open(CSV_FILE, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
-
-    if not rows:
-        log.info("CSV file for %s is empty: %s", TABLE_NAME, CSV_FILE)
+    if not ROWS:
+        log.info("No inline rows for %s; skipping", TABLE_NAME)
         return
 
     inserted = 0
-    for raw_row in rows:
-        row = {}
+    for raw_row in ROWS:
+        row: dict[str, object] = {}
 
         for col in table.columns:
             if col.name not in raw_row:
                 continue
             raw_val = raw_row[col.name]
-            value = _coerce_value(col, raw_val)
-            row[col.name] = value
+            row[col.name] = _coerce_value(col, raw_val)
 
         if not row:
             continue
@@ -100,7 +148,7 @@ def upgrade() -> None:
                 raw_row,
             )
 
-    log.info("Inserted %s rows into %s from %s", inserted, TABLE_NAME, CSV_FILE)
+    log.info("Inserted %s inline rows into %s", inserted, TABLE_NAME)
 
 
 def downgrade() -> None:

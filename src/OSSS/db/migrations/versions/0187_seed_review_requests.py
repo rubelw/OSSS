@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import csv
 import logging
-import os
 
 from alembic import op
 import sqlalchemy as sa
@@ -17,34 +15,72 @@ depends_on = None
 log = logging.getLogger("alembic.runtime.migration")
 
 TABLE_NAME = "review_requests"
-CSV_FILE = os.path.join(os.path.dirname(__file__), "csv", f"{TABLE_NAME}.csv")
 
-
-def _coerce_value(col: sa.Column, raw):
-    """Best-effort coercion from CSV string to appropriate Python value."""
-    if raw == "" or raw is None:
-        return None
-
-    t = col.type
-
-    # Boolean needs special handling because SQLAlchemy is strict
-    if isinstance(t, sa.Boolean):
-        if isinstance(raw, str):
-            v = raw.strip().lower()
-            if v in ("true", "t", "1", "yes", "y"):
-                return True
-            if v in ("false", "f", "0", "no", "n"):
-                return False
-            log.warning("Invalid boolean for %s.%s: %r; using NULL", TABLE_NAME, col.name, raw)
-            return None
-        return bool(raw)
-
-    # Otherwise, pass raw through and let DB cast
-    return raw
+# Inline seed rows for review_requests
+# Columns:
+# curriculum_version_id, association_id, status, submitted_at, decided_at,
+# notes, created_at, updated_at, id
+SEED_ROWS = [
+    {
+        "curriculum_version_id": "8d122c3e-38cb-5f27-a63e-facf99bd4c49",
+        "association_id": "d611575d-a62c-41a1-a157-6434d34ffd8f",
+        "status": "submitted",
+        "submitted_at": "2024-01-01T01:00:00Z",
+        "decided_at": "2024-01-01T01:00:00Z",
+        "notes": "Initial alignment review request submitted by curriculum team.",
+        "created_at": "2024-01-01T01:00:00Z",
+        "updated_at": "2024-01-01T01:00:00Z",
+        "id": "e2ed5287-c43e-5133-997f-df9c2c704560",
+    },
+    {
+        "curriculum_version_id": "8d122c3e-38cb-5f27-a63e-facf99bd4c49",
+        "association_id": "d611575d-a62c-41a1-a157-6434d34ffd8f",
+        "status": "in_review",
+        "submitted_at": "2024-01-01T02:00:00Z",
+        "decided_at": "2024-01-01T02:00:00Z",
+        "notes": "Request routed to state reviewer; materials are under active review.",
+        "created_at": "2024-01-01T02:00:00Z",
+        "updated_at": "2024-01-01T02:00:00Z",
+        "id": "8b0e80e0-e153-5ffb-99b7-1add6af893e3",
+    },
+    {
+        "curriculum_version_id": "8d122c3e-38cb-5f27-a63e-facf99bd4c49",
+        "association_id": "d611575d-a62c-41a1-a157-6434d34ffd8f",
+        "status": "revisions_requested",
+        "submitted_at": "2024-01-01T03:00:00Z",
+        "decided_at": "2024-01-01T03:00:00Z",
+        "notes": "Reviewer requested additional evidence for assessment alignment and pacing.",
+        "created_at": "2024-01-01T03:00:00Z",
+        "updated_at": "2024-01-01T03:00:00Z",
+        "id": "5a7e0fa2-82b8-58fa-ad9e-2acad06b1c1d",
+    },
+    {
+        "curriculum_version_id": "8d122c3e-38cb-5f27-a63e-facf99bd4c49",
+        "association_id": "d611575d-a62c-41a1-a157-6434d34ffd8f",
+        "status": "approved",
+        "submitted_at": "2024-01-01T04:00:00Z",
+        "decided_at": "2024-01-01T04:00:00Z",
+        "notes": "Review committee approved the request; alignment letter will be issued.",
+        "created_at": "2024-01-01T04:00:00Z",
+        "updated_at": "2024-01-01T04:00:00Z",
+        "id": "b9e6caa3-4681-53b8-a96a-097d20527c76",
+    },
+    {
+        "curriculum_version_id": "8d122c3e-38cb-5f27-a63e-facf99bd4c49",
+        "association_id": "d611575d-a62c-41a1-a157-6434d34ffd8f",
+        "status": "closed",
+        "submitted_at": "2024-01-01T05:00:00Z",
+        "decided_at": "2024-01-01T05:00:00Z",
+        "notes": "Request closed after final approval and communication to the vendor.",
+        "created_at": "2024-01-01T05:00:00Z",
+        "updated_at": "2024-01-01T05:00:00Z",
+        "id": "6279f7fa-2665-55f3-8a8a-f2247e852a49",
+    },
+]
 
 
 def upgrade() -> None:
-    """Load seed data for {TABLE_NAME} from a CSV file.
+    """Load seed data for review_requests from inline SEED_ROWS.
 
     Each row is inserted inside an explicit nested transaction (SAVEPOINT)
     so a failing row won't abort the whole migration transaction.
@@ -56,36 +92,21 @@ def upgrade() -> None:
         log.warning("Table %s does not exist; skipping seed", TABLE_NAME)
         return
 
-    if not os.path.exists(CSV_FILE):
-        log.warning("CSV file not found for %s: %s; skipping", TABLE_NAME, CSV_FILE)
-        return
-
     metadata = sa.MetaData()
     table = sa.Table(TABLE_NAME, metadata, autoload_with=bind)
 
-    with open(CSV_FILE, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
-
-    if not rows:
-        log.info("CSV file for %s is empty: %s", TABLE_NAME, CSV_FILE)
-        return
-
     inserted = 0
-    for raw_row in rows:
-        row = {}
-
-        for col in table.columns:
-            if col.name not in raw_row:
-                continue
-            raw_val = raw_row[col.name]
-            value = _coerce_value(col, raw_val)
-            row[col.name] = value
+    for raw_row in SEED_ROWS:
+        # Only include columns that actually exist on the table
+        row: dict[str, object] = {
+            col.name: raw_row[col.name]
+            for col in table.columns
+            if col.name in raw_row
+        }
 
         if not row:
             continue
 
-        # Explicit nested transaction (SAVEPOINT)
         nested = bind.begin_nested()
         try:
             bind.execute(table.insert().values(**row))
@@ -100,7 +121,11 @@ def upgrade() -> None:
                 raw_row,
             )
 
-    log.info("Inserted %s rows into %s from %s", inserted, TABLE_NAME, CSV_FILE)
+    log.info(
+        "Inserted %s rows into %s from inline SEED_ROWS",
+        inserted,
+        TABLE_NAME,
+    )
 
 
 def downgrade() -> None:

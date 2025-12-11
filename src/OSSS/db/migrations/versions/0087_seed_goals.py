@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import csv
 import logging
 import os
 
@@ -19,9 +18,68 @@ log = logging.getLogger("alembic.runtime.migration")
 TABLE_NAME = "goals"
 CSV_FILE = os.path.join(os.path.dirname(__file__), "csv", f"{TABLE_NAME}.csv")
 
+# Inline seed data for goals
+SEED_ROWS = [
+    {
+        "plan_id": "7f2eb6b4-2c3e-4c78-9d7a-90bb2b67e21d",
+        "name": "Increase Student Achievement",
+        "description": (
+            "Improve academic performance by strengthening instructional practices, "
+            "increasing access to high-quality curriculum, and using data-driven interventions."
+        ),
+        "id": "475010fd-e5b0-53d4-ba80-fe79851cf581",
+        "created_at": "2024-01-01T01:00:00Z",
+        "updated_at": "2024-01-01T01:00:00Z",
+    },
+    {
+        "plan_id": "7f2eb6b4-2c3e-4c78-9d7a-90bb2b67e21d",
+        "name": "Enhance Student Well-Being",
+        "description": (
+            "Support the social-emotional and mental health needs of all students through "
+            "expanded counseling services, SEL programming, and supportive environments."
+        ),
+        "id": "125234d5-ce50-5e45-9d9a-c4927a0736e9",
+        "created_at": "2024-01-01T02:00:00Z",
+        "updated_at": "2024-01-01T02:00:00Z",
+    },
+    {
+        "plan_id": "7f2eb6b4-2c3e-4c78-9d7a-90bb2b67e21d",
+        "name": "Strengthen Community Engagement",
+        "description": (
+            "Increase transparency and communication with families and the broader community "
+            "through improved outreach, regular updates, and meaningful engagement opportunities."
+        ),
+        "id": "01e40b7b-50e7-58b6-b984-6f19ef9925c1",
+        "created_at": "2024-01-01T03:00:00Z",
+        "updated_at": "2024-01-01T03:00:00Z",
+    },
+    {
+        "plan_id": "7f2eb6b4-2c3e-4c78-9d7a-90bb2b67e21d",
+        "name": "Support High-Quality Staff",
+        "description": (
+            "Recruit, develop, and retain exceptional educators and staff by providing ongoing "
+            "professional development, competitive compensation, and supportive working conditions."
+        ),
+        "id": "f10b842e-74b8-5f3b-aa22-967737cf87b3",
+        "created_at": "2024-01-01T04:00:00Z",
+        "updated_at": "2024-01-01T04:00:00Z",
+    },
+    {
+        "plan_id": "7f2eb6b4-2c3e-4c78-9d7a-90bb2b67e21d",
+        "name": "Optimize Facilities and Resources",
+        "description": (
+            "Ensure district facilities, technology, and operational systems effectively support "
+            "learning, safety, and long-term sustainability."
+        ),
+        "id": "b20cb698-8843-5c7a-8f5c-fa746d9e0e43",
+        "created_at": "2024-01-01T05:00:00Z",
+        "updated_at": "2024-01-01T05:00:00Z",
+    },
+]
+
 
 def _coerce_value(col: sa.Column, raw):
-    """Best-effort coercion from CSV string to appropriate Python value."""
+    """Best-effort coercion from CSV-style string to appropriate Python value."""
     if raw == "" or raw is None:
         return None
 
@@ -44,7 +102,7 @@ def _coerce_value(col: sa.Column, raw):
 
 
 def upgrade() -> None:
-    """Load seed data for {TABLE_NAME} from a CSV file.
+    """Load seed data for goals from inline SEED_ROWS.
 
     Each row is inserted inside an explicit nested transaction (SAVEPOINT)
     so a failing row won't abort the whole migration transaction.
@@ -56,24 +114,17 @@ def upgrade() -> None:
         log.warning("Table %s does not exist; skipping seed", TABLE_NAME)
         return
 
-    if not os.path.exists(CSV_FILE):
-        log.warning("CSV file not found for %s: %s; skipping", TABLE_NAME, CSV_FILE)
-        return
-
     metadata = sa.MetaData()
     table = sa.Table(TABLE_NAME, metadata, autoload_with=bind)
 
-    with open(CSV_FILE, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
-
+    rows = SEED_ROWS
     if not rows:
-        log.info("CSV file for %s is empty: %s", TABLE_NAME, CSV_FILE)
+        log.info("No inline seed rows defined for %s", TABLE_NAME)
         return
 
     inserted = 0
     for raw_row in rows:
-        row = {}
+        row: dict[str, object] = {}
 
         for col in table.columns:
             if col.name not in raw_row:
@@ -85,7 +136,6 @@ def upgrade() -> None:
         if not row:
             continue
 
-        # Explicit nested transaction (SAVEPOINT)
         nested = bind.begin_nested()
         try:
             bind.execute(table.insert().values(**row))
@@ -100,7 +150,7 @@ def upgrade() -> None:
                 raw_row,
             )
 
-    log.info("Inserted %s rows into %s from %s", inserted, TABLE_NAME, CSV_FILE)
+    log.info("Inserted %s rows into %s (inline seed)", inserted, TABLE_NAME)
 
 
 def downgrade() -> None:

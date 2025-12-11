@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import csv
 import logging
-import os
 
 from alembic import op
 import sqlalchemy as sa
@@ -17,11 +15,79 @@ depends_on = None
 log = logging.getLogger("alembic.runtime.migration")
 
 TABLE_NAME = "ticket_types"
-CSV_FILE = os.path.join(os.path.dirname(__file__), "csv", f"{TABLE_NAME}.csv")
+
+# Inline seed data derived from the provided CSV
+ROWS = [
+    {
+        "name": "ticket_types_name_1",
+        "price_cents": 1,
+        "quantity_total": 1,
+        "quantity_sold": 1,
+        "sales_starts_at": "2024-01-01T01:00:00Z",
+        "sales_ends_at": "2024-01-01T01:00:00Z",
+        "attributes": {},
+        "created_at": "2024-01-01T01:00:00Z",
+        "updated_at": "2024-01-01T01:00:00Z",
+        "event_id": "13e28612-f86c-5753-8964-2ed13f37a8b4",
+        "id": "4408eb5e-fcb7-5e86-885a-a08b5bf3015c",
+    },
+    {
+        "name": "ticket_types_name_2",
+        "price_cents": 2,
+        "quantity_total": 2,
+        "quantity_sold": 2,
+        "sales_starts_at": "2024-01-01T02:00:00Z",
+        "sales_ends_at": "2024-01-01T02:00:00Z",
+        "attributes": {},
+        "created_at": "2024-01-01T02:00:00Z",
+        "updated_at": "2024-01-01T02:00:00Z",
+        "event_id": "13e28612-f86c-5753-8964-2ed13f37a8b4",
+        "id": "565882ec-a9ad-5d68-b1fe-a33342369837",
+    },
+    {
+        "name": "ticket_types_name_3",
+        "price_cents": 3,
+        "quantity_total": 3,
+        "quantity_sold": 3,
+        "sales_starts_at": "2024-01-01T03:00:00Z",
+        "sales_ends_at": "2024-01-01T03:00:00Z",
+        "attributes": {},
+        "created_at": "2024-01-01T03:00:00Z",
+        "updated_at": "2024-01-01T03:00:00Z",
+        "event_id": "13e28612-f86c-5753-8964-2ed13f37a8b4",
+        "id": "cfe667dc-16ef-5fb6-ad62-081427103900",
+    },
+    {
+        "name": "ticket_types_name_4",
+        "price_cents": 4,
+        "quantity_total": 4,
+        "quantity_sold": 4,
+        "sales_starts_at": "2024-01-01T04:00:00Z",
+        "sales_ends_at": "2024-01-01T04:00:00Z",
+        "attributes": {},
+        "created_at": "2024-01-01T04:00:00Z",
+        "updated_at": "2024-01-01T04:00:00Z",
+        "event_id": "13e28612-f86c-5753-8964-2ed13f37a8b4",
+        "id": "29f03bce-ffcc-57fc-bca0-cd5d6928f70f",
+    },
+    {
+        "name": "ticket_types_name_5",
+        "price_cents": 5,
+        "quantity_total": 5,
+        "quantity_sold": 5,
+        "sales_starts_at": "2024-01-01T05:00:00Z",
+        "sales_ends_at": "2024-01-01T05:00:00Z",
+        "attributes": {},
+        "created_at": "2024-01-01T05:00:00Z",
+        "updated_at": "2024-01-01T05:00:00Z",
+        "event_id": "13e28612-f86c-5753-8964-2ed13f37a8b4",
+        "id": "90d7da68-2ef2-5f04-9680-ff477876ba1c",
+    },
+]
 
 
 def _coerce_value(col: sa.Column, raw):
-    """Best-effort coercion from CSV string to appropriate Python value."""
+    """Best-effort coercion from inline values to appropriate Python/DB values."""
     if raw == "" or raw is None:
         return None
 
@@ -35,16 +101,21 @@ def _coerce_value(col: sa.Column, raw):
                 return True
             if v in ("false", "f", "0", "no", "n"):
                 return False
-            log.warning("Invalid boolean for %s.%s: %r; using NULL", TABLE_NAME, col.name, raw)
+            log.warning(
+                "Invalid boolean for %s.%s: %r; using NULL",
+                TABLE_NAME,
+                col.name,
+                raw,
+            )
             return None
         return bool(raw)
 
-    # Otherwise, pass raw through and let DB cast
+    # Let the DB handle casting for GUID, dates, timestamptz, numerics, JSON, etc.
     return raw
 
 
 def upgrade() -> None:
-    """Load seed data for {TABLE_NAME} from a CSV file.
+    """Seed fixed ticket_types rows inline.
 
     Each row is inserted inside an explicit nested transaction (SAVEPOINT)
     so a failing row won't abort the whole migration transaction.
@@ -56,23 +127,11 @@ def upgrade() -> None:
         log.warning("Table %s does not exist; skipping seed", TABLE_NAME)
         return
 
-    if not os.path.exists(CSV_FILE):
-        log.warning("CSV file not found for %s: %s; skipping", TABLE_NAME, CSV_FILE)
-        return
-
     metadata = sa.MetaData()
     table = sa.Table(TABLE_NAME, metadata, autoload_with=bind)
 
-    with open(CSV_FILE, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
-
-    if not rows:
-        log.info("CSV file for %s is empty: %s", TABLE_NAME, CSV_FILE)
-        return
-
     inserted = 0
-    for raw_row in rows:
+    for raw_row in ROWS:
         row = {}
 
         for col in table.columns:
@@ -85,7 +144,6 @@ def upgrade() -> None:
         if not row:
             continue
 
-        # Explicit nested transaction (SAVEPOINT)
         nested = bind.begin_nested()
         try:
             bind.execute(table.insert().values(**row))
@@ -100,7 +158,7 @@ def upgrade() -> None:
                 raw_row,
             )
 
-    log.info("Inserted %s rows into %s from %s", inserted, TABLE_NAME, CSV_FILE)
+    log.info("Inserted %s rows into %s (inline seed)", inserted, TABLE_NAME)
 
 
 def downgrade() -> None:

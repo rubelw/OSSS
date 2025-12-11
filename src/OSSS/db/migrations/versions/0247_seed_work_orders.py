@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import csv
 import logging
-import os
 
 from alembic import op
 import sqlalchemy as sa
@@ -10,18 +8,47 @@ from sqlalchemy.exc import IntegrityError, DataError, StatementError
 
 # ---- Alembic identifiers ----
 revision = "0247"
-down_revision = "0246"
+down_revision = "0246_1"
 branch_labels = None
 depends_on = None
 
 log = logging.getLogger("alembic.runtime.migration")
 
 TABLE_NAME = "work_orders"
-CSV_FILE = os.path.join(os.path.dirname(__file__), "csv", f"{TABLE_NAME}.csv")
+
+# Inline seed rows, aligned with maintenance_requests in 0246
+SEED_ROWS = [
+    {
+        # Linked to maintenance request: leaking faucet in staff restroom
+        "school_id": "af33eba3-d881-554e-9b43-2a7ea376e1f0",
+        "building_id": "2fcc53b4-7367-5852-9afb-ffdecafad618",
+        "space_id": "8b3aa9d0-8d1e-5d94-8c02-9eb3a38e7e88",
+        "asset_id": "6c7a568b-721c-523d-b5c2-ce3fd6029630",
+        "request_id": "8c4709e2-bd28-5d3f-b0c2-f682bf251df5",
+        "status": "OPEN",
+        "priority": "MEDIUM",
+        "category": "PLUMBING",
+        "summary": "Repair leaking faucet in staff restroom",
+        "description": "Diagnose and repair persistent drip from staff restroom faucet near Room 210. Verify no damage to cabinet below.",
+        "requested_due_at": "2024-01-05T00:00:00Z",
+        "scheduled_start_at": "2024-01-02T13:00:00Z",
+        "scheduled_end_at": "2024-01-02T15:00:00Z",
+        "completed_at": None,
+        "assigned_to_user_id": "de036046-aeed-4e84-960c-07ca8f9b99b9",
+        "materials_cost": 25,
+        "labor_cost": 75,
+        "other_cost": 0,
+        "attributes": {},
+        "created_at": "2024-01-01T01:00:00Z",
+        "updated_at": "2024-01-01T01:00:00Z",
+        "id": "3e3aec0f-13ac-5571-93ba-55376121619f",
+    },
+
+]
 
 
 def _coerce_value(col: sa.Column, raw):
-    """Best-effort coercion from CSV string to appropriate Python value."""
+    """Best-effort coercion from seed value to appropriate Python/DB value."""
     if raw == "" or raw is None:
         return None
 
@@ -35,7 +62,12 @@ def _coerce_value(col: sa.Column, raw):
                 return True
             if v in ("false", "f", "0", "no", "n"):
                 return False
-            log.warning("Invalid boolean for %s.%s: %r; using NULL", TABLE_NAME, col.name, raw)
+            log.warning(
+                "Invalid boolean for %s.%s: %r; using NULL",
+                TABLE_NAME,
+                col.name,
+                raw,
+            )
             return None
         return bool(raw)
 
@@ -44,11 +76,7 @@ def _coerce_value(col: sa.Column, raw):
 
 
 def upgrade() -> None:
-    """Load seed data for {TABLE_NAME} from a CSV file.
-
-    Each row is inserted inside an explicit nested transaction (SAVEPOINT)
-    so a failing row won't abort the whole migration transaction.
-    """
+    """Insert inline seed data for work_orders."""
     bind = op.get_bind()
     inspector = sa.inspect(bind)
 
@@ -56,28 +84,22 @@ def upgrade() -> None:
         log.warning("Table %s does not exist; skipping seed", TABLE_NAME)
         return
 
-    if not os.path.exists(CSV_FILE):
-        log.warning("CSV file not found for %s: %s; skipping", TABLE_NAME, CSV_FILE)
-        return
-
     metadata = sa.MetaData()
     table = sa.Table(TABLE_NAME, metadata, autoload_with=bind)
 
-    with open(CSV_FILE, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
-
-    if not rows:
-        log.info("CSV file for %s is empty: %s", TABLE_NAME, CSV_FILE)
+    if not SEED_ROWS:
+        log.info("No inline seed rows defined for %s; skipping", TABLE_NAME)
         return
 
     inserted = 0
-    for raw_row in rows:
+
+    for raw_row in SEED_ROWS:
         row = {}
 
         for col in table.columns:
             if col.name not in raw_row:
                 continue
+
             raw_val = raw_row[col.name]
             value = _coerce_value(col, raw_val)
             row[col.name] = value
@@ -85,7 +107,6 @@ def upgrade() -> None:
         if not row:
             continue
 
-        # Explicit nested transaction (SAVEPOINT)
         nested = bind.begin_nested()
         try:
             bind.execute(table.insert().values(**row))
@@ -100,7 +121,7 @@ def upgrade() -> None:
                 raw_row,
             )
 
-    log.info("Inserted %s rows into %s from %s", inserted, TABLE_NAME, CSV_FILE)
+    log.info("Inserted %s inline rows into %s", inserted, TABLE_NAME)
 
 
 def downgrade() -> None:

@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-import csv
 import logging
-import os
+from datetime import datetime, timezone
 
 from alembic import op
 import sqlalchemy as sa
@@ -17,38 +16,55 @@ depends_on = None
 log = logging.getLogger("alembic.runtime.migration")
 
 TABLE_NAME = "bus_routes"
-CSV_FILE = os.path.join(os.path.dirname(__file__), "csv", f"{TABLE_NAME}.csv")
+
+# Inline, realistic seed data
+# Columns: name, school_id, created_at, updated_at, id
+SEED_ROWS = [
+    {
+        "id": "dc004672-2936-552e-831b-4e2516959a9e",
+        "name": "Route 1 – North Grimes Morning",
+        "school_id": "af33eba3-d881-554e-9b43-2a7ea376e1f0",
+        "created_at": datetime(2024, 1, 1, 1, 0, tzinfo=timezone.utc),
+        "updated_at": datetime(2024, 1, 1, 1, 0, tzinfo=timezone.utc),
+    },
+    {
+        "id": "43ad4135-60f6-5ce3-87f6-c8e2b7665ca0",
+        "name": "Route 2 – South Grimes Morning",
+        "school_id": "af33eba3-d881-554e-9b43-2a7ea376e1f0",
+        "created_at": datetime(2024, 1, 1, 2, 0, tzinfo=timezone.utc),
+        "updated_at": datetime(2024, 1, 1, 2, 0, tzinfo=timezone.utc),
+    },
+    {
+        "id": "118dd7ba-380b-5b5c-b1a7-fabb3751f460",
+        "name": "Route 3 – North Grimes Afternoon",
+        "school_id": "af33eba3-d881-554e-9b43-2a7ea376e1f0",
+        "created_at": datetime(2024, 1, 1, 3, 0, tzinfo=timezone.utc),
+        "updated_at": datetime(2024, 1, 1, 3, 0, tzinfo=timezone.utc),
+    },
+    {
+        "id": "650b99fe-6d1e-5318-8264-bced90a9e075",
+        "name": "Route 4 – South Grimes Afternoon",
+        "school_id": "af33eba3-d881-554e-9b43-2a7ea376e1f0",
+        "created_at": datetime(2024, 1, 1, 4, 0, tzinfo=timezone.utc),
+        "updated_at": datetime(2024, 1, 1, 4, 0, tzinfo=timezone.utc),
+    },
+    {
+        "id": "1a92ebcc-be81-5f65-985b-a7a0fbaa0db0",
+        "name": "Route 5 – Activities / Late Bus",
+        "school_id": "af33eba3-d881-554e-9b43-2a7ea376e1f0",
+        "created_at": datetime(2024, 1, 1, 5, 0, tzinfo=timezone.utc),
+        "updated_at": datetime(2024, 1, 1, 5, 0, tzinfo=timezone.utc),
+    },
+]
 
 
 def _coerce_value(col: sa.Column, raw):
-    """Best-effort coercion from CSV string to appropriate Python value."""
-    if raw == "" or raw is None:
-        return None
-
-    t = col.type
-
-    # Boolean needs special handling because SQLAlchemy is strict
-    if isinstance(t, sa.Boolean):
-        if isinstance(raw, str):
-            v = raw.strip().lower()
-            if v in ("true", "t", "1", "yes", "y"):
-                return True
-            if v in ("false", "f", "0", "no", "n"):
-                return False
-            log.warning("Invalid boolean for %s.%s: %r; using NULL", TABLE_NAME, col.name, raw)
-            return None
-        return bool(raw)
-
-    # Otherwise, pass raw through and let DB cast
+    """Best-effort coercion; for inline seeds we already use proper Python types."""
     return raw
 
 
 def upgrade() -> None:
-    """Load seed data for {TABLE_NAME} from a CSV file.
-
-    Each row is inserted inside an explicit nested transaction (SAVEPOINT)
-    so a failing row won't abort the whole migration transaction.
-    """
+    """Seed bus_routes with a few realistic transportation routes."""
     bind = op.get_bind()
     inspector = sa.inspect(bind)
 
@@ -56,36 +72,22 @@ def upgrade() -> None:
         log.warning("Table %s does not exist; skipping seed", TABLE_NAME)
         return
 
-    if not os.path.exists(CSV_FILE):
-        log.warning("CSV file not found for %s: %s; skipping", TABLE_NAME, CSV_FILE)
-        return
-
     metadata = sa.MetaData()
     table = sa.Table(TABLE_NAME, metadata, autoload_with=bind)
 
-    with open(CSV_FILE, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
-
-    if not rows:
-        log.info("CSV file for %s is empty: %s", TABLE_NAME, CSV_FILE)
-        return
-
     inserted = 0
-    for raw_row in rows:
+    for raw_row in SEED_ROWS:
         row = {}
 
+        # Only include keys that actually exist as columns
         for col in table.columns:
             if col.name not in raw_row:
                 continue
-            raw_val = raw_row[col.name]
-            value = _coerce_value(col, raw_val)
-            row[col.name] = value
+            row[col.name] = _coerce_value(col, raw_row[col.name])
 
         if not row:
             continue
 
-        # Explicit nested transaction (SAVEPOINT)
         nested = bind.begin_nested()
         try:
             bind.execute(table.insert().values(**row))
@@ -100,7 +102,7 @@ def upgrade() -> None:
                 raw_row,
             )
 
-    log.info("Inserted %s rows into %s from %s", inserted, TABLE_NAME, CSV_FILE)
+    log.info("Inserted %s rows into %s", inserted, TABLE_NAME)
 
 
 def downgrade() -> None:

@@ -16,11 +16,19 @@ log = logging.getLogger("alembic.runtime.migration")
 
 TABLE_NAME = "hr_positions"
 
+# Valid gl_segments IDs from 0033:
+#   2b8a4b38-8e3e-41b2-b58e-9c0f1b4e0a01  (FUND)
+#   3cf0de8b-5e3a-4f7c-9c65-0c08d8e2b702  (FACILITY)
+#   9c8b0f24-4d92-4b7f-9b66-32b9d8f3a903  (FUNCTION)
+#   7b2c1534-47d4-4b42-9a39-6a2f9a3f5e04  (PROGRAM)
+#   f10b3d5f-0dd8-4b74-9a6b-bf17a8eddd05  (PROJECT)
+#   6a2f7b8c-3245-4a1f-8e29-0b3c4d5e6f06  (OBJECT)
+
 # Inline seed rows matching HRPosition model columns
 SEED_ROWS = [
     {
         "title": "Superintendent",
-        "department_segment_id": "5f6a1f87-8d5c-4f2a-bf9c-3d0e8f6e7333",
+        "department_segment_id": "9c8b0f24-4d92-4b7f-9b66-32b9d8f3a903",  # FUNCTION
         "grade": "ADMIN-01",
         "fte": "1.0",
         "attributes": "{}",
@@ -30,7 +38,7 @@ SEED_ROWS = [
     },
     {
         "title": "Assistant Superintendent",
-        "department_segment_id": "6c2f0c84-0e7f-4f8d-9c5b-9b5e0d4e8444",
+        "department_segment_id": "9c8b0f24-4d92-4b7f-9b66-32b9d8f3a903",  # FUNCTION
         "grade": "ADMIN-02",
         "fte": "1.0",
         "attributes": "{}",
@@ -40,7 +48,7 @@ SEED_ROWS = [
     },
     {
         "title": "Director of Human Resources",
-        "department_segment_id": "7d4a3b29-5c2f-4ef0-a7f0-2f4c7a6d9555",
+        "department_segment_id": "9c8b0f24-4d92-4b7f-9b66-32b9d8f3a903",  # FUNCTION
         "grade": "ADMIN-03",
         "fte": "1.0",
         "attributes": "{}",
@@ -50,7 +58,7 @@ SEED_ROWS = [
     },
     {
         "title": "High School Principal",
-        "department_segment_id": "c4c7b5f4-3a3d-4d0c-9480-1c37f6f3c111",
+        "department_segment_id": "7b2c1534-47d4-4b42-9a39-6a2f9a3f5e04",  # PROGRAM
         "grade": "ADMIN-10",
         "fte": "1.0",
         "attributes": "{}",
@@ -60,7 +68,7 @@ SEED_ROWS = [
     },
     {
         "title": "Assistant Principal (High School)",
-        "department_segment_id": "c4c7b5f4-3a3d-4d0c-9480-1c37f6f3c111",
+        "department_segment_id": "7b2c1534-47d4-4b42-9a39-6a2f9a3f5e04",  # PROGRAM
         "grade": "ADMIN-11",
         "fte": "1.0",
         "attributes": "{}",
@@ -70,7 +78,7 @@ SEED_ROWS = [
     },
     {
         "title": "Middle School Principal",
-        "department_segment_id": "3b8c6ed1-0fd7-4ab5-9e2d-2fcac0f9f222",
+        "department_segment_id": "7b2c1534-47d4-4b42-9a39-6a2f9a3f5e04",  # PROGRAM
         "grade": "ADMIN-12",
         "fte": "1.0",
         "attributes": "{}",
@@ -80,7 +88,7 @@ SEED_ROWS = [
     },
     {
         "title": "Elementary School Principal",
-        "department_segment_id": "5f6a1f87-8d5c-4f2a-bf9c-3d0e8f6e7333",
+        "department_segment_id": "7b2c1534-47d4-4b42-9a39-6a2f9a3f5e04",  # PROGRAM
         "grade": "ADMIN-13",
         "fte": "1.0",
         "attributes": "{}",
@@ -90,7 +98,7 @@ SEED_ROWS = [
     },
     {
         "title": "Classroom Teacher (High School English)",
-        "department_segment_id": "c3ce8fe1-2cf5-4cff-86a5-a9933ea34428",
+        "department_segment_id": "7b2c1534-47d4-4b42-9a39-6a2f9a3f5e04",  # PROGRAM
         "grade": "TEACH-01",
         "fte": "1.0",
         "attributes": "{}",
@@ -100,7 +108,7 @@ SEED_ROWS = [
     },
     {
         "title": "Classroom Teacher (Middle School Math)",
-        "department_segment_id": "7a8cf456-3192-4895-b8ec-f7d53cbd9801",
+        "department_segment_id": "7b2c1534-47d4-4b42-9a39-6a2f9a3f5e04",  # PROGRAM
         "grade": "TEACH-01",
         "fte": "1.0",
         "attributes": "{}",
@@ -110,7 +118,7 @@ SEED_ROWS = [
     },
     {
         "title": "Classroom Teacher (Elementary)",
-        "department_segment_id": "d86cff59-6ded-4435-9f58-327934f47e59",
+        "department_segment_id": "7b2c1534-47d4-4b42-9a39-6a2f9a3f5e04",  # PROGRAM
         "grade": "TEACH-01",
         "fte": "1.0",
         "attributes": "{}",
@@ -120,7 +128,7 @@ SEED_ROWS = [
     },
     {
         "title": "Special Education Teacher",
-        "department_segment_id": "cdead00b-74fd-4760-bb49-f2b36fe46964",
+        "department_segment_id": "7b2c1534-47d4-4b42-9a39-6a2f9a3f5e04",  # PROGRAM
         "grade": "SPED-01",
         "fte": "1.0",
         "attributes": "{}",
@@ -130,7 +138,7 @@ SEED_ROWS = [
     },
     {
         "title": "Paraprofessional (Special Education)",
-        "department_segment_id": "c3ecfa17-7719-4778-ac6f-0ec370460cf8",
+        "department_segment_id": "7b2c1534-47d4-4b42-9a39-6a2f9a3f5e04",  # PROGRAM
         "grade": "SPED-02",
         "fte": "0.8",
         "attributes": "{}",
@@ -140,7 +148,7 @@ SEED_ROWS = [
     },
     {
         "title": "School Counselor (High School)",
-        "department_segment_id": "67c834dc-8e58-4f77-8a0e-7cb1f903861a",
+        "department_segment_id": "7b2c1534-47d4-4b42-9a39-6a2f9a3f5e04",  # PROGRAM
         "grade": "STU-SERV-01",
         "fte": "1.0",
         "attributes": "{}",
@@ -150,7 +158,7 @@ SEED_ROWS = [
     },
     {
         "title": "School Nurse",
-        "department_segment_id": "1de20956-ec18-4804-b30f-4ad9eb7e0827",
+        "department_segment_id": "7b2c1534-47d4-4b42-9a39-6a2f9a3f5e04",  # PROGRAM
         "grade": "STU-SERV-02",
         "fte": "1.0",
         "attributes": "{}",
@@ -160,7 +168,7 @@ SEED_ROWS = [
     },
     {
         "title": "Technology Support Specialist",
-        "department_segment_id": "79fc1417-f988-46e5-99cf-ae9aba5c09e2",
+        "department_segment_id": "6a2f7b8c-3245-4a1f-8e29-0b3c4d5e6f06",  # OBJECT
         "grade": "SUPPORT-01",
         "fte": "1.0",
         "attributes": "{}",
@@ -170,7 +178,7 @@ SEED_ROWS = [
     },
     {
         "title": "Custodian",
-        "department_segment_id": "4718e7cc-ad33-400c-9e4b-f1c0fdfe220d",
+        "department_segment_id": "6a2f7b8c-3245-4a1f-8e29-0b3c4d5e6f06",  # OBJECT
         "grade": "OPS-01",
         "fte": "1.0",
         "attributes": "{}",
@@ -180,7 +188,7 @@ SEED_ROWS = [
     },
     {
         "title": "Food Service Worker",
-        "department_segment_id": "97175810-7874-4bbc-b7a6-023fe04d5829",
+        "department_segment_id": "6a2f7b8c-3245-4a1f-8e29-0b3c4d5e6f06",  # OBJECT
         "grade": "FOOD-01",
         "fte": "0.75",
         "attributes": "{}",
@@ -190,7 +198,7 @@ SEED_ROWS = [
     },
     {
         "title": "Bus Driver",
-        "department_segment_id": "9ed3b88b-fa03-4f5a-b3be-fcf789fdb977",
+        "department_segment_id": "6a2f7b8c-3245-4a1f-8e29-0b3c4d5e6f06",  # OBJECT
         "grade": "TRANS-01",
         "fte": "0.8",
         "attributes": "{}",
@@ -200,7 +208,7 @@ SEED_ROWS = [
     },
     {
         "title": "Athletic Director",
-        "department_segment_id": "9761e232-9e56-46ec-bfd8-45c67760ba0a",
+        "department_segment_id": "7b2c1534-47d4-4b42-9a39-6a2f9a3f5e04",  # PROGRAM
         "grade": "ATH-01",
         "fte": "1.0",
         "attributes": "{}",
@@ -226,20 +234,21 @@ def _coerce_value(col: sa.Column, raw):
                 return True
             if v in ("false", "f", "0", "no", "n"):
                 return False
-            log.warning("Invalid boolean for %s.%s: %r; using NULL", TABLE_NAME, col.name, raw)
+            log.warning(
+                "Invalid boolean for %s.%s: %r; using NULL",
+                TABLE_NAME,
+                col.name,
+                raw,
+            )
             return None
         return bool(raw)
 
-    # Otherwise, pass raw through and let DB cast (including Numeric, JSONB, UUID, timestamptz, etc.)
+    # Otherwise, pass raw through and let DB cast (Numeric, JSONB, UUID, timestamptz, etc.)
     return raw
 
 
 def upgrade() -> None:
-    """Load seed data for hr_positions from inline SEED_ROWS.
-
-    Each row is inserted inside an explicit nested transaction (SAVEPOINT)
-    so a failing row won't abort the whole migration transaction.
-    """
+    """Load seed data for hr_positions from inline SEED_ROWS."""
     bind = op.get_bind()
     inspector = sa.inspect(bind)
 
@@ -256,14 +265,13 @@ def upgrade() -> None:
 
     inserted = 0
     for raw_row in SEED_ROWS:
-        row = {}
+        row: dict[str, object] = {}
 
         for col in table.columns:
             if col.name not in raw_row:
                 continue
             raw_val = raw_row[col.name]
-            value = _coerce_value(col, raw_val)
-            row[col.name] = value
+            row[col.name] = _coerce_value(col, raw_val)
 
         if not row:
             continue

@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import csv
 import logging
-import os
 
 from alembic import op
 import sqlalchemy as sa
@@ -17,11 +15,69 @@ depends_on = None
 log = logging.getLogger("alembic.runtime.migration")
 
 TABLE_NAME = "document_notifications"
-CSV_FILE = os.path.join(os.path.dirname(__file__), "csv", f"{TABLE_NAME}.csv")
+
+# Inline realistic seed data
+# Scenario: a board packet document with one board member who toggles
+# subscription on/off over time. This gives the UI something realistic to show
+# for subscription history / audit.
+#
+# Columns: created_at, updated_at, id, document_id, user_id, subscribed, last_sent_at
+SEED_ROWS = [
+    {
+        # User initially not subscribed; a one-off notification was sent.
+        "id": "24290191-8ef2-5ad5-bb0f-2ed86836a305",
+        "document_id": "e0c6ecb5-af4d-5c1c-bc1b-bf266b3ba7d8",  # Jan 2024 board packet
+        "user_id": "de036046-aeed-4e84-960c-07ca8f9b99b9",       # Board member / admin
+        "subscribed": False,
+        "last_sent_at": "2024-01-01T01:00:00Z",
+        "created_at": "2024-01-01T01:00:00Z",
+        "updated_at": "2024-01-01T01:00:00Z",
+    },
+    {
+        # User turns on notifications; a digest was sent right away.
+        "id": "17f97e8c-bdd0-5bdd-b55e-2768003305e0",
+        "document_id": "e0c6ecb5-af4d-5c1c-bc1b-bf266b3ba7d8",
+        "user_id": "de036046-aeed-4e84-960c-07ca8f9b99b9",
+        "subscribed": True,
+        "last_sent_at": "2024-01-01T02:00:00Z",
+        "created_at": "2024-01-01T02:00:00Z",
+        "updated_at": "2024-01-01T02:00:00Z",
+    },
+    {
+        # User temporarily disables notifications.
+        "id": "e8b1368d-d156-52f7-8d10-4b3c4178fdd3",
+        "document_id": "e0c6ecb5-af4d-5c1c-bc1b-bf266b3ba7d8",
+        "user_id": "de036046-aeed-4e84-960c-07ca8f9b99b9",
+        "subscribed": False,
+        "last_sent_at": "2024-01-01T03:00:00Z",
+        "created_at": "2024-01-01T03:00:00Z",
+        "updated_at": "2024-01-01T03:00:00Z",
+    },
+    {
+        # User re-enables notifications later that morning.
+        "id": "09d571b1-d268-5091-8d40-ad80dbe9ad91",
+        "document_id": "e0c6ecb5-af4d-5c1c-bc1b-bf266b3ba7d8",
+        "user_id": "de036046-aeed-4e84-960c-07ca8f9b99b9",
+        "subscribed": True,
+        "last_sent_at": "2024-01-01T04:00:00Z",
+        "created_at": "2024-01-01T04:00:00Z",
+        "updated_at": "2024-01-01T04:00:00Z",
+    },
+    {
+        # Final state: unsubscribed again; last notification already sent.
+        "id": "c2854581-dab0-5aa4-b077-f9f207d4270e",
+        "document_id": "e0c6ecb5-af4d-5c1c-bc1b-bf266b3ba7d8",
+        "user_id": "de036046-aeed-4e84-960c-07ca8f9b99b9",
+        "subscribed": False,
+        "last_sent_at": "2024-01-01T05:00:00Z",
+        "created_at": "2024-01-01T05:00:00Z",
+        "updated_at": "2024-01-01T05:00:00Z",
+    },
+]
 
 
 def _coerce_value(col: sa.Column, raw):
-    """Best-effort coercion from CSV string to appropriate Python value."""
+    """Best-effort coercion from inline value to appropriate Python/DB value."""
     if raw == "" or raw is None:
         return None
 
@@ -39,16 +95,12 @@ def _coerce_value(col: sa.Column, raw):
             return None
         return bool(raw)
 
-    # Otherwise, pass raw through and let DB cast
+    # Let DB handle UUID, JSONB, timestamptz, etc.
     return raw
 
 
 def upgrade() -> None:
-    """Load seed data for {TABLE_NAME} from a CSV file.
-
-    Each row is inserted inside an explicit nested transaction (SAVEPOINT)
-    so a failing row won't abort the whole migration transaction.
-    """
+    """Insert inline seed rows into document_notifications."""
     bind = op.get_bind()
     inspector = sa.inspect(bind)
 
@@ -56,36 +108,22 @@ def upgrade() -> None:
         log.warning("Table %s does not exist; skipping seed", TABLE_NAME)
         return
 
-    if not os.path.exists(CSV_FILE):
-        log.warning("CSV file not found for %s: %s; skipping", TABLE_NAME, CSV_FILE)
-        return
-
     metadata = sa.MetaData()
     table = sa.Table(TABLE_NAME, metadata, autoload_with=bind)
 
-    with open(CSV_FILE, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
-
-    if not rows:
-        log.info("CSV file for %s is empty: %s", TABLE_NAME, CSV_FILE)
-        return
-
     inserted = 0
-    for raw_row in rows:
-        row = {}
 
+    for raw_row in SEED_ROWS:
+        row = {}
         for col in table.columns:
             if col.name not in raw_row:
                 continue
-            raw_val = raw_row[col.name]
-            value = _coerce_value(col, raw_val)
-            row[col.name] = value
+            row[col.name] = _coerce_value(col, raw_row[col.name])
 
         if not row:
             continue
 
-        # Explicit nested transaction (SAVEPOINT)
+        # Explicit nested transaction (SAVEPOINT) for row-level robustness
         nested = bind.begin_nested()
         try:
             bind.execute(table.insert().values(**row))
@@ -94,13 +132,13 @@ def upgrade() -> None:
         except (IntegrityError, DataError, StatementError) as exc:
             nested.rollback()
             log.warning(
-                "Skipping row for %s due to error: %s. Row: %s",
+                "Skipping row for %s due to error: %s | Row: %s",
                 TABLE_NAME,
                 exc,
                 raw_row,
             )
 
-    log.info("Inserted %s rows into %s from %s", inserted, TABLE_NAME, CSV_FILE)
+    log.info("Inserted %s inline rows into %s", inserted, TABLE_NAME)
 
 
 def downgrade() -> None:

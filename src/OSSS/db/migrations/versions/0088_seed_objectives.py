@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-import csv
 import logging
-import os
+import os  # kept even though CSV is not used, to match existing style
 
 from alembic import op
 import sqlalchemy as sa
@@ -44,7 +43,7 @@ def _coerce_value(col: sa.Column, raw):
 
 
 def upgrade() -> None:
-    """Load seed data for {TABLE_NAME} from a CSV file.
+    """Load seed data for objectives from inline rows.
 
     Each row is inserted inside an explicit nested transaction (SAVEPOINT)
     so a failing row won't abort the whole migration transaction.
@@ -56,24 +55,28 @@ def upgrade() -> None:
         log.warning("Table %s does not exist; skipping seed", TABLE_NAME)
         return
 
-    if not os.path.exists(CSV_FILE):
-        log.warning("CSV file not found for %s: %s; skipping", TABLE_NAME, CSV_FILE)
-        return
-
     metadata = sa.MetaData()
     table = sa.Table(TABLE_NAME, metadata, autoload_with=bind)
 
-    with open(CSV_FILE, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
-
-    if not rows:
-        log.info("CSV file for %s is empty: %s", TABLE_NAME, CSV_FILE)
-        return
+    # Inline seed data (matches Objective model + provided IDs)
+    rows = [
+        {
+            "goal_id": "475010fd-e5b0-53d4-ba80-fe79851cf581",
+            "name": "Increase proficiency in core subjects",
+            "description": (
+                "Increase the percentage of students meeting or exceeding proficiency in ELA and Math "
+                "by 5 percentage points by Spring 2025 through targeted interventions and common "
+                "formative assessments."
+            ),
+            "id": "8fdb9139-143b-5726-9c7f-a9d0cd10758f",
+            "created_at": "2024-01-01T01:00:00Z",
+            "updated_at": "2024-01-01T01:00:00Z",
+        }
+    ]
 
     inserted = 0
     for raw_row in rows:
-        row = {}
+        row: dict[str, object] = {}
 
         for col in table.columns:
             if col.name not in raw_row:
@@ -85,7 +88,6 @@ def upgrade() -> None:
         if not row:
             continue
 
-        # Explicit nested transaction (SAVEPOINT)
         nested = bind.begin_nested()
         try:
             bind.execute(table.insert().values(**row))
@@ -100,7 +102,7 @@ def upgrade() -> None:
                 raw_row,
             )
 
-    log.info("Inserted %s rows into %s from %s", inserted, TABLE_NAME, CSV_FILE)
+    log.info("Inserted %s rows into %s (inline seed data)", inserted, TABLE_NAME)
 
 
 def downgrade() -> None:

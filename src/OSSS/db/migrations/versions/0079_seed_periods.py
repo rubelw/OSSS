@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import csv
 import logging
-import os
 
 from alembic import op
 import sqlalchemy as sa
@@ -17,11 +15,64 @@ depends_on = None
 log = logging.getLogger("alembic.runtime.migration")
 
 TABLE_NAME = "periods"
-CSV_FILE = os.path.join(os.path.dirname(__file__), "csv", f"{TABLE_NAME}.csv")
+
+# Inline seed data
+SEED_ROWS = [
+    {
+        "bell_schedule_id": "f659f393-6e85-58cd-a296-bc9f766e3491",
+        "name": "Period 1",
+        "start_time": "08:10:00",
+        "end_time": "09:30:00",
+        "sequence": 1,
+        "created_at": "2024-01-01T01:00:00Z",
+        "updated_at": "2024-01-01T01:00:00Z",
+        "id": "23702c6c-0cb9-5fd1-9bb2-afe31b03ed78",
+    },
+    {
+        "bell_schedule_id": "f659f393-6e85-58cd-a296-bc9f766e3491",
+        "name": "Period 2",
+        "start_time": "09:35:00",
+        "end_time": "10:55:00",
+        "sequence": 2,
+        "created_at": "2024-01-01T02:00:00Z",
+        "updated_at": "2024-01-01T02:00:00Z",
+        "id": "01c52eed-7b93-5342-bc8e-42fde840f219",
+    },
+    {
+        "bell_schedule_id": "f659f393-6e85-58cd-a296-bc9f766e3491",
+        "name": "Period 3",
+        "start_time": "11:00:00",
+        "end_time": "12:20:00",
+        "sequence": 3,
+        "created_at": "2024-01-01T03:00:00Z",
+        "updated_at": "2024-01-01T03:00:00Z",
+        "id": "7ad6fbff-bf99-5e71-9d43-05e9aebac6f8",
+    },
+    {
+        "bell_schedule_id": "f659f393-6e85-58cd-a296-bc9f766e3491",
+        "name": "Period 4",
+        "start_time": "12:55:00",
+        "end_time": "14:15:00",
+        "sequence": 4,
+        "created_at": "2024-01-01T04:00:00Z",
+        "updated_at": "2024-01-01T04:00:00Z",
+        "id": "a4d6b417-9dbf-57bf-bc04-8bf424709bb0",
+    },
+    {
+        "bell_schedule_id": "f659f393-6e85-58cd-a296-bc9f766e3491",
+        "name": "Period 5",
+        "start_time": "14:20:00",
+        "end_time": "15:40:00",
+        "sequence": 5,
+        "created_at": "2024-01-01T05:00:00Z",
+        "updated_at": "2024-01-01T05:00:00Z",
+        "id": "c22df1ca-c02d-584d-967c-3e2474bce988",
+    },
+]
 
 
 def _coerce_value(col: sa.Column, raw):
-    """Best-effort coercion from CSV string to appropriate Python value."""
+    """Best-effort coercion from Python/str values to appropriate DB type."""
     if raw == "" or raw is None:
         return None
 
@@ -35,7 +86,12 @@ def _coerce_value(col: sa.Column, raw):
                 return True
             if v in ("false", "f", "0", "no", "n"):
                 return False
-            log.warning("Invalid boolean for %s.%s: %r; using NULL", TABLE_NAME, col.name, raw)
+            log.warning(
+                "Invalid boolean for %s.%s: %r; using NULL",
+                TABLE_NAME,
+                col.name,
+                raw,
+            )
             return None
         return bool(raw)
 
@@ -44,11 +100,8 @@ def _coerce_value(col: sa.Column, raw):
 
 
 def upgrade() -> None:
-    """Load seed data for {TABLE_NAME} from a CSV file.
+    """Load seed data for periods from inline SEED_ROWS."""
 
-    Each row is inserted inside an explicit nested transaction (SAVEPOINT)
-    so a failing row won't abort the whole migration transaction.
-    """
     bind = op.get_bind()
     inspector = sa.inspect(bind)
 
@@ -56,24 +109,16 @@ def upgrade() -> None:
         log.warning("Table %s does not exist; skipping seed", TABLE_NAME)
         return
 
-    if not os.path.exists(CSV_FILE):
-        log.warning("CSV file not found for %s: %s; skipping", TABLE_NAME, CSV_FILE)
-        return
-
     metadata = sa.MetaData()
     table = sa.Table(TABLE_NAME, metadata, autoload_with=bind)
 
-    with open(CSV_FILE, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
-
-    if not rows:
-        log.info("CSV file for %s is empty: %s", TABLE_NAME, CSV_FILE)
+    if not SEED_ROWS:
+        log.info("No SEED_ROWS defined for %s; nothing to insert", TABLE_NAME)
         return
 
     inserted = 0
-    for raw_row in rows:
-        row = {}
+    for raw_row in SEED_ROWS:
+        row: dict[str, object] = {}
 
         for col in table.columns:
             if col.name not in raw_row:
@@ -85,7 +130,6 @@ def upgrade() -> None:
         if not row:
             continue
 
-        # Explicit nested transaction (SAVEPOINT)
         nested = bind.begin_nested()
         try:
             bind.execute(table.insert().values(**row))
@@ -100,7 +144,7 @@ def upgrade() -> None:
                 raw_row,
             )
 
-    log.info("Inserted %s rows into %s from %s", inserted, TABLE_NAME, CSV_FILE)
+    log.info("Inserted %s rows into %s from inline SEED_ROWS", inserted, TABLE_NAME)
 
 
 def downgrade() -> None:

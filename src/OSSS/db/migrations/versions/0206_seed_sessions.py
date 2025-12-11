@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import csv
 import logging
-import os
 
 from alembic import op
 import sqlalchemy as sa
@@ -17,11 +15,55 @@ depends_on = None
 log = logging.getLogger("alembic.runtime.migration")
 
 TABLE_NAME = "sessions"
-CSV_FILE = os.path.join(os.path.dirname(__file__), "csv", f"{TABLE_NAME}.csv")
+
+# Inline seed rows with realistic data
+# Columns: student_id, subject, objective_code, created_at, id, updated_at
+SEED_ROWS = [
+    {
+        "student_id": "d4f53e78-1012-5322-a4f3-4bca2efc51be",
+        "subject": "Mathematics – Fractions Review",
+        "objective_code": "MATH-5.NF.1",
+        "created_at": "2024-01-01T01:00:00Z",
+        "id": "28da96d8-0d7c-5def-afa2-7c2996853fb2",
+        "updated_at": "2024-01-01T01:00:00Z",
+    },
+    {
+        "student_id": "d4f53e78-1012-5322-a4f3-4bca2efc51be",
+        "subject": "English Language Arts – Reading Comprehension",
+        "objective_code": "ELA-5.RI.2",
+        "created_at": "2024-01-01T02:00:00Z",
+        "id": "b7f03589-8670-5810-809c-5c8bc84688cb",
+        "updated_at": "2024-01-01T02:00:00Z",
+    },
+    {
+        "student_id": "d4f53e78-1012-5322-a4f3-4bca2efc51be",
+        "subject": "Science – Weather and Climate",
+        "objective_code": "SCI-5.ESS2.A",
+        "created_at": "2024-01-01T03:00:00Z",
+        "id": "196f2b90-e1e1-5676-b203-9f8b431bb9fd",
+        "updated_at": "2024-01-01T03:00:00Z",
+    },
+    {
+        "student_id": "d4f53e78-1012-5322-a4f3-4bca2efc51be",
+        "subject": "Social Studies – Early American History",
+        "objective_code": "SS-5.H.3",
+        "created_at": "2024-01-01T04:00:00Z",
+        "id": "c1489910-56b3-5e9e-9e61-f7afa208fca5",
+        "updated_at": "2024-01-01T04:00:00Z",
+    },
+    {
+        "student_id": "d4f53e78-1012-5322-a4f3-4bca2efc51be",
+        "subject": "Mathematics – Multi-Digit Multiplication Practice",
+        "objective_code": "MATH-5.NBT.B.5",
+        "created_at": "2024-01-01T05:00:00Z",
+        "id": "fee879db-c580-5ebc-b749-f4881788adc9",
+        "updated_at": "2024-01-01T05:00:00Z",
+    },
+]
 
 
 def _coerce_value(col: sa.Column, raw):
-    """Best-effort coercion from CSV string to appropriate Python value."""
+    """Best-effort coercion from inline values to appropriate Python/DB values."""
     if raw == "" or raw is None:
         return None
 
@@ -35,7 +77,12 @@ def _coerce_value(col: sa.Column, raw):
                 return True
             if v in ("false", "f", "0", "no", "n"):
                 return False
-            log.warning("Invalid boolean for %s.%s: %r; using NULL", TABLE_NAME, col.name, raw)
+            log.warning(
+                "Invalid boolean for %s.%s: %r; using NULL",
+                TABLE_NAME,
+                col.name,
+                raw,
+            )
             return None
         return bool(raw)
 
@@ -44,7 +91,7 @@ def _coerce_value(col: sa.Column, raw):
 
 
 def upgrade() -> None:
-    """Load seed data for {TABLE_NAME} from a CSV file.
+    """Load seed data for sessions from inline SEED_ROWS.
 
     Each row is inserted inside an explicit nested transaction (SAVEPOINT)
     so a failing row won't abort the whole migration transaction.
@@ -56,24 +103,17 @@ def upgrade() -> None:
         log.warning("Table %s does not exist; skipping seed", TABLE_NAME)
         return
 
-    if not os.path.exists(CSV_FILE):
-        log.warning("CSV file not found for %s: %s; skipping", TABLE_NAME, CSV_FILE)
-        return
-
     metadata = sa.MetaData()
     table = sa.Table(TABLE_NAME, metadata, autoload_with=bind)
 
-    with open(CSV_FILE, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
-
+    rows = SEED_ROWS
     if not rows:
-        log.info("CSV file for %s is empty: %s", TABLE_NAME, CSV_FILE)
+        log.info("No inline seed rows defined for %s", TABLE_NAME)
         return
 
     inserted = 0
     for raw_row in rows:
-        row = {}
+        row: dict[str, object] = {}
 
         for col in table.columns:
             if col.name not in raw_row:
@@ -85,7 +125,6 @@ def upgrade() -> None:
         if not row:
             continue
 
-        # Explicit nested transaction (SAVEPOINT)
         nested = bind.begin_nested()
         try:
             bind.execute(table.insert().values(**row))
@@ -100,7 +139,7 @@ def upgrade() -> None:
                 raw_row,
             )
 
-    log.info("Inserted %s rows into %s from %s", inserted, TABLE_NAME, CSV_FILE)
+    log.info("Inserted %s inline seed rows into %s", inserted, TABLE_NAME)
 
 
 def downgrade() -> None:

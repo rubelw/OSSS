@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import csv
 import logging
-import os
 
 from alembic import op
 import sqlalchemy as sa
@@ -17,12 +15,65 @@ depends_on = None
 log = logging.getLogger("alembic.runtime.migration")
 
 TABLE_NAME = "fiscal_periods"
-# Updated to seed from ./raw_data/fiscal_periods.csv
-CSV_FILE = os.path.join(os.path.dirname(__file__), "raw_data", "fiscal_periods.csv")
+
+# Inline seed data for fiscal_periods
+# Columns: year_number, period_no, start_date, end_date, is_closed, id, created_at, updated_at
+SEED_ROWS = [
+    {
+        "year_number": 1,
+        "period_no": 1,
+        "start_date": "2024-08-01",
+        "end_date": "2024-08-30",
+        "is_closed": "false",
+        "id": "e03a4e59-941e-4c97-9d53-c4b72c77392e",
+        "created_at": "2024-01-01T01:00:00Z",
+        "updated_at": "2024-01-01T01:00:00Z",
+    },
+    {
+        "year_number": 2,
+        "period_no": 2,
+        "start_date": "2024-08-31",
+        "end_date": "2024-09-29",
+        "is_closed": "true",
+        "id": "66f3ac33-2758-4164-9ebc-811a2df7939b",
+        "created_at": "2024-01-01T02:00:00Z",
+        "updated_at": "2024-01-01T02:00:00Z",
+    },
+    {
+        "year_number": 3,
+        "period_no": 3,
+        "start_date": "2024-09-30",
+        "end_date": "2024-10-29",
+        "is_closed": "false",
+        "id": "535bad86-b934-4537-9dcf-3acb7df88067",
+        "created_at": "2024-01-01T03:00:00Z",
+        "updated_at": "2024-01-01T03:00:00Z",
+    },
+    {
+        "year_number": 4,
+        "period_no": 4,
+        "start_date": "2024-10-30",
+        "end_date": "2024-11-28",
+        "is_closed": "true",
+        "id": "afb076c9-5da6-4369-b238-de6d2a0a39c3",
+        "created_at": "2024-01-01T04:00:00Z",
+        "updated_at": "2024-01-01T04:00:00Z",
+    },
+    {
+        "year_number": 5,
+        "period_no": 5,
+        "start_date": "2024-11-29",
+        "end_date": "2024-12-28",
+        "is_closed": "false",
+        "id": "55f46e09-9281-4717-b688-5267185d4ed7",
+        "created_at": "2024-01-01T05:00:00Z",
+        "updated_at": "2024-01-01T05:00:00Z",
+    },
+]
 
 
 def _coerce_value(col: sa.Column, raw):
-    """Best-effort coercion from CSV string to appropriate Python value."""
+    """Best-effort coercion from seed value to appropriate Python/DB value."""
     if raw == "" or raw is None:
         return None
 
@@ -36,20 +87,21 @@ def _coerce_value(col: sa.Column, raw):
                 return True
             if v in ("false", "f", "0", "no", "n"):
                 return False
-            log.warning("Invalid boolean for %s.%s: %r; using NULL", TABLE_NAME, col.name, raw)
+            log.warning(
+                "Invalid boolean for %s.%s: %r; using NULL",
+                TABLE_NAME,
+                col.name,
+                raw,
+            )
             return None
         return bool(raw)
 
-    # Otherwise, pass raw through and let DB cast
+    # Otherwise, pass raw through and let DB cast (ints, dates, timestamps, etc.)
     return raw
 
 
 def upgrade() -> None:
-    """Load seed data for fiscal_periods from a CSV file.
-
-    Each row is inserted inside an explicit nested transaction (SAVEPOINT)
-    so a failing row won't abort the whole migration transaction.
-    """
+    """Load seed data for fiscal_periods from inline SEED_ROWS (no CSV)."""
     bind = op.get_bind()
     inspector = sa.inspect(bind)
 
@@ -57,24 +109,16 @@ def upgrade() -> None:
         log.warning("Table %s does not exist; skipping seed", TABLE_NAME)
         return
 
-    if not os.path.exists(CSV_FILE):
-        log.warning("CSV file not found for %s: %s; skipping", TABLE_NAME, CSV_FILE)
+    if not SEED_ROWS:
+        log.info("No seed rows defined for %s; skipping", TABLE_NAME)
         return
 
     metadata = sa.MetaData()
     table = sa.Table(TABLE_NAME, metadata, autoload_with=bind)
 
-    with open(CSV_FILE, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
-
-    if not rows:
-        log.info("CSV file for %s is empty: %s", TABLE_NAME, CSV_FILE)
-        return
-
     inserted = 0
-    for raw_row in rows:
-        row = {}
+    for raw_row in SEED_ROWS:
+        row: dict[str, object] = {}
 
         for col in table.columns:
             if col.name not in raw_row:
@@ -101,7 +145,7 @@ def upgrade() -> None:
                 raw_row,
             )
 
-    log.info("Inserted %s rows into %s from %s", inserted, TABLE_NAME, CSV_FILE)
+    log.info("Inserted %s inline seed rows into %s", inserted, TABLE_NAME)
 
 
 def downgrade() -> None:

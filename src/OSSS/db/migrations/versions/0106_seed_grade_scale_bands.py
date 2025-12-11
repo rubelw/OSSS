@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import csv
 import logging
-import os
 
 from alembic import op
 import sqlalchemy as sa
@@ -17,11 +15,65 @@ depends_on = None
 log = logging.getLogger("alembic.runtime.migration")
 
 TABLE_NAME = "grade_scale_bands"
-CSV_FILE = os.path.join(os.path.dirname(__file__), "csv", f"{TABLE_NAME}.csv")
+
+# Inline seed data; values are strings so the DB can cast
+# to the correct types (UUID / NUMERIC / TIMESTAMPTZ, etc.).
+INLINE_ROWS = [
+    {
+        "grade_scale_id": "5f19c7c0-5715-5f26-86bc-2b752469dd29",
+        "label": "grade_scale_bands_label_1",
+        "min_value": "1",
+        "max_value": "1",
+        "gpa_points": "1",
+        "created_at": "2024-01-01T01:00:00Z",
+        "updated_at": "2024-01-01T01:00:00Z",
+        "id": "2ac2dcfe-af0d-5b3d-bfaf-f49401457d0e",
+    },
+    {
+        "grade_scale_id": "5f19c7c0-5715-5f26-86bc-2b752469dd29",
+        "label": "grade_scale_bands_label_2",
+        "min_value": "2",
+        "max_value": "2",
+        "gpa_points": "2",
+        "created_at": "2024-01-01T02:00:00Z",
+        "updated_at": "2024-01-01T02:00:00Z",
+        "id": "8f361858-9b42-5440-870d-f59f3de00775",
+    },
+    {
+        "grade_scale_id": "5f19c7c0-5715-5f26-86bc-2b752469dd29",
+        "label": "grade_scale_bands_label_3",
+        "min_value": "3",
+        "max_value": "3",
+        "gpa_points": "3",
+        "created_at": "2024-01-01T03:00:00Z",
+        "updated_at": "2024-01-01T03:00:00Z",
+        "id": "8a5a464e-088b-5043-9ff3-6060ed00cd5d",
+    },
+    {
+        "grade_scale_id": "5f19c7c0-5715-5f26-86bc-2b752469dd29",
+        "label": "grade_scale_bands_label_4",
+        "min_value": "4",
+        "max_value": "4",
+        "gpa_points": "4",
+        "created_at": "2024-01-01T04:00:00Z",
+        "updated_at": "2024-01-01T04:00:00Z",
+        "id": "508903ed-5896-57f4-9168-4eee42220566",
+    },
+    {
+        "grade_scale_id": "5f19c7c0-5715-5f26-86bc-2b752469dd29",
+        "label": "grade_scale_bands_label_5",
+        "min_value": "5",
+        "max_value": "5",
+        "gpa_points": "5",
+        "created_at": "2024-01-01T05:00:00Z",
+        "updated_at": "2024-01-01T05:00:00Z",
+        "id": "5c7f6171-7d97-52ad-8cdf-1cc94bfd4c09",
+    },
+]
 
 
 def _coerce_value(col: sa.Column, raw):
-    """Best-effort coercion from CSV string to appropriate Python value."""
+    """Best-effort coercion from inline seed data to appropriate Python value."""
     if raw == "" or raw is None:
         return None
 
@@ -35,16 +87,21 @@ def _coerce_value(col: sa.Column, raw):
                 return True
             if v in ("false", "f", "0", "no", "n"):
                 return False
-            log.warning("Invalid boolean for %s.%s: %r; using NULL", TABLE_NAME, col.name, raw)
+            log.warning(
+                "Invalid boolean for %s.%s: %r; using NULL",
+                TABLE_NAME,
+                col.name,
+                raw,
+            )
             return None
         return bool(raw)
 
-    # Otherwise, pass raw through and let DB cast
+    # Otherwise, pass raw through and let DB cast (UUID, NUMERIC, TIMESTAMPTZ, etc.)
     return raw
 
 
 def upgrade() -> None:
-    """Load seed data for {TABLE_NAME} from a CSV file.
+    """Load seed data for grade_scale_bands from inline rows.
 
     Each row is inserted inside an explicit nested transaction (SAVEPOINT)
     so a failing row won't abort the whole migration transaction.
@@ -56,23 +113,15 @@ def upgrade() -> None:
         log.warning("Table %s does not exist; skipping seed", TABLE_NAME)
         return
 
-    if not os.path.exists(CSV_FILE):
-        log.warning("CSV file not found for %s: %s; skipping", TABLE_NAME, CSV_FILE)
+    if not INLINE_ROWS:
+        log.info("No inline rows defined for %s; nothing to insert", TABLE_NAME)
         return
 
     metadata = sa.MetaData()
     table = sa.Table(TABLE_NAME, metadata, autoload_with=bind)
 
-    with open(CSV_FILE, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
-
-    if not rows:
-        log.info("CSV file for %s is empty: %s", TABLE_NAME, CSV_FILE)
-        return
-
     inserted = 0
-    for raw_row in rows:
+    for raw_row in INLINE_ROWS:
         row = {}
 
         for col in table.columns:
@@ -100,7 +149,11 @@ def upgrade() -> None:
                 raw_row,
             )
 
-    log.info("Inserted %s rows into %s from %s", inserted, TABLE_NAME, CSV_FILE)
+    log.info(
+        "Inserted %s rows into %s from inline seed data",
+        inserted,
+        TABLE_NAME,
+    )
 
 
 def downgrade() -> None:

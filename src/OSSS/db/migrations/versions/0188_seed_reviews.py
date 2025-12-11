@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import csv
 import logging
-import os
 
 from alembic import op
 import sqlalchemy as sa
@@ -17,34 +15,92 @@ depends_on = None
 log = logging.getLogger("alembic.runtime.migration")
 
 TABLE_NAME = "reviews"
-CSV_FILE = os.path.join(os.path.dirname(__file__), "csv", f"{TABLE_NAME}.csv")
 
-
-def _coerce_value(col: sa.Column, raw):
-    """Best-effort coercion from CSV string to appropriate Python value."""
-    if raw == "" or raw is None:
-        return None
-
-    t = col.type
-
-    # Boolean needs special handling because SQLAlchemy is strict
-    if isinstance(t, sa.Boolean):
-        if isinstance(raw, str):
-            v = raw.strip().lower()
-            if v in ("true", "t", "1", "yes", "y"):
-                return True
-            if v in ("false", "f", "0", "no", "n"):
-                return False
-            log.warning("Invalid boolean for %s.%s: %r; using NULL", TABLE_NAME, col.name, raw)
-            return None
-        return bool(raw)
-
-    # Otherwise, pass raw through and let DB cast
-    return raw
+# Inline seed rows for reviews
+# Columns:
+# review_round_id, reviewer_id, status, submitted_at, content,
+# id, created_at, updated_at
+SEED_ROWS = [
+    {
+        "review_round_id": "4f0cdda3-ce2d-5928-97e9-d20ac96daa47",
+        "reviewer_id": "81e33e29-9cf8-4e8f-be57-ee83e0ef6bca",
+        "status": "draft",
+        "submitted_at": "2024-01-01T01:00:00Z",
+        "content": (
+            '{"summary": "Initial notes on curriculum alignment.", '
+            '"strengths": ["Clear learning targets", "Well-scaffolded units"], '
+            '"concerns": ["Need more formative assessment examples"], '
+            '"overall_rating": "pending"}'
+        ),
+        "id": "9e407e71-f80b-56ba-892a-d6fa1290a0e3",
+        "created_at": "2024-01-01T01:00:00Z",
+        "updated_at": "2024-01-01T01:00:00Z",
+    },
+    {
+        "review_round_id": "4f0cdda3-ce2d-5928-97e9-d20ac96daa47",
+        "reviewer_id": "81e33e29-9cf8-4e8f-be57-ee83e0ef6bca",
+        "status": "submitted",
+        "submitted_at": "2024-01-01T02:00:00Z",
+        "content": (
+            '{"summary": "Formal review submitted.", '
+            '"strengths": ["Standards clearly referenced", "Strong literacy integration"], '
+            '"concerns": ["Limited support for multilingual learners"], '
+            '"overall_rating": "meets_expectations"}'
+        ),
+        "id": "44cd937f-7bfd-547e-902a-6bec818313a4",
+        "created_at": "2024-01-01T02:00:00Z",
+        "updated_at": "2024-01-01T02:00:00Z",
+    },
+    {
+        "review_round_id": "4f0cdda3-ce2d-5928-97e9-d20ac96daa47",
+        "reviewer_id": "81e33e29-9cf8-4e8f-be57-ee83e0ef6bca",
+        "status": "draft",
+        "submitted_at": "2024-01-01T03:00:00Z",
+        "content": (
+            '{"summary": "Follow-up draft with additional feedback.", '
+            '"strengths": ["Revised assessments show better alignment"], '
+            '"concerns": ["Pacing for Semester 2 may be aggressive"], '
+            '"overall_rating": "pending"}'
+        ),
+        "id": "66afc552-2c65-542c-9305-84724b5bcb88",
+        "created_at": "2024-01-01T03:00:00Z",
+        "updated_at": "2024-01-01T03:00:00Z",
+    },
+    {
+        "review_round_id": "4f0cdda3-ce2d-5928-97e9-d20ac96daa47",
+        "reviewer_id": "81e33e29-9cf8-4e8f-be57-ee83e0ef6bca",
+        "status": "submitted",
+        "submitted_at": "2024-01-01T04:00:00Z",
+        "content": (
+            '{"summary": "Updated review after revisions.", '
+            '"strengths": ["Improved checks for understanding", "Clearer rubric language"], '
+            '"concerns": ["Need examples for enrichment pathways"], '
+            '"overall_rating": "exceeds_expectations"}'
+        ),
+        "id": "e95075e8-bc4d-50be-b6b5-1c918d7bfe53",
+        "created_at": "2024-01-01T04:00:00Z",
+        "updated_at": "2024-01-01T04:00:00Z",
+    },
+    {
+        "review_round_id": "4f0cdda3-ce2d-5928-97e9-d20ac96daa47",
+        "reviewer_id": "81e33e29-9cf8-4e8f-be57-ee83e0ef6bca",
+        "status": "draft",
+        "submitted_at": "2024-01-01T05:00:00Z",
+        "content": (
+            '{"summary": "Internal draft capturing final committee comments.", '
+            '"strengths": ["Comprehensive unit overviews", "Strong vertical alignment"], '
+            '"concerns": ["Professional learning plan still in development"], '
+            '"overall_rating": "pending"}'
+        ),
+        "id": "ee6142af-1e65-5b10-87e4-f0fc0cdd22a8",
+        "created_at": "2024-01-01T05:00:00Z",
+        "updated_at": "2024-01-01T05:00:00Z",
+    },
+]
 
 
 def upgrade() -> None:
-    """Load seed data for {TABLE_NAME} from a CSV file.
+    """Load seed data for reviews from inline SEED_ROWS.
 
     Each row is inserted inside an explicit nested transaction (SAVEPOINT)
     so a failing row won't abort the whole migration transaction.
@@ -56,36 +112,21 @@ def upgrade() -> None:
         log.warning("Table %s does not exist; skipping seed", TABLE_NAME)
         return
 
-    if not os.path.exists(CSV_FILE):
-        log.warning("CSV file not found for %s: %s; skipping", TABLE_NAME, CSV_FILE)
-        return
-
     metadata = sa.MetaData()
     table = sa.Table(TABLE_NAME, metadata, autoload_with=bind)
 
-    with open(CSV_FILE, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
-
-    if not rows:
-        log.info("CSV file for %s is empty: %s", TABLE_NAME, CSV_FILE)
-        return
-
     inserted = 0
-    for raw_row in rows:
-        row = {}
-
-        for col in table.columns:
-            if col.name not in raw_row:
-                continue
-            raw_val = raw_row[col.name]
-            value = _coerce_value(col, raw_val)
-            row[col.name] = value
+    for raw_row in SEED_ROWS:
+        # Only include columns that actually exist on the table
+        row: dict[str, object] = {
+            col.name: raw_row[col.name]
+            for col in table.columns
+            if col.name in raw_row
+        }
 
         if not row:
             continue
 
-        # Explicit nested transaction (SAVEPOINT)
         nested = bind.begin_nested()
         try:
             bind.execute(table.insert().values(**row))
@@ -100,7 +141,11 @@ def upgrade() -> None:
                 raw_row,
             )
 
-    log.info("Inserted %s rows into %s from %s", inserted, TABLE_NAME, CSV_FILE)
+    log.info(
+        "Inserted %s rows into %s from inline SEED_ROWS",
+        inserted,
+        TABLE_NAME,
+    )
 
 
 def downgrade() -> None:

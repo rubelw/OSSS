@@ -1,11 +1,6 @@
 from __future__ import annotations
 
-import csv
 import logging
-import os
-from pathlib import Path
-
-from datetime import datetime  # still fine to keep, even if unused
 
 from alembic import op
 import sqlalchemy as sa
@@ -20,11 +15,60 @@ depends_on = None
 log = logging.getLogger("alembic.runtime.migration")
 
 TABLE_NAME = "fiscal_years"
-CSV_FILE = Path(__file__).resolve().parent.parent / "versions" / "raw_data" / "fiscal_years.csv"
+
+# Inline seed data for fiscal_years
+# Columns: year, start_date, end_date, is_closed, id, created_at, updated_at
+SEED_ROWS = [
+    {
+        "year": 1,
+        "start_date": "2023-07-01",
+        "end_date": "2024-06-30",
+        "is_closed": False,
+        "id": "428177d1-02c0-4e4d-b690-44cc399f6dd9",
+        "created_at": "2024-01-01T01:00:00Z",
+        "updated_at": "2024-01-01T01:00:00Z",
+    },
+    {
+        "year": 2,
+        "start_date": "2024-07-01",
+        "end_date": "2025-06-30",
+        "is_closed": True,
+        "id": "164ddfea-8dbf-4762-b4d3-7f4b08485bfd",
+        "created_at": "2024-01-01T02:00:00Z",
+        "updated_at": "2024-01-01T02:00:00Z",
+    },
+    {
+        "year": 3,
+        "start_date": "2022-07-01",
+        "end_date": "2023-06-30",
+        "is_closed": False,
+        "id": "fabbb17e-69cb-4843-92c2-44ce35688709",
+        "created_at": "2024-01-01T03:00:00Z",
+        "updated_at": "2024-01-01T03:00:00Z",
+    },
+    {
+        "year": 4,
+        "start_date": "2021-07-01",
+        "end_date": "2022-06-30",
+        "is_closed": True,
+        "id": "2c888170-38c4-4cbd-a816-caaf006a95f7",
+        "created_at": "2024-01-01T04:00:00Z",
+        "updated_at": "2024-01-01T04:00:00Z",
+    },
+    {
+        "year": 5,
+        "start_date": "2020-07-01",
+        "end_date": "2021-06-30",
+        "is_closed": False,
+        "id": "69525dd2-4f63-4366-b6e5-a1d4368e8217",
+        "created_at": "2024-01-01T05:00:00Z",
+        "updated_at": "2024-01-01T05:00:00Z",
+    },
+]
 
 
 def _coerce_value(col: sa.Column, raw):
-    """Best-effort coercion from CSV/inline value to appropriate DB value."""
+    """Best-effort coercion from seed value to appropriate DB value."""
     if raw == "" or raw is None:
         return None
 
@@ -47,60 +91,12 @@ def _coerce_value(col: sa.Column, raw):
             return None
         return bool(raw)
 
-    # Otherwise, pass raw through and let DB cast (dates, enums, etc.)
+    # Otherwise, pass raw through and let DB cast (dates, timestamps, etc.)
     return raw
 
 
-def _compute_year(raw_row: dict) -> int | None:
-    """
-    Derive the integer fiscal year.
-
-    Default: take it from the start_date year (e.g. 2023-07-01 -> 2023).
-    If you prefer the ending year instead, switch to end_date.
-
-    Fallback: try name like "2023-2024".
-    """
-    start = raw_row.get("start_date")
-    if isinstance(start, str) and len(start) >= 4:
-        try:
-            return int(start[:4])
-        except ValueError:
-            pass
-
-    # Fallback: try name like "2023-2024"
-    name = raw_row.get("name")
-    if isinstance(name, str) and len(name) >= 4:
-        try:
-            return int(name[:4])
-        except ValueError:
-            pass
-
-    return None
-
-
-def _compute_is_closed(raw_row: dict) -> bool:
-    """
-    Map from is_current -> is_closed.
-
-    If is_current is truthy, then not closed.
-    Everything else => closed.
-    """
-    raw = raw_row.get("is_current")
-    if isinstance(raw, str):
-        v = raw.strip().lower()
-        is_current = v in ("true", "t", "1", "yes", "y")
-    else:
-        is_current = bool(raw)
-
-    return not is_current
-
-
 def upgrade() -> None:
-    """Load seed data for fiscal_years from ./raw_data/fiscal_years.csv.
-
-    Each row is inserted inside an explicit nested transaction (SAVEPOINT)
-    so a failing row won't abort the whole migration transaction.
-    """
+    """Load seed data for fiscal_years from inline SEED_ROWS (no CSV)."""
     bind = op.get_bind()
     inspector = sa.inspect(bind)
 
@@ -108,53 +104,29 @@ def upgrade() -> None:
         log.warning("Table %s does not exist; skipping seed", TABLE_NAME)
         return
 
-    if not os.path.exists(CSV_FILE):
-        log.warning("CSV file not found for %s: %s; skipping", TABLE_NAME, CSV_FILE)
-        return
-
-    with open(CSV_FILE, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
-
-    if not rows:
-        log.info("CSV file for %s is empty: %s; skipping", TABLE_NAME, CSV_FILE)
+    if not SEED_ROWS:
+        log.info("No seed rows defined for %s; skipping", TABLE_NAME)
         return
 
     metadata = sa.MetaData()
     table = sa.Table(TABLE_NAME, metadata, autoload_with=bind)
 
     inserted = 0
-    for raw_row in rows:
+    for raw_row in SEED_ROWS:
         row: dict[str, object] = {}
 
         for col in table.columns:
-            raw_val = None
-
-            # 1) Direct match if present (e.g., id, name, start_date, end_date, is_closed, year)
-            if col.name in raw_row and raw_row[col.name] != "":
-                raw_val = raw_row[col.name]
-
-            # 2) Special mappings for this schema
-            elif col.name == "year":
-                raw_val = _compute_year(raw_row)
-
-            elif col.name == "is_closed":
-                # Prefer explicit is_closed if present in CSV
-                if "is_closed" in raw_row and raw_row["is_closed"] != "":
-                    raw_val = raw_row["is_closed"]
-                else:
-                    raw_val = _compute_is_closed(raw_row)
-
-            # Let created_at/updated_at use server defaults from TimestampMixin
-            else:
+            if col.name not in raw_row:
                 continue
 
+            raw_val = raw_row[col.name]
             value = _coerce_value(col, raw_val)
             row[col.name] = value
 
         if not row:
             continue
 
+        # Explicit nested transaction (SAVEPOINT)
         nested = bind.begin_nested()
         try:
             bind.execute(table.insert().values(**row))
@@ -169,12 +141,7 @@ def upgrade() -> None:
                 raw_row,
             )
 
-    log.info(
-        "Inserted %s rows into %s from CSV file %s",
-        inserted,
-        TABLE_NAME,
-        CSV_FILE,
-    )
+    log.info("Inserted %s inline seed rows into %s", inserted, TABLE_NAME)
 
 
 def downgrade() -> None:

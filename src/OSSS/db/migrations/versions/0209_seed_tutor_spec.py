@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import csv
 import logging
-import os
 
 from alembic import op
 import sqlalchemy as sa
@@ -17,11 +15,50 @@ depends_on = None
 log = logging.getLogger("alembic.runtime.migration")
 
 TABLE_NAME = "tutor_spec"
-CSV_FILE = os.path.join(os.path.dirname(__file__), "csv", f"{TABLE_NAME}.csv")
+
+# Inline seed rows with realistic data
+# Columns: tutor_id, spec_json, description, created_at, updated_at, id
+SEED_ROWS = [
+    {
+        "tutor_id": "82cc4801-378e-47ab-9346-09d78287b3e0",
+        "spec_json": {
+            "role": "math_tutor",
+            "display_name": "Grade 5 Math Tutor",
+            "subject": "Mathematics",
+            "grade_levels": ["5"],
+            "focus_standards": ["MATH-5.NF.1", "MATH-5.NF.2", "MATH-5.NF.3"],
+            "tone": "encouraging",
+            "guidelines": [
+                "Use clear, student-friendly language.",
+                "Show each step when modeling a solution.",
+                "Ask a quick check-for-understanding question at the end.",
+            ],
+            "constraints": {
+                "max_steps_per_explanation": 5,
+                "avoid": [
+                    "giving the final answer immediately without reasoning",
+                    "using advanced algebraic notation that is above grade level",
+                ],
+            },
+            "supports": {
+                "hints": True,
+                "multiple_representations": ["number_line", "area_model", "equation"],
+            },
+        },
+        "description": (
+            "Default specification for the Grade 5 fractions tutor. "
+            "Targets fraction addition/subtraction and word problems with an "
+            "encouraging, step-by-step style."
+        ),
+        "created_at": "2024-01-01T05:00:00Z",
+        "updated_at": "2024-01-01T05:00:00Z",
+        "id": "87e4d8d4-e6b6-5965-a44a-c5e72d7f4392",
+    },
+]
 
 
 def _coerce_value(col: sa.Column, raw):
-    """Best-effort coercion from CSV string to appropriate Python value."""
+    """Best-effort coercion from inline values to appropriate Python/DB values."""
     if raw == "" or raw is None:
         return None
 
@@ -35,16 +72,21 @@ def _coerce_value(col: sa.Column, raw):
                 return True
             if v in ("false", "f", "0", "no", "n"):
                 return False
-            log.warning("Invalid boolean for %s.%s: %r; using NULL", TABLE_NAME, col.name, raw)
+            log.warning(
+                "Invalid boolean for %s.%s: %r; using NULL",
+                TABLE_NAME,
+                col.name,
+                raw,
+            )
             return None
         return bool(raw)
 
-    # Otherwise, pass raw through and let DB cast
+    # For JSONB, UUID, etc., let the DB cast from native Python types
     return raw
 
 
 def upgrade() -> None:
-    """Load seed data for {TABLE_NAME} from a CSV file.
+    """Load seed data for tutor_spec from inline SEED_ROWS.
 
     Each row is inserted inside an explicit nested transaction (SAVEPOINT)
     so a failing row won't abort the whole migration transaction.
@@ -56,24 +98,17 @@ def upgrade() -> None:
         log.warning("Table %s does not exist; skipping seed", TABLE_NAME)
         return
 
-    if not os.path.exists(CSV_FILE):
-        log.warning("CSV file not found for %s: %s; skipping", TABLE_NAME, CSV_FILE)
-        return
-
     metadata = sa.MetaData()
     table = sa.Table(TABLE_NAME, metadata, autoload_with=bind)
 
-    with open(CSV_FILE, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
-
+    rows = SEED_ROWS
     if not rows:
-        log.info("CSV file for %s is empty: %s", TABLE_NAME, CSV_FILE)
+        log.info("No inline seed rows defined for %s", TABLE_NAME)
         return
 
     inserted = 0
     for raw_row in rows:
-        row = {}
+        row: dict[str, object] = {}
 
         for col in table.columns:
             if col.name not in raw_row:
@@ -85,7 +120,6 @@ def upgrade() -> None:
         if not row:
             continue
 
-        # Explicit nested transaction (SAVEPOINT)
         nested = bind.begin_nested()
         try:
             bind.execute(table.insert().values(**row))
@@ -100,7 +134,7 @@ def upgrade() -> None:
                 raw_row,
             )
 
-    log.info("Inserted %s rows into %s from %s", inserted, TABLE_NAME, CSV_FILE)
+    log.info("Inserted %s inline seed rows into %s", inserted, TABLE_NAME)
 
 
 def downgrade() -> None:
