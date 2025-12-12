@@ -37,7 +37,7 @@ ROWS = [
         "exit_date": "2024-01-03",
         "status": "ENROLLED",
         "exit_reason": "student_school_enrollments_exit_reason_2",
-        "grade_level_id": "21212121-2121-4121-8121-212121212121",
+        "grade_level_id": "3a3a3a3a-3a3a-4a3a-8a3a-3a3a3a3a3a3a",
         "created_at": "2024-08-23T08:00:00Z",
         "updated_at": "2024-08-23T08:00:00Z",
         "id": "e58efdc6-8e58-5d15-b0cc-a6e30c8bfe69",

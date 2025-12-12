@@ -25,6 +25,13 @@ class StudentInfoToolInput(BaseModel):
     last_name_prefix: Optional[str] = None
     genders: Optional[List[str]] = None
     grade_levels: Optional[List[str]] = None
+
+    # NEW: allow filtering by enrollment status
+    # - True  => only currently enrolled
+    # - False => only withdrawn / inactive
+    # - None  => no filter (current behavior)
+    enrolled_only: Optional[bool] = None
+
     session_id: Optional[str] = None
 
     @field_validator("genders", "grade_levels", mode="before")
@@ -86,15 +93,17 @@ async def _student_info_table_tool_impl(
     last_name_prefix: str | None = None,
     genders: List[str] | None = None,
     grade_levels: List[str] | None = None,
+    enrolled_only: bool | None = None,  # NEW
     session_id: str | None = None,
 ) -> str:
     logger.info(
         "[student_info_table_tool_impl] normalized args: "
-        "first=%r last=%r genders=%r grades=%r",
+        "first=%r last=%r genders=%r grades=%r enrolled_only=%r",
         first_name_prefix,
         last_name_prefix,
         genders,
         grade_levels,
+        enrolled_only,
     )
 
     filters = StudentInfoFilters(
@@ -102,6 +111,7 @@ async def _student_info_table_tool_impl(
         last_name_prefix=last_name_prefix,
         genders=genders,
         grade_levels=grade_levels,
+        enrolled_only=enrolled_only,  # NEW
     )
 
     # Returns a markdown string
@@ -121,7 +131,8 @@ student_info_table_tool: StructuredTool = StructuredTool(
     description=(
         "Summarize students in the OSSS backend. "
         "You can optionally filter by first_name_prefix, last_name_prefix, "
-        "genders (e.g. ['MALE','FEMALE']), and grade_levels (e.g. ['THIRD'])."
+        "genders (e.g. ['MALE','FEMALE']), grade_levels (e.g. ['THIRD']), "
+        "and enrolled_only (True for enrolled-only, False for withdrawn-only)."
     ),
     args_schema=StudentInfoToolInput,
     func=lambda *args, **kwargs: "<student_info_table async tool>",  # rarely used

@@ -84,6 +84,45 @@ def _pk_info(model) -> Tuple[str, Any]:
     return col.key, col.type
 
 
+def _coerce_pk_values(pk_type: Any, raw_ids: list[str]) -> list[Any]:
+    """Coerce query-string ids into the PK's Python type when possible.
+
+    This lets endpoints like GET /api/persons?ids=<uuid>&ids=<uuid> work even when
+    the SQLAlchemy PK is a UUID column.
+    """
+    if not raw_ids:
+        return raw_ids
+
+    # UUID handling (SQLAlchemy 2.0 has sa.Uuid, dialects may expose UUID types too)
+    try:
+        type_name = pk_type.__class__.__name__.lower()
+    except Exception:
+        type_name = ""
+
+    is_uuidish = False
+    if isinstance(pk_type, getattr(sa, "Uuid", ())):
+        is_uuidish = True
+    elif hasattr(pk_type, "as_uuid") and getattr(pk_type, "as_uuid") is True:
+        is_uuidish = True
+    elif type_name in {"uuid", "uuidtype", "sqlalchemyuuid", "uuidasuuid"}:
+        is_uuidish = True
+
+    if is_uuidish:
+        out: list[Any] = []
+        for v in raw_ids:
+            if isinstance(v, UUID):
+                out.append(v)
+                continue
+            try:
+                out.append(UUID(str(v)))
+            except Exception:
+                # If any value can't be parsed, fall back to raw strings.
+                return raw_ids
+        return out
+
+    return raw_ids
+
+
 def _model_columns(model):
     return [c.key for c in sa_inspect(model).columns]
 
@@ -456,12 +495,23 @@ def create_router_for_model(
     async def list_items(
         skip: int = Query(0, ge=0),
         limit: int = Query(100, ge=1, le=1000),
+        ids: list[str] | None = Query(default=None),
         db: Session | AsyncSession = Depends(get_db_dep),
         store: Optional[RedisSession] = Depends(get_session_store),
         user: Any = Depends(get_current_user) if require_auth else None,
     ):
         _authz("read", user, None)
-        stmt = select(model).offset(skip).limit(limit)
+        pk_field, pk_type = _pk_info(model)
+        pk_col = getattr(model, pk_field)
+
+        stmt = select(model)
+
+        # Optional ID filter: /api/<resource>?ids=<id>&ids=<id>
+        if ids:
+            coerced_ids = _coerce_pk_values(pk_type, ids)
+            stmt = stmt.where(pk_col.in_(coerced_ids))
+        else:
+            stmt = stmt.offset(skip).limit(limit)
         rows = await _db_execute_scalars_all(db, stmt)
         return [_safe_to_dict(o) for o in rows]
 

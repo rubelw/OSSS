@@ -1,5 +1,6 @@
 # src/OSSS/ai/langchain/base.py
 from __future__ import annotations
+
 from typing import Any, Dict, Optional, Protocol
 import os
 import logging
@@ -60,26 +61,37 @@ def _get_base_url() -> str:
     return url
 
 
-def get_llm(model: Optional[str] = None) -> BaseChatModel:
+def get_llm(
+    model: Optional[str] = None,
+    *,
+    streaming: bool = False,
+) -> BaseChatModel:
     """
     Shared LangChain ChatOpenAI client that talks to your local
     Ollama / vLLM server using the OpenAI-compatible /v1 API.
+
+    NOTE:
+      - For tool-using agents, prefer streaming=False.
+        (Streaming tool calls can cause the agent to return the tool-call JSON
+         instead of executing the tool coroutine, depending on provider/adapter.)
     """
     model_name = (model or DEFAULT_MODEL).strip()
     base_url = _get_base_url()
 
     logger.info(
-        "Creating LangChain ChatOpenAI client: model=%s base_url=%s",
+        "Creating LangChain ChatOpenAI client: model=%s base_url=%s streaming=%s",
         model_name,
         base_url,
+        streaming,
     )
 
     return ChatOpenAI(
         model=model_name,
         api_key="not-used",      # Ollama/vLLM ignore this but LangChain requires it
-        base_url=base_url,       # 🔴 THIS ensures /v1/chat/completions, not /chat/completions
+        base_url=base_url,       # ensures /v1/chat/completions, not /chat/completions
         temperature=0.1,
         max_tokens=2048,
+        streaming=streaming,
     )
 
 
@@ -91,7 +103,8 @@ class SimpleChatAgent:
         self.model = model
 
     async def run(self, message: str, *, session_id: Optional[str] = None) -> Dict[str, Any]:
-        llm = get_llm(self.model)
+        # Streaming is fine here since this agent is not tool-using
+        llm = get_llm(self.model, streaming=True)
         msgs = [
             SystemMessage(content=self.system_prompt),
             HumanMessage(content=message),

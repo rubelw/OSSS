@@ -11,6 +11,25 @@ from OSSS.ai.intents import Intent
 
 logger = logging.getLogger("OSSS.ai.intent_classifier")
 
+# --- Intent / action aliasing ---------------------------------------------
+
+# Map LLM/heuristic strings -> real Intent enum values that exist in OSSS.ai.intents.Intent
+INTENT_ALIASES: dict[str, str] = {
+    # if your Intent enum uses "student_info" already, this is harmless
+    "student_info": "student_info",
+    # if your enum uses a different name, map it here, e.g.:
+    # "student_info": "query_data",
+}
+
+# Allow the classifier to keep "show_withdrawn_students" instead of nuking it.
+# You can also map it to "read" if you don't want a special action downstream.
+ACTION_ALIASES: dict[str, str] = {
+    "show_withdrawn_students": "show_withdrawn_students",
+    # or: "show_withdrawn_students": "read",
+}
+ALLOWED_ACTIONS = {"read", "create", "update", "delete", "show_withdrawn_students"}
+
+
 # --- SAFE SETTINGS IMPORT (same pattern as rag_router) -----------------
 try:
     from OSSS.config import settings as _settings  # type: ignore
@@ -87,6 +106,23 @@ class IntentHeuristicRule(BaseModel):
 
 
 HEURISTIC_RULES: List[IntentHeuristicRule] = [
+    IntentHeuristicRule(
+        name="student_info_withdrawn",
+        contains_any=[
+            "withdrawn students",
+            "withdrawn student",
+            "show withdrawn students",
+            "inactive students",
+            "unenrolled students",
+            "not enrolled students",
+        ],
+        intent="student_info",
+        action="show_withdrawn_students",
+        urgency="low",
+        tone_major="informal_casual",
+        tone_minor="friendly",
+        metadata={"mode": "student_info", "enrolled_only": False},
+    ),
     IntentHeuristicRule(
         name="student_info_generic",
         contains_any=[
@@ -186,7 +222,8 @@ def _apply_heuristics(text: str) -> Optional[IntentResult]:
 
         # Map rule.intent string => Intent enum safely
         try:
-            intent_enum = Intent(rule.intent)
+            aliased = INTENT_ALIASES.get(rule.intent, rule.intent)
+            intent_enum = Intent(aliased)
         except Exception:
             logger.warning(
                 "[intent_classifier] heuristic rule produced unknown intent %r; "
@@ -420,7 +457,8 @@ You must respond with ONLY a single JSON object on one line, for example:
 
     # ---- Map string -> Intent enum safely ----------------------------------
     try:
-        intent = Intent(raw_intent)
+        raw_intent_aliased = INTENT_ALIASES.get(raw_intent, raw_intent)
+        intent = Intent(raw_intent_aliased)
     except Exception as e:
         logger.warning(
             "[intent_classifier] unknown intent %r, falling back to GENERAL: %s",
@@ -434,10 +472,9 @@ You must respond with ONLY a single JSON object on one line, for example:
     # Normalize action
     if isinstance(raw_action, str):
         action_norm = raw_action.lower().strip()
-        if action_norm not in {"read", "create", "update", "delete"}:
-            logger.warning(
-                "[intent_classifier] unknown action %r, setting action=None", raw_action
-            )
+        action_norm = ACTION_ALIASES.get(action_norm, action_norm)
+        if action_norm not in ALLOWED_ACTIONS:
+            logger.warning("[intent_classifier] unknown action %r, setting action=None", raw_action)
             action_norm = None
     else:
         action_norm = None
@@ -456,6 +493,7 @@ You must respond with ONLY a single JSON object on one line, for example:
 
     # Normalize tone_major
     valid_tone_major = {
+        "formal",
         "formal_professional",
         "informal_casual",
         "emotional_attitude",
@@ -498,6 +536,8 @@ You must respond with ONLY a single JSON object on one line, for example:
         "apologetic",
         "dramatic",
         "concerned",
+        "helpful",
+
     }
     if isinstance(raw_tone_minor, str):
         tone_minor_norm = raw_tone_minor.lower().strip()

@@ -1,12 +1,20 @@
 from __future__ import annotations
 
 import csv
-import logging
 import io
+import logging
+import uuid
+from datetime import datetime, date
 
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.exc import IntegrityError, DataError, StatementError
+
+try:
+    # Optional, but nice to have for UUID detection / insert()
+    from sqlalchemy.dialects import postgresql as psql
+except Exception:  # pragma: no cover
+    psql = None
 
 # ---- Alembic identifiers ----
 revision = "0014_1"
@@ -524,95 +532,159 @@ Alexander,Jackson,J.,2013-03-07,alexander.jackson499@example.org,515-555-6499,FE
 Evelyn,Martin,K.,2014-04-08,evelyn.martin500@example.org,515-555-6500,MALE,2024-01-01T01:00:00Z,2024-01-01T01:00:00Z,38d16e58-15a1-4acf-a751-6dcfe352c7ec
 """
 
+def _parse_datetime(raw: str) -> datetime:
+    s = raw.strip()
+    # Support "Z"
+    if s.endswith("Z"):
+        s = s[:-1] + "+00:00"
+    return datetime.fromisoformat(s)
+
+
+def _parse_date(raw: str) -> date:
+    return date.fromisoformat(raw.strip())
+
+
+def _looks_like_uuid(s: str) -> bool:
+    try:
+        uuid.UUID(s.strip())
+        return True
+    except Exception:
+        return False
+
+
 def _coerce_value(col: sa.Column, raw):
     """Best-effort coercion from CSV string to appropriate Python value."""
-    if raw == "" or raw is None:
+    if raw is None:
         return None
+    if isinstance(raw, str):
+        raw = raw.strip()
+        if raw == "":
+            return None
 
     t = col.type
 
-    # Boolean needs special handling because SQLAlchemy is strict
+    # Booleans
     if isinstance(t, sa.Boolean):
         if isinstance(raw, str):
-            v = raw.strip().lower()
+            v = raw.lower()
             if v in ("true", "t", "1", "yes", "y"):
                 return True
             if v in ("false", "f", "0", "no", "n"):
                 return False
-            log.warning(
-                "Invalid boolean for %s.%s: %r; using NULL",
-                TABLE_NAME,
-                col.name,
-                raw,
-            )
-            return None
         return bool(raw)
 
-    # Otherwise, pass raw through and let DB cast
+    # Dates / DateTimes
+    if isinstance(t, sa.Date):
+        if isinstance(raw, (date, datetime)):
+            return raw.date() if isinstance(raw, datetime) else raw
+        return _parse_date(str(raw))
+
+    if isinstance(t, sa.DateTime):
+        if isinstance(raw, datetime):
+            return raw
+        return _parse_datetime(str(raw))
+
+    # UUIDs (SQLAlchemy 2 has sa.Uuid; Postgres dialect has psql.UUID)
+    if hasattr(sa, "Uuid") and isinstance(t, sa.Uuid):
+        return uuid.UUID(str(raw))
+    if psql is not None and isinstance(t, getattr(psql, "UUID", ())):
+        return uuid.UUID(str(raw))
+
+    # If the column is a String but the value looks like a UUID, don’t coerce here.
+    # (Let the DB / column type decide; coercing only when the type indicates UUID.)
     return raw
 
 
 def upgrade() -> None:
-    """Load seed data for persons from embedded CSV_DATA.
-
-    Each row is inserted inside an explicit nested transaction (SAVEPOINT)
-    so a failing row won't abort the whole migration transaction.
-    """
     bind = op.get_bind()
-    inspector = sa.inspect(bind)
+    meta = sa.MetaData()
+    persons = sa.Table(TABLE_NAME, meta, autoload_with=bind)
 
-    if not inspector.has_table(TABLE_NAME):
-        log.warning("Table %s does not exist; skipping seed", TABLE_NAME)
-        return
-
-    if not CSV_DATA.strip():
-        log.warning("CSV_DATA is empty for %s; skipping", TABLE_NAME)
-        return
-
-    metadata = sa.MetaData()
-    table = sa.Table(TABLE_NAME, metadata, autoload_with=bind)
-
-    # Read from the embedded CSV string
-    f = io.StringIO(CSV_DATA.strip())
+    # Validate / read CSV
+    f = io.StringIO(CSV_DATA)
     reader = csv.DictReader(f)
-    rows = list(reader)
+
+    if not reader.fieldnames:
+        raise RuntimeError("CSV_DATA appears to be empty or missing a header row.")
+
+    # Ensure header columns exist in table
+    table_cols = {c.name for c in persons.columns}
+    unknown_cols = [h for h in reader.fieldnames if h not in table_cols]
+    if unknown_cols:
+        raise RuntimeError(
+            f"CSV header includes columns not present in {TABLE_NAME}: {unknown_cols}"
+        )
+
+    # Build rows
+    rows = []
+    seeded_ids: list[uuid.UUID] = []
+
+    for i, row in enumerate(reader, start=2):  # start=2 because header is line 1
+        try:
+            data = {}
+            for col in persons.columns:
+                if col.name not in row:
+                    continue  # not provided in CSV (fine)
+                data[col.name] = _coerce_value(col, row[col.name])
+
+            # Basic sanity: require id
+            if data.get("id") is None:
+                raise ValueError("Missing id")
+
+            # Normalize id to UUID if table expects UUID
+            # (If your id column is UUID typed, coercion above already did it.)
+            if isinstance(data["id"], str) and _looks_like_uuid(data["id"]):
+                data["id"] = uuid.UUID(data["id"])
+
+            rows.append(data)
+            seeded_ids.append(data["id"] if isinstance(data["id"], uuid.UUID) else uuid.UUID(str(data["id"])))
+
+        except Exception as e:
+            log.warning("Skipping row %s for %s due to error: %s", i, TABLE_NAME, e)
 
     if not rows:
-        log.info("Embedded CSV_DATA for %s is empty", TABLE_NAME)
+        log.info("No rows to insert for %s (CSV empty or all rows invalid).", TABLE_NAME)
         return
 
-    inserted = 0
-    for raw_row in rows:
-        row = {}
+    # Idempotent insert: ON CONFLICT (id) DO NOTHING
+    try:
+        if psql is not None:
+            stmt = psql.insert(persons).values(rows).on_conflict_do_nothing(index_elements=["id"])
+            bind.execute(stmt)
+        else:
+            # Fallback: plain insert (may fail on duplicates)
+            bind.execute(persons.insert(), rows)
 
-        for col in table.columns:
-            if col.name not in raw_row:
-                continue
-            raw_val = raw_row[col.name]
-            value = _coerce_value(col, raw_val)
-            row[col.name] = value
+        log.info("Seeded %s rows into %s (duplicates ignored by id).", len(rows), TABLE_NAME)
 
-        if not row:
-            continue
-
-        # Explicit nested transaction (SAVEPOINT)
-        nested = bind.begin_nested()
-        try:
-            bind.execute(table.insert().values(**row))
-            nested.commit()
-            inserted += 1
-        except (IntegrityError, DataError, StatementError) as exc:
-            nested.rollback()
-            log.warning(
-                "Skipping row for %s due to error: %s. Row: %s",
-                TABLE_NAME,
-                exc,
-                raw_row,
-            )
-
-    log.info("Inserted %s rows into %s from embedded CSV_DATA", inserted, TABLE_NAME)
+    except (IntegrityError, DataError, StatementError) as e:
+        # If you want to be more tolerant, you can insert row-by-row here.
+        log.error("Bulk insert into %s failed: %s", TABLE_NAME, e)
+        raise
 
 
 def downgrade() -> None:
-    # No-op downgrade; seed data is left in place.
-    pass
+    bind = op.get_bind()
+    meta = sa.MetaData()
+    persons = sa.Table(TABLE_NAME, meta, autoload_with=bind)
+
+    # Delete only the IDs present in CSV_DATA.
+    f = io.StringIO(CSV_DATA)
+    reader = csv.DictReader(f)
+
+    ids: list[uuid.UUID] = []
+    for i, row in enumerate(reader, start=2):
+        raw_id = (row or {}).get("id")
+        if not raw_id:
+            continue
+        try:
+            ids.append(uuid.UUID(str(raw_id).strip()))
+        except Exception as e:
+            log.warning("Skipping invalid id on line %s during downgrade: %r (%s)", i, raw_id, e)
+
+    if not ids:
+        log.info("No ids found to delete for %s downgrade.", TABLE_NAME)
+        return
+
+    bind.execute(persons.delete().where(persons.c.id.in_(ids)))
+    log.info("Deleted %s seeded rows from %s.", len(ids), TABLE_NAME)
