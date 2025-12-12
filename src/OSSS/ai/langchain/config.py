@@ -6,6 +6,7 @@ from .registry import register_langchain_agent
 # Intent -> LangChain agent name
 INTENT_TO_LC_AGENT = {
     "student_info": "lc.student_info_table",
+    "staff_info": "lc.staff_info_table",
     #"students_missing_assignments": "lc.students_missing_assignments",
     # ...
 }
@@ -32,4 +33,4 @@ for cfg in SIMPLE_AGENTS_CONFIG:
     )
 
 # Import “complex” agents so they register themselves too
-from .agents import student_info, students_missing_assignments  # noqa: F401
+from .agents import student_info, staff_info  # noqa: F401

@@ -8,6 +8,8 @@ from langgraph.graph import StateGraph, START, END
 from langgraph.checkpoint.sqlite import SqliteSaver
 
 from OSSS.ai.langchain.agents.student_info.student_info_table_agent import StudentInfoTableAgent
+from OSSS.ai.langchain.agents.staff_info.staff_info_table_agent import StaffInfoTableAgent
+
 from OSSS.ai.langchain.registry import (
     register_langchain_agent,
     run_agent as registry_run_agent,
@@ -23,6 +25,8 @@ INTENT_TO_LC_AGENT: dict[str, str] = {
     # bridge from old behavior: generic "langchain_agent" goes to student_info_table
     "langchain_agent": "lc.student_info_table",
     "student_info": "lc.student_info_table",
+    "langchain_agent": "lc.staff_info_table",
+    "staff_info": "lc.staff_info_table"
     # "students_missing_assignments": "lc.students_missing_assignments",
     # add more as you build them...
 }
@@ -35,6 +39,8 @@ DEFAULT_AGENT_NAME = "lc.student_info_table"
 
 # Student info table agent (uses the StructuredTool internally)
 register_langchain_agent(StudentInfoTableAgent())
+register_langchain_agent(StaffInfoTableAgent())
+
 
 # add more agents here as you implement them:
 # from OSSS.ai.langchain.agents.students_missing_assignments_agent import (

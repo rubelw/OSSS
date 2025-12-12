@@ -3,6 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Dict, List, Optional
 from .types import Intent
+import logging
+
+logger = logging.getLogger("OSSS.ai.intents.heuristics.registry")
 
 @dataclass(frozen=True)
 class IntentSpec:

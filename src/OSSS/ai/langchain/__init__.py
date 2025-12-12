@@ -10,6 +10,7 @@ from langgraph.graph import StateGraph, START, END
 from langgraph.checkpoint.memory import MemorySaver
 from langchain_core.messages import BaseMessage
 
+from OSSS.ai.langchain.agents.staff_info.staff_info_table_agent import StaffInfoTableAgent
 from OSSS.ai.session_store import RagSession
 from OSSS.ai.langchain.agents.student_info.student_info_table_agent import StudentInfoTableAgent
 
@@ -29,6 +30,8 @@ def get_agent_for_name(agent_name: str):
     """
     if agent_name == "lc.student_info_table":
         return StudentInfoTableAgent()
+    elif agent_name == "lc.staff_info_table":
+        return StaffInfoTableAgent()
 
     raise ValueError(f"Unknown LangChain agent_name={agent_name!r}")
 
@@ -219,6 +222,7 @@ _langchain_graph = build_langchain_graph().compile(
 INTENT_TO_LC_AGENT: dict[str, str] = {
     # You can expand this mapping as needed
     "student_info": "lc.student_info_table",
+    "staff_info": "lc.staff_info_table",
 }
 
 

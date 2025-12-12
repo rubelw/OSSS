@@ -5,6 +5,9 @@ from typing import Dict, Optional, Type
 
 from .base import Agent, AgentContext, AgentResult
 
+import logging
+
+logger = logging.getLogger("OSSS.ai.agents.registry")
 
 # ======================================================================
 # GLOBAL AGENT REGISTRY

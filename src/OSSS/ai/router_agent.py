@@ -21,11 +21,11 @@ from MetaGPT.roles_registry import ROLE_REGISTRY  # noqa: F401
 from MetaGPT.roles.registration import RegistrationRole  # noqa: F401
 
 from OSSS.ai.intent_classifier import classify_intent
-from OSSS.ai.intents import Intent
+from OSSS.ai.intents.types import Intent
 from OSSS.ai.agents import AgentContext, get_agent
 from OSSS.ai.additional_index import top_k, INDEX_KINDS
 from OSSS.ai.session_store import RagSession, touch_session
-from OSSS.ai.agent_routing_config import build_alias_map, first_matching_intent
+from OSSS.ai.agent_routing_config import build_alias_map
 
 # 👇 Force-load agents so @register_agent runs
 import OSSS.ai.agents.student.registration_agent  # noqa: F401
@@ -65,10 +65,29 @@ except Exception:  # fallback, same as in your ai_gateway
 
     settings = _Settings()  # type: ignore
 
+def _safe_preview(text: str | None, n: int = 240) -> str:
+    if not text:
+        return ""
+    t = text.replace("\n", "\\n")
+    return (t[:n] + "…") if len(t) > n else t
+
+
+def _log_json(level: int, msg: str, obj: Any) -> None:
+    try:
+        payload = json.dumps(obj, ensure_ascii=False, default=str)
+    except Exception:
+        payload = f"<non-serializable type={type(obj).__name__}>"
+    logger.log(level, "%s %s", msg, payload[:4000])
+
 
 # Build alias map once at import time from config
 ALIAS_MAP: dict[str, str] = build_alias_map()
 
+logger.info(
+    "Router init: ALIAS_MAP loaded size=%s sample=%s",
+    len(ALIAS_MAP),
+    dict(list(ALIAS_MAP.items())[:10]),
+)
 
 def _looks_like_school_year(text: str) -> bool:
     """
@@ -101,7 +120,6 @@ class IntentResolution(BaseModel):
     # now means "within current flow", not registration-specific
     within_registration_flow: bool = False
     classified_label: str | None = None
-    forced_intent: str | None = None
     session_intent: str | None = None
     manual_label: str | None = None
     # raw model output string from the intent classifier
@@ -124,11 +142,18 @@ class IntentResolver:
         # Explicit override from client (if provided)
         manual_label = rag.intent
 
-        # Config-driven domain heuristics (patterns in agent_routing_config)
-        forced_intent: str | None = first_matching_intent(query)
 
         # Prior session intent (sticky)
         session_intent = getattr(session, "intent", None)
+
+        logger.debug(
+            "IntentResolver.start: query=%r ql=%r manual_label=%r session_intent=%r subagent_session_id=%r",
+            _safe_preview(query),
+            ql,
+            manual_label,
+            session_intent,
+            getattr(rag, "subagent_session_id", None),
+        )
 
         # Classifier call
         classified: str | Intent | None = "general"
@@ -146,6 +171,17 @@ class IntentResolver:
             intent_result = await classify_intent(query)
             classified = intent_result.intent
             action = getattr(intent_result, "action", None) or "read"
+
+            ALLOWED_ACTIONS = {"read", "create", "update", "delete"}  # adjust if you support more
+            if action not in ALLOWED_ACTIONS:
+                logger.warning(
+                    "IntentResolver: invalid action from classifier %r (normalizing to 'read') action_conf=%r",
+                    action,
+                    action_confidence,
+                )
+                action = "read"
+
+
             action_confidence = getattr(intent_result, "action_confidence", None)
             urgency = getattr(intent_result, "urgency", None)
             urgency_confidence = getattr(intent_result, "urgency_confidence", None)
@@ -171,6 +207,8 @@ class IntentResolver:
                             "IntentResolver: failed to JSON-encode intent_result.raw: %s",
                             te,
                         )
+
+
 
             logger.info(
                 "Classified intent=%s action=%s action_confidence=%s "
@@ -201,41 +239,83 @@ class IntentResolver:
         else:
             classified_label = None
 
+        normalized_classified = ALIAS_MAP.get(classified_label, classified_label)
+        normalized_session = ALIAS_MAP.get(session_intent, session_intent)
+
+        logger.debug(
+            "IntentResolver.classifier: classified_label=%r normalized_classified=%r session_intent=%r normalized_session=%r",
+            classified_label,
+            normalized_classified,
+            session_intent,
+            normalized_session,
+        )
+
+        # Optional: show the raw LLM block (when present)
+        if raw_model_output:
+            logger.debug(
+                "IntentResolver.raw_model_output.preview=%r",
+                _safe_preview(raw_model_output, 800),
+            )
+
+
+        weak_labels: set[Any] = {None, "general"}
+
+        PHRASE_TO_INTENT = [
+            (("staff info", "staff directory", "show staff"), "staff_info"),
+            (("student info", "show student"), "student_info"),
+        ]
+
+        if classified_label in weak_labels:
+            for phrases, intent in PHRASE_TO_INTENT:
+                if any(p in ql for p in phrases):
+                    classified_label = intent
+                    break
+
+
         # ---- Flow stickiness (generic, not per-agent) ---------------------
         within_flow = False
+        within_flow_reason: str | None = None
 
         # User clearly says "continue..." while we already have a session intent
         wants_continue = ql.startswith("continue") or "continue registration" in ql
 
         # Treat "general" and "None" as "weak" labels that shouldn't override an
-        # existing session_intent unless we have an explicit forced_intent.
+        # existing session_intent unless we have an explicit forced/manual intent.
         weak_labels: set[Any] = {None, "general"}
 
         if session_intent:
-            # Normalize classifier via alias map
             normalized_classified = ALIAS_MAP.get(classified_label, classified_label)
+            normalized_session_intent = ALIAS_MAP.get(session_intent, session_intent)
 
             if wants_continue:
                 within_flow = True
-            elif forced_intent == session_intent:
+                within_flow_reason = "wants_continue"
+            elif normalized_classified == normalized_session_intent:
                 within_flow = True
-            elif normalized_classified == session_intent:
+                within_flow_reason = "classified_matches_session_intent(after_alias)"
+            elif classified_label in weak_labels:
                 within_flow = True
-            elif classified_label in weak_labels and forced_intent is None:
-                within_flow = True
+                within_flow_reason = "classified_is_weak_label"
 
         # If a subagent_session_id is active and we have a session_intent,
-        # default to staying in the same flow unless a forced_intent disagrees.
-        if (
-            rag.subagent_session_id
-            and session_intent
-            and forced_intent not in (None, session_intent)
-            and not within_flow
-        ):
-            # strong forced_intent that differs -> allow switching flows
-            pass
-        elif rag.subagent_session_id and session_intent and not within_flow:
-            within_flow = True
+        # default to staying in the same flow unless a forced/manual intent disagrees.
+        if rag.subagent_session_id and session_intent and not within_flow:
+            if manual_label and ALIAS_MAP.get(manual_label, manual_label) != ALIAS_MAP.get(session_intent,
+                                                                                           session_intent):
+                within_flow = False
+                within_flow_reason = "subagent_active_but_manual_forces_switch"
+            else:
+                within_flow = True
+                within_flow_reason = "subagent_active_default_sticky"
+
+        logger.debug(
+            "IntentResolver.flow: wants_continue=%r within_flow=%r reason=%r weak_labels=%r subagent_session_id=%r",
+            wants_continue,
+            within_flow,
+            within_flow_reason,
+            list(weak_labels),
+            getattr(rag, "subagent_session_id", None),
+        )
 
         # ---- Base label priority (ALWAYS set base_label) -------------------
         if within_flow and session_intent:
@@ -243,7 +323,6 @@ class IntentResolver:
         else:
             base_label = (
                 manual_label
-                or forced_intent
                 or classified_label
                 or session_intent
                 or "general"
@@ -261,28 +340,30 @@ class IntentResolver:
             except Exception:
                 logger.exception("IntentResolver: failed to parse intent_raw_model_output")
 
-        # ---- SPECIAL CASE: student_info should stay student_info ----------
-        # Let "student_info" flow through as-is so it hits INTENT_TO_LC_AGENT
-        if base_label == "student_info" or llm_intent == "student_info":
-            effective_base = "student_info"
-        else:
-            effective_base = base_label
+        effective_base = base_label
 
         # Apply aliases via config
         intent_label = ALIAS_MAP.get(effective_base, effective_base)
 
         logger.info(
-            "Effective intent for this turn: %r (manual=%r, forced=%r, session_intent=%r, "
+            "Effective intent for this turn: %r (manual=%r, session_intent=%r, "
             "classified=%r, aliased_from=%r, wants_continue=%r, within_flow=%r, llm_intent=%r)",
             intent_label,
             manual_label,
-            forced_intent,
             session_intent,
             classified_label,
             base_label,
             wants_continue,
             within_flow,
             llm_intent,
+        )
+
+        logger.error(
+            "INTENT DEBUG → intent=%r classified=%r manual=%r session=%r",
+            intent_label,
+            classified_label,
+            manual_label,
+            session_intent,
         )
 
         return IntentResolution(
@@ -297,7 +378,6 @@ class IntentResolver:
             tone_minor_confidence=tone_minor_confidence,
             within_registration_flow=within_flow,  # now generic flow stickiness
             classified_label=classified_label,
-            forced_intent=forced_intent,
             session_intent=session_intent,
             manual_label=manual_label,
             intent_raw_model_output=raw_model_output,
@@ -908,6 +988,8 @@ class RouterAgent:
             session=session,
             query=query,
         )
+
+
 
         intent_label = resolution.intent
         action = resolution.action

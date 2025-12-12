@@ -8,47 +8,47 @@ from typing import Pattern, List, Optional
 from OSSS.ai.intents import Intent  # noqa: F401  # (kept for future use)
 
 
+# ============================================================================
+# Models
+# ============================================================================
+
 @dataclass(frozen=True)
 class IntentAlias:
     from_label: str
     to_label: str
 
 
-@dataclass(frozen=True)
-class HeuristicRule:
-    """
-    Simple lexical / regex heuristic that can 'force' an intent for a query.
 
-    A rule matches if EITHER:
-      - pattern is not None and pattern.search(query) succeeds, OR
-      - contains_any is not None and any of those substrings are found in the
-        lowercased query.
-    """
-    intent: str
-    pattern: Optional[Pattern[str]] = None
-    contains_any: Optional[List[str]] = None
-    description: str = ""
+# ============================================================================
+# Aliases
+#   Normalize many possible classifier / UI labels into canonical intents.
+#   Canonical intents should match what your agent registry expects.
+# ============================================================================
 
-
-# --- Aliases ---------------------------------------------------------
-# --- Aliases ---------------------------------------------------------
 INTENT_ALIASES: list[IntentAlias] = [
-    # Existing aliases
+    # Generic / historical aliases
     IntentAlias("langchain", "langchain_agent"),
     IntentAlias("general_llm", "langchain_agent"),
     IntentAlias("enrollment", "register_new_student"),
     IntentAlias("new_student_registration", "register_new_student"),
 
-    # Map classifier labels related to student counts/listing to query_data
-    IntentAlias("student_counts", "query_data"),
-    #IntentAlias("students", "query_data"),
-    #IntentAlias("student_info", "langchain_agent"),
-
+    # Student list / counts → query_data
+    IntentAlias("student_counts", "student_info"),
     IntentAlias("list_students", "query_data"),
     IntentAlias("scorecards", "query_data"),
     IntentAlias("live_scoring_query", "query_data"),
     IntentAlias("show_materials_list", "query_data"),
+
+    # --- Staff aliases (NEW) -----------------------------------------
+    # Whatever the classifier/client calls it, route to the canonical staff intent.
+    IntentAlias("staff", "staff_info"),
+    IntentAlias("staff_info", "staff_info"),
+    IntentAlias("staff_directory", "staff_info"),
+    IntentAlias("employee_directory", "staff_info"),
+    IntentAlias("teacher_directory", "staff_info"),
+    IntentAlias("teachers", "staff_info"),
 ]
+
 
 # ---------------------------------------------------------------------
 # AUTO-GENERATED show_<table> and <table>_query ALIASES
@@ -112,81 +112,20 @@ TABLES = [
     "work_order_time_logs", "work_orders",
 ]
 
-# Append the aliases
 for table in TABLES:
     INTENT_ALIASES.append(IntentAlias(f"show_{table}", "query_data"))
     INTENT_ALIASES.append(IntentAlias(f"{table}_query", "query_data"))
 
 
 def build_alias_map() -> dict[str, str]:
+    # last one wins if duplicates exist
     return {a.from_label: a.to_label for a in INTENT_ALIASES}
 
 
-# --- Heuristics ------------------------------------------------------
-HEURISTIC_RULES: list[HeuristicRule] = [
-    HeuristicRule(
-        intent="register_new_student",
-        pattern=re.compile(r"\bregister\b.*\bnew student\b", re.IGNORECASE),
-        description="Explicit 'register new student' phrasing",
-    ),
-    HeuristicRule(
-        intent="register_new_student",
-        pattern=re.compile(r"(20[2-9][0-9])[-/](?:20[2-9][0-9]|[0-9]{2})"),
-        description="Bare school-year style answer",
-    ),
 
-    HeuristicRule(
-        intent="student_info",
-        pattern=re.compile(
-            r"\b(list|show|get|give me|display)\b.*\b(student|students)\b",
-            re.IGNORECASE,
-        ),
-        description="Listing / showing students (e.g. 'list all students')",
-    ),
-
-    # Queries that clearly want a list of students → query_data
-    HeuristicRule(
-        intent="query_data",
-        pattern=re.compile(
-            r"\b(list|show|get|give me|display)\b.*\b(student|students)\b",
-            re.IGNORECASE,
-        ),
-        description="Listing / showing all students (e.g. 'list all student names')",
-    ),
-
-    # Queries that clearly want a materials list → query_data
-    # (If this is too broad later, you can remove plain 'materials' and keep just
-    #  'materials list' / 'supply list'.)
-    HeuristicRule(
-        intent="query_data",
-        contains_any=["materials list", "supply list", "materials"],
-        description="Listing / showing all materials (e.g. 'show me the materials list')",
-    ),
-]
+# Common list/show verbs we see in prompts
+_LIST_VERB = r"(list|show|get|give me|display|print|dump|return|fetch)"
 
 
-def first_matching_intent(query: str) -> str | None:
-    """
-    Return the first heuristic intent that matches the query, if any.
-    """
-    if not query:
-        return None
 
-    q_lower = query.lower()
 
-    for rule in HEURISTIC_RULES:
-        matched = False
-
-        # Regex match
-        if rule.pattern is not None and rule.pattern.search(query):
-            matched = True
-
-        # contains_any match
-        if rule.contains_any:
-            if any(sub.lower() in q_lower for sub in rule.contains_any):
-                matched = True
-
-        if matched:
-            return rule.intent
-
-    return None

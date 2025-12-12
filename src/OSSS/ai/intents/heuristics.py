@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Optional, Iterable
+from typing import Any, Optional, Sequence
 import json
 import logging
 import re
@@ -9,8 +9,11 @@ import re
 from OSSS.ai.intents.types import Intent, IntentResult
 from OSSS.ai.intents.registry import INTENT_ALIASES, INTENTS
 
-logger = logging.getLogger("OSSS.ai.intents.heuristics")
+from OSSS.ai.intents.heuristics.student_info_rules import RULES as STUDENT_INFO_RULES
+from OSSS.ai.intents.heuristics.enrollment_rules import RULES as ENROLLMENT_RULES
+from OSSS.ai.intents.heuristics.staff_info_rules import RULES as STAFF_INFO_RULES
 
+logger = logging.getLogger("OSSS.ai.intents.heuristics")
 
 # -----------------------------
 # Rule model
@@ -19,10 +22,10 @@ logger = logging.getLogger("OSSS.ai.intents.heuristics")
 @dataclass(frozen=True)
 class HeuristicRule:
     name: str
-    intent: str                       # stored as string; validated -> Intent enum
+    intent: str
     priority: int = 100
 
-    keywords: list[str] = field(default_factory=list)   # literal phrases
+    keywords: list[str] = field(default_factory=list)
     regex: Optional[str] = None
     word_boundary: bool = True
 
@@ -38,9 +41,7 @@ class HeuristicRule:
 def _phrase_pattern(phrase: str, *, word_boundary: bool) -> str:
     p = re.escape(phrase.strip())
     p = p.replace(r"\ ", r"\s+")
-    if word_boundary:
-        return rf"\b{p}\b"
-    return p
+    return rf"\b{p}\b" if word_boundary else p
 
 
 def _compile_rule(rule: HeuristicRule) -> re.Pattern[str]:
@@ -59,10 +60,7 @@ def _compile_rule(rule: HeuristicRule) -> re.Pattern[str]:
 
 
 def _to_intent(intent_str: str) -> Intent:
-    # alias map (strings -> enum value strings)
     aliased = INTENT_ALIASES.get(intent_str, intent_str)
-
-    # strict: must be a valid Intent value
     try:
         return Intent(aliased)
     except Exception as e:
@@ -70,34 +68,22 @@ def _to_intent(intent_str: str) -> Intent:
 
 
 # -----------------------------
-# Domain rule imports
+# Domain rules
 # -----------------------------
-# These should live under OSSS/ai/intents/heuristics/*.py
-from OSSS.ai.intents.heuristics.student_info_rules import RULES as STUDENT_INFO_RULES
-from OSSS.ai.intents.heuristics.enrollment_rules import RULES as ENROLLMENT_RULES
 
 DOMAIN_RULES: list[HeuristicRule] = [
     *STUDENT_INFO_RULES,
     *ENROLLMENT_RULES,
+    *STAFF_INFO_RULES,
 ]
 
 
-# -----------------------------
-# Optional: auto rules from registry keywords
-# -----------------------------
-
 def build_registry_keyword_rules(*, base_priority: int = 500) -> list[HeuristicRule]:
-    """
-    Build low-priority rules from IntentSpec.keywords.
-    These are "broad net" rules; domain rules should win via lower priority.
-    """
     out: list[HeuristicRule] = []
-
     for intent, spec in INTENTS.items():
         kws = [k for k in (spec.keywords or []) if isinstance(k, str) and k.strip()]
         if not kws:
             continue
-
         out.append(
             HeuristicRule(
                 name=f"registry_keywords__{intent.value}",
@@ -109,7 +95,6 @@ def build_registry_keyword_rules(*, base_priority: int = 500) -> list[HeuristicR
                 metadata={"source": "registry_keywords"},
             )
         )
-
     return out
 
 
@@ -118,60 +103,17 @@ ALL_RULES: list[HeuristicRule] = sorted(
     key=lambda r: r.priority,
 )
 
-# Compile once
-_COMPILED: list[tuple[HeuristicRule, re.Pattern[str], Intent]] = []
+# Compile once (default compiled set)
+_DEFAULT_COMPILED: list[tuple[HeuristicRule, re.Pattern[str], Intent]] = []
 for r in ALL_RULES:
-    intent_enum = _to_intent(r.intent)   # <-- validates at import time
-    _COMPILED.append((r, _compile_rule(r), intent_enum))
+    intent_enum = _to_intent(r.intent)
+    _DEFAULT_COMPILED.append((r, _compile_rule(r), intent_enum))
 
 
-def apply_heuristics(text: str) -> Optional[IntentResult]:
-    t = (text or "").strip()
-    if not t:
-        return None
+def _compile_rules(rules: Sequence[HeuristicRule]) -> list[tuple[HeuristicRule, re.Pattern[str], Intent]]:
+    compiled: list[tuple[HeuristicRule, re.Pattern[str], Intent]] = []
+    for r in sorted(list(rules), key=lambda x: x.priority):
+        intent_enum = _to_intent(r.intent)
+        compiled.append((r, _compile_rule(r), intent_enum))
+    return compiled
 
-    for rule, rx, intent_enum in _COMPILED:
-        if not rx.search(t):
-            continue
-
-        logger.info("[intent_heuristics] matched rule=%s intent=%s", rule.name, rule.intent)
-
-        bundle = {
-            "source": "heuristic",
-            "heuristic_rule": {
-                "name": rule.name,
-                "intent": rule.intent,
-                "priority": rule.priority,
-                "keywords": rule.keywords,
-                "regex": rule.regex,
-                "word_boundary": rule.word_boundary,
-                "action": rule.action,
-                "urgency": rule.urgency,
-                "tone_major": rule.tone_major,
-                "tone_minor": rule.tone_minor,
-                "confidence": rule.confidence,
-                "metadata": rule.metadata,
-            },
-            "text": text,
-            "llm": None,
-        }
-        bundle_json = json.dumps(bundle, ensure_ascii=False)
-
-        return IntentResult(
-            intent=intent_enum,
-            confidence=rule.confidence,
-            raw={"heuristic_rule": bundle["heuristic_rule"], "text": text},
-            action=rule.action,
-            action_confidence=rule.confidence,
-            urgency=rule.urgency,
-            urgency_confidence=0.8,
-            tone_major=rule.tone_major,
-            tone_major_confidence=0.8,
-            tone_minor=rule.tone_minor,
-            tone_minor_confidence=0.8,
-            raw_model_content=bundle_json,  # back-compat
-            raw_model_output=bundle_json,   # preferred
-            source="heuristic",
-        )
-
-    return None

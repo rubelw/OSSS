@@ -18,6 +18,8 @@ def register_langchain_agent(agent: LangChainAgentProtocol) -> None:
 
 
 def get_langchain_agent(name: str) -> Optional[LangChainAgentProtocol]:
+    logger.info("LangChain agents currently registered: %s", sorted(_LANGCHAIN_AGENTS.keys()))
+
     return _LANGCHAIN_AGENTS.get(name)
 
 
@@ -27,6 +29,9 @@ async def run_agent(
     *,
     agent_name: str = "default_chat",
 ) -> Dict[str, Any]:
+
+    logger.info("LangChain agents registered: %s", sorted(_LANGCHAIN_AGENTS.keys()))
+
     agent = get_langchain_agent(agent_name)
     if agent is None:
         logger.warning("No LangChain agent named %r; using bare LLM.", agent_name)

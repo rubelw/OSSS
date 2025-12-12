@@ -30,8 +30,14 @@ def _compile_keyword_pattern(keyword: str, *, word_boundary: bool) -> re.Pattern
   return re.compile(kw, re.IGNORECASE)
 
 
-def apply_heuristics(text: str, rules: Sequence[HeuristicRule]) -> Optional[IntentResult]:
+def apply_heuristics(
+    text: str,
+    rules: Optional[Sequence[HeuristicRule]] = None,
+) -> Optional[IntentResult]:
+
+
   t = text or ""
+  rules = rules or []
 
   # Higher priority first
   ordered = sorted(rules, key=lambda r: r.priority)
