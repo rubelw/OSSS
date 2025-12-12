@@ -11,7 +11,7 @@ from langgraph.checkpoint.memory import MemorySaver
 from langchain_core.messages import BaseMessage
 
 from OSSS.ai.session_store import RagSession
-from OSSS.ai.langchain.agents.student_info_table_agent import StudentInfoTableAgent
+from OSSS.ai.langchain.agents.student_info.student_info_table_agent import StudentInfoTableAgent
 
 logger = logging.getLogger("OSSS.ai.langchain")
 

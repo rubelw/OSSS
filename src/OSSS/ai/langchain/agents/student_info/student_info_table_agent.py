@@ -9,7 +9,7 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.messages import ToolMessage
 
 from OSSS.ai.langchain.base import LangChainAgentProtocol, get_llm
-from OSSS.ai.langchain.tools.student_info_table_tool import student_info_table_tool
+from OSSS.ai.langchain.tools.student_info.student_info_table_tool import student_info_table_tool
 
 logger = logging.getLogger("OSSS.ai.langchain.student_info_table_agent")
 

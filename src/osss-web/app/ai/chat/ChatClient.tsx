@@ -1380,14 +1380,16 @@ export default function ChatClient() {
     showSources,
   ]);
 
-  const handleKeyDown: React.KeyboardEventHandler<HTMLTextAreaElement> = (
-    e
-  ) => {
-    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+  const handleKeyDown: React.KeyboardEventHandler<HTMLTextAreaElement> = (e) => {
+      if (e.key !== "Enter") return;
+
+      // Shift+Enter = newline
+      if (e.shiftKey) return;
+
+      // Enter = send
       e.preventDefault();
       void handleSend();
-    }
-  };
+    };
 
   return (
     <div
@@ -1591,7 +1593,7 @@ export default function ChatClient() {
 
           <textarea
             className="mentor-input"
-            placeholder="Type your message… (Ctrl/Cmd+Enter to send)"
+            placeholder="Type your message… (Enter to send, Shift+Enter for newline)"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}

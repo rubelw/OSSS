@@ -93,7 +93,6 @@ async def run_student_info_table_markdown_only(
         skip=skip,
         limit=limit,
     )
-    # result["reply"] is your full markdown summary/table text
     return result["reply"]
 
 
@@ -117,18 +116,13 @@ def _index_grade_levels(grade_levels) -> dict[str, dict]:
     )
     return idx
 
+
 async def _fetch_all_persons(
     *,
     page_size: int = 500,
     max_pages: int = 20,
     timeout_s: float = 10.0,
 ) -> List[Dict[str, Any]]:
-    """
-    Option A: Paginate /api/persons and return a larger list of persons.
-
-    This is used when the initial persons payload (often a single page) does not
-    include the person_ids referenced by the students page.
-    """
     persons: List[Dict[str, Any]] = []
     skip = 0
 
@@ -146,7 +140,6 @@ async def _fetch_all_persons(
                 if not page:
                     break
 
-                # only keep dict rows
                 page_dicts = [p for p in page if isinstance(p, dict)]
                 persons.extend(page_dicts)
 
@@ -179,16 +172,6 @@ async def _fetch_student_school_enrollments(
     skip: int = 0,
     limit: int = 100,
 ) -> List[Dict[str, Any]]:
-    """
-    Fetch student_school_enrollments rows, preferring the QueryData handler.
-    Falls back to direct HTTP if the handler is not registered.
-
-    We expect each row to have at least:
-      - student_id
-      - grade_level_id (optional but recommended)
-      - entry_date
-      - status  (e.g. ENROLLED, ACTIVE, WITHDRAWN, INACTIVE, etc.)
-    """
     handler = get_handler("student_school_enrollments")
 
     if handler is not None:
@@ -209,7 +192,6 @@ async def _fetch_student_school_enrollments(
             return []
         return rows
 
-    # Fallback: direct HTTP to the OSSS API
     logger.warning(
         "[student_info_table] student_school_enrollments handler not found; "
         "falling back to direct HTTP call."
@@ -239,8 +221,8 @@ async def _fetch_student_school_enrollments(
 
     return data
 
+
 def _coerce_list(payload, *, label: str) -> list:
-    """Turn API payload into a list. Handles list, dict(wrapped list), None."""
     if payload is None:
         return []
 
@@ -253,7 +235,6 @@ def _coerce_list(payload, *, label: str) -> list:
             if isinstance(v, list):
                 logger.debug("[student_info_table] %s payload is dict; using key=%r len=%d", label, k, len(v))
                 return v
-        # Nothing obvious
         logger.warning("[student_info_table] %s payload is dict but no list key found. keys=%s", label, list(payload.keys())[:30])
         return []
 
@@ -264,10 +245,6 @@ def _coerce_list(payload, *, label: str) -> list:
 async def _fetch_grade_levels(
     *, skip: int = 0, limit: int = 100
 ) -> List[Dict[str, Any]]:
-    """
-    Fetch grade_levels directly from the OSSS API.
-    (We don't currently have a dedicated QueryData handler for this.)
-    """
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             gl_resp = await client.get(
@@ -305,20 +282,9 @@ def _parse_date(val: Any) -> date | None:
 # Grade-level + enrollment index from enrollments + grade_levels
 # ---------------------------------------------------------------------------
 
-
 async def _build_student_grade_index(
     *, skip: int = 0, limit: int = 100
-) -> Tuple[Dict[str, str], Dict[str, bool]]:
-    """
-    Build:
-      - student_grade:  mapping of student_id -> grade level label using
-          student_school_enrollments.grade_level_id + grade_levels (code/name)
-      - student_enrolled: mapping of student_id -> is_enrolled (bool), where:
-
-          latest := enrollment row with the greatest entry_date
-          status_norm := latest.status uppercased (or "" if missing)
-          is_enrolled := status_norm in {'ENROLLED', 'ACTIVE'}
-    """
+) -> Tuple[Dict[str, str], Dict[str, bool], Dict[str, str]]:
     enrollments = await _fetch_student_school_enrollments(skip=skip, limit=limit)
     grade_levels = await _fetch_grade_levels(skip=0, limit=100)
 
@@ -328,7 +294,6 @@ async def _build_student_grade_index(
         len(grade_levels),
     )
 
-    # Debug a small sample of enrollment statuses
     sample_enr = [
         {
             "student_id": e.get("student_id"),
@@ -343,7 +308,6 @@ async def _build_student_grade_index(
         sample_enr,
     )
 
-    # Map grade_level_id -> label we want to show (code preferred, fallback to name)
     grade_label_by_id: Dict[str, str] = {}
     for gl in grade_levels:
         if isinstance(gl, dict):
@@ -359,7 +323,6 @@ async def _build_student_grade_index(
         label = code or name or "UNKNOWN"
         grade_label_by_id[str(gid)] = label
 
-    # Group enrollments by student_id
     by_student: Dict[str, List[Dict[str, Any]]] = {}
     for enr in enrollments:
         sid = enr.get("student_id")
@@ -369,6 +332,7 @@ async def _build_student_grade_index(
 
     student_grade: Dict[str, str] = {}
     student_enrolled: Dict[str, bool] = {}
+    student_status: Dict[str, str] = {}
 
     def _key(e: Dict[str, Any]) -> date:
         d = _parse_date(e.get("entry_date"))
@@ -378,7 +342,6 @@ async def _build_student_grade_index(
         if not enr_list:
             continue
 
-        # Normalize status once
         for e in enr_list:
             status = e.get("status")
             if isinstance(status, str):
@@ -386,14 +349,13 @@ async def _build_student_grade_index(
             else:
                 e["_status_norm"] = ""
 
-        # Latest enrollment by entry_date
         try:
             latest = max(enr_list, key=_key)
         except ValueError:
-            # all invalid dates; skip this student
             continue
 
-        latest_status = latest.get("_status_norm", "")
+        # ✅ normalize empty -> UNKNOWN
+        latest_status = latest.get("_status_norm", "") or "UNKNOWN"
         is_enrolled = latest_status in {"ENROLLED", "ACTIVE"}
 
         gid_raw = latest.get("grade_level_id")
@@ -402,6 +364,7 @@ async def _build_student_grade_index(
 
         student_enrolled[sid] = is_enrolled
         student_grade[sid] = label
+        student_status[sid] = latest_status
 
     num_enrolled = sum(1 for v in student_enrolled.values() if v)
     num_not_enrolled = sum(1 for v in student_enrolled.values() if not v)
@@ -416,14 +379,13 @@ async def _build_student_grade_index(
         num_not_enrolled,
     )
 
-    # Debug a small sample of the final index
     sample_idx = list(student_enrolled.items())[:10]
     logger.debug(
         "[student_info_table] student_enrolled index sample (first 10): %s",
         sample_idx,
     )
 
-    return student_grade, student_enrolled
+    return student_grade, student_enrolled, student_status
 
 
 # ---------------------------------------------------------------------------
@@ -431,12 +393,10 @@ async def _build_student_grade_index(
 # ---------------------------------------------------------------------------
 
 def _person_id_from_dict(p: dict):
-    # direct
     for k in ("id", "person_id", "personId", "uuid"):
         if p.get(k):
             return p.get(k)
 
-    # nested
     for k in ("person", "data", "attributes"):
         v = p.get(k)
         if isinstance(v, dict):
@@ -468,12 +428,7 @@ def _index_persons(persons) -> dict[str, dict]:
     return idx
 
 
-
 async def _build_student_rows(skip: int = 0, limit: int = 100) -> Dict[str, Any]:
-    """
-    Fetch students + persons + grade/enrollment index and build a unified row list.
-    ...
-    """
     data = await _fetch_students_and_persons(skip=skip, limit=limit)
 
     students_raw = data.get("students", [])
@@ -496,10 +451,7 @@ async def _build_student_rows(skip: int = 0, limit: int = 100) -> Dict[str, Any]
 
     persons_by_id = _index_persons(persons)
 
-    # Sanity check: do student.person_id values appear in the index keys?
     student_person_ids = [str(s.get("person_id")) for s in students if s.get("person_id")]
-
-    # Check missing across ALL referenced person_ids (not just first 20)
     missing_all = [pid for pid in student_person_ids if pid not in persons_by_id]
     missing_preview = missing_all[:10]
 
@@ -511,7 +463,6 @@ async def _build_student_rows(skip: int = 0, limit: int = 100) -> Dict[str, Any]
         missing_preview,
     )
 
-    # Option A fallback: if we’re missing any referenced persons, paginate persons and rebuild index
     if missing_all:
         logger.warning(
             "[student_info_table] Missing %d/%d referenced person_ids in initial persons payload; "
@@ -520,11 +471,10 @@ async def _build_student_rows(skip: int = 0, limit: int = 100) -> Dict[str, Any]
             len(student_person_ids),
         )
 
-        # Fetch more persons pages
         persons_full = await _fetch_all_persons(page_size=500, max_pages=20, timeout_s=10.0)
 
         if persons_full:
-            persons = persons_full  # replace the persons list we return/debug with
+            persons = persons_full
             persons_by_id = _index_persons(persons_full)
 
             missing_after = [pid for pid in student_person_ids if pid not in persons_by_id]
@@ -540,13 +490,12 @@ async def _build_student_rows(skip: int = 0, limit: int = 100) -> Dict[str, Any]
                 "names may remain blank for some/all students."
             )
 
-    student_grade_index, student_enrolled_index = await _build_student_grade_index(
+    student_grade_index, student_enrolled_index, student_status_index = await _build_student_grade_index(
         skip=skip, limit=limit
     )
 
     rows: List[Dict[str, Any]] = []
 
-    # Debug sample of students up front (not every loop)
     if students:
         logger.debug(
             "[student_info_table] students sample (first 5): %s",
@@ -576,7 +525,6 @@ async def _build_student_rows(skip: int = 0, limit: int = 100) -> Dict[str, Any]
         )
 
         gender = (person or {}).get("gender") or s.get("gender") or "UNKNOWN"
-
         student_id = s.get("id") or ""
 
         grade = (
@@ -587,18 +535,19 @@ async def _build_student_rows(skip: int = 0, limit: int = 100) -> Dict[str, Any]
             or "UNKNOWN"
         )
 
-        # is_enrolled is specifically based on the latest enrollment status
         is_enrolled = bool(student_enrolled_index.get(student_id, False))
 
-        dob = (person or {}).get("dob") or (person or {}).get("date_of_birth")
+        # ✅ define status per student (fixes "status not found")
+        status = student_status_index.get(student_id) or "UNKNOWN"
 
+        dob = (person or {}).get("dob") or (person or {}).get("date_of_birth")
         pid = str(raw_pid) if raw_pid else ""
 
         rows.append(
             {
                 "person_id": (person or {}).get("id"),
-                "personId": pid,  # <-- add this
-                "person_uuid": pid,  # <-- and/or this if your renderer uses it
+                "personId": pid,
+                "person_uuid": pid,
                 "first_name": first_name,
                 "middle_name": middle_name,
                 "last_name": last_name,
@@ -615,6 +564,7 @@ async def _build_student_rows(skip: int = 0, limit: int = 100) -> Dict[str, Any]
                 "student_updated_at": s.get("updated_at"),
                 "grade_level": grade,
                 "is_enrolled": is_enrolled,
+                "status": status,
             }
         )
 
@@ -630,7 +580,6 @@ async def _build_student_rows(skip: int = 0, limit: int = 100) -> Dict[str, Any]
         inactive_rows,
     )
 
-    # small debug sample
     logger.debug(
         "[student_info_table] unified row sample (first 5): %s",
         [
@@ -640,6 +589,7 @@ async def _build_student_rows(skip: int = 0, limit: int = 100) -> Dict[str, Any]
                 "last_name": r.get("last_name"),
                 "grade_level": r.get("grade_level"),
                 "is_enrolled": r.get("is_enrolled"),
+                "status": r.get("status"),
             }
             for r in rows[:5]
         ],
@@ -651,6 +601,7 @@ async def _build_student_rows(skip: int = 0, limit: int = 100) -> Dict[str, Any]
         "persons": persons,
         "student_grade_index": student_grade_index,
         "student_enrolled_index": student_enrolled_index,
+        "student_status_index": student_status_index,
     }
 
 
@@ -658,15 +609,11 @@ async def _build_student_rows(skip: int = 0, limit: int = 100) -> Dict[str, Any]
 # Filtering helper
 # ---------------------------------------------------------------------------
 
-
-
 def _apply_filters(
     rows: List[Dict[str, Any]],
     filters: Optional[StudentInfoFilters],
 ) -> List[Dict[str, Any]]:
-    """Return only rows that pass all active filters."""
     if not filters:
-        # NEW: even with no filters object at all, default to enrolled_only=True
         total_rows = len(rows)
         total_enrolled = sum(1 for r in rows if r.get("is_enrolled"))
         total_inactive = total_rows - total_enrolled
@@ -680,10 +627,7 @@ def _apply_filters(
             total_inactive,
         )
 
-        def _keep_default(r: Dict[str, Any]) -> bool:
-            return bool(r.get("is_enrolled"))
-
-        filtered_default = [r for r in rows if _keep_default(r)]
+        filtered_default = [r for r in rows if bool(r.get("is_enrolled"))]
 
         f_total = len(filtered_default)
         f_enrolled = sum(1 for r in filtered_default if r.get("is_enrolled"))
@@ -708,7 +652,6 @@ def _apply_filters(
     allowed_grades = {g.upper() for g in (filters.grade_levels or [])}
 
     raw_enrolled_only = filters.enrolled_only
-    # 🔑 NEW: default to True (currently enrolled only) when None
     effective_enrolled_only = True if raw_enrolled_only is None else raw_enrolled_only
 
     total_rows = len(rows)
@@ -742,7 +685,6 @@ def _apply_filters(
         if allowed_grades and grade not in allowed_grades:
             return False
 
-        # Enrollment filter, based on status from student_school_enrollments
         if effective_enrolled_only is True and not is_enrolled:
             return False
         if effective_enrolled_only is False and is_enrolled:
@@ -764,20 +706,6 @@ def _apply_filters(
         f_inactive,
     )
 
-    logger.debug(
-        "[student_info_table] filtered row sample (first 5): %s",
-        [
-            {
-                "student_id": r.get("student_id"),
-                "first_name": r.get("first_name"),
-                "last_name": r.get("last_name"),
-                "grade_level": r.get("grade_level"),
-                "is_enrolled": r.get("is_enrolled"),
-            }
-            for r in filtered[:5]
-        ],
-    )
-
     return filtered
 
 
@@ -785,19 +713,14 @@ def _apply_filters(
 # Public API 1: legacy unstructured function (no filters)
 # ---------------------------------------------------------------------------
 
-
 async def run_student_info_table(*, message: str, session_id: str) -> Dict[str, Any]:
-    """
-    Legacy / unstructured version (kept for backward compatibility).
-    Ignores `message` content; returns ALL students.
-    """
     built = await _build_student_rows(skip=0, limit=100)
     rows = built["rows"]
     students = built["students"]
     persons = built["persons"]
     student_grade_index = built["student_grade_index"]
 
-    filtered_rows = rows  # no filters here
+    filtered_rows = rows
 
     by_grade = Counter()
     by_gender = Counter()
@@ -806,7 +729,6 @@ async def run_student_info_table(*, message: str, session_id: str) -> Dict[str, 
         by_grade[r["grade_level"]] += 1
         by_gender[r["gender"] or "UNKNOWN"] += 1
 
-    # Markdown table (same format as structured version)
     header = (
         "| # | First | Middle | Last | DOB | Email | Phone | Gender | "
         "Person ID | Created At | Updated At | Student ID | Student Number | Graduation Year | Grade Level |"
@@ -875,7 +797,6 @@ async def run_student_info_table(*, message: str, session_id: str) -> Dict[str, 
 # Public API 2: structured version used by the LangChain tool
 # ---------------------------------------------------------------------------
 
-
 async def run_student_info_table_structured(
     *,
     filters: Optional[StudentInfoFilters],
@@ -883,12 +804,6 @@ async def run_student_info_table_structured(
     skip: int = 0,
     limit: int = 100,
 ) -> Dict[str, Any]:
-    """
-    Structured version for the LangChain tool.
-    Applies the given filters, then computes summary + sample table.
-
-    This is what `student_info_table_tool` should call.
-    """
     logger.info(
         "[student_info_table] run_student_info_table_structured called with filters=%s",
         filters.model_dump() if filters else None,
@@ -904,25 +819,27 @@ async def run_student_info_table_structured(
 
     by_grade = Counter()
     by_gender = Counter()
+    by_status = Counter()
 
     for r in filtered_rows:
+        by_status[r.get("status") or "UNKNOWN"] += 1
         by_grade[r["grade_level"]] += 1
         by_gender[r["gender"] or "UNKNOWN"] += 1
 
     header = (
         "| # | First | Middle | Last | DOB | Email | Phone | Gender | "
-        "Created At | Updated At| Student Number | Graduation Year | Grade Level |"
+        "Status | Created At | Updated At | Student Number | Graduation Year | Grade Level |"
     )
     sep = (
         "|---|-------|--------|------|-----|-------|-------|--------|"
-        "-------------|-------------|----------------|------------------|------------|"
+        "--------|------------|------------|----------------|------------------|------------|"
     )
     table_lines = [header, sep]
 
     for idx, r in enumerate(filtered_rows[:50], start=1):
         table_lines.append(
             "| {i} | {fn} | {mn} | {ln} | {dob} | {email} | {phone} | {gender} | "
-            "{pcrt} | {pupd} | {snum} | {gyear} | {grade} |".format(
+            "{status} | {pcrt} | {pupd} | {snum} | {gyear} | {grade} |".format(
                 i=idx,
                 fn=r.get("first_name") or "",
                 mn=r.get("middle_name") or "",
@@ -931,10 +848,9 @@ async def run_student_info_table_structured(
                 email=r.get("email") or "",
                 phone=r.get("phone") or "",
                 gender=r.get("gender") or "",
-                #pid=r.get("person_id") or "",
+                status=r.get("status") or "UNKNOWN",
                 pcrt=r.get("person_created_at") or "",
                 pupd=r.get("person_updated_at") or "",
-                #sid=r.get("student_id") or "",
                 snum=r.get("student_number") or "",
                 gyear=r.get("graduation_year") or "",
                 grade=r.get("grade_level") or "",
@@ -949,6 +865,7 @@ async def run_student_info_table_structured(
         "By gender:",
         *[f"- {g}: {c} students" for g, c in by_gender.most_common()],
     ]
+    status_lines = ["By status:", *[f"- {s}: {c} students" for s, c in by_status.most_common()]]
 
     reply = "\n".join(
         [
@@ -957,6 +874,8 @@ async def run_student_info_table_structured(
             *grade_lines,
             "",
             *gender_lines,
+            "",
+            *status_lines,
             "",
             "Sample (first 50 matching students):",
             "",

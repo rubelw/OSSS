@@ -7,7 +7,7 @@ import logging
 from langgraph.graph import StateGraph, START, END
 from langgraph.checkpoint.sqlite import SqliteSaver
 
-from OSSS.ai.langchain.agents.student_info_table_agent import StudentInfoTableAgent
+from OSSS.ai.langchain.agents.student_info.student_info_table_agent import StudentInfoTableAgent
 from OSSS.ai.langchain.registry import (
     register_langchain_agent,
     run_agent as registry_run_agent,

@@ -9,7 +9,7 @@ import ast
 from pydantic import BaseModel, field_validator
 from langchain_core.tools import StructuredTool
 
-from OSSS.ai.langchain.agents.student_info_table import (
+from OSSS.ai.langchain.agents.student_info.student_info_table import (
     StudentInfoFilters,
     run_student_info_table_markdown_only,
 )
