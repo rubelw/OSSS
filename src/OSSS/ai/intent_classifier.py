@@ -1,3 +1,4 @@
+# src/OSSS/ai/intent_classifier.py
 from __future__ import annotations
 
 from typing import Optional, Any, Dict, List
@@ -7,30 +8,25 @@ import json
 import re
 from pydantic import BaseModel
 
-from OSSS.ai.intents import Intent
+from OSSS.ai.intents.types import Intent, IntentResult
+from OSSS.ai.intents.registry import INTENT_ALIASES
+from OSSS.ai.intents.prompt import build_intent_system_prompt
+from OSSS.ai.intents.heuristics import apply_heuristics
 
 logger = logging.getLogger("OSSS.ai.intent_classifier")
 
-# --- Intent / action aliasing ---------------------------------------------
+# --- Action aliasing -------------------------------------------------------
 
-# Map LLM/heuristic strings -> real Intent enum values that exist in OSSS.ai.intents.Intent
-INTENT_ALIASES: dict[str, str] = {
-    # if your Intent enum uses "student_info" already, this is harmless
-    "student_info": "student_info",
-    # if your enum uses a different name, map it here, e.g.:
-    # "student_info": "query_data",
-}
-
-# Allow the classifier to keep "show_withdrawn_students" instead of nuking it.
-# You can also map it to "read" if you don't want a special action downstream.
+# Allow the classifier to keep "show_withdrawn_students" as a first-class action.
 ACTION_ALIASES: dict[str, str] = {
     "show_withdrawn_students": "show_withdrawn_students",
-    # or: "show_withdrawn_students": "read",
+    # or map it to "read" if you don't want a special downstream action:
+    # "show_withdrawn_students": "read",
 }
+
 ALLOWED_ACTIONS = {"read", "create", "update", "delete", "show_withdrawn_students"}
 
-
-# --- SAFE SETTINGS IMPORT (same pattern as rag_router) -----------------
+# --- SAFE SETTINGS IMPORT (same pattern as rag_router) ---------------------
 try:
     from OSSS.config import settings as _settings  # type: ignore
 
@@ -44,35 +40,16 @@ except Exception:
     settings = _Settings()  # type: ignore
 
 
-class IntentResult(BaseModel):
-    intent: Intent
-    confidence: Optional[float] = None
-    raw: Optional[dict] = None
-
-    # CRUD-style action classification
-    # action ∈ {"read", "create", "update", "delete"} (or None if unknown)
-    action: Optional[str] = None
-    action_confidence: Optional[float] = None
-
-    # Urgency classification for routing / triage
-    # urgency ∈ {"low", "medium", "high"} (or None if unknown)
-    urgency: Optional[str] = None
-    urgency_confidence: Optional[float] = None
-
-    # Tone classification
-    tone_major: Optional[str] = None
-    tone_major_confidence: Optional[float] = None
-    tone_minor: Optional[str] = None
-    tone_minor_confidence: Optional[float] = None
-
-    # Raw LLM/heuristic output string (for UI / debug)
-    # NOTE: raw_model_content is kept for back-compat; raw_model_output is the new
-    # unified field that the router exposes as `intent_raw_model_output`.
-    raw_model_content: Optional[str] = None
-    raw_model_output: Optional[str] = None
-
-    # Optional: where this result came from ("heuristic", "llm", "fallback")
-    source: Optional[str] = None
+def _general_intent() -> Intent:
+    """Return the 'general' intent in a tolerant way."""
+    if hasattr(Intent, "GENERAL"):
+        return getattr(Intent, "GENERAL")
+    # fallback if enum doesn’t define GENERAL constant but has value "general"
+    try:
+        return Intent("general")
+    except Exception:
+        # last resort: first enum member
+        return list(Intent)[0]
 
 
 # ---------------------------------------------------------------------------
@@ -126,7 +103,6 @@ HEURISTIC_RULES: List[IntentHeuristicRule] = [
     IntentHeuristicRule(
         name="student_info_generic",
         contains_any=[
-            # generic student-info phrases
             "student info",
             "show student info",
             "show students",
@@ -134,16 +110,12 @@ HEURISTIC_RULES: List[IntentHeuristicRule] = [
             "list students",
             "query student information",
             "query student info",
-
-            # gender variants
             "show male students",
             "show female students",
             "list male students",
             "list female students",
             "query male students",
             "query female students",
-
-            # richer filters you’re actually using
             "last name beginning with",
             "last name starting with",
             "grade level",
@@ -159,9 +131,7 @@ HEURISTIC_RULES: List[IntentHeuristicRule] = [
     ),
 ]
 
-
-
-TABLES = []
+TABLES: List[str] = []
 
 # Auto-extend HEURISTIC_RULES
 for table in TABLES:
@@ -183,133 +153,32 @@ for table in TABLES:
     )
 
 
-
-def _apply_heuristics(text: str) -> Optional[IntentResult]:
-    """
-    Try to match the user's text against a list of heuristic rules.
-    Returns an IntentResult if a rule fires, otherwise None.
-
-    Also populates raw_model_output with a JSON blob that includes the
-    full heuristic_rule and the original text, e.g.:
-
-    {
-      "source": "heuristic",
-      "heuristic_rule": { ... rule fields ... },
-      "text": "...",
-      "llm": null
-    }
-    """
-    lowered = (text or "").lower()
-
-    for rule in HEURISTIC_RULES:
-        matched = False
-
-        if rule.contains_any:
-            if any(kw in lowered for kw in rule.contains_any):
-                matched = True
-
-        if rule.regex and re.search(rule.regex, lowered):
-            matched = True
-
-        if not matched:
-            continue
-
-        logger.info(
-            "[intent_classifier] heuristic rule matched: %s -> intent=%s",
-            rule.name,
-            rule.intent,
-        )
-
-        # Map rule.intent string => Intent enum safely
-        try:
-            aliased = INTENT_ALIASES.get(rule.intent, rule.intent)
-            intent_enum = Intent(aliased)
-        except Exception:
-            logger.warning(
-                "[intent_classifier] heuristic rule produced unknown intent %r; "
-                "falling back to GENERAL",
-                rule.intent,
-            )
-            intent_enum = (
-                Intent.GENERAL if hasattr(Intent, "GENERAL") else Intent("general")
-            )
-
-        # Debug bundle that will be surfaced to the caller via intent_raw_model_output
-        bundle = {
-            "source": "heuristic",
-            "heuristic_rule": rule.model_dump(),
-            "text": text,
-            "llm": None,
-        }
-        bundle_json = json.dumps(bundle, ensure_ascii=False)
-
-        return IntentResult(
-            intent=intent_enum,
-            confidence=0.95,
-            raw={"heuristic_rule": rule.model_dump(), "text": text},
-            action=rule.action,
-            action_confidence=0.95,
-            urgency=rule.urgency,
-            urgency_confidence=0.8,
-            tone_major=rule.tone_major,
-            tone_major_confidence=0.8,
-            tone_minor=rule.tone_minor,
-            tone_minor_confidence=0.8,
-            # For heuristics, we make both fields the same JSON string, so existing
-            # consumers of raw_model_content keep working AND the router can pass
-            # raw_model_output down to agents as intent_raw_model_output.
-            raw_model_content=bundle_json,
-            raw_model_output=bundle_json,
-            source="heuristic",
-        )
-
-    return None
-
-
 async def classify_intent(text: str) -> IntentResult:
     """
-    Call the local LLM (Ollama / vLLM) to classify the user's text into:
-      1) a semantic intent (OSSS.ai.intents.Intent),
-      2) a CRUD-style action: "read", "create", "update", or "delete",
-      3) an urgency level: "low", "medium", or "high",
-      4) a major tone category and a more specific minor tone label.
+    Classify text into:
+      - intent (Intent)
+      - action (CRUD + optional custom actions)
+      - urgency
+      - tone_major / tone_minor
 
-    Heuristic rules are applied first; if any rule matches, we skip the LLM.
+    Heuristics are applied first; if any rule matches, we skip the LLM.
+
+    Uses the intent registry prompt builder from OSSS.ai.intents.prompt.
     """
-    base = getattr(
-        settings, "VLLM_ENDPOINT", "http://host.containers.internal:11434"
-    ).rstrip("/")
+    base = getattr(settings, "VLLM_ENDPOINT", "http://host.containers.internal:11434").rstrip("/")
     chat_url = f"{base}/v1/chat/completions"
     model = getattr(settings, "INTENT_MODEL", "llama3.2-vision")
 
-    logger.info(
-        "[intent_classifier] classifying text=%r",
-        text[:300] if isinstance(text, str) else text,
-    )
-    logger.debug(
-        "[intent_classifier] endpoint=%s model=%s",
-        chat_url,
-        model,
-    )
+    logger.info("[intent_classifier] classifying text=%r", text[:300] if isinstance(text, str) else text)
+    logger.debug("[intent_classifier] endpoint=%s model=%s", chat_url, model)
 
-    # --- 1) Heuristic fast-path ---------------------------------------------
-    heuristic_result = _apply_heuristics(text)
+    # --- 1) Heuristic fast-path --------------------------------------------
+    heuristic_result = apply_heuristics(text)
     if heuristic_result is not None:
-        # heuristic_result already has raw_model_output populated
         return heuristic_result
 
-    # --- 2) SYSTEM PROMPT (TRIPLE-QUOTED TO AVOID QUOTING BUGS) -------------
-    system = """
-You are an intent classifier for questions about Dallas Center-Grimes (DCG) schools.
-You must respond with ONLY a single JSON object on one line, for example:
-{"intent":"general","confidence":0.92,
- "action":"read","action_confidence":0.88,
- "urgency":"low","urgency_confidence":0.74,
- "tone_major":"informal_casual","tone_major_confidence":0.80,
- "tone_minor":"friendly","tone_minor_confidence":0.83}
-
-... (prompt truncated for brevity in this excerpt; keep your full prompt here) ...
-"""
+    # --- 2) System prompt from intent registry -----------------------------
+    system = build_intent_system_prompt()
 
     messages = [
         {"role": "system", "content": system},
@@ -328,11 +197,7 @@ You must respond with ONLY a single JSON object on one line, for example:
                     "stream": False,
                 },
             )
-            logger.info(
-                "[intent_classifier] upstream_v1 status=%s bytes=%s",
-                resp.status_code,
-                len(resp.content),
-            )
+            logger.info("[intent_classifier] upstream_v1 status=%s bytes=%s", resp.status_code, len(resp.content))
             resp.raise_for_status()
             data = resp.json()
     except httpx.HTTPError as e:
@@ -341,18 +206,12 @@ You must respond with ONLY a single JSON object on one line, for example:
             chat_url,
             e,
         )
-        fallback_intent = (
-            Intent.GENERAL if hasattr(Intent, "GENERAL") else Intent("general")
-        )
-        # Even on fallback, populate raw_model_output so downstream can see what happened
+        fallback_intent = _general_intent()
         bundle = {
             "source": "fallback",
             "heuristic_rule": None,
             "text": text,
-            "llm": {
-                "error": str(e),
-                "endpoint": chat_url,
-            },
+            "llm": {"error": str(e), "endpoint": chat_url},
         }
         bundle_json = json.dumps(bundle, ensure_ascii=False)
         return IntentResult(
@@ -372,20 +231,17 @@ You must respond with ONLY a single JSON object on one line, for example:
             source="fallback",
         )
 
-    # ---- Extract raw content -----------------------------------------------
+    # ---- Extract raw content ----------------------------------------------
     content = (
         data.get("choices", [{}])[0]
         .get("message", {})
         .get("content", "")
         .strip()
     )
-    logger.debug(
-        "[intent_classifier] raw model content: %r",
-        content[-500:] if isinstance(content, str) else content,
-    )
+    logger.debug("[intent_classifier] raw model content: %r", content[-500:] if isinstance(content, str) else content)
 
-    # ---- Try to parse the model output as JSON -----------------------------
-    obj = None
+    # ---- Parse JSON --------------------------------------------------------
+    obj: Optional[dict] = None
     raw_intent = "general"
     confidence: Optional[float] = None
     raw_action: Optional[str] = None
@@ -416,82 +272,55 @@ You must respond with ONLY a single JSON object on one line, for example:
             tone_minor_confidence = obj.get("tone_minor_confidence")
 
             logger.info(
-                "[intent_classifier] parsed JSON obj=%s raw_intent=%r confidence=%r "
-                "raw_action=%r action_confidence=%r raw_urgency=%r urgency_confidence=%r "
-                "raw_tone_major=%r tone_major_confidence=%r "
-                "raw_tone_minor=%r tone_minor_confidence=%r",
-                obj,
+                "[intent_classifier] parsed JSON raw_intent=%r confidence=%r raw_action=%r raw_urgency=%r raw_tone_major=%r raw_tone_minor=%r",
                 raw_intent,
                 confidence,
                 raw_action,
-                action_confidence,
                 raw_urgency,
-                urgency_confidence,
                 raw_tone_major,
-                tone_major_confidence,
                 raw_tone_minor,
-                tone_minor_confidence,
             )
         except Exception as e:
             logger.warning(
-                "[intent_classifier] JSON parse failed for content prefix=%r error=%s "
-                "(falling back to general intent/read action)",
+                "[intent_classifier] JSON parse failed for content prefix=%r error=%s (fallback general)",
                 content[:120],
                 e,
             )
             obj = None
             raw_intent = "general"
-            confidence = None
-            raw_action = None
-            action_confidence = None
-            raw_urgency = None
-            urgency_confidence = None
-            raw_tone_major = None
-            tone_major_confidence = None
-            raw_tone_minor = None
-            tone_minor_confidence = None
     else:
-        logger.info(
-            "[intent_classifier] model returned non-JSON content, falling back to general intent/read action"
-        )
+        logger.info("[intent_classifier] model returned non-JSON content, falling back to general")
 
-    # ---- Map string -> Intent enum safely ----------------------------------
+    # ---- Map string -> Intent enum (using registry aliases) ----------------
     try:
         raw_intent_aliased = INTENT_ALIASES.get(raw_intent, raw_intent)
         intent = Intent(raw_intent_aliased)
     except Exception as e:
-        logger.warning(
-            "[intent_classifier] unknown intent %r, falling back to GENERAL: %s",
-            raw_intent,
-            e,
-        )
-        intent = (
-            Intent.GENERAL if hasattr(Intent, "GENERAL") else Intent("general")
-        )
+        logger.warning("[intent_classifier] unknown intent %r -> general (%s)", raw_intent, e)
+        intent = _general_intent()
 
-    # Normalize action
+    # ---- Normalize action --------------------------------------------------
+    action_norm: Optional[str]
     if isinstance(raw_action, str):
         action_norm = raw_action.lower().strip()
         action_norm = ACTION_ALIASES.get(action_norm, action_norm)
         if action_norm not in ALLOWED_ACTIONS:
-            logger.warning("[intent_classifier] unknown action %r, setting action=None", raw_action)
+            logger.warning("[intent_classifier] unknown action %r -> None", raw_action)
             action_norm = None
     else:
         action_norm = None
 
-    # Normalize urgency
+    # ---- Normalize urgency -------------------------------------------------
+    urgency_norm: Optional[str]
     if isinstance(raw_urgency, str):
         urgency_norm = raw_urgency.lower().strip()
         if urgency_norm not in {"low", "medium", "high"}:
-            logger.warning(
-                "[intent_classifier] unknown urgency %r, setting urgency=None",
-                raw_urgency,
-            )
+            logger.warning("[intent_classifier] unknown urgency %r -> None", raw_urgency)
             urgency_norm = None
     else:
         urgency_norm = None
 
-    # Normalize tone_major
+    # ---- Normalize tones ---------------------------------------------------
     valid_tone_major = {
         "formal",
         "formal_professional",
@@ -503,15 +332,11 @@ You must respond with ONLY a single JSON object on one line, for example:
     if isinstance(raw_tone_major, str):
         tone_major_norm = raw_tone_major.lower().strip()
         if tone_major_norm not in valid_tone_major:
-            logger.warning(
-                "[intent_classifier] unknown tone_major %r, setting tone_major=None",
-                raw_tone_major,
-            )
+            logger.warning("[intent_classifier] unknown tone_major %r -> None", raw_tone_major)
             tone_major_norm = None
     else:
         tone_major_norm = None
 
-    # Normalize tone_minor
     valid_tone_minor = {
         "formal",
         "objective",
@@ -537,35 +362,23 @@ You must respond with ONLY a single JSON object on one line, for example:
         "dramatic",
         "concerned",
         "helpful",
-
     }
     if isinstance(raw_tone_minor, str):
         tone_minor_norm = raw_tone_minor.lower().strip()
         if tone_minor_norm not in valid_tone_minor:
-            logger.warning(
-                "[intent_classifier] unknown tone_minor %r, setting tone_minor=None",
-                raw_tone_minor,
-            )
+            logger.warning("[intent_classifier] unknown tone_minor %r -> None", raw_tone_minor)
             tone_minor_norm = None
     else:
         tone_minor_norm = None
 
     logger.info(
-        "[intent_classifier] final intent=%s confidence=%r "
-        "action=%r action_confidence=%r "
-        "urgency=%r urgency_confidence=%r "
-        "tone_major=%r tone_major_confidence=%r "
-        "tone_minor=%r tone_minor_confidence=%r",
+        "[intent_classifier] final intent=%s confidence=%r action=%r urgency=%r tone_major=%r tone_minor=%r",
         getattr(intent, "value", str(intent)),
         confidence,
         action_norm,
-        action_confidence,
         urgency_norm,
-        urgency_confidence,
         tone_major_norm,
-        tone_major_confidence,
         tone_minor_norm,
-        tone_minor_confidence,
     )
 
     # Bundle for raw_model_output (LLM path)
@@ -573,7 +386,7 @@ You must respond with ONLY a single JSON object on one line, for example:
         "source": "llm",
         "heuristic_rule": None,
         "text": text,
-        "llm": obj,  # parsed JSON if available, else None
+        "llm": obj,  # parsed JSON if available
     }
     bundle_json = json.dumps(bundle, ensure_ascii=False)
 
@@ -589,8 +402,7 @@ You must respond with ONLY a single JSON object on one line, for example:
         tone_major_confidence=tone_major_confidence,
         tone_minor=tone_minor_norm,
         tone_minor_confidence=tone_minor_confidence,
-        # raw_model_content = verbatim model content; raw_model_output = our structured bundle
-        raw_model_content=content,
-        raw_model_output=bundle_json,
+        raw_model_content=content,       # verbatim model text (if any)
+        raw_model_output=bundle_json,    # structured bundle
         source="llm",
     )
