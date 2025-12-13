@@ -105,6 +105,7 @@ TABLES = [
     "staff", "standardized_tests", "standards", "state_reporting_snapshots", "states",
     "student_guardians", "student_program_enrollments", "student_school_enrollments",
     "student_section_enrollments", "student_transportation_assignments", "subjects",
+    "student_section_enrollments", "student_transportation_assignments", "subjects",
     "subscriptions", "tags", "teacher_section_assignments", "test_administrations",
     "test_results", "ticket_scans", "ticket_types", "tickets", "transcript_lines",
     "unit_standard_map", "user_accounts", "users", "vendors", "votes", "waivers",
@@ -112,19 +113,33 @@ TABLES = [
     "work_order_time_logs", "work_orders",
 ]
 
+
+AUTO_ALIASES: list[IntentAlias] = []
 for table in TABLES:
-    INTENT_ALIASES.append(IntentAlias(f"show_{table}", "query_data"))
-    INTENT_ALIASES.append(IntentAlias(f"{table}_query", "query_data"))
+    AUTO_ALIASES.append(IntentAlias(f"show_{table}", "query_data"))
+    AUTO_ALIASES.append(IntentAlias(f"{table}_query", "query_data"))
+
+INTENT_ALIASES: list[IntentAlias] = [] + AUTO_ALIASES
 
 
 def build_alias_map() -> dict[str, str]:
     # last one wins if duplicates exist
-    return {a.from_label: a.to_label for a in INTENT_ALIASES}
-
+    out: dict[str, str] = {}
+    for a in INTENT_ALIASES:
+        out[a.from_label.strip().lower()] = a.to_label.strip().lower()
+    return out
 
 
 # Common list/show verbs we see in prompts
 _LIST_VERB = r"(list|show|get|give me|display|print|dump|return|fetch)"
+
+INTENT_ALIAS_MAP: dict[str, str] = build_alias_map()
+
+def canonicalize_intent(label: str | None) -> str | None:
+    if not isinstance(label, str):
+        return None
+    key = label.strip().lower()
+    return INTENT_ALIAS_MAP.get(key, key)
 
 
 

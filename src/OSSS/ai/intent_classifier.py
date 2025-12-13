@@ -7,11 +7,16 @@ import logging
 import json
 
 from OSSS.ai.intents.types import Intent, IntentResult
-from OSSS.ai.intents.registry import INTENT_ALIASES
 from OSSS.ai.intents.prompt import build_intent_system_prompt
-from OSSS.ai.intents.heuristics.apply import apply_heuristics, HeuristicRule
+from OSSS.ai.intents.heuristics.apply import apply_heuristics
+
+# ✅ single source of truth for aw_label = classified.intaliases
+from OSSS.ai.agent_routing_config import build_alias_map
 
 logger = logging.getLogger("OSSS.ai.intent_classifier")
+
+# Build alias map once (same one router uses)
+ALIAS_MAP: dict[str, str] = build_alias_map()
 
 ACTION_ALIASES: dict[str, str] = {
     "show_withdrawn_students": "show_withdrawn_students",
@@ -37,6 +42,37 @@ def _general_intent() -> Intent:
         return list(Intent)[0]
 
 
+def _normalize_intent_label(raw: Any) -> str:
+    """
+    Normalize any raw intent string via the canonical alias map.
+    """
+    if not isinstance(raw, str):
+        return "general"
+    s = raw.strip()
+    if not s:
+        return "general"
+    return ALIAS_MAP.get(s, s)
+
+
+def _normalize_action(raw_action: Any) -> Optional[str]:
+    if not isinstance(raw_action, str):
+        return None
+    action_norm = ACTION_ALIASES.get(raw_action.strip().lower(), raw_action.strip().lower())
+    if action_norm not in ALLOWED_ACTIONS:
+        return None
+    return action_norm
+
+
+def _intent_from_label(label: str) -> Intent:
+    """
+    Convert a normalized string label into the Intent enum safely.
+    """
+    try:
+        return Intent(label)
+    except Exception:
+        return _general_intent()
+
+
 async def classify_intent(text: str) -> IntentResult:
     base = getattr(settings, "VLLM_ENDPOINT", "http://host.containers.internal:11434").rstrip("/")
     chat_url = f"{base}/v1/chat/completions"
@@ -48,13 +84,27 @@ async def classify_intent(text: str) -> IntentResult:
     # --- 1) Heuristic fast-path --------------------------------------------
     heuristic_result = apply_heuristics(text)
     if heuristic_result is not None:
-        logger.info(
-            "[intent_classifier] heuristic hit intent=%s action=%s",
-            getattr(heuristic_result.intent, "value", heuristic_result.intent),
-            getattr(heuristic_result, "action", None),
-        )
+        # ✅ Ensure heuristic intents also use canonical aliasing
+        normalized_label = _normalize_intent_label(getattr(heuristic_result.intent, "value", heuristic_result.intent))
+        normalized_intent = _intent_from_label(normalized_label)
 
-        return heuristic_result
+        # if the heuristic already produced an IntentResult, keep everything else intact
+        return IntentResult(
+            intent=normalized_intent,
+            confidence=getattr(heuristic_result, "confidence", None),
+            raw=getattr(heuristic_result, "raw", None),
+            action=_normalize_action(getattr(heuristic_result, "action", None)),
+            action_confidence=getattr(heuristic_result, "action_confidence", None),
+            urgency=getattr(heuristic_result, "urgency", None),
+            urgency_confidence=getattr(heuristic_result, "urgency_confidence", None),
+            tone_major=getattr(heuristic_result, "tone_major", None),
+            tone_major_confidence=getattr(heuristic_result, "tone_major_confidence", None),
+            tone_minor=getattr(heuristic_result, "tone_minor", None),
+            tone_minor_confidence=getattr(heuristic_result, "tone_minor_confidence", None),
+            raw_model_content=getattr(heuristic_result, "raw_model_content", None),
+            raw_model_output=getattr(heuristic_result, "raw_model_output", None),
+            source=getattr(heuristic_result, "source", "heuristic"),
+        )
 
     # --- 2) System prompt from intent registry -----------------------------
     system = build_intent_system_prompt()
@@ -102,7 +152,7 @@ async def classify_intent(text: str) -> IntentResult:
     content = (data.get("choices", [{}])[0].get("message", {}).get("content", "") or "").strip()
 
     obj: Optional[dict[str, Any]] = None
-    raw_intent = "general"
+    raw_intent: Any = "general"
     confidence: Optional[float] = None
     raw_action: Optional[str] = None
     action_confidence: Optional[float] = None
@@ -131,27 +181,18 @@ async def classify_intent(text: str) -> IntentResult:
             obj = None
             raw_intent = "general"
 
-    # intent enum via aliases
-    try:
-        raw_intent_aliased = INTENT_ALIASES.get(raw_intent, raw_intent)
-        intent = Intent(raw_intent_aliased)
-    except Exception:
-        intent = _general_intent()
+    # ✅ intent enum via canonical alias map (from agent_routing_config)
+    normalized_label = _normalize_intent_label(raw_intent)
+    intent = _intent_from_label(normalized_label)
 
-    # action normalize
-    action_norm: Optional[str]
-    if isinstance(raw_action, str):
-        action_norm = ACTION_ALIASES.get(raw_action.strip().lower(), raw_action.strip().lower())
-        if action_norm not in ALLOWED_ACTIONS:
-            action_norm = None
-    else:
-        action_norm = None
+    # action normalize (still local here)
+    action_norm = _normalize_action(raw_action)
 
     bundle = {"source": "llm", "heuristic_rule": None, "text": text, "llm": obj}
     bundle_json = json.dumps(bundle, ensure_ascii=False)
 
     return IntentResult(
-        intent=intent,
+        intent=intent or "general",
         confidence=confidence,
         raw=obj or data,
         action=action_norm,
