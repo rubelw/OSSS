@@ -1,498 +1,498 @@
 # src/OSSS/ai/intents/heuristics/__init__.py
 from .apply import HeuristicRule, apply_heuristics
-from .staff_info_rules import RULES as STAFF_INFO_RULES
-from .student_info_rules import RULES as STUDENT_INFO_RULES
-from .enrollment_rules import RULES as ENROLLMENT_RULES
-from .incident_rules import RULES as INCIDENT_RULES
-from .buildings_rules import RULES as BUILDINGS_RULES
-from .assets_rules import RULES as ASSETS_RULES
-from .goals_rules import RULES as GOALS_RULES
+from .show_staff_info_rules import RULES as SHOW_STAFF_INFO_RULES
+from .show_student_info_rules import RULES as SHOW_STUDENT_INFO_RULES
+from .show_enrollment_rules import RULES as SHOW_ENROLLMENT_RULES
+from .show_incident_rules import RULES as SHOW_INCIDENT_RULES
+from .show_buildings_rules import RULES as SHOW_BUILDINGS_RULES
+from .show_assets_rules import RULES as SHOW_ASSETS_RULES
+from .show_goals_rules import RULES as SHOW_GOALS_RULES
 
 # ---------------------------------------------------------------------------
 # Auto-generated / table-backed rules
 # (MUST be imported before ALL_RULES)
 # ---------------------------------------------------------------------------
 
-from .academic_terms_rules import RULES as ACADEMIC_TERMS_RULES
-from .accommodations_rules import RULES as ACCOMMODATIONS_RULES
-from .activities_rules import RULES as ACTIVITIES_RULES
-from .addresses_rules import RULES as ADDRESSES_RULES
-from .agenda_item_approvals_rules import RULES as AGENDA_ITEM_APPROVALS_RULES
-from .agenda_item_files_rules import RULES as AGENDA_ITEM_FILES_RULES
-from .agenda_items_rules import RULES as AGENDA_ITEMS_RULES
-from .agenda_workflow_steps_rules import RULES as AGENDA_WORKFLOW_STEPS_RULES
-from .agenda_workflows_rules import RULES as AGENDA_WORKFLOWS_RULES
-from .alignments_rules import RULES as ALIGNMENTS_RULES
-from .ap_vendors_rules import RULES as AP_VENDORS_RULES
-from .asset_parts_rules import RULES as ASSET_PARTS_RULES
-from .assignment_categories_rules import RULES as ASSIGNMENT_CATEGORIES_RULES
-from .assignments_rules import RULES as ASSIGNMENTS_RULES
-from .attendance_codes_rules import RULES as ATTENDANCE_CODES_RULES
-from .attendance_daily_summary_rules import RULES as ATTENDANCE_DAILY_SUMMARY_RULES
-from .attendance_events_rules import RULES as ATTENDANCE_EVENTS_RULES
-from .attendances_rules import RULES as ATTENDANCES_RULES
-from .audit_logs_rules import RULES as AUDIT_LOGS_RULES
-from .behavior_codes_rules import RULES as BEHAVIOR_CODES_RULES
-from .behavior_interventions_rules import RULES as BEHAVIOR_INTERVENTIONS_RULES
-from .bell_schedules_rules import RULES as BELL_SCHEDULES_RULES
-from .bus_routes_rules import RULES as BUS_ROUTES_RULES
-from .bus_stop_times_rules import RULES as BUS_STOP_TIMES_RULES
-from .bus_stops_rules import RULES as BUS_STOPS_RULES
-from .calendar_days_rules import RULES as CALENDAR_DAYS_RULES
-from .calendars_rules import RULES as CALENDARS_RULES
-from .channels_rules import RULES as CHANNELS_RULES
-from .class_ranks_rules import RULES as CLASS_RANKS_RULES
-from .comm_search_index_rules import RULES as COMM_SEARCH_INDEX_RULES
-from .committees_rules import RULES as COMMITTEES_RULES
-from .compliance_records_rules import RULES as COMPLIANCE_RECORDS_RULES
-from .consents_rules import RULES as CONSENTS_RULES
-from .consequence_types_rules import RULES as CONSEQUENCE_TYPES_RULES
-from .consequences_rules import RULES as CONSEQUENCES_RULES
-from .contacts_rules import RULES as CONTACTS_RULES
-from .course_prerequisites_rules import RULES as COURSE_PREREQUISITES_RULES
-from .course_sections_rules import RULES as COURSE_SECTIONS_RULES
-from .courses_rules import RULES as COURSES_RULES
-from .curricula_rules import RULES as CURRICULA_RULES
-from .curriculum_units_rules import RULES as CURRICULUM_UNITS_RULES
-from .curriculum_versions_rules import RULES as CURRICULUM_VERSIONS_RULES
-from .data_quality_issues_rules import RULES as DATA_QUALITY_ISSUES_RULES
-from .data_sharing_agreements_rules import RULES as DATA_SHARING_AGREEMENTS_RULES
-from .deduction_codes_rules import RULES as DEDUCTION_CODES_RULES
-from .deliveries_rules import RULES as DELIVERIES_RULES
-from .department_position_index_rules import RULES as DEPARTMENT_POSITION_INDEX_RULES
-from .departments_rules import RULES as DEPARTMENTS_RULES
-from .document_activity_rules import RULES as DOCUMENT_ACTIVITY_RULES
-from .document_links_rules import RULES as DOCUMENT_LINKS_RULES
-from .document_notifications_rules import RULES as DOCUMENT_NOTIFICATIONS_RULES
-from .document_permissions_rules import RULES as DOCUMENT_PERMISSIONS_RULES
-from .document_search_index_rules import RULES as DOCUMENT_SEARCH_INDEX_RULES
-from .document_versions_rules import RULES as DOCUMENT_VERSIONS_RULES
-from .documents_rules import RULES as DOCUMENTS_RULES
-from .earnings_codes_rules import RULES as EARNING_CODES_RULES
-from .education_associations_rules import RULES as EDUCATION_ASSOCIATIONS_RULES
-from .ell_plans_rules import RULES as ELL_PLANS_RULES
-from .embeds_rules import RULES as EMBEDS_RULES
-from .emergency_contacts_rules import RULES as EMERGENCY_CONTACTS_RULES
-from .employee_deductions_rules import RULES as EMPLOYEE_DEDUCTIONS_RULES
-from .employee_earnings_rules import RULES as EMPLOYEE_EARNINGS_RULES
-from .entity_tags_rules import RULES as ENTITY_TAGS_RULES
-from .evaluation_assignments_rules import RULES as EVALUATION_ASSIGNMENTS_RULES
-from .evaluation_cycles_rules import RULES as EVALUATION_CYCLES_RULES
-from .evaluation_files_rules import RULES as EVALUATION_FILES_RULES
-from .evaluation_questions_rules import RULES as EVALUATION_QUESTIONS_RULES
-from .evaluation_reports_rules import RULES as EVALUATION_REPORTS_RULES
-from .evaluation_responses_rules import RULES as EVALUATION_RESPONSES_RULES
-from .evaluation_sections_rules import RULES as EVALUATION_SECTIONS_RULES
-from .evaluation_signoffs_rules import RULES as EVALUATION_SIGNOFFS_RULES
-from .evaluation_templates_rules import RULES as EVALUATION_TEMPLATES_RULES
-from .events_rules import RULES as EVENTS_RULES
-from .export_runs_rules import RULES as EXPORT_RUNS_RULES
-from .external_ids_rules import RULES as EXTERNAL_IDS_RULES
-from .facilities_rules import RULES as FACILITIES_RULES
-from .family_portal_access_rules import RULES as FAMILY_PORTAL_ACCESS_RULES
-from .fan_app_settings_rules import RULES as FAN_APP_SETTINGS_RULES
-from .fan_pages_rules import RULES as FAN_PAGES_RULES
-from .feature_flags_rules import RULES as FEATURE_FLAGS_RULES
-from .fees_rules import RULES as FEES_RULES
-from .files_rules import RULES as FILES_RULES
-from .final_grades_rules import RULES as FINAL_GRADES_RULES
-from .fiscal_periods_rules import RULES as FISCAL_PERIODS_RULES
-from .fiscal_years_rules import RULES as FISCAL_YEARS_RULES
-from .floors_rules import RULES as FLOORS_RULES
-from .folders_rules import RULES as FOLDERS_RULES
-from .frameworks_rules import RULES as FRAMEWORKS_RULES
-from .gl_account_balances_rules import RULES as GL_ACCOUNT_BALANCES_RULES
-from .gl_account_segments_rules import RULES as GL_ACCOUNT_SEGMENTS_RULES
-from .gl_accounts_rules import RULES as GL_ACCOUNTS_RULES
-from .gl_segment_values_rules import RULES as GL_SEGMENT_VALUES_RULES
-from .gl_segments_rules import RULES as GL_SEGMENTS_RULES
-from .governing_bodies_rules import RULES as GOVERNING_BODIES_RULES
-from .gpa_calculations_rules import RULES as GPA_CALCULATIONS_RULES
-from .grade_levels_rules import RULES as GRADE_LEVELS_RULES
-from .grade_scale_bands_rules import RULES as GRADE_SCALE_BANDS_RULES
-from .grade_scales_rules import RULES as GRADE_SCALES_RULES
-from .gradebook_entries_rules import RULES as GRADEBOOK_ENTRIES_RULES
-from .grading_periods_rules import RULES as GRADING_PERIODS_RULES
-from .guardians_rules import RULES as GUARDIANS_RULES
-from .health_profiles_rules import RULES as HEALTH_PROFILES_RULES
-from .hr_employees_rules import RULES as HR_EMPLOYEES_RULES
-from .hr_position_assignments_rules import RULES as HR_POSITION_ASSIGNMENTS_RULES
-from .hr_positions_rules import RULES as HR_POSITIONS_RULES
-from .iep_plans_rules import RULES as IEP_PLANS_RULES
-from .immunization_records_rules import RULES as IMMUNIZATION_RECORDS_RULES
-from .immunizations_rules import RULES as IMMUNIZATIONS_RULES
-from .incident_participants_rules import RULES as INCIDENT_PARTICIPANTS_RULES
-from .incidents_rules import RULES as INCIDENTS_RULES
-from .initiatives_rules import RULES as INITIATIVES_RULES
-from .invoices_rules import RULES as INVOICES_RULES
-from .journal_batches_rules import RULES as JOURNAL_BATCHES_RULES
-from .journal_entries_rules import RULES as JOURNAL_ENTRIES_RULES
-from .journal_entry_lines_rules import RULES as JOURNAL_ENTRY_LINES_RULES
-from .kpi_datapoints_rules import RULES as KPI_DATAPOINTS_RULES
-from .kpis_rules import RULES as KPIS_RULES
-from .leases_rules import RULES as LEASES_RULES
-from .library_checkouts_rules import RULES as LIBRARY_CHECKOUTS_RULES
-from .library_fines_rules import RULES as LIBRARY_FINES_RULES
-from .library_holds_rules import RULES as LIBRARY_HOLDS_RULES
-from .library_items_rules import RULES as LIBRARY_ITEMS_RULES
-from .live_scorings_rules import RULES as LIVE_SCORINGS_RULES
-from .maintenance_requests_rules import RULES as MAINTENANCE_REQUESTS_RULES
-from .materials_rules import RULES as MATERIALS_RULES
-from .meal_accounts_rules import RULES as MEAL_ACCOUNTS_RULES
-from .meal_eligibility_statuses_rules import RULES as MEAL_ELIGIBILITY_STATUSES_RULES
-from .meal_transactions_rules import RULES as MEAL_TRANSACTIONS_RULES
-from .medication_administrations_rules import RULES as MEDICATION_ADMINISTRATIONS_RULES
-from .medications_rules import RULES as MEDICATIONS_RULES
-from .meeting_documents_rules import RULES as MEETING_DOCUMENTS_RULES
-from .meeting_files_rules import RULES as MEETING_FILES_RULES
-from .meeting_permissions_rules import RULES as MEETING_PERMISSIONS_RULES
-from .meeting_publications_rules import RULES as MEETING_PUBLICATIONS_RULES
-from .meeting_search_index_rules import RULES as MEETING_SEARCH_INDEX_RULES
-from .meetings_rules import RULES as MEETINGS_RULES
-from .memberships_rules import RULES as MEMBERSHIPS_RULES
-from .message_recipients_rules import RULES as MESSAGE_RECIPIENTS_RULES
-from .messages_rules import RULES as MESSAGES_RULES
-from .meters_rules import RULES as METERS_RULES
-from .minutes_rules import RULES as MINUTES_RULES
-from .motions_rules import RULES as MOTIONS_RULES
-from .move_orders_rules import RULES as MOVE_ORDERS_RULES
-from .notifications_rules import RULES as NOTIFICATIONS_RULES
-from .nurse_visits_rules import RULES as NURSE_VISITS_RULES
-from .objectives_rules import RULES as OBJECTIVES_RULES
-from .order_line_items_rules import RULES as ORDER_LINE_ITEMS_RULES
-from .orders_rules import RULES as ORDERS_RULES
-from .organizations_rules import RULES as ORGANIZATIONS_RULES
-from .pages_rules import RULES as PAGES_RULES
-from .part_locations_rules import RULES as PART_LOCATIONS_RULES
-from .parts_rules import RULES as PARTS_RULES
-from .pay_periods_rules import RULES as PAY_PERIODS_RULES
-from .paychecks_rules import RULES as PAYCHECKS_RULES
-from .payments_rules import RULES as PAYMENTS_RULES
-from .payroll_runs_rules import RULES as PAYROLL_RUNS_RULES
-from .periods_rules import RULES as PERIODS_RULES
-from .permissions_rules import RULES as PERMISSIONS_RULES
-from .person_addresses_rules import RULES as PERSON_ADDRESSES_RULES
-from .person_contacts_rules import RULES as PERSON_CONTACTS_RULES
-from .personal_notes_rules import RULES as PERSONAL_NOTES_RULES
-from .persons_rules import RULES as PERSONS_RULES
-from .plan_alignments_rules import RULES as PLAN_ALIGNMENTS_RULES
-from .plan_assignments_rules import RULES as PLAN_ASSIGNMENTS_RULES
-from .plan_filters_rules import RULES as PLAN_FILTERS_RULES
-from .plan_search_index_rules import RULES as PLAN_SEARCH_INDEX_RULES
-from .plans_rules import RULES as PLANS_RULES
-from .pm_plans_rules import RULES as PM_PLANS_RULES
-from .pm_work_generators_rules import RULES as PM_WORK_GENERATORS_RULES
-from .policies_rules import RULES as POLICIES_RULES
-from .policy_approvals_rules import RULES as POLICY_APPROVALS_RULES
-from .policy_comments_rules import RULES as POLICY_COMMENTS_RULES
-from .policy_files_rules import RULES as POLICY_FILES_RULES
-from .policy_legal_refs_rules import RULES as POLICY_LEGAL_REFS_RULES
-from .policy_publications_rules import RULES as POLICY_PUBLICATIONS_RULES
-from .policy_search_index_rules import RULES as POLICY_SEARCH_INDEX_RULES
-from .policy_versions_rules import RULES as POLICY_VERSIONS_RULES
-from .policy_workflow_steps_rules import RULES as POLICY_WORKFLOW_STEPS_RULES
-from .policy_workflows_rules import RULES as POLICY_WORKFLOWS_RULES
-from .post_attachments_rules import RULES as POST_ATTACHMENTS_RULES
-from .posts_rules import RULES as POSTS_RULES
-from .project_tasks_rules import RULES as PROJECT_TASKS_RULES
-from .projects_rules import RULES as PROJECTS_RULES
-from .proposal_documents_rules import RULES as PROPOSAL_DOCUMENTS_RULES
-from .proposal_reviews_rules import RULES as PROPOSAL_REVIEWS_RULES
-from .proposals_rules import RULES as PROPOSALS_RULES
-from .publications_rules import RULES as PUBLICATIONS_RULES
-from .report_cards_rules import RULES as REPORT_CARDS_RULES
-from .requirements_rules import RULES as REQUIREMENTS_RULES
-from .resolutions_rules import RULES as RESOLUTIONS_RULES
-from .retention_rules_rules import RULES as RETENTION_RULES_RULES
-from .review_requests_rules import RULES as REVIEW_REQUESTS_RULES
-from .review_rounds_rules import RULES as REVIEW_ROUNDS_RULES
-from .reviews_rules import RULES as REVIEWS_RULES
-from .role_permissions_rules import RULES as ROLE_PERMISSIONS_RULES
-from .roles_rules import RULES as ROLES_RULES
-from .rooms_rules import RULES as ROOMS_RULES
-from .round_decisions_rules import RULES as ROUND_DECISIONS_RULES
-from .scan_requests_rules import RULES as SCAN_REQUESTS_RULES
-from .scan_results_rules import RULES as SCAN_RESULTS_RULES
-from .schools_rules import RULES as SCHOOLS_RULES
-from .scorecard_kpis_rules import RULES as SCORECARD_KPIS_RULES
-from .scorecards_rules import RULES as SCORECARDS_RULES
-from .section504_plans_rules import RULES as SECTION504_PLANS_RULES
-from .section_meetings_rules import RULES as SECTION_MEETINGS_RULES
-from .section_room_assignments_rules import RULES as SECTION_ROOM_ASSIGNMENTS_RULES
-from .sis_import_jobs_rules import RULES as SIS_IMPORT_JOBS_RULES
-from .space_reservations_rules import RULES as SPACE_RESERVATIONS_RULES
-from .spaces_rules import RULES as SPACES_RULES
-from .special_education_cases_rules import RULES as SPECIAL_EDUCATION_CASES_RULES
-from .staff_rules import RULES as STAFF_RULES
-from .standardized_tests_rules import RULES as STANDARDIZED_TESTS_RULES
-from .standards_rules import RULES as STANDARDS_RULES
-from .state_reporting_snapshots_rules import RULES as STATE_REPORTING_SNAPSHOTS_RULES
-from .states_rules import RULES as STATES_RULES
-from .student_guardians_rules import RULES as STUDENT_GUARDIANS_RULES
-from .student_program_enrollments_rules import RULES as STUDENT_PROGRAM_ENROLLMENTS_RULES
-from .student_school_enrollments_rules import RULES as STUDENT_SCHOOL_ENROLLMENTS_RULES
-from .student_section_enrollments_rules import RULES as STUDENT_SECTION_ENROLLMENTS_RULES
-from .student_transportation_assignments_rules import RULES as STUDENT_TRANSPORTATION_ASSIGNMENTS_RULES
-from .students_rules import RULES as STUDENTS_RULES
-from .subjects_rules import RULES as SUBJECTS_RULES
-from .subscriptions_rules import RULES as SUBSCRIPTIONS_RULES
-from .tags_rules import RULES as TAGS_RULES
-from .teacher_section_assignments_rules import RULES as TEACHER_SECTION_ASSIGNMENTS_RULES
-from .test_administrations_rules import RULES as TEST_ADMINISTRATIONS_RULES
-from .test_results_rules import RULES as TEST_RESULTS_RULES
-from .ticket_scans_rules import RULES as TICKET_SCANS_RULES
-from .ticket_types_rules import RULES as TICKET_TYPES_RULES
-from .tickets_rules import RULES as TICKETS_RULES
-from .transcript_lines_rules import RULES as TRANSCRIPT_LINES_RULES
-from .user_accounts_rules import RULES as USER_ACCOUNTS_RULES
-from .users_rules import RULES as USERS_RULES
-from .vendors_rules import RULES as VENDORS_RULES
-from .votes_rules import RULES as VOTES_RULES
-from .waivers_rules import RULES as WAIVERS_RULES
-from .warranties_rules import RULES as WARRANTIES_RULES
-from .webhooks_rules import RULES as WEBHOOKS_RULES
-from .work_order_parts_rules import RULES as WORK_ORDER_PARTS_RULES
-from .work_order_tasks_rules import RULES as WORK_ORDER_TASKS_RULES
-from .work_order_time_logs_rules import RULES as WORK_ORDER_TIME_LOGS_RULES
-from .work_orders_rules import RULES as WORK_ORDERS_RULES
+from .show_academic_terms_rules import RULES as SHOW_ACADEMIC_TERMS_RULES
+from .show_accommodations_rules import RULES as SHOW_ACCOMMODATIONS_RULES
+from .show_activities_rules import RULES as SHOW_ACTIVITIES_RULES
+from .show_addresses_rules import RULES as SHOW_ADDRESSES_RULES
+from .show_agenda_item_approvals_rules import RULES as SHOW_AGENDA_ITEM_APPROVALS_RULES
+from .show_agenda_item_files_rules import RULES as SHOW_AGENDA_ITEM_FILES_RULES
+from .show_agenda_items_rules import RULES as SHOW_AGENDA_ITEMS_RULES
+from .show_agenda_workflow_steps_rules import RULES as SHOW_AGENDA_WORKFLOW_STEPS_RULES
+from .show_agenda_workflows_rules import RULES as SHOW_AGENDA_WORKFLOWS_RULES
+from .show_alignments_rules import RULES as SHOW_ALIGNMENTS_RULES
+from .show_ap_vendors_rules import RULES as SHOW_AP_VENDORS_RULES
+from .show_asset_parts_rules import RULES as SHOW_ASSET_PARTS_RULES
+from .show_assignment_categories_rules import RULES as SHOW_ASSIGNMENT_CATEGORIES_RULES
+from .show_assignments_rules import RULES as SHOW_ASSIGNMENTS_RULES
+from .show_attendance_codes_rules import RULES as SHOW_ATTENDANCE_CODES_RULES
+from .show_attendance_daily_summary_rules import RULES as SHOW_ATTENDANCE_DAILY_SUMMARY_RULES
+from .show_attendance_events_rules import RULES as SHOW_ATTENDANCE_EVENTS_RULES
+from .show_attendances_rules import RULES as SHOW_ATTENDANCES_RULES
+from .show_audit_logs_rules import RULES as SHOW_AUDIT_LOGS_RULES
+from .show_behavior_codes_rules import RULES as SHOW_BEHAVIOR_CODES_RULES
+from .show_behavior_interventions_rules import RULES as SHOW_BEHAVIOR_INTERVENTIONS_RULES
+from .show_bell_schedules_rules import RULES as SHOW_BELL_SCHEDULES_RULES
+from .show_bus_routes_rules import RULES as SHOW_BUS_ROUTES_RULES
+from .show_bus_stop_times_rules import RULES as SHOW_BUS_STOP_TIMES_RULES
+from .show_bus_stops_rules import RULES as SHOW_BUS_STOPS_RULES
+from .show_calendar_days_rules import RULES as SHOW_CALENDAR_DAYS_RULES
+from .show_calendars_rules import RULES as SHOW_CALENDARS_RULES
+from .show_channels_rules import RULES as SHOW_CHANNELS_RULES
+from .show_class_ranks_rules import RULES as SHOW_CLASS_RANKS_RULES
+from .show_comm_search_index_rules import RULES as SHOW_COMM_SEARCH_INDEX_RULES
+from .show_committees_rules import RULES as SHOW_COMMITTEES_RULES
+from .show_compliance_records_rules import RULES as SHOW_COMPLIANCE_RECORDS_RULES
+from .show_consents_rules import RULES as SHOW_CONSENTS_RULES
+from .show_consequence_types_rules import RULES as SHOW_CONSEQUENCE_TYPES_RULES
+from .show_consequences_rules import RULES as SHOW_CONSEQUENCES_RULES
+from .show_contacts_rules import RULES as SHOW_CONTACTS_RULES
+from .show_course_prerequisites_rules import RULES as SHOW_COURSE_PREREQUISITES_RULES
+from .show_course_sections_rules import RULES as SHOW_COURSE_SECTIONS_RULES
+from .show_courses_rules import RULES as SHOW_COURSES_RULES
+from .show_curricula_rules import RULES as SHOW_CURRICULA_RULES
+from .show_curriculum_units_rules import RULES as SHOW_CURRICULUM_UNITS_RULES
+from .show_curriculum_versions_rules import RULES as SHOW_CURRICULUM_VERSIONS_RULES
+from .show_data_quality_issues_rules import RULES as SHOW_DATA_QUALITY_ISSUES_RULES
+from .show_data_sharing_agreements_rules import RULES as SHOW_DATA_SHARING_AGREEMENTS_RULES
+from .show_deduction_codes_rules import RULES as SHOW_DEDUCTION_CODES_RULES
+from .show_deliveries_rules import RULES as SHOW_DELIVERIES_RULES
+from .show_department_position_index_rules import RULES as SHOW_DEPARTMENT_POSITION_INDEX_RULES
+from .show_departments_rules import RULES as SHOW_DEPARTMENTS_RULES
+from .show_document_activity_rules import RULES as SHOW_DOCUMENT_ACTIVITY_RULES
+from .show_document_links_rules import RULES as SHOW_DOCUMENT_LINKS_RULES
+from .show_document_notifications_rules import RULES as SHOW_DOCUMENT_NOTIFICATIONS_RULES
+from .show_document_permissions_rules import RULES as SHOW_DOCUMENT_PERMISSIONS_RULES
+from .show_document_search_index_rules import RULES as SHOW_DOCUMENT_SEARCH_INDEX_RULES
+from .show_document_versions_rules import RULES as SHOW_DOCUMENT_VERSIONS_RULES
+from .show_documents_rules import RULES as SHOW_DOCUMENTS_RULES
+from .show_earnings_codes_rules import RULES as SHOW_EARNING_CODES_RULES
+from .show_education_associations_rules import RULES as SHOW_EDUCATION_ASSOCIATIONS_RULES
+from .show_ell_plans_rules import RULES as SHOW_ELL_PLANS_RULES
+from .show_embeds_rules import RULES as SHOW_EMBEDS_RULES
+from .show_emergency_contacts_rules import RULES as SHOW_EMERGENCY_CONTACTS_RULES
+from .show_employee_deductions_rules import RULES as SHOW_EMPLOYEE_DEDUCTIONS_RULES
+from .show_employee_earnings_rules import RULES as SHOW_EMPLOYEE_EARNINGS_RULES
+from .show_entity_tags_rules import RULES as SHOW_ENTITY_TAGS_RULES
+from .show_evaluation_assignments_rules import RULES as SHOW_EVALUATION_ASSIGNMENTS_RULES
+from .show_evaluation_cycles_rules import RULES as SHOW_EVALUATION_CYCLES_RULES
+from .show_evaluation_files_rules import RULES as SHOW_EVALUATION_FILES_RULES
+from .show_evaluation_questions_rules import RULES as SHOW_EVALUATION_QUESTIONS_RULES
+from .show_evaluation_reports_rules import RULES as SHOW_EVALUATION_REPORTS_RULES
+from .show_evaluation_responses_rules import RULES as SHOW_EVALUATION_RESPONSES_RULES
+from .show_evaluation_sections_rules import RULES as SHOW_EVALUATION_SECTIONS_RULES
+from .show_evaluation_signoffs_rules import RULES as SHOW_EVALUATION_SIGNOFFS_RULES
+from .show_evaluation_templates_rules import RULES as SHOW_EVALUATION_TEMPLATES_RULES
+from .show_events_rules import RULES as SHOW_EVENTS_RULES
+from .show_export_runs_rules import RULES as SHOW_EXPORT_RUNS_RULES
+from .show_external_ids_rules import RULES as SHOW_EXTERNAL_IDS_RULES
+from .show_facilities_rules import RULES as SHOW_FACILITIES_RULES
+from .show_family_portal_access_rules import RULES as SHOW_FAMILY_PORTAL_ACCESS_RULES
+from .show_fan_app_settings_rules import RULES as SHOW_FAN_APP_SETTINGS_RULES
+from .show_fan_pages_rules import RULES as SHOW_FAN_PAGES_RULES
+from .show_feature_flags_rules import RULES as SHOW_FEATURE_FLAGS_RULES
+from .show_fees_rules import RULES as SHOW_FEES_RULES
+from .show_files_rules import RULES as SHOW_FILES_RULES
+from .show_final_grades_rules import RULES as SHOW_FINAL_GRADES_RULES
+from .show_fiscal_periods_rules import RULES as SHOW_FISCAL_PERIODS_RULES
+from .show_fiscal_years_rules import RULES as SHOW_FISCAL_YEARS_RULES
+from .show_floors_rules import RULES as SHOW_FLOORS_RULES
+from .show_folders_rules import RULES as SHOW_FOLDERS_RULES
+from .show_frameworks_rules import RULES as SHOW_FRAMEWORKS_RULES
+from .show_gl_account_balances_rules import RULES as SHOW_GL_ACCOUNT_BALANCES_RULES
+from .show_gl_account_segments_rules import RULES as SHOW_GL_ACCOUNT_SEGMENTS_RULES
+from .show_gl_accounts_rules import RULES as SHOW_GL_ACCOUNTS_RULES
+from .show_gl_segment_values_rules import RULES as SHOW_GL_SEGMENT_VALUES_RULES
+from .show_gl_segments_rules import RULES as SHOW_GL_SEGMENTS_RULES
+from .show_governing_bodies_rules import RULES as SHOW_GOVERNING_BODIES_RULES
+from .show_gpa_calculations_rules import RULES as SHOW_GPA_CALCULATIONS_RULES
+from .show_grade_levels_rules import RULES as SHOW_GRADE_LEVELS_RULES
+from .show_grade_scale_bands_rules import RULES as SHOW_GRADE_SCALE_BANDS_RULES
+from .show_grade_scales_rules import RULES as SHOW_GRADE_SCALES_RULES
+from .show_gradebook_entries_rules import RULES as SHOW_GRADEBOOK_ENTRIES_RULES
+from .show_grading_periods_rules import RULES as SHOW_GRADING_PERIODS_RULES
+from .show_guardians_rules import RULES as SHOW_GUARDIANS_RULES
+from .show_health_profiles_rules import RULES as SHOW_HEALTH_PROFILES_RULES
+from .show_hr_employees_rules import RULES as SHOW_HR_EMPLOYEES_RULES
+from .show_hr_position_assignments_rules import RULES as SHOW_HR_POSITION_ASSIGNMENTS_RULES
+from .show_hr_positions_rules import RULES as SHOW_HR_POSITIONS_RULES
+from .show_iep_plans_rules import RULES as SHOW_IEP_PLANS_RULES
+from .show_immunization_records_rules import RULES as SHOW_IMMUNIZATION_RECORDS_RULES
+from .show_immunizations_rules import RULES as SHOW_IMMUNIZATIONS_RULES
+from .show_incident_participants_rules import RULES as SHOW_INCIDENT_PARTICIPANTS_RULES
+from .show_incidents_rules import RULES as SHOW_INCIDENTS_RULES
+from .show_initiatives_rules import RULES as SHOW_INITIATIVES_RULES
+from .show_invoices_rules import RULES as SHOW_INVOICES_RULES
+from .show_journal_batches_rules import RULES as SHOW_JOURNAL_BATCHES_RULES
+from .show_journal_entries_rules import RULES as SHOW_JOURNAL_ENTRIES_RULES
+from .show_journal_entry_lines_rules import RULES as SHOW_JOURNAL_ENTRY_LINES_RULES
+from .show_kpi_datapoints_rules import RULES as SHOW_KPI_DATAPOINTS_RULES
+from .show_kpis_rules import RULES as SHOW_KPIS_RULES
+from .show_leases_rules import RULES as SHOW_LEASES_RULES
+from .show_library_checkouts_rules import RULES as SHOW_LIBRARY_CHECKOUTS_RULES
+from .show_library_fines_rules import RULES as SHOW_LIBRARY_FINES_RULES
+from .show_library_holds_rules import RULES as SHOW_LIBRARY_HOLDS_RULES
+from .show_library_items_rules import RULES as SHOW_LIBRARY_ITEMS_RULES
+from .show_live_scorings_rules import RULES as SHOW_LIVE_SCORINGS_RULES
+from .show_maintenance_requests_rules import RULES as SHOW_MAINTENANCE_REQUESTS_RULES
+from .show_materials_rules import RULES as SHOW_MATERIALS_RULES
+from .show_meal_accounts_rules import RULES as SHOW_MEAL_ACCOUNTS_RULES
+from .show_meal_eligibility_statuses_rules import RULES as SHOW_MEAL_ELIGIBILITY_STATUSES_RULES
+from .show_meal_transactions_rules import RULES as SHOW_MEAL_TRANSACTIONS_RULES
+from .show_medication_administrations_rules import RULES as SHOW_MEDICATION_ADMINISTRATIONS_RULES
+from .show_medications_rules import RULES as SHOW_MEDICATIONS_RULES
+from .show_meeting_documents_rules import RULES as SHOW_MEETING_DOCUMENTS_RULES
+from .show_meeting_files_rules import RULES as SHOW_MEETING_FILES_RULES
+from .show_meeting_permissions_rules import RULES as SHOW_MEETING_PERMISSIONS_RULES
+from .show_meeting_publications_rules import RULES as SHOW_MEETING_PUBLICATIONS_RULES
+from .show_meeting_search_index_rules import RULES as SHOW_MEETING_SEARCH_INDEX_RULES
+from .show_meetings_rules import RULES as SHOW_MEETINGS_RULES
+from .show_memberships_rules import RULES as SHOW_MEMBERSHIPS_RULES
+from .show_message_recipients_rules import RULES as SHOW_MESSAGE_RECIPIENTS_RULES
+from .show_messages_rules import RULES as SHOW_MESSAGES_RULES
+from .show_meters_rules import RULES as SHOW_METERS_RULES
+from .show_minutes_rules import RULES as SHOW_MINUTES_RULES
+from .show_motions_rules import RULES as SHOW_MOTIONS_RULES
+from .show_move_orders_rules import RULES as SHOW_MOVE_ORDERS_RULES
+from .show_notifications_rules import RULES as SHOW_NOTIFICATIONS_RULES
+from .show_nurse_visits_rules import RULES as SHOW_NURSE_VISITS_RULES
+from .show_objectives_rules import RULES as SHOW_OBJECTIVES_RULES
+from .show_order_line_items_rules import RULES as SHOW_ORDER_LINE_ITEMS_RULES
+from .show_orders_rules import RULES as SHOW_ORDERS_RULES
+from .show_organizations_rules import RULES as SHOW_ORGANIZATIONS_RULES
+from .show_pages_rules import RULES as SHOW_PAGES_RULES
+from .show_part_locations_rules import RULES as SHOW_PART_LOCATIONS_RULES
+from .show_parts_rules import RULES as SHOW_PARTS_RULES
+from .show_pay_periods_rules import RULES as SHOW_PAY_PERIODS_RULES
+from .show_paychecks_rules import RULES as SHOW_PAYCHECKS_RULES
+from .show_payments_rules import RULES as SHOW_PAYMENTS_RULES
+from .show_payroll_runs_rules import RULES as SHOW_PAYROLL_RUNS_RULES
+from .show_periods_rules import RULES as SHOW_PERIODS_RULES
+from .show_permissions_rules import RULES as SHOW_PERMISSIONS_RULES
+from .show_person_addresses_rules import RULES as SHOW_PERSON_ADDRESSES_RULES
+from .show_person_contacts_rules import RULES as SHOW_PERSON_CONTACTS_RULES
+from .show_personal_notes_rules import RULES as SHOW_PERSONAL_NOTES_RULES
+from .show_persons_rules import RULES as SHOW_PERSONS_RULES
+from .show_plan_alignments_rules import RULES as SHOW_PLAN_ALIGNMENTS_RULES
+from .show_plan_assignments_rules import RULES as SHOW_PLAN_ASSIGNMENTS_RULES
+from .show_plan_filters_rules import RULES as SHOW_PLAN_FILTERS_RULES
+from .show_plan_search_index_rules import RULES as SHOW_PLAN_SEARCH_INDEX_RULES
+from .show_plans_rules import RULES as SHOW_PLANS_RULES
+from .show_pm_plans_rules import RULES as SHOW_PM_PLANS_RULES
+from .show_pm_work_generators_rules import RULES as SHOW_PM_WORK_GENERATORS_RULES
+from .show_policies_rules import RULES as SHOW_POLICIES_RULES
+from .show_policy_approvals_rules import RULES as SHOW_POLICY_APPROVALS_RULES
+from .show_policy_comments_rules import RULES as SHOW_POLICY_COMMENTS_RULES
+from .show_policy_files_rules import RULES as SHOW_POLICY_FILES_RULES
+from .show_policy_legal_refs_rules import RULES as SHOW_POLICY_LEGAL_REFS_RULES
+from .show_policy_publications_rules import RULES as SHOW_POLICY_PUBLICATIONS_RULES
+from .show_policy_search_index_rules import RULES as SHOW_POLICY_SEARCH_INDEX_RULES
+from .show_policy_versions_rules import RULES as SHOW_POLICY_VERSIONS_RULES
+from .show_policy_workflow_steps_rules import RULES as SHOW_POLICY_WORKFLOW_STEPS_RULES
+from .show_policy_workflows_rules import RULES as SHOW_POLICY_WORKFLOWS_RULES
+from .show_post_attachments_rules import RULES as SHOW_POST_ATTACHMENTS_RULES
+from .show_posts_rules import RULES as SHOW_POSTS_RULES
+from .show_project_tasks_rules import RULES as SHOW_PROJECT_TASKS_RULES
+from .show_projects_rules import RULES as SHOW_PROJECTS_RULES
+from .show_proposal_documents_rules import RULES as SHOW_PROPOSAL_DOCUMENTS_RULES
+from .show_proposal_reviews_rules import RULES as SHOW_PROPOSAL_REVIEWS_RULES
+from .show_proposals_rules import RULES as SHOW_PROPOSALS_RULES
+from .show_publications_rules import RULES as SHOW_PUBLICATIONS_RULES
+from .show_report_cards_rules import RULES as SHOW_REPORT_CARDS_RULES
+from .show_requirements_rules import RULES as SHOW_REQUIREMENTS_RULES
+from .show_resolutions_rules import RULES as SHOW_RESOLUTIONS_RULES
+from .show_retention_rules_rules import RULES as SHOW_RETENTION_RULES_RULES
+from .show_review_requests_rules import RULES as SHOW_REVIEW_REQUESTS_RULES
+from .show_review_rounds_rules import RULES as SHOW_REVIEW_ROUNDS_RULES
+from .show_reviews_rules import RULES as SHOW_REVIEWS_RULES
+from .show_role_permissions_rules import RULES as SHOW_ROLE_PERMISSIONS_RULES
+from .show_roles_rules import RULES as SHOW_ROLES_RULES
+from .show_rooms_rules import RULES as SHOW_ROOMS_RULES
+from .show_round_decisions_rules import RULES as SHOW_ROUND_DECISIONS_RULES
+from .show_scan_requests_rules import RULES as SHOW_SCAN_REQUESTS_RULES
+from .show_scan_results_rules import RULES as SHOW_SCAN_RESULTS_RULES
+from .show_schools_rules import RULES as SHOW_SCHOOLS_RULES
+from .show_scorecard_kpis_rules import RULES as SHOW_SCORECARD_KPIS_RULES
+from .show_scorecards_rules import RULES as SHOW_SCORECARDS_RULES
+from .show_section504_plans_rules import RULES as SHOW_SECTION504_PLANS_RULES
+from .show_section_meetings_rules import RULES as SHOW_SECTION_MEETINGS_RULES
+from .show_section_room_assignments_rules import RULES as SHOW_SECTION_ROOM_ASSIGNMENTS_RULES
+from .show_sis_import_jobs_rules import RULES as SHOW_SIS_IMPORT_JOBS_RULES
+from .show_space_reservations_rules import RULES as SHOW_SPACE_RESERVATIONS_RULES
+from .show_spaces_rules import RULES as SHOW_SPACES_RULES
+from .show_special_education_cases_rules import RULES as SHOW_SPECIAL_EDUCATION_CASES_RULES
+from .show_staff_rules import RULES as SHOW_STAFF_RULES
+from .show_standardized_tests_rules import RULES as SHOW_STANDARDIZED_TESTS_RULES
+from .show_standards_rules import RULES as SHOW_STANDARDS_RULES
+from .show_state_reporting_snapshots_rules import RULES as SHOW_STATE_REPORTING_SNAPSHOTS_RULES
+from .show_states_rules import RULES as SHOW_STATES_RULES
+from .show_student_guardians_rules import RULES as SHOW_STUDENT_GUARDIANS_RULES
+from .show_student_program_enrollments_rules import RULES as SHOW_STUDENT_PROGRAM_ENROLLMENTS_RULES
+from .show_student_school_enrollments_rules import RULES as SHOW_STUDENT_SCHOOL_ENROLLMENTS_RULES
+from .show_student_section_enrollments_rules import RULES as SHOW_STUDENT_SECTION_ENROLLMENTS_RULES
+from .show_student_transportation_assignments_rules import RULES as SHOW_STUDENT_TRANSPORTATION_ASSIGNMENTS_RULES
+from .show_students_rules import RULES as SHOW_STUDENTS_RULES
+from .show_subjects_rules import RULES as SHOW_SUBJECTS_RULES
+from .show_subscriptions_rules import RULES as SHOW_SUBSCRIPTIONS_RULES
+from .show_tags_rules import RULES as SHOW_TAGS_RULES
+from .show_teacher_section_assignments_rules import RULES as SHOW_TEACHER_SECTION_ASSIGNMENTS_RULES
+from .show_test_administrations_rules import RULES as SHOW_TEST_ADMINISTRATIONS_RULES
+from .show_test_results_rules import RULES as SHOW_TEST_RESULTS_RULES
+from .show_ticket_scans_rules import RULES as SHOW_TICKET_SCANS_RULES
+from .show_ticket_types_rules import RULES as SHOW_TICKET_TYPES_RULES
+from .show_tickets_rules import RULES as SHOW_TICKETS_RULES
+from .show_transcript_lines_rules import RULES as SHOW_TRANSCRIPT_LINES_RULES
+from .show_user_accounts_rules import RULES as SHOW_USER_ACCOUNTS_RULES
+from .show_users_rules import RULES as SHOW_USERS_RULES
+from .show_vendors_rules import RULES as SHOW_VENDORS_RULES
+from .show_votes_rules import RULES as SHOW_VOTES_RULES
+from .show_waivers_rules import RULES as SHOW_WAIVERS_RULES
+from .show_warranties_rules import RULES as SHOW_WARRANTIES_RULES
+from .show_webhooks_rules import RULES as SHOW_WEBHOOKS_RULES
+from .show_work_order_parts_rules import RULES as SHOW_WORK_ORDER_PARTS_RULES
+from .show_work_order_tasks_rules import RULES as SHOW_WORK_ORDER_TASKS_RULES
+from .show_work_order_time_logs_rules import RULES as SHOW_WORK_ORDER_TIME_LOGS_RULES
+from .show_work_orders_rules import RULES as SHOW_WORK_ORDERS_RULES
 
 ALL_RULES = [
-    *STAFF_INFO_RULES,
-    *STUDENT_INFO_RULES,
-    *ENROLLMENT_RULES,
-    *INCIDENT_RULES,
-    *BUILDINGS_RULES,
-    *ASSETS_RULES,
-    *GOALS_RULES,
-    *ACADEMIC_TERMS_RULES,
-    *ACCOMMODATIONS_RULES,
-    *ACTIVITIES_RULES,
-    *ADDRESSES_RULES,
-    *AGENDA_ITEM_APPROVALS_RULES,
-    *AGENDA_ITEM_FILES_RULES,
-    *AGENDA_ITEMS_RULES,
-    *AGENDA_WORKFLOW_STEPS_RULES,
-    *AGENDA_WORKFLOWS_RULES,
-    *ALIGNMENTS_RULES,
-    *AP_VENDORS_RULES,
-    *ASSET_PARTS_RULES,
-    *ASSIGNMENT_CATEGORIES_RULES,
-    *ASSIGNMENTS_RULES,
-    *ATTENDANCE_CODES_RULES,
-    *ATTENDANCE_DAILY_SUMMARY_RULES,
-    *ATTENDANCE_EVENTS_RULES,
-    *ATTENDANCES_RULES,
-    *AUDIT_LOGS_RULES,
-    *BEHAVIOR_CODES_RULES,
-    *BEHAVIOR_INTERVENTIONS_RULES,
-    *BELL_SCHEDULES_RULES,
-    *BUS_ROUTES_RULES,
-    *BUS_STOP_TIMES_RULES,
-    *BUS_STOPS_RULES,
-    *CALENDAR_DAYS_RULES,
-    *CALENDARS_RULES,
-    *CHANNELS_RULES,
-    *CLASS_RANKS_RULES,
-    *COMM_SEARCH_INDEX_RULES,
-    *COMMITTEES_RULES,
-    *COMPLIANCE_RECORDS_RULES,
-    *CONSENTS_RULES,
-    *CONSEQUENCE_TYPES_RULES,
-    *CONSEQUENCES_RULES,
-    *CONTACTS_RULES,
-    *COURSE_PREREQUISITES_RULES,
-    *COURSE_SECTIONS_RULES,
-    *COURSES_RULES,
-    *CURRICULA_RULES,
-    *CURRICULUM_UNITS_RULES,
-    *CURRICULUM_VERSIONS_RULES,
-    *DATA_QUALITY_ISSUES_RULES,
-    *DATA_SHARING_AGREEMENTS_RULES,
-    *DEDUCTION_CODES_RULES,
-    *DELIVERIES_RULES,
-    *DEPARTMENT_POSITION_INDEX_RULES,
-    *DEPARTMENTS_RULES,
-    *DOCUMENT_ACTIVITY_RULES,
-    *DOCUMENT_LINKS_RULES,
-    *DOCUMENT_NOTIFICATIONS_RULES,
-    *DOCUMENT_PERMISSIONS_RULES,
-    *DOCUMENT_SEARCH_INDEX_RULES,
-    *DOCUMENT_VERSIONS_RULES,
-    *DOCUMENTS_RULES,
-    *EARNING_CODES_RULES,
-    *EDUCATION_ASSOCIATIONS_RULES,
-    *ELL_PLANS_RULES,
-    *EMBEDS_RULES,
-    *EMERGENCY_CONTACTS_RULES,
-    *EMPLOYEE_DEDUCTIONS_RULES,
-    *EMPLOYEE_EARNINGS_RULES,
-    *ENTITY_TAGS_RULES,
-    *EVALUATION_ASSIGNMENTS_RULES,
-    *EVALUATION_CYCLES_RULES,
-    *EVALUATION_FILES_RULES,
-    *EVALUATION_QUESTIONS_RULES,
-    *EVALUATION_REPORTS_RULES,
-    *EVALUATION_RESPONSES_RULES,
-    *EVALUATION_SECTIONS_RULES,
-    *EVALUATION_SIGNOFFS_RULES,
-    *EVALUATION_TEMPLATES_RULES,
-    *EXPORT_RUNS_RULES,
-    *EXTERNAL_IDS_RULES,
-    *FACILITIES_RULES,
-    *FAMILY_PORTAL_ACCESS_RULES,
-    *FAN_APP_SETTINGS_RULES,
-    *FAN_PAGES_RULES,
-    *FEATURE_FLAGS_RULES,
-    *FEES_RULES,
-    *FINAL_GRADES_RULES,
-    *FISCAL_PERIODS_RULES,
-    *FISCAL_YEARS_RULES,
-    *FLOORS_RULES,
-    *FOLDERS_RULES,
-    *FRAMEWORKS_RULES,
-    *GL_ACCOUNT_BALANCES_RULES,
-    *GL_ACCOUNT_SEGMENTS_RULES,
-    *GL_ACCOUNTS_RULES,
-    *GL_SEGMENT_VALUES_RULES,
-    *GL_SEGMENTS_RULES,
-    *GOVERNING_BODIES_RULES,
-    *GPA_CALCULATIONS_RULES,
-    *GRADE_LEVELS_RULES,
-    *GRADE_SCALE_BANDS_RULES,
-    *GRADE_SCALES_RULES,
-    *GRADEBOOK_ENTRIES_RULES,
-    *GRADING_PERIODS_RULES,
-    *GUARDIANS_RULES,
-    *HEALTH_PROFILES_RULES,
-    *HR_EMPLOYEES_RULES,
-    *HR_POSITION_ASSIGNMENTS_RULES,
-    *HR_POSITIONS_RULES,
-    *IEP_PLANS_RULES,
-    *IMMUNIZATION_RECORDS_RULES,
-    *IMMUNIZATIONS_RULES,
-    *INCIDENT_PARTICIPANTS_RULES,
-    *INCIDENTS_RULES,
-    *INITIATIVES_RULES,
-    *INVOICES_RULES,
-    *JOURNAL_BATCHES_RULES,
-    *JOURNAL_ENTRIES_RULES,
-    *JOURNAL_ENTRY_LINES_RULES,
-    *KPI_DATAPOINTS_RULES,
-    *KPIS_RULES,
-    *LEASES_RULES,
-    *LIBRARY_CHECKOUTS_RULES,
-    *LIBRARY_FINES_RULES,
-    *LIBRARY_HOLDS_RULES,
-    *LIBRARY_ITEMS_RULES,
-    *LIVE_SCORINGS_RULES,
-    *MAINTENANCE_REQUESTS_RULES,
-    *MATERIALS_RULES,
-    *MEAL_ACCOUNTS_RULES,
-    *MEAL_ELIGIBILITY_STATUSES_RULES,
-    *MEAL_TRANSACTIONS_RULES,
-    *MEDICATION_ADMINISTRATIONS_RULES,
-    *MEDICATIONS_RULES,
-    *MEETING_DOCUMENTS_RULES,
-    *MEETING_FILES_RULES,
-    *MEETING_PERMISSIONS_RULES,
-    *MEETING_PUBLICATIONS_RULES,
-    *MEETING_SEARCH_INDEX_RULES,
-    *MEETINGS_RULES,
-    *MEMBERSHIPS_RULES,
-    *MESSAGE_RECIPIENTS_RULES,
-    *MESSAGES_RULES,
-    *METERS_RULES,
-    *MINUTES_RULES,
-    *MOTIONS_RULES,
-    *MOVE_ORDERS_RULES,
-    *NURSE_VISITS_RULES,
-    *OBJECTIVES_RULES,
-    *ORDER_LINE_ITEMS_RULES,
-    *ORGANIZATIONS_RULES,
-    *PART_LOCATIONS_RULES,
-    *PAY_PERIODS_RULES,
-    *PAYCHECKS_RULES,
-    *PAYMENTS_RULES,
-    *PAYROLL_RUNS_RULES,
-    *PERSON_ADDRESSES_RULES,
-    *PERSON_CONTACTS_RULES,
-    *PERSONAL_NOTES_RULES,
-    *PERSONS_RULES,
-    *PLAN_ALIGNMENTS_RULES,
-    *PLAN_ASSIGNMENTS_RULES,
-    *PLAN_FILTERS_RULES,
-    *PLAN_SEARCH_INDEX_RULES,
-    *PM_PLANS_RULES,
-    *PM_WORK_GENERATORS_RULES,
-    *POLICIES_RULES,
-    *POLICY_APPROVALS_RULES,
-    *POLICY_COMMENTS_RULES,
-    *POLICY_FILES_RULES,
-    *POLICY_LEGAL_REFS_RULES,
-    *POLICY_PUBLICATIONS_RULES,
-    *POLICY_SEARCH_INDEX_RULES,
-    *POLICY_VERSIONS_RULES,
-    *POLICY_WORKFLOW_STEPS_RULES,
-    *POLICY_WORKFLOWS_RULES,
-    *POST_ATTACHMENTS_RULES,
-    *POSTS_RULES,
-    *PROJECT_TASKS_RULES,
-    *PROJECTS_RULES,
-    *PROPOSAL_DOCUMENTS_RULES,
-    *PROPOSAL_REVIEWS_RULES,
-    *PROPOSALS_RULES,
-    *REPORT_CARDS_RULES,
-    *REQUIREMENTS_RULES,
-    *RESOLUTIONS_RULES,
-    *RETENTION_RULES_RULES,
-    *REVIEW_REQUESTS_RULES,
-    *REVIEW_ROUNDS_RULES,
-    *ROLE_PERMISSIONS_RULES,
-    *ROLES_RULES,
-    *ROOMS_RULES,
-    *ROUND_DECISIONS_RULES,
-    *SCAN_REQUESTS_RULES,
-    *SCAN_RESULTS_RULES,
-    *SCHOOLS_RULES,
-    *SCORECARD_KPIS_RULES,
-    *SCORECARDS_RULES,
-    *SECTION504_PLANS_RULES,
-    *SECTION_MEETINGS_RULES,
-    *SECTION_ROOM_ASSIGNMENTS_RULES,
-    *SIS_IMPORT_JOBS_RULES,
-    *SPACE_RESERVATIONS_RULES,
-    *SPACES_RULES,
-    *SPECIAL_EDUCATION_CASES_RULES,
-    *STAFF_RULES,
-    *STANDARDIZED_TESTS_RULES,
-    *STANDARDS_RULES,
-    *STATE_REPORTING_SNAPSHOTS_RULES,
-    *STATES_RULES,
-    *STUDENT_GUARDIANS_RULES,
-    *STUDENT_PROGRAM_ENROLLMENTS_RULES,
-    *STUDENT_SCHOOL_ENROLLMENTS_RULES,
-    *STUDENT_SECTION_ENROLLMENTS_RULES,
-    *STUDENT_TRANSPORTATION_ASSIGNMENTS_RULES,
-    *STUDENTS_RULES,
-    *SUBJECTS_RULES,
-    *SUBSCRIPTIONS_RULES,
-    *TEACHER_SECTION_ASSIGNMENTS_RULES,
-    *TEST_ADMINISTRATIONS_RULES,
-    *TEST_RESULTS_RULES,
-    *TICKET_SCANS_RULES,
-    *TICKET_TYPES_RULES,
-    *TICKETS_RULES,
-    *TRANSCRIPT_LINES_RULES,
-    *USER_ACCOUNTS_RULES,
-    *USERS_RULES,
-    *VOTES_RULES,
-    *WAIVERS_RULES,
-    *WARRANTIES_RULES,
-    *WEBHOOKS_RULES,
-    *WORK_ORDER_PARTS_RULES,
-    *WORK_ORDER_TASKS_RULES,
-    *WORK_ORDER_TIME_LOGS_RULES,
-    *WORK_ORDERS_RULES,
+    *SHOW_STAFF_INFO_RULES,
+    *SHOW_STUDENT_INFO_RULES,
+    *SHOW_ENROLLMENT_RULES,
+    *SHOW_INCIDENT_RULES,
+    *SHOW_BUILDINGS_RULES,
+    *SHOW_ASSETS_RULES,
+    *SHOW_GOALS_RULES,
+    *SHOW_ACADEMIC_TERMS_RULES,
+    *SHOW_ACCOMMODATIONS_RULES,
+    *SHOW_ACTIVITIES_RULES,
+    *SHOW_ADDRESSES_RULES,
+    *SHOW_AGENDA_ITEM_APPROVALS_RULES,
+    *SHOW_AGENDA_ITEM_FILES_RULES,
+    *SHOW_AGENDA_ITEMS_RULES,
+    *SHOW_AGENDA_WORKFLOW_STEPS_RULES,
+    *SHOW_AGENDA_WORKFLOWS_RULES,
+    *SHOW_ALIGNMENTS_RULES,
+    *SHOW_AP_VENDORS_RULES,
+    *SHOW_ASSET_PARTS_RULES,
+    *SHOW_ASSIGNMENT_CATEGORIES_RULES,
+    *SHOW_ASSIGNMENTS_RULES,
+    *SHOW_ATTENDANCE_CODES_RULES,
+    *SHOW_ATTENDANCE_DAILY_SUMMARY_RULES,
+    *SHOW_ATTENDANCE_EVENTS_RULES,
+    *SHOW_ATTENDANCES_RULES,
+    *SHOW_AUDIT_LOGS_RULES,
+    *SHOW_BEHAVIOR_CODES_RULES,
+    *SHOW_BEHAVIOR_INTERVENTIONS_RULES,
+    *SHOW_BELL_SCHEDULES_RULES,
+    *SHOW_BUS_ROUTES_RULES,
+    *SHOW_BUS_STOP_TIMES_RULES,
+    *SHOW_BUS_STOPS_RULES,
+    *SHOW_CALENDAR_DAYS_RULES,
+    *SHOW_CALENDARS_RULES,
+    *SHOW_CHANNELS_RULES,
+    *SHOW_CLASS_RANKS_RULES,
+    *SHOW_COMM_SEARCH_INDEX_RULES,
+    *SHOW_COMMITTEES_RULES,
+    *SHOW_COMPLIANCE_RECORDS_RULES,
+    *SHOW_CONSENTS_RULES,
+    *SHOW_CONSEQUENCE_TYPES_RULES,
+    *SHOW_CONSEQUENCES_RULES,
+    *SHOW_CONTACTS_RULES,
+    *SHOW_COURSE_PREREQUISITES_RULES,
+    *SHOW_COURSE_SECTIONS_RULES,
+    *SHOW_COURSES_RULES,
+    *SHOW_CURRICULA_RULES,
+    *SHOW_CURRICULUM_UNITS_RULES,
+    *SHOW_CURRICULUM_VERSIONS_RULES,
+    *SHOW_DATA_QUALITY_ISSUES_RULES,
+    *SHOW_DATA_SHARING_AGREEMENTS_RULES,
+    *SHOW_DEDUCTION_CODES_RULES,
+    *SHOW_DELIVERIES_RULES,
+    *SHOW_DEPARTMENT_POSITION_INDEX_RULES,
+    *SHOW_DEPARTMENTS_RULES,
+    *SHOW_DOCUMENT_ACTIVITY_RULES,
+    *SHOW_DOCUMENT_LINKS_RULES,
+    *SHOW_DOCUMENT_NOTIFICATIONS_RULES,
+    *SHOW_DOCUMENT_PERMISSIONS_RULES,
+    *SHOW_DOCUMENT_SEARCH_INDEX_RULES,
+    *SHOW_DOCUMENT_VERSIONS_RULES,
+    *SHOW_DOCUMENTS_RULES,
+    *SHOW_EARNING_CODES_RULES,
+    *SHOW_EDUCATION_ASSOCIATIONS_RULES,
+    *SHOW_ELL_PLANS_RULES,
+    *SHOW_EMBEDS_RULES,
+    *SHOW_EMERGENCY_CONTACTS_RULES,
+    *SHOW_EMPLOYEE_DEDUCTIONS_RULES,
+    *SHOW_EMPLOYEE_EARNINGS_RULES,
+    *SHOW_ENTITY_TAGS_RULES,
+    *SHOW_EVALUATION_ASSIGNMENTS_RULES,
+    *SHOW_EVALUATION_CYCLES_RULES,
+    *SHOW_EVALUATION_FILES_RULES,
+    *SHOW_EVALUATION_QUESTIONS_RULES,
+    *SHOW_EVALUATION_REPORTS_RULES,
+    *SHOW_EVALUATION_RESPONSES_RULES,
+    *SHOW_EVALUATION_SECTIONS_RULES,
+    *SHOW_EVALUATION_SIGNOFFS_RULES,
+    *SHOW_EVALUATION_TEMPLATES_RULES,
+    *SHOW_EXPORT_RUNS_RULES,
+    *SHOW_EXTERNAL_IDS_RULES,
+    *SHOW_FACILITIES_RULES,
+    *SHOW_FAMILY_PORTAL_ACCESS_RULES,
+    *SHOW_FAN_APP_SETTINGS_RULES,
+    *SHOW_FAN_PAGES_RULES,
+    *SHOW_FEATURE_FLAGS_RULES,
+    *SHOW_FEES_RULES,
+    *SHOW_FINAL_GRADES_RULES,
+    *SHOW_FISCAL_PERIODS_RULES,
+    *SHOW_FISCAL_YEARS_RULES,
+    *SHOW_FLOORS_RULES,
+    *SHOW_FOLDERS_RULES,
+    *SHOW_FRAMEWORKS_RULES,
+    *SHOW_GL_ACCOUNT_BALANCES_RULES,
+    *SHOW_GL_ACCOUNT_SEGMENTS_RULES,
+    *SHOW_GL_ACCOUNTS_RULES,
+    *SHOW_GL_SEGMENT_VALUES_RULES,
+    *SHOW_GL_SEGMENTS_RULES,
+    *SHOW_GOVERNING_BODIES_RULES,
+    *SHOW_GPA_CALCULATIONS_RULES,
+    *SHOW_GRADE_LEVELS_RULES,
+    *SHOW_GRADE_SCALE_BANDS_RULES,
+    *SHOW_GRADE_SCALES_RULES,
+    *SHOW_GRADEBOOK_ENTRIES_RULES,
+    *SHOW_GRADING_PERIODS_RULES,
+    *SHOW_GUARDIANS_RULES,
+    *SHOW_HEALTH_PROFILES_RULES,
+    *SHOW_HR_EMPLOYEES_RULES,
+    *SHOW_HR_POSITION_ASSIGNMENTS_RULES,
+    *SHOW_HR_POSITIONS_RULES,
+    *SHOW_IEP_PLANS_RULES,
+    *SHOW_IMMUNIZATION_RECORDS_RULES,
+    *SHOW_IMMUNIZATIONS_RULES,
+    *SHOW_INCIDENT_PARTICIPANTS_RULES,
+    *SHOW_INCIDENTS_RULES,
+    *SHOW_INITIATIVES_RULES,
+    *SHOW_INVOICES_RULES,
+    *SHOW_JOURNAL_BATCHES_RULES,
+    *SHOW_JOURNAL_ENTRIES_RULES,
+    *SHOW_JOURNAL_ENTRY_LINES_RULES,
+    *SHOW_KPI_DATAPOINTS_RULES,
+    *SHOW_KPIS_RULES,
+    *SHOW_LEASES_RULES,
+    *SHOW_LIBRARY_CHECKOUTS_RULES,
+    *SHOW_LIBRARY_FINES_RULES,
+    *SHOW_LIBRARY_HOLDS_RULES,
+    *SHOW_LIBRARY_ITEMS_RULES,
+    *SHOW_LIVE_SCORINGS_RULES,
+    *SHOW_MAINTENANCE_REQUESTS_RULES,
+    *SHOW_MATERIALS_RULES,
+    *SHOW_MEAL_ACCOUNTS_RULES,
+    *SHOW_MEAL_ELIGIBILITY_STATUSES_RULES,
+    *SHOW_MEAL_TRANSACTIONS_RULES,
+    *SHOW_MEDICATION_ADMINISTRATIONS_RULES,
+    *SHOW_MEDICATIONS_RULES,
+    *SHOW_MEETING_DOCUMENTS_RULES,
+    *SHOW_MEETING_FILES_RULES,
+    *SHOW_MEETING_PERMISSIONS_RULES,
+    *SHOW_MEETING_PUBLICATIONS_RULES,
+    *SHOW_MEETING_SEARCH_INDEX_RULES,
+    *SHOW_MEETINGS_RULES,
+    *SHOW_MEMBERSHIPS_RULES,
+    *SHOW_MESSAGE_RECIPIENTS_RULES,
+    *SHOW_MESSAGES_RULES,
+    *SHOW_METERS_RULES,
+    *SHOW_MINUTES_RULES,
+    *SHOW_MOTIONS_RULES,
+    *SHOW_MOVE_ORDERS_RULES,
+    *SHOW_NURSE_VISITS_RULES,
+    *SHOW_OBJECTIVES_RULES,
+    *SHOW_ORDER_LINE_ITEMS_RULES,
+    *SHOW_ORGANIZATIONS_RULES,
+    *SHOW_PART_LOCATIONS_RULES,
+    *SHOW_PAY_PERIODS_RULES,
+    *SHOW_PAYCHECKS_RULES,
+    *SHOW_PAYMENTS_RULES,
+    *SHOW_PAYROLL_RUNS_RULES,
+    *SHOW_PERSON_ADDRESSES_RULES,
+    *SHOW_PERSON_CONTACTS_RULES,
+    *SHOW_PERSONAL_NOTES_RULES,
+    *SHOW_PERSONS_RULES,
+    *SHOW_PLAN_ALIGNMENTS_RULES,
+    *SHOW_PLAN_ASSIGNMENTS_RULES,
+    *SHOW_PLAN_FILTERS_RULES,
+    *SHOW_PLAN_SEARCH_INDEX_RULES,
+    *SHOW_PM_PLANS_RULES,
+    *SHOW_PM_WORK_GENERATORS_RULES,
+    *SHOW_POLICIES_RULES,
+    *SHOW_POLICY_APPROVALS_RULES,
+    *SHOW_POLICY_COMMENTS_RULES,
+    *SHOW_POLICY_FILES_RULES,
+    *SHOW_POLICY_LEGAL_REFS_RULES,
+    *SHOW_POLICY_PUBLICATIONS_RULES,
+    *SHOW_POLICY_SEARCH_INDEX_RULES,
+    *SHOW_POLICY_VERSIONS_RULES,
+    *SHOW_POLICY_WORKFLOW_STEPS_RULES,
+    *SHOW_POLICY_WORKFLOWS_RULES,
+    *SHOW_POST_ATTACHMENTS_RULES,
+    *SHOW_POSTS_RULES,
+    *SHOW_PROJECT_TASKS_RULES,
+    *SHOW_PROJECTS_RULES,
+    *SHOW_PROPOSAL_DOCUMENTS_RULES,
+    *SHOW_PROPOSAL_REVIEWS_RULES,
+    *SHOW_PROPOSALS_RULES,
+    *SHOW_REPORT_CARDS_RULES,
+    *SHOW_REQUIREMENTS_RULES,
+    *SHOW_RESOLUTIONS_RULES,
+    *SHOW_RETENTION_RULES_RULES,
+    *SHOW_REVIEW_REQUESTS_RULES,
+    *SHOW_REVIEW_ROUNDS_RULES,
+    *SHOW_ROLE_PERMISSIONS_RULES,
+    *SHOW_ROLES_RULES,
+    *SHOW_ROOMS_RULES,
+    *SHOW_ROUND_DECISIONS_RULES,
+    *SHOW_SCAN_REQUESTS_RULES,
+    *SHOW_SCAN_RESULTS_RULES,
+    *SHOW_SCHOOLS_RULES,
+    *SHOW_SCORECARD_KPIS_RULES,
+    *SHOW_SCORECARDS_RULES,
+    *SHOW_SECTION504_PLANS_RULES,
+    *SHOW_SECTION_MEETINGS_RULES,
+    *SHOW_SECTION_ROOM_ASSIGNMENTS_RULES,
+    *SHOW_SIS_IMPORT_JOBS_RULES,
+    *SHOW_SPACE_RESERVATIONS_RULES,
+    *SHOW_SPACES_RULES,
+    *SHOW_SPECIAL_EDUCATION_CASES_RULES,
+    *SHOW_STAFF_RULES,
+    *SHOW_STANDARDIZED_TESTS_RULES,
+    *SHOW_STANDARDS_RULES,
+    *SHOW_STATE_REPORTING_SNAPSHOTS_RULES,
+    *SHOW_STATES_RULES,
+    *SHOW_STUDENT_GUARDIANS_RULES,
+    *SHOW_STUDENT_PROGRAM_ENROLLMENTS_RULES,
+    *SHOW_STUDENT_SCHOOL_ENROLLMENTS_RULES,
+    *SHOW_STUDENT_SECTION_ENROLLMENTS_RULES,
+    *SHOW_STUDENT_TRANSPORTATION_ASSIGNMENTS_RULES,
+    *SHOW_STUDENTS_RULES,
+    *SHOW_SUBJECTS_RULES,
+    *SHOW_SUBSCRIPTIONS_RULES,
+    *SHOW_TEACHER_SECTION_ASSIGNMENTS_RULES,
+    *SHOW_TEST_ADMINISTRATIONS_RULES,
+    *SHOW_TEST_RESULTS_RULES,
+    *SHOW_TICKET_SCANS_RULES,
+    *SHOW_TICKET_TYPES_RULES,
+    *SHOW_TICKETS_RULES,
+    *SHOW_TRANSCRIPT_LINES_RULES,
+    *SHOW_USER_ACCOUNTS_RULES,
+    *SHOW_USERS_RULES,
+    *SHOW_VOTES_RULES,
+    *SHOW_WAIVERS_RULES,
+    *SHOW_WARRANTIES_RULES,
+    *SHOW_WEBHOOKS_RULES,
+    *SHOW_WORK_ORDER_PARTS_RULES,
+    *SHOW_WORK_ORDER_TASKS_RULES,
+    *SHOW_WORK_ORDER_TIME_LOGS_RULES,
+    *SHOW_WORK_ORDERS_RULES,
 ]
 
 __all__ = [
