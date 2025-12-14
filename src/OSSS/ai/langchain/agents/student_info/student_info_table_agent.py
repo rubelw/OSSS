@@ -22,6 +22,13 @@ class StudentInfoTableAgent(LangChainAgentProtocol):
     """
 
     name = "lc.student_info_table"
+    intent = "student_info"
+    intent_aliases = [
+        "student_counts",
+        "list_students",
+        "student_info",
+    ]
+
 
     def __init__(self) -> None:
         llm = get_llm()

@@ -13,6 +13,15 @@ logger = logging.getLogger("OSSS.ai.langchain.staff_info_table_agent")
 
 class StaffInfoTableAgent(LangChainAgentProtocol):
     name = "lc.staff_info_table"
+    intent = "staff_info"
+    intent_aliases = [
+        "staff",
+        "staff_info",
+        "staff_directory",
+        "employee_directory",
+        "teacher_directory",
+        "teachers"
+    ]
 
     def __init__(self) -> None:
         self.llm = get_llm()

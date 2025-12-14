@@ -3,68 +3,90 @@ from __future__ import annotations
 
 from typing import Any, Dict, TypedDict, Optional
 import logging
+import inspect
+import pkgutil
+import importlib
+
 from OSSS.ai.agents.base import AgentResult
-
 from langgraph.graph import StateGraph, START, END
-
-from OSSS.ai.langchain.agents.student_info.student_info_table_agent import StudentInfoTableAgent
-from OSSS.ai.langchain.agents.staff_info.staff_info_table_agent import StaffInfoTableAgent
 
 from OSSS.ai.langchain.registry import (
     register_langchain_agent,
     run_agent as registry_run_agent,
+    get_langchain_agent,  # ✅ use registry for dynamic resolution
 )
 
 logger = logging.getLogger("OSSS.ai.langchain")
 
-# ---------------------------------------------------------------------------
-# Intent → LangChain agent name mapping
-# ---------------------------------------------------------------------------
+DEFAULT_AGENT_NAME = "lc.student_info_table"  # keep a safe fallback
 
-# NOTE: dict keys must be unique. Your previous file had "langchain_agent" twice,
-# which meant the first mapping was overwritten silently.
-INTENT_TO_LC_AGENT: dict[str, str] = {
-    # bridge from old behavior: generic "langchain_agent" goes to student_info_table
-    "langchain_agent": "lc.student_info_table",
-
-    # student intents
-    "student_info": "lc.student_info_table",
-
-    # staff intents
-    "staff_info": "lc.staff_info_table",
-    "staff_directory": "lc.staff_info_table",
-
-    # add more as you build them...
-    # "students_missing_assignments": "lc.students_missing_assignments",
-}
-
-DEFAULT_AGENT_NAME = "lc.student_info_table"
 
 # ---------------------------------------------------------------------------
-# Register concrete agents with the registry
+# Auto-discover and register agents
 # ---------------------------------------------------------------------------
 
-register_langchain_agent(StudentInfoTableAgent())
-register_langchain_agent(StaffInfoTableAgent())
+def _autodiscover_and_register_agents() -> None:
+    """
+    Import all modules under OSSS.ai.langchain.agents and register any agent classes
+    that provide:
+      - .name (str)
+      - async def run(self, message: str, session_id: Optional[str] = None, ...)
+    Assumes agents have a no-arg constructor.
+    """
+    base_pkg = "OSSS.ai.langchain.agents"
+
+    try:
+        pkg = importlib.import_module(base_pkg)
+    except Exception:
+        logger.exception("Failed to import %s for agent autodiscovery", base_pkg)
+        return
+
+    for modinfo in pkgutil.walk_packages(pkg.__path__, prefix=f"{base_pkg}."):
+        modname = modinfo.name
+        try:
+            module = importlib.import_module(modname)
+        except Exception:
+            logger.exception("Failed importing %s during agent autodiscovery", modname)
+            continue
+
+        for _, obj in inspect.getmembers(module, inspect.isclass):
+            # Only consider classes defined in this module (avoid imported classes)
+            if obj.__module__ != modname:
+                continue
+
+            # Must have .name
+            name = getattr(obj, "name", None)
+            if not isinstance(name, str) or not name.strip():
+                continue
+
+            # Must have async .run
+            run_fn = getattr(obj, "run", None)
+            if run_fn is None or not inspect.iscoroutinefunction(run_fn):
+                continue
+
+            # Instantiate (assumes no-arg constructor)
+            try:
+                instance = obj()
+            except Exception:
+                logger.exception("Could not instantiate agent class %s", obj)
+                continue
+
+            try:
+                register_langchain_agent(instance)
+                logger.info("Registered LangChain agent: %s (%s)", instance.name, modname)
+            except Exception:
+                logger.exception("Failed registering agent %r from %s", name, modname)
+
+
+# Register agents at import time (dev reload is safe due to idempotent registry)
+_autodiscover_and_register_agents()
+
 
 # ---------------------------------------------------------------------------
 # LangGraph state + nodes
 # ---------------------------------------------------------------------------
 
-
 class LangchainState(TypedDict, total=False):
-    """
-    State carried through the LangGraph workflow.
-
-    Fields:
-      - raw_message: original message from the caller
-      - normalized_message: cleaned/normalized text used by the agent
-      - session_id: logical chat session id
-      - intent: optional semantic intent label
-      - agent_name: resolved LangChain agent name (e.g. "lc.student_info_table")
-      - result: final result dict returned from the LangChain registry agent
-    """
-
     raw_message: str
     normalized_message: str
     session_id: str
@@ -83,10 +105,23 @@ async def _node_preprocess(state: LangchainState) -> LangchainState:
         raw,
         normalized,
     )
+    return {"normalized_message": normalized}
 
-    return {
-        "normalized_message": normalized,
-    }
+
+def _candidate_agent_names(intent: str) -> list[str]:
+    """
+    Try a few common conventions. This works great with the registry's
+    dynamic normalization (lc. prefix, _table suffix stripping, etc.).
+    """
+    i = intent.strip()
+    return [
+        i,
+        f"lc.{i}",
+        f"{i}_table",
+        f"lc.{i}_table",
+        f"{i}_agent",
+        f"lc.{i}_agent",
+    ]
 
 
 async def _node_select_agent(state: LangchainState) -> LangchainState:
@@ -96,12 +131,20 @@ async def _node_select_agent(state: LangchainState) -> LangchainState:
     if agent_name:
         resolved = agent_name
         reason = "explicit agent_name from caller"
-    elif intent and intent in INTENT_TO_LC_AGENT:
-        resolved = INTENT_TO_LC_AGENT[intent]
-        reason = f"mapped from intent={intent!r}"
+    elif intent:
+        resolved = None
+        for cand in _candidate_agent_names(intent):
+            if get_langchain_agent(cand) is not None:
+                resolved = cand
+                reason = f"matched from intent={intent!r} via candidate={cand!r}"
+                break
+
+        if resolved is None:
+            resolved = DEFAULT_AGENT_NAME
+            reason = f"no agent matched intent={intent!r}; fallback to DEFAULT_AGENT_NAME"
     else:
         resolved = DEFAULT_AGENT_NAME
-        reason = "fallback to DEFAULT_AGENT_NAME"
+        reason = "no intent; fallback to DEFAULT_AGENT_NAME"
 
     logger.info(
         "LangGraph[langchain]._node_select_agent: session_id=%s intent=%r -> agent=%s (%s)",
@@ -110,10 +153,7 @@ async def _node_select_agent(state: LangchainState) -> LangchainState:
         resolved,
         reason,
     )
-
-    return {
-        "agent_name": resolved,
-    }
+    return {"agent_name": resolved}
 
 
 async def _node_run_registry_agent(state: LangchainState) -> LangchainState:
@@ -128,27 +168,15 @@ async def _node_run_registry_agent(state: LangchainState) -> LangchainState:
         normalized,
     )
 
-    # If your registry supports passing intent/extra context, this is where you’d add it.
     result = await registry_run_agent(
         message=normalized,
         session_id=session_id,
         agent_name=agent_name,
     )
-
-    return {
-        "result": result,
-    }
+    return {"result": result}
 
 
 def _node_postprocess(state: dict) -> dict:
-    """
-    LangGraph node: normalize whatever the agent produced into state["reply"].
-
-    This node is invoked with ONLY `state` (not `(state, result)`), so extract
-    the latest agent output from the state itself.
-    """
-
-    # Depending on how your graph stores it, try a few common keys
     result: Any = (
         state.get("agent_result")
         or state.get("result")
@@ -172,18 +200,12 @@ def _node_postprocess(state: dict) -> dict:
     else:
         reply_text = str(result)
 
-    # Return updated state
-    return {
-        **state,
-        "reply": reply_text,
-    }
+    return {**state, "reply": reply_text}
+
 
 # ---------------------------------------------------------------------------
-# Compile LangGraph workflow with SQLite checkpointer
+# Compile LangGraph workflow
 # ---------------------------------------------------------------------------
-
-_langgraph_db_path = "/workspace/langgraph_data/osss_langgraph.db"
-
 
 _langchain_builder = StateGraph(LangchainState)
 _langchain_builder.add_node("preprocess", _node_preprocess)
@@ -199,8 +221,9 @@ _langchain_builder.add_edge("postprocess", END)
 
 _langchain_graph = _langchain_builder.compile()
 
+
 # ---------------------------------------------------------------------------
-# Public entry point used by RouterAgent and /ai/langchain/chat
+# Public entry point
 # ---------------------------------------------------------------------------
 
 async def run_agent(
@@ -208,17 +231,10 @@ async def run_agent(
     session_id: str,
     agent_name: str | None = None,
     intent: str | None = None,
-    rag: Any | None = None,          # ✅ accept it (RouterAgent passes it)
-    rag_request: Any | None = None,  # ✅ accept alt name too (future-proof)
-    **_extra: Any,                   # ✅ swallow anything else safely
+    rag: Any | None = None,
+    rag_request: Any | None = None,
+    **_extra: Any,
 ) -> Dict[str, Any]:
-    """
-    Single entry-point used by RouterAgent and /ai/langchain/chat.
-
-    `rag` / `rag_request` are accepted for compatibility with callers that pass
-    the full RAG request payload/context. This module does not currently use them,
-    but accepting them prevents 500s when upstream adds new kwargs.
-    """
     logger.info(
         "LangChain.run_agent (via LangGraph) called: session_id=%s agent_name=%s intent=%s message=%r rag=%s",
         session_id,
@@ -235,11 +251,9 @@ async def run_agent(
         "intent": intent,
     }
 
-    thread_id = session_id
-
     result_state = await _langchain_graph.ainvoke(
         initial_state,
-        config={"configurable": {"thread_id": thread_id}},
+        config={"configurable": {"thread_id": session_id}},
     )
 
     return result_state["result"]

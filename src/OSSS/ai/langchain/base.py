@@ -40,6 +40,8 @@ DEFAULT_MODEL = getattr(
 
 class LangChainAgentProtocol(Protocol):
     name: str
+    intent: str  # e.g. "incidents"
+    intent_aliases: list[str] = []
 
     async def run(self, message: str, *, session_id: Optional[str] = None) -> Dict[str, Any]:
         ...

@@ -33,13 +33,8 @@ except Exception:
     settings = _Settings()  # type: ignore
 
 
-def _general_intent() -> Intent:
-    if hasattr(Intent, "GENERAL"):
-        return getattr(Intent, "GENERAL")
-    try:
-        return Intent("general")
-    except Exception:
-        return list(Intent)[0]
+def _general_intent() -> str:
+    return "general"
 
 
 def _normalize_intent_label(raw: Any) -> str:
@@ -63,14 +58,12 @@ def _normalize_action(raw_action: Any) -> Optional[str]:
     return action_norm
 
 
-def _intent_from_label(label: str) -> Intent:
+def _intent_from_label(label: str) -> str:
     """
-    Convert a normalized string label into the Intent enum safely.
+    Return the normalized intent label as a string.
+    (Do NOT coerce into the Intent enum; this allows new intents without code changes.)
     """
-    try:
-        return Intent(label)
-    except Exception:
-        return _general_intent()
+    return _normalize_intent_label(label)
 
 
 async def classify_intent(text: str) -> IntentResult:
@@ -96,7 +89,7 @@ async def classify_intent(text: str) -> IntentResult:
                 raw_label = str(getattr(heuristic_result, "intent", "general"))
 
         normalized_label = _normalize_intent_label(raw_label)
-        normalized_intent = _intent_from_label(normalized_label)
+        normalized_intent = normalized_label
 
         logger.info(
             "[intent_classifier] heuristic matched raw_intent=%r normalized=%r rule=%s",
@@ -189,7 +182,7 @@ async def classify_intent(text: str) -> IntentResult:
 
     # ✅ intent enum via canonical alias map (from agent_routing_config)
     normalized_label = _normalize_intent_label(raw_intent)
-    intent = _intent_from_label(normalized_label)
+    intent = normalized_label
 
     # action normalize (still local here)
     action_norm = _normalize_action(raw_action)

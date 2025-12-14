@@ -32,7 +32,7 @@ import OSSS.ai.agents.student.registration_agent  # noqa: F401
 import OSSS.ai.agents.query_data  # noqa: F401
 
 from OSSS.ai.langchain import run_agent as run_langchain_agent
-from OSSS.ai.langchain import INTENT_TO_LC_AGENT
+from OSSS.ai.langchain.registry import get_langchain_agent
 
 
 YEAR_PATTERN = re.compile(r"(20[2-9][0-9])[-/](?:20[2-9][0-9]|[0-9]{2})")
@@ -1051,11 +1051,11 @@ class RouterAgent:
             query=query,
         )
 
-        # ---- LangChain short-circuit via mapping ----------------------
-        # If the effective intent is mapped to a LangChain agent, route
-        # directly into the LangChain pipeline instead of MetaGPT/RAG.
-        if intent_label in INTENT_TO_LC_AGENT:
-            lc_agent_name = INTENT_TO_LC_AGENT[intent_label]
+        # ---- LangChain short-circuit (dynamic) -------------------------
+        # No hard-coded mapping: if a LangChain agent is registered whose name matches
+        # this intent (convention: "lc.<intent>_table"), route to it.
+        lc_agent_name = f"lc.{intent_label}_table"
+        if get_langchain_agent(lc_agent_name) is not None:
             logger.info(
                 "Routing to LangChain agent %s for intent=%s",
                 lc_agent_name,
@@ -1065,12 +1065,14 @@ class RouterAgent:
             lc_result = await run_langchain_agent(
                 session_id=str(agent_session_id),
                 agent_name=lc_agent_name,
-                rag=rag,
-                session=session,
+                intent=intent_label,  # ✅ pass intent through
                 message=query,
+                rag=rag,  # ✅ accepted by langchain.run_agent
+                rag_request=rag,  # ✅ accepted alt name too
+                session=session,  # ✅ swallowed by **_extra
             )
 
-            # ✅ normalize LangChain result to a reply string (dict OR Pydantic model)
+            # ✅ normalize LangChain result to a reply string (dict OR object)
             reply_text = ""
             lc_meta: dict[str, Any] | None = None
 
@@ -1083,15 +1085,12 @@ class RouterAgent:
                 )
                 lc_meta = lc_result
             else:
-                # Pydantic model or arbitrary object
                 reply_text = (
                         getattr(lc_result, "reply", None)
                         or getattr(lc_result, "answer_text", None)
                         or getattr(lc_result, "output", None)
                         or ""
                 )
-
-                # If it's Pydantic, try model_dump() for compatibility with older callers
                 if not reply_text and hasattr(lc_result, "model_dump"):
                     try:
                         dumped = lc_result.model_dump()
@@ -1106,16 +1105,12 @@ class RouterAgent:
                     except Exception:
                         logger.debug("LangChain result model_dump() failed", exc_info=True)
 
-            # last resort
             if reply_text is None:
                 reply_text = ""
 
             response_payload = {
                 "answer": {
-                    "message": {
-                        "role": "assistant",
-                        "content": reply_text,
-                    },
+                    "message": {"role": "assistant", "content": reply_text},
                     "status": "ok",
                 },
                 "retrieved_chunks": [],
@@ -1135,12 +1130,7 @@ class RouterAgent:
                 "tone_minor": tone_minor,
                 "tone_minor_confidence": tone_minor_confidence,
                 "agent_trace": _build_agent_trace(
-                    {
-                        "agent": "LangChainAgent",
-                        "status": "ok",
-                        "intent": intent_label,
-                        "children": [],
-                    },
+                    {"agent": "LangChainAgent", "status": "ok", "intent": intent_label, "children": []},
                     intent_label=intent_label,
                 ),
                 "agent_debug_information": {
@@ -1161,34 +1151,16 @@ class RouterAgent:
                     "lc_agent_name": lc_agent_name,
                     "lc_result_type": type(lc_result).__name__,
                     "lc_result_preview": (str(lc_meta)[:2000] if lc_meta is not None else None),
-
                 },
             }
-
-            try:
-                debug_json = json.dumps(response_payload, ensure_ascii=False, default=str)[:4000]
-            except TypeError:
-                debug_json = f"<non-serializable payload keys={list(response_payload.keys())}>"
 
             logger.info(
                 "[RAG] response (langchain_agent:%s): %s",
                 lc_agent_name,
-                debug_json,
+                json.dumps(response_payload, ensure_ascii=False, default=str)[:4000],
             )
-
             return response_payload
 
-        # ---- persist session metadata ---------------------------------
-        touch_session(
-            agent_session_id,
-            intent=intent_label,
-            query=query,
-        )
-
-        # ---- LangChain short-circuit via mapping ----------------------
-        if intent_label in INTENT_TO_LC_AGENT:
-            ...
-            return response_payload
 
         # ✅ INSERT OPTION A PRE-RETRIEVE BLOCK RIGHT HERE
         # ---- Option A: pre-retrieve if an agent exists ----------------
