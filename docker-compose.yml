@@ -291,6 +291,10 @@ services:
       OLLAMA_BASE_URL: "http://host.containers.internal:11434"
       OSSS_LANGCHAIN_MODEL: "llama3.1:latest"
       SKIP_GL_SEGMENTS: "false"
+      OPENBLAS_NUM_THREADS: 1
+      OMP_NUM_THREADS: 1
+      MKL_NUM_THREADS: 1
+      NUMEXPR_NUM_THREADS: 1
 
 
     depends_on:

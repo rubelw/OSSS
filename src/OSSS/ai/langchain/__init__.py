@@ -1,269 +1,245 @@
 # src/OSSS/ai/langchain/__init__.py
 from __future__ import annotations
 
-from typing import TypedDict, Annotated, Any
-from operator import add
+from typing import Any, Dict, TypedDict, Optional
 import logging
-import inspect
+from OSSS.ai.agents.base import AgentResult
 
 from langgraph.graph import StateGraph, START, END
-from langgraph.checkpoint.memory import MemorySaver
-from langchain_core.messages import BaseMessage
 
-from OSSS.ai.langchain.agents.staff_info.staff_info_table_agent import StaffInfoTableAgent
-from OSSS.ai.session_store import RagSession
 from OSSS.ai.langchain.agents.student_info.student_info_table_agent import StudentInfoTableAgent
+from OSSS.ai.langchain.agents.staff_info.staff_info_table_agent import StaffInfoTableAgent
+
+from OSSS.ai.langchain.registry import (
+    register_langchain_agent,
+    run_agent as registry_run_agent,
+)
 
 logger = logging.getLogger("OSSS.ai.langchain")
 
-# -------------------------------------------------------------------
-# Simple local LC agent registry
-# -------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Intent → LangChain agent name mapping
+# ---------------------------------------------------------------------------
 
-
-def get_agent_for_name(agent_name: str):
-    """
-    Minimal registry for LangChain-style agents used via LangGraph.
-
-    Expand this as you add more LC agents. For now we only support
-    the student info table agent.
-    """
-    if agent_name == "lc.student_info_table":
-        return StudentInfoTableAgent()
-    elif agent_name == "lc.staff_info_table":
-        return StaffInfoTableAgent()
-
-    raise ValueError(f"Unknown LangChain agent_name={agent_name!r}")
-
-
-# -------------------------------------------------------------------
-# LangChain graph state type
-# -------------------------------------------------------------------
-
-
-class LangChainState(TypedDict, total=False):
-    messages: Annotated[list[BaseMessage], add]
-    session_id: str
-    agent_name: str
-    # We keep RAGRequest as Any to avoid circular imports; we only
-    # need its .messages attribute at runtime.
-    rag_request: Any
-    session: RagSession
-    # where we stash the agent result
-    result: dict
-
-
-# -------------------------------------------------------------------
-# Helper: build kwargs for an agent method based on its signature
-# -------------------------------------------------------------------
-
-
-def _build_agent_call_kwargs(
-    fn: Any,
-    *,
-    query: str,
-    rag: Any,
-    session: RagSession,
-) -> dict:
-    """
-    Inspect the function signature and only pass arguments it expects.
-
-    This lets you have agents with signatures like:
-
-        run(self, rag, session)
-        run(self, request, session)
-        run(self, query, rag, session)
-        run(self, request)
-
-    without forcing everyone to accept `query=..., rag=..., session=...`.
-    """
-    sig = inspect.signature(fn)
-    call_kwargs: dict[str, Any] = {}
-
-    for name, param in sig.parameters.items():
-        # For bound methods, "self" is usually not present; this is just a guard.
-        if name == "self":
-            continue
-
-        # Map typical names for the natural-language query
-        if name in {"query", "question", "text", "prompt", "message"}:
-            call_kwargs[name] = query
-        # Map typical names for the RAG request object
-        elif name in {"rag", "request", "rag_request", "rag_request_obj"}:
-            call_kwargs[name] = rag
-        # Map typical names for the session / context
-        elif name in {"session", "rag_session", "db_session"}:
-            call_kwargs[name] = session
-        else:
-            # Leave anything else alone; if it's required with no default,
-            # we will detect that below and raise a nicer error.
-            continue
-
-    # Check for required params we couldn't fill
-    missing_required = [
-        name
-        for name, param in sig.parameters.items()
-        if name != "self"
-        and param.default is inspect._empty
-        and name not in call_kwargs
-    ]
-
-    if missing_required:
-        raise TypeError(
-            f"Cannot call agent method {fn!r}: missing required parameters "
-            f"{missing_required!r}. Available context params: "
-            f"query, rag_request, session."
-        )
-
-    return call_kwargs
-
-
-# -------------------------------------------------------------------
-# Nodes
-# -------------------------------------------------------------------
-
-
-async def node_run_agent(state: LangChainState) -> LangChainState:
-    """Single node that runs the chosen LangChain agent."""
-    session_id = state["session_id"]
-    agent_name = state["agent_name"]
-    rag = state["rag_request"]
-    session = state["session"]
-
-    # Your own registry / factory for building LC agents
-    agent = get_agent_for_name(agent_name)
-
-    # The natural language query; adapt if you use a different source
-    query = ""
-    try:
-        messages = getattr(rag, "messages", None) or []
-        if messages:
-            last = messages[-1]
-            query = getattr(last, "content", "") or ""
-    except Exception:
-        logger.exception(
-            "LangChain.node_run_agent: failed to extract query from rag.messages; "
-            "defaulting to empty string"
-        )
-
-    logger.info(
-        "LangChain.run_agent (via LangGraph) called: "
-        "session_id=%s agent_name=%s message=%r",
-        session_id,
-        agent_name,
-        query,
-    )
-
-    # --- Call the agent, supporting both async & sync APIs --------------
-    result_payload: dict | Any
-
-    # 1) Preferred async method, if present
-    if hasattr(agent, "arun") and callable(getattr(agent, "arun")):
-        arun_fn = getattr(agent, "arun")
-        call_kwargs = _build_agent_call_kwargs(
-            arun_fn,
-            query=query,
-            rag=rag,
-            session=session,
-        )
-        result_payload = await arun_fn(**call_kwargs)
-
-    # 2) Fallback to .run(...)
-    elif hasattr(agent, "run") and callable(getattr(agent, "run")):
-        run_fn = getattr(agent, "run")
-        call_kwargs = _build_agent_call_kwargs(
-            run_fn,
-            query=query,
-            rag=rag,
-            session=session,
-        )
-
-        if inspect.iscoroutinefunction(run_fn):
-            # Async run(...)
-            result_payload = await run_fn(**call_kwargs)
-        else:
-            # Sync run(...). If this gets heavy we can later wrap in a thread.
-            result_payload = run_fn(**call_kwargs)
-    else:
-        raise AttributeError(
-            f"LangChain agent {agent_name!r} has neither 'arun' nor 'run' method"
-        )
-
-    return {"result": result_payload}
-
-
-# -------------------------------------------------------------------
-# LangGraph checkpointer for LangChain graph (in-memory)
-# -------------------------------------------------------------------
-
-_langchain_checkpointer = MemorySaver()
-
-
-def build_langchain_graph() -> StateGraph:
-    g = StateGraph(LangChainState)
-
-    g.add_node("run_agent", node_run_agent)
-
-    g.add_edge(START, "run_agent")
-    g.add_edge("run_agent", END)
-
-    return g
-
-
-# Compile once at import time with the checkpointer instance
-_langchain_graph = build_langchain_graph().compile(
-    checkpointer=_langchain_checkpointer
-)
-
-# -------------------------------------------------------------------
-# Mapping from intents to LangChain agent names
-# -------------------------------------------------------------------
-
+# NOTE: dict keys must be unique. Your previous file had "langchain_agent" twice,
+# which meant the first mapping was overwritten silently.
 INTENT_TO_LC_AGENT: dict[str, str] = {
-    # You can expand this mapping as needed
+    # bridge from old behavior: generic "langchain_agent" goes to student_info_table
+    "langchain_agent": "lc.student_info_table",
+
+    # student intents
     "student_info": "lc.student_info_table",
+
+    # staff intents
     "staff_info": "lc.staff_info_table",
+    "staff_directory": "lc.staff_info_table",
+
+    # add more as you build them...
+    # "students_missing_assignments": "lc.students_missing_assignments",
 }
 
+DEFAULT_AGENT_NAME = "lc.student_info_table"
 
-# -------------------------------------------------------------------
-# Public entrypoint used by RouterAgent
-# -------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Register concrete agents with the registry
+# ---------------------------------------------------------------------------
+
+register_langchain_agent(StudentInfoTableAgent())
+register_langchain_agent(StaffInfoTableAgent())
+
+# ---------------------------------------------------------------------------
+# LangGraph state + nodes
+# ---------------------------------------------------------------------------
 
 
-async def run_agent(
-    *,
-    session_id: str,
-    agent_name: str,
-    rag: Any,
-    session: RagSession,
-    message: str | None = None,
-) -> dict:
+class LangchainState(TypedDict, total=False):
     """
-    This is what RouterAgent calls when it wants to invoke a LangChain agent
-    via LangGraph.
+    State carried through the LangGraph workflow.
 
-    The `message` argument is currently unused here because we re-derive the
-    query from `rag.messages`, but we keep it in the signature so
-    RouterAgent can pass it without errors.
+    Fields:
+      - raw_message: original message from the caller
+      - normalized_message: cleaned/normalized text used by the agent
+      - session_id: logical chat session id
+      - intent: optional semantic intent label
+      - agent_name: resolved LangChain agent name (e.g. "lc.student_info_table")
+      - result: final result dict returned from the LangChain registry agent
     """
-    # Initial graph state
-    initial_state: LangChainState = {
-        "session_id": session_id,
-        "agent_name": agent_name,
-        "rag_request": rag,
-        "session": session,
-        # if you want messages in this graph, pass them here:
-        # "messages": [...],
+
+    raw_message: str
+    normalized_message: str
+    session_id: str
+    intent: str | None
+    agent_name: str | None
+    result: Dict[str, Any]
+
+
+async def _node_preprocess(state: LangchainState) -> LangchainState:
+    raw = state["raw_message"]
+    normalized = " ".join(raw.strip().split())
+
+    logger.debug(
+        "LangGraph[langchain]._node_preprocess: session_id=%s raw=%r normalized=%r",
+        state["session_id"],
+        raw,
+        normalized,
+    )
+
+    return {
+        "normalized_message": normalized,
     }
 
-    # Use a thread_id / checkpoint namespace keyed on session & agent
-    thread_id = f"{session_id}:{agent_name}"
 
-    # For newer langgraph versions, the thread_id is passed via "configurable"
+async def _node_select_agent(state: LangchainState) -> LangchainState:
+    agent_name = state.get("agent_name")
+    intent = state.get("intent")
+
+    if agent_name:
+        resolved = agent_name
+        reason = "explicit agent_name from caller"
+    elif intent and intent in INTENT_TO_LC_AGENT:
+        resolved = INTENT_TO_LC_AGENT[intent]
+        reason = f"mapped from intent={intent!r}"
+    else:
+        resolved = DEFAULT_AGENT_NAME
+        reason = "fallback to DEFAULT_AGENT_NAME"
+
+    logger.info(
+        "LangGraph[langchain]._node_select_agent: session_id=%s intent=%r -> agent=%s (%s)",
+        state["session_id"],
+        intent,
+        resolved,
+        reason,
+    )
+
+    return {
+        "agent_name": resolved,
+    }
+
+
+async def _node_run_registry_agent(state: LangchainState) -> LangchainState:
+    normalized = state.get("normalized_message") or state["raw_message"]
+    session_id = state["session_id"]
+    agent_name = state["agent_name"] or DEFAULT_AGENT_NAME
+
+    logger.info(
+        "LangGraph[langchain]._node_run_registry_agent: session_id=%s agent_name=%s message=%r",
+        session_id,
+        agent_name,
+        normalized,
+    )
+
+    # If your registry supports passing intent/extra context, this is where you’d add it.
+    result = await registry_run_agent(
+        message=normalized,
+        session_id=session_id,
+        agent_name=agent_name,
+    )
+
+    return {
+        "result": result,
+    }
+
+
+def _node_postprocess(state: dict) -> dict:
+    """
+    LangGraph node: normalize whatever the agent produced into state["reply"].
+
+    This node is invoked with ONLY `state` (not `(state, result)`), so extract
+    the latest agent output from the state itself.
+    """
+
+    # Depending on how your graph stores it, try a few common keys
+    result: Any = (
+        state.get("agent_result")
+        or state.get("result")
+        or state.get("output")
+        or state.get("final")
+    )
+
+    if isinstance(result, AgentResult):
+        reply_text = result.answer_text
+    elif isinstance(result, dict):
+        reply_text = (
+            result.get("reply")
+            or result.get("output")
+            or result.get("answer_text")
+            or ""
+        )
+        if not reply_text:
+            reply_text = str(result)
+    elif result is None:
+        reply_text = ""
+    else:
+        reply_text = str(result)
+
+    # Return updated state
+    return {
+        **state,
+        "reply": reply_text,
+    }
+
+# ---------------------------------------------------------------------------
+# Compile LangGraph workflow with SQLite checkpointer
+# ---------------------------------------------------------------------------
+
+_langgraph_db_path = "/workspace/langgraph_data/osss_langgraph.db"
+
+
+_langchain_builder = StateGraph(LangchainState)
+_langchain_builder.add_node("preprocess", _node_preprocess)
+_langchain_builder.add_node("select_agent", _node_select_agent)
+_langchain_builder.add_node("run_registry_agent", _node_run_registry_agent)
+_langchain_builder.add_node("postprocess", _node_postprocess)
+
+_langchain_builder.add_edge(START, "preprocess")
+_langchain_builder.add_edge("preprocess", "select_agent")
+_langchain_builder.add_edge("select_agent", "run_registry_agent")
+_langchain_builder.add_edge("run_registry_agent", "postprocess")
+_langchain_builder.add_edge("postprocess", END)
+
+_langchain_graph = _langchain_builder.compile()
+
+# ---------------------------------------------------------------------------
+# Public entry point used by RouterAgent and /ai/langchain/chat
+# ---------------------------------------------------------------------------
+
+async def run_agent(
+    message: str,
+    session_id: str,
+    agent_name: str | None = None,
+    intent: str | None = None,
+    rag: Any | None = None,          # ✅ accept it (RouterAgent passes it)
+    rag_request: Any | None = None,  # ✅ accept alt name too (future-proof)
+    **_extra: Any,                   # ✅ swallow anything else safely
+) -> Dict[str, Any]:
+    """
+    Single entry-point used by RouterAgent and /ai/langchain/chat.
+
+    `rag` / `rag_request` are accepted for compatibility with callers that pass
+    the full RAG request payload/context. This module does not currently use them,
+    but accepting them prevents 500s when upstream adds new kwargs.
+    """
+    logger.info(
+        "LangChain.run_agent (via LangGraph) called: session_id=%s agent_name=%s intent=%s message=%r rag=%s",
+        session_id,
+        agent_name,
+        intent,
+        message,
+        type(rag).__name__ if rag is not None else None,
+    )
+
+    initial_state: LangchainState = {
+        "raw_message": message,
+        "session_id": session_id,
+        "agent_name": agent_name,
+        "intent": intent,
+    }
+
+    thread_id = session_id
+
     result_state = await _langchain_graph.ainvoke(
         initial_state,
         config={"configurable": {"thread_id": thread_id}},
     )
 
-    return result_state.get("result", {})
+    return result_state["result"]

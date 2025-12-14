@@ -10,6 +10,11 @@ logger = logging.getLogger("OSSS.ai.langchain.registry")
 
 _LANGCHAIN_AGENTS: Dict[str, LangChainAgentProtocol] = {}
 
+ALIASES = {
+    "staff_directory": "lc.staff_info_table",
+    "student_info": "lc.student_info_table",
+    "student_directory": "lc.student_info_table",
+}
 
 def register_langchain_agent(agent: LangChainAgentProtocol) -> None:
     if agent.name in _LANGCHAIN_AGENTS:
@@ -17,11 +22,10 @@ def register_langchain_agent(agent: LangChainAgentProtocol) -> None:
     _LANGCHAIN_AGENTS[agent.name] = agent
 
 
-def get_langchain_agent(name: str) -> Optional[LangChainAgentProtocol]:
-    logger.info("LangChain agents currently registered: %s", sorted(_LANGCHAIN_AGENTS.keys()))
-
-    return _LANGCHAIN_AGENTS.get(name)
-
+def get_langchain_agent(intent: str):
+    key = ALIASES.get(intent, intent)
+    logger.info("LangChain agent lookup: intent=%s key=%s", intent, key)
+    return _LANGCHAIN_AGENTS.get(key)
 
 async def run_agent(
     message: str,

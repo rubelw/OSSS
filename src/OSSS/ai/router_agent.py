@@ -34,6 +34,7 @@ import OSSS.ai.agents.query_data  # noqa: F401
 from OSSS.ai.langchain import run_agent as run_langchain_agent
 from OSSS.ai.langchain import INTENT_TO_LC_AGENT
 
+
 YEAR_PATTERN = re.compile(r"(20[2-9][0-9])[-/](?:20[2-9][0-9]|[0-9]{2})")
 
 logger = logging.getLogger("OSSS.ai.router_agent")
@@ -65,6 +66,7 @@ except Exception:  # fallback, same as in your ai_gateway
 
     settings = _Settings()  # type: ignore
 
+
 def _safe_preview(text: str | None, n: int = 240) -> str:
     if not text:
         return ""
@@ -88,6 +90,7 @@ logger.info(
     len(ALIAS_MAP),
     dict(list(ALIAS_MAP.items())[:10]),
 )
+
 
 def _looks_like_school_year(text: str) -> bool:
     """
@@ -129,6 +132,11 @@ class IntentResolution(BaseModel):
 class IntentResolver:
     """
     Encapsulates intent classification, aliasing, and flow stickiness.
+
+    NOTE:
+    - Heuristic routing now lives in intent_classifier.py (apply_heuristics),
+      so router_agent.py remains purely orchestrational and does NOT do phrase→intent
+      mapping itself.
     """
 
     async def resolve(
@@ -167,6 +175,7 @@ class IntentResolver:
         raw_model_output: str | None = None
 
         try:
+            # classify_intent now includes heuristic pass internally
             intent_result = await classify_intent(query)
             classified = intent_result.intent
             action = getattr(intent_result, "action", None) or "read"
@@ -249,57 +258,11 @@ class IntentResolver:
             normalized_session,
         )
 
-        # Optional: show the raw LLM block (when present)
+        # Optional: show the raw LLM / heuristic block (when present)
         if raw_model_output:
             logger.debug(
                 "IntentResolver.raw_model_output.preview=%r",
                 _safe_preview(raw_model_output, 800),
-            )
-
-        # ------------------------------
-        # Heuristics (override BEFORE flow stickiness)
-        # ------------------------------
-        show_words = r"(show|list|display|lookup|find|view|print)"
-        staff_words = r"(staff|directory|employee|employees|teacher|teachers|counselor|principal|administrator|administrative)"
-        student_words = r"\bstudent(s)?\b"
-
-        # Strong staff routing
-        heuristic_intent: str | None = None
-        if re.search(show_words, ql) and re.search(staff_words, ql):
-            heuristic_intent = "staff_info"
-
-        # Prevent student_counts hijack unless it *really* is a count request
-        count_words = r"(count|counts|how many|number of|total|totals)"
-        if normalized_classified == "student_counts" and not re.search(count_words, ql):
-            logger.info("Remapped student_counts -> student_info (no count language in query)")
-            normalized_classified = "student_info"
-            classified_label = "student_info"
-
-        # If user says “show student info” but not “count”, prefer student_info
-        if heuristic_intent is None and re.search(show_words, ql) and re.search(student_words, ql) and not re.search(count_words, ql):
-            heuristic_intent = "student_info"
-
-        if heuristic_intent is not None:
-            logger.info("Heuristics matched intent=%s for query=%r", heuristic_intent, _safe_preview(query))
-            # heuristics should still be aliasable
-            base_label = heuristic_intent
-            intent_label = ALIAS_MAP.get(base_label, base_label)
-
-            return IntentResolution(
-                intent=intent_label,
-                action=action,
-                action_confidence=action_confidence,
-                urgency=urgency,
-                urgency_confidence=urgency_confidence,
-                tone_major=tone_major,
-                tone_major_confidence=tone_major_confidence,
-                tone_minor=tone_minor,
-                tone_minor_confidence=tone_minor_confidence,
-                within_registration_flow=False,  # name kept for compatibility
-                classified_label=classified_label,
-                session_intent=session_intent,
-                manual_label=manual_label,
-                intent_raw_model_output=raw_model_output,
             )
 
         # ------------------------------
@@ -416,39 +379,38 @@ class AgentDispatcher:
     """
 
     async def dispatch(
-        self,
-        *,
-        intent_label: str,
-        query: str,
-        rag: "RAGRequest",
-        session: RagSession,
-        session_files: list[str],
-        action: str | None,
-        action_confidence: float | None,
-        urgency: str | None,
-        urgency_confidence: float | None,
-        tone_major: str | None,
-        tone_major_confidence: float | None,
-        tone_minor: str | None,
-        tone_minor_confidence: float | None,
-        intent_raw_model_output: str | None,
+            self,
+            *,
+            intent_label: str,
+            query: str,
+            rag: "RAGRequest",
+            session: RagSession,
+            session_files: list[str],
+            action: str | None,
+            action_confidence: float | None,
+            urgency: str | None,
+            urgency_confidence: float | None,
+            tone_major: str | None,
+            tone_major_confidence: float | None,
+            tone_minor: str | None,
+            tone_minor_confidence: float | None,
+            intent_raw_model_output: str | None,
+            retrieved_chunks: list[dict[str, Any]] | None = None,  # ✅ add
+            retrieved_index: str | None = None,  # ✅ add
     ) -> dict | None:
+
         agent_session_id = session.id
 
         # Defaults from the incoming RAG request (usually "main-rag-agent"/"General RAG")
         agent_id: Optional[str] = rag.agent_id
         agent_name: Optional[str] = rag.agent_name
 
-        logger.debug(
-            "intent_label=%s", intent_label
-        )
+        logger.debug("intent_label=%s", intent_label)
 
         agent = get_agent(intent_label)
         if agent is None:
             # No agent for this intent; caller should use RAG fallback
-            logger.debug(
-                "No agent registered for intent=%s; using RAG fallback", intent_label
-            )
+            logger.debug("No agent registered for intent=%s; using RAG fallback", intent_label)
             return None
 
         # For a specialized agent, override the labels so the UI shows the real agent
@@ -482,16 +444,18 @@ class AgentDispatcher:
             main_session_id=agent_session_id,
             subagent_session_id=rag.subagent_session_id,
             metadata=metadata,
-            retrieved_chunks=[],
+            retrieved_chunks=retrieved_chunks or [],  # ✅ was []
             session_files=session_files,
         )
+
+        # Optional: stash retrieval index in metadata for agents that care
+        if retrieved_index:
+            ctx.metadata["retrieved_index"] = retrieved_index
 
         try:
             agent_result = await agent.run(ctx)
         except Exception as e:
-            logger.exception(
-                "Agent '%s' failed; falling back to error payload", intent_label
-            )
+            logger.exception("Agent '%s' failed; falling back to error payload", intent_label)
             error_response = {
                 "answer": {
                     "message": {
@@ -536,6 +500,12 @@ class AgentDispatcher:
             )
             return error_response
 
+        # ---- retrieved chunks precedence (Option A) ------------------
+        retrieved_out = getattr(agent_result, "extra_chunks", None)
+        if not retrieved_out:
+            retrieved_out = pre_retrieved_chunks  # fallback from pre-retrieval
+
+
         # Build the trace for this agent call
         agent_trace = _build_agent_trace(agent_result, intent_label=intent_label)
 
@@ -547,7 +517,7 @@ class AgentDispatcher:
                 },
                 "status": getattr(agent_result, "status", "ok"),
             },
-            "retrieved_chunks": getattr(agent_result, "extra_chunks", []),
+            "retrieved_chunks": retrieved_out or [],
             "index": getattr(agent_result, "index", getattr(rag, "index", "main")),
             "intent": getattr(agent_result, "intent", intent_label),
             "agent_session_id": agent_session_id,
@@ -587,9 +557,7 @@ class AgentDispatcher:
                     }
                     user_response["agent_debug_information"] = merged_debug
         except Exception:
-            logger.exception(
-                "Failed to extract agent_debug_information from AgentResult"
-            )
+            logger.exception("Failed to extract agent_debug_information from AgentResult")
 
         logger.info(
             "[RAG] response (agent=%s): %s",
@@ -608,6 +576,68 @@ class RagEngine:
     def __init__(self, *, embed_url: str, chat_url: str) -> None:
         self.embed_url = embed_url
         self.chat_url = chat_url
+
+    async def retrieve_only(
+            self,
+            *,
+            query: str,
+            requested_index: str,
+            k: int = 12,
+    ) -> tuple[str, list[dict[str, Any]]]:
+        """
+        Option A: run retrieval before agent dispatch and return:
+          - normalized_index
+          - debug_neighbors chunks in the same shape your UI expects
+        """
+        # normalize index
+        requested_index = (requested_index or "main").strip()
+        if requested_index not in INDEX_KINDS:
+            logger.warning(
+                "Unknown index '%s', falling back to 'main'. Valid values: %s",
+                requested_index,
+                ", ".join(INDEX_KINDS),
+            )
+            requested_index = "main"
+
+        # --- embeddings ------------------------------------------------
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            embed_req = {"model": "nomic-embed-text", "prompt": query}
+            er = await client.post(self.embed_url, json=embed_req)
+            if er.status_code >= 400:
+                raise RuntimeError(f"Embedding endpoint error {er.status_code}: {er.text}")
+
+            ej = er.json()
+            if isinstance(ej, dict) and "data" in ej:
+                vec = ej["data"][0]["embedding"]
+            elif isinstance(ej, dict) and "embedding" in ej:
+                vec = ej["embedding"]
+            elif isinstance(ej, dict) and "embeddings" in ej:
+                vec = ej["embeddings"][0]
+            else:
+                raise RuntimeError(f"Unexpected embedding response schema: {ej!r}")
+
+            query_emb = np.array(vec, dtype="float32")
+
+        # --- retrieval -------------------------------------------------
+        neighbors = top_k(query_emb, k=k, index=requested_index)
+
+        debug_neighbors: list[dict[str, Any]] = []
+        for score, chunk in neighbors:
+            debug_neighbors.append(
+                {
+                    "score": float(score),
+                    "filename": getattr(chunk, "filename", None),
+                    "chunk_index": getattr(chunk, "chunk_index", None),
+                    "text_preview": (getattr(chunk, "text", "") or "")[:800],
+                    "image_paths": getattr(chunk, "image_paths", None),
+                    "page_index": getattr(chunk, "page_index", None),
+                    "page_chunk_index": getattr(chunk, "page_chunk_index", None),
+                    "source": getattr(chunk, "source", None),
+                    "pdf_index_path": getattr(chunk, "pdf_index_path", None),
+                }
+            )
+
+        return requested_index, debug_neighbors
 
     async def answer(
         self,
@@ -639,9 +669,7 @@ class RagEngine:
                 embed_req = {"model": "nomic-embed-text", "prompt": query}
                 er = await client.post(self.embed_url, json=embed_req)
                 if er.status_code >= 400:
-                    raise RuntimeError(
-                        f"Embedding endpoint error {er.status_code}: {er.text}"
-                    )
+                    raise RuntimeError(f"Embedding endpoint error {er.status_code}: {er.text}")
 
                 ej = er.json()
                 if isinstance(ej, dict) and "data" in ej:
@@ -651,9 +679,7 @@ class RagEngine:
                 elif isinstance(ej, dict) and "embeddings" in ej:
                     vec = ej["embeddings"][0]
                 else:
-                    raise RuntimeError(
-                        f"Unexpected embedding response schema: {ej!r}"
-                    )
+                    raise RuntimeError(f"Unexpected embedding response schema: {ej!r}")
 
                 query_emb = np.array(vec, dtype="float32")
 
@@ -672,9 +698,7 @@ class RagEngine:
                 "intent": intent_label,
                 "children": [],
             }
-            agent_trace = _build_agent_trace(
-                rag_fallback_leaf, intent_label=intent_label
-            )
+            agent_trace = _build_agent_trace(rag_fallback_leaf, intent_label=intent_label)
 
             response_payload = {
                 "answer": {
@@ -784,9 +808,7 @@ class RagEngine:
         async with httpx.AsyncClient(timeout=60.0) as client:
             r = await client.post(self.chat_url, json=chat_req)
             if r.status_code >= 400:
-                raise RuntimeError(
-                    f"Chat completion endpoint error {r.status_code}: {r.text}"
-                )
+                raise RuntimeError(f"Chat completion endpoint error {r.status_code}: {r.text}")
 
             data = r.json()
 
@@ -819,9 +841,7 @@ class RagEngine:
 
                     r2 = await client.post(self.chat_url, json=chat_req)
                     if r2.status_code >= 400:
-                        logger.warning(
-                            "Auto-continue aborted: upstream error %s", r2.status_code
-                        )
+                        logger.warning("Auto-continue aborted: upstream error %s", r2.status_code)
                         break
 
                     data2 = r2.json()
@@ -892,9 +912,7 @@ class RagEngine:
                 "intent": intent_label,
                 "children": [],
             }
-            agent_trace = _build_agent_trace(
-                rag_fallback_leaf, intent_label=intent_label
-            )
+            agent_trace = _build_agent_trace(rag_fallback_leaf, intent_label=intent_label)
 
             response_payload = {
                 "answer": data,
@@ -953,9 +971,7 @@ class RouterAgent:
     """
 
     def __init__(self) -> None:
-        base = getattr(
-            settings, "VLLM_ENDPOINT", "http://host.containers.internal:11434"
-        ).rstrip("/")
+        base = getattr(settings, "VLLM_ENDPOINT", "http://host.containers.internal:11434").rstrip("/")
         embed_url = f"{base}/api/embeddings"
         chat_url = f"{base}/v1/chat/completions"
 
@@ -972,23 +988,15 @@ class RouterAgent:
         agent_session_id = session.id
 
         # ---- model / params ----
-        model = (
-            rag.model or getattr(settings, "DEFAULT_MODEL", "llama3.2-vision")
-        ).strip()
+        model = (rag.model or getattr(settings, "DEFAULT_MODEL", "llama3.2-vision")).strip()
         if model == "llama3.2-vision":
             model = "llama3.2-vision"
 
         temperature = (
-            rag.temperature
-            if rag.temperature is not None
-            else getattr(settings, "TUTOR_TEMPERATURE", 0.1)
+            rag.temperature if rag.temperature is not None else getattr(settings, "TUTOR_TEMPERATURE", 0.1)
         )
 
-        requested_max = (
-            rag.max_tokens
-            if rag.max_tokens is not None
-            else getattr(settings, "TUTOR_MAX_TOKENS", 8192)
-        )
+        requested_max = rag.max_tokens if rag.max_tokens is not None else getattr(settings, "TUTOR_MAX_TOKENS", 8192)
         try:
             requested_max_int = int(requested_max)
         except (TypeError, ValueError):
@@ -1054,7 +1062,6 @@ class RouterAgent:
                 intent_label,
             )
 
-            # 🔧 UPDATED: pass rag and session into the new LangGraph wrapper
             lc_result = await run_langchain_agent(
                 session_id=str(agent_session_id),
                 agent_name=lc_agent_name,
@@ -1063,7 +1070,45 @@ class RouterAgent:
                 message=query,
             )
 
-            reply_text = lc_result.get("reply", "")
+            # ✅ normalize LangChain result to a reply string (dict OR Pydantic model)
+            reply_text = ""
+            lc_meta: dict[str, Any] | None = None
+
+            if isinstance(lc_result, dict):
+                reply_text = (
+                        lc_result.get("reply")
+                        or lc_result.get("answer_text")
+                        or lc_result.get("output")
+                        or ""
+                )
+                lc_meta = lc_result
+            else:
+                # Pydantic model or arbitrary object
+                reply_text = (
+                        getattr(lc_result, "reply", None)
+                        or getattr(lc_result, "answer_text", None)
+                        or getattr(lc_result, "output", None)
+                        or ""
+                )
+
+                # If it's Pydantic, try model_dump() for compatibility with older callers
+                if not reply_text and hasattr(lc_result, "model_dump"):
+                    try:
+                        dumped = lc_result.model_dump()
+                        if isinstance(dumped, dict):
+                            lc_meta = dumped
+                            reply_text = (
+                                    dumped.get("reply")
+                                    or dumped.get("answer_text")
+                                    or dumped.get("output")
+                                    or ""
+                            )
+                    except Exception:
+                        logger.debug("LangChain result model_dump() failed", exc_info=True)
+
+            # last resort
+            if reply_text is None:
+                reply_text = ""
 
             response_payload = {
                 "answer": {
@@ -1114,17 +1159,16 @@ class RouterAgent:
                     "subagent_session_id": rag.subagent_session_id,
                     "intent_raw_model_output": intent_raw_model_output,
                     "lc_agent_name": lc_agent_name,
+                    "lc_result_type": type(lc_result).__name__,
+                    "lc_result_preview": (str(lc_meta)[:2000] if lc_meta is not None else None),
+
                 },
             }
 
             try:
-                debug_json = json.dumps(
-                    response_payload, ensure_ascii=False, default=str
-                )[:4000]
+                debug_json = json.dumps(response_payload, ensure_ascii=False, default=str)[:4000]
             except TypeError:
-                debug_json = (
-                    f"<non-serializable payload keys={list(response_payload.keys())}>"
-                )
+                debug_json = f"<non-serializable payload keys={list(response_payload.keys())}>"
 
             logger.info(
                 "[RAG] response (langchain_agent:%s): %s",
@@ -1133,6 +1177,44 @@ class RouterAgent:
             )
 
             return response_payload
+
+        # ---- persist session metadata ---------------------------------
+        touch_session(
+            agent_session_id,
+            intent=intent_label,
+            query=query,
+        )
+
+        # ---- LangChain short-circuit via mapping ----------------------
+        if intent_label in INTENT_TO_LC_AGENT:
+            ...
+            return response_payload
+
+        # ✅ INSERT OPTION A PRE-RETRIEVE BLOCK RIGHT HERE
+        # ---- Option A: pre-retrieve if an agent exists ----------------
+        pre_retrieved_chunks: list[dict[str, Any]] = []
+        pre_retrieved_index: str | None = None
+
+        if get_agent(intent_label) is not None:
+            try:
+                pre_retrieved_index, pre_retrieved_chunks = await self.rag_engine.retrieve_only(
+                    query=query,
+                    requested_index=(getattr(rag, "index", "main") or "main"),
+                    k=12,
+                )
+                logger.info(
+                    "[RAG] pre-retrieval for agent intent=%s index=%s chunks=%d",
+                    intent_label,
+                    pre_retrieved_index,
+                    len(pre_retrieved_chunks),
+                )
+            except Exception as e:
+                logger.warning(
+                    "[RAG] pre-retrieval failed for agent intent=%s: %s",
+                    intent_label,
+                    e,
+                    exc_info=True,
+                )
 
         # ---- try agent path -------------------------------------------
         agent_response = await self.agent_dispatcher.dispatch(
@@ -1150,6 +1232,8 @@ class RouterAgent:
             tone_minor=tone_minor,
             tone_minor_confidence=tone_minor_confidence,
             intent_raw_model_output=intent_raw_model_output,
+            retrieved_chunks=pre_retrieved_chunks,  # ✅ add
+            retrieved_index=pre_retrieved_index,  # ✅ add
         )
 
         if agent_response is not None:
@@ -1166,9 +1250,6 @@ class RouterAgent:
             ChatMessage(role="system", content="You are a helpful assistant."),
         )
 
-        # All user messages are already collected above; last one is our current query
-        # user_messages was computed earlier in run():
-        #   user_messages = [m for m in rag.messages if m.role == "user"]
         prior_user_and_assistant: list[ChatMessage] = []
         for m in rag.messages:
             if m is base_system:
@@ -1182,30 +1263,16 @@ class RouterAgent:
         history_tail = prior_user_and_assistant[-4:]
 
         if last_intent is not None and new_intent != last_intent:
-            # New intent detected -> start a fresh RAG context so we don't
-            # leak "student_info" style questions into "conflict_of_interest" turns.
             logger.info(
                 "Intent changed from %r to %r; starting fresh RAG context",
                 last_intent,
                 new_intent,
             )
-            pruned_messages: list[ChatMessage] = [
-                base_system,
-                user_messages[-1],
-            ]
+            pruned_messages: list[ChatMessage] = [base_system, user_messages[-1]]
         else:
-            # Same intent -> keep a small sliding window of history
-            logger.info(
-                "Intent unchanged (%r); keeping short RAG history window",
-                new_intent,
-            )
-            pruned_messages = [
-                base_system,
-                *history_tail,
-                user_messages[-1],
-            ]
+            logger.info("Intent unchanged (%r); keeping short RAG history window", new_intent)
+            pruned_messages = [base_system, *history_tail, user_messages[-1]]
 
-        # Mutate rag.messages so RagEngine.answer uses the pruned history
         rag.messages = pruned_messages
 
         return await self.rag_engine.answer(
@@ -1233,6 +1300,7 @@ class RAGRequest(BaseModel):
     This is the same payload your FastAPI endpoint is receiving, but now
     you can reuse it anywhere (tests, CLI, etc.).
     """
+
     model: Optional[str] = "llama3.2-vision"
     messages: List[ChatMessage] = Field(
         default_factory=lambda: [

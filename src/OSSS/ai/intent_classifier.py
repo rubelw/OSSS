@@ -8,7 +8,7 @@ import json
 
 from OSSS.ai.intents.types import Intent, IntentResult
 from OSSS.ai.intents.prompt import build_intent_system_prompt
-from OSSS.ai.intents.heuristics.apply import apply_heuristics
+from OSSS.ai.intents.heuristics import apply_heuristics, ALL_RULES
 
 # ✅ single source of truth for aw_label = classified.intaliases
 from OSSS.ai.agent_routing_config import build_alias_map
@@ -82,29 +82,35 @@ async def classify_intent(text: str) -> IntentResult:
     logger.debug("[intent_classifier] endpoint=%s model=%s", chat_url, model)
 
     # --- 1) Heuristic fast-path --------------------------------------------
-    heuristic_result = apply_heuristics(text)
+    # 1️⃣ Heuristic pass (fast, deterministic)
+    heuristic_result = apply_heuristics(text, ALL_RULES)
     if heuristic_result is not None:
-        # ✅ Ensure heuristic intents also use canonical aliasing
-        normalized_label = _normalize_intent_label(getattr(heuristic_result.intent, "value", heuristic_result.intent))
+        rule = (heuristic_result.raw or {}).get("rule", {}) if hasattr(heuristic_result, "raw") else {}
+        raw_label = rule.get("intent")
+
+        # Fallback: if rule intent missing, try the enum value / string itself
+        if not raw_label:
+            try:
+                raw_label = heuristic_result.intent.value  # type: ignore[attr-defined]
+            except Exception:
+                raw_label = str(getattr(heuristic_result, "intent", "general"))
+
+        normalized_label = _normalize_intent_label(raw_label)
         normalized_intent = _intent_from_label(normalized_label)
 
-        # if the heuristic already produced an IntentResult, keep everything else intact
-        return IntentResult(
-            intent=normalized_intent,
-            confidence=getattr(heuristic_result, "confidence", None),
-            raw=getattr(heuristic_result, "raw", None),
-            action=_normalize_action(getattr(heuristic_result, "action", None)),
-            action_confidence=getattr(heuristic_result, "action_confidence", None),
-            urgency=getattr(heuristic_result, "urgency", None),
-            urgency_confidence=getattr(heuristic_result, "urgency_confidence", None),
-            tone_major=getattr(heuristic_result, "tone_major", None),
-            tone_major_confidence=getattr(heuristic_result, "tone_major_confidence", None),
-            tone_minor=getattr(heuristic_result, "tone_minor", None),
-            tone_minor_confidence=getattr(heuristic_result, "tone_minor_confidence", None),
-            raw_model_content=getattr(heuristic_result, "raw_model_content", None),
-            raw_model_output=getattr(heuristic_result, "raw_model_output", None),
-            source=getattr(heuristic_result, "source", "heuristic"),
+        logger.info(
+            "[intent_classifier] heuristic matched raw_intent=%r normalized=%r rule=%s",
+            raw_label,
+            normalized_label,
+            rule.get("name"),
         )
+
+        # ✅ Return a normalized copy (pydantic v2)
+        try:
+            return heuristic_result.model_copy(update={"intent": normalized_intent})
+        except Exception:
+            # pydantic v1 fallback
+            return heuristic_result.copy(update={"intent": normalized_intent})
 
     # --- 2) System prompt from intent registry -----------------------------
     system = build_intent_system_prompt()

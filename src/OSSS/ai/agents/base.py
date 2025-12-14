@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Protocol
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 # ======================================================================
@@ -122,99 +122,18 @@ class AgentContext(BaseModel):
 class AgentResult(BaseModel):
     """
     **Universal output contract** for all agents.
-
-    --------------------------------------------------------------------
-    Why AgentResult Exists
-    --------------------------------------------------------------------
-    The orchestrator needs a predictable structure for:
-        - UI rendering (answer_text, sources)
-        - Logging & observability
-        - Agent chaining (children)
-        - Multi-turn workflows (agent_session_id)
-        - Error propagation
-        - RAG handoff
-
-    This is the *only* thing agents return.
-
-    --------------------------------------------------------------------
-    Core semantics
-    --------------------------------------------------------------------
-    answer_text : str
-        The final natural-language response shown to the user.
-
-    intent : Optional[str]
-        The final, effective intent.
-        Agents may revise intent based on deeper reasoning.
-
-    index : Optional[str]
-        Indicates which logical domain or RAG index was used.
-        Examples:
-            - "main"
-            - "registration"
-            - "teacher-handbook"
-
-    agent_id / agent_name :
-        Identifies which agent produced this result.
-        Useful for:
-            - formatting in UI
-            - multi-agent trace visualization
-            - debugging agent chains
-
-    status : str
-        Indicates the result type:
-            - "ok"           → normal successful agent answer
-            - "error"        → handled error state
-            - "needs_input"  → agent requires a follow-up user answer
-            - "partial"      → not fully complete (rare)
-            - "info"         → informational
-
-        Custom statuses are allowed; the orchestrator should treat them
-        as "successful but special".
-
-    extra_chunks : List[Dict[str, Any]]
-        Used for:
-            - "Sources" UI
-            - debug preview of generated or retrieved content
-            - transparency
-
-        Each chunk mimics RAG chunk structure:
-            { filename, text_preview, score, ... }
-
-    agent_session_id :
-        If the agent is performing a multi-step/wizard-style workflow,
-        this is the *continuation token*.
-        On next turn, the orchestrator sends this ID back in
-        `ctx.subagent_session_id`.
-
-    data : Dict[str, Any]
-        Machine-readable payload for:
-            - downstream agent calls
-            - UI-side structured displays
-            - logging
-            - metrics
-            - chain-of-thought replacement structures
-
-        `answer_text` is human-facing.
-        `data` is machine-facing.
-
-    children : List[AgentResult]
-        When an agent calls another agent (multi-agent graph),
-        the “downstream” agent's results are attached here.
-
-        This enables:
-            - hierarchical reasoning visualization
-            - dependency tracing
-            - workflow introspection
-
-    Pydantic Config
-    ---------------
-    arbitrary_types_allowed = True
-        Allows embedding raw Python objects when needed.
-        HOWEVER → best practice is keeping `data` JSON-serializable.
+    (docstring unchanged)
     """
 
+    # Pydantic v2 config
+    model_config = ConfigDict(
+        arbitrary_types_allowed=True,
+        populate_by_name=True,  # allows constructing via field name even if alias exists
+    )
+
     # ---- Human-facing answer -------------------------------------------------
-    answer_text: str
+    # Canonical field is answer_text; allow legacy `text=` as an alias.
+    answer_text: str = Field(..., alias="text")
 
     # ---- High-level metadata -------------------------------------------------
     intent: Optional[str] = None
@@ -238,10 +157,6 @@ class AgentResult(BaseModel):
 
     # ---- Downstream agent results -------------------------------------------
     children: List["AgentResult"] = Field(default_factory=list)
-
-    class Config:
-        arbitrary_types_allowed = True
-
 
 # ======================================================================
 # Agent Protocol

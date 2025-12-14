@@ -1,15 +1,17 @@
-# src/OSSS/ai/langchain/agents/student_info_table_agent.py
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
 import logging
+from typing import Any, Optional
 
 from langchain.agents import create_openai_tools_agent, AgentExecutor
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.messages import ToolMessage
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 
+from OSSS.ai.agents.base import AgentResult
 from OSSS.ai.langchain.base import LangChainAgentProtocol, get_llm
-from OSSS.ai.langchain.tools.student_info.student_info_table_tool import student_info_table_tool
+from OSSS.ai.langchain.tools.student_info.student_info_table_tool import (
+    student_info_table_tool,
+)
 
 logger = logging.getLogger("OSSS.ai.langchain.student_info_table_agent")
 
@@ -17,15 +19,6 @@ logger = logging.getLogger("OSSS.ai.langchain.student_info_table_agent")
 class StudentInfoTableAgent(LangChainAgentProtocol):
     """
     LangChain agent that uses the `student_info_table` StructuredTool.
-
-    The LLM decides how to fill:
-      - first_name_prefix
-      - last_name_prefix
-      - genders
-      - grade_levels
-      - enrolled_only
-
-    and the tool returns the filtered summary + markdown table.
     """
 
     name = "lc.student_info_table"
@@ -65,9 +58,6 @@ class StudentInfoTableAgent(LangChainAgentProtocol):
 
         agent = create_openai_tools_agent(llm, tools, prompt)
 
-        # IMPORTANT:
-        # - return_intermediate_steps=True lets us recover tool output even if the LLM
-        #   fails to produce a final natural-language response.
         self.executor = AgentExecutor(
             agent=agent,
             tools=tools,
@@ -75,44 +65,38 @@ class StudentInfoTableAgent(LangChainAgentProtocol):
             return_intermediate_steps=True,
         )
 
-    async def run(self, message: str, session_id: Optional[str] = None) -> Dict[str, Any]:
-        """
-        Run the tools agent.
+    async def run(self, message: str, session_id: str | None = None, **_kwargs):
+        user_text = (message or "").strip()
+        sid = session_id or "anonymous"  # or raise if you truly require it
 
-        If the LLM fails to produce a final answer (common failure mode: it emits a tool call
-        but doesn't surface the tool result), we fall back to returning the last tool output
-        from intermediate_steps.
-        """
         logger.info(
-            "[StudentInfoTableAgent] Running with message=%r session_id=%r",
-            message,
-            session_id,
+            "[StudentInfoTableAgent] run session_id=%s message=%r",
+            sid,
+            user_text[:200],
         )
 
-        result = await self.executor.ainvoke(
+        result: Any = await self.executor.ainvoke(
             {
-                "input": message,
-                "chat_history": [],  # you can thread real history later if you want
+                "input": user_text,
+                "chat_history": [],  # TODO: wire real history if desired
             }
         )
 
-        # Normal case: AgentExecutor returns {"output": "...", "intermediate_steps": [...]}
+        # AgentExecutor returns {"output": "...", "intermediate_steps": [...]}
         reply_text = ""
         intermediate_steps = []
 
         if isinstance(result, str):
-            reply_text = result
+            reply_text = result.strip()
         elif isinstance(result, dict):
             reply_text = (result.get("output") or "").strip()
             intermediate_steps = result.get("intermediate_steps") or []
         else:
-            reply_text = str(result)
+            reply_text = str(result).strip()
 
-        # FALLBACK:
-        # If the model didn't produce a final output, but tools ran, return the last tool output.
-        # intermediate_steps format: List[Tuple[AgentAction, observation]]
+        # FALLBACK 1: last tool observation
         if not reply_text and intermediate_steps:
-            last_obs = None
+            last_obs: Optional[Any] = None
             for _action, obs in intermediate_steps:
                 last_obs = obs
             if last_obs is not None:
@@ -122,13 +106,23 @@ class StudentInfoTableAgent(LangChainAgentProtocol):
                     len(reply_text),
                 )
 
-        # LAST RESORT:
-        # Some buggy runs produce a ToolMessage-like object; handle that too.
+        # FALLBACK 2: ToolMessage edge case
         if not reply_text and isinstance(result, ToolMessage):
             reply_text = (result.content or "").strip()
 
-        return {
-            "reply": reply_text,
-            "agent": self.name,
-            "raw_agent_result": result,
-        }
+        if not reply_text:
+            reply_text = "No student information was returned."
+
+        return AgentResult(
+            answer_text=reply_text,
+            intent="student_info",
+            agent_id="student_info",
+            agent_name=self.name,
+            status="ok",
+            extra_chunks=[],
+            agent_session_id=sid,
+            data={
+                "raw_agent_result": result,
+                "intermediate_steps_len": len(intermediate_steps) if intermediate_steps else 0,
+            },
+        )

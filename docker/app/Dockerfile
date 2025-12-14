@@ -62,7 +62,8 @@ RUN pip install --use-deprecated=legacy-resolver --no-cache-dir \
       "langchain-core==0.2.34" \
       "langchain-community==0.2.9" \
       "langchain-openai==0.1.23", \
-      "langgraph-checkpoint-sqlite>=2.0.0"
+      "langgraph-checkpoint-sqlite>=2.0.0" \
+      "aiosqlite"
 
       #"itsdangerous>=2.0" \
       #"pydantic-settings" \

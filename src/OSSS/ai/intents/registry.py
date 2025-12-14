@@ -7,6 +7,8 @@ import logging
 
 logger = logging.getLogger("OSSS.ai.intents.heuristics.registry")
 
+_LANGCHAIN_AGENTS: Dict[str, LangChainAgentProtocol] = {}
+
 @dataclass(frozen=True)
 class IntentSpec:
     intent: Intent
@@ -44,3 +46,12 @@ def all_intent_values() -> List[str]:
 def describe(intent: Intent) -> str:
     spec = INTENTS.get(intent)
     return spec.description if spec else intent.value
+
+def register_langchain_agent(intent: str, agent: LangChainAgentProtocol) -> None:
+    if intent in _LANGCHAIN_AGENTS:
+        logger.warning("Overwriting LangChain agent for intent %r", intent)
+    _LANGCHAIN_AGENTS[intent] = agent
+
+def get_langchain_agent(intent: str) -> Optional[LangChainAgentProtocol]:
+    logger.info("LangChain intents registered: %s", sorted(_LANGCHAIN_AGENTS.keys()))
+    return _LANGCHAIN_AGENTS.get(intent)

@@ -4,8 +4,9 @@ from __future__ import annotations
 from typing import Any, Dict, TypedDict
 import logging
 
+
 from langgraph.graph import StateGraph, START, END
-from langgraph.checkpoint.sqlite import SqliteSaver
+
 
 from OSSS.ai.langchain.agents.student_info.student_info_table_agent import StudentInfoTableAgent
 from OSSS.ai.langchain.agents.staff_info.staff_info_table_agent import StaffInfoTableAgent
@@ -26,8 +27,10 @@ INTENT_TO_LC_AGENT: dict[str, str] = {
     "langchain_agent": "lc.student_info_table",
     "student_info": "lc.student_info_table",
     "langchain_agent": "lc.staff_info_table",
-    "staff_info": "lc.staff_info_table"
-    # "students_missing_assignments": "lc.students_missing_assignments",
+    "staff_info": "lc.staff_info_table",
+    "staff_directory": "lc.staff_info_table",
+
+# "students_missing_assignments": "lc.students_missing_assignments",
     # add more as you build them...
 }
 
@@ -192,7 +195,7 @@ async def _node_postprocess(state: LangchainState) -> LangchainState:
 # Use the dedicated volume-mounted path for persistence:
 #   langgraph_data:/workspace/langgraph_data
 _langgraph_db_path = "/workspace/langgraph_data/osss_langgraph.db"
-_langchain_checkpointer = SqliteSaver.from_conn_string(_langgraph_db_path)
+
 
 _langchain_builder = StateGraph(LangchainState)
 _langchain_builder.add_node("preprocess", _node_preprocess)
@@ -206,7 +209,7 @@ _langchain_builder.add_edge("select_agent", "run_registry_agent")
 _langchain_builder.add_edge("run_registry_agent", "postprocess")
 _langchain_builder.add_edge("postprocess", END)
 
-_langchain_graph = _langchain_builder.compile(checkpointer=_langchain_checkpointer)
+_langchain_graph = _langchain_builder.compile()
 
 
 # ---------------------------------------------------------------------------

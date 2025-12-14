@@ -163,7 +163,6 @@ async def node_dispatch_or_rag(state: OSSSState) -> OSSSState:
 _DB_PATH = Path("/workspace/langgraph_data/osss_rag_router.db")
 _DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
-_checkpointer = SqliteSaver.from_conn_string(str(_DB_PATH))
 
 
 def build_router_graph() -> StateGraph:
@@ -182,4 +181,5 @@ def build_router_graph() -> StateGraph:
 
 
 # Compile once at import time with a concrete SqliteSaver checkpointer
-router_graph = build_router_graph().compile(checkpointer=_checkpointer)
+router_graph = build_router_graph().compile()
+

@@ -6,10 +6,48 @@ import logging
 
 from OSSS.ai.agents.base import AgentContext, AgentResult, Agent
 
+# OSSS/ai/agents/__init__.py
+
+from OSSS.ai.agents.registry import get_agent as get_handler_agent
+from OSSS.ai.langchain.registry import get_langchain_agent as get_langchain_agent
+
+
+
+
 logger = logging.getLogger("OSSS.ai.agents")
 
 # Global registry: intent_name -> Agent class
 _AGENT_REGISTRY: Dict[str, Type[Agent]] = {}
+
+
+def get_agent(intent: str):
+    """
+    Returns either:
+      - a normal (python) agent class/handler
+      - or a LangChain agent (if aliased/registered)
+      - or None (router will RAG-fallback)
+    """
+    # 1) Registry-based python agents (decorator)
+    cls = _AGENT_REGISTRY.get(intent)
+    if cls is not None:
+        logger.info("Agent lookup intent=%s handler=True langchain=False (decorator registry)", intent)
+        return cls
+
+    # 2) Handler-based python agents (your other registry)
+    handler = get_handler_agent(intent)
+    if handler is not None:
+        logger.info("Agent lookup intent=%s handler=True langchain=False (handler registry)", intent)
+        return handler
+
+    # 3) LangChain
+    lc_agent = get_langchain_agent(intent)
+    if lc_agent is not None:
+        logger.info("Agent lookup intent=%s handler=False langchain=True", intent)
+        return lc_agent
+
+    logger.info("Agent lookup intent=%s handler=False langchain=False", intent)
+    return None
+
 
 
 def register_agent(intent_name: str):
@@ -42,18 +80,6 @@ def register_agent(intent_name: str):
     return decorator
 
 
-def get_agent(intent_name: str) -> Optional[Agent]:
-    """
-    Look up an agent by intent_name and return an *instance*.
-
-    This is what your router/orchestrator should call.
-    """
-    cls = _AGENT_REGISTRY.get(intent_name)
-    if not cls:
-        logger.info("No agent registered for intent=%s", intent_name)
-        return None
-    return cls()  # type: ignore[call-arg]
-
 
 # ----------------------------------------------------------------------
 # IMPORTANT: Import agent modules so their decorators execute
@@ -71,3 +97,6 @@ except Exception as e:
 # Re-export base classes for convenient imports
 from OSSS.ai.agents.base import AgentContext, AgentResult  # noqa: E402,F401
 
+
+from OSSS.ai.agents.registry import list_agents
+logger.info("Loaded agents: %s", list_agents())

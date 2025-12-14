@@ -12,8 +12,33 @@ from OSSS.ai.intents.registry import INTENT_ALIASES, INTENTS
 from OSSS.ai.intents.heuristics.student_info_rules import RULES as STUDENT_INFO_RULES
 from OSSS.ai.intents.heuristics.enrollment_rules import RULES as ENROLLMENT_RULES
 from OSSS.ai.intents.heuristics.staff_info_rules import RULES as STAFF_INFO_RULES
+from OSSS.ai.agent_routing_config import build_alias_map
+
 
 logger = logging.getLogger("OSSS.ai.intents.heuristics")
+
+ALIAS_MAP = build_alias_map()
+
+# Generic action words
+SHOW_WORDS = r"(show|list|display|lookup|find|view|print)"
+COUNT_WORDS = r"(count|counts|how many|number of|total|totals)"
+
+# Phrase → intent rules
+# These are DATA, not code logic
+HEURISTIC_RULES = [
+    {
+        "pattern": rf"{SHOW_WORDS}.*\bstaff\b",
+        "intent": "staff",
+    },
+    {
+        "pattern": rf"{SHOW_WORDS}.*\bstudent\b",
+        "intent": "student",
+    },
+    {
+        "pattern": rf"{COUNT_WORDS}.*\bstudent\b",
+        "intent": "student_counts",
+    },
+]
 
 # -----------------------------
 # Rule model
@@ -117,3 +142,19 @@ def _compile_rules(rules: Sequence[HeuristicRule]) -> list[tuple[HeuristicRule, 
         compiled.append((r, _compile_rule(r), intent_enum))
     return compiled
 
+def infer_intent_from_text(text: str) -> Optional[str]:
+    """
+    Returns a normalized intent label if a heuristic matches.
+    Otherwise returns None.
+    """
+    if not text:
+        return None
+
+    ql = text.lower().strip()
+
+    for rule in HEURISTIC_RULES:
+        if re.search(rule["pattern"], ql):
+            base = rule["intent"]
+            return ALIAS_MAP.get(base, base)
+
+    return None
