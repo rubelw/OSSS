@@ -172,7 +172,7 @@ start_ollama() {
   local OLLAMA_PORT=11434
   local EMBEDDINGS_FILE="vector_indexes/main/embeddings.jsonl"  # Replace with your actual file path
   local BATCH_SIZE=50  # Number of lines per batch
-  local MODEL="llama3.2-vision"
+  local MODEL="llama3.1"
 
   # If it's already running, just report status and exit
   if pgrep -f "ollama serve" >/dev/null 2>&1; then
@@ -241,7 +241,7 @@ start_ollama() {
 ensure_ollama_local() {
   echo "🧠 Ensuring Ollama is installed and running locally with preloaded models…"
   # Use Mistral as the main chat model, keep embed models as-is
-  local MODELS=("llama3.2-vision:latest" "all-minilm:latest" "nomic-embed-text:latest","llama3.1:latest")
+  local MODELS=("all-minilm:latest" "nomic-embed-text:latest","llama3.1:latest")
   local OLLAMA_HOST="0.0.0.0"
   local OLLAMA_PORT=11434
 
@@ -963,7 +963,7 @@ check_ollama_ready() {
   set -euo pipefail
 
   # Default to Mistral if no explicit model passed
-  local MODEL_NAME="${1:-llama3.2-vision}"
+  local MODEL_NAME="${1:-llama3.1}"
   # Allow override via env; default to ./ollama_data
   local OLLAMA_DATA_DIR="${OLLAMA_DATA_DIR:-./ollama_data}"
   local MODELS_DIR="${OLLAMA_DATA_DIR%/}/models"

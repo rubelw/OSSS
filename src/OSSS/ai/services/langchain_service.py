@@ -28,6 +28,9 @@ from OSSS.ai.services.model_discovery_service import (
     ModelSpeed,
 )
 
+MAX_STRUCTURED_ATTEMPTS = 1
+
+
 # Import pool for eliminating redundancy
 try:
     from OSSS.ai.services.llm_pool import LLMServicePool
@@ -72,9 +75,9 @@ class LangChainService:
 
     # Provider-specific method mapping - SIMPLIFIED for base models
     PROVIDER_METHODS = {
-        "gpt-5": "json_schema",  # Base GPT-5 has full json_schema support
-        "gpt-5-mini": "json_schema",  # Mini is still a base model, keep it
-        "gpt-5-nano": "json_schema",  # Nano is still a base model, keep it
+        "llama3.1": "json_schema",  # Base llama3.1 has full json_schema support
+        "llama3.1-mini": "json_schema",  # Mini is still a base model, keep it
+        "llama3.1-nano": "json_schema",  # Nano is still a base model, keep it
         "gpt-4o": "json_schema",  # GPT-4o supports json_schema
         "gpt-4o-mini": "json_schema",  # GPT-4o-mini supports json_schema
         "gpt-4-turbo": "json_schema",  # GPT-4-turbo supports json_schema
@@ -115,6 +118,7 @@ class LangChainService:
         self.use_pool = use_pool and POOL_AVAILABLE
         self.api_key = api_key
         self.temperature = temperature
+        self.base_url = base_url  # used for provider detection (ollama vs openai)
 
         # Type declarations for pool client
         self._pool_client: Optional[BaseChatModel] = None
@@ -172,6 +176,95 @@ class LangChainService:
                 self.model_name if hasattr(self, "model_name") else "unknown"
             ),
         }
+
+    def _json_instruction(self, output_class: Type[BaseModel]) -> str:
+        """
+        Strict JSON-only instruction for prompted JSON mode.
+
+        Key goals:
+        - Exact top-level keys only (no nesting like {"Refined Query": {...}})
+        - No extra keys
+        - No renaming (case-sensitive)
+        - Strong “shape” example to anchor the model
+        """
+        schema = output_class.model_json_schema()
+        keys = list(output_class.model_fields.keys())
+        keys_str = ", ".join(keys)
+
+        # Build an "example shape" that doesn't accidentally force invalid nulls.
+        # If a field is optional/nullable in schema, show null; otherwise show a plausible placeholder.
+        props = schema.get("properties", {}) if isinstance(schema, dict) else {}
+
+        def _placeholder_for(k: str) -> str:
+            p = props.get(k, {})
+            # nullable if anyOf includes {"type":"null"} OR type == "null"
+            nullable = False
+            if isinstance(p, dict):
+                anyof = p.get("anyOf")
+                if isinstance(anyof, list):
+                    nullable = any(isinstance(x, dict) and x.get("type") == "null" for x in anyof)
+                if p.get("type") == "null":
+                    nullable = True
+
+            if nullable:
+                return "null"
+
+            # simple placeholders to reduce model “creativity”
+            if isinstance(p, dict) and p.get("type") == "array":
+                return "[]"
+            if isinstance(p, dict) and p.get("type") == "object":
+                return "{}"
+            if isinstance(p, dict) and p.get("type") == "number":
+                return "0"
+            if isinstance(p, dict) and p.get("type") == "boolean":
+                return "false"
+
+            # default string-ish placeholder
+            return "\"\""
+
+        example_lines = [f'  "{k}": {_placeholder_for(k)},' for k in keys]
+        example = "{\n" + "\n".join(example_lines) + "\n}\n"
+
+        return (
+            "Return ONLY valid JSON (no markdown, no commentary).\n"
+            f"Top-level keys MUST be exactly: {keys_str}\n"
+            "Do NOT rename keys. Do NOT nest under other keys. Do NOT add extra keys.\n"
+            "Values must match the schema types.\n"
+            "Example shape (keys only):\n"
+            f"{example}"
+        )
+
+    def _is_ollama_endpoint(self) -> bool:
+        # Prefer explicit base_url
+        u = (self.base_url or "").lower()
+
+        # Fall back to whatever the ChatOpenAI instance is using
+        if not u and self.llm is not None:
+            u = str(getattr(self.llm, "base_url", "") or "").lower()
+
+        return ("ollama" in u) or ("localhost" in u) or ("127.0.0.1" in u) or (":11434" in u)
+
+    def _is_llama_family(self, model: str) -> bool:
+        m = (model or "").lower()
+        return "llama" in m
+
+    def _should_avoid_json_schema(self, model: str) -> bool:
+        """
+        Option 1 rule:
+          If using Ollama AND llama-family model => do NOT use json_schema.
+        """
+        return self._is_ollama_endpoint() and self._is_llama_family(model)
+
+    def _should_force_prompted_json(self, model: str) -> bool:
+        """
+        Hard rule:
+        - Ollama + llama (including vision variants) frequently violate schemas
+        - Force prompted JSON instead of LangChain structured output
+        """
+        m = (model or "").lower()
+        return self._is_ollama_endpoint() and (
+                "llama" in m or "vision" in m
+        )
 
     async def _ensure_pooled_client(self) -> None:
         """Ensure pooled client is initialized (async-safe)."""
@@ -236,13 +329,13 @@ class LangChainService:
         except Exception as e:
             self.logger.warning(f"Model discovery failed: {e}")
 
-        # SIMPLIFIED fallbacks - prefer base GPT-5 when available
-        # User wisdom: "just use the model: 'gpt-5'"
+        # SIMPLIFIED fallbacks - prefer base llama3.1 when available
+        # User wisdom: "just use the model: 'llama3.1'"
         agent_fallbacks = {
-            "refiner": "gpt-5-nano",  # Keep nano for ultra-fast requirement
-            "historian": "gpt-5",  # Base GPT-5 for historian
-            "critic": "gpt-5",  # Base GPT-5 for critic
-            "synthesis": "gpt-5",  # Base GPT-5 for synthesis
+            "refiner": "llama3.1",  # Keep nano for ultra-fast requirement
+            "historian": "llama3.1",  # Base llama3.1 for historian
+            "critic": "llama3.1",  # Base llama3.1 for critic
+            "synthesis": "llama3.1",  # Base llama3.1 for synthesis
         }
         fallback = agent_fallbacks.get(self.agent_name, "gpt-4o")
         self.logger.info(
@@ -260,37 +353,30 @@ class LangChainService:
         """Create appropriate LLM instance based on model name."""
         model_lower = model.lower()
 
-        if "gpt" in model_lower or "o1" in model_lower:
-            # Build kwargs for ChatOpenAI
+        # Detect Ollama (your setup: http://host.containers.internal:11434/v1)
+        is_ollama = bool(base_url) and "11434" in base_url
+
+        if "gpt" in model_lower or "o1" in model_lower or is_ollama:
             kwargs: Dict[str, Any] = {
                 "model": model,
                 "api_key": api_key,
                 "base_url": base_url,
             }
 
-            # CRITICAL FIX: GPT-5 models only support temperature=1 (default)
-            # Exclude temperature parameter for GPT-5 to avoid API constraint errors
-            if "gpt-5" not in model_lower:
+            # ---- HARD CAPS (big latency win) ----
+            if is_ollama:
+                kwargs["max_tokens"] = 300  # cap completion length
+                kwargs["request_timeout"] = 12  # network timeout (seconds)
+
+                # PER-AGENT override (your question)
+                if self.agent_name == "synthesis":
+                    kwargs["max_tokens"] = 600
+
+            # Keep your llama3.1 temperature rule
+            if "llama3.1" not in model_lower and not is_ollama:
                 kwargs["temperature"] = temperature
-            else:
-                self.logger.info(
-                    f"Excluding temperature parameter for {model} (GPT-5 only supports default temperature=1)"
-                )
 
-            # CRITICAL FIX: GPT-5 models require max_completion_tokens instead of max_tokens
-            # Transform parameter for GPT-5 models to avoid "Unsupported parameter" errors
-            if "max_tokens" in kwargs and "gpt-5" in model_lower:
-                kwargs["max_completion_tokens"] = kwargs.pop("max_tokens")
-                self.logger.info(
-                    f"Transformed max_tokens → max_completion_tokens for {model} (GPT-5 parameter requirement)"
-                )
-
-            # CRITICAL FIX: Removing output_version for now as it breaks the endpoint
-            # The native OpenAI parse() method will handle GPT-5 structured outputs
-            # if "gpt-5" in model_lower:
-            #     kwargs["output_version"] = "responses/v1"  # This causes /v1/responses endpoint issue
-
-            return ChatOpenAI(**kwargs)  # Uses kwargs from if-branch above
+            return ChatOpenAI(**kwargs)
         elif "claude" in model_lower:
             # Note: Would need anthropic API key configuration
             if api_key is None:
@@ -308,69 +394,63 @@ class LangChainService:
                 "base_url": base_url,
             }
 
-            # CRITICAL FIX: GPT-5 models only support temperature=1 (default)
-            # Exclude temperature parameter for GPT-5 to avoid API constraint errors
-            if "gpt-5" not in model_lower:
+            # CRITICAL FIX: llama3.1 models only support temperature=1 (default)
+            # Exclude temperature parameter for llama3.1 to avoid API constraint errors
+            if "llama3.1" not in model_lower:
                 openai_kwargs["temperature"] = temperature
             else:
                 self.logger.info(
-                    f"Excluding temperature parameter for {model} (GPT-5 only supports default temperature=1)"
+                    f"Excluding temperature parameter for {model} (llama3.1 only supports default temperature=1)"
                 )
 
-            # CRITICAL FIX: GPT-5 models require max_completion_tokens instead of max_tokens
-            # Transform parameter for GPT-5 models to avoid "Unsupported parameter" errors
-            if "max_tokens" in openai_kwargs and "gpt-5" in model_lower:
+            # CRITICAL FIX: llama3.1 models require max_completion_tokens instead of max_tokens
+            # Transform parameter for llama3.1 models to avoid "Unsupported parameter" errors
+            if "max_tokens" in openai_kwargs and "llama3.1" in model_lower:
                 openai_kwargs["max_completion_tokens"] = openai_kwargs.pop("max_tokens")
                 self.logger.info(
-                    f"Transformed max_tokens → max_completion_tokens for {model} (GPT-5 parameter requirement)"
+                    f"Transformed max_tokens → max_completion_tokens for {model} (llama3.1 parameter requirement)"
                 )
 
             # CRITICAL FIX: Removing output_version for now as it breaks the endpoint
-            # The native OpenAI parse() method will handle GPT-5 structured outputs
-            # if "gpt-5" in model_lower:
+            # The native OpenAI parse() method will handle llama3.1 structured outputs
+            # if "llama3.1" in model_lower:
             #     openai_kwargs["output_version"] = "responses/v1"  # This causes /v1/responses endpoint issue
 
             return ChatOpenAI(**openai_kwargs)
 
     def _get_structured_output_method(self, model: str) -> Optional[str]:
-        """Get the optimal structured output method for the model.
-
-        ENHANCED: Handles model variants with different capabilities:
-        - Base GPT-5 models: json_schema
-        - Timestamped GPT-5 (2025-08-07): function_calling
-        - Chat variants: json_mode (no structured output)
-        """
         model_lower = model.lower()
 
-        # CRITICAL FIX: Handle timestamped GPT-5 versions that require function_calling
-        if "gpt-5" in model_lower and "2025-08" in model_lower:
+        # Option 1: Ollama + llama => avoid json_schema (slow/fragile); use json_mode instead
+        if self._should_avoid_json_schema(model):
+            self.logger.info(
+                f"[STRUCTURED OUTPUT] Detected Ollama+llama for model={model}; forcing json_mode (no json_schema)."
+            )
+            return "json_mode"
+
+        # Existing special-case handling
+        if "llama3.1" in model_lower and "2025-08" in model_lower:
             self.logger.warning(
-                f"Model {model} is a timestamped GPT-5 variant requiring function_calling method"
+                f"Model {model} is a timestamped llama3.1 variant requiring function_calling method"
             )
             return "function_calling"
 
-        # Handle chat variants that don't support structured outputs
         if "-chat" in model_lower:
             self.logger.warning(
                 f"Model {model} is a chat variant with limited structured output support, using json_mode"
             )
             return "json_mode"
 
-        # For base GPT-5 models, use json_schema
-        if model_lower in ["gpt-5", "gpt-5-nano", "gpt-5-mini"]:
+        # Base llama3.1 models (ONLY if not Ollama)
+        if model_lower in ["llama3.1", "llama3.1-nano", "llama3.1-mini"]:
             self.logger.info(f"Using json_schema for base model {model}")
             return "json_schema"
 
-        # Standard lookup for other models
+        # Standard lookup...
         for model_prefix, method in self.PROVIDER_METHODS.items():
             if model_prefix in model_lower:
                 return method
 
-        # Default fallback for unknown models
-        self.logger.info(
-            f"Unknown model {model}, using json_mode as fallback. "
-            "Consider using base GPT-5 model for best results."
-        )
         return "json_mode"
 
     async def get_structured_output(
@@ -379,7 +459,7 @@ class LangChainService:
         output_class: Type[T],
         *,
         include_raw: bool = False,
-        max_retries: int = 3,
+        max_retries: int = MAX_STRUCTURED_ATTEMPTS,
         system_prompt: Optional[str] = None,
     ) -> Union[T, StructuredOutputResult]:
         """
@@ -419,6 +499,31 @@ class LangChainService:
         if system_prompt:
             messages.append(("system", system_prompt))
         messages.append(("human", prompt))
+
+        # ------------------------------------------------------------------
+        # HARD STOP: Ollama + llama OR vision models
+        # One-shot prompted JSON only (plus the single repair inside _try_prompted_json)
+        # Skip LangChain structured-output retries and skip parser fallback.
+        # ------------------------------------------------------------------
+        if self._should_force_prompted_json(self.model_name):
+            self.logger.info(
+                f"[STRUCTURED OUTPUT] Forced prompted JSON fast-path for model={self.model_name}"
+            )
+            result = await self._try_prompted_json(messages, output_class, include_raw)
+
+            processing_time_ms = (time.time() - start_time) * 1000
+            self.metrics["successful_structured"] = int(self.metrics["successful_structured"]) + 1
+
+            if include_raw:
+                return StructuredOutputResult(
+                    parsed=result["parsed"] if isinstance(result, dict) else result,
+                    raw=result.get("raw") if isinstance(result, dict) else None,
+                    method_used="prompted_json",
+                    fallback_used=False,
+                    processing_time_ms=processing_time_ms,
+                )
+
+            return result["parsed"] if isinstance(result, dict) else result
 
         # Try native structured output first (article's primary approach)
         for attempt in range(max_retries):
@@ -538,6 +643,9 @@ class LangChainService:
                 },
             )
 
+    def _is_ollama(self) -> bool:
+        return bool(self.base_url) and "11434" in self.base_url
+
     async def _try_native_structured_output(
         self,
         messages: List[tuple[str, str]],
@@ -563,7 +671,7 @@ class LangChainService:
         # TESTING: Re-enabling native OpenAI parse to check if bugs are fixed
         # Previous issue: beta.chat.completions.parse was returning None
         # Testing if OpenAI has fixed these bugs as of Nov 2025
-        if "gpt-5" in self.model_name.lower():  # Re-enabled for testing
+        if "llama3.1" in self.model_name.lower()  and not self._is_ollama():  # Re-enabled for testing
             try:
                 self.logger.info(
                     f"[NATIVE PARSE TEST] Attempting native OpenAI parse for {self.model_name}"
@@ -573,21 +681,38 @@ class LangChainService:
                 )
             except Exception as e:
                 self.logger.warning(
-                    f"[NATIVE PARSE TEST] Native OpenAI parse failed for GPT-5: {e}, falling back to LangChain"
+                    f"[NATIVE PARSE TEST] Native OpenAI parse failed for llama3.1: {e}, falling back to LangChain"
                 )
                 # Fall through to LangChain attempt
 
+        # ------------------------------------------------------------------
+        # HARD STOP: Ollama + llama OR vision models
+        # Always use prompted JSON + Pydantic validation
+        # ------------------------------------------------------------------
+        if self._should_force_prompted_json(self.model_name):
+            self.logger.info(
+                f"[STRUCTURED OUTPUT] Forced prompted JSON for model={self.model_name}"
+            )
+            return await self._try_prompted_json(
+                messages, output_class, include_raw
+            )
+
         # Get provider-specific method (key insight from article)
         method = self._get_structured_output_method(self.model_name)
+
+        # If this is Ollama llama, ALWAYS use prompted JSON (1 call + optional repair)
+        if self._should_avoid_json_schema(self.model_name):
+            return await self._try_prompted_json(messages, output_class, include_raw)
+
 
         # ENHANCEMENT: Try alternative methods if primary fails
         methods_to_try = [method]
 
         # Add fallback methods based on primary method
-        if method == "json_schema" and "gpt-5" in self.model_name.lower():
+        if method == "json_schema" and "llama3.1" in self.model_name.lower():
             methods_to_try.append(
                 "function_calling"
-            )  # Fallback for problematic GPT-5 variants
+            )  # Fallback for problematic llama3.1 variants
         if method != "json_mode":
             methods_to_try.append("json_mode")  # Ultimate fallback
 
@@ -602,10 +727,10 @@ class LangChainService:
 
                 # Add timeout protection to prevent hanging
                 try:
-                    # CRITICAL FIX: Use schema transformation for GPT-5 strict mode
-                    # GPT-5 requires ALL properties in required array (strict mode)
+                    # CRITICAL FIX: Use schema transformation for llama3.1 strict mode
+                    # llama3.1 requires ALL properties in required array (strict mode)
                     use_schema_transformation = (
-                        "gpt-5" in self.model_name.lower()
+                        "llama3.1" in self.model_name.lower()
                         and method_attempt == "json_schema"
                     )
 
@@ -649,7 +774,7 @@ class LangChainService:
                             f"[SCHEMA DEBUG] with_structured_output() created, about to invoke..."
                         )
                     else:
-                        # Use standard Pydantic class for non-GPT-5 models
+                        # Use standard Pydantic class for non-llama3.1 models
                         structured_llm = self.llm.with_structured_output(
                             output_class,
                             method=method_attempt,
@@ -753,6 +878,74 @@ class LangChainService:
             context={},
         )
 
+    async def _try_prompted_json(
+            self,
+            messages: List[tuple[str, str]],
+            output_class: Type[T],
+            include_raw: bool = False,
+    ) -> Union[T, Dict[str, Any]]:
+        """
+        Prompted JSON strategy:
+        - Ask for strict JSON
+        - Parse manually
+        - Validate with Pydantic
+        - One repair attempt only
+        """
+
+        assert self.llm is not None
+
+        # --- 1) Initial attempt ---
+        json_messages = messages + [
+            ("system", self._json_instruction(output_class))
+        ]
+
+        timeout_s = 5.0 if self._should_force_prompted_json(self.model_name) else 10.0
+        response = await asyncio.wait_for(self.llm.ainvoke(json_messages), timeout=timeout_s)
+
+        raw = str(response.content or "").strip()
+
+        try:
+            parsed_dict = json.loads(raw)
+            parsed = output_class(**parsed_dict)
+            return {"parsed": parsed, "raw": raw} if include_raw else parsed
+        except Exception as first_error:
+            self.logger.warning(
+                "Prompted JSON parse failed, attempting single repair",
+                error=str(first_error),
+            )
+
+        # --- 2) ONE repair attempt ---
+        repair_prompt = (
+            "The previous output was invalid JSON or did not match the required top-level schema.\n"
+            "Fix it and return ONLY corrected JSON.\n"
+            f"Top-level keys MUST be exactly: {', '.join(output_class.model_fields.keys())}\n"
+            "Do NOT wrap under 'Refined Query' or any other parent key.\n\n"
+            f"Invalid output:\n{raw}"
+        )
+
+        repair_messages = messages + [
+            ("system", self._json_instruction(output_class)),
+            ("human", repair_prompt),
+        ]
+
+        response = await self.llm.ainvoke(repair_messages)
+        repaired_raw = str(response.content or "").strip()
+
+        try:
+            parsed_dict = json.loads(repaired_raw)
+            parsed = output_class(**parsed_dict)
+            return {"parsed": parsed, "raw": repaired_raw} if include_raw else parsed
+        except Exception as repair_error:
+            raise LLMValidationError(
+                message="Prompted JSON failed after single repair attempt",
+                model_name=self.model_name,
+                validation_errors=[str(repair_error)],
+                context={
+                    "initial_error": str(first_error),
+                    "repaired_output": repaired_raw[:500],
+                },
+            )
+
     async def _try_native_openai_parse(
         self,
         messages: List[tuple[str, str]],
@@ -760,9 +953,9 @@ class LangChainService:
         include_raw: bool = False,
     ) -> Union[T, Dict[str, Any]]:
         """
-        Use OpenAI's native parse() API for GPT-5 models.
+        Use OpenAI's native parse() API for llama3.1 models.
 
-        This is the PROVEN approach from user testing that works with GPT-5.
+        This is the PROVEN approach from user testing that works with llama3.1.
         LangChain's with_structured_output() breaks with output_version parameter,
         but native OpenAI API works perfectly.
         """
@@ -812,13 +1005,13 @@ class LangChainService:
                 },
             }
 
-            # CRITICAL FIX: GPT-5 models only support temperature=1 (default)
-            # Exclude temperature parameter for GPT-5 to avoid API constraint errors
-            if "gpt-5" not in self.model_name.lower():
+            # CRITICAL FIX: llama3.1 models only support temperature=1 (default)
+            # Exclude temperature parameter for llama3.1 to avoid API constraint errors
+            if "llama3.1" not in self.model_name.lower():
                 create_kwargs["temperature"] = self.temperature
             else:
                 self.logger.info(
-                    f"Excluding temperature from native create for {self.model_name} (GPT-5 only supports default temperature=1)"
+                    f"Excluding temperature from native create for {self.model_name} (llama3.1 only supports default temperature=1)"
                 )
 
             self.logger.info(

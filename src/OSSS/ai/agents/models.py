@@ -539,46 +539,62 @@ class SynthesisOutput(BaseAgentOutput):
 
     final_synthesis: str = Field(
         ...,
-        min_length=100,
+        min_length=50,          # was 100 (reduces parse failures / retries)
         max_length=5000,
         description="Final synthesized wiki content - pure content only, no synthesis process description",
     )
+
     key_themes: List[SynthesisTheme] = Field(
         default_factory=list,
         max_length=8,
         description="Key themes identified across all agent outputs",
     )
+
     conflicts_resolved: List[str] = Field(
         default_factory=list,
         max_length=5,
         description="Conflicts between agents that were resolved - resolution content only",
     )
+
     complementary_insights: List[str] = Field(
         default_factory=list,
         max_length=10,
         description="Insights that build on each other across agents - insights only, no process",
     )
+
     knowledge_gaps: List[str] = Field(
         default_factory=list,
         max_length=8,
         description="Important aspects not covered by any agent - gaps only, no analysis process",
     )
+
     meta_insights: List[str] = Field(
         default_factory=list,
         max_length=5,
         description="Higher-level insights about the analysis process - insights only",
     )
+
     contributing_agents: List[str] = Field(
-        ..., max_length=10, description="List of agents that contributed to synthesis"
+        default_factory=list,   # was required; optional reduces failures when model omits it
+        max_length=20,          # you had duplicates by casing; allow a bit more
+        description="List of agents that contributed to synthesis",
     )
-    word_count: int = Field(
-        ..., ge=50, le=10000, description="Word count of the final synthesis"
+
+    # ✅ Make optional so the model can't break structured output by being “off”
+    word_count: Optional[int] = Field(
+        default=None,
+        ge=0,                  # allow 0 temporarily; we compute it after parse
+        le=10000,
+        description="Word count of the final synthesis (computed server-side if missing or incorrect)",
     )
+
     topics_extracted: List[str] = Field(
         default_factory=list,
         max_length=30,
         description="Key topics/concepts mentioned in synthesis (up to 30 topics)",
     )
+
+
 
     @field_validator("final_synthesis")
     @classmethod

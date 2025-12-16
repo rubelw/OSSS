@@ -40,7 +40,7 @@ class OllamaChatClient:
     def __init__(
         self,
         base_url: str = "http://host.containers.internal:11434",
-        model: str = "llama3.2-vision",
+        model: str = "llama3.1",
         timeout: float = 60.0,
     ) -> None:
         # Strip any extra path, keep only scheme://host:port

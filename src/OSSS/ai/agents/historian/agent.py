@@ -26,6 +26,7 @@ from OSSS.ai.database.repositories import RepositoryFactory
 # Structured output imports
 from OSSS.ai.agents.models import HistorianOutput, HistoricalReference
 from OSSS.ai.services.langchain_service import LangChainService
+from OSSS.ai.utils.llm_text import coerce_llm_text
 
 logger = logging.getLogger(__name__)
 
@@ -102,6 +103,29 @@ class HistorianAgent(BaseAgent):
         # Compose the prompt on initialization for performance
         self._update_composed_prompt()
 
+    def _get_score(self, r: Any) -> float:
+        # Try common score field names; default to 0.0
+        score = getattr(r, "match_score", None)
+        if score is None:
+            score = getattr(r, "score", None)
+        if score is None:
+            score = getattr(r, "relevance", None)
+        if score is None:
+            score = getattr(r, "similarity", None)
+        if score is None:
+            score = getattr(r, "rank", None)
+            # if "rank" is lower-is-better, invert it:
+            if score is not None:
+                try:
+                    score = 1.0 / (1.0 + float(score))
+                except Exception:
+                    score = 0.0
+
+        try:
+            return float(score) if score is not None else 0.0
+        except Exception:
+            return 0.0
+
     def _create_default_llm(self) -> Optional[LLMInterface]:
         """Create default LLM interface using OpenAI configuration."""
         try:
@@ -148,10 +172,19 @@ class HistorianAgent(BaseAgent):
             )
 
             # Log the selected model
-            selected_model = self.structured_service.model_name
+            selected_model = getattr(self.structured_service, "model_name", "") or ""
             self.logger.info(
                 f"[{self.name}] Structured output service initialized with discovered model: {selected_model}"
             )
+
+            # --- ADD THIS: disable structured output for llama models ---
+            if "llama" in selected_model.lower():
+                self.logger.info(
+                    f"[{self.name}] Disabling structured output for llama models (speed + reliability)"
+                )
+                self.structured_service = None
+            # -----------------------------------------------------------
+
         except Exception as e:
             self.logger.warning(
                 f"[{self.name}] Failed to initialize structured service: {e}. "
@@ -285,7 +318,8 @@ class HistorianAgent(BaseAgent):
                 historical_summary = await self._run_traditional(query, context)
 
             # Add agent output
-            context.add_agent_output(self.name, historical_summary)
+            historical_text = coerce_llm_text(historical_summary).strip()
+            context.add_agent_output(self.name, historical_text)
 
             # Log successful execution
             num_notes = len(context.retrieved_notes) if context.retrieved_notes else 0
@@ -320,7 +354,8 @@ class HistorianAgent(BaseAgent):
             else:
                 # No historical context available
                 no_context_output = await self._create_no_context_output(query)
-                context.add_agent_output(self.name, no_context_output)
+                no_context_text = coerce_llm_text(no_context_output).strip()
+                context.add_agent_output(self.name, no_context_text)
                 context.complete_agent_execution(self.name, success=False)
 
             context.log_trace(self.name, input_data=query, output_data=str(e))
@@ -648,15 +683,13 @@ class HistorianAgent(BaseAgent):
             # Prepare relevance analysis prompt
             relevance_prompt = self._build_relevance_prompt(query, search_results)
 
-            # Get LLM analysis
-            llm_response = self.llm.generate(relevance_prompt)
-
-            # Parse response to get relevant result indices
-            response_text = (
-                llm_response.text
-                if hasattr(llm_response, "text")
-                else str(llm_response)
-            )
+            # Get LLM analysis (avoid blocking event loop)
+            messages = [
+                {"role": "system", "content": "You are a relevance analysis assistant."},
+                {"role": "user", "content": relevance_prompt},
+            ]
+            llm_response = await self.llm.ainvoke(messages)
+            response_text = coerce_llm_text(llm_response).strip()
 
             # Track token usage for relevance analysis
             if (
@@ -683,7 +716,7 @@ class HistorianAgent(BaseAgent):
                     f"input: {input_tokens}, output: {output_tokens}, total: {total_tokens}"
                 )
 
-            relevant_indices = self._parse_relevance_response(response_text)
+            relevant_indices = self._parse_relevance_response(response_text, len(search_results))
 
             # Filter results based on LLM analysis
             filtered_results = [
@@ -750,13 +783,19 @@ class HistorianAgent(BaseAgent):
             # Prepare synthesis prompt
             synthesis_prompt = self._build_synthesis_prompt(query, filtered_results)
 
-            # Get LLM synthesis
-            llm_response = self.llm.generate(synthesis_prompt)
-            historical_summary = (
-                llm_response.text
-                if hasattr(llm_response, "text")
-                else str(llm_response)
-            )
+            # Get LLM synthesis (avoid blocking event loop)
+            messages = [
+                {"role": "system", "content": "You are a historian synthesis assistant."},
+                {"role": "user", "content": synthesis_prompt},
+            ]
+            if hasattr(self.llm, "ainvoke"):
+                llm_response = await self.llm.ainvoke(messages)
+            else:
+                # safest drop-in: run sync generate in a worker thread
+                prompt_text = messages[-1]["content"]
+                llm_response = await asyncio.to_thread(self.llm.generate, prompt_text)
+
+            historical_summary = coerce_llm_text(llm_response).strip()
 
             # Track token usage for synthesis (accumulate with previous usage)
             if (
@@ -836,26 +875,18 @@ Instructions:
 
 RELEVANT INDICES:"""
 
-    def _parse_relevance_response(self, llm_response: str) -> List[int]:
-        """Parse LLM response to extract relevant result indices."""
+    def _parse_relevance_response(self, llm_response: str, n_results: int) -> List[int]:
         try:
             response_clean = llm_response.strip().upper()
-
             if response_clean == "NONE":
                 return []
-
-            # Extract numbers from response
             import re
-
             numbers = re.findall(r"\d+", response_clean)
             indices = [int(num) for num in numbers]
-
-            # Limit to maximum 5 results
-            return indices[:5]
-
+            return [i for i in indices if 0 <= i < n_results][:5]
         except Exception as e:
             self.logger.error(f"[{self.name}] Failed to parse relevance response: {e}")
-            return list(range(min(5, len(llm_response))))  # Default to first 5
+            return list(range(min(5, n_results)))
 
     def _build_synthesis_prompt(
         self, query: str, filtered_results: List[SearchResult]
@@ -936,9 +967,16 @@ HISTORICAL SYNTHESIS:"""
             search_results = await self._search_historical_content(query, context)
 
             # Step 2: Analyze and filter results with LLM (same as before)
-            filtered_results = await self._analyze_relevance(
-                query, search_results, context
-            )
+            #filtered_results = await self._analyze_relevance(
+            #    query, search_results, context
+            #)
+
+            # Optional: log fields once so you can confirm actual score attribute
+            if search_results:
+                self.logger.debug(f"[{self.name}] SearchResult fields: {dir(search_results[0])}")
+
+            # Rank safely using the helper (works even if match_score doesn't exist)
+            filtered_results = sorted(search_results, key=self._get_score, reverse=True)[:3]
 
             # Step 3: Prepare historical references for structured output
             # Note: HistoricalReference model is simpler than our SearchResult
@@ -1047,9 +1085,12 @@ Focus on the content synthesis only - do not describe your analysis process."""
             # Return the historical synthesis for backward compatibility
             return structured_result.historical_synthesis
 
+
         except Exception as e:
-            self.logger.error(f"[{self.name}] Structured output failed: {e}")
-            raise  # Let caller handle fallback
+            self.logger.debug(
+                f"[{self.name}] Structured failed fast, falling back: {e}"
+            )
+            raise
 
     async def _run_traditional(self, query: str, context: AgentContext) -> str:
         """
@@ -1062,7 +1103,14 @@ Focus on the content synthesis only - do not describe your analysis process."""
         search_results = await self._search_historical_content(query, context)
 
         # Step 2: Analyze and filter results with LLM
-        filtered_results = await self._analyze_relevance(query, search_results, context)
+        #filtered_results = await self._analyze_relevance(query, search_results, context)
+
+        # Optional: log fields once so you can confirm actual score attribute
+        if search_results:
+            self.logger.debug(f"[{self.name}] SearchResult fields: {dir(search_results[0])}")
+
+        # Rank safely using the helper (works even if match_score doesn't exist)
+        filtered_results = sorted(search_results, key=self._get_score, reverse=True)[:3]
 
         # Step 3: Synthesize findings into contextual summary
         historical_summary = await self._synthesize_historical_context(
@@ -1080,14 +1128,13 @@ Focus on the content synthesis only - do not describe your analysis process."""
             return "No relevant historical context found."
 
         context_parts = []
-        for i, result in enumerate(filtered_results, 1):
+        for i, result in enumerate(filtered_results[:3], 1):
+            excerpt = (result.excerpt or "")[:350]
             context_parts.append(
                 f"{i}. {result.title} ({result.date})\n"
-                f"   Topics: {', '.join(result.topics)}\n"
-                f"   Excerpt: {result.excerpt}\n"
+                f"   Excerpt: {excerpt}\n"
                 f"   Source: {result.filename}"
             )
-
         return "\n\n".join(context_parts)
 
     async def _create_fallback_output(self, query: str, mock_history: List[str]) -> str:

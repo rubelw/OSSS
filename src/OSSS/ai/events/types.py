@@ -10,7 +10,7 @@ import uuid
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Dict, Any, Optional, List
-from pydantic import BaseModel, Field, field_validator, model_validator, ConfigDict
+from pydantic import BaseModel, Field, field_validator, model_validator, ConfigDict,  AliasChoices
 
 from OSSS.ai.agents.metadata import AgentMetadata, TaskClassification
 
@@ -85,6 +85,8 @@ class WorkflowEvent(BaseModel):
         description="Category of event source (orchestration vs execution)",
         json_schema_extra={"example": "orchestration"},
     )
+
+
     workflow_id: str = Field(
         ...,
         description="Unique identifier for the workflow execution",
@@ -326,6 +328,7 @@ class WorkflowStartedEvent(WorkflowEvent):
     )
     agents_requested: List[str] = Field(
         default_factory=list,
+        validation_alias=AliasChoices("agents_requested", "agents"),
         description="List of agent names requested for execution",
         json_schema_extra={"example": ["refiner", "critic", "historian"]},
     )
@@ -404,6 +407,20 @@ class WorkflowCompletedEvent(WorkflowEvent):
         default_factory=list,
         description="List of agents that failed during execution",
         json_schema_extra={"example": ["historian"]},
+    )
+
+    # ✅ Add these explicitly (even if WorkflowEvent has them, this is fine and clarifies the contract)
+    error_message: Optional[str] = Field(
+        default=None,
+        description="Human-readable error message (set when workflow fails).",
+    )
+    error_type: Optional[str] = Field(
+        default=None,
+        description="Error class/category (required if error_message is provided).",
+    )
+    error_details: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Optional structured details (exception repr, stack hint, codes, etc.)",
     )
 
     @field_validator("agent_outputs")

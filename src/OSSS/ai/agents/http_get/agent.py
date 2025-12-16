@@ -1,6 +1,7 @@
 # src/OSSS/ai/agents/http/http_get_agent.py
 from __future__ import annotations
 
+import os
 import time
 from typing import Any, Dict, Optional
 
@@ -35,6 +36,9 @@ class HttpGetAgent(BaseAgent):
         store_key: str = "http_get_result",
         auth_token_env: Optional[str] = None,
     ) -> None:
+        # ✅ Align with the rest of your agents (BaseAgent init + timeout wiring)
+        super().__init__(name=self.name, timeout_seconds=timeout_s)
+
         self.base_url = base_url.rstrip("/")
         self.path = path if path.startswith("/") else f"/{path}"
         self.timeout_s = timeout_s
@@ -43,33 +47,35 @@ class HttpGetAgent(BaseAgent):
         self.store_key = store_key
         self.auth_token_env = auth_token_env
 
+    # Keep this if your GraphBuilder uses LangGraphNodeDefinition
     def get_node_definition(self) -> LangGraphNodeDefinition:
         """
         Node definition used by GraphBuilder / orchestrator.
         Adjust fields to match your LangGraphNodeDefinition shape.
         """
         return LangGraphNodeDefinition(
-            node_type="tool",              # or "processor" depending on your taxonomy
+            node_type="tool",        # or "processor" depending on your taxonomy
             agent_name="HttpGetAgent",
-            dependencies=[],               # set if it must run after another agent
+            dependencies=[],         # set if it must run after another agent
         )
 
-    async def invoke(self, context: AgentContext) -> AgentContext:
+    # ✅ Align with the rest of your agents: entrypoint is run()
+    async def run(self, context: AgentContext) -> AgentContext:
         """
         Execute GET request and attach results to context.execution_state.
         """
-        # You can also allow per-request overrides via context or execution_config:
-        exec_cfg: Dict[str, Any] = context.execution_state.get("execution_config", {}) or {}
+        exec_cfg: Dict[str, Any] = (
+            context.execution_state.get("execution_config", {}) or {}
+        )
         headers = dict(self.headers)
 
-        # Optional bearer token from env name (or you can pass token directly)
+        # Optional bearer token from env name
         if self.auth_token_env:
-            import os
             token = os.getenv(self.auth_token_env)
             if token:
                 headers.setdefault("Authorization", f"Bearer {token}")
 
-        # Allow query params to be augmented dynamically (example)
+        # Allow query params to be augmented dynamically
         params = dict(self.query_params)
         params.update(exec_cfg.get("http_query_params", {}))
 
@@ -78,7 +84,6 @@ class HttpGetAgent(BaseAgent):
         start = time.time()
         async with httpx.AsyncClient(timeout=self.timeout_s) as client:
             resp = await client.get(url, params=params, headers=headers)
-
         elapsed_ms = int((time.time() - start) * 1000)
 
         # Parse JSON if possible; otherwise keep text
@@ -101,8 +106,12 @@ class HttpGetAgent(BaseAgent):
         # Store for downstream agents
         context.execution_state[self.store_key] = result.model_dump()
 
-        # If you have a structured_outputs convention, you can also publish there:
+        # Also publish under the common structured_outputs convention
         structured = context.execution_state.setdefault("structured_outputs", {})
         structured[self.name] = result.model_dump()
 
         return context
+
+    # ✅ Backward compatibility if anything still calls invoke()
+    async def invoke(self, context: AgentContext) -> AgentContext:
+        return await self.run(context)

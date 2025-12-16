@@ -20,6 +20,7 @@ from typing import List, Dict, Any, Optional, Callable, Set
 from pydantic import BaseModel, Field, ConfigDict
 from OSSS.ai.context import AgentContext
 from OSSS.ai.agents.base_agent import BaseAgent, LangGraphNodeDefinition
+from OSSS.ai.orchestration.routing import should_run_historian
 
 
 # ===========================================================================
@@ -285,6 +286,31 @@ class GraphBuilder:
         # from_node -> routing_func(context) -> next_node_name
         # NOTE: GraphExecutor does not evaluate this yet; edges are created as placeholders.
         self.custom_routing: Dict[str, Callable[[AgentContext], str]] = {}
+
+    def build_for_query(self, query: str) -> GraphDefinition:
+        graph_def = self.build()
+
+        # If historian exists but query doesn't warrant it, remove it from nodes/edges
+        if "historian" in graph_def.nodes and not should_run_historian(query):
+            # Remove node
+            graph_def.nodes.pop("historian", None)
+
+            # Remove edges involving historian
+            graph_def.edges = [
+                e for e in graph_def.edges
+                if e.from_node != "historian" and e.to_node != "historian"
+            ]
+
+            # Recompute entry/exit points after removal
+            graph_def.entry_points = self._find_entry_points(graph_def.nodes, graph_def.edges)
+            graph_def.exit_points = self._find_exit_points(graph_def.nodes, graph_def.edges)
+
+            # Update metadata
+            graph_def.metadata["historian_skipped"] = True
+
+        self._validate_graph(graph_def)
+        return graph_def
+
 
     def add_agent(self, agent: BaseAgent) -> "GraphBuilder":
         """

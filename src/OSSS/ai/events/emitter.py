@@ -154,12 +154,34 @@ def emit_routing_decision(**kwargs: Any) -> None:
     _fire_and_forget(get_global_event_emitter().emit(RoutingDecisionEvent(**kwargs)))
 
 
+
 def emit_routing_decision_from_object(obj: Any, **kwargs: Any) -> None:
-    """
-    If you have a routing decision object but no dedicated event type for it,
-    you can still emit a RoutingDecisionEvent with a stringified payload.
-    """
-    payload: Dict[str, Any] = {"routing_decision": repr(obj), **kwargs}
+    # workflow_id is REQUIRED by WorkflowEvent
+    workflow_id = kwargs.get("workflow_id")
+    if not workflow_id:
+        raise ValueError("emit_routing_decision_from_object requires workflow_id=")
+
+    # Prevent accidental unknown fields
+    kwargs.pop("routing_decision", None)
+
+    payload: Dict[str, Any] = {
+        # Required base field
+        "workflow_id": workflow_id,
+
+        # Optional base fields (only include if present)
+        **{k: v for k, v in kwargs.items() if v is not None},
+
+        # RoutingDecisionEvent fields
+        "selected_agents": list(getattr(obj, "selected_agents", []) or []),
+        "routing_strategy": str(getattr(obj, "routing_strategy", "") or ""),
+        "confidence_score": float(getattr(obj, "confidence_score", 0.0) or 0.0),
+        "reasoning": (
+            getattr(obj, "reasoning", None)
+            if isinstance(getattr(obj, "reasoning", None), dict)
+            else {"repr": repr(obj)}
+        ),
+    }
+
     _fire_and_forget(get_global_event_emitter().emit(RoutingDecisionEvent(**payload)))
 
 

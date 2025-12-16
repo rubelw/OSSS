@@ -72,6 +72,8 @@ from OSSS.ai.routing import (
     OptimizationStrategy,
     RoutingDecision,
 )
+from OSSS.ai.orchestration.routing import should_run_historian
+
 
 logger = get_logger(__name__)
 
@@ -257,9 +259,26 @@ class LangGraphOrchestrator:
             # Update agents based on routing decision
             self.agents_to_run = routing_decision.selected_agents
 
+            # ------------------------------------------------------------
+            # Fast-path: skip historian unless the query likely needs history
+            # ------------------------------------------------------------
+            if "historian" in [a.lower() for a in self.agents_to_run]:
+                if not should_run_historian(query):
+                    self.logger.info(
+                        f"[orchestrator] Skipping historian (fast path) for query_len={len(query)}"
+                    )
+
+                    # Remove historian from this run
+                    self.agents_to_run = [a for a in self.agents_to_run if a.lower() != "historian"]
+
+                    # IMPORTANT: compiled graphs are cached per agent list.
+                    # If we changed the agent set, force a rebuild.
+                    self._compiled_graph = None
+                    self._graph = None
+
             # Emit routing decision event
-            await emit_routing_decision_from_object(
-                routing_decision=routing_decision,
+            emit_routing_decision_from_object(
+                routing_decision,  # positional obj
                 workflow_id=execution_id,
                 correlation_id=correlation_id,
                 metadata={
@@ -284,10 +303,10 @@ class LangGraphOrchestrator:
         self.logger.info(f"Correlation context: {correlation_ctx.to_dict()}")
 
         # Emit workflow started event
-        await emit_workflow_started(
+        emit_workflow_started(
             workflow_id=execution_id,
             query=query,
-            agents=self.agents_to_run,
+            agents_requested=self.agents_to_run,  # ✅ change agents -> agents_requested
             execution_config=config,
             correlation_id=correlation_id,
             metadata={
@@ -411,7 +430,7 @@ class LangGraphOrchestrator:
                     content = str(output)
                     return content[:200] + "..." if len(content) > 200 else content
 
-            await emit_workflow_completed(
+            emit_workflow_completed(
                 workflow_id=execution_id,
                 status=(
                     "completed"
@@ -460,13 +479,18 @@ class LangGraphOrchestrator:
             )
 
             # Emit workflow failed event
-            await emit_workflow_completed(
+            emit_workflow_completed(
                 workflow_id=execution_id,
                 status="failed",
                 execution_time_seconds=total_time_ms / 1000,
                 error_message=str(e),
                 successful_agents=[],
                 failed_agents=self.agents_to_run,  # All requested agents failed
+                error_type=e.__class__.__name__,  # ✅ add this
+                error_details={  # ✅ optional but very useful
+                    "exception_module": e.__class__.__module__,
+                    "exception_qualname": getattr(e.__class__, "__qualname__", e.__class__.__name__),
+                },
                 correlation_id=correlation_id,
                 metadata={
                     "orchestrator_type": "langgraph-real",

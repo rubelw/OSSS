@@ -17,6 +17,8 @@ from OSSS.ai.services.langchain_service import LangChainService
 from typing import Optional, Union
 from OSSS.ai.config.agent_configs import RefinerConfig
 from OSSS.ai.workflows.prompt_composer import PromptComposer, ComposedPrompt
+from OSSS.ai.utils.llm_text import coerce_llm_text
+
 
 import logging
 import asyncio
@@ -62,7 +64,12 @@ class RefinerAgent(BaseAgent):
 
         # Initialize structured output service
         self.structured_service: Optional[LangChainService] = None
-        self._setup_structured_service()
+
+        # Use self.config (never the raw arg) and don't assume the field exists
+        if getattr(self.config, "use_structured_output", False):
+            self._setup_structured_service()
+        else:
+            self.structured_service = None
 
         self._prompt_composer = PromptComposer()
         self._composed_prompt: Optional[ComposedPrompt]
@@ -77,7 +84,7 @@ class RefinerAgent(BaseAgent):
             api_key = getattr(self.llm, "api_key", None)
 
             # Create LangChain service with model discovery for RefinerAgent
-            # This will automatically select the best model (preferring gpt-5-nano/mini)
+            # This will automatically select the best model (preferring llama3.1-nano/mini)
             self.structured_service = LangChainService(
                 model=None,  # Let discovery service choose
                 api_key=api_key,
@@ -102,6 +109,14 @@ class RefinerAgent(BaseAgent):
                 f"[{self.name}] Could not initialize structured output service: {e}"
             )
             self.structured_service = None
+
+        if self.structured_service:
+            selected_model = getattr(self.structured_service, "model_name", "") or ""
+            if "llama" in selected_model.lower():
+                logger.info(
+                    f"[{self.name}] Disabling structured output for llama models (speed + reliability)"
+                )
+                self.structured_service = None
 
     def _update_composed_prompt(self) -> None:
         """Update the composed prompt based on current configuration."""
@@ -189,10 +204,9 @@ class RefinerAgent(BaseAgent):
 
         logger.debug(f"[{self.name}] Output: {refined_output}")
 
-        # Add agent output
-        context.add_agent_output(self.name, refined_output)
-
-        context.log_trace(self.name, input_data=query, output_data=refined_output)
+        refined_text = coerce_llm_text(refined_output).strip()
+        context.add_agent_output(self.name, refined_text)
+        context.log_trace(self.name, input_data=query, output_data=refined_text)
         return context
 
     async def _run_structured(
@@ -322,8 +336,11 @@ class RefinerAgent(BaseAgent):
             else:
                 return f"Refined query: {structured_result.refined_query}"
 
+
         except Exception as e:
-            logger.error(f"[{self.name}] Structured output processing failed: {e}")
+            self.logger.debug(
+                f"[{self.name}] Structured failed fast, falling back: {e}"
+            )
             raise
 
     async def _run_traditional(
@@ -332,15 +349,20 @@ class RefinerAgent(BaseAgent):
         """Fallback to traditional LLM interface."""
         logger.info(f"[{self.name}] Using traditional LLM interface")
 
-        response = self.llm.generate(prompt=query, system_prompt=system_prompt)
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": f"Original query: {query}\n\nPlease refine this query according to the system instructions."},
 
-        if not hasattr(response, "text"):
-            raise ValueError("LLMResponse missing 'text' field")
+        ]
 
-        # Record token usage from traditional LLM response
-        input_tokens = getattr(response, "input_tokens", None) or 0
-        output_tokens = getattr(response, "output_tokens", None) or 0
-        total_tokens = getattr(response, "tokens_used", None) or 0
+        resp = await self.llm.ainvoke(messages)
+
+        refined_query = coerce_llm_text(resp).strip()
+
+        # Token usage: only record if available (don’t assume attributes)
+        input_tokens = getattr(resp, "input_tokens", 0) or 0
+        output_tokens = getattr(resp, "output_tokens", 0) or 0
+        total_tokens = getattr(resp, "tokens_used", 0) or 0
 
         context.add_agent_token_usage(
             agent_name=self.name,
@@ -349,18 +371,9 @@ class RefinerAgent(BaseAgent):
             total_tokens=total_tokens,
         )
 
-        logger.debug(
-            f"[{self.name}] Traditional LLM token usage - "
-            f"input: {input_tokens}, output: {output_tokens}, total: {total_tokens}"
-        )
-
-        refined_query = response.text.strip()
-
-        # Format output to show the refinement
         if refined_query.startswith("[Unchanged]"):
             return refined_query
-        else:
-            return f"Refined query: {refined_query}"
+        return f"Refined query: {refined_query}"
 
     def define_node_metadata(self) -> Dict[str, Any]:
         """

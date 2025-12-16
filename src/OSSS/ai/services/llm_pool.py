@@ -139,68 +139,78 @@ class LLMServicePool:
         return fallback
 
     def get_or_create_client(
-        self, model: str, temperature: float = 0.1
+            self,
+            model: str,
+            temperature: float = 0.1,
+            *,
+            max_tokens: Optional[int] = None,
+            request_timeout: float = 30.0,
     ) -> BaseChatModel:
-        """
-        Get or create a ChatOpenAI client from the pool.
-
-        This is the key optimization - clients are reused across agents.
-        """
-        # CRITICAL FIX: GPT-5 models only support temperature=1 (default)
-        # For GPT-5, ignore temperature parameter and use default
         model_lower = model.lower()
-        if "gpt-5" in model_lower:
-            # For GPT-5, always use default temperature (1.0) - ignore passed temperature
-            client_key = f"{model}@default"
-            effective_temperature = None  # Will be excluded from ChatOpenAI kwargs
-            logger.info(
-                f"Using default temperature for {model} (GPT-5 only supports temperature=1)"
-            )
+
+        # --- ADD IT HERE (compute once) ---
+        base_url = os.getenv("OPENAI_BASE_URL")  # ollama or real openai
+        if base_url:
+            logger.info(f"LLMServicePool using base_url={base_url}")
+
+        is_ollama = bool(base_url) and "11434" in base_url
+
+        # Ollama defaults (only if caller didn't override)
+        if is_ollama:
+            if max_tokens is None:
+                max_tokens = 200
+            request_timeout = min(request_timeout, 12.0)
+        # --- END ADDITION ---
+
+        # llama3.1 temperature rule
+        if "llama3.1" in model_lower:
+            effective_temperature = None
+            temp_key = "default"
         else:
-            # Use model + temperature as key for client caching
-            client_key = f"{model}@{temperature}"
             effective_temperature = temperature
+            temp_key = f"{temperature}"
+
+        mt_key = str(max_tokens) if max_tokens is not None else "none"
+        to_key = str(request_timeout)
+        bu_key = base_url or "none"
+
+        # IMPORTANT: cache key must include everything that changes client behavior
+        client_key = f"{model}@temp={temp_key}@max={mt_key}@to={to_key}@base={bu_key}"
 
         if client_key in self._llm_clients:
             self.metrics["clients_reused"] += 1
             logger.debug(f"Reusing cached client for {client_key}")
             return self._llm_clients[client_key]
 
-        # Create new client
         logger.info(f"Creating new ChatOpenAI client for {client_key}")
 
-        # Build kwargs for ChatOpenAI
-        kwargs = {
+        kwargs: Dict[str, Any] = {
             "model": model,
             "api_key": self._api_key,
             "max_retries": 3,
-            "timeout": 30.0,
+            "request_timeout": request_timeout,
         }
 
-        # Only add temperature for non-GPT-5 models
+        if base_url:
+            kwargs["base_url"] = base_url
+
         if effective_temperature is not None:
             kwargs["temperature"] = effective_temperature
 
-        client = ChatOpenAI(**kwargs)
+        if max_tokens is not None:
+            kwargs["max_tokens"] = max_tokens
 
+        client = ChatOpenAI(**kwargs)
         self._llm_clients[client_key] = client
         self.metrics["clients_created"] += 1
-
         return client
 
     async def get_optimal_client_for_agent(
-        self, agent_name: str, temperature: Optional[float] = None
+            self, agent_name: str, temperature: Optional[float] = None
     ) -> tuple[BaseChatModel, str]:
-        """
-        Get the optimal client for an agent with automatic model selection.
 
-        Returns:
-            Tuple of (client, model_name)
-        """
-        # Get best model for this agent
         model = await self.get_model_for_agent(agent_name)
 
-        # Use agent-specific temperature defaults if not provided
         if temperature is None:
             temperature_defaults = {
                 "refiner": 0.1,
@@ -210,10 +220,17 @@ class LLMServicePool:
             }
             temperature = temperature_defaults.get(agent_name, 0.1)
 
-        # Get or create client
-        client = self.get_or_create_client(model, temperature)
-        self.metrics["agents_served"] += 1
+        # ---- PER-AGENT max_tokens cap ----
+        max_tokens = 600 if agent_name == "synthesis" else 300
 
+        client = self.get_or_create_client(
+            model,
+            temperature,
+            max_tokens=max_tokens,
+            request_timeout=12.0,  # if you want the same “hard timeout” behavior
+        )
+
+        self.metrics["agents_served"] += 1
         return client, model
 
     def get_metrics(self) -> Dict[str, Any]:

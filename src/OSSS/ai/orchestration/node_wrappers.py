@@ -59,6 +59,7 @@ from OSSS.ai.events import (
 )
 from OSSS.ai.events.types import EventCategory
 from OSSS.ai.utils.content_truncation import truncate_for_websocket_event
+from OSSS.ai.orchestration.routing import should_run_historian
 
 logger = get_logger(__name__)
 
@@ -517,7 +518,7 @@ async def refiner_node(
 
     try:
         # ✅ Enhanced event emission with runtime context
-        await emit_agent_execution_started(
+        emit_agent_execution_started(
             event_category=EventCategory.EXECUTION,
             workflow_id=workflow_id,
             agent_name="refiner",
@@ -565,7 +566,7 @@ async def refiner_node(
         refiner_token_usage = result_context.get_agent_token_usage("refiner")
 
         # ✅ Enhanced completion event emission with runtime context and token usage
-        await emit_agent_execution_completed(
+        emit_agent_execution_completed(
             event_category=EventCategory.EXECUTION,
             workflow_id=workflow_id,
             agent_name="refiner",
@@ -646,7 +647,7 @@ async def refiner_node(
         )
 
         # ✅ Enhanced error event emission with runtime context
-        await emit_agent_execution_completed(
+        emit_agent_execution_completed(
             event_category=EventCategory.EXECUTION,
             workflow_id=workflow_id,
             agent_name="refiner",
@@ -727,7 +728,7 @@ async def critic_node(
             raise NodeExecutionError("Critic node requires refiner output")
 
         # Emit agent execution started event with runtime context
-        await emit_agent_execution_started(
+        emit_agent_execution_started(
             event_category=EventCategory.EXECUTION,
             workflow_id=execution_id,
             agent_name="critic",
@@ -775,7 +776,7 @@ async def critic_node(
         critic_token_usage = result_context.get_agent_token_usage("critic")
 
         # Emit agent execution completed event with runtime context and token usage
-        await emit_agent_execution_completed(
+        emit_agent_execution_completed(
             event_category=EventCategory.EXECUTION,
             workflow_id=execution_id,
             agent_name="critic",
@@ -820,7 +821,7 @@ async def critic_node(
         logger.error(f"Critic node failed: {e}")
 
         # Emit agent execution failed event with runtime context
-        await emit_agent_execution_completed(
+        emit_agent_execution_completed(
             event_category=EventCategory.EXECUTION,
             workflow_id=execution_id,
             agent_name="critic",
@@ -888,13 +889,22 @@ async def historian_node(
         },
     )
 
+    # right after you compute original_query in historian_node
+    if not should_run_historian(original_query or ""):
+        logger.info("Skipping historian node (routing heuristic)")
+        return {
+            "historian": None,  # or omit; but be consistent with your state schema
+            "successful_agents": [],  # don't count as success if you prefer
+            "structured_outputs": {},
+        }
+
     try:
         # Validate dependencies
         if not state.get("refiner"):
             raise NodeExecutionError("Historian node requires refiner output")
 
         # Emit agent execution started event with runtime context
-        await emit_agent_execution_started(
+        emit_agent_execution_started(
             event_category=EventCategory.EXECUTION,
             workflow_id=execution_id,
             agent_name="historian",
@@ -961,7 +971,7 @@ async def historian_node(
         historian_token_usage = result_context.get_agent_token_usage("historian")
 
         # Emit agent execution completed event with runtime context and token usage
-        await emit_agent_execution_completed(
+        emit_agent_execution_completed(
             event_category=EventCategory.EXECUTION,
             workflow_id=execution_id,
             agent_name="historian",
@@ -1007,7 +1017,7 @@ async def historian_node(
         logger.error(f"Historian node failed: {e}")
 
         # Emit agent execution failed event with runtime context
-        await emit_agent_execution_completed(
+        emit_agent_execution_completed(
             event_category=EventCategory.EXECUTION,
             workflow_id=execution_id,
             agent_name="historian",
@@ -1081,11 +1091,17 @@ async def synthesis_node(
             raise NodeExecutionError("Synthesis node requires refiner output")
         if not state.get("critic"):
             raise NodeExecutionError("Synthesis node requires critic output")
+        # Historian is optional for speed unless query indicates it's needed
         if not state.get("historian"):
-            raise NodeExecutionError("Synthesis node requires historian output")
+            # If historian *should* have run, treat this as an error
+            if should_run_historian(original_query or ""):
+                raise NodeExecutionError("Synthesis node requires historian output for this query")
+
+            # Otherwise, proceed: historian was intentionally skipped
+            logger.info("Proceeding without historian output (skipped by routing)")
 
         # Emit agent execution started event with runtime context
-        await emit_agent_execution_started(
+        emit_agent_execution_started(
             event_category=EventCategory.EXECUTION,
             workflow_id=execution_id,
             agent_name="synthesis",
@@ -1145,7 +1161,7 @@ async def synthesis_node(
         synthesis_token_usage = result_context.get_agent_token_usage("synthesis")
 
         # Emit agent execution completed event with runtime context and token usage
-        await emit_agent_execution_completed(
+        emit_agent_execution_completed(
             event_category=EventCategory.EXECUTION,
             workflow_id=execution_id,
             agent_name="synthesis",
@@ -1191,7 +1207,7 @@ async def synthesis_node(
         logger.error(f"Synthesis node failed: {e}")
 
         # Emit agent execution failed event with runtime context
-        await emit_agent_execution_completed(
+        emit_agent_execution_completed(
             event_category=EventCategory.EXECUTION,
             workflow_id=execution_id,
             agent_name="synthesis",
@@ -1248,19 +1264,11 @@ async def handle_node_timeout(
 
 
 def get_node_dependencies() -> Dict[str, List[str]]:
-    """
-    Get node dependency mapping for DAG construction.
-
-    Returns
-    -------
-    Dict[str, List[str]]
-        Mapping of node name to list of required predecessor nodes
-    """
     return {
-        "refiner": [],  # No dependencies
-        "critic": ["refiner"],  # Requires refiner output
-        "historian": ["refiner"],  # Requires refiner output
-        "synthesis": ["critic", "historian"],  # Requires critic and historian outputs
+        "refiner": [],
+        "critic": ["refiner"],
+        "historian": ["refiner"],
+        "synthesis": ["critic"],  # historian is optional
     }
 
 

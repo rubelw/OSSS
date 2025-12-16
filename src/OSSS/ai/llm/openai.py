@@ -1,6 +1,8 @@
+import asyncio
+from dataclasses import dataclass
 import openai
 import time
-from typing import Any, Iterator, Optional, Callable, Union, cast, List, Generator
+from typing import Any, Iterator, Optional, Callable, Union, cast, List, Generator, cast, Dict
 from openai.types.chat import (
     ChatCompletion,
     ChatCompletionMessageParam,
@@ -22,6 +24,20 @@ from OSSS.ai.exceptions import (
 )
 from OSSS.ai.observability import get_logger, get_observability_context
 
+@dataclass
+class OpenAIInvokeResult:
+    """
+    Lightweight return type for invoke/ainvoke so agent code can do:
+      - getattr(result, "content", ...)
+    and you still retain raw/usage if you want it later.
+    """
+    content: str
+    raw: Any = None
+    tokens_used: Optional[int] = None
+    input_tokens: Optional[int] = None
+    output_tokens: Optional[int] = None
+    model_name: Optional[str] = None
+    finish_reason: Optional[str] = None
 
 class OpenAIChatLLM(LLMInterface):
     def __init__(
@@ -438,3 +454,80 @@ class OpenAIChatLLM(LLMInterface):
             context={"status_code": status_code, "error_type": type(error).__name__},
             cause=error,
         )
+
+    def invoke(
+            self,
+            messages: List[Dict[str, str]],
+            *,
+            stream: bool = False,
+            **kwargs: Any,
+    ) -> Union[OpenAIInvokeResult, Iterator[str]]:
+        """
+        Synchronous chat invocation using an OpenAI-compatible 'messages' list.
+
+        This matches what your agents are passing (system/user/assistant dicts).
+        """
+        assert isinstance(self.model, str), "model must be a string"
+
+        # OpenAI SDK expects ChatCompletionMessageParam-compatible dicts
+        oai_messages = cast(List[ChatCompletionMessageParam], messages)
+
+        response: Union[Stream[ChatCompletionChunk], ChatCompletion] = (
+            self.client.chat.completions.create(
+                model=self.model,
+                messages=oai_messages,
+                stream=stream,
+                **kwargs,
+            )
+        )
+
+        if stream:
+            stream_response = cast(Stream[ChatCompletionChunk], response)
+
+            def token_generator() -> Iterator[str]:
+                for chunk in stream_response:
+                    delta = chunk.choices[0].delta
+                    yield delta.content or ""
+
+            return token_generator()
+
+        completion = cast(ChatCompletion, response)
+        text = (completion.choices[0].message.content or "").strip()
+        usage = completion.usage
+
+        return OpenAIInvokeResult(
+            content=text,
+            raw=completion,
+            tokens_used=usage.total_tokens if usage else None,
+            input_tokens=usage.prompt_tokens if usage else None,
+            output_tokens=usage.completion_tokens if usage else None,
+            model_name=self.model,
+            finish_reason=completion.choices[0].finish_reason,
+        )
+
+    async def ainvoke(self, messages: list[dict[str, str]], **kwargs: Any) -> LLMResponse:
+        """
+        Async chat invocation used by agents.
+        messages: [{"role":"system"|"user"|"assistant", "content": "..."}]
+        """
+        def _call() -> LLMResponse:
+            # convert messages -> prompt/system_prompt shape you currently use
+            system_prompt = None
+            user_parts = []
+
+            for m in messages:
+                if m["role"] == "system" and system_prompt is None:
+                    system_prompt = m["content"]
+                elif m["role"] == "user":
+                    user_parts.append(m["content"])
+                elif m["role"] == "assistant":
+                    user_parts.append(f"(assistant context)\n{m['content']}")
+
+            prompt = "\n\n".join(user_parts).strip()
+
+            return cast(
+                LLMResponse,
+                self.generate(prompt, system_prompt=system_prompt, stream=False, **kwargs),
+            )
+
+        return await asyncio.to_thread(_call)

@@ -1,6 +1,6 @@
 import logging
 from typing import Dict, Any, Optional, Union
-
+import asyncio
 from OSSS.ai.agents.base_agent import (
     BaseAgent,
     NodeType,
@@ -17,6 +17,7 @@ from OSSS.ai.workflows.prompt_composer import PromptComposer, ComposedPrompt
 # Structured output integration using LangChain service pattern
 from OSSS.ai.services.langchain_service import LangChainService
 from OSSS.ai.agents.models import SynthesisOutput, SynthesisTheme, ConfidenceLevel
+from OSSS.ai.utils.llm_text import coerce_llm_text
 
 logger = logging.getLogger(__name__)
 
@@ -79,6 +80,52 @@ class SynthesisAgent(BaseAgent):
         # Compose the prompt on initialization for performance
         self._update_composed_prompt()
 
+    def _compute_word_count(self, text: str) -> int:
+        """
+        Compute word count deterministically server-side.
+
+        We do this here (instead of trusting the LLM) so `word_count` is always accurate
+        and never causes validation failures due to model miscount.
+        """
+        return len((text or "").strip().split())
+
+    def _norm(self, name: str) -> str:
+        return (name or "").strip().lower()
+
+    def _stringify_agent_output(self, output: Any) -> str:
+        """
+        Convert agent output objects into a useful string.
+        (Fixes cases like: <OSSS.ai.llm.llm_interface.LLMResponse object at 0x...>)
+        """
+        if output is None:
+            return ""
+        # Common OSSS pattern
+        if hasattr(output, "text"):
+            try:
+                return str(output.text or "").strip()
+            except Exception:
+                pass
+        return str(output).strip()
+
+    def _dedupe_agent_outputs(self, outputs: Dict[str, Any]) -> Dict[str, str]:
+        """
+        De-dupe by normalized agent name (refiner/Refiner -> refiner).
+        Keep the first non-empty value (or first seen if all empty).
+        Excludes this agent's own output key.
+        """
+        unique: dict[str, str] = {}
+        for name, raw in outputs.items():
+            if name == self.name:
+                continue
+
+            key = self._norm(name)
+            text = self._stringify_agent_output(raw)
+
+            if key not in unique or (not unique[key] and text):
+                unique[key] = text
+
+        return unique
+
     def _create_default_llm(self) -> Optional[LLMInterface]:
         """Create default LLM interface using OpenAI configuration."""
         try:
@@ -132,6 +179,12 @@ class SynthesisAgent(BaseAgent):
                 f"Will use traditional LLM interface only."
             )
             self.structured_service = None
+
+        selected_model = (self.structured_service.model_name or "")
+        if "llama" in selected_model.lower():
+            logger.info(f"[{self.name}] Disabling structured output for llama models (speed + reliability)")
+            self.structured_service = None
+            return
 
     def _update_composed_prompt(self) -> None:
         """Update the composed prompt based on current configuration."""
@@ -202,6 +255,7 @@ class SynthesisAgent(BaseAgent):
             The updated context with the sophisticated synthesis result.
         """
         outputs = context.agent_outputs
+
         query = context.query.strip()
         logger.info(f"[{self.name}] Running synthesis for query: {query}")
         logger.info(f"[{self.name}] Processing outputs from: {list(outputs.keys())}")
@@ -221,9 +275,9 @@ class SynthesisAgent(BaseAgent):
                         f"[{self.name}] Structured output failed, falling back to traditional: {e}"
                     )
                     # Fall back to traditional synthesis
-                    analysis = await self._analyze_agent_outputs(
-                        query, outputs, context
-                    )
+                    #analysis = await self._analyze_agent_outputs(
+                    #    query, outputs, context
+                    #)
                     if self.llm:
                         synthesis_result = await self._llm_powered_synthesis(
                             query, outputs, analysis, context
@@ -237,7 +291,7 @@ class SynthesisAgent(BaseAgent):
                     )
             else:
                 # Traditional synthesis path (backward compatible)
-                analysis = await self._analyze_agent_outputs(query, outputs, context)
+                #analysis = await self._analyze_agent_outputs(query, outputs, context)
 
                 if self.llm:
                     synthesis_result = await self._llm_powered_synthesis(
@@ -253,16 +307,18 @@ class SynthesisAgent(BaseAgent):
                 )
 
             # Step 4: Update context
-            context.add_agent_output(self.name, final_synthesis)
-            context.set_final_synthesis(final_synthesis)
+            from OSSS.ai.utils.llm_text import coerce_llm_text
+
+            final_text = coerce_llm_text(final_synthesis).strip()
+            context.add_agent_output(self.name, final_text)
+            context.set_final_synthesis(final_text)
+            context.log_trace(self.name, input_data=list(outputs.keys()), output_data=final_text)
 
             # Log successful execution
             logger.info(
                 f"[{self.name}] Generated synthesis: {len(final_synthesis)} characters"
             )
-            context.log_trace(
-                self.name, input_data=outputs, output_data=final_synthesis
-            )
+
             context.complete_agent_execution(self.name, success=True)
 
             return context
@@ -305,12 +361,16 @@ class SynthesisAgent(BaseAgent):
             analysis_prompt = self._build_analysis_prompt(query, outputs)
 
             # Get LLM analysis
-            llm_response = self.llm.generate(analysis_prompt)
-            response_text = (
-                llm_response.text
-                if hasattr(llm_response, "text")
-                else str(llm_response)
-            )
+            system_prompt = self._get_system_prompt()
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": analysis_prompt},
+            ]
+            if hasattr(self.llm, "ainvoke"):
+                llm_response = await self.llm.ainvoke(messages)
+            else:
+                llm_response = await asyncio.to_thread(self.llm.generate, analysis_prompt)
+            response_text = coerce_llm_text(llm_response)
 
             # Track token usage for analysis (first LLM call)
             if (
@@ -347,6 +407,15 @@ class SynthesisAgent(BaseAgent):
             logger.error(f"[{self.name}] Analysis failed: {e}")
             return analysis  # Return default analysis
 
+    def _resolved_model_name(self) -> str:
+        svc = self.structured_service
+        return (
+                (getattr(svc, "resolved_model_name", None) or "")
+                or (getattr(svc, "model_name", None) or "")
+                or (getattr(svc, "model", None) or "")
+                or ""
+        )
+
     async def _run_structured(
         self, query: str, outputs: Dict[str, Any], context: AgentContext
     ) -> str:
@@ -365,24 +434,19 @@ class SynthesisAgent(BaseAgent):
 
         try:
             # Step 1: Analyze agent outputs (this remains the same)
-            analysis = await self._analyze_agent_outputs(query, outputs, context)
+            #analysis = await self._analyze_agent_outputs(query, outputs, context)
 
             # Step 2: Create structured synthesis prompt
             system_prompt = self._get_system_prompt()
 
-            # Format agent outputs for the prompt
+            unique = self._dedupe_agent_outputs(outputs)
+
             outputs_text = "\n\n".join(
-                [
-                    f"### {agent.upper()} OUTPUT:\n{str(output)}"
-                    for agent, output in outputs.items()
-                    if agent != self.name
-                ]
+                [f"### {key.upper()} OUTPUT:\n{text}" for key, text in unique.items()]
             )
 
-            # Extract contributing agents
-            contributing_agents = [
-                agent for agent in outputs.keys() if agent != self.name
-            ]
+            contributing_agents = list(unique.keys())
+
 
             # Build comprehensive prompt for structured output
             prompt = f"""Original Query: {query}
@@ -400,7 +464,7 @@ Meta Insights: {", ".join(analysis.get("meta_insights", [])[:5])}
 
 Please provide a comprehensive synthesis according to the system instructions.
 Focus on the synthesized content only - do not describe your synthesis process.
-The word_count field should reflect the actual word count of your final_synthesis field.
+You may set word_count, but it will be computed server-side for accuracy.
 The contributing_agents field should list: {", ".join(contributing_agents)}"""
 
             # Get structured output
@@ -431,17 +495,28 @@ The contributing_agents field should list: {", ".join(contributing_agents)}"""
             # SERVER-SIDE PROCESSING TIME INJECTION
             # CRITICAL FIX: LLMs cannot accurately measure their own processing time
             # We calculate actual execution time server-side and inject it into the model
+            # SERVER-SIDE PROCESSING TIME INJECTION
             processing_time_ms = (time.time() - start_time) * 1000
 
-            # Inject server-calculated processing time if LLM returned None
             if structured_result.processing_time_ms is None:
-                # Use model_copy to create new instance with updated processing_time_ms
                 structured_result = structured_result.model_copy(
                     update={"processing_time_ms": processing_time_ms}
                 )
                 logger.info(
                     f"[{self.name}] Injected server-calculated processing_time_ms: {processing_time_ms:.1f}ms"
                 )
+
+            # SERVER-SIDE WORD COUNT INJECTION
+            computed_word_count = self._compute_word_count(
+                structured_result.final_synthesis
+            )
+            structured_result = structured_result.model_copy(
+                update={"word_count": computed_word_count}
+            )
+            logger.info(
+                f"[{self.name}] Injected server-calculated word_count: {computed_word_count}"
+            )
+
 
             # Store structured output in execution_state for future use
             if "structured_outputs" not in context.execution_state:
@@ -452,11 +527,12 @@ The contributing_agents field should list: {", ".join(contributing_agents)}"""
 
             # Record token usage - for structured output, we record minimal usage
             # since LangChain doesn't expose detailed token counts
+            existing = context.get_agent_token_usage(self.name)
             context.add_agent_token_usage(
                 agent_name=self.name,
-                input_tokens=0,  # LangChain structured output doesn't expose detailed tokens
-                output_tokens=0,
-                total_tokens=0,
+                input_tokens=existing["input_tokens"],
+                output_tokens=existing["output_tokens"],
+                total_tokens=existing["total_tokens"],
             )
 
             logger.info(
@@ -471,8 +547,11 @@ The contributing_agents field should list: {", ".join(contributing_agents)}"""
                 query, structured_result, analysis
             )
 
+
         except Exception as e:
-            logger.error(f"[{self.name}] Structured output processing failed: {e}")
+            self.logger.debug(
+                f"[{self.name}] Structured failed fast, falling back: {e}"
+            )
             raise
 
     async def _format_structured_output(
@@ -524,12 +603,8 @@ The contributing_agents field should list: {", ".join(contributing_agents)}"""
             if not self.llm:
                 return await self._fallback_synthesis(query, outputs, context)
 
-            llm_response = self.llm.generate(synthesis_prompt)
-            synthesis_text = (
-                llm_response.text
-                if hasattr(llm_response, "text")
-                else str(llm_response)
-            )
+            llm_response = await asyncio.to_thread(self.llm.generate, synthesis_prompt)
+            synthesis_text = coerce_llm_text(llm_response)
 
             # Track token usage for synthesis (second LLM call - accumulate)
             if (
@@ -582,7 +657,7 @@ The contributing_agents field should list: {", ".join(contributing_agents)}"""
         for agent_name, output in outputs.items():
             if agent_name != self.name:  # Don't include our own output
                 synthesis_parts.append(f"### {agent_name} Analysis")
-                synthesis_parts.append(str(output).strip())
+                synthesis_parts.append(self._stringify_agent_output(output))
                 synthesis_parts.append("")
 
         # Add basic conclusion
@@ -629,7 +704,7 @@ The contributing_agents field should list: {", ".join(contributing_agents)}"""
         return "\n".join(formatted_parts)
 
     async def _create_emergency_fallback(
-        self, query: str, outputs: Dict[str, Any]
+            self, query: str, outputs: Dict[str, Any]
     ) -> str:
         """Create emergency fallback when all other synthesis methods fail."""
         logger.warning(f"[{self.name}] Using emergency fallback synthesis")
@@ -641,23 +716,26 @@ The contributing_agents field should list: {", ".join(contributing_agents)}"""
         ]
 
         for agent, output in outputs.items():
-            if agent != self.name:
-                fallback_parts.append(f"### {agent}")
-                fallback_parts.append(
-                    str(output)[:500] + "..." if len(str(output)) > 500 else str(output)
-                )
-                fallback_parts.append("")
+            if agent == self.name:
+                continue
+
+            fallback_parts.append(f"### {agent}")
+
+            text = self._stringify_agent_output(output)
+            if len(text) > 500:
+                text = text[:500] + "..."
+            fallback_parts.append(text)
+
+            fallback_parts.append("")
 
         return "\n".join(fallback_parts)
 
     def _build_analysis_prompt(self, query: str, outputs: Dict[str, Any]) -> str:
         """Build prompt for thematic analysis of agent outputs."""
+        unique = self._dedupe_agent_outputs(outputs)
+
         outputs_text = "\n\n".join(
-            [
-                f"### {agent.upper()} OUTPUT:\n{str(output)}"
-                for agent, output in outputs.items()
-                if agent != self.name
-            ]
+            [f"### {key.upper()} OUTPUT:\n{text}" for key, text in unique.items()]
         )
 
         # Try to use composed prompt from PromptComposer first
@@ -785,12 +863,10 @@ Provide your analysis in the exact format above."""
         self, query: str, outputs: Dict[str, Any], analysis: Dict[str, Any]
     ) -> str:
         """Build comprehensive synthesis prompt."""
+        unique = self._dedupe_agent_outputs(outputs)
+
         outputs_text = "\n\n".join(
-            [
-                f"### {agent.upper()}:\n{str(output)}"
-                for agent, output in outputs.items()
-                if agent != self.name
-            ]
+            [f"### {key.upper()}:\n{text}" for key, text in unique.items()]
         )
 
         themes_text = ", ".join(analysis.get("themes", []))

@@ -1,7 +1,7 @@
 # ---------------------------------------------------------------------------
 # Core agent framework imports
 # ---------------------------------------------------------------------------
-
+import asyncio
 from OSSS.ai.agents.base_agent import (
     BaseAgent,           # Base class for all OSSS agents
     NodeType,            # Enum describing LangGraph node roles
@@ -13,6 +13,7 @@ from OSSS.ai.llm.llm_interface import LLMInterface  # Abstract LLM interface
 
 # Default (legacy) system prompt for critic behavior
 from OSSS.ai.agents.critic.prompts import CRITIC_SYSTEM_PROMPT
+from OSSS.ai.utils.llm_text import coerce_llm_text
 
 # ---------------------------------------------------------------------------
 # Configuration & prompt composition
@@ -42,7 +43,6 @@ from OSSS.ai.agents.models import (
 # Standard library imports
 # ---------------------------------------------------------------------------
 
-import asyncio
 import logging
 from typing import Dict, Any
 
@@ -150,10 +150,12 @@ class CriticAgent(BaseAgent):
             )
 
             # Log selected model for observability
-            selected_model = self.structured_service.model_name
-            self.logger.info(
-                f"[{self.name}] Structured output service initialized with model: {selected_model}"
-            )
+            selected_model = (self.structured_service.model_name or "")
+            if "llama" in selected_model.lower():
+                self.logger.info(
+                    f"[{self.name}] Disabling structured output for llama models (speed + reliability)"
+                )
+                self.structured_service = None
 
         except Exception as e:
             # Failure here is non-fatal; fallback to traditional LLM calls
@@ -213,6 +215,144 @@ class CriticAgent(BaseAgent):
             f"[{self.name}] Configuration updated: {config.analysis_depth} analysis"
         )
 
+    async def _run_traditional(
+            self,
+            refined_output: str,
+            system_prompt: str,
+            context: AgentContext,
+    ) -> str:
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {
+                "role": "user",
+                "content": (
+                    "Critique the refined query below and suggest improvements.\n\n"
+                    f"{refined_output}"
+                ),
+            },
+        ]
+
+        if hasattr(self.llm, "ainvoke"):
+            response = await self.llm.ainvoke(messages)
+        else:
+            prompt_text = messages[-1]["content"]
+            response = await asyncio.to_thread(self.llm.generate, prompt_text)
+
+        return coerce_llm_text(response).strip()
+
+    def _render_structured_critique(self, result: CriticOutput) -> str:
+        """
+        Convert CriticOutput -> readable text. Keeps the structured schema internal
+        while producing a stable string for downstream consumers.
+        """
+        critique_lines: list[str] = []
+
+        issues = getattr(result, "issues_identified", None) or []
+        improvements = getattr(result, "suggested_improvements", None) or []
+        rewritten = getattr(result, "rewritten_query", None)
+
+        if issues:
+            critique_lines.append("Issues identified:")
+            critique_lines.extend([f"- {x}" for x in issues])
+
+        if improvements:
+            if critique_lines:
+                critique_lines.append("")
+            critique_lines.append("Suggested improvements:")
+            critique_lines.extend([f"- {x}" for x in improvements])
+
+        if rewritten:
+            if critique_lines:
+                critique_lines.append("")
+            critique_lines.append("Improved query:")
+            critique_lines.append(rewritten)
+
+        # If the model returned an empty structure, avoid returning blank
+        return ("\n".join(critique_lines)).strip() or "No critique generated."
+
+    async def _run_structured(
+            self,
+            refined_output: str,
+            system_prompt: str,
+            context: AgentContext,
+    ) -> str:
+        """
+        Structured critique using LangChainService + CriticOutput schema.
+        Hard timeout enforced here to avoid hanging LLM calls.
+        """
+
+        if not self.structured_service:
+            raise RuntimeError("Structured service not initialized")
+
+        prompt = (
+            "Critique the refined query below.\n\n"
+            f"{refined_output}\n\n"
+            "Return structured feedback according to the schema."
+        )
+
+        try:
+            # NOTE: Your LangChainService.get_structured_output() does NOT accept
+            # correlation_id (per your logs), so do not pass it.
+            result = await asyncio.wait_for(
+                self.structured_service.get_structured_output(
+                    output_class=CriticOutput,
+                    system_prompt=system_prompt,
+                    prompt=prompt,
+                    include_raw=False,
+                ),
+                timeout=self.config.execution_config.timeout_seconds,
+            )
+        except asyncio.TimeoutError:
+            self.logger.warning(
+                f"[{self.name}] Structured output timed out after "
+                f"{self.config.execution_config.timeout_seconds}s"
+            )
+            raise  # caller falls back to traditional
+        except TypeError as e:
+            # If LangChainService signature drifts, make it obvious and recoverable
+            self.logger.warning(
+                f"[{self.name}] Structured output call signature mismatch: {e}"
+            )
+            raise  # caller falls back to traditional
+
+
+
+        # Defensive: if service returns dict/model/None, normalize to CriticOutput-ish handling
+        if result is None:
+            return "No critique generated."
+
+        from OSSS.ai.services.langchain_service import StructuredOutputResult
+
+        if isinstance(result, StructuredOutputResult):
+            result = result.parsed
+
+        # If the service returns a dict, attempt to hydrate CriticOutput
+        if isinstance(result, dict):
+            try:
+                result = CriticOutput(**result)
+            except Exception:
+                # Fall back to best-effort stringification
+                return str(result).strip() or "No critique generated."
+
+        # If it's already a CriticOutput, render it
+        if isinstance(result, CriticOutput):
+            return self._render_structured_critique(result)
+
+        # Last resort: stringify unknown shapes
+        return str(result).strip() or "No critique generated."
+
+    def _normalize_llm_text(self, resp: Any) -> str:
+        """
+        Normalize different LLM response shapes to plain text.
+        Prevents leaking response objects into AgentContext and downstream prompts.
+        """
+        content = (
+            resp.content if hasattr(resp, "content")
+            else resp.text if hasattr(resp, "text")
+            else (resp.get("content") if isinstance(resp, dict) and "content" in resp else None)
+        )
+        return str(content if content is not None else resp).strip()
+
     async def run(self, context: AgentContext) -> AgentContext:
         """
         Execute the CriticAgent.
@@ -265,14 +405,14 @@ class CriticAgent(BaseAgent):
                     refined_output, system_prompt, context
                 )
 
-        self.logger.debug(f"[{self.name}] Generated critique: {critique}")
+        # ✅ Always store plain text in context (never objects)
+        critique_text = coerce_llm_text(critique).strip()
 
-        # Persist output and trace information
-        context.add_agent_output(self.name, critique)
+        context.add_agent_output(self.name, critique_text)
         context.log_trace(
             self.name,
             input_data=refined_output,
-            output_data=critique,
+            output_data=critique_text,
         )
 
         return context

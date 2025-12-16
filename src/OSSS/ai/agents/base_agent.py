@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from typing import Optional, Dict, Any, List, Coroutine
 from dataclasses import dataclass
 from enum import Enum
+import inspect
 
 from pydantic import BaseModel, Field, ConfigDict
 from OSSS.ai.context import AgentContext
@@ -24,6 +25,10 @@ from OSSS.ai.correlation import (
 # Events will be imported at runtime when needed
 EVENTS_AVAILABLE = True
 
+async def _maybe_await(x: Any) -> None:
+    """Await coroutines; ignore non-awaitables."""
+    if inspect.isawaitable(x):
+        await x
 
 async def _emit_agent_execution_started(
     workflow_id: str,
@@ -36,28 +41,26 @@ async def _emit_agent_execution_started(
 ) -> None:
     """Lazily import and emit agent execution started event."""
     try:
-        from osss.ai.events import emit_agent_execution_started
-        from osss.ai.events.types import EventCategory
+        from OSSS.ai.events import emit_agent_execution_started
+        from OSSS.ai.events.types import EventCategory
 
-        await emit_agent_execution_started(
-            workflow_id=workflow_id,
-            agent_name=agent_name,
-            input_context=input_context,
-            agent_metadata=agent_metadata,
-            correlation_id=correlation_id,
-            metadata=metadata,
-            event_category=event_category or EventCategory.EXECUTION,
+        await _maybe_await(
+            emit_agent_execution_started(
+                workflow_id=workflow_id,
+                agent_name=agent_name,
+                input_context=input_context,
+                agent_metadata=agent_metadata,
+                correlation_id=correlation_id,
+                metadata=metadata,
+                event_category=event_category or EventCategory.EXECUTION,
+            )
         )
-    except ImportError as e:
-        # Events not available, skip silently
-        pass
+    except ImportError:
+        return
     except Exception as e:
-        # Log error but don't fail execution
-        import logging
-
-        logger = logging.getLogger(__name__)
-        logger.warning(f"Failed to emit agent execution started event: {e}")
-
+        logging.getLogger(__name__).warning(
+            f"Failed to emit agent execution started event: {e}"
+        )
 
 async def _emit_agent_execution_completed(
     workflow_id: str,
@@ -74,32 +77,30 @@ async def _emit_agent_execution_completed(
 ) -> None:
     """Lazily import and emit agent execution completed event."""
     try:
-        from osss.ai.events import emit_agent_execution_completed
-        from osss.ai.events.types import EventCategory
+        from OSSS.ai.events import emit_agent_execution_completed
+        from OSSS.ai.events.types import EventCategory
 
-        await emit_agent_execution_completed(
-            workflow_id=workflow_id,
-            agent_name=agent_name,
-            success=success,
-            output_context=output_context,
-            agent_metadata=agent_metadata,
-            execution_time_ms=execution_time_ms,
-            error_message=error_message,
-            error_type=error_type,
-            correlation_id=correlation_id,
-            metadata=metadata,
-            event_category=event_category or EventCategory.EXECUTION,
+        await _maybe_await(
+            emit_agent_execution_completed(
+                workflow_id=workflow_id,
+                agent_name=agent_name,
+                success=success,
+                output_context=output_context,
+                agent_metadata=agent_metadata,
+                execution_time_ms=execution_time_ms,
+                error_message=error_message,
+                error_type=error_type,
+                correlation_id=correlation_id,
+                metadata=metadata,
+                event_category=event_category or EventCategory.EXECUTION,
+            )
         )
-    except ImportError as e:
-        # Events not available, skip silently
-        pass
+    except ImportError:
+        return
     except Exception as e:
-        # Log error but don't fail execution
-        import logging
-
-        logger = logging.getLogger(__name__)
-        logger.warning(f"Failed to emit agent execution completed event: {e}")
-
+        logging.getLogger(__name__).warning(
+            f"Failed to emit agent execution completed event: {e}"
+        )
 
 # For backward compatibility, make the lazy functions available
 emit_agent_execution_started = _emit_agent_execution_started
@@ -467,7 +468,7 @@ class BaseAgent(ABC):
         # Emit agent execution started event if available
         if True:  # Events always available with lazy loading
             try:
-                from osss.ai.agents.registry import get_agent_registry
+                from OSSS.ai.agents.registry import get_agent_registry
 
                 registry = get_agent_registry()
                 try:
@@ -476,7 +477,7 @@ class BaseAgent(ABC):
                     # Agent not registered in registry, use None metadata
                     agent_metadata = None
 
-                await emit_agent_execution_started(
+                asyncio.create_task(emit_agent_execution_started(
                     workflow_id=get_workflow_id() or step_id,
                     agent_name=self.name,
                     input_context={
@@ -494,7 +495,7 @@ class BaseAgent(ABC):
                         },
                         "circuit_breaker_enabled": self.circuit_breaker is not None,
                     },
-                )
+                ))
             except Exception as e:
                 self.logger.warning(
                     f"Failed to emit agent execution started event: {e}"
@@ -547,7 +548,7 @@ class BaseAgent(ABC):
                         # Get token usage information for this agent if available
                         token_usage = result.get_agent_token_usage(self.name)
 
-                        await emit_agent_execution_completed(
+                        asyncio.create_task(emit_agent_execution_completed(
                             workflow_id=get_workflow_id() or step_id,
                             agent_name=self.name,
                             success=True,
@@ -579,7 +580,7 @@ class BaseAgent(ABC):
                                     else "open"
                                 ),
                             },
-                        )
+                        ))
                     except Exception as e:
                         self.logger.warning(
                             f"Failed to emit agent execution completed event: {e}"
@@ -627,7 +628,7 @@ class BaseAgent(ABC):
                                 # Agent not registered in registry, use None metadata
                                 agent_metadata = None
 
-                            await emit_agent_execution_completed(
+                            emit_agent_execution_completed(
                                 workflow_id=get_workflow_id() or step_id,
                                 agent_name=self.name,
                                 success=False,
@@ -692,7 +693,7 @@ class BaseAgent(ABC):
                     # Emit agent execution completed event for failure if available
                     if True:  # Events always available with lazy loading
                         try:
-                            from cognivault.agents.registry import get_agent_registry
+                            from OSSS.ai.agents.registry import get_agent_registry
 
                             registry = get_agent_registry()
                             try:
@@ -701,7 +702,7 @@ class BaseAgent(ABC):
                                 # Agent not registered in registry, use None metadata
                                 agent_metadata = None
 
-                            await emit_agent_execution_completed(
+                            emit_agent_execution_completed(
                                 workflow_id=get_workflow_id() or step_id,
                                 agent_name=self.name,
                                 success=False,

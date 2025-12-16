@@ -28,9 +28,9 @@ load_dotenv(find_dotenv(), override=True)
 class ModelCategory(Enum):
     """Categories for model classification."""
 
-    GPT5 = "gpt-5"  # Latest generation models
-    GPT5_MINI = "gpt-5-mini"  # Fast, cost-effective GPT-5 variants
-    GPT5_NANO = "gpt-5-nano"  # Ultra-fast GPT-5 for simple tasks
+    GPT5 = "llama3.1"  # Latest generation models
+    GPT5_MINI = "llama3.1-mini"  # Fast, cost-effective llama3.1 variants
+    GPT5_NANO = "llama3.1-nano"  # Ultra-fast llama3.1 for simple tasks
     GPT4 = "gpt-4"  # Previous generation high-capability
     GPT4_TURBO = "gpt-4-turbo"  # Fast GPT-4 variants
     GPT3 = "gpt-3.5"  # Legacy models
@@ -114,8 +114,8 @@ class ModelDiscoveryService:
 
     # Hardcoded fallback configurations - SIMPLIFIED to prioritize base models
     FALLBACK_MODELS = {
-        "gpt-5": ModelInfo(
-            id="gpt-5",
+        "llama3.1": ModelInfo(
+            id="llama3.1",
             category=ModelCategory.GPT5,
             speed=ModelSpeed.STANDARD,
             context_window=128000,
@@ -125,9 +125,9 @@ class ModelDiscoveryService:
             supports_structured_output=True,
             capabilities={"reasoning", "analysis", "code", "multimodal"},
         ),
-        # Removed gpt-5-chat-latest - we don't want chat variants
-        "gpt-5-mini": ModelInfo(
-            id="gpt-5-mini",
+        # Removed llama3.1-chat-latest - we don't want chat variants
+        "llama3.1-mini": ModelInfo(
+            id="llama3.1-mini",
             category=ModelCategory.GPT5_MINI,
             speed=ModelSpeed.FAST,
             context_window=128000,
@@ -137,8 +137,8 @@ class ModelDiscoveryService:
             supports_structured_output=True,
             capabilities={"reasoning", "analysis", "code"},
         ),
-        "gpt-5-nano": ModelInfo(
-            id="gpt-5-nano",
+        "llama3.1-nano": ModelInfo(
+            id="llama3.1-nano",
             category=ModelCategory.GPT5_NANO,
             speed=ModelSpeed.ULTRA_FAST,
             context_window=32000,
@@ -193,21 +193,21 @@ class ModelDiscoveryService:
             "required_capabilities": {"refinement"},
         },
         "historian": {
-            # Use base GPT-5 - no variants needed
+            # Use base llama3.1 - no variants needed
             "preferred_categories": [ModelCategory.GPT5],
             "required_speed": ModelSpeed.STANDARD,
             "max_acceptable_speed": ModelSpeed.SLOW,
             "required_capabilities": {"reasoning", "analysis"},
         },
         "critic": {
-            # Use base GPT-5 - no variants needed
+            # Use base llama3.1 - no variants needed
             "preferred_categories": [ModelCategory.GPT5],
             "required_speed": ModelSpeed.FAST,
             "max_acceptable_speed": ModelSpeed.STANDARD,
             "required_capabilities": {"reasoning", "analysis"},
         },
         "synthesis": {
-            # Use base GPT-5 - no variants needed
+            # Use base llama3.1 - no variants needed
             "preferred_categories": [ModelCategory.GPT5],
             "required_speed": ModelSpeed.STANDARD,
             "max_acceptable_speed": ModelSpeed.SLOW,
@@ -262,11 +262,11 @@ class ModelDiscoveryService:
         """Categorize a model based on its ID."""
         model_lower = model_id.lower()
 
-        if "gpt-5-nano" in model_lower:
+        if "llama3.1-nano" in model_lower:
             return ModelCategory.GPT5_NANO
-        elif "gpt-5-mini" in model_lower:
+        elif "llama3.1-mini" in model_lower:
             return ModelCategory.GPT5_MINI
-        elif "gpt-5" in model_lower:
+        elif "llama3.1" in model_lower:
             return ModelCategory.GPT5
         elif "gpt-4o" in model_lower or "gpt-4-turbo" in model_lower:
             return ModelCategory.GPT4_TURBO
@@ -291,7 +291,7 @@ class ModelDiscoveryService:
         if "mini" in model_lower or "turbo" in model_lower or "gpt-4o" in model_lower:
             return ModelSpeed.FAST
 
-        # Standard models (default for GPT-5)
+        # Standard models (default for llama3.1)
         if category == ModelCategory.GPT5:
             return ModelSpeed.STANDARD
 
@@ -388,27 +388,27 @@ class ModelDiscoveryService:
                     # Create new ModelInfo for discovered model
                     # SIMPLIFIED: Treat base models as first-class citizens
                     is_base_model = model_id.lower() in [
-                        "gpt-5",
-                        "gpt-5-nano",
-                        "gpt-5-mini",
+                        "llama3.1",
+                        "llama3.1-nano",
+                        "llama3.1-mini",
                     ]
                     is_variant = "-" in model_id and not is_base_model
-                    is_gpt5_family = "gpt-5" in model_id.lower()
+                    is_gpt5_family = "llama3.1" in model_id.lower()
 
                     # Log variant discovery to encourage base model usage
                     if is_variant and is_gpt5_family:
                         self.logger.info(
-                            f"Discovered GPT-5 variant '{model_id}'. "
-                            f"Consider using base 'gpt-5' model for simplicity."
+                            f"Discovered llama3.1 variant '{model_id}'. "
+                            f"Consider using base 'llama3.1' model for simplicity."
                         )
 
                     model_info = ModelInfo(
                         id=model_id,
                         category=category,
                         speed=speed,
-                        context_window=128000 if "gpt-5" in model_id.lower() else 32000,
+                        context_window=128000 if "llama3.1" in model_id.lower() else 32000,
                         max_output_tokens=(
-                            16384 if "gpt-5" in model_id.lower() else 4096
+                            16384 if "llama3.1" in model_id.lower() else 4096
                         ),
                         supports_json_mode=True,
                         # Base models have full support, variants are questionable
@@ -430,7 +430,7 @@ class ModelDiscoveryService:
                 f"Discovered {len(discovered_models)} chat models: {', '.join(sorted(model_ids_found))}"
             )
 
-            # Special logging for GPT-5 family
+            # Special logging for llama3.1 family
             gpt5_models = [
                 m
                 for m in discovered_models
@@ -443,7 +443,7 @@ class ModelDiscoveryService:
             ]
             if gpt5_models:
                 self.logger.info(
-                    f"✅ GPT-5 family models available: {', '.join([m.id for m in gpt5_models])}"
+                    f"✅ llama3.1 family models available: {', '.join([m.id for m in gpt5_models])}"
                 )
 
             # Cache the results
@@ -578,7 +578,7 @@ class ModelDiscoveryService:
             score = 0
 
             # HIGHEST PRIORITY: Prefer base models over variants
-            is_base_model = model.id.lower() in ["gpt-5", "gpt-5-nano", "gpt-5-mini"]
+            is_base_model = model.id.lower() in ["llama3.1", "llama3.1-nano", "llama3.1-mini"]
             is_variant = "-" in model.id and not is_base_model
 
             if is_base_model:
@@ -655,25 +655,25 @@ class ModelDiscoveryService:
             return self.FALLBACK_MODELS[model_id]
 
         # For discovered models not in fallback, create info based on model ID
-        # This handles cases like gpt-5-chat-latest that are discovered but not in fallback
+        # This handles cases like llama3.1-chat-latest that are discovered but not in fallback
         category = self._categorize_model(model_id)
         speed = self._determine_speed(model_id, category)
         capabilities = self._extract_capabilities(model_id, category)
 
         # Handle chat variants properly
         is_chat_variant = "-chat" in model_id.lower()
-        is_gpt5_family = "gpt-5" in model_id.lower()
+        is_gpt5_family = "llama3.1" in model_id.lower()
 
         return ModelInfo(
             id=model_id,
             category=category,
             speed=speed,
-            context_window=128000 if "gpt-5" in model_id.lower() else 32000,
-            max_output_tokens=16384 if "gpt-5" in model_id.lower() else 4096,
+            context_window=128000 if "llama3.1" in model_id.lower() else 32000,
+            max_output_tokens=16384 if "llama3.1" in model_id.lower() else 4096,
             supports_json_mode=True,
             supports_function_calling=not is_chat_variant,  # Chat variants don't support this
             supports_structured_output=is_gpt5_family
-            and not is_chat_variant,  # Only non-chat GPT-5
+            and not is_chat_variant,  # Only non-chat llama3.1
             capabilities=capabilities,
         )
 

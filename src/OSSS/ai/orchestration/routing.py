@@ -17,9 +17,32 @@ to be treated uniformly by the graph builder and executor.
 
 from typing import Callable, Dict, List, Optional
 from abc import ABC, abstractmethod
-
+import re
 from OSSS.ai.context import AgentContext
 
+HISTORY_TRIGGERS = re.compile(
+    r"\b(history|historical|timeline|previous|earlier|last time|recap|what happened|"
+    r"prior|meeting notes|notes|minutes|decision|context|background)\b",
+    re.IGNORECASE,
+)
+
+def should_run_historian(query: str) -> bool:
+    q = (query or "").strip()
+
+    # Very short queries never need historian
+    if len(q) < 40:
+        return False
+
+    # Explicit historical intent
+    if HISTORY_TRIGGERS.search(q):
+        return True
+
+    # Explicit doc usage
+    ql = q.lower()
+    if "notes" in ql or "docs" in ql:
+        return True
+
+    return False
 
 class RoutingFunction(ABC):
     """

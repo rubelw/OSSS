@@ -361,7 +361,7 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
             )
 
             # Emit workflow started event for telemetry systems
-            await emit_workflow_started(
+            emit_workflow_started(
                 workflow_id=workflow_id,
                 query=request.query,
                 agents=request.agents,
@@ -627,7 +627,7 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
             )
 
             # Emit completion event for telemetry
-            await emit_workflow_completed(
+            emit_workflow_completed(
                 workflow_id=workflow_id,
                 status="completed",
                 execution_time_seconds=execution_time,
@@ -674,11 +674,12 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                 )
 
             # Emit workflow completion event with failed status
-            await emit_workflow_completed(
+            emit_workflow_completed(
                 workflow_id=workflow_id,
                 status="failed",
                 execution_time_seconds=execution_time,
                 error_message=str(e),
+                error_type=type(e).__name__,
                 correlation_id=request.correlation_id,
                 metadata={"api_version": self.api_version, "end_time": time.time()},
             )

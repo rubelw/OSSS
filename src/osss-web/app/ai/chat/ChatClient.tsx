@@ -1124,7 +1124,7 @@ export default function ChatClient() {
       // 🔧 ALWAYS include subagent_session_id, even if it's null.
       // This tells the backend whether we're in a subagent flow or not.
       const body: any = {
-        model: "llama3.2-vision",
+        model: "llama3.1",
         messages: messagesForRag,
         temperature: 0.2,
         stream: false,

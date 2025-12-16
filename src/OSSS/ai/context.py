@@ -3,7 +3,7 @@ import json
 import gzip
 import hashlib
 from datetime import datetime, timezone
-from typing import List, Optional, Dict, Any, Set, cast, Mapping
+from typing import List, Optional, Dict, Any, Set, cast, Mapping, ClassVar
 from copy import deepcopy
 from pydantic import BaseModel, Field, ConfigDict, field_validator, model_validator
 from .config.app_config import get_config
@@ -128,6 +128,38 @@ class AgentContext(BaseModel):
     - Reversible state transitions with structured trace metadata
     - Success/failure tracking for conditional execution logic
     """
+
+    OUTPUT_CHAR_CAPS: ClassVar[Dict[str, int]] = {
+        "refiner": 1200,
+        "critic": 2000,
+        "historian": 2000,
+        "synthesis": 3000,
+    }
+
+    # --- hard per-agent caps (list length) ---
+    OUTPUT_LIST_ITEM_CAPS: ClassVar[Dict[str, int]] = {
+        "refiner": 15,
+        "critic": 25,
+        "historian": 25,
+        "synthesis": 40,
+    }
+
+    OUTPUT_DICT_KEY_CAPS: ClassVar[Dict[str, int]] = {
+        "raw": 800,
+        "analysis": 1200,
+        "content": 1200,
+        "text": 1200,
+        "message": 1200,
+        "prompt": 1200,
+        "system_prompt": 800,
+        "user_prompt": 1200,
+    }
+
+    OUTPUT_DICT_TEXT_KEYS: ClassVar[Set[str]] = set(OUTPUT_DICT_KEY_CAPS.keys())
+
+    correlation_id: Optional[str] = None
+    execution_id: Optional[str] = None
+    thread_id: Optional[str] = None
 
     query: str = Field(description="The user's query or question to be processed")
     retrieved_notes: Optional[List[str]] = Field(
@@ -284,6 +316,91 @@ class AgentContext(BaseModel):
         """Get the compression manager instance."""
         return self._compression_manager
 
+    def _cap_agent_output(self, agent_name: str, output: Any) -> Any:
+        """
+        Apply hard caps to agent outputs to prevent context bloat.
+
+        Rules:
+        - str → cap by agent char cap
+        - list[str] → cap list length + cap each item
+        - dict → cap selected text keys (per-key caps win)
+        - recurse one level only (safe + cheap)
+        """
+        agent = agent_name.lower()
+
+        char_cap = self.OUTPUT_CHAR_CAPS.get(agent)
+        list_cap = self.OUTPUT_LIST_ITEM_CAPS.get(agent)
+
+        if not char_cap and not list_cap:
+            return output
+
+        def cap_str(s: str, cap: int) -> str:
+            return s if len(s) <= cap else s[:cap]
+
+        # --- string output ---
+        if isinstance(output, str) and char_cap:
+            return cap_str(output, char_cap)
+
+        # --- list output ---
+        if isinstance(output, list):
+            capped_list = output
+
+            # 1) cap list length first (BIG WIN)
+            if list_cap:
+                capped_list = capped_list[:list_cap]
+
+            # 2) cap list[str] items
+            if char_cap and all(isinstance(x, str) for x in capped_list):
+                capped_list = [cap_str(x, char_cap) for x in capped_list]
+
+            return capped_list
+
+        # --- dict output ---
+        if isinstance(output, dict):
+            capped = dict(output)
+
+            # 1) cap known text keys
+            for key, key_cap in self.OUTPUT_DICT_KEY_CAPS.items():
+                val = capped.get(key)
+
+                if isinstance(val, str):
+                    capped[key] = cap_str(val, key_cap)
+
+                elif isinstance(val, list):
+                    # cap list length
+                    if list_cap:
+                        val = val[:list_cap]
+
+                    # cap list[str] items
+                    if all(isinstance(x, str) for x in val):
+                        capped[key] = [cap_str(x, key_cap) for x in val]
+                    else:
+                        capped[key] = val
+
+            # 2) shallow recursion (one level only)
+            for k, v in list(capped.items()):
+                if isinstance(v, dict):
+                    nested = dict(v)
+                    for nk, nk_cap in self.OUTPUT_DICT_KEY_CAPS.items():
+                        nv = nested.get(nk)
+
+                        if isinstance(nv, str):
+                            nested[nk] = cap_str(nv, nk_cap)
+
+                        elif isinstance(nv, list):
+                            if list_cap:
+                                nv = nv[:list_cap]
+                            if all(isinstance(x, str) for x in nv):
+                                nested[nk] = [cap_str(x, nk_cap) for x in nv]
+                            else:
+                                nested[nk] = nv
+
+                    capped[k] = nested
+
+            return capped
+
+        return output
+
     def get_context_id(self) -> str:
         """Get the unique context identifier."""
         return self.context_id
@@ -338,8 +455,35 @@ class AgentContext(BaseModel):
             self._update_size()
             logger.info(f"Context compressed to {self.current_size} bytes")
 
+    def _clip(s: str, n: int = 1200) -> str:
+        s = s or ""
+        return s if len(s) <= n else s[:n] + "…[truncated]"
+
     def add_agent_output(self, agent_name: str, output: Any) -> None:
         """Add agent output with size monitoring."""
+
+        def clip(s: str, n: int = 1200) -> str:
+            s = s or ""
+            return s if len(s) <= n else s[:n] + "…[truncated]"
+
+        # 0) Normalize to TEXT ONLY (prevents LLMResponse objects leaking into context)
+        output = (
+            output.content
+            if hasattr(output, "content")
+            else (output.text if hasattr(output, "text") else str(output))
+        )
+
+        # 1) Hard per-agent caps (string-only)
+        cap = self.OUTPUT_CHAR_CAPS.get(agent_name.lower())
+        if cap and isinstance(output, str):
+            output = output[:cap]
+
+        # 2) Existing cap logic (kept)
+        output = self._cap_agent_output(agent_name, output)
+
+        # 3) Safety clip for prompt hygiene / logging hygiene
+        output = clip(output)
+
         self.agent_outputs[agent_name] = output
         self._update_size()
         self._check_size_limits()
@@ -877,6 +1021,11 @@ class AgentContext(BaseModel):
         bool
             True if addition was successful, False if blocked by isolation rules
         """
+        # --- hard per-agent caps (fast path) ---
+        cap = self.OUTPUT_CHAR_CAPS.get(agent_name.lower())
+        if cap and isinstance(output, str):
+            output = output[:cap]
+
         field_name = f"agent_outputs.{agent_name}"
 
         if not self._check_field_isolation(agent_name, field_name):
@@ -892,6 +1041,9 @@ class AgentContext(BaseModel):
                 f"Agent '{agent_name}' already modified field '{field_name}', multiple modifications not allowed"
             )
             return False
+
+        # --- hard per-agent caps (fast path) ---
+        output = self._cap_agent_output(agent_name, output)
 
         self.agent_outputs[agent_name] = output
         self._track_mutation(agent_name, field_name)

@@ -295,7 +295,11 @@ services:
       OMP_NUM_THREADS: 1
       MKL_NUM_THREADS: 1
       NUMEXPR_NUM_THREADS: 1
-
+      LLM_PROVIDER: "ollama"
+      OLLAMA_BASE_URL: "http://localhost:11434/v1"
+      OLLAMA_MODEL: "llama3.1"
+      OLLAMA_TEMPERATURE: 0.2
+      OLLAMA_NUM_CTX: 8192
 
     depends_on:
       redis:
@@ -2173,8 +2177,8 @@ services:
       PYTHONPATH: /app/src
       # add any provider keys / config your A2A agent needs, for example:
       OPENAI_API_BASE: http://ollama:11434/v1
-      OPENAI_API_KEY: "ollama"          # Ollama doesn’t actually check; any non-empty string is fine
-      A2A_MODEL_NAME: llama3.2-vision          # or llama3:8b-instruct, mistral, etc.
+      OPENAI_API_KEY: "test-ollama"          # Ollama doesn’t actually check; any non-empty string is fine
+      A2A_MODEL_NAME: llama3.1          # or llama3:8b-instruct, mistral, etc.
       WATCHFILES_FORCE_POLLING: 'true'
       METAGPT_BASE_URL: http://metagpt:8001
 
@@ -2229,7 +2233,7 @@ services:
     # Explicit uvicorn command so behavior is obvious in compose
     # (even though the Dockerfile's CMD already sets this)
       OLLAMA_BASE_URL: "http://host.containers.internal:11434"
-      OLLAMA_MODEL: "llama3.2-vision:latest"   # <-- EXACT MODEL NAME
+      OLLAMA_MODEL: "llama3.1:latest"   # <-- EXACT MODEL NAME
       RAG_INDEX_PATH: "/workspace/vector_indexes/main/embeddings.jsonl"
     command:
       - uvicorn
