@@ -417,7 +417,7 @@ class SynthesisAgent(BaseAgent):
         )
 
     async def _run_structured(
-        self, query: str, outputs: Dict[str, Any], context: AgentContext
+            self, query: str, outputs: Dict[str, Any], context: AgentContext
     ) -> str:
         """
         Run with structured output using LangChain service.
@@ -432,42 +432,62 @@ class SynthesisAgent(BaseAgent):
         if not self.structured_service:
             raise ValueError("Structured service not available")
 
-        try:
-            # Step 1: Analyze agent outputs (this remains the same)
-            #analysis = await self._analyze_agent_outputs(query, outputs, context)
+        # ------------------------------------------------------------------
+        # NEW: robust pooled/ollama/llama guard (prevents json_schema calls)
+        # ------------------------------------------------------------------
+        resolved = (self._resolved_model_name() or "").lower()
 
-            # Step 2: Create structured synthesis prompt
+        # IMPORTANT: pooled model gets resolved later; also catch ollama base_url
+        base_url = (getattr(self.structured_service, "base_url", "") or "").lower()
+        is_ollama = ("11434" in base_url) or ("ollama" in base_url)
+        is_llama = "llama" in resolved
+
+        if is_llama or is_ollama or resolved in ("pooled", "pool"):
+            self.logger.info(
+                f"[{self.name}] Disabling structured output for resolved_model='{resolved}' base_url='{base_url}'"
+            )
+            # Fall back immediately (don’t attempt structured/json_schema)
+            try:
+                return await self._run_traditional(query, outputs, context)
+            except TypeError:
+                # If your _run_traditional signature is (query, context)
+                return await self._run_traditional(query, context)
+
+        # ------------------------------------------------------------------
+        # ONLY NOW do structured output
+        # ------------------------------------------------------------------
+        try:
             system_prompt = self._get_system_prompt()
 
             unique = self._dedupe_agent_outputs(outputs)
-
             outputs_text = "\n\n".join(
                 [f"### {key.upper()} OUTPUT:\n{text}" for key, text in unique.items()]
             )
-
             contributing_agents = list(unique.keys())
 
+            # FIX: analysis was commented out but still referenced; keep safe default
+            analysis: Dict[str, Any] = {}
+            # If you want it back on, uncomment:
+            # analysis = await self._analyze_agent_outputs(query, outputs, context)
 
-            # Build comprehensive prompt for structured output
             prompt = f"""Original Query: {query}
 
-Agent Outputs:
-{outputs_text}
+    Agent Outputs:
+    {outputs_text}
 
-Contributing Agents: {", ".join(contributing_agents)}
-Themes Identified: {", ".join(analysis.get("themes", [])[:5])}
-Key Topics: {", ".join(analysis.get("key_topics", [])[:10])}
-Conflicts Found: {", ".join(analysis.get("conflicts", ["None"])[:5])}
-Complementary Insights: {", ".join(analysis.get("complementary_insights", [])[:10])}
-Knowledge Gaps: {", ".join(analysis.get("gaps", [])[:8])}
-Meta Insights: {", ".join(analysis.get("meta_insights", [])[:5])}
+    Contributing Agents: {", ".join(contributing_agents)}
+    Themes Identified: {", ".join(analysis.get("themes", [])[:5])}
+    Key Topics: {", ".join(analysis.get("key_topics", [])[:10])}
+    Conflicts Found: {", ".join(analysis.get("conflicts", ["None"])[:5])}
+    Complementary Insights: {", ".join(analysis.get("complementary_insights", [])[:10])}
+    Knowledge Gaps: {", ".join(analysis.get("gaps", [])[:8])}
+    Meta Insights: {", ".join(analysis.get("meta_insights", [])[:5])}
 
-Please provide a comprehensive synthesis according to the system instructions.
-Focus on the synthesized content only - do not describe your synthesis process.
-You may set word_count, but it will be computed server-side for accuracy.
-The contributing_agents field should list: {", ".join(contributing_agents)}"""
+    Please provide a comprehensive synthesis according to the system instructions.
+    Focus on the synthesized content only - do not describe your synthesis process.
+    You may set word_count, but it will be computed server-side for accuracy.
+    The contributing_agents field should list: {", ".join(contributing_agents)}"""
 
-            # Get structured output
             from OSSS.ai.services.langchain_service import StructuredOutputResult
 
             result = await self.structured_service.get_structured_output(
@@ -477,27 +497,17 @@ The contributing_agents field should list: {", ".join(contributing_agents)}"""
                 max_retries=3,
             )
 
-            # Handle both SynthesisOutput and StructuredOutputResult types
             if isinstance(result, SynthesisOutput):
                 structured_result = result
+            elif isinstance(result, StructuredOutputResult):
+                parsed_result = result.parsed
+                if not isinstance(parsed_result, SynthesisOutput):
+                    raise ValueError(f"Expected SynthesisOutput, got {type(parsed_result)}")
+                structured_result = parsed_result
             else:
-                # It's a StructuredOutputResult, extract the parsed result
-                if isinstance(result, StructuredOutputResult):
-                    parsed_result = result.parsed
-                    if not isinstance(parsed_result, SynthesisOutput):
-                        raise ValueError(
-                            f"Expected SynthesisOutput, got {type(parsed_result)}"
-                        )
-                    structured_result = parsed_result
-                else:
-                    raise ValueError(f"Unexpected result type: {type(result)}")
+                raise ValueError(f"Unexpected result type: {type(result)}")
 
-            # SERVER-SIDE PROCESSING TIME INJECTION
-            # CRITICAL FIX: LLMs cannot accurately measure their own processing time
-            # We calculate actual execution time server-side and inject it into the model
-            # SERVER-SIDE PROCESSING TIME INJECTION
             processing_time_ms = (time.time() - start_time) * 1000
-
             if structured_result.processing_time_ms is None:
                 structured_result = structured_result.model_copy(
                     update={"processing_time_ms": processing_time_ms}
@@ -506,10 +516,7 @@ The contributing_agents field should list: {", ".join(contributing_agents)}"""
                     f"[{self.name}] Injected server-calculated processing_time_ms: {processing_time_ms:.1f}ms"
                 )
 
-            # SERVER-SIDE WORD COUNT INJECTION
-            computed_word_count = self._compute_word_count(
-                structured_result.final_synthesis
-            )
+            computed_word_count = self._compute_word_count(structured_result.final_synthesis)
             structured_result = structured_result.model_copy(
                 update={"word_count": computed_word_count}
             )
@@ -517,16 +524,9 @@ The contributing_agents field should list: {", ".join(contributing_agents)}"""
                 f"[{self.name}] Injected server-calculated word_count: {computed_word_count}"
             )
 
+            context.execution_state.setdefault("structured_outputs", {})
+            context.execution_state["structured_outputs"][self.name] = structured_result.model_dump()
 
-            # Store structured output in execution_state for future use
-            if "structured_outputs" not in context.execution_state:
-                context.execution_state["structured_outputs"] = {}
-            context.execution_state["structured_outputs"][self.name] = (
-                structured_result.model_dump()
-            )
-
-            # Record token usage - for structured output, we record minimal usage
-            # since LangChain doesn't expose detailed token counts
             existing = context.get_agent_token_usage(self.name)
             context.add_agent_token_usage(
                 agent_name=self.name,
@@ -542,16 +542,10 @@ The contributing_agents field should list: {", ".join(contributing_agents)}"""
                 f"word_count: {structured_result.word_count}"
             )
 
-            # Format the final output with metadata
-            return await self._format_structured_output(
-                query, structured_result, analysis
-            )
-
+            return await self._format_structured_output(query, structured_result, analysis)
 
         except Exception as e:
-            self.logger.debug(
-                f"[{self.name}] Structured failed fast, falling back: {e}"
-            )
+            self.logger.debug(f"[{self.name}] Structured failed fast, falling back: {e}")
             raise
 
     async def _format_structured_output(
