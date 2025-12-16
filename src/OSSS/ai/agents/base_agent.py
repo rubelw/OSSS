@@ -362,7 +362,7 @@ class LangGraphNodeDefinition(BaseModel):
 
 class BaseAgent(ABC):
     """
-    Abstract base class for all agents in the Cognivault system.
+    Abstract base class for all agents in the OSSS system.
 
     Enhanced with LangGraph-compatible features including agent-local retry policies,
     circuit breaker patterns, trace metadata, and error handling designed for

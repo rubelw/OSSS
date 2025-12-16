@@ -109,7 +109,7 @@ class WorkflowExecutionMetadata(BaseModel):
 
     # Configuration and versioning
     workflow_version: Optional[str] = None
-    cognivault_version: Optional[str] = None
+    osss_version: Optional[str] = None
     config_fingerprint: Optional[str] = None  # SHA256 hash of workflow + prompt config
 
     # LLM tracking with type safety

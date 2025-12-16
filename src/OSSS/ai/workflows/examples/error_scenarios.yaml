@@ -1,7 +1,7 @@
 name: "Error Scenario Testing Suite"
 version: "1.0.0"
 workflow_id: "error-scenarios-test"
-created_by: "cognivault-manual-testing"
+created_by: "osss-manual-testing"
 created_at: "2025-01-17T18:00:00Z"
 description: "Manual test workflow designed to test error handling, edge cases, and robustness of factory methods and node implementations"
 tags: ["manual-test", "error-handling", "edge-cases", "robustness", "factory-testing"]

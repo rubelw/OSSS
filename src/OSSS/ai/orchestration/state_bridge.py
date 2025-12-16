@@ -49,7 +49,7 @@ class AgentContextStateBridge:
 
     # Reserved keys for LangGraph state management
     RESERVED_KEYS = {
-        "_cognivault_metadata",
+        "_osss_metadata",
         "_agent_outputs",
         "_execution_state",
         "_agent_trace",
@@ -127,7 +127,7 @@ class AgentContextStateBridge:
             state["_snapshots"] = AgentContextStateBridge._serialize_snapshots(context)
 
             # Metadata about the conversion
-            state["_cognivault_metadata"] = {
+            state["_osss_metadata"] = {
                 "conversion_timestamp": time.time(),
                 "original_context_id": context.context_id,
                 "bridge_version": "1.0.0",
@@ -391,7 +391,7 @@ class AgentContextStateBridge:
             "_conditional_routing",
             "_path_metadata",
             "_snapshots",
-            "_cognivault_metadata",
+            "_osss_metadata",
         }
 
         missing_keys = required_keys - set(state_dict.keys())
@@ -401,7 +401,7 @@ class AgentContextStateBridge:
             )
 
         # Validate metadata
-        metadata = state_dict.get("_cognivault_metadata", {})
+        metadata = state_dict.get("_osss_metadata", {})
         if not isinstance(metadata, dict):
             raise StateValidationError("Invalid metadata format in state dict")
 
@@ -433,7 +433,7 @@ class AgentContextStateBridge:
                 "failed_agents": len(state_dict.get("_failed_agents", [])),
                 "execution_edges": len(state_dict.get("_execution_edges", [])),
                 "snapshots": len(state_dict.get("_snapshots", {})),
-                "metadata": state_dict.get("_cognivault_metadata", {}),
+                "metadata": state_dict.get("_osss_metadata", {}),
             }
 
             return summary

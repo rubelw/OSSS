@@ -29,7 +29,7 @@ async def run_critic(
     tuple[str, Optional[Dict[str, Any]]]
         The critique output from the CriticAgent and optional debug info.
     """
-    # Create LLM using factory (respects COGNIVAULT_LLM env var)
+    # Create LLM using factory (respects OSSS_LLM env var)
     llm = LLMFactory.create()
 
     debug_info = None

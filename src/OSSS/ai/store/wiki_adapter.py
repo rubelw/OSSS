@@ -36,7 +36,7 @@ class MarkdownExporter:
     Parameters
     ----------
     output_dir : str, optional
-        Directory where markdown files will be saved (default is "./src/cognivault/notes").
+        Directory where markdown files will be saved (default is "./src/osss-logs/notes").
     """
 
     def __init__(self, output_dir: Optional[str] = None) -> None:

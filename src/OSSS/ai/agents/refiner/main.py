@@ -21,7 +21,7 @@ from OSSS.ai.agents.refiner.agent import RefinerAgent
 from OSSS.ai.context import AgentContext
 
 # Factory responsible for selecting and constructing an LLM implementation
-# (respects environment variables like COGNIVAULT_LLM)
+# (respects environment variables like OSSS_LLM)
 from OSSS.ai.llm.factory import LLMFactory
 
 # Configuration helper for OpenAI-backed LLMs (used for debug metadata)

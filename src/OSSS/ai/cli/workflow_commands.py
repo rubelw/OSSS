@@ -343,7 +343,7 @@ async def _run_workflow_async(
                 # Enhanced fields
                 node_execution_times=node_execution_times,
                 workflow_version=workflow_version,
-                cognivault_version=cognivault_version,
+                osss_version=osss_version,
                 config_fingerprint=config_fingerprint,
                 llm_model=llm_model,
                 llm_provider="openai",
@@ -439,8 +439,8 @@ def validate_workflow(
     Validate a workflow definition without executing it.
 
     Examples:
-        cognivault workflow validate examples/complex_analysis.yaml
-        cognivault workflow validate workflows/decision_flow.yaml --verbose
+        osss workflow validate examples/complex_analysis.yaml
+        osss workflow validate workflows/decision_flow.yaml --verbose
     """
     try:
         import asyncio
@@ -510,8 +510,8 @@ def list_workflows(
     List available workflow examples and definitions.
 
     Examples:
-        cognivault workflow list
-        cognivault workflow list --dir my_workflows --format json
+        osss workflow list
+        osss workflow list --dir my_workflows --format json
     """
     try:
         workflows = _find_workflow_files(directory)
@@ -544,8 +544,8 @@ def show_workflow(
     Display workflow definition in readable format.
 
     Examples:
-        cognivault workflow show examples/complex_analysis.yaml
-        cognivault workflow show workflows/decision_flow.yaml --format json
+        osss workflow show examples/complex_analysis.yaml
+        osss workflow show workflows/decision_flow.yaml --format json
     """
     try:
         workflow = _load_workflow_file(workflow_file)
@@ -587,8 +587,8 @@ def export_workflow(
     Export workflow definition to file with optional composition metadata.
 
     Examples:
-        cognivault workflow export examples/complex_analysis.yaml output.json
-        cognivault workflow export workflows/decision_flow.yaml output.yaml --format yaml --snapshot
+        osss workflow export examples/complex_analysis.yaml output.json
+        osss workflow export workflows/decision_flow.yaml output.yaml --format yaml --snapshot
     """
     try:
         import asyncio
@@ -856,7 +856,7 @@ def list_workflows_test_helper() -> None:
     console = Console()
 
     # Check for examples directory
-    examples_dir = Path("src/cognivault/workflows/examples")
+    examples_dir = Path("src/OSSS/ai/workflows/examples")
     if not examples_dir.exists():
         console.print("[yellow]No workflow examples found[/yellow]")
         return

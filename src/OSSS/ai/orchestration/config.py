@@ -437,16 +437,16 @@ class LangGraphConfigManager:
         "orchestration.yaml",
         "config/orchestration.json",
         "config/orchestration.yaml",
-        ".cognivault/orchestration.json",
-        ".cognivault/orchestration.yaml",
+        ".osss/orchestration.json",
+        ".osss/orchestration.yaml",
     ]
 
     @classmethod
     def load_default_config(cls) -> LangGraphIntegrationConfig:
         """Load configuration from default locations."""
         # Try environment variable first (support both old and new names for backward compatibility)
-        config_path = os.getenv("COGNIVAULT_ORCHESTRATION_CONFIG") or os.getenv(
-            "COGNIVAULT_LANGRAPH_CONFIG"
+        config_path = os.getenv("OSSS_ORCHESTRATION_CONFIG") or os.getenv(
+            "OSSS_LANGRAPH_CONFIG"
         )
         if config_path:
             try:

@@ -8,7 +8,7 @@ from sqlalchemy import pool
 from alembic import context
 
 # Add project root to Python path for imports
-# migrations is now at src/cognivault/database/migrations, so we need to go up 4 levels to reach project root
+# migrations is now at src/OSSS/ai/database/migrations, so we need to go up 4 levels to reach project root
 project_root = os.path.join(os.path.dirname(__file__), "..", "..", "..", "..")
 sys.path.insert(0, os.path.join(project_root, "src"))
 

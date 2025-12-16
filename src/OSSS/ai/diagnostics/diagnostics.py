@@ -341,7 +341,7 @@ class DiagnosticsManager:
         # Get relevant environment variables
         env_vars = {}
         for key in os.environ:
-            if key.startswith("COGNIVAULT_") or key.startswith("OPENAI_"):
+            if key.startswith("OSSS_") or key.startswith("OPENAI_"):
                 # Mask sensitive values
                 if (
                     "key" in key.lower()

@@ -1,7 +1,7 @@
 name: "Advanced Multi-Node Pipeline"
 version: "1.0.0"
 workflow_id: "advanced-pipeline-demo"
-created_by: "cognivault-team"
+created_by: "osss-team"
 description: "Comprehensive workflow demonstrating all 4 advanced node types with sophisticated routing"
 tags: ["demo", "comprehensive", "advanced", "all-node-types"]
 workflow_schema_version: "1.0.0"

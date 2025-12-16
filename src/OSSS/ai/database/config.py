@@ -83,10 +83,10 @@ class DatabaseConfig:
         if not database_url:
             # Provide default for development, but warn
             database_url = (
-                "postgresql+asyncpg://postgres:postgres@localhost:5432/cognivault"
+                "postgresql+asyncpg://postgres:postgres@localhost:5432/osss"
             )
             logger.warning(
-                "DATABASE_URL not set, using development default: postgresql+asyncpg://localhost:5432/cognivault"
+                "DATABASE_URL not set, using development default: postgresql+asyncpg://localhost:5432/osss"
             )
 
         # Validate database URL format
@@ -149,7 +149,7 @@ class DatabaseConfig:
         connect_args: dict[str, Any] = {
             "command_timeout": self.command_timeout,
             "server_settings": {
-                "application_name": "cognivault",
+                "application_name": "osss",
             },
         }
 

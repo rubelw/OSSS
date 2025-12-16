@@ -177,11 +177,11 @@ class WorkflowEvent(BaseModel):
 
     # Service context (for future service extraction)
     service_name: str = Field(
-        "cognivault-core",
+        "osss-core",
         description="Name of the service that generated this event",
         min_length=1,
         max_length=100,
-        json_schema_extra={"example": "cognivault-core"},
+        json_schema_extra={"example": "osss-core"},
     )
     service_version: str = Field(
         "1.0.0",
@@ -296,7 +296,7 @@ class WorkflowEvent(BaseModel):
             memory_usage_mb=data.get("memory_usage_mb"),
             error_message=data.get("error_message"),
             error_type=data.get("error_type"),
-            service_name=data.get("service_name", "cognivault-core"),
+            service_name=data.get("service_name", "osss-core"),
             service_version=data.get("service_version", "1.0.0"),
         )
 

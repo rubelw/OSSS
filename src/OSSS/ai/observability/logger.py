@@ -62,11 +62,11 @@ class StructuredLogger:
             log_dir = Path(config.files.logs_directory)
             log_dir.mkdir(parents=True, exist_ok=True)
 
-            log_file = log_dir / "cognivault.log"
+            log_file = log_dir / "osss.log"
             file_handler = logging.FileHandler(log_file)
             file_formatter = get_file_formatter(
                 structured=True,  # Always use JSON for files
-                extra_fields={"service": "cognivault", "logger_name": self.name},
+                extra_fields={"service": "osss", "logger_name": self.name},
             )
             file_handler.setFormatter(file_formatter)
             self.logger.addHandler(file_handler)
@@ -355,10 +355,10 @@ def setup_enhanced_logging(
         log_dir = Path(config.files.logs_directory)
         log_dir.mkdir(parents=True, exist_ok=True)
 
-        log_file = log_dir / "cognivault.log"
+        log_file = log_dir / "osss.log"
         file_handler = logging.FileHandler(log_file)
         file_formatter = get_file_formatter(
-            structured=True, extra_fields={"service": "cognivault"}
+            structured=True, extra_fields={"service": "osss"}
         )
         file_handler.setFormatter(file_formatter)
         root_logger.addHandler(file_handler)

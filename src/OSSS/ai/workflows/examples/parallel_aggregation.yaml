@@ -1,7 +1,7 @@
 name: Parallel Analysis with Consensus
 version: 1.0.0
 workflow_id: parallel-aggregation-demo
-created_by: cognivault-team
+created_by: osss-team
 description: Demonstrates parallel agent execution with consensus aggregation
 tags:
 - demo

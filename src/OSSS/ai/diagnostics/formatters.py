@@ -341,63 +341,63 @@ class PrometheusFormatter(DiagnosticFormatter):
             diagnostics.overall_health.value, -1
         )
 
-        lines.append("# HELP cognivault_system_health Overall system health status")
-        lines.append("# TYPE cognivault_system_health gauge")
-        lines.append(f"cognivault_system_health {overall_health_value} {timestamp_ms}")
+        lines.append("# HELP osss_system_health Overall system health status")
+        lines.append("# TYPE osss_system_health gauge")
+        lines.append(f"osss_system_health {overall_health_value} {timestamp_ms}")
 
         # Component health
-        lines.append("# HELP cognivault_component_health Component health status")
-        lines.append("# TYPE cognivault_component_health gauge")
+        lines.append("# HELP osss_component_health Component health status")
+        lines.append("# TYPE osss_component_health gauge")
         for name, health in diagnostics.component_healths.items():
             health_value = health_status_map.get(health.status.value, -1)
             lines.append(
-                f'cognivault_component_health{{component="{name}"}} {health_value} {timestamp_ms}'
+                f'osss_component_health{{component="{name}"}} {health_value} {timestamp_ms}'
             )
 
         # Performance metrics
         metrics = diagnostics.performance_metrics
 
-        lines.append("# HELP cognivault_executions_total Total number of executions")
-        lines.append("# TYPE cognivault_executions_total counter")
+        lines.append("# HELP osss_executions_total Total number of executions")
+        lines.append("# TYPE osss_executions_total counter")
         lines.append(
-            f"cognivault_executions_total {metrics.total_executions} {timestamp_ms}"
+            f"osss_executions_total {metrics.total_executions} {timestamp_ms}"
         )
 
-        lines.append("# HELP cognivault_execution_duration_seconds Execution duration")
-        lines.append("# TYPE cognivault_execution_duration_seconds histogram")
+        lines.append("# HELP osss_execution_duration_seconds Execution duration")
+        lines.append("# TYPE osss_execution_duration_seconds histogram")
         lines.append(
-            f"cognivault_execution_duration_seconds_sum {metrics.total_execution_time_ms / 1000:.6f} {timestamp_ms}"
+            f"osss_execution_duration_seconds_sum {metrics.total_execution_time_ms / 1000:.6f} {timestamp_ms}"
         )
         lines.append(
-            f"cognivault_execution_duration_seconds_count {metrics.total_executions} {timestamp_ms}"
-        )
-
-        lines.append("# HELP cognivault_success_rate Success rate ratio")
-        lines.append("# TYPE cognivault_success_rate gauge")
-        lines.append(
-            f"cognivault_success_rate {metrics.success_rate:.6f} {timestamp_ms}"
+            f"osss_execution_duration_seconds_count {metrics.total_executions} {timestamp_ms}"
         )
 
-        lines.append("# HELP cognivault_tokens_consumed_total Total tokens consumed")
-        lines.append("# TYPE cognivault_tokens_consumed_total counter")
+        lines.append("# HELP osss_success_rate Success rate ratio")
+        lines.append("# TYPE osss_success_rate gauge")
         lines.append(
-            f"cognivault_tokens_consumed_total {metrics.total_tokens_consumed} {timestamp_ms}"
+            f"osss_success_rate {metrics.success_rate:.6f} {timestamp_ms}"
+        )
+
+        lines.append("# HELP osss_tokens_consumed_total Total tokens consumed")
+        lines.append("# TYPE osss_tokens_consumed_total counter")
+        lines.append(
+            f"osss_tokens_consumed_total {metrics.total_tokens_consumed} {timestamp_ms}"
         )
 
         # Agent-specific metrics
         for agent_name, agent_metrics in metrics.agent_metrics.items():
             lines.append(
-                "# HELP cognivault_agent_executions_total Agent execution count"
+                "# HELP osss_agent_executions_total Agent execution count"
             )
-            lines.append("# TYPE cognivault_agent_executions_total counter")
+            lines.append("# TYPE osss_agent_executions_total counter")
             lines.append(
-                f'cognivault_agent_executions_total{{agent="{agent_name}"}} {agent_metrics.get("executions", 0)} {timestamp_ms}'
+                f'osss_agent_executions_total{{agent="{agent_name}"}} {agent_metrics.get("executions", 0)} {timestamp_ms}'
             )
 
-            lines.append("# HELP cognivault_agent_success_rate Agent success rate")
-            lines.append("# TYPE cognivault_agent_success_rate gauge")
+            lines.append("# HELP osss_agent_success_rate Agent success rate")
+            lines.append("# TYPE osss_agent_success_rate gauge")
             lines.append(
-                f'cognivault_agent_success_rate{{agent="{agent_name}"}} {agent_metrics.get("success_rate", 0):.6f} {timestamp_ms}'
+                f'osss_agent_success_rate{{agent="{agent_name}"}} {agent_metrics.get("success_rate", 0):.6f} {timestamp_ms}'
             )
 
         return "\n".join(lines)
@@ -414,25 +414,25 @@ class PrometheusFormatter(DiagnosticFormatter):
             "unknown": -1,
         }
 
-        lines.append("# HELP cognivault_health_status Component health status")
-        lines.append("# TYPE cognivault_health_status gauge")
+        lines.append("# HELP osss_health_status Component health status")
+        lines.append("# TYPE osss_health_status gauge")
 
         for name, health in health_data.items():
             health_value = health_status_map.get(health.status.value, -1)
             lines.append(
-                f'cognivault_health_status{{component="{name}"}} {health_value} {timestamp_ms}'
+                f'osss_health_status{{component="{name}"}} {health_value} {timestamp_ms}'
             )
 
         # Response time metrics
         lines.append(
-            "# HELP cognivault_health_response_time_ms Component health check response time"
+            "# HELP osss_health_response_time_ms Component health check response time"
         )
-        lines.append("# TYPE cognivault_health_response_time_ms gauge")
+        lines.append("# TYPE osss_health_response_time_ms gauge")
 
         for name, health in health_data.items():
             response_time = health.response_time_ms if health.response_time_ms else 0
             lines.append(
-                f'cognivault_health_response_time_ms{{component="{name}"}} {response_time} {timestamp_ms}'
+                f'osss_health_response_time_ms{{component="{name}"}} {response_time} {timestamp_ms}'
             )
 
         return "\n".join(lines)
@@ -446,45 +446,45 @@ class PrometheusFormatter(DiagnosticFormatter):
         timestamp_ms = int(datetime.now().timestamp() * 1000)
 
         # Agent counters (using agent terminology from tests)
-        lines.append("# HELP cognivault_agents_total Total number of agents executed")
-        lines.append("# TYPE cognivault_agents_total counter")
-        lines.append(f"cognivault_agents_total {metrics.total_executions}")
+        lines.append("# HELP osss_agents_total Total number of agents executed")
+        lines.append("# TYPE osss_agents_total counter")
+        lines.append(f"osss_agents_total {metrics.total_executions}")
 
         lines.append(
-            "# HELP cognivault_agents_successful Number of successful agent executions"
+            "# HELP osss_agents_successful Number of successful agent executions"
         )
-        lines.append("# TYPE cognivault_agents_successful counter")
-        lines.append(f"cognivault_agents_successful {metrics.successful_executions}")
+        lines.append("# TYPE osss_agents_successful counter")
+        lines.append(f"osss_agents_successful {metrics.successful_executions}")
 
         lines.append(
-            "# HELP cognivault_agents_failed Number of failed agent executions"
+            "# HELP osss_agents_failed Number of failed agent executions"
         )
-        lines.append("# TYPE cognivault_agents_failed counter")
-        lines.append(f"cognivault_agents_failed {metrics.failed_executions}")
+        lines.append("# TYPE osss_agents_failed counter")
+        lines.append(f"osss_agents_failed {metrics.failed_executions}")
 
         # LLM metrics
-        lines.append("# HELP cognivault_llm_calls_total Total number of LLM calls")
-        lines.append("# TYPE cognivault_llm_calls_total counter")
-        lines.append(f"cognivault_llm_calls_total {metrics.llm_api_calls}")
+        lines.append("# HELP osss_llm_calls_total Total number of LLM calls")
+        lines.append("# TYPE osss_llm_calls_total counter")
+        lines.append(f"osss_llm_calls_total {metrics.llm_api_calls}")
 
         # Token metrics
-        lines.append("# HELP cognivault_tokens_used_total Total tokens consumed")
-        lines.append("# TYPE cognivault_tokens_used_total counter")
-        lines.append(f"cognivault_tokens_used_total {metrics.total_tokens_consumed}")
+        lines.append("# HELP osss_tokens_used_total Total tokens consumed")
+        lines.append("# TYPE osss_tokens_used_total counter")
+        lines.append(f"osss_tokens_used_total {metrics.total_tokens_consumed}")
 
         # Assuming 50% input/output token split
         tokens_generated = metrics.total_tokens_consumed // 2
-        lines.append("# HELP cognivault_tokens_generated_total Total tokens generated")
-        lines.append("# TYPE cognivault_tokens_generated_total counter")
-        lines.append(f"cognivault_tokens_generated_total {tokens_generated}")
+        lines.append("# HELP osss_tokens_generated_total Total tokens generated")
+        lines.append("# TYPE osss_tokens_generated_total counter")
+        lines.append(f"osss_tokens_generated_total {tokens_generated}")
 
         # Duration metrics
         lines.append(
-            "# HELP cognivault_agent_duration_avg Average agent execution duration"
+            "# HELP osss_agent_duration_avg Average agent execution duration"
         )
-        lines.append("# TYPE cognivault_agent_duration_avg gauge")
+        lines.append("# TYPE osss_agent_duration_avg gauge")
         lines.append(
-            f"cognivault_agent_duration_avg {metrics.average_execution_time_ms}"
+            f"osss_agent_duration_avg {metrics.average_execution_time_ms}"
         )
 
         # LLM duration calculation to match test expectations (125.5 * 0.6 ≈ 75.0)
@@ -493,9 +493,9 @@ class PrometheusFormatter(DiagnosticFormatter):
             if metrics.average_execution_time_ms == 125.5
             else metrics.average_execution_time_ms * 0.6
         )
-        lines.append("# HELP cognivault_llm_duration_avg Average LLM call duration")
-        lines.append("# TYPE cognivault_llm_duration_avg gauge")
-        lines.append(f"cognivault_llm_duration_avg {llm_duration}")
+        lines.append("# HELP osss_llm_duration_avg Average LLM call duration")
+        lines.append("# TYPE osss_llm_duration_avg gauge")
+        lines.append(f"osss_llm_duration_avg {llm_duration}")
 
         # Pipeline duration calculation to match test expectations (125.5 * 4 ≈ 500.0)
         pipeline_duration = (
@@ -503,9 +503,9 @@ class PrometheusFormatter(DiagnosticFormatter):
             if metrics.average_execution_time_ms == 125.5
             else metrics.average_execution_time_ms * 4
         )
-        lines.append("# HELP cognivault_pipeline_duration Pipeline execution duration")
-        lines.append("# TYPE cognivault_pipeline_duration gauge")
-        lines.append(f"cognivault_pipeline_duration {pipeline_duration}")
+        lines.append("# HELP osss_pipeline_duration Pipeline execution duration")
+        lines.append("# TYPE osss_pipeline_duration gauge")
+        lines.append(f"osss_pipeline_duration {pipeline_duration}")
 
         return "\n".join(lines)
 
@@ -513,20 +513,20 @@ class PrometheusFormatter(DiagnosticFormatter):
         """Format agent-specific metrics as Prometheus metrics."""
         lines = []
 
-        lines.append("# HELP cognivault_agent_executions Agent execution counts")
-        lines.append("# TYPE cognivault_agent_executions counter")
+        lines.append("# HELP osss_agent_executions Agent execution counts")
+        lines.append("# TYPE osss_agent_executions counter")
 
         for agent_name, metrics in agent_metrics.items():
             lines.append(
-                f'cognivault_agent_executions{{agent="{agent_name}"}} {metrics.get("executions", 0)}'
+                f'osss_agent_executions{{agent="{agent_name}"}} {metrics.get("executions", 0)}'
             )
 
-        lines.append("# HELP cognivault_agent_success_rate Agent success rates")
-        lines.append("# TYPE cognivault_agent_success_rate gauge")
+        lines.append("# HELP osss_agent_success_rate Agent success rates")
+        lines.append("# TYPE osss_agent_success_rate gauge")
 
         for agent_name, metrics in agent_metrics.items():
             lines.append(
-                f'cognivault_agent_success_rate{{agent="{agent_name}"}} {metrics.get("success_rate", 0.0)}'
+                f'osss_agent_success_rate{{agent="{agent_name}"}} {metrics.get("success_rate", 0.0)}'
             )
 
         return "\n".join(lines)
@@ -570,21 +570,21 @@ class InfluxDBFormatter(DiagnosticFormatter):
         }
         overall_health = health_numeric.get(diagnostics.overall_health.value, -1)
 
-        lines.append(f"cognivault_system_health value={overall_health} {timestamp_ns}")
+        lines.append(f"osss_system_health value={overall_health} {timestamp_ns}")
 
         # Component health
         for name, health in diagnostics.component_healths.items():
             health_value = health_numeric.get(health.status.value, -1)
             response_time = health.response_time_ms if health.response_time_ms else 0
             lines.append(
-                f"cognivault_component_health,component={name} value={health_value},response_time_ms={response_time} {timestamp_ns}"
+                f"osss_component_health,component={name} value={health_value},response_time_ms={response_time} {timestamp_ns}"
             )
 
         # Performance metrics
         metrics = diagnostics.performance_metrics
 
         lines.append(
-            f"cognivault_performance "
+            f"osss_performance "
             f"total_executions={metrics.total_executions}i,"
             f"successful_executions={metrics.successful_executions}i,"
             f"failed_executions={metrics.failed_executions}i,"
@@ -598,7 +598,7 @@ class InfluxDBFormatter(DiagnosticFormatter):
         # Agent metrics
         for agent_name, agent_metrics in metrics.agent_metrics.items():
             lines.append(
-                f"cognivault_agent_performance,agent={agent_name} "
+                f"osss_agent_performance,agent={agent_name} "
                 f"executions={agent_metrics.get('executions', 0)}i,"
                 f"success_rate={agent_metrics.get('success_rate', 0)},"
                 f"avg_duration_ms={agent_metrics.get('avg_duration_ms', 0)},"
@@ -624,7 +624,7 @@ class InfluxDBFormatter(DiagnosticFormatter):
             health_value = health_numeric.get(health.status.value, -1)
             response_time = health.response_time_ms if health.response_time_ms else 0
             lines.append(
-                f"cognivault_component_health,component={name} "
+                f"osss_component_health,component={name} "
                 f"value={health_value},response_time_ms={response_time} {timestamp_ns}"
             )
 
@@ -668,7 +668,7 @@ class InfluxDBFormatter(DiagnosticFormatter):
         )
 
         lines.append(
-            f"cognivault_performance "
+            f"osss_performance "
             f"total_agents={total_agents},"
             f"successful_agents={successful_agents},"
             f"failed_agents={failed_agents},"
@@ -697,7 +697,7 @@ class InfluxDBFormatter(DiagnosticFormatter):
             )
 
             lines.append(
-                f"cognivault_agent_metrics,agent={escaped_agent} "
+                f"osss_agent_metrics,agent={escaped_agent} "
                 f"executions={metrics.get('executions', 0)},"
                 f"success_rate={metrics.get('success_rate', 0.0)},"
                 f"avg_duration_ms={metrics.get('avg_duration_ms', 0.0)},"

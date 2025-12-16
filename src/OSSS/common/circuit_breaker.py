@@ -1,5 +1,5 @@
 """
-Circuit breaker pattern implementation shared across CogniVault.
+Circuit breaker pattern implementation shared across OSSS.
 
 This module provides the common CircuitState enum used by both the API
 decorators and orchestration error policies to implement circuit breaker
@@ -14,8 +14,8 @@ class CircuitState(Enum):
     Circuit breaker states used across the system.
 
     This enum is shared between:
-    - API layer decorators (src/cognivault/api/decorators.py)
-    - Orchestration error policies (src/cognivault/orchestration/error_policies.py)
+    - API layer decorators (src/osss/api/decorators.py)
+    - Orchestration error policies (src/osss/orchestration/error_policies.py)
 
     States:
     - CLOSED: Normal operation, requests are allowed through

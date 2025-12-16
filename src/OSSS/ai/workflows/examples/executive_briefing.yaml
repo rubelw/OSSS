@@ -1,7 +1,7 @@
 name: Executive Briefing Pipeline
 version: 1.0.0
 workflow_id: executive-briefing-config-demo
-created_by: cognivault-phase2
+created_by: osss-phase2
 description: Demonstrates configurable agent behavior for executive-level business
   analysis and decision support
 tags:

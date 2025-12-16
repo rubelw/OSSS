@@ -84,9 +84,9 @@ def get_orchestration_api(force_mode: Optional[str] = None) -> OrchestrationAPI:
     # -----------------------------------------------------------------------
     # Priority:
     # 1. Explicit force_mode argument
-    # 2. Environment variable COGNIVAULT_API_MODE
+    # 2. Environment variable OSSS_API_MODE
     # 3. Default to "real"
-    api_mode = force_mode or os.getenv("COGNIVAULT_API_MODE", "real")
+    api_mode = force_mode or os.getenv("OSSS_API_MODE", "real")
 
     # -----------------------------------------------------------------------
     # Instantiate appropriate API implementation
@@ -215,7 +215,7 @@ def get_api_mode() -> str:
         str
             Current API mode ("real" or "mock")
     """
-    return os.getenv("COGNIVAULT_API_MODE", "real").lower()
+    return os.getenv("OSSS_API_MODE", "real").lower()
 
 
 def set_api_mode(mode: str) -> None:
@@ -239,7 +239,7 @@ def set_api_mode(mode: str) -> None:
             f"Invalid API mode: {mode}. Must be 'real' or 'mock'"
         )
 
-    os.environ["COGNIVAULT_API_MODE"] = mode.lower()
+    os.environ["OSSS_API_MODE"] = mode.lower()
     logger.info(f"[factory] Set API mode to: {mode.lower()}")
 
 

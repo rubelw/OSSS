@@ -333,7 +333,7 @@ class WorkflowDefinition(BaseModel):
         str
             Validation attribution string
         """
-        return f"cognivault-v{self.workflow_schema_version}"
+        return f"osss-v{self.workflow_schema_version}"
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "WorkflowDefinition":

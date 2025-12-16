@@ -12,7 +12,7 @@ class LLMFactory:
     @staticmethod
     def create(llm_name: Optional[LLMProvider] = None) -> LLMInterface:
         llm_name = llm_name or LLMProvider(
-            os.getenv("COGNIVAULT_LLM", "openai").lower()
+            os.getenv("OSSS_LLM", "openai").lower()
         )
 
         if llm_name == LLMProvider.OPENAI:

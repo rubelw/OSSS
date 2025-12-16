@@ -1,4 +1,4 @@
-"""Command-line interface for running Cognivault agents with specified queries."""
+"""Command-line interface for running OSSS agents with specified queries."""
 
 import logging
 import typer
@@ -137,7 +137,7 @@ async def run(
 
     # Determine if API should be used
     use_api_layer = (
-        use_api or os.getenv("COGNIVAULT_USE_API", "false").lower() == "true"
+        use_api or os.getenv("OSSS_USE_API", "false").lower() == "true"
     )
 
     # Set API mode if specified

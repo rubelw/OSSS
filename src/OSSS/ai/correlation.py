@@ -68,7 +68,7 @@ class CorrelationContext(BaseModel):
         default_factory=dict,
         description="Additional trace metadata and context information",
         json_schema_extra={
-            "example": {"service_name": "cognivault", "operation": "agent_execution"}
+            "example": {"service_name": "osss", "operation": "agent_execution"}
         },
     )
     created_at: datetime = Field(

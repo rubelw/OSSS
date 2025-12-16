@@ -1,7 +1,7 @@
 name: "Complete Advanced Node Pipeline"
 version: "1.0.0"
 workflow_id: "full-advanced-pipeline-test"
-created_by: "cognivault-manual-testing"
+created_by: "osss-manual-testing"
 created_at: "2025-01-17T18:00:00Z"
 description: "Comprehensive manual test workflow demonstrating all 4 advanced node types (Decision, Aggregator, Validator, Terminator) working together with factory methods"
 tags: ["manual-test", "comprehensive", "all-advanced-nodes", "factory-methods", "integration"]

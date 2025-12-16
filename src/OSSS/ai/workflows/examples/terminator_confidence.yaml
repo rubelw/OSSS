@@ -1,7 +1,7 @@
 name: "Confidence-Based Early Termination"
 version: "1.0.0"
 workflow_id: "terminator-confidence-test"
-created_by: "cognivault-manual-testing"
+created_by: "osss-manual-testing"
 created_at: "2025-01-17T18:00:00Z"
 description: "Manual test workflow focusing on TerminatorNode factory method functionality with various termination criteria"
 tags: ["manual-test", "terminator", "early-termination", "factory-method", "confidence"]

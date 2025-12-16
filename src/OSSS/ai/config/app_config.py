@@ -134,16 +134,16 @@ class FileConfig(BaseModel):
 
     # Output directories
     notes_directory: str = Field(
-        "./src/cognivault/notes",
+        "./src/osss_logs/notes",
         description="Directory path for storing note files",
         min_length=1,
-        json_schema_extra={"example": "./src/cognivault/notes"},
+        json_schema_extra={"example": "./src/osss_logs/notes"},
     )
     logs_directory: str = Field(
-        "./src/cognivault/logs",
+        "./src/osss_logs/logs",
         description="Directory path for storing log files",
         min_length=1,
-        json_schema_extra={"example": "./src/cognivault/logs"},
+        json_schema_extra={"example": "./src/osss_logs/logs"},
     )
 
     # Filename generation
@@ -440,82 +440,82 @@ class ApplicationConfig(BaseModel):
         config = cls()
 
         # Environment settings
-        env_name = os.getenv("COGNIVAULT_ENV", "development").lower()
+        env_name = os.getenv("OSSS_ENV", "development").lower()
         try:
             config.environment = Environment(env_name)
         except ValueError:
             config.environment = Environment.DEVELOPMENT
 
-        log_level_name = os.getenv("COGNIVAULT_LOG_LEVEL", "INFO").upper()
+        log_level_name = os.getenv("OSSS_LOG_LEVEL", "INFO").upper()
         try:
             config.log_level = LogLevel(log_level_name)
         except ValueError:
             config.log_level = LogLevel.INFO
 
-        config.debug_mode = os.getenv("COGNIVAULT_DEBUG", "false").lower() == "true"
+        config.debug_mode = os.getenv("OSSS_DEBUG", "false").lower() == "true"
 
         # Execution configuration
-        config.execution.max_retries = int(os.getenv("COGNIVAULT_MAX_RETRIES", "3"))
+        config.execution.max_retries = int(os.getenv("OSSS_MAX_RETRIES", "3"))
         config.execution.timeout_seconds = int(
-            os.getenv("COGNIVAULT_TIMEOUT_SECONDS", "10")
+            os.getenv("OSSS_TIMEOUT_SECONDS", "10")
         )
         config.execution.retry_delay_seconds = float(
-            os.getenv("COGNIVAULT_RETRY_DELAY", "1.0")
+            os.getenv("OSSS_RETRY_DELAY", "1.0")
         )
         config.execution.enable_simulation_delay = (
-            os.getenv("COGNIVAULT_SIMULATION_DELAY", "false").lower() == "true"
+            os.getenv("OSSS_SIMULATION_DELAY", "false").lower() == "true"
         )
         config.execution.simulation_delay_seconds = float(
-            os.getenv("COGNIVAULT_SIMULATION_DELAY_SECONDS", "0.1")
+            os.getenv("OSSS_SIMULATION_DELAY_SECONDS", "0.1")
         )
         config.execution.critic_enabled = (
-            os.getenv("COGNIVAULT_CRITIC_ENABLED", "true").lower() == "true"
+            os.getenv("OSSS_CRITIC_ENABLED", "true").lower() == "true"
         )
 
         # File configuration
         config.files.notes_directory = os.getenv(
-            "COGNIVAULT_NOTES_DIR", "./src/cognivault/notes"
+            "OSSS_NOTES_DIR", "./src/osss_logs/notes"
         )
         config.files.logs_directory = os.getenv(
-            "COGNIVAULT_LOGS_DIR", "./src/cognivault/logs"
+            "OSSS_LOGS_DIR", "./src/osss_logs/logs"
         )
         config.files.question_truncate_length = int(
-            os.getenv("COGNIVAULT_QUESTION_TRUNCATE", "40")
+            os.getenv("OSSS_QUESTION_TRUNCATE", "40")
         )
-        config.files.hash_length = int(os.getenv("COGNIVAULT_HASH_LENGTH", "6"))
+        config.files.hash_length = int(os.getenv("OSSS_HASH_LENGTH", "6"))
         config.files.max_file_size = int(
-            os.getenv("COGNIVAULT_MAX_FILE_SIZE", str(10 * 1024 * 1024))
+            os.getenv("OSSS_MAX_FILE_SIZE", str(10 * 1024 * 1024))
         )
         config.files.max_note_files = int(
-            os.getenv("COGNIVAULT_MAX_NOTE_FILES", "1000")
+            os.getenv("OSSS_MAX_NOTE_FILES", "1000")
         )
 
         # Model configuration
-        config.models.default_provider = os.getenv("COGNIVAULT_LLM", "openai")
+        config.models.default_provider = os.getenv("OSSS_LLM", "openai")
         config.models.default_model = os.getenv("OPENAI_MODEL", "llama3.1")
         config.models.max_tokens_per_request = int(
-            os.getenv("COGNIVAULT_MAX_TOKENS", "4096")
+            os.getenv("OSSS_MAX_TOKENS", "4096")
         )
-        config.models.temperature = float(os.getenv("COGNIVAULT_TEMPERATURE", "0.7"))
+        config.models.temperature = float(os.getenv("OSSS_TEMPERATURE", "0.7"))
 
         # Testing configuration
         config.testing.test_timeout_multiplier = float(
-            os.getenv("COGNIVAULT_TEST_TIMEOUT_MULTIPLIER", "1.5")
+            os.getenv("OSSS_TEST_TIMEOUT_MULTIPLIER", "1.5")
         )
         config.testing.test_simulation_enabled = (
-            os.getenv("COGNIVAULT_TEST_SIMULATION", "true").lower() == "true"
+            os.getenv("OSSS_TEST_SIMULATION", "true").lower() == "true"
         )
 
         # Context management configuration
         config.testing.max_context_size_bytes = int(
-            os.getenv("COGNIVAULT_MAX_CONTEXT_SIZE_BYTES", str(1024 * 1024))
+            os.getenv("OSSS_MAX_CONTEXT_SIZE_BYTES", str(1024 * 1024))
         )
-        config.testing.max_snapshots = int(os.getenv("COGNIVAULT_MAX_SNAPSHOTS", "5"))
+        config.testing.max_snapshots = int(os.getenv("OSSS_MAX_SNAPSHOTS", "5"))
         config.testing.enable_context_compression = (
-            os.getenv("COGNIVAULT_ENABLE_CONTEXT_COMPRESSION", "true").lower() == "true"
+            os.getenv("OSSS_ENABLE_CONTEXT_COMPRESSION", "true").lower() == "true"
         )
         config.testing.context_compression_threshold = float(
-            os.getenv("COGNIVAULT_CONTEXT_COMPRESSION_THRESHOLD", "0.8")
+            os.getenv("OSSS_CONTEXT_COMPRESSION_THRESHOLD", "0.8")
         )
 
         return config

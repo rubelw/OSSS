@@ -78,7 +78,7 @@ class OSSSMemoryManager:
         """Generate a unique thread ID for a new conversation."""
         timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
         unique_id = str(uuid.uuid4())[:8]
-        return f"cognivault_{timestamp}_{unique_id}"
+        return f"osss_{timestamp}_{unique_id}"
 
     def get_thread_id(self, provided_thread_id: Optional[str] = None) -> str:
         """
@@ -363,7 +363,7 @@ class OSSSMemoryManager:
 
             # Add metadata for deserialization
             serializable_state = {
-                "_cognivault_version": "2.2",
+                "_osss_version": "2.2",
                 "_serialization_timestamp": datetime.now(timezone.utc).isoformat(),
                 "_state_type": "OSSSState",
                 "data": self._serialize_value(state_dict),
@@ -378,7 +378,7 @@ class OSSSMemoryManager:
             # Fallback to simple string representation
             return json.dumps(
                 {
-                    "_cognivault_version": "2.2",
+                    "_osss_version": "2.2",
                     "_serialization_error": str(e),
                     "_fallback_data": str(state),
                 }
@@ -434,7 +434,7 @@ class OSSSMemoryManager:
         try:
             data = json.loads(serialized_data)
 
-            if isinstance(data, dict) and "_cognivault_version" in data:
+            if isinstance(data, dict) and "_osss_version" in data:
                 # New format with metadata
                 if "_serialization_error" in data:
                     logger.warning(

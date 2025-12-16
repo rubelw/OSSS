@@ -13,7 +13,7 @@ from typing import Dict, Any, Type, TypeVar, Optional, overload, Literal
 from pydantic import BaseModel, ValidationError
 import logging
 
-from cognivault.config.agent_configs import (
+from OSSS.ai.config.agent_configs import (
     RefinerConfig,
     CriticConfig,
     HistorianConfig,

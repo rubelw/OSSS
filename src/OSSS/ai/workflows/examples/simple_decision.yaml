@@ -1,7 +1,7 @@
 name: Query Complexity Router
 version: 1.0.0
 workflow_id: simple-decision-demo
-created_by: cognivault-team
+created_by: osss-team
 description: Demonstrates DecisionNode routing based on query complexity
 tags:
 - demo
