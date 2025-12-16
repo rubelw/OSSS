@@ -1,5 +1,5 @@
 """
-CogniVault Observability Module
+OSSS Observability Module
 
 This module provides comprehensive observability capabilities including
 structured logging, correlation tracking, and performance monitoring.

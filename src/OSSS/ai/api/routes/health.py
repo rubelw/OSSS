@@ -1,5 +1,5 @@
 """
-Health check endpoints for CogniVault API.
+Health check endpoints for OSSS API.
 
 Provides health status, system diagnostics, and dependency checks.
 """
@@ -26,7 +26,7 @@ async def health_check() -> Dict[str, Any]:
     """
     return {
         "status": "healthy",
-        "service": "cognivault-api",
+        "service": "osss-api",
         "version": "0.1.0",
         "timestamp": "2025-01-27T00:00:00Z",  # Will be dynamic in production
     }
@@ -47,7 +47,7 @@ async def detailed_health_check() -> Dict[str, Any]:
 
         return {
             "status": "healthy",
-            "service": "cognivault-api",
+            "service": "osss-api",
             "version": "0.1.0",
             "dependencies": {
                 "orchestration": {
@@ -65,6 +65,6 @@ async def detailed_health_check() -> Dict[str, Any]:
             detail={
                 "status": "unhealthy",
                 "error": str(e),
-                "service": "cognivault-api",
+                "service": "osss-api",
             },
         )

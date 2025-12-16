@@ -2,7 +2,7 @@
 CLI commands for declarative workflow operations.
 
 This module provides comprehensive CLI interface for workflow definition,
-validation, execution, and management in the CogniVault ecosystem.
+validation, execution, and management in the OSSS ecosystem.
 """
 
 import json
@@ -54,8 +54,8 @@ def run_workflow(
     Execute a declarative workflow with the given query.
 
     Examples:
-        cognivault workflow run examples/complex_analysis.yaml -q "Analyze this data"
-        cognivault workflow run workflows/decision_flow.yaml -q "What should I do?" --format table
+        OSSS workflow run examples/complex_analysis.yaml -q "Analyze this data"
+        OSSS workflow run workflows/decision_flow.yaml -q "What should I do?" --format table
     """
     try:
         import asyncio
@@ -193,12 +193,12 @@ async def _run_workflow_async(
 
             # Create enhanced workflow metadata with provenance tracking
             try:
-                # Get CogniVault version
-                import cognivault
+                # Get OSSS version
+                import osss
 
-                cognivault_version = getattr(cognivault, "__version__", "unknown")
+                osss_version = getattr(osss, "__version__", "unknown")
             except (ImportError, AttributeError):
-                cognivault_version = "unknown"
+                osss_version = "unknown"
 
             # Get workflow version if available
             workflow_version = getattr(workflow, "version", "1.0.0")

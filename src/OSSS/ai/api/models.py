@@ -919,7 +919,7 @@ class WorkflowMetadata(BaseModel):
         ...,
         description="Workflow author or creator",
         max_length=100,
-        json_schema_extra={"example": "CogniVault Team"},
+        json_schema_extra={"example": "OSSS Team"},
     )
     created_at: float = Field(
         ...,
@@ -1024,7 +1024,7 @@ class WorkflowsResponse(BaseModel):
                     "version": "1.0.0",
                     "category": "academic",
                     "tags": ["academic", "research", "scholarly"],
-                    "created_by": "CogniVault Team",
+                    "created_by": "OSSS Team",
                     "created_at": 1703097600.0,
                     "estimated_execution_time": "45-60 seconds",
                     "complexity_level": "high",

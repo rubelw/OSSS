@@ -63,7 +63,7 @@ class OrchestratorConfig(BaseModel):
     Configuration for the advanced orchestrator.
 
     Migrated from dataclass to Pydantic BaseModel for enhanced validation,
-    serialization, and integration with the CogniVault Pydantic ecosystem.
+    serialization, and integration with the OSSS Pydantic ecosystem.
     """
 
     max_concurrent_agents: int = Field(
@@ -125,7 +125,7 @@ class ResourceAllocationResult(BaseModel):
     Result of resource allocation for an agent.
 
     Migrated from dataclass to Pydantic BaseModel for enhanced validation,
-    serialization, and integration with the CogniVault Pydantic ecosystem.
+    serialization, and integration with the OSSS Pydantic ecosystem.
     """
 
     agent_id: str = Field(
@@ -176,7 +176,7 @@ class PipelineStage(BaseModel):
     Information about a stage in the execution pipeline.
 
     Migrated from dataclass to Pydantic BaseModel for enhanced validation,
-    serialization, and integration with the CogniVault Pydantic ecosystem.
+    serialization, and integration with the OSSS Pydantic ecosystem.
     """
 
     stage_id: str = Field(
@@ -220,7 +220,7 @@ class ExecutionResults(BaseModel):
     Results of pipeline execution.
 
     Migrated from dataclass to Pydantic BaseModel for enhanced validation,
-    serialization, and integration with the CogniVault Pydantic ecosystem.
+    serialization, and integration with the OSSS Pydantic ecosystem.
     """
 
     success: bool = Field(

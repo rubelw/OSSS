@@ -1,7 +1,7 @@
 """
 Enhanced Event Types with Multi-Axis Agent Classification.
 
-This module defines the event types for the CogniVault event-driven architecture,
+This module defines the event types for the OSSS event-driven architecture,
 including rich metadata and multi-axis agent classification for intelligent
 routing and observability.
 """

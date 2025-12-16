@@ -1,5 +1,5 @@
 """
-Topic management and auto-tagging pipeline for CogniVault.
+Topic management and auto-tagging pipeline for OSSS.
 
 This module provides intelligent topic extraction and suggestion capabilities
 that analyze agent outputs to automatically propose relevant topics and tags.
@@ -23,7 +23,7 @@ class TopicSuggestion(BaseModel):
     A suggested topic with confidence and reasoning.
 
     Migrated from dataclass to Pydantic BaseModel for enhanced validation,
-    serialization, and integration with the CogniVault Pydantic ecosystem.
+    serialization, and integration with the OSSS Pydantic ecosystem.
     """
 
     topic: str = Field(
@@ -71,7 +71,7 @@ class TopicAnalysis(BaseModel):
     Complete topic analysis for a query and agent outputs.
 
     Migrated from dataclass to Pydantic BaseModel for enhanced validation,
-    serialization, and integration with the CogniVault Pydantic ecosystem.
+    serialization, and integration with the OSSS Pydantic ecosystem.
     """
 
     suggested_topics: List[TopicSuggestion] = Field(

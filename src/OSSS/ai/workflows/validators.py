@@ -1,5 +1,5 @@
 """
-Pydantic-based workflow validation system for CogniVault DAG workflows.
+Pydantic-based workflow validation system for OSSS DAG workflows.
 
 This module provides comprehensive validation for workflow definitions using
 Pydantic's schema-based validation system, replacing manual validation logic

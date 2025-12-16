@@ -1,5 +1,5 @@
 """
-Graph compilation caching for CogniVault LangGraph backend.
+Graph compilation caching for OSSS LangGraph backend.
 
 This module provides caching functionality for compiled StateGraphs to improve
 performance by avoiding repeated graph compilation for the same configurations.

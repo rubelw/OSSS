@@ -1,5 +1,5 @@
 """
-Enhanced frontmatter schema for CogniVault notes.
+Enhanced frontmatter schema for OSSS notes.
 
 This module provides comprehensive frontmatter structures for rich metadata
 including topics, agent status tracking, domain classification, and more.
@@ -170,7 +170,7 @@ class WorkflowExecutionMetadata(BaseModel):
 
 class EnhancedFrontmatter(BaseModel):
     """
-    Enhanced frontmatter schema for CogniVault notes.
+    Enhanced frontmatter schema for OSSS notes.
 
     Provides comprehensive metadata including topics, agent status tracking,
     domain classification, and relationship mapping.
@@ -206,7 +206,7 @@ class EnhancedFrontmatter(BaseModel):
     child_topics: List[str] = Field(default_factory=list)  # More specific topics
 
     # Quality and Processing Metadata
-    summary: str = "Generated response from CogniVault agents"
+    summary: str = "Generated response from OSSS agents"
     quality_score: Optional[float] = Field(default=None, ge=0.0, le=1.0)
     completeness: Optional[float] = Field(default=None, ge=0.0, le=1.0)
     synthesis_quality: Optional[str] = None  # "high", "moderate", "low"

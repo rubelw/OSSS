@@ -1,5 +1,5 @@
 """
-Core graph building and compilation for CogniVault LangGraph backend.
+Core graph building and compilation for OSSS LangGraph backend.
 
 This module provides the GraphFactory class that handles StateGraph creation,
 node addition, edge definition, and compilation. It separates these concerns
@@ -11,14 +11,14 @@ from dataclasses import dataclass
 
 from langgraph.graph import StateGraph, END
 
-from OSSS.ai.orchestration.state_schemas import CogniVaultState, CogniVaultContext
+from OSSS.ai.orchestration.state_schemas import OSSSState, OSSSContext
 from OSSS.ai.orchestration.node_wrappers import (
     refiner_node,
     critic_node,
     historian_node,
     synthesis_node,
 )
-from OSSS.ai.orchestration.memory_manager import CogniVaultMemoryManager
+from OSSS.ai.orchestration.memory_manager import OSSSMemoryManager
 from OSSS.ai.observability import get_logger
 
 from .graph_patterns import GraphPattern, PatternRegistry
@@ -42,7 +42,7 @@ class GraphConfig:
 
     agents_to_run: List[str]
     enable_checkpoints: bool = False
-    memory_manager: Optional[CogniVaultMemoryManager] = None
+    memory_manager: Optional[OSSSMemoryManager] = None
     pattern_name: str = "standard"
     cache_enabled: bool = True
     enable_validation: bool = False
@@ -187,12 +187,12 @@ class GraphFactory:
         StateGraph
             Configured StateGraph (not yet compiled)
         """
-        # Create StateGraph with CogniVaultState and CogniVaultContext schemas for LangGraph 0.6.x
+        # Create StateGraph with OSSSState and OSSSContext schemas for LangGraph 0.6.x
         # Type checker warnings are expected here due to LangGraph's complex generic typing
-        # Both CogniVaultState (TypedDict) and CogniVaultContext (dataclass) are compatible
+        # Both OSSSState (TypedDict) and OSSSContext (dataclass) are compatible
         # with LangGraph 0.6.x StateGraph constructor at runtime
-        graph = StateGraph[CogniVaultState](
-            state_schema=CogniVaultState, context_schema=CogniVaultContext
+        graph = StateGraph[OSSSState](
+            state_schema=OSSSState, context_schema=OSSSContext
         )
 
         # Add nodes for requested agents
@@ -257,7 +257,7 @@ class GraphFactory:
             self.logger.debug(f"Added edge: {edge['from']} → {edge['to']}")
 
     def _compile_graph(
-        self, graph: StateGraph[CogniVaultState], config: GraphConfig
+        self, graph: StateGraph[OSSSState], config: GraphConfig
     ) -> Any:
         """
         Compile the StateGraph with optional memory checkpointing.
@@ -302,7 +302,7 @@ class GraphFactory:
         self,
         agents: List[str],
         enable_checkpoints: bool = False,
-        memory_manager: Optional[CogniVaultMemoryManager] = None,
+        memory_manager: Optional[OSSSMemoryManager] = None,
     ) -> Any:
         """
         Create a standard 4-agent graph pattern.
@@ -313,7 +313,7 @@ class GraphFactory:
             List of agent names (typically ["refiner", "critic", "historian", "synthesis"])
         enable_checkpoints : bool
             Whether to enable memory checkpointing
-        memory_manager : CogniVaultMemoryManager, optional
+        memory_manager : OSSSMemoryManager, optional
             Memory manager for checkpointing
 
         Returns
@@ -333,7 +333,7 @@ class GraphFactory:
         self,
         agents: List[str],
         enable_checkpoints: bool = False,
-        memory_manager: Optional[CogniVaultMemoryManager] = None,
+        memory_manager: Optional[OSSSMemoryManager] = None,
     ) -> Any:
         """
         Create a parallel execution graph pattern.
@@ -344,7 +344,7 @@ class GraphFactory:
             List of agent names
         enable_checkpoints : bool
             Whether to enable memory checkpointing
-        memory_manager : CogniVaultMemoryManager, optional
+        memory_manager : OSSSMemoryManager, optional
             Memory manager for checkpointing
 
         Returns

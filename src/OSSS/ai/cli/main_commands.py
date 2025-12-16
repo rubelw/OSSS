@@ -248,7 +248,7 @@ async def run(
     except Exception as e:
         console.print(f"[red]❌ LangGraph runtime error: {e}[/red]")
         console.print(
-            "[yellow]💡 Check LangGraph installation with: cognivault diagnostics health[/yellow]"
+            "[yellow]💡 Check LangGraph installation with: OSSS diagnostics health[/yellow]"
         )
         raise typer.Exit(1)
 

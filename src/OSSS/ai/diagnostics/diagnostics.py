@@ -1,8 +1,8 @@
 """
-Main diagnostics manager for CogniVault system monitoring.
+Main diagnostics manager for OSSS system monitoring.
 
 This module coordinates health checks, metrics collection, and system diagnostics
-to provide comprehensive observability for CogniVault operations.
+to provide comprehensive observability for OSSS operations.
 """
 
 import platform
@@ -76,10 +76,10 @@ class SystemDiagnostics(BaseModel):
 
 class DiagnosticsManager:
     """
-    Central diagnostics manager for CogniVault system monitoring.
+    Central diagnostics manager for OSSS system monitoring.
 
     Coordinates health checks, metrics collection, and comprehensive
-    system diagnostics to provide observability into CogniVault operations.
+    system diagnostics to provide observability into OSSS operations.
     """
 
     def __init__(self) -> None:

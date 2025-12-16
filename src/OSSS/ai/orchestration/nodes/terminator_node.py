@@ -1,5 +1,5 @@
 """
-Terminator Node Implementation for CogniVault.
+Terminator Node Implementation for OSSS.
 
 This module implements the TerminatorNode class which handles early
 termination based on confidence thresholds and completion criteria.
@@ -33,7 +33,7 @@ class TerminationCriteria(BaseModel):
     Represents a single termination criterion.
 
     Migrated from dataclass to Pydantic BaseModel for enhanced validation,
-    serialization, and integration with the CogniVault Pydantic ecosystem.
+    serialization, and integration with the OSSS Pydantic ecosystem.
     """
 
     name: str = Field(
@@ -89,7 +89,7 @@ class TerminationReport(BaseModel):
     Detailed termination report.
 
     Migrated from dataclass to Pydantic BaseModel for enhanced validation,
-    serialization, and integration with the CogniVault Pydantic ecosystem.
+    serialization, and integration with the OSSS Pydantic ecosystem.
     """
 
     should_terminate: bool = Field(

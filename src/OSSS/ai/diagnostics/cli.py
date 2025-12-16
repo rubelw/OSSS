@@ -1,5 +1,5 @@
 """
-CLI interface for CogniVault diagnostics and observability.
+CLI interface for OSSS diagnostics and observability.
 
 This module provides command-line tools for health checking, performance
 monitoring, and system diagnostics.
@@ -22,7 +22,7 @@ from .formatters import get_formatter
 
 
 class DiagnosticsCLI:
-    """CLI interface for CogniVault diagnostics."""
+    """CLI interface for OSSS diagnostics."""
 
     def __init__(self) -> None:
         self.console = Console()
@@ -33,7 +33,7 @@ class DiagnosticsCLI:
         """Create the diagnostics CLI application."""
         app = typer.Typer(
             name="diagnostics",
-            help="CogniVault diagnostics and observability tools",
+            help="OSSS diagnostics and observability tools",
             no_args_is_help=True,
         )
 
@@ -132,7 +132,7 @@ class DiagnosticsCLI:
         status = health_data["status"]
         status_color = self._get_status_color(status)
 
-        self.console.print("\n[bold]CogniVault Health Check[/bold]")
+        self.console.print("\n[bold]OSSS Health Check[/bold]")
         self.console.print(f"Status: [{status_color}]{status.upper()}[/{status_color}]")
         self.console.print(f"Timestamp: {health_data['timestamp']}")
         self.console.print(f"Uptime: {health_data['uptime_seconds']:.1f} seconds")
@@ -183,7 +183,7 @@ class DiagnosticsCLI:
                 progress.remove_task(task)
 
         # Rich output
-        self.console.print("\n[bold]CogniVault System Status[/bold]")
+        self.console.print("\n[bold]OSSS System Status[/bold]")
 
         # Overall health
         overall_status = diagnostics.overall_health.value

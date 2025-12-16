@@ -1,5 +1,5 @@
 """
-Error policies for LangGraph nodes and CogniVault execution.
+Error policies for LangGraph nodes and OSSS execution.
 
 This module provides centralized error handling policies, retry configurations,
 and circuit breaker decorators for robust LangGraph node execution.
@@ -49,7 +49,7 @@ class PolicyRetryConfig(BaseModel):
     Configuration for retry behavior.
 
     Migrated from dataclass to Pydantic BaseModel for enhanced validation,
-    serialization, and integration with the CogniVault Pydantic ecosystem.
+    serialization, and integration with the OSSS Pydantic ecosystem.
     """
 
     max_attempts: int = Field(
@@ -100,7 +100,7 @@ class CircuitBreakerConfig(BaseModel):
     Configuration for circuit breaker behavior.
 
     Migrated from dataclass to Pydantic BaseModel for enhanced validation,
-    serialization, and integration with the CogniVault Pydantic ecosystem.
+    serialization, and integration with the OSSS Pydantic ecosystem.
     """
 
     failure_threshold: int = Field(
@@ -143,7 +143,7 @@ class ErrorPolicy(BaseModel):
     Comprehensive error handling policy.
 
     Migrated from dataclass to Pydantic BaseModel for enhanced validation,
-    serialization, and integration with the CogniVault Pydantic ecosystem.
+    serialization, and integration with the OSSS Pydantic ecosystem.
     """
 
     policy_type: ErrorPolicyType = Field(

@@ -1,7 +1,7 @@
 """
 Performance metrics collection and reporting system.
 
-This module provides comprehensive metrics collection for CogniVault operations,
+This module provides comprehensive metrics collection for OSSS operations,
 including execution timing, resource usage, token consumption, and success rates.
 """
 
@@ -247,7 +247,7 @@ class PerformanceMetrics(BaseModel):
 
 class MetricsCollector:
     """
-    Thread-safe metrics collector for CogniVault performance monitoring.
+    Thread-safe metrics collector for OSSS performance monitoring.
 
     Collects and aggregates metrics including:
     - Execution timing and success rates

@@ -30,7 +30,7 @@ def load_agent_prompts(agent_type: str) -> Dict[str, str]:
 
     try:
         # Dynamic import of the agent's prompts module
-        module_name = f"cognivault.agents.{agent_type}.prompts"
+        module_name = f"osss.ai.agents.{agent_type}.prompts"
         prompts_module = importlib.import_module(module_name)
 
         # Extract all prompt variables from the module

@@ -1,5 +1,5 @@
 """
-Correlation Context Management for CogniVault.
+Correlation Context Management for OSSS.
 
 Provides correlation ID propagation through async execution chains using
 contextvars. This enables tracing of requests through the orchestrator,
@@ -35,7 +35,7 @@ class CorrelationContext(BaseModel):
     Correlation context for tracing requests through the system.
 
     Migrated from dataclass to Pydantic BaseModel for enhanced validation,
-    serialization, and integration with the CogniVault Pydantic ecosystem.
+    serialization, and integration with the OSSS Pydantic ecosystem.
 
     Provides access to correlation information that automatically
     propagates through async execution chains.

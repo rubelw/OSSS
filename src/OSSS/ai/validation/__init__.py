@@ -1,7 +1,7 @@
 """
-CogniVault unified validation framework.
+OSSS unified validation framework.
 
-This module provides a consolidated validation system for all CogniVault domains
+This module provides a consolidated validation system for all OSSS domains
 while maintaining backward compatibility with existing code.
 
 Key Components:

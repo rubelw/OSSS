@@ -1,8 +1,8 @@
 """
-LangGraph Memory Manager for CogniVault Checkpointing.
+LangGraph Memory Manager for OSSS Checkpointing.
 
 This module provides memory management and checkpointing capabilities for
-CogniVault's LangGraph integration, including conversation persistence,
+OSSS's LangGraph integration, including conversation persistence,
 rollback mechanisms, and thread-scoped memory isolation.
 """
 
@@ -19,7 +19,7 @@ from langgraph.checkpoint.memory import MemorySaver
 # Define RunnableConfig type alias for LangGraph compatibility
 RunnableConfig: TypeAlias = Dict[str, Any]
 
-from .state_schemas import CogniVaultState, create_initial_state
+from .state_schemas import OSSSState, create_initial_state
 
 logger = logging.getLogger(__name__)
 
@@ -50,9 +50,9 @@ class CheckpointInfo:
     metadata: Dict[str, Any]
 
 
-class CogniVaultMemoryManager:
+class OSSSMemoryManager:
     """
-    Memory manager for CogniVault LangGraph checkpointing.
+    Memory manager for OSSS LangGraph checkpointing.
 
     Provides thread-scoped memory isolation, state persistence,
     and rollback capabilities using LangGraph's MemorySaver.
@@ -107,7 +107,7 @@ class CogniVaultMemoryManager:
     def create_checkpoint(
         self,
         thread_id: str,
-        state: CogniVaultState,
+        state: OSSSState,
         agent_step: str,
         metadata: Optional[Dict[str, Any]] = None,
     ) -> str:
@@ -116,7 +116,7 @@ class CogniVaultMemoryManager:
 
         Args:
             thread_id: Thread ID for conversation scoping
-            state: Current CogniVaultState to checkpoint
+            state: Current OSSSState to checkpoint
             agent_step: Name of current agent step
             metadata: Additional metadata to store
 
@@ -239,7 +239,7 @@ class CogniVaultMemoryManager:
 
     def rollback_to_checkpoint(
         self, thread_id: str, checkpoint_id: Optional[str] = None
-    ) -> Optional[CogniVaultState]:
+    ) -> Optional[OSSSState]:
         """
         Rollback to a specific checkpoint (or latest if not specified).
 
@@ -306,7 +306,7 @@ class CogniVaultMemoryManager:
                         logger.info(
                             f"Successfully restored state from MemorySaver for checkpoint {target_checkpoint.checkpoint_id}"
                         )
-                        # Type cast to CogniVaultState since we know the structure
+                        # Type cast to OSSSState since we know the structure
                         return checkpoint_state  # type: ignore[return-value]
                     else:
                         logger.warning(
@@ -347,9 +347,9 @@ class CogniVaultMemoryManager:
             )
             return None
 
-    def _serialize_state(self, state: CogniVaultState) -> str:
+    def _serialize_state(self, state: OSSSState) -> str:
         """
-        Serialize CogniVaultState to JSON string with comprehensive type handling.
+        Serialize OSSSState to JSON string with comprehensive type handling.
 
         Args:
             state: State to serialize
@@ -365,7 +365,7 @@ class CogniVaultMemoryManager:
             serializable_state = {
                 "_cognivault_version": "2.2",
                 "_serialization_timestamp": datetime.now(timezone.utc).isoformat(),
-                "_state_type": "CogniVaultState",
+                "_state_type": "OSSSState",
                 "data": self._serialize_value(state_dict),
             }
 
@@ -421,15 +421,15 @@ class CogniVaultMemoryManager:
         else:
             return str(obj)
 
-    def deserialize_state(self, serialized_data: str) -> Optional[CogniVaultState]:
+    def deserialize_state(self, serialized_data: str) -> Optional[OSSSState]:
         """
-        Deserialize JSON string back to CogniVaultState.
+        Deserialize JSON string back to OSSSState.
 
         Args:
             serialized_data: JSON string to deserialize
 
         Returns:
-            Deserialized CogniVaultState or None if failed
+            Deserialized OSSSState or None if failed
         """
         try:
             data = json.loads(serialized_data)
@@ -445,7 +445,7 @@ class CogniVaultMemoryManager:
                 state_data = data.get("data", {})
                 result = self._deserialize_value(state_data)
                 return (
-                    cast(Optional[CogniVaultState], result)
+                    cast(Optional[OSSSState], result)
                     if isinstance(result, dict)
                     else None
                 )
@@ -454,7 +454,7 @@ class CogniVaultMemoryManager:
                 logger.info("Deserializing legacy state format")
                 result = self._deserialize_value(data)
                 return (
-                    cast(Optional[CogniVaultState], result)
+                    cast(Optional[OSSSState], result)
                     if isinstance(result, dict)
                     else None
                 )
@@ -556,7 +556,7 @@ class CogniVaultMemoryManager:
 
 def create_memory_manager(
     enable_checkpoints: bool = False, thread_id: Optional[str] = None, **kwargs: Any
-) -> CogniVaultMemoryManager:
+) -> OSSSMemoryManager:
     """
     Factory function to create a memory manager.
 
@@ -570,4 +570,4 @@ def create_memory_manager(
     """
     config = CheckpointConfig(enabled=enable_checkpoints, thread_id=thread_id, **kwargs)
 
-    return CogniVaultMemoryManager(config)
+    return OSSSMemoryManager(config)

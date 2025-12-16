@@ -1,15 +1,15 @@
 """
-Configuration-related exceptions for CogniVault.
+Configuration-related exceptions for OSSS.
 
 This module defines exceptions related to configuration validation,
 environment setup, and application startup failures.
 """
 
 from typing import Optional, Dict, Any, List
-from . import CogniVaultError, ErrorSeverity, RetryPolicy
+from . import OSSSError, ErrorSeverity, RetryPolicy
 
 
-class ConfigurationError(CogniVaultError):
+class ConfigurationError(OSSSError):
     """
     Base exception for configuration-related failures.
 

@@ -1,5 +1,5 @@
 """
-I/O and file operation exceptions for CogniVault.
+I/O and file operation exceptions for OSSS.
 
 This module defines exceptions related to file operations, storage,
 and I/O failures with proper error handling and recovery guidance.
@@ -7,10 +7,10 @@ and I/O failures with proper error handling and recovery guidance.
 
 from typing import Optional, Dict, Any
 from pathlib import Path
-from . import CogniVaultError, ErrorSeverity, RetryPolicy
+from . import OSSSError, ErrorSeverity, RetryPolicy
 
 
-class IOError(CogniVaultError):
+class IOError(OSSSError):
     """
     Base exception for I/O and file operation failures.
 

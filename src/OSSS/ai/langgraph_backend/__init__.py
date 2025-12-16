@@ -1,7 +1,7 @@
 """
 LangGraph Backend Module
 
-This module provides graph building and compilation services for CogniVault's
+This module provides graph building and compilation services for OSSS's
 LangGraph integration. It separates graph construction concerns from execution
 orchestration for better maintainability and testability.
 
@@ -22,7 +22,7 @@ from .graph_patterns import (
 from .graph_cache import GraphCache, CacheConfig
 from .semantic_validation import (
     WorkflowSemanticValidator,
-    CogniVaultValidator,
+    OSSSValidator,
     SemanticValidationResult,
     ValidationIssue,
     ValidationSeverity,
@@ -46,7 +46,7 @@ __all__ = [
     "CacheConfig",
     # Semantic validation
     "WorkflowSemanticValidator",
-    "CogniVaultValidator",
+    "OSSSValidator",
     "SemanticValidationResult",
     "ValidationIssue",
     "ValidationSeverity",

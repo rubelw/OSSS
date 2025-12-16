@@ -1,5 +1,5 @@
 """
-Declarative workflow definition schema for CogniVault DAG workflows.
+Declarative workflow definition schema for OSSS DAG workflows.
 
 This module provides the core data models for defining sophisticated DAG workflows
 with advanced node types, conditional routing, and ecosystem-ready metadata.
@@ -23,7 +23,7 @@ from pydantic import BaseModel, Field
 class NodeCategory(str, Enum):
     """Node category taxonomy for clear distinction between node types."""
 
-    ADVANCED = "advanced"  # CogniVault-native advanced nodes (DecisionNode, etc.)
+    ADVANCED = "advanced"  # OSSS-native advanced nodes (DecisionNode, etc.)
     BASE = "base"  # Standard agent execution (existing pipeline agents)
 
 

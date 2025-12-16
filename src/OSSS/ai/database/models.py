@@ -1,5 +1,5 @@
 """
-Database models for CogniVault PostgreSQL + pgvector integration.
+Database models for OSSS PostgreSQL + pgvector integration.
 
 GraphRAG-ready schema with hierarchical topics, vector embeddings,
 and semantic relationship tracking.

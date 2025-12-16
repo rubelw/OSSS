@@ -1,5 +1,5 @@
 """
-Orchestration and pipeline-related exceptions for CogniVault.
+Orchestration and pipeline-related exceptions for OSSS.
 
 This module defines exceptions related to agent orchestration,
 pipeline execution, and workflow management with LangGraph DAG compatibility.
@@ -7,7 +7,7 @@ pipeline execution, and workflow management with LangGraph DAG compatibility.
 
 from typing import Optional, Dict, Any, List
 from enum import Enum
-from . import CogniVaultError, ErrorSeverity, RetryPolicy
+from . import OSSSError, ErrorSeverity, RetryPolicy
 
 
 class FailurePropagationStrategy(Enum):
@@ -37,7 +37,7 @@ class ExecutionPath(Enum):
     RECOVERY = "recovery"  # Recovery after partial failure
 
 
-class OrchestrationError(CogniVaultError):
+class OrchestrationError(OSSSError):
     """
     Base exception for orchestration and pipeline failures.
 

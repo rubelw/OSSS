@@ -1,7 +1,7 @@
 """
-CogniVault CLI Package
+OSSS CLI Package
 
-Comprehensive command-line interface for CogniVault operations including
+Comprehensive command-line interface for OSSS operations including
 legacy orchestration, declarative workflows, and system diagnostics.
 """
 
@@ -45,8 +45,8 @@ except ImportError:
 
 # Create main CLI application
 app = typer.Typer(
-    name="cognivault",
-    help="CogniVault - Intelligent multi-agent orchestration platform",
+    name="osss",
+    help="OSSS - Intelligent multi-agent orchestration platform",
 )
 
 # Add command groups
@@ -54,7 +54,7 @@ app.add_typer(workflow_app, name="workflow", help="Declarative workflow operatio
 
 
 # Add main commands directly to root (for backward compatibility)
-# This preserves existing commands like: cognivault "query" --agents refiner,critic
+# This preserves existing commands like: osss "query" --agents refiner,critic
 @app.command()
 def main(
     query: str,
@@ -129,12 +129,12 @@ def main(
     ),
 ) -> None:
     """
-    Run CogniVault agents based on the provided query and options.
+    Run OSSS agents based on the provided query and options.
 
     This is the main orchestration command that processes queries through
     the traditional agent pipeline (Refiner, Historian, Critic, Synthesis).
 
-    For declarative DAG workflows, use: cognivault workflow run
+    For declarative DAG workflows, use: osss workflow run
     """
     # Import and delegate to main_commands
     from .main_commands import run
@@ -183,7 +183,7 @@ setup_diagnostics()
 
 
 def cli_main() -> None:
-    """Entry point for the cognivault CLI command."""
+    """Entry point for the osss CLI command."""
     app()
 
 

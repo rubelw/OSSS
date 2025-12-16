@@ -1,5 +1,5 @@
 """
-Database connection management for CogniVault.
+Database connection management for OSSS.
 
 Provides production-ready async SQLAlchemy engine and session management with
 proper connection pooling, health checks, and monitoring.

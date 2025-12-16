@@ -1,5 +1,5 @@
 """
-Internal API contracts for CogniVault.
+Internal API contracts for OSSS.
 
 These APIs are subject to refactor and should not be used by external consumers.
 They may change without notice during internal development.

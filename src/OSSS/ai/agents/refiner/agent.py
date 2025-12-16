@@ -29,7 +29,7 @@ class RefinerAgent(BaseAgent):
     """
     Agent responsible for transforming raw user queries into structured, clarified prompts.
 
-    The RefinerAgent acts as the first stage in the CogniVault cognitive pipeline,
+    The RefinerAgent acts as the first stage in the OSSS cognitive pipeline,
     detecting ambiguity and vagueness in user queries and rephrasing them for
     improved clarity and structure. It preserves the original intent while ensuring
     downstream agents can process the query effectively.

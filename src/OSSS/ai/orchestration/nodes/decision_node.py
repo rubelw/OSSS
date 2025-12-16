@@ -1,5 +1,5 @@
 """
-Decision Node Implementation for CogniVault.
+Decision Node Implementation for OSSS.
 
 This module implements the DecisionNode class which handles conditional
 routing and flow control in the advanced node execution system.
@@ -19,7 +19,7 @@ class DecisionCriteria(BaseModel):
     Represents a single decision criterion.
 
     Migrated from dataclass to Pydantic BaseModel for enhanced validation,
-    serialization, and integration with the CogniVault Pydantic ecosystem.
+    serialization, and integration with the OSSS Pydantic ecosystem.
     """
 
     name: str = Field(

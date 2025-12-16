@@ -41,7 +41,7 @@ class AgentMetadata(BaseModel):
     agent_class: Any = Field(
         ...,
         description="The agent class type for instantiation",
-        json_schema_extra={"example": "cognivault.agents.refiner.agent.RefinerAgent"},
+        json_schema_extra={"example": "OSSS.ai.agents.refiner.agent.RefinerAgent"},
     )
     description: str = Field(
         "",
@@ -169,7 +169,7 @@ class AgentMetadata(BaseModel):
         None,
         description="Python module path for the agent class",
         max_length=500,
-        json_schema_extra={"example": "cognivault.agents.refiner.agent.RefinerAgent"},
+        json_schema_extra={"example": "OSSS.ai.agents.refiner.agent.RefinerAgent"},
     )
     discovered_at: float = Field(
         default_factory=time.time,
@@ -268,7 +268,7 @@ class AgentMetadata(BaseModel):
                 class StringConversionFallbackAgent:
                     """Fallback agent class for invalid class paths during string-to-class conversion."""
 
-                    __module__ = "cognivault.agents.dummy"
+                    __module__ = "OSSS.ai.agents.dummy"
                     __name__ = "StringConversionFallbackAgent"
 
                     def __init__(self) -> None:
@@ -590,7 +590,7 @@ class AgentMetadata(BaseModel):
 
             try:
                 base_agent_module = importlib.import_module(
-                    "cognivault.agents.base_agent"
+                    "OSSS.ai.agents.base_agent"
                 )
                 agent_class = base_agent_module.BaseAgent
             except ImportError:
@@ -639,7 +639,7 @@ class AgentMetadata(BaseModel):
                             compatibility={},
                             # Additional required parameters
                             agent_id="dummy_agent",
-                            module_path="cognivault.agents.dummy.EqualityFallbackAgent",
+                            module_path="OSSS.ai.agents.dummy.EqualityFallbackAgent",
                             discovery_strategy=None,
                             file_path=None,
                             checksum=None,
@@ -703,7 +703,7 @@ class AgentMetadata(BaseModel):
         import importlib
 
         try:
-            base_agent_module = importlib.import_module("cognivault.agents.base_agent")
+            base_agent_module = importlib.import_module("OSSS.ai.agents.base_agent")
             agent_class = base_agent_module.BaseAgent  # Placeholder
         except ImportError:
             # Create a simple dummy class as fallback

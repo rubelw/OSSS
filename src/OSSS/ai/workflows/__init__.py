@@ -1,5 +1,5 @@
 """
-CogniVault Workflow System
+OSSS Workflow System
 
 Declarative DAG workflow composition and execution engine enabling sophisticated
 multi-agent orchestration with advanced node types, conditional routing, and

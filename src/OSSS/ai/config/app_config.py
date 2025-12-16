@@ -1,5 +1,5 @@
 """
-Application Configuration Management for CogniVault.
+Application Configuration Management for OSSS.
 
 This module provides centralized configuration management for all application
 constants, timeouts, paths, and operational parameters previously scattered

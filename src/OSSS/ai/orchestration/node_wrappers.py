@@ -1,7 +1,7 @@
 """
-LangGraph node wrappers for CogniVault agents.
+LangGraph node wrappers for OSSS agents.
 
-This module provides wrapper functions that convert CogniVault agents
+This module provides wrapper functions that convert OSSS agents
 into LangGraph-compatible node functions. Each wrapper handles:
 - State conversion between AgentContext and LangGraph state
 - Error handling with circuit breaker patterns
@@ -41,8 +41,8 @@ from OSSS.ai.agents.base_agent import BaseAgent
 from OSSS.ai.agents.registry import get_agent_registry
 from OSSS.ai.orchestration.state_bridge import AgentContextStateBridge
 from OSSS.ai.orchestration.state_schemas import (
-    CogniVaultState,
-    CogniVaultContext,
+    OSSSState,
+    OSSSContext,
     RefinerState,
     CriticState,
     HistorianState,
@@ -354,7 +354,7 @@ async def create_agent_with_llm(agent_name: str) -> BaseAgent:
     return agent
 
 
-async def convert_state_to_context(state: CogniVaultState) -> AgentContext:
+async def convert_state_to_context(state: OSSSState) -> AgentContext:
     """
     Convert LangGraph state to AgentContext for agent execution.
 
@@ -362,7 +362,7 @@ async def convert_state_to_context(state: CogniVaultState) -> AgentContext:
 
     Parameters
     ----------
-    state : CogniVaultState
+    state : OSSSState
         Current LangGraph state (may be partial)
 
     Returns
@@ -474,7 +474,7 @@ async def convert_state_to_context(state: CogniVaultState) -> AgentContext:
 @circuit_breaker(max_failures=3, reset_timeout=300.0)
 @node_metrics
 async def refiner_node(
-    state: CogniVaultState, runtime: Runtime[CogniVaultContext]
+    state: OSSSState, runtime: Runtime[OSSSContext]
 ) -> Dict[str, Any]:
     """
     LangGraph node wrapper for RefinerAgent.
@@ -484,14 +484,14 @@ async def refiner_node(
 
     Parameters
     ----------
-    state : CogniVaultState
+    state : OSSSState
         Current LangGraph state
-    runtime : Runtime[CogniVaultContext]
+    runtime : Runtime[OSSSContext]
         LangGraph runtime context with thread and execution information
 
     Returns
     -------
-    CogniVaultState
+    OSSSState
         Updated state with RefinerState
     """
     # ✅ Type-safe context access (LangGraph 0.6.x Runtime API)
@@ -683,7 +683,7 @@ async def refiner_node(
 @circuit_breaker(max_failures=3, reset_timeout=300.0)
 @node_metrics
 async def critic_node(
-    state: CogniVaultState, runtime: Runtime[CogniVaultContext]
+    state: OSSSState, runtime: Runtime[OSSSContext]
 ) -> Dict[str, Any]:
     """
     LangGraph node wrapper for CriticAgent.
@@ -693,14 +693,14 @@ async def critic_node(
 
     Parameters
     ----------
-    state : CogniVaultState
+    state : OSSSState
         Current LangGraph state (must contain refiner output)
-    runtime : Runtime[CogniVaultContext]
+    runtime : Runtime[OSSSContext]
         LangGraph 0.6.x runtime context providing type-safe access to execution metadata
 
     Returns
     -------
-    CogniVaultState
+    OSSSState
         Updated state with CriticState
     """
     # Extract context data from LangGraph 0.6.x Runtime Context API
@@ -850,7 +850,7 @@ async def critic_node(
 @circuit_breaker(max_failures=3, reset_timeout=300.0)
 @node_metrics
 async def historian_node(
-    state: CogniVaultState, runtime: Runtime[CogniVaultContext]
+    state: OSSSState, runtime: Runtime[OSSSContext]
 ) -> Dict[str, Any]:
     """
     LangGraph node wrapper for HistorianAgent.
@@ -860,14 +860,14 @@ async def historian_node(
 
     Parameters
     ----------
-    state : CogniVaultState
+    state : OSSSState
         Current LangGraph state (must contain refiner output)
-    runtime : Runtime[CogniVaultContext]
+    runtime : Runtime[OSSSContext]
         LangGraph 0.6.x runtime context providing type-safe access to execution metadata
 
     Returns
     -------
-    CogniVaultState
+    OSSSState
         Updated state with HistorianState
     """
     # Extract context data from LangGraph 0.6.x Runtime Context API
@@ -1037,7 +1037,7 @@ async def historian_node(
 @circuit_breaker(max_failures=3, reset_timeout=300.0)
 @node_metrics
 async def synthesis_node(
-    state: CogniVaultState, runtime: Runtime[CogniVaultContext]
+    state: OSSSState, runtime: Runtime[OSSSContext]
 ) -> Dict[str, Any]:
     """
     LangGraph node wrapper for SynthesisAgent.
@@ -1047,14 +1047,14 @@ async def synthesis_node(
 
     Parameters
     ----------
-    state : CogniVaultState
+    state : OSSSState
         Current LangGraph state (must contain refiner, critic, and historian outputs)
-    runtime : Runtime[CogniVaultContext]
+    runtime : Runtime[OSSSContext]
         LangGraph 0.6.x runtime context providing type-safe access to execution metadata
 
     Returns
     -------
-    CogniVaultState
+    OSSSState
         Updated state with SynthesisState
     """
     # Extract context data from LangGraph 0.6.x Runtime Context API
@@ -1264,13 +1264,13 @@ def get_node_dependencies() -> Dict[str, List[str]]:
     }
 
 
-def validate_node_input(state: CogniVaultState, node_name: str) -> bool:
+def validate_node_input(state: OSSSState, node_name: str) -> bool:
     """
     Validate that a node has all required inputs.
 
     Parameters
     ----------
-    state : CogniVaultState
+    state : OSSSState
         Current state
     node_name : str
         Name of node to validate

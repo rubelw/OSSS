@@ -33,7 +33,7 @@ class ResourceConstraints(BaseModel):
     Resource constraints for optimization decisions.
 
     Migrated from dataclass to Pydantic BaseModel for enhanced validation,
-    type safety, and integration with the CogniVault Pydantic ecosystem.
+    type safety, and integration with the OSSS Pydantic ecosystem.
     """
 
     # Time constraints

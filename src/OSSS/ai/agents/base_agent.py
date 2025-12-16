@@ -36,8 +36,8 @@ async def _emit_agent_execution_started(
 ) -> None:
     """Lazily import and emit agent execution started event."""
     try:
-        from cognivault.events import emit_agent_execution_started
-        from cognivault.events.types import EventCategory
+        from osss.ai.events import emit_agent_execution_started
+        from osss.ai.events.types import EventCategory
 
         await emit_agent_execution_started(
             workflow_id=workflow_id,
@@ -74,8 +74,8 @@ async def _emit_agent_execution_completed(
 ) -> None:
     """Lazily import and emit agent execution completed event."""
     try:
-        from cognivault.events import emit_agent_execution_completed
-        from cognivault.events.types import EventCategory
+        from osss.ai.events import emit_agent_execution_completed
+        from osss.ai.events.types import EventCategory
 
         await emit_agent_execution_completed(
             workflow_id=workflow_id,
@@ -195,7 +195,7 @@ class NodeInputSchema(BaseModel):
     Schema definition for node inputs.
 
     Migrated from dataclass to Pydantic BaseModel for enhanced validation,
-    serialization, and integration with the CogniVault Pydantic ecosystem.
+    serialization, and integration with the OSSS Pydantic ecosystem.
     """
 
     name: str = Field(
@@ -236,7 +236,7 @@ class NodeOutputSchema(BaseModel):
     Schema definition for node outputs.
 
     Migrated from dataclass to Pydantic BaseModel for enhanced validation,
-    serialization, and integration with the CogniVault Pydantic ecosystem.
+    serialization, and integration with the OSSS Pydantic ecosystem.
     """
 
     name: str = Field(
@@ -272,7 +272,7 @@ class LangGraphNodeDefinition(BaseModel):
     Complete LangGraph node definition for an agent.
 
     Migrated from dataclass to Pydantic BaseModel for enhanced validation,
-    serialization, and integration with the CogniVault Pydantic ecosystem.
+    serialization, and integration with the OSSS Pydantic ecosystem.
     """
 
     node_id: str = Field(
@@ -467,7 +467,7 @@ class BaseAgent(ABC):
         # Emit agent execution started event if available
         if True:  # Events always available with lazy loading
             try:
-                from cognivault.agents.registry import get_agent_registry
+                from osss.ai.agents.registry import get_agent_registry
 
                 registry = get_agent_registry()
                 try:
@@ -532,7 +532,7 @@ class BaseAgent(ABC):
                 # Emit agent execution completed event if available
                 if True:  # Events always available with lazy loading
                     try:
-                        from cognivault.agents.registry import get_agent_registry
+                        from OSSS.ai.agents.registry import get_agent_registry
 
                         registry = get_agent_registry()
                         try:
@@ -618,7 +618,7 @@ class BaseAgent(ABC):
                     # Emit agent execution completed event for timeout failure if available
                     if True:  # Events always available with lazy loading
                         try:
-                            from cognivault.agents.registry import get_agent_registry
+                            from OSSS.ai.agents.registry import get_agent_registry
 
                             registry = get_agent_registry()
                             try:
@@ -828,7 +828,7 @@ class BaseAgent(ABC):
         bool
             True if the exception should be retried, False otherwise
         """
-        # Check if it's a CogniVault exception with retry policy
+        # Check if it's a OSSS exception with retry policy
         if hasattr(exception, "retry_policy"):
             retry_policy = exception.retry_policy
             return retry_policy in [
@@ -837,7 +837,7 @@ class BaseAgent(ABC):
                 RetryPolicy.CIRCUIT_BREAKER,
             ]
 
-        # Default behavior for non-CogniVault exceptions
+        # Default behavior for non-OSSS exceptions
         # Retry on common transient errors
         if isinstance(exception, (asyncio.TimeoutError, ConnectionError)):
             return True

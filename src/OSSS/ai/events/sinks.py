@@ -1,5 +1,5 @@
 """
-Event Sinks for CogniVault Event System.
+Event Sinks for OSSS Event System.
 
 This module provides various event sinks for handling workflow events,
 including console output, file storage, and in-memory collection for

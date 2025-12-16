@@ -44,7 +44,7 @@ class ResourceConstraint(BaseModel):
     Resource constraint for agent execution.
 
     Migrated from dataclass to Pydantic BaseModel for enhanced validation,
-    serialization, and integration with the CogniVault Pydantic ecosystem.
+    serialization, and integration with the OSSS Pydantic ecosystem.
     """
 
     resource_type: str = Field(
@@ -90,7 +90,7 @@ class DependencyEdge(BaseModel):
     An edge in the dependency graph representing a dependency relationship.
 
     Migrated from dataclass to Pydantic BaseModel for enhanced validation,
-    serialization, and integration with the CogniVault Pydantic ecosystem.
+    serialization, and integration with the OSSS Pydantic ecosystem.
     """
 
     from_agent: str = Field(
@@ -176,7 +176,7 @@ class DependencyNode(BaseModel):
     A node in the dependency graph representing an agent and its constraints.
 
     Migrated from dataclass to Pydantic BaseModel for enhanced validation,
-    serialization, and integration with the CogniVault Pydantic ecosystem.
+    serialization, and integration with the OSSS Pydantic ecosystem.
     """
 
     agent_id: str = Field(

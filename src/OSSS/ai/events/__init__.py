@@ -1,5 +1,5 @@
 """
-Enhanced Event System for CogniVault.
+Enhanced Event System for OSSS.
 
 This module provides an enhanced event-driven architecture with multi-axis
 agent classification, correlation context propagation, and production-ready

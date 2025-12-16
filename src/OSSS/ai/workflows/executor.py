@@ -1,5 +1,5 @@
 """
-Declarative workflow execution engine for CogniVault DAG workflows.
+Declarative workflow execution engine for OSSS DAG workflows.
 
 This module provides the DeclarativeOrchestrator and WorkflowExecutor for executing
 sophisticated DAG workflows with advanced nodes, event emission, and comprehensive

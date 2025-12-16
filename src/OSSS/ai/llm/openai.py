@@ -307,7 +307,7 @@ class OpenAIChatLLM(LLMInterface):
 
     def _handle_openai_error(self, error: openai.APIError) -> None:
         """
-        Convert OpenAI API errors to structured CogniVault exceptions.
+        Convert OpenAI API errors to structured OSSS exceptions.
 
         Parameters
         ----------
@@ -317,7 +317,7 @@ class OpenAIChatLLM(LLMInterface):
         Raises
         ------
         LLMError
-            Appropriate CogniVault LLM exception based on the error type
+            Appropriate OSSS LLM exception based on the error type
         """
         error_message = str(error)
         error_code = getattr(error, "code", None)

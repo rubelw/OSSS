@@ -28,7 +28,7 @@ class RoutingReasoning(BaseModel):
     Detailed reasoning for routing decisions.
 
     Migrated from dataclass to Pydantic BaseModel for enhanced validation,
-    serialization, and integration with the CogniVault Pydantic ecosystem.
+    serialization, and integration with the OSSS Pydantic ecosystem.
     """
 
     # Primary reasoning factors
@@ -149,7 +149,7 @@ class RoutingDecision(BaseModel):
     Comprehensive routing decision with reasoning and metadata.
 
     Migrated from dataclass to Pydantic BaseModel for enhanced validation,
-    serialization, and integration with the CogniVault Pydantic ecosystem.
+    serialization, and integration with the OSSS Pydantic ecosystem.
 
     This class captures all aspects of an intelligent routing decision,
     including the selected agents, reasoning, confidence, and predictions.

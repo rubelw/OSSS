@@ -35,7 +35,7 @@ class RoutingStrategy(Enum):
     """Available routing strategies."""
 
     STREAMLINED = "streamlined"  # Minimal agents for simple queries
-    STANDARD = "standard"  # Default CogniVault workflow
+    STANDARD = "standard"  # Default OSSS workflow
     COMPREHENSIVE = "comprehensive"  # All agents for complex analysis
     PERFORMANCE_OPTIMIZED = "performance_optimized"  # Based on performance metrics
 
@@ -299,7 +299,7 @@ class FallbackManager:
         self._register_default_fallbacks()
 
     def _register_default_fallbacks(self) -> None:
-        """Register default fallback rules for CogniVault agents."""
+        """Register default fallback rules for OSSS agents."""
         # Critic fallbacks - if critic fails, can try synthesis directly
         self.fallback_rules.append(
             FallbackRule(
@@ -519,7 +519,7 @@ class EnhancedConditionalPattern(GraphPattern):
             selected = available_agents.copy()
 
         elif strategy == RoutingStrategy.STANDARD:
-            # Default CogniVault workflow
+            # Default OSSS workflow
             if "refiner" in available_lower:
                 selected.append("refiner")
 

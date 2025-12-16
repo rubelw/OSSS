@@ -1,5 +1,5 @@
 """
-LLM-specific exceptions for CogniVault.
+LLM-specific exceptions for OSSS.
 
 This module defines exceptions related to Language Model interactions,
 API failures, and LLM provider-specific error conditions with intelligent
@@ -7,10 +7,10 @@ retry policies and circuit breaker support.
 """
 
 from typing import Optional, Dict, Any, List
-from . import CogniVaultError, ErrorSeverity, RetryPolicy
+from . import OSSSError, ErrorSeverity, RetryPolicy
 
 
-class LLMError(CogniVaultError):
+class LLMError(OSSSError):
     """
     Base exception for LLM-related failures.
 

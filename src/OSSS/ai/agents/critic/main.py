@@ -94,9 +94,9 @@ def parse_args() -> argparse.Namespace:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  poetry run python -m cognivault.agents.critic.main --query "What are the long-term governance trade-offs in decentralized AI development?"
-  poetry run python -m cognivault.agents.critic.main --query "What is fairness in AI?" --debug
-  poetry run python -m cognivault.agents.critic.main  # Interactive mode
+  poetry run python -m OSSS.ai.agents.critic.main --query "What are the long-term governance trade-offs in decentralized AI development?"
+  poetry run python -m OSSS.ai.agents.critic.main --query "What is fairness in AI?" --debug
+  poetry run python -m OSSS.ai.agents.critic.main  # Interactive mode
         """.strip(),
     )
 

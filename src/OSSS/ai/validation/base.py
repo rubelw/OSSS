@@ -1,7 +1,7 @@
 """
-Base validation models for CogniVault validation framework.
+Base validation models for OSSS validation framework.
 
-This module provides the foundation for unified validation across all CogniVault
+This module provides the foundation for unified validation across all OSSS
 domains (semantic, workflow, pattern) while maintaining backward compatibility.
 """
 
@@ -50,7 +50,7 @@ class ValidationSeverity(Enum):
 
 
 class ValidationIssue(BaseModel):
-    """Base validation issue for all CogniVault validation domains.
+    """Base validation issue for all OSSS validation domains.
 
     This model provides a unified interface for validation issues while
     supporting domain-specific extensions through inheritance.

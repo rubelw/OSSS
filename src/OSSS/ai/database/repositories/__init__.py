@@ -1,5 +1,5 @@
 """
-Repository pattern implementation for CogniVault database operations.
+Repository pattern implementation for OSSS database operations.
 
 Provides abstractions for data access with standardized CRUD operations,
 query methods, and transaction management.

@@ -1,5 +1,5 @@
 """
-LangGraph state schemas for CogniVault agents.
+LangGraph state schemas for OSSS agents.
 
 This module provides TypedDict definitions for type-safe state management
 in LangGraph StateGraph execution. Each agent output is strictly typed
@@ -196,9 +196,9 @@ class ExecutionMetadata(TypedDict):
     """Implementation phase: 'phase2_0'."""
 
 
-class CogniVaultState(TypedDict):
+class OSSSState(TypedDict):
     """
-    Master state schema for CogniVault LangGraph execution.
+    Master state schema for OSSS LangGraph execution.
 
     This represents the complete state that flows through the
     LangGraph StateGraph during execution. Each agent contributes
@@ -252,8 +252,8 @@ class CogniVaultState(TypedDict):
 
 
 # Type aliases for improved clarity
-LangGraphState = CogniVaultState
-"""Alias for CogniVaultState to improve code readability."""
+LangGraphState = OSSSState
+"""Alias for OSSSState to improve code readability."""
 
 AgentStateUnion = Union[RefinerState, CriticState, HistorianState, SynthesisState]
 """Union type for any agent output schema."""
@@ -261,7 +261,7 @@ AgentStateUnion = Union[RefinerState, CriticState, HistorianState, SynthesisStat
 
 def create_initial_state(
     query: str, execution_id: str, correlation_id: Optional[str] = None
-) -> CogniVaultState:
+) -> OSSSState:
     """
     Create initial LangGraph state for execution.
 
@@ -274,12 +274,12 @@ def create_initial_state(
 
     Returns
     -------
-    CogniVaultState
+    OSSSState
         Initial state ready for LangGraph execution
     """
     now = datetime.now(timezone.utc).isoformat()
 
-    return CogniVaultState(
+    return OSSSState(
         query=query,
         refiner=None,
         critic=None,
@@ -301,13 +301,13 @@ def create_initial_state(
     )
 
 
-def validate_state_integrity(state: CogniVaultState) -> bool:
+def validate_state_integrity(state: OSSSState) -> bool:
     """
     Validate LangGraph state integrity.
 
     Parameters
     ----------
-    state : CogniVaultState
+    state : OSSSState
         State to validate
 
     Returns
@@ -376,14 +376,14 @@ def validate_state_integrity(state: CogniVaultState) -> bool:
 
 
 def get_agent_state(
-    state: CogniVaultState, agent_name: str
+    state: OSSSState, agent_name: str
 ) -> Optional[AgentStateUnion]:
     """
     Get typed agent state from state.
 
     Parameters
     ----------
-    state : CogniVaultState
+    state : OSSSState
         Current state
     agent_name : str
         Name of agent ('refiner', 'critic', 'historian', 'synthesis')
@@ -408,14 +408,14 @@ def get_agent_state(
 
 
 def set_agent_state(
-    state: CogniVaultState, agent_name: str, output: AgentStateUnion
-) -> CogniVaultState:
+    state: OSSSState, agent_name: str, output: AgentStateUnion
+) -> OSSSState:
     """
     Set typed agent state in state.
 
     Parameters
     ----------
-    state : CogniVaultState
+    state : OSSSState
         Current state
     agent_name : str
         Name of agent ('refiner', 'critic', 'historian', 'synthesis')
@@ -424,7 +424,7 @@ def set_agent_state(
 
     Returns
     -------
-    CogniVaultState
+    OSSSState
         Updated state with agent state
     """
     # Create a deep copy to avoid mutations
@@ -453,8 +453,8 @@ def set_agent_state(
 
 
 def record_agent_error(
-    state: CogniVaultState, agent_name: str, error: Exception
-) -> CogniVaultState:
+    state: OSSSState, agent_name: str, error: Exception
+) -> OSSSState:
     """
     Record agent execution error in state.
 
@@ -462,7 +462,7 @@ def record_agent_error(
 
     Parameters
     ----------
-    state : CogniVaultState
+    state : OSSSState
         Current state (may be partial)
     agent_name : str
         Name of failed agent
@@ -471,7 +471,7 @@ def record_agent_error(
 
     Returns
     -------
-    CogniVaultState
+    OSSSState
         Updated state with error recorded
     """
     new_state = state.copy()
@@ -506,9 +506,9 @@ def record_agent_error(
 
 
 @dataclass
-class CogniVaultContext:
+class OSSSContext:
     """
-    Context schema for CogniVault LangGraph execution.
+    Context schema for OSSS LangGraph execution.
 
     This context is passed to all nodes during graph execution,
     providing thread-scoped information and configuration.
@@ -523,7 +523,7 @@ class CogniVaultContext:
 
 # Export commonly used types for convenience
 __all__ = [
-    "CogniVaultState",
+    "OSSSState",
     "LangGraphState",
     "RefinerState",
     "CriticState",
@@ -531,7 +531,7 @@ __all__ = [
     "SynthesisState",
     "AgentStateUnion",
     "ExecutionMetadata",
-    "CogniVaultContext",
+    "OSSSContext",
     "create_initial_state",
     "validate_state_integrity",
     "get_agent_state",

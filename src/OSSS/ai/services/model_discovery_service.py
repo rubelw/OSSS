@@ -109,7 +109,7 @@ class ModelDiscoveryService:
     - Model categorization and performance classification
     - Agent-specific model selection based on requirements
     - Graceful fallback to hardcoded configurations
-    - Integration with CogniVault's service architecture
+    - Integration with OSSS's service architecture
     """
 
     # Hardcoded fallback configurations - SIMPLIFIED to prioritize base models

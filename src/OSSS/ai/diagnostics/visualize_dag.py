@@ -1,5 +1,5 @@
 """
-DAG visualization utility for CogniVault LangGraph orchestration.
+DAG visualization utility for OSSS LangGraph orchestration.
 
 This module provides tools to visualize the LangGraph StateGraph DAG structure
 using mermaid diagrams. It supports both console output and file generation
@@ -79,7 +79,7 @@ class DAGVisualizer:
     DAG visualization utility for LangGraph StateGraph structures.
 
     This class generates mermaid diagrams that visualize the structure
-    and flow of CogniVault's LangGraph-based agent orchestration.
+    and flow of OSSS's LangGraph-based agent orchestration.
     """
 
     def __init__(self, config: Optional[DAGVisualizationConfig] = None) -> None:

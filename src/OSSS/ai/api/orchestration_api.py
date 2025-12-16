@@ -3,27 +3,64 @@ LangGraph Orchestration API implementation.
 
 Production implementation of OrchestrationAPI that wraps the existing
 LangGraphOrchestrator to provide a stable external interface.
+
+Design goals of this module:
+- Provide a *stable* API surface (OrchestrationAPI) to external callers
+  even if the internal orchestration engine changes over time.
+- Centralize lifecycle operations (initialize/shutdown).
+- Track active workflows for status endpoints and basic observability.
+- Emit workflow lifecycle events (started/completed) for telemetry.
+- Persist workflow metadata/results to the database without making DB failures
+  break the user-facing API response.
+- Support optional markdown export and optional persistence of that export.
 """
 
-import uuid
-import asyncio
-import time
+# ---------------------------------------------------------------------------
+# Standard library imports
+# ---------------------------------------------------------------------------
+
+import uuid                 # Unique workflow IDs (UUID4)
+import asyncio              # Async primitives (sleep, cancellation patterns)
+import time                 # Wall-clock timing for execution durations
 from typing import Dict, Any, Optional, List
-from datetime import datetime, timezone
-from pathlib import Path
+from datetime import datetime, timezone  # UTC timestamps for telemetry/metadata
+from pathlib import Path     # Filesystem paths (markdown export)
+
+from OSSS.ai.analysis.pipeline import analyze_query
+from OSSS.ai.analysis.policy import build_execution_plan
+
+# ---------------------------------------------------------------------------
+# OSSS / OSSS API contracts and models
+# ---------------------------------------------------------------------------
 
 from OSSS.ai.api.external import OrchestrationAPI
-from OSSS.ai.api.models import WorkflowRequest, WorkflowResponse, StatusResponse
-from OSSS.ai.api.base import APIHealthStatus
-from OSSS.ai.diagnostics.health import HealthStatus
+from OSSS.ai.api.models import (
+    WorkflowRequest,        # Input request model for workflow execution
+    WorkflowResponse,       # Output response model for workflow execution
+    StatusResponse,         # Response model for status polling
+)
+from OSSS.ai.api.base import APIHealthStatus          # API-level health response model
+from OSSS.ai.diagnostics.health import HealthStatus   # Health enum: HEALTHY/DEGRADED/UNHEALTHY
+
+# Decorator that ensures initialize() has been called before API methods run
 from OSSS.ai.api.decorators import ensure_initialized
+
+# The production orchestrator that actually runs the LangGraph pipeline
 from OSSS.ai.orchestration.orchestrator import LangGraphOrchestrator
+
+# Observability helpers (structured logger)
 from OSSS.ai.observability import get_logger
+
+# Workflow lifecycle events (for metrics/traces/audit logs)
 from OSSS.ai.events import emit_workflow_started, emit_workflow_completed
+
+# Database / persistence infrastructure
 from OSSS.ai.database.connection import get_session_factory
 from OSSS.ai.database.repositories.question_repository import QuestionRepository
 from OSSS.ai.database.session_factory import DatabaseSessionFactory
 
+
+# Module-level logger (structured)
 logger = get_logger(__name__)
 
 
@@ -31,93 +68,178 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
     """
     Production orchestration API wrapping LangGraphOrchestrator.
 
-    Provides the stable external interface while delegating to the
-    existing production orchestrator implementation.
+    This class is the "public" façade:
+    - It owns the orchestrator instance and its lifecycle.
+    - It exposes stable API methods (execute_workflow, status, cancel, metrics).
+    - It adapts internal AgentContext results into API response models.
+    - It integrates observability: health checks, metrics, event emission.
+    - It integrates persistence: store workflow results and optional markdown.
     """
 
     def __init__(self) -> None:
+        # -------------------------------------------------------------------
+        # Internal orchestration engine
+        # -------------------------------------------------------------------
+        # Created lazily during initialize(). Keep None until then to avoid
+        # importing/constructing complex dependencies during module import.
         self._orchestrator: Optional[LangGraphOrchestrator] = None
+
+        # Tracks whether initialize() has been run.
+        # The ensure_initialized decorator uses this as part of its checks.
         self._initialized = False
+
+        # -------------------------------------------------------------------
+        # In-memory workflow tracking
+        # -------------------------------------------------------------------
+        # This is used for:
+        # - status polling (/status)
+        # - simple metrics (active workflow counts)
+        # - debugging in development
+        #
+        # NOTE: This is process-local memory; it will not survive restarts.
         self._active_workflows: Dict[str, Dict[str, Any]] = {}
+
+        # A simple counter of how many workflows this API instance has processed.
         self._total_workflows = 0
+
+        # -------------------------------------------------------------------
+        # Database session factories
+        # -------------------------------------------------------------------
+        # Primary session factory used for persisting Question records.
         self._session_factory = get_session_factory()
+
+        # Optional "repository factory" session manager used for historian
+        # document persistence (markdown export).
         self._db_session_factory: Optional[DatabaseSessionFactory] = None
 
     def _convert_agent_outputs_to_serializable(
-        self, agent_outputs: Dict[str, Any]
+        self,
+        agent_outputs: Dict[str, Any],
     ) -> Dict[str, Any]:
         """
-        Convert agent outputs to serializable format.
+        Convert agent outputs into JSON-serializable structures.
 
-        Handles Pydantic models by converting them to dicts using model_dump(),
-        while preserving backward compatibility with string outputs.
+        Why this exists:
+        - Historically agent outputs were strings.
+        - Newer agents may return Pydantic models (structured outputs).
+        - API responses must be serializable (dict/str/list/primitive),
+          so we normalize any Pydantic objects via model_dump().
 
         Parameters
         ----------
         agent_outputs : Dict[str, Any]
-            Raw agent outputs which may contain Pydantic models, strings, or dicts
+            Raw agent outputs which may contain:
+            - Pydantic models
+            - plain strings
+            - dicts/lists/primitive values
 
         Returns
         -------
         Dict[str, Any]
-            Serializable dictionary with all Pydantic models converted to dicts
+            Outputs with any Pydantic models converted to dicts.
         """
         serialized_outputs: Dict[str, Any] = {}
 
         for agent_name, output in agent_outputs.items():
-            # If it's a Pydantic model, convert to dict
+            # Pydantic model detection: model_dump exists on Pydantic v2 models
             if hasattr(output, "model_dump"):
                 serialized_outputs[agent_name] = output.model_dump()
-            # If it's already a dict, string, or other serializable type, keep as-is
             else:
+                # Leave already-serializable outputs unchanged
                 serialized_outputs[agent_name] = output
 
         return serialized_outputs
 
+    # -----------------------------------------------------------------------
+    # API identity metadata
+    # -----------------------------------------------------------------------
+
     @property
     def api_name(self) -> str:
+        """Human-friendly name for diagnostics / health endpoints."""
         return "LangGraph Orchestration API"
 
     @property
     def api_version(self) -> str:
+        """Version string for API clients and telemetry correlation."""
         return "1.0.0"
 
+    # -----------------------------------------------------------------------
+    # Lifecycle management
+    # -----------------------------------------------------------------------
+
     async def initialize(self) -> None:
-        """Initialize the underlying orchestrator and resources."""
+        """
+        Initialize the API and its underlying resources.
+
+        Responsibilities:
+        - Instantiate the orchestrator (LangGraphOrchestrator)
+        - Mark API as initialized so ensure_initialized allows execution
+        """
         if self._initialized:
+            # Idempotent initialization: safe to call multiple times
             return
 
         logger.info("Initializing LangGraphOrchestrationAPI")
 
-        # Initialize the LangGraph orchestrator
+        # Create orchestrator instance (production pipeline runner)
         self._orchestrator = LangGraphOrchestrator()
 
+        # Mark initialization complete
         self._initialized = True
+
         logger.info("LangGraphOrchestrationAPI initialized successfully")
 
     async def shutdown(self) -> None:
-        """Clean shutdown of orchestrator and resources."""
+        """
+        Clean shutdown of orchestrator and resources.
+
+        Responsibilities:
+        - Attempt to cancel active workflows (best-effort)
+        - Cleanup orchestrator caches if supported
+        - Reset initialized flag
+
+        NOTE:
+        The underlying orchestrator currently does not expose a formal shutdown(),
+        so cleanup is limited to what we can do safely (e.g., cache clearing).
+        """
         if not self._initialized:
             return
 
         logger.info("Shutting down LangGraphOrchestrationAPI")
 
-        # Cancel any active workflows
+        # Cancel any active workflows (best-effort)
         for workflow_id in list(self._active_workflows.keys()):
             await self.cancel_workflow(workflow_id)
 
-        # The orchestrator doesn't have an explicit shutdown method,
-        # but we can clean up any resources
+        # Orchestrator cleanup hook (if implemented)
         if self._orchestrator:
-            # Clean up graph cache if available
             if hasattr(self._orchestrator, "clear_graph_cache"):
                 self._orchestrator.clear_graph_cache()
 
         self._initialized = False
         logger.info("LangGraphOrchestrationAPI shutdown complete")
 
+    # -----------------------------------------------------------------------
+    # Health and metrics endpoints
+    # -----------------------------------------------------------------------
+
     async def health_check(self) -> APIHealthStatus:
-        """Comprehensive health check including orchestrator status."""
+        """
+        Comprehensive health check including orchestrator status.
+
+        Health strategy:
+        - If API isn't initialized -> UNHEALTHY
+        - If orchestrator missing -> UNHEALTHY
+        - If orchestrator stats indicate high failure rate -> DEGRADED
+        - Otherwise -> HEALTHY
+
+        Returns:
+            APIHealthStatus with:
+            - overall status
+            - human-readable details
+            - structured "checks" map for dashboards
+        """
         checks = {
             "initialized": self._initialized,
             "orchestrator_available": self._orchestrator is not None,
@@ -127,31 +249,39 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
         }
 
         status = HealthStatus.HEALTHY
-        details = f"LangGraph Orchestration API - {len(self._active_workflows)} active workflows"
+        details = (
+            f"LangGraph Orchestration API - {len(self._active_workflows)} active workflows"
+        )
 
-        # Check orchestrator health if available and initialized
+        # If orchestrator exists and API is initialized, we can perform deeper checks
         if self._orchestrator and self._initialized:
             try:
-                # Get orchestrator statistics as a health indicator
+                # Orchestrator statistics provide a health signal (failures vs total)
                 if hasattr(self._orchestrator, "get_execution_statistics"):
                     orchestrator_stats = self._orchestrator.get_execution_statistics()
                     checks["orchestrator_stats"] = orchestrator_stats
 
-                    # Check for concerning failure rates
                     total_executions = orchestrator_stats.get("total_executions", 0)
                     failed_executions = orchestrator_stats.get("failed_executions", 0)
+
+                    # Only compute failure rate when we have nonzero executions
                     if total_executions > 0:
                         failure_rate = failed_executions / total_executions
                         checks["failure_rate"] = failure_rate
-                        if failure_rate > 0.5:  # More than 50% failure rate
+
+                        # Arbitrary threshold: degrade health if more than 50% failing
+                        if failure_rate > 0.5:
                             status = HealthStatus.DEGRADED
                             details += f" (High failure rate: {failure_rate:.1%})"
 
             except Exception as e:
+                # Any exception in deeper checks degrades health but doesn't crash endpoint
                 checks["orchestrator_error"] = str(e)
                 status = HealthStatus.DEGRADED
                 details += f" (Orchestrator check failed: {e})"
+
         else:
+            # If not initialized or orchestrator missing, API is unhealthy
             if not self._initialized:
                 status = HealthStatus.UNHEALTHY
                 details = "API not initialized"
@@ -162,7 +292,14 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
         return APIHealthStatus(status=status, details=details, checks=checks)
 
     async def get_metrics(self) -> Dict[str, Any]:
-        """Get API performance and usage metrics."""
+        """
+        Get API performance and usage metrics.
+
+        This endpoint provides:
+        - API-level counters (active workflows, total processed)
+        - Orchestrator statistics (if available)
+        - Graph cache statistics (if available)
+        """
         base_metrics = {
             "active_workflows": len(self._active_workflows),
             "total_workflows_processed": self._total_workflows,
@@ -171,7 +308,7 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
-        # Get orchestrator metrics if available
+        # If orchestrator is present and initialized, enrich metrics
         if self._orchestrator and self._initialized:
             try:
                 if hasattr(self._orchestrator, "get_execution_statistics"):
@@ -187,17 +324,35 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                     )
 
             except Exception as e:
+                # Metrics failures should never break API
                 base_metrics["metrics_error"] = str(e)
 
         return base_metrics
 
+    # -----------------------------------------------------------------------
+    # Workflow execution
+    # -----------------------------------------------------------------------
+
     @ensure_initialized
     async def execute_workflow(self, request: WorkflowRequest) -> WorkflowResponse:
-        """Execute workflow using the production orchestrator."""
+        """
+        Execute a workflow using the production orchestrator.
+
+        High-level steps:
+        1. Create workflow_id + start timer
+        2. Emit workflow_started event
+        3. Track workflow in memory
+        4. Build orchestrator config (correlation_id, workflow_id, agents)
+        5. Run orchestrator to obtain result context
+        6. Prefer structured outputs from execution_state if present
+        7. Build WorkflowResponse (and optional markdown export)
+        8. Persist workflow metadata to database (best-effort)
+        9. Emit workflow_completed event (success or failure)
+        """
         workflow_id = str(uuid.uuid4())
         start_time = time.time()
 
-        # Store original execution config for persistence (before modifications)
+        # Preserve original config as received for persistence/auditing
         original_execution_config = request.execution_config or {}
 
         try:
@@ -205,7 +360,7 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                 f"Starting workflow {workflow_id} with query: {request.query[:100]}..."
             )
 
-            # Emit workflow started event
+            # Emit workflow started event for telemetry systems
             await emit_workflow_started(
                 workflow_id=workflow_id,
                 query=request.query,
@@ -215,7 +370,7 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                 metadata={"api_version": self.api_version, "start_time": start_time},
             )
 
-            # Track workflow
+            # Track workflow execution in memory (used by get_status(), debugging)
             self._active_workflows[workflow_id] = {
                 "status": "running",
                 "request": request,
@@ -224,52 +379,107 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
             }
             self._total_workflows += 1
 
-            # Create execution config from request (for orchestrator)
-            config = dict(
-                original_execution_config
-            )  # Create a copy to avoid modifying original
+            # Build orchestrator execution config from request data
+            # IMPORTANT: copy dict to avoid mutating request.execution_config
+            config = dict(original_execution_config)
+
+            # Preserve correlation_id for request tracing across services
             if request.correlation_id:
                 config["correlation_id"] = request.correlation_id
-            # Pass the workflow_id to orchestrator to prevent duplicate ID generation
+
+            # Pass workflow_id so orchestrator doesn't generate a second ID
             config["workflow_id"] = workflow_id
+
+            # Optionally restrict which agents run in this workflow
             if request.agents:
                 config["agents"] = request.agents
 
-            # Execute using the orchestrator
-            # Note: The orchestrator's run method expects query and config
+            # Run the orchestrator and obtain an execution context (AgentContext-like)
             if self._orchestrator is None:
                 raise RuntimeError("Orchestrator not initialized")
+
+
+            # ----------------------------------------------------------------
+            # Preflight query analysis (intent / tone / sub-intent) + policy
+            # ----------------------------------------------------------------
+            try:
+                # 1) Analyze query (deterministic heuristics)
+                query_profile = analyze_query(request.query)
+
+                # 2) Build execution plan (maps profile -> agents/workflow/strategy)
+                #    If you don't have a complexity score yet, start with a neutral default.
+                plan = build_execution_plan(
+                    query_profile,
+                    complexity_score=float(config.get("complexity_score", 0.5)),
+                )
+
+                # 3) Attach to config so orchestrator and agents can see it (optional)
+                #    This is useful for "Refiner-first" behavior, verbosity controls, etc.
+                config["query_profile"] = query_profile.model_dump()
+                config["execution_plan"] = plan.model_dump()
+
+                # 4) If the incoming request did NOT specify agents, honor policy agents
+                #    (If request.agents is set, the caller is explicitly controlling routing.)
+                if not request.agents and plan.preferred_agents:
+                    config["agents"] = plan.preferred_agents
+
+                # 5) Optional: honor workflow_id if your orchestrator supports it
+                #    (Only apply if caller didn't already specify a workflow via config.)
+                if plan.workflow_id and "workflow_id" not in original_execution_config:
+                    config["workflow_id"] = workflow_id  # keep the execution id stable
+                    config["selected_workflow_id"] = plan.workflow_id  # separate key; avoids collision
+
+                logger.info(
+                    "Preflight analysis complete",
+                    extra={
+                        "workflow_id": workflow_id,
+                        "intent": query_profile.intent,
+                        "sub_intent": query_profile.sub_intent,
+                        "tone": query_profile.tone,
+                        "plan_strategy": plan.execution_strategy,
+                        "plan_agents": plan.preferred_agents,
+                        "plan_confidence": plan.confidence,
+                    },
+                )
+
+            except Exception as analysis_error:
+                # Best-effort: analysis should never break execution.
+                logger.warning(
+                    f"Preflight analysis failed; continuing with request config. error={analysis_error}"
+                )
+
+
             result_context = await self._orchestrator.run(request.query, config)
 
+            # Compute end-to-end duration
             execution_time = time.time() - start_time
 
-            # PRIORITY: Use structured outputs from execution_state if available
-            # These contain full metadata (processing_time_ms, confidence, etc.)
-            # Falls back to agent_outputs (strings) for backward compatibility
+            # ----------------------------------------------------------------
+            # Output extraction: structured outputs are preferred
+            # ----------------------------------------------------------------
+            # Newer agents may store structured model_dump() results into:
+            #   result_context.execution_state["structured_outputs"]
+            # This contains richer metadata (confidence, processing_time_ms, etc.)
             structured_outputs = result_context.execution_state.get(
                 "structured_outputs", {}
             )
 
-            # Merge: prefer structured outputs, fall back to string outputs
-            agent_outputs_to_serialize = {}
+            # Merge strategy:
+            # - For each agent, if structured output exists -> use it
+            # - Otherwise fall back to legacy string output in agent_outputs
+            agent_outputs_to_serialize: Dict[str, Any] = {}
             for agent_name in result_context.agent_outputs:
                 if agent_name in structured_outputs:
-                    # Use the structured dict (already serialized via model_dump())
-                    agent_outputs_to_serialize[agent_name] = structured_outputs[
-                        agent_name
-                    ]
+                    agent_outputs_to_serialize[agent_name] = structured_outputs[agent_name]
                 else:
-                    # Fall back to string output
-                    agent_outputs_to_serialize[agent_name] = (
-                        result_context.agent_outputs[agent_name]
-                    )
+                    agent_outputs_to_serialize[agent_name] = result_context.agent_outputs[agent_name]
 
-            # Convert agent outputs to serializable format (handles any remaining Pydantic models)
+            # Convert any remaining Pydantic objects to plain dicts
             serialized_agent_outputs = self._convert_agent_outputs_to_serializable(
                 agent_outputs_to_serialize
             )
 
-            # Convert orchestrator result to API response
+            # Build response model for API clients
             response = WorkflowResponse(
                 workflow_id=workflow_id,
                 status="completed",
@@ -278,7 +488,14 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                 correlation_id=request.correlation_id,
             )
 
-            # Handle markdown export if requested
+            # ----------------------------------------------------------------
+            # Optional markdown export
+            # ----------------------------------------------------------------
+            # If request.export_md is True, we:
+            # - Export agent outputs to markdown file
+            # - Attempt topic analysis to tag the document
+            # - Attach metadata into response.markdown_export
+            # - Attempt to persist the markdown to DB (best-effort)
             if request.export_md:
                 try:
                     from OSSS.ai.store.wiki_adapter import MarkdownExporter
@@ -288,7 +505,7 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
 
                     logger.info(f"Exporting markdown for workflow {workflow_id}")
 
-                    # Create LLM instance for topic analysis (like CLI does)
+                    # Create LLM instance used by TopicManager for analysis
                     llm_config = OpenAIConfig.load()
                     llm = OpenAIChatLLM(
                         api_key=llm_config.api_key,
@@ -296,18 +513,15 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                         base_url=llm_config.base_url,
                     )
 
-                    # Initialize topic manager for auto-tagging
                     topic_manager = TopicManager(llm=llm)
 
-                    # Analyze and suggest topics (use serialized outputs for consistency)
+                    # Topic analysis is best-effort (do not fail export if analysis fails)
                     try:
                         topic_analysis = await topic_manager.analyze_and_suggest_topics(
                             query=request.query,
                             agent_outputs=serialized_agent_outputs,
                         )
-                        suggested_topics = [
-                            s.topic for s in topic_analysis.suggested_topics
-                        ]
+                        suggested_topics = [s.topic for s in topic_analysis.suggested_topics]
                         suggested_domain = topic_analysis.suggested_domain
                         logger.info(
                             f"Topic analysis completed: {len(suggested_topics)} topics, domain: {suggested_domain}"
@@ -317,7 +531,7 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                         suggested_topics = []
                         suggested_domain = None
 
-                    # Export with enhanced metadata (use serialized outputs)
+                    # Export markdown using enhanced metadata
                     exporter = MarkdownExporter()
                     md_path = exporter.export(
                         agent_outputs=serialized_agent_outputs,
@@ -326,47 +540,35 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                         domain=suggested_domain,
                     )
 
-                    # Convert to Path object for consistent handling
                     md_path_obj = Path(md_path)
 
+                    # Attach export metadata to API response
                     response.markdown_export = {
                         "file_path": str(md_path_obj.absolute()),
                         "filename": md_path_obj.name,
                         "export_timestamp": datetime.now(timezone.utc).isoformat(),
-                        "suggested_topics": (
-                            suggested_topics[:5] if suggested_topics else []
-                        ),
+                        "suggested_topics": (suggested_topics[:5] if suggested_topics else []),
                         "suggested_domain": suggested_domain,
                     }
 
                     logger.info(f"Markdown export successful: {md_path_obj.name}")
 
-                    # Persist markdown to database
+                    # Persist exported markdown to DB (best-effort; never fail workflow)
                     try:
-                        db_session_factory = (
-                            await self._get_or_create_db_session_factory()
-                        )
+                        db_session_factory = await self._get_or_create_db_session_factory()
 
                         if db_session_factory:
-                            async with (
-                                db_session_factory.get_repository_factory() as repo_factory
-                            ):
+                            async with db_session_factory.get_repository_factory() as repo_factory:
                                 doc_repo = repo_factory.historian_documents
 
-                                # Read markdown content
-                                with open(
-                                    md_path_obj, "r", encoding="utf-8"
-                                ) as md_file:
+                                # Read markdown content from disk for persistence
+                                with open(md_path_obj, "r", encoding="utf-8") as md_file:
                                     markdown_content = md_file.read()
 
-                                # Extract topics from response metadata
-                                topics_list = (
-                                    suggested_topics[:5] if suggested_topics else []
-                                )
+                                topics_list = suggested_topics[:5] if suggested_topics else []
 
-                                # Create document with metadata
                                 await doc_repo.get_or_create_document(
-                                    title=request.query[:200],  # Truncate to 200 chars
+                                    title=request.query[:200],  # Prevent oversized titles
                                     content=markdown_content,
                                     source_path=str(md_path_obj.absolute()),
                                     document_metadata={
@@ -374,12 +576,8 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                                         "correlation_id": request.correlation_id,
                                         "topics": topics_list,
                                         "domain": suggested_domain,
-                                        "export_timestamp": datetime.now(
-                                            timezone.utc
-                                        ).isoformat(),
-                                        "agents_executed": list(
-                                            result_context.agent_outputs.keys()
-                                        ),
+                                        "export_timestamp": datetime.now(timezone.utc).isoformat(),
+                                        "agents_executed": list(result_context.agent_outputs.keys()),
                                     },
                                 )
 
@@ -392,13 +590,12 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                             )
 
                     except Exception as db_persist_error:
-                        # Don't fail the entire workflow if database persistence fails
                         logger.error(
                             f"Failed to persist markdown to database for workflow {workflow_id}: {db_persist_error}"
                         )
 
                 except Exception as md_error:
-                    # Use str() to avoid any logging format issues with exception objects
+                    # Markdown export is optional: failure becomes response metadata, not a crash
                     error_msg = str(md_error)
                     logger.warning(
                         f"Markdown export failed for workflow {workflow_id}: {error_msg}"
@@ -409,7 +606,9 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                         "export_timestamp": datetime.now(timezone.utc).isoformat(),
                     }
 
-            # Persist workflow to database (isolated error handling)
+            # ----------------------------------------------------------------
+            # Persist workflow results to database (best-effort)
+            # ----------------------------------------------------------------
             try:
                 await self._persist_workflow_to_database(
                     request,
@@ -419,23 +618,20 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                     original_execution_config,
                 )
             except Exception as persist_error:
-                # CRITICAL: Don't fail workflow if database persistence fails
-                logger.error(
-                    f"Failed to persist workflow {workflow_id}: {persist_error}"
-                )
-                # Continue execution without failing
+                # Database persistence failures should never break API success response
+                logger.error(f"Failed to persist workflow {workflow_id}: {persist_error}")
 
-            # Update workflow tracking
+            # Update in-memory workflow tracking
             self._active_workflows[workflow_id].update(
                 {"status": "completed", "response": response, "end_time": time.time()}
             )
 
-            # Emit workflow completed event
+            # Emit completion event for telemetry
             await emit_workflow_completed(
                 workflow_id=workflow_id,
                 status="completed",
                 execution_time_seconds=execution_time,
-                agent_outputs=result_context.agent_outputs,
+                agent_outputs=result_context.agent_outputs,  # raw context outputs for telemetry
                 correlation_id=request.correlation_id,
                 metadata={"api_version": self.api_version, "end_time": time.time()},
             )
@@ -446,6 +642,7 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
             return response
 
         except Exception as e:
+            # Any exception in execution path becomes a failed workflow response
             execution_time = time.time() - start_time
             logger.error(
                 f"Workflow {workflow_id} failed after {execution_time:.2f}s: {e}"
@@ -460,12 +657,12 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                 error_message=str(e),
             )
 
-            # Persist failed workflow to database
+            # Persist failure metadata (best-effort)
             await self._persist_failed_workflow_to_database(
                 request, error_response, workflow_id, str(e), original_execution_config
             )
 
-            # Update workflow tracking
+            # Update workflow tracking if present
             if workflow_id in self._active_workflows:
                 self._active_workflows[workflow_id].update(
                     {
@@ -476,7 +673,7 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                     }
                 )
 
-            # Emit workflow failed event
+            # Emit workflow completion event with failed status
             await emit_workflow_completed(
                 workflow_id=workflow_id,
                 status="failed",
@@ -488,30 +685,47 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
 
             return error_response
 
+    # -----------------------------------------------------------------------
+    # Status and cancellation endpoints
+    # -----------------------------------------------------------------------
+
     @ensure_initialized
     async def get_status(self, workflow_id: str) -> StatusResponse:
-        """Get workflow execution status."""
+        """
+        Get workflow execution status.
+
+        This implementation uses the in-memory _active_workflows store.
+        It provides approximate progress for running workflows using
+        a simplistic elapsed-time heuristic.
+
+        Raises:
+            KeyError if workflow_id is unknown
+        """
         if workflow_id not in self._active_workflows:
             raise KeyError(f"Workflow {workflow_id} not found")
 
         workflow = self._active_workflows[workflow_id]
         status = workflow["status"]
 
-        # Calculate progress based on status and elapsed time
+        # Default status values
         progress = 0.0
         current_agent = None
         estimated_completion = None
 
-        if status == "completed":
+        if status in ("completed", "failed"):
+            # Completed/failed workflows are considered 100% "done"
             progress = 100.0
-        elif status == "failed":
-            progress = 100.0
+
         elif status == "running":
-            # Estimate progress based on elapsed time
+            # Crude progress estimate based on elapsed runtime
             elapsed = time.time() - workflow["start_time"]
-            # Assume average workflow takes 10 seconds, cap at 90%
+
+            # Heuristic: assume typical workflow ≈ 10s; cap at 90% until completion
             progress = min(90.0, (elapsed / 10.0) * 100.0)
-            current_agent = "synthesis"  # Default assumption
+
+            # We do not currently track per-agent execution state here
+            # so we provide a conservative default
+            current_agent = "synthesis"
             estimated_completion = max(1.0, 10.0 - elapsed)
 
         return StatusResponse(
@@ -524,33 +738,56 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
 
     @ensure_initialized
     async def cancel_workflow(self, workflow_id: str) -> bool:
-        """Cancel running workflow."""
+        """
+        Cancel a running workflow.
+
+        IMPORTANT LIMITATION:
+        The underlying orchestrator does not currently support mid-flight cancellation.
+        This method is therefore "soft-cancel":
+        - mark status cancelled
+        - remove from in-memory tracking shortly after
+        """
         if workflow_id not in self._active_workflows:
             return False
 
         workflow = self._active_workflows[workflow_id]
+
+        # Cannot cancel completed/failed workflows
         if workflow["status"] in ["completed", "failed"]:
             return False
 
-        # Mark as cancelled and remove from active workflows
+        # Mark cancelled
         workflow["status"] = "cancelled"
         workflow["end_time"] = time.time()
 
-        # Note: The current orchestrator doesn't support cancellation mid-execution
-        # This is a limitation we'd need to address in future versions
         logger.info(f"Workflow {workflow_id} marked as cancelled")
 
-        # Clean up after some time to avoid memory leaks
-        await asyncio.sleep(1)  # Brief delay
+        # Small delay before cleanup to let callers observe the cancelled status
+        await asyncio.sleep(1)
+
+        # Remove from active store to avoid memory growth
         if workflow_id in self._active_workflows:
             del self._active_workflows[workflow_id]
 
         return True
 
+    # -----------------------------------------------------------------------
+    # Database session factory for markdown persistence
+    # -----------------------------------------------------------------------
+
     async def _get_or_create_db_session_factory(
         self,
     ) -> Optional[DatabaseSessionFactory]:
-        """Get or create database session factory for document persistence."""
+        """
+        Lazily initialize DatabaseSessionFactory for document persistence.
+
+        This factory is separate from the normal session factory used for
+        questions because it provides a repository_factory abstraction
+        needed by historian document persistence.
+
+        Returns:
+            DatabaseSessionFactory if available, else None.
+        """
         if self._db_session_factory is None:
             try:
                 self._db_session_factory = DatabaseSessionFactory()
@@ -559,10 +796,15 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                     "Database session factory initialized for markdown persistence"
                 )
             except Exception as e:
+                # Persistence is optional; failure here should not break workflows
                 logger.warning(f"Failed to initialize database session factory: {e}")
                 self._db_session_factory = None
 
         return self._db_session_factory
+
+    # -----------------------------------------------------------------------
+    # Database persistence helpers (best-effort)
+    # -----------------------------------------------------------------------
 
     async def _persist_workflow_to_database(
         self,
@@ -572,34 +814,33 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
         workflow_id: str,
         original_execution_config: Dict[str, Any],
     ) -> None:
-        """Persist completed workflow to database."""
+        """
+        Persist a completed workflow to the database.
+
+        Persistence strategy:
+        - Store the original query and correlation_id
+        - Store which nodes were executed
+        - Store execution metadata (timing, outputs, flags)
+        - If persistence fails, log and continue (do not fail API response)
+        """
         try:
             async with self._session_factory() as session:
                 question_repo = QuestionRepository(session)
 
-                # Prepare execution metadata
                 execution_metadata = {
                     "workflow_id": workflow_id,
                     "execution_time_seconds": response.execution_time_seconds,
                     "agent_outputs": response.agent_outputs,
                     "agents_requested": request.agents
                     or ["refiner", "critic", "historian", "synthesis"],
-                    "export_md": (
-                        request.export_md if request.export_md is not None else False
-                    ),
+                    "export_md": (request.export_md if request.export_md is not None else False),
                     "execution_config": original_execution_config,
                     "api_version": self.api_version,
                     "orchestrator_type": "langgraph-real",
                 }
 
-                # Extract nodes executed
-                nodes_executed = (
-                    list(response.agent_outputs.keys())
-                    if response.agent_outputs
-                    else []
-                )
+                nodes_executed = list(response.agent_outputs.keys()) if response.agent_outputs else []
 
-                # Create database record
                 await question_repo.create_question(
                     query=request.query,
                     correlation_id=request.correlation_id,
@@ -611,7 +852,6 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                 logger.info(f"Workflow {workflow_id} persisted to database")
 
         except Exception as e:
-            # CRITICAL: Don't fail API response if database fails
             logger.error(f"Failed to persist workflow {workflow_id}: {e}")
 
     async def _persist_failed_workflow_to_database(
@@ -622,21 +862,24 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
         error_message: str,
         original_execution_config: Dict[str, Any],
     ) -> None:
-        """Persist failed workflow to database."""
+        """
+        Persist a failed workflow to the database.
+
+        This mirrors _persist_workflow_to_database but includes:
+        - status = failed
+        - error_message
+        """
         try:
             async with self._session_factory() as session:
                 question_repo = QuestionRepository(session)
 
-                # Prepare execution metadata for failed workflow
                 execution_metadata = {
                     "workflow_id": workflow_id,
                     "execution_time_seconds": response.execution_time_seconds,
                     "agent_outputs": response.agent_outputs,
                     "agents_requested": request.agents
                     or ["refiner", "critic", "historian", "synthesis"],
-                    "export_md": (
-                        request.export_md if request.export_md is not None else False
-                    ),
+                    "export_md": (request.export_md if request.export_md is not None else False),
                     "execution_config": original_execution_config,
                     "api_version": self.api_version,
                     "orchestrator_type": "langgraph-real",
@@ -644,14 +887,8 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                     "error_message": error_message,
                 }
 
-                # Extract nodes executed (likely empty for failed workflows)
-                nodes_executed = (
-                    list(response.agent_outputs.keys())
-                    if response.agent_outputs
-                    else []
-                )
+                nodes_executed = list(response.agent_outputs.keys()) if response.agent_outputs else []
 
-                # Create database record
                 await question_repo.create_question(
                     query=request.query,
                     correlation_id=request.correlation_id,
@@ -663,18 +900,26 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                 logger.info(f"Failed workflow {workflow_id} persisted to database")
 
         except Exception as e:
-            # CRITICAL: Don't fail API response if database fails
             logger.error(f"Failed to persist failed workflow {workflow_id}: {e}")
 
-    # Additional helper methods for debugging and monitoring
+    # -----------------------------------------------------------------------
+    # Debugging and monitoring helpers
+    # -----------------------------------------------------------------------
 
     def get_active_workflows(self) -> Dict[str, Dict[str, Any]]:
-        """Get information about currently active workflows."""
+        """
+        Return a snapshot of in-memory active workflows.
+
+        Intended for:
+        - Admin endpoints
+        - Debug tooling
+        - Development diagnostics
+        """
         return {
             wf_id: {
                 "status": wf["status"],
                 "start_time": wf["start_time"],
-                "query": wf["request"].query[:100],
+                "query": wf["request"].query[:100],  # truncate to avoid log bloat
                 "agents": wf["request"].agents,
                 "elapsed_seconds": time.time() - wf["start_time"],
             }
@@ -682,10 +927,14 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
         }
 
     def get_workflow_history(self, limit: int = 10) -> List[Dict[str, Any]]:
-        """Get recent workflow execution history."""
-        # For now, return active workflows (in production, this would be from persistent storage)
+        """
+        Return recent workflow history from in-memory storage.
+
+        NOTE:
+        This is not durable history. It is limited to what is still retained
+        in _active_workflows. In production, prefer database-backed history.
+        """
         workflows = list(self._active_workflows.values())
-        # Sort by start time, most recent first
         workflows.sort(key=lambda x: x["start_time"], reverse=True)
 
         return [
@@ -700,9 +949,18 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
         ]
 
     async def get_workflow_history_from_database(
-        self, limit: int = 10, offset: int = 0
+        self,
+        limit: int = 10,
+        offset: int = 0,
     ) -> List[Dict[str, Any]]:
-        """Get workflow history from database instead of in-memory storage."""
+        """
+        Retrieve workflow history from persistent storage (database).
+
+        This uses QuestionRepository.get_recent_questions() to fetch stored
+        workflow records and then maps them into a consistent history shape.
+
+        Returns empty list on failure (best-effort behavior).
+        """
         try:
             async with self._session_factory() as session:
                 question_repo = QuestionRepository(session)
@@ -713,7 +971,7 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                 return [
                     {
                         "workflow_id": q.execution_id or str(q.id),
-                        "status": "completed",
+                        "status": "completed",  # repository method currently returns completed entries
                         "query": q.query[:100] if q.query else "",
                         "start_time": q.created_at.timestamp(),
                         "execution_time": (
@@ -724,19 +982,22 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                     }
                     for q in questions
                 ]
+
         except Exception as e:
             logger.error(f"Failed to retrieve workflow history: {e}")
             return []
 
     def find_workflow_by_correlation_id(self, correlation_id: str) -> Optional[str]:
         """
-        Find workflow_id by correlation_id.
+        Find an in-memory workflow_id by correlation_id.
 
-        Args:
-            correlation_id: The correlation ID to search for
+        Correlation IDs are useful for:
+        - tracing requests across services
+        - client-side idempotency keys
+        - tying API requests back to logs/events
 
         Returns:
-            workflow_id if found, None otherwise
+            workflow_id if found, else None
         """
         for workflow_id, workflow_data in self._active_workflows.items():
             request = workflow_data.get("request")
@@ -747,20 +1008,17 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
     @ensure_initialized
     async def get_status_by_correlation_id(self, correlation_id: str) -> StatusResponse:
         """
-        Get workflow execution status by correlation_id.
+        Get workflow execution status using correlation_id.
 
-        Args:
-            correlation_id: Unique correlation identifier for the request
-
-        Returns:
-            StatusResponse with current status
+        This is a convenience wrapper:
+        - Look up workflow_id by correlation_id
+        - Delegate to get_status(workflow_id)
 
         Raises:
-            KeyError: Correlation ID not found
+            KeyError if no workflow matches the correlation_id
         """
         workflow_id = self.find_workflow_by_correlation_id(correlation_id)
         if workflow_id is None:
             raise KeyError(f"No workflow found for correlation_id: {correlation_id}")
 
-        # Use existing get_status method with workflow_id
         return await self.get_status(workflow_id)

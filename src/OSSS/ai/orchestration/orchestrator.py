@@ -1,5 +1,5 @@
 """
-Production LangGraph orchestrator for CogniVault agents.
+Production LangGraph orchestrator for OSSS agents.
 
 This module provides LangGraph integration implementing production-ready
 DAG execution with StateGraph orchestration.
@@ -38,8 +38,8 @@ from OSSS.ai.events import (
 )
 from OSSS.ai.orchestration.state_bridge import AgentContextStateBridge
 from OSSS.ai.orchestration.state_schemas import (
-    CogniVaultState,
-    CogniVaultContext,
+    OSSSState,
+    OSSSContext,
     RefinerState,
     CriticState,
     HistorianState,
@@ -52,7 +52,7 @@ from OSSS.ai.orchestration.node_wrappers import (
     get_node_dependencies,
 )
 from OSSS.ai.orchestration.memory_manager import (
-    CogniVaultMemoryManager,
+    OSSSMemoryManager,
     create_memory_manager,
 )
 from OSSS.ai.langgraph_backend import (
@@ -78,7 +78,7 @@ logger = get_logger(__name__)
 
 class LangGraphOrchestrator:
     """
-    Production LangGraph orchestrator for CogniVault agents.
+    Production LangGraph orchestrator for OSSS agents.
 
     This orchestrator uses LangGraph library to provide production-ready
     DAG-based execution with advanced state management, parallel processing, and
@@ -98,7 +98,7 @@ class LangGraphOrchestrator:
         agents_to_run: Optional[List[str]] = None,
         enable_checkpoints: bool = False,
         thread_id: Optional[str] = None,
-        memory_manager: Optional[CogniVaultMemoryManager] = None,
+        memory_manager: Optional[OSSSMemoryManager] = None,
         use_enhanced_routing: bool = True,
         optimization_strategy: OptimizationStrategy = OptimizationStrategy.BALANCED,
     ) -> None:
@@ -113,7 +113,7 @@ class LangGraphOrchestrator:
             Whether to enable memory checkpointing for stateful conversations.
         thread_id : str, optional
             Thread ID for conversation scoping (auto-generated if not provided).
-        memory_manager : CogniVaultMemoryManager, optional
+        memory_manager : OSSSMemoryManager, optional
             Custom memory manager instance. If None, one will be created.
         """
         # Default agents - will be optimized by enhanced routing if enabled
@@ -329,7 +329,7 @@ class LangGraphOrchestrator:
             )
 
             # Create context for LangGraph 0.6.0 execution
-            context = CogniVaultContext(
+            context = OSSSContext(
                 thread_id=thread_id,
                 execution_id=execution_id,
                 query=query,
@@ -553,14 +553,14 @@ class LangGraphOrchestrator:
         return self._compiled_graph
 
     async def _convert_state_to_context(
-        self, final_state: CogniVaultState
+        self, final_state: OSSSState
     ) -> AgentContext:
         """
         Convert final LangGraph state back to AgentContext.
 
         Parameters
         ----------
-        final_state : CogniVaultState
+        final_state : OSSSState
             Final state from LangGraph execution
 
         Returns

@@ -3,7 +3,7 @@ DAG composition engine for converting WorkflowDefinitions to executable LangGrap
 
 This module provides sophisticated DAG composition with conditional routing,
 plugin architecture foundation, and export capabilities for reproducible
-workflow sharing in the CogniVault ecosystem.
+workflow sharing in the OSSS ecosystem.
 """
 
 from typing import Dict, List, Any, Optional, Type, Callable, TYPE_CHECKING, Union
@@ -803,9 +803,9 @@ class DagComposer:
             self._validate_workflow(workflow_def)
 
             # Create StateGraph
-            from OSSS.ai.orchestration.state_schemas import CogniVaultState
+            from OSSS.ai.orchestration.state_schemas import OSSSState
 
-            graph = StateGraph(CogniVaultState)
+            graph = StateGraph(OSSSState)
 
             # Add nodes
             for node_config in workflow_def.nodes:

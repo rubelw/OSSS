@@ -54,7 +54,7 @@ class ResourceRequest(BaseModel):
     Request for resource allocation.
 
     Migrated from dataclass to Pydantic BaseModel for enhanced validation,
-    serialization, and integration with the CogniVault Pydantic ecosystem.
+    serialization, and integration with the OSSS Pydantic ecosystem.
     """
 
     # Required fields
@@ -179,7 +179,7 @@ class ResourceAllocation(BaseModel):
     Represents an active resource allocation.
 
     Migrated from dataclass to Pydantic BaseModel for enhanced validation,
-    serialization, and integration with the CogniVault Pydantic ecosystem.
+    serialization, and integration with the OSSS Pydantic ecosystem.
     """
 
     request: ResourceRequest = Field(
@@ -232,7 +232,7 @@ class ResourcePool(BaseModel):
     Pool of resources with capacity and allocation tracking.
 
     Migrated from dataclass to Pydantic BaseModel for enhanced validation,
-    serialization, and integration with the CogniVault Pydantic ecosystem.
+    serialization, and integration with the OSSS Pydantic ecosystem.
     """
 
     # Required fields

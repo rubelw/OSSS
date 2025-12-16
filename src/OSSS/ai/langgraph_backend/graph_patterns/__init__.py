@@ -1,5 +1,5 @@
 """
-Graph patterns for CogniVault LangGraph backend.
+Graph patterns for OSSS LangGraph backend.
 
 This module provides graph pattern implementations for different execution strategies.
 """

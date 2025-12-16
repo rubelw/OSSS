@@ -2,7 +2,7 @@
 Configuration system for LangGraph integration.
 
 This module provides configuration classes and validation for
-LangGraph-compatible DAG execution in CogniVault.
+LangGraph-compatible DAG execution in OSSS.
 
 Migrated to Pydantic for enhanced validation, type safety, and automatic serialization.
 """

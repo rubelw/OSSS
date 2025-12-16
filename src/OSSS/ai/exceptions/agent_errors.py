@@ -1,15 +1,15 @@
 """
-Agent-specific exceptions for CogniVault.
+Agent-specific exceptions for OSSS.
 
 This module defines exceptions related to agent execution, dependency management,
 and agent-level failures with LangGraph node compatibility.
 """
 
 from typing import Optional, Dict, Any, List
-from . import CogniVaultError, ErrorSeverity, RetryPolicy
+from . import OSSSError, ErrorSeverity, RetryPolicy
 
 
-class AgentExecutionError(CogniVaultError):
+class AgentExecutionError(OSSSError):
     """
     Base exception for agent execution failures.
 

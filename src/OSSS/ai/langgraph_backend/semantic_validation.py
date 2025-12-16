@@ -1,5 +1,5 @@
 """
-Semantic validation layer for CogniVault graph patterns.
+Semantic validation layer for OSSS graph patterns.
 
 This module provides domain-specific validation for agent workflows, ensuring
 that agent combinations and patterns create semantically meaningful executions.
@@ -166,17 +166,17 @@ class WorkflowSemanticValidator(ABC):
         return result
 
 
-class CogniVaultValidator(WorkflowSemanticValidator):
+class OSSSValidator(WorkflowSemanticValidator):
     """
-    Domain-specific semantic validator for CogniVault workflows.
+    Domain-specific semantic validator for OSSS workflows.
 
-    This validator implements CogniVault's semantic rules about agent
+    This validator implements OSSS's semantic rules about agent
     relationships, execution order, and meaningful workflow composition.
     """
 
     def __init__(self, strict_mode: bool = False) -> None:
         """
-        Initialize the CogniVault validator.
+        Initialize the OSSS validator.
 
         Parameters
         ----------
@@ -185,7 +185,7 @@ class CogniVaultValidator(WorkflowSemanticValidator):
         """
         self.strict_mode = strict_mode
 
-        # Define known CogniVault agents and their roles
+        # Define known OSSS agents and their roles
         self.agent_roles = {
             "refiner": "preprocessor",
             "critic": "analyzer",
@@ -205,14 +205,14 @@ class CogniVaultValidator(WorkflowSemanticValidator):
         }
 
     def get_supported_patterns(self) -> Set[str]:
-        """Get patterns supported by CogniVault validator."""
+        """Get patterns supported by OSSS validator."""
         return {"standard", "parallel", "conditional"}
 
     def validate_workflow(
         self, agents: List[str], pattern: str, **kwargs: Any
     ) -> SemanticValidationResult:
         """
-        Validate a CogniVault workflow for semantic correctness.
+        Validate a OSSS workflow for semantic correctness.
 
         Parameters
         ----------
@@ -240,7 +240,7 @@ class CogniVaultValidator(WorkflowSemanticValidator):
         if pattern not in self.get_supported_patterns():
             result.add_issue(
                 ValidationSeverity.ERROR,
-                f"Unsupported pattern '{pattern}' for CogniVault workflows",
+                f"Unsupported pattern '{pattern}' for OSSS workflows",
                 suggestion=f"Use one of: {', '.join(sorted(self.get_supported_patterns()))}",
             )
             return result
@@ -259,14 +259,14 @@ class CogniVaultValidator(WorkflowSemanticValidator):
                 result.add_issue(
                     ValidationSeverity.ERROR,
                     f"Unknown agents not allowed in strict mode: {unknown_agents}",
-                    suggestion="Use only known CogniVault agents: "
+                    suggestion="Use only known OSSS agents: "
                     + ", ".join(sorted(self.agent_roles.keys())),
                 )
             else:
                 result.add_issue(
                     ValidationSeverity.WARNING,
                     f"Unknown agents may not integrate properly: {unknown_agents}",
-                    suggestion="Consider using known CogniVault agents for better integration",
+                    suggestion="Consider using known OSSS agents for better integration",
                 )
 
         # Pattern-specific validation
@@ -391,9 +391,9 @@ class ValidationError(Exception):
         self.validation_result = validation_result
 
 
-def create_default_validator(strict_mode: bool = False) -> CogniVaultValidator:
+def create_default_validator(strict_mode: bool = False) -> OSSSValidator:
     """
-    Create the default CogniVault semantic validator.
+    Create the default OSSS semantic validator.
 
     Parameters
     ----------
@@ -402,10 +402,10 @@ def create_default_validator(strict_mode: bool = False) -> CogniVaultValidator:
 
     Returns
     -------
-    CogniVaultValidator
+    OSSSValidator
         Configured validator instance
     """
-    return CogniVaultValidator(strict_mode=strict_mode)
+    return OSSSValidator(strict_mode=strict_mode)
 
 
 # Export public API
@@ -415,7 +415,7 @@ __all__ = [
     "ValidationIssue",  # Backward compatibility alias
     "SemanticValidationResult",
     "WorkflowSemanticValidator",
-    "CogniVaultValidator",
+    "OSSSValidator",
     "ValidationError",
     "create_default_validator",
 ]

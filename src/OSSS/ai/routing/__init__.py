@@ -1,5 +1,5 @@
 """
-Enhanced Routing System for CogniVault.
+Enhanced Routing System for OSSS.
 
 This package provides intelligent routing capabilities including:
 - Query complexity analysis

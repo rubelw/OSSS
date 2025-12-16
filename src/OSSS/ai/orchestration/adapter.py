@@ -1,8 +1,8 @@
 """
-LangGraph Node Adapter for CogniVault agents.
+LangGraph Node Adapter for OSSS agents.
 
 This module provides the LangGraphNodeAdapter class which serves as a bridge
-between CogniVault agents and LangGraph's execution model, enabling seamless
+between OSSS agents and LangGraph's execution model, enabling seamless
 conversion of agents into LangGraph-compatible nodes.
 """
 
@@ -24,7 +24,7 @@ class NodeExecutionResult(BaseModel):
     Result of a node execution with metadata.
 
     Migrated from dataclass to Pydantic BaseModel for enhanced validation,
-    serialization, and integration with the CogniVault Pydantic ecosystem.
+    serialization, and integration with the OSSS Pydantic ecosystem.
     """
 
     context: AgentContext = Field(..., description="The agent context after execution")
@@ -74,7 +74,7 @@ class ExecutionNodeConfiguration(BaseModel):
     Configuration for node execution.
 
     Migrated from dataclass to Pydantic BaseModel for enhanced validation,
-    serialization, and integration with the CogniVault Pydantic ecosystem.
+    serialization, and integration with the OSSS Pydantic ecosystem.
     """
 
     timeout_seconds: Optional[float] = Field(
@@ -108,10 +108,10 @@ class ExecutionNodeConfiguration(BaseModel):
 
 class LangGraphNodeAdapter(ABC):
     """
-    Abstract base adapter for converting CogniVault agents into LangGraph nodes.
+    Abstract base adapter for converting OSSS agents into LangGraph nodes.
 
     This adapter provides the interface and utilities needed to execute
-    CogniVault agents within a LangGraph DAG context, handling state
+    OSSS agents within a LangGraph DAG context, handling state
     transitions, error propagation, and execution metadata.
     """
 
@@ -122,7 +122,7 @@ class LangGraphNodeAdapter(ABC):
         Parameters
         ----------
         agent : BaseAgent
-            The CogniVault agent to adapt
+            The OSSS agent to adapt
         node_id : str, optional
             Custom node ID (defaults to agent name)
         """
@@ -374,7 +374,7 @@ class StandardNodeAdapter(LangGraphNodeAdapter):
     """
     Standard implementation of LangGraphNodeAdapter for typical agent conversions.
 
-    This provides a complete, ready-to-use adapter for most CogniVault agents
+    This provides a complete, ready-to-use adapter for most OSSS agents
     without requiring custom implementations.
     """
 

@@ -33,7 +33,7 @@ class UnifiedDiagnosticsCLI:
         """Create the unified diagnostics CLI application."""
         app = typer.Typer(
             name="diagnostics",
-            help="CogniVault unified diagnostics and developer experience tools",
+            help="OSSS unified diagnostics and developer experience tools",
             no_args_is_help=True,
         )
 
@@ -78,7 +78,7 @@ class UnifiedDiagnosticsCLI:
 
     def show_overview(self) -> None:
         """Show overview of all available diagnostic tools."""
-        self.console.print("[bold blue]🔧 CogniVault Diagnostics Suite[/bold blue]")
+        self.console.print("[bold blue]🔧 OSSS Diagnostics Suite[/bold blue]")
 
         overview_panel = Panel(
             """

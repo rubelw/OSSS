@@ -11,7 +11,7 @@ class OpenAIConfig(BaseModel):
     OpenAI configuration with environment variable loading and validation.
 
     Migrated from dataclass to Pydantic BaseModel for enhanced validation,
-    serialization, and integration with the CogniVault configuration system.
+    serialization, and integration with the OSSS configuration system.
     """
 
     api_key: str = Field(

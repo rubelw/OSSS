@@ -1,60 +1,126 @@
 """
-Query execution endpoints for CogniVault API.
+Query execution endpoints for the OSSS API.
 
-Provides endpoints for executing multi-agent workflows using the existing
-orchestration infrastructure.
+This module defines the FastAPI routes responsible for:
+- Executing multi-agent workflows via the orchestration layer
+- Retrieving execution status by correlation ID
+- Fetching paginated workflow execution history
+
+The endpoints here act strictly as a thin API layer:
+- No business logic lives here
+- All orchestration and persistence concerns are delegated
+  to the orchestration API obtained via the factory pattern
 """
 
-from fastapi import APIRouter, HTTPException, Query
+# ---------------------------------------------------------------------------
+# Standard library / typing imports
+# ---------------------------------------------------------------------------
+
 from typing import Dict, Any, List
 
+# ---------------------------------------------------------------------------
+# FastAPI imports
+# ---------------------------------------------------------------------------
+
+from fastapi import APIRouter, HTTPException, Query
+
+# ---------------------------------------------------------------------------
+# API request / response models
+# These are Pydantic models defining the public API contract
+# ---------------------------------------------------------------------------
+
 from OSSS.ai.api.models import (
-    WorkflowRequest,
-    WorkflowResponse,
-    WorkflowHistoryResponse,
-    WorkflowHistoryItem,
-    StatusResponse,
+    WorkflowRequest,          # Incoming request payload for workflow execution
+    WorkflowResponse,         # Response returned after execution
+    WorkflowHistoryResponse,  # Paginated response for workflow history
+    WorkflowHistoryItem,      # Individual workflow history record
+    StatusResponse,           # Workflow status response model
 )
+
+# ---------------------------------------------------------------------------
+# Orchestration factory
+# Centralized access point for the orchestration layer
+# ---------------------------------------------------------------------------
+
 from OSSS.ai.api.factory import get_orchestration_api
+
+# ---------------------------------------------------------------------------
+# Observability / logging
+# ---------------------------------------------------------------------------
+
 from OSSS.ai.observability import get_logger
 
+# Create a module-level logger scoped to this file
 logger = get_logger(__name__)
+
+# ---------------------------------------------------------------------------
+# FastAPI router instance
+# All endpoints in this module will be mounted under a parent router
+# ---------------------------------------------------------------------------
 
 router = APIRouter()
 
 
+# ===========================================================================
+# POST /query
+# ===========================================================================
 @router.post("/query", response_model=WorkflowResponse)
 async def execute_query(request: WorkflowRequest) -> WorkflowResponse:
     """
-    Execute a multi-agent workflow using existing orchestration.
+    Execute a multi-agent workflow using the existing orchestration system.
+
+    This endpoint:
+    - Accepts a user query and optional workflow configuration
+    - Ensures the orchestration layer is initialized
+    - Delegates execution to the orchestration API
+    - Returns a typed WorkflowResponse with metadata and results
 
     Args:
-        request: Workflow execution request with query and optional configuration
+        request:
+            WorkflowRequest containing:
+            - query text
+            - optional agent / workflow configuration
 
     Returns:
-        WorkflowResponse with execution results and metadata
+        WorkflowResponse:
+            - correlation_id for tracking
+            - workflow_id
+            - execution status
+            - results and metadata
 
     Raises:
-        HTTPException: If workflow execution fails
+        HTTPException (500):
+            Raised if any unhandled exception occurs during execution
     """
     try:
+        # Log the query execution request
+        # Only log the first 100 characters to avoid excessive log volume
         logger.info(f"Executing query: {request.query[:100]}...")
 
-        # Use existing factory pattern and business logic
+        # Obtain the orchestration API via factory
+        # This allows lazy initialization and swapping implementations
         orchestration_api = get_orchestration_api()
 
+        # Ensure orchestration API is initialized
+        # The `_initialized` attribute is a soft contract used internally
         if not getattr(orchestration_api, "_initialized", False):
             await orchestration_api.initialize()
 
+        # Execute the workflow asynchronously
         response: WorkflowResponse = await orchestration_api.execute_workflow(request)
 
+        # Log successful execution with correlation ID for traceability
         logger.info(
             f"Query executed successfully, correlation_id: {response.correlation_id}"
         )
+
         return response
 
     except Exception as e:
+        # Log full exception details for debugging and observability
         logger.error(f"Query execution failed: {e}")
+
+        # Convert internal error into a standardized HTTP 500 response
         raise HTTPException(
             status_code=500,
             detail={
@@ -65,40 +131,61 @@ async def execute_query(request: WorkflowRequest) -> WorkflowResponse:
         )
 
 
+# ===========================================================================
+# GET /query/status/{correlation_id}
+# ===========================================================================
 @router.get("/query/status/{correlation_id}", response_model=StatusResponse)
 async def get_query_status(correlation_id: str) -> StatusResponse:
     """
-    Get the status of a previously submitted query.
+    Retrieve the current status of a previously submitted workflow.
+
+    This endpoint allows clients to:
+    - Poll for workflow progress
+    - Retrieve execution status using a correlation ID
+    - Avoid direct exposure of internal workflow IDs
 
     Args:
-        correlation_id: Unique identifier for the query execution
+        correlation_id:
+            External identifier returned at workflow submission time
 
     Returns:
-        StatusResponse with current workflow status and progress information
+        StatusResponse:
+            - workflow_id
+            - current status (running, completed, failed, etc.)
+            - progress metadata
 
     Raises:
-        HTTPException: If correlation_id is not found or API unavailable
+        HTTPException (404):
+            If the correlation ID does not exist
+
+        HTTPException (500):
+            If the orchestration API fails unexpectedly
     """
     try:
         logger.info(f"Getting status for correlation_id: {correlation_id}")
 
-        # Get orchestration API instance
+        # Obtain orchestration API instance
         orchestration_api = get_orchestration_api()
 
-        # Get status using correlation_id to workflow_id mapping
+        # Retrieve status by correlation ID
+        # Internally maps correlation_id -> workflow_id
         status_response: StatusResponse = (
             await orchestration_api.get_status_by_correlation_id(correlation_id)
         )
 
+        # Log resolved workflow details
         logger.info(
             f"Status retrieved for correlation_id {correlation_id}: "
-            f"workflow_id={status_response.workflow_id}, status={status_response.status}"
+            f"workflow_id={status_response.workflow_id}, "
+            f"status={status_response.status}"
         )
 
         return status_response
 
     except KeyError as e:
+        # Correlation ID does not exist or mapping not found
         logger.warning(f"Correlation ID not found: {correlation_id}")
+
         raise HTTPException(
             status_code=404,
             detail={
@@ -107,8 +194,11 @@ async def get_query_status(correlation_id: str) -> StatusResponse:
                 "correlation_id": correlation_id,
             },
         )
+
     except Exception as e:
+        # Catch-all for unexpected failures
         logger.error(f"Failed to get status for correlation_id {correlation_id}: {e}")
+
         raise HTTPException(
             status_code=500,
             detail={
@@ -119,73 +209,98 @@ async def get_query_status(correlation_id: str) -> StatusResponse:
         )
 
 
+# ===========================================================================
+# GET /query/history
+# ===========================================================================
 @router.get("/query/history", response_model=WorkflowHistoryResponse)
 async def get_query_history(
     limit: int = Query(
-        default=10, ge=1, le=100, description="Maximum number of results to return"
+        default=10,
+        ge=1,
+        le=100,
+        description="Maximum number of results to return",
     ),
-    offset: int = Query(default=0, ge=0, description="Number of results to skip"),
+    offset: int = Query(
+        default=0,
+        ge=0,
+        description="Number of results to skip for pagination",
+    ),
 ) -> WorkflowHistoryResponse:
     """
-    Get recent query execution history.
+    Retrieve paginated workflow execution history.
 
-    Retrieves workflow execution history from the orchestration API with pagination support.
-    History includes workflow status, execution time, and query details.
+    This endpoint:
+    - Fetches workflow records from persistent storage
+    - Supports limit/offset pagination
+    - Converts raw database records into typed API models
+
+    History records typically include:
+    - workflow ID
+    - execution status
+    - truncated query text
+    - start time
+    - execution duration
 
     Args:
-        limit: Maximum number of results to return (1-100, default: 10)
-        offset: Number of results to skip for pagination (default: 0)
+        limit:
+            Maximum number of workflows to return (1–100)
+
+        offset:
+            Number of workflows to skip (used for pagination)
 
     Returns:
-        WorkflowHistoryResponse with paginated workflow history
+        WorkflowHistoryResponse:
+            - list of WorkflowHistoryItem entries
+            - pagination metadata (limit, offset, total, has_more)
 
     Raises:
-        HTTPException: If the orchestration API is unavailable or fails
+        HTTPException (500):
+            If history retrieval fails
     """
     try:
         logger.info(f"Fetching workflow history: limit={limit}, offset={offset}")
 
-        # Get orchestration API instance
+        # Obtain orchestration API instance
         orchestration_api = get_orchestration_api()
 
-        # Get workflow history from database
-        raw_history: List[
-            Dict[str, Any]
-        ] = await orchestration_api.get_workflow_history_from_database(
-            limit=limit, offset=offset
+        # Retrieve raw workflow history from the database
+        # Pagination is already applied at the data access layer
+        raw_history: List[Dict[str, Any]] = (
+            await orchestration_api.get_workflow_history_from_database(
+                limit=limit,
+                offset=offset,
+            )
         )
 
         logger.debug(f"Raw history retrieved: {len(raw_history)} workflows")
 
-        # Database method already handles pagination, use results directly
-        paginated_history = raw_history
-
-        # Convert raw history to typed models
+        # Convert raw database rows into typed Pydantic models
         workflow_items: List[WorkflowHistoryItem] = []
-        for workflow_data in paginated_history:
+
+        for workflow_data in raw_history:
             try:
-                # Convert raw workflow data to typed model
                 workflow_item = WorkflowHistoryItem(
                     workflow_id=workflow_data["workflow_id"],
                     status=workflow_data["status"],
-                    query=workflow_data[
-                        "query"
-                    ],  # Already truncated in orchestration API
+                    query=workflow_data["query"],  # Already truncated upstream
                     start_time=workflow_data["start_time"],
                     execution_time_seconds=workflow_data["execution_time"],
                 )
                 workflow_items.append(workflow_item)
+
             except (KeyError, ValueError) as e:
+                # Skip malformed or incomplete records
                 logger.warning(f"Skipping invalid workflow data: {e}")
                 continue
 
-        # Calculate pagination metadata
-        # For now, we estimate if there are more based on returned count
-        # In future, add a separate count query for exact total
-        total_workflows = offset + len(workflow_items)  # Minimum count
-        has_more = (
-            len(workflow_items) == limit
-        )  # If we got full limit, likely more exist
+        # Estimate total count and pagination state
+        # NOTE:
+        # - This is a lower-bound estimate
+        # - A future enhancement should include a COUNT(*) query
+        total_workflows = offset + len(workflow_items)
+
+        # If we returned a full page, assume more records may exist
+        has_more = len(workflow_items) == limit
 
         response = WorkflowHistoryResponse(
             workflows=workflow_items,
@@ -204,6 +319,7 @@ async def get_query_history(
 
     except Exception as e:
         logger.error(f"Failed to retrieve workflow history: {e}")
+
         raise HTTPException(
             status_code=500,
             detail={

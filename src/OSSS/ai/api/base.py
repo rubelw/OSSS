@@ -1,8 +1,8 @@
 
 """
-Base API interface for CogniVault API boundary implementation.
+Base API interface for OSSS API boundary implementation.
 
-This module defines the core BaseAPI interface that all CogniVault APIs must implement,
+This module defines the core BaseAPI interface that all OSSS APIs must implement,
 providing common lifecycle, versioning, and health check patterns.
 """
 
@@ -30,7 +30,7 @@ class APIHealthStatus:
 
 class BaseAPI(ABC):
     """
-    Base interface for all CogniVault APIs.
+    Base interface for all OSSS APIs.
 
     Provides common lifecycle, versioning, and health check patterns
     that all API implementations must support.

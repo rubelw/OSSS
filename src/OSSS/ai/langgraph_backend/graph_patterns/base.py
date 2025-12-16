@@ -1,5 +1,5 @@
 """
-Graph patterns for CogniVault LangGraph backend.
+Graph patterns for OSSS LangGraph backend.
 
 This module defines different graph structures and patterns that can be used
 for agent execution. Each pattern defines how agents are connected and the
@@ -118,7 +118,7 @@ class StandardPattern(GraphPattern):
     """
     Standard 4-agent pattern: refiner → [critic, historian] → synthesis
 
-    This is the default CogniVault pattern where:
+    This is the default OSSS pattern where:
     1. Refiner processes the initial query
     2. Critic and Historian execute in parallel after Refiner
     3. Synthesis integrates all outputs for final analysis

@@ -1,8 +1,8 @@
 """
-CogniVault Diagnostics Module
+OSSS Diagnostics Module
 
 This module provides comprehensive diagnostic and observability capabilities
-for CogniVault, including health checks, performance metrics, system status,
+for OSSS, including health checks, performance metrics, system status,
 and diagnostic CLI commands.
 """
 

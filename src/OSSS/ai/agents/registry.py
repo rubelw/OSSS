@@ -590,7 +590,7 @@ class AgentRegistry:
             return AgentConstructorPattern.FLEXIBLE
 
     def _register_core_agents(self) -> None:
-        """Register the core agents that ship with CogniVault with conditional execution support."""
+        """Register the core agents that ship with OSSS with conditional execution support."""
         # Import here to avoid circular imports
         from OSSS.ai.agents.refiner.agent import RefinerAgent
         from OSSS.ai.agents.critic.agent import CriticAgent

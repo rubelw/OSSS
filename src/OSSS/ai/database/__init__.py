@@ -1,5 +1,5 @@
 """
-Database integration module for CogniVault.
+Database integration module for OSSS.
 
 Provides PostgreSQL + pgvector integration with async SQLAlchemy,
 production-ready connection pooling, centralized session management,

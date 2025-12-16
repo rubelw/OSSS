@@ -2,7 +2,7 @@
 AgentContextStateBridge: Bidirectional conversion between AgentContext and LangGraph state.
 
 This module provides the architectural foundation for LangGraph integration by
-enabling seamless conversion between CogniVault's rich AgentContext system and
+enabling seamless conversion between OSSS's rich AgentContext system and
 LangGraph's dictionary-based state management.
 
 Key Features:

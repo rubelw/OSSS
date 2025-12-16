@@ -1,5 +1,5 @@
 """
-Health checking system for CogniVault components.
+Health checking system for OSSS components.
 
 This module provides comprehensive health checks for agents, LLM connections,
 configuration validity, and system dependencies.
@@ -35,7 +35,7 @@ if TYPE_CHECKING:
 
 
 class HealthStatus(Enum):
-    """Comprehensive health status enumeration for all CogniVault components."""
+    """Comprehensive health status enumeration for all OSSS components."""
 
     HEALTHY = "healthy"
     DEGRADED = "degraded"
@@ -81,7 +81,7 @@ class ComponentHealth(BaseModel):
 
 class HealthChecker:
     """
-    Comprehensive health checker for CogniVault system components.
+    Comprehensive health checker for OSSS system components.
 
     Provides health checks for:
     - Agent registry and agent creation

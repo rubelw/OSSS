@@ -1,5 +1,5 @@
 """
-Base Advanced Node Infrastructure for CogniVault.
+Base Advanced Node Infrastructure for OSSS.
 
 This module provides the foundation for advanced node types including
 DECISION, AGGREGATOR, VALIDATOR, and TERMINATOR nodes. It defines
@@ -19,7 +19,7 @@ class NodeExecutionContext(BaseModel):
     Execution context for advanced nodes.
 
     Migrated from dataclass to Pydantic BaseModel for enhanced validation,
-    serialization, and integration with the CogniVault Pydantic ecosystem.
+    serialization, and integration with the OSSS Pydantic ecosystem.
 
     This context carries all necessary information for node execution including
     correlation tracking, workflow identification, cognitive classification,

@@ -1,7 +1,7 @@
 """
-CogniVault Orchestration Engine.
+OSSS Orchestration Engine.
 
-This package provides the core orchestration capabilities for CogniVault,
+This package provides the core orchestration capabilities for OSSS,
 including LangGraph integration, node adapters for seamless agent-to-node
 conversion, state management, and production DAG execution.
 """

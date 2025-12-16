@@ -1,102 +1,162 @@
+# ---------------------------------------------------------------------------
+# Core agent framework imports
+# ---------------------------------------------------------------------------
+
 from OSSS.ai.agents.base_agent import (
-    BaseAgent,
-    NodeType,
-    NodeInputSchema,
-    NodeOutputSchema,
+    BaseAgent,           # Base class for all OSSS agents
+    NodeType,            # Enum describing LangGraph node roles
+    NodeInputSchema,     # Declarative input schema for graph validation
+    NodeOutputSchema,    # Declarative output schema for graph validation
 )
-from OSSS.ai.context import AgentContext
-from OSSS.ai.llm.llm_interface import LLMInterface
+from OSSS.ai.context import AgentContext  # Shared execution context between agents
+from OSSS.ai.llm.llm_interface import LLMInterface  # Abstract LLM interface
+
+# Default (legacy) system prompt for critic behavior
 from OSSS.ai.agents.critic.prompts import CRITIC_SYSTEM_PROMPT
 
-# Configuration system imports
-from typing import Optional, cast, Type
-from OSSS.ai.config.agent_configs import CriticConfig
-from OSSS.ai.workflows.prompt_composer import PromptComposer, ComposedPrompt
+# ---------------------------------------------------------------------------
+# Configuration & prompt composition
+# ---------------------------------------------------------------------------
 
-# Structured output integration using LangChain service pattern
+from typing import Optional, cast, Type
+from OSSS.ai.config.agent_configs import CriticConfig  # Pydantic-based agent config
+from OSSS.ai.workflows.prompt_composer import (
+    PromptComposer,     # Responsible for building dynamic prompts
+    ComposedPrompt,     # Validated prompt bundle (system + instructions)
+)
+
+# ---------------------------------------------------------------------------
+# Structured output support via LangChain service abstraction
+# ---------------------------------------------------------------------------
+
 from OSSS.ai.services.langchain_service import LangChainService
-from OSSS.ai.agents.models import CriticOutput, ProcessingMode, ConfidenceLevel
+
+# Strongly-typed structured output models
+from OSSS.ai.agents.models import (
+    CriticOutput,       # Pydantic model returned by structured LLM calls
+    ProcessingMode,
+    ConfidenceLevel,
+)
+
+# ---------------------------------------------------------------------------
+# Standard library imports
+# ---------------------------------------------------------------------------
 
 import asyncio
 import logging
 from typing import Dict, Any
+
+# Global application configuration access
 from OSSS.ai.config.app_config import get_config
 
 
 class CriticAgent(BaseAgent):
-    """Agent responsible for critiquing the output of the RefinerAgent.
+    """
+    Agent responsible for critiquing the output of the RefinerAgent.
 
-    The CriticAgent evaluates the output provided by the RefinerAgent and
-    adds constructive critique or feedback to the context using an LLM.
+    The CriticAgent evaluates the refined query produced by the RefinerAgent
+    and provides structured, constructive feedback aimed at improving:
+    - clarity
+    - correctness
+    - ambiguity
+    - missing context
+
+    Whenever possible, the agent uses *structured LLM output* to prevent
+    hallucinations, schema drift, and output pollution.
 
     Attributes
     ----------
     name : str
-        The name of the agent, used for identification in the context.
+        Agent identifier used in AgentContext and LangGraph.
     llm : LLMInterface
-        The language model interface used to generate critiques.
+        Language model interface used for critique generation.
     config : CriticConfig
-        Configuration for agent behavior and prompt composition.
+        Agent configuration controlling prompt depth, retries, and timeout.
     logger : logging.Logger
-        Logger instance used to emit internal debug and warning messages.
+        Logger instance for traceability and debugging.
     """
 
+    # Module-level logger shared across instances
     logger = logging.getLogger(__name__)
 
     def __init__(
-        self, llm: LLMInterface, config: Optional[CriticConfig] = None
+        self,
+        llm: LLMInterface,
+        config: Optional[CriticConfig] = None,
     ) -> None:
-        """Initialize the CriticAgent with an LLM interface and optional configuration.
+        """
+        Initialize the CriticAgent.
+
+        This constructor is intentionally lightweight and backward-compatible:
+        existing callers that do not provide a config continue to work unchanged.
 
         Parameters
         ----------
         llm : LLMInterface
-            The language model interface to use for generating critiques.
+            Language model used to generate critiques.
         config : Optional[CriticConfig]
-            Configuration for agent behavior. If None, uses default configuration.
-            Maintains backward compatibility - existing code continues to work.
+            Optional configuration object controlling agent behavior.
         """
-        # Configuration system - backward compatible
-        # All config classes have sensible defaults via Pydantic Field definitions
+
+        # -------------------------------------------------------------------
+        # Configuration handling (backward compatible)
+        # -------------------------------------------------------------------
+
+        # If no config is provided, fall back to defaults defined in CriticConfig
         self.config = config if config is not None else CriticConfig()
 
-        # Pass timeout from config to BaseAgent
+        # Initialize BaseAgent with configured timeout
         super().__init__(
-            "critic", timeout_seconds=self.config.execution_config.timeout_seconds
+            name="critic",
+            timeout_seconds=self.config.execution_config.timeout_seconds,
         )
 
+        # Store LLM interface
         self.llm = llm
+
+        # Prompt composer builds system + instruction prompts dynamically
         self._prompt_composer = PromptComposer()
+
+        # Cached composed prompt (built once, reused per run)
         self._composed_prompt: Optional[ComposedPrompt] = None
 
-        # Initialize LangChain service for structured output (following RefinerAgent pattern)
+        # Structured output service (LangChain-backed)
         self.structured_service: Optional[LangChainService] = None
         self._setup_structured_service()
 
-        # Compose the prompt on initialization for performance
+        # Compose prompts eagerly for performance and early failure detection
         self._update_composed_prompt()
 
     def _setup_structured_service(self) -> None:
-        """Initialize the LangChain service for structured output support."""
+        """
+        Initialize LangChain-based structured output service.
+
+        This enables:
+        - Pydantic-validated LLM responses
+        - Better retry behavior
+        - Output schema enforcement
+        """
         try:
-            # Get API key from LLM interface
+            # Attempt to extract API key from LLM interface (if present)
             api_key = getattr(self.llm, "api_key", None)
 
-            # Let discovery service choose the best model for CriticAgent
+            # Let discovery logic select the most appropriate model
             self.structured_service = LangChainService(
-                model=None,  # Let discovery service choose
+                model=None,                 # Auto-select model
                 api_key=api_key,
-                temperature=0.0,  # Use deterministic output for critiques
-                agent_name="critic",  # Enable agent-specific model selection
-                use_discovery=True,  # Enable model discovery
+                temperature=0.0,            # Deterministic critiques
+                agent_name="critic",        # Agent-specific model selection
+                use_discovery=True,         # Enable discovery service
             )
 
-            # Log the selected model
+            # Log selected model for observability
             selected_model = self.structured_service.model_name
             self.logger.info(
                 f"[{self.name}] Structured output service initialized with model: {selected_model}"
             )
+
         except Exception as e:
+            # Failure here is non-fatal; fallback to traditional LLM calls
             self.logger.warning(
                 f"[{self.name}] Failed to initialize structured service: {e}. "
                 f"Will use traditional LLM interface only."
@@ -104,39 +164,48 @@ class CriticAgent(BaseAgent):
             self.structured_service = None
 
     def _update_composed_prompt(self) -> None:
-        """Update the composed prompt based on current configuration."""
+        """
+        Rebuild the composed prompt based on current configuration.
+
+        This allows runtime configuration updates without restarting
+        the agent or process.
+        """
         try:
             self._composed_prompt = self._prompt_composer.compose_critic_prompt(
                 self.config
             )
             self.logger.debug(
-                f"[{self.name}] Prompt composed with config: {self.config.analysis_depth}"
+                f"[{self.name}] Prompt composed with analysis depth: {self.config.analysis_depth}"
             )
         except Exception as e:
+            # Prompt composition failures should not break execution
             self.logger.warning(
                 f"[{self.name}] Failed to compose prompt, using default: {e}"
             )
             self._composed_prompt = None
 
     def _get_system_prompt(self) -> str:
-        """Get the system prompt, using composed prompt if available, otherwise default."""
-        if self._composed_prompt and self._prompt_composer.validate_composition(
+        """
+        Resolve the system prompt to use for critique generation.
+
+        Preference order:
+        1. Valid composed prompt (config-driven)
+        2. Static default system prompt (legacy fallback)
+        """
+        if (
             self._composed_prompt
+            and self._prompt_composer.validate_composition(self._composed_prompt)
         ):
             return self._composed_prompt.system_prompt
-        else:
-            # Fallback to default prompt for backward compatibility
-            self.logger.debug(f"[{self.name}] Using default system prompt (fallback)")
-            return CRITIC_SYSTEM_PROMPT
+
+        self.logger.debug(f"[{self.name}] Using default system prompt (fallback)")
+        return CRITIC_SYSTEM_PROMPT
 
     def update_config(self, config: CriticConfig) -> None:
         """
-        Update the agent configuration and recompose prompts.
+        Update agent configuration at runtime.
 
-        Parameters
-        ----------
-        config : CriticConfig
-            New configuration to apply
+        Automatically recomposes prompts to reflect new settings.
         """
         self.config = config
         self._update_composed_prompt()
@@ -146,31 +215,26 @@ class CriticAgent(BaseAgent):
 
     async def run(self, context: AgentContext) -> AgentContext:
         """
-        Execute the critique process on the provided agent context.
+        Execute the CriticAgent.
 
-        Analyzes the refined query from RefinerAgent and provides constructive
-        critique using structured output when available for improved consistency
-        and content pollution prevention.
-
-        Parameters
-        ----------
-        context : AgentContext
-            The shared context containing outputs from other agents.
-
-        Returns
-        -------
-        AgentContext
-            The updated context including this agent's critique output.
+        This method:
+        - Retrieves RefinerAgent output
+        - Generates critique via structured or traditional LLM
+        - Records trace and token usage
+        - Writes output back into AgentContext
         """
-        # Use configurable simulation delay if enabled
+        # Optional artificial delay (used for simulation/testing)
         config = get_config()
         if config.execution.enable_simulation_delay:
             await asyncio.sleep(config.execution.simulation_delay_seconds)
 
         self.logger.info(f"[{self.name}] Processing query: {context.query}")
 
+        # Retrieve refined output produced by RefinerAgent
         refined_output = context.agent_outputs.get("refiner", "")
+
         if not refined_output:
+            # Defensive handling when dependency output is missing
             critique = "No refined output available from RefinerAgent to critique."
             self.logger.warning(
                 f"[{self.name}] No refined output available to critique."
@@ -182,13 +246,14 @@ class CriticAgent(BaseAgent):
 
             system_prompt = self._get_system_prompt()
 
-            # Try structured output first, fallback to traditional method
+            # Prefer structured output when available
             if self.structured_service:
                 try:
                     critique = await self._run_structured(
                         refined_output, system_prompt, context
                     )
                 except Exception as e:
+                    # Structured output failures are recoverable
                     self.logger.warning(
                         f"[{self.name}] Structured output failed, falling back to traditional: {e}"
                     )
@@ -202,197 +267,12 @@ class CriticAgent(BaseAgent):
 
         self.logger.debug(f"[{self.name}] Generated critique: {critique}")
 
-        # Add agent output
+        # Persist output and trace information
         context.add_agent_output(self.name, critique)
-        context.log_trace(self.name, input_data=refined_output, output_data=critique)
+        context.log_trace(
+            self.name,
+            input_data=refined_output,
+            output_data=critique,
+        )
 
         return context
-
-    async def _run_structured(
-        self, refined_output: str, system_prompt: str, context: AgentContext
-    ) -> str:
-        """Run with structured output using LangChain service."""
-        import time
-
-        start_time = time.time()
-
-        if not self.structured_service:
-            raise ValueError("Structured service not available")
-
-        try:
-            # Build the critique prompt
-            prompt = f"Refined query to critique: {refined_output}\n\nPlease provide a comprehensive critique according to the system instructions."
-
-            # Get structured output
-            result = await self.structured_service.get_structured_output(
-                prompt=prompt,
-                output_class=CriticOutput,
-                system_prompt=system_prompt,
-                max_retries=3,
-            )
-
-            # Handle both CriticOutput and StructuredOutputResult types
-            if isinstance(result, CriticOutput):
-                structured_result = result
-            else:
-                # It's a StructuredOutputResult, extract the parsed result
-                from OSSS.ai.services.langchain_service import StructuredOutputResult
-
-                if isinstance(result, StructuredOutputResult):
-                    parsed_result = result.parsed
-                    if not isinstance(parsed_result, CriticOutput):
-                        raise ValueError(
-                            f"Expected CriticOutput, got {type(parsed_result)}"
-                        )
-                    structured_result = parsed_result
-                else:
-                    raise ValueError(f"Unexpected result type: {type(result)}")
-
-            # SERVER-SIDE PROCESSING TIME INJECTION
-            # CRITICAL FIX: LLMs cannot accurately measure their own processing time
-            # We calculate actual execution time server-side and inject it into the model
-            processing_time_ms = (time.time() - start_time) * 1000
-
-            # Inject server-calculated processing time if LLM returned None
-            if structured_result.processing_time_ms is None:
-                # Use model_copy to create new instance with updated processing_time_ms
-                structured_result = structured_result.model_copy(
-                    update={"processing_time_ms": processing_time_ms}
-                )
-                self.logger.info(
-                    f"[{self.name}] Injected server-calculated processing_time_ms: {processing_time_ms:.1f}ms"
-                )
-
-            # Store structured output in execution_state for future use
-            # This follows a pattern where structured outputs can be accessed later
-            if "structured_outputs" not in context.execution_state:
-                context.execution_state["structured_outputs"] = {}
-            context.execution_state["structured_outputs"][self.name] = (
-                structured_result.model_dump()
-            )
-
-            # Record token usage - for structured output, we need to record some usage
-            # Since structured output doesn't directly expose token usage from LangChain,
-            # we'll check if we can get it from the underlying LLM response or estimate
-            token_usage_recorded = False
-
-            # Try to get token usage from LangChain service metrics
-            if hasattr(self.structured_service, "get_metrics"):
-                metrics = self.structured_service.get_metrics()
-                self.logger.debug(f"[{self.name}] Service metrics: {metrics}")
-
-            # For testing scenarios where mock LLMs are used, we need to ensure token usage is recorded
-            # Check if this is a fallback scenario where traditional LLM was used
-            if hasattr(structured_result, "_token_usage"):
-                # If the structured result carries token usage info, use it
-                usage = structured_result._token_usage
-                context.add_agent_token_usage(
-                    agent_name=self.name,
-                    input_tokens=usage.get("input_tokens", 0),
-                    output_tokens=usage.get("output_tokens", 0),
-                    total_tokens=usage.get("total_tokens", 0),
-                )
-                token_usage_recorded = True
-                self.logger.debug(
-                    f"[{self.name}] Token usage from structured result: {usage}"
-                )
-
-            if not token_usage_recorded:
-                # For structured output without explicit token usage, record minimal usage
-                # This ensures event emission doesn't fail
-                context.add_agent_token_usage(
-                    agent_name=self.name,
-                    input_tokens=0,  # LangChain structured output doesn't expose detailed tokens
-                    output_tokens=0,
-                    total_tokens=0,
-                )
-                self.logger.debug(
-                    f"[{self.name}] Recorded zero token usage for structured output (token details not available)"
-                )
-
-            self.logger.info(
-                f"[{self.name}] Structured output successful - "
-                f"processing_time: {processing_time_ms:.1f}ms, "
-                f"confidence: {structured_result.confidence}, "
-                f"issues_detected: {structured_result.issues_detected}"
-            )
-
-            # Return the critique summary directly for backward compatibility
-            return structured_result.critique_summary
-
-        except Exception as e:
-            self.logger.error(f"[{self.name}] Structured output processing failed: {e}")
-            raise
-
-    async def _run_traditional(
-        self, refined_output: str, system_prompt: str, context: AgentContext
-    ) -> str:
-        """Fallback to traditional LLM interface."""
-        self.logger.info(f"[{self.name}] Using traditional LLM interface")
-
-        response = self.llm.generate(prompt=refined_output, system_prompt=system_prompt)
-
-        if not hasattr(response, "text"):
-            # For backward compatibility with tests, return error message instead of raising
-            self.logger.error(f"[{self.name}] LLM response missing 'text' field")
-            # Still record minimal token usage to avoid downstream issues
-            context.add_agent_token_usage(
-                agent_name=self.name,
-                input_tokens=0,
-                output_tokens=0,
-                total_tokens=0,
-            )
-            return "Error: received streaming response instead of text response"
-
-        # Record token usage from traditional LLM response
-        input_tokens = getattr(response, "input_tokens", None) or 0
-        output_tokens = getattr(response, "output_tokens", None) or 0
-        total_tokens = getattr(response, "tokens_used", None) or 0
-
-        context.add_agent_token_usage(
-            agent_name=self.name,
-            input_tokens=input_tokens,
-            output_tokens=output_tokens,
-            total_tokens=total_tokens,
-        )
-
-        self.logger.debug(
-            f"[{self.name}] Traditional LLM token usage - "
-            f"input: {input_tokens}, output: {output_tokens}, total: {total_tokens}"
-        )
-
-        critique = response.text.strip()
-
-        # Return the critique as-is for backward compatibility
-        return critique
-
-    def define_node_metadata(self) -> Dict[str, Any]:
-        """
-        Define LangGraph-specific metadata for the Critic agent.
-
-        Returns
-        -------
-        Dict[str, Any]
-            Node metadata including type, dependencies, schemas, and routing logic
-        """
-        return {
-            "node_type": NodeType.PROCESSOR,
-            "dependencies": ["refiner"],  # Depends on Refiner output
-            "description": "Evaluates and critiques refined queries for quality and clarity",
-            "inputs": [
-                NodeInputSchema(
-                    name="context",
-                    description="Agent context containing refined query to critique",
-                    required=True,
-                    type_hint="AgentContext",
-                )
-            ],
-            "outputs": [
-                NodeOutputSchema(
-                    name="context",
-                    description="Updated context with critique feedback added",
-                    type_hint="AgentContext",
-                )
-            ],
-            "tags": ["critic", "agent", "processor", "evaluator"],
-        }

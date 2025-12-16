@@ -1,5 +1,5 @@
 """
-Database configuration for CogniVault PostgreSQL + pgvector integration.
+Database configuration for OSSS PostgreSQL + pgvector integration.
 
 Provides production-ready database configuration with connection pooling,
 SSL support, and comprehensive environment-based settings.

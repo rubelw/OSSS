@@ -1,5 +1,5 @@
 """
-Advanced dependency management system for CogniVault agents.
+Advanced dependency management system for OSSS agents.
 
 This package provides sophisticated dependency graph execution with topological
 ordering, circular dependency detection, failure propagation, and resource scheduling.

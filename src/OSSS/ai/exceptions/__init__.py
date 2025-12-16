@@ -1,7 +1,7 @@
 """
-CogniVault Exception Hierarchy
+OSSS Exception Hierarchy
 
-This module provides a comprehensive exception hierarchy for CogniVault,
+This module provides a comprehensive exception hierarchy for OSSS,
 designed for LangGraph compatibility with trace metadata and structured
 error context for robust error handling and observability.
 """
@@ -29,9 +29,9 @@ class RetryPolicy(Enum):
     CIRCUIT_BREAKER = "circuit_breaker"  # Use circuit breaker pattern (API down)
 
 
-class CogniVaultError(Exception):
+class OSSSError(Exception):
     """
-    Base exception class for all CogniVault errors.
+    Base exception class for all OSSS errors.
 
     Provides structured error context, trace metadata, and LangGraph compatibility
     for robust error handling and observability in multi-agent workflows.
@@ -237,7 +237,7 @@ from .io_errors import (
 
 __all__ = [
     # Base classes
-    "CogniVaultError",
+    "OSSSError",
     "ErrorSeverity",
     "RetryPolicy",
     # Agent errors

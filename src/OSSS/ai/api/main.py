@@ -1,5 +1,5 @@
 """
-FastAPI application entrypoint for CogniVault API.
+FastAPI application entrypoint for OSSS API.
 
 This module creates the FastAPI app instance and mounts all route modules.
 Leverages the existing sophisticated API architecture in this package.
@@ -23,21 +23,21 @@ logger = get_logger(__name__)
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Manage application lifespan events."""
     # Startup
-    logger.info("Starting CogniVault API...")
+    logger.info("Starting OSSS API...")
     await initialize_api()
-    logger.info("CogniVault API startup complete")
+    logger.info("OSSS API startup complete")
 
     yield
 
     # Shutdown
-    logger.info("Shutting down CogniVault API...")
+    logger.info("Shutting down OSSS API...")
     await shutdown_api()
-    logger.info("CogniVault API shutdown complete")
+    logger.info("OSSS API shutdown complete")
 
 
 # Create FastAPI application
 app = FastAPI(
-    title="CogniVault API",
+    title="OSSS API",
     version="0.1.0",
     description="Multi-agent workflow orchestration platform with intelligent routing",
     docs_url="/docs",
@@ -67,7 +67,7 @@ app.include_router(websockets.router, tags=["WebSockets"])
 async def root() -> Dict[str, str]:
     """Root endpoint providing API information."""
     return {
-        "message": "CogniVault API",
+        "message": "OSSS API",
         "version": "0.1.0",
         "docs": "/docs",
         "health": "/health",
