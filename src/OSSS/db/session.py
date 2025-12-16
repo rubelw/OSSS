@@ -5,7 +5,6 @@ import os
 from contextlib import asynccontextmanager
 from typing import AsyncIterator, AsyncGenerator
 
-from sqlalchemy.engine import URL
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
@@ -36,11 +35,13 @@ USE_NULLPOOL = (
 # Optional tuning via settings/env (falls back to sensible defaults)
 POOL_SIZE = int(os.getenv("DB_POOL_SIZE", getattr(settings, "DB_POOL_SIZE", 5)))
 MAX_OVERFLOW = int(os.getenv("DB_MAX_OVERFLOW", getattr(settings, "DB_MAX_OVERFLOW", 10)))
-POOL_RECYCLE = int(os.getenv("DB_POOL_RECYCLE", getattr(settings, "DB_POOL_RECYCLE", 1800)))  # seconds
+POOL_RECYCLE = int(
+    os.getenv("DB_POOL_RECYCLE", getattr(settings, "DB_POOL_RECYCLE", 1800))
+)  # seconds
 
 _engine_kwargs: dict = {
     "echo": bool(getattr(settings, "DB_ECHO", False)),
-    "pool_pre_ping": True,        # 💡 protects against stale connections
+    "pool_pre_ping": True,  # 💡 protects against stale connections
 }
 
 if USE_NULLPOOL:
@@ -74,18 +75,22 @@ AsyncSessionLocal: async_sessionmaker[AsyncSession] = async_sessionmaker(
 # Backwards-compatible alias if other code expects "_sessionmaker"
 _sessionmaker: async_sessionmaker[AsyncSession] = AsyncSessionLocal
 
+
 def get_engine():
     """Expose the engine (e.g., for health checks / pings)."""
     return engine
+
 
 def get_sessionmaker() -> async_sessionmaker[AsyncSession]:
     """Return the app-wide async sessionmaker."""
     return _sessionmaker
 
+
 # ---------------------------------------------------------------------------
-# FastAPI dependencies
+# FastAPI dependencies / session helpers
 #   - get_session: async context manager (use with `async with`)
 #   - get_db: async generator (use with `Depends(get_db)`)
+#   - get_async_session: backwards-compatible name expected by older modules
 # ---------------------------------------------------------------------------
 
 @asynccontextmanager
@@ -98,6 +103,20 @@ async def get_session() -> AsyncIterator[AsyncSession]:
             raise
         finally:
             await session.close()
+
+
+@asynccontextmanager
+async def get_async_session() -> AsyncIterator[AsyncSession]:
+    """
+    Backwards-compatible alias used by older/other modules.
+
+    Usage:
+        async with get_async_session() as session:
+            ...
+    """
+    async with get_session() as session:
+        yield session
+
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     async with AsyncSessionLocal() as session:

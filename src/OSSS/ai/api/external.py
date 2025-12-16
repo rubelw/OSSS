@@ -1,0 +1,237 @@
+"""
+External API contracts for CogniVault.
+
+These APIs form the stable interface that external consumers depend on.
+Breaking changes require migration path and version bump.
+"""
+
+import warnings
+from typing import List, Dict, Any
+from .base import BaseAPI
+from .decorators import ensure_initialized
+from .models import (
+    WorkflowRequest,
+    WorkflowResponse,
+    StatusResponse,
+    CompletionRequest,
+    CompletionResponse,
+    LLMProviderInfo,
+)
+
+
+class OrchestrationAPI(BaseAPI):
+    """
+    Public orchestration API - STABLE INTERFACE.
+
+    This API contract must remain backward compatible.
+    Breaking changes require migration path and version bump.
+    """
+
+    @property
+    def api_name(self) -> str:
+        return "Orchestration API"
+
+    @property
+    def api_version(self) -> str:
+        return "1.0.0"
+
+    @ensure_initialized
+    async def execute_workflow(self, request: WorkflowRequest) -> WorkflowResponse:
+        """
+        Execute a workflow with specified agents.
+
+        Args:
+            request: Workflow execution parameters
+
+        Returns:
+            WorkflowResponse with execution results
+
+        Raises:
+            ValueError: Invalid request parameters
+            RuntimeError: Execution failure
+        """
+        raise NotImplementedError("Subclasses must implement execute_workflow")
+
+    @ensure_initialized
+    async def get_status(self, workflow_id: str) -> StatusResponse:
+        """
+        Get workflow execution status.
+
+        Args:
+            workflow_id: Unique workflow identifier
+
+        Returns:
+            StatusResponse with current status
+
+        Raises:
+            KeyError: Workflow ID not found
+        """
+        raise NotImplementedError("Subclasses must implement execute_workflow")
+
+    @ensure_initialized
+    async def cancel_workflow(self, workflow_id: str) -> bool:
+        """
+        Cancel running workflow.
+
+        Args:
+            workflow_id: Unique workflow identifier
+
+        Returns:
+            True if successfully cancelled, False if already completed
+        """
+        raise NotImplementedError("Subclasses must implement cancel_workflow")
+
+    def get_workflow_history(self, limit: int = 10) -> List[Dict[str, Any]]:
+        """
+        Get recent workflow execution history.
+
+        Args:
+            limit: Maximum number of results to return
+
+        Returns:
+            List of workflow execution history items
+
+        Note:
+            This method is synchronous for the current in-memory implementation.
+            Future database-backed implementations may need async version.
+        """
+        raise NotImplementedError("Subclasses must implement get_workflow_history")
+
+    async def get_workflow_history_from_database(
+        self, limit: int = 10, offset: int = 0
+    ) -> List[Dict[str, Any]]:
+        """
+        Get workflow history from database instead of in-memory storage.
+
+        Args:
+            limit: Maximum number of results to return
+            offset: Number of results to skip for pagination
+
+        Returns:
+            List of workflow execution history items from database
+
+        Note:
+            This method provides database-backed workflow history with pagination support.
+        """
+        raise NotImplementedError(
+            "Subclasses must implement get_workflow_history_from_database"
+        )
+
+    @ensure_initialized
+    async def get_status_by_correlation_id(self, correlation_id: str) -> StatusResponse:
+        """
+        Get workflow execution status by correlation_id.
+
+        Args:
+            correlation_id: Unique correlation identifier for the request
+
+        Returns:
+            StatusResponse with current status
+
+        Raises:
+            KeyError: Correlation ID not found
+        """
+        raise NotImplementedError(
+            "Subclasses must implement get_status_by_correlation_id"
+        )
+
+
+class LLMGatewayAPI(BaseAPI):
+    """
+    LLM Gateway API - Future service extraction boundary.
+
+    ⚠️  **IMPORTANT: THIS API IS NOT YET IMPLEMENTED** ⚠️
+
+    This class defines the contract for future LLM gateway functionality
+    but currently has NO working implementations. All methods will raise
+    NotImplementedError if called.
+
+    **Current Status**: PLACEHOLDER ONLY
+    **Future Implementation**: Planned for Phase 4 - External Service Extraction
+    **Alternative**: Use existing LLM classes in cognivault.llm module
+
+    This API is designed for eventual extraction as independent microservice
+    and represents the stable interface contract that will be implemented
+    when the LLM gateway service is built.
+    """
+
+    @property
+    def api_name(self) -> str:
+        return "LLM Gateway API"
+
+    @property
+    def api_version(self) -> str:
+        return "1.0.0"
+
+    @ensure_initialized
+    async def complete(self, request: CompletionRequest) -> CompletionResponse:
+        """
+        Generate LLM completion.
+
+        ⚠️  **NOT IMPLEMENTED** - This method is a placeholder for future development.
+
+        Args:
+            request: Completion parameters
+
+        Returns:
+            CompletionResponse with generated text
+
+        Raises:
+            NotImplementedError: Always raised - no implementation exists yet
+        """
+        warnings.warn(
+            "LLMGatewayAPI.complete() is not implemented. This is a placeholder for future LLM gateway service. "
+            "Use cognivault.llm.OpenAIChatLLM or similar classes for current LLM functionality.",
+            UserWarning,
+            stacklevel=2,
+        )
+        raise NotImplementedError(
+            "LLMGatewayAPI.complete() is not yet implemented - this is a future placeholder"
+        )
+
+    @ensure_initialized
+    async def get_providers(self) -> List[LLMProviderInfo]:
+        """
+        Get available LLM providers and models.
+
+        ⚠️  **NOT IMPLEMENTED** - This method is a placeholder for future development.
+
+        Returns:
+            List of available LLM providers
+
+        Raises:
+            NotImplementedError: Always raised - no implementation exists yet
+        """
+        warnings.warn(
+            "LLMGatewayAPI.get_providers() is not implemented. This is a placeholder for future LLM gateway service.",
+            UserWarning,
+            stacklevel=2,
+        )
+        raise NotImplementedError(
+            "LLMGatewayAPI.get_providers() is not yet implemented - this is a future placeholder"
+        )
+
+    @ensure_initialized
+    async def estimate_cost(self, request: CompletionRequest) -> Dict[str, float]:
+        """
+        Estimate completion cost across providers.
+
+        ⚠️  **NOT IMPLEMENTED** - This method is a placeholder for future development.
+
+        Args:
+            request: Completion parameters
+
+        Returns:
+            Cost estimates by provider
+
+        Raises:
+            NotImplementedError: Always raised - no implementation exists yet
+        """
+        warnings.warn(
+            "LLMGatewayAPI.estimate_cost() is not implemented. This is a placeholder for future LLM gateway service.",
+            UserWarning,
+            stacklevel=2,
+        )
+        raise NotImplementedError(
+            "LLMGatewayAPI.estimate_cost() is not yet implemented - this is a future placeholder"
+        )

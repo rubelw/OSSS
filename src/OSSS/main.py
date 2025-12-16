@@ -64,13 +64,11 @@ from fastapi import HTTPException as FastapiHTTPException
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from OSSS.ai import admin_additional_index_router
-from OSSS.ai import rag_router
-from OSSS.ai import rag_files
 
 from OSSS.agents import metagpt_agent
 
-from OSSS.ai.router_langchain import router as langchain_router
-
+from OSSS.ai.api.routes import query, topics, workflows
+from OSSS.ai.api.factory import get_orchestration_api
 
 
 # ⬇️ import the actual APIRouter instance
@@ -412,6 +410,9 @@ def create_app() -> FastAPI:
         app.state.async_sessionmaker = async_sessionmaker(
             app.state.db_engine, expire_on_commit=False, class_=AsyncSession
         )
+
+
+
         # Ensure all deps that call get_sessionmaker() use the app-scoped one
         def _sessionmaker_override():
             return app.state.async_sessionmaker
@@ -503,13 +504,13 @@ def create_app() -> FastAPI:
                 },
             )
 
-        app.include_router(langchain_router)
 
         app.include_router(admin_additional_index_router.router)
-        app.include_router(rag_router.router)
 
-        app.include_router(rag_files.router)  # or your existing prefix
         app.include_router(metagpt_agent.router)
+        app.include_router(query.router, prefix="/api")
+        app.include_router(topics.router, prefix="/api")
+        app.include_router(workflows.router, prefix="/api")
 
 
 
@@ -528,6 +529,9 @@ def create_app() -> FastAPI:
                 r = await client.get(f"http://{host}:{port}/me")
                 r.raise_for_status()
                 return r.json()
+
+
+
 
         # DB ping (unless testing) using the app-scoped sessionmaker
         if not settings.TESTING:

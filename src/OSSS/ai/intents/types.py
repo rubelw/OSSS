@@ -12,7 +12,7 @@ class Intent(str, Enum):
     # You can keep existing ones if you want, but you no longer *must*
     # update this list every time. New intents can flow as plain strings.
     STUDENT_COUNTS = "student_counts"
-    STUDENT_INFO = "student_info"
+    STUDENT_INFO = "students"
     STAFF_DIRECTORY = "staff_directory"
     ENROLLMENT = "enrollment"
     INCIDENTS = "incidents"

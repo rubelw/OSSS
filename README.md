@@ -976,3 +976,13 @@ rows/csv.
 ## 📜 License
 
 This project is licensed under the [Apache License 2.0](./LICENSE).
+
+## Credits & Licenses
+
+This project includes code derived from **CogniVault**  
+https://github.com/aucontraire/cognivault
+
+Copyright (c) 2024 aucontraire
+
+Licensed under the MIT License.  
+See the original license text below and in the `LICENSES/cognivault-MIT.txt` file.

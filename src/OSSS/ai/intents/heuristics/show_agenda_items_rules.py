@@ -6,7 +6,7 @@ RULES = [
     HeuristicRule(
         name='agenda_items__explicit_show',
         intent='agenda_items',
-        priority=55,
+        priority=99,
         keywords=['show agenda items', 'agenda_items', 'agenda items', 'board agenda items'],
         word_boundary=False,
         action="read",

@@ -9,9 +9,9 @@ import re
 from OSSS.ai.intents.types import Intent, IntentResult
 from OSSS.ai.intents.registry import INTENT_ALIASES, INTENTS
 
-from OSSS.ai.intents.heuristics.student_info_rules import RULES as STUDENT_INFO_RULES
+from OSSS.ai.intents.heuristics.students_rules import RULES as STUDENT_INFO_RULES
 from OSSS.ai.intents.heuristics.enrollment_rules import RULES as ENROLLMENT_RULES
-from OSSS.ai.intents.heuristics.staff_info_rules import RULES as STAFF_INFO_RULES
+from OSSS.ai.intents.heuristics.staffs_rules import RULES as STAFF_INFO_RULES
 from OSSS.ai.agent_routing_config import build_alias_map
 
 

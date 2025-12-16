@@ -1,7 +1,7 @@
 # src/OSSS/ai/intents/heuristics/__init__.py
 from .apply import HeuristicRule, apply_heuristics
-from .show_staff_info_rules import RULES as SHOW_STAFF_INFO_RULES
-from .show_student_info_rules import RULES as SHOW_STUDENT_INFO_RULES
+from .show_staffs_rules import RULES as SHOW_STAFFS_RULES
+from .show_students_rules import RULES as SHOW_STUDENTS_RULES
 from .show_enrollment_rules import RULES as SHOW_ENROLLMENT_RULES
 from .show_incident_rules import RULES as SHOW_INCIDENT_RULES
 from .show_buildings_rules import RULES as SHOW_BUILDINGS_RULES
@@ -223,7 +223,6 @@ from .show_sis_import_jobs_rules import RULES as SHOW_SIS_IMPORT_JOBS_RULES
 from .show_space_reservations_rules import RULES as SHOW_SPACE_RESERVATIONS_RULES
 from .show_spaces_rules import RULES as SHOW_SPACES_RULES
 from .show_special_education_cases_rules import RULES as SHOW_SPECIAL_EDUCATION_CASES_RULES
-from .show_staff_rules import RULES as SHOW_STAFF_RULES
 from .show_standardized_tests_rules import RULES as SHOW_STANDARDIZED_TESTS_RULES
 from .show_standards_rules import RULES as SHOW_STANDARDS_RULES
 from .show_state_reporting_snapshots_rules import RULES as SHOW_STATE_REPORTING_SNAPSHOTS_RULES
@@ -233,7 +232,6 @@ from .show_student_program_enrollments_rules import RULES as SHOW_STUDENT_PROGRA
 from .show_student_school_enrollments_rules import RULES as SHOW_STUDENT_SCHOOL_ENROLLMENTS_RULES
 from .show_student_section_enrollments_rules import RULES as SHOW_STUDENT_SECTION_ENROLLMENTS_RULES
 from .show_student_transportation_assignments_rules import RULES as SHOW_STUDENT_TRANSPORTATION_ASSIGNMENTS_RULES
-from .show_students_rules import RULES as SHOW_STUDENTS_RULES
 from .show_subjects_rules import RULES as SHOW_SUBJECTS_RULES
 from .show_subscriptions_rules import RULES as SHOW_SUBSCRIPTIONS_RULES
 from .show_tags_rules import RULES as SHOW_TAGS_RULES
@@ -257,8 +255,8 @@ from .show_work_order_time_logs_rules import RULES as SHOW_WORK_ORDER_TIME_LOGS_
 from .show_work_orders_rules import RULES as SHOW_WORK_ORDERS_RULES
 
 ALL_RULES = [
-    *SHOW_STAFF_INFO_RULES,
-    *SHOW_STUDENT_INFO_RULES,
+    *SHOW_STAFFS_RULES,
+    *SHOW_STUDENTS_RULES,
     *SHOW_ENROLLMENT_RULES,
     *SHOW_INCIDENT_RULES,
     *SHOW_BUILDINGS_RULES,
@@ -463,7 +461,6 @@ ALL_RULES = [
     *SHOW_SPACE_RESERVATIONS_RULES,
     *SHOW_SPACES_RULES,
     *SHOW_SPECIAL_EDUCATION_CASES_RULES,
-    *SHOW_STAFF_RULES,
     *SHOW_STANDARDIZED_TESTS_RULES,
     *SHOW_STANDARDS_RULES,
     *SHOW_STATE_REPORTING_SNAPSHOTS_RULES,
@@ -473,7 +470,6 @@ ALL_RULES = [
     *SHOW_STUDENT_SCHOOL_ENROLLMENTS_RULES,
     *SHOW_STUDENT_SECTION_ENROLLMENTS_RULES,
     *SHOW_STUDENT_TRANSPORTATION_ASSIGNMENTS_RULES,
-    *SHOW_STUDENTS_RULES,
     *SHOW_SUBJECTS_RULES,
     *SHOW_SUBSCRIPTIONS_RULES,
     *SHOW_TEACHER_SECTION_ASSIGNMENTS_RULES,
