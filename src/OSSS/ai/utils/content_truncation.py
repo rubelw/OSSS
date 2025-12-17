@@ -11,7 +11,7 @@ from typing import Optional
 
 def smart_truncate_content(
     content: Optional[str],
-    max_length: int = 1000,
+    max_length: int = 4000,
     truncation_indicator: str = "...",
     preserve_sentences: bool = True,
     preserve_words: bool = True,
@@ -44,10 +44,10 @@ def smart_truncate_content(
     Examples
     --------
     >>> content = "This is a long sentence that might be truncated."
-    >>> smart_truncate_content(content, max_length=20)
+    >>> smart_truncate_content(content, max_length=2000)
     'This is a long...'
 
-    >>> smart_truncate_content(content, max_length=20, preserve_sentences=True)
+    >>> smart_truncate_content(content, max_length=2000, preserve_sentences=True)
     'This is a long...'
     """
     if not content or len(content) <= max_length:

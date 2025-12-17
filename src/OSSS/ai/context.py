@@ -475,7 +475,7 @@ class AgentContext(BaseModel):
             self._update_size()
             logger.info(f"Context compressed to {self.current_size} bytes")
 
-    def _clip(s: str, n: int = 1200) -> str:
+    def _clip(s: str, n: int = 4000) -> str:
         s = s or ""
         return s if len(s) <= n else s[:n] + "…[truncated]"
 
@@ -502,7 +502,7 @@ class AgentContext(BaseModel):
                 else (output.text if hasattr(output, "text") else str(output))
             )
 
-        def clip(s: str, n: int = 1200) -> str:
+        def clip(s: str, n: int = 4000) -> str:
             s = s or ""
             return s if len(s) <= n else s[:n] + "…[truncated]"
 
