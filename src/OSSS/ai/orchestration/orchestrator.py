@@ -73,6 +73,7 @@ from OSSS.ai.routing import (
     RoutingDecision,
 )
 from OSSS.ai.orchestration.routing import should_run_historian
+from OSSS.ai.rag.jsonl_rag import rag_prefetch
 
 
 logger = get_logger(__name__)
@@ -363,6 +364,60 @@ class LangGraphOrchestrator:
                     meta = exec_state.setdefault("agent_output_meta", {})
                     if isinstance(meta, dict):
                         meta["_query_profile"] = profile
+
+            # ---------------------------------------------------------------------
+            # ✅ Optional RAG prefetch (JSONL embeddings) - inject into execution_state
+            # ---------------------------------------------------------------------
+            rag_cfg = (config.get("execution_config") or {}).get("rag", {}) if isinstance(config, dict) else {}
+            rag_enabled = bool(rag_cfg.get("enabled", False))
+
+            if rag_enabled:
+                try:
+                    ollama_base = rag_cfg.get("ollama_base", "http://localhost:11434")
+                    embed_model = rag_cfg.get("embed_model", "nomic-embed-text")
+                    jsonl_path = rag_cfg.get("jsonl_path")  # REQUIRED when enabled
+                    top_k = int(rag_cfg.get("top_k", 5))
+
+                    if not jsonl_path:
+                        raise ValueError("RAG enabled but execution_config.rag.jsonl_path is missing")
+
+                    rag = await rag_prefetch_jsonl(
+                        query,
+                        ollama_base=ollama_base,
+                        embed_model=embed_model,
+                        jsonl_path=jsonl_path,
+                        top_k=top_k,
+                    )
+
+                    exec_state = initial_state.setdefault("execution_state", {})
+                    if not isinstance(exec_state, dict):
+                        initial_state["execution_state"] = {}
+                        exec_state = initial_state["execution_state"]
+
+                    # Put both the prompt-ready context and structured hits in state
+                    exec_state["rag_context"] = rag.get("context", "")
+                    exec_state["rag_hits"] = rag.get("hits", [])
+                    exec_state["rag_enabled"] = True
+                    exec_state["rag_meta"] = {
+                        "provider": "ollama",
+                        "embed_model": embed_model,
+                        "jsonl_path": jsonl_path,
+                        "top_k": top_k,
+                    }
+
+                    self.logger.info(
+                        f"[orchestrator] RAG prefetch complete: hits={len(exec_state['rag_hits'])}, top_k={top_k}"
+                    )
+
+                except Exception as e:
+                    # Decide if you want hard-fail vs soft-fail.
+                    # I strongly recommend soft-fail first, with observability.
+                    self.logger.warning(f"[orchestrator] RAG prefetch failed (continuing without RAG): {e}")
+
+                    exec_state = initial_state.setdefault("execution_state", {})
+                    if isinstance(exec_state, dict):
+                        exec_state["rag_enabled"] = False
+                        exec_state["rag_error"] = str(e)
 
 
             # Ensure execution_state.effective_queries exists (node wrappers will fill per-agent)

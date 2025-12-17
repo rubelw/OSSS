@@ -301,6 +301,93 @@ ensure_ollama_local() {
   echo "🎉 Ollama setup complete. Listening on ${OLLAMA_HOST}"
 }
 
+ollama_embed_jsonl() {
+  # 🔒 Hard-coded paths
+  local INPUT_JSONL="./vector_indexes/main/embeddings.jsonl"
+  local TMP_JSONL="./vector_indexes/main/.embeddings.tmp.jsonl"
+  local FINAL_JSONL="./vector_indexes/main/embeddings.jsonl"
+
+  # Flags
+  local INPLACE=true
+  [[ "${1:-}" == "--no-inplace" ]] && INPLACE=false
+
+  # Ollama config (shared with ensure_ollama_local)
+  local MODEL="${OLLAMA_EMBED_MODEL:-nomic-embed-text}"
+  local PORT="${OLLAMA_PORT:-11434}"
+  local EMBED_URL="http://localhost:${PORT}/api/embeddings"
+
+  ensure_ollama_local
+
+  if [[ ! -f "$INPUT_JSONL" ]]; then
+    echo "❌ Input embeddings file not found:"
+    echo "   $INPUT_JSONL"
+    return 1
+  fi
+
+  if ! command -v jq >/dev/null 2>&1; then
+    echo "❌ jq not found. Install with:"
+    echo "   brew install jq"
+    return 1
+  fi
+
+  echo "🧠 Embedding JSONL with Ollama"
+  echo "📦 Model:  $MODEL"
+  echo "➡️  Input:  $INPUT_JSONL"
+  echo "📝 Mode:   $([[ "$INPLACE" == true ]] && echo "in-place" || echo "copy")"
+  echo "🌐 API:    $EMBED_URL"
+  echo
+
+  > "$TMP_JSONL"
+
+  while IFS= read -r line; do
+    [[ -z "$line" ]] && continue
+
+    # Pass through rows that already have embeddings
+    if echo "$line" | jq -e '.embedding' >/dev/null 2>&1; then
+      echo "$line" >> "$TMP_JSONL"
+      continue
+    fi
+
+    local TEXT ID RESPONSE EMBEDDING
+    TEXT=$(echo "$line" | jq -r '.text')
+    ID=$(echo "$line" | jq -r '.id // empty')
+
+    if [[ -z "$TEXT" || "$TEXT" == "null" ]]; then
+      echo "⚠️  Skipping row (missing text) id=${ID:-<none>}"
+      continue
+    fi
+
+    RESPONSE=$(curl -s "$EMBED_URL" \
+      -H "Content-Type: application/json" \
+      -d "$(jq -n \
+        --arg model "$MODEL" \
+        --arg prompt "$TEXT" \
+        '{model:$model,prompt:$prompt}')")
+
+    EMBEDDING=$(echo "$RESPONSE" | jq '.embedding')
+
+    if [[ "$EMBEDDING" == "null" || -z "$EMBEDDING" ]]; then
+      echo "❌ Failed embedding id=${ID:-<none>}"
+      echo "$RESPONSE"
+      continue
+    fi
+
+    echo "$line" | jq --argjson emb "$EMBEDDING" '. + {embedding:$emb}' \
+      >> "$TMP_JSONL"
+  done < "$INPUT_JSONL"
+
+  if [[ "$INPLACE" == true ]]; then
+    mv "$TMP_JSONL" "$FINAL_JSONL"
+    echo
+    echo "✅ Embeddings updated in-place:"
+    echo "   $FINAL_JSONL"
+  else
+    echo
+    echo "✅ Embeddings written to temp file:"
+    echo "   $TMP_JSONL"
+  fi
+}
+
 
 # --- Ensure psql and alembic installed -------------------------------------
 ensure_postgres_tools() {
@@ -4653,6 +4740,7 @@ utilities_menu() {
     echo " 17) Rebuild LLM index - main"
     echo " 18) Rebuild LLM index - tutors"
     echo " 19) Rebuild LLM index - agents"
+    echo " 20) Add embeddings - RAG"
     echo "  q) Back"
     echo "-----------------------------------------------"
     read -rp "Select an option: " choice || return 0
@@ -4891,6 +4979,9 @@ REMOTE
       18) rebuild_additional_llm_index_tutor
         ;;
       19) rebuild_additional_llm_index_agent
+        ;;
+      20)
+        ollama_embed_jsonl
         ;;
       q|Q|b|B)
         return 0

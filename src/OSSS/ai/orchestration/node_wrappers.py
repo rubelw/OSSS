@@ -393,6 +393,25 @@ async def convert_state_to_context(state: OSSSState) -> AgentContext:
         if isinstance(eq, dict):
             context.execution_state["effective_queries"] = eq
 
+        # ✅ Carry forward RAG context (prompt-ready string)
+        rag_ctx = state_exec.get("rag_context")
+        if isinstance(rag_ctx, str) and rag_ctx:
+            context.execution_state["rag_context"] = rag_ctx
+
+        # ✅ Carry forward RAG hits (structured list for debugging/UI)
+        rag_hits = state_exec.get("rag_hits")
+        if isinstance(rag_hits, list):
+            context.execution_state["rag_hits"] = rag_hits
+
+        # (Optional) carry forward RAG meta flags (handy for observability)
+        rag_meta = state_exec.get("rag_meta")
+        if isinstance(rag_meta, dict):
+            context.execution_state["rag_meta"] = rag_meta
+
+        rag_enabled = state_exec.get("rag_enabled")
+        if isinstance(rag_enabled, bool):
+            context.execution_state["rag_enabled"] = rag_enabled
+
     # (Optional) carry forward structured outputs if you want them available to agents
     so = state.get("structured_outputs")
     if isinstance(so, dict):
@@ -463,7 +482,6 @@ async def convert_state_to_context(state: OSSSState) -> AgentContext:
         )
 
     return context
-
 
 
 @circuit_breaker(max_failures=3, reset_timeout=300.0)
