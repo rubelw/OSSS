@@ -99,7 +99,7 @@ INTENT_RULES: List[Tuple[str, float, List[str]]] = [
 # ===========================================================================
 # Public API
 # ===========================================================================
-def detect_intent(query: str) -> Tuple[str, float, List[str], Dict[str, Any]]:
+def detect_intent(query: str) -> Tuple[str, float, List[Dict[str, Any]], Dict[str, Any]]:
     """
     Detect the primary intent of a query.
 
@@ -114,7 +114,7 @@ def detect_intent(query: str) -> Tuple[str, float, List[str], Dict[str, Any]]:
         (
             intent_name: str,
             confidence: float,
-            matched_rules: list[str],
+            matched_rules: list[dict],   # each item includes an `action`
             signals: dict[str, Any],
         )
 
@@ -126,7 +126,7 @@ def detect_intent(query: str) -> Tuple[str, float, List[str], Dict[str, Any]]:
     """
 
     q = query.strip().lower()
-    matched_rules: List[str] = []
+    matched_rules: List[Dict[str, Any]] = []
 
     # ------------------------------------------------------------------
     # Feature extraction (cheap signals)
@@ -136,9 +136,7 @@ def detect_intent(query: str) -> Tuple[str, float, List[str], Dict[str, Any]]:
         "word_count": len(re.findall(r"\w+", query)),
         "question_marks": query.count("?"),
         "has_code_block": "```" in query,
-        "has_stacktrace": bool(
-            re.search(r"traceback|exception|stack trace", q)
-        ),
+        "has_stacktrace": bool(re.search(r"traceback|exception|stack trace", q)),
         "has_numbers": bool(re.search(r"\d+", query)),
         "contains_imperative": bool(
             re.search(r"\b(create|build|write|add|fix|implement)\b", q)
@@ -151,7 +149,16 @@ def detect_intent(query: str) -> Tuple[str, float, List[str], Dict[str, Any]]:
     for intent_name, base_confidence, patterns in INTENT_RULES:
         for pattern in patterns:
             if re.search(pattern, q, re.IGNORECASE):
-                matched_rules.append(f"intent:{intent_name}:{pattern}")
+                rule_str = f"intent:{intent_name}:{pattern}"
+
+                # ✅ default action for intent rules (adjust if you want different mapping)
+                matched_rules.append(
+                    {
+                        "rule": rule_str,
+                        "action": "read",
+                        "intent": intent_name,
+                    }
+                )
 
                 # Slight confidence boost for multi-signal reinforcement
                 confidence = base_confidence
@@ -165,7 +172,12 @@ def detect_intent(query: str) -> Tuple[str, float, List[str], Dict[str, Any]]:
     # ------------------------------------------------------------------
     # Fallback intent
     # ------------------------------------------------------------------
-    # If nothing matches, return a neutral/general intent.
-    matched_rules.append("intent:general:fallback")
+    matched_rules.append(
+        {
+            "rule": "intent:general:fallback",
+            "action": "read",
+            "intent": "general",
+        }
+    )
 
     return "general", 0.50, matched_rules, signals

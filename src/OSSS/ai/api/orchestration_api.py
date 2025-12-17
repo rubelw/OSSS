@@ -442,11 +442,28 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                     },
                 )
 
+
             except Exception as analysis_error:
-                # Best-effort: analysis should never break execution.
+
                 logger.warning(
+
                     f"Preflight analysis failed; continuing with request config. error={analysis_error}"
+
                 )
+
+                # Ensure downstream always has a query_profile key
+
+                config.setdefault("query_profile", {
+                    "intent": "general",
+                    "intent_confidence": 0.50,
+                    "sub_intent": "general",
+                    "sub_intent_confidence": 0.50,
+                    "tone": "neutral",
+                    "tone_confidence": 0.50,
+                    "signals": {},
+                    "matched_rules": [{"rule": "intent:general:fallback", "action": "read"}],
+
+                })
 
             result_context = await self._orchestrator.run(request.query, config)
 
@@ -524,24 +541,73 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
             except Exception:
                 agent_output_meta = {}
 
-            # 2) Always include query_profile fallback (so intent/tone still present)
-            qp = config.get("query_profile")
-            if isinstance(qp, dict):
-                agent_output_meta.setdefault("_query_profile", qp)
-            else:
+            # ----------------------------------------------------------------
+            # Ensure we ALWAYS have a query_profile dict (never None / never empty)
+            # ----------------------------------------------------------------
+            qp: Dict[str, Any] = {}
+            try:
+                qp = config.get("query_profile") or {}
+                if not isinstance(qp, dict):
+                    qp = {}
+            except Exception:
                 qp = {}
 
-            # Pull canonical profile fields once
-            intent = qp.get("intent")
-            sub_intent = qp.get("sub_intent")
-            tone = qp.get("tone")
+            # If preflight analysis didn't populate query_profile (or it is empty),
+            # compute it now (cheap + deterministic) so envelope never returns nulls.
+            if not qp:
+                try:
+                    query_profile = analyze_query(request.query)
+                    qp = query_profile.model_dump()
+                    config["query_profile"] = qp
+                except Exception as e:
+                    logger.warning(f"Failed to compute query_profile fallback: {e}")
+                    qp = {}
 
-            intent_conf = qp.get("intent_confidence")
-            sub_intent_conf = qp.get("sub_intent_confidence")
-            tone_conf = qp.get("tone_confidence")
+            # Keep a copy at a stable location for debugging/clients
+            agent_output_meta.setdefault("_query_profile", qp)
 
-            # 3) Ensure every executed agent has an envelope and always has `action`
-            #    PLUS mirror intent/sub_intent/tone into each envelope.
+            # ----------------------------------------------------------------
+            # Robust extraction helpers (handles alternate shapes)
+            # ----------------------------------------------------------------
+            def _pick(d: dict, *keys: str):
+                for k in keys:
+                    if k in d and d[k] is not None:
+                        return d[k]
+                return None
+
+            def _unwrap_name(v: Any):
+                # supports {"name": "..."} or {"value": "..."} shapes
+                if isinstance(v, dict):
+                    return v.get("name") or v.get("value") or v.get("label")
+                return v
+
+            # Canonical values (with safe defaults)
+            qp_intent = _unwrap_name(_pick(qp, "intent", "intent_name")) or "general"
+            qp_sub_intent = _unwrap_name(_pick(qp, "sub_intent", "sub_intent_name")) or "general"
+            qp_tone = _unwrap_name(_pick(qp, "tone", "tone_name")) or "neutral"
+
+            qp_intent_conf = _pick(qp, "intent_confidence") or 0.50
+            qp_sub_intent_conf = _pick(qp, "sub_intent_confidence") or 0.50
+            qp_tone_conf = _pick(qp, "tone_confidence") or 0.50
+
+            qp_signals = _pick(qp, "signals") or {}
+            qp_matched = _pick(qp, "matched_rules", "matched_patterns") or []
+
+            # Normalize matched_rules to include action
+            # - If matched_rules is List[str], convert to List[dict]
+            # - If it's already List[dict], keep it
+            if isinstance(qp_matched, list) and qp_matched:
+                if isinstance(qp_matched[0], str):
+                    qp_matched = [{"rule": r, "action": "read"} for r in qp_matched]
+                elif isinstance(qp_matched[0], dict):
+                    for item in qp_matched:
+                        item.setdefault("action", "read")
+            else:
+                qp_matched = []
+
+            # ----------------------------------------------------------------
+            # Fan-out profile into EVERY agent envelope (this is the key fix)
+            # ----------------------------------------------------------------
             for agent_name in serialized_agent_outputs.keys():
                 envelope = agent_output_meta.get(agent_name)
                 if not isinstance(envelope, dict):
@@ -549,23 +615,27 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                     agent_output_meta[agent_name] = envelope
 
                 envelope.setdefault("agent", agent_name)
-
-                # ✅ Guarantee action exists
                 envelope.setdefault("action", "read")
 
-                # ✅ Mirror query profile fields per-agent (like action)
-                envelope.setdefault("intent", intent)
-                envelope.setdefault("sub_intent", sub_intent)
-                envelope.setdefault("tone", tone)
+                # Only fill if missing/None (agent can override if it actually set values)
+                if envelope.get("intent") is None:
+                    envelope["intent"] = qp_intent
+                if envelope.get("sub_intent") is None:
+                    envelope["sub_intent"] = qp_sub_intent
+                if envelope.get("tone") is None:
+                    envelope["tone"] = qp_tone
 
-                # Optional: confidence mirrors too (handy for UI)
-                envelope.setdefault("intent_confidence", intent_conf)
-                envelope.setdefault("sub_intent_confidence", sub_intent_conf)
-                envelope.setdefault("tone_confidence", tone_conf)
+                if envelope.get("intent_confidence") is None:
+                    envelope["intent_confidence"] = float(qp_intent_conf)
+                if envelope.get("sub_intent_confidence") is None:
+                    envelope["sub_intent_confidence"] = float(qp_sub_intent_conf)
+                if envelope.get("tone_confidence") is None:
+                    envelope["tone_confidence"] = float(qp_tone_conf)
 
-                # Optional: keep raw signals/rules if you want them everywhere
-                envelope.setdefault("signals", qp.get("signals"))
-                envelope.setdefault("matched_rules", qp.get("matched_rules"))
+                if envelope.get("signals") is None:
+                    envelope["signals"] = qp_signals
+                if envelope.get("matched_rules") is None:
+                    envelope["matched_rules"] = qp_matched
 
             # Build response model for API clients
             response = WorkflowResponse(
