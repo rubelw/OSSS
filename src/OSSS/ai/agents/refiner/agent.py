@@ -77,6 +77,26 @@ class RefinerAgent(BaseAgent):
         # Compose the prompt on initialization for performance
         self._update_composed_prompt()
 
+    def _wrap_output(
+            self,
+            output: str | None = None,
+            *,
+            intent: str | None = None,
+            tone: str | None = None,
+            action: str | None = None,
+            sub_tone: str | None = None,
+            content: str | None = None,  # legacy alias
+            **_: Any,
+    ) -> dict:
+        return super()._wrap_output(
+            output=output,
+            intent=intent,
+            tone=tone,
+            action=action,
+            sub_tone=sub_tone,
+            content=content,
+        )
+
     def _setup_structured_service(self) -> None:
         """Setup LangChain structured output service with model discovery."""
         try:
@@ -205,7 +225,18 @@ class RefinerAgent(BaseAgent):
         logger.debug(f"[{self.name}] Output: {refined_output}")
 
         refined_text = coerce_llm_text(refined_output).strip()
+
+        env = self._wrap_output(
+            output=refined_text,
+            intent="refine_query",
+            tone="neutral",
+            action="read",
+            sub_tone=None,
+        )
+
         context.add_agent_output(self.name, refined_text)
+        context.add_agent_output_envelope(self.name, env)
+
         context.log_trace(self.name, input_data=query, output_data=refined_text)
         return context
 
@@ -363,6 +394,7 @@ class RefinerAgent(BaseAgent):
         input_tokens = getattr(resp, "input_tokens", 0) or 0
         output_tokens = getattr(resp, "output_tokens", 0) or 0
         total_tokens = getattr(resp, "tokens_used", 0) or 0
+
 
         context.add_agent_token_usage(
             agent_name=self.name,

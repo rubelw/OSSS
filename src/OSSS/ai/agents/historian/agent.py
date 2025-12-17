@@ -103,6 +103,26 @@ class HistorianAgent(BaseAgent):
         # Compose the prompt on initialization for performance
         self._update_composed_prompt()
 
+    def _wrap_output(
+            self,
+            output: str | None = None,
+            *,
+            intent: str | None = None,
+            tone: str | None = None,
+            action: str | None = None,
+            sub_tone: str | None = None,
+            content: str | None = None,  # legacy alias
+            **_: Any,
+    ) -> dict:
+        return super()._wrap_output(
+            output=output,
+            intent=intent,
+            tone=tone,
+            action=action,
+            sub_tone=sub_tone,
+            content=content,
+        )
+
     def _get_score(self, r: Any) -> float:
         # Try common score field names; default to 0.0
         score = getattr(r, "match_score", None)
@@ -319,7 +339,17 @@ class HistorianAgent(BaseAgent):
 
             # Add agent output
             historical_text = coerce_llm_text(historical_summary).strip()
+
+            env = self._wrap_output(
+                output=historical_text,
+                intent="historical_query",
+                tone="neutral",
+                action="read",
+                sub_tone=None,
+            )
+
             context.add_agent_output(self.name, historical_text)
+            context.add_agent_output_envelope(self.name, env)
 
             # Log successful execution
             num_notes = len(context.retrieved_notes) if context.retrieved_notes else 0

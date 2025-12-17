@@ -448,36 +448,124 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                     f"Preflight analysis failed; continuing with request config. error={analysis_error}"
                 )
 
-
             result_context = await self._orchestrator.run(request.query, config)
 
             # Compute end-to-end duration
             execution_time = time.time() - start_time
 
             # ----------------------------------------------------------------
+            # Normalize execution_state access (may not exist on some contexts)
+            # ----------------------------------------------------------------
+            exec_state: Dict[str, Any] = {}
+            try:
+                maybe_state = getattr(result_context, "execution_state", None)
+                if isinstance(maybe_state, dict):
+                    exec_state = maybe_state
+            except Exception:
+                exec_state = {}
+
+            # ----------------------------------------------------------------
             # Output extraction: structured outputs are preferred
             # ----------------------------------------------------------------
-            # Newer agents may store structured model_dump() results into:
-            #   result_context.execution_state["structured_outputs"]
-            # This contains richer metadata (confidence, processing_time_ms, etc.)
-            structured_outputs = result_context.execution_state.get(
-                "structured_outputs", {}
-            )
+            structured_outputs: Dict[str, Any] = {}
+            try:
+                so = exec_state.get("structured_outputs", {})
+                if isinstance(so, dict):
+                    structured_outputs = so
+            except Exception:
+                structured_outputs = {}
+
+            # Determine executed agents (prefer actual agent_outputs keys)
+            executed_agents: List[str] = []
+            try:
+                ao = getattr(result_context, "agent_outputs", {}) or {}
+                if isinstance(ao, dict):
+                    executed_agents = list(ao.keys())
+            except Exception:
+                executed_agents = []
+
+            # Fallback: if agent_outputs is missing, use structured outputs keys
+            if not executed_agents and structured_outputs:
+                executed_agents = list(structured_outputs.keys())
 
             # Merge strategy:
-            # - For each agent, if structured output exists -> use it
-            # - Otherwise fall back to legacy string output in agent_outputs
+            # - If structured output exists for agent -> use it
+            # - Else fall back to legacy output in result_context.agent_outputs
             agent_outputs_to_serialize: Dict[str, Any] = {}
-            for agent_name in result_context.agent_outputs:
+            raw_agent_outputs: Dict[str, Any] = {}
+            try:
+                raw_agent_outputs = getattr(result_context, "agent_outputs", {}) or {}
+                if not isinstance(raw_agent_outputs, dict):
+                    raw_agent_outputs = {}
+            except Exception:
+                raw_agent_outputs = {}
+
+            for agent_name in executed_agents:
                 if agent_name in structured_outputs:
                     agent_outputs_to_serialize[agent_name] = structured_outputs[agent_name]
                 else:
-                    agent_outputs_to_serialize[agent_name] = result_context.agent_outputs[agent_name]
+                    agent_outputs_to_serialize[agent_name] = raw_agent_outputs.get(agent_name, "")
 
             # Convert any remaining Pydantic objects to plain dicts
             serialized_agent_outputs = self._convert_agent_outputs_to_serializable(
                 agent_outputs_to_serialize
             )
+
+            # ----------------------------------------------------------------
+            # Output meta extraction (intent/tone/etc.) + ensure `action`
+            # ----------------------------------------------------------------
+            agent_output_meta: Dict[str, Any] = {}
+
+            # 1) Preferred: per-agent envelopes from execution_state if present
+            try:
+                aom = exec_state.get("agent_output_meta", {})
+                if isinstance(aom, dict):
+                    agent_output_meta = aom
+            except Exception:
+                agent_output_meta = {}
+
+            # 2) Always include query_profile fallback (so intent/tone still present)
+            qp = config.get("query_profile")
+            if isinstance(qp, dict):
+                agent_output_meta.setdefault("_query_profile", qp)
+            else:
+                qp = {}
+
+            # Pull canonical profile fields once
+            intent = qp.get("intent")
+            sub_intent = qp.get("sub_intent")
+            tone = qp.get("tone")
+
+            intent_conf = qp.get("intent_confidence")
+            sub_intent_conf = qp.get("sub_intent_confidence")
+            tone_conf = qp.get("tone_confidence")
+
+            # 3) Ensure every executed agent has an envelope and always has `action`
+            #    PLUS mirror intent/sub_intent/tone into each envelope.
+            for agent_name in serialized_agent_outputs.keys():
+                envelope = agent_output_meta.get(agent_name)
+                if not isinstance(envelope, dict):
+                    envelope = {}
+                    agent_output_meta[agent_name] = envelope
+
+                envelope.setdefault("agent", agent_name)
+
+                # ✅ Guarantee action exists
+                envelope.setdefault("action", "read")
+
+                # ✅ Mirror query profile fields per-agent (like action)
+                envelope.setdefault("intent", intent)
+                envelope.setdefault("sub_intent", sub_intent)
+                envelope.setdefault("tone", tone)
+
+                # Optional: confidence mirrors too (handy for UI)
+                envelope.setdefault("intent_confidence", intent_conf)
+                envelope.setdefault("sub_intent_confidence", sub_intent_conf)
+                envelope.setdefault("tone_confidence", tone_conf)
+
+                # Optional: keep raw signals/rules if you want them everywhere
+                envelope.setdefault("signals", qp.get("signals"))
+                envelope.setdefault("matched_rules", qp.get("matched_rules"))
 
             # Build response model for API clients
             response = WorkflowResponse(
@@ -486,6 +574,7 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                 agent_outputs=serialized_agent_outputs,
                 execution_time_seconds=execution_time,
                 correlation_id=request.correlation_id,
+                agent_output_meta=agent_output_meta,  # ✅ now stable + contains action
             )
 
             # ----------------------------------------------------------------
@@ -631,9 +720,13 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                 workflow_id=workflow_id,
                 status="completed",
                 execution_time_seconds=execution_time,
-                agent_outputs=result_context.agent_outputs,  # raw context outputs for telemetry
+                agent_outputs=result_context.agent_outputs,
                 correlation_id=request.correlation_id,
-                metadata={"api_version": self.api_version, "end_time": time.time()},
+                metadata={
+                    "api_version": self.api_version,
+                    "end_time": time.time(),
+                    "agent_output_meta": agent_output_meta,  # ✅ safe: nested under metadata
+                },
             )
 
             logger.info(

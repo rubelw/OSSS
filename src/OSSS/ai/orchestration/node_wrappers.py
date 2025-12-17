@@ -560,6 +560,8 @@ async def refiner_node(
             confidence=result_context.execution_state.get("confidence", 0.8),
             processing_notes=result_context.execution_state.get("processing_notes"),
             timestamp=datetime.now(timezone.utc).isoformat(),
+            agent_output_meta=context.execution_state.get("agent_output_meta", {})
+
         )
 
         # Get token usage information from agent context
@@ -770,6 +772,8 @@ async def critic_node(
             weaknesses=result_context.execution_state.get("weaknesses", []),
             confidence=result_context.execution_state.get("confidence", 0.7),
             timestamp=datetime.now(timezone.utc).isoformat(),
+            agent_output_meta=context.execution_state.get("agent_output_meta", {})
+
         )
 
         # Get token usage information from agent context
@@ -965,6 +969,8 @@ async def historian_node(
             ),
             metadata=result_context.execution_state.get("historian_metadata", {}),
             timestamp=datetime.now(timezone.utc).isoformat(),
+            agent_output_meta=context.execution_state.get("agent_output_meta", {})
+
         )
 
         # Get token usage information from agent context
@@ -1155,6 +1161,8 @@ async def synthesis_node(
             confidence=result_context.execution_state.get("confidence", 0.8),
             metadata=result_context.execution_state.get("synthesis_metadata", {}),
             timestamp=datetime.now(timezone.utc).isoformat(),
+            agent_output_meta=context.execution_state.get("agent_output_meta", {})
+
         )
 
         # Get token usage information from agent context

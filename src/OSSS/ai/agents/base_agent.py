@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from enum import Enum
 import inspect
 
+
 from pydantic import BaseModel, Field, ConfigDict
 from OSSS.ai.context import AgentContext
 from OSSS.ai.exceptions import (
@@ -21,9 +22,13 @@ from OSSS.ai.correlation import (
     get_workflow_id,
 )
 
+from OSSS.ai.agents.output_envelope import AgentOutputEnvelope
+
 # Lazy event emission imports to avoid circular import
 # Events will be imported at runtime when needed
 EVENTS_AVAILABLE = True
+
+
 
 async def _maybe_await(x: Any) -> None:
     """Await coroutines; ignore non-awaitables."""
@@ -62,7 +67,7 @@ async def _emit_agent_execution_started(
             f"Failed to emit agent execution started event: {e}"
         )
 
-async def _emit_agent_execution_completed(
+def _emit_agent_execution_completed(
     workflow_id: str,
     agent_name: str,
     success: bool,
@@ -75,26 +80,35 @@ async def _emit_agent_execution_completed(
     metadata: Optional[Dict[str, Any]] = None,
     event_category: Optional[Any] = None,
 ) -> None:
-    """Lazily import and emit agent execution completed event."""
+    """Lazily import and emit agent execution completed event (fire-and-forget)."""
     try:
         from OSSS.ai.events import emit_agent_execution_completed
         from OSSS.ai.events.types import EventCategory
 
-        await _maybe_await(
-            emit_agent_execution_completed(
-                workflow_id=workflow_id,
-                agent_name=agent_name,
-                success=success,
-                output_context=output_context,
-                agent_metadata=agent_metadata,
-                execution_time_ms=execution_time_ms,
-                error_message=error_message,
-                error_type=error_type,
-                correlation_id=correlation_id,
-                metadata=metadata,
-                event_category=event_category or EventCategory.EXECUTION,
-            )
+        result = emit_agent_execution_completed(
+            workflow_id=workflow_id,
+            agent_name=agent_name,
+            success=success,
+            output_context=output_context,
+            agent_metadata=agent_metadata,
+            execution_time_ms=execution_time_ms,
+            error_message=error_message,
+            error_type=error_type,
+            correlation_id=correlation_id,
+            metadata=metadata,
+            event_category=event_category or EventCategory.EXECUTION,
         )
+
+        # If the emitter returned a coroutine/awaitable, schedule it safely.
+        # This prevents "coroutine was never awaited" when callers invoke us sync.
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+
+        if loop and inspect.isawaitable(result):
+            loop.create_task(result)
+
     except ImportError:
         return
     except Exception as e:
@@ -407,6 +421,28 @@ class BaseAgent(ABC):
         # LangGraph node metadata
         self._node_definition: Optional[LangGraphNodeDefinition] = None
 
+    def _wrap_output(
+            self,
+            output: str | None = None,
+            *,
+            intent: str | None = None,
+            tone: str | None = None,
+            action: str | None = None,
+            sub_tone: str | None = None,
+            content: str | None = None,
+            **_: Any,
+    ) -> dict:
+        # Always populate a stable envelope shape
+        return {
+            "output": output,
+            "content": content if content is not None else output,
+            "intent": intent,
+            "tone": tone,
+            "action": action,  # ✅ MAKE SURE THIS EXISTS
+            "sub_tone": sub_tone,
+            "agent": getattr(self, "name", None),
+        }
+
     def generate_step_id(self) -> str:
         """Generate a unique step ID for this execution."""
         return f"{self.name.lower()}_{uuid.uuid4().hex[:8]}"
@@ -515,6 +551,63 @@ class BaseAgent(ABC):
                     self._execute_with_context(context, step_id),
                     timeout=self.timeout_seconds,
                 )
+
+                # -------------------------------------------------------------------
+                # ✅ Ensure per-agent output envelope is persisted for API response
+                # -------------------------------------------------------------------
+                # Some agents already call context.add_agent_output_envelope(...).
+                # If they don't (or if a given context implementation doesn't store it),
+                # the orchestration API won't be able to return fields like `action`.
+                #
+                # We enforce a minimal envelope here in the base retry wrapper so the
+                # API always has something stable to expose.
+                try:
+                    # Prefer the returned context, since _execute_with_context may
+                    # return a new/updated AgentContext instance.
+                    exec_state = getattr(result, "execution_state", None)
+                    if exec_state is None:
+                        exec_state = {}
+                        try:
+                            setattr(result, "execution_state", exec_state)
+                        except Exception:
+                            # If result is immutable, just skip
+                            exec_state = None
+
+                    if isinstance(exec_state, dict):
+                        meta = exec_state.get("agent_output_meta")
+                        if not isinstance(meta, dict):
+                            meta = {}
+                            exec_state["agent_output_meta"] = meta
+
+                        # Only synthesize if agent didn't already store an envelope
+                        if self.name not in meta or not isinstance(meta.get(self.name), dict):
+                            # Pull the agent output string if present
+                            agent_output = ""
+                            try:
+                                agent_output = result.agent_outputs.get(self.name, "") or ""
+                            except Exception:
+                                agent_output = ""
+
+                            meta[self.name] = {
+                                "agent": self.name,
+                                "intent": None,
+                                "tone": None,
+                                "action": "read",   # ✅ ensures action shows up
+                                "sub_tone": None,
+                                "output": agent_output,
+                                "content": agent_output,  # legacy alias
+                            }
+
+                            self.logger.debug(
+                                f"[{self.name}] Synthesized output envelope (action=read) for API meta"
+                            )
+
+                except Exception as env_e:
+                    # Never fail the workflow due to meta/envelope issues
+                    self.logger.debug(
+                        f"[{self.name}] Failed to synthesize/store output envelope: {env_e}"
+                    )
+
 
                 # Success - record metrics and return
                 execution_time = (

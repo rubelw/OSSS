@@ -259,6 +259,26 @@ class AgentContext(BaseModel):
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
+    def add_agent_output_envelope(self, agent_name: str, envelope: dict) -> None:
+        if not isinstance(envelope, dict):
+            envelope = {"output": str(envelope)}
+
+        # Ensure stable keys so downstream can rely on them
+        envelope.setdefault("agent", agent_name)
+        envelope.setdefault("output", "")
+        envelope.setdefault("content", envelope.get("output", ""))
+        envelope.setdefault("intent", None)
+        envelope.setdefault("tone", None)
+        envelope.setdefault("action", "read")  # ✅ make action always exist
+        envelope.setdefault("sub_tone", None)
+
+        # Store ONLY in execution_state (safe for Pydantic forbid-extra models)
+        self.execution_state.setdefault("agent_output_meta", {})
+        self.execution_state["agent_output_meta"][agent_name] = envelope
+
+    def get_agent_output_envelope(self, agent_name: str) -> dict:
+        return (self.execution_state.get("agent_output_meta") or {}).get(agent_name, {})
+
     @field_validator("query")
     @classmethod
     def validate_query_not_empty(cls, v: str) -> str:
@@ -462,6 +482,26 @@ class AgentContext(BaseModel):
     def add_agent_output(self, agent_name: str, output: Any) -> None:
         """Add agent output with size monitoring."""
 
+        # If the agent already returned an envelope, preserve it.
+        if isinstance(output, dict):
+            envelope = dict(output)
+            content = envelope.get("content") or envelope.get("text") or envelope.get("message") or ""
+            meta = envelope.get("meta") or {}
+            # Promote common meta keys if they’re top-level
+            for k in ("intent", "tone"):
+                if k in envelope and k not in meta:
+                    meta[k] = envelope[k]
+            envelope = {"content": content, "meta": meta}
+            self.add_agent_output_envelope(agent_name, envelope)
+            output = content  # what you store in agent_outputs for display
+        else:
+            # Existing behavior for non-dicts
+            output = (
+                output.content
+                if hasattr(output, "content")
+                else (output.text if hasattr(output, "text") else str(output))
+            )
+
         def clip(s: str, n: int = 1200) -> str:
             s = s or ""
             return s if len(s) <= n else s[:n] + "…[truncated]"
@@ -491,6 +531,8 @@ class AgentContext(BaseModel):
         logger.debug(
             f"Context size after adding {agent_name}: {self.current_size} bytes"
         )
+
+        self.agent_outputs[agent_name] = output
 
     def add_agent_token_usage(
         self,

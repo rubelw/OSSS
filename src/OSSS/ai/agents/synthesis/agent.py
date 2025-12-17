@@ -80,6 +80,26 @@ class SynthesisAgent(BaseAgent):
         # Compose the prompt on initialization for performance
         self._update_composed_prompt()
 
+    def _wrap_output(
+            self,
+            output: str | None = None,
+            *,
+            intent: str | None = None,
+            tone: str | None = None,
+            action: str | None = None,
+            sub_tone: str | None = None,
+            content: str | None = None,  # legacy alias
+            **_: Any,
+    ) -> dict:
+        return super()._wrap_output(
+            output=output,
+            intent=intent,
+            tone=tone,
+            action=action,
+            sub_tone=sub_tone,
+            content=content,
+        )
+
     def _compute_word_count(self, text: str) -> int:
         """
         Compute word count deterministically server-side.
@@ -257,6 +277,12 @@ class SynthesisAgent(BaseAgent):
         outputs = context.agent_outputs
 
         query = context.query.strip()
+
+        # Always define analysis so later code can safely reference it
+        analysis: Dict[str, Any] = {}
+        # If you want full thematic analysis, enable this:
+        # analysis = await self._analyze_agent_outputs(query, outputs, context)
+
         logger.info(f"[{self.name}] Running synthesis for query: {query}")
         logger.info(f"[{self.name}] Processing outputs from: {list(outputs.keys())}")
 
@@ -310,7 +336,18 @@ class SynthesisAgent(BaseAgent):
             from OSSS.ai.utils.llm_text import coerce_llm_text
 
             final_text = coerce_llm_text(final_synthesis).strip()
+
+            env = self._wrap_output(
+                output=final_text,
+                intent="synthesis_query",
+                tone="neutral",
+                action="read",
+                sub_tone=None,
+            )
+
             context.add_agent_output(self.name, final_text)
+            context.add_agent_output_envelope(self.name, env)
+
             context.set_final_synthesis(final_text)
             context.log_trace(self.name, input_data=list(outputs.keys()), output_data=final_text)
 
@@ -424,6 +461,10 @@ class SynthesisAgent(BaseAgent):
 
         This method performs the entire synthesis process using structured output,
         ensuring content pollution prevention and consistent formatting.
+
+        IMPORTANT:
+        - Some models/services can't reliably do JSON schema structured output.
+        - In those cases we fall back to the same "traditional" path used in run().
         """
         import time
 
@@ -433,28 +474,36 @@ class SynthesisAgent(BaseAgent):
             raise ValueError("Structured service not available")
 
         # ------------------------------------------------------------------
-        # NEW: robust pooled/ollama/llama guard (prevents json_schema calls)
+        # Robust pooled/ollama/llama guard (prevents json_schema calls)
         # ------------------------------------------------------------------
         resolved = (self._resolved_model_name() or "").lower()
 
-        # IMPORTANT: pooled model gets resolved later; also catch ollama base_url
         base_url = (getattr(self.structured_service, "base_url", "") or "").lower()
         is_ollama = ("11434" in base_url) or ("ollama" in base_url)
         is_llama = "llama" in resolved
+        is_pooled = resolved in ("pooled", "pool")
 
-        if is_llama or is_ollama or resolved in ("pooled", "pool"):
+        if is_llama or is_ollama or is_pooled:
             self.logger.info(
                 f"[{self.name}] Disabling structured output for resolved_model='{resolved}' base_url='{base_url}'"
             )
-            # Fall back immediately (don’t attempt structured/json_schema)
-            try:
-                return await self._run_traditional(query, outputs, context)
-            except TypeError:
-                # If your _run_traditional signature is (query, context)
-                return await self._run_traditional(query, context)
+
+            # Fall back immediately using the existing traditional logic.
+            analysis: Dict[str, Any] = {}
+            # If you want thematic analysis in fallback, enable this:
+            # analysis = await self._analyze_agent_outputs(query, outputs, context)
+
+            if self.llm:
+                synthesis_result = await self._llm_powered_synthesis(
+                    query, outputs, analysis, context
+                )
+            else:
+                synthesis_result = await self._fallback_synthesis(query, outputs, context)
+
+            return await self._format_final_output(query, synthesis_result, analysis)
 
         # ------------------------------------------------------------------
-        # ONLY NOW do structured output
+        # Structured output path
         # ------------------------------------------------------------------
         try:
             system_prompt = self._get_system_prompt()
@@ -465,9 +514,8 @@ class SynthesisAgent(BaseAgent):
             )
             contributing_agents = list(unique.keys())
 
-            # FIX: analysis was commented out but still referenced; keep safe default
+            # Keep analysis defined; optionally enable the analysis call.
             analysis: Dict[str, Any] = {}
-            # If you want it back on, uncomment:
             # analysis = await self._analyze_agent_outputs(query, outputs, context)
 
             prompt = f"""Original Query: {query}
@@ -502,11 +550,14 @@ class SynthesisAgent(BaseAgent):
             elif isinstance(result, StructuredOutputResult):
                 parsed_result = result.parsed
                 if not isinstance(parsed_result, SynthesisOutput):
-                    raise ValueError(f"Expected SynthesisOutput, got {type(parsed_result)}")
+                    raise ValueError(
+                        f"Expected SynthesisOutput, got {type(parsed_result)}"
+                    )
                 structured_result = parsed_result
             else:
                 raise ValueError(f"Unexpected result type: {type(result)}")
 
+            # Server-calculated timing + word count (deterministic)
             processing_time_ms = (time.time() - start_time) * 1000
             if structured_result.processing_time_ms is None:
                 structured_result = structured_result.model_copy(
@@ -524,16 +575,9 @@ class SynthesisAgent(BaseAgent):
                 f"[{self.name}] Injected server-calculated word_count: {computed_word_count}"
             )
 
+            # Store structured output for orchestrator/API to prefer
             context.execution_state.setdefault("structured_outputs", {})
             context.execution_state["structured_outputs"][self.name] = structured_result.model_dump()
-
-            existing = context.get_agent_token_usage(self.name)
-            context.add_agent_token_usage(
-                agent_name=self.name,
-                input_tokens=existing["input_tokens"],
-                output_tokens=existing["output_tokens"],
-                total_tokens=existing["total_tokens"],
-            )
 
             logger.info(
                 f"[{self.name}] Structured output successful - "
@@ -545,8 +589,20 @@ class SynthesisAgent(BaseAgent):
             return await self._format_structured_output(query, structured_result, analysis)
 
         except Exception as e:
-            self.logger.debug(f"[{self.name}] Structured failed fast, falling back: {e}")
-            raise
+            # If structured fails, fall back instead of raising (prevents emergency synthesis).
+            self.logger.warning(f"[{self.name}] Structured failed, falling back: {e}")
+
+            analysis: Dict[str, Any] = {}
+            # analysis = await self._analyze_agent_outputs(query, outputs, context)
+
+            if self.llm:
+                synthesis_result = await self._llm_powered_synthesis(
+                    query, outputs, analysis, context
+                )
+            else:
+                synthesis_result = await self._fallback_synthesis(query, outputs, context)
+
+            return await self._format_final_output(query, synthesis_result, analysis)
 
     async def _format_structured_output(
         self, query: str, structured_result: SynthesisOutput, analysis: Dict[str, Any]

@@ -127,6 +127,26 @@ class CriticAgent(BaseAgent):
         # Compose prompts eagerly for performance and early failure detection
         self._update_composed_prompt()
 
+    def _wrap_output(
+            self,
+            output: str | None = None,
+            *,
+            intent: str | None = None,
+            tone: str | None = None,
+            action: str | None = None,
+            sub_tone: str | None = None,
+            content: str | None = None,  # legacy alias
+            **_: Any,
+    ) -> dict:
+        return super()._wrap_output(
+            output=output,
+            intent=intent,
+            tone=tone,
+            action=action,
+            sub_tone=sub_tone,
+            content=content,
+        )
+
     def _setup_structured_service(self) -> None:
         """
         Initialize LangChain-based structured output service.
@@ -408,7 +428,17 @@ class CriticAgent(BaseAgent):
         # ✅ Always store plain text in context (never objects)
         critique_text = coerce_llm_text(critique).strip()
 
+        env = self._wrap_output(
+            output=critique_text,
+            intent="critique_query",
+            tone="neutral",
+            action="read",
+            sub_tone=None,
+        )
+
         context.add_agent_output(self.name, critique_text)
+        context.add_agent_output_envelope(self.name, env)
+
         context.log_trace(
             self.name,
             input_data=refined_output,

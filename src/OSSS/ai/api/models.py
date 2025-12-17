@@ -117,6 +117,9 @@ class WorkflowResponse(BaseModel):
         pattern=r"^(completed|failed|running|cancelled)$",
         json_schema_extra={"example": "completed"},
     )
+
+    agent_output_meta: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
+
     agent_outputs: Dict[str, Any] = Field(
         ...,
         description="Outputs from each executed agent (structured Pydantic models or strings for backward compatibility)",
