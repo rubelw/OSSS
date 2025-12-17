@@ -25,10 +25,12 @@ import time                 # Wall-clock timing for execution durations
 from typing import Dict, Any, Optional, List
 from datetime import datetime, timezone  # UTC timestamps for telemetry/metadata
 from pathlib import Path     # Filesystem paths (markdown export)
+import json
+import re
 
 from OSSS.ai.analysis.pipeline import analyze_query
 from OSSS.ai.analysis.policy import build_execution_plan
-
+from OSSS.ai.analysis.models import QueryProfile
 # ---------------------------------------------------------------------------
 # OSSS / OSSS API contracts and models
 # ---------------------------------------------------------------------------
@@ -58,10 +60,149 @@ from OSSS.ai.events import emit_workflow_started, emit_workflow_completed
 from OSSS.ai.database.connection import get_session_factory
 from OSSS.ai.database.repositories.question_repository import QuestionRepository
 from OSSS.ai.database.session_factory import DatabaseSessionFactory
+from OSSS.ai.llm.utils import call_llm_text
+
 
 
 # Module-level logger (structured)
 logger = get_logger(__name__)
+
+
+def _normalize_rule_hits(value: Any) -> list[dict]:
+    """
+    Normalize various rule-hit shapes into:
+      {"rule": str, "action": str, "category"?: str, "score"?: number, "meta"?: object}
+    Drops unknown keys to satisfy Pydantic "extra=forbid".
+    """
+    if not value:
+        return []
+
+    out: list[dict] = []
+
+    if isinstance(value, list):
+        for item in value:
+            if isinstance(item, str):
+                out.append({"rule": item, "action": "read"})
+                continue
+
+            if not isinstance(item, dict):
+                continue
+
+            # Map possible identifiers -> "rule"
+            rule = (
+                item.get("rule")
+                or item.get("rule_id")
+                or item.get("id")
+                or item.get("name")
+                or item.get("label")  # last resort
+            )
+            if not isinstance(rule, str) or not rule.strip():
+                continue
+
+            hit: dict = {
+                "rule": rule.strip(),
+                "action": item.get("action") if isinstance(item.get("action"), str) else "read",
+            }
+
+            if isinstance(item.get("category"), str):
+                hit["category"] = item["category"]
+
+            # score/confidence normalization
+            if isinstance(item.get("score"), (int, float)):
+                hit["score"] = float(item["score"])
+            elif isinstance(item.get("confidence"), (int, float)):
+                hit["score"] = float(item["confidence"])
+
+            # meta: preserve anything else useful but keep it under "meta"
+            meta = item.get("meta") if isinstance(item.get("meta"), dict) else {}
+            # stash common extras into meta so we don't violate schema
+            for k in ("label", "tone", "sub_intent", "parent_intent"):
+                if k in item and k not in meta:
+                    meta[k] = item[k]
+            if meta:
+                hit["meta"] = meta
+
+            out.append(hit)
+
+    return out
+
+
+def _coerce_llm_text(raw: Any) -> str:
+    """
+    Normalize common LLM client return shapes into plain assistant text.
+    Supports:
+      - plain string
+      - OpenAI-style dict: {"choices":[{"message":{"content":"..."}}]}
+      - {"content": "..."} or {"text": "..."}
+      - objects with .content / .text
+    """
+    if raw is None:
+        return ""
+
+    if isinstance(raw, str):
+        return raw
+
+    if isinstance(raw, dict):
+        # OpenAI / compatible
+        if "choices" in raw and isinstance(raw["choices"], list) and raw["choices"]:
+            ch0 = raw["choices"][0]
+            if isinstance(ch0, dict):
+                msg = ch0.get("message")
+                if isinstance(msg, dict) and isinstance(msg.get("content"), str):
+                    return msg["content"]
+                # sometimes "text" exists directly
+                if isinstance(ch0.get("text"), str):
+                    return ch0["text"]
+
+        if isinstance(raw.get("content"), str):
+            return raw["content"]
+        if isinstance(raw.get("text"), str):
+            return raw["text"]
+
+        return str(raw)
+
+    # pydantic / dataclasses / custom objects
+    for attr in ("content", "text"):
+        v = getattr(raw, attr, None)
+        if isinstance(v, str):
+            return v
+
+    return str(raw)
+
+def _extract_first_json_object(text: str) -> str:
+    """
+    Best-effort: pull the first {...} JSON object out of an LLM response.
+    Handles cases like:
+      - leading text
+      - ```json fences
+      - trailing commentary
+    """
+    if not text:
+        raise ValueError("empty LLM response")
+
+    # strip fenced blocks
+    text = text.strip()
+    text = re.sub(r"^```(?:json)?\s*", "", text)
+    text = re.sub(r"\s*```$", "", text)
+
+    # Try direct JSON first
+    try:
+        json.loads(text)
+        return text
+    except Exception:
+        pass
+
+    # Find the first {...} block
+    m = re.search(r"\{.*\}", text, flags=re.DOTALL)
+    if not m:
+        raise ValueError("no JSON object found in response")
+
+    candidate = m.group(0)
+    json.loads(candidate)  # validate
+    return candidate
+
+
+
 
 
 class LangGraphOrchestrationAPI(OrchestrationAPI):
@@ -111,6 +252,204 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
         # Optional "repository factory" session manager used for historian
         # document persistence (markdown export).
         self._db_session_factory: Optional[DatabaseSessionFactory] = None
+
+    def _extract_effective_queries(
+            self,
+            *,
+            base_query: str,
+            executed_agents: List[str],
+            exec_state: Dict[str, Any],
+    ) -> Dict[str, str]:
+        """
+        Build per-agent query text for analysis.
+
+        Preferred:
+          exec_state["effective_queries"][agent]
+        Fallback:
+          base_query
+        """
+        effective_queries: Dict[str, str] = {}
+
+        eq = exec_state.get("effective_queries")
+        if isinstance(eq, dict):
+            for agent in executed_agents:
+                v = eq.get(agent)
+                if isinstance(v, str) and v.strip():
+                    effective_queries[agent] = v.strip()
+
+        for agent in executed_agents:
+            effective_queries.setdefault(agent, (base_query or "").strip())
+
+        return effective_queries
+
+    async def _llm_analyze_query_profile_best_effort(
+            self,
+            query: str,
+            *,
+            llm: Any,
+    ) -> QueryProfile:
+        """
+        Ask the LLM to produce a QueryProfile for a single query.
+
+        Best-effort:
+          - returns QueryProfile
+          - falls back to deterministic analyze_query on any error
+        """
+        q = (query or "").strip()
+        if not q:
+            prof = QueryProfile()
+            prof.signals = dict(prof.signals or {})
+            prof.signals["analysis_source"] = "rules_fallback"
+            prof.signals["empty_query"] = True
+            return prof
+
+        raw: Any = None
+        text: str = ""  # ✅ always defined (prevents "text referenced before assignment")
+        try:
+            prompt = f"""
+You are a classifier. Return ONLY valid JSON that matches this schema EXACTLY.
+Do not add any extra keys.
+
+Schema:
+{{
+  "intent": "string",
+  "intent_confidence": 0.0,
+  "tone": "string",
+  "tone_confidence": 0.0,
+  "sub_intent": "string",
+  "sub_intent_confidence": 0.0,
+  "signals": {{}},
+  "matched_rules": [
+    {{
+      "rule": "string",
+      "action": "read|troubleshoot|create|review|explain|route",
+      "category": "intent|tone|sub_intent|policy",
+      "score": 0.0,
+      "meta": {{}}
+    }}
+  ]
+}}
+
+Query:
+{q}
+""".strip()
+
+            # ✅ log marker so we can prove we reached the LLM path
+            logger.info(
+                "Calling LLM for query_profile",
+                extra={
+                    "query_preview": q[:200],
+                    "llm_type": type(llm).__name__,
+                },
+            )
+
+            raw = await call_llm_text(llm, prompt)
+
+            text = _coerce_llm_text(raw).strip()
+            if not text:
+                raise ValueError("LLM returned empty content")
+
+            # ---- Attempt structured JSON path ----
+            try:
+                json_text = _extract_first_json_object(text)
+                data = json.loads(json_text)
+
+                # normalize matched_rules into RuleHit schema expected by QueryProfile
+                data["matched_rules"] = _normalize_rule_hits(data.get("matched_rules"))
+
+                prof = QueryProfile.model_validate(data)
+                prof.signals = dict(prof.signals or {})
+                prof.signals["analysis_source"] = "llm"
+                prof.signals["llm_parse_mode"] = "json"
+                return prof
+
+            except Exception as parse_error:
+                # ---- Token fallback path (keeps system useful even if JSON is messy) ----
+                # NOTE: we only try to salvage intent here; other fields stay neutral.
+                ALLOWED_INTENTS = {
+                    "general", "analyze", "explain", "howto", "summarize",
+                    "troubleshoot", "create", "review", "route",
+                }
+
+                token_prompt = f"""Return ONLY ONE WORD: one of {sorted(ALLOWED_INTENTS)}.
+Query: {q}
+Intent:"""
+
+                logger.info(
+                    "LLM query_profile JSON parse failed; attempting token fallback",
+                    extra={"error": str(parse_error)},
+                )
+
+                raw2 = None
+                text2 = ""
+                try:
+                    raw2 = await call_llm_text(llm, prompt)
+
+                    text2 = _coerce_llm_text(raw2).strip().lower()
+                except Exception:
+                    text2 = ""
+
+                intent = (text2.split()[0] if text2 else "").strip()
+                if intent not in ALLOWED_INTENTS:
+                    # final fallback: deterministic rules
+                    raise parse_error
+
+                data = {
+                    "intent": intent,
+                    "intent_confidence": 0.70,  # conservative but "usable"
+                    "tone": "neutral",
+                    "tone_confidence": 0.50,
+                    "sub_intent": "general",
+                    "sub_intent_confidence": 0.50,
+                    "signals": {
+                        "analysis_source": "llm",
+                        "llm_parse_mode": "token_fallback",
+                        "llm_json_parse_error": str(parse_error),
+                    },
+                    "matched_rules": [],
+                }
+
+                prof = QueryProfile.model_validate(data)
+                return prof
+
+        except Exception as e:
+            logger.warning(
+                "LLM query_profile failed; falling back to rules",
+                extra={
+                    "error": str(e),
+                    "raw_type": (type(raw).__name__ if raw is not None else None),
+                    "text_preview": (text[:500] if text else None),
+                },
+            )
+            prof = analyze_query(q)
+            prof.signals = dict(prof.signals or {})
+            prof.signals["analysis_source"] = "rules_fallback"
+            prof.signals["llm_query_profile_error"] = str(e)
+            prof.signals["llm_query_profile_fallback"] = True
+            return prof
+
+    async def _llm_analyze_agent_queries(
+            self,
+            agent_queries: Dict[str, str],
+            *,
+            llm: Optional[Any] = None,
+    ) -> Dict[str, QueryProfile]:
+        """
+        Run LLM query analysis for each agent query.
+
+        If an LLM instance is provided, reuse it to avoid provider/base_url drift.
+        """
+        if llm is None:
+            from OSSS.ai.llm.openai import OpenAIChatLLM
+            from OSSS.ai.config.openai_config import OpenAIConfig
+
+            cfg = OpenAIConfig.load()
+            llm = OpenAIChatLLM(api_key=cfg.api_key, model=cfg.model, base_url=cfg.base_url)
+
+        results: Dict[str, QueryProfile] = {}
+        for agent, q in agent_queries.items():
+            results[agent] = await self._llm_analyze_query_profile_best_effort(q, llm=llm)
+        return results
 
     def _convert_agent_outputs_to_serializable(
         self,
@@ -383,6 +722,9 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
             # IMPORTANT: copy dict to avoid mutating request.execution_config
             config = dict(original_execution_config)
 
+            # ✅ Explicit flag (so downstream can rely on a real bool)
+            config["use_llm_intent"] = bool(original_execution_config.get("use_llm_intent", False))
+
             # Preserve correlation_id for request tracing across services
             if request.correlation_id:
                 config["correlation_id"] = request.correlation_id
@@ -394,6 +736,19 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
             if request.agents:
                 config["agents"] = request.agents
 
+            use_llm_intent = bool(config.get("use_llm_intent", False))
+
+            execution_config = request.execution_config or {}
+
+            logger.info(
+                "Execution config received",
+                extra={
+                    "workflow_id": workflow_id,  # if you already created it
+                    "use_llm_intent": execution_config.get("use_llm_intent"),
+                    "raw_execution_config": execution_config,
+                },
+            )
+
             # Run the orchestrator and obtain an execution context (AgentContext-like)
             if self._orchestrator is None:
                 raise RuntimeError("Orchestrator not initialized")
@@ -402,9 +757,44 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
             # ----------------------------------------------------------------
             # Preflight query analysis (intent / tone / sub-intent) + policy
             # ----------------------------------------------------------------
+
+            llm: Optional[Any] = None
+            query_profile: Optional[QueryProfile] = None
+
+
             try:
-                # 1) Analyze query (deterministic heuristics)
-                query_profile = analyze_query(request.query)
+                use_llm_intent = bool(config.get("use_llm_intent", False))
+
+                if use_llm_intent:
+                    from OSSS.ai.llm.openai import OpenAIChatLLM
+                    from OSSS.ai.config.openai_config import OpenAIConfig
+
+                    cfg = OpenAIConfig.load()
+                    llm = OpenAIChatLLM(api_key=cfg.api_key, model=cfg.model, base_url=cfg.base_url)
+
+                    query_profile = await self._llm_analyze_query_profile_best_effort(
+                        request.query,
+                        llm=llm,
+                    )
+                    query_profile.signals = dict(query_profile.signals or {})
+                    query_profile.signals["use_llm_intent"] = True
+                else:
+                    query_profile = analyze_query(request.query)
+                    query_profile.signals = dict(query_profile.signals or {})
+                    query_profile.signals.setdefault("analysis_source", "rules")
+
+                logger.info(
+                    "Preflight query_profile result",
+                    extra={
+                        "workflow_id": workflow_id,
+                        "use_llm_intent": use_llm_intent,
+                        "intent": query_profile.intent,
+                        "intent_confidence": query_profile.intent_confidence,
+                        "analysis_source": (query_profile.signals or {}).get("analysis_source"),
+                        "llm_base_url": getattr(config, "base_url", None),
+                        "llm_model": getattr(config, "model", None),
+                    },
+                )
 
                 # 2) Build execution plan (maps profile -> agents/workflow/strategy)
                 #    If you don't have a complexity score yet, start with a neutral default.
@@ -413,21 +803,89 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                     complexity_score=float(config.get("complexity_score", 0.5)),
                 )
 
+                # -------------------------------
+                # Confidence-based routing gates
+                # -------------------------------
+                thresholds = {
+                    "min_intent_confidence": float(config.get("min_intent_confidence", 0.70)),
+                    "min_plan_confidence": float(config.get("min_plan_confidence", 0.65)),
+                    "min_sub_intent_confidence": float(config.get("min_sub_intent_confidence", 0.60)),
+                    "min_tone_confidence": float(config.get("min_tone_confidence", 0.50)),
+                }
+
+                intent_ok = float(query_profile.intent_confidence or 0.0) >= thresholds["min_intent_confidence"]
+                sub_intent_ok = float(query_profile.sub_intent_confidence or 0.0) >= thresholds["min_sub_intent_confidence"]
+                tone_ok = float(query_profile.tone_confidence or 0.0) >= thresholds["min_tone_confidence"]
+                plan_ok = float(getattr(plan, "confidence", 0.0) or 0.0) >= thresholds["min_plan_confidence"]
+
+                # If intent is weak, we treat the whole routing decision as weak.
+                routing_ok = intent_ok and plan_ok
+
+                logger.info(
+                    "Routing confidence gates evaluated",
+                    extra={
+                        "workflow_id": workflow_id,
+                        "use_llm_intent": bool(config.get("use_llm_intent", False)),
+                        "intent": query_profile.intent,
+                        "intent_conf": query_profile.intent_confidence,
+                        "sub_intent": query_profile.sub_intent,
+                        "sub_intent_conf": query_profile.sub_intent_confidence,
+                        "tone": query_profile.tone,
+                        "tone_conf": query_profile.tone_confidence,
+                        "plan_conf": getattr(plan, "confidence", None),
+                        "thresholds": thresholds,
+                        "routing_ok": routing_ok,
+                    },
+                )
+
+                # Attach gates for debugging / persistence
+                config["routing_gates"] = {
+                    "thresholds": thresholds,
+                    "intent_ok": intent_ok,
+                    "sub_intent_ok": sub_intent_ok,
+                    "tone_ok": tone_ok,
+                    "plan_ok": plan_ok,
+                    "routing_ok": routing_ok,
+                }
+
+
                 # 3) Attach to config so orchestrator and agents can see it (optional)
                 #    This is useful for "Refiner-first" behavior, verbosity controls, etc.
                 config["query_profile"] = query_profile.model_dump()
+
+                logger.info(
+                    "Preflight query_profile",
+                    extra={
+                        "workflow_id": workflow_id,
+                        "use_llm_intent": use_llm_intent,
+                        "intent": query_profile.intent,
+                        "intent_confidence": query_profile.intent_confidence,
+                        "analysis_source": (query_profile.signals or {}).get("analysis_source"),
+                    },
+                )
+
+
                 config["execution_plan"] = plan.model_dump()
 
                 # 4) If the incoming request did NOT specify agents, honor policy agents
                 #    (If request.agents is set, the caller is explicitly controlling routing.)
-                if not request.agents and plan.preferred_agents:
-                    config["agents"] = plan.preferred_agents
+                # Caller always wins if they specified agents
+                if not request.agents:
+                    if routing_ok and plan.preferred_agents:
+                        config["agents"] = plan.preferred_agents
+                        config["routing_source"] = "policy"
+                    else:
+                        # fall back to safe default (or keep existing config["agents"] if already set)
+                        config.setdefault("agents", ["refiner", "critic", "historian", "synthesis"])
+                        config["routing_source"] = "default"
+                else:
+                    config["routing_source"] = "caller"
 
                 # 5) Optional: honor workflow_id if your orchestrator supports it
                 #    (Only apply if caller didn't already specify a workflow via config.)
-                if plan.workflow_id and "workflow_id" not in original_execution_config:
-                    config["workflow_id"] = workflow_id  # keep the execution id stable
-                    config["selected_workflow_id"] = plan.workflow_id  # separate key; avoids collision
+                if routing_ok and plan.workflow_id and "workflow_id" not in original_execution_config:
+                    # Keep workflow_id as the execution UUID; do NOT overwrite it.
+                    config["selected_workflow_id"] = plan.workflow_id
 
                 logger.info(
                     "Preflight analysis complete",
@@ -464,6 +922,8 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                     "matched_rules": [{"rule": "intent:general:fallback", "action": "read"}],
 
                 })
+
+
 
             result_context = await self._orchestrator.run(request.query, config)
 
@@ -548,23 +1008,100 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
             try:
                 qp = config.get("query_profile") or {}
                 if not isinstance(qp, dict):
-                    qp = {}
+                    qp = {
+                        "intent": "general",
+                        "intent_confidence": 0.50,
+                        "sub_intent": "general",
+                        "sub_intent_confidence": 0.50,
+                        "tone": "neutral",
+                        "tone_confidence": 0.50,
+                        "signals": {"fallback": True},
+                        "matched_rules": [{"rule": "intent:general:fallback", "action": "read"}],
+                    }
             except Exception:
-                qp = {}
+                qp = {
+                    "intent": "general",
+                    "intent_confidence": 0.50,
+                    "sub_intent": "general",
+                    "sub_intent_confidence": 0.50,
+                    "tone": "neutral",
+                    "tone_confidence": 0.50,
+                    "signals": {"fallback": True},
+                    "matched_rules": [{"rule": "intent:general:fallback", "action": "read"}],
+                }
+
+            logger.info(
+                "Query profile finalized",
+                extra={
+                    "workflow_id": workflow_id,
+                    "intent": qp.get("intent"),
+                    "sub_intent": qp.get("sub_intent"),
+                    "tone": qp.get("tone"),
+                    "analysis_source": qp.get("signals", {}).get("analysis_source"),
+                    "use_llm_intent": use_llm_intent,
+                },
+            )
 
             # If preflight analysis didn't populate query_profile (or it is empty),
             # compute it now (cheap + deterministic) so envelope never returns nulls.
             if not qp:
                 try:
-                    query_profile = analyze_query(request.query)
+                    if use_llm_intent:
+                        if llm is None:
+                            from OSSS.ai.llm.openai import OpenAIChatLLM
+                            from OSSS.ai.config.openai_config import OpenAIConfig
+                            cfg = OpenAIConfig.load()
+                            llm = OpenAIChatLLM(api_key=cfg.api_key, model=cfg.model, base_url=cfg.base_url)
+
+                        query_profile = await self._llm_analyze_query_profile_best_effort(
+                            request.query,
+                            llm=llm,
+                        )
+
+
+                    else:
+                        query_profile = analyze_query(request.query)
+                        query_profile.signals = dict(query_profile.signals or {})
+                        query_profile.signals.setdefault("analysis_source", "rules")
+
                     qp = query_profile.model_dump()
                     config["query_profile"] = qp
                 except Exception as e:
                     logger.warning(f"Failed to compute query_profile fallback: {e}")
-                    qp = {}
+                    qp = {
+                        "intent": "general",
+                        "intent_confidence": 0.50,
+                        "sub_intent": "general",
+                        "sub_intent_confidence": 0.50,
+                        "tone": "neutral",
+                        "tone_confidence": 0.50,
+                        "signals": {"analysis_source": "rules_fallback", "fallback": True},
+                        "matched_rules": [{"rule": "intent:general:fallback", "action": "read"}],
+                    }
+
 
             # Keep a copy at a stable location for debugging/clients
-            agent_output_meta.setdefault("_query_profile", qp)
+            use_llm_intent = bool(config.get("use_llm_intent", False))
+
+            # Keep a copy at a stable location for debugging/clients
+            # ----------------------------------------------------------------
+            # Canonical query profile envelope (ALWAYS present)
+            # ----------------------------------------------------------------
+            agent_output_meta["_query_profile"] = qp
+            agent_output_meta["_query_profile"].setdefault("signals", {})
+
+            # preserve more specific source if it exists (e.g., rules_fallback)
+            agent_output_meta["_query_profile"]["signals"].setdefault(
+                "analysis_source",
+                "llm" if use_llm_intent else "rules",
+            )
+
+            agent_output_meta["_routing"] = {
+                "source": config.get("routing_source", "unknown"),
+                "gates": config.get("routing_gates", {}),
+                "selected_workflow_id": config.get("selected_workflow_id"),
+                "final_agents": config.get("agents"),
+            }
 
             # ----------------------------------------------------------------
             # Robust extraction helpers (handles alternate shapes)
@@ -593,20 +1130,80 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
             qp_signals = _pick(qp, "signals") or {}
             qp_matched = _pick(qp, "matched_rules", "matched_patterns") or []
 
-            # Normalize matched_rules to include action
-            # - If matched_rules is List[str], convert to List[dict]
-            # - If it's already List[dict], keep it
-            if isinstance(qp_matched, list) and qp_matched:
-                if isinstance(qp_matched[0], str):
-                    qp_matched = [{"rule": r, "action": "read"} for r in qp_matched]
-                elif isinstance(qp_matched[0], dict):
+            # ✅ Best-practice: matched_rules is already structured (RuleHit dicts).
+            # Only do a minimal compatibility shim if an older pipeline still returns List[str].
+            normalized_matched: List[Dict[str, Any]] = []
+
+            if isinstance(qp_matched, list):
+                # Legacy: List[str] -> upgrade to structured hits
+                if qp_matched and isinstance(qp_matched[0], str):
+                    normalized_matched = [
+                        {
+                            "category": "analysis",
+                            "rule_id": r,
+                            "label": r,
+                            "action": "read",
+                            "confidence": 0.50,
+                        }
+                        for r in qp_matched
+                    ]
+
+                # Preferred: List[dict] (RuleHit)
+                elif qp_matched and isinstance(qp_matched[0], dict):
                     for item in qp_matched:
+                        if not isinstance(item, dict):
+                            continue
+                        # Ensure required-ish fields exist without overwriting real values
                         item.setdefault("action", "read")
-            else:
-                qp_matched = []
+                        item.setdefault("confidence", 0.50)
+                        item.setdefault("label", item.get("rule_id") or item.get("rule") or "rule_hit")
+                        # If someone used "rule" instead of "rule_id", normalize gently
+                        if "rule_id" not in item and "rule" in item:
+                            item["rule_id"] = item["rule"]
+                        normalized_matched.append(item)
+
+            qp_matched = normalized_matched
 
             # ----------------------------------------------------------------
-            # Fan-out profile into EVERY agent envelope (this is the key fix)
+            # Optional: Per-agent LLM analysis (intent/tone/sub-intent)
+            # NOTE: must happen AFTER we know executed agents and have exec_state,
+            #       but BEFORE we fan-out envelopes.
+            # ----------------------------------------------------------------
+            enable_llm_agent_analysis = False
+            try:
+                enable_llm_agent_analysis = bool(
+                    config.get("enable_llm_query_analysis", False) or config.get("use_llm_intent", False)
+                )
+            except Exception:
+                enable_llm_agent_analysis = False
+
+            agent_profiles: Dict[str, Any] = {}  # agent -> QueryProfile (or dict)
+
+            if enable_llm_agent_analysis:
+                try:
+                    # If your orchestrator/agents populate exec_state["effective_queries"],
+                    # we will prefer that; otherwise we fall back to request.query.
+                    agent_queries = self._extract_effective_queries(
+                        base_query=request.query,
+                        executed_agents=list(serialized_agent_outputs.keys()),
+                        exec_state=exec_state,
+                    )
+
+                    agent_profiles = await self._llm_analyze_agent_queries(agent_queries, llm=llm)
+
+                    # Helpful for debugging
+                    agent_output_meta.setdefault("_agent_effective_queries", agent_queries)
+
+                except Exception as e:
+                    logger.warning(
+                        f"Per-agent LLM query analysis failed; using base query_profile. error={e}"
+                    )
+                    agent_profiles = {}
+
+            # ----------------------------------------------------------------
+            # Fan-out profile into EVERY agent envelope
+            # - prefer per-agent LLM profile when available
+            # - otherwise fall back to base deterministic profile (qp_*)
             # ----------------------------------------------------------------
             for agent_name in serialized_agent_outputs.keys():
                 envelope = agent_output_meta.get(agent_name)
@@ -617,25 +1214,51 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                 envelope.setdefault("agent", agent_name)
                 envelope.setdefault("action", "read")
 
-                # Only fill if missing/None (agent can override if it actually set values)
-                if envelope.get("intent") is None:
-                    envelope["intent"] = qp_intent
-                if envelope.get("sub_intent") is None:
-                    envelope["sub_intent"] = qp_sub_intent
-                if envelope.get("tone") is None:
-                    envelope["tone"] = qp_tone
+                prof = agent_profiles.get(agent_name)
 
-                if envelope.get("intent_confidence") is None:
-                    envelope["intent_confidence"] = float(qp_intent_conf)
-                if envelope.get("sub_intent_confidence") is None:
-                    envelope["sub_intent_confidence"] = float(qp_sub_intent_conf)
-                if envelope.get("tone_confidence") is None:
-                    envelope["tone_confidence"] = float(qp_tone_conf)
+                if prof is not None:
+                    # QueryProfile instance or dict-like
+                    if hasattr(prof, "model_dump"):
+                        prof_dict = prof.model_dump()
+                    elif isinstance(prof, dict):
+                        prof_dict = prof
+                    else:
+                        prof_dict = {}
 
-                if envelope.get("signals") is None:
-                    envelope["signals"] = qp_signals
-                if envelope.get("matched_rules") is None:
-                    envelope["matched_rules"] = qp_matched
+                    envelope["intent"] = prof_dict.get("intent") or "general"
+                    envelope["sub_intent"] = prof_dict.get("sub_intent") or "general"
+                    envelope["tone"] = prof_dict.get("tone") or "neutral"
+
+                    envelope["intent_confidence"] = float(prof_dict.get("intent_confidence") or 0.50)
+                    envelope["sub_intent_confidence"] = float(prof_dict.get("sub_intent_confidence") or 0.50)
+                    envelope["tone_confidence"] = float(prof_dict.get("tone_confidence") or 0.50)
+
+                    envelope["signals"] = prof_dict.get("signals") or {}
+                    envelope["matched_rules"] = prof_dict.get("matched_rules") or []
+
+                    envelope["analysis_source"] = "llm"
+                else:
+                    # Existing behavior (base query_profile)
+                    if envelope.get("intent") is None:
+                        envelope["intent"] = qp_intent
+                    if envelope.get("sub_intent") is None:
+                        envelope["sub_intent"] = qp_sub_intent
+                    if envelope.get("tone") is None:
+                        envelope["tone"] = qp_tone
+
+                    if envelope.get("intent_confidence") is None:
+                        envelope["intent_confidence"] = float(qp_intent_conf)
+                    if envelope.get("sub_intent_confidence") is None:
+                        envelope["sub_intent_confidence"] = float(qp_sub_intent_conf)
+                    if envelope.get("tone_confidence") is None:
+                        envelope["tone_confidence"] = float(qp_tone_conf)
+
+                    if envelope.get("signals") is None:
+                        envelope["signals"] = qp_signals
+                    if envelope.get("matched_rules") is None:
+                        envelope["matched_rules"] = qp_matched
+
+                    envelope.setdefault("analysis_source", "rules")
 
             # Build response model for API clients
             response = WorkflowResponse(

@@ -69,6 +69,14 @@ logger = get_logger(__name__)
 # and retrieved when creating workflow results
 _TIMING_REGISTRY: Dict[str, Dict[str, float]] = {}
 
+def _record_effective_query(state: dict, agent_name: str, effective_query: str) -> None:
+    exec_state = state.setdefault("execution_state", {})
+    if not isinstance(exec_state, dict):
+        return
+    eq = exec_state.setdefault("effective_queries", {})
+    if isinstance(eq, dict):
+        eq[agent_name] = effective_query
+
 
 def get_timing_registry() -> Dict[str, Dict[str, float]]:
     """Get the current timing registry."""
@@ -360,16 +368,6 @@ async def convert_state_to_context(state: OSSSState) -> AgentContext:
     Convert LangGraph state to AgentContext for agent execution.
 
     Handles both complete and partial state objects gracefully.
-
-    Parameters
-    ----------
-    state : OSSSState
-        Current LangGraph state (may be partial)
-
-    Returns
-    -------
-    AgentContext
-        AgentContext for agent execution
     """
     bridge = AgentContextStateBridge()
 
@@ -380,43 +378,51 @@ async def convert_state_to_context(state: OSSSState) -> AgentContext:
 
     context = AgentContext(query=query)
 
-    # Add any existing agent outputs to context with proper keys
+    # ---------------------------------------------------------------------
+    # ✅ Carry forward execution_state metadata that nodes / API rely on
+    # ---------------------------------------------------------------------
+    state_exec = state.get("execution_state", {})
+    if isinstance(state_exec, dict):
+        # Carry forward agent_output_meta (e.g., _query_profile w/ analysis_source="llm")
+        aom = state_exec.get("agent_output_meta")
+        if isinstance(aom, dict):
+            context.execution_state["agent_output_meta"] = aom
+
+        # Carry forward effective_queries recorded by node wrappers
+        eq = state_exec.get("effective_queries")
+        if isinstance(eq, dict):
+            context.execution_state["effective_queries"] = eq
+
+    # (Optional) carry forward structured outputs if you want them available to agents
+    so = state.get("structured_outputs")
+    if isinstance(so, dict):
+        context.execution_state["structured_outputs"] = so
+
+    # ---------------------------------------------------------------------
+    # Existing behavior: add any existing agent outputs to context
+    # ---------------------------------------------------------------------
     if state.get("refiner"):
         refiner_state: Optional[RefinerState] = state["refiner"]
         if refiner_state is not None:
             refined_question = refiner_state.get("refined_question", "")
-            # Add with both 'refiner' and 'Refiner' keys for compatibility
             if refined_question:
                 context.add_agent_output("refiner", refined_question)
                 context.add_agent_output("Refiner", refined_question)
-                context.execution_state["refiner_topics"] = refiner_state.get(
-                    "topics", []
-                )
-                context.execution_state["refiner_confidence"] = refiner_state.get(
-                    "confidence", 0.8
-                )
-                logger.info(
-                    f"Added refiner output to context: {str(refined_question)[:100]}..."
-                )
+                context.execution_state["refiner_topics"] = refiner_state.get("topics", [])
+                context.execution_state["refiner_confidence"] = refiner_state.get("confidence", 0.8)
+                logger.info(f"Added refiner output to context: {str(refined_question)[:100]}...")
             else:
-                logger.warning(
-                    "Refiner output found in state but refined_question is empty"
-                )
+                logger.warning("Refiner output found in state but refined_question is empty")
 
     if state.get("critic"):
         critic_state: Optional[CriticState] = state["critic"]
         if critic_state is not None:
             critique = critic_state.get("critique", "")
-            # Add with both 'critic' and 'Critic' keys for compatibility
             if critique:
                 context.add_agent_output("critic", critique)
                 context.add_agent_output("Critic", critique)
-                context.execution_state["critic_suggestions"] = critic_state.get(
-                    "suggestions", []
-                )
-                context.execution_state["critic_severity"] = critic_state.get(
-                    "severity", "medium"
-                )
+                context.execution_state["critic_suggestions"] = critic_state.get("suggestions", [])
+                context.execution_state["critic_severity"] = critic_state.get("severity", "medium")
                 logger.info(f"Added critic output to context: {str(critique)[:100]}...")
             else:
                 logger.warning("Critic output found in state but critique is empty")
@@ -425,33 +431,20 @@ async def convert_state_to_context(state: OSSSState) -> AgentContext:
         historian_state: Optional[HistorianState] = state["historian"]
         if historian_state is not None:
             historical_summary = historian_state.get("historical_summary", "")
-            # Add with both 'historian' and 'Historian' keys for compatibility
             if historical_summary:
                 context.add_agent_output("historian", historical_summary)
                 context.add_agent_output("Historian", historical_summary)
-                context.execution_state["historian_retrieved_notes"] = (
-                    historian_state.get("retrieved_notes", [])
-                )
-                context.execution_state["historian_search_strategy"] = (
-                    historian_state.get("search_strategy", "hybrid")
-                )
-                context.execution_state["historian_topics_found"] = historian_state.get(
-                    "topics_found", []
-                )
-                context.execution_state["historian_confidence"] = historian_state.get(
-                    "confidence", 0.8
-                )
-                logger.info(
-                    f"Added historian output to context: {str(historical_summary)[:100]}..."
-                )
+                context.execution_state["historian_retrieved_notes"] = historian_state.get("retrieved_notes", [])
+                context.execution_state["historian_search_strategy"] = historian_state.get("search_strategy", "hybrid")
+                context.execution_state["historian_topics_found"] = historian_state.get("topics_found", [])
+                context.execution_state["historian_confidence"] = historian_state.get("confidence", 0.8)
+                logger.info(f"Added historian output to context: {str(historical_summary)[:100]}...")
             else:
-                logger.warning(
-                    "Historian output found in state but historical_summary is empty"
-                )
+                logger.warning("Historian output found in state but historical_summary is empty")
 
     # Add execution metadata - handle partial state
     execution_metadata = state.get("execution_metadata", {})
-    if execution_metadata:
+    if isinstance(execution_metadata, dict) and execution_metadata:
         context.execution_state.update(
             {
                 "execution_id": execution_metadata.get("execution_id", ""),
@@ -470,6 +463,7 @@ async def convert_state_to_context(state: OSSSState) -> AgentContext:
         )
 
     return context
+
 
 
 @circuit_breaker(max_failures=3, reset_timeout=300.0)
@@ -546,6 +540,11 @@ async def refiner_node(
 
         # Convert state to context
         context = await convert_state_to_context(state)
+
+        # Record the effective query this node actually used
+        effective_query = original_query or state.get("query", "") or context.query
+        _record_effective_query(state, "refiner", effective_query)
+
 
         # Execute agent with event emission and retry logic
         result_context = await agent.run_with_retry(context)
@@ -627,11 +626,17 @@ async def refiner_node(
             "structured_outputs", {}
         )
 
+        exec_state = state.get("execution_state", {})
+        if not isinstance(exec_state, dict):
+            exec_state = {}
+
         return {
+            "execution_state": exec_state,
             "refiner": refiner_state,
             "successful_agents": ["refiner"],
-            "structured_outputs": structured_outputs,  # Pass through LangGraph state
+            "structured_outputs": structured_outputs,
         }
+
 
     except Exception as e:
         # ✅ Enhanced error logging with runtime context
@@ -757,6 +762,17 @@ async def critic_node(
         # Convert state to context
         context = await convert_state_to_context(state)
 
+        # Record the effective query this node actually used (prefer refined question)
+        refined = ""
+        try:
+            if state.get("refiner"):
+                refined = cast(RefinerState, state["refiner"]).get("refined_question", "")  # type: ignore[arg-type]
+        except Exception:
+            refined = ""
+
+        effective_query = refined or (original_query or state.get("query", "") or context.query)
+        _record_effective_query(state, "critic", effective_query)
+
         # Execute agent with event emission and retry logic
         result_context = await agent.run_with_retry(context)
 
@@ -815,11 +831,17 @@ async def critic_node(
 
         # Return state update with agent output and success tracking
         logger.info("Critic node completed successfully")
+        exec_state = state.get("execution_state", {})
+        if not isinstance(exec_state, dict):
+            exec_state = {}
+
         return {
+            "execution_state": exec_state,
             "critic": critic_state,
             "successful_agents": ["critic"],
-            "structured_outputs": structured_outputs,  # Pass through LangGraph state
+            "structured_outputs": structured_outputs,
         }
+
 
     except Exception as e:
         logger.error(f"Critic node failed: {e}")
@@ -893,13 +915,28 @@ async def historian_node(
         },
     )
 
-    # right after you compute original_query in historian_node
     if not should_run_historian(original_query or ""):
         logger.info("Skipping historian node (routing heuristic)")
+
+        # Still record what historian *would* have used for consistency
+        refined = ""
+        try:
+            if state.get("refiner"):
+                refined = cast(RefinerState, state["refiner"]).get("refined_question", "")  # type: ignore[arg-type]
+        except Exception:
+            refined = ""
+        effective_query = refined or (original_query or state.get("query", ""))
+        _record_effective_query(state, "historian", effective_query)
+
+        exec_state = state.get("execution_state", {})
+        if not isinstance(exec_state, dict):
+            exec_state = {}
+
         return {
-            "historian": None,  # or omit; but be consistent with your state schema
-            "successful_agents": [],  # don't count as success if you prefer
-            "structured_outputs": {},
+            "execution_state": exec_state,
+            "historian": None,
+            "successful_agents": [],  # keep your semantics
+            "structured_outputs": state.get("structured_outputs", {}) or {},
         }
 
     try:
@@ -934,6 +971,18 @@ async def historian_node(
 
         # Convert state to context
         context = await convert_state_to_context(state)
+
+        # Record the effective query this node actually used (prefer refined question)
+        refined = ""
+        try:
+            if state.get("refiner"):
+                refined = cast(RefinerState, state["refiner"]).get("refined_question", "")  # type: ignore[arg-type]
+        except Exception:
+            refined = ""
+
+        effective_query = refined or (original_query or state.get("query", "") or context.query)
+        _record_effective_query(state, "historian", effective_query)
+
 
         # Execute agent with event emission and retry logic
         result_context = await agent.run_with_retry(context)
@@ -1013,11 +1062,17 @@ async def historian_node(
 
         # Return state update with agent output and success tracking
         logger.info("Historian node completed successfully")
+        exec_state = state.get("execution_state", {})
+        if not isinstance(exec_state, dict):
+            exec_state = {}
+
         return {
+            "execution_state": exec_state,
             "historian": historian_state,
             "successful_agents": ["historian"],
-            "structured_outputs": structured_outputs,  # Pass through LangGraph state
+            "structured_outputs": structured_outputs,
         }
+
 
     except Exception as e:
         logger.error(f"Historian node failed: {e}")
@@ -1134,6 +1189,18 @@ async def synthesis_node(
         # Convert state to context
         context = await convert_state_to_context(state)
 
+        # Record the effective query this node actually used (prefer refined question)
+        refined = ""
+        try:
+            if state.get("refiner"):
+                refined = cast(RefinerState, state["refiner"]).get("refined_question", "")  # type: ignore[arg-type]
+        except Exception:
+            refined = ""
+
+        effective_query = refined or (original_query or state.get("query", "") or context.query)
+        _record_effective_query(state, "synthesis", effective_query)
+
+
         # Execute agent with event emission and retry logic
         result_context = await agent.run_with_retry(context)
 
@@ -1205,11 +1272,17 @@ async def synthesis_node(
 
         # Return state update with agent output and success tracking
         logger.info("Synthesis node completed successfully")
+        exec_state = state.get("execution_state", {})
+        if not isinstance(exec_state, dict):
+            exec_state = {}
+
         return {
+            "execution_state": exec_state,
             "synthesis": synthesis_state,
             "successful_agents": ["synthesis"],
-            "structured_outputs": structured_outputs,  # Pass through LangGraph state
+            "structured_outputs": structured_outputs,
         }
+
 
     except Exception as e:
         logger.error(f"Synthesis node failed: {e}")

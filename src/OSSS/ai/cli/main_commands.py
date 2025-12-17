@@ -77,7 +77,8 @@ def _validate_langgraph_runtime() -> None:
         from langgraph.checkpoint.memory import MemorySaver
 
         # Test basic StateGraph creation (lightweight validation)
-        from typing import TypedDict
+        from typing_extensions import TypedDict
+
 
         class LangGraphRuntimeTestState(TypedDict):
             test: str

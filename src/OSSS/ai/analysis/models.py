@@ -1,20 +1,36 @@
 from __future__ import annotations
-from typing import Dict, Any, List, Optional
+
+from typing import Any, Dict, List
+
 from pydantic import BaseModel, Field
 
+from OSSS.ai.analysis.rules.types import RuleHit
+
+
 class QueryProfile(BaseModel):
-    # Top-level “why is the user asking?”
-    intent: str = Field(..., description="Primary user intent (e.g., troubleshoot, plan, explain, create)")
-    intent_confidence: float = Field(ge=0.0, le=1.0, default=0.5)
+    """
+    Structured output of the analysis pipeline.
 
-    # “how are they asking it?” (affects language/style)
-    tone: str = Field(..., description="Detected tone (e.g., neutral, frustrated, urgent, curious)")
-    tone_confidence: float = Field(ge=0.0, le=1.0, default=0.5)
+    Notes:
+    - Keep this model JSON-serializable (safe for logging + persistence).
+    - matched_rules is a list of structured RuleHit objects (includes action/category/etc.).
+    """
 
-    # A more specific “what kind of intent?”
-    sub_intent: str = Field(..., description="More specific intent label (e.g., bugfix_stacktrace, code_review, api_design)")
-    sub_intent_confidence: float = Field(ge=0.0, le=1.0, default=0.5)
+    intent: str = "general"
+    intent_confidence: float = 0.5
 
-    # Traceable evidence for debugging and tuning
+    tone: str = "neutral"
+    tone_confidence: float = 0.5
+
+    sub_intent: str = "general"
+    sub_intent_confidence: float = 0.5
+
     signals: Dict[str, Any] = Field(default_factory=dict)
-    matched_rules: List[str] = Field(default_factory=list)
+
+    # ✅ structured, includes action/category/rule_id/etc.
+    matched_rules: List[RuleHit] = Field(default_factory=list)
+
+    model_config = {
+        "extra": "forbid",
+        "validate_assignment": True,
+    }

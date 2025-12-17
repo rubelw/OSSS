@@ -12,7 +12,8 @@ Design Principles:
 - Comprehensive documentation for maintainability
 """
 
-from typing import TypedDict, List, Dict, Any, Optional, Union, Annotated
+from typing import List, Dict, Any, Optional, Union, Annotated
+from typing_extensions import TypedDict
 from datetime import datetime, timezone
 from dataclasses import dataclass
 import operator

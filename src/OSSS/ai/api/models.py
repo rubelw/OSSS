@@ -37,7 +37,7 @@ class WorkflowRequest(BaseModel):
         None,
         description="Additional execution configuration parameters",
         json_schema_extra={
-            "example": {"timeout_seconds": 30, "parallel_execution": True}
+            "example": {"timeout_seconds": 30, "parallel_execution": True, "use_llm_intent": True},
         },
     )
     correlation_id: Optional[str] = Field(
@@ -88,6 +88,12 @@ class WorkflowRequest(BaseModel):
                     raise ValueError("timeout_seconds must be a positive number")
                 if timeout > 600:  # 10 minutes max
                     raise ValueError("timeout_seconds cannot exceed 600 seconds")
+
+            # ✅ Validate intent routing flag if provided
+            if "use_llm_intent" in v:
+                if not isinstance(v["use_llm_intent"], bool):
+                    raise ValueError("use_llm_intent must be a boolean")
+
 
         return v
 

@@ -151,6 +151,8 @@ class ExecutionConfiguration(BaseModel):
     enable_checkpoints: bool = Field(default=False)
     enable_simulation_delay: bool = Field(default=False)
     parallel_execution: bool = Field(default=True)
+    use_llm_intent: bool = True  # ✅ add this
+
 
 
 class OutputConfiguration(BaseModel):

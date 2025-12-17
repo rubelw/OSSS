@@ -29,9 +29,7 @@ from typing import Dict, Any, List, Tuple, Optional
 # Rules are evaluated in order. The first match wins.
 # If allowed_parent_intents is empty or None, rule applies to all intents.
 # ===========================================================================
-SUB_INTENT_RULES: List[
-    Tuple[str, float, List[str], Optional[List[str]]]
-] = [
+SUB_INTENT_RULES: List[Tuple[str, float, List[str], Optional[List[str]]]] = [
     (
         "bugfix_stacktrace",
         0.95,
@@ -130,7 +128,7 @@ def detect_sub_intent(
     query: str,
     *,
     intent: str,
-) -> Tuple[str, float, List[str], Dict[str, Any]]:
+) -> Tuple[str, float, List[Dict[str, Any]], Dict[str, Any]]:
     """
     Detect a more specific sub-intent based on the query and primary intent.
 
@@ -147,7 +145,7 @@ def detect_sub_intent(
         (
             sub_intent: str,
             confidence: float,
-            matched_rules: list[str],
+            matched_rules: list[dict],   # RuleHit-style (includes `action`)
             signals: dict[str, Any],
         )
 
@@ -158,27 +156,21 @@ def detect_sub_intent(
     - Confidence is heuristic, not probabilistic.
     """
 
-    q = query.lower()
-    matched_rules: List[str] = []
+    q = (query or "").strip()
+    q_lower = q.lower()
+
+    matched_rules: List[Dict[str, Any]] = []
 
     # ------------------------------------------------------------------
     # Feature extraction (signals)
     # ------------------------------------------------------------------
     signals: Dict[str, Any] = {
         "intent": intent,
-        "has_code_block": "```" in query,
-        "has_stacktrace": bool(
-            re.search(r"traceback|exception|stack trace", q)
-        ),
-        "mentions_infra": bool(
-            re.search(r"terraform|kubernetes|helm|eks|ecs", q)
-        ),
-        "mentions_database": bool(
-            re.search(r"postgres|mysql|dynamodb|schema|table", q)
-        ),
-        "mentions_workflow": bool(
-            re.search(r"workflow|graph|dag|langgraph", q)
-        ),
+        "has_code_block": "```" in q,
+        "has_stacktrace": bool(re.search(r"traceback|exception|stack trace", q_lower)),
+        "mentions_infra": bool(re.search(r"terraform|kubernetes|helm|eks|ecs", q_lower)),
+        "mentions_database": bool(re.search(r"postgres|mysql|dynamodb|schema|table", q_lower)),
+        "mentions_workflow": bool(re.search(r"workflow|graph|dag|langgraph", q_lower)),
     }
 
     # ------------------------------------------------------------------
@@ -190,21 +182,78 @@ def detect_sub_intent(
             continue
 
         for pattern in patterns:
-            if re.search(pattern, q, re.IGNORECASE):
-                matched_rules.append(f"sub_intent:{sub_name}:{pattern}")
+            if re.search(pattern, q_lower, re.IGNORECASE):
+                confidence = base_confidence
 
                 # Confidence reinforcement
-                confidence = base_confidence
                 if signals["has_code_block"]:
                     confidence = min(1.0, confidence + 0.05)
                 if signals["has_stacktrace"]:
                     confidence = min(1.0, confidence + 0.05)
+
+                matched_rules.append(
+                    _rule_hit(
+                        rule_id=f"sub_intent:{sub_name}:{pattern}",
+                        label=f"Sub-intent '{sub_name}' matched pattern for intent '{intent}'",
+                        action="read",
+                        confidence=confidence,
+                        pattern=pattern,
+                        sub_intent=sub_name,
+                        parent_intent=intent,
+                    )
+                )
 
                 return sub_name, confidence, matched_rules, signals
 
     # ------------------------------------------------------------------
     # Fallback sub-intent
     # ------------------------------------------------------------------
-    matched_rules.append("sub_intent:general:fallback")
+    matched_rules.append(
+        _rule_hit(
+            rule_id="sub_intent:general:fallback",
+            label="No sub-intent rules matched; defaulted to general",
+            action="read",
+            confidence=0.50,
+            sub_intent="general",
+            parent_intent=intent,
+        )
+    )
 
     return "general", 0.50, matched_rules, signals
+
+
+# ===========================================================================
+# Rule hit helper (RuleHit-style dict)
+# ===========================================================================
+def _rule_hit(
+    *,
+    rule_id: str,
+    label: str,
+    action: str,
+    confidence: float,
+    pattern: Optional[str] = None,
+    sub_intent: Optional[str] = None,
+    parent_intent: Optional[str] = None,
+    evidence: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """
+    Create a human-readable, structured rule hit for sub-intent detection.
+    """
+    hit: Dict[str, Any] = {
+        "category": "sub_intent",
+        "rule_id": rule_id,
+        "label": label,
+        "action": action,
+        "confidence": float(confidence),
+    }
+
+    if sub_intent is not None:
+        hit["sub_intent"] = sub_intent
+    if parent_intent is not None:
+        hit["parent_intent"] = parent_intent
+    if pattern is not None:
+        hit["pattern"] = pattern
+    if evidence is not None:
+        hit["evidence"] = evidence
+
+    return hit

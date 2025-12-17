@@ -77,6 +77,26 @@ from OSSS.ai.orchestration.routing import should_run_historian
 
 logger = get_logger(__name__)
 
+def _ensure_effective_queries(state: Dict[str, Any], base_query: str) -> None:
+    """
+    Ensure execution_state.effective_queries exists for the run.
+
+    Node wrappers will overwrite per-agent values right before each agent runs:
+      execution_state["effective_queries"][agent_name] = effective_query
+    """
+    exec_state = state.setdefault("execution_state", {})
+    if not isinstance(exec_state, dict):
+        state["execution_state"] = {}
+        exec_state = state["execution_state"]
+
+    effective = exec_state.setdefault("effective_queries", {})
+    if not isinstance(effective, dict):
+        exec_state["effective_queries"] = {}
+        effective = exec_state["effective_queries"]
+
+    # Seed the baseline query for reference (node wrappers can override)
+    effective.setdefault("user", base_query)
+
 
 class LangGraphOrchestrator:
     """
@@ -324,7 +344,29 @@ class LangGraphOrchestrator:
             thread_id = self.memory_manager.get_thread_id(config.get("thread_id"))
 
             # Create initial LangGraph state
+            from OSSS.ai.orchestration.intent_classifier import classify_intent_llm, to_query_profile
+
+            # Create initial LangGraph state
             initial_state = create_initial_state(query, execution_id, correlation_id)
+
+            # Ensure execution_state.effective_queries exists
+            _ensure_effective_queries(initial_state, query)
+
+            # ✅ LLM intent profiling (once per workflow)
+            use_llm_intent = bool(config.get("execution_config", {}).get("use_llm_intent", False))
+            if use_llm_intent:
+                intent_result = await classify_intent_llm(query)
+                profile = to_query_profile(intent_result)
+
+                exec_state = initial_state.setdefault("execution_state", {})
+                if isinstance(exec_state, dict):
+                    meta = exec_state.setdefault("agent_output_meta", {})
+                    if isinstance(meta, dict):
+                        meta["_query_profile"] = profile
+
+
+            # Ensure execution_state.effective_queries exists (node wrappers will fill per-agent)
+            _ensure_effective_queries(initial_state, query)
 
             # Validate initial state
             if not validate_state_integrity(initial_state):
@@ -603,6 +645,16 @@ class LangGraphOrchestrator:
             ]
         else:
             context.execution_state["structured_outputs"] = {}
+
+        # Carry forward per-agent effective queries if node wrappers recorded them
+        try:
+            exec_state = final_state.get("execution_state", {})
+            if isinstance(exec_state, dict):
+                eff = exec_state.get("effective_queries")
+                if isinstance(eff, dict):
+                    context.execution_state["effective_queries"] = eff
+        except Exception:
+            pass
 
         # Add agent outputs
         if final_state.get("refiner"):

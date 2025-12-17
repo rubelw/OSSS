@@ -12,24 +12,20 @@ Key design goals:
 - Safe defaults (fall back to Refiner-first when uncertain)
 - Produces structured output suitable for logging and for storing in AgentContext
 
-Typical usage (pseudo):
-
-    profile = analyze_query(query)  # returns intent/tone/sub_intent + confidences
-    plan = build_execution_plan(profile, complexity_score=complexity)
-
-    # plan now tells you:
-    # - preferred_workflow_id (optional)
-    # - preferred_agents (ordered)
-    # - execution_strategy (e.g. "fast", "balanced", "deep")
-    # - reasoning + matched_rules to store in execution_state
-
 This file should be called BEFORE selecting a workflow or building a graph.
 """
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 from pydantic import BaseModel, Field
+
+
+# ===========================================================================
+# Types
+# ===========================================================================
+RuleHit = Dict[str, Any]
+RuleHitList = List[RuleHit]
 
 
 # ===========================================================================
@@ -45,39 +41,29 @@ class ExecutionPlan(BaseModel):
     - safe to attach to AgentContext.execution_state
     """
 
-    # The workflow ID to run, if your runtime supports explicit workflow execution.
-    # If None, the system can run `preferred_agents` directly.
     workflow_id: Optional[str] = Field(
         default=None,
         description="Preferred workflow identifier (if applicable).",
         examples=["refiner_critic_reflection"],
     )
 
-    # Ordered list of agents to execute.
-    # Order matters for sequential workflows.
     preferred_agents: List[str] = Field(
         default_factory=list,
         description="Ordered list of agents to run.",
         examples=[["refiner", "critic", "synthesis"]],
     )
 
-    # Strategy is a coarse-grained knob the router can interpret:
-    # fast: fewer agents / minimal validation
-    # balanced: standard path
-    # deep: more analysis, more checking, more steps
     execution_strategy: str = Field(
         default="balanced",
         description="Execution strategy hint: fast | balanced | deep",
         examples=["balanced"],
     )
 
-    # Whether we should force a refiner-first step (often when uncertain)
     require_refiner_first: bool = Field(
         default=False,
         description="Whether to force the Refiner agent at the start.",
     )
 
-    # Derived fields: helpful for observability and debugging
     confidence: float = Field(
         default=0.5,
         ge=0.0,
@@ -85,10 +71,21 @@ class ExecutionPlan(BaseModel):
         description="Overall plan confidence (policy-derived, heuristic).",
     )
 
-    # Explanations and trace for debugging tuning
-    reasoning: str = Field(default="", description="Human-readable explanation of why this plan was chosen.")
-    policy_hits: List[str] = Field(default_factory=list, description="Which policy rules matched.")
-    signals: Dict[str, Any] = Field(default_factory=dict, description="Signals used to choose the plan.")
+    reasoning: str = Field(
+        default="",
+        description="Human-readable explanation of why this plan was chosen.",
+    )
+
+    # ✅ changed: structured policy hits (RuleHit-style, includes action)
+    policy_hits: RuleHitList = Field(
+        default_factory=list,
+        description="Which policy rules matched (structured, includes action).",
+    )
+
+    signals: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Signals used to choose the plan.",
+    )
 
     model_config = {
         "extra": "forbid",
@@ -99,15 +96,7 @@ class ExecutionPlan(BaseModel):
 # ===========================================================================
 # Policy tables
 # ===========================================================================
-# Each sub-intent can map to:
-# - workflow_id (optional)
-# - preferred_agents (ordered)
-# - default_strategy
-#
-# This is the *main knob* you tune over time.
-# ===========================================================================
 SUB_INTENT_POLICY: Dict[str, Dict[str, Any]] = {
-    # Troubleshooting / debugging (Refiner clarifies; Critic pressure-tests; optional Synthesizer)
     "bugfix_stacktrace": {
         "workflow_id": "refiner_critic_reflection",
         "preferred_agents": ["refiner", "critic"],
@@ -118,15 +107,11 @@ SUB_INTENT_POLICY: Dict[str, Dict[str, Any]] = {
         "preferred_agents": ["refiner", "critic"],
         "default_strategy": "balanced",
     },
-
-    # Code review paths
     "code_review": {
         "workflow_id": None,
-        "preferred_agents": ["critic", "refiner"],  # critic-first can be useful for pure review requests
+        "preferred_agents": ["critic", "refiner"],
         "default_strategy": "balanced",
     },
-
-    # “Explain / How-to” often benefits from Refiner (scope) then Synthesizer.
     "general_explanation": {
         "workflow_id": None,
         "preferred_agents": ["refiner", "synthesis"],
@@ -137,15 +122,11 @@ SUB_INTENT_POLICY: Dict[str, Dict[str, Any]] = {
         "preferred_agents": ["refiner", "synthesis"],
         "default_strategy": "balanced",
     },
-
-    # Architecture/design tends to benefit from Critic added for tradeoffs.
     "api_design": {
         "workflow_id": None,
         "preferred_agents": ["refiner", "critic", "synthesis"],
         "default_strategy": "deep",
     },
-
-    # Infra and data modeling are often multi-step and benefit from Critic checks.
     "infra_configuration": {
         "workflow_id": None,
         "preferred_agents": ["refiner", "critic", "synthesis"],
@@ -156,22 +137,16 @@ SUB_INTENT_POLICY: Dict[str, Dict[str, Any]] = {
         "preferred_agents": ["refiner", "critic", "synthesis"],
         "default_strategy": "deep",
     },
-
-    # Workflow authoring is meta — tends to need careful step-by-step reasoning.
     "workflow_authoring": {
         "workflow_id": None,
         "preferred_agents": ["refiner", "critic", "synthesis"],
         "default_strategy": "deep",
     },
-
-    # Documentation requests may need Critic (consistency) and Synth (final formatting)
     "documentation": {
         "workflow_id": None,
         "preferred_agents": ["refiner", "critic", "synthesis"],
         "default_strategy": "balanced",
     },
-
-    # Fallback
     "general": {
         "workflow_id": None,
         "preferred_agents": ["refiner", "synthesis"],
@@ -180,7 +155,6 @@ SUB_INTENT_POLICY: Dict[str, Dict[str, Any]] = {
 }
 
 
-# Tone can affect strategy: "urgent" often means "fast"; "frustrated" means "balanced/deep" to reduce rework
 TONE_STRATEGY_OVERRIDES: Dict[str, str] = {
     "urgent": "fast",
     "frustrated": "deep",
@@ -208,7 +182,7 @@ def _normalize_agent_list(agents: List[str]) -> List[str]:
     seen = set()
     normalized: List[str] = []
     for a in agents:
-        key = a.strip().lower()
+        key = (a or "").strip().lower()
         if not key:
             continue
         if key in seen:
@@ -216,6 +190,56 @@ def _normalize_agent_list(agents: List[str]) -> List[str]:
         seen.add(key)
         normalized.append(key)
     return normalized
+
+
+def _policy_hit(
+    *,
+    rule_id: str,
+    label: str,
+    action: str = "route",
+    confidence: float = 0.5,
+    metadata: Optional[Dict[str, Any]] = None,
+) -> RuleHit:
+    """
+    Create a structured policy rule hit (human readable + machine parseable).
+    """
+    hit: RuleHit = {
+        "category": "policy",
+        "rule_id": rule_id,
+        "label": label,
+        "action": action,  # "route" is the most semantically correct for policy decisions
+        "confidence": float(confidence),
+    }
+    if metadata:
+        hit["metadata"] = metadata
+    return hit
+
+
+def _normalize_rule_hits(value: Any, *, default_action: str = "read") -> RuleHitList:
+    """
+    Accepts:
+      - List[str] (legacy)
+      - List[dict] (RuleHit-ish)
+      - anything else -> []
+
+    Returns RuleHitList where every item is a dict and has `action`.
+    """
+    if not isinstance(value, list) or not value:
+        return []
+
+    if isinstance(value[0], str):
+        return [{"rule": r, "action": default_action} for r in value if isinstance(r, str)]
+
+    if isinstance(value[0], dict):
+        out: RuleHitList = []
+        for item in value:
+            if not isinstance(item, dict):
+                continue
+            item.setdefault("action", default_action)
+            out.append(item)
+        return out
+
+    return []
 
 
 # ===========================================================================
@@ -230,52 +254,32 @@ def build_execution_plan(
     """
     Convert a QueryProfile-like object into an ExecutionPlan.
 
-    Parameters
-    ----------
-    profile : Any
-        Expected to provide (at least):
-          - intent (str)
-          - intent_confidence (float)
-          - tone (str)
-          - tone_confidence (float)
-          - sub_intent (str)
-          - sub_intent_confidence (float)
-          - signals (dict)
-          - matched_rules (list)
-        (If your QueryProfile uses different names, adapt accordingly.)
-
-    complexity_score : float
-        0..1 score for how complex the request appears. Higher complexity tends to
-        increase strategy depth and push toward Critic involvement.
-
-    min_confidence_for_direct_execution : float
-        Below this overall confidence, we force refiner-first and broaden agent set.
-
-    Returns
-    -------
-    ExecutionPlan
-        Plan describing workflow_id and/or preferred agent sequence plus strategy.
-
-    Philosophy
-    ----------
-    1) Start with sub-intent policy mapping.
-    2) Adjust based on tone (urgency/frustration).
-    3) Adjust based on complexity score.
-    4) If low confidence, force refiner-first.
+    This version is compatible with:
+    - profile.matched_rules being List[str] or List[dict]
+    - orchestration fix that expects structured matched_rules downstream
     """
-    # --------------------------------------------------------------
-    # Read required fields (we keep it flexible: profile can be dict or model)
-    # --------------------------------------------------------------
-    intent = getattr(profile, "intent", None) or (profile.get("intent") if isinstance(profile, dict) else "general")
-    sub_intent = getattr(profile, "sub_intent", None) or (profile.get("sub_intent") if isinstance(profile, dict) else "general")
-    tone = getattr(profile, "tone", None) or (profile.get("tone") if isinstance(profile, dict) else "neutral")
 
-    intent_conf = float(getattr(profile, "intent_confidence", None) or (profile.get("intent_confidence") if isinstance(profile, dict) else 0.5))
-    sub_conf = float(getattr(profile, "sub_intent_confidence", None) or (profile.get("sub_intent_confidence") if isinstance(profile, dict) else 0.5))
-    tone_conf = float(getattr(profile, "tone_confidence", None) or (profile.get("tone_confidence") if isinstance(profile, dict) else 0.5))
+    # --------------------------------------------------------------
+    # Read required fields (dict or model)
+    # --------------------------------------------------------------
+    def _get(name: str, default: Any = None) -> Any:
+        if isinstance(profile, dict):
+            return profile.get(name, default)
+        return getattr(profile, name, default)
 
-    matched_rules = getattr(profile, "matched_rules", None) or (profile.get("matched_rules") if isinstance(profile, dict) else [])
-    signals = getattr(profile, "signals", None) or (profile.get("signals") if isinstance(profile, dict) else {})
+    intent = _get("intent", "general") or "general"
+    sub_intent = _get("sub_intent", "general") or "general"
+    tone = _get("tone", "neutral") or "neutral"
+
+    intent_conf = float(_get("intent_confidence", 0.5) or 0.5)
+    sub_conf = float(_get("sub_intent_confidence", 0.5) or 0.5)
+    tone_conf = float(_get("tone_confidence", 0.5) or 0.5)
+
+    profile_signals = _get("signals", {}) or {}
+    profile_matched_rules_raw = _get("matched_rules", []) or []
+
+    # ✅ normalize profile rule hits so downstream always gets structured
+    profile_rule_hits: RuleHitList = _normalize_rule_hits(profile_matched_rules_raw, default_action="read")
 
     complexity_score = _clamp01(float(complexity_score))
 
@@ -287,7 +291,15 @@ def build_execution_plan(
     preferred_agents: List[str] = list(policy.get("preferred_agents", []))
     strategy: str = policy.get("default_strategy", "balanced")
 
-    policy_hits: List[str] = [f"sub_intent:{sub_intent}"]
+    policy_hits: RuleHitList = [
+        _policy_hit(
+            rule_id=f"policy:sub_intent:{sub_intent}",
+            label=f"Base plan selected from SUB_INTENT_POLICY for sub_intent='{sub_intent}'.",
+            action="route",
+            confidence=sub_conf,
+            metadata={"sub_intent": sub_intent, "workflow_id": workflow_id, "agents": preferred_agents, "strategy": strategy},
+        )
+    ]
     reasoning_parts: List[str] = [f"Base plan from sub_intent='{sub_intent}'."]
 
     # --------------------------------------------------------------
@@ -295,86 +307,134 @@ def build_execution_plan(
     # --------------------------------------------------------------
     tone_lower = (tone or "neutral").lower()
     tone_strategy = TONE_STRATEGY_OVERRIDES.get(tone_lower)
-    if tone_strategy:
-        # If tone confidence is low, don't overreact
-        if tone_conf >= 0.6:
-            strategy = tone_strategy
-            policy_hits.append(f"tone_strategy:{tone_lower}->{tone_strategy}")
-            reasoning_parts.append(f"Tone '{tone_lower}' (conf={tone_conf:.2f}) -> strategy '{tone_strategy}'.")
+    if tone_strategy and tone_conf >= 0.6:
+        old = strategy
+        strategy = tone_strategy
+        policy_hits.append(
+            _policy_hit(
+                rule_id=f"policy:tone_strategy:{tone_lower}",
+                label=f"Tone '{tone_lower}' (conf={tone_conf:.2f}) overrides strategy '{old}' -> '{tone_strategy}'.",
+                action="route",
+                confidence=tone_conf,
+                metadata={"tone": tone_lower, "from": old, "to": tone_strategy},
+            )
+        )
+        reasoning_parts.append(f"Tone '{tone_lower}' (conf={tone_conf:.2f}) -> strategy '{tone_strategy}'.")
 
     # --------------------------------------------------------------
     # Complexity-based adjustment
     # --------------------------------------------------------------
-    # Higher complexity pushes deeper strategy and usually adds Critic if missing.
     if complexity_score >= 0.70:
         if strategy == "fast":
-            strategy = "balanced"  # don't go "fast" on high complexity by default
-            policy_hits.append("complexity_override:fast->balanced")
+            strategy = "balanced"
+            policy_hits.append(
+                _policy_hit(
+                    rule_id="policy:complexity:fast_to_balanced",
+                    label=f"Complexity score {complexity_score:.2f} is high; avoid 'fast' -> 'balanced'.",
+                    action="route",
+                    confidence=0.70,
+                    metadata={"complexity_score": complexity_score},
+                )
+            )
+
         if "critic" not in [a.lower() for a in preferred_agents]:
             preferred_agents.append("critic")
-            policy_hits.append("complexity_add_agent:critic")
-        reasoning_parts.append(f"High complexity (score={complexity_score:.2f}) -> ensure Critic + at least balanced strategy.")
+            policy_hits.append(
+                _policy_hit(
+                    rule_id="policy:complexity:add_critic",
+                    label=f"Complexity score {complexity_score:.2f} is high; add 'critic' for validation.",
+                    action="route",
+                    confidence=0.70,
+                    metadata={"complexity_score": complexity_score},
+                )
+            )
+
+        reasoning_parts.append(
+            f"High complexity (score={complexity_score:.2f}) -> ensure Critic + at least balanced strategy."
+        )
 
     elif complexity_score <= 0.25:
-        # Very low complexity can favor speed (unless debugging)
         if sub_intent not in ("bugfix_stacktrace", "runtime_error_debugging") and strategy == "deep":
+            old = strategy
             strategy = "balanced"
-            policy_hits.append("complexity_override:deep->balanced")
+            policy_hits.append(
+                _policy_hit(
+                    rule_id="policy:complexity:deep_to_balanced",
+                    label=f"Complexity score {complexity_score:.2f} is low; reduce depth '{old}' -> 'balanced'.",
+                    action="route",
+                    confidence=0.55,
+                    metadata={"complexity_score": complexity_score},
+                )
+            )
         reasoning_parts.append(f"Low complexity (score={complexity_score:.2f}) -> avoid unnecessary depth.")
 
     # --------------------------------------------------------------
     # Compute overall confidence and decide whether to force Refiner-first
     # --------------------------------------------------------------
-    # Overall confidence blends intent/sub-intent confidence; tone is minor.
-    overall_conf = _clamp01(
-        0.50 * sub_conf +
-        0.35 * intent_conf +
-        0.15 * tone_conf
-    )
-
+    overall_conf = _clamp01(0.50 * sub_conf + 0.35 * intent_conf + 0.15 * tone_conf)
     require_refiner_first = False
 
-    # If we are not confident, force refiner-first and expand coverage slightly.
     if overall_conf < min_confidence_for_direct_execution:
         require_refiner_first = True
-        policy_hits.append(f"low_confidence_refiner_first:{overall_conf:.2f}<{min_confidence_for_direct_execution:.2f}")
-        reasoning_parts.append(
-            f"Low confidence (overall={overall_conf:.2f}) -> force Refiner-first to clarify scope."
+        policy_hits.append(
+            _policy_hit(
+                rule_id="policy:low_confidence:refiner_first",
+                label=(
+                    f"Overall confidence {overall_conf:.2f} < {min_confidence_for_direct_execution:.2f}; "
+                    "force Refiner-first to clarify scope."
+                ),
+                action="route",
+                confidence=overall_conf,
+                metadata={"overall_confidence": overall_conf, "threshold": min_confidence_for_direct_execution},
+            )
         )
+        reasoning_parts.append(f"Low confidence (overall={overall_conf:.2f}) -> force Refiner-first.")
 
-        # Ensure Refiner is first in the list
-        # (but keep existing order for the rest)
         normalized = _normalize_agent_list(preferred_agents)
-        if "refiner" not in normalized:
-            normalized.insert(0, "refiner")
-        else:
-            # move it to the front
+        if "refiner" in normalized:
             normalized.remove("refiner")
-            normalized.insert(0, "refiner")
+        normalized.insert(0, "refiner")
         preferred_agents = normalized
 
-        # If this is troubleshooting-ish, keep Critic as second if present
         if intent == "troubleshoot" and "critic" not in preferred_agents:
             preferred_agents.insert(1, "critic")
-            policy_hits.append("low_confidence_add_agent:critic")
+            policy_hits.append(
+                _policy_hit(
+                    rule_id="policy:low_confidence:add_critic",
+                    label="Troubleshoot intent + low confidence -> add Critic early.",
+                    action="route",
+                    confidence=overall_conf,
+                    metadata={"intent": intent},
+                )
+            )
     else:
-        # If confidence is fine, still normalize the list
         preferred_agents = _normalize_agent_list(preferred_agents)
 
     # --------------------------------------------------------------
-    # Safety/defaults: if we somehow got no agents, fall back safely
+    # Safety/defaults
     # --------------------------------------------------------------
     if not preferred_agents:
         preferred_agents = ["refiner", "synthesis"]
-        policy_hits.append("fallback_agents:refiner+synthesis")
+        policy_hits.append(
+            _policy_hit(
+                rule_id="policy:fallback_agents",
+                label="No agents selected by policy; fallback to ['refiner','synthesis'].",
+                action="route",
+                confidence=0.50,
+            )
+        )
         reasoning_parts.append("No agents selected by policy -> fallback to Refiner + Synthesis.")
 
-    # --------------------------------------------------------------
-    # Ensure strategy is in allowed set
-    # --------------------------------------------------------------
     if strategy not in ("fast", "balanced", "deep"):
+        policy_hits.append(
+            _policy_hit(
+                rule_id="policy:normalize_strategy",
+                label=f"Strategy '{strategy}' is invalid; normalized to 'balanced'.",
+                action="route",
+                confidence=0.50,
+            )
+        )
         strategy = "balanced"
-        policy_hits.append("strategy_normalized:balanced")
 
     # --------------------------------------------------------------
     # Final reasoning + signals for debugging
@@ -389,8 +449,12 @@ def build_execution_plan(
         "tone": tone_lower,
         "tone_confidence": tone_conf,
         "complexity_score": complexity_score,
-        "matched_rules": matched_rules,
-        **(signals or {}),
+        # ✅ keep raw + normalized versions (useful while migrating)
+        "profile_matched_rules_raw": profile_matched_rules_raw,
+        "profile_rule_hits": profile_rule_hits,
+        "profile_signals": profile_signals,
+        # ✅ include policy hits too for end-to-end explainability
+        "policy_hits": policy_hits,
     }
 
     return ExecutionPlan(
@@ -405,14 +469,8 @@ def build_execution_plan(
     )
 
 
-# ===========================================================================
-# Optional convenience: map plan -> "agent list string" used by CLI
-# ===========================================================================
 def plan_to_agent_csv(plan: ExecutionPlan) -> str:
     """
     Convert preferred agent list to a stable CSV string (useful for CLI flags).
-
-    Example:
-        ["refiner", "critic"] -> "refiner,critic"
     """
     return ",".join(_normalize_agent_list(plan.preferred_agents))

@@ -774,7 +774,8 @@ class DiagnosticsCLI:
             try:
                 from langgraph.graph import StateGraph, END
                 from langgraph.checkpoint.memory import MemorySaver
-                from typing import TypedDict
+                from typing_extensions import TypedDict
+
 
                 class LangGraphHealthCheckState(TypedDict):
                     test: str

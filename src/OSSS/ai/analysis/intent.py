@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import re
 from typing import Dict, Any, List, Tuple
+from .rules.types import RuleCategory, RuleAction, RuleHit, make_hit, rule_id
 
 
 # ===========================================================================
@@ -95,89 +96,77 @@ INTENT_RULES: List[Tuple[str, float, List[str]]] = [
     ),
 ]
 
+# OPTIONAL: map intent -> default action (keeps envelopes consistent)
+INTENT_TO_ACTION = {
+    "troubleshoot": RuleAction.TROUBLESHOOT,
+    "create": RuleAction.CREATE,
+    "review": RuleAction.REVIEW,
+    "explain": RuleAction.EXPLAIN,
+    "how_to": RuleAction.EXPLAIN,
+    "compare": RuleAction.EXPLAIN,
+    "general": RuleAction.READ,
+}
 
 # ===========================================================================
 # Public API
 # ===========================================================================
-def detect_intent(query: str) -> Tuple[str, float, List[Dict[str, Any]], Dict[str, Any]]:
-    """
-    Detect the primary intent of a query.
+def detect_intent(query: str) -> Tuple[str, float, List[RuleHit], Dict[str, Any]]:
+    q_raw = (query or "").strip()
+    q = q_raw.lower()
+    matched_rules: List[RuleHit] = []
 
-    Parameters
-    ----------
-    query : str
-        Raw user query text
-
-    Returns
-    -------
-    tuple
-        (
-            intent_name: str,
-            confidence: float,
-            matched_rules: list[dict],   # each item includes an `action`
-            signals: dict[str, Any],
-        )
-
-    Notes
-    -----
-    - The first matching intent wins (rule priority is explicit).
-    - Confidence is a heuristic score, not a probability.
-    - `signals` are raw features useful for debugging and routing.
-    """
-
-    q = query.strip().lower()
-    matched_rules: List[Dict[str, Any]] = []
-
-    # ------------------------------------------------------------------
-    # Feature extraction (cheap signals)
-    # ------------------------------------------------------------------
     signals: Dict[str, Any] = {
-        "length_chars": len(query),
-        "word_count": len(re.findall(r"\w+", query)),
-        "question_marks": query.count("?"),
-        "has_code_block": "```" in query,
+        "length_chars": len(q_raw),
+        "word_count": len(re.findall(r"\w+", q_raw)),
+        "question_marks": q_raw.count("?"),
+        "has_code_block": "```" in q_raw,
         "has_stacktrace": bool(re.search(r"traceback|exception|stack trace", q)),
-        "has_numbers": bool(re.search(r"\d+", query)),
-        "contains_imperative": bool(
-            re.search(r"\b(create|build|write|add|fix|implement)\b", q)
-        ),
+        "has_numbers": bool(re.search(r"\d+", q_raw)),
+        "contains_imperative": bool(re.search(r"\b(create|build|write|add|fix|implement)\b", q)),
     }
 
-    # ------------------------------------------------------------------
-    # Intent rule matching
-    # ------------------------------------------------------------------
     for intent_name, base_confidence, patterns in INTENT_RULES:
         for pattern in patterns:
-            if re.search(pattern, q, re.IGNORECASE):
-                rule_str = f"intent:{intent_name}:{pattern}"
+            m = re.search(pattern, q, re.IGNORECASE)
+            if not m:
+                continue
 
-                # ✅ default action for intent rules (adjust if you want different mapping)
-                matched_rules.append(
-                    {
-                        "rule": rule_str,
-                        "action": "read",
-                        "intent": intent_name,
-                    }
+            # small boosts (keep deterministic)
+            conf = base_confidence
+            if signals["has_code_block"]:
+                conf = min(1.0, conf + 0.05)
+            if signals["question_marks"] > 1:
+                conf = min(1.0, conf + 0.05)
+
+            action = INTENT_TO_ACTION.get(intent_name, RuleAction.READ)
+
+            # stable, human-readable rule id
+            rid = rule_id(RuleCategory.INTENT, intent_name, "pattern_match")
+
+            matched_rules.append(
+                make_hit(
+                    category=RuleCategory.INTENT,
+                    rule_id_str=rid,
+                    label=f"Matched intent '{intent_name}' pattern",
+                    action=action,
+                    confidence=conf,
+                    pattern=pattern,
+                    evidence=q_raw[m.start():m.end()],
+                    start=m.start(),
+                    end=m.end(),
+                    meta={"intent": intent_name},
                 )
+            )
+            return intent_name, conf, matched_rules, signals
 
-                # Slight confidence boost for multi-signal reinforcement
-                confidence = base_confidence
-                if signals["has_code_block"]:
-                    confidence = min(1.0, confidence + 0.05)
-                if signals["question_marks"] > 1:
-                    confidence = min(1.0, confidence + 0.05)
-
-                return intent_name, confidence, matched_rules, signals
-
-    # ------------------------------------------------------------------
-    # Fallback intent
-    # ------------------------------------------------------------------
+    # fallback
     matched_rules.append(
-        {
-            "rule": "intent:general:fallback",
-            "action": "read",
-            "intent": "general",
-        }
+        make_hit(
+            category=RuleCategory.INTENT,
+            rule_id_str=rule_id(RuleCategory.INTENT, "general", "fallback"),
+            label="Fallback intent",
+            action=RuleAction.READ,
+            confidence=0.50,
+        )
     )
-
     return "general", 0.50, matched_rules, signals
