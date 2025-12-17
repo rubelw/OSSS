@@ -29,11 +29,11 @@ from OSSS.ai.agents.output_envelope import AgentOutputEnvelope
 EVENTS_AVAILABLE = True
 
 
-
 async def _maybe_await(x: Any) -> None:
     """Await coroutines; ignore non-awaitables."""
     if inspect.isawaitable(x):
         await x
+
 
 async def _emit_agent_execution_started(
     workflow_id: str,

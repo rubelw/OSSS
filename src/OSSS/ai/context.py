@@ -130,29 +130,29 @@ class AgentContext(BaseModel):
     """
 
     OUTPUT_CHAR_CAPS: ClassVar[Dict[str, int]] = {
-        "refiner": 1200,
-        "critic": 2000,
-        "historian": 2000,
-        "synthesis": 3000,
+        "refiner": 4000,
+        "critic": 4000,
+        "historian": 4000,
+        "synthesis": 4000,
     }
 
     # --- hard per-agent caps (list length) ---
     OUTPUT_LIST_ITEM_CAPS: ClassVar[Dict[str, int]] = {
-        "refiner": 15,
-        "critic": 25,
-        "historian": 25,
-        "synthesis": 40,
+        "refiner": 100,
+        "critic": 100,
+        "historian": 100,
+        "synthesis": 100,
     }
 
     OUTPUT_DICT_KEY_CAPS: ClassVar[Dict[str, int]] = {
-        "raw": 800,
-        "analysis": 1200,
-        "content": 1200,
-        "text": 1200,
-        "message": 1200,
-        "prompt": 1200,
-        "system_prompt": 800,
-        "user_prompt": 1200,
+        "raw": 4000,
+        "analysis": 4000,
+        "content": 4000,
+        "text": 4000,
+        "message": 4000,
+        "prompt": 4000,
+        "system_prompt": 4000,
+        "user_prompt": 4000,
     }
 
     OUTPUT_DICT_TEXT_KEYS: ClassVar[Set[str]] = set(OUTPUT_DICT_KEY_CAPS.keys())

@@ -67,6 +67,105 @@ from OSSS.ai.llm.utils import call_llm_text
 # Module-level logger (structured)
 logger = get_logger(__name__)
 
+_ALLOWED_ACTIONS = {"read", "troubleshoot", "create", "review", "explain", "route"}
+
+_ACTION_ALIASES = {
+    "inform": "explain",
+    "information": "explain",
+    "answer": "explain",
+    "respond": "explain",
+    "debug": "troubleshoot",
+    "diagnose": "troubleshoot",
+    "fix": "troubleshoot",
+    "research": "read",
+    "lookup": "read",
+    "search": "read",
+    "plan": "route",
+}
+
+_TOP_LEVEL_ALIASES = {
+    # common camelCase / variants -> your schema keys
+    "intentConfidence": "intent_confidence",
+    "subIntent": "sub_intent",
+    "subIntentConfidence": "sub_intent_confidence",
+    "sub_intentConfidence": "sub_intent_confidence",
+    "toneConfidence": "tone_confidence",
+    "matchedRules": "matched_rules",
+}
+
+_ALLOWED_TOP_KEYS = {
+    "intent",
+    "intent_confidence",
+    "tone",
+    "tone_confidence",
+    "sub_intent",
+    "sub_intent_confidence",
+    "signals",
+    "matched_rules",
+}
+
+def _sanitize_query_profile_dict(data: dict) -> dict:
+    """
+    Make LLM JSON safe for QueryProfile(extra=forbid):
+    - rename common alias keys
+    - drop unknown top-level keys
+    - coerce required strings / floats
+    - normalize matched_rules into strict RuleHit shape + action enum
+    """
+    if not isinstance(data, dict):
+        return {}
+
+    # 1) rename aliases
+    for src, dst in _TOP_LEVEL_ALIASES.items():
+        if src in data and dst not in data:
+            data[dst] = data.pop(src)
+
+    # 2) drop unknown top-level keys (extra=forbid)
+    cleaned = {k: data[k] for k in list(data.keys()) if k in _ALLOWED_TOP_KEYS}
+
+    # 3) required-ish fields with safe coercion
+    def _as_str(v, default: str) -> str:
+        if isinstance(v, str) and v.strip():
+            return v.strip()
+        return default
+
+    def _as_float(v, default: float) -> float:
+        try:
+            if v is None:
+                return default
+            return float(v)
+        except Exception:
+            return default
+
+    cleaned["intent"] = _as_str(cleaned.get("intent"), "general")
+    cleaned["tone"] = _as_str(cleaned.get("tone"), "neutral")
+    cleaned["sub_intent"] = _as_str(cleaned.get("sub_intent"), "general")
+
+    cleaned["intent_confidence"] = _as_float(cleaned.get("intent_confidence"), 0.50)
+    cleaned["tone_confidence"] = _as_float(cleaned.get("tone_confidence"), 0.50)
+    cleaned["sub_intent_confidence"] = _as_float(cleaned.get("sub_intent_confidence"), 0.50)
+
+    if not isinstance(cleaned.get("signals"), dict):
+        cleaned["signals"] = {}
+
+    # 4) normalize matched_rules and action values
+    mr = _normalize_rule_hits(cleaned.get("matched_rules"))
+    for hit in mr:
+        a = hit.get("action")
+        if isinstance(a, str):
+            a2 = _ACTION_ALIASES.get(a.strip().lower(), a.strip().lower())
+        else:
+            a2 = "read"
+
+        if a2 not in _ALLOWED_ACTIONS:
+            a2 = "read"
+
+        hit["action"] = a2
+
+    cleaned["matched_rules"] = mr
+
+    return cleaned
+
 
 def _normalize_rule_hits(value: Any) -> list[dict]:
     """
@@ -253,6 +352,95 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
         # document persistence (markdown export).
         self._db_session_factory: Optional[DatabaseSessionFactory] = None
 
+        # -------------------------------------------------------------------
+        # Query profile idempotency (prevents double LLM calls)
+        # -------------------------------------------------------------------
+        self._query_profile_cache: Dict[str, Dict[str, Any]] = {}   # workflow_id -> query_profile dict
+        self._query_profile_locks: Dict[str, asyncio.Lock] = {}     # workflow_id -> lock
+
+    def _get_query_profile_lock(self, workflow_id: str) -> asyncio.Lock:
+        lock = self._query_profile_locks.get(workflow_id)
+        if lock is None:
+            lock = asyncio.Lock()
+            self._query_profile_locks[workflow_id] = lock
+        return lock
+
+    async def _ensure_query_profile(
+        self,
+        *,
+        workflow_id: str,
+        query: str,
+        use_llm_intent: bool,
+        llm: Optional[Any],
+        config: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """
+        Ensure query_profile exists for this workflow_id exactly once.
+        Caches result in:
+          - self._query_profile_cache[workflow_id]
+          - self._active_workflows[workflow_id]["query_profile"]
+          - config["query_profile"]
+        """
+        # 1) Fast paths (already computed somewhere)
+        cached = self._query_profile_cache.get(workflow_id)
+        if isinstance(cached, dict) and cached:
+            config["query_profile"] = cached
+            if workflow_id in self._active_workflows:
+                self._active_workflows[workflow_id]["query_profile"] = cached
+            return cached
+
+        existing = config.get("query_profile")
+        if isinstance(existing, dict) and existing:
+            self._query_profile_cache[workflow_id] = existing
+            if workflow_id in self._active_workflows:
+                self._active_workflows[workflow_id]["query_profile"] = existing
+            return existing
+
+        wf_existing = None
+        if workflow_id in self._active_workflows:
+            wf_existing = self._active_workflows[workflow_id].get("query_profile")
+        if isinstance(wf_existing, dict) and wf_existing:
+            self._query_profile_cache[workflow_id] = wf_existing
+            config["query_profile"] = wf_existing
+            return wf_existing
+
+        # 2) Compute exactly once (lock protects concurrency + multi-callers)
+        lock = self._get_query_profile_lock(workflow_id)
+        async with lock:
+            # Re-check after acquiring lock
+            cached2 = self._query_profile_cache.get(workflow_id)
+            if isinstance(cached2, dict) and cached2:
+                config["query_profile"] = cached2
+                if workflow_id in self._active_workflows:
+                    self._active_workflows[workflow_id]["query_profile"] = cached2
+                return cached2
+
+            # Compute (LLM best-effort or rules)
+            if use_llm_intent:
+                if llm is None:
+                    from OSSS.ai.llm.openai import OpenAIChatLLM
+                    from OSSS.ai.config.openai_config import OpenAIConfig
+                    cfg = OpenAIConfig.load()
+                    llm = OpenAIChatLLM(api_key=cfg.api_key, model=cfg.model, base_url=cfg.base_url)
+
+                prof = await self._llm_analyze_query_profile_best_effort(query, llm=llm)
+                prof.signals = dict(prof.signals or {})
+                prof.signals["use_llm_intent"] = True
+                qp = prof.model_dump()
+            else:
+                prof = analyze_query(query)
+                prof.signals = dict(prof.signals or {})
+                prof.signals.setdefault("analysis_source", "rules")
+                qp = prof.model_dump()
+
+            # Store everywhere
+            self._query_profile_cache[workflow_id] = qp
+            config["query_profile"] = qp
+            if workflow_id in self._active_workflows:
+                self._active_workflows[workflow_id]["query_profile"] = qp
+
+            return qp
+
     def _extract_effective_queries(
             self,
             *,
@@ -281,6 +469,76 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
             effective_queries.setdefault(agent, (base_query or "").strip())
 
         return effective_queries
+
+    def _sanitize_query_profile_dict(data: dict) -> dict:
+        """
+        Make LLM-produced dict compatible with QueryProfile (Pydantic extra=forbid).
+        - drops/renames unknown keys
+        - coerces required string fields
+        - normalizes matched_rules actions
+        """
+        if not isinstance(data, dict):
+            return {}
+
+        # --- key normalization (common LLM mistakes) ---
+        if "sub_intentConfidence" in data and "sub_intent_confidence" not in data:
+            data["sub_intent_confidence"] = data.pop("sub_intentConfidence")
+        if "intentConfidence" in data and "intent_confidence" not in data:
+            data["intent_confidence"] = data.pop("intentConfidence")
+        if "toneConfidence" in data and "tone_confidence" not in data:
+            data["tone_confidence"] = data.pop("toneConfidence")
+
+        # --- required-ish string fields ---
+        if data.get("intent") is None:
+            data["intent"] = "general"
+        if data.get("tone") is None:
+            data["tone"] = "neutral"
+        if data.get("sub_intent") is None:
+            data["sub_intent"] = "general"
+
+        # ensure strings (not None / numbers / dicts)
+        for k, default in (("intent", "general"), ("tone", "neutral"), ("sub_intent", "general")):
+            v = data.get(k)
+            data[k] = v.strip() if isinstance(v, str) and v.strip() else default
+
+        # confidences: coerce to float
+        for k, default in (
+                ("intent_confidence", 0.50),
+                ("tone_confidence", 0.50),
+                ("sub_intent_confidence", 0.50),
+        ):
+            v = data.get(k)
+            data[k] = float(v) if isinstance(v, (int, float)) else float(default)
+
+        # matched_rules normalization: your helper already drops extras,
+        # but we also map invalid actions like "inform"
+        action_map = {
+            "inform": "explain",
+            "answer": "explain",
+            "search": "read",
+            "research": "read",
+        }
+
+        mr = data.get("matched_rules")
+        data["matched_rules"] = _normalize_rule_hits(mr)
+
+        for hit in data["matched_rules"]:
+            a = hit.get("action")
+            if isinstance(a, str):
+                a2 = action_map.get(a.lower().strip())
+                if a2:
+                    hit["action"] = a2
+
+        # drop any remaining unknown top-level keys to satisfy extra=forbid
+        allowed = {
+            "intent", "intent_confidence",
+            "tone", "tone_confidence",
+            "sub_intent", "sub_intent_confidence",
+            "signals",
+            "matched_rules",
+        }
+        return {k: data[k] for k in list(data.keys()) if k in allowed}
+
 
     async def _llm_analyze_query_profile_best_effort(
             self,
@@ -343,6 +601,8 @@ Query:
                 },
             )
 
+
+
             raw = await call_llm_text(llm, prompt)
 
             text = _coerce_llm_text(raw).strip()
@@ -354,8 +614,8 @@ Query:
                 json_text = _extract_first_json_object(text)
                 data = json.loads(json_text)
 
-                # normalize matched_rules into RuleHit schema expected by QueryProfile
-                data["matched_rules"] = _normalize_rule_hits(data.get("matched_rules"))
+                # ✅ sanitize/alias/drop extras + normalize rule hits/action enum
+                data = _sanitize_query_profile_dict(data)
 
                 prof = QueryProfile.model_validate(data)
                 prof.signals = dict(prof.signals or {})
@@ -383,9 +643,9 @@ Intent:"""
                 raw2 = None
                 text2 = ""
                 try:
-                    raw2 = await call_llm_text(llm, prompt)
-
+                    raw2 = await call_llm_text(llm, token_prompt)
                     text2 = _coerce_llm_text(raw2).strip().lower()
+
                 except Exception:
                     text2 = ""
 
@@ -753,7 +1013,6 @@ Intent:"""
             if self._orchestrator is None:
                 raise RuntimeError("Orchestrator not initialized")
 
-
             # ----------------------------------------------------------------
             # Preflight query analysis (intent / tone / sub-intent) + policy
             # ----------------------------------------------------------------
@@ -761,27 +1020,30 @@ Intent:"""
             llm: Optional[Any] = None
             query_profile: Optional[QueryProfile] = None
 
-
             try:
                 use_llm_intent = bool(config.get("use_llm_intent", False))
 
-                if use_llm_intent:
-                    from OSSS.ai.llm.openai import OpenAIChatLLM
-                    from OSSS.ai.config.openai_config import OpenAIConfig
+                # ✅ One canonical path: ensure query_profile once per workflow_id
+                qp = await self._ensure_query_profile(
+                    workflow_id=workflow_id,
+                    query=request.query,
+                    use_llm_intent=use_llm_intent,
+                    llm=llm,  # may be None; _ensure_query_profile will build it if needed
+                    config=config,  # will be populated with config["query_profile"]
+                )
 
-                    cfg = OpenAIConfig.load()
-                    llm = OpenAIChatLLM(api_key=cfg.api_key, model=cfg.model, base_url=cfg.base_url)
-
-                    query_profile = await self._llm_analyze_query_profile_best_effort(
-                        request.query,
-                        llm=llm,
-                    )
-                    query_profile.signals = dict(query_profile.signals or {})
-                    query_profile.signals["use_llm_intent"] = True
-                else:
+                # If you need the typed object for build_execution_plan, reconstruct it
+                # (If qp is malformed, fall back to deterministic rules)
+                try:
+                    query_profile = QueryProfile.model_validate(qp)
+                except Exception:
                     query_profile = analyze_query(request.query)
                     query_profile.signals = dict(query_profile.signals or {})
-                    query_profile.signals.setdefault("analysis_source", "rules")
+                    query_profile.signals.setdefault("analysis_source", "rules_fallback")
+
+                    # Also keep config in sync with the recovered profile
+                    config["query_profile"] = query_profile.model_dump()
+                    qp = config["query_profile"]
 
                 logger.info(
                     "Preflight query_profile result",
@@ -791,10 +1053,32 @@ Intent:"""
                         "intent": query_profile.intent,
                         "intent_confidence": query_profile.intent_confidence,
                         "analysis_source": (query_profile.signals or {}).get("analysis_source"),
-                        "llm_base_url": getattr(config, "base_url", None),
-                        "llm_model": getattr(config, "model", None),
+                        "llm_base_url": (getattr(llm, "base_url", None) if llm else None),
+                        "llm_model": (getattr(llm, "model", None) if llm else None),
                     },
                 )
+
+            except Exception as analysis_error:
+                logger.warning(
+                    f"Preflight analysis failed; continuing with request config. error={analysis_error}"
+                )
+
+                # Ensure downstream always has a query_profile key
+                config.setdefault("query_profile", {
+                    "intent": "general",
+                    "intent_confidence": 0.50,
+                    "sub_intent": "general",
+                    "sub_intent_confidence": 0.50,
+                    "tone": "neutral",
+                    "tone_confidence": 0.50,
+                    "signals": {"analysis_source": "rules_fallback"},
+                    "matched_rules": [{"rule": "intent:general:fallback", "action": "read"}],
+                })
+
+                try:
+                    query_profile = QueryProfile.model_validate(config["query_profile"])
+                except Exception:
+                    query_profile = analyze_query(request.query)
 
                 # 2) Build execution plan (maps profile -> agents/workflow/strategy)
                 #    If you don't have a complexity score yet, start with a neutral default.

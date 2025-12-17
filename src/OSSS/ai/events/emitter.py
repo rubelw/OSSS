@@ -134,7 +134,7 @@ def emit_workflow_started(**kwargs: Any) -> None:
     _fire_and_forget(get_global_event_emitter().emit(WorkflowStartedEvent(**kwargs)))
 
 
-def emit_workflow_completed(**kwargs: Any) -> None:
+async def emit_workflow_completed(**kwargs: Any) -> None:
     _fire_and_forget(get_global_event_emitter().emit(WorkflowCompletedEvent(**kwargs)))
 
 

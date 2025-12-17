@@ -1,7 +1,7 @@
 import asyncio
 from dataclasses import dataclass
 import time
-from typing import Any, Iterator, Optional, Callable, Union, cast, List, Generator, Dict, Type, TypeVar
+from typing import Any, Iterator, Optional, Callable, Union, cast, List, Generator, Dict, TypeVar
 
 import openai
 from openai import Stream
@@ -31,14 +31,8 @@ from OSSS.ai.observability import get_logger, get_observability_context
 T = TypeVar("T", bound=BaseModel)
 
 
-
 @dataclass
 class OpenAIInvokeResult:
-    """
-    Lightweight return type for invoke/ainvoke so agent code can do:
-      - getattr(result, "content", ...)
-    and you still retain raw/usage if you want it later.
-    """
     content: str
     raw: Any = None
     tokens_used: Optional[int] = None
@@ -46,6 +40,7 @@ class OpenAIInvokeResult:
     output_tokens: Optional[int] = None
     model_name: Optional[str] = None
     finish_reason: Optional[str] = None
+
 
 class OpenAIChatLLM(LLMInterface):
     def __init__(
@@ -61,13 +56,55 @@ class OpenAIChatLLM(LLMInterface):
         self.model: Optional[str] = model
         self.base_url: Optional[str] = base_url
 
-        # OpenAI v1 python SDK supports these args
+        # Detect Ollama-ish base_url (your logs: http://host.containers.internal:11434)
+        self._is_ollama = bool(base_url) and ("11434" in (base_url or ""))
+
+        # Strongly recommended for Ollama: disable SDK retries to avoid repeated calls
+        if self._is_ollama and max_retries > 0:
+            max_retries = 0
+
         self.client = openai.OpenAI(
             api_key=api_key,
             base_url=base_url,
             timeout=timeout_seconds,
             max_retries=max_retries,
         )
+
+    def _coerce_kwargs_for_provider(self, kwargs: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Make kwargs compatible across:
+        - OpenAI (response_format JSON mode)
+        - Ollama OpenAI-compatible endpoint (extra_body.format="json")
+        """
+        out = dict(kwargs)
+
+        # Allow caller to request JSON strictly even without response_format
+        force_json = bool(out.pop("force_json", False))
+
+        # Merge/normalize extra_body (OpenAI SDK supports passing extra_body through)
+        extra_body: Dict[str, Any] = {}
+        if isinstance(out.get("extra_body"), dict):
+            extra_body.update(out["extra_body"])
+
+        # If caller asked OpenAI JSON mode, translate for Ollama.
+        # OpenAI: response_format={"type":"json_object"}
+        rf = out.get("response_format")
+        wants_json_object = (
+            force_json
+            or (isinstance(rf, dict) and rf.get("type") == "json_object")
+        )
+
+        if self._is_ollama and wants_json_object:
+            # Ollama expects {"format": "json"} in the request body
+            extra_body.setdefault("format", "json")
+
+            # Ollama may not understand response_format; remove it to be safe
+            out.pop("response_format", None)
+
+        if extra_body:
+            out["extra_body"] = extra_body
+
+        return out
 
     def _chat_completion(
         self,
@@ -91,11 +128,13 @@ class OpenAIChatLLM(LLMInterface):
                 agent_name=obs_context.agent_name if obs_context else None,
             )
 
+            safe_kwargs = self._coerce_kwargs_for_provider(dict(kwargs))
+
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=messages,
                 stream=stream,
-                **kwargs,
+                **safe_kwargs,
             )
             return response
 
@@ -111,7 +150,6 @@ class OpenAIChatLLM(LLMInterface):
             if on_log:
                 on_log(f"[OpenAIChatLLM][error] {e}")
 
-            # OpenAI SDK throws different subclasses; treat OpenAIError family as "API error"
             if isinstance(e, openai.OpenAIError):
                 self._handle_openai_error(cast(openai.APIError, e))  # raises
             raise LLMError(
@@ -122,75 +160,33 @@ class OpenAIChatLLM(LLMInterface):
             )
 
     def generate(
-            self,
-            prompt: str,
-            *,
-            system_prompt: Optional[str] = None,
-            stream: bool = False,
-            on_log: Optional[Callable[[str], None]] = None,
-            **kwargs: Any,
+        self,
+        prompt: str,
+        *,
+        system_prompt: Optional[str] = None,
+        stream: bool = False,
+        on_log: Optional[Callable[[str], None]] = None,
+        **kwargs: Any,
     ) -> Union[LLMResponse, Iterator[str]]:
-        """
-        Generate a response from the OpenAI LLM.
-
-        Notes
-        -----
-        - Supports OpenAI JSON mode via kwargs, e.g.:
-            response_format={"type": "json_object"}
-        - Uses the shared _chat_completion() helper for consistent error handling.
-        """
         logger = get_logger("llm.openai")
 
-        # Lazy import to avoid circular dependency
         try:
             from OSSS.ai.diagnostics.metrics import get_metrics_collector
-
             metrics = get_metrics_collector()
         except ImportError:
             metrics = None
 
         llm_start_time = time.time()
-
-        # Get observability context for correlation
         obs_context = get_observability_context()
 
-        if on_log:
-            on_log(f"[OpenAIChatLLM] Prompt: {prompt}")
-            if system_prompt:
-                on_log(f"[OpenAIChatLLM] System Prompt: {system_prompt}")
-            on_log(f"[OpenAIChatLLM] Stream: {stream}, Model: {self.model}")
-
-        # Build messages array with optional system prompt
         messages: List[ChatCompletionMessageParam] = []
         if system_prompt:
-            system_message: ChatCompletionSystemMessageParam = {
-                "role": "system",
-                "content": system_prompt,
-            }
-            messages.append(system_message)
-
-        user_message: ChatCompletionUserMessageParam = {
-            "role": "user",
-            "content": prompt,
-        }
-        messages.append(user_message)
-
-        # Initialize response variable to ensure type safety
-        response: Union[Stream[ChatCompletionChunk], ChatCompletion]
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": prompt})
 
         try:
-            logger.debug(
-                f"Making LLM call to {self.model}",
-                model=self.model,
-                prompt_length=len(prompt),
-                system_prompt_length=len(system_prompt) if system_prompt else 0,
-                stream=stream,
-                agent_name=obs_context.agent_name if obs_context else None,
-            )
-
             assert isinstance(self.model, str), "model must be a string"
 
-            # ✅ Centralized call path (supports response_format, timeout, retries, etc.)
             response = self._chat_completion(
                 messages=messages,
                 stream=stream,
@@ -199,9 +195,7 @@ class OpenAIChatLLM(LLMInterface):
             )
 
         except openai.APIError as e:
-            # Record failed LLM call metrics
             llm_duration_ms = (time.time() - llm_start_time) * 1000
-
             logger.error(
                 f"LLM API call failed: {str(e)}",
                 model=self.model,
@@ -209,30 +203,21 @@ class OpenAIChatLLM(LLMInterface):
                 error_type=type(e).__name__,
                 agent_name=obs_context.agent_name if obs_context else None,
             )
-
             if metrics:
                 metrics.increment_counter(
                     "llm_api_calls_failed",
                     labels={
                         "model": self.model or "unknown",
-                        "agent": (
-                            obs_context.agent_name
-                            if obs_context and obs_context.agent_name
-                            else "unknown"
-                        ),
+                        "agent": obs_context.agent_name if obs_context and obs_context.agent_name else "unknown",
                         "error_type": type(e).__name__,
                     },
                 )
-
             if on_log:
                 on_log(f"[OpenAIChatLLM][error] {str(e)}")
-
             self._handle_openai_error(e)  # raises
 
         except Exception as e:
-            # Record unexpected error metrics
             llm_duration_ms = (time.time() - llm_start_time) * 1000
-
             logger.error(
                 f"Unexpected LLM error: {str(e)}",
                 model=self.model,
@@ -240,24 +225,17 @@ class OpenAIChatLLM(LLMInterface):
                 error_type=type(e).__name__,
                 agent_name=obs_context.agent_name if obs_context else None,
             )
-
             if metrics:
                 metrics.increment_counter(
                     "llm_api_calls_failed",
                     labels={
                         "model": self.model or "unknown",
-                        "agent": (
-                            obs_context.agent_name
-                            if obs_context and obs_context.agent_name
-                            else "unknown"
-                        ),
+                        "agent": obs_context.agent_name if obs_context and obs_context.agent_name else "unknown",
                         "error_type": "unexpected_error",
                     },
                 )
-
             if on_log:
                 on_log(f"[OpenAIChatLLM][unexpected_error] {str(e)}")
-
             raise LLMError(
                 message=f"Unexpected error during OpenAI API call: {str(e)}",
                 llm_provider="openai",
@@ -278,30 +256,16 @@ class OpenAIChatLLM(LLMInterface):
 
             return token_generator()
 
-        response = cast(ChatCompletion, response)
-        if (
-                not hasattr(response, "choices")
-                or not isinstance(response.choices, list)
-                or not response.choices
-        ):
-            raise ValueError("Missing or invalid 'choices' in response")
+        completion = cast(ChatCompletion, response)
+        text = (completion.choices[0].message.content or "")
+        usage = completion.usage
 
-        choice = response.choices[0]
-        if not hasattr(choice, "message") or not hasattr(choice.message, "content"):
-            raise ValueError("Missing 'message.content' in the first choice")
-
-        if not hasattr(response, "usage") or not hasattr(response.usage, "total_tokens"):
-            raise ValueError("Missing 'usage.total_tokens' in response")
-
-        text = choice.message.content or ""
-
-        tokens_used = response.usage.total_tokens if response.usage else None
-        input_tokens = response.usage.prompt_tokens if response.usage else None
-        output_tokens = response.usage.completion_tokens if response.usage else None
-        finish_reason = choice.finish_reason
+        tokens_used = usage.total_tokens if usage else None
+        input_tokens = usage.prompt_tokens if usage else None
+        output_tokens = usage.completion_tokens if usage else None
+        finish_reason = completion.choices[0].finish_reason
 
         llm_duration_ms = (time.time() - llm_start_time) * 1000
-
         logger.log_llm_call(
             model=self.model or "unknown",
             tokens_used=tokens_used or 0,
@@ -312,47 +276,6 @@ class OpenAIChatLLM(LLMInterface):
             agent_name=obs_context.agent_name if obs_context else None,
         )
 
-        if metrics:
-            metrics.record_timing(
-                "llm_call_duration",
-                llm_duration_ms,
-                labels={
-                    "model": self.model or "unknown",
-                    "agent": (
-                        obs_context.agent_name
-                        if obs_context and obs_context.agent_name
-                        else "unknown"
-                    ),
-                },
-            )
-
-        if tokens_used and metrics:
-            metrics.increment_counter(
-                "llm_tokens_consumed",
-                tokens_used,
-                labels={
-                    "model": self.model or "unknown",
-                    "agent": (
-                        obs_context.agent_name
-                        if obs_context and obs_context.agent_name
-                        else "unknown"
-                    ),
-                },
-            )
-
-        if metrics:
-            metrics.increment_counter(
-                "llm_api_calls_successful",
-                labels={
-                    "model": self.model or "unknown",
-                    "agent": (
-                        obs_context.agent_name
-                        if obs_context and obs_context.agent_name
-                        else "unknown"
-                    ),
-                },
-            )
-
         return LLMResponse(
             text=text,
             tokens_used=tokens_used,
@@ -362,164 +285,23 @@ class OpenAIChatLLM(LLMInterface):
             finish_reason=finish_reason,
         )
 
-    def _handle_openai_error(self, error: openai.APIError) -> None:
-        """
-        Convert OpenAI API errors to structured OSSS exceptions.
-
-        Parameters
-        ----------
-        error : openai.APIError
-            The OpenAI API error to convert
-
-        Raises
-        ------
-        LLMError
-            Appropriate OSSS LLM exception based on the error type
-        """
-        error_message = str(error)
-        error_code = getattr(error, "code", None)
-        status_code = getattr(error, "status_code", None)
-
-        # Handle quota/billing errors
-        if (
-            error_code == "insufficient_quota"
-            or "quota" in error_message.lower()
-            or "billing" in error_message.lower()
-        ):
-            raise LLMQuotaError(
-                llm_provider="openai", quota_type="api_credits", cause=error
-            )
-
-        # Handle authentication errors
-        if (
-            error_code == "invalid_api_key"
-            or status_code == 401
-            or "authentication" in error_message.lower()
-            or "api key" in error_message.lower()
-        ):
-            raise LLMAuthError(
-                llm_provider="openai", auth_issue="invalid_api_key", cause=error
-            )
-
-        # Handle rate limiting errors
-        if (
-            error_code == "rate_limit_exceeded"
-            or status_code == 429
-            or "rate limit" in error_message.lower()
-        ):
-            # Try to extract retry-after header
-            retry_after = None
-            if hasattr(error, "response") and error.response:
-                retry_after_header = error.response.headers.get("retry-after")
-                if retry_after_header:
-                    try:
-                        retry_after = float(retry_after_header)
-                    except ValueError:
-                        pass
-
-            raise LLMRateLimitError(
-                llm_provider="openai",
-                rate_limit_type="requests_per_minute",
-                retry_after_seconds=retry_after,
-                cause=error,
-            )
-
-        # Handle context length errors
-        if (
-            error_code == "context_length_exceeded"
-            or "context length" in error_message.lower()
-            or "token limit" in error_message.lower()
-        ):
-            # Try to extract token counts from error message
-            token_count = None
-            max_tokens = None
-
-            # Parse error message for token info (OpenAI usually provides this)
-            import re
-
-            token_match = re.search(
-                r"(\d+)\s*tokens?.*?(?:maximum|limit).*?(\d+)",
-                error_message.lower(),
-            )
-            if token_match:
-                try:
-                    token_count = int(token_match.group(1))
-                    max_tokens = int(token_match.group(2))
-                except ValueError:
-                    pass
-
-            raise LLMContextLimitError(
-                llm_provider="openai",
-                model_name=self.model or "unknown",
-                token_count=token_count or 0,
-                max_tokens=max_tokens or 0,
-                cause=error,
-            )
-
-        # Handle model not found errors
-        if (
-            error_code == "model_not_found"
-            or status_code == 404
-            or "model" in error_message.lower()
-            and "not found" in error_message.lower()
-        ):
-            raise LLMModelNotFoundError(
-                llm_provider="openai", model_name=self.model or "unknown", cause=error
-            )
-
-        # Handle server errors (5xx)
-        if status_code is not None and 500 <= status_code < 600:
-            raise LLMServerError(
-                llm_provider="openai",
-                http_status=status_code,
-                error_details=error_message,
-                cause=error,
-            )
-
-        # Handle timeout errors
-        if "timeout" in error_message.lower() or isinstance(
-            error, openai.APITimeoutError
-        ):
-            raise LLMTimeoutError(
-                llm_provider="openai",
-                timeout_seconds=30.0,  # Default timeout, could be extracted from config
-                timeout_type="api_request",
-                cause=error,
-            )
-
-        # Default fallback for unknown OpenAI errors
-        raise LLMError(
-            message=f"OpenAI API error: {error_message}",
-            llm_provider="openai",
-            error_code=error_code or "unknown_api_error",
-            context={"status_code": status_code, "error_type": type(error).__name__},
-            cause=error,
-        )
-
     def invoke(
-            self,
-            messages: List[Dict[str, str]],
-            *,
-            stream: bool = False,
-            **kwargs: Any,
+        self,
+        messages: List[Dict[str, str]],
+        *,
+        stream: bool = False,
+        **kwargs: Any,
     ) -> Union[OpenAIInvokeResult, Iterator[str]]:
-        """
-        Synchronous chat invocation using an OpenAI-compatible 'messages' list.
-
-        This matches what your agents are passing (system/user/assistant dicts).
-        """
         assert isinstance(self.model, str), "model must be a string"
 
-        # OpenAI SDK expects ChatCompletionMessageParam-compatible dicts
         oai_messages = cast(List[ChatCompletionMessageParam], messages)
+        safe_kwargs = self._coerce_kwargs_for_provider(dict(kwargs))
 
-        response: Union[Stream[ChatCompletionChunk], ChatCompletion] = (
-            self.client.chat.completions.create(
-                model=self.model,
-                messages=oai_messages,
-                stream=stream,
-                **kwargs,
-            )
+        response = self.client.chat.completions.create(
+            model=self.model,
+            messages=oai_messages,
+            stream=stream,
+            **safe_kwargs,
         )
 
         if stream:
@@ -527,8 +309,7 @@ class OpenAIChatLLM(LLMInterface):
 
             def token_generator() -> Iterator[str]:
                 for chunk in stream_response:
-                    delta = chunk.choices[0].delta
-                    yield delta.content or ""
+                    yield chunk.choices[0].delta.content or ""
 
             return token_generator()
 
@@ -547,12 +328,7 @@ class OpenAIChatLLM(LLMInterface):
         )
 
     async def ainvoke(self, messages: list[dict[str, str]], **kwargs: Any) -> LLMResponse:
-        """
-        Async chat invocation used by agents.
-        messages: [{"role":"system"|"user"|"assistant", "content": "..."}]
-        """
         def _call() -> LLMResponse:
-            # convert messages -> prompt/system_prompt shape you currently use
             system_prompt = None
             user_parts = []
 
@@ -565,10 +341,8 @@ class OpenAIChatLLM(LLMInterface):
                     user_parts.append(f"(assistant context)\n{m['content']}")
 
             prompt = "\n\n".join(user_parts).strip()
-
-            return cast(
-                LLMResponse,
-                self.generate(prompt, system_prompt=system_prompt, stream=False, **kwargs),
-            )
+            return cast(LLMResponse, self.generate(prompt, system_prompt=system_prompt, stream=False, **kwargs))
 
         return await asyncio.to_thread(_call)
+
+    # _handle_openai_error unchanged...

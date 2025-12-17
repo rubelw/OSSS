@@ -270,7 +270,7 @@ class ModelConfig(BaseModel):
         50,
         description="Length to truncate mock responses for testing",
         gt=0,
-        le=1000,
+        le=3000,
         json_schema_extra={"example": 50},
     )
 
