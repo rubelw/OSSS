@@ -195,3 +195,6 @@ workspace/*
 
 MetaGPT_workspace/
 MetaGPT_workspace/*
+
+src/osss_log/
+src/osss_log/*
