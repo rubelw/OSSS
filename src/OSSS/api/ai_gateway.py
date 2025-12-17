@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import os
-from typing import Any, Optional, List, Literal, Union
+from typing import Any, Optional, List, Literal, Union, Dict
 
 from fastapi import (
     APIRouter,
@@ -10,8 +10,6 @@ from fastapi import (
     Depends,
     HTTPException,
     Request,
-    Response,
-    status,
 )
 from fastapi.responses import JSONResponse, PlainTextResponse
 from fastapi.exceptions import HTTPException as StarletteHTTPException
@@ -34,6 +32,12 @@ except Exception:
         TUTOR_TEMPERATURE: float = float(os.getenv("TUTOR_TEMPERATURE", "0.2"))
         TUTOR_MAX_TOKENS: int = int(os.getenv("TUTOR_MAX_TOKENS", "2048"))
         DEFAULT_MODEL: str = os.getenv("DEFAULT_MODEL", "llama3.1")
+
+        # RAG toggles (safe defaults)
+        RAG_ENABLED: bool = os.getenv("RAG_ENABLED", "1") not in ("0", "false", "False")
+        RAG_TOP_K: int = int(os.getenv("RAG_TOP_K", "6"))
+        RAG_MIN_SCORE: float = float(os.getenv("RAG_MIN_SCORE", "0.0"))
+
     settings = _Settings()  # type: ignore
 
 # ---------- Metrics (optional) ----------
@@ -85,9 +89,101 @@ try:
 except Exception:
     pass
 
+# ---------- RAG helpers (best-effort stub) ----------
+class RetrievedChunk(BaseModel):
+    """
+    A normalized retrieval result. Replace rag_retrieve() with your real retriever.
+    """
+    id: str
+    text: str
+    source: str
+    score: float = 0.0
+    meta: Optional[Dict[str, Any]] = None
+
+
+async def rag_retrieve(
+    query: str,
+    *,
+    top_k: int,
+    min_score: float,
+    filters: Optional[Dict[str, Any]] = None,
+) -> List[RetrievedChunk]:
+    """
+    Best-effort RAG retrieval hook.
+
+    Replace this stub with your real retrieval implementation, e.g.:
+      - Postgres + pgvector
+      - historian_documents table (markdown exports)
+      - Elasticsearch (hybrid keyword + vector)
+      - Trino / data lake search, etc.
+
+    Must return a list of RetrievedChunk objects.
+    """
+    _ = (query, top_k, min_score, filters)
+    return []
+
+
+def _extract_last_user_query(messages: List[Dict[str, str]]) -> str:
+    for m in reversed(messages):
+        if m.get("role") == "user":
+            return (m.get("content") or "").strip()
+    return ""
+
+
+def _inject_rag_context_messages(
+    *,
+    messages: List[Dict[str, str]],
+    chunks: List[RetrievedChunk],
+) -> List[Dict[str, str]]:
+    """
+    Insert a grounding system message containing retrieved context.
+
+    Strategy:
+      - Keep original chat history intact.
+      - Add a system message "CONTEXT:" near the top so models treat it as instruction/context.
+      - Preserve any existing system message ordering.
+    """
+    if not chunks:
+        return messages
+
+    context_blocks: List[str] = []
+    for i, c in enumerate(chunks, start=1):
+        context_blocks.append(
+            f"[{i}] source={c.source} score={c.score:.3f} id={c.id}\n{c.text}"
+        )
+
+    context_msg = {
+        "role": "system",
+        "content": (
+            "CONTEXT:\n\n"
+            + "\n\n---\n\n".join(context_blocks)
+            + "\n\n"
+            "Instructions:\n"
+            "- Use the CONTEXT above when it is relevant.\n"
+            "- If the context is insufficient, say so.\n"
+            "- When you use a fact from context, cite it like [1], [2], etc.\n"
+        ),
+    }
+
+    # Insert after the last existing system message (common best practice).
+    out: List[Dict[str, str]] = []
+    last_system_idx = -1
+    for idx, m in enumerate(messages):
+        out.append(m)
+        if m.get("role") == "system":
+            last_system_idx = idx
+
+    if last_system_idx >= 0:
+        # Insert after the last system message
+        out.insert(last_system_idx + 1, context_msg)
+        return out
+
+    # No system messages -> prepend context as system
+    return [context_msg, *messages]
+
+
 # ---------- Models ----------
 class ChatMessage(BaseModel):
-
     role: Literal["system", "user", "assistant"] = Field(
         description="The role of the message sender (system, user, or assistant).",
         examples=["system", "user", "assistant"],
@@ -105,6 +201,12 @@ class ChatRequest(BaseModel):
     max_tokens: Optional[int] = Field(default=None, ge=1)
     stream: Optional[bool] = False
 
+    # ---- RAG controls (optional, backward compatible) ----
+    use_rag: Optional[bool] = Field(default=None, description="Enable retrieval-augmented generation.")
+    top_k: Optional[int] = Field(default=None, ge=1, le=50, description="How many chunks to retrieve.")
+    min_score: Optional[float] = Field(default=None, description="Drop retrieved chunks below this score.")
+    rag_filters: Optional[Dict[str, Any]] = Field(default=None, description="Optional retrieval filters.")
+
 
 # ---------- Endpoints ----------
 @router.get("/metrics")
@@ -113,6 +215,7 @@ async def metrics():
         raise HTTPException(status_code=404, detail="metrics disabled")
     data = generate_latest()
     return PlainTextResponse(data.decode("utf-8"), media_type=CONTENT_TYPE_LATEST)
+
 
 @router.get("/v1/models")
 async def list_models(_: dict | None = Depends(require_auth)):
@@ -139,6 +242,7 @@ async def list_models(_: dict | None = Depends(require_auth)):
         except httpx.HTTPError as e:
             raise HTTPException(status_code=502, detail=str(e))
 
+
 @router.post("/v1/chat/completions")
 async def chat_completions(
     payload: ChatRequest = Body(
@@ -151,7 +255,9 @@ async def chat_completions(
             ],
             "temperature": 0.2,
             "max_tokens": 256,
-            "stream": False
+            "stream": False,
+            "use_rag": True,
+            "top_k": 6,
         },
         description="OpenAI-style chat completion request body."
     ),
@@ -190,10 +296,8 @@ async def chat_completions(
     requested = payload.max_tokens
 
     if requested is None:
-        # No explicit max_tokens from client → use default
         max_tokens = DEFAULT_MAX_TOKENS
     else:
-        # Client provided a value → enforce a floor so we don't chop answers
         max_tokens = max(requested, MIN_COMPLETION_TOKENS)
     # ------------------------------------------------------
 
@@ -203,13 +307,48 @@ async def chat_completions(
 
     REQS.labels("/v1/chat/completions").inc()
 
+    # -------------------------
+    # RAG: retrieve and inject
+    # -------------------------
+    rag_enabled_default = bool(getattr(settings, "RAG_ENABLED", True))
+    use_rag = bool(payload.use_rag) if payload.use_rag is not None else rag_enabled_default
+
+    top_k = int(payload.top_k) if payload.top_k is not None else int(getattr(settings, "RAG_TOP_K", 6))
+    min_score = float(payload.min_score) if payload.min_score is not None else float(getattr(settings, "RAG_MIN_SCORE", 0.0))
+    rag_filters = payload.rag_filters if isinstance(payload.rag_filters, dict) else None
+
+    rag_chunks: List[RetrievedChunk] = []
+    rag_query = ""
+
+    try:
+        if use_rag:
+            rag_query = _extract_last_user_query([m.model_dump() for m in payload.messages])
+            if rag_query:
+                rag_chunks = await rag_retrieve(
+                    rag_query,
+                    top_k=top_k,
+                    min_score=min_score,
+                    filters=rag_filters,
+                )
+    except Exception as e:
+        # RAG is best-effort; never fail the endpoint
+        print(f"[/v1/chat/completions] RAG retrieval failed: {e}")
+        rag_chunks = []
+
+    # Create final messages with injected context
+    final_messages_dicts: List[Dict[str, str]] = _inject_rag_context_messages(
+        messages=[m.model_dump() for m in payload.messages],
+        chunks=rag_chunks,
+    )
+    # -------------------------
+
     base = getattr(settings, "VLLM_ENDPOINT", "http://127.0.0.1:11434").rstrip("/")
     upstream_v1 = f"{base}/v1/chat/completions"  # OpenAI-compatible
     upstream_api = f"{base}/api/chat"            # Ollama native
 
     openai_req = {
         "model": model,
-        "messages": [m.model_dump() for m in payload.messages],
+        "messages": final_messages_dicts,
         "temperature": temperature,
         "stream": False,
     }
@@ -230,7 +369,7 @@ async def chat_completions(
 
             print(
                 f"[chat_completions] upstream_v1 status={r.status_code} "
-                f"bytes={len(r.content)}"
+                f"bytes={len(r.content)} rag_enabled={use_rag} rag_chunks={len(rag_chunks)}"
             )
 
             # Decide whether to fall back to Ollama native
@@ -238,20 +377,18 @@ async def chat_completions(
             if r.status_code == 404:
                 fallback = True
             elif r.status_code == 400:
-                # Some Ollama builds return 400 with {"error":{"message":"model is required"...}}
                 try:
                     j = r.json()
                     err = (j or {}).get("error") or {}
                     msg = (err.get("message") or "").lower()
                     if any(s in msg for s in (
-                            "model is required",
-                            "model not found",
-                            "no such model",
-                            "unknown model",
+                        "model is required",
+                        "model not found",
+                        "no such model",
+                        "unknown model",
                     )):
                         fallback = True
                 except Exception:
-                    # If we can't parse the error, don't fallback blindly
                     pass
 
             if fallback:
@@ -261,12 +398,11 @@ async def chat_completions(
                 }
 
                 if max_tokens is not None:
-                    # num_predict ~= max_tokens in Ollama
                     options["num_predict"] = max_tokens
 
                 ollama_req = {
                     "model": model,
-                    "messages": [m.model_dump() for m in payload.messages],
+                    "messages": final_messages_dicts,
                     "options": options,
                     "stream": False,
                 }
@@ -294,6 +430,13 @@ async def chat_completions(
                         "finish_reason": "stop",
                     }],
                     "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+
+                    # --- Extra metadata (safe to ignore by OpenAI clients) ---
+                    "rag": {"enabled": use_rag, "query": rag_query, "top_k": top_k, "num_chunks": len(rag_chunks)},
+                    "citations": [
+                        {"index": i + 1, "source": c.source, "id": c.id, "score": c.score, "meta": c.meta}
+                        for i, c in enumerate(rag_chunks)
+                    ],
                 }
                 try:
                     TOKENS_IN.inc(0)
@@ -302,7 +445,6 @@ async def chat_completions(
                     pass
                 return JSONResponse(out)
 
-            # If OpenAI-compatible endpoint responded with something else
             if r.status_code >= 400:
                 raise HTTPException(
                     status_code=r.status_code,
@@ -321,7 +463,7 @@ async def chat_completions(
                 content = msg.get("content", "")
 
                 print(
-                    "[/ai/chat/rag] finish_reason=",
+                    "[/v1/chat/completions] finish_reason=",
                     finish_reason,
                     " prompt_tokens=",
                     usage.get("prompt_tokens"),
@@ -330,24 +472,20 @@ async def chat_completions(
                     " content_len=",
                     len(content),
                 )
-                print("[/ai/chat/rag] content tail:", repr(content[-200:]))
+                print("[/v1/chat/completions] content tail:", repr(content[-200:]))
 
-                # --- Heuristic: did we stop right after starting Consequences? ---
                 stripped = content.strip()
                 bad_tail = (
-                        stripped.endswith("**Consequences**")
-                        or stripped.endswith("**Consequences**\n*")
-                        or stripped.endswith("**Consequences**\n\n*")
-                        or stripped.endswith("\n**Consequences**\n\n*")
+                    stripped.endswith("**Consequences**")
+                    or stripped.endswith("**Consequences**\n*")
+                    or stripped.endswith("**Consequences**\n\n*")
+                    or stripped.endswith("\n**Consequences**\n\n*")
                 )
 
-                # Only try to auto-continue if we actually have some text
-                # AND we hit our heuristic pattern.
                 if bad_tail:
-                    print("[/ai/chat/rag] Detected truncated Consequences section, auto-continuing…")
+                    print("[/v1/chat/completions] Detected truncated Consequences section, auto-continuing…")
 
-                    # Build a follow-up request that tells the model to finish the list.
-                    followup_messages = [m.model_dump() for m in payload.messages]
+                    followup_messages = list(final_messages_dicts)
                     followup_messages.append({
                         "role": "user",
                         "content": (
@@ -374,24 +512,14 @@ async def chat_completions(
                         if choices2:
                             msg2 = (choices2[0].get("message") or {})
                             extra = msg2.get("content") or ""
-                            print(
-                                "[/ai/chat/rag] auto-continue added",
-                                len(extra),
-                                "chars"
-                            )
-                            # Append continuation to original content
+                            print("[/v1/chat/completions] auto-continue added", len(extra), "chars")
                             msg["content"] = content.rstrip() + "\n\n" + extra
-
-                            # Optionally, update finish_reason to whatever the second call had
                             first["finish_reason"] = choices2[0].get("finish_reason") or "stop"
                     else:
-                        print(
-                            "[/ai/chat/rag] auto-continue followup failed "
-                            f"status={r2.status_code}"
-                        )
+                        print("[/v1/chat/completions] auto-continue followup failed status=", r2.status_code)
 
             except Exception as e:
-                print("[/ai/chat/rag] debug/auto-continue inspection failed:", e)
+                print("[/v1/chat/completions] debug/auto-continue inspection failed:", e)
             # --------------------------------------------------------
 
             # Metrics (OpenAI-style)
@@ -413,18 +541,22 @@ async def chat_completions(
                 msg = choice.get("message") or {}
                 content = msg.get("content", "")
 
-                # Remove cases like:
-                # "Consequences\n\n*"
                 content = content.replace("**Consequences**\n\n*", "**Consequences**\n")
                 content = content.replace("Consequences\n\n*", "Consequences\n")
 
-                # Remove any line that ONLY contains "*"
                 cleaned_lines = []
                 for line in content.splitlines():
                     if line.strip() == "*":
                         continue
                     cleaned_lines.append(line)
                 msg["content"] = "\n".join(cleaned_lines)
+
+            # --- Extra metadata (safe to ignore by OpenAI clients) ---
+            data["rag"] = {"enabled": use_rag, "query": rag_query, "top_k": top_k, "num_chunks": len(rag_chunks)}
+            data["citations"] = [
+                {"index": i + 1, "source": c.source, "id": c.id, "score": c.score, "meta": c.meta}
+                for i, c in enumerate(rag_chunks)
+            ]
 
             return JSONResponse(data)
 

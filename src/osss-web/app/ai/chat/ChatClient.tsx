@@ -1119,7 +1119,7 @@ export default function ChatClient() {
     const messagesForRag = messagesForHistory;
 
     try {
-      const url = `${API_BASE}/ai/chat/rag`;
+      const url = `${API_BASE}/v1/chat/completions`;
 
       // 🔧 ALWAYS include subagent_session_id, even if it's null.
       // This tells the backend whether we're in a subagent flow or not.
@@ -1136,22 +1136,35 @@ export default function ChatClient() {
         subagent_session_id: subagentSessionId ?? null,
       };
 
-      const form = new FormData();
-      form.append("payload", JSON.stringify(body));
+      let resp: Response;
 
       if (uploadedFiles && uploadedFiles.length > 0) {
-        uploadedFiles.forEach((file) => {
-          form.append("files", file);
+        // ✅ File-upload path (multipart). Keep chat/completions JSON-only.
+        const uploadUrl = `${API_BASE}/v1/chat/completions/upload`;
+
+        const form = new FormData();
+        form.append("payload", JSON.stringify(body));
+        uploadedFiles.forEach((file) => form.append("files", file));
+
+        resp = await fetch(uploadUrl, {
+          method: "POST",
+          headers: {
+            Accept: "application/json",
+          },
+          body: form,
+        });
+      } else {
+        // ✅ Normal OpenAI-style path (JSON)
+        resp = await fetch(url, {
+          method: "POST",
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(body),
         });
       }
 
-      const resp = await fetch(url, {
-        method: "POST",
-        headers: {
-          Accept: "application/json",
-        },
-        body: form,
-      });
 
       const raw = await resp.text();
       console.log("RAG raw response:", resp.status, raw);
@@ -1162,7 +1175,7 @@ export default function ChatClient() {
       } catch {
         appendMessage(
           "bot",
-          raw || "(Non-JSON response from /ai/chat/rag)",
+          raw || "(Non-JSON response from /v1/chat/completions)",
           false
         );
 
@@ -1210,7 +1223,7 @@ export default function ChatClient() {
         (typeof core === "string" ? core : raw);
 
       if (!reply?.trim()) {
-        reply = "(Empty reply from /ai/chat/rag)";
+        reply = "(Empty reply from /v1/chat/completions)";
       }
 
       let replyForDisplay = reply;
