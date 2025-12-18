@@ -135,6 +135,11 @@ def emit_workflow_started(**kwargs: Any) -> None:
 
 
 async def emit_workflow_completed(**kwargs: Any) -> None:
+    # If error_message is provided (non-empty), error_type must also be provided
+    msg = kwargs.get("error_message")
+    if isinstance(msg, str) and msg.strip() and not kwargs.get("error_type"):
+        kwargs["error_type"] = "WorkflowError"
+
     _fire_and_forget(get_global_event_emitter().emit(WorkflowCompletedEvent(**kwargs)))
 
 

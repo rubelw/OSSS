@@ -1,7 +1,10 @@
+# OSSS/ai/orchestration/intent_classifier.py
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+import json
+import re
 from dataclasses import dataclass
+from typing import Any, Dict
 
 from OSSS.ai.config.openai_config import OpenAIConfig
 from OSSS.ai.llm.openai import OpenAIChatLLM
@@ -34,7 +37,68 @@ Given a user query, return ONLY JSON with this schema:
 Rules:
 - Be conservative with confidence unless the intent is obvious.
 - Keep sub_intent compact.
-"""
+""".strip()
+
+
+def _coerce_llm_text(resp: Any) -> str:
+    """
+    Normalize different LLM client return types into plain text.
+    Supports:
+      - plain strings
+      - objects with .text
+      - objects with .content (string or list of chunks)
+    """
+    if resp is None:
+        return ""
+    if isinstance(resp, str):
+        return resp
+
+    text = getattr(resp, "text", None)
+    if isinstance(text, str):
+        return text
+
+    content = getattr(resp, "content", None)
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        # common patterns: [{"type":"text","text":"..."}, ...]
+        parts: list[str] = []
+        for item in content:
+            if isinstance(item, str):
+                parts.append(item)
+            elif isinstance(item, dict):
+                t = item.get("text") or item.get("content")
+                if isinstance(t, str):
+                    parts.append(t)
+        return "\n".join(parts)
+
+    return str(resp)
+
+
+def _extract_first_json_object(text: str) -> str:
+    if not text:
+        raise ValueError("empty LLM response")
+    t = text.strip()
+    # strip accidental code fences
+    t = re.sub(r"^```(?:json)?\s*", "", t)
+    t = re.sub(r"\s*```$", "", t)
+
+    # if it's already valid JSON, use it
+    try:
+        json.loads(t)
+        return t
+    except Exception:
+        pass
+
+    # otherwise, grab the first {...} blob
+    m = re.search(r"\{.*\}", t, flags=re.DOTALL)
+    if not m:
+        raise ValueError("no JSON object found in LLM response")
+
+    candidate = m.group(0)
+    json.loads(candidate)  # validate
+    return candidate
+
 
 async def classify_intent_llm(query: str) -> IntentResult:
     cfg = OpenAIConfig.load()
@@ -44,19 +108,21 @@ async def classify_intent_llm(query: str) -> IntentResult:
         base_url=cfg.base_url,
     )
 
-    # You likely already have a structured/json mode helper; if not, do a simple parse.
     resp = await llm.ainvoke(
         [
             {"role": "system", "content": _INTENT_PROMPT},
-            {"role": "user", "content": query},
-        ]
+            {"role": "user", "content": (query or "").strip()},
+        ],
+        # If your OpenAIChatLLM supports these, they help a lot:
+        response_format={"type": "json_object"},
+        temperature=0.0,
     )
 
-    # If your OpenAIChatLLM returns a string, parse JSON here.
-    # Replace this with your existing "safe_json_loads" utility if you have one.
-    import json
-    data = json.loads(resp) if isinstance(resp, str) else resp
+    text = _coerce_llm_text(resp)
+    json_text = _extract_first_json_object(text)
+    data = json.loads(json_text)
 
+    # data is guaranteed dict-ish now
     return IntentResult(
         intent=str(data.get("intent", "general")),
         intent_confidence=float(data.get("intent_confidence", 0.5)),
@@ -69,6 +135,11 @@ async def classify_intent_llm(query: str) -> IntentResult:
 
 
 def to_query_profile(result: IntentResult) -> Dict[str, Any]:
+    # NOTE: in your other code, QueryProfile expects "analysis_source" in signals,
+    # not as a top-level field. Keep this consistent.
+    signals = dict(result.signals or {})
+    signals.setdefault("analysis_source", "llm")
+
     return {
         "intent": result.intent,
         "intent_confidence": result.intent_confidence,
@@ -76,7 +147,6 @@ def to_query_profile(result: IntentResult) -> Dict[str, Any]:
         "sub_intent_confidence": result.sub_intent_confidence,
         "tone": result.tone,
         "tone_confidence": result.tone_confidence,
-        "signals": result.signals,
+        "signals": signals,
         "matched_rules": [],
-        "analysis_source": "llm",
     }

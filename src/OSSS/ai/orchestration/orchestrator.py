@@ -238,6 +238,31 @@ class LangGraphOrchestrator:
         config = config or {}
         start_time = time.time()
 
+        # ------------------------------------------------------------
+        # ✅ HARD CONSTRAINT: honor caller-requested agent list
+        # ------------------------------------------------------------
+        requested_agents = config.get("agents")
+        if isinstance(requested_agents, list):
+            requested_agents = [a for a in requested_agents if isinstance(a, str) and a.strip()]
+        else:
+            requested_agents = None
+
+        if requested_agents:
+            # Force this run to only include these agents
+            self.agents_to_run = requested_agents
+
+            # If you have a concept of default_agents, keep it aligned for routing/build steps
+            # (optional, but prevents helpers from reintroducing defaults)
+            try:
+                self.default_agents = requested_agents
+            except Exception:
+                pass
+
+            # Graph is typically compiled/cached by topology; force rebuild when agent set changes
+            self._compiled_graph = None
+            self._graph = None
+
+
         # Handle correlation context - use provided correlation_id and workflow_id if available
         provided_correlation_id = config.get("correlation_id") if config else None
         provided_workflow_id = config.get("workflow_id") if config else None
@@ -273,12 +298,12 @@ class LangGraphOrchestrator:
         # Enhanced routing decision if enabled
         routing_decision = None
         if self.use_enhanced_routing:
-            routing_decision = await self._make_routing_decision(
-                query, self.default_agents, config
-            )
-
-            # Update agents based on routing decision
-            self.agents_to_run = routing_decision.selected_agents
+            routing_decision = None
+            if self.use_enhanced_routing and not requested_agents:
+                routing_decision = await self._make_routing_decision(
+                    query, self.default_agents, config
+                )
+                self.agents_to_run = routing_decision.selected_agents
 
             # ------------------------------------------------------------
             # Fast-path: skip historian unless the query likely needs history
@@ -323,20 +348,6 @@ class LangGraphOrchestrator:
         self.logger.info(f"Config: {config}")
         self.logger.info(f"Correlation context: {correlation_ctx.to_dict()}")
 
-        # Emit workflow started event
-        emit_workflow_started(
-            workflow_id=execution_id,
-            query=query,
-            agents_requested=self.agents_to_run,  # ✅ change agents -> agents_requested
-            execution_config=config,
-            correlation_id=correlation_id,
-            metadata={
-                "orchestrator_type": "langgraph-real",
-                "orchestrator_span": orchestrator_span,
-                "phase": "phase2_1",
-                "checkpoints_enabled": self.enable_checkpoints,
-            },
-        )
 
         self.total_executions += 1
 
@@ -354,7 +365,7 @@ class LangGraphOrchestrator:
             _ensure_effective_queries(initial_state, query)
 
             # ✅ LLM intent profiling (once per workflow)
-            use_llm_intent = bool(config.get("execution_config", {}).get("use_llm_intent", False))
+            use_llm_intent = bool(config.get("use_llm_intent", False))
             if use_llm_intent:
                 intent_result = await classify_intent_llm(query)
                 profile = to_query_profile(intent_result)
@@ -527,28 +538,6 @@ class LangGraphOrchestrator:
                     content = str(output)
                     return content[:200] + "..." if len(content) > 200 else content
 
-            emit_workflow_completed(
-                workflow_id=execution_id,
-                status=(
-                    "completed"
-                    if not final_state["failed_agents"]
-                    else "partial_failure"
-                ),
-                execution_time_seconds=total_time_ms / 1000,
-                agent_outputs={
-                    agent: truncate_output(output)
-                    for agent, output in agent_context.agent_outputs.items()
-                },
-                successful_agents=list(final_state["successful_agents"]),
-                failed_agents=list(final_state["failed_agents"]),
-                correlation_id=correlation_id,
-                metadata={
-                    "orchestrator_type": "langgraph-real",
-                    "orchestrator_span": orchestrator_span,
-                    "thread_id": thread_id,
-                    "total_agents": len(self.agents_to_run),
-                },
-            )
 
             # Update statistics
             if final_state["failed_agents"]:
@@ -576,25 +565,28 @@ class LangGraphOrchestrator:
             )
 
             # Emit workflow failed event
-            emit_workflow_completed(
-                workflow_id=execution_id,
-                status="failed",
-                execution_time_seconds=total_time_ms / 1000,
-                error_message=str(e),
-                successful_agents=[],
-                failed_agents=self.agents_to_run,  # All requested agents failed
-                error_type=e.__class__.__name__,  # ✅ add this
-                error_details={  # ✅ optional but very useful
-                    "exception_module": e.__class__.__module__,
-                    "exception_qualname": getattr(e.__class__, "__qualname__", e.__class__.__name__),
-                },
-                correlation_id=correlation_id,
-                metadata={
-                    "orchestrator_type": "langgraph-real",
-                    "orchestrator_span": orchestrator_span,
-                    "error_type": type(e).__name__,
-                },
-            )
+            try:
+                await emit_workflow_completed(
+                    workflow_id=execution_id,
+                    status="failed",
+                    execution_time_seconds=total_time_ms / 1000,
+                    error_message=str(e),
+                    successful_agents=[],
+                    failed_agents=self.agents_to_run,  # All requested agents failed
+                    error_type=e.__class__.__name__,  # ✅ add this
+                    error_details={  # ✅ optional but very useful
+                        "exception_module": e.__class__.__module__,
+                        "exception_qualname": getattr(e.__class__, "__qualname__", e.__class__.__name__),
+                    },
+                    correlation_id=correlation_id,
+                    metadata={
+                        "orchestrator_type": "langgraph-real",
+                        "orchestrator_span": orchestrator_span,
+                        "error_type": type(e).__name__,
+                    },
+                )
+            except Exception:
+                pass
 
             # Create fallback context with error information and correlation
             error_context = AgentContext(query=query)

@@ -17,6 +17,9 @@ from OSSS.ai.orchestration.node_wrappers import (
     critic_node,
     historian_node,
     synthesis_node,
+    # ✅ NEW: add these wrappers (ensure they exist in node_wrappers.py)
+    guard_node,
+    data_view_node,
 )
 from OSSS.ai.orchestration.memory_manager import OSSSMemoryManager
 from OSSS.ai.observability import get_logger
@@ -86,11 +89,14 @@ class GraphFactory:
         self.default_validator = default_validator
 
         # Available node functions mapped by agent name
+        # ✅ Added guard + data_view so they are no longer "missing"
         self.node_functions = {
             "refiner": refiner_node,
             "critic": critic_node,
             "historian": historian_node,
             "synthesis": synthesis_node,
+            "guard": guard_node,
+            "data_view": data_view_node,
         }
 
         validation_info = (
@@ -100,24 +106,21 @@ class GraphFactory:
             f"GraphFactory initialized with cache, pattern registry, and {validation_info}"
         )
 
+
+    def _fallback_edges_linear(self, agents_to_run: List[str]) -> List[Dict[str, str]]:
+        """Fallback: link agents in order and end at END."""
+        if not agents_to_run:
+            return []
+        edges: List[Dict[str, str]] = []
+        for i in range(len(agents_to_run) - 1):
+            edges.append({"from": agents_to_run[i].lower(), "to": agents_to_run[i + 1].lower()})
+        edges.append({"from": agents_to_run[-1].lower(), "to": "END"})
+        return edges
+
+
     def create_graph(self, config: GraphConfig) -> Any:
         """
         Create and compile a StateGraph based on configuration.
-
-        Parameters
-        ----------
-        config : GraphConfig
-            Configuration specifying agents, patterns, and options
-
-        Returns
-        -------
-        Any
-            Compiled LangGraph StateGraph ready for execution
-
-        Raises
-        ------
-        GraphBuildError
-            If graph creation or compilation fails
         """
         self.logger.info(
             f"Creating graph with pattern '{config.pattern_name}' "
@@ -174,23 +177,7 @@ class GraphFactory:
     def _create_state_graph(self, config: GraphConfig, pattern: GraphPattern) -> Any:
         """
         Create the StateGraph with nodes and edges.
-
-        Parameters
-        ----------
-        config : GraphConfig
-            Graph configuration
-        pattern : GraphPattern
-            Graph pattern defining structure
-
-        Returns
-        -------
-        StateGraph
-            Configured StateGraph (not yet compiled)
         """
-        # Create StateGraph with OSSSState and OSSSContext schemas for LangGraph 0.6.x
-        # Type checker warnings are expected here due to LangGraph's complex generic typing
-        # Both OSSSState (TypedDict) and OSSSContext (dataclass) are compatible
-        # with LangGraph 0.6.x StateGraph constructor at runtime
         graph = StateGraph[OSSSState](
             state_schema=OSSSState, context_schema=OSSSContext
         )
@@ -206,54 +193,57 @@ class GraphFactory:
     def _add_nodes(self, graph: Any, agents_to_run: List[str]) -> None:
         """
         Add agent nodes to the StateGraph.
-
-        Parameters
-        ----------
-        graph : StateGraph
-            Graph to add nodes to
-        agents_to_run : List[str]
-            List of agent names to add as nodes
         """
         for agent_name in agents_to_run:
             agent_key = agent_name.lower()
             if agent_key not in self.node_functions:
-                raise GraphBuildError(f"Unknown agent: {agent_name}")
+                raise GraphBuildError(
+                    f"Unknown agent: {agent_name}. Available agents: {sorted(self.node_functions.keys())}"
+                )
 
             node_function = self.node_functions[agent_key]
             graph.add_node(agent_key, node_function)
             self.logger.debug(f"Added node: {agent_key}")
 
     def _add_edges(
-        self, graph: Any, agents_to_run: List[str], pattern: GraphPattern
+            self, graph: Any, agents_to_run: List[str], pattern: GraphPattern
     ) -> None:
         """
         Add edges to the StateGraph based on pattern.
-
-        Parameters
-        ----------
-        graph : StateGraph
-            Graph to add edges to
-        agents_to_run : List[str]
-            List of agents in the graph
-        pattern : GraphPattern
-            Pattern defining edge structure
+        Falls back to a linear chain if the pattern doesn't fully describe the agent set.
         """
-        # Get edge definitions from pattern
         edges = pattern.get_edges(agents_to_run)
 
-        # Set entry point
+        # Validate edges cover nodes; if not, fallback
+        requested = [a.lower() for a in agents_to_run]
+        edge_nodes = set()
+        for e in edges:
+            edge_nodes.add(e["from"])
+            if e["to"] != "END":
+                edge_nodes.add(e["to"])
+
+        # If pattern didn't mention some requested nodes, use a safe fallback
+        if any(n not in edge_nodes for n in requested):
+            self.logger.warning(
+                f"Pattern '{pattern.name}' edges do not cover all requested nodes; "
+                f"falling back to linear edges. missing={sorted(set(requested) - edge_nodes)}"
+            )
+            edges = self._fallback_edges_linear(agents_to_run)
+
         entry_point = pattern.get_entry_point(agents_to_run)
+        if not entry_point or entry_point.lower() not in requested:
+            # If pattern doesn't give an entrypoint (or gives a bad one), fallback
+            entry_point = requested[0] if requested else None
+
         if entry_point:
             graph.set_entry_point(entry_point)
             self.logger.debug(f"Set entry point: {entry_point}")
 
-        # Add edges
         for edge in edges:
             if edge["to"] == "END":
                 graph.add_edge(edge["from"], END)
             else:
                 graph.add_edge(edge["from"], edge["to"])
-
             self.logger.debug(f"Added edge: {edge['from']} → {edge['to']}")
 
     def _compile_graph(
@@ -261,22 +251,9 @@ class GraphFactory:
     ) -> Any:
         """
         Compile the StateGraph with optional memory checkpointing.
-
-        Parameters
-        ----------
-        graph : StateGraph
-            Graph to compile
-        config : GraphConfig
-            Configuration including memory management
-
-        Returns
-        -------
-        Any
-            Compiled graph ready for execution
         """
         try:
             if config.enable_checkpoints and config.memory_manager:
-                # Compile with checkpointing
                 checkpointer = config.memory_manager.get_memory_saver()
                 if checkpointer:
                     compiled_graph = graph.compile(checkpointer=checkpointer)
@@ -290,7 +267,6 @@ class GraphFactory:
                         "compiling without checkpointing"
                     )
 
-            # Compile without checkpointing
             compiled_graph = graph.compile()
             self.logger.info("StateGraph compiled without checkpointing")
             return compiled_graph
@@ -299,30 +275,25 @@ class GraphFactory:
             raise GraphBuildError(f"Graph compilation failed: {e}") from e
 
     def create_standard_graph(
-        self,
-        agents: List[str],
-        enable_checkpoints: bool = False,
-        memory_manager: Optional[OSSSMemoryManager] = None,
+            self,
+            agents: List[str],
+            enable_checkpoints: bool = False,
+            memory_manager: Optional[OSSSMemoryManager] = None,
+            include_guard: bool = False,
+            include_data_view: bool = False,
     ) -> Any:
         """
-        Create a standard 4-agent graph pattern.
-
-        Parameters
-        ----------
-        agents : List[str]
-            List of agent names (typically ["refiner", "critic", "historian", "synthesis"])
-        enable_checkpoints : bool
-            Whether to enable memory checkpointing
-        memory_manager : OSSSMemoryManager, optional
-            Memory manager for checkpointing
-
-        Returns
-        -------
-        Any
-            Compiled StateGraph
+        Create a standard graph pattern.
         """
+        agents_to_run = [a.lower() for a in agents]
+
+        if include_guard and "guard" not in agents_to_run:
+            agents_to_run = ["guard"] + agents_to_run  # guard first
+        if include_data_view and "data_view" not in agents_to_run:
+            agents_to_run = agents_to_run + ["data_view"]  # data_view last
+
         config = GraphConfig(
-            agents_to_run=agents,
+            agents_to_run=agents_to_run,
             enable_checkpoints=enable_checkpoints,
             memory_manager=memory_manager,
             pattern_name="standard",
@@ -337,20 +308,6 @@ class GraphFactory:
     ) -> Any:
         """
         Create a parallel execution graph pattern.
-
-        Parameters
-        ----------
-        agents : List[str]
-            List of agent names
-        enable_checkpoints : bool
-            Whether to enable memory checkpointing
-        memory_manager : OSSSMemoryManager, optional
-            Memory manager for checkpointing
-
-        Returns
-        -------
-        Any
-            Compiled StateGraph
         """
         config = GraphConfig(
             agents_to_run=agents,
@@ -361,14 +318,7 @@ class GraphFactory:
         return self.create_graph(config)
 
     def get_cache_stats(self) -> Dict[str, Any]:
-        """
-        Get cache statistics.
-
-        Returns
-        -------
-        Dict[str, Any]
-            Cache statistics including hit rate, size, etc.
-        """
+        """Get cache statistics."""
         return self.cache.get_stats()
 
     def clear_cache(self) -> None:
@@ -377,36 +327,21 @@ class GraphFactory:
         self.logger.info("Graph cache cleared")
 
     def get_available_patterns(self) -> List[str]:
-        """
-        Get list of available graph patterns.
-
-        Returns
-        -------
-        List[str]
-            List of pattern names
-        """
+        """Get list of available graph patterns."""
         return self.pattern_registry.get_pattern_names()
 
     def validate_agents(self, agents: List[str]) -> bool:
         """
         Validate that all requested agents are available.
-
-        Parameters
-        ----------
-        agents : List[str]
-            List of agent names to validate
-
-        Returns
-        -------
-        bool
-            True if all agents are available
         """
         available_agents = set(self.node_functions.keys())
         requested_agents = set(agent.lower() for agent in agents)
 
         missing_agents = requested_agents - available_agents
         if missing_agents:
-            self.logger.error(f"Missing agents: {missing_agents}")
+            self.logger.error(
+                f"Missing agents: {missing_agents}. Available agents: {sorted(available_agents)}"
+            )
             return False
 
         return True
@@ -414,20 +349,7 @@ class GraphFactory:
     def _validate_workflow(self, config: GraphConfig) -> None:
         """
         Perform semantic validation on the workflow configuration.
-
-        Parameters
-        ----------
-        config : GraphConfig
-            Configuration to validate
-
-        Raises
-        ------
-        ValidationError
-            If validation fails with errors
-        GraphBuildError
-            If validation setup fails
         """
-        # Determine which validator to use
         validator = config.validator or self.default_validator
 
         if not validator:
@@ -435,14 +357,12 @@ class GraphFactory:
             return
 
         try:
-            # Perform validation
             result = validator.validate_workflow(
                 agents=config.agents_to_run,
                 pattern=config.pattern_name,
                 strict_mode=config.validation_strict_mode,
             )
 
-            # Log validation results
             if result.has_warnings:
                 for warning in result.warning_messages:
                     self.logger.warning(f"Validation warning: {warning}")
@@ -458,7 +378,7 @@ class GraphFactory:
                 self.logger.info("Workflow validation passed")
 
         except ValidationError:
-            raise  # Re-raise validation errors
+            raise
         except Exception as e:
             raise GraphBuildError(f"Validation setup failed: {e}") from e
 
@@ -467,11 +387,6 @@ class GraphFactory:
     ) -> None:
         """
         Set the default semantic validator for the factory.
-
-        Parameters
-        ----------
-        validator : WorkflowSemanticValidator, optional
-            Validator to use by default. None to disable default validation.
         """
         self.default_validator = validator
         validation_info = "enabled" if validator else "disabled"
@@ -486,29 +401,7 @@ class GraphFactory:
     ) -> SemanticValidationResult:
         """
         Validate a workflow configuration without building the graph.
-
-        Parameters
-        ----------
-        agents : List[str]
-            List of agent names
-        pattern : str
-            Pattern name to validate
-        validator : WorkflowSemanticValidator, optional
-            Validator to use. Uses default if None.
-        strict_mode : bool
-            Whether to use strict validation mode
-
-        Returns
-        -------
-        SemanticValidationResult
-            Detailed validation result
-
-        Raises
-        ------
-        GraphBuildError
-            If validation setup fails
         """
-        # Determine which validator to use
         use_validator = validator or self.default_validator
 
         if not use_validator:

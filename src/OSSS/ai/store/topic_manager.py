@@ -17,6 +17,22 @@ from OSSS.ai.store.frontmatter import TopicTaxonomy
 
 logger = logging.getLogger(__name__)
 
+TOPIC_MARKDOWN_WRAPPERS_RE = re.compile(r"^[`*_]+|[`*_]+$")
+
+def clean_topic(t: str) -> str:
+    t = (t or "").strip()
+    # strip markdown emphasis wrappers like **topic**, _topic_, `topic`
+    t = TOPIC_MARKDOWN_WRAPPERS_RE.sub("", t)
+    # normalize internal whitespace
+    t = re.sub(r"\s+", " ", t).strip()
+    # strip common trailing punctuation/bullets
+    t = t.strip(" -–—•:;,.")
+    return t
+
+def topic_key(t: str) -> str:
+    # canonical key for dedupe (case-insensitive)
+    return clean_topic(t).casefold()
+
 
 class TopicSuggestion(BaseModel):
     """
@@ -638,7 +654,10 @@ YOUR TOPIC SUGGESTIONS:"""
                 related_match = re.search(r"RELATED:\s*(.+)", block)
 
                 if topic_match:
-                    topic = topic_match.group(1).strip()
+                    topic = clean_topic(topic_match.group(1))
+                    if not topic:
+                        continue
+
                     confidence = (
                         float(confidence_match.group(1)) if confidence_match else 0.5
                     )
@@ -735,7 +754,12 @@ class TopicManager:
         # Group by similar topics
         grouped: Dict[str, List[TopicSuggestion]] = {}
         for suggestion in suggestions:
-            key = suggestion.topic.lower().strip()
+            # normalize the suggestion itself (so downstream is clean)
+            suggestion.topic = clean_topic(suggestion.topic)
+            if not suggestion.topic:
+                continue
+            key = topic_key(suggestion.topic)
+
             if key not in grouped:
                 grouped[key] = []
             grouped[key].append(suggestion)
@@ -754,9 +778,14 @@ class TopicManager:
                 best.reasoning += f" (confirmed by {len(topic_group)} sources)"
                 merged_suggestions.append(best)
 
-        # Boost topics not in existing_topics
+        # Boost topics not in existing_topics (normalized + case-insensitive)
+        existing_keys = {topic_key(t) for t in (existing_topics or [])}
+
+        # Boost topics not in existing_topics (normalized + case-insensitive)
+        existing_keys = {topic_key(t) for t in (existing_topics or [])}
+
         for suggestion in merged_suggestions:
-            if suggestion.topic.lower() not in [t.lower() for t in existing_topics]:
+            if topic_key(suggestion.topic) not in existing_keys:
                 suggestion.confidence = min(1.0, suggestion.confidence + 0.1)
 
         # Sort by confidence

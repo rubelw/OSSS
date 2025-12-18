@@ -310,6 +310,8 @@ class WorkflowEvent(BaseModel):
 class WorkflowStartedEvent(WorkflowEvent):
     """Workflow execution started event with enhanced metadata."""
 
+    agents: list[str] = Field(default_factory=list)
+
     event_type: EventType = Field(
         default=EventType.WORKFLOW_STARTED,
         description="Type of event being recorded",
@@ -343,6 +345,14 @@ class WorkflowStartedEvent(WorkflowEvent):
         pattern=r"^[a-zA-Z0-9._-]+$",
         json_schema_extra={"example": "langgraph-real"},
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def _compat_agents_requested(cls, data):
+        if isinstance(data, dict):
+            if not data.get("agents") and data.get("agents_requested"):
+                data["agents"] = data["agents_requested"]
+        return data
 
     def model_post_init(self, __context: Any) -> None:
         """Populate data after initialization."""

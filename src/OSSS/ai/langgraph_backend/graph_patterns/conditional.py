@@ -569,102 +569,127 @@ class EnhancedConditionalPattern(GraphPattern):
         return selected
 
     def get_edges(self, agents: List[str]) -> List[Dict[str, str]]:
-        """
-        Get edge definitions with conditional routing logic.
-
-        Parameters
-        ----------
-        agents : List[str]
-            List of agent names in the graph
-
-        Returns
-        -------
-        List[Dict[str, str]]
-            List of edge dictionaries with conditional routing
-        """
-        edges = []
+        edges: List[Dict[str, str]] = []
         agents_lower = [agent.lower() for agent in agents]
 
-        # For now, implement enhanced standard pattern logic
-        # Future enhancement: add conditional routing based on runtime decisions
+        def chain_to_end(chain: List[str]) -> List[Dict[str, str]]:
+            if not chain:
+                return []
+            if len(chain) == 1:
+                return [{"from": chain[0], "to": "END"}]
+            chain_edges: List[Dict[str, str]] = []
+            for i in range(len(chain) - 1):
+                chain_edges.append({"from": chain[i], "to": chain[i + 1]})
+            chain_edges.append({"from": chain[-1], "to": "END"})
+            return chain_edges
 
-        if "refiner" in agents_lower:
-            # Refiner to other agents (parallel where possible)
-            if "critic" in agents_lower:
+        has_guard = "guard" in agents_lower
+        has_data_view = "data_view" in agents_lower
+
+        core = [a for a in agents_lower if a not in ("guard", "data_view")]
+        recognized = {"refiner", "critic", "historian", "synthesis"}
+        has_any_recognized = any(a in recognized for a in core)
+
+        # If only non-standard agents are present, chain them (guard first, data_view last)
+        if not has_any_recognized:
+            ordered = []
+            if has_guard:
+                ordered.append("guard")
+            ordered.extend(core)
+            if has_data_view:
+                ordered.append("data_view")
+            return chain_to_end(ordered)
+
+        core_set = set(core)
+
+        # --- existing enhanced-standard behavior among core agents ---
+        if "refiner" in core_set:
+            if "critic" in core_set:
                 edges.append({"from": "refiner", "to": "critic"})
-            if "historian" in agents_lower:
+            if "historian" in core_set:
                 edges.append({"from": "refiner", "to": "historian"})
 
-            # Handle synthesis connections
-            if "synthesis" in agents_lower:
-                # Collect all intermediate agents
-                intermediates = [
-                    agent for agent in agents_lower if agent in ["critic", "historian"]
-                ]
-
+            if "synthesis" in core_set:
+                intermediates = [a for a in ("critic", "historian") if a in core_set]
                 if intermediates:
-                    # Intermediate agents feed into synthesis
-                    for intermediate in intermediates:
-                        edges.append({"from": intermediate, "to": "synthesis"})
+                    for inter in intermediates:
+                        edges.append({"from": inter, "to": "synthesis"})
                 else:
-                    # Direct refiner to synthesis if no intermediates
                     edges.append({"from": "refiner", "to": "synthesis"})
-
-                # Synthesis to END
-                edges.append({"from": "synthesis", "to": "END"})
             else:
-                # No synthesis, intermediates are terminal
-                for agent in ["critic", "historian"]:
-                    if agent in agents_lower:
-                        edges.append({"from": agent, "to": "END"})
+                for a in ("critic", "historian"):
+                    if a in core_set:
+                        edges.append({"from": a, "to": "END"})
 
-        # Handle cases without refiner
-        elif "critic" in agents_lower or "historian" in agents_lower:
-            if "synthesis" in agents_lower:
-                for agent in ["critic", "historian"]:
-                    if agent in agents_lower:
-                        edges.append({"from": agent, "to": "synthesis"})
-                edges.append({"from": "synthesis", "to": "END"})
+        elif "critic" in core_set or "historian" in core_set:
+            if "synthesis" in core_set:
+                for a in ("critic", "historian"):
+                    if a in core_set:
+                        edges.append({"from": a, "to": "synthesis"})
             else:
-                # Terminal nodes
-                for agent in ["critic", "historian"]:
-                    if agent in agents_lower:
-                        edges.append({"from": agent, "to": "END"})
+                for a in ("critic", "historian"):
+                    if a in core_set:
+                        edges.append({"from": a, "to": "END"})
 
-        # Handle synthesis-only case
-        elif "synthesis" in agents_lower:
-            edges.append({"from": "synthesis", "to": "END"})
+        # --- frame with guard first ---
+        if has_guard:
+            after_guard = None
+            if "refiner" in core_set:
+                after_guard = "refiner"
+            elif core:
+                after_guard = core[0]
+            elif has_data_view:
+                after_guard = "data_view"
 
-        return edges
+            if after_guard and after_guard != "guard":
+                edges.append({"from": "guard", "to": after_guard})
+            else:
+                edges.append({"from": "guard", "to": "END"})
+
+        # --- data_view last ---
+        if "synthesis" in core_set:
+            if has_data_view:
+                edges.append({"from": "synthesis", "to": "data_view"})
+                edges.append({"from": "data_view", "to": "END"})
+            else:
+                edges.append({"from": "synthesis", "to": "END"})
+        else:
+            if has_data_view:
+                terminal = None
+                for candidate in ("critic", "historian", "refiner"):
+                    if candidate in core_set:
+                        terminal = candidate
+                        break
+                if terminal:
+                    edges.append({"from": terminal, "to": "data_view"})
+                elif has_guard:
+                    edges.append({"from": "guard", "to": "data_view"})
+                edges.append({"from": "data_view", "to": "END"})
+
+        return edges if edges else chain_to_end(
+            (["guard"] if has_guard else []) + core + (["data_view"] if has_data_view else [])
+        )
 
     def get_entry_point(self, agents: List[str]) -> Optional[str]:
-        """Get entry point for conditional pattern."""
         agents_lower = [agent.lower() for agent in agents]
-
-        # Prefer refiner as entry point
+        if "guard" in agents_lower:
+            return "guard"
         if "refiner" in agents_lower:
             return "refiner"
-
-        # Fallback to first available agent
         return agents_lower[0] if agents_lower else None
 
     def get_exit_points(self, agents: List[str]) -> List[str]:
-        """Get exit points for conditional pattern."""
         agents_lower = [agent.lower() for agent in agents]
-
-        # Prefer synthesis as exit point
+        if "data_view" in agents_lower:
+            return ["data_view"]
         if "synthesis" in agents_lower:
             return ["synthesis"]
-
-        # Otherwise, return all non-refiner agents as potential exit points
-        exit_points = [agent for agent in agents_lower if agent != "refiner"]
+        exit_points = [a for a in agents_lower if a not in ("refiner", "guard")]
         return exit_points if exit_points else agents_lower
 
     def get_parallel_groups(self, agents: List[str]) -> List[List[str]]:
-        """Get parallel execution groups for conditional pattern."""
         agents_lower = [agent.lower() for agent in agents]
 
-        # Standard parallel group: critic and historian after refiner
         parallel_group = []
         if "critic" in agents_lower:
             parallel_group.append("critic")
@@ -1028,6 +1053,9 @@ class ConditionalPatternValidator(WorkflowSemanticValidator):
                 "critical": True,
                 "parallel_safe": False,
             },
+            "guard": {"role": "guard", "critical": True, "parallel_safe": True},
+            "data_view": {"role": "retrieval", "critical": False, "parallel_safe": True},
+
         }
 
         # Define valid routing strategies for different contexts

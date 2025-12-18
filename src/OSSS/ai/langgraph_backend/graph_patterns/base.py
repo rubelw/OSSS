@@ -133,83 +133,150 @@ class StandardPattern(GraphPattern):
         return "Standard 4-agent pattern: refiner → [critic, historian] → synthesis"
 
     def get_edges(self, agents: List[str]) -> List[Dict[str, str]]:
-        """Get standard pattern edges."""
-        edges = []
+        """Get standard pattern edges (supports guard + data_view)."""
         agents_lower = [agent.lower() for agent in agents]
 
-        # Define the standard DAG structure
-        if "refiner" in agents_lower:
-            # Refiner to Critic and Historian (parallel)
-            if "critic" in agents_lower:
+        def chain_to_end(chain: List[str]) -> List[Dict[str, str]]:
+            if not chain:
+                return []
+            if len(chain) == 1:
+                return [{"from": chain[0], "to": "END"}]
+            chain_edges: List[Dict[str, str]] = []
+            for i in range(len(chain) - 1):
+                chain_edges.append({"from": chain[i], "to": chain[i + 1]})
+            chain_edges.append({"from": chain[-1], "to": "END"})
+            return chain_edges
+
+        edges: List[Dict[str, str]] = []
+
+        has_guard = "guard" in agents_lower
+        has_data_view = "data_view" in agents_lower
+
+        core = [a for a in agents_lower if a not in ("guard", "data_view")]
+        recognized = {"refiner", "critic", "historian", "synthesis"}
+        has_any_recognized = any(a in recognized for a in core)
+
+        # If none of the standard agents are present, just chain (but keep guard first, data_view last)
+        if not has_any_recognized:
+            ordered = []
+            if has_guard:
+                ordered.append("guard")
+            ordered.extend([a for a in core if a != "guard"])
+            if has_data_view:
+                ordered.append("data_view")
+            return chain_to_end(ordered)
+
+        # ---- Standard DAG behavior for classic agents ----
+        # Build DAG among core recognized nodes.
+        core_set = set(core)
+
+        if "refiner" in core_set:
+            # Refiner to Critic and Historian
+            if "critic" in core_set:
                 edges.append({"from": "refiner", "to": "critic"})
-            if "historian" in agents_lower:
+            if "historian" in core_set:
                 edges.append({"from": "refiner", "to": "historian"})
 
-            # If synthesis is present, both critic and historian feed into it
-            if "synthesis" in agents_lower:
-                if "critic" in agents_lower:
+            if "synthesis" in core_set:
+                if "critic" in core_set:
                     edges.append({"from": "critic", "to": "synthesis"})
-                if "historian" in agents_lower:
+                if "historian" in core_set:
                     edges.append({"from": "historian", "to": "synthesis"})
-
-                # If no critic or historian, refiner connects directly to synthesis
-                if not ("critic" in agents_lower or "historian" in agents_lower):
+                if not ("critic" in core_set or "historian" in core_set):
                     edges.append({"from": "refiner", "to": "synthesis"})
-
-                # Synthesis is the final node
-                edges.append({"from": "synthesis", "to": "END"})
             else:
-                # If no synthesis, critic and historian are terminal nodes
-                if "critic" in agents_lower:
+                # No synthesis: critic/historian terminal
+                if "critic" in core_set:
                     edges.append({"from": "critic", "to": "END"})
-                if "historian" in agents_lower:
+                if "historian" in core_set:
                     edges.append({"from": "historian", "to": "END"})
 
-        # Handle edge cases with missing refiner
-        elif "critic" in agents_lower or "historian" in agents_lower:
-            # If no refiner, critic and/or historian are entry points
-            if "synthesis" in agents_lower:
-                if "critic" in agents_lower:
+        elif "critic" in core_set or "historian" in core_set:
+            # No refiner: critic/historian feed synthesis if present, else terminal
+            if "synthesis" in core_set:
+                if "critic" in core_set:
                     edges.append({"from": "critic", "to": "synthesis"})
-                if "historian" in agents_lower:
+                if "historian" in core_set:
                     edges.append({"from": "historian", "to": "synthesis"})
-                edges.append({"from": "synthesis", "to": "END"})
             else:
-                # Terminal nodes
-                if "critic" in agents_lower:
+                if "critic" in core_set:
                     edges.append({"from": "critic", "to": "END"})
-                if "historian" in agents_lower:
+                if "historian" in core_set:
                     edges.append({"from": "historian", "to": "END"})
 
-        # Handle synthesis-only case
-        elif "synthesis" in agents_lower:
-            edges.append({"from": "synthesis", "to": "END"})
+        elif "synthesis" in core_set:
+            # Synthesis-only case
+            pass
 
-        return edges
+        # ---- Add guard + data_view framing ----
+        # Guard should precede the actual entrypoint if present.
+        entry = self.get_entry_point(agents)  # will return guard if present with our update below
+        if has_guard:
+            # Determine the first "real" node after guard.
+            after_guard = None
+            if "refiner" in core_set:
+                after_guard = "refiner"
+            elif core:
+                after_guard = core[0]
+            elif has_data_view:
+                after_guard = "data_view"
+
+            if after_guard and after_guard != "guard":
+                edges.append({"from": "guard", "to": after_guard})
+            else:
+                edges.append({"from": "guard", "to": "END"})
+
+        # Determine terminal behavior:
+        # If synthesis exists, synthesis is terminal of the core DAG.
+        # If synthesis does not exist, terminals may already go to END above.
+        if "synthesis" in core_set:
+            if has_data_view:
+                edges.append({"from": "synthesis", "to": "data_view"})
+                edges.append({"from": "data_view", "to": "END"})
+            else:
+                edges.append({"from": "synthesis", "to": "END"})
+        else:
+            # No synthesis: if data_view exists, try to attach it to the last core agent
+            if has_data_view:
+                # Find likely terminal node among core
+                terminal = None
+                for candidate in ["critic", "historian", "refiner"]:
+                    if candidate in core_set:
+                        terminal = candidate
+                        break
+                if terminal:
+                    edges.append({"from": terminal, "to": "data_view"})
+                    edges.append({"from": "data_view", "to": "END"})
+                else:
+                    # No core terminals found; chain guard->data_view or data_view->END
+                    if has_guard:
+                        edges.append({"from": "guard", "to": "data_view"})
+                    edges.append({"from": "data_view", "to": "END"})
+
+        return edges if edges else chain_to_end(
+            (["guard"] if has_guard else []) + core + (["data_view"] if has_data_view else [])
+        )
 
     def get_entry_point(self, agents: List[str]) -> Optional[str]:
-        """Get entry point for standard pattern."""
         agents_lower = [agent.lower() for agent in agents]
 
-        # Refiner is preferred entry point
+        # ✅ guard is preferred entry point if present
+        if "guard" in agents_lower:
+            return "guard"
+
         if "refiner" in agents_lower:
             return "refiner"
 
-        # If no refiner, use first available agent
-        if agents_lower:
-            return agents_lower[0]
-
-        return None
+        return agents_lower[0] if agents_lower else None
 
     def get_exit_points(self, agents: List[str]) -> List[str]:
-        """Get exit points for standard pattern."""
         agents_lower = [agent.lower() for agent in agents]
 
-        # Synthesis is preferred exit point
+        if "data_view" in agents_lower:
+            return ["data_view"]
         if "synthesis" in agents_lower:
             return ["synthesis"]
 
-        # Otherwise, critic and historian are exit points
         exit_points = []
         if "critic" in agents_lower:
             exit_points.append("critic")
@@ -219,10 +286,8 @@ class StandardPattern(GraphPattern):
         return exit_points if exit_points else agents_lower
 
     def get_parallel_groups(self, agents: List[str]) -> List[List[str]]:
-        """Get parallel execution groups."""
         agents_lower = [agent.lower() for agent in agents]
 
-        # Critic and Historian can execute in parallel after Refiner
         parallel_group = []
         if "critic" in agents_lower:
             parallel_group.append("critic")
@@ -249,39 +314,65 @@ class ParallelPattern(GraphPattern):
         return "Maximum parallelization pattern with minimal dependencies"
 
     def get_edges(self, agents: List[str]) -> List[Dict[str, str]]:
-        """Get parallel pattern edges with minimal dependencies."""
-        edges = []
+        edges: List[Dict[str, str]] = []
         agents_lower = [agent.lower() for agent in agents]
 
-        # In parallel pattern, most agents can run independently
-        # Only synthesis depends on outputs from others
-        if "synthesis" in agents_lower:
-            # All other agents feed into synthesis
-            for agent in agents_lower:
-                if agent != "synthesis":
-                    edges.append({"from": agent, "to": "synthesis"})
-            edges.append({"from": "synthesis", "to": "END"})
+        has_guard = "guard" in agents_lower
+        has_data_view = "data_view" in agents_lower
+        has_synthesis = "synthesis" in agents_lower
+
+        # nodes that can run before synthesis
+        pre = [a for a in agents_lower if a not in ("guard", "synthesis", "data_view")]
+
+        if has_synthesis:
+            # guard -> all pre + synthesis (so nothing runs before guard)
+            if has_guard:
+                for a in pre + ["synthesis"]:
+                    edges.append({"from": "guard", "to": a})
+            # all pre feed into synthesis
+            for a in pre:
+                edges.append({"from": a, "to": "synthesis"})
+
+            # terminal: synthesis -> data_view? -> END
+            if has_data_view:
+                edges.append({"from": "synthesis", "to": "data_view"})
+                edges.append({"from": "data_view", "to": "END"})
+            else:
+                edges.append({"from": "synthesis", "to": "END"})
         else:
-            # All agents are terminal if no synthesis
-            for agent in agents_lower:
-                edges.append({"from": agent, "to": "END"})
+            # No synthesis: run everything after guard, then end or data_view last
+            # If data_view exists, make it terminal and feed others into it.
+            if has_data_view:
+                if has_guard:
+                    for a in pre:
+                        edges.append({"from": "guard", "to": a})
+                    edges.append({"from": "guard", "to": "data_view"})
+                for a in pre:
+                    edges.append({"from": a, "to": "data_view"})
+                edges.append({"from": "data_view", "to": "END"})
+            else:
+                # terminal nodes go to END (guard just gates execution)
+                if has_guard:
+                    for a in pre:
+                        edges.append({"from": "guard", "to": a})
+                    edges.append({"from": "guard", "to": "END"})
+                for a in pre:
+                    edges.append({"from": a, "to": "END"})
 
         return edges
 
     def get_entry_point(self, agents: List[str]) -> Optional[str]:
-        """No single entry point in parallel pattern."""
-        # In parallel pattern, we don't set a single entry point
-        # to allow maximum parallelization
-        return None
+        agents_lower = [agent.lower() for agent in agents]
+        if "guard" in agents_lower:
+            return "guard"
+        return agents_lower[0] if agents_lower else None
 
     def get_exit_points(self, agents: List[str]) -> List[str]:
-        """Get exit points for parallel pattern."""
         agents_lower = [agent.lower() for agent in agents]
-
+        if "data_view" in agents_lower:
+            return ["data_view"]
         if "synthesis" in agents_lower:
             return ["synthesis"]
-
-        # All agents are exit points if no synthesis
         return agents_lower
 
     def get_parallel_groups(self, agents: List[str]) -> List[List[str]]:
@@ -407,19 +498,6 @@ class PatternRegistry:
         return {name: pattern.description for name, pattern in self._patterns.items()}
 
     def remove_pattern(self, name: str) -> bool:
-        """
-        Remove a pattern from the registry.
-
-        Parameters
-        ----------
-        name : str
-            Pattern name to remove
-
-        Returns
-        -------
-        bool
-            True if pattern was removed, False if not found
-        """
         if name in self._patterns:
             del self._patterns[name]
             return True

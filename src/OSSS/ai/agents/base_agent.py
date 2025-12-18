@@ -641,7 +641,7 @@ class BaseAgent(ABC):
                         # Get token usage information for this agent if available
                         token_usage = result.get_agent_token_usage(self.name)
 
-                        asyncio.create_task(emit_agent_execution_completed(
+                        emit_agent_execution_completed(
                             workflow_id=get_workflow_id() or step_id,
                             agent_name=self.name,
                             success=True,
@@ -649,12 +649,8 @@ class BaseAgent(ABC):
                                 "step_id": step_id,
                                 "execution_time_seconds": execution_time,
                                 "attempts_used": retries + 1,
-                                "agent_output": (
-                                    agent_output[:1000] if agent_output else ""
-                                ),  # Include actual content, truncated for events
-                                "output_length": (
-                                    len(agent_output) if agent_output else 0
-                                ),
+                                "agent_output": (agent_output[:1000] if agent_output else ""),
+                                "output_length": (len(agent_output) if agent_output else 0),
                                 "input_tokens": token_usage["input_tokens"],
                                 "output_tokens": token_usage["output_tokens"],
                                 "total_tokens": token_usage["total_tokens"],
@@ -668,12 +664,12 @@ class BaseAgent(ABC):
                                 "total_executions": self.execution_count,
                                 "circuit_breaker_state": (
                                     "closed"
-                                    if not self.circuit_breaker
-                                    or not self.circuit_breaker.is_open
+                                    if not self.circuit_breaker or not self.circuit_breaker.is_open
                                     else "open"
                                 ),
                             },
-                        ))
+                        )
+
                     except Exception as e:
                         self.logger.warning(
                             f"Failed to emit agent execution completed event: {e}"

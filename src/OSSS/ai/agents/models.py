@@ -724,7 +724,7 @@ class SynthesisOutput(BaseAgentOutput):
             raise ValueError("contributing_agents cannot be empty")
 
         # Validate known agent names
-        valid_agents = {"refiner", "critic", "historian", "synthesis"}
+        valid_agents = {"refiner", "critic", "historian", "synthesis", "guard","data_views"}
         invalid_agents = [
             agent
             for agent in self.contributing_agents
