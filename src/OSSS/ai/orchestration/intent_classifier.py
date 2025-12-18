@@ -39,6 +39,32 @@ Rules:
 - Keep sub_intent compact.
 """.strip()
 
+def _safe_intent_result(reason: str) -> IntentResult:
+    return IntentResult(
+        intent="general",
+        intent_confidence=0.5,
+        sub_intent="general",
+        sub_intent_confidence=0.5,
+        tone="neutral",
+        tone_confidence=0.5,
+        signals={"analysis_source": reason},
+    )
+
+
+def _looks_like_policy_refusal(text: str) -> bool:
+    if not text:
+        return False
+    t = text.lower()
+    # keep this broad; you just need to know "not JSON because refusal"
+    return (
+        "i can't provide a response" in t
+        or "self-harm" in t
+        or "suicide" in t
+        or "crisis hotline" in t
+        or "seek help" in t
+    )
+
+
 
 def _coerce_llm_text(resp: Any) -> str:
     """
@@ -99,6 +125,40 @@ def _extract_first_json_object(text: str) -> str:
     json.loads(candidate)  # validate
     return candidate
 
+async def classify_intent_llm_safe(query: str) -> IntentResult:
+    """
+    Backwards-compatible wrapper used by older graphs/nodes.
+    Never raises; always returns a usable IntentResult.
+    """
+    q = (query or "").strip()
+    if not q:
+        return IntentResult(
+            intent="general",
+            intent_confidence=0.5,
+            sub_intent="general",
+            sub_intent_confidence=0.5,
+            tone="neutral",
+            tone_confidence=0.5,
+            signals={"analysis_source": "rules_fallback", "empty_query": True},
+        )
+
+    try:
+        r = await classify_intent_llm(q)
+        # guarantee dict signals
+        r.signals = dict(r.signals or {})
+        r.signals.setdefault("analysis_source", "llm")
+        return r
+    except Exception as e:
+        return IntentResult(
+            intent="general",
+            intent_confidence=0.5,
+            sub_intent="general",
+            sub_intent_confidence=0.5,
+            tone="neutral",
+            tone_confidence=0.5,
+            signals={"analysis_source": "llm_fallback", "error": str(e)},
+        )
+
 
 async def classify_intent_llm(query: str) -> IntentResult:
     cfg = OpenAIConfig.load()
@@ -119,6 +179,11 @@ async def classify_intent_llm(query: str) -> IntentResult:
     )
 
     text = _coerce_llm_text(resp)
+
+    # Optional: if the model refused, don't try JSON parsing
+    if _looks_like_policy_refusal(text):
+        return _safe_intent_result("llm_refusal")
+
     json_text = _extract_first_json_object(text)
     data = json.loads(json_text)
 

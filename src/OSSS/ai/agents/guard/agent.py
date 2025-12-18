@@ -207,6 +207,21 @@ class GuardAgent(BaseAgent):
             fallback.reason = f"guard_error: {type(e).__name__}: {e}"
             return self._write_outputs(context, query, fallback)
 
+    def _halt_workflow(self, context: AgentContext, *, reason: str, user_message: str) -> None:
+        """
+        Signal to the orchestrator/graph runner that execution should stop,
+        and provide the user-facing response to return.
+        """
+        context.execution_state.setdefault("routing", {})
+        context.execution_state["routing"].update(
+            {
+                "halt": True,
+                "halt_by": self.name,
+                "halt_reason": reason,
+                "final_response": user_message,
+            }
+        )
+
     def _write_outputs(self, context: AgentContext, query: str, decision: GuardDecision) -> AgentContext:
         # Store structured output for downstream consumers (your orchestration_api prefers this)
         context.execution_state.setdefault("structured_outputs", {})
@@ -214,6 +229,29 @@ class GuardAgent(BaseAgent):
 
         # Store human-friendly / legacy output (string or dict). Use dict so API can serialize.
         context.add_agent_output(self.name, decision.model_dump())
+
+        # ✅ HALT PIPELINE IF GUARD DOES NOT ALLOW
+        if decision.decision != "allow":
+            # Choose a safe user-facing response
+            if decision.safe_response:
+                final_message = decision.safe_response
+            elif decision.decision == "requires_confirmation":
+                final_message = (
+                    "I can help with this, but I need your confirmation before proceeding. "
+                    "Do you want me to continue?"
+                )
+            else:
+                final_message = _default_safe_response()
+
+            context.execution_state.setdefault("routing", {})
+            context.execution_state["routing"].update(
+                {
+                    "halt": True,
+                    "halt_by": self.name,
+                    "halt_reason": f"guard_{decision.decision}:{decision.category}",
+                    "final_response": final_message,
+                }
+            )
 
         # Envelope metadata (intent/tone/action are yours to choose;
         # action="read" is fine if guard is informational classification)
@@ -224,6 +262,7 @@ class GuardAgent(BaseAgent):
             action="read",
             sub_tone=None,
         )
+
         # Attach useful fields to envelope so your agent_output_meta is rich
         env.update(
             {

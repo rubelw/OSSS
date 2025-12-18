@@ -31,6 +31,7 @@ import re
 from OSSS.ai.analysis.pipeline import analyze_query
 from OSSS.ai.analysis.policy import build_execution_plan
 from OSSS.ai.analysis.models import QueryProfile
+from OSSS.ai.analysis.rules.types import RuleHit
 
 
 from OSSS.ai.config.openai_config import OpenAIConfig
@@ -113,6 +114,41 @@ _ALLOWED_TOP_KEYS = {
 
 AsyncRunner = Callable[[str, Dict[str, Any]], Awaitable[Any]]
 
+def coerce_rule_hits(raw: Any) -> List[RuleHit]:
+    hits: List[RuleHit] = []
+    if not raw:
+        return hits
+
+    items = raw if isinstance(raw, list) else [raw]
+
+    # allowed keys only (respects RuleHit schema)
+    allowed_keys = set(RuleHit.model_fields.keys())
+
+    for item in items:
+        if isinstance(item, RuleHit):
+            hits.append(item)
+            continue
+
+        if isinstance(item, dict):
+            d: Dict[str, Any] = {k: v for k, v in item.items() if k in allowed_keys}
+
+            # common fallbacks / aliases
+            if "rule" not in d:
+                if "rule_id" in item and isinstance(item["rule_id"], str):
+                    d["rule"] = item["rule_id"]
+                elif "id" in item and isinstance(item["id"], str):
+                    d["rule"] = item["id"]
+
+            if "score" not in d:
+                # your logs used "confidence"; map it -> score if present
+                if "confidence" in item and isinstance(item["confidence"], (int, float)):
+                    d["score"] = float(item["confidence"])
+
+            hits.append(RuleHit.model_validate(d))
+            continue
+
+        # ignore unknown types
+    return hits
 
 def _fire_and_forget(maybe_awaitable: Any) -> None:
     """
@@ -174,19 +210,8 @@ def _sanitize_query_profile_dict(data: dict) -> dict:
 
     # 4) normalize matched_rules and action values
     mr = _normalize_rule_hits(cleaned.get("matched_rules"))
-    for hit in mr:
-        a = hit.get("action")
-        if isinstance(a, str):
-            a2 = _ACTION_ALIASES.get(a.strip().lower(), a.strip().lower())
-        else:
-            a2 = "read"
-
-        if a2 not in _ALLOWED_ACTIONS:
-            a2 = "read"
-
-        hit["action"] = a2
-
-    cleaned["matched_rules"] = mr
+    hits = coerce_rule_hits(mr)
+    cleaned["matched_rules"] = [h.model_dump() for h in hits]
 
     return cleaned
 
@@ -450,12 +475,12 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                 prof = await self._llm_analyze_query_profile_best_effort(query, llm=llm)
                 prof.signals = dict(prof.signals or {})
                 prof.signals["use_llm_intent"] = True
-                qp = prof.model_dump()
+                qp = prof.model_dump(mode="json")
             else:
                 prof = analyze_query(query)
                 prof.signals = dict(prof.signals or {})
                 prof.signals.setdefault("analysis_source", "rules")
-                qp = prof.model_dump()
+                qp = prof.model_dump(mode="json")
 
             # Store everywhere
             self._query_profile_cache[workflow_id] = qp
@@ -573,6 +598,13 @@ Query:
                 # ✅ sanitize/alias/drop extras + normalize rule hits/action enum
                 data = _sanitize_query_profile_dict(data)
 
+                # ✅ Fix B: coerce matched_rules into strict RuleHit shape
+                try:
+                    hits = coerce_rule_hits(data.get("matched_rules"))
+                    data["matched_rules"] = [h.model_dump() for h in hits]
+                except Exception:
+                    data["matched_rules"] = []
+
                 prof = QueryProfile.model_validate(data)
                 prof.signals = dict(prof.signals or {})
                 prof.signals["analysis_source"] = "llm"
@@ -624,6 +656,13 @@ Intent:"""
                     },
                     "matched_rules": [],
                 }
+
+                # ✅ Fix B: coerce matched_rules into strict RuleHit shape
+                try:
+                    hits = coerce_rule_hits(data.get("matched_rules"))
+                    data["matched_rules"] = [h.model_dump() for h in hits]
+                except Exception:
+                    data["matched_rules"] = []
 
                 prof = QueryProfile.model_validate(data)
                 return prof
@@ -1084,11 +1123,18 @@ Intent:"""
             }
             config["query_profile"] = qp
 
+            # ✅ Fix B: always coerce fallback matched_rules before validating QueryProfile
+            try:
+                hits = coerce_rule_hits(qp.get("matched_rules"))
+                qp["matched_rules"] = [h.model_dump() for h in hits]
+            except Exception:
+                qp["matched_rules"] = []
+
             try:
                 query_profile = QueryProfile.model_validate(qp)
             except Exception:
                 query_profile = None
-                requested_agents: list[str] = list(request.agents or [])
+
 
         logger.info(
             "Routing selected",

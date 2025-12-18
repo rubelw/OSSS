@@ -32,7 +32,6 @@ from OSSS.ai.correlation import (
     context_trace_metadata,
 )
 from OSSS.ai.events import (
-    emit_workflow_started,
     emit_workflow_completed,
     emit_routing_decision_from_object,
 )
@@ -73,7 +72,7 @@ from OSSS.ai.routing import (
     RoutingDecision,
 )
 from OSSS.ai.orchestration.routing import should_run_historian
-from OSSS.ai.rag.jsonl_rag import rag_prefetch
+from OSSS.ai.rag.jsonl_rag import rag_prefetch_jsonl
 
 
 logger = get_logger(__name__)
@@ -205,70 +204,101 @@ class LangGraphOrchestrator:
             f"checkpoints: {self.enable_checkpoints}, thread_id: {self.thread_id}"
         )
 
+    async def _run_guard_and_maybe_halt(
+        self,
+        *,
+        query: str,
+        config: Dict[str, Any],
+        execution_id: str,
+        correlation_id: str,
+        orchestrator_span: Any,
+        start_time: float,
+        correlation_ctx: CorrelationContext,
+    ) -> Optional[AgentContext]:
+        """
+        Run guard outside the graph. If guard sets execution_state.routing.halt,
+        return an AgentContext immediately (no LangGraph execution).
+        """
+        # Optional toggle
+        if config.get("skip_guard", False):
+            return None
+
+        # Create guard agent from registry (adjust method name to your registry API)
+        # Common patterns: self.registry.create_agent("guard") or self.registry.get("guard")()
+        guard_agent: Optional[BaseAgent] = None
+
+        # Try a few likely registry APIs without breaking prod
+        try:
+            if hasattr(self.registry, "create_agent"):
+                guard_agent = self.registry.create_agent("guard")
+            elif hasattr(self.registry, "create"):
+                guard_agent = self.registry.create("guard")
+            elif hasattr(self.registry, "get"):
+                maybe = self.registry.get("guard")
+                guard_agent = maybe() if callable(maybe) else maybe
+        except Exception:
+            guard_agent = None
+
+        if guard_agent is None:
+            self.logger.warning("[orchestrator] Guard agent not available; continuing without pre-guard short-circuit.")
+            return None
+
+        # Run guard on an AgentContext
+        guard_ctx = AgentContext(query=query)
+        guard_ctx = await guard_agent.run(guard_ctx)
+
+        routing = guard_ctx.execution_state.get("routing", {}) if isinstance(guard_ctx.execution_state, dict) else {}
+        if routing.get("halt"):
+            # Attach orchestrator metadata so the API response looks consistent
+            total_time_ms = (time.time() - start_time) * 1000
+            guard_ctx.execution_state.update(
+                {
+                    "orchestrator_type": "langgraph-real",
+                    "phase": "phase2_1",
+                    "execution_id": execution_id,
+                    "correlation_id": correlation_id,
+                    "orchestrator_span": orchestrator_span,
+                    "agents_requested": self.agents_to_run,
+                    "config": config,
+                    "execution_time_ms": total_time_ms,
+                    "langgraph_execution": False,
+                    "halted_pre_graph": True,
+                    "correlation_context": correlation_ctx.to_dict(),
+                }
+            )
+            return guard_ctx
+
+        return None
+
     async def run(
-        self, query: str, config: Optional[Dict[str, Any]] = None
+            self, query: str, config: Optional[Dict[str, Any]] = None
     ) -> AgentContext:
         """
         Execute agents using LangGraph StateGraph orchestration.
-
-        This method implements true DAG-based execution with:
-        - Refiner → [Critic, Historian] → Synthesis pipeline
-        - Parallel execution of Critic and Historian after Refiner
-        - Type-safe state management
-        - Comprehensive error handling and recovery
-        - Correlation context propagation for tracing
-
-        Parameters
-        ----------
-        query : str
-            The query to process
-        config : Dict[str, Any], optional
-            Execution configuration options
-
-        Returns
-        -------
-        AgentContext
-            The final context after LangGraph execution
-
-        Raises
-        ------
-        NodeExecutionError
-            If LangGraph execution fails
         """
         config = config or {}
         start_time = time.time()
 
         # ------------------------------------------------------------
-        # ✅ HARD CONSTRAINT: honor caller-requested agent list
+        # ✅ Parse (but don't apply yet): honor caller-requested agent list
+        # Guard must run first regardless.
         # ------------------------------------------------------------
         requested_agents = config.get("agents")
         if isinstance(requested_agents, list):
-            requested_agents = [a for a in requested_agents if isinstance(a, str) and a.strip()]
+            requested_agents = [
+                a for a in requested_agents if isinstance(a, str) and a.strip()
+            ]
         else:
             requested_agents = None
 
-        if requested_agents:
-            # Force this run to only include these agents
-            self.agents_to_run = requested_agents
-
-            # If you have a concept of default_agents, keep it aligned for routing/build steps
-            # (optional, but prevents helpers from reintroducing defaults)
-            try:
-                self.default_agents = requested_agents
-            except Exception:
-                pass
-
-            # Graph is typically compiled/cached by topology; force rebuild when agent set changes
-            self._compiled_graph = None
-            self._graph = None
-
+        # ✅ prevent NameError / allow safe logging later
+        routing_decision = None
 
         # Handle correlation context - use provided correlation_id and workflow_id if available
         provided_correlation_id = config.get("correlation_id") if config else None
         provided_workflow_id = config.get("workflow_id") if config else None
 
         if provided_correlation_id:
-            # Use provided workflow_id to prevent duplicate ID generation, or create new one if not provided
             workflow_id = provided_workflow_id or str(uuid.uuid4())
             context_correlation_id.set(provided_correlation_id)
             context_workflow_id.set(workflow_id)
@@ -279,52 +309,88 @@ class LangGraphOrchestrator:
                 metadata={},
             )
         else:
-            # Ensure correlation context exists (create if not present)
             correlation_ctx = ensure_correlation_context()
 
-        # Use correlation IDs for execution tracking
         execution_id = correlation_ctx.workflow_id
         correlation_id = correlation_ctx.correlation_id
 
-        # Create orchestrator span for detailed tracing
         orchestrator_span = create_child_span("langgraph_orchestrator")
 
-        # Add orchestrator metadata to trace
         add_trace_metadata("orchestrator_type", "langgraph-real")
         add_trace_metadata("agents_requested", self.agents_to_run)
         add_trace_metadata("query_length", len(query))
         add_trace_metadata("config", config)
 
-        # Enhanced routing decision if enabled
-        routing_decision = None
-        if self.use_enhanced_routing:
-            routing_decision = None
-            if self.use_enhanced_routing and not requested_agents:
-                routing_decision = await self._make_routing_decision(
-                    query, self.default_agents, config
+        self.total_executions += 1
+
+        # ------------------------------------------------------------
+        # ✅ Pre-guard short-circuit: run guard ALWAYS
+        # ------------------------------------------------------------
+        halted_ctx = await self._run_guard_and_maybe_halt(
+            query=query,
+            config=config,
+            execution_id=execution_id,
+            correlation_id=correlation_id,
+            orchestrator_span=orchestrator_span,
+            start_time=start_time,
+            correlation_ctx=correlation_ctx,
+        )
+        if halted_ctx is not None:
+            self.logger.info(
+                "[orchestrator] Halted pre-graph by guard: %s",
+                halted_ctx.execution_state.get("routing", {}).get("halt_reason"),
+            )
+            self.successful_executions += 1
+            return halted_ctx
+
+        # ------------------------------------------------------------
+        # ✅ Now honor caller-requested agent list for the DAG
+        # (Guard already ran above, so callers cannot bypass safety.)
+        # ------------------------------------------------------------
+        if requested_agents:
+            self.agents_to_run = requested_agents
+            try:
+                self.default_agents = requested_agents
+            except Exception:
+                pass
+
+            # Graph is typically compiled/cached by topology; force rebuild when agent set changes
+            self._compiled_graph = None
+            self._graph = None
+
+        # ------------------------------------------------------------
+        # ✅ Enhanced routing (ONLY if caller did not request agents)
+        # ------------------------------------------------------------
+        if self.use_enhanced_routing and not requested_agents:
+            routing_decision = await self._make_routing_decision(
+                query, self.default_agents, config
+            )
+            self.agents_to_run = routing_decision.selected_agents
+
+            # Agent set changed -> force rebuild
+            self._compiled_graph = None
+            self._graph = None
+
+        # ------------------------------------------------------------
+        # ✅ Optional historian fast-path (apply after final agent set is chosen)
+        # ------------------------------------------------------------
+        if "historian" in [a.lower() for a in self.agents_to_run]:
+            if not should_run_historian(query):
+                self.logger.info(
+                    f"[orchestrator] Skipping historian (fast path) for query_len={len(query)}"
                 )
-                self.agents_to_run = routing_decision.selected_agents
+                self.agents_to_run = [
+                    a for a in self.agents_to_run if a.lower() != "historian"
+                ]
+                self._compiled_graph = None
+                self._graph = None
 
-            # ------------------------------------------------------------
-            # Fast-path: skip historian unless the query likely needs history
-            # ------------------------------------------------------------
-            if "historian" in [a.lower() for a in self.agents_to_run]:
-                if not should_run_historian(query):
-                    self.logger.info(
-                        f"[orchestrator] Skipping historian (fast path) for query_len={len(query)}"
-                    )
-
-                    # Remove historian from this run
-                    self.agents_to_run = [a for a in self.agents_to_run if a.lower() != "historian"]
-
-                    # IMPORTANT: compiled graphs are cached per agent list.
-                    # If we changed the agent set, force a rebuild.
-                    self._compiled_graph = None
-                    self._graph = None
-
-            # Emit routing decision event
+        # ------------------------------------------------------------
+        # ✅ Emit routing decision event only if we actually made one
+        # ------------------------------------------------------------
+        if routing_decision is not None:
             emit_routing_decision_from_object(
-                routing_decision,  # positional obj
+                routing_decision,
                 workflow_id=execution_id,
                 correlation_id=correlation_id,
                 metadata={
@@ -334,6 +400,9 @@ class LangGraphOrchestrator:
                 },
             )
 
+        # ------------------------------------------------------------
+        # ✅ NOW log final “agents to run” (truthful + consistent)
+        # ------------------------------------------------------------
         self.logger.info(
             f"Starting LangGraph execution for query: {query[:100]}... "
             f"(execution_id: {execution_id}, correlation_id: {correlation_id})"
@@ -348,20 +417,17 @@ class LangGraphOrchestrator:
         self.logger.info(f"Config: {config}")
         self.logger.info(f"Correlation context: {correlation_ctx.to_dict()}")
 
-
-        self.total_executions += 1
-
         try:
             # Get or generate thread ID for this execution
             thread_id = self.memory_manager.get_thread_id(config.get("thread_id"))
 
             # Create initial LangGraph state
-            from OSSS.ai.orchestration.intent_classifier import classify_intent_llm, to_query_profile
+            from OSSS.ai.orchestration.intent_classifier import (
+                classify_intent_llm,
+                to_query_profile,
+            )
 
-            # Create initial LangGraph state
             initial_state = create_initial_state(query, execution_id, correlation_id)
-
-            # Ensure execution_state.effective_queries exists
             _ensure_effective_queries(initial_state, query)
 
             # ✅ LLM intent profiling (once per workflow)
@@ -376,9 +442,7 @@ class LangGraphOrchestrator:
                     if isinstance(meta, dict):
                         meta["_query_profile"] = profile
 
-            # ---------------------------------------------------------------------
-            # ✅ Optional RAG prefetch (JSONL embeddings) - inject into execution_state
-            # ---------------------------------------------------------------------
+            # ✅ Optional RAG prefetch
             rag_cfg = (config.get("execution_config") or {}).get("rag", {}) if isinstance(config, dict) else {}
             rag_enabled = bool(rag_cfg.get("enabled", False))
 
@@ -386,7 +450,7 @@ class LangGraphOrchestrator:
                 try:
                     ollama_base = rag_cfg.get("ollama_base", "http://localhost:11434")
                     embed_model = rag_cfg.get("embed_model", "nomic-embed-text")
-                    jsonl_path = rag_cfg.get("jsonl_path")  # REQUIRED when enabled
+                    jsonl_path = rag_cfg.get("jsonl_path")
                     top_k = int(rag_cfg.get("top_k", 5))
 
                     if not jsonl_path:
@@ -405,7 +469,6 @@ class LangGraphOrchestrator:
                         initial_state["execution_state"] = {}
                         exec_state = initial_state["execution_state"]
 
-                    # Put both the prompt-ready context and structured hits in state
                     exec_state["rag_context"] = rag.get("context", "")
                     exec_state["rag_hits"] = rag.get("hits", [])
                     exec_state["rag_enabled"] = True
@@ -419,26 +482,20 @@ class LangGraphOrchestrator:
                     self.logger.info(
                         f"[orchestrator] RAG prefetch complete: hits={len(exec_state['rag_hits'])}, top_k={top_k}"
                     )
-
                 except Exception as e:
-                    # Decide if you want hard-fail vs soft-fail.
-                    # I strongly recommend soft-fail first, with observability.
-                    self.logger.warning(f"[orchestrator] RAG prefetch failed (continuing without RAG): {e}")
-
+                    self.logger.warning(
+                        f"[orchestrator] RAG prefetch failed (continuing without RAG): {e}"
+                    )
                     exec_state = initial_state.setdefault("execution_state", {})
                     if isinstance(exec_state, dict):
                         exec_state["rag_enabled"] = False
                         exec_state["rag_error"] = str(e)
 
-
-            # Ensure execution_state.effective_queries exists (node wrappers will fill per-agent)
             _ensure_effective_queries(initial_state, query)
 
-            # Validate initial state
             if not validate_state_integrity(initial_state):
                 raise NodeExecutionError("Initial state validation failed")
 
-            # Create initial checkpoint if enabled
             if self.memory_manager.is_enabled():
                 self.memory_manager.create_checkpoint(
                     thread_id=thread_id,
@@ -447,15 +504,10 @@ class LangGraphOrchestrator:
                     metadata={"execution_id": execution_id, "query": query},
                 )
 
-            # Build and compile StateGraph if not already done
             compiled_graph = await self._get_compiled_graph()
 
-            # Execute the StateGraph
-            self.logger.info(
-                f"Executing LangGraph StateGraph with thread_id: {thread_id}"
-            )
+            self.logger.info(f"Executing LangGraph StateGraph with thread_id: {thread_id}")
 
-            # Create context for LangGraph 0.6.0 execution
             context = OSSSContext(
                 thread_id=thread_id,
                 execution_id=execution_id,
@@ -464,14 +516,11 @@ class LangGraphOrchestrator:
                 enable_checkpoints=self.enable_checkpoints,
             )
 
-            # Run the StateGraph with new Context API
             final_state = await compiled_graph.ainvoke(initial_state, context=context)
 
-            # Validate final state
             if not validate_state_integrity(final_state):
                 self.logger.warning("Final state validation failed, but proceeding")
 
-            # Create final checkpoint if enabled
             if self.memory_manager.is_enabled():
                 self.memory_manager.create_checkpoint(
                     thread_id=thread_id,
@@ -486,10 +535,8 @@ class LangGraphOrchestrator:
                     },
                 )
 
-            # Convert LangGraph state back to AgentContext
             agent_context = await self._convert_state_to_context(final_state)
 
-            # Add execution metadata with correlation context
             total_time_ms = (time.time() - start_time) * 1000
             agent_context.execution_state.update(
                 {
@@ -511,35 +558,6 @@ class LangGraphOrchestrator:
                 }
             )
 
-            # Emit workflow completed event (with truncated outputs for logging)
-            # Helper to extract main content from structured or string outputs
-            def truncate_output(output: Any) -> str:
-                """Extract and truncate output for logging purposes."""
-                if isinstance(output, str):
-                    return output[:200] + "..." if len(output) > 200 else output
-                elif isinstance(output, dict):
-                    # Extract main content field if available
-                    main_fields = [
-                        "refined_question",
-                        "historical_summary",
-                        "critique",
-                        "final_analysis",
-                    ]
-                    for field in main_fields:
-                        if field in output:
-                            content = str(output[field])
-                            return (
-                                content[:200] + "..." if len(content) > 200 else content
-                            )
-                    # Fallback to string representation
-                    content = str(output)
-                    return content[:200] + "..." if len(content) > 200 else content
-                else:
-                    content = str(output)
-                    return content[:200] + "..." if len(content) > 200 else content
-
-
-            # Update statistics
             if final_state["failed_agents"]:
                 self.failed_executions += 1
                 self.logger.warning(
@@ -564,7 +582,6 @@ class LangGraphOrchestrator:
                 f"LangGraph execution failed after {total_time_ms:.2f}ms: {e}"
             )
 
-            # Emit workflow failed event
             try:
                 await emit_workflow_completed(
                     workflow_id=execution_id,
@@ -572,11 +589,13 @@ class LangGraphOrchestrator:
                     execution_time_seconds=total_time_ms / 1000,
                     error_message=str(e),
                     successful_agents=[],
-                    failed_agents=self.agents_to_run,  # All requested agents failed
-                    error_type=e.__class__.__name__,  # ✅ add this
-                    error_details={  # ✅ optional but very useful
+                    failed_agents=self.agents_to_run,
+                    error_type=e.__class__.__name__,
+                    error_details={
                         "exception_module": e.__class__.__module__,
-                        "exception_qualname": getattr(e.__class__, "__qualname__", e.__class__.__name__),
+                        "exception_qualname": getattr(
+                            e.__class__, "__qualname__", e.__class__.__name__
+                        ),
                     },
                     correlation_id=correlation_id,
                     metadata={
@@ -588,7 +607,6 @@ class LangGraphOrchestrator:
             except Exception:
                 pass
 
-            # Create fallback context with error information and correlation
             error_context = AgentContext(query=query)
             error_context.execution_state.update(
                 {
@@ -607,7 +625,6 @@ class LangGraphOrchestrator:
                 }
             )
 
-            # Add error output
             error_context.add_agent_output(
                 "langgraph_error",
                 f"LangGraph execution failed: {e}\n"
