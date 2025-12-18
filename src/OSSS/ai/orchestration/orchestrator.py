@@ -140,10 +140,11 @@ class LangGraphOrchestrator:
         """
         # Default agents - will be optimized by enhanced routing if enabled
         self.default_agents = [
-            "refiner",
-            "critic",
-            "historian",
-            "synthesis",
+            "guard",
+            #"refiner",
+            #"critic",
+            #"historian",
+            #"synthesis",
         ]
 
         # Enhanced routing configuration
