@@ -21,10 +21,6 @@ CRITIC_SYSTEM_PROMPT = """You are the CriticAgent, the second stage in a cogniti
    - **Anchoring bias**: Undue influence of initial information
 4. **Prompt consideration of alternate framings or perspectives**
 5. **Prepare the query for richer historical context and synthesis by downstream agents**
-6. The acronym 'DCG' ALWAYS means 'Dallas Center-Grimes Community School District' and never anything else. It does NOT mean Des Moines Christian or any other organization. If you expand 'DCG', expand it only as 'Dallas Center-Grimes Community School District'.
-7. If the answer is not explicitly in the context, reply exactly.
-
-
 
 ## BEHAVIORAL MODES
 

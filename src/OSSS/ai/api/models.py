@@ -33,6 +33,7 @@ class WorkflowRequest(BaseModel):
         description="List of agent names to execute (default: all available)",
         json_schema_extra={"example": ["refiner", "historian", "critic", "synthesis"]},
     )
+
     execution_config: Optional[Dict[str, Any]] = Field(
         None,
         description="Additional execution configuration parameters",
@@ -53,14 +54,20 @@ class WorkflowRequest(BaseModel):
         json_schema_extra={"example": True},
     )
 
-    @field_validator("agents")
+    @field_validator("agents", mode="before")
     @classmethod
     def validate_agents(cls, v: Optional[List[str]]) -> Optional[List[str]]:
-        """Validate agent names."""
-        if v is not None:
-            if not v:  # Empty list
-                raise ValueError("agents list cannot be empty if provided")
+        """Validate agent names.
 
+        Behavior:
+          - None: means "use default agents"
+          - []: means "no agents" (caller explicitly selected none) -> treat as None or keep [] depending on your runtime
+        """
+        # Normalize empty list to None so request passes validation
+        if v == []:
+            return None
+
+        if v is not None:
             valid_agents = {"refiner", "historian", "critic", "synthesis"}
             invalid_agents = set(v) - valid_agents
             if invalid_agents:
@@ -68,7 +75,6 @@ class WorkflowRequest(BaseModel):
                     f"Invalid agents: {invalid_agents}. Valid agents: {valid_agents}"
                 )
 
-            # Check for duplicates
             if len(v) != len(set(v)):
                 raise ValueError("Duplicate agents are not allowed")
 

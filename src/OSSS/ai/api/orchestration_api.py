@@ -31,6 +31,11 @@ import re
 from OSSS.ai.analysis.pipeline import analyze_query
 from OSSS.ai.analysis.policy import build_execution_plan
 from OSSS.ai.analysis.models import QueryProfile
+
+
+from OSSS.ai.config.openai_config import OpenAIConfig
+from OSSS.ai.llm.openai import OpenAIChatLLM
+
 # ---------------------------------------------------------------------------
 # OSSS / OSSS API contracts and models
 # ---------------------------------------------------------------------------
@@ -932,6 +937,52 @@ Intent:"""
     # Workflow execution
     # -----------------------------------------------------------------------
 
+    async def _execute_direct_llm(self, request: WorkflowRequest) -> WorkflowResponse:
+        start = time.time()
+
+        workflow_id = str(uuid.uuid4())
+        correlation_id = request.correlation_id or f"req-{uuid.uuid4()}"
+
+        llm_config = OpenAIConfig.load()
+        llm = OpenAIChatLLM(
+            api_key=llm_config.api_key,
+            model=llm_config.model,
+            base_url=llm_config.base_url,
+        )
+
+        # Basic messages (optionally let caller pass system prompt via execution_config)
+        system_prompt = (
+                            request.execution_config.get("system_prompt")
+                            if isinstance(request.execution_config, dict)
+                            else None
+                        ) or "You are a helpful assistant."
+
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": request.query},
+        ]
+
+        # Call the model (adjust to your wrapper’s API)
+        # If your OpenAIChatLLM exposes .chat(messages) / .acomplete(messages), use that.
+        llm_text = await llm.chat(messages)  # <-- rename if your wrapper differs
+
+        # Shape a normal WorkflowResponse
+        exec_time = time.time() - start
+        return WorkflowResponse(
+            workflow_id=workflow_id,
+            status="completed",
+            correlation_id=correlation_id,
+            execution_time_seconds=exec_time,
+            agent_output_meta={
+                "_routing": {"source": "direct_llm", "final_agents": []},
+            },
+            agent_outputs={
+                "llm": llm_text,
+            },
+            error_message=None,
+            markdown_export=None,  # or keep your export pipeline if you want
+        )
+
     @ensure_initialized
     async def execute_workflow(self, request: WorkflowRequest) -> WorkflowResponse:
         """
@@ -948,6 +999,83 @@ Intent:"""
         8. Persist workflow metadata to database (best-effort)
         9. Emit workflow_completed event (success or failure)
         """
+        requested_agents: list[str] = list(request.agents or [])
+
+        # ✅ DIRECT LLM BYPASS (no agents selected)
+        if not requested_agents:
+            workflow_id = str(uuid.uuid4())
+            start_time = time.time()
+
+            emit_workflow_started(
+                workflow_id=workflow_id,
+                query=request.query,
+                agents=requested_agents,  # ✅ never None
+                execution_config=request.execution_config,
+                correlation_id=request.correlation_id,
+                metadata={
+                    "api_version": self.api_version,
+                    "start_time": start_time,
+                    "routing_source": "direct_llm",
+                    "bypass_agents": True,
+                },
+            )
+
+            from OSSS.ai.llm.openai import OpenAIChatLLM
+            from OSSS.ai.config.openai_config import OpenAIConfig
+
+            llm_config = OpenAIConfig.load()
+            llm = OpenAIChatLLM(
+                api_key=llm_config.api_key,
+                model=llm_config.model,
+                base_url=llm_config.base_url,
+            )
+
+
+            system_prompt = (
+                "You are OSSS. Answer the user's request directly and concretely.\n"
+                "If the user asks for a list, return a list.\n"
+                "Do not rewrite the request into meta-analysis.\n"
+                "Always assume 'DCG' refers to the Dallas Center-Grimes School District"
+            )
+
+            resp = await llm.ainvoke(
+                [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": request.query},
+                ],
+                # optional knobs:
+                # temperature=request.execution_config.get("temperature", 0.2) if request.execution_config else 0.2,
+            )
+
+            elapsed = time.time() - start_time
+
+            emit_workflow_completed(
+                workflow_id=workflow_id,
+                status="completed",
+                execution_time_seconds=elapsed,
+                agent_outputs={"llm": resp.text},
+                correlation_id=request.correlation_id,
+                metadata={
+                    "api_version": self.api_version,
+                    "routing_source": "direct_llm",
+                    "final_agents": [],
+                },
+            )
+
+            return WorkflowResponse(
+                workflow_id=str(uuid.uuid4()),
+                status="completed",
+                agent_output_meta={},  # or carry _query_profile if you generated it
+                agent_outputs={
+                    "llm": resp.text,  # ✅ valid: non-empty string
+                },
+                execution_time_seconds=elapsed,
+                correlation_id=request.correlation_id,
+                error_message=None,
+                markdown_export=None,
+            )
+
+
         workflow_id = str(uuid.uuid4())
         start_time = time.time()
 

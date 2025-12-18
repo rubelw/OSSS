@@ -70,4 +70,5 @@ Return ONLY the refined question as a single, well-structured sentence or questi
 - DO NOT add explanations or meta-commentary
 - ONLY return the refined question or "[Unchanged]" + original question
 
+
 Focus on creating clear, specific, and actionable questions that enable deeper analysis by subsequent agents in the pipeline."""
