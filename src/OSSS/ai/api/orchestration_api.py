@@ -1148,7 +1148,52 @@ Intent:"""
                     },
                 )
 
+                """
+                Exaple dump:
+                {
+                    "execution_strategy": "data_query_with_synthesis",
+                    "confidence": 0.82,
+                
+                    # Agents the policy engine believes are best suited
+                    "preferred_agents": [
+                        "data_view_read",
+                        "critic",
+                        "synthesis"
+                    ],
+                
+                    # Optional: a specific workflow template ID (if you support them)
+                    "workflow_id": None,
+                
+                    # Optional: complexity estimate used for throttling / depth decisions
+                    "complexity_score": 0.35,
+                
+                    # Optional: policy signals explaining *why* this plan was chosen
+                    "signals": {
+                        "primary_intent": "read",
+                        "sub_intent": "data_query",
+                        "data_domain": "students",
+                        "requires_write_confirmation": False,
+                        "safe_read_only": True
+                    },
+                
+                    # Optional: rule-based decisions that influenced routing
+                    "matched_rules": [
+                        {
+                            "rule": "intent:read",
+                            "action": "read",
+                            "category": "intent",
+                            "score": 0.91
+                        },
+                        {
+                            "rule": "domain:student_records",
+                            "action": "read",
+                            "category": "policy",
+                            "score": 0.87
+                        }
+                    ]
+                }
 
+                """
                 config["execution_plan"] = plan.model_dump()
 
                 # 4) If the incoming request did NOT specify agents, honor policy agents
@@ -1207,9 +1252,12 @@ Intent:"""
 
                 })
 
+            if bool(config.get("use_advanced_orchestrator", False)):
+                from OSSS.ai.orchestration.advanced_adapter import AdvancedOrchestratorAdapter
+                result_context = await AdvancedOrchestratorAdapter().run(request.query, config)
+            else:
+                result_context = await self._orchestrator.run(request.query, config)
 
-
-            result_context = await self._orchestrator.run(request.query, config)
 
             # Compute end-to-end duration
             execution_time = time.time() - start_time

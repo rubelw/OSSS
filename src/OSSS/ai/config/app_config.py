@@ -99,6 +99,19 @@ class AppExecutionConfig(BaseModel):
         json_schema_extra={"example": 0.1},
     )
 
+    use_advanced_orchestrator: bool = Field(
+        False,
+        description="If True, the system will prefer the AdvancedOrchestrator over the LangGraphOrchestrator by default.",
+        json_schema_extra={"example": False},
+    )
+
+    # Optional: allow gradual rollout / safety guardrails
+    advanced_orchestrator_allow_env_override: bool = Field(
+        True,
+        description="If True, OSSS_USE_ADVANCED_ORCHESTRATOR can override the default.",
+        json_schema_extra={"example": True},
+    )
+
     # Default agent pipeline
     default_agents: List[str] = Field(
         default_factory=lambda: ["refiner", "historian", "synthesis"],
