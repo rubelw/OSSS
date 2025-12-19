@@ -301,6 +301,7 @@ services:
       OLLAMA_TEMPERATURE: 0.2
       OLLAMA_NUM_CTX: 8192
 
+
     depends_on:
       redis:
         condition: service_healthy
@@ -396,7 +397,10 @@ services:
       retries: 30
       start_period: 60s
   osss_postgres:
-    image: postgres:16-alpine
+    #image: postgres:16-alpine
+    build:
+      context: .
+      dockerfile: docker/postgres/Dockerfile
     profiles:
     - app
     container_name: osss_postgres

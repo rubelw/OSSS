@@ -21,7 +21,8 @@ from pydantic import BaseModel, Field, ConfigDict
 from OSSS.ai.context import AgentContext
 from OSSS.ai.agents.base_agent import BaseAgent, LangGraphNodeDefinition
 from OSSS.ai.orchestration.routing import should_run_historian
-
+from OSSS.ai.observability import get_logger
+logger = get_logger(__name__)
 
 # ===========================================================================
 # EdgeType
@@ -309,6 +310,15 @@ class GraphBuilder:
             graph_def.metadata["historian_skipped"] = True
 
         self._validate_graph(graph_def)
+
+        logger.info(
+            "GraphBuilder build_for_query",
+            extra={"query": query, "has_historian": "historian" in graph_def.nodes},
+        )
+
+        if "historian" in graph_def.nodes and not should_run_historian(query):
+            logger.info("Historian skipped", extra={"reason": "should_run_historian=false"})
+
         return graph_def
 
 
@@ -434,6 +444,30 @@ class GraphBuilder:
                 "agent_count": len(self.agents),
                 "edge_count": len(edges),
                 "has_custom_routing": len(self.custom_routing) > 0,
+            },
+        )
+
+        logger.info(
+            "GraphBuilder nodes created",
+            extra={
+                "agent_count": len(nodes),
+                "node_ids": list(nodes.keys()),
+            },
+        )
+
+        logger.info(
+            "GraphBuilder edges built",
+            extra={
+                "edge_count": len(edges),
+                "edge_samples": [e.to_dict() for e in edges[:20]],  # cap spam
+            },
+        )
+
+        logger.info(
+            "GraphBuilder entry/exit computed",
+            extra={
+                "entry_points": entry_points,
+                "exit_points": exit_points,
             },
         )
 

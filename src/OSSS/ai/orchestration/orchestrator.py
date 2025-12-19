@@ -507,6 +507,8 @@ class LangGraphOrchestrator:
 
             compiled_graph = await self._get_compiled_graph()
 
+
+
             self.logger.info(f"Executing LangGraph StateGraph with thread_id: {thread_id}")
 
             context = OSSSContext(
@@ -664,6 +666,16 @@ class LangGraphOrchestrator:
 
                 # Create compiled graph using factory
                 self._compiled_graph = self.graph_factory.create_graph(config)
+
+                # ✅ NEW: emit “graph built” details
+                self.logger.info(
+                    "Graph built",
+                    extra={
+                        "pattern": config.pattern_name,
+                        "agents_to_run": list(self.agents_to_run or []),
+                        # optional: include resolved edges if you expose them (see below)
+                    },
+                )
 
                 self.logger.info(
                     f"Successfully built LangGraph StateGraph with {len(self.agents_to_run)} agents "

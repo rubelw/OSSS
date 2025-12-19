@@ -561,7 +561,7 @@ Schema:
   "matched_rules": [
     {{
       "rule": "string",
-      "action": "read|troubleshoot|create|review|explain|route",
+      "action": "read|write|update|delete",
       "category": "intent|tone|sub_intent|policy",
       "score": 0.0,
       "meta": {{}}
@@ -1102,6 +1102,11 @@ Intent:"""
             else:
                 routing_decision = config.get("routing_decision") or {}
                 graph_id = GRAPH_REGISTRY.resolve(routing_decision)
+
+                logger.info("Routing decision input", extra={"decision": routing_decision})
+                logger.info("Routing decision output", extra={"selected_graph": graph_id})
+
+
                 config["selected_graph"] = graph_id
                 config["routing_source"] = "registry"
 
@@ -1122,6 +1127,25 @@ Intent:"""
                 "matched_rules": [{"rule": "intent:general:fallback", "action": "read"}],
             }
             config["query_profile"] = qp
+
+            # Always produce a decision dict (never None)
+            try:
+                query_profile = QueryProfile.model_validate(qp)
+                decision = build_routing_decision(query_profile).model_dump()
+            except Exception:
+                decision = {"action": "read", "intent": "general", "tone": "neutral", "sub_intent": "general"}
+
+            config["routing_decision"] = decision
+
+            # Apply gates (optional)
+            self._apply_confidence_gates(config)
+
+            # Choose graph if not set by gate
+            if not config.get("selected_graph"):
+                config["selected_graph"] = GRAPH_REGISTRY.resolve(decision)
+                config["routing_source"] = "registry:fallback"
+            else:
+                config.setdefault("routing_source", "gate:fallback")
 
             # ✅ Fix B: always coerce fallback matched_rules before validating QueryProfile
             try:

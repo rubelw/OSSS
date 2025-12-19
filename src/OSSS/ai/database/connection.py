@@ -400,51 +400,82 @@ async def validate_database_schema() -> dict[str, Any]:
         engine = get_database_engine()
 
         async with engine.begin() as conn:
-            # Check for required tables
+            # --- tables ---
             required_tables = [
-                "topics",
+                "ai_topics",        # renamed from topics
                 "questions",
                 "wiki_entries",
                 "api_keys",
                 "semantic_links",
             ]
-            existing_tables = []
 
+            existing_tables: list[str] = []
             for table in required_tables:
                 result = await conn.execute(
                     text(
                         "SELECT 1 FROM information_schema.tables "
-                        f"WHERE table_name = '{table}'"
-                    )
+                        "WHERE table_schema = 'public' AND table_name = :t"
+                    ),
+                    {"t": table},
                 )
                 if result.scalar():
                     existing_tables.append(table)
 
-            missing_tables = set(required_tables) - set(existing_tables)
+            missing_tables = sorted(set(required_tables) - set(existing_tables))
 
-            # Check for pgvector extension
+            # Detect legacy table name (helps during transition / partial migrations)
+            legacy_topics_exists = False
+            result = await conn.execute(
+                text(
+                    "SELECT 1 FROM information_schema.tables "
+                    "WHERE table_schema = 'public' AND table_name = 'topics'"
+                )
+            )
+            if result.scalar():
+                legacy_topics_exists = True
+                logger.warning(
+                    "Legacy table 'topics' exists. Expected renamed table 'ai_topics'. "
+                    "You may need a rename migration or a clean DB reset."
+                )
+
+            # --- pgvector extension ---
             result = await conn.execute(
                 text("SELECT 1 FROM pg_extension WHERE extname = 'vector'")
             )
             pgvector_installed = result.scalar() == 1
 
-            # Check for migration version
+            # --- column checks (catches your 'embedding does not exist' failure) ---
+            ai_topics_embedding_ok = None
+            if "ai_topics" in existing_tables:
+                col = await conn.execute(
+                    text(
+                        "SELECT 1 FROM information_schema.columns "
+                        "WHERE table_schema = 'public' AND table_name = 'ai_topics' AND column_name = 'embedding'"
+                    )
+                )
+                ai_topics_embedding_ok = bool(col.scalar())
+
+            # --- migration version ---
             migration_version = None
             try:
-                result = await conn.execute(
-                    text("SELECT version_num FROM alembic_version")
-                )
+                result = await conn.execute(text("SELECT version_num FROM alembic_version"))
                 migration_version = result.scalar()
             except Exception:
                 pass  # alembic_version table may not exist yet
 
-            schema_valid = len(missing_tables) == 0 and pgvector_installed
+            # Schema is valid if all required tables exist AND pgvector is installed.
+            # Additionally, if ai_topics exists, it should have an embedding column.
+            schema_valid = (len(missing_tables) == 0) and pgvector_installed
+            if schema_valid and ai_topics_embedding_ok is False:
+                schema_valid = False
 
             return {
                 "schema_valid": schema_valid,
                 "existing_tables": existing_tables,
-                "missing_tables": list(missing_tables),
+                "missing_tables": missing_tables,
+                "legacy_topics_exists": legacy_topics_exists,
                 "pgvector_installed": pgvector_installed,
+                "ai_topics_embedding_column_present": ai_topics_embedding_ok,
                 "migration_version": migration_version,
                 "status": "valid" if schema_valid else "invalid",
             }

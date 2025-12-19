@@ -79,14 +79,16 @@ class DatabaseConfig:
         Raises:
             ValueError: If DATABASE_URL is missing or invalid
         """
-        database_url = os.getenv("DATABASE_URL")
+        #database_url = os.getenv("DATABASE_URL")
+        database_url = "postgresql+asyncpg://osss:password@osss_postgres:5432/osss"
+
         if not database_url:
             # Provide default for development, but warn
             database_url = (
-                "postgresql+asyncpg://postgres:postgres@localhost:5432/osss"
+                "postgresql+asyncpg://osss:password@osss_postgres:5432/osss"
             )
             logger.warning(
-                "DATABASE_URL not set, using development default: postgresql+asyncpg://localhost:5432/osss"
+                "DATABASE_URL not set, using development default: postgresql+asyncpg://osss_postgres:5432/osss"
             )
 
         # Validate database URL format

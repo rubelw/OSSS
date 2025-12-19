@@ -65,19 +65,39 @@ type WorkflowResponse = {
 
 function pickPrimaryText(agentOutputs: Record<string, any> | undefined): string {
   if (!agentOutputs) return "";
+
+  const readSafe = (obj: any): string => {
+    const s = obj?.safe_response;
+    return typeof s === "string" ? s.trim() : "";
+  };
+
+  // 1) Prefer the guard safe_response explicitly (matches your API payload)
+  const guardSafe = readSafe(agentOutputs.guard);
+  if (guardSafe) return guardSafe;
+
+  // 2) Otherwise prefer safe_response from the last agent output (insertion order)
+  const keys = Object.keys(agentOutputs);
+  for (let i = keys.length - 1; i >= 0; i--) {
+    const safe = readSafe(agentOutputs[keys[i]]);
+    if (safe) return safe;
+  }
+
+  // 3) Existing preferences (optional—keep if you want non-guard workflows to still show output)
   const s = agentOutputs.synthesis;
-  if (typeof s === "string" && s.trim()) return s;
+  if (typeof s === "string" && s.trim()) return s.trim();
 
   const r = agentOutputs.refiner;
-  if (typeof r === "string" && r.trim()) return r;
+  if (typeof r === "string" && r.trim()) return r.trim();
 
-  // fallback: first string value
-  for (const k of Object.keys(agentOutputs)) {
+  // 4) Fallback: first string value
+  for (const k of keys) {
     const v = agentOutputs[k];
-    if (typeof v === "string" && v.trim()) return v;
+    if (typeof v === "string" && v.trim()) return v.trim();
   }
+
   return "";
 }
+
 
 function getQueryProfile(payload: any) {
   return payload?.agent_output_meta?._query_profile ?? null;
@@ -499,7 +519,7 @@ export default function ChatClient() {
 
       const body = {
         query: text,
-        agents: ["refiner", "historian", "critic", "synthesis"],
+        agents: [],
         execution_config: {
           parallel_execution: true,
           // ✅ NEW: allow server-side workflow longer

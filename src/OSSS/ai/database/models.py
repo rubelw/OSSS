@@ -35,32 +35,22 @@ class Base(DeclarativeBase):
 
 
 class Topic(Base):
-    """
-    Topics table with hierarchical support and vector embeddings.
+    __tablename__ = "ai_topics"
 
-    Designed for GraphRAG readiness with parent-child relationships
-    and semantic similarity search via pgvector.
-    """
-
-    __tablename__ = "topics"
-
-    # Primary identification
     id: Mapped[UUID_TYPE] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[Optional[str]] = mapped_column(Text)
 
-    # Hierarchical topic organization (GraphRAG prep)
+    # ✅ FIX: FK points to ai_topics.id (self-referential)
     parent_topic_id: Mapped[Optional[UUID_TYPE]] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("topics.id"), nullable=True
+        UUID(as_uuid=True), ForeignKey("ai_topics.id"), nullable=True
     )
     parent = relationship("Topic", remote_side=[id], backref="children")
 
-    # Vector embedding for semantic similarity (text-embedding-3-large)
     embedding: Mapped[Optional[Vector]] = mapped_column(Vector(1536), nullable=True)
 
-    # Metadata and timestamps
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
@@ -68,7 +58,6 @@ class Topic(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
 
-    # Performance indexes
     __table_args__ = (
         Index("idx_topics_name", "name"),
         Index("idx_topics_parent", "parent_topic_id"),
@@ -82,28 +71,19 @@ class Topic(Base):
 
 
 class Question(Base):
-    """
-    Questions table with graph-friendly relationships and execution metadata.
-
-    Stores workflow queries with DAG execution paths and semantic relationships
-    for future GraphRAG integration.
-    """
-
     __tablename__ = "questions"
 
-    # Primary identification
     id: Mapped[UUID_TYPE] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
     query: Mapped[Optional[str]] = mapped_column(Text, nullable=False)
 
-    # Topic and semantic relationships
+    # ✅ FIX: FK points to ai_topics.id
     topic_id: Mapped[UUID_TYPE] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("topics.id"), nullable=True
+        UUID(as_uuid=True), ForeignKey("ai_topics.id"), nullable=True
     )
     topic = relationship("Topic", backref="questions")
 
-    # Future GraphRAG edge: IS_SIMILAR_TO relationship
     similar_to: Mapped[UUID_TYPE] = mapped_column(
         UUID(as_uuid=True), ForeignKey("questions.id"), nullable=True
     )
@@ -111,28 +91,20 @@ class Question(Base):
         "Question", remote_side=[id], backref="similar_questions"
     )
 
-    # Workflow execution tracking
     correlation_id: Mapped[Optional[str]] = mapped_column(
         String(255), unique=True, nullable=True
     )
-    execution_id: Mapped[Optional[str]] = mapped_column(
-        String(255), nullable=True
-    )  # For efficient filtering
+    execution_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     nodes_executed: Mapped[Optional[List[str]]] = mapped_column(
         ARRAY(String), nullable=True
-    )  # DAG execution path
-
-    # Rich metadata storage (workflow results, agent outputs, performance)
-    execution_metadata: Mapped[Optional[Dict[str, Any]]] = mapped_column(
-        JSONB, nullable=True
     )
 
-    # Timestamps
+    execution_metadata: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSONB, nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
 
-    # Performance indexes
     __table_args__ = (
         Index("idx_questions_correlation", "correlation_id"),
         Index("idx_questions_execution", "execution_id"),
@@ -148,23 +120,15 @@ class Question(Base):
 
 
 class WikiEntry(Base):
-    """
-    Wiki entries table with versioning and knowledge lineage tracking.
-
-    Supports knowledge evolution with version history and multi-source
-    synthesis for collaborative knowledge building.
-    """
-
     __tablename__ = "wiki_entries"
 
-    # Primary identification
     id: Mapped[UUID_TYPE] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
 
-    # Topic and source relationships
+    # ✅ FIX: FK points to ai_topics.id
     topic_id: Mapped[UUID_TYPE] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("topics.id"), nullable=False
+        UUID(as_uuid=True), ForeignKey("ai_topics.id"), nullable=False
     )
     topic = relationship("Topic", backref="wiki_entries")
 
@@ -173,28 +137,21 @@ class WikiEntry(Base):
     )
     source_question = relationship("Question", backref="wiki_entries")
 
-    # Content and versioning
     content: Mapped[Optional[str]] = mapped_column(Text, nullable=False)
     version = Column(Integer, default=1)
 
-    # Knowledge evolution tracking
-    supersedes = Column(
-        UUID(as_uuid=True), ForeignKey("wiki_entries.id"), nullable=True
-    )
+    supersedes = Column(UUID(as_uuid=True), ForeignKey("wiki_entries.id"), nullable=True)
     superseded_entry = relationship(
         "WikiEntry", remote_side=[id], backref="superseding_entries"
     )
 
-    # Multi-source synthesis
-    sources = Column(ARRAY(UUID), nullable=True)  # type: ignore  # Contributing question IDs
-    related_topics = Column(ARRAY(UUID), nullable=True)  # type: ignore  # Multi-topic relationships
+    sources = Column(ARRAY(UUID), nullable=True)  # type: ignore
+    related_topics = Column(ARRAY(UUID), nullable=True)  # type: ignore
 
-    # Timestamps
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
 
-    # Performance indexes
     __table_args__ = (
         Index("idx_wiki_topic_version", "topic_id", "version"),
         Index("idx_wiki_source_question", "question_id"),

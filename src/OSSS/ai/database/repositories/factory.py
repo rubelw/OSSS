@@ -50,11 +50,11 @@ class RepositoryFactory:
         logger.debug("Repository factory initialized with new session")
 
     @property
-    def topics(self) -> TopicRepository:
-        """Get topic repository instance (cached)."""
-        if "topics" not in self._repositories:
-            self._repositories["topics"] = TopicRepository(self.session)
-        repo = self._repositories["topics"]
+    def ai_topics(self) -> TopicRepository:
+        """Get ai_topics repository instance (cached)."""
+        if "ai_topics" not in self._repositories:
+            self._repositories["ai_topics"] = TopicRepository(self.session)
+        repo = self._repositories["ai_topics"]
         assert isinstance(repo, TopicRepository)
         return repo
 

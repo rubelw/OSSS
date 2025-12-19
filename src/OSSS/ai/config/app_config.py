@@ -114,7 +114,7 @@ class AppExecutionConfig(BaseModel):
 
     # Default agent pipeline
     default_agents: List[str] = Field(
-        default_factory=lambda: ["refiner", "historian", "synthesis","guard","data_view"],
+        default_factory=lambda: ["guard"],
         description="Default list of agents to execute in the pipeline",
         min_length=1,
         json_schema_extra={"example": ["refiner", "historian", "synthesis"]},
