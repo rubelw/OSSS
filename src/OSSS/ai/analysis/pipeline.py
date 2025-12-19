@@ -8,6 +8,9 @@ from .tone import detect_tone
 from .sub_intent import detect_sub_intent
 from .rules.types import RuleHit
 
+# ✅ NEW: normalize rules output to strict QueryProfile schema
+from OSSS.ai.preflight.query_profile_codec import sanitize_query_profile_dict
+
 DEFAULT_INTENT = "general"
 DEFAULT_SUB_INTENT = "general"
 DEFAULT_TONE = "neutral"
@@ -32,7 +35,9 @@ def analyze_query(query: str) -> QueryProfile:
         )
 
     try:
-        sub_intent, sub_conf, sub_rules, sub_signals = detect_sub_intent(q, intent=intent or DEFAULT_INTENT)
+        sub_intent, sub_conf, sub_rules, sub_signals = detect_sub_intent(
+            q, intent=intent or DEFAULT_INTENT
+        )
     except Exception:
         sub_intent, sub_conf, sub_rules, sub_signals = (
             DEFAULT_SUB_INTENT, DEFAULT_CONFIDENCE, [], {}
@@ -51,6 +56,8 @@ def analyze_query(query: str) -> QueryProfile:
         "intent": dict(intent_signals or {}),
         "tone": dict(tone_signals or {}),
         "sub_intent": dict(sub_signals or {}),
+        # ✅ stable marker for downstream logging/telemetry
+        "analysis_source": "rules",
     }
 
     matched_rules: List[RuleHit] = []
@@ -58,13 +65,19 @@ def analyze_query(query: str) -> QueryProfile:
     matched_rules.extend(list(tone_rules or []))
     matched_rules.extend(list(sub_rules or []))
 
-    return QueryProfile(
-        intent=intent,
-        intent_confidence=intent_conf,
-        tone=tone,
-        tone_confidence=tone_conf,
-        sub_intent=sub_intent,
-        sub_intent_confidence=sub_conf,
-        signals=signals,
-        matched_rules=matched_rules,
-    )
+    # ✅ Build raw payload that might contain nonconforming RuleHit dicts
+    raw: Dict[str, Any] = {
+        "intent": intent,
+        "intent_confidence": intent_conf,
+        "tone": tone,
+        "tone_confidence": tone_conf,
+        "sub_intent": sub_intent,
+        "sub_intent_confidence": sub_conf,
+        "signals": signals,
+        # sanitizer expects list[dict|str|RuleHit]; will coerce to strict RuleHit schema
+        "matched_rules": matched_rules,
+    }
+
+    # ✅ Sanitize + validate to satisfy Pydantic(extra=forbid)
+    cleaned = sanitize_query_profile_dict(raw)
+    return QueryProfile.model_validate(cleaned)
