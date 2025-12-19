@@ -22,10 +22,16 @@ class AdvancedOrchestratorAdapter:
     def __init__(self, graph: str | None = None) -> None:
         self.graph = graph  # kept for API compatibility
         self._orch = LangGraphOrchestrator()
+        if self.graph not in {"diagnostics", "builder", "data_read", "data_views", "clarify", "explain_calm"}:
+            raise ValueError(f"Unknown graph '{self.graph}' (no fallback allowed)")
 
     async def run(self, query: str, config: Dict[str, Any]) -> Any:
         # Make routing/debug metadata visible but don't require advanced modules
         if self.graph:
+
+            if self.graph not in {"diagnostics", "builder", "data_read", "data_views", "clarify", "explain_calm"}:
+                raise ValueError(f"Unknown graph '{self.graph}' (no fallback allowed)")
+
             config.setdefault("selected_graph", f"graph_{self.graph}")
             config.setdefault("routing_source", "advanced_adapter_shim")
 

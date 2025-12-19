@@ -112,12 +112,31 @@ class DataViewReadAgent(BaseAgent):
 
     def _wrap_http_result(self, context: AgentContext, spec: DataViewSpec) -> AgentContext:
         raw = context.execution_state.get(spec.store_key) or {}
+        body = raw.get("json")
+
+        rows: list[dict[str, Any]] = []
+        if isinstance(body, list):
+            rows = body
+        elif isinstance(body, dict):
+            # if the API ever returns a dict wrapper
+            for k in ("items", "data", "results"):
+                v = body.get(k)
+                if isinstance(v, list):
+                    rows = v
+                    break
+
         payload = {
             "ok": bool(raw.get("ok")),
             "view": spec.name,
             "source": spec.source,
+            "url": raw.get("url"),
+            "status_code": raw.get("status_code"),
+            "row_count": len(rows),
+            "rows": rows,
+            # keep the raw around for debugging
             "http": raw,
         }
+
         context.execution_state[spec.store_key] = payload
         structured = context.execution_state.setdefault("structured_outputs", {})
         structured[f"{self.name}:{spec.name}"] = payload

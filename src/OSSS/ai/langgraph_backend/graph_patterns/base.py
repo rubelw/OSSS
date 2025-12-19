@@ -133,7 +133,7 @@ class StandardPattern(GraphPattern):
         return "Standard 4-agent pattern: refiner → [critic, historian] → synthesis"
 
     def get_edges(self, agents: List[str]) -> List[Dict[str, str]]:
-        """Get standard pattern edges (supports guard + data_view)."""
+        """Get standard pattern edges (supports guard + data_views)."""
         agents_lower = [agent.lower() for agent in agents]
 
         def chain_to_end(chain: List[str]) -> List[Dict[str, str]]:
@@ -150,20 +150,20 @@ class StandardPattern(GraphPattern):
         edges: List[Dict[str, str]] = []
 
         has_guard = "guard" in agents_lower
-        has_data_view = "data_view" in agents_lower
+        has_data_view = "data_views" in agents_lower
 
-        core = [a for a in agents_lower if a not in ("guard", "data_view")]
+        core = [a for a in agents_lower if a not in ("guard", "data_views")]
         recognized = {"refiner", "critic", "historian", "synthesis"}
         has_any_recognized = any(a in recognized for a in core)
 
-        # If none of the standard agents are present, just chain (but keep guard first, data_view last)
+        # If none of the standard agents are present, just chain (but keep guard first, data_views last)
         if not has_any_recognized:
             ordered = []
             if has_guard:
                 ordered.append("guard")
             ordered.extend([a for a in core if a != "guard"])
             if has_data_view:
-                ordered.append("data_view")
+                ordered.append("data_views")
             return chain_to_end(ordered)
 
         # ---- Standard DAG behavior for classic agents ----
@@ -208,7 +208,7 @@ class StandardPattern(GraphPattern):
             # Synthesis-only case
             pass
 
-        # ---- Add guard + data_view framing ----
+        # ---- Add guard + data_views framing ----
         # Guard should precede the actual entrypoint if present.
         entry = self.get_entry_point(agents)  # will return guard if present with our update below
         if has_guard:
@@ -219,7 +219,7 @@ class StandardPattern(GraphPattern):
             elif core:
                 after_guard = core[0]
             elif has_data_view:
-                after_guard = "data_view"
+                after_guard = "data_views"
 
             if after_guard and after_guard != "guard":
                 edges.append({"from": "guard", "to": after_guard})
@@ -231,12 +231,12 @@ class StandardPattern(GraphPattern):
         # If synthesis does not exist, terminals may already go to END above.
         if "synthesis" in core_set:
             if has_data_view:
-                edges.append({"from": "synthesis", "to": "data_view"})
-                edges.append({"from": "data_view", "to": "END"})
+                edges.append({"from": "synthesis", "to": "data_views"})
+                edges.append({"from": "data_views", "to": "END"})
             else:
                 edges.append({"from": "synthesis", "to": "END"})
         else:
-            # No synthesis: if data_view exists, try to attach it to the last core agent
+            # No synthesis: if data_views exists, try to attach it to the last core agent
             if has_data_view:
                 # Find likely terminal node among core
                 terminal = None
@@ -245,16 +245,16 @@ class StandardPattern(GraphPattern):
                         terminal = candidate
                         break
                 if terminal:
-                    edges.append({"from": terminal, "to": "data_view"})
-                    edges.append({"from": "data_view", "to": "END"})
+                    edges.append({"from": terminal, "to": "data_views"})
+                    edges.append({"from": "data_views", "to": "END"})
                 else:
-                    # No core terminals found; chain guard->data_view or data_view->END
+                    # No core terminals found; chain guard->data_views or data_views->END
                     if has_guard:
-                        edges.append({"from": "guard", "to": "data_view"})
-                    edges.append({"from": "data_view", "to": "END"})
+                        edges.append({"from": "guard", "to": "data_views"})
+                    edges.append({"from": "data_views", "to": "END"})
 
         return edges if edges else chain_to_end(
-            (["guard"] if has_guard else []) + core + (["data_view"] if has_data_view else [])
+            (["guard"] if has_guard else []) + core + (["data_views"] if has_data_view else [])
         )
 
     def get_entry_point(self, agents: List[str]) -> Optional[str]:
@@ -272,8 +272,8 @@ class StandardPattern(GraphPattern):
     def get_exit_points(self, agents: List[str]) -> List[str]:
         agents_lower = [agent.lower() for agent in agents]
 
-        if "data_view" in agents_lower:
-            return ["data_view"]
+        if "data_views" in agents_lower:
+            return ["data_views"]
         if "synthesis" in agents_lower:
             return ["synthesis"]
 
@@ -318,11 +318,11 @@ class ParallelPattern(GraphPattern):
         agents_lower = [agent.lower() for agent in agents]
 
         has_guard = "guard" in agents_lower
-        has_data_view = "data_view" in agents_lower
+        has_data_view = "data_views" in agents_lower
         has_synthesis = "synthesis" in agents_lower
 
         # nodes that can run before synthesis
-        pre = [a for a in agents_lower if a not in ("guard", "synthesis", "data_view")]
+        pre = [a for a in agents_lower if a not in ("guard", "synthesis", "data_views")]
 
         if has_synthesis:
             # guard -> all pre + synthesis (so nothing runs before guard)
@@ -333,23 +333,23 @@ class ParallelPattern(GraphPattern):
             for a in pre:
                 edges.append({"from": a, "to": "synthesis"})
 
-            # terminal: synthesis -> data_view? -> END
+            # terminal: synthesis -> data_views? -> END
             if has_data_view:
-                edges.append({"from": "synthesis", "to": "data_view"})
-                edges.append({"from": "data_view", "to": "END"})
+                edges.append({"from": "synthesis", "to": "data_views"})
+                edges.append({"from": "data_views", "to": "END"})
             else:
                 edges.append({"from": "synthesis", "to": "END"})
         else:
-            # No synthesis: run everything after guard, then end or data_view last
-            # If data_view exists, make it terminal and feed others into it.
+            # No synthesis: run everything after guard, then end or data_views last
+            # If data_views exists, make it terminal and feed others into it.
             if has_data_view:
                 if has_guard:
                     for a in pre:
                         edges.append({"from": "guard", "to": a})
-                    edges.append({"from": "guard", "to": "data_view"})
+                    edges.append({"from": "guard", "to": "data_views"})
                 for a in pre:
-                    edges.append({"from": a, "to": "data_view"})
-                edges.append({"from": "data_view", "to": "END"})
+                    edges.append({"from": a, "to": "data_views"})
+                edges.append({"from": "data_views", "to": "END"})
             else:
                 # terminal nodes go to END (guard just gates execution)
                 if has_guard:
@@ -369,8 +369,8 @@ class ParallelPattern(GraphPattern):
 
     def get_exit_points(self, agents: List[str]) -> List[str]:
         agents_lower = [agent.lower() for agent in agents]
-        if "data_view" in agents_lower:
-            return ["data_view"]
+        if "data_views" in agents_lower:
+            return ["data_views"]
         if "synthesis" in agents_lower:
             return ["synthesis"]
         return agents_lower

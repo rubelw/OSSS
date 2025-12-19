@@ -86,13 +86,40 @@ class GraphFactory:
             "format_response": format_response_node,
             "format_block": format_block_node,
             "format_requires_confirmation": format_requires_confirmation_node,
-            "data_view": data_view_node,
+            "data_views": data_view_node,
         }
 
         validation_info = "with validation" if default_validator else "without validation"
         self.logger.info(
             f"GraphFactory initialized with cache, pattern registry, and {validation_info}"
         )
+
+    def _normalize_agent_name(self, name: str) -> str:
+        """
+        Normalize agent aliases to the canonical node key names used in this graph.
+
+        Canonical in this file:
+          - data_views (plural)
+        """
+        n = (name or "").strip().lower()
+        alias_map = {
+            "data_view": "data_views",
+            "data_views": "data_views",
+        }
+        return alias_map.get(n, n)
+
+    def _normalize_agents(self, agents_to_run: List[str]) -> List[str]:
+        """Normalize and de-duplicate agents while preserving order."""
+        seen = set()
+        out: List[str] = []
+        for a in agents_to_run:
+            n = self._normalize_agent_name(a)
+            if not n or n in seen:
+                continue
+            seen.add(n)
+            out.append(n)
+        return out
+
 
     def _ensure_guard_pipeline(self, agents_to_run: List[str]) -> List[str]:
         """
@@ -102,7 +129,7 @@ class GraphFactory:
                  -> (requires_confirmation) -> format_requires_confirmation -> END
                  -> (block/other) -> format_block -> END
         """
-        agents = [a.lower() for a in agents_to_run]
+        agents = [self._normalize_agent_name(a) for a in agents_to_run]
 
         if "guard" in agents:
             # Ensure minimum pipeline exists
@@ -138,7 +165,36 @@ class GraphFactory:
             f"for agents: {config.agents_to_run}"
         )
 
+        # Normalize aliases early (data_view -> data_views, etc.)
+        config.agents_to_run = self._normalize_agents(config.agents_to_run)
+
+        # Ensure guard pipeline (and its required nodes) exist
         config.agents_to_run = self._ensure_guard_pipeline(config.agents_to_run)
+
+        # Normalize again in case pipeline added nodes that need aliasing (future-proof)
+        config.agents_to_run = self._normalize_agents(config.agents_to_run)
+
+        # ⚠️ Defensive default:
+        # If the orchestrator only asked for guard (and GraphFactory expanded to the minimal guard pipeline),
+        # auto-inject data_views so "graph_data_views" workflows can actually do useful work.
+        guard_pipeline_nodes = {
+            "guard",
+            "answer_search",
+            "format_response",
+            "format_block",
+            "format_requires_confirmation",
+        }
+
+        current = set(config.agents_to_run)
+        is_guard_only_pipeline = current == guard_pipeline_nodes
+
+        if is_guard_only_pipeline and "data_views" not in current and "data_views" in self.node_functions:
+            # after guard, before answer_search
+            guard_idx = config.agents_to_run.index("guard")
+            config.agents_to_run.insert(guard_idx + 1, "data_views")
+            self.logger.info(
+                "Injected data_views into guard-only pipeline (defensive default for data views workflows)"
+            )
 
         try:
             if config.cache_enabled:
@@ -212,9 +268,13 @@ class GraphFactory:
             graph.set_entry_point("guard")
             self.logger.debug("Set entry point: guard")
 
+            has_data_views = "data_views" in requested
+            has_synthesis = "synthesis" in requested
+
             def route_after_guard(state: OSSSState) -> str:
                 d = (state.get("guard_decision") or "").lower()
                 if d == "allow":
+                    # ✅ Always go to answer_search first (never route guard directly to data_views)
                     return "answer_search"
                 if d == "requires_confirmation":
                     return "format_requires_confirmation"
@@ -230,12 +290,29 @@ class GraphFactory:
                 },
             )
 
-            graph.add_edge("answer_search", "format_response")
+            # ✅ Allow-path chaining
+            if has_data_views:
+                # Prefer answer_search -> synthesis -> data_views if synthesis exists
+                if has_synthesis:
+                    graph.add_edge("answer_search", "synthesis")
+                    graph.add_edge("synthesis", "data_views")
+                else:
+                    # Safety fallback: answer_search -> data_views if synthesis isn't present
+                    graph.add_edge("answer_search", "data_views")
+
+                graph.add_edge("data_views", "format_response")
+            else:
+                # Normal allow path
+                graph.add_edge("answer_search", "format_response")
+
             graph.add_edge("format_response", END)
             graph.add_edge("format_block", END)
             graph.add_edge("format_requires_confirmation", END)
 
-            self.logger.info("Guard pipeline edges added (conditional routing enabled)")
+            self.logger.info(
+                "Guard pipeline edges added (conditional routing enabled)"
+                + (" with data_views chained after answer_search" if has_data_views else "")
+            )
             return
 
         # --- non-guard graphs use the selected pattern ---
@@ -298,12 +375,12 @@ class GraphFactory:
         include_guard: bool = False,
         include_data_view: bool = False,
     ) -> Any:
-        agents_to_run = [a.lower() for a in agents]
+        agents_to_run = self._normalize_agents(agents)
 
         if include_guard and "guard" not in agents_to_run:
             agents_to_run = ["guard"] + agents_to_run
-        if include_data_view and "data_view" not in agents_to_run:
-            agents_to_run = agents_to_run + ["data_view"]
+        if include_data_view and "data_views" not in agents_to_run:
+            agents_to_run = agents_to_run + ["data_views"]
 
         config = GraphConfig(
             agents_to_run=agents_to_run,

@@ -584,20 +584,20 @@ class EnhancedConditionalPattern(GraphPattern):
             return chain_edges
 
         has_guard = "guard" in agents_lower
-        has_data_view = "data_view" in agents_lower
+        has_data_view = "data_views" in agents_lower
 
-        core = [a for a in agents_lower if a not in ("guard", "data_view")]
+        core = [a for a in agents_lower if a not in ("guard", "data_views")]
         recognized = {"refiner", "critic", "historian", "synthesis"}
         has_any_recognized = any(a in recognized for a in core)
 
-        # If only non-standard agents are present, chain them (guard first, data_view last)
+        # If only non-standard agents are present, chain them (guard first, data_views last)
         if not has_any_recognized:
             ordered = []
             if has_guard:
                 ordered.append("guard")
             ordered.extend(core)
             if has_data_view:
-                ordered.append("data_view")
+                ordered.append("data_views")
             return chain_to_end(ordered)
 
         core_set = set(core)
@@ -639,18 +639,18 @@ class EnhancedConditionalPattern(GraphPattern):
             elif core:
                 after_guard = core[0]
             elif has_data_view:
-                after_guard = "data_view"
+                after_guard = "data_views"
 
             if after_guard and after_guard != "guard":
                 edges.append({"from": "guard", "to": after_guard})
             else:
                 edges.append({"from": "guard", "to": "END"})
 
-        # --- data_view last ---
+        # --- data_views last ---
         if "synthesis" in core_set:
             if has_data_view:
-                edges.append({"from": "synthesis", "to": "data_view"})
-                edges.append({"from": "data_view", "to": "END"})
+                edges.append({"from": "synthesis", "to": "data_views"})
+                edges.append({"from": "data_views", "to": "END"})
             else:
                 edges.append({"from": "synthesis", "to": "END"})
         else:
@@ -661,13 +661,13 @@ class EnhancedConditionalPattern(GraphPattern):
                         terminal = candidate
                         break
                 if terminal:
-                    edges.append({"from": terminal, "to": "data_view"})
+                    edges.append({"from": terminal, "to": "data_views"})
                 elif has_guard:
-                    edges.append({"from": "guard", "to": "data_view"})
-                edges.append({"from": "data_view", "to": "END"})
+                    edges.append({"from": "guard", "to": "data_views"})
+                edges.append({"from": "data_views", "to": "END"})
 
         return edges if edges else chain_to_end(
-            (["guard"] if has_guard else []) + core + (["data_view"] if has_data_view else [])
+            (["guard"] if has_guard else []) + core + (["data_views"] if has_data_view else [])
         )
 
     def get_entry_point(self, agents: List[str]) -> Optional[str]:
@@ -680,8 +680,8 @@ class EnhancedConditionalPattern(GraphPattern):
 
     def get_exit_points(self, agents: List[str]) -> List[str]:
         agents_lower = [agent.lower() for agent in agents]
-        if "data_view" in agents_lower:
-            return ["data_view"]
+        if "data_views" in agents_lower:
+            return ["data_views"]
         if "synthesis" in agents_lower:
             return ["synthesis"]
         exit_points = [a for a in agents_lower if a not in ("refiner", "guard")]
@@ -1054,7 +1054,7 @@ class ConditionalPatternValidator(WorkflowSemanticValidator):
                 "parallel_safe": False,
             },
             "guard": {"role": "guard", "critical": True, "parallel_safe": True},
-            "data_view": {"role": "retrieval", "critical": False, "parallel_safe": True},
+            "data_views": {"role": "retrieval", "critical": False, "parallel_safe": True},
 
         }
 

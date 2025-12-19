@@ -1,132 +1,107 @@
-# src/OSSS/ai/agents/data_views/agent.py
+# src/OSSS/ai/agents/data_views/read_agent.py
 from __future__ import annotations
 
-import time
 from typing import Any, Dict, Optional
+
+from sqlalchemy.ext.asyncio import AsyncEngine
 
 from OSSS.ai.context import AgentContext
 from OSSS.ai.agents.base_agent import BaseAgent, LangGraphNodeDefinition
-
-from .specs_runtime import DataViewSpec  # <-- use runtime spec class (or keep in .specs)
 from OSSS.ai.agents.http_get.agent import HttpGetAgent
-
-from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncEngine
 
 
 class DataViewAgent(BaseAgent):
     """
-    One agent that can run any declarative "view" spec: HTTP GET or Postgres SQL.
+    HARD-WIRED: always GET /api/warrantys?skip=0&limit=100
+
+    NOTE: If OSSS runs in Docker, "http://localhost:8081" points to the container.
+    In that case, change BASE_URL to "http://host.containers.internal:8081"
+    (Docker Desktop) or your compose service name.
     """
-    name = "data_view"
+    name = "data_views"  # keep whatever your graph expects
+
+    # hard-wired target
+    BASE_URL = "http://localhost:8000"
+    PATH = "/api/warrantys"
+    DEFAULT_PARAMS: Dict[str, Any] = {"skip": 0, "limit": 100}
+    STORE_KEY = "data_view:warrantys"
 
     def __init__(
         self,
         *,
-        data_views: Dict[str, DataViewSpec],
-        pg_engine: Optional[AsyncEngine] = None,
+        data_views: Dict[str, Any] | None = None,  # kept for compatibility, unused
+        pg_engine: Optional[AsyncEngine] = None,    # kept for compatibility, unused
     ) -> None:
         super().__init__(name=self.name, timeout_seconds=20.0)
-        self.data_views = data_views
+        self.data_views = data_views or {}
         self.pg_engine = pg_engine
 
     def get_node_definition(self) -> LangGraphNodeDefinition:
-        return LangGraphNodeDefinition(node_type="tool", agent_name="DataViewAgent", dependencies=[])
+        return LangGraphNodeDefinition(
+            node_type="tool",
+            agent_name=self.__class__.__name__,
+            dependencies=[],
+        )
 
     async def run(self, context: AgentContext) -> AgentContext:
+        # Allow caller overrides, but default to skip=0&limit=100
         exec_cfg: Dict[str, Any] = context.execution_state.get("execution_config", {}) or {}
-
-        view_name = (exec_cfg.get("data_view") or "").strip().lower()
-        if not view_name:
-            return self._store_error(context, "execution_config.data_view is required")
-
-        spec = self.data_views.get(view_name)
-        if not spec:
-            return self._store_error(context, f"Unknown data_view: {view_name!r}")
-
-        if spec.source == "http":
-            return await self._run_http_get(context, spec, exec_cfg)
-        if spec.source == "postgres_sql":
-            return await self._run_postgres_sql(context, spec, exec_cfg)
-
-        return self._store_error(context, f"Unsupported source: {spec.source}")
-
-    async def _run_http_get(self, context: AgentContext, spec: DataViewSpec, exec_cfg: Dict[str, Any]) -> AgentContext:
-        params = dict(spec.default_query_params or {})
+        params = dict(self.DEFAULT_PARAMS)
         params.update(exec_cfg.get("http_query_params", {}) or {})
 
-        # runtime spec uses list_path for GET list
-        path = spec.list_path or ""
-        if not path:
-            return self._store_error(context, f"{spec.name} missing list_path")
-
         agent = HttpGetAgent(
-            base_url=spec.base_url or "",
-            path=path,
+            base_url=self.BASE_URL,
+            path=self.PATH,
             timeout_s=10.0,
             query_params=params,
-            store_key=spec.store_key,
+            store_key=self.STORE_KEY,
         )
         context = await agent.run(context)
-        return self._wrap_result(context, spec)
 
-    async def _run_postgres_sql(self, context: AgentContext, spec: DataViewSpec, exec_cfg: Dict[str, Any]) -> AgentContext:
-        if not self.pg_engine:
-            return self._store_error(context, "Postgres engine not configured for DataViewAgent")
-
-        sql_params = dict(spec.default_sql_params or {})
-        sql_params.update(exec_cfg.get("sql_params", {}) or {})
-
-        start = time.time()
-        ok = True
-        error: Optional[str] = None
-        rows: list[dict[str, Any]] = []
-
-        try:
-            async with self.pg_engine.connect() as conn:
-                result = await conn.execute(text(spec.sql or ""), sql_params)
-                rows = [dict(r) for r in result.mappings().fetchmany(spec.max_rows)]
-        except Exception as e:
-            ok = False
-            error = repr(e)
-
-        elapsed_ms = int((time.time() - start) * 1000)
+        raw = context.execution_state.get(self.STORE_KEY) or {}
         payload = {
-            "ok": ok,
-            "view": spec.name,
-            "source": spec.source,
-            "sql": spec.sql,
-            "params": sql_params,
-            "row_count": len(rows),
-            "rows": rows,
-            "error": error,
-            "elapsed_ms": elapsed_ms,
-        }
-
-        context.execution_state[spec.store_key] = payload
-        structured = context.execution_state.setdefault("structured_outputs", {})
-        structured[f"{self.name}:{spec.name}"] = payload
-        return context
-
-    def _wrap_result(self, context: AgentContext, spec: DataViewSpec) -> AgentContext:
-        raw = context.execution_state.get(spec.store_key)
-        payload = {
-            "ok": bool(raw and raw.get("ok")),
-            "view": spec.name,
-            "source": spec.source,
+            "ok": bool(raw.get("ok")),
+            "view": "warrantys",
+            "source": "http",
             "http": raw,
         }
-        context.execution_state[spec.store_key] = payload
-        structured = context.execution_state.setdefault("structured_outputs", {})
-        structured[f"{self.name}:{spec.name}"] = payload
-        return context
 
-    def _store_error(self, context: AgentContext, message: str) -> AgentContext:
-        payload = {"ok": False, "error": message}
-        context.execution_state["data_view_error"] = payload
+        context.execution_state[self.STORE_KEY] = payload
         structured = context.execution_state.setdefault("structured_outputs", {})
-        structured[self.name] = payload
+        structured[f"{self.name}:warrantys"] = payload
         return context
 
     async def invoke(self, context: AgentContext) -> AgentContext:
         return await self.run(context)
+
+    def _wrap_http_result(self, context: AgentContext, spec: DataViewSpec) -> AgentContext:
+        raw = context.execution_state.get(spec.store_key) or {}
+        body = raw.get("json")
+
+        rows: list[dict[str, Any]] = []
+        if isinstance(body, list):
+            rows = body
+        elif isinstance(body, dict):
+            # if the API ever returns a dict wrapper
+            for k in ("items", "data", "results"):
+                v = body.get(k)
+                if isinstance(v, list):
+                    rows = v
+                    break
+
+        payload = {
+            "ok": bool(raw.get("ok")),
+            "view": spec.name,
+            "source": spec.source,
+            "url": raw.get("url"),
+            "status_code": raw.get("status_code"),
+            "row_count": len(rows),
+            "rows": rows,
+            # keep the raw around for debugging
+            "http": raw,
+        }
+
+        context.execution_state[spec.store_key] = payload
+        structured = context.execution_state.setdefault("structured_outputs", {})
+        structured[f"{self.name}:{spec.name}"] = payload
+        return context

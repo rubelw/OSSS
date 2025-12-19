@@ -22,11 +22,14 @@ Design goals of this module:
 import uuid                 # Unique workflow IDs (UUID4)
 import asyncio              # Async primitives (sleep, cancellation patterns)
 import time                 # Wall-clock timing for execution durations
-from typing import Dict, Any, Optional, List, Awaitable, Callable
+from typing import Dict, Any, Optional, List, Callable, Tuple, Awaitable
 from datetime import datetime, timezone  # UTC timestamps for telemetry/metadata
 from pathlib import Path     # Filesystem paths (markdown export)
 import json
 import re
+from dataclasses import dataclass
+import inspect
+
 from sqlalchemy.exc import IntegrityError
 
 from OSSS.ai.analysis.pipeline import analyze_query
@@ -76,6 +79,14 @@ from OSSS.ai.orchestration.graph_registry import GRAPH_REGISTRY
 # Module-level logger (structured)
 logger = get_logger(__name__)
 
+
+# Workflow template id (external) -> internal graph id (runner key)
+WORKFLOW_TO_GRAPH: Dict[str, str] = {
+    "data-views-demo": "graph_data_views",
+    # add more templates here
+}
+
+
 _ALLOWED_ACTIONS = {"read", "troubleshoot", "create", "review", "explain", "route"}
 
 _ACTION_ALIASES = {
@@ -112,6 +123,31 @@ _ALLOWED_TOP_KEYS = {
     "signals",
     "matched_rules",
 }
+
+
+@dataclass(frozen=True)
+class WorkflowIdentity:
+    workflow_run_id: str
+    correlation_id: str
+    start_time: float
+
+
+@dataclass
+class PreflightResult:
+    qp: Dict[str, Any]                 # canonical query_profile dict
+    decision: Dict[str, Any]           # routing decision dict
+    selected_graph: str                # resolved graph id / workflow id
+    routing_source: str                # caller|gate|registry|...
+    config: Dict[str, Any]             # mutated config (canonicalized)
+
+
+@dataclass
+class ExecutionResult:
+    context: Any                       # AgentContext-like or None for bypass
+    agent_outputs: Dict[str, Any]      # normalized outputs (serializable later)
+    agent_output_meta: Dict[str, Any]  # envelopes + _query_profile + _routing
+    executed_agents: List[str]         # for telemetry/debug
+
 
 AsyncRunner = Callable[[str, Dict[str, Any]], Awaitable[Any]]
 
@@ -159,7 +195,7 @@ def _fire_and_forget(maybe_awaitable: Any) -> None:
     Never raises.
     """
     try:
-        if asyncio.iscoroutine(maybe_awaitable) or isinstance(maybe_awaitable, Awaitable):
+        if asyncio.iscoroutine(maybe_awaitable):
             asyncio.create_task(maybe_awaitable)
     except Exception:
         pass
@@ -414,6 +450,23 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
         # -------------------------------------------------------------------
         self._query_profile_cache: Dict[str, Dict[str, Any]] = {}   # workflow_id -> query_profile dict
         self._query_profile_locks: Dict[str, asyncio.Lock] = {}     # workflow_id -> lock
+
+    def _apply_caller_workflow_override(self, config: Dict[str, Any]) -> None:
+        requested = (config.get("selected_workflow_id") or "").strip()
+        if not requested:
+            return
+
+        # If caller passed a graph id directly, accept it
+        if requested.startswith("graph_"):
+            config["selected_graph"] = requested
+            config["routing_source"] = "caller"
+            return
+
+        # Otherwise map workflow template -> graph
+        mapped = WORKFLOW_TO_GRAPH.get(requested)
+        if mapped:
+            config["selected_graph"] = mapped
+            config["routing_source"] = "caller"
 
     def _get_query_profile_lock(self, workflow_id: str) -> asyncio.Lock:
         lock = self._query_profile_locks.get(workflow_id)
@@ -965,11 +1018,16 @@ Intent:"""
         async def run_clarify(q: str, c: Dict[str, Any]) -> Any:
             return await AdvancedOrchestratorAdapter(graph="clarify").run(q, c)
 
+        async def run_data_views(q: str, c: Dict[str, Any]) -> Any:
+            # If your adapter supports it:
+            return await AdvancedOrchestratorAdapter(graph="data_views").run(q, c)
+
         GRAPH_RUNNERS: Dict[str, AsyncRunner] = {
             "graph_default": run_default,
             "graph_diagnostics": run_diagnostics,
             "graph_builder": run_builder,
             "graph_data_read": run_data_read,
+            "graph_data_views": run_data_views,
             "graph_explain_deescalate": run_explain_calm,
             "graph_clarify": run_clarify,
         }
@@ -990,7 +1048,7 @@ Intent:"""
 
     def _apply_confidence_gates(self, config: Dict[str, Any]) -> None:
         decision = config.get("routing_decision") or {}
-        intent_conf = float(decision.get("intent_conf") or decision.get("intent_confidence") or 0.0)
+        intent_conf = float(decision.get("intent_confidence") or 0.0)
 
         min_conf = float(config.get("min_intent_confidence", 0.70))
 
@@ -1042,98 +1100,131 @@ Intent:"""
 
     @ensure_initialized
     async def execute_workflow(self, request: WorkflowRequest) -> WorkflowResponse:
-        """
-        Execute a workflow using the production orchestrator.
 
-        High-level steps:
-        1. Create workflow_id + start timer
-        2. Emit workflow_started event
-        3. Track workflow in memory
-        4. Build orchestrator config (correlation_id, workflow_id, agents)
-        5. Run orchestrator to obtain result context
-        6. Prefer structured outputs from execution_state if present
-        7. Build WorkflowResponse (and optional markdown export)
-        8. Persist workflow metadata to database (best-effort)
-        9. Emit workflow_completed event (success or failure)
-        """
+        logger.info(
+            "\n##################\n##################\nNew workflow\n##################\n##################\n"
+        )
 
-        # ------------------------------------------------------------
-        # ALWAYS establish workflow identity + config, then ANALYZE ONCE
-        # ------------------------------------------------------------
-        workflow_id = str(uuid.uuid4())
-        start_time = time.time()
-        original_execution_config = request.execution_config or {}
-        config: Dict[str, Any] = dict(original_execution_config)  # or {} then merge
+        ident = self._init_identity(request)
+        config = self._init_config(request, ident)
 
+        # Preflight always runs exactly once per request
+        preflight = await self._preflight_analysis_and_routing(request, config)
 
-        # Ensure canonical flag exists
-        config["use_llm_intent"] = bool(original_execution_config.get("use_llm_intent", False))
+        self._log_routing_selected(ident.workflow_run_id, preflight)
 
-        # Preserve correlation_id for tracing
+        # fast path: explicit agents=[]
+        if self._should_bypass_orchestrator(request):
+            exec_result, status, error_msg = await self._run_direct_llm_bypass(request, ident, preflight)
+            response = self._build_response(ident, status, error_msg, exec_result)
+            await self._after_response(request, ident, preflight, response, exec_result, status, error_msg)
+            return response
+
+        # orchestrator path
+        exec_result, status, error_msg = await self._run_orchestrator_path(request, ident, preflight)
+        response = await self._maybe_export_markdown(request, ident, response=self._build_response(
+            ident, status, error_msg, exec_result
+        ))
+
+        await self._after_response(request, ident, preflight, response, exec_result, status, error_msg)
+        return response
+
+    # ---------------------------------------------------------------------
+    # 1) INIT
+    # ---------------------------------------------------------------------
+    def _init_identity(self, request: WorkflowRequest) -> WorkflowIdentity:
+        workflow_run_id = str(uuid.uuid4())
         correlation_id = request.correlation_id or f"req-{uuid.uuid4()}"
-        config["correlation_id"] = correlation_id
-        config["workflow_id"] = workflow_id
+        return WorkflowIdentity(workflow_run_id=workflow_run_id, correlation_id=correlation_id, start_time=time.time())
 
-        # ✅ If caller specified a workflow/graph, prefer it
-        if getattr(request, "workflow_id", None):
-            requested = str(request.workflow_id).strip()
-            if requested:
-                config["selected_graph"] = requested
-                config["selected_workflow_id"] = requested  # you already surface this in _routing
-                config["routing_source"] = "caller"
+    def _init_config(self, request: WorkflowRequest, ident: WorkflowIdentity) -> Dict[str, Any]:
+        original_execution_config = request.execution_config or {}
+        config: Dict[str, Any] = dict(original_execution_config)
 
+        # canonical flags
+        config["use_llm_intent"] = bool(original_execution_config.get("use_llm_intent", False))
+        config["correlation_id"] = ident.correlation_id
+        config["workflow_id"] = ident.workflow_run_id  # run id
 
-        response: Optional[WorkflowResponse] = None
+        # caller-selected workflow/template id (UI chooses workflow_id)
+        requested = (getattr(request, "workflow_id", None) or "").strip()
+        if requested:
+            # "selected_workflow_id" is the template id; run id stays in workflow_id
+            config["selected_workflow_id"] = requested
+            config["routing_source"] = "caller"
 
-        # ✅ ANALYSIS MUST ALWAYS RUN (exactly once per workflow_id)
-        llm: Optional[Any] = None
-        query_profile: Optional[QueryProfile] = None
-        qp: Dict[str, Any] = {}
+        # optional agents restriction (only if non-empty)
+        if request.agents:
+            config["agents"] = request.agents
 
+        return config
+
+    # ---------------------------------------------------------------------
+    # 2) PREFLIGHT (ANALYSIS + GATES + GRAPH RESOLVE)
+    # ---------------------------------------------------------------------
+    async def _preflight_analysis_and_routing(self, request: WorkflowRequest, config: Dict[str, Any]) -> PreflightResult:
+        # Always attempt analysis; if it fails, fall back to safe qp/decision.
         try:
             qp = await self._ensure_query_profile(
-                workflow_id=workflow_id,
+                workflow_id=config["workflow_id"],
                 query=request.query,
                 use_llm_intent=bool(config.get("use_llm_intent", False)),
-                llm=llm,
+                llm=None,
                 config=config,
             )
 
-            # attach response policy BEFORE any graph runs
+            # policy/tone hooks BEFORE graph runs
             self._apply_tone_policy(config, qp)
 
             query_profile = QueryProfile.model_validate(qp)
+            decision_model = build_routing_decision(query_profile)
+            decision = decision_model.model_dump()
 
-            decision = build_routing_decision(query_profile)
-            config["routing_decision"] = decision.model_dump()
+            config["query_profile"] = qp
+            config["routing_decision"] = decision
 
-            # ✅ gate may override selected_graph — but not if caller explicitly chose one
+            # ✅ apply caller workflow_id -> selected_graph mapping
+            self._apply_caller_workflow_override(config)
+
+            # gates may override graph (unless caller chose one)
             if config.get("routing_source") != "caller":
                 self._apply_confidence_gates(config)
 
-            # only resolve via registry if gate didn't choose a graph
-            # Gate may have already chosen a graph. If so, do NOT override it.
-            # If a gate forced a graph, it should have set routing_source already.
-            if config.get("selected_graph"):
-                config.setdefault("routing_source", config.get("routing_source", "caller_or_gate"))
-            else:
-                routing_decision = config.get("routing_decision") or {}
-                graph_id = GRAPH_REGISTRY.resolve(routing_decision)
-
-                logger.info("Routing decision input", extra={"decision": routing_decision})
-                logger.info("Routing decision output", extra={"selected_graph": graph_id})
-
-
+            # resolve graph if none chosen by caller or gate
+            if not config.get("selected_graph"):
+                graph_id = GRAPH_REGISTRY.resolve(decision)
                 config["selected_graph"] = graph_id
                 config["routing_source"] = "registry"
+            else:
+                config.setdefault("routing_source", "caller_or_gate")
 
+            # gates may override graph (unless caller chose one)
+            if config.get("routing_source") != "caller":
+                self._apply_confidence_gates(config)
 
+            # resolve graph if none chosen by caller or gate
+            if not config.get("selected_graph"):
+                graph_id = GRAPH_REGISTRY.resolve(decision)
+                config["selected_graph"] = graph_id
+                config["routing_source"] = "registry"
+            else:
+                config.setdefault("routing_source", "caller_or_gate")
 
-        except Exception as analysis_error:
+            return PreflightResult(
+                qp=self._get_or_default_query_profile(config),
+                decision=config.get("routing_decision") or {},
+                selected_graph=str(config.get("selected_graph") or ""),
+                routing_source=str(config.get("routing_source") or "unknown"),
+                config=config,
+            )
+
+        except Exception as e:
+            # single fallback block; keep it minimal & deterministic
             logger.warning(
                 "Global preflight analysis failed; using safe fallback",
-                extra = {"workflow_id": workflow_id, "error": str(analysis_error)},
+                extra={"workflow_id": config.get("workflow_id"), "error": str(e)},
             )
+
             qp = {
                 "intent": "general",
                 "intent_confidence": 0.50,
@@ -1145,865 +1236,383 @@ Intent:"""
                 "matched_rules": [{"rule": "intent:general:fallback", "action": "read"}],
             }
             config["query_profile"] = qp
+            config["routing_decision"] = {"action": "read", "intent": "general", "tone": "neutral", "sub_intent": "general"}
 
-            # Always produce a decision dict (never None)
-            try:
-                query_profile = QueryProfile.model_validate(qp)
-                decision = build_routing_decision(query_profile).model_dump()
-            except Exception:
-                decision = {"action": "read", "intent": "general", "tone": "neutral", "sub_intent": "general"}
+            # gates can still pick a graph
+            if config.get("routing_source") != "caller":
+                self._apply_confidence_gates(config)
 
-            config["routing_decision"] = decision
-
-            # Apply gates (optional)
-            self._apply_confidence_gates(config)
-
-            # Choose graph if not set by gate
             if not config.get("selected_graph"):
-                config["selected_graph"] = GRAPH_REGISTRY.resolve(decision)
+                config["selected_graph"] = GRAPH_REGISTRY.resolve(config["routing_decision"])
                 config["routing_source"] = "registry:fallback"
             else:
-                config.setdefault("routing_source", "gate:fallback")
+                config.setdefault("routing_source", "gate_or_caller:fallback")
 
-            # ✅ Fix B: always coerce fallback matched_rules before validating QueryProfile
-            try:
-                hits = coerce_rule_hits(qp.get("matched_rules"))
-                qp["matched_rules"] = [h.model_dump() for h in hits]
-            except Exception:
-                qp["matched_rules"] = []
+            return PreflightResult(
+                qp=qp,
+                decision=config["routing_decision"],
+                selected_graph=str(config.get("selected_graph") or ""),
+                routing_source=str(config.get("routing_source") or "unknown"),
+                config=config,
+            )
 
-            try:
-                query_profile = QueryProfile.model_validate(qp)
-            except Exception:
-                query_profile = None
-
-
+    def _log_routing_selected(self, workflow_run_id: str, preflight: PreflightResult) -> None:
         logger.info(
             "Routing selected",
             extra={
-                "workflow_id": workflow_id,
-                "selected_graph": config.get("selected_graph"),
-                "routing_source": config.get("routing_source"),
-                "routing_gates": config.get("routing_gates"),
+                "workflow_id": workflow_run_id,
+                "selected_graph": preflight.selected_graph,
+                "routing_source": preflight.routing_source,
+                "routing_gates": preflight.config.get("routing_gates"),
             },
         )
 
-        # ✅ DIRECT LLM BYPASS (agents explicitly empty or None)
-        bypass_llm = isinstance(request.agents, list) and len(request.agents) == 0
-        if bypass_llm:
+    # ---------------------------------------------------------------------
+    # 3) RUNNERS
+    # ---------------------------------------------------------------------
+    def _should_bypass_orchestrator(self, request: WorkflowRequest) -> bool:
+        return isinstance(request.agents, list) and len(request.agents) == 0
 
-            # Always make agents a list for telemetry / pydantic models
-            safe_agents: list[str] = []
+    async def _run_direct_llm_bypass(
+        self,
+        request: WorkflowRequest,
+        ident: WorkflowIdentity,
+        preflight: PreflightResult,
+    ) -> Tuple[ExecutionResult, str, Optional[str]]:
+        # telemetry start (best-effort)
+        self._track_active_workflow(ident, request, status="running", query_profile=preflight.qp)
+        self._emit_started_safe(ident, request, agents=[],
+                                metadata={"routing_source": "direct_llm_bypass", "query_profile": preflight.qp})
 
-            # qp already exists; keep local alias for readability
-            qp = config.get("query_profile") or qp
+        llm_answer = await self._call_direct_llm(request.query)
+        elapsed = time.time() - ident.start_time
 
-            # --- telemetry: started (never None agents) ---
-            try:
-                _fire_and_forget(emit_workflow_started(
-                    workflow_id=workflow_id,
-                    query=request.query,
-                    agents=safe_agents,  # ✅ never None
-                    execution_config=request.execution_config or {},
-                    correlation_id=correlation_id,
-                    metadata={
-                        "api_version": self.api_version,
-                        "start_time": start_time,
-                        "routing_source": "direct_llm_bypass",
-                        "query_profile": qp,  # optional: makes “analysis ran” provable in telemetry
+        agent_output_meta = self._build_base_meta(preflight, final_agents=[], graph="llm", source="direct_llm_bypass")
+        agent_output_meta["llm"] = {
+            "agent": "llm",
+            "action": "read",
+            "intent": preflight.qp.get("intent", "general"),
+            "intent_confidence": preflight.qp.get("intent_confidence", 0.5),
+            "sub_intent": preflight.qp.get("sub_intent", "general"),
+            "sub_intent_confidence": preflight.qp.get("sub_intent_confidence", 0.5),
+            "tone": preflight.qp.get("tone", "neutral"),
+            "tone_confidence": preflight.qp.get("tone_confidence", 0.5),
+            "signals": preflight.qp.get("signals", {}),
+            "matched_rules": preflight.qp.get("matched_rules", []),
+            "analysis_source": (preflight.qp.get("signals") or {}).get("analysis_source", "rules"),
+        }
 
-                    },
+        exec_result = ExecutionResult(
+            context=None,
+            agent_outputs={"llm": llm_answer},
+            agent_output_meta=agent_output_meta,
+            executed_agents=["llm"],
+        )
+        return exec_result, "completed", None
 
-                ))
-            except Exception:
-                # telemetry must never break responses
-                pass
+    async def _run_orchestrator_path(
+        self,
+        request: WorkflowRequest,
+        ident: WorkflowIdentity,
+        preflight: PreflightResult,
+    ) -> Tuple[ExecutionResult, str, Optional[str]]:
+        self._track_active_workflow(ident, request, status="running", query_profile=preflight.qp)
 
-            # --- call LLM ---
-            from OSSS.ai.config.openai_config import OpenAIConfig
-            from OSSS.ai.llm.openai import OpenAIChatLLM
+        safe_agents = list(request.agents or [])
+        self._emit_started_safe(ident, request, agents=safe_agents, metadata={"query_profile": preflight.qp})
 
-            llm_config = OpenAIConfig.load()
-            llm2 = OpenAIChatLLM(
-                api_key=llm_config.api_key,
-                model=llm_config.model,
-                base_url=llm_config.base_url,
-            )
+        # orchestrator call
+        result_context = await self._run_selected_graph(request.query, preflight.config)
+        exec_result = self._extract_execution_result(request, preflight, result_context)
 
-            system_prompt = (
-                "You are OSSS. Answer the user's request directly and concretely.\n"
-                "If the user asks for a list, return a list.\n"
-                "Do not rewrite the request into meta-analysis."
-            )
+        # decide final status once
+        if not exec_result.agent_outputs:
+            exec_result.agent_outputs = {"synthesis": "No agent outputs produced."}
+            err = "No agent outputs produced."
+            self._append_error(exec_result.agent_output_meta, err, preflight)
+            return exec_result, "failed", err
 
-            resp = await llm2.ainvoke(
-                [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": request.query},
-                ],
-            )
+        return exec_result, "completed", None
 
-            llm_answer = _coerce_llm_text(resp).strip()
+    # ---------------------------------------------------------------------
+    # 4) OUTPUT + META EXTRACTION (single place)
+    # ---------------------------------------------------------------------
+    def _extract_execution_result(
+        self,
+        request: WorkflowRequest,
+        preflight: PreflightResult,
+        result_context: Any,
+    ) -> ExecutionResult:
+        exec_state: Dict[str, Any] = {}
+        maybe_state = getattr(result_context, "execution_state", None)
+        if isinstance(maybe_state, dict):
+            exec_state = maybe_state
 
-            elapsed = time.time() - start_time
+        structured_outputs = exec_state.get("structured_outputs") if isinstance(exec_state.get("structured_outputs"), dict) else {}
+        state_agent_outputs = exec_state.get("agent_outputs") if isinstance(exec_state.get("agent_outputs"), dict) else {}
+        raw_agent_outputs = getattr(result_context, "agent_outputs", None) if isinstance(getattr(result_context, "agent_outputs", None), dict) else {}
 
-            agent_output_meta: Dict[str, Any] = {
-                "_query_profile": qp,  # already computed in preflight
-                "_routing": {
-                    "source": "direct_llm_bypass",
-                    "graph": "llm",
-                    "final_agents": [],  # explicit: no orchestrator agents ran
-                },
-                "llm": {
-                    "agent": "llm",
-                    "action": "read",
-                    "intent": qp.get("intent", "general"),
-                    "intent_confidence": qp.get("intent_confidence", 0.5),
-                    "sub_intent": qp.get("sub_intent", "general"),
-                    "sub_intent_confidence": qp.get("sub_intent_confidence", 0.5),
-                    "tone": qp.get("tone", "neutral"),
-                    "tone_confidence": qp.get("tone_confidence", 0.5),
-                    "signals": qp.get("signals", {}),
-                    "matched_rules": qp.get("matched_rules", []),
-                    "analysis_source": (qp.get("signals") or {}).get("analysis_source", "rules"),
-                },
+        executed_agents = list(dict.fromkeys(list(structured_outputs.keys()) + list(state_agent_outputs.keys()) + list(raw_agent_outputs.keys())))
+        agent_outputs = {}
+        for name in executed_agents:
+            if name in structured_outputs:
+                agent_outputs[name] = structured_outputs[name]
+            elif name in state_agent_outputs:
+                agent_outputs[name] = state_agent_outputs[name]
+            else:
+                agent_outputs[name] = raw_agent_outputs.get(name, "")
+
+        serialized_agent_outputs = self._convert_agent_outputs_to_serializable(agent_outputs)
+
+        # meta
+        agent_output_meta = {}
+        aom = exec_state.get("agent_output_meta")
+        if isinstance(aom, dict):
+            agent_output_meta = aom
+
+        base_meta = self._build_base_meta(
+            preflight,
+            final_agents=(preflight.config.get("agents") or []),
+            graph=preflight.config.get("selected_graph"),
+            source=preflight.config.get("routing_source", "unknown"),
+        )
+        agent_output_meta.update(base_meta)
+
+        # Fan-out base qp into each agent envelope (simple/consistent)
+        self._fanout_profile_into_agent_envelopes(agent_output_meta, serialized_agent_outputs.keys(), preflight.qp)
+
+        return ExecutionResult(
+            context=result_context,
+            agent_outputs=serialized_agent_outputs,
+            agent_output_meta=agent_output_meta,
+            executed_agents=executed_agents,
+        )
+
+    def _build_base_meta(self, preflight: PreflightResult, final_agents: List[str], graph: str, source: str) -> Dict[str, Any]:
+        qp = preflight.qp or {}
+        return {
+            "_query_profile": qp,
+            "_routing": {
+                "source": source,
+                "decision": preflight.decision,
+                "gates": preflight.config.get("routing_gates", {}),
+                "graph": graph,
+                "selected_workflow_id": preflight.config.get("selected_workflow_id"),
+                "final_agents": final_agents,
+            },
+        }
+
+    def _fanout_profile_into_agent_envelopes(self, agent_output_meta: Dict[str, Any], agent_names, qp: Dict[str, Any]) -> None:
+        intent = qp.get("intent", "general")
+        sub_intent = qp.get("sub_intent", "general")
+        tone = qp.get("tone", "neutral")
+
+        intent_c = float(qp.get("intent_confidence") or 0.5)
+        sub_c = float(qp.get("sub_intent_confidence") or 0.5)
+        tone_c = float(qp.get("tone_confidence") or 0.5)
+
+        signals = qp.get("signals") or {}
+        matched = qp.get("matched_rules") or []
+
+        for agent_name in agent_names:
+            env = agent_output_meta.get(agent_name)
+            if not isinstance(env, dict):
+                env = {}
+                agent_output_meta[agent_name] = env
+
+            env.setdefault("agent", agent_name)
+            env.setdefault("action", "read")
+            env.setdefault("intent", intent)
+            env.setdefault("sub_intent", sub_intent)
+            env.setdefault("tone", tone)
+            env.setdefault("intent_confidence", intent_c)
+            env.setdefault("sub_intent_confidence", sub_c)
+            env.setdefault("tone_confidence", tone_c)
+            env.setdefault("signals", signals)
+            env.setdefault("matched_rules", matched)
+            env.setdefault("analysis_source", signals.get("analysis_source") or "rules")
+
+    def _append_error(self, agent_output_meta: Dict[str, Any], msg: str, preflight: PreflightResult) -> None:
+        err_bucket = agent_output_meta.setdefault("_errors", {})
+        items = err_bucket.setdefault("items", [])
+        if isinstance(items, list):
+            items.append({
+                "type": "workflow_error",
+                "message": msg,
+                "selected_graph": preflight.selected_graph,
+                "routing_source": preflight.routing_source,
+                "agents_requested": list(preflight.config.get("agents") or []),
+            })
+
+    # ---------------------------------------------------------------------
+    # 5) RESPONSE BUILDING
+    # ---------------------------------------------------------------------
+    def _build_response(
+        self,
+        ident: WorkflowIdentity,
+        status: str,
+        error_message: Optional[str],
+        exec_result: ExecutionResult,
+    ) -> WorkflowResponse:
+        elapsed = time.time() - ident.start_time
+        return WorkflowResponse(
+            workflow_id=ident.workflow_run_id,
+            status=status,
+            agent_outputs=exec_result.agent_outputs or {},
+            agent_output_meta=exec_result.agent_output_meta or {},
+            execution_time_seconds=elapsed,
+            correlation_id=ident.correlation_id,
+            error_message=error_message,
+            markdown_export=None,
+        )
+
+    # ---------------------------------------------------------------------
+    # 6) OPTIONAL EXPORT (kept isolated)
+    # ---------------------------------------------------------------------
+    async def _maybe_export_markdown(self, request: WorkflowRequest, ident: WorkflowIdentity, response: WorkflowResponse) -> WorkflowResponse:
+        if not request.export_md:
+            return response
+        if response.status != "completed":
+            response.markdown_export = {
+                "error": "Export skipped",
+                "message": "Workflow did not complete successfully; no outputs to export.",
+                "export_timestamp": datetime.now(timezone.utc).isoformat(),
             }
-
-
-            response = WorkflowResponse(
-                workflow_id=workflow_id,
-                status="completed",
-                agent_output_meta=agent_output_meta,
-                agent_outputs={"llm": llm_answer},
-                execution_time_seconds=elapsed,
-                correlation_id=correlation_id,
-                error_message=None,
-                markdown_export=None,
-            )
-
-            # --- telemetry: completed ---
-            try:
-                await emit_workflow_completed(
-                    workflow_id=workflow_id,
-                    status="completed",
-                    execution_time_seconds=elapsed,
-                    agent_outputs={"llm": llm_answer},
-                    correlation_id=correlation_id,
-                    metadata={
-                        "api_version": self.api_version,
-                        "agent_output_meta": agent_output_meta,
-                    },
-                )
-            except Exception:
-                pass
-
-            self._cleanup_query_profile_state(workflow_id)
-
-            try:
-                await self._persist_workflow_to_database(
-                    request,
-                    response,
-                    execution_context=None,
-                    workflow_id=workflow_id,
-                    original_execution_config=original_execution_config,
-                )
-            except Exception as persist_error:
-                logger.error(f"Failed to persist bypass workflow {workflow_id}: {persist_error}")
-
             return response
 
         try:
-            logger.info(
-                f"Starting workflow {workflow_id} with query: {request.query[:100]}..."
-            )
+            from OSSS.ai.store.wiki_adapter import MarkdownExporter
+            from OSSS.ai.store.topic_manager import TopicManager
+            from OSSS.ai.llm.openai import OpenAIChatLLM
+            from OSSS.ai.config.openai_config import OpenAIConfig
 
-            # Emit workflow started event for telemetry systems
-            safe_agents = list(request.agents or [])
-            _fire_and_forget(
-                emit_workflow_started(
-                    workflow_id=workflow_id,
+            llm_config = OpenAIConfig.load()
+            llm = OpenAIChatLLM(api_key=llm_config.api_key, model=llm_config.model, base_url=llm_config.base_url)
+            topic_manager = TopicManager(llm=llm)
+
+            try:
+                topic_analysis = await topic_manager.analyze_and_suggest_topics(
                     query=request.query,
-                    agents=safe_agents,  # ✅ never None
-                    execution_config=request.execution_config or {},
-                    correlation_id=correlation_id,
-                    metadata={
-                        "api_version": self.api_version,
-                        "start_time": start_time,
-                        "query_profile": qp,
-                    },
+                    agent_outputs=response.agent_outputs,
                 )
-            )
+                suggested_topics = [s.topic for s in topic_analysis.suggested_topics]
+                suggested_domain = topic_analysis.suggested_domain
+            except Exception:
+                suggested_topics, suggested_domain = [], None
 
-            # Track workflow execution in memory (used by get_status(), debugging)
-            self._active_workflows[workflow_id] = {
-                "status": "running",
-                "request": request,
-                "start_time": start_time,
-                "workflow_id": workflow_id,
-                "query_profile": config.get("query_profile"),  # keep it here
+            exporter = MarkdownExporter()
+            md_path = exporter.export(
+                agent_outputs=response.agent_outputs,
+                question=request.query,
+                topics=suggested_topics,
+                domain=suggested_domain,
+            )
+            md_path_obj = Path(md_path)
+
+            response.markdown_export = {
+                "file_path": str(md_path_obj.absolute()),
+                "filename": md_path_obj.name,
+                "export_timestamp": datetime.now(timezone.utc).isoformat(),
+                "suggested_topics": (suggested_topics[:5] if suggested_topics else []),
+                "suggested_domain": suggested_domain,
             }
-            self._total_workflows += 1
-
-            # Build orchestrator execution config from request data
-            # IMPORTANT: copy dict to avoid mutating request.execution_config
-            # config already built above; just add agents restriction if requested
-
-            # Optionally restrict which agents run in this workflow
-            if request.agents:
-                config["agents"] = request.agents
-
-            use_llm_intent = bool(config.get("use_llm_intent", False))
-
-            execution_config = request.execution_config or {}
-
-            logger.info(
-                "Execution config received",
-                extra={
-                    "workflow_id": workflow_id,  # if you already created it
-                    "use_llm_intent": execution_config.get("use_llm_intent"),
-                    "raw_execution_config": execution_config,
-                },
-            )
-
-            # Run the orchestrator and obtain an execution context (AgentContext-like)
-            if self._orchestrator is None:
-                raise RuntimeError("Orchestrator not initialized")
-
-            # ✅ IMPORTANT: remove/reduce duplicated “preflight analysis” block below.
-            # qp/query_profile already exist and are in config["query_profile"].
-
-            result_context = await self._run_selected_graph(request.query, config)
-
-
-
-            # Compute end-to-end duration
-            execution_time = time.time() - start_time
-
-            # ------------------------------------------------------------
-            # ALWAYS initialize final status variables (prevents UnboundLocalError)
-            # ------------------------------------------------------------
-            final_status: str = "completed"
-            final_error_message: Optional[str] = None
-
-            # ----------------------------------------------------------------
-            # Normalize execution_state access (may not exist on some contexts)
-            # ----------------------------------------------------------------
-            exec_state: Dict[str, Any] = {}
-            try:
-                maybe_state = getattr(result_context, "execution_state", None)
-                if isinstance(maybe_state, dict):
-                    exec_state = maybe_state
-            except Exception:
-                exec_state = {}
-
-            # ----------------------------------------------------------------
-            # Output extraction: structured outputs are preferred
-            # ----------------------------------------------------------------
-            structured_outputs: Dict[str, Any] = {}
-            try:
-                so = exec_state.get("structured_outputs", {})
-                if isinstance(so, dict):
-                    structured_outputs = so
-            except Exception:
-                structured_outputs = {}
-
-            # ----------------------------------------------------------------
-            # Output extraction: gather from ALL common locations
-            # ----------------------------------------------------------------
-            structured_outputs: Dict[str, Any] = {}
-            try:
-                so = exec_state.get("structured_outputs", {})
-                if isinstance(so, dict):
-                    structured_outputs = so
-            except Exception:
-                structured_outputs = {}
-
-            raw_agent_outputs: Dict[str, Any] = {}
-            try:
-                ao = getattr(result_context, "agent_outputs", None)
-                if isinstance(ao, dict):
-                    raw_agent_outputs = ao
-            except Exception:
-                raw_agent_outputs = {}
-
-            # Some graphs store plain outputs in execution_state too
-            state_agent_outputs: Dict[str, Any] = {}
-            try:
-                sao = exec_state.get("agent_outputs", {})
-                if isinstance(sao, dict):
-                    state_agent_outputs = sao
-            except Exception:
-                state_agent_outputs = {}
-
-            # Determine executed agents from the union of keys we can see
-            executed_agents = list(
-                dict.fromkeys(
-                    list(structured_outputs.keys())
-                    + list(state_agent_outputs.keys())
-                    + list(raw_agent_outputs.keys())
-                )
-            )
-
-            # LAST resort: if we still have none, infer from meta envelopes
-            if not executed_agents:
-                try:
-                    aom = exec_state.get("agent_output_meta", {})
-                    if isinstance(aom, dict):
-                        executed_agents = [k for k in aom.keys() if isinstance(k, str) and not k.startswith("_")]
-                except Exception:
-                    executed_agents = []
-
-            # Merge strategy:
-            # structured_outputs > exec_state.agent_outputs > result_context.agent_outputs
-            agent_outputs_to_serialize: Dict[str, Any] = {}
-            for agent_name in executed_agents:
-                if agent_name in structured_outputs:
-                    agent_outputs_to_serialize[agent_name] = structured_outputs[agent_name]
-                elif agent_name in state_agent_outputs:
-                    agent_outputs_to_serialize[agent_name] = state_agent_outputs[agent_name]
-                else:
-                    agent_outputs_to_serialize[agent_name] = raw_agent_outputs.get(agent_name, "")
-
-            # Convert any remaining Pydantic objects to plain dicts
-            serialized_agent_outputs = self._convert_agent_outputs_to_serializable(agent_outputs_to_serialize)
-
-            # IMPORTANT: Do not drop guard (or any agent) via filtering here.
-            # If you later add filtering, explicitly allow "guard".
-
-            # Convert any remaining Pydantic objects to plain dicts
-            serialized_agent_outputs = self._convert_agent_outputs_to_serializable(
-                agent_outputs_to_serialize
-            )
-
-            # ----------------------------------------------------------------
-            # Output meta extraction (intent/tone/etc.) + ensure `action`
-            # ----------------------------------------------------------------
-            agent_output_meta: Dict[str, Any] = {}
-
-            # 1) Preferred: per-agent envelopes from execution_state if present
-            try:
-                aom = exec_state.get("agent_output_meta", {})
-                if isinstance(aom, dict):
-                    agent_output_meta = aom
-            except Exception:
-                agent_output_meta = {}
-
-            # ----------------------------------------------------------------
-            # Ensure we ALWAYS have a query_profile dict (never None / never empty)
-            # ----------------------------------------------------------------
-
-            # ----------------------------------------------------------------
-            # Canonical query profile dict (analysis already ran once above)
-            # ----------------------------------------------------------------
-            qp = self._get_or_default_query_profile(config)
-
-            # Safety only: never call LLM here (preflight already did that)
-            if not isinstance(qp, dict) or not qp:
-                qp = self._get_or_default_query_profile(config)
-                config["query_profile"] = qp
-
-            logger.info(
-                "Query profile (single-pass) finalized",
-                extra={
-                    "workflow_id": workflow_id,
-                    "intent": qp.get("intent"),
-                    "sub_intent": qp.get("sub_intent"),
-                    "tone": qp.get("tone"),
-                    "analysis_source": (qp.get("signals") or {}).get("analysis_source"),
-                    "use_llm_intent": bool(config.get("use_llm_intent", False)),
-                },
-            )
-
-            # ✅ CRITICAL: persist finalized qp so later "ensure" calls cannot re-run LLM
-            config["query_profile"] = qp
-
-            # Keep a copy at a stable location for debugging/clients
-            use_llm_intent = bool(config.get("use_llm_intent", False))
-
-            agent_output_meta["_query_profile"] = qp
-            agent_output_meta["_query_profile"].setdefault("signals", {})
-            agent_output_meta["_query_profile"]["signals"].setdefault(
-                "analysis_source",
-                "llm" if use_llm_intent else "rules",
-            )
-
-            # preserve more specific source if it exists (e.g., rules_fallback)
-            agent_output_meta["_query_profile"]["signals"].setdefault(
-                "analysis_source",
-                "llm" if use_llm_intent else "rules",
-            )
-
-            agent_output_meta["_routing"] = {
-                "source": config.get("routing_source", "unknown"),
-                "decision": config.get("routing_decision"),  # ✅ add this line
-                "gates": config.get("routing_gates", {}),
-                "graph": config.get("selected_graph"),
-                "selected_workflow_id": config.get("selected_workflow_id"),
-                "final_agents": config.get("agents"),
-            }
-
-            # ----------------------------------------------------------------
-            # Robust extraction helpers (handles alternate shapes)
-            # ----------------------------------------------------------------
-            def _pick(d: dict, *keys: str):
-                for k in keys:
-                    if k in d and d[k] is not None:
-                        return d[k]
-                return None
-
-            def _unwrap_name(v: Any):
-                # supports {"name": "..."} or {"value": "..."} shapes
-                if isinstance(v, dict):
-                    return v.get("name") or v.get("value") or v.get("label")
-                return v
-
-            # Canonical values (with safe defaults)
-            qp_intent = _unwrap_name(_pick(qp, "intent", "intent_name")) or "general"
-            qp_sub_intent = _unwrap_name(_pick(qp, "sub_intent", "sub_intent_name")) or "general"
-            qp_tone = _unwrap_name(_pick(qp, "tone", "tone_name")) or "neutral"
-
-            qp_intent_conf = _pick(qp, "intent_confidence") or 0.50
-            qp_sub_intent_conf = _pick(qp, "sub_intent_confidence") or 0.50
-            qp_tone_conf = _pick(qp, "tone_confidence") or 0.50
-
-            qp_signals = _pick(qp, "signals") or {}
-            qp_matched = _pick(qp, "matched_rules", "matched_patterns") or []
-
-            # ✅ Best-practice: matched_rules is already structured (RuleHit dicts).
-            # Only do a minimal compatibility shim if an older pipeline still returns List[str].
-            normalized_matched: List[Dict[str, Any]] = []
-
-            if isinstance(qp_matched, list):
-                # Legacy: List[str] -> RuleHit contract
-                if qp_matched and isinstance(qp_matched[0], str):
-                    normalized_matched = [
-                        {
-                            "rule": r,
-                            "action": "read",
-                            "category": "analysis",
-                            "score": 0.50,
-                        }
-                        for r in qp_matched
-                        if isinstance(r, str) and r.strip()
-                    ]
-
-                # Preferred: already List[dict] -> normalize keys to RuleHit contract
-                elif qp_matched and isinstance(qp_matched[0], dict):
-                    for item in qp_matched:
-                        if not isinstance(item, dict):
-                            continue
-
-                        rule = (
-                                item.get("rule")
-                                or item.get("rule_id")
-                                or item.get("id")
-                                or item.get("name")
-                                or item.get("label")
-                        )
-                        if not isinstance(rule, str) or not rule.strip():
-                            continue
-
-                        hit: Dict[str, Any] = {
-                            "rule": rule.strip(),
-                            "action": (item.get("action") if isinstance(item.get("action"), str) else "read"),
-                        }
-
-                        if isinstance(item.get("category"), str):
-                            hit["category"] = item["category"]
-
-                        if isinstance(item.get("score"), (int, float)):
-                            hit["score"] = float(item["score"])
-                        elif isinstance(item.get("confidence"), (int, float)):
-                            hit["score"] = float(item["confidence"])
-
-                        meta = item.get("meta") if isinstance(item.get("meta"), dict) else {}
-                        for k in ("label", "tone", "sub_intent", "parent_intent"):
-                            if k in item and k not in meta:
-                                meta[k] = item[k]
-                        if meta:
-                            hit["meta"] = meta
-
-                        normalized_matched.append(hit)
-
-            qp_matched = normalized_matched
-
-            # ----------------------------------------------------------------
-            # Optional: Per-agent LLM analysis (intent/tone/sub-intent)
-            # Option A: decouple from use_llm_intent. Per-agent analysis is opt-in only.
-            # ----------------------------------------------------------------
-            enable_llm_agent_query_analysis = False
-            try:
-                enable_llm_agent_query_analysis = bool(
-                    config.get("enable_llm_agent_query_analysis", False)
-                )
-
-                logger.info(
-                    "Per-agent LLM query analysis toggle evaluated",
-                    extra={
-                        "workflow_id": workflow_id,
-                        "enable_llm_agent_query_analysis": enable_llm_agent_query_analysis,
-                        "use_llm_intent": bool(config.get("use_llm_intent", False)),
-                    },
-                )
-            except Exception:
-                enable_llm_agent_query_analysis = False
-
-            agent_profiles: Dict[str, Any] = {}  # agent -> QueryProfile (or dict)
-
-            if enable_llm_agent_query_analysis:
-                try:
-                    # If your orchestrator/agents populate exec_state["effective_queries"],
-                    # we will prefer that; otherwise we fall back to request.query.
-                    agent_queries = self._extract_effective_queries(
-                        base_query=request.query,
-                        executed_agents=list(serialized_agent_outputs.keys()),
-                        exec_state=exec_state,
-                    )
-
-                    agent_profiles = await self._llm_analyze_agent_queries(agent_queries, llm=llm)
-
-                    # Helpful for debugging
-                    agent_output_meta.setdefault("_agent_effective_queries", agent_queries)
-
-                except Exception as e:
-                    logger.warning(
-                        f"Per-agent LLM query analysis failed; using base query_profile. error={e}"
-                    )
-                    agent_profiles = {}
-
-            # ----------------------------------------------------------------
-            # Fan-out profile into EVERY agent envelope
-            # - prefer per-agent LLM profile when available
-            # - otherwise fall back to base deterministic profile (qp_*)
-            # ----------------------------------------------------------------
-            # Fan-out profile into EVERY agent envelope
-            for agent_name in serialized_agent_outputs.keys():
-                envelope = agent_output_meta.get(agent_name)
-                if not isinstance(envelope, dict):
-                    envelope = {}
-                    agent_output_meta[agent_name] = envelope
-
-                envelope.setdefault("agent", agent_name)
-                envelope.setdefault("action", "read")
-
-                prof = agent_profiles.get(agent_name)
-
-                if prof is not None:
-                    if hasattr(prof, "model_dump"):
-                        prof_dict = prof.model_dump()
-                    elif isinstance(prof, dict):
-                        prof_dict = prof
-                    else:
-                        prof_dict = {}
-
-                    envelope["intent"] = prof_dict.get("intent") or "general"
-                    envelope["sub_intent"] = prof_dict.get("sub_intent") or "general"
-                    envelope["tone"] = prof_dict.get("tone") or "neutral"
-
-                    envelope["intent_confidence"] = float(prof_dict.get("intent_confidence") or 0.50)
-                    envelope["sub_intent_confidence"] = float(prof_dict.get("sub_intent_confidence") or 0.50)
-                    envelope["tone_confidence"] = float(prof_dict.get("tone_confidence") or 0.50)
-
-                    envelope["signals"] = prof_dict.get("signals") or {}
-                    envelope["matched_rules"] = _normalize_rule_hits(prof_dict.get("matched_rules"))
-                    envelope["analysis_source"] = "llm"
-                else:
-                    # Existing behavior (base query_profile)
-                    envelope.setdefault("intent", qp_intent)
-                    envelope.setdefault("sub_intent", qp_sub_intent)
-                    envelope.setdefault("tone", qp_tone)
-
-                    envelope.setdefault("intent_confidence", float(qp_intent_conf))
-                    envelope.setdefault("sub_intent_confidence", float(qp_sub_intent_conf))
-                    envelope.setdefault("tone_confidence", float(qp_tone_conf))
-
-                    envelope.setdefault("signals", qp_signals)
-                    envelope.setdefault("matched_rules", qp_matched)
-                    envelope["analysis_source"] = (qp_signals.get("analysis_source") or "rules")
-
-
-
-            # IMPORTANT: if you have filtering logic, make sure guard isn't excluded
-            # e.g. do NOT skip guard just because it isn't "answer-producing"
-
-            # ------------------------------------------------------------
-            # Option A: decide final status ONCE, after outputs are built
-            # ------------------------------------------------------------
-            if not isinstance(serialized_agent_outputs, dict) or len(serialized_agent_outputs) == 0:
-                final_status = "failed"
-                final_error_message = "No agent outputs produced."
-
-                # ✅ Provide a visible fallback so the UI has something to render
-                serialized_agent_outputs = {
-                    "synthesis": (
-                        "I didn’t generate an answer because no agents produced outputs.\n\n"
-                        "What you can do:\n"
-                        "- Try again\n"
-                        "- Enable direct LLM bypass for simple factual questions\n"
-                        "- Or check your selected graph/agents configuration (may be routing to a graph that doesn’t run a responder)"
-                    )
-                }
-
-                # ✅ _errors must be a dict (per pydantic), but we can keep a list inside it
-                err_bucket = agent_output_meta.setdefault("_errors", {})
-                items = err_bucket.setdefault("items", [])
-                if isinstance(items, list):
-                    items.append(
-                        {
-                            "type": "empty_agent_outputs",
-                            "message": final_error_message,
-                            "agents_requested": list(config.get("agents") or []),
-                            "selected_graph": config.get("selected_graph"),
-                            "routing_source": config.get("routing_source"),
-                        }
-                    )
-                else:
-                    err_bucket["items"] = [
-                        {
-                            "type": "empty_agent_outputs",
-                            "message": final_error_message,
-                            "agents_requested": list(config.get("agents") or []),
-                            "selected_graph": config.get("selected_graph"),
-                            "routing_source": config.get("routing_source"),
-                        }
-                    ]
-            else:
-                final_status = "completed"
-                final_error_message = None
-
-            # ✅ Build response HERE (always before export_md)
-            response = WorkflowResponse(
-                workflow_id=workflow_id,
-                status=final_status,
-                agent_outputs=serialized_agent_outputs,  # ✅ always include fallback synthesis
-                execution_time_seconds=execution_time,
-                correlation_id=correlation_id,
-                agent_output_meta=agent_output_meta,
-                error_message=final_error_message,
-                markdown_export=None,
-            )
-
-            # ----------------------------------------------------------------
-            # Optional markdown export
-            # ----------------------------------------------------------------
-            # If request.export_md is True, we:
-            # - Export agent outputs to markdown file
-            # - Attempt topic analysis to tag the document
-            # - Attach metadata into response.markdown_export
-            # - Attempt to persist the markdown to DB (best-effort)
-            if request.export_md:
-                # ✅ If workflow failed (including empty outputs), don't export markdown
-                if response.status != "completed":
-                    response.markdown_export = {
-                        "error": "Export skipped",
-                        "message": "Workflow did not complete successfully; no outputs to export.",
-                        "export_timestamp": datetime.now(timezone.utc).isoformat(),
-                    }
-                else:
-                    try:
-                        from OSSS.ai.store.wiki_adapter import MarkdownExporter
-                        from OSSS.ai.store.topic_manager import TopicManager
-                        from OSSS.ai.llm.openai import OpenAIChatLLM
-                        from OSSS.ai.config.openai_config import OpenAIConfig
-
-                        logger.info(f"Exporting markdown for workflow {workflow_id}")
-
-                        # Create LLM instance used by TopicManager for analysis
-                        llm_config = OpenAIConfig.load()
-                        llm = OpenAIChatLLM(
-                            api_key=llm_config.api_key,
-                            model=llm_config.model,
-                            base_url=llm_config.base_url,
-                        )
-
-                        topic_manager = TopicManager(llm=llm)
-
-                        # Topic analysis is best-effort (do not fail export if analysis fails)
-                        try:
-                            topic_analysis = await topic_manager.analyze_and_suggest_topics(
-                                query=request.query,
-                                agent_outputs=serialized_agent_outputs,
-                            )
-                            suggested_topics = [s.topic for s in topic_analysis.suggested_topics]
-                            suggested_domain = topic_analysis.suggested_domain
-                            logger.info(
-                                f"Topic analysis completed: {len(suggested_topics)} topics, domain: {suggested_domain}"
-                            )
-                        except Exception as topic_error:
-                            logger.warning(f"Topic analysis failed: {topic_error}")
-                            suggested_topics = []
-                            suggested_domain = None
-
-                        # Export markdown using enhanced metadata
-                        exporter = MarkdownExporter()
-                        md_path = exporter.export(
-                            agent_outputs=serialized_agent_outputs,
-                            question=request.query,
-                            topics=suggested_topics,
-                            domain=suggested_domain,
-                        )
-
-                        md_path_obj = Path(md_path)
-
-                        # Attach export metadata to API response
-                        response.markdown_export = {
-                            "file_path": str(md_path_obj.absolute()),
-                            "filename": md_path_obj.name,
-                            "export_timestamp": datetime.now(timezone.utc).isoformat(),
-                            "suggested_topics": (suggested_topics[:5] if suggested_topics else []),
-                            "suggested_domain": suggested_domain,
-                        }
-
-                        logger.info(f"Markdown export successful: {md_path_obj.name}")
-
-                        # Persist exported markdown to DB (best-effort; never fail workflow)
-                        try:
-                            db_session_factory = await self._get_or_create_db_session_factory()
-
-                            if db_session_factory:
-                                async with db_session_factory.get_repository_factory() as repo_factory:
-                                    doc_repo = repo_factory.historian_documents
-
-                                    with open(md_path_obj, "r", encoding="utf-8") as md_file:
-                                        markdown_content = md_file.read()
-
-                                    topics_list = suggested_topics[:5] if suggested_topics else []
-
-                                    await doc_repo.get_or_create_document(
-                                        title=request.query[:200],
-                                        content=markdown_content,
-                                        source_path=str(md_path_obj.absolute()),
-                                        document_metadata={
-                                            "workflow_id": workflow_id,
-                                            "correlation_id": request.correlation_id,
-                                            "topics": topics_list,
-                                            "domain": suggested_domain,
-                                            "export_timestamp": datetime.now(timezone.utc).isoformat(),
-                                            "agents_executed": list(result_context.agent_outputs.keys()),
-                                        },
-                                    )
-
-                                    logger.info(
-                                        f"Workflow {workflow_id} markdown persisted to database: {md_path_obj.name}"
-                                    )
-                            else:
-                                logger.warning(
-                                    f"Database not available, skipping markdown persistence for workflow {workflow_id}"
-                                )
-
-                        except Exception as db_persist_error:
-                            logger.error(
-                                f"Failed to persist markdown to database for workflow {workflow_id}: {db_persist_error}"
-                            )
-
-                    except Exception as md_error:
-                        error_msg = str(md_error)
-                        logger.warning(
-                            f"Markdown export failed for workflow {workflow_id}: {error_msg}"
-                        )
-                        response.markdown_export = {
-                            "error": "Export failed",
-                            "message": error_msg,
-                            "export_timestamp": datetime.now(timezone.utc).isoformat(),
-                        }
-
-            # ----------------------------------------------------------------
-            # Persist workflow results to database (best-effort)
-            # ----------------------------------------------------------------
-            try:
-                await self._persist_workflow_to_database(
-                    request,
-                    response,
-                    result_context,
-                    workflow_id,
-                    original_execution_config,
-                )
-            except Exception as persist_error:
-                # Database persistence failures should never break API success response
-                logger.error(f"Failed to persist workflow {workflow_id}: {persist_error}")
-
-            # Update in-memory workflow tracking
-            self._active_workflows[workflow_id].update(
-                {"status": final_status, "response": response, "end_time": time.time()}
-            )
-
-            try:
-                # Emit completion event for telemetry
-                await emit_workflow_completed(
-                    workflow_id=workflow_id,
-                    status=final_status,
-                    execution_time_seconds=execution_time,
-                    agent_outputs=(serialized_agent_outputs if final_status == "completed" else {}),
-                    error_message=(final_error_message if final_status != "completed" else None),
-                    correlation_id=correlation_id,
-                    metadata={
-                        "api_version": self.api_version,
-                        "end_time": time.time(),
-                        "agent_output_meta": agent_output_meta,
-                    },
-                )
-            except Exception:
-                pass
-
-            if final_status == "completed":
-                logger.info(f"Workflow {workflow_id} completed successfully in {execution_time:.2f}s")
-            else:
-                logger.warning(
-                    f"Workflow {workflow_id} completed with empty outputs; reporting failed in {execution_time:.2f}s"
-                )
-
-            self._cleanup_query_profile_state(workflow_id)
-
-
             return response
 
         except Exception as e:
-            # Any exception in execution path becomes a failed workflow response
-            execution_time = time.time() - start_time
-            logger.error(
-                f"Workflow {workflow_id} failed after {execution_time:.2f}s: {e}"
+            response.markdown_export = {
+                "error": "Export failed",
+                "message": str(e),
+                "export_timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+            return response
+
+    # ---------------------------------------------------------------------
+    # 7) AFTER RESPONSE: persistence, telemetry, cleanup
+    # ---------------------------------------------------------------------
+    async def _after_response(
+        self,
+        request: WorkflowRequest,
+        ident: WorkflowIdentity,
+        preflight: PreflightResult,
+        response: WorkflowResponse,
+        exec_result: ExecutionResult,
+        status: str,
+        error_message: Optional[str],
+    ) -> None:
+        # update in-memory tracking
+        if ident.workflow_run_id in self._active_workflows:
+            self._active_workflows[ident.workflow_run_id].update({"status": status, "response": response, "end_time": time.time()})
+
+        # persist workflow (best-effort)
+        try:
+            await self._persist_workflow_to_database(
+                request,
+                response,
+                exec_result.context,
+                ident.workflow_run_id,
+                request.execution_config or {},
             )
+        except Exception as e:
+            logger.error(f"Failed to persist workflow {ident.workflow_run_id}: {e}")
 
-
-            error_response = WorkflowResponse(
-                workflow_id=workflow_id,
-                status="failed",
-                agent_outputs={},
-                execution_time_seconds=execution_time,
-                correlation_id=correlation_id,
-                error_message=str(e),
+        # telemetry complete (best-effort)
+        try:
+            await emit_workflow_completed(
+                workflow_id=ident.workflow_run_id,
+                status=status,
+                execution_time_seconds=(time.time() - ident.start_time),
+                agent_outputs=(response.agent_outputs if status == "completed" else {}),
+                error_message=(error_message if status != "completed" else None),
+                correlation_id=ident.correlation_id,
+                metadata={"api_version": self.api_version, "agent_output_meta": response.agent_output_meta},
             )
+        except Exception:
+            pass
 
-            # Persist failure metadata (best-effort)
-            await self._persist_failed_workflow_to_database(
-                request, error_response, workflow_id, str(e), original_execution_config
-            )
+        self._cleanup_query_profile_state(ident.workflow_run_id)
 
-            # Update workflow tracking if present
-            if workflow_id in self._active_workflows:
-                self._active_workflows[workflow_id].update(
-                    {
-                        "status": "failed",
-                        "response": error_response,
-                        "error": str(e),
-                        "end_time": time.time(),
-                    }
-                )
+    # ---------------------------------------------------------------------
+    # 8) SMALL IO HELPERS (keep existing behavior)
+    # ---------------------------------------------------------------------
+    def _track_active_workflow(self, ident: WorkflowIdentity, request: WorkflowRequest, status: str, query_profile: Dict[str, Any]) -> None:
+        self._active_workflows[ident.workflow_run_id] = {
+            "status": status,
+            "request": request,
+            "start_time": ident.start_time,
+            "workflow_id": ident.workflow_run_id,
+            "query_profile": query_profile,
+        }
+        self._total_workflows += 1
 
-            # Emit workflow completion event with failed status
-            _fire_and_forget(emit_workflow_completed(
-                workflow_id=workflow_id,
-                status="failed",
-                execution_time_seconds=execution_time,
-                error_message=str(e),
-                error_type=type(e).__name__,
-                correlation_id=correlation_id,
-                metadata={"api_version": self.api_version, "end_time": time.time()},
+    def _emit_started_safe(self, ident: WorkflowIdentity, request: WorkflowRequest, agents: List[str], metadata: Dict[str, Any]) -> None:
+        try:
+            _fire_and_forget(emit_workflow_started(
+                workflow_id=ident.workflow_run_id,
+                query=request.query,
+                agents=list(agents or []),
+                execution_config=request.execution_config or {},
+                correlation_id=ident.correlation_id,
+                metadata={"api_version": self.api_version, "start_time": ident.start_time, **(metadata or {})},
             ))
+        except Exception:
+            pass
 
-            self._cleanup_query_profile_state(workflow_id)
+    async def _call_direct_llm(self, query: str) -> str:
+        from OSSS.ai.config.openai_config import OpenAIConfig
+        from OSSS.ai.llm.openai import OpenAIChatLLM
 
-            return error_response
+        llm_config = OpenAIConfig.load()
+        llm = OpenAIChatLLM(api_key=llm_config.api_key, model=llm_config.model, base_url=llm_config.base_url)
+
+        system_prompt = (
+            "You are OSSS. Answer the user's request directly and concretely.\n"
+            "If the user asks for a list, return a list.\n"
+            "Do not rewrite the request into meta-analysis."
+        )
+        resp = await llm.ainvoke(
+            [{"role": "system", "content": system_prompt}, {"role": "user", "content": query}]
+        )
+        return _coerce_llm_text(resp).strip()
 
     # -----------------------------------------------------------------------
     # Status and cancellation endpoints

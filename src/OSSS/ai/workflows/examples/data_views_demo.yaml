@@ -1,0 +1,15 @@
+workflow_id: "data-views-demo"
+name: "Data Views Pipeline"
+version: "1.0.0"
+category: "data"
+tags: ["data_views", "query", "read"]
+nodes:
+  - node_id: "data_views"
+    node_type: "data_views"
+    category: "BASE"
+    execution_pattern: "processor"
+    config:
+      agent_type: "data_views"
+flow:
+  entry_point: "data_views"
+  terminal_nodes: ["data_views"]

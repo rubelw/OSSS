@@ -34,9 +34,47 @@ class AgentRegistry:
     capabilities (e.g., LangGraph integration).
     """
 
-    def __init__(self) -> None:
+    def __init__(self, *, data_views: Optional[dict] = None) -> None:
         self._agents: Dict[str, AgentMetadata] = {}
         self._register_core_agents()
+        # ✅ Holds the configured data views used by DataViewAgent (and any other agent expecting it)
+        self._data_views: dict = data_views or {}
+
+
+    def set_data_views(self, data_views: dict) -> None:
+        self._data_views = data_views or {}
+
+    def _maybe_inject_constructor_kwargs(
+            self, agent_cls: Type[BaseAgent], kwargs: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Inject required constructor kwargs that are registry-owned (ex: data_views)
+        when they are missing from caller-provided kwargs.
+        """
+        import inspect
+
+        try:
+            sig = inspect.signature(agent_cls.__init__)
+            params = sig.parameters
+
+            # ✅ Inject required kw-only "data_views" if constructor requires it
+            if "data_views" in params and "data_views" not in kwargs:
+                p = params["data_views"]
+                required = (
+                        p.default == inspect.Parameter.empty
+                        and p.kind in (
+                            inspect.Parameter.KEYWORD_ONLY,
+                            inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                        )
+                )
+                if required:
+                    kwargs = dict(kwargs)
+                    kwargs["data_views"] = self._data_views
+        except Exception:
+            # If inspection fails, don't block agent creation—just don't inject.
+            pass
+
+        return kwargs
 
     def register(
         self,
@@ -116,6 +154,9 @@ class AgentRegistry:
         try:
             agent_cls = metadata.agent_class
             pattern = metadata.constructor_pattern
+
+            # ✅ Inject registry-owned required kwargs (like data_views) when missing
+            kwargs = self._maybe_inject_constructor_kwargs(agent_cls, dict(kwargs))
 
             if pattern == AgentConstructorPattern.LLM_REQUIRED:
                 assert llm is not None
@@ -431,7 +472,7 @@ class AgentRegistry:
 
         # ✅ DataView agent
         self.register(
-            name="data_view",
+            name="data_views",
             agent_class=DataViewAgent,
             requires_llm=True,
             description="Generates structured data views / table-oriented responses from OSSS models",

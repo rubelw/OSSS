@@ -32,18 +32,33 @@ Analyze the following user query and classify it.
 
 Return a JSON object with the following fields:
 
+- action: one of
+  ["read", "create", "add", "update", "edit", "delete", "troubleshoot", "review", "explain", "route"]
+
 - intent: one of
-  ["read", "write", "update", "delete", "analyze", "summarize", "compare", "list", "explain", "general"]
+  [
+    "information_lookup",
+    "entity_listing",
+    "record_inspection",
+    "record_mutation",
+    "analysis",
+    "comparison",
+    "explanation",
+    "instruction",
+    "troubleshooting",
+    "navigation",
+    "freeform",
+  ]
 
 - intent_confidence: number between 0.0 and 1.0
 
 - sub_intent: short snake_case string describing the specific goal
-  (examples: "data_query", "policy_lookup", "entity_listing", "record_update", "freeform_qa")
+  (examples: "dcg_teachers", "teacher_schedule", "record_update", "policy_lookup")
 
 - sub_intent_confidence: number between 0.0 and 1.0
 
 - tone: one of
-  ["neutral", "question", "instruction", "command", "exploratory"]
+  ["neutral","informative","questioning","instructional","imperative","exploratory","critical","supportive"]
 
 - tone_confidence: number between 0.0 and 1.0
 
@@ -59,7 +74,7 @@ Return a JSON object with the following fields:
 
 - matched_rules: array of objects with:
   - rule_id: string
-  - action: one of ["read", "write", "block"]
+  - action: one of ["read", "create", "update", "delete", "block"]
   - confidence: number between 0.0 and 1.0
 
 If information is unclear, make a best-effort guess and lower confidence scores.
@@ -73,8 +88,24 @@ User query:
 # Normalization helpers
 # ---------------------------------------------------------------------------
 
-_ALLOWED_ACTIONS = {"read", "write", "update", "delete", "block"}
+# For *rule hit* actions we keep a conservative set (what your rules/engine can execute).
+_ALLOWED_RULE_ACTIONS = {"read", "create", "update", "delete","block"}
 
+# For *top-level* LLM action we allow the richer set (what your envelope accepts).
+_ALLOWED_TOP_LEVEL_ACTIONS = {
+    "read",
+    "create",
+    "add",
+    "update",
+    "edit",
+    "delete",
+    "troubleshoot",
+    "review",
+    "explain",
+    "route",
+}
+
+# Synonyms and older schemas
 _ACTION_ALIASES = {
     # Read-like
     "inform": "read",
@@ -85,38 +116,96 @@ _ACTION_ALIASES = {
     "search": "read",
     "analyze": "read",
     "summarize": "read",
-    "explain": "read",
     "list": "read",
     "compare": "read",
     "general": "read",
+    "read": "read",
 
-    # Write-like
-    "create": "write",
-    "insert": "write",
-    "add": "write",
-    "new": "write",
+    # Create-like
+    "create": "create",
+    "insert": "create",
+    "new": "create",
+    "add": "add",  # keep as add for top-level, normalize later if desired
 
     # Update-like
     "modify": "update",
     "change": "update",
-    "edit": "update",
+    "edit": "edit",  # keep as edit for top-level, normalize later if desired
     "fix": "update",
     "correct": "update",
     "patch": "update",
+    "update": "update",
 
     # Delete-like
     "remove": "delete",
     "erase": "delete",
     "destroy": "delete",
+    "delete": "delete",
 
-    # “block” from older schemas → safest default (no destructive action)
-    "block": "read",
-    "deny": "read",
+    # Other explicit actions
+    "troubleshoot": "troubleshoot",
+    "review": "review",
+    "explain": "explain",
+    "route": "route",
+
+    # Old “write” category
+    "write": "create",
+
+    # Older “block/deny” handling: default to safest
+    "block": "block",
+    "deny": "block",
 }
 
-_ALLOWED_TONE = {"neutral", "question", "instruction", "command", "exploratory"}
+_ALLOWED_TONE = {
+    "neutral",
+    "informative",
+    "questioning",
+    "instructional",
+    "imperative",
+    "exploratory",
+    "critical",
+    "supportive",
+}
+
 _ALLOWED_COMPLEXITY = {"low", "medium", "high"}
 _ALLOWED_SAFETY = {"safe_read_only", "requires_confirmation", "restricted"}
+
+ACTION_NORMALIZATION = {
+    "add": "create",
+    "edit": "update",
+}
+
+_TONE_ALIASES = {
+    "question": "questioning",
+    "instruction": "instructional",
+    "command": "imperative",
+}
+
+def normalize_top_level_action(action: Any) -> str:
+    if not isinstance(action, str) or not action.strip():
+        return "read"
+    a = action.strip().lower()
+    a = _ACTION_ALIASES.get(a, a)
+    a = ACTION_NORMALIZATION.get(a, a)
+    return a if a in _ALLOWED_TOP_LEVEL_ACTIONS else "read"
+
+
+def normalize_rule_action(action: Any) -> str:
+    """
+    Normalize LLM rule-hit actions into what RuleHit expects.
+    Keep conservative: read/create/update/delete/block.
+    """
+    if not isinstance(action, str) or not action.strip():
+        return "read"
+    a = action.strip().lower()
+    a = _ACTION_ALIASES.get(a, a)
+    a = ACTION_NORMALIZATION.get(a, a)
+
+    # Map richer actions into rule-safe actions
+    if a in {"troubleshoot", "review", "explain", "route"}:
+        return "read"
+
+    return a if a in _ALLOWED_RULE_ACTIONS else "read"
 
 def _coerce_llm_text(raw: Any) -> str:
     """
@@ -168,13 +257,7 @@ def _coerce_llm_text(raw: Any) -> str:
 
     return str(raw)
 
-def normalize_action(action: Any) -> str:
-    if not isinstance(action, str) or not action.strip():
-        return "read"
-    a = action.strip().lower()
-    if a in _ALLOWED_ACTIONS:
-        return a
-    return _ACTION_ALIASES.get(a, "read")
+
 
 
 def _extract_first_json_object(text: str) -> str:
@@ -244,7 +327,7 @@ def _normalize_rule_hits_llm(value: Any) -> List[Dict[str, Any]]:
         if not isinstance(rule_id, str) or not rule_id.strip():
             continue
 
-        action = normalize_action(item.get("action"))
+        action = normalize_rule_action(item.get("action"))
         conf = item.get("confidence", item.get("score", 0.5))
         conf_f = _as_float(conf, 0.5)
         if conf_f < 0.0:
@@ -280,7 +363,7 @@ def _sanitize_to_query_profile_dict(data: Any) -> Dict[str, Any]:
     # Fold “extra” fields into signals (so QueryProfile extra=forbid never trips)
     # Keep them namespaced to avoid collisions.
     if "action" in data:
-        signals.setdefault("llm_action", normalize_action(data.get("action")))
+        signals.setdefault("llm_action", normalize_top_level_action(data.get("action")))
     if "complexity" in data:
         c = _as_str(data.get("complexity"), "")
         if c.lower() in _ALLOWED_COMPLEXITY:
@@ -293,12 +376,12 @@ def _sanitize_to_query_profile_dict(data: Any) -> Dict[str, Any]:
         signals.setdefault("requires_tools", bool(data.get("requires_tools")))
 
     # Allow LLM “intent” to be richer but keep QueryProfile intent as-is (string)
-    intent_raw = _as_str(data.get("intent"), "general")
+    intent_raw = _as_str(data.get("intent"), "freeform")
     tone_raw = _as_str(data.get("tone"), "neutral")
-    sub_intent_raw = _as_str(data.get("sub_intent"), "general")
+    sub_intent_raw = _as_str(data.get("sub_intent"), "freeform")
 
     # Normalize tone to allowed set (keep neutral if unknown)
-    tone = tone_raw.lower()
+    tone = _TONE_ALIASES.get(tone_raw.lower(), tone_raw.lower())
     if tone not in _ALLOWED_TONE:
         tone = "neutral"
 

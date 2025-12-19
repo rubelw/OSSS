@@ -86,6 +86,18 @@ def _ensure_exec_state_dict(state: OSSSState) -> Dict[str, Any]:
     return exec_state
 
 
+def _first_present(state: OSSSState, *keys: str) -> Optional[Any]:
+    """
+    Return the first non-None value found for the given keys.
+    (Does not treat empty dict/empty string specially; adjust if you want.)
+    """
+    for k in keys:
+        v = state.get(k)
+        if v is not None:
+            return v
+    return None
+
+
 # ---------------------------------------------------------------------
 # Legacy execution_state helpers (keep for backwards compatibility)
 # ---------------------------------------------------------------------
@@ -395,7 +407,7 @@ async def create_agent_with_llm(agent_name: str) -> BaseAgent:
         agent_config_kwargs["config"] = SynthesisConfig()
     elif agent_name_lower == "guard" and GuardConfig is not None:
         agent_config_kwargs["config"] = GuardConfig()
-    elif agent_name_lower == "data_view" and DataViewConfig is not None:
+    elif agent_name_lower == "data_views" and DataViewConfig is not None:
         agent_config_kwargs["config"] = DataViewConfig()
 
     raw_agent = registry.create_agent(agent_name_lower, llm=llm, **agent_config_kwargs)
@@ -412,7 +424,7 @@ async def create_agent_with_llm(agent_name: str) -> BaseAgent:
         agent.timeout_seconds = SynthesisConfig().execution_config.timeout_seconds
     elif agent_name_lower == "guard" and GuardConfig is not None:
         agent.timeout_seconds = GuardConfig().execution_config.timeout_seconds
-    elif agent_name_lower == "data_view" and DataViewConfig is not None:
+    elif agent_name_lower == "data_views" and DataViewConfig is not None:
         agent.timeout_seconds = DataViewConfig().execution_config.timeout_seconds
 
     return agent
@@ -522,566 +534,8 @@ async def convert_state_to_context(state: OSSSState) -> AgentContext:
 
     return context
 
-
 # ---------------------------------------------------------------------
-# ✅ Guard pipeline nodes
-# ---------------------------------------------------------------------
-@circuit_breaker(max_failures=3, reset_timeout=300.0)
-@node_metrics
-async def guard_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Dict[str, Any]:
-    thread_id = runtime.context.thread_id
-    execution_id = runtime.context.execution_id
-    original_query = runtime.context.query or state.get("query", "")
-    correlation_id = runtime.context.correlation_id
-    checkpoint_enabled = runtime.context.enable_checkpoints
-
-    logger.info(
-        f"Executing guard node in thread {thread_id}",
-        extra={
-            "thread_id": thread_id,
-            "execution_id": execution_id,
-            "correlation_id": correlation_id,
-            "checkpoint_enabled": checkpoint_enabled,
-        },
-    )
-
-    exec_state = _ensure_exec_state_dict(state)
-    _record_effective_query(state, "guard", original_query)
-
-    try:
-        emit_agent_execution_started(
-            event_category=EventCategory.EXECUTION,
-            workflow_id=execution_id,
-            agent_name="guard",
-            input_context={"query": original_query, "thread_id": thread_id, "execution_id": execution_id},
-            correlation_id=correlation_id,
-            metadata={"node_execution": True, "orchestrator_type": "langgraph-real"},
-        )
-
-        try:
-            agent = await create_agent_with_llm("guard")
-        except Exception as e:
-            msg = f"Guard not configured; passed through query unchanged. ({type(e).__name__})"
-            logger.warning(f"Guard agent not available; guard_node is a no-op: {e}")
-
-            guard_payload: Dict[str, Any] = {
-                "allowed": True,
-                "decision": "allow",
-                "action": "noop",
-                "reason": "agent_unavailable",
-                "message": msg,
-                "timestamp": _now_iso(),
-            }
-
-            exec_state["guard"] = guard_payload
-            state["guard"] = guard_payload
-            _set_guard_decision(state, "allow")
-            _merge_structured_outputs(state, {"guard": guard_payload})
-
-            _set_agent_output(state, "guard", guard_payload)
-            _ensure_agent_outputs_nonempty(state, "guard", msg)
-
-            emit_agent_execution_completed(
-                event_category=EventCategory.EXECUTION,
-                workflow_id=execution_id,
-                agent_name="guard",
-                success=True,
-                output_context={"allowed": True, "action": "noop", "thread_id": thread_id, "execution_id": execution_id},
-                correlation_id=correlation_id,
-                metadata={"node_execution": True, "orchestrator_type": "langgraph-real"},
-            )
-
-            return {
-                "execution_state": exec_state,
-                "guard": guard_payload,
-                "guard_decision": state.get("guard_decision"),
-                "successful_agents": ["guard"],
-                "structured_outputs": state.get("structured_outputs", {}) or {},
-            }
-
-        context = await convert_state_to_context(state)
-        result_context = await agent.run_with_retry(context)
-
-        guard_output = result_context.agent_outputs.get("guard", "") or "Guard completed."
-        raw_payload = result_context.execution_state.get("guard")
-        if not isinstance(raw_payload, dict):
-            raw_payload = {"message": guard_output}
-
-        decision = (
-            result_context.execution_state.get("guard_decision")
-            or raw_payload.get("decision")
-            or raw_payload.get("guard_decision")
-            or ""
-        )
-
-        if not decision:
-            allowed = raw_payload.get("allowed")
-            decision = "allow" if allowed is not False else "block"
-
-        guard_payload = {
-            "allowed": bool(raw_payload.get("allowed", True)),
-            "decision": str(decision),
-            "action": str(raw_payload.get("action", "guard")),
-            "reason": str(raw_payload.get("reason", "")),
-            "message": str(raw_payload.get("message", guard_output)),
-            "timestamp": _now_iso(),
-        }
-
-        exec_state["guard"] = guard_payload
-        state["guard"] = guard_payload
-        _set_guard_decision(state, decision)
-        _merge_structured_outputs(state, {"guard": guard_payload})
-
-        _set_agent_output(state, "guard", guard_payload)
-        _ensure_agent_outputs_nonempty(state, "guard", guard_payload["message"] or guard_output)
-
-        emit_agent_execution_completed(
-            event_category=EventCategory.EXECUTION,
-            workflow_id=execution_id,
-            agent_name="guard",
-            success=True,
-            output_context={"message": truncate_for_websocket_event(guard_payload["message"], "guard"), "thread_id": thread_id},
-            correlation_id=correlation_id,
-            metadata={"node_execution": True, "orchestrator_type": "langgraph-real"},
-        )
-
-        return {
-            "execution_state": exec_state,
-            "guard": guard_payload,
-            "guard_decision": state.get("guard_decision"),
-            "successful_agents": ["guard"],
-            "structured_outputs": state.get("structured_outputs", {}) or {},
-        }
-
-    except Exception as e:
-        emit_agent_execution_completed(
-            event_category=EventCategory.EXECUTION,
-            workflow_id=execution_id,
-            agent_name="guard",
-            success=False,
-            output_context={"error": str(e), "thread_id": thread_id},
-            error_message=str(e),
-            error_type=type(e).__name__,
-            correlation_id=correlation_id,
-            metadata={"node_execution": True, "orchestrator_type": "langgraph-real"},
-        )
-        record_agent_error(state, "guard", e)
-        raise NodeExecutionError(f"Guard execution failed: {e}") from e
-
-
-@circuit_breaker(max_failures=3, reset_timeout=300.0)
-@node_metrics
-async def answer_search_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Dict[str, Any]:
-    """
-    Executes the "answer/search" step after guard allows the request.
-    Tries to run a registered agent named 'answer_search'. If not registered,
-    degrades gracefully by using synthesis output (or the query) as a stub answer.
-    """
-    thread_id = runtime.context.thread_id
-    execution_id = runtime.context.execution_id
-    original_query = runtime.context.query or state.get("query", "")
-    correlation_id = runtime.context.correlation_id
-
-    logger.info(
-        f"Executing answer_search node in thread {thread_id}",
-        extra={"thread_id": thread_id, "execution_id": execution_id, "correlation_id": correlation_id},
-    )
-
-    exec_state = _ensure_exec_state_dict(state)
-    _record_effective_query(state, "answer_search", original_query)
-
-    try:
-        emit_agent_execution_started(
-            event_category=EventCategory.EXECUTION,
-            workflow_id=execution_id,
-            agent_name="answer_search",
-            input_context={"query": original_query, "thread_id": thread_id, "execution_id": execution_id},
-            correlation_id=correlation_id,
-            metadata={"node_execution": True, "orchestrator_type": "langgraph-real"},
-        )
-
-        try:
-            agent = await create_agent_with_llm("answer_search")
-        except Exception as e:
-            logger.warning(f"answer_search agent not available; falling back: {e}")
-
-            syn = state.get("synthesis") or {}
-            fallback_answer = ""
-            if isinstance(syn, dict):
-                fallback_answer = syn.get("final_analysis", "") or ""
-            if not fallback_answer:
-                fallback_answer = f"(stub) Answer/search for: {original_query}"
-
-            payload: Dict[str, Any] = {
-                "ok": True,
-                "type": "answer_search",
-                "answer_text": fallback_answer,
-                "sources": [],
-                "timestamp": _now_iso(),
-                "fallback": True,
-                "reason": "agent_unavailable",
-            }
-
-            exec_state["answer_search"] = payload
-            state["answer_search"] = payload
-            _merge_structured_outputs(state, {"answer_search": payload})
-
-            _set_agent_output(state, "answer_search", payload)
-            _ensure_agent_outputs_nonempty(state, "answer_search", payload["answer_text"])
-
-            emit_agent_execution_completed(
-                event_category=EventCategory.EXECUTION,
-                workflow_id=execution_id,
-                agent_name="answer_search",
-                success=True,
-                output_context={"fallback": True, "thread_id": thread_id, "execution_id": execution_id},
-                correlation_id=correlation_id,
-                metadata={"node_execution": True, "orchestrator_type": "langgraph-real"},
-            )
-
-            return {
-                "execution_state": exec_state,
-                "answer_search": payload,
-                "successful_agents": ["answer_search"],
-                "structured_outputs": state.get("structured_outputs", {}) or {},
-            }
-
-        context = await convert_state_to_context(state)
-        result_context = await agent.run_with_retry(context)
-
-        raw = result_context.agent_outputs.get("answer_search", "") or ""
-        payload = result_context.execution_state.get("answer_search_payload")
-        if not isinstance(payload, dict):
-            payload = {
-                "ok": True,
-                "type": "answer_search",
-                "answer_text": raw or "(no answer produced)",
-                "sources": result_context.execution_state.get("sources", []) or [],
-                "timestamp": _now_iso(),
-            }
-
-        exec_state["answer_search"] = payload
-        state["answer_search"] = payload
-        _merge_structured_outputs(state, {"answer_search": payload})
-
-        _set_agent_output(state, "answer_search", payload)
-        _ensure_agent_outputs_nonempty(
-            state, "answer_search", str(payload.get("answer_text") or raw or "ok")
-        )
-
-        emit_agent_execution_completed(
-            event_category=EventCategory.EXECUTION,
-            workflow_id=execution_id,
-            agent_name="answer_search",
-            success=True,
-            output_context={"thread_id": thread_id, "execution_id": execution_id},
-            correlation_id=correlation_id,
-            metadata={"node_execution": True, "orchestrator_type": "langgraph-real"},
-        )
-
-        return {
-            "execution_state": exec_state,
-            "answer_search": payload,
-            "successful_agents": ["answer_search"],
-            "structured_outputs": state.get("structured_outputs", {}) or {},
-        }
-
-    except Exception as e:
-        # Make sure this node failure emits an event too (parity with guard_node)
-        emit_agent_execution_completed(
-            event_category=EventCategory.EXECUTION,
-            workflow_id=execution_id,
-            agent_name="answer_search",
-            success=False,
-            output_context={"error": str(e), "thread_id": thread_id, "execution_id": execution_id},
-            error_message=str(e),
-            error_type=type(e).__name__,
-            correlation_id=correlation_id,
-            metadata={"node_execution": True, "orchestrator_type": "langgraph-real"},
-        )
-        record_agent_error(state, "answer_search", e)
-        raise NodeExecutionError(f"answer_search execution failed: {e}") from e
-
-
-@circuit_breaker(max_failures=3, reset_timeout=300.0)
-@node_metrics
-async def format_response_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Dict[str, Any]:
-    """
-    Formats the allowed response for your API/UI.
-    Terminates the workflow (GraphFactory edges go to END).
-    """
-    exec_state = _ensure_exec_state_dict(state)
-
-    answer_payload = state.get("answer_search") or exec_state.get("answer_search") or {}
-    answer_text = ""
-    sources: List[Any] = []
-    if isinstance(answer_payload, dict):
-        answer_text = str(answer_payload.get("answer_text") or "")
-        sources = answer_payload.get("sources") or []
-
-    ui: Dict[str, Any] = {
-        "status": "ok",
-        "message": answer_text,
-        "sources": sources if isinstance(sources, list) else [],
-        "timestamp": _now_iso(),
-    }
-
-    exec_state["format_response"] = {"ui": ui}
-    exec_state["final_response"] = ui
-
-    state["final_response"] = ui
-    state["ui_response"] = ui  # optional legacy convenience
-    _merge_structured_outputs(state, {"final_response": ui})
-
-    _set_agent_output(state, "format_response", ui)
-    _ensure_agent_outputs_nonempty(state, "format_response", answer_text or "ok")
-
-    return {
-        "execution_state": exec_state,
-        "final_response": ui,
-        "successful_agents": ["format_response"],
-        "structured_outputs": state.get("structured_outputs", {}) or {},
-    }
-
-
-@circuit_breaker(max_failures=3, reset_timeout=300.0)
-@node_metrics
-async def format_block_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Dict[str, Any]:
-    exec_state = _ensure_exec_state_dict(state)
-
-    guard_payload = state.get("guard") or exec_state.get("guard") or {}
-    msg = "Sorry, I can’t help with that request."
-    if isinstance(guard_payload, dict):
-        msg = str(
-            guard_payload.get("safe_response")
-            or guard_payload.get("message")
-            or guard_payload.get("reason")
-            or msg
-        )
-
-    ui: Dict[str, Any] = {
-        "status": "blocked",
-        "message": msg,
-        "sources": [],
-        "timestamp": _now_iso(),
-    }
-
-    exec_state["format_block"] = {"ui": ui}
-    exec_state["final_response"] = ui
-
-    state["final_response"] = ui
-    state["ui_response"] = ui
-    _merge_structured_outputs(state, {"final_response": ui})
-
-    _set_agent_output(state, "format_block", ui)
-    _ensure_agent_outputs_nonempty(state, "format_block", msg)
-
-    return {
-        "execution_state": exec_state,
-        "final_response": ui,
-        "successful_agents": ["format_block"],
-        "structured_outputs": state.get("structured_outputs", {}) or {},
-    }
-
-
-@circuit_breaker(max_failures=3, reset_timeout=300.0)
-@node_metrics
-async def format_requires_confirmation_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Dict[str, Any]:
-    exec_state = _ensure_exec_state_dict(state)
-
-    guard_payload = state.get("guard") or exec_state.get("guard") or {}
-    msg = "This request requires confirmation to proceed."
-    if isinstance(guard_payload, dict):
-        msg = str(guard_payload.get("reason") or guard_payload.get("message") or msg)
-
-    ui: Dict[str, Any] = {
-        "status": "requires_confirmation",
-        "message": msg,
-        "sources": [],
-        "timestamp": _now_iso(),
-    }
-
-    exec_state["format_requires_confirmation"] = {"ui": ui}
-    exec_state["final_response"] = ui
-
-    state["final_response"] = ui
-    state["ui_response"] = ui
-    _merge_structured_outputs(state, {"final_response": ui})
-
-    _set_agent_output(state, "format_requires_confirmation", ui)
-    _ensure_agent_outputs_nonempty(state, "format_requires_confirmation", msg)
-
-    return {
-        "execution_state": exec_state,
-        "final_response": ui,
-        "successful_agents": ["format_requires_confirmation"],
-        "structured_outputs": state.get("structured_outputs", {}) or {},
-    }
-
-
-# ---------------------------------------------------------------------
-# Existing nodes (unchanged): data_view_node, refiner_node, critic_node,
-# historian_node, synthesis_node
-# ---------------------------------------------------------------------
-
-@circuit_breaker(max_failures=3, reset_timeout=300.0)
-@node_metrics
-async def data_view_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Dict[str, Any]:
-    """
-    LangGraph node wrapper for DataViewAgent.
-
-    Intended to transform outputs into structured/table-friendly payloads.
-    If the agent is not registered, degrades gracefully (no-op).
-    """
-    thread_id = runtime.context.thread_id
-    execution_id = runtime.context.execution_id
-    original_query = runtime.context.query
-    correlation_id = runtime.context.correlation_id
-    checkpoint_enabled = runtime.context.enable_checkpoints
-
-    logger.info(
-        f"Executing data_view node in thread {thread_id}",
-        extra={
-            "thread_id": thread_id,
-            "execution_id": execution_id,
-            "correlation_id": correlation_id,
-            "checkpoint_enabled": checkpoint_enabled,
-        },
-    )
-
-    workflow_id = execution_id
-
-    try:
-        if not state.get("synthesis"):
-            raise NodeExecutionError("data_view node requires synthesis output")
-
-        emit_agent_execution_started(
-            event_category=EventCategory.EXECUTION,
-            workflow_id=workflow_id,
-            agent_name="data_view",
-            input_context={
-                "query": original_query or state.get("query", ""),
-                "node_type": "data_view",
-                "thread_id": thread_id,
-                "execution_id": execution_id,
-            },
-            correlation_id=correlation_id,
-            metadata={
-                "node_execution": True,
-                "orchestrator_type": "langgraph-real",
-                "runtime_context": {
-                    "thread_id": thread_id,
-                    "execution_id": execution_id,
-                    "checkpoint_enabled": checkpoint_enabled,
-                },
-            },
-        )
-
-        try:
-            agent = await create_agent_with_llm("data_view")
-        except Exception as e:
-            logger.warning(f"DataView agent not available; data_view_node is a no-op: {e}")
-            exec_state = _ensure_exec_state_dict(state)
-
-            data_view_state = {"status": "skipped", "reason": "agent_not_registered"}
-            exec_state["data_view"] = data_view_state
-            state["data_view"] = data_view_state
-            _merge_structured_outputs(state, {"data_view": data_view_state})
-            return {
-                "execution_state": exec_state,
-                "data_view": data_view_state,
-                "successful_agents": [],
-                "structured_outputs": state.get("structured_outputs", {}) or {},
-            }
-
-        context = await convert_state_to_context(state)
-
-        refined = ""
-        try:
-            if state.get("refiner"):
-                refined = cast(RefinerState, state["refiner"]).get("refined_question", "")  # type: ignore[arg-type]
-        except Exception:
-            refined = ""
-
-        effective_query = refined or (original_query or state.get("query", "") or context.query)
-        _record_effective_query(state, "data_view", effective_query)
-
-        result_context = await agent.run_with_retry(context)
-        data_view_raw_output = result_context.agent_outputs.get("data_view", "")
-
-        view_payload = result_context.execution_state.get("data_view_payload")
-        if view_payload is None:
-            view_payload = result_context.execution_state.get("structured_outputs")
-
-        data_view_state: Dict[str, Any] = {
-            "payload": view_payload,
-            "raw": truncate_for_websocket_event(str(data_view_raw_output), "data_view"),
-            "timestamp": _now_iso(),
-        }
-
-        token_usage = result_context.get_agent_token_usage("data_view")
-
-        emit_agent_execution_completed(
-            event_category=EventCategory.EXECUTION,
-            workflow_id=workflow_id,
-            agent_name="data_view",
-            success=True,
-            output_context={
-                "node_type": "data_view",
-                "thread_id": thread_id,
-                "execution_id": execution_id,
-                "has_payload": bool(view_payload),
-                "input_tokens": token_usage["input_tokens"],
-                "output_tokens": token_usage["output_tokens"],
-                "total_tokens": token_usage["total_tokens"],
-            },
-            correlation_id=correlation_id,
-            metadata={
-                "node_execution": True,
-                "orchestrator_type": "langgraph-real",
-                "token_usage": token_usage,
-            },
-        )
-
-        structured_outputs = result_context.execution_state.get("structured_outputs", {})
-        exec_state = _ensure_exec_state_dict(state)
-
-        exec_state["data_view"] = data_view_state
-        state["data_view"] = data_view_state
-        _merge_structured_outputs(state, {"data_view": data_view_state})
-
-        return {
-            "execution_state": exec_state,
-            "data_view": data_view_state,
-            "successful_agents": ["data_view"],
-            "structured_outputs": structured_outputs,
-        }
-
-    except Exception as e:
-        logger.error(f"data_view node failed: {e}")
-        emit_agent_execution_completed(
-            event_category=EventCategory.EXECUTION,
-            workflow_id=workflow_id,
-            agent_name="data_view",
-            success=False,
-            output_context={
-                "error": str(e),
-                "node_type": "data_view",
-                "thread_id": thread_id,
-                "execution_id": execution_id,
-            },
-            error_message=str(e),
-            error_type=type(e).__name__,
-            correlation_id=correlation_id,
-            metadata={"node_execution": True, "orchestrator_type": "langgraph-real"},
-        )
-        record_agent_error(state, "data_view", e)
-        raise NodeExecutionError(f"DataView execution failed: {e}") from e
-
-
-# ---------------------------------------------------------------------
-# Your existing refiner_node, critic_node, historian_node, synthesis_node
-# are kept as you provided (unchanged below this line in your file).
+# Existing nodes (unchanged): refiner_node, critic_node, historian_node, synthesis_node
 # ---------------------------------------------------------------------
 
 @circuit_breaker(max_failures=3, reset_timeout=300.0)
@@ -1692,6 +1146,634 @@ async def synthesis_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Dic
         raise NodeExecutionError(f"Synthesis execution failed: {e}") from e
 
 
+
+# ---------------------------------------------------------------------
+# ✅ Guard pipeline nodes
+# ---------------------------------------------------------------------
+@circuit_breaker(max_failures=3, reset_timeout=300.0)
+@node_metrics
+async def guard_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Dict[str, Any]:
+    thread_id = runtime.context.thread_id
+    execution_id = runtime.context.execution_id
+    original_query = runtime.context.query or state.get("query", "")
+    correlation_id = runtime.context.correlation_id
+    checkpoint_enabled = runtime.context.enable_checkpoints
+
+    logger.info(
+        f"Executing guard node in thread {thread_id}",
+        extra={
+            "thread_id": thread_id,
+            "execution_id": execution_id,
+            "correlation_id": correlation_id,
+            "checkpoint_enabled": checkpoint_enabled,
+        },
+    )
+
+    exec_state = _ensure_exec_state_dict(state)
+    _record_effective_query(state, "guard", original_query)
+
+    try:
+        emit_agent_execution_started(
+            event_category=EventCategory.EXECUTION,
+            workflow_id=execution_id,
+            agent_name="guard",
+            input_context={"query": original_query, "thread_id": thread_id, "execution_id": execution_id},
+            correlation_id=correlation_id,
+            metadata={"node_execution": True, "orchestrator_type": "langgraph-real"},
+        )
+
+        try:
+            agent = await create_agent_with_llm("guard")
+        except Exception as e:
+            msg = f"Guard not configured; passed through query unchanged. ({type(e).__name__})"
+            logger.warning(f"Guard agent not available; guard_node is a no-op: {e}")
+
+            guard_payload: Dict[str, Any] = {
+                "allowed": True,
+                "decision": "allow",
+                "action": "noop",
+                "reason": "agent_unavailable",
+                "message": msg,
+                "timestamp": _now_iso(),
+            }
+
+            exec_state["guard"] = guard_payload
+            state["guard"] = guard_payload
+            _set_guard_decision(state, "allow")
+            _merge_structured_outputs(state, {"guard": guard_payload})
+
+            _set_agent_output(state, "guard", guard_payload)
+            _ensure_agent_outputs_nonempty(state, "guard", msg)
+
+            emit_agent_execution_completed(
+                event_category=EventCategory.EXECUTION,
+                workflow_id=execution_id,
+                agent_name="guard",
+                success=True,
+                output_context={"allowed": True, "action": "noop", "thread_id": thread_id, "execution_id": execution_id},
+                correlation_id=correlation_id,
+                metadata={"node_execution": True, "orchestrator_type": "langgraph-real"},
+            )
+
+            return {
+                "execution_state": exec_state,
+                "guard": guard_payload,
+                "guard_decision": state.get("guard_decision"),
+                "successful_agents": ["guard"],
+                "structured_outputs": state.get("structured_outputs", {}) or {},
+            }
+
+        context = await convert_state_to_context(state)
+        result_context = await agent.run_with_retry(context)
+
+        guard_output = result_context.agent_outputs.get("guard", "") or "Guard completed."
+        raw_payload = result_context.execution_state.get("guard")
+        if not isinstance(raw_payload, dict):
+            raw_payload = {"message": guard_output}
+
+        decision = (
+            result_context.execution_state.get("guard_decision")
+            or raw_payload.get("decision")
+            or raw_payload.get("guard_decision")
+            or ""
+        )
+
+        if not decision:
+            allowed = raw_payload.get("allowed")
+            decision = "allow" if allowed is not False else "block"
+
+        guard_payload = {
+            "allowed": bool(raw_payload.get("allowed", True)),
+            "decision": str(decision),
+            "action": str(raw_payload.get("action", "guard")),
+            "reason": str(raw_payload.get("reason", "")),
+            "message": str(raw_payload.get("message", guard_output)),
+            "timestamp": _now_iso(),
+        }
+
+        exec_state["guard"] = guard_payload
+        state["guard"] = guard_payload
+        _set_guard_decision(state, decision)
+        _merge_structured_outputs(state, {"guard": guard_payload})
+
+        _set_agent_output(state, "guard", guard_payload)
+        _ensure_agent_outputs_nonempty(state, "guard", guard_payload["message"] or guard_output)
+
+        emit_agent_execution_completed(
+            event_category=EventCategory.EXECUTION,
+            workflow_id=execution_id,
+            agent_name="guard",
+            success=True,
+            output_context={"message": truncate_for_websocket_event(guard_payload["message"], "guard"), "thread_id": thread_id},
+            correlation_id=correlation_id,
+            metadata={"node_execution": True, "orchestrator_type": "langgraph-real"},
+        )
+
+        return {
+            "execution_state": exec_state,
+            "guard": guard_payload,
+            "guard_decision": state.get("guard_decision"),
+            "successful_agents": ["guard"],
+            "structured_outputs": state.get("structured_outputs", {}) or {},
+        }
+
+    except Exception as e:
+        emit_agent_execution_completed(
+            event_category=EventCategory.EXECUTION,
+            workflow_id=execution_id,
+            agent_name="guard",
+            success=False,
+            output_context={"error": str(e), "thread_id": thread_id},
+            error_message=str(e),
+            error_type=type(e).__name__,
+            correlation_id=correlation_id,
+            metadata={"node_execution": True, "orchestrator_type": "langgraph-real"},
+        )
+        record_agent_error(state, "guard", e)
+        raise NodeExecutionError(f"Guard execution failed: {e}") from e
+
+
+@circuit_breaker(max_failures=3, reset_timeout=300.0)
+@node_metrics
+async def answer_search_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Dict[str, Any]:
+    """
+    Executes the "answer/search" step after guard allows the request.
+    Tries to run a registered agent named 'answer_search'. If not registered,
+    degrades gracefully by using synthesis output (or the query) as a stub answer.
+    """
+    thread_id = runtime.context.thread_id
+    execution_id = runtime.context.execution_id
+    original_query = runtime.context.query or state.get("query", "")
+    correlation_id = runtime.context.correlation_id
+
+    logger.info(
+        f"Executing answer_search node in thread {thread_id}",
+        extra={"thread_id": thread_id, "execution_id": execution_id, "correlation_id": correlation_id},
+    )
+
+    exec_state = _ensure_exec_state_dict(state)
+    _record_effective_query(state, "answer_search", original_query)
+
+    try:
+        emit_agent_execution_started(
+            event_category=EventCategory.EXECUTION,
+            workflow_id=execution_id,
+            agent_name="answer_search",
+            input_context={"query": original_query, "thread_id": thread_id, "execution_id": execution_id},
+            correlation_id=correlation_id,
+            metadata={"node_execution": True, "orchestrator_type": "langgraph-real"},
+        )
+
+        try:
+            agent = await create_agent_with_llm("answer_search")
+        except Exception as e:
+            logger.warning(f"answer_search agent not available; falling back: {e}")
+
+            syn = state.get("synthesis") or {}
+            fallback_answer = ""
+            if isinstance(syn, dict):
+                fallback_answer = syn.get("final_analysis", "") or ""
+            if not fallback_answer:
+                fallback_answer = f"(stub) Answer/search for: {original_query}"
+
+            payload: Dict[str, Any] = {
+                "ok": True,
+                "type": "answer_search",
+                "answer_text": fallback_answer,
+                "sources": [],
+                "timestamp": _now_iso(),
+                "fallback": True,
+                "reason": "agent_unavailable",
+            }
+
+            exec_state["answer_search"] = payload
+            state["answer_search"] = payload
+            _merge_structured_outputs(state, {"answer_search": payload})
+
+            _set_agent_output(state, "answer_search", payload)
+            _ensure_agent_outputs_nonempty(state, "answer_search", payload["answer_text"])
+
+            emit_agent_execution_completed(
+                event_category=EventCategory.EXECUTION,
+                workflow_id=execution_id,
+                agent_name="answer_search",
+                success=True,
+                output_context={"fallback": True, "thread_id": thread_id, "execution_id": execution_id},
+                correlation_id=correlation_id,
+                metadata={"node_execution": True, "orchestrator_type": "langgraph-real"},
+            )
+
+            return {
+                "execution_state": exec_state,
+                "answer_search": payload,
+                "successful_agents": ["answer_search"],
+                "structured_outputs": state.get("structured_outputs", {}) or {},
+            }
+
+        context = await convert_state_to_context(state)
+        result_context = await agent.run_with_retry(context)
+
+        raw = result_context.agent_outputs.get("answer_search", "") or ""
+        payload = result_context.execution_state.get("answer_search_payload")
+        if not isinstance(payload, dict):
+            payload = {
+                "ok": True,
+                "type": "answer_search",
+                "answer_text": raw or "(no answer produced)",
+                "sources": result_context.execution_state.get("sources", []) or [],
+                "timestamp": _now_iso(),
+            }
+
+        exec_state["answer_search"] = payload
+        state["answer_search"] = payload
+        _merge_structured_outputs(state, {"answer_search": payload})
+
+        _set_agent_output(state, "answer_search", payload)
+        _ensure_agent_outputs_nonempty(
+            state, "answer_search", str(payload.get("answer_text") or raw or "ok")
+        )
+
+        emit_agent_execution_completed(
+            event_category=EventCategory.EXECUTION,
+            workflow_id=execution_id,
+            agent_name="answer_search",
+            success=True,
+            output_context={"thread_id": thread_id, "execution_id": execution_id},
+            correlation_id=correlation_id,
+            metadata={"node_execution": True, "orchestrator_type": "langgraph-real"},
+        )
+
+        return {
+            "execution_state": exec_state,
+            "answer_search": payload,
+            "successful_agents": ["answer_search"],
+            "structured_outputs": state.get("structured_outputs", {}) or {},
+        }
+
+    except Exception as e:
+        emit_agent_execution_completed(
+            event_category=EventCategory.EXECUTION,
+            workflow_id=execution_id,
+            agent_name="answer_search",
+            success=False,
+            output_context={"error": str(e), "thread_id": thread_id, "execution_id": execution_id},
+            error_message=str(e),
+            error_type=type(e).__name__,
+            correlation_id=correlation_id,
+            metadata={"node_execution": True, "orchestrator_type": "langgraph-real"},
+        )
+        record_agent_error(state, "answer_search", e)
+        raise NodeExecutionError(f"answer_search execution failed: {e}") from e
+
+
+@circuit_breaker(max_failures=3, reset_timeout=300.0)
+@node_metrics
+async def format_response_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Dict[str, Any]:
+    """
+    Formats the allowed response for your API/UI.
+    Terminates the workflow (GraphFactory edges go to END).
+
+    ✅ Updated:
+    - Prefer data_views output (if present)
+    - Else fall back to answer_search (existing behavior)
+    """
+    exec_state = _ensure_exec_state_dict(state)
+
+    # Prefer data_views output if available
+    dv_payload = state.get("data_views") or exec_state.get("data_views")
+    if isinstance(dv_payload, dict) and dv_payload:
+        ui: Dict[str, Any] = {
+            "status": "ok",
+            "message": dv_payload.get("payload") or dv_payload.get("raw") or "",
+            "sources": [],
+            "timestamp": _now_iso(),
+            "mode": "data_views",
+        }
+    else:
+        answer_payload = state.get("answer_search") or exec_state.get("answer_search") or {}
+        answer_text = ""
+        sources: List[Any] = []
+        if isinstance(answer_payload, dict):
+            answer_text = str(answer_payload.get("answer_text") or "")
+            sources = answer_payload.get("sources") or []
+
+        ui = {
+            "status": "ok",
+            "message": answer_text,
+            "sources": sources if isinstance(sources, list) else [],
+            "timestamp": _now_iso(),
+            "mode": "answer_search",
+        }
+
+    exec_state["format_response"] = {"ui": ui}
+    exec_state["final_response"] = ui
+
+    state["final_response"] = ui
+    state["ui_response"] = ui  # optional legacy convenience
+    _merge_structured_outputs(state, {"final_response": ui})
+
+    _set_agent_output(state, "format_response", ui)
+    _ensure_agent_outputs_nonempty(state, "format_response", str(ui.get("message") or "ok"))
+
+    return {
+        "execution_state": exec_state,
+        "final_response": ui,
+        "successful_agents": ["format_response"],
+        "structured_outputs": state.get("structured_outputs", {}) or {},
+    }
+
+
+@circuit_breaker(max_failures=3, reset_timeout=300.0)
+@node_metrics
+async def format_block_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Dict[str, Any]:
+    exec_state = _ensure_exec_state_dict(state)
+
+    guard_payload = state.get("guard") or exec_state.get("guard") or {}
+    msg = "Sorry, I can’t help with that request."
+    if isinstance(guard_payload, dict):
+        msg = str(
+            guard_payload.get("safe_response")
+            or guard_payload.get("message")
+            or guard_payload.get("reason")
+            or msg
+        )
+
+    ui: Dict[str, Any] = {
+        "status": "blocked",
+        "message": msg,
+        "sources": [],
+        "timestamp": _now_iso(),
+    }
+
+    exec_state["format_block"] = {"ui": ui}
+    exec_state["final_response"] = ui
+
+    state["final_response"] = ui
+    state["ui_response"] = ui
+    _merge_structured_outputs(state, {"final_response": ui})
+
+    _set_agent_output(state, "format_block", ui)
+    _ensure_agent_outputs_nonempty(state, "format_block", msg)
+
+    return {
+        "execution_state": exec_state,
+        "final_response": ui,
+        "successful_agents": ["format_block"],
+        "structured_outputs": state.get("structured_outputs", {}) or {},
+    }
+
+
+@circuit_breaker(max_failures=3, reset_timeout=300.0)
+@node_metrics
+async def format_requires_confirmation_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Dict[str, Any]:
+    exec_state = _ensure_exec_state_dict(state)
+
+    guard_payload = state.get("guard") or exec_state.get("guard") or {}
+    msg = "This request requires confirmation to proceed."
+    if isinstance(guard_payload, dict):
+        msg = str(guard_payload.get("reason") or guard_payload.get("message") or msg)
+
+    ui: Dict[str, Any] = {
+        "status": "requires_confirmation",
+        "message": msg,
+        "sources": [],
+        "timestamp": _now_iso(),
+    }
+
+    exec_state["format_requires_confirmation"] = {"ui": ui}
+    exec_state["final_response"] = ui
+
+    state["final_response"] = ui
+    state["ui_response"] = ui
+    _merge_structured_outputs(state, {"final_response": ui})
+
+    _set_agent_output(state, "format_requires_confirmation", ui)
+    _ensure_agent_outputs_nonempty(state, "format_requires_confirmation", msg)
+
+    return {
+        "execution_state": exec_state,
+        "final_response": ui,
+        "successful_agents": ["format_requires_confirmation"],
+        "structured_outputs": state.get("structured_outputs", {}) or {},
+    }
+
+
+# ---------------------------------------------------------------------
+# Existing nodes (updated): data_view_node
+# ---------------------------------------------------------------------
+
+@circuit_breaker(max_failures=3, reset_timeout=300.0)
+@node_metrics
+async def data_view_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Dict[str, Any]:
+    """
+    LangGraph node wrapper for DataViewAgent.
+
+    ✅ Updated behavior (Option B):
+    - Does NOT require synthesis output.
+    - Prefers synthesis output if present.
+    - Else falls back to answer_search output if present.
+    - Else falls back to raw query + query_profile / routing_decision if present.
+
+    Intended to transform outputs into structured/table-friendly payloads.
+    If the agent is not registered, degrades gracefully (no-op).
+    """
+    thread_id = runtime.context.thread_id
+    execution_id = runtime.context.execution_id
+    original_query = runtime.context.query
+    correlation_id = runtime.context.correlation_id
+    checkpoint_enabled = runtime.context.enable_checkpoints
+
+    logger.info(
+        f"Executing data_view node in thread {thread_id}",
+        extra={
+            "thread_id": thread_id,
+            "execution_id": execution_id,
+            "correlation_id": correlation_id,
+            "checkpoint_enabled": checkpoint_enabled,
+        },
+    )
+
+    workflow_id = execution_id
+
+    try:
+        emit_agent_execution_started(
+            event_category=EventCategory.EXECUTION,
+            workflow_id=workflow_id,
+            agent_name="data_views",
+            input_context={
+                "query": original_query or state.get("query", ""),
+                "node_type": "data_views",
+                "thread_id": thread_id,
+                "execution_id": execution_id,
+            },
+            correlation_id=correlation_id,
+            metadata={
+                "node_execution": True,
+                "orchestrator_type": "langgraph-real",
+                "runtime_context": {
+                    "thread_id": thread_id,
+                    "execution_id": execution_id,
+                    "checkpoint_enabled": checkpoint_enabled,
+                },
+            },
+        )
+
+        try:
+            agent = await create_agent_with_llm("data_views")
+        except Exception as e:
+            logger.warning(f"DataView agent not available; data_view_node is a no-op: {e}")
+            exec_state = _ensure_exec_state_dict(state)
+
+            data_view_state = {"status": "skipped", "reason": "agent_not_registered"}
+            exec_state["data_views"] = data_view_state
+            state["data_views"] = data_view_state
+            _merge_structured_outputs(state, {"data_views": data_view_state})
+
+            return {
+                "execution_state": exec_state,
+                "data_views": data_view_state,
+                "successful_agents": [],
+                "structured_outputs": state.get("structured_outputs", {}) or {},
+            }
+
+        # Build AgentContext as usual...
+        context = await convert_state_to_context(state)
+
+        refined = ""
+        try:
+            if state.get("refiner"):
+                refined = cast(RefinerState, state["refiner"]).get("refined_question", "")  # type: ignore[arg-type]
+        except Exception:
+            refined = ""
+
+        effective_query = refined or (original_query or state.get("query", "") or context.query)
+        _record_effective_query(state, "data_views", effective_query)
+
+        # ---------------------------
+        # ✅ Option B: flexible inputs
+        # ---------------------------
+        synthesis_state = _first_present(state, "synthesis")
+        answer_state = _first_present(state, "answer_search")
+        query_profile = _first_present(state, "query_profile") or {}
+        routing_decision = _first_present(state, "routing_decision") or {}
+
+        # Prefer synthesis.final_analysis if available
+        dv_input: Dict[str, Any]
+        if isinstance(synthesis_state, dict) and synthesis_state.get("final_analysis"):
+            dv_input = {
+                "source": "synthesis",
+                "input": synthesis_state.get("final_analysis"),
+                "query": effective_query,
+                "query_profile": query_profile,
+                "routing_decision": routing_decision,
+            }
+        # Else prefer answer_search.answer_text if available
+        elif isinstance(answer_state, dict) and (
+            answer_state.get("answer_text") or answer_state.get("sources") is not None
+        ):
+            dv_input = {
+                "source": "answer_search",
+                "input": answer_state.get("answer_text") or "",
+                "sources": answer_state.get("sources") or [],
+                "query": effective_query,
+                "query_profile": query_profile,
+                "routing_decision": routing_decision,
+            }
+        # Else raw fallback
+        else:
+            dv_input = {
+                "source": "raw",
+                "input": {"query": effective_query, "query_profile": query_profile, "routing_decision": routing_decision},
+                "query": effective_query,
+                "query_profile": query_profile,
+                "routing_decision": routing_decision,
+            }
+
+        # Inject the payload so the agent can consume it without relying on strict upstream nodes.
+        # This keeps backward compatibility with your agents by using execution_state as an input channel.
+        context.execution_state["data_view_input"] = dv_input
+
+        # Run DataViews agent
+        result_context = await agent.run_with_retry(context)
+        data_view_raw_output = result_context.agent_outputs.get("data_views", "")
+
+        view_payload = result_context.execution_state.get("data_view_payload")
+        if view_payload is None:
+            # fallback: agent may store structured outputs generically
+            view_payload = result_context.execution_state.get("structured_outputs")
+
+        data_view_state: Dict[str, Any] = {
+            "payload": view_payload,
+            "raw": truncate_for_websocket_event(str(data_view_raw_output), "data_views"),
+            "input_source": dv_input.get("source"),
+            "timestamp": _now_iso(),
+        }
+
+        token_usage = result_context.get_agent_token_usage("data_views")
+
+        emit_agent_execution_completed(
+            event_category=EventCategory.EXECUTION,
+            workflow_id=workflow_id,
+            agent_name="data_views",
+            success=True,
+            output_context={
+                "node_type": "data_views",
+                "thread_id": thread_id,
+                "execution_id": execution_id,
+                "has_payload": bool(view_payload),
+                "input_source": dv_input.get("source"),
+                "input_tokens": token_usage["input_tokens"],
+                "output_tokens": token_usage["output_tokens"],
+                "total_tokens": token_usage["total_tokens"],
+            },
+            correlation_id=correlation_id,
+            metadata={
+                "node_execution": True,
+                "orchestrator_type": "langgraph-real",
+                "token_usage": token_usage,
+            },
+        )
+
+        structured_outputs = result_context.execution_state.get("structured_outputs", {})
+        exec_state = _ensure_exec_state_dict(state)
+
+        exec_state["data_views"] = data_view_state
+        state["data_views"] = data_view_state
+        _merge_structured_outputs(state, {"data_views": data_view_state})
+
+        # Legacy agent output storage
+        _set_agent_output(state, "data_views", data_view_state)
+        _ensure_agent_outputs_nonempty(state, "data_views", str(data_view_state.get("raw") or "ok"))
+
+        return {
+            "execution_state": exec_state,
+            "data_views": data_view_state,
+            "successful_agents": ["data_views"],
+            "structured_outputs": structured_outputs,
+        }
+
+    except Exception as e:
+        logger.error(f"data_views node failed: {e}")
+        emit_agent_execution_completed(
+            event_category=EventCategory.EXECUTION,
+            workflow_id=workflow_id,
+            agent_name="data_views",
+            success=False,
+            output_context={
+                "error": str(e),
+                "node_type": "data_views",
+                "thread_id": thread_id,
+                "execution_id": execution_id,
+            },
+            error_message=str(e),
+            error_type=type(e).__name__,
+            correlation_id=correlation_id,
+            metadata={"node_execution": True, "orchestrator_type": "langgraph-real"},
+        )
+        record_agent_error(state, "data_views", e)
+        raise NodeExecutionError(f"DataView execution failed: {e}") from e
+
+
 async def handle_node_timeout(
     coro: Coroutine[Any, Any, Any], timeout_seconds: float = 30.0
 ) -> Any:
@@ -1702,10 +1784,11 @@ async def handle_node_timeout(
 
 
 def get_node_dependencies() -> Dict[str, List[str]]:
+    # ✅ Updated to reflect Option B: data_views can run with just guard/answer_search/raw
     return {
         "guard": [],
         "answer_search": ["guard"],
-        "format_response": ["answer_search"],
+        "format_response": ["answer_search"],  # data_views path still OK (format_response checks)
         "format_block": ["guard"],
         "format_requires_confirmation": ["guard"],
 
@@ -1713,7 +1796,9 @@ def get_node_dependencies() -> Dict[str, List[str]]:
         "critic": ["refiner"],
         "historian": ["refiner"],
         "synthesis": ["critic"],  # historian optional
-        "data_view": ["synthesis"],
+
+        # IMPORTANT: use your canonical node key, which is "data_views" in build_graph.py
+        "data_views": [],  # Option B: no hard deps
     }
 
 
@@ -1728,7 +1813,6 @@ def validate_node_input(state: OSSSState, node_name: str) -> bool:
             logger.warning(f"Node {node_name} missing required dependency: {dep}")
 
     return len(missing_deps) == 0
-
 
 
 __all__ = [

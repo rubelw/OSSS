@@ -475,7 +475,7 @@ class LangGraphConfigManager:
         default_node_configs = {}
 
         # Configure known agents with appropriate defaults
-        known_agents = ["refiner", "critic", "historian", "synthesis","data_view","guard"]
+        known_agents = ["refiner", "critic", "historian", "synthesis","data_views","guard"]
         for agent_name in known_agents:
             default_node_configs[agent_name] = NodeExecutionConfig(
                 timeout_seconds=30.0,
