@@ -44,6 +44,33 @@ def merge_structured_outputs(
     return {**left, **right}
 
 
+class GuardState(TypedDict, total=False):
+    allowed: bool
+    decision: str                 # "allow" | "block" | "requires_confirmation"
+    action: str                   # e.g. "noop"
+    reason: str
+    message: str
+    safe_response: str
+    timestamp: str
+
+
+class AnswerSearchState(TypedDict, total=False):
+    ok: bool
+    type: str                     # "answer_search"
+    answer_text: str
+    sources: List[Any]
+    fallback: bool
+    reason: str
+    timestamp: str
+
+
+class UIResponseState(TypedDict, total=False):
+    status: str                   # "ok" | "blocked" | "requires_confirmation"
+    message: str
+    sources: List[Any]
+    timestamp: str
+
+
 class RefinerState(TypedDict):
     """
     Output schema for the RefinerAgent.
@@ -194,7 +221,7 @@ class ExecutionMetadata(TypedDict):
     """Execution mode: 'langgraph-real'."""
 
     phase: str
-    """Implementation phase: 'phase2_0'."""
+    """Implementation phase: e.g. 'phase2_1'."""
 
 
 class OSSSState(TypedDict):
@@ -251,6 +278,19 @@ class OSSSState(TypedDict):
     structured_outputs: Annotated[Dict[str, Any], merge_structured_outputs]
     """Full Pydantic model outputs from agents for database/API persistence."""
 
+    # Legacy / wrapper execution bag
+    execution_state: Dict[str, Any]
+
+    # Guard pipeline routing + outputs
+    guard_decision: Optional[str]
+    guard: Optional[GuardState]
+    answer_search: Optional[AnswerSearchState]
+    final_response: Optional[UIResponseState]
+    ui_response: Optional[UIResponseState]
+
+    # Optional: if you return it from data_view_node
+    data_view: Optional[Dict[str, Any]]
+
 
 # Type aliases for improved clarity
 LangGraphState = OSSSState
@@ -286,6 +326,16 @@ def create_initial_state(
         critic=None,
         historian=None,
         synthesis=None,
+
+        execution_state={},
+
+        guard_decision=None,
+        guard=None,
+        answer_search=None,
+        final_response=None,
+        ui_response=None,
+        data_view=None,
+
         execution_metadata=ExecutionMetadata(
             execution_id=execution_id,
             correlation_id=correlation_id,
@@ -526,6 +576,9 @@ class OSSSContext:
 __all__ = [
     "OSSSState",
     "LangGraphState",
+    "GuardState",
+    "AnswerSearchState",
+    "UIResponseState",
     "RefinerState",
     "CriticState",
     "HistorianState",

@@ -66,38 +66,126 @@ type WorkflowResponse = {
 function pickPrimaryText(agentOutputs: Record<string, any> | undefined): string {
   if (!agentOutputs) return "";
 
-  const readSafe = (obj: any): string => {
-    const s = obj?.safe_response;
-    return typeof s === "string" ? s.trim() : "";
+  const asText = (v: any): string => (typeof v === "string" ? v.trim() : "");
+
+  const readFromObj = (obj: any): string => {
+    if (!obj || typeof obj !== "object") return "";
+    const candidates = [
+      obj.safe_response,   // legacy (if present)
+      obj.message,         // final_response.message
+      obj.answer_text,     // answer_search.answer_text
+      obj.output,          // envelope-like
+      obj.content,         // envelope-like
+      obj.text,
+    ];
+    for (const c of candidates) {
+      const t = asText(c);
+      if (t) return t;
+    }
+    return "";
   };
 
-  // 1) Prefer the guard safe_response explicitly (matches your API payload)
-  const guardSafe = readSafe(agentOutputs.guard);
-  if (guardSafe) return guardSafe;
+  // Prefer final_response first
+  const finalMsg = readFromObj(agentOutputs.final_response);
+  if (finalMsg) return finalMsg;
 
-  // 2) Otherwise prefer safe_response from the last agent output (insertion order)
+  // Then answer_search
+  const answer = readFromObj(agentOutputs.answer_search);
+  if (answer) return answer;
+
+  // Then guard
+  const guard = readFromObj(agentOutputs.guard);
+  if (guard) return guard;
+
+  // Otherwise scan all agents (last to first)
   const keys = Object.keys(agentOutputs);
   for (let i = keys.length - 1; i >= 0; i--) {
-    const safe = readSafe(agentOutputs[keys[i]]);
-    if (safe) return safe;
-  }
-
-  // 3) Existing preferences (optional—keep if you want non-guard workflows to still show output)
-  const s = agentOutputs.synthesis;
-  if (typeof s === "string" && s.trim()) return s.trim();
-
-  const r = agentOutputs.refiner;
-  if (typeof r === "string" && r.trim()) return r.trim();
-
-  // 4) Fallback: first string value
-  for (const k of keys) {
-    const v = agentOutputs[k];
-    if (typeof v === "string" && v.trim()) return v.trim();
+    const v = agentOutputs[keys[i]];
+    const t = asText(v) || readFromObj(v);
+    if (t) return t;
   }
 
   return "";
 }
 
+function safeJson(obj: any) {
+  try {
+    return JSON.stringify(obj ?? null, null, 2);
+  } catch (e) {
+    return JSON.stringify({ error: "Failed to stringify", detail: String(e) }, null, 2);
+  }
+}
+
+function buildDebugMarkdown(wf: WorkflowResponse): string {
+  const lines: string[] = [];
+
+  // Top-level workflow fields
+  lines.push("## Debug");
+  lines.push("");
+  lines.push("**Workflow:**");
+  lines.push("```json");
+  lines.push(
+    safeJson({
+      workflow_id: wf.workflow_id,
+      status: wf.status,
+      correlation_id: wf.correlation_id,
+      execution_time_seconds: wf.execution_time_seconds,
+      error_message: wf.error_message,
+    })
+  );
+  lines.push("```");
+  lines.push("");
+
+  // Query profile
+  const qp = wf?.agent_output_meta?._query_profile ?? null;
+  lines.push("**Query profile (`agent_output_meta._query_profile`):**");
+  lines.push("```json");
+  lines.push(safeJson(qp));
+  lines.push("```");
+  lines.push("");
+
+  // Routing
+  const routing = wf?.agent_output_meta?._routing ?? null;
+  lines.push("**Routing (`agent_output_meta._routing`):**");
+  lines.push("```json");
+  lines.push(safeJson(routing));
+  lines.push("```");
+  lines.push("");
+
+  // Per-agent meta (everything in agent_output_meta except _query_profile/_routing)
+  const meta = wf?.agent_output_meta ?? {};
+  const agentMetaKeys = Object.keys(meta).filter((k) => k !== "_query_profile" && k !== "_routing");
+  if (agentMetaKeys.length) {
+    lines.push("**Per-agent meta (`agent_output_meta`):**");
+    for (const k of agentMetaKeys) {
+      lines.push(`### ${k}`);
+      lines.push("```json");
+      lines.push(safeJson(meta[k]));
+      lines.push("```");
+    }
+    lines.push("");
+  }
+
+  // Agent outputs (optional but helpful)
+  if (wf.agent_outputs) {
+    lines.push("**Agent outputs (`agent_outputs`):**");
+    lines.push("```json");
+    lines.push(safeJson(wf.agent_outputs));
+    lines.push("```");
+    lines.push("");
+  }
+
+  // Markdown export
+  if (wf.markdown_export) {
+    lines.push("**Markdown export (`markdown_export`):**");
+    lines.push("```json");
+    lines.push(safeJson(wf.markdown_export));
+    lines.push("```");
+    lines.push("");
+  }
+
+  return lines.join("\n");
+}
 
 function getQueryProfile(payload: any) {
   return payload?.agent_output_meta?._query_profile ?? null;
@@ -622,8 +710,8 @@ export default function ChatClient() {
           debugLines.push(`**Workflow:** \`${wf.workflow_id}\``);
         }
 
-        if (debugLines.length > 0) {
-          replyForDisplay += `\n\n---\n` + debugLines.join("\n");
+        if (showDebug) {
+          replyForDisplay += `\n\n---\n` + buildDebugMarkdown(wf);
         }
       }
 

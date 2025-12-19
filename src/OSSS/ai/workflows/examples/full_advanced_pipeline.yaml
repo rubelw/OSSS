@@ -11,7 +11,7 @@ nodes:
   # Entry Decision Node
   - node_id: "complexity_router"
     node_type: "decision"
-    category: "ADVANCED"
+    category: "advanced"
     execution_pattern: "decision"
     config:
       decision_criteria:
@@ -36,7 +36,7 @@ nodes:
   # Simple Path Nodes
   - node_id: "simple_refiner"
     node_type: "refiner"
-    category: "BASE"
+    category: "base"
     execution_pattern: "processor"
     config:
       agent_type: "refiner"
@@ -52,7 +52,7 @@ nodes:
   # Complex Path Nodes
   - node_id: "parallel_historian"
     node_type: "historian"
-    category: "BASE"
+    category: "base"
     execution_pattern: "processor"
     config:
       agent_type: "historian"
@@ -67,7 +67,7 @@ nodes:
 
   - node_id: "parallel_critic"
     node_type: "critic"
-    category: "BASE"
+    category: "base"
     execution_pattern: "processor"
     config:
       agent_type: "critic"
@@ -83,7 +83,7 @@ nodes:
   # Advanced Aggregator Node
   - node_id: "intelligent_aggregator"
     node_type: "aggregator"
-    category: "ADVANCED"
+    category: "advanced"
     execution_pattern: "aggregator"
     config:
       aggregation_strategy: "weighted_consensus"
@@ -106,7 +106,7 @@ nodes:
   # Confidence Terminator
   - node_id: "confidence_gate"
     node_type: "terminator"
-    category: "ADVANCED"
+    category: "advanced"
     execution_pattern: "terminator"
     config:
       termination_criteria:
@@ -133,7 +133,7 @@ nodes:
   # Quality Validator
   - node_id: "comprehensive_validator"
     node_type: "validator"
-    category: "ADVANCED"
+    category: "advanced"
     execution_pattern: "validator"
     config:
       validation_criteria:
@@ -171,7 +171,7 @@ nodes:
   # Final Synthesis
   - node_id: "final_synthesis"
     node_type: "synthesis"
-    category: "BASE"
+    category: "base"
     execution_pattern: "processor"
     config:
       agent_type: "synthesis"
@@ -187,7 +187,7 @@ nodes:
   # Emergency Fallback
   - node_id: "emergency_fallback"
     node_type: "synthesis"
-    category: "BASE"
+    category: "base"
     execution_pattern: "processor"
     config:
       agent_type: "synthesis"

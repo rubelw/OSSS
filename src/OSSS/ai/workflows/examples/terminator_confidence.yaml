@@ -10,7 +10,7 @@ workflow_schema_version: "1.0.0"
 nodes:
   - node_id: "initial_analysis"
     node_type: "historian"
-    category: "BASE"
+    category: "base"
     execution_pattern: "processor"
     config:
       agent_type: "historian"
@@ -25,7 +25,7 @@ nodes:
 
   - node_id: "confidence_terminator"
     node_type: "terminator"
-    category: "ADVANCED"
+    category: "advanced"
     execution_pattern: "terminator"
     config:
       termination_criteria:
@@ -57,7 +57,7 @@ nodes:
 
   - node_id: "resource_terminator"
     node_type: "terminator"
-    category: "ADVANCED"
+    category: "advanced"
     execution_pattern: "terminator"
     config:
       termination_criteria:
@@ -89,7 +89,7 @@ nodes:
 
   - node_id: "critical_analysis"
     node_type: "critic"
-    category: "BASE"
+    category: "base"
     execution_pattern: "processor"
     config:
       agent_type: "critic"
@@ -104,7 +104,7 @@ nodes:
 
   - node_id: "completion_terminator"
     node_type: "terminator"
-    category: "ADVANCED"
+    category: "advanced"
     execution_pattern: "terminator"
     config:
       termination_criteria:
@@ -133,7 +133,7 @@ nodes:
 
   - node_id: "fallback_synthesis"
     node_type: "synthesis"
-    category: "BASE"
+    category: "base"
     execution_pattern: "processor"
     config:
       agent_type: "synthesis"

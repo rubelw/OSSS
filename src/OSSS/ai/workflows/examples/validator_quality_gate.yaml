@@ -10,7 +10,7 @@ workflow_schema_version: "1.0.0"
 nodes:
   - node_id: "content_processor"
     node_type: "refiner"
-    category: "BASE"
+    category: "base"
     execution_pattern: "processor"
     config:
       agent_type: "refiner"
@@ -25,7 +25,7 @@ nodes:
 
   - node_id: "strict_validator"
     node_type: "validator"
-    category: "ADVANCED"
+    category: "advanced"
     execution_pattern: "validator"
     config:
       validation_criteria:
@@ -58,7 +58,7 @@ nodes:
 
   - node_id: "permissive_validator"
     node_type: "validator"
-    category: "ADVANCED"
+    category: "advanced"
     execution_pattern: "validator"
     config:
       validation_criteria:
@@ -86,7 +86,7 @@ nodes:
 
   - node_id: "final_synthesis"
     node_type: "synthesis"
-    category: "BASE"
+    category: "base"
     execution_pattern: "processor"
     config:
       agent_type: "synthesis"

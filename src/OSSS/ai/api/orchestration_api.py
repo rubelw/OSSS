@@ -27,6 +27,7 @@ from datetime import datetime, timezone  # UTC timestamps for telemetry/metadata
 from pathlib import Path     # Filesystem paths (markdown export)
 import json
 import re
+from sqlalchemy.exc import IntegrityError
 
 from OSSS.ai.analysis.pipeline import analyze_query
 from OSSS.ai.analysis.policy import build_execution_plan
@@ -200,6 +201,13 @@ def _sanitize_query_profile_dict(data: dict) -> dict:
     cleaned["intent"] = _as_str(cleaned.get("intent"), "general")
     cleaned["tone"] = _as_str(cleaned.get("tone"), "neutral")
     cleaned["sub_intent"] = _as_str(cleaned.get("sub_intent"), "general")
+
+    cleaned["tone"] = _as_str(cleaned.get("tone"), "neutral")
+
+    # ✅ normalize tone like "inquiry|neutral" -> "neutral"
+    tone = cleaned["tone"]
+    if "|" in tone:
+        cleaned["tone"] = tone.split("|")[-1].strip() or "neutral"
 
     cleaned["intent_confidence"] = _as_float(cleaned.get("intent_confidence"), 0.50)
     cleaned["tone_confidence"] = _as_float(cleaned.get("tone_confidence"), 0.50)
@@ -1066,6 +1074,15 @@ Intent:"""
         config["correlation_id"] = correlation_id
         config["workflow_id"] = workflow_id
 
+        # ✅ If caller specified a workflow/graph, prefer it
+        if getattr(request, "workflow_id", None):
+            requested = str(request.workflow_id).strip()
+            if requested:
+                config["selected_graph"] = requested
+                config["selected_workflow_id"] = requested  # you already surface this in _routing
+                config["routing_source"] = "caller"
+
+
         response: Optional[WorkflowResponse] = None
 
         # ✅ ANALYSIS MUST ALWAYS RUN (exactly once per workflow_id)
@@ -1090,9 +1107,9 @@ Intent:"""
             decision = build_routing_decision(query_profile)
             config["routing_decision"] = decision.model_dump()
 
-
-            # gate may override selected_graph
-            self._apply_confidence_gates(config)
+            # ✅ gate may override selected_graph — but not if caller explicitly chose one
+            if config.get("routing_source") != "caller":
+                self._apply_confidence_gates(config)
 
             # only resolve via registry if gate didn't choose a graph
             # Gate may have already chosen a graph. If so, do NOT override it.
@@ -1109,6 +1126,7 @@ Intent:"""
 
                 config["selected_graph"] = graph_id
                 config["routing_source"] = "registry"
+
 
 
         except Exception as analysis_error:
@@ -1389,36 +1407,68 @@ Intent:"""
             except Exception:
                 structured_outputs = {}
 
-            # Determine executed agents (prefer actual agent_outputs keys)
-            executed_agents: List[str] = []
+            # ----------------------------------------------------------------
+            # Output extraction: gather from ALL common locations
+            # ----------------------------------------------------------------
+            structured_outputs: Dict[str, Any] = {}
             try:
-                ao = getattr(result_context, "agent_outputs", {}) or {}
-                if isinstance(ao, dict):
-                    executed_agents = list(ao.keys())
+                so = exec_state.get("structured_outputs", {})
+                if isinstance(so, dict):
+                    structured_outputs = so
             except Exception:
-                executed_agents = []
+                structured_outputs = {}
 
-            # Fallback: if agent_outputs is missing, use structured outputs keys
-            if not executed_agents and structured_outputs:
-                executed_agents = list(structured_outputs.keys())
-
-            # Merge strategy:
-            # - If structured output exists for agent -> use it
-            # - Else fall back to legacy output in result_context.agent_outputs
-            agent_outputs_to_serialize: Dict[str, Any] = {}
             raw_agent_outputs: Dict[str, Any] = {}
             try:
-                raw_agent_outputs = getattr(result_context, "agent_outputs", {}) or {}
-                if not isinstance(raw_agent_outputs, dict):
-                    raw_agent_outputs = {}
+                ao = getattr(result_context, "agent_outputs", None)
+                if isinstance(ao, dict):
+                    raw_agent_outputs = ao
             except Exception:
                 raw_agent_outputs = {}
 
+            # Some graphs store plain outputs in execution_state too
+            state_agent_outputs: Dict[str, Any] = {}
+            try:
+                sao = exec_state.get("agent_outputs", {})
+                if isinstance(sao, dict):
+                    state_agent_outputs = sao
+            except Exception:
+                state_agent_outputs = {}
+
+            # Determine executed agents from the union of keys we can see
+            executed_agents = list(
+                dict.fromkeys(
+                    list(structured_outputs.keys())
+                    + list(state_agent_outputs.keys())
+                    + list(raw_agent_outputs.keys())
+                )
+            )
+
+            # LAST resort: if we still have none, infer from meta envelopes
+            if not executed_agents:
+                try:
+                    aom = exec_state.get("agent_output_meta", {})
+                    if isinstance(aom, dict):
+                        executed_agents = [k for k in aom.keys() if isinstance(k, str) and not k.startswith("_")]
+                except Exception:
+                    executed_agents = []
+
+            # Merge strategy:
+            # structured_outputs > exec_state.agent_outputs > result_context.agent_outputs
+            agent_outputs_to_serialize: Dict[str, Any] = {}
             for agent_name in executed_agents:
                 if agent_name in structured_outputs:
                     agent_outputs_to_serialize[agent_name] = structured_outputs[agent_name]
+                elif agent_name in state_agent_outputs:
+                    agent_outputs_to_serialize[agent_name] = state_agent_outputs[agent_name]
                 else:
                     agent_outputs_to_serialize[agent_name] = raw_agent_outputs.get(agent_name, "")
+
+            # Convert any remaining Pydantic objects to plain dicts
+            serialized_agent_outputs = self._convert_agent_outputs_to_serializable(agent_outputs_to_serialize)
+
+            # IMPORTANT: Do not drop guard (or any agent) via filtering here.
+            # If you later add filtering, explicitly allow "guard".
 
             # Convert any remaining Pydantic objects to plain dicts
             serialized_agent_outputs = self._convert_agent_outputs_to_serializable(
@@ -1581,25 +1631,26 @@ Intent:"""
             # Optional: Per-agent LLM analysis (intent/tone/sub-intent)
             # Option A: decouple from use_llm_intent. Per-agent analysis is opt-in only.
             # ----------------------------------------------------------------
-            enable_llm_agent_analysis = False
+            enable_llm_agent_query_analysis = False
             try:
-                enable_llm_agent_analysis = bool(config.get("enable_llm_query_analysis", False))
+                enable_llm_agent_query_analysis = bool(
+                    config.get("enable_llm_agent_query_analysis", False)
+                )
 
                 logger.info(
                     "Per-agent LLM query analysis toggle evaluated",
                     extra={
                         "workflow_id": workflow_id,
-                        "enable_llm_query_analysis": bool(config.get("enable_llm_query_analysis", False)),
+                        "enable_llm_agent_query_analysis": enable_llm_agent_query_analysis,
                         "use_llm_intent": bool(config.get("use_llm_intent", False)),
-                        "enable_llm_agent_analysis": enable_llm_agent_analysis,
                     },
                 )
             except Exception:
-                enable_llm_agent_analysis = False
+                enable_llm_agent_query_analysis = False
 
             agent_profiles: Dict[str, Any] = {}  # agent -> QueryProfile (or dict)
 
-            if enable_llm_agent_analysis:
+            if enable_llm_agent_query_analysis:
                 try:
                     # If your orchestrator/agents populate exec_state["effective_queries"],
                     # we will prefer that; otherwise we fall back to request.query.
@@ -1670,12 +1721,28 @@ Intent:"""
                     envelope.setdefault("matched_rules", qp_matched)
                     envelope["analysis_source"] = (qp_signals.get("analysis_source") or "rules")
 
+
+
+            # IMPORTANT: if you have filtering logic, make sure guard isn't excluded
+            # e.g. do NOT skip guard just because it isn't "answer-producing"
+
             # ------------------------------------------------------------
             # Option A: decide final status ONCE, after outputs are built
             # ------------------------------------------------------------
             if not isinstance(serialized_agent_outputs, dict) or len(serialized_agent_outputs) == 0:
                 final_status = "failed"
                 final_error_message = "No agent outputs produced."
+
+                # ✅ Provide a visible fallback so the UI has something to render
+                serialized_agent_outputs = {
+                    "synthesis": (
+                        "I didn’t generate an answer because no agents produced outputs.\n\n"
+                        "What you can do:\n"
+                        "- Try again\n"
+                        "- Enable direct LLM bypass for simple factual questions\n"
+                        "- Or check your selected graph/agents configuration (may be routing to a graph that doesn’t run a responder)"
+                    )
+                }
 
                 # ✅ _errors must be a dict (per pydantic), but we can keep a list inside it
                 err_bucket = agent_output_meta.setdefault("_errors", {})
@@ -1687,16 +1754,17 @@ Intent:"""
                             "message": final_error_message,
                             "agents_requested": list(config.get("agents") or []),
                             "selected_graph": config.get("selected_graph"),
+                            "routing_source": config.get("routing_source"),
                         }
                     )
                 else:
-                    # ultra-defensive fallback
                     err_bucket["items"] = [
                         {
                             "type": "empty_agent_outputs",
                             "message": final_error_message,
                             "agents_requested": list(config.get("agents") or []),
                             "selected_graph": config.get("selected_graph"),
+                            "routing_source": config.get("routing_source"),
                         }
                     ]
             else:
@@ -1707,7 +1775,7 @@ Intent:"""
             response = WorkflowResponse(
                 workflow_id=workflow_id,
                 status=final_status,
-                agent_outputs=(serialized_agent_outputs if final_status == "completed" else {}),
+                agent_outputs=serialized_agent_outputs,  # ✅ always include fallback synthesis
                 execution_time_seconds=execution_time,
                 correlation_id=correlation_id,
                 agent_output_meta=agent_output_meta,
@@ -1865,7 +1933,7 @@ Intent:"""
                     workflow_id=workflow_id,
                     status=final_status,
                     execution_time_seconds=execution_time,
-                    agent_outputs=(result_context.agent_outputs if final_status == "completed" else {}),
+                    agent_outputs=(serialized_agent_outputs if final_status == "completed" else {}),
                     error_message=(final_error_message if final_status != "completed" else None),
                     correlation_id=correlation_id,
                     metadata={
@@ -2095,13 +2163,23 @@ Intent:"""
 
                 nodes_executed = list(response.agent_outputs.keys()) if response.agent_outputs else []
 
-                await question_repo.create_question(
-                    query=request.query,
-                    correlation_id=request.correlation_id,
-                    execution_id=workflow_id,
-                    nodes_executed=nodes_executed,
-                    execution_metadata=execution_metadata,
-                )
+                try:
+
+                    await question_repo.create_question(
+                        query=request.query,
+                        correlation_id=response.correlation_id,
+                        execution_id=workflow_id,
+                        nodes_executed=nodes_executed,
+                        execution_metadata=execution_metadata,
+                    )
+
+                except IntegrityError as ie:
+                    # ✅ idempotent retry: correlation_id already stored
+                    # asyncpg UniqueViolationError is usually ie.orig
+                    logger.info(
+                        "Question already exists for correlation_id; treating as idempotent success",
+                        extra={"workflow_id": workflow_id, "correlation_id": response.correlation_id},
+                    )
 
                 logger.info(f"Workflow {workflow_id} persisted to database")
 
@@ -2142,13 +2220,27 @@ Intent:"""
 
                 nodes_executed = list(response.agent_outputs.keys()) if response.agent_outputs else []
 
-                await question_repo.create_question(
-                    query=request.query,
-                    correlation_id=request.correlation_id,
-                    execution_id=workflow_id,
-                    nodes_executed=nodes_executed,
-                    execution_metadata=execution_metadata,
-                )
+                try:
+
+                    await question_repo.create_question(
+                        query=request.query,
+                        correlation_id=response.correlation_id,
+                        execution_id=workflow_id,
+                        nodes_executed=nodes_executed,
+                        execution_metadata=execution_metadata,
+                    )
+
+                except IntegrityError as ie:
+                    # ✅ idempotent retry: correlation_id already stored
+                    # asyncpg UniqueViolationError is usually ie.orig
+                    msg = str(getattr(ie, "orig", ie))
+                    if "questions_correlation_id_key" in msg or "correlation_id" in msg:
+                        logger.info(
+                            "Question already exists for correlation_id; treating as idempotent success",
+                            extra={"workflow_id": workflow_id, "correlation_id": response.correlation_id},
+                        )
+                    else:
+                        raise
 
                 logger.info(f"Failed workflow {workflow_id} persisted to database")
 

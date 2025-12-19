@@ -28,6 +28,13 @@ class WorkflowRequest(BaseModel):
             "example": "Analyze the impact of climate change on agriculture"
         },
     )
+
+    # ✅ allow caller to choose graph/workflow
+    workflow_id: Optional[str] = Field(
+        default=None,
+        description="Graph/workflow selector (e.g., graph_default, graph_diagnostics, graph_builder, ...)",
+    )
+
     agents: Optional[List[str]] = Field(
         None,
         description="List of agent names to execute (default: all available)",

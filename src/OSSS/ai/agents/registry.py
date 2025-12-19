@@ -331,6 +331,7 @@ class AgentRegistry:
         from OSSS.ai.agents.synthesis.agent import SynthesisAgent
         from OSSS.ai.agents.guard.agent import GuardAgent
         from OSSS.ai.agents.data_views.agent import DataViewAgent
+        from OSSS.ai.agents.answer_search.agent import AnswerSearchAgent
 
         from OSSS.ai.agents.metadata import AgentMetadata
         from OSSS.ai.agents.base_agent import BaseAgent
@@ -444,6 +445,24 @@ class AgentRegistry:
             primary_capability="data_view_generation",
             secondary_capabilities=["entity_listing", "schema_reasoning"],
             pipeline_role="standalone",
+            bounded_context="retrieval",
+        )
+
+        self.register(
+            name="answer_search",
+            agent_class=AnswerSearchAgent,
+            requires_llm=True,
+            description="Executes the answer/search step after guard allows the request",
+            dependencies=["guard"],
+            is_critical=True,
+            failure_strategy=FailurePropagationStrategy.CONDITIONAL_FALLBACK,
+            fallback_agents=["synthesis"],
+            cognitive_speed="adaptive",
+            cognitive_depth="variable",
+            processing_pattern="composite",
+            primary_capability="answer_generation",
+            secondary_capabilities=["information_retrieval", "citation_assembly"],
+            pipeline_role="intermediate",
             bounded_context="retrieval",
         )
 

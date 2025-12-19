@@ -11,7 +11,7 @@ nodes:
   # Node with missing required configuration (should test factory error handling)
   - node_id: "misconfigured_validator"
     node_type: "validator"
-    category: "ADVANCED"
+    category: "advanced"
     execution_pattern: "validator"
     config:
       # Missing required validation_criteria field - should trigger factory error
@@ -28,7 +28,7 @@ nodes:
   # Node with invalid configuration values (should test validation)
   - node_id: "invalid_terminator"
     node_type: "terminator"
-    category: "ADVANCED"
+    category: "advanced"
     execution_pattern: "terminator"
     config:
       termination_criteria:
@@ -50,7 +50,7 @@ nodes:
   # Node with extreme configuration values (boundary testing)
   - node_id: "extreme_aggregator"
     node_type: "aggregator"
-    category: "ADVANCED"
+    category: "advanced"
     execution_pattern: "aggregator"
     config:
       aggregation_strategy: "consensus"
@@ -71,7 +71,7 @@ nodes:
   # Node with conflicting configuration (logical inconsistencies)
   - node_id: "conflicting_decision"
     node_type: "decision"
-    category: "ADVANCED"
+    category: "advanced"
     execution_pattern: "decision"
     config:
       decision_criteria:
@@ -93,7 +93,7 @@ nodes:
   # Valid fallback nodes for testing error recovery
   - node_id: "error_recovery_processor"
     node_type: "refiner"
-    category: "BASE"
+    category: "base"
     execution_pattern: "processor"
     config:
       agent_type: "refiner"
@@ -109,7 +109,7 @@ nodes:
   # Minimal valid configuration (boundary testing)
   - node_id: "minimal_validator"
     node_type: "validator"
-    category: "ADVANCED"
+    category: "advanced"
     execution_pattern: "validator"
     config:
       validation_criteria:
@@ -132,7 +132,7 @@ nodes:
   # Emergency synthesis fallback
   - node_id: "emergency_synthesis"
     node_type: "synthesis"
-    category: "BASE"
+    category: "base"
     execution_pattern: "processor"
     config:
       agent_type: "synthesis"

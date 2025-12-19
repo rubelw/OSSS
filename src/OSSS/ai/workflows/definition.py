@@ -34,6 +34,8 @@ class AdvancedNodeType(str, Enum):
     AGGREGATOR = "aggregator"  # Parallel output combination
     VALIDATOR = "validator"  # Quality assurance checkpoints
     TERMINATOR = "terminator"  # Early termination logic
+    FINALIZER = "finalizer"   # ✅ add this
+
 
 
 class BaseNodeType(str, Enum):
@@ -296,6 +298,10 @@ class WorkflowDefinition(BaseModel):
             "nodes": [node.to_dict() for node in self.nodes],
             "flow": self.flow.to_dict(),
             "metadata": self.metadata,
+            "execution": self.execution.model_dump(mode="json") if self.execution else None,
+            "output": self.output.model_dump(mode="json") if self.output else None,
+            "quality_gates": self.quality_gates.model_dump(mode="json") if self.quality_gates else None,
+            "resources": self.resources.model_dump(mode="json") if self.resources else None,
         }
 
     def export(self, format: str = "json") -> str:
@@ -362,12 +368,18 @@ class WorkflowDefinition(BaseModel):
         # Parse nodes - support legacy format missing category
         nodes = []
         for node_data in data["nodes"]:
+            # ✅ Normalize category (accepts "BASE"/"ADVANCED", "base"/"advanced", etc.)
+            raw_cat = str(node_data.get("category", NodeCategory.BASE.value)).lower()
+            category = (
+                raw_cat
+                if raw_cat in {c.value for c in NodeCategory}
+                else NodeCategory.BASE.value
+            )
+
             node = WorkflowNodeConfiguration(
                 node_id=node_data["node_id"],
                 node_type=node_data["node_type"],
-                category=node_data.get(
-                    "category", "BASE"
-                ),  # Default to BASE for legacy
+                category=category,
                 execution_pattern=node_data.get("execution_pattern", "processor"),
                 config=node_data.get("config", {}),
                 metadata=node_data.get("metadata", {}),

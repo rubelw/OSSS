@@ -8,7 +8,7 @@ workflow_schema_version: "1.0.0"
 
 nodes:
 - node_id: "entry_decision"
-category: "ADVANCED"
+category: "advanced"
 node_type: "decision"
 execution_pattern: "decision"
 config:
@@ -26,7 +26,7 @@ pipeline_role: "entry"
 bounded_context: "transformation"
 
 - node_id: "refiner_prep"
-category: "BASE"
+category: "base"
 node_type: "refiner"
 execution_pattern: "processor"
 config:
@@ -40,7 +40,7 @@ pipeline_role: "intermediate"
 bounded_context: "transformation"
 
 - node_id: "parallel_historian"
-category: "BASE"
+category: "base"
 node_type: "historian"
 execution_pattern: "processor"
 config:
@@ -54,7 +54,7 @@ pipeline_role: "intermediate"
 bounded_context: "retrieval"
 
 - node_id: "parallel_critic"
-category: "BASE"
+category: "base"
 node_type: "critic"
 execution_pattern: "processor"
 config:
@@ -68,7 +68,7 @@ pipeline_role: "intermediate"
 bounded_context: "reflection"
 
 - node_id: "intelligent_aggregator"
-category: "ADVANCED"
+category: "advanced"
 node_type: "aggregator"
 execution_pattern: "aggregator"
 config:
@@ -87,7 +87,7 @@ pipeline_role: "intermediate"
 bounded_context: "transformation"
 
 - node_id: "quality_gate"
-category: "ADVANCED"
+category: "advanced"
 node_type: "validator"
 execution_pattern: "validator"
 config:
@@ -108,7 +108,7 @@ pipeline_role: "intermediate"
 bounded_context: "reflection"
 
 - node_id: "confidence_terminator"
-category: "ADVANCED"
+category: "advanced"
 node_type: "terminator"
 execution_pattern: "terminator"
 config:
@@ -127,7 +127,7 @@ pipeline_role: "terminal"
 bounded_context: "transformation"
 
 - node_id: "synthesis_fallback"
-category: "BASE"
+category: "base"
 node_type: "synthesis"
 execution_pattern: "processor"
 config:

@@ -81,7 +81,7 @@ class WorkflowDiscoveryService:
         # Directories (relative to current working directory) to scan for workflows.
         # These paths are intentionally simple and can be expanded later (config/env).
         self._workflow_directories = [
-            "src/osss/workflows/examples",
+            "src/OSSS/ai/workflows/examples",
             "examples/charts",
         ]
 
@@ -89,30 +89,38 @@ class WorkflowDiscoveryService:
     # Filesystem discovery helpers
     # ----------------------------------------------------------------------
     def _get_workflow_directories(self) -> List[Path]:
-        """
-        Resolve workflow directory paths to concrete filesystem Paths.
+        from pathlib import Path
 
-        Returns:
-            A list of Path objects that exist and are directories.
+        def find_repo_root(start: Path) -> Path:
+            cur = start.resolve()
+            for _ in range(8):  # walk up a few levels
+                if (cur / "pyproject.toml").exists() or (cur / "src" / "OSSS").exists():
+                    return cur
+                if cur.parent == cur:
+                    break
+                cur = cur.parent
+            return start.resolve()
 
-        Notes:
-            - Uses the current working directory as the base, which means
-              behavior depends on how/where the service is started.
-            - If you need deterministic behavior across environments,
-              consider using an env var or app config to define base_path.
-        """
+        cwd = Path.cwd()
+        base_path = find_repo_root(cwd)
+
+        logger.info(
+            "Workflow discovery base_path resolved",
+            extra={"base_path": str(base_path), "cwd": str(cwd), "configured_dirs": self._workflow_directories},
+        )
+
         directories: List[Path] = []
-
-        # Use current working directory as base for relative scan locations
-        base_path = Path.cwd()
-
         for dir_path in self._workflow_directories:
-            full_path = base_path / dir_path
-
-            # Only include valid directories (ignore missing paths)
+            full_path = (base_path / dir_path).resolve()
             if full_path.exists() and full_path.is_dir():
                 directories.append(full_path)
+            else:
+                logger.warning(
+                    "Workflow directory not found",
+                    extra={"configured_path": dir_path, "resolved_path": str(full_path)},
+                )
 
+        logger.info("Workflow discovery directories finalized", extra={"directories": [str(p) for p in directories]})
         return directories
 
     # ----------------------------------------------------------------------
