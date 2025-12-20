@@ -2,7 +2,16 @@
 Centralized schema definitions for API contracts.
 
 Schemas tagged with # EXTERNAL SCHEMA require special handling for changes.
+
+Refactor notes (best-practice):
+- Keep `workflow_id` as the *public* workflow selector (slug), e.g. "data-views-demo".
+- Add `workflow_version` for forward-compatible workflow evolution.
+- Keep `agents` optional for overrides, but treat it as *advanced* (workflow decides by default).
+- Keep `execution_config` as your config bag, but also allow a few first-class fields if you want later.
+- Keep extra="forbid" for EXTERNAL schemas to prevent silent contract drift.
 """
+
+from __future__ import annotations
 
 from pydantic import BaseModel, Field, field_validator, model_validator, ConfigDict
 from typing import Optional, List, Dict, Any
@@ -24,30 +33,40 @@ class WorkflowRequest(BaseModel):
         description="The query or prompt to execute",
         min_length=1,
         max_length=10000,
-        json_schema_extra={
-            "example": "Analyze the impact of climate change on agriculture"
-        },
+        json_schema_extra={"example": "List the dcg school board members"},
     )
 
-    # ✅ allow caller to choose graph/workflow
+    # ✅ Best practice: stable workflow slug selector (public API contract)
+    # If omitted, server routing decides the workflow.
     workflow_id: Optional[str] = Field(
         default=None,
-        description="Graph/workflow selector (e.g., graph_default, graph_diagnostics, graph_builder, ...)",
+        description="Workflow selector slug (e.g., 'data-views-demo'). If omitted, server routing decides.",
+        pattern=r"^[a-zA-Z0-9][a-zA-Z0-9_-]{0,99}$",
+        json_schema_extra={"example": "data-views-demo"},
     )
 
+    # ✅ Optional workflow versioning for evolution without breaking workflow_id
+    workflow_version: Optional[int] = Field(
+        default=None,
+        description="Optional workflow version. If omitted, server chooses the default version for the workflow.",
+        ge=1,
+        le=10_000,
+        json_schema_extra={"example": 1},
+    )
+
+    # Advanced: override which agents run. Default should come from workflow plan.
     agents: Optional[List[str]] = Field(
         None,
-        description="List of agent names to execute (default: all available)",
-        json_schema_extra={"example": ["refiner", "historian", "critic", "synthesis"]},
+        description="Optional list of agent names to execute (default: workflow decides).",
+        json_schema_extra={"example": ["guard", "answer_search", "data_views", "format_response"]},
     )
 
     execution_config: Optional[Dict[str, Any]] = Field(
         None,
         description="Additional execution configuration parameters",
-        json_schema_extra={
-            "example": {"timeout_seconds": 30, "parallel_execution": True, "use_llm_intent": True},
-        },
+        json_schema_extra={"example": {"timeout_seconds": 30, "parallel_execution": True, "use_llm_intent": True}},
     )
+
     correlation_id: Optional[str] = Field(
         None,
         description="Unique identifier for request correlation",
@@ -55,6 +74,7 @@ class WorkflowRequest(BaseModel):
         max_length=100,
         json_schema_extra={"example": "req-12345-abcdef"},
     )
+
     export_md: Optional[bool] = Field(
         None,
         description="Export agent outputs to markdown file (generates wiki file)",
@@ -64,23 +84,33 @@ class WorkflowRequest(BaseModel):
     @field_validator("agents", mode="before")
     @classmethod
     def validate_agents(cls, v: Optional[List[str]]) -> Optional[List[str]]:
-        """Validate agent names.
+        """
+        Validate agent names.
 
         Behavior:
-          - None: means "use default agents"
-          - []: means "no agents" (caller explicitly selected none) -> treat as None or keep [] depending on your runtime
+          - None: means "use workflow default agents"
+          - []: normalize to None (treat as not provided)
         """
-        # Normalize empty list to None so request passes validation
         if v == []:
             return None
 
         if v is not None:
-            valid_agents = {"refiner", "historian", "critic", "synthesis", "guard", "data_views"}
+            # Keep in sync with GraphFactory.node_functions keys
+            valid_agents = {
+                "refiner",
+                "historian",
+                "critic",
+                "synthesis",
+                "guard",
+                "answer_search",
+                "data_views",
+                "format_response",
+                "format_block",
+                "format_requires_confirmation",
+            }
             invalid_agents = set(v) - valid_agents
             if invalid_agents:
-                raise ValueError(
-                    f"Invalid agents: {invalid_agents}. Valid agents: {valid_agents}"
-                )
+                raise ValueError(f"Invalid agents: {invalid_agents}. Valid agents: {sorted(valid_agents)}")
 
             if len(v) != len(set(v)):
                 raise ValueError("Duplicate agents are not allowed")
@@ -89,26 +119,39 @@ class WorkflowRequest(BaseModel):
 
     @field_validator("execution_config")
     @classmethod
-    def validate_execution_config(
-        cls, v: Optional[Dict[str, Any]]
-    ) -> Optional[Dict[str, Any]]:
+    def validate_execution_config(cls, v: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
         """Validate execution configuration."""
-        if v is not None:
-            # Validate timeout if provided
-            if "timeout_seconds" in v:
-                timeout = v["timeout_seconds"]
-                if not isinstance(timeout, (int, float)) or timeout <= 0:
-                    raise ValueError("timeout_seconds must be a positive number")
-                if timeout > 600:  # 10 minutes max
-                    raise ValueError("timeout_seconds cannot exceed 600 seconds")
+        if v is None:
+            return v
 
-            # ✅ Validate intent routing flag if provided
-            if "use_llm_intent" in v:
-                if not isinstance(v["use_llm_intent"], bool):
-                    raise ValueError("use_llm_intent must be a boolean")
+        # Validate timeout if provided
+        if "timeout_seconds" in v:
+            timeout = v["timeout_seconds"]
+            if not isinstance(timeout, (int, float)) or timeout <= 0:
+                raise ValueError("timeout_seconds must be a positive number")
+            if timeout > 600:  # 10 minutes max
+                raise ValueError("timeout_seconds cannot exceed 600 seconds")
 
+        # Validate intent routing flag if provided
+        if "use_llm_intent" in v and not isinstance(v["use_llm_intent"], bool):
+            raise ValueError("use_llm_intent must be a boolean")
+
+        # Optional: validate parallel_execution if present
+        if "parallel_execution" in v and not isinstance(v["parallel_execution"], bool):
+            raise ValueError("parallel_execution must be a boolean")
 
         return v
+
+    @model_validator(mode="after")
+    def validate_workflow_override_semantics(self) -> "WorkflowRequest":
+        """
+        Best-practice semantics:
+        - If caller provides `workflow_id`, that becomes the primary selector.
+        - `agents` is treated as an advanced override; allow it, but it's on the caller.
+        - If you want to *forbid* agents when workflow_id is set, you can enforce here.
+        """
+        # Keep permissive for now (helps testing)
+        return self
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for backward compatibility."""
@@ -116,7 +159,7 @@ class WorkflowRequest(BaseModel):
 
     model_config = ConfigDict(
         extra="forbid",
-        validate_assignment=True,  # Prevent additional fields
+        validate_assignment=True,
     )
 
 
@@ -139,6 +182,18 @@ class WorkflowResponse(BaseModel):
 
     agent_output_meta: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
 
+    # ✅ Optional: surface what was *selected* (helps callers understand routing)
+    resolved_workflow_id: Optional[str] = Field(
+        default=None,
+        description="Resolved workflow slug that was executed (useful when server routing selects a workflow).",
+        json_schema_extra={"example": "data-views-demo"},
+    )
+    resolved_workflow_version: Optional[int] = Field(
+        default=None,
+        description="Resolved workflow version that was executed.",
+        json_schema_extra={"example": 1},
+    )
+
     agent_outputs: Dict[str, Any] = Field(
         ...,
         description="Outputs from each executed agent (structured Pydantic models or strings for backward compatibility)",
@@ -155,8 +210,8 @@ class WorkflowResponse(BaseModel):
                     "retrieved_notes": ["note1", "note2"],
                     "confidence": 0.88,
                 },
-                "critic": "Critical analysis and evaluation",  # Backward compatible string
-                "synthesis": "Comprehensive synthesis of insights",  # Backward compatible string
+                "critic": "Critical analysis and evaluation",
+                "synthesis": "Comprehensive synthesis of insights",
             }
         },
     )
@@ -214,33 +269,22 @@ class WorkflowResponse(BaseModel):
         for backward compatibility.
         """
         for agent_name, output in v.items():
-            # Allow structured outputs (dicts), strings, or Pydantic models
             if output is None:
                 raise ValueError(f"Output for agent '{agent_name}' cannot be None")
 
-            # If it's a string, ensure it's not empty
             if isinstance(output, str):
                 if len(output.strip()) == 0:
-                    raise ValueError(
-                        f"Output for agent '{agent_name}' cannot be empty string"
-                    )
+                    raise ValueError(f"Output for agent '{agent_name}' cannot be empty string")
 
-            # If it's a dict (structured output), validate it has content
             elif isinstance(output, dict):
                 if len(output) == 0:
-                    raise ValueError(
-                        f"Output for agent '{agent_name}' cannot be empty dict"
-                    )
+                    raise ValueError(f"Output for agent '{agent_name}' cannot be empty dict")
 
-            # If it's a Pydantic model, convert to dict for storage
             elif hasattr(output, "model_dump"):
-                # This will be handled during serialization, just verify it exists
-                pass
+                pass  # handled during serialization
 
-            # For any other type, we'll allow it but log a warning in production
             else:
-                # Allow other types for flexibility
-                pass
+                pass  # allow for flexibility
 
         return v
 
@@ -249,6 +293,149 @@ class WorkflowResponse(BaseModel):
         return self.model_dump()
 
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
+
+# EXTERNAL SCHEMA
+class StatusResponse(BaseModel):
+    """External status query response - v1.0.0"""
+    workflow_id: str = Field(..., pattern=r"^[a-f0-9-]{36}$")
+    status: str = Field(..., pattern=r"^(completed|failed|running|cancelled)$")
+    progress_percentage: float = Field(..., ge=0.0, le=100.0)
+    current_agent: Optional[str] = None
+    estimated_completion_seconds: Optional[float] = Field(None, ge=0.0)
+
+    model_config = ConfigDict(extra="forbid", validate_assignment=True)
+
+
+# EXTERNAL SCHEMA
+class WorkflowHistoryItem(BaseModel):
+    """Individual workflow history entry - v1.0.0"""
+
+    workflow_id: str = Field(
+        ...,
+        description="Unique identifier for the workflow execution",
+        pattern=r"^[a-f0-9-]{36}$",  # UUID format
+        json_schema_extra={"example": "550e8400-e29b-41d4-a716-446655440000"},
+    )
+    status: str = Field(
+        ...,
+        description="Workflow execution status",
+        pattern=r"^(completed|failed|running|cancelled)$",
+        json_schema_extra={"example": "completed"},
+    )
+    query: str = Field(
+        ...,
+        description="Original query (truncated for display)",
+        max_length=200,
+        json_schema_extra={"example": "Analyze the impact of climate change..."},
+    )
+    start_time: float = Field(
+        ...,
+        description="Workflow start time as Unix timestamp",
+        ge=0.0,
+        json_schema_extra={"example": 1703097600.0},
+    )
+    execution_time_seconds: float = Field(
+        ...,
+        description="Total execution time in seconds",
+        ge=0.0,
+        json_schema_extra={"example": 12.5},
+    )
+
+    @field_validator("status")
+    @classmethod
+    def validate_status(cls, v: str) -> str:
+        """Validate workflow status values."""
+        valid_statuses = {"completed", "failed", "running", "cancelled"}
+        if v not in valid_statuses:
+            raise ValueError(f"Status must be one of: {valid_statuses}")
+        return v
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            "workflow_id": self.workflow_id,
+            "status": self.status,
+            "query": self.query,
+            "start_time": self.start_time,
+            "execution_time_seconds": self.execution_time_seconds,
+        }
+
+
+# EXTERNAL SCHEMA
+class WorkflowHistoryResponse(BaseModel):
+    """External workflow history response - v1.0.0"""
+
+    workflows: List[WorkflowHistoryItem] = Field(
+        ...,
+        description="List of workflow execution history items",
+        json_schema_extra={
+            "example": [
+                {
+                    "workflow_id": "550e8400-e29b-41d4-a716-446655440000",
+                    "status": "completed",
+                    "query": "Analyze the impact of climate change...",
+                    "start_time": 1703097600.0,
+                    "execution_time_seconds": 12.5,
+                }
+            ]
+        },
+    )
+    total: int = Field(
+        ...,
+        description="Total number of workflows available (not just returned)",
+        ge=0,
+        json_schema_extra={"example": 150},
+    )
+    limit: int = Field(
+        ...,
+        description="Maximum number of results requested",
+        ge=1,
+        le=100,
+        json_schema_extra={"example": 10},
+    )
+    offset: int = Field(
+        ...,
+        description="Number of results skipped",
+        ge=0,
+        json_schema_extra={"example": 0},
+    )
+    has_more: bool = Field(
+        ...,
+        description="Whether there are more results beyond this page",
+        json_schema_extra={"example": True},
+    )
+
+    @field_validator("limit")
+    @classmethod
+    def validate_limit(cls, v: int) -> int:
+        """Validate limit is within acceptable range."""
+        if v < 1 or v > 100:
+            raise ValueError("Limit must be between 1 and 100")
+        return v
+
+    @model_validator(mode="after")
+    def validate_pagination_consistency(self) -> "WorkflowHistoryResponse":
+        """Validate pagination parameters are consistent."""
+        if self.offset < 0:
+            raise ValueError("Offset must be non-negative")
+
+        # Check has_more consistency
+        expected_has_more = (self.offset + len(self.workflows)) < self.total
+        if self.has_more != expected_has_more:
+            # Fix has_more to be consistent
+            self.has_more = expected_has_more
+
+        return self
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            "workflows": [wf.to_dict() for wf in self.workflows],
+            "total": self.total,
+            "limit": self.limit,
+            "offset": self.offset,
+            "has_more": self.has_more,
+        }
 
 
 # EXTERNAL SCHEMA
@@ -315,7 +502,6 @@ class StatusResponse(BaseModel):
         return self.model_dump()
 
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
-
 
 # EXTERNAL SCHEMA
 class CompletionRequest(BaseModel):
@@ -483,6 +669,8 @@ class LLMProviderInfo(BaseModel):
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
 
 
+
+
 # =============================================================================
 # INTERNAL SCHEMAS - Subject to change without notice
 # =============================================================================
@@ -516,138 +704,6 @@ class InternalAgentMetrics(BaseModel):
     timestamp: datetime = Field(..., description="Timestamp of the execution")
 
     model_config = ConfigDict(extra="allow")  # Internal schemas can be more flexible
-
-
-# EXTERNAL SCHEMA
-class WorkflowHistoryItem(BaseModel):
-    """Individual workflow history entry - v1.0.0"""
-
-    workflow_id: str = Field(
-        ...,
-        description="Unique identifier for the workflow execution",
-        pattern=r"^[a-f0-9-]{36}$",  # UUID format
-        json_schema_extra={"example": "550e8400-e29b-41d4-a716-446655440000"},
-    )
-    status: str = Field(
-        ...,
-        description="Workflow execution status",
-        pattern=r"^(completed|failed|running|cancelled)$",
-        json_schema_extra={"example": "completed"},
-    )
-    query: str = Field(
-        ...,
-        description="Original query (truncated for display)",
-        max_length=200,
-        json_schema_extra={"example": "Analyze the impact of climate change..."},
-    )
-    start_time: float = Field(
-        ...,
-        description="Workflow start time as Unix timestamp",
-        ge=0.0,
-        json_schema_extra={"example": 1703097600.0},
-    )
-    execution_time_seconds: float = Field(
-        ...,
-        description="Total execution time in seconds",
-        ge=0.0,
-        json_schema_extra={"example": 12.5},
-    )
-
-    @field_validator("status")
-    @classmethod
-    def validate_status(cls, v: str) -> str:
-        """Validate workflow status values."""
-        valid_statuses = {"completed", "failed", "running", "cancelled"}
-        if v not in valid_statuses:
-            raise ValueError(f"Status must be one of: {valid_statuses}")
-        return v
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary for JSON serialization."""
-        return {
-            "workflow_id": self.workflow_id,
-            "status": self.status,
-            "query": self.query,
-            "start_time": self.start_time,
-            "execution_time_seconds": self.execution_time_seconds,
-        }
-
-
-# EXTERNAL SCHEMA
-class WorkflowHistoryResponse(BaseModel):
-    """External workflow history response - v1.0.0"""
-
-    workflows: List[WorkflowHistoryItem] = Field(
-        ...,
-        description="List of workflow execution history items",
-        json_schema_extra={
-            "example": [
-                {
-                    "workflow_id": "550e8400-e29b-41d4-a716-446655440000",
-                    "status": "completed",
-                    "query": "Analyze the impact of climate change...",
-                    "start_time": 1703097600.0,
-                    "execution_time_seconds": 12.5,
-                }
-            ]
-        },
-    )
-    total: int = Field(
-        ...,
-        description="Total number of workflows available (not just returned)",
-        ge=0,
-        json_schema_extra={"example": 150},
-    )
-    limit: int = Field(
-        ...,
-        description="Maximum number of results requested",
-        ge=1,
-        le=100,
-        json_schema_extra={"example": 10},
-    )
-    offset: int = Field(
-        ...,
-        description="Number of results skipped",
-        ge=0,
-        json_schema_extra={"example": 0},
-    )
-    has_more: bool = Field(
-        ...,
-        description="Whether there are more results beyond this page",
-        json_schema_extra={"example": True},
-    )
-
-    @field_validator("limit")
-    @classmethod
-    def validate_limit(cls, v: int) -> int:
-        """Validate limit is within acceptable range."""
-        if v < 1 or v > 100:
-            raise ValueError("Limit must be between 1 and 100")
-        return v
-
-    @model_validator(mode="after")
-    def validate_pagination_consistency(self) -> "WorkflowHistoryResponse":
-        """Validate pagination parameters are consistent."""
-        if self.offset < 0:
-            raise ValueError("Offset must be non-negative")
-
-        # Check has_more consistency
-        expected_has_more = (self.offset + len(self.workflows)) < self.total
-        if self.has_more != expected_has_more:
-            # Fix has_more to be consistent
-            self.has_more = expected_has_more
-
-        return self
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary for JSON serialization."""
-        return {
-            "workflows": [wf.to_dict() for wf in self.workflows],
-            "total": self.total,
-            "limit": self.limit,
-            "offset": self.offset,
-            "has_more": self.has_more,
-        }
 
 
 # EXTERNAL SCHEMA
@@ -891,6 +947,8 @@ class TopicWikiResponse(BaseModel):
         }
 
 
+
+
 # EXTERNAL SCHEMA
 class WorkflowMetadata(BaseModel):
     """Individual workflow metadata entry - v1.0.0"""
@@ -1028,7 +1086,6 @@ class WorkflowMetadata(BaseModel):
             "node_count": self.node_count,
             "use_cases": self.use_cases,
         }
-
 
 # EXTERNAL SCHEMA
 class WorkflowsResponse(BaseModel):

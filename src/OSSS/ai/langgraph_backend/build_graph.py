@@ -18,7 +18,7 @@ from OSSS.ai.orchestration.node_wrappers import (
     historian_node,
     synthesis_node,
     guard_node,
-    data_view_node,
+    data_view_node,  # canonical wrapper maps to "data_views"
     answer_search_node,
     format_response_node,
     format_block_node,
@@ -44,6 +44,7 @@ class GraphBuildError(Exception):
 @dataclass
 class GraphConfig:
     """Configuration for graph building."""
+
     agents_to_run: List[str]
     enable_checkpoints: bool = False
     memory_manager: Optional[OSSSMemoryManager] = None
@@ -53,16 +54,15 @@ class GraphConfig:
     validator: Optional[WorkflowSemanticValidator] = None
     validation_strict_mode: bool = False
 
+    # 🚨 IMPORTANT:
+    # Factory must NOT silently mutate workflow plans.
+    # Preflight / workflow templates own the plan.
+    allow_auto_inject_nodes: bool = False
+
 
 class GraphFactory:
     """
     Factory class for building and compiling LangGraph StateGraphs.
-
-    Features:
-    - Multiple graph patterns (standard, parallel, conditional)
-    - Graph compilation caching for performance
-    - Memory management and checkpointing integration
-    - Agent subset support for flexible execution
     """
 
     def __init__(
@@ -75,7 +75,7 @@ class GraphFactory:
         self.cache = GraphCache(cache_config) if cache_config else GraphCache()
         self.default_validator = default_validator
 
-        # Available node functions mapped by agent name
+        # Canonical node functions
         self.node_functions = {
             "refiner": refiner_node,
             "critic": critic_node,
@@ -89,194 +89,169 @@ class GraphFactory:
             "data_views": data_view_node,
         }
 
-        validation_info = "with validation" if default_validator else "without validation"
-        self.logger.info(
-            f"GraphFactory initialized with cache, pattern registry, and {validation_info}"
-        )
+        self._allow_auto_inject_nodes = False
+
+        self.logger.info("GraphFactory initialized")
+
+    # ------------------------------------------------------------------
+    # Normalization
+    # ------------------------------------------------------------------
+
+    def validate_agents(self, agents: List[str]) -> bool:
+        """
+        Validate that all requested agent names exist in node_functions.
+
+        Orchestrator uses this to fail fast before attempting graph build.
+        """
+        available_agents = set(self.node_functions.keys())
+        requested_agents = set((a or "").lower() for a in (agents or []))
+
+        missing_agents = requested_agents - available_agents
+        if missing_agents:
+            self.logger.error(
+                "Missing agents for graph build",
+                extra={
+                    "missing_agents": sorted(missing_agents),
+                    "available_agents": sorted(available_agents),
+                },
+            )
+            return False
+        return True
+
 
     def _normalize_agent_name(self, name: str) -> str:
-        """
-        Normalize agent aliases to the canonical node key names used in this graph.
-
-        Canonical in this file:
-          - data_views (plural)
-        """
         n = (name or "").strip().lower()
-        alias_map = {
+        return {
             "data_view": "data_views",
             "data_views": "data_views",
-        }
-        return alias_map.get(n, n)
+        }.get(n, n)
 
-    def _normalize_agents(self, agents_to_run: List[str]) -> List[str]:
-        """Normalize and de-duplicate agents while preserving order."""
+    def _normalize_agents(self, agents: List[str]) -> List[str]:
         seen = set()
         out: List[str] = []
-        for a in agents_to_run:
+        for a in agents:
             n = self._normalize_agent_name(a)
-            if not n or n in seen:
-                continue
-            seen.add(n)
-            out.append(n)
+            if n and n not in seen:
+                seen.add(n)
+                out.append(n)
         return out
 
+    # ------------------------------------------------------------------
+    # Guard pipeline enforcement
+    # ------------------------------------------------------------------
 
-    def _ensure_guard_pipeline(self, agents_to_run: List[str]) -> List[str]:
+    def _ensure_guard_pipeline(self, agents: List[str]) -> List[str]:
         """
-        If guard is present, ensure the minimum routable pipeline exists:
+        Guard routing MUST be explicit.
 
-            guard -> (allow) -> answer_search -> format_response -> END
-                 -> (requires_confirmation) -> format_requires_confirmation -> END
-                 -> (block/other) -> format_block -> END
+        If guard is present:
+        - When allow_auto_inject_nodes=False (default):
+            * Validate that required routing nodes exist
+            * FAIL FAST if missing
+        - When allow_auto_inject_nodes=True:
+            * Inject missing routing nodes
         """
-        agents = [self._normalize_agent_name(a) for a in agents_to_run]
+        if "guard" not in agents:
+            return agents
 
-        if "guard" in agents:
-            # Ensure minimum pipeline exists
-            for required in ["answer_search", "format_response"]:
-                if required not in agents:
-                    agents.append(required)
+        required = ["answer_search", "format_response"]
+        optional = ["format_block", "format_requires_confirmation"]
 
-            # Ensure optional branches exist so guard can route somewhere
-            for optional in ["format_block", "format_requires_confirmation"]:
-                if optional not in agents:
-                    agents.append(optional)
+        missing_required = [n for n in required if n not in agents]
+        missing_optional = [n for n in optional if n not in agents]
 
-            # Guard should run first
-            agents = ["guard"] + [a for a in agents if a != "guard"]
+        if not self._allow_auto_inject_nodes:
+            if missing_required or missing_optional:
+                raise GraphBuildError(
+                    "Guard pipeline incomplete and auto-inject disabled. "
+                    f"missing_required={missing_required}, "
+                    f"missing_optional={missing_optional}. "
+                    "Fix workflow template or enable allow_auto_inject_nodes."
+                )
+        else:
+            for n in required + optional:
+                if n not in agents:
+                    agents.append(n)
 
-        return agents
+        # Guard must be first
+        return ["guard"] + [a for a in agents if a != "guard"]
 
-    def _fallback_edges_linear(self, agents_to_run: List[str]) -> List[Dict[str, str]]:
-        """Fallback: link agents in order and end at END."""
-        if not agents_to_run:
-            return []
-
-        edges: List[Dict[str, str]] = []
-        normalized = [a.lower() for a in agents_to_run]
-        for i in range(len(normalized) - 1):
-            edges.append({"from": normalized[i], "to": normalized[i + 1]})
-        edges.append({"from": normalized[-1], "to": "END"})
-        return edges
+    # ------------------------------------------------------------------
+    # Graph creation
+    # ------------------------------------------------------------------
 
     def create_graph(self, config: GraphConfig) -> Any:
         self.logger.info(
-            f"Creating graph with pattern '{config.pattern_name}' "
-            f"for agents: {config.agents_to_run}"
+            f"Creating graph pattern={config.pattern_name} agents={config.agents_to_run}"
         )
 
-        # Normalize aliases early (data_view -> data_views, etc.)
-        config.agents_to_run = self._normalize_agents(config.agents_to_run)
+        # Respect caller intent
+        self._allow_auto_inject_nodes = bool(config.allow_auto_inject_nodes)
 
-        # Ensure guard pipeline (and its required nodes) exist
-        config.agents_to_run = self._ensure_guard_pipeline(config.agents_to_run)
+        agents = self._normalize_agents(config.agents_to_run)
+        agents = self._ensure_guard_pipeline(agents)
+        agents = self._normalize_agents(agents)
 
-        # Normalize again in case pipeline added nodes that need aliasing (future-proof)
-        config.agents_to_run = self._normalize_agents(config.agents_to_run)
+        if config.cache_enabled:
+            cached = self.cache.get_cached_graph(
+                pattern_name=config.pattern_name,
+                agents=agents,
+                checkpoints_enabled=config.enable_checkpoints,
+            )
+            if cached:
+                self.logger.info("Using cached graph")
+                return cached
 
-        # ⚠️ Defensive default:
-        # If the orchestrator only asked for guard (and GraphFactory expanded to the minimal guard pipeline),
-        # auto-inject data_views so "graph_data_views" workflows can actually do useful work.
-        guard_pipeline_nodes = {
-            "guard",
-            "answer_search",
-            "format_response",
-            "format_block",
-            "format_requires_confirmation",
-        }
+        if config.enable_validation:
+            self._validate_workflow(config)
 
-        current = set(config.agents_to_run)
-        is_guard_only_pipeline = current == guard_pipeline_nodes
+        pattern = self.pattern_registry.get_pattern(config.pattern_name)
+        if not pattern:
+            raise GraphBuildError(f"Unknown graph pattern: {config.pattern_name}")
 
-        if is_guard_only_pipeline and "data_views" not in current and "data_views" in self.node_functions:
-            # after guard, before answer_search
-            guard_idx = config.agents_to_run.index("guard")
-            config.agents_to_run.insert(guard_idx + 1, "data_views")
-            self.logger.info(
-                "Injected data_views into guard-only pipeline (defensive default for data views workflows)"
+        graph = StateGraph[OSSSState](
+            state_schema=OSSSState,
+            context_schema=OSSSContext,
+        )
+
+        self._add_nodes(graph, agents)
+        self._add_edges(graph, agents, pattern)
+
+        compiled = self._compile_graph(graph, config)
+
+        if config.cache_enabled:
+            self.cache.cache_graph(
+                pattern_name=config.pattern_name,
+                agents=agents,
+                checkpoints_enabled=config.enable_checkpoints,
+                compiled_graph=compiled,
             )
 
-        try:
-            if config.cache_enabled:
-                cached_graph = self.cache.get_cached_graph(
-                    pattern_name=config.pattern_name,
-                    agents=config.agents_to_run,
-                    checkpoints_enabled=config.enable_checkpoints,
-                )
-                if cached_graph:
-                    self.logger.info("Using cached compiled graph")
-                    return cached_graph
+        self.logger.info(f"Graph created successfully ({len(agents)} nodes)")
+        return compiled
 
-            if config.enable_validation:
-                self._validate_workflow(config)
+    # ------------------------------------------------------------------
+    # Node + edge wiring
+    # ------------------------------------------------------------------
 
-            pattern = self.pattern_registry.get_pattern(config.pattern_name)
-            if not pattern:
-                raise GraphBuildError(f"Unknown graph pattern: {config.pattern_name}")
-
-            graph = self._create_state_graph(config, pattern)
-            compiled_graph = self._compile_graph(graph, config)
-
-            if config.cache_enabled:
-                self.cache.cache_graph(
-                    pattern_name=config.pattern_name,
-                    agents=config.agents_to_run,
-                    checkpoints_enabled=config.enable_checkpoints,
-                    compiled_graph=compiled_graph,
-                )
-                self.logger.info("Cached compiled graph for future use")
-
-            self.logger.info(
-                f"Successfully created graph with {len(config.agents_to_run)} agents"
-            )
-            return compiled_graph
-
-        except Exception as e:
-            error_msg = f"Failed to create graph: {e}"
-            self.logger.error(error_msg)
-            raise GraphBuildError(error_msg) from e
-
-    def _create_state_graph(self, config: GraphConfig, pattern: GraphPattern) -> Any:
-        graph = StateGraph[OSSSState](state_schema=OSSSState, context_schema=OSSSContext)
-        self._add_nodes(graph, config.agents_to_run)
-        self._add_edges(graph, config.agents_to_run, pattern)
-        return graph
-
-    def _add_nodes(self, graph: Any, agents_to_run: List[str]) -> None:
-        for agent_name in agents_to_run:
-            agent_key = agent_name.lower()
-            if agent_key not in self.node_functions:
+    def _add_nodes(self, graph: Any, agents: List[str]) -> None:
+        for a in agents:
+            if a not in self.node_functions:
                 raise GraphBuildError(
-                    f"Unknown agent: {agent_name}. Available agents: {sorted(self.node_functions.keys())}"
+                    f"Unknown agent '{a}'. Available: {sorted(self.node_functions)}"
                 )
+            graph.add_node(a, self.node_functions[a])
+            self.logger.debug(f"Added node: {a}")
 
-            graph.add_node(agent_key, self.node_functions[agent_key])
-            self.logger.debug(f"Added node: {agent_key}")
-
-    def _add_edges(self, graph: Any, agents_to_run: List[str], pattern: GraphPattern) -> None:
-        """
-        Add edges to the StateGraph based on pattern.
-        Falls back to a linear chain if the pattern doesn't fully describe the agent set.
-
-        Special-case:
-        - If "guard" is present, build guarded conditional pipeline.
-        """
-        requested = [a.lower() for a in agents_to_run]
-
-        # ✅ Guard pipeline
-        if "guard" in requested:
+    def _add_edges(self, graph: Any, agents: List[str], pattern: GraphPattern) -> None:
+        if "guard" in agents:
             graph.set_entry_point("guard")
-            self.logger.debug("Set entry point: guard")
-
-            has_data_views = "data_views" in requested
-            has_synthesis = "synthesis" in requested
 
             def route_after_guard(state: OSSSState) -> str:
-                d = (state.get("guard_decision") or "").lower()
-                if d == "allow":
-                    # ✅ Always go to answer_search first (never route guard directly to data_views)
+                decision = (state.get("guard_decision") or "").lower()
+                if decision == "allow":
                     return "answer_search"
-                if d == "requires_confirmation":
+                if decision == "requires_confirmation":
                     return "format_requires_confirmation"
                 return "format_block"
 
@@ -290,191 +265,59 @@ class GraphFactory:
                 },
             )
 
-            # ✅ Allow-path chaining
-            if has_data_views:
-                # Prefer answer_search -> synthesis -> data_views if synthesis exists
-                if has_synthesis:
+            if "data_views" in agents:
+                if "synthesis" in agents:
                     graph.add_edge("answer_search", "synthesis")
                     graph.add_edge("synthesis", "data_views")
                 else:
-                    # Safety fallback: answer_search -> data_views if synthesis isn't present
                     graph.add_edge("answer_search", "data_views")
 
                 graph.add_edge("data_views", "format_response")
             else:
-                # Normal allow path
                 graph.add_edge("answer_search", "format_response")
 
             graph.add_edge("format_response", END)
             graph.add_edge("format_block", END)
             graph.add_edge("format_requires_confirmation", END)
-
-            self.logger.info(
-                "Guard pipeline edges added (conditional routing enabled)"
-                + (" with data_views chained after answer_search" if has_data_views else "")
-            )
             return
 
-        # --- non-guard graphs use the selected pattern ---
-
-        edges = pattern.get_edges(agents_to_run)
-
-        edge_nodes = set()
+        # Non-guard graphs
+        edges = pattern.get_edges(agents)
         for e in edges:
-            edge_nodes.add(e["from"])
-            if e["to"] != "END":
-                edge_nodes.add(e["to"])
+            graph.add_edge(e["from"], END if e["to"] == "END" else e["to"])
 
-        if any(n not in edge_nodes for n in requested):
-            self.logger.warning(
-                f"Pattern '{pattern.name}' edges do not cover all requested nodes; "
-                f"falling back to linear edges. missing={sorted(set(requested) - edge_nodes)}"
-            )
-            edges = self._fallback_edges_linear(agents_to_run)
+        entry = pattern.get_entry_point(agents)
+        if entry:
+            graph.set_entry_point(entry)
 
-        entry_point = pattern.get_entry_point(agents_to_run)
-        if not entry_point or entry_point.lower() not in requested:
-            entry_point = requested[0] if requested else None
+    # ------------------------------------------------------------------
+    # Compilation
+    # ------------------------------------------------------------------
 
-        if entry_point:
-            graph.set_entry_point(entry_point)
-            self.logger.debug(f"Set entry point: {entry_point}")
+    def _compile_graph(self, graph: StateGraph, config: GraphConfig) -> Any:
+        if config.enable_checkpoints and config.memory_manager:
+            saver = config.memory_manager.get_memory_saver()
+            if saver:
+                return graph.compile(checkpointer=saver)
 
-        for edge in edges:
-            if edge["to"] == "END":
-                graph.add_edge(edge["from"], END)
-            else:
-                graph.add_edge(edge["from"], edge["to"])
-            self.logger.debug(f"Added edge: {edge['from']} → {edge['to']}")
+        return graph.compile()
 
-    def _compile_graph(self, graph: StateGraph[OSSSState], config: GraphConfig) -> Any:
-        try:
-            if config.enable_checkpoints and config.memory_manager:
-                checkpointer = config.memory_manager.get_memory_saver()
-                if checkpointer:
-                    compiled_graph = graph.compile(checkpointer=checkpointer)
-                    self.logger.info("StateGraph compiled with memory checkpointing enabled")
-                    return compiled_graph
-                else:
-                    self.logger.warning(
-                        "Checkpointing enabled but no MemorySaver available, compiling without checkpointing"
-                    )
-
-            compiled_graph = graph.compile()
-            self.logger.info("StateGraph compiled without checkpointing")
-            return compiled_graph
-
-        except Exception as e:
-            raise GraphBuildError(f"Graph compilation failed: {e}") from e
-
-    def create_standard_graph(
-        self,
-        agents: List[str],
-        enable_checkpoints: bool = False,
-        memory_manager: Optional[OSSSMemoryManager] = None,
-        include_guard: bool = False,
-        include_data_view: bool = False,
-    ) -> Any:
-        agents_to_run = self._normalize_agents(agents)
-
-        if include_guard and "guard" not in agents_to_run:
-            agents_to_run = ["guard"] + agents_to_run
-        if include_data_view and "data_views" not in agents_to_run:
-            agents_to_run = agents_to_run + ["data_views"]
-
-        config = GraphConfig(
-            agents_to_run=agents_to_run,
-            enable_checkpoints=enable_checkpoints,
-            memory_manager=memory_manager,
-            pattern_name="standard",
-        )
-        return self.create_graph(config)
-
-    def create_parallel_graph(
-        self,
-        agents: List[str],
-        enable_checkpoints: bool = False,
-        memory_manager: Optional[OSSSMemoryManager] = None,
-    ) -> Any:
-        config = GraphConfig(
-            agents_to_run=agents,
-            enable_checkpoints=enable_checkpoints,
-            memory_manager=memory_manager,
-            pattern_name="parallel",
-        )
-        return self.create_graph(config)
-
-    def get_cache_stats(self) -> Dict[str, Any]:
-        return self.cache.get_stats()
-
-    def clear_cache(self) -> None:
-        self.cache.clear()
-        self.logger.info("Graph cache cleared")
-
-    def get_available_patterns(self) -> List[str]:
-        return self.pattern_registry.get_pattern_names()
-
-    def validate_agents(self, agents: List[str]) -> bool:
-        available_agents = set(self.node_functions.keys())
-        requested_agents = set(agent.lower() for agent in agents)
-
-        missing_agents = requested_agents - available_agents
-        if missing_agents:
-            self.logger.error(
-                f"Missing agents: {missing_agents}. Available agents: {sorted(available_agents)}"
-            )
-            return False
-        return True
+    # ------------------------------------------------------------------
+    # Validation
+    # ------------------------------------------------------------------
 
     def _validate_workflow(self, config: GraphConfig) -> None:
         validator = config.validator or self.default_validator
         if not validator:
-            self.logger.warning("Validation enabled but no validator available")
             return
 
-        try:
-            result = validator.validate_workflow(
-                agents=config.agents_to_run,
-                pattern=config.pattern_name,
-                strict_mode=config.validation_strict_mode,
+        result = validator.validate_workflow(
+            agents=config.agents_to_run,
+            pattern=config.pattern_name,
+            strict_mode=config.validation_strict_mode,
+        )
+
+        if result.has_errors:
+            raise ValidationError(
+                "; ".join(result.error_messages), result
             )
-
-            if result.has_warnings:
-                for warning in result.warning_messages:
-                    self.logger.warning(f"Validation warning: {warning}")
-
-            if result.has_errors:
-                error_summary = "; ".join(result.error_messages)
-                self.logger.error(f"Validation failed: {error_summary}")
-                raise ValidationError(f"Workflow validation failed: {error_summary}", result)
-
-            if result.is_valid:
-                self.logger.info("Workflow validation passed")
-
-        except ValidationError:
-            raise
-        except Exception as e:
-            raise GraphBuildError(f"Validation setup failed: {e}") from e
-
-    def set_default_validator(self, validator: Optional[WorkflowSemanticValidator]) -> None:
-        self.default_validator = validator
-        validation_info = "enabled" if validator else "disabled"
-        self.logger.info(f"Default validation {validation_info}")
-
-    def validate_workflow(
-        self,
-        agents: List[str],
-        pattern: str,
-        validator: Optional[WorkflowSemanticValidator] = None,
-        strict_mode: bool = False,
-    ) -> SemanticValidationResult:
-        use_validator = validator or self.default_validator
-        if not use_validator:
-            return SemanticValidationResult(is_valid=True, issues=[])
-
-        try:
-            return use_validator.validate_workflow(
-                agents=agents, pattern=pattern, strict_mode=strict_mode
-            )
-        except Exception as e:
-            raise GraphBuildError(f"Validation failed: {e}") from e

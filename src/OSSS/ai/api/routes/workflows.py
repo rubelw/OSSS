@@ -14,6 +14,13 @@ Design notes:
 - Workflows are *discovered from files*, not from a database.
 - Discovery can be expensive (filesystem traversal + YAML parsing), so we cache.
 - Cache is time-based (TTL). This favors simplicity over file-watching complexity.
+
+Updates applied:
+1) Ensure the *real* workflows directory is scanned (not just examples),
+   so `OSSS/ai/workflows/data_views_demo.yaml` is discoverable.
+2) Add a POST /workflows/refresh endpoint to force cache reload (dev-friendly).
+3) Add a lightweight GET /workflows/raw endpoint to inspect the parsed YAML
+   (helps debug why a file is/ isn't being interpreted the way you expect).
 """
 
 # ---------------------------------------------------------------------------
@@ -72,6 +79,9 @@ class WorkflowDiscoveryService:
         # This is an in-memory cache scoped to the process.
         self._workflow_cache: Dict[str, WorkflowMetadata] = {}
 
+        # Optional: keep raw parsed YAML by workflow_id (debug endpoint)
+        self._raw_yaml_cache: Dict[str, Dict[str, Any]] = {}
+
         # Timestamp (epoch seconds) when cache was last refreshed
         self._cache_timestamp = 0.0
 
@@ -79,11 +89,29 @@ class WorkflowDiscoveryService:
         self._cache_ttl = 300.0  # 5 minutes
 
         # Directories (relative to current working directory) to scan for workflows.
-        # These paths are intentionally simple and can be expanded later (config/env).
+        #
+        # ✅ Updated: include the canonical workflows directory so your
+        # `src/OSSS/ai/workflows/*.yaml` files are discovered.
         self._workflow_directories = [
-            "src/OSSS/ai/workflows/examples",
-            "examples/charts",
+            "src/OSSS/ai/workflows",           # ✅ main workflows directory
+            "src/OSSS/ai/workflows/examples",  # existing examples
+            "examples/charts",                 # existing
         ]
+
+    # ----------------------------------------------------------------------
+    # Cache management (public)
+    # ----------------------------------------------------------------------
+    def force_refresh(self) -> None:
+        """Force a cache refresh immediately (used by POST /workflows/refresh)."""
+        workflows = self._load_workflows()
+        self._workflow_cache = {wf.workflow_id: wf for wf in workflows}
+        self._cache_timestamp = time.time()
+        logger.info("Workflow cache force-refreshed", extra={"count": len(workflows)})
+
+    def get_raw_yaml_by_id(self, workflow_id: str) -> Optional[Dict[str, Any]]:
+        """Return the cached raw YAML dict for a workflow if available."""
+        _ = self._get_cached_workflows()  # ensure cache populated
+        return self._raw_yaml_cache.get(workflow_id)
 
     # ----------------------------------------------------------------------
     # Filesystem discovery helpers
@@ -139,36 +167,18 @@ class WorkflowDiscoveryService:
         - Normalizes types (e.g., version to semver-ish string)
         - Normalizes complexity level to the allowed enum set
         - Derives tags from multiple potential locations
-
-        Args:
-            yaml_content: Parsed YAML as a dictionary.
-            file_path: Path to the workflow file (used for defaults + timestamps).
-
-        Returns:
-            WorkflowMetadata if extraction succeeds, otherwise None.
         """
         try:
             # --------------------------------------------------------------
             # Basic identity fields
             # --------------------------------------------------------------
-
-            # workflow_id can be explicitly set, otherwise use the file stem
             workflow_id = yaml_content.get("workflow_id", file_path.stem)
-
-            # Human-friendly name; derive from workflow_id when absent
             name = yaml_content.get("name", workflow_id.replace("_", " ").title())
-
-            # Description; fallback to a generic description
             description = yaml_content.get("description", f"Workflow: {name}")
 
             # --------------------------------------------------------------
             # Version normalization
             # --------------------------------------------------------------
-            # We try to normalize to a semantic-version-ish string:
-            # - numeric -> "<n>.0.0"
-            # - "1"     -> "1.0.0"
-            # - "1.2"   -> "1.2.0"
-            # - "1.2.3" -> keep as-is
             raw_version = yaml_content.get("version", "1.0.0")
             version = raw_version
 
@@ -188,43 +198,45 @@ class WorkflowDiscoveryService:
             # --------------------------------------------------------------
             metadata = yaml_content.get("metadata", {})
 
-            # Category/domain: prefer metadata.domain, then metadata.category, else "general"
-            category = metadata.get("domain", metadata.get("category", "general"))
+            # Category/domain: allow either top-level 'category' or metadata.domain/category
+            category = (
+                yaml_content.get("category")
+                or metadata.get("domain")
+                or metadata.get("category")
+                or "general"
+            )
 
             # --------------------------------------------------------------
-            # Tags: merged from multiple sources
+            # Tags
             # --------------------------------------------------------------
             tags = set()
 
-            # Allow tags at the top-level YAML
             if "tags" in yaml_content:
-                tags.update(yaml_content["tags"])
+                try:
+                    tags.update(list(yaml_content["tags"]))
+                except Exception:
+                    pass
 
-            # Allow tags within the metadata block
             if "tags" in metadata:
-                tags.update(metadata["tags"])
+                try:
+                    tags.update(list(metadata["tags"]))
+                except Exception:
+                    pass
 
-            # Always include category as a tag for discoverability
-            if category not in tags:
-                tags.add(category)
+            if category and category not in tags:
+                tags.add(str(category))
 
-            # Fallback tags if somehow still empty
             if not tags:
                 tags = {"workflow", "general"}
 
             # --------------------------------------------------------------
             # Attribution
             # --------------------------------------------------------------
-            # created_by may be specified at the top level or within metadata
-            created_by = yaml_content.get(
-                "created_by", metadata.get("created_by", "OSSS")
-            )
+            created_by = yaml_content.get("created_by", metadata.get("created_by", "OSSS"))
 
             # --------------------------------------------------------------
             # Complexity normalization
             # --------------------------------------------------------------
-            # Convert loose labels into canonical set:
-            # low | medium | high | expert
             raw_complexity = metadata.get("complexity_level", "medium")
             complexity_mapping = {
                 "beginner": "low",
@@ -233,55 +245,40 @@ class WorkflowDiscoveryService:
                 "intermediate": "medium",
                 "advanced": "high",
                 "complex": "high",
-                "error_testing": "expert",  # special case
+                "error_testing": "expert",
             }
 
-            complexity_level = complexity_mapping.get(
-                raw_complexity.lower(), raw_complexity.lower()
-            )
-
-            # Guardrail: ensure we only emit supported values
+            complexity_level = complexity_mapping.get(str(raw_complexity).lower(), str(raw_complexity).lower())
             if complexity_level not in ["low", "medium", "high", "expert"]:
                 complexity_level = "medium"
 
             # --------------------------------------------------------------
             # Additional helpful metadata (optional)
             # --------------------------------------------------------------
-            estimated_execution_time = metadata.get(
-                "estimated_execution_time", "30-45 seconds"
-            )
-
-            # Use cases: allow list or single value; normalize to list[str]
+            estimated_execution_time = metadata.get("estimated_execution_time", "30-45 seconds")
             use_cases = metadata.get("use_cases", [workflow_id.replace("_", " ")])
 
-            # Node count: workflows are typically graphs; "nodes" is expected
             nodes = yaml_content.get("nodes", [])
-            node_count = len(nodes)
+            node_count = len(nodes) if isinstance(nodes, list) else 0
 
-            # created_at: prefer filesystem create time; fallback to current time
             created_at = file_path.stat().st_ctime if file_path.exists() else time.time()
 
-            # --------------------------------------------------------------
-            # Return a fully populated WorkflowMetadata model
-            # --------------------------------------------------------------
             return WorkflowMetadata(
                 workflow_id=workflow_id,
                 name=name,
                 description=description,
                 version=version,
-                category=category.lower(),
+                category=str(category).lower(),
                 tags=list(tags),
                 created_by=created_by,
                 created_at=created_at,
                 estimated_execution_time=estimated_execution_time,
                 complexity_level=complexity_level,
-                node_count=max(1, node_count),  # ensure non-zero (UI friendliness)
+                node_count=max(1, node_count),
                 use_cases=(use_cases if isinstance(use_cases, list) else [str(use_cases)]),
             )
 
         except Exception as e:
-            # Any failure to parse a workflow file should not kill discovery.
-            # We log and return None so the caller can skip this workflow.
             logger.warning(f"Failed to extract metadata from {file_path}: {e}")
             return None
 
@@ -291,53 +288,34 @@ class WorkflowDiscoveryService:
     def _discover_workflows_from_directory(self, directory: Path) -> List[WorkflowMetadata]:
         """
         Scan a directory recursively to find workflow definition YAML files.
-
-        Args:
-            directory: Root directory to scan.
-
-        Returns:
-            A list of WorkflowMetadata objects discovered in that directory.
-
-        Notes:
-            - Uses rglob("*.yaml"/"*.yml") to discover files recursively.
-            - Each file is parsed with yaml.safe_load for safety.
-            - We do a simple "looks like workflow" check:
-              workflow_id exists OR nodes exists.
         """
         workflows: List[WorkflowMetadata] = []
 
         try:
-            # Find YAML files via glob patterns
             yaml_patterns = ["*.yaml", "*.yml"]
             yaml_files: List[Path] = []
-
             for pattern in yaml_patterns:
                 yaml_files.extend(directory.rglob(pattern))
 
-            # Parse each YAML file and attempt metadata extraction
             for yaml_file in yaml_files:
                 try:
                     with open(yaml_file, "r", encoding="utf-8") as f:
                         yaml_content = yaml.safe_load(f)
 
-                    # We only handle dict-like YAML at this point
                     if yaml_content and isinstance(yaml_content, dict):
                         # Heuristic: consider it a workflow if it has key fields
                         if "workflow_id" in yaml_content or "nodes" in yaml_content:
-                            metadata = self._extract_metadata_from_yaml(
-                                yaml_content, yaml_file
-                            )
+                            metadata = self._extract_metadata_from_yaml(yaml_content, yaml_file)
                             if metadata:
                                 workflows.append(metadata)
+                                # ✅ cache raw yaml for debug endpoint
+                                self._raw_yaml_cache[metadata.workflow_id] = yaml_content
 
                 except Exception as e:
-                    # Bad YAML, permission issues, encoding errors, etc.
-                    # Not fatal; skip this file and continue scanning.
                     logger.debug(f"Skipped file {yaml_file}: {e}")
                     continue
 
         except Exception as e:
-            # A directory-level failure (permissions, FS errors, etc.)
             logger.error(f"Error discovering workflows in {directory}: {e}")
 
         return workflows
@@ -348,41 +326,30 @@ class WorkflowDiscoveryService:
     def _load_workflows(self) -> List[WorkflowMetadata]:
         """
         Load all workflows from all configured directories.
-
-        Steps:
-        1) Resolve directories
-        2) Discover workflows in each directory
-        3) Deduplicate by workflow_id (keeping newest)
-        4) Sort by name for stable output ordering
-
-        Returns:
-            A list of unique, sorted WorkflowMetadata objects.
         """
         all_workflows: List[WorkflowMetadata] = []
         directories = self._get_workflow_directories()
 
         logger.debug(f"Searching for workflows in {len(directories)} directories")
 
+        # reset raw cache on full load so /workflows/raw doesn't return stale entries
+        self._raw_yaml_cache = {}
+
         for directory in directories:
             workflows = self._discover_workflows_from_directory(directory)
             all_workflows.extend(workflows)
             logger.debug(f"Found {len(workflows)} workflows in {directory}")
 
-        # Deduplicate by workflow_id
         unique_workflows: Dict[str, WorkflowMetadata] = {}
-
         for workflow in all_workflows:
             if workflow.workflow_id not in unique_workflows:
                 unique_workflows[workflow.workflow_id] = workflow
             else:
-                # If duplicates exist, keep whichever file appears "newer"
                 existing = unique_workflows[workflow.workflow_id]
                 if workflow.created_at > existing.created_at:
                     unique_workflows[workflow.workflow_id] = workflow
 
         workflows_list = list(unique_workflows.values())
-
-        # Stable ordering for UI + tests
         workflows_list.sort(key=lambda w: w.name.lower())
 
         logger.info(f"Loaded {len(workflows_list)} unique workflows")
@@ -392,32 +359,13 @@ class WorkflowDiscoveryService:
     # Cache management
     # ----------------------------------------------------------------------
     def _should_refresh_cache(self) -> bool:
-        """
-        Determine whether our in-memory cache is stale.
-
-        Returns:
-            True if cache age exceeds TTL.
-        """
         return (time.time() - self._cache_timestamp) > self._cache_ttl
 
     def _get_cached_workflows(self) -> List[WorkflowMetadata]:
-        """
-        Return workflows from cache, refreshing if needed.
-
-        Refresh happens when:
-        - Cache is empty (first run)
-        - Cache TTL has expired
-
-        Returns:
-            List of WorkflowMetadata currently cached.
-        """
         if not self._workflow_cache or self._should_refresh_cache():
             workflows = self._load_workflows()
-
-            # Cache as workflow_id -> WorkflowMetadata for fast lookup
             self._workflow_cache = {wf.workflow_id: wf for wf in workflows}
             self._cache_timestamp = time.time()
-
             logger.debug(f"Refreshed workflow cache with {len(workflows)} workflows")
 
         return list(self._workflow_cache.values())
@@ -432,38 +380,21 @@ class WorkflowDiscoveryService:
         category_filter: Optional[str] = None,
         complexity_filter: Optional[str] = None,
     ) -> List[WorkflowMetadata]:
-        """
-        Filter workflows by category, complexity, and full-text-ish search.
-
-        Args:
-            workflows: Workflows to filter (usually cached list)
-            search_query: Optional substring search across name/desc/tags/use_cases/id
-            category_filter: Optional exact match on category
-            complexity_filter: Optional exact match on complexity_level
-
-        Returns:
-            Filtered list of WorkflowMetadata.
-        """
         filtered = workflows
 
-        # Category filter is an exact match (normalized to lowercase)
         if category_filter:
             category_lower = category_filter.lower()
             filtered = [wf for wf in filtered if wf.category == category_lower]
 
-        # Complexity filter is an exact match (normalized to lowercase)
         if complexity_filter:
             complexity_lower = complexity_filter.lower()
             filtered = [wf for wf in filtered if wf.complexity_level == complexity_lower]
 
-        # Search query uses substring matching across multiple fields
         if search_query:
             search_lower = search_query.lower()
             search_filtered: List[WorkflowMetadata] = []
 
             for workflow in filtered:
-                # Construct a single string of searchable fields.
-                # This is a simple approach (not tokenized / ranked).
                 searchable_text = " ".join(
                     [
                         workflow.name.lower(),
@@ -492,26 +423,8 @@ class WorkflowDiscoveryService:
         limit: int = 10,
         offset: int = 0,
     ) -> WorkflowsResponse:
-        """
-        Return workflows with filtering + pagination.
-
-        Args:
-            search_query: Optional search term
-            category_filter: Optional category
-            complexity_filter: Optional complexity (low|medium|high|expert)
-            limit: Page size
-            offset: Page offset
-
-        Returns:
-            WorkflowsResponse including:
-            - workflows (current page)
-            - categories (all categories across all workflows)
-            - pagination metadata
-        """
-        # Load (cached) workflows
         all_workflows = self._get_cached_workflows()
 
-        # Apply user-provided filters/search
         filtered_workflows = self._filter_workflows(
             all_workflows,
             search_query,
@@ -519,12 +432,10 @@ class WorkflowDiscoveryService:
             complexity_filter,
         )
 
-        # Pagination calculations
         total_workflows = len(filtered_workflows)
         paginated_workflows = filtered_workflows[offset : offset + limit]
         has_more = (offset + len(paginated_workflows)) < total_workflows
 
-        # Provide a list of all categories for UI filter dropdowns, etc.
         categories = sorted(list(set(wf.category for wf in all_workflows)))
 
         logger.info(
@@ -545,17 +456,6 @@ class WorkflowDiscoveryService:
         )
 
     def get_workflow_by_id(self, workflow_id: str) -> Optional[WorkflowMetadata]:
-        """
-        Lookup a workflow by workflow_id.
-
-        This is used by the /workflows/{workflow_id} endpoint.
-
-        Args:
-            workflow_id: ID to look for (exact match)
-
-        Returns:
-            WorkflowMetadata if found, else None.
-        """
         workflows = self._get_cached_workflows()
         for workflow in workflows:
             if workflow.workflow_id == workflow_id:
@@ -566,8 +466,65 @@ class WorkflowDiscoveryService:
 # ===========================================================================
 # Global service instance
 # ===========================================================================
-# This is a singleton-like instance reused across requests in the process.
 workflow_service = WorkflowDiscoveryService()
+
+
+# ===========================================================================
+# POST /workflows/refresh  (✅ NEW)
+# ===========================================================================
+@router.post("/workflows/refresh")
+async def refresh_workflows() -> Dict[str, Any]:
+    """
+    Force refresh the workflow discovery cache immediately (dev-friendly).
+    """
+    try:
+        workflow_service.force_refresh()
+        return {"status": "ok", "count": len(workflow_service._get_cached_workflows())}
+    except Exception as e:
+        logger.error(f"Workflow refresh failed: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail={"error": "Failed to refresh workflows", "message": str(e), "type": type(e).__name__},
+        )
+
+
+# ===========================================================================
+# GET /workflows/raw/{workflow_id}  (✅ NEW)
+# ===========================================================================
+@router.get("/workflows/raw/{workflow_id}")
+async def get_workflow_raw_yaml(workflow_id: str) -> Dict[str, Any]:
+    """
+    Debug endpoint: return the raw parsed YAML for a workflow (as the server sees it).
+    Useful when a YAML file is being discovered but not behaving as expected.
+    """
+    try:
+        # validate workflow_id format (same policy as metadata endpoint)
+        if not workflow_id or not workflow_id.replace("_", "").replace("-", "").isalnum():
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "error": "Invalid workflow ID format",
+                    "message": "Workflow ID must contain only letters, numbers, hyphens, and underscores",
+                    "workflow_id": workflow_id,
+                },
+            )
+
+        raw = workflow_service.get_raw_yaml_by_id(workflow_id)
+        if raw is None:
+            raise HTTPException(
+                status_code=404,
+                detail={"error": "Workflow not found", "message": f"No workflow found with ID: {workflow_id}", "workflow_id": workflow_id},
+            )
+        return {"workflow_id": workflow_id, "raw": raw}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Workflow raw retrieval failed for {workflow_id}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail={"error": "Failed to retrieve workflow raw YAML", "message": str(e), "type": type(e).__name__, "workflow_id": workflow_id},
+        )
 
 
 # ===========================================================================
@@ -602,16 +559,6 @@ async def get_workflows(
 ) -> WorkflowsResponse:
     """
     Discover and retrieve available workflows.
-
-    Endpoint behavior:
-    - Scans configured directories for YAML workflow definitions
-      (via cached WorkflowDiscoveryService)
-    - Extracts normalized metadata per workflow
-    - Applies optional search + filtering
-    - Returns a paginated list plus category list for UI filtering
-
-    Raises:
-        HTTPException(500) on unexpected discovery errors.
     """
     try:
         logger.info(
@@ -619,7 +566,6 @@ async def get_workflows(
             f"complexity='{complexity}', limit={limit}, offset={offset}"
         )
 
-        # Delegate discovery/search/filtering/pagination to the service layer
         response = workflow_service.get_workflows(
             search_query=search,
             category_filter=category,
@@ -637,7 +583,6 @@ async def get_workflows(
         return response
 
     except Exception as e:
-        # Catch-all: we intentionally avoid leaking raw exceptions to the client.
         logger.error(f"Workflows endpoint failed: {e}")
         raise HTTPException(
             status_code=500,
@@ -656,24 +601,10 @@ async def get_workflows(
 async def get_workflow_by_id(workflow_id: str) -> WorkflowMetadata:
     """
     Retrieve metadata for a single workflow.
-
-    This endpoint:
-    - Validates workflow_id format (simple alnum + '_' + '-')
-    - Looks up workflow metadata in the cached discovery service
-    - Returns 404 if not found
-
-    Raises:
-        HTTPException(422) if workflow_id is invalid
-        HTTPException(404) if workflow_id not found
-        HTTPException(500) on unexpected errors
     """
     try:
         logger.info(f"Retrieving workflow metadata for workflow_id: {workflow_id}")
 
-        # Validate workflow_id format early to avoid weird path-like IDs or injection-y strings.
-        # This is intentionally conservative:
-        # - underscores and hyphens are allowed
-        # - everything else must be alphanumeric
         if not workflow_id or not workflow_id.replace("_", "").replace("-", "").isalnum():
             logger.warning(f"Invalid workflow_id format: {workflow_id}")
             raise HTTPException(
@@ -688,10 +619,8 @@ async def get_workflow_by_id(workflow_id: str) -> WorkflowMetadata:
                 },
             )
 
-        # Lookup workflow metadata from service
         workflow = workflow_service.get_workflow_by_id(workflow_id)
 
-        # Not found -> 404
         if workflow is None:
             logger.warning(f"Workflow not found: {workflow_id}")
             raise HTTPException(
@@ -711,11 +640,9 @@ async def get_workflow_by_id(workflow_id: str) -> WorkflowMetadata:
         return workflow
 
     except HTTPException:
-        # Important: let FastAPI return the intended status codes for known failure modes.
         raise
 
     except Exception as e:
-        # Catch-all for unexpected server errors
         logger.error(f"Workflow retrieval failed for {workflow_id}: {e}")
         raise HTTPException(
             status_code=500,

@@ -17,6 +17,7 @@ from OSSS.ai.api.models import (
 
 from OSSS.ai.api.factory import get_orchestration_api
 from OSSS.ai.observability import get_logger
+from OSSS.ai.api.models import WorkflowHistoryResponse, WorkflowHistoryItem
 
 # ✅ use shared sanitizer
 from OSSS.ai.utils import _sanitize_for_json  # adjust import if your utils live elsewhere

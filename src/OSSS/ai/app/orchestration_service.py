@@ -75,6 +75,21 @@ class OrchestrationService:
 
         preflight = await self._preflight.preflight(request=request, config=config)
 
+        final_agents = list(preflight.config.get("agents") or [])
+        logger.debug(
+            "Workflow routing resolved",
+            extra={
+                "selected_graph": preflight.selected_graph,
+                "routing_source": preflight.routing_source,
+                "resolved_workflow_id": preflight.config.get("resolved_workflow_id"),
+                "resolved_workflow_version": preflight.config.get("resolved_workflow_version"),
+                "selected_workflow_id": preflight.config.get("selected_workflow_id"),
+                "final_agents": final_agents,
+                "use_llm_intent": bool(preflight.config.get("use_llm_intent", False)),
+            },
+        )
+
+
         # track + started
         self._store.start(ident.workflow_run_id, request=request, query_profile=preflight.qp)
         self._events.started(ident=ident, request=request, metadata={"query_profile": preflight.qp})
@@ -194,6 +209,21 @@ class OrchestrationService:
 
     async def _after_response(self, request, ident, preflight, response, exec_result, status, err) -> None:
         assert self._persist and self._events
+
+        # ✅ surface routing resolution into response
+        # prefer resolved_workflow_id if preflight set it, otherwise fall back to selected_workflow_id
+        try:
+            response.resolved_workflow_id = (
+                    preflight.config.get("resolved_workflow_id")
+                    or preflight.config.get("selected_workflow_id")
+            )
+            response.resolved_workflow_version = preflight.config.get("resolved_workflow_version")
+        except Exception:
+            # never fail persistence/telemetry because of these optional fields
+            pass
+
         self._store.complete(ident.workflow_run_id, status=status, response=response)
-        await self._persist.best_effort_save(request=request, response=response, workflow_id=ident.workflow_run_id)
+        await self._persist.best_effort_save(
+            request=request, response=response, workflow_id=ident.workflow_run_id
+        )
         self._events.completed(ident=ident, response=response, status=status, error_message=err)

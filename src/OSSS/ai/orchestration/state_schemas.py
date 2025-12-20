@@ -1,53 +1,50 @@
 """
-LangGraph state schemas for OSSS agents.
+LangGraph state schemas for OSSS agents (refactored).
 
-This module provides TypedDict definitions for type-safe state management
-in LangGraph StateGraph execution. Each agent output is strictly typed
-to ensure consistency and enable proper validation.
-
-Design Principles:
-- Type safety through TypedDict definitions
-- Clear separation of agent outputs
-- Validation helpers for state integrity
-- Comprehensive documentation for maintainability
+Refactor goals (aligned with recent node_wrappers + GraphFactory changes):
+- Keep OSSSState as a TypedDict with reducer annotations (LangGraph concurrency-safe).
+- Make the "guard pipeline" keys match the new graph builder + node wrappers:
+    - data_views (plural) not data_view
+    - guard_decision stored at top-level for routing
+    - execution_state remains the "legacy bag" for node wrappers to stash inputs/outputs
+- Add query_profile + routing_decision fields (node_wrappers Option B uses them).
+- Make OSSSContext resilient to runtime kwargs (emit_events) to avoid crashes.
+- Make create_initial_state NOT hardcode requested agents (GraphFactory/orchestrator decide).
+- Keep helpers minimal + tolerant of partial state (nodes often return patches).
 """
 
-from typing import List, Dict, Any, Optional, Union, Annotated
-from typing_extensions import TypedDict
-from datetime import datetime, timezone
+from __future__ import annotations
+
 from dataclasses import dataclass
+from datetime import datetime, timezone
 import operator
+from typing import Any, Dict, List, Optional, Union, Annotated
+
+from typing_extensions import TypedDict
 
 
-def merge_structured_outputs(
-    left: Dict[str, Any], right: Dict[str, Any]
-) -> Dict[str, Any]:
+# -----------------------------------------------------------------------------
+# Reducers (for concurrent updates)
+# -----------------------------------------------------------------------------
+def merge_structured_outputs(left: Dict[str, Any], right: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Merge two structured output dicts for concurrent LangGraph updates.
-
-    This reducer allows multiple agents (e.g., critic and historian) to
-    write to structured_outputs in parallel without conflicts. The right
-    dict values override left dict values for matching keys.
-
-    Parameters
-    ----------
-    left : Dict[str, Any]
-        Existing structured outputs
-    right : Dict[str, Any]
-        New structured outputs to merge
-
-    Returns
-    -------
-    Dict[str, Any]
-        Merged structured outputs with right values taking precedence
+    Merge two dicts for concurrent LangGraph updates.
+    Right wins for overlapping keys.
     """
+    if not isinstance(left, dict):
+        left = {}
+    if not isinstance(right, dict):
+        right = {}
     return {**left, **right}
 
 
+# -----------------------------------------------------------------------------
+# Guard pipeline payloads (normalized)
+# -----------------------------------------------------------------------------
 class GuardState(TypedDict, total=False):
     allowed: bool
-    decision: str                 # "allow" | "block" | "requires_confirmation"
-    action: str                   # e.g. "noop"
+    decision: str  # "allow" | "block" | "requires_confirmation"
+    action: str
     reason: str
     message: str
     safe_response: str
@@ -56,7 +53,7 @@ class GuardState(TypedDict, total=False):
 
 class AnswerSearchState(TypedDict, total=False):
     ok: bool
-    type: str                     # "answer_search"
+    type: str  # "answer_search"
     answer_text: str
     sources: List[Any]
     fallback: bool
@@ -65,283 +62,160 @@ class AnswerSearchState(TypedDict, total=False):
 
 
 class UIResponseState(TypedDict, total=False):
-    status: str                   # "ok" | "blocked" | "requires_confirmation"
+    status: str  # "ok" | "blocked" | "requires_confirmation"
     message: str
     sources: List[Any]
     timestamp: str
+    mode: str  # optional: "answer_search" | "data_views"
 
 
-class RefinerState(TypedDict):
-    """
-    Output schema for the RefinerAgent.
-
-    The RefinerAgent transforms raw user queries into structured,
-    clarified prompts for downstream processing.
-    """
-
+# -----------------------------------------------------------------------------
+# Agent outputs (kept compatible with node_wrappers)
+# -----------------------------------------------------------------------------
+class RefinerState(TypedDict, total=False):
     refined_question: str
-    """The clarified and structured version of the original query."""
-
     topics: List[str]
-    """List of identified topics and themes in the query."""
-
     confidence: float
-    """Confidence score (0.0-1.0) in the refinement quality."""
-
     processing_notes: Optional[str]
-    """Optional notes about the refinement process."""
-
     timestamp: str
-    """ISO timestamp when refinement was completed."""
+    agent_output_meta: Dict[str, Any]
 
 
-class CriticState(TypedDict):
-    """
-    Output schema for the CriticAgent.
-
-    The CriticAgent provides analytical critique and evaluation
-    of the refined query and suggests improvements.
-    """
-
+class CriticState(TypedDict, total=False):
     critique: str
-    """Detailed critique of the refined question and approach."""
-
     suggestions: List[str]
-    """List of specific improvement suggestions."""
-
     severity: str
-    """Severity level: 'low', 'medium', 'high', 'critical'."""
-
     strengths: List[str]
-    """Identified strengths in the current approach."""
-
     weaknesses: List[str]
-    """Identified weaknesses or gaps in the approach."""
-
     confidence: float
-    """Confidence score (0.0-1.0) in the critique accuracy."""
-
     timestamp: str
-    """ISO timestamp when critique was completed."""
+    agent_output_meta: Dict[str, Any]
 
 
-class HistorianState(TypedDict):
-    """
-    Output schema for the HistorianAgent.
-
-    The HistorianAgent retrieves and analyzes historical context
-    using intelligent search and LLM-powered relevance analysis.
-    """
-
+class HistorianState(TypedDict, total=False):
     historical_summary: str
-    """Synthesized historical context relevant to the current query."""
-
     retrieved_notes: List[str]
-    """List of filepaths for notes that were retrieved and used."""
-
     search_results_count: int
-    """Number of search results found before filtering."""
-
     filtered_results_count: int
-    """Number of results after relevance filtering."""
-
     search_strategy: str
-    """Type of search strategy used (e.g., 'hybrid', 'tag-based', 'keyword')."""
-
     topics_found: List[str]
-    """List of topics identified in the retrieved historical content."""
-
     confidence: float
-    """Confidence score (0.0-1.0) in the historical context relevance."""
-
     llm_analysis_used: bool
-    """Whether LLM was used for relevance analysis and synthesis."""
-
     metadata: Dict[str, Any]
-    """Additional metadata about the historical search process."""
-
     timestamp: str
-    """ISO timestamp when historical analysis was completed."""
+    agent_output_meta: Dict[str, Any]
 
 
-class SynthesisState(TypedDict):
-    """
-    Output schema for the SynthesisAgent.
-
-    The SynthesisAgent generates final synthesis from multiple
-    agent outputs, creating coherent and comprehensive analysis.
-    """
-
+class SynthesisState(TypedDict, total=False):
     final_analysis: str
-    """Comprehensive final analysis integrating all inputs."""
-
     key_insights: List[str]
-    """List of key insights derived from the analysis."""
-
     sources_used: List[str]
-    """List of source agents/outputs used in synthesis."""
-
     themes_identified: List[str]
-    """Major themes identified across all inputs."""
-
     conflicts_resolved: int
-    """Number of conflicts resolved during synthesis."""
-
     confidence: float
-    """Confidence score (0.0-1.0) in the synthesis quality."""
-
     metadata: Dict[str, Any]
-    """Additional metadata about the synthesis process."""
-
     timestamp: str
-    """ISO timestamp when synthesis was completed."""
+    agent_output_meta: Dict[str, Any]
 
 
-class ExecutionMetadata(TypedDict):
-    """
-    Metadata about the LangGraph execution process.
-    """
-
+# -----------------------------------------------------------------------------
+# Execution metadata (make optional-ish + tolerant)
+# -----------------------------------------------------------------------------
+class ExecutionMetadata(TypedDict, total=False):
     execution_id: str
-    """Unique identifier for this execution."""
-
     correlation_id: Optional[str]
-    """Correlation ID for event tracking and WebSocket filtering."""
-
     start_time: str
-    """ISO timestamp when execution started."""
-
     orchestrator_type: str
-    """Type of orchestrator: 'langgraph-real'."""
-
     agents_requested: List[str]
-    """List of agents requested for execution."""
-
     execution_mode: str
-    """Execution mode: 'langgraph-real'."""
-
     phase: str
-    """Implementation phase: e.g. 'phase2_1'."""
 
 
-class OSSSState(TypedDict):
-    """
-    Master state schema for OSSS LangGraph execution.
-
-    This represents the complete state that flows through the
-    LangGraph StateGraph during execution. Each agent contributes
-    its typed output to this shared state.
-
-    State Flow:
-    1. Initial state created with query and metadata
-    2. Refiner adds RefinerState to state["refiner"]
-    3. Critic and Historian run in parallel after refiner
-    4. Critic adds CriticState to state["critic"]
-    5. Historian adds HistorianState to state["historian"]
-    6. Synthesis adds SynthesisState to state["synthesis"]
-    7. Final state contains all agent outputs
-    """
-
+# -----------------------------------------------------------------------------
+# OSSSState (master LangGraph state)
+# -----------------------------------------------------------------------------
+class OSSSState(TypedDict, total=False):
     # Core input
     query: str
-    """The original user query to process."""
 
-    # Agent outputs (populated during execution)
+    # Optional: profiling info injected by orchestrator (use_llm_intent)
+    query_profile: Dict[str, Any]
+    routing_decision: Dict[str, Any]
+
+    # Agent outputs
     refiner: Optional[RefinerState]
-    """RefinerState from the RefinerAgent (populated after refiner node)."""
-
     critic: Optional[CriticState]
-    """Output from the CriticAgent (populated after critic node)."""
-
     historian: Optional[HistorianState]
-    """Output from the HistorianAgent (populated after historian node)."""
-
     synthesis: Optional[SynthesisState]
-    """Output from the SynthesisAgent (populated after synthesis node)."""
-
-    # Execution tracking
-    execution_metadata: ExecutionMetadata
-    """Metadata about the current execution."""
-
-    # Error handling
-    errors: Annotated[List[Dict[str, Any]], operator.add]
-    """List of errors encountered during execution."""
-
-    # Success tracking
-    successful_agents: Annotated[List[str], operator.add]
-    """List of agents that completed successfully."""
-
-    failed_agents: Annotated[List[str], operator.add]
-    """List of agents that failed during execution."""
-
-    # Structured outputs (for API/database persistence)
-    structured_outputs: Annotated[Dict[str, Any], merge_structured_outputs]
-    """Full Pydantic model outputs from agents for database/API persistence."""
-
-    # Legacy / wrapper execution bag
-    execution_state: Dict[str, Any]
 
     # Guard pipeline routing + outputs
     guard_decision: Optional[str]
     guard: Optional[GuardState]
     answer_search: Optional[AnswerSearchState]
+
+    # Data views output (plural, matches node_wrappers + GraphFactory)
+    data_views: Optional[Dict[str, Any]]
+
+    # Final UI response
     final_response: Optional[UIResponseState]
-    ui_response: Optional[UIResponseState]
+    ui_response: Optional[UIResponseState]  # legacy convenience
 
-    # Optional: if you return it from data_view_node
-    data_view: Optional[Dict[str, Any]]
+    # Execution tracking
+    execution_metadata: ExecutionMetadata
+
+    # Legacy / wrapper execution bag (node_wrappers uses this heavily)
+    execution_state: Dict[str, Any]
+
+    # Error + success tracking (reducers support parallel node updates)
+    errors: Annotated[List[Dict[str, Any]], operator.add]
+    successful_agents: Annotated[List[str], operator.add]
+    failed_agents: Annotated[List[str], operator.add]
+
+    # Structured outputs (reducers support parallel node updates)
+    structured_outputs: Annotated[Dict[str, Any], merge_structured_outputs]
 
 
-# Type aliases for improved clarity
+# Type aliases
 LangGraphState = OSSSState
-"""Alias for OSSSState to improve code readability."""
-
 AgentStateUnion = Union[RefinerState, CriticState, HistorianState, SynthesisState]
-"""Union type for any agent output schema."""
 
 
-def create_initial_state(
-    query: str, execution_id: str, correlation_id: Optional[str] = None
-) -> OSSSState:
+# -----------------------------------------------------------------------------
+# Helpers
+# -----------------------------------------------------------------------------
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def create_initial_state(query: str, execution_id: str, correlation_id: Optional[str] = None) -> OSSSState:
     """
-    Create initial LangGraph state for execution.
+    Create the initial LangGraph state.
 
-    Parameters
-    ----------
-    query : str
-        The user query to process
-    execution_id : str
-        Unique identifier for this execution
-
-    Returns
-    -------
-    OSSSState
-        Initial state ready for LangGraph execution
+    Note:
+    - Do NOT hardcode agents_requested here. Orchestrator/GraphFactory decide the plan.
+    - Keep this tolerant: many nodes return partial patches, and reducers merge.
     """
-    now = datetime.now(timezone.utc).isoformat()
-
+    now = _now_iso()
     return OSSSState(
         query=query,
         refiner=None,
         critic=None,
         historian=None,
         synthesis=None,
-
-        execution_state={},
-
         guard_decision=None,
         guard=None,
         answer_search=None,
+        data_views=None,
         final_response=None,
         ui_response=None,
-        data_view=None,
-
+        query_profile={},
+        routing_decision={},
+        execution_state={},
         execution_metadata=ExecutionMetadata(
             execution_id=execution_id,
             correlation_id=correlation_id,
             start_time=now,
             orchestrator_type="langgraph-real",
-            agents_requested=["refiner", "critic", "historian", "synthesis"],
             execution_mode="langgraph-real",
             phase="phase2_1",
         ),
@@ -354,225 +228,125 @@ def create_initial_state(
 
 def validate_state_integrity(state: OSSSState) -> bool:
     """
-    Validate LangGraph state integrity.
+    Lightweight integrity check.
 
-    Parameters
-    ----------
-    state : OSSSState
-        State to validate
-
-    Returns
-    -------
-    bool
-        True if state is valid, False otherwise
+    Keep permissive: in LangGraph, node returns are often partial patches.
+    This should validate "minimum viable state" rather than strict completeness.
     """
-    try:
-        # Check that state is a dict-like object
-        if not isinstance(state, dict):
-            return False
-
-        # Check required fields
-        if not state.get("query"):
-            return False
-
-        if not state.get("execution_metadata"):
-            return False
-
-        # Check metadata integrity
-        metadata = state["execution_metadata"]
-        if not metadata.get("execution_id"):
-            return False
-
-        # Validate agent outputs if present
-        if state.get("refiner"):
-            refiner: Optional[RefinerState] = state["refiner"]
-            if (
-                refiner is None
-                or not refiner.get("refined_question")
-                or not refiner.get("timestamp")
-            ):
-                return False
-
-        if state.get("critic"):
-            critic: Optional[CriticState] = state["critic"]
-            if (
-                critic is None
-                or not critic.get("critique")
-                or not critic.get("timestamp")
-            ):
-                return False
-
-        if state.get("historian"):
-            historian: Optional[HistorianState] = state["historian"]
-            if (
-                historian is None
-                or not historian.get("historical_summary")
-                or not historian.get("timestamp")
-            ):
-                return False
-
-        if state.get("synthesis"):
-            synthesis: Optional[SynthesisState] = state["synthesis"]
-            if (
-                synthesis is None
-                or not synthesis.get("final_analysis")
-                or not synthesis.get("timestamp")
-            ):
-                return False
-
-        return True
-
-    except (KeyError, TypeError):
+    if not isinstance(state, dict):
         return False
 
+    q = state.get("query")
+    if not isinstance(q, str) or not q:
+        return False
 
-def get_agent_state(
-    state: OSSSState, agent_name: str
-) -> Optional[AgentStateUnion]:
+    meta = state.get("execution_metadata")
+    if meta is not None and not isinstance(meta, dict):
+        return False
+
+    # If execution_metadata present, execution_id should exist
+    if isinstance(meta, dict):
+        eid = meta.get("execution_id")
+        if eid is not None and (not isinstance(eid, str) or not eid):
+            return False
+
+    return True
+
+
+def get_agent_state(state: OSSSState, agent_name: str) -> Optional[AgentStateUnion]:
+    name = (agent_name or "").strip().lower()
+    if name in {"refiner", "critic", "historian", "synthesis"}:
+        return state.get(name)  # type: ignore[return-value]
+    return None
+
+
+def set_agent_state(state: OSSSState, agent_name: str, output: AgentStateUnion) -> OSSSState:
     """
-    Get typed agent state from state.
+    Set an agent output into the state, returning a shallow copy.
 
-    Parameters
-    ----------
-    state : OSSSState
-        Current state
-    agent_name : str
-        Name of agent ('refiner', 'critic', 'historian', 'synthesis')
-
-    Returns
-    -------
-    AgentState or None
-        Typed agent state if available
+    Prefer using node returns + reducers in LangGraph; this helper is mainly for tests/utilities.
     """
-    agent_name = agent_name.lower()
+    name = (agent_name or "").strip().lower()
+    new_state: OSSSState = dict(state)  # shallow copy is enough for TypedDict
+    if name in {"refiner", "critic", "historian", "synthesis"} and isinstance(output, dict):
+        new_state[name] = output  # type: ignore[literal-required]
 
-    if agent_name == "refiner":
-        return state.get("refiner")
-    elif agent_name == "critic":
-        return state.get("critic")
-    elif agent_name == "historian":
-        return state.get("historian")
-    elif agent_name == "synthesis":
-        return state.get("synthesis")
-    else:
-        return None
-
-
-def set_agent_state(
-    state: OSSSState, agent_name: str, output: AgentStateUnion
-) -> OSSSState:
-    """
-    Set typed agent state in state.
-
-    Parameters
-    ----------
-    state : OSSSState
-        Current state
-    agent_name : str
-        Name of agent ('refiner', 'critic', 'historian', 'synthesis')
-    output : AgentState
-        Typed agent state to set
-
-    Returns
-    -------
-    OSSSState
-        Updated state with agent state
-    """
-    # Create a deep copy to avoid mutations
-    new_state = state.copy()
-    # Deep copy mutable lists
-    new_state["successful_agents"] = state["successful_agents"].copy()
-    new_state["failed_agents"] = state["failed_agents"].copy()
-    new_state["errors"] = state["errors"].copy()
-
-    agent_name = agent_name.lower()
-
-    if agent_name == "refiner" and isinstance(output, dict):
-        new_state["refiner"] = output  # type: ignore
-    elif agent_name == "critic" and isinstance(output, dict):
-        new_state["critic"] = output  # type: ignore
-    elif agent_name == "historian" and isinstance(output, dict):
-        new_state["historian"] = output  # type: ignore
-    elif agent_name == "synthesis" and isinstance(output, dict):
-        new_state["synthesis"] = output  # type: ignore
-
-    # Track successful completion - append single item for LangGraph reducer
-    if agent_name not in new_state["successful_agents"]:
-        new_state["successful_agents"].append(agent_name)
-
+    # Track success (non-reducer-safe outside graph, but fine for utilities)
+    sa = list(state.get("successful_agents") or [])
+    if name and name not in sa:
+        sa.append(name)
+    new_state["successful_agents"] = sa  # type: ignore[assignment]
     return new_state
 
 
-def record_agent_error(
-    state: OSSSState, agent_name: str, error: Exception
-) -> OSSSState:
+def record_agent_error(state: OSSSState, agent_name: str, error: Exception) -> OSSSState:
     """
-    Record agent execution error in state.
-
-    Handles both complete and partial state objects gracefully.
-
-    Parameters
-    ----------
-    state : OSSSState
-        Current state (may be partial)
-    agent_name : str
-        Name of failed agent
-    error : Exception
-        Error that occurred
-
-    Returns
-    -------
-    OSSSState
-        Updated state with error recorded
+    Record an agent error into state in a tolerant way.
+    Safe for partial state objects.
     """
-    new_state = state.copy()
-    # Deep copy mutable lists - handle partial state
-    new_state["successful_agents"] = (
-        state.get("successful_agents", []).copy()
-        if isinstance(state.get("successful_agents"), list)
-        else []
+    name = (agent_name or "").strip().lower()
+    new_state: OSSSState = dict(state)
+
+    errors = list(state.get("errors") or [])
+    failed = list(state.get("failed_agents") or [])
+
+    errors.append(
+        {
+            "agent": name or agent_name,
+            "error_type": type(error).__name__,
+            "error_message": str(error),
+            "timestamp": _now_iso(),
+        }
     )
-    new_state["failed_agents"] = (
-        state.get("failed_agents", []).copy()
-        if isinstance(state.get("failed_agents"), list)
-        else []
-    )
-    new_state["errors"] = (
-        state.get("errors", []).copy() if isinstance(state.get("errors"), list) else []
-    )
+    if name and name not in failed:
+        failed.append(name)
 
-    error_record = {
-        "agent": agent_name,
-        "error_type": type(error).__name__,
-        "error_message": str(error),
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-    }
-
-    new_state["errors"].append(error_record)
-
-    if agent_name not in new_state["failed_agents"]:
-        new_state["failed_agents"].append(agent_name)
-
+    new_state["errors"] = errors  # type: ignore[assignment]
+    new_state["failed_agents"] = failed  # type: ignore[assignment]
     return new_state
 
 
+# -----------------------------------------------------------------------------
+# OSSSContext (runtime context passed to nodes)
+# -----------------------------------------------------------------------------
 @dataclass
 class OSSSContext:
     """
-    Context schema for OSSS LangGraph execution.
+    Context passed to LangGraph nodes.
 
-    This context is passed to all nodes during graph execution,
-    providing thread-scoped information and configuration.
+    IMPORTANT:
+    - LangGraph runtime may pass additional kwargs (e.g. emit_events).
+      Accept it to avoid: OSSSContext.__init__() got unexpected keyword argument 'emit_events'
+    - Also accept arbitrary extras for forward compatibility (ignored).
     """
-
     thread_id: str
     execution_id: str
     query: str
     correlation_id: Optional[str] = None
     enable_checkpoints: bool = False
 
+    # LangGraph/runtime flags
+    emit_events: bool = False
 
-# Export commonly used types for convenience
+    # Forward compatibility: ignore unexpected kwargs without crashing.
+    def __init__(
+        self,
+        thread_id: str,
+        execution_id: str,
+        query: str,
+        correlation_id: Optional[str] = None,
+        enable_checkpoints: bool = False,
+        emit_events: bool = False,
+        **_: Any,
+    ) -> None:
+        self.thread_id = thread_id
+        self.execution_id = execution_id
+        self.query = query
+        self.correlation_id = correlation_id
+        self.enable_checkpoints = enable_checkpoints
+        self.emit_events = emit_events
+
+
 __all__ = [
     "OSSSState",
     "LangGraphState",
