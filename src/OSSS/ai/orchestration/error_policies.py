@@ -7,7 +7,6 @@ and circuit breaker decorators for robust LangGraph node execution.
 
 import time
 import asyncio
-import logging
 from typing import Dict, Any, Optional, Callable, List, TypeVar, Coroutine, cast
 from enum import Enum
 from functools import wraps
@@ -15,7 +14,9 @@ from functools import wraps
 from pydantic import BaseModel, Field, ConfigDict
 from OSSS.ai.common import CircuitState
 
-logger = logging.getLogger(__name__)
+from OSSS.ai.observability import get_logger
+
+logger = get_logger(__name__)
 
 # TypeVar for generic decorator typing
 F = TypeVar("F", bound=Callable[..., Coroutine[Any, Any, Any]])

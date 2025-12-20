@@ -1,4 +1,3 @@
-import logging
 import json
 import gzip
 import hashlib
@@ -9,7 +8,9 @@ from pydantic import BaseModel, Field, ConfigDict, field_validator, model_valida
 from .config.app_config import get_config
 from .exceptions import StateTransitionError
 
-logger = logging.getLogger(__name__)
+from OSSS.ai.observability import get_logger
+
+logger = get_logger(__name__)
 
 
 class ContextSnapshot(BaseModel):

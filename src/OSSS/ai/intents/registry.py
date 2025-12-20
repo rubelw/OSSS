@@ -3,9 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Dict, List, Optional
 from .types import Intent
-import logging
+from OSSS.ai.observability import get_logger
 
-logger = logging.getLogger("OSSS.ai.intents.heuristics.registry")
+logger = get_logger(__name__)
 
 _LANGCHAIN_AGENTS: Dict[str, Agent] = {}
 

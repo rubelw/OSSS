@@ -13,7 +13,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from OSSS.ai.observability import get_logger
-from OSSS.ai.utils.json_sanitize import sanitize_for_json as _sanitize_for_json
+from OSSS.ai.utils.json_sanitize import sanitize_for_json
 
 logger = get_logger(__name__)
 
@@ -69,7 +69,7 @@ class BaseRepository(Generic[ModelType], ABC):
         """
         for key in self.JSON_FIELD_NAMES:
             if key in kwargs and kwargs[key] is not None:
-                kwargs[key] = _sanitize_for_json(kwargs[key])
+                kwargs[key] = sanitize_for_json(kwargs[key])
         return kwargs
 
     def _build_idempotency_extra(self, kwargs: dict[str, Any]) -> dict[str, Any]:

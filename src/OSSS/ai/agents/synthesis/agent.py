@@ -1,4 +1,3 @@
-import logging
 from typing import Dict, Any, Optional, Union
 import asyncio
 from OSSS.ai.agents.base_agent import (
@@ -19,7 +18,9 @@ from OSSS.ai.services.langchain_service import LangChainService
 from OSSS.ai.agents.models import SynthesisOutput, SynthesisTheme, ConfidenceLevel
 from OSSS.ai.utils.llm_text import coerce_llm_text
 
-logger = logging.getLogger(__name__)
+from OSSS.ai.observability import get_logger
+
+logger = get_logger(__name__)
 
 
 class SynthesisAgent(BaseAgent):

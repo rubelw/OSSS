@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
 import asyncio
-import logging
 import uuid
 from datetime import datetime, timezone
 from typing import Optional, Dict, Any, List, Coroutine
@@ -21,6 +20,10 @@ from OSSS.ai.correlation import (
     get_correlation_id,
     get_workflow_id,
 )
+
+from OSSS.ai.observability import get_logger
+
+logger = get_logger(__name__)
 
 from OSSS.ai.agents.output_envelope import AgentOutputEnvelope
 

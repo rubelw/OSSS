@@ -4,7 +4,6 @@ from __future__ import annotations
 import json
 import re
 import os
-import logging
 from typing import Any, Dict, Optional, Literal
 
 from pydantic import BaseModel
@@ -25,9 +24,9 @@ from OSSS.ai.agents.guard.prompts import (
     GUARD_USER_TEMPLATE,
 )
 
+from OSSS.ai.observability import get_logger
 
-logger = logging.getLogger(__name__)
-
+logger = get_logger(__name__)
 
 class GuardDecision(BaseModel):
     """

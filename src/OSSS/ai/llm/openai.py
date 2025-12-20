@@ -1,6 +1,7 @@
 import asyncio
 from dataclasses import dataclass
 import time
+import json
 from typing import Any, Iterator, Optional, Callable, Union, cast, List, Generator, Dict, TypeVar
 
 import openai
@@ -27,9 +28,89 @@ from OSSS.ai.exceptions import (
     LLMError,
 )
 from OSSS.ai.observability import get_logger, get_observability_context
+from urllib.parse import urlparse
+
+
+JsonValue = Union[dict[str, Any], list[Any]]
 
 T = TypeVar("T", bound=BaseModel)
 
+def _detect_is_ollama(base_url: Optional[str]) -> bool:
+    if not base_url:
+        return False
+
+    try:
+        u = urlparse(base_url)
+        host = (u.hostname or "").lower()
+        port = u.port
+
+        # Strong signal: default Ollama OpenAI-compat port
+        if port == 11434:
+            return True
+
+        # Supporting signals: common Ollama deployment hostnames
+        if any(k in host for k in ("ollama", "host.containers.internal", "localhost", "127.0.0.1")):
+            # If you ever reverse-proxy Ollama, this helps a bit without being too eager.
+            return True
+
+        return False
+    except Exception:
+        # Be conservative if parsing fails
+        return "11434" in (base_url or "")
+
+
+def _extract_llm_content(raw: Any) -> Optional[Union[str, JsonValue]]:
+    if raw is None:
+        return None
+
+    # If generate() already returns a plain string
+    if isinstance(raw, str):
+        return raw
+
+    # OpenAI-ish response dict
+    if isinstance(raw, dict):
+        # Common OpenAI/Ollama-compatible: {"choices":[{"message":{"content": ...}}]}
+        choices = raw.get("choices")
+        if isinstance(choices, list) and choices:
+            ch0 = choices[0]
+            if isinstance(ch0, dict):
+                msg = ch0.get("message")
+                if isinstance(msg, dict):
+                    content = msg.get("content")
+                    if isinstance(content, (str, dict, list)):
+                        return content
+                # Some providers put plain text here
+                if isinstance(ch0.get("text"), str):
+                    return ch0["text"]
+
+        # Some wrappers return {"content": ...}
+        content = raw.get("content")
+        if isinstance(content, (str, dict, list)):
+            return content
+
+        if isinstance(raw.get("text"), str):
+            return raw["text"]
+
+    # Pydantic-ish
+    if hasattr(raw, "model_dump"):
+        try:
+            return _extract_llm_content(raw.model_dump())
+        except Exception:
+            return None
+
+    if hasattr(raw, "dict"):
+        try:
+            return _extract_llm_content(raw.dict())
+        except Exception:
+            return None
+
+    # Attributes
+    for attr in ("content", "text"):
+        v = getattr(raw, attr, None)
+        if isinstance(v, (str, dict, list)):
+            return v
+
+    return str(raw)
 
 @dataclass
 class OpenAIInvokeResult:
@@ -51,15 +132,21 @@ class OpenAIChatLLM(LLMInterface):
         *,
         timeout_seconds: float = 30.0,
         max_retries: int = 2,
+        # Optional explicit override (nice for tests / proxies)
+        provider: Optional[str] = None,  # "openai" | "ollama"
     ) -> None:
         self.api_key = api_key
         self.model: Optional[str] = model
         self.base_url: Optional[str] = base_url
 
-        # Detect Ollama-ish base_url (your logs: http://host.containers.internal:11434)
-        self._is_ollama = bool(base_url) and ("11434" in (base_url or ""))
+        if provider == "ollama":
+            self._is_ollama = True
+        elif provider == "openai":
+            self._is_ollama = False
+        else:
+            self._is_ollama = _detect_is_ollama(base_url)
 
-        # Strongly recommended for Ollama: disable SDK retries to avoid repeated calls
+        # Recommended for Ollama: disable SDK retries to avoid repeated calls
         if self._is_ollama and max_retries > 0:
             max_retries = 0
 
@@ -90,8 +177,8 @@ class OpenAIChatLLM(LLMInterface):
         # OpenAI: response_format={"type":"json_object"}
         rf = out.get("response_format")
         wants_json_object = (
-            force_json
-            or (isinstance(rf, dict) and rf.get("type") == "json_object")
+                force_json
+                or (isinstance(rf, dict) and rf.get("type") == "json_object")
         )
 
         if self._is_ollama and wants_json_object:
@@ -101,18 +188,21 @@ class OpenAIChatLLM(LLMInterface):
             # Ollama may not understand response_format; remove it to be safe
             out.pop("response_format", None)
 
+        # IMPORTANT: never pass extra_json into OpenAI SDK calls (not supported)
+        out.pop("extra_json", None)
+
         if extra_body:
             out["extra_body"] = extra_body
 
         return out
 
     def _chat_completion(
-        self,
-        *,
-        messages: List[ChatCompletionMessageParam],
-        stream: bool,
-        on_log: Optional[Callable[[str], None]] = None,
-        **kwargs: Any,
+            self,
+            *,
+            messages: List[ChatCompletionMessageParam],
+            stream: bool,
+            on_log: Optional[Callable[[str], None]] = None,
+            **kwargs: Any,
     ) -> Union[Stream[ChatCompletionChunk], ChatCompletion]:
         logger = get_logger("llm.openai")
         obs_context = get_observability_context()
@@ -160,13 +250,13 @@ class OpenAIChatLLM(LLMInterface):
             )
 
     def generate(
-        self,
-        prompt: str,
-        *,
-        system_prompt: Optional[str] = None,
-        stream: bool = False,
-        on_log: Optional[Callable[[str], None]] = None,
-        **kwargs: Any,
+            self,
+            prompt: str,
+            *,
+            system_prompt: Optional[str] = None,
+            stream: bool = False,
+            on_log: Optional[Callable[[str], None]] = None,
+            **kwargs: Any,
     ) -> Union[LLMResponse, Iterator[str]]:
         logger = get_logger("llm.openai")
 
@@ -183,6 +273,8 @@ class OpenAIChatLLM(LLMInterface):
         if system_prompt:
             messages.append({"role": "system", "content": system_prompt})
         messages.append({"role": "user", "content": prompt})
+
+
 
         try:
             assert isinstance(self.model, str), "model must be a string"
@@ -327,8 +419,8 @@ class OpenAIChatLLM(LLMInterface):
             finish_reason=completion.choices[0].finish_reason,
         )
 
-    async def ainvoke(self, messages: list[dict[str, str]], **kwargs: Any) -> LLMResponse:
-        def _call() -> LLMResponse:
+    async def ainvoke(self, messages: list[dict[str, str]], **kwargs: Any) -> dict[str, Any]:
+        def _call() -> dict[str, Any]:
             system_prompt = None
             user_parts = []
 
@@ -341,7 +433,16 @@ class OpenAIChatLLM(LLMInterface):
                     user_parts.append(f"(assistant context)\n{m['content']}")
 
             prompt = "\n\n".join(user_parts).strip()
-            return cast(LLMResponse, self.generate(prompt, system_prompt=system_prompt, stream=False, **kwargs))
+            raw = self.generate(prompt, system_prompt=system_prompt, stream=False, **kwargs)
+
+            content = _extract_llm_content(raw)
+
+            # Normalize to one predictable shape
+            return {
+                "ok": True,
+                "content": content,  # str | dict | list | None
+                "raw": raw,  # keep for debugging (optional)
+            }
 
         return await asyncio.to_thread(_call)
 

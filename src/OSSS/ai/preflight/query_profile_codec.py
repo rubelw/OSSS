@@ -1,12 +1,14 @@
-# OSSS/ai/preflight/query_profile_codec.py
 from __future__ import annotations
 
+import ast
 import json
 import re
 from typing import Any, Dict, List
 
 from OSSS.ai.analysis.rules.types import RuleHit
+from OSSS.ai.observability import get_logger
 
+logger = get_logger(__name__)
 
 _ALLOWED_ACTIONS = {"read", "troubleshoot", "create", "review", "explain", "route"}
 
@@ -44,6 +46,46 @@ _ALLOWED_TOP_KEYS = {
     "matched_rules",
 }
 
+def _extract_first_balanced_object(text: str) -> str:
+    """
+    Extract the first balanced {...} object from text.
+    Handles nesting and ignores braces inside strings.
+    """
+    start = text.find("{")
+    if start == -1:
+        raise ValueError("no JSON object start found in response")
+
+    depth = 0
+    in_str = False
+    esc = False
+
+    for i in range(start, len(text)):
+        ch = text[i]
+
+        if in_str:
+            if esc:
+                esc = False
+                continue
+            if ch == "\\":
+                esc = True
+                continue
+            if ch == '"':
+                in_str = False
+            continue
+
+        # not in string
+        if ch == '"':
+            in_str = True
+            continue
+
+        if ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0:
+                return text[start : i + 1]
+
+    raise ValueError("no balanced JSON object found in response")
 
 def coerce_rule_hits(raw: Any) -> List[RuleHit]:
     hits: List[RuleHit] = []
@@ -76,14 +118,13 @@ def coerce_rule_hits(raw: Any) -> List[RuleHit]:
 
     return hits
 
-
 def normalize_rule_hits(value: Any) -> List[Dict[str, Any]]:
     if not value:
         return []
 
     out: List[Dict[str, Any]] = []
-
     items = value if isinstance(value, list) else [value]
+
     for item in items:
         if isinstance(item, str) and item.strip():
             out.append({"rule": item.strip(), "action": "read"})
@@ -128,7 +169,6 @@ def normalize_rule_hits(value: Any) -> List[Dict[str, Any]]:
         out.append(hit)
 
     return out
-
 
 def sanitize_query_profile_dict(data: Any) -> Dict[str, Any]:
     if not isinstance(data, dict):
@@ -177,7 +217,6 @@ def sanitize_query_profile_dict(data: Any) -> Dict[str, Any]:
 
     return cleaned
 
-
 def coerce_llm_text(raw: Any) -> str:
     if raw is None:
         return ""
@@ -208,25 +247,57 @@ def coerce_llm_text(raw: Any) -> str:
 
     return str(raw)
 
-
 def extract_first_json_object(text: str) -> str:
+    logger.debug(
+        "query_profile raw llm text",
+        extra={
+            "len": len(text or ""),
+            "head": (text or "")[:300],
+            "tail": (text or "")[-300:],
+        },
+    )
+
     if not text:
         raise ValueError("empty LLM response")
 
     text = text.strip()
-    text = re.sub(r"^```(?:json)?\s*", "", text)
+
+    # Log the first 500 characters before attempting to parse
+    logger.error("Attempting to parse JSON", extra={"text": text[:500]})  # Log first 500 characters
+
+    # strip fenced code blocks
+    text = re.sub(r"^```(?:json)?\s*", "", text, flags=re.IGNORECASE)
     text = re.sub(r"\s*```$", "", text)
 
+    # 1) If the whole thing is valid JSON, return it
     try:
         json.loads(text)
+        logger.debug("query_profile strict json ok (whole text)")
         return text
-    except Exception:
-        pass
+    except json.JSONDecodeError as e:
+        logger.error("Failed to parse JSON (whole text)", extra={"text": text[:500], "error": str(e)})
+        raise  # Raise the error again to propagate it
 
-    m = re.search(r"\{.*\}", text, flags=re.DOTALL)
-    if not m:
-        raise ValueError("no JSON object found in response")
+    # 2) If there's no '{' but it looks like JSON members, try wrapping it
+    if "{" not in text and "}" not in text and re.search(r'"\w+"\s*:', text):
+        wrapped = "{" + text.strip().strip(",") + "}"
+        try:
+            json.loads(wrapped)
+            logger.debug("query_profile wrapped members -> json ok")
+            return wrapped
+        except json.JSONDecodeError as e:
+            logger.error("Failed to parse wrapped JSON", extra={"text": wrapped[:500], "error": str(e)})
+            pass
 
-    candidate = m.group(0)
-    json.loads(candidate)  # validate
-    return candidate
+    # 3) Extract the first BALANCED {...} object (handles nesting + strings safely)
+    candidate = _extract_first_balanced_object(text)
+
+    # 4) Validate candidate
+    try:
+        json.loads(candidate)
+        logger.debug("query_profile strict json ok (balanced candidate)")
+        return candidate
+    except json.JSONDecodeError as e:
+        logger.error("Failed to parse JSON (balanced candidate)", extra={"text": candidate[:500], "error": str(e)})
+        logger.debug("query_profile strict json failed (balanced candidate)")
+        return candidate

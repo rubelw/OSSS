@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Optional, Sequence
 import json
-import logging
 import re
 
 from OSSS.ai.intents.types import Intent, IntentResult
@@ -15,7 +14,9 @@ from OSSS.ai.intents.heuristics.staffs_rules import RULES as STAFF_INFO_RULES
 from OSSS.ai.agent_routing_config import build_alias_map
 
 
-logger = logging.getLogger("OSSS.ai.intents.heuristics")
+from OSSS.ai.observability import get_logger
+
+logger = get_logger(__name__)
 
 ALIAS_MAP = build_alias_map()
 

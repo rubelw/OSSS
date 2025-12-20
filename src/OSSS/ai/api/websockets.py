@@ -6,7 +6,6 @@ workflow events to subscribed clients based on correlation IDs.
 """
 
 import asyncio
-import logging
 from collections import defaultdict
 from typing import Dict, List, Optional, Set, Any, Union
 from fastapi import WebSocket, WebSocketDisconnect
@@ -15,6 +14,8 @@ import json
 from OSSS.ai.events.types import WorkflowEvent, EventType
 from OSSS.ai.events.sinks import EventSink
 from OSSS.ai.events.emitter import get_global_event_emitter
+from OSSS.ai.observability import get_logger
+
 from OSSS.ai.observability import get_logger
 
 logger = get_logger(__name__)

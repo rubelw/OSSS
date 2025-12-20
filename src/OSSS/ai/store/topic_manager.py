@@ -6,7 +6,6 @@ that analyze agent outputs to automatically propose relevant topics and tags.
 """
 
 import re
-import logging
 from typing import Dict, List, Any, Optional, Tuple
 from collections import Counter
 from dataclasses import dataclass
@@ -15,7 +14,9 @@ from pydantic import BaseModel, Field, ConfigDict
 from OSSS.ai.llm.llm_interface import LLMInterface
 from OSSS.ai.store.frontmatter import TopicTaxonomy
 
-logger = logging.getLogger(__name__)
+from OSSS.ai.observability import get_logger
+
+logger = get_logger(__name__)
 
 TOPIC_MARKDOWN_WRAPPERS_RE = re.compile(r"^[`*_]+|[`*_]+$")
 

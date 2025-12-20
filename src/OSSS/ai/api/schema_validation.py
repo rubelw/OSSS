@@ -2,9 +2,10 @@
 
 from typing import Any, Dict, List, Type, Optional, Callable
 from dataclasses import is_dataclass
-import logging
+from OSSS.ai.observability import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
+
 
 
 class SchemaValidator:

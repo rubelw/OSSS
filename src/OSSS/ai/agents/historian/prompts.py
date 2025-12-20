@@ -1,12 +1,13 @@
-import logging
 import asyncio
 
 from OSSS.ai.config.logging_config import setup_logging
 from OSSS.ai.agents.historian.agent import HistorianAgent
 from OSSS.ai.context import AgentContext
 
-setup_logging()
-logger = logging.getLogger(__name__)
+from OSSS.ai.observability import get_logger
+
+logger = get_logger(__name__)
+
 
 
 async def run_historian(query: str) -> str:

@@ -20,11 +20,12 @@ from OSSS.ai.workflows.prompt_composer import PromptComposer, ComposedPrompt
 from OSSS.ai.utils.llm_text import coerce_llm_text
 
 
-import logging
 import asyncio
 from typing import Dict, Any
 
-logger = logging.getLogger(__name__)
+from OSSS.ai.observability import get_logger
+
+logger = get_logger(__name__)
 
 
 class RefinerAgent(BaseAgent):

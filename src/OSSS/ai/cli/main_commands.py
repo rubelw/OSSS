@@ -1,6 +1,5 @@
 """Command-line interface for running OSSS agents with specified queries."""
 
-import logging
 import typer
 import asyncio
 import json
@@ -28,6 +27,10 @@ from OSSS.ai.llm.llm_interface import LLMInterface
 from OSSS.ai.diagnostics.cli import app as diagnostics_app
 from OSSS.ai.diagnostics.visualize_dag import cli_visualize_dag
 from OSSS.ai.context import AgentContext
+
+from OSSS.ai.observability import get_logger
+
+logger = get_logger(__name__)
 
 # Import API functions at module level for testing
 try:

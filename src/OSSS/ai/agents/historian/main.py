@@ -2,7 +2,6 @@
 # Standard library imports
 # ---------------------------------------------------------------------------
 
-import logging          # Python logging framework for structured observability
 import asyncio          # Async runtime support for agent execution
 
 # ---------------------------------------------------------------------------
@@ -18,16 +17,10 @@ from OSSS.ai.agents.historian.agent import HistorianAgent
 # Shared execution context used by all OSSS agents
 from OSSS.ai.context import AgentContext
 
+from OSSS.ai.observability import get_logger
 
-# ---------------------------------------------------------------------------
-# Logging initialization
-# ---------------------------------------------------------------------------
+logger = get_logger(__name__)
 
-# Initialize logging as early as possible so all logs are consistently formatted
-setup_logging()
-
-# Module-level logger for this runner
-logger = logging.getLogger(__name__)
 
 
 async def run_historian(query: str) -> str:

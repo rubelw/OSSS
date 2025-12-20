@@ -20,7 +20,7 @@ from OSSS.ai.observability import get_logger
 from OSSS.ai.api.models import WorkflowHistoryResponse, WorkflowHistoryItem
 
 # ✅ use shared sanitizer
-from OSSS.ai.utils import _sanitize_for_json  # adjust import if your utils live elsewhere
+from OSSS.ai.utils import sanitize_for_json  # adjust import if your utils live elsewhere
 
 logger = get_logger(__name__)
 router = APIRouter()
@@ -38,7 +38,7 @@ async def execute_query(request: WorkflowRequest) -> WorkflowResponse:
         response: WorkflowResponse = await orchestration_api.execute_workflow(request)
 
         # ✅ sanitize the whole response to avoid Pydantic circular refs / ORM objects
-        sanitized_payload = _sanitize_for_json(response.model_dump(mode="python"))
+        sanitized_payload = sanitize_for_json(response.model_dump(mode="python"))
         sanitized_response = WorkflowResponse.model_validate(sanitized_payload)
 
         logger.info(
@@ -52,7 +52,7 @@ async def execute_query(request: WorkflowRequest) -> WorkflowResponse:
         logger.exception("Query execution failed", error_type=type(e).__name__)
 
         # ✅ sanitize detail too (FastAPI will serialize this)
-        detail = _sanitize_for_json(
+        detail = sanitize_for_json(
             {
                 "error": "Workflow execution failed",
                 "message": str(e),
@@ -73,7 +73,7 @@ async def get_query_status(correlation_id: str) -> StatusResponse:
         )
 
         # Optional: sanitize if your status model ever includes non-JSON types
-        sanitized_payload = _sanitize_for_json(status_response.model_dump(mode="python"))
+        sanitized_payload = sanitize_for_json(status_response.model_dump(mode="python"))
         sanitized_status = StatusResponse.model_validate(sanitized_payload)
 
         logger.info(
@@ -88,7 +88,7 @@ async def get_query_status(correlation_id: str) -> StatusResponse:
         logger.warning("Correlation ID not found", correlation_id=correlation_id)
         raise HTTPException(
             status_code=404,
-            detail=_sanitize_for_json(
+            detail=sanitize_for_json(
                 {
                     "error": "Correlation ID not found",
                     "message": str(e),
@@ -101,7 +101,7 @@ async def get_query_status(correlation_id: str) -> StatusResponse:
         logger.exception("Failed to get status", correlation_id=correlation_id)
         raise HTTPException(
             status_code=500,
-            detail=_sanitize_for_json(
+            detail=sanitize_for_json(
                 {
                     "error": "Failed to retrieve workflow status",
                     "message": str(e),
@@ -155,7 +155,7 @@ async def get_query_history(
         )
 
         # Optional: sanitize history too (usually not needed if DB rows are primitives)
-        sanitized_payload = _sanitize_for_json(response.model_dump(mode="python"))
+        sanitized_payload = sanitize_for_json(response.model_dump(mode="python"))
         sanitized_response = WorkflowHistoryResponse.model_validate(sanitized_payload)
 
         logger.info(
@@ -170,7 +170,7 @@ async def get_query_history(
         logger.exception("Failed to retrieve workflow history")
         raise HTTPException(
             status_code=500,
-            detail=_sanitize_for_json(
+            detail=sanitize_for_json(
                 {
                     "error": "Failed to retrieve workflow history",
                     "message": str(e),

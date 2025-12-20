@@ -6,7 +6,6 @@ handling validation failures and ensuring continuous operation even
 when individual documents fail processing.
 """
 
-import logging
 from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass, field
 from pydantic import ValidationError
@@ -19,7 +18,9 @@ from OSSS.ai.agents.historian.search import (
 from OSSS.ai.agents.historian.title_generator import TitleGenerator
 from OSSS.ai.llm.llm_interface import LLMInterface
 
-logger = logging.getLogger(__name__)
+from OSSS.ai.observability import get_logger
+
+logger = get_logger(__name__)
 
 
 @dataclass

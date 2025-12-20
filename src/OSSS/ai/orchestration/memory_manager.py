@@ -12,7 +12,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, Any, Optional, List, Union, TypeAlias, TYPE_CHECKING, cast
 from dataclasses import dataclass
-import logging
 
 from langgraph.checkpoint.memory import MemorySaver
 
@@ -21,7 +20,9 @@ RunnableConfig: TypeAlias = Dict[str, Any]
 
 from .state_schemas import OSSSState, create_initial_state
 
-logger = logging.getLogger(__name__)
+from OSSS.ai.observability import get_logger
+
+logger = get_logger(__name__)
 
 
 @dataclass

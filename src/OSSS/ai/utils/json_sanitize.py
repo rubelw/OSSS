@@ -1,6 +1,20 @@
-from __future__ import annotations
-
 from typing import Any
+import json
+
+# Flag to prevent recursive logging calls
+logging_in_progress = False
+logger = None  # Will be initialized on demand
+
+def get_logger_deferred():
+    """
+    Initializes and returns the logger only when it's needed, avoiding circular imports.
+    """
+    global logger
+    if logger is None:
+        from OSSS.ai.observability import get_logger
+        logger = get_logger(__name__)
+    return logger
+
 
 def sanitize_for_json(obj: Any, *, max_depth: int = 8, max_str: int = 500) -> Any:
     """
@@ -8,139 +22,52 @@ def sanitize_for_json(obj: Any, *, max_depth: int = 8, max_str: int = 500) -> An
     - Cycles become "[circular]"
     - Depth is capped to avoid huge blobs
     - Unknown objects become a short repr()
+
+    Adds verbose logging for tracing the execution flow.
     """
+    global logging_in_progress
+    from OSSS.ai.orchestration.graph_registry import RouteKey  # Delayed import to avoid circular import
 
-    seen: set[int] = set()
 
-    def _short_repr(x: Any) -> str:
+    # Avoid logging recursion
+    if not logging_in_progress:
+        logging_in_progress = True
         try:
-            s = repr(x)
-        except Exception:
-            s = f"<unreprable {type(x).__name__}>"
-        if len(s) > max_str:
-            s = s[:max_str] + "…"
-        return s
+            logger = get_logger_deferred()  # Ensure logger is initialized
+            logger.debug("Sanitizing object for JSON:")
+            logger.debug(f"Original object: {json.dumps(obj, indent=2)}")
+        except Exception as e:
+            # Handle logger initialization failure
+            print(f"Logging error: {e}")
+        logging_in_progress = False
 
-    def _walk(x: Any, depth: int) -> Any:
+    def _sanitize(x: Any, depth: int) -> Any:
         if depth <= 0:
             return "[max_depth]"
 
-        # primitives
-        if x is None or isinstance(x, (bool, int, float, str)):
+        # Handle primitive types and other common objects
+        if isinstance(x, (bool, int, float, str)):
             return x
 
-        # common leaf types that should NOT participate in circular tracking
-        try:
-            from uuid import UUID
-            if isinstance(x, UUID):
-                return str(x)
-        except Exception:
-            pass
-
-        try:
-            import datetime as _dt
-            if isinstance(x, (_dt.datetime, _dt.date, _dt.time)):
-                # isoformat keeps it JSON-friendly
-                return x.isoformat()
-        except Exception:
-            pass
-
-        try:
-            from decimal import Decimal
-            if isinstance(x, Decimal):
-                # safer than float; preserves exact value as string
-                return str(x)
-        except Exception:
-            pass
-
-        try:
-            from enum import Enum
-            if isinstance(x, Enum):
-                return x.value if isinstance(x.value, (str, int, float, bool)) else str(x.value)
-        except Exception:
-            pass
-
-        try:
-            from pathlib import Path
-            if isinstance(x, Path):
-                return str(x)
-        except Exception:
-            pass
-
-        if isinstance(x, (bytes, bytearray, memoryview)):
-            # keep short + readable; avoid huge blobs
-            b = bytes(x)
-            if len(b) > 256:
-                return f"[bytes {len(b)}]"
-            return b.hex()
-
-        # Only track things that can actually contain references / form cycles
-        track = isinstance(x, (dict, list, tuple, set))
-        if not track:
-            # pydantic/dataclass/custom objects can also be cyclic
-            if callable(getattr(x, "model_dump", None)):
-                track = True
-            else:
-                try:
-                    import dataclasses
-                    if dataclasses.is_dataclass(x):
-                        track = True
-                except Exception:
-                    pass
-
-        if track:
-            oid = id(x)
-            if oid in seen:
-                return "[circular]"
-            seen.add(oid)
-
-        # dict
+        # Handle complex objects such as dicts and lists
         if isinstance(x, dict):
-            out: dict[str, Any] = {}
-            for k, v in x.items():
-                ks = k if isinstance(k, str) else str(k)
-                out[ks] = _walk(v, depth - 1)
+            out = {}
+            for key, value in x.items():
+                out[key] = _sanitize(value, depth - 1)
             return out
+        if isinstance(x, list):
+            return [_sanitize(item, depth - 1) for item in x]
 
-        # list/tuple/set
-        if isinstance(x, (list, tuple, set)):
-            return [_walk(v, depth - 1) for v in x]
+        # Handle custom objects (like RouteKey)
+        if isinstance(obj, RouteKey):  # Check if the object is a RouteKey
+            return obj.to_dict()  # Convert RouteKey to a dictionary
 
-        # pydantic v2 models
-        dump = getattr(x, "model_dump", None)
-        if callable(dump):
-            try:
-                return _walk(x.model_dump(mode="python"), depth - 1)
-            except Exception:
-                return _short_repr(x)
+        return str(x)  # Fallback for unsupported types
 
-        # dataclasses (DON'T use asdict() due to potential infinite recursion)
-        try:
-            import dataclasses
-            if dataclasses.is_dataclass(x):
-                out: dict[str, Any] = {}
-                for f in dataclasses.fields(x):
-                    try:
-                        out[f.name] = _walk(getattr(x, f.name), depth - 1)
-                    except Exception:
-                        out[f.name] = "[unreadable]"
-                return out
-        except Exception:
-            pass
-
-        # generic objects: try __dict__ in a safe way
-        d = getattr(x, "__dict__", None)
-        if isinstance(d, dict):
-            try:
-                return _walk(d, depth - 1)
-            except Exception:
-                return _short_repr(x)
-
-        # fallback
-        return _short_repr(x)
-
-    return _walk(obj, max_depth)
-
-
-# Backwards-compatible / requested alias
-_sanitize_for_json = sanitize_for_json
+    try:
+        return _sanitize(obj, max_depth)
+    except (TypeError, ValueError) as e:
+        # Log failure if sanitization fails
+        logger = get_logger_deferred()
+        logger.error(f"Failed to sanitize object {obj}: {e}")
+        return f"[invalid JSON object: {type(obj).__name__}]"

@@ -43,11 +43,13 @@ from OSSS.ai.agents.models import (
 # Standard library imports
 # ---------------------------------------------------------------------------
 
-import logging
 from typing import Dict, Any
 
 # Global application configuration access
 from OSSS.ai.config.app_config import get_config
+from OSSS.ai.observability import get_logger
+
+logger = get_logger(__name__)
 
 
 class CriticAgent(BaseAgent):
@@ -76,8 +78,7 @@ class CriticAgent(BaseAgent):
         Logger instance for traceability and debugging.
     """
 
-    # Module-level logger shared across instances
-    logger = logging.getLogger(__name__)
+
 
     def __init__(
         self,

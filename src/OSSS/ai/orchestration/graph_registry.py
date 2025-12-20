@@ -45,6 +45,24 @@ class RouteKey:
     tone: str = WILDCARD
     sub_intent: str = WILDCARD
 
+    def to_dict(self) -> dict:
+        """
+        Convert the RouteKey to a dictionary for JSON serialization.
+        This will make it serializable and ready for logging.
+        """
+        return {
+            "action": self.action,
+            "intent": self.intent,
+            "tone": self.tone,
+            "sub_intent": self.sub_intent,
+        }
+
+    def __str__(self) -> str:
+        """
+        String representation for logging purposes.
+        """
+        return f"RouteKey(action={self.action}, intent={self.intent}, tone={self.tone}, sub_intent={self.sub_intent})"
+
 
 class GraphRegistry:
     def __init__(self) -> None:
@@ -54,7 +72,7 @@ class GraphRegistry:
         self._routes[key] = graph_id
         logger.debug(
             "Graph route registered",
-            extra={"route_key": key, "graph_id": graph_id, "route_count": len(self._routes)},
+            extra={"route_key": key.to_dict(), "graph_id": graph_id, "route_count": len(self._routes)},
         )
 
     def resolve(self, decision: Optional[dict]) -> str:

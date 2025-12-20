@@ -1,4 +1,3 @@
-import logging
 import asyncio
 import time
 from typing import Dict, Any, List, Optional, Union
@@ -28,7 +27,9 @@ from OSSS.ai.agents.models import HistorianOutput, HistoricalReference
 from OSSS.ai.services.langchain_service import LangChainService
 from OSSS.ai.utils.llm_text import coerce_llm_text
 
-logger = logging.getLogger(__name__)
+from OSSS.ai.observability import get_logger
+
+logger = get_logger(__name__)
 
 
 class HistorianAgent(BaseAgent):
@@ -55,7 +56,6 @@ class HistorianAgent(BaseAgent):
         Configuration for agent behavior and prompt composition.
     """
 
-    logger = logging.getLogger(__name__)
 
     def __init__(
         self,

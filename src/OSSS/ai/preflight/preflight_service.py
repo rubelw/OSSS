@@ -4,6 +4,10 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
+import ast
+import json
+from OSSS.ai.utils.json_debug import json_loads_debug
+from OSSS.ai.utils.json_coerce import coerce_json_object  # or coerce_json
 
 from OSSS.ai.analysis.models import QueryProfile, build_routing_decision
 from OSSS.ai.analysis.pipeline import analyze_query
@@ -20,6 +24,85 @@ from OSSS.ai.preflight.query_profile_codec import (
 from OSSS.ai.workflows.template_loader import WorkflowTemplateLoader  # ✅ add
 
 logger = get_logger(__name__)
+
+def _coerce_json_object(text: str) -> Dict[str, Any]:
+    """
+    Best-effort coercion:
+      1) strict json.loads
+      2) python literal dict via ast.literal_eval (handles single quotes)
+    """
+    t = (text or "").strip()
+    if not t:
+        raise ValueError("empty LLM response")
+
+    # 1) strict JSON
+    try:
+        logger.debug(f"Attempting to parse JSON: {t[:1000]}")  # Log first 1000 characters of the input
+        obj = json.loads(t)
+        if isinstance(obj, dict):
+            logger.debug(f"Successfully parsed JSON object: {obj}")
+            return obj
+        raise ValueError(f"expected JSON object, got {type(obj).__name__}")
+    except Exception as e:
+        logger.error(f"Failed to parse JSON (error: {e}): {t[:500]}")  # Log partial input if error occurs
+        pass
+
+    # 2) python-literal fallback (e.g. {'a': 1})
+    try:
+        logger.debug(f"Attempting to parse as Python literal: {t[:1000]}")
+        obj = ast.literal_eval(t)
+        if not isinstance(obj, dict):
+            raise ValueError(f"expected object after literal_eval, got {type(obj).__name__}")
+        logger.debug(f"Successfully parsed Python literal object: {obj}")
+        return obj
+    except Exception as e:
+        logger.error(f"Failed to parse as Python literal (error: {e}): {t[:500]}")
+        raise ValueError(f"not valid JSON or python-literal: {e}") from e
+
+    if not isinstance(obj, dict):
+        raise ValueError(f"expected object after literal_eval, got {type(obj).__name__}")
+
+    return obj
+
+
+def _parse_llm_json_best_effort(
+    raw_text: str, *, label: str, correlation_id: Optional[str]
+) -> Dict[str, Any]:
+    """
+    Logs with json_loads_debug and returns a dict.
+    Tries raw first; then extracted-first-object.
+    """
+    raw_text = (raw_text or "").strip()
+    if not raw_text:
+        raise ValueError("empty LLM response")
+
+    # Log the raw (even if it fails)
+    try:
+        logger.debug(f"Raw text for {label}: {raw_text[:1000]}")  # Log raw text up to 1000 characters
+
+        json_loads_debug(raw_text, label=f"{label}:raw", correlation_id=correlation_id)
+    except Exception:
+        # keep going; debug logger already emitted details
+        logger.error(f"Failed to parse raw JSON for {label}: {raw_text[:500]}")  # Log the partial raw text
+        pass
+
+    # Try parsing raw directly (works when model returns exactly the JSON object)
+    try:
+        return _coerce_json_object(raw_text)
+    except Exception:
+        pass
+
+    # Otherwise extract the first {...} blob then parse again
+    extracted = extract_first_json_object(raw_text)
+
+    try:
+        logger.debug(f"Extracted JSON for {label}: {extracted[:1000]}")  # Log extracted JSON
+        json_loads_debug(extracted, label=f"{label}:extracted", correlation_id=correlation_id)
+    except Exception:
+        logger.error(f"Failed to parse extracted JSON for {label}: {extracted[:500]}")  # Log the partial extracted text
+        pass
+
+    return _coerce_json_object(extracted)
 
 
 @dataclass
@@ -179,8 +262,17 @@ class PreflightService:
             config["routing_source"] = "gate:intent_confidence"
 
     async def _ensure_query_profile(
-        self, *, cache_key: str, query: str, use_llm_intent: bool, config: Dict[str, Any]
+            self,
+            *,
+            cache_key: str,
+            query: str,
+            use_llm_intent: bool,
+            config: Dict[str, Any],
     ) -> Dict[str, Any]:
+
+        # ✅ Pull the request correlation_id from config ONCE here
+        correlation_id = (config.get("correlation_id") or "").strip() or None
+
         if cache_key in self._cache:
             config["query_profile"] = self._cache[cache_key]
             return self._cache[cache_key]
@@ -191,7 +283,10 @@ class PreflightService:
                 return self._cache[cache_key]
 
             if use_llm_intent:
-                qp = await self._llm_query_profile_best_effort(query)
+                qp = await self._llm_query_profile_best_effort(
+                    query,
+                    correlation_id=correlation_id,
+                )
             else:
                 prof = analyze_query(query)
                 qp = prof.model_dump(mode="json")
@@ -202,34 +297,101 @@ class PreflightService:
             config["query_profile"] = qp
             return qp
 
-    async def _llm_query_profile_best_effort(self, query: str) -> Dict[str, Any]:
+    async def _llm_query_profile_best_effort(
+            self,
+            query: str,
+            correlation_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        # ✅ Normalize at the top
+        correlation_id = (correlation_id or "").strip() or None
+
         q = (query or "").strip()
+        logger.debug(f"Received query for LLM profile: {q[:500]}")  # Log the first 500 characters of the query
         if not q:
             prof = QueryProfile()
+            logger.debug("Empty query, returning default QueryProfile.")
             return prof.model_dump(mode="json")
 
+        # Log configuration and setup
         cfg = OpenAIConfig.load()
+        logger.debug(f"Loaded OpenAIConfig: {cfg.api_key[:5]}...")  # Log part of the API key for safety
         llm = OpenAIChatLLM(api_key=cfg.api_key, model=cfg.model, base_url=cfg.base_url)
 
-        prompt = "... your JSON schema prompt ..."
+        # Keep stable fallback ONLY if caller didn't provide one
+        correlation_id = correlation_id or "preflight_query_profile"
+        logger.debug(f"Using correlation_id: {correlation_id}")
+
+        system = (
+            "You are an intent/tone classifier for OSSS.\n"
+            "Return ONLY a single valid JSON object. No markdown. No backticks. No extra text.\n"
+            "Use double quotes for all keys and string values."
+        )
+        user = "... your JSON schema prompt ..."  # Include the user query schema (if applicable)
+
+        # Log the system and user messages being sent to the LLM
+        logger.debug(f"System prompt: {system[:500]}")  # Log first 500 chars of the system prompt
+        logger.debug(f"User prompt: {user[:500]}")  # Log first 500 chars of the user prompt
+
         try:
-            raw = await call_llm_text(llm, prompt)
-            text = coerce_llm_text(raw).strip()
-            data = sanitize_query_profile_dict(
-                __import__("json").loads(extract_first_json_object(text))
+            # Call the LLM
+            logger.debug("Calling LLM with the provided prompts...")
+            raw = await call_llm_text(
+                llm,
+                messages=[
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user},
+                ],
+                temperature=0.0,
+                extra_json={"format": "json"},
             )
+
+            logger.debug(f"Raw response from LLM: {raw[:500]}")  # Log part of the raw response
+            text = coerce_llm_text(raw).strip()
+
+            logger.debug(f"Processed LLM response text: {text[:500]}")  # Log the first 500 characters of processed text
+
+            try:
+                # Try to coerce the raw LLM response into a valid JSON object
+                logger.debug(f"Attempting to parse LLM response as JSON...")
+                data = coerce_json_object(text)  # ✅ handles {'a':1} and {"a":1}
+                logger.debug(f"Successfully parsed LLM response: {data}")
+            except Exception as e:
+                # Log detailed error when LLM response is not valid JSON
+                logger.error(
+                    "LLM returned non-JSON",
+                    extra={
+                        "error": str(e),
+                        "correlation_id": correlation_id,
+                        "text": text[:500],  # Log part of the raw text that failed
+                    },
+                )
+                raise
+
+            # Sanitize and validate the parsed data
+            logger.debug("Sanitizing the query profile data...")
+            data = sanitize_query_profile_dict(data)
+
+            # Validate the profile and log the result
             prof = QueryProfile.model_validate(data)
             out = prof.model_dump(mode="json")
             out.setdefault("signals", {})
             out["signals"]["analysis_source"] = "llm"
+            logger.debug(f"Final query profile output: {out}")
             return out
+
         except Exception as e:
+            # Log warning and fall back to rules-based analysis
             logger.warning(
-                "LLM query_profile failed; falling back to rules", extra={"error": str(e)}
+                "LLM query_profile failed; falling back to rules",
+                extra={
+                    "error": str(e),
+                    "correlation_id": correlation_id,  # ✅ helpful for log join
+                },
             )
             prof = analyze_query(q)
             out = prof.model_dump(mode="json")
             out.setdefault("signals", {})
             out["signals"]["analysis_source"] = "rules_fallback"
             out["signals"]["llm_error"] = str(e)
+            logger.debug(f"Rules fallback output: {out}")
             return out

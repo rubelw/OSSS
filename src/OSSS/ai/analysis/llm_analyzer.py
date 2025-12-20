@@ -1,8 +1,8 @@
 # OSSS/ai/analysis/llm_analyzer.py
 from __future__ import annotations
-
-import json
 import re
+import ast
+import json
 from typing import Any, Dict, Optional, List
 
 from pydantic import ValidationError
@@ -13,6 +13,54 @@ from OSSS.ai.analysis.pipeline import analyze_query  # deterministic fallback
 
 from OSSS.ai.llm.openai import OpenAIChatLLM
 from OSSS.ai.config.openai_config import OpenAIConfig
+
+from OSSS.ai.observability import get_logger
+
+logger = get_logger(__name__)
+
+_PYDICT_HINT_RE = re.compile(r"^\s*\{[\s'\"]")
+
+def _loads_jsonish_object(s: str) -> Optional[dict[str, Any]]:
+    """
+    Best-effort parse for a top-level object.
+    - Strict JSON first
+    - Then Python-literal dict (single quotes) via ast.literal_eval
+    """
+    if not s:
+        return None
+
+    ss = s.strip()
+
+    # 1) Strict JSON
+    try:
+        v = json.loads(ss)
+        return v if isinstance(v, dict) else None
+    except Exception:
+        pass
+
+    # 2) Python dict literal (common Ollama failure mode)
+    # Only attempt if it *looks* like a dict and contains single quotes or unquoted-ish patterns.
+    if _PYDICT_HINT_RE.match(ss):
+        try:
+            v2 = ast.literal_eval(ss)  # safe eval of literals only
+            return v2 if isinstance(v2, dict) else None
+        except Exception:
+            pass
+
+    return None
+
+
+def _safe_preview(obj: Any, limit: int = 2000) -> str:
+    """
+    Best-effort JSON-ish preview for logs.
+    Never throws; truncates to keep logs sane.
+    """
+    try:
+        s = json.dumps(obj, default=str)
+    except Exception:
+        s = repr(obj)
+
+    return s if len(s) <= limit else (s[:limit] + "…")
 
 
 # ---------------------------------------------------------------------------
@@ -181,6 +229,9 @@ _TONE_ALIASES = {
     "command": "imperative",
 }
 
+
+
+
 def normalize_top_level_action(action: Any) -> str:
     if not isinstance(action, str) or not action.strip():
         return "read"
@@ -207,37 +258,51 @@ def normalize_rule_action(action: Any) -> str:
 
     return a if a in _ALLOWED_RULE_ACTIONS else "read"
 
+
+
 def _coerce_llm_text(raw: Any) -> str:
-    """
-    Normalize common LLM client return shapes into plain assistant text.
-    Supports:
-      - plain string
-      - OpenAI-style dict: {"choices":[{"message":{"content":"..."}}]}
-      - {"content": "..."} or {"text": "..."}
-      - objects with .content / .text
-      - objects with model_dump()/dict()
-    """
     if raw is None:
         return ""
 
     if isinstance(raw, str):
         return raw
 
+    # ✅ If wrapper already gave you the parsed JSON
     if isinstance(raw, dict):
+        # OpenAI-ish: {"choices":[{"message":{"content": ...}}]}
         if "choices" in raw and isinstance(raw["choices"], list) and raw["choices"]:
             ch0 = raw["choices"][0]
             if isinstance(ch0, dict):
                 msg = ch0.get("message")
-                if isinstance(msg, dict) and isinstance(msg.get("content"), str):
-                    return msg["content"]
+                if isinstance(msg, dict):
+                    content = msg.get("content")
+                    if isinstance(content, dict):
+                        return json.dumps(content)
+                    if isinstance(content, str):
+                        return content
                 if isinstance(ch0.get("text"), str):
                     return ch0["text"]
-        if isinstance(raw.get("content"), str):
-            return raw["content"]
+
+        # common: {"content": {...}} or {"content": "..."}
+        content = raw.get("content")
+        if isinstance(content, dict):
+            return json.dumps(content)
+        if isinstance(content, list):
+            return json.dumps(content)
+        if isinstance(content, str):
+            return content
+
+        # common: {"text": "..."}
         if isinstance(raw.get("text"), str):
             return raw["text"]
-        return str(raw)
 
+        # ✅ If it's already the JSON payload (intent/tone/sub_intent keys etc)
+        if any(k in raw for k in ("intent", "tone", "sub_intent", "intent_confidence")):
+            return json.dumps(raw)
+
+        return json.dumps(raw)  # last resort: still valid JSON
+
+    # pydantic-ish objects
     if hasattr(raw, "model_dump"):
         try:
             return _coerce_llm_text(raw.model_dump())
@@ -250,8 +315,11 @@ def _coerce_llm_text(raw: Any) -> str:
         except Exception:
             pass
 
-    for attr in ("text", "content"):
+    # attributes
+    for attr in ("content", "text"):
         v = getattr(raw, attr, None)
+        if isinstance(v, dict):
+            return json.dumps(v)
         if isinstance(v, str):
             return v
 
@@ -260,25 +328,68 @@ def _coerce_llm_text(raw: Any) -> str:
 
 
 
-def _extract_first_json_object(text: str) -> str:
+
+def _extract_first_json_object(text: str) -> Optional[dict[str, Any]]:
+    """
+    Returns the first top-level JSON object found in `text`, or None.
+    Works even if the model adds pre/post-amble or extra lines.
+    Also tolerates Python-dict-ish output via ast.literal_eval as fallback.
+    """
     if not text:
-        raise ValueError("empty LLM response")
-    t = text.strip()
-    t = re.sub(r"^```(?:json)?\s*", "", t)
-    t = re.sub(r"\s*```$", "", t)
+        return None
 
-    try:
-        json.loads(t)
-        return t
-    except Exception:
-        pass
+    s = text.strip()
 
-    m = re.search(r"\{.*\}", t, flags=re.DOTALL)
-    if not m:
-        raise ValueError("no JSON object found")
-    candidate = m.group(0)
-    json.loads(candidate)
-    return candidate
+    # Fast path: whole string is an object-ish thing
+    if s.startswith("{") and s.endswith("}"):
+        v = _loads_jsonish_object(s)
+        if v is not None:
+            return v
+
+    # Scan for first balanced {...} object
+    start = s.find("{")
+    if start == -1:
+        return None
+
+    depth = 0
+    in_str = False
+    esc = False
+
+    for i in range(start, len(s)):
+        ch = s[i]
+
+        if in_str:
+            if esc:
+                esc = False
+            elif ch == "\\":
+                esc = True
+            elif ch == '"':
+                in_str = False
+            continue
+
+        if ch == '"':
+            in_str = True
+            continue
+
+        if ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0:
+                candidate = s[start : i + 1]
+
+                v = _loads_jsonish_object(candidate)
+                if v is not None:
+                    return v
+
+                # keep searching: there might be another object later
+                next_start = s.find("{", i + 1)
+                if next_start == -1:
+                    return None
+                return _extract_first_json_object(s[next_start:])
+
+    return None
+
 
 
 def _as_float(v: Any, default: float) -> float:
@@ -430,6 +541,7 @@ def _validate_query_profile_two_pass(payload: Dict[str, Any]) -> QueryProfile:
 # Public API
 # ---------------------------------------------------------------------------
 
+
 async def analyze_query_with_llm(
     query: str,
     *,
@@ -459,9 +571,39 @@ async def analyze_query_with_llm(
             temperature=0.0,
         )
 
+        # TEMP DEBUG: inspect raw return shape from LLM wrapper
+        # Debug: inspect raw return shape from LLM wrapper (safe + bounded)
+        try:
+            logger.warning(
+                "LLM query_profile raw resp type=%s resp=%s",
+                type(resp).__name__,
+                _safe_preview(resp),
+                extra={
+                    "llm_resp_type": type(resp).__name__,
+                    "llm_resp_preview": _safe_preview(resp),
+                },
+            )
+        except Exception:
+            logger.warning(
+                "LLM query_profile raw resp type=%s (preview failed)",
+                type(resp).__name__,
+            )
+
         text = _coerce_llm_text(resp).strip()
-        json_text = _extract_first_json_object(text)
-        data = json.loads(json_text)
+
+        logger.warning(
+            "LLM query_profile coerced_text=%s",
+            _safe_preview(text, limit=2000),
+            extra={"llm_coerced_preview": _safe_preview(text, limit=2000)},
+        )
+
+        obj = _extract_first_json_object(text)
+
+        if not obj:
+            # This is the exact failure you saw: "no JSON object found in response"
+            raise ValueError(f"no JSON object found in response; preview={_safe_preview(text, limit=500)}")
+
+        data = obj
 
         safe = _sanitize_to_query_profile_dict(data)
         prof = _validate_query_profile_two_pass(safe)
@@ -484,6 +626,7 @@ async def analyze_query_with_llm(
 
         return prof
 
+
     except Exception as e:
         if fallback_to_rules:
             prof = analyze_query(q)
@@ -498,6 +641,7 @@ async def analyze_query_with_llm(
             )
             prof.signals = dict(prof.signals or {})
             prof.signals["analysis_source"] = "rules_fallback"
+            prof.signals["llm_error"] = str(e)
             return prof
 
         return QueryProfile(

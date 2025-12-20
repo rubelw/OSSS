@@ -1,4 +1,3 @@
-# src/OSSS/ai/agents/data_views/read_agent.py
 from __future__ import annotations
 
 from typing import Any, Dict, Optional
@@ -8,6 +7,9 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 from OSSS.ai.context import AgentContext
 from OSSS.ai.agents.base_agent import BaseAgent, LangGraphNodeDefinition
 from OSSS.ai.agents.http_get.agent import HttpGetAgent
+from OSSS.ai.observability import get_logger
+
+logger = get_logger(__name__)
 
 
 class DataViewAgent(BaseAgent):
@@ -27,10 +29,10 @@ class DataViewAgent(BaseAgent):
     STORE_KEY = "data_view:warrantys"
 
     def __init__(
-        self,
-        *,
-        data_views: Dict[str, Any] | None = None,  # kept for compatibility, unused
-        pg_engine: Optional[AsyncEngine] = None,    # kept for compatibility, unused
+            self,
+            *,
+            data_views: Dict[str, Any] | None = None,  # kept for compatibility, unused
+            pg_engine: Optional[AsyncEngine] = None,  # kept for compatibility, unused
     ) -> None:
         super().__init__(name=self.name, timeout_seconds=20.0)
         self.data_views = data_views or {}
@@ -49,6 +51,11 @@ class DataViewAgent(BaseAgent):
         params = dict(self.DEFAULT_PARAMS)
         params.update(exec_cfg.get("http_query_params", {}) or {})
 
+        logger.debug("Running DataViewAgent with params", extra={
+            "params": params,
+            "execution_config": exec_cfg,
+        })
+
         agent = HttpGetAgent(
             base_url=self.BASE_URL,
             path=self.PATH,
@@ -56,9 +63,15 @@ class DataViewAgent(BaseAgent):
             query_params=params,
             store_key=self.STORE_KEY,
         )
+
+        # Running the HttpGetAgent to fetch data
         context = await agent.run(context)
 
+        # Log the data fetched by HttpGetAgent
         raw = context.execution_state.get(self.STORE_KEY) or {}
+        logger.debug("Fetched raw data from HttpGetAgent", extra={"raw_data": raw})
+
+        # Prepare the payload
         payload = {
             "ok": bool(raw.get("ok")),
             "view": "warrantys",
@@ -66,9 +79,16 @@ class DataViewAgent(BaseAgent):
             "http": raw,
         }
 
+        # Store the payload back in the execution state
         context.execution_state[self.STORE_KEY] = payload
         structured = context.execution_state.setdefault("structured_outputs", {})
         structured[f"{self.name}:warrantys"] = payload
+
+        logger.debug("Processed and stored payload", extra={
+            "payload": payload,
+            "store_key": self.STORE_KEY
+        })
+
         return context
 
     async def invoke(self, context: AgentContext) -> AgentContext:
@@ -76,17 +96,24 @@ class DataViewAgent(BaseAgent):
 
     def _wrap_http_result(self, context: AgentContext, spec: DataViewSpec) -> AgentContext:
         raw = context.execution_state.get(spec.store_key) or {}
-        body = raw.get("json")
+        body = raw.get("body")
+
+        logger.debug("Wrapping HTTP result for DataView", extra={
+            "store_key": spec.store_key,
+            "body": body
+        })
 
         rows: list[dict[str, Any]] = []
         if isinstance(body, list):
             rows = body
+            logger.debug("Parsed body as list", extra={"rows": rows})
         elif isinstance(body, dict):
             # if the API ever returns a dict wrapper
             for k in ("items", "data", "results"):
                 v = body.get(k)
                 if isinstance(v, list):
                     rows = v
+                    logger.debug(f"Found key '{k}' in body, parsing as list", extra={"rows": rows})
                     break
 
         payload = {
@@ -104,4 +131,10 @@ class DataViewAgent(BaseAgent):
         context.execution_state[spec.store_key] = payload
         structured = context.execution_state.setdefault("structured_outputs", {})
         structured[f"{self.name}:{spec.name}"] = payload
+
+        logger.debug("Wrapped and stored HTTP result", extra={
+            "payload": payload,
+            "store_key": spec.store_key
+        })
+
         return context

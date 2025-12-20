@@ -6,10 +6,11 @@ and apply custom prompt configurations from workflow definitions.
 """
 
 import importlib
-import logging
 from typing import Dict, Any, Optional
 
-logger = logging.getLogger(__name__)
+from OSSS.ai.observability import get_logger
+
+logger = get_logger(__name__)
 
 
 def load_agent_prompts(agent_type: str) -> Dict[str, str]:

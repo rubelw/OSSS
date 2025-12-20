@@ -1,10 +1,3 @@
-"""
-Logging formatters for structured and correlated logging.
-
-This module provides various formatters for different logging needs,
-including JSON formatting and correlation ID injection.
-"""
-
 import json
 import logging
 import sys
@@ -12,14 +5,12 @@ from datetime import datetime
 from typing import Dict, Any, Optional
 
 from .context import get_correlation_id, get_observability_context
+from OSSS.ai.orchestration.graph_registry import RouteKey  # Delayed import to avoid circular import
 
 
 class JSONFormatter(logging.Formatter):
     """
     JSON formatter for structured logging.
-
-    Formats log records as JSON with consistent fields including
-    correlation IDs, timestamps, and contextual information.
     """
 
     def __init__(
@@ -27,23 +18,12 @@ class JSONFormatter(logging.Formatter):
         include_correlation: bool = True,
         extra_fields: Optional[Dict[str, Any]] = None,
     ) -> None:
-        """
-        Initialize JSON formatter.
-
-        Parameters
-        ----------
-        include_correlation : bool
-            Whether to include correlation ID in logs
-        extra_fields : Dict[str, Any], optional
-            Additional fields to include in every log record
-        """
         super().__init__()
         self.include_correlation = include_correlation
         self.extra_fields = extra_fields or {}
 
     def format(self, record: logging.LogRecord) -> str:
         """Format log record as JSON."""
-        # Base log data
         log_data = {
             "timestamp": datetime.fromtimestamp(record.created).isoformat(),
             "level": record.levelname,
@@ -52,6 +32,8 @@ class JSONFormatter(logging.Formatter):
             "module": record.module,
             "function": record.funcName,
             "line": record.lineno,
+            "filename": record.filename,
+            "parent_caller": self._get_parent_caller(record),
         }
 
         # Add correlation ID if available and requested
@@ -82,35 +64,44 @@ class JSONFormatter(logging.Formatter):
         # Add extra fields from record
         for key, value in record.__dict__.items():
             if key not in {
-                "name",
-                "msg",
-                "args",
-                "levelname",
-                "levelno",
-                "pathname",
-                "filename",
-                "module",
-                "lineno",
-                "funcName",
-                "created",
-                "msecs",
-                "relativeCreated",
-                "thread",
-                "threadName",
-                "processName",
-                "process",
-                "getMessage",
-                "exc_info",
-                "exc_text",
-                "stack_info",
-                "message",
+                "name", "msg", "args", "levelname", "levelno", "pathname", "filename", "module", "lineno",
+                "funcName", "created", "msecs", "relativeCreated", "thread", "threadName", "processName",
+                "process", "getMessage", "exc_info", "exc_text", "stack_info", "message",
             } and not key.startswith("_"):
-                log_data[key] = value
+                # Handle the RouteKey object if it is in the log data
+                if isinstance(value, RouteKey):
+                    log_data[key] = str(value)  # Convert RouteKey to string representation
+                else:
+                    log_data[key] = value
 
         # Add configured extra fields
         log_data.update(self.extra_fields)
 
         return json.dumps(log_data, default=str, separators=(",", ":"))
+
+    def _get_parent_caller(self, record: logging.LogRecord) -> Optional[str]:
+        """
+        Get the parent caller of the log message (i.e., the caller function).
+        Uses `stacklevel` to look up the caller.
+        """
+        try:
+            frame = logging._srcfile  # This is the current file
+            stack = logging._findCaller(record)
+            return stack[2]  # This will give us the function name of the caller
+        except Exception:
+            return None
+
+    def _get_parent_caller(self, record: logging.LogRecord) -> Optional[str]:
+        """
+        Get the parent caller of the log message (i.e., the caller function).
+        Uses `stacklevel` to look up the caller.
+        """
+        try:
+            # Look up the stack trace to get the parent caller
+            stack = logging._findCaller(record)
+            return stack[2]  # This will give us the function name of the caller
+        except Exception:
+            return None
 
 
 class CorrelatedFormatter(logging.Formatter):
@@ -143,6 +134,9 @@ class CorrelatedFormatter(logging.Formatter):
         # Get base formatted message
         formatted = super().format(record)
 
+        # Add filename and parent caller to the formatted message
+        formatted = f"{formatted} (file: {record.filename}, parent_caller: {self._get_parent_caller(record)})"
+
         # Add correlation ID if available
         correlation_id = get_correlation_id()
         if correlation_id:
@@ -159,6 +153,20 @@ class CorrelatedFormatter(logging.Formatter):
                 formatted = f"{context_info} {formatted}"
 
         return formatted
+
+    def _get_parent_caller(self, record: logging.LogRecord) -> Optional[str]:
+        """
+        Get the parent caller of the log message (i.e., the caller function).
+        Uses `stacklevel` to look up the caller.
+        """
+        try:
+            # We use stacklevel=2 to get the parent caller from the stack trace
+            frame = logging._srcfile  # This is the current file
+            # Look up the stack trace to get the parent caller
+            stack = logging._findCaller(record)
+            return stack[2]  # This will give us the function name of the caller
+        except Exception:
+            return None
 
 
 def get_console_formatter(

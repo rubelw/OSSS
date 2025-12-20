@@ -12,7 +12,6 @@ Architecture:
 - Fallback to default prompts for backward compatibility
 """
 
-import logging
 from typing import Dict, Any, Optional, List, Union, Callable, TypedDict, get_type_hints
 
 from pydantic import BaseModel, Field, field_validator, ConfigDict
@@ -38,7 +37,9 @@ except ImportError:
     HISTORIAN_SYSTEM_PROMPT = "You are a context retrieval assistant."
     SYNTHESIS_SYSTEM_PROMPT = "You are a synthesis assistant."
 
-logger = logging.getLogger(__name__)
+from OSSS.ai.observability import get_logger
+
+logger = get_logger(__name__)
 
 
 # Strict typing for template variables - keeping Python on a leash!

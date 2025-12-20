@@ -13,7 +13,7 @@ Refactor notes (best-practice):
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field, field_validator, model_validator, ConfigDict
+from pydantic import BaseModel, Field, field_validator, model_validator, ConfigDict, validator
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 import re
@@ -247,6 +247,26 @@ class WorkflowResponse(BaseModel):
             }
         },
     )
+
+    @validator("resolved_workflow_version", pre=True, always=True)
+    def validate_resolved_workflow_version(cls, v):
+        # If 'None' is passed as a string, convert it to None
+        if v == 'None':
+            return None
+
+        # If the value is not None, ensure it's an integer
+        if v is not None and not isinstance(v, int):
+            raise ValueError("resolved_workflow_version must be an integer.")
+
+        return v
+
+    @validator("markdown_export", pre=True, always=True)
+    def validate_markdown_export(cls, v):
+        if v is None:
+            return {}  # Default to an empty dictionary if None is passed
+        if not isinstance(v, dict):
+            raise ValueError("markdown_export must be a dictionary.")
+        return v
 
     @model_validator(mode="after")
     def validate_status_consistency(self) -> "WorkflowResponse":
