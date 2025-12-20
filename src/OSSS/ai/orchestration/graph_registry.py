@@ -63,7 +63,6 @@ class RouteKey:
         """
         return f"RouteKey(action={self.action}, intent={self.intent}, tone={self.tone}, sub_intent={self.sub_intent})"
 
-
 class GraphRegistry:
     def __init__(self) -> None:
         self._routes: Dict[RouteKey, str] = {}

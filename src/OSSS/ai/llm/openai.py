@@ -35,6 +35,9 @@ JsonValue = Union[dict[str, Any], list[Any]]
 
 T = TypeVar("T", bound=BaseModel)
 
+# Get logger for this module
+logger = get_logger("llm.openai")
+
 def _detect_is_ollama(base_url: Optional[str]) -> bool:
     if not base_url:
         return False
@@ -204,7 +207,6 @@ class OpenAIChatLLM(LLMInterface):
             on_log: Optional[Callable[[str], None]] = None,
             **kwargs: Any,
     ) -> Union[Stream[ChatCompletionChunk], ChatCompletion]:
-        logger = get_logger("llm.openai")
         obs_context = get_observability_context()
         llm_start_time = time.time()
 
@@ -258,131 +260,38 @@ class OpenAIChatLLM(LLMInterface):
             on_log: Optional[Callable[[str], None]] = None,
             **kwargs: Any,
     ) -> Union[LLMResponse, Iterator[str]]:
-        logger = get_logger("llm.openai")
-
-        try:
-            from OSSS.ai.diagnostics.metrics import get_metrics_collector
-            metrics = get_metrics_collector()
-        except ImportError:
-            metrics = None
-
-        llm_start_time = time.time()
         obs_context = get_observability_context()
-
-        messages: List[ChatCompletionMessageParam] = []
-        if system_prompt:
-            messages.append({"role": "system", "content": system_prompt})
-        messages.append({"role": "user", "content": prompt})
-
-
+        logger.debug("Starting LLM generation", model=self.model)
 
         try:
-            assert isinstance(self.model, str), "model must be a string"
-
+            # Generate response as per logic
             response = self._chat_completion(
-                messages=messages,
+                messages=[{"role": "user", "content": prompt}],
                 stream=stream,
                 on_log=on_log,
                 **kwargs,
             )
 
         except openai.APIError as e:
-            llm_duration_ms = (time.time() - llm_start_time) * 1000
-            logger.error(
-                f"LLM API call failed: {str(e)}",
-                model=self.model,
-                duration_ms=llm_duration_ms,
-                error_type=type(e).__name__,
-                agent_name=obs_context.agent_name if obs_context else None,
-            )
-            if metrics:
-                metrics.increment_counter(
-                    "llm_api_calls_failed",
-                    labels={
-                        "model": self.model or "unknown",
-                        "agent": obs_context.agent_name if obs_context and obs_context.agent_name else "unknown",
-                        "error_type": type(e).__name__,
-                    },
-                )
+            logger.error(f"LLM API call failed: {str(e)}", agent_name=obs_context.agent_name if obs_context else None)
             if on_log:
                 on_log(f"[OpenAIChatLLM][error] {str(e)}")
-            self._handle_openai_error(e)  # raises
+            raise e
 
         except Exception as e:
-            llm_duration_ms = (time.time() - llm_start_time) * 1000
-            logger.error(
-                f"Unexpected LLM error: {str(e)}",
-                model=self.model,
-                duration_ms=llm_duration_ms,
-                error_type=type(e).__name__,
-                agent_name=obs_context.agent_name if obs_context else None,
-            )
-            if metrics:
-                metrics.increment_counter(
-                    "llm_api_calls_failed",
-                    labels={
-                        "model": self.model or "unknown",
-                        "agent": obs_context.agent_name if obs_context and obs_context.agent_name else "unknown",
-                        "error_type": "unexpected_error",
-                    },
-                )
+            logger.error(f"Unexpected error: {str(e)}", agent_name=obs_context.agent_name if obs_context else None)
             if on_log:
                 on_log(f"[OpenAIChatLLM][unexpected_error] {str(e)}")
-            raise LLMError(
-                message=f"Unexpected error during OpenAI API call: {str(e)}",
-                llm_provider="openai",
-                error_code="unexpected_error",
-                cause=e,
-            )
+            raise e
 
-        if stream:
-            stream_response = cast(Stream[ChatCompletionChunk], response)
-
-            def token_generator() -> Generator[str, None, None]:
-                for chunk in stream_response:
-                    delta = chunk.choices[0].delta
-                    content = delta.content or ""
-                    if on_log and content:
-                        on_log(f"[OpenAIChatLLM][streaming] {content}")
-                    yield content
-
-            return token_generator()
-
-        completion = cast(ChatCompletion, response)
-        text = (completion.choices[0].message.content or "")
-        usage = completion.usage
-
-        tokens_used = usage.total_tokens if usage else None
-        input_tokens = usage.prompt_tokens if usage else None
-        output_tokens = usage.completion_tokens if usage else None
-        finish_reason = completion.choices[0].finish_reason
-
-        llm_duration_ms = (time.time() - llm_start_time) * 1000
-        logger.log_llm_call(
-            model=self.model or "unknown",
-            tokens_used=tokens_used or 0,
-            duration_ms=llm_duration_ms,
-            prompt_length=len(prompt),
-            response_length=len(text),
-            finish_reason=finish_reason,
-            agent_name=obs_context.agent_name if obs_context else None,
-        )
-
-        return LLMResponse(
-            text=text,
-            tokens_used=tokens_used,
-            input_tokens=input_tokens,
-            output_tokens=output_tokens,
-            model_name=self.model,
-            finish_reason=finish_reason,
-        )
+        return response
 
     def invoke(
-        self,
-        messages: List[Dict[str, str]],
-        *,
-        stream: bool = False,
-        **kwargs: Any,
+            self,
+            messages: List[Dict[str, str]],
+            *,
+            stream: bool = False,
+            **kwargs: Any,
     ) -> Union[OpenAIInvokeResult, Iterator[str]]:
         assert isinstance(self.model, str), "model must be a string"
 
@@ -419,8 +328,8 @@ class OpenAIChatLLM(LLMInterface):
             finish_reason=completion.choices[0].finish_reason,
         )
 
-    async def ainvoke(self, messages: list[dict[str, str]], **kwargs: Any) -> dict[str, Any]:
-        def _call() -> dict[str, Any]:
+    async def ainvoke(self, messages: list[dict[str, str]], **kwargs: Any) -> LLMResponse:
+        def _call() -> LLMResponse:
             system_prompt = None
             user_parts = []
 
@@ -433,16 +342,7 @@ class OpenAIChatLLM(LLMInterface):
                     user_parts.append(f"(assistant context)\n{m['content']}")
 
             prompt = "\n\n".join(user_parts).strip()
-            raw = self.generate(prompt, system_prompt=system_prompt, stream=False, **kwargs)
-
-            content = _extract_llm_content(raw)
-
-            # Normalize to one predictable shape
-            return {
-                "ok": True,
-                "content": content,  # str | dict | list | None
-                "raw": raw,  # keep for debugging (optional)
-            }
+            return cast(LLMResponse, self.generate(prompt, system_prompt=system_prompt, stream=False, **kwargs))
 
         return await asyncio.to_thread(_call)
 

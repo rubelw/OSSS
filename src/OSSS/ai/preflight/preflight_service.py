@@ -362,7 +362,7 @@ class PreflightService:
                     extra={
                         "error": str(e),
                         "correlation_id": correlation_id,
-                        "text": text[:500],  # Log part of the raw text that failed
+                        "text": text,  # Log the complete raw text that failed (not truncated)
                     },
                 )
                 raise
@@ -381,13 +381,15 @@ class PreflightService:
 
         except Exception as e:
             # Log warning and fall back to rules-based analysis
-            logger.warning(
+            logger.error(
                 "LLM query_profile failed; falling back to rules",
                 extra={
                     "error": str(e),
                     "correlation_id": correlation_id,  # ✅ helpful for log join
                 },
             )
+            # Log the query that is being processed
+            logger.debug(f"Falling back to rules-based analysis for query: {q[:500]}")
             prof = analyze_query(q)
             out = prof.model_dump(mode="json")
             out.setdefault("signals", {})
