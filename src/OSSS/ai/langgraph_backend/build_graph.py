@@ -10,6 +10,7 @@ from typing import Dict, Any, List, Optional
 from dataclasses import dataclass
 
 from langgraph.graph import StateGraph, END
+from OSSS.ai.langgraph_backend.graph_spec import GraphSpec
 
 from OSSS.ai.orchestration.state_schemas import OSSSState, OSSSContext
 from OSSS.ai.orchestration.node_wrappers import (
@@ -53,11 +54,9 @@ class GraphConfig:
     enable_validation: bool = False
     validator: Optional[WorkflowSemanticValidator] = None
     validation_strict_mode: bool = False
-
-    # 🚨 IMPORTANT:
-    # Factory must NOT silently mutate workflow plans.
-    # Preflight / workflow templates own the plan.
     allow_auto_inject_nodes: bool = False
+
+
 
 
 class GraphFactory:
@@ -89,13 +88,57 @@ class GraphFactory:
             "data_views": data_view_node,
         }
 
-        self._allow_auto_inject_nodes = False
 
         self.logger.info("GraphFactory initialized")
 
     # ------------------------------------------------------------------
     # Normalization
     # ------------------------------------------------------------------
+
+    def compile(self, spec: GraphSpec, config: GraphConfig) -> Any:
+        self.logger.info(f"Compiling graph pattern={spec.pattern_name} nodes={spec.nodes}")
+
+        # caching by spec (optional but recommended)
+        if config.cache_enabled:
+            cached = self.cache.get_cached_graph_by_key(
+                spec.cache_key(),
+                checkpoints_enabled=config.enable_checkpoints,
+            )
+            if cached:
+                self.logger.info("Using cached graph")
+                return cached
+
+        # validate spec is compilable
+        self.validate_spec(spec)
+
+        graph = StateGraph[OSSSState](
+            state_schema=OSSSState,
+            context_schema=OSSSContext,
+        )
+
+        self._add_nodes(graph, spec.nodes)
+        self._add_edges_from_spec(graph, spec)
+
+        compiled = self._compile_graph(graph, config)
+
+        if config.cache_enabled:
+            self.cache.cache_graph_by_key(
+                spec.cache_key(),
+                checkpoints_enabled=config.enable_checkpoints,
+                compiled_graph=compiled,
+            )
+
+        return compiled
+
+
+    def validate_spec(self, spec: GraphSpec) -> None:
+        missing = [n for n in spec.nodes if n not in self.node_functions]
+        if missing:
+            raise GraphBuildError(f"Spec references unknown nodes: {missing}")
+
+        if spec.entry_point not in spec.nodes:
+            raise GraphBuildError(f"Spec entry_point '{spec.entry_point}' not in nodes")
+
 
     def validate_agents(self, agents: List[str]) -> bool:
         """
@@ -119,63 +162,6 @@ class GraphFactory:
         return True
 
 
-    def _normalize_agent_name(self, name: str) -> str:
-        n = (name or "").strip().lower()
-        return {
-            "data_view": "data_views",
-            "data_views": "data_views",
-        }.get(n, n)
-
-    def _normalize_agents(self, agents: List[str]) -> List[str]:
-        seen = set()
-        out: List[str] = []
-        for a in agents:
-            n = self._normalize_agent_name(a)
-            if n and n not in seen:
-                seen.add(n)
-                out.append(n)
-        return out
-
-    # ------------------------------------------------------------------
-    # Guard pipeline enforcement
-    # ------------------------------------------------------------------
-
-    def _ensure_guard_pipeline(self, agents: List[str]) -> List[str]:
-        """
-        Guard routing MUST be explicit.
-
-        If guard is present:
-        - When allow_auto_inject_nodes=False (default):
-            * Validate that required routing nodes exist
-            * FAIL FAST if missing
-        - When allow_auto_inject_nodes=True:
-            * Inject missing routing nodes
-        """
-        if "guard" not in agents:
-            return agents
-
-        required = ["answer_search", "format_response"]
-        optional = ["format_block", "format_requires_confirmation"]
-
-        missing_required = [n for n in required if n not in agents]
-        missing_optional = [n for n in optional if n not in agents]
-
-        if not self._allow_auto_inject_nodes:
-            if missing_required or missing_optional:
-                raise GraphBuildError(
-                    "Guard pipeline incomplete and auto-inject disabled. "
-                    f"missing_required={missing_required}, "
-                    f"missing_optional={missing_optional}. "
-                    "Fix workflow template or enable allow_auto_inject_nodes."
-                )
-        else:
-            for n in required + optional:
-                if n not in agents:
-                    agents.append(n)
-
-        # Guard must be first
-        return ["guard"] + [a for a in agents if a != "guard"]
-
     # ------------------------------------------------------------------
     # Graph creation
     # ------------------------------------------------------------------
@@ -185,8 +171,6 @@ class GraphFactory:
             f"Creating graph pattern={config.pattern_name} agents={config.agents_to_run}"
         )
 
-        # Respect caller intent
-        self._allow_auto_inject_nodes = bool(config.allow_auto_inject_nodes)
 
         agents = self._normalize_agents(config.agents_to_run)
         agents = self._ensure_guard_pipeline(agents)
@@ -242,6 +226,37 @@ class GraphFactory:
                 )
             graph.add_node(a, self.node_functions[a])
             self.logger.debug(f"Added node: {a}")
+
+
+    def _add_edges_from_spec(self, graph: Any, spec: GraphSpec) -> None:
+        graph.set_entry_point(spec.entry_point)
+
+        # conditional edges
+        for src, routes in spec.conditional_edges.items():
+            def _route(state: OSSSState, _src=src) -> str:
+                if _src == "guard":
+                    decision = (state.get("guard_decision") or "").lower()
+                    if decision == "allow":
+                        return routes.get("allow", "format_block")
+                    if decision == "requires_confirmation":
+                        return routes.get("requires_confirmation", "format_requires_confirmation")
+                    return routes.get("block", "format_block")
+                # You can extend this for other conditional nodes later
+                return list(routes.values())[0]
+
+            graph.add_conditional_edges(
+                src,
+                _route,
+                {to: to for _, to in routes.items()},
+            )
+
+        # normal edges
+        for e in spec.edges:
+            if e.to_node == "END":
+                graph.add_edge(e.from_node, END)
+            else:
+                graph.add_edge(e.from_node, e.to_node)
+
 
     def _add_edges(self, graph: Any, agents: List[str], pattern: GraphPattern) -> None:
         if "guard" in agents:

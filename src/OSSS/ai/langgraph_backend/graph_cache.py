@@ -8,7 +8,7 @@ performance by avoiding repeated graph compilation for the same configurations.
 import hashlib
 import time
 import threading
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 from dataclasses import dataclass
 from collections import OrderedDict
 
@@ -68,42 +68,57 @@ class CacheStats:
         return self.hits + self.misses
 
 
+from typing import Any, Dict, Optional, Tuple
+import time
+
 class GraphCache:
-    """
-    LRU cache for compiled StateGraphs with TTL and size management.
-
-    This cache stores compiled graphs to avoid repeated compilation overhead.
-    It supports:
-    - LRU eviction policy
-    - TTL-based expiration
-    - Size-based eviction
-    - Thread-safe operations
-    - Performance statistics
-    """
-
-    def __init__(self, config: Optional[CacheConfig] = None) -> None:
-        """
-        Initialize the graph cache.
-
-        Parameters
-        ----------
-        config : CacheConfig, optional
-            Cache configuration. If None, default config is used.
-        """
+    def __init__(self, config: Optional["CacheConfig"] = None) -> None:
         self.config = config or CacheConfig()
-        self.logger = get_logger(f"{__name__}.GraphCache")
+        # existing caches you may already have...
+        self._cache_by_key: Dict[Tuple[str, bool], Tuple[float, Any]] = {}
 
-        # Thread-safe ordered dictionary for LRU behavior
-        self._cache: OrderedDict[str, CacheEntry] = OrderedDict()
-        self._lock = threading.RLock()
+        # If you already have an older cache store, keep it too.
+        # Example:
+        # self._cache: Dict[Tuple[str, Tuple[str, ...], bool], Tuple[float, Any]] = {}
 
-        # Statistics tracking
-        self._stats = CacheStats(max_size=self.config.max_size)
+    def _is_expired(self, created_at: float) -> bool:
+        ttl = getattr(self.config, "ttl_seconds", None)
+        if not ttl:
+            return False
+        return (time.time() - created_at) > float(ttl)
 
-        self.logger.info(
-            f"GraphCache initialized with max_size={self.config.max_size}, "
-            f"ttl={self.config.ttl_seconds}s"
-        )
+    def get_cached_graph_by_key(self, cache_key: str, *, checkpoints_enabled: bool) -> Optional[Any]:
+        k = (cache_key, bool(checkpoints_enabled))
+        item = self._cache_by_key.get(k)
+        if not item:
+            return None
+
+        created_at, graph = item
+        if self._is_expired(created_at):
+            # expire it
+            self._cache_by_key.pop(k, None)
+            return None
+
+        return graph
+
+    def cache_graph_by_key(
+        self,
+        cache_key: str,
+        *,
+        checkpoints_enabled: bool,
+        compiled_graph: Any,
+    ) -> None:
+        k = (cache_key, bool(checkpoints_enabled))
+
+        # optional max-size eviction
+        max_size = getattr(self.config, "max_size", None)
+        if max_size and len(self._cache_by_key) >= int(max_size):
+            # naive eviction: remove oldest
+            oldest_key = min(self._cache_by_key.items(), key=lambda kv: kv[1][0])[0]
+            self._cache_by_key.pop(oldest_key, None)
+
+        self._cache_by_key[k] = (time.time(), compiled_graph)
+
 
     def _generate_cache_key(
         self, pattern_name: str, agents: List[str], checkpoints_enabled: bool

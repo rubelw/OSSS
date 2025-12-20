@@ -17,6 +17,8 @@ import time
 import uuid
 from typing import Dict, Any, List, Optional
 
+from OSSS.ai.planning import build_execution_plan
+
 from OSSS.ai.context import AgentContext
 from OSSS.ai.agents.base_agent import BaseAgent
 from OSSS.ai.agents.registry import get_agent_registry
@@ -191,10 +193,15 @@ class LangGraphOrchestrator:
         # Remember last run config (for graph build policy knobs)
         self._last_config: Dict[str, Any] = {}
 
+        # GraphFactory build policy (derived from plan, not raw config)
+        self._last_plan_allow_auto_inject_nodes: bool = False
+
         self.logger.info(
             f"Initialized LangGraphOrchestrator with agents: {self.agents_to_run}, "
             f"checkpoints: {self.enable_checkpoints}, thread_id: {self.thread_id}"
         )
+
+        self._last_plan = None
 
     async def _run_guard_and_maybe_halt(
         self,
@@ -275,17 +282,15 @@ class LangGraphOrchestrator:
         """
         config = config or {}
         self._last_config = dict(config)
+        self._last_plan_allow_auto_inject_nodes = False
+
         start_time = time.time()
 
         # ------------------------------------------------------------
         # Parse (but don't apply yet): honor caller-requested agent list.
         # Guard must run first regardless.
         # ------------------------------------------------------------
-        requested_agents = config.get("agents")
-        if isinstance(requested_agents, list):
-            requested_agents = [a for a in requested_agents if isinstance(a, str) and a.strip()]
-        else:
-            requested_agents = None
+
 
         routing_decision = None
 
@@ -337,29 +342,44 @@ class LangGraphOrchestrator:
             self.successful_executions += 1
             return halted_ctx
 
-        # ------------------------------------------------------------
-        # Now honor caller-requested agent list for the DAG.
-        # (Guard already ran above, so callers cannot bypass safety.)
-        # ------------------------------------------------------------
-        if requested_agents:
-            self.agents_to_run = requested_agents
-            try:
-                self.default_agents = requested_agents
-            except Exception:
-                pass
+        # snapshot before planning
+        prev_agents = list(self.agents_to_run or [])
 
-            # Graph is typically compiled/cached by topology; force rebuild when agent set changes
+        # ------------------------------------------------------------
+        # Planning: decide agents + routing metadata in ONE place
+        # (Planner handles caller override vs enhanced routing vs defaults)
+        # ------------------------------------------------------------
+        plan = await build_execution_plan(
+            query=query,
+            config=config,
+            default_agents=list(self.default_agents),
+            use_enhanced_routing=self.use_enhanced_routing,
+            optimization_strategy=self.optimization_strategy,
+            resource_optimizer=self.resource_optimizer,
+            context_analyzer=self.context_analyzer,
+            performance_tracker=self.performance_tracker,
+        )
+
+        self._last_plan = plan  # needed for _get_compiled_graph() if using build_spec
+
+        # Apply plan
+        self.agents_to_run = list(plan.agents_to_run or [])
+        routing_decision = plan.routing_decision
+        self._last_plan_allow_auto_inject_nodes = bool(getattr(plan, "allow_auto_inject_nodes", False))
+
+        # Clear cached compiled graph only if topology changed
+        if self.agents_to_run != prev_agents:
             self._compiled_graph = None
             self._graph = None
 
-        # ------------------------------------------------------------
-        # Enhanced routing (ONLY if caller did not request agents)
-        # ------------------------------------------------------------
-        if self.use_enhanced_routing and not requested_agents:
-            routing_decision = await self._make_routing_decision(query, self.default_agents, config)
-            self.agents_to_run = routing_decision.selected_agents
+        # Store plan policy knob(s) (Commit D)
+        self._last_plan_allow_auto_inject_nodes = bool(
+            getattr(plan, "allow_auto_inject_nodes", False)
+        )
 
-            # Agent set changed -> force rebuild
+        # Graph topology changed => force rebuild (cached by topology/spec)
+        # Only clear cache if the effective agent set changed vs previous run.
+        if self.agents_to_run != prev_agents:
             self._compiled_graph = None
             self._graph = None
 
@@ -375,6 +395,7 @@ class LangGraphOrchestrator:
                     "orchestrator_type": "langgraph-real",
                     "optimization_strategy": self.optimization_strategy.value,
                     "routing_enabled": True,
+                    "routing_source": (plan.routing_meta or {}).get("source"),
                 },
             )
 
@@ -643,25 +664,31 @@ class LangGraphOrchestrator:
             self.logger.info("Building LangGraph StateGraph using GraphFactory...")
 
             try:
-                allow_auto_inject_nodes = bool(self._last_config.get("allow_auto_inject_nodes", False))
-
-                # Create graph configuration
-                config = GraphConfig(
-                    agents_to_run=list(self.agents_to_run or []),
-                    enable_checkpoints=self.enable_checkpoints,
-                    memory_manager=self.memory_manager,
-                    pattern_name="standard",
-                    cache_enabled=True,
-                    # If your GraphConfig doesn't include this field yet, delete this line.
-                    allow_auto_inject_nodes=allow_auto_inject_nodes,  # type: ignore[arg-type]
-                )
+                # Create graph configuration (ONCE)
+                cfg_kwargs: Dict[str, Any] = {
+                    "agents_to_run": list(self.agents_to_run or []),
+                    "enable_checkpoints": self.enable_checkpoints,
+                    "memory_manager": self.memory_manager,
+                    "pattern_name": "standard",
+                    "cache_enabled": True,
+                    "allow_auto_inject_nodes": bool(
+                        getattr(self, "_last_plan_allow_auto_inject_nodes", False)
+                    ),
+                }
+                config = GraphConfig(**cfg_kwargs)
 
                 # Validate agents before building
                 if not self.graph_factory.validate_agents(self.agents_to_run):
                     raise GraphBuildError(f"Invalid agents: {self.agents_to_run}")
 
                 # Create compiled graph using factory
-                self._compiled_graph = self.graph_factory.create_graph(config)
+                from OSSS.ai.langgraph_backend.spec_builder import build_spec
+
+                if self._last_plan is None:
+                    raise NodeExecutionError("No execution plan available to build graph spec")
+                spec = build_spec(plan=self._last_plan)
+
+                self._compiled_graph = self.graph_factory.compile(spec, config)
 
                 self.logger.info(
                     "Graph built",
@@ -879,65 +906,6 @@ class LangGraphOrchestrator:
         self._graph = None
         self.logger.info(f"Graph pattern set to: {pattern_name}. Next graph build will use this pattern.")
 
-    async def _make_routing_decision(
-        self, query: str, available_agents: List[str], config: Dict[str, Any]
-    ) -> "RoutingDecision":
-        """
-        Make intelligent routing decision using enhanced routing system.
-        """
-        if not self.context_analyzer:
-            raise ValueError("Context analyzer not available for routing decision")
-        context_analysis = self.context_analyzer.analyze_context(query)
-
-        performance_data = {}
-        for agent in available_agents:
-            agent_lower = agent.lower()
-            if self.performance_tracker:
-                performance_data[agent_lower] = {
-                    "success_rate": self.performance_tracker.get_success_rate(agent_lower) or 0.8,
-                    "average_time_ms": self.performance_tracker.get_average_time(agent_lower) or 2000.0,
-                    "performance_score": self.performance_tracker.get_performance_score(agent_lower),
-                }
-            else:
-                performance_data[agent_lower] = {
-                    "success_rate": 0.8,
-                    "average_time_ms": 2000.0,
-                    "performance_score": 0.7,
-                }
-
-        constraints = ResourceConstraints(
-            max_execution_time_ms=config.get("max_execution_time_ms"),
-            max_agents=config.get("max_agents", 4),
-            min_agents=config.get("min_agents", 1),
-            min_success_rate=config.get("min_success_rate", 0.7),
-        )
-
-        context_requirements = {
-            "requires_research": context_analysis.requires_research,
-            "requires_criticism": context_analysis.requires_criticism,
-            "requires_synthesis": True,
-            "requires_refinement": True,
-        }
-
-        if not self.resource_optimizer:
-            raise ValueError("Resource optimizer not available for routing decision")
-        routing_decision = self.resource_optimizer.select_optimal_agents(
-            available_agents=available_agents,
-            complexity_score=context_analysis.complexity_score,
-            performance_data=performance_data,
-            constraints=constraints,
-            strategy=self.optimization_strategy,
-            context_requirements=context_requirements,
-        )
-
-        if self.conditional_pattern:
-            self.conditional_pattern.update_performance_metrics(
-                "routing_decision",
-                0.0,
-                routing_decision.confidence_score > 0.5,
-            )
-
-        return routing_decision
 
     def update_agent_performance(self, agent: str, duration_ms: float, success: bool) -> None:
         """Update performance metrics for an agent."""

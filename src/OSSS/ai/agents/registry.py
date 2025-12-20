@@ -24,6 +24,8 @@ from OSSS.ai.agents.protocols import (
     AgentWithLLMProtocol,
 )
 
+from OSSS.ai.llm.llm_interface import LLMInterface  # already imported in your file
+
 
 class AgentRegistry:
     """
@@ -39,7 +41,10 @@ class AgentRegistry:
         self._register_core_agents()
         # ✅ Holds the configured data views used by DataViewAgent (and any other agent expecting it)
         self._data_views: dict = data_views or {}
+        self._default_llm: Optional[LLMInterface] = None
 
+    def set_default_llm(self, llm: Optional[LLMInterface]) -> None:
+        self._default_llm = llm
 
     def set_data_views(self, data_views: dict) -> None:
         self._data_views = data_views or {}
@@ -139,6 +144,7 @@ class AgentRegistry:
         """
         Create an agent instance by name.
         """
+
         if name not in self._agents:
             raise ValueError(
                 f"Unknown agent: '{name}'. Available agents: {list(self.get_available_agents())}"
@@ -146,9 +152,13 @@ class AgentRegistry:
 
         metadata = self._agents[name]
 
+        # ✅ Inject registry default LLM when caller didn't pass one
+        if llm is None and metadata.requires_llm:
+            llm = self._default_llm
+
         # Check LLM requirement
         if metadata.requires_llm and llm is None:
-            raise ValueError(f"Agent '{name}' requires an LLM interface")
+            raise ValueError(f"Agent '{name}' requires an LLM interface (no default_llm set)")
 
         # Create agent with appropriate parameters using protocol-based approach
         try:
@@ -565,6 +575,7 @@ def register_agent(
 def create_agent(
     name: str, llm: Optional[LLMInterface] = None, **kwargs: Any
 ) -> BaseAgent:
+
     registry = get_agent_registry()
     return registry.create_agent(name, llm, **kwargs)
 

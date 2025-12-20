@@ -70,6 +70,8 @@ from OSSS.agents import metagpt_agent
 from OSSS.ai.api.routes import query, topics, workflows
 from OSSS.ai.api.factory import get_orchestration_api
 
+from OSSS.ai.agents.registry import get_agent_registry
+from OSSS.ai.llm.factory import LLMFactory
 
 # ⬇️ import the actual APIRouter instance
 try:
@@ -154,6 +156,13 @@ APP_HOST = os.getenv("APP_HOST", "host.docker.internal")
 APP_PORT = int(os.getenv("APP_PORT", "8081"))
 SERVICE_NAME = os.getenv("SERVICE_NAME", "osss-api")
 SERVICE_ID = os.getenv("SERVICE_ID", f"{SERVICE_NAME}-{socket.gethostname()}-{APP_PORT}")
+
+def init_ai_system() -> None:
+    llm = LLMFactory.create()
+    reg = get_agent_registry()
+    reg.set_default_llm(llm)
+    log.info("[startup] AI system initialized: default LLM set on AgentRegistry")
+
 
 def consul_client() -> Consul:
     return Consul(host=CONSUL_HOST, port=CONSUL_PORT)
@@ -402,6 +411,8 @@ def create_app() -> FastAPI:
         import OSSS.db.models  # must import camp, camp_registration, etc.
         configure_mappers()  # raises immediately if any relationship is mismatched
 
+        init_ai_system()  # ✅ ADD THIS (sets registry default LLM so guard can be created)
+
         # DB engine/sessionmaker bound to THIS loop
         app.state.db_engine = create_async_engine(
             settings.DATABASE_URL,
@@ -572,6 +583,8 @@ def create_app() -> FastAPI:
             "[startup] mounted routes:",
             sorted([r.path for r in app.routes if isinstance(r, APIRoute)])
         )
+
+
 
         # -------- Consul registration (non-blocking) --------
         app.state.consul = None
