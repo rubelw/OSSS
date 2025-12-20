@@ -22,7 +22,11 @@ class JSONFormatter(logging.Formatter):
         self.extra_fields = extra_fields or {}
 
     def format(self, record: logging.LogRecord) -> str:
-        from OSSS.ai.orchestration.graph_registry import RouteKey  # delayed import
+        # Lazily import RouteKey to avoid circular imports
+        try:
+            from OSSS.ai.orchestration.graph_registry import RouteKey
+        except ImportError:
+            RouteKey = None
 
         """Format log record as JSON."""
         log_data = {
@@ -70,7 +74,7 @@ class JSONFormatter(logging.Formatter):
                 "process", "getMessage", "exc_info", "exc_text", "stack_info", "message",
             } and not key.startswith("_"):
                 # Handle the RouteKey object if it is in the log data
-                if isinstance(value, RouteKey):
+                if RouteKey and isinstance(value, RouteKey):
                     log_data[key] = str(value)  # Convert RouteKey to string representation
                 else:
                     log_data[key] = value
@@ -78,32 +82,17 @@ class JSONFormatter(logging.Formatter):
         # Add configured extra fields
         log_data.update(self.extra_fields)
 
+        # Return the formatted log as a JSON string
         return json.dumps(log_data, default=str, separators=(",", ":"))
 
-    def _get_parent_caller(self, record: logging.LogRecord) -> Optional[str]:
-        """
-        Get the parent caller of the log message (i.e., the caller function).
-        Uses `stacklevel` to look up the caller.
-        """
+    def _get_parent_caller(self, record: logging.LogRecord):
+        """Helper method to extract the parent caller from the record."""
         try:
             frame = logging._srcfile  # This is the current file
             stack = logging._findCaller(record)
             return stack[2]  # This will give us the function name of the caller
         except Exception:
             return None
-
-    def _get_parent_caller(self, record: logging.LogRecord) -> Optional[str]:
-        """
-        Get the parent caller of the log message (i.e., the caller function).
-        Uses `stacklevel` to look up the caller.
-        """
-        try:
-            # Look up the stack trace to get the parent caller
-            stack = logging._findCaller(record)
-            return stack[2]  # This will give us the function name of the caller
-        except Exception:
-            return None
-
 
 class CorrelatedFormatter(logging.Formatter):
     """
