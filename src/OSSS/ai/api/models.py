@@ -58,7 +58,7 @@ class WorkflowRequest(BaseModel):
     agents: Optional[List[str]] = Field(
         None,
         description="Optional list of agent names to execute (default: workflow decides).",
-        json_schema_extra={"example": ["guard", "answer_search", "data_views", "format_response"]},
+        json_schema_extra={"example": ["guard", "data_views"]},
     )
 
     execution_config: Optional[Dict[str, Any]] = Field(

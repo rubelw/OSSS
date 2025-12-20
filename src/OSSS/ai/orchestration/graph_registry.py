@@ -1,6 +1,5 @@
-# graph_registry.py
 from dataclasses import dataclass
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 from OSSS.ai.observability import get_logger
 
 WILDCARD = "*"
@@ -35,6 +34,7 @@ def normalize_action(action: object) -> str:
     if not isinstance(action, str) or not action.strip():
         return WILDCARD
     a = action.strip().lower()
+    logger.debug(f"Normalizing action: {action} -> {a}", extra={"normalized_action": a})
     return ACTION_NORMALIZATION.get(a, a)
 
 
@@ -63,9 +63,11 @@ class RouteKey:
         """
         return f"RouteKey(action={self.action}, intent={self.intent}, tone={self.tone}, sub_intent={self.sub_intent})"
 
+
 class GraphRegistry:
     def __init__(self) -> None:
         self._routes: Dict[RouteKey, str] = {}
+        logger.info("GraphRegistry initialized", extra={"route_count": len(self._routes)})
 
     def register(self, key: RouteKey, graph_id: str) -> None:
         self._routes[key] = graph_id
@@ -75,6 +77,8 @@ class GraphRegistry:
         )
 
     def resolve(self, decision: Optional[dict]) -> str:
+        logger.info("Resolving graph", extra={"decision": decision})
+
         if not isinstance(decision, dict):
             logger.warning(
                 "Graph resolve called with invalid decision; using default",
@@ -215,4 +219,3 @@ GRAPH_REGISTRY.register(RouteKey(action="read", sub_intent="data_query"), "graph
 
 # Absolute fallback
 GRAPH_REGISTRY.register(RouteKey(), "graph_default")
-

@@ -1,4 +1,3 @@
-# src/OSSS/ai/additional_index.py
 from __future__ import annotations
 
 import json
@@ -7,6 +6,9 @@ from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
+from OSSS.ai.observability import get_logger
+
+logger = get_logger(__name__)
 
 HERE = os.path.dirname(__file__)
 # Repo root = one level above src (…/workspace), not …/workspace/src
@@ -26,7 +28,6 @@ DEFAULT_INDEX_PATHS: Dict[str, str] = {
     )
     for kind in INDEX_KINDS
 }
-
 
 @dataclass
 class IndexedChunk:
@@ -50,7 +51,9 @@ _LOADED: Dict[str, bool] = {kind: False for kind in INDEX_KINDS}
 
 def _normalize_index_name(index: str) -> str:
     """Ensure index name is one of the supported kinds."""
+    logger.debug(f"Normalizing index name: {index}")
     if index not in INDEX_KINDS:
+        logger.error(f"Unknown index '{index}'. Expected one of: {', '.join(INDEX_KINDS)}")
         raise ValueError(
             f"Unknown index '{index}'. Expected one of: {', '.join(INDEX_KINDS)}"
         )
@@ -62,10 +65,10 @@ def _load_index(index: str, path: Optional[str] = None) -> List[IndexedChunk]:
     index = _normalize_index_name(index)
     index_path = path or _INDEX_PATH[index]
 
-    print(f"[additional_index:{index}] REPO_ROOT={REPO_ROOT} index_path={index_path}")
+    logger.info(f"[additional_index:{index}] REPO_ROOT={REPO_ROOT} index_path={index_path}")
 
     if not os.path.exists(index_path):
-        print(f"[additional_index:{index}] No embeddings file found at {index_path}")
+        logger.warning(f"[additional_index:{index}] No embeddings file found at {index_path}")
         return []
 
     docs: List[IndexedChunk] = []
@@ -73,11 +76,16 @@ def _load_index(index: str, path: Optional[str] = None) -> List[IndexedChunk]:
         for line_idx, line in enumerate(f, start=1):
             if not line.strip():
                 continue
-            obj = json.loads(line)
+            try:
+                obj = json.loads(line)
+            except json.JSONDecodeError as e:
+                logger.error(f"[additional_index:{index}] Failed to decode JSON on line {line_idx}: {e}")
+                continue
 
             emb_list = obj.get("embedding")
             if not emb_list:
                 # Skip malformed records
+                logger.warning(f"[additional_index:{index}] Skipping malformed record at line {line_idx}")
                 continue
             emb = np.array(emb_list, dtype="float32")
 
@@ -119,7 +127,8 @@ def _load_index(index: str, path: Optional[str] = None) -> List[IndexedChunk]:
                     image_paths=image_paths,
                 )
             )
-    print(f"[additional_index:{index}] Loaded {len(docs)} chunks from {index_path}")
+
+    logger.info(f"[additional_index:{index}] Loaded {len(docs)} chunks from {index_path}")
     return docs
 
 
@@ -130,9 +139,11 @@ def get_docs(index: str = "main") -> List[IndexedChunk]:
     :param index: which index to use ("main", "tutor", or "agent").
                   Defaults to "main" for backwards compatibility.
     """
+    logger.debug(f"Getting documents for index: {index}")
     index = _normalize_index_name(index)
     global _DOCS, _LOADED
     if not _LOADED[index]:
+        logger.debug(f"Index '{index}' not loaded. Loading now...")
         _DOCS[index] = _load_index(index)
         _LOADED[index] = True
     return _DOCS[index]
@@ -147,24 +158,31 @@ def force_reload(index: str = "main", path: Optional[str] = None) -> int:
     :param path:  optional explicit path to the index file for this index.
                   If provided, it updates the stored path for future loads.
     """
+    logger.info(f"Force reloading index: {index}")
     index = _normalize_index_name(index)
     global _DOCS, _LOADED, _INDEX_PATH
 
     if path is not None:
         _INDEX_PATH[index] = path
+        logger.debug(f"Updated path for index '{index}': {path}")
 
     _DOCS[index] = _load_index(index, path=path)
     _LOADED[index] = True
+    logger.info(f"Reloaded {len(_DOCS[index])} chunks for index '{index}'")
     return len(_DOCS[index])
 
 
 def _cosine(a: np.ndarray, b: np.ndarray) -> float:
     """Cosine similarity between two 1D vectors."""
+    logger.debug(f"Calculating cosine similarity")
     na = np.linalg.norm(a)
     nb = np.linalg.norm(b)
     if na == 0.0 or nb == 0.0:
+        logger.warning(f"Cosine similarity calculation: one of the vectors has zero length")
         return 0.0
-    return float(np.dot(a, b) / (na * nb))
+    sim = np.dot(a, b) / (na * nb)
+    logger.debug(f"Cosine similarity result: {sim}")
+    return float(sim)
 
 
 def top_k(
@@ -179,6 +197,7 @@ def top_k(
     :param k:               number of results to return.
     :param index:           which index to query ("main", "tutor", or "agent").
     """
+    logger.debug(f"Fetching top-{k} results for index: {index}")
     index = _normalize_index_name(index)
     docs = get_docs(index=index)
     scored: list[tuple[float, IndexedChunk]] = []
@@ -187,4 +206,5 @@ def top_k(
         scored.append((sim, chunk))
 
     scored.sort(key=lambda t: t[0], reverse=True)
+    logger.debug(f"Top-{k} results for index '{index}': {scored[:k]}")
     return scored[:k]

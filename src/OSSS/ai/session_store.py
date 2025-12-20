@@ -1,4 +1,3 @@
-# src/OSSS/ai/session_store.py
 from __future__ import annotations
 
 from datetime import datetime, timedelta
@@ -11,6 +10,9 @@ from enum import StrEnum
 from pydantic import BaseModel
 from sqlalchemy import create_engine, Column, String, DateTime, Integer, Text, text
 from sqlalchemy.orm import declarative_base, sessionmaker
+from OSSS.ai.observability import get_logger
+
+logger = get_logger(__name__)
 
 SESSION_TTL = timedelta(minutes=30)
 
@@ -79,6 +81,7 @@ def _ensure_rag_sessions_columns() -> None:
             db.execute(text("ALTER TABLE rag_sessions ADD COLUMN pending_payload_json TEXT"))
 
         db.commit()
+        logger.debug("Ensured 'rag_sessions' table columns are up-to-date")
     finally:
         db.close()
 
@@ -97,12 +100,18 @@ class RagSession(BaseModel):
 
 
 def _ttl_expired(last_access: datetime) -> bool:
-    return datetime.utcnow() - last_access > SESSION_TTL
+    expired = datetime.utcnow() - last_access > SESSION_TTL
+    if expired:
+        logger.debug(f"TTL expired for session (last_access={last_access})")
+    return expired
 
 
 def get_or_create_session(agent_session_id: Optional[str]) -> RagSession:
+    logger.debug(f"Attempting to get or create session for ID: {agent_session_id}")
+
     if not agent_session_id or not agent_session_id.strip():
         agent_session_id = str(uuid.uuid4())
+        logger.debug(f"Generated new session ID: {agent_session_id}")
     else:
         agent_session_id = agent_session_id.strip()
 
@@ -112,6 +121,7 @@ def get_or_create_session(agent_session_id: Optional[str]) -> RagSession:
         now = datetime.utcnow()
 
         if sess is None:
+            logger.debug(f"No session found, creating new session with ID: {agent_session_id}")
             sess = RagSessionORM(
                 id=agent_session_id,
                 created_at=now,
@@ -122,7 +132,9 @@ def get_or_create_session(agent_session_id: Optional[str]) -> RagSession:
             db.commit()
             db.refresh(sess)
         else:
+            logger.debug(f"Found session with ID: {agent_session_id}")
             if _ttl_expired(sess.last_access):
+                logger.debug(f"Session TTL expired, recreating session: {agent_session_id}")
                 db.delete(sess)
                 db.flush()
                 sess = RagSessionORM(
@@ -137,6 +149,7 @@ def get_or_create_session(agent_session_id: Optional[str]) -> RagSession:
             else:
                 sess.last_access = now
                 db.commit()
+                logger.debug(f"Updated last access time for session: {agent_session_id}")
 
         return RagSession(
             id=sess.id,
@@ -151,25 +164,31 @@ def get_or_create_session(agent_session_id: Optional[str]) -> RagSession:
 
 
 def touch_session(session_id: str, *, intent: Optional[str] = None, query: Optional[str] = None) -> None:
+    logger.debug(f"Touching session with ID: {session_id}, intent: {intent}, query: {query}")
     db = SessionLocal()
     try:
         sess = db.query(RagSessionORM).filter_by(id=session_id).first()
         if not sess:
+            logger.warning(f"Session with ID: {session_id} not found for touch operation")
             return
 
         sess.turns = (sess.turns or 0) + 1
         if intent is not None:
             sess.last_intent = intent
+            logger.debug(f"Updated intent for session {session_id}: {intent}")
         if query is not None:
             sess.last_query = query
+            logger.debug(f"Updated query for session {session_id}: {query}")
 
         sess.last_access = datetime.utcnow()
         db.commit()
+        logger.debug(f"Session {session_id} updated successfully with new turn count: {sess.turns}")
     finally:
         db.close()
 
 
 def prune_expired_sessions() -> List[str]:
+    logger.debug("Pruning expired sessions based on TTL")
     db = SessionLocal()
     try:
         cutoff = datetime.utcnow() - SESSION_TTL
@@ -179,6 +198,9 @@ def prune_expired_sessions() -> List[str]:
         if expired_ids:
             db.query(RagSessionORM).filter(RagSessionORM.id.in_(expired_ids)).delete(synchronize_session=False)
             db.commit()
+            logger.info(f"Pruned {len(expired_ids)} expired sessions")
+        else:
+            logger.info("No expired sessions to prune")
 
         return expired_ids
     finally:
@@ -189,24 +211,29 @@ def prune_expired_sessions() -> List[str]:
 # ✅ Pending helpers (typed)
 # -----------------------------
 def set_pending(session_id: str, *, kind: PendingKind | str, payload: object) -> None:
+    logger.debug(f"Setting pending for session {session_id} with kind: {kind}")
     db = SessionLocal()
     try:
         sess = db.query(RagSessionORM).filter_by(id=session_id).first()
         if not sess:
+            logger.warning(f"Session with ID: {session_id} not found for setting pending")
             return
         sess.pending_kind = str(kind)
         sess.pending_payload_json = json.dumps(payload, default=str)
         sess.last_access = datetime.utcnow()
         db.commit()
+        logger.debug(f"Pending set for session {session_id}, kind: {kind}")
     finally:
         db.close()
 
 
 def get_pending(session_id: str) -> Tuple[PendingKind | None, Any | None]:
+    logger.debug(f"Getting pending for session {session_id}")
     db = SessionLocal()
     try:
         sess = db.query(RagSessionORM).filter_by(id=session_id).first()
         if not sess or not sess.pending_kind:
+            logger.debug(f"No pending for session {session_id}")
             return None, None
 
         kind = PendingKind.parse(sess.pending_kind)
@@ -215,11 +242,13 @@ def get_pending(session_id: str) -> Tuple[PendingKind | None, Any | None]:
         if sess.pending_payload_json:
             try:
                 payload = json.loads(sess.pending_payload_json)
+                logger.debug(f"Loaded pending payload for session {session_id}")
             except Exception:
                 payload = None
+                logger.error(f"Failed to parse pending payload for session {session_id}")
 
-        # If kind is unknown, treat it as no pending (avoids bad stickiness)
         if kind is None:
+            logger.debug(f"Unknown pending kind for session {session_id}, returning None")
             return None, payload
 
         return kind, payload
@@ -229,52 +258,55 @@ def get_pending(session_id: str) -> Tuple[PendingKind | None, Any | None]:
 
 def has_pending(session_id: str) -> bool:
     kind, _payload = get_pending(session_id)
-    return bool(kind)
+    has_pending = bool(kind)
+    logger.debug(f"Session {session_id} has pending: {has_pending}")
+    return has_pending
 
 
 def clear_pending(session_id: str) -> None:
+    logger.debug(f"Clearing pending for session {session_id}")
     db = SessionLocal()
     try:
         sess = db.query(RagSessionORM).filter_by(id=session_id).first()
         if not sess:
+            logger.warning(f"Session with ID: {session_id} not found for clearing pending")
             return
         sess.pending_kind = None
         sess.pending_payload_json = None
         sess.last_access = datetime.utcnow()
         db.commit()
+        logger.debug(f"Cleared pending for session {session_id}")
     finally:
         db.close()
+
 
 # -----------------------------
 # ✅ Pending clearing helpers
 # -----------------------------
 def clear_pending_if_kind(session_id: str, kind: PendingKind | str) -> bool:
-    """
-    Clear pending only if current pending_kind exactly matches `kind`.
-    Returns True if cleared.
-    """
+    logger.debug(f"Clearing pending for session {session_id} if kind matches: {kind}")
     target = str(kind)
     db = SessionLocal()
     try:
         sess = db.query(RagSessionORM).filter_by(id=session_id).first()
         if not sess or not sess.pending_kind:
+            logger.debug(f"No pending found for session {session_id}")
             return False
         if sess.pending_kind != target:
+            logger.debug(f"Pending kind does not match for session {session_id}")
             return False
         sess.pending_kind = None
         sess.pending_payload_json = None
         sess.last_access = datetime.utcnow()
         db.commit()
+        logger.debug(f"Cleared pending for session {session_id}")
         return True
     finally:
         db.close()
 
 
 def clear_pending_if_prefix(session_id: str, prefix: str) -> bool:
-    """
-    Clear pending if current pending_kind starts with prefix (e.g. "students_create").
-    Returns True if cleared.
-    """
+    logger.debug(f"Clearing pending for session {session_id} if pending kind starts with: {prefix}")
     pref = (prefix or "").strip()
     if not pref:
         return False
@@ -283,32 +315,34 @@ def clear_pending_if_prefix(session_id: str, prefix: str) -> bool:
     try:
         sess = db.query(RagSessionORM).filter_by(id=session_id).first()
         if not sess or not sess.pending_kind:
+            logger.debug(f"No pending found for session {session_id}")
             return False
         if not str(sess.pending_kind).startswith(pref):
+            logger.debug(f"Pending kind does not start with {prefix} for session {session_id}")
             return False
         sess.pending_kind = None
         sess.pending_payload_json = None
         sess.last_access = datetime.utcnow()
         db.commit()
+        logger.debug(f"Cleared pending for session {session_id}")
         return True
     finally:
         db.close()
 
 
-def clear_pending_holds(session_id: str, *, kinds: list[PendingKind | str] | None = None, prefix: str | None = None) -> bool:
-    """
-    Convenience hook:
-      - clear if kind is in `kinds`, OR
-      - clear if pending_kind starts with `prefix`.
-    Returns True if cleared.
-    """
+def clear_pending_holds(session_id: str, *, kinds: list[PendingKind | str] | None = None,
+                        prefix: str | None = None) -> bool:
+    logger.debug(f"Clearing pending holds for session {session_id} with kinds: {kinds}, prefix: {prefix}")
     if kinds:
         for k in kinds:
             if clear_pending_if_kind(session_id, k):
+                logger.debug(f"Cleared pending for session {session_id} due to kind match")
                 return True
         return False
 
     if prefix:
-        return clear_pending_if_prefix(session_id, prefix)
+        if clear_pending_if_prefix(session_id, prefix):
+            logger.debug(f"Cleared pending for session {session_id} due to prefix match")
+            return True
 
     return False

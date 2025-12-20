@@ -1,4 +1,3 @@
-# OSSS/ai/orchestration/intent_classifier.py
 from __future__ import annotations
 
 import json
@@ -9,7 +8,10 @@ from typing import Any, Dict
 from OSSS.ai.config.openai_config import OpenAIConfig
 from OSSS.ai.llm.openai import OpenAIChatLLM
 from OSSS.ai.utils.json_debug import json_loads_debug
+from OSSS.ai.observability import get_logger
 
+# Get logger for this module
+logger = get_logger(__name__)
 
 @dataclass
 class IntentResult:
@@ -75,9 +77,11 @@ def _looks_like_policy_refusal(text: str) -> bool:
         or "seek help" in t
     )
 
+
 import ast
 import json
 from typing import Any, Dict
+
 
 def _coerce_json_object(text: str) -> Dict[str, Any]:
     """
@@ -177,6 +181,7 @@ async def classify_intent_llm_safe(query: str) -> IntentResult:
     """
     q = (query or "").strip()
     if not q:
+        logger.info("Empty query received, using fallback intent result", extra={"query": query})
         return IntentResult(
             intent="general",
             intent_confidence=0.5,
@@ -188,12 +193,14 @@ async def classify_intent_llm_safe(query: str) -> IntentResult:
         )
 
     try:
+        logger.debug("Classifying intent using LLM", extra={"query": _safe_preview(q)})
         r = await classify_intent_llm(q)
         # guarantee dict signals
         r.signals = dict(r.signals or {})
         r.signals.setdefault("analysis_source", "llm")
         return r
     except Exception as e:
+        logger.error("Error during intent classification", extra={"error": str(e)})
         return IntentResult(
             intent="general",
             intent_confidence=0.5,
@@ -213,6 +220,8 @@ async def classify_intent_llm(query: str) -> IntentResult:
         base_url=cfg.base_url,
     )
 
+    logger.debug("Sending query to LLM for intent classification", extra={"query": _safe_preview(query)})
+
     resp = await llm.ainvoke(
         [
             {"role": "system", "content": _INTENT_PROMPT},
@@ -226,7 +235,10 @@ async def classify_intent_llm(query: str) -> IntentResult:
     correlation_id = "intent_classifier"  # better: thread through from orchestrator
     raw_text = _coerce_llm_text(resp).strip()
 
+    logger.debug("Received LLM response", extra={"raw_text": _safe_preview(raw_text)})
+
     if _looks_like_policy_refusal(raw_text):
+        logger.info("LLM response indicates refusal or policy issue", extra={"raw_text": raw_text})
         return _safe_intent_result("llm_refusal")
 
     # Try raw parse first; if that fails, try extracted blob
@@ -245,6 +257,8 @@ async def classify_intent_llm(query: str) -> IntentResult:
             correlation_id=correlation_id,
         )
         data = _coerce_json_object(json_text)
+
+    logger.debug("Parsed LLM response into intent result", extra={"data": data})
 
     return IntentResult(
         intent=str(data.get("intent", "general")),

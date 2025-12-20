@@ -1,4 +1,3 @@
-# OSSS/ai/workflows/template_loader.py
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -52,18 +51,27 @@ class WorkflowTemplateLoader:
         # Cache: workflow_id -> WorkflowTemplate
         self._cache: Dict[str, WorkflowTemplate] = {}
 
+        logger.debug(
+            "Initialized WorkflowTemplateLoader",
+            extra={"templates_dir": str(self._dir), "extra_dirs": [str(d) for d in self._extra_dirs]},
+        )
+
     def _require_yaml(self) -> None:
         if yaml is None:
+            logger.error("PyYAML is required to load workflow templates. Install pyyaml.")
             raise RuntimeError("PyYAML is required to load workflow templates. Install pyyaml.")
+        logger.debug("PyYAML available for template loading")
 
     def _find_repo_root(self, start: Path) -> Path:
         cur = start.resolve()
         for _ in range(10):
             if (cur / "pyproject.toml").exists() or (cur / "src" / "OSSS").exists():
+                logger.debug(f"Found repo root: {cur}")
                 return cur
             if cur.parent == cur:
                 break
             cur = cur.parent
+        logger.warning("Repo root not found, using current directory")
         return start.resolve()
 
     def _resolved_search_dirs(self) -> List[Path]:
@@ -99,21 +107,21 @@ class WorkflowTemplateLoader:
             seen.add(d)
             out.append(d)
 
-        logger.debug(
-            "Workflow template search dirs resolved",
-            extra={"dirs": [str(d) for d in out]},
-        )
+        logger.debug("Resolved search directories", extra={"dirs": [str(d) for d in out]})
         return out
 
     def _iter_yaml_files(self, directory: Path) -> Iterable[Path]:
         # recursive search under each directory
+        logger.debug(f"Searching YAML files in directory: {directory}")
         yield from directory.rglob("*.yaml")
         yield from directory.rglob("*.yml")
 
     def _load_one(self, p: Path) -> Optional[WorkflowTemplate]:
         try:
+            logger.debug(f"Loading workflow template from {p}")
             data = yaml.safe_load(p.read_text(encoding="utf-8")) or {}
             if not isinstance(data, dict):
+                logger.warning(f"Invalid template format in {p}")
                 return None
 
             wf_id = (data.get("workflow_id") or "").strip()
@@ -136,7 +144,7 @@ class WorkflowTemplateLoader:
                     if isinstance(agent, str) and agent.strip():
                         agents.append(agent.strip())
 
-            return WorkflowTemplate(
+            template = WorkflowTemplate(
                 workflow_id=wf_id,
                 name=str(data.get("name") or wf_id),
                 version=str(data.get("version") or "1.0.0"),
@@ -144,6 +152,9 @@ class WorkflowTemplateLoader:
                 agents=agents,
                 raw=data,
             )
+
+            logger.debug(f"Loaded workflow template: {wf_id}", extra={"workflow_template": template.raw})
+            return template
         except Exception as e:
             logger.warning("Failed to load workflow template", extra={"path": str(p), "error": str(e)})
             return None
@@ -153,8 +164,6 @@ class WorkflowTemplateLoader:
         self._require_yaml()
 
         candidates: Dict[str, Dict[str, Any]] = {}
-        # candidates[workflow_id] = {"tpl": WorkflowTemplate, "mtime": float, "path": str}
-
         scanned_files = 0
         loaded = 0
 
@@ -189,16 +198,25 @@ class WorkflowTemplateLoader:
 
     def get(self, workflow_id: str) -> Optional[WorkflowTemplate]:
         if not self._cache:
+            logger.debug("Cache empty, refreshing templates")
             self.refresh()
-        return self._cache.get((workflow_id or "").strip())
+        template = self._cache.get((workflow_id or "").strip())
+        logger.debug(f"Fetching template for workflow_id: {workflow_id}", extra={"template": template})
+        return template
 
     def list(self) -> List[WorkflowTemplate]:
         if not self._cache:
+            logger.debug("Cache empty, refreshing templates")
             self.refresh()
-        return list(self._cache.values())
+        templates = list(self._cache.values())
+        logger.debug(f"Listing all templates, count: {len(templates)}", extra={"templates": templates})
+        return templates
 
     # Optional helper if you want the mapping directly (preflight supports this if present)
     def get_templates(self) -> Dict[str, WorkflowTemplate]:
         if not self._cache:
+            logger.debug("Cache empty, refreshing templates")
             self.refresh()
-        return dict(self._cache)
+        templates = dict(self._cache)
+        logger.debug(f"Fetching all templates as dictionary", extra={"templates": templates})
+        return templates

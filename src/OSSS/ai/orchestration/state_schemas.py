@@ -1,18 +1,3 @@
-"""
-LangGraph state schemas for OSSS agents (refactored).
-
-Refactor goals (aligned with recent node_wrappers + GraphFactory changes):
-- Keep OSSSState as a TypedDict with reducer annotations (LangGraph concurrency-safe).
-- Make the "guard pipeline" keys match the new graph builder + node wrappers:
-    - data_views (plural) not data_view
-    - guard_decision stored at top-level for routing
-    - execution_state remains the "legacy bag" for node wrappers to stash inputs/outputs
-- Add query_profile + routing_decision fields (node_wrappers Option B uses them).
-- Make OSSSContext resilient to runtime kwargs (emit_events) to avoid crashes.
-- Make create_initial_state NOT hardcode requested agents (GraphFactory/orchestrator decide).
-- Keep helpers minimal + tolerant of partial state (nodes often return patches).
-"""
-
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -21,7 +6,10 @@ import operator
 from typing import Any, Dict, List, Optional, Union, Annotated
 
 from typing_extensions import TypedDict
+from OSSS.ai.observability import get_logger
 
+# Get logger for this module
+logger = get_logger(__name__)
 
 # -----------------------------------------------------------------------------
 # Reducers (for concurrent updates)
@@ -35,7 +23,9 @@ def merge_structured_outputs(left: Dict[str, Any], right: Dict[str, Any]) -> Dic
         left = {}
     if not isinstance(right, dict):
         right = {}
-    return {**left, **right}
+    merged = {**left, **right}
+    logger.debug("Merged structured outputs", extra={"merged_output": merged})
+    return merged
 
 
 # -----------------------------------------------------------------------------
@@ -184,7 +174,9 @@ AgentStateUnion = Union[RefinerState, CriticState, HistorianState, SynthesisStat
 # Helpers
 # -----------------------------------------------------------------------------
 def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    now = datetime.now(timezone.utc).isoformat()
+    logger.debug("Generated current timestamp: %s", now)
+    return now
 
 
 def create_initial_state(query: str, execution_id: str, correlation_id: Optional[str] = None) -> OSSSState:
@@ -196,7 +188,7 @@ def create_initial_state(query: str, execution_id: str, correlation_id: Optional
     - Keep this tolerant: many nodes return partial patches, and reducers merge.
     """
     now = _now_iso()
-    return OSSSState(
+    state = OSSSState(
         query=query,
         refiner=None,
         critic=None,
@@ -224,6 +216,8 @@ def create_initial_state(query: str, execution_id: str, correlation_id: Optional
         failed_agents=[],
         structured_outputs={},
     )
+    logger.debug("Created initial state", extra={"initial_state": state})
+    return state
 
 
 def validate_state_integrity(state: OSSSState) -> bool:
@@ -234,29 +228,37 @@ def validate_state_integrity(state: OSSSState) -> bool:
     This should validate "minimum viable state" rather than strict completeness.
     """
     if not isinstance(state, dict):
+        logger.warning("State is not a dictionary, skipping validation")
         return False
 
     q = state.get("query")
     if not isinstance(q, str) or not q:
+        logger.warning("State query is missing or invalid")
         return False
 
     meta = state.get("execution_metadata")
     if meta is not None and not isinstance(meta, dict):
+        logger.warning("Execution metadata is invalid")
         return False
 
     # If execution_metadata present, execution_id should exist
     if isinstance(meta, dict):
         eid = meta.get("execution_id")
         if eid is not None and (not isinstance(eid, str) or not eid):
+            logger.warning("Execution ID in metadata is invalid")
             return False
 
+    logger.debug("State integrity check passed")
     return True
 
 
 def get_agent_state(state: OSSSState, agent_name: str) -> Optional[AgentStateUnion]:
     name = (agent_name or "").strip().lower()
     if name in {"refiner", "critic", "historian", "synthesis"}:
-        return state.get(name)  # type: ignore[return-value]
+        agent_state = state.get(name)  # type: ignore[return-value]
+        logger.debug("Retrieved agent state for %s: %s", agent_name, agent_state)
+        return agent_state
+    logger.debug("Agent state for %s not found", agent_name)
     return None
 
 
@@ -276,6 +278,7 @@ def set_agent_state(state: OSSSState, agent_name: str, output: AgentStateUnion) 
     if name and name not in sa:
         sa.append(name)
     new_state["successful_agents"] = sa  # type: ignore[assignment]
+    logger.debug("Set agent state for %s, successful_agents: %s", agent_name, sa)
     return new_state
 
 
@@ -290,19 +293,20 @@ def record_agent_error(state: OSSSState, agent_name: str, error: Exception) -> O
     errors = list(state.get("errors") or [])
     failed = list(state.get("failed_agents") or [])
 
-    errors.append(
-        {
-            "agent": name or agent_name,
-            "error_type": type(error).__name__,
-            "error_message": str(error),
-            "timestamp": _now_iso(),
-        }
-    )
+    error_entry = {
+        "agent": name or agent_name,
+        "error_type": type(error).__name__,
+        "error_message": str(error),
+        "timestamp": _now_iso(),
+    }
+    errors.append(error_entry)
     if name and name not in failed:
         failed.append(name)
 
     new_state["errors"] = errors  # type: ignore[assignment]
     new_state["failed_agents"] = failed  # type: ignore[assignment]
+
+    logger.error("Recorded error for agent %s: %s", agent_name, str(error))
     return new_state
 
 
@@ -313,11 +317,6 @@ def record_agent_error(state: OSSSState, agent_name: str, error: Exception) -> O
 class OSSSContext:
     """
     Context passed to LangGraph nodes.
-
-    IMPORTANT:
-    - LangGraph runtime may pass additional kwargs (e.g. emit_events).
-      Accept it to avoid: OSSSContext.__init__() got unexpected keyword argument 'emit_events'
-    - Also accept arbitrary extras for forward compatibility (ignored).
     """
     thread_id: str
     execution_id: str
@@ -328,7 +327,6 @@ class OSSSContext:
     # LangGraph/runtime flags
     emit_events: bool = False
 
-    # Forward compatibility: ignore unexpected kwargs without crashing.
     def __init__(
         self,
         thread_id: str,
@@ -345,25 +343,4 @@ class OSSSContext:
         self.correlation_id = correlation_id
         self.enable_checkpoints = enable_checkpoints
         self.emit_events = emit_events
-
-
-__all__ = [
-    "OSSSState",
-    "LangGraphState",
-    "GuardState",
-    "AnswerSearchState",
-    "UIResponseState",
-    "RefinerState",
-    "CriticState",
-    "HistorianState",
-    "SynthesisState",
-    "AgentStateUnion",
-    "ExecutionMetadata",
-    "OSSSContext",
-    "create_initial_state",
-    "validate_state_integrity",
-    "get_agent_state",
-    "set_agent_state",
-    "record_agent_error",
-    "merge_structured_outputs",
-]
+        logger.debug("Created OSSSContext for thread: %s, execution_id: %s", thread_id, execution_id)

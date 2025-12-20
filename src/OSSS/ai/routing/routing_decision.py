@@ -1,21 +1,12 @@
-"""
-Routing Decision Data Structures.
-
-This module defines the data structures for routing decisions,
-providing comprehensive reasoning and confidence tracking.
-"""
-
 import uuid
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Dict, List, Optional, Any
-
 from pydantic import BaseModel, Field, ConfigDict
-
+from OSSS.ai.observability import get_logger
 
 class RoutingConfidenceLevel(Enum):
     """Confidence levels for routing decisions."""
-
     VERY_LOW = "very_low"  # 0.0 - 0.2
     LOW = "low"  # 0.2 - 0.4
     MEDIUM = "medium"  # 0.4 - 0.6
@@ -30,6 +21,7 @@ class RoutingReasoning(BaseModel):
     Migrated from dataclass to Pydantic BaseModel for enhanced validation,
     serialization, and integration with the OSSS Pydantic ecosystem.
     """
+    logger = get_logger("services.routing_decision")
 
     # Primary reasoning factors
     complexity_analysis: Dict[str, Any] = Field(
@@ -143,6 +135,119 @@ class RoutingReasoning(BaseModel):
         """
         return self.model_dump()
 
+    def add_reasoning(self, category: str, key: str, value: Any) -> None:
+        """Add reasoning information to the decision."""
+        self.logger.debug(f"Adding {category} reasoning: {key} = {value}")
+        if category == "complexity":
+            self.reasoning.complexity_analysis[key] = value
+        elif category == "performance":
+            self.reasoning.performance_analysis[key] = value
+        elif category == "resource":
+            self.reasoning.resource_analysis[key] = value
+
+    def add_agent_rationale(
+        self, agent: str, rationale: str, included: bool = True
+    ) -> None:
+        """Add rationale for including or excluding an agent."""
+        self.logger.debug(f"Adding rationale for agent '{agent}': {rationale}, included={included}")
+        if included:
+            self.reasoning.agent_selection_rationale[agent] = rationale
+        else:
+            self.reasoning.excluded_agents_rationale[agent] = rationale
+
+    def add_risk(self, risk: str, mitigation: Optional[str] = None) -> None:
+        """Add identified risk and optional mitigation strategy."""
+        self.logger.debug(f"Adding risk: {risk}, mitigation={mitigation}")
+        self.reasoning.risks_identified.append(risk)
+        if mitigation:
+            self.reasoning.mitigation_strategies.append(mitigation)
+
+    def add_fallback_option(self, fallback: str) -> None:
+        """Add fallback option for failure scenarios."""
+        self.logger.debug(f"Adding fallback option: {fallback}")
+        self.reasoning.fallback_options.append(fallback)
+
+    def set_performance_prediction(
+        self,
+        total_time_ms: float,
+        success_probability: float,
+        resource_utilization: Optional[Dict[str, float]] = None,
+    ) -> None:
+        """Set performance predictions for the routing decision."""
+        self.logger.debug(f"Setting performance prediction: {total_time_ms}ms, success probability {success_probability}")
+        self.estimated_total_time_ms = total_time_ms
+        self.estimated_success_probability = success_probability
+        self.reasoning.estimated_execution_time_ms = total_time_ms
+        self.reasoning.estimated_success_probability = success_probability
+
+        if resource_utilization:
+            self.reasoning.resource_utilization_estimate = resource_utilization
+
+    def add_optimization_opportunity(self, opportunity: str) -> None:
+        """Add identified optimization opportunity."""
+        self.logger.debug(f"Adding optimization opportunity: {opportunity}")
+        self.optimization_opportunities.append(opportunity)
+
+    def is_high_confidence(self) -> bool:
+        """Check if this is a high-confidence decision."""
+        return self.confidence_level in [
+            RoutingConfidenceLevel.HIGH,
+            RoutingConfidenceLevel.VERY_HIGH,
+        ]
+
+    def is_risky(self) -> bool:
+        """Check if this decision has identified risks."""
+        return len(self.reasoning.risks_identified) > 0
+
+    def has_fallbacks(self) -> bool:
+        """Check if fallback options are available."""
+        return len(self.reasoning.fallback_options) > 0
+
+    def get_excluded_agents(self) -> List[str]:
+        """Get list of agents that were available but not selected."""
+        return [
+            agent
+            for agent in self.available_agents
+            if agent not in self.selected_agents
+        ]
+
+    def to_dict(self) -> Dict[str, Any]:
+        """
+        Convert to dictionary for serialization.
+
+        Maintained for backward compatibility. Uses Pydantic's model_dump()
+        internally for consistent serialization with datetime handling.
+        """
+        # Use model_dump with mode='json' to properly serialize datetime and enums
+        data = self.model_dump(mode="json")
+
+        # Ensure datetime is serialized as ISO format string for compatibility
+        data["timestamp"] = self.timestamp.isoformat()
+
+        # Ensure confidence_level is serialized as string value
+        data["confidence_level"] = self.confidence_level.value
+
+        # Ensure reasoning uses the to_dict method for consistency
+        data["reasoning"] = self.reasoning.to_dict() if self.reasoning else {}
+
+        return data
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "RoutingDecision":
+        """
+        Create routing decision from dictionary.
+
+        Uses Pydantic's model_validate() for cleaner deserialization
+        and automatic type conversion.
+        """
+        # Handle nested reasoning object if it's a dict
+        if "reasoning" in data and isinstance(data["reasoning"], dict):
+            data = data.copy()  # Don't modify original
+            data["reasoning"] = RoutingReasoning.model_validate(data["reasoning"])
+
+        # Use Pydantic's model_validate for automatic type conversion
+        return cls.model_validate(data)
+
 
 class RoutingDecision(BaseModel):
     """
@@ -154,6 +259,8 @@ class RoutingDecision(BaseModel):
     This class captures all aspects of an intelligent routing decision,
     including the selected agents, reasoning, confidence, and predictions.
     """
+
+    logger = get_logger("services.routing_decision")
 
     # Core decision - required fields first
     selected_agents: List[str] = Field(
@@ -288,110 +395,3 @@ class RoutingDecision(BaseModel):
             return RoutingConfidenceLevel.HIGH
         else:
             return RoutingConfidenceLevel.VERY_HIGH
-
-    def add_reasoning(self, category: str, key: str, value: Any) -> None:
-        """Add reasoning information to the decision."""
-        if category == "complexity":
-            self.reasoning.complexity_analysis[key] = value
-        elif category == "performance":
-            self.reasoning.performance_analysis[key] = value
-        elif category == "resource":
-            self.reasoning.resource_analysis[key] = value
-
-    def add_agent_rationale(
-        self, agent: str, rationale: str, included: bool = True
-    ) -> None:
-        """Add rationale for including or excluding an agent."""
-        if included:
-            self.reasoning.agent_selection_rationale[agent] = rationale
-        else:
-            self.reasoning.excluded_agents_rationale[agent] = rationale
-
-    def add_risk(self, risk: str, mitigation: Optional[str] = None) -> None:
-        """Add identified risk and optional mitigation strategy."""
-        self.reasoning.risks_identified.append(risk)
-        if mitigation:
-            self.reasoning.mitigation_strategies.append(mitigation)
-
-    def add_fallback_option(self, fallback: str) -> None:
-        """Add fallback option for failure scenarios."""
-        self.reasoning.fallback_options.append(fallback)
-
-    def set_performance_prediction(
-        self,
-        total_time_ms: float,
-        success_probability: float,
-        resource_utilization: Optional[Dict[str, float]] = None,
-    ) -> None:
-        """Set performance predictions for the routing decision."""
-        self.estimated_total_time_ms = total_time_ms
-        self.estimated_success_probability = success_probability
-        self.reasoning.estimated_execution_time_ms = total_time_ms
-        self.reasoning.estimated_success_probability = success_probability
-
-        if resource_utilization:
-            self.reasoning.resource_utilization_estimate = resource_utilization
-
-    def add_optimization_opportunity(self, opportunity: str) -> None:
-        """Add identified optimization opportunity."""
-        self.optimization_opportunities.append(opportunity)
-
-    def is_high_confidence(self) -> bool:
-        """Check if this is a high-confidence decision."""
-        return self.confidence_level in [
-            RoutingConfidenceLevel.HIGH,
-            RoutingConfidenceLevel.VERY_HIGH,
-        ]
-
-    def is_risky(self) -> bool:
-        """Check if this decision has identified risks."""
-        return len(self.reasoning.risks_identified) > 0
-
-    def has_fallbacks(self) -> bool:
-        """Check if fallback options are available."""
-        return len(self.reasoning.fallback_options) > 0
-
-    def get_excluded_agents(self) -> List[str]:
-        """Get list of agents that were available but not selected."""
-        return [
-            agent
-            for agent in self.available_agents
-            if agent not in self.selected_agents
-        ]
-
-    def to_dict(self) -> Dict[str, Any]:
-        """
-        Convert to dictionary for serialization.
-
-        Maintained for backward compatibility. Uses Pydantic's model_dump()
-        internally for consistent serialization with datetime handling.
-        """
-        # Use model_dump with mode='json' to properly serialize datetime and enums
-        data = self.model_dump(mode="json")
-
-        # Ensure datetime is serialized as ISO format string for compatibility
-        data["timestamp"] = self.timestamp.isoformat()
-
-        # Ensure confidence_level is serialized as string value
-        data["confidence_level"] = self.confidence_level.value
-
-        # Ensure reasoning uses the to_dict method for consistency
-        data["reasoning"] = self.reasoning.to_dict() if self.reasoning else {}
-
-        return data
-
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "RoutingDecision":
-        """
-        Create routing decision from dictionary.
-
-        Uses Pydantic's model_validate() for cleaner deserialization
-        and automatic type conversion.
-        """
-        # Handle nested reasoning object if it's a dict
-        if "reasoning" in data and isinstance(data["reasoning"], dict):
-            data = data.copy()  # Don't modify original
-            data["reasoning"] = RoutingReasoning.model_validate(data["reasoning"])
-
-        # Use Pydantic's model_validate for automatic type conversion
-        return cls.model_validate(data)

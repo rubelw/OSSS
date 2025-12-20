@@ -1,4 +1,3 @@
-# OSSS/ai/planning/planner.py
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
@@ -72,6 +71,7 @@ async def _make_routing_decision(
     """
     The old LangGraphOrchestrator._make_routing_decision moved here.
     """
+    logger.debug(f"Analyzing context for query: {query}")
     context_analysis = context_analyzer.analyze_context(query)
 
     performance_data: Dict[str, Dict[str, float]] = {}
@@ -90,6 +90,8 @@ async def _make_routing_decision(
                 "performance_score": 0.7,
             }
 
+    logger.debug(f"Performance data collected: {performance_data}")
+
     constraints = ResourceConstraints(
         max_execution_time_ms=config.get("max_execution_time_ms"),
         max_agents=config.get("max_agents", 4),
@@ -97,12 +99,16 @@ async def _make_routing_decision(
         min_success_rate=config.get("min_success_rate", 0.7),
     )
 
+    logger.debug(f"Resource constraints applied: {constraints}")
+
     context_requirements = {
         "requires_research": context_analysis.requires_research,
         "requires_criticism": context_analysis.requires_criticism,
         "requires_synthesis": True,
         "requires_refinement": True,
     }
+
+    logger.info(f"Context analysis result: {context_analysis}")
 
     return resource_optimizer.select_optimal_agents(
         available_agents=available_agents,
@@ -141,6 +147,8 @@ async def build_execution_plan(
     )
     normalized_defaults = [a for a in normalized_defaults if a]  # drop empty
 
+    logger.debug(f"Normalized default agents: {normalized_defaults}")
+
     requested_agents = _parse_requested_agents(config)
 
     allow_auto_inject_nodes = bool(config.get("allow_auto_inject_nodes", False))
@@ -176,6 +184,7 @@ async def build_execution_plan(
                 allow_auto_inject_nodes=allow_auto_inject_nodes,
             )
 
+        logger.info("Starting enhanced routing decision process")
         routing_decision = await _make_routing_decision(
             query=query,
             available_agents=list(normalized_defaults),

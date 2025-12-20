@@ -11,7 +11,6 @@ from OSSS.ai.observability import get_logger
 
 logger = get_logger(__name__)
 
-
 class DataViewAgent(BaseAgent):
     """
     HARD-WIRED: always GET /api/warrantys?skip=0&limit=100
@@ -37,8 +36,13 @@ class DataViewAgent(BaseAgent):
         super().__init__(name=self.name, timeout_seconds=20.0)
         self.data_views = data_views or {}
         self.pg_engine = pg_engine
+        logger.debug("DataViewAgent initialized", extra={
+            "data_views": self.data_views,
+            "pg_engine": self.pg_engine
+        })
 
     def get_node_definition(self) -> LangGraphNodeDefinition:
+        logger.debug("Getting node definition", extra={"node_type": "tool", "agent_name": self.__class__.__name__})
         return LangGraphNodeDefinition(
             node_type="tool",
             agent_name=self.__class__.__name__,
@@ -65,6 +69,7 @@ class DataViewAgent(BaseAgent):
         )
 
         # Running the HttpGetAgent to fetch data
+        logger.debug("Executing HTTP GET request via HttpGetAgent", extra={"base_url": self.BASE_URL, "path": self.PATH})
         context = await agent.run(context)
 
         # Log the data fetched by HttpGetAgent
@@ -92,6 +97,7 @@ class DataViewAgent(BaseAgent):
         return context
 
     async def invoke(self, context: AgentContext) -> AgentContext:
+        logger.debug("Invoking DataViewAgent", extra={"context": context})
         return await self.run(context)
 
     def _wrap_http_result(self, context: AgentContext, spec: DataViewSpec) -> AgentContext:

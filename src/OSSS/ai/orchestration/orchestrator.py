@@ -280,18 +280,23 @@ class LangGraphOrchestrator:
         - The graph executes that plan (no extra ad-hoc routing heuristics here).
         - Nodes consume routing/profile hints via execution_state.agent_output_meta.
         """
+        # Log the start of execution
+        logger.debug(f"Starting LangGraph execution for query: {query[:100]} with config: {config}")
+
+        # Initialize config and record it in the last config
         config = config or {}
         self._last_config = dict(config)
         self._last_plan_allow_auto_inject_nodes = False
 
         start_time = time.time()
+        logger.debug(f"Execution start time: {start_time}")
 
         # ------------------------------------------------------------
         # Parse (but don't apply yet): honor caller-requested agent list.
         # Guard must run first regardless.
         # ------------------------------------------------------------
 
-
+        logger.debug(f"Parsing configuration for routing agents: {self.agents_to_run}")
         routing_decision = None
 
         # Handle correlation context - use provided correlation_id/workflow_id if available
@@ -316,11 +321,13 @@ class LangGraphOrchestrator:
 
         orchestrator_span = create_child_span("langgraph_orchestrator")
 
+        # Add trace metadata for debugging
         add_trace_metadata("orchestrator_type", "langgraph-real")
         add_trace_metadata("query_length", len(query))
         add_trace_metadata("config", config)
 
         self.total_executions += 1
+        logger.debug(f"Total executions: {self.total_executions}")
 
         # ------------------------------------------------------------
         # Pre-guard short-circuit: run guard ALWAYS.
@@ -335,20 +342,22 @@ class LangGraphOrchestrator:
             correlation_ctx=correlation_ctx,
         )
         if halted_ctx is not None:
-            self.logger.info(
+            logger.info(
                 "[orchestrator] Halted pre-graph by guard: %s",
                 halted_ctx.execution_state.get("routing", {}).get("halt_reason"),
             )
             self.successful_executions += 1
+            logger.debug(f"Execution stopped by guard, successful executions: {self.successful_executions}")
             return halted_ctx
 
         # snapshot before planning
         prev_agents = list(self.agents_to_run or [])
+        logger.debug(f"Previous agents to run: {prev_agents}")
 
         # ------------------------------------------------------------
         # Planning: decide agents + routing metadata in ONE place
-        # (Planner handles caller override vs enhanced routing vs defaults)
         # ------------------------------------------------------------
+        logger.debug("Building execution plan...")
         plan = await build_execution_plan(
             query=query,
             config=config,
@@ -365,7 +374,13 @@ class LangGraphOrchestrator:
         # Apply plan
         self.agents_to_run = list(plan.agents_to_run or [])
         routing_decision = plan.routing_decision
+        logger.debug(f"Plan applied: {self.agents_to_run}")
+
         self._last_plan_allow_auto_inject_nodes = bool(getattr(plan, "allow_auto_inject_nodes", False))
+
+        # Log state of plan application
+        logger.debug(f"Routing decision: {routing_decision}")
+        logger.debug(f"Allow auto inject nodes: {self._last_plan_allow_auto_inject_nodes}")
 
         # Clear cached compiled graph only if topology changed
         if self.agents_to_run != prev_agents:
@@ -376,12 +391,6 @@ class LangGraphOrchestrator:
         self._last_plan_allow_auto_inject_nodes = bool(
             getattr(plan, "allow_auto_inject_nodes", False)
         )
-
-        # Graph topology changed => force rebuild (cached by topology/spec)
-        # Only clear cache if the effective agent set changed vs previous run.
-        if self.agents_to_run != prev_agents:
-            self._compiled_graph = None
-            self._graph = None
 
         # ------------------------------------------------------------
         # Emit routing decision event only if we actually made one
@@ -398,6 +407,7 @@ class LangGraphOrchestrator:
                     "routing_source": (plan.routing_meta or {}).get("source"),
                 },
             )
+            logger.debug(f"Routing decision emitted: {routing_decision}")
 
         # Record accurate final plan in traces
         add_trace_metadata("agents_requested", list(self.agents_to_run or []))
@@ -420,6 +430,7 @@ class LangGraphOrchestrator:
         try:
             # Get or generate thread ID for this execution
             thread_id = self.memory_manager.get_thread_id(config.get("thread_id"))
+            logger.debug(f"Thread ID for execution: {thread_id}")
 
             # Create initial LangGraph state
             from OSSS.ai.orchestration.intent_classifier import classify_intent_llm, to_query_profile
@@ -447,6 +458,7 @@ class LangGraphOrchestrator:
                 intent_result = await classify_intent_llm(query)
                 profile = to_query_profile(intent_result)
                 meta["_query_profile"] = profile
+                logger.debug(f"LLM Intent Profile: {profile}")
 
             # Routing decision (if any) stored once, centrally
             if routing_decision is not None:
@@ -463,6 +475,8 @@ class LangGraphOrchestrator:
                         }
                 except Exception:
                     meta["_routing"] = {"selected_agents": list(self.agents_to_run or [])}
+
+                logger.debug(f"Routing meta injected: {meta['_routing']}")
 
             # Optional RAG prefetch
             rag_cfg = (config.get("execution_config") or {}).get("rag", {}) if isinstance(config, dict) else {}
@@ -501,11 +515,11 @@ class LangGraphOrchestrator:
                         "top_k": top_k,
                     }
 
-                    self.logger.info(
+                    logger.info(
                         f"[orchestrator] RAG prefetch complete: hits={len(exec_state['rag_hits'])}, top_k={top_k}"
                     )
                 except Exception as e:
-                    self.logger.warning(f"[orchestrator] RAG prefetch failed (continuing without RAG): {e}")
+                    logger.warning(f"[orchestrator] RAG prefetch failed (continuing without RAG): {e}")
                     exec_state = initial_state.setdefault("execution_state", {})
                     if isinstance(exec_state, dict):
                         exec_state["rag_enabled"] = False
@@ -526,7 +540,7 @@ class LangGraphOrchestrator:
 
             compiled_graph = await self._get_compiled_graph()
 
-            self.logger.info(f"Executing LangGraph StateGraph with thread_id: {thread_id}")
+            logger.info(f"Executing LangGraph StateGraph with thread_id: {thread_id}")
 
             # Best practice: orchestrator controls node wrapper side-effects (events/logging)
             emit_events = bool(config.get("emit_node_events", False))
@@ -544,7 +558,7 @@ class LangGraphOrchestrator:
             final_state = await compiled_graph.ainvoke(initial_state, context=context)
 
             if not validate_state_integrity(final_state):
-                self.logger.warning("Final state validation failed, but proceeding")
+                logger.warning("Final state validation failed, but proceeding")
 
             if self.memory_manager.is_enabled():
                 self.memory_manager.create_checkpoint(
@@ -585,25 +599,24 @@ class LangGraphOrchestrator:
 
             if final_state["failed_agents"]:
                 self.failed_executions += 1
-                self.logger.warning(
+                logger.warning(
                     f"LangGraph execution completed with failures: {final_state['failed_agents']}"
                 )
             else:
                 self.successful_executions += 1
 
-            self.logger.info(
+            logger.info(
                 f"LangGraph execution completed in {total_time_ms:.2f}ms "
                 f"(successful: {len(final_state['successful_agents'])}, "
                 f"failed: {len(final_state['failed_agents'])})"
             )
 
             return agent_context
-
         except Exception as e:
             self.failed_executions += 1
             total_time_ms = (time.time() - start_time) * 1000
 
-            self.logger.error(f"LangGraph execution failed after {total_time_ms:.2f}ms: {e}")
+            logger.error(f"LangGraph execution failed after {total_time_ms:.2f}ms: {e}")
 
             try:
                 await emit_workflow_completed(

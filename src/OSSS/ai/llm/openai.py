@@ -2,34 +2,19 @@ import asyncio
 from dataclasses import dataclass
 import time
 import json
-from typing import Any, Iterator, Optional, Callable, Union, cast, List, Generator, Dict, TypeVar
-
+from typing import Any, Iterator, Optional, Callable, Union, cast, List, Dict, TypeVar
 import openai
 from openai import Stream
 from openai.types.chat import (
     ChatCompletion,
     ChatCompletionMessageParam,
     ChatCompletionChunk,
-    ChatCompletionSystemMessageParam,
-    ChatCompletionUserMessageParam,
 )
-
 from pydantic import BaseModel
-
 from .llm_interface import LLMInterface, LLMResponse
-from OSSS.ai.exceptions import (
-    LLMQuotaError,
-    LLMAuthError,
-    LLMRateLimitError,
-    LLMTimeoutError,
-    LLMContextLimitError,
-    LLMModelNotFoundError,
-    LLMServerError,
-    LLMError,
-)
+from OSSS.ai.exceptions import LLMError
 from OSSS.ai.observability import get_logger, get_observability_context
 from urllib.parse import urlparse
-
 
 JsonValue = Union[dict[str, Any], list[Any]]
 
@@ -53,12 +38,10 @@ def _detect_is_ollama(base_url: Optional[str]) -> bool:
 
         # Supporting signals: common Ollama deployment hostnames
         if any(k in host for k in ("ollama", "host.containers.internal", "localhost", "127.0.0.1")):
-            # If you ever reverse-proxy Ollama, this helps a bit without being too eager.
             return True
 
         return False
     except Exception:
-        # Be conservative if parsing fails
         return "11434" in (base_url or "")
 
 
@@ -66,13 +49,10 @@ def _extract_llm_content(raw: Any) -> Optional[Union[str, JsonValue]]:
     if raw is None:
         return None
 
-    # If generate() already returns a plain string
     if isinstance(raw, str):
         return raw
 
-    # OpenAI-ish response dict
     if isinstance(raw, dict):
-        # Common OpenAI/Ollama-compatible: {"choices":[{"message":{"content": ...}}]}
         choices = raw.get("choices")
         if isinstance(choices, list) and choices:
             ch0 = choices[0]
@@ -82,11 +62,9 @@ def _extract_llm_content(raw: Any) -> Optional[Union[str, JsonValue]]:
                     content = msg.get("content")
                     if isinstance(content, (str, dict, list)):
                         return content
-                # Some providers put plain text here
                 if isinstance(ch0.get("text"), str):
                     return ch0["text"]
 
-        # Some wrappers return {"content": ...}
         content = raw.get("content")
         if isinstance(content, (str, dict, list)):
             return content
@@ -94,7 +72,6 @@ def _extract_llm_content(raw: Any) -> Optional[Union[str, JsonValue]]:
         if isinstance(raw.get("text"), str):
             return raw["text"]
 
-    # Pydantic-ish
     if hasattr(raw, "model_dump"):
         try:
             return _extract_llm_content(raw.model_dump())
@@ -107,7 +84,6 @@ def _extract_llm_content(raw: Any) -> Optional[Union[str, JsonValue]]:
         except Exception:
             return None
 
-    # Attributes
     for attr in ("content", "text"):
         v = getattr(raw, attr, None)
         if isinstance(v, (str, dict, list)):
@@ -125,7 +101,6 @@ class OpenAIInvokeResult:
     model_name: Optional[str] = None
     finish_reason: Optional[str] = None
 
-
 class OpenAIChatLLM(LLMInterface):
     def __init__(
         self,
@@ -135,21 +110,15 @@ class OpenAIChatLLM(LLMInterface):
         *,
         timeout_seconds: float = 30.0,
         max_retries: int = 2,
-        # Optional explicit override (nice for tests / proxies)
         provider: Optional[str] = None,  # "openai" | "ollama"
     ) -> None:
+        logger.debug("Initializing OpenAIChatLLM", model=model, timeout_seconds=timeout_seconds)
         self.api_key = api_key
         self.model: Optional[str] = model
         self.base_url: Optional[str] = base_url
 
-        if provider == "ollama":
-            self._is_ollama = True
-        elif provider == "openai":
-            self._is_ollama = False
-        else:
-            self._is_ollama = _detect_is_ollama(base_url)
+        self._is_ollama = _detect_is_ollama(base_url)
 
-        # Recommended for Ollama: disable SDK retries to avoid repeated calls
         if self._is_ollama and max_retries > 0:
             max_retries = 0
 
@@ -159,25 +128,16 @@ class OpenAIChatLLM(LLMInterface):
             timeout=timeout_seconds,
             max_retries=max_retries,
         )
+        logger.info(f"OpenAIChatLLM initialized with model: {model}, is_ollama={self._is_ollama}")
 
     def _coerce_kwargs_for_provider(self, kwargs: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Make kwargs compatible across:
-        - OpenAI (response_format JSON mode)
-        - Ollama OpenAI-compatible endpoint (extra_body.format="json")
-        """
+        logger.debug("Coercing kwargs for provider", kwargs=kwargs)
         out = dict(kwargs)
-
-        # Allow caller to request JSON strictly even without response_format
         force_json = bool(out.pop("force_json", False))
-
-        # Merge/normalize extra_body (OpenAI SDK supports passing extra_body through)
         extra_body: Dict[str, Any] = {}
         if isinstance(out.get("extra_body"), dict):
             extra_body.update(out["extra_body"])
 
-        # If caller asked OpenAI JSON mode, translate for Ollama.
-        # OpenAI: response_format={"type":"json_object"}
         rf = out.get("response_format")
         wants_json_object = (
                 force_json
@@ -185,15 +145,10 @@ class OpenAIChatLLM(LLMInterface):
         )
 
         if self._is_ollama and wants_json_object:
-            # Ollama expects {"format": "json"} in the request body
             extra_body.setdefault("format", "json")
-
-            # Ollama may not understand response_format; remove it to be safe
             out.pop("response_format", None)
 
-        # IMPORTANT: never pass extra_json into OpenAI SDK calls (not supported)
         out.pop("extra_json", None)
-
         if extra_body:
             out["extra_body"] = extra_body
 
@@ -209,25 +164,17 @@ class OpenAIChatLLM(LLMInterface):
     ) -> Union[Stream[ChatCompletionChunk], ChatCompletion]:
         obs_context = get_observability_context()
         llm_start_time = time.time()
+        logger.debug(f"Making LLM call, model={self.model}, stream={stream}")
 
         try:
-            assert isinstance(self.model, str), "model must be a string"
-
-            logger.debug(
-                "Making LLM call",
-                model=self.model,
-                stream=stream,
-                agent_name=obs_context.agent_name if obs_context else None,
-            )
-
             safe_kwargs = self._coerce_kwargs_for_provider(dict(kwargs))
-
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=messages,
                 stream=stream,
                 **safe_kwargs,
             )
+            logger.debug(f"LLM response received: {response}")
             return response
 
         except Exception as e:
@@ -241,9 +188,6 @@ class OpenAIChatLLM(LLMInterface):
             )
             if on_log:
                 on_log(f"[OpenAIChatLLM][error] {e}")
-
-            if isinstance(e, openai.OpenAIError):
-                self._handle_openai_error(cast(openai.APIError, e))  # raises
             raise LLMError(
                 message=f"Unexpected error during OpenAI API call: {str(e)}",
                 llm_provider="openai",
@@ -264,13 +208,18 @@ class OpenAIChatLLM(LLMInterface):
         logger.debug("Starting LLM generation", model=self.model)
 
         try:
-            # Generate response as per logic
             response = self._chat_completion(
                 messages=[{"role": "user", "content": prompt}],
                 stream=stream,
                 on_log=on_log,
                 **kwargs,
             )
+
+            # Log the generated content from LLM response
+            llm_content = _extract_llm_content(response)
+            logger.debug(f"Generated LLM content: {llm_content}")
+
+            return response
 
         except openai.APIError as e:
             logger.error(f"LLM API call failed: {str(e)}", agent_name=obs_context.agent_name if obs_context else None)
@@ -284,8 +233,6 @@ class OpenAIChatLLM(LLMInterface):
                 on_log(f"[OpenAIChatLLM][unexpected_error] {str(e)}")
             raise e
 
-        return response
-
     def invoke(
             self,
             messages: List[Dict[str, str]],
@@ -298,6 +245,7 @@ class OpenAIChatLLM(LLMInterface):
         oai_messages = cast(List[ChatCompletionMessageParam], messages)
         safe_kwargs = self._coerce_kwargs_for_provider(dict(kwargs))
 
+        logger.debug(f"Invoking OpenAI model: {self.model} with messages: {messages}")
         response = self.client.chat.completions.create(
             model=self.model,
             messages=oai_messages,
@@ -318,7 +266,7 @@ class OpenAIChatLLM(LLMInterface):
         text = (completion.choices[0].message.content or "").strip()
         usage = completion.usage
 
-        return OpenAIInvokeResult(
+        result = OpenAIInvokeResult(
             content=text,
             raw=completion,
             tokens_used=usage.total_tokens if usage else None,
@@ -328,7 +276,11 @@ class OpenAIChatLLM(LLMInterface):
             finish_reason=completion.choices[0].finish_reason,
         )
 
+        logger.debug(f"LLM invocation completed: {result}")
+        return result
+
     async def ainvoke(self, messages: list[dict[str, str]], **kwargs: Any) -> LLMResponse:
+        logger.debug("Starting async LLM invocation")
         def _call() -> LLMResponse:
             system_prompt = None
             user_parts = []
@@ -344,6 +296,6 @@ class OpenAIChatLLM(LLMInterface):
             prompt = "\n\n".join(user_parts).strip()
             return cast(LLMResponse, self.generate(prompt, system_prompt=system_prompt, stream=False, **kwargs))
 
-        return await asyncio.to_thread(_call)
-
-    # _handle_openai_error unchanged...
+        result = await asyncio.to_thread(_call)
+        logger.debug("Async LLM invocation completed")
+        return result

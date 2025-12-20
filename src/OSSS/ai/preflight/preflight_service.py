@@ -1,4 +1,3 @@
-# OSSS/ai/preflight/preflight_service.py
 from __future__ import annotations
 
 import asyncio
@@ -45,6 +44,7 @@ def _coerce_json_object(text: str) -> Dict[str, Any]:
         raise ValueError(f"expected JSON object, got {type(obj).__name__}")
     except Exception as e:
         logger.error(f"Failed to parse JSON (error: {e}): {t[:500]}")  # Log partial input if error occurs
+        logger.debug(f"Exception details: {str(e)}", exc_info=True)  # Log the stack trace
         pass
 
     # 2) python-literal fallback (e.g. {'a': 1})
@@ -57,6 +57,7 @@ def _coerce_json_object(text: str) -> Dict[str, Any]:
         return obj
     except Exception as e:
         logger.error(f"Failed to parse as Python literal (error: {e}): {t[:500]}")
+        logger.debug(f"Exception details: {str(e)}", exc_info=True)  # Log the stack trace
         raise ValueError(f"not valid JSON or python-literal: {e}") from e
 
     if not isinstance(obj, dict):
@@ -79,17 +80,18 @@ def _parse_llm_json_best_effort(
     # Log the raw (even if it fails)
     try:
         logger.debug(f"Raw text for {label}: {raw_text[:1000]}")  # Log raw text up to 1000 characters
-
         json_loads_debug(raw_text, label=f"{label}:raw", correlation_id=correlation_id)
     except Exception:
         # keep going; debug logger already emitted details
         logger.error(f"Failed to parse raw JSON for {label}: {raw_text[:500]}")  # Log the partial raw text
+        logger.debug("Failed to parse raw JSON", exc_info=True)  # Log stack trace for debugging
         pass
 
     # Try parsing raw directly (works when model returns exactly the JSON object)
     try:
         return _coerce_json_object(raw_text)
     except Exception:
+        logger.debug("Raw text failed, proceeding to extract first JSON object.", exc_info=True)
         pass
 
     # Otherwise extract the first {...} blob then parse again
@@ -100,6 +102,7 @@ def _parse_llm_json_best_effort(
         json_loads_debug(extracted, label=f"{label}:extracted", correlation_id=correlation_id)
     except Exception:
         logger.error(f"Failed to parse extracted JSON for {label}: {extracted[:500]}")  # Log the partial extracted text
+        logger.debug("Failed to parse extracted JSON", exc_info=True)  # Log stack trace for debugging
         pass
 
     return _coerce_json_object(extracted)
@@ -139,15 +142,150 @@ class PreflightService:
             return ""
         return s.replace("_", "-")
 
+    async def _ensure_query_profile(
+            self,
+            *,
+            cache_key: str,
+            query: str,
+            use_llm_intent: bool,
+            config: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """
+        Ensure query profile generation by either using the LLM or rules-based analysis.
+        """
+        correlation_id = (config.get("correlation_id") or "").strip() or None
+
+        # Check if cached query profile exists
+        if cache_key in self._cache:
+            config["query_profile"] = self._cache[cache_key]
+            return self._cache[cache_key]
+
+        async with self._lock(cache_key):
+            if cache_key in self._cache:
+                config["query_profile"] = self._cache[cache_key]
+                return self._cache[cache_key]
+
+            if use_llm_intent:
+                # Use LLM-based query profile generation
+                qp = await self._llm_query_profile_best_effort(
+                    query,
+                    correlation_id=correlation_id,
+                )
+            else:
+                # Use rules-based query profile generation
+                prof = analyze_query(query)
+                qp = prof.model_dump(mode="json")
+                qp.setdefault("signals", {})
+                qp["signals"].setdefault("analysis_source", "rules")
+
+            # Cache the query profile
+            self._cache[cache_key] = qp
+            config["query_profile"] = qp
+            return qp
+
+    async def _llm_query_profile_best_effort(
+            self, query: str, correlation_id: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Generate a query profile based on the input query using LLM.
+        If LLM fails, fall back to rules-based profile generation.
+        """
+
+        # Sanitize and strip the user query
+        q = (query or "").strip()
+        if not q:
+            prof = QueryProfile()
+            return prof.model_dump(mode="json")
+
+        # Optionally log correlation_id for debugging
+        if correlation_id:
+            logger.debug(f"Correlation ID: {correlation_id} - Generating LLM query profile")
+
+        # Load configuration for LLM from OpenAIConfig
+        cfg = OpenAIConfig.load()
+        llm = OpenAIChatLLM(api_key=cfg.api_key, model=cfg.model, base_url=cfg.base_url)
+
+        # Define the system and user prompts for interaction with LLM
+        system_prompt = """
+        You are an AI model that generates query profiles based on user input. 
+        A query profile should contain the following information:
+        - Intent of the query
+        - Tone of the query
+        - Sub-intent (if applicable)
+        - Any other relevant signals based on the content of the query
+        """
+
+        user_prompt = f"Please generate a query profile for the following query: {q}"
+
+        prompt = f"{system_prompt}\n\n{user_prompt}"
+
+        try:
+            # Call the LLM to get the raw response
+            raw = await call_llm_text(llm, prompt)
+
+            # Ensure raw response is non-empty and valid
+            if not raw.strip():
+                raise ValueError("Received empty response from LLM.")
+
+            # Parse the raw response if it's valid
+            text = coerce_llm_text(raw).strip()
+            data = sanitize_query_profile_dict(
+                __import__("json").loads(extract_first_json_object(text))
+            )
+            prof = QueryProfile.model_validate(data)
+            out = prof.model_dump(mode="json")
+            out.setdefault("signals", {})
+            out["signals"]["analysis_source"] = "llm"
+
+            # Optionally include the correlation_id in the output
+            if correlation_id:
+                out["signals"]["correlation_id"] = correlation_id
+
+            return out
+
+        except Exception as e:
+            # Log and handle the failure to generate the query profile
+            logger.warning(
+                "LLM query_profile failed; falling back to rules", extra={"error": str(e)}
+            )
+
+            # Fallback to rules-based profile generation
+            prof = analyze_query(q)
+            out = prof.model_dump(mode="json")
+            out.setdefault("signals", {})
+            out["signals"]["analysis_source"] = "rules_fallback"
+            out["signals"]["llm_error"] = str(e)
+
+            # Include correlation_id in fallback profile
+            if correlation_id:
+                out["signals"]["correlation_id"] = correlation_id
+
+            return out
+
     async def preflight(self, *, request, config: Dict[str, Any]) -> PreflightResult:
-        qp = await self._ensure_query_profile(
-            cache_key=self._qp_cache_key(
-                request.query, bool(config.get("use_llm_intent", False))
-            ),
-            query=request.query,
-            use_llm_intent=bool(config.get("use_llm_intent", False)),
-            config=config,
-        )
+        try:
+            # Ensure the config is being correctly passed into the PreflightResult
+            qp = await self._ensure_query_profile(
+                cache_key=self._qp_cache_key(
+                    request.query, bool(config.get("use_llm_intent", False))
+                ),
+                query=request.query,
+                use_llm_intent=bool(config.get("use_llm_intent", False)),
+                config=config,
+            )
+        except Exception as e:
+            logger.error(f"Failed to generate query profile for query: {request.query}. Error: {str(e)}")
+            logger.debug(f"Stack Trace: {str(e)}", exc_info=True)
+            # Fallback to rules
+            logger.warning("Falling back to rules-based query profile generation")
+            # Continue with fallback logic
+            prof = analyze_query(request.query)
+            out = prof.model_dump(mode="json")
+            out.setdefault("signals", {})
+            out["signals"]["analysis_source"] = "rules_fallback"
+            out["signals"]["llm_error"] = str(e)
+            return PreflightResult(qp={}, decision={}, selected_graph="", routing_source="rules",
+                                   config=out)  # Fix here
 
         self._apply_tone_policy(config, qp)
 
@@ -173,7 +311,7 @@ class PreflightService:
             decision=decision,
             selected_graph=str(config.get("selected_graph") or ""),
             routing_source=str(config.get("routing_source") or "unknown"),
-            config=config,
+            config=config,  # Ensure config is part of the return
         )
 
     def _apply_caller_workflow_override(self, *, request, config: Dict[str, Any]) -> None:
@@ -195,8 +333,6 @@ class PreflightService:
             return
 
         # ✅ load templates from YAML
-        # NOTE: your WorkflowTemplateLoader currently supports .get() and .list();
-        # we preserve that, but we ALSO try .get_templates() if it exists.
         templates_map = None
         if hasattr(self._templates, "get_templates"):
             try:
@@ -220,7 +356,6 @@ class PreflightService:
             raise ValueError(f"Unknown workflow_id '{requested_raw}'. Known: {known}")
 
         # ✅ apply template plan (graph selection)
-        # support either attribute name: tpl.graph_id (new) or tpl.graph (your current)
         graph_id = getattr(tpl, "graph_id", None) or getattr(tpl, "graph", None)
         if graph_id:
             config["selected_graph"] = graph_id
@@ -260,140 +395,3 @@ class PreflightService:
             }
             config["selected_graph"] = "graph_clarify"
             config["routing_source"] = "gate:intent_confidence"
-
-    async def _ensure_query_profile(
-            self,
-            *,
-            cache_key: str,
-            query: str,
-            use_llm_intent: bool,
-            config: Dict[str, Any],
-    ) -> Dict[str, Any]:
-
-        # ✅ Pull the request correlation_id from config ONCE here
-        correlation_id = (config.get("correlation_id") or "").strip() or None
-
-        if cache_key in self._cache:
-            config["query_profile"] = self._cache[cache_key]
-            return self._cache[cache_key]
-
-        async with self._lock(cache_key):
-            if cache_key in self._cache:
-                config["query_profile"] = self._cache[cache_key]
-                return self._cache[cache_key]
-
-            if use_llm_intent:
-                qp = await self._llm_query_profile_best_effort(
-                    query,
-                    correlation_id=correlation_id,
-                )
-            else:
-                prof = analyze_query(query)
-                qp = prof.model_dump(mode="json")
-                qp.setdefault("signals", {})
-                qp["signals"].setdefault("analysis_source", "rules")
-
-            self._cache[cache_key] = qp
-            config["query_profile"] = qp
-            return qp
-
-    async def _llm_query_profile_best_effort(
-            self,
-            query: str,
-            correlation_id: Optional[str] = None,
-    ) -> Dict[str, Any]:
-        # ✅ Normalize at the top
-        correlation_id = (correlation_id or "").strip() or None
-
-        q = (query or "").strip()
-        logger.debug(f"Received query for LLM profile: {q[:500]}")  # Log the first 500 characters of the query
-        if not q:
-            prof = QueryProfile()
-            logger.debug("Empty query, returning default QueryProfile.")
-            return prof.model_dump(mode="json")
-
-        # Log configuration and setup
-        cfg = OpenAIConfig.load()
-        logger.debug(f"Loaded OpenAIConfig: {cfg.api_key[:5]}...")  # Log part of the API key for safety
-        llm = OpenAIChatLLM(api_key=cfg.api_key, model=cfg.model, base_url=cfg.base_url)
-
-        # Keep stable fallback ONLY if caller didn't provide one
-        correlation_id = correlation_id or "preflight_query_profile"
-        logger.debug(f"Using correlation_id: {correlation_id}")
-
-        system = (
-            "You are an intent/tone classifier for OSSS.\n"
-            "Return ONLY a single valid JSON object. No markdown. No backticks. No extra text.\n"
-            "Use double quotes for all keys and string values."
-        )
-        user = "... your JSON schema prompt ..."  # Include the user query schema (if applicable)
-
-        # Log the system and user messages being sent to the LLM
-        logger.debug(f"System prompt: {system[:500]}")  # Log first 500 chars of the system prompt
-        logger.debug(f"User prompt: {user[:500]}")  # Log first 500 chars of the user prompt
-
-        try:
-            # Call the LLM
-            logger.debug("Calling LLM with the provided prompts...")
-            raw = await call_llm_text(
-                llm,
-                messages=[
-                    {"role": "system", "content": system},
-                    {"role": "user", "content": user},
-                ],
-                temperature=0.0,
-                extra_json={"format": "json"},
-            )
-
-            logger.debug(f"Raw response from LLM: {raw[:500]}")  # Log part of the raw response
-            text = coerce_llm_text(raw).strip()
-
-            logger.debug(f"Processed LLM response text: {text[:500]}")  # Log the first 500 characters of processed text
-
-            try:
-                # Try to coerce the raw LLM response into a valid JSON object
-                logger.debug(f"Attempting to parse LLM response as JSON...")
-                data = coerce_json_object(text)  # ✅ handles {'a':1} and {"a":1}
-                logger.debug(f"Successfully parsed LLM response: {data}")
-            except Exception as e:
-                # Log detailed error when LLM response is not valid JSON
-                logger.error(
-                    "LLM returned non-JSON",
-                    extra={
-                        "error": str(e),
-                        "correlation_id": correlation_id,
-                        "text": text,  # Log the complete raw text that failed (not truncated)
-                    },
-                )
-                raise
-
-            # Sanitize and validate the parsed data
-            logger.debug("Sanitizing the query profile data...")
-            data = sanitize_query_profile_dict(data)
-
-            # Validate the profile and log the result
-            prof = QueryProfile.model_validate(data)
-            out = prof.model_dump(mode="json")
-            out.setdefault("signals", {})
-            out["signals"]["analysis_source"] = "llm"
-            logger.debug(f"Final query profile output: {out}")
-            return out
-
-        except Exception as e:
-            # Log warning and fall back to rules-based analysis
-            logger.error(
-                "LLM query_profile failed; falling back to rules",
-                extra={
-                    "error": str(e),
-                    "correlation_id": correlation_id,  # ✅ helpful for log join
-                },
-            )
-            # Log the query that is being processed
-            logger.debug(f"Falling back to rules-based analysis for query: {q[:500]}")
-            prof = analyze_query(q)
-            out = prof.model_dump(mode="json")
-            out.setdefault("signals", {})
-            out["signals"]["analysis_source"] = "rules_fallback"
-            out["signals"]["llm_error"] = str(e)
-            logger.debug(f"Rules fallback output: {out}")
-            return out
