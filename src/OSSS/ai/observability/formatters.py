@@ -5,7 +5,6 @@ from datetime import datetime
 from typing import Dict, Any, Optional
 
 from .context import get_correlation_id, get_observability_context
-from OSSS.ai.orchestration.graph_registry import RouteKey  # Delayed import to avoid circular import
 
 
 class JSONFormatter(logging.Formatter):
@@ -23,6 +22,8 @@ class JSONFormatter(logging.Formatter):
         self.extra_fields = extra_fields or {}
 
     def format(self, record: logging.LogRecord) -> str:
+        from OSSS.ai.orchestration.graph_registry import RouteKey  # delayed import
+
         """Format log record as JSON."""
         log_data = {
             "timestamp": datetime.fromtimestamp(record.created).isoformat(),
