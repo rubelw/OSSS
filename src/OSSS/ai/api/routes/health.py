@@ -42,7 +42,7 @@ async def detailed_health_check() -> Dict[str, Any]:
     """
     try:
         # Check orchestration API health
-        orchestration_api = get_orchestration_api()
+        orchestration_api = await get_orchestration_api()
         orchestration_status = await orchestration_api.health_check()
 
         return {

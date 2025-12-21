@@ -227,6 +227,82 @@ docs/
 
 ![OSSS demo](docs/demo.gif)
 
+## 🧠 LangGraph Flow
+
+OSSS uses **LangGraph** to orchestrate multiple AI “agents” as a **DAG (directed acyclic graph)**.
+This lets OSSS separate concerns (guardrails, intent, retrieval, formatting) while keeping the system
+observable and debuggable end-to-end.
+
+At a glance, a request typically flows through:
+
+- **FastAPI route** (request entry)
+- **Orchestration API** (workflow boundary)
+- **Orchestrator** (planning + execution)
+- **Guard** (always first, may short-circuit)
+- **LangGraph DAG execution** (parallel where possible)
+- **Formatting + response** (UI-friendly output + trace metadata)
+
+### High-level diagram (request → response)
+
+```mermaid
+flowchart TD
+  U[User / UI] --> R[FastAPI: /api/query]
+  R --> OA[Orchestration API]
+  OA --> ORCH[LangGraphOrchestrator.run]
+
+  ORCH --> CORR[Correlation + workflow context\n(correlation_id, workflow_id)]
+  CORR --> GUARD[Guard agent (always first)\nallow | block | needs_clarification]
+
+  GUARD -->|halt| HALT[Return safe response\n(no graph execution)]
+  GUARD -->|allow| PLAN[Planner: build_execution_plan\nselect agents + routing metadata]
+
+  PLAN --> META[Preflight state injection\n_query_profile, _routing, effective_queries]
+  META --> RAG{RAG prefetch enabled?}
+  RAG -->|yes| PREFETCH[rag_prefetch_jsonl()\nrag_context + hits]
+  RAG -->|no| GRAPH
+
+  PREFETCH --> GRAPH[GraphFactory.compile(spec)\nCompiled LangGraph StateGraph]
+  META --> GRAPH
+
+  GRAPH --> EXEC[compiled_graph.ainvoke(initial_state)]
+  EXEC --> FINAL[Final state\nsuccessful_agents / failed_agents / errors]
+  FINAL --> BRIDGE[State bridge\nState → AgentContext]
+  BRIDGE --> RESP[HTTP response payload\n(answer + sources + debug)]
+  RESP --> U
+
+
+### DAG diagram (agents + dependencies)
+
+This shows the *agent-level* flow LangGraph executes once the orchestrator has selected an execution plan.
+Nodes can run in parallel when their dependencies are satisfied.
+
+```mermaid
+flowchart LR
+  %% --- Entry ---
+  Q[Query / Initial State] --> G[guard]
+
+  %% --- Guard outcomes ---
+  G -->|halt| STOP[halt + safe_response]
+  G -->|allow| P[planner-selected pipeline]
+
+  %% --- Canonical "full" pipeline ---
+  P --> R[refiner]
+
+  R --> C[critic]
+  R --> H[historian]
+
+  %% Parallel fan-in
+  C --> S[synthesis]
+  H --> S
+
+  %% Terminal
+  S --> F[format_response]
+  F --> OUT[final response\n(answer + sources + debug)]
+
+  %% Optional / conditional formatting nodes
+  F -. optional .-> FB[format_block]
+  F -. optional .-> FC[format_requires_confirmation]
+
 
 ## ⚙️ MkDocs Configuration
 

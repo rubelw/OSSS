@@ -466,6 +466,7 @@ class ApplicationConfig(BaseModel):
             config.log_level = LogLevel.INFO
 
         config.debug_mode = os.getenv("OSSS_DEBUG", "false").lower() == "true"
+        config.debug_mode = "true"
 
         # Execution configuration
         config.execution.max_retries = int(os.getenv("OSSS_MAX_RETRIES", "3"))

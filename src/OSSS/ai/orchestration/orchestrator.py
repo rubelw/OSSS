@@ -205,6 +205,62 @@ class LangGraphOrchestrator:
             f"checkpoints: {self.enable_checkpoints}, thread_id: {self.thread_id}"
         )
 
+    def _resolve_agents_for_run(self, config: dict) -> list[str]:
+        """
+        Determine which agents should run for this invocation.
+
+        Priority:
+        1) config["agents"] (explicit caller control)
+        2) self.agents_to_run (may have been set by previous routing)
+        3) self.default_agents
+
+        NOTE:
+        - "classifier" is a PRE-STEP (runs outside LangGraph), never a graph node.
+        """
+        requested = config.get("agents")
+
+        if isinstance(requested, list) and requested:
+            agents = [str(a).lower() for a in requested if a]
+            source = "config.agents"
+        else:
+            agents = [str(a).lower() for a in (self.agents_to_run or self.default_agents)]
+            source = "self.agents_to_run/default"
+
+        # ---------------------------------------------------------------------
+        # ✅ classifier is a PRE-STEP, never a LangGraph node
+        # ---------------------------------------------------------------------
+        ran_as_prestep = (
+                config.get("classifier") is not None
+                or "classifier" in (config.get("pre_agents") or [])
+                or str(config.get("routing_source", "")).endswith("_with_classifier_prestep")
+        )
+
+        if ran_as_prestep:
+            agents = [a for a in agents if a != "classifier"]
+        else:
+            # If something upstream shoved it in, still don't allow it as a node.
+            agents = [a for a in agents if a != "classifier"]
+            # (If you ever re-enable "classifier as a node", you'd do it here explicitly.)
+
+        # De-dupe while preserving order
+        deduped: List[str] = []
+        seen = set()
+        for a in agents:
+            if a not in seen:
+                seen.add(a)
+                deduped.append(a)
+
+        self.logger.info(
+            "[orchestrator] resolved agents for run",
+            extra={
+                "agents_source": source,
+                "resolved_agents": deduped,
+                "raw_config_agents": requested,
+                "classifier_prestep": ran_as_prestep,
+            },
+        )
+        return deduped
+
     async def run(
         self, query: str, config: Optional[Dict[str, Any]] = None
     ) -> AgentContext:
@@ -266,77 +322,88 @@ class LangGraphOrchestrator:
 
         # Add orchestrator metadata to trace
         add_trace_metadata("orchestrator_type", "langgraph-real")
-        add_trace_metadata("agents_requested", self.agents_to_run)
         add_trace_metadata("query_length", len(query))
         add_trace_metadata("config", config)
 
-        # Enhanced routing decision if enabled
+        # Capture what the orchestrator *started with* (might be defaults / previous run)
+        add_trace_metadata("agents_initial", list(self.agents_to_run or []))
+
+        # ------------------------------------------------------------------
+        # ✅ Determine requested agents for THIS run (supports config["agents"])
+        # ------------------------------------------------------------------
+        resolved_agents = self._resolve_agents_for_run(config)
+
+
+        # If the run-level agent list differs from the current instance list,
+        # force a graph rebuild (compiled graphs are cached per agent list).
+        if resolved_agents != [a.lower() for a in (self.agents_to_run or [])]:
+            self.logger.info(
+                "[orchestrator] agent set changed; forcing graph rebuild",
+                extra={
+                    "previous_agents": self.agents_to_run,
+                    "new_agents": resolved_agents,
+                },
+            )
+            self._compiled_graph = None
+            self._graph = None
+
+        self.agents_to_run = resolved_agents
+        add_trace_metadata("agents_requested", list(self.agents_to_run))
+
+        # ------------------------------------------------------------------
+        # Enhanced routing decision (optional)
+        # IMPORTANT: routing MUST NOT remove classifier.
+        # ------------------------------------------------------------------
         routing_decision = None
         if self.use_enhanced_routing:
-            routing_decision = await self._make_routing_decision(
-                query, self.default_agents, config
-            )
+            # Route only among non-classifier agents; we’ll add classifier back after.
+            available = [a for a in self.default_agents if a.lower() != "classifier"]
 
-            # Update agents based on routing decision
-            self.agents_to_run = routing_decision.selected_agents
+            routing_decision = await self._make_routing_decision(query, available, config)
 
-            # ------------------------------------------------------------
-            # Fast-path: skip historian unless the query likely needs history
-            # ------------------------------------------------------------
-            if "historian" in [a.lower() for a in self.agents_to_run]:
-                if not should_run_historian(query):
-                    self.logger.info(
-                        f"[orchestrator] Skipping historian (fast path) for query_len={len(query)}"
-                    )
+            routed = [a.lower() for a in (routing_decision.selected_agents or [])]
+            routed = [a for a in routed if a != "classifier"]
 
-                    # Remove historian from this run
-                    self.agents_to_run = [a for a in self.agents_to_run if a.lower() != "historian"]
+            # Preserve any explicitly requested agents (besides classifier)
+            # If caller provided config["agents"], that should win over routing.
+            raw_cfg_agents = config.get("agents")
+            if isinstance(raw_cfg_agents, list) and raw_cfg_agents:
+                # Caller wins. Still ensure classifier is first.
+                self.logger.info(
+                    "[orchestrator] config.agents provided; skipping routing override",
+                    extra={"config_agents": raw_cfg_agents, "routing_agents": routed},
+                )
+                self.agents_to_run = ["classifier"] + [
+                    str(a).lower() for a in raw_cfg_agents if a and str(a).lower() != "classifier"
+                ]
+            else:
+                # Routing decides (but we force classifier first).
+                self.agents_to_run = ["classifier"] + routed
 
-                    # IMPORTANT: compiled graphs are cached per agent list.
-                    # If we changed the agent set, force a rebuild.
-                    self._compiled_graph = None
-                    self._graph = None
+            # De-dupe again
+            deduped = []
+            seen = set()
+            for a in self.agents_to_run:
+                if a not in seen:
+                    seen.add(a)
+                    deduped.append(a)
+            self.agents_to_run = deduped
 
-            # Emit routing decision event
+            # If routing changed agents, force rebuild
+            self._compiled_graph = None
+            self._graph = None
+
             emit_routing_decision_from_object(
-                routing_decision,  # positional obj
+                routing_decision,
                 workflow_id=execution_id,
                 correlation_id=correlation_id,
                 metadata={
                     "orchestrator_type": "langgraph-real",
                     "optimization_strategy": self.optimization_strategy.value,
                     "routing_enabled": True,
+                    "final_agents": self.agents_to_run,
                 },
             )
-
-        self.logger.info(
-            f"Starting LangGraph execution for query: {query[:100]}... "
-            f"(execution_id: {execution_id}, correlation_id: {correlation_id})"
-        )
-        self.logger.info("Execution mode: langgraph")
-        self.logger.info(f"Agents to run: {self.agents_to_run}")
-        if routing_decision:
-            self.logger.info(f"Routing strategy: {routing_decision.routing_strategy}")
-            self.logger.info(
-                f"Routing confidence: {routing_decision.confidence_score:.2f}"
-            )
-        self.logger.info(f"Config: {config}")
-        self.logger.info(f"Correlation context: {correlation_ctx.to_dict()}")
-
-        # Emit workflow started event
-        emit_workflow_started(
-            workflow_id=execution_id,
-            query=query,
-            agents_requested=self.agents_to_run,  # ✅ change agents -> agents_requested
-            execution_config=config,
-            correlation_id=correlation_id,
-            metadata={
-                "orchestrator_type": "langgraph-real",
-                "orchestrator_span": orchestrator_span,
-                "phase": "phase2_1",
-                "checkpoints_enabled": self.enable_checkpoints,
-            },
-        )
 
         self.total_executions += 1
 
@@ -349,6 +416,21 @@ class LangGraphOrchestrator:
 
             # Create initial LangGraph state
             initial_state = create_initial_state(query, execution_id, correlation_id)
+
+            # ---------------------------------------------------------------------
+            # ✅ Make execution_config available to ALL nodes via state.execution_state
+            # ---------------------------------------------------------------------
+            exec_state = initial_state.setdefault("execution_state", {})
+            if not isinstance(exec_state, dict):
+                initial_state["execution_state"] = {}
+                exec_state = initial_state["execution_state"]
+
+            # Your API sends config like: {"execution_config": {...}} (based on your curl)
+            incoming_exec_cfg = config.get("execution_config", {})
+            if isinstance(incoming_exec_cfg, dict):
+                exec_state["execution_config"] = incoming_exec_cfg
+            else:
+                exec_state["execution_config"] = {}
 
             # Ensure execution_state.effective_queries exists
             _ensure_effective_queries(initial_state, query)
@@ -527,7 +609,7 @@ class LangGraphOrchestrator:
                     content = str(output)
                     return content[:200] + "..." if len(content) > 200 else content
 
-            emit_workflow_completed(
+            await emit_workflow_completed(
                 workflow_id=execution_id,
                 status=(
                     "completed"
@@ -576,7 +658,7 @@ class LangGraphOrchestrator:
             )
 
             # Emit workflow failed event
-            emit_workflow_completed(
+            await emit_workflow_completed(
                 workflow_id=execution_id,
                 status="failed",
                 execution_time_seconds=total_time_ms / 1000,
@@ -639,24 +721,39 @@ class LangGraphOrchestrator:
             self.logger.info("Building LangGraph StateGraph using GraphFactory...")
 
             try:
-                # Create graph configuration
+                # ------------------------------------------------------------------
+                # ✅ classifier is a PRE-STEP only; never a graph node
+                # ------------------------------------------------------------------
+                resolved_agents = list(self.agents_to_run or [])
+                graph_agents = [a for a in resolved_agents if str(a).lower() != "classifier"]
+
+                # (Optional) log so you can prove the exact list going into GraphFactory
+                self.logger.info(
+                    "[orchestrator] building graph",
+                    extra={
+                        "resolved_agents": resolved_agents,
+                        "graph_agents": graph_agents,
+                    },
+                )
+
+                # Create graph configuration (use graph_agents, not self.agents_to_run)
                 config = GraphConfig(
-                    agents_to_run=self.agents_to_run,
+                    agents_to_run=graph_agents,
                     enable_checkpoints=self.enable_checkpoints,
                     memory_manager=self.memory_manager,
                     pattern_name="standard",  # Use standard pattern for Phase 2
                     cache_enabled=True,
                 )
 
-                # Validate agents before building
-                if not self.graph_factory.validate_agents(self.agents_to_run):
-                    raise GraphBuildError(f"Invalid agents: {self.agents_to_run}")
+                # Validate agents before building (validate graph_agents, not self.agents_to_run)
+                if not self.graph_factory.validate_agents(graph_agents):
+                    raise GraphBuildError(f"Invalid agents: {graph_agents}")
 
                 # Create compiled graph using factory
                 self._compiled_graph = self.graph_factory.create_graph(config)
 
                 self.logger.info(
-                    f"Successfully built LangGraph StateGraph with {len(self.agents_to_run)} agents "
+                    f"Successfully built LangGraph StateGraph with {len(graph_agents)} agents "
                     f"(checkpoints: {self.enable_checkpoints})"
                 )
 

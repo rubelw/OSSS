@@ -42,7 +42,7 @@ class Topic(Base):
     and semantic similarity search via pgvector.
     """
 
-    __tablename__ = "topics"
+    __tablename__ = "ai_topics"
 
     # Primary identification
     id: Mapped[UUID_TYPE] = mapped_column(
@@ -53,7 +53,7 @@ class Topic(Base):
 
     # Hierarchical topic organization (GraphRAG prep)
     parent_topic_id: Mapped[Optional[UUID_TYPE]] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("topics.id"), nullable=True
+        UUID(as_uuid=True), ForeignKey("ai_topics.id"), nullable=True
     )
     parent = relationship("Topic", remote_side=[id], backref="children")
 
@@ -99,7 +99,7 @@ class Question(Base):
 
     # Topic and semantic relationships
     topic_id: Mapped[UUID_TYPE] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("topics.id"), nullable=True
+        UUID(as_uuid=True), ForeignKey("ai_topics.id"), nullable=True
     )
     topic = relationship("Topic", backref="questions")
 
@@ -164,7 +164,7 @@ class WikiEntry(Base):
 
     # Topic and source relationships
     topic_id: Mapped[UUID_TYPE] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("topics.id"), nullable=False
+        UUID(as_uuid=True), ForeignKey("ai_topics.id"), nullable=False
     )
     topic = relationship("Topic", backref="wiki_entries")
 

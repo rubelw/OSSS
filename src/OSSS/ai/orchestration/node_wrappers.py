@@ -69,6 +69,37 @@ logger = get_logger(__name__)
 # and retrieved when creating workflow results
 _TIMING_REGISTRY: Dict[str, Dict[str, float]] = {}
 
+
+def _get_execution_config(state: Dict[str, Any], runtime: Runtime[OSSSContext]) -> Dict[str, Any]:
+    """
+    Best-effort extraction of execution config for nodes.
+    Priority:
+      1) runtime.context (if you later add config there)
+      2) state["execution_state"]["execution_config"]
+      3) state["execution_metadata"]["execution_config"]
+    """
+    # 1) runtime.context - only if you add it to OSSSContext later
+    ctx_cfg = getattr(runtime.context, "execution_config", None)
+    if isinstance(ctx_cfg, dict):
+        return ctx_cfg
+
+    # 2) state.execution_state.execution_config
+    exec_state = state.get("execution_state")
+    if isinstance(exec_state, dict):
+        ec = exec_state.get("execution_config")
+        if isinstance(ec, dict):
+            return ec
+
+    # 3) state.execution_metadata.execution_config (if you store it there)
+    meta = state.get("execution_metadata")
+    if isinstance(meta, dict):
+        ec = meta.get("execution_config")
+        if isinstance(ec, dict):
+            return ec
+
+    return {}
+
+
 def _record_effective_query(state: dict, agent_name: str, effective_query: str) -> None:
     exec_state = state.setdefault("execution_state", {})
     if not isinstance(exec_state, dict):
@@ -300,23 +331,62 @@ def node_metrics(func: F) -> F:
     return cast(F, wrapper)
 
 
-async def create_agent_with_llm(agent_name: str) -> BaseAgent:
+async def create_agent_with_llm(
+    agent_name: str,
+    *,
+    state: Optional[Dict[str, Any]] = None,
+    runtime: Optional[Runtime[OSSSContext]] = None,
+) -> BaseAgent:
     """
     Create an agent instance with LLM configuration and agent-specific settings.
 
-    Parameters
-    ----------
-    agent_name : str
-        Name of the agent to create
-
-    Returns
-    -------
-    BaseAgent
-        Configured agent instance with agent-specific timeout settings
+    Supports both:
+      - LLM agents (refiner/critic/historian/synthesis)
+      - Non-LLM agents (e.g., classifier) which require kwargs
     """
     registry = get_agent_registry()
+    agent_name_lower = agent_name.lower()
 
-    # Initialize LLM
+    # Pull execution_config if available
+    exec_cfg: Dict[str, Any] = {}
+    if state is not None and runtime is not None:
+        exec_cfg = _get_execution_config(state, runtime)
+
+    # ------------------------------------------------------------
+    # ✅ Non-LLM agents: classifier (sklearn pipeline)
+    # ------------------------------------------------------------
+    if agent_name_lower == "classifier":
+        classifier_cfg = exec_cfg.get("classifier", {}) if isinstance(exec_cfg, dict) else {}
+        if not isinstance(classifier_cfg, dict):
+            classifier_cfg = {}
+
+        # Defaults: adjust to your project layout
+        model_path = classifier_cfg.get("model_path", "models/intent_classifier.joblib")
+        model_version = classifier_cfg.get("model_version", "v1")
+
+        agent_kwargs: Dict[str, Any] = {
+            "model_path": model_path,
+            "model_version": model_version,
+        }
+
+        logger.info(
+            "Creating classifier agent",
+            extra={
+                "agent_name": "classifier",
+                "model_path": str(model_path),
+                "model_version": model_version,
+            },
+        )
+
+        # ✅ THIS is the call you asked about:
+        # agent = registry.create_agent(agent_name, llm=llm, **agent_kwargs)
+        # For classifier, llm is not used, so:
+        agent = registry.create_agent(agent_name_lower, **agent_kwargs)
+        return agent
+
+    # ------------------------------------------------------------
+    # Existing LLM agent path (unchanged behavior)
+    # ------------------------------------------------------------
     llm_config = OpenAIConfig.load()
     llm = OpenAIChatLLM(
         api_key=llm_config.api_key,
@@ -324,10 +394,8 @@ async def create_agent_with_llm(agent_name: str) -> BaseAgent:
         base_url=llm_config.base_url,
     )
 
-    # Load agent-specific configuration
     agent_config_kwargs: Dict[str, Any] = {}
 
-    # Import agent config classes
     from OSSS.ai.config.agent_configs import (
         HistorianConfig,
         RefinerConfig,
@@ -335,8 +403,6 @@ async def create_agent_with_llm(agent_name: str) -> BaseAgent:
         SynthesisConfig,
     )
 
-    # Apply agent-specific configuration
-    agent_name_lower = agent_name.lower()
     if agent_name_lower == "historian":
         agent_config_kwargs["config"] = HistorianConfig()
     elif agent_name_lower == "refiner":
@@ -346,11 +412,9 @@ async def create_agent_with_llm(agent_name: str) -> BaseAgent:
     elif agent_name_lower == "synthesis":
         agent_config_kwargs["config"] = SynthesisConfig()
 
-    # Create agent with configuration
     agent = registry.create_agent(agent_name_lower, llm=llm, **agent_config_kwargs)
 
     # Apply timeout from configuration after agent creation
-    # This ensures the agent has the correct timeout setting for run_with_retry
     if agent_name_lower == "historian":
         agent.timeout_seconds = HistorianConfig().execution_config.timeout_seconds
     elif agent_name_lower == "refiner":
@@ -361,6 +425,7 @@ async def create_agent_with_llm(agent_name: str) -> BaseAgent:
         agent.timeout_seconds = SynthesisConfig().execution_config.timeout_seconds
 
     return agent
+
 
 
 async def convert_state_to_context(state: OSSSState) -> AgentContext:
@@ -554,7 +619,7 @@ async def refiner_node(
         )
 
         # Create agent
-        agent = await create_agent_with_llm("refiner")
+        agent = await create_agent_with_llm("refiner", state=state, runtime=runtime)
 
         # Convert state to context
         context = await convert_state_to_context(state)
@@ -775,7 +840,7 @@ async def critic_node(
         )
 
         # Create agent
-        agent = await create_agent_with_llm("critic")
+        agent = await create_agent_with_llm("critic", state=state, runtime=runtime)
 
         # Convert state to context
         context = await convert_state_to_context(state)
@@ -985,7 +1050,7 @@ async def historian_node(
         )
 
         # Create agent
-        agent = await create_agent_with_llm("historian")
+        agent = await create_agent_with_llm("historian", state=state, runtime=runtime)
 
         # Convert state to context
         context = await convert_state_to_context(state)
@@ -1202,7 +1267,7 @@ async def synthesis_node(
         )
 
         # Create agent
-        agent = await create_agent_with_llm("synthesis")
+        agent = await create_agent_with_llm("synthesis", state=state, runtime=runtime)
 
         # Convert state to context
         context = await convert_state_to_context(state)

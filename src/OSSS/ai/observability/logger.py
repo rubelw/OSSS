@@ -8,7 +8,7 @@ structured data, and performance metrics integration.
 import logging
 import time
 from pathlib import Path
-from typing import Optional, Union, Any, List
+from typing import Optional, Union, Any, List, Dict
 
 from .context import (
     get_observability_context,
@@ -16,6 +16,32 @@ from .context import (
 )
 from .formatters import get_console_formatter, get_file_formatter
 from OSSS.ai.config.app_config import get_config
+
+
+# Reserved LogRecord attributes that must NOT be present in `extra`
+_LOGRECORD_RESERVED_KEYS = {
+    "name",
+    "msg",
+    "args",
+    "levelname",
+    "levelno",
+    "pathname",
+    "filename",
+    "module",
+    "exc_info",
+    "exc_text",
+    "stack_info",
+    "lineno",
+    "funcName",
+    "created",
+    "msecs",
+    "relativeCreated",
+    "thread",
+    "threadName",
+    "processName",
+    "process",
+    "asctime",
+}
 
 
 class StructuredLogger:
@@ -94,10 +120,34 @@ class StructuredLogger:
         """Log critical message with structured data."""
         self._log(logging.CRITICAL, message, **kwargs)
 
-    def _log(self, level: int, message: str, **kwargs: Any) -> None:
-        """Log message with structured data."""
-        # Create log record with extra fields
-        extra = {}
+    def exception(self, message: str, **kwargs: Any) -> None:
+        """
+        Log an error message with exception info (mirrors stdlib Logger.exception()).
+        """
+        self._log(logging.ERROR, message, exc_info=True, **kwargs)
+
+    # -----------------------------
+    # Internal helpers
+    # -----------------------------
+    def _sanitize_extra(self, extra: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Prevent LogRecord clobbering:
+        "Attempt to overwrite 'exc_info' in LogRecord"
+        """
+        if not extra:
+            return {}
+
+        clean: Dict[str, Any] = {}
+        for k, v in extra.items():
+            if not isinstance(k, str):
+                continue
+            if k in _LOGRECORD_RESERVED_KEYS:
+                continue
+            clean[k] = v
+        return clean
+
+    def _build_base_extra(self) -> Dict[str, Any]:
+        extra: Dict[str, Any] = {}
 
         # Add correlation ID if available
         correlation_id = get_correlation_id()
@@ -107,7 +157,6 @@ class StructuredLogger:
         # Add observability context
         context = get_observability_context()
         if context:
-            # Only add non-None values to avoid type issues
             if context.agent_name is not None:
                 extra["agent_name"] = context.agent_name
             if context.step_id is not None:
@@ -117,14 +166,42 @@ class StructuredLogger:
             if context.execution_phase is not None:
                 extra["execution_phase"] = context.execution_phase
 
-            # Add context metadata
             for key, value in context.metadata.items():
                 extra[f"context_{key}"] = value
 
-        # Add custom fields
-        extra.update(kwargs)
+        return extra
 
-        self.logger.log(level, message, extra=extra)
+    def _log(
+        self,
+        level: int,
+        message: str,
+        *,
+        exc_info: Any = None,
+        stack_info: bool = False,
+        **kwargs: Any,
+    ) -> None:
+        """
+        Log message with structured data.
+
+        IMPORTANT:
+        - exc_info/stack_info must be passed as real logging kwargs
+        - extra must never contain reserved LogRecord keys
+        """
+        extra = self._build_base_extra()
+
+        # user-provided structured fields
+        if kwargs:
+            extra.update(kwargs)
+
+        safe_extra = self._sanitize_extra(extra)
+
+        self.logger.log(
+            level,
+            message,
+            extra=safe_extra if safe_extra else None,
+            exc_info=exc_info,
+            stack_info=stack_info,
+        )
 
     def log_agent_start(
         self, agent_name: str, step_id: Optional[str] = None, **metadata: Any
@@ -196,46 +273,17 @@ class StructuredLogger:
     ) -> None:
         """Log error with full context."""
         error_context = context or "Unknown context"
-        # Don't include exc_info in extra dict as it's reserved
-        extra_metadata = {
-            "event_type": "error",
-            "error_type": type(error).__name__,
-            "error_message": str(error),
-            "context": error_context,
+
+        # Route through _log so reserved keys are always sanitized
+        self._log(
+            logging.ERROR,
+            f"Error in {error_context}: {str(error)}",
+            exc_info=True,
+            event_type="error",
+            error_type=type(error).__name__,
+            error_message=str(error),
+            context=error_context,
             **metadata,
-        }
-
-        # Create log record with extra fields
-        extra = {}
-
-        # Add correlation ID if available
-        correlation_id = get_correlation_id()
-        if correlation_id:
-            extra["correlation_id"] = correlation_id
-
-        # Add observability context
-        obs_context = get_observability_context()
-        if obs_context:
-            # Only add non-None values to avoid type issues
-            if obs_context.agent_name is not None:
-                extra["agent_name"] = obs_context.agent_name
-            if obs_context.step_id is not None:
-                extra["step_id"] = obs_context.step_id
-            if obs_context.pipeline_id is not None:
-                extra["pipeline_id"] = obs_context.pipeline_id
-            if obs_context.execution_phase is not None:
-                extra["execution_phase"] = obs_context.execution_phase
-
-            # Add context metadata
-            for key, value in obs_context.metadata.items():
-                extra[f"context_{key}"] = value
-
-        # Add custom fields
-        extra.update(extra_metadata)
-
-        # Log with exc_info directly
-        self.logger.error(
-            f"Error in {error_context}: {str(error)}", extra=extra, exc_info=True
         )
 
     def log_performance_metric(
@@ -266,25 +314,12 @@ class TimedOperation:
     def __init__(
         self, logger: StructuredLogger, operation_name: str, **metadata: Any
     ) -> None:
-        """
-        Initialize timed operation.
-
-        Parameters
-        ----------
-        logger : StructuredLogger
-            Logger to use for timing
-        operation_name : str
-            Name of the operation
-        **metadata
-            Additional metadata to log
-        """
         self.logger = logger
         self.operation_name = operation_name
         self.metadata = metadata
         self.start_time: Optional[float] = None
 
     def __enter__(self) -> "TimedOperation":
-        """Start timing."""
         self.start_time = time.time()
         self.logger.debug(
             f"Starting operation: {self.operation_name}",
@@ -295,7 +330,6 @@ class TimedOperation:
         return self
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
-        """End timing and log result."""
         if self.start_time is not None:
             duration_ms = (time.time() - self.start_time) * 1000
             success = exc_type is None
@@ -324,24 +358,11 @@ def setup_enhanced_logging(
 ) -> None:
     """
     Setup enhanced logging system.
-
-    Parameters
-    ----------
-    level : int
-        Logging level
-    enable_file_logging : bool
-        Whether to enable file logging
-    structured_console : bool
-        Whether to use structured console logging
     """
-    # Set up root logger to capture all logs
     root_logger = logging.getLogger()
     root_logger.setLevel(level)
-
-    # Clear existing handlers
     root_logger.handlers.clear()
 
-    # Console handler
     console_handler = logging.StreamHandler()
     console_formatter = get_console_formatter(
         structured=structured_console, include_correlation=True
@@ -349,7 +370,6 @@ def setup_enhanced_logging(
     console_handler.setFormatter(console_formatter)
     root_logger.addHandler(console_handler)
 
-    # File handler
     if enable_file_logging:
         config = get_config()
         log_dir = Path(config.files.logs_directory)
@@ -367,17 +387,5 @@ def setup_enhanced_logging(
 def get_logger(name: str, enable_file_logging: bool = True) -> StructuredLogger:
     """
     Get enhanced structured logger.
-
-    Parameters
-    ----------
-    name : str
-        Logger name
-    enable_file_logging : bool
-        Whether to enable file logging
-
-    Returns
-    -------
-    StructuredLogger
-        Enhanced logger instance
     """
     return StructuredLogger(name, enable_file_logging)

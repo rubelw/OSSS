@@ -130,7 +130,7 @@ def _fire_and_forget(coro: "asyncio.Future[Any] | asyncio.coroutines") -> None:
 # Emit convenience functions
 # ----------------------------
 
-def emit_workflow_started(**kwargs: Any) -> None:
+async def emit_workflow_started(**kwargs: Any) -> None:
     _fire_and_forget(get_global_event_emitter().emit(WorkflowStartedEvent(**kwargs)))
 
 

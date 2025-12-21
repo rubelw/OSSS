@@ -64,6 +64,7 @@ class GraphFactory:
     - Memory management and checkpointing integration
     - Agent subset support for flexible execution
     """
+    PRESTEP_AGENTS = {"classifier"}  # extend later if you add more pre-steps
 
     def __init__(
         self,
@@ -391,20 +392,16 @@ class GraphFactory:
         """
         Validate that all requested agents are available.
 
-        Parameters
-        ----------
-        agents : List[str]
-            List of agent names to validate
-
-        Returns
-        -------
-        bool
-            True if all agents are available
+        NOTE:
+        - "classifier" is a PRE-STEP only; never a graph node. If it appears here,
+          we ignore it to avoid failing graph builds.
         """
         available_agents = set(self.node_functions.keys())
-        requested_agents = set(agent.lower() for agent in agents)
 
-        missing_agents = requested_agents - available_agents
+        normalized = [str(a).lower() for a in (agents or []) if a]
+        graph_agents = [a for a in normalized if a not in self.PRESTEP_AGENTS]
+
+        missing_agents = set(graph_agents) - available_agents
         if missing_agents:
             self.logger.error(f"Missing agents: {missing_agents}")
             return False

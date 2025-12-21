@@ -292,7 +292,7 @@ class TopicDiscoveryService:
     # ----------------------------------------------------------------------
     # Public API helpers
     # ----------------------------------------------------------------------
-    def get_topics(
+    async def get_topics(
         self,
         search_query: Optional[str] = None,
         limit: int = 10,
@@ -301,7 +301,9 @@ class TopicDiscoveryService:
         """
         Retrieve discovered topics with pagination.
         """
-        orchestration_api = get_orchestration_api()
+        orchestration_api = await get_orchestration_api()
+
+        # NOTE: use await if your orchestration API exposes this as async
         workflow_history = orchestration_api.get_workflow_history(limit=100)
 
         all_topics = self.discover_topics_from_history(workflow_history, search_query)
@@ -319,11 +321,11 @@ class TopicDiscoveryService:
             search_query=search_query,
         )
 
-    def find_topic_by_id(self, topic_id: str) -> Optional[TopicSummary]:
+    async def find_topic_by_id(self, topic_id: str) -> Optional[TopicSummary]:
         """
         Locate a topic by ID among currently discovered topics.
         """
-        topics_response = self.get_topics(limit=100)
+        topics_response = await self.get_topics(limit=100)
         for topic in topics_response.topics:
             if topic.topic_id == topic_id:
                 return topic
@@ -332,7 +334,7 @@ class TopicDiscoveryService:
     # ----------------------------------------------------------------------
     # Knowledge synthesis
     # ----------------------------------------------------------------------
-    def synthesize_topic_knowledge(self, topic: TopicSummary) -> TopicWikiResponse:
+    async def synthesize_topic_knowledge(self, topic: TopicSummary) -> TopicWikiResponse:
         """
         Generate wiki-style synthesized knowledge for a topic.
 
@@ -342,7 +344,9 @@ class TopicDiscoveryService:
         - Returns confidence score based on evidence volume
         """
         try:
-            orchestration_api = get_orchestration_api()
+            orchestration_api = await get_orchestration_api()
+
+            # NOTE: use await if your orchestration API exposes this as async
             workflow_history = orchestration_api.get_workflow_history(limit=100)
 
             topic_keywords = set(topic.name.lower().split())

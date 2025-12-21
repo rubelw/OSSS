@@ -396,7 +396,10 @@ services:
       retries: 30
       start_period: 60s
   osss_postgres:
-    image: postgres:16-alpine
+    #image: postgres:16-alpine
+    build:
+      context: .
+      dockerfile: docker/postgres/Dockerfile
     profiles:
     - app
     container_name: osss_postgres

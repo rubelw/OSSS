@@ -65,7 +65,8 @@ RUN pip install --use-deprecated=legacy-resolver --no-cache-dir \
       "langgraph-checkpoint-sqlite>=2.0.0" \
       "aiosqlite" \
       "langchain-anthropic==0.1.3" \
-      "pgvector"
+      "pgvector" \
+      "joblib"
 
       #"itsdangerous>=2.0" \
       #"pydantic-settings" \
