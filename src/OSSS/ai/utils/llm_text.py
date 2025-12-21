@@ -16,6 +16,9 @@ def coerce_llm_text(resp: Any) -> str:
         logger.debug("Received 'None' as response, returning empty string.")
         return ""
 
+    logger.debug(f"Received raw input for coercion: {resp}")
+    logger.debug(f"Received raw input for coercion: {type(resp)}")
+
     # LangChain AIMessage-like
     if hasattr(resp, "content") and resp.content is not None:
         logger.debug(f"Found 'content' attribute, returning: {str(resp.content)}")

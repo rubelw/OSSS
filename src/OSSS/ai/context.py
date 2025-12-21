@@ -286,6 +286,38 @@ class AgentContext(BaseModel):
     def get_agent_output_envelope(self, agent_name: str) -> dict:
         return (self.execution_state.get("agent_output_meta") or {}).get(agent_name, {})
 
+    def add_agent_output(self, agent_name: str, output: Any) -> None:
+        """
+        Add the output of an agent to the context's execution state.
+
+        This method ensures that the output is properly formatted and stored
+        in the `execution_state` under the `agent_output_meta` key.
+        """
+        # Ensure the output is a dictionary
+        if not isinstance(output, dict):
+            output = {"output": str(output)}
+
+        # Make sure the output contains essential fields
+        output.setdefault("agent", agent_name)
+        output.setdefault("output", "")
+        output.setdefault("content", output.get("output", ""))
+        output.setdefault("intent", None)
+        output.setdefault("tone", None)
+        output.setdefault("action", "read")  # Make sure 'action' always exists
+        output.setdefault("sub_tone", None)
+
+        # Store the output in execution_state safely
+        self.execution_state.setdefault("agent_output_meta", {})
+        self.execution_state["agent_output_meta"][agent_name] = output
+        logger.debug(f"Added agent output for {agent_name}: {output}")
+
+    # Example usage in your existing context
+    def get_agent_output(self, agent_name: str) -> dict:
+        """
+        Retrieve the stored output for a given agent from the execution state.
+        """
+        return (self.execution_state.get("agent_output_meta") or {}).get(agent_name, {})
+
     @field_validator("query")
     @classmethod
     def validate_query_not_empty(cls, v: str) -> str:

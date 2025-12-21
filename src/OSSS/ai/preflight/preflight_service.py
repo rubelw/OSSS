@@ -21,6 +21,8 @@ from OSSS.ai.preflight.query_profile_codec import (
     sanitize_query_profile_dict,
 )
 from OSSS.ai.workflows.template_loader import WorkflowTemplateLoader  # ✅ add
+from openai.types.chat import ChatCompletion, ChatCompletionMessageParam, ChatCompletionChunk
+
 
 logger = get_logger(__name__)
 
@@ -223,17 +225,35 @@ class PreflightService:
             # Call the LLM to get the raw response
             raw = await call_llm_text(llm, prompt)
 
-            # Ensure raw response is non-empty and valid
-            if not raw.strip():
-                raise ValueError("Received empty response from LLM.")
+            logger.warning(f"LLM response: {str(raw)}")
+            logger.warning(f"Type of raw output: {type(raw)}")
 
-            # Parse the raw response if it's valid
-            text = coerce_llm_text(raw).strip()
+            # Check the type of the response to ensure it's a valid ChatCompletion object
+            if isinstance(raw, ChatCompletion):
+                logger.debug("Received ChatCompletion object, coercing to text.")
+                text = coerce_llm_text(raw)
+            else:
+                logger.debug("Received non-ChatCompletion object, coercing manually.")
+                text = coerce_llm_text(raw)
+
+            logger.warning(f"LLM test: {str(text)}")
+
+            # Safely parse the text into JSON format
             data = sanitize_query_profile_dict(
                 __import__("json").loads(extract_first_json_object(text))
             )
+
+            logger.warning(f"LLM sanitized data: {str(data)}")
+
+            # Validate data against the QueryProfile model
             prof = QueryProfile.model_validate(data)
+
+            logger.warning(f"QueryProfile: {str(prof)}")
+
             out = prof.model_dump(mode="json")
+
+            logger.warning(f"QueryProfile dumped as JSON: {str(out)}")
+
             out.setdefault("signals", {})
             out["signals"]["analysis_source"] = "llm"
 
