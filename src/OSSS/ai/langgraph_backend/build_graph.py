@@ -408,6 +408,7 @@ class GraphFactory:
 
         return True
 
+
     def _validate_workflow(self, config: GraphConfig) -> None:
         """
         Perform semantic validation on the workflow configuration.
