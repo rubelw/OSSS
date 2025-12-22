@@ -1,8 +1,13 @@
+# ai_gateway.py
+
 from __future__ import annotations
 
 import json
 import os
-from typing import Any, Optional, List, Literal, Union, Dict
+import math
+import re
+from pathlib import Path
+from typing import Any, Optional, List, Literal, Dict
 
 from fastapi import (
     APIRouter,
@@ -37,6 +42,9 @@ except Exception:
         RAG_ENABLED: bool = os.getenv("RAG_ENABLED", "1") not in ("0", "false", "False")
         RAG_TOP_K: int = int(os.getenv("RAG_TOP_K", "6"))
         RAG_MIN_SCORE: float = float(os.getenv("RAG_MIN_SCORE", "0.0"))
+
+        # Optional: allow override of embeddings path
+        EMBEDDINGS_PATH: str = os.getenv("EMBEDDINGS_PATH", "/workspace/vector_indexes/main/embeddings.jsonl")
 
     settings = _Settings()  # type: ignore
 
@@ -89,16 +97,212 @@ try:
 except Exception:
     pass
 
-# ---------- RAG helpers (best-effort stub) ----------
+# ---------- RAG helpers ----------
 class RetrievedChunk(BaseModel):
     """
-    A normalized retrieval result. Replace rag_retrieve() with your real retriever.
+    A normalized retrieval result.
     """
     id: str
     text: str
     source: str
     score: float = 0.0
     meta: Optional[Dict[str, Any]] = None
+
+
+# ---------- RAG vector utilities ----------
+# Prefer settings.EMBEDDINGS_PATH if present, else default to the known location.
+_EMBEDDINGS_PATH_STR = getattr(settings, "EMBEDDINGS_PATH", "/workspace/vector_indexes/main/embeddings.jsonl")
+EMBEDDINGS_PATH = Path(_EMBEDDINGS_PATH_STR)
+
+# Cache rows (dicts) loaded from embeddings.jsonl
+_VECTOR_CACHE: list[dict] | None = None
+
+
+def _cosine_similarity(a: list[float], b: list[float]) -> float:
+    dot = sum(x * y for x, y in zip(a, b))
+    na = math.sqrt(sum(x * x for x in a))
+    nb = math.sqrt(sum(y * y for y in b))
+    if na == 0.0 or nb == 0.0:
+        return 0.0
+    return dot / (na * nb)
+
+
+def _load_embeddings_once() -> list[dict]:
+    """
+    Load embeddings.jsonl into memory once per process.
+    Expected rows are JSON objects (one per line).
+    """
+    global _VECTOR_CACHE
+    if _VECTOR_CACHE is not None:
+        return _VECTOR_CACHE
+
+    rows: list[dict] = []
+    if not EMBEDDINGS_PATH.exists():
+        print(f"[rag] embeddings file not found: {EMBEDDINGS_PATH}")
+        _VECTOR_CACHE = []
+        return _VECTOR_CACHE
+
+    with EMBEDDINGS_PATH.open("r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                obj = json.loads(line)
+                if isinstance(obj, dict):
+                    rows.append(obj)
+            except Exception:
+                continue
+
+    _VECTOR_CACHE = rows
+    print(f"[rag] loaded {len(rows)} embeddings from disk: {EMBEDDINGS_PATH}")
+    return rows
+
+
+def _extract_text(row: dict) -> str:
+    """
+    Best-effort extraction of chunk text from various embedding row schemas.
+    """
+    for key in ("text", "chunk", "content", "document", "page_content"):
+        v = row.get(key)
+        if isinstance(v, str) and v.strip():
+            return v.strip()
+    return ""
+
+
+def _extract_source(row: dict) -> str:
+    """
+    Best-effort source field.
+    """
+    for key in ("source", "path", "uri", "url", "file", "doc_id"):
+        v = row.get(key)
+        if isinstance(v, str) and v.strip():
+            return v.strip()
+    return "embeddings.jsonl"
+
+
+def _extract_id(row: dict, fallback_idx: int) -> str:
+    for key in ("id", "chunk_id", "doc_chunk_id", "uuid"):
+        v = row.get(key)
+        if isinstance(v, str) and v.strip():
+            return v.strip()
+        if isinstance(v, (int, float)):
+            return str(v)
+    return f"row:{fallback_idx}"
+
+
+def _extract_embedding(row: dict) -> Optional[list[float]]:
+    """
+    Best-effort extraction of embedding vector from common schemas.
+    """
+    for key in ("embedding", "vector", "values", "embeddings"):
+        v = row.get(key)
+        if isinstance(v, list) and v and all(isinstance(x, (int, float)) for x in v):
+            return [float(x) for x in v]
+    return None
+
+
+# -----------------------
+# Fix #2 + Fix #3 helpers
+# -----------------------
+_STOPWORDS = {
+    "a", "an", "and", "are", "as", "at", "be", "but", "by",
+    "for", "from", "has", "have", "he", "her", "his", "i",
+    "in", "into", "is", "it", "its", "me", "my", "of",
+    "on", "or", "our", "she", "that", "the", "their", "them",
+    "there", "these", "they", "this", "to", "was", "we",
+    "were", "what", "when", "where", "which", "who", "why",
+    "with", "you", "your", "yours",
+}
+
+def _tokenize(s: str) -> list[str]:
+    # keep alnum tokens; lowercased
+    return re.findall(r"[a-z0-9]+", (s or "").lower())
+
+def _normalize_query_terms(q: str) -> list[str]:
+    toks = [t for t in _tokenize(q) if t and t not in _STOPWORDS]
+    # basic light normalization: singularize very common plural forms
+    norm: list[str] = []
+    for t in toks:
+        if len(t) > 3 and t.endswith("s") and not t.endswith("ss"):
+            norm.append(t[:-1])
+        norm.append(t)
+    # unique while preserving order
+    seen = set()
+    out: list[str] = []
+    for t in norm:
+        if t not in seen:
+            out.append(t)
+            seen.add(t)
+    return out
+
+def _keyword_overlap_score(q_terms: list[str], text: str) -> float:
+    """
+    Fix #2: word-overlap scoring instead of strict substring match.
+    Returns a score in roughly [0, 1.5] (we clamp later).
+    """
+    if not q_terms or not text:
+        return 0.0
+
+    t_lower = text.lower()
+    t_terms = set(_normalize_query_terms(t_lower))
+
+    overlap = sum(1 for t in q_terms if t in t_terms)
+    if overlap <= 0:
+        return 0.0
+
+    # Base: fraction of query terms matched
+    base = overlap / max(1, len(q_terms))
+
+    # Bonus: exact substring of the raw query (helps for names/phrases)
+    # (small bonus so overlap still matters most)
+    phrase_bonus = 0.15 if " ".join(q_terms) in t_lower else 0.0
+
+    # Bonus: consecutive bigram hits (helps “dcg teacher”)
+    bigram_bonus = 0.0
+    if len(q_terms) >= 2:
+        for i in range(len(q_terms) - 1):
+            bg = f"{q_terms[i]} {q_terms[i+1]}"
+            if bg in t_lower:
+                bigram_bonus += 0.05
+
+    return base + phrase_bonus + bigram_bonus
+
+def _apply_simple_domain_boosts(q_terms: list[str], row: dict, text: str, score: float) -> float:
+    """
+    Fix #3: lightweight boosts so “teachers” queries prefer teacher-like chunks and
+    DCG queries prefer DCG-like chunks, without needing query embeddings.
+    """
+    if score <= 0.0:
+        return score
+
+    t_lower = (text or "").lower()
+    src_lower = _extract_source(row).lower()
+
+    # Teacher intent boost
+    teacher_terms = {"teacher", "teachers", "staff", "faculty", "instructor", "educator"}
+    if any(t in teacher_terms for t in q_terms):
+        if any(x in t_lower for x in ("teacher", "staff", "faculty", "instructor", "educator")):
+            score += 0.20
+        if any(x in src_lower for x in ("teacher", "staff", "faculty")):
+            score += 0.10
+
+    # DCG boost (your district keyword)
+    if "dcg" in q_terms:
+        if "dcg" in t_lower:
+            score += 0.15
+        if "dcg" in src_lower:
+            score += 0.10
+
+    # Slight preference for structured sources over generic if meta indicates type
+    meta = row.get("meta")
+    if isinstance(meta, dict):
+        doc_type = str(meta.get("type") or meta.get("doc_type") or "").lower()
+        if doc_type in ("teacher", "teachers"):
+            score += 0.10
+
+    return score
+# -----------------------
 
 
 async def rag_retrieve(
@@ -109,18 +313,100 @@ async def rag_retrieve(
     filters: Optional[Dict[str, Any]] = None,
 ) -> List[RetrievedChunk]:
     """
-    Best-effort RAG retrieval hook.
+    Best-effort local vector retrieval over embeddings.jsonl.
 
-    Replace this stub with your real retrieval implementation, e.g.:
-      - Postgres + pgvector
-      - historian_documents table (markdown exports)
-      - Elasticsearch (hybrid keyword + vector)
-      - Trino / data lake search, etc.
+    For now, we:
+      - use cosine similarity if filters["query_embedding"] is provided and row has embeddings
+      - else do keyword retrieval
 
-    Must return a list of RetrievedChunk objects.
+    Fix #1 (already present):
+      - If we're in keyword-fallback mode, do NOT return 0.0-score chunks.
+
+    Fix #2:
+      - Replace strict substring scoring with word-overlap scoring (plus small phrase/bigram bonuses).
+
+    Fix #3:
+      - Add lightweight domain boosts (e.g., “teachers” queries prefer teacher-like chunks).
     """
-    _ = (query, top_k, min_score, filters)
-    return []
+    rows = _load_embeddings_once()
+    if not rows:
+        return []
+
+    # Optional: user can pass query embedding in rag_filters, e.g.
+    #   "rag_filters": {"query_embedding": [ ... floats ... ]}
+    query_vec: Optional[list[float]] = None
+    if isinstance(filters, dict):
+        qv = filters.get("query_embedding")
+        if isinstance(qv, list) and qv and all(isinstance(x, (int, float)) for x in qv):
+            query_vec = [float(x) for x in qv]
+
+    q = (query or "").strip()
+    if not q:
+        return []
+
+    scored: list[tuple[float, dict, int]] = []
+
+    # --- keyword term prep for Fix #2/#3 ---
+    q_terms = _normalize_query_terms(q)
+
+    # --- Fix #1: in keyword-only mode, never allow 0.0 results through ---
+    effective_min_score = float(min_score)
+    keyword_only_mode = query_vec is None
+    if keyword_only_mode and effective_min_score <= 0.0:
+        effective_min_score = 1e-9  # require strictly > 0.0 to pass
+    # -------------------------------------------------------------------
+
+    for idx, row in enumerate(rows):
+        if not isinstance(row, dict):
+            continue
+
+        text = _extract_text(row)
+        if not text:
+            continue
+
+        score = 0.0
+
+        # Vector mode if possible
+        if query_vec is not None:
+            emb = _extract_embedding(row)
+            if emb is not None and len(emb) == len(query_vec):
+                score = _cosine_similarity(query_vec, emb)
+            else:
+                # No usable embedding; use keyword overlap instead (Fix #2)
+                score = _keyword_overlap_score(q_terms, text)
+                score = _apply_simple_domain_boosts(q_terms, row, text, score)
+        else:
+            # Keyword mode (Fix #2 + Fix #3)
+            score = _keyword_overlap_score(q_terms, text)
+            score = _apply_simple_domain_boosts(q_terms, row, text, score)
+
+        # Clamp to a sane range so min_score remains meaningful
+        if score < 0.0:
+            score = 0.0
+        if score > 1.5:
+            score = 1.5
+
+        if score >= effective_min_score:
+            scored.append((score, row, idx))
+
+    if not scored:
+        return []
+
+    scored.sort(key=lambda t: t[0], reverse=True)
+    top = scored[: max(1, int(top_k))]
+
+    out: list[RetrievedChunk] = []
+    for score, row, idx in top:
+        out.append(
+            RetrievedChunk(
+                id=_extract_id(row, idx),
+                text=_extract_text(row),
+                source=_extract_source(row),
+                score=float(score),
+                meta=row.get("meta") if isinstance(row.get("meta"), dict) else None,
+            )
+        )
+    return out
 
 
 def _extract_last_user_query(messages: List[Dict[str, str]]) -> str:
@@ -135,14 +421,6 @@ def _inject_rag_context_messages(
     messages: List[Dict[str, str]],
     chunks: List[RetrievedChunk],
 ) -> List[Dict[str, str]]:
-    """
-    Insert a grounding system message containing retrieved context.
-
-    Strategy:
-      - Keep original chat history intact.
-      - Add a system message "CONTEXT:" near the top so models treat it as instruction/context.
-      - Preserve any existing system message ordering.
-    """
     if not chunks:
         return messages
 
@@ -165,7 +443,6 @@ def _inject_rag_context_messages(
         ),
     }
 
-    # Insert after the last existing system message (common best practice).
     out: List[Dict[str, str]] = []
     last_system_idx = -1
     for idx, m in enumerate(messages):
@@ -174,11 +451,9 @@ def _inject_rag_context_messages(
             last_system_idx = idx
 
     if last_system_idx >= 0:
-        # Insert after the last system message
         out.insert(last_system_idx + 1, context_msg)
         return out
 
-    # No system messages -> prepend context as system
     return [context_msg, *messages]
 
 
@@ -227,7 +502,6 @@ async def list_models(_: dict | None = Depends(require_auth)):
         try:
             r = await client.get(upstream_v1)
             if r.status_code == 404:
-                # Ollama native (/api/tags returns {"models":[...]})
                 t = await client.get(upstream_tags)
                 t.raise_for_status()
                 tags = t.json() or {}
@@ -264,23 +538,10 @@ async def chat_completions(
     _: dict | None = Depends(require_auth),
 ):
     """
-    Accepts either:
-      • OpenAI-style JSON body (model, messages, …)
-      • A plain string body (auto-wrapped into a minimal request)
+    Accepts OpenAI-style JSON body (model, messages, …)
     """
-    # Normalize to ChatRequest
-    if isinstance(payload, str):
-        payload = ChatRequest(
-            model=getattr(settings, "DEFAULT_MODEL", "llama3.1"),
-            messages=[ChatMessage(role="user", content=payload)],
-            temperature=getattr(settings, "TUTOR_TEMPERATURE", 0.2),
-            max_tokens=getattr(settings, "TUTOR_MAX_TOKENS", 2048),
-            stream=False,
-        )
-
-    # Defaults
     model = (payload.model or getattr(settings, "DEFAULT_MODEL", "llama3.1")).strip()
-    if model == "llama3":  # simple alias
+    if model == "llama3":
         model = "llama3.1"
 
     temperature = (
@@ -289,27 +550,20 @@ async def chat_completions(
         else getattr(settings, "TUTOR_TEMPERATURE", 0.2)
     )
 
-    # ----- Option A: enforce a minimum completion size -----
     DEFAULT_MAX_TOKENS = getattr(settings, "TUTOR_MAX_TOKENS", 2048)
     MIN_COMPLETION_TOKENS = getattr(settings, "MIN_COMPLETION_TOKENS", 512)
 
     requested = payload.max_tokens
-
     if requested is None:
         max_tokens = DEFAULT_MAX_TOKENS
     else:
         max_tokens = max(requested, MIN_COMPLETION_TOKENS)
-    # ------------------------------------------------------
 
-    # Redact inbound
     for m in payload.messages:
         m.content = redact_pii(m.content)
 
     REQS.labels("/v1/chat/completions").inc()
 
-    # -------------------------
-    # RAG: retrieve and inject
-    # -------------------------
     rag_enabled_default = bool(getattr(settings, "RAG_ENABLED", True))
     use_rag = bool(payload.use_rag) if payload.use_rag is not None else rag_enabled_default
 
@@ -323,6 +577,8 @@ async def chat_completions(
     try:
         if use_rag:
             rag_query = _extract_last_user_query([m.model_dump() for m in payload.messages])
+            print("[rag] enabled query=", repr(rag_query), " top_k=", top_k, " min_score=", min_score)
+
             if rag_query:
                 rag_chunks = await rag_retrieve(
                     rag_query,
@@ -330,21 +586,20 @@ async def chat_completions(
                     min_score=min_score,
                     filters=rag_filters,
                 )
+            print("[rag] retrieved chunks:", len(rag_chunks))
+
     except Exception as e:
-        # RAG is best-effort; never fail the endpoint
         print(f"[/v1/chat/completions] RAG retrieval failed: {e}")
         rag_chunks = []
 
-    # Create final messages with injected context
     final_messages_dicts: List[Dict[str, str]] = _inject_rag_context_messages(
         messages=[m.model_dump() for m in payload.messages],
         chunks=rag_chunks,
     )
-    # -------------------------
 
     base = getattr(settings, "VLLM_ENDPOINT", "http://127.0.0.1:11434").rstrip("/")
-    upstream_v1 = f"{base}/v1/chat/completions"  # OpenAI-compatible
-    upstream_api = f"{base}/api/chat"            # Ollama native
+    upstream_v1 = f"{base}/v1/chat/completions"
+    upstream_api = f"{base}/api/chat"
 
     openai_req = {
         "model": model,
@@ -352,16 +607,10 @@ async def chat_completions(
         "temperature": temperature,
         "stream": False,
     }
-
     if max_tokens is not None:
         openai_req["max_tokens"] = max_tokens
 
-    timeout = httpx.Timeout(
-        connect=10.0,
-        read=None,  # allow long responses
-        write=10.0,
-        pool=10.0,
-    )
+    timeout = httpx.Timeout(connect=10.0, read=None, write=10.0, pool=10.0)
 
     async with httpx.AsyncClient(timeout=timeout) as client:
         try:
@@ -372,7 +621,6 @@ async def chat_completions(
                 f"bytes={len(r.content)} rag_enabled={use_rag} rag_chunks={len(rag_chunks)}"
             )
 
-            # Decide whether to fall back to Ollama native
             fallback = False
             if r.status_code == 404:
                 fallback = True
@@ -392,11 +640,7 @@ async def chat_completions(
                     pass
 
             if fallback:
-                # Fallback to Ollama native /api/chat
-                options: dict = {
-                    "temperature": temperature,
-                }
-
+                options: dict = {"temperature": temperature}
                 if max_tokens is not None:
                     options["num_predict"] = max_tokens
 
@@ -430,8 +674,6 @@ async def chat_completions(
                         "finish_reason": "stop",
                     }],
                     "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
-
-                    # --- Extra metadata (safe to ignore by OpenAI clients) ---
                     "rag": {"enabled": use_rag, "query": rag_query, "top_k": top_k, "num_chunks": len(rag_chunks)},
                     "citations": [
                         {"index": i + 1, "source": c.source, "id": c.id, "score": c.score, "meta": c.meta}
@@ -453,75 +695,6 @@ async def chat_completions(
 
             data = r.json()
 
-            # -------- DEBUG + optional auto-continue on bad tail --------
-            try:
-                choices = data.get("choices") or []
-                first = choices[0] if choices else {}
-                finish_reason = first.get("finish_reason")
-                usage = data.get("usage") or {}
-                msg = first.get("message") or {}
-                content = msg.get("content", "")
-
-                print(
-                    "[/v1/chat/completions] finish_reason=",
-                    finish_reason,
-                    " prompt_tokens=",
-                    usage.get("prompt_tokens"),
-                    " completion_tokens=",
-                    usage.get("completion_tokens"),
-                    " content_len=",
-                    len(content),
-                )
-                print("[/v1/chat/completions] content tail:", repr(content[-200:]))
-
-                stripped = content.strip()
-                bad_tail = (
-                    stripped.endswith("**Consequences**")
-                    or stripped.endswith("**Consequences**\n*")
-                    or stripped.endswith("**Consequences**\n\n*")
-                    or stripped.endswith("\n**Consequences**\n\n*")
-                )
-
-                if bad_tail:
-                    print("[/v1/chat/completions] Detected truncated Consequences section, auto-continuing…")
-
-                    followup_messages = list(final_messages_dicts)
-                    followup_messages.append({
-                        "role": "user",
-                        "content": (
-                            "Please continue your previous answer. You just started the "
-                            "'Consequences' section and then stopped at a single bullet. "
-                            "Finish listing the consequences clearly as bullet points or "
-                            "short paragraphs, without repeating the entire earlier answer."
-                        ),
-                    })
-
-                    followup_req = {
-                        "model": model,
-                        "messages": followup_messages,
-                        "temperature": temperature,
-                        "stream": False,
-                    }
-                    if max_tokens is not None:
-                        followup_req["max_tokens"] = max_tokens
-
-                    r2 = await client.post(upstream_v1, json=followup_req)
-                    if r2.status_code < 400:
-                        data2 = r2.json()
-                        choices2 = data2.get("choices") or []
-                        if choices2:
-                            msg2 = (choices2[0].get("message") or {})
-                            extra = msg2.get("content") or ""
-                            print("[/v1/chat/completions] auto-continue added", len(extra), "chars")
-                            msg["content"] = content.rstrip() + "\n\n" + extra
-                            first["finish_reason"] = choices2[0].get("finish_reason") or "stop"
-                    else:
-                        print("[/v1/chat/completions] auto-continue followup failed status=", r2.status_code)
-
-            except Exception as e:
-                print("[/v1/chat/completions] debug/auto-continue inspection failed:", e)
-            # --------------------------------------------------------
-
             # Metrics (OpenAI-style)
             usage = data.get("usage") or {}
             try:
@@ -536,22 +709,7 @@ async def chat_completions(
                 if isinstance(msg.get("content"), str):
                     msg["content"] = redact_pii(msg["content"])
 
-            # --- Clean up stray trailing Markdown bullets like "*" after headers ---
-            for choice in data.get("choices", []):
-                msg = choice.get("message") or {}
-                content = msg.get("content", "")
-
-                content = content.replace("**Consequences**\n\n*", "**Consequences**\n")
-                content = content.replace("Consequences\n\n*", "Consequences\n")
-
-                cleaned_lines = []
-                for line in content.splitlines():
-                    if line.strip() == "*":
-                        continue
-                    cleaned_lines.append(line)
-                msg["content"] = "\n".join(cleaned_lines)
-
-            # --- Extra metadata (safe to ignore by OpenAI clients) ---
+            # Extra metadata
             data["rag"] = {"enabled": use_rag, "query": rag_query, "top_k": top_k, "num_chunks": len(rag_chunks)}
             data["citations"] = [
                 {"index": i + 1, "source": c.source, "id": c.id, "score": c.score, "meta": c.meta}
