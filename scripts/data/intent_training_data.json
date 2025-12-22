@@ -1,0 +1,2238 @@
+{
+  "version": 1,
+  "updated_at": "2025-12-22T03:41:07.429603+00:00",
+  "examples": [
+    {
+      "text": "List the DCG School Board Members",
+      "label": "informational"
+    },
+    {
+      "text": "Who is DCG's superintendent?",
+      "label": "informational"
+    },
+    {
+      "text": "What is OSSS?",
+      "label": "informational"
+    },
+    {
+      "text": "Explain pgvector",
+      "label": "informational"
+    },
+    {
+      "text": "How do I configure Terraform for S3?",
+      "label": "informational"
+    },
+    {
+      "text": "What is the capital of France?",
+      "label": "informational"
+    },
+    {
+      "text": "Show me my schedule for tomorrow",
+      "label": "informational"
+    },
+    {
+      "text": "Create a new student record",
+      "label": "action"
+    },
+    {
+      "text": "Update the teacher email for John Smith",
+      "label": "action"
+    },
+    {
+      "text": "Delete the test administration for grade 5",
+      "label": "action"
+    },
+    {
+      "text": "Generate a report card PDF for student 123",
+      "label": "action"
+    },
+    {
+      "text": "Add a new course called Algebra II",
+      "label": "action"
+    },
+    {
+      "text": "Import this CSV into the database",
+      "label": "action"
+    },
+    {
+      "text": "Why is my FastAPI app crashing on startup?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "SQLAlchemy NoForeignKeysError on Topic.parent",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "Kubernetes deployment stuck in CrashLoopBackOff",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "Terraform plan fails with missing provider",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "OpenAI request_id is None and logging fails JSON serialization",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "Starburst query spillable not set yet",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What are the office hours for Dallas Center Elementary?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I request a meeting with the school board?",
+      "label": "action"
+    },
+    {
+      "text": "Why can't I access my child's grades online?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What is the policy on visiting pets in schools?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I add a new student to the OSSS system?",
+      "label": "action"
+    },
+    {
+      "text": "Why does my child's absence message not show up in the voicemail?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What is the difference between DCG and DC-G?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I reset my password for the admin app?",
+      "label": "action"
+    },
+    {
+      "text": "Why are some of our student data fields not syncing with OSSS?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What is Competent Private Instruction in DCG?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I enroll my child in a new school year?",
+      "label": "action"
+    },
+    {
+      "text": "Why does our student's health information not show up in the OSSS system?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What is the procedure for reporting a bullying incident?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I request a transfer to another school within DCG?",
+      "label": "action"
+    },
+    {
+      "text": "Why does my child's attendance record show incorrect dates?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What is the policy on student cell phone usage during school hours?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I access the DCG brand manual for design guidelines?",
+      "label": "action"
+    },
+    {
+      "text": "Why does our website's CSS styles not apply to certain pages?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What is the procedure for requesting a school closure or delay due to weather?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I reset my API keys in the dev environment?",
+      "label": "action"
+    },
+    {
+      "text": "How do I submit a party invitation request for my child?",
+      "label": "action"
+    },
+    {
+      "text": "My child's name was not listed in the student handbook",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What are the DCG district marks and their safe zones?",
+      "label": "informational"
+    },
+    {
+      "text": "Can I get a copy of my child's immunization records?",
+      "label": "action"
+    },
+    {
+      "text": "I'm having trouble accessing the parent portal",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "How do I report an absence for my child?",
+      "label": "informational"
+    },
+    {
+      "text": "Can I schedule a meeting with the school administration?",
+      "label": "action"
+    },
+    {
+      "text": "I'm experiencing issues with the Qualtrics feedback survey",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What is the policy on student grades and progress reports?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I request a transcript for my child's records?",
+      "label": "action"
+    },
+    {
+      "text": "I'm having trouble logging into the OSSS app",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What are the office hours for the elementary school?",
+      "label": "informational"
+    },
+    {
+      "text": "Can I get a copy of my child's birth certificate on file?",
+      "label": "action"
+    },
+    {
+      "text": "I'm having trouble finding information in the student handbook",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What is the policy on student cell phone use during school hours?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I request a change to my child's class schedule?",
+      "label": "action"
+    },
+    {
+      "text": "I'm experiencing issues with the DCG district website",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What are the school's policies on bullying and harassment?",
+      "label": "informational"
+    },
+    {
+      "text": "Can I get a copy of my child's medical records?",
+      "label": "action"
+    },
+    {
+      "text": "How do I access my child's medical information?",
+      "label": "action"
+    },
+    {
+      "text": "My student was absent, but the voicemail says they weren't called.",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What is the school's policy on party invitations?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I report a problem with the Qualtrics feedback survey?",
+      "label": "action"
+    },
+    {
+      "text": "The DCG logo in my design looks distorted.",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What are the school office hours for Dallas Center Elementary?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I add a new student to the district database?",
+      "label": "action"
+    },
+    {
+      "text": "The OSSS app is not syncing with my data.",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What are the rules for using the DCG district marks on merchandise?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I update my child's contact information in the system?",
+      "label": "action"
+    },
+    {
+      "text": "The Qualtrics feedback survey is not working properly.",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What is the policy on giving out student addresses for parties?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I recover my password for the OSSS app?",
+      "label": "action"
+    },
+    {
+      "text": "The DCG website is down, what's going on?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What are the school hours for North Ridge Elementary?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I submit a request for an exception to the district policy?",
+      "label": "action"
+    },
+    {
+      "text": "The OSSS app is crashing on my device.",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What are the rules for using the DCG district marks on signage?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I report a problem with the school nurse's office?",
+      "label": "action"
+    },
+    {
+      "text": "The Qualtrics feedback survey is not showing my responses.",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What are the school offices open hours?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I find my child's absence record?",
+      "label": "action"
+    },
+    {
+      "text": "I'm getting an error on the OSSS login page.",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What is the policy on visiting pets in school?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I schedule a meeting with the superintendent?",
+      "label": "action"
+    },
+    {
+      "text": "The Qualtrics feedback form isn't working properly.",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What are the district's goals for the 2025-26 school year?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I report a technical issue with the OSSS app?",
+      "label": "action"
+    },
+    {
+      "text": "I'm getting a 500 error on the dev server.",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What is Competent Private Instruction (CPI) in DCG?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I submit my CPI verification form?",
+      "label": "action"
+    },
+    {
+      "text": "The OSSS API is returning an invalid response.",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What are the school nurse's contact information for each building?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I request a return call from the voicemail system?",
+      "label": "action"
+    },
+    {
+      "text": "I'm experiencing issues with the Qualtrics survey rendering.",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What is the district's policy on student absences?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I reset my OSSS login password?",
+      "label": "action"
+    },
+    {
+      "text": "The dev server is not responding to HTTP requests.",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What are the school office hours for each building in DCG?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I report a technical issue with the OSSS dashboard?",
+      "label": "action"
+    },
+    {
+      "text": "What are the school hours for Dallas Center Elementary?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I log in to the DCG Parent Portal?",
+      "label": "action"
+    },
+    {
+      "text": "My child is absent, how do I report it?",
+      "label": "action"
+    },
+    {
+      "text": "Why are pets not allowed in school?",
+      "label": "informational"
+    },
+    {
+      "text": "Can I get a copy of the DCG student handbook online?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I contact the school nurse or health associate?",
+      "label": "action"
+    },
+    {
+      "text": "What are the COVID-19 protocols for DCG schools?",
+      "label": "informational"
+    },
+    {
+      "text": "I forgot my password, how do I reset it in Qualtrics?",
+      "label": "action"
+    },
+    {
+      "text": "How do I access the school's voicemail system?",
+      "label": "action"
+    },
+    {
+      "text": "What are the district's policies on recess and physical activity?",
+      "label": "informational"
+    },
+    {
+      "text": "Can I schedule a meeting with the superintendent?",
+      "label": "action"
+    },
+    {
+      "text": "What are the district's guidelines for student conduct and behavior?",
+      "label": "informational"
+    },
+    {
+      "text": "I need help with my child's IEP, who can I contact?",
+      "label": "action"
+    },
+    {
+      "text": "Why did the DCG school board meet in special session last week?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I provide feedback on the district's strategic plan?",
+      "label": "action"
+    },
+    {
+      "text": "What are the district's policies on bullying and harassment?",
+      "label": "informational"
+    },
+    {
+      "text": "I'm having trouble logging in to the DCG admin app, what should I do?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "Can I get a copy of the DCG school calendar online?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I report a technical issue with the district's website?",
+      "label": "action"
+    },
+    {
+      "text": "How do I report my child's absence?",
+      "label": "action"
+    },
+    {
+      "text": "Why can't I access the OSSS app?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What are the DCG school district policies on pets in schools?",
+      "label": "informational"
+    },
+    {
+      "text": "Can I request a meeting with the superintendent?",
+      "label": "action"
+    },
+    {
+      "text": "Why is my Qualtrics feedback not showing up?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What are the requirements for homeschooling in DCG?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I update my child's contact information?",
+      "label": "action"
+    },
+    {
+      "text": "Why is my DCG student handbook not downloading properly?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What are the office hours for the District Administration Office?",
+      "label": "informational"
+    },
+    {
+      "text": "Why am I getting errors with the OSSS login?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What is the policy on student social media use?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I submit a complaint or concern to the school board?",
+      "label": "action"
+    },
+    {
+      "text": "Why is my DCG brand manual not displaying correctly?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What are the requirements for student parking permits?",
+      "label": "informational"
+    },
+    {
+      "text": "Can I request a change to my child's schedule?",
+      "label": "action"
+    },
+    {
+      "text": "Why am I experiencing issues with the DCG website?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What are the rules for student use of technology during school hours?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I access my child's grades online?",
+      "label": "action"
+    },
+    {
+      "text": "How do I report my child's absence to the school?",
+      "label": "action"
+    },
+    {
+      "text": "Why can't we give out student addresses for party invitations?",
+      "label": "informational"
+    },
+    {
+      "text": "What are the school office hours at DCG Middle School?",
+      "label": "informational"
+    },
+    {
+      "text": "Can I get a copy of the DCG student handbook?",
+      "label": "action"
+    },
+    {
+      "text": "How do I complete the homeschool verification form?",
+      "label": "informational"
+    },
+    {
+      "text": "Why are there no public Wi-Fi options in the school buildings?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What is the purpose of the Qualtrics feedback survey?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I reset my password for the OSSS app?",
+      "label": "action"
+    },
+    {
+      "text": "Can I use a service animal in school?",
+      "label": "informational"
+    },
+    {
+      "text": "Why is my child's lunch account showing a negative balance?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "How do I contact the district administration office?",
+      "label": "action"
+    },
+    {
+      "text": "What are the consequences of bringing a prohibited item to school?",
+      "label": "informational"
+    },
+    {
+      "text": "Can I access my child's attendance records online?",
+      "label": "action"
+    },
+    {
+      "text": "Why is the school nurse not available during summer break?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "How do I report technical issues with the OSSS app?",
+      "label": "informational"
+    },
+    {
+      "text": "What are the rules for using school computers and devices?",
+      "label": "informational"
+    },
+    {
+      "text": "Can I get a refund on my child's meal plan if they drop out of school?",
+      "label": "action"
+    },
+    {
+      "text": "What is the policy on giving out student addresses?",
+      "label": "informational"
+    },
+    {
+      "text": "I'm having trouble accessing the district website. What's wrong?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "Can I homeschool my child through the DCG district?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I submit a request for a new app to OSSS admin?",
+      "label": "action"
+    },
+    {
+      "text": "My user account is not working in the app. What's going on?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "Are pets allowed in DCG schools unless they're service animals?",
+      "label": "informational"
+    },
+    {
+      "text": "How can I report my child's absence if I'm running late?",
+      "label": "action"
+    },
+    {
+      "text": "I'm getting an error message when trying to log in. Help!",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What is the purpose of the 'safe zone' in DCG district marks?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I get a copy of my child's immunization records?",
+      "label": "action"
+    },
+    {
+      "text": "I'm having trouble with the Qualtrics feedback system. Can someone help me?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "Can I use the OSSS admin app on my personal phone?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I add a new user to our school's database?",
+      "label": "action"
+    },
+    {
+      "text": "I'm getting a 500 error when trying to upload a file. What's wrong?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What is the policy on party invitations and student addresses?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I schedule a meeting with the DCG district administrator?",
+      "label": "action"
+    },
+    {
+      "text": "I'm having trouble with the API connection. Can someone debug it?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "Can I use the OSSS admin app on multiple devices at once?",
+      "label": "informational"
+    },
+    {
+      "text": "What is the DCG district policy on lunch fees?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I request a new student ID card?",
+      "label": "action"
+    },
+    {
+      "text": "I'm having trouble logging in to the OSSS app, what can I do?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "How do I submit a request for a field trip?",
+      "label": "action"
+    },
+    {
+      "text": "I'm getting an error message when trying to upload a file, help!",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What is the procedure for reporting a student absence?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I reset my password for the admin panel?",
+      "label": "action"
+    },
+    {
+      "text": "My student's grades are not updating correctly, what's wrong?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What is the dress code policy for DCG Middle School?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I order a new set of textbooks for my classroom?",
+      "label": "action"
+    },
+    {
+      "text": "I'm experiencing issues with the database, can someone help me?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What is the procedure for handling bullying incidents?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I request a meeting with the school counselor?",
+      "label": "action"
+    },
+    {
+      "text": "I'm getting a 500 error when trying to access the API, what's going on?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What is the policy on student attendance during inclement weather?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I submit a request for a staff development workshop?",
+      "label": "action"
+    },
+    {
+      "text": "I'm having trouble debugging the code, can someone assist me?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What is the procedure for reporting a hardware issue with school equipment?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I request a new set of classroom materials?",
+      "label": "action"
+    },
+    {
+      "text": "What are the office hours at DCG Middle School?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I create a new user account in OSSS?",
+      "label": "action"
+    },
+    {
+      "text": "I'm getting an error in my app, what's the solution?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What are the policies on visiting pets at school?",
+      "label": "informational"
+    },
+    {
+      "text": "Can I query the student database for attendance records?",
+      "label": "action"
+    },
+    {
+      "text": "My app is crashing, how do I debug it?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "Who are the district administrators and their contact info?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I configure the email notification system in OSSS?",
+      "label": "action"
+    },
+    {
+      "text": "I'm having issues with user authentication, what's the fix?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What are the requirements for homeschooling in DCG district?",
+      "label": "informational"
+    },
+    {
+      "text": "Can I update the student records in the OSSS database?",
+      "label": "action"
+    },
+    {
+      "text": "My app is slow, how do I optimize its performance?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What are the rules for using the district's brand marks?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I manage permissions for users in OSSS?",
+      "label": "action"
+    },
+    {
+      "text": "I'm experiencing issues with data synchronization, what's the solution?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What are the district policies on student absence reporting?",
+      "label": "informational"
+    },
+    {
+      "text": "Can I delete redundant records from the OSSS database?",
+      "label": "action"
+    },
+    {
+      "text": "My app is crashing frequently, how do I resolve it?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "Who are the key personnel in the district administration office?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I configure the payment gateway for online transactions in OSSS?",
+      "label": "action"
+    },
+    {
+      "text": "What is the district's policy on pets in schools?",
+      "label": "informational"
+    },
+    {
+      "text": "I need to update a student's address.",
+      "label": "action"
+    },
+    {
+      "text": "Why can't I reset my admin password?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "I want to view a student's attendance record.",
+      "label": "action"
+    },
+    {
+      "text": "Why is my Qualtrics feedback not being recorded?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "I need to add a new teacher to our school's staff.",
+      "label": "action"
+    },
+    {
+      "text": "How do I troubleshoot issues with OSSS database connections?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What is the procedure for reporting student absences?",
+      "label": "informational"
+    },
+    {
+      "text": "I want to query all students enrolled in a specific course.",
+      "label": "action"
+    },
+    {
+      "text": "Why am I getting an error when trying to upload files to our SFTP server?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What is the DCG district's policy on student vaccinations?",
+      "label": "informational"
+    },
+    {
+      "text": "I need to create a new school calendar event.",
+      "label": "action"
+    },
+    {
+      "text": "Why is my Apache server not responding to requests?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What are the benefits of using our district's online portal for parents?",
+      "label": "informational"
+    },
+    {
+      "text": "I want to delete a student's duplicate enrollment record.",
+      "label": "action"
+    },
+    {
+      "text": "Why am I getting a 'connection timed out' error when trying to access our database?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What is the process for applying for a teaching position in DCG district?",
+      "label": "informational"
+    },
+    {
+      "text": "I need to update a teacher's contact information.",
+      "label": "action"
+    },
+    {
+      "text": "What is the policy for student absences?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I update a student's address in OSSS?",
+      "label": "action"
+    },
+    {
+      "text": "Why am I getting an error when trying to login to the admin app?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What are the DCG school board meeting dates for this month?",
+      "label": "informational"
+    },
+    {
+      "text": "I'm having trouble with the API connection, can you help me debug it?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What is the policy for inclement weather days?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I filter student records by name in OSSS?",
+      "label": "action"
+    },
+    {
+      "text": "My app keeps crashing, what could be causing it?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What are the district's graduation requirements for students?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I delete a student's record in OSSS?",
+      "label": "action"
+    },
+    {
+      "text": "I'm having trouble with authentication, can you help me troubleshoot it?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What is the DCG school calendar for the upcoming year?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I create a new student record in OSSS?",
+      "label": "action"
+    },
+    {
+      "text": "My database is running low on disk space, how can I optimize it?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What are the district's policies for bullying and harassment?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I update a teacher's contact information in OSSS?",
+      "label": "action"
+    },
+    {
+      "text": "I'm having trouble with the database connection, can you help me debug it?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What is the district's policy for student transportation?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I delete a teacher's record in OSSS?",
+      "label": "action"
+    },
+    {
+      "text": "What is the deadline for homeschool verification?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I add a new user to OSSS?",
+      "label": "action"
+    },
+    {
+      "text": "Why am I getting an error on login?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "Can I delete a user from OSSS?",
+      "label": "action"
+    },
+    {
+      "text": "My username is not working, what do I do?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "How do I update my profile picture in the app?",
+      "label": "action"
+    },
+    {
+      "text": "Why are some students missing from the roster?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What is the policy on pets visiting schools?",
+      "label": "informational"
+    },
+    {
+      "text": "Can I reset a user's password?",
+      "label": "action"
+    },
+    {
+      "text": "I'm having trouble connecting to the database, help!",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "How do I view my student's schedule?",
+      "label": "informational"
+    },
+    {
+      "text": "Can I export all user data from OSSS?",
+      "label": "action"
+    },
+    {
+      "text": "Why are my reports not generating correctly?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What is the process for implementing a new policy?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I remove an unused user account?",
+      "label": "action"
+    },
+    {
+      "text": "I'm getting errors on the frontend, what's wrong?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "Can I view all school board meeting minutes online?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I grant admin permissions to a user?",
+      "label": "action"
+    },
+    {
+      "text": "What are the school district's policies on bullying?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I reset a user account password?",
+      "label": "action"
+    },
+    {
+      "text": "Why is my user account locked out?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "Can I add new buildings to the OSSS database?",
+      "label": "action"
+    },
+    {
+      "text": "I'm getting a 500 error when trying to log in",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "How do I set up a new user account for an employee?",
+      "label": "action"
+    },
+    {
+      "text": "What are the district's policies on cell phone usage during lunch?",
+      "label": "informational"
+    },
+    {
+      "text": "I'm trying to query the database but getting an error",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "How do I update a student's contact information in OSSS?",
+      "label": "action"
+    },
+    {
+      "text": "What is the process for reporting a technical issue to IT?",
+      "label": "informational"
+    },
+    {
+      "text": "I want to filter my query results by date range, how do I do that?",
+      "label": "action"
+    },
+    {
+      "text": "Why am I getting an error when trying to save changes to a report?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "Can you provide more information on the district's strategic plan?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I grant permission for a new user to access a specific database table?",
+      "label": "action"
+    },
+    {
+      "text": "I'm experiencing issues with my development environment, can someone help me debug it?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What are the steps to follow when setting up a new classroom in OSSS?",
+      "label": "informational"
+    },
+    {
+      "text": "Can you show me how to use the advanced reporting features in the app?",
+      "label": "action"
+    },
+    {
+      "text": "I'm getting an error message when trying to upload a file, what's wrong?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What are the district office hours?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I login to OSSS?",
+      "label": "informational"
+    },
+    {
+      "text": "What is the school code for DCG?",
+      "label": "informational"
+    },
+    {
+      "text": "Can you show me the schedule for today?",
+      "label": "informational"
+    },
+    {
+      "text": "Who can help with academic questions?",
+      "label": "informational"
+    },
+    {
+      "text": "List all OSSS database tables.",
+      "label": "action"
+    },
+    {
+      "text": "Create a new user account in OSSS.",
+      "label": "action"
+    },
+    {
+      "text": "Show me the available workflows for agenda items.",
+      "label": "action"
+    },
+    {
+      "text": "Update the student handbook document in OSSS.",
+      "label": "action"
+    },
+    {
+      "text": "Delete all unused meeting documents.",
+      "label": "action"
+    },
+    {
+      "text": "What is my current role in the district system?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "Why can't I access the OSSS dashboard?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "How do I resolve a missing user account issue?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What is causing the error in our school's database?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "List all pending tasks for my current role.",
+      "label": "action"
+    },
+    {
+      "text": "Search for emails related to student absences.",
+      "label": "action"
+    },
+    {
+      "text": "Count the number of students enrolled in DCG.",
+      "label": "action"
+    },
+    {
+      "text": "Filter the list of users by school affiliation.",
+      "label": "action"
+    },
+    {
+      "text": "Show me the OSSS database schema diagram.",
+      "label": "informational"
+    },
+    {
+      "text": "What is the password policy for district employees?",
+      "label": "informational"
+    },
+    {
+      "text": "What is the district's policy on homework?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I reset my password in OSSS?",
+      "label": "action"
+    },
+    {
+      "text": "My child's grade is incorrect, how can I fix it?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What are the eligibility criteria for the meal program?",
+      "label": "informational"
+    },
+    {
+      "text": "Can I request a transcript from the OSSS website?",
+      "label": "action"
+    },
+    {
+      "text": "The export run failed, what does this error message mean?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What is the district's stance on bullying?",
+      "label": "informational"
+    },
+    {
+      "text": "I'm having trouble logging in to the admin app, what should I do?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What is the deadline for submitting the homeschool verification form?",
+      "label": "informational"
+    },
+    {
+      "text": "Can I update my child's address in OSSS online?",
+      "label": "action"
+    },
+    {
+      "text": "The database connection failed, how can I troubleshoot this issue?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What are the district's graduation requirements for high school students?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I delete an old user account in OSSS?",
+      "label": "action"
+    },
+    {
+      "text": "I'm getting a 404 error when trying to access a webpage, what could be wrong?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "Can I generate a report of all students with outstanding fees in OSSS?",
+      "label": "action"
+    },
+    {
+      "text": "The cron job is not running, how can I investigate this issue?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What are the eligibility criteria for the free and reduced lunch program?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I create a new role in OSSS with specific permissions?",
+      "label": "action"
+    },
+    {
+      "text": "What is the policy on service animals in schools?",
+      "label": "informational"
+    },
+    {
+      "text": "Can I update my child's emergency contact information?",
+      "label": "action"
+    },
+    {
+      "text": "I have a question about the OSSS admin app, how do I reset my password?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "Are there any summer hours for the District Administration Office?",
+      "label": "informational"
+    },
+    {
+      "text": "How can I view my child's attendance record?",
+      "label": "action"
+    },
+    {
+      "text": "I'm having trouble logging into the school's online portal, what should I do?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "How can I request a transfer to another school within the district?",
+      "label": "action"
+    },
+    {
+      "text": "I'm experiencing issues with the school's WiFi connection, who should I contact?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "Are there any upcoming parent-teacher conferences that I should attend?",
+      "label": "informational"
+    },
+    {
+      "text": "Can I add a new bus route for my child?",
+      "label": "action"
+    },
+    {
+      "text": "I'm having trouble with the OSSS database, how can I troubleshoot it?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What are the school hours for DCG Elementary School?",
+      "label": "informational"
+    },
+    {
+      "text": "How can I submit a request for a curriculum change?",
+      "label": "action"
+    },
+    {
+      "text": "I'm experiencing issues with my student's online account, how do I reset it?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "Are there any school closures due to weather conditions today?",
+      "label": "informational"
+    },
+    {
+      "text": "Can I request a meeting with the district superintendent?",
+      "label": "action"
+    },
+    {
+      "text": "I'm having trouble accessing the OSSS admin app, what could be the problem?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What is the process for reporting bullying incidents in schools?",
+      "label": "informational"
+    },
+    {
+      "text": "How can I update my child's emergency contact information online?",
+      "label": "action"
+    },
+    {
+      "text": "How do I update a student's health profile?",
+      "label": "action"
+    },
+    {
+      "text": "Why can't I access the DCG Student Handbook?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "I'm getting an error message when trying to access the dashboard.",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What is the procedure for handling a student's absence?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I grant permission to a teacher to view grades?",
+      "label": "action"
+    },
+    {
+      "text": "I'm having trouble logging in to the OSSS app.",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What is the process for creating a new DCG policy?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I delete an old employee from the system?",
+      "label": "action"
+    },
+    {
+      "text": "Why can't I view a student's transcript online?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What is the deadline for submitting a homeschool verification form?",
+      "label": "informational"
+    },
+    {
+      "text": "I'm experiencing issues with the DCG website loading slowly.",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What is the protocol for handling a student's allergy emergency?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I create a new user role in OSSS?",
+      "label": "action"
+    },
+    {
+      "text": "Why am I getting an error message when trying to access the document search index?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What is the procedure for reporting a maintenance request?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I grant permission to a staff member to view payroll information?",
+      "label": "action"
+    },
+    {
+      "text": "I'm having trouble accessing the DCG Student Handbook online.",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "Can I change my child's grade level?",
+      "label": "action"
+    },
+    {
+      "text": "Why do we have weekly early dismissals?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I update my child's health information?",
+      "label": "action"
+    },
+    {
+      "text": "Can I request a transfer to another school?",
+      "label": "action"
+    },
+    {
+      "text": "Why are the school offices closed during summer break?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I reset my admin app password?",
+      "label": "action"
+    },
+    {
+      "text": "What is the process for reporting a student's absence?",
+      "label": "informational"
+    },
+    {
+      "text": "Can I create a new user account in OSSS?",
+      "label": "action"
+    },
+    {
+      "text": "Why are some students not showing up in my grade book?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What is the deadline for submitting homeschool verification forms?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I delete a redundant database entry?",
+      "label": "action"
+    },
+    {
+      "text": "Why are our website logs not updating correctly?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "Can I schedule a meeting with the district administrator?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I update my child's emergency contact information?",
+      "label": "action"
+    },
+    {
+      "text": "Why are some students not receiving their diplomas on time?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What is the process for requesting a student records transfer?",
+      "label": "informational"
+    },
+    {
+      "text": "Can I reset my database password from the OSSS app?",
+      "label": "action"
+    },
+    {
+      "text": "Why are our backups not completing successfully?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "I forgot my login credentials, how do I reset them?",
+      "label": "action"
+    },
+    {
+      "text": "Why is my student's grade not updating in the portal?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "I want to add a new user account, what do I need to do?",
+      "label": "action"
+    },
+    {
+      "text": "Why is my report card not available yet, it's past due date",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What are the policies on visiting pets in DCG schools?",
+      "label": "informational"
+    },
+    {
+      "text": "I want to create a new policy document, how do I upload it?",
+      "label": "action"
+    },
+    {
+      "text": "Why is my attendance code not working for my student",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What are the school hours for DCG Middle School this week?",
+      "label": "informational"
+    },
+    {
+      "text": "I want to delete an old user account, how do I do that?",
+      "label": "action"
+    },
+    {
+      "text": "Why is my grade report not showing up in the portal",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "Can I get a copy of the DCG employee handbook online?",
+      "label": "informational"
+    },
+    {
+      "text": "I want to update an existing policy, how do I make changes?",
+      "label": "action"
+    },
+    {
+      "text": "Why is my student's immunization record not showing up in OSSS",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What are the procedures for reporting absences via voicemail?",
+      "label": "informational"
+    },
+    {
+      "text": "I want to add a new admin user account, what permissions do they need?",
+      "label": "action"
+    },
+    {
+      "text": "Why is my attendance code not syncing with OSSS",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "Can I view the DCG annual budget online somewhere?",
+      "label": "informational"
+    },
+    {
+      "text": "I want to modify an existing policy, how do I assign new permissions?",
+      "label": "action"
+    },
+    {
+      "text": "Why is my student's transcript not showing up in OSSS",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "How do I create a new user account?",
+      "label": "action"
+    },
+    {
+      "text": "What is the deadline for submitting student handbooks?",
+      "label": "informational"
+    },
+    {
+      "text": "Error: unable to fetch data from database",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "Can someone help me with setting up Google Classroom?",
+      "label": "action"
+    },
+    {
+      "text": "Why are students not receiving email notifications?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What is the policy for attendance tracking?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I reset a user's password?",
+      "label": "action"
+    },
+    {
+      "text": "The district website is experiencing technical difficulties",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "Can someone provide information on upcoming school events?",
+      "label": "informational"
+    },
+    {
+      "text": "I'm having trouble logging into the admin app",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "How do I update student records in OSSS?",
+      "label": "action"
+    },
+    {
+      "text": "The database connection is timed out",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "Can someone help me with setting up a new teacher account?",
+      "label": "action"
+    },
+    {
+      "text": "Why are some student grades not displaying in the gradebook?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What is the process for requesting a transcript?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I reset a user's permissions?",
+      "label": "action"
+    },
+    {
+      "text": "The system is experiencing high server load",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "Can someone provide information on the district's budget and finances?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I update my child's medical information in OSSS?",
+      "label": "action"
+    },
+    {
+      "text": "I'm trying to debug the Qualtrics feedback widget, what's the server IP?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What is the procedure for requesting a new user account in OSSS?",
+      "label": "action"
+    },
+    {
+      "text": "Can I get more information about the district budget meeting on Wednesday?",
+      "label": "informational"
+    },
+    {
+      "text": "I'm having trouble logging into my teacher account, help!",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "How do I upload a new document to the DCG portal?",
+      "label": "action"
+    },
+    {
+      "text": "What are the upcoming events for the school calendar?",
+      "label": "informational"
+    },
+    {
+      "text": "I need to reset my OSSS password, what's the process?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "Can I get a list of all the students in my class?",
+      "label": "action"
+    },
+    {
+      "text": "Who is the contact for DCG special education services?",
+      "label": "informational"
+    },
+    {
+      "text": "I'm trying to troubleshoot an issue with the API, what's the endpoint URL?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "How do I add a new teacher to my school's roster in OSSS?",
+      "label": "action"
+    },
+    {
+      "text": "What is the policy on cell phone use during school hours?",
+      "label": "informational"
+    },
+    {
+      "text": "I'm having trouble with the database connection, what's the error message?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "Can I get a report of all student absences for this semester?",
+      "label": "action"
+    },
+    {
+      "text": "Who is the district superintendent and how do I contact them?",
+      "label": "informational"
+    },
+    {
+      "text": "I'm trying to debug an issue with the webhooks, what's the configuration file?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "How do I request a new school ID for my child?",
+      "label": "action"
+    },
+    {
+      "text": "What is the procedure for resolving a technical issue in OSSS?",
+      "label": "informational"
+    },
+    {
+      "text": "I'm having trouble with the Qualtrics feedback widget, what's the JavaScript library version?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "How do I update my child's immunization records?",
+      "label": "action"
+    },
+    {
+      "text": "Why can't I log in to the OSSS app?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "How do I create a new user account in the admin app?",
+      "label": "action"
+    },
+    {
+      "text": "[1] What is the purpose of the safe zone on DCG district marks?",
+      "label": "informational"
+    },
+    {
+      "text": "What are some common issues with the admin app's API?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "Where can I find information on district policies and procedures?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I delete an old user account in the admin app?",
+      "label": "action"
+    },
+    {
+      "text": "[2] What is the significance of the DCG seal's safe zone?",
+      "label": "informational"
+    },
+    {
+      "text": "Why am I getting a 403 error when trying to access the API?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What are the requirements for homeschooling in the Dallas Center-Grimes district?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I add a new user to the admin app's database?",
+      "label": "action"
+    },
+    {
+      "text": "[5] What information should be included on the DCG Homeschool Verification Form?",
+      "label": "informational"
+    },
+    {
+      "text": "Why is my API request timing out after 30 seconds?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "How do I update a user's role in the admin app?",
+      "label": "action"
+    },
+    {
+      "text": "[3] What are some common issues with Qualtrics feedback surveys in the OSSS app?",
+      "label": "informational"
+    },
+    {
+      "text": "Why am I getting a 'not found' error when trying to access a resource?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "How do I create a new course section in the admin app?",
+      "label": "action"
+    },
+    {
+      "text": "[4] What are the office hours for the District Administration Office?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I log in to the OSSS admin app?",
+      "label": "action"
+    },
+    {
+      "text": "My child's absence is not showing up on the attendance record.",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What are the district policies on bullying and harassment?",
+      "label": "informational"
+    },
+    {
+      "text": "I need to update my student's emergency contact information.",
+      "label": "action"
+    },
+    {
+      "text": "Why is my report card not showing up in the parent portal?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What are the grade level requirements for promotion to high school?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I request a transcript from DCG High School?",
+      "label": "action"
+    },
+    {
+      "text": "I'm having trouble accessing the student handbook online.",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "How do I set up a parent-teacher conference with my child's teacher?",
+      "label": "action"
+    },
+    {
+      "text": "Why are there duplicate entries in the attendance log for my student?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What is the deadline to apply for financial aid for college?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I reset my password on the OSSS admin app?",
+      "label": "action"
+    },
+    {
+      "text": "I'm having issues with the student information system database.",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What are the requirements for a student to graduate from DCG High School?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I request a copy of my child's immunization records?",
+      "label": "action"
+    },
+    {
+      "text": "Why is my student's schedule not showing up correctly in the parent portal?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What are the district policies on student conduct and behavior?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I update my child's address and contact information in the OSSS admin app?",
+      "label": "action"
+    },
+    {
+      "text": "What are the district's school hours?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I update a student's address?",
+      "label": "action"
+    },
+    {
+      "text": "My account is locked, how can I reset it?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "Which bus route does my child use?",
+      "label": "informational"
+    },
+    {
+      "text": "Can I add a new course to the curriculum?",
+      "label": "action"
+    },
+    {
+      "text": "I'm having trouble logging in, what's my username?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "How do I generate a report card for a student?",
+      "label": "action"
+    },
+    {
+      "text": "I'm getting an error message, can you help me debug it?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What are the district's policies on food allergies?",
+      "label": "informational"
+    },
+    {
+      "text": "Can I modify a teacher's schedule?",
+      "label": "action"
+    },
+    {
+      "text": "My app is crashing, how can I fix it?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What are the eligibility requirements for special education services?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I add a new vendor to the system?",
+      "label": "action"
+    },
+    {
+      "text": "I'm having trouble connecting to the database, what's the issue?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "Can I update a teacher's contact information?",
+      "label": "action"
+    },
+    {
+      "text": "I'm getting a 500 error, how can I resolve it?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What is the procedure for handling student discipline incidents?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I generate an attendance report for a class?",
+      "label": "action"
+    },
+    {
+      "text": "I'm having trouble with my GitHub repository, can you help me?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "Where can I find the DCG Student Handbook online?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I submit my child's absence?",
+      "label": "action"
+    },
+    {
+      "text": "What is our district's stance on vaccination requirements?",
+      "label": "informational"
+    },
+    {
+      "text": "Can I change my password in the OSSS admin app?",
+      "label": "action"
+    },
+    {
+      "text": "Why do we have a strict policy on sharing student info?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I filter attendance data for specific dates?",
+      "label": "action"
+    },
+    {
+      "text": "What are the office hours at Dallas Center Elementary?",
+      "label": "informational"
+    },
+    {
+      "text": "Why does our database keep showing an error on login?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "How do I update my child's emergency contact info?",
+      "label": "action"
+    },
+    {
+      "text": "What are the requirements for homeschooling in Iowa?",
+      "label": "informational"
+    },
+    {
+      "text": "Can I export student data to CSV format?",
+      "label": "action"
+    },
+    {
+      "text": "Why does our web app keep crashing during peak hours?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "How do I reset my username in the OSSS admin app?",
+      "label": "action"
+    },
+    {
+      "text": "Why does our database query keep timing out?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "Can I request a transcript for my child's records?",
+      "label": "action"
+    },
+    {
+      "text": "What are the requirements for student-teacher ratios in DCG schools?",
+      "label": "informational"
+    },
+    {
+      "text": "Why does our API keep returning unauthorized errors?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What is the DCG policy for visiting pets?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I add a new student to OSSS?",
+      "label": "action"
+    },
+    {
+      "text": "I'm having trouble logging in to the admin app.",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What is the definition of 'Competent Private Instruction'?",
+      "label": "informational"
+    },
+    {
+      "text": "Can I modify an existing course section in OSSS?",
+      "label": "action"
+    },
+    {
+      "text": "I'm getting a 500 error when running my test.",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What is the role of the District Registrar?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I reset a student's password in OSSS?",
+      "label": "action"
+    },
+    {
+      "text": "I'm having issues with my Python script crashing.",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What are the office hours for DCG Middle School?",
+      "label": "informational"
+    },
+    {
+      "text": "Can I export a list of all students in OSSS?",
+      "label": "action"
+    },
+    {
+      "text": "I'm experiencing slow query times on my database.",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What is the purpose of the 'DCG-SchoolBoard' folder?",
+      "label": "informational"
+    },
+    {
+      "text": "I'm having trouble debugging my node.js app.",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What is the difference between 'Competent Private Instruction' and 'Homeschooling'?",
+      "label": "informational"
+    },
+    {
+      "text": "Can I update a student's contact information in OSSS?",
+      "label": "action"
+    },
+    {
+      "text": "I'm experiencing issues with my Jenkins build pipeline.",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What is the process for submitting a request to the District Administration Office?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I delete an old course in OSSS?",
+      "label": "action"
+    },
+    {
+      "text": "I'm having trouble resolving a DNS issue with my AWS instance.",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What is the procedure for submitting a new policy?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I reset my administrator password?",
+      "label": "action"
+    },
+    {
+      "text": "I'm having trouble logging in, what's wrong?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What are the district's vaccination requirements for students?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I add a new employee to the payroll system?",
+      "label": "action"
+    },
+    {
+      "text": "The student information system is not updating correctly, help!",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "I'm getting an error message when trying to export data, what's wrong?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What is the process for requesting a transcript from our school?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I assign a new administrator role in the admin app?",
+      "label": "action"
+    },
+    {
+      "text": "The database is not syncing correctly, how can I fix it?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What are the district's procedures for reporting student absences?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I create a new course section in OSSS?",
+      "label": "action"
+    },
+    {
+      "text": "I'm having trouble accessing the student information system, help!",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What is the district's policy on student cell phone use during school hours?",
+      "label": "informational"
+    },
+    {
+      "text": "How do I update a teacher's grade book in OSSS?",
+      "label": "action"
+    },
+    {
+      "text": "The system is crashing frequently, what can we do to fix it?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What are the district's procedures for handling student behavior incidents?",
+      "label": "informational"
+    },
+    {
+      "text": "I'm having trouble debugging this error message, can someone help me?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "List all OSSS database tables for a specific user",
+      "label": "action"
+    },
+    {
+      "text": "How do I debug an issue with the Qualtrics Feedback form?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "Update a student's profile information in OSSS",
+      "label": "action"
+    },
+    {
+      "text": "Why is the voicemail system not working as expected?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "Who is responsible for maintaining the DCG School Board policies?",
+      "label": "informational"
+    },
+    {
+      "text": "Delete a user account from the OSSS database",
+      "label": "action"
+    },
+    {
+      "text": "How do I resolve an issue with the payment processing system?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What are the rules for homeschooling in DCG District?",
+      "label": "informational"
+    },
+    {
+      "text": "Create a new user account in OSSS",
+      "label": "action"
+    },
+    {
+      "text": "Why is my report card not showing any scores?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "Who can I contact about a issue with the website navigation?",
+      "label": "informational"
+    },
+    {
+      "text": "Delete a document from the OSSS database",
+      "label": "action"
+    },
+    {
+      "text": "How do I debug an issue with the Google accounts authentication?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "What is the policy on absences for elementary students in DCG District?",
+      "label": "informational"
+    },
+    {
+      "text": "Update a document template in OSSS",
+      "label": "action"
+    },
+    {
+      "text": "Why is my user account not showing any permissions?",
+      "label": "troubleshooting"
+    },
+    {
+      "text": "Who is responsible for maintaining the school nurse's contact information?",
+      "label": "informational"
+    }
+  ]
+}

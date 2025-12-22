@@ -51,10 +51,16 @@ class OpenAIChatLLM(LLMInterface):
         *,
         timeout_seconds: float = 30.0,
         max_retries: int = 2,
+        # ✅ NEW: default top-level fields merged into request body via OpenAI SDK `extra_body`
+        # Example: {"use_rag": True, "top_k": 6, "min_score": 0.2}
+        extra_body: Optional[Dict[str, Any]] = None,
     ) -> None:
         self.api_key = api_key
         self.model: Optional[str] = model
         self.base_url: Optional[str] = base_url
+
+        # ✅ NEW: per-client default extra_body that will be merged into all requests
+        self._default_extra_body: Dict[str, Any] = dict(extra_body) if isinstance(extra_body, dict) else {}
 
         # Detect Ollama-ish base_url (your logs: http://host.containers.internal:11434)
         self._is_ollama = bool(base_url) and ("11434" in (base_url or ""))
@@ -75,16 +81,26 @@ class OpenAIChatLLM(LLMInterface):
         Make kwargs compatible across:
         - OpenAI (response_format JSON mode)
         - Ollama OpenAI-compatible endpoint (extra_body.format="json")
+
+        Also supports:
+        - per-client default extra_body (self._default_extra_body)
+        - per-call extra_body passed by caller
         """
         out = dict(kwargs)
 
         # Allow caller to request JSON strictly even without response_format
         force_json = bool(out.pop("force_json", False))
 
-        # Merge/normalize extra_body (OpenAI SDK supports passing extra_body through)
-        extra_body: Dict[str, Any] = {}
+        # ✅ NEW: Merge extra_body in this order:
+        #   1) client defaults (factory-level)
+        #   2) per-call overrides
+        # so callers can override defaults.
+        merged_extra_body: Dict[str, Any] = {}
+        if isinstance(self._default_extra_body, dict) and self._default_extra_body:
+            merged_extra_body.update(self._default_extra_body)
+
         if isinstance(out.get("extra_body"), dict):
-            extra_body.update(out["extra_body"])
+            merged_extra_body.update(cast(Dict[str, Any], out["extra_body"]))
 
         # If caller asked OpenAI JSON mode, translate for Ollama.
         # OpenAI: response_format={"type":"json_object"}
@@ -96,13 +112,16 @@ class OpenAIChatLLM(LLMInterface):
 
         if self._is_ollama and wants_json_object:
             # Ollama expects {"format": "json"} in the request body
-            extra_body.setdefault("format", "json")
+            merged_extra_body.setdefault("format", "json")
 
             # Ollama may not understand response_format; remove it to be safe
             out.pop("response_format", None)
 
-        if extra_body:
-            out["extra_body"] = extra_body
+        # ✅ Ensure we only set extra_body if non-empty
+        if merged_extra_body:
+            out["extra_body"] = merged_extra_body
+        else:
+            out.pop("extra_body", None)
 
         return out
 
