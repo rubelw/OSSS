@@ -123,6 +123,36 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
         self._query_profile_cache: Dict[str, Dict[str, Any]] = {}   # workflow_id -> query_profile dict
         self._query_profile_locks: Dict[str, asyncio.Lock] = {}     # workflow_id -> lock
 
+    def _normalize_classifier_profile(self, out: Any) -> Dict[str, Any]:
+        """
+        Normalize classifier output into a dict shape we can safely persist in config.
+
+        Supports either:
+          - dict-like outputs
+          - objects with attributes (intent/confidence/labels/raw)
+        """
+        if out is None:
+            out = {}
+
+        def _get(key: str, default: Any = None) -> Any:
+            if isinstance(out, dict):
+                return out.get(key, default)
+            return getattr(out, key, default)
+
+        intent = _get("intent")
+        confidence = _get("confidence", 0.0)
+
+        try:
+            confidence_f = float(confidence or 0.0)
+        except Exception:
+            confidence_f = 0.0
+
+        return {
+            "intent": intent,
+            "confidence": confidence_f,
+            "labels": _get("labels"),
+            "raw": _get("raw"),
+        }
 
     def _convert_agent_outputs_to_serializable(
         self,
@@ -415,12 +445,25 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
             )
 
             out = await agent.run(query, config)
+
+            # -------------------------------------------------------------
+            # ✅ Persist classifier output into config as PRE-STEP metadata
+            # -------------------------------------------------------------
+            config.setdefault("prestep", {})
+
+            profile_dict = self._normalize_classifier_profile(out)
+
+            config["prestep"]["classifier"] = profile_dict
+
+            # Mark routing source so orchestrator can reliably infer prestep happened
+            config["routing_source"] = "caller_with_classifier_prestep"
+
             logger.info(
                 "[api] classifier output",
                 extra={
                     "workflow_id": config.get("workflow_id"),
                     "correlation_id": config.get("correlation_id"),
-                    "classifier": out,
+                    "classifier": profile_dict,
                 },
             )
             return out
@@ -481,6 +524,16 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
 
             # Build orchestrator execution config (copy to avoid mutating request)
             config: Dict[str, Any] = dict(original_execution_config)
+
+            # -------------------------------------------------------------
+            # ✅ Carry classifier PRE-STEP into the orchestrator config
+            # (because we rebuild config after _run_classifier_first)
+            # -------------------------------------------------------------
+            config.setdefault("prestep", {})
+            config["prestep"]["classifier"] = self._normalize_classifier_profile(classifier_out)
+            # keep a clear marker that classifier ran as prestep
+            config.setdefault("routing_source", "caller_with_classifier_prestep")
+
 
             if request.correlation_id:
                 config["correlation_id"] = request.correlation_id

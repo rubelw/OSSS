@@ -205,6 +205,64 @@ class LangGraphOrchestrator:
             f"checkpoints: {self.enable_checkpoints}, thread_id: {self.thread_id}"
         )
 
+    def _get_classifier_prestep(self, config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """
+        Return normalized classifier prestep dict if present.
+
+        Preferred location:
+          config["prestep"]["classifier"] (new)
+        Fallback:
+          config["classifier"] (legacy)
+        """
+        if not isinstance(config, dict):
+            return None
+
+        prestep = config.get("prestep")
+        if isinstance(prestep, dict):
+            cls = prestep.get("classifier")
+            if isinstance(cls, dict):
+                return cls
+
+        legacy = config.get("classifier")
+        if isinstance(legacy, dict):
+            return legacy
+
+        return None
+
+    def _intent_hint_agents(self, classifier: Dict[str, Any]) -> Optional[List[str]]:
+        """
+        Option 1: Use classifier intent to influence routing.
+        Returns a *suggested* agent list (no classifier), or None if no reliable hint.
+        """
+        intent = (classifier.get("intent") or "").strip().lower()
+        confidence = classifier.get("confidence", 0.0)
+
+        try:
+            conf = float(confidence or 0.0)
+        except Exception:
+            conf = 0.0
+
+        # If classifier isn't confident, don't force anything.
+        # (Tune threshold as you like; 0.60 is a reasonable first pass.)
+        if conf < 0.60 or not intent:
+            return None
+
+        # Baseline always needs refiner + synthesis
+        base = ["refiner", "synthesis"]
+
+        # Map intent → include supporting agents
+        if intent == "informational":
+            return ["refiner", "historian", "synthesis"]
+        if intent == "troubleshooting":
+            return ["refiner", "critic", "historian", "synthesis"]
+        if intent == "action":
+            # action usually wants critic more than historian
+            return ["refiner", "critic", "synthesis"]
+
+        # Unknown intent: no hint
+        return None
+
+
     def _resolve_agents_for_run(self, config: dict) -> list[str]:
         """
         Determine which agents should run for this invocation.
@@ -229,10 +287,13 @@ class LangGraphOrchestrator:
         # ---------------------------------------------------------------------
         # ✅ classifier is a PRE-STEP, never a LangGraph node
         # ---------------------------------------------------------------------
+        cls = self._get_classifier_prestep(config)
+
         ran_as_prestep = (
-                config.get("classifier") is not None
+                cls is not None
                 or "classifier" in (config.get("pre_agents") or [])
                 or str(config.get("routing_source", "")).endswith("_with_classifier_prestep")
+                or config.get("routing_source") == "caller_with_classifier_prestep"
         )
 
         if ran_as_prestep:
@@ -293,6 +354,30 @@ class LangGraphOrchestrator:
         """
         config = config or {}
         start_time = time.time()
+
+        # ------------------------------------------------------------------
+        # ✅ Option 1: classifier prestep hints can influence routing
+        # ------------------------------------------------------------------
+        classifier = self._get_classifier_prestep(config)
+        hinted_agents = self._intent_hint_agents(classifier) if classifier else None
+
+        # Only apply hint when caller did NOT explicitly provide agents
+        raw_cfg_agents = config.get("agents")
+        caller_forced_agents = isinstance(raw_cfg_agents, list) and bool(raw_cfg_agents)
+
+        if hinted_agents and not caller_forced_agents:
+            self.logger.info(
+                "[orchestrator] applying classifier routing hint",
+                extra={
+                    "intent": classifier.get("intent") if classifier else None,
+                    "confidence": classifier.get("confidence") if classifier else None,
+                    "hinted_agents": hinted_agents,
+                },
+            )
+
+            # This becomes the "requested" agents for this run (still subject to enhanced routing if enabled)
+            resolved_agents = hinted_agents
+
 
         # Handle correlation context - use provided correlation_id and workflow_id if available
         provided_correlation_id = config.get("correlation_id") if config else None
@@ -357,7 +442,24 @@ class LangGraphOrchestrator:
         routing_decision = None
         if self.use_enhanced_routing:
             # Route only among non-classifier agents; we’ll add classifier back after.
-            available = [a for a in self.default_agents if a.lower() != "classifier"]
+            # If classifier hint (or caller config agents) constrained the set, route within that.
+            # Otherwise route within default agents.
+            if isinstance(config.get("agents"), list) and config.get("agents"):
+                base_available = [
+                    str(a).lower() for a in config.get("agents") if a and str(a).lower() != "classifier"
+                ]
+            elif resolved_agents:
+                base_available = [a for a in resolved_agents if a != "classifier"]
+            else:
+                base_available = [a for a in self.default_agents if a.lower() != "classifier"]
+
+            # De-dupe
+            available = []
+            seen = set()
+            for a in base_available:
+                if a and a not in seen:
+                    seen.add(a)
+                    available.append(a)
 
             routing_decision = await self._make_routing_decision(query, available, config)
 
@@ -368,17 +470,17 @@ class LangGraphOrchestrator:
             # If caller provided config["agents"], that should win over routing.
             raw_cfg_agents = config.get("agents")
             if isinstance(raw_cfg_agents, list) and raw_cfg_agents:
-                # Caller wins. Still ensure classifier is first.
+                # Caller wins. Never add classifier as a node.
                 self.logger.info(
                     "[orchestrator] config.agents provided; skipping routing override",
                     extra={"config_agents": raw_cfg_agents, "routing_agents": routed},
                 )
-                self.agents_to_run = ["classifier"] + [
+                self.agents_to_run = [
                     str(a).lower() for a in raw_cfg_agents if a and str(a).lower() != "classifier"
                 ]
             else:
-                # Routing decides (but we force classifier first).
-                self.agents_to_run = ["classifier"] + routed
+                # Routing decides. Never add classifier as a node.
+                self.agents_to_run = routed
 
             # De-dupe again
             deduped = []
@@ -393,16 +495,23 @@ class LangGraphOrchestrator:
             self._compiled_graph = None
             self._graph = None
 
+            md = {
+                "orchestrator_type": "langgraph-real",
+                "optimization_strategy": self.optimization_strategy.value,
+                "routing_enabled": True,
+                "final_agents": self.agents_to_run,
+            }
+
+            cls = self._get_classifier_prestep(config)
+            if cls:
+                md["classifier_intent"] = cls.get("intent")
+                md["classifier_confidence"] = cls.get("confidence")
+
             emit_routing_decision_from_object(
                 routing_decision,
                 workflow_id=execution_id,
                 correlation_id=correlation_id,
-                metadata={
-                    "orchestrator_type": "langgraph-real",
-                    "optimization_strategy": self.optimization_strategy.value,
-                    "routing_enabled": True,
-                    "final_agents": self.agents_to_run,
-                },
+                metadata=md,
             )
 
         self.total_executions += 1
@@ -463,7 +572,7 @@ class LangGraphOrchestrator:
                     if not jsonl_path:
                         raise ValueError("RAG enabled but execution_config.rag.jsonl_path is missing")
 
-                    rag = await rag_prefetch_jsonl(
+                    rag = await rag_prefetch(
                         query,
                         ollama_base=ollama_base,
                         embed_model=embed_model,
