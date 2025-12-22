@@ -52,7 +52,7 @@ from OSSS.ai.orchestration.state_schemas import (
 from OSSS.ai.observability import get_logger
 from OSSS.ai.config.openai_config import OpenAIConfig
 from OSSS.ai.llm.openai import OpenAIChatLLM
-from OSSS.ai.correlation import get_correlation_id, get_workflow_id
+from OSSS.ai.llm.factory import LLMFactory
 from OSSS.ai.events import (
     emit_agent_execution_started,
     emit_agent_execution_completed,
@@ -385,13 +385,11 @@ async def create_agent_with_llm(
         return agent
 
     # ------------------------------------------------------------
-    # Existing LLM agent path (unchanged behavior)
+    # LLM agent path (factory-selected per agent + execution_config)
     # ------------------------------------------------------------
-    llm_config = OpenAIConfig.load()
-    llm = OpenAIChatLLM(
-        api_key=llm_config.api_key,
-        model=llm_config.model,
-        base_url=llm_config.base_url,
+    llm = LLMFactory.create(
+        agent_name = agent_name_lower,
+        execution_config = exec_cfg,
     )
 
     agent_config_kwargs: Dict[str, Any] = {}
