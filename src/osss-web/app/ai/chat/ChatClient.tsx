@@ -30,6 +30,15 @@ interface RetrievedChunk {
   pdf_index_path?: string | null;
 }
 
+function prettyJson(raw: string): string {
+  try {
+    const obj = JSON.parse(raw);
+    return JSON.stringify(obj, null, 2);
+  } catch {
+    return raw;
+  }
+}
+
 // Strip PII / link-like content from TEXT that goes back into chatHistory
 function sanitizeForGuard(src: string): string {
   let t = src;
@@ -276,6 +285,8 @@ function describeIntent(intent: string): string {
 export default function ChatClient() {
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+  const [lastRawResponse, setLastRawResponse] = useState<string>("");
+
 
   const [messages, setMessages] = useState<UiMessage[]>([]);
   const [chatHistory, setChatHistory] = useState<
@@ -532,6 +543,8 @@ export default function ChatClient() {
       const raw = await resp.text();
       console.log("RAG raw response:", resp.status, raw);
 
+      setLastRawResponse(raw);
+
       let payload: any = null;
       try {
         payload = JSON.parse(raw);
@@ -576,31 +589,17 @@ export default function ChatClient() {
       if (showDebug) {
         const debugLines: string[] = [];
 
-        if (qp) {
-          debugLines.push(
-            "**Query profile:**\n```json\n" + JSON.stringify(qp, null, 2) + "\n```"
-          );
-        }
+        const RAW_DEBUG_MAX = 50_000;
+        let pretty = prettyJson(raw);
+        if (pretty.length > RAW_DEBUG_MAX) pretty = pretty.slice(0, RAW_DEBUG_MAX) + "\n...<truncated>...";
 
-        if (typeof wf.execution_time_seconds === "number") {
-          debugLines.push(`**Execution time:** ${wf.execution_time_seconds.toFixed(2)}s`);
-        }
-
-        if (wf.markdown_export?.filename) {
-          debugLines.push(`**Markdown export:** \`${wf.markdown_export.filename}\``);
-        }
-
-        if (returnedIntent) {
-          const confText =
-            intentConfidence != null ? `, confidence ${intentConfidence.toFixed(2)}` : "";
-          debugLines.push(`**Intent:** ${returnedIntent} (${intentDescription}${confText})`);
-        } else {
-          debugLines.push("**Intent:** (none)");
-        }
-
-        if (wf.workflow_id) {
-          debugLines.push(`**Workflow:** \`${wf.workflow_id}\``);
-        }
+        // Show full raw response body (JSON or not)
+        debugLines.push(
+          `**/api/query raw response (HTTP ${resp.status}):**\n` +
+            "```json\n" +
+            pretty +
+            "\n```"
+        );
 
         if (debugLines.length > 0) {
           replyForDisplay += `\n\n---\n` + debugLines.join("\n");
