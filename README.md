@@ -1054,29 +1054,32 @@ rows/csv.
 ### High-level Flow
 
 ```mermaid
-flowchart TD
-  U[Client / UI] -->|POST /api/query| API[/orchestrator_api<br/>(FastAPI route/controller)/]
+sequenceDiagram
+  autonumber
+  participant C as Client UI
+  participant API as /api/query route
+  participant O as LangGraphOrchestrator
+  participant G as GraphFactory
+  participant LG as LangGraph
+  participant A as Agents
 
-  API -->|1) Parse request<br/>2) Create workflow_id + correlation_id<br/>3) Build AgentContext| CTX[AgentContext<br/>(query + execution_state + outputs)]
+  C->>API: POST /api/query
+  API->>API: create AgentContext + workflow_id + correlation_id
+  API->>O: run(context)
+  O->>G: create graph + compile
+  G-->>O: compiled graph
+  O->>LG: invoke(graph, initial_state)
 
-  API -->|call run(...)| ORCH[LangGraphOrchestrator<br/>(orchestrator)]
+  loop each node
+    LG->>A: execute node wrapper
+    A->>A: run_with_retry + update context
+    A-->>LG: updated state
+  end
 
-  ORCH -->|build/compile graph| GF[GraphFactory<br/>(creates StateGraph)]
+  LG-->>O: final state
+  O-->>API: result (outputs + meta)
+  API-->>C: HTTP response
 
-  GF -->|add_node(...) for each agent| NODES[(LangGraph Nodes<br/>refiner/data_query/.../synthesis)]
-  GF -->|add_edge(...) / add_conditional_edges(...)| EDGES[[Edges & Routing<br/>(execution order / branching)]]
-  GF -->|compile()| CG[CompiledGraph]
-
-  ORCH -->|invoke graph with initial state| CG --> RUN[Graph Execution Loop]
-
-  RUN -->|node wrapper calls agent.run_with_retry(context)| AGENTS[Agents run<br/>update context.execution_state<br/>add_agent_output(...)]
-  AGENTS --> RUN
-
-  RUN -->|final state| ORCH
-
-  ORCH -->|collect results| RESULT[WorkflowResult<br/>(outputs + meta + synthesis/errors)]
-
-  RESULT --> API -->|HTTP response| U
 ```
 
 ---
