@@ -43,6 +43,38 @@ generated from source:
 </p>
 
 ---
+## OSSS AI Query Flow
+
+### High-level Flow
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant C as Client UI
+  participant API as /api/query route
+  participant O as LangGraphOrchestrator
+  participant G as GraphFactory
+  participant LG as LangGraph
+  participant A as Agents
+
+  C->>API: POST /api/query
+  API->>API: create AgentContext + workflow_id + correlation_id
+  API->>O: run(context)
+  O->>G: create graph + compile
+  G-->>O: compiled graph
+  O->>LG: invoke(graph, initial_state)
+
+  loop each node
+    LG->>A: execute node wrapper
+    A->>A: run_with_retry + update context
+    A-->>LG: updated state
+  end
+
+  LG-->>O: final state
+  O-->>API: result (outputs + meta)
+  API-->>C: HTTP response
+
+---
 # Screen Shots
 
 The static site is output to `./documentation/`.
@@ -1047,40 +1079,6 @@ Map classifier output / action → mode inside query_data_registry.py
 Done: query_data can now answer “show me <your dataset>” using the new
 handler, and the debug JSON will include mode="<your_mode>" and the raw
 rows/csv.
-
----
-## OSSS AI Query Flow
-
-### High-level Flow
-
-```mermaid
-sequenceDiagram
-  autonumber
-  participant C as Client UI
-  participant API as /api/query route
-  participant O as LangGraphOrchestrator
-  participant G as GraphFactory
-  participant LG as LangGraph
-  participant A as Agents
-
-  C->>API: POST /api/query
-  API->>API: create AgentContext + workflow_id + correlation_id
-  API->>O: run(context)
-  O->>G: create graph + compile
-  G-->>O: compiled graph
-  O->>LG: invoke(graph, initial_state)
-
-  loop each node
-    LG->>A: execute node wrapper
-    A->>A: run_with_retry + update context
-    A-->>LG: updated state
-  end
-
-  LG-->>O: final state
-  O-->>API: result (outputs + meta)
-  API-->>C: HTTP response
-
-```
 
 ---
 ## 📜 License
