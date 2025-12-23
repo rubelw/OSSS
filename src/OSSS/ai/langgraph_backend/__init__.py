@@ -20,15 +20,35 @@ from .graph_patterns import (
     PatternRegistry,
 )
 from .graph_cache import GraphCache, CacheConfig
-from .semantic_validation import (
-    WorkflowSemanticValidator,
-    OSSSValidator,
-    SemanticValidationResult,
-    ValidationIssue,
-    ValidationSeverity,
-    ValidationError,
-    create_default_validator,
-)
+
+# ---------------------------------------------------------------------------
+# Semantic validation exports
+# NOTE: Keep these best-effort to avoid hard crashes on reload if validators
+# are optional, renamed, or temporarily broken during development.
+# ---------------------------------------------------------------------------
+try:
+    from .semantic_validation import (
+        WorkflowSemanticValidator,
+        OSSSValidator,
+        SemanticValidationResult,
+        ValidationIssue,
+        ValidationSeverity,
+        ValidationError,
+        create_default_validator,
+    )
+except Exception:  # pragma: no cover
+    WorkflowSemanticValidator = None  # type: ignore[assignment]
+    OSSSValidator = None  # type: ignore[assignment]
+    SemanticValidationResult = None  # type: ignore[assignment]
+    ValidationIssue = None  # type: ignore[assignment]
+    ValidationSeverity = None  # type: ignore[assignment]
+    ValidationError = None  # type: ignore[assignment]
+
+    def create_default_validator(*args, **kwargs):  # type: ignore[no-redef]
+        raise ImportError(
+            "semantic_validation components could not be imported; "
+            "check OSSS.ai.langgraph_backend.semantic_validation for errors."
+        )
 
 __all__ = [
     # Core graph building
@@ -44,7 +64,7 @@ __all__ = [
     # Caching
     "GraphCache",
     "CacheConfig",
-    # Semantic validation
+    # Semantic validation (best-effort)
     "WorkflowSemanticValidator",
     "OSSSValidator",
     "SemanticValidationResult",

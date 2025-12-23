@@ -28,11 +28,7 @@ class WorkflowRequest(BaseModel):
             "example": "Analyze the impact of climate change on agriculture"
         },
     )
-    agents: Optional[List[str]] = Field(
-        None,
-        description="List of agent names to execute (default: all available)",
-        json_schema_extra={"example": ["refiner", "historian", "critic", "synthesis"]},
-    )
+    agents: Optional[List[str]] = None  # <-- not default ["refiner","historian","critic","synthesis"]
 
     execution_config: Optional[Dict[str, Any]] = Field(
         None,

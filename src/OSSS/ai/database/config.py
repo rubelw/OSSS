@@ -43,7 +43,7 @@ class DatabaseConfig:
     command_timeout: int = 60
 
     # SSL/Security settings
-    ssl_require: bool = True
+    ssl_require: bool = False
     ssl_ca_file: str | None = None
     ssl_cert_file: str | None = None
     ssl_key_file: str | None = None
@@ -283,3 +283,10 @@ def get_database_config() -> DatabaseConfig:
         )
 
     return _database_config
+
+def db_persist_enabled_from_env() -> bool:
+    """
+    Controls whether the AI workflow/question/markdown persistence is enabled.
+    Default: true (but you can set DB_PERSIST_ENABLED=false in dev).
+    """
+    return os.getenv("OSSS_AI_DB_PERSIST_ENABLED", "true").lower() == "true"

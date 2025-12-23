@@ -339,6 +339,7 @@ class AgentRegistry:
         from OSSS.ai.agents.critic.agent import CriticAgent
         from OSSS.ai.agents.historian.agent import HistorianAgent
         from OSSS.ai.agents.synthesis.agent import SynthesisAgent
+        from OSSS.ai.agents.data_query.agent import DataQueryAgent
 
         # ✅ Import classifier agent HERE (function scope) to avoid circular imports
         from OSSS.ai.agents.classifier_agent import SklearnIntentClassifierAgent
@@ -365,6 +366,25 @@ class AgentRegistry:
             secondary_capabilities=["sub_intent_classification"],
             pipeline_role="entry",
             bounded_context="reflection",
+        )
+
+        # ✅ Register data_query
+        self.register(
+            name = "data_query",
+            agent_class = DataQueryAgent,
+            requires_llm = False,  # likely non-LLM (backend query executor)
+            description = "Executes backend/database query actions and returns structured results",
+            dependencies = [],  # can run after route_gate or after refiner
+            is_critical = True,
+            failure_strategy = FailurePropagationStrategy.FAIL_FAST,
+            fallback_agents = [],
+            cognitive_speed = "fast",
+            cognitive_depth = "shallow",
+            processing_pattern = "atomic",
+            primary_capability = "database_query",
+            secondary_capabilities = ["structured_output"],
+            pipeline_role = "intermediate",
+            bounded_context = "retrieval",
         )
 
         # Register core agents

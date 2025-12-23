@@ -142,6 +142,7 @@ class LangGraphOrchestrator:
         # Default agents - will be optimized by enhanced routing if enabled
         self.default_agents = [
             "refiner",
+            "data_query",
             "critic",
             "historian",
             "synthesis",
@@ -257,7 +258,7 @@ class LangGraphOrchestrator:
             return ["refiner", "critic", "historian", "synthesis"]
         if intent == "action":
             # action usually wants critic more than historian
-            return ["refiner", "critic", "synthesis"]
+            return ["refiner", "data_query", "synthesis"]
 
         # Unknown intent: no hint
         return None
@@ -355,6 +356,16 @@ class LangGraphOrchestrator:
         config = config or {}
         start_time = time.time()
 
+        # Helper: de-dupe while preserving order
+        def _dedupe(seq: List[str]) -> List[str]:
+            out: List[str] = []
+            seen = set()
+
+            for x in seq:
+                if x not in seen:
+                    seen.add(x); out.append(x)
+            return out
+
         # ------------------------------------------------------------------
         # ✅ Option 1: classifier prestep hints can influence routing
         # ------------------------------------------------------------------
@@ -375,8 +386,8 @@ class LangGraphOrchestrator:
                 },
             )
 
-            # This becomes the "requested" agents for this run (still subject to enhanced routing if enabled)
-            resolved_agents = hinted_agents
+            # NOTE: We will apply this AFTER we compute resolved_agents, so it isn't overwritten.
+            pass
 
 
         # Handle correlation context - use provided correlation_id and workflow_id if available
@@ -418,6 +429,20 @@ class LangGraphOrchestrator:
         # ------------------------------------------------------------------
         resolved_agents = self._resolve_agents_for_run(config)
 
+        # ------------------------------------------------------------------
+        # ✅ Apply classifier hint if caller did NOT force agents
+        # (Bug fix: previously the hint was overwritten by _resolve_agents_for_run)
+        # ------------------------------------------------------------------
+
+        if hinted_agents and not caller_forced_agents:
+            # Preserve any caller-specified explicit set? caller_forced_agents already handled.
+            resolved_agents = _dedupe([a.lower() for a in hinted_agents if a])
+            # Never allow classifier as a node
+            resolved_agents = [a for a in resolved_agents if a != "classifier"]
+            self.logger.info(
+                "[orchestrator] applying classifier routing hint (final)",
+                extra={"hinted_agents": hinted_agents, "resolved_agents": resolved_agents},
+            )
 
         # If the run-level agent list differs from the current instance list,
         # force a graph rebuild (compiled graphs are cached per agent list).
@@ -461,8 +486,26 @@ class LangGraphOrchestrator:
                     seen.add(a)
                     available.append(a)
 
-            routing_decision = await self._make_routing_decision(query, available, config)
+            # -----------------------------------------------------------------
+            # ✅ Enforce data_query for ACTION when classifier prestep is present
+            #    unless caller explicitly forced agents.
+            # -----------------------------------------------------------------
+            exec_cfg = config.get("execution_config") or {}
+            force_data_query = bool(exec_cfg.get("force_data_query", False))
 
+            if (not caller_forced_agents) or force_data_query:
+                cls = self._get_classifier_prestep(config)
+                intent = (cls.get("intent") or "").strip().lower() if isinstance(cls, dict) else ""
+                if intent == "action" and "data_query" not in available:
+                    available.insert(0, "data_query")
+
+            # ✅ Add this debug log HERE (after available is finalized)
+            self.logger.info(
+                "[orchestrator] routing candidates",
+                extra={"available_agents": available, "caller_forced_agents": caller_forced_agents},
+            )
+
+            routing_decision = await self._make_routing_decision(query, available, config)
             routed = [a.lower() for a in (routing_decision.selected_agents or [])]
             routed = [a for a in routed if a != "classifier"]
 
@@ -481,6 +524,19 @@ class LangGraphOrchestrator:
             else:
                 # Routing decides. Never add classifier as a node.
                 self.agents_to_run = routed
+
+                cls = self._get_classifier_prestep(config)
+                intent = (cls.get("intent") or "").strip().lower() if isinstance(cls, dict) else ""
+
+                if intent == "action" and "data_query" not in self.agents_to_run:
+                    self.logger.info("[orchestrator] enforcing data_query for action intent")
+                    self.agents_to_run.insert(0, "data_query")
+
+
+            # If force_data_query is enabled, ensure it's present
+            if force_data_query and "data_query" not in self.agents_to_run:
+                self.agents_to_run.insert(0, "data_query")
+
 
             # De-dupe again
             deduped = []
@@ -1022,7 +1078,7 @@ class LangGraphOrchestrator:
         return {
             "nodes": self.agents_to_run,
             "dependencies": dependencies,
-            "execution_order": ["refiner", "critic", "historian", "synthesis"],
+            "execution_order": ["refiner", "data_query","critic", "historian", "synthesis"],
             "parallel_capable": [
                 "critic",
                 "historian",

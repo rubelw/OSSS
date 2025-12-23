@@ -79,6 +79,25 @@ class CriticAgent(BaseAgent):
     # Module-level logger shared across instances
     logger = logging.getLogger(__name__)
 
+    # -------------------------------------------------------------------
+    # Prompt hardening: force schema-conformant output even for "no issues"
+    # -------------------------------------------------------------------
+    _NO_ISSUES_FORCE_PAYLOAD_BLOCK = """
+OUTPUT REQUIREMENTS (MANDATORY)
+- You MUST always return a single JSON object that conforms EXACTLY to the CriticOutput schema.
+- Never return an empty response, null, or non-JSON.
+- If no issues are found, you MUST still return a valid object with:
+  - issues_detected: 0
+  - no_issues_found: true
+  - assumptions: []
+  - logical_gaps: []
+  - biases: []
+  - bias_details: []
+  - critique_summary: "No material issues detected; the query is clear and well-scoped."
+  - alternate_framings: ["<one concise improved framing>"]
+- If issues are found, set no_issues_found=false and issues_detected to the count.
+""".strip()
+
     def __init__(
         self,
         llm: LLMInterface,
@@ -126,6 +145,17 @@ class CriticAgent(BaseAgent):
 
         # Compose prompts eagerly for performance and early failure detection
         self._update_composed_prompt()
+
+    def _harden_system_prompt(self, system_prompt: str) -> str:
+        """
+        Append mandatory output requirements to prevent empty/blank "no issues" responses.
+        Safe to call repeatedly (idempotent-ish via substring check).
+        """
+
+        if "OUTPUT REQUIREMENTS (MANDATORY)" in system_prompt:
+            return system_prompt
+        return f"{system_prompt.rstrip()}\n\n{self._NO_ISSUES_FORCE_PAYLOAD_BLOCK}\n"
+
 
     def _wrap_output(
             self,
@@ -218,10 +248,10 @@ class CriticAgent(BaseAgent):
             self._composed_prompt
             and self._prompt_composer.validate_composition(self._composed_prompt)
         ):
-            return self._composed_prompt.system_prompt
+            return self._harden_system_prompt(self._composed_prompt.system_prompt)
 
         self.logger.debug(f"[{self.name}] Using default system prompt (fallback)")
-        return CRITIC_SYSTEM_PROMPT
+        return self._harden_system_prompt(CRITIC_SYSTEM_PROMPT)
 
     def update_config(self, config: CriticConfig) -> None:
         """
@@ -262,33 +292,99 @@ class CriticAgent(BaseAgent):
 
     def _render_structured_critique(self, result: CriticOutput) -> str:
         """
-        Convert CriticOutput -> readable text. Keeps the structured schema internal
-        while producing a stable string for downstream consumers.
+        Convert CriticOutput -> readable text.
+
+        IMPORTANT: This renderer must match the real CriticOutput schema fields.
+        Your logs show CriticOutput includes:
+          assumptions, logical_gaps, biases, bias_details, alternate_framings,
+          critique_summary, issues_detected, no_issues_found, etc.
         """
-        critique_lines: list[str] = []
 
-        issues = getattr(result, "issues_identified", None) or []
-        improvements = getattr(result, "suggested_improvements", None) or []
-        rewritten = getattr(result, "rewritten_query", None)
+        def _list(val: Any) -> list:
+            return val if isinstance(val, list) else ([] if val is None else [val])
 
-        if issues:
-            critique_lines.append("Issues identified:")
-            critique_lines.extend([f"- {x}" for x in issues])
+        def _str_list(val: Any) -> list[str]:
+            out: list[str] = []
+            for x in _list(val):
+                if x is None:
+                    continue
+                out.append(str(x).strip())
+            return [x for x in out if x]
 
-        if improvements:
-            if critique_lines:
-                critique_lines.append("")
-            critique_lines.append("Suggested improvements:")
-            critique_lines.extend([f"- {x}" for x in improvements])
+        lines: list[str] = []
 
-        if rewritten:
-            if critique_lines:
-                critique_lines.append("")
-            critique_lines.append("Improved query:")
-            critique_lines.append(rewritten)
+        issues_detected = getattr(result, "issues_detected", None)
+        no_issues_found = getattr(result, "no_issues_found", None)
+        critique_summary = getattr(result, "critique_summary", None)
 
-        # If the model returned an empty structure, avoid returning blank
-        return ("\n".join(critique_lines)).strip() or "No critique generated."
+        assumptions = _str_list(getattr(result, "assumptions", None))
+        logical_gaps = _str_list(getattr(result, "logical_gaps", None))
+        biases = _str_list(getattr(result, "biases", None))
+        bias_details = _list(getattr(result, "bias_details", None))
+        alternate_framings = _str_list(getattr(result, "alternate_framings", None))
+
+        # Header-ish summary
+        if isinstance(issues_detected, int) or isinstance(no_issues_found, bool):
+            parts: list[str] = []
+            if isinstance(issues_detected, int):
+                parts.append(f"issues_detected={issues_detected}")
+            if isinstance(no_issues_found, bool):
+                parts.append(f"no_issues_found={str(no_issues_found).lower()}")
+            if parts:
+                lines.append(f"Critic result ({', '.join(parts)}):")
+
+        if critique_summary:
+            lines.append(str(critique_summary).strip())
+
+        # If no issues, still show helpful “what was checked”
+        # (and ensures we never return blank)
+        if assumptions:
+            lines.append("")
+            lines.append("Assumptions:")
+            lines.extend([f"- {a}" for a in assumptions])
+
+        if logical_gaps:
+            lines.append("")
+            lines.append("Logical gaps / under-specified concepts:")
+            lines.extend([f"- {g}" for g in logical_gaps])
+
+        if biases:
+            lines.append("")
+            lines.append("Potential biases in framing:")
+            lines.extend([f"- {b}" for b in biases])
+
+        # bias_details is typically a list of objects (pydantic models or dicts)
+        # Render defensively without assuming exact structure.
+        rendered_bias_details: list[str] = []
+        for bd in bias_details or []:
+            if bd is None:
+                continue
+            if isinstance(bd, dict):
+                btype = bd.get("bias_type") or bd.get("type") or bd.get("name")
+                expl = bd.get("explanation") or bd.get("details") or bd.get("description")
+                if btype and expl:
+                    rendered_bias_details.append(f"- {btype}: {expl}")
+                else:
+                    rendered_bias_details.append(f"- {str(bd).strip()}")
+            else:
+                rendered_bias_details.append(f"- {str(bd).strip()}")
+
+        if rendered_bias_details:
+            lines.append("")
+            lines.append("Bias details:")
+            lines.extend(rendered_bias_details)
+
+        if alternate_framings:
+            lines.append("")
+            lines.append("Alternate framings:")
+            lines.extend([f"- {af}" for af in alternate_framings])
+
+        # Final guard: never return blank
+        return "\n".join([ln for ln in lines if ln is not None]).strip() or (
+            str(critique_summary).strip()
+            if critique_summary
+            else "No critique generated."
+        )
 
     async def _run_structured(
             self,

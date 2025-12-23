@@ -11,6 +11,7 @@ from typing import List, Optional, Dict, Any, Union, cast
 from datetime import datetime, timezone
 from uuid import UUID
 
+
 from pydantic import BaseModel, Field, ConfigDict, field_validator, model_validator
 from typing_extensions import Self
 
@@ -202,6 +203,7 @@ class RefinerOutput(BaseAgentOutput):
 
 class CriticOutput(BaseAgentOutput):
     """Structured output from the Critic agent."""
+    agent_name: str = Field(default="critic", min_length=1)
 
     assumptions: List[str] = Field(
         default_factory=list,
@@ -708,32 +710,40 @@ class SynthesisOutput(BaseAgentOutput):
 
         return validated_topics
 
+
+
     @model_validator(mode="after")
     def validate_synthesis_consistency(self) -> Self:
-        """Ensure synthesis consistency and completeness."""
-        # Validate word count matches actual content
-        actual_word_count = len(self.final_synthesis.split())
-        if abs(self.word_count - actual_word_count) > 50:  # Allow some tolerance
-            raise ValueError(
-                f"Inconsistent word count: reported={self.word_count}, "
-                f"actual={actual_word_count}"
-            )
+        """Ensure synthesis consistency and completeness.
 
-        # Ensure contributing agents list is not empty
-        if not self.contributing_agents:
-            raise ValueError("contributing_agents cannot be empty")
+        Updates:
+          - If word_count is missing, compute it from final_synthesis.
+          - If word_count is present, validate with tolerance.
+          - Do NOT require contributing_agents to be non-empty (Option A / skips).
+          - If contributing_agents is provided, validate names.
+        """
+        actual_word_count = len((self.final_synthesis or "").split())
 
-        # Validate known agent names
-        valid_agents = {"refiner", "critic", "historian", "synthesis"}
-        invalid_agents = [
-            agent
-            for agent in self.contributing_agents
-            if agent.lower() not in valid_agents
-        ]
-        if invalid_agents:
-            raise ValueError(
-                f"Invalid agent names: {invalid_agents}. Valid agents: {valid_agents}"
-            )
+        # ✅ word_count: compute if missing, otherwise validate
+        if self.word_count is None:
+            self.word_count = actual_word_count
+        else:
+            if abs(int(self.word_count) - actual_word_count) > 50:  # Allow some tolerance
+                raise ValueError(
+                    f"Inconsistent word count: reported={self.word_count}, actual={actual_word_count}"
+                )
+
+        # ✅ contributing_agents: allow empty, but validate if provided
+        if self.contributing_agents:
+            valid_agents = {"refiner", "critic", "historian", "synthesis", "data_query"}
+            invalid_agents = [
+                agent for agent in self.contributing_agents
+                if str(agent).lower() not in valid_agents
+            ]
+            if invalid_agents:
+                raise ValueError(
+                    f"Invalid agent names: {invalid_agents}. Valid agents: {valid_agents}"
+                )
 
         return self
 

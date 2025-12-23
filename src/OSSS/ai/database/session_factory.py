@@ -21,6 +21,8 @@ from OSSS.ai.observability import get_logger
 
 from .connection import get_database_engine, get_session_factory
 from .repositories import RepositoryFactory
+from OSSS.ai.database.config import db_persist_enabled_from_env
+
 
 logger = get_logger(__name__)
 
@@ -57,7 +59,7 @@ class DatabaseSessionFactory:
             # Test the connection
             if self._session_factory is None:
                 raise RuntimeError("Session factory creation failed")
-            async with self._session_factory() as session:
+            async with self._session_factory_or_none() as session:
                 await session.execute(text("SELECT 1"))
 
             self._is_initialized = True
@@ -108,7 +110,7 @@ class DatabaseSessionFactory:
                 "Session factory is None despite being initialized. This indicates a critical error."
             )
 
-        session = self._session_factory()
+        session = self._session_factory_or_none()
         try:
             yield session
             await session.commit()
@@ -232,16 +234,22 @@ def get_database_session_factory() -> DatabaseSessionFactory:
     return _session_factory
 
 
+
 async def initialize_database_session_factory() -> None:
     """Initialize the global database session factory."""
+    if not db_persist_enabled_from_env():
+        logger.info("DB persistence disabled; skipping session factory initialization")
+        return
+
     factory = get_database_session_factory()
     await factory.initialize()
+
 
 
 async def shutdown_database_session_factory() -> None:
     """Shutdown the global database session factory."""
     global _session_factory
 
-    if _session_factory:
+    if _session_factory is not None:
         await _session_factory.shutdown()
         _session_factory = None

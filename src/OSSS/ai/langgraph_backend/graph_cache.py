@@ -106,38 +106,28 @@ class GraphCache:
         )
 
     def _generate_cache_key(
-        self, pattern_name: str, agents: List[str], checkpoints_enabled: bool
+            self,
+            pattern_name: str,
+            agents: List[str],
+            checkpoints_enabled: bool,
+            version: Optional[str] = None,  # ✅ new
     ) -> str:
-        """
-        Generate a cache key for the given parameters.
-
-        Parameters
-        ----------
-        pattern_name : str
-            Graph pattern name
-        agents : List[str]
-            List of agent names
-        checkpoints_enabled : bool
-            Whether checkpointing is enabled
-
-        Returns
-        -------
-        str
-            Cache key
-        """
         # Sort agents for consistent ordering
         sorted_agents = sorted(agent.lower() for agent in agents)
 
-        # Create key components
-        key_data = f"{pattern_name}:{':'.join(sorted_agents)}:{checkpoints_enabled}"
+        # Normalize version (keep stable string)
+        v = (version or "v0").strip()
 
-        # Generate hash for consistent key length
+        # ✅ Include version in key components
+        key_data = f"{v}:{pattern_name}:{':'.join(sorted_agents)}:{checkpoints_enabled}"
+
         key_hash = hashlib.md5(key_data.encode()).hexdigest()
-
-        return f"{pattern_name}_{key_hash[:8]}"
+        # Include version prefix for readability/debug
+        safe_v = v.replace(":", "_").replace("/", "_")
+        return f"{safe_v}_{pattern_name}_{key_hash[:8]}"
 
     def get_cached_graph(
-        self, pattern_name: str, agents: List[str], checkpoints_enabled: bool
+        self, pattern_name: str, agents: List[str], checkpoints_enabled: bool, version: Optional[str] = None,
     ) -> Optional[Any]:
         """
         Retrieve a cached compiled graph.
@@ -156,7 +146,7 @@ class GraphCache:
         Optional[Any]
             Cached compiled graph or None if not found/expired
         """
-        cache_key = self._generate_cache_key(pattern_name, agents, checkpoints_enabled)
+        cache_key = self._generate_cache_key(pattern_name, agents, checkpoints_enabled, version=version)
 
         with self._lock:
             # Check if key exists
@@ -191,6 +181,7 @@ class GraphCache:
         agents: List[str],
         checkpoints_enabled: bool,
         compiled_graph: Any,
+        version: Optional[str] = None,
     ) -> None:
         """
         Cache a compiled graph.
@@ -206,7 +197,7 @@ class GraphCache:
         compiled_graph : Any
             Compiled graph to cache
         """
-        cache_key = self._generate_cache_key(pattern_name, agents, checkpoints_enabled)
+        cache_key = self._generate_cache_key(pattern_name, agents, checkpoints_enabled, version=version)
 
         with self._lock:
             # Remove expired entries first
@@ -348,34 +339,65 @@ class GraphCache:
         with self._lock:
             return list(self._cache.keys())
 
-    def remove_pattern(self, pattern_name: str) -> int:
-        """
-        Remove all cached graphs for a specific pattern.
+    from typing import Optional
 
-        Parameters
-        ----------
-        pattern_name : str
-            Pattern name to remove
-
-        Returns
-        -------
-        int
-            Number of entries removed
+    def remove_pattern(self, pattern_name: str, version: Optional[str] = None) -> int:
         """
+        Remove cached graphs for a specific pattern.
+
+        - If version is provided: remove only that version for the pattern.
+        - If version is None: remove all versions (and legacy keys) for the pattern.
+        """
+        pat = (pattern_name or "").strip()
+        if not pat:
+            return 0
+
+        def safe_version(v: str) -> str:
+            # Must match the same normalization you use in _generate_cache_key
+            # NOTE: keep consistent with:
+            #   v = (version or "v0").strip()
+            #   safe_v = v.replace(":", "_").replace("/", "_")
+            return (v or "v0").strip().replace(":", "_").replace("/", "_")
+
+        # Prefix to match keys
+        if version:
+            sv = safe_version(version)
+            target_prefixes = [f"{sv}_{pat}_"]
+        else:
+            # Remove ALL versions + legacy keys for this pattern
+            # - legacy (no version) keys usually start with "{pattern}_"
+            # - versioned keys start with "{something}_{pattern}_"
+            target_prefixes = [f"{pat}_"]
+            # We’ll also match any version prefix that ends with _{pattern}_
+            # using a contains check below (still cheap)
+            # Example: "2025-12-22.fix3.v2_standard_1a2b3c4d" startswith "standard_"? no
+            # but it contains "_standard_": yes
+
+        removed_count = 0
+
         with self._lock:
-            keys_to_remove = [
-                key for key in self._cache.keys() if key.startswith(f"{pattern_name}_")
-            ]
+            keys = list(self._cache.keys())
 
-            for key in keys_to_remove:
-                del self._cache[key]
+            if version:
+                keys_to_remove = [k for k in keys if k.startswith(target_prefixes[0])]
+            else:
+                needle = f"_{pat}_"
+                keys_to_remove = [k for k in keys if k.startswith(f"{pat}_") or needle in k]
+
+            for k in keys_to_remove:
+                del self._cache[k]
                 self._stats.current_size -= 1
+                removed_count += 1
 
-            removed_count = len(keys_to_remove)
             if removed_count > 0:
-                self.logger.info(
-                    f"Removed {removed_count} cached graphs for pattern: {pattern_name}"
-                )
+                if version:
+                    self.logger.info(
+                        f"Removed {removed_count} cached graphs for pattern='{pat}' version='{safe_version(version)}'"
+                    )
+                else:
+                    self.logger.info(
+                        f"Removed {removed_count} cached graphs for pattern='{pat}' (all versions)"
+                    )
 
             return removed_count
 

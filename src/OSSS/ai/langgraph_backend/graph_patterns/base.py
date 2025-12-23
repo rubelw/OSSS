@@ -116,12 +116,7 @@ class GraphPattern(ABC):
 
 class StandardPattern(GraphPattern):
     """
-    Standard 4-agent pattern: refiner → [critic, historian] → synthesis
-
-    This is the default OSSS pattern where:
-    1. Refiner processes the initial query
-    2. Critic and Historian execute in parallel after Refiner
-    3. Synthesis integrates all outputs for final analysis
+    Standard pattern: refiner → [data_query?, critic?, historian?] → synthesis
     """
 
     @property
@@ -130,114 +125,102 @@ class StandardPattern(GraphPattern):
 
     @property
     def description(self) -> str:
-        return "Standard 4-agent pattern: refiner → [critic, historian] → synthesis"
-
-    def get_edges(self, agents: List[str]) -> List[Dict[str, str]]:
-        """Get standard pattern edges."""
-        edges = []
-        agents_lower = [agent.lower() for agent in agents]
-
-        # Define the standard DAG structure
-        if "refiner" in agents_lower:
-            # Refiner to Critic and Historian (parallel)
-            if "critic" in agents_lower:
-                edges.append({"from": "refiner", "to": "critic"})
-            if "historian" in agents_lower:
-                edges.append({"from": "refiner", "to": "historian"})
-
-            # If synthesis is present, both critic and historian feed into it
-            if "synthesis" in agents_lower:
-                if "critic" in agents_lower:
-                    edges.append({"from": "critic", "to": "synthesis"})
-                if "historian" in agents_lower:
-                    edges.append({"from": "historian", "to": "synthesis"})
-
-                # If no critic or historian, refiner connects directly to synthesis
-                if not ("critic" in agents_lower or "historian" in agents_lower):
-                    edges.append({"from": "refiner", "to": "synthesis"})
-
-                # Synthesis is the final node
-                edges.append({"from": "synthesis", "to": "END"})
-            else:
-                # If no synthesis, critic and historian are terminal nodes
-                if "critic" in agents_lower:
-                    edges.append({"from": "critic", "to": "END"})
-                if "historian" in agents_lower:
-                    edges.append({"from": "historian", "to": "END"})
-
-        # Handle edge cases with missing refiner
-        elif "critic" in agents_lower or "historian" in agents_lower:
-            # If no refiner, critic and/or historian are entry points
-            if "synthesis" in agents_lower:
-                if "critic" in agents_lower:
-                    edges.append({"from": "critic", "to": "synthesis"})
-                if "historian" in agents_lower:
-                    edges.append({"from": "historian", "to": "synthesis"})
-                edges.append({"from": "synthesis", "to": "END"})
-            else:
-                # Terminal nodes
-                if "critic" in agents_lower:
-                    edges.append({"from": "critic", "to": "END"})
-                if "historian" in agents_lower:
-                    edges.append({"from": "historian", "to": "END"})
-
-        # Handle synthesis-only case
-        elif "synthesis" in agents_lower:
-            edges.append({"from": "synthesis", "to": "END"})
-
-        return edges
+        return "Standard pattern: refiner → [data_query?, critic?, historian?] → synthesis"
 
     def get_entry_point(self, agents: List[str]) -> Optional[str]:
-        """Get entry point for standard pattern."""
-        agents_lower = [agent.lower() for agent in agents]
-
-        # Refiner is preferred entry point
+        agents_lower = [a.lower() for a in agents]
         if "refiner" in agents_lower:
             return "refiner"
-
-        # If no refiner, use first available agent
-        if agents_lower:
-            return agents_lower[0]
-
-        return None
+        return agents_lower[0] if agents_lower else None
 
     def get_exit_points(self, agents: List[str]) -> List[str]:
-        """Get exit points for standard pattern."""
-        agents_lower = [agent.lower() for agent in agents]
-
-        # Synthesis is preferred exit point
+        agents_lower = [a.lower() for a in agents]
         if "synthesis" in agents_lower:
             return ["synthesis"]
 
-        # Otherwise, critic and historian are exit points
-        exit_points = []
-        if "critic" in agents_lower:
-            exit_points.append("critic")
-        if "historian" in agents_lower:
-            exit_points.append("historian")
+        exit_points: List[str] = []
+        for a in ("data_query", "critic", "historian", "refiner"):
+            if a in agents_lower:
+                exit_points.append(a)
 
         return exit_points if exit_points else agents_lower
 
     def get_parallel_groups(self, agents: List[str]) -> List[List[str]]:
-        """Get parallel execution groups."""
-        agents_lower = [agent.lower() for agent in agents]
+        agents_lower = [a.lower() for a in agents]
+        group: List[str] = []
+        for a in ("data_query", "critic", "historian"):
+            if a in agents_lower:
+                group.append(a)
+        return [group] if len(group) > 1 else []
 
-        # Critic and Historian can execute in parallel after Refiner
-        parallel_group = []
-        if "critic" in agents_lower:
-            parallel_group.append("critic")
-        if "historian" in agents_lower:
-            parallel_group.append("historian")
+    def get_edges(self, agents: List[str]) -> List[Dict[str, str]]:
+        edges: List[Dict[str, str]] = []
+        agents_lower = [a.lower() for a in agents]
 
-        return [parallel_group] if len(parallel_group) > 1 else []
+        has_refiner = "refiner" in agents_lower
+        has_synthesis = "synthesis" in agents_lower
+
+        branches = [a for a in ("data_query", "critic", "historian") if a in agents_lower]
+        has_any_branch = bool(branches)
+
+        # ---------------------------------------------------------------------
+        # Preferred structure: refiner is entry
+        # ---------------------------------------------------------------------
+        if has_refiner:
+            # refiner -> each branch that exists
+            for b in branches:
+                edges.append({"from": "refiner", "to": b})
+
+            if has_synthesis:
+                # each existing branch -> synthesis
+                for b in branches:
+                    edges.append({"from": b, "to": "synthesis"})
+
+                # If no branches exist, connect refiner directly to synthesis
+                if not has_any_branch:
+                    edges.append({"from": "refiner", "to": "synthesis"})
+
+                edges.append({"from": "synthesis", "to": "END"})
+            else:
+                # no synthesis: end each branch, or end refiner if nothing else
+                if has_any_branch:
+                    for b in branches:
+                        edges.append({"from": b, "to": "END"})
+                else:
+                    edges.append({"from": "refiner", "to": "END"})
+
+            return edges
+
+        # ---------------------------------------------------------------------
+        # Edge case: no refiner
+        # ---------------------------------------------------------------------
+        if branches:
+            if has_synthesis:
+                for b in branches:
+                    edges.append({"from": b, "to": "synthesis"})
+                edges.append({"from": "synthesis", "to": "END"})
+            else:
+                for b in branches:
+                    edges.append({"from": b, "to": "END"})
+            return edges
+
+        # ---------------------------------------------------------------------
+        # Synthesis-only
+        # ---------------------------------------------------------------------
+        if has_synthesis:
+            edges.append({"from": "synthesis", "to": "END"})
+            return edges
+
+        # Nothing to connect
+        return edges
 
 
 class ParallelPattern(GraphPattern):
     """
     Parallel pattern: Maximum parallelization where dependencies allow.
 
-    This pattern attempts to execute as many agents in parallel as possible,
-    respecting only essential dependencies.
+    In this pattern, all non-synthesis agents can run in parallel and (if present)
+    feed into synthesis. If synthesis is absent, all agents are terminal.
     """
 
     @property
@@ -248,48 +231,36 @@ class ParallelPattern(GraphPattern):
     def description(self) -> str:
         return "Maximum parallelization pattern with minimal dependencies"
 
-    def get_edges(self, agents: List[str]) -> List[Dict[str, str]]:
-        """Get parallel pattern edges with minimal dependencies."""
-        edges = []
-        agents_lower = [agent.lower() for agent in agents]
-
-        # In parallel pattern, most agents can run independently
-        # Only synthesis depends on outputs from others
-        if "synthesis" in agents_lower:
-            # All other agents feed into synthesis
-            for agent in agents_lower:
-                if agent != "synthesis":
-                    edges.append({"from": agent, "to": "synthesis"})
-            edges.append({"from": "synthesis", "to": "END"})
-        else:
-            # All agents are terminal if no synthesis
-            for agent in agents_lower:
-                edges.append({"from": agent, "to": "END"})
-
-        return edges
-
     def get_entry_point(self, agents: List[str]) -> Optional[str]:
-        """No single entry point in parallel pattern."""
-        # In parallel pattern, we don't set a single entry point
-        # to allow maximum parallelization
+        # No single entry point in parallel pattern (LangGraph can run multiple starters)
         return None
 
     def get_exit_points(self, agents: List[str]) -> List[str]:
-        """Get exit points for parallel pattern."""
-        agents_lower = [agent.lower() for agent in agents]
+        agents_lower = [a.lower() for a in agents]
+        return ["synthesis"] if "synthesis" in agents_lower else agents_lower
+
+    def get_edges(self, agents: List[str]) -> List[Dict[str, str]]:
+        edges: List[Dict[str, str]] = []
+        agents_lower = [a.lower() for a in agents]
 
         if "synthesis" in agents_lower:
-            return ["synthesis"]
+            # Every other agent feeds synthesis (including data_query if present)
+            for a in agents_lower:
+                if a != "synthesis":
+                    edges.append({"from": a, "to": "synthesis"})
+            edges.append({"from": "synthesis", "to": "END"})
+        else:
+            # No synthesis => all agents terminate
+            for a in agents_lower:
+                edges.append({"from": a, "to": "END"})
 
-        # All agents are exit points if no synthesis
-        return agents_lower
+        return edges
 
     def get_parallel_groups(self, agents: List[str]) -> List[List[str]]:
-        """Get parallel execution groups."""
-        agents_lower = [agent.lower() for agent in agents]
+        agents_lower = [a.lower() for a in agents]
 
         # All non-synthesis agents can run in parallel
-        parallel_agents = [agent for agent in agents_lower if agent != "synthesis"]
+        parallel_agents = [a for a in agents_lower if a != "synthesis"]
         return [parallel_agents] if len(parallel_agents) > 1 else []
 
 
@@ -297,8 +268,9 @@ class ConditionalPattern(GraphPattern):
     """
     Conditional pattern: Dynamic routing based on agent outputs.
 
-    This pattern supports conditional execution where the next agent
-    to execute depends on the output of previous agents.
+    Today: we model it with the same DAG as StandardPattern. The *conditional*
+    behavior comes from orchestration/routing selecting which agents are present
+    (e.g., include data_query only for action intent).
     """
 
     @property
@@ -309,26 +281,26 @@ class ConditionalPattern(GraphPattern):
     def description(self) -> str:
         return "Conditional routing pattern with dynamic execution flow"
 
-    def get_edges(self, agents: List[str]) -> List[Dict[str, str]]:
-        """Get conditional pattern edges."""
-        # For now, implement as standard pattern
-        # Future enhancement: add conditional routing logic
-        standard_pattern = StandardPattern()
-        return standard_pattern.get_edges(agents)
-
     def get_entry_point(self, agents: List[str]) -> Optional[str]:
-        """Get entry point for conditional pattern."""
-        agents_lower = [agent.lower() for agent in agents]
-        return (
-            "refiner"
-            if "refiner" in agents_lower
-            else (agents_lower[0] if agents_lower else None)
-        )
+        agents_lower = [a.lower() for a in agents]
+        if "refiner" in agents_lower:
+            return "refiner"
+        return agents_lower[0] if agents_lower else None
 
     def get_exit_points(self, agents: List[str]) -> List[str]:
-        """Get exit points for conditional pattern."""
-        agents_lower = [agent.lower() for agent in agents]
+        agents_lower = [a.lower() for a in agents]
         return ["synthesis"] if "synthesis" in agents_lower else agents_lower
+
+    def get_edges(self, agents: List[str]) -> List[Dict[str, str]]:
+        # For now: same structure as StandardPattern, but used when routing dynamically
+        # includes/excludes agents like data_query.
+        return StandardPattern().get_edges(agents)
+
+    def get_parallel_groups(self, agents: List[str]) -> List[List[str]]:
+        # Mirror StandardPattern’s parallelism: these can run after refiner
+        agents_lower = [a.lower() for a in agents]
+        group = [a for a in ("data_query", "critic", "historian") if a in agents_lower]
+        return [group] if len(group) > 1 else []
 
 
 class PatternRegistry:

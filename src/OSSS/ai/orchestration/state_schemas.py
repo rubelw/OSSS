@@ -12,34 +12,23 @@ Design Principles:
 - Comprehensive documentation for maintainability
 """
 
-from typing import List, Dict, Any, Optional, Union, Annotated
-from typing_extensions import TypedDict
-from datetime import datetime, timezone
+from __future__ import annotations
+
 from dataclasses import dataclass
+from datetime import datetime, timezone
 import operator
+from typing import Any, Annotated, Dict, List, Optional, Union
+
+from typing_extensions import TypedDict
 
 
-def merge_structured_outputs(
-    left: Dict[str, Any], right: Dict[str, Any]
-) -> Dict[str, Any]:
+def merge_structured_outputs(left: Dict[str, Any], right: Dict[str, Any]) -> Dict[str, Any]:
     """
     Merge two structured output dicts for concurrent LangGraph updates.
 
     This reducer allows multiple agents (e.g., critic and historian) to
     write to structured_outputs in parallel without conflicts. The right
     dict values override left dict values for matching keys.
-
-    Parameters
-    ----------
-    left : Dict[str, Any]
-        Existing structured outputs
-    right : Dict[str, Any]
-        New structured outputs to merge
-
-    Returns
-    -------
-    Dict[str, Any]
-        Merged structured outputs with right values taking precedence
     """
     return {**left, **right}
 
@@ -66,6 +55,20 @@ class RefinerState(TypedDict):
 
     timestamp: str
     """ISO timestamp when refinement was completed."""
+
+
+class DataQueryState(TypedDict, total=False):
+    """
+    Output schema for the DataQueryAgent.
+
+    This remains for backward compatibility with single data_query usage.
+    Option A prefers OSSSState.data_query_results keyed by node-id.
+    """
+
+    query: str
+    result: Any
+    timestamp: str
+    agent_output_meta: Dict[str, Any]
 
 
 class CriticState(TypedDict):
@@ -204,15 +207,6 @@ class OSSSState(TypedDict):
     This represents the complete state that flows through the
     LangGraph StateGraph during execution. Each agent contributes
     its typed output to this shared state.
-
-    State Flow:
-    1. Initial state created with query and metadata
-    2. Refiner adds RefinerState to state["refiner"]
-    3. Critic and Historian run in parallel after refiner
-    4. Critic adds CriticState to state["critic"]
-    5. Historian adds HistorianState to state["historian"]
-    6. Synthesis adds SynthesisState to state["synthesis"]
-    7. Final state contains all agent outputs
     """
 
     # Core input
@@ -231,6 +225,20 @@ class OSSSState(TypedDict):
 
     synthesis: Optional[SynthesisState]
     """Output from the SynthesisAgent (populated after synthesis node)."""
+
+    # Backward-compatible single data_query slot (legacy)
+    data_query: Optional[DataQueryState]
+    """Legacy data query output (single). Prefer data_query_results for Option A."""
+
+    # Data query planning/execution (Option A)
+    planned_data_query_nodes: List[str]
+    """Ordered list of data_query node IDs planned by routing (e.g., ['data_query:teachers'])."""
+
+    completed_data_query_nodes: Annotated[List[str], operator.add]
+    """List of data_query node IDs that completed (supports concurrent appends via reducer)."""
+
+    data_query_results: Annotated[Dict[str, Any], merge_structured_outputs]
+    """Aggregated per-node results keyed by node ID (supports concurrent merges via reducer)."""
 
     # Execution tracking
     execution_metadata: ExecutionMetadata
@@ -260,23 +268,9 @@ AgentStateUnion = Union[RefinerState, CriticState, HistorianState, SynthesisStat
 """Union type for any agent output schema."""
 
 
-def create_initial_state(
-    query: str, execution_id: str, correlation_id: Optional[str] = None
-) -> OSSSState:
+def create_initial_state(query: str, execution_id: str, correlation_id: Optional[str] = None) -> OSSSState:
     """
     Create initial LangGraph state for execution.
-
-    Parameters
-    ----------
-    query : str
-        The user query to process
-    execution_id : str
-        Unique identifier for this execution
-
-    Returns
-    -------
-    OSSSState
-        Initial state ready for LangGraph execution
     """
     now = datetime.now(timezone.utc).isoformat()
 
@@ -286,6 +280,10 @@ def create_initial_state(
         critic=None,
         historian=None,
         synthesis=None,
+        data_query=None,
+        planned_data_query_nodes=[],
+        completed_data_query_nodes=[],
+        data_query_results={},
         execution_metadata=ExecutionMetadata(
             execution_id=execution_id,
             correlation_id=correlation_id,
@@ -306,29 +304,19 @@ def validate_state_integrity(state: OSSSState) -> bool:
     """
     Validate LangGraph state integrity.
 
-    Parameters
-    ----------
-    state : OSSSState
-        State to validate
-
-    Returns
-    -------
-    bool
-        True if state is valid, False otherwise
+    Note: This validates the core invariant fields and any agent outputs that are present.
+    It does not require optional/route-dependent fields (e.g., critic/historian/data_query).
     """
     try:
-        # Check that state is a dict-like object
         if not isinstance(state, dict):
             return False
 
-        # Check required fields
         if not state.get("query"):
             return False
 
         if not state.get("execution_metadata"):
             return False
 
-        # Check metadata integrity
         metadata = state["execution_metadata"]
         if not metadata.get("execution_id"):
             return False
@@ -336,147 +324,56 @@ def validate_state_integrity(state: OSSSState) -> bool:
         # Validate agent outputs if present
         if state.get("refiner"):
             refiner: Optional[RefinerState] = state["refiner"]
-            if (
-                refiner is None
-                or not refiner.get("refined_question")
-                or not refiner.get("timestamp")
-            ):
+            if refiner is None or not refiner.get("refined_question") or not refiner.get("timestamp"):
                 return False
 
         if state.get("critic"):
             critic: Optional[CriticState] = state["critic"]
-            if (
-                critic is None
-                or not critic.get("critique")
-                or not critic.get("timestamp")
-            ):
+            if critic is None or not critic.get("critique") or not critic.get("timestamp"):
                 return False
 
         if state.get("historian"):
             historian: Optional[HistorianState] = state["historian"]
-            if (
-                historian is None
-                or not historian.get("historical_summary")
-                or not historian.get("timestamp")
-            ):
+            if historian is None or not historian.get("historical_summary") or not historian.get("timestamp"):
                 return False
 
         if state.get("synthesis"):
             synthesis: Optional[SynthesisState] = state["synthesis"]
-            if (
-                synthesis is None
-                or not synthesis.get("final_analysis")
-                or not synthesis.get("timestamp")
-            ):
+            if synthesis is None or not synthesis.get("final_analysis") or not synthesis.get("timestamp"):
                 return False
 
         return True
-
     except (KeyError, TypeError):
         return False
 
 
-def get_agent_state(
-    state: OSSSState, agent_name: str
-) -> Optional[AgentStateUnion]:
+def get_agent_state(state: OSSSState, agent_name: str) -> Optional[AgentStateUnion]:
     """
     Get typed agent state from state.
-
-    Parameters
-    ----------
-    state : OSSSState
-        Current state
-    agent_name : str
-        Name of agent ('refiner', 'critic', 'historian', 'synthesis')
-
-    Returns
-    -------
-    AgentState or None
-        Typed agent state if available
     """
     agent_name = agent_name.lower()
 
     if agent_name == "refiner":
         return state.get("refiner")
-    elif agent_name == "critic":
+    if agent_name == "critic":
         return state.get("critic")
-    elif agent_name == "historian":
+    if agent_name == "historian":
         return state.get("historian")
-    elif agent_name == "synthesis":
+    if agent_name == "synthesis":
         return state.get("synthesis")
-    else:
-        return None
+    return None
 
 
-def set_agent_state(
-    state: OSSSState, agent_name: str, output: AgentStateUnion
-) -> OSSSState:
+def set_agent_state(state: OSSSState, agent_name: str, output: AgentStateUnion) -> OSSSState:
     """
     Set typed agent state in state.
 
-    Parameters
-    ----------
-    state : OSSSState
-        Current state
-    agent_name : str
-        Name of agent ('refiner', 'critic', 'historian', 'synthesis')
-    output : AgentState
-        Typed agent state to set
-
-    Returns
-    -------
-    OSSSState
-        Updated state with agent state
-    """
-    # Create a deep copy to avoid mutations
-    new_state = state.copy()
-    # Deep copy mutable lists
-    new_state["successful_agents"] = state["successful_agents"].copy()
-    new_state["failed_agents"] = state["failed_agents"].copy()
-    new_state["errors"] = state["errors"].copy()
-
-    agent_name = agent_name.lower()
-
-    if agent_name == "refiner" and isinstance(output, dict):
-        new_state["refiner"] = output  # type: ignore
-    elif agent_name == "critic" and isinstance(output, dict):
-        new_state["critic"] = output  # type: ignore
-    elif agent_name == "historian" and isinstance(output, dict):
-        new_state["historian"] = output  # type: ignore
-    elif agent_name == "synthesis" and isinstance(output, dict):
-        new_state["synthesis"] = output  # type: ignore
-
-    # Track successful completion - append single item for LangGraph reducer
-    if agent_name not in new_state["successful_agents"]:
-        new_state["successful_agents"].append(agent_name)
-
-    return new_state
-
-
-def record_agent_error(
-    state: OSSSState, agent_name: str, error: Exception
-) -> OSSSState:
-    """
-    Record agent execution error in state.
-
-    Handles both complete and partial state objects gracefully.
-
-    Parameters
-    ----------
-    state : OSSSState
-        Current state (may be partial)
-    agent_name : str
-        Name of failed agent
-    error : Exception
-        Error that occurred
-
-    Returns
-    -------
-    OSSSState
-        Updated state with error recorded
+    Note: This function preserves reducer semantics by only appending a single agent_name
+    to successful_agents per call.
     """
     new_state = state.copy()
-    # Deep copy mutable lists - handle partial state
+
+    # Deep copy mutable lists (handle partial state safely)
     new_state["successful_agents"] = (
         state.get("successful_agents", []).copy()
         if isinstance(state.get("successful_agents"), list)
@@ -487,9 +384,44 @@ def record_agent_error(
         if isinstance(state.get("failed_agents"), list)
         else []
     )
-    new_state["errors"] = (
-        state.get("errors", []).copy() if isinstance(state.get("errors"), list) else []
+    new_state["errors"] = state.get("errors", []).copy() if isinstance(state.get("errors"), list) else []
+
+    agent_name = agent_name.lower()
+
+    if agent_name == "refiner" and isinstance(output, dict):
+        new_state["refiner"] = output  # type: ignore[assignment]
+    elif agent_name == "critic" and isinstance(output, dict):
+        new_state["critic"] = output  # type: ignore[assignment]
+    elif agent_name == "historian" and isinstance(output, dict):
+        new_state["historian"] = output  # type: ignore[assignment]
+    elif agent_name == "synthesis" and isinstance(output, dict):
+        new_state["synthesis"] = output  # type: ignore[assignment]
+
+    if agent_name not in new_state["successful_agents"]:
+        new_state["successful_agents"].append(agent_name)
+
+    return new_state
+
+
+def record_agent_error(state: OSSSState, agent_name: str, error: Exception) -> OSSSState:
+    """
+    Record agent execution error in state.
+
+    Handles both complete and partial state objects gracefully.
+    """
+    new_state = state.copy()
+
+    new_state["successful_agents"] = (
+        state.get("successful_agents", []).copy()
+        if isinstance(state.get("successful_agents"), list)
+        else []
     )
+    new_state["failed_agents"] = (
+        state.get("failed_agents", []).copy()
+        if isinstance(state.get("failed_agents"), list)
+        else []
+    )
+    new_state["errors"] = state.get("errors", []).copy() if isinstance(state.get("errors"), list) else []
 
     error_record = {
         "agent": agent_name,
@@ -522,11 +454,11 @@ class OSSSContext:
     enable_checkpoints: bool = False
 
 
-# Export commonly used types for convenience
 __all__ = [
     "OSSSState",
     "LangGraphState",
     "RefinerState",
+    "DataQueryState",
     "CriticState",
     "HistorianState",
     "SynthesisState",

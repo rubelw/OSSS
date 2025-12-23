@@ -1049,6 +1049,37 @@ handler, and the debug JSON will include mode="<your_mode>" and the raw
 rows/csv.
 
 ---
+## OSSS AI Query Flow
+
+### High-level Flow
+
+```mermaid
+flowchart TD
+  U[Client / UI] -->|POST /api/query| API[/orchestrator_api<br/>(FastAPI route/controller)/]
+
+  API -->|1) Parse request<br/>2) Create workflow_id + correlation_id<br/>3) Build AgentContext| CTX[AgentContext<br/>(query + execution_state + outputs)]
+
+  API -->|call run(...)| ORCH[LangGraphOrchestrator<br/>(orchestrator)]
+
+  ORCH -->|build/compile graph| GF[GraphFactory<br/>(creates StateGraph)]
+
+  GF -->|add_node(...) for each agent| NODES[(LangGraph Nodes<br/>refiner/data_query/.../synthesis)]
+  GF -->|add_edge(...) / add_conditional_edges(...)| EDGES[[Edges & Routing<br/>(execution order / branching)]]
+  GF -->|compile()| CG[CompiledGraph]
+
+  ORCH -->|invoke graph with initial state| CG --> RUN[Graph Execution Loop]
+
+  RUN -->|node wrapper calls agent.run_with_retry(context)| AGENTS[Agents run<br/>update context.execution_state<br/>add_agent_output(...)]
+  AGENTS --> RUN
+
+  RUN -->|final state| ORCH
+
+  ORCH -->|collect results| RESULT[WorkflowResult<br/>(outputs + meta + synthesis/errors)]
+
+  RESULT --> API -->|HTTP response| U
+```
+
+---
 ## 📜 License
 
 This project is licensed under the [Apache License 2.0](./LICENSE).

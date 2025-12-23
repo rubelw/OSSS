@@ -27,6 +27,7 @@ from datetime import datetime, timezone  # UTC timestamps for telemetry/metadata
 from pathlib import Path     # Filesystem paths (markdown export)
 import json
 import re
+import os
 
 
 from OSSS.ai.config.openai_config import OpenAIConfig
@@ -67,6 +68,101 @@ from OSSS.ai.llm.utils import call_llm_text
 
 # Module-level logger (structured)
 logger = get_logger(__name__)
+
+# ---------------------------------------------------------------------------
+# Intent → agents mapping (Fix #1: branch-exclusive action)
+# ---------------------------------------------------------------------------
+
+ACTION_AGENTS = ["refiner", "data_query", "synthesis"]
+READ_AGENTS   = ["refiner", "critic", "synthesis"]   # optional alternative
+ANALYSIS_AGENTS = ["refiner", "historian", "critic", "synthesis"]
+
+def select_agents(intent: str) -> list[str]:
+    intent = (intent or "").strip().lower()
+    if intent == "action":
+        return ACTION_AGENTS
+    return ANALYSIS_AGENTS
+
+def _norm_agents(seq: Any) -> list[str]:
+    """Normalize agent names to lowercase strings, drop empties."""
+    if not isinstance(seq, list):
+        return []
+    out: list[str] = []
+    for a in seq:
+        if a is None:
+            continue
+        s = str(a).strip().lower()
+        if s:
+            out.append(s)
+    return out
+
+def _dedupe(seq: list[str]) -> list[str]:
+    out: list[str] = []
+    seen = set()
+    for a in seq:
+        if a not in seen:
+            seen.add(a)
+            out.append(a)
+    return out
+
+def _strip_classifier(seq: list[str]) -> list[str]:
+    return [a for a in seq if a != "classifier"]
+
+def _executed_agents_from_context(ctx: Any) -> list[str]:
+    """
+    Option A: derive executed agents from context's execution status bookkeeping.
+
+    We prefer 'completed' agents (i.e., actually ran) over 'planned' agents.
+
+    Expected shapes supported (best-effort):
+      - ctx.agent_execution_status: {agent_name: {"completed_at": ..., ...}, ...}
+      - ctx.execution_status: same shape
+      - ctx.execution_state["agent_execution_status"]: same shape
+      - fallback: ctx.agent_outputs keys (less reliable)
+    """
+    # 1) Direct attributes
+    for attr in ("agent_execution_status", "execution_status"):
+        status = getattr(ctx, attr, None)
+        if isinstance(status, dict):
+            executed: list[str] = []
+            seen = set()
+            for name, st in status.items():
+                if not name:
+                    continue
+                if isinstance(st, dict) and st.get("completed_at") is not None:
+                    n = str(name).strip().lower()
+                    if n and n not in seen:
+                        executed.append(n)
+                        seen.add(n)
+            if executed:
+                return executed
+
+    # 2) From execution_state if present
+    exec_state = getattr(ctx, "execution_state", None)
+    if isinstance(exec_state, dict):
+        status = exec_state.get("agent_execution_status")
+        if isinstance(status, dict):
+            executed: list[str] = []
+            seen = set()
+            for name, st in status.items():
+                if isinstance(st, dict) and st.get("completed_at") is not None:
+                    n = str(name).strip().lower()
+                    if n and n not in seen:
+                        executed.append(n)
+                        seen.add(n)
+            if executed:
+                return executed
+
+    # 3) Fallback: agent_outputs keys
+    ao = getattr(ctx, "agent_outputs", None)
+    if isinstance(ao, dict) and ao:
+        return [str(k).strip().lower() for k in ao.keys() if k]
+
+    return []
+
+
+def _db_persist_enabled() -> bool:
+    return os.getenv("OSSS_AI_DB_PERSIST_ENABLED", "true").lower() in ("1", "true", "yes", "on")
 
 
 class LangGraphOrchestrationAPI(OrchestrationAPI):
@@ -111,7 +207,7 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
         # Database session factories
         # -------------------------------------------------------------------
         # Primary session factory used for persisting Question records.
-        self._session_factory = get_session_factory()
+        self._session_factory = None  # type: ignore[assignment]
 
         # Optional "repository factory" session manager used for historian
         # document persistence (markdown export).
@@ -122,6 +218,15 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
         # -------------------------------------------------------------------
         self._query_profile_cache: Dict[str, Dict[str, Any]] = {}   # workflow_id -> query_profile dict
         self._query_profile_locks: Dict[str, asyncio.Lock] = {}     # workflow_id -> lock
+
+    def _get_session_factory(self):
+        if not _db_persist_enabled():
+            # Keep this quiet; callers may check often
+            logger.debug("DB persistence disabled; session factory unavailable")
+            return None
+        if self._session_factory is None:
+            self._session_factory = get_session_factory()
+        return self._session_factory
 
     def _normalize_classifier_profile(self, out: Any) -> Dict[str, Any]:
         """
@@ -411,7 +516,7 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
             status="completed",
             correlation_id=correlation_id,
             execution_time_seconds=exec_time,
-            agent_output_meta={"_routing": {"source": "direct_llm", "final_agents": []}},
+            agent_output_meta={"_routing": {"source": "direct_llm", "planned_agents": [], "executed_agents": []}},
             agent_outputs={"llm": llm_text},
             error_message=None,
             markdown_export=None,
@@ -494,6 +599,8 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
 
         original_execution_config = request.execution_config or {}
         config = dict(original_execution_config)
+        routing_enabled = bool(config.get("routing_enabled", True))
+
         config["workflow_id"] = workflow_id
         if request.correlation_id:
             config["correlation_id"] = request.correlation_id
@@ -534,41 +641,91 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
             # keep a clear marker that classifier ran as prestep
             config.setdefault("routing_source", "caller_with_classifier_prestep")
 
-
             if request.correlation_id:
                 config["correlation_id"] = request.correlation_id
 
             config["workflow_id"] = workflow_id
 
             # ----------------------------------------------------------------
-            # Routing (NO preflight query analysis)
+            # ✅ Fix #1 + Fix #2: Apply intent → agents mapping in the *caller*
+            # BEFORE calling the orchestrator, and ensure routing metadata matches.
+            #
+            # Precedence:
+            # 1) request.agents (explicit caller override, even empty list)
+            # 2) execution_config["agents"] (if present/non-empty)
+            # 3) classifier intent → select_agents(intent)  (default)
             # ----------------------------------------------------------------
-            if request.agents is not None:
-                # caller explicitly provided agents (even empty list)
-                config["agents"] = list(request.agents)
-                config["routing_source"] = "caller"
-            elif isinstance(config.get("agents"), list) and config["agents"]:
-                config["routing_source"] = "execution_config"
+            classifier_profile = self._normalize_classifier_profile(classifier_out)
+            intent = (classifier_profile.get("intent") or "").strip().lower()
+
+            caller_agents = _norm_agents(list(request.agents)) if request.agents is not None else []
+            caller_forced = bool(caller_agents)
+
+            exec_cfg_agents = _norm_agents(config.get("agents"))
+            exec_cfg_forced = bool(exec_cfg_agents)
+
+            routing_enabled = bool(config.get("routing_enabled", True))
+
+            if caller_forced:
+                # Caller explicitly forced a plan (non-empty request.agents)
+                final_agents = caller_agents
+                routing_source = "caller"
+            elif exec_cfg_forced:
+                # Caller explicitly forced a plan via execution_config["agents"]
+                final_agents = exec_cfg_agents
+                routing_source = "execution_config"
+            elif routing_enabled:
+                # ✅ routing is authoritative: derive plan from classifier/router
+                final_agents = select_agents(intent)  # <-- your “router.route(...).planned_agents”
+                caller_agents = _norm_agents(list(request.agents)) if request.agents is not None else []
+                exec_cfg_agents = _norm_agents(config.get("agents"))
+
+                if caller_agents:
+                    final_agents = caller_agents
+                    routing_source = "caller"
+                elif exec_cfg_agents:
+                    final_agents = exec_cfg_agents
+                    routing_source = "execution_config"
+                else:
+                    final_agents = select_agents(intent)  # ✅ this is where mapping matters
+                    routing_source = "router"
             else:
-                config["agents"] = ["refiner", "critic", "historian", "synthesis"]
-                config["routing_source"] = "default"
+                # routing disabled: fallback default
+                final_agents = ANALYSIS_AGENTS
+                routing_source = "default"
 
-            # ----------------------------------------------------------------
-            # ✅ Fix: classifier is a PRE-STEP, not a LangGraph node
-            # ----------------------------------------------------------------
-            requested = list(config.get("agents") or [])
-            if not requested:
-                requested = ["refiner", "critic", "historian", "synthesis"]
+            # Never allow classifier as a graph node; also de-dupe
+            final_agents = _dedupe(_strip_classifier(_norm_agents(final_agents)))
 
-            # Ensure classifier is NOT part of the LangGraph graph build
-            config["agents"] = [a for a in requested if a != "classifier"]
+            if intent == "action" and "data_query" not in final_agents:
+                logger.warning(
+                    "Action intent but data_query not scheduled; overriding to ACTION_AGENTS",
+                    extra={"intent": intent, "planned_agents": final_agents, "routing_source": routing_source},
+                )
+                final_agents = ACTION_AGENTS
+                routing_source = "router_override"
 
-            # Classifier runs as a pre-step (NOT a LangGraph node).
-            # Persist result into config so downstream agents can use it if they want.
-            config["classifier"] = classifier_out
-            config["routing_source"] = (
-                f"{config.get('routing_source', 'unknown')}_with_classifier_prestep"
-            )
+            if not final_agents:
+                # ultra-safe fallback
+                final_agents = ["refiner", "critic", "historian", "synthesis"]
+
+              # What the orchestrator actually executes
+            config["agents"] = final_agents
+            config["routing_source"] = routing_source
+
+            # Persist classifier as PRE-STEP (NOT a graph node)
+            config.setdefault("prestep", {})["classifier"] = classifier_profile
+            config["classifier"] = classifier_profile  # legacy convenience
+
+            # ---- routing metadata (what you log/emit / return) ----
+            routing_meta = config.setdefault("agent_output_meta", {})
+            routing_block = routing_meta.setdefault("_routing", {})
+            routing_block["source"] = routing_source
+            routing_block["planned_agents"] = final_agents
+            routing_block["pre_agents"] = []  # classifier ran as prestep
+            routing_meta["_classifier"] = classifier_profile
+
+
 
             logger.info(
                 "Execution config received",
@@ -582,6 +739,12 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
 
             if self._orchestrator is None:
                 raise RuntimeError("Orchestrator not initialized")
+
+            # NOTE: The caller_with_classifier_prestep logic has already set:
+            # - config["agents"]
+            # - config["routing_source"]
+            # - config["prestep"]["classifier"]
+            # - config["agent_output_meta"]["_routing"]["final_agents"]
 
             if bool(config.get("use_advanced_orchestrator", False)):
                 from OSSS.ai.orchestration.advanced_adapter import AdvancedOrchestratorAdapter
@@ -624,13 +787,25 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
             except Exception:
                 structured_outputs = {}
 
-            executed_agents: List[str] = []
+            # ----------------------------------------------------------------
+            # ✅ Fix #4 (Option A): executed_agents should come from context's
+            # completed-agent bookkeeping, not from planned routing.
+            # ----------------------------------------------------------------
+            executed_agents: List[str] = _executed_agents_from_context(result_context)
+
+            # If you still want to include agents that produced structured outputs but
+            # did not get recorded (edge case), you can optionally union them:
             try:
-                ao = getattr(result_context, "agent_outputs", {}) or {}
-                if isinstance(ao, dict):
-                    executed_agents = list(ao.keys())
+                exec_state = getattr(result_context, "execution_state", None)
+                if isinstance(exec_state, dict):
+                    so = exec_state.get("structured_outputs", {})
+                    if isinstance(so, dict) and so:
+                        for k in so.keys():
+                            k2 = str(k).strip().lower()
+                            if k2 and k2 not in executed_agents:
+                                executed_agents.append(k2)
             except Exception:
-                executed_agents = []
+                pass
 
             if not executed_agents and structured_outputs:
                 executed_agents = list(structured_outputs.keys())
@@ -668,13 +843,13 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
             agent_output_meta["_routing"] = {
                 "source": config.get("routing_source", "unknown"),
                 "selected_workflow_id": config.get("selected_workflow_id"),
-                "final_agents": config.get("agents"),
+                "planned_agents": config.get("agents"),
                 "pre_agents": config.get("pre_agents", []),
-
+                "executed_agents": executed_agents,
             }
 
             # also optionally
-            agent_output_meta["_classifier"] = classifier_out
+            agent_output_meta["_classifier"] = classifier_profile
 
             for agent_name in serialized_agent_outputs.keys():
                 env = agent_output_meta.get(agent_name)
@@ -694,7 +869,7 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
             )
 
             # ----------------------------------------------------------------
-            # Optional markdown export (kept as-is)
+            # Optional markdown export
             # ----------------------------------------------------------------
             if request.export_md:
                 try:
@@ -752,7 +927,13 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                     try:
                         db_session_factory = await self._get_or_create_db_session_factory()
 
-                        if db_session_factory:
+                        # ✅ One clear branch: disabled vs enabled-but-unavailable vs success
+                        if db_session_factory is None:
+                            logger.info(
+                                "DB persistence disabled; skipping markdown persistence",
+                                extra={"workflow_id": workflow_id, "correlation_id": request.correlation_id},
+                            )
+                        else:
                             async with db_session_factory.get_repository_factory() as repo_factory:
                                 doc_repo = repo_factory.historian_documents
 
@@ -778,14 +959,17 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                                 logger.info(
                                     f"Workflow {workflow_id} markdown persisted to database: {md_path_obj.name}"
                                 )
-                        else:
-                            logger.warning(
-                                f"Database not available, skipping markdown persistence for workflow {workflow_id}"
-                            )
 
                     except Exception as db_persist_error:
-                        logger.error(
-                            f"Failed to persist markdown to database for workflow {workflow_id}: {db_persist_error}"
+                        # Best-effort: do not fail the request for DB issues
+                        logger.warning(
+                            "Markdown persistence failed; continuing without DB persistence",
+                            extra={
+                                "workflow_id": workflow_id,
+                                "correlation_id": request.correlation_id,
+                                "error": str(db_persist_error),
+                            },
+                            exc_info=True,
                         )
 
                 except Exception as md_error:
@@ -956,13 +1140,22 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
     async def _get_or_create_db_session_factory(
         self,
     ) -> Optional[DatabaseSessionFactory]:
+
+        if not _db_persist_enabled():
+            logger.debug("DB persistence disabled; markdown DB session factory unavailable")
+            return None
+
         if self._db_session_factory is None:
             try:
                 self._db_session_factory = DatabaseSessionFactory()
                 await self._db_session_factory.initialize()
                 logger.info("Database session factory initialized for markdown persistence")
             except Exception as e:
-                logger.warning(f"Failed to initialize database session factory: {e}")
+                logger.warning(
+                    "Failed to initialize database session factory for markdown persistence",
+                    extra={"error": str(e)},
+                    exc_info=True,
+                )
                 self._db_session_factory = None
 
         return self._db_session_factory
@@ -979,23 +1172,26 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
         workflow_id: str,
         original_execution_config: Dict[str, Any],
     ) -> None:
+        sf = self._get_session_factory()
+        if sf is None:
+            logger.debug("DB persistence disabled; skipping workflow persistence")
+            return
+
+        execution_metadata = {
+            "workflow_id": workflow_id,
+            "execution_time_seconds": response.execution_time_seconds,
+            "agent_outputs": response.agent_outputs,
+            "agents_requested": request.agents or ["refiner", "critic", "historian", "synthesis"],
+            "export_md": (request.export_md if request.export_md is not None else False),
+            "execution_config": original_execution_config,
+            "api_version": self.api_version,
+            "orchestrator_type": "langgraph-real",
+        }
+        nodes_executed = list(response.agent_outputs.keys()) if response.agent_outputs else []
+
         try:
-            async with self._session_factory() as session:
+            async with sf() as session:
                 question_repo = QuestionRepository(session)
-
-                execution_metadata = {
-                    "workflow_id": workflow_id,
-                    "execution_time_seconds": response.execution_time_seconds,
-                    "agent_outputs": response.agent_outputs,
-                    "agents_requested": request.agents or ["refiner", "critic", "historian", "synthesis"],
-                    "export_md": (request.export_md if request.export_md is not None else False),
-                    "execution_config": original_execution_config,
-                    "api_version": self.api_version,
-                    "orchestrator_type": "langgraph-real",
-                }
-
-                nodes_executed = list(response.agent_outputs.keys()) if response.agent_outputs else []
-
                 await question_repo.create_question(
                     query=request.query,
                     correlation_id=request.correlation_id,
@@ -1003,11 +1199,16 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                     nodes_executed=nodes_executed,
                     execution_metadata=execution_metadata,
                 )
-
-                logger.info(f"Workflow {workflow_id} persisted to database")
-
+            logger.info("Workflow persisted to database", extra={"workflow_id": workflow_id})
         except Exception as e:
-            logger.error(f"Failed to persist workflow {workflow_id}: {e}")
+            logger.warning(
+                "Workflow persistence failed; continuing without DB persistence",
+                extra={"workflow_id": workflow_id, "correlation_id": request.correlation_id, "error": str(e)},
+                exc_info=True,
+            )
+
+    def _session_factory_or_none(self):
+        return self._get_session_factory()
 
     async def _persist_failed_workflow_to_database(
         self,
@@ -1017,25 +1218,28 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
         error_message: str,
         original_execution_config: Dict[str, Any],
     ) -> None:
+        sf = self._get_session_factory()
+        if sf is None:
+            logger.debug("DB persistence disabled; skipping failed workflow persistence")
+            return
+
+        execution_metadata = {
+            "workflow_id": workflow_id,
+            "execution_time_seconds": response.execution_time_seconds,
+            "agent_outputs": response.agent_outputs,
+            "agents_requested": request.agents or ["refiner", "critic", "historian", "synthesis"],
+            "export_md": (request.export_md if request.export_md is not None else False),
+            "execution_config": original_execution_config,
+            "api_version": self.api_version,
+            "orchestrator_type": "langgraph-real",
+            "status": "failed",
+            "error_message": error_message,
+        }
+        nodes_executed = list(response.agent_outputs.keys()) if response.agent_outputs else []
+
         try:
-            async with self._session_factory() as session:
+            async with sf() as session:
                 question_repo = QuestionRepository(session)
-
-                execution_metadata = {
-                    "workflow_id": workflow_id,
-                    "execution_time_seconds": response.execution_time_seconds,
-                    "agent_outputs": response.agent_outputs,
-                    "agents_requested": request.agents or ["refiner", "critic", "historian", "synthesis"],
-                    "export_md": (request.export_md if request.export_md is not None else False),
-                    "execution_config": original_execution_config,
-                    "api_version": self.api_version,
-                    "orchestrator_type": "langgraph-real",
-                    "status": "failed",
-                    "error_message": error_message,
-                }
-
-                nodes_executed = list(response.agent_outputs.keys()) if response.agent_outputs else []
-
                 await question_repo.create_question(
                     query=request.query,
                     correlation_id=request.correlation_id,
@@ -1043,11 +1247,13 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                     nodes_executed=nodes_executed,
                     execution_metadata=execution_metadata,
                 )
-
-                logger.info(f"Failed workflow {workflow_id} persisted to database")
-
+            logger.info("Failed workflow persisted to database", extra={"workflow_id": workflow_id})
         except Exception as e:
-            logger.error(f"Failed to persist failed workflow {workflow_id}: {e}")
+            logger.warning(
+                "Failed workflow persistence failed; continuing without DB persistence",
+                extra={"workflow_id": workflow_id, "correlation_id": request.correlation_id, "error": str(e)},
+                exc_info=True,
+            )
 
     # -----------------------------------------------------------------------
     # Debugging and monitoring helpers
@@ -1086,24 +1292,29 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
         offset: int = 0,
     ) -> List[Dict[str, Any]]:
         try:
-            async with self._session_factory() as session:
+            sf = self._get_session_factory()
+            if sf is None:
+                logger.debug("DB persistence disabled; skipping workflow history fetch")
+                return []
+
+            async with sf() as session:
                 question_repo = QuestionRepository(session)
                 questions = await question_repo.get_recent_questions(limit=limit, offset=offset)
 
-                return [
-                    {
-                        "workflow_id": q.execution_id or str(q.id),
-                        "status": "completed",
-                        "query": q.query[:100] if q.query else "",
-                        "start_time": q.created_at.timestamp(),
-                        "execution_time": (
-                            q.execution_metadata.get("execution_time_seconds", 0.0)
-                            if q.execution_metadata
-                            else 0.0
-                        ),
-                    }
-                    for q in questions
-                ]
+            return [
+                {
+                    "workflow_id": q.execution_id or str(q.id),
+                    "status": "completed",
+                    "query": q.query[:100] if q.query else "",
+                    "start_time": q.created_at.timestamp(),
+                    "execution_time": (
+                        q.execution_metadata.get("execution_time_seconds", 0.0)
+                        if q.execution_metadata
+                        else 0.0
+                    ),
+                }
+                for q in questions
+            ]
 
         except Exception as e:
             logger.error(f"Failed to retrieve workflow history: {e}")

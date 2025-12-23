@@ -1,6 +1,6 @@
 from typing import Dict, Any, List
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 
 from OSSS.ai.api.models import (
     WorkflowRequest,
@@ -20,11 +20,19 @@ router = APIRouter()
 
 
 @router.post("/query", response_model=WorkflowResponse)
-async def execute_query(request: WorkflowRequest) -> WorkflowResponse:
+async def execute_query(http_request: Request, request: WorkflowRequest) -> WorkflowResponse:
     try:
-        logger.info(f"Executing query: {request.query[:100]}...")
-
-        logger.info(f"get_orchestration_api is coroutine fn? {inspect.iscoroutinefunction(get_orchestration_api)}")
+        # Log raw body + parsed agents to debug "forced agents"
+        raw = await http_request.body()
+        logger.info(
+            "Received /query request",
+            extra={
+                "raw_body": raw.decode("utf-8", errors="replace"),
+                "agents": request.agents,
+                "query_length": len(request.query or ""),
+                "correlation_id": getattr(request, "correlation_id", None),
+            },
+        )
 
         orchestration_api = await get_orchestration_api()
         response: WorkflowResponse = await orchestration_api.execute_workflow(request)
@@ -42,7 +50,6 @@ async def execute_query(request: WorkflowRequest) -> WorkflowResponse:
                 "type": type(e).__name__,
             },
         )
-
 
 @router.get("/query/status/{correlation_id}", response_model=StatusResponse)
 async def get_query_status(correlation_id: str) -> StatusResponse:

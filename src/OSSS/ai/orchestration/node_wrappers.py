@@ -18,6 +18,7 @@ Design Principles:
 
 import asyncio
 import time
+import json
 from datetime import datetime, timezone
 from typing import (
     Dict,
@@ -30,8 +31,8 @@ from typing import (
     Union,
     cast,
     Protocol,
-    Generator,
 )
+
 from functools import wraps
 
 from langgraph.runtime import Runtime
@@ -47,50 +48,60 @@ from OSSS.ai.orchestration.state_schemas import (
     CriticState,
     HistorianState,
     SynthesisState,
+    DataQueryState,
     record_agent_error,
 )
 from OSSS.ai.observability import get_logger
-from OSSS.ai.config.openai_config import OpenAIConfig
-from OSSS.ai.llm.openai import OpenAIChatLLM
-from OSSS.ai.llm.factory import LLMFactory
-from OSSS.ai.events import (
-    emit_agent_execution_started,
-    emit_agent_execution_completed,
+from OSSS.ai.orchestration.canonicalization import (
+    extract_refined_question,
+    canonicalize_dcg,
 )
-from OSSS.ai.events.types import EventCategory
-from OSSS.ai.utils.content_truncation import truncate_for_websocket_event
-from OSSS.ai.orchestration.routing import should_run_historian
+from OSSS.ai.llm.factory import LLMFactory
+from OSSS.ai.orchestration.routing import (
+    should_run_historian,
+    DBQueryRouter,
+)
 
 logger = get_logger(__name__)
 
-
 # Global timing registry to store node execution times
-# This allows timing data to be collected across node executions
-# and retrieved when creating workflow results
 _TIMING_REGISTRY: Dict[str, Dict[str, float]] = {}
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _canon_agent_key(name: str) -> str:
+    return (name or "").strip().lower().replace("-", "_")
+
+
+def _ensure_exec_state(state: Dict[str, Any]) -> Dict[str, Any]:
+    exec_state = state.get("execution_state")
+    if not isinstance(exec_state, dict):
+        exec_state = {}
+        state["execution_state"] = exec_state
+    return exec_state
 
 
 def _get_execution_config(state: Dict[str, Any], runtime: Runtime[OSSSContext]) -> Dict[str, Any]:
     """
     Best-effort extraction of execution config for nodes.
     Priority:
-      1) runtime.context (if you later add config there)
+      1) runtime.context.execution_config (if you add it later)
       2) state["execution_state"]["execution_config"]
       3) state["execution_metadata"]["execution_config"]
     """
-    # 1) runtime.context - only if you add it to OSSSContext later
     ctx_cfg = getattr(runtime.context, "execution_config", None)
     if isinstance(ctx_cfg, dict):
         return ctx_cfg
 
-    # 2) state.execution_state.execution_config
     exec_state = state.get("execution_state")
     if isinstance(exec_state, dict):
         ec = exec_state.get("execution_config")
         if isinstance(ec, dict):
             return ec
 
-    # 3) state.execution_metadata.execution_config (if you store it there)
     meta = state.get("execution_metadata")
     if isinstance(meta, dict):
         ec = meta.get("execution_config")
@@ -101,30 +112,69 @@ def _get_execution_config(state: Dict[str, Any], runtime: Runtime[OSSSContext]) 
 
 
 def _record_effective_query(state: dict, agent_name: str, effective_query: str) -> None:
-    exec_state = state.setdefault("execution_state", {})
-    if not isinstance(exec_state, dict):
-        return
+    exec_state = _ensure_exec_state(state)
     eq = exec_state.setdefault("effective_queries", {})
     if isinstance(eq, dict):
-        eq[agent_name] = effective_query
+        eq[_canon_agent_key(agent_name)] = effective_query
+
+
+def _to_text(value: Any) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value
+    if isinstance(value, (dict, list)):
+        return json.dumps(value, indent=2, default=str)
+    return str(value)
+
+
+def _pick_latest_data_query_node_id(state: OSSSState) -> Optional[str]:
+    """
+    Option A: return the most recently completed data_query:* node id if present,
+    else fall back to last planned, else None.
+    """
+    completed = state.get("completed_data_query_nodes")
+    if isinstance(completed, list) and completed:
+        last = completed[-1]
+        if isinstance(last, str) and last:
+            return last
+
+    planned = state.get("planned_data_query_nodes")
+    if isinstance(planned, list) and planned:
+        last = planned[-1]
+        if isinstance(last, str) and last:
+            return last
+
+    return None
+
+
+def _pick_latest_data_query_payload(state: OSSSState) -> Any:
+    """
+    Option A: get payload from data_query_results for the latest node id.
+    Falls back to legacy state['data_query'].result.
+    """
+    node_id = _pick_latest_data_query_node_id(state)
+
+    dqr = state.get("data_query_results")
+    if node_id and isinstance(dqr, dict) and node_id in dqr:
+        return dqr.get(node_id)
+
+    dq_state = state.get("data_query")
+    if isinstance(dq_state, dict):
+        return dq_state.get("result")
+
+    return None
 
 
 def get_timing_registry() -> Dict[str, Dict[str, float]]:
-    """Get the current timing registry."""
     return _TIMING_REGISTRY.copy()
 
 
 def clear_timing_registry() -> None:
-    """Clear the timing registry for a new workflow execution."""
-    global _TIMING_REGISTRY
     _TIMING_REGISTRY.clear()
 
 
-def register_node_timing(
-    execution_id: str, node_name: str, execution_time_seconds: float
-) -> None:
-    """Register node execution timing data."""
-    global _TIMING_REGISTRY
+def register_node_timing(execution_id: str, node_name: str, execution_time_seconds: float) -> None:
     if execution_id not in _TIMING_REGISTRY:
         _TIMING_REGISTRY[execution_id] = {}
     _TIMING_REGISTRY[execution_id][node_name] = execution_time_seconds
@@ -132,7 +182,6 @@ def register_node_timing(
 
 class NodeExecutionError(Exception):
     """Raised when a node execution fails."""
-
     pass
 
 
@@ -140,39 +189,15 @@ F = TypeVar("F", bound=Callable[..., Coroutine[Any, Any, Any]])
 
 
 class CircuitBreakerFunction(Protocol):
-    """Protocol for functions decorated with @circuit_breaker.
-
-    This protocol defines the attributes that are dynamically added
-    by the circuit_breaker decorator, making them visible to type checkers.
-    """
-
     _failure_count: int
     _circuit_open: bool
     _last_failure_time: Optional[float]
 
-    def __call__(self, *args: Any, **kwargs: Any) -> Coroutine[Any, Any, Any]:
-        """Function call signature for circuit breaker decorated functions."""
-        ...
+    def __call__(self, *args: Any, **kwargs: Any) -> Coroutine[Any, Any, Any]: ...
 
 
-def circuit_breaker(
-    max_failures: int = 3, reset_timeout: float = 300.0
-) -> Callable[[F], F]:
-    """
-    Circuit breaker decorator for node functions.
-
-    Prevents cascade failures by stopping execution after repeated failures.
-
-    Parameters
-    ----------
-    max_failures : int
-        Maximum number of failures before circuit opens
-    reset_timeout : float
-        Time in seconds before circuit can be retried
-    """
-
+def circuit_breaker(max_failures: int = 3, reset_timeout: float = 300.0) -> Callable[[F], F]:
     def decorator(func: F) -> F:
-        # Store state in a dictionary to avoid attribute issues
         circuit_state: Dict[str, Union[int, float, bool, None]] = {
             "failure_count": 0,
             "last_failure_time": None,
@@ -180,51 +205,38 @@ def circuit_breaker(
         }
 
         def _sync_state() -> None:
-            """Sync internal state with exposed attributes"""
-            # Set attributes directly on the function object for testing access
             setattr(wrapper, "_failure_count", circuit_state["failure_count"])
             setattr(wrapper, "_last_failure_time", circuit_state["last_failure_time"])
             setattr(wrapper, "_circuit_open", circuit_state["circuit_open"])
 
         @wraps(func)
         async def wrapper(*args: Any, **kwargs: Any) -> Any:
-            # Sync state from external attributes if they were manually set
             if hasattr(wrapper, "_failure_count"):
                 circuit_state["failure_count"] = getattr(wrapper, "_failure_count")
             if hasattr(wrapper, "_last_failure_time"):
-                circuit_state["last_failure_time"] = getattr(
-                    wrapper, "_last_failure_time"
-                )
+                circuit_state["last_failure_time"] = getattr(wrapper, "_last_failure_time")
             if hasattr(wrapper, "_circuit_open"):
                 circuit_state["circuit_open"] = getattr(wrapper, "_circuit_open")
 
-            # Check if circuit is open
             if circuit_state["circuit_open"]:
                 if circuit_state["last_failure_time"]:
-                    time_since_failure = (
-                        time.time() - circuit_state["last_failure_time"]
-                    )
+                    time_since_failure = time.time() - cast(float, circuit_state["last_failure_time"])
                     if time_since_failure < reset_timeout:
                         raise NodeExecutionError(
                             f"Circuit breaker open for {func.__name__}. "
                             f"Retry in {reset_timeout - time_since_failure:.1f}s"
                         )
-                    else:
-                        # Reset circuit
-                        circuit_state["circuit_open"] = False
-                        circuit_state["failure_count"] = 0
-                        logger.info(f"Circuit breaker reset for {func.__name__}")
+                    circuit_state["circuit_open"] = False
+                    circuit_state["failure_count"] = 0
+                    logger.info(f"Circuit breaker reset for {func.__name__}")
 
             try:
                 result = await func(*args, **kwargs)
-                # Reset on success
                 circuit_state["failure_count"] = 0
                 circuit_state["circuit_open"] = False
                 _sync_state()
                 return result
-
             except Exception:
-                # Type-safe increment of failure count
                 current_count = cast(int, circuit_state["failure_count"])
                 circuit_state["failure_count"] = current_count + 1
                 circuit_state["last_failure_time"] = time.time()
@@ -239,7 +251,6 @@ def circuit_breaker(
                 _sync_state()
                 raise
 
-        # Initialize attributes on wrapper before returning
         setattr(wrapper, "_failure_count", 0)
         setattr(wrapper, "_last_failure_time", None)
         setattr(wrapper, "_circuit_open", False)
@@ -250,10 +261,6 @@ def circuit_breaker(
 
 
 def node_metrics(func: F) -> F:
-    """
-    Decorator to add metrics collection to node functions.
-    """
-
     @wraps(func)
     async def wrapper(*args: Any, **kwargs: Any) -> Any:
         start_time = time.time()
@@ -265,54 +272,21 @@ def node_metrics(func: F) -> F:
 
             execution_time_ms = (time.time() - start_time) * 1000
             execution_time_seconds = execution_time_ms / 1000
-            logger.info(
-                f"Completed {node_name} node execution in {execution_time_ms:.2f}ms"
-            )
+            logger.info(f"Completed {node_name} node execution in {execution_time_ms:.2f}ms")
 
-            # Store timing data directly in the result context if available
-            # This ensures timing data is available regardless of the execution path
-            context_updated = False
-
-            # Try to find and update AgentContext in the result
-            if hasattr(result, "get") and "final_context" in result:
-                # If result has a final_context, store timing there
-                final_context = result["final_context"]
-                if hasattr(final_context, "execution_state"):
-                    if "_node_execution_times" not in final_context.execution_state:
-                        final_context.execution_state["_node_execution_times"] = {}
-                    final_context.execution_state["_node_execution_times"][
-                        node_name
-                    ] = execution_time_seconds
-                    context_updated = True
-
-            # Also try to extract execution_id for registry (backup approach)
             execution_id = None
             if args and isinstance(args[0], dict):
                 state = args[0]
-
-                # Try various ways to get execution_id
-                if "execution_metadata" in state:
+                if isinstance(state.get("execution_metadata"), dict):
                     execution_id = state["execution_metadata"].get("execution_id")
-                elif "execution_id" in state:
-                    execution_id = state["execution_id"]
-                else:
-                    # Check nested structures
-                    for key, value in state.items():
-                        if isinstance(value, dict) and "execution_id" in value:
-                            execution_id = value["execution_id"]
-                            break
+                if not execution_id and isinstance(state.get("execution_state"), dict):
+                    execution_id = state["execution_state"].get("execution_id")
 
             if execution_id:
-                register_node_timing(execution_id, node_name, execution_time_seconds)
-            elif not context_updated:
-                logger.debug(
-                    f"Could not store timing data for {node_name} node - no execution_id and no context access"
-                )
+                register_node_timing(str(execution_id), node_name, execution_time_seconds)
 
-            # Also store timing data in result for immediate access
             if isinstance(result, dict):
-                if "_node_execution_times" not in result:
-                    result["_node_execution_times"] = {}
+                result.setdefault("_node_execution_times", {})
                 result["_node_execution_times"][node_name] = {
                     "execution_time_seconds": execution_time_seconds,
                     "execution_time_ms": execution_time_ms,
@@ -320,16 +294,17 @@ def node_metrics(func: F) -> F:
                 }
 
             return result
-
         except Exception as e:
             execution_time_ms = (time.time() - start_time) * 1000
-            logger.error(
-                f"Failed {node_name} node execution after {execution_time_ms:.2f}ms: {e}"
-            )
+            logger.error(f"Failed {node_name} node execution after {execution_time_ms:.2f}ms: {e}")
             raise
 
     return cast(F, wrapper)
 
+
+# ---------------------------------------------------------------------------
+# Agent creation + State <-> Context conversion
+# ---------------------------------------------------------------------------
 
 async def create_agent_with_llm(
     agent_name: str,
@@ -337,69 +312,34 @@ async def create_agent_with_llm(
     state: Optional[Dict[str, Any]] = None,
     runtime: Optional[Runtime[OSSSContext]] = None,
 ) -> BaseAgent:
-    """
-    Create an agent instance with LLM configuration and agent-specific settings.
-
-    Supports both:
-      - LLM agents (refiner/critic/historian/synthesis)
-      - Non-LLM agents (e.g., classifier) which require kwargs
-    """
     registry = get_agent_registry()
-    agent_name_lower = agent_name.lower()
+    agent_name_lower = _canon_agent_key(agent_name)
 
-    # Pull execution_config if available
     exec_cfg: Dict[str, Any] = {}
     if state is not None and runtime is not None:
         exec_cfg = _get_execution_config(state, runtime)
 
-    # ------------------------------------------------------------
-    # ✅ Non-LLM agents: classifier (sklearn pipeline)
-    # ------------------------------------------------------------
     if agent_name_lower == "classifier":
         classifier_cfg = exec_cfg.get("classifier", {}) if isinstance(exec_cfg, dict) else {}
         if not isinstance(classifier_cfg, dict):
             classifier_cfg = {}
 
-        # Defaults: adjust to your project layout
         model_path = classifier_cfg.get("model_path", "models/intent_classifier.joblib")
         model_version = classifier_cfg.get("model_version", "v1")
 
-        agent_kwargs: Dict[str, Any] = {
-            "model_path": model_path,
-            "model_version": model_version,
-        }
-
         logger.info(
             "Creating classifier agent",
-            extra={
-                "agent_name": "classifier",
-                "model_path": str(model_path),
-                "model_version": model_version,
-            },
+            extra={"agent_name": "classifier", "model_path": str(model_path), "model_version": model_version},
         )
+        return registry.create_agent(agent_name_lower, model_path=model_path, model_version=model_version)
 
-        # ✅ THIS is the call you asked about:
-        # agent = registry.create_agent(agent_name, llm=llm, **agent_kwargs)
-        # For classifier, llm is not used, so:
-        agent = registry.create_agent(agent_name_lower, **agent_kwargs)
-        return agent
+    if agent_name_lower == "data_query":
+        return registry.create_agent(agent_name_lower)
 
-    # ------------------------------------------------------------
-    # LLM agent path (factory-selected per agent + execution_config)
-    # ------------------------------------------------------------
-    llm = LLMFactory.create(
-        agent_name = agent_name_lower,
-        execution_config = exec_cfg,
-    )
+    llm = LLMFactory.create(agent_name=agent_name_lower, execution_config=exec_cfg)
 
     agent_config_kwargs: Dict[str, Any] = {}
-
-    from OSSS.ai.config.agent_configs import (
-        HistorianConfig,
-        RefinerConfig,
-        CriticConfig,
-        SynthesisConfig,
-    )
+    from OSSS.ai.config.agent_configs import HistorianConfig, RefinerConfig, CriticConfig, SynthesisConfig
 
     if agent_name_lower == "historian":
         agent_config_kwargs["config"] = HistorianConfig()
@@ -412,7 +352,6 @@ async def create_agent_with_llm(
 
     agent = registry.create_agent(agent_name_lower, llm=llm, **agent_config_kwargs)
 
-    # Apply timeout from configuration after agent creation
     if agent_name_lower == "historian":
         agent.timeout_seconds = HistorianConfig().execution_config.timeout_seconds
     elif agent_name_lower == "refiner":
@@ -425,76 +364,76 @@ async def create_agent_with_llm(
     return agent
 
 
-
 async def convert_state_to_context(state: OSSSState) -> AgentContext:
     """
     Convert LangGraph state to AgentContext for agent execution.
 
-    Handles both complete and partial state objects gracefully.
-    """
-    bridge = AgentContextStateBridge()
+    Cleanups applied:
+      - Do NOT add duplicate outputs (no "Refiner"/"DataQuery" alias keys)
+      - Do NOT re-add outputs that BaseAgent already writes during this run
+      - Only hydrate context from prior state to support downstream nodes
 
-    # Create AgentContext from query - handle partial state
-    query = state.get("query", "")
+    Option A:
+      - Prefer data_query_results/latest completed node over legacy state["data_query"]
+    """
+    _ = AgentContextStateBridge()  # retained for future compatibility
+
     if "query" not in state:
         raise ValueError("State must contain a query field")
 
+    query = state.get("query", "") or ""
     context = AgentContext(query=query)
 
-    # ---------------------------------------------------------------------
-    # ✅ Carry forward execution_state metadata that nodes / API rely on
-    # ---------------------------------------------------------------------
+    # Carry forward execution_state bits
     state_exec = state.get("execution_state", {})
     if isinstance(state_exec, dict):
-        # Carry forward agent_output_meta (e.g., _query_profile w/ analysis_source="llm")
-        aom = state_exec.get("agent_output_meta")
-        if isinstance(aom, dict):
-            context.execution_state["agent_output_meta"] = aom
+        for k in (
+            "agent_output_meta",
+            "effective_queries",
+            "rag_context",
+            "rag_hits",
+            "rag_meta",
+            "rag_enabled",
+            "route_key",
+            "route",
+            "route_reason",
+            "route_locked",
+        ):
+            v = state_exec.get(k)
+            if v is not None:
+                context.execution_state[k] = v
 
-        # Carry forward effective_queries recorded by node wrappers
-        eq = state_exec.get("effective_queries")
-        if isinstance(eq, dict):
-            context.execution_state["effective_queries"] = eq
-
-        # ✅ Carry forward RAG context (prompt-ready string)
-        rag_ctx = state_exec.get("rag_context")
-        if isinstance(rag_ctx, str) and rag_ctx:
-            context.execution_state["rag_context"] = rag_ctx
-
-        # ✅ Carry forward RAG hits (structured list for debugging/UI)
-        rag_hits = state_exec.get("rag_hits")
-        if isinstance(rag_hits, list):
-            context.execution_state["rag_hits"] = rag_hits
-
-        # (Optional) carry forward RAG meta flags (handy for observability)
-        rag_meta = state_exec.get("rag_meta")
-        if isinstance(rag_meta, dict):
-            context.execution_state["rag_meta"] = rag_meta
-
-        rag_enabled = state_exec.get("rag_enabled")
-        if isinstance(rag_enabled, bool):
-            context.execution_state["rag_enabled"] = rag_enabled
-
-    # (Optional) carry forward structured outputs if you want them available to agents
     so = state.get("structured_outputs")
     if isinstance(so, dict):
         context.execution_state["structured_outputs"] = so
 
-    # ---------------------------------------------------------------------
-    # Existing behavior: add any existing agent outputs to context
-    # ---------------------------------------------------------------------
+    # Hydrate prior outputs for downstream nodes.
+    # IMPORTANT: use canonical lowercase keys only.
     if state.get("refiner"):
         refiner_state: Optional[RefinerState] = state["refiner"]
         if refiner_state is not None:
             refined_question = refiner_state.get("refined_question", "")
             if refined_question:
                 context.add_agent_output("refiner", refined_question)
-                context.add_agent_output("Refiner", refined_question)
                 context.execution_state["refiner_topics"] = refiner_state.get("topics", [])
                 context.execution_state["refiner_confidence"] = refiner_state.get("confidence", 0.8)
-                logger.info(f"Added refiner output to context: {str(refined_question)[:100]}...")
-            else:
-                logger.warning("Refiner output found in state but refined_question is empty")
+
+    # ✅ Option A: hydrate data_query from data_query_results (latest completed)
+    latest_payload = _pick_latest_data_query_payload(state)
+    if latest_payload is not None:
+        context.add_agent_output("data_query", _to_text(latest_payload))
+        context.execution_state["data_query_result"] = latest_payload
+        latest_node_id = _pick_latest_data_query_node_id(state)
+        if latest_node_id:
+            context.execution_state["data_query_node_id"] = latest_node_id
+    else:
+        # Legacy fallback
+        if state.get("data_query"):
+            dq_state: Optional[DataQueryState] = state["data_query"]  # type: ignore[assignment]
+            if dq_state is not None:
+                result = dq_state.get("result", "")
+                context.add_agent_output("data_query", _to_text(result))
+                context.execution_state["data_query_result"] = dq_state.get("result")
 
     if state.get("critic"):
         critic_state: Optional[CriticState] = state["critic"]
@@ -502,12 +441,8 @@ async def convert_state_to_context(state: OSSSState) -> AgentContext:
             critique = critic_state.get("critique", "")
             if critique:
                 context.add_agent_output("critic", critique)
-                context.add_agent_output("Critic", critique)
                 context.execution_state["critic_suggestions"] = critic_state.get("suggestions", [])
                 context.execution_state["critic_severity"] = critic_state.get("severity", "medium")
-                logger.info(f"Added critic output to context: {str(critique)[:100]}...")
-            else:
-                logger.warning("Critic output found in state but critique is empty")
 
     if state.get("historian"):
         historian_state: Optional[HistorianState] = state["historian"]
@@ -515,62 +450,101 @@ async def convert_state_to_context(state: OSSSState) -> AgentContext:
             historical_summary = historian_state.get("historical_summary", "")
             if historical_summary:
                 context.add_agent_output("historian", historical_summary)
-                context.add_agent_output("Historian", historical_summary)
                 context.execution_state["historian_retrieved_notes"] = historian_state.get("retrieved_notes", [])
                 context.execution_state["historian_search_strategy"] = historian_state.get("search_strategy", "hybrid")
                 context.execution_state["historian_topics_found"] = historian_state.get("topics_found", [])
                 context.execution_state["historian_confidence"] = historian_state.get("confidence", 0.8)
-                logger.info(f"Added historian output to context: {str(historical_summary)[:100]}...")
-            else:
-                logger.warning("Historian output found in state but historical_summary is empty")
 
-    # Add execution metadata - handle partial state
+    # Add execution metadata (best-effort)
     execution_metadata = state.get("execution_metadata", {})
     if isinstance(execution_metadata, dict) and execution_metadata:
         context.execution_state.update(
             {
                 "execution_id": execution_metadata.get("execution_id", ""),
                 "orchestrator_type": "langgraph-real",
-                "successful_agents": (
-                    state.get("successful_agents", []).copy()
-                    if isinstance(state.get("successful_agents"), list)
-                    else []
-                ),
-                "failed_agents": (
-                    state.get("failed_agents", []).copy()
-                    if isinstance(state.get("failed_agents"), list)
-                    else []
-                ),
+                "successful_agents": state.get("successful_agents", []).copy() if isinstance(state.get("successful_agents"), list) else [],
+                "failed_agents": state.get("failed_agents", []).copy() if isinstance(state.get("failed_agents"), list) else [],
             }
         )
 
     return context
 
 
+# ---------------------------------------------------------------------------
+# Routing node
+# ---------------------------------------------------------------------------
+
 @circuit_breaker(max_failures=3, reset_timeout=300.0)
 @node_metrics
-async def refiner_node(
-    state: OSSSState, runtime: Runtime[OSSSContext]
-) -> Dict[str, Any]:
-    """
-    LangGraph node wrapper for RefinerAgent.
+async def route_gate_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Dict[str, Any]:
+    thread_id = runtime.context.thread_id
+    execution_id = runtime.context.execution_id
+    original_query = runtime.context.query
+    correlation_id = runtime.context.correlation_id
+    checkpoint_enabled = runtime.context.enable_checkpoints
 
-    Transforms the raw user query into a structured, clarified prompt
-    and updates the state with typed RefinerState.
+    logger.info(
+        f"Executing route_gate node in thread {thread_id}",
+        extra={
+            "thread_id": thread_id,
+            "execution_id": execution_id,
+            "correlation_id": correlation_id,
+            "query_length": len(original_query or ""),
+            "checkpoint_enabled": checkpoint_enabled,
+        },
+    )
 
-    Parameters
-    ----------
-    state : OSSSState
-        Current LangGraph state
-    runtime : Runtime[OSSSContext]
-        LangGraph runtime context with thread and execution information
+    context = await convert_state_to_context(state)
 
-    Returns
-    -------
-    OSSSState
-        Updated state with RefinerState
-    """
-    # ✅ Type-safe context access (LangGraph 0.6.x Runtime API)
+    router = DBQueryRouter(data_query_target="data_query", default_target="refiner")
+    chosen_target = router(context)
+    route_key = "action" if chosen_target == "data_query" else "informational"
+
+    exec_state = _ensure_exec_state(state)
+    exec_state["route_key"] = route_key
+    exec_state["route"] = chosen_target
+
+    for k in ("route_reason", "route_locked"):
+        v = context.execution_state.get(k)
+        if v is not None:
+            exec_state[k] = v
+
+    try:
+        context.log_trace(
+            agent_name="route_gate",
+            input={"query": original_query or state.get("query", "")},
+            output={
+                "route_key": route_key,
+                "chosen_target": chosen_target,
+                "route_reason": exec_state.get("route_reason"),
+                "route_locked": exec_state.get("route_locked"),
+            },
+        )
+    except Exception:
+        pass
+
+    logger.info(
+        "Route chosen",
+        extra={
+            "thread_id": thread_id,
+            "execution_id": execution_id,
+            "correlation_id": correlation_id,
+            "route_key": route_key,
+            "chosen_target": chosen_target,
+            "route_reason": exec_state.get("route_reason"),
+        },
+    )
+
+    return {"execution_state": exec_state, "route_key": route_key, "route": chosen_target}
+
+
+# ---------------------------------------------------------------------------
+# Node wrappers
+# ---------------------------------------------------------------------------
+
+@circuit_breaker(max_failures=3, reset_timeout=300.0)
+@node_metrics
+async def refiner_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Dict[str, Any]:
     thread_id = runtime.context.thread_id
     execution_id = runtime.context.execution_id
     original_query = runtime.context.query
@@ -588,129 +562,34 @@ async def refiner_node(
         },
     )
 
-    # Backward compatibility: use execution_id as workflow_id
-    workflow_id = execution_id
-
     try:
-        # ✅ Enhanced event emission with runtime context
-        emit_agent_execution_started(
-            event_category=EventCategory.EXECUTION,
-            workflow_id=workflow_id,
-            agent_name="refiner",
-            input_context={
-                "query": original_query or state.get("query", ""),
-                "node_type": "refiner",
-                "thread_id": thread_id,
-                "execution_id": execution_id,
-            },
-            correlation_id=correlation_id,
-            metadata={
-                "node_execution": True,
-                "orchestrator_type": "langgraph-real",
-                "runtime_context": {
-                    "thread_id": thread_id,
-                    "execution_id": execution_id,
-                    "checkpoint_enabled": checkpoint_enabled,
-                    "query_length": len(original_query or ""),
-                },
-            },
-        )
-
-        # Create agent
         agent = await create_agent_with_llm("refiner", state=state, runtime=runtime)
-
-        # Convert state to context
         context = await convert_state_to_context(state)
 
-        # Record the effective query this node actually used
         effective_query = original_query or state.get("query", "") or context.query
         _record_effective_query(state, "refiner", effective_query)
 
-
-        # Execute agent with event emission and retry logic
+        # ✅ Critical: pass the *instance* context (never AgentContext type)
         result_context = await agent.run_with_retry(context)
 
-        # Extract refiner output (using "Refiner" key, not "refiner")
-        refiner_raw_output = result_context.agent_outputs.get("refiner", "")
+        # Extract refiner output (canonical key only)
+        refiner_raw_output = (result_context.agent_outputs.get("refiner") or "").strip()
 
-        # Create typed output
+        # Hard-guard to a single refined question + canonicalize DCG
+        refined_question = canonicalize_dcg(extract_refined_question(refiner_raw_output))
+
         refiner_state = RefinerState(
-            refined_question=refiner_raw_output,
+            refined_question=refined_question,
             topics=result_context.execution_state.get("topics", []),
             confidence=result_context.execution_state.get("confidence", 0.8),
             processing_notes=result_context.execution_state.get("processing_notes"),
             timestamp=datetime.now(timezone.utc).isoformat(),
-            agent_output_meta=context.execution_state.get("agent_output_meta", {})
-
+            agent_output_meta=result_context.execution_state.get("agent_output_meta", {}),
         )
 
-        # Get token usage information from agent context
-        refiner_token_usage = result_context.get_agent_token_usage("refiner")
+        structured_outputs = result_context.execution_state.get("structured_outputs", {})
 
-        # ✅ Enhanced completion event emission with runtime context and token usage
-        emit_agent_execution_completed(
-            event_category=EventCategory.EXECUTION,
-            workflow_id=workflow_id,
-            agent_name="refiner",
-            success=True,
-            output_context={
-                "refined_question": truncate_for_websocket_event(
-                    str(refiner_raw_output), "refined_question"
-                ),
-                "node_type": "refiner",
-                "thread_id": thread_id,
-                "execution_id": execution_id,
-                "confidence": refiner_state["confidence"],
-                "topics_count": len(refiner_state["topics"]),
-                # Add token usage to output context for WebSocket events
-                "input_tokens": refiner_token_usage["input_tokens"],
-                "output_tokens": refiner_token_usage["output_tokens"],
-                "total_tokens": refiner_token_usage["total_tokens"],
-            },
-            correlation_id=correlation_id,
-            metadata={
-                "node_execution": True,
-                "orchestrator_type": "langgraph-real",
-                "runtime_context": {
-                    "thread_id": thread_id,
-                    "execution_id": execution_id,
-                    "checkpoint_enabled": checkpoint_enabled,
-                    "original_query": original_query,
-                },
-                "output_metadata": {
-                    "confidence": refiner_state["confidence"],
-                    "topics_identified": len(refiner_state["topics"]),
-                    "processing_notes": bool(refiner_state["processing_notes"]),
-                },
-                # Add token usage to metadata as well for comprehensive tracking
-                "token_usage": refiner_token_usage,
-            },
-        )
-
-        # ✅ Enhanced success logging with runtime context
-        logger.info(
-            f"Refiner node completed successfully for thread {thread_id}",
-            extra={
-                "thread_id": thread_id,
-                "execution_id": execution_id,
-                "correlation_id": correlation_id,
-                "confidence": refiner_state["confidence"],
-                "topics_count": len(refiner_state["topics"]),
-                "query_length": len(original_query or ""),
-                "checkpoint_enabled": checkpoint_enabled,
-            },
-        )
-
-        # Extract structured_outputs from result_context for persistence
-        # This preserves the full Pydantic model data for API/database storage
-        structured_outputs = result_context.execution_state.get(
-            "structured_outputs", {}
-        )
-
-        exec_state = state.get("execution_state", {})
-        if not isinstance(exec_state, dict):
-            exec_state = {}
-
+        exec_state = _ensure_exec_state(state)
         return {
             "execution_state": exec_state,
             "refiner": refiner_state,
@@ -718,9 +597,7 @@ async def refiner_node(
             "structured_outputs": structured_outputs,
         }
 
-
     except Exception as e:
-        # ✅ Enhanced error logging with runtime context
         logger.error(
             f"Refiner node failed for thread {thread_id}: {e}",
             extra={
@@ -733,66 +610,151 @@ async def refiner_node(
                 "query_length": len(original_query or ""),
             },
         )
-
-        # ✅ Enhanced error event emission with runtime context
-        emit_agent_execution_completed(
-            event_category=EventCategory.EXECUTION,
-            workflow_id=workflow_id,
-            agent_name="refiner",
-            success=False,
-            output_context={
-                "error": str(e),
-                "node_type": "refiner",
-                "thread_id": thread_id,
-                "execution_id": execution_id,
-            },
-            error_message=str(e),
-            error_type=type(e).__name__,
-            correlation_id=correlation_id,
-            metadata={
-                "node_execution": True,
-                "orchestrator_type": "langgraph-real",
-                "runtime_context": {
-                    "thread_id": thread_id,
-                    "execution_id": execution_id,
-                    "checkpoint_enabled": checkpoint_enabled,
-                    "original_query": original_query,
-                },
-                "error_context": {
-                    "error_type": type(e).__name__,
-                    "query_length": len(original_query or ""),
-                },
-            },
-        )
-
-        error_state = record_agent_error(state, "refiner", e)
+        record_agent_error(state, "refiner", e)
         raise NodeExecutionError(f"Refiner execution failed: {e}") from e
 
 
 @circuit_breaker(max_failures=3, reset_timeout=300.0)
 @node_metrics
-async def critic_node(
-    state: OSSSState, runtime: Runtime[OSSSContext]
-) -> Dict[str, Any]:
+async def data_query_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Dict[str, Any]:
     """
-    LangGraph node wrapper for CriticAgent.
-
-    Provides analytical critique of the refined query and adds
-    suggestions for improvement to the state.
-
-    Parameters
-    ----------
-    state : OSSSState
-        Current LangGraph state (must contain refiner output)
-    runtime : Runtime[OSSSContext]
-        LangGraph 0.6.x runtime context providing type-safe access to execution metadata
-
-    Returns
-    -------
-    OSSSState
-        Updated state with CriticState
+    Option A compliance:
+      - MUST append node id into completed_data_query_nodes
+      - MUST merge payload into data_query_results under that node id
     """
-    # Extract context data from LangGraph 0.6.x Runtime Context API
+    thread_id = runtime.context.thread_id
+    execution_id = runtime.context.execution_id
+    original_query = runtime.context.query
+    correlation_id = runtime.context.correlation_id
+    checkpoint_enabled = runtime.context.enable_checkpoints
+
+    logger.info(
+        f"Executing data_query node in thread {thread_id}",
+        extra={
+            "thread_id": thread_id,
+            "execution_id": execution_id,
+            "correlation_id": correlation_id,
+            "query_length": len(original_query or ""),
+            "checkpoint_enabled": checkpoint_enabled,
+        },
+    )
+
+    try:
+        agent = await create_agent_with_llm("data_query", state=state, runtime=runtime)
+        context = await convert_state_to_context(state)
+
+        refined = ""
+        try:
+            if state.get("refiner"):
+                refined = cast(RefinerState, state["refiner"]).get("refined_question", "")  # type: ignore[arg-type]
+        except Exception:
+            refined = ""
+
+        effective_query = refined or (original_query or state.get("query", "") or context.query)
+        _record_effective_query(state, "data_query", effective_query)
+
+        result_context = await agent.run_with_retry(context)
+
+        # Find dynamic key like data_query:<view> (preferred node id)
+        agent_outputs = getattr(result_context, "agent_outputs", {}) or {}
+        dq_value: Any = None
+        dq_node_id: str = "data_query"  # fallback
+
+        if isinstance(agent_outputs, dict):
+            for k, v in agent_outputs.items():
+                if isinstance(k, str) and k.startswith("data_query:"):
+                    dq_node_id = k
+                    dq_value = v
+                    break
+
+        if dq_value is None and isinstance(agent_outputs, dict):
+            dq_value = agent_outputs.get("data_query")
+
+        # Prefer structured payload if present
+        payload: Any = None
+        if isinstance(getattr(result_context, "execution_state", None), dict):
+            payload = result_context.execution_state.get("data_query_result")
+            if payload is None:
+                # fall back to whatever the agent emitted
+                payload = dq_value
+
+            # Keep a "data_view" convenience if useful downstream
+            if "data_view" not in result_context.execution_state and payload is not None:
+                result_context.execution_state["data_view"] = payload
+        else:
+            payload = dq_value
+
+        canonical_value = payload if payload is not None else ""
+
+        # Ensure meta has canonical entry (UI often keys off this)
+        if isinstance(getattr(result_context, "execution_state", None), dict):
+            aom = result_context.execution_state.setdefault("agent_output_meta", {})
+            if isinstance(aom, dict):
+                aom.setdefault("data_query", {"agent": "data_query", "action": "read"})
+                if dq_node_id != "data_query":
+                    aom.setdefault(dq_node_id, {"agent": dq_node_id, "action": "read", "alias": "data_query"})
+
+        data_query_state = DataQueryState(
+            query=effective_query,
+            result=canonical_value,
+            timestamp=datetime.now(timezone.utc).isoformat(),
+            agent_output_meta=result_context.execution_state.get("agent_output_meta", {})
+            if isinstance(getattr(result_context, "execution_state", None), dict)
+            else {},
+        )
+
+        structured_outputs = (
+            result_context.execution_state.get("structured_outputs", {})
+            if isinstance(getattr(result_context, "execution_state", None), dict)
+            else {}
+        )
+
+        exec_state = _ensure_exec_state(state)
+
+        successful = ["data_query"]
+        if dq_node_id != "data_query":
+            successful.append(dq_node_id)
+
+        # ------------------------------------------------------------------
+        # ✅ Option A state updates (CRITICAL):
+        # reducers apply because we return these keys
+        # ------------------------------------------------------------------
+        option_a_updates: Dict[str, Any] = {
+            "completed_data_query_nodes": [dq_node_id],
+            "data_query_results": {dq_node_id: canonical_value},
+        }
+
+        # Keep planned list best-effort if router didn't fill it (no reducer here, so only set when empty)
+        planned = state.get("planned_data_query_nodes")
+        if (not isinstance(planned, list)) or (len(planned) == 0):
+            option_a_updates["planned_data_query_nodes"] = [dq_node_id]
+
+        return {
+            "execution_state": exec_state,
+            "data_query": data_query_state,  # legacy compatibility
+            "successful_agents": successful,
+            "structured_outputs": structured_outputs,
+            **option_a_updates,
+        }
+
+    except Exception as e:
+        logger.error(
+            f"data_query node failed: {e}",
+            extra={
+                "thread_id": thread_id,
+                "execution_id": execution_id,
+                "correlation_id": correlation_id,
+                "error": str(e),
+                "error_type": type(e).__name__,
+            },
+        )
+        record_agent_error(state, "data_query", e)
+        raise NodeExecutionError(f"data_query execution failed: {e}") from e
+
+
+@circuit_breaker(max_failures=3, reset_timeout=300.0)
+@node_metrics
+async def critic_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Dict[str, Any]:
     thread_id = runtime.context.thread_id
     execution_id = runtime.context.execution_id
     original_query = runtime.context.query
@@ -811,56 +773,25 @@ async def critic_node(
     )
 
     try:
-        # Validate dependencies
         if not state.get("refiner"):
             raise NodeExecutionError("Critic node requires refiner output")
 
-        # Emit agent execution started event with runtime context
-        emit_agent_execution_started(
-            event_category=EventCategory.EXECUTION,
-            workflow_id=execution_id,
-            agent_name="critic",
-            input_context={
-                "query": original_query or "",
-                "has_refiner_output": True,
-                "node_type": "critic",
-                "thread_id": thread_id,
-                "runtime_context": True,
-            },
-            correlation_id=correlation_id,
-            metadata={
-                "node_execution": True,
-                "orchestrator_type": "langgraph-real",
-                "runtime_api_version": "0.6.4",
-                "thread_id": thread_id,
-                "checkpoint_enabled": checkpoint_enabled,
-            },
-        )
-
-        # Create agent
         agent = await create_agent_with_llm("critic", state=state, runtime=runtime)
-
-        # Convert state to context
         context = await convert_state_to_context(state)
 
-        # Record the effective query this node actually used (prefer refined question)
         refined = ""
         try:
-            if state.get("refiner"):
-                refined = cast(RefinerState, state["refiner"]).get("refined_question", "")  # type: ignore[arg-type]
+            refined = cast(RefinerState, state["refiner"]).get("refined_question", "")  # type: ignore[arg-type]
         except Exception:
             refined = ""
 
         effective_query = refined or (original_query or state.get("query", "") or context.query)
         _record_effective_query(state, "critic", effective_query)
 
-        # Execute agent with event emission and retry logic
         result_context = await agent.run_with_retry(context)
 
-        # Extract critic output (using "Critic" key, not "critic")
         critic_raw_output = result_context.agent_outputs.get("critic", "")
 
-        # Create typed output
         critic_state = CriticState(
             critique=critic_raw_output,
             suggestions=result_context.execution_state.get("suggestions", []),
@@ -869,53 +800,12 @@ async def critic_node(
             weaknesses=result_context.execution_state.get("weaknesses", []),
             confidence=result_context.execution_state.get("confidence", 0.7),
             timestamp=datetime.now(timezone.utc).isoformat(),
-            agent_output_meta=context.execution_state.get("agent_output_meta", {})
-
+            agent_output_meta=result_context.execution_state.get("agent_output_meta", {}),
         )
 
-        # Get token usage information from agent context
-        critic_token_usage = result_context.get_agent_token_usage("critic")
+        structured_outputs = result_context.execution_state.get("structured_outputs", {})
 
-        # Emit agent execution completed event with runtime context and token usage
-        emit_agent_execution_completed(
-            event_category=EventCategory.EXECUTION,
-            workflow_id=execution_id,
-            agent_name="critic",
-            success=True,
-            output_context={
-                "critique": truncate_for_websocket_event(
-                    str(critic_raw_output), "critique"
-                ),
-                "node_type": "critic",
-                "thread_id": thread_id,
-                "runtime_context": True,
-                "confidence": critic_state["confidence"],
-                # Add token usage to output context for WebSocket events
-                "input_tokens": critic_token_usage["input_tokens"],
-                "output_tokens": critic_token_usage["output_tokens"],
-                "total_tokens": critic_token_usage["total_tokens"],
-            },
-            correlation_id=correlation_id,
-            metadata={
-                "node_execution": True,
-                "orchestrator_type": "langgraph-real",
-                "runtime_api_version": "0.6.4",
-                "thread_id": thread_id,
-                "checkpoint_enabled": checkpoint_enabled,
-            },
-        )
-
-        # Extract structured_outputs from result_context for persistence
-        structured_outputs = result_context.execution_state.get(
-            "structured_outputs", {}
-        )
-
-        # Return state update with agent output and success tracking
-        logger.info("Critic node completed successfully")
-        exec_state = state.get("execution_state", {})
-        if not isinstance(exec_state, dict):
-            exec_state = {}
-
+        exec_state = _ensure_exec_state(state)
         return {
             "execution_state": exec_state,
             "critic": critic_state,
@@ -923,62 +813,15 @@ async def critic_node(
             "structured_outputs": structured_outputs,
         }
 
-
     except Exception as e:
         logger.error(f"Critic node failed: {e}")
-
-        # Emit agent execution failed event with runtime context
-        emit_agent_execution_completed(
-            event_category=EventCategory.EXECUTION,
-            workflow_id=execution_id,
-            agent_name="critic",
-            success=False,
-            output_context={
-                "error": str(e),
-                "node_type": "critic",
-                "thread_id": thread_id,
-                "runtime_context": True,
-            },
-            error_message=str(e),
-            error_type=type(e).__name__,
-            correlation_id=correlation_id,
-            metadata={
-                "node_execution": True,
-                "orchestrator_type": "langgraph-real",
-                "runtime_api_version": "0.6.4",
-                "thread_id": thread_id,
-                "checkpoint_enabled": checkpoint_enabled,
-            },
-        )
-
-        error_state = record_agent_error(state, "critic", e)
+        record_agent_error(state, "critic", e)
         raise NodeExecutionError(f"Critic execution failed: {e}") from e
 
 
 @circuit_breaker(max_failures=3, reset_timeout=300.0)
 @node_metrics
-async def historian_node(
-    state: OSSSState, runtime: Runtime[OSSSContext]
-) -> Dict[str, Any]:
-    """
-    LangGraph node wrapper for HistorianAgent.
-
-    Retrieves and analyzes historical context using intelligent search
-    and LLM-powered relevance analysis.
-
-    Parameters
-    ----------
-    state : OSSSState
-        Current LangGraph state (must contain refiner output)
-    runtime : Runtime[OSSSContext]
-        LangGraph 0.6.x runtime context providing type-safe access to execution metadata
-
-    Returns
-    -------
-    OSSSState
-        Updated state with HistorianState
-    """
-    # Extract context data from LangGraph 0.6.x Runtime Context API
+async def historian_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Dict[str, Any]:
     thread_id = runtime.context.thread_id
     execution_id = runtime.context.execution_id
     original_query = runtime.context.query
@@ -996,157 +839,67 @@ async def historian_node(
         },
     )
 
+    # Optional skip
     if not should_run_historian(original_query or ""):
         logger.info("Skipping historian node (routing heuristic)")
 
-        # Still record what historian *would* have used for consistency
         refined = ""
         try:
             if state.get("refiner"):
                 refined = cast(RefinerState, state["refiner"]).get("refined_question", "")  # type: ignore[arg-type]
         except Exception:
             refined = ""
+
         effective_query = refined or (original_query or state.get("query", ""))
         _record_effective_query(state, "historian", effective_query)
 
-        exec_state = state.get("execution_state", {})
-        if not isinstance(exec_state, dict):
-            exec_state = {}
-
+        exec_state = _ensure_exec_state(state)
         return {
             "execution_state": exec_state,
             "historian": None,
-            "successful_agents": [],  # keep your semantics
+            "successful_agents": [],
             "structured_outputs": state.get("structured_outputs", {}) or {},
         }
 
     try:
-        # Validate dependencies
         if not state.get("refiner"):
             raise NodeExecutionError("Historian node requires refiner output")
 
-        # Emit agent execution started event with runtime context
-        emit_agent_execution_started(
-            event_category=EventCategory.EXECUTION,
-            workflow_id=execution_id,
-            agent_name="historian",
-            input_context={
-                "query": original_query or "",
-                "has_refiner_output": True,
-                "node_type": "historian",
-                "thread_id": thread_id,
-                "runtime_context": True,
-            },
-            correlation_id=correlation_id,
-            metadata={
-                "node_execution": True,
-                "orchestrator_type": "langgraph-real",
-                "runtime_api_version": "0.6.4",
-                "thread_id": thread_id,
-                "checkpoint_enabled": checkpoint_enabled,
-            },
-        )
-
-        # Create agent
         agent = await create_agent_with_llm("historian", state=state, runtime=runtime)
-
-        # Convert state to context
         context = await convert_state_to_context(state)
 
-        # Record the effective query this node actually used (prefer refined question)
         refined = ""
         try:
-            if state.get("refiner"):
-                refined = cast(RefinerState, state["refiner"]).get("refined_question", "")  # type: ignore[arg-type]
+            refined = cast(RefinerState, state["refiner"]).get("refined_question", "")  # type: ignore[arg-type]
         except Exception:
             refined = ""
 
         effective_query = refined or (original_query or state.get("query", "") or context.query)
         _record_effective_query(state, "historian", effective_query)
 
-
-        # Execute agent with event emission and retry logic
         result_context = await agent.run_with_retry(context)
 
-        # Extract historian output (using "Historian" key, not "historian")
         historian_raw_output = result_context.agent_outputs.get("historian", "")
-
-        # Extract retrieved notes from context
         retrieved_notes = getattr(result_context, "retrieved_notes", [])
+        topics_found = result_context.execution_state.get("topics_found", []) if isinstance(result_context.execution_state, dict) else []
 
-        # Determine topics found from retrieved notes context
-        topics_found = []
-        if hasattr(result_context, "execution_state"):
-            topics_found = result_context.execution_state.get("topics_found", [])
-
-        # Create typed output
         historian_state = HistorianState(
             historical_summary=historian_raw_output,
             retrieved_notes=retrieved_notes,
-            search_results_count=result_context.execution_state.get(
-                "search_results_count", 0
-            ),
-            filtered_results_count=result_context.execution_state.get(
-                "filtered_results_count", 0
-            ),
-            search_strategy=result_context.execution_state.get(
-                "search_strategy", "hybrid"
-            ),
+            search_results_count=result_context.execution_state.get("search_results_count", 0),
+            filtered_results_count=result_context.execution_state.get("filtered_results_count", 0),
+            search_strategy=result_context.execution_state.get("search_strategy", "hybrid"),
             topics_found=topics_found,
             confidence=result_context.execution_state.get("confidence", 0.8),
-            llm_analysis_used=result_context.execution_state.get(
-                "llm_analysis_used", True
-            ),
+            llm_analysis_used=result_context.execution_state.get("llm_analysis_used", True),
             metadata=result_context.execution_state.get("historian_metadata", {}),
             timestamp=datetime.now(timezone.utc).isoformat(),
-            agent_output_meta=context.execution_state.get("agent_output_meta", {})
-
+            agent_output_meta=result_context.execution_state.get("agent_output_meta", {}),
         )
 
-        # Get token usage information from agent context
-        historian_token_usage = result_context.get_agent_token_usage("historian")
+        structured_outputs = result_context.execution_state.get("structured_outputs", {})
 
-        # Emit agent execution completed event with runtime context and token usage
-        emit_agent_execution_completed(
-            event_category=EventCategory.EXECUTION,
-            workflow_id=execution_id,
-            agent_name="historian",
-            success=True,
-            output_context={
-                "historical_summary": truncate_for_websocket_event(
-                    str(historian_raw_output), "historical_summary"
-                ),
-                "node_type": "historian",
-                "thread_id": thread_id,
-                "runtime_context": True,
-                "confidence": historian_state["confidence"],
-                "search_strategy": historian_state["search_strategy"],
-                # Add token usage to output context for WebSocket events
-                "input_tokens": historian_token_usage["input_tokens"],
-                "output_tokens": historian_token_usage["output_tokens"],
-                "total_tokens": historian_token_usage["total_tokens"],
-            },
-            correlation_id=correlation_id,
-            metadata={
-                "node_execution": True,
-                "orchestrator_type": "langgraph-real",
-                "runtime_api_version": "0.6.4",
-                "thread_id": thread_id,
-                "checkpoint_enabled": checkpoint_enabled,
-            },
-        )
-
-        # Extract structured_outputs from result_context for persistence
-        structured_outputs = result_context.execution_state.get(
-            "structured_outputs", {}
-        )
-
-        # Return state update with agent output and success tracking
-        logger.info("Historian node completed successfully")
-        exec_state = state.get("execution_state", {})
-        if not isinstance(exec_state, dict):
-            exec_state = {}
-
+        exec_state = _ensure_exec_state(state)
         return {
             "execution_state": exec_state,
             "historian": historian_state,
@@ -1154,62 +907,23 @@ async def historian_node(
             "structured_outputs": structured_outputs,
         }
 
-
     except Exception as e:
         logger.error(f"Historian node failed: {e}")
-
-        # Emit agent execution failed event with runtime context
-        emit_agent_execution_completed(
-            event_category=EventCategory.EXECUTION,
-            workflow_id=execution_id,
-            agent_name="historian",
-            success=False,
-            output_context={
-                "error": str(e),
-                "node_type": "historian",
-                "thread_id": thread_id,
-                "runtime_context": True,
-            },
-            error_message=str(e),
-            error_type=type(e).__name__,
-            correlation_id=correlation_id,
-            metadata={
-                "node_execution": True,
-                "orchestrator_type": "langgraph-real",
-                "runtime_api_version": "0.6.4",
-                "thread_id": thread_id,
-                "checkpoint_enabled": checkpoint_enabled,
-            },
-        )
-
-        error_state = record_agent_error(state, "historian", e)
+        record_agent_error(state, "historian", e)
         raise NodeExecutionError(f"Historian execution failed: {e}") from e
 
 
 @circuit_breaker(max_failures=3, reset_timeout=300.0)
 @node_metrics
-async def synthesis_node(
-    state: OSSSState, runtime: Runtime[OSSSContext]
-) -> Dict[str, Any]:
+async def synthesis_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Dict[str, Any]:
     """
-    LangGraph node wrapper for SynthesisAgent.
+    Synthesis is now safe in "action mode":
+      - if data_query exists, return it as final analysis WITHOUT calling LLM
+      - otherwise run synthesis LLM using whatever signals exist
 
-    Generates final synthesis from multiple agent outputs,
-    creating coherent and comprehensive analysis.
-
-    Parameters
-    ----------
-    state : OSSSState
-        Current LangGraph state (must contain refiner, critic, and historian outputs)
-    runtime : Runtime[OSSSContext]
-        LangGraph 0.6.x runtime context providing type-safe access to execution metadata
-
-    Returns
-    -------
-    OSSSState
-        Updated state with SynthesisState
+    Option A:
+      - Prefer state['data_query_results'] (latest completed) over context.agent_outputs['data_query']
     """
-    # Extract context data from LangGraph 0.6.x Runtime Context API
     thread_id = runtime.context.thread_id
     execution_id = runtime.context.execution_id
     original_query = runtime.context.query
@@ -1228,197 +942,134 @@ async def synthesis_node(
     )
 
     try:
-        # Validate dependencies
         if not state.get("refiner"):
             raise NodeExecutionError("Synthesis node requires refiner output")
-        if not state.get("critic"):
-            raise NodeExecutionError("Synthesis node requires critic output")
-        # Historian is optional for speed unless query indicates it's needed
-        if not state.get("historian"):
-            # If historian *should* have run, treat this as an error
-            if should_run_historian(original_query or ""):
-                raise NodeExecutionError("Synthesis node requires historian output for this query")
 
-            # Otherwise, proceed: historian was intentionally skipped
-            logger.info("Proceeding without historian output (skipped by routing)")
-
-        # Emit agent execution started event with runtime context
-        emit_agent_execution_started(
-            event_category=EventCategory.EXECUTION,
-            workflow_id=execution_id,
-            agent_name="synthesis",
-            input_context={
-                "query": original_query or "",
-                "has_all_inputs": True,
-                "node_type": "synthesis",
-                "thread_id": thread_id,
-                "runtime_context": True,
-            },
-            correlation_id=correlation_id,
-            metadata={
-                "node_execution": True,
-                "orchestrator_type": "langgraph-real",
-                "runtime_api_version": "0.6.4",
-                "thread_id": thread_id,
-                "checkpoint_enabled": checkpoint_enabled,
-            },
-        )
-
-        # Create agent
-        agent = await create_agent_with_llm("synthesis", state=state, runtime=runtime)
-
-        # Convert state to context
         context = await convert_state_to_context(state)
 
-        # Record the effective query this node actually used (prefer refined question)
+        critic_text = (context.agent_outputs.get("critic") or "").strip()
+        historian_text = (context.agent_outputs.get("historian") or "").strip()
+
+        # ✅ Option A: pull latest data_query payload from state
+        dq_payload = _pick_latest_data_query_payload(state)
+        data_query_text = _to_text(dq_payload) if dq_payload is not None else ""
+
+        if data_query_text:
+            mode = "action"
+        elif critic_text or historian_text:
+            mode = "reflection"
+        else:
+            mode = "fallback"
+
+        # Only enforce historian when your heuristic says it is required AND it was explicitly skipped (None)
+        if mode in {"reflection", "fallback"} and not historian_text:
+            if should_run_historian(original_query or "") and state.get("historian") is None:
+                raise NodeExecutionError("Synthesis node requires historian output for this query")
+            logger.info("Proceeding without historian output (skipped by routing)")
+
+        if not critic_text:
+            logger.info("Proceeding without critic output (skipped by routing)")
+
         refined = ""
         try:
-            if state.get("refiner"):
-                refined = cast(RefinerState, state["refiner"]).get("refined_question", "")  # type: ignore[arg-type]
+            refined = cast(RefinerState, state["refiner"]).get("refined_question", "")  # type: ignore[arg-type]
         except Exception:
             refined = ""
 
         effective_query = refined or (original_query or state.get("query", "") or context.query)
         _record_effective_query(state, "synthesis", effective_query)
 
+        synthesis_raw_output = ""
 
-        # Execute agent with event emission and retry logic
-        result_context = await agent.run_with_retry(context)
+        if mode == "action":
+            synthesis_raw_output = data_query_text
 
-        # Extract synthesis output (using "Synthesis" key, not "synthesis")
-        synthesis_raw_output = result_context.agent_outputs.get("synthesis", "")
+            # Ensure synthesis channel exists for UI/API
+            context.add_agent_output("synthesis", synthesis_raw_output)
 
-        # Determine sources used
-        sources_used = []
+            if isinstance(context.execution_state, dict):
+                aom = context.execution_state.get("agent_output_meta")
+                if not isinstance(aom, dict):
+                    aom = {}
+                    context.execution_state["agent_output_meta"] = aom
+
+                latest_node_id = _pick_latest_data_query_node_id(state)
+                aom["synthesis"] = {
+                    "agent": "synthesis",
+                    "mode": "action",
+                    "source": "data_query_results",
+                    "data_query_node_id": latest_node_id,
+                    "action": "read",
+                    "llm_used": False,
+                }
+
+        else:
+            agent = await create_agent_with_llm("synthesis", state=state, runtime=runtime)
+
+            # ✅ Critical: pass the *instance* context (never AgentContext type)
+            result_context = await agent.run_with_retry(context)
+
+            context = result_context
+            synthesis_raw_output = (context.agent_outputs.get("synthesis") or "").strip()
+
+            if isinstance(context.execution_state, dict):
+                context.execution_state.setdefault("synthesis_metadata", {})
+                context.execution_state["synthesis_metadata"].update({"mode": mode, "llm_used": True})
+
+        sources_used: List[str] = []
         if state.get("refiner"):
             sources_used.append("refiner")
-        if state.get("critic"):
+        if data_query_text:
+            sources_used.append("data_query")
+        if critic_text:
             sources_used.append("critic")
-        if state.get("historian"):
+        if historian_text:
             sources_used.append("historian")
 
-        # Create typed output
         synthesis_state = SynthesisState(
             final_analysis=synthesis_raw_output,
-            key_insights=result_context.execution_state.get("key_insights", []),
+            key_insights=context.execution_state.get("key_insights", []) if isinstance(context.execution_state, dict) else [],
             sources_used=sources_used,
-            themes_identified=result_context.execution_state.get("themes", []),
-            conflicts_resolved=result_context.execution_state.get(
-                "conflicts_resolved", 0
-            ),
-            confidence=result_context.execution_state.get("confidence", 0.8),
-            metadata=result_context.execution_state.get("synthesis_metadata", {}),
+            themes_identified=context.execution_state.get("themes", []) if isinstance(context.execution_state, dict) else [],
+            conflicts_resolved=context.execution_state.get("conflicts_resolved", 0) if isinstance(context.execution_state, dict) else 0,
+            confidence=context.execution_state.get("confidence", 0.8) if isinstance(context.execution_state, dict) else 0.8,
+            metadata=context.execution_state.get("synthesis_metadata", {"mode": mode}) if isinstance(context.execution_state, dict) else {"mode": mode},
             timestamp=datetime.now(timezone.utc).isoformat(),
-            agent_output_meta=context.execution_state.get("agent_output_meta", {})
-
+            agent_output_meta=context.execution_state.get("agent_output_meta", {}) if isinstance(context.execution_state, dict) else {},
         )
 
-        # Get token usage information from agent context
-        synthesis_token_usage = result_context.get_agent_token_usage("synthesis")
+        structured_outputs = context.execution_state.get("structured_outputs", {}) if isinstance(context.execution_state, dict) else {}
 
-        # Emit agent execution completed event with runtime context and token usage
-        emit_agent_execution_completed(
-            event_category=EventCategory.EXECUTION,
-            workflow_id=execution_id,
-            agent_name="synthesis",
-            success=True,
-            output_context={
-                "final_analysis": truncate_for_websocket_event(
-                    str(synthesis_raw_output), "final_analysis"
-                ),
-                "node_type": "synthesis",
-                "thread_id": thread_id,
-                "runtime_context": True,
-                "confidence": synthesis_state["confidence"],
-                "sources_used": synthesis_state["sources_used"],
-                # Add token usage to output context for WebSocket events
-                "input_tokens": synthesis_token_usage["input_tokens"],
-                "output_tokens": synthesis_token_usage["output_tokens"],
-                "total_tokens": synthesis_token_usage["total_tokens"],
-            },
-            correlation_id=correlation_id,
-            metadata={
-                "node_execution": True,
-                "orchestrator_type": "langgraph-real",
-                "runtime_api_version": "0.6.4",
-                "thread_id": thread_id,
-                "checkpoint_enabled": checkpoint_enabled,
-            },
-        )
+        exec_state = _ensure_exec_state(state)
 
-        # Extract structured_outputs from result_context for persistence
-        structured_outputs = result_context.execution_state.get(
-            "structured_outputs", {}
-        )
-
-        # Return state update with agent output and success tracking
-        logger.info("Synthesis node completed successfully")
-        exec_state = state.get("execution_state", {})
-        if not isinstance(exec_state, dict):
-            exec_state = {}
+        agent_outputs = getattr(context, "agent_outputs", {}) or {}
+        agent_output_meta = {}
+        if isinstance(context.execution_state, dict):
+            aom = context.execution_state.get("agent_output_meta")
+            if isinstance(aom, dict):
+                agent_output_meta = aom
 
         return {
             "execution_state": exec_state,
             "synthesis": synthesis_state,
             "successful_agents": ["synthesis"],
             "structured_outputs": structured_outputs,
+            # Optional convenience for API/UI immediate rendering
+            "agent_outputs": agent_outputs,
+            "agent_output_meta": agent_output_meta,
         }
-
 
     except Exception as e:
         logger.error(f"Synthesis node failed: {e}")
-
-        # Emit agent execution failed event with runtime context
-        emit_agent_execution_completed(
-            event_category=EventCategory.EXECUTION,
-            workflow_id=execution_id,
-            agent_name="synthesis",
-            success=False,
-            output_context={
-                "error": str(e),
-                "node_type": "synthesis",
-                "thread_id": thread_id,
-                "runtime_context": True,
-            },
-            error_message=str(e),
-            error_type=type(e).__name__,
-            correlation_id=correlation_id,
-            metadata={
-                "node_execution": True,
-                "orchestrator_type": "langgraph-real",
-                "runtime_api_version": "0.6.4",
-                "thread_id": thread_id,
-                "checkpoint_enabled": checkpoint_enabled,
-            },
-        )
-
-        error_state = record_agent_error(state, "synthesis", e)
+        record_agent_error(state, "synthesis", e)
         raise NodeExecutionError(f"Synthesis execution failed: {e}") from e
 
 
-async def handle_node_timeout(
-    coro: Coroutine[Any, Any, Any], timeout_seconds: float = 30.0
-) -> Any:
-    """
-    Handle node execution with timeout.
+# ---------------------------------------------------------------------------
+# Utilities
+# ---------------------------------------------------------------------------
 
-    Parameters
-    ----------
-    coro : Coroutine
-        The coroutine to execute
-    timeout_seconds : float
-        Timeout in seconds
-
-    Returns
-    -------
-    Any
-        Coroutine result
-
-    Raises
-    ------
-    NodeExecutionError
-        If execution times out
-    """
+async def handle_node_timeout(coro: Coroutine[Any, Any, Any], timeout_seconds: float = 30.0) -> Any:
     try:
         return await asyncio.wait_for(coro, timeout=timeout_seconds)
     except asyncio.TimeoutError:
@@ -1428,28 +1079,14 @@ async def handle_node_timeout(
 def get_node_dependencies() -> Dict[str, List[str]]:
     return {
         "refiner": [],
+        "data_query": [],
         "critic": ["refiner"],
         "historian": ["refiner"],
-        "synthesis": ["critic"],  # historian is optional
+        "synthesis": ["refiner"],
     }
 
 
 def validate_node_input(state: OSSSState, node_name: str) -> bool:
-    """
-    Validate that a node has all required inputs.
-
-    Parameters
-    ----------
-    state : OSSSState
-        Current state
-    node_name : str
-        Name of node to validate
-
-    Returns
-    -------
-    bool
-        True if node can execute, False otherwise
-    """
     dependencies = get_node_dependencies()
     required_deps = dependencies.get(node_name, [])
 
@@ -1462,9 +1099,10 @@ def validate_node_input(state: OSSSState, node_name: str) -> bool:
     return len(missing_deps) == 0
 
 
-# Export node functions and utilities
 __all__ = [
+    "route_gate_node",
     "refiner_node",
+    "data_query_node",
     "critic_node",
     "historian_node",
     "synthesis_node",

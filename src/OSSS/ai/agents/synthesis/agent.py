@@ -1,6 +1,7 @@
 import logging
-from typing import Dict, Any, Optional, Union
+from typing import Dict, Any, Optional, Union, Tuple, List
 import asyncio
+import json
 from OSSS.ai.agents.base_agent import (
     BaseAgent,
     NodeType,
@@ -79,6 +80,183 @@ class SynthesisAgent(BaseAgent):
 
         # Compose the prompt on initialization for performance
         self._update_composed_prompt()
+
+    def _as_text(self, x: Any) -> str:
+        """Normalize unknown values (str/dict/list/etc.) into safe display text."""
+        if x is None:
+            return ""
+        if isinstance(x, str):
+            return x
+        try:
+            return json.dumps(x, indent=2, ensure_ascii=False, default=str)
+        except Exception:
+            return str(x)
+
+    def _extract_db_payload(self, data_query_output: Any) -> Any:
+        """
+        If data_query returns an envelope dict, extract the most useful payload.
+        Adjust keys here to match your data_query agent envelope contract.
+        """
+        if not isinstance(data_query_output, dict):
+            return data_query_output
+
+        for key in ("rows", "data", "items", "result", "results", "payload", "body"):
+            if key in data_query_output:
+                return data_query_output[key]
+
+        return data_query_output
+
+    def _to_int(self, v: Any, default: int = 0) -> int:
+        try:
+            if v is None:
+                return default
+            if isinstance(v, bool):
+                return int(v)
+            if isinstance(v, int):
+                return v
+            if isinstance(v, float):
+                return int(v)
+            if isinstance(v, str):
+                s = v.strip()
+                if s == "":
+                    return default
+                return int(float(s))  # handles "5" or "5.0"
+            return default
+        except Exception:
+            return default
+
+
+
+
+    def _find_data_query_payload(self, outputs: Dict[str, Any]) -> Tuple[Optional[str], Any]:
+        """
+        Find the data_query payload even when the key is namespaced like:
+          'data_query:warrantys' or 'data_query:teachers'
+        Returns (key, payload) or (None, None).
+        """
+        # 1) exact key
+        if "data_query" in outputs:
+            return "data_query", outputs["data_query"]
+
+        # 2) namespaced keys
+        for k, v in outputs.items():
+            if str(k).lower().startswith("data_query:"):
+                return k, v
+
+        # 3) fallback variants you might have
+        for k, v in outputs.items():
+            lk = str(k).lower()
+            if lk.startswith("dataquery:") or lk == "dataquery":
+                return k, v
+
+        return None, None
+
+    def _to_markdown_table(
+            self,
+            rows: List[Dict[str, Any]],
+            max_rows: int = 25,
+            max_cols: int = 10,
+    ) -> str:
+        if not rows:
+            return "_No rows returned._"
+
+        # Stable columns from first row; cap for readability
+        cols = list(rows[0].keys())[:max_cols]
+        rows = rows[:max_rows]
+
+        def cell(v: Any) -> str:
+            if v is None:
+                return ""
+            if isinstance(v, (dict, list)):
+                s = json.dumps(v, ensure_ascii=False, default=str)
+            else:
+                s = str(v)
+            s = s.replace("\n", " ").strip()
+            if len(s) > 120:
+                s = s[:120] + "…"
+            # prevent breaking markdown table pipes
+            s = s.replace("|", "\\|")
+            return s
+
+        header = "| " + " | ".join(cols) + " |"
+        sep = "| " + " | ".join(["---"] * len(cols)) + " |"
+        body = "\n".join(
+            "| " + " | ".join(cell(r.get(c)) for c in cols) + " |"
+            for r in rows
+        )
+
+        return "\n".join([header, sep, body])
+
+
+    def _format_db_appendix(self, outputs: Dict[str, Any]) -> str:
+        """
+        Pretty DB appendix for the UI:
+        - Table when rows are list[dict]
+        - JSON code block otherwise
+        - Never crashes on dict/list
+        """
+        dq_key, dq_payload = self._find_data_query_payload(outputs)
+        if not dq_key or dq_payload is None:
+            return ""
+
+        payload = self._extract_db_payload(dq_payload)
+
+        # Normalize rows into list if possible
+        rows: list[dict[str, Any]] = []
+        if isinstance(payload, list) and payload and all(isinstance(x, dict) for x in payload):
+            rows = payload  # type: ignore[assignment]
+        elif isinstance(payload, dict):
+            # common shape: {"rows": [...]} or {"items": [...]}
+            inner = None
+            for k in ("rows", "items", "data", "results"):
+                if k in payload:
+                    inner = payload[k]
+                    break
+            if isinstance(inner, list) and inner and all(isinstance(x, dict) for x in inner):
+                rows = inner  # type: ignore[assignment]
+
+        # Meta header (best-effort)
+        meta_bits: list[str] = []
+        if isinstance(dq_payload, dict):
+            view = str(dq_payload.get("view") or "").strip()
+            if view:
+                meta_bits.append(f"view={view}")
+            status_code = dq_payload.get("status_code")
+            if status_code is not None:
+                meta_bits.append(f"status={self._to_int(status_code, default=0)}")
+            row_count = dq_payload.get("row_count")
+            if row_count is not None:
+                meta_bits.append(f"rows={self._to_int(row_count, default=0)}")
+
+        meta_line = f"**{(' | '.join(meta_bits))}**\n\n" if meta_bits else ""
+
+        # Prefer table when we have row dicts
+        if rows:
+            table = self._to_markdown_table(rows, max_rows=25, max_cols=10)
+            return (
+                "\n\n---\n"
+                "## Database Results\n"
+                f"{meta_line}"
+                f"{table}\n"
+            )
+
+        # Otherwise dump a compact JSON preview (capped)
+        text = self._as_text(payload).strip()
+        if not text:
+            return ""
+
+        max_chars = 12_000
+        if len(text) > max_chars:
+            text = text[:max_chars] + "\n\n...<truncated>..."
+
+        return (
+            "\n\n---\n"
+            "## Database Results\n"
+            f"{meta_line}"
+            "```json\n"
+            f"{text}\n"
+            "```\n"
+        )
 
     def _wrap_output(
             self,
@@ -286,8 +464,7 @@ class SynthesisAgent(BaseAgent):
         logger.info(f"[{self.name}] Running synthesis for query: {query}")
         logger.info(f"[{self.name}] Processing outputs from: {list(outputs.keys())}")
 
-        # Track execution start
-        context.start_agent_execution(self.name)
+
 
         try:
             # Try structured output first if available, otherwise use traditional approach
@@ -337,6 +514,12 @@ class SynthesisAgent(BaseAgent):
 
             final_text = coerce_llm_text(final_synthesis).strip()
 
+            # ✅ Append DB results (pretty + safe) so UI includes them, never crash synthesis
+            try:
+                final_text = final_text + self._format_db_appendix(outputs)
+            except Exception as e:
+                logger.warning(f"[{self.name}] Failed to append DB results: {e}")
+
             env = self._wrap_output(
                 output=final_text,
                 intent="synthesis_query",
@@ -368,6 +551,7 @@ class SynthesisAgent(BaseAgent):
             fallback_output = await self._create_emergency_fallback(query, outputs)
             context.add_agent_output(self.name, fallback_output)
             context.set_final_synthesis(fallback_output)
+            context.mark_agent_error(self.name, e)
             context.complete_agent_execution(self.name, success=False)
             context.log_trace(self.name, input_data=outputs, output_data=str(e))
 

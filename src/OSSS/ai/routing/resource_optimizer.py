@@ -131,21 +131,25 @@ class ResourceConstraints(BaseModel):
         str_strip_whitespace=True,
     )
 
-    @field_validator("cost_per_agent", "quality_weights")
+    @field_validator("cost_per_agent")
     @classmethod
-    def validate_agent_mappings(cls, v: Dict[str, float]) -> Dict[str, float]:
-        """Validate that agent mapping values are within valid ranges."""
+    def validate_cost_per_agent(cls, v: Dict[str, float]) -> Dict[str, float]:
         for agent_name, value in v.items():
             if not isinstance(value, (int, float)):
-                raise ValueError(
-                    f"Agent mapping value for '{agent_name}' must be numeric"
-                )
+                raise ValueError(f"Cost for '{agent_name}' must be numeric")
             if value < 0.0:
-                raise ValueError(
-                    f"Agent mapping value for '{agent_name}' cannot be negative"
-                )
-            # Quality weights should be between 0 and 1
-            if "quality" in str(cls) and value > 1.0:
+                raise ValueError(f"Cost for '{agent_name}' cannot be negative")
+        return v
+
+    @field_validator("quality_weights")
+    @classmethod
+    def validate_quality_weights(cls, v: Dict[str, float]) -> Dict[str, float]:
+        for agent_name, value in v.items():
+            if not isinstance(value, (int, float)):
+                raise ValueError(f"Quality weight for '{agent_name}' must be numeric")
+            if value < 0.0:
+                raise ValueError(f"Quality weight for '{agent_name}' cannot be negative")
+            if value > 1.0:
                 raise ValueError(f"Quality weight for '{agent_name}' cannot exceed 1.0")
         return v
 
@@ -240,15 +244,13 @@ class ResourceConstraints(BaseModel):
         Convert to dictionary for serialization.
 
         Maintained for backward compatibility. Uses Pydantic's model_dump()
-        internally for consistent serialization with set handling.
+        internally for consistent serialization.
         """
         data = self.model_dump(mode="json")
 
-        # Convert sets to lists for JSON serialization compatibility
-        if isinstance(data.get("required_agents"), list):
-            data["required_agents"] = list(self.required_agents)
-        if isinstance(data.get("forbidden_agents"), list):
-            data["forbidden_agents"] = list(self.forbidden_agents)
+        # Ensure deterministic JSON output for sets
+        data["required_agents"] = sorted(list(self.required_agents))
+        data["forbidden_agents"] = sorted(list(self.forbidden_agents))
 
         return data
 
@@ -292,6 +294,12 @@ class ResourceOptimizer:
                 "critical": True,
                 "parallel_safe": False,
             },
+            "data_query": {
+                "quality_weight": 0.8,
+                "data_access": True,
+                "critical": False,
+                "parallel_safe": True,
+            },
         }
 
         # Default optimization weights for different strategies
@@ -329,36 +337,16 @@ class ResourceOptimizer:
         }
 
     def select_optimal_agents(
-        self,
-        available_agents: List[str],
-        complexity_score: float,
-        performance_data: Dict[str, Dict[str, Any]],
-        constraints: Optional[ResourceConstraints] = None,
-        strategy: OptimizationStrategy = OptimizationStrategy.BALANCED,
-        context_requirements: Optional[Dict[str, bool]] = None,
+            self,
+            available_agents: List[str],
+            complexity_score: float,
+            performance_data: Dict[str, Dict[str, Any]],
+            constraints: Optional[ResourceConstraints] = None,
+            strategy: OptimizationStrategy = OptimizationStrategy.BALANCED,
+            context_requirements: Optional[Dict[str, bool]] = None,
     ) -> RoutingDecision:
         """
         Select optimal agents based on multiple optimization criteria.
-
-        Parameters
-        ----------
-        available_agents : List[str]
-            Available agents to choose from
-        complexity_score : float
-            Query complexity score (0.0 to 1.0)
-        performance_data : Dict[str, Dict[str, Any]]
-            Historical performance data for agents
-        constraints : Optional[ResourceConstraints]
-            Resource constraints for optimization
-        strategy : OptimizationStrategy
-            Optimization strategy to use
-        context_requirements : Optional[Dict[str, bool]]
-            Context-specific requirements (research, criticism, etc.)
-
-        Returns
-        -------
-        RoutingDecision
-            Comprehensive routing decision with reasoning
         """
         start_time = time.time()
         constraints = constraints or ResourceConstraints()
@@ -373,6 +361,49 @@ class ResourceOptimizer:
             available_agents=available_agents.copy(),
         )
 
+        # ------------------------------------------------------------------
+        # ✅ Normalize available agents (lowercase, de-dupe, preserve order)
+        # ------------------------------------------------------------------
+        normalized_available: List[str] = []
+        seen = set()
+        for a in (available_agents or []):
+            if not a:
+                continue
+            al = str(a).strip().lower()
+            if al and al not in seen:
+                seen.add(al)
+                normalized_available.append(al)
+        available_agents = normalized_available
+        decision.available_agents = available_agents.copy()
+
+        # ------------------------------------------------------------------
+        # ✅ Enforce required agents from context_requirements (uses constraints.required_agents)
+        # ------------------------------------------------------------------
+        required_from_context: Set[str] = set()
+
+        if context_requirements.get("requires_refinement", False):
+            required_from_context.add("refiner")
+        if context_requirements.get("requires_synthesis", False):
+            required_from_context.add("synthesis")
+        if context_requirements.get("requires_data_query", False):
+            required_from_context.add("data_query")
+
+        if required_from_context:
+            # Normalize existing required agents to lowercase
+            constraints.required_agents = {
+                str(a).strip().lower()
+                for a in (constraints.required_agents or set())
+                if a
+            }
+            constraints.required_agents |= required_from_context
+
+        # Optional: observability if required agent isn't available
+        if context_requirements.get("requires_data_query", False) and "data_query" not in available_agents:
+            decision.add_risk(
+                "missing_required_agent",
+                "requires_data_query=True but data_query not in available_agents; cannot guarantee DB execution",
+            )
+
         # Error handling: Check for empty available agents
         if not available_agents:
             decision.add_risk("empty_agents_list", "No agents available for selection")
@@ -380,12 +411,22 @@ class ResourceOptimizer:
             decision.confidence_level = RoutingConfidenceLevel.VERY_LOW
             return decision
 
+
+        # If data_query was required but isn't available, log risk (don’t crash)
+        if context_requirements.get("requires_data_query", False) and "data_query" not in available_agents:
+            decision.add_risk(
+                "missing_required_data_query",
+                "requires_data_query=True but data_query not in available_agents; cannot guarantee DB execution",
+            )
+
+        # ------------------------------------------------------------------
         # Error handling: Validate and normalize complexity score
+        # ------------------------------------------------------------------
         original_complexity = complexity_score
         if (
-            complexity_score < 0
-            or complexity_score > 1
-            or not isinstance(complexity_score, (int, float))
+                complexity_score < 0
+                or complexity_score > 1
+                or not isinstance(complexity_score, (int, float))
         ):
             decision.add_risk(
                 "invalid_complexity_score",
@@ -415,15 +456,14 @@ class ResourceOptimizer:
 
         # Error handling: Validate constraints
         if constraints:
-            constraint_issues = self._validate_constraints(
-                constraints, available_agents, decision
-            )
-            # Additional validation for success rate constraints
+            self._validate_constraints(constraints, available_agents, decision)
             self._validate_success_rate_constraints(
                 constraints, sanitized_performance_data, decision
             )
 
+        # ------------------------------------------------------------------
         # Filter agents by constraints
+        # ------------------------------------------------------------------
         candidate_agents = self._filter_agents_by_constraints(
             available_agents,
             constraints,
@@ -431,13 +471,29 @@ class ResourceOptimizer:
             strict_required=False,
         )
 
-        # Check if any required agents are missing and add fallback risk
+        # ------------------------------------------------------------------
+        # ✅ Ensure required_agents survive constraint filtering
+        # ------------------------------------------------------------------
+        required_agents = {str(a).strip().lower() for a in (constraints.required_agents or set()) if a}
+
+        candidate_set = {a.lower() for a in candidate_agents}
+        for req in required_agents:
+            if req not in candidate_set and req in {a.lower() for a in available_agents}:
+                # add in the canonical casing from available_agents if possible
+                to_add = next((a for a in available_agents if a.lower() == req), req)
+                candidate_agents.append(to_add)
+                candidate_set.add(req)
+                decision.add_risk(
+                    "required_agent_override",
+                    f"Including required agent '{req}' despite constraints filtering",
+                )
+
+        # Existing logic: Check if any required agents are missing and add fallback risk
         if constraints.required_agents:
             available_set = set(agent.lower() for agent in available_agents)
             required_set = set(agent.lower() for agent in constraints.required_agents)
             selected_set = set(agent.lower() for agent in candidate_agents)
 
-            # Check if any required agents are missing from available agents
             missing_required = required_set - available_set
             if missing_required:
                 decision.add_risk(
@@ -445,15 +501,10 @@ class ResourceOptimizer:
                     "Using available agents as fallback for missing required agents",
                 )
 
-            # Check if any required agents are missing from selected candidates
             missing_from_selected = required_set - selected_set
             if missing_from_selected:
-                # Some required agents didn't make it through filtering, add them back
                 for agent in available_agents:
-                    if (
-                        agent.lower() in missing_from_selected
-                        and agent not in candidate_agents
-                    ):
+                    if agent.lower() in missing_from_selected and agent not in candidate_agents:
                         candidate_agents.append(agent)
                         decision.add_risk(
                             "required_agent_override",
@@ -475,9 +526,7 @@ class ResourceOptimizer:
                 )
 
             if not candidate_agents:
-                decision.add_reasoning(
-                    "resource", "error", "No agents satisfy constraints"
-                )
+                decision.add_reasoning("resource", "error", "No agents satisfy constraints")
                 decision.confidence_score = 0.0
                 decision.confidence_level = RoutingConfidenceLevel.VERY_LOW
                 return decision
@@ -502,13 +551,11 @@ class ResourceOptimizer:
             )
         except Exception as e:
             # Strategy failure fallback
-            decision.add_risk(
-                "strategy_failure_fallback", f"Strategy execution failed: {e}"
-            )
-            selected_agents = (
-                candidate_agents[:2] if len(candidate_agents) >= 2 else candidate_agents
-            )
+            decision.add_risk("strategy_failure_fallback", f"Strategy execution failed: {e}")
+            selected_agents = candidate_agents[:2] if len(candidate_agents) >= 2 else candidate_agents
             selection_confidence = 0.3
+
+
 
         # Build comprehensive decision
         decision.selected_agents = selected_agents
@@ -517,26 +564,15 @@ class ResourceOptimizer:
         # Apply confidence penalties for data quality issues
         risk_count = len(decision.reasoning.risks_identified)
         if risk_count > 0:
-            # Reduce confidence based on number of risks - higher penalty for constraint violations
             base_penalty = risk_count * 0.05
-            # Extra penalty for constraint violations
             constraint_risks = [
                 r
                 for r in decision.reasoning.risks_identified
-                if any(
-                    keyword in r
-                    for keyword in [
-                        "constraint",
-                        "unavailable",
-                        "success_rate_violation",
-                    ]
-                )
+                if any(keyword in r for keyword in ["constraint", "unavailable", "success_rate_violation"])
             ]
             constraint_penalty = len(constraint_risks) * 0.1
             total_penalty = min(0.5, base_penalty + constraint_penalty)
-            decision.confidence_score = max(
-                0.0, decision.confidence_score - total_penalty
-            )
+            decision.confidence_score = max(0.0, decision.confidence_score - total_penalty)
 
         decision.confidence_level = decision._calculate_confidence_level()
 
@@ -552,9 +588,7 @@ class ResourceOptimizer:
                 context_requirements,
             )
         except Exception as e:
-            decision.add_risk(
-                "reasoning_failure", f"Failed to build detailed reasoning: {e}"
-            )
+            decision.add_risk("reasoning_failure", f"Failed to build detailed reasoning: {e}")
 
         # Set execution metadata
         self._set_execution_metadata(decision)
@@ -563,14 +597,12 @@ class ResourceOptimizer:
         try:
             self._calculate_predictions(decision, sanitized_performance_data)
         except Exception as e:
-            decision.add_risk(
-                "prediction_failure", f"Failed to calculate predictions: {e}"
-            )
+            decision.add_risk("prediction_failure", f"Failed to calculate predictions: {e}")
 
         execution_time = (time.time() - start_time) * 1000
         self.logger.debug(
             f"Resource optimization completed in {execution_time:.1f}ms, "
-            f"selected {len(selected_agents)} agents with confidence {selection_confidence:.2f}"
+            f"selected {len(decision.selected_agents)} agents with confidence {selection_confidence:.2f}"
         )
 
         return decision

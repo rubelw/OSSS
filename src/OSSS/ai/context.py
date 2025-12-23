@@ -11,6 +11,22 @@ from .exceptions import StateTransitionError
 
 logger = logging.getLogger(__name__)
 
+class AgentExecutionInfo(BaseModel):
+    """
+    Per-agent execution record used by BaseAgent.run_with_retry()
+    to avoid double-completion + to determine real success.
+    """
+    agent: str
+    success: Optional[bool] = None   # None = not recorded
+    completed: bool = False
+    status: str = "pending"          # pending/running/completed/failed
+
+    step_id: Optional[str] = None
+    started_at: Optional[str] = None
+    ended_at: Optional[str] = None
+
+    error_type: Optional[str] = None
+    error_message: Optional[str] = None
 
 class ContextSnapshot(BaseModel):
     """Immutable snapshot of context state for rollback capabilities."""
@@ -198,10 +214,8 @@ class AgentContext(BaseModel):
     execution_state: Dict[str, Any] = Field(
         default_factory=dict, description="Dynamic execution state data"
     )
-    agent_execution_status: Dict[str, str] = Field(
-        default_factory=dict,
-        description="Agent execution status mapping (pending, running, completed, failed)",
-    )
+    agent_executions: dict[str, dict] = Field(default_factory=dict)
+
     successful_agents: Set[str] = Field(
         default_factory=set, description="Set of successfully completed agents"
     )
@@ -248,6 +262,8 @@ class AgentContext(BaseModel):
     # Success tracking for artifact export logic
     success: bool = Field(default=True, description="Overall execution success status")
 
+    completed: bool = False
+
     # Agent isolation tracking
     agent_mutations: Dict[str, List[str]] = Field(
         default_factory=dict, description="Track which agent modified which fields"
@@ -259,12 +275,20 @@ class AgentContext(BaseModel):
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
+
+    def _canon_agent(self, agent_name: str) -> str:
+        return (agent_name or "").strip().lower()
+
+
+
     def add_agent_output_envelope(self, agent_name: str, envelope: dict) -> None:
+        agent = self._canon_agent(agent_name)
+
         if not isinstance(envelope, dict):
             envelope = {"output": str(envelope)}
 
         # Ensure stable keys so downstream can rely on them
-        envelope.setdefault("agent", agent_name)
+        envelope.setdefault("agent", agent)
         envelope.setdefault("output", "")
         envelope.setdefault("content", envelope.get("output", ""))
         envelope.setdefault("intent", None)
@@ -274,10 +298,16 @@ class AgentContext(BaseModel):
 
         # Store ONLY in execution_state (safe for Pydantic forbid-extra models)
         self.execution_state.setdefault("agent_output_meta", {})
-        self.execution_state["agent_output_meta"][agent_name] = envelope
+        self.execution_state["agent_output_meta"][agent] = envelope
 
     def get_agent_output_envelope(self, agent_name: str) -> dict:
-        return (self.execution_state.get("agent_output_meta") or {}).get(agent_name, {})
+        agent = self._canon_agent(agent_name)
+
+        return (self.execution_state.get("agent_output_meta") or {}).get(agent, {})
+
+    def get_agent_execution(self, agent_name: str) -> Optional[AgentExecutionInfo]:
+        agent = self._canon_agent(agent_name)
+        return self.agent_executions.get(agent)
 
     @field_validator("query")
     @classmethod
@@ -287,15 +317,17 @@ class AgentContext(BaseModel):
             raise ValueError("Query cannot be empty or just whitespace")
         return v.strip()
 
-    @field_validator("agent_execution_status")
+    from pydantic import field_validator
+
+    @field_validator("agent_execution_status", check_fields=False)
     @classmethod
     def validate_agent_status_values(cls, v: Dict[str, str]) -> Dict[str, str]:
-        """Validate that agent execution status values are valid."""
         valid_statuses = {"pending", "running", "completed", "failed"}
         for agent_name, status in v.items():
             if status not in valid_statuses:
                 raise ValueError(
-                    f"Invalid agent status '{status}' for agent '{agent_name}'. Must be one of: {valid_statuses}"
+                    f"Invalid agent status '{status}' for agent '{agent_name}'. "
+                    f"Must be one of: {valid_statuses}"
                 )
         return v
 
@@ -346,7 +378,8 @@ class AgentContext(BaseModel):
         - dict → cap selected text keys (per-key caps win)
         - recurse one level only (safe + cheap)
         """
-        agent = agent_name.lower()
+        agent = self._canon_agent(agent_name)
+
 
         char_cap = self.OUTPUT_CHAR_CAPS.get(agent)
         list_cap = self.OUTPUT_LIST_ITEM_CAPS.get(agent)
@@ -481,6 +514,7 @@ class AgentContext(BaseModel):
 
     def add_agent_output(self, agent_name: str, output: Any) -> None:
         """Add agent output with size monitoring."""
+        agent = self._canon_agent(agent_name)
 
         # If the agent already returned an envelope, preserve it.
         if isinstance(output, dict):
@@ -491,8 +525,20 @@ class AgentContext(BaseModel):
             for k in ("intent", "tone"):
                 if k in envelope and k not in meta:
                     meta[k] = envelope[k]
-            envelope = {"content": content, "meta": meta}
-            self.add_agent_output_envelope(agent_name, envelope)
+            action = envelope.get("action") if isinstance(envelope, dict) else None
+            intent = envelope.get("intent") if isinstance(envelope, dict) else None
+            tone = envelope.get("tone") if isinstance(envelope, dict) else None
+
+            wrapped = {"content": content, "meta": meta}
+            if action is not None:
+                wrapped["action"] = action
+            if intent is not None:
+                wrapped["intent"] = intent
+            if tone is not None:
+                wrapped["tone"] = tone
+
+            self.add_agent_output_envelope(agent, wrapped)
+
             output = content  # what you store in agent_outputs for display
         else:
             # Existing behavior for non-dicts
@@ -514,25 +560,25 @@ class AgentContext(BaseModel):
         )
 
         # 1) Hard per-agent caps (string-only)
-        cap = self.OUTPUT_CHAR_CAPS.get(agent_name.lower())
+        cap = self.OUTPUT_CHAR_CAPS.get(agent.lower())
         if cap and isinstance(output, str):
             output = output[:cap]
 
         # 2) Existing cap logic (kept)
-        output = self._cap_agent_output(agent_name, output)
+        output = self._cap_agent_output(agent, output)
 
         # 3) Safety clip for prompt hygiene / logging hygiene
         output = clip(output)
 
-        self.agent_outputs[agent_name] = output
+        self.agent_outputs[agent] = output
         self._update_size()
         self._check_size_limits()
-        logger.info(f"Added output for agent '{agent_name}': {str(output)[:100]}...")
+        logger.info(f"Added output for agent '{agent}': {str(output)[:100]}...")
         logger.debug(
-            f"Context size after adding {agent_name}: {self.current_size} bytes"
+            f"Context size after adding {agent}: {self.current_size} bytes"
         )
 
-        self.agent_outputs[agent_name] = output
+        self.agent_outputs[agent] = output
 
     def add_agent_token_usage(
         self,
@@ -555,6 +601,7 @@ class AgentContext(BaseModel):
         total_tokens : Optional[int], default=None
             Total tokens consumed. If None, calculated as input_tokens + output_tokens
         """
+        agent = self._canon_agent(agent_name)
         if input_tokens < 0 or output_tokens < 0:
             raise ValueError("Token counts cannot be negative")
 
@@ -564,7 +611,7 @@ class AgentContext(BaseModel):
             raise ValueError("Total tokens cannot be negative")
 
         # Store agent-specific token usage
-        self.agent_token_usage[agent_name] = {
+        self.agent_token_usage[agent] = {
             "input_tokens": input_tokens,
             "output_tokens": output_tokens,
             "total_tokens": total_tokens,
@@ -576,7 +623,7 @@ class AgentContext(BaseModel):
         self.total_tokens += total_tokens
 
         logger.debug(
-            f"Token usage recorded for agent '{agent_name}': "
+            f"Token usage recorded for agent '{agent}': "
             f"input={input_tokens}, output={output_tokens}, total={total_tokens}"
         )
 
@@ -595,8 +642,10 @@ class AgentContext(BaseModel):
             Dictionary with keys: input_tokens, output_tokens, total_tokens
             Returns zeros if agent has no recorded token usage
         """
+        agent = self._canon_agent(agent_name)
+
         return self.agent_token_usage.get(
-            agent_name,
+            agent,
             {
                 "input_tokens": 0,
                 "output_tokens": 0,
@@ -620,35 +669,33 @@ class AgentContext(BaseModel):
         }
 
     def log_trace(
-        self,
-        agent_name: str,
-        input_data: Any,
-        output_data: Any,
-        timestamp: Optional[str] = None,
+            self,
+            agent_name: str,
+            input_data: Any,
+            output_data: Any,
+            timestamp: Optional[str] = None,
     ) -> None:
         """Log agent trace with size monitoring."""
+        agent = self._canon_agent(agent_name)
+
         if timestamp is None:
             timestamp = datetime.now(timezone.utc).isoformat()
 
-        trace_entry = {
-            "timestamp": timestamp,
-            "input": input_data,
-            "output": output_data,
-        }
+        trace_entry = {"timestamp": timestamp, "input": input_data, "output": output_data}
 
-        if agent_name not in self.agent_trace:
-            self.agent_trace[agent_name] = []
+        if agent not in self.agent_trace:
+            self.agent_trace[agent] = []
 
-        self.agent_trace[agent_name].append(trace_entry)
+        self.agent_trace[agent].append(trace_entry)
         self._update_size()
         self._check_size_limits()
-        logger.debug(
-            f"Logged trace for agent '{agent_name}': {str(trace_entry)[:200]}..."
-        )
+        logger.debug(f"Logged trace for agent '{agent}': {str(trace_entry)[:200]}...")
 
     def get_output(self, agent_name: str) -> Optional[Any]:
-        logger.debug(f"Retrieving output for agent '{agent_name}'")
-        return self.agent_outputs.get(agent_name)
+        agent = self._canon_agent(agent_name)
+
+        logger.debug(f"Retrieving output for agent '{agent}'")
+        return self.agent_outputs.get(agent)
 
     def update_user_config(self, config_updates: Dict[str, Any]) -> None:
         """Update the user_config dictionary with new key-value pairs."""
@@ -818,6 +865,13 @@ class AgentContext(BaseModel):
         logger.info(f"Memory optimization completed: {stats}")
         return stats
 
+    def mark_agent_error(self, agent_name: str, exc: Exception) -> None:
+        agent = self._canon_agent(agent_name)
+        info = self.agent_executions.get(agent) or AgentExecutionInfo(agent=agent)
+        info.error_type = type(exc).__name__
+        info.error_message = str(exc)
+        self.agent_executions[agent] = info
+
     def clone(self) -> "AgentContext":
         """Create a deep copy of the context for parallel processing.
 
@@ -859,55 +913,28 @@ class AgentContext(BaseModel):
 
     # LangGraph-compatible execution state management
 
-    def start_agent_execution(
-        self, agent_name: str, step_id: Optional[str] = None
-    ) -> None:
-        """
-        Mark an agent as starting execution.
+    def start_agent_execution(self, agent_name: str, step_id: str) -> None:
+        info = self.agent_executions.get(agent_name) or {}
+        info.update({
+            "agent": agent_name,
+            "step_id": step_id,
+            "started": True,
+            "completed": False,
+            "success": None,
+        })
+        self.agent_executions[agent_name] = info
 
-        Parameters
-        ----------
-        agent_name : str
-            Name of the agent starting execution
-        step_id : str, optional
-            Step identifier for trace tracking
-        """
-        self.agent_execution_status[agent_name] = "running"
-        if step_id:
-            self.execution_state[f"{agent_name}_step_id"] = step_id
+    def complete_agent_execution(self, agent_name: str, success: bool) -> None:
+        info = self.agent_executions.get(agent_name) or {"agent": agent_name}
+        info.update({
+            "completed": True,
+            "success": bool(success),
+        })
+        self.agent_executions[agent_name] = info
 
-        self.execution_state[f"{agent_name}_start_time"] = datetime.now(
-            timezone.utc
-        ).isoformat()
-        logger.debug(f"Agent '{agent_name}' started execution")
-        self._update_size()
-
-    def complete_agent_execution(self, agent_name: str, success: bool = True) -> None:
-        """
-        Mark an agent as completing execution.
-
-        Parameters
-        ----------
-        agent_name : str
-            Name of the agent completing execution
-        success : bool
-            Whether the execution was successful
-        """
-        if success:
-            self.agent_execution_status[agent_name] = "completed"
-            self.successful_agents.add(agent_name)
-            self.failed_agents.discard(agent_name)
-        else:
-            self.agent_execution_status[agent_name] = "failed"
-            self.failed_agents.add(agent_name)
-            self.successful_agents.discard(agent_name)
-            self.success = False  # Mark overall context as failed
-
-        self.execution_state[f"{agent_name}_end_time"] = datetime.now(
-            timezone.utc
-        ).isoformat()
-        logger.debug(f"Agent '{agent_name}' completed execution (success: {success})")
-        self._update_size()
+    def get_agent_execution(self, agent_name: str):
+        # return a small object or dict; simplest is dict:
+        return self.agent_executions.get(agent_name)
 
     def set_agent_dependencies(self, agent_name: str, dependencies: List[str]) -> None:
         """
@@ -920,8 +947,9 @@ class AgentContext(BaseModel):
         dependencies : List[str]
             List of agent names this agent depends on
         """
-        self.agent_dependencies[agent_name] = dependencies
-        logger.debug(f"Set dependencies for '{agent_name}': {dependencies}")
+        agent = self._canon_agent(agent_name)
+        self.agent_dependencies[agent] = dependencies
+        logger.debug(f"Set dependencies for '{agent}': {dependencies}")
 
     def check_agent_dependencies(self, agent_name: str) -> Dict[str, bool]:
         """
@@ -937,7 +965,8 @@ class AgentContext(BaseModel):
         Dict[str, bool]
             Dictionary mapping dependency names to satisfaction status
         """
-        dependencies = self.agent_dependencies.get(agent_name, [])
+        agent = self._canon_agent(agent_name)
+        dependencies = self.agent_dependencies.get(agent, [])
         return {dep: dep in self.successful_agents for dep in dependencies}
 
     def can_agent_execute(self, agent_name: str) -> bool:
@@ -954,7 +983,8 @@ class AgentContext(BaseModel):
         bool
             True if all dependencies are satisfied, False otherwise
         """
-        dependency_status = self.check_agent_dependencies(agent_name)
+        agent = self._canon_agent(agent_name)
+        dependency_status = self.check_agent_dependencies(agent)
         return all(dependency_status.values())
 
     def get_execution_summary(self) -> Dict[str, Any]:
@@ -988,9 +1018,11 @@ class AgentContext(BaseModel):
 
     def _track_mutation(self, agent_name: str, field_name: str) -> None:
         """Track which agent modified which field for isolation purposes."""
-        if agent_name not in self.agent_mutations:
-            self.agent_mutations[agent_name] = []
-        self.agent_mutations[agent_name].append(field_name)
+        agent = self._canon_agent(agent_name)
+
+        if agent not in self.agent_mutations:
+            self.agent_mutations[agent] = []
+        self.agent_mutations[agent].append(field_name)
 
     def _check_field_isolation(self, agent_name: str, field_name: str) -> bool:
         """
@@ -1008,15 +1040,17 @@ class AgentContext(BaseModel):
         bool
             True if modification is allowed, False otherwise
         """
+        agent = self._canon_agent(agent_name)
+
         # Check if field is locked
         if field_name in self.locked_fields:
             return False
 
         # Check if another agent already owns this field
         for other_agent, mutations in self.agent_mutations.items():
-            if other_agent != agent_name and field_name in mutations:
+            if other_agent != agent and field_name in mutations:
                 logger.warning(
-                    f"Agent '{agent_name}' attempting to modify field '{field_name}' "
+                    f"Agent '{agent}' attempting to modify field '{field_name}' "
                     f"already modified by '{other_agent}'"
                 )
                 return False
@@ -1063,35 +1097,37 @@ class AgentContext(BaseModel):
         bool
             True if addition was successful, False if blocked by isolation rules
         """
+        agent = self._canon_agent(agent_name)
+
         # --- hard per-agent caps (fast path) ---
-        cap = self.OUTPUT_CHAR_CAPS.get(agent_name.lower())
+        cap = self.OUTPUT_CHAR_CAPS.get(agent.lower())
         if cap and isinstance(output, str):
             output = output[:cap]
 
-        field_name = f"agent_outputs.{agent_name}"
+        field_name = f"agent_outputs.{agent}"
 
-        if not self._check_field_isolation(agent_name, field_name):
+        if not self._check_field_isolation(agent, field_name):
             logger.error(
-                f"Agent '{agent_name}' blocked from modifying its output due to isolation rules"
+                f"Agent '{agent}' blocked from modifying its output due to isolation rules"
             )
             return False
 
         # Check if this agent has already modified this field (prevents multiple modifications)
-        agent_mutations = self.agent_mutations.get(agent_name, [])
+        agent_mutations = self.agent_mutations.get(agent, [])
         if field_name in agent_mutations:
             logger.error(
-                f"Agent '{agent_name}' already modified field '{field_name}', multiple modifications not allowed"
+                f"Agent '{agent}' already modified field '{field_name}', multiple modifications not allowed"
             )
             return False
 
         # --- hard per-agent caps (fast path) ---
-        output = self._cap_agent_output(agent_name, output)
+        output = self._cap_agent_output(agent, output)
 
-        self.agent_outputs[agent_name] = output
-        self._track_mutation(agent_name, field_name)
+        self.agent_outputs[agent] = output
+        self._track_mutation(agent, field_name)
         self._update_size()
         self._check_size_limits()
-        logger.info(f"Added output for agent '{agent_name}': {str(output)[:100]}...")
+        logger.info(f"Added output for agent '{agent}': {str(output)[:100]}...")
         return True
 
     def get_agent_mutation_history(self) -> Dict[str, List[str]]:
@@ -1276,39 +1312,29 @@ class AgentContext(BaseModel):
         return options
 
     def add_execution_edge(
-        self,
-        from_agent: str,
-        to_agent: str,
-        edge_type: str = "normal",
-        condition: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+            self,
+            from_agent: str,
+            to_agent: str,
+            edge_type: str = "normal",
+            condition: Optional[str] = None,
+            metadata: Optional[Dict[str, Any]] = None,
     ) -> None:
         """
         Add an execution edge for LangGraph DAG compatibility.
-
-        Parameters
-        ----------
-        from_agent : str
-            Source agent name
-        to_agent : str
-            Target agent name
-        edge_type : str, optional
-            Type of edge (normal, conditional, fallback, recovery)
-        condition : Optional[str]
-            Condition that triggered this edge
-        metadata : Optional[Dict[str, Any]]
-            Additional edge metadata
         """
+        from_a = self._canon_agent(from_agent)
+        to_a = self._canon_agent(to_agent)
+
         edge = {
-            "from_agent": from_agent,
-            "to_agent": to_agent,
+            "from_agent": from_a,
+            "to_agent": to_a,
             "edge_type": edge_type,
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "condition": condition,
             "metadata": metadata or {},
         }
         self.execution_edges.append(edge)
-        logger.debug(f"Added execution edge: {from_agent} -> {to_agent} ({edge_type})")
+        logger.debug(f"Added execution edge: {from_a} -> {to_a} ({edge_type})")
 
     def record_conditional_routing(
         self,
@@ -1368,22 +1394,21 @@ class AgentContext(BaseModel):
     def get_execution_graph(self) -> Dict[str, Any]:
         """
         Get execution graph representation for LangGraph compatibility.
-
-        Returns
-        -------
-        Dict[str, Any]
-            Graph representation with nodes, edges, and routing decisions
         """
         nodes = []
         for agent_name in self.agent_outputs.keys():
-            status = self.agent_execution_status.get(agent_name, "unknown")
+            canon = self._canon_agent(agent_name)
+
+            # Prefer canonical keys, but fall back to legacy keys if present
+            status = self.agent_execution_status.get(canon) or self.agent_execution_status.get(agent_name, "unknown")
+
             nodes.append(
                 {
-                    "id": agent_name,
+                    "id": canon,  # or keep agent_name if you want to preserve original display
                     "type": "agent",
                     "status": status,
-                    "success": agent_name in self.successful_agents,
-                    "failed": agent_name in self.failed_agents,
+                    "success": (canon in self.successful_agents) or (agent_name in self.successful_agents),
+                    "failed": (canon in self.failed_agents) or (agent_name in self.failed_agents),
                 }
             )
 
@@ -1396,8 +1421,6 @@ class AgentContext(BaseModel):
                 "total_agents": len(nodes),
                 "successful_agents": len(self.successful_agents),
                 "failed_agents": len(self.failed_agents),
-                "success_rate": (
-                    len(self.successful_agents) / len(nodes) if nodes else 0
-                ),
+                "success_rate": (len(self.successful_agents) / len(nodes) if nodes else 0),
             },
         }

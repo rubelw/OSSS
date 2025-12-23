@@ -67,6 +67,19 @@ async def _emit_agent_execution_started(
             f"Failed to emit agent execution started event: {e}"
         )
 
+def _spawn_if_awaitable(x: Any) -> None:
+    """Schedule x if it's awaitable; ignore None/non-awaitables."""
+    if x is None:
+        return
+    if not inspect.isawaitable(x):
+        return
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        return
+    loop.create_task(x)
+
+
 def _emit_agent_execution_completed(
     workflow_id: str,
     agent_name: str,
@@ -421,6 +434,51 @@ class BaseAgent(ABC):
         # LangGraph node metadata
         self._node_definition: Optional[LangGraphNodeDefinition] = None
 
+
+    def _get_exec_info(self, ctx: AgentContext) -> Any:
+        """Best-effort fetch of per-agent execution info from context."""
+        try:
+            return ctx.get_agent_execution(self.name)
+        except Exception:
+            return None
+
+    def _is_started(self, exec_info: Any) -> bool:
+        # started flag if present
+        started = self._exec_get(exec_info, "started", None)
+        if started is not None:
+            return bool(started)
+
+        # Some implementations track state strings
+        status = self._exec_get(exec_info, "status", None)
+        if isinstance(status, str):
+            return status.lower() in {"started", "running", "in_progress", "executing"}
+
+        # Fallback: if step_id exists, treat as started
+        step_id = self._exec_get(exec_info, "step_id", None)
+        return step_id is not None
+
+    def _is_completed(self, exec_info: Any) -> bool:
+        completed = self._exec_get(exec_info, "completed", None)
+        if completed is not None:
+            return bool(completed)
+
+        status = self._exec_get(exec_info, "status", None)
+        if isinstance(status, str):
+            return status.lower() in {"completed", "failed", "success", "error"}
+
+        return False
+
+
+    @staticmethod
+    def _exec_get(exec_info: Any, key: str, default: Any = None) -> Any:
+        if exec_info is None:
+            return default
+        # dict-shaped
+        if isinstance(exec_info, dict):
+            return exec_info.get(key, default)
+        # object-shaped
+        return getattr(exec_info, key, default)
+
     def _wrap_output(
             self,
             output: str | None = None,
@@ -443,38 +501,33 @@ class BaseAgent(ABC):
             "agent": getattr(self, "name", None),
         }
 
+
+
     def generate_step_id(self) -> str:
         """Generate a unique step ID for this execution."""
         return f"{self.name.lower()}_{uuid.uuid4().hex[:8]}"
 
     async def run_with_retry(
-        self, context: AgentContext, step_id: Optional[str] = None
+            self, context: AgentContext, step_id: Optional[str] = None
     ) -> AgentContext:
         """
         Execute the agent with retry logic, timeout, and circuit breaker pattern.
 
-        This method implements LangGraph-compatible node behavior with agent-local
-        error handling, making each agent suitable for future DAG orchestration.
-
-        Parameters
-        ----------
-        context : AgentContext
-            The context object containing state and input information for the agent.
-        step_id : str, optional
-            Step identifier for trace tracking. If None, generates a new one.
-
-        Returns
-        -------
-        AgentContext
-            The updated context after agent processing.
-
-        Raises
-        ------
-        AgentExecutionError
-            When agent execution fails after all retries
-        AgentTimeoutError
-            When agent execution times out
+        BaseAgent is the *single source of truth* for agent execution events:
+        - emits started exactly once
+        - emits completed exactly once
+        - emits timeout/failure completed events in exception paths
         """
+        # Hard guard: must be an instance, not the class
+        if isinstance(context, type) or not isinstance(context, AgentContext):
+            raise AgentExecutionError(
+                message=f"Invalid context passed to agent '{self.name}': expected AgentContext instance, got {type(context)}",
+                agent_name=self.name,
+                error_code="invalid_agent_context",
+                step_id=step_id,
+                context={"received_type": str(type(context))},
+            )
+
         step_id = step_id or self.generate_step_id()
         start_time = datetime.now(timezone.utc)
 
@@ -484,9 +537,7 @@ class BaseAgent(ABC):
             time_remaining = self.circuit_breaker.recovery_timeout
             if failure_time:
                 elapsed = (datetime.now(timezone.utc) - failure_time).total_seconds()
-                time_remaining = max(
-                    0.0, self.circuit_breaker.recovery_timeout - elapsed
-                )
+                time_remaining = max(0.0, self.circuit_breaker.recovery_timeout - elapsed)
 
             raise AgentExecutionError(
                 message=f"Circuit breaker open for agent '{self.name}'",
@@ -501,41 +552,62 @@ class BaseAgent(ABC):
 
         self.execution_count += 1
 
-        # Emit agent execution started event if available
-        if True:  # Events always available with lazy loading
+        # -----------------------------------------------------------------------
+        # Emit "started" exactly once per step (guards prevent retry spam)
+        # -----------------------------------------------------------------------
+        if True:
             try:
-                from OSSS.ai.agents.registry import get_agent_registry
-
-                registry = get_agent_registry()
+                exec_info0 = None
                 try:
-                    agent_metadata = registry.get_metadata(self.name)
-                except ValueError:
-                    # Agent not registered in registry, use None metadata
-                    agent_metadata = None
+                    exec_info0 = context.get_agent_execution(self.name)
+                except Exception:
+                    exec_info0 = None
 
-                asyncio.create_task(emit_agent_execution_started(
-                    workflow_id=get_workflow_id() or step_id,
-                    agent_name=self.name,
-                    input_context={
-                        "step_id": step_id,
-                        "execution_count": self.execution_count,
-                        "input_tokens": getattr(context, "token_count", 0),
-                        "context_size": len(str(context)),
-                    },
-                    agent_metadata=agent_metadata,
-                    correlation_id=get_correlation_id(),
-                    metadata={
-                        "retry_config": {
-                            "max_retries": self.retry_config.max_retries,
-                            "timeout_seconds": self.timeout_seconds,
-                        },
-                        "circuit_breaker_enabled": self.circuit_breaker is not None,
-                    },
-                ))
-            except Exception as e:
-                self.logger.warning(
-                    f"Failed to emit agent execution started event: {e}"
+                started0 = self._exec_get(exec_info0, "started", None)
+                status0 = self._exec_get(exec_info0, "status", None)
+                already_started = (
+                        (started0 is not None and bool(started0))
+                        or (isinstance(status0, str) and status0.lower() in {"started", "running", "in_progress",
+                                                                             "executing"})
+                        or (self._exec_get(exec_info0, "step_id", None) is not None)
                 )
+
+                if already_started:
+                    self.logger.debug(
+                        f"[{self.name}] Skipping started event; already started in context (step: {step_id})"
+                    )
+                else:
+                    from OSSS.ai.agents.registry import get_agent_registry
+
+                    registry = get_agent_registry()
+                    try:
+                        agent_metadata = registry.get_metadata(self.name)
+                    except ValueError:
+                        agent_metadata = None
+
+                    _spawn_if_awaitable(
+                        emit_agent_execution_started(
+                            workflow_id=get_workflow_id() or step_id,
+                            agent_name=self.name,
+                            input_context={
+                                "step_id": step_id,
+                                "execution_count": self.execution_count,
+                                "input_tokens": getattr(context, "token_count", 0),
+                                "context_size": len(str(context)),
+                            },
+                            agent_metadata=agent_metadata,
+                            correlation_id=get_correlation_id(),
+                            metadata={
+                                "retry_config": {
+                                    "max_retries": self.retry_config.max_retries,
+                                    "timeout_seconds": self.timeout_seconds,
+                                },
+                                "circuit_breaker_enabled": self.circuit_breaker is not None,
+                            },
+                        )
+                    )
+            except Exception as e:
+                self.logger.warning(f"Failed to emit agent execution started event: {e}")
 
         retries = 0
         last_exception: Optional[Exception] = None
@@ -552,79 +624,91 @@ class BaseAgent(ABC):
                     timeout=self.timeout_seconds,
                 )
 
-                # -------------------------------------------------------------------
-                # ✅ Ensure per-agent output envelope is persisted for API response
-                # -------------------------------------------------------------------
-                # Some agents already call context.add_agent_output_envelope(...).
-                # If they don't (or if a given context implementation doesn't store it),
-                # the orchestration API won't be able to return fields like `action`.
-                #
-                # We enforce a minimal envelope here in the base retry wrapper so the
-                # API always has something stable to expose.
-                try:
-                    # Prefer the returned context, since _execute_with_context may
-                    # return a new/updated AgentContext instance.
-                    exec_state = getattr(result, "execution_state", None)
-                    if exec_state is None:
-                        exec_state = {}
-                        try:
-                            setattr(result, "execution_state", exec_state)
-                        except Exception:
-                            # If result is immutable, just skip
-                            exec_state = None
+                # Use returned context for subsequent checks/logs
+                ctx = result
 
+                # Determine success/completion from context exec_info (dict or object)
+                exec_info = None
+                try:
+                    exec_info = ctx.get_agent_execution(self.name)
+                except Exception:
+                    exec_info = None
+
+                completed_before = bool(self._exec_get(exec_info, "completed", False))
+                success_val = self._exec_get(exec_info, "success", None)
+                success = bool(success_val) if success_val is not None else True
+
+                # Only mark completion if not already completed in context
+                if not completed_before:
+                    try:
+                        ctx.complete_agent_execution(self.name, success=success)
+                    except Exception:
+                        pass
+
+                # -------------------------------------------------------------------
+                # Ensure per-agent output envelope is persisted for API response
+                # -------------------------------------------------------------------
+                try:
+                    exec_state = getattr(ctx, "execution_state", None)
                     if isinstance(exec_state, dict):
                         meta = exec_state.get("agent_output_meta")
                         if not isinstance(meta, dict):
                             meta = {}
                             exec_state["agent_output_meta"] = meta
 
+                        canon = (self.name or "").strip().lower()
+
                         # Only synthesize if agent didn't already store an envelope
-                        if self.name not in meta or not isinstance(meta.get(self.name), dict):
-                            # Pull the agent output string if present
+                        if canon and (canon not in meta or not isinstance(meta.get(canon), dict)):
                             agent_output = ""
                             try:
-                                agent_output = result.agent_outputs.get(self.name, "") or ""
+                                agent_output = (
+                                        (getattr(ctx, "agent_outputs", {}) or {}).get(canon)
+                                        or (getattr(ctx, "agent_outputs", {}) or {}).get(self.name, "")
+                                        or ""
+                                )
                             except Exception:
                                 agent_output = ""
 
-                            meta[self.name] = {
-                                "agent": self.name,
+                            meta[canon] = {
+                                "agent": canon,
                                 "intent": None,
                                 "tone": None,
-                                "action": "read",   # ✅ ensures action shows up
+                                "action": "read",  # default if agent didn't set it
                                 "sub_tone": None,
                                 "output": agent_output,
-                                "content": agent_output,  # legacy alias
+                                "content": agent_output,
                             }
 
                             self.logger.debug(
                                 f"[{self.name}] Synthesized output envelope (action=read) for API meta"
                             )
-
                 except Exception as env_e:
-                    # Never fail the workflow due to meta/envelope issues
                     self.logger.debug(
                         f"[{self.name}] Failed to synthesize/store output envelope: {env_e}"
                     )
 
+                execution_time = (datetime.now(timezone.utc) - start_time).total_seconds()
 
-                # Success - record metrics and return
-                execution_time = (
-                    datetime.now(timezone.utc) - start_time
-                ).total_seconds()
-                self.success_count += 1
-
-                if self.circuit_breaker:
-                    self.circuit_breaker.record_success()
+                # Metrics reflect real success
+                if success:
+                    self.success_count += 1
+                    if self.circuit_breaker:
+                        self.circuit_breaker.record_success()
+                else:
+                    self.failure_count += 1
+                    if self.circuit_breaker:
+                        self.circuit_breaker.record_failure()
 
                 self.logger.info(
-                    f"[{self.name}] Execution successful "
+                    f"[{self.name}] Execution {'successful' if success else 'failed'} "
                     f"(step: {step_id}, time: {execution_time:.2f}s, attempt: {retries + 1})"
                 )
 
-                # Emit agent execution completed event if available
-                if True:  # Events always available with lazy loading
+                # -------------------------------------------------------------------
+                # Emit "completed" exactly once (guard against double emit)
+                # -------------------------------------------------------------------
+                if True:
                     try:
                         from OSSS.ai.agents.registry import get_agent_registry
 
@@ -632,65 +716,79 @@ class BaseAgent(ABC):
                         try:
                             agent_metadata = registry.get_metadata(self.name)
                         except ValueError:
-                            # Agent not registered in registry, use None metadata
                             agent_metadata = None
 
-                        # Extract actual agent output content from the result context
-                        agent_output: str = result.agent_outputs.get(self.name, "")
+                        exec_info_done = None
+                        try:
+                            exec_info_done = ctx.get_agent_execution(self.name)
+                        except Exception:
+                            exec_info_done = None
 
-                        # Get token usage information for this agent if available
-                        token_usage = result.get_agent_token_usage(self.name)
-
-                        asyncio.create_task(emit_agent_execution_completed(
-                            workflow_id=get_workflow_id() or step_id,
-                            agent_name=self.name,
-                            success=True,
-                            output_context={
-                                "step_id": step_id,
-                                "execution_time_seconds": execution_time,
-                                "attempts_used": retries + 1,
-                                "agent_output": (
-                                    agent_output[:1000] if agent_output else ""
-                                ),  # Include actual content, truncated for events
-                                "output_length": (
-                                    len(agent_output) if agent_output else 0
-                                ),
-                                "input_tokens": token_usage["input_tokens"],
-                                "output_tokens": token_usage["output_tokens"],
-                                "total_tokens": token_usage["total_tokens"],
-                                "context_size": len(str(result)),
-                            },
-                            agent_metadata=agent_metadata,
-                            correlation_id=get_correlation_id(),
-                            execution_time_ms=execution_time * 1000,
-                            metadata={
-                                "success_count": self.success_count,
-                                "total_executions": self.execution_count,
-                                "circuit_breaker_state": (
-                                    "closed"
-                                    if not self.circuit_breaker
-                                    or not self.circuit_breaker.is_open
-                                    else "open"
-                                ),
-                            },
-                        ))
-                    except Exception as e:
-                        self.logger.warning(
-                            f"Failed to emit agent execution completed event: {e}"
+                        completed_flag = self._exec_get(exec_info_done, "completed", None)
+                        status_done = self._exec_get(exec_info_done, "status", None)
+                        already_completed = (
+                                (completed_flag is not None and bool(completed_flag))
+                                or (isinstance(status_done, str) and status_done.lower() in {"completed", "failed",
+                                                                                             "success", "error"})
                         )
 
-                # Add execution metadata to context
-                context.log_trace(
-                    self.name,
-                    input_data={"step_id": step_id, "attempt": retries + 1},
-                    output_data={
-                        "success": True,
-                        "execution_time_seconds": execution_time,
-                        "attempts_used": retries + 1,
-                    },
-                )
+                        if already_completed and completed_before:
+                            # If it was already completed before we got here, don't emit
+                            self.logger.debug(
+                                f"[{self.name}] Skipping completed event; already completed in context (step: {step_id})"
+                            )
+                        else:
+                            agent_output: str = (getattr(ctx, "agent_outputs", {}) or {}).get(self.name, "")
+                            token_usage = ctx.get_agent_token_usage(self.name)
 
-                return result
+                            emit_agent_execution_completed(
+                                workflow_id=get_workflow_id() or step_id,
+                                agent_name=self.name,
+                                success=success,
+                                output_context={
+                                    "step_id": step_id,
+                                    "execution_time_seconds": execution_time,
+                                    "attempts_used": retries + 1,
+                                    "agent_output": agent_output[:1000] if agent_output else "",
+                                    "output_length": len(agent_output) if agent_output else 0,
+                                    "input_tokens": token_usage["input_tokens"],
+                                    "output_tokens": token_usage["output_tokens"],
+                                    "total_tokens": token_usage["total_tokens"],
+                                    "context_size": len(str(ctx)),
+                                },
+                                agent_metadata=agent_metadata,
+                                correlation_id=get_correlation_id(),
+                                execution_time_ms=execution_time * 1000,
+                                metadata={
+                                    "success_count": self.success_count,
+                                    "failure_count": self.failure_count,
+                                    "total_executions": self.execution_count,
+                                    "circuit_breaker_state": (
+                                        "closed"
+                                        if not self.circuit_breaker or not self.circuit_breaker.is_open
+                                        else "open"
+                                    ),
+                                    "completed_already_in_context": completed_before,
+                                },
+                            )
+                    except Exception as e:
+                        self.logger.warning(f"Failed to emit agent execution completed event: {e}")
+
+                # Log trace
+                try:
+                    ctx.log_trace(
+                        self.name,
+                        input_data={"step_id": step_id, "attempt": retries + 1},
+                        output_data={
+                            "success": success,
+                            "execution_time_seconds": execution_time,
+                            "attempts_used": retries + 1,
+                        },
+                    )
+                except Exception:
+                    pass
+
+                return ctx
 
             except asyncio.TimeoutError as e:
                 last_exception = e
@@ -698,154 +796,137 @@ class BaseAgent(ABC):
                     f"[{self.name}] Timeout after {self.timeout_seconds}s (step: {step_id})"
                 )
 
-                # Timeout - decide if retryable
                 if retries < self.retry_config.max_retries:
                     await self._handle_retry_delay(retries)
                     retries += 1
                     continue
-                else:
-                    # Final timeout failure
-                    self.failure_count += 1
-                    if self.circuit_breaker:
-                        self.circuit_breaker.record_failure()
 
-                    # Emit agent execution completed event for timeout failure if available
-                    if True:  # Events always available with lazy loading
+                # Final timeout failure
+                self.failure_count += 1
+                if self.circuit_breaker:
+                    self.circuit_breaker.record_failure()
+
+                if True:
+                    try:
+                        from OSSS.ai.agents.registry import get_agent_registry
+
+                        registry = get_agent_registry()
                         try:
-                            from OSSS.ai.agents.registry import get_agent_registry
+                            agent_metadata = registry.get_metadata(self.name)
+                        except ValueError:
+                            agent_metadata = None
 
-                            registry = get_agent_registry()
-                            try:
-                                agent_metadata = registry.get_metadata(self.name)
-                            except ValueError:
-                                # Agent not registered in registry, use None metadata
-                                agent_metadata = None
+                        emit_agent_execution_completed(
+                            workflow_id=get_workflow_id() or step_id,
+                            agent_name=self.name,
+                            success=False,
+                            output_context={
+                                "step_id": step_id,
+                                "attempts_made": retries + 1,
+                                "max_retries": self.retry_config.max_retries,
+                                "timeout_seconds": self.timeout_seconds,
+                                "error_type": "AgentTimeoutError",
+                                "error_message": f"Agent timed out after {self.timeout_seconds}s",
+                            },
+                            agent_metadata=agent_metadata,
+                            correlation_id=get_correlation_id(),
+                            error_message=f"Agent timed out after {self.timeout_seconds}s",
+                            error_type="AgentTimeoutError",
+                            metadata={
+                                "failure_count": self.failure_count,
+                                "total_executions": self.execution_count,
+                                "circuit_breaker_state": (
+                                    "open"
+                                    if self.circuit_breaker and self.circuit_breaker.is_open
+                                    else "closed"
+                                ),
+                            },
+                        )
+                    except Exception as emit_e:
+                        self.logger.warning(f"Failed to emit agent timeout event: {emit_e}")
 
-                            emit_agent_execution_completed(
-                                workflow_id=get_workflow_id() or step_id,
-                                agent_name=self.name,
-                                success=False,
-                                output_context={
-                                    "step_id": step_id,
-                                    "attempts_made": retries + 1,
-                                    "max_retries": self.retry_config.max_retries,
-                                    "timeout_seconds": self.timeout_seconds,
-                                    "error_type": "AgentTimeoutError",
-                                    "error_message": f"Agent timed out after {self.timeout_seconds}s",
-                                },
-                                agent_metadata=agent_metadata,
-                                correlation_id=get_correlation_id(),
-                                error_message=f"Agent timed out after {self.timeout_seconds}s",
-                                error_type="AgentTimeoutError",
-                                metadata={
-                                    "failure_count": self.failure_count,
-                                    "total_executions": self.execution_count,
-                                    "circuit_breaker_state": (
-                                        "open"
-                                        if self.circuit_breaker
-                                        and self.circuit_breaker.is_open
-                                        else "closed"
-                                    ),
-                                },
-                            )
-                        except Exception as emit_e:
-                            self.logger.warning(
-                                f"Failed to emit agent timeout event: {emit_e}"
-                            )
-
-                    raise AgentTimeoutError(
-                        agent_name=self.name,
-                        timeout_seconds=self.timeout_seconds,
-                        step_id=step_id,
-                        context={
-                            "attempts_made": retries + 1,
-                            "max_retries": self.retry_config.max_retries,
-                        },
-                        cause=e,
-                    )
+                raise AgentTimeoutError(
+                    agent_name=self.name,
+                    timeout_seconds=self.timeout_seconds,
+                    step_id=step_id,
+                    context={
+                        "attempts_made": retries + 1,
+                        "max_retries": self.retry_config.max_retries,
+                    },
+                    cause=e,
+                )
 
             except Exception as e:
                 last_exception = e
-                self.logger.warning(
-                    f"[{self.name}] Execution failed: {e} (step: {step_id})"
-                )
+                self.logger.warning(f"[{self.name}] Execution failed: {e} (step: {step_id})")
 
-                # Check if this exception is retryable
                 should_retry = self._should_retry_exception(e)
-
                 if should_retry and retries < self.retry_config.max_retries:
                     await self._handle_retry_delay(retries)
                     retries += 1
                     continue
-                else:
-                    # Final failure
-                    self.failure_count += 1
-                    if self.circuit_breaker:
-                        self.circuit_breaker.record_failure()
 
-                    # Emit agent execution completed event for failure if available
-                    if True:  # Events always available with lazy loading
+                # Final failure
+                self.failure_count += 1
+                if self.circuit_breaker:
+                    self.circuit_breaker.record_failure()
+
+                if True:
+                    try:
+                        from OSSS.ai.agents.registry import get_agent_registry
+
+                        registry = get_agent_registry()
                         try:
-                            from OSSS.ai.agents.registry import get_agent_registry
+                            agent_metadata = registry.get_metadata(self.name)
+                        except ValueError:
+                            agent_metadata = None
 
-                            registry = get_agent_registry()
-                            try:
-                                agent_metadata = registry.get_metadata(self.name)
-                            except ValueError:
-                                # Agent not registered in registry, use None metadata
-                                agent_metadata = None
-
-                            emit_agent_execution_completed(
-                                workflow_id=get_workflow_id() or step_id,
-                                agent_name=self.name,
-                                success=False,
-                                output_context={
-                                    "step_id": step_id,
-                                    "attempts_made": retries + 1,
-                                    "max_retries": self.retry_config.max_retries,
-                                    "error_type": type(e).__name__,
-                                    "error_message": str(e),
-                                },
-                                agent_metadata=agent_metadata,
-                                correlation_id=get_correlation_id(),
-                                error_message=str(e),
-                                error_type=type(e).__name__,
-                                metadata={
-                                    "failure_count": self.failure_count,
-                                    "total_executions": self.execution_count,
-                                    "circuit_breaker_state": (
-                                        "open"
-                                        if self.circuit_breaker
-                                        and self.circuit_breaker.is_open
-                                        else "closed"
-                                    ),
-                                },
-                            )
-                        except Exception as emit_e:
-                            self.logger.warning(
-                                f"Failed to emit agent execution failed event: {emit_e}"
-                            )
-
-                    # Convert to appropriate agent exception
-                    if isinstance(e, (AgentExecutionError, LLMError)):
-                        # Already a proper exception, just re-raise
-                        raise
-                    else:
-                        # Wrap in AgentExecutionError
-                        raise AgentExecutionError(
-                            message=f"Agent execution failed: {str(e)}",
+                        emit_agent_execution_completed(
+                            workflow_id=get_workflow_id() or step_id,
                             agent_name=self.name,
-                            error_code="agent_execution_failed",
-                            step_id=step_id,
-                            context={
+                            success=False,
+                            output_context={
+                                "step_id": step_id,
                                 "attempts_made": retries + 1,
                                 "max_retries": self.retry_config.max_retries,
-                                "original_exception": str(e),
+                                "error_type": type(e).__name__,
+                                "error_message": str(e),
                             },
-                            cause=e,
+                            agent_metadata=agent_metadata,
+                            correlation_id=get_correlation_id(),
+                            error_message=str(e),
+                            error_type=type(e).__name__,
+                            metadata={
+                                "failure_count": self.failure_count,
+                                "total_executions": self.execution_count,
+                                "circuit_breaker_state": (
+                                    "open"
+                                    if self.circuit_breaker and self.circuit_breaker.is_open
+                                    else "closed"
+                                ),
+                            },
+                        )
+                    except Exception as emit_e:
+                        self.logger.warning(
+                            f"Failed to emit agent execution failed event: {emit_e}"
                         )
 
-        # Should never reach here, but just in case
+                if isinstance(e, (AgentExecutionError, LLMError)):
+                    raise
+
+                raise AgentExecutionError(
+                    message=f"Agent execution failed: {str(e)}",
+                    agent_name=self.name,
+                    error_code="agent_execution_failed",
+                    step_id=step_id,
+                    context={
+                        "attempts_made": retries + 1,
+                        "max_retries": self.retry_config.max_retries,
+                        "original_exception": str(e),
+                    },
+                    cause=e,
+                )
+
         raise AgentExecutionError(
             message=f"Agent execution failed after {retries} attempts",
             agent_name=self.name,
@@ -853,59 +934,55 @@ class BaseAgent(ABC):
             cause=last_exception,
         )
 
-    async def _execute_with_context(
-        self, context: AgentContext, step_id: str
-    ) -> AgentContext:
+    def _already_completed(self, ctx: AgentContext) -> bool:
+        try:
+            status = (ctx.agent_execution_status or {}).get(self.name.lower())
+            return status in {"completed", "failed"}
+        except Exception:
+            return False
+
+    async def _execute_with_context(self, context: AgentContext, step_id: str) -> AgentContext:
         """
         Internal method that wraps the actual agent execution with context metadata.
 
-        This method adds step_id and agent_id metadata to the context before
-        calling the abstract run method, and integrates with the context's
-        execution state tracking for LangGraph compatibility.
+        NOTE: BaseAgent.run_with_retry is the *single source of truth* for
+        completion events and completion status bookkeeping. This wrapper only:
+        - marks start in the context
+        - writes execution_state metadata
+        - calls the concrete agent's run()
+        - returns/raises
         """
-        # Start execution tracking in context
-        context.start_agent_execution(self.name, step_id)
+        # Start execution tracking in context (ok if no-op)
+        try:
+            context.start_agent_execution(self.name, step_id)
+        except Exception:
+            pass
 
         # Add step metadata to execution_state for trace tracking
-        step_metadata_key = f"{self.name}_step_metadata"
-        context.execution_state[step_metadata_key] = {
-            "step_id": step_id,
-            "agent_id": self.name,
-            "start_time": datetime.now(timezone.utc).isoformat(),
-            "execution_count": self.execution_count,
-        }
+        try:
+            step_metadata_key = f"{self.name}_step_metadata"
+            if isinstance(getattr(context, "execution_state", None), dict):
+                context.execution_state[step_metadata_key] = {
+                    "step_id": step_id,
+                    "agent_id": self.name,
+                    "start_time": datetime.now(timezone.utc).isoformat(),
+                    "execution_count": self.execution_count,
+                }
+        except Exception:
+            pass
 
         try:
-            # Call the actual agent implementation
-            result = await self.run(context)
-
-            # Mark execution as successful
-            context.complete_agent_execution(self.name, success=True)
-
-            # Update metadata with completion info
-            step_metadata_key = f"{self.name}_step_metadata"
-            if step_metadata_key in context.execution_state:
-                context.execution_state[step_metadata_key]["end_time"] = datetime.now(
-                    timezone.utc
-                ).isoformat()
-                context.execution_state[step_metadata_key]["completed"] = True
-
-            return result
-
+            return await self.run(context)
         except Exception as e:
-            # Mark execution as failed
-            context.complete_agent_execution(self.name, success=False)
-
-            # Update metadata with failure info
-            step_metadata_key = f"{self.name}_step_metadata"
-            if step_metadata_key in context.execution_state:
-                context.execution_state[step_metadata_key]["end_time"] = datetime.now(
-                    timezone.utc
-                ).isoformat()
-                context.execution_state[step_metadata_key]["completed"] = False
-                context.execution_state[step_metadata_key]["error"] = str(e)
-
-            # Re-raise the exception to be handled by retry logic
+            # Record failure info, but do NOT complete here (BaseAgent handles it)
+            try:
+                step_metadata_key = f"{self.name}_step_metadata"
+                if isinstance(getattr(context, "execution_state", None),
+                              dict) and step_metadata_key in context.execution_state:
+                    context.execution_state[step_metadata_key]["end_time"] = datetime.now(timezone.utc).isoformat()
+                    context.execution_state[step_metadata_key]["error"] = str(e)
+            except Exception:
+                pass
             raise
 
     def _should_retry_exception(self, exception: Exception) -> bool:

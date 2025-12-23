@@ -38,6 +38,7 @@ __all__ = [
     # Routing
     "RoutingFunction",
     "ConditionalRouter",
+    "route_gate_node",
     # Node adapters
     "LangGraphNodeAdapter",
     "StandardNodeAdapter",
@@ -60,4 +61,6 @@ __all__ = [
     "get_orchestration_config",
     "set_orchestration_config",
     "reset_orchestration_config",
+    "data_query_node",
+
 ]

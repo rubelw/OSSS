@@ -15,7 +15,7 @@ All routers implement a common `RoutingFunction` interface, allowing them
 to be treated uniformly by the graph builder and executor.
 """
 
-from typing import Callable, Dict, List, Optional
+from typing import Callable, Dict, List, Optional, Set
 from abc import ABC, abstractmethod
 import re
 from OSSS.ai.context import AgentContext
@@ -26,8 +26,340 @@ HISTORY_TRIGGERS = re.compile(
     re.IGNORECASE,
 )
 
+# ---------------------------------------------------------------------------
+# Route-lock: DB query heuristic routing (NO LLM)
+# ---------------------------------------------------------------------------
+
+_WORD_RE = re.compile(r"[a-z0-9_]+")
+ACTION_HINTS = re.compile(r"\b(list|show|get|find|lookup|search|count|who|what|which)\b", re.I)
+
+# These are *domain* entities users ask for that usually live in the DB
+# (separate from table names, since users won't always use canonical table names).
+SCHOOL_ENTITIES: Set[str] = {
+    "teacher",
+    "teachers",
+    "student",
+    "students",
+    "staff",
+    "school",
+    "schools",
+    "course",
+    "courses",
+    "section",
+    "sections",
+    "board",
+    "member",
+    "members",
+    "guardian",
+    "guardians",
+}
+
+
+DB_TABLES: Set[str] = {
+    "academic_terms",
+    "accommodations",
+    "activities",
+    "addresses",
+    "agenda_item_approvals",
+    "agenda_item_files",
+    "agenda_items",
+    "agenda_workflow_steps",
+    "agenda_workflows",
+    "alembic_version",
+    "alignments",
+    "ap_vendors",
+    "approvals",
+    "asset_parts",
+    "assets",
+    "assignment_categories",
+    "assignments",
+    "attendance",
+    "attendance_codes",
+    "attendance_daily_summary",
+    "attendance_events",
+    "audit_logs",
+    "behavior_codes",
+    "behavior_interventions",
+    "bell_schedules",
+    "buildings",
+    "bus_routes",
+    "bus_stop_times",
+    "bus_stops",
+    "calendar_days",
+    "calendars",
+    "channels",
+    "class_ranks",
+    "comm_search_index",
+    "committees",
+    "compliance_records",
+    "consents",
+    "consequence_types",
+    "consequences",
+    "contacts",
+    "course_prerequisites",
+    "course_sections",
+    "courses",
+    "curricula",
+    "curriculum_units",
+    "curriculum_versions",
+    "data_quality_issues",
+    "data_sharing_agreements",
+    "deduction_codes",
+    "deliveries",
+    "department_position_index",
+    "departments",
+    "document_activity",
+    "document_links",
+    "document_notifications",
+    "document_permissions",
+    "document_search_index",
+    "document_versions",
+    "documents",
+    "earning_codes",
+    "education_associations",
+    "ell_plans",
+    "embeds",
+    "emergency_contacts",
+    "employee_deductions",
+    "employee_earnings",
+    "entity_tags",
+    "evaluation_assignments",
+    "evaluation_cycles",
+    "evaluation_files",
+    "evaluation_questions",
+    "evaluation_reports",
+    "evaluation_responses",
+    "evaluation_sections",
+    "evaluation_signoffs",
+    "evaluation_templates",
+    "events",
+    "export_runs",
+    "external_ids",
+    "facilities",
+    "family_portal_access",
+    "feature_flags",
+    "fees",
+    "files",
+    "final_grades",
+    "fiscal_periods",
+    "fiscal_years",
+    "floors",
+    "folders",
+    "frameworks",
+    "gl_account_balances",
+    "gl_account_segments",
+    "gl_accounts",
+    "gl_segment_values",
+    "gl_segments",
+    "goals",
+    "google_accounts",
+    "governing_bodies",
+    "gpa_calculations",
+    "grade_levels",
+    "grade_scale_bands",
+    "grade_scales",
+    "gradebook_entries",
+    "grading_periods",
+    "guardians",
+    "health_profiles",
+    "hr_employees",
+    "hr_position_assignments",
+    "hr_positions",
+    "iep_plans",
+    "immunization_records",
+    "immunizations",
+    "incident_participants",
+    "incidents",
+    "initiatives",
+    "invoices",
+    "journal_batches",
+    "journal_entries",
+    "journal_entry_lines",
+    "kpi_datapoints",
+    "kpis",
+    "leases",
+    "library_checkouts",
+    "library_fines",
+    "library_holds",
+    "library_items",
+    "maintenance_requests",
+    "meal_accounts",
+    "meal_eligibility_statuses",
+    "meal_transactions",
+    "medication_administrations",
+    "medications",
+    "meeting_documents",
+    "meeting_files",
+    "meeting_permissions",
+    "meeting_publications",
+    "meeting_search_index",
+    "meetings",
+    "memberships",
+    "message_recipients",
+    "messages",
+    "meters",
+    "minutes",
+    "motions",
+    "move_orders",
+    "notifications",
+    "nurse_visits",
+    "objectives",
+    "order_line_items",
+    "orders",
+    "organizations",
+    "pages",
+    "part_locations",
+    "parts",
+    "pay_periods",
+    "paychecks",
+    "payments",
+    "payroll_runs",
+    "periods",
+    "permissions",
+    "person_addresses",
+    "person_contacts",
+    "personal_notes",
+    "persons",
+    "plan_alignments",
+    "plan_assignments",
+    "plan_filters",
+    "plan_search_index",
+    "plans",
+    "pm_plans",
+    "pm_work_generators",
+    "policies",
+    "policy_approvals",
+    "policy_comments",
+    "policy_files",
+    "policy_legal_refs",
+    "policy_publications",
+    "policy_search_index",
+    "policy_versions",
+    "policy_workflow_steps",
+    "policy_workflows",
+    "post_attachments",
+    "posts",
+    "project_tasks",
+    "projects",
+    "proposal_documents",
+    "proposal_reviews",
+    "proposal_standard_map",
+    "proposals",
+    "publications",
+    "report_cards",
+    "requirements",
+    "resolutions",
+    "retention_rules",
+    "review_requests",
+    "review_rounds",
+    "reviewers",
+    "reviews",
+    "role_permissions",
+    "roles",
+    "rooms",
+    "round_decisions",
+    "scan_requests",
+    "scan_results",
+    "schools",
+    "scorecard_kpis",
+    "scorecards",
+    "section504_plans",
+    "section_meetings",
+    "section_room_assignments",
+    "sis_import_jobs",
+    "space_reservations",
+    "spaces",
+    "special_education_cases",
+    "staff",
+    "standardized_tests",
+    "standards",
+    "state_reporting_snapshots",
+    "states",
+    "student_guardians",
+    "student_program_enrollments",
+    "student_school_enrollments",
+    "student_section_enrollments",
+    "student_transportation_assignments",
+    "students",
+    "subjects",
+    "subscriptions",
+    "tags",
+    "teacher_section_assignments",
+    "test_administrations",
+    "test_results",
+    "ticket_scans",
+    "ticket_types",
+    "tickets",
+    "transcript_lines",
+    "unit_standard_map",
+    "user_accounts",
+    "users",
+    "vendors",
+    "votes",
+    "waivers",
+    "warranties",
+    "webhooks",
+    "work_order_parts",
+    "work_order_tasks",
+    "work_order_time_logs",
+    "work_orders",
+}
+
+DISTRICT_ALIASES = {"dcg"}  # add more as needed
+
+# RouteKey -> planned agent plans
+# (Used by OrchestrationAPI / higher-level router to compute planned_agents.)
+#
+ACTION_PLAN: List[str] = ["refiner", "data_query", "synthesis"]
+READ_PLAN: List[str]   = ["refiner", "critic", "synthesis"]  # optional (if you want a lighter non-action path)
+ANALYSIS_PLAN: List[str] = ["refiner", "historian", "critic", "synthesis"]
+
+def planned_agents_for_route_key(route_key: str) -> List[str]:
+    """
+    Canonical mapping from a route_key (e.g. 'action') to a planned agent list.
+    Keep this here so anything that sets execution_state['route_key']
+    has a single source of truth for downstream planning.
+    """
+    k = (route_key or "").strip().lower()
+    if k == "action":
+        return ACTION_PLAN
+    # choose one:
+    return ANALYSIS_PLAN
+    # or, if you prefer a lighter non-action path:
+    # return READ_PLAN
+
+
+def should_route_to_data_query(user_text: str) -> bool:
+    """
+    Heuristic to decide if a user request should bypass refiner/critic/synthesis
+    and go directly to data_query.
+    """
+    t = (user_text or "").lower()
+    tokens = set(_WORD_RE.findall(t))
+
+    # Exact table mentions are a strong signal
+    if DB_TABLES.intersection(tokens):
+        return True
+
+    # District alias + school entity
+    if tokens.intersection(DISTRICT_ALIASES) and tokens.intersection(SCHOOL_ENTITIES):
+        return True
+
+    # Common retrieval verbs + school entity
+    # e.g. "list dcg teachers", "show students", "find courses", etc.
+    if ACTION_HINTS.search(t) and tokens.intersection(SCHOOL_ENTITIES):
+        return True
+
+    return False
+
+
 def should_run_historian(query: str) -> bool:
     q = (query or "").strip()
+
+    # If this is clearly a DB query, historian should never run
+    # (keeps action path fast + avoids irrelevant analysis agents).
+    if should_route_to_data_query(q):
+        return False
 
     # Very short queries never need historian
     if len(q) < 40:
@@ -43,6 +375,7 @@ def should_run_historian(query: str) -> bool:
         return True
 
     return False
+
 
 class RoutingFunction(ABC):
     """
@@ -75,7 +408,7 @@ class RoutingFunction(ABC):
         str
             The name of the next node to execute in the graph
         """
-        pass
+        raise NotImplementedError
 
     @abstractmethod
     def get_possible_targets(self) -> List[str]:
@@ -87,7 +420,56 @@ class RoutingFunction(ABC):
         - Static visualization
         - Detecting unreachable nodes
         """
-        pass
+        raise NotImplementedError
+
+
+class DBQueryRouter(RoutingFunction):
+    """
+    Route-lock router that decides whether to short-circuit to data_query.
+
+    If it chooses data_query, it writes:
+      execution_state["route"] = "<data_query_target>"
+      execution_state["route_locked"] = True
+
+    This prevents later routing stages from overriding the decision.
+    """
+
+    def __init__(self, data_query_target: str, default_target: str) -> None:
+        self.data_query_target = data_query_target
+        self.default_target = default_target
+
+    def __call__(self, context: AgentContext) -> str:
+        # If already locked, honor it and do not recompute
+        if context.execution_state.get("route_locked"):
+            # Ensure route_key is always present if someone locked earlier
+            context.execution_state.setdefault(
+                "route_key",
+                "action"
+                if context.execution_state.get("route") == self.data_query_target
+                else "informational",
+            )
+            return context.execution_state.get("route", self.data_query_target)
+
+        # ✅ Exact, canonical source of the incoming user request:
+        query = (context.query or "").strip()
+
+        if should_route_to_data_query(query):
+            context.execution_state["route"] = self.data_query_target
+            context.execution_state["route_locked"] = True
+            # Canonical switch key for LangGraph add_conditional_edges(...)
+            context.execution_state["route_key"] = "action"
+            # Breadcrumb for debugging (shows why we routed)
+            context.execution_state["route_reason"] = "db_query_heuristic"
+            return self.data_query_target
+
+        context.execution_state["route"] = self.default_target
+        context.execution_state["route_locked"] = False
+        context.execution_state["route_key"] = "informational"
+        context.execution_state["route_reason"] = "default"
+        return self.default_target
+
+    def get_possible_targets(self) -> List[str]:
+        return [self.data_query_target, self.default_target]
 
 
 class ConditionalRouter(RoutingFunction):

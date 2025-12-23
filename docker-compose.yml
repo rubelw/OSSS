@@ -300,6 +300,10 @@ services:
       OLLAMA_MODEL: "llama3.1"
       OLLAMA_TEMPERATURE: 0.2
       OLLAMA_NUM_CTX: 8192
+      OSSS_SYNTHESIS_LLM_PROVIDER: "ollama"
+      OSSS_SYNTHESIS_MODEL: "llama3.1:latest"
+      OSSS_OLLAMA_BASE_URL: "http://host.containers.internal:11434"
+      OSSS_AI_DB_PERSIST_ENABLED: "false"
 
     depends_on:
       redis:
