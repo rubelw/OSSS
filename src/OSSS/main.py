@@ -72,6 +72,9 @@ from OSSS.agents import metagpt_agent
 from OSSS.ai.api.routes import query, topics, workflows
 from OSSS.ai.api.factory import get_orchestration_api
 
+# Shared RAG embedding client module (for shutdown cleanup)
+from OSSS.ai.rag import additional_index_rag as rag_additional_index_rag
+
 
 # ⬇️ import the actual APIRouter instance
 try:
@@ -638,6 +641,17 @@ def create_app() -> FastAPI:
                         await r.aclose()  # type: ignore[func-returns-value]
         except Exception:
             pass
+
+        # Close shared embedding HTTP client (OSSS.ai.rag.additional_index_rag)
+        try:
+            client = getattr(rag_additional_index_rag, "_embed_client", None)
+            if client is not None:
+                await client.aclose()
+                rag_additional_index_rag._embed_client = None
+                logging.getLogger("startup").info("[rag] closed shared embed AsyncClient")
+        except Exception as e:
+            logging.getLogger("startup").warning("[rag] failed to close embed client: %s", e)
+
 
     # instantiate FastAPI with the lifespan handler
     app = FastAPI(

@@ -21,6 +21,23 @@ DEFAULT_EMBED_BASE = "http://host.containers.internal:11434"
 OLLAMA_BASE = os.getenv("OSSS_EMBED_BASE", DEFAULT_EMBED_BASE)
 EMBED_URL = os.getenv("OSSS_EMBED_URL", f"{OLLAMA_BASE}/api/embeddings")
 
+# ---- Shared HTTP client for embeddings ----
+_embed_client: httpx.AsyncClient | None = None
+
+
+def get_embed_client() -> httpx.AsyncClient:
+    """
+    Lazily-initialized shared AsyncClient for embedding calls.
+    """
+    global _embed_client
+    if _embed_client is None:
+        _embed_client = httpx.AsyncClient(timeout=10.0)
+        logger.info(
+            "[additional_index_rag] Created shared embedding AsyncClient",
+            extra={"embed_url": EMBED_URL},
+        )
+    return _embed_client
+
 
 @dataclass
 class RagHit:
@@ -115,8 +132,8 @@ async def rag_prefetch_additional(
 
     try:
         embed_start = time.monotonic()
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            er = await client.post(EMBED_URL, json=embed_req)
+        client = get_embed_client()  # <-- reusable client
+        er = await client.post(EMBED_URL, json=embed_req)
         embed_ms = (time.monotonic() - embed_start) * 1000
 
         logger.info(
