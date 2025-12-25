@@ -49,6 +49,8 @@ class RagHit:
 
 @dataclass
 class RagResult:
+    # NOTE: For pure retrieval (search_additional_index), combined_text
+    # may be the empty string and filled later by formatters.
     combined_text: str
     hits: List[RagHit]
     meta: Dict[str, Any]
@@ -77,6 +79,8 @@ def _format_results(
 ) -> str:
     """
     Turn top-k results into a prompt-ready context string.
+    Kept separate from retrieval so different agents can swap in their
+    own formatting logic if needed.
     """
     if not results:
         logger.info(
@@ -111,24 +115,27 @@ def _format_results(
     return "\n\n".join(lines)
 
 
-async def rag_prefetch_additional(
+async def search_additional_index(
     query: str,
     index: str = "main",
     top_k: int = 8,
 ) -> RagResult:
     """
-    Compute an embedding for `query`, search the in-memory additional index
-    (main/tutor/agent), and return a structured RagResult containing:
+    Retrieval-only helper:
 
-    - combined_text: prompt-ready context string
-    - hits: list of RagHit(score, chunk)
-    - meta: metrics / diagnostics (timings, counts, etc.)
+    - Compute an embedding for `query`
+    - Search the in-memory additional index (main/tutor/agent)
+    - Return RagResult with hits + meta, but *no* formatted combined_text.
+
+    Callers that need a prompt-ready context string should format the
+    hits themselves (e.g. via `_format_results`) or call
+    `rag_prefetch_additional`, which wraps this and adds formatting.
     """
     start_time = time.monotonic()
     query_preview = (query or "")[:120]
 
     logger.info(
-        "[additional_index_rag] RAG prefetch start",
+        "[additional_index_rag] RAG search start",
         extra={
             "index": index,
             "top_k": top_k,
@@ -285,25 +292,12 @@ async def rag_prefetch_additional(
             extra={"index": index, "top_k": top_k},
         )
 
-    # ---- 3. Format + structure ----
-    combined_text = _format_results(results, index=index)
-
+    # ---- 3. Build RagHit list (no formatting) ----
     hits: List[RagHit] = [
         RagHit(score=float(score), chunk=chunk) for score, chunk in results
     ]
 
     total_ms = (time.monotonic() - start_time) * 1000.0
-
-    logger.info(
-        "[additional_index_rag] RAG prefetch completed",
-        extra={
-            "index": index,
-            "top_k": top_k,
-            "result_count": len(results),
-            "context_chars": len(combined_text),
-            "elapsed_ms": total_ms,
-        },
-    )
 
     # ✅ success metrics
     observe_prefetch(
@@ -320,7 +314,7 @@ async def rag_prefetch_additional(
         "index": index,
         "top_k_requested": top_k,
         "result_count": len(results),
-        "context_chars": len(combined_text),
+        "context_chars": 0,  # to be filled by formatters
         "elapsed_ms_total": total_ms,
         "elapsed_ms_search": search_ms,
         "elapsed_ms_embed": embed_ms,
@@ -328,10 +322,61 @@ async def rag_prefetch_additional(
         "embed_url": EMBED_URL,
     }
 
+    # Retrieval-only: leave combined_text empty
     return RagResult(
-        combined_text=combined_text,
+        combined_text="",
         hits=hits,
         meta=meta,
+    )
+
+
+async def rag_prefetch_additional(
+    query: str,
+    index: str = "main",
+    top_k: int = 8,
+) -> RagResult:
+    """
+    High-level helper used by the orchestrator.
+
+    1) Calls `search_additional_index` to retrieve hits + meta.
+    2) Formats hits into a prompt-ready `combined_text` using `_format_results`.
+
+    If a given agent wants a different presentation (JSON, table, etc.),
+    it can call `search_additional_index` directly and format the hits.
+    """
+    # 1. Retrieval (embedding + vector search + metrics)
+    base_result = await search_additional_index(
+        query=query,
+        index=index,
+        top_k=top_k,
+    )
+
+    # 2. Formatting: convert hits to (score, chunk) pairs
+    index_name = str(base_result.meta.get("index", index))
+    score_chunk_pairs: List[Tuple[float, IndexedChunk]] = [
+        (hit.score, hit.chunk) for hit in base_result.hits
+    ]
+    combined_text = _format_results(score_chunk_pairs, index=index_name)
+
+    # Enrich meta with context length, preserving existing metrics fields
+    meta_with_ctx = dict(base_result.meta)
+    meta_with_ctx["context_chars"] = len(combined_text or "")
+
+    logger.info(
+        "[additional_index_rag] RAG prefetch completed",
+        extra={
+            "index": index_name,
+            "top_k": top_k,
+            "result_count": len(base_result.hits),
+            "context_chars": len(combined_text),
+            "elapsed_ms": meta_with_ctx.get("elapsed_ms_total"),
+        },
+    )
+
+    return RagResult(
+        combined_text=combined_text,
+        hits=base_result.hits,
+        meta=meta_with_ctx,
     )
 
 
