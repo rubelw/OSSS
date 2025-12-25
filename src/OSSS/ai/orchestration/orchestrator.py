@@ -432,6 +432,17 @@ class LangGraphOrchestrator:
             state.pop("rag_hits", None)
             return
 
+        # ---- RAG mode: hard_fail | soft_disable | partial ----
+        rag_mode = str(rag_cfg.get("mode") or os.getenv("OSSS_RAG_MODE", "soft_disable")).lower()
+        if rag_mode not in {"hard_fail", "soft_disable", "partial"}:
+            rag_mode = "soft_disable"
+
+        # Locals we *might* reuse in partial mode
+        rag_context_str: str = ""
+        rag_hits: list[dict] = []
+        rag_snippet: str = ""
+        snippet_max_chars: int = int(rag_cfg.get("snippet_max_chars", 6000))
+
         try:
             # ---- Resolve index-level config (defaults + overrides) ----
             raw_index_name = str(rag_cfg.get("index", "main"))
@@ -452,10 +463,10 @@ class LangGraphOrchestrator:
             )
 
             # Combined prompt-ready context
-            rag_context_str: str = rag_result.combined_text or ""
+            rag_context_str = rag_result.combined_text or ""
 
             # Convert RagHit objects into JSON-serializable dicts for state
-            rag_hits: list[dict] = []
+            rag_hits = []
             for hit in rag_result.hits:
                 chunk = hit.chunk
                 rag_hits.append(
@@ -489,7 +500,6 @@ class LangGraphOrchestrator:
                 "hits_count": len(rag_hits),
             }
             rag_meta.update(rag_result.meta or {})
-
             exec_state["rag_meta"] = rag_meta
 
             # 🔴 Critical bridge for Final node and other consumers:
@@ -506,17 +516,42 @@ class LangGraphOrchestrator:
                     "index": index_name,
                     "top_k": top_k,
                     "snippet_max_chars": snippet_max_chars,
+                    "rag_mode": rag_mode,
                 },
             )
 
         except Exception as e:
+            # Decide behavior based on rag_mode
             self.logger.warning(
-                f"[orchestrator] RAG prefetch failed (continuing without RAG): {e}"
+                f"[orchestrator] RAG prefetch failed (rag_mode={rag_mode}): {e}",
+                extra={"rag_mode": rag_mode},
             )
+
+            if rag_mode == "hard_fail":
+                # Mark error, but *fail* the request so caller sees it
+                exec_state["rag_enabled"] = False
+                exec_state["rag_error"] = str(e)
+
+                state["rag_enabled"] = False
+                state["rag_error"] = str(e)
+                # Let the exception bubble
+                raise
+
+            if rag_mode == "partial" and (rag_context_str or rag_hits):
+                # Keep whatever we managed to get; mark it as partial
+                exec_state["rag_enabled"] = True
+                exec_state["rag_partial"] = True
+                exec_state["rag_error"] = str(e)
+
+                state["rag_enabled"] = True
+                state["rag_partial"] = True
+                # context/snippet/hits stay as-is in state/exec_state
+                return
+
+            # Default: soft_disable (current behavior)
             exec_state["rag_enabled"] = False
             exec_state["rag_error"] = str(e)
 
-            # Keep top-level state consistent too
             state["rag_enabled"] = False
             state["rag_error"] = str(e)
             state.pop("rag_context", None)
