@@ -92,12 +92,14 @@ def get_agent_class(agent_type: Optional[str]) -> Type[Any]:
     from OSSS.ai.agents.critic.agent import CriticAgent
     from OSSS.ai.agents.historian.agent import HistorianAgent
     from OSSS.ai.agents.synthesis.agent import SynthesisAgent
+    from OSSS.ai.agents.final.agent import FinalAgent
 
     agent_map = {
         "refiner": RefinerAgent,
         "critic": CriticAgent,
         "historian": HistorianAgent,
         "synthesis": SynthesisAgent,
+        "final": FinalAgent
     }
     # Handle None case by defaulting to RefinerAgent
     if agent_type is None:
@@ -131,6 +133,8 @@ def create_agent_config(
         CriticConfig,
         HistorianConfig,
         SynthesisConfig,
+        FinalConfig,
+
     )
     from OSSS.ai.config.config_mapper import ConfigMapper
 
@@ -141,6 +145,7 @@ def create_agent_config(
             "critic": CriticConfig,
             "historian": HistorianConfig,
             "synthesis": SynthesisConfig,
+            "final": FinalConfig,
         }
         config_class = config_classes.get(agent_type, RefinerConfig)
         return config_class()
@@ -158,6 +163,7 @@ def create_agent_config(
             "critic": CriticConfig,
             "historian": HistorianConfig,
             "synthesis": SynthesisConfig,
+            "final": FinalConfig,
         }
         config_class = config_classes.get(agent_type, RefinerConfig)
         return config_class()

@@ -72,9 +72,9 @@ logger = get_logger(__name__)
 # Intent → agents mapping (Fix #1: branch-exclusive action)
 # ---------------------------------------------------------------------------
 
-ACTION_AGENTS = ["refiner", "data_query", "synthesis"]
-READ_AGENTS   = ["refiner", "critic", "synthesis"]   # optional alternative
-ANALYSIS_AGENTS = ["refiner", "historian", "critic", "synthesis"]
+ACTION_AGENTS = ["refiner", "data_query", "final"]
+READ_AGENTS   = ["refiner", "final"]   # optional alternative
+ANALYSIS_AGENTS = ["refiner", "historian", "final"]
 
 
 def select_agents(intent: str) -> list[str]:
@@ -636,23 +636,17 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
         exec_cfg_agents_norm = _norm_agents(exec_cfg_agents)
         exec_cfg_forced = bool(exec_cfg_agents_norm)
 
-        fastpath_default = (
-            (not caller_forced)
-            and (not exec_cfg_forced)
-            and (not exec_cfg_pattern)
-        )
+        # ❌ DO NOT auto-set graph_pattern any more.
+        # We only treat fastpath as enabled when the caller explicitly asks for it.
+        fastpath_default = False
 
-        # If caller explicitly set graph_pattern=refiner_final, also treat as fastpath
+        # If caller explicitly set graph_pattern=refiner_final, treat as fastpath
         fastpath_explicit = (exec_cfg_pattern == "refiner_final")
 
-        if fastpath_default:
-            cfg = dict(original_execution_config)
-            cfg["graph_pattern"] = "refiner_final"
-            request.execution_config = cfg
-            original_execution_config = cfg  # downstream reads from this
+        if not caller_forced and not exec_cfg_forced and not exec_cfg_pattern:
             logger.info(
-                "[api] default fastpath selected (no agents/pattern provided)",
-                extra={"graph_pattern": "refiner_final", "planned_agents": ["refiner"]},
+                "[api] routing: no agents/pattern from caller; letting classifier/router decide",
+                extra={"graph_pattern": None, "planned_agents": None},
             )
 
         # Recompute after potential update

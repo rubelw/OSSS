@@ -11,7 +11,6 @@ from typing import List, Optional, Dict, Any, Union, cast
 from datetime import datetime, timezone
 from uuid import UUID
 
-
 from pydantic import BaseModel, Field, ConfigDict, field_validator, model_validator
 from typing_extensions import Self
 
@@ -203,6 +202,7 @@ class RefinerOutput(BaseAgentOutput):
 
 class CriticOutput(BaseAgentOutput):
     """Structured output from the Critic agent."""
+
     agent_name: str = Field(default="critic", min_length=1)
 
     assumptions: List[str] = Field(
@@ -596,8 +596,6 @@ class SynthesisOutput(BaseAgentOutput):
         description="Key topics/concepts mentioned in synthesis (up to 30 topics)",
     )
 
-
-
     @field_validator("final_synthesis")
     @classmethod
     def validate_synthesis_content_only(cls, v: str) -> str:
@@ -710,8 +708,6 @@ class SynthesisOutput(BaseAgentOutput):
 
         return validated_topics
 
-
-
     @model_validator(mode="after")
     def validate_synthesis_consistency(self) -> Self:
         """Ensure synthesis consistency and completeness.
@@ -755,7 +751,7 @@ class SynthesisOutput(BaseAgentOutput):
                 "agent_name": "synthesis",
                 "processing_mode": "active",
                 "confidence": "high",
-                "final_synthesis": "# Artificial Intelligence and Society\\n\\nArtificial intelligence represents...",
+                "final_synthesis": "# Artificial Intelligence and Society\n\nArtificial intelligence represents...",
                 "key_themes": [
                     {
                         "theme_name": "Social Transformation",
@@ -779,18 +775,31 @@ class SynthesisOutput(BaseAgentOutput):
     )
 
 
-class DatabaseExecutionMetadata(BaseModel):
-    """Complete execution metadata structure for JSONB database storage.
+# ---- New bottom section: DB metadata + factory ---------------------------------
 
-    This model defines the schema for storing execution metadata in PostgreSQL
-    JSONB columns. It's designed for database persistence, not for LangGraph
-    state management (which uses the TypedDict ExecutionMetadata).
+AgentOutputType = Union[
+    RefinerOutput,
+    HistorianOutput,
+    Dict[str, Any],  # fallback for agents like `final`, `data_query`, etc.
+]
+
+
+class DatabaseExecutionMetadata(BaseModel):
+    """
+    Execution metadata for JSONB storage.
+
+    This version is oriented around the refiner / data_query / final pattern.
+    Critic & synthesis are not required for persistence; arbitrary agents can
+    still write generic dict payloads into agent_outputs.
     """
 
+    # Execution identifiers
     execution_id: str = Field(..., description="Unique execution identifier")
     correlation_id: Optional[str] = Field(
         None, description="Correlation ID for tracking"
     )
+
+    # Global execution characteristics
     total_execution_time_ms: float = Field(
         ..., description="Total execution time in milliseconds"
     )
@@ -799,17 +808,22 @@ class DatabaseExecutionMetadata(BaseModel):
         default=False, description="Whether agents ran in parallel"
     )
 
-    # Agent outputs
-    agent_outputs: Dict[
-        str, Union[RefinerOutput, CriticOutput, HistorianOutput, SynthesisOutput]
-    ] = Field(default_factory=dict, description="Structured outputs from each agent")
+    # Agent structured outputs
+    agent_outputs: Dict[str, AgentOutputType] = Field(
+        default_factory=dict,
+        description=(
+            "Structured outputs from executed agents keyed by agent name "
+            "(e.g., 'refiner', 'data_query', 'final'). "
+            "Refiner / historian use Pydantic models; others use generic dicts."
+        ),
+    )
 
     # LLM usage metadata
     total_tokens_used: Optional[int] = Field(None, description="Total tokens consumed")
     total_cost_usd: Optional[float] = Field(None, description="Total cost in USD")
     model_used: Optional[str] = Field(None, description="Primary LLM model used")
 
-    # Error and retry information
+    # Error + retry details
     errors_encountered: List[str] = Field(
         default_factory=list, description="Errors encountered during execution"
     )
@@ -817,27 +831,52 @@ class DatabaseExecutionMetadata(BaseModel):
 
     # Workflow metadata
     workflow_version: str = Field(
-        default="1.0", description="Version of the workflow executed"
+        default="2.0",  # bumped since critic/synthesis no longer required
+        description="Workflow version executed",
     )
     success: bool = Field(..., description="Whether execution completed successfully")
 
     model_config = ConfigDict(
-        extra="allow",  # Allow extra fields for extensibility
+        extra="allow",  # allow future new agents / extra metadata fields
         validate_assignment=True,
         json_schema_extra={
             "example": {
                 "execution_id": "exec_123abc",
                 "correlation_id": "corr_456def",
-                "total_execution_time_ms": 3500.0,
-                "nodes_executed": ["refiner", "critic", "historian", "synthesis"],
+                "total_execution_time_ms": 3100.0,
+                "nodes_executed": ["refiner", "data_query", "final"],
                 "parallel_execution": False,
                 "agent_outputs": {
-                    "refiner": {"agent_name": "refiner", "refined_query": "..."},
-                    "synthesis": {"agent_name": "synthesis", "final_synthesis": "..."},
+                    "refiner": {
+                        "agent_name": "refiner",
+                        "processing_mode": "active",
+                        "confidence": "high",
+                        "refined_query": (
+                            "List Dallas Center-Grimes School District "
+                            "teachers from database"
+                        ),
+                        "original_query": "list dcg teachers from database",
+                        "changes_made": [
+                            "Expanded 'dcg' to Dallas Center-Grimes School District",
+                            "Clarified that results should come from the database",
+                        ],
+                        "was_unchanged": False,
+                        "fallback_used": False,
+                        "ambiguities_resolved": [],
+                    },
+                    # final + data_query can just be plain dicts
+                    "data_query:warrantys": {
+                        "ok": True,
+                        "view": "warrantys",
+                        "row_count": 5,
+                    },
+                    "final": {
+                        "agent_name": "final",
+                        "final_answer": "Here are the warranty rows for the DCG HVAC asset ...",
+                    },
                 },
-                "total_tokens_used": 2500,
-                "total_cost_usd": 0.05,
-                "model_used": "gpt-4",
+                "total_tokens_used": 1800,
+                "model_used": "llama3.1",
                 "success": True,
             }
         },
@@ -846,7 +885,10 @@ class DatabaseExecutionMetadata(BaseModel):
 
 # Type aliases for convenience
 AgentStructuredOutput = Union[
-    RefinerOutput, CriticOutput, HistorianOutput, SynthesisOutput
+    RefinerOutput,
+    CriticOutput,
+    HistorianOutput,
+    SynthesisOutput,
 ]
 
 

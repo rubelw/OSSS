@@ -70,7 +70,7 @@ class ResourceConstraints(BaseModel):
     required_agents: Set[str] = Field(
         default_factory=set,
         description="Set of agent names that must be included",
-        json_schema_extra={"example": ["refiner", "synthesis"]},
+        json_schema_extra={"example": ["refiner", "final"]},
     )
     forbidden_agents: Set[str] = Field(
         default_factory=set,
@@ -276,21 +276,15 @@ class ResourceOptimizer:
                 "critical": True,
                 "parallel_safe": False,
             },
-            "critic": {
-                "quality_weight": 0.8,
-                "analysis": True,
-                "critical": False,
-                "parallel_safe": True,
-            },
             "historian": {
                 "quality_weight": 0.7,
                 "research": True,
                 "critical": False,
                 "parallel_safe": True,
             },
-            "synthesis": {
+            "final": {
                 "quality_weight": 0.9,
-                "synthesis": True,
+                "false": True,
                 "critical": True,
                 "parallel_safe": False,
             },
@@ -383,8 +377,8 @@ class ResourceOptimizer:
 
         if context_requirements.get("requires_refinement", False):
             required_from_context.add("refiner")
-        if context_requirements.get("requires_synthesis", False):
-            required_from_context.add("synthesis")
+        if context_requirements.get("requires_final", False):
+            required_from_context.add("final")
         if context_requirements.get("requires_data_query", False):
             required_from_context.add("data_query")
 
@@ -701,7 +695,7 @@ class ResourceOptimizer:
         base_quality = capabilities.get("quality_weight", 0.5)
 
         # Adjust for complexity - some agents perform better on complex queries
-        if agent in ["critic", "synthesis"] and complexity_score > 0.7:
+        if agent in ["final"] and complexity_score > 0.7:
             return min(1.0, base_quality + 0.1)
         elif agent == "historian" and complexity_score > 0.5:
             return min(1.0, base_quality + 0.1)
@@ -723,7 +717,7 @@ class ResourceOptimizer:
             score += 0.3
         if requirements.get("requires_criticism", False) and agent == "critic":
             score += 0.3
-        if requirements.get("requires_synthesis", False) and agent == "synthesis":
+        if requirements.get("requires_output", False) and agent == "output":
             score += 0.3
         if requirements.get("requires_refinement", False) and agent == "refiner":
             score += 0.3
@@ -782,9 +776,9 @@ class ResourceOptimizer:
 
         elif strategy == OptimizationStrategy.QUALITY:
             # Select agents that contribute to quality, considering complexity
-            quality_agents = ["refiner", "synthesis"]
+            quality_agents = ["refiner", "output"]
             if complexity_score > 0.6:
-                quality_agents.extend(["critic", "historian"])
+                quality_agents.extend(["historian"])
 
             for agent, score in sorted_agents:
                 agent_lower = agent.lower()
@@ -950,8 +944,8 @@ class ResourceOptimizer:
             decision.entry_point = agents[0]
 
         # Determine exit points
-        if "synthesis" in agents_lower:
-            decision.exit_points = ["synthesis"]
+        if "final" in agents_lower:
+            decision.exit_points = ["final"]
         else:
             # Last agents are exit points
             decision.exit_points = agents[-1:] if agents else []

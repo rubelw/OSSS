@@ -143,7 +143,7 @@ class WorkflowResult(BaseModel):
     )
     execution_structure: List[Union[str, List[str]]] = Field(
         default_factory=list,
-        description="Hierarchical execution order showing parallel groups: ['refiner', ['critic', 'historian'], 'synthesis']",
+        description="Hierarchical execution order showing parallel groups: ['refiner', 'historian', 'final']",
     )
     execution_time_seconds: float = Field(
         default=0.0, ge=0, description="Total execution time in seconds"

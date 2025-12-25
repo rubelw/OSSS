@@ -23,6 +23,7 @@ from OSSS.ai.config.agent_configs import (
     HistorianConfig,
     SynthesisConfig,
     AgentConfigType,
+    FinalConfig,
 )
 
 logger = logging.getLogger(__name__)
@@ -39,6 +40,7 @@ try:
     from OSSS.ai.agents.critic.prompts import CRITIC_SYSTEM_PROMPT
     from OSSS.ai.agents.historian.prompts import HISTORIAN_SYSTEM_PROMPT
     from OSSS.ai.agents.synthesis.prompts import SYNTHESIS_SYSTEM_PROMPT
+    from OSSS.ai.agents.final.prompts import FINAL_SYSTEM_PROMPT
 except ImportError:
     # Fallback if prompts not available
     REFINER_SYSTEM_PROMPT = "You are a query refinement assistant."
@@ -46,6 +48,7 @@ except ImportError:
     CRITIC_SYSTEM_PROMPT = "You are a critical analysis assistant."
     HISTORIAN_SYSTEM_PROMPT = "You are a context retrieval assistant."
     SYNTHESIS_SYSTEM_PROMPT = "You are a synthesis assistant."
+    FINAL_SYSTEM_PROMPT = "You are a final system assistant."
 
 
 # Strict typing for template variables - keeping Python on a leash!
@@ -85,6 +88,13 @@ class TemplateVariables(TypedDict, total=False):
     thematic_focus: str
     meta_analysis: str
     integration_mode: str
+
+    # Final agent variables
+    final_answer_style: str  # e.g. "concise", "balanced", "detailed"
+    final_tone: str  # e.g. "neutral", "friendly", "formal"
+    final_format_preference: str  # e.g. "markdown", "raw", "structured"
+    final_include_refiner_context: str  # "true"/"false" as string for templating
+    final_include_rag_metadata: str  # "true"/"false" as string for templating
 
 
 class ComposedPrompt(BaseModel):
@@ -168,6 +178,7 @@ class PromptComposer:
             "critic": CRITIC_SYSTEM_PROMPT,
             "historian": HISTORIAN_SYSTEM_PROMPT,
             "synthesis": SYNTHESIS_SYSTEM_PROMPT,
+            "final": FINAL_SYSTEM_PROMPT,
         }
 
         # Template patterns for behavioral modifications
@@ -584,6 +595,154 @@ class PromptComposer:
             metadata=metadata,
         )
 
+    def compose_final_prompt(self, config: FinalConfig) -> ComposedPrompt:
+        """
+        Compose FINAL agent prompt based on configuration.
+
+        Args:
+            config: FinalConfig with behavioral and prompt settings
+
+        Returns:
+            ComposedPrompt with customized system prompt and templates
+        """
+        # 1) Start with base prompt or custom override
+        if config.prompt_config.custom_system_prompt:
+            base_prompt = config.prompt_config.custom_system_prompt
+        else:
+            try:
+                base_prompt = self.default_prompts["final"]
+            except KeyError:
+                # Fallback so we don't explode if default_prompts isn't wired yet
+                base_prompt = (
+                    "You are the FINAL agent for OSSS.\n"
+                    "Your job is to produce a concise, well-formatted answer for the end user "
+                    "based on the user question and any retrieved context.\n"
+                )
+
+        # If you want the DCG canonicalization block in FINAL as well,
+        # reuse the same helper as the refiner (if available).
+        if hasattr(self, "_ensure_dcg_block"):
+            try:
+                base_prompt = self._ensure_dcg_block(base_prompt)  # type: ignore[attr-defined]
+            except Exception:
+                logger.debug("[PromptComposer] _ensure_dcg_block failed for final prompt", exc_info=True)
+
+        # 2) Apply behavioral / formatting modifications
+        modifications: List[str] = []
+
+        # Answer style (level of detail)
+        try:
+            # If you later add behavioral_templates["final_answer_style"], you can plug it in here:
+            guide = getattr(self, "behavioral_templates", {}).get(
+                "final_answer_style", {}
+            ).get(config.answer_style)  # type: ignore[call-arg]
+            if guide:
+                modifications.append(f"Answer Style: {guide}")
+            else:
+                modifications.append(f"Answer Style: {config.answer_style}")
+        except Exception:
+            modifications.append(f"Answer Style: {config.answer_style}")
+
+        # Tone / voice
+        try:
+            tone_guide = getattr(self, "behavioral_templates", {}).get(
+                "final_tone", {}
+            ).get(config.tone)  # type: ignore[call-arg]
+            if tone_guide:
+                modifications.append(f"Tone: {tone_guide}")
+            else:
+                modifications.append(f"Tone: {config.tone}")
+        except Exception:
+            modifications.append(f"Tone: {config.tone}")
+
+        # Output format preference (reusing same semantics as other agents)
+        format_pref = config.output_config.format_preference
+        modifications.append(
+            f"Output Format Preference: {format_pref} "
+            "(this controls whether the answer is raw text, markdown, or structured)."
+        )
+
+        # Whether FINAL should lean on refiner markdown or not
+        if config.include_refiner_context:
+            modifications.append(
+                "Refiner Context: You MAY use refiner output to disambiguate the question, "
+                "but avoid echoing its markdown structure verbatim."
+            )
+        else:
+            modifications.append(
+                "Refiner Context: Do NOT quote or rely heavily on refiner markdown; "
+                "answer directly from the user question and retrieved context."
+            )
+
+        # Whether to explicitly surface RAG metadata / provenance
+        if config.include_rag_metadata:
+            modifications.append(
+                "RAG Metadata: When helpful, briefly mention where relevant context came from "
+                "(e.g., file names, dates) without overwhelming the user."
+            )
+        else:
+            modifications.append(
+                "RAG Metadata: Focus on a clean answer; only reference sources when strictly necessary."
+            )
+
+        # Any custom behavioral constraints from the config
+        if config.behavioral_config.custom_constraints:
+            constraints_text = "Additional Constraints: " + "; ".join(
+                config.behavioral_config.custom_constraints
+            )
+            modifications.append(constraints_text)
+
+        # Stitch modifications into the system prompt
+        if modifications:
+            modification_text = "\n\n" + "\n".join(f"- {mod}" for mod in modifications)
+            composed_prompt = base_prompt + modification_text
+        else:
+            composed_prompt = base_prompt
+
+        logger.debug(
+            "[PromptComposer] final prompt composed (answer_style=%s, tone=%s, format=%s)",
+            getattr(config, "answer_style", None),
+            getattr(config, "tone", None),
+            config.output_config.format_preference,
+        )
+
+        # 3) Templates + variables for downstream formatting
+        templates: Dict[str, str] = dict(config.prompt_config.custom_templates)
+
+        all_template_vars: Dict[str, Any] = dict(
+            config.prompt_config.template_variables
+        )
+        variables = self._create_template_variables(all_template_vars)
+
+        # Inject FINAL-specific variables (matching your TemplateVariables TypedDict)
+        variables.update(
+            {
+                "final_answer_style": getattr(config, "answer_style", "balanced"),
+                "final_tone": getattr(config, "tone", "neutral"),
+                "final_format_preference": config.output_config.format_preference,
+                "final_include_refiner_context": str(
+                    getattr(config, "include_refiner_context", True)
+                ).lower(),
+                "final_include_rag_metadata": str(
+                    getattr(config, "include_rag_metadata", True)
+                ).lower(),
+            }
+        )
+
+        metadata = {
+            "agent_type": "final",
+            "config_version": "1.0",
+            "composition_timestamp": "runtime",
+            "fallback_mode": config.behavioral_config.fallback_mode,
+        }
+
+        return ComposedPrompt(
+            system_prompt=composed_prompt,
+            templates=templates,
+            variables=variables,
+            metadata=metadata,
+        )
+
     def compose_prompt(self, agent_type: str, config: AgentConfigType) -> ComposedPrompt:
         """
         Universal prompt composition method for any agent type.
@@ -603,6 +762,7 @@ class PromptComposer:
             "critic": self.compose_critic_prompt,
             "historian": self.compose_historian_prompt,
             "synthesis": self.compose_synthesis_prompt,
+            "final": self.compose_final_prompt,
         }
 
         if agent_type not in composer_methods:

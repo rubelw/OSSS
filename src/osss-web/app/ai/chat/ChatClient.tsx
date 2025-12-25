@@ -6,7 +6,6 @@ import React, { useState, useCallback, useEffect, useRef } from "react";
 const uploadIcon = "/add.png"; // Path from public directory
 
 
-// ✅ NEW: client-side fetch timeout (ms)
 // Note: fetch has no timeout by default; this makes it explicit.
 const CLIENT_QUERY_TIMEOUT_MS = 180_000; // 3 minutes
 
@@ -258,6 +257,78 @@ function buildSourcesHtmlFromChunks(chunks: RetrievedChunk[]): string {
       </ul>
     </div>
   `;
+}
+
+/**
+ * 🔹 NEW: Build Markdown tables for any data_query:* agent outputs.
+ * This leverages your existing mdToHtml → HTML table rendering.
+ */
+function buildDataQueryMarkdown(agentOutputs?: Record<string, any>): string {
+  if (!agentOutputs) return "";
+
+  const blocks: string[] = [];
+
+  for (const [key, value] of Object.entries(agentOutputs)) {
+    if (!key.startsWith("data_query")) continue;
+    if (!value || typeof value !== "object") continue;
+
+    const dq = value as {
+      view?: string;
+      ok?: boolean;
+      rows?: any[];
+      row_count?: number;
+    };
+
+    if (dq.ok !== true) continue;
+    if (!Array.isArray(dq.rows) || dq.rows.length === 0) continue;
+
+    const rows = dq.rows;
+    const viewName = dq.view || key;
+
+    // Collect columns from all rows (union), so we don't drop fields
+    const colSet = new Set<string>();
+    for (const r of rows) {
+      if (r && typeof r === "object") {
+        Object.keys(r).forEach((c) => colSet.add(c));
+      }
+    }
+    const cols = Array.from(colSet);
+    if (cols.length === 0) continue;
+
+    const lines: string[] = [];
+
+    lines.push(`**Data query: ${viewName}**`);
+    if (typeof dq.row_count === "number") {
+      lines.push(`_Rows: ${dq.row_count}_`);
+    }
+    lines.push(""); // blank line before table
+
+    // Header
+    lines.push(`| ${cols.join(" | ")} |`);
+    lines.push(`| ${cols.map(() => "---").join(" | ")} |`);
+
+    // Rows
+    for (const row of rows) {
+      const cells = cols.map((col) => {
+        const v = row?.[col];
+        if (v === null || v === undefined) return "";
+        if (typeof v === "object") {
+          try {
+            return JSON.stringify(v);
+          } catch {
+            return String(v);
+          }
+        }
+        return String(v);
+      });
+      lines.push(`| ${cells.join(" | ")} |`);
+    }
+
+    lines.push(""); // trailing blank line
+    blocks.push(lines.join("\n"));
+  }
+
+  return blocks.join("\n\n---\n\n");
 }
 
 /**
@@ -580,6 +651,9 @@ export default function ChatClient() {
       // Primary text to show in chat (synthesis preferred)
       const reply = pickPrimaryText(wf.agent_outputs) || "(No agent output returned)";
 
+      // 🔹 NEW: build markdown for any data_query:* outputs and append
+      const dataQueryMd = buildDataQueryMarkdown(wf.agent_outputs);
+
       // Pull intent/tone/etc from the query profile (new shape)
       const qp = getQueryProfile(wf);
       const returnedIntent: string | null = typeof qp?.intent === "string" ? qp.intent : null;
@@ -590,6 +664,11 @@ export default function ChatClient() {
 
       // Optional: show debug info (query_profile, timing, markdown export)
       let replyForDisplay = reply.trimEnd();
+
+      if (dataQueryMd) {
+        replyForDisplay += `\n\n---\n${dataQueryMd}`;
+      }
+
       const replyForHistory = sanitizeForGuard(replyForDisplay);
 
       if (showDebug) {
@@ -617,7 +696,10 @@ export default function ChatClient() {
       const sourcesHtml = showSources ? buildSourcesHtmlFromChunks(chunksForThisReply) : "";
       const finalHtml = outHtml + sourcesHtml;
 
-      appendMessage("bot", finalHtml, true, showDebug);
+      // 🔹 NEW: use fullWidth if we have debug OR a data_query table
+      const useFullWidth = showDebug || !!dataQueryMd;
+
+      appendMessage("bot", finalHtml, true, useFullWidth);
 
       setChatHistory((prev) => [...prev, { role: "assistant", content: String(replyForHistory) }]);
     } catch (err: any) {

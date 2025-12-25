@@ -19,7 +19,7 @@ def route_agents_with_decision_node(
     agents = [a.lower() for a in (result.get("selected_agents") or [])]
     if not agents:
         # fail safe: minimal
-        agents = ["refiner", "synthesis"]
+        agents = ["refiner", "final"]
 
     pattern = default_pattern
     if path_to_pattern:

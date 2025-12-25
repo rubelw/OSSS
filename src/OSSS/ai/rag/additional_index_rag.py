@@ -118,7 +118,7 @@ def _format_results(
 async def search_additional_index(
     query: str,
     index: str = "main",
-    top_k: int = 8,
+    top_k: int = 6,
 ) -> RagResult:
     """
     Retrieval-only helper:
@@ -333,16 +333,15 @@ async def search_additional_index(
 async def rag_prefetch_additional(
     query: str,
     index: str = "main",
-    top_k: int = 8,
+    top_k: int = 6,
 ) -> RagResult:
     """
     High-level helper used by the orchestrator.
 
-    1) Calls `search_additional_index` to retrieve hits + meta.
-    2) Formats hits into a prompt-ready `combined_text` using `_format_results`.
-
-    If a given agent wants a different presentation (JSON, table, etc.),
-    it can call `search_additional_index` directly and format the hits.
+    NOTE:
+    - Per-index defaults (top_k, snippet sizes, etc.) are resolved in the
+      orchestrator (via RagIndexConfig / RAG_SETTINGS) *before* calling this.
+    - This function assumes it is given the already-resolved `index` and `top_k`.
     """
     # 1. Retrieval (embedding + vector search + metrics)
     base_result = await search_additional_index(

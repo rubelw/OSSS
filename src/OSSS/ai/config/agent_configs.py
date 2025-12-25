@@ -97,7 +97,9 @@ class AgentExecutionConfig(BaseModel):
     enable_caching: bool = Field(True, description="Whether to enable response caching")
 
 
+# ---------------------------------------------------------------------------
 # Agent-Specific Configuration Classes
+# ---------------------------------------------------------------------------
 
 
 class RefinerConfig(BaseModel):
@@ -383,11 +385,112 @@ class SynthesisConfig(BaseModel):
         }
 
 
+class FinalConfig(BaseModel):
+    """
+    Configuration for FinalAgent behavior and prompt composition.
+
+    This aligns with FinalAgent's responsibilities:
+    - Build the final user-facing answer
+    - Integrate RAG context when present
+    - Enforce strict role-identity guardrails
+    """
+
+    model_config = ConfigDict(extra="forbid", validate_assignment=True)
+
+    # Behavioral settings
+    answer_style: Literal["concise", "balanced", "detailed"] = Field(
+        "balanced",
+        description="Preferred style for final answers (length and depth).",
+    )
+    include_refiner_context: bool = Field(
+        True,
+        description="Whether to include refiner output in the FINAL prompt for extra context.",
+    )
+    enforce_role_identity_guardrails: bool = Field(
+        True,
+        description="If true, strictly avoid hallucinating real-person role identities.",
+    )
+    rag_required_for_role_identity: bool = Field(
+        True,
+        description=(
+            "If true, FINAL must refuse to name real-world role holders "
+            "unless RAG context explicitly provides the identity."
+        ),
+    )
+    fallback_no_context_message: str = Field(
+        "No relevant context found for this query. Please verify the query or try again.",
+        description="Message to use when no RAG context is available.",
+    )
+
+    # Nested configurations
+    prompt_config: PromptConfig = Field(default_factory=PromptConfig)
+    behavioral_config: BehavioralConfig = Field(default_factory=BehavioralConfig)
+    output_config: OutputConfig = Field(default_factory=OutputConfig)
+    execution_config: AgentExecutionConfig = Field(
+        default_factory=lambda: AgentExecutionConfig(timeout_seconds=120)
+    )
+
+    @classmethod
+    def from_dict(cls, config: Dict[str, Any]) -> "FinalConfig":
+        """Create FinalConfig from dictionary (workflow integration)."""
+        return cls(**config)
+
+    @classmethod
+    def from_env(cls, prefix: str = "FINAL") -> "FinalConfig":
+        """Create FinalConfig from environment variables."""
+        config: Dict[str, Any] = {}
+
+        if env_val := os.getenv(f"{prefix}_ANSWER_STYLE"):
+            config["answer_style"] = env_val
+        if env_val := os.getenv(f"{prefix}_INCLUDE_REFINER_CONTEXT"):
+            config["include_refiner_context"] = env_val.lower() == "true"
+        if env_val := os.getenv(f"{prefix}_ENFORCE_ROLE_IDENTITY_GUARDRAILS"):
+            config["enforce_role_identity_guardrails"] = env_val.lower() == "true"
+        if env_val := os.getenv(f"{prefix}_RAG_REQUIRED_FOR_ROLE_IDENTITY"):
+            config["rag_required_for_role_identity"] = env_val.lower() == "true"
+        if env_val := os.getenv(f"{prefix}_FALLBACK_NO_CONTEXT_MESSAGE"):
+            config["fallback_no_context_message"] = env_val
+
+        return cls(**config)
+
+    def to_prompt_config(self) -> Dict[str, Any]:
+        """
+        Convert to a flat dict compatible with the existing prompt system.
+
+        FinalAgent can read these from ctx.execution_state["execution_config"] or
+        a similar structure.
+        """
+        return {
+            "answer_style": self.answer_style,
+            "include_refiner_context": str(self.include_refiner_context),
+            "enforce_role_identity_guardrails": str(
+                self.enforce_role_identity_guardrails
+            ),
+            "rag_required_for_role_identity": str(self.rag_required_for_role_identity),
+            "fallback_no_context_message": self.fallback_no_context_message,
+            "format_preference": self.output_config.format_preference,
+            "custom_constraints": self.behavioral_config.custom_constraints,
+            "template_variables": self.prompt_config.template_variables,
+        }
+
+
+# ---------------------------------------------------------------------------
 # Configuration Union Type for Factory Patterns
-AgentConfigType = Union[RefinerConfig, CriticConfig, HistorianConfig, SynthesisConfig]
+# ---------------------------------------------------------------------------
+
+AgentConfigType = Union[
+    RefinerConfig,
+    CriticConfig,
+    HistorianConfig,
+    SynthesisConfig,
+    FinalConfig,
+]
 
 
+# ---------------------------------------------------------------------------
 # Overloads for better type safety
+# ---------------------------------------------------------------------------
+
 @overload
 def get_agent_config_class(agent_type: Literal["refiner"]) -> Type[RefinerConfig]: ...
 
@@ -409,6 +512,12 @@ def get_agent_config_class(
 
 
 @overload
+def get_agent_config_class(
+    agent_type: Literal["final"],
+) -> Type[FinalConfig]: ...
+
+
+@overload
 def get_agent_config_class(agent_type: str) -> Type[AgentConfigType]: ...
 
 
@@ -419,6 +528,7 @@ def get_agent_config_class(agent_type: str) -> Type[AgentConfigType]:
         "critic": CriticConfig,
         "historian": HistorianConfig,
         "synthesis": SynthesisConfig,
+        "final": FinalConfig,
     }
 
     if agent_type not in config_mapping:
@@ -427,7 +537,10 @@ def get_agent_config_class(agent_type: str) -> Type[AgentConfigType]:
     return cast(Type[AgentConfigType], config_mapping[agent_type])
 
 
+# ---------------------------------------------------------------------------
 # Overloads for config creation with better type safety
+# ---------------------------------------------------------------------------
+
 @overload
 def create_agent_config(
     agent_type: Literal["refiner"], config_dict: Dict[str, Any]
@@ -450,6 +563,12 @@ def create_agent_config(
 def create_agent_config(
     agent_type: Literal["synthesis"], config_dict: Dict[str, Any]
 ) -> SynthesisConfig: ...
+
+
+@overload
+def create_agent_config(
+    agent_type: Literal["final"], config_dict: Dict[str, Any]
+) -> FinalConfig: ...
 
 
 @overload

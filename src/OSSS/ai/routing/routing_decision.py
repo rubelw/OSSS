@@ -204,7 +204,7 @@ class RoutingDecision(BaseModel):
     available_agents: List[str] = Field(
         default_factory=list,
         description="List of agent names that were available for selection",
-        json_schema_extra={"example": ["refiner", "critic", "historian", "synthesis"]},
+        json_schema_extra={"example": ["refiner", "historian", "final"]},
     )
 
     # Reasoning and analysis
@@ -217,7 +217,7 @@ class RoutingDecision(BaseModel):
     execution_order: List[str] = Field(
         default_factory=list,
         description="Ordered list of agents for execution",
-        json_schema_extra={"example": ["refiner", "historian", "critic", "synthesis"]},
+        json_schema_extra={"example": ["refiner", "historian", "final"]},
     )
     parallel_groups: List[List[str]] = Field(
         default_factory=list,

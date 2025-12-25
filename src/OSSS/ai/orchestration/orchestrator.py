@@ -46,6 +46,7 @@ from OSSS.ai.orchestration.state_schemas import (
     CriticState,
     HistorianState,
     SynthesisState,
+    FinalState,
     create_initial_state,
     validate_state_integrity,
 )
@@ -54,7 +55,10 @@ from OSSS.ai.orchestration.node_wrappers import (
     get_node_dependencies,
 )
 
-from OSSS.ai.orchestration.routing import DBQueryRouter  # ✅ pre-route before compile
+from OSSS.ai.orchestration.routing import (
+    DBQueryRouter,              # ✅ pre-route before compile
+    planned_agents_for_route_key,
+)
 
 from OSSS.ai.orchestration.memory_manager import (
     OSSSMemoryManager,
@@ -107,13 +111,13 @@ def normalize_agents(agents: list[str], *, pattern_name: str = "standard") -> li
     if "refiner" not in a:
         a.insert(0, "refiner")
 
-    # ✅ only force synthesis on patterns that require it
+    # ✅ only force final on patterns that require it
     if pattern_name.strip() not in ("refiner_final", "refiner-only", "refiner_only"):
-        if "synthesis" not in a:
-            a.append("synthesis")
+        if "final" not in a:
+            a.append("final")
 
     if "data_query" in a:
-        a = [x for x in a if x not in ("critic", "historian")]
+        a = [x for x in a if x not in ( "historian")]
 
     out: list[str] = []
     seen = set()
@@ -306,7 +310,7 @@ class LangGraphOrchestrator:
         graph_pattern: Optional[str] = None,
     ) -> None:
         # Default agents: includes data_query, but the *standard pattern* does not require it.
-        self.default_agents = ["refiner", "data_query", "critic", "historian", "synthesis"]
+        self.default_agents = ["refiner", "data_query", "historian", "final"]
 
         self._compiled_graph = None
         self._compiled_graph_key: Optional[tuple[str, tuple[str, ...], bool]] = None
@@ -354,8 +358,11 @@ class LangGraphOrchestrator:
 
         # Example criterion: prefer "action" when refiner/intents indicate query/action
         def _is_actionish(ctx: NodeExecutionContext) -> float:
-            # simplest: look at ctx.execution_state["agent_output_meta"]["_query_profile"]
             es = getattr(ctx, "execution_state", None) or {}
+            # ✅ If DBQueryRouter already marked this as action, treat it as 1.0
+            if str(es.get("route_key", "")).lower() == "action":
+                return 1.0
+
             aom = (es.get("agent_output_meta") or {}) if isinstance(es, dict) else {}
             qp = aom.get("_query_profile") or aom.get("query_profile") or {}
             if not isinstance(qp, dict):
@@ -376,8 +383,8 @@ class LangGraphOrchestrator:
                 )
             ],
             paths={
-                "action": ["refiner", "data_query", "synthesis"],
-                "reflect": ["refiner", "critic", "historian", "synthesis"],
+                "action": ["refiner", "data_query", "final"],
+                "reflect": ["refiner", "historian", "final"],
             },
         )
 
@@ -784,6 +791,32 @@ class LangGraphOrchestrator:
                     )
                     decision_selected = None
 
+            # ✅ If DBQueryRouter decided this is an action/data_query route,
+            # use the canonical agent plan for that route_key.
+            if not caller_forced_agents:
+                route_key = exec_state.get("route_key")
+                if route_key:
+                    try:
+                        route_agents = planned_agents_for_route_key(route_key)
+                        if route_agents:
+                            self.logger.info(
+                                "[orchestrator] Overriding DecisionNode agents from route_key",
+                                extra={
+                                    "route_key": route_key,
+                                    "route_agents": route_agents,
+                                    "decision_selected": decision_selected,
+                                },
+                            )
+                            decision_selected = route_agents
+                    except Exception as e:
+                        self.logger.warning(
+                            f"[orchestrator] Failed to apply route_key-based planning: {e}",
+                            extra={"route_key": route_key},
+                        )
+
+
+
+
             final_candidates = decision_selected if decision_selected is not None else self.agents_to_run
             final_agents = normalize_agents(final_candidates)
 
@@ -1013,12 +1046,18 @@ class LangGraphOrchestrator:
                 context.execution_state["historian_topics_found"] = historian_output["topics_found"]
                 context.execution_state["historian_confidence"] = historian_output["confidence"]
 
-        if final_state.get("synthesis"):
-            synthesis_output: Optional[SynthesisState] = final_state["synthesis"]
-            if synthesis_output is not None:
-                context.add_agent_output("synthesis", synthesis_output["final_analysis"])
-                context.execution_state["synthesis_insights"] = synthesis_output["key_insights"]
-                context.execution_state["synthesis_themes"] = synthesis_output["themes_identified"]
+        # final_state is presumably the LangGraph state dict at the end of the run
+        if final_state.get("final"):
+            final_output: Optional[FinalState] = final_state["final"]
+            if final_output is not None:
+                # Main user-facing answer
+                context.add_agent_output("final", final_output["final_answer"])
+
+                # Optional: store structured final info in execution_state for downstream consumers
+                context.execution_state["final_used_rag"] = final_output["used_rag"]
+                context.execution_state["final_rag_excerpt"] = final_output.get("rag_excerpt")
+                context.execution_state["final_sources_used"] = final_output["sources_used"]
+                context.execution_state["final_timestamp"] = final_output["timestamp"]
 
         for agent in final_state["successful_agents"]:
             context.successful_agents.add(agent)
@@ -1091,7 +1130,7 @@ class LangGraphOrchestrator:
 
         # very light “context requirements” (adjust as needed)
         context_requirements = {
-            "requires_synthesis": True,
+            "requires_final": True,
             "requires_refinement": True,
         }
 

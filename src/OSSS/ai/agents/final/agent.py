@@ -12,7 +12,7 @@ from __future__ import annotations
 import time
 import re
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional, List, Tuple, Iterable
+from typing import Any, Dict, Optional, List, Tuple, Iterable, Union
 
 from OSSS.ai.agents.base_agent import BaseAgent
 from OSSS.ai.context import AgentContext
@@ -23,6 +23,13 @@ from OSSS.ai.utils.llm_text import coerce_llm_text
 
 # ✅ use factory so request-level use_rag/top_k can apply
 from OSSS.ai.llm.factory import LLMFactory
+
+# Configuration + prompt composer imports (follow SynthesisAgent pattern)
+from OSSS.ai.config.agent_configs import FinalConfig
+from OSSS.ai.workflows.prompt_composer import PromptComposer, ComposedPrompt
+
+# Final-specific prompts (system + user template)
+from OSSS.ai.agents.final.prompts import build_final_prompt, FINAL_SYSTEM_PROMPT
 
 logger = get_logger(__name__)
 
@@ -54,11 +61,52 @@ _ROLE_IDENTITY_KEYWORDS: Tuple[str, ...] = (
 
 
 class FinalAgent(BaseAgent):
+    """
+    FinalAgent: produces the end-user answer using RAG snippets + prior agent context.
+
+    - Respects role-identity constraints (no hallucinating real-world office holders).
+    - Integrates with execution_config via LLMFactory (so use_rag/top_k flow through).
+    - Uses FinalConfig + PromptComposer to align with other agents (Historian/Synthesis).
+    """
+
     write_output_alias: bool = False
 
-    def __init__(self, llm: Optional[LLMInterface] = None, name: str = "final", **kwargs: Any) -> None:
-        super().__init__(name=name, **kwargs)
-        self.llm: Optional[LLMInterface] = llm
+    def __init__(
+        self,
+        llm: Optional[Union[LLMInterface, str]] = "default",
+        config: Optional[FinalConfig] = None,
+        name: str = "final",
+        **kwargs: Any,
+    ) -> None:
+        # Configuration system - backward compatible
+        self.config: FinalConfig = config if config is not None else FinalConfig()
+
+        # Pass timeout from config to BaseAgent (align with SynthesisAgent/HistorianAgent)
+        super().__init__(
+            name=name,
+            timeout_seconds=self.config.execution_config.timeout_seconds,
+            **kwargs,
+        )
+
+        # Prompt composition support
+        self._prompt_composer = PromptComposer()
+        self._composed_prompt: Optional[ComposedPrompt] = None
+
+        # LLM instance:
+        # - If "default", we rely on per-request LLMFactory based on execution_config.
+        # - If an LLMInterface is passed, we honor it.
+        if llm == "default":
+            self.llm: Optional[LLMInterface] = None
+        else:
+            if llm is None:
+                self.llm = None
+            elif hasattr(llm, "generate") or hasattr(llm, "ainvoke"):
+                self.llm = llm  # type: ignore[assignment]
+            else:
+                self.llm = None
+
+        # Compose the prompt on initialization (if PromptComposer supports final)
+        self._update_composed_prompt()
 
     # -----------------------
     # heuristics
@@ -80,7 +128,11 @@ class FinalAgent(BaseAgent):
             return True
 
         # markdowny refiner blocks
-        if "refined query" in t and ("contextual information" in t or "revised query" in t or "original query" in t):
+        if "refined query" in t and (
+            "contextual information" in t
+            or "revised query" in t
+            or "original query" in t
+        ):
             return True
 
         if t.count("\n") >= 3 and ("###" in t or "**" in t) and "refin" in t:
@@ -131,9 +183,6 @@ class FinalAgent(BaseAgent):
           - "Who is the current superintendent of ..."
           - "Who's the principal at ..."
           - "Is Scott Blum the superintendent at DCG?"
-
-        This is intentionally conservative but covers both "who is" and
-        "is <person> the <role>" patterns.
         """
         if not isinstance(text, str):
             return False
@@ -150,7 +199,7 @@ class FinalAgent(BaseAgent):
         if "who is" in t or "who's" in t or t.startswith("who "):
             return True
 
-        # Pattern B: "is <something> the <role>" (e.g., "is scott blum the superintendent at ...")
+        # Pattern B: "is <something> the <role>"
         if t.startswith("is ") and any(f" the {kw}" in t for kw in _ROLE_IDENTITY_KEYWORDS):
             return True
 
@@ -163,12 +212,6 @@ class FinalAgent(BaseAgent):
     def _iter_dictish_records(self, obj: Any) -> Iterable[Dict[str, Any]]:
         """
         Recursively yield dict-like trace/event records.
-
-        Handles structures like:
-          - dict (single record)
-          - list/tuple of dicts
-          - dict of agent -> [records...]
-            e.g. {"refiner": [ {...}, {...} ], "final": [ {...} ]}
         """
         # dict case
         if isinstance(obj, dict):
@@ -192,7 +235,6 @@ class FinalAgent(BaseAgent):
     def _iter_trace_candidates(self, ctx: AgentContext) -> List[Any]:
         """
         Collect candidate containers that might hold trace/log/event data.
-        We don't assume exact attribute names: we scan vars(ctx) and execution_state.
         """
         candidates: List[Any] = []
 
@@ -213,7 +255,7 @@ class FinalAgent(BaseAgent):
                 if any(tok in lk for tok in ("trace", "log", "event", "history")):
                     candidates.append(v)
 
-        # 3) common explicit keys (in case introspection misses)
+        # 3) common explicit keys
         for name in ("traces", "trace_log", "agent_traces", "events", "logs"):
             candidates.append(getattr(ctx, name, None))
             if isinstance(exec_state, dict):
@@ -263,8 +305,6 @@ class FinalAgent(BaseAgent):
     def _extract_refiner_output_from_traces(self, ctx: AgentContext) -> str:
         """
         Best-effort extraction of the latest refiner output from the agent traces.
-        This lets FINAL see the full markdown from the RefinerAgent even if it's
-        not explicitly placed on ctx.refiner_snippet.
         """
         traces = getattr(ctx, "traces", None)
         if not isinstance(traces, list):
@@ -295,11 +335,6 @@ class FinalAgent(BaseAgent):
     def _extract_original_from_traces(self, ctx: AgentContext) -> str:
         """
         Try to recover the original user query from execution_state + trace logs.
-
-        We prefer:
-        - execution_state["original_query"] if it exists and is not refiner-ish.
-        - traces from 'refiner' or 'classifier' where 'input' is a string
-        - and which do NOT look like refiner markdown headings.
         """
         exec_state = getattr(ctx, "execution_state", None)
         if isinstance(exec_state, dict):
@@ -351,10 +386,6 @@ class FinalAgent(BaseAgent):
     def _extract_refined_question_from_refiner(self, refiner_text: str) -> str:
         """
         Try to pull a single 'refined' question from the refiner's markdown output.
-
-        Heuristics:
-        - Prefer lines starting with 'Improved Query' or 'Refined Query'
-        - Otherwise, fall back to the last line that contains a '?'
         """
         if not isinstance(refiner_text, str) or not refiner_text.strip():
             return ""
@@ -388,14 +419,6 @@ class FinalAgent(BaseAgent):
     def _resolve_user_question(self, ctx: AgentContext, refiner_text: str = "") -> str:
         """
         Resolve the actual end-user question the FINAL agent should answer.
-
-        Priority order:
-        1) execution_state["user_question"] (node-wrapper "argument" override).
-        2) Original query recovered from traces (refiner/classifier input).
-        3) execution_state["original_query"] / ["raw_query"] / ["user_question"] / ["raw_query"]...
-        4) direct ctx attributes (legacy/back-compat).
-        5) ctx.query itself (if present and not refiner-ish).
-        6) Question-like lines parsed from refiner_text.
         """
         exec_state = getattr(ctx, "execution_state", None)
 
@@ -419,8 +442,7 @@ class FinalAgent(BaseAgent):
             for key in (
                 "original_query",
                 "raw_query",
-                "user_query",  # still leave here for legacy, after the override above
-                "user_query",
+                "user_query",  # legacy
                 "initial_query",
                 "input_query",
                 "query_original",
@@ -456,7 +478,6 @@ class FinalAgent(BaseAgent):
 
                 # pattern like: * **Input:** who is DCG superintendent
                 if low.startswith("* **input:**") or low.startswith("* **input :**"):
-                    # split on '**input:**' case-insensitively
                     parts = re.split(r"\*\*input\s*:?\*\*", ln, flags=re.IGNORECASE)
                     if len(parts) > 1:
                         q = parts[1].strip(" :")
@@ -475,12 +496,6 @@ class FinalAgent(BaseAgent):
     def _extract_best_refiner_text(self, ctx: AgentContext) -> str:
         """
         Best-effort extraction of the full refiner output.
-
-        Priority:
-        1) execution_state["refiner_full_text"]
-        2) execution_state["agent_outputs"]["refiner"] / ["outputs"]["refiner"]
-        3) ctx.get_agent_output("refiner"), if available
-        4) Latest trace entry with an 'output' string (we don't require an 'agent' field).
         """
         exec_state = getattr(ctx, "execution_state", None)
         candidates: List[str] = []
@@ -538,18 +553,6 @@ class FinalAgent(BaseAgent):
     def _get_execution_config(self, ctx: AgentContext) -> Dict[str, Any]:
         """
         Deterministic retrieval of request execution_config.
-
-        Canonical storage (Option A) should set:
-          ctx.execution_state["execution_config"] = <effective config dict>
-
-        In OSSS today, "effective config" might be either:
-          - the true execution_config dict (already flattened), OR
-          - the full request config that *contains* an "execution_config" key.
-
-        This function:
-          1) prefers the canonical key,
-          2) unwraps nested {"execution_config": {...}} when present,
-          3) falls back to a few legacy/transitional keys.
         """
 
         def _unwrap(v: Any) -> Dict[str, Any]:
@@ -584,69 +587,91 @@ class FinalAgent(BaseAgent):
     # prompt helpers
     # -----------------------
 
-    # -----------------------
-    # prompt helpers
-    # -----------------------
+    def _update_composed_prompt(self) -> None:
+        """
+        Update the composed prompt based on current configuration, if supported.
+
+        This mirrors the SynthesisAgent/HistorianAgent pattern:
+        we prefer a composed system prompt when available.
+        """
+        try:
+            self._composed_prompt = self._prompt_composer.compose_final_prompt(
+                self.config
+            )
+            logger.debug(
+                f"[{self.name}] Prompt composed for FinalAgent with config."
+            )
+        except Exception as e:
+            logger.warning(
+                f"[{self.name}] Failed to compose FinalAgent prompt, using default: {e}"
+            )
+            self._composed_prompt = None
+
+    def _get_system_prompt(self) -> str:
+        """
+        Get the system prompt, using composed prompt if available, otherwise fallback.
+        """
+        if self._composed_prompt and self._prompt_composer.validate_composition(
+            self._composed_prompt
+        ):
+            return self._composed_prompt.system_prompt
+        else:
+            logger.debug(f"[{self.name}] Using default FinalAgent system prompt (fallback)")
+            return self._get_default_system_prompt()
+
+    def _get_default_system_prompt(self) -> str:
+        """
+        Default system prompt for backward compatibility.
+        """
+        # We import FINAL_SYSTEM_PROMPT from OSSS.ai.agents.final.prompts at module import time,
+        # so there is no circular dependency here.
+        return FINAL_SYSTEM_PROMPT
 
     def _build_prompt(
-            self,
-            user_question: str,
-            refiner_text: str,
-            rag_present: bool,
-            rag_section: str,
+        self,
+        user_question: str,
+        refiner_text: str,
+        rag_present: bool,
+        rag_section: str,
     ) -> str:
         """
-        Build the FINAL agent prompt.
+        Build the FINAL agent *user* prompt.
 
-        - rag_present controls the RAG_SNIPPET_PRESENT flag.
-        - rag_section is either the real RAG snippet or the fallback
-          "No relevant context found..." message.
+        Priority:
+        1) If PromptComposer provides a "final_prompt" template, use that.
+        2) Otherwise, fall back to build_final_prompt from prompts.py.
         """
-        parts: List[str] = []
-        parts.append("You are the FINAL agent for OSSS.")
-        parts.append("Your job: produce a concise, well-formatted answer for the end user.")
-        parts.append("")
+        # Try composed template first (if available)
+        if self._composed_prompt:
+            try:
+                tmpl = self._composed_prompt.get_template("final_prompt")
+            except Exception:
+                tmpl = None
 
-        # ✅ Truthful flag based on whether we actually have a non-empty RAG snippet
-        parts.append(f"RAG_SNIPPET_PRESENT: {str(rag_present)}")
-        parts.append("")
+            if tmpl:
+                try:
+                    uq = (user_question or "").strip() or "[missing user question]"
+                    rt = (refiner_text or "").strip()
+                    rs = (rag_section or "").strip() or "No retrieved context provided."
 
-        parts.append("Rules:")
-        parts.append("- Use retrieved context if available.")
-        parts.append("- Do not claim you used retrieved context if none is provided.")
-        parts.append(
-            "- If you cannot confidently identify the correct entity, say what is ambiguous and what you would need.")
-        parts.append("- Prefer bullet points and clear sections when helpful.")
-        parts.append("- Never invent or guess the name of a real person.")
-        parts.append(
-            "- If the question asks who currently holds a real-world role "
-            "(e.g., superintendent, principal, mayor, director, etc.) and the "
-            "retrieved context above does not explicitly name that person, you must say "
-            "you don't know and recommend checking an official source instead of guessing."
+                    return tmpl.format(
+                        user_question=uq,
+                        refiner_text=rt,
+                        rag_present=str(bool(rag_present)),
+                        rag_section=rs,
+                    )
+                except Exception as e:
+                    logger.debug(
+                        f"[{self.name}] Failed to apply composed final_prompt template: {e}"
+                    )
+
+        # Fallback: dedicated builder (same pattern as SynthesisAgent's prompts module)
+        return build_final_prompt(
+            user_question=user_question,
+            refiner_text=refiner_text,
+            rag_present=rag_present,
+            rag_section=rag_section,
         )
-        parts.append(
-            "- When RAG_SNIPPET_PRESENT is false, you are not allowed to answer such role-identity "
-            "questions with a specific person's name."
-        )
-        parts.append("")
-
-        uq = (user_question or "").strip()
-        parts.append("USER QUESTION:")
-        parts.append(uq or "[missing user question]")
-
-        if refiner_text and refiner_text.strip() and refiner_text.strip() != uq:
-            parts.append("")
-            parts.append("REFINER CONTEXT (may help disambiguate / improve search terms):")
-            parts.append(refiner_text.strip())
-
-        # ✅ Always include a RAG section, but its *content* may be the fallback string
-        parts.append("")
-        parts.append("RETRIEVED CONTEXT (RAG):")
-        parts.append(rag_section)
-
-        parts.append("")
-        parts.append("Now produce the final answer.")
-        return "\n".join(parts)
 
     # -----------------------
     # bookkeeping
@@ -699,10 +724,23 @@ class FinalAgent(BaseAgent):
             execution_config=execution_config,
         )
 
+    def update_config(self, config: FinalConfig) -> None:
+        """
+        Update the agent configuration and recompose prompts.
+        """
+        self.config = config
+        self._update_composed_prompt()
+        logger.info(f"[{self.name}] Configuration updated for FinalAgent")
+
+    # -----------------------
+    # main entrypoint
+    # -----------------------
+
     async def run(self, ctx: AgentContext) -> AgentContext:
         """
         FinalAgent.run(ctx) – prepares the final answer after processing the query and context.
         """
+        self._mark_started(ctx)
         try:
             exec_state = self._get_execution_state(ctx)
 
@@ -711,9 +749,9 @@ class FinalAgent(BaseAgent):
             if not user_question:
                 # Best-effort recovery using existing helpers (optional but nice)
                 ref_text_for_resolution = (
-                        exec_state.get("refiner_full_text")
-                        or exec_state.get("refined_query")
-                        or ""
+                    exec_state.get("refiner_full_text")
+                    or exec_state.get("refined_query")
+                    or ""
                 )
                 recovered = self._resolve_user_question(ctx, refiner_text=ref_text_for_resolution)
                 if recovered:
@@ -737,22 +775,29 @@ class FinalAgent(BaseAgent):
 
             # Choose best refiner text to include (if any)
             refiner_text = (
-                    exec_state.get("refiner_full_text")
-                    or exec_state.get("refined_query")
-                    or ""
+                exec_state.get("refiner_full_text")
+                or exec_state.get("refined_query")
+                or ""
             )
 
-            # ✅ Build prompt using rag_present + rag_section
-            prompt = self._build_prompt(
+            # ✅ Build user prompt using rag_present + rag_section
+            user_prompt = self._build_prompt(
                 user_question=user_question,
                 refiner_text=refiner_text,
                 rag_present=rag_present,
                 rag_section=rag_section,
             )
 
+            # ✅ Resolve system prompt (composed or default)
+            system_prompt = self._get_system_prompt()
+
             # Invoke LLM and process the final answer
             llm = self._resolve_llm(ctx)
-            response = await llm.ainvoke([{"role": "user", "content": prompt}])
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ]
+            response = await llm.ainvoke(messages)
 
             formatted_text = coerce_llm_text(response).strip()
 

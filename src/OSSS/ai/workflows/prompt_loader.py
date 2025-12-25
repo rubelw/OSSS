@@ -165,6 +165,8 @@ def apply_rich_configuration_to_prompts(agent_type: str, config: Dict[str, Any])
         return _apply_critic_config(base_prompt, config)
     elif agent_type == "synthesis":
         return _apply_synthesis_config(base_prompt, config)
+    elif agent_type == "final":
+        return _apply_final_config(base_prompt, config)
     else:
         return base_prompt
 
@@ -309,6 +311,87 @@ def _apply_synthesis_config(base_prompt: str, config: Dict[str, Any]) -> str:
         prompt += f"\n\nREQUIRED STRUCTURE:\n" + "\n".join(
             f"- {section}" for section in structure
         )
+
+    return prompt
+
+def _apply_final_config(base_prompt: str, config: Dict[str, Any]) -> str:
+    """
+    Apply FinalAgent-specific configuration to the prompt.
+
+    Mirrors pattern of _apply_refiner_config but maps to final-agent concerns:
+    - answer style (level of depth / verbosity)
+    - tone (voice / narrative shape)
+    - output format preference
+    - refiner context usage
+    - rag metadata usage
+    - custom constraints
+    """
+
+    prompt = base_prompt
+
+    # ----- Answer Style -----
+    answer_style = config.get("answer_style", "balanced")
+    if answer_style == "concise":
+        prompt += "\n\nANSWER STYLE: Provide short, direct answers with minimal elaboration."
+    elif answer_style == "balanced":
+        prompt += "\n\nANSWER STYLE: Provide clear answers with moderate detail. Avoid unnecessary verbosity."
+    elif answer_style == "detailed":
+        prompt += "\n\nANSWER STYLE: Provide thorough, well-developed reasoning with complete context when relevant."
+    elif answer_style == "minimal":
+        prompt += "\n\nANSWER STYLE: Answer with minimal words and no extra commentary."
+    elif answer_style == "bullet_points":
+        prompt += "\n\nANSWER STYLE: Respond primarily using bullet points for readability."
+
+    # ----- Tone -----
+    tone = config.get("tone", "neutral")
+    if tone == "neutral":
+        prompt += "\n\nTONE: Maintain an objective, professional voice."
+    elif tone == "friendly":
+        prompt += "\n\nTONE: Write with a friendly, approachable voice."
+    elif tone == "formal":
+        prompt += "\n\nTONE: Maintain a polished and formal tone."
+    elif tone == "authoritative":
+        prompt += "\n\nTONE: Write with confidence and authority while remaining accurate."
+    elif tone == "instructional":
+        prompt += "\n\nTONE: Explain concepts clearly as if instructing a student."
+
+    # ----- Output Format Preference -----
+    format_pref = config.get("format_preference", "text")
+    if format_pref == "text":
+        prompt += "\n\nFORMAT: Respond using natural text paragraphs."
+    elif format_pref == "markdown":
+        prompt += "\n\nFORMAT: Use Markdown formatting with headers and bullet points when appropriate."
+    elif format_pref == "structured":
+        prompt += "\n\nFORMAT: Use structured sections with Markdown headers and bullet lists."
+
+    # ----- Refiner Context -----
+    include_refiner = config.get("include_refiner_context", True)
+    if include_refiner:
+        prompt += (
+            "\n\nREFINER CONTEXT: You MAY reference refiner output only to clarify intent — "
+            "do not restate its markdown structure verbatim."
+        )
+    else:
+        prompt += (
+            "\n\nREFINER CONTEXT: DO NOT reference refiner output. Answer solely based on the question + retrieved context."
+        )
+
+    # ----- RAG Metadata -----
+    include_rag_meta = config.get("include_rag_metadata", False)
+    if include_rag_meta:
+        prompt += (
+            "\n\nRAG METADATA: When helpful, mention metadata (source filenames, timestamps) succinctly — "
+            "never overwhelm the core answer."
+        )
+    else:
+        prompt += (
+            "\n\nRAG METADATA: Avoid exposing metadata; prioritize a clean final answer."
+        )
+
+    # ----- Custom Constraints -----
+    custom_constraints = config.get("custom_constraints", [])
+    if custom_constraints:
+        prompt += "\n\nADDITIONAL CONSTRAINTS:\n" + "\n".join(f"- {c}" for c in custom_constraints)
 
     return prompt
 

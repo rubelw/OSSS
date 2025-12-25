@@ -169,7 +169,7 @@ class ConfigMapper:
 
         Args:
             flat_config: Configuration in flat format (e.g., from chart workflows)
-            agent_type: Type of agent ('refiner', 'critic', 'historian', 'synthesis')
+            agent_type: Type of agent ('refiner', 'historian', 'final')
 
         Returns:
             Configuration in nested format suitable for Pydantic validation
