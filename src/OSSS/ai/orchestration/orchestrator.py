@@ -80,7 +80,11 @@ from OSSS.ai.routing import (
     RoutingDecision,
 )
 
-from OSSS.ai.rag.additional_index_rag import rag_prefetch_additional
+from OSSS.ai.rag.additional_index_rag import (
+    rag_prefetch_additional,
+    RagResult,
+    RagHit,
+)
 
 from OSSS.ai.agents.metadata import AgentMetadata
 
@@ -328,10 +332,10 @@ class LangGraphOrchestrator:
     # inside LangGraphOrchestrator
 
     async def _prefetch_rag(
-        self,
-        *,
-        query: str,
-        state: Dict[str, Any],
+            self,
+            *,
+            query: str,
+            state: Dict[str, Any],
     ) -> None:
         # Ensure we have execution_state
         exec_state = state.setdefault("execution_state", {})
@@ -359,34 +363,31 @@ class LangGraphOrchestrator:
             embed_model = rag_cfg.get("embed_model", "nomic-embed-text")
             jsonl_path = rag_cfg.get("jsonl_path", DEFAULT_RAG_JSONL_PATH)
 
-            rag_result = await rag_prefetch_additional(
+            # ---- Call helper that now returns RagResult ----
+            rag_result: RagResult = await rag_prefetch_additional(
                 query=query,
                 index=index_name,
                 top_k=top_k,
             )
 
-            rag_context_str: str = ""
-            rag_hits: list = []
+            # Combined prompt-ready context
+            rag_context_str: str = rag_result.combined_text or ""
 
-            if isinstance(rag_result, dict):
-                rag_context_str = (
-                    rag_result.get("combined_text")
-                    or rag_result.get("context")
-                    or ""
+            # Convert RagHit objects into JSON-serializable dicts for state
+            rag_hits: list[dict] = []
+            for hit in rag_result.hits:
+                chunk = hit.chunk
+                rag_hits.append(
+                    {
+                        "id": getattr(chunk, "id", None),
+                        "index": rag_result.meta.get("index", index_name),
+                        "score": float(hit.score),
+                        "source": getattr(chunk, "source", None),
+                        "filename": getattr(chunk, "filename", None),
+                        "chunk_index": getattr(chunk, "chunk_index", None),
+                        "text": getattr(chunk, "text", None),
+                    }
                 )
-                # NOTE: also try "results" here if that's what your helper returns
-                hits = (
-                    rag_result.get("hits")
-                    or rag_result.get("chunks")
-                    or rag_result.get("results")
-                    or []
-                )
-                if isinstance(hits, list):
-                    rag_hits = hits
-            elif isinstance(rag_result, str):
-                rag_context_str = rag_result
-            elif rag_result is not None:
-                rag_hits = [rag_result]
 
             # Compute snippet
             snippet_max_chars = int(rag_cfg.get("snippet_max_chars", 6000))
@@ -397,7 +398,9 @@ class LangGraphOrchestrator:
             exec_state["rag_context"] = rag_context_str
             exec_state["rag_snippet"] = rag_snippet
             exec_state["rag_hits"] = rag_hits
-            exec_state["rag_meta"] = {
+
+            # Merge helper's meta with orchestrator meta
+            rag_meta = {
                 "provider": "ollama",
                 "embed_model": embed_model,
                 "jsonl_path": jsonl_path,
@@ -405,10 +408,12 @@ class LangGraphOrchestrator:
                 "index": index_name,
                 "hits_count": len(rag_hits),
             }
+            # rag_result.meta wins on conflicts if you prefer:
+            rag_meta.update(rag_result.meta or {})
+
+            exec_state["rag_meta"] = rag_meta
 
             # 🔴 Critical bridge for Final node and other consumers:
-            # mirror key RAG fields onto the top-level state so node wrappers
-            # (like _ensure_rag_for_final / FinalAgent) can see them directly.
             state["rag_enabled"] = True
             state["rag_context"] = rag_context_str
             state["rag_snippet"] = rag_snippet

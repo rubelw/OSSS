@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import time
+from dataclasses import dataclass
 from typing import Any, Dict, List, Tuple
 
 import httpx
@@ -19,6 +20,19 @@ EMBED_MODEL = os.getenv("OSSS_EMBED_MODEL", "nomic-embed-text")
 DEFAULT_EMBED_BASE = "http://host.containers.internal:11434"
 OLLAMA_BASE = os.getenv("OSSS_EMBED_BASE", DEFAULT_EMBED_BASE)
 EMBED_URL = os.getenv("OSSS_EMBED_URL", f"{OLLAMA_BASE}/api/embeddings")
+
+
+@dataclass
+class RagHit:
+    score: float
+    chunk: IndexedChunk
+
+
+@dataclass
+class RagResult:
+    combined_text: str
+    hits: List[RagHit]
+    meta: Dict[str, Any]
 
 
 def _extract_embedding(ej: dict) -> List[float]:
@@ -68,47 +82,18 @@ def _format_results(
     return "\n\n".join(lines)
 
 
-def _serialize_hits(
-    results: List[Tuple[float, IndexedChunk]],
-    index: str,
-) -> List[Dict[str, Any]]:
-    """
-    Turn top-k (score, IndexedChunk) into a JSON-serializable list
-    suitable for OSSSState.rag_hits.
-    """
-    hits: List[Dict[str, Any]] = []
-    for score, chunk in results:
-        hits.append(
-            {
-                "id": getattr(chunk, "id", None),
-                "index": index,
-                "score": float(score),
-                "source": getattr(chunk, "source", None),
-                "filename": getattr(chunk, "filename", None),
-                "chunk_index": getattr(chunk, "chunk_index", None),
-                "text": getattr(chunk, "text", None),
-                # room for future fields (metadata, tags, etc.)
-            }
-        )
-    return hits
-
-
 async def rag_prefetch_additional(
     query: str,
     index: str = "main",
     top_k: int = 8,
-) -> Dict[str, Any]:
+) -> RagResult:
     """
-    Compute an embedding for `query`, search the in-memory additional index,
-    and return BOTH a combined text block and a structured list of hits.
+    Compute an embedding for `query`, search the in-memory additional index
+    (main/tutor/agent), and return a structured RagResult containing:
 
-    Return schema (used by orchestrator._prefetch_rag):
-
-    {
-        "combined_text": str,     # prompt-ready context
-        "hits": [ { ... }, ... ], # list of hit dicts
-        "meta": { ... }           # optional metrics/diagnostics
-    }
+    - combined_text: prompt-ready context string
+    - hits: list of RagHit(score, chunk)
+    - meta: metrics / diagnostics (timings, counts, etc.)
     """
     start_time = time.monotonic()
     query_preview = (query or "")[:120]
@@ -203,7 +188,11 @@ async def rag_prefetch_additional(
 
     # ---- 2. Vector search ----
     search_start = time.monotonic()
-    results: List[Tuple[float, IndexedChunk]] = index_top_k(query_emb, k=top_k, index=index)
+    results: List[Tuple[float, IndexedChunk]] = index_top_k(
+        query_emb,
+        k=top_k,
+        index=index,
+    )
     search_ms = (time.monotonic() - search_start) * 1000
 
     logger.info(
@@ -232,9 +221,12 @@ async def rag_prefetch_additional(
             extra={"index": index, "top_k": top_k},
         )
 
-    # ---- 3. Format + serialize ----
+    # ---- 3. Format + structure ----
     combined_text = _format_results(results, index=index)
-    hits = _serialize_hits(results, index=index)
+
+    hits: List[RagHit] = [
+        RagHit(score=float(score), chunk=chunk) for score, chunk in results
+    ]
 
     total_ms = (time.monotonic() - start_time) * 1000
     logger.info(
@@ -248,24 +240,27 @@ async def rag_prefetch_additional(
         },
     )
 
-    return {
-        "combined_text": combined_text,
-        "hits": hits,
-        "meta": {
-            "index": index,
-            "top_k_requested": top_k,
-            "result_count": len(results),
-            "context_chars": len(combined_text),
-            "elapsed_ms": total_ms,
-        },
+    meta: Dict[str, Any] = {
+        "index": index,
+        "top_k_requested": top_k,
+        "result_count": len(results),
+        "context_chars": len(combined_text),
+        "elapsed_ms_total": total_ms,
+        "elapsed_ms_search": search_ms,
     }
+
+    return RagResult(
+        combined_text=combined_text,
+        hits=hits,
+        meta=meta,
+    )
 
 
 async def rag_prefetch_additional_index(
     query: str,
     index: str = "main",
     top_k: int = 8,
-):
+) -> RagResult:
     logger.debug(
         "[additional_index_rag] rag_prefetch_additional_index alias invoked",
         extra={"index": index, "top_k": top_k},
