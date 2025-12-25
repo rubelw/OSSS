@@ -28,7 +28,7 @@ from pathlib import Path     # Filesystem paths (markdown export)
 import json
 import re
 import os
-
+from copy import deepcopy
 
 from OSSS.ai.config.openai_config import OpenAIConfig
 from OSSS.ai.llm.openai import OpenAIChatLLM
@@ -65,7 +65,6 @@ from OSSS.ai.database.session_factory import DatabaseSessionFactory
 from OSSS.ai.llm.utils import call_llm_text
 
 
-
 # Module-level logger (structured)
 logger = get_logger(__name__)
 
@@ -77,11 +76,13 @@ ACTION_AGENTS = ["refiner", "data_query", "synthesis"]
 READ_AGENTS   = ["refiner", "critic", "synthesis"]   # optional alternative
 ANALYSIS_AGENTS = ["refiner", "historian", "critic", "synthesis"]
 
+
 def select_agents(intent: str) -> list[str]:
     intent = (intent or "").strip().lower()
     if intent == "action":
         return ACTION_AGENTS
     return ANALYSIS_AGENTS
+
 
 def _norm_agents(seq: Any) -> list[str]:
     """Normalize agent names to lowercase strings, drop empties."""
@@ -96,6 +97,7 @@ def _norm_agents(seq: Any) -> list[str]:
             out.append(s)
     return out
 
+
 def _dedupe(seq: list[str]) -> list[str]:
     out: list[str] = []
     seen = set()
@@ -105,8 +107,18 @@ def _dedupe(seq: list[str]) -> list[str]:
             out.append(a)
     return out
 
+
 def _strip_classifier(seq: list[str]) -> list[str]:
     return [a for a in seq if a != "classifier"]
+
+
+def _is_empty_agents(value: Any) -> bool:
+    if value is None:
+        return True
+    if isinstance(value, list):
+        return len(_norm_agents(value)) == 0
+    return True
+
 
 def _executed_agents_from_context(ctx: Any) -> list[str]:
     """
@@ -588,34 +600,99 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
     async def _execute_workflow_async(self, request: WorkflowRequest) -> WorkflowResponse:
         """
         Actual async implementation for workflow execution.
-        (This is what execute_workflow delegates to.)
 
-        OPTION A APPLIED:
-        - No "direct LLM bypass" when request.agents is empty
-        - Always injects "classifier" as the first agent in the orchestrator run
+        OPTION A APPLIED (fixed):
+        - If caller provides no agents and no graph_pattern, default to graph_pattern=refiner_final
+        - Planned agents become ["refiner"] (NOT ["refiner","output"])
+        - Never writes "output" into request.agents (avoids Pydantic validation error)
+        - Ensures planned_agents reflects what will actually run
         """
         workflow_id = str(uuid.uuid4())
         start_time = time.time()
 
+        # ----------------------------------------------------------------
+        # ✅ Ensure request.agents is never None (event schemas expect a list)
+        # ----------------------------------------------------------------
+        request.agents = _norm_agents(request.agents)
+
+        # Keep a stable snapshot of the caller-provided execution_config
         original_execution_config = request.execution_config or {}
-        config = dict(original_execution_config)
+        if not isinstance(original_execution_config, dict):
+            original_execution_config = {}
+
+        # ----------------------------------------------------------------
+        # ✅ OPTION A (FASTPATH DEFAULT):
+        # If caller did not specify agents AND did not specify a graph pattern,
+        # default to informational fastpath: refiner -> output (pattern),
+        # but planned/graph agents are just ["refiner"].
+        # ----------------------------------------------------------------
+        exec_cfg_agents = original_execution_config.get("agents")
+        exec_cfg_pattern = original_execution_config.get("graph_pattern")
+
+        # NOTE: request.agents can be None or [] depending on your route normalization.
+        caller_agents_norm = _norm_agents(list(request.agents)) if request.agents is not None else []
+        caller_forced = bool(caller_agents_norm)
+
+        exec_cfg_agents_norm = _norm_agents(exec_cfg_agents)
+        exec_cfg_forced = bool(exec_cfg_agents_norm)
+
+        fastpath_default = (
+            (not caller_forced)
+            and (not exec_cfg_forced)
+            and (not exec_cfg_pattern)
+        )
+
+        # If caller explicitly set graph_pattern=refiner_final, also treat as fastpath
+        fastpath_explicit = (exec_cfg_pattern == "refiner_final")
+
+        if fastpath_default:
+            cfg = dict(original_execution_config)
+            cfg["graph_pattern"] = "refiner_final"
+            request.execution_config = cfg
+            original_execution_config = cfg  # downstream reads from this
+            logger.info(
+                "[api] default fastpath selected (no agents/pattern provided)",
+                extra={"graph_pattern": "refiner_final", "planned_agents": ["refiner"]},
+            )
+
+        # Recompute after potential update
+        original_execution_config = request.execution_config or {}
+        if not isinstance(original_execution_config, dict):
+            original_execution_config = {}
+
+        exec_cfg_pattern = original_execution_config.get("graph_pattern")
+        fastpath = (exec_cfg_pattern == "refiner_final") or fastpath_explicit
+
+        # Build config dict we pass into orchestrator
+        config: Dict[str, Any] = dict(original_execution_config)
         routing_enabled = bool(config.get("routing_enabled", True))
 
         config["workflow_id"] = workflow_id
         if request.correlation_id:
             config["correlation_id"] = request.correlation_id
 
+        # ----------------------------------------------------------------
+        # Classifier ALWAYS runs as prestep (not a graph node)
+        # ----------------------------------------------------------------
         classifier_out = await self._run_classifier_first(request.query, config)
 
         try:
-            logger.info(
-                f"Starting workflow {workflow_id} with query: {request.query[:100]}..."
+            logger.info(f"Starting workflow {workflow_id} with query: {request.query[:100]}...")
+
+            # ----------------------------------------------------------------
+            # ✅ Emit workflow_started with a guaranteed non-null list
+            # Prefer caller agents, then exec_cfg agents, then safe fallback.
+            # ----------------------------------------------------------------
+            agents_for_event: List[str] = (
+                _norm_agents(request.agents)
+                or _norm_agents(original_execution_config.get("agents"))
+                or ["refiner"]
             )
 
             await emit_workflow_started(
                 workflow_id=workflow_id,
                 query=request.query,
-                agents=request.agents,
+                agents=agents_for_event,
                 execution_config=request.execution_config,
                 correlation_id=request.correlation_id,
                 metadata={"api_version": self.api_version, "start_time": start_time},
@@ -629,75 +706,61 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
             }
             self._total_workflows += 1
 
-            # Build orchestrator execution config (copy to avoid mutating request)
-            config: Dict[str, Any] = dict(original_execution_config)
-
             # -------------------------------------------------------------
-            # ✅ Carry classifier PRE-STEP into the orchestrator config
-            # (because we rebuild config after _run_classifier_first)
+            # Rebuild config after classifier, and re-inject prestep metadata
             # -------------------------------------------------------------
-            config.setdefault("prestep", {})
-            config["prestep"]["classifier"] = self._normalize_classifier_profile(classifier_out)
-            # keep a clear marker that classifier ran as prestep
-            config.setdefault("routing_source", "caller_with_classifier_prestep")
-
+            config = dict(original_execution_config)
+            config["workflow_id"] = workflow_id
             if request.correlation_id:
                 config["correlation_id"] = request.correlation_id
 
-            config["workflow_id"] = workflow_id
-
-            # ----------------------------------------------------------------
-            # ✅ Fix #1 + Fix #2: Apply intent → agents mapping in the *caller*
-            # BEFORE calling the orchestrator, and ensure routing metadata matches.
-            #
-            # Precedence:
-            # 1) request.agents (explicit caller override, even empty list)
-            # 2) execution_config["agents"] (if present/non-empty)
-            # 3) classifier intent → select_agents(intent)  (default)
-            # ----------------------------------------------------------------
             classifier_profile = self._normalize_classifier_profile(classifier_out)
             intent = (classifier_profile.get("intent") or "").strip().lower()
 
-            caller_agents = _norm_agents(list(request.agents)) if request.agents is not None else []
-            caller_forced = bool(caller_agents)
+            config.setdefault("prestep", {})
+            config["prestep"]["classifier"] = classifier_profile
+            config.setdefault("routing_source", "caller_with_classifier_prestep")
 
-            exec_cfg_agents = _norm_agents(config.get("agents"))
-            exec_cfg_forced = bool(exec_cfg_agents)
-
-            routing_enabled = bool(config.get("routing_enabled", True))
-
-            if caller_forced:
-                # Caller explicitly forced a plan (non-empty request.agents)
-                final_agents = caller_agents
-                routing_source = "caller"
-            elif exec_cfg_forced:
-                # Caller explicitly forced a plan via execution_config["agents"]
-                final_agents = exec_cfg_agents
-                routing_source = "execution_config"
-            elif routing_enabled:
-                # ✅ routing is authoritative: derive plan from classifier/router
-                final_agents = select_agents(intent)  # <-- your “router.route(...).planned_agents”
-                caller_agents = _norm_agents(list(request.agents)) if request.agents is not None else []
-                exec_cfg_agents = _norm_agents(config.get("agents"))
-
-                if caller_agents:
-                    final_agents = caller_agents
-                    routing_source = "caller"
-                elif exec_cfg_agents:
-                    final_agents = exec_cfg_agents
-                    routing_source = "execution_config"
-                else:
-                    final_agents = select_agents(intent)  # ✅ this is where mapping matters
-                    routing_source = "router"
+            # ----------------------------------------------------------------
+            # ✅ Planned agents resolution
+            #
+            # Precedence (non-fastpath):
+            # 1) request.agents (non-empty)
+            # 2) execution_config["agents"] (non-empty)
+            # 3) router/classifier mapping (if routing_enabled)
+            # 4) default fallback
+            #
+            # Fastpath:
+            # - planned agents always ["refiner"]
+            # ----------------------------------------------------------------
+            if fastpath:
+                final_agents = ["refiner", "final"]
+                routing_source = "fastpath"
             else:
-                # routing disabled: fallback default
-                final_agents = ANALYSIS_AGENTS
-                routing_source = "default"
+                caller_agents_norm = _norm_agents(list(request.agents)) if request.agents is not None else []
+                caller_forced = bool(caller_agents_norm)
+
+                exec_cfg_agents_norm = _norm_agents(config.get("agents"))
+                exec_cfg_forced = bool(exec_cfg_agents_norm)
+
+                if caller_forced:
+                    final_agents = caller_agents_norm
+                    routing_source = "caller"
+                elif exec_cfg_forced:
+                    final_agents = exec_cfg_agents_norm
+                    routing_source = "execution_config"
+                elif routing_enabled:
+                    final_agents = select_agents(intent)
+                    routing_source = "router"
+                else:
+                    final_agents = ANALYSIS_AGENTS
+                    routing_source = "default"
 
             # Never allow classifier as a graph node; also de-dupe
             final_agents = _dedupe(_strip_classifier(_norm_agents(final_agents)))
 
-            if intent == "action" and "data_query" not in final_agents:
+            # Guardrail: action intent should include data_query
+            if not fastpath and intent == "action" and "data_query" not in final_agents:
                 logger.warning(
                     "Action intent but data_query not scheduled; overriding to ACTION_AGENTS",
                     extra={"intent": intent, "planned_agents": final_agents, "routing_source": routing_source},
@@ -706,10 +769,10 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                 routing_source = "router_override"
 
             if not final_agents:
-                # ultra-safe fallback
                 final_agents = ["refiner", "critic", "historian", "synthesis"]
+                routing_source = "fallback"
 
-              # What the orchestrator actually executes
+            # What the orchestrator actually executes
             config["agents"] = final_agents
             config["routing_source"] = routing_source
 
@@ -725,32 +788,27 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
             routing_block["pre_agents"] = []  # classifier ran as prestep
             routing_meta["_classifier"] = classifier_profile
 
-
-
             logger.info(
                 "Execution config received",
                 extra={
                     "workflow_id": workflow_id,
                     "raw_execution_config": original_execution_config,
-                    "routing_source": config.get("routing_source"),
-                    "agents": config.get("agents"),
+                    "routing_source": routing_source,
+                    "agents": final_agents,
+                    "graph_pattern": config.get("graph_pattern"),
                 },
             )
 
             if self._orchestrator is None:
                 raise RuntimeError("Orchestrator not initialized")
 
-            # NOTE: The caller_with_classifier_prestep logic has already set:
-            # - config["agents"]
-            # - config["routing_source"]
-            # - config["prestep"]["classifier"]
-            # - config["agent_output_meta"]["_routing"]["final_agents"]
-
+            # ----------------------------------------------------------------
+            # Run orchestrator
+            # ----------------------------------------------------------------
             if bool(config.get("use_advanced_orchestrator", False)):
                 from OSSS.ai.orchestration.advanced_adapter import AdvancedOrchestratorAdapter
                 result_context = await AdvancedOrchestratorAdapter().run(request.query, config)
             else:
-
                 logger.info(
                     "[api] final agents being executed",
                     extra={
@@ -758,10 +816,32 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                         "correlation_id": request.correlation_id,
                         "agents": config.get("agents"),
                         "routing_source": config.get("routing_source"),
+                        "graph_pattern": config.get("graph_pattern"),
                     },
                 )
-
                 result_context = await self._orchestrator.run(request.query, config)
+
+                # ----------------------------------------------------------------
+                # ✅ OPTION A: persist request execution_config onto ctx.execution_state
+                # so downstream agents (especially FinalAgent) can deterministically read
+                # request-level flags like use_rag/top_k/etc.
+                # ----------------------------------------------------------------
+                try:
+                    state = getattr(result_context, "execution_state", None)
+                    if not isinstance(state, dict):
+                        state = {}
+                        setattr(result_context, "execution_state", state)
+
+                    # Store the *effective* request config (after your fastpath edits)
+                    # This is the canonical location FinalAgent should read.
+                    state["execution_config"] = dict(original_execution_config or {})
+
+                    # (Optional but helpful) Store resolved planned agents + pattern too
+                    state.setdefault("graph_pattern", config.get("graph_pattern"))
+                    state.setdefault("planned_agents", list(config.get("agents") or []))
+                except Exception:
+                    # Never let metadata persistence break the workflow
+                    pass
 
             execution_time = time.time() - start_time
 
@@ -788,29 +868,17 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                 structured_outputs = {}
 
             # ----------------------------------------------------------------
-            # ✅ Fix #4 (Option A): executed_agents should come from context's
-            # completed-agent bookkeeping, not from planned routing.
+            # ✅ Option A executed_agents = derive from completed bookkeeping
             # ----------------------------------------------------------------
             executed_agents: List[str] = _executed_agents_from_context(result_context)
 
-            # If you still want to include agents that produced structured outputs but
-            # did not get recorded (edge case), you can optionally union them:
-            try:
-                exec_state = getattr(result_context, "execution_state", None)
-                if isinstance(exec_state, dict):
-                    so = exec_state.get("structured_outputs", {})
-                    if isinstance(so, dict) and so:
-                        for k in so.keys():
-                            k2 = str(k).strip().lower()
-                            if k2 and k2 not in executed_agents:
-                                executed_agents.append(k2)
-            except Exception:
-                pass
+            # Union in structured_outputs keys if bookkeeping missed any
+            if structured_outputs:
+                for k in structured_outputs.keys():
+                    k2 = str(k).strip().lower()
+                    if k2 and k2 not in executed_agents:
+                        executed_agents.append(k2)
 
-            if not executed_agents and structured_outputs:
-                executed_agents = list(structured_outputs.keys())
-
-            agent_outputs_to_serialize: Dict[str, Any] = {}
             raw_agent_outputs: Dict[str, Any] = {}
             try:
                 raw_agent_outputs = getattr(result_context, "agent_outputs", {}) or {}
@@ -819,19 +887,51 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
             except Exception:
                 raw_agent_outputs = {}
 
+            agent_outputs_to_serialize: Dict[str, Any] = {}
             for agent_name in executed_agents:
                 if agent_name in structured_outputs:
                     agent_outputs_to_serialize[agent_name] = structured_outputs[agent_name]
                 else:
                     agent_outputs_to_serialize[agent_name] = raw_agent_outputs.get(agent_name, "")
 
-            serialized_agent_outputs = self._convert_agent_outputs_to_serializable(
-                agent_outputs_to_serialize
-            )
+            serialized_agent_outputs = self._convert_agent_outputs_to_serializable(agent_outputs_to_serialize)
 
             # ----------------------------------------------------------------
-            # Output meta extraction + ensure `action`
+            # ✅ Preserve original refiner output + freeze a response snapshot
             # ----------------------------------------------------------------
+            refiner_output_for_response = serialized_agent_outputs.get("refiner")
+
+            # If FinalAgent stashed the full refiner text, use it as a fallback
+            if not refiner_output_for_response:
+                refiner_output_for_response = exec_state.get("refiner_full_text", "")
+
+            # This is the copy we will return in the HTTP response.
+            # It will NOT be mutated by topic analysis / markdown export.
+            response_agent_outputs: Dict[str, Any] = dict(serialized_agent_outputs)
+            if refiner_output_for_response:
+                response_agent_outputs["refiner"] = refiner_output_for_response
+
+            # ----------------------------------------------------------------
+            # ✅ Single final answer string for UI clients (prefer output on fastpath)
+            # ----------------------------------------------------------------
+            candidate = (
+                response_agent_outputs.get("output")
+                or response_agent_outputs.get("synthesis")
+                or response_agent_outputs.get("critic")
+                or response_agent_outputs.get("refiner")
+                or ""
+            )
+
+            if isinstance(candidate, str):
+                final_answer = candidate
+            else:
+                # structured output -> stable string for UI
+                try:
+                    final_answer = json.dumps(candidate, ensure_ascii=False, indent=2)
+                except Exception:
+                    final_answer = str(candidate)
+
+            # Ensure agent_output_meta exists before we enrich it
             agent_output_meta: Dict[str, Any] = {}
             try:
                 aom = exec_state.get("agent_output_meta", {})
@@ -840,6 +940,18 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
             except Exception:
                 agent_output_meta = {}
 
+            agent_output_meta.setdefault("_result", {})["final_answer_agent"] = (
+                "output" if "output" in serialized_agent_outputs else
+                "synthesis" if "synthesis" in serialized_agent_outputs else
+                "critic" if "critic" in serialized_agent_outputs else
+                "refiner" if "refiner" in serialized_agent_outputs else
+                None
+            )
+            agent_output_meta["_result"]["final_answer"] = final_answer
+
+            # ----------------------------------------------------------------
+            # Output meta: ensure routing block is consistent and includes executed_agents
+            # ----------------------------------------------------------------
             agent_output_meta["_routing"] = {
                 "source": config.get("routing_source", "unknown"),
                 "selected_workflow_id": config.get("selected_workflow_id"),
@@ -847,8 +959,6 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                 "pre_agents": config.get("pre_agents", []),
                 "executed_agents": executed_agents,
             }
-
-            # also optionally
             agent_output_meta["_classifier"] = classifier_profile
 
             for agent_name in serialized_agent_outputs.keys():
@@ -862,10 +972,11 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
             response = WorkflowResponse(
                 workflow_id=workflow_id,
                 status="completed",
-                agent_outputs=serialized_agent_outputs,
+                agent_outputs=response_agent_outputs,  # ✅ stable snapshot for API + DB
                 execution_time_seconds=execution_time,
                 correlation_id=request.correlation_id,
                 agent_output_meta=agent_output_meta,
+                answer=final_answer,
             )
 
             # ----------------------------------------------------------------
@@ -890,10 +1001,12 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                     topic_manager = TopicManager(llm=llm)
 
                     try:
+                        # ✅ Use a separate copy for topic analysis so it can't mutate the response outputs
                         topic_analysis = await topic_manager.analyze_and_suggest_topics(
                             query=request.query,
-                            agent_outputs=serialized_agent_outputs,
+                            agent_outputs=deepcopy(response_agent_outputs),
                         )
+
                         suggested_topics = [s.topic for s in topic_analysis.suggested_topics]
                         suggested_domain = topic_analysis.suggested_domain
                         logger.info(
@@ -906,7 +1019,7 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
 
                     exporter = MarkdownExporter()
                     md_path = exporter.export(
-                        agent_outputs=serialized_agent_outputs,
+                        agent_outputs=response_agent_outputs,  # ✅ stable, refiner preserved
                         question=request.query,
                         topics=suggested_topics,
                         domain=suggested_domain,
@@ -927,7 +1040,6 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                     try:
                         db_session_factory = await self._get_or_create_db_session_factory()
 
-                        # ✅ One clear branch: disabled vs enabled-but-unavailable vs success
                         if db_session_factory is None:
                             logger.info(
                                 "DB persistence disabled; skipping markdown persistence",
@@ -942,6 +1054,13 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
 
                                 topics_list = suggested_topics[:5] if suggested_topics else []
 
+                                # ✅ Use the stable response snapshot for executed agents
+                                agents_executed_for_doc = (
+                                    list(response.agent_outputs.keys())
+                                    if response.agent_outputs
+                                    else []
+                                )
+
                                 await doc_repo.get_or_create_document(
                                     title=request.query[:200],
                                     content=markdown_content,
@@ -952,7 +1071,7 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                                         "topics": topics_list,
                                         "domain": suggested_domain,
                                         "export_timestamp": datetime.now(timezone.utc).isoformat(),
-                                        "agents_executed": list(getattr(result_context, "agent_outputs", {}).keys()),
+                                        "agents_executed": agents_executed_for_doc,
                                     },
                                 )
 
@@ -961,7 +1080,6 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                                 )
 
                     except Exception as db_persist_error:
-                        # Best-effort: do not fail the request for DB issues
                         logger.warning(
                             "Markdown persistence failed; continuing without DB persistence",
                             extra={
@@ -974,9 +1092,7 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
 
                 except Exception as md_error:
                     error_msg = str(md_error)
-                    logger.warning(
-                        f"Markdown export failed for workflow {workflow_id}: {error_msg}"
-                    )
+                    logger.warning(f"Markdown export failed for workflow {workflow_id}: {error_msg}")
                     response.markdown_export = {
                         "error": "Export failed",
                         "message": error_msg,
@@ -1014,16 +1130,12 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                 },
             )
 
-            logger.info(
-                f"Workflow {workflow_id} completed successfully in {execution_time:.2f}s"
-            )
+            logger.info(f"Workflow {workflow_id} completed successfully in {execution_time:.2f}s")
             return response
 
         except Exception as e:
             execution_time = time.time() - start_time
-            logger.error(
-                f"Workflow {workflow_id} failed after {execution_time:.2f}s: {e}"
-            )
+            logger.error(f"Workflow {workflow_id} failed after {execution_time:.2f}s: {e}")
 
             error_response = WorkflowResponse(
                 workflow_id=workflow_id,
@@ -1040,12 +1152,7 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
 
             if workflow_id in self._active_workflows:
                 self._active_workflows[workflow_id].update(
-                    {
-                        "status": "failed",
-                        "response": error_response,
-                        "error": str(e),
-                        "end_time": time.time(),
-                    }
+                    {"status": "failed", "response": error_response, "error": str(e), "end_time": time.time()}
                 )
 
             await emit_workflow_completed(
@@ -1177,11 +1284,33 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
             logger.debug("DB persistence disabled; skipping workflow persistence")
             return
 
+        # Prefer the planned agents actually executed by the orchestrator (if present)
+        planned_agents: List[str] = []
+
+        try:
+            aom = getattr(response, "agent_output_meta", None)
+
+            if isinstance(aom, dict):
+                routing = aom.get("_routing")
+
+                if isinstance(routing, dict):
+                    planned_agents = _norm_agents(routing.get("planned_agents"))
+        except Exception:
+            planned_agents = []
+
+        if not planned_agents:
+            planned_agents = (
+                _norm_agents(request.agents)
+                or _norm_agents(original_execution_config.get("agents"))
+                or ["refiner"]
+            )
+
         execution_metadata = {
             "workflow_id": workflow_id,
             "execution_time_seconds": response.execution_time_seconds,
             "agent_outputs": response.agent_outputs,
-            "agents_requested": request.agents or ["refiner", "critic", "historian", "synthesis"],
+            # ✅ Never persist "output" as an agent; persist the planned agent nodes
+            "agents_requested": planned_agents,
             "export_md": (request.export_md if request.export_md is not None else False),
             "execution_config": original_execution_config,
             "api_version": self.api_version,
@@ -1223,11 +1352,30 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
             logger.debug("DB persistence disabled; skipping failed workflow persistence")
             return
 
+        planned_agents: List[str] = []
+
+        try:
+            aom = getattr(response, "agent_output_meta", None)
+
+            if isinstance(aom, dict):
+                routing = aom.get("_routing")
+
+                if isinstance(routing, dict):
+                    planned_agents = _norm_agents(routing.get("planned_agents"))
+        except Exception:
+            planned_agents = []
+
+        if not planned_agents:
+            planned_agents = _norm_agents(request.agents) or _norm_agents(
+                original_execution_config.get("agents")
+            ) or ["refiner"]
+
         execution_metadata = {
             "workflow_id": workflow_id,
             "execution_time_seconds": response.execution_time_seconds,
             "agent_outputs": response.agent_outputs,
-            "agents_requested": request.agents or ["refiner", "critic", "historian", "synthesis"],
+            # ✅ Never persist "output" as an agent; persist the planned agent nodes
+            "agents_requested": planned_agents,
             "export_md": (request.export_md if request.export_md is not None else False),
             "execution_config": original_execution_config,
             "api_version": self.api_version,

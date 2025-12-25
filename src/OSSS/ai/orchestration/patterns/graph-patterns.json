@@ -1,0 +1,126 @@
+{
+  "$schema": "https://osss.ai/schemas/graph-patterns.schema.json",
+  "patterns": {
+    "standard": {
+      "description": "Default flow: refiner -> (data_query OR critic/historian) -> (synthesis optional) -> END",
+      "entry_point": "refiner",
+      "edges": [
+        { "from": "refiner", "to": "data_query", "when": "has('data_query')" },
+
+        { "from": "refiner", "to": "critic", "when": "not has('data_query') and has('critic')" },
+        { "from": "refiner", "to": "historian", "when": "not has('data_query') and has('historian')" },
+
+        { "from": "data_query", "to": "synthesis", "when": "has('data_query') and has('synthesis')" },
+        { "from": "critic", "to": "synthesis", "when": "has('critic') and has('synthesis')" },
+        { "from": "historian", "to": "synthesis", "when": "has('historian') and has('synthesis')" },
+
+        { "from": "data_query", "to": "END", "when": "has('data_query') and not has('synthesis')" },
+        { "from": "critic", "to": "END", "when": "has('critic') and not has('synthesis')" },
+        { "from": "historian", "to": "END", "when": "has('historian') and not has('synthesis')" },
+
+        { "from": "synthesis", "to": "END", "when": "has('synthesis')" }
+      ]
+    },
+    "parallel_reflection": {
+      "description": "Critic and historian both run; then synthesis if present; otherwise END",
+      "entry_point": "refiner",
+      "edges": [
+        { "from": "refiner", "to": "critic" },
+        { "from": "refiner", "to": "historian" },
+
+        { "from": "critic", "to": "synthesis", "when": "has('synthesis')" },
+        { "from": "historian", "to": "synthesis", "when": "has('synthesis')" },
+
+        { "from": "critic", "to": "END", "when": "not has('synthesis')" },
+        { "from": "historian", "to": "END", "when": "not has('synthesis')" },
+
+        { "from": "synthesis", "to": "END", "when": "has('synthesis')" }
+      ]
+    },
+
+    "action_spine": {
+      "description": "Deterministic action workflow (refiner -> data_query -> (synthesis if present) -> END)",
+      "entry_point": "refiner",
+      "edges": [
+        { "from": "refiner", "to": "data_query" },
+
+        { "from": "data_query", "to": "synthesis", "when": "has('synthesis')" },
+        { "from": "data_query", "to": "END", "when": "not has('synthesis')" },
+
+        { "from": "synthesis", "to": "END", "when": "has('synthesis')" }
+      ]
+    },
+
+    "conditional": {
+      "description": "Runtime routing based on refiner intent (terminates at END or synthesis if present)",
+      "entry_point": "refiner",
+      "conditional_edges": {
+        "refiner": "route_from_refiner"
+      },
+      "conditional_destinations": {
+        "refiner": {
+          "data_query": "data_query",
+          "reflect": "critic",
+          "END": "END"
+        }
+      },
+      "edges": [
+        { "from": "data_query", "to": "synthesis", "when": "has('data_query') and has('synthesis')" },
+        { "from": "critic", "to": "synthesis", "when": "has('critic') and has('synthesis')" },
+        { "from": "historian", "to": "synthesis", "when": "has('historian') and has('synthesis')" },
+
+        { "from": "data_query", "to": "END", "when": "has('data_query') and not has('synthesis')" },
+        { "from": "critic", "to": "END", "when": "has('critic') and not has('synthesis')" },
+        { "from": "historian", "to": "END", "when": "has('historian') and not has('synthesis')" },
+
+        { "from": "synthesis", "to": "END", "when": "has('synthesis')" }
+      ]
+    },
+
+    "minimal": {
+      "description": "Fast path: refiner -> (synthesis if present) -> END",
+      "entry_point": "refiner",
+      "edges": [
+        { "from": "refiner", "to": "synthesis", "when": "has('synthesis')" },
+        { "from": "refiner", "to": "END", "when": "not has('synthesis')" },
+        { "from": "synthesis", "to": "END", "when": "has('synthesis')" }
+      ]
+    },
+
+    "refiner_final": {
+      "description": "Fast path: refiner -> final -> END",
+      "entry_point": "refiner",
+      "edges": [
+        { "from": "refiner", "to": "final", "when": "has('final')" },
+        { "from": "refiner", "to": "END",   "when": "not has('final')" },
+
+        { "from": "final",   "to": "END",   "when": "has('final')" }
+      ]
+    },
+
+    "refiner_only_output": {
+      "description": "Refiner-only termination: refiner -> END",
+      "entry_point": "refiner",
+      "edges": [
+        { "from": "refiner", "to": "END" }
+      ]
+    },
+
+    "research": {
+      "description": "Research-oriented flow with historian emphasis (terminates at synthesis if present, otherwise END)",
+      "entry_point": "refiner",
+      "edges": [
+        { "from": "refiner", "to": "historian" },
+        { "from": "historian", "to": "critic", "when": "has('critic')" },
+
+        { "from": "critic", "to": "synthesis", "when": "has('critic') and has('synthesis')" },
+        { "from": "historian", "to": "synthesis", "when": "not has('critic') and has('synthesis')" },
+
+        { "from": "critic", "to": "END", "when": "has('critic') and not has('synthesis')" },
+        { "from": "historian", "to": "END", "when": "not has('critic') and not has('synthesis')" },
+
+        { "from": "synthesis", "to": "END", "when": "has('synthesis')" }
+      ]
+    }
+  }
+}

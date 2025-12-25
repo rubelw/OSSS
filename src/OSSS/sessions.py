@@ -6,6 +6,7 @@ from typing import Any, Optional, AsyncIterator, Dict, Iterable
 
 import redis.asyncio as redis  # pip install "redis>=4"
 from fastapi import Request
+from starlette.responses import Response
 from OSSS.app_logger import get_logger
 
 log = get_logger("sessions")
@@ -19,6 +20,46 @@ KC_ISSUER = os.getenv("KEYCLOAK_ISSUER") or os.getenv("OIDC_ISSUER")
 KC_CLIENT_ID = os.getenv("KEYCLOAK_CLIENT_ID", "osss-api")
 KC_CLIENT_SECRET = os.getenv("KEYCLOAK_CLIENT_SECRET")  # confidential client
 
+SKIP_SESSION_PATHS: set[str] = {
+    "/healthz",
+    "/metrics",
+    "/favicon.ico",
+    "/openapi.json",
+    "/docs",
+    "/docs/oauth2-redirect",
+    "/redoc",
+    # ✅ your internal stateless endpoints (openai-proxy + AI query)
+    "/v1/chat/completions",
+    "/api/query",
+}
+
+# Prefix-style skips (static assets, etc.). Use prefixes for "directories".
+SKIP_SESSION_PREFIXES: tuple[str, ...] = (
+    "/static/",
+    "/assets/",
+    "/v1/",
+)
+
+def should_skip_session(request: Request) -> bool:
+    """
+    Centralized "stateless endpoint" check.
+    This is Option A: any caller of ensure_sid_cookie_and_store() inherits this behavior.
+    """
+    p = request.url.path
+
+    # exact match is safest
+    if p in SKIP_SESSION_PATHS:
+        return True
+
+    # directory/prefix matches
+    if SKIP_SESSION_PREFIXES and p.startswith(SKIP_SESSION_PREFIXES):
+        return True
+
+    # CORS preflight should never mint sessions
+    if request.method == "OPTIONS":
+        return True
+
+    return False
 
 class RedisSession:
     """
@@ -206,39 +247,84 @@ def get_session_store(request: Request) -> RedisSession:
     return store
 
 
-async def ensure_sid_cookie_and_store(request: Request, response) -> str:
+async def ensure_sid_cookie_and_store(request: Request, response: Response) -> str:
     """
     Ensure a server-managed session id exists (cookie + Redis), with sliding TTL.
+
+    Notes:
+    - Stateless endpoints should not mint sessions (middleware should skip calling us,
+      but we also guard here).
+    - Avoid session storms if Redis is unhealthy: don't mint new SIDs on Redis errors.
     """
+    # ✅ Option A: centralized bypass (works no matter who calls us)
+
+    if should_skip_session(request):
+        # Do not create sessions for stateless endpoints.
+        # If a client already has a sid cookie, return it without touching Redis.
+
+        return request.cookies.get(SESSION_COOKIE, "")
+
     store: RedisSession = get_session_store(request)
     sid = request.cookies.get(SESSION_COOKIE)
     created = False
+    now_iso = datetime.now(timezone.utc).isoformat()
 
-    if not sid or not await store.exists(sid):
+    # ---- 1) Load once (avoid exists+get roundtrip) ----
+    data = None
+    if sid:
+        try:
+            data = await store.get(sid)
+        except Exception as e:
+            # Redis trouble: do NOT mint a new SID every request (session storm).
+            # If client has a sid, keep using it without touching Redis.
+            log.warning("Session store read failed for sid=%s… (%s). Leaving cookie as-is.", sid[:8], e)
+            return sid
+
+    # ---- 2) Create if missing ----
+    if not sid or data is None:
         sid = secrets.token_urlsafe(24)
         created = True
-        await store.set(
-            sid,
-            {"created_at": datetime.now(timezone.utc).isoformat()},
-            ttl=SESSION_TTL_SEC,
-        )
-        log.info("Created sid=%s… ttl=%ss", sid[:8], SESSION_TTL_SEC)
-    else:
-        data = await store.get(sid) or {}
-        if isinstance(data, dict):
-            data["last_seen"] = datetime.now(timezone.utc).isoformat()
-            await store.set(sid, data, ttl=SESSION_TTL_SEC)
-        else:
-            await store.touch(sid, ttl=SESSION_TTL_SEC)
+        try:
+            await store.set(
+                sid,
+                {"created_at": now_iso},
+                ttl=SESSION_TTL_SEC,
+            )
+            log.info("Created sid=%s… ttl=%ss", sid[:8], SESSION_TTL_SEC)
+        except Exception as e:
+            # If we can't persist, don't set a cookie that points to nothing.
+            log.error("Session store write failed; refusing to set sid cookie (%s)", e)
+            return ""
 
-    if created:
+    # ---- 3) Slide TTL / last_seen ----
+    if not created:
+        try:
+            if isinstance(data, dict):
+                data = dict(data)
+                data["last_seen"] = now_iso
+                await store.set(sid, data, ttl=SESSION_TTL_SEC)
+            else:
+                # If your store supports touch, this is cheaper.
+                await store.touch(sid, ttl=SESSION_TTL_SEC)
+        except Exception as e:
+            # Don't break the request if TTL refresh fails.
+            log.warning("Session TTL refresh failed for sid=%s… (%s)", sid[:8], e)
+
+    # ---- 4) Set cookie (created-only or sliding, your choice) ----
+    # If you want true "sliding" expiration on the client too, set this cookie every time.
+    SLIDE_COOKIE = os.getenv("SLIDE_SID_COOKIE", "0") == "1"
+
+    if created or SLIDE_COOKIE:
         response.set_cookie(
-            SESSION_COOKIE, sid, max_age=SESSION_TTL_SEC,
-            httponly=True, samesite="lax",
+            SESSION_COOKIE,
+            sid,
+            max_age=SESSION_TTL_SEC,
+            httponly=True,
+            samesite="lax",
             secure=os.getenv("COOKIE_SECURE", "0") == "1",
         )
-    return sid
 
+    return sid
 
 # small util you tried to import
 async def probe_key_ttl(store: RedisSession, key: str) -> int:
@@ -250,6 +336,7 @@ __all__ = [
     "attach_session_store",
     "get_session_store",
     "ensure_sid_cookie_and_store",
+    "should_skip_session",
     "probe_key_ttl",
     "refresh_access_token",
     "record_tokens_to_session",

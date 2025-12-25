@@ -1,146 +1,135 @@
 """
-Terminator Node Implementation for OSSS.
+Validator Node Implementation for CogniVault.
 
-This module implements the TerminatorNode class which handles early
-termination based on confidence thresholds and completion criteria.
+This module implements the ValidatorNode class which handles quality
+validation and gating in the advanced node execution system.
 """
 
-from typing import Dict, List, Any, Optional, Callable, Union, cast
-from dataclasses import dataclass
+from typing import Dict, List, Any, Optional, Callable, cast
 from enum import Enum
 import asyncio
 
 from pydantic import BaseModel, Field, ConfigDict
-
 from OSSS.ai.agents.metadata import AgentMetadata
-from OSSS.ai.events import emit_termination_triggered
+from OSSS.ai.events import emit_validation_completed
 from .base_advanced_node import BaseAdvancedNode, NodeExecutionContext
 
 
-class TerminationReason(Enum):
-    """Possible termination reasons."""
+class NodeValidationResult(Enum):
+    """Possible validation results."""
 
-    CONFIDENCE_THRESHOLD = "confidence_threshold"
-    QUALITY_THRESHOLD = "quality_threshold"
-    RESOURCE_LIMIT = "resource_limit"
-    TIME_LIMIT = "time_limit"
-    COMPLETION_CRITERIA = "completion_criteria"
-    MANUAL_TRIGGER = "manual_trigger"
+    PASS = "pass"
+    FAIL = "fail"
+    WARNING = "warning"
 
 
-class TerminationCriteria(BaseModel):
+class ValidationCriteria(BaseModel):
     """
-    Represents a single termination criterion.
+    Represents a single validation criterion.
 
     Migrated from dataclass to Pydantic BaseModel for enhanced validation,
-    serialization, and integration with the OSSS Pydantic ecosystem.
+    serialization, and integration with the CogniVault Pydantic ecosystem.
     """
 
     name: str = Field(
         ...,
-        description="Name/identifier of the termination criterion",
+        description="Name/identifier of the validation criterion",
         min_length=1,
         max_length=100,
-        json_schema_extra={"example": "confidence_check"},
+        json_schema_extra={"example": "output_quality_check"},
     )
-    evaluator: Callable[[Dict[str, Any]], bool] = Field(
-        ...,
-        description="Function that evaluates the criterion against input data",
-    )
-    threshold: float = Field(
-        default=0.0,
-        description="Threshold value for criterion evaluation",
-        ge=0.0,
-        le=1.0,
-        json_schema_extra={"example": 0.95},
+    validator: Callable[[Dict[str, Any]], bool] = Field(
+        ..., description="Function that performs the validation logic"
     )
     weight: float = Field(
         default=1.0,
-        description="Weight/importance of this criterion in termination decision",
+        description="Weight/importance of this criterion in overall validation",
         ge=0.0,
         le=10.0,
-        json_schema_extra={"example": 2.0},
+        json_schema_extra={"example": 1.0},
     )
     required: bool = Field(
         default=True,
-        description="Whether this criterion is required for termination",
-        json_schema_extra={"example": True},
+        description="Whether this criterion must pass for overall validation to succeed",
     )
-    description: str = Field(
+    error_message: str = Field(
         default="",
-        description="Human-readable description of the criterion",
+        description="Custom error message when validation fails",
         max_length=500,
-        json_schema_extra={"example": "Check if confidence threshold is met"},
+        json_schema_extra={"example": "Output quality is below acceptable threshold"},
     )
 
     model_config = ConfigDict(
         extra="forbid",
         validate_assignment=True,
-        arbitrary_types_allowed=True,  # For Callable evaluator function
+        arbitrary_types_allowed=True,  # For Callable validator function
     )
 
-    def evaluate(self, data: Dict[str, Any]) -> bool:
-        """Evaluate data against this criterion."""
-        return self.evaluator(data)
+    def validate_data(self, data: Dict[str, Any]) -> bool:
+        """Validate data against this criterion."""
+        return self.validator(data)
 
 
-class TerminationReport(BaseModel):
+class WorkflowValidationReport(BaseModel):
     """
-    Detailed termination report.
+    Detailed validation report for workflow execution.
 
     Migrated from dataclass to Pydantic BaseModel for enhanced validation,
-    serialization, and integration with the OSSS Pydantic ecosystem.
+    serialization, and integration with the CogniVault Pydantic ecosystem.
     """
 
-    should_terminate: bool = Field(
+    result: NodeValidationResult = Field(
         ...,
-        description="Whether termination is recommended",
-        json_schema_extra={"example": True},
+        description="Overall validation result",
+        json_schema_extra={"example": "pass"},
     )
-    termination_reason: TerminationReason = Field(
+    quality_score: float = Field(
         ...,
-        description="Primary reason for termination decision",
-        json_schema_extra={"example": "confidence_threshold"},
-    )
-    confidence_score: float = Field(
-        ...,
-        description="Overall confidence score for termination decision",
+        description="Calculated quality score (0.0 to 1.0)",
         ge=0.0,
         le=1.0,
-        json_schema_extra={"example": 0.95},
+        json_schema_extra={"example": 0.85},
     )
     criteria_results: Dict[str, Dict[str, Any]] = Field(
         ...,
-        description="Detailed results for each termination criterion",
-        json_schema_extra={"example": {"criterion1": {"met": True, "score": 0.9}}},
+        description="Results from each validation criterion",
+        json_schema_extra={"example": {"criterion_1": {"passed": True, "weight": 1.0}}},
     )
-    resource_savings: Dict[str, float] = Field(
-        ...,
-        description="Estimated resource savings from early termination",
-        json_schema_extra={"example": {"cpu_time_ms": 1000.0, "memory_mb": 50.0}},
+    recommendations: List[str] = Field(
+        default_factory=list,
+        description="List of improvement recommendations",
+        max_length=100,
+        json_schema_extra={"example": ["Fix required criterion 'content_check'"]},
     )
-    completion_time_ms: float = Field(
+    validation_time_ms: float = Field(
         ...,
-        description="Time taken to complete termination evaluation in milliseconds",
+        description="Time taken for validation in milliseconds",
         ge=0.0,
         json_schema_extra={"example": 125.5},
     )
-    met_criteria: List[str] = Field(
+    total_criteria: int = Field(
         ...,
-        description="Names of criteria that were successfully met",
-        json_schema_extra={"example": ["confidence_check", "quality_check"]},
+        description="Total number of validation criteria",
+        ge=0,
+        json_schema_extra={"example": 5},
     )
-    unmet_criteria: List[str] = Field(
+    passed_criteria: int = Field(
         ...,
-        description="Names of criteria that were not met",
-        json_schema_extra={"example": ["resource_limit"]},
+        description="Number of criteria that passed",
+        ge=0,
+        json_schema_extra={"example": 4},
     )
-    termination_message: str = Field(
+    failed_criteria: int = Field(
         ...,
-        description="Human-readable message explaining the termination decision",
-        min_length=1,
-        max_length=1000,
-        json_schema_extra={"example": "Confidence threshold met with score 0.95"},
+        description="Number of criteria that failed",
+        ge=0,
+        json_schema_extra={"example": 1},
+    )
+    warnings: List[str] = Field(
+        default_factory=list,
+        description="List of validation warnings",
+        max_length=100,
+        json_schema_extra={"example": ["Optional criterion failed"]},
     )
 
     model_config = ConfigDict(
@@ -148,29 +137,34 @@ class TerminationReport(BaseModel):
         validate_assignment=True,
     )
 
+    @property
+    def success_rate(self) -> float:
+        """Calculate success rate of validation criteria."""
+        if self.total_criteria == 0:
+            return 0.0
+        return self.passed_criteria / self.total_criteria
 
-class TerminatorNode(BaseAdvancedNode):
+
+class ValidatorNode(BaseAdvancedNode):
     """
-    Early termination and completion node.
+    Quality validation and gating node.
 
-    This node evaluates termination criteria and can halt workflow
-    execution when confidence thresholds are met or resource limits reached.
+    This node validates outputs against configurable criteria and
+    provides quality gates for workflow execution.
     """
 
     def __init__(
         self,
         metadata: AgentMetadata,
         node_name: str,
-        termination_criteria: List[TerminationCriteria],
-        confidence_threshold: float = 0.95,
-        quality_threshold: float = 0.9,
-        resource_limit_threshold: float = 0.8,
-        time_limit_ms: Optional[float] = None,
-        allow_partial_completion: bool = True,
+        validation_criteria: List[ValidationCriteria],
+        quality_threshold: float = 0.8,
+        required_criteria_pass_rate: float = 1.0,
+        allow_warnings: bool = True,
         strict_mode: bool = False,
     ) -> None:
         """
-        Initialize the TerminatorNode.
+        Initialize the ValidatorNode.
 
         Parameters
         ----------
@@ -178,63 +172,47 @@ class TerminatorNode(BaseAdvancedNode):
             The agent metadata containing multi-axis classification
         node_name : str
             Unique name for this node instance
-        termination_criteria : List[TerminationCriteria]
-            List of criteria to evaluate for termination
-        confidence_threshold : float
-            Minimum confidence score to consider termination
+        validation_criteria : List[ValidationCriteria]
+            List of criteria to validate against
         quality_threshold : float
-            Minimum quality score to consider termination
-        resource_limit_threshold : float
-            Resource usage threshold to trigger termination
-        time_limit_ms : Optional[float]
-            Maximum execution time before termination
-        allow_partial_completion : bool
-            Whether to allow termination with partial results
+            Minimum quality score to pass validation
+        required_criteria_pass_rate : float
+            Minimum pass rate for required criteria (0.0 to 1.0)
+        allow_warnings : bool
+            Whether to allow warnings without failing
         strict_mode : bool
-            If True, all criteria must be met for termination
+            If True, any failed criterion fails the entire validation
         """
         super().__init__(metadata, node_name)
 
-        if self.execution_pattern != "terminator":
+        if self.execution_pattern != "validator":
             raise ValueError(
-                f"TerminatorNode requires execution_pattern='terminator', "
+                f"ValidatorNode requires execution_pattern='validator', "
                 f"got '{self.execution_pattern}'"
             )
 
-        if not termination_criteria:
-            raise ValueError(
-                "TerminatorNode requires at least one termination criterion"
-            )
-
-        if not 0.0 <= confidence_threshold <= 1.0:
-            raise ValueError(
-                f"confidence_threshold must be between 0.0 and 1.0, got {confidence_threshold}"
-            )
+        if not validation_criteria:
+            raise ValueError("ValidatorNode requires at least one validation criterion")
 
         if not 0.0 <= quality_threshold <= 1.0:
             raise ValueError(
                 f"quality_threshold must be between 0.0 and 1.0, got {quality_threshold}"
             )
 
-        if not 0.0 <= resource_limit_threshold <= 1.0:
+        if not 0.0 <= required_criteria_pass_rate <= 1.0:
             raise ValueError(
-                f"resource_limit_threshold must be between 0.0 and 1.0, got {resource_limit_threshold}"
+                f"required_criteria_pass_rate must be between 0.0 and 1.0, got {required_criteria_pass_rate}"
             )
 
-        if time_limit_ms is not None and time_limit_ms <= 0:
-            raise ValueError(f"time_limit_ms must be positive, got {time_limit_ms}")
-
-        self.termination_criteria = termination_criteria
-        self.confidence_threshold = confidence_threshold
+        self.validation_criteria = validation_criteria
         self.quality_threshold = quality_threshold
-        self.resource_limit_threshold = resource_limit_threshold
-        self.time_limit_ms = time_limit_ms
-        self.allow_partial_completion = allow_partial_completion
+        self.required_criteria_pass_rate = required_criteria_pass_rate
+        self.allow_warnings = allow_warnings
         self.strict_mode = strict_mode
 
     async def execute(self, context: NodeExecutionContext) -> Dict[str, Any]:
         """
-        Execute the termination logic and evaluate completion criteria.
+        Execute the validation logic and assess quality.
 
         Parameters
         ----------
@@ -244,7 +222,7 @@ class TerminatorNode(BaseAdvancedNode):
         Returns
         -------
         Dict[str, Any]
-            Termination result with decision and resource savings
+            Validation result with quality assessment and recommendations
         """
         # Pre-execution setup
         await self.pre_execute(context)
@@ -256,38 +234,38 @@ class TerminatorNode(BaseAdvancedNode):
                 f"Context validation failed: {', '.join(validation_errors)}"
             )
 
-        # Evaluate termination criteria
-        termination_report = await self._evaluate_termination_criteria(context)
+        # Get data to validate
+        data_to_validate = await self._extract_validation_data(context)
 
-        # Calculate resource savings if termination occurs
-        resource_savings = self._calculate_resource_savings(context, termination_report)
+        # Perform validation
+        validation_report = await self._perform_validation(data_to_validate)
 
-        # Emit termination event if termination is recommended
-        if termination_report.should_terminate:
-            await emit_termination_triggered(
-                workflow_id=context.workflow_id,
-                termination_reason=termination_report.termination_reason.value,
-                confidence_score=termination_report.confidence_score,
-                threshold=self.confidence_threshold,
-                resources_saved=resource_savings,
-                correlation_id=context.correlation_id,
-            )
+        # Emit validation event
+        await emit_validation_completed(
+            workflow_id=context.workflow_id,
+            validation_result=validation_report.result.value,
+            quality_score=validation_report.quality_score,
+            validation_criteria=[c.name for c in self.validation_criteria],
+            recommendations=validation_report.recommendations,
+            validation_time_ms=validation_report.validation_time_ms,
+            correlation_id=context.correlation_id,
+        )
 
         # Create result
         result = {
-            "should_terminate": termination_report.should_terminate,
-            "termination_reason": termination_report.termination_reason.value,
-            "confidence_score": termination_report.confidence_score,
-            "criteria_results": termination_report.criteria_results,
-            "resource_savings": resource_savings,
-            "completion_time_ms": termination_report.completion_time_ms,
-            "met_criteria": termination_report.met_criteria,
-            "unmet_criteria": termination_report.unmet_criteria,
-            "termination_message": termination_report.termination_message,
-            "allow_partial_completion": self.allow_partial_completion,
-            "recommended_action": (
-                "terminate" if termination_report.should_terminate else "continue"
-            ),
+            "validation_result": validation_report.result.value,
+            "quality_score": validation_report.quality_score,
+            "success_rate": validation_report.success_rate,
+            "criteria_results": validation_report.criteria_results,
+            "recommendations": validation_report.recommendations,
+            "validation_time_ms": validation_report.validation_time_ms,
+            "total_criteria": validation_report.total_criteria,
+            "passed_criteria": validation_report.passed_criteria,
+            "failed_criteria": validation_report.failed_criteria,
+            "warnings": validation_report.warnings,
+            "passed": validation_report.result
+            in [NodeValidationResult.PASS, NodeValidationResult.WARNING],
+            "validated_data": data_to_validate,
         }
 
         # Post-execution cleanup
@@ -310,105 +288,26 @@ class TerminatorNode(BaseAdvancedNode):
             True if the node can handle the context
         """
         try:
-            # Check if we have sufficient execution history
-            if len(context.execution_path) < 2:
+            # Check if we have data to validate
+            if not context.available_inputs:
                 return False
 
-            # Check if we have available inputs or results to evaluate
-            if not context.available_inputs and not hasattr(
-                context, "intermediate_results"
-            ):
-                return False
+            # Check if we have at least one input with data
+            has_data = False
+            for source, data in context.available_inputs.items():
+                if isinstance(data, dict) and data:
+                    has_data = True
+                    break
 
-            # Check if we have resource usage information
-            if not context.resource_usage:
-                return False
-
-            return True
+            return has_data
         except Exception:
             return False
 
-    async def _evaluate_termination_criteria(
-        self, context: NodeExecutionContext
-    ) -> TerminationReport:
-        """
-        Evaluate all termination criteria.
-
-        Parameters
-        ----------
-        context : NodeExecutionContext
-            The execution context
-
-        Returns
-        -------
-        TerminationReport
-            Detailed termination evaluation report
-        """
-        start_time = asyncio.get_event_loop().time()
-
-        # Gather data for evaluation
-        evaluation_data = await self._prepare_evaluation_data(context)
-
-        criteria_results = {}
-        met_criteria = []
-        unmet_criteria = []
-
-        # Evaluate each criterion
-        for criterion in self.termination_criteria:
-            try:
-                met = criterion.evaluate(evaluation_data)
-                criteria_results[criterion.name] = {
-                    "met": met,
-                    "threshold": criterion.threshold,
-                    "weight": criterion.weight,
-                    "required": criterion.required,
-                    "description": criterion.description,
-                }
-
-                if met:
-                    met_criteria.append(criterion.name)
-                else:
-                    unmet_criteria.append(criterion.name)
-
-            except Exception as e:
-                # Criterion evaluation failed
-                criteria_results[criterion.name] = {
-                    "met": False,
-                    "threshold": criterion.threshold,
-                    "weight": criterion.weight,
-                    "required": criterion.required,
-                    "description": criterion.description,
-                    "error": str(e),
-                }
-                unmet_criteria.append(criterion.name)
-
-        end_time = asyncio.get_event_loop().time()
-        completion_time_ms = (end_time - start_time) * 1000
-
-        # Determine termination decision
-        should_terminate, reason, confidence_score, message = (
-            self._make_termination_decision(
-                evaluation_data, criteria_results, met_criteria, unmet_criteria
-            )
-        )
-
-        return TerminationReport(
-            should_terminate=should_terminate,
-            termination_reason=reason,
-            confidence_score=confidence_score,
-            criteria_results=criteria_results,
-            resource_savings={},  # Will be calculated separately
-            completion_time_ms=completion_time_ms,
-            met_criteria=met_criteria,
-            unmet_criteria=unmet_criteria,
-            termination_message=message,
-        )
-
-    async def _prepare_evaluation_data(
+    async def _extract_validation_data(
         self, context: NodeExecutionContext
     ) -> Dict[str, Any]:
         """
-        Prepare data for termination criteria evaluation.
+        Extract data to validate from the context.
 
         Parameters
         ----------
@@ -418,199 +317,184 @@ class TerminatorNode(BaseAdvancedNode):
         Returns
         -------
         Dict[str, Any]
-            Data prepared for evaluation
+            Data to validate
         """
-        # Get best available input for evaluation
-        best_input = {}
-        if context.available_inputs:
-            best_quality = -1.0
-            for source, data in context.available_inputs.items():
-                if isinstance(data, dict):
-                    quality = cast(
-                        float, data.get("quality_score", data.get("confidence", 0.0))
-                    )
-                    if quality > best_quality:
-                        best_quality = quality
-                        best_input = data
+        # For now, we'll validate the most recent or highest quality input
+        # In a real implementation, this could be more sophisticated
 
-        # Calculate execution progress
-        execution_progress = len(context.execution_path) / max(
-            len(context.execution_path) + 3, 1
-        )
+        if not context.available_inputs:
+            return {}
 
-        # Resource usage metrics
-        resource_usage = context.resource_usage or {}
+        # Find the best input to validate
+        best_input: Optional[Dict[str, Any]] = None
+        best_score = -1.0
 
-        return {
-            "confidence": best_input.get("confidence", 0.0),
-            "quality_score": best_input.get("quality_score", 0.0),
-            "execution_progress": execution_progress,
-            "resource_usage": resource_usage,
-            "execution_path_length": len(context.execution_path),
-            "available_inputs_count": len(context.available_inputs),
-            "best_input": best_input,
-        }
+        for source, data in context.available_inputs.items():
+            if isinstance(data, dict):
+                # Use quality score or confidence as ranking
+                score = cast(
+                    float, data.get("quality_score", data.get("confidence", 0.0))
+                )
+                if score > best_score:
+                    best_score = score
+                    best_input = data
 
-    def _make_termination_decision(
-        self,
-        evaluation_data: Dict[str, Any],
-        criteria_results: Dict[str, Dict[str, Any]],
-        met_criteria: List[str],
-        unmet_criteria: List[str],
-    ) -> tuple[bool, TerminationReason, float, str]:
+        return best_input or {}
+
+    async def _perform_validation(
+        self, data: Dict[str, Any]
+    ) -> WorkflowValidationReport:
         """
-        Make the final termination decision.
+        Perform validation against all criteria.
 
         Parameters
         ----------
-        evaluation_data : Dict[str, Any]
-            Prepared evaluation data
-        criteria_results : Dict[str, Dict[str, Any]]
-            Results from criteria evaluation
-        met_criteria : List[str]
-            Names of met criteria
-        unmet_criteria : List[str]
-            Names of unmet criteria
+        data : Dict[str, Any]
+            Data to validate
 
         Returns
         -------
-        tuple[bool, TerminationReason, float, str]
-            (should_terminate, reason, confidence_score, message)
+        WorkflowValidationReport
+            Detailed validation report
         """
-        confidence = evaluation_data.get("confidence", 0.0)
-        quality_score = evaluation_data.get("quality_score", 0.0)
-        resource_usage = evaluation_data.get("resource_usage", {})
+        start_time = asyncio.get_event_loop().time()
 
-        # Check confidence threshold
-        if confidence >= self.confidence_threshold:
-            return (
-                True,
-                TerminationReason.CONFIDENCE_THRESHOLD,
-                confidence,
-                f"Confidence threshold ({self.confidence_threshold}) met with score {confidence:.3f}",
+        criteria_results = {}
+        passed_criteria = 0
+        failed_criteria = 0
+        warnings = []
+        recommendations = []
+
+        # Validate each criterion
+        for criterion in self.validation_criteria:
+            try:
+                passed = criterion.validate_data(data)
+                criteria_results[criterion.name] = {
+                    "passed": passed,
+                    "weight": criterion.weight,
+                    "required": criterion.required,
+                    "error_message": criterion.error_message if not passed else "",
+                }
+
+                if passed:
+                    passed_criteria += 1
+                else:
+                    failed_criteria += 1
+                    if criterion.required:
+                        if criterion.error_message:
+                            recommendations.append(
+                                f"Fix required criterion '{criterion.name}': {criterion.error_message}"
+                            )
+                        else:
+                            recommendations.append(
+                                f"Fix required criterion '{criterion.name}'"
+                            )
+                    else:
+                        warnings.append(f"Optional criterion '{criterion.name}' failed")
+
+            except Exception as e:
+                # Criterion validation failed due to error
+                failed_criteria += 1
+                error_msg = (
+                    f"Validation error in criterion '{criterion.name}': {str(e)}"
+                )
+                warnings.append(error_msg)
+                criteria_results[criterion.name] = {
+                    "passed": False,
+                    "weight": criterion.weight,
+                    "required": criterion.required,
+                    "error_message": error_msg,
+                }
+
+        end_time = asyncio.get_event_loop().time()
+        validation_time_ms = (end_time - start_time) * 1000
+
+        # Calculate quality score (weighted average)
+        total_weight = sum(c.weight for c in self.validation_criteria)
+        if total_weight > 0:
+            passed_weight = sum(
+                c.weight
+                for c in self.validation_criteria
+                if c.name in criteria_results and criteria_results[c.name]["passed"]
             )
+            quality_score = passed_weight / total_weight
+        else:
+            quality_score = 0.0
+
+        # Determine validation result
+        result = self._determine_validation_result(
+            quality_score, passed_criteria, failed_criteria, warnings, criteria_results
+        )
+
+        return WorkflowValidationReport(
+            result=result,
+            quality_score=quality_score,
+            criteria_results=criteria_results,
+            recommendations=recommendations,
+            validation_time_ms=validation_time_ms,
+            total_criteria=len(self.validation_criteria),
+            passed_criteria=passed_criteria,
+            failed_criteria=failed_criteria,
+            warnings=warnings,
+        )
+
+    def _determine_validation_result(
+        self,
+        quality_score: float,
+        passed_criteria: int,
+        failed_criteria: int,
+        warnings: List[str],
+        criteria_results: Dict[str, Dict[str, Any]],
+    ) -> NodeValidationResult:
+        """
+        Determine the overall validation result.
+
+        Parameters
+        ----------
+        quality_score : float
+            Calculated quality score
+        passed_criteria : int
+            Number of passed criteria
+        failed_criteria : int
+            Number of failed criteria
+        warnings : List[str]
+            List of warnings
+        criteria_results : Dict[str, Dict[str, Any]]
+            Results from each validation criterion
+
+        Returns
+        -------
+        NodeValidationResult
+            Overall validation result
+        """
+        # Check required criteria pass rate
+        required_criteria = [c for c in self.validation_criteria if c.required]
+        if required_criteria:
+            required_passed = sum(
+                1
+                for c in required_criteria
+                if c.name in criteria_results and criteria_results[c.name]["passed"]
+            )
+            required_pass_rate = required_passed / len(required_criteria)
+
+            if required_pass_rate < self.required_criteria_pass_rate:
+                return NodeValidationResult.FAIL
+
+        # Strict mode: any failure is a failure
+        if self.strict_mode and failed_criteria > 0:
+            return NodeValidationResult.FAIL
 
         # Check quality threshold
-        if quality_score >= self.quality_threshold:
-            return (
-                True,
-                TerminationReason.QUALITY_THRESHOLD,
-                quality_score,
-                f"Quality threshold ({self.quality_threshold}) met with score {quality_score:.3f}",
-            )
+        if quality_score < self.quality_threshold:
+            return NodeValidationResult.FAIL
 
-        # Check resource limits
-        cpu_usage = resource_usage.get("cpu_usage", 0.0)
-        memory_usage = resource_usage.get("memory_usage", 0.0)
-        if (
-            cpu_usage >= self.resource_limit_threshold
-            or memory_usage >= self.resource_limit_threshold
-        ):
-            return (
-                True,
-                TerminationReason.RESOURCE_LIMIT,
-                max(cpu_usage, memory_usage),
-                f"Resource limit threshold ({self.resource_limit_threshold}) exceeded",
-            )
+        # Check if we have warnings
+        if warnings and not self.allow_warnings:
+            return NodeValidationResult.FAIL
 
-        # Check completion criteria
-        if self.strict_mode:
-            # All criteria must be met
-            if not unmet_criteria:
-                return (
-                    True,
-                    TerminationReason.COMPLETION_CRITERIA,
-                    1.0,
-                    "All termination criteria met in strict mode",
-                )
-        else:
-            # Check if we have enough criteria met
-            required_met = sum(
-                1
-                for name in met_criteria
-                if any(c.name == name and c.required for c in self.termination_criteria)
-            )
-            total_required = sum(1 for c in self.termination_criteria if c.required)
+        # Success with warnings
+        if warnings and self.allow_warnings:
+            return NodeValidationResult.WARNING
 
-            if total_required > 0 and required_met / total_required >= 0.5:
-                completion_ratio = required_met / total_required
-                return (
-                    True,
-                    TerminationReason.COMPLETION_CRITERIA,
-                    completion_ratio,
-                    f"Sufficient completion criteria met ({required_met}/{total_required})",
-                )
-
-        # No termination criteria met
-        return (
-            False,
-            TerminationReason.CONFIDENCE_THRESHOLD,
-            confidence,
-            "No termination criteria met, continue execution",
-        )
-
-    def _calculate_resource_savings(
-        self, context: NodeExecutionContext, report: TerminationReport
-    ) -> Dict[str, float]:
-        """
-        Calculate estimated resource savings from early termination.
-
-        Parameters
-        ----------
-        context : NodeExecutionContext
-            The execution context
-        report : TerminationReport
-            Termination evaluation report
-
-        Returns
-        -------
-        Dict[str, float]
-            Estimated resource savings
-        """
-        if not report.should_terminate:
-            return {"cpu_time_ms": 0.0, "memory_mb": 0.0, "estimated_cost": 0.0}
-
-        # Estimate remaining work
-        remaining_steps = self._estimate_remaining_steps(context)
-        current_usage = context.resource_usage or {}
-
-        # Calculate estimated savings
-        avg_cpu_per_step = current_usage.get("cpu_usage", 0.0) / max(
-            len(context.execution_path), 1
-        )
-        avg_memory_per_step = current_usage.get("memory_usage", 0.0) / max(
-            len(context.execution_path), 1
-        )
-
-        estimated_cpu_savings = avg_cpu_per_step * remaining_steps
-        estimated_memory_savings = avg_memory_per_step * remaining_steps
-        estimated_cost_savings = estimated_cpu_savings * 0.001  # Simple cost model
-
-        return {
-            "cpu_time_ms": estimated_cpu_savings,
-            "memory_mb": estimated_memory_savings,
-            "estimated_cost": estimated_cost_savings,
-        }
-
-    def _estimate_remaining_steps(self, context: NodeExecutionContext) -> int:
-        """
-        Estimate remaining execution steps.
-
-        Parameters
-        ----------
-        context : NodeExecutionContext
-            The execution context
-
-        Returns
-        -------
-        int
-            Estimated remaining steps
-        """
-        # Simple heuristic: assume 2-4 more steps for typical workflows
-        current_steps = len(context.execution_path)
-        if current_steps < 2:
-            return 3
-        elif current_steps < 4:
-            return 2
-        else:
-            return 1
+        # Full success
+        return NodeValidationResult.PASS

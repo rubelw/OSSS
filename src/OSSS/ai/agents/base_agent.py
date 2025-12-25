@@ -612,11 +612,67 @@ class BaseAgent(ABC):
         retries = 0
         last_exception: Optional[Exception] = None
 
+
         while retries <= self.retry_config.max_retries:
             try:
                 self.logger.info(
                     f"[{self.name}] Starting execution (step: {step_id}, attempt: {retries + 1})"
                 )
+
+                # -------------------------------------------------------------------
+                # ✅ RAG gating + population (ONLY for output agent, run once per step)
+                # -------------------------------------------------------------------
+                try:
+                    exec_state = getattr(context, "execution_state", None)
+
+                    is_output_agent = (self.name or "").strip().lower() == "output"
+
+                    if (
+                            is_output_agent
+                            and isinstance(exec_state, dict)
+                            and exec_state.get("rag_enabled") is True
+                    ):
+                        # prevent re-populating on retries
+                        if not exec_state.get("_rag_populated"):
+                            exec_state["_rag_populated"] = True  # set early to avoid duplicate work
+
+                            # Optional: clear any stale values
+                            exec_state.pop("rag_context", None)
+                            exec_state.pop("rag_hits", None)
+                            exec_state.pop("rag_meta", None)
+
+                            # --- CALL YOUR RETRIEVER HERE ---
+                            # Use context.query (for output node this should already be refined,
+                            # because convert_state_to_context pulls state["query"]).
+                            query_for_rag = (context.query or "").strip()
+
+                            rag_context = ""
+                            rag_hits = []
+                            rag_meta = {"query_used": query_for_rag}
+
+                            # Example skeleton (replace with your real retriever):
+                            # from OSSS.ai.rag.service import RagService
+                            # svc = RagService(...)
+                            # retrieved = await svc.retrieve(query=query_for_rag, top_k=exec_state.get("rag_top_k", 8))
+                            # rag_context = retrieved.context_text
+                            # rag_hits = retrieved.hits
+                            # rag_meta = retrieved.meta
+
+                            exec_state["rag_context"] = rag_context
+                            exec_state["rag_hits"] = rag_hits
+                            exec_state["rag_meta"] = rag_meta
+
+                            self.logger.debug(
+                                f"[{self.name}] RAG populated for output agent: hits={len(rag_hits) if isinstance(rag_hits, list) else 0}"
+                            )
+                except Exception as rag_e:
+                    # Never block agent execution if retrieval fails
+                    try:
+                        if isinstance(getattr(context, "execution_state", None), dict):
+                            context.execution_state["rag_error"] = str(rag_e)
+                    except Exception:
+                        pass
+                    self.logger.warning(f"[{self.name}] RAG population failed (continuing without RAG): {rag_e}")
 
                 # Execute with timeout
                 result = await asyncio.wait_for(

@@ -65,7 +65,11 @@ class StructuredLogger:
         """
         self.logger = logging.getLogger(name)
         self.name = name
-        self._setup_handlers(enable_file_logging)
+
+        # Configure only once per underlying stdlib logger to avoid handler churn
+        if not getattr(self.logger, "_osss_structured_configured", False):
+            self._setup_handlers(enable_file_logging)
+            setattr(self.logger, "_osss_structured_configured", True)
 
     def _setup_handlers(self, enable_file_logging: bool) -> None:
         """Setup logging handlers with appropriate formatters."""
@@ -73,6 +77,9 @@ class StructuredLogger:
 
         # Clear existing handlers
         self.logger.handlers.clear()
+
+        # Prevent double logging if root logger also has handlers
+        self.logger.propagate = False
 
         # Console handler
         console_handler = logging.StreamHandler()
@@ -265,6 +272,17 @@ class StructuredLogger:
             model=model,
             tokens_used=tokens_used,
             duration_ms=duration_ms,
+            **metadata,
+        )
+
+    # Optional helper for streaming logs (kept lightweight)
+    def log_llm_stream(self, model: str, chunk: str, **metadata: Any) -> None:
+        """Log a streaming chunk from an LLM response."""
+        self.debug(
+            "LLM stream chunk",
+            event_type="llm_stream",
+            model=model,
+            chunk=chunk,
             **metadata,
         )
 

@@ -64,7 +64,7 @@ class WorkflowRequest(BaseModel):
             return None
 
         if v is not None:
-            valid_agents = {"refiner", "historian", "critic", "synthesis"}
+            valid_agents = {"refiner", "historian", "critic", "synthesis","output"}
             invalid_agents = set(v) - valid_agents
             if invalid_agents:
                 raise ValueError(
@@ -119,6 +119,15 @@ class WorkflowResponse(BaseModel):
         pattern=r"^[a-f0-9-]{36}$",  # UUID format
         json_schema_extra={"example": "550e8400-e29b-41d4-a716-446655440000"},
     )
+
+    # ✅ NEW: single best answer string for UI clients
+    answer: Optional[str] = Field(
+        None,
+        description="Single best answer string (prefers output > synthesis > critic > refiner). Present when available.",
+        max_length=200000,
+        json_schema_extra={"example": "DCG's superintendent is ..."},
+    )
+
     status: str = Field(
         ...,
         description="Execution status",
@@ -188,10 +197,21 @@ class WorkflowResponse(BaseModel):
         if self.status == "failed" and not self.error_message:
             raise ValueError("error_message is required when status is 'failed'")
 
-        if self.status == "completed" and not self.agent_outputs:
-            raise ValueError("agent_outputs cannot be empty when status is 'completed'")
+        if self.status == "completed":
+            has_outputs = bool(self.agent_outputs)
+            has_answer = bool((self.answer or "").strip())
+            if not has_outputs and not has_answer:
+                raise ValueError("agent_outputs cannot be empty when status is 'completed' unless answer is provided")
 
         return self
+
+    @field_validator("answer")
+    @classmethod
+    def validate_answer(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        s = v.strip()
+        return s or None
 
     @field_validator("agent_outputs")
     @classmethod

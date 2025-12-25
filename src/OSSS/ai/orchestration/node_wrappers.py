@@ -49,8 +49,11 @@ from OSSS.ai.orchestration.state_schemas import (
     HistorianState,
     SynthesisState,
     DataQueryState,
+    FinalState,
     record_agent_error,
 )
+from OSSS.ai.rag.additional_index_rag import rag_prefetch_additional
+
 from OSSS.ai.observability import get_logger
 from OSSS.ai.orchestration.canonicalization import (
     extract_refined_question,
@@ -72,6 +75,118 @@ _TIMING_REGISTRY: Dict[str, Dict[str, float]] = {}
 # Helpers
 # ---------------------------------------------------------------------------
 
+async def _ensure_rag_for_final(
+    *,
+    state: OSSSState,
+    runtime: Runtime[OSSSContext],
+    exec_state: Dict[str, Any],
+) -> None:
+    """
+    Best-effort RAG hydration for final_node.
+
+    If RAG is enabled in the execution config or we already ran prefetch earlier
+    in the workflow, make sure exec_state['rag_context'] is populated.
+    """
+
+    # 🔹 Use the same config resolver used elsewhere so fastpath runs see use_rag
+    ec = _get_execution_config(state, runtime)
+    if not isinstance(ec, dict):
+        ec = {}
+    exec_state["execution_config"] = ec
+
+    rag_cfg = ec.get("rag")
+    if not isinstance(rag_cfg, dict):
+        rag_cfg = {}
+
+    # 🔹 Derive "rag_enabled" in a tolerant way
+    rag_enabled = bool(
+        rag_cfg.get("enabled")
+        or ec.get("use_rag")                  # from API raw_execution_config
+        or exec_state.get("rag_enabled")      # maybe set by other nodes/routes
+        or state.get("rag_context")           # if orchestrator already injected context
+    )
+
+    if not rag_enabled:
+        exec_state["rag_enabled"] = False
+        return
+
+    # 🔹 If orchestrator already injected rag_context into state, just adopt it.
+    existing_ctx = exec_state.get("rag_context") or state.get("rag_context")
+    if isinstance(existing_ctx, str) and existing_ctx.strip():
+        exec_state["rag_context"] = existing_ctx
+        exec_state["rag_enabled"] = True
+        return
+
+    # Build the query we'll embed against
+    user_question = (
+        exec_state.get("user_question")
+        or state.get("query")
+        or state.get("original_query")
+        or runtime.context.query
+        or ""
+    ).strip()
+
+    if not user_question:
+        # Nothing sensible to embed
+        exec_state["rag_enabled"] = False
+        return
+
+    index = rag_cfg.get("index", "main")
+    top_k = int(rag_cfg.get("top_k", 5))
+    embed_model = rag_cfg.get("embed_model", "nomic-embed-text")
+
+    logger.info(
+        "[final_node] RAG context missing; performing on-demand prefetch",
+        extra={
+            "index": index,
+            "top_k": top_k,
+            "embed_model": embed_model,
+            "query_preview": user_question[:80],
+        },
+    )
+
+    try:
+        rag_context = await rag_prefetch_additional(
+            query=user_question,
+            index=index,
+            top_k=top_k,
+        )
+
+        rag_context = rag_context or ""
+        exec_state["rag_context"] = rag_context
+        exec_state.setdefault("rag_hits", [])
+        exec_state["rag_enabled"] = bool(rag_context.strip())
+        exec_state["rag_meta"] = {
+            "provider": "ollama",
+            "embed_model": embed_model,
+            "index": index,
+            "top_k": top_k,
+        }
+
+        logger.info(
+            "[final_node] RAG prefetch completed",
+            extra={
+                "index": index,
+                "top_k": top_k,
+                "rag_chars": len(rag_context),
+            },
+        )
+    except Exception as e:
+        logger.warning(
+            f"[final_node] RAG prefetch failed (continuing without RAG): {e}"
+        )
+        exec_state["rag_enabled"] = False
+        exec_state.setdefault("rag_error", str(e))
+
+
+def extract_question_from_refiner(markdown: str) -> str | None:
+    # Try to find the `* **Query**: ...` line
+    for line in markdown.splitlines():
+        line = line.strip()
+        if line.startswith("* **Query**:"):
+            return line.split(":", 1)[1].strip()
+    return None
+
 def _canon_agent_key(name: str) -> str:
     return (name or "").strip().lower().replace("-", "_")
 
@@ -82,6 +197,17 @@ def _ensure_exec_state(state: Dict[str, Any]) -> Dict[str, Any]:
         exec_state = {}
         state["execution_state"] = exec_state
     return exec_state
+
+
+def _ensure_execution_config(exec_state: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Ensure exec_state["execution_config"] exists and is a dict.
+    """
+    ec = exec_state.get("execution_config")
+    if not isinstance(ec, dict):
+        ec = {}
+        exec_state["execution_config"] = ec
+    return ec
 
 
 def _get_execution_config(state: Dict[str, Any], runtime: Runtime[OSSSContext]) -> Dict[str, Any]:
@@ -109,6 +235,45 @@ def _get_execution_config(state: Dict[str, Any], runtime: Runtime[OSSSContext]) 
             return ec
 
     return {}
+
+
+# ---------------------------------------------------------------------------
+# Planning helpers (Option A)
+# ---------------------------------------------------------------------------
+
+def apply_option_a_fastpath_planning(
+    *,
+    exec_state: Dict[str, Any],
+    chosen_target: str,
+) -> None:
+    """
+    Option A: planning belongs outside LangGraph nodes.
+
+    This helper is intended to be called by the planner/optimizer/GraphFactory
+    BEFORE graph compilation (i.e., before nodes/edges are decided).
+
+    Behavior:
+      - If caller did not explicitly set a graph_pattern, and the route is informational
+        (chosen_target != "data_query"), force the fastpath:
+          graph_pattern = "refiner_final"
+          planned_agents = ["refiner", "final"]
+      - Otherwise, default graph_pattern to "standard" if still unset.
+
+    NOTE:
+      - This is intentionally *not* invoked from route_gate_node.
+      - If you support route locking, the planner should decide how/when to respect it.
+    """
+    ec = _ensure_execution_config(exec_state)
+
+    # Respect existing caller override if provided
+    if isinstance(ec.get("graph_pattern"), str) and ec.get("graph_pattern"):
+        return
+
+    if chosen_target != "data_query":
+        ec["graph_pattern"] = "refiner_final"
+        exec_state["planned_agents"] = ["refiner", "final"]
+    else:
+        ec.setdefault("graph_pattern", "standard")
 
 
 def _record_effective_query(state: dict, agent_name: str, effective_query: str) -> None:
@@ -336,6 +501,9 @@ async def create_agent_with_llm(
     if agent_name_lower == "data_query":
         return registry.create_agent(agent_name_lower)
 
+    # Option A: "output" is a pure LangGraph node and NOT a BaseAgent.
+    # We intentionally do not create an "output" agent here.
+
     llm = LLMFactory.create(agent_name=agent_name_lower, execution_config=exec_cfg)
 
     agent_config_kwargs: Dict[str, Any] = {}
@@ -382,6 +550,9 @@ async def convert_state_to_context(state: OSSSState) -> AgentContext:
         raise ValueError("State must contain a query field")
 
     query = state.get("query", "") or ""
+    # Prefer explicitly stored original_query if present
+    original_query = (state.get("original_query") or "").strip() or query
+
     context = AgentContext(query=query)
 
     # Carry forward execution_state bits
@@ -394,6 +565,9 @@ async def convert_state_to_context(state: OSSSState) -> AgentContext:
             "rag_hits",
             "rag_meta",
             "rag_enabled",
+            # ✅ keep execution_config/planned_agents flowing through
+            "execution_config",
+            "planned_agents",
             "route_key",
             "route",
             "route_reason",
@@ -402,6 +576,25 @@ async def convert_state_to_context(state: OSSSState) -> AgentContext:
             v = state_exec.get(k)
             if v is not None:
                 context.execution_state[k] = v
+
+        # ✅ propagate full refiner text if present so downstream agents / API can use it
+        refiner_full = state_exec.get("refiner_full_text")
+        if isinstance(refiner_full, str) and refiner_full.strip():
+            context.execution_state["refiner_full_text"] = refiner_full
+
+    # 🔧 NEW: also allow RAG to come from top-level state if orchestrator
+    # injected it there before running the graph.
+    for k in ("rag_context", "rag_snippet", "rag_hits", "rag_meta"):
+        if k not in context.execution_state and k in state:
+            v = state.get(k)
+            if v is not None:
+                context.execution_state[k] = v
+
+
+    # ✅ Make sure FinalAgent has something to treat as the user question
+    # user_question: what we show to the FINAL agent
+    context.execution_state.setdefault("original_query", original_query)
+    context.execution_state.setdefault("user_question", original_query)
 
     so = state.get("structured_outputs")
     if isinstance(so, dict):
@@ -417,6 +610,23 @@ async def convert_state_to_context(state: OSSSState) -> AgentContext:
                 context.add_agent_output("refiner", refined_question)
                 context.execution_state["refiner_topics"] = refiner_state.get("topics", [])
                 context.execution_state["refiner_confidence"] = refiner_state.get("confidence", 0.8)
+
+                # ✅ Provide refiner_snippet for FinalAgent:
+                # prefer the full markdown text if we have it, fall back to the refined question
+                refiner_full = context.execution_state.get("refiner_full_text")
+                if isinstance(refiner_full, str) and refiner_full.strip():
+                    snippet = refiner_full
+                else:
+                    snippet = refined_question
+                if snippet.strip():
+                    context.execution_state.setdefault("refiner_snippet", snippet)
+
+    # ✅ Derive rag_snippet from rag_context when available
+    rag_ctx = context.execution_state.get("rag_context")
+    if rag_ctx is not None and not context.execution_state.get("rag_snippet"):
+        rag_snippet = _to_text(rag_ctx)
+        if rag_snippet.strip():
+            context.execution_state["rag_snippet"] = rag_snippet
 
     # ✅ Option A: hydrate data_query from data_query_results (latest completed)
     latest_payload = _pick_latest_data_query_payload(state)
@@ -462,8 +672,12 @@ async def convert_state_to_context(state: OSSSState) -> AgentContext:
             {
                 "execution_id": execution_metadata.get("execution_id", ""),
                 "orchestrator_type": "langgraph-real",
-                "successful_agents": state.get("successful_agents", []).copy() if isinstance(state.get("successful_agents"), list) else [],
-                "failed_agents": state.get("failed_agents", []).copy() if isinstance(state.get("failed_agents"), list) else [],
+                "successful_agents": state.get("successful_agents", []).copy()
+                if isinstance(state.get("successful_agents"), list)
+                else [],
+                "failed_agents": state.get("failed_agents", []).copy()
+                if isinstance(state.get("failed_agents"), list)
+                else [],
             }
         )
 
@@ -501,6 +715,35 @@ async def route_gate_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Di
     route_key = "action" if chosen_target == "data_query" else "informational"
 
     exec_state = _ensure_exec_state(state)
+
+    # Read config for logging only (do NOT mutate planning here; Option A)
+    ec = exec_state.get("execution_config", {}) if isinstance(exec_state.get("execution_config"), dict) else {}
+
+    logger.info(
+        "Route chosen",
+        extra={
+            "graph_pattern": ec.get("graph_pattern"),
+            "planned_agents": exec_state.get("planned_agents"),
+        },
+    )
+
+    # Option A: you can keep this; it's harmless even if only some agents use it.
+    exec_state["rag_enabled"] = True
+
+    # Option A: planning/fastpath selection happens BEFORE compilation (planner/GraphFactory).
+    # route_gate_node must not mutate graph_pattern/planned_agents because it's too late.
+    ec = _ensure_execution_config(exec_state)
+
+    aom = exec_state.setdefault("agent_output_meta", {})
+    if isinstance(aom, dict):
+        routing = aom.setdefault("_routing", {})
+        if isinstance(routing, dict):
+            routing["source"] = "route_gate"
+            routing["planned_agents"] = list(exec_state.get("planned_agents") or [])
+            routing["route_key"] = route_key
+            routing["chosen_target"] = chosen_target
+            routing["graph_pattern"] = ec.get("graph_pattern")
+
     exec_state["route_key"] = route_key
     exec_state["route"] = chosen_target
 
@@ -516,6 +759,8 @@ async def route_gate_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Di
             output={
                 "route_key": route_key,
                 "chosen_target": chosen_target,
+                "graph_pattern": ec.get("graph_pattern"),
+                "planned_agents": exec_state.get("planned_agents"),
                 "route_reason": exec_state.get("route_reason"),
                 "route_locked": exec_state.get("route_locked"),
             },
@@ -531,16 +776,155 @@ async def route_gate_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Di
             "correlation_id": correlation_id,
             "route_key": route_key,
             "chosen_target": chosen_target,
+            "graph_pattern": ec.get("graph_pattern"),
+            "planned_agents": exec_state.get("planned_agents"),
             "route_reason": exec_state.get("route_reason"),
         },
     )
 
-    return {"execution_state": exec_state, "route_key": route_key, "route": chosen_target}
+    state_original = state.get("original_query")
+    prev_query = state.get("query", "") or ""
+    original_for_state = state_original or prev_query or (original_query or "")
+
+    return {
+        "execution_state": exec_state,
+        "route_key": route_key,
+        "route": chosen_target,
+        "original_query": original_for_state,
+    }
 
 
 # ---------------------------------------------------------------------------
 # Node wrappers
 # ---------------------------------------------------------------------------
+@circuit_breaker(max_failures=3, reset_timeout=300.0)
+@node_metrics
+async def final_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Dict[str, Any]:
+    thread_id = runtime.context.thread_id
+    execution_id = runtime.context.execution_id
+    correlation_id = runtime.context.correlation_id
+
+    logger.info(
+        f"Executing final node in thread {thread_id}",
+        extra={
+            "thread_id": thread_id,
+            "execution_id": execution_id,
+            "correlation_id": correlation_id,
+        },
+    )
+
+    try:
+        # Run the real "final" agent (LLM-backed)
+        agent = await create_agent_with_llm("final", state=state, runtime=runtime)
+        context = await convert_state_to_context(state)
+
+        # 🔧 Merge AgentContext.execution_state into the graph's execution_state
+        # so we have ONE source of truth that will be written back to LangGraph.
+        graph_exec_state = _ensure_exec_state(state)
+        if isinstance(context.execution_state, dict):
+            graph_exec_state.update(context.execution_state)
+
+        exec_state = graph_exec_state
+
+        # 1) user_question: prefer promoted query, then runtime.context.query
+        if not exec_state.get("user_question"):
+            uq = (
+                (state.get("query") or "")              # promoted/refined query in graph state
+                or (state.get("original_query") or "")  # preserved original
+                or (runtime.context.query or "")        # raw API query
+                or context.query                        # AgentContext fallback
+            )
+            if uq:
+                exec_state["user_question"] = uq
+
+        # 2) refiner_snippet: try refined_question from refiner_state or full markdown
+        if not exec_state.get("refiner_snippet"):
+            refined_question = ""
+            refiner_state = state.get("refiner")
+            if isinstance(refiner_state, dict):
+                refined_question = (refiner_state.get("refined_question") or "").strip()
+
+            # if you later store full markdown, you can prefer that:
+            refiner_full = (exec_state.get("refiner_full_text") or "").strip()
+            snippet_source = refiner_full or refined_question
+
+            if snippet_source:
+                exec_state["refiner_snippet"] = snippet_source
+
+        # 3) 🔥 RAG SNIPPET: bridge orchestrator's rag_context -> what FinalAgent expects
+        await _ensure_rag_for_final(state=state, runtime=runtime, exec_state=exec_state)
+
+        if not exec_state.get("rag_snippet"):
+            rag_ctx = (
+                    exec_state.get("rag_context")
+                    or state.get("rag_context")
+            )
+
+            if isinstance(rag_ctx, str) and rag_ctx.strip():
+                exec_state["rag_snippet"] = rag_ctx.strip()
+                logger.debug(
+                    "[final_node] Set rag_snippet from rag_context (first 100 chars): %s",
+                    rag_ctx[:100],
+                )
+            else:
+                logger.warning(
+                    "[final_node] rag_context is missing or empty after _ensure_rag_for_final; "
+                    "rag_snippet not set."
+                )
+
+        # (Optional but handy) log what we're about to send to FINAL
+        logger.info(
+            "[final_node] Prepared context for FinalAgent",
+            extra={
+                "user_question_preview": (exec_state.get("user_question") or "")[:120],
+                "refiner_snippet_present": bool(exec_state.get("refiner_snippet")),
+                "rag_snippet_present": bool(exec_state.get("rag_snippet")),
+            },
+        )
+
+        # ✅ make sure the Final agent actually sees the unified execution state
+        context.execution_state = exec_state
+
+        effective_query = runtime.context.query or state.get("query", "") or context.query
+        _record_effective_query(state, "final", effective_query)
+
+        result_context = await agent.run_with_retry(context)
+
+        final_text = (result_context.agent_outputs.get("final") or "").strip()
+        if not final_text:
+            # fail loudly so you notice misconfiguration
+            raise NodeExecutionError("Final agent ran but produced no 'final' output")
+
+        state["final"] = FinalState(
+            final_answer=final_text,
+            used_rag=bool(state.get("rag_snippet")),
+            rag_excerpt=(state.get("rag_snippet") or "")[:500] or None,
+            sources_used=["refiner"] + (["historian"] if state.get("historian") else []),
+            timestamp=datetime.now(timezone.utc).isoformat(),
+        )
+
+        structured = state.get("structured_outputs")
+        if not isinstance(structured, dict):
+            structured = {}
+        structured["final"] = final_text
+
+        succ = state.get("successful_agents")
+        if not isinstance(succ, list):
+            succ = []
+        if "final" not in succ:
+            succ.append("final")
+
+        # exec_state already points at the graph's execution_state dict
+        return {
+            "execution_state": exec_state,
+            "structured_outputs": structured,
+            "successful_agents": succ,
+            "final_output": final_text,
+        }
+
+    except Exception as e:
+        record_agent_error(state, "final", e)
+        raise NodeExecutionError(f"Final execution failed: {e}") from e
 
 @circuit_breaker(max_failures=3, reset_timeout=300.0)
 @node_metrics
@@ -569,14 +953,39 @@ async def refiner_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Dict[
         effective_query = original_query or state.get("query", "") or context.query
         _record_effective_query(state, "refiner", effective_query)
 
-        # ✅ Critical: pass the *instance* context (never AgentContext type)
         result_context = await agent.run_with_retry(context)
 
-        # Extract refiner output (canonical key only)
+        # Full raw text from the LLM
         refiner_raw_output = (result_context.agent_outputs.get("refiner") or "").strip()
 
-        # Hard-guard to a single refined question + canonicalize DCG
+        # Canonicalized refined question
         refined_question = canonicalize_dcg(extract_refined_question(refiner_raw_output))
+
+        # ✅ Ensure we have execution_state before we mutate it
+        exec_state = _ensure_exec_state(state)
+
+        # ✅ Preserve full refiner text once for downstream consumers (FinalAgent, API, markdown)
+        if isinstance(refiner_raw_output, str) and refiner_raw_output.strip():
+            exec_state.setdefault("refiner_full_text", refiner_raw_output)
+
+        # ✅ Guardrail: if canonicalization produced junk (e.g., just "**" or a tiny heading),
+        # fall back to the full raw output so we don't lose information.
+        if isinstance(refined_question, str):
+            rq_stripped = refined_question.strip()
+            if (
+                not rq_stripped
+                or not any(ch.isalnum() for ch in rq_stripped)
+                or (len(rq_stripped) < 8 and len(refiner_raw_output) > len(rq_stripped) * 2)
+            ):
+                refined_question = refiner_raw_output
+
+        # Preserve original query exactly once (first writer wins)
+        prev_query = (state.get("query") or "").strip()
+        state_original = (state.get("original_query") or "").strip()
+        runtime_original = (original_query or "").strip()
+
+        original_for_state = state_original or prev_query or runtime_original
+        promoted_query = (refined_question or "").strip() or prev_query or runtime_original
 
         refiner_state = RefinerState(
             refined_question=refined_question,
@@ -589,9 +998,10 @@ async def refiner_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Dict[
 
         structured_outputs = result_context.execution_state.get("structured_outputs", {})
 
-        exec_state = _ensure_exec_state(state)
         return {
             "execution_state": exec_state,
+            "original_query": original_for_state,
+            "query": promoted_query,
             "refiner": refiner_state,
             "successful_agents": ["refiner"],
             "structured_outputs": structured_outputs,
@@ -655,7 +1065,6 @@ async def data_query_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Di
 
         result_context = await agent.run_with_retry(context)
 
-        # Find dynamic key like data_query:<view> (preferred node id)
         agent_outputs = getattr(result_context, "agent_outputs", {}) or {}
         dq_value: Any = None
         dq_node_id: str = "data_query"  # fallback
@@ -670,15 +1079,12 @@ async def data_query_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Di
         if dq_value is None and isinstance(agent_outputs, dict):
             dq_value = agent_outputs.get("data_query")
 
-        # Prefer structured payload if present
         payload: Any = None
         if isinstance(getattr(result_context, "execution_state", None), dict):
             payload = result_context.execution_state.get("data_query_result")
             if payload is None:
-                # fall back to whatever the agent emitted
                 payload = dq_value
 
-            # Keep a "data_view" convenience if useful downstream
             if "data_view" not in result_context.execution_state and payload is not None:
                 result_context.execution_state["data_view"] = payload
         else:
@@ -686,7 +1092,6 @@ async def data_query_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Di
 
         canonical_value = payload if payload is not None else ""
 
-        # Ensure meta has canonical entry (UI often keys off this)
         if isinstance(getattr(result_context, "execution_state", None), dict):
             aom = result_context.execution_state.setdefault("agent_output_meta", {})
             if isinstance(aom, dict):
@@ -715,16 +1120,11 @@ async def data_query_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Di
         if dq_node_id != "data_query":
             successful.append(dq_node_id)
 
-        # ------------------------------------------------------------------
-        # ✅ Option A state updates (CRITICAL):
-        # reducers apply because we return these keys
-        # ------------------------------------------------------------------
         option_a_updates: Dict[str, Any] = {
             "completed_data_query_nodes": [dq_node_id],
             "data_query_results": {dq_node_id: canonical_value},
         }
 
-        # Keep planned list best-effort if router didn't fill it (no reducer here, so only set when empty)
         planned = state.get("planned_data_query_nodes")
         if (not isinstance(planned, list)) or (len(planned) == 0):
             option_a_updates["planned_data_query_nodes"] = [dq_node_id]
@@ -785,7 +1185,7 @@ async def critic_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Dict[s
         except Exception:
             refined = ""
 
-        effective_query = refined or (original_query or state.get("query", "") or context.query)
+        effective_query = (state.get("query", "") or "").strip() or refined or (original_query or "") or context.query
         _record_effective_query(state, "critic", effective_query)
 
         result_context = await agent.run_with_retry(context)
@@ -850,7 +1250,7 @@ async def historian_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Dic
         except Exception:
             refined = ""
 
-        effective_query = refined or (original_query or state.get("query", ""))
+        effective_query = (state.get("query", "") or "").strip() or refined or (original_query or "")
         _record_effective_query(state, "historian", effective_query)
 
         exec_state = _ensure_exec_state(state)
@@ -874,14 +1274,18 @@ async def historian_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Dic
         except Exception:
             refined = ""
 
-        effective_query = refined or (original_query or state.get("query", "") or context.query)
+        effective_query = (state.get("query", "") or "").strip() or refined or (original_query or "") or context.query
         _record_effective_query(state, "historian", effective_query)
 
         result_context = await agent.run_with_retry(context)
 
         historian_raw_output = result_context.agent_outputs.get("historian", "")
         retrieved_notes = getattr(result_context, "retrieved_notes", [])
-        topics_found = result_context.execution_state.get("topics_found", []) if isinstance(result_context.execution_state, dict) else []
+        topics_found = (
+            result_context.execution_state.get("topics_found", [])
+            if isinstance(result_context.execution_state, dict)
+            else []
+        )
 
         historian_state = HistorianState(
             historical_summary=historian_raw_output,
@@ -917,12 +1321,7 @@ async def historian_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Dic
 @node_metrics
 async def synthesis_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Dict[str, Any]:
     """
-    Synthesis is now safe in "action mode":
-      - if data_query exists, return it as final analysis WITHOUT calling LLM
-      - otherwise run synthesis LLM using whatever signals exist
-
-    Option A:
-      - Prefer state['data_query_results'] (latest completed) over context.agent_outputs['data_query']
+    (Kept for compatibility; if you switch patterns to terminate at output, synthesis may not run.)
     """
     thread_id = runtime.context.thread_id
     execution_id = runtime.context.execution_id
@@ -950,7 +1349,6 @@ async def synthesis_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Dic
         critic_text = (context.agent_outputs.get("critic") or "").strip()
         historian_text = (context.agent_outputs.get("historian") or "").strip()
 
-        # ✅ Option A: pull latest data_query payload from state
         dq_payload = _pick_latest_data_query_payload(state)
         data_query_text = _to_text(dq_payload) if dq_payload is not None else ""
 
@@ -961,7 +1359,6 @@ async def synthesis_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Dic
         else:
             mode = "fallback"
 
-        # Only enforce historian when your heuristic says it is required AND it was explicitly skipped (None)
         if mode in {"reflection", "fallback"} and not historian_text:
             if should_run_historian(original_query or "") and state.get("historian") is None:
                 raise NodeExecutionError("Synthesis node requires historian output for this query")
@@ -976,15 +1373,13 @@ async def synthesis_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Dic
         except Exception:
             refined = ""
 
-        effective_query = refined or (original_query or state.get("query", "") or context.query)
+        effective_query = (state.get("query", "") or "").strip() or refined or (original_query or "") or context.query
         _record_effective_query(state, "synthesis", effective_query)
 
         synthesis_raw_output = ""
 
         if mode == "action":
             synthesis_raw_output = data_query_text
-
-            # Ensure synthesis channel exists for UI/API
             context.add_agent_output("synthesis", synthesis_raw_output)
 
             if isinstance(context.execution_state, dict):
@@ -1005,10 +1400,7 @@ async def synthesis_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Dic
 
         else:
             agent = await create_agent_with_llm("synthesis", state=state, runtime=runtime)
-
-            # ✅ Critical: pass the *instance* context (never AgentContext type)
             result_context = await agent.run_with_retry(context)
-
             context = result_context
             synthesis_raw_output = (context.agent_outputs.get("synthesis") or "").strip()
 
@@ -1054,7 +1446,6 @@ async def synthesis_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Dic
             "synthesis": synthesis_state,
             "successful_agents": ["synthesis"],
             "structured_outputs": structured_outputs,
-            # Optional convenience for API/UI immediate rendering
             "agent_outputs": agent_outputs,
             "agent_output_meta": agent_output_meta,
         }
@@ -1083,6 +1474,8 @@ def get_node_dependencies() -> Dict[str, List[str]]:
         "critic": ["refiner"],
         "historian": ["refiner"],
         "synthesis": ["refiner"],
+        # Option A: output is a terminal node; keep refiner dep for the fastpath pattern.
+        "output": ["refiner"],
     }
 
 
@@ -1101,11 +1494,13 @@ def validate_node_input(state: OSSSState, node_name: str) -> bool:
 
 __all__ = [
     "route_gate_node",
+    "apply_option_a_fastpath_planning",
     "refiner_node",
     "data_query_node",
     "critic_node",
     "historian_node",
     "synthesis_node",
+    "final_node",  # ✅ Option A terminal node
     "NodeExecutionError",
     "circuit_breaker",
     "node_metrics",

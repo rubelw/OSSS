@@ -231,7 +231,10 @@ def ensure_correlation_context() -> CorrelationContext:
         CorrelationContext (existing or newly created)
     """
     current = get_current_context()
+
+    # If there's an existing context, return it
     if current:
+        logger.debug(f"Using existing correlation context: {current.correlation_id}, workflow_id={current.workflow_id}")
         return current
 
     # Create new context
@@ -243,7 +246,8 @@ def ensure_correlation_context() -> CorrelationContext:
     context_workflow_id.set(workflow_id)
     context_trace_metadata.set({})
 
-    logger.debug(f"Created new correlation context: {correlation_id}")
+    # Log creation of new context
+    logger.debug(f"Created new correlation context: correlation_id={correlation_id}, workflow_id={workflow_id}")
 
     return CorrelationContext(
         correlation_id=correlation_id,

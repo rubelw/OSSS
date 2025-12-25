@@ -12,7 +12,6 @@ from OSSS.ai.api.models import (
 
 from OSSS.ai.api.factory import get_orchestration_api
 from OSSS.ai.observability import get_logger
-import inspect
 
 
 logger = get_logger(__name__)
@@ -22,26 +21,77 @@ router = APIRouter()
 @router.post("/query", response_model=WorkflowResponse)
 async def execute_query(http_request: Request, request: WorkflowRequest) -> WorkflowResponse:
     try:
+        # ---------------------------------------------------------
         # Log raw body + parsed agents to debug "forced agents"
+        # ---------------------------------------------------------
         raw = await http_request.body()
+        raw_text = raw.decode("utf-8", errors="replace")
+
         logger.info(
             "Received /query request",
             extra={
-                "raw_body": raw.decode("utf-8", errors="replace"),
+                "raw_body": raw_text,
                 "agents": request.agents,
                 "query_length": len(request.query or ""),
                 "correlation_id": getattr(request, "correlation_id", None),
             },
         )
 
+        # ---------------------------------------------------------
+        # ✅ OPTION A: Normalize caller intent at API boundary
+        #
+        # Goals:
+        # - agents=[]  -> treat as NOT PROVIDED
+        # - fastpath (graph_pattern=refiner_final) must not be overridden
+        # ---------------------------------------------------------
+        exec_cfg = request.execution_config if isinstance(request.execution_config, dict) else {}
+
+        fastpath = exec_cfg.get("graph_pattern") == "refiner_final"
+
+        # Treat empty list as "unset"
+        if request.agents is not None and len(request.agents) == 0:
+            request.agents = None
+
+        # Fastpath must not be overridden by caller or execution_config
+        if fastpath:
+            request.agents = None
+            if isinstance(request.execution_config, dict):
+                request.execution_config.pop("agents", None)
+
+            logger.info(
+                "[api] fastpath enforced at route level",
+                extra={
+                    "graph_pattern": "refiner_final",
+                    "agents": None,
+                },
+            )
+
+        # ---------------------------------------------------------
+        # Execute workflow
+        # ---------------------------------------------------------
         orchestration_api = await get_orchestration_api()
         response: WorkflowResponse = await orchestration_api.execute_workflow(request)
 
-        logger.info(f"Query executed successfully, correlation_id: {response.correlation_id}")
+        if not response:
+            logger.error("Response is None. Unable to proceed.")
+            raise HTTPException(status_code=500, detail="Workflow execution failed. No response.")
+
+        # Ensure the workflow_id is available
+        if not hasattr(response, 'workflow_id') or response.workflow_id is None:
+            logger.error("Response does not contain a valid workflow_id.")
+            raise HTTPException(status_code=500, detail="Workflow execution failed. No workflow_id.")
+
+        logger.info(
+            "Query executed successfully",
+            extra={
+                "workflow_id": response.workflow_id,
+                "correlation_id": response.correlation_id,
+            },
+        )
         return response
 
     except Exception as e:
-        logger.error(f"Query execution failed: {e}")
+        logger.error(f"Query execution failed: {e}", exc_info=True)
         raise HTTPException(
             status_code=500,
             detail={
@@ -51,17 +101,24 @@ async def execute_query(http_request: Request, request: WorkflowRequest) -> Work
             },
         )
 
+
 @router.get("/query/status/{correlation_id}", response_model=StatusResponse)
 async def get_query_status(correlation_id: str) -> StatusResponse:
     try:
         logger.info(f"Getting status for correlation_id: {correlation_id}")
 
         orchestration_api = await get_orchestration_api()
-        status_response: StatusResponse = await orchestration_api.get_status_by_correlation_id(correlation_id)
+        status_response: StatusResponse = await orchestration_api.get_status_by_correlation_id(
+            correlation_id
+        )
 
         logger.info(
-            f"Status retrieved for correlation_id {correlation_id}: "
-            f"workflow_id={status_response.workflow_id}, status={status_response.status}"
+            "Status retrieved",
+            extra={
+                "workflow_id": status_response.workflow_id,
+                "status": status_response.status,
+                "correlation_id": correlation_id,
+            },
         )
         return status_response
 
@@ -76,7 +133,7 @@ async def get_query_status(correlation_id: str) -> StatusResponse:
             },
         )
     except Exception as e:
-        logger.error(f"Failed to get status for correlation_id {correlation_id}: {e}")
+        logger.error(f"Failed to get status for correlation_id {correlation_id}: {e}", exc_info=True)
         raise HTTPException(
             status_code=500,
             detail={
@@ -128,7 +185,7 @@ async def get_query_history(
         )
 
     except Exception as e:
-        logger.error(f"Failed to retrieve workflow history: {e}")
+        logger.error(f"Failed to retrieve workflow history: {e}", exc_info=True)
         raise HTTPException(
             status_code=500,
             detail={

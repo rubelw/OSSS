@@ -310,9 +310,9 @@ DISTRICT_ALIASES = {"dcg"}  # add more as needed
 # RouteKey -> planned agent plans
 # (Used by OrchestrationAPI / higher-level router to compute planned_agents.)
 #
-ACTION_PLAN: List[str] = ["refiner", "data_query", "synthesis"]
-READ_PLAN: List[str]   = ["refiner", "critic", "synthesis"]  # optional (if you want a lighter non-action path)
-ANALYSIS_PLAN: List[str] = ["refiner", "historian", "critic", "synthesis"]
+ACTION_PLAN: List[str] = ["refiner", "data_query", "final"]
+READ_PLAN: List[str]   = ["refiner", "final"]  # optional (if you want a lighter non-action path)
+ANALYSIS_PLAN: List[str] = ["refiner", "final"]
 
 def planned_agents_for_route_key(route_key: str) -> List[str]:
     """

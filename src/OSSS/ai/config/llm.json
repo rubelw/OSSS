@@ -1,0 +1,32 @@
+{
+  "ollama": {
+    "base_url": "http://host.containers.internal:11434"
+  },
+  "agents": {
+    "refiner": {
+      "provider": "ollama",
+      "model": "llama3.1:latest",
+      "extra_body": { "use_rag": true }
+    },
+    "historian": {
+      "provider": "ollama",
+      "model": "llama3.1:latest",
+      "extra_body": { "use_rag": true }
+    },
+    "critic": {
+      "provider": "ollama",
+      "model": "qwen2.5:1.5b-instruct",
+      "extra_body": { "use_rag": false }
+    },
+    "synthesis": {
+      "provider": "ollama",
+      "model": "llama3.1:latest",
+      "extra_body": { "use_rag": true }
+    },
+    "final": {
+      "provider": "ollama",
+      "model": "llama3.1:latest",
+      "extra_body": { "use_rag": true }
+    }
+  }
+}

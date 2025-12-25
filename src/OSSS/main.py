@@ -49,6 +49,8 @@ from OSSS.sessions import (
     RedisSession,
     probe_key_ttl,
     refresh_access_token,  # <-- needed for proactive refresh
+    should_skip_session,
+
 )
 
 from OSSS.sessions_diag import router as sessions_diag_router
@@ -792,21 +794,38 @@ def create_app() -> FastAPI:
     # -----------------------------
     # Middleware: ensure SID cookie
     # -----------------------------
+
+
+
     @app.middleware("http")
     async def session_tracker(request: Request, call_next):
-        response = await call_next(request)  # process first to avoid masking errors
+        # process first to avoid masking errors
+        response = await call_next(request)
+
+        # ✅ Skip stateless endpoints so they don't mint new sessions
+        if should_skip_session(request):
+            return response
+
         try:
             sid = await ensure_sid_cookie_and_store(request, response)
-            request.state.sid = sid
-            log.debug("Request %s %s -> sid=%s…", request.method, request.url.path, sid[:8])
+
+            # If ensure_sid_cookie_and_store returns "" on store failure, don't slice/log it
+            if sid:
+                request.state.sid = sid
+                log.debug("Request %s %s -> sid=%s…", request.method, request.url.path, sid[:8])
+            else:
+                log.debug("Request %s %s -> no sid (session store unavailable?)", request.method, request.url.path)
+
         except Exception as e:
             log.exception("Failed to ensure sid: %s", e)
-        return response
 
+        return response
     return app
 
-
 app = create_app()
+if app is None:
+    raise RuntimeError("create_app() returned None — missing `return app` or bad indentation.")
+
 
 from fastapi.openapi.utils import get_openapi
 

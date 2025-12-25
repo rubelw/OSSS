@@ -219,8 +219,8 @@ class PrototypeDAGExecutor:
             # The actual routing in this prototype is set up in _build_refiner_critic_graph().
             def route_after_refiner(context: AgentContext) -> List[str]:
                 """Route to critic if refiner succeeded, end if failed."""
-                refiner_output = context.get_output("Refiner")
-                if refiner_output and len(str(refiner_output).strip()) > 0:
+                refiner_final = context.get_output("Refiner")
+                if refiner_final and len(str(refiner_final).strip()) > 0:
                     return ["critic"]
                 else:
                     return ["end"]
@@ -348,7 +348,7 @@ class PrototypeDAGExecutor:
             condition_name="refiner_success",
             metadata={
                 "description": "Execute critic if refiner succeeds",
-                "condition": "refiner_output_exists",
+                "condition": "refiner_final_exists",
             },
         )
         builder.add_edge(refiner_to_critic_edge)
@@ -358,8 +358,8 @@ class PrototypeDAGExecutor:
         # - Otherwise terminate
         def route_from_refiner(context: AgentContext) -> str:
             """Route to critic if refiner succeeded."""
-            refiner_output = context.get_output("Refiner")
-            if refiner_output and len(str(refiner_output).strip()) > 0:
+            refiner_final = context.get_output("Refiner")
+            if refiner_final and len(str(refiner_final).strip()) > 0:
                 return "critic"
             return "END"
 

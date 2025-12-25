@@ -150,22 +150,36 @@ class AgentRegistry:
                 agent_constructor = cast(Type[StandardAgentProtocol], agent_cls)
                 agent_instance = agent_constructor(name=name, **kwargs)
 
+
             else:  # FLEXIBLE pattern
+
                 import inspect
 
                 try:
-                    constructor_params = inspect.signature(
-                        agent_cls.__init__
-                    ).parameters
+
+                    constructor_params = inspect.signature(agent_cls.__init__).parameters
+
                     agent_constructor = cast(Type[FlexibleAgentProtocol], agent_cls)
+
+                    kwargs_local = dict(kwargs)
+
+                    # Prefer passing llm if the constructor accepts it and we have one
+
+                    if "llm" in constructor_params and llm is not None:
+                        kwargs_local.setdefault("llm", llm)
+
+                    # Prefer passing name if the constructor accepts it
+
                     if "name" in constructor_params:
-                        agent_instance = agent_constructor(name=name, **kwargs)
-                    elif "llm" in constructor_params and llm is not None:
-                        agent_instance = agent_constructor(llm=llm, **kwargs)
-                    else:
-                        agent_instance = agent_constructor(**kwargs)
+                        kwargs_local.setdefault("name", name)
+
+                    agent_instance = agent_constructor(**kwargs_local)
+
+
                 except Exception:
+
                     agent_constructor = cast(Type[FlexibleAgentProtocol], agent_cls)
+
                     agent_instance = agent_constructor(**kwargs)
 
             if not isinstance(agent_instance, BaseAgent):
@@ -198,7 +212,7 @@ class AgentRegistry:
                 AgentConstructorPattern.LLM_REQUIRED,
                 AgentConstructorPattern.LLM_OPTIONAL,
             ]
-            or name in {"refiner", "critic", "historian", "synthesis"}
+            or name in {"refiner", "critic", "historian", "synthesis", "final"}
         ):
             raise ValueError(
                 f"Agent '{name}' is not expected to have LLM attributes. "
@@ -340,6 +354,7 @@ class AgentRegistry:
         from OSSS.ai.agents.historian.agent import HistorianAgent
         from OSSS.ai.agents.synthesis.agent import SynthesisAgent
         from OSSS.ai.agents.data_query.agent import DataQueryAgent
+        from OSSS.ai.agents.final.agent import FinalAgent  # ✅ ADD THIS
 
         # ✅ Import classifier agent HERE (function scope) to avoid circular imports
         from OSSS.ai.agents.classifier_agent import SklearnIntentClassifierAgent
@@ -458,6 +473,24 @@ class AgentRegistry:
             secondary_capabilities=["conflict_resolution", "theme_identification"],
             pipeline_role="terminal",
             bounded_context="reflection",
+        )
+
+        self.register(
+            name="final",
+            agent_class=FinalAgent,
+            requires_llm=True,  # or False if it doesn’t call an LLM directly
+            description="Formats final answer text (fastpath terminal) and writes to ctx under key 'final'",
+            dependencies=["refiner"],  # usually depends on refiner final
+            is_critical=True,
+            failure_strategy=FailurePropagationStrategy.FAIL_FAST,
+            fallback_agents=[],
+            cognitive_speed="fast",
+            cognitive_depth="shallow",
+            processing_pattern="atomic",
+            primary_capability="final_formatting",
+            secondary_capabilities=["rag_lookup"],
+            pipeline_role="terminal",
+            bounded_context="transformation",
         )
 
 

@@ -3,6 +3,7 @@ from datetime import datetime
 import uuid
 import hashlib
 from typing import KeysView, Optional, Dict, List, Any
+
 from .utils import slugify_title
 from .frontmatter import (
     EnhancedFrontmatter,
@@ -56,6 +57,8 @@ class MarkdownExporter:
         domain: Optional[str] = None,
         related_queries: Optional[List[str]] = None,
         workflow_metadata: Optional[WorkflowExecutionMetadata] = None,
+        refiner_output: Optional[str] = None,
+        final_answer: Optional[str] = None,
     ) -> str:
         """
         Export a structured agent interaction to a Markdown file.
@@ -74,12 +77,19 @@ class MarkdownExporter:
             Primary domain classification.
         related_queries : List[str], optional
             Related queries for cross-referencing.
+        refiner_output : str, optional
+            Explicit refiner text to highlight (if provided, preferred over inferring).
+        final_answer : str, optional
+            Explicit final answer text to highlight.
 
         Returns
         -------
         str
             Path to the written markdown file.
         """
+        # ✅ Work on a copy so callers' dicts are never mutated
+        outputs: Dict[str, Any] = dict(agent_outputs or {})
+
         timestamp = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
 
         # Use configuration for filename generation parameters
@@ -100,7 +110,7 @@ class MarkdownExporter:
         # Create enhanced frontmatter
         frontmatter = self._build_enhanced_frontmatter(
             question,
-            agent_outputs,
+            outputs,  # ✅ use the safe copy
             timestamp,
             filename,
             agent_results,
@@ -112,7 +122,7 @@ class MarkdownExporter:
 
         # Calculate content metrics (handle both string and dict outputs)
         content_parts = [question]
-        for output in agent_outputs.values():
+        for output in outputs.values():
             if isinstance(output, str):
                 content_parts.append(output)
             elif isinstance(output, dict):
@@ -123,15 +133,76 @@ class MarkdownExporter:
         content_text = " ".join(content_parts)
         frontmatter.calculate_reading_time(content_text)
 
+        # Try to infer refiner_output if not explicitly provided
+        if refiner_output is None:
+            refiner_val = outputs.get("refiner")
+            if isinstance(refiner_val, str):
+                refiner_output = refiner_val
+            elif isinstance(refiner_val, dict):
+                # Common main content fields for refiner
+                for field in (
+                    "refined_question",
+                    "content",
+                    "output",
+                    "response",
+                ):
+                    if field in refiner_val:
+                        refiner_output = str(refiner_val[field])
+                        break
+
+        # Try to infer final_answer if not explicitly provided
+        if final_answer is None:
+            # Prefer explicit "final" if present, fall back to synthesis/critic/output
+            candidates = [
+                outputs.get("final"),
+                outputs.get("synthesis"),
+                outputs.get("critic"),
+                outputs.get("output"),
+            ]
+            for candidate in candidates:
+                if not candidate:
+                    continue
+                if isinstance(candidate, str):
+                    final_answer = candidate
+                    break
+                if isinstance(candidate, dict):
+                    # Look for a main text field
+                    for field in (
+                        "final_analysis",
+                        "final_synthesis",
+                        "content",
+                        "output",
+                        "response",
+                    ):
+                        if field in candidate:
+                            final_answer = str(candidate[field])
+                            break
+                if final_answer:
+                    break
+
         # Render to YAML
         frontmatter_lines = self._render_enhanced_frontmatter(frontmatter)
 
-        lines = frontmatter_lines + [
-            f"# Question\n\n{question}\n",
-            "## Agent Responses\n",
-        ]
+        lines: List[str] = []
+        lines.extend(frontmatter_lines)
 
-        for agent_name, response in agent_outputs.items():
+        # Question
+        lines.append(f"# Question\n\n{question}\n")
+
+        # ✅ Highlighted Refiner section (if available)
+        if refiner_output:
+            lines.append("## Refiner\n\n")
+            lines.append(f"{str(refiner_output).strip()}\n")
+
+        # ✅ Highlighted Final Answer section (if available)
+        if final_answer:
+            lines.append("## Final Answer\n\n")
+            lines.append(f"{str(final_answer).strip()}\n")
+
+        # Full agent dump
+        lines.append("## Agent Responses\n")
+
+        for agent_name, response in outputs.items():
             # Handle both string outputs (backward compatible) and structured dict outputs
             if isinstance(response, str):
                 lines.append(f"### {agent_name}\n\n{response}\n")
@@ -144,6 +215,7 @@ class MarkdownExporter:
                     "historical_summary",
                     "critique",
                     "final_analysis",
+                    "final_synthesis",
                     "content",
                     "output",
                     "response",
@@ -186,18 +258,6 @@ class MarkdownExporter:
 
         Handles both Pydantic models and dict representations.
         Falls back to defaults if structured output is not available.
-
-        Parameters
-        ----------
-        agent_name : str
-            Name of the agent.
-        output : Any
-            Agent output (Pydantic model, dict, or string).
-
-        Returns
-        -------
-        AgentExecutionResult
-            Extracted metadata with confidence, processing time, and agent-specific fields.
         """
         # Default values
         metadata: Dict[str, Any] = {}
@@ -366,31 +426,19 @@ class MarkdownExporter:
 
         Extracts key insights from RefinerOutput.refined_query and
         SynthesisOutput.final_synthesis instead of using hardcoded dummy text.
-
-        Parameters
-        ----------
-        question : str
-            Original question.
-        agent_outputs : Dict[str, Any]
-            Agent outputs (can be strings, dicts, or Pydantic models).
-
-        Returns
-        -------
-        str
-            Generated summary of the interaction.
         """
         summary_parts = []
 
         # Try to extract refined query from RefinerOutput
-        refiner_output = agent_outputs.get("refiner")
-        if refiner_output:
+        refiner_final = agent_outputs.get("refiner")
+        if refiner_final:
             if STRUCTURED_OUTPUTS_AVAILABLE and isinstance(
-                refiner_output, RefinerOutput
+                refiner_final, RefinerOutput
             ):
-                refined_query = refiner_output.refined_query
+                refined_query = refiner_final.refined_query
                 summary_parts.append(f"Refined query: {refined_query[:100]}...")
-            elif isinstance(refiner_output, dict) and "refined_query" in refiner_output:
-                refined_query = refiner_output["refined_query"]
+            elif isinstance(refiner_final, dict) and "refined_query" in refiner_final:
+                refined_query = refiner_final["refined_query"]
                 summary_parts.append(f"Refined query: {refined_query[:100]}...")
 
         # Try to extract synthesis from SynthesisOutput
@@ -521,22 +569,6 @@ class MarkdownExporter:
     ) -> Dict[str, Any]:
         """
         Build metadata dictionary for the markdown frontmatter.
-
-        Parameters
-        ----------
-        question : str
-            The original question or task.
-        agent_outputs : dict
-            Mapping of agent names to their responses.
-        timestamp : str
-            Timestamp string for when the file is created.
-        filename : str
-            The filename of the markdown file.
-
-        Returns
-        -------
-        dict
-            Metadata dictionary containing title, date, agents, filename, summary, source, and uuid.
         """
         return {
             "title": question,
@@ -552,16 +584,6 @@ class MarkdownExporter:
     def _render_frontmatter(metadata: Dict[str, Any]) -> List[str]:
         """
         Render YAML frontmatter lines from metadata dictionary.
-
-        Parameters
-        ----------
-        metadata : dict
-            Metadata dictionary to render into YAML frontmatter.
-
-        Returns
-        -------
-        list of str
-            List of strings representing the YAML frontmatter lines.
         """
         lines = ["---\n"]
         for key in sorted(metadata):

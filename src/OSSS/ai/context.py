@@ -273,6 +273,8 @@ class AgentContext(BaseModel):
         description="Fields that are locked from further modifications",
     )
 
+    final: Optional[str] = None  # <-- add this
+
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
 

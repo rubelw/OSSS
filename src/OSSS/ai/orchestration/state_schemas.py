@@ -199,6 +199,29 @@ class ExecutionMetadata(TypedDict):
     phase: str
     """Implementation phase: 'phase2_0'."""
 
+class FinalState(TypedDict):
+    """
+    Output schema for the FinalAgent.
+
+    The FinalAgent produces the user-facing answer,
+    optionally using RAG and other agent outputs.
+    """
+
+    final_answer: str
+    """User-facing final answer text."""
+
+    used_rag: bool
+    """Whether RAG context actually influenced this answer."""
+
+    rag_excerpt: Optional[str]
+    """Optional excerpt of RAG context surfaced in the answer."""
+
+    sources_used: List[str]
+    """List of sources or agents referenced (e.g. ['refiner', 'historian'])."""
+
+    timestamp: str
+    """ISO timestamp when the final answer was produced."""
+
 
 class OSSSState(TypedDict):
     """
@@ -259,6 +282,13 @@ class OSSSState(TypedDict):
     structured_outputs: Annotated[Dict[str, Any], merge_structured_outputs]
     """Full Pydantic model outputs from agents for database/API persistence."""
 
+    final: Optional[FinalState]
+    """Output from the FinalAgent (user-facing answer)."""
+
+    execution_state: Dict[str, Any]
+    rag_context: str
+    rag_snippet: str
+    rag_hits: List[Any]
 
 # Type aliases for improved clarity
 LangGraphState = OSSSState
@@ -268,10 +298,11 @@ AgentStateUnion = Union[RefinerState, CriticState, HistorianState, SynthesisStat
 """Union type for any agent output schema."""
 
 
-def create_initial_state(query: str, execution_id: str, correlation_id: Optional[str] = None) -> OSSSState:
-    """
-    Create initial LangGraph state for execution.
-    """
+def create_initial_state(
+    query: str,
+    execution_id: str,
+    correlation_id: Optional[str] = None,
+) -> OSSSState:
     now = datetime.now(timezone.utc).isoformat()
 
     return OSSSState(
@@ -297,7 +328,15 @@ def create_initial_state(query: str, execution_id: str, correlation_id: Optional
         successful_agents=[],
         failed_agents=[],
         structured_outputs={},
+
+        # 🔹 New RAG/execution fields
+        final=None,
+        execution_state={},
+        rag_context="",
+        rag_snippet="",
+        rag_hits=[],
     )
+
 
 
 def validate_state_integrity(state: OSSSState) -> bool:
@@ -340,6 +379,15 @@ def validate_state_integrity(state: OSSSState) -> bool:
         if state.get("synthesis"):
             synthesis: Optional[SynthesisState] = state["synthesis"]
             if synthesis is None or not synthesis.get("final_analysis") or not synthesis.get("timestamp"):
+                return False
+
+        if state.get("final"):
+            final: Optional[FinalState] = state["final"]
+            if (
+                    final is None
+                    or not final.get("final_answer")
+                    or not final.get("timestamp")
+            ):
                 return False
 
         return True

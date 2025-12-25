@@ -1,22 +1,24 @@
 """
 Production LangGraph orchestrator for OSSS agents.
 
-This module provides LangGraph integration implementing production-ready
-DAG execution with StateGraph orchestration.
+UPDATED to use:
+- Config-driven graph patterns (graph-patterns.json)
+- Router registry (orchestration/routers.py)
+- GraphFactory that loads patterns dynamically and applies conditional routing
+  via add_conditional_edges using router names from the pattern spec.
 
-Features:
-- True DAG-based execution using LangGraph StateGraph
-- Parallel execution where dependencies allow
-- Type-safe state management with TypedDict schemas
-- Circuit breaker patterns for error handling
-- Comprehensive logging and metrics
-- State bridge integration for AgentContext compatibility
+Key behavior:
+- Default pattern is "standard" (refiner → critic/historian → synthesis)
+- Pattern can be changed per-request via config["execution_config"]["graph_pattern"]
+  (or config["graph_pattern"] fallback).
+- Agent selection (which nodes exist) is still controlled by routing/optimizer,
+  but *edges* come from the selected pattern.
 """
 
 import time
 import uuid
+import os
 from typing import Dict, Any, List, Optional
-from dataclasses import dataclass
 
 from OSSS.ai.context import AgentContext
 from OSSS.ai.agents.base_agent import BaseAgent
@@ -32,7 +34,6 @@ from OSSS.ai.correlation import (
     context_trace_metadata,
 )
 from OSSS.ai.events import (
-    emit_workflow_started,
     emit_workflow_completed,
     emit_routing_decision_from_object,
 )
@@ -51,32 +52,137 @@ from OSSS.ai.orchestration.node_wrappers import (
     NodeExecutionError,
     get_node_dependencies,
 )
+
+from OSSS.ai.orchestration.routing import DBQueryRouter  # ✅ pre-route before compile
+
 from OSSS.ai.orchestration.memory_manager import (
     OSSSMemoryManager,
     create_memory_manager,
 )
-from OSSS.ai.langgraph_backend import (
+
+# ✅ New pattern/routers wiring
+from OSSS.ai.orchestration.routers import build_default_router_registry
+
+# ✅ GraphFactory now assumed to load patterns/spec + json patterns
+from OSSS.ai.orchestration.graph_factory import (
     GraphFactory,
-    GraphConfig,
     GraphBuildError,
-    CacheConfig,
+    GraphConfig,
 )
-from OSSS.ai.langgraph_backend.graph_patterns.conditional import (
-    EnhancedConditionalPattern,
-    ContextAnalyzer,
-    PerformanceTracker,
-)
+
+from .graph_cache import GraphCache, CacheConfig
+
+# Existing (optional) enhanced routing/optimizer
 from OSSS.ai.routing import (
     ResourceOptimizer,
     ResourceConstraints,
     OptimizationStrategy,
     RoutingDecision,
 )
-from OSSS.ai.orchestration.routing import should_run_historian
-from OSSS.ai.rag.jsonl_rag import rag_prefetch
+
+from OSSS.ai.rag.additional_index_rag import rag_prefetch_additional
+
+from OSSS.ai.agents.metadata import AgentMetadata
+
+from OSSS.ai.orchestration.nodes.decision_node import DecisionNode, DecisionCriteria
+from OSSS.ai.orchestration.nodes.base_advanced_node import NodeExecutionContext
+
 
 
 logger = get_logger(__name__)
+
+DEFAULT_RAG_JSONL_PATH = os.getenv(
+    "OSSS_RAG_JSONL_PATH",
+    "/workspace/vector_indexes/main/embeddings.jsonl",
+)
+
+def normalize_agents(agents: list[str], *, pattern_name: str = "standard") -> list[str]:
+    a = [str(x).lower() for x in (agents or []) if x]
+
+    if "refiner" not in a:
+        a.insert(0, "refiner")
+
+    # ✅ only force synthesis on patterns that require it
+    if pattern_name.strip() not in ("refiner_final", "refiner-only", "refiner_only"):
+        if "synthesis" not in a:
+            a.append("synthesis")
+
+    if "data_query" in a:
+        a = [x for x in a if x not in ("critic", "historian")]
+
+    out: list[str] = []
+    seen = set()
+    for x in a:
+        if x not in seen:
+            seen.add(x)
+            out.append(x)
+    return out
+
+def _canonical_execution_config(config: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Option A step (4): produce a single deterministic execution_config dict.
+
+    Supports both shapes:
+      A) nested:  config["execution_config"] = {...}
+      B) flat:    config["use_rag"]=..., config["top_k"]=..., etc.
+
+    Returns a dict that agents can rely on:
+      - rag settings under rag.enabled/top_k when present
+      - final_llm settings preserved if provided
+    """
+    if not isinstance(config, dict):
+        return {}
+
+    # Start with nested execution_config if present
+    base: Dict[str, Any] = {}
+    nested = config.get("execution_config")
+    if isinstance(nested, dict):
+        base.update(nested)
+
+    # Merge common flattened knobs into base if they exist
+    for k in ("parallel_execution", "timeout_seconds", "use_llm_intent", "use_rag", "top_k", "graph_pattern"):
+        if k in config and k not in base:
+            base[k] = config[k]
+
+    # -------------------------
+    # RAG normalization (unchanged)
+    # -------------------------
+    rag = base.get("rag")
+    if not isinstance(rag, dict):
+        rag = {}
+
+    if "use_rag" in base and "enabled" not in rag:
+        rag["enabled"] = bool(base.get("use_rag"))
+    if "top_k" in base and "top_k" not in rag:
+        try:
+            rag["top_k"] = int(base.get("top_k"))
+        except Exception:
+            pass
+
+    # ✅ NEW: default JSONL path for RAG if enabled
+    if rag.get("enabled") and not rag.get("jsonl_path"):
+        rag["jsonl_path"] = DEFAULT_RAG_JSONL_PATH
+
+
+    if rag:
+        base["rag"] = rag
+
+    # -------------------------
+    # ✅ final_llm normalization + env fallback
+    # -------------------------
+    final_llm = base.get("final_llm")
+    if isinstance(final_llm, dict):
+        provider = str(final_llm.get("provider", "")).lower()
+        # Only care about base_url if we're using the gateway provider
+        if provider == "gateway" and not final_llm.get("base_url"):
+            env_base = os.getenv("OSSS_AI_GATEWAY_BASE_URL")
+            if env_base:
+                final_llm["base_url"] = env_base
+        base["final_llm"] = final_llm
+
+    return base
+
+
 
 def _ensure_effective_queries(state: Dict[str, Any], base_query: str) -> None:
     """
@@ -95,7 +201,6 @@ def _ensure_effective_queries(state: Dict[str, Any], base_query: str) -> None:
         exec_state["effective_queries"] = {}
         effective = exec_state["effective_queries"]
 
-    # Seed the baseline query for reference (node wrappers can override)
     effective.setdefault("user", base_query)
 
 
@@ -103,18 +208,13 @@ class LangGraphOrchestrator:
     """
     Production LangGraph orchestrator for OSSS agents.
 
-    This orchestrator uses LangGraph library to provide production-ready
-    DAG-based execution with advanced state management, parallel processing, and
-    conditional routing capabilities.
-
-    Features:
-    - StateGraph-based DAG execution with proper dependencies
-    - Parallel execution of independent agents (Refiner → [Critic, Historian] → Synthesis)
-    - Type-safe state management with comprehensive validation
-    - Circuit breaker patterns for robust error handling
-    - Optional memory checkpointing for stateful conversations
-    - Comprehensive logging and performance metrics
+    Major responsibilities:
+    - Decide which agents to include for a run (agent selection)
+    - Build/compile a LangGraph graph using GraphFactory (pattern-driven edges)
+    - Execute the compiled graph and return an AgentContext
     """
+
+    DEFAULT_PATTERN = "standard"
 
     def __init__(
         self,
@@ -124,97 +224,225 @@ class LangGraphOrchestrator:
         memory_manager: Optional[OSSSMemoryManager] = None,
         use_enhanced_routing: bool = True,
         optimization_strategy: OptimizationStrategy = OptimizationStrategy.BALANCED,
+        graph_pattern: Optional[str] = None,
     ) -> None:
-        """
-        Initialize the production LangGraph orchestrator.
+        # Default agents: includes data_query, but the *standard pattern* does not require it.
+        self.default_agents = ["refiner", "data_query", "critic", "historian", "synthesis"]
 
-        Parameters
-        ----------
-        agents_to_run : List[str], optional
-            List of agent names to run. For Phase 2.1, defaults to refiner, critic, historian, synthesis.
-        enable_checkpoints : bool, optional
-            Whether to enable memory checkpointing for stateful conversations.
-        thread_id : str, optional
-            Thread ID for conversation scoping (auto-generated if not provided).
-        memory_manager : OSSSMemoryManager, optional
-            Custom memory manager instance. If None, one will be created.
-        """
-        # Default agents - will be optimized by enhanced routing if enabled
-        self.default_agents = [
-            "refiner",
-            "data_query",
-            "critic",
-            "historian",
-            "synthesis",
-        ]
+        self._compiled_graph = None
+        self._compiled_graph_key: Optional[tuple[str, tuple[str, ...], bool]] = None
 
-        # Enhanced routing configuration
         self.use_enhanced_routing = use_enhanced_routing
         self.optimization_strategy = optimization_strategy
 
-        # Initialize routing systems
-        self.conditional_pattern: Optional[EnhancedConditionalPattern] = (
-            EnhancedConditionalPattern() if self.use_enhanced_routing else None
-        )
         self.resource_optimizer: Optional[ResourceOptimizer] = (
             ResourceOptimizer() if self.use_enhanced_routing else None
         )
-        self.context_analyzer: Optional[ContextAnalyzer] = (
-            ContextAnalyzer() if self.use_enhanced_routing else None
-        )
-        self.performance_tracker: Optional[PerformanceTracker] = (
-            PerformanceTracker() if self.use_enhanced_routing else None
-        )
 
-        # Set initial agents (may be overridden by routing)
         self.agents_to_run = agents_to_run or self.default_agents
         self.enable_checkpoints = enable_checkpoints
         self.thread_id = thread_id
         self.registry = get_agent_registry()
         self.logger = get_logger(f"{__name__}.LangGraphOrchestrator")
 
-        # Initialize memory manager
-        if memory_manager:
-            self.memory_manager = memory_manager
-        else:
-            self.memory_manager = create_memory_manager(
-                enable_checkpoints=enable_checkpoints,
-                thread_id=thread_id,
-            )
+        # ✅ pattern is now a first-class knob
+        self.graph_pattern = (graph_pattern or self.DEFAULT_PATTERN).strip()
 
-        # Add agents property for compatibility with health checks and dry runs
-        self.agents: List[BaseAgent] = []  # Will be populated when agents are created
+        # Memory manager
+        self.memory_manager = memory_manager or create_memory_manager(
+            enable_checkpoints=enable_checkpoints,
+            thread_id=thread_id,
+        )
 
-        # Performance tracking
+        # Compatibility / health checks
+        self.agents: List[BaseAgent] = []
+
+        # Performance stats
         self.total_executions = 0
         self.successful_executions = 0
         self.failed_executions = 0
 
-        # State bridge for AgentContext <-> LangGraph state conversion
         self.state_bridge = AgentContextStateBridge()
 
-        # Initialize GraphFactory for graph building
-        cache_config = CacheConfig(max_size=10, ttl_seconds=1800)  # 30 minutes TTL
-        self.graph_factory = GraphFactory(cache_config)
+        # -----------------------------------------------------------------
+        # ✅ DecisionNode (single instance, used per-request)
+        # -----------------------------------------------------------------
+        decision_metadata = AgentMetadata(
+            name="router_decision",
+            agent_class=DecisionNode.__name__,  # ✅ required
+            execution_pattern="decision",
+        )
 
-        # LangGraph components (initialized lazily)
+        # Example criterion: prefer "action" when refiner/intents indicate query/action
+        def _is_actionish(ctx: NodeExecutionContext) -> float:
+            # simplest: look at ctx.execution_state["agent_output_meta"]["_query_profile"]
+            es = getattr(ctx, "execution_state", None) or {}
+            aom = (es.get("agent_output_meta") or {}) if isinstance(es, dict) else {}
+            qp = aom.get("_query_profile") or aom.get("query_profile") or {}
+            if not isinstance(qp, dict):
+                return 0.0
+            intent = str(qp.get("intent", "")).lower()
+            action_type = str(qp.get("action_type", qp.get("action", ""))).lower()
+            return 1.0 if (intent == "action" and action_type == "query") else 0.0
+
+        self.decision_node = DecisionNode(
+            metadata=decision_metadata,
+            node_name="router_decision",
+            decision_criteria=[
+                DecisionCriteria(
+                    name="action_query_intent",
+                    evaluator=_is_actionish,
+                    weight=1.0,
+                    threshold=0.5,
+                )
+            ],
+            paths={
+                "action": ["refiner", "data_query", "synthesis"],
+                "reflect": ["refiner", "critic", "historian", "synthesis"],
+            },
+        )
+
+        # ✅ GraphFactory: pass router registry so conditional routing works via named routers
+        cache_config = CacheConfig(max_size=10, ttl_seconds=1800)
+        router_registry = build_default_router_registry()
+        self.graph_factory = GraphFactory(
+            cache_config=cache_config,
+            router_registry=router_registry,  # <-- NEW (GraphFactory should accept this)
+        )
+
         self._graph = None
         self._compiled_graph = None
 
         self.logger.info(
-            f"Initialized LangGraphOrchestrator with agents: {self.agents_to_run}, "
-            f"checkpoints: {self.enable_checkpoints}, thread_id: {self.thread_id}"
+            "Initialized LangGraphOrchestrator",
+            extra={
+                "agents": self.agents_to_run,
+                "pattern": self.graph_pattern,
+                "checkpoints": self.enable_checkpoints,
+                "thread_id": self.thread_id,
+                "enhanced_routing": self.use_enhanced_routing,
+                "optimization_strategy": self.optimization_strategy.value,
+            },
         )
 
-    def _get_classifier_prestep(self, config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        """
-        Return normalized classifier prestep dict if present.
+    # inside LangGraphOrchestrator
 
-        Preferred location:
-          config["prestep"]["classifier"] (new)
-        Fallback:
-          config["classifier"] (legacy)
-        """
+    async def _prefetch_rag(
+        self,
+        *,
+        query: str,
+        state: Dict[str, Any],
+    ) -> None:
+        # Ensure we have execution_state
+        exec_state = state.setdefault("execution_state", {})
+
+        # Ensure we have execution_config
+        exec_cfg = exec_state.get("execution_config")
+        if not isinstance(exec_cfg, dict):
+            exec_cfg = {}
+            exec_state["execution_config"] = exec_cfg
+
+        rag_cfg = exec_cfg.get("rag") or {}
+        if not isinstance(rag_cfg, dict) or not rag_cfg.get("enabled"):
+            self.logger.info("[orchestrator] RAG disabled for this request; skipping prefetch")
+            exec_state["rag_enabled"] = False
+            # Mirror to top level for consumers that only look at state
+            state["rag_enabled"] = False
+            state.pop("rag_context", None)
+            state.pop("rag_snippet", None)
+            state.pop("rag_hits", None)
+            return
+
+        try:
+            index_name = rag_cfg.get("index", "main")
+            top_k = int(rag_cfg.get("top_k", 5))
+            embed_model = rag_cfg.get("embed_model", "nomic-embed-text")
+            jsonl_path = rag_cfg.get("jsonl_path", DEFAULT_RAG_JSONL_PATH)
+
+            rag_result = await rag_prefetch_additional(
+                query=query,
+                index=index_name,
+                top_k=top_k,
+            )
+
+            rag_context_str: str = ""
+            rag_hits: list = []
+
+            if isinstance(rag_result, dict):
+                rag_context_str = (
+                    rag_result.get("combined_text")
+                    or rag_result.get("context")
+                    or ""
+                )
+                # NOTE: also try "results" here if that's what your helper returns
+                hits = (
+                    rag_result.get("hits")
+                    or rag_result.get("chunks")
+                    or rag_result.get("results")
+                    or []
+                )
+                if isinstance(hits, list):
+                    rag_hits = hits
+            elif isinstance(rag_result, str):
+                rag_context_str = rag_result
+            elif rag_result is not None:
+                rag_hits = [rag_result]
+
+            # Compute snippet
+            snippet_max_chars = int(rag_cfg.get("snippet_max_chars", 6000))
+            rag_snippet = rag_context_str[:snippet_max_chars] if rag_context_str else ""
+
+            # ---- Store into exec_state (internal) ----
+            exec_state["rag_enabled"] = True
+            exec_state["rag_context"] = rag_context_str
+            exec_state["rag_snippet"] = rag_snippet
+            exec_state["rag_hits"] = rag_hits
+            exec_state["rag_meta"] = {
+                "provider": "ollama",
+                "embed_model": embed_model,
+                "jsonl_path": jsonl_path,
+                "top_k": top_k,
+                "index": index_name,
+                "hits_count": len(rag_hits),
+            }
+
+            # 🔴 Critical bridge for Final node and other consumers:
+            # mirror key RAG fields onto the top-level state so node wrappers
+            # (like _ensure_rag_for_final / FinalAgent) can see them directly.
+            state["rag_enabled"] = True
+            state["rag_context"] = rag_context_str
+            state["rag_snippet"] = rag_snippet
+            state["rag_hits"] = rag_hits
+
+            self.logger.info(
+                "[orchestrator] RAG context stored",
+                extra={
+                    "rag_chars": len(rag_context_str),
+                    "hits_count": len(rag_hits),
+                    "index": index_name,
+                    "top_k": top_k,
+                },
+            )
+
+        except Exception as e:
+            self.logger.warning(
+                f"[orchestrator] RAG prefetch failed (continuing without RAG): {e}"
+            )
+            exec_state["rag_enabled"] = False
+            exec_state["rag_error"] = str(e)
+
+            # Keep top-level state consistent too
+            state["rag_enabled"] = False
+            state["rag_error"] = str(e)
+            state.pop("rag_context", None)
+            state.pop("rag_snippet", None)
+            state.pop("rag_hits", None)
+
+    # ---------------------------------------------------------------------
+    # Agent list resolution
+    # ---------------------------------------------------------------------
+
+    def _get_classifier_prestep(self, config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         if not isinstance(config, dict):
             return None
 
@@ -230,52 +458,7 @@ class LangGraphOrchestrator:
 
         return None
 
-    def _intent_hint_agents(self, classifier: Dict[str, Any]) -> Optional[List[str]]:
-        """
-        Option 1: Use classifier intent to influence routing.
-        Returns a *suggested* agent list (no classifier), or None if no reliable hint.
-        """
-        intent = (classifier.get("intent") or "").strip().lower()
-        confidence = classifier.get("confidence", 0.0)
-
-        try:
-            conf = float(confidence or 0.0)
-        except Exception:
-            conf = 0.0
-
-        # If classifier isn't confident, don't force anything.
-        # (Tune threshold as you like; 0.60 is a reasonable first pass.)
-        if conf < 0.60 or not intent:
-            return None
-
-        # Baseline always needs refiner + synthesis
-        base = ["refiner", "synthesis"]
-
-        # Map intent → include supporting agents
-        if intent == "informational":
-            return ["refiner", "historian", "synthesis"]
-        if intent == "troubleshooting":
-            return ["refiner", "critic", "historian", "synthesis"]
-        if intent == "action":
-            # action usually wants critic more than historian
-            return ["refiner", "data_query", "synthesis"]
-
-        # Unknown intent: no hint
-        return None
-
-
     def _resolve_agents_for_run(self, config: dict) -> list[str]:
-        """
-        Determine which agents should run for this invocation.
-
-        Priority:
-        1) config["agents"] (explicit caller control)
-        2) self.agents_to_run (may have been set by previous routing)
-        3) self.default_agents
-
-        NOTE:
-        - "classifier" is a PRE-STEP (runs outside LangGraph), never a graph node.
-        """
         requested = config.get("agents")
 
         if isinstance(requested, list) and requested:
@@ -285,24 +468,8 @@ class LangGraphOrchestrator:
             agents = [str(a).lower() for a in (self.agents_to_run or self.default_agents)]
             source = "self.agents_to_run/default"
 
-        # ---------------------------------------------------------------------
-        # ✅ classifier is a PRE-STEP, never a LangGraph node
-        # ---------------------------------------------------------------------
-        cls = self._get_classifier_prestep(config)
-
-        ran_as_prestep = (
-                cls is not None
-                or "classifier" in (config.get("pre_agents") or [])
-                or str(config.get("routing_source", "")).endswith("_with_classifier_prestep")
-                or config.get("routing_source") == "caller_with_classifier_prestep"
-        )
-
-        if ran_as_prestep:
-            agents = [a for a in agents if a != "classifier"]
-        else:
-            # If something upstream shoved it in, still don't allow it as a node.
-            agents = [a for a in agents if a != "classifier"]
-            # (If you ever re-enable "classifier as a node", you'd do it here explicitly.)
+        # classifier is a prestep; never allow as a node
+        agents = [a for a in agents if a != "classifier"]
 
         # De-dupe while preserving order
         deduped: List[str] = []
@@ -318,84 +485,98 @@ class LangGraphOrchestrator:
                 "agents_source": source,
                 "resolved_agents": deduped,
                 "raw_config_agents": requested,
-                "classifier_prestep": ran_as_prestep,
             },
         )
         return deduped
 
-    async def run(
-        self, query: str, config: Optional[Dict[str, Any]] = None
-    ) -> AgentContext:
+
+    # ---------------------------------------------------------------------
+    # Pattern resolution (NEW)
+    # ---------------------------------------------------------------------
+
+    def _resolve_pattern_for_run(self, config: Dict[str, Any]) -> str:
         """
-        Execute agents using LangGraph StateGraph orchestration.
-
-        This method implements true DAG-based execution with:
-        - Refiner → [Critic, Historian] → Synthesis pipeline
-        - Parallel execution of Critic and Historian after Refiner
-        - Type-safe state management
-        - Comprehensive error handling and recovery
-        - Correlation context propagation for tracing
-
-        Parameters
-        ----------
-        query : str
-            The query to process
-        config : Dict[str, Any], optional
-            Execution configuration options
-
-        Returns
-        -------
-        AgentContext
-            The final context after LangGraph execution
-
-        Raises
-        ------
-        NodeExecutionError
-            If LangGraph execution fails
+        Pattern selection priority:
+        1) config["execution_config"]["graph_pattern"]
+        2) config["graph_pattern"] (legacy/simple)
+        3) self.graph_pattern (instance default)
         """
+        exec_cfg = config.get("execution_config") or {}
+        if isinstance(exec_cfg, dict):
+            p = exec_cfg.get("graph_pattern")
+            if isinstance(p, str) and p.strip():
+                return p.strip()
+
+        p2 = config.get("graph_pattern")
+        if isinstance(p2, str) and p2.strip():
+            return p2.strip()
+
+        return (self.graph_pattern or self.DEFAULT_PATTERN).strip()
+
+
+    # ---------------------------------------------------------------------
+    # Graph building
+    # ---------------------------------------------------------------------
+
+    async def _get_compiled_graph(
+            self,
+            *,
+            pattern_name: str,
+            execution_state: Optional[Dict[str, Any]] = None,
+            chosen_target: Optional[str] = None,
+    ) -> Any:
+        graph_agents = [a for a in (self.agents_to_run or []) if str(a).lower() != "classifier"]
+        key = (pattern_name.strip(), tuple(graph_agents), bool(self.enable_checkpoints))
+
+        if self._compiled_graph is None or self._compiled_graph_key != key:
+            self._compiled_graph = None
+            self._compiled_graph_key = key
+
+            self.logger.info(
+                "Building LangGraph StateGraph using GraphFactory...",
+                extra={"pattern": pattern_name, "agents": graph_agents},
+            )
+
+            # --- existing build logic continues ---
+            cfg = GraphConfig(
+                agents_to_run=graph_agents,
+                enable_checkpoints=self.enable_checkpoints,
+                memory_manager=self.memory_manager,
+                pattern_name=pattern_name.strip(),
+                cache_enabled=True,
+                execution_state=execution_state or {},
+                chosen_target=chosen_target,
+            )
+
+            cfg = self.graph_factory.prepare_config(cfg)
+            graph_agents = cfg.agents_to_run
+
+            if not self.graph_factory.validate_agents(graph_agents):
+                raise GraphBuildError(f"Invalid agents: {graph_agents}")
+
+            self._compiled_graph = self.graph_factory.create_graph(cfg)
+
+            self.logger.info(
+                "Successfully built LangGraph StateGraph",
+                extra={"agents": graph_agents, "pattern": pattern_name.strip(), "checkpoints": self.enable_checkpoints},
+            )
+
+        return self._compiled_graph
+
+
+    # ---------------------------------------------------------------------
+    # Public API
+    # ---------------------------------------------------------------------
+
+    async def run(self, query: str, config: Optional[Dict[str, Any]] = None) -> AgentContext:
         config = config or {}
         start_time = time.time()
 
-        # Helper: de-dupe while preserving order
-        def _dedupe(seq: List[str]) -> List[str]:
-            out: List[str] = []
-            seen = set()
-
-            for x in seq:
-                if x not in seen:
-                    seen.add(x); out.append(x)
-            return out
-
-        # ------------------------------------------------------------------
-        # ✅ Option 1: classifier prestep hints can influence routing
-        # ------------------------------------------------------------------
-        classifier = self._get_classifier_prestep(config)
-        hinted_agents = self._intent_hint_agents(classifier) if classifier else None
-
-        # Only apply hint when caller did NOT explicitly provide agents
-        raw_cfg_agents = config.get("agents")
-        caller_forced_agents = isinstance(raw_cfg_agents, list) and bool(raw_cfg_agents)
-
-        if hinted_agents and not caller_forced_agents:
-            self.logger.info(
-                "[orchestrator] applying classifier routing hint",
-                extra={
-                    "intent": classifier.get("intent") if classifier else None,
-                    "confidence": classifier.get("confidence") if classifier else None,
-                    "hinted_agents": hinted_agents,
-                },
-            )
-
-            # NOTE: We will apply this AFTER we compute resolved_agents, so it isn't overwritten.
-            pass
-
-
-        # Handle correlation context - use provided correlation_id and workflow_id if available
-        provided_correlation_id = config.get("correlation_id") if config else None
-        provided_workflow_id = config.get("workflow_id") if config else None
+        # correlation context
+        provided_correlation_id = config.get("correlation_id")
+        provided_workflow_id = config.get("workflow_id")
 
         if provided_correlation_id:
-            # Use provided workflow_id to prevent duplicate ID generation, or create new one if not provided
             workflow_id = provided_workflow_id or str(uuid.uuid4())
             context_correlation_id.set(provided_correlation_id)
             context_workflow_id.set(workflow_id)
@@ -406,275 +587,100 @@ class LangGraphOrchestrator:
                 metadata={},
             )
         else:
-            # Ensure correlation context exists (create if not present)
             correlation_ctx = ensure_correlation_context()
 
-        # Use correlation IDs for execution tracking
         execution_id = correlation_ctx.workflow_id
         correlation_id = correlation_ctx.correlation_id
 
-        # Create orchestrator span for detailed tracing
         orchestrator_span = create_child_span("langgraph_orchestrator")
-
-        # Add orchestrator metadata to trace
         add_trace_metadata("orchestrator_type", "langgraph-real")
         add_trace_metadata("query_length", len(query))
-        add_trace_metadata("config", config)
 
-        # Capture what the orchestrator *started with* (might be defaults / previous run)
-        add_trace_metadata("agents_initial", list(self.agents_to_run or []))
+        # resolve pattern for THIS run
+        pattern_name = self._resolve_pattern_for_run(config)
+        add_trace_metadata("graph_pattern", pattern_name)
 
-        # ------------------------------------------------------------------
-        # ✅ Determine requested agents for THIS run (supports config["agents"])
-        # ------------------------------------------------------------------
+        # resolve agents (requested/default)
         resolved_agents = self._resolve_agents_for_run(config)
 
-        # ------------------------------------------------------------------
-        # ✅ Apply classifier hint if caller did NOT force agents
-        # (Bug fix: previously the hint was overwritten by _resolve_agents_for_run)
-        # ------------------------------------------------------------------
-
-        if hinted_agents and not caller_forced_agents:
-            # Preserve any caller-specified explicit set? caller_forced_agents already handled.
-            resolved_agents = _dedupe([a.lower() for a in hinted_agents if a])
-            # Never allow classifier as a node
-            resolved_agents = [a for a in resolved_agents if a != "classifier"]
-            self.logger.info(
-                "[orchestrator] applying classifier routing hint (final)",
-                extra={"hinted_agents": hinted_agents, "resolved_agents": resolved_agents},
-            )
-
-        # If the run-level agent list differs from the current instance list,
-        # force a graph rebuild (compiled graphs are cached per agent list).
+        # If agent set changed => rebuild
         if resolved_agents != [a.lower() for a in (self.agents_to_run or [])]:
-            self.logger.info(
-                "[orchestrator] agent set changed; forcing graph rebuild",
-                extra={
-                    "previous_agents": self.agents_to_run,
-                    "new_agents": resolved_agents,
-                },
-            )
             self._compiled_graph = None
             self._graph = None
 
         self.agents_to_run = resolved_agents
-        add_trace_metadata("agents_requested", list(self.agents_to_run))
 
-        # ------------------------------------------------------------------
-        # Enhanced routing decision (optional)
-        # IMPORTANT: routing MUST NOT remove classifier.
-        # ------------------------------------------------------------------
-        routing_decision = None
-        if self.use_enhanced_routing:
-            # Route only among non-classifier agents; we’ll add classifier back after.
-            # If classifier hint (or caller config agents) constrained the set, route within that.
-            # Otherwise route within default agents.
-            if isinstance(config.get("agents"), list) and config.get("agents"):
-                base_available = [
-                    str(a).lower() for a in config.get("agents") if a and str(a).lower() != "classifier"
-                ]
-            elif resolved_agents:
-                base_available = [a for a in resolved_agents if a != "classifier"]
-            else:
-                base_available = [a for a in self.default_agents if a.lower() != "classifier"]
-
-            # De-dupe
-            available = []
-            seen = set()
-            for a in base_available:
-                if a and a not in seen:
-                    seen.add(a)
-                    available.append(a)
-
-            # -----------------------------------------------------------------
-            # ✅ Enforce data_query for ACTION when classifier prestep is present
-            #    unless caller explicitly forced agents.
-            # -----------------------------------------------------------------
-            exec_cfg = config.get("execution_config") or {}
-            force_data_query = bool(exec_cfg.get("force_data_query", False))
-
-            if (not caller_forced_agents) or force_data_query:
-                cls = self._get_classifier_prestep(config)
-                intent = (cls.get("intent") or "").strip().lower() if isinstance(cls, dict) else ""
-                if intent == "action" and "data_query" not in available:
-                    available.insert(0, "data_query")
-
-            # ✅ Add this debug log HERE (after available is finalized)
-            self.logger.info(
-                "[orchestrator] routing candidates",
-                extra={"available_agents": available, "caller_forced_agents": caller_forced_agents},
-            )
-
-            routing_decision = await self._make_routing_decision(query, available, config)
-            routed = [a.lower() for a in (routing_decision.selected_agents or [])]
-            routed = [a for a in routed if a != "classifier"]
-
-            # Preserve any explicitly requested agents (besides classifier)
-            # If caller provided config["agents"], that should win over routing.
-            raw_cfg_agents = config.get("agents")
-            if isinstance(raw_cfg_agents, list) and raw_cfg_agents:
-                # Caller wins. Never add classifier as a node.
-                self.logger.info(
-                    "[orchestrator] config.agents provided; skipping routing override",
-                    extra={"config_agents": raw_cfg_agents, "routing_agents": routed},
-                )
-                self.agents_to_run = [
-                    str(a).lower() for a in raw_cfg_agents if a and str(a).lower() != "classifier"
-                ]
-            else:
-                # Routing decides. Never add classifier as a node.
-                self.agents_to_run = routed
-
-                cls = self._get_classifier_prestep(config)
-                intent = (cls.get("intent") or "").strip().lower() if isinstance(cls, dict) else ""
-
-                if intent == "action" and "data_query" not in self.agents_to_run:
-                    self.logger.info("[orchestrator] enforcing data_query for action intent")
-                    self.agents_to_run.insert(0, "data_query")
-
-
-            # If force_data_query is enabled, ensure it's present
-            if force_data_query and "data_query" not in self.agents_to_run:
-                self.agents_to_run.insert(0, "data_query")
-
-
-            # De-dupe again
-            deduped = []
-            seen = set()
-            for a in self.agents_to_run:
-                if a not in seen:
-                    seen.add(a)
-                    deduped.append(a)
-            self.agents_to_run = deduped
-
-            # If routing changed agents, force rebuild
-            self._compiled_graph = None
-            self._graph = None
-
-            md = {
-                "orchestrator_type": "langgraph-real",
-                "optimization_strategy": self.optimization_strategy.value,
-                "routing_enabled": True,
-                "final_agents": self.agents_to_run,
-            }
-
-            cls = self._get_classifier_prestep(config)
-            if cls:
-                md["classifier_intent"] = cls.get("intent")
-                md["classifier_confidence"] = cls.get("confidence")
-
-            emit_routing_decision_from_object(
-                routing_decision,
-                workflow_id=execution_id,
-                correlation_id=correlation_id,
-                metadata=md,
-            )
-
-        self.total_executions += 1
+        raw_cfg_agents = config.get("agents")
+        caller_forced_agents = isinstance(raw_cfg_agents, list) and bool(raw_cfg_agents)
 
         try:
-            # Get or generate thread ID for this execution
             thread_id = self.memory_manager.get_thread_id(config.get("thread_id"))
-
-            # Create initial LangGraph state
-            from OSSS.ai.orchestration.intent_classifier import classify_intent_llm, to_query_profile
-
-            # Create initial LangGraph state
             initial_state = create_initial_state(query, execution_id, correlation_id)
 
-            # ---------------------------------------------------------------------
-            # ✅ Make execution_config available to ALL nodes via state.execution_state
-            # ---------------------------------------------------------------------
-            exec_state = initial_state.setdefault("execution_state", {})
+            # Ensure state has execution_state BEFORE compiling
+            initial_state = initial_state or {}
+            exec_state = initial_state.get("execution_state")
             if not isinstance(exec_state, dict):
-                initial_state["execution_state"] = {}
-                exec_state = initial_state["execution_state"]
+                exec_state = {}
+                initial_state["execution_state"] = exec_state
 
-            # Your API sends config like: {"execution_config": {...}} (based on your curl)
-            incoming_exec_cfg = config.get("execution_config", {})
-            if isinstance(incoming_exec_cfg, dict):
-                exec_state["execution_config"] = incoming_exec_cfg
-            else:
-                exec_state["execution_config"] = {}
+            # NEW: expose the same dict under 'exec_state' so downstream nodes
+            # (like _ensure_rag_for_final / FinalAgent) can read it consistently.
+            initial_state["exec_state"] = exec_state
 
-            # Ensure execution_state.effective_queries exists
-            _ensure_effective_queries(initial_state, query)
+            # Persist the *original* user question once, for all downstream agents.
+            exec_state.setdefault("original_query", query)
 
-            # ✅ LLM intent profiling (once per workflow)
-            use_llm_intent = bool(config.get("execution_config", {}).get("use_llm_intent", False))
-            if use_llm_intent:
-                intent_result = await classify_intent_llm(query)
-                profile = to_query_profile(intent_result)
+            # Deterministic execution_config for all agents
+            exec_state["execution_config"] = _canonical_execution_config(config)
 
-                exec_state = initial_state.setdefault("execution_state", {})
-                if isinstance(exec_state, dict):
-                    meta = exec_state.setdefault("agent_output_meta", {})
-                    if isinstance(meta, dict):
-                        meta["_query_profile"] = profile
+            # Optional debugging info
+            if "raw_request_config" not in exec_state and isinstance(config, dict):
+                exec_state["raw_request_config"] = dict(config)
 
-            # ---------------------------------------------------------------------
-            # ✅ Optional RAG prefetch (JSONL embeddings) - inject into execution_state
-            # ---------------------------------------------------------------------
-            rag_cfg = (config.get("execution_config") or {}).get("rag", {}) if isinstance(config, dict) else {}
-            rag_enabled = bool(rag_cfg.get("enabled", False))
+            # Ensure routing has happened (or compute chosen_target here)
+            chosen_target = exec_state.get("route")
+            if not isinstance(chosen_target, str) or not chosen_target:
+                router = DBQueryRouter(data_query_target="data_query", default_target="refiner")
+                chosen_target = router(AgentContext(query=initial_state.get("query", "") or query))
+                exec_state["route"] = chosen_target
 
-            if rag_enabled:
+            decision_selected: Optional[List[str]] = None
+            if not caller_forced_agents:
                 try:
-                    ollama_base = rag_cfg.get("ollama_base", "http://localhost:11434")
-                    embed_model = rag_cfg.get("embed_model", "nomic-embed-text")
-                    jsonl_path = rag_cfg.get("jsonl_path")  # REQUIRED when enabled
-                    top_k = int(rag_cfg.get("top_k", 5))
-
-                    if not jsonl_path:
-                        raise ValueError("RAG enabled but execution_config.rag.jsonl_path is missing")
-
-                    rag = await rag_prefetch(
-                        query,
-                        ollama_base=ollama_base,
-                        embed_model=embed_model,
-                        jsonl_path=jsonl_path,
-                        top_k=top_k,
+                    decision_ctx = NodeExecutionContext(
+                        workflow_id=execution_id,
+                        correlation_id=correlation_id,
+                        query=query,
+                        execution_state=initial_state.get("execution_state", {}),
+                        cognitive_classification=(initial_state.get("classifier") or None),
                     )
+                    decision = await self.decision_node.execute(decision_ctx)
 
-                    exec_state = initial_state.setdefault("execution_state", {})
-                    if not isinstance(exec_state, dict):
-                        initial_state["execution_state"] = {}
-                        exec_state = initial_state["execution_state"]
-
-                    # Put both the prompt-ready context and structured hits in state
-                    exec_state["rag_context"] = rag.get("context", "")
-                    exec_state["rag_hits"] = rag.get("hits", [])
-                    exec_state["rag_enabled"] = True
-                    exec_state["rag_meta"] = {
-                        "provider": "ollama",
-                        "embed_model": embed_model,
-                        "jsonl_path": jsonl_path,
-                        "top_k": top_k,
-                    }
-
-                    self.logger.info(
-                        f"[orchestrator] RAG prefetch complete: hits={len(exec_state['rag_hits'])}, top_k={top_k}"
-                    )
-
+                    decision_selected = list(decision.get("selected_agents") or [])
                 except Exception as e:
-                    # Decide if you want hard-fail vs soft-fail.
-                    # I strongly recommend soft-fail first, with observability.
-                    self.logger.warning(f"[orchestrator] RAG prefetch failed (continuing without RAG): {e}")
+                    self.logger.warning(
+                        f"[orchestrator] DecisionNode failed, using existing agents: {e}"
+                    )
+                    decision_selected = None
 
-                    exec_state = initial_state.setdefault("execution_state", {})
-                    if isinstance(exec_state, dict):
-                        exec_state["rag_enabled"] = False
-                        exec_state["rag_error"] = str(e)
+            final_candidates = decision_selected if decision_selected is not None else self.agents_to_run
+            final_agents = normalize_agents(final_candidates)
 
+            if final_agents != self.agents_to_run:
+                self._compiled_graph = None
+                self._graph = None
 
-            # Ensure execution_state.effective_queries exists (node wrappers will fill per-agent)
+            self.agents_to_run = final_agents
+
             _ensure_effective_queries(initial_state, query)
 
-            # Validate initial state
+            # Optional RAG prefetch (mutates exec_state in-place, including rag_snippet)
+            await self._prefetch_rag(query=query, state=initial_state)
+
             if not validate_state_integrity(initial_state):
                 raise NodeExecutionError("Initial state validation failed")
 
-            # Create initial checkpoint if enabled
             if self.memory_manager.is_enabled():
                 self.memory_manager.create_checkpoint(
                     thread_id=thread_id,
@@ -683,15 +689,18 @@ class LangGraphOrchestrator:
                     metadata={"execution_id": execution_id, "query": query},
                 )
 
-            # Build and compile StateGraph if not already done
-            compiled_graph = await self._get_compiled_graph()
-
-            # Execute the StateGraph
-            self.logger.info(
-                f"Executing LangGraph StateGraph with thread_id: {thread_id}"
+            # Build and run the graph
+            compiled_graph = await self._get_compiled_graph(
+                pattern_name=pattern_name,
+                execution_state=exec_state,
+                chosen_target=chosen_target,
             )
 
-            # Create context for LangGraph 0.6.0 execution
+            self.logger.info(
+                "Executing LangGraph StateGraph",
+                extra={"thread_id": thread_id, "pattern": pattern_name, "agents": self.agents_to_run},
+            )
+
             context = OSSSContext(
                 thread_id=thread_id,
                 execution_id=execution_id,
@@ -700,14 +709,11 @@ class LangGraphOrchestrator:
                 enable_checkpoints=self.enable_checkpoints,
             )
 
-            # Run the StateGraph with new Context API
             final_state = await compiled_graph.ainvoke(initial_state, context=context)
 
-            # Validate final state
             if not validate_state_integrity(final_state):
                 self.logger.warning("Final state validation failed, but proceeding")
 
-            # Create final checkpoint if enabled
             if self.memory_manager.is_enabled():
                 self.memory_manager.create_checkpoint(
                     thread_id=thread_id,
@@ -719,23 +725,22 @@ class LangGraphOrchestrator:
                         "successful_agents": final_state["successful_agents"],
                         "failed_agents": final_state["failed_agents"],
                         "completion_status": "success",
+                        "pattern": pattern_name,
                     },
                 )
 
-            # Convert LangGraph state back to AgentContext
             agent_context = await self._convert_state_to_context(final_state)
 
-            # Add execution metadata with correlation context
             total_time_ms = (time.time() - start_time) * 1000
             agent_context.execution_state.update(
                 {
                     "orchestrator_type": "langgraph-real",
-                    "phase": "phase2_1",
                     "execution_id": execution_id,
                     "correlation_id": correlation_id,
                     "orchestrator_span": orchestrator_span,
                     "thread_id": thread_id,
                     "agents_requested": self.agents_to_run,
+                    "graph_pattern": pattern_name,
                     "config": config,
                     "execution_time_ms": total_time_ms,
                     "langgraph_execution": True,
@@ -747,45 +752,18 @@ class LangGraphOrchestrator:
                 }
             )
 
-            # Emit workflow completed event (with truncated outputs for logging)
-            # Helper to extract main content from structured or string outputs
+            # emit workflow completed
             def truncate_output(output: Any) -> str:
-                """Extract and truncate output for logging purposes."""
                 if isinstance(output, str):
                     return output[:200] + "..." if len(output) > 200 else output
-                elif isinstance(output, dict):
-                    # Extract main content field if available
-                    main_fields = [
-                        "refined_question",
-                        "historical_summary",
-                        "critique",
-                        "final_analysis",
-                    ]
-                    for field in main_fields:
-                        if field in output:
-                            content = str(output[field])
-                            return (
-                                content[:200] + "..." if len(content) > 200 else content
-                            )
-                    # Fallback to string representation
-                    content = str(output)
-                    return content[:200] + "..." if len(content) > 200 else content
-                else:
-                    content = str(output)
-                    return content[:200] + "..." if len(content) > 200 else content
+                content = str(output)
+                return content[:200] + "..." if len(content) > 200 else content
 
             await emit_workflow_completed(
                 workflow_id=execution_id,
-                status=(
-                    "completed"
-                    if not final_state["failed_agents"]
-                    else "partial_failure"
-                ),
+                status="completed" if not final_state["failed_agents"] else "partial_failure",
                 execution_time_seconds=total_time_ms / 1000,
-                agent_outputs={
-                    agent: truncate_output(output)
-                    for agent, output in agent_context.agent_outputs.items()
-                },
+                agent_outputs={k: truncate_output(v) for k, v in agent_context.agent_outputs.items()},
                 successful_agents=list(final_state["successful_agents"]),
                 failed_agents=list(final_state["failed_agents"]),
                 correlation_id=correlation_id,
@@ -793,24 +771,15 @@ class LangGraphOrchestrator:
                     "orchestrator_type": "langgraph-real",
                     "orchestrator_span": orchestrator_span,
                     "thread_id": thread_id,
+                    "pattern": pattern_name,
                     "total_agents": len(self.agents_to_run),
                 },
             )
 
-            # Update statistics
             if final_state["failed_agents"]:
                 self.failed_executions += 1
-                self.logger.warning(
-                    f"LangGraph execution completed with failures: {final_state['failed_agents']}"
-                )
             else:
                 self.successful_executions += 1
-
-            self.logger.info(
-                f"LangGraph execution completed in {total_time_ms:.2f}ms "
-                f"(successful: {len(final_state['successful_agents'])}, "
-                f"failed: {len(final_state['failed_agents'])})"
-            )
 
             return agent_context
 
@@ -818,20 +787,15 @@ class LangGraphOrchestrator:
             self.failed_executions += 1
             total_time_ms = (time.time() - start_time) * 1000
 
-            self.logger.error(
-                f"LangGraph execution failed after {total_time_ms:.2f}ms: {e}"
-            )
-
-            # Emit workflow failed event
             await emit_workflow_completed(
                 workflow_id=execution_id,
                 status="failed",
                 execution_time_seconds=total_time_ms / 1000,
                 error_message=str(e),
                 successful_agents=[],
-                failed_agents=self.agents_to_run,  # All requested agents failed
-                error_type=e.__class__.__name__,  # ✅ add this
-                error_details={  # ✅ optional but very useful
+                failed_agents=list(self.agents_to_run or []),
+                error_type=e.__class__.__name__,
+                error_details={
                     "exception_module": e.__class__.__module__,
                     "exception_qualname": getattr(e.__class__, "__qualname__", e.__class__.__name__),
                 },
@@ -843,17 +807,14 @@ class LangGraphOrchestrator:
                 },
             )
 
-            # Create fallback context with error information and correlation
             error_context = AgentContext(query=query)
             error_context.execution_state.update(
                 {
                     "orchestrator_type": "langgraph-real",
-                    "phase": "phase2_1",
                     "execution_id": execution_id,
                     "correlation_id": correlation_id,
                     "orchestrator_span": orchestrator_span,
                     "agents_requested": self.agents_to_run,
-                    "config": config,
                     "execution_time_ms": total_time_ms,
                     "langgraph_execution": True,
                     "execution_error": str(e),
@@ -861,475 +822,146 @@ class LangGraphOrchestrator:
                     "correlation_context": correlation_ctx.to_dict(),
                 }
             )
-
-            # Add error output
             error_context.add_agent_output(
                 "langgraph_error",
                 f"LangGraph execution failed: {e}\n"
                 f"Execution ID: {execution_id}\n"
-                f"Requested agents: {', '.join(self.agents_to_run)}\n"
-                f"This indicates an issue with the DAG execution pipeline.",
+                f"Requested agents: {', '.join(self.agents_to_run)}",
             )
-
             raise NodeExecutionError(f"LangGraph execution failed: {e}") from e
+        finally:
+            # Any cleanup or additional logging can be placed here if necessary
+            pass
 
-    async def _get_compiled_graph(self) -> Any:
-        """
-        Get or create compiled LangGraph StateGraph using GraphFactory.
+    # ---------------------------------------------------------------------
+    # State -> context conversion
+    # ---------------------------------------------------------------------
 
-        Returns
-        -------
-        CompiledGraph
-            Compiled LangGraph StateGraph ready for execution
-        """
-        if self._compiled_graph is None:
-            self.logger.info("Building LangGraph StateGraph using GraphFactory...")
-
-            try:
-                # ------------------------------------------------------------------
-                # ✅ classifier is a PRE-STEP only; never a graph node
-                # ------------------------------------------------------------------
-                resolved_agents = list(self.agents_to_run or [])
-                graph_agents = [a for a in resolved_agents if str(a).lower() != "classifier"]
-
-                # (Optional) log so you can prove the exact list going into GraphFactory
-                self.logger.info(
-                    "[orchestrator] building graph",
-                    extra={
-                        "resolved_agents": resolved_agents,
-                        "graph_agents": graph_agents,
-                    },
-                )
-
-                # Create graph configuration (use graph_agents, not self.agents_to_run)
-                config = GraphConfig(
-                    agents_to_run=graph_agents,
-                    enable_checkpoints=self.enable_checkpoints,
-                    memory_manager=self.memory_manager,
-                    pattern_name="standard",  # Use standard pattern for Phase 2
-                    cache_enabled=True,
-                )
-
-                # Validate agents before building (validate graph_agents, not self.agents_to_run)
-                if not self.graph_factory.validate_agents(graph_agents):
-                    raise GraphBuildError(f"Invalid agents: {graph_agents}")
-
-                # Create compiled graph using factory
-                self._compiled_graph = self.graph_factory.create_graph(config)
-
-                self.logger.info(
-                    f"Successfully built LangGraph StateGraph with {len(graph_agents)} agents "
-                    f"(checkpoints: {self.enable_checkpoints})"
-                )
-
-            except GraphBuildError as e:
-                self.logger.error(f"Graph building failed: {e}")
-                raise NodeExecutionError(
-                    f"Failed to build LangGraph StateGraph: {e}"
-                ) from e
-            except Exception as e:
-                self.logger.error(f"Unexpected error during graph building: {e}")
-                raise NodeExecutionError(
-                    f"Failed to build LangGraph StateGraph: {e}"
-                ) from e
-
-        return self._compiled_graph
-
-    async def _convert_state_to_context(
-        self, final_state: OSSSState
-    ) -> AgentContext:
-        """
-        Convert final LangGraph state back to AgentContext.
-
-        Parameters
-        ----------
-        final_state : OSSSState
-            Final state from LangGraph execution
-
-        Returns
-        -------
-        AgentContext
-            AgentContext with all agent outputs
-        """
-        # Create AgentContext
+    async def _convert_state_to_context(self, final_state: OSSSState) -> AgentContext:
         context = AgentContext(query=final_state["query"])
 
-        # Extract structured_outputs from LangGraph state if available
-        # This contains the full Pydantic model dumps from agents
-        if "structured_outputs" in final_state:
-            context.execution_state["structured_outputs"] = final_state[
-                "structured_outputs"
-            ]
-        else:
-            context.execution_state["structured_outputs"] = {}
+        context.execution_state["structured_outputs"] = final_state.get("structured_outputs", {}) or {}
 
-        # Carry forward per-agent effective queries if node wrappers recorded them
         try:
-            exec_state = final_state.get("execution_state", {})
+            exec_state = final_state.get("execution_state", {}) or {}
             if isinstance(exec_state, dict):
+                # ✅ Option A: preserve deterministic config snapshot
+                ex_cfg = exec_state.get("execution_config")
+                if isinstance(ex_cfg, dict):
+                    context.execution_state["execution_config"] = ex_cfg
+
+                # ✅ preserve original_query if present
+                oq = exec_state.get("original_query")
+                if isinstance(oq, str) and oq.strip():
+                    context.execution_state["original_query"] = oq
+
+                # existing behavior
                 eff = exec_state.get("effective_queries")
                 if isinstance(eff, dict):
                     context.execution_state["effective_queries"] = eff
+
+                # ✅ propagate RAG context into AgentContext
+                rag_context = exec_state.get("rag_context")
+                if rag_context:
+                    context.execution_state["rag_context"] = rag_context
+                    context.execution_state["rag_hits"] = exec_state.get("rag_hits", [])
+                    context.execution_state["rag_meta"] = exec_state.get("rag_meta", {})
         except Exception:
+            # don't let diagnostics break the response
             pass
 
-        # Add agent outputs
         if final_state.get("refiner"):
-            refiner_output: Optional[RefinerState] = final_state["refiner"]
-            if refiner_output is not None:
-                context.add_agent_output("refiner", refiner_output["refined_question"])
-                context.execution_state["refiner_topics"] = refiner_output["topics"]
-                context.execution_state["refiner_confidence"] = refiner_output[
-                    "confidence"
-                ]
+            refiner_final: Optional[RefinerState] = final_state["refiner"]
+            if refiner_final is not None:
+                context.add_agent_output("refiner", refiner_final["refined_question"])
+                context.execution_state["refiner_topics"] = refiner_final["topics"]
+                context.execution_state["refiner_confidence"] = refiner_final["confidence"]
 
         if final_state.get("critic"):
             critic_output: Optional[CriticState] = final_state["critic"]
             if critic_output is not None:
                 context.add_agent_output("critic", critic_output["critique"])
-                context.execution_state["critic_suggestions"] = critic_output[
-                    "suggestions"
-                ]
+                context.execution_state["critic_suggestions"] = critic_output["suggestions"]
                 context.execution_state["critic_severity"] = critic_output["severity"]
 
         if final_state.get("historian"):
             historian_output: Optional[HistorianState] = final_state["historian"]
             if historian_output is not None:
-                context.add_agent_output(
-                    "historian", historian_output["historical_summary"]
-                )
-                context.execution_state["historian_retrieved_notes"] = historian_output[
-                    "retrieved_notes"
-                ]
-                context.execution_state["historian_search_strategy"] = historian_output[
-                    "search_strategy"
-                ]
-                context.execution_state["historian_topics_found"] = historian_output[
-                    "topics_found"
-                ]
-                context.execution_state["historian_confidence"] = historian_output[
-                    "confidence"
-                ]
+                context.add_agent_output("historian", historian_output["historical_summary"])
+                context.execution_state["historian_retrieved_notes"] = historian_output["retrieved_notes"]
+                context.execution_state["historian_search_strategy"] = historian_output["search_strategy"]
+                context.execution_state["historian_topics_found"] = historian_output["topics_found"]
+                context.execution_state["historian_confidence"] = historian_output["confidence"]
 
         if final_state.get("synthesis"):
             synthesis_output: Optional[SynthesisState] = final_state["synthesis"]
             if synthesis_output is not None:
-                context.add_agent_output(
-                    "synthesis", synthesis_output["final_analysis"]
-                )
-                context.execution_state["synthesis_insights"] = synthesis_output[
-                    "key_insights"
-                ]
-                context.execution_state["synthesis_themes"] = synthesis_output[
-                    "themes_identified"
-                ]
+                context.add_agent_output("synthesis", synthesis_output["final_analysis"])
+                context.execution_state["synthesis_insights"] = synthesis_output["key_insights"]
+                context.execution_state["synthesis_themes"] = synthesis_output["themes_identified"]
 
-        # Track successful and failed agents
         for agent in final_state["successful_agents"]:
             context.successful_agents.add(agent)
 
-        # Add error information if any
         if final_state["errors"]:
             context.execution_state["langgraph_errors"] = final_state["errors"]
 
         return context
 
+    # ---------------------------------------------------------------------
+    # Pattern controls (NEW)
+    # ---------------------------------------------------------------------
+
+    def set_graph_pattern(self, pattern_name: str) -> None:
+        if pattern_name not in self.graph_factory.get_available_patterns():
+            raise ValueError(
+                f"Unknown pattern: {pattern_name}. Available: {self.graph_factory.get_available_patterns()}"
+            )
+        self.graph_pattern = pattern_name
+        self._compiled_graph = None
+        self._graph = None
+        self.logger.info(f"Graph pattern set to: {pattern_name}")
+
+    def get_available_graph_patterns(self) -> List[str]:
+        return self.graph_factory.get_available_patterns()
+
+    # ---------------------------------------------------------------------
+    # Stats / diagnostics
+    # ---------------------------------------------------------------------
+
     def get_execution_statistics(self) -> Dict[str, Any]:
-        """
-        Get orchestrator execution statistics.
-
-        Returns
-        -------
-        Dict[str, Any]
-            Execution statistics
-        """
-        success_rate = (
-            self.successful_executions / self.total_executions
-            if self.total_executions > 0
-            else 0
-        )
-
+        success_rate = (self.successful_executions / self.total_executions) if self.total_executions else 0.0
         return {
             "orchestrator_type": "langgraph-real",
-            "implementation_status": "phase2_production_with_graph_factory",
             "total_executions": self.total_executions,
             "successful_executions": self.successful_executions,
             "failed_executions": self.failed_executions,
             "success_rate": success_rate,
             "agents_to_run": self.agents_to_run,
-            "state_bridge_available": True,
-            "checkpoints_enabled": self.enable_checkpoints,
-            "dag_structure": "refiner → [critic, historian] → synthesis",
             "graph_factory_stats": self.graph_factory.get_cache_stats(),
             "available_patterns": self.graph_factory.get_available_patterns(),
+            "default_pattern": self.graph_pattern,
         }
 
     def get_dag_structure(self) -> Dict[str, Any]:
-        """
-        Get information about the DAG structure.
-
-        Returns
-        -------
-        Dict[str, Any]
-            DAG structure information
-        """
         dependencies = get_node_dependencies()
-
         return {
             "nodes": self.agents_to_run,
             "dependencies": dependencies,
-            "execution_order": ["refiner", "data_query","critic", "historian", "synthesis"],
-            "parallel_capable": [
-                "critic",
-                "historian",
-            ],  # Can run in parallel after refiner
             "entry_point": "refiner",
-            "terminal_nodes": ["synthesis"],
         }
 
-    async def rollback_to_checkpoint(
-        self, thread_id: Optional[str] = None, checkpoint_id: Optional[str] = None
-    ) -> Optional[AgentContext]:
-        """
-        Rollback to a specific checkpoint and return the restored context.
-
-        Parameters
-        ----------
-        thread_id : str, optional
-            Thread ID for conversation. If None, uses current thread_id.
-        checkpoint_id : str, optional
-            Specific checkpoint ID. If None, uses latest checkpoint.
-
-        Returns
-        -------
-        AgentContext, optional
-            Restored context from checkpoint, or None if not found
-        """
-        if not self.memory_manager.is_enabled():
-            self.logger.warning("Rollback requested but checkpointing is disabled")
-            return None
-
-        target_thread_id = thread_id or self.thread_id
-        if not target_thread_id:
-            self.logger.error("No thread ID available for rollback")
-            return None
-
-        # Attempt rollback through memory manager
-        restored_state = self.memory_manager.rollback_to_checkpoint(
-            thread_id=target_thread_id, checkpoint_id=checkpoint_id
-        )
-
-        if restored_state:
-            # Convert restored state back to AgentContext
-            context = await self._convert_state_to_context(restored_state)
-            context.execution_state["rollback_performed"] = True
-            context.execution_state["rollback_thread_id"] = target_thread_id
-            context.execution_state["rollback_checkpoint_id"] = checkpoint_id
-
-            self.logger.info(
-                f"Successfully rolled back to checkpoint for thread {target_thread_id}"
-            )
-            return context
-        else:
-            self.logger.warning(
-                f"Rollback failed - no checkpoint found for thread {target_thread_id}"
-            )
-            return None
-
-    def get_checkpoint_history(
-        self, thread_id: Optional[str] = None
-    ) -> List[Dict[str, Any]]:
-        """
-        Get checkpoint history for a thread.
-
-        Parameters
-        ----------
-        thread_id : str, optional
-            Thread ID to get history for. If None, uses current thread_id.
-
-        Returns
-        -------
-        List[Dict[str, Any]]
-            List of checkpoint information dictionaries
-        """
-        target_thread_id = thread_id or self.thread_id
-        if not target_thread_id:
-            return []
-
-        checkpoints = self.memory_manager.get_checkpoint_history(target_thread_id)
-        return [
-            {
-                "checkpoint_id": checkpoint.checkpoint_id,
-                "timestamp": checkpoint.timestamp.isoformat(),
-                "agent_step": checkpoint.agent_step,
-                "state_size_bytes": checkpoint.state_size_bytes,
-                "success": checkpoint.success,
-                "metadata": checkpoint.metadata,
-            }
-            for checkpoint in checkpoints
-        ]
-
-    def get_memory_statistics(self) -> Dict[str, Any]:
-        """
-        Get comprehensive memory and checkpoint statistics.
-
-        Returns
-        -------
-        Dict[str, Any]
-            Memory usage and checkpoint statistics
-        """
-        memory_stats = self.memory_manager.get_memory_stats()
-
-        # Add orchestrator-specific stats
-        orchestrator_stats = {
-            "orchestrator_type": "langgraph-real",
-            "checkpointing_enabled": self.memory_manager.is_enabled(),
-            "current_thread_id": self.thread_id,
-            "execution_statistics": self.get_execution_statistics(),
-        }
-
-        return {**memory_stats, **orchestrator_stats}
-
-    def cleanup_expired_checkpoints(self) -> int:
-        """
-        Clean up expired checkpoints.
-
-        Returns
-        -------
-        int
-            Number of checkpoints removed
-        """
-        return self.memory_manager.cleanup_expired_checkpoints()
-
-    def get_graph_cache_stats(self) -> Dict[str, Any]:
-        """
-        Get graph factory cache statistics.
-
-        Returns
-        -------
-        Dict[str, Any]
-            Cache statistics from the graph factory
-        """
-        return self.graph_factory.get_cache_stats()
-
-    def clear_graph_cache(self) -> None:
-        """Clear the graph compilation cache."""
-        self.graph_factory.clear_cache()
-        self.logger.info("Graph compilation cache cleared")
-
-    def get_available_graph_patterns(self) -> List[str]:
-        """
-        Get list of available graph patterns.
-
-        Returns
-        -------
-        List[str]
-            List of pattern names
-        """
-        return self.graph_factory.get_available_patterns()
-
-    def set_graph_pattern(self, pattern_name: str) -> None:
-        """
-        Set the graph pattern for future graph builds.
-
-        Note: This will clear the current compiled graph to force rebuild
-        with the new pattern.
-
-        Parameters
-        ----------
-        pattern_name : str
-            Name of the pattern to use
-        """
-        if pattern_name not in self.graph_factory.get_available_patterns():
-            raise ValueError(
-                f"Unknown pattern: {pattern_name}. Available: {self.graph_factory.get_available_patterns()}"
-            )
-
-        # Clear current graph to force rebuild with new pattern
-        self._compiled_graph = None
-        self._graph = None
-
-        # Store pattern for next build (could be stored as instance variable if needed)
-        self.logger.info(
-            f"Graph pattern set to: {pattern_name}. Next graph build will use this pattern."
-        )
-
-    # Phase 2.0 Implementation Complete ✅
-    # ✅ Add real LangGraph dependency to pyproject.toml (done in Phase 1)
-    # ✅ Import real LangGraph StateGraph and related classes
-    # ✅ Convert agents to LangGraph StateGraph nodes (node_wrappers.py)
-    # ✅ Implement actual StateGraph execution with typed state management
-    # ✅ Add comprehensive error handling with circuit breakers
-    # ✅ Performance tracking and execution statistics
-
-    # Phase 2.1 Complete ✅
-    # ✅ Add Historian agent back into pipeline
-    # ✅ Implement parallel execution of Critic and Historian
-    # ✅ Enhanced CLI integration with checkpointing and rollback
-    # ✅ Performance optimization and benchmarking vs legacy mode
-
-    # Phase 2.2 Complete ✅ - Graph Builder Extraction
-    # ✅ Extract graph building logic to dedicated GraphFactory
-    # ✅ Implement graph patterns for different execution modes
-    # ✅ Add graph compilation caching for performance
-    # ✅ Separate concerns: orchestration vs graph building
-    # ✅ Maintain backward compatibility with enhanced functionality
+    # ---------------------------------------------------------------------
+    # Routing decision (existing)
+    # ---------------------------------------------------------------------
 
     async def _make_routing_decision(
         self, query: str, available_agents: List[str], config: Dict[str, Any]
     ) -> "RoutingDecision":
-        """
-        Make intelligent routing decision using enhanced routing system.
+        if not self.resource_optimizer:
+            raise ValueError("Resource optimizer not available for routing decision")
 
-        Parameters
-        ----------
-        query : str
-            The user query to analyze
-        available_agents : List[str]
-            Available agents to choose from
-        config : Dict[str, Any]
-            Configuration parameters
-
-        Returns
-        -------
-        RoutingDecision
-            Comprehensive routing decision with reasoning
-        """
-        # Import here to avoid circular imports - already imported at top of file
-
-        # Analyze query complexity
-        if not self.context_analyzer:
-            raise ValueError("Context analyzer not available for routing decision")
-        context_analysis = self.context_analyzer.analyze_context(query)
-
-        # Get performance data from registry
-        performance_data = {}
-        for agent in available_agents:
-            agent_lower = agent.lower()
-            # Get performance metrics from the pattern's performance tracker
-            if self.performance_tracker:
-                performance_data[agent_lower] = {
-                    "success_rate": self.performance_tracker.get_success_rate(
-                        agent_lower
-                    )
-                    or 0.8,
-                    "average_time_ms": self.performance_tracker.get_average_time(
-                        agent_lower
-                    )
-                    or 2000.0,
-                    "performance_score": self.performance_tracker.get_performance_score(
-                        agent_lower
-                    ),
-                }
-            else:
-                # Fallback performance data when tracker is not available
-                performance_data[agent_lower] = {
-                    "success_rate": 0.8,
-                    "average_time_ms": 2000.0,
-                    "performance_score": 0.7,
-                }
-
-        # Build resource constraints from config
+        # NOTE: keep your existing logic here; this is a safe/minimal default.
         constraints = ResourceConstraints(
             max_execution_time_ms=config.get("max_execution_time_ms"),
             max_agents=config.get("max_agents", 4),
@@ -1337,72 +969,24 @@ class LangGraphOrchestrator:
             min_success_rate=config.get("min_success_rate", 0.7),
         )
 
-        # Extract context requirements
+        # very light “context requirements” (adjust as needed)
         context_requirements = {
-            "requires_research": context_analysis.requires_research,
-            "requires_criticism": context_analysis.requires_criticism,
-            "requires_synthesis": True,  # Always needed for final output
-            "requires_refinement": True,  # Always needed for input processing
+            "requires_synthesis": True,
+            "requires_refinement": True,
         }
 
-        # Make routing decision
-        if not self.resource_optimizer:
-            raise ValueError("Resource optimizer not available for routing decision")
-        routing_decision = self.resource_optimizer.select_optimal_agents(
+        # simplistic complexity placeholder
+        complexity_score = min(max(len(query) / 500.0, 0.1), 1.0)
+
+        # simplistic performance data placeholder
+        performance_data = {a: {"success_rate": 0.8, "average_time_ms": 2000.0, "performance_score": 0.7}
+                            for a in available_agents}
+
+        return self.resource_optimizer.select_optimal_agents(
             available_agents=available_agents,
-            complexity_score=context_analysis.complexity_score,
+            complexity_score=complexity_score,
             performance_data=performance_data,
             constraints=constraints,
             strategy=self.optimization_strategy,
             context_requirements=context_requirements,
         )
-
-        # Update performance tracker with routing decision
-        if self.conditional_pattern:
-            self.conditional_pattern.update_performance_metrics(
-                "routing_decision",
-                0.0,  # No execution time for decision
-                routing_decision.confidence_score > 0.5,  # Success if high confidence
-            )
-
-        return routing_decision
-
-    def update_agent_performance(
-        self, agent: str, duration_ms: float, success: bool
-    ) -> None:
-        """
-        Update performance metrics for an agent.
-
-        Parameters
-        ----------
-        agent : str
-            Agent name
-        duration_ms : float
-            Execution duration in milliseconds
-        success : bool
-            Whether execution was successful
-        """
-        if self.use_enhanced_routing and self.performance_tracker:
-            self.performance_tracker.record_execution(agent, duration_ms, success)
-
-    def get_routing_statistics(self) -> Dict[str, Any]:
-        """
-        Get routing system statistics.
-
-        Returns
-        -------
-        Dict[str, Any]
-            Routing statistics including performance and decision metrics
-        """
-        if not self.use_enhanced_routing:
-            return {"enhanced_routing": False}
-
-        stats = {
-            "enhanced_routing": True,
-            "optimization_strategy": self.optimization_strategy.value,
-        }
-
-        if self.conditional_pattern:
-            stats.update(self.conditional_pattern.get_routing_statistics())
-
-        return stats

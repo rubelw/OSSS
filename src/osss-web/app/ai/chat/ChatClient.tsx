@@ -74,11 +74,14 @@ type WorkflowResponse = {
 
 function pickPrimaryText(agentOutputs: Record<string, any> | undefined): string {
   if (!agentOutputs) return "";
-  const s = agentOutputs.synthesis;
-  if (typeof s === "string" && s.trim()) return s;
 
-  const r = agentOutputs.refiner;
-  if (typeof r === "string" && r.trim()) return r;
+  // Prioritize the final output if available
+  const finalOutput = agentOutputs.final;
+  if (typeof finalOutput === "string" && finalOutput.trim()) return finalOutput;
+
+  // Fallback to the refiner output if no final output
+  const refinerOutput = agentOutputs.refiner;
+  if (typeof refinerOutput === "string" && refinerOutput.trim()) return refinerOutput;
 
   // fallback: first string value
   for (const k of Object.keys(agentOutputs)) {
@@ -510,12 +513,15 @@ export default function ChatClient() {
 
       const body = {
         query: text,
-        agents: ["refiner", "historian", "critic", "synthesis"],
+        agents: [],
         execution_config: {
           parallel_execution: true,
           // ✅ NEW: allow server-side workflow longer
           timeout_seconds: 180,
           use_llm_intent: true,
+          // ✅ add these:
+          use_rag: true,
+          top_k: 6,
         },
         correlation_id: sessionId,
         export_md: true,

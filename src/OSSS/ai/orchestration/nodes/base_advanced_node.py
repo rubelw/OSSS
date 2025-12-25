@@ -81,7 +81,7 @@ class NodeExecutionContext(BaseModel):
     available_inputs: Dict[str, Any] = Field(
         default_factory=dict,
         description="Available inputs from previous nodes",
-        json_schema_extra={"example": {"refiner_output": "refined query"}},
+        json_schema_extra={"example": {"refiner_final": "refined query"}},
     )
     execution_metadata: Dict[str, Any] = Field(
         default_factory=dict,
