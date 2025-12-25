@@ -1,5 +1,4 @@
 # src/OSSS/ai/rag/additional_index_rag.py
-
 from __future__ import annotations
 
 import os
@@ -13,9 +12,11 @@ from fastapi import HTTPException
 
 from OSSS.ai.additional_index import top_k as index_top_k, IndexedChunk
 from OSSS.ai.observability import get_logger
+from OSSS.ai.metrics import observe_prefetch  # 👈 metrics helper
 
 logger = get_logger(__name__)
 
+# ---- Embedding config ----
 EMBED_MODEL = os.getenv("OSSS_EMBED_MODEL", "nomic-embed-text")
 DEFAULT_EMBED_BASE = "http://host.containers.internal:11434"
 OLLAMA_BASE = os.getenv("OSSS_EMBED_BASE", DEFAULT_EMBED_BASE)
@@ -28,6 +29,7 @@ _embed_client: httpx.AsyncClient | None = None
 def get_embed_client() -> httpx.AsyncClient:
     """
     Lazily-initialized shared AsyncClient for embedding calls.
+    Reused across requests to avoid per-request connection overhead.
     """
     global _embed_client
     if _embed_client is None:
@@ -53,6 +55,13 @@ class RagResult:
 
 
 def _extract_embedding(ej: dict) -> List[float]:
+    """
+    Normalize various embedding response schemas into a 1D list[float].
+    Supports:
+      - { "data": [ { "embedding": [...] } ] }
+      - { "embedding": [...] }
+      - { "embeddings": [ [...], ... ] }
+    """
     if isinstance(ej, dict) and "data" in ej:
         return ej["data"][0]["embedding"]
     if isinstance(ej, dict) and "embedding" in ej:
@@ -66,6 +75,9 @@ def _format_results(
     results: List[Tuple[float, IndexedChunk]],
     index: str,
 ) -> str:
+    """
+    Turn top-k results into a prompt-ready context string.
+    """
     if not results:
         logger.info(
             "[additional_index_rag] No RAG results to format",
@@ -129,12 +141,13 @@ async def rag_prefetch_additional(
 
     # ---- 1. Embed the query ----
     embed_req = {"model": EMBED_MODEL, "prompt": query}
+    embed_ms: float | None = None
 
     try:
         embed_start = time.monotonic()
-        client = get_embed_client()  # <-- reusable client
+        client = get_embed_client()
         er = await client.post(EMBED_URL, json=embed_req)
-        embed_ms = (time.monotonic() - embed_start) * 1000
+        embed_ms = (time.monotonic() - embed_start) * 1000.0
 
         logger.info(
             "[additional_index_rag] Embedding request completed",
@@ -145,6 +158,18 @@ async def rag_prefetch_additional(
             },
         )
     except httpx.RequestError as exc:
+        # record error metrics
+        total_ms = (time.monotonic() - start_time) * 1000.0
+        observe_prefetch(
+            index=index,
+            outcome="error",
+            hits=0,
+            elapsed_ms_total=total_ms,
+            elapsed_ms_embed=embed_ms,
+            elapsed_ms_search=0.0,
+            embed_model=EMBED_MODEL,
+        )
+
         logger.error(
             "[additional_index_rag] Failed to connect to embedding server",
             extra={
@@ -163,6 +188,17 @@ async def rag_prefetch_additional(
         )
 
     if er.status_code >= 400:
+        total_ms = (time.monotonic() - start_time) * 1000.0
+        observe_prefetch(
+            index=index,
+            outcome="error",
+            hits=0,
+            elapsed_ms_total=total_ms,
+            elapsed_ms_embed=embed_ms,
+            elapsed_ms_search=0.0,
+            embed_model=EMBED_MODEL,
+        )
+
         logger.error(
             "[additional_index_rag] Embedding server returned error status",
             extra={
@@ -188,6 +224,17 @@ async def rag_prefetch_additional(
             },
         )
     except ValueError as e:
+        total_ms = (time.monotonic() - start_time) * 1000.0
+        observe_prefetch(
+            index=index,
+            outcome="error",
+            hits=0,
+            elapsed_ms_total=total_ms,
+            elapsed_ms_embed=embed_ms,
+            elapsed_ms_search=0.0,
+            embed_model=EMBED_MODEL,
+        )
+
         logger.error(
             "[additional_index_rag] Failed to extract embedding from response",
             extra={
@@ -210,7 +257,7 @@ async def rag_prefetch_additional(
         k=top_k,
         index=index,
     )
-    search_ms = (time.monotonic() - search_start) * 1000
+    search_ms = (time.monotonic() - search_start) * 1000.0
 
     logger.info(
         "[additional_index_rag] Vector search completed",
@@ -245,7 +292,8 @@ async def rag_prefetch_additional(
         RagHit(score=float(score), chunk=chunk) for score, chunk in results
     ]
 
-    total_ms = (time.monotonic() - start_time) * 1000
+    total_ms = (time.monotonic() - start_time) * 1000.0
+
     logger.info(
         "[additional_index_rag] RAG prefetch completed",
         extra={
@@ -257,6 +305,17 @@ async def rag_prefetch_additional(
         },
     )
 
+    # ✅ success metrics
+    observe_prefetch(
+        index=index,
+        outcome="success",
+        hits=len(hits),
+        elapsed_ms_total=total_ms,
+        elapsed_ms_embed=embed_ms or 0.0,
+        elapsed_ms_search=search_ms,
+        embed_model=EMBED_MODEL,
+    )
+
     meta: Dict[str, Any] = {
         "index": index,
         "top_k_requested": top_k,
@@ -264,6 +323,9 @@ async def rag_prefetch_additional(
         "context_chars": len(combined_text),
         "elapsed_ms_total": total_ms,
         "elapsed_ms_search": search_ms,
+        "elapsed_ms_embed": embed_ms,
+        "embed_model": EMBED_MODEL,
+        "embed_url": EMBED_URL,
     }
 
     return RagResult(
@@ -278,6 +340,9 @@ async def rag_prefetch_additional_index(
     index: str = "main",
     top_k: int = 8,
 ) -> RagResult:
+    """
+    Backwards-compatible alias with a slightly more descriptive name.
+    """
     logger.debug(
         "[additional_index_rag] rag_prefetch_additional_index alias invoked",
         extra={"index": index, "top_k": top_k},
