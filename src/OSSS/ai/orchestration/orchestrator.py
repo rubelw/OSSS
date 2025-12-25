@@ -18,6 +18,7 @@ Key behavior:
 import time
 import uuid
 import os
+from dataclasses import dataclass
 from typing import Dict, Any, List, Optional
 
 from OSSS.ai.context import AgentContext
@@ -208,6 +209,80 @@ def _ensure_effective_queries(state: Dict[str, Any], base_query: str) -> None:
     effective.setdefault("user", base_query)
 
 
+@dataclass
+class RagIndexConfig:
+    """
+    Config for a single RAG index.
+
+    Values here are *defaults* that can be overridden per-request via exec_cfg["rag"].
+    """
+    name: str = "main"
+    default_top_k: int = 6
+    max_snippet_chars: int = 6000
+
+
+@dataclass
+class RagSettings:
+    """
+    Global RAG settings: per-index configs.
+    """
+    indexes: Dict[str, RagIndexConfig]
+
+
+# Instantiate with some sane defaults; you can extend this as needed.
+RAG_SETTINGS = RagSettings(
+    indexes={
+        "main": RagIndexConfig(
+            name="main",
+            default_top_k=6,
+            max_snippet_chars=6000,
+        ),
+        "tutor": RagIndexConfig(
+            name="tutor",
+            default_top_k=4,
+            max_snippet_chars=4000,
+        ),
+        "agent": RagIndexConfig(
+            name="agent",
+            default_top_k=3,
+            max_snippet_chars=3000,
+        ),
+    }
+)
+
+
+def _resolve_rag_config(
+        raw_index_name: str,
+        rag_cfg: Dict[str, Any],
+) -> tuple[str, int, int]:
+    """
+    Given the requested index name and per-request rag_cfg, return:
+        (effective_index_name, top_k, snippet_max_chars)
+
+    Priority:
+    - rag_cfg overrides (top_k, snippet_max_chars, index)
+    - then RAG_SETTINGS per-index defaults
+    - then hard-coded fallbacks
+    """
+    base_cfg = RAG_SETTINGS.indexes.get(
+        raw_index_name,
+        RagIndexConfig(name=raw_index_name),  # fallback config
+    )
+
+    # index name can be overridden in rag_cfg (e.g., alias)
+    effective_index = str(rag_cfg.get("index", base_cfg.name))
+
+    # top_k: per-request override > per-index default > hard default
+    top_k = int(rag_cfg.get("top_k", base_cfg.default_top_k or 5))
+
+    # snippet_max_chars: per-request override > per-index default > hard default
+    snippet_max_chars = int(
+        rag_cfg.get("snippet_max_chars", base_cfg.max_snippet_chars or 6000)
+    )
+
+    return effective_index, top_k, snippet_max_chars
+
+
 class LangGraphOrchestrator:
     """
     Production LangGraph orchestrator for OSSS agents.
@@ -358,8 +433,14 @@ class LangGraphOrchestrator:
             return
 
         try:
-            index_name = rag_cfg.get("index", "main")
-            top_k = int(rag_cfg.get("top_k", 5))
+            # ---- Resolve index-level config (defaults + overrides) ----
+            raw_index_name = str(rag_cfg.get("index", "main"))
+            index_name, top_k, snippet_max_chars = _resolve_rag_config(
+                raw_index_name=raw_index_name,
+                rag_cfg=rag_cfg,
+            )
+
+            # Per-request extras still read directly from rag_cfg
             embed_model = rag_cfg.get("embed_model", "nomic-embed-text")
             jsonl_path = rag_cfg.get("jsonl_path", DEFAULT_RAG_JSONL_PATH)
 
@@ -389,8 +470,7 @@ class LangGraphOrchestrator:
                     }
                 )
 
-            # Compute snippet
-            snippet_max_chars = int(rag_cfg.get("snippet_max_chars", 6000))
+            # Compute snippet using resolved config
             rag_snippet = rag_context_str[:snippet_max_chars] if rag_context_str else ""
 
             # ---- Store into exec_state (internal) ----
@@ -408,7 +488,6 @@ class LangGraphOrchestrator:
                 "index": index_name,
                 "hits_count": len(rag_hits),
             }
-            # rag_result.meta wins on conflicts if you prefer:
             rag_meta.update(rag_result.meta or {})
 
             exec_state["rag_meta"] = rag_meta
@@ -426,6 +505,7 @@ class LangGraphOrchestrator:
                     "hits_count": len(rag_hits),
                     "index": index_name,
                     "top_k": top_k,
+                    "snippet_max_chars": snippet_max_chars,
                 },
             )
 
