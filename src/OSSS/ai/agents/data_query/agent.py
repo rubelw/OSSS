@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import os
 from typing import Any, Dict, List, Optional, Tuple
-
+import re
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from OSSS.ai.context import AgentContext
@@ -62,6 +62,99 @@ CONSENT_FIELD_PROMPTS: Dict[str, str] = {
     ),
     ConsentFields.NOTES: "Any notes you’d like to include? You can say 'no' if there are none.",
 }
+
+CONSENT_FIELD_PROMPTS: Dict[str, str] = {
+    ConsentFields.STUDENT: "Which student is this consent for? Please provide the full student name.",
+    ConsentFields.GUARDIAN: "Who gave this consent? Please provide the guardian’s name or relationship.",
+    ConsentFields.CONSENT_TYPE: (
+        "What kind of consent is this? For example: media release, field trip, technology use, etc."
+    ),
+    ConsentFields.STATUS: "Was consent granted or denied?",
+    ConsentFields.EFFECTIVE_DATE: (
+        "What date should this consent be effective from? If it’s today, you can just say 'today'."
+    ),
+    ConsentFields.NOTES: "Any notes you’d like to include? You can say 'no' if there are none.",
+}
+
+# Map logical filter ops → backend suffixes
+OP_MAP: Dict[str, str] = {
+    # equality handled specially (no suffix)
+    "contains": "icontains",
+    "icontains": "icontains",
+    # ✅ IMPORTANT: align with API, no more "istartswith"
+    "startswith": "startswith",
+    "prefix": "startswith",
+    "gt": "gt",
+    "greater_than": "gt",
+    "gte": "gte",
+    "greater_or_equal": "gte",
+    "lt": "lt",
+    "less_than": "lt",
+    "lte": "lte",
+    "less_or_equal": "lte",
+    "in": "in",
+    "one_of": "in",
+}
+
+
+def _apply_filters_to_params(
+    base_params: Dict[str, Any],
+    filters: Optional[List[Dict[str, Any]]],
+) -> Dict[str, Any]:
+    """
+    Merge structured filters from execution_config.data_query into HTTP params.
+
+    Expected filter shape:
+
+        {
+            "field": "consent_type",
+            "op": "startswith",   # eq|equals|contains|startswith|gt|gte|lt|lte|in
+            "value": "D"
+        }
+
+    Suffixes are mapped via OP_MAP to whatever your backend actually expects.
+    """
+    if not filters:
+        return base_params
+
+    params = dict(base_params)
+
+    for f in filters:
+        if not isinstance(f, dict):
+            continue
+
+        field = (f.get("field") or "").strip()
+        op = (f.get("op") or "eq").strip().lower()
+        value = f.get("value", None)
+
+        if not field or value is None:
+            continue
+
+        # 🔧 Normalize quoted string values like "'D'" or "\"D\""
+        if isinstance(value, str):
+            v = value.strip()
+            if len(v) >= 2 and v[0] == v[-1] and v[0] in {"'", '"'}:
+                value = v[1:-1]
+
+        # Equality → no suffix
+        if op in {"eq", "equals"}:
+            key = field
+
+        # IN / ONE_OF → list → CSV, with __in suffix
+        elif op in {"in", "one_of"}:
+            suffix = OP_MAP.get(op, "in")
+            key = f"{field}__{suffix}"
+            if isinstance(value, list):
+                value = ",".join(str(v) for v in value)
+
+        else:
+            # All other ops: use suffix from OP_MAP, fallback to op itself
+            suffix = OP_MAP.get(op, op)
+            key = f"{field}__{suffix}"
+
+        params[key] = value
+
+    return params
 
 
 def _detect_create_intent(raw_user_input: str, refined_text: str) -> bool:
@@ -650,8 +743,9 @@ class DataQueryAgent(BaseAgent):
 
         # --- EXECUTION CONFIG --------------------------------------------------
         exec_state: Dict[str, Any] = getattr(context, "execution_state", {}) or {}
-        exec_cfg: Dict[str, Any] = exec_state.get("execution_config", {}) or {}
-        dq_cfg: Dict[str, Any] = exec_cfg.get("data_query") or {}
+        # ensure we can mutate and the changes persist
+        exec_cfg: Dict[str, Any] = exec_state.setdefault("execution_config", {})
+        dq_cfg: Dict[str, Any] = exec_cfg.setdefault("data_query", {})
 
         # Classifier output + refined text (typically after Refiner)
         classifier, raw_text = _get_classifier_and_text_from_context(context)
@@ -661,6 +755,40 @@ class DataQueryAgent(BaseAgent):
         # 🔎 ORIGINAL / RAW USER INPUT (pre-refiner), if we have it
         raw_user_input = (exec_state.get("user_question") or "").strip()
         raw_user_lower = raw_user_input.lower()
+
+        # ✅ NEW: derive simple filters from "where FIELD starts with X"
+        filters: List[Dict[str, Any]] = dq_cfg.get("filters") or []
+
+        if not filters and raw_text_norm:
+            # e.g. "query consents where consent_type starts with \"D\""
+            # or "query consents where consent_type starts with 'D'"
+            m = re.search(
+                r"""where\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+starts?\s+with\s+['"]?([^\s'"]+)['"]?""",
+                raw_text_norm,
+                re.IGNORECASE,
+            )
+            if m:
+                field = m.group(1)
+                value = m.group(2)  # already unquoted by the regex
+
+                filters.append(
+                    {
+                        "field": field,
+                        "op": "startswith",
+                        "value": value,
+                    }
+                )
+                dq_cfg["filters"] = filters  # persist into execution_config.data_query
+                logger.info(
+                    "[data_query:filters] derived filter from text",
+                    extra={
+                        "event": "data_query_filters_from_text",
+                        "raw_text_preview": raw_text_norm[:200],
+                        "field": field,
+                        "op": "startswith",
+                        "value": value,
+                    },
+                )
 
         # Existing wizard state → skip routing + structured gating entirely
         consent_wizard_state = exec_state.get("consent_wizard") or {}
@@ -902,6 +1030,19 @@ class DataQueryAgent(BaseAgent):
         params.update(getattr(route, "default_params", None) or {})
         params.update(dq_cfg.get("default_params") or {})
         params.update(exec_cfg.get("http_query_params") or {})
+
+        # ✅ NEW: apply structured filters
+        filters = dq_cfg.get("filters") or []
+        if filters:
+            logger.info(
+                "[data_query:filters] applying structured filters to HTTP params",
+                extra={
+                    "event": "data_query_apply_filters",
+                    "filter_count": len(filters),
+                    "filters": filters,
+                },
+            )
+            params = _apply_filters_to_params(params, filters)
 
         entity_meta["base_url"] = base_url
         entity_meta["default_params"] = params

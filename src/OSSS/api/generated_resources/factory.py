@@ -1,4 +1,3 @@
-# src/OSSS/api/generated_resources/factory.py
 from __future__ import annotations
 
 from typing import Any, Dict, Iterable, Optional, Type, Tuple, Callable
@@ -499,6 +498,7 @@ def create_router_for_model(
         db: Session | AsyncSession = Depends(get_db_dep),
         store: Optional[RedisSession] = Depends(get_session_store),
         user: Any = Depends(get_current_user) if require_auth else None,
+        request: Request = None,  # 👈 NEW
     ):
         _authz("read", user, None)
         pk_field, pk_type = _pk_info(model)
@@ -510,8 +510,45 @@ def create_router_for_model(
         if ids:
             coerced_ids = _coerce_pk_values(pk_type, ids)
             stmt = stmt.where(pk_col.in_(coerced_ids))
-        else:
+
+        # 🔍 NEW: generic query-parameter filters (e.g. consent_type__startswith=D)
+        if request is not None:
+            for key, value in request.query_params.multi_items():
+                # already handled or not a real filter
+                if key in {"skip", "limit", "ids"}:
+                    continue
+                if value is None or value == "":
+                    continue
+
+                # Support operators like field__startswith, field__contains, etc.
+                if "__" in key:
+                    field_name, op = key.split("__", 1)
+                else:
+                    field_name, op = key, "eq"
+
+                # Only allow real columns on this model
+                if field_name not in cols:
+                    continue
+
+                col = getattr(model, field_name, None)
+                if col is None:
+                    continue
+
+                # Basic operator handling – extend as needed
+                if op == "eq":
+                    stmt = stmt.where(col == value)
+                elif op == "contains":
+                    stmt = stmt.where(col.ilike(f"%{value}%"))
+                elif op == "startswith":
+                    stmt = stmt.where(col.ilike(f"{value}%"))
+                elif op == "endswith":
+                    stmt = stmt.where(col.ilike(f"%{value}"))
+                # additional ops (__lt, __gt, etc.) can be added here
+
+        # Pagination (preserve existing behavior: no pagination when ids are passed)
+        if not ids:
             stmt = stmt.offset(skip).limit(limit)
+
         rows = await _db_execute_scalars_all(db, stmt)
         return [_safe_to_dict(o) for o in rows]
 
