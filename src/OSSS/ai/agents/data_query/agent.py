@@ -14,12 +14,17 @@ from OSSS.ai.agents.data_query.config import (
     find_route_for_text,
 )
 from OSSS.ai.services.backend_api_client import BackendAPIClient, BackendAPIConfig
+
+from OSSS.ai.agents.data_query.queryspec import QuerySpec, FilterCondition
+from OSSS.ai.agents.data_query.query_metadata import DEFAULT_QUERY_SPECS
+from OSSS.ai.agents.data_query.text_filters import parse_text_filters
 # 🔧 IMPORTANT: use the same logger import style as other modules
 from OSSS.ai.observability import get_logger
 
 logger = get_logger(__name__)
 
 DEFAULT_BASE_URL = os.getenv("OSSS_BACKEND_BASE_URL", "http://app:8000")
+
 
 # Minimum topic_confidence from classifier to trust its topic mapping.
 # If below this, we fall back to text-based route matching.
@@ -102,7 +107,7 @@ def _apply_filters_to_params(
     filters: Optional[List[Dict[str, Any]]],
 ) -> Dict[str, Any]:
     """
-    Merge structured filters from execution_config.data_query into HTTP params.
+    Merge structured filters into HTTP params.
 
     Expected filter shape:
 
@@ -447,6 +452,411 @@ class DataQueryAgent(BaseAgent):
             extra={"base_url_default": self.BASE_URL},
         )
 
+        # src/OSSS/ai/agents/data_query/agent.py
+
+    # inside DataQueryAgent
+
+    # inside DataQueryAgent
+
+    async def _enrich_person_name_for_consents(
+            self,
+            client: BackendAPIClient,
+            rows_full: List[Dict[str, Any]],
+    ) -> List[Dict[str, Any]]:
+        """
+        For consents results, look up each person_id in the backend API and
+        add a 'person_name' field to each row.
+
+        Uses the provided BackendAPIClient; does NOT assume async context-manager
+        support on the client.
+        """
+        if not rows_full:
+            return rows_full
+
+        # Collect unique person_ids
+        person_ids = {
+            row.get("person_id")
+            for row in rows_full
+            if row.get("person_id") is not None
+        }
+        if not person_ids:
+            return rows_full
+
+        try:
+            persons_by_id: Dict[Any, Dict[str, Any]] = {}
+
+            # Fetch each person; you can optimize to a bulk endpoint later if needed
+            for pid in person_ids:
+                try:
+                    # Adjust path if your people endpoint is different
+                    person = await client.get_json(f"/api/persons/{pid}")
+                    if person:
+                        persons_by_id[pid] = person
+                except Exception as inner_exc:  # per-person log, but non-fatal
+                    logger.warning(
+                        "[data_query:consents] Failed to fetch person for consent row",
+                        extra={
+                            "event": "data_query_consents_fetch_person_failed",
+                            "person_id": pid,
+                            "error_type": type(inner_exc).__name__,
+                            "error_message": str(inner_exc),
+                        },
+                    )
+
+            # Attach person_name to each row where we have a match
+            for row in rows_full:
+                pid = row.get("person_id")
+                person = persons_by_id.get(pid)
+                if not person:
+                    continue
+
+                full_name = (
+                        person.get("full_name")
+                        or " ".join(
+                    part
+                    for part in [
+                        person.get("first_name"),
+                        person.get("last_name"),
+                    ]
+                    if part
+                )
+                )
+
+                if full_name:
+                    row["person_name"] = full_name
+
+            # Log a quick sample of the enriched keys
+            logger.info(
+                "[data_query:consents] enrichment complete",
+                extra={
+                    "event": "data_query_consents_enrichment_complete",
+                    "row_keys_sample": list(rows_full[0].keys()) if rows_full else [],
+                },
+            )
+
+            return rows_full
+
+        except Exception as exc:
+            # Non-fatal: log and return original rows
+            logger.warning(
+                "[data_query:consents] Failed to enrich person_name from backend",
+                extra={
+                    "event": "data_query_consents_enrich_person_name_failed",
+                    "error_type": type(exc).__name__,
+                    "error_message": str(exc),
+                },
+            )
+            return rows_full
+
+    def _shrink_to_ui_defaults(
+            self,
+            rows_full: List[Dict[str, Any]],
+            query_spec: QuerySpec,
+    ) -> List[Dict[str, Any]]:
+        if not rows_full:
+            return []
+
+        # --- 1) Start from projections (if any) or keys from first row ---
+        if query_spec.projections:
+            raw_keys = list(query_spec.projections)
+        else:
+            raw_keys = list(rows_full[0].keys())
+
+        # --- 2) Normalize keys so they're plain strings, not Projection objects ---
+        base_keys: List[str] = []
+        for k in raw_keys:
+            if isinstance(k, str):
+                base_keys.append(k)
+                continue
+
+            # Handle Projection-like objects defensively
+            alias = getattr(k, "alias", None)
+            name = (
+                    alias
+                    or getattr(k, "field", None)
+                    or getattr(k, "column", None)
+                    or getattr(k, "name", None)
+            )
+
+            if isinstance(name, str):
+                base_keys.append(name)
+
+        # Optional: de-duplicate while preserving order
+        seen: set[str] = set()
+        deduped_keys: List[str] = []
+        for k in base_keys:
+            if k not in seen:
+                seen.add(k)
+                deduped_keys.append(k)
+        base_keys = deduped_keys
+
+        # --- 2b) NEW: include any *_name fields found in the actual rows -----
+        # This fixes the "person_id but not person_name" issue when projections
+        # don't know about enrichment/join-added fields.
+        sample_row = rows_full[0]
+        extra_name_keys: List[str] = []
+        for k in sample_row.keys():
+            if (
+                    isinstance(k, str)
+                    and k.endswith("_name")
+                    and k not in base_keys
+            ):
+                extra_name_keys.append(k)
+
+        if extra_name_keys:
+            base_keys.extend(extra_name_keys)
+
+        # --- 3) Generic UX rule: prefer *_name over *_id when both exist ---
+        # e.g. person_name vs person_id, student_name vs student_id, etc.
+        name_keys = {k for k in base_keys if k.endswith("_name")}
+        id_keys_to_drop = set()
+        for name_key in name_keys:
+            stem = name_key[:-5]  # strip '_name'
+            id_key = f"{stem}_id"
+            if id_key in base_keys:
+                id_keys_to_drop.add(id_key)
+
+        if id_keys_to_drop:
+            base_keys = [k for k in base_keys if k not in id_keys_to_drop]
+
+        # --- 3b) Log what we ended up with for debugging --------------------
+        logger.info(
+            "[data_query:render] compact column selection",
+            extra={
+                "event": "data_query_compact_columns_selected",
+                "base_collection": query_spec.base_collection,
+                "columns": base_keys,
+            },
+        )
+
+        # --- 4) Build compact rows using only string keys ---
+        compact_rows: List[Dict[str, Any]] = []
+        for row in rows_full:
+            compact_rows.append({k: row.get(k) for k in base_keys if k in row})
+
+        return compact_rows
+
+    # -------------------------------------------------------------------------
+    # QUERY EXECUTION (QuerySpec → HTTP calls → joined/projection rows)
+    # -------------------------------------------------------------------------
+
+    async def _execute_queryspec_http(
+            self,
+            client: BackendAPIClient,
+            route: DataQueryRoute,
+            query_spec: QuerySpec,
+            params: Dict[str, Any],
+    ) -> List[Dict[str, Any]]:
+        """
+        Execute a QuerySpec against a REST backend.
+
+        - Fetch base collection rows.
+        - Apply any configured joins (e.g., consents.person_id -> persons.full_name).
+        - Return enriched rows.
+        """
+        # 1) Fetch base rows
+        base_path = getattr(route, "resolved_path", None) or getattr(route, "path", None) or ""
+        base_rows = await client.get_json(base_path, params=params)  # adjust to your method name
+
+        if not base_rows or not query_spec.joins:
+            return base_rows or []
+
+        # 2) For now, handle only the first join (you can generalize later)
+        #    In your case, consents → persons
+        join = query_spec.joins[0]
+
+        if join.target_collection == "persons" and join.source_field == "person_id":
+            # Collect unique person_ids from base rows
+            person_ids = {
+                row.get(join.source_field)
+                for row in base_rows
+                if row.get(join.source_field)
+            }
+            if not person_ids:
+                return base_rows
+
+            # 3) Fetch persons in one shot; adjust to your backend filter style
+            # Example assumes /api/persons?ids=uuid1,uuid2,uuid3
+            persons_path = "/api/persons"
+            person_params = {"ids": ",".join(sorted(person_ids))}
+            persons = await client.get_json(persons_path, params=person_params)
+
+            # Build lookup: id -> "Last, First"
+            person_lookup: Dict[str, str] = {}
+            for p in persons:
+                pid = p.get("id")
+                if not pid:
+                    continue
+                first = p.get("first_name") or ""
+                last = p.get("last_name") or ""
+                name = (last + ", " + first).strip(", ").strip()
+                person_lookup[pid] = name or pid  # fallback to id if missing
+
+            # 4) Enrich base rows
+            enriched: List[Dict[str, Any]] = []
+            for row in base_rows:
+                new_row = dict(row)
+                pid = row.get("person_id")
+                if pid:
+                    new_row["person_name"] = person_lookup.get(pid, pid)
+                    # Optional: drop person_id so the UI just sees person_name
+                    new_row.pop("person_id", None)
+                enriched.append(new_row)
+
+            return enriched
+
+        # If join is something else we haven't explicitly handled, just return base rows
+        return base_rows
+
+    async def _merge_join_results(
+        self,
+        client: BackendAPIClient,
+        base_rows: List[Dict[str, Any]],
+        query_spec: QuerySpec,
+    ) -> List[Dict[str, Any]]:
+        """
+        For each Join in QuerySpec, fetch the remote collection using an
+        __in filter on the join.to_field and attach the matching object
+        as a nested dict on each base row:
+
+            row[join.alias or join.to_collection] = remote_row
+        """
+        if not query_spec.joins:
+            return base_rows
+
+        # Work on a copy to avoid mutating caller's list in unexpected ways
+        rows = [dict(row) for row in base_rows]
+
+        for j in query_spec.joins:
+            from_collection = j.from_collection
+            base_collection = query_spec.base_collection
+
+            # For now, keep it simple: only handle joins where from_collection == base_collection
+            if from_collection and from_collection != base_collection:
+                logger.info(
+                    "[data_query:queryspec] skipping join with non-base from_collection",
+                    extra={
+                        "event": "data_query_join_skip_non_base",
+                        "from_collection": from_collection,
+                        "base_collection": base_collection,
+                        "to_collection": j.to_collection,
+                    },
+                )
+                continue
+
+            fk_values = {
+                row.get(j.from_field)
+                for row in rows
+                if row.get(j.from_field) is not None
+            }
+
+            if not fk_values:
+                logger.info(
+                    "[data_query:queryspec] no FK values found for join; skipping",
+                    extra={
+                        "event": "data_query_join_no_fk_values",
+                        "from_field": j.from_field,
+                        "to_collection": j.to_collection,
+                    },
+                )
+                continue
+
+            # Assume the backend supports __in for the join.to_field (e.g. id__in=1,2,3)
+            in_key = f"{j.to_field}__in"
+            join_params = {in_key: ",".join(str(v) for v in fk_values)}
+
+            logger.info(
+                "[data_query:queryspec] fetching join collection",
+                extra={
+                    "event": "data_query_join_fetch",
+                    "to_collection": j.to_collection,
+                    "from_field": j.from_field,
+                    "to_field": j.to_field,
+                    "param_key": in_key,
+                    "fk_count": len(fk_values),
+                },
+            )
+
+            join_rows = await client.get_collection(
+                j.to_collection,
+                skip=0,
+                limit=len(fk_values),
+                params=join_params,
+            )
+
+            # Index by the join.to_field on the remote side
+            index: Dict[Any, Dict[str, Any]] = {}
+            for r in join_rows:
+                key = r.get(j.to_field)
+                if key is not None and key not in index:
+                    index[key] = r
+
+            nested_key = j.alias or j.to_collection
+
+            for row in rows:
+                fk_val = row.get(j.from_field)
+                if fk_val is None:
+                    continue
+                remote = index.get(fk_val)
+                if remote is not None:
+                    # attach as nested object
+                    row[nested_key] = remote
+
+        return rows
+
+    def _apply_projections(
+            self,
+            rows: List[Dict[str, Any]],
+            query_spec: QuerySpec,
+    ) -> List[Dict[str, Any]]:
+        """
+        Apply QuerySpec.projections to the (possibly join-enriched) rows.
+
+        - If no projections are defined, return the original rows.
+        - For base_collection projections, pull directly from row[field].
+        - For joined projections, look for the nested object attached by
+          _merge_join_results under join.alias or join.to_collection.
+
+        This returns the *full* projection row; UI shrinking is handled separately.
+        """
+        if not rows:
+            return []
+
+        if not query_spec.projections:
+            # No projections configured → return full rows as-is
+            return rows
+
+        base_collection = query_spec.base_collection
+        joins_by_collection = {j.to_collection: j for j in query_spec.joins}
+
+        projected_rows: List[Dict[str, Any]] = []
+
+        for row in rows:
+            out: Dict[str, Any] = {}
+
+            for proj in query_spec.projections:
+                alias = proj.alias or proj.field
+
+                # Base collection fields: get directly from row
+                if proj.collection == base_collection:
+                    out[alias] = row.get(proj.field)
+                    continue
+
+                # Joined collections: use the nested object
+                join = joins_by_collection.get(proj.collection)
+                if not join:
+                    continue
+
+                nested_key = join.alias or join.to_collection
+                nested = row.get(nested_key)
+
+                if isinstance(nested, dict):
+                    out[alias] = nested.get(proj.field)
+
+            projected_rows.append(out)
+
+        return projected_rows
+
     def get_node_definition(self) -> LangGraphNodeDefinition:
         return LangGraphNodeDefinition(
             node_type="tool",
@@ -736,9 +1146,10 @@ class DataQueryAgent(BaseAgent):
         """
         Main data_query entrypoint.
 
-        Now supports lexical detection of "add/create consent" intent via
-        `_detect_create_intent`, and wires that into routing + the consent
-        wizard flow.
+        Now supports:
+          - lexical detection of "add/create consent" via `_detect_create_intent`
+          - QuerySpec-based filter parsing via `parse_text_filters`
+          - merging structured filters + text-derived filters into HTTP params
         """
 
         # --- EXECUTION CONFIG --------------------------------------------------
@@ -756,39 +1167,8 @@ class DataQueryAgent(BaseAgent):
         raw_user_input = (exec_state.get("user_question") or "").strip()
         raw_user_lower = raw_user_input.lower()
 
-        # ✅ NEW: derive simple filters from "where FIELD starts with X"
-        filters: List[Dict[str, Any]] = dq_cfg.get("filters") or []
-
-        if not filters and raw_text_norm:
-            # e.g. "query consents where consent_type starts with \"D\""
-            # or "query consents where consent_type starts with 'D'"
-            m = re.search(
-                r"""where\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+starts?\s+with\s+['"]?([^\s'"]+)['"]?""",
-                raw_text_norm,
-                re.IGNORECASE,
-            )
-            if m:
-                field = m.group(1)
-                value = m.group(2)  # already unquoted by the regex
-
-                filters.append(
-                    {
-                        "field": field,
-                        "op": "startswith",
-                        "value": value,
-                    }
-                )
-                dq_cfg["filters"] = filters  # persist into execution_config.data_query
-                logger.info(
-                    "[data_query:filters] derived filter from text",
-                    extra={
-                        "event": "data_query_filters_from_text",
-                        "raw_text_preview": raw_text_norm[:200],
-                        "field": field,
-                        "op": "startswith",
-                        "value": value,
-                    },
-                )
+        # Keep any structured filters passed into execution_config.data_query
+        structured_filters_cfg: List[Dict[str, Any]] = dq_cfg.get("filters") or []
 
         # Existing wizard state → skip routing + structured gating entirely
         consent_wizard_state = exec_state.get("consent_wizard") or {}
@@ -796,8 +1176,6 @@ class DataQueryAgent(BaseAgent):
         # ----------------------------------------------------------------------
         # 🔑 LEXICAL CREATE-CONSENT DETECTION
         # ----------------------------------------------------------------------
-        # This triggers when the combined text contains:
-        #   ("create" or "add")  +  ("consent"/"consents"/"concent"/"concents")
         consent_create_intent = _detect_create_intent(
             raw_user_input=raw_user_input,
             refined_text=raw_text_norm,
@@ -822,10 +1200,10 @@ class DataQueryAgent(BaseAgent):
 
         # ---- SKIP CONDITIONS -------------------------------------------------
         if (
-            not is_structured_query
-            and not force_data_query
-            and not consent_wizard_state
-            and not consent_create_intent
+                not is_structured_query
+                and not force_data_query
+                and not consent_wizard_state
+                and not consent_create_intent
         ):
             logger.info(
                 "[data_query:routing] skipping: no structured query, no force, "
@@ -1031,18 +1409,85 @@ class DataQueryAgent(BaseAgent):
         params.update(dq_cfg.get("default_params") or {})
         params.update(exec_cfg.get("http_query_params") or {})
 
-        # ✅ NEW: apply structured filters
-        filters = dq_cfg.get("filters") or []
-        if filters:
+        # ----------------------------------------------------------------------
+        # QuerySpec: merge structured filters + text-derived filters
+        # ----------------------------------------------------------------------
+        collection = getattr(route, "collection", None) or entity_meta.get("collection")
+        base_spec = DEFAULT_QUERY_SPECS.get(collection) if collection else None
+
+        if base_spec:
+            query_spec = QuerySpec(
+                base_collection=base_spec.base_collection,
+                projections=list(base_spec.projections),
+                joins=list(base_spec.joins),
+                filters=list(base_spec.filters),
+                synonyms=dict(base_spec.synonyms),
+                search_fields=list(base_spec.search_fields),
+                default_limit=base_spec.default_limit,
+            )
+        else:
+            query_spec = QuerySpec(base_collection=collection or "")
+
+        # Attach structured filters from execution_config.data_query
+        for f in structured_filters_cfg:
+            try:
+                field = (f.get("field") or "").strip()
+                op = (f.get("op") or "eq").strip().lower()
+                value = f.get("value", None)
+                if field and value is not None:
+                    query_spec.filters.append(
+                        FilterCondition(field=field, op=op, value=value)
+                    )
+            except Exception:
+                logger.exception(
+                    "[data_query:filters] failed to attach cfg filter",
+                    extra={"event": "data_query_cfg_filter_attach_error", "filter": f},
+                )
+
+        # Parse text-based filters like:
+        #   "where last name starts with 'R'"
+        #   "where status = active"
+        if raw_text_norm:
+            before_count = len(query_spec.filters)
+            query_spec = parse_text_filters(raw_text_norm, query_spec)
+            after_count = len(query_spec.filters)
+            if after_count > before_count:
+                logger.info(
+                    "[data_query:filters] parsed filters from text",
+                    extra={
+                        "event": "data_query_filters_from_text",
+                        "raw_text_preview": raw_text_norm[:200],
+                        "new_filter_count": after_count - before_count,
+                        "total_filter_count": after_count,
+                    },
+                )
+
+        # Summarize QuerySpec for observability (avoid storing full dataclass)
+        dq_meta = exec_state.setdefault("data_query_step_metadata", {})
+        dq_meta["query_spec_summary"] = {
+            "base_collection": query_spec.base_collection,
+            "projection_count": len(query_spec.projections),
+            "join_count": len(query_spec.joins),
+            "filter_count": len(query_spec.filters),
+            "search_fields": list(query_spec.search_fields),
+        }
+
+        # Convert QuerySpec.filters -> dicts for _apply_filters_to_params
+        compiled_filters: List[Dict[str, Any]] = [
+            {"field": fc.field, "op": fc.op, "value": fc.value}
+            for fc in query_spec.filters
+        ]
+
+        if compiled_filters:
             logger.info(
-                "[data_query:filters] applying structured filters to HTTP params",
+                "[data_query:filters] applying filters to HTTP params",
                 extra={
                     "event": "data_query_apply_filters",
-                    "filter_count": len(filters),
-                    "filters": filters,
+                    "filter_count": len(compiled_filters),
+                    "filters": compiled_filters,
                 },
             )
-            params = _apply_filters_to_params(params, filters)
+            params = _apply_filters_to_params(params, compiled_filters)
 
         entity_meta["base_url"] = base_url
         entity_meta["default_params"] = params
@@ -1063,8 +1508,6 @@ class DataQueryAgent(BaseAgent):
         )
 
         # ---- CONSENT WIZARD ENTRY POINT -------------------------------------
-        # For "create new consents" (or equivalent), start the wizard and
-        # DO NOT issue a GET /api/consents. This fixes the behavior you saw.
         if consent_create_intent:
             logger.info(
                 "[data_query:consent_wizard] starting wizard via create-consent intent",
@@ -1079,13 +1522,17 @@ class DataQueryAgent(BaseAgent):
 
         # --- HTTP CALL ---------------------------------------------------------
         client = BackendAPIClient(BackendAPIConfig(base_url=base_url))
-        request_path = getattr(route, "resolved_path", None) or getattr(route, "path", None) or ""
+        request_path = (
+                getattr(route, "resolved_path", None)
+                or getattr(route, "path", None)
+                or ""
+        )
         request_url = f"{base_url}{request_path}"
 
         logger.info(
-            "[data_query:http] issuing collection GET",
+            "[data_query:http] issuing query via QuerySpec",
             extra={
-                "event": "data_query_http_collection_get",
+                "event": "data_query_http_queryspec",
                 "collection": getattr(route, "collection", None),
                 "url": request_url,
                 "skip": params.get("skip"),
@@ -1094,33 +1541,59 @@ class DataQueryAgent(BaseAgent):
             },
         )
 
+        # Ensure these are always defined so we never hit UnboundLocalError
+        rows_full: List[Dict[str, Any]] = []
+        rows_compact: List[Dict[str, Any]] = []
+        status_code: Optional[int] = None
+        error: Optional[str] = None
+
         try:
-            rows = await client.get_collection(
-                getattr(route, "collection", None),
-                skip=int(params.get("skip", 0)),
-                limit=int(params.get("limit", 100)),
-                params={k: v for k, v in params.items() if k not in ("skip", "limit")},
+            rows_full = await self._execute_queryspec_http(
+                client=client,
+                route=route,
+                query_spec=query_spec,
+                params=params,
             )
+
+            # Build compact subset for UI
+            # 🔍 Special-case enrichment for consents
+            if route.topic == "consents":
+                rows_full = await self._enrich_person_name_for_consents(client, rows_full)
+
+            rows_compact = self._shrink_to_ui_defaults(rows_full, query_spec)
+
+            status_code = 200  # HTTP layer inside BackendAPIClient succeeded
+
             logger.info(
-                "[data_query:http] received response",
+                "[data_query:http] received response (after joins/projections)",
                 extra={
                     "event": "data_query_http_collection_response",
                     "collection": getattr(route, "collection", None),
-                    "row_count": len(rows),
+                    "row_count": len(rows_full),
                     "url": request_url,
                 },
             )
+
             payload = {
                 "ok": True,
                 "view": getattr(route, "view_name", None),
                 "source": "http",
                 "url": request_url,
-                "status_code": 200,
-                "row_count": len(rows),
-                "rows": rows,
+                "status_code": status_code,
+                "row_count": len(rows_full),
+                # For backward compatibility: rows = compact set
+                "rows": rows_compact,
+                # Explicit full/compact for UI layer
+                "rows_full": rows_full,
+                "rows_compact": rows_compact,
                 "entity": entity_meta,
+                "projection_mode": "compact",
             }
         except Exception as exc:
+            error = str(exc)
+            rows_full = []
+            rows_compact = []
+
             logger.exception(
                 "[data_query:http] request failed",
                 extra={
@@ -1134,10 +1607,12 @@ class DataQueryAgent(BaseAgent):
                 "view": getattr(route, "view_name", None),
                 "source": "http",
                 "url": request_url,
-                "status_code": None,
+                "status_code": status_code,
                 "row_count": 0,
                 "rows": [],
-                "error": str(exc),
+                "rows_full": [],
+                "rows_compact": [],
+                "error": error,
                 "entity": entity_meta,
             }
 
@@ -1160,7 +1635,11 @@ class DataQueryAgent(BaseAgent):
         )
 
         # --- STORE IN CONTEXT --------------------------------------------------
-        store_key = getattr(route, "resolved_store_key", None) or getattr(route, "view_name", None) or "data_query"
+        store_key = (
+                getattr(route, "resolved_store_key", None)
+                or getattr(route, "view_name", None)
+                or "data_query"
+        )
         context.execution_state[store_key] = payload
         structured = context.execution_state.setdefault("structured_outputs", {})
         structured[f"{self.name}:{getattr(route, 'view_name', None)}"] = payload
@@ -1175,19 +1654,32 @@ class DataQueryAgent(BaseAgent):
 
         # --- OUTPUT FOR UI -----------------------------------------------------
         if payload.get("ok"):
-            md = _rows_to_markdown_table(payload["rows"])
+            rows_full = payload.get("rows_full") or []
+            rows_compact = payload.get("rows_compact") or rows_full
+
+            md_compact = _rows_to_markdown_table(rows_compact)
+            md_full = _rows_to_markdown_table(rows_full) if rows_full else md_compact
+
             meta_block = {
                 "view": payload["view"],
                 "row_count": payload["row_count"],
                 "url": payload["url"],
                 "status_code": payload["status_code"],
                 "entity": entity_meta,
+                "projection_mode": payload.get("projection_mode", "compact"),
+                "has_compact": True,
+                "has_full": True,
+                "table_markdown_compact": md_compact,
+                "table_markdown_full": md_full,
             }
 
             canonical_output = {
-                "table_markdown": md,
-                "markdown": md,
-                "content": md,
+                "table_markdown": md_compact,
+                "table_markdown_compact": md_compact,
+                "table_markdown_full": md_full,
+                # default content = compact
+                "markdown": md_compact,
+                "content": md_compact,
                 "meta": meta_block,
                 "action": "query",
                 "intent": "action",
@@ -1197,13 +1689,15 @@ class DataQueryAgent(BaseAgent):
                 "[data_query:output] adding successful agent_output",
                 extra={
                     "event": "data_query_output_success",
-                    "markdown_length": len(md),
+                    "markdown_length": len(md_compact),
                 },
             )
 
             context.add_agent_output(channel_key, canonical_output)
 
-            structured_outputs = context.execution_state.setdefault("structured_outputs", {})
+            structured_outputs = context.execution_state.setdefault(
+                "structured_outputs", {}
+            )
             structured_outputs[channel_key] = canonical_output
 
         else:

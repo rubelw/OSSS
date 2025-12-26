@@ -46,6 +46,37 @@ class BackendAPIClient:
         """
         await self._client.aclose()
 
+    # 👇 NEW: generic JSON helper for arbitrary paths
+    async def get_json(
+        self,
+        path: str,
+        *,
+        params: Optional[Mapping[str, Any]] = None,
+        headers: Optional[Mapping[str, str]] = None,
+    ) -> Any:
+        """
+        Convenience wrapper to GET JSON from the backend.
+
+        `path` can be:
+        - relative (e.g. "/api/consents")
+        - or a full URL (e.g. "http://localhost:8000/api/consents")
+
+        Returns: whatever JSON the backend returns.
+        """
+        normalized = path  # httpx.AsyncClient supports absolute or relative paths
+
+        merged_headers: Dict[str, str] = {"accept": "application/json"}
+        if headers:
+            merged_headers.update(dict(headers))
+
+        resp = await self._client.get(
+            normalized,
+            params=dict(params or {}),
+            headers=merged_headers,
+        )
+        resp.raise_for_status()
+        return resp.json()
+
     async def get_collection(
         self,
         collection: str,
@@ -82,10 +113,12 @@ class BackendAPIClient:
         if headers:
             merged_headers.update(dict(headers))
 
-        resp = await self._client.get(path, params=merged_params, headers=merged_headers)
-        resp.raise_for_status()
+        data = await self.get_json(
+            path,
+            params=merged_params,
+            headers=merged_headers,
+        )
 
-        data = resp.json()
         if not isinstance(data, list):
             raise ValueError(
                 f"Expected list response from GET {path}, got {type(data)}: {data!r}"
@@ -101,7 +134,7 @@ class BackendAPIClient:
                 out.append({"value": item})
         return out
 
-    # 👇 NEW: generic detail helper for arbitrary paths
+    # Generic detail helper for arbitrary paths
     async def get_detail(
         self,
         *,
@@ -123,6 +156,10 @@ class BackendAPIClient:
         if headers:
             merged_headers.update(dict(headers))
 
-        resp = await self._client.get(normalized, params=params or {}, headers=merged_headers)
+        resp = await self._client.get(
+            normalized,
+            params=dict(params or {}),
+            headers=merged_headers,
+        )
         resp.raise_for_status()
         return resp.json()

@@ -15,6 +15,8 @@ interface UiMessage {
   content: string;
   isHtml?: boolean;
   fullWidth?: boolean; // 👈 NEW
+  // 👇 NEW: raw metadata from backend, if any
+  meta?: any;
 }
 
 interface RetrievedChunk {
@@ -260,8 +262,9 @@ function buildSourcesHtmlFromChunks(chunks: RetrievedChunk[]): string {
 }
 
 /**
- * 🔹 NEW: Build Markdown tables for any data_query:* agent outputs.
- * This leverages your existing mdToHtml → HTML table rendering.
+ * 🔹 PREVIOUS: build markdown tables from data_query rows.
+ * We’ll now treat this as a **fallback** when the backend does NOT
+ * provide table_markdown_compact / table_markdown_full.
  */
 function buildDataQueryMarkdown(agentOutputs?: Record<string, any>): string {
   if (!agentOutputs) return "";
@@ -271,6 +274,10 @@ function buildDataQueryMarkdown(agentOutputs?: Record<string, any>): string {
   for (const [key, value] of Object.entries(agentOutputs)) {
     if (!key.startsWith("data_query")) continue;
     if (!value || typeof value !== "object") continue;
+
+    // If new-style output with table_markdown_* exists, skip here
+    const v: any = value;
+    if (v.table_markdown_compact || v.table_markdown_full) continue;
 
     const dq = value as {
       view?: string;
@@ -332,6 +339,24 @@ function buildDataQueryMarkdown(agentOutputs?: Record<string, any>): string {
 }
 
 /**
+ * 🔹 NEW: extract first data_query canonical output that has
+ * table_markdown_compact / table_markdown_full.
+ */
+function extractDataQueryMeta(agentOutputs?: Record<string, any>): any | null {
+  if (!agentOutputs) return null;
+  for (const [key, value] of Object.entries(agentOutputs)) {
+    if (!key.startsWith("data_query")) continue;
+    if (!value || typeof value !== "object") continue;
+
+    const v: any = value;
+    if (v.table_markdown_compact || v.table_markdown_full) {
+      return v;
+    }
+  }
+  return null;
+}
+
+/**
  * Map the raw intent label to a more descriptive explanation.
  * This is aligned with server-side intents.
  */
@@ -356,11 +381,80 @@ function describeIntent(intent: string): string {
   }
 }
 
+/**
+ * 🔹 NEW: UI component for data_query results with compact/full toggle.
+ */
+type ProjectionMode = "compact" | "full";
+
+function DataQueryResult({ meta }: { meta: any }) {
+  const [mode, setMode] = useState<ProjectionMode>(
+    (meta?.projection_mode as ProjectionMode) || "compact"
+  );
+
+  const hasCompact = !!meta?.table_markdown_compact;
+  const hasFull = !!meta?.table_markdown_full;
+
+  if (!hasCompact && !hasFull) return null;
+
+  const markdown =
+    mode === "full"
+      ? meta.table_markdown_full || meta.table_markdown_compact
+      : meta.table_markdown_compact || meta.table_markdown_full;
+
+  const html = mdToHtml(String(markdown || ""));
+
+  return (
+    <div className="data-query-result" style={{ marginTop: "8px" }}>
+      <div className="flex justify-between items-center mb-2">
+        <div className="text-sm text-gray-500">
+          {meta?.entity?.display_name || meta?.view || "Query result"}
+        </div>
+
+        {hasCompact && hasFull && (
+          <div className="flex gap-2 text-xs">
+            <button
+              type="button"
+              onClick={() => setMode("compact")}
+              style={{
+                padding: "2px 6px",
+                borderRadius: "4px",
+                border: "1px solid #ccc",
+                backgroundColor: mode === "compact" ? "#f0f0f0" : "transparent",
+                cursor: "pointer",
+              }}
+            >
+              Compact view
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode("full")}
+              style={{
+                padding: "2px 6px",
+                borderRadius: "4px",
+                border: "1px solid #ccc",
+                backgroundColor: mode === "full" ? "#f0f0f0" : "transparent",
+                cursor: "pointer",
+              }}
+            >
+              Full view
+            </button>
+          </div>
+        )}
+      </div>
+
+      <div
+        className="data-query-table"
+        style={{ overflowX: "auto", fontSize: "0.85rem" }}
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
+    </div>
+  );
+}
+
 export default function ChatClient() {
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [lastRawResponse, setLastRawResponse] = useState<string>("");
-
 
   const [messages, setMessages] = useState<UiMessage[]>([]);
   const [chatHistory, setChatHistory] = useState<
@@ -490,11 +584,18 @@ export default function ChatClient() {
     } catch {}
   }, [chatHistory]);
 
+  // 👇 UPDATED: appendMessage now accepts optional meta
   const appendMessage = useCallback(
-    (who: "user" | "bot", content: string, isHtml = false, fullWidth = false) => {
+    (
+      who: "user" | "bot",
+      content: string,
+      isHtml = false,
+      fullWidth = false,
+      meta?: any
+    ) => {
       setMessages((prev) => {
         const lastId = prev.length ? prev[prev.length - 1].id : 0;
-        return [...prev, { id: lastId + 1, who, content, isHtml, fullWidth }];
+        return [...prev, { id: lastId + 1, who, content, isHtml, fullWidth, meta }];
       });
     },
     []
@@ -651,8 +752,11 @@ export default function ChatClient() {
       // Primary text to show in chat (synthesis preferred)
       const reply = pickPrimaryText(wf.agent_outputs) || "(No agent output returned)";
 
-      // 🔹 NEW: build markdown for any data_query:* outputs and append
-      const dataQueryMd = buildDataQueryMarkdown(wf.agent_outputs);
+      // 🔹 NEW: pull data_query canonical meta if present
+      const dataQueryMeta = extractDataQueryMeta(wf.agent_outputs);
+
+      // 🔹 Fallback: build markdown tables only if no canonical meta exists
+      const dataQueryMd = dataQueryMeta ? "" : buildDataQueryMarkdown(wf.agent_outputs);
 
       // Pull intent/tone/etc from the query profile (new shape)
       const qp = getQueryProfile(wf);
@@ -666,6 +770,7 @@ export default function ChatClient() {
       let replyForDisplay = reply.trimEnd();
 
       if (dataQueryMd) {
+        // Keep old behavior as fallback only
         replyForDisplay += `\n\n---\n${dataQueryMd}`;
       }
 
@@ -696,10 +801,11 @@ export default function ChatClient() {
       const sourcesHtml = showSources ? buildSourcesHtmlFromChunks(chunksForThisReply) : "";
       const finalHtml = outHtml + sourcesHtml;
 
-      // 🔹 NEW: use fullWidth if we have debug OR a data_query table
-      const useFullWidth = showDebug || !!dataQueryMd;
+      // 🔹 NEW: use fullWidth if we have debug OR a data_query table (either style)
+      const useFullWidth = showDebug || !!dataQueryMd || !!dataQueryMeta;
 
-      appendMessage("bot", finalHtml, true, useFullWidth);
+      // Attach meta if we have data_query canonical output; otherwise undefined
+      appendMessage("bot", finalHtml, true, useFullWidth, dataQueryMeta || undefined);
 
       setChatHistory((prev) => [...prev, { role: "assistant", content: String(replyForHistory) }]);
     } catch (err: any) {
@@ -832,7 +938,14 @@ export default function ChatClient() {
                   : undefined
               }
             >
+              {/* ✅ Always show the main content */}
               {m.isHtml ? <div dangerouslySetInnerHTML={{ __html: m.content }} /> : m.content}
+
+              {/* ✅ NEW: if this message has data_query meta, render the toggleable table below */}
+              {m.meta &&
+                (m.meta.table_markdown_compact || m.meta.table_markdown_full) && (
+                  <DataQueryResult meta={m.meta} />
+                )}
             </div>
           </div>
         ))}
