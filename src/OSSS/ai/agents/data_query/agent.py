@@ -26,17 +26,17 @@ DEFAULT_BASE_URL = os.getenv("OSSS_BACKEND_BASE_URL", "http://app:8000")
 # If below this, we fall back to text-based route matching.
 MIN_TOPIC_CONFIDENCE = float(os.getenv("OSSS_DATAQUERY_MIN_TOPIC_CONFIDENCE", "0.15"))
 
+
 def _get_classifier_and_text_from_context(context: AgentContext) -> tuple[dict, str]:
     """
     Robustly pull classifier result + original query text from AgentContext.
 
-    We don't know exactly where the orchestrator stores them, so we check
-    a few likely spots and log what we found.
+    We prefer execution_state["original_query"] (which is the raw user query
+    from /api/query) over any possibly-mutated context.original_query.
     """
     exec_state = getattr(context, "execution_state", {}) or {}
     meta = getattr(context, "metadata", {}) or {}
 
-    # Try several likely keys for classifier
     classifier = (
         exec_state.get("prestep", {}).get("classifier")
         or exec_state.get("pre_step", {}).get("classifier")
@@ -45,10 +45,10 @@ def _get_classifier_and_text_from_context(context: AgentContext) -> tuple[dict, 
         or {}
     )
 
-    # Try several likely keys for original query text
+    # 🔑 IMPORTANT: prefer exec_state["original_query"] first
     raw_text = (
-        getattr(context, "original_query", None)
-        or exec_state.get("original_query")
+        exec_state.get("original_query")
+        or getattr(context, "original_query", None)
         or exec_state.get("query")
         or meta.get("original_query")
         or meta.get("query")
@@ -80,7 +80,7 @@ def choose_route_for_query(raw_text: str, classifier: Dict[str, Any]) -> DataQue
     Order:
       1) If classifier.topic_confidence is high enough, try classifier.topic
          and classifier.topics[]
-      2) Otherwise (or if those fail), fall back to text-based heuristic:
+      2) Otherwise (or if those fail), fall back to text-based route matching:
          find_route_for_text(raw_text)
     """
     topic_primary = classifier.get("topic")
@@ -254,9 +254,6 @@ class DataQueryAgent(BaseAgent):
         raw_text_lower = raw_text_norm.lower()
 
         # 🚧 LEXICAL GATE:
-        # Only hit data_query for things that look like a structured query,
-        # e.g., explicitly prefixed with "query ".
-        # You can override this with execution_config["data_query"]["force"] = True.
         is_structured_query = raw_text_lower.startswith("query ")
         force_data_query = bool(dq_cfg.get("force"))
 
@@ -280,12 +277,11 @@ class DataQueryAgent(BaseAgent):
             )
             return context
 
-        # --- INTENT (best-effort; used only as *extra* signal) -----------------
+        # --- INTENT ------------------------------------------------------------
         state_intent = getattr(context, "intent", None) or exec_state.get("intent")
         classifier_intent = (
             classifier.get("intent") if isinstance(classifier, dict) else None
         )
-
         intent_raw = state_intent or classifier_intent
         intent = (intent_raw or "").strip().lower() or None
 
@@ -376,7 +372,6 @@ class DataQueryAgent(BaseAgent):
         )
 
         # --- PARAMS + BASE URL -------------------------------------------------
-        # Decide where base_url came from, then normalize + validate it.
         raw_base_url_from_cfg = dq_cfg.get("base_url")
         raw_base_url_from_route = getattr(route, "base_url", None)
 
@@ -391,7 +386,6 @@ class DataQueryAgent(BaseAgent):
             raw_base_url = self.BASE_URL
 
         if not raw_base_url:
-            # This should never happen, but guard it explicitly.
             logger.error(
                 "[data_query:routing] no base_url configured at any level",
                 extra={
@@ -405,7 +399,6 @@ class DataQueryAgent(BaseAgent):
                 "no OSSS_BACKEND_BASE_URL default is set."
             )
 
-        # Normalize (strip trailing slash) and validate scheme.
         base_url = raw_base_url.rstrip("/")
 
         if not base_url.startswith(("http://", "https://")):
@@ -426,13 +419,11 @@ class DataQueryAgent(BaseAgent):
                 f"{raw_base_url!r} (expected something like 'http://localhost:8000')"
             )
 
-        # Merge default params + data_query overrides + execution http_query_params
         params: Dict[str, Any] = {}
         params.update(route.default_params or {})
         params.update(dq_cfg.get("default_params") or {})
         params.update(exec_cfg.get("http_query_params") or {})
 
-        # Keep entity_meta's base_url in sync with the resolved one
         entity_meta["base_url"] = base_url
         entity_meta["default_params"] = params
 
@@ -515,6 +506,27 @@ class DataQueryAgent(BaseAgent):
                 "entity": entity_meta,
             }
 
+        # --- SINGLE CHANNEL KEY FOR THIS RESULT -------------------------------
+        topic_key = (
+            route.topic.strip()
+            if isinstance(route.topic, str)
+            else ""
+        )
+        if topic_key:
+            channel_key = f"{self.name}:{topic_key}"
+        else:
+            channel_key = self.name  # "data_query"
+
+        logger.info(
+            "[data_query:output] using single channel key for agent_output",
+            extra={
+                "event": "data_query_output_channel_key",
+                "channel_key": channel_key,
+                "route_topic": route.topic,
+                "route_view_name": route.view_name,
+            },
+        )
+
         # --- STORE IN CONTEXT --------------------------------------------------
         context.execution_state[route.resolved_store_key] = payload
         structured = context.execution_state.setdefault("structured_outputs", {})
@@ -531,6 +543,25 @@ class DataQueryAgent(BaseAgent):
         # --- OUTPUT FOR UI -----------------------------------------------------
         if payload.get("ok"):
             md = _rows_to_markdown_table(payload["rows"])
+            meta_block = {
+                "view": payload["view"],
+                "row_count": payload["row_count"],
+                "url": payload["url"],
+                "status_code": payload["status_code"],
+                "entity": entity_meta,
+            }
+
+            # Canonical structured-output object for data_query
+            canonical_output = {
+                # These three are aliases so downstream code can pick whichever it expects
+                "table_markdown": md,
+                "markdown": md,
+                "content": md,
+                "meta": meta_block,
+                "action": "query",
+                "intent": "action",
+            }
+
             logger.debug(
                 "[data_query:output] adding successful agent_output",
                 extra={
@@ -538,21 +569,14 @@ class DataQueryAgent(BaseAgent):
                     "markdown_length": len(md),
                 },
             )
-            context.add_agent_output(
-                f"{self.name}:{route.view_name}",
-                {
-                    "content": md,
-                    "meta": {
-                        "view": payload["view"],
-                        "row_count": payload["row_count"],
-                        "url": payload["url"],
-                        "status_code": payload["status_code"],
-                        "entity": entity_meta,
-                    },
-                    "action": "query",
-                    "intent": "action",
-                },
-            )
+
+            # ✅ Single agent_output channel to avoid duplicate tables
+            context.add_agent_output(channel_key, canonical_output)
+
+            # Optional: also mirror into structured_outputs under same key
+            structured_outputs = context.execution_state.setdefault("structured_outputs", {})
+            structured_outputs[channel_key] = canonical_output
+
         else:
             logger.debug(
                 "[data_query:output] adding failed agent_output",
@@ -562,7 +586,7 @@ class DataQueryAgent(BaseAgent):
                 },
             )
             context.add_agent_output(
-                f"{self.name}:{route.view_name}",
+                channel_key,
                 {
                     "content": f"**data_query failed**: {payload.get('error', 'unknown error')}",
                     "meta": payload,
@@ -583,5 +607,4 @@ class DataQueryAgent(BaseAgent):
         return context
 
     async def invoke(self, context: AgentContext) -> AgentContext:
-        # 🔧 fixed stray dot at the end
         return await self.run(context)

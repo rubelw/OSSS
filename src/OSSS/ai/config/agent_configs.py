@@ -429,6 +429,8 @@ class FinalConfig(BaseModel):
     execution_config: AgentExecutionConfig = Field(
         default_factory=lambda: AgentExecutionConfig(timeout_seconds=120)
     )
+    tone: Optional[str] = None  # <--- add this back so references to config.tone don’t crash
+
 
     @classmethod
     def from_dict(cls, config: Dict[str, Any]) -> "FinalConfig":

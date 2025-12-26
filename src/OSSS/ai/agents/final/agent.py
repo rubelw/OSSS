@@ -108,6 +108,67 @@ class FinalAgent(BaseAgent):
         # Compose the prompt on initialization (if PromptComposer supports final)
         self._update_composed_prompt()
 
+    def _compose_prompt(self, ctx: AgentContext) -> tuple[str, str]:
+        """
+        Build system + user prompts for the FinalAgent.
+        Uses original_query and data_query output so structured query mode works.
+        """
+        exec_state = getattr(ctx, "execution_state", {}) or {}
+
+        # --- 1) Original vs refined question ---------------------------------
+        original_question = (
+            exec_state.get("original_query")
+            or getattr(ctx, "query", "")  # fallback if not set
+            or ""
+        )
+
+        if not original_question:
+            # Last-chance recovery from traces if needed
+            original_question = self._resolve_user_question(ctx) or ""
+
+        # What the refiner produced (or fall back to original)
+        agent_outputs = getattr(ctx, "agent_outputs", None) or {}
+        refined_question = agent_outputs.get("refiner") or original_question
+
+        # --- 2) RAG snippet + presence ---------------------------------------
+        rag_snippet = (
+            exec_state.get("rag_snippet")
+            or exec_state.get("rag_context")
+            or ""
+        )
+        rag_snippet = (rag_snippet or "").strip()
+        rag_present = bool(rag_snippet)
+
+        # --- 3) data_query markdown table(s) ---------------------------------
+        dq_output = agent_outputs.get("data_query")
+        data_query_markdown = ""
+
+        if isinstance(dq_output, dict):
+            data_query_markdown = (
+                dq_output.get("table_markdown")
+                or dq_output.get("markdown")
+                or dq_output.get("content")
+                or ""
+            )
+        elif isinstance(dq_output, str):
+            data_query_markdown = dq_output
+
+        data_query_markdown = (data_query_markdown or "").strip()
+
+        # --- 4) Build the final user prompt ----------------------------------
+        user_prompt = build_final_prompt(
+            user_question=refined_question,
+            refiner_text=refined_question,
+            rag_present=rag_present,
+            rag_section=rag_snippet,
+            original_user_question=original_question,
+            data_query_markdown=data_query_markdown,
+        )
+
+        # Use composed or default system prompt
+        system_prompt = self._get_system_prompt()
+        return system_prompt, user_prompt
+
     # -----------------------
     # heuristics
     # -----------------------
@@ -744,52 +805,52 @@ class FinalAgent(BaseAgent):
         try:
             exec_state = self._get_execution_state(ctx)
 
-            # Try to get the user question from execution_state; if missing, fall back
-            user_question = (exec_state.get("user_question") or "").strip()
-            if not user_question:
-                # Best-effort recovery using existing helpers (optional but nice)
-                ref_text_for_resolution = (
-                    exec_state.get("refiner_full_text")
-                    or exec_state.get("refined_query")
-                    or ""
-                )
-                recovered = self._resolve_user_question(ctx, refiner_text=ref_text_for_resolution)
-                if recovered:
-                    user_question = recovered
-
-            # ✅ Use rag_snippet presence to drive the flag, not a fallback string
-            rag_snippet = exec_state.get("rag_snippet")
-            if isinstance(rag_snippet, str):
-                rag_snippet = rag_snippet.strip()
-            else:
-                rag_snippet = ""
-
-            rag_present = bool(rag_snippet)
-            if rag_present:
-                rag_section = rag_snippet
-                logger.info(f"[{self.name}] RAG context successfully retrieved.")
-            else:
-                # No real RAG snippet – we *still* show a RAG section, but the flag will be False
-                logger.warning(f"[{self.name}] No RAG context found, proceeding without it.")
-                rag_section = "No relevant context found for this query. Please verify the query or try again."
-
-            # Choose best refiner text to include (if any)
-            refiner_text = (
-                exec_state.get("refiner_full_text")
-                or exec_state.get("refined_query")
+            # --- Structured data-query short-circuit -------------------------
+            # Use the original user query (so we see "query consents", etc.)
+            original_q = (
+                exec_state.get("original_query")
+                or getattr(ctx, "query", "")  # fallback
                 or ""
             )
+            original_q = original_q.strip()
 
-            # ✅ Build user prompt using rag_present + rag_section
-            user_prompt = self._build_prompt(
-                user_question=user_question,
-                refiner_text=refiner_text,
-                rag_present=rag_present,
-                rag_section=rag_section,
-            )
+            if original_q.lower().startswith("query "):
+                # Pull data_query output from context
+                agent_outputs = getattr(ctx, "agent_outputs", None) or {}
+                dq_output = agent_outputs.get("data_query")
 
-            # ✅ Resolve system prompt (composed or default)
-            system_prompt = self._get_system_prompt()
+                data_query_markdown = ""
+                if isinstance(dq_output, dict):
+                    data_query_markdown = (
+                        dq_output.get("table_markdown")
+                        or dq_output.get("markdown")
+                        or dq_output.get("content")
+                        or ""
+                    )
+                elif isinstance(dq_output, str):
+                    data_query_markdown = dq_output
+
+                data_query_markdown = (data_query_markdown or "").strip()
+
+                if data_query_markdown:
+                    # ✅ Bypass LLM entirely – return ONLY the table(s)
+                    ctx.add_agent_output("final", data_query_markdown)
+
+                    # Optional: record approximate token usage so observability still works
+                    approx_tokens = len(data_query_markdown.split())
+                    ctx.add_agent_token_usage(
+                        agent_name=self.name,
+                        input_tokens=0,
+                        output_tokens=approx_tokens,
+                        total_tokens=approx_tokens,
+                    )
+
+                    self._mark_completed(ctx)
+                    return ctx
+                # If no table is available, fall through to normal LLM behavior
+
+            # ✅ Use new composer that understands original_query + data_query tables
+            system_prompt, user_prompt = self._compose_prompt(ctx)
 
             # Invoke LLM and process the final answer
             llm = self._resolve_llm(ctx)

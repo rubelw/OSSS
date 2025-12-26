@@ -1,11 +1,3 @@
-"""
-System and user prompts for the FinalAgent.
-
-This module contains the system and user-level prompt templates used by the
-FinalAgent to turn multi-agent context + RAG snippets into a clean, end-user
-answer, while enforcing strict role-identity and RAG usage rules.
-"""
-
 from __future__ import annotations
 
 from typing import List
@@ -13,13 +5,18 @@ from typing import List
 FINAL_USER_PROMPT_TEMPLATE = """RAG_SNIPPET_PRESENT: {rag_present}
 
 USER QUESTION:
-{user_question}{extra_blocks}
+{user_question}
+{refiner_block}
 
 RETRIEVED CONTEXT (RAG):
 {rag_section}
 
+DATA_QUERY TABLES (if any):
+{data_query_block}
+
 Now produce the final answer for the end user.
 """
+
 
 FINAL_SYSTEM_PROMPT = """You are the FINAL agent for OSSS, the last step in a multi-agent pipeline.
 
@@ -101,20 +98,15 @@ def build_final_prompt(
     Special case:
     - If the *original* user question begins with "query " (any casing), we treat it as a
       structured data query and:
-        * Show the original query (including "query ") as the USER QUESTION.
         * DO NOT include the refiner block at all.
         * DO NOT include any RAG snippet (pretend RAG is absent).
-        * If data_query_markdown is provided, we include it as raw markdown tables
-          so the FinalAgent can echo ONLY those tables back to the user.
     """
-    # Visible USER QUESTION is always the original, if we have it
-    if original_user_question and original_user_question.strip():
-        uq = original_user_question.strip()
-    else:
-        uq = (user_question or "").strip() or "[missing user question]"
+    # What we’ll display as "USER QUESTION:"
+    uq = (user_question or "").strip() or "[missing user question]"
 
-    # Use the same visible text to decide if this was a lexical "query ..." request
-    detector_lower = uq.lower()
+    # Use the *original* question, if available, to decide if this was a lexical query
+    detector_text = (original_user_question or user_question or "").strip()
+    detector_lower = detector_text.lower()
     is_structured_query = detector_lower.startswith("query ")
 
     # Normalize refiner text
@@ -126,30 +118,14 @@ def build_final_prompt(
         and refiner_text != uq
         and not is_structured_query
     ):
-        refiner_block_lines: List[str] = [
+        lines: List[str] = [
             "",
             "REFINER CONTEXT (may help disambiguate / improve search terms):",
             refiner_text,
         ]
-        refiner_block = "\n".join(refiner_block_lines)
+        refiner_block = "\n".join(lines)
     else:
-        # For structured "query ..." we *always* omit refiner context.
         refiner_block = ""
-
-    # ---- Data-query block ----------------------------------------------------
-    dq = (data_query_markdown or "").strip()
-    if dq:
-        if is_structured_query:
-            # In structured mode, we want the FinalAgent to see only the tables
-            # as extra content, with no labels or prose around them.
-            data_query_block = "\n\n" + dq
-        else:
-            # In non-structured mode, label the section so FINAL can weave it into prose.
-            data_query_block = "\n\nDATA QUERY RESULTS (markdown tables):\n" + dq
-    else:
-        data_query_block = ""
-
-    extra_blocks = refiner_block + data_query_block
 
     # ---- RAG section ---------------------------------------------------------
     if is_structured_query:
@@ -160,9 +136,17 @@ def build_final_prompt(
         rag_present_for_prompt = bool(rag_present)
         rag_section_final = (rag_section or "").strip() or "No retrieved context provided."
 
+    # ---- data_query tables block ---------------------------------------------
+    dq = (data_query_markdown or "").strip()
+    if dq:
+        data_query_block = dq
+    else:
+        data_query_block = "[no data_query tables available]"
+
     return FINAL_USER_PROMPT_TEMPLATE.format(
         rag_present=str(rag_present_for_prompt),
         user_question=uq,
-        extra_blocks=extra_blocks,
+        refiner_block=refiner_block,
         rag_section=rag_section_final,
+        data_query_block=data_query_block,
     )

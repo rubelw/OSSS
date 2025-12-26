@@ -319,6 +319,32 @@ def find_route_for_text(
 
     t = text.lower().strip()
 
+    # ------------------------------------------------------------------
+    # SPECIAL CASE: consent / consents → consents route
+    #
+    # This fixes cases like "query consent" where:
+    # - "consent" (singular) does not exactly match the topic key "consents"
+    # - substring match on topic "consents" also fails (no 's' in text)
+    #
+    # Any text containing "consent" or "consents" should map to the
+    # consents DataQueryRoute if it exists.
+    # ------------------------------------------------------------------
+    if "consents" in t or "consent" in t:
+        route = _ROUTES_BY_TOPIC.get("consents")
+        if route is not None:
+            logger.info(
+                "[data_query.config] Resolved route by consent(s) special-case",
+                extra={
+                    "event": "data_query_find_route_for_text_consents_special_case",
+                    "text": t,
+                    "topic": route.topic,
+                    "collection": route.collection,
+                    "view_name": route.view_name,
+                    "path": route.resolved_path,
+                },
+            )
+            return route
+
     # Optional tiny heuristic: strip leading verbs like "query", "list", "show"
     # so "query consents" → "consents"
     for prefix in ("query ", "list ", "show ", "get "):
