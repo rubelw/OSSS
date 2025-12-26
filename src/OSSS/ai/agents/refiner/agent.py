@@ -4,6 +4,7 @@ from OSSS.ai.agents.base_agent import (
     NodeInputSchema,
     NodeOutputSchema,
 )
+import json
 from OSSS.ai.context import AgentContext
 from OSSS.ai.llm.llm_interface import LLMInterface
 from OSSS.ai.config.app_config import get_config
@@ -100,23 +101,25 @@ class RefinerAgent(BaseAgent):
             self._composed_prompt = None
 
     def _get_system_prompt(self) -> str:
-        if self._composed_prompt and self._prompt_composer.validate_composition(self._composed_prompt):
-            return self._inject_dcg_rule(self._composed_prompt.system_prompt)
-        logger.debug(f"[{self.name}] Using default system prompt (fallback)")
+        """
+        Return the canonical system prompt for the RefinerAgent.
+
+        We intentionally bypass PromptComposer here to guarantee that the model
+        always sees the strict JSON-output instructions defined in
+        REFINER_SYSTEM_PROMPT.
+        """
+        logger.debug(f"[{self.name}] Using canonical REFINER_SYSTEM_PROMPT")
         return self._inject_dcg_rule(REFINER_SYSTEM_PROMPT)
 
     def _get_refiner_prompt(self, query: str) -> str:
-        return f"""
-        You are a query refinement assistant. Your task is to refine the following query:
-
-        1. Expand abbreviations (e.g., DCG -> Dallas Center-Grimes School District).
-        2. Clarify any ambiguities or add missing details.
-        3. Make the query more precise, clear, and complete.
-
-        Original Query: {query}
-
-        ### Refined Query:
         """
+        Deprecated helper: left as a thin wrapper to keep callsites simple
+        if needed, but we now rely on the system prompt to fully specify
+        output format.
+
+        The user message just provides the original query.
+        """
+        return f"Original query: {query}\n\nPlease refine this query according to the system instructions."
 
     def update_config(self, config: RefinerConfig) -> None:
         self.config = config
@@ -197,30 +200,62 @@ class RefinerAgent(BaseAgent):
 
         logger.debug(f"[{self.name}] Refined Output: {refined_output}")
 
-        # Handle empty or unchanged refined queries
-        refined_text = coerce_llm_text(refined_output).strip()
-        if not refined_text or refined_text.startswith("[Unchanged]"):
-            logger.error(f"[{self.name}] Refined query is empty or unchanged, fallback to default.")
-            refined_text = "Please provide a valid question so I can assist you better."
+        # Coerce LLM output to plain text
+        raw_text = coerce_llm_text(refined_output).strip()
+        if not raw_text:
+            logger.error(f"[{self.name}] Refined output is empty; falling back to original query.")
+            refined_query = query
+        else:
+            refined_query = None
+
+            # 1) Try strict JSON parse: {"refined_query": "<...>"}
+            try:
+                obj = json.loads(raw_text)
+                rq = obj.get("refined_query")
+                if isinstance(rq, str) and rq.strip():
+                    refined_query = rq.strip()
+                    logger.debug(
+                        f"[{self.name}] Parsed refined_query from JSON: {refined_query}"
+                    )
+            except json.JSONDecodeError:
+                logger.warning(
+                    f"[{self.name}] Refiner output not valid JSON; falling back",
+                    extra={"raw_preview": raw_text[:200]},
+                )
+
+            # 2) Fallback: support old "[Unchanged] ..." pattern if model still uses it
+            if refined_query is None:
+                if raw_text.startswith("[Unchanged]"):
+                    candidate = raw_text[len("[Unchanged]"):].strip()
+                    refined_query = candidate or query
+                    logger.debug(
+                        f"[{self.name}] Using fallback [Unchanged] pattern: {refined_query}"
+                    )
+                else:
+                    # As a last resort, just treat the raw text as the refined query
+                    refined_query = raw_text
+                    logger.debug(
+                        f"[{self.name}] Using raw_text as refined_query fallback: {refined_query}"
+                    )
 
         # Ensure that the refined query is added to the context properly before passing it to the final agent
-        context.execution_state["refined_query"] = refined_text
+        context.execution_state["refined_query"] = refined_query
 
         # Now pass this updated context to the final agent
         final_agent_context = context  # Ensure this context contains the updated refined query
 
         env = self._wrap_output(
-            output=refined_text,
+            output=refined_query,
             intent="refine_query",
             tone="neutral",
             action="read",
             sub_tone=None,
         )
 
-        context.add_agent_output(self.name, refined_text)
+        context.add_agent_output(self.name, refined_query)
         context.add_agent_output_envelope(self.name, env)
 
-        context.log_trace(self.name, input_data=query, output_data=refined_text)
+        context.log_trace(self.name, input_data=query, output_data=refined_query)
         return context
 
     async def _run_structured(self, query: str, system_prompt: str, context: AgentContext) -> str:
@@ -280,12 +315,12 @@ class RefinerAgent(BaseAgent):
     async def _run_traditional(self, query: str, system_prompt: str, context: AgentContext) -> str:
         logger.info(f"[{self.name}] Using traditional LLM interface")
 
+        user_prompt = self._get_refiner_prompt(query)
+
         messages = [
             {"role": "system", "content": system_prompt},
-            {"role": "user",
-             "content": f"Original query: {query}\n\nPlease refine this query according to the system instructions."},
+            {"role": "user", "content": user_prompt},
         ]
-
         resp = await self.llm.ainvoke(messages)
 
         refined_query = coerce_llm_text(resp).strip()

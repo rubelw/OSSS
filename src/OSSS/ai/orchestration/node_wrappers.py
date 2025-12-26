@@ -489,7 +489,7 @@ async def create_agent_with_llm(
         if not isinstance(classifier_cfg, dict):
             classifier_cfg = {}
 
-        model_path = classifier_cfg.get("model_path", "models/intent_classifier.joblib")
+        model_path = classifier_cfg.get("model_path", "models/domain_topic_intent_classifier.joblib")
         model_version = classifier_cfg.get("model_version", "v1")
 
         logger.info(

@@ -731,7 +731,7 @@ class SynthesisOutput(BaseAgentOutput):
 
         # ✅ contributing_agents: allow empty, but validate if provided
         if self.contributing_agents:
-            valid_agents = {"refiner", "critic", "historian", "synthesis", "data_query"}
+            valid_agents = {"refiner", "historian", "final", "data_query"}
             invalid_agents = [
                 agent for agent in self.contributing_agents
                 if str(agent).lower() not in valid_agents

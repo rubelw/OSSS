@@ -752,7 +752,7 @@ class EventStatistics(BaseModel):
         default_factory=dict,
         description="Count of events by agent name",
         json_schema_extra={
-            "example": {"refiner": 95, "critic": 95, "historian": 90, "synthesis": 95}
+            "example": {"refiner": 95, "data_query": 95, "historian": 90, "final": 95}
         },
     )
     events_by_capability: Dict[str, int] = Field(

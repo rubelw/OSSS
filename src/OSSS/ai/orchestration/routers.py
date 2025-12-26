@@ -29,11 +29,16 @@ from OSSS.ai.observability import get_logger
 
 RouterFn = Callable[[OSSSState], str]
 
+# Module-level logger for router observability
+logger = get_logger(__name__)
+
+
 @dataclass(frozen=True)
 class RoutingResult:
     agents: List[str]                 # final agents_to_run
     pattern: str = "standard"         # graph pattern name
     meta: Dict[str, Any] = None       # debugging
+
 
 class RouterError(Exception):
     """Raised for router registry or execution errors."""
@@ -64,31 +69,83 @@ class RouterRegistry:
         self._routers: Dict[str, RouterFn] = {}
         self._specs: Dict[str, RouterSpec] = {}
         self.logger = get_logger(f"{__name__}.RouterRegistry")
+        self.logger.debug(
+            "Initialized RouterRegistry",
+            extra={"event": "router_registry_init"},
+        )
 
     def register(self, name: str, fn: RouterFn, *, description: str = "") -> None:
         key = (name or "").strip()
         if not key:
+            self.logger.error(
+                "Attempted to register router with empty name",
+                extra={"event": "router_register_error"},
+            )
             raise RouterError("Router name cannot be empty")
+
         if key in self._routers:
-            self.logger.warning(f"Overwriting router '{key}'")
+            self.logger.warning(
+                "Overwriting existing router",
+                extra={"event": "router_register_overwrite", "router_name": key},
+            )
+
         self._routers[key] = fn
         self._specs[key] = RouterSpec(name=key, description=description or "")
-        self.logger.debug(f"Registered router '{key}'")
+
+        self.logger.debug(
+            "Registered router",
+            extra={
+                "event": "router_registered",
+                "router_name": key,
+                "description": description or "",
+                "available_routers": sorted(self._routers.keys()),
+            },
+        )
 
     def get(self, name: str) -> RouterFn:
         key = (name or "").strip()
         if key not in self._routers:
+            self.logger.error(
+                "Unknown router requested",
+                extra={"event": "router_lookup_failed", "router_name": key},
+            )
             raise RouterError(f"Unknown router: {key}")
+
+        self.logger.debug(
+            "Router lookup successful",
+            extra={"event": "router_lookup", "router_name": key},
+        )
         return self._routers[key]
 
     def has(self, name: str) -> bool:
-        return (name or "").strip() in self._routers
+        key = (name or "").strip()
+        exists = key in self._routers
+        self.logger.debug(
+            "Router existence check",
+            extra={"event": "router_has", "router_name": key, "exists": exists},
+        )
+        return exists
 
     def list_names(self) -> list[str]:
-        return sorted(self._routers.keys())
+        names = sorted(self._routers.keys())
+        self.logger.debug(
+            "Listing routers",
+            extra={"event": "router_list", "router_count": len(names)},
+        )
+        return names
 
     def spec(self, name: str) -> Optional[RouterSpec]:
-        return self._specs.get((name or "").strip())
+        key = (name or "").strip()
+        spec = self._specs.get(key)
+        self.logger.debug(
+            "Router spec lookup",
+            extra={
+                "event": "router_spec_lookup",
+                "router_name": key,
+                "found": spec is not None,
+            },
+        )
+        return spec
 
 
 # -----------------------------------------------------------------------------
@@ -102,14 +159,38 @@ def _safe_dict(x: Any) -> Dict[str, Any]:
 def _get_exec_state(state: OSSSState) -> Dict[str, Any]:
     # OSSSState is a TypedDict-like mapping in your codebase; still guard hard.
     try:
-        return _safe_dict(state.get("execution_state"))
-    except Exception:
+        exec_state = _safe_dict(state.get("execution_state"))
+        logger.debug(
+            "Fetched execution_state from OSSSState",
+            extra={
+                "event": "get_exec_state",
+                # Avoid logging full state; just note presence / keys.
+                "has_execution_state": bool(exec_state),
+                "exec_state_keys": list(exec_state.keys()) if exec_state else [],
+            },
+        )
+        return exec_state
+    except Exception as exc:
+        logger.error(
+            "Failed to fetch execution_state from OSSSState",
+            exc_info=True,
+            extra={"event": "get_exec_state_error", "error_type": type(exc).__name__},
+        )
         return {}
 
 
 def _get_agent_output_meta(state: OSSSState) -> Dict[str, Any]:
     exec_state = _get_exec_state(state)
-    return _safe_dict(exec_state.get("agent_output_meta"))
+    aom = _safe_dict(exec_state.get("agent_output_meta"))
+    logger.debug(
+        "Fetched agent_output_meta",
+        extra={
+            "event": "get_agent_output_meta",
+            "has_agent_output_meta": bool(aom),
+            "agent_output_meta_keys": list(aom.keys()) if aom else [],
+        },
+    )
+    return aom
 
 
 def _get_query_profile(state: OSSSState) -> Dict[str, Any]:
@@ -119,7 +200,17 @@ def _get_query_profile(state: OSSSState) -> Dict[str, Any]:
     """
     aom = _get_agent_output_meta(state)
     qp = aom.get("_query_profile") or aom.get("query_profile") or {}
-    return _safe_dict(qp)
+    qp = _safe_dict(qp)
+
+    logger.debug(
+        "Fetched query_profile",
+        extra={
+            "event": "get_query_profile",
+            "has_query_profile": bool(qp),
+            "query_profile_keys": list(qp.keys()) if qp else [],
+        },
+    )
+    return qp
 
 
 def _truthy(x: Any) -> bool:
@@ -150,16 +241,51 @@ def should_run_data_query(state: OSSSState) -> bool:
         action_type = str(qp.get("action_type", qp.get("action", ""))).lower()
         is_query = _truthy(qp.get("is_query", False))
 
+        decision = False
+        reason: str = ""
+
         if intent != "action":
-            return False
-        if action_type == "query":
-            return True
-        if is_query:
-            return True
-        if qp.get("table") or qp.get("tables") or qp.get("topic"):
-            return True
-        return False
-    except Exception:
+            decision = False
+            reason = "intent_not_action"
+        elif action_type == "query":
+            decision = True
+            reason = "action_type_query"
+        elif is_query:
+            decision = True
+            reason = "is_query_flag"
+        elif qp.get("table") or qp.get("tables") or qp.get("topic"):
+            decision = True
+            reason = "table_or_topic_present"
+        else:
+            decision = False
+            reason = "no_query_signals"
+
+        logger.debug(
+            "Evaluated should_run_data_query",
+            extra={
+                "event": "routing_decision",
+                "router": "should_run_data_query",
+                "decision": decision,
+                "reason": reason,
+                "intent": intent,
+                "action_type": action_type,
+                "is_query": is_query,
+                "has_table": bool(qp.get("table")),
+                "has_tables": bool(qp.get("tables")),
+                "has_topic": bool(qp.get("topic")),
+            },
+        )
+        return decision
+    except Exception as exc:
+        logger.error(
+            "Error while evaluating should_run_data_query",
+            exc_info=True,
+            extra={
+                "event": "routing_decision_error",
+                "router": "should_run_data_query",
+                "error_type": type(exc).__name__,
+            },
+        )
         return False
 
 
@@ -169,7 +295,28 @@ def router_refiner_query_or_reflect(state: OSSSState) -> str:
       - "data_query"  => run data_query
       - "reflect"     => go to reflection path (critic/historian/synthesis)
     """
-    return "data_query" if should_run_data_query(state) else "reflect"
+    try:
+        target = "data_query" if should_run_data_query(state) else "reflect"
+        logger.debug(
+            "Router decision",
+            extra={
+                "event": "router_route",
+                "router": "refiner_route_query_or_reflect",
+                "target": target,
+            },
+        )
+        return target
+    except Exception as exc:
+        logger.error(
+            "Error in router_refiner_query_or_reflect",
+            exc_info=True,
+            extra={
+                "event": "router_error",
+                "router": "refiner_route_query_or_reflect",
+                "error_type": type(exc).__name__,
+            },
+        )
+        return "reflect"
 
 
 def router_refiner_query_or_end(state: OSSSState) -> str:
@@ -178,17 +325,56 @@ def router_refiner_query_or_end(state: OSSSState) -> str:
       - "data_query" => run data_query
       - "END"        => stop early
     """
-    return "data_query" if should_run_data_query(state) else "END"
+    try:
+        target = "data_query" if should_run_data_query(state) else "END"
+        logger.debug(
+            "Router decision",
+            extra={
+                "event": "router_route",
+                "router": "refiner_route_query_or_end",
+                "target": target,
+            },
+        )
+        return target
+    except Exception as exc:
+        logger.error(
+            "Error in router_refiner_query_or_end",
+            exc_info=True,
+            extra={
+                "event": "router_error",
+                "router": "refiner_route_query_or_end",
+                "error_type": type(exc).__name__,
+            },
+        )
+        return "END"
 
 
 def router_always_synthesis(_: OSSSState) -> str:
     """Simple router for patterns that always want synthesis next."""
-    return "synthesis"
+    target = "synthesis"
+    logger.debug(
+        "Router decision (constant)",
+        extra={
+            "event": "router_route",
+            "router": "always_synthesis",
+            "target": target,
+        },
+    )
+    return target
 
 
 def router_always_end(_: OSSSState) -> str:
     """Simple router for patterns that always want to end."""
-    return "END"
+    target = "END"
+    logger.debug(
+        "Router decision (constant)",
+        extra={
+            "event": "router_route",
+            "router": "always_end",
+            "target": target,
+        },
+    )
+    return target
 
 
 def router_pick_reflection_node(state: OSSSState) -> str:
@@ -198,11 +384,41 @@ def router_pick_reflection_node(state: OSSSState) -> str:
     Convention supported:
       execution_state.agent_output_meta._reflection_target = "critic"|"historian"|"synthesis"
     """
-    aom = _get_agent_output_meta(state)
-    target = str(aom.get("_reflection_target", "")).strip().lower()
-    if target in {"critic", "historian", "synthesis"}:
-        return target
-    return "reflect"
+    try:
+        aom = _get_agent_output_meta(state)
+        raw_target = aom.get("_reflection_target", "")
+        target = str(raw_target).strip().lower()
+
+        # Normalize to actual node keys; you might adapt this as your graph evolves.
+        if target in {"critic", "historian", "synthesis"}:
+            resolved = target
+        elif target == "final":
+            resolved = "final"
+        else:
+            resolved = "reflect"
+
+        logger.debug(
+            "Router decision for reflection node",
+            extra={
+                "event": "router_route",
+                "router": "pick_reflection_node",
+                "raw_target": raw_target,
+                "normalized_target": target,
+                "resolved_target": resolved,
+            },
+        )
+        return resolved
+    except Exception as exc:
+        logger.error(
+            "Error in router_pick_reflection_node",
+            exc_info=True,
+            extra={
+                "event": "router_error",
+                "router": "pick_reflection_node",
+                "error_type": type(exc).__name__,
+            },
+        )
+        return "reflect"
 
 
 # -----------------------------------------------------------------------------
@@ -233,6 +449,22 @@ def build_default_router_registry() -> RouterRegistry:
         router_pick_reflection_node,
         description="reflect -> critic/historian/synthesis based on state hint",
     )
-    reg.register("always_synthesis", router_always_synthesis, description="always returns synthesis")
-    reg.register("always_end", router_always_end, description="always returns END")
+    reg.register(
+        "always_synthesis",
+        router_always_synthesis,
+        description="always returns synthesis",
+    )
+    reg.register(
+        "always_end",
+        router_always_end,
+        description="always returns END",
+    )
+
+    logger.debug(
+        "Built default router registry",
+        extra={
+            "event": "build_default_router_registry",
+            "registered_routers": reg.list_names(),
+        },
+    )
     return reg

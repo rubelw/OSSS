@@ -86,7 +86,7 @@ class LLMFactory:
         agent = (agent_name or "").strip().lower()
 
         # ✅ include final so request-level RAG flags can affect it
-        if agent in {"critic", "refiner", "historian", "synthesis", "final"}:
+        if agent in {"refiner", "historian", "data_query", "final"}:
             cfg_key = f"{agent}_llm"
             agent_cfg = execution_config.get(cfg_key, {})
             if not isinstance(agent_cfg, dict):
@@ -155,7 +155,7 @@ class LLMFactory:
 
             # Default: only answer-producing agents get RAG by default
             # (still overridden by env/request-level)
-            rag_default = agent in {"final", "synthesis"}
+            rag_default = agent in {"final"}
             extra_body.setdefault("use_rag", rag_default)
 
             # Env override (still overridden by request-level)
@@ -168,7 +168,7 @@ class LLMFactory:
             top_k_req = execution_config.get("top_k")
 
             # Restrict request-level RAG enablement to these agents
-            rag_enabled_agents = {"final", "synthesis"}
+            rag_enabled_agents = {"final"}
 
             if use_rag_req is not None:
                 want_rag = _truthy(use_rag_req)

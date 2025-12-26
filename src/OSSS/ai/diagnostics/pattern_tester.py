@@ -274,11 +274,8 @@ class TestDataGenerator:
             ["refiner"],
             ["critic"],
             ["synthesis"],
-            ["refiner", "critic"],
-            ["refiner", "synthesis"],
-            ["critic", "synthesis"],
-            ["refiner", "critic", "synthesis"],
-            ["refiner", "critic", "historian", "synthesis"],
+            ["refiner", "final"],
+            ["refiner", "historian", "final"],
         ]
 
     @staticmethod

@@ -150,6 +150,7 @@ class AgentContext(BaseModel):
         "critic": 4000,
         "historian": 4000,
         "synthesis": 4000,
+        "final": 4000
     }
 
     # --- hard per-agent caps (list length) ---
@@ -158,6 +159,7 @@ class AgentContext(BaseModel):
         "critic": 100,
         "historian": 100,
         "synthesis": 100,
+        "final": 100,
     }
 
     OUTPUT_DICT_KEY_CAPS: ClassVar[Dict[str, int]] = {

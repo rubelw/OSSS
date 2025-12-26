@@ -22,7 +22,7 @@ class AdvancedOrchestratorAdapter:
         agent_names: List[str] = list(config.get("agents") or [])
         if not agent_names:
             # fallback: run default if nothing was specified
-            agent_names = ["refiner", "critic", "historian", "synthesis"]
+            agent_names = ["refiner", "historian", "final"]
 
         # 2) Build dependency graph engine with only those agents
         graph = DependencyGraphEngine()

@@ -1,0 +1,2612 @@
+[
+  {
+    "id": "academic_terms",
+    "table": "academic_terms",
+    "api_route": "/api/academic_terms",
+    "topic_key": "academic_terms",
+    "display_name": "academic terms",
+    "synonyms": [],
+    "description": "Records from the 'academic_terms' table."
+  },
+  {
+    "id": "accommodations",
+    "table": "accommodations",
+    "api_route": "/api/accommodations",
+    "topic_key": "accommodations",
+    "display_name": "accommodations",
+    "synonyms": [],
+    "description": "Records from the 'accommodations' table."
+  },
+  {
+    "id": "activities",
+    "table": "activities",
+    "api_route": "/api/activities",
+    "topic_key": "activities",
+    "display_name": "activities",
+    "synonyms": [],
+    "description": "Records from the 'activities' table."
+  },
+  {
+    "id": "addresses",
+    "table": "addresses",
+    "api_route": "/api/addresses",
+    "topic_key": "addresses",
+    "display_name": "addresses",
+    "synonyms": [],
+    "description": "Records from the 'addresses' table."
+  },
+  {
+    "id": "agenda_item_approvals",
+    "table": "agenda_item_approvals",
+    "api_route": "/api/agenda_item_approvals",
+    "topic_key": "agenda_item_approvals",
+    "display_name": "agenda item approvals",
+    "synonyms": [],
+    "description": "Records from the 'agenda_item_approvals' table."
+  },
+  {
+    "id": "agenda_item_files",
+    "table": "agenda_item_files",
+    "api_route": "/api/agenda_item_files",
+    "topic_key": "agenda_item_files",
+    "display_name": "agenda item files",
+    "synonyms": [],
+    "description": "Records from the 'agenda_item_files' table."
+  },
+  {
+    "id": "agenda_items",
+    "table": "agenda_items",
+    "api_route": "/api/agenda_items",
+    "topic_key": "agenda_items",
+    "display_name": "agenda items",
+    "synonyms": [],
+    "description": "Records from the 'agenda_items' table."
+  },
+  {
+    "id": "agenda_workflow_steps",
+    "table": "agenda_workflow_steps",
+    "api_route": "/api/agenda_workflow_steps",
+    "topic_key": "agenda_workflow_steps",
+    "display_name": "agenda workflow steps",
+    "synonyms": [],
+    "description": "Records from the 'agenda_workflow_steps' table."
+  },
+  {
+    "id": "agenda_workflows",
+    "table": "agenda_workflows",
+    "api_route": "/api/agenda_workflows",
+    "topic_key": "agenda_workflows",
+    "display_name": "agenda workflows",
+    "synonyms": [],
+    "description": "Records from the 'agenda_workflows' table."
+  },
+  {
+    "id": "alignments",
+    "table": "alignments",
+    "api_route": "/api/alignments",
+    "topic_key": "alignments",
+    "display_name": "alignments",
+    "synonyms": [],
+    "description": "Records from the 'alignments' table."
+  },
+  {
+    "id": "announcements",
+    "table": "announcements",
+    "api_route": "/api/announcements",
+    "topic_key": "announcements",
+    "display_name": "announcements",
+    "synonyms": [],
+    "description": "Records from the 'announcements' table."
+  },
+  {
+    "id": "ap_vendors",
+    "table": "ap_vendors",
+    "api_route": "/api/ap_vendors",
+    "topic_key": "ap_vendors",
+    "display_name": "ap vendors",
+    "synonyms": [],
+    "description": "Records from the 'ap_vendors' table."
+  },
+  {
+    "id": "approvals",
+    "table": "approvals",
+    "api_route": "/api/approvals",
+    "topic_key": "approvals",
+    "display_name": "approvals",
+    "synonyms": [],
+    "description": "Records from the 'approvals' table."
+  },
+  {
+    "id": "asset_parts",
+    "table": "asset_parts",
+    "api_route": "/api/asset_parts",
+    "topic_key": "asset_parts",
+    "display_name": "asset parts",
+    "synonyms": [],
+    "description": "Records from the 'asset_parts' table."
+  },
+  {
+    "id": "assets",
+    "table": "assets",
+    "api_route": "/api/assets",
+    "topic_key": "assets",
+    "display_name": "assets",
+    "synonyms": [],
+    "description": "Records from the 'assets' table."
+  },
+  {
+    "id": "assignment_categories",
+    "table": "assignment_categories",
+    "api_route": "/api/assignment_categories",
+    "topic_key": "assignment_categories",
+    "display_name": "assignment categories",
+    "synonyms": [],
+    "description": "Records from the 'assignment_categories' table."
+  },
+  {
+    "id": "assignments",
+    "table": "assignments",
+    "api_route": "/api/assignments",
+    "topic_key": "assignments",
+    "display_name": "assignments",
+    "synonyms": [],
+    "description": "Records from the 'assignments' table."
+  },
+  {
+    "id": "attendance",
+    "table": "attendance",
+    "api_route": "/api/attendance",
+    "topic_key": "attendance",
+    "display_name": "attendance",
+    "synonyms": [],
+    "description": "Records from the 'attendance' table."
+  },
+  {
+    "id": "attendance_codes",
+    "table": "attendance_codes",
+    "api_route": "/api/attendance_codes",
+    "topic_key": "attendance_codes",
+    "display_name": "attendance codes",
+    "synonyms": [],
+    "description": "Records from the 'attendance_codes' table."
+  },
+  {
+    "id": "attendance_daily_summary",
+    "table": "attendance_daily_summary",
+    "api_route": "/api/attendance_daily_summary",
+    "topic_key": "attendance_daily_summary",
+    "display_name": "attendance daily summary",
+    "synonyms": [],
+    "description": "Records from the 'attendance_daily_summary' table."
+  },
+  {
+    "id": "attendance_events",
+    "table": "attendance_events",
+    "api_route": "/api/attendance_events",
+    "topic_key": "attendance_events",
+    "display_name": "attendance events",
+    "synonyms": [],
+    "description": "Records from the 'attendance_events' table."
+  },
+  {
+    "id": "audit_logs",
+    "table": "audit_logs",
+    "api_route": "/api/audit_logs",
+    "topic_key": "audit_logs",
+    "display_name": "audit logs",
+    "synonyms": [],
+    "description": "Records from the 'audit_logs' table."
+  },
+  {
+    "id": "behavior_codes",
+    "table": "behavior_codes",
+    "api_route": "/api/behavior_codes",
+    "topic_key": "behavior_codes",
+    "display_name": "behavior codes",
+    "synonyms": [],
+    "description": "Records from the 'behavior_codes' table."
+  },
+  {
+    "id": "behavior_interventions",
+    "table": "behavior_interventions",
+    "api_route": "/api/behavior_interventions",
+    "topic_key": "behavior_interventions",
+    "display_name": "behavior interventions",
+    "synonyms": [],
+    "description": "Records from the 'behavior_interventions' table."
+  },
+  {
+    "id": "bell_schedules",
+    "table": "bell_schedules",
+    "api_route": "/api/bell_schedules",
+    "topic_key": "bell_schedules",
+    "display_name": "bell schedules",
+    "synonyms": [],
+    "description": "Records from the 'bell_schedules' table."
+  },
+  {
+    "id": "buildings",
+    "table": "buildings",
+    "api_route": "/api/buildings",
+    "topic_key": "buildings",
+    "display_name": "buildings",
+    "synonyms": [],
+    "description": "Records from the 'buildings' table."
+  },
+  {
+    "id": "bus_routes",
+    "table": "bus_routes",
+    "api_route": "/api/bus_routes",
+    "topic_key": "bus_routes",
+    "display_name": "bus routes",
+    "synonyms": [],
+    "description": "Records from the 'bus_routes' table."
+  },
+  {
+    "id": "bus_stop_times",
+    "table": "bus_stop_times",
+    "api_route": "/api/bus_stop_times",
+    "topic_key": "bus_stop_times",
+    "display_name": "bus stop times",
+    "synonyms": [],
+    "description": "Records from the 'bus_stop_times' table."
+  },
+  {
+    "id": "bus_stops",
+    "table": "bus_stops",
+    "api_route": "/api/bus_stops",
+    "topic_key": "bus_stops",
+    "display_name": "bus stops",
+    "synonyms": [],
+    "description": "Records from the 'bus_stops' table."
+  },
+  {
+    "id": "calendar_days",
+    "table": "calendar_days",
+    "api_route": "/api/calendar_days",
+    "topic_key": "calendar_days",
+    "display_name": "calendar days",
+    "synonyms": [],
+    "description": "Records from the 'calendar_days' table."
+  },
+  {
+    "id": "calendars",
+    "table": "calendars",
+    "api_route": "/api/calendars",
+    "topic_key": "calendars",
+    "display_name": "calendars",
+    "synonyms": [],
+    "description": "Records from the 'calendars' table."
+  },
+  {
+    "id": "camp_registrations",
+    "table": "camp_registrations",
+    "api_route": "/api/camp_registrations",
+    "topic_key": "camp_registrations",
+    "display_name": "camp registrations",
+    "synonyms": [],
+    "description": "Records from the 'camp_registrations' table."
+  },
+  {
+    "id": "camps",
+    "table": "camps",
+    "api_route": "/api/camps",
+    "topic_key": "camps",
+    "display_name": "camps",
+    "synonyms": [],
+    "description": "Records from the 'camps' table."
+  },
+  {
+    "id": "channels",
+    "table": "channels",
+    "api_route": "/api/channels",
+    "topic_key": "channels",
+    "display_name": "channels",
+    "synonyms": [],
+    "description": "Records from the 'channels' table."
+  },
+  {
+    "id": "class_ranks",
+    "table": "class_ranks",
+    "api_route": "/api/class_ranks",
+    "topic_key": "class_ranks",
+    "display_name": "class ranks",
+    "synonyms": [],
+    "description": "Records from the 'class_ranks' table."
+  },
+  {
+    "id": "comm_search_index",
+    "table": "comm_search_index",
+    "api_route": "/api/comm_search_index",
+    "topic_key": "comm_search_index",
+    "display_name": "comm search index",
+    "synonyms": [],
+    "description": "Records from the 'comm_search_index' table."
+  },
+  {
+    "id": "committees",
+    "table": "committees",
+    "api_route": "/api/committees",
+    "topic_key": "committees",
+    "display_name": "committees",
+    "synonyms": [],
+    "description": "Records from the 'committees' table."
+  },
+  {
+    "id": "compliance_records",
+    "table": "compliance_records",
+    "api_route": "/api/compliance_records",
+    "topic_key": "compliance_records",
+    "display_name": "compliance records",
+    "synonyms": [],
+    "description": "Records from the 'compliance_records' table."
+  },
+  {
+    "id": "concession_items",
+    "table": "concession_items",
+    "api_route": "/api/concession_items",
+    "topic_key": "concession_items",
+    "display_name": "concession items",
+    "synonyms": [],
+    "description": "Records from the 'concession_items' table."
+  },
+  {
+    "id": "concession_sale_items",
+    "table": "concession_sale_items",
+    "api_route": "/api/concession_sale_items",
+    "topic_key": "concession_sale_items",
+    "display_name": "concession sale items",
+    "synonyms": [],
+    "description": "Records from the 'concession_sale_items' table."
+  },
+  {
+    "id": "concession_sales",
+    "table": "concession_sales",
+    "api_route": "/api/concession_sales",
+    "topic_key": "concession_sales",
+    "display_name": "concession sales",
+    "synonyms": [],
+    "description": "Records from the 'concession_sales' table."
+  },
+  {
+    "id": "concession_stands",
+    "table": "concession_stands",
+    "api_route": "/api/concession_stands",
+    "topic_key": "concession_stands",
+    "display_name": "concession stands",
+    "synonyms": [],
+    "description": "Records from the 'concession_stands' table."
+  },
+  {
+    "id": "consents",
+    "table": "consents",
+    "api_route": "/api/consents",
+    "topic_key": "consents",
+    "display_name": "consents",
+    "synonyms": [],
+    "description": "Records from the 'consents' table."
+  },
+  {
+    "id": "consequence_types",
+    "table": "consequence_types",
+    "api_route": "/api/consequence_types",
+    "topic_key": "consequence_types",
+    "display_name": "consequence types",
+    "synonyms": [],
+    "description": "Records from the 'consequence_types' table."
+  },
+  {
+    "id": "consequences",
+    "table": "consequences",
+    "api_route": "/api/consequences",
+    "topic_key": "consequences",
+    "display_name": "consequences",
+    "synonyms": [],
+    "description": "Records from the 'consequences' table."
+  },
+  {
+    "id": "consolidated_out",
+    "table": "consolidated_out",
+    "api_route": "/api/consolidated_out",
+    "topic_key": "consolidated_out",
+    "display_name": "consolidated out",
+    "synonyms": [],
+    "description": "Records from the 'consolidated_out' table."
+  },
+  {
+    "id": "contacts",
+    "table": "contacts",
+    "api_route": "/api/contacts",
+    "topic_key": "contacts",
+    "display_name": "contacts",
+    "synonyms": [],
+    "description": "Records from the 'contacts' table."
+  },
+  {
+    "id": "course_prerequisites",
+    "table": "course_prerequisites",
+    "api_route": "/api/course_prerequisites",
+    "topic_key": "course_prerequisites",
+    "display_name": "course prerequisites",
+    "synonyms": [],
+    "description": "Records from the 'course_prerequisites' table."
+  },
+  {
+    "id": "course_sections",
+    "table": "course_sections",
+    "api_route": "/api/course_sections",
+    "topic_key": "course_sections",
+    "display_name": "course sections",
+    "synonyms": [],
+    "description": "Records from the 'course_sections' table."
+  },
+  {
+    "id": "course_students",
+    "table": "course_students",
+    "api_route": "/api/course_students",
+    "topic_key": "course_students",
+    "display_name": "course students",
+    "synonyms": [],
+    "description": "Records from the 'course_students' table."
+  },
+  {
+    "id": "course_teachers",
+    "table": "course_teachers",
+    "api_route": "/api/course_teachers",
+    "topic_key": "course_teachers",
+    "display_name": "course teachers",
+    "synonyms": [],
+    "description": "Records from the 'course_teachers' table."
+  },
+  {
+    "id": "courses",
+    "table": "courses",
+    "api_route": "/api/courses",
+    "topic_key": "courses",
+    "display_name": "courses",
+    "synonyms": [],
+    "description": "Records from the 'courses' table."
+  },
+  {
+    "id": "coursework",
+    "table": "coursework",
+    "api_route": "/api/coursework",
+    "topic_key": "coursework",
+    "display_name": "coursework",
+    "synonyms": [],
+    "description": "Records from the 'coursework' table."
+  },
+  {
+    "id": "curricula",
+    "table": "curricula",
+    "api_route": "/api/curricula",
+    "topic_key": "curricula",
+    "display_name": "curricula",
+    "synonyms": [],
+    "description": "Records from the 'curricula' table."
+  },
+  {
+    "id": "curriculum_units",
+    "table": "curriculum_units",
+    "api_route": "/api/curriculum_units",
+    "topic_key": "curriculum_units",
+    "display_name": "curriculum units",
+    "synonyms": [],
+    "description": "Records from the 'curriculum_units' table."
+  },
+  {
+    "id": "curriculum_versions",
+    "table": "curriculum_versions",
+    "api_route": "/api/curriculum_versions",
+    "topic_key": "curriculum_versions",
+    "display_name": "curriculum versions",
+    "synonyms": [],
+    "description": "Records from the 'curriculum_versions' table."
+  },
+  {
+    "id": "data_quality_issues",
+    "table": "data_quality_issues",
+    "api_route": "/api/data_quality_issues",
+    "topic_key": "data_quality_issues",
+    "display_name": "data quality issues",
+    "synonyms": [],
+    "description": "Records from the 'data_quality_issues' table."
+  },
+  {
+    "id": "data_sharing_agreements",
+    "table": "data_sharing_agreements",
+    "api_route": "/api/data_sharing_agreements",
+    "topic_key": "data_sharing_agreements",
+    "display_name": "data sharing agreements",
+    "synonyms": [],
+    "description": "Records from the 'data_sharing_agreements' table."
+  },
+  {
+    "id": "deduction_codes",
+    "table": "deduction_codes",
+    "api_route": "/api/deduction_codes",
+    "topic_key": "deduction_codes",
+    "display_name": "deduction codes",
+    "synonyms": [],
+    "description": "Records from the 'deduction_codes' table."
+  },
+  {
+    "id": "deliveries",
+    "table": "deliveries",
+    "api_route": "/api/deliveries",
+    "topic_key": "deliveries",
+    "display_name": "deliveries",
+    "synonyms": [],
+    "description": "Records from the 'deliveries' table."
+  },
+  {
+    "id": "department_position_index",
+    "table": "department_position_index",
+    "api_route": "/api/department_position_index",
+    "topic_key": "department_position_index",
+    "display_name": "department position index",
+    "synonyms": [],
+    "description": "Records from the 'department_position_index' table."
+  },
+  {
+    "id": "departments",
+    "table": "departments",
+    "api_route": "/api/departments",
+    "topic_key": "departments",
+    "display_name": "departments",
+    "synonyms": [],
+    "description": "Records from the 'departments' table."
+  },
+  {
+    "id": "document_activity",
+    "table": "document_activity",
+    "api_route": "/api/document_activity",
+    "topic_key": "document_activity",
+    "display_name": "document activity",
+    "synonyms": [],
+    "description": "Records from the 'document_activity' table."
+  },
+  {
+    "id": "document_links",
+    "table": "document_links",
+    "api_route": "/api/document_links",
+    "topic_key": "document_links",
+    "display_name": "document links",
+    "synonyms": [],
+    "description": "Records from the 'document_links' table."
+  },
+  {
+    "id": "document_notifications",
+    "table": "document_notifications",
+    "api_route": "/api/document_notifications",
+    "topic_key": "document_notifications",
+    "display_name": "document notifications",
+    "synonyms": [],
+    "description": "Records from the 'document_notifications' table."
+  },
+  {
+    "id": "document_permissions",
+    "table": "document_permissions",
+    "api_route": "/api/document_permissions",
+    "topic_key": "document_permissions",
+    "display_name": "document permissions",
+    "synonyms": [],
+    "description": "Records from the 'document_permissions' table."
+  },
+  {
+    "id": "document_search_index",
+    "table": "document_search_index",
+    "api_route": "/api/document_search_index",
+    "topic_key": "document_search_index",
+    "display_name": "document search index",
+    "synonyms": [],
+    "description": "Records from the 'document_search_index' table."
+  },
+  {
+    "id": "document_versions",
+    "table": "document_versions",
+    "api_route": "/api/document_versions",
+    "topic_key": "document_versions",
+    "display_name": "document versions",
+    "synonyms": [],
+    "description": "Records from the 'document_versions' table."
+  },
+  {
+    "id": "documents",
+    "table": "documents",
+    "api_route": "/api/documents",
+    "topic_key": "documents",
+    "display_name": "documents",
+    "synonyms": [],
+    "description": "Records from the 'documents' table."
+  },
+  {
+    "id": "donations",
+    "table": "donations",
+    "api_route": "/api/donations",
+    "topic_key": "donations",
+    "display_name": "donations",
+    "synonyms": [],
+    "description": "Records from the 'donations' table."
+  },
+  {
+    "id": "earning_codes",
+    "table": "earning_codes",
+    "api_route": "/api/earning_codes",
+    "topic_key": "earning_codes",
+    "display_name": "earning codes",
+    "synonyms": [],
+    "description": "Records from the 'earning_codes' table."
+  },
+  {
+    "id": "education_associations",
+    "table": "education_associations",
+    "api_route": "/api/education_associations",
+    "topic_key": "education_associations",
+    "display_name": "education associations",
+    "synonyms": [],
+    "description": "Records from the 'education_associations' table."
+  },
+  {
+    "id": "ell_plans",
+    "table": "ell_plans",
+    "api_route": "/api/ell_plans",
+    "topic_key": "ell_plans",
+    "display_name": "ell plans",
+    "synonyms": [],
+    "description": "Records from the 'ell_plans' table."
+  },
+  {
+    "id": "embeds",
+    "table": "embeds",
+    "api_route": "/api/embeds",
+    "topic_key": "embeds",
+    "display_name": "embeds",
+    "synonyms": [],
+    "description": "Records from the 'embeds' table."
+  },
+  {
+    "id": "emergency_contacts",
+    "table": "emergency_contacts",
+    "api_route": "/api/emergency_contacts",
+    "topic_key": "emergency_contacts",
+    "display_name": "emergency contacts",
+    "synonyms": [],
+    "description": "Records from the 'emergency_contacts' table."
+  },
+  {
+    "id": "employee_deductions",
+    "table": "employee_deductions",
+    "api_route": "/api/employee_deductions",
+    "topic_key": "employee_deductions",
+    "display_name": "employee deductions",
+    "synonyms": [],
+    "description": "Records from the 'employee_deductions' table."
+  },
+  {
+    "id": "employee_earnings",
+    "table": "employee_earnings",
+    "api_route": "/api/employee_earnings",
+    "topic_key": "employee_earnings",
+    "display_name": "employee earnings",
+    "synonyms": [],
+    "description": "Records from the 'employee_earnings' table."
+  },
+  {
+    "id": "entity_tags",
+    "table": "entity_tags",
+    "api_route": "/api/entity_tags",
+    "topic_key": "entity_tags",
+    "display_name": "entity tags",
+    "synonyms": [],
+    "description": "Records from the 'entity_tags' table."
+  },
+  {
+    "id": "evaluation_assignments",
+    "table": "evaluation_assignments",
+    "api_route": "/api/evaluation_assignments",
+    "topic_key": "evaluation_assignments",
+    "display_name": "evaluation assignments",
+    "synonyms": [],
+    "description": "Records from the 'evaluation_assignments' table."
+  },
+  {
+    "id": "evaluation_cycles",
+    "table": "evaluation_cycles",
+    "api_route": "/api/evaluation_cycles",
+    "topic_key": "evaluation_cycles",
+    "display_name": "evaluation cycles",
+    "synonyms": [],
+    "description": "Records from the 'evaluation_cycles' table."
+  },
+  {
+    "id": "evaluation_files",
+    "table": "evaluation_files",
+    "api_route": "/api/evaluation_files",
+    "topic_key": "evaluation_files",
+    "display_name": "evaluation files",
+    "synonyms": [],
+    "description": "Records from the 'evaluation_files' table."
+  },
+  {
+    "id": "evaluation_questions",
+    "table": "evaluation_questions",
+    "api_route": "/api/evaluation_questions",
+    "topic_key": "evaluation_questions",
+    "display_name": "evaluation questions",
+    "synonyms": [],
+    "description": "Records from the 'evaluation_questions' table."
+  },
+  {
+    "id": "evaluation_reports",
+    "table": "evaluation_reports",
+    "api_route": "/api/evaluation_reports",
+    "topic_key": "evaluation_reports",
+    "display_name": "evaluation reports",
+    "synonyms": [],
+    "description": "Records from the 'evaluation_reports' table."
+  },
+  {
+    "id": "evaluation_responses",
+    "table": "evaluation_responses",
+    "api_route": "/api/evaluation_responses",
+    "topic_key": "evaluation_responses",
+    "display_name": "evaluation responses",
+    "synonyms": [],
+    "description": "Records from the 'evaluation_responses' table."
+  },
+  {
+    "id": "evaluation_sections",
+    "table": "evaluation_sections",
+    "api_route": "/api/evaluation_sections",
+    "topic_key": "evaluation_sections",
+    "display_name": "evaluation sections",
+    "synonyms": [],
+    "description": "Records from the 'evaluation_sections' table."
+  },
+  {
+    "id": "evaluation_signoffs",
+    "table": "evaluation_signoffs",
+    "api_route": "/api/evaluation_signoffs",
+    "topic_key": "evaluation_signoffs",
+    "display_name": "evaluation signoffs",
+    "synonyms": [],
+    "description": "Records from the 'evaluation_signoffs' table."
+  },
+  {
+    "id": "evaluation_templates",
+    "table": "evaluation_templates",
+    "api_route": "/api/evaluation_templates",
+    "topic_key": "evaluation_templates",
+    "display_name": "evaluation templates",
+    "synonyms": [],
+    "description": "Records from the 'evaluation_templates' table."
+  },
+  {
+    "id": "events",
+    "table": "events",
+    "api_route": "/api/events",
+    "topic_key": "events",
+    "display_name": "events",
+    "synonyms": [],
+    "description": "Records from the 'events' table."
+  },
+  {
+    "id": "export_runs",
+    "table": "export_runs",
+    "api_route": "/api/export_runs",
+    "topic_key": "export_runs",
+    "display_name": "export runs",
+    "synonyms": [],
+    "description": "Records from the 'export_runs' table."
+  },
+  {
+    "id": "external_ids",
+    "table": "external_ids",
+    "api_route": "/api/external_ids",
+    "topic_key": "external_ids",
+    "display_name": "external ids",
+    "synonyms": [],
+    "description": "Records from the 'external_ids' table."
+  },
+  {
+    "id": "facilities",
+    "table": "facilities",
+    "api_route": "/api/facilities",
+    "topic_key": "facilities",
+    "display_name": "facilities",
+    "synonyms": [],
+    "description": "Records from the 'facilities' table."
+  },
+  {
+    "id": "family_portal_access",
+    "table": "family_portal_access",
+    "api_route": "/api/family_portal_access",
+    "topic_key": "family_portal_access",
+    "display_name": "family portal access",
+    "synonyms": [],
+    "description": "Records from the 'family_portal_access' table."
+  },
+  {
+    "id": "fan_app_settings",
+    "table": "fan_app_settings",
+    "api_route": "/api/fan_app_settings",
+    "topic_key": "fan_app_settings",
+    "display_name": "fan app settings",
+    "synonyms": [],
+    "description": "Records from the 'fan_app_settings' table."
+  },
+  {
+    "id": "fan_pages",
+    "table": "fan_pages",
+    "api_route": "/api/fan_pages",
+    "topic_key": "fan_pages",
+    "display_name": "fan pages",
+    "synonyms": [],
+    "description": "Records from the 'fan_pages' table."
+  },
+  {
+    "id": "feature_flags",
+    "table": "feature_flags",
+    "api_route": "/api/feature_flags",
+    "topic_key": "feature_flags",
+    "display_name": "feature flags",
+    "synonyms": [],
+    "description": "Records from the 'feature_flags' table."
+  },
+  {
+    "id": "fees",
+    "table": "fees",
+    "api_route": "/api/fees",
+    "topic_key": "fees",
+    "display_name": "fees",
+    "synonyms": [],
+    "description": "Records from the 'fees' table."
+  },
+  {
+    "id": "files",
+    "table": "files",
+    "api_route": "/api/files",
+    "topic_key": "files",
+    "display_name": "files",
+    "synonyms": [],
+    "description": "Records from the 'files' table."
+  },
+  {
+    "id": "final_grades",
+    "table": "final_grades",
+    "api_route": "/api/final_grades",
+    "topic_key": "final_grades",
+    "display_name": "final grades",
+    "synonyms": [],
+    "description": "Records from the 'final_grades' table."
+  },
+  {
+    "id": "fiscal_periods",
+    "table": "fiscal_periods",
+    "api_route": "/api/fiscal_periods",
+    "topic_key": "fiscal_periods",
+    "display_name": "fiscal periods",
+    "synonyms": [],
+    "description": "Records from the 'fiscal_periods' table."
+  },
+  {
+    "id": "fiscal_years",
+    "table": "fiscal_years",
+    "api_route": "/api/fiscal_years",
+    "topic_key": "fiscal_years",
+    "display_name": "fiscal years",
+    "synonyms": [],
+    "description": "Records from the 'fiscal_years' table."
+  },
+  {
+    "id": "floors",
+    "table": "floors",
+    "api_route": "/api/floors",
+    "topic_key": "floors",
+    "display_name": "floors",
+    "synonyms": [],
+    "description": "Records from the 'floors' table."
+  },
+  {
+    "id": "folders",
+    "table": "folders",
+    "api_route": "/api/folders",
+    "topic_key": "folders",
+    "display_name": "folders",
+    "synonyms": [],
+    "description": "Records from the 'folders' table."
+  },
+  {
+    "id": "frameworks",
+    "table": "frameworks",
+    "api_route": "/api/frameworks",
+    "topic_key": "frameworks",
+    "display_name": "frameworks",
+    "synonyms": [],
+    "description": "Records from the 'frameworks' table."
+  },
+  {
+    "id": "fundraising_campaigns",
+    "table": "fundraising_campaigns",
+    "api_route": "/api/fundraising_campaigns",
+    "topic_key": "fundraising_campaigns",
+    "display_name": "fundraising campaigns",
+    "synonyms": [],
+    "description": "Records from the 'fundraising_campaigns' table."
+  },
+  {
+    "id": "game_official_contracts",
+    "table": "game_official_contracts",
+    "api_route": "/api/game_official_contracts",
+    "topic_key": "game_official_contracts",
+    "display_name": "game official contracts",
+    "synonyms": [],
+    "description": "Records from the 'game_official_contracts' table."
+  },
+  {
+    "id": "game_programs",
+    "table": "game_programs",
+    "api_route": "/api/game_programs",
+    "topic_key": "game_programs",
+    "display_name": "game programs",
+    "synonyms": [],
+    "description": "Records from the 'game_programs' table."
+  },
+  {
+    "id": "game_reports",
+    "table": "game_reports",
+    "api_route": "/api/game_reports",
+    "topic_key": "game_reports",
+    "display_name": "game reports",
+    "synonyms": [],
+    "description": "Records from the 'game_reports' table."
+  },
+  {
+    "id": "games",
+    "table": "games",
+    "api_route": "/api/games",
+    "topic_key": "games",
+    "display_name": "games",
+    "synonyms": [],
+    "description": "Records from the 'games' table."
+  },
+  {
+    "id": "gl_account_balances",
+    "table": "gl_account_balances",
+    "api_route": "/api/gl_account_balances",
+    "topic_key": "gl_account_balances",
+    "display_name": "gl account balances",
+    "synonyms": [],
+    "description": "Records from the 'gl_account_balances' table."
+  },
+  {
+    "id": "gl_account_segments",
+    "table": "gl_account_segments",
+    "api_route": "/api/gl_account_segments",
+    "topic_key": "gl_account_segments",
+    "display_name": "gl account segments",
+    "synonyms": [],
+    "description": "Records from the 'gl_account_segments' table."
+  },
+  {
+    "id": "gl_accounts",
+    "table": "gl_accounts",
+    "api_route": "/api/gl_accounts",
+    "topic_key": "gl_accounts",
+    "display_name": "gl accounts",
+    "synonyms": [],
+    "description": "Records from the 'gl_accounts' table."
+  },
+  {
+    "id": "gl_segment_values",
+    "table": "gl_segment_values",
+    "api_route": "/api/gl_segment_values",
+    "topic_key": "gl_segment_values",
+    "display_name": "gl segment values",
+    "synonyms": [],
+    "description": "Records from the 'gl_segment_values' table."
+  },
+  {
+    "id": "gl_segments",
+    "table": "gl_segments",
+    "api_route": "/api/gl_segments",
+    "topic_key": "gl_segments",
+    "display_name": "gl segments",
+    "synonyms": [],
+    "description": "Records from the 'gl_segments' table."
+  },
+  {
+    "id": "goals",
+    "table": "goals",
+    "api_route": "/api/goals",
+    "topic_key": "goals",
+    "display_name": "goals",
+    "synonyms": [],
+    "description": "Records from the 'goals' table."
+  },
+  {
+    "id": "governing_bodies",
+    "table": "governing_bodies",
+    "api_route": "/api/governing_bodies",
+    "topic_key": "governing_bodies",
+    "display_name": "governing bodies",
+    "synonyms": [],
+    "description": "Records from the 'governing_bodies' table."
+  },
+  {
+    "id": "gpa_calculations",
+    "table": "gpa_calculations",
+    "api_route": "/api/gpa_calculations",
+    "topic_key": "gpa_calculations",
+    "display_name": "gpa calculations",
+    "synonyms": [],
+    "description": "Records from the 'gpa_calculations' table."
+  },
+  {
+    "id": "grade_levels",
+    "table": "grade_levels",
+    "api_route": "/api/grade_levels",
+    "topic_key": "grade_levels",
+    "display_name": "grade levels",
+    "synonyms": [],
+    "description": "Records from the 'grade_levels' table."
+  },
+  {
+    "id": "grade_scale_bands",
+    "table": "grade_scale_bands",
+    "api_route": "/api/grade_scale_bands",
+    "topic_key": "grade_scale_bands",
+    "display_name": "grade scale bands",
+    "synonyms": [],
+    "description": "Records from the 'grade_scale_bands' table."
+  },
+  {
+    "id": "grade_scales",
+    "table": "grade_scales",
+    "api_route": "/api/grade_scales",
+    "topic_key": "grade_scales",
+    "display_name": "grade scales",
+    "synonyms": [],
+    "description": "Records from the 'grade_scales' table."
+  },
+  {
+    "id": "gradebook_entries",
+    "table": "gradebook_entries",
+    "api_route": "/api/gradebook_entries",
+    "topic_key": "gradebook_entries",
+    "display_name": "gradebook entries",
+    "synonyms": [],
+    "description": "Records from the 'gradebook_entries' table."
+  },
+  {
+    "id": "grading_periods",
+    "table": "grading_periods",
+    "api_route": "/api/grading_periods",
+    "topic_key": "grading_periods",
+    "display_name": "grading periods",
+    "synonyms": [],
+    "description": "Records from the 'grading_periods' table."
+  },
+  {
+    "id": "guardian_invitations",
+    "table": "guardian_invitations",
+    "api_route": "/api/guardian_invitations",
+    "topic_key": "guardian_invitations",
+    "display_name": "guardian invitations",
+    "synonyms": [],
+    "description": "Records from the 'guardian_invitations' table."
+  },
+  {
+    "id": "guardians",
+    "table": "guardians",
+    "api_route": "/api/guardians",
+    "topic_key": "guardians",
+    "display_name": "guardians",
+    "synonyms": [],
+    "description": "Records from the 'guardians' table."
+  },
+  {
+    "id": "health_profiles",
+    "table": "health_profiles",
+    "api_route": "/api/health_profiles",
+    "topic_key": "health_profiles",
+    "display_name": "health profiles",
+    "synonyms": [],
+    "description": "Records from the 'health_profiles' table."
+  },
+  {
+    "id": "hr_employees",
+    "table": "hr_employees",
+    "api_route": "/api/hr_employees",
+    "topic_key": "hr_employees",
+    "display_name": "hr employees",
+    "synonyms": [],
+    "description": "Records from the 'hr_employees' table."
+  },
+  {
+    "id": "hr_position_assignments",
+    "table": "hr_position_assignments",
+    "api_route": "/api/hr_position_assignments",
+    "topic_key": "hr_position_assignments",
+    "display_name": "hr position assignments",
+    "synonyms": [],
+    "description": "Records from the 'hr_position_assignments' table."
+  },
+  {
+    "id": "hr_positions",
+    "table": "hr_positions",
+    "api_route": "/api/hr_positions",
+    "topic_key": "hr_positions",
+    "display_name": "hr positions",
+    "synonyms": [],
+    "description": "Records from the 'hr_positions' table."
+  },
+  {
+    "id": "iep_plans",
+    "table": "iep_plans",
+    "api_route": "/api/iep_plans",
+    "topic_key": "iep_plans",
+    "display_name": "iep plans",
+    "synonyms": [],
+    "description": "Records from the 'iep_plans' table."
+  },
+  {
+    "id": "immunization_records",
+    "table": "immunization_records",
+    "api_route": "/api/immunization_records",
+    "topic_key": "immunization_records",
+    "display_name": "immunization records",
+    "synonyms": [],
+    "description": "Records from the 'immunization_records' table."
+  },
+  {
+    "id": "immunizations",
+    "table": "immunizations",
+    "api_route": "/api/immunizations",
+    "topic_key": "immunizations",
+    "display_name": "immunizations",
+    "synonyms": [],
+    "description": "Records from the 'immunizations' table."
+  },
+  {
+    "id": "incident_participants",
+    "table": "incident_participants",
+    "api_route": "/api/incident_participants",
+    "topic_key": "incident_participants",
+    "display_name": "incident participants",
+    "synonyms": [],
+    "description": "Records from the 'incident_participants' table."
+  },
+  {
+    "id": "incidents",
+    "table": "incidents",
+    "api_route": "/api/incidents",
+    "topic_key": "incidents",
+    "display_name": "incidents",
+    "synonyms": [],
+    "description": "Records from the 'incidents' table."
+  },
+  {
+    "id": "initiatives",
+    "table": "initiatives",
+    "api_route": "/api/initiatives",
+    "topic_key": "initiatives",
+    "display_name": "initiatives",
+    "synonyms": [],
+    "description": "Records from the 'initiatives' table."
+  },
+  {
+    "id": "invoices",
+    "table": "invoices",
+    "api_route": "/api/invoices",
+    "topic_key": "invoices",
+    "display_name": "invoices",
+    "synonyms": [],
+    "description": "Records from the 'invoices' table."
+  },
+  {
+    "id": "journal_batches",
+    "table": "journal_batches",
+    "api_route": "/api/journal_batches",
+    "topic_key": "journal_batches",
+    "display_name": "journal batches",
+    "synonyms": [],
+    "description": "Records from the 'journal_batches' table."
+  },
+  {
+    "id": "journal_entries",
+    "table": "journal_entries",
+    "api_route": "/api/journal_entries",
+    "topic_key": "journal_entries",
+    "display_name": "journal entries",
+    "synonyms": [],
+    "description": "Records from the 'journal_entries' table."
+  },
+  {
+    "id": "journal_entry_lines",
+    "table": "journal_entry_lines",
+    "api_route": "/api/journal_entry_lines",
+    "topic_key": "journal_entry_lines",
+    "display_name": "journal entry lines",
+    "synonyms": [],
+    "description": "Records from the 'journal_entry_lines' table."
+  },
+  {
+    "id": "kpi_datapoints",
+    "table": "kpi_datapoints",
+    "api_route": "/api/kpi_datapoints",
+    "topic_key": "kpi_datapoints",
+    "display_name": "kpi datapoints",
+    "synonyms": [],
+    "description": "Records from the 'kpi_datapoints' table."
+  },
+  {
+    "id": "kpis",
+    "table": "kpis",
+    "api_route": "/api/kpis",
+    "topic_key": "kpis",
+    "display_name": "kpis",
+    "synonyms": [],
+    "description": "Records from the 'kpis' table."
+  },
+  {
+    "id": "leases",
+    "table": "leases",
+    "api_route": "/api/leases",
+    "topic_key": "leases",
+    "display_name": "leases",
+    "synonyms": [],
+    "description": "Records from the 'leases' table."
+  },
+  {
+    "id": "library_checkouts",
+    "table": "library_checkouts",
+    "api_route": "/api/library_checkouts",
+    "topic_key": "library_checkouts",
+    "display_name": "library checkouts",
+    "synonyms": [],
+    "description": "Records from the 'library_checkouts' table."
+  },
+  {
+    "id": "library_fines",
+    "table": "library_fines",
+    "api_route": "/api/library_fines",
+    "topic_key": "library_fines",
+    "display_name": "library fines",
+    "synonyms": [],
+    "description": "Records from the 'library_fines' table."
+  },
+  {
+    "id": "library_holds",
+    "table": "library_holds",
+    "api_route": "/api/library_holds",
+    "topic_key": "library_holds",
+    "display_name": "library holds",
+    "synonyms": [],
+    "description": "Records from the 'library_holds' table."
+  },
+  {
+    "id": "library_items",
+    "table": "library_items",
+    "api_route": "/api/library_items",
+    "topic_key": "library_items",
+    "display_name": "library items",
+    "synonyms": [],
+    "description": "Records from the 'library_items' table."
+  },
+  {
+    "id": "live_scoring",
+    "table": "live_scoring",
+    "api_route": "/api/live_scoring",
+    "topic_key": "live_scoring",
+    "display_name": "live scoring",
+    "synonyms": [],
+    "description": "Records from the 'live_scoring' table."
+  },
+  {
+    "id": "maintenance_requests",
+    "table": "maintenance_requests",
+    "api_route": "/api/maintenance_requests",
+    "topic_key": "maintenance_requests",
+    "display_name": "maintenance requests",
+    "synonyms": [],
+    "description": "Records from the 'maintenance_requests' table."
+  },
+  {
+    "id": "manual_stats",
+    "table": "manual_stats",
+    "api_route": "/api/manual_stats",
+    "topic_key": "manual_stats",
+    "display_name": "manual stats",
+    "synonyms": [],
+    "description": "Records from the 'manual_stats' table."
+  },
+  {
+    "id": "materials",
+    "table": "materials",
+    "api_route": "/api/materials",
+    "topic_key": "materials",
+    "display_name": "materials",
+    "synonyms": [],
+    "description": "Records from the 'materials' table."
+  },
+  {
+    "id": "meal_accounts",
+    "table": "meal_accounts",
+    "api_route": "/api/meal_accounts",
+    "topic_key": "meal_accounts",
+    "display_name": "meal accounts",
+    "synonyms": [],
+    "description": "Records from the 'meal_accounts' table."
+  },
+  {
+    "id": "meal_eligibility_statuses",
+    "table": "meal_eligibility_statuses",
+    "api_route": "/api/meal_eligibility_statuses",
+    "topic_key": "meal_eligibility_statuses",
+    "display_name": "meal eligibility statuses",
+    "synonyms": [],
+    "description": "Records from the 'meal_eligibility_statuses' table."
+  },
+  {
+    "id": "meal_transactions",
+    "table": "meal_transactions",
+    "api_route": "/api/meal_transactions",
+    "topic_key": "meal_transactions",
+    "display_name": "meal transactions",
+    "synonyms": [],
+    "description": "Records from the 'meal_transactions' table."
+  },
+  {
+    "id": "medication_administrations",
+    "table": "medication_administrations",
+    "api_route": "/api/medication_administrations",
+    "topic_key": "medication_administrations",
+    "display_name": "medication administrations",
+    "synonyms": [],
+    "description": "Records from the 'medication_administrations' table."
+  },
+  {
+    "id": "medications",
+    "table": "medications",
+    "api_route": "/api/medications",
+    "topic_key": "medications",
+    "display_name": "medications",
+    "synonyms": [],
+    "description": "Records from the 'medications' table."
+  },
+  {
+    "id": "meeting_documents",
+    "table": "meeting_documents",
+    "api_route": "/api/meeting_documents",
+    "topic_key": "meeting_documents",
+    "display_name": "meeting documents",
+    "synonyms": [],
+    "description": "Records from the 'meeting_documents' table."
+  },
+  {
+    "id": "meeting_files",
+    "table": "meeting_files",
+    "api_route": "/api/meeting_files",
+    "topic_key": "meeting_files",
+    "display_name": "meeting files",
+    "synonyms": [],
+    "description": "Records from the 'meeting_files' table."
+  },
+  {
+    "id": "meeting_permissions",
+    "table": "meeting_permissions",
+    "api_route": "/api/meeting_permissions",
+    "topic_key": "meeting_permissions",
+    "display_name": "meeting permissions",
+    "synonyms": [],
+    "description": "Records from the 'meeting_permissions' table."
+  },
+  {
+    "id": "meeting_publications",
+    "table": "meeting_publications",
+    "api_route": "/api/meeting_publications",
+    "topic_key": "meeting_publications",
+    "display_name": "meeting publications",
+    "synonyms": [],
+    "description": "Records from the 'meeting_publications' table."
+  },
+  {
+    "id": "meeting_search_index",
+    "table": "meeting_search_index",
+    "api_route": "/api/meeting_search_index",
+    "topic_key": "meeting_search_index",
+    "display_name": "meeting search index",
+    "synonyms": [],
+    "description": "Records from the 'meeting_search_index' table."
+  },
+  {
+    "id": "meetings",
+    "table": "meetings",
+    "api_route": "/api/meetings",
+    "topic_key": "meetings",
+    "display_name": "meetings",
+    "synonyms": [],
+    "description": "Records from the 'meetings' table."
+  },
+  {
+    "id": "memberships",
+    "table": "memberships",
+    "api_route": "/api/memberships",
+    "topic_key": "memberships",
+    "display_name": "memberships",
+    "synonyms": [],
+    "description": "Records from the 'memberships' table."
+  },
+  {
+    "id": "message_recipients",
+    "table": "message_recipients",
+    "api_route": "/api/message_recipients",
+    "topic_key": "message_recipients",
+    "display_name": "message recipients",
+    "synonyms": [],
+    "description": "Records from the 'message_recipients' table."
+  },
+  {
+    "id": "messages",
+    "table": "messages",
+    "api_route": "/api/messages",
+    "topic_key": "messages",
+    "display_name": "messages",
+    "synonyms": [],
+    "description": "Records from the 'messages' table."
+  },
+  {
+    "id": "meters",
+    "table": "meters",
+    "api_route": "/api/meters",
+    "topic_key": "meters",
+    "display_name": "meters",
+    "synonyms": [],
+    "description": "Records from the 'meters' table."
+  },
+  {
+    "id": "minutes",
+    "table": "minutes",
+    "api_route": "/api/minutes",
+    "topic_key": "minutes",
+    "display_name": "minutes",
+    "synonyms": [],
+    "description": "Records from the 'minutes' table."
+  },
+  {
+    "id": "motions",
+    "table": "motions",
+    "api_route": "/api/motions",
+    "topic_key": "motions",
+    "display_name": "motions",
+    "synonyms": [],
+    "description": "Records from the 'motions' table."
+  },
+  {
+    "id": "move_orders",
+    "table": "move_orders",
+    "api_route": "/api/move_orders",
+    "topic_key": "move_orders",
+    "display_name": "move orders",
+    "synonyms": [],
+    "description": "Records from the 'move_orders' table."
+  },
+  {
+    "id": "notifications",
+    "table": "notifications",
+    "api_route": "/api/notifications",
+    "topic_key": "notifications",
+    "display_name": "notifications",
+    "synonyms": [],
+    "description": "Records from the 'notifications' table."
+  },
+  {
+    "id": "nurse_visits",
+    "table": "nurse_visits",
+    "api_route": "/api/nurse_visits",
+    "topic_key": "nurse_visits",
+    "display_name": "nurse visits",
+    "synonyms": [],
+    "description": "Records from the 'nurse_visits' table."
+  },
+  {
+    "id": "objectives",
+    "table": "objectives",
+    "api_route": "/api/objectives",
+    "topic_key": "objectives",
+    "display_name": "objectives",
+    "synonyms": [],
+    "description": "Records from the 'objectives' table."
+  },
+  {
+    "id": "officials",
+    "table": "officials",
+    "api_route": "/api/officials",
+    "topic_key": "officials",
+    "display_name": "officials",
+    "synonyms": [],
+    "description": "Records from the 'officials' table."
+  },
+  {
+    "id": "order_line_items",
+    "table": "order_line_items",
+    "api_route": "/api/order_line_items",
+    "topic_key": "order_line_items",
+    "display_name": "order line items",
+    "synonyms": [],
+    "description": "Records from the 'order_line_items' table."
+  },
+  {
+    "id": "orders",
+    "table": "orders",
+    "api_route": "/api/orders",
+    "topic_key": "orders",
+    "display_name": "orders",
+    "synonyms": [],
+    "description": "Records from the 'orders' table."
+  },
+  {
+    "id": "organizations",
+    "table": "organizations",
+    "api_route": "/api/organizations",
+    "topic_key": "organizations",
+    "display_name": "organizations",
+    "synonyms": [],
+    "description": "Records from the 'organizations' table."
+  },
+  {
+    "id": "pages",
+    "table": "pages",
+    "api_route": "/api/pages",
+    "topic_key": "pages",
+    "display_name": "pages",
+    "synonyms": [],
+    "description": "Records from the 'pages' table."
+  },
+  {
+    "id": "part_locations",
+    "table": "part_locations",
+    "api_route": "/api/part_locations",
+    "topic_key": "part_locations",
+    "display_name": "part locations",
+    "synonyms": [],
+    "description": "Records from the 'part_locations' table."
+  },
+  {
+    "id": "parts",
+    "table": "parts",
+    "api_route": "/api/parts",
+    "topic_key": "parts",
+    "display_name": "parts",
+    "synonyms": [],
+    "description": "Records from the 'parts' table."
+  },
+  {
+    "id": "passes",
+    "table": "passes",
+    "api_route": "/api/passes",
+    "topic_key": "passes",
+    "display_name": "passes",
+    "synonyms": [],
+    "description": "Records from the 'passes' table."
+  },
+  {
+    "id": "pay_periods",
+    "table": "pay_periods",
+    "api_route": "/api/pay_periods",
+    "topic_key": "pay_periods",
+    "display_name": "pay periods",
+    "synonyms": [],
+    "description": "Records from the 'pay_periods' table."
+  },
+  {
+    "id": "paychecks",
+    "table": "paychecks",
+    "api_route": "/api/paychecks",
+    "topic_key": "paychecks",
+    "display_name": "paychecks",
+    "synonyms": [],
+    "description": "Records from the 'paychecks' table."
+  },
+  {
+    "id": "payments",
+    "table": "payments",
+    "api_route": "/api/payments",
+    "topic_key": "payments",
+    "display_name": "payments",
+    "synonyms": [],
+    "description": "Records from the 'payments' table."
+  },
+  {
+    "id": "payroll_runs",
+    "table": "payroll_runs",
+    "api_route": "/api/payroll_runs",
+    "topic_key": "payroll_runs",
+    "display_name": "payroll runs",
+    "synonyms": [],
+    "description": "Records from the 'payroll_runs' table."
+  },
+  {
+    "id": "periods",
+    "table": "periods",
+    "api_route": "/api/periods",
+    "topic_key": "periods",
+    "display_name": "periods",
+    "synonyms": [],
+    "description": "Records from the 'periods' table."
+  },
+  {
+    "id": "permissions",
+    "table": "permissions",
+    "api_route": "/api/permissions",
+    "topic_key": "permissions",
+    "display_name": "permissions",
+    "synonyms": [],
+    "description": "Records from the 'permissions' table."
+  },
+  {
+    "id": "person_addresses",
+    "table": "person_addresses",
+    "api_route": "/api/person_addresses",
+    "topic_key": "person_addresses",
+    "display_name": "person addresses",
+    "synonyms": [],
+    "description": "Records from the 'person_addresses' table."
+  },
+  {
+    "id": "person_contacts",
+    "table": "person_contacts",
+    "api_route": "/api/person_contacts",
+    "topic_key": "person_contacts",
+    "display_name": "person contacts",
+    "synonyms": [],
+    "description": "Records from the 'person_contacts' table."
+  },
+  {
+    "id": "personal_notes",
+    "table": "personal_notes",
+    "api_route": "/api/personal_notes",
+    "topic_key": "personal_notes",
+    "display_name": "personal notes",
+    "synonyms": [],
+    "description": "Records from the 'personal_notes' table."
+  },
+  {
+    "id": "persons",
+    "table": "persons",
+    "api_route": "/api/persons",
+    "topic_key": "persons",
+    "display_name": "persons",
+    "synonyms": [],
+    "description": "Records from the 'persons' table."
+  },
+  {
+    "id": "plan_alignments",
+    "table": "plan_alignments",
+    "api_route": "/api/plan_alignments",
+    "topic_key": "plan_alignments",
+    "display_name": "plan alignments",
+    "synonyms": [],
+    "description": "Records from the 'plan_alignments' table."
+  },
+  {
+    "id": "plan_assignments",
+    "table": "plan_assignments",
+    "api_route": "/api/plan_assignments",
+    "topic_key": "plan_assignments",
+    "display_name": "plan assignments",
+    "synonyms": [],
+    "description": "Records from the 'plan_assignments' table."
+  },
+  {
+    "id": "plan_filters",
+    "table": "plan_filters",
+    "api_route": "/api/plan_filters",
+    "topic_key": "plan_filters",
+    "display_name": "plan filters",
+    "synonyms": [],
+    "description": "Records from the 'plan_filters' table."
+  },
+  {
+    "id": "plan_search_index",
+    "table": "plan_search_index",
+    "api_route": "/api/plan_search_index",
+    "topic_key": "plan_search_index",
+    "display_name": "plan search index",
+    "synonyms": [],
+    "description": "Records from the 'plan_search_index' table."
+  },
+  {
+    "id": "plans",
+    "table": "plans",
+    "api_route": "/api/plans",
+    "topic_key": "plans",
+    "display_name": "plans",
+    "synonyms": [],
+    "description": "Records from the 'plans' table."
+  },
+  {
+    "id": "pm_plans",
+    "table": "pm_plans",
+    "api_route": "/api/pm_plans",
+    "topic_key": "pm_plans",
+    "display_name": "pm plans",
+    "synonyms": [],
+    "description": "Records from the 'pm_plans' table."
+  },
+  {
+    "id": "pm_work_generators",
+    "table": "pm_work_generators",
+    "api_route": "/api/pm_work_generators",
+    "topic_key": "pm_work_generators",
+    "display_name": "pm work generators",
+    "synonyms": [],
+    "description": "Records from the 'pm_work_generators' table."
+  },
+  {
+    "id": "policies",
+    "table": "policies",
+    "api_route": "/api/policies",
+    "topic_key": "policies",
+    "display_name": "policies",
+    "synonyms": [],
+    "description": "Records from the 'policies' table."
+  },
+  {
+    "id": "policy_approvals",
+    "table": "policy_approvals",
+    "api_route": "/api/policy_approvals",
+    "topic_key": "policy_approvals",
+    "display_name": "policy approvals",
+    "synonyms": [],
+    "description": "Records from the 'policy_approvals' table."
+  },
+  {
+    "id": "policy_comments",
+    "table": "policy_comments",
+    "api_route": "/api/policy_comments",
+    "topic_key": "policy_comments",
+    "display_name": "policy comments",
+    "synonyms": [],
+    "description": "Records from the 'policy_comments' table."
+  },
+  {
+    "id": "policy_files",
+    "table": "policy_files",
+    "api_route": "/api/policy_files",
+    "topic_key": "policy_files",
+    "display_name": "policy files",
+    "synonyms": [],
+    "description": "Records from the 'policy_files' table."
+  },
+  {
+    "id": "policy_legal_refs",
+    "table": "policy_legal_refs",
+    "api_route": "/api/policy_legal_refs",
+    "topic_key": "policy_legal_refs",
+    "display_name": "policy legal refs",
+    "synonyms": [],
+    "description": "Records from the 'policy_legal_refs' table."
+  },
+  {
+    "id": "policy_publications",
+    "table": "policy_publications",
+    "api_route": "/api/policy_publications",
+    "topic_key": "policy_publications",
+    "display_name": "policy publications",
+    "synonyms": [],
+    "description": "Records from the 'policy_publications' table."
+  },
+  {
+    "id": "policy_search_index",
+    "table": "policy_search_index",
+    "api_route": "/api/policy_search_index",
+    "topic_key": "policy_search_index",
+    "display_name": "policy search index",
+    "synonyms": [],
+    "description": "Records from the 'policy_search_index' table."
+  },
+  {
+    "id": "policy_versions",
+    "table": "policy_versions",
+    "api_route": "/api/policy_versions",
+    "topic_key": "policy_versions",
+    "display_name": "policy versions",
+    "synonyms": [],
+    "description": "Records from the 'policy_versions' table."
+  },
+  {
+    "id": "policy_workflow_steps",
+    "table": "policy_workflow_steps",
+    "api_route": "/api/policy_workflow_steps",
+    "topic_key": "policy_workflow_steps",
+    "display_name": "policy workflow steps",
+    "synonyms": [],
+    "description": "Records from the 'policy_workflow_steps' table."
+  },
+  {
+    "id": "policy_workflows",
+    "table": "policy_workflows",
+    "api_route": "/api/policy_workflows",
+    "topic_key": "policy_workflows",
+    "display_name": "policy workflows",
+    "synonyms": [],
+    "description": "Records from the 'policy_workflows' table."
+  },
+  {
+    "id": "post_attachments",
+    "table": "post_attachments",
+    "api_route": "/api/post_attachments",
+    "topic_key": "post_attachments",
+    "display_name": "post attachments",
+    "synonyms": [],
+    "description": "Records from the 'post_attachments' table."
+  },
+  {
+    "id": "posts",
+    "table": "posts",
+    "api_route": "/api/posts",
+    "topic_key": "posts",
+    "display_name": "posts",
+    "synonyms": [],
+    "description": "Records from the 'posts' table."
+  },
+  {
+    "id": "project_tasks",
+    "table": "project_tasks",
+    "api_route": "/api/project_tasks",
+    "topic_key": "project_tasks",
+    "display_name": "project tasks",
+    "synonyms": [],
+    "description": "Records from the 'project_tasks' table."
+  },
+  {
+    "id": "projects",
+    "table": "projects",
+    "api_route": "/api/projects",
+    "topic_key": "projects",
+    "display_name": "projects",
+    "synonyms": [],
+    "description": "Records from the 'projects' table."
+  },
+  {
+    "id": "proposal_documents",
+    "table": "proposal_documents",
+    "api_route": "/api/proposal_documents",
+    "topic_key": "proposal_documents",
+    "display_name": "proposal documents",
+    "synonyms": [],
+    "description": "Records from the 'proposal_documents' table."
+  },
+  {
+    "id": "proposal_reviews",
+    "table": "proposal_reviews",
+    "api_route": "/api/proposal_reviews",
+    "topic_key": "proposal_reviews",
+    "display_name": "proposal reviews",
+    "synonyms": [],
+    "description": "Records from the 'proposal_reviews' table."
+  },
+  {
+    "id": "proposal_standard_map",
+    "table": "proposal_standard_map",
+    "api_route": "/api/proposal_standard_map",
+    "topic_key": "proposal_standard_map",
+    "display_name": "proposal standard map",
+    "synonyms": [],
+    "description": "Records from the 'proposal_standard_map' table."
+  },
+  {
+    "id": "proposals",
+    "table": "proposals",
+    "api_route": "/api/proposals",
+    "topic_key": "proposals",
+    "display_name": "proposals",
+    "synonyms": [],
+    "description": "Records from the 'proposals' table."
+  },
+  {
+    "id": "publications",
+    "table": "publications",
+    "api_route": "/api/publications",
+    "topic_key": "publications",
+    "display_name": "publications",
+    "synonyms": [],
+    "description": "Records from the 'publications' table."
+  },
+  {
+    "id": "report_cards",
+    "table": "report_cards",
+    "api_route": "/api/report_cards",
+    "topic_key": "report_cards",
+    "display_name": "report cards",
+    "synonyms": [],
+    "description": "Records from the 'report_cards' table."
+  },
+  {
+    "id": "requirements",
+    "table": "requirements",
+    "api_route": "/api/requirements",
+    "topic_key": "requirements",
+    "display_name": "requirements",
+    "synonyms": [],
+    "description": "Records from the 'requirements' table."
+  },
+  {
+    "id": "resolutions",
+    "table": "resolutions",
+    "api_route": "/api/resolutions",
+    "topic_key": "resolutions",
+    "display_name": "resolutions",
+    "synonyms": [],
+    "description": "Records from the 'resolutions' table."
+  },
+  {
+    "id": "retention_rules",
+    "table": "retention_rules",
+    "api_route": "/api/retention_rules",
+    "topic_key": "retention_rules",
+    "display_name": "retention rules",
+    "synonyms": [],
+    "description": "Records from the 'retention_rules' table."
+  },
+  {
+    "id": "review_requests",
+    "table": "review_requests",
+    "api_route": "/api/review_requests",
+    "topic_key": "review_requests",
+    "display_name": "review requests",
+    "synonyms": [],
+    "description": "Records from the 'review_requests' table."
+  },
+  {
+    "id": "review_rounds",
+    "table": "review_rounds",
+    "api_route": "/api/review_rounds",
+    "topic_key": "review_rounds",
+    "display_name": "review rounds",
+    "synonyms": [],
+    "description": "Records from the 'review_rounds' table."
+  },
+  {
+    "id": "reviewers",
+    "table": "reviewers",
+    "api_route": "/api/reviewers",
+    "topic_key": "reviewers",
+    "display_name": "reviewers",
+    "synonyms": [],
+    "description": "Records from the 'reviewers' table."
+  },
+  {
+    "id": "reviews",
+    "table": "reviews",
+    "api_route": "/api/reviews",
+    "topic_key": "reviews",
+    "display_name": "reviews",
+    "synonyms": [],
+    "description": "Records from the 'reviews' table."
+  },
+  {
+    "id": "role_permissions",
+    "table": "role_permissions",
+    "api_route": "/api/role_permissions",
+    "topic_key": "role_permissions",
+    "display_name": "role permissions",
+    "synonyms": [],
+    "description": "Records from the 'role_permissions' table."
+  },
+  {
+    "id": "roles",
+    "table": "roles",
+    "api_route": "/api/roles",
+    "topic_key": "roles",
+    "display_name": "roles",
+    "synonyms": [],
+    "description": "Records from the 'roles' table."
+  },
+  {
+    "id": "rooms",
+    "table": "rooms",
+    "api_route": "/api/rooms",
+    "topic_key": "rooms",
+    "display_name": "rooms",
+    "synonyms": [],
+    "description": "Records from the 'rooms' table."
+  },
+  {
+    "id": "round_decisions",
+    "table": "round_decisions",
+    "api_route": "/api/round_decisions",
+    "topic_key": "round_decisions",
+    "display_name": "round decisions",
+    "synonyms": [],
+    "description": "Records from the 'round_decisions' table."
+  },
+  {
+    "id": "scan_requests",
+    "table": "scan_requests",
+    "api_route": "/api/scan_requests",
+    "topic_key": "scan_requests",
+    "display_name": "scan requests",
+    "synonyms": [],
+    "description": "Records from the 'scan_requests' table."
+  },
+  {
+    "id": "scan_results",
+    "table": "scan_results",
+    "api_route": "/api/scan_results",
+    "topic_key": "scan_results",
+    "display_name": "scan results",
+    "synonyms": [],
+    "description": "Records from the 'scan_results' table."
+  },
+  {
+    "id": "schools",
+    "table": "schools",
+    "api_route": "/api/schools",
+    "topic_key": "schools",
+    "display_name": "schools",
+    "synonyms": [],
+    "description": "Records from the 'schools' table."
+  },
+  {
+    "id": "score_entries",
+    "table": "score_entries",
+    "api_route": "/api/score_entries",
+    "topic_key": "score_entries",
+    "display_name": "score entries",
+    "synonyms": [],
+    "description": "Records from the 'score_entries' table."
+  },
+  {
+    "id": "scorecard_kpis",
+    "table": "scorecard_kpis",
+    "api_route": "/api/scorecard_kpis",
+    "topic_key": "scorecard_kpis",
+    "display_name": "scorecard kpis",
+    "synonyms": [],
+    "description": "Records from the 'scorecard_kpis' table."
+  },
+  {
+    "id": "scorecards",
+    "table": "scorecards",
+    "api_route": "/api/scorecards",
+    "topic_key": "scorecards",
+    "display_name": "scorecards",
+    "synonyms": [],
+    "description": "Records from the 'scorecards' table."
+  },
+  {
+    "id": "seasons",
+    "table": "seasons",
+    "api_route": "/api/seasons",
+    "topic_key": "seasons",
+    "display_name": "seasons",
+    "synonyms": [],
+    "description": "Records from the 'seasons' table."
+  },
+  {
+    "id": "section504_plans",
+    "table": "section504_plans",
+    "api_route": "/api/section504_plans",
+    "topic_key": "section504_plans",
+    "display_name": "section504 plans",
+    "synonyms": [],
+    "description": "Records from the 'section504_plans' table."
+  },
+  {
+    "id": "section_meetings",
+    "table": "section_meetings",
+    "api_route": "/api/section_meetings",
+    "topic_key": "section_meetings",
+    "display_name": "section meetings",
+    "synonyms": [],
+    "description": "Records from the 'section_meetings' table."
+  },
+  {
+    "id": "section_room_assignments",
+    "table": "section_room_assignments",
+    "api_route": "/api/section_room_assignments",
+    "topic_key": "section_room_assignments",
+    "display_name": "section room assignments",
+    "synonyms": [],
+    "description": "Records from the 'section_room_assignments' table."
+  },
+  {
+    "id": "sessions",
+    "table": "sessions",
+    "api_route": "/api/sessions",
+    "topic_key": "sessions",
+    "display_name": "sessions",
+    "synonyms": [],
+    "description": "Records from the 'sessions' table."
+  },
+  {
+    "id": "sis_import_jobs",
+    "table": "sis_import_jobs",
+    "api_route": "/api/sis_import_jobs",
+    "topic_key": "sis_import_jobs",
+    "display_name": "sis import jobs",
+    "synonyms": [],
+    "description": "Records from the 'sis_import_jobs' table."
+  },
+  {
+    "id": "space_reservations",
+    "table": "space_reservations",
+    "api_route": "/api/space_reservations",
+    "topic_key": "space_reservations",
+    "display_name": "space reservations",
+    "synonyms": [],
+    "description": "Records from the 'space_reservations' table."
+  },
+  {
+    "id": "spaces",
+    "table": "spaces",
+    "api_route": "/api/spaces",
+    "topic_key": "spaces",
+    "display_name": "spaces",
+    "synonyms": [],
+    "description": "Records from the 'spaces' table."
+  },
+  {
+    "id": "special_education_cases",
+    "table": "special_education_cases",
+    "api_route": "/api/special_education_cases",
+    "topic_key": "special_education_cases",
+    "display_name": "special education cases",
+    "synonyms": [],
+    "description": "Records from the 'special_education_cases' table."
+  },
+  {
+    "id": "sports",
+    "table": "sports",
+    "api_route": "/api/sports",
+    "topic_key": "sports",
+    "display_name": "sports",
+    "synonyms": [],
+    "description": "Records from the 'sports' table."
+  },
+  {
+    "id": "staff",
+    "table": "staff",
+    "api_route": "/api/staff",
+    "topic_key": "staff",
+    "display_name": "staff",
+    "synonyms": [],
+    "description": "Records from the 'staff' table."
+  },
+  {
+    "id": "standardized_tests",
+    "table": "standardized_tests",
+    "api_route": "/api/standardized_tests",
+    "topic_key": "standardized_tests",
+    "display_name": "standardized tests",
+    "synonyms": [],
+    "description": "Records from the 'standardized_tests' table."
+  },
+  {
+    "id": "standards",
+    "table": "standards",
+    "api_route": "/api/standards",
+    "topic_key": "standards",
+    "display_name": "standards",
+    "synonyms": [],
+    "description": "Records from the 'standards' table."
+  },
+  {
+    "id": "stat_imports",
+    "table": "stat_imports",
+    "api_route": "/api/stat_imports",
+    "topic_key": "stat_imports",
+    "display_name": "stat imports",
+    "synonyms": [],
+    "description": "Records from the 'stat_imports' table."
+  },
+  {
+    "id": "state_reporting_snapshots",
+    "table": "state_reporting_snapshots",
+    "api_route": "/api/state_reporting_snapshots",
+    "topic_key": "state_reporting_snapshots",
+    "display_name": "state reporting snapshots",
+    "synonyms": [],
+    "description": "Records from the 'state_reporting_snapshots' table."
+  },
+  {
+    "id": "states",
+    "table": "states",
+    "api_route": "/api/states",
+    "topic_key": "states",
+    "display_name": "states",
+    "synonyms": [],
+    "description": "Records from the 'states' table."
+  },
+  {
+    "id": "store_order_items",
+    "table": "store_order_items",
+    "api_route": "/api/store_order_items",
+    "topic_key": "store_order_items",
+    "display_name": "store order items",
+    "synonyms": [],
+    "description": "Records from the 'store_order_items' table."
+  },
+  {
+    "id": "store_orders",
+    "table": "store_orders",
+    "api_route": "/api/store_orders",
+    "topic_key": "store_orders",
+    "display_name": "store orders",
+    "synonyms": [],
+    "description": "Records from the 'store_orders' table."
+  },
+  {
+    "id": "store_products",
+    "table": "store_products",
+    "api_route": "/api/store_products",
+    "topic_key": "store_products",
+    "display_name": "store products",
+    "synonyms": [],
+    "description": "Records from the 'store_products' table."
+  },
+  {
+    "id": "student_guardians",
+    "table": "student_guardians",
+    "api_route": "/api/student_guardians",
+    "topic_key": "student_guardians",
+    "display_name": "student guardians",
+    "synonyms": [],
+    "description": "Records from the 'student_guardians' table."
+  },
+  {
+    "id": "student_program_enrollments",
+    "table": "student_program_enrollments",
+    "api_route": "/api/student_program_enrollments",
+    "topic_key": "student_program_enrollments",
+    "display_name": "student program enrollments",
+    "synonyms": [],
+    "description": "Records from the 'student_program_enrollments' table."
+  },
+  {
+    "id": "student_school_enrollments",
+    "table": "student_school_enrollments",
+    "api_route": "/api/student_school_enrollments",
+    "topic_key": "student_school_enrollments",
+    "display_name": "student school enrollments",
+    "synonyms": [],
+    "description": "Records from the 'student_school_enrollments' table."
+  },
+  {
+    "id": "student_section_enrollments",
+    "table": "student_section_enrollments",
+    "api_route": "/api/student_section_enrollments",
+    "topic_key": "student_section_enrollments",
+    "display_name": "student section enrollments",
+    "synonyms": [],
+    "description": "Records from the 'student_section_enrollments' table."
+  },
+  {
+    "id": "student_submissions",
+    "table": "student_submissions",
+    "api_route": "/api/student_submissions",
+    "topic_key": "student_submissions",
+    "display_name": "student submissions",
+    "synonyms": [],
+    "description": "Records from the 'student_submissions' table."
+  },
+  {
+    "id": "student_transportation_assignments",
+    "table": "student_transportation_assignments",
+    "api_route": "/api/student_transportation_assignments",
+    "topic_key": "student_transportation_assignments",
+    "display_name": "student transportation assignments",
+    "synonyms": [],
+    "description": "Records from the 'student_transportation_assignments' table."
+  },
+  {
+    "id": "students",
+    "table": "students",
+    "api_route": "/api/students",
+    "topic_key": "students",
+    "display_name": "students",
+    "synonyms": [],
+    "description": "Records from the 'students' table."
+  },
+  {
+    "id": "subjects",
+    "table": "subjects",
+    "api_route": "/api/subjects",
+    "topic_key": "subjects",
+    "display_name": "subjects",
+    "synonyms": [],
+    "description": "Records from the 'subjects' table."
+  },
+  {
+    "id": "subscriptions",
+    "table": "subscriptions",
+    "api_route": "/api/subscriptions",
+    "topic_key": "subscriptions",
+    "display_name": "subscriptions",
+    "synonyms": [],
+    "description": "Records from the 'subscriptions' table."
+  },
+  {
+    "id": "tags",
+    "table": "tags",
+    "api_route": "/api/tags",
+    "topic_key": "tags",
+    "display_name": "tags",
+    "synonyms": [],
+    "description": "Records from the 'tags' table."
+  },
+  {
+    "id": "teacher_section_assignments",
+    "table": "teacher_section_assignments",
+    "api_route": "/api/teacher_section_assignments",
+    "topic_key": "teacher_section_assignments",
+    "display_name": "teacher section assignments",
+    "synonyms": [],
+    "description": "Records from the 'teacher_section_assignments' table."
+  },
+  {
+    "id": "team_messages",
+    "table": "team_messages",
+    "api_route": "/api/team_messages",
+    "topic_key": "team_messages",
+    "display_name": "team messages",
+    "synonyms": [],
+    "description": "Records from the 'team_messages' table."
+  },
+  {
+    "id": "teams",
+    "table": "teams",
+    "api_route": "/api/teams",
+    "topic_key": "teams",
+    "display_name": "teams",
+    "synonyms": [],
+    "description": "Records from the 'teams' table."
+  },
+  {
+    "id": "test_administrations",
+    "table": "test_administrations",
+    "api_route": "/api/test_administrations",
+    "topic_key": "test_administrations",
+    "display_name": "test administrations",
+    "synonyms": [],
+    "description": "Records from the 'test_administrations' table."
+  },
+  {
+    "id": "test_results",
+    "table": "test_results",
+    "api_route": "/api/test_results",
+    "topic_key": "test_results",
+    "display_name": "test results",
+    "synonyms": [],
+    "description": "Records from the 'test_results' table."
+  },
+  {
+    "id": "ticket_scans",
+    "table": "ticket_scans",
+    "api_route": "/api/ticket_scans",
+    "topic_key": "ticket_scans",
+    "display_name": "ticket scans",
+    "synonyms": [],
+    "description": "Records from the 'ticket_scans' table."
+  },
+  {
+    "id": "ticket_types",
+    "table": "ticket_types",
+    "api_route": "/api/ticket_types",
+    "topic_key": "ticket_types",
+    "display_name": "ticket types",
+    "synonyms": [],
+    "description": "Records from the 'ticket_types' table."
+  },
+  {
+    "id": "tickets",
+    "table": "tickets",
+    "api_route": "/api/tickets",
+    "topic_key": "tickets",
+    "display_name": "tickets",
+    "synonyms": [],
+    "description": "Records from the 'tickets' table."
+  },
+  {
+    "id": "topics",
+    "table": "topics",
+    "api_route": "/api/topics",
+    "topic_key": "topics",
+    "display_name": "topics",
+    "synonyms": [],
+    "description": "Records from the 'topics' table."
+  },
+  {
+    "id": "transcript_lines",
+    "table": "transcript_lines",
+    "api_route": "/api/transcript_lines",
+    "topic_key": "transcript_lines",
+    "display_name": "transcript lines",
+    "synonyms": [],
+    "description": "Records from the 'transcript_lines' table."
+  },
+  {
+    "id": "trips",
+    "table": "trips",
+    "api_route": "/api/trips",
+    "topic_key": "trips",
+    "display_name": "trips",
+    "synonyms": [],
+    "description": "Records from the 'trips' table."
+  },
+  {
+    "id": "turn_in",
+    "table": "turn_in",
+    "api_route": "/api/turn_in",
+    "topic_key": "turn_in",
+    "display_name": "turn in",
+    "synonyms": [],
+    "description": "Records from the 'turn_in' table."
+  },
+  {
+    "id": "tutor_out",
+    "table": "tutor_out",
+    "api_route": "/api/tutor_out",
+    "topic_key": "tutor_out",
+    "display_name": "tutor out",
+    "synonyms": [],
+    "description": "Records from the 'tutor_out' table."
+  },
+  {
+    "id": "tutor_spec",
+    "table": "tutor_spec",
+    "api_route": "/api/tutor_spec",
+    "topic_key": "tutor_spec",
+    "display_name": "tutor spec",
+    "synonyms": [],
+    "description": "Records from the 'tutor_spec' table."
+  },
+  {
+    "id": "tutors",
+    "table": "tutors",
+    "api_route": "/api/tutors",
+    "topic_key": "tutors",
+    "display_name": "tutors",
+    "synonyms": [],
+    "description": "Records from the 'tutors' table."
+  },
+  {
+    "id": "unit_standard_map",
+    "table": "unit_standard_map",
+    "api_route": "/api/unit_standard_map",
+    "topic_key": "unit_standard_map",
+    "display_name": "unit standard map",
+    "synonyms": [],
+    "description": "Records from the 'unit_standard_map' table."
+  },
+  {
+    "id": "user_accounts",
+    "table": "user_accounts",
+    "api_route": "/api/user_accounts",
+    "topic_key": "user_accounts",
+    "display_name": "user accounts",
+    "synonyms": [],
+    "description": "Records from the 'user_accounts' table."
+  },
+  {
+    "id": "user_profiles",
+    "table": "user_profiles",
+    "api_route": "/api/user_profiles",
+    "topic_key": "user_profiles",
+    "display_name": "user profiles",
+    "synonyms": [],
+    "description": "Records from the 'user_profiles' table."
+  },
+  {
+    "id": "users",
+    "table": "users",
+    "api_route": "/api/users",
+    "topic_key": "users",
+    "display_name": "users",
+    "synonyms": [],
+    "description": "Records from the 'users' table."
+  },
+  {
+    "id": "vendors",
+    "table": "vendors",
+    "api_route": "/api/vendors",
+    "topic_key": "vendors",
+    "display_name": "vendors",
+    "synonyms": [],
+    "description": "Records from the 'vendors' table."
+  },
+  {
+    "id": "votes",
+    "table": "votes",
+    "api_route": "/api/votes",
+    "topic_key": "votes",
+    "display_name": "votes",
+    "synonyms": [],
+    "description": "Records from the 'votes' table."
+  },
+  {
+    "id": "waivers",
+    "table": "waivers",
+    "api_route": "/api/waivers",
+    "topic_key": "waivers",
+    "display_name": "waivers",
+    "synonyms": [],
+    "description": "Records from the 'waivers' table."
+  },
+  {
+    "id": "warranties",
+    "table": "warranties",
+    "api_route": "/api/warranties",
+    "topic_key": "warranties",
+    "display_name": "warranties",
+    "synonyms": [],
+    "description": "Records from the 'warranties' table."
+  },
+  {
+    "id": "webhooks",
+    "table": "webhooks",
+    "api_route": "/api/webhooks",
+    "topic_key": "webhooks",
+    "display_name": "webhooks",
+    "synonyms": [],
+    "description": "Records from the 'webhooks' table."
+  },
+  {
+    "id": "work_assignments",
+    "table": "work_assignments",
+    "api_route": "/api/work_assignments",
+    "topic_key": "work_assignments",
+    "display_name": "work assignments",
+    "synonyms": [],
+    "description": "Records from the 'work_assignments' table."
+  },
+  {
+    "id": "work_order_parts",
+    "table": "work_order_parts",
+    "api_route": "/api/work_order_parts",
+    "topic_key": "work_order_parts",
+    "display_name": "work order parts",
+    "synonyms": [],
+    "description": "Records from the 'work_order_parts' table."
+  },
+  {
+    "id": "work_order_tasks",
+    "table": "work_order_tasks",
+    "api_route": "/api/work_order_tasks",
+    "topic_key": "work_order_tasks",
+    "display_name": "work order tasks",
+    "synonyms": [],
+    "description": "Records from the 'work_order_tasks' table."
+  },
+  {
+    "id": "work_order_time_logs",
+    "table": "work_order_time_logs",
+    "api_route": "/api/work_order_time_logs",
+    "topic_key": "work_order_time_logs",
+    "display_name": "work order time logs",
+    "synonyms": [],
+    "description": "Records from the 'work_order_time_logs' table."
+  },
+  {
+    "id": "work_orders",
+    "table": "work_orders",
+    "api_route": "/api/work_orders",
+    "topic_key": "work_orders",
+    "display_name": "work orders",
+    "synonyms": [],
+    "description": "Records from the 'work_orders' table."
+  },
+  {
+    "id": "workers",
+    "table": "workers",
+    "api_route": "/api/workers",
+    "topic_key": "workers",
+    "display_name": "workers",
+    "synonyms": [],
+    "description": "Records from the 'workers' table."
+  }
+]

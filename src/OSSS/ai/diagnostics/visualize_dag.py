@@ -765,7 +765,7 @@ def get_default_agents() -> List[str]:
     List[str]
         Default agent list including historian
     """
-    return ["refiner", "critic", "historian", "synthesis"]
+    return ["refiner", "historian", "final"]
 
 
 def validate_agents(agents: List[str]) -> bool:
@@ -782,7 +782,7 @@ def validate_agents(agents: List[str]) -> bool:
     bool
         True if all agents are supported
     """
-    supported_agents = {"refiner", "critic", "synthesis", "historian"}
+    supported_agents = {"refiner", "final", "historian"}
     return all(agent.lower() in supported_agents for agent in agents)
 
 

@@ -175,7 +175,7 @@ async def run(
         # For Phase 2.1, include historian support
         if dag_agents:
             # Filter to supported agents for Phase 2.1
-            supported_agents = {"refiner", "critic", "historian", "synthesis"}
+            supported_agents = {"refiner", "historian", "final"}
             dag_agents = [
                 agent for agent in dag_agents if agent.lower() in supported_agents
             ]
@@ -482,7 +482,7 @@ async def _run_health_check(
     agents_list = (
         agents_to_run
         if agents_to_run
-        else ["refiner", "critic", "historian", "synthesis"]
+        else ["refiner", "historian", "final"]
     )
 
     all_healthy = True

@@ -64,7 +64,7 @@ class WorkflowRequest(BaseModel):
             return None
 
         if v is not None:
-            valid_agents = {"refiner", "historian", "critic", "synthesis","output"}
+            valid_agents = {"refiner", "historian", "final", "data_query"}
             invalid_agents = set(v) - valid_agents
             if invalid_agents:
                 raise ValueError(

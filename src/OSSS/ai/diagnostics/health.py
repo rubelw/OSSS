@@ -148,7 +148,7 @@ class HealthChecker:
                 )
 
             # Try to validate the pipeline
-            core_agents = ["refiner", "historian", "critic", "synthesis"]
+            core_agents = ["refiner", "historian", "final", "data_query"]
             pipeline_valid = self.registry.validate_pipeline(core_agents)
 
             # Check dependency resolution

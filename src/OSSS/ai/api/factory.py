@@ -37,6 +37,76 @@ logger = get_logger(__name__)
 _api_instance: Optional[OrchestrationAPI] = None
 _api_lock = asyncio.Lock()
 
+async def clear_orchestration_cache() -> Dict[str, Any]:
+    """
+    Clear orchestration-level caches (e.g., compiled LangGraph graphs).
+
+    Intended to be called by the /admin/cache/clear (or similar) route.
+
+    Behavior:
+    - Ensures the orchestration API is initialized
+    - If the API exposes `clear_graph_cache`, delegates to it
+    - Otherwise, falls back to `reset_api_cache()` so the next call rebuilds
+      a fresh API/graph state.
+    """
+    api = await get_orchestration_api()
+    info: Dict[str, Any] = {
+        "api_class": type(api).__name__,
+        "mode": get_api_mode(),
+    }
+
+    # Prefer an explicit API-level cache clear if available
+    clear_fn = getattr(api, "clear_graph_cache", None)
+
+    if clear_fn is None:
+        logger.warning(
+            "[factory] Orchestration API does not expose clear_graph_cache; "
+            "falling back to reset_api_cache",
+            extra=info,
+        )
+        reset_api_cache()
+        return {
+            "status": "ok",
+            "source": "factory",
+            "action": "reset_api_cache",
+            **info,
+        }
+
+    logger.info(
+        "[factory] Clearing orchestration graph cache via API",
+        extra=info,
+    )
+
+    try:
+        if asyncio.iscoroutinefunction(clear_fn):
+            result = await clear_fn()
+        else:
+            result = clear_fn()
+    except Exception as e:
+        logger.exception(
+            "[factory] Error while clearing orchestration cache",
+            extra={**info, "error": str(e)},
+        )
+        # Surface a structured error for the route to return
+        return {
+            "status": "error",
+            "error": str(e),
+            **info,
+        }
+
+    # Normalize result to a dict for the route
+    if isinstance(result, dict):
+        payload: Dict[str, Any] = result
+    else:
+        payload = {"detail": str(result)}
+
+    return {
+        "status": "ok",
+        "source": "api",
+        **info,
+        **payload,
+    }
+
 
 async def get_orchestration_api(force_mode: Optional[str] = None) -> OrchestrationAPI:
     """

@@ -413,6 +413,8 @@ class LangGraphOrchestrator:
 
     # inside LangGraphOrchestrator
 
+
+
     async def _prefetch_rag(
             self,
             *,
@@ -616,6 +618,108 @@ class LangGraphOrchestrator:
         )
         return deduped
 
+    # ------------------------------------------------------------------
+    # Graph cache control (admin/debug)
+    # ------------------------------------------------------------------
+
+    def get_graph_cache_stats(self) -> dict[str, Any]:
+        """
+        Return GraphFactory cache statistics, if available.
+        """
+        if not getattr(self, "graph_factory", None):
+            logger.warning(
+                "[orchestrator] get_graph_cache_stats called but graph_factory is not set",
+                extra={"event": "graph_cache_stats_no_factory"},
+            )
+            return {"enabled": False, "reason": "no_graph_factory"}
+
+        cache = getattr(self.graph_factory, "cache", None)
+        if not cache:
+            logger.info(
+                "[orchestrator] Graph cache not enabled on graph_factory",
+                extra={"event": "graph_cache_stats_disabled"},
+            )
+            return {"enabled": False, "reason": "no_cache_instance"}
+
+        try:
+            stats = cache.get_stats()
+        except Exception as e:
+            logger.exception(
+                "[orchestrator] Failed to fetch graph cache stats",
+                extra={"event": "graph_cache_stats_error", "error": str(e)},
+            )
+            return {"enabled": True, "error": str(e)}
+
+        return {"enabled": True, **stats}
+
+    def clear_graph_cache(self) -> dict[str, Any]:
+        """
+        Clear all compiled graph entries from the underlying GraphFactory cache.
+        """
+        if not getattr(self, "graph_factory", None):
+            logger.warning(
+                "[orchestrator] clear_graph_cache called but graph_factory is not set",
+                extra={"event": "graph_cache_clear_no_factory"},
+            )
+            return {
+                "status": "error",
+                "reason": "no_graph_factory",
+            }
+
+        logger.info(
+            "[orchestrator] Clearing graph cache via GraphFactory",
+            extra={"event": "graph_cache_clear_request"},
+        )
+
+        stats_before = None
+        stats_after = None
+
+        # Best-effort stats before
+        if hasattr(self, "get_graph_cache_stats"):
+            try:
+                stats_before = self.get_graph_cache_stats()
+            except Exception:
+                stats_before = None
+
+        try:
+            # Delegates to GraphFactory.clear_cache()
+            if hasattr(self.graph_factory, "clear_cache"):
+                self.graph_factory.clear_cache()
+            else:
+                logger.warning(
+                    "[orchestrator] GraphFactory does not implement clear_cache()",
+                    extra={"event": "graph_cache_clear_unsupported"},
+                )
+                return {
+                    "status": "error",
+                    "reason": "graph_factory_clear_not_supported",
+                    "stats_before": stats_before,
+                }
+        except Exception as e:
+            logger.exception(
+                "[orchestrator] Error while clearing graph cache",
+                extra={"event": "graph_cache_clear_error", "error": str(e)},
+            )
+            return {
+                "status": "error",
+                "reason": "exception",
+                "error": str(e),
+                "stats_before": stats_before,
+            }
+
+        # Best-effort stats after
+        if hasattr(self, "get_graph_cache_stats"):
+            try:
+                stats_after = self.get_graph_cache_stats()
+            except Exception:
+                stats_after = None
+
+        return {
+            "status": "ok",
+            "source": "graph_factory",
+            "stats_before": stats_before,
+            "stats_after": stats_after,
+        }
 
     # ---------------------------------------------------------------------
     # Pattern resolution (NEW)

@@ -69,7 +69,7 @@ from OSSS.ai import admin_additional_index_router
 
 from OSSS.agents import metagpt_agent
 
-from OSSS.ai.api.routes import query, topics, workflows
+from OSSS.ai.api.routes import query, topics, workflows, admin
 from OSSS.ai.api.factory import get_orchestration_api
 
 # Shared RAG embedding client module (for shutdown cleanup)
@@ -516,6 +516,8 @@ def create_app() -> FastAPI:
         app.include_router(query.router, prefix="/api")
         app.include_router(topics.router, prefix="/api")
         app.include_router(workflows.router, prefix="/api")
+        app.include_router(admin.router, prefix="/api")
+
 
 
 

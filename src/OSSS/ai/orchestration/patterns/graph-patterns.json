@@ -2,39 +2,33 @@
   "$schema": "https://osss.ai/schemas/graph-patterns.schema.json",
   "patterns": {
     "standard": {
-      "description": "Default flow: refiner -> (data_query OR critic/historian) -> (synthesis optional) -> END",
+      "description": "Default flow: refiner -> (data_query OR historian) -> final -> END",
       "entry_point": "refiner",
       "edges": [
         { "from": "refiner", "to": "data_query", "when": "has('data_query')" },
 
-        { "from": "refiner", "to": "critic", "when": "not has('data_query') and has('critic')" },
         { "from": "refiner", "to": "historian", "when": "not has('data_query') and has('historian')" },
 
-        { "from": "data_query", "to": "synthesis", "when": "has('data_query') and has('synthesis')" },
-        { "from": "critic", "to": "synthesis", "when": "has('critic') and has('synthesis')" },
-        { "from": "historian", "to": "synthesis", "when": "has('historian') and has('synthesis')" },
+        { "from": "data_query", "to": "final", "when": "has('final')" },
+        { "from": "historian", "to": "final", "when": "has('final')" },
 
-        { "from": "data_query", "to": "END", "when": "has('data_query') and not has('synthesis')" },
-        { "from": "critic", "to": "END", "when": "has('critic') and not has('synthesis')" },
-        { "from": "historian", "to": "END", "when": "has('historian') and not has('synthesis')" },
+        { "from": "data_query", "to": "END", "when": "not has('final')" },
+        { "from": "historian", "to": "END", "when": "has('historian') and not has('final')" },
 
-        { "from": "synthesis", "to": "END", "when": "has('synthesis')" }
+        { "from": "final", "to": "END", "when": "has('final')" }
       ]
     },
     "parallel_reflection": {
       "description": "Critic and historian both run; then synthesis if present; otherwise END",
       "entry_point": "refiner",
       "edges": [
-        { "from": "refiner", "to": "critic" },
         { "from": "refiner", "to": "historian" },
 
-        { "from": "critic", "to": "synthesis", "when": "has('synthesis')" },
-        { "from": "historian", "to": "synthesis", "when": "has('synthesis')" },
+        { "from": "historian", "to": "final", "when": "has('final')" },
 
-        { "from": "critic", "to": "END", "when": "not has('synthesis')" },
-        { "from": "historian", "to": "END", "when": "not has('synthesis')" },
+        { "from": "historian", "to": "END", "when": "not has('final')" },
 
-        { "from": "synthesis", "to": "END", "when": "has('synthesis')" }
+        { "from": "final", "to": "END", "when": "has('final')" }
       ]
     },
 
@@ -44,10 +38,10 @@
       "edges": [
         { "from": "refiner", "to": "data_query" },
 
-        { "from": "data_query", "to": "synthesis", "when": "has('synthesis')" },
-        { "from": "data_query", "to": "END", "when": "not has('synthesis')" },
+        { "from": "data_query", "to": "final", "when": "has('final')" },
+        { "from": "data_query", "to": "END", "when": "not has('final')" },
 
-        { "from": "synthesis", "to": "END", "when": "has('synthesis')" }
+        { "from": "final", "to": "END", "when": "has('final')" }
       ]
     },
 
@@ -65,25 +59,23 @@
         }
       },
       "edges": [
-        { "from": "data_query", "to": "synthesis", "when": "has('data_query') and has('synthesis')" },
-        { "from": "critic", "to": "synthesis", "when": "has('critic') and has('synthesis')" },
-        { "from": "historian", "to": "synthesis", "when": "has('historian') and has('synthesis')" },
+        { "from": "data_query", "to": "final", "when": "has('data_query') and has('final')" },
+        { "from": "historian", "to": "final", "when": "has('historian') and has('final')" },
 
-        { "from": "data_query", "to": "END", "when": "has('data_query') and not has('synthesis')" },
-        { "from": "critic", "to": "END", "when": "has('critic') and not has('synthesis')" },
-        { "from": "historian", "to": "END", "when": "has('historian') and not has('synthesis')" },
+        { "from": "data_query", "to": "END", "when": "has('data_query') and not has('final')" },
+        { "from": "historian", "to": "END", "when": "has('historian') and not has('final')" },
 
-        { "from": "synthesis", "to": "END", "when": "has('synthesis')" }
+        { "from": "final", "to": "END", "when": "has('final')" }
       ]
     },
 
     "minimal": {
-      "description": "Fast path: refiner -> (synthesis if present) -> END",
+      "description": "Fast path: refiner -> (final if present) -> END",
       "entry_point": "refiner",
       "edges": [
-        { "from": "refiner", "to": "synthesis", "when": "has('synthesis')" },
-        { "from": "refiner", "to": "END", "when": "not has('synthesis')" },
-        { "from": "synthesis", "to": "END", "when": "has('synthesis')" }
+        { "from": "refiner", "to": "final", "when": "has('final')" },
+        { "from": "refiner", "to": "END", "when": "not has('final')" },
+        { "from": "final", "to": "END", "when": "has('final')" }
       ]
     },
 
@@ -111,15 +103,12 @@
       "entry_point": "refiner",
       "edges": [
         { "from": "refiner", "to": "historian" },
-        { "from": "historian", "to": "critic", "when": "has('critic')" },
 
-        { "from": "critic", "to": "synthesis", "when": "has('critic') and has('synthesis')" },
-        { "from": "historian", "to": "synthesis", "when": "not has('critic') and has('synthesis')" },
+        { "from": "historian", "to": "final", "when": "has('historian') and has('final')" },
 
-        { "from": "critic", "to": "END", "when": "has('critic') and not has('synthesis')" },
-        { "from": "historian", "to": "END", "when": "not has('critic') and not has('synthesis')" },
+        { "from": "historian", "to": "END", "when": "not has('final')" },
 
-        { "from": "synthesis", "to": "END", "when": "has('synthesis')" }
+        { "from": "final", "to": "END", "when": "has('final')" }
       ]
     }
   }

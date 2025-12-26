@@ -231,6 +231,101 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
         self._query_profile_cache: Dict[str, Dict[str, Any]] = {}   # workflow_id -> query_profile dict
         self._query_profile_locks: Dict[str, asyncio.Lock] = {}     # workflow_id -> lock
 
+
+    def clear_graph_cache(self) -> dict[str, Any]:
+        """
+        Clear the compiled graph cache via the underlying LangGraphOrchestrator.
+
+        This is intended to be called by admin / maintenance routes.
+        It returns a small structured payload that the /admin/cache/clear
+        route (or the factory helper) can send back to clients.
+        """
+        if not self._initialized or self._orchestrator is None:
+            logger.warning(
+                "[orchestration_api] clear_graph_cache called but API/orchestrator "
+                "is not initialized",
+                extra={
+                    "event": "graph_cache_clear_not_initialized",
+                    "api_initialized": self._initialized,
+                    "has_orchestrator": self._orchestrator is not None,
+                },
+            )
+            return {
+                "status": "error",
+                "reason": "not_initialized",
+                "api_initialized": self._initialized,
+                "has_orchestrator": self._orchestrator is not None,
+            }
+
+        # Grab stats before/after if available
+        stats_before = None
+        stats_after = None
+
+        if hasattr(self._orchestrator, "get_graph_cache_stats"):
+            try:
+                stats_before = self._orchestrator.get_graph_cache_stats()
+            except Exception as e:
+                logger.warning(
+                    "[orchestration_api] Failed to fetch graph cache stats before clear",
+                    extra={"error": str(e)},
+                    exc_info=True,
+                )
+
+        if not hasattr(self._orchestrator, "clear_graph_cache"):
+            logger.warning(
+                "[orchestration_api] clear_graph_cache requested but orchestrator "
+                "does not implement clear_graph_cache()",
+                extra={"event": "graph_cache_clear_unsupported"},
+            )
+            return {
+                "status": "error",
+                "reason": "orchestrator_clear_not_supported",
+                "stats_before": stats_before,
+            }
+
+        logger.info(
+            "[orchestration_api] Clearing graph cache via orchestrator",
+            extra={"event": "graph_cache_clear_request"},
+        )
+
+        try:
+            result = self._orchestrator.clear_graph_cache()
+        except Exception as e:
+            logger.exception(
+                "[orchestration_api] Error while clearing graph cache",
+                extra={"event": "graph_cache_clear_error", "error": str(e)},
+            )
+            return {
+                "status": "error",
+                "reason": "exception",
+                "error": str(e),
+                "stats_before": stats_before,
+            }
+
+        if hasattr(self._orchestrator, "get_graph_cache_stats"):
+            try:
+                stats_after = self._orchestrator.get_graph_cache_stats()
+            except Exception as e:
+                logger.warning(
+                    "[orchestration_api] Failed to fetch graph cache stats after clear",
+                    extra={"error": str(e)},
+                    exc_info=True,
+                )
+
+        # Normalize result to a dict
+        if isinstance(result, dict):
+            payload = result
+        else:
+            payload = {"detail": str(result)}
+
+        return {
+            "status": "ok",
+            "source": "orchestrator",
+            "stats_before": stats_before,
+            "stats_after": stats_after,
+            **payload,
+        }
+
     def _get_session_factory(self):
         if not _db_persist_enabled():
             # Keep this quiet; callers may check often
@@ -246,7 +341,11 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
 
         Supports either:
           - dict-like outputs
-          - objects with attributes (intent/confidence/labels/raw)
+          - objects with attributes (intent, confidence, domain, topics, labels, raw, etc.)
+
+        NEW:
+          Includes `domain`, `domain_confidence`, `topic`,
+          `topic_confidence`, and `topics` if present.
         """
         if out is None:
             out = {}
@@ -256,17 +355,49 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                 return out.get(key, default)
             return getattr(out, key, default)
 
+        # ---- Intent & confidence
         intent = _get("intent")
         confidence = _get("confidence", 0.0)
-
         try:
             confidence_f = float(confidence or 0.0)
         except Exception:
             confidence_f = 0.0
 
+        # ---- Domain & topic enrichment (new)
+        domain = _get("domain")
+        domain_conf = _get("domain_confidence")
+        try:
+            domain_conf_f = float(domain_conf or 0.0) if domain_conf is not None else None
+        except Exception:
+            domain_conf_f = None
+
+        topic = _get("topic")
+        topic_conf = _get("topic_confidence")
+        try:
+            topic_conf_f = float(topic_conf or 0.0) if topic_conf is not None else None
+        except Exception:
+            topic_conf_f = None
+
+        topics = _get("topics")
+        if topics is not None and not isinstance(topics, list):
+            try:
+                topics = list(topics)
+            except Exception:
+                topics = [str(topics)]
+
+        # ---- Assemble normalized profile
         return {
             "intent": intent,
             "confidence": confidence_f,
+
+            # NEW fields
+            "domain": domain,
+            "domain_confidence": domain_conf_f,
+            "topic": topic,
+            "topic_confidence": topic_conf_f,
+            "topics": topics,
+
+            # legacy or passthrough fields
             "labels": _get("labels"),
             "raw": _get("raw"),
         }
@@ -553,7 +684,7 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                 SklearnIntentClassifierAgent,
             )
 
-            model_path = config.get("classifier_model_path") or "models/intent_classifier.joblib"
+            model_path = config.get("classifier_model_path") or "models/domain_topic_intent_classifier.joblib"
             model_version = config.get("classifier_model_version") or "v1"
 
             agent = SklearnIntentClassifierAgent(
@@ -763,7 +894,7 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                 routing_source = "router_override"
 
             if not final_agents:
-                final_agents = ["refiner", "critic", "historian", "synthesis"]
+                final_agents = ["refiner", "historian", "final"]
                 routing_source = "fallback"
 
             # What the orchestrator actually executes
@@ -910,8 +1041,8 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
             # ----------------------------------------------------------------
             candidate = (
                 response_agent_outputs.get("output")
-                or response_agent_outputs.get("synthesis")
-                or response_agent_outputs.get("critic")
+                or response_agent_outputs.get("final")
+                or response_agent_outputs.get("data_query")
                 or response_agent_outputs.get("refiner")
                 or ""
             )
@@ -936,8 +1067,8 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
 
             agent_output_meta.setdefault("_result", {})["final_answer_agent"] = (
                 "output" if "output" in serialized_agent_outputs else
-                "synthesis" if "synthesis" in serialized_agent_outputs else
-                "critic" if "critic" in serialized_agent_outputs else
+                "final" if "final" in serialized_agent_outputs else
+                "data_query" if "data_query" in serialized_agent_outputs else
                 "refiner" if "refiner" in serialized_agent_outputs else
                 None
             )

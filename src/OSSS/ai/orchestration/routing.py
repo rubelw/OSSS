@@ -18,7 +18,13 @@ to be treated uniformly by the graph builder and executor.
 from typing import Callable, Dict, List, Optional, Set
 from abc import ABC, abstractmethod
 import re
+
 from OSSS.ai.context import AgentContext
+from OSSS.ai.observability import get_logger
+
+
+# Module-level logger for routing observability
+logger = get_logger(__name__)
 
 HISTORY_TRIGGERS = re.compile(
     r"\b(history|historical|timeline|previous|earlier|last time|recap|what happened|"
@@ -311,8 +317,9 @@ DISTRICT_ALIASES = {"dcg"}  # add more as needed
 # (Used by OrchestrationAPI / higher-level router to compute planned_agents.)
 #
 ACTION_PLAN: List[str] = ["refiner", "data_query", "final"]
-READ_PLAN: List[str]   = ["refiner", "final"]  # optional (if you want a lighter non-action path)
+READ_PLAN: List[str] = ["refiner", "final"]  # optional (if you want a lighter non-action path)
 ANALYSIS_PLAN: List[str] = ["refiner", "final"]
+
 
 def planned_agents_for_route_key(route_key: str) -> List[str]:
     """
@@ -321,12 +328,17 @@ def planned_agents_for_route_key(route_key: str) -> List[str]:
     has a single source of truth for downstream planning.
     """
     k = (route_key or "").strip().lower()
-    if k == "action":
-        return ACTION_PLAN
-    # choose one:
-    return ANALYSIS_PLAN
-    # or, if you prefer a lighter non-action path:
-    # return READ_PLAN
+    plan = ACTION_PLAN if k == "action" else ANALYSIS_PLAN
+
+    logger.debug(
+        "Planned agents for route key",
+        extra={
+            "event": "routing_planned_agents",
+            "route_key": k,
+            "planned_agents": plan,
+        },
+    )
+    return plan
 
 
 def should_route_to_data_query(user_text: str) -> bool:
@@ -334,47 +346,138 @@ def should_route_to_data_query(user_text: str) -> bool:
     Heuristic to decide if a user request should bypass refiner/critic/synthesis
     and go directly to data_query.
     """
-    t = (user_text or "").lower()
-    tokens = set(_WORD_RE.findall(t))
+    try:
+        t = (user_text or "").lower()
+        tokens = set(_WORD_RE.findall(t))
 
-    # Exact table mentions are a strong signal
-    if DB_TABLES.intersection(tokens):
-        return True
+        has_db_table = bool(DB_TABLES.intersection(tokens))
+        has_district = bool(tokens.intersection(DISTRICT_ALIASES))
+        has_school_entity = bool(tokens.intersection(SCHOOL_ENTITIES))
+        has_action_hint = bool(ACTION_HINTS.search(t))
 
-    # District alias + school entity
-    if tokens.intersection(DISTRICT_ALIASES) and tokens.intersection(SCHOOL_ENTITIES):
-        return True
+        # Exact table mentions are a strong signal
+        if has_db_table:
+            decision = True
+            reason = "db_table_token"
+        # District alias + school entity
+        elif has_district and has_school_entity:
+            decision = True
+            reason = "district_plus_entity"
+        # Common retrieval verbs + school entity
+        elif has_action_hint and has_school_entity:
+            decision = True
+            reason = "action_hint_plus_entity"
+        else:
+            decision = False
+            reason = "no_db_query_signals"
 
-    # Common retrieval verbs + school entity
-    # e.g. "list dcg teachers", "show students", "find courses", etc.
-    if ACTION_HINTS.search(t) and tokens.intersection(SCHOOL_ENTITIES):
-        return True
+        logger.debug(
+            "Evaluated should_route_to_data_query",
+            extra={
+                "event": "routing_decision",
+                "router": "should_route_to_data_query",
+                "decision": decision,
+                "reason": reason,
+                "has_db_table": has_db_table,
+                "has_district_alias": has_district,
+                "has_school_entity": has_school_entity,
+                "has_action_hint": has_action_hint,
+                "sample_query": t[:256],
+            },
+        )
+        return decision
 
-    return False
+    except Exception as exc:
+        logger.error(
+            "Error while evaluating should_route_to_data_query",
+            exc_info=True,
+            extra={
+                "event": "routing_decision_error",
+                "router": "should_route_to_data_query",
+                "error_type": type(exc).__name__,
+            },
+        )
+        return False
 
 
 def should_run_historian(query: str) -> bool:
     q = (query or "").strip()
+    try:
+        # If this is clearly a DB query, historian should never run
+        # (keeps action path fast + avoids irrelevant analysis agents).
+        if should_route_to_data_query(q):
+            logger.debug(
+                "Historian disabled due to DB query heuristic",
+                extra={
+                    "event": "routing_historian_decision",
+                    "decision": False,
+                    "reason": "db_query_short_circuit",
+                    "query_len": len(q),
+                },
+            )
+            return False
 
-    # If this is clearly a DB query, historian should never run
-    # (keeps action path fast + avoids irrelevant analysis agents).
-    if should_route_to_data_query(q):
+        # Very short queries never need historian
+        if len(q) < 40:
+            logger.debug(
+                "Historian disabled for short query",
+                extra={
+                    "event": "routing_historian_decision",
+                    "decision": False,
+                    "reason": "short_query",
+                    "query_len": len(q),
+                },
+            )
+            return False
+
+        # Explicit historical intent
+        if HISTORY_TRIGGERS.search(q):
+            logger.debug(
+                "Historian enabled due to explicit historical trigger",
+                extra={
+                    "event": "routing_historian_decision",
+                    "decision": True,
+                    "reason": "history_trigger",
+                    "query_len": len(q),
+                },
+            )
+            return True
+
+        # Explicit doc usage
+        ql = q.lower()
+        if "notes" in ql or "docs" in ql:
+            logger.debug(
+                "Historian enabled due to notes/docs mention",
+                extra={
+                    "event": "routing_historian_decision",
+                    "decision": True,
+                    "reason": "notes_or_docs",
+                    "query_len": len(q),
+                },
+            )
+            return True
+
+        logger.debug(
+            "Historian disabled (no triggers matched)",
+            extra={
+                "event": "routing_historian_decision",
+                "decision": False,
+                "reason": "no_triggers",
+                "query_len": len(q),
+            },
+        )
         return False
 
-    # Very short queries never need historian
-    if len(q) < 40:
+    except Exception as exc:
+        logger.error(
+            "Error while evaluating should_run_historian",
+            exc_info=True,
+            extra={
+                "event": "routing_historian_error",
+                "error_type": type(exc).__name__,
+            },
+        )
         return False
-
-    # Explicit historical intent
-    if HISTORY_TRIGGERS.search(q):
-        return True
-
-    # Explicit doc usage
-    ql = q.lower()
-    if "notes" in ql or "docs" in ql:
-        return True
-
-    return False
 
 
 class RoutingFunction(ABC):
@@ -438,35 +541,99 @@ class DBQueryRouter(RoutingFunction):
         self.data_query_target = data_query_target
         self.default_target = default_target
 
+        logger.debug(
+            "Initialized DBQueryRouter",
+            extra={
+                "event": "router_init",
+                "router": "DBQueryRouter",
+                "data_query_target": data_query_target,
+                "default_target": default_target,
+            },
+        )
+
     def __call__(self, context: AgentContext) -> str:
-        # If already locked, honor it and do not recompute
-        if context.execution_state.get("route_locked"):
-            # Ensure route_key is always present if someone locked earlier
-            context.execution_state.setdefault(
-                "route_key",
-                "action"
-                if context.execution_state.get("route") == self.data_query_target
-                else "informational",
+        try:
+            # If already locked, honor it and do not recompute
+            if context.execution_state.get("route_locked"):
+                # Ensure route_key is always present if someone locked earlier
+                context.execution_state.setdefault(
+                    "route_key",
+                    "action"
+                    if context.execution_state.get("route") == self.data_query_target
+                    else "informational",
+                )
+                target = context.execution_state.get("route", self.data_query_target)
+
+                logger.debug(
+                    "DBQueryRouter honoring locked route",
+                    extra={
+                        "event": "router_route",
+                        "router": "DBQueryRouter",
+                        "route_locked": True,
+                        "target": target,
+                        "execution_state_route": context.execution_state.get("route"),
+                        "execution_state_route_key": context.execution_state.get("route_key"),
+                    },
+                )
+                return target
+
+            # ✅ Exact, canonical source of the incoming user request:
+            query = (context.query or "").strip()
+            should_go_data = should_route_to_data_query(query)
+
+            if should_go_data:
+                context.execution_state["route"] = self.data_query_target
+                context.execution_state["route_locked"] = True
+                # Canonical switch key for LangGraph add_conditional_edges(...)
+                context.execution_state["route_key"] = "action"
+                # Breadcrumb for debugging (shows why we routed)
+                context.execution_state["route_reason"] = "db_query_heuristic"
+
+                logger.debug(
+                    "DBQueryRouter routing to data_query",
+                    extra={
+                        "event": "router_route",
+                        "router": "DBQueryRouter",
+                        "target": self.data_query_target,
+                        "route_locked": True,
+                        "route_key": "action",
+                        "route_reason": "db_query_heuristic",
+                        "sample_query": query[:256],
+                    },
+                )
+                return self.data_query_target
+
+            context.execution_state["route"] = self.default_target
+            context.execution_state["route_locked"] = False
+            context.execution_state["route_key"] = "informational"
+            context.execution_state["route_reason"] = "default"
+
+            logger.debug(
+                "DBQueryRouter routing to default target",
+                extra={
+                    "event": "router_route",
+                    "router": "DBQueryRouter",
+                    "target": self.default_target,
+                    "route_locked": False,
+                    "route_key": "informational",
+                    "route_reason": "default",
+                    "sample_query": query[:256],
+                },
             )
-            return context.execution_state.get("route", self.data_query_target)
+            return self.default_target
 
-        # ✅ Exact, canonical source of the incoming user request:
-        query = (context.query or "").strip()
-
-        if should_route_to_data_query(query):
-            context.execution_state["route"] = self.data_query_target
-            context.execution_state["route_locked"] = True
-            # Canonical switch key for LangGraph add_conditional_edges(...)
-            context.execution_state["route_key"] = "action"
-            # Breadcrumb for debugging (shows why we routed)
-            context.execution_state["route_reason"] = "db_query_heuristic"
-            return self.data_query_target
-
-        context.execution_state["route"] = self.default_target
-        context.execution_state["route_locked"] = False
-        context.execution_state["route_key"] = "informational"
-        context.execution_state["route_reason"] = "default"
-        return self.default_target
+        except Exception as exc:
+            logger.error(
+                "Error in DBQueryRouter",
+                exc_info=True,
+                extra={
+                    "event": "router_error",
+                    "router": "DBQueryRouter",
+                    "error_type": type(exc).__name__,
+                },
+            )
+            # In case of error, fall back to default target
+            return self.default_target
 
     def get_possible_targets(self) -> List[str]:
         return [self.data_query_target, self.default_target]
@@ -502,17 +669,70 @@ class ConditionalRouter(RoutingFunction):
         self.conditions = conditions
         self.default = default
 
+        logger.debug(
+            "Initialized ConditionalRouter",
+            extra={
+                "event": "router_init",
+                "router": "ConditionalRouter",
+                "condition_count": len(conditions),
+                "default_target": default,
+            },
+        )
+
     def __call__(self, context: AgentContext) -> str:
         """
         Evaluate each condition in order and return the first matching target.
 
         If no conditions match, the default target is returned.
         """
-        for condition_func, target_node in self.conditions:
-            if condition_func(context):
-                return target_node
+        try:
+            for idx, (condition_func, target_node) in enumerate(self.conditions):
+                try:
+                    if condition_func(context):
+                        logger.debug(
+                            "ConditionalRouter matched condition",
+                            extra={
+                                "event": "router_route",
+                                "router": "ConditionalRouter",
+                                "condition_index": idx,
+                                "target": target_node,
+                            },
+                        )
+                        return target_node
+                except Exception as exc:
+                    logger.error(
+                        "Error evaluating ConditionalRouter condition",
+                        exc_info=True,
+                        extra={
+                            "event": "router_condition_error",
+                            "router": "ConditionalRouter",
+                            "condition_index": idx,
+                            "error_type": type(exc).__name__,
+                        },
+                    )
+                    continue
 
-        return self.default
+            logger.debug(
+                "ConditionalRouter using default target",
+                extra={
+                    "event": "router_route",
+                    "router": "ConditionalRouter",
+                    "target": self.default,
+                },
+            )
+            return self.default
+
+        except Exception as exc:
+            logger.error(
+                "Error in ConditionalRouter",
+                exc_info=True,
+                extra={
+                    "event": "router_error",
+                    "router": "ConditionalRouter",
+                    "error_type": type(exc).__name__,
+                },
+            )
+            return self.default
 
     def get_possible_targets(self) -> List[str]:
         """
@@ -522,7 +742,17 @@ class ConditionalRouter(RoutingFunction):
         """
         targets = [target for _, target in self.conditions]
         targets.append(self.default)
-        return list(set(targets))
+        unique_targets = list(set(targets))
+
+        logger.debug(
+            "ConditionalRouter possible targets",
+            extra={
+                "event": "router_possible_targets",
+                "router": "ConditionalRouter",
+                "targets": unique_targets,
+            },
+        )
+        return unique_targets
 
 
 class SuccessFailureRouter(RoutingFunction):
@@ -545,6 +775,16 @@ class SuccessFailureRouter(RoutingFunction):
         self.success_target = success_target
         self.failure_target = failure_target
 
+        logger.debug(
+            "Initialized SuccessFailureRouter",
+            extra={
+                "event": "router_init",
+                "router": "SuccessFailureRouter",
+                "success_target": success_target,
+                "failure_target": failure_target,
+            },
+        )
+
     def __call__(self, context: AgentContext) -> str:
         """
         Inspect execution state and route accordingly.
@@ -552,10 +792,32 @@ class SuccessFailureRouter(RoutingFunction):
         Defaults to success if the flag is missing, allowing
         optimistic execution for agents that do not report status.
         """
-        if context.execution_state.get("last_agent_success", True):
-            return self.success_target
+        try:
+            success = context.execution_state.get("last_agent_success", True)
+            target = self.success_target if success else self.failure_target
 
-        return self.failure_target
+            logger.debug(
+                "SuccessFailureRouter routing decision",
+                extra={
+                    "event": "router_route",
+                    "router": "SuccessFailureRouter",
+                    "last_agent_success": success,
+                    "target": target,
+                },
+            )
+            return target
+
+        except Exception as exc:
+            logger.error(
+                "Error in SuccessFailureRouter",
+                exc_info=True,
+                extra={
+                    "event": "router_error",
+                    "router": "SuccessFailureRouter",
+                    "error_type": type(exc).__name__,
+                },
+            )
+            return self.failure_target
 
     def get_possible_targets(self) -> List[str]:
         """Return both success and failure targets."""
@@ -584,6 +846,16 @@ class OutputBasedRouter(RoutingFunction):
         self.output_patterns = output_patterns
         self.default = default
 
+        logger.debug(
+            "Initialized OutputBasedRouter",
+            extra={
+                "event": "router_init",
+                "router": "OutputBasedRouter",
+                "pattern_count": len(output_patterns),
+                "default_target": default,
+            },
+        )
+
     def __call__(self, context: AgentContext) -> str:
         """
         Route based on the most recent agent's output content.
@@ -593,21 +865,64 @@ class OutputBasedRouter(RoutingFunction):
         2. Performs case-insensitive substring matching
         3. Returns the first matching target
         """
-        if context.agent_outputs:
-            last_agent = list(context.agent_outputs.keys())[-1]
-            last_output = context.agent_outputs[last_agent]
+        try:
+            if context.agent_outputs:
+                last_agent = list(context.agent_outputs.keys())[-1]
+                last_output = context.agent_outputs[last_agent] or ""
+                lowered = last_output.lower()
 
-            for pattern, target in self.output_patterns.items():
-                if pattern.lower() in last_output.lower():
-                    return target
+                for pattern, target in self.output_patterns.items():
+                    if pattern.lower() in lowered:
+                        logger.debug(
+                            "OutputBasedRouter matched pattern",
+                            extra={
+                                "event": "router_route",
+                                "router": "OutputBasedRouter",
+                                "last_agent": last_agent,
+                                "pattern": pattern,
+                                "target": target,
+                            },
+                        )
+                        return target
 
-        return self.default
+            logger.debug(
+                "OutputBasedRouter using default target",
+                extra={
+                    "event": "router_route",
+                    "router": "OutputBasedRouter",
+                    "target": self.default,
+                    "has_agent_outputs": bool(context.agent_outputs),
+                },
+            )
+            return self.default
+
+        except Exception as exc:
+            logger.error(
+                "Error in OutputBasedRouter",
+                exc_info=True,
+                extra={
+                    "event": "router_error",
+                    "router": "OutputBasedRouter",
+                    "error_type": type(exc).__name__,
+                },
+            )
+            return self.default
 
     def get_possible_targets(self) -> List[str]:
         """Return all pattern targets plus the default."""
         targets = list(self.output_patterns.values())
         targets.append(self.default)
-        return list(set(targets))
+        unique_targets = list(set(targets))
+
+        logger.debug(
+            "OutputBasedRouter possible targets",
+            extra={
+                "event": "router_possible_targets",
+                "router": "OutputBasedRouter",
+                "targets": unique_targets,
+            },
+        )
+        return unique_targets
 
 
 # ---------------------------------------------------------------------------
@@ -626,11 +941,35 @@ def always_continue_to(target: str) -> RoutingFunction:
 
     class AlwaysRouter(RoutingFunction):
         def __call__(self, context: AgentContext) -> str:
+            logger.debug(
+                "AlwaysRouter routing",
+                extra={
+                    "event": "router_route",
+                    "router": "AlwaysRouter",
+                    "target": target,
+                },
+            )
             return target
 
         def get_possible_targets(self) -> List[str]:
+            logger.debug(
+                "AlwaysRouter possible targets",
+                extra={
+                    "event": "router_possible_targets",
+                    "router": "AlwaysRouter",
+                    "targets": [target],
+                },
+            )
             return [target]
 
+    logger.debug(
+        "Created AlwaysRouter via factory",
+        extra={
+            "event": "router_factory_create",
+            "factory": "always_continue_to",
+            "target": target,
+        },
+    )
     return AlwaysRouter()
 
 
@@ -638,6 +977,15 @@ def route_on_query_type(patterns: Dict[str, str], default: str) -> RoutingFuncti
     """
     Create an output-based router specialized for query classification.
     """
+    logger.debug(
+        "Creating OutputBasedRouter via route_on_query_type",
+        extra={
+            "event": "router_factory_create",
+            "factory": "route_on_query_type",
+            "pattern_count": len(patterns),
+            "default_target": default,
+        },
+    )
     return OutputBasedRouter(patterns, default)
 
 
@@ -647,6 +995,15 @@ def route_on_success_failure(
     """
     Create a router that branches based on execution success.
     """
+    logger.debug(
+        "Creating SuccessFailureRouter via route_on_success_failure",
+        extra={
+            "event": "router_factory_create",
+            "factory": "route_on_success_failure",
+            "success_target": success_target,
+            "failure_target": failure_target,
+        },
+    )
     return SuccessFailureRouter(success_target, failure_target)
 
 
@@ -692,42 +1049,123 @@ class FailureHandlingRouter(RoutingFunction):
         self.failure_count = 0
         self.circuit_open = False
 
+        logger.debug(
+            "Initialized FailureHandlingRouter",
+            extra={
+                "event": "router_init",
+                "router": "FailureHandlingRouter",
+                "success_target": success_target,
+                "failure_target": failure_target,
+                "retry_target": self.retry_target,
+                "max_failures": max_failures,
+                "enable_circuit_breaker": enable_circuit_breaker,
+            },
+        )
+
     def __call__(self, context: AgentContext) -> str:
         """
         Route based on execution outcome and failure history.
 
         This method mutates execution_state to track retry counts.
         """
-        last_agent_success = context.execution_state.get("last_agent_success", True)
+        try:
+            last_agent_success = context.execution_state.get("last_agent_success", True)
 
-        if last_agent_success:
-            # Reset all failure-related state on success
-            self.failure_count = 0
-            self.circuit_open = False
-            return self.success_target
+            if last_agent_success:
+                # Reset all failure-related state on success
+                self.failure_count = 0
+                self.circuit_open = False
 
-        # Failure path
-        self.failure_count += 1
+                logger.debug(
+                    "FailureHandlingRouter success path",
+                    extra={
+                        "event": "router_route",
+                        "router": "FailureHandlingRouter",
+                        "last_agent_success": True,
+                        "failure_count": self.failure_count,
+                        "circuit_open": self.circuit_open,
+                        "target": self.success_target,
+                    },
+                )
+                return self.success_target
 
-        # Circuit breaker check
-        if self.enable_circuit_breaker and self.failure_count >= self.max_failures:
-            self.circuit_open = True
+            # Failure path
+            self.failure_count += 1
+
+            # Circuit breaker check
+            if self.enable_circuit_breaker and self.failure_count >= self.max_failures:
+                self.circuit_open = True
+                logger.warning(
+                    "FailureHandlingRouter circuit opened",
+                    extra={
+                        "event": "router_circuit_open",
+                        "router": "FailureHandlingRouter",
+                        "failure_count": self.failure_count,
+                        "max_failures": self.max_failures,
+                        "target": self.failure_target,
+                    },
+                )
+                return self.failure_target
+
+            # Retry handling
+            current_retry_count = context.execution_state.get("retry_count", 0)
+            if current_retry_count < self.max_failures and not self.circuit_open:
+                context.execution_state["retry_count"] = current_retry_count + 1
+
+                logger.debug(
+                    "FailureHandlingRouter retrying",
+                    extra={
+                        "event": "router_route",
+                        "router": "FailureHandlingRouter",
+                        "last_agent_success": False,
+                        "failure_count": self.failure_count,
+                        "retry_count": context.execution_state["retry_count"],
+                        "target": self.retry_target,
+                    },
+                )
+                return self.retry_target
+
+            logger.debug(
+                "FailureHandlingRouter routing to failure target",
+                extra={
+                    "event": "router_route",
+                    "router": "FailureHandlingRouter",
+                    "last_agent_success": False,
+                    "failure_count": self.failure_count,
+                    "retry_count": current_retry_count,
+                    "target": self.failure_target,
+                },
+            )
             return self.failure_target
 
-        # Retry handling
-        current_retry_count = context.execution_state.get("retry_count", 0)
-        if current_retry_count < self.max_failures and not self.circuit_open:
-            context.execution_state["retry_count"] = current_retry_count + 1
-            return self.retry_target
-
-        return self.failure_target
+        except Exception as exc:
+            logger.error(
+                "Error in FailureHandlingRouter",
+                exc_info=True,
+                extra={
+                    "event": "router_error",
+                    "router": "FailureHandlingRouter",
+                    "error_type": type(exc).__name__,
+                },
+            )
+            return self.failure_target
 
     def get_possible_targets(self) -> List[str]:
         """Return all nodes this router may emit."""
         targets = [self.success_target, self.failure_target]
         if self.retry_target not in targets:
             targets.append(self.retry_target)
-        return targets
+        unique_targets = list(set(targets))
+
+        logger.debug(
+            "FailureHandlingRouter possible targets",
+            extra={
+                "event": "router_possible_targets",
+                "router": "FailureHandlingRouter",
+                "targets": unique_targets,
+            },
+        )
+        return unique_targets
 
     def reset_failure_state(self) -> None:
         """
@@ -737,6 +1175,14 @@ class FailureHandlingRouter(RoutingFunction):
         """
         self.failure_count = 0
         self.circuit_open = False
+
+        logger.debug(
+            "FailureHandlingRouter state reset",
+            extra={
+                "event": "router_reset",
+                "router": "FailureHandlingRouter",
+            },
+        )
 
 
 class AgentDependencyRouter(RoutingFunction):
@@ -771,22 +1217,91 @@ class AgentDependencyRouter(RoutingFunction):
         self.wait_target = wait_target
         self.failure_target = failure_target
 
+        logger.debug(
+            "Initialized AgentDependencyRouter",
+            extra={
+                "event": "router_init",
+                "router": "AgentDependencyRouter",
+                "success_target": success_target,
+                "wait_target": wait_target,
+                "failure_target": failure_target,
+                "dependency_keys": list(dependency_map.keys()),
+            },
+        )
+
     def __call__(self, context: AgentContext) -> str:
         """
         Route based on dependency completion state.
         """
-        dependencies = self.dependency_map.get(self.success_target, [])
+        try:
+            dependencies = self.dependency_map.get(self.success_target, [])
 
-        for dependency in dependencies:
-            if dependency not in context.successful_agents:
-                if dependency in context.failed_agents:
-                    return self.failure_target
-                return self.wait_target
+            for dependency in dependencies:
+                if dependency not in context.successful_agents:
+                    if dependency in context.failed_agents:
+                        logger.debug(
+                            "AgentDependencyRouter dependency failed",
+                            extra={
+                                "event": "router_route",
+                                "router": "AgentDependencyRouter",
+                                "dependency": dependency,
+                                "target": self.failure_target,
+                                "successful_agents": list(context.successful_agents),
+                                "failed_agents": list(context.failed_agents),
+                            },
+                        )
+                        return self.failure_target
 
-        return self.success_target
+                    logger.debug(
+                        "AgentDependencyRouter waiting on dependency",
+                        extra={
+                            "event": "router_route",
+                            "router": "AgentDependencyRouter",
+                            "dependency": dependency,
+                            "target": self.wait_target,
+                            "successful_agents": list(context.successful_agents),
+                            "failed_agents": list(context.failed_agents),
+                        },
+                    )
+                    return self.wait_target
+
+            logger.debug(
+                "AgentDependencyRouter all dependencies satisfied",
+                extra={
+                    "event": "router_route",
+                    "router": "AgentDependencyRouter",
+                    "target": self.success_target,
+                    "dependencies": dependencies,
+                    "successful_agents": list(context.successful_agents),
+                    "failed_agents": list(context.failed_agents),
+                },
+            )
+            return self.success_target
+
+        except Exception as exc:
+            logger.error(
+                "Error in AgentDependencyRouter",
+                exc_info=True,
+                extra={
+                    "event": "router_error",
+                    "router": "AgentDependencyRouter",
+                    "error_type": type(exc).__name__,
+                },
+            )
+            return self.failure_target
 
     def get_possible_targets(self) -> List[str]:
-        return [self.success_target, self.wait_target, self.failure_target]
+        targets = [self.success_target, self.wait_target, self.failure_target]
+
+        logger.debug(
+            "AgentDependencyRouter possible targets",
+            extra={
+                "event": "router_possible_targets",
+                "router": "AgentDependencyRouter",
+                "targets": targets,
+            },
+        )
+        return targets
 
 
 class PipelineStageRouter(RoutingFunction):
@@ -809,18 +1324,62 @@ class PipelineStageRouter(RoutingFunction):
         self.stage_map = stage_map
         self.default_target = default_target
 
+        logger.debug(
+            "Initialized PipelineStageRouter",
+            extra={
+                "event": "router_init",
+                "router": "PipelineStageRouter",
+                "stage_keys": list(stage_map.keys()),
+                "default_target": default_target,
+            },
+        )
+
     def __call__(self, context: AgentContext) -> str:
         """
         Route based on the current pipeline stage.
         """
-        current_stage = context.execution_state.get("pipeline_stage", "initial")
-        return self.stage_map.get(current_stage, self.default_target)
+        try:
+            current_stage = context.execution_state.get("pipeline_stage", "initial")
+            target = self.stage_map.get(current_stage, self.default_target)
+
+            logger.debug(
+                "PipelineStageRouter routing",
+                extra={
+                    "event": "router_route",
+                    "router": "PipelineStageRouter",
+                    "current_stage": current_stage,
+                    "target": target,
+                },
+            )
+            return target
+
+        except Exception as exc:
+            logger.error(
+                "Error in PipelineStageRouter",
+                exc_info=True,
+                extra={
+                    "event": "router_error",
+                    "router": "PipelineStageRouter",
+                    "error_type": type(exc).__name__,
+                },
+            )
+            return self.default_target
 
     def get_possible_targets(self) -> List[str]:
         targets = list(self.stage_map.values())
         if self.default_target not in targets:
             targets.append(self.default_target)
-        return targets
+        unique_targets = list(set(targets))
+
+        logger.debug(
+            "PipelineStageRouter possible targets",
+            extra={
+                "event": "router_possible_targets",
+                "router": "PipelineStageRouter",
+                "targets": unique_targets,
+            },
+        )
+        return unique_targets
 
 
 # ---------------------------------------------------------------------------
@@ -836,6 +1395,17 @@ def route_with_failure_handling(
     """
     Factory for FailureHandlingRouter.
     """
+    logger.debug(
+        "Creating FailureHandlingRouter via route_with_failure_handling",
+        extra={
+            "event": "router_factory_create",
+            "factory": "route_with_failure_handling",
+            "success_target": success_target,
+            "failure_target": failure_target,
+            "retry_target": retry_target or failure_target,
+            "max_failures": max_failures,
+        },
+    )
     return FailureHandlingRouter(
         success_target=success_target,
         failure_target=failure_target,
@@ -853,6 +1423,17 @@ def route_with_dependencies(
     """
     Factory for AgentDependencyRouter.
     """
+    logger.debug(
+        "Creating AgentDependencyRouter via route_with_dependencies",
+        extra={
+            "event": "router_factory_create",
+            "factory": "route_with_dependencies",
+            "success_target": success_target,
+            "wait_target": wait_target,
+            "failure_target": failure_target,
+            "dependency_keys": list(target_dependencies.keys()),
+        },
+    )
     return AgentDependencyRouter(
         dependency_map=target_dependencies,
         success_target=success_target,
@@ -867,4 +1448,13 @@ def route_by_pipeline_stage(
     """
     Factory for PipelineStageRouter.
     """
+    logger.debug(
+        "Creating PipelineStageRouter via route_by_pipeline_stage",
+        extra={
+            "event": "router_factory_create",
+            "factory": "route_by_pipeline_stage",
+            "default_target": default_target,
+            "stage_keys": list(stage_routing.keys()),
+        },
+    )
     return PipelineStageRouter(stage_map=stage_routing, default_target=default_target)

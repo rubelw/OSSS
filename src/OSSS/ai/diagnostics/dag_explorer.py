@@ -519,7 +519,7 @@ class InteractiveDAGExplorer:
     def _find_critical_path(self) -> List[str]:
         """Find the critical path through the DAG."""
         # Simplified implementation
-        return ["refiner", "critic", "synthesis"]
+        return ["refiner", "critic", "final"]
 
     def _calculate_complexity_score(self) -> float:
         """Calculate DAG complexity score."""

@@ -320,7 +320,7 @@ def create_initial_state(
             correlation_id=correlation_id,
             start_time=now,
             orchestrator_type="langgraph-real",
-            agents_requested=["refiner", "critic", "historian", "synthesis"],
+            agents_requested=["refiner", "historian", "final"],
             execution_mode="langgraph-real",
             phase="phase2_1",
         ),

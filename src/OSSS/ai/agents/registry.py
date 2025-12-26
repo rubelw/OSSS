@@ -212,7 +212,7 @@ class AgentRegistry:
                 AgentConstructorPattern.LLM_REQUIRED,
                 AgentConstructorPattern.LLM_OPTIONAL,
             ]
-            or name in {"refiner", "critic", "historian", "synthesis", "final"}
+            or name in {"refiner", "historian", "data_query", "final"}
         ):
             raise ValueError(
                 f"Agent '{name}' is not expected to have LLM attributes. "

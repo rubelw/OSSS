@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List
 import time
 import hashlib
 import traceback
@@ -42,7 +42,25 @@ class ClassifierResult:
     sub_intent_confidence: Optional[float] = None
     model_version: Optional[str] = None
 
+    # NEW: primary topic/domain info (top-scoring)
+    topic: Optional[str] = None
+    topic_confidence: Optional[float] = None
+    domain: Optional[str] = None
+    domain_confidence: Optional[float] = None
+
+    # NEW: all topics above threshold, ordered by confidence (desc)
+    topics: Optional[List[str]] = None
+
     def to_dict(self) -> Dict[str, Any]:
+        """
+        Standardized dict representation of classifier output.
+
+        Includes legacy-compatible keys:
+          - labels
+          - raw
+        so the orchestrator’s `_classifier` block can keep the same shape but
+        gain domain/topic enrichment.
+        """
         return {
             "intent": self.intent,
             "confidence": float(self.confidence),
@@ -53,14 +71,48 @@ class ClassifierResult:
                 else None
             ),
             "model_version": self.model_version,
+            # NEW:
+            "topic": self.topic,
+            "topic_confidence": (
+                float(self.topic_confidence)
+                if self.topic_confidence is not None
+                else None
+            ),
+            "domain": self.domain,
+            "domain_confidence": (
+                float(self.domain_confidence)
+                if self.domain_confidence is not None
+                else None
+            ),
+            "topics": self.topics,
+            # Legacy / passthrough fields so _normalize_classifier_profile can consume them
+            "labels": None,
+            "raw": None,
+            # ---- NEW passthroughs for routing resilience ----
+            "original_text": getattr(self, "_original_text", None),
+            "normalized_text": getattr(self, "_normalized_text", None),
+            "query_terms": getattr(self, "_query_terms", None),
         }
 
 
 class SklearnIntentClassifierAgent(BaseAgent):
     """
-    Loads a persisted sklearn pipeline and predicts intent/sub-intent.
-    Assumes pipeline supports:
-      - predict_proba(X) and classes_
+    Loads a persisted sklearn model and predicts intent/sub-intent.
+
+    NOW SUPPORTS TWO MODEL TYPES:
+
+    1) LEGACY PIPELINE (single intent classifier):
+       - joblib file is a sklearn Pipeline with:
+           - predict_proba(X) and classes_
+       - Only 'intent' is filled, domain/topic left None.
+
+    2) NEW BUNDLE (intent + domain + topics):
+       - joblib file is a dict with keys:
+           - "vectorizer"
+           - "intent_clf", "intent_le"
+           - "domain_clf", "domain_le"
+           - "topics_clf", "topic_mlb"
+       - Fills intent/domain/topic + confidences.
     """
 
     def __init__(
@@ -68,7 +120,7 @@ class SklearnIntentClassifierAgent(BaseAgent):
         name: str = "classifier",
         *,
         model_path: str | Path,
-        model_version: str = "v1",
+        model_version: str = "v2",
     ) -> None:
         super().__init__(name=name)
 
@@ -76,6 +128,9 @@ class SklearnIntentClassifierAgent(BaseAgent):
         self.model_path = Path(model_path)
         self.model_version = model_version
 
+        # Can be either:
+        # - sklearn Pipeline (legacy intent-only)
+        # - bundle dict (new intent+domain+topics)
         self._pipeline = None
         self._disabled_reason: Optional[str] = None
 
@@ -90,14 +145,15 @@ class SklearnIntentClassifierAgent(BaseAgent):
 
     def _default_model_path(self) -> Path:
         """
-        Find OSSS/scripts/models/intent_classifier.joblib by walking upward
-        from this file until we find the expected relative path.
+        Find OSSS/scripts/models/domain_topic_intent_classifier.joblib by walking
+        upward from this file until we find the expected relative path.
 
         Works for layouts like:
           /workspace/src/OSSS/ai/agents/...
           /workspace/OSSS/ai/agents/...
         """
-        rel = Path("scripts") / "models" / "intent_classifier.joblib"
+        # NEW DEFAULT: domain+topic+intent bundle
+        rel = Path("scripts") / "models" / "domain_topic_intent_classifier.joblib"
         here = Path(__file__).resolve()
 
         for base in [here] + list(here.parents):
@@ -105,7 +161,7 @@ class SklearnIntentClassifierAgent(BaseAgent):
             if candidate.is_file():
                 return candidate
 
-        # Fallback to previous behavior (useful for logging)
+        # Fallback to previous behavior-ish (useful for logging)
         return here.parents[2] / rel
 
     def _resolved_model_path(self) -> Path:
@@ -132,11 +188,14 @@ class SklearnIntentClassifierAgent(BaseAgent):
 
     def _load(self) -> None:
         """
-        Lazy-load the sklearn pipeline from disk.
+        Lazy-load the model from disk.
+
+        - If it's a sklearn Pipeline, treat as legacy intent-only.
+        - If it's a dict with the new keys, treat as bundle.
         """
         if self._pipeline is not None:
             logger.debug(
-                "[classifier:load] pipeline already loaded (cache hit)",
+                "[classifier:load] model already loaded (cache hit)",
                 extra={"agent": self.name, "model_version": self.model_version},
             )
             return
@@ -145,7 +204,7 @@ class SklearnIntentClassifierAgent(BaseAgent):
 
         t0 = time.perf_counter()
         logger.info(
-            "[classifier:load] loading pipeline",
+            "[classifier:load] loading model",
             extra={
                 "agent": self.name,
                 "model_path": str(path),
@@ -169,34 +228,48 @@ class SklearnIntentClassifierAgent(BaseAgent):
             return
 
         try:
-            self._pipeline = joblib.load(path)
+            model = joblib.load(path)
+            self._pipeline = model
             dt_ms = (time.perf_counter() - t0) * 1000.0
 
-            pipeline_type = type(self._pipeline).__name__
-            has_predict_proba = hasattr(self._pipeline, "predict_proba")
-            has_predict = hasattr(self._pipeline, "predict")
+            if isinstance(model, dict):
+                # NEW bundle
+                logger.info(
+                    "[classifier:load] loaded bundle model (intent+domain+topics)",
+                    extra={
+                        "agent": self.name,
+                        "model_version": self.model_version,
+                        "load_ms": round(dt_ms, 2),
+                        "keys": sorted(list(model.keys())),
+                    },
+                )
+            else:
+                # Legacy sklearn Pipeline
+                pipeline_type = type(model).__name__
+                has_predict_proba = hasattr(model, "predict_proba")
+                has_predict = hasattr(model, "predict")
 
-            classes_attr = getattr(self._pipeline, "classes_", None)
-            classes = _safe_list(classes_attr)
-            n_classes = len(classes)
+                classes_attr = getattr(model, "classes_", None)
+                classes = _safe_list(classes_attr)
+                n_classes = len(classes)
 
-            logger.info(
-                "[classifier:load] loaded pipeline",
-                extra={
-                    "agent": self.name,
-                    "model_version": self.model_version,
-                    "load_ms": round(dt_ms, 2),
-                    "pipeline_type": pipeline_type,
-                    "has_predict_proba": has_predict_proba,
-                    "has_predict": has_predict,
-                    "n_classes": n_classes,
-                    "classes_preview": classes[:10],
-                },
-            )
+                logger.info(
+                    "[classifier:load] loaded legacy pipeline model",
+                    extra={
+                        "agent": self.name,
+                        "model_version": self.model_version,
+                        "load_ms": round(dt_ms, 2),
+                        "pipeline_type": pipeline_type,
+                        "has_predict_proba": has_predict_proba,
+                        "has_predict": has_predict,
+                        "n_classes": n_classes,
+                        "classes_preview": classes[:10],
+                    },
+                )
         except Exception as e:
             dt_ms = (time.perf_counter() - t0) * 1000.0
             logger.error(
-                "[classifier:load] failed to load pipeline",
+                "[classifier:load] failed to load model",
                 extra={
                     "agent": self.name,
                     "model_path": str(path),
@@ -209,10 +282,120 @@ class SklearnIntentClassifierAgent(BaseAgent):
             )
             raise
 
+    # NEW: helper for the new bundle
+    def _classify_with_bundle(self, q: str) -> ClassifierResult:
+        """
+        Classification path for the new domain+topic+intent bundle.
+
+        Expects self._pipeline to be a dict with:
+          - "vectorizer"
+          - "intent_clf", "intent_le"
+          - "domain_clf", "domain_le"
+          - "topics_clf", "topic_mlb"
+        """
+        bundle = self._pipeline
+        try:
+            v = bundle["vectorizer"]
+            intent_clf = bundle["intent_clf"]
+            intent_le = bundle["intent_le"]
+            domain_clf = bundle["domain_clf"]
+            domain_le = bundle["domain_le"]
+            topics_clf = bundle["topics_clf"]
+            topic_mlb = bundle["topic_mlb"]
+        except KeyError as e:
+            raise RuntimeError(f"Bundle is missing expected key: {e}") from e
+
+        X = v.transform([q])
+
+        # Intent
+        intent_proba = intent_clf.predict_proba(X)[0]
+        intent_idx = int(
+            getattr(intent_proba, "argmax", lambda: list(intent_proba).index(max(intent_proba)))()
+        )
+        intent_label = str(intent_le.inverse_transform([intent_idx])[0])
+        intent_conf = float(intent_proba[intent_idx])
+
+        # Domain
+        domain_proba = domain_clf.predict_proba(X)[0]
+        domain_idx = int(
+            getattr(domain_proba, "argmax", lambda: list(domain_proba).index(max(domain_proba)))()
+        )
+        domain_label = str(domain_le.inverse_transform([domain_idx])[0])
+        domain_conf = float(domain_proba[domain_idx])
+
+        # Topics (multi-label): pick top topic as "topic" + keep full list
+        topics_proba = topics_clf.predict_proba(X)[0]
+        topic_names = list(topic_mlb.classes_)
+
+        # Always pick the best topic as primary
+        best_idx = int(
+            getattr(topics_proba, "argmax", lambda: list(topics_proba).index(max(topics_proba)))()
+        )
+        primary_topic = topic_names[best_idx]
+        primary_topic_conf = float(topics_proba[best_idx])
+
+
+        # Threshold just for extra topics
+        threshold = 0.3
+        topic_scores = [
+            (topic_names[i], float(p))
+            for i, p in enumerate(topics_proba)
+            if p >= threshold
+        ]
+        topic_scores.sort(key=lambda t: t[1], reverse=True)
+
+        topics_ordered: List[str] = [name for name, _ in topic_scores]
+        if primary_topic not in topics_ordered:
+            topics_ordered.insert(0, primary_topic)
+
+        logger.debug(
+            "[classifier:bundle] prediction details",
+            extra={
+                "agent": self.name,
+                "model_version": self.model_version,
+                "intent": intent_label,
+                "intent_conf": intent_conf,
+                "domain": domain_label,
+                "domain_conf": domain_conf,
+                "primary_topic": primary_topic,
+                "primary_topic_conf": primary_topic_conf,
+                "topics_all": topic_scores,
+            },
+        )
+
+        logger.debug(
+            "[classifier:bundle] prediction details",
+            extra={
+                "agent": self.name,
+                "model_version": self.model_version,
+                "intent": intent_label,
+                "intent_conf": intent_conf,
+                "domain": domain_label,
+                "domain_conf": domain_conf,
+                "topics_all": topic_scores,
+                "primary_topic": primary_topic,
+                "primary_topic_conf": primary_topic_conf,
+            },
+        )
+
+        return ClassifierResult(
+            intent=intent_label,
+            confidence=intent_conf,
+            domain=domain_label,
+            domain_confidence=domain_conf,
+            topic=primary_topic,
+            topic_confidence=primary_topic_conf,
+            topics=topics_ordered,
+            model_version=self.model_version,
+        )
+
     def classify(self, text: str) -> ClassifierResult:
         """
         Synchronous classification.
         Returns ClassifierResult (internal dataclass).
+
+        - If model is a bundle (dict) -> use intent+domain+topics path.
+        - Else if model is a sklearn Pipeline -> fallback to legacy intent-only behavior.
         """
         t0 = time.perf_counter()
         self._load()
@@ -263,8 +446,52 @@ class SklearnIntentClassifierAgent(BaseAgent):
                 intent="general", confidence=0.0, model_version=self.model_version
             )
 
-        has_predict_proba = hasattr(self._pipeline, "predict_proba")
-        has_predict = hasattr(self._pipeline, "predict")
+        # NEW: if this is the bundle dict, use new classification path
+        if isinstance(self._pipeline, dict):
+            try:
+                res = self._classify_with_bundle(q)
+                dt_ms = (time.perf_counter() - t0) * 1000.0
+                logger.info(
+                    "[classifier:classify] bundle predicted",
+                    extra={
+                        "agent": self.name,
+                        "model_version": self.model_version,
+                        "intent": res.intent,
+                        "intent_confidence": res.confidence,
+                        "domain": res.domain,
+                        "domain_confidence": res.domain_confidence,
+                        "topic": res.topic,
+                        "topic_confidence": res.topic_confidence,
+                        "topics": res.topics,
+                        "elapsed_ms": round(dt_ms, 2),
+                        "query_len": len(q),
+                        "query_hash12": q_hash,
+                    },
+                )
+                return res
+            except Exception as e:
+                # If bundle path somehow fails, log & fall through to legacy if possible.
+                logger.error(
+                    "[classifier:classify] bundle classification failed; falling back if possible",
+                    extra={
+                        "agent": self.name,
+                        "model_version": self.model_version,
+                        "error_type": type(e).__name__,
+                        "error": str(e),
+                        "traceback": traceback.format_exc(),
+                    },
+                )
+                dt_ms = (time.perf_counter() - t0) * 1000.0
+                return ClassifierResult(
+                    intent="general",
+                    confidence=0.0,
+                    model_version=self.model_version,
+                )
+
+        # ---------------- Legacy pipeline path below ----------------
+        pipeline = self._pipeline
+        has_predict_proba = hasattr(pipeline, "predict_proba")
+        has_predict = hasattr(pipeline, "predict")
 
         logger.debug(
             "[classifier:classify] pipeline capabilities",
@@ -273,12 +500,12 @@ class SklearnIntentClassifierAgent(BaseAgent):
                 "model_version": self.model_version,
                 "has_predict_proba": has_predict_proba,
                 "has_predict": has_predict,
-                "pipeline_type": type(self._pipeline).__name__,
+                "pipeline_type": type(pipeline).__name__,
             },
         )
 
         try:
-            classes = _safe_list(getattr(self._pipeline, "classes_", None))
+            classes = _safe_list(getattr(pipeline, "classes_", None))
 
             logger.debug(
                 "[classifier:classify] classes read",
@@ -291,7 +518,7 @@ class SklearnIntentClassifierAgent(BaseAgent):
             )
 
             if has_predict_proba:
-                proba = self._pipeline.predict_proba([q])[0]
+                proba = pipeline.predict_proba([q])[0]
 
                 try:
                     proba_len = len(proba)
@@ -317,7 +544,7 @@ class SklearnIntentClassifierAgent(BaseAgent):
                             "Pipeline missing classes_ and does not implement predict()."
                         )
 
-                    pred = self._pipeline.predict([q])[0]
+                    pred = pipeline.predict([q])[0]
                     dt_ms = (time.perf_counter() - t0) * 1000.0
 
                     logger.warning(
@@ -355,7 +582,7 @@ class SklearnIntentClassifierAgent(BaseAgent):
 
                 dt_ms = (time.perf_counter() - t0) * 1000.0
                 logger.info(
-                    "[classifier:classify] predicted",
+                    "[classifier:classify] legacy pipeline predicted",
                     extra={
                         "agent": self.name,
                         "model_version": self.model_version,
@@ -379,7 +606,7 @@ class SklearnIntentClassifierAgent(BaseAgent):
                     "Pipeline does not implement predict_proba() or predict()."
                 )
 
-            pred = self._pipeline.predict([q])[0]
+            pred = pipeline.predict([q])[0]
             dt_ms = (time.perf_counter() - t0) * 1000.0
             logger.warning(
                 "[classifier:classify] predict_proba not available; used predict() only",
@@ -446,6 +673,34 @@ class SklearnIntentClassifierAgent(BaseAgent):
         )
 
         res = self.classify(query)
+
+        # ---- ROUTING METADATA ----
+        # preserve original user input exactly
+        original_text = (query or "")[:500]  # prevent log explosions
+
+        # normalized for routing: lowercase + strip markup artifacts
+        normalized = (
+            original_text.lower().replace("**", "").replace("*", "").replace("#", "").strip()
+        )
+
+        # lightweight tokenization (spaces only)
+        query_terms = [t for t in normalized.split() if t]
+
+        # attach routing metadata to the classifier result
+        setattr(res, "_original_text", original_text)
+        setattr(res, "_normalized_text", normalized)
+        setattr(res, "_query_terms", query_terms)
+
+        logger.debug(
+            "[classifier:run:metadata] routing metadata extracted",
+            extra = {
+                "original_text": original_text,
+                "normalized_text": normalized,
+                "query_terms": query_terms,
+            },
+        )
+
+
         out = res.to_dict()
 
         dt_ms = (time.perf_counter() - t0) * 1000.0
@@ -458,6 +713,11 @@ class SklearnIntentClassifierAgent(BaseAgent):
                 "correlation_id": correlation_id,
                 "intent": out.get("intent"),
                 "confidence": out.get("confidence"),
+                "domain": out.get("domain"),
+                "domain_confidence": out.get("domain_confidence"),
+                "topic": out.get("topic"),
+                "topic_confidence": out.get("topic_confidence"),
+                "topics": out.get("topics"),
                 "elapsed_ms": round(dt_ms, 2),
                 "result": out,
             },
