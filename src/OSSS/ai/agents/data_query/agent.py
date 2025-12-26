@@ -1,9 +1,8 @@
-# src/OSSS/ai/agents/data_query/agent.py
 from __future__ import annotations
 
 from dataclasses import dataclass
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy.ext.asyncio import AsyncEngine
 
@@ -25,6 +24,127 @@ DEFAULT_BASE_URL = os.getenv("OSSS_BACKEND_BASE_URL", "http://app:8000")
 # Minimum topic_confidence from classifier to trust its topic mapping.
 # If below this, we fall back to text-based route matching.
 MIN_TOPIC_CONFIDENCE = float(os.getenv("OSSS_DATAQUERY_MIN_TOPIC_CONFIDENCE", "0.15"))
+
+# -----------------------------------------------------------------------------
+# CONSENT CREATION WIZARD CONFIG
+# -----------------------------------------------------------------------------
+
+class ConsentFields:
+    STUDENT = "student"
+    GUARDIAN = "guardian"
+    CONSENT_TYPE = "consent_type"
+    STATUS = "status"
+    EFFECTIVE_DATE = "effective_date"
+    NOTES = "notes"
+
+
+CONSENT_REQUIRED_FIELDS: List[str] = [
+    ConsentFields.STUDENT,
+    ConsentFields.GUARDIAN,
+    ConsentFields.CONSENT_TYPE,
+    ConsentFields.STATUS,
+]
+
+CONSENT_OPTIONAL_FIELDS: List[str] = [
+    ConsentFields.EFFECTIVE_DATE,
+    ConsentFields.NOTES,
+]
+
+CONSENT_FIELD_PROMPTS: Dict[str, str] = {
+    ConsentFields.STUDENT: "Which student is this consent for? Please provide the full student name.",
+    ConsentFields.GUARDIAN: "Who gave this consent? Please provide the guardian’s name or relationship.",
+    ConsentFields.CONSENT_TYPE: (
+        "What kind of consent is this? For example: media release, field trip, technology use, etc."
+    ),
+    ConsentFields.STATUS: "Was consent granted or denied?",
+    ConsentFields.EFFECTIVE_DATE: (
+        "What date should this consent be effective from? If it’s today, you can just say 'today'."
+    ),
+    ConsentFields.NOTES: "Any notes you’d like to include? You can say 'no' if there are none.",
+}
+
+
+def _detect_create_intent(raw_user_input: str, refined_text: str) -> bool:
+    """
+    Lexical gate to detect 'add/create consent' style intents, even if the
+    classifier doesn't explicitly say 'create'.
+
+    We look across both the original user input and the refined text.
+    """
+    text_combined = f"{raw_user_input} {refined_text}".lower()
+
+    create_tokens = ("create", "add")
+    consent_tokens = ("consent", "consents", "concent", "concents")
+
+    has_create_or_add = any(tok in text_combined for tok in create_tokens)
+    has_consent_word = any(tok in text_combined for tok in consent_tokens)
+
+    return has_create_or_add and has_consent_word
+
+
+def _is_consents_create_route(route: DataQueryRoute) -> bool:
+    """
+    Heuristic to detect that this DataQueryRoute is for creating a consent
+    record, rather than just querying consents.
+
+    You can tighten this once your DataQueryRoute has explicit operation flags.
+    """
+    name = getattr(route, "name", None)
+    operation = getattr(route, "operation", None)
+    topic = getattr(route, "topic", None)
+    collection = getattr(route, "collection", None)
+
+    if str(name or "").lower() in {"consents_create", "consent_create"}:
+        return True
+    if str(operation or "").lower() == "create" and str(collection or "") == "consents":
+        return True
+    if str(operation or "").lower() == "create" and str(topic or "") == "consents":
+        return True
+    return False
+
+
+def _normalize_status_answer(answer: str) -> str:
+    """
+    Normalize user free-text answer into a canonical consent status string.
+    """
+    text = (answer or "").strip().lower()
+    if not text:
+        return ""
+
+    if any(w in text for w in ["grant", "granted", "yes", "yep", "allow", "allowed", "approve", "approved", "ok", "okay"]):
+        return "granted"
+    if any(w in text for w in ["deny", "denied", "no", "nope", "disallow", "refuse", "decline"]):
+        return "denied"
+
+    # Fallback: return raw text so you can see what user typed.
+    return text
+
+
+def _consent_wizard_missing_fields(payload: Dict[str, Any]) -> List[str]:
+    """
+    Compute which required fields are still missing in the wizard payload.
+    """
+    missing: List[str] = []
+    for key in CONSENT_REQUIRED_FIELDS:
+        value = payload.get(key)
+        if value is None or (isinstance(value, str) and not value.strip()):
+            missing.append(key)
+    return missing
+
+
+def _summarize_consent_payload(payload: Dict[str, Any]) -> str:
+    """
+    Human-readable summary for confirmation message.
+    """
+    lines = [
+        f"- **Student**: {payload.get(ConsentFields.STUDENT) or '_not set_'}",
+        f"- **Guardian**: {payload.get(ConsentFields.GUARDIAN) or '_not set_'}",
+        f"- **Type**: {payload.get(ConsentFields.CONSENT_TYPE) or '_not set_'}",
+        f"- **Status**: {payload.get(ConsentFields.STATUS) or '_not set_'}",
+        f"- **Effective date**: {payload.get(ConsentFields.EFFECTIVE_DATE) or 'today'}",
+        f"- **Notes**: {payload.get(ConsentFields.NOTES) or 'none'}",
+    ]
+    return "\n".join(lines)
 
 
 def _get_classifier_and_text_from_context(context: AgentContext) -> tuple[dict, str]:
@@ -241,19 +361,321 @@ class DataQueryAgent(BaseAgent):
             dependencies=["refiner"],
         )
 
+    # -------------------------------------------------------------------------
+    # CONSENT WIZARD INTERNAL HELPERS
+    # -------------------------------------------------------------------------
+    def _get_consent_wizard_state(self, context: AgentContext) -> Dict[str, Any]:
+        exec_state: Dict[str, Any] = getattr(context, "execution_state", {}) or {}
+        return exec_state.get("consent_wizard") or {}
+
+    def _set_consent_wizard_state(self, context: AgentContext, state: Optional[Dict[str, Any]]) -> None:
+        exec_state: Dict[str, Any] = getattr(context, "execution_state", {}) or {}
+        if state:
+            exec_state["consent_wizard"] = state
+        else:
+            exec_state.pop("consent_wizard", None)
+        context.execution_state = exec_state
+
+    def _consent_wizard_channel_key(self) -> str:
+        # Single logical channel for consent wizard UX
+        return f"{self.name}:consent_wizard"
+
+    async def _start_consent_wizard(
+        self,
+        context: AgentContext,
+        route: DataQueryRoute,
+        base_url: str,
+        entity_meta: Dict[str, Any],
+    ) -> AgentContext:
+        """
+        First call into consents_create route: initialize wizard payload and
+        ask for the first required field.
+        """
+        logger.info(
+            "[data_query:consent_wizard] starting consent creation wizard",
+            extra={
+                "event": "data_query_consent_wizard_start",
+                "route_name": getattr(route, "name", None),
+                "topic": getattr(route, "topic", None),
+                "collection": getattr(route, "collection", None),
+            },
+        )
+
+        payload: Dict[str, Any] = {
+            "source": "ai_data_query",
+            "base_url": base_url,
+            "entity_id": entity_meta.get("id"),
+        }
+
+        missing = _consent_wizard_missing_fields(payload)
+        # At start, this will be all required fields
+        next_field = missing[0] if missing else None
+
+        wizard_state: Dict[str, Any] = {
+            "pending_action": "collect",
+            "payload": payload,
+            "required_fields": list(CONSENT_REQUIRED_FIELDS),
+            "optional_fields": list(CONSENT_OPTIONAL_FIELDS),
+            "current_field": next_field,
+            "route_info": {
+                "name": getattr(route, "name", None),
+                "collection": getattr(route, "collection", None),
+                "topic": getattr(route, "topic", None),
+                "resolved_path": getattr(route, "resolved_path", None),
+                "base_url": base_url,
+            },
+        }
+        self._set_consent_wizard_state(context, wizard_state)
+
+        channel_key = self._consent_wizard_channel_key()
+
+        if next_field:
+            prompt = CONSENT_FIELD_PROMPTS.get(
+                next_field,
+                "I need a bit more information. Please provide the next detail.",
+            )
+            context.add_agent_output(
+                channel_key,
+                {
+                    "content": (
+                        "I can create a consent record, but I need a few details first.\n\n"
+                        + prompt
+                    ),
+                    "meta": {
+                        "action": "consent_wizard",
+                        "step": "collect_field",
+                        "current_field": next_field,
+                        "missing_fields": missing,
+                    },
+                    "intent": "action",
+                },
+            )
+        else:
+            # Extremely unlikely, but fall back to immediate confirmation
+            summary = _summarize_consent_payload(payload)
+            wizard_state["pending_action"] = "confirm"
+            self._set_consent_wizard_state(context, wizard_state)
+            context.add_agent_output(
+                channel_key,
+                {
+                    "content": (
+                        "Here’s the consent I’m ready to create:\n\n"
+                        f"{summary}\n\n"
+                        "Type 'confirm' to save this consent or 'cancel' to abort."
+                    ),
+                    "meta": {
+                        "action": "consent_wizard",
+                        "step": "confirm",
+                    },
+                    "intent": "action",
+                },
+            )
+
+        return context
+
+    async def _continue_consent_wizard(
+        self,
+        context: AgentContext,
+        wizard_state: Dict[str, Any],
+        user_text: str,
+    ) -> AgentContext:
+        """
+        Continue the consent wizard: either collect the next field or handle
+        the final confirmation.
+        """
+        channel_key = self._consent_wizard_channel_key()
+        pending_action = wizard_state.get("pending_action")
+        payload: Dict[str, Any] = wizard_state.get("payload") or {}
+
+        # ---------------------------------------------------------------------
+        # CONFIRMATION STEP
+        # ---------------------------------------------------------------------
+        if pending_action == "confirm":
+            answer = (user_text or "").strip().lower()
+            logger.info(
+                "[data_query:consent_wizard] confirmation step",
+                extra={
+                    "event": "data_query_consent_wizard_confirm",
+                    "answer": answer,
+                },
+            )
+            if answer in {"yes", "y", "confirm", "ok", "okay"}:
+                # ✅ Ready for actual creation. We DO NOT guess BackendAPIClient
+                # methods here – we just park the payload so another component
+                # can invoke a write.
+                exec_state: Dict[str, Any] = getattr(context, "execution_state", {}) or {}
+                exec_state["consent_create_ready"] = payload
+                context.execution_state = exec_state
+
+                # Clear wizard state
+                self._set_consent_wizard_state(context, None)
+
+                summary = _summarize_consent_payload(payload)
+                context.add_agent_output(
+                    channel_key,
+                    {
+                        "content": (
+                            "Great, I’ve collected everything needed for this consent:\n\n"
+                            f"{summary}\n\n"
+                            "The payload is ready for creation in the backend."
+                        ),
+                        "meta": {
+                            "action": "consent_wizard",
+                            "step": "confirmed",
+                        },
+                        "intent": "action",
+                    },
+                )
+
+                # NOTE: This is where you can later plug in:
+                #   client = BackendAPIClient(BackendAPIConfig(base_url=payload['base_url']))
+                #   await client.create_consent(payload)
+                # and then update the message to reflect actual DB write.
+                return context
+
+            # User cancelled
+            self._set_consent_wizard_state(context, None)
+            context.add_agent_output(
+                channel_key,
+                {
+                    "content": "Okay, I won’t create this consent record.",
+                    "meta": {
+                        "action": "consent_wizard",
+                        "step": "cancelled",
+                    },
+                    "intent": "action",
+                },
+            )
+            return context
+
+        # ---------------------------------------------------------------------
+        # FIELD COLLECTION STEP
+        # ---------------------------------------------------------------------
+        current_field = wizard_state.get("current_field")
+        if not current_field:
+            # If for some reason we lost track, recompute missing and restart.
+            missing = _consent_wizard_missing_fields(payload)
+            current_field = missing[0] if missing else None
+            wizard_state["current_field"] = current_field
+            self._set_consent_wizard_state(context, wizard_state)
+
+        logger.info(
+            "[data_query:consent_wizard] collecting field",
+            extra={
+                "event": "data_query_consent_wizard_collect_field",
+                "current_field": current_field,
+                "user_text": user_text,
+            },
+        )
+
+        answer = (user_text or "").strip()
+
+        if current_field == ConsentFields.STATUS:
+            payload[ConsentFields.STATUS] = _normalize_status_answer(answer)
+        elif current_field == ConsentFields.NOTES:
+            payload[ConsentFields.NOTES] = "" if answer.lower() in {"no", "none"} else answer
+        elif current_field == ConsentFields.EFFECTIVE_DATE:
+            # Store raw; backend or later logic can normalize "today" etc.
+            payload[ConsentFields.EFFECTIVE_DATE] = answer or "today"
+        else:
+            # student, guardian, consent_type
+            payload[current_field] = answer
+
+        wizard_state["payload"] = payload
+
+        # Recompute missing required fields
+        missing = _consent_wizard_missing_fields(payload)
+
+        if missing:
+            # Ask next required field
+            next_field = missing[0]
+            wizard_state["current_field"] = next_field
+            wizard_state["pending_action"] = "collect"
+            self._set_consent_wizard_state(context, wizard_state)
+
+            prompt = CONSENT_FIELD_PROMPTS.get(
+                next_field,
+                "Please provide the next detail for this consent.",
+            )
+
+            context.add_agent_output(
+                channel_key,
+                {
+                    "content": prompt,
+                    "meta": {
+                        "action": "consent_wizard",
+                        "step": "collect_field",
+                        "current_field": next_field,
+                        "missing_fields": missing,
+                    },
+                    "intent": "action",
+                },
+            )
+            return context
+
+        # All required fields are present → move to confirmation
+        wizard_state["pending_action"] = "confirm"
+        wizard_state["current_field"] = None
+        self._set_consent_wizard_state(context, wizard_state)
+
+        summary = _summarize_consent_payload(payload)
+        context.add_agent_output(
+            channel_key,
+            {
+                "content": (
+                    "Here’s the consent I’m ready to create:\n\n"
+                    f"{summary}\n\n"
+                    "Type 'confirm' to save this consent, or 'cancel' to abort."
+                ),
+                "meta": {
+                    "action": "consent_wizard",
+                    "step": "confirm",
+                },
+                "intent": "action",
+            },
+        )
+        return context
+
+    # -------------------------------------------------------------------------
+    # MAIN EXECUTION
+    # -------------------------------------------------------------------------
     async def run(self, context: AgentContext) -> AgentContext:
+        """
+        Main data_query entrypoint.
+
+        Now supports lexical detection of "add/create consent" intent via
+        `_detect_create_intent`, and wires that into routing + the consent
+        wizard flow.
+        """
 
         # --- EXECUTION CONFIG --------------------------------------------------
         exec_state: Dict[str, Any] = getattr(context, "execution_state", {}) or {}
         exec_cfg: Dict[str, Any] = exec_state.get("execution_config", {}) or {}
         dq_cfg: Dict[str, Any] = exec_cfg.get("data_query") or {}
 
-        # Classifier + raw text (best-effort)
+        # Classifier output + refined text (typically after Refiner)
         classifier, raw_text = _get_classifier_and_text_from_context(context)
         raw_text_norm = (raw_text or "").strip()
         raw_text_lower = raw_text_norm.lower()
 
-        # 🚧 LEXICAL GATE:
+        # 🔎 ORIGINAL / RAW USER INPUT (pre-refiner), if we have it
+        raw_user_input = (exec_state.get("user_question") or "").strip()
+        raw_user_lower = raw_user_input.lower()
+
+        # Existing wizard state → skip routing + structured gating entirely
+        consent_wizard_state = exec_state.get("consent_wizard") or {}
+
+        # ----------------------------------------------------------------------
+        # 🔑 LEXICAL CREATE-CONSENT DETECTION
+        # ----------------------------------------------------------------------
+        # This triggers when the combined text contains:
+        #   ("create" or "add")  +  ("consent"/"consents"/"concent"/"concents")
+        consent_create_intent = _detect_create_intent(
+            raw_user_input=raw_user_input,
+            refined_text=raw_text_norm,
+        )
+
+        # 🚧 SIMPLE STRUCTURED QUERY GATE
         is_structured_query = raw_text_lower.startswith("query ")
         force_data_query = bool(dq_cfg.get("force"))
 
@@ -262,14 +684,24 @@ class DataQueryAgent(BaseAgent):
             extra={
                 "event": "data_query_lexical_gate",
                 "raw_text_preview": raw_text_norm[:200],
+                "raw_user_preview": raw_user_input[:200],
                 "is_structured_query": is_structured_query,
                 "force_data_query": force_data_query,
+                "has_consent_wizard_state": bool(consent_wizard_state),
+                "consent_create_intent": consent_create_intent,
             },
         )
 
-        if not is_structured_query and not force_data_query:
+        # ---- SKIP CONDITIONS -------------------------------------------------
+        if (
+            not is_structured_query
+            and not force_data_query
+            and not consent_wizard_state
+            and not consent_create_intent
+        ):
             logger.info(
-                "[data_query:routing] skipping: does not look like a structured query",
+                "[data_query:routing] skipping: no structured query, no force, "
+                "no wizard state, no create-consent trigger",
                 extra={
                     "event": "data_query_skip_non_structured",
                     "raw_text_preview": raw_text_norm[:200],
@@ -277,13 +709,30 @@ class DataQueryAgent(BaseAgent):
             )
             return context
 
-        # --- INTENT ------------------------------------------------------------
+        # ---- CONSENT WIZARD CONTINUATION ------------------------------------
+        if consent_wizard_state:
+            logger.info(
+                "[data_query:consent_wizard] continuing existing wizard",
+                extra={"event": "data_query_consent_wizard_continue"},
+            )
+            return await self._continue_consent_wizard(
+                context,
+                consent_wizard_state,
+                raw_text_norm or raw_user_input,
+            )
+
+        # ---- INTENT RESOLUTION ----------------------------------------------
         state_intent = getattr(context, "intent", None) or exec_state.get("intent")
         classifier_intent = (
             classifier.get("intent") if isinstance(classifier, dict) else None
         )
         intent_raw = state_intent or classifier_intent
         intent = (intent_raw or "").strip().lower() or None
+
+        # 💡 If lexical consent-create detected and there's no strong conflicting intent,
+        # treat this as a create.
+        if consent_create_intent and intent not in {"create", "update", "delete"}:
+            intent = "create"
 
         topic_override = dq_cfg.get("topic")
 
@@ -294,8 +743,7 @@ class DataQueryAgent(BaseAgent):
                 "intent": intent,
                 "topic_override": topic_override,
                 "raw_text_preview": raw_text_norm[:200],
-                "classifier_topic": classifier.get("topic") if isinstance(classifier, dict) else None,
-                "classifier_topics": classifier.get("topics") if isinstance(classifier, dict) else None,
+                "raw_user_preview": raw_user_input[:200],
             },
         )
 
@@ -306,28 +754,59 @@ class DataQueryAgent(BaseAgent):
                 "intent": intent,
                 "topic_override": topic_override,
                 "raw_text": raw_text_norm,
+                "raw_user_input": raw_user_input,
                 "classifier": classifier,
             },
         )
 
-        # --- ROUTE SELECTION ---------------------------------------------------
+        # ---- ROUTE SELECTION -------------------------------------------------
+        # 1️⃣ Explicit override always wins
         if topic_override:
             route = resolve_route(topic_override, intent=intent)
             route_source = "explicit_override"
-            logger.info(
-                "[data_query:routing] using explicit topic override",
-                extra={
-                    "event": "data_query_routing_explicit_override",
-                    "topic_override": topic_override,
-                    "route_topic": route.topic,
-                    "route_collection": route.collection,
-                },
-            )
+
+        # 2️⃣ Lexical create-consent → bias toward consents route if possible
+        elif consent_create_intent:
+            route = None
+            route_source = "consent_keyword_gate"
+
+            try:
+                route = resolve_route("consents", intent="create")
+            except Exception:
+                route = None
+
+            if route is None:
+                try:
+                    route = resolve_route("consents", intent=intent)
+                except Exception:
+                    route = None
+
+            # If still nothing → fallback text matching using ORIGINAL user text
+            if route is None:
+                route = choose_route_for_query(
+                    raw_user_input or raw_text_norm,
+                    classifier,
+                )
+                route_source = "consent_keyword_fallback_text"
+
+        # 3️⃣ Default classifier/text routing
         else:
-            route = choose_route_for_query(raw_text, classifier)
+            route = choose_route_for_query(raw_text_norm, classifier)
             route_source = "classifier_or_text"
 
-        # --- METADATA FROM ROUTE ----------------------------------------------
+        logger.info(
+            "[data_query:routing] final route resolved",
+            extra={
+                "event": "data_query_route_resolved",
+                "route_source": route_source,
+                "route_topic": getattr(route, "topic", None),
+                "route_collection": getattr(route, "collection", None),
+                "route_name": getattr(route, "name", None),
+                "intent": intent,
+            },
+        )
+
+        # ---- METADATA FROM ROUTE --------------------------------------------
         if hasattr(route, "to_entity") and callable(getattr(route, "to_entity")):
             entity_meta: Dict[str, Any] = route.to_entity()
         else:
@@ -353,17 +832,17 @@ class DataQueryAgent(BaseAgent):
                 "description": getattr(route, "description", None),
                 "collection": route.collection,
                 "view_name": route.view_name,
-                "path": route.path,
-                "detail_path": route.detail_path,
-                "base_url": route.base_url,
-                "default_params": route.default_params,
+                "path": getattr(route, "path", None),
+                "detail_path": getattr(route, "detail_path", None),
+                "base_url": getattr(route, "base_url", None),
+                "default_params": getattr(route, "default_params", None),
             }
 
         logger.debug(
             "[data_query:schema] metadata derived from route",
             extra={
                 "event": "data_query_schema_from_route",
-                "route_topic": route.topic,
+                "route_topic": getattr(route, "topic", None),
                 "schema_id": entity_meta.get("id"),
                 "schema_table": entity_meta.get("table"),
                 "schema_topic_key": entity_meta.get("topic_key"),
@@ -390,12 +869,12 @@ class DataQueryAgent(BaseAgent):
                 "[data_query:routing] no base_url configured at any level",
                 extra={
                     "event": "data_query_no_base_url",
-                    "route_topic": route.topic,
-                    "route_collection": route.collection,
+                    "route_topic": getattr(route, "topic", None),
+                    "route_collection": getattr(route, "collection", None),
                 },
             )
             raise RuntimeError(
-                f"No base_url configured for route {route.topic!r} and "
+                f"No base_url configured for route {getattr(route, 'topic', None)!r} and "
                 "no OSSS_BACKEND_BASE_URL default is set."
             )
 
@@ -410,17 +889,17 @@ class DataQueryAgent(BaseAgent):
                     "normalized_base_url": base_url,
                     "base_url_source": base_url_source,
                     "route_id": getattr(route, "id", None),
-                    "route_topic": route.topic,
-                    "route_collection": route.collection,
+                    "route_topic": getattr(route, "topic", None),
+                    "route_collection": getattr(route, "collection", None),
                 },
             )
             raise RuntimeError(
-                f"Invalid base_url for route {getattr(route, 'id', route.topic)!r}: "
+                f"Invalid base_url for route {getattr(route, 'id', getattr(route, 'topic', None))!r}: "
                 f"{raw_base_url!r} (expected something like 'http://localhost:8000')"
             )
 
         params: Dict[str, Any] = {}
-        params.update(route.default_params or {})
+        params.update(getattr(route, "default_params", None) or {})
         params.update(dq_cfg.get("default_params") or {})
         params.update(exec_cfg.get("http_query_params") or {})
 
@@ -428,30 +907,45 @@ class DataQueryAgent(BaseAgent):
         entity_meta["default_params"] = params
 
         logger.info(
-            "[data_query:routing] final route resolved",
+            "[data_query:routing] final route + HTTP config",
             extra={
                 "event": "data_query_final_route_resolved",
                 "route_source": route_source,
-                "base_url_source": base_url_source,
-                "topic": route.topic,
-                "collection": route.collection,
-                "view": route.view_name,
-                "path": route.resolved_path,
+                "topic": getattr(route, "topic", None),
+                "collection": getattr(route, "collection", None),
+                "view": getattr(route, "view_name", None),
+                "path": getattr(route, "resolved_path", None),
                 "base_url": base_url,
                 "params": params,
                 "schema_topic_key": entity_meta.get("topic_key"),
             },
         )
 
+        # ---- CONSENT WIZARD ENTRY POINT -------------------------------------
+        # For "create new consents" (or equivalent), start the wizard and
+        # DO NOT issue a GET /api/consents. This fixes the behavior you saw.
+        if consent_create_intent:
+            logger.info(
+                "[data_query:consent_wizard] starting wizard via create-consent intent",
+                extra={
+                    "event": "data_query_consent_wizard_entry",
+                    "route_topic": getattr(route, "topic", None),
+                    "route_collection": getattr(route, "collection", None),
+                    "intent": intent,
+                },
+            )
+            return await self._start_consent_wizard(context, route, base_url, entity_meta)
+
         # --- HTTP CALL ---------------------------------------------------------
         client = BackendAPIClient(BackendAPIConfig(base_url=base_url))
-        request_url = f"{base_url}{route.resolved_path}"
+        request_path = getattr(route, "resolved_path", None) or getattr(route, "path", None) or ""
+        request_url = f"{base_url}{request_path}"
 
         logger.info(
             "[data_query:http] issuing collection GET",
             extra={
                 "event": "data_query_http_collection_get",
-                "collection": route.collection,
+                "collection": getattr(route, "collection", None),
                 "url": request_url,
                 "skip": params.get("skip"),
                 "limit": params.get("limit"),
@@ -461,7 +955,7 @@ class DataQueryAgent(BaseAgent):
 
         try:
             rows = await client.get_collection(
-                route.collection,
+                getattr(route, "collection", None),
                 skip=int(params.get("skip", 0)),
                 limit=int(params.get("limit", 100)),
                 params={k: v for k, v in params.items() if k not in ("skip", "limit")},
@@ -470,14 +964,14 @@ class DataQueryAgent(BaseAgent):
                 "[data_query:http] received response",
                 extra={
                     "event": "data_query_http_collection_response",
-                    "collection": route.collection,
+                    "collection": getattr(route, "collection", None),
                     "row_count": len(rows),
                     "url": request_url,
                 },
             )
             payload = {
                 "ok": True,
-                "view": route.view_name,
+                "view": getattr(route, "view_name", None),
                 "source": "http",
                 "url": request_url,
                 "status_code": 200,
@@ -490,13 +984,13 @@ class DataQueryAgent(BaseAgent):
                 "[data_query:http] request failed",
                 extra={
                     "event": "data_query_http_collection_error",
-                    "collection": route.collection,
+                    "collection": getattr(route, "collection", None),
                     "url": request_url,
                 },
             )
             payload = {
                 "ok": False,
-                "view": route.view_name,
+                "view": getattr(route, "view_name", None),
                 "source": "http",
                 "url": request_url,
                 "status_code": None,
@@ -507,11 +1001,8 @@ class DataQueryAgent(BaseAgent):
             }
 
         # --- SINGLE CHANNEL KEY FOR THIS RESULT -------------------------------
-        topic_key = (
-            route.topic.strip()
-            if isinstance(route.topic, str)
-            else ""
-        )
+        topic_val = getattr(route, "topic", None)
+        topic_key = topic_val.strip() if isinstance(topic_val, str) else ""
         if topic_key:
             channel_key = f"{self.name}:{topic_key}"
         else:
@@ -522,21 +1013,22 @@ class DataQueryAgent(BaseAgent):
             extra={
                 "event": "data_query_output_channel_key",
                 "channel_key": channel_key,
-                "route_topic": route.topic,
-                "route_view_name": route.view_name,
+                "route_topic": getattr(route, "topic", None),
+                "route_view_name": getattr(route, "view_name", None),
             },
         )
 
         # --- STORE IN CONTEXT --------------------------------------------------
-        context.execution_state[route.resolved_store_key] = payload
+        store_key = getattr(route, "resolved_store_key", None) or getattr(route, "view_name", None) or "data_query"
+        context.execution_state[store_key] = payload
         structured = context.execution_state.setdefault("structured_outputs", {})
-        structured[f"{self.name}:{route.view_name}"] = payload
+        structured[f"{self.name}:{getattr(route, 'view_name', None)}"] = payload
 
         logger.debug(
             "[data_query] stored payload in execution_state",
             extra={
                 "event": "data_query_payload_stored",
-                "store_key": route.resolved_store_key,
+                "store_key": store_key,
             },
         )
 
@@ -551,9 +1043,7 @@ class DataQueryAgent(BaseAgent):
                 "entity": entity_meta,
             }
 
-            # Canonical structured-output object for data_query
             canonical_output = {
-                # These three are aliases so downstream code can pick whichever it expects
                 "table_markdown": md,
                 "markdown": md,
                 "content": md,
@@ -570,10 +1060,8 @@ class DataQueryAgent(BaseAgent):
                 },
             )
 
-            # ✅ Single agent_output channel to avoid duplicate tables
             context.add_agent_output(channel_key, canonical_output)
 
-            # Optional: also mirror into structured_outputs under same key
             structured_outputs = context.execution_state.setdefault("structured_outputs", {})
             structured_outputs[channel_key] = canonical_output
 
@@ -599,12 +1087,9 @@ class DataQueryAgent(BaseAgent):
             "[data_query] run() completed",
             extra={
                 "event": "data_query_run_completed",
-                "view": route.view_name,
+                "view": payload.get("view"),
                 "row_count": payload.get("row_count"),
                 "ok": payload.get("ok"),
             },
         )
         return context
-
-    async def invoke(self, context: AgentContext) -> AgentContext:
-        return await self.run(context)

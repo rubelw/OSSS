@@ -27,6 +27,8 @@ Focus on:
 - Normalizing entity names and terminology.
 - Keeping queries concise and machine-friendly.
 - Preserving the user’s original intent.
+- Preserving explicit operation verbs such as "query", "select", "create",
+  "insert", "read", "update", "modify", and "delete" when they are present.
 
 Do NOT:
 - Answer the question yourself.
@@ -34,9 +36,39 @@ Do NOT:
 - Change the meaning of the query.
 
 If the query includes hints that it is a database or data-system query
-(e.g., starts with "query", mentions tables, fields, rows, records, etc.),
+(e.g., includes the word "database", starts with "query", mentions tables,
+fields, rows, records, schemas, or CRUD verbs),
 produce a refined string that is still suitable to be mapped to a schema
 or used to generate SQL. Keep it short and direct.
+
+## CRITICAL CRUD + DATABASE PRESERVATION RULES
+
+1. PRESERVE CRUD VERBS
+- Do NOT remove or paraphrase explicit CRUD verbs ("query", "create", "read",
+  "update", "modify", "delete", "insert", "remove", "select", "upsert")
+  when they describe the user’s action over data.
+
+2. PRESERVE DATABASE CONTEXT
+- If the query contains the word "database" or implies a database operation,
+  preserve the notion of operating on database entities; do NOT drop "database"
+  unless substituting a more specific schema/table reference improves clarity.
+  Example:
+    Input: "query database consents"
+    Allowed: {{"refined_query": "query consents in the database"}}
+    Allowed: {{"refined_query": "query consents"}}
+    NOT allowed: {{"refined_query": "consents"}}
+
+3. PRESERVE 'query' PREFIX WHEN PRESENT
+- If the original query starts with the token "query " (any casing),
+  the refined_query MUST also start with "query " followed by the target phrase.
+  Example:
+    Input: "query database consents"
+    Allowed: {{"refined_query": "query consents"}}
+    Allowed: {{"refined_query": "query consents for a given person_id"}}
+    NOT allowed: {{"refined_query": "consents"}}
+
+4. OPTIONAL CLARIFICATION
+- You may add clarifying words *after* the CRUD verb, but you MUST keep the verb itself.
 
 {DCG_CANONICALIZATION_BLOCK}
 

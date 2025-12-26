@@ -145,65 +145,128 @@ def _default_to_str(col: sa.Column) -> Optional[str]:
     return None
 
 
-def emit_table_dbml(table: sa.Table) -> str:
-    """Emit a DBML block for a single Table."""
-    name = table.name
-    schema = table.schema
-    fq_name = f"{schema}.{name}" if schema else name
+def emit_table_dbml(table) -> str:
+    """
+    Emit a single Table {...} block in DBML, including table/column notes.
 
-    lines = [f"Table {fq_name} {{"]
+    - Table-level description comes from:
+        1) table.comment   (i.e., __table_args__['comment'])
+        2) table.info['note']  (if you ever set that)
+        3) model NOTE ClassVar (if present)
+    """
+    lines = []
 
+    # Optional schema prefix (but hide "public.")
+    schema_prefix = (
+        f"{table.schema}."
+        if getattr(table, "schema", None) and table.schema != "public"
+        else ""
+    )
+    lines.append(f"Table {schema_prefix}{table.name} {{")
+
+    # -----------------------
     # Columns
+    # -----------------------
     for col in table.columns:
         parts = [f"  {col.name} {_compile_type(col.type)}"]
         attrs = []
+
         if col.primary_key:
             attrs.append("pk")
         if not col.nullable:
             attrs.append("not null")
         if col.unique:
             attrs.append("unique")
+
+        # ---- DEFAULT VALUE → DBML-safe literal ----
         dflt = _default_to_str(col)
         if dflt is not None:
-            # escape braces/quotes lightly
-            dflt_clean = str(dflt).replace("{", "\{").replace("}", "\}")
-            attrs.append(f'default: "{dflt_clean}"')
-        if getattr(col, "autoincrement", False):
-            attrs.append("increment")
+            lit = str(dflt).strip()
+            upper = lit.upper()
+
+            # Allowed bare literals in DBML: TRUE/FALSE/NULL, numbers
+            is_bool_null = upper in {"TRUE", "FALSE", "NULL"}
+            is_number = False
+            try:
+                float(lit)
+                is_number = True
+            except ValueError:
+                pass
+
+            if lit.startswith(("'", '"', "`")) or is_bool_null or is_number:
+                # Already a valid literal, use as-is
+                default_literal = lit
+            else:
+                # Everything else (e.g. now(), CURRENT_TIMESTAMP, functions)
+                # → treat as a string literal so pydbml is happy.
+                escaped = (
+                    lit.replace("\\", "\\\\")
+                       .replace("'", "\\'")
+                       .replace("\n", " ")
+                )
+                default_literal = f"'{escaped}'"
+
+            attrs.append(f"default: {default_literal}")
+
+        # Column note from SQLAlchemy (comment, info['note'], or doc)
+        c_note = getattr(col, "comment", None) or getattr(col, "doc", None)
+        try:
+            info_note = getattr(col, "info", {}).get("note")
+        except Exception:
+            info_note = None
+        if not c_note and info_note:
+            c_note = info_note
+
+        if c_note:
+            note_clean = (
+                str(c_note)
+                .replace("\\", "\\\\")
+                .replace("'", "\\'")
+                .replace("\n", " | ")
+            )
+            attrs.append(f"note: '{note_clean}'")
+
         if attrs:
             parts.append(f"[{', '.join(attrs)}]")
+
         lines.append(" ".join(parts))
 
-    # Indexes (simple)
+    # -----------------------
+    # Table-level note / description
+    # -----------------------
+    # 1) __table_args__['comment'] → table.comment
+    t_note = getattr(table, "comment", None)
+
+    # 2) optional: table.info['note']
+    try:
+        t_info_note = getattr(table, "info", {}).get("note")
+    except Exception:
+        t_info_note = None
+    if not t_note and t_info_note:
+        t_note = t_info_note
+
+    # 3) optional: model-level NOTE ClassVar (if you want to use it)
+    model_cls = getattr(table, "class_", None)
+    if not t_note and model_cls is not None:
+        t_note = getattr(model_cls, "NOTE", None)
+
+    if t_note:
+        lines.append("")
+        lines.append("  Note: '''")
+        for ln in str(t_note).splitlines():
+            lines.append(f"  {ln}")
+        lines.append("  '''")
+
+    # -----------------------
+    # Indexes
+    # -----------------------
     if table.indexes:
         lines.append("")
         lines.append("  Indexes {")
         for idx in sorted(table.indexes, key=lambda i: i.name or ""):
-            cols = ", ".join(getattr(c, "name", str(c)) for c in idx.expressions)
-            flags = []
-            if idx.unique:
-                flags.append("unique")
-            idx_name = f' name: "{idx.name}"' if idx.name else ""
-            flag_str = (
-                f" [{', '.join(flags)}{(',' if flags and idx_name else '')}{idx_name.strip()}]"
-                if (flags or idx_name)
-                else ""
-            )
-            lines.append(f"    ({cols}){flag_str}")
-        lines.append("  }")
-
-    # Unique constraints (composite)
-    uniques = [
-        c for c in table.constraints
-        if isinstance(c, sa.UniqueConstraint) and len(c.columns) > 1
-    ]
-    if uniques:
-        lines.append("")
-        lines.append("  Indexes {")
-        for uc in uniques:
-            cols = ", ".join(col.name for col in uc.columns)
-            uc_name = f' name: "{uc.name}"' if uc.name else ""
-            lines.append(f"    ({cols}) [unique{(',' if uc_name else '')}{uc_name}]")
+            cols = ", ".join(c.name for c in idx.columns)
+            uniq = " [unique]" if idx.unique else ""
+            lines.append(f"    ({cols}){uniq}")
         lines.append("  }")
 
     lines.append("}")
