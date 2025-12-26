@@ -20,6 +20,13 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'name', 'type', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'end date': 'end_date',
+            'school id': 'school_id',
+            'start date': 'start_date',
+            'updated at': 'updated_at',
+        },
     ),
     "accommodations": QuerySpec(
         base_collection="accommodations",
@@ -34,6 +41,12 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'applies to': 'applies_to',
+            'created at': 'created_at',
+            'iep plan id': 'iep_plan_id',
+            'updated at': 'updated_at',
+        },
     ),
     "activities": QuerySpec(
         base_collection="activities",
@@ -49,6 +62,12 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'name', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'is active': 'is_active',
+            'school id': 'school_id',
+            'updated at': 'updated_at',
+        },
     ),
     "addresses": QuerySpec(
         base_collection="addresses",
@@ -66,6 +85,11 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'postal code': 'postal_code',
+            'updated at': 'updated_at',
+        },
     ),
     "agenda_item_approvals": QuerySpec(
         base_collection="agenda_item_approvals",
@@ -83,6 +107,14 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'approver id': 'approver_id',
+            'created at': 'created_at',
+            'decided at': 'decided_at',
+            'item id': 'item_id',
+            'step id': 'step_id',
+            'updated at': 'updated_at',
+        },
     ),
     "agenda_item_files": QuerySpec(
         base_collection="agenda_item_files",
@@ -97,6 +129,12 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'agenda item id': 'agenda_item_id',
+            'created at': 'created_at',
+            'file id': 'file_id',
+            'updated at': 'updated_at',
+        },
     ),
     "agenda_items": QuerySpec(
         base_collection="agenda_items",
@@ -116,6 +154,15 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'linked objective id': 'linked_objective_id',
+            'linked policy id': 'linked_policy_id',
+            'meeting id': 'meeting_id',
+            'parent id': 'parent_id',
+            'time allocated': 'time_allocated',
+            'updated at': 'updated_at',
+        },
     ),
     "agenda_workflow_steps": QuerySpec(
         base_collection="agenda_workflow_steps",
@@ -132,6 +179,14 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'approver id': 'approver_id',
+            'approver type': 'approver_type',
+            'created at': 'created_at',
+            'step no': 'step_no',
+            'updated at': 'updated_at',
+            'workflow id': 'workflow_id',
+        },
     ),
     "agenda_workflows": QuerySpec(
         base_collection="agenda_workflows",
@@ -145,6 +200,10 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'name', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'updated at': 'updated_at',
+        },
     ),
     "alignments": QuerySpec(
         base_collection="alignments",
@@ -161,6 +220,14 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'alignment level': 'alignment_level',
+            'created at': 'created_at',
+            'curriculum version id': 'curriculum_version_id',
+            'evidence url': 'evidence_url',
+            'requirement id': 'requirement_id',
+            'updated at': 'updated_at',
+        },
     ),
     "announcements": QuerySpec(
         base_collection="announcements",
@@ -179,6 +246,15 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'course id': 'course_id',
+            'created at': 'created_at',
+            'creation time': 'creation_time',
+            'scheduled time': 'scheduled_time',
+            'update time': 'update_time',
+            'updated at': 'updated_at',
+            'user id': 'user_id',
+        },
     ),
     "ap_vendors": QuerySpec(
         base_collection="ap_vendors",
@@ -197,6 +273,13 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'name', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'remit to': 'remit_to',
+            'tax id': 'tax_id',
+            'updated at': 'updated_at',
+            'vendor no': 'vendor_no',
+        },
     ),
     "approvals": QuerySpec(
         base_collection="approvals",
@@ -213,6 +296,14 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'status', 'created_at', 'updated_at'],
+        synonyms={
+            'approved at': 'approved_at',
+            'association id': 'association_id',
+            'created at': 'created_at',
+            'expires at': 'expires_at',
+            'proposal id': 'proposal_id',
+            'updated at': 'updated_at',
+        },
     ),
     "asset_parts": QuerySpec(
         base_collection="asset_parts",
@@ -227,6 +318,12 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'asset id': 'asset_id',
+            'created at': 'created_at',
+            'part id': 'part_id',
+            'updated at': 'updated_at',
+        },
     ),
     "assets": QuerySpec(
         base_collection="assets",
@@ -251,6 +348,17 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'status', 'category', 'created_at', 'updated_at'],
+        synonyms={
+            'building id': 'building_id',
+            'created at': 'created_at',
+            'expected life months': 'expected_life_months',
+            'install date': 'install_date',
+            'parent asset id': 'parent_asset_id',
+            'serial no': 'serial_no',
+            'space id': 'space_id',
+            'updated at': 'updated_at',
+            'warranty expires at': 'warranty_expires_at',
+        },
     ),
     "assignment_categories": QuerySpec(
         base_collection="assignment_categories",
@@ -265,6 +373,11 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'name', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'section id': 'section_id',
+            'updated at': 'updated_at',
+        },
     ),
     "assignments": QuerySpec(
         base_collection="assignments",
@@ -281,6 +394,14 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'name', 'created_at', 'updated_at'],
+        synonyms={
+            'category id': 'category_id',
+            'created at': 'created_at',
+            'due date': 'due_date',
+            'points possible': 'points_possible',
+            'section id': 'section_id',
+            'updated at': 'updated_at',
+        },
     ),
     "attendance": QuerySpec(
         base_collection="attendance",
@@ -295,6 +416,12 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'status'],
+        synonyms={
+            'arrived at': 'arrived_at',
+            'left at': 'left_at',
+            'meeting id': 'meeting_id',
+            'user id': 'user_id',
+        },
     ),
     "attendance_codes": QuerySpec(
         base_collection="attendance_codes",
@@ -309,6 +436,12 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['code', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'is excused': 'is_excused',
+            'is present': 'is_present',
+            'updated at': 'updated_at',
+        },
     ),
     "attendance_daily_summary": QuerySpec(
         base_collection="attendance_daily_summary",
@@ -325,6 +458,14 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'absent minutes': 'absent_minutes',
+            'created at': 'created_at',
+            'present minutes': 'present_minutes',
+            'student id': 'student_id',
+            'tardy minutes': 'tardy_minutes',
+            'updated at': 'updated_at',
+        },
     ),
     "attendance_events": QuerySpec(
         base_collection="attendance_events",
@@ -342,6 +483,12 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'code', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'section meeting id': 'section_meeting_id',
+            'student id': 'student_id',
+            'updated at': 'updated_at',
+        },
     ),
     "behavior_codes": QuerySpec(
         base_collection="behavior_codes",
@@ -354,6 +501,10 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['code', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'updated at': 'updated_at',
+        },
     ),
     "behavior_interventions": QuerySpec(
         base_collection="behavior_interventions",
@@ -369,6 +520,13 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'end date': 'end_date',
+            'start date': 'start_date',
+            'student id': 'student_id',
+            'updated at': 'updated_at',
+        },
     ),
     "bell_schedules": QuerySpec(
         base_collection="bell_schedules",
@@ -382,6 +540,11 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'name', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'school id': 'school_id',
+            'updated at': 'updated_at',
+        },
     ),
     "buildings": QuerySpec(
         base_collection="buildings",
@@ -402,6 +565,15 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'code', 'name', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'facility id': 'facility_id',
+            'floors count': 'floors_count',
+            'gross sqft': 'gross_sqft',
+            'updated at': 'updated_at',
+            'use type': 'use_type',
+            'year built': 'year_built',
+        },
     ),
     "bus_routes": QuerySpec(
         base_collection="bus_routes",
@@ -415,6 +587,11 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'name', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'school id': 'school_id',
+            'updated at': 'updated_at',
+        },
     ),
     "bus_stop_times": QuerySpec(
         base_collection="bus_stop_times",
@@ -430,6 +607,14 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'arrival time': 'arrival_time',
+            'created at': 'created_at',
+            'departure time': 'departure_time',
+            'route id': 'route_id',
+            'stop id': 'stop_id',
+            'updated at': 'updated_at',
+        },
     ),
     "bus_stops": QuerySpec(
         base_collection="bus_stops",
@@ -445,6 +630,11 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'name', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'route id': 'route_id',
+            'updated at': 'updated_at',
+        },
     ),
     "calendar_days": QuerySpec(
         base_collection="calendar_days",
@@ -460,6 +650,12 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'calendar id': 'calendar_id',
+            'created at': 'created_at',
+            'day type': 'day_type',
+            'updated at': 'updated_at',
+        },
     ),
     "calendars": QuerySpec(
         base_collection="calendars",
@@ -473,6 +669,11 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'name', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'school id': 'school_id',
+            'updated at': 'updated_at',
+        },
     ),
     "camp_registrations": QuerySpec(
         base_collection="camp_registrations",
@@ -487,6 +688,13 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'camp id': 'camp_id',
+            'created at': 'created_at',
+            'participant name': 'participant_name',
+            'school id': 'school_id',
+            'updated at': 'updated_at',
+        },
     ),
     "camps": QuerySpec(
         base_collection="camps",
@@ -500,6 +708,11 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'name', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'school id': 'school_id',
+            'updated at': 'updated_at',
+        },
     ),
     "channels": QuerySpec(
         base_collection="channels",
@@ -515,6 +728,11 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'name', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'org id': 'org_id',
+            'updated at': 'updated_at',
+        },
     ),
     "class_ranks": QuerySpec(
         base_collection="class_ranks",
@@ -530,6 +748,13 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'school id': 'school_id',
+            'student id': 'student_id',
+            'term id': 'term_id',
+            'updated at': 'updated_at',
+        },
     ),
     "comm_search_index": QuerySpec(
         base_collection="comm_search_index",
@@ -542,6 +767,10 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id'],
+        synonyms={
+            'entity id': 'entity_id',
+            'entity type': 'entity_type',
+        },
     ),
     "committees": QuerySpec(
         base_collection="committees",
@@ -558,6 +787,12 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'name', 'status', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'organization id': 'organization_id',
+            'school id': 'school_id',
+            'updated at': 'updated_at',
+        },
     ),
     "compliance_records": QuerySpec(
         base_collection="compliance_records",
@@ -578,6 +813,15 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'asset id': 'asset_id',
+            'building id': 'building_id',
+            'created at': 'created_at',
+            'expires at': 'expires_at',
+            'issued at': 'issued_at',
+            'record type': 'record_type',
+            'updated at': 'updated_at',
+        },
     ),
     "concession_items": QuerySpec(
         base_collection="concession_items",
@@ -595,6 +839,14 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'name', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'inventory quantity': 'inventory_quantity',
+            'price cents': 'price_cents',
+            'school id': 'school_id',
+            'stand id': 'stand_id',
+            'updated at': 'updated_at',
+        },
     ),
     "concession_sale_items": QuerySpec(
         base_collection="concession_sale_items",
@@ -610,6 +862,13 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'item id': 'item_id',
+            'line total cents': 'line_total_cents',
+            'sale id': 'sale_id',
+            'updated at': 'updated_at',
+        },
     ),
     "concession_sales": QuerySpec(
         base_collection="concession_sales",
@@ -632,6 +891,21 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'buyer address line1': 'buyer_address_line1',
+            'buyer address line2': 'buyer_address_line2',
+            'buyer city': 'buyer_city',
+            'buyer email': 'buyer_email',
+            'buyer name': 'buyer_name',
+            'buyer phone': 'buyer_phone',
+            'buyer postal code': 'buyer_postal_code',
+            'buyer state': 'buyer_state',
+            'created at': 'created_at',
+            'event id': 'event_id',
+            'school id': 'school_id',
+            'stand id': 'stand_id',
+            'updated at': 'updated_at',
+        },
     ),
     "concession_stands": QuerySpec(
         base_collection="concession_stands",
@@ -645,6 +919,10 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'name', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'updated at': 'updated_at',
+        },
     ),
     "consents": QuerySpec(
         base_collection="consents",
@@ -660,7 +938,15 @@ DEFAULT_QUERY_SPECS = {
         ],
         joins=[
         ],
-        ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        ui_default_projection_aliases=['person_name', 'consent_type', 'granted', 'effective_date'],
+        synonyms={
+            'consent type': 'consent_type',
+            'created at': 'created_at',
+            'effective date': 'effective_date',
+            'expires on': 'expires_on',
+            'person id': 'person_id',
+            'updated at': 'updated_at',
+        },
     ),
     "consequence_types": QuerySpec(
         base_collection="consequence_types",
@@ -673,6 +959,10 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['code', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'updated at': 'updated_at',
+        },
     ),
     "consequences": QuerySpec(
         base_collection="consequences",
@@ -690,6 +980,15 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'consequence code': 'consequence_code',
+            'created at': 'created_at',
+            'end date': 'end_date',
+            'incident id': 'incident_id',
+            'participant id': 'participant_id',
+            'start date': 'start_date',
+            'updated at': 'updated_at',
+        },
     ),
     "consolidated_out": QuerySpec(
         base_collection="consolidated_out",
@@ -706,6 +1005,12 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'consolidated answer': 'consolidated_answer',
+            'created at': 'created_at',
+            'selected tutors': 'selected_tutors',
+            'updated at': 'updated_at',
+        },
     ),
     "contacts": QuerySpec(
         base_collection="contacts",
@@ -719,6 +1024,10 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'type', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'updated at': 'updated_at',
+        },
     ),
     "course_prerequisites": QuerySpec(
         base_collection="course_prerequisites",
@@ -732,6 +1041,12 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'course id': 'course_id',
+            'created at': 'created_at',
+            'prereq course id': 'prereq_course_id',
+            'updated at': 'updated_at',
+        },
     ),
     "course_sections": QuerySpec(
         base_collection="course_sections",
@@ -748,6 +1063,14 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'course id': 'course_id',
+            'created at': 'created_at',
+            'school id': 'school_id',
+            'section number': 'section_number',
+            'term id': 'term_id',
+            'updated at': 'updated_at',
+        },
     ),
     "course_students": QuerySpec(
         base_collection="course_students",
@@ -761,6 +1084,12 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'course id': 'course_id',
+            'created at': 'created_at',
+            'updated at': 'updated_at',
+            'user id': 'user_id',
+        },
     ),
     "course_teachers": QuerySpec(
         base_collection="course_teachers",
@@ -774,6 +1103,12 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'course id': 'course_id',
+            'created at': 'created_at',
+            'updated at': 'updated_at',
+            'user id': 'user_id',
+        },
     ),
     "courses": QuerySpec(
         base_collection="courses",
@@ -801,6 +1136,21 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'code', 'name', 'created_at', 'updated_at'],
+        synonyms={
+            'alternate link': 'alternate_link',
+            'calendar id': 'calendar_id',
+            'course state': 'course_state',
+            'created at': 'created_at',
+            'creation time': 'creation_time',
+            'credit hours': 'credit_hours',
+            'enrollment code': 'enrollment_code',
+            'owner id': 'owner_id',
+            'school id': 'school_id',
+            'subject id': 'subject_id',
+            'update time': 'update_time',
+            'updated at': 'updated_at',
+            'user id': 'user_id',
+        },
     ),
     "coursework": QuerySpec(
         base_collection="coursework",
@@ -824,6 +1174,19 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'course id': 'course_id',
+            'created at': 'created_at',
+            'creation time': 'creation_time',
+            'due date': 'due_date',
+            'due time': 'due_time',
+            'max points': 'max_points',
+            'topic id': 'topic_id',
+            'update time': 'update_time',
+            'updated at': 'updated_at',
+            'user id': 'user_id',
+            'work type': 'work_type',
+        },
     ),
     "curricula": QuerySpec(
         base_collection="curricula",
@@ -846,6 +1209,14 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'name', 'status', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'grade range': 'grade_range',
+            'organization id': 'organization_id',
+            'proposal id': 'proposal_id',
+            'published at': 'published_at',
+            'updated at': 'updated_at',
+        },
     ),
     "curriculum_units": QuerySpec(
         base_collection="curriculum_units",
@@ -862,6 +1233,12 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'curriculum id': 'curriculum_id',
+            'order index': 'order_index',
+            'updated at': 'updated_at',
+        },
     ),
     "curriculum_versions": QuerySpec(
         base_collection="curriculum_versions",
@@ -879,6 +1256,13 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'status', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'curriculum id': 'curriculum_id',
+            'decided at': 'decided_at',
+            'submitted at': 'submitted_at',
+            'updated at': 'updated_at',
+        },
     ),
     "data_quality_issues": QuerySpec(
         base_collection="data_quality_issues",
@@ -896,6 +1280,13 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'detected at': 'detected_at',
+            'entity id': 'entity_id',
+            'entity type': 'entity_type',
+            'updated at': 'updated_at',
+        },
     ),
     "data_sharing_agreements": QuerySpec(
         base_collection="data_sharing_agreements",
@@ -912,6 +1303,12 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'end date': 'end_date',
+            'start date': 'start_date',
+            'updated at': 'updated_at',
+        },
     ),
     "deduction_codes": QuerySpec(
         base_collection="deduction_codes",
@@ -928,6 +1325,11 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'code', 'name', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'updated at': 'updated_at',
+            'vendor id': 'vendor_id',
+        },
     ),
     "deliveries": QuerySpec(
         base_collection="deliveries",
@@ -944,6 +1346,13 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'status', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'delivered at': 'delivered_at',
+            'post id': 'post_id',
+            'updated at': 'updated_at',
+            'user id': 'user_id',
+        },
     ),
     "department_position_index": QuerySpec(
         base_collection="department_position_index",
@@ -956,6 +1365,11 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at'],
+        synonyms={
+            'created at': 'created_at',
+            'department id': 'department_id',
+            'position id': 'position_id',
+        },
     ),
     "departments": QuerySpec(
         base_collection="departments",
@@ -969,6 +1383,11 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'name', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'school id': 'school_id',
+            'updated at': 'updated_at',
+        },
     ),
     "document_activity": QuerySpec(
         base_collection="document_activity",
@@ -985,6 +1404,12 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'actor id': 'actor_id',
+            'created at': 'created_at',
+            'document id': 'document_id',
+            'updated at': 'updated_at',
+        },
     ),
     "document_links": QuerySpec(
         base_collection="document_links",
@@ -999,6 +1424,13 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'document id': 'document_id',
+            'entity id': 'entity_id',
+            'entity type': 'entity_type',
+            'updated at': 'updated_at',
+        },
     ),
     "document_notifications": QuerySpec(
         base_collection="document_notifications",
@@ -1014,6 +1446,13 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'document id': 'document_id',
+            'last sent at': 'last_sent_at',
+            'updated at': 'updated_at',
+            'user id': 'user_id',
+        },
     ),
     "document_permissions": QuerySpec(
         base_collection="document_permissions",
@@ -1030,6 +1469,14 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'principal id': 'principal_id',
+            'principal type': 'principal_type',
+            'resource id': 'resource_id',
+            'resource type': 'resource_type',
+            'updated at': 'updated_at',
+        },
     ),
     "document_search_index": QuerySpec(
         base_collection="document_search_index",
@@ -1042,6 +1489,11 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'document id': 'document_id',
+            'updated at': 'updated_at',
+        },
     ),
     "document_versions": QuerySpec(
         base_collection="document_versions",
@@ -1059,6 +1511,15 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'created by': 'created_by',
+            'document id': 'document_id',
+            'file id': 'file_id',
+            'published at': 'published_at',
+            'updated at': 'updated_at',
+            'version no': 'version_no',
+        },
     ),
     "documents": QuerySpec(
         base_collection="documents",
@@ -1074,6 +1535,13 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'current version id': 'current_version_id',
+            'folder id': 'folder_id',
+            'is public': 'is_public',
+            'updated at': 'updated_at',
+        },
     ),
     "donations": QuerySpec(
         base_collection="donations",
@@ -1089,6 +1557,14 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'amount cents': 'amount_cents',
+            'campaign id': 'campaign_id',
+            'created at': 'created_at',
+            'donor name': 'donor_name',
+            'school id': 'school_id',
+            'updated at': 'updated_at',
+        },
     ),
     "earning_codes": QuerySpec(
         base_collection="earning_codes",
@@ -1104,6 +1580,10 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'code', 'name', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'updated at': 'updated_at',
+        },
     ),
     "education_associations": QuerySpec(
         base_collection="education_associations",
@@ -1118,6 +1598,10 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'name', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'updated at': 'updated_at',
+        },
     ),
     "ell_plans": QuerySpec(
         base_collection="ell_plans",
@@ -1133,6 +1617,13 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'effective end': 'effective_end',
+            'effective start': 'effective_start',
+            'student id': 'student_id',
+            'updated at': 'updated_at',
+        },
     ),
     "embeds": QuerySpec(
         base_collection="embeds",
@@ -1147,6 +1638,10 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'updated at': 'updated_at',
+        },
     ),
     "emergency_contacts": QuerySpec(
         base_collection="emergency_contacts",
@@ -1162,6 +1657,12 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'phone', 'created_at', 'updated_at'],
+        synonyms={
+            'contact name': 'contact_name',
+            'created at': 'created_at',
+            'person id': 'person_id',
+            'updated at': 'updated_at',
+        },
     ),
     "employee_deductions": QuerySpec(
         base_collection="employee_deductions",
@@ -1178,6 +1679,13 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'deduction code id': 'deduction_code_id',
+            'employee id': 'employee_id',
+            'run id': 'run_id',
+            'updated at': 'updated_at',
+        },
     ),
     "employee_earnings": QuerySpec(
         base_collection="employee_earnings",
@@ -1195,6 +1703,13 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'earning code id': 'earning_code_id',
+            'employee id': 'employee_id',
+            'run id': 'run_id',
+            'updated at': 'updated_at',
+        },
     ),
     "entity_tags": QuerySpec(
         base_collection="entity_tags",
@@ -1209,6 +1724,13 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'entity id': 'entity_id',
+            'entity type': 'entity_type',
+            'tag id': 'tag_id',
+            'updated at': 'updated_at',
+        },
     ),
     "evaluation_assignments": QuerySpec(
         base_collection="evaluation_assignments",
@@ -1225,6 +1747,14 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'status', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'cycle id': 'cycle_id',
+            'evaluator user id': 'evaluator_user_id',
+            'subject user id': 'subject_user_id',
+            'template id': 'template_id',
+            'updated at': 'updated_at',
+        },
     ),
     "evaluation_cycles": QuerySpec(
         base_collection="evaluation_cycles",
@@ -1240,6 +1770,13 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'name', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'end at': 'end_at',
+            'org id': 'org_id',
+            'start at': 'start_at',
+            'updated at': 'updated_at',
+        },
     ),
     "evaluation_files": QuerySpec(
         base_collection="evaluation_files",
@@ -1251,6 +1788,10 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id'],
+        synonyms={
+            'assignment id': 'assignment_id',
+            'file id': 'file_id',
+        },
     ),
     "evaluation_questions": QuerySpec(
         base_collection="evaluation_questions",
@@ -1268,6 +1809,13 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'type', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'scale max': 'scale_max',
+            'scale min': 'scale_min',
+            'section id': 'section_id',
+            'updated at': 'updated_at',
+        },
     ),
     "evaluation_reports": QuerySpec(
         base_collection="evaluation_reports",
@@ -1283,6 +1831,13 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'cycle id': 'cycle_id',
+            'file id': 'file_id',
+            'generated at': 'generated_at',
+            'updated at': 'updated_at',
+        },
     ),
     "evaluation_responses": QuerySpec(
         base_collection="evaluation_responses",
@@ -1300,6 +1855,15 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'answered at': 'answered_at',
+            'assignment id': 'assignment_id',
+            'created at': 'created_at',
+            'question id': 'question_id',
+            'updated at': 'updated_at',
+            'value num': 'value_num',
+            'value text': 'value_text',
+        },
     ),
     "evaluation_sections": QuerySpec(
         base_collection="evaluation_sections",
@@ -1314,6 +1878,12 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'order no': 'order_no',
+            'template id': 'template_id',
+            'updated at': 'updated_at',
+        },
     ),
     "evaluation_signoffs": QuerySpec(
         base_collection="evaluation_signoffs",
@@ -1329,6 +1899,13 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'assignment id': 'assignment_id',
+            'created at': 'created_at',
+            'signed at': 'signed_at',
+            'signer id': 'signer_id',
+            'updated at': 'updated_at',
+        },
     ),
     "evaluation_templates": QuerySpec(
         base_collection="evaluation_templates",
@@ -1344,6 +1921,12 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'name', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'for role': 'for_role',
+            'is active': 'is_active',
+            'updated at': 'updated_at',
+        },
     ),
     "events": QuerySpec(
         base_collection="events",
@@ -1364,6 +1947,14 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'status', 'created_at', 'updated_at'],
+        synonyms={
+            'activity id': 'activity_id',
+            'created at': 'created_at',
+            'ends at': 'ends_at',
+            'school id': 'school_id',
+            'starts at': 'starts_at',
+            'updated at': 'updated_at',
+        },
     ),
     "export_runs": QuerySpec(
         base_collection="export_runs",
@@ -1380,6 +1971,13 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'status', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'export name': 'export_name',
+            'file uri': 'file_uri',
+            'ran at': 'ran_at',
+            'updated at': 'updated_at',
+        },
     ),
     "external_ids": QuerySpec(
         base_collection="external_ids",
@@ -1395,6 +1993,13 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'entity id': 'entity_id',
+            'entity type': 'entity_type',
+            'external id': 'external_id',
+            'updated at': 'updated_at',
+        },
     ),
     "facilities": QuerySpec(
         base_collection="facilities",
@@ -1411,6 +2016,11 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'code', 'name', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'school id': 'school_id',
+            'updated at': 'updated_at',
+        },
     ),
     "family_portal_access": QuerySpec(
         base_collection="family_portal_access",
@@ -1425,6 +2035,12 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'guardian id': 'guardian_id',
+            'student id': 'student_id',
+            'updated at': 'updated_at',
+        },
     ),
     "fan_app_settings": QuerySpec(
         base_collection="fan_app_settings",
@@ -1440,6 +2056,11 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'school id': 'school_id',
+            'updated at': 'updated_at',
+        },
     ),
     "fan_pages": QuerySpec(
         base_collection="fan_pages",
@@ -1454,6 +2075,11 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'school id': 'school_id',
+            'updated at': 'updated_at',
+        },
     ),
     "feature_flags": QuerySpec(
         base_collection="feature_flags",
@@ -1466,6 +2092,9 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id'],
+        synonyms={
+            'org id': 'org_id',
+        },
     ),
     "fees": QuerySpec(
         base_collection="fees",
@@ -1480,6 +2109,11 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'name', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'school id': 'school_id',
+            'updated at': 'updated_at',
+        },
     ),
     "files": QuerySpec(
         base_collection="files",
@@ -1496,6 +2130,13 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'created by': 'created_by',
+            'mime type': 'mime_type',
+            'storage key': 'storage_key',
+            'updated at': 'updated_at',
+        },
     ),
     "final_grades": QuerySpec(
         base_collection="final_grades",
@@ -1513,6 +2154,16 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'credits earned': 'credits_earned',
+            'grading period id': 'grading_period_id',
+            'letter grade': 'letter_grade',
+            'numeric grade': 'numeric_grade',
+            'section id': 'section_id',
+            'student id': 'student_id',
+            'updated at': 'updated_at',
+        },
     ),
     "fiscal_periods": QuerySpec(
         base_collection="fiscal_periods",
@@ -1529,6 +2180,15 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'end date': 'end_date',
+            'is closed': 'is_closed',
+            'period no': 'period_no',
+            'start date': 'start_date',
+            'updated at': 'updated_at',
+            'year number': 'year_number',
+        },
     ),
     "fiscal_years": QuerySpec(
         base_collection="fiscal_years",
@@ -1544,6 +2204,13 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'end date': 'end_date',
+            'is closed': 'is_closed',
+            'start date': 'start_date',
+            'updated at': 'updated_at',
+        },
     ),
     "floors": QuerySpec(
         base_collection="floors",
@@ -1558,6 +2225,12 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'name', 'created_at', 'updated_at'],
+        synonyms={
+            'building id': 'building_id',
+            'created at': 'created_at',
+            'level code': 'level_code',
+            'updated at': 'updated_at',
+        },
     ),
     "folders": QuerySpec(
         base_collection="folders",
@@ -1574,6 +2247,14 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'name', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'is public': 'is_public',
+            'org id': 'org_id',
+            'parent id': 'parent_id',
+            'sort order': 'sort_order',
+            'updated at': 'updated_at',
+        },
     ),
     "frameworks": QuerySpec(
         base_collection="frameworks",
@@ -1591,6 +2272,12 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'code', 'name', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'effective from': 'effective_from',
+            'effective to': 'effective_to',
+            'updated at': 'updated_at',
+        },
     ),
     "fundraising_campaigns": QuerySpec(
         base_collection="fundraising_campaigns",
@@ -1605,6 +2292,12 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'goal cents': 'goal_cents',
+            'school id': 'school_id',
+            'updated at': 'updated_at',
+        },
     ),
     "game_official_contracts": QuerySpec(
         base_collection="game_official_contracts",
@@ -1619,6 +2312,13 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'fee cents': 'fee_cents',
+            'game id': 'game_id',
+            'official id': 'official_id',
+            'updated at': 'updated_at',
+        },
     ),
     "game_programs": QuerySpec(
         base_collection="game_programs",
@@ -1633,6 +2333,11 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'game id': 'game_id',
+            'updated at': 'updated_at',
+        },
     ),
     "game_reports": QuerySpec(
         base_collection="game_reports",
@@ -1647,6 +2352,12 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'game id': 'game_id',
+            'report type': 'report_type',
+            'updated at': 'updated_at',
+        },
     ),
     "games": QuerySpec(
         base_collection="games",
@@ -1662,6 +2373,12 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'season id': 'season_id',
+            'team id': 'team_id',
+            'updated at': 'updated_at',
+        },
     ),
     "gl_account_balances": QuerySpec(
         base_collection="gl_account_balances",
@@ -1680,6 +2397,16 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'account id': 'account_id',
+            'begin balance': 'begin_balance',
+            'created at': 'created_at',
+            'credit total': 'credit_total',
+            'debit total': 'debit_total',
+            'end balance': 'end_balance',
+            'fiscal period id': 'fiscal_period_id',
+            'updated at': 'updated_at',
+        },
     ),
     "gl_account_segments": QuerySpec(
         base_collection="gl_account_segments",
@@ -1693,6 +2420,12 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'segment id': 'segment_id',
+            'updated at': 'updated_at',
+            'value id': 'value_id',
+        },
     ),
     "gl_accounts": QuerySpec(
         base_collection="gl_accounts",
@@ -1709,6 +2442,11 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'code', 'name', 'created_at', 'updated_at'],
+        synonyms={
+            'acct type': 'acct_type',
+            'created at': 'created_at',
+            'updated at': 'updated_at',
+        },
     ),
     "gl_segment_values": QuerySpec(
         base_collection="gl_segment_values",
@@ -1724,6 +2462,11 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'code', 'name', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'segment id': 'segment_id',
+            'updated at': 'updated_at',
+        },
     ),
     "gl_segments": QuerySpec(
         base_collection="gl_segments",
@@ -1740,6 +2483,10 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'code', 'name', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'updated at': 'updated_at',
+        },
     ),
     "goals": QuerySpec(
         base_collection="goals",
@@ -1754,6 +2501,11 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'name', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'plan id': 'plan_id',
+            'updated at': 'updated_at',
+        },
     ),
     "governing_bodies": QuerySpec(
         base_collection="governing_bodies",
@@ -1768,6 +2520,11 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'name', 'type', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'org id': 'org_id',
+            'updated at': 'updated_at',
+        },
     ),
     "gpa_calculations": QuerySpec(
         base_collection="gpa_calculations",
@@ -1782,6 +2539,12 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'student id': 'student_id',
+            'term id': 'term_id',
+            'updated at': 'updated_at',
+        },
     ),
     "grade_levels": QuerySpec(
         base_collection="grade_levels",
@@ -1796,6 +2559,11 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'name', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'school id': 'school_id',
+            'updated at': 'updated_at',
+        },
     ),
     "grade_scale_bands": QuerySpec(
         base_collection="grade_scale_bands",
@@ -1812,6 +2580,14 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'gpa points': 'gpa_points',
+            'grade scale id': 'grade_scale_id',
+            'max value': 'max_value',
+            'min value': 'min_value',
+            'updated at': 'updated_at',
+        },
     ),
     "grade_scales": QuerySpec(
         base_collection="grade_scales",
@@ -1826,6 +2602,11 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'name', 'type', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'school id': 'school_id',
+            'updated at': 'updated_at',
+        },
     ),
     "gradebook_entries": QuerySpec(
         base_collection="gradebook_entries",
@@ -1842,6 +2623,13 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'assignment id': 'assignment_id',
+            'created at': 'created_at',
+            'student id': 'student_id',
+            'submitted at': 'submitted_at',
+            'updated at': 'updated_at',
+        },
     ),
     "grading_periods": QuerySpec(
         base_collection="grading_periods",
@@ -1857,6 +2645,13 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'name', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'end date': 'end_date',
+            'start date': 'start_date',
+            'term id': 'term_id',
+            'updated at': 'updated_at',
+        },
     ),
     "guardian_invitations": QuerySpec(
         base_collection="guardian_invitations",
@@ -1873,6 +2668,14 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'create time': 'create_time',
+            'created at': 'created_at',
+            'invited email': 'invited_email',
+            'student user id': 'student_user_id',
+            'updated at': 'updated_at',
+            'user id': 'user_id',
+        },
     ),
     "guardians": QuerySpec(
         base_collection="guardians",
@@ -1887,6 +2690,13 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'guardian email': 'guardian_email',
+            'guardian user id': 'guardian_user_id',
+            'student user id': 'student_user_id',
+            'updated at': 'updated_at',
+        },
     ),
     "health_profiles": QuerySpec(
         base_collection="health_profiles",
@@ -1901,6 +2711,11 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'student id': 'student_id',
+            'updated at': 'updated_at',
+        },
     ),
     "hr_employees": QuerySpec(
         base_collection="hr_employees",
@@ -1921,6 +2736,17 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'status', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'department segment id': 'department_segment_id',
+            'employee no': 'employee_no',
+            'employment type': 'employment_type',
+            'hire date': 'hire_date',
+            'person id': 'person_id',
+            'primary school id': 'primary_school_id',
+            'termination date': 'termination_date',
+            'updated at': 'updated_at',
+        },
     ),
     "hr_position_assignments": QuerySpec(
         base_collection="hr_position_assignments",
@@ -1938,6 +2764,15 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'employee id': 'employee_id',
+            'end date': 'end_date',
+            'funding split': 'funding_split',
+            'position id': 'position_id',
+            'start date': 'start_date',
+            'updated at': 'updated_at',
+        },
     ),
     "hr_positions": QuerySpec(
         base_collection="hr_positions",
@@ -1954,6 +2789,11 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'department segment id': 'department_segment_id',
+            'updated at': 'updated_at',
+        },
     ),
     "iep_plans": QuerySpec(
         base_collection="iep_plans",
@@ -1969,6 +2809,13 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'effective end': 'effective_end',
+            'effective start': 'effective_start',
+            'special ed case id': 'special_ed_case_id',
+            'updated at': 'updated_at',
+        },
     ),
     "immunization_records": QuerySpec(
         base_collection="immunization_records",
@@ -1984,6 +2831,14 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'date administered': 'date_administered',
+            'dose number': 'dose_number',
+            'immunization id': 'immunization_id',
+            'student id': 'student_id',
+            'updated at': 'updated_at',
+        },
     ),
     "immunizations": QuerySpec(
         base_collection="immunizations",
@@ -1997,6 +2852,10 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'code', 'name', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'updated at': 'updated_at',
+        },
     ),
     "incident_participants": QuerySpec(
         base_collection="incident_participants",
@@ -2011,6 +2870,12 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'incident id': 'incident_id',
+            'person id': 'person_id',
+            'updated at': 'updated_at',
+        },
     ),
     "incidents": QuerySpec(
         base_collection="incidents",
@@ -2026,6 +2891,13 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'behavior code': 'behavior_code',
+            'created at': 'created_at',
+            'occurred at': 'occurred_at',
+            'school id': 'school_id',
+            'updated at': 'updated_at',
+        },
     ),
     "initiatives": QuerySpec(
         base_collection="initiatives",
@@ -2044,6 +2916,13 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'name', 'status', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'due date': 'due_date',
+            'objective id': 'objective_id',
+            'owner id': 'owner_id',
+            'updated at': 'updated_at',
+        },
     ),
     "invoices": QuerySpec(
         base_collection="invoices",
@@ -2059,6 +2938,13 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'status', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'due on': 'due_on',
+            'issued on': 'issued_on',
+            'student id': 'student_id',
+            'updated at': 'updated_at',
+        },
     ),
     "journal_batches": QuerySpec(
         base_collection="journal_batches",
@@ -2075,6 +2961,12 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'status', 'created_at', 'updated_at'],
+        synonyms={
+            'batch no': 'batch_no',
+            'created at': 'created_at',
+            'posted at': 'posted_at',
+            'updated at': 'updated_at',
+        },
     ),
     "journal_entries": QuerySpec(
         base_collection="journal_entries",
@@ -2094,6 +2986,16 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'status', 'created_at', 'updated_at'],
+        synonyms={
+            'batch id': 'batch_id',
+            'created at': 'created_at',
+            'fiscal period id': 'fiscal_period_id',
+            'je no': 'je_no',
+            'journal date': 'journal_date',
+            'total credits': 'total_credits',
+            'total debits': 'total_debits',
+            'updated at': 'updated_at',
+        },
     ),
     "journal_entry_lines": QuerySpec(
         base_collection="journal_entry_lines",
@@ -2112,6 +3014,14 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'account id': 'account_id',
+            'created at': 'created_at',
+            'entry id': 'entry_id',
+            'line no': 'line_no',
+            'segment overrides': 'segment_overrides',
+            'updated at': 'updated_at',
+        },
     ),
     "kpi_datapoints": QuerySpec(
         base_collection="kpi_datapoints",
@@ -2127,6 +3037,12 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'as of': 'as_of',
+            'created at': 'created_at',
+            'kpi id': 'kpi_id',
+            'updated at': 'updated_at',
+        },
     ),
     "kpis": QuerySpec(
         base_collection="kpis",
@@ -2145,6 +3061,12 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'name', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'goal id': 'goal_id',
+            'objective id': 'objective_id',
+            'updated at': 'updated_at',
+        },
     ),
     "leases": QuerySpec(
         base_collection="leases",
@@ -2166,6 +3088,15 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'base rent': 'base_rent',
+            'building id': 'building_id',
+            'created at': 'created_at',
+            'end date': 'end_date',
+            'rent schedule': 'rent_schedule',
+            'start date': 'start_date',
+            'updated at': 'updated_at',
+        },
     ),
     "library_checkouts": QuerySpec(
         base_collection="library_checkouts",
@@ -2182,6 +3113,15 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'checked out on': 'checked_out_on',
+            'created at': 'created_at',
+            'due on': 'due_on',
+            'item id': 'item_id',
+            'person id': 'person_id',
+            'returned on': 'returned_on',
+            'updated at': 'updated_at',
+        },
     ),
     "library_fines": QuerySpec(
         base_collection="library_fines",
@@ -2198,6 +3138,13 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'assessed on': 'assessed_on',
+            'created at': 'created_at',
+            'paid on': 'paid_on',
+            'person id': 'person_id',
+            'updated at': 'updated_at',
+        },
     ),
     "library_holds": QuerySpec(
         base_collection="library_holds",
@@ -2213,6 +3160,14 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'expires on': 'expires_on',
+            'item id': 'item_id',
+            'person id': 'person_id',
+            'placed on': 'placed_on',
+            'updated at': 'updated_at',
+        },
     ),
     "library_items": QuerySpec(
         base_collection="library_items",
@@ -2229,6 +3184,11 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'school id': 'school_id',
+            'updated at': 'updated_at',
+        },
     ),
     "live_scoring": QuerySpec(
         base_collection="live_scoring",
@@ -2243,6 +3203,11 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'status', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'game id': 'game_id',
+            'updated at': 'updated_at',
+        },
     ),
     "maintenance_requests": QuerySpec(
         base_collection="maintenance_requests",
@@ -2265,6 +3230,16 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'status', 'created_at', 'updated_at'],
+        synonyms={
+            'asset id': 'asset_id',
+            'building id': 'building_id',
+            'converted work order id': 'converted_work_order_id',
+            'created at': 'created_at',
+            'school id': 'school_id',
+            'space id': 'space_id',
+            'submitted by user id': 'submitted_by_user_id',
+            'updated at': 'updated_at',
+        },
     ),
     "manual_stats": QuerySpec(
         base_collection="manual_stats",
@@ -2279,6 +3254,12 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'game id': 'game_id',
+            'stat type': 'stat_type',
+            'updated at': 'updated_at',
+        },
     ),
     "materials": QuerySpec(
         base_collection="materials",
@@ -2297,6 +3278,13 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'type', 'created_at', 'updated_at'],
+        synonyms={
+            'announcement id': 'announcement_id',
+            'coursework id': 'coursework_id',
+            'created at': 'created_at',
+            'drive file id': 'drive_file_id',
+            'updated at': 'updated_at',
+        },
     ),
     "meal_accounts": QuerySpec(
         base_collection="meal_accounts",
@@ -2310,6 +3298,11 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'student id': 'student_id',
+            'updated at': 'updated_at',
+        },
     ),
     "meal_eligibility_statuses": QuerySpec(
         base_collection="meal_eligibility_statuses",
@@ -2325,6 +3318,13 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'status', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'effective end': 'effective_end',
+            'effective start': 'effective_start',
+            'student id': 'student_id',
+            'updated at': 'updated_at',
+        },
     ),
     "meal_transactions": QuerySpec(
         base_collection="meal_transactions",
@@ -2340,6 +3340,12 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'account id': 'account_id',
+            'created at': 'created_at',
+            'transacted at': 'transacted_at',
+            'updated at': 'updated_at',
+        },
     ),
     "medication_administrations": QuerySpec(
         base_collection="medication_administrations",
@@ -2356,6 +3362,13 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'administered at': 'administered_at',
+            'created at': 'created_at',
+            'medication id': 'medication_id',
+            'student id': 'student_id',
+            'updated at': 'updated_at',
+        },
     ),
     "medications": QuerySpec(
         base_collection="medications",
@@ -2369,6 +3382,10 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'name', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'updated at': 'updated_at',
+        },
     ),
     "meeting_documents": QuerySpec(
         base_collection="meeting_documents",
@@ -2384,6 +3401,13 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'document id': 'document_id',
+            'file uri': 'file_uri',
+            'meeting id': 'meeting_id',
+            'updated at': 'updated_at',
+        },
     ),
     "meeting_files": QuerySpec(
         base_collection="meeting_files",
@@ -2396,6 +3420,10 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id'],
+        synonyms={
+            'file id': 'file_id',
+            'meeting id': 'meeting_id',
+        },
     ),
     "meeting_permissions": QuerySpec(
         base_collection="meeting_permissions",
@@ -2412,6 +3440,15 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'can edit': 'can_edit',
+            'can manage': 'can_manage',
+            'can view': 'can_view',
+            'created at': 'created_at',
+            'meeting id': 'meeting_id',
+            'updated at': 'updated_at',
+            'user id': 'user_id',
+        },
     ),
     "meeting_publications": QuerySpec(
         base_collection="meeting_publications",
@@ -2424,6 +3461,12 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['meeting_id', 'published_at', 'public_url', 'archive_url'],
+        synonyms={
+            'archive url': 'archive_url',
+            'meeting id': 'meeting_id',
+            'public url': 'public_url',
+            'published at': 'published_at',
+        },
     ),
     "meeting_search_index": QuerySpec(
         base_collection="meeting_search_index",
@@ -2434,6 +3477,9 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['meeting_id', 'ts'],
+        synonyms={
+            'meeting id': 'meeting_id',
+        },
     ),
     "meetings": QuerySpec(
         base_collection="meetings",
@@ -2456,6 +3502,18 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'status', 'created_at', 'updated_at'],
+        synonyms={
+            'committee id': 'committee_id',
+            'created at': 'created_at',
+            'ends at': 'ends_at',
+            'governing body id': 'governing_body_id',
+            'is public': 'is_public',
+            'org id': 'org_id',
+            'scheduled at': 'scheduled_at',
+            'starts at': 'starts_at',
+            'stream url': 'stream_url',
+            'updated at': 'updated_at',
+        },
     ),
     "memberships": QuerySpec(
         base_collection="memberships",
@@ -2473,6 +3531,15 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'committee id': 'committee_id',
+            'created at': 'created_at',
+            'end date': 'end_date',
+            'person id': 'person_id',
+            'start date': 'start_date',
+            'updated at': 'updated_at',
+            'voting member': 'voting_member',
+        },
     ),
     "message_recipients": QuerySpec(
         base_collection="message_recipients",
@@ -2488,6 +3555,14 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'delivered at': 'delivered_at',
+            'delivery status': 'delivery_status',
+            'message id': 'message_id',
+            'person id': 'person_id',
+            'updated at': 'updated_at',
+        },
     ),
     "messages": QuerySpec(
         base_collection="messages",
@@ -2504,6 +3579,12 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'sender id': 'sender_id',
+            'sent at': 'sent_at',
+            'updated at': 'updated_at',
+        },
     ),
     "meters": QuerySpec(
         base_collection="meters",
@@ -2523,6 +3604,15 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'name', 'created_at', 'updated_at'],
+        synonyms={
+            'asset id': 'asset_id',
+            'building id': 'building_id',
+            'created at': 'created_at',
+            'last read at': 'last_read_at',
+            'last read value': 'last_read_value',
+            'meter type': 'meter_type',
+            'updated at': 'updated_at',
+        },
     ),
     "minutes": QuerySpec(
         base_collection="minutes",
@@ -2538,6 +3628,13 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'author id': 'author_id',
+            'created at': 'created_at',
+            'meeting id': 'meeting_id',
+            'published at': 'published_at',
+            'updated at': 'updated_at',
+        },
     ),
     "motions": QuerySpec(
         base_collection="motions",
@@ -2557,6 +3654,16 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'agenda item id': 'agenda_item_id',
+            'created at': 'created_at',
+            'moved by id': 'moved_by_id',
+            'seconded by id': 'seconded_by_id',
+            'tally abstain': 'tally_abstain',
+            'tally against': 'tally_against',
+            'tally for': 'tally_for',
+            'updated at': 'updated_at',
+        },
     ),
     "move_orders": QuerySpec(
         base_collection="move_orders",
@@ -2575,6 +3682,15 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'status', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'from space id': 'from_space_id',
+            'move date': 'move_date',
+            'person id': 'person_id',
+            'project id': 'project_id',
+            'to space id': 'to_space_id',
+            'updated at': 'updated_at',
+        },
     ),
     "notifications": QuerySpec(
         base_collection="notifications",
@@ -2590,6 +3706,12 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'type', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'read at': 'read_at',
+            'updated at': 'updated_at',
+            'user id': 'user_id',
+        },
     ),
     "nurse_visits": QuerySpec(
         base_collection="nurse_visits",
@@ -2605,6 +3727,12 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'student id': 'student_id',
+            'updated at': 'updated_at',
+            'visited at': 'visited_at',
+        },
     ),
     "objectives": QuerySpec(
         base_collection="objectives",
@@ -2619,6 +3747,11 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'name', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'goal id': 'goal_id',
+            'updated at': 'updated_at',
+        },
     ),
     "officials": QuerySpec(
         base_collection="officials",
@@ -2632,6 +3765,10 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'name', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'updated at': 'updated_at',
+        },
     ),
     "order_line_items": QuerySpec(
         base_collection="order_line_items",
@@ -2647,6 +3784,13 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'order id': 'order_id',
+            'ticket type id': 'ticket_type_id',
+            'unit price cents': 'unit_price_cents',
+            'updated at': 'updated_at',
+        },
     ),
     "orders": QuerySpec(
         base_collection="orders",
@@ -2668,6 +3812,17 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'status', 'created_at', 'updated_at'],
+        synonyms={
+            'buyer email': 'buyer_email',
+            'buyer name': 'buyer_name',
+            'created at': 'created_at',
+            'event id': 'event_id',
+            'external ref': 'external_ref',
+            'purchaser user id': 'purchaser_user_id',
+            'school id': 'school_id',
+            'total cents': 'total_cents',
+            'updated at': 'updated_at',
+        },
     ),
     "organizations": QuerySpec(
         base_collection="organizations",
@@ -2681,6 +3836,10 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'code', 'name', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'updated at': 'updated_at',
+        },
     ),
     "pages": QuerySpec(
         base_collection="pages",
@@ -2698,6 +3857,12 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'status', 'created_at', 'updated_at'],
+        synonyms={
+            'channel id': 'channel_id',
+            'created at': 'created_at',
+            'published at': 'published_at',
+            'updated at': 'updated_at',
+        },
     ),
     "part_locations": QuerySpec(
         base_collection="part_locations",
@@ -2716,6 +3881,17 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'building id': 'building_id',
+            'created at': 'created_at',
+            'location code': 'location_code',
+            'max qty': 'max_qty',
+            'min qty': 'min_qty',
+            'part id': 'part_id',
+            'qty on hand': 'qty_on_hand',
+            'space id': 'space_id',
+            'updated at': 'updated_at',
+        },
     ),
     "parts": QuerySpec(
         base_collection="parts",
@@ -2733,6 +3909,11 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'name', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'unit cost': 'unit_cost',
+            'updated at': 'updated_at',
+        },
     ),
     "passes": QuerySpec(
         base_collection="passes",
@@ -2751,6 +3932,15 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'name', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'max uses': 'max_uses',
+            'price cents': 'price_cents',
+            'school id': 'school_id',
+            'updated at': 'updated_at',
+            'valid from': 'valid_from',
+            'valid to': 'valid_to',
+        },
     ),
     "pay_periods": QuerySpec(
         base_collection="pay_periods",
@@ -2767,6 +3957,13 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'code', 'status', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'end date': 'end_date',
+            'pay date': 'pay_date',
+            'start date': 'start_date',
+            'updated at': 'updated_at',
+        },
     ),
     "paychecks": QuerySpec(
         base_collection="paychecks",
@@ -2785,6 +3982,15 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'check no': 'check_no',
+            'created at': 'created_at',
+            'employee id': 'employee_id',
+            'gross pay': 'gross_pay',
+            'net pay': 'net_pay',
+            'run id': 'run_id',
+            'updated at': 'updated_at',
+        },
     ),
     "payments": QuerySpec(
         base_collection="payments",
@@ -2800,6 +4006,12 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'invoice id': 'invoice_id',
+            'paid on': 'paid_on',
+            'updated at': 'updated_at',
+        },
     ),
     "payroll_runs": QuerySpec(
         base_collection="payroll_runs",
@@ -2816,6 +4028,14 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'status', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'created by user id': 'created_by_user_id',
+            'pay period id': 'pay_period_id',
+            'posted entry id': 'posted_entry_id',
+            'run no': 'run_no',
+            'updated at': 'updated_at',
+        },
     ),
     "periods": QuerySpec(
         base_collection="periods",
@@ -2832,6 +4052,13 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'name', 'created_at', 'updated_at'],
+        synonyms={
+            'bell schedule id': 'bell_schedule_id',
+            'created at': 'created_at',
+            'end time': 'end_time',
+            'start time': 'start_time',
+            'updated at': 'updated_at',
+        },
     ),
     "permissions": QuerySpec(
         base_collection="permissions",
@@ -2845,6 +4072,10 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'code', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'updated at': 'updated_at',
+        },
     ),
     "person_addresses": QuerySpec(
         base_collection="person_addresses",
@@ -2859,6 +4090,13 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'address id': 'address_id',
+            'created at': 'created_at',
+            'is primary': 'is_primary',
+            'person id': 'person_id',
+            'updated at': 'updated_at',
+        },
     ),
     "person_contacts": QuerySpec(
         base_collection="person_contacts",
@@ -2875,6 +4113,14 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'contact id': 'contact_id',
+            'created at': 'created_at',
+            'is emergency': 'is_emergency',
+            'is primary': 'is_primary',
+            'person id': 'person_id',
+            'updated at': 'updated_at',
+        },
     ),
     "personal_notes": QuerySpec(
         base_collection="personal_notes",
@@ -2890,6 +4136,13 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'entity id': 'entity_id',
+            'entity type': 'entity_type',
+            'updated at': 'updated_at',
+            'user id': 'user_id',
+        },
     ),
     "persons": QuerySpec(
         base_collection="persons",
@@ -2908,6 +4161,13 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'first_name', 'last_name', 'email', 'phone'],
+        synonyms={
+            'created at': 'created_at',
+            'first name': 'first_name',
+            'last name': 'last_name',
+            'middle name': 'middle_name',
+            'updated at': 'updated_at',
+        },
     ),
     "plan_alignments": QuerySpec(
         base_collection="plan_alignments",
@@ -2923,6 +4183,13 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'agenda item id': 'agenda_item_id',
+            'created at': 'created_at',
+            'objective id': 'objective_id',
+            'policy id': 'policy_id',
+            'updated at': 'updated_at',
+        },
     ),
     "plan_assignments": QuerySpec(
         base_collection="plan_assignments",
@@ -2936,6 +4203,12 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id'],
+        synonyms={
+            'assignee id': 'assignee_id',
+            'assignee type': 'assignee_type',
+            'entity id': 'entity_id',
+            'entity type': 'entity_type',
+        },
     ),
     "plan_filters": QuerySpec(
         base_collection="plan_filters",
@@ -2950,6 +4223,11 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'name', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'plan id': 'plan_id',
+            'updated at': 'updated_at',
+        },
     ),
     "plan_search_index": QuerySpec(
         base_collection="plan_search_index",
@@ -2960,6 +4238,9 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['plan_id', 'ts'],
+        synonyms={
+            'plan id': 'plan_id',
+        },
     ),
     "plans": QuerySpec(
         base_collection="plans",
@@ -2976,6 +4257,13 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'name', 'status', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'cycle end': 'cycle_end',
+            'cycle start': 'cycle_start',
+            'org id': 'org_id',
+            'updated at': 'updated_at',
+        },
     ),
     "pm_plans": QuerySpec(
         base_collection="pm_plans",
@@ -2996,6 +4284,14 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'name', 'created_at', 'updated_at'],
+        synonyms={
+            'asset id': 'asset_id',
+            'building id': 'building_id',
+            'created at': 'created_at',
+            'last completed at': 'last_completed_at',
+            'next due at': 'next_due_at',
+            'updated at': 'updated_at',
+        },
     ),
     "pm_work_generators": QuerySpec(
         base_collection="pm_work_generators",
@@ -3011,6 +4307,13 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'last generated at': 'last_generated_at',
+            'lookahead days': 'lookahead_days',
+            'pm plan id': 'pm_plan_id',
+            'updated at': 'updated_at',
+        },
     ),
     "policies": QuerySpec(
         base_collection="policies",
@@ -3026,6 +4329,11 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'code', 'status', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'org id': 'org_id',
+            'updated at': 'updated_at',
+        },
     ),
     "policy_approvals": QuerySpec(
         base_collection="policy_approvals",
@@ -3043,6 +4351,14 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'approver id': 'approver_id',
+            'created at': 'created_at',
+            'decided at': 'decided_at',
+            'policy version id': 'policy_version_id',
+            'step id': 'step_id',
+            'updated at': 'updated_at',
+        },
     ),
     "policy_comments": QuerySpec(
         base_collection="policy_comments",
@@ -3058,6 +4374,12 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'policy version id': 'policy_version_id',
+            'updated at': 'updated_at',
+            'user id': 'user_id',
+        },
     ),
     "policy_files": QuerySpec(
         base_collection="policy_files",
@@ -3070,6 +4392,11 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at'],
+        synonyms={
+            'created at': 'created_at',
+            'file id': 'file_id',
+            'policy version id': 'policy_version_id',
+        },
     ),
     "policy_legal_refs": QuerySpec(
         base_collection="policy_legal_refs",
@@ -3084,6 +4411,11 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'policy version id': 'policy_version_id',
+            'updated at': 'updated_at',
+        },
     ),
     "policy_publications": QuerySpec(
         base_collection="policy_publications",
@@ -3096,6 +4428,12 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['policy_version_id', 'published_at', 'public_url', 'is_current'],
+        synonyms={
+            'is current': 'is_current',
+            'policy version id': 'policy_version_id',
+            'public url': 'public_url',
+            'published at': 'published_at',
+        },
     ),
     "policy_search_index": QuerySpec(
         base_collection="policy_search_index",
@@ -3106,6 +4444,9 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['policy_id', 'ts'],
+        synonyms={
+            'policy id': 'policy_id',
+        },
     ),
     "policy_versions": QuerySpec(
         base_collection="policy_versions",
@@ -3123,6 +4464,15 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'created by': 'created_by',
+            'effective date': 'effective_date',
+            'policy id': 'policy_id',
+            'supersedes version id': 'supersedes_version_id',
+            'updated at': 'updated_at',
+            'version no': 'version_no',
+        },
     ),
     "policy_workflow_steps": QuerySpec(
         base_collection="policy_workflow_steps",
@@ -3139,6 +4489,14 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'approver id': 'approver_id',
+            'approver type': 'approver_type',
+            'created at': 'created_at',
+            'step no': 'step_no',
+            'updated at': 'updated_at',
+            'workflow id': 'workflow_id',
+        },
     ),
     "policy_workflows": QuerySpec(
         base_collection="policy_workflows",
@@ -3153,6 +4511,11 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'name', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'policy id': 'policy_id',
+            'updated at': 'updated_at',
+        },
     ),
     "post_attachments": QuerySpec(
         base_collection="post_attachments",
@@ -3164,6 +4527,10 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id'],
+        synonyms={
+            'file id': 'file_id',
+            'post id': 'post_id',
+        },
     ),
     "posts": QuerySpec(
         base_collection="posts",
@@ -3181,6 +4548,13 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'status', 'created_at', 'updated_at'],
+        synonyms={
+            'author id': 'author_id',
+            'channel id': 'channel_id',
+            'created at': 'created_at',
+            'publish at': 'publish_at',
+            'updated at': 'updated_at',
+        },
     ),
     "project_tasks": QuerySpec(
         base_collection="project_tasks",
@@ -3200,6 +4574,15 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'name', 'status', 'created_at', 'updated_at'],
+        synonyms={
+            'assignee user id': 'assignee_user_id',
+            'created at': 'created_at',
+            'end date': 'end_date',
+            'percent complete': 'percent_complete',
+            'project id': 'project_id',
+            'start date': 'start_date',
+            'updated at': 'updated_at',
+        },
     ),
     "projects": QuerySpec(
         base_collection="projects",
@@ -3220,6 +4603,14 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'name', 'status', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'end date': 'end_date',
+            'project type': 'project_type',
+            'school id': 'school_id',
+            'start date': 'start_date',
+            'updated at': 'updated_at',
+        },
     ),
     "proposal_documents": QuerySpec(
         base_collection="proposal_documents",
@@ -3235,6 +4626,13 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'document id': 'document_id',
+            'file uri': 'file_uri',
+            'proposal id': 'proposal_id',
+            'updated at': 'updated_at',
+        },
     ),
     "proposal_reviews": QuerySpec(
         base_collection="proposal_reviews",
@@ -3252,6 +4650,14 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'decided at': 'decided_at',
+            'proposal id': 'proposal_id',
+            'review round id': 'review_round_id',
+            'reviewer id': 'reviewer_id',
+            'updated at': 'updated_at',
+        },
     ),
     "proposal_standard_map": QuerySpec(
         base_collection="proposal_standard_map",
@@ -3262,6 +4668,10 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['proposal_id', 'standard_id'],
+        synonyms={
+            'proposal id': 'proposal_id',
+            'standard id': 'standard_id',
+        },
     ),
     "proposals": QuerySpec(
         base_collection="proposals",
@@ -3286,6 +4696,18 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'status', 'created_at', 'updated_at'],
+        synonyms={
+            'association id': 'association_id',
+            'committee id': 'committee_id',
+            'course id': 'course_id',
+            'created at': 'created_at',
+            'organization id': 'organization_id',
+            'school id': 'school_id',
+            'subject id': 'subject_id',
+            'submitted at': 'submitted_at',
+            'submitted by id': 'submitted_by_id',
+            'updated at': 'updated_at',
+        },
     ),
     "publications": QuerySpec(
         base_collection="publications",
@@ -3301,6 +4723,14 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'is final': 'is_final',
+            'meeting id': 'meeting_id',
+            'public url': 'public_url',
+            'published at': 'published_at',
+            'updated at': 'updated_at',
+        },
     ),
     "report_cards": QuerySpec(
         base_collection="report_cards",
@@ -3315,6 +4745,13 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'published at': 'published_at',
+            'student id': 'student_id',
+            'term id': 'term_id',
+            'updated at': 'updated_at',
+        },
     ),
     "requirements": QuerySpec(
         base_collection="requirements",
@@ -3333,6 +4770,13 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'category', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'effective date': 'effective_date',
+            'reference url': 'reference_url',
+            'state code': 'state_code',
+            'updated at': 'updated_at',
+        },
     ),
     "resolutions": QuerySpec(
         base_collection="resolutions",
@@ -3349,6 +4793,12 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'status', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'effective date': 'effective_date',
+            'meeting id': 'meeting_id',
+            'updated at': 'updated_at',
+        },
     ),
     "retention_rules": QuerySpec(
         base_collection="retention_rules",
@@ -3362,6 +4812,11 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'entity type': 'entity_type',
+            'updated at': 'updated_at',
+        },
     ),
     "review_requests": QuerySpec(
         base_collection="review_requests",
@@ -3379,6 +4834,14 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'status', 'created_at', 'updated_at'],
+        synonyms={
+            'association id': 'association_id',
+            'created at': 'created_at',
+            'curriculum version id': 'curriculum_version_id',
+            'decided at': 'decided_at',
+            'submitted at': 'submitted_at',
+            'updated at': 'updated_at',
+        },
     ),
     "review_rounds": QuerySpec(
         base_collection="review_rounds",
@@ -3395,6 +4858,14 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'status', 'created_at', 'updated_at'],
+        synonyms={
+            'closed at': 'closed_at',
+            'created at': 'created_at',
+            'opened at': 'opened_at',
+            'proposal id': 'proposal_id',
+            'round no': 'round_no',
+            'updated at': 'updated_at',
+        },
     ),
     "reviewers": QuerySpec(
         base_collection="reviewers",
@@ -3409,6 +4880,10 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'name', 'email', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'updated at': 'updated_at',
+        },
     ),
     "reviews": QuerySpec(
         base_collection="reviews",
@@ -3425,6 +4900,13 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'status', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'review round id': 'review_round_id',
+            'reviewer id': 'reviewer_id',
+            'submitted at': 'submitted_at',
+            'updated at': 'updated_at',
+        },
     ),
     "role_permissions": QuerySpec(
         base_collection="role_permissions",
@@ -3438,6 +4920,12 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'permission id': 'permission_id',
+            'role id': 'role_id',
+            'updated at': 'updated_at',
+        },
     ),
     "roles": QuerySpec(
         base_collection="roles",
@@ -3451,6 +4939,10 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'name', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'updated at': 'updated_at',
+        },
     ),
     "rooms": QuerySpec(
         base_collection="rooms",
@@ -3465,6 +4957,11 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'name', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'school id': 'school_id',
+            'updated at': 'updated_at',
+        },
     ),
     "round_decisions": QuerySpec(
         base_collection="round_decisions",
@@ -3480,6 +4977,12 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'decided at': 'decided_at',
+            'review round id': 'review_round_id',
+            'updated at': 'updated_at',
+        },
     ),
     "scan_requests": QuerySpec(
         base_collection="scan_requests",
@@ -3493,6 +4996,11 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'qr code': 'qr_code',
+            'updated at': 'updated_at',
+        },
     ),
     "scan_results": QuerySpec(
         base_collection="scan_results",
@@ -3508,6 +5016,11 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'status', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'ticket id': 'ticket_id',
+            'updated at': 'updated_at',
+        },
     ),
     "schools": QuerySpec(
         base_collection="schools",
@@ -3526,6 +5039,14 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'name', 'type', 'created_at', 'updated_at'],
+        synonyms={
+            'building code': 'building_code',
+            'created at': 'created_at',
+            'nces school id': 'nces_school_id',
+            'organization id': 'organization_id',
+            'school code': 'school_code',
+            'updated at': 'updated_at',
+        },
     ),
     "score_entries": QuerySpec(
         base_collection="score_entries",
@@ -3541,6 +5062,12 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'game id': 'game_id',
+            'team id': 'team_id',
+            'updated at': 'updated_at',
+        },
     ),
     "scorecard_kpis": QuerySpec(
         base_collection="scorecard_kpis",
@@ -3553,6 +5080,11 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id'],
+        synonyms={
+            'display order': 'display_order',
+            'kpi id': 'kpi_id',
+            'scorecard id': 'scorecard_id',
+        },
     ),
     "scorecards": QuerySpec(
         base_collection="scorecards",
@@ -3566,6 +5098,11 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'name', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'plan id': 'plan_id',
+            'updated at': 'updated_at',
+        },
     ),
     "seasons": QuerySpec(
         base_collection="seasons",
@@ -3579,6 +5116,10 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'name', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'updated at': 'updated_at',
+        },
     ),
     "section504_plans": QuerySpec(
         base_collection="section504_plans",
@@ -3594,6 +5135,13 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'effective end': 'effective_end',
+            'effective start': 'effective_start',
+            'student id': 'student_id',
+            'updated at': 'updated_at',
+        },
     ),
     "section_meetings": QuerySpec(
         base_collection="section_meetings",
@@ -3609,6 +5157,14 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'day of week': 'day_of_week',
+            'period id': 'period_id',
+            'room id': 'room_id',
+            'section id': 'section_id',
+            'updated at': 'updated_at',
+        },
     ),
     "section_room_assignments": QuerySpec(
         base_collection="section_room_assignments",
@@ -3624,6 +5180,14 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'end date': 'end_date',
+            'room id': 'room_id',
+            'section id': 'section_id',
+            'start date': 'start_date',
+            'updated at': 'updated_at',
+        },
     ),
     "sessions": QuerySpec(
         base_collection="sessions",
@@ -3638,6 +5202,12 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'objective code': 'objective_code',
+            'student id': 'student_id',
+            'updated at': 'updated_at',
+        },
     ),
     "sis_import_jobs": QuerySpec(
         base_collection="sis_import_jobs",
@@ -3655,6 +5225,13 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'status', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'error log': 'error_log',
+            'finished at': 'finished_at',
+            'started at': 'started_at',
+            'updated at': 'updated_at',
+        },
     ),
     "space_reservations": QuerySpec(
         base_collection="space_reservations",
@@ -3674,6 +5251,14 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'status', 'created_at', 'updated_at'],
+        synonyms={
+            'booked by user id': 'booked_by_user_id',
+            'created at': 'created_at',
+            'end at': 'end_at',
+            'space id': 'space_id',
+            'start at': 'start_at',
+            'updated at': 'updated_at',
+        },
     ),
     "spaces": QuerySpec(
         base_collection="spaces",
@@ -3693,6 +5278,14 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'code', 'name', 'created_at', 'updated_at'],
+        synonyms={
+            'area sqft': 'area_sqft',
+            'building id': 'building_id',
+            'created at': 'created_at',
+            'floor id': 'floor_id',
+            'space type': 'space_type',
+            'updated at': 'updated_at',
+        },
     ),
     "special_education_cases": QuerySpec(
         base_collection="special_education_cases",
@@ -3708,6 +5301,13 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'case closed': 'case_closed',
+            'case opened': 'case_opened',
+            'created at': 'created_at',
+            'student id': 'student_id',
+            'updated at': 'updated_at',
+        },
     ),
     "sports": QuerySpec(
         base_collection="sports",
@@ -3720,6 +5320,10 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'name', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'updated at': 'updated_at',
+        },
     ),
     "staff": QuerySpec(
         base_collection="staff",
@@ -3733,6 +5337,11 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'employee number': 'employee_number',
+            'updated at': 'updated_at',
+        },
     ),
     "standardized_tests": QuerySpec(
         base_collection="standardized_tests",
@@ -3746,6 +5355,10 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'name', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'updated at': 'updated_at',
+        },
     ),
     "standards": QuerySpec(
         base_collection="standards",
@@ -3765,6 +5378,15 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'code', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'effective from': 'effective_from',
+            'effective to': 'effective_to',
+            'framework id': 'framework_id',
+            'grade band': 'grade_band',
+            'parent id': 'parent_id',
+            'updated at': 'updated_at',
+        },
     ),
     "stat_imports": QuerySpec(
         base_collection="stat_imports",
@@ -3778,6 +5400,10 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'status', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'updated at': 'updated_at',
+        },
     ),
     "state_reporting_snapshots": QuerySpec(
         base_collection="state_reporting_snapshots",
@@ -3792,6 +5418,11 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'as of date': 'as_of_date',
+            'created at': 'created_at',
+            'updated at': 'updated_at',
+        },
     ),
     "states": QuerySpec(
         base_collection="states",
@@ -3817,6 +5448,13 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'order id': 'order_id',
+            'price cents': 'price_cents',
+            'product id': 'product_id',
+            'updated at': 'updated_at',
+        },
     ),
     "store_orders": QuerySpec(
         base_collection="store_orders",
@@ -3832,6 +5470,11 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'status', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'customer id': 'customer_id',
+            'updated at': 'updated_at',
+        },
     ),
     "store_products": QuerySpec(
         base_collection="store_products",
@@ -3848,6 +5491,12 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'name', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'inventory qty': 'inventory_qty',
+            'price cents': 'price_cents',
+            'updated at': 'updated_at',
+        },
     ),
     "student_guardians": QuerySpec(
         base_collection="student_guardians",
@@ -3864,6 +5513,14 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'contact order': 'contact_order',
+            'created at': 'created_at',
+            'guardian id': 'guardian_id',
+            'is primary': 'is_primary',
+            'student id': 'student_id',
+            'updated at': 'updated_at',
+        },
     ),
     "student_program_enrollments": QuerySpec(
         base_collection="student_program_enrollments",
@@ -3880,6 +5537,14 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'status', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'end date': 'end_date',
+            'program name': 'program_name',
+            'start date': 'start_date',
+            'student id': 'student_id',
+            'updated at': 'updated_at',
+        },
     ),
     "student_school_enrollments": QuerySpec(
         base_collection="student_school_enrollments",
@@ -3898,6 +5563,16 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'status', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'entry date': 'entry_date',
+            'exit date': 'exit_date',
+            'exit reason': 'exit_reason',
+            'grade level id': 'grade_level_id',
+            'school id': 'school_id',
+            'student id': 'student_id',
+            'updated at': 'updated_at',
+        },
     ),
     "student_section_enrollments": QuerySpec(
         base_collection="student_section_enrollments",
@@ -3914,6 +5589,15 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'added on': 'added_on',
+            'created at': 'created_at',
+            'dropped on': 'dropped_on',
+            'seat time minutes': 'seat_time_minutes',
+            'section id': 'section_id',
+            'student id': 'student_id',
+            'updated at': 'updated_at',
+        },
     ),
     "student_submissions": QuerySpec(
         base_collection="student_submissions",
@@ -3934,6 +5618,17 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'alternate link': 'alternate_link',
+            'assigned grade': 'assigned_grade',
+            'coursework id': 'coursework_id',
+            'created at': 'created_at',
+            'draft grade': 'draft_grade',
+            'student user id': 'student_user_id',
+            'update time': 'update_time',
+            'updated at': 'updated_at',
+            'user profile id': 'user_profile_id',
+        },
     ),
     "student_transportation_assignments": QuerySpec(
         base_collection="student_transportation_assignments",
@@ -3951,6 +5646,15 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'effective end': 'effective_end',
+            'effective start': 'effective_start',
+            'route id': 'route_id',
+            'stop id': 'stop_id',
+            'student id': 'student_id',
+            'updated at': 'updated_at',
+        },
     ),
     "students": QuerySpec(
         base_collection="students",
@@ -3965,6 +5669,13 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'graduation year': 'graduation_year',
+            'person id': 'person_id',
+            'student number': 'student_number',
+            'updated at': 'updated_at',
+        },
     ),
     "subjects": QuerySpec(
         base_collection="subjects",
@@ -3979,6 +5690,11 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'code', 'name', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'department id': 'department_id',
+            'updated at': 'updated_at',
+        },
     ),
     "subscriptions": QuerySpec(
         base_collection="subscriptions",
@@ -3992,6 +5708,12 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at'],
+        synonyms={
+            'channel id': 'channel_id',
+            'created at': 'created_at',
+            'principal id': 'principal_id',
+            'principal type': 'principal_type',
+        },
     ),
     "tags": QuerySpec(
         base_collection="tags",
@@ -4004,6 +5726,10 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'updated at': 'updated_at',
+        },
     ),
     "teacher_section_assignments": QuerySpec(
         base_collection="teacher_section_assignments",
@@ -4018,6 +5744,12 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'section id': 'section_id',
+            'staff id': 'staff_id',
+            'updated at': 'updated_at',
+        },
     ),
     "team_messages": QuerySpec(
         base_collection="team_messages",
@@ -4031,6 +5763,11 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'team id': 'team_id',
+            'updated at': 'updated_at',
+        },
     ),
     "teams": QuerySpec(
         base_collection="teams",
@@ -4047,6 +5784,13 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'name', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'school id': 'school_id',
+            'season id': 'season_id',
+            'sport id': 'sport_id',
+            'updated at': 'updated_at',
+        },
     ),
     "test_administrations": QuerySpec(
         base_collection="test_administrations",
@@ -4061,6 +5805,13 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'administration date': 'administration_date',
+            'created at': 'created_at',
+            'school id': 'school_id',
+            'test id': 'test_id',
+            'updated at': 'updated_at',
+        },
     ),
     "test_results": QuerySpec(
         base_collection="test_results",
@@ -4077,6 +5828,14 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'administration id': 'administration_id',
+            'created at': 'created_at',
+            'performance level': 'performance_level',
+            'scale score': 'scale_score',
+            'student id': 'student_id',
+            'updated at': 'updated_at',
+        },
     ),
     "ticket_scans": QuerySpec(
         base_collection="ticket_scans",
@@ -4094,6 +5853,13 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'scanned at': 'scanned_at',
+            'scanned by user id': 'scanned_by_user_id',
+            'ticket id': 'ticket_id',
+            'updated at': 'updated_at',
+        },
     ),
     "ticket_types": QuerySpec(
         base_collection="ticket_types",
@@ -4113,6 +5879,16 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'name', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'event id': 'event_id',
+            'price cents': 'price_cents',
+            'quantity sold': 'quantity_sold',
+            'quantity total': 'quantity_total',
+            'sales ends at': 'sales_ends_at',
+            'sales starts at': 'sales_starts_at',
+            'updated at': 'updated_at',
+        },
     ),
     "tickets": QuerySpec(
         base_collection="tickets",
@@ -4131,6 +5907,16 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'status', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'event id': 'event_id',
+            'issued at': 'issued_at',
+            'order id': 'order_id',
+            'qr code': 'qr_code',
+            'redeemed at': 'redeemed_at',
+            'ticket type id': 'ticket_type_id',
+            'updated at': 'updated_at',
+        },
     ),
     "topics": QuerySpec(
         base_collection="topics",
@@ -4146,6 +5932,13 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'name', 'created_at', 'updated_at'],
+        synonyms={
+            'course id': 'course_id',
+            'created at': 'created_at',
+            'update time': 'update_time',
+            'updated at': 'updated_at',
+            'user id': 'user_id',
+        },
     ),
     "transcript_lines": QuerySpec(
         base_collection="transcript_lines",
@@ -4164,6 +5957,17 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'course id': 'course_id',
+            'created at': 'created_at',
+            'credits attempted': 'credits_attempted',
+            'credits earned': 'credits_earned',
+            'final letter': 'final_letter',
+            'final numeric': 'final_numeric',
+            'student id': 'student_id',
+            'term id': 'term_id',
+            'updated at': 'updated_at',
+        },
     ),
     "trips": QuerySpec(
         base_collection="trips",
@@ -4177,6 +5981,10 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'updated at': 'updated_at',
+        },
     ),
     "turn_in": QuerySpec(
         base_collection="turn_in",
@@ -4192,6 +6000,12 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'objective code': 'objective_code',
+            'session id': 'session_id',
+            'updated at': 'updated_at',
+        },
     ),
     "tutor_out": QuerySpec(
         base_collection="tutor_out",
@@ -4208,6 +6022,11 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'tutor id': 'tutor_id',
+            'updated at': 'updated_at',
+        },
     ),
     "tutor_spec": QuerySpec(
         base_collection="tutor_spec",
@@ -4222,6 +6041,12 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'spec json': 'spec_json',
+            'tutor id': 'tutor_id',
+            'updated at': 'updated_at',
+        },
     ),
     "tutors": QuerySpec(
         base_collection="tutors",
@@ -4236,6 +6061,10 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'name', 'email', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'updated at': 'updated_at',
+        },
     ),
     "unit_standard_map": QuerySpec(
         base_collection="unit_standard_map",
@@ -4246,6 +6075,10 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['unit_id', 'standard_id'],
+        synonyms={
+            'standard id': 'standard_id',
+            'unit id': 'unit_id',
+        },
     ),
     "user_accounts": QuerySpec(
         base_collection="user_accounts",
@@ -4261,6 +6094,13 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'is active': 'is_active',
+            'password hash': 'password_hash',
+            'person id': 'person_id',
+            'updated at': 'updated_at',
+        },
     ),
     "user_profiles": QuerySpec(
         base_collection="user_profiles",
@@ -4278,6 +6118,16 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'full_name', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'full name': 'full_name',
+            'is student': 'is_student',
+            'is teacher': 'is_teacher',
+            'photo url': 'photo_url',
+            'primary email': 'primary_email',
+            'updated at': 'updated_at',
+            'user id': 'user_id',
+        },
     ),
     "users": QuerySpec(
         base_collection="users",
@@ -4291,6 +6141,10 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'email', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'updated at': 'updated_at',
+        },
     ),
     "vendors": QuerySpec(
         base_collection="vendors",
@@ -4306,6 +6160,10 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'name', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'updated at': 'updated_at',
+        },
     ),
     "votes": QuerySpec(
         base_collection="votes",
@@ -4320,6 +6178,12 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'motion id': 'motion_id',
+            'updated at': 'updated_at',
+            'voter id': 'voter_id',
+        },
     ),
     "waivers": QuerySpec(
         base_collection="waivers",
@@ -4335,6 +6199,12 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'granted on': 'granted_on',
+            'student id': 'student_id',
+            'updated at': 'updated_at',
+        },
     ),
     "warranties": QuerySpec(
         base_collection="warranties",
@@ -4353,6 +6223,15 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'asset id': 'asset_id',
+            'created at': 'created_at',
+            'end date': 'end_date',
+            'policy no': 'policy_no',
+            'start date': 'start_date',
+            'updated at': 'updated_at',
+            'vendor id': 'vendor_id',
+        },
     ),
     "webhooks": QuerySpec(
         base_collection="webhooks",
@@ -4367,6 +6246,11 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'target url': 'target_url',
+            'updated at': 'updated_at',
+        },
     ),
     "work_assignments": QuerySpec(
         base_collection="work_assignments",
@@ -4385,6 +6269,16 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'status', 'created_at', 'updated_at'],
+        synonyms={
+            'assigned at': 'assigned_at',
+            'checked in at': 'checked_in_at',
+            'completed at': 'completed_at',
+            'created at': 'created_at',
+            'event id': 'event_id',
+            'stipend cents': 'stipend_cents',
+            'updated at': 'updated_at',
+            'worker id': 'worker_id',
+        },
     ),
     "work_order_parts": QuerySpec(
         base_collection="work_order_parts",
@@ -4402,6 +6296,14 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'extended cost': 'extended_cost',
+            'part id': 'part_id',
+            'unit cost': 'unit_cost',
+            'updated at': 'updated_at',
+            'work order id': 'work_order_id',
+        },
     ),
     "work_order_tasks": QuerySpec(
         base_collection="work_order_tasks",
@@ -4420,6 +6322,13 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'status', 'created_at', 'updated_at'],
+        synonyms={
+            'completed at': 'completed_at',
+            'created at': 'created_at',
+            'is mandatory': 'is_mandatory',
+            'updated at': 'updated_at',
+            'work order id': 'work_order_id',
+        },
     ),
     "work_orders": QuerySpec(
         base_collection="work_orders",
@@ -4450,6 +6359,23 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'status', 'category', 'created_at', 'updated_at'],
+        synonyms={
+            'asset id': 'asset_id',
+            'assigned to user id': 'assigned_to_user_id',
+            'building id': 'building_id',
+            'completed at': 'completed_at',
+            'created at': 'created_at',
+            'labor cost': 'labor_cost',
+            'materials cost': 'materials_cost',
+            'other cost': 'other_cost',
+            'request id': 'request_id',
+            'requested due at': 'requested_due_at',
+            'scheduled end at': 'scheduled_end_at',
+            'scheduled start at': 'scheduled_start_at',
+            'school id': 'school_id',
+            'space id': 'space_id',
+            'updated at': 'updated_at',
+        },
     ),
     "workers": QuerySpec(
         base_collection="workers",
@@ -4463,5 +6389,11 @@ DEFAULT_QUERY_SPECS = {
         joins=[
         ],
         ui_default_projection_aliases=['id', 'first_name', 'last_name', 'created_at', 'updated_at'],
+        synonyms={
+            'created at': 'created_at',
+            'first name': 'first_name',
+            'last name': 'last_name',
+            'updated at': 'updated_at',
+        },
     ),
 }

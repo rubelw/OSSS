@@ -297,10 +297,18 @@ def _pick_default_projection_fields(table_def: TableDef) -> List[str]:
 
 def generate_query_metadata_py(
     tables: Dict[str, TableDef],
-    synonyms_by_collection: Dict[str, List[str]] | None = None,
+    synonyms_by_collection: Dict[str, Dict[str, str]] | None = None,
 ) -> str:
+    """
+    Generate the DEFAULT_QUERY_SPECS dict as Python code.
 
+    - Uses DBML tables/joins.
+    - Merges in per-collection synonyms from schema.SCHEMAS.
+    """
     lines: List[str] = [FILE_HEADER.rstrip("\n")]
+
+    # Normalize once so we can safely .get on it
+    synonyms_by_collection = synonyms_by_collection or {}
 
     for table_name in sorted(tables.keys()):
         t = tables[table_name]
@@ -331,7 +339,7 @@ Join(
 
         lines.append("        ],")
 
-        # 👇 NEW: tiny UI default subset, with per-table overrides
+        # 👇 UI default subset, with per-table overrides
         override = UI_DEFAULT_OVERRIDES.get(t.name)
         if override:
             ui_aliases = override
@@ -340,6 +348,15 @@ Join(
 
         if ui_aliases:
             lines.append(f"        ui_default_projection_aliases={ui_aliases!r},")
+
+        # 👇 NEW: emit synonyms from schema.SCHEMAS if present
+        collection_synonyms = synonyms_by_collection.get(t.name) or {}
+        if collection_synonyms:
+            lines.append("        synonyms={")
+            for k, v in sorted(collection_synonyms.items()):
+                # k, v are strings; use !r to get proper quoted literals
+                lines.append(f"            {k!r}: {v!r},")
+            lines.append("        },")
 
         lines.append("    ),")
 
@@ -393,12 +410,12 @@ def main():
 
     content = generate_query_metadata_py(tables, synonyms_by_collection)
 
+    # --- FIXED INDENT BELOW ---
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     with open(output_path, "w", encoding="utf-8") as f:
         f.write(content)
 
     print("[gen] Done — query_metadata.py generated successfully.")
-
 
 if __name__ == "__main__":
     main()
