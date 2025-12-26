@@ -49,6 +49,8 @@ from OSSS.sessions import (
     RedisSession,
     probe_key_ttl,
     refresh_access_token,  # <-- needed for proactive refresh
+    should_skip_session,
+
 )
 
 from OSSS.sessions_diag import router as sessions_diag_router
@@ -64,13 +66,14 @@ from fastapi import HTTPException as FastapiHTTPException
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from OSSS.ai import admin_additional_index_router
-from OSSS.ai import rag_router
-from OSSS.ai import rag_files
 
 from OSSS.agents import metagpt_agent
 
-from OSSS.ai.router_langchain import router as langchain_router
+from OSSS.ai.api.routes import query, topics, workflows, admin
+from OSSS.ai.api.factory import get_orchestration_api
 
+# Shared RAG embedding client module (for shutdown cleanup)
+from OSSS.ai.rag import additional_index_rag as rag_additional_index_rag
 
 
 # ⬇️ import the actual APIRouter instance
@@ -412,6 +415,9 @@ def create_app() -> FastAPI:
         app.state.async_sessionmaker = async_sessionmaker(
             app.state.db_engine, expire_on_commit=False, class_=AsyncSession
         )
+
+
+
         # Ensure all deps that call get_sessionmaker() use the app-scoped one
         def _sessionmaker_override():
             return app.state.async_sessionmaker
@@ -503,13 +509,15 @@ def create_app() -> FastAPI:
                 },
             )
 
-        app.include_router(langchain_router)
 
         app.include_router(admin_additional_index_router.router)
-        app.include_router(rag_router.router)
 
-        app.include_router(rag_files.router)  # or your existing prefix
         app.include_router(metagpt_agent.router)
+        app.include_router(query.router, prefix="/api")
+        app.include_router(topics.router, prefix="/api")
+        app.include_router(workflows.router, prefix="/api")
+        app.include_router(admin.router, prefix="/api")
+
 
 
 
@@ -528,6 +536,9 @@ def create_app() -> FastAPI:
                 r = await client.get(f"http://{host}:{port}/me")
                 r.raise_for_status()
                 return r.json()
+
+
+
 
         # DB ping (unless testing) using the app-scoped sessionmaker
         if not settings.TESTING:
@@ -632,6 +643,17 @@ def create_app() -> FastAPI:
                         await r.aclose()  # type: ignore[func-returns-value]
         except Exception:
             pass
+
+        # Close shared embedding HTTP client (OSSS.ai.rag.additional_index_rag)
+        try:
+            client = getattr(rag_additional_index_rag, "_embed_client", None)
+            if client is not None:
+                await client.aclose()
+                rag_additional_index_rag._embed_client = None
+                logging.getLogger("startup").info("[rag] closed shared embed AsyncClient")
+        except Exception as e:
+            logging.getLogger("startup").warning("[rag] failed to close embed client: %s", e)
+
 
     # instantiate FastAPI with the lifespan handler
     app = FastAPI(
@@ -788,21 +810,38 @@ def create_app() -> FastAPI:
     # -----------------------------
     # Middleware: ensure SID cookie
     # -----------------------------
+
+
+
     @app.middleware("http")
     async def session_tracker(request: Request, call_next):
-        response = await call_next(request)  # process first to avoid masking errors
+        # process first to avoid masking errors
+        response = await call_next(request)
+
+        # ✅ Skip stateless endpoints so they don't mint new sessions
+        if should_skip_session(request):
+            return response
+
         try:
             sid = await ensure_sid_cookie_and_store(request, response)
-            request.state.sid = sid
-            log.debug("Request %s %s -> sid=%s…", request.method, request.url.path, sid[:8])
+
+            # If ensure_sid_cookie_and_store returns "" on store failure, don't slice/log it
+            if sid:
+                request.state.sid = sid
+                log.debug("Request %s %s -> sid=%s…", request.method, request.url.path, sid[:8])
+            else:
+                log.debug("Request %s %s -> no sid (session store unavailable?)", request.method, request.url.path)
+
         except Exception as e:
             log.exception("Failed to ensure sid: %s", e)
-        return response
 
+        return response
     return app
 
-
 app = create_app()
+if app is None:
+    raise RuntimeError("create_app() returned None — missing `return app` or bad indentation.")
+
 
 from fastapi.openapi.utils import get_openapi
 

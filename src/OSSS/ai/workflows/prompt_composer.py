@@ -1,0 +1,817 @@
+"""
+Prompt Composer System for Dynamic Agent Behavior Configuration
+
+This module provides dynamic prompt composition capabilities, allowing agents to
+modify their behavior based on YAML configuration without code changes. The composer
+integrates with the existing prompt system while enabling runtime customization.
+
+Architecture:
+- Template-based prompt composition with variable substitution
+- Integration with existing prompt_loader.py system
+- Configuration-driven behavioral modifications
+- Fallback to default prompts for backward compatibility
+"""
+
+import logging
+from typing import Dict, Any, Optional, List, Union, Callable, TypedDict, get_type_hints
+
+from pydantic import BaseModel, Field, field_validator, ConfigDict
+
+from OSSS.ai.config.agent_configs import (
+    RefinerConfig,
+    CriticConfig,
+    HistorianConfig,
+    SynthesisConfig,
+    AgentConfigType,
+    FinalConfig,
+)
+
+logger = logging.getLogger(__name__)
+
+# -----------------------------------------------------------------------------
+# Import existing prompts for fallback behavior
+# -----------------------------------------------------------------------------
+try:
+    # ✅ Explicit import from agents/refiner/prompts.py (as requested)
+    from OSSS.ai.agents.refiner.prompts import (
+        REFINER_SYSTEM_PROMPT,
+        DCG_CANONICALIZATION_BLOCK,
+    )
+    from OSSS.ai.agents.critic.prompts import CRITIC_SYSTEM_PROMPT
+    from OSSS.ai.agents.historian.prompts import HISTORIAN_SYSTEM_PROMPT
+    from OSSS.ai.agents.synthesis.prompts import SYNTHESIS_SYSTEM_PROMPT
+    from OSSS.ai.agents.final.prompts import FINAL_SYSTEM_PROMPT
+except ImportError:
+    # Fallback if prompts not available
+    REFINER_SYSTEM_PROMPT = "You are a query refinement assistant."
+    DCG_CANONICALIZATION_BLOCK = ""  # keep safe if refiner prompts cannot import
+    CRITIC_SYSTEM_PROMPT = "You are a critical analysis assistant."
+    HISTORIAN_SYSTEM_PROMPT = "You are a context retrieval assistant."
+    SYNTHESIS_SYSTEM_PROMPT = "You are a synthesis assistant."
+    FINAL_SYSTEM_PROMPT = "You are a final system assistant."
+
+
+# Strict typing for template variables - keeping Python on a leash!
+class TemplateVariables(TypedDict, total=False):
+    """
+    Strictly typed template variables for prompt composition.
+
+    Uses TypedDict with total=False to allow partial dictionaries while maintaining
+    strict typing for each key that is present. This ensures type safety while
+    allowing different agents to use different subsets of variables.
+    """
+
+    # Common variables across all agents
+    custom_user_variables: str  # From user's custom template_variables
+    style: str  # Common template variable
+    domain: str  # Common template variable
+
+    # Refiner agent variables
+    refinement_level: str
+    behavioral_mode: str
+    output_format: str
+
+    # Critic agent variables
+    analysis_depth: str
+    confidence_reporting: str
+    bias_detection: str
+    scoring_criteria: List[str]
+
+    # Historian agent variables
+    search_depth: str
+    relevance_threshold: str
+    context_expansion: str
+    memory_scope: str
+
+    # Synthesis agent variables
+    synthesis_strategy: str
+    thematic_focus: str
+    meta_analysis: str
+    integration_mode: str
+
+    # Final agent variables
+    final_answer_style: str  # e.g. "concise", "balanced", "detailed"
+    final_tone: str  # e.g. "neutral", "friendly", "formal"
+    final_format_preference: str  # e.g. "markdown", "raw", "structured"
+    final_include_refiner_context: str  # "true"/"false" as string for templating
+    final_include_rag_metadata: str  # "true"/"false" as string for templating
+
+
+class ComposedPrompt(BaseModel):
+    """Container for a composed prompt with metadata.
+
+    Provides structured prompt composition with template management,
+    variable substitution, and comprehensive metadata tracking for
+    agent behavior configuration.
+    """
+
+    system_prompt: str = Field(
+        description="The main system prompt that defines agent behavior and instructions"
+    )
+    templates: Dict[str, str] = Field(
+        default_factory=dict,
+        description="Named templates for specific prompt components or patterns",
+    )
+    variables: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Template variables for prompt customization and substitution",
+    )
+    metadata: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Composition metadata including agent type, version, and configuration details",
+    )
+
+    @field_validator("system_prompt")
+    @classmethod
+    def validate_system_prompt_not_empty(cls, v: str) -> str:
+        """Ensure system prompt is not empty."""
+        if not v or not v.strip():
+            raise ValueError("system_prompt cannot be empty or whitespace-only")
+        return v.strip()
+
+    @field_validator("templates")
+    @classmethod
+    def validate_template_names(cls, v: Dict[str, str]) -> Dict[str, str]:
+        """Ensure template names are valid identifiers."""
+        import re
+
+        for template_name in v.keys():
+            if not template_name:
+                raise ValueError("Template name cannot be empty")
+            # Check for valid identifier: letters, digits, underscores, but not starting with digit
+            if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", template_name):
+                raise ValueError(
+                    f'Template name "{template_name}" must be a valid identifier (alphanumeric with underscores only)'
+                )
+        return v
+
+    model_config = ConfigDict(
+        extra="forbid",  # Catch typos in field names
+        str_strip_whitespace=True,  # Automatically strip whitespace from string fields
+    )
+
+    def get_template(self, template_name: str) -> Optional[str]:
+        """Get a specific template by name."""
+        return self.templates.get(template_name)
+
+    def substitute_variables(self, template: str) -> str:
+        """Substitute variables in a template string."""
+        try:
+            return template.format(**self.variables)
+        except KeyError as e:
+            logger.warning(f"Template variable {e} not found, using template as-is")
+            return template
+
+
+class PromptComposer:
+    """
+    Dynamic prompt composition system for configurable agent behavior.
+
+    The PromptComposer enables runtime modification of agent prompts based on
+    configuration while maintaining backward compatibility with existing systems.
+    """
+
+    def __init__(self) -> None:
+        """Initialize the prompt composer."""
+        self.default_prompts = {
+            "refiner": REFINER_SYSTEM_PROMPT,
+            "critic": CRITIC_SYSTEM_PROMPT,
+            "historian": HISTORIAN_SYSTEM_PROMPT,
+            "synthesis": SYNTHESIS_SYSTEM_PROMPT,
+            "final": FINAL_SYSTEM_PROMPT,
+        }
+
+        # Template patterns for behavioral modifications
+        self.behavioral_templates = {
+            "refinement_level": {
+                "minimal": "Focus on essential clarifications only.",
+                "standard": "Provide balanced refinement with key improvements.",
+                "detailed": "Thoroughly analyze and enhance the query with comprehensive improvements.",
+                "comprehensive": "Perform exhaustive refinement with detailed analysis and multiple perspectives.",
+            },
+            "analysis_depth": {
+                "shallow": "Provide surface-level analysis focusing on obvious patterns.",
+                "medium": "Conduct moderate analysis with attention to key insights and patterns.",
+                "deep": "Perform thorough analysis with detailed examination of underlying factors.",
+                "comprehensive": "Execute exhaustive analysis with multi-layered examination and nuanced insights.",
+            },
+            "behavioral_mode": {
+                "active": "Take an proactive, engagement-focused approach with direct recommendations.",
+                "passive": "Provide neutral, observation-focused analysis without strong directives.",
+                "adaptive": "Adjust approach based on context complexity and user needs.",
+            },
+            "synthesis_strategy": {
+                "comprehensive": "Integrate all available perspectives into a complete unified analysis.",
+                "focused": "Synthesize around specific themes and core insights.",
+                "balanced": "Provide proportional integration of different viewpoints.",
+                "creative": "Explore innovative connections and novel synthesis approaches.",
+            },
+        }
+
+    # -------------------------------------------------------------------------
+    # ✅ Option A: always ensure DCG rule is present in refiner system prompt
+    # -------------------------------------------------------------------------
+    def _ensure_dcg_block(self, prompt: str) -> str:
+        """
+        Ensure the DCG canonicalization block is present in the refiner prompt.
+
+        This is necessary because PromptComposer overrides prompts.py via composition.
+        We "bake" the canonicalization rule into the composed prompt so the refiner
+        model cannot reinterpret DCG.
+        """
+        if not isinstance(prompt, str):
+            return prompt
+        if not DCG_CANONICALIZATION_BLOCK:
+            return prompt
+
+        # Avoid double-injection
+        if (
+            "Dallas Center-Grimes School District" in prompt
+            or "ABSOLUTE CANONICALIZATION RULE" in prompt
+        ):
+            return prompt
+
+        marker = "## PRIMARY RESPONSIBILITIES"
+        if marker in prompt:
+            # Insert early, before responsibilities, for best adherence
+            return prompt.replace(marker, DCG_CANONICALIZATION_BLOCK + "\n\n" + marker, 1)
+
+        # If the base is generic / doesn't have headings, prepend so it's read first
+        return DCG_CANONICALIZATION_BLOCK + "\n\n" + prompt
+
+    def _create_template_variables(
+        self, custom_variables: Dict[str, str]
+    ) -> TemplateVariables:
+        """
+        Create a properly typed TemplateVariables dict from custom user variables.
+
+        Only includes variables that match our TypedDict schema to maintain type safety.
+        """
+        valid_keys = get_type_hints(TemplateVariables).keys()
+
+        filtered_variables = {
+            key: value for key, value in custom_variables.items() if key in valid_keys
+        }
+
+        return filtered_variables  # type: ignore[return-value]
+
+    def compose_refiner_prompt(self, config: RefinerConfig) -> ComposedPrompt:
+        """
+        Compose refiner agent prompt based on configuration.
+
+        Args:
+            config: RefinerConfig with behavioral and prompt settings
+
+        Returns:
+            ComposedPrompt with customized system prompt and templates
+        """
+        # Start with base prompt or custom override
+        if config.prompt_config.custom_system_prompt:
+            base_prompt = config.prompt_config.custom_system_prompt
+        else:
+            base_prompt = self.default_prompts["refiner"]
+
+        # ✅ Option A: bake the DCG canonicalization rule into the base prompt
+        base_prompt = self._ensure_dcg_block(base_prompt)
+
+        # Apply behavioral modifications
+        modifications: List[str] = []
+
+        if refinement_guide := self.behavioral_templates["refinement_level"].get(
+            config.refinement_level
+        ):
+            modifications.append(f"Refinement Level: {refinement_guide}")
+
+        if behavior_guide := self.behavioral_templates["behavioral_mode"].get(
+            config.behavioral_mode
+        ):
+            modifications.append(f"Behavioral Mode: {behavior_guide}")
+
+        output_instructions = self._get_output_format_instructions(
+            config.output_format, config.output_config.format_preference
+        )
+        if output_instructions:
+            modifications.append(f"Output Format: {output_instructions}")
+
+        if config.behavioral_config.custom_constraints:
+            constraints_text = "Additional Constraints: " + "; ".join(
+                config.behavioral_config.custom_constraints
+            )
+            modifications.append(constraints_text)
+
+        if modifications:
+            modification_text = "\n\n" + "\n".join(f"- {mod}" for mod in modifications)
+            composed_prompt = base_prompt + modification_text
+        else:
+            composed_prompt = base_prompt
+
+        # Helpful sanity check in logs
+        logger.debug(
+            "[PromptComposer] refiner prompt includes DCG rule? %s",
+            "Dallas Center-Grimes School District" in composed_prompt,
+        )
+
+        templates = dict(config.prompt_config.custom_templates)
+
+        all_template_vars = dict(config.prompt_config.template_variables)
+        variables = self._create_template_variables(all_template_vars)
+
+        variables.update(
+            {
+                "refinement_level": config.refinement_level,
+                "behavioral_mode": config.behavioral_mode,
+                "output_format": config.output_format,
+            }
+        )
+
+        metadata = {
+            "agent_type": "refiner",
+            "config_version": "1.0",
+            "composition_timestamp": "runtime",
+            "fallback_mode": config.behavioral_config.fallback_mode,
+        }
+
+        return ComposedPrompt(
+            system_prompt=composed_prompt,
+            templates=templates,
+            variables=variables,
+            metadata=metadata,
+        )
+
+    def compose_critic_prompt(self, config: CriticConfig) -> ComposedPrompt:
+        """
+        Compose critic agent prompt based on configuration.
+
+        Args:
+            config: CriticConfig with analysis and evaluation settings
+
+        Returns:
+            ComposedPrompt with customized critical analysis prompt
+        """
+        if config.prompt_config.custom_system_prompt:
+            base_prompt = config.prompt_config.custom_system_prompt
+        else:
+            base_prompt = self.default_prompts["critic"]
+
+        modifications: List[str] = []
+
+        if analysis_guide := self.behavioral_templates["analysis_depth"].get(
+            config.analysis_depth
+        ):
+            modifications.append(f"Analysis Depth: {analysis_guide}")
+
+        if config.confidence_reporting:
+            modifications.append(
+                "Confidence Reporting: Include confidence scores (0.0-1.0) for key assessments."
+            )
+
+        if config.bias_detection:
+            modifications.append(
+                "Bias Detection: Actively identify and report potential biases or assumptions."
+            )
+
+        if config.scoring_criteria:
+            criteria_text = (
+                "Evaluation Criteria: Assess content based on: "
+                + ", ".join(config.scoring_criteria)
+            )
+            modifications.append(criteria_text)
+
+        if config.behavioral_config.custom_constraints:
+            constraints_text = "Additional Guidelines: " + "; ".join(
+                config.behavioral_config.custom_constraints
+            )
+            modifications.append(constraints_text)
+
+        if modifications:
+            modification_text = "\n\n" + "\n".join(f"- {mod}" for mod in modifications)
+            composed_prompt = base_prompt + modification_text
+        else:
+            composed_prompt = base_prompt
+
+        templates = dict(config.prompt_config.custom_templates)
+
+        all_template_vars = dict(config.prompt_config.template_variables)
+        variables = self._create_template_variables(all_template_vars)
+
+        variables.update(
+            {
+                "analysis_depth": config.analysis_depth,
+                "confidence_reporting": str(config.confidence_reporting),
+                "bias_detection": str(config.bias_detection),
+                "scoring_criteria": config.scoring_criteria,
+            }
+        )
+
+        metadata = {
+            "agent_type": "critic",
+            "config_version": "1.0",
+            "composition_timestamp": "runtime",
+            "analysis_features": {
+                "confidence_reporting": config.confidence_reporting,
+                "bias_detection": config.bias_detection,
+            },
+        }
+
+        return ComposedPrompt(
+            system_prompt=composed_prompt,
+            templates=templates,
+            variables=variables,
+            metadata=metadata,
+        )
+
+    def compose_historian_prompt(self, config: HistorianConfig) -> ComposedPrompt:
+        """
+        Compose historian agent prompt based on configuration.
+
+        Args:
+            config: HistorianConfig with search and context settings
+
+        Returns:
+            ComposedPrompt with customized context retrieval prompt
+        """
+        if config.prompt_config.custom_system_prompt:
+            base_prompt = config.prompt_config.custom_system_prompt
+        else:
+            base_prompt = self.default_prompts["historian"]
+
+        modifications: List[str] = []
+
+        search_instructions = {
+            "shallow": "Focus on immediate, directly relevant context.",
+            "standard": "Provide balanced context retrieval with key historical information.",
+            "deep": "Conduct thorough context search including related background information.",
+            "exhaustive": "Perform comprehensive context retrieval with extensive historical analysis.",
+        }
+        if search_guide := search_instructions.get(config.search_depth):
+            modifications.append(f"Search Depth: {search_guide}")
+
+        modifications.append(
+            f"Relevance Threshold: Focus on context with relevance score ≥ {config.relevance_threshold}"
+        )
+
+        if config.context_expansion:
+            modifications.append(
+                "Context Expansion: Include related information that provides broader understanding."
+            )
+
+        scope_instructions = {
+            "session": "Focus on current conversation context only.",
+            "recent": "Include recent historical context and patterns.",
+            "full": "Consider complete available historical context.",
+            "selective": "Intelligently select most relevant historical context based on query.",
+        }
+        if scope_guide := scope_instructions.get(config.memory_scope):
+            modifications.append(f"Memory Scope: {scope_guide}")
+
+        if config.behavioral_config.custom_constraints:
+            constraints_text = "Search Guidelines: " + "; ".join(
+                config.behavioral_config.custom_constraints
+            )
+            modifications.append(constraints_text)
+
+        if modifications:
+            modification_text = "\n\n" + "\n".join(f"- {mod}" for mod in modifications)
+            composed_prompt = base_prompt + modification_text
+        else:
+            composed_prompt = base_prompt
+
+        templates = dict(config.prompt_config.custom_templates)
+
+        all_template_vars = dict(config.prompt_config.template_variables)
+        variables = self._create_template_variables(all_template_vars)
+
+        variables.update(
+            {
+                "search_depth": config.search_depth,
+                "relevance_threshold": str(config.relevance_threshold),
+                "context_expansion": str(config.context_expansion),
+                "memory_scope": config.memory_scope,
+            }
+        )
+
+        metadata = {
+            "agent_type": "historian",
+            "config_version": "1.0",
+            "composition_timestamp": "runtime",
+            "search_parameters": {
+                "depth": config.search_depth,
+                "threshold": config.relevance_threshold,
+                "expansion": config.context_expansion,
+                "scope": config.memory_scope,
+            },
+        }
+
+        return ComposedPrompt(
+            system_prompt=composed_prompt,
+            templates=templates,
+            variables=variables,
+            metadata=metadata,
+        )
+
+    def compose_synthesis_prompt(self, config: SynthesisConfig) -> ComposedPrompt:
+        """
+        Compose synthesis agent prompt based on configuration.
+
+        Args:
+            config: SynthesisConfig with integration and analysis settings
+
+        Returns:
+            ComposedPrompt with customized synthesis prompt
+        """
+        if config.prompt_config.custom_system_prompt:
+            base_prompt = config.prompt_config.custom_system_prompt
+        else:
+            base_prompt = self.default_prompts["synthesis"]
+
+        modifications: List[str] = []
+
+        if strategy_guide := self.behavioral_templates["synthesis_strategy"].get(
+            config.synthesis_strategy
+        ):
+            modifications.append(f"Synthesis Strategy: {strategy_guide}")
+
+        if config.thematic_focus:
+            modifications.append(
+                f"Thematic Focus: Pay special attention to aspects related to '{config.thematic_focus}'."
+            )
+
+        if config.meta_analysis:
+            modifications.append(
+                "Meta-Analysis: Include analysis of the synthesis process and integration patterns."
+            )
+
+        integration_instructions = {
+            "sequential": "Process and integrate agent outputs in logical sequence.",
+            "parallel": "Consider all agent outputs simultaneously for synthesis.",
+            "hierarchical": "Organize synthesis with clear hierarchical structure and priorities.",
+            "adaptive": "Use the most appropriate integration approach based on content complexity.",
+        }
+        if integration_guide := integration_instructions.get(config.integration_mode):
+            modifications.append(f"Integration Mode: {integration_guide}")
+
+        if config.behavioral_config.custom_constraints:
+            constraints_text = "Synthesis Guidelines: " + "; ".join(
+                config.behavioral_config.custom_constraints
+            )
+            modifications.append(constraints_text)
+
+        if modifications:
+            modification_text = "\n\n" + "\n".join(f"- {mod}" for mod in modifications)
+            composed_prompt = base_prompt + modification_text
+        else:
+            composed_prompt = base_prompt
+
+        templates = dict(config.prompt_config.custom_templates)
+
+        all_template_vars = dict(config.prompt_config.template_variables)
+        variables = self._create_template_variables(all_template_vars)
+
+        variables.update(
+            {
+                "synthesis_strategy": config.synthesis_strategy,
+                "thematic_focus": config.thematic_focus or "",
+                "meta_analysis": str(config.meta_analysis),
+                "integration_mode": config.integration_mode,
+            }
+        )
+
+        metadata = {
+            "agent_type": "synthesis",
+            "config_version": "1.0",
+            "composition_timestamp": "runtime",
+            "synthesis_features": {
+                "strategy": config.synthesis_strategy,
+                "thematic_focus": config.thematic_focus,
+                "meta_analysis": config.meta_analysis,
+                "integration_mode": config.integration_mode,
+            },
+        }
+
+        return ComposedPrompt(
+            system_prompt=composed_prompt,
+            templates=templates,
+            variables=variables,
+            metadata=metadata,
+        )
+
+    def compose_final_prompt(self, config: FinalConfig) -> ComposedPrompt:
+        """
+        Compose FINAL agent prompt based on configuration.
+
+        Args:
+            config: FinalConfig with behavioral and prompt settings
+
+        Returns:
+            ComposedPrompt with customized system prompt and templates
+        """
+        # 1) Start with base prompt or custom override
+        if config.prompt_config.custom_system_prompt:
+            base_prompt = config.prompt_config.custom_system_prompt
+        else:
+            try:
+                base_prompt = self.default_prompts["final"]
+            except KeyError:
+                # Fallback so we don't explode if default_prompts isn't wired yet
+                base_prompt = (
+                    "You are the FINAL agent for OSSS.\n"
+                    "Your job is to produce a concise, well-formatted answer for the end user "
+                    "based on the user question and any retrieved context.\n"
+                )
+
+        # If you want the DCG canonicalization block in FINAL as well,
+        # reuse the same helper as the refiner (if available).
+        if hasattr(self, "_ensure_dcg_block"):
+            try:
+                base_prompt = self._ensure_dcg_block(base_prompt)  # type: ignore[attr-defined]
+            except Exception:
+                logger.debug("[PromptComposer] _ensure_dcg_block failed for final prompt", exc_info=True)
+
+        # 2) Apply behavioral / formatting modifications
+        modifications: List[str] = []
+
+        # Answer style (level of detail)
+        try:
+            # If you later add behavioral_templates["final_answer_style"], you can plug it in here:
+            guide = getattr(self, "behavioral_templates", {}).get(
+                "final_answer_style", {}
+            ).get(config.answer_style)  # type: ignore[call-arg]
+            if guide:
+                modifications.append(f"Answer Style: {guide}")
+            else:
+                modifications.append(f"Answer Style: {config.answer_style}")
+        except Exception:
+            modifications.append(f"Answer Style: {config.answer_style}")
+
+        # Tone / voice
+        try:
+            tone_guide = getattr(self, "behavioral_templates", {}).get(
+                "final_tone", {}
+            ).get(config.tone)  # type: ignore[call-arg]
+            if tone_guide:
+                modifications.append(f"Tone: {tone_guide}")
+            else:
+                modifications.append(f"Tone: {config.tone}")
+        except Exception:
+            modifications.append(f"Tone: {config.tone}")
+
+        # Output format preference (reusing same semantics as other agents)
+        format_pref = config.output_config.format_preference
+        modifications.append(
+            f"Output Format Preference: {format_pref} "
+            "(this controls whether the answer is raw text, markdown, or structured)."
+        )
+
+        # Whether FINAL should lean on refiner markdown or not
+        if config.include_refiner_context:
+            modifications.append(
+                "Refiner Context: You MAY use refiner output to disambiguate the question, "
+                "but avoid echoing its markdown structure verbatim."
+            )
+        else:
+            modifications.append(
+                "Refiner Context: Do NOT quote or rely heavily on refiner markdown; "
+                "answer directly from the user question and retrieved context."
+            )
+
+        # Whether to explicitly surface RAG metadata / provenance
+        if config.include_rag_metadata:
+            modifications.append(
+                "RAG Metadata: When helpful, briefly mention where relevant context came from "
+                "(e.g., file names, dates) without overwhelming the user."
+            )
+        else:
+            modifications.append(
+                "RAG Metadata: Focus on a clean answer; only reference sources when strictly necessary."
+            )
+
+        # Any custom behavioral constraints from the config
+        if config.behavioral_config.custom_constraints:
+            constraints_text = "Additional Constraints: " + "; ".join(
+                config.behavioral_config.custom_constraints
+            )
+            modifications.append(constraints_text)
+
+        # Stitch modifications into the system prompt
+        if modifications:
+            modification_text = "\n\n" + "\n".join(f"- {mod}" for mod in modifications)
+            composed_prompt = base_prompt + modification_text
+        else:
+            composed_prompt = base_prompt
+
+        logger.debug(
+            "[PromptComposer] final prompt composed (answer_style=%s, tone=%s, format=%s)",
+            getattr(config, "answer_style", None),
+            getattr(config, "tone", None),
+            config.output_config.format_preference,
+        )
+
+        # 3) Templates + variables for downstream formatting
+        templates: Dict[str, str] = dict(config.prompt_config.custom_templates)
+
+        all_template_vars: Dict[str, Any] = dict(
+            config.prompt_config.template_variables
+        )
+        variables = self._create_template_variables(all_template_vars)
+
+        # Inject FINAL-specific variables (matching your TemplateVariables TypedDict)
+        variables.update(
+            {
+                "final_answer_style": getattr(config, "answer_style", "balanced"),
+                "final_tone": getattr(config, "tone", "neutral"),
+                "final_format_preference": config.output_config.format_preference,
+                "final_include_refiner_context": str(
+                    getattr(config, "include_refiner_context", True)
+                ).lower(),
+                "final_include_rag_metadata": str(
+                    getattr(config, "include_rag_metadata", True)
+                ).lower(),
+            }
+        )
+
+        metadata = {
+            "agent_type": "final",
+            "config_version": "1.0",
+            "composition_timestamp": "runtime",
+            "fallback_mode": config.behavioral_config.fallback_mode,
+        }
+
+        return ComposedPrompt(
+            system_prompt=composed_prompt,
+            templates=templates,
+            variables=variables,
+            metadata=metadata,
+        )
+
+    def compose_prompt(self, agent_type: str, config: AgentConfigType) -> ComposedPrompt:
+        """
+        Universal prompt composition method for any agent type.
+
+        Args:
+            agent_type: Type of agent ("refiner", "critic", "historian", "synthesis")
+            config: Agent-specific configuration object
+
+        Returns:
+            ComposedPrompt with customized prompt for the agent
+
+        Raises:
+            ValueError: If agent_type is not supported
+        """
+        composer_methods: Dict[str, Callable[[Any], ComposedPrompt]] = {
+            "refiner": self.compose_refiner_prompt,
+            "critic": self.compose_critic_prompt,
+            "historian": self.compose_historian_prompt,
+            "synthesis": self.compose_synthesis_prompt,
+            "final": self.compose_final_prompt,
+        }
+
+        if agent_type not in composer_methods:
+            raise ValueError(f"Unsupported agent type: {agent_type}")
+
+        composer_method = composer_methods[agent_type]
+        return composer_method(config)
+
+    def _get_output_format_instructions(self, agent_format: str, general_format: str) -> str:
+        """Get output format instructions based on configuration."""
+        format_instructions = {
+            "raw": "Provide direct, unformatted output without additional structure.",
+            "prefixed": "Prefix output with clear agent identification and section headers.",
+            "structured": "Use clear structure with headers, bullet points, and logical organization.",
+            "markdown": "Format output using markdown syntax for enhanced readability.",
+        }
+
+        primary_format = agent_format if agent_format != "adaptive" else general_format
+        return format_instructions.get(primary_format, "")
+
+    def get_default_prompt(self, agent_type: str) -> str:
+        """Get the default prompt for an agent type (fallback behavior)."""
+        return self.default_prompts.get(agent_type, "You are a helpful assistant.")
+
+    def validate_composition(self, composed_prompt: ComposedPrompt) -> bool:
+        """
+        Validate that a composed prompt is well-formed.
+
+        Args:
+            composed_prompt: ComposedPrompt to validate
+
+        Returns:
+            True if prompt is valid, False otherwise
+        """
+        try:
+            if not composed_prompt.system_prompt:
+                return False
+
+            for template_name, template in composed_prompt.templates.items():
+                try:
+                    template.format(**composed_prompt.variables)
+                except (KeyError, ValueError):
+                    logger.warning(
+                        f"Template {template_name} has invalid variable references"
+                    )
+                    return False
+
+            return True
+
+        except Exception as e:
+            logger.error(f"Prompt validation failed: {e}")
+            return False

@@ -1,13 +1,13 @@
 #!/usr/bin/env sh
 set -e
 
+log() { printf '%s %s\n' "[$(date '+%Y-%m-%dT%H:%M:%S%z')]" "$*" >&2; }
+
 # ---------------------------
 # Postgres bootstrap: role + DBs
 # ---------------------------
 psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<SQL
 DO \$\$
-DECLARE
-  v_user text := current_setting('server_version'); -- dummy read to ensure DO works
 BEGIN
   -- Ensure role
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '${OSSS_DB_USER}') THEN
@@ -29,54 +29,75 @@ CREATE DATABASE "${OSSS_TUTOR_DB_NAME:-osss_tutor}" OWNER "${OSSS_DB_USER}";
 SQL
 
 # ---------------------------
+# Ensure pgvector extension exists (superuser) in BOTH DBs
+# ---------------------------
+
+ensure_vector() {
+  db="$1"
+  log "Ensuring pgvector extension in DB: $db"
+  psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$db" <<'SQL'
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_available_extensions WHERE name = 'vector') THEN
+    RAISE EXCEPTION 'pgvector extension (vector) is not available in this Postgres instance. Use pgvector/pgvector image or install the extension.';
+  END IF;
+
+  -- needs superuser; safe here because init scripts run as POSTGRES_USER
+  CREATE EXTENSION IF NOT EXISTS vector;
+END
+$$;
+SQL
+}
+
+ensure_vector "${OSSS_DB_NAME}"
+ensure_vector "${OSSS_TUTOR_DB_NAME:-osss_tutor}"
+
+# ---------------------------
 # OSSS Tutor DB + tutor_chunks table
 # ---------------------------
 
 # In the tutor DB, create extension/table/indexes idempotently
-psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "${OSSS_TUTOR_DB_NAME:-osss_tutor}" <<'SQL'
--- enable pgvector only if available
-DO $$
-BEGIN
-  IF EXISTS (SELECT 1 FROM pg_available_extensions WHERE name = 'vector') THEN
-    CREATE EXTENSION IF NOT EXISTS vector;
-  END IF;
-END
-$$;
+psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "${OSSS_TUTOR_DB_NAME:-osss_tutor}" <<SQL
+-- ensure extension (idempotent)
+CREATE EXTENSION IF NOT EXISTS vector;
 
 -- create table once
-DO $$
+DO \$\$
 BEGIN
   IF to_regclass('public.tutor_chunks') IS NULL THEN
     CREATE TABLE public.tutor_chunks (
       id         VARCHAR(36) PRIMARY KEY,
       doc_id     VARCHAR(36) NOT NULL,
       text       TEXT NOT NULL,
-      embedding  DOUBLE PRECISION[],
+      -- recommended: use real pgvector type instead of double precision[]
+      embedding  VECTOR(1536),
       created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
   END IF;
 END
-$$;
+\$\$;
 
 -- create indexes once
-DO $$
+DO \$\$
 BEGIN
   IF to_regclass('public.ix_tutor_chunks_doc_id') IS NULL THEN
     CREATE INDEX ix_tutor_chunks_doc_id ON public.tutor_chunks (doc_id);
   END IF;
 
+  -- optional: vector index (IVFFLAT requires lists; tune as needed)
   IF to_regclass('public.idx_tutor_chunks_embedding') IS NULL THEN
-    CREATE INDEX idx_tutor_chunks_embedding ON public.tutor_chunks (id);
+    CREATE INDEX idx_tutor_chunks_embedding
+      ON public.tutor_chunks
+      USING ivfflat (embedding vector_cosine_ops)
+      WITH (lists = 100);
   END IF;
 END
-$$;
+\$\$;
 SQL
 
 # ---------------------------
 # Keycloak partial import (only if realm exists)
 # ---------------------------
-
-log() { printf '%s %s\n' "[$(date '+%Y-%m-%dT%H:%M:%S%z')]" "$*" >&2; }
 
 KC_URL="${KEYCLOAK_URL:-http://keycloak:8080}"
 REALM="${KEYCLOAK_REALM:-OSSS}"
@@ -84,7 +105,6 @@ ADMIN="${KEYCLOAK_ADMIN:-a2a}"
 ADMIN_PASS="${KEYCLOAK_ADMIN_PASSWORD:-a2a}"
 POLICY="${KEYCLOAK_IMPORT_POLICY:-OVERWRITE}"  # OVERWRITE|SKIP|FAIL
 
-# Where to look for files like *-OSSS-roles.json, *-OSSS-clients.json, etc.
 IMPORT_DIRS="${KEYCLOAK_IMPORT_DIRS:-/opt/keycloak/data/import:/opt/keycloak/import:/seed/keycloak:/docker-entrypoint-initdb.d}"
 
 find_one() {
@@ -92,7 +112,6 @@ find_one() {
   OLDIFS=$IFS; IFS=":"
   for d in $IMPORT_DIRS; do
     [ -d "$d" ] || continue
-    # shellcheck disable=SC2231
     for f in $d/$pattern; do
       [ -f "$f" ] && { IFS=$OLDIFS; echo "$f"; return 0; }
     done

@@ -1,5 +1,7 @@
 # Start from official Postgres 16 image
-FROM postgres:16
+#FROM postgres:16
+FROM pgvector/pgvector:pg16
+
 
 # Install curl and jq (optional but useful for JSON parsing)
 RUN apt-get update \

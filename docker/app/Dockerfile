@@ -63,7 +63,10 @@ RUN pip install --use-deprecated=legacy-resolver --no-cache-dir \
       "langchain-community==0.2.9" \
       "langchain-openai==0.1.23", \
       "langgraph-checkpoint-sqlite>=2.0.0" \
-      "aiosqlite"
+      "aiosqlite" \
+      "langchain-anthropic==0.1.3" \
+      "pgvector" \
+      "joblib"
 
       #"itsdangerous>=2.0" \
       #"pydantic-settings" \
@@ -88,7 +91,7 @@ RUN mkdir -p /root/.metagpt && \
 'llm:' \
 '  api_type: "ollama"' \
 '  base_url: "http://host.containers.internal:11434/api"' \
-'  model: "llama3.2-vision:latest"' \
+'  model: "llama3.1:latest"' \
 '  api_key: "local-ollama"' \
 
 > /root/.metagpt/config2.yaml
@@ -96,8 +99,8 @@ RUN mkdir -p /root/.metagpt && \
 # Talk to Ollama or your proxy using OpenAI-compatible /v1
 ENV OPENAI_BASE_URL="http://host.containers.internal:11434/v1" \
     OPENAI_API_KEY="none" \
-    LLM_MODEL="llama3.2-vision" \
-    OSSS_LANGCHAIN_MODEL="llama3.2-vision"
+    LLM_MODEL="llama3.1" \
+    OSSS_LANGCHAIN_MODEL="llama3.1"
 
 
 EXPOSE 8000

@@ -1,0 +1,5929 @@
+
+  {
+    "text": "List all academic terms",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "academic_terms"
+    ]
+  },
+  {
+    "text": "Show all academic terms",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "academic_terms"
+    ]
+  },
+  {
+    "text": "Get all academic terms",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "academic_terms"
+    ]
+  },
+  {
+    "text": "List all accommodations",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "accommodations"
+    ]
+  },
+  {
+    "text": "Show all accommodations",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "accommodations"
+    ]
+  },
+  {
+    "text": "Get all accommodations",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "accommodations"
+    ]
+  },
+  {
+    "text": "List all activities",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "activities"
+    ]
+  },
+  {
+    "text": "Show all activities",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "activities"
+    ]
+  },
+  {
+    "text": "Get all activities",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "activities"
+    ]
+  },
+  {
+    "text": "List all addresses",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "addresses"
+    ]
+  },
+  {
+    "text": "Show all addresses",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "addresses"
+    ]
+  },
+  {
+    "text": "Get all addresses",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "addresses"
+    ]
+  },
+  {
+    "text": "List all agenda item approvals",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "agenda_item_approvals"
+    ]
+  },
+  {
+    "text": "Show all agenda item approvals",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "agenda_item_approvals"
+    ]
+  },
+  {
+    "text": "Get all agenda item approvals",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "agenda_item_approvals"
+    ]
+  },
+  {
+    "text": "List all agenda item files",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "agenda_item_files"
+    ]
+  },
+  {
+    "text": "Show all agenda item files",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "agenda_item_files"
+    ]
+  },
+  {
+    "text": "Get all agenda item files",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "agenda_item_files"
+    ]
+  },
+  {
+    "text": "List all agenda items",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "agenda_items"
+    ]
+  },
+  {
+    "text": "Show all agenda items",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "agenda_items"
+    ]
+  },
+  {
+    "text": "Get all agenda items",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "agenda_items"
+    ]
+  },
+  {
+    "text": "List all agenda workflow steps",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "agenda_workflow_steps"
+    ]
+  },
+  {
+    "text": "Show all agenda workflow steps",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "agenda_workflow_steps"
+    ]
+  },
+  {
+    "text": "Get all agenda workflow steps",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "agenda_workflow_steps"
+    ]
+  },
+  {
+    "text": "List all agenda workflows",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "agenda_workflows"
+    ]
+  },
+  {
+    "text": "Show all agenda workflows",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "agenda_workflows"
+    ]
+  },
+  {
+    "text": "Get all agenda workflows",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "agenda_workflows"
+    ]
+  },
+  {
+    "text": "List all alembic version",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "alembic_version"
+    ]
+  },
+  {
+    "text": "Show all alembic version",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "alembic_version"
+    ]
+  },
+  {
+    "text": "Get all alembic version",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "alembic_version"
+    ]
+  },
+  {
+    "text": "List all alignments",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "alignments"
+    ]
+  },
+  {
+    "text": "Show all alignments",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "alignments"
+    ]
+  },
+  {
+    "text": "Get all alignments",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "alignments"
+    ]
+  },
+  {
+    "text": "List all ap vendors",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "ap_vendors"
+    ]
+  },
+  {
+    "text": "Show all ap vendors",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "ap_vendors"
+    ]
+  },
+  {
+    "text": "Get all ap vendors",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "ap_vendors"
+    ]
+  },
+  {
+    "text": "List all approvals",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "approvals"
+    ]
+  },
+  {
+    "text": "Show all approvals",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "approvals"
+    ]
+  },
+  {
+    "text": "Get all approvals",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "approvals"
+    ]
+  },
+  {
+    "text": "List all asset parts",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "asset_parts"
+    ]
+  },
+  {
+    "text": "Show all asset parts",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "asset_parts"
+    ]
+  },
+  {
+    "text": "Get all asset parts",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "asset_parts"
+    ]
+  },
+  {
+    "text": "List all assets",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "assets"
+    ]
+  },
+  {
+    "text": "Show all assets",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "assets"
+    ]
+  },
+  {
+    "text": "Get all assets",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "assets"
+    ]
+  },
+  {
+    "text": "List all assignment categories",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "assignment_categories"
+    ]
+  },
+  {
+    "text": "Show all assignment categories",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "assignment_categories"
+    ]
+  },
+  {
+    "text": "Get all assignment categories",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "assignment_categories"
+    ]
+  },
+  {
+    "text": "List all assignments",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "assignments"
+    ]
+  },
+  {
+    "text": "Show all assignments",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "assignments"
+    ]
+  },
+  {
+    "text": "Get all assignments",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "assignments"
+    ]
+  },
+  {
+    "text": "List all attendance",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "attendance"
+    ]
+  },
+  {
+    "text": "Show all attendance",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "attendance"
+    ]
+  },
+  {
+    "text": "Get all attendance",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "attendance"
+    ]
+  },
+  {
+    "text": "List all attendance codes",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "attendance_codes"
+    ]
+  },
+  {
+    "text": "Show all attendance codes",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "attendance_codes"
+    ]
+  },
+  {
+    "text": "Get all attendance codes",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "attendance_codes"
+    ]
+  },
+  {
+    "text": "List all attendance daily summary",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "attendance_daily_summary"
+    ]
+  },
+  {
+    "text": "Show all attendance daily summary",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "attendance_daily_summary"
+    ]
+  },
+  {
+    "text": "Get all attendance daily summary",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "attendance_daily_summary"
+    ]
+  },
+  {
+    "text": "List all attendance events",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "attendance_events"
+    ]
+  },
+  {
+    "text": "Show all attendance events",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "attendance_events"
+    ]
+  },
+  {
+    "text": "Get all attendance events",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "attendance_events"
+    ]
+  },
+  {
+    "text": "List all audit logs",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "audit_logs"
+    ]
+  },
+  {
+    "text": "Show all audit logs",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "audit_logs"
+    ]
+  },
+  {
+    "text": "Get all audit logs",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "audit_logs"
+    ]
+  },
+  {
+    "text": "List all behavior codes",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "behavior_codes"
+    ]
+  },
+  {
+    "text": "Show all behavior codes",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "behavior_codes"
+    ]
+  },
+  {
+    "text": "Get all behavior codes",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "behavior_codes"
+    ]
+  },
+  {
+    "text": "List all behavior interventions",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "behavior_interventions"
+    ]
+  },
+  {
+    "text": "Show all behavior interventions",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "behavior_interventions"
+    ]
+  },
+  {
+    "text": "Get all behavior interventions",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "behavior_interventions"
+    ]
+  },
+  {
+    "text": "List all bell schedules",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "bell_schedules"
+    ]
+  },
+  {
+    "text": "Show all bell schedules",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "bell_schedules"
+    ]
+  },
+  {
+    "text": "Get all bell schedules",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "bell_schedules"
+    ]
+  },
+  {
+    "text": "List all buildings",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "buildings"
+    ]
+  },
+  {
+    "text": "Show all buildings",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "buildings"
+    ]
+  },
+  {
+    "text": "Get all buildings",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "buildings"
+    ]
+  },
+  {
+    "text": "List all bus routes",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "bus_routes"
+    ]
+  },
+  {
+    "text": "Show all bus routes",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "bus_routes"
+    ]
+  },
+  {
+    "text": "Get all bus routes",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "bus_routes"
+    ]
+  },
+  {
+    "text": "List all bus stop times",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "bus_stop_times"
+    ]
+  },
+  {
+    "text": "Show all bus stop times",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "bus_stop_times"
+    ]
+  },
+  {
+    "text": "Get all bus stop times",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "bus_stop_times"
+    ]
+  },
+  {
+    "text": "List all bus stops",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "bus_stops"
+    ]
+  },
+  {
+    "text": "Show all bus stops",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "bus_stops"
+    ]
+  },
+  {
+    "text": "Get all bus stops",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "bus_stops"
+    ]
+  },
+  {
+    "text": "List all calendar days",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "calendar_days"
+    ]
+  },
+  {
+    "text": "Show all calendar days",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "calendar_days"
+    ]
+  },
+  {
+    "text": "Get all calendar days",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "calendar_days"
+    ]
+  },
+  {
+    "text": "List all calendars",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "calendars"
+    ]
+  },
+  {
+    "text": "Show all calendars",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "calendars"
+    ]
+  },
+  {
+    "text": "Get all calendars",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "calendars"
+    ]
+  },
+  {
+    "text": "List all channels",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "channels"
+    ]
+  },
+  {
+    "text": "Show all channels",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "channels"
+    ]
+  },
+  {
+    "text": "Get all channels",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "channels"
+    ]
+  },
+  {
+    "text": "List all class ranks",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "class_ranks"
+    ]
+  },
+  {
+    "text": "Show all class ranks",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "class_ranks"
+    ]
+  },
+  {
+    "text": "Get all class ranks",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "class_ranks"
+    ]
+  },
+  {
+    "text": "List all comm search index",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "comm_search_index"
+    ]
+  },
+  {
+    "text": "Show all comm search index",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "comm_search_index"
+    ]
+  },
+  {
+    "text": "Get all comm search index",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "comm_search_index"
+    ]
+  },
+  {
+    "text": "List all committees",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "committees"
+    ]
+  },
+  {
+    "text": "Show all committees",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "committees"
+    ]
+  },
+  {
+    "text": "Get all committees",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "committees"
+    ]
+  },
+  {
+    "text": "List all compliance records",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "compliance_records"
+    ]
+  },
+  {
+    "text": "Show all compliance records",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "compliance_records"
+    ]
+  },
+  {
+    "text": "Get all compliance records",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "compliance_records"
+    ]
+  },
+  {
+    "text": "List all consents",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "consents"
+    ]
+  },
+  {
+    "text": "Show all consents",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "consents"
+    ]
+  },
+  {
+    "text": "Get all consents",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "consents"
+    ]
+  },
+  {
+    "text": "List all consequence types",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "consequence_types"
+    ]
+  },
+  {
+    "text": "Show all consequence types",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "consequence_types"
+    ]
+  },
+  {
+    "text": "Get all consequence types",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "consequence_types"
+    ]
+  },
+  {
+    "text": "List all consequences",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "consequences"
+    ]
+  },
+  {
+    "text": "Show all consequences",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "consequences"
+    ]
+  },
+  {
+    "text": "Get all consequences",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "consequences"
+    ]
+  },
+  {
+    "text": "List all contacts",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "contacts"
+    ]
+  },
+  {
+    "text": "Show all contacts",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "contacts"
+    ]
+  },
+  {
+    "text": "Get all contacts",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "contacts"
+    ]
+  },
+  {
+    "text": "List all course prerequisites",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "course_prerequisites"
+    ]
+  },
+  {
+    "text": "Show all course prerequisites",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "course_prerequisites"
+    ]
+  },
+  {
+    "text": "Get all course prerequisites",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "course_prerequisites"
+    ]
+  },
+  {
+    "text": "List all course sections",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "course_sections"
+    ]
+  },
+  {
+    "text": "Show all course sections",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "course_sections"
+    ]
+  },
+  {
+    "text": "Get all course sections",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "course_sections"
+    ]
+  },
+  {
+    "text": "List all courses",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "courses"
+    ]
+  },
+  {
+    "text": "Show all courses",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "courses"
+    ]
+  },
+  {
+    "text": "Get all courses",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "courses"
+    ]
+  },
+  {
+    "text": "List all curricula",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "curricula"
+    ]
+  },
+  {
+    "text": "Show all curricula",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "curricula"
+    ]
+  },
+  {
+    "text": "Get all curricula",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "curricula"
+    ]
+  },
+  {
+    "text": "List all curriculum units",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "curriculum_units"
+    ]
+  },
+  {
+    "text": "Show all curriculum units",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "curriculum_units"
+    ]
+  },
+  {
+    "text": "Get all curriculum units",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "curriculum_units"
+    ]
+  },
+  {
+    "text": "List all curriculum versions",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "curriculum_versions"
+    ]
+  },
+  {
+    "text": "Show all curriculum versions",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "curriculum_versions"
+    ]
+  },
+  {
+    "text": "Get all curriculum versions",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "curriculum_versions"
+    ]
+  },
+  {
+    "text": "List all data quality issues",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "data_quality_issues"
+    ]
+  },
+  {
+    "text": "Show all data quality issues",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "data_quality_issues"
+    ]
+  },
+  {
+    "text": "Get all data quality issues",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "data_quality_issues"
+    ]
+  },
+  {
+    "text": "List all data sharing agreements",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "data_sharing_agreements"
+    ]
+  },
+  {
+    "text": "Show all data sharing agreements",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "data_sharing_agreements"
+    ]
+  },
+  {
+    "text": "Get all data sharing agreements",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "data_sharing_agreements"
+    ]
+  },
+  {
+    "text": "List all deduction codes",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "deduction_codes"
+    ]
+  },
+  {
+    "text": "Show all deduction codes",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "deduction_codes"
+    ]
+  },
+  {
+    "text": "Get all deduction codes",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "deduction_codes"
+    ]
+  },
+  {
+    "text": "List all deliveries",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "deliveries"
+    ]
+  },
+  {
+    "text": "Show all deliveries",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "deliveries"
+    ]
+  },
+  {
+    "text": "Get all deliveries",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "deliveries"
+    ]
+  },
+  {
+    "text": "List all department position index",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "department_position_index"
+    ]
+  },
+  {
+    "text": "Show all department position index",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "department_position_index"
+    ]
+  },
+  {
+    "text": "Get all department position index",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "department_position_index"
+    ]
+  },
+  {
+    "text": "List all departments",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "departments"
+    ]
+  },
+  {
+    "text": "Show all departments",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "departments"
+    ]
+  },
+  {
+    "text": "Get all departments",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "departments"
+    ]
+  },
+  {
+    "text": "List all document activity",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "document_activity"
+    ]
+  },
+  {
+    "text": "Show all document activity",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "document_activity"
+    ]
+  },
+  {
+    "text": "Get all document activity",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "document_activity"
+    ]
+  },
+  {
+    "text": "List all document links",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "document_links"
+    ]
+  },
+  {
+    "text": "Show all document links",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "document_links"
+    ]
+  },
+  {
+    "text": "Get all document links",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "document_links"
+    ]
+  },
+  {
+    "text": "List all document notifications",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "document_notifications"
+    ]
+  },
+  {
+    "text": "Show all document notifications",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "document_notifications"
+    ]
+  },
+  {
+    "text": "Get all document notifications",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "document_notifications"
+    ]
+  },
+  {
+    "text": "List all document permissions",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "document_permissions"
+    ]
+  },
+  {
+    "text": "Show all document permissions",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "document_permissions"
+    ]
+  },
+  {
+    "text": "Get all document permissions",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "document_permissions"
+    ]
+  },
+  {
+    "text": "List all document search index",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "document_search_index"
+    ]
+  },
+  {
+    "text": "Show all document search index",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "document_search_index"
+    ]
+  },
+  {
+    "text": "Get all document search index",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "document_search_index"
+    ]
+  },
+  {
+    "text": "List all document versions",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "document_versions"
+    ]
+  },
+  {
+    "text": "Show all document versions",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "document_versions"
+    ]
+  },
+  {
+    "text": "Get all document versions",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "document_versions"
+    ]
+  },
+  {
+    "text": "List all documents",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "documents"
+    ]
+  },
+  {
+    "text": "Show all documents",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "documents"
+    ]
+  },
+  {
+    "text": "Get all documents",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "documents"
+    ]
+  },
+  {
+    "text": "List all earning codes",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "earning_codes"
+    ]
+  },
+  {
+    "text": "Show all earning codes",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "earning_codes"
+    ]
+  },
+  {
+    "text": "Get all earning codes",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "earning_codes"
+    ]
+  },
+  {
+    "text": "List all education associations",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "education_associations"
+    ]
+  },
+  {
+    "text": "Show all education associations",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "education_associations"
+    ]
+  },
+  {
+    "text": "Get all education associations",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "education_associations"
+    ]
+  },
+  {
+    "text": "List all ell plans",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "ell_plans"
+    ]
+  },
+  {
+    "text": "Show all ell plans",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "ell_plans"
+    ]
+  },
+  {
+    "text": "Get all ell plans",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "ell_plans"
+    ]
+  },
+  {
+    "text": "List all embeds",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "embeds"
+    ]
+  },
+  {
+    "text": "Show all embeds",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "embeds"
+    ]
+  },
+  {
+    "text": "Get all embeds",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "embeds"
+    ]
+  },
+  {
+    "text": "List all emergency contacts",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "emergency_contacts"
+    ]
+  },
+  {
+    "text": "Show all emergency contacts",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "emergency_contacts"
+    ]
+  },
+  {
+    "text": "Get all emergency contacts",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "emergency_contacts"
+    ]
+  },
+  {
+    "text": "List all employee deductions",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "employee_deductions"
+    ]
+  },
+  {
+    "text": "Show all employee deductions",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "employee_deductions"
+    ]
+  },
+  {
+    "text": "Get all employee deductions",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "employee_deductions"
+    ]
+  },
+  {
+    "text": "List all employee earnings",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "employee_earnings"
+    ]
+  },
+  {
+    "text": "Show all employee earnings",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "employee_earnings"
+    ]
+  },
+  {
+    "text": "Get all employee earnings",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "employee_earnings"
+    ]
+  },
+  {
+    "text": "List all entity tags",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "entity_tags"
+    ]
+  },
+  {
+    "text": "Show all entity tags",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "entity_tags"
+    ]
+  },
+  {
+    "text": "Get all entity tags",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "entity_tags"
+    ]
+  },
+  {
+    "text": "List all evaluation assignments",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "evaluation_assignments"
+    ]
+  },
+  {
+    "text": "Show all evaluation assignments",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "evaluation_assignments"
+    ]
+  },
+  {
+    "text": "Get all evaluation assignments",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "evaluation_assignments"
+    ]
+  },
+  {
+    "text": "List all evaluation cycles",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "evaluation_cycles"
+    ]
+  },
+  {
+    "text": "Show all evaluation cycles",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "evaluation_cycles"
+    ]
+  },
+  {
+    "text": "Get all evaluation cycles",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "evaluation_cycles"
+    ]
+  },
+  {
+    "text": "List all evaluation files",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "evaluation_files"
+    ]
+  },
+  {
+    "text": "Show all evaluation files",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "evaluation_files"
+    ]
+  },
+  {
+    "text": "Get all evaluation files",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "evaluation_files"
+    ]
+  },
+  {
+    "text": "List all evaluation questions",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "evaluation_questions"
+    ]
+  },
+  {
+    "text": "Show all evaluation questions",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "evaluation_questions"
+    ]
+  },
+  {
+    "text": "Get all evaluation questions",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "evaluation_questions"
+    ]
+  },
+  {
+    "text": "List all evaluation reports",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "evaluation_reports"
+    ]
+  },
+  {
+    "text": "Show all evaluation reports",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "evaluation_reports"
+    ]
+  },
+  {
+    "text": "Get all evaluation reports",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "evaluation_reports"
+    ]
+  },
+  {
+    "text": "List all evaluation responses",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "evaluation_responses"
+    ]
+  },
+  {
+    "text": "Show all evaluation responses",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "evaluation_responses"
+    ]
+  },
+  {
+    "text": "Get all evaluation responses",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "evaluation_responses"
+    ]
+  },
+  {
+    "text": "List all evaluation sections",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "evaluation_sections"
+    ]
+  },
+  {
+    "text": "Show all evaluation sections",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "evaluation_sections"
+    ]
+  },
+  {
+    "text": "Get all evaluation sections",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "evaluation_sections"
+    ]
+  },
+  {
+    "text": "List all evaluation signoffs",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "evaluation_signoffs"
+    ]
+  },
+  {
+    "text": "Show all evaluation signoffs",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "evaluation_signoffs"
+    ]
+  },
+  {
+    "text": "Get all evaluation signoffs",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "evaluation_signoffs"
+    ]
+  },
+  {
+    "text": "List all evaluation templates",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "evaluation_templates"
+    ]
+  },
+  {
+    "text": "Show all evaluation templates",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "evaluation_templates"
+    ]
+  },
+  {
+    "text": "Get all evaluation templates",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "evaluation_templates"
+    ]
+  },
+  {
+    "text": "List all events",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "events"
+    ]
+  },
+  {
+    "text": "Show all events",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "events"
+    ]
+  },
+  {
+    "text": "Get all events",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "events"
+    ]
+  },
+  {
+    "text": "List all export runs",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "export_runs"
+    ]
+  },
+  {
+    "text": "Show all export runs",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "export_runs"
+    ]
+  },
+  {
+    "text": "Get all export runs",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "export_runs"
+    ]
+  },
+  {
+    "text": "List all external ids",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "external_ids"
+    ]
+  },
+  {
+    "text": "Show all external ids",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "external_ids"
+    ]
+  },
+  {
+    "text": "Get all external ids",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "external_ids"
+    ]
+  },
+  {
+    "text": "List all facilities",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "facilities"
+    ]
+  },
+  {
+    "text": "Show all facilities",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "facilities"
+    ]
+  },
+  {
+    "text": "Get all facilities",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "facilities"
+    ]
+  },
+  {
+    "text": "List all family portal access",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "family_portal_access"
+    ]
+  },
+  {
+    "text": "Show all family portal access",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "family_portal_access"
+    ]
+  },
+  {
+    "text": "Get all family portal access",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "family_portal_access"
+    ]
+  },
+  {
+    "text": "List all feature flags",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "feature_flags"
+    ]
+  },
+  {
+    "text": "Show all feature flags",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "feature_flags"
+    ]
+  },
+  {
+    "text": "Get all feature flags",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "feature_flags"
+    ]
+  },
+  {
+    "text": "List all fees",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "fees"
+    ]
+  },
+  {
+    "text": "Show all fees",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "fees"
+    ]
+  },
+  {
+    "text": "Get all fees",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "fees"
+    ]
+  },
+  {
+    "text": "List all files",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "files"
+    ]
+  },
+  {
+    "text": "Show all files",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "files"
+    ]
+  },
+  {
+    "text": "Get all files",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "files"
+    ]
+  },
+  {
+    "text": "List all final grades",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "final_grades"
+    ]
+  },
+  {
+    "text": "Show all final grades",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "final_grades"
+    ]
+  },
+  {
+    "text": "Get all final grades",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "final_grades"
+    ]
+  },
+  {
+    "text": "List all fiscal periods",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "fiscal_periods"
+    ]
+  },
+  {
+    "text": "Show all fiscal periods",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "fiscal_periods"
+    ]
+  },
+  {
+    "text": "Get all fiscal periods",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "fiscal_periods"
+    ]
+  },
+  {
+    "text": "List all fiscal years",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "fiscal_years"
+    ]
+  },
+  {
+    "text": "Show all fiscal years",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "fiscal_years"
+    ]
+  },
+  {
+    "text": "Get all fiscal years",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "fiscal_years"
+    ]
+  },
+  {
+    "text": "List all floors",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "floors"
+    ]
+  },
+  {
+    "text": "Show all floors",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "floors"
+    ]
+  },
+  {
+    "text": "Get all floors",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "floors"
+    ]
+  },
+  {
+    "text": "List all folders",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "folders"
+    ]
+  },
+  {
+    "text": "Show all folders",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "folders"
+    ]
+  },
+  {
+    "text": "Get all folders",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "folders"
+    ]
+  },
+  {
+    "text": "List all frameworks",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "frameworks"
+    ]
+  },
+  {
+    "text": "Show all frameworks",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "frameworks"
+    ]
+  },
+  {
+    "text": "Get all frameworks",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "frameworks"
+    ]
+  },
+  {
+    "text": "List all gl account balances",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "gl_account_balances"
+    ]
+  },
+  {
+    "text": "Show all gl account balances",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "gl_account_balances"
+    ]
+  },
+  {
+    "text": "Get all gl account balances",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "gl_account_balances"
+    ]
+  },
+  {
+    "text": "List all gl account segments",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "gl_account_segments"
+    ]
+  },
+  {
+    "text": "Show all gl account segments",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "gl_account_segments"
+    ]
+  },
+  {
+    "text": "Get all gl account segments",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "gl_account_segments"
+    ]
+  },
+  {
+    "text": "List all gl accounts",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "gl_accounts"
+    ]
+  },
+  {
+    "text": "Show all gl accounts",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "gl_accounts"
+    ]
+  },
+  {
+    "text": "Get all gl accounts",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "gl_accounts"
+    ]
+  },
+  {
+    "text": "List all gl segment values",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "gl_segment_values"
+    ]
+  },
+  {
+    "text": "Show all gl segment values",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "gl_segment_values"
+    ]
+  },
+  {
+    "text": "Get all gl segment values",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "gl_segment_values"
+    ]
+  },
+  {
+    "text": "List all gl segments",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "gl_segments"
+    ]
+  },
+  {
+    "text": "Show all gl segments",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "gl_segments"
+    ]
+  },
+  {
+    "text": "Get all gl segments",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "gl_segments"
+    ]
+  },
+  {
+    "text": "List all goals",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "goals"
+    ]
+  },
+  {
+    "text": "Show all goals",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "goals"
+    ]
+  },
+  {
+    "text": "Get all goals",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "goals"
+    ]
+  },
+  {
+    "text": "List all google accounts",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "google_accounts"
+    ]
+  },
+  {
+    "text": "Show all google accounts",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "google_accounts"
+    ]
+  },
+  {
+    "text": "Get all google accounts",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "google_accounts"
+    ]
+  },
+  {
+    "text": "List all governing bodies",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "governing_bodies"
+    ]
+  },
+  {
+    "text": "Show all governing bodies",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "governing_bodies"
+    ]
+  },
+  {
+    "text": "Get all governing bodies",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "governing_bodies"
+    ]
+  },
+  {
+    "text": "List all gpa calculations",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "gpa_calculations"
+    ]
+  },
+  {
+    "text": "Show all gpa calculations",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "gpa_calculations"
+    ]
+  },
+  {
+    "text": "Get all gpa calculations",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "gpa_calculations"
+    ]
+  },
+  {
+    "text": "List all grade levels",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "grade_levels"
+    ]
+  },
+  {
+    "text": "Show all grade levels",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "grade_levels"
+    ]
+  },
+  {
+    "text": "Get all grade levels",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "grade_levels"
+    ]
+  },
+  {
+    "text": "List all grade scale bands",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "grade_scale_bands"
+    ]
+  },
+  {
+    "text": "Show all grade scale bands",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "grade_scale_bands"
+    ]
+  },
+  {
+    "text": "Get all grade scale bands",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "grade_scale_bands"
+    ]
+  },
+  {
+    "text": "List all grade scales",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "grade_scales"
+    ]
+  },
+  {
+    "text": "Show all grade scales",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "grade_scales"
+    ]
+  },
+  {
+    "text": "Get all grade scales",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "grade_scales"
+    ]
+  },
+  {
+    "text": "List all gradebook entries",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "gradebook_entries"
+    ]
+  },
+  {
+    "text": "Show all gradebook entries",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "gradebook_entries"
+    ]
+  },
+  {
+    "text": "Get all gradebook entries",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "gradebook_entries"
+    ]
+  },
+  {
+    "text": "List all grading periods",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "grading_periods"
+    ]
+  },
+  {
+    "text": "Show all grading periods",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "grading_periods"
+    ]
+  },
+  {
+    "text": "Get all grading periods",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "grading_periods"
+    ]
+  },
+  {
+    "text": "List all guardians",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "guardians"
+    ]
+  },
+  {
+    "text": "Show all guardians",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "guardians"
+    ]
+  },
+  {
+    "text": "Get all guardians",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "guardians"
+    ]
+  },
+  {
+    "text": "List all health profiles",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "health_profiles"
+    ]
+  },
+  {
+    "text": "Show all health profiles",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "health_profiles"
+    ]
+  },
+  {
+    "text": "Get all health profiles",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "health_profiles"
+    ]
+  },
+  {
+    "text": "List all hr employees",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "hr_employees"
+    ]
+  },
+  {
+    "text": "Show all hr employees",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "hr_employees"
+    ]
+  },
+  {
+    "text": "Get all hr employees",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "hr_employees"
+    ]
+  },
+  {
+    "text": "List all hr position assignments",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "hr_position_assignments"
+    ]
+  },
+  {
+    "text": "Show all hr position assignments",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "hr_position_assignments"
+    ]
+  },
+  {
+    "text": "Get all hr position assignments",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "hr_position_assignments"
+    ]
+  },
+  {
+    "text": "List all hr positions",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "hr_positions"
+    ]
+  },
+  {
+    "text": "Show all hr positions",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "hr_positions"
+    ]
+  },
+  {
+    "text": "Get all hr positions",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "hr_positions"
+    ]
+  },
+  {
+    "text": "List all iep plans",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "iep_plans"
+    ]
+  },
+  {
+    "text": "Show all iep plans",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "iep_plans"
+    ]
+  },
+  {
+    "text": "Get all iep plans",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "iep_plans"
+    ]
+  },
+  {
+    "text": "List all immunization records",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "immunization_records"
+    ]
+  },
+  {
+    "text": "Show all immunization records",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "immunization_records"
+    ]
+  },
+  {
+    "text": "Get all immunization records",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "immunization_records"
+    ]
+  },
+  {
+    "text": "List all immunizations",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "immunizations"
+    ]
+  },
+  {
+    "text": "Show all immunizations",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "immunizations"
+    ]
+  },
+  {
+    "text": "Get all immunizations",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "immunizations"
+    ]
+  },
+  {
+    "text": "List all incident participants",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "incident_participants"
+    ]
+  },
+  {
+    "text": "Show all incident participants",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "incident_participants"
+    ]
+  },
+  {
+    "text": "Get all incident participants",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "incident_participants"
+    ]
+  },
+  {
+    "text": "List all incidents",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "incidents"
+    ]
+  },
+  {
+    "text": "Show all incidents",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "incidents"
+    ]
+  },
+  {
+    "text": "Get all incidents",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "incidents"
+    ]
+  },
+  {
+    "text": "List all initiatives",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "initiatives"
+    ]
+  },
+  {
+    "text": "Show all initiatives",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "initiatives"
+    ]
+  },
+  {
+    "text": "Get all initiatives",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "initiatives"
+    ]
+  },
+  {
+    "text": "List all invoices",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "invoices"
+    ]
+  },
+  {
+    "text": "Show all invoices",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "invoices"
+    ]
+  },
+  {
+    "text": "Get all invoices",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "invoices"
+    ]
+  },
+  {
+    "text": "List all journal batches",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "journal_batches"
+    ]
+  },
+  {
+    "text": "Show all journal batches",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "journal_batches"
+    ]
+  },
+  {
+    "text": "Get all journal batches",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "journal_batches"
+    ]
+  },
+  {
+    "text": "List all journal entries",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "journal_entries"
+    ]
+  },
+  {
+    "text": "Show all journal entries",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "journal_entries"
+    ]
+  },
+  {
+    "text": "Get all journal entries",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "journal_entries"
+    ]
+  },
+  {
+    "text": "List all journal entry lines",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "journal_entry_lines"
+    ]
+  },
+  {
+    "text": "Show all journal entry lines",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "journal_entry_lines"
+    ]
+  },
+  {
+    "text": "Get all journal entry lines",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "journal_entry_lines"
+    ]
+  },
+  {
+    "text": "List all kpi datapoints",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "kpi_datapoints"
+    ]
+  },
+  {
+    "text": "Show all kpi datapoints",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "kpi_datapoints"
+    ]
+  },
+  {
+    "text": "Get all kpi datapoints",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "kpi_datapoints"
+    ]
+  },
+  {
+    "text": "List all kpis",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "kpis"
+    ]
+  },
+  {
+    "text": "Show all kpis",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "kpis"
+    ]
+  },
+  {
+    "text": "Get all kpis",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "kpis"
+    ]
+  },
+  {
+    "text": "List all leases",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "leases"
+    ]
+  },
+  {
+    "text": "Show all leases",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "leases"
+    ]
+  },
+  {
+    "text": "Get all leases",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "leases"
+    ]
+  },
+  {
+    "text": "List all library checkouts",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "library_checkouts"
+    ]
+  },
+  {
+    "text": "Show all library checkouts",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "library_checkouts"
+    ]
+  },
+  {
+    "text": "Get all library checkouts",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "library_checkouts"
+    ]
+  },
+  {
+    "text": "List all library fines",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "library_fines"
+    ]
+  },
+  {
+    "text": "Show all library fines",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "library_fines"
+    ]
+  },
+  {
+    "text": "Get all library fines",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "library_fines"
+    ]
+  },
+  {
+    "text": "List all library holds",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "library_holds"
+    ]
+  },
+  {
+    "text": "Show all library holds",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "library_holds"
+    ]
+  },
+  {
+    "text": "Get all library holds",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "library_holds"
+    ]
+  },
+  {
+    "text": "List all library items",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "library_items"
+    ]
+  },
+  {
+    "text": "Show all library items",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "library_items"
+    ]
+  },
+  {
+    "text": "Get all library items",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "library_items"
+    ]
+  },
+  {
+    "text": "List all maintenance requests",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "maintenance_requests"
+    ]
+  },
+  {
+    "text": "Show all maintenance requests",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "maintenance_requests"
+    ]
+  },
+  {
+    "text": "Get all maintenance requests",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "maintenance_requests"
+    ]
+  },
+  {
+    "text": "List all meal accounts",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "meal_accounts"
+    ]
+  },
+  {
+    "text": "Show all meal accounts",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "meal_accounts"
+    ]
+  },
+  {
+    "text": "Get all meal accounts",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "meal_accounts"
+    ]
+  },
+  {
+    "text": "List all meal eligibility statuses",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "meal_eligibility_statuses"
+    ]
+  },
+  {
+    "text": "Show all meal eligibility statuses",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "meal_eligibility_statuses"
+    ]
+  },
+  {
+    "text": "Get all meal eligibility statuses",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "meal_eligibility_statuses"
+    ]
+  },
+  {
+    "text": "List all meal transactions",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "meal_transactions"
+    ]
+  },
+  {
+    "text": "Show all meal transactions",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "meal_transactions"
+    ]
+  },
+  {
+    "text": "Get all meal transactions",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "meal_transactions"
+    ]
+  },
+  {
+    "text": "List all medication administrations",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "medication_administrations"
+    ]
+  },
+  {
+    "text": "Show all medication administrations",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "medication_administrations"
+    ]
+  },
+  {
+    "text": "Get all medication administrations",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "medication_administrations"
+    ]
+  },
+  {
+    "text": "List all medications",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "medications"
+    ]
+  },
+  {
+    "text": "Show all medications",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "medications"
+    ]
+  },
+  {
+    "text": "Get all medications",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "medications"
+    ]
+  },
+  {
+    "text": "List all meeting documents",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "meeting_documents"
+    ]
+  },
+  {
+    "text": "Show all meeting documents",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "meeting_documents"
+    ]
+  },
+  {
+    "text": "Get all meeting documents",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "meeting_documents"
+    ]
+  },
+  {
+    "text": "List all meeting files",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "meeting_files"
+    ]
+  },
+  {
+    "text": "Show all meeting files",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "meeting_files"
+    ]
+  },
+  {
+    "text": "Get all meeting files",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "meeting_files"
+    ]
+  },
+  {
+    "text": "List all meeting permissions",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "meeting_permissions"
+    ]
+  },
+  {
+    "text": "Show all meeting permissions",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "meeting_permissions"
+    ]
+  },
+  {
+    "text": "Get all meeting permissions",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "meeting_permissions"
+    ]
+  },
+  {
+    "text": "List all meeting publications",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "meeting_publications"
+    ]
+  },
+  {
+    "text": "Show all meeting publications",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "meeting_publications"
+    ]
+  },
+  {
+    "text": "Get all meeting publications",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "meeting_publications"
+    ]
+  },
+  {
+    "text": "List all meeting search index",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "meeting_search_index"
+    ]
+  },
+  {
+    "text": "Show all meeting search index",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "meeting_search_index"
+    ]
+  },
+  {
+    "text": "Get all meeting search index",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "meeting_search_index"
+    ]
+  },
+  {
+    "text": "List all meetings",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "meetings"
+    ]
+  },
+  {
+    "text": "Show all meetings",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "meetings"
+    ]
+  },
+  {
+    "text": "Get all meetings",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "meetings"
+    ]
+  },
+  {
+    "text": "List all memberships",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "memberships"
+    ]
+  },
+  {
+    "text": "Show all memberships",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "memberships"
+    ]
+  },
+  {
+    "text": "Get all memberships",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "memberships"
+    ]
+  },
+  {
+    "text": "List all message recipients",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "message_recipients"
+    ]
+  },
+  {
+    "text": "Show all message recipients",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "message_recipients"
+    ]
+  },
+  {
+    "text": "Get all message recipients",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "message_recipients"
+    ]
+  },
+  {
+    "text": "List all messages",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "messages"
+    ]
+  },
+  {
+    "text": "Show all messages",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "messages"
+    ]
+  },
+  {
+    "text": "Get all messages",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "messages"
+    ]
+  },
+  {
+    "text": "List all meters",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "meters"
+    ]
+  },
+  {
+    "text": "Show all meters",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "meters"
+    ]
+  },
+  {
+    "text": "Get all meters",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "meters"
+    ]
+  },
+  {
+    "text": "List all minutes",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "minutes"
+    ]
+  },
+  {
+    "text": "Show all minutes",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "minutes"
+    ]
+  },
+  {
+    "text": "Get all minutes",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "minutes"
+    ]
+  },
+  {
+    "text": "List all motions",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "motions"
+    ]
+  },
+  {
+    "text": "Show all motions",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "motions"
+    ]
+  },
+  {
+    "text": "Get all motions",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "motions"
+    ]
+  },
+  {
+    "text": "List all move orders",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "move_orders"
+    ]
+  },
+  {
+    "text": "Show all move orders",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "move_orders"
+    ]
+  },
+  {
+    "text": "Get all move orders",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "move_orders"
+    ]
+  },
+  {
+    "text": "List all notifications",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "notifications"
+    ]
+  },
+  {
+    "text": "Show all notifications",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "notifications"
+    ]
+  },
+  {
+    "text": "Get all notifications",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "notifications"
+    ]
+  },
+  {
+    "text": "List all nurse visits",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "nurse_visits"
+    ]
+  },
+  {
+    "text": "Show all nurse visits",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "nurse_visits"
+    ]
+  },
+  {
+    "text": "Get all nurse visits",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "nurse_visits"
+    ]
+  },
+  {
+    "text": "List all objectives",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "objectives"
+    ]
+  },
+  {
+    "text": "Show all objectives",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "objectives"
+    ]
+  },
+  {
+    "text": "Get all objectives",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "objectives"
+    ]
+  },
+  {
+    "text": "List all order line items",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "order_line_items"
+    ]
+  },
+  {
+    "text": "Show all order line items",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "order_line_items"
+    ]
+  },
+  {
+    "text": "Get all order line items",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "order_line_items"
+    ]
+  },
+  {
+    "text": "List all orders",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "orders"
+    ]
+  },
+  {
+    "text": "Show all orders",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "orders"
+    ]
+  },
+  {
+    "text": "Get all orders",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "orders"
+    ]
+  },
+  {
+    "text": "List all organizations",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "organizations"
+    ]
+  },
+  {
+    "text": "Show all organizations",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "organizations"
+    ]
+  },
+  {
+    "text": "Get all organizations",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "organizations"
+    ]
+  },
+  {
+    "text": "List all pages",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "pages"
+    ]
+  },
+  {
+    "text": "Show all pages",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "pages"
+    ]
+  },
+  {
+    "text": "Get all pages",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "pages"
+    ]
+  },
+  {
+    "text": "List all part locations",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "part_locations"
+    ]
+  },
+  {
+    "text": "Show all part locations",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "part_locations"
+    ]
+  },
+  {
+    "text": "Get all part locations",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "part_locations"
+    ]
+  },
+  {
+    "text": "List all parts",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "parts"
+    ]
+  },
+  {
+    "text": "Show all parts",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "parts"
+    ]
+  },
+  {
+    "text": "Get all parts",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "parts"
+    ]
+  },
+  {
+    "text": "List all pay periods",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "pay_periods"
+    ]
+  },
+  {
+    "text": "Show all pay periods",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "pay_periods"
+    ]
+  },
+  {
+    "text": "Get all pay periods",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "pay_periods"
+    ]
+  },
+  {
+    "text": "List all paychecks",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "paychecks"
+    ]
+  },
+  {
+    "text": "Show all paychecks",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "paychecks"
+    ]
+  },
+  {
+    "text": "Get all paychecks",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "paychecks"
+    ]
+  },
+  {
+    "text": "List all payments",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "payments"
+    ]
+  },
+  {
+    "text": "Show all payments",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "payments"
+    ]
+  },
+  {
+    "text": "Get all payments",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "payments"
+    ]
+  },
+  {
+    "text": "List all payroll runs",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "payroll_runs"
+    ]
+  },
+  {
+    "text": "Show all payroll runs",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "payroll_runs"
+    ]
+  },
+  {
+    "text": "Get all payroll runs",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "payroll_runs"
+    ]
+  },
+  {
+    "text": "List all periods",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "periods"
+    ]
+  },
+  {
+    "text": "Show all periods",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "periods"
+    ]
+  },
+  {
+    "text": "Get all periods",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "periods"
+    ]
+  },
+  {
+    "text": "List all permissions",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "permissions"
+    ]
+  },
+  {
+    "text": "Show all permissions",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "permissions"
+    ]
+  },
+  {
+    "text": "Get all permissions",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "permissions"
+    ]
+  },
+  {
+    "text": "List all person addresses",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "person_addresses"
+    ]
+  },
+  {
+    "text": "Show all person addresses",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "person_addresses"
+    ]
+  },
+  {
+    "text": "Get all person addresses",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "person_addresses"
+    ]
+  },
+  {
+    "text": "List all person contacts",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "person_contacts"
+    ]
+  },
+  {
+    "text": "Show all person contacts",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "person_contacts"
+    ]
+  },
+  {
+    "text": "Get all person contacts",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "person_contacts"
+    ]
+  },
+  {
+    "text": "List all personal notes",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "personal_notes"
+    ]
+  },
+  {
+    "text": "Show all personal notes",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "personal_notes"
+    ]
+  },
+  {
+    "text": "Get all personal notes",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "personal_notes"
+    ]
+  },
+  {
+    "text": "List all persons",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "persons"
+    ]
+  },
+  {
+    "text": "Show all persons",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "persons"
+    ]
+  },
+  {
+    "text": "Get all persons",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "persons"
+    ]
+  },
+  {
+    "text": "List all plan alignments",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "plan_alignments"
+    ]
+  },
+  {
+    "text": "Show all plan alignments",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "plan_alignments"
+    ]
+  },
+  {
+    "text": "Get all plan alignments",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "plan_alignments"
+    ]
+  },
+  {
+    "text": "List all plan assignments",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "plan_assignments"
+    ]
+  },
+  {
+    "text": "Show all plan assignments",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "plan_assignments"
+    ]
+  },
+  {
+    "text": "Get all plan assignments",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "plan_assignments"
+    ]
+  },
+  {
+    "text": "List all plan filters",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "plan_filters"
+    ]
+  },
+  {
+    "text": "Show all plan filters",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "plan_filters"
+    ]
+  },
+  {
+    "text": "Get all plan filters",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "plan_filters"
+    ]
+  },
+  {
+    "text": "List all plan search index",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "plan_search_index"
+    ]
+  },
+  {
+    "text": "Show all plan search index",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "plan_search_index"
+    ]
+  },
+  {
+    "text": "Get all plan search index",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "plan_search_index"
+    ]
+  },
+  {
+    "text": "List all plans",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "plans"
+    ]
+  },
+  {
+    "text": "Show all plans",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "plans"
+    ]
+  },
+  {
+    "text": "Get all plans",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "plans"
+    ]
+  },
+  {
+    "text": "List all pm plans",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "pm_plans"
+    ]
+  },
+  {
+    "text": "Show all pm plans",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "pm_plans"
+    ]
+  },
+  {
+    "text": "Get all pm plans",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "pm_plans"
+    ]
+  },
+  {
+    "text": "List all pm work generators",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "pm_work_generators"
+    ]
+  },
+  {
+    "text": "Show all pm work generators",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "pm_work_generators"
+    ]
+  },
+  {
+    "text": "Get all pm work generators",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "pm_work_generators"
+    ]
+  },
+  {
+    "text": "List all policies",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "policies"
+    ]
+  },
+  {
+    "text": "Show all policies",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "policies"
+    ]
+  },
+  {
+    "text": "Get all policies",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "policies"
+    ]
+  },
+  {
+    "text": "List all policy approvals",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "policy_approvals"
+    ]
+  },
+  {
+    "text": "Show all policy approvals",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "policy_approvals"
+    ]
+  },
+  {
+    "text": "Get all policy approvals",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "policy_approvals"
+    ]
+  },
+  {
+    "text": "List all policy comments",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "policy_comments"
+    ]
+  },
+  {
+    "text": "Show all policy comments",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "policy_comments"
+    ]
+  },
+  {
+    "text": "Get all policy comments",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "policy_comments"
+    ]
+  },
+  {
+    "text": "List all policy files",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "policy_files"
+    ]
+  },
+  {
+    "text": "Show all policy files",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "policy_files"
+    ]
+  },
+  {
+    "text": "Get all policy files",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "policy_files"
+    ]
+  },
+  {
+    "text": "List all policy legal refs",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "policy_legal_refs"
+    ]
+  },
+  {
+    "text": "Show all policy legal refs",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "policy_legal_refs"
+    ]
+  },
+  {
+    "text": "Get all policy legal refs",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "policy_legal_refs"
+    ]
+  },
+  {
+    "text": "List all policy publications",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "policy_publications"
+    ]
+  },
+  {
+    "text": "Show all policy publications",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "policy_publications"
+    ]
+  },
+  {
+    "text": "Get all policy publications",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "policy_publications"
+    ]
+  },
+  {
+    "text": "List all policy search index",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "policy_search_index"
+    ]
+  },
+  {
+    "text": "Show all policy search index",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "policy_search_index"
+    ]
+  },
+  {
+    "text": "Get all policy search index",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "policy_search_index"
+    ]
+  },
+  {
+    "text": "List all policy versions",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "policy_versions"
+    ]
+  },
+  {
+    "text": "Show all policy versions",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "policy_versions"
+    ]
+  },
+  {
+    "text": "Get all policy versions",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "policy_versions"
+    ]
+  },
+  {
+    "text": "List all policy workflow steps",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "policy_workflow_steps"
+    ]
+  },
+  {
+    "text": "Show all policy workflow steps",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "policy_workflow_steps"
+    ]
+  },
+  {
+    "text": "Get all policy workflow steps",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "policy_workflow_steps"
+    ]
+  },
+  {
+    "text": "List all policy workflows",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "policy_workflows"
+    ]
+  },
+  {
+    "text": "Show all policy workflows",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "policy_workflows"
+    ]
+  },
+  {
+    "text": "Get all policy workflows",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "policy_workflows"
+    ]
+  },
+  {
+    "text": "List all post attachments",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "post_attachments"
+    ]
+  },
+  {
+    "text": "Show all post attachments",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "post_attachments"
+    ]
+  },
+  {
+    "text": "Get all post attachments",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "post_attachments"
+    ]
+  },
+  {
+    "text": "List all posts",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "posts"
+    ]
+  },
+  {
+    "text": "Show all posts",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "posts"
+    ]
+  },
+  {
+    "text": "Get all posts",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "posts"
+    ]
+  },
+  {
+    "text": "List all project tasks",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "project_tasks"
+    ]
+  },
+  {
+    "text": "Show all project tasks",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "project_tasks"
+    ]
+  },
+  {
+    "text": "Get all project tasks",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "project_tasks"
+    ]
+  },
+  {
+    "text": "List all projects",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "projects"
+    ]
+  },
+  {
+    "text": "Show all projects",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "projects"
+    ]
+  },
+  {
+    "text": "Get all projects",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "projects"
+    ]
+  },
+  {
+    "text": "List all proposal documents",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "proposal_documents"
+    ]
+  },
+  {
+    "text": "Show all proposal documents",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "proposal_documents"
+    ]
+  },
+  {
+    "text": "Get all proposal documents",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "proposal_documents"
+    ]
+  },
+  {
+    "text": "List all proposal reviews",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "proposal_reviews"
+    ]
+  },
+  {
+    "text": "Show all proposal reviews",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "proposal_reviews"
+    ]
+  },
+  {
+    "text": "Get all proposal reviews",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "proposal_reviews"
+    ]
+  },
+  {
+    "text": "List all proposal standard map",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "proposal_standard_map"
+    ]
+  },
+  {
+    "text": "Show all proposal standard map",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "proposal_standard_map"
+    ]
+  },
+  {
+    "text": "Get all proposal standard map",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "proposal_standard_map"
+    ]
+  },
+  {
+    "text": "List all proposals",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "proposals"
+    ]
+  },
+  {
+    "text": "Show all proposals",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "proposals"
+    ]
+  },
+  {
+    "text": "Get all proposals",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "proposals"
+    ]
+  },
+  {
+    "text": "List all publications",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "publications"
+    ]
+  },
+  {
+    "text": "Show all publications",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "publications"
+    ]
+  },
+  {
+    "text": "Get all publications",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "publications"
+    ]
+  },
+  {
+    "text": "List all report cards",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "report_cards"
+    ]
+  },
+  {
+    "text": "Show all report cards",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "report_cards"
+    ]
+  },
+  {
+    "text": "Get all report cards",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "report_cards"
+    ]
+  },
+  {
+    "text": "List all requirements",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "requirements"
+    ]
+  },
+  {
+    "text": "Show all requirements",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "requirements"
+    ]
+  },
+  {
+    "text": "Get all requirements",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "requirements"
+    ]
+  },
+  {
+    "text": "List all resolutions",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "resolutions"
+    ]
+  },
+  {
+    "text": "Show all resolutions",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "resolutions"
+    ]
+  },
+  {
+    "text": "Get all resolutions",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "resolutions"
+    ]
+  },
+  {
+    "text": "List all retention rules",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "retention_rules"
+    ]
+  },
+  {
+    "text": "Show all retention rules",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "retention_rules"
+    ]
+  },
+  {
+    "text": "Get all retention rules",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "retention_rules"
+    ]
+  },
+  {
+    "text": "List all review requests",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "review_requests"
+    ]
+  },
+  {
+    "text": "Show all review requests",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "review_requests"
+    ]
+  },
+  {
+    "text": "Get all review requests",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "review_requests"
+    ]
+  },
+  {
+    "text": "List all review rounds",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "review_rounds"
+    ]
+  },
+  {
+    "text": "Show all review rounds",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "review_rounds"
+    ]
+  },
+  {
+    "text": "Get all review rounds",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "review_rounds"
+    ]
+  },
+  {
+    "text": "List all reviewers",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "reviewers"
+    ]
+  },
+  {
+    "text": "Show all reviewers",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "reviewers"
+    ]
+  },
+  {
+    "text": "Get all reviewers",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "reviewers"
+    ]
+  },
+  {
+    "text": "List all reviews",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "reviews"
+    ]
+  },
+  {
+    "text": "Show all reviews",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "reviews"
+    ]
+  },
+  {
+    "text": "Get all reviews",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "reviews"
+    ]
+  },
+  {
+    "text": "List all role permissions",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "role_permissions"
+    ]
+  },
+  {
+    "text": "Show all role permissions",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "role_permissions"
+    ]
+  },
+  {
+    "text": "Get all role permissions",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "role_permissions"
+    ]
+  },
+  {
+    "text": "List all roles",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "roles"
+    ]
+  },
+  {
+    "text": "Show all roles",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "roles"
+    ]
+  },
+  {
+    "text": "Get all roles",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "roles"
+    ]
+  },
+  {
+    "text": "List all rooms",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "rooms"
+    ]
+  },
+  {
+    "text": "Show all rooms",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "rooms"
+    ]
+  },
+  {
+    "text": "Get all rooms",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "rooms"
+    ]
+  },
+  {
+    "text": "List all round decisions",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "round_decisions"
+    ]
+  },
+  {
+    "text": "Show all round decisions",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "round_decisions"
+    ]
+  },
+  {
+    "text": "Get all round decisions",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "round_decisions"
+    ]
+  },
+  {
+    "text": "List all scan requests",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "scan_requests"
+    ]
+  },
+  {
+    "text": "Show all scan requests",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "scan_requests"
+    ]
+  },
+  {
+    "text": "Get all scan requests",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "scan_requests"
+    ]
+  },
+  {
+    "text": "List all scan results",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "scan_results"
+    ]
+  },
+  {
+    "text": "Show all scan results",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "scan_results"
+    ]
+  },
+  {
+    "text": "Get all scan results",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "scan_results"
+    ]
+  },
+  {
+    "text": "List all schools",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "schools"
+    ]
+  },
+  {
+    "text": "Show all schools",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "schools"
+    ]
+  },
+  {
+    "text": "Get all schools",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "schools"
+    ]
+  },
+  {
+    "text": "List all scorecard kpis",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "scorecard_kpis"
+    ]
+  },
+  {
+    "text": "Show all scorecard kpis",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "scorecard_kpis"
+    ]
+  },
+  {
+    "text": "Get all scorecard kpis",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "scorecard_kpis"
+    ]
+  },
+  {
+    "text": "List all scorecards",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "scorecards"
+    ]
+  },
+  {
+    "text": "Show all scorecards",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "scorecards"
+    ]
+  },
+  {
+    "text": "Get all scorecards",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "scorecards"
+    ]
+  },
+  {
+    "text": "List all section504 plans",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "section504_plans"
+    ]
+  },
+  {
+    "text": "Show all section504 plans",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "section504_plans"
+    ]
+  },
+  {
+    "text": "Get all section504 plans",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "section504_plans"
+    ]
+  },
+  {
+    "text": "List all section meetings",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "section_meetings"
+    ]
+  },
+  {
+    "text": "Show all section meetings",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "section_meetings"
+    ]
+  },
+  {
+    "text": "Get all section meetings",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "section_meetings"
+    ]
+  },
+  {
+    "text": "List all section room assignments",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "section_room_assignments"
+    ]
+  },
+  {
+    "text": "Show all section room assignments",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "section_room_assignments"
+    ]
+  },
+  {
+    "text": "Get all section room assignments",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "section_room_assignments"
+    ]
+  },
+  {
+    "text": "List all sis import jobs",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "sis_import_jobs"
+    ]
+  },
+  {
+    "text": "Show all sis import jobs",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "sis_import_jobs"
+    ]
+  },
+  {
+    "text": "Get all sis import jobs",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "sis_import_jobs"
+    ]
+  },
+  {
+    "text": "List all space reservations",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "space_reservations"
+    ]
+  },
+  {
+    "text": "Show all space reservations",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "space_reservations"
+    ]
+  },
+  {
+    "text": "Get all space reservations",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "space_reservations"
+    ]
+  },
+  {
+    "text": "List all spaces",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "spaces"
+    ]
+  },
+  {
+    "text": "Show all spaces",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "spaces"
+    ]
+  },
+  {
+    "text": "Get all spaces",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "spaces"
+    ]
+  },
+  {
+    "text": "List all special education cases",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "special_education_cases"
+    ]
+  },
+  {
+    "text": "Show all special education cases",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "special_education_cases"
+    ]
+  },
+  {
+    "text": "Get all special education cases",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "special_education_cases"
+    ]
+  },
+  {
+    "text": "List all staff",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "staff"
+    ]
+  },
+  {
+    "text": "Show all staff",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "staff"
+    ]
+  },
+  {
+    "text": "Get all staff",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "staff"
+    ]
+  },
+  {
+    "text": "List all standardized tests",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "standardized_tests"
+    ]
+  },
+  {
+    "text": "Show all standardized tests",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "standardized_tests"
+    ]
+  },
+  {
+    "text": "Get all standardized tests",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "standardized_tests"
+    ]
+  },
+  {
+    "text": "List all standards",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "standards"
+    ]
+  },
+  {
+    "text": "Show all standards",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "standards"
+    ]
+  },
+  {
+    "text": "Get all standards",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "standards"
+    ]
+  },
+  {
+    "text": "List all state reporting snapshots",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "state_reporting_snapshots"
+    ]
+  },
+  {
+    "text": "Show all state reporting snapshots",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "state_reporting_snapshots"
+    ]
+  },
+  {
+    "text": "Get all state reporting snapshots",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "state_reporting_snapshots"
+    ]
+  },
+  {
+    "text": "List all states",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "states"
+    ]
+  },
+  {
+    "text": "Show all states",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "states"
+    ]
+  },
+  {
+    "text": "Get all states",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "states"
+    ]
+  },
+  {
+    "text": "List all student guardians",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "student_guardians"
+    ]
+  },
+  {
+    "text": "Show all student guardians",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "student_guardians"
+    ]
+  },
+  {
+    "text": "Get all student guardians",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "student_guardians"
+    ]
+  },
+  {
+    "text": "List all student program enrollments",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "student_program_enrollments"
+    ]
+  },
+  {
+    "text": "Show all student program enrollments",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "student_program_enrollments"
+    ]
+  },
+  {
+    "text": "Get all student program enrollments",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "student_program_enrollments"
+    ]
+  },
+  {
+    "text": "List all student school enrollments",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "student_school_enrollments"
+    ]
+  },
+  {
+    "text": "Show all student school enrollments",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "student_school_enrollments"
+    ]
+  },
+  {
+    "text": "Get all student school enrollments",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "student_school_enrollments"
+    ]
+  },
+  {
+    "text": "List all student section enrollments",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "student_section_enrollments"
+    ]
+  },
+  {
+    "text": "Show all student section enrollments",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "student_section_enrollments"
+    ]
+  },
+  {
+    "text": "Get all student section enrollments",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "student_section_enrollments"
+    ]
+  },
+  {
+    "text": "List all student transportation assignments",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "student_transportation_assignments"
+    ]
+  },
+  {
+    "text": "Show all student transportation assignments",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "student_transportation_assignments"
+    ]
+  },
+  {
+    "text": "Get all student transportation assignments",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "student_transportation_assignments"
+    ]
+  },
+  {
+    "text": "List all students",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "students"
+    ]
+  },
+  {
+    "text": "Show all students",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "students"
+    ]
+  },
+  {
+    "text": "Get all students",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "students"
+    ]
+  },
+  {
+    "text": "List all subjects",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "subjects"
+    ]
+  },
+  {
+    "text": "Show all subjects",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "subjects"
+    ]
+  },
+  {
+    "text": "Get all subjects",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "subjects"
+    ]
+  },
+  {
+    "text": "List all subscriptions",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "subscriptions"
+    ]
+  },
+  {
+    "text": "Show all subscriptions",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "subscriptions"
+    ]
+  },
+  {
+    "text": "Get all subscriptions",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "subscriptions"
+    ]
+  },
+  {
+    "text": "List all tags",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "tags"
+    ]
+  },
+  {
+    "text": "Show all tags",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "tags"
+    ]
+  },
+  {
+    "text": "Get all tags",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "tags"
+    ]
+  },
+  {
+    "text": "List all teacher section assignments",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "teacher_section_assignments"
+    ]
+  },
+  {
+    "text": "Show all teacher section assignments",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "teacher_section_assignments"
+    ]
+  },
+  {
+    "text": "Get all teacher section assignments",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "teacher_section_assignments"
+    ]
+  },
+  {
+    "text": "List all test administrations",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "test_administrations"
+    ]
+  },
+  {
+    "text": "Show all test administrations",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "test_administrations"
+    ]
+  },
+  {
+    "text": "Get all test administrations",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "test_administrations"
+    ]
+  },
+  {
+    "text": "List all test results",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "test_results"
+    ]
+  },
+  {
+    "text": "Show all test results",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "test_results"
+    ]
+  },
+  {
+    "text": "Get all test results",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "test_results"
+    ]
+  },
+  {
+    "text": "List all ticket scans",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "ticket_scans"
+    ]
+  },
+  {
+    "text": "Show all ticket scans",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "ticket_scans"
+    ]
+  },
+  {
+    "text": "Get all ticket scans",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "ticket_scans"
+    ]
+  },
+  {
+    "text": "List all ticket types",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "ticket_types"
+    ]
+  },
+  {
+    "text": "Show all ticket types",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "ticket_types"
+    ]
+  },
+  {
+    "text": "Get all ticket types",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "ticket_types"
+    ]
+  },
+  {
+    "text": "List all tickets",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "tickets"
+    ]
+  },
+  {
+    "text": "Show all tickets",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "tickets"
+    ]
+  },
+  {
+    "text": "Get all tickets",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "tickets"
+    ]
+  },
+  {
+    "text": "List all transcript lines",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "transcript_lines"
+    ]
+  },
+  {
+    "text": "Show all transcript lines",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "transcript_lines"
+    ]
+  },
+  {
+    "text": "Get all transcript lines",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "transcript_lines"
+    ]
+  },
+  {
+    "text": "List all unit standard map",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "unit_standard_map"
+    ]
+  },
+  {
+    "text": "Show all unit standard map",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "unit_standard_map"
+    ]
+  },
+  {
+    "text": "Get all unit standard map",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "unit_standard_map"
+    ]
+  },
+  {
+    "text": "List all user accounts",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "user_accounts"
+    ]
+  },
+  {
+    "text": "Show all user accounts",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "user_accounts"
+    ]
+  },
+  {
+    "text": "Get all user accounts",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "user_accounts"
+    ]
+  },
+  {
+    "text": "List all users",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "users"
+    ]
+  },
+  {
+    "text": "Show all users",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "users"
+    ]
+  },
+  {
+    "text": "Get all users",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "users"
+    ]
+  },
+  {
+    "text": "List all vendors",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "vendors"
+    ]
+  },
+  {
+    "text": "Show all vendors",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "vendors"
+    ]
+  },
+  {
+    "text": "Get all vendors",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "vendors"
+    ]
+  },
+  {
+    "text": "List all votes",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "votes"
+    ]
+  },
+  {
+    "text": "Show all votes",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "votes"
+    ]
+  },
+  {
+    "text": "Get all votes",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "votes"
+    ]
+  },
+  {
+    "text": "List all waivers",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "waivers"
+    ]
+  },
+  {
+    "text": "Show all waivers",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "waivers"
+    ]
+  },
+  {
+    "text": "Get all waivers",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "waivers"
+    ]
+  },
+  {
+    "text": "List all warranties",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "warranties"
+    ]
+  },
+  {
+    "text": "Show all warranties",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "warranties"
+    ]
+  },
+  {
+    "text": "Get all warranties",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "warranties"
+    ]
+  },
+  {
+    "text": "List all webhooks",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "webhooks"
+    ]
+  },
+  {
+    "text": "Show all webhooks",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "webhooks"
+    ]
+  },
+  {
+    "text": "Get all webhooks",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "webhooks"
+    ]
+  },
+  {
+    "text": "List all work order parts",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "work_order_parts"
+    ]
+  },
+  {
+    "text": "Show all work order parts",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "work_order_parts"
+    ]
+  },
+  {
+    "text": "Get all work order parts",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "work_order_parts"
+    ]
+  },
+  {
+    "text": "List all work order tasks",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "work_order_tasks"
+    ]
+  },
+  {
+    "text": "Show all work order tasks",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "work_order_tasks"
+    ]
+  },
+  {
+    "text": "Get all work order tasks",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "work_order_tasks"
+    ]
+  },
+  {
+    "text": "List all work order time logs",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "work_order_time_logs"
+    ]
+  },
+  {
+    "text": "Show all work order time logs",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "work_order_time_logs"
+    ]
+  },
+  {
+    "text": "Get all work order time logs",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "work_order_time_logs"
+    ]
+  },
+  {
+    "text": "List all work orders",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "work_orders"
+    ]
+  },
+  {
+    "text": "Show all work orders",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "work_orders"
+    ]
+  },
+  {
+    "text": "Get all work orders",
+    "intent": "action",
+    "domain": "data_systems",
+    "topics": [
+      "work_orders"
+    ]
+  }

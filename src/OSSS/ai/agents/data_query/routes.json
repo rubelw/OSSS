@@ -1,0 +1,6104 @@
+[
+  {
+    "topic": "academic_terms",
+    "collection": "academic_terms",
+    "view_name": "academic_terms",
+    "path": "/api/academic_terms",
+    "detail_path": "/api/academic_terms/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "academic_terms",
+    "table": "academic_terms",
+    "api_route": "/api/academic_terms",
+    "topic_key": "academic_terms",
+    "display_name": "academic terms",
+    "synonyms": [
+      "academic terms"
+    ],
+    "description": "Records from the 'academic_terms' table."
+  },
+  {
+    "topic": "accommodations",
+    "collection": "accommodations",
+    "view_name": "accommodations",
+    "path": "/api/accommodations",
+    "detail_path": "/api/accommodations/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "accommodations",
+    "table": "accommodations",
+    "api_route": "/api/accommodations",
+    "topic_key": "accommodations",
+    "display_name": "accommodations",
+    "synonyms": [
+      "accommodations"
+    ],
+    "description": "Records from the 'accommodations' table."
+  },
+  {
+    "topic": "activities",
+    "collection": "activities",
+    "view_name": "activities",
+    "path": "/api/activities",
+    "detail_path": "/api/activities/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "activities",
+    "table": "activities",
+    "api_route": "/api/activities",
+    "topic_key": "activities",
+    "display_name": "activities",
+    "synonyms": [
+      "activities"
+    ],
+    "description": "Records from the 'activities' table."
+  },
+  {
+    "topic": "addresses",
+    "collection": "addresses",
+    "view_name": "addresses",
+    "path": "/api/addresses",
+    "detail_path": "/api/addresses/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "addresses",
+    "table": "addresses",
+    "api_route": "/api/addresses",
+    "topic_key": "addresses",
+    "display_name": "addresses",
+    "synonyms": [
+      "addresses"
+    ],
+    "description": "Records from the 'addresses' table."
+  },
+  {
+    "topic": "agenda_item_approvals",
+    "collection": "agenda_item_approvals",
+    "view_name": "agenda_item_approvals",
+    "path": "/api/agenda_item_approvals",
+    "detail_path": "/api/agenda_item_approvals/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "agenda_item_approvals",
+    "table": "agenda_item_approvals",
+    "api_route": "/api/agenda_item_approvals",
+    "topic_key": "agenda_item_approvals",
+    "display_name": "agenda item approvals",
+    "synonyms": [
+      "agenda item approvals"
+    ],
+    "description": "Records from the 'agenda_item_approvals' table."
+  },
+  {
+    "topic": "agenda_item_files",
+    "collection": "agenda_item_files",
+    "view_name": "agenda_item_files",
+    "path": "/api/agenda_item_files",
+    "detail_path": "/api/agenda_item_files/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "agenda_item_files",
+    "table": "agenda_item_files",
+    "api_route": "/api/agenda_item_files",
+    "topic_key": "agenda_item_files",
+    "display_name": "agenda item files",
+    "synonyms": [
+      "agenda item files"
+    ],
+    "description": "Records from the 'agenda_item_files' table."
+  },
+  {
+    "topic": "agenda_items",
+    "collection": "agenda_items",
+    "view_name": "agenda_items",
+    "path": "/api/agenda_items",
+    "detail_path": "/api/agenda_items/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "agenda_items",
+    "table": "agenda_items",
+    "api_route": "/api/agenda_items",
+    "topic_key": "agenda_items",
+    "display_name": "agenda items",
+    "synonyms": [
+      "agenda items"
+    ],
+    "description": "Records from the 'agenda_items' table."
+  },
+  {
+    "topic": "agenda_workflow_steps",
+    "collection": "agenda_workflow_steps",
+    "view_name": "agenda_workflow_steps",
+    "path": "/api/agenda_workflow_steps",
+    "detail_path": "/api/agenda_workflow_steps/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "agenda_workflow_steps",
+    "table": "agenda_workflow_steps",
+    "api_route": "/api/agenda_workflow_steps",
+    "topic_key": "agenda_workflow_steps",
+    "display_name": "agenda workflow steps",
+    "synonyms": [
+      "agenda workflow steps"
+    ],
+    "description": "Records from the 'agenda_workflow_steps' table."
+  },
+  {
+    "topic": "agenda_workflows",
+    "collection": "agenda_workflows",
+    "view_name": "agenda_workflows",
+    "path": "/api/agenda_workflows",
+    "detail_path": "/api/agenda_workflows/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "agenda_workflows",
+    "table": "agenda_workflows",
+    "api_route": "/api/agenda_workflows",
+    "topic_key": "agenda_workflows",
+    "display_name": "agenda workflows",
+    "synonyms": [
+      "agenda workflows"
+    ],
+    "description": "Records from the 'agenda_workflows' table."
+  },
+  {
+    "topic": "alignments",
+    "collection": "alignments",
+    "view_name": "alignments",
+    "path": "/api/alignments",
+    "detail_path": "/api/alignments/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "alignments",
+    "table": "alignments",
+    "api_route": "/api/alignments",
+    "topic_key": "alignments",
+    "display_name": "alignments",
+    "synonyms": [
+      "alignments"
+    ],
+    "description": "Records from the 'alignments' table."
+  },
+  {
+    "topic": "announcements",
+    "collection": "announcements",
+    "view_name": "announcements",
+    "path": "/api/announcements",
+    "detail_path": "/api/announcements/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "announcements",
+    "table": "announcements",
+    "api_route": "/api/announcements",
+    "topic_key": "announcements",
+    "display_name": "announcements",
+    "synonyms": [
+      "announcements"
+    ],
+    "description": "Records from the 'announcements' table."
+  },
+  {
+    "topic": "ap_vendors",
+    "collection": "ap_vendors",
+    "view_name": "ap_vendors",
+    "path": "/api/ap_vendors",
+    "detail_path": "/api/ap_vendors/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "ap_vendors",
+    "table": "ap_vendors",
+    "api_route": "/api/ap_vendors",
+    "topic_key": "ap_vendors",
+    "display_name": "ap vendors",
+    "synonyms": [
+      "ap vendors"
+    ],
+    "description": "Records from the 'ap_vendors' table."
+  },
+  {
+    "topic": "approvals",
+    "collection": "approvals",
+    "view_name": "approvals",
+    "path": "/api/approvals",
+    "detail_path": "/api/approvals/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "approvals",
+    "table": "approvals",
+    "api_route": "/api/approvals",
+    "topic_key": "approvals",
+    "display_name": "approvals",
+    "synonyms": [
+      "approvals"
+    ],
+    "description": "Records from the 'approvals' table."
+  },
+  {
+    "topic": "asset_parts",
+    "collection": "asset_parts",
+    "view_name": "asset_parts",
+    "path": "/api/asset_parts",
+    "detail_path": "/api/asset_parts/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "asset_parts",
+    "table": "asset_parts",
+    "api_route": "/api/asset_parts",
+    "topic_key": "asset_parts",
+    "display_name": "asset parts",
+    "synonyms": [
+      "asset parts"
+    ],
+    "description": "Records from the 'asset_parts' table."
+  },
+  {
+    "topic": "assets",
+    "collection": "assets",
+    "view_name": "assets",
+    "path": "/api/assets",
+    "detail_path": "/api/assets/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "assets",
+    "table": "assets",
+    "api_route": "/api/assets",
+    "topic_key": "assets",
+    "display_name": "assets",
+    "synonyms": [
+      "assets"
+    ],
+    "description": "Records from the 'assets' table."
+  },
+  {
+    "topic": "assignment_categories",
+    "collection": "assignment_categories",
+    "view_name": "assignment_categories",
+    "path": "/api/assignment_categories",
+    "detail_path": "/api/assignment_categories/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "assignment_categories",
+    "table": "assignment_categories",
+    "api_route": "/api/assignment_categories",
+    "topic_key": "assignment_categories",
+    "display_name": "assignment categories",
+    "synonyms": [
+      "assignment categories"
+    ],
+    "description": "Records from the 'assignment_categories' table."
+  },
+  {
+    "topic": "assignments",
+    "collection": "assignments",
+    "view_name": "assignments",
+    "path": "/api/assignments",
+    "detail_path": "/api/assignments/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "assignments",
+    "table": "assignments",
+    "api_route": "/api/assignments",
+    "topic_key": "assignments",
+    "display_name": "assignments",
+    "synonyms": [
+      "assignments"
+    ],
+    "description": "Records from the 'assignments' table."
+  },
+  {
+    "topic": "attendance",
+    "collection": "attendance",
+    "view_name": "attendance",
+    "path": "/api/attendance",
+    "detail_path": "/api/attendance/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "attendance",
+    "table": "attendance",
+    "api_route": "/api/attendance",
+    "topic_key": "attendance",
+    "display_name": "attendance",
+    "synonyms": [
+      "attendance"
+    ],
+    "description": "Records from the 'attendance' table."
+  },
+  {
+    "topic": "attendance_codes",
+    "collection": "attendance_codes",
+    "view_name": "attendance_codes",
+    "path": "/api/attendance_codes",
+    "detail_path": "/api/attendance_codes/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "attendance_codes",
+    "table": "attendance_codes",
+    "api_route": "/api/attendance_codes",
+    "topic_key": "attendance_codes",
+    "display_name": "attendance codes",
+    "synonyms": [
+      "attendance codes"
+    ],
+    "description": "Records from the 'attendance_codes' table."
+  },
+  {
+    "topic": "attendance_daily_summary",
+    "collection": "attendance_daily_summary",
+    "view_name": "attendance_daily_summary",
+    "path": "/api/attendance_daily_summary",
+    "detail_path": "/api/attendance_daily_summary/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "attendance_daily_summary",
+    "table": "attendance_daily_summary",
+    "api_route": "/api/attendance_daily_summary",
+    "topic_key": "attendance_daily_summary",
+    "display_name": "attendance daily summary",
+    "synonyms": [
+      "attendance daily summary"
+    ],
+    "description": "Records from the 'attendance_daily_summary' table."
+  },
+  {
+    "topic": "attendance_events",
+    "collection": "attendance_events",
+    "view_name": "attendance_events",
+    "path": "/api/attendance_events",
+    "detail_path": "/api/attendance_events/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "attendance_events",
+    "table": "attendance_events",
+    "api_route": "/api/attendance_events",
+    "topic_key": "attendance_events",
+    "display_name": "attendance events",
+    "synonyms": [
+      "attendance events"
+    ],
+    "description": "Records from the 'attendance_events' table."
+  },
+  {
+    "topic": "audit_logs",
+    "collection": "audit_logs",
+    "view_name": "audit_logs",
+    "path": "/api/audit_logs",
+    "detail_path": "/api/audit_logs/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "audit_logs",
+    "table": "audit_logs",
+    "api_route": "/api/audit_logs",
+    "topic_key": "audit_logs",
+    "display_name": "audit logs",
+    "synonyms": [
+      "audit logs"
+    ],
+    "description": "Records from the 'audit_logs' table."
+  },
+  {
+    "topic": "behavior_codes",
+    "collection": "behavior_codes",
+    "view_name": "behavior_codes",
+    "path": "/api/behavior_codes",
+    "detail_path": "/api/behavior_codes/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "behavior_codes",
+    "table": "behavior_codes",
+    "api_route": "/api/behavior_codes",
+    "topic_key": "behavior_codes",
+    "display_name": "behavior codes",
+    "synonyms": [
+      "behavior codes"
+    ],
+    "description": "Records from the 'behavior_codes' table."
+  },
+  {
+    "topic": "behavior_interventions",
+    "collection": "behavior_interventions",
+    "view_name": "behavior_interventions",
+    "path": "/api/behavior_interventions",
+    "detail_path": "/api/behavior_interventions/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "behavior_interventions",
+    "table": "behavior_interventions",
+    "api_route": "/api/behavior_interventions",
+    "topic_key": "behavior_interventions",
+    "display_name": "behavior interventions",
+    "synonyms": [
+      "behavior interventions"
+    ],
+    "description": "Records from the 'behavior_interventions' table."
+  },
+  {
+    "topic": "bell_schedules",
+    "collection": "bell_schedules",
+    "view_name": "bell_schedules",
+    "path": "/api/bell_schedules",
+    "detail_path": "/api/bell_schedules/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "bell_schedules",
+    "table": "bell_schedules",
+    "api_route": "/api/bell_schedules",
+    "topic_key": "bell_schedules",
+    "display_name": "bell schedules",
+    "synonyms": [
+      "bell schedules"
+    ],
+    "description": "Records from the 'bell_schedules' table."
+  },
+  {
+    "topic": "buildings",
+    "collection": "buildings",
+    "view_name": "buildings",
+    "path": "/api/buildings",
+    "detail_path": "/api/buildings/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "buildings",
+    "table": "buildings",
+    "api_route": "/api/buildings",
+    "topic_key": "buildings",
+    "display_name": "buildings",
+    "synonyms": [
+      "buildings"
+    ],
+    "description": "Records from the 'buildings' table."
+  },
+  {
+    "topic": "bus_routes",
+    "collection": "bus_routes",
+    "view_name": "bus_routes",
+    "path": "/api/bus_routes",
+    "detail_path": "/api/bus_routes/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "bus_routes",
+    "table": "bus_routes",
+    "api_route": "/api/bus_routes",
+    "topic_key": "bus_routes",
+    "display_name": "bus routes",
+    "synonyms": [
+      "bus routes"
+    ],
+    "description": "Records from the 'bus_routes' table."
+  },
+  {
+    "topic": "bus_stop_times",
+    "collection": "bus_stop_times",
+    "view_name": "bus_stop_times",
+    "path": "/api/bus_stop_times",
+    "detail_path": "/api/bus_stop_times/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "bus_stop_times",
+    "table": "bus_stop_times",
+    "api_route": "/api/bus_stop_times",
+    "topic_key": "bus_stop_times",
+    "display_name": "bus stop times",
+    "synonyms": [
+      "bus stop times"
+    ],
+    "description": "Records from the 'bus_stop_times' table."
+  },
+  {
+    "topic": "bus_stops",
+    "collection": "bus_stops",
+    "view_name": "bus_stops",
+    "path": "/api/bus_stops",
+    "detail_path": "/api/bus_stops/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "bus_stops",
+    "table": "bus_stops",
+    "api_route": "/api/bus_stops",
+    "topic_key": "bus_stops",
+    "display_name": "bus stops",
+    "synonyms": [
+      "bus stops"
+    ],
+    "description": "Records from the 'bus_stops' table."
+  },
+  {
+    "topic": "calendar_days",
+    "collection": "calendar_days",
+    "view_name": "calendar_days",
+    "path": "/api/calendar_days",
+    "detail_path": "/api/calendar_days/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "calendar_days",
+    "table": "calendar_days",
+    "api_route": "/api/calendar_days",
+    "topic_key": "calendar_days",
+    "display_name": "calendar days",
+    "synonyms": [
+      "calendar days"
+    ],
+    "description": "Records from the 'calendar_days' table."
+  },
+  {
+    "topic": "calendars",
+    "collection": "calendars",
+    "view_name": "calendars",
+    "path": "/api/calendars",
+    "detail_path": "/api/calendars/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "calendars",
+    "table": "calendars",
+    "api_route": "/api/calendars",
+    "topic_key": "calendars",
+    "display_name": "calendars",
+    "synonyms": [
+      "calendars"
+    ],
+    "description": "Records from the 'calendars' table."
+  },
+  {
+    "topic": "camp_registrations",
+    "collection": "camp_registrations",
+    "view_name": "camp_registrations",
+    "path": "/api/camp_registrations",
+    "detail_path": "/api/camp_registrations/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "camp_registrations",
+    "table": "camp_registrations",
+    "api_route": "/api/camp_registrations",
+    "topic_key": "camp_registrations",
+    "display_name": "camp registrations",
+    "synonyms": [
+      "camp registrations"
+    ],
+    "description": "Records from the 'camp_registrations' table."
+  },
+  {
+    "topic": "camps",
+    "collection": "camps",
+    "view_name": "camps",
+    "path": "/api/camps",
+    "detail_path": "/api/camps/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "camps",
+    "table": "camps",
+    "api_route": "/api/camps",
+    "topic_key": "camps",
+    "display_name": "camps",
+    "synonyms": [
+      "camps"
+    ],
+    "description": "Records from the 'camps' table."
+  },
+  {
+    "topic": "channels",
+    "collection": "channels",
+    "view_name": "channels",
+    "path": "/api/channels",
+    "detail_path": "/api/channels/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "channels",
+    "table": "channels",
+    "api_route": "/api/channels",
+    "topic_key": "channels",
+    "display_name": "channels",
+    "synonyms": [
+      "channels"
+    ],
+    "description": "Records from the 'channels' table."
+  },
+  {
+    "topic": "class_ranks",
+    "collection": "class_ranks",
+    "view_name": "class_ranks",
+    "path": "/api/class_ranks",
+    "detail_path": "/api/class_ranks/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "class_ranks",
+    "table": "class_ranks",
+    "api_route": "/api/class_ranks",
+    "topic_key": "class_ranks",
+    "display_name": "class ranks",
+    "synonyms": [
+      "class ranks"
+    ],
+    "description": "Records from the 'class_ranks' table."
+  },
+  {
+    "topic": "comm_search_index",
+    "collection": "comm_search_index",
+    "view_name": "comm_search_index",
+    "path": "/api/comm_search_index",
+    "detail_path": "/api/comm_search_index/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "comm_search_index",
+    "table": "comm_search_index",
+    "api_route": "/api/comm_search_index",
+    "topic_key": "comm_search_index",
+    "display_name": "comm search index",
+    "synonyms": [
+      "comm search index"
+    ],
+    "description": "Records from the 'comm_search_index' table."
+  },
+  {
+    "topic": "committees",
+    "collection": "committees",
+    "view_name": "committees",
+    "path": "/api/committees",
+    "detail_path": "/api/committees/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "committees",
+    "table": "committees",
+    "api_route": "/api/committees",
+    "topic_key": "committees",
+    "display_name": "committees",
+    "synonyms": [
+      "committees"
+    ],
+    "description": "Records from the 'committees' table."
+  },
+  {
+    "topic": "compliance_records",
+    "collection": "compliance_records",
+    "view_name": "compliance_records",
+    "path": "/api/compliance_records",
+    "detail_path": "/api/compliance_records/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "compliance_records",
+    "table": "compliance_records",
+    "api_route": "/api/compliance_records",
+    "topic_key": "compliance_records",
+    "display_name": "compliance records",
+    "synonyms": [
+      "compliance records"
+    ],
+    "description": "Records from the 'compliance_records' table."
+  },
+  {
+    "topic": "concession_items",
+    "collection": "concession_items",
+    "view_name": "concession_items",
+    "path": "/api/concession_items",
+    "detail_path": "/api/concession_items/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "concession_items",
+    "table": "concession_items",
+    "api_route": "/api/concession_items",
+    "topic_key": "concession_items",
+    "display_name": "concession items",
+    "synonyms": [
+      "concession items"
+    ],
+    "description": "Records from the 'concession_items' table."
+  },
+  {
+    "topic": "concession_sale_items",
+    "collection": "concession_sale_items",
+    "view_name": "concession_sale_items",
+    "path": "/api/concession_sale_items",
+    "detail_path": "/api/concession_sale_items/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "concession_sale_items",
+    "table": "concession_sale_items",
+    "api_route": "/api/concession_sale_items",
+    "topic_key": "concession_sale_items",
+    "display_name": "concession sale items",
+    "synonyms": [
+      "concession sale items"
+    ],
+    "description": "Records from the 'concession_sale_items' table."
+  },
+  {
+    "topic": "concession_sales",
+    "collection": "concession_sales",
+    "view_name": "concession_sales",
+    "path": "/api/concession_sales",
+    "detail_path": "/api/concession_sales/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "concession_sales",
+    "table": "concession_sales",
+    "api_route": "/api/concession_sales",
+    "topic_key": "concession_sales",
+    "display_name": "concession sales",
+    "synonyms": [
+      "concession sales"
+    ],
+    "description": "Records from the 'concession_sales' table."
+  },
+  {
+    "topic": "concession_stands",
+    "collection": "concession_stands",
+    "view_name": "concession_stands",
+    "path": "/api/concession_stands",
+    "detail_path": "/api/concession_stands/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "concession_stands",
+    "table": "concession_stands",
+    "api_route": "/api/concession_stands",
+    "topic_key": "concession_stands",
+    "display_name": "concession stands",
+    "synonyms": [
+      "concession stands"
+    ],
+    "description": "Records from the 'concession_stands' table."
+  },
+  {
+    "topic": "consents",
+    "collection": "consents",
+    "view_name": "consents",
+    "path": "/api/consents",
+    "detail_path": "/api/consents/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "consents",
+    "table": "consents",
+    "api_route": "/api/consents",
+    "topic_key": "consents",
+    "display_name": "consents",
+    "synonyms": [
+      "consents"
+    ],
+    "description": "Records from the 'consents' table."
+  },
+  {
+    "topic": "consequence_types",
+    "collection": "consequence_types",
+    "view_name": "consequence_types",
+    "path": "/api/consequence_types",
+    "detail_path": "/api/consequence_types/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "consequence_types",
+    "table": "consequence_types",
+    "api_route": "/api/consequence_types",
+    "topic_key": "consequence_types",
+    "display_name": "consequence types",
+    "synonyms": [
+      "consequence types"
+    ],
+    "description": "Records from the 'consequence_types' table."
+  },
+  {
+    "topic": "consequences",
+    "collection": "consequences",
+    "view_name": "consequences",
+    "path": "/api/consequences",
+    "detail_path": "/api/consequences/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "consequences",
+    "table": "consequences",
+    "api_route": "/api/consequences",
+    "topic_key": "consequences",
+    "display_name": "consequences",
+    "synonyms": [
+      "consequences"
+    ],
+    "description": "Records from the 'consequences' table."
+  },
+  {
+    "topic": "consolidated_out",
+    "collection": "consolidated_out",
+    "view_name": "consolidated_out",
+    "path": "/api/consolidated_out",
+    "detail_path": "/api/consolidated_out/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "consolidated_out",
+    "table": "consolidated_out",
+    "api_route": "/api/consolidated_out",
+    "topic_key": "consolidated_out",
+    "display_name": "consolidated out",
+    "synonyms": [
+      "consolidated out"
+    ],
+    "description": "Records from the 'consolidated_out' table."
+  },
+  {
+    "topic": "contacts",
+    "collection": "contacts",
+    "view_name": "contacts",
+    "path": "/api/contacts",
+    "detail_path": "/api/contacts/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "contacts",
+    "table": "contacts",
+    "api_route": "/api/contacts",
+    "topic_key": "contacts",
+    "display_name": "contacts",
+    "synonyms": [
+      "contacts"
+    ],
+    "description": "Records from the 'contacts' table."
+  },
+  {
+    "topic": "course_prerequisites",
+    "collection": "course_prerequisites",
+    "view_name": "course_prerequisites",
+    "path": "/api/course_prerequisites",
+    "detail_path": "/api/course_prerequisites/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "course_prerequisites",
+    "table": "course_prerequisites",
+    "api_route": "/api/course_prerequisites",
+    "topic_key": "course_prerequisites",
+    "display_name": "course prerequisites",
+    "synonyms": [
+      "course prerequisites"
+    ],
+    "description": "Records from the 'course_prerequisites' table."
+  },
+  {
+    "topic": "course_sections",
+    "collection": "course_sections",
+    "view_name": "course_sections",
+    "path": "/api/course_sections",
+    "detail_path": "/api/course_sections/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "course_sections",
+    "table": "course_sections",
+    "api_route": "/api/course_sections",
+    "topic_key": "course_sections",
+    "display_name": "course sections",
+    "synonyms": [
+      "course sections"
+    ],
+    "description": "Records from the 'course_sections' table."
+  },
+  {
+    "topic": "course_students",
+    "collection": "course_students",
+    "view_name": "course_students",
+    "path": "/api/course_students",
+    "detail_path": "/api/course_students/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "course_students",
+    "table": "course_students",
+    "api_route": "/api/course_students",
+    "topic_key": "course_students",
+    "display_name": "course students",
+    "synonyms": [
+      "course students"
+    ],
+    "description": "Records from the 'course_students' table."
+  },
+  {
+    "topic": "course_teachers",
+    "collection": "course_teachers",
+    "view_name": "course_teachers",
+    "path": "/api/course_teachers",
+    "detail_path": "/api/course_teachers/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "course_teachers",
+    "table": "course_teachers",
+    "api_route": "/api/course_teachers",
+    "topic_key": "course_teachers",
+    "display_name": "course teachers",
+    "synonyms": [
+      "course teachers"
+    ],
+    "description": "Records from the 'course_teachers' table."
+  },
+  {
+    "topic": "courses",
+    "collection": "courses",
+    "view_name": "courses",
+    "path": "/api/courses",
+    "detail_path": "/api/courses/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "courses",
+    "table": "courses",
+    "api_route": "/api/courses",
+    "topic_key": "courses",
+    "display_name": "courses",
+    "synonyms": [
+      "courses"
+    ],
+    "description": "Records from the 'courses' table."
+  },
+  {
+    "topic": "coursework",
+    "collection": "coursework",
+    "view_name": "coursework",
+    "path": "/api/coursework",
+    "detail_path": "/api/coursework/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "coursework",
+    "table": "coursework",
+    "api_route": "/api/coursework",
+    "topic_key": "coursework",
+    "display_name": "coursework",
+    "synonyms": [
+      "coursework"
+    ],
+    "description": "Records from the 'coursework' table."
+  },
+  {
+    "topic": "curricula",
+    "collection": "curricula",
+    "view_name": "curricula",
+    "path": "/api/curricula",
+    "detail_path": "/api/curricula/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "curricula",
+    "table": "curricula",
+    "api_route": "/api/curricula",
+    "topic_key": "curricula",
+    "display_name": "curricula",
+    "synonyms": [
+      "curricula"
+    ],
+    "description": "Records from the 'curricula' table."
+  },
+  {
+    "topic": "curriculum_units",
+    "collection": "curriculum_units",
+    "view_name": "curriculum_units",
+    "path": "/api/curriculum_units",
+    "detail_path": "/api/curriculum_units/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "curriculum_units",
+    "table": "curriculum_units",
+    "api_route": "/api/curriculum_units",
+    "topic_key": "curriculum_units",
+    "display_name": "curriculum units",
+    "synonyms": [
+      "curriculum units"
+    ],
+    "description": "Records from the 'curriculum_units' table."
+  },
+  {
+    "topic": "curriculum_versions",
+    "collection": "curriculum_versions",
+    "view_name": "curriculum_versions",
+    "path": "/api/curriculum_versions",
+    "detail_path": "/api/curriculum_versions/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "curriculum_versions",
+    "table": "curriculum_versions",
+    "api_route": "/api/curriculum_versions",
+    "topic_key": "curriculum_versions",
+    "display_name": "curriculum versions",
+    "synonyms": [
+      "curriculum versions"
+    ],
+    "description": "Records from the 'curriculum_versions' table."
+  },
+  {
+    "topic": "data_quality_issues",
+    "collection": "data_quality_issues",
+    "view_name": "data_quality_issues",
+    "path": "/api/data_quality_issues",
+    "detail_path": "/api/data_quality_issues/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "data_quality_issues",
+    "table": "data_quality_issues",
+    "api_route": "/api/data_quality_issues",
+    "topic_key": "data_quality_issues",
+    "display_name": "data quality issues",
+    "synonyms": [
+      "data quality issues"
+    ],
+    "description": "Records from the 'data_quality_issues' table."
+  },
+  {
+    "topic": "data_sharing_agreements",
+    "collection": "data_sharing_agreements",
+    "view_name": "data_sharing_agreements",
+    "path": "/api/data_sharing_agreements",
+    "detail_path": "/api/data_sharing_agreements/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "data_sharing_agreements",
+    "table": "data_sharing_agreements",
+    "api_route": "/api/data_sharing_agreements",
+    "topic_key": "data_sharing_agreements",
+    "display_name": "data sharing agreements",
+    "synonyms": [
+      "data sharing agreements"
+    ],
+    "description": "Records from the 'data_sharing_agreements' table."
+  },
+  {
+    "topic": "deduction_codes",
+    "collection": "deduction_codes",
+    "view_name": "deduction_codes",
+    "path": "/api/deduction_codes",
+    "detail_path": "/api/deduction_codes/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "deduction_codes",
+    "table": "deduction_codes",
+    "api_route": "/api/deduction_codes",
+    "topic_key": "deduction_codes",
+    "display_name": "deduction codes",
+    "synonyms": [
+      "deduction codes"
+    ],
+    "description": "Records from the 'deduction_codes' table."
+  },
+  {
+    "topic": "deliveries",
+    "collection": "deliveries",
+    "view_name": "deliveries",
+    "path": "/api/deliveries",
+    "detail_path": "/api/deliveries/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "deliveries",
+    "table": "deliveries",
+    "api_route": "/api/deliveries",
+    "topic_key": "deliveries",
+    "display_name": "deliveries",
+    "synonyms": [
+      "deliveries"
+    ],
+    "description": "Records from the 'deliveries' table."
+  },
+  {
+    "topic": "department_position_index",
+    "collection": "department_position_index",
+    "view_name": "department_position_index",
+    "path": "/api/department_position_index",
+    "detail_path": "/api/department_position_index/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "department_position_index",
+    "table": "department_position_index",
+    "api_route": "/api/department_position_index",
+    "topic_key": "department_position_index",
+    "display_name": "department position index",
+    "synonyms": [
+      "department position index"
+    ],
+    "description": "Records from the 'department_position_index' table."
+  },
+  {
+    "topic": "departments",
+    "collection": "departments",
+    "view_name": "departments",
+    "path": "/api/departments",
+    "detail_path": "/api/departments/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "departments",
+    "table": "departments",
+    "api_route": "/api/departments",
+    "topic_key": "departments",
+    "display_name": "departments",
+    "synonyms": [
+      "departments"
+    ],
+    "description": "Records from the 'departments' table."
+  },
+  {
+    "topic": "document_activity",
+    "collection": "document_activity",
+    "view_name": "document_activity",
+    "path": "/api/document_activity",
+    "detail_path": "/api/document_activity/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "document_activity",
+    "table": "document_activity",
+    "api_route": "/api/document_activity",
+    "topic_key": "document_activity",
+    "display_name": "document activity",
+    "synonyms": [
+      "document activity"
+    ],
+    "description": "Records from the 'document_activity' table."
+  },
+  {
+    "topic": "document_links",
+    "collection": "document_links",
+    "view_name": "document_links",
+    "path": "/api/document_links",
+    "detail_path": "/api/document_links/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "document_links",
+    "table": "document_links",
+    "api_route": "/api/document_links",
+    "topic_key": "document_links",
+    "display_name": "document links",
+    "synonyms": [
+      "document links"
+    ],
+    "description": "Records from the 'document_links' table."
+  },
+  {
+    "topic": "document_notifications",
+    "collection": "document_notifications",
+    "view_name": "document_notifications",
+    "path": "/api/document_notifications",
+    "detail_path": "/api/document_notifications/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "document_notifications",
+    "table": "document_notifications",
+    "api_route": "/api/document_notifications",
+    "topic_key": "document_notifications",
+    "display_name": "document notifications",
+    "synonyms": [
+      "document notifications"
+    ],
+    "description": "Records from the 'document_notifications' table."
+  },
+  {
+    "topic": "document_permissions",
+    "collection": "document_permissions",
+    "view_name": "document_permissions",
+    "path": "/api/document_permissions",
+    "detail_path": "/api/document_permissions/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "document_permissions",
+    "table": "document_permissions",
+    "api_route": "/api/document_permissions",
+    "topic_key": "document_permissions",
+    "display_name": "document permissions",
+    "synonyms": [
+      "document permissions"
+    ],
+    "description": "Records from the 'document_permissions' table."
+  },
+  {
+    "topic": "document_search_index",
+    "collection": "document_search_index",
+    "view_name": "document_search_index",
+    "path": "/api/document_search_index",
+    "detail_path": "/api/document_search_index/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "document_search_index",
+    "table": "document_search_index",
+    "api_route": "/api/document_search_index",
+    "topic_key": "document_search_index",
+    "display_name": "document search index",
+    "synonyms": [
+      "document search index"
+    ],
+    "description": "Records from the 'document_search_index' table."
+  },
+  {
+    "topic": "document_versions",
+    "collection": "document_versions",
+    "view_name": "document_versions",
+    "path": "/api/document_versions",
+    "detail_path": "/api/document_versions/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "document_versions",
+    "table": "document_versions",
+    "api_route": "/api/document_versions",
+    "topic_key": "document_versions",
+    "display_name": "document versions",
+    "synonyms": [
+      "document versions"
+    ],
+    "description": "Records from the 'document_versions' table."
+  },
+  {
+    "topic": "documents",
+    "collection": "documents",
+    "view_name": "documents",
+    "path": "/api/documents",
+    "detail_path": "/api/documents/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "documents",
+    "table": "documents",
+    "api_route": "/api/documents",
+    "topic_key": "documents",
+    "display_name": "documents",
+    "synonyms": [
+      "documents"
+    ],
+    "description": "Records from the 'documents' table."
+  },
+  {
+    "topic": "donations",
+    "collection": "donations",
+    "view_name": "donations",
+    "path": "/api/donations",
+    "detail_path": "/api/donations/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "donations",
+    "table": "donations",
+    "api_route": "/api/donations",
+    "topic_key": "donations",
+    "display_name": "donations",
+    "synonyms": [
+      "donations"
+    ],
+    "description": "Records from the 'donations' table."
+  },
+  {
+    "topic": "earning_codes",
+    "collection": "earning_codes",
+    "view_name": "earning_codes",
+    "path": "/api/earning_codes",
+    "detail_path": "/api/earning_codes/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "earning_codes",
+    "table": "earning_codes",
+    "api_route": "/api/earning_codes",
+    "topic_key": "earning_codes",
+    "display_name": "earning codes",
+    "synonyms": [
+      "earning codes"
+    ],
+    "description": "Records from the 'earning_codes' table."
+  },
+  {
+    "topic": "education_associations",
+    "collection": "education_associations",
+    "view_name": "education_associations",
+    "path": "/api/education_associations",
+    "detail_path": "/api/education_associations/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "education_associations",
+    "table": "education_associations",
+    "api_route": "/api/education_associations",
+    "topic_key": "education_associations",
+    "display_name": "education associations",
+    "synonyms": [
+      "education associations"
+    ],
+    "description": "Records from the 'education_associations' table."
+  },
+  {
+    "topic": "ell_plans",
+    "collection": "ell_plans",
+    "view_name": "ell_plans",
+    "path": "/api/ell_plans",
+    "detail_path": "/api/ell_plans/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "ell_plans",
+    "table": "ell_plans",
+    "api_route": "/api/ell_plans",
+    "topic_key": "ell_plans",
+    "display_name": "ell plans",
+    "synonyms": [
+      "ell plans"
+    ],
+    "description": "Records from the 'ell_plans' table."
+  },
+  {
+    "topic": "embeds",
+    "collection": "embeds",
+    "view_name": "embeds",
+    "path": "/api/embeds",
+    "detail_path": "/api/embeds/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "embeds",
+    "table": "embeds",
+    "api_route": "/api/embeds",
+    "topic_key": "embeds",
+    "display_name": "embeds",
+    "synonyms": [
+      "embeds"
+    ],
+    "description": "Records from the 'embeds' table."
+  },
+  {
+    "topic": "emergency_contacts",
+    "collection": "emergency_contacts",
+    "view_name": "emergency_contacts",
+    "path": "/api/emergency_contacts",
+    "detail_path": "/api/emergency_contacts/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "emergency_contacts",
+    "table": "emergency_contacts",
+    "api_route": "/api/emergency_contacts",
+    "topic_key": "emergency_contacts",
+    "display_name": "emergency contacts",
+    "synonyms": [
+      "emergency contacts"
+    ],
+    "description": "Records from the 'emergency_contacts' table."
+  },
+  {
+    "topic": "employee_deductions",
+    "collection": "employee_deductions",
+    "view_name": "employee_deductions",
+    "path": "/api/employee_deductions",
+    "detail_path": "/api/employee_deductions/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "employee_deductions",
+    "table": "employee_deductions",
+    "api_route": "/api/employee_deductions",
+    "topic_key": "employee_deductions",
+    "display_name": "employee deductions",
+    "synonyms": [
+      "employee deductions"
+    ],
+    "description": "Records from the 'employee_deductions' table."
+  },
+  {
+    "topic": "employee_earnings",
+    "collection": "employee_earnings",
+    "view_name": "employee_earnings",
+    "path": "/api/employee_earnings",
+    "detail_path": "/api/employee_earnings/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "employee_earnings",
+    "table": "employee_earnings",
+    "api_route": "/api/employee_earnings",
+    "topic_key": "employee_earnings",
+    "display_name": "employee earnings",
+    "synonyms": [
+      "employee earnings"
+    ],
+    "description": "Records from the 'employee_earnings' table."
+  },
+  {
+    "topic": "entity_tags",
+    "collection": "entity_tags",
+    "view_name": "entity_tags",
+    "path": "/api/entity_tags",
+    "detail_path": "/api/entity_tags/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "entity_tags",
+    "table": "entity_tags",
+    "api_route": "/api/entity_tags",
+    "topic_key": "entity_tags",
+    "display_name": "entity tags",
+    "synonyms": [
+      "entity tags"
+    ],
+    "description": "Records from the 'entity_tags' table."
+  },
+  {
+    "topic": "evaluation_assignments",
+    "collection": "evaluation_assignments",
+    "view_name": "evaluation_assignments",
+    "path": "/api/evaluation_assignments",
+    "detail_path": "/api/evaluation_assignments/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "evaluation_assignments",
+    "table": "evaluation_assignments",
+    "api_route": "/api/evaluation_assignments",
+    "topic_key": "evaluation_assignments",
+    "display_name": "evaluation assignments",
+    "synonyms": [
+      "evaluation assignments"
+    ],
+    "description": "Records from the 'evaluation_assignments' table."
+  },
+  {
+    "topic": "evaluation_cycles",
+    "collection": "evaluation_cycles",
+    "view_name": "evaluation_cycles",
+    "path": "/api/evaluation_cycles",
+    "detail_path": "/api/evaluation_cycles/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "evaluation_cycles",
+    "table": "evaluation_cycles",
+    "api_route": "/api/evaluation_cycles",
+    "topic_key": "evaluation_cycles",
+    "display_name": "evaluation cycles",
+    "synonyms": [
+      "evaluation cycles"
+    ],
+    "description": "Records from the 'evaluation_cycles' table."
+  },
+  {
+    "topic": "evaluation_files",
+    "collection": "evaluation_files",
+    "view_name": "evaluation_files",
+    "path": "/api/evaluation_files",
+    "detail_path": "/api/evaluation_files/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "evaluation_files",
+    "table": "evaluation_files",
+    "api_route": "/api/evaluation_files",
+    "topic_key": "evaluation_files",
+    "display_name": "evaluation files",
+    "synonyms": [
+      "evaluation files"
+    ],
+    "description": "Records from the 'evaluation_files' table."
+  },
+  {
+    "topic": "evaluation_questions",
+    "collection": "evaluation_questions",
+    "view_name": "evaluation_questions",
+    "path": "/api/evaluation_questions",
+    "detail_path": "/api/evaluation_questions/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "evaluation_questions",
+    "table": "evaluation_questions",
+    "api_route": "/api/evaluation_questions",
+    "topic_key": "evaluation_questions",
+    "display_name": "evaluation questions",
+    "synonyms": [
+      "evaluation questions"
+    ],
+    "description": "Records from the 'evaluation_questions' table."
+  },
+  {
+    "topic": "evaluation_reports",
+    "collection": "evaluation_reports",
+    "view_name": "evaluation_reports",
+    "path": "/api/evaluation_reports",
+    "detail_path": "/api/evaluation_reports/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "evaluation_reports",
+    "table": "evaluation_reports",
+    "api_route": "/api/evaluation_reports",
+    "topic_key": "evaluation_reports",
+    "display_name": "evaluation reports",
+    "synonyms": [
+      "evaluation reports"
+    ],
+    "description": "Records from the 'evaluation_reports' table."
+  },
+  {
+    "topic": "evaluation_responses",
+    "collection": "evaluation_responses",
+    "view_name": "evaluation_responses",
+    "path": "/api/evaluation_responses",
+    "detail_path": "/api/evaluation_responses/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "evaluation_responses",
+    "table": "evaluation_responses",
+    "api_route": "/api/evaluation_responses",
+    "topic_key": "evaluation_responses",
+    "display_name": "evaluation responses",
+    "synonyms": [
+      "evaluation responses"
+    ],
+    "description": "Records from the 'evaluation_responses' table."
+  },
+  {
+    "topic": "evaluation_sections",
+    "collection": "evaluation_sections",
+    "view_name": "evaluation_sections",
+    "path": "/api/evaluation_sections",
+    "detail_path": "/api/evaluation_sections/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "evaluation_sections",
+    "table": "evaluation_sections",
+    "api_route": "/api/evaluation_sections",
+    "topic_key": "evaluation_sections",
+    "display_name": "evaluation sections",
+    "synonyms": [
+      "evaluation sections"
+    ],
+    "description": "Records from the 'evaluation_sections' table."
+  },
+  {
+    "topic": "evaluation_signoffs",
+    "collection": "evaluation_signoffs",
+    "view_name": "evaluation_signoffs",
+    "path": "/api/evaluation_signoffs",
+    "detail_path": "/api/evaluation_signoffs/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "evaluation_signoffs",
+    "table": "evaluation_signoffs",
+    "api_route": "/api/evaluation_signoffs",
+    "topic_key": "evaluation_signoffs",
+    "display_name": "evaluation signoffs",
+    "synonyms": [
+      "evaluation signoffs"
+    ],
+    "description": "Records from the 'evaluation_signoffs' table."
+  },
+  {
+    "topic": "evaluation_templates",
+    "collection": "evaluation_templates",
+    "view_name": "evaluation_templates",
+    "path": "/api/evaluation_templates",
+    "detail_path": "/api/evaluation_templates/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "evaluation_templates",
+    "table": "evaluation_templates",
+    "api_route": "/api/evaluation_templates",
+    "topic_key": "evaluation_templates",
+    "display_name": "evaluation templates",
+    "synonyms": [
+      "evaluation templates"
+    ],
+    "description": "Records from the 'evaluation_templates' table."
+  },
+  {
+    "topic": "events",
+    "collection": "events",
+    "view_name": "events",
+    "path": "/api/events",
+    "detail_path": "/api/events/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "events",
+    "table": "events",
+    "api_route": "/api/events",
+    "topic_key": "events",
+    "display_name": "events",
+    "synonyms": [
+      "events"
+    ],
+    "description": "Records from the 'events' table."
+  },
+  {
+    "topic": "export_runs",
+    "collection": "export_runs",
+    "view_name": "export_runs",
+    "path": "/api/export_runs",
+    "detail_path": "/api/export_runs/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "export_runs",
+    "table": "export_runs",
+    "api_route": "/api/export_runs",
+    "topic_key": "export_runs",
+    "display_name": "export runs",
+    "synonyms": [
+      "export runs"
+    ],
+    "description": "Records from the 'export_runs' table."
+  },
+  {
+    "topic": "external_ids",
+    "collection": "external_ids",
+    "view_name": "external_ids",
+    "path": "/api/external_ids",
+    "detail_path": "/api/external_ids/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "external_ids",
+    "table": "external_ids",
+    "api_route": "/api/external_ids",
+    "topic_key": "external_ids",
+    "display_name": "external ids",
+    "synonyms": [
+      "external ids"
+    ],
+    "description": "Records from the 'external_ids' table."
+  },
+  {
+    "topic": "facilities",
+    "collection": "facilities",
+    "view_name": "facilities",
+    "path": "/api/facilities",
+    "detail_path": "/api/facilities/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "facilities",
+    "table": "facilities",
+    "api_route": "/api/facilities",
+    "topic_key": "facilities",
+    "display_name": "facilities",
+    "synonyms": [
+      "facilities"
+    ],
+    "description": "Records from the 'facilities' table."
+  },
+  {
+    "topic": "family_portal_access",
+    "collection": "family_portal_access",
+    "view_name": "family_portal_access",
+    "path": "/api/family_portal_access",
+    "detail_path": "/api/family_portal_access/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "family_portal_access",
+    "table": "family_portal_access",
+    "api_route": "/api/family_portal_access",
+    "topic_key": "family_portal_access",
+    "display_name": "family portal access",
+    "synonyms": [
+      "family portal access"
+    ],
+    "description": "Records from the 'family_portal_access' table."
+  },
+  {
+    "topic": "fan_app_settings",
+    "collection": "fan_app_settings",
+    "view_name": "fan_app_settings",
+    "path": "/api/fan_app_settings",
+    "detail_path": "/api/fan_app_settings/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "fan_app_settings",
+    "table": "fan_app_settings",
+    "api_route": "/api/fan_app_settings",
+    "topic_key": "fan_app_settings",
+    "display_name": "fan app settings",
+    "synonyms": [
+      "fan app settings"
+    ],
+    "description": "Records from the 'fan_app_settings' table."
+  },
+  {
+    "topic": "fan_pages",
+    "collection": "fan_pages",
+    "view_name": "fan_pages",
+    "path": "/api/fan_pages",
+    "detail_path": "/api/fan_pages/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "fan_pages",
+    "table": "fan_pages",
+    "api_route": "/api/fan_pages",
+    "topic_key": "fan_pages",
+    "display_name": "fan pages",
+    "synonyms": [
+      "fan pages"
+    ],
+    "description": "Records from the 'fan_pages' table."
+  },
+  {
+    "topic": "feature_flags",
+    "collection": "feature_flags",
+    "view_name": "feature_flags",
+    "path": "/api/feature_flags",
+    "detail_path": "/api/feature_flags/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "feature_flags",
+    "table": "feature_flags",
+    "api_route": "/api/feature_flags",
+    "topic_key": "feature_flags",
+    "display_name": "feature flags",
+    "synonyms": [
+      "feature flags"
+    ],
+    "description": "Records from the 'feature_flags' table."
+  },
+  {
+    "topic": "fees",
+    "collection": "fees",
+    "view_name": "fees",
+    "path": "/api/fees",
+    "detail_path": "/api/fees/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "fees",
+    "table": "fees",
+    "api_route": "/api/fees",
+    "topic_key": "fees",
+    "display_name": "fees",
+    "synonyms": [
+      "fees"
+    ],
+    "description": "Records from the 'fees' table."
+  },
+  {
+    "topic": "files",
+    "collection": "files",
+    "view_name": "files",
+    "path": "/api/files",
+    "detail_path": "/api/files/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "files",
+    "table": "files",
+    "api_route": "/api/files",
+    "topic_key": "files",
+    "display_name": "files",
+    "synonyms": [
+      "files"
+    ],
+    "description": "Records from the 'files' table."
+  },
+  {
+    "topic": "final_grades",
+    "collection": "final_grades",
+    "view_name": "final_grades",
+    "path": "/api/final_grades",
+    "detail_path": "/api/final_grades/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "final_grades",
+    "table": "final_grades",
+    "api_route": "/api/final_grades",
+    "topic_key": "final_grades",
+    "display_name": "final grades",
+    "synonyms": [
+      "final grades"
+    ],
+    "description": "Records from the 'final_grades' table."
+  },
+  {
+    "topic": "fiscal_periods",
+    "collection": "fiscal_periods",
+    "view_name": "fiscal_periods",
+    "path": "/api/fiscal_periods",
+    "detail_path": "/api/fiscal_periods/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "fiscal_periods",
+    "table": "fiscal_periods",
+    "api_route": "/api/fiscal_periods",
+    "topic_key": "fiscal_periods",
+    "display_name": "fiscal periods",
+    "synonyms": [
+      "fiscal periods"
+    ],
+    "description": "Records from the 'fiscal_periods' table."
+  },
+  {
+    "topic": "fiscal_years",
+    "collection": "fiscal_years",
+    "view_name": "fiscal_years",
+    "path": "/api/fiscal_years",
+    "detail_path": "/api/fiscal_years/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "fiscal_years",
+    "table": "fiscal_years",
+    "api_route": "/api/fiscal_years",
+    "topic_key": "fiscal_years",
+    "display_name": "fiscal years",
+    "synonyms": [
+      "fiscal years"
+    ],
+    "description": "Records from the 'fiscal_years' table."
+  },
+  {
+    "topic": "floors",
+    "collection": "floors",
+    "view_name": "floors",
+    "path": "/api/floors",
+    "detail_path": "/api/floors/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "floors",
+    "table": "floors",
+    "api_route": "/api/floors",
+    "topic_key": "floors",
+    "display_name": "floors",
+    "synonyms": [
+      "floors"
+    ],
+    "description": "Records from the 'floors' table."
+  },
+  {
+    "topic": "folders",
+    "collection": "folders",
+    "view_name": "folders",
+    "path": "/api/folders",
+    "detail_path": "/api/folders/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "folders",
+    "table": "folders",
+    "api_route": "/api/folders",
+    "topic_key": "folders",
+    "display_name": "folders",
+    "synonyms": [
+      "folders"
+    ],
+    "description": "Records from the 'folders' table."
+  },
+  {
+    "topic": "frameworks",
+    "collection": "frameworks",
+    "view_name": "frameworks",
+    "path": "/api/frameworks",
+    "detail_path": "/api/frameworks/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "frameworks",
+    "table": "frameworks",
+    "api_route": "/api/frameworks",
+    "topic_key": "frameworks",
+    "display_name": "frameworks",
+    "synonyms": [
+      "frameworks"
+    ],
+    "description": "Records from the 'frameworks' table."
+  },
+  {
+    "topic": "fundraising_campaigns",
+    "collection": "fundraising_campaigns",
+    "view_name": "fundraising_campaigns",
+    "path": "/api/fundraising_campaigns",
+    "detail_path": "/api/fundraising_campaigns/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "fundraising_campaigns",
+    "table": "fundraising_campaigns",
+    "api_route": "/api/fundraising_campaigns",
+    "topic_key": "fundraising_campaigns",
+    "display_name": "fundraising campaigns",
+    "synonyms": [
+      "fundraising campaigns"
+    ],
+    "description": "Records from the 'fundraising_campaigns' table."
+  },
+  {
+    "topic": "game_official_contracts",
+    "collection": "game_official_contracts",
+    "view_name": "game_official_contracts",
+    "path": "/api/game_official_contracts",
+    "detail_path": "/api/game_official_contracts/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "game_official_contracts",
+    "table": "game_official_contracts",
+    "api_route": "/api/game_official_contracts",
+    "topic_key": "game_official_contracts",
+    "display_name": "game official contracts",
+    "synonyms": [
+      "game official contracts"
+    ],
+    "description": "Records from the 'game_official_contracts' table."
+  },
+  {
+    "topic": "game_programs",
+    "collection": "game_programs",
+    "view_name": "game_programs",
+    "path": "/api/game_programs",
+    "detail_path": "/api/game_programs/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "game_programs",
+    "table": "game_programs",
+    "api_route": "/api/game_programs",
+    "topic_key": "game_programs",
+    "display_name": "game programs",
+    "synonyms": [
+      "game programs"
+    ],
+    "description": "Records from the 'game_programs' table."
+  },
+  {
+    "topic": "game_reports",
+    "collection": "game_reports",
+    "view_name": "game_reports",
+    "path": "/api/game_reports",
+    "detail_path": "/api/game_reports/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "game_reports",
+    "table": "game_reports",
+    "api_route": "/api/game_reports",
+    "topic_key": "game_reports",
+    "display_name": "game reports",
+    "synonyms": [
+      "game reports"
+    ],
+    "description": "Records from the 'game_reports' table."
+  },
+  {
+    "topic": "games",
+    "collection": "games",
+    "view_name": "games",
+    "path": "/api/games",
+    "detail_path": "/api/games/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "games",
+    "table": "games",
+    "api_route": "/api/games",
+    "topic_key": "games",
+    "display_name": "games",
+    "synonyms": [
+      "games"
+    ],
+    "description": "Records from the 'games' table."
+  },
+  {
+    "topic": "gl_account_balances",
+    "collection": "gl_account_balances",
+    "view_name": "gl_account_balances",
+    "path": "/api/gl_account_balances",
+    "detail_path": "/api/gl_account_balances/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "gl_account_balances",
+    "table": "gl_account_balances",
+    "api_route": "/api/gl_account_balances",
+    "topic_key": "gl_account_balances",
+    "display_name": "gl account balances",
+    "synonyms": [
+      "gl account balances"
+    ],
+    "description": "Records from the 'gl_account_balances' table."
+  },
+  {
+    "topic": "gl_account_segments",
+    "collection": "gl_account_segments",
+    "view_name": "gl_account_segments",
+    "path": "/api/gl_account_segments",
+    "detail_path": "/api/gl_account_segments/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "gl_account_segments",
+    "table": "gl_account_segments",
+    "api_route": "/api/gl_account_segments",
+    "topic_key": "gl_account_segments",
+    "display_name": "gl account segments",
+    "synonyms": [
+      "gl account segments"
+    ],
+    "description": "Records from the 'gl_account_segments' table."
+  },
+  {
+    "topic": "gl_accounts",
+    "collection": "gl_accounts",
+    "view_name": "gl_accounts",
+    "path": "/api/gl_accounts",
+    "detail_path": "/api/gl_accounts/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "gl_accounts",
+    "table": "gl_accounts",
+    "api_route": "/api/gl_accounts",
+    "topic_key": "gl_accounts",
+    "display_name": "gl accounts",
+    "synonyms": [
+      "gl accounts"
+    ],
+    "description": "Records from the 'gl_accounts' table."
+  },
+  {
+    "topic": "gl_segment_values",
+    "collection": "gl_segment_values",
+    "view_name": "gl_segment_values",
+    "path": "/api/gl_segment_values",
+    "detail_path": "/api/gl_segment_values/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "gl_segment_values",
+    "table": "gl_segment_values",
+    "api_route": "/api/gl_segment_values",
+    "topic_key": "gl_segment_values",
+    "display_name": "gl segment values",
+    "synonyms": [
+      "gl segment values"
+    ],
+    "description": "Records from the 'gl_segment_values' table."
+  },
+  {
+    "topic": "gl_segments",
+    "collection": "gl_segments",
+    "view_name": "gl_segments",
+    "path": "/api/gl_segments",
+    "detail_path": "/api/gl_segments/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "gl_segments",
+    "table": "gl_segments",
+    "api_route": "/api/gl_segments",
+    "topic_key": "gl_segments",
+    "display_name": "gl segments",
+    "synonyms": [
+      "gl segments"
+    ],
+    "description": "Records from the 'gl_segments' table."
+  },
+  {
+    "topic": "goals",
+    "collection": "goals",
+    "view_name": "goals",
+    "path": "/api/goals",
+    "detail_path": "/api/goals/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "goals",
+    "table": "goals",
+    "api_route": "/api/goals",
+    "topic_key": "goals",
+    "display_name": "goals",
+    "synonyms": [
+      "goals"
+    ],
+    "description": "Records from the 'goals' table."
+  },
+  {
+    "topic": "governing_bodies",
+    "collection": "governing_bodies",
+    "view_name": "governing_bodies",
+    "path": "/api/governing_bodies",
+    "detail_path": "/api/governing_bodies/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "governing_bodies",
+    "table": "governing_bodies",
+    "api_route": "/api/governing_bodies",
+    "topic_key": "governing_bodies",
+    "display_name": "governing bodies",
+    "synonyms": [
+      "governing bodies"
+    ],
+    "description": "Records from the 'governing_bodies' table."
+  },
+  {
+    "topic": "gpa_calculations",
+    "collection": "gpa_calculations",
+    "view_name": "gpa_calculations",
+    "path": "/api/gpa_calculations",
+    "detail_path": "/api/gpa_calculations/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "gpa_calculations",
+    "table": "gpa_calculations",
+    "api_route": "/api/gpa_calculations",
+    "topic_key": "gpa_calculations",
+    "display_name": "gpa calculations",
+    "synonyms": [
+      "gpa calculations"
+    ],
+    "description": "Records from the 'gpa_calculations' table."
+  },
+  {
+    "topic": "grade_levels",
+    "collection": "grade_levels",
+    "view_name": "grade_levels",
+    "path": "/api/grade_levels",
+    "detail_path": "/api/grade_levels/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "grade_levels",
+    "table": "grade_levels",
+    "api_route": "/api/grade_levels",
+    "topic_key": "grade_levels",
+    "display_name": "grade levels",
+    "synonyms": [
+      "grade levels"
+    ],
+    "description": "Records from the 'grade_levels' table."
+  },
+  {
+    "topic": "grade_scale_bands",
+    "collection": "grade_scale_bands",
+    "view_name": "grade_scale_bands",
+    "path": "/api/grade_scale_bands",
+    "detail_path": "/api/grade_scale_bands/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "grade_scale_bands",
+    "table": "grade_scale_bands",
+    "api_route": "/api/grade_scale_bands",
+    "topic_key": "grade_scale_bands",
+    "display_name": "grade scale bands",
+    "synonyms": [
+      "grade scale bands"
+    ],
+    "description": "Records from the 'grade_scale_bands' table."
+  },
+  {
+    "topic": "grade_scales",
+    "collection": "grade_scales",
+    "view_name": "grade_scales",
+    "path": "/api/grade_scales",
+    "detail_path": "/api/grade_scales/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "grade_scales",
+    "table": "grade_scales",
+    "api_route": "/api/grade_scales",
+    "topic_key": "grade_scales",
+    "display_name": "grade scales",
+    "synonyms": [
+      "grade scales"
+    ],
+    "description": "Records from the 'grade_scales' table."
+  },
+  {
+    "topic": "gradebook_entries",
+    "collection": "gradebook_entries",
+    "view_name": "gradebook_entries",
+    "path": "/api/gradebook_entries",
+    "detail_path": "/api/gradebook_entries/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "gradebook_entries",
+    "table": "gradebook_entries",
+    "api_route": "/api/gradebook_entries",
+    "topic_key": "gradebook_entries",
+    "display_name": "gradebook entries",
+    "synonyms": [
+      "gradebook entries"
+    ],
+    "description": "Records from the 'gradebook_entries' table."
+  },
+  {
+    "topic": "grading_periods",
+    "collection": "grading_periods",
+    "view_name": "grading_periods",
+    "path": "/api/grading_periods",
+    "detail_path": "/api/grading_periods/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "grading_periods",
+    "table": "grading_periods",
+    "api_route": "/api/grading_periods",
+    "topic_key": "grading_periods",
+    "display_name": "grading periods",
+    "synonyms": [
+      "grading periods"
+    ],
+    "description": "Records from the 'grading_periods' table."
+  },
+  {
+    "topic": "guardian_invitations",
+    "collection": "guardian_invitations",
+    "view_name": "guardian_invitations",
+    "path": "/api/guardian_invitations",
+    "detail_path": "/api/guardian_invitations/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "guardian_invitations",
+    "table": "guardian_invitations",
+    "api_route": "/api/guardian_invitations",
+    "topic_key": "guardian_invitations",
+    "display_name": "guardian invitations",
+    "synonyms": [
+      "guardian invitations"
+    ],
+    "description": "Records from the 'guardian_invitations' table."
+  },
+  {
+    "topic": "guardians",
+    "collection": "guardians",
+    "view_name": "guardians",
+    "path": "/api/guardians",
+    "detail_path": "/api/guardians/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "guardians",
+    "table": "guardians",
+    "api_route": "/api/guardians",
+    "topic_key": "guardians",
+    "display_name": "guardians",
+    "synonyms": [
+      "guardians"
+    ],
+    "description": "Records from the 'guardians' table."
+  },
+  {
+    "topic": "health_profiles",
+    "collection": "health_profiles",
+    "view_name": "health_profiles",
+    "path": "/api/health_profiles",
+    "detail_path": "/api/health_profiles/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "health_profiles",
+    "table": "health_profiles",
+    "api_route": "/api/health_profiles",
+    "topic_key": "health_profiles",
+    "display_name": "health profiles",
+    "synonyms": [
+      "health profiles"
+    ],
+    "description": "Records from the 'health_profiles' table."
+  },
+  {
+    "topic": "hr_employees",
+    "collection": "hr_employees",
+    "view_name": "hr_employees",
+    "path": "/api/hr_employees",
+    "detail_path": "/api/hr_employees/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "hr_employees",
+    "table": "hr_employees",
+    "api_route": "/api/hr_employees",
+    "topic_key": "hr_employees",
+    "display_name": "hr employees",
+    "synonyms": [
+      "hr employees"
+    ],
+    "description": "Records from the 'hr_employees' table."
+  },
+  {
+    "topic": "hr_position_assignments",
+    "collection": "hr_position_assignments",
+    "view_name": "hr_position_assignments",
+    "path": "/api/hr_position_assignments",
+    "detail_path": "/api/hr_position_assignments/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "hr_position_assignments",
+    "table": "hr_position_assignments",
+    "api_route": "/api/hr_position_assignments",
+    "topic_key": "hr_position_assignments",
+    "display_name": "hr position assignments",
+    "synonyms": [
+      "hr position assignments"
+    ],
+    "description": "Records from the 'hr_position_assignments' table."
+  },
+  {
+    "topic": "hr_positions",
+    "collection": "hr_positions",
+    "view_name": "hr_positions",
+    "path": "/api/hr_positions",
+    "detail_path": "/api/hr_positions/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "hr_positions",
+    "table": "hr_positions",
+    "api_route": "/api/hr_positions",
+    "topic_key": "hr_positions",
+    "display_name": "hr positions",
+    "synonyms": [
+      "hr positions"
+    ],
+    "description": "Records from the 'hr_positions' table."
+  },
+  {
+    "topic": "iep_plans",
+    "collection": "iep_plans",
+    "view_name": "iep_plans",
+    "path": "/api/iep_plans",
+    "detail_path": "/api/iep_plans/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "iep_plans",
+    "table": "iep_plans",
+    "api_route": "/api/iep_plans",
+    "topic_key": "iep_plans",
+    "display_name": "iep plans",
+    "synonyms": [
+      "iep plans"
+    ],
+    "description": "Records from the 'iep_plans' table."
+  },
+  {
+    "topic": "immunization_records",
+    "collection": "immunization_records",
+    "view_name": "immunization_records",
+    "path": "/api/immunization_records",
+    "detail_path": "/api/immunization_records/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "immunization_records",
+    "table": "immunization_records",
+    "api_route": "/api/immunization_records",
+    "topic_key": "immunization_records",
+    "display_name": "immunization records",
+    "synonyms": [
+      "immunization records"
+    ],
+    "description": "Records from the 'immunization_records' table."
+  },
+  {
+    "topic": "immunizations",
+    "collection": "immunizations",
+    "view_name": "immunizations",
+    "path": "/api/immunizations",
+    "detail_path": "/api/immunizations/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "immunizations",
+    "table": "immunizations",
+    "api_route": "/api/immunizations",
+    "topic_key": "immunizations",
+    "display_name": "immunizations",
+    "synonyms": [
+      "immunizations"
+    ],
+    "description": "Records from the 'immunizations' table."
+  },
+  {
+    "topic": "incident_participants",
+    "collection": "incident_participants",
+    "view_name": "incident_participants",
+    "path": "/api/incident_participants",
+    "detail_path": "/api/incident_participants/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "incident_participants",
+    "table": "incident_participants",
+    "api_route": "/api/incident_participants",
+    "topic_key": "incident_participants",
+    "display_name": "incident participants",
+    "synonyms": [
+      "incident participants"
+    ],
+    "description": "Records from the 'incident_participants' table."
+  },
+  {
+    "topic": "incidents",
+    "collection": "incidents",
+    "view_name": "incidents",
+    "path": "/api/incidents",
+    "detail_path": "/api/incidents/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "incidents",
+    "table": "incidents",
+    "api_route": "/api/incidents",
+    "topic_key": "incidents",
+    "display_name": "incidents",
+    "synonyms": [
+      "incidents"
+    ],
+    "description": "Records from the 'incidents' table."
+  },
+  {
+    "topic": "initiatives",
+    "collection": "initiatives",
+    "view_name": "initiatives",
+    "path": "/api/initiatives",
+    "detail_path": "/api/initiatives/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "initiatives",
+    "table": "initiatives",
+    "api_route": "/api/initiatives",
+    "topic_key": "initiatives",
+    "display_name": "initiatives",
+    "synonyms": [
+      "initiatives"
+    ],
+    "description": "Records from the 'initiatives' table."
+  },
+  {
+    "topic": "invoices",
+    "collection": "invoices",
+    "view_name": "invoices",
+    "path": "/api/invoices",
+    "detail_path": "/api/invoices/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "invoices",
+    "table": "invoices",
+    "api_route": "/api/invoices",
+    "topic_key": "invoices",
+    "display_name": "invoices",
+    "synonyms": [
+      "invoices"
+    ],
+    "description": "Records from the 'invoices' table."
+  },
+  {
+    "topic": "journal_batches",
+    "collection": "journal_batches",
+    "view_name": "journal_batches",
+    "path": "/api/journal_batches",
+    "detail_path": "/api/journal_batches/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "journal_batches",
+    "table": "journal_batches",
+    "api_route": "/api/journal_batches",
+    "topic_key": "journal_batches",
+    "display_name": "journal batches",
+    "synonyms": [
+      "journal batches"
+    ],
+    "description": "Records from the 'journal_batches' table."
+  },
+  {
+    "topic": "journal_entries",
+    "collection": "journal_entries",
+    "view_name": "journal_entries",
+    "path": "/api/journal_entries",
+    "detail_path": "/api/journal_entries/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "journal_entries",
+    "table": "journal_entries",
+    "api_route": "/api/journal_entries",
+    "topic_key": "journal_entries",
+    "display_name": "journal entries",
+    "synonyms": [
+      "journal entries"
+    ],
+    "description": "Records from the 'journal_entries' table."
+  },
+  {
+    "topic": "journal_entry_lines",
+    "collection": "journal_entry_lines",
+    "view_name": "journal_entry_lines",
+    "path": "/api/journal_entry_lines",
+    "detail_path": "/api/journal_entry_lines/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "journal_entry_lines",
+    "table": "journal_entry_lines",
+    "api_route": "/api/journal_entry_lines",
+    "topic_key": "journal_entry_lines",
+    "display_name": "journal entry lines",
+    "synonyms": [
+      "journal entry lines"
+    ],
+    "description": "Records from the 'journal_entry_lines' table."
+  },
+  {
+    "topic": "kpi_datapoints",
+    "collection": "kpi_datapoints",
+    "view_name": "kpi_datapoints",
+    "path": "/api/kpi_datapoints",
+    "detail_path": "/api/kpi_datapoints/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "kpi_datapoints",
+    "table": "kpi_datapoints",
+    "api_route": "/api/kpi_datapoints",
+    "topic_key": "kpi_datapoints",
+    "display_name": "kpi datapoints",
+    "synonyms": [
+      "kpi datapoints"
+    ],
+    "description": "Records from the 'kpi_datapoints' table."
+  },
+  {
+    "topic": "kpis",
+    "collection": "kpis",
+    "view_name": "kpis",
+    "path": "/api/kpis",
+    "detail_path": "/api/kpis/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "kpis",
+    "table": "kpis",
+    "api_route": "/api/kpis",
+    "topic_key": "kpis",
+    "display_name": "kpis",
+    "synonyms": [
+      "kpis"
+    ],
+    "description": "Records from the 'kpis' table."
+  },
+  {
+    "topic": "leases",
+    "collection": "leases",
+    "view_name": "leases",
+    "path": "/api/leases",
+    "detail_path": "/api/leases/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "leases",
+    "table": "leases",
+    "api_route": "/api/leases",
+    "topic_key": "leases",
+    "display_name": "leases",
+    "synonyms": [
+      "leases"
+    ],
+    "description": "Records from the 'leases' table."
+  },
+  {
+    "topic": "library_checkouts",
+    "collection": "library_checkouts",
+    "view_name": "library_checkouts",
+    "path": "/api/library_checkouts",
+    "detail_path": "/api/library_checkouts/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "library_checkouts",
+    "table": "library_checkouts",
+    "api_route": "/api/library_checkouts",
+    "topic_key": "library_checkouts",
+    "display_name": "library checkouts",
+    "synonyms": [
+      "library checkouts"
+    ],
+    "description": "Records from the 'library_checkouts' table."
+  },
+  {
+    "topic": "library_fines",
+    "collection": "library_fines",
+    "view_name": "library_fines",
+    "path": "/api/library_fines",
+    "detail_path": "/api/library_fines/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "library_fines",
+    "table": "library_fines",
+    "api_route": "/api/library_fines",
+    "topic_key": "library_fines",
+    "display_name": "library fines",
+    "synonyms": [
+      "library fines"
+    ],
+    "description": "Records from the 'library_fines' table."
+  },
+  {
+    "topic": "library_holds",
+    "collection": "library_holds",
+    "view_name": "library_holds",
+    "path": "/api/library_holds",
+    "detail_path": "/api/library_holds/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "library_holds",
+    "table": "library_holds",
+    "api_route": "/api/library_holds",
+    "topic_key": "library_holds",
+    "display_name": "library holds",
+    "synonyms": [
+      "library holds"
+    ],
+    "description": "Records from the 'library_holds' table."
+  },
+  {
+    "topic": "library_items",
+    "collection": "library_items",
+    "view_name": "library_items",
+    "path": "/api/library_items",
+    "detail_path": "/api/library_items/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "library_items",
+    "table": "library_items",
+    "api_route": "/api/library_items",
+    "topic_key": "library_items",
+    "display_name": "library items",
+    "synonyms": [
+      "library items"
+    ],
+    "description": "Records from the 'library_items' table."
+  },
+  {
+    "topic": "live_scoring",
+    "collection": "live_scoring",
+    "view_name": "live_scoring",
+    "path": "/api/live_scoring",
+    "detail_path": "/api/live_scoring/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "live_scoring",
+    "table": "live_scoring",
+    "api_route": "/api/live_scoring",
+    "topic_key": "live_scoring",
+    "display_name": "live scoring",
+    "synonyms": [
+      "live scoring"
+    ],
+    "description": "Records from the 'live_scoring' table."
+  },
+  {
+    "topic": "maintenance_requests",
+    "collection": "maintenance_requests",
+    "view_name": "maintenance_requests",
+    "path": "/api/maintenance_requests",
+    "detail_path": "/api/maintenance_requests/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "maintenance_requests",
+    "table": "maintenance_requests",
+    "api_route": "/api/maintenance_requests",
+    "topic_key": "maintenance_requests",
+    "display_name": "maintenance requests",
+    "synonyms": [
+      "maintenance requests"
+    ],
+    "description": "Records from the 'maintenance_requests' table."
+  },
+  {
+    "topic": "manual_stats",
+    "collection": "manual_stats",
+    "view_name": "manual_stats",
+    "path": "/api/manual_stats",
+    "detail_path": "/api/manual_stats/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "manual_stats",
+    "table": "manual_stats",
+    "api_route": "/api/manual_stats",
+    "topic_key": "manual_stats",
+    "display_name": "manual stats",
+    "synonyms": [
+      "manual stats"
+    ],
+    "description": "Records from the 'manual_stats' table."
+  },
+  {
+    "topic": "materials",
+    "collection": "materials",
+    "view_name": "materials",
+    "path": "/api/materials",
+    "detail_path": "/api/materials/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "materials",
+    "table": "materials",
+    "api_route": "/api/materials",
+    "topic_key": "materials",
+    "display_name": "materials",
+    "synonyms": [
+      "materials"
+    ],
+    "description": "Records from the 'materials' table."
+  },
+  {
+    "topic": "meal_accounts",
+    "collection": "meal_accounts",
+    "view_name": "meal_accounts",
+    "path": "/api/meal_accounts",
+    "detail_path": "/api/meal_accounts/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "meal_accounts",
+    "table": "meal_accounts",
+    "api_route": "/api/meal_accounts",
+    "topic_key": "meal_accounts",
+    "display_name": "meal accounts",
+    "synonyms": [
+      "meal accounts"
+    ],
+    "description": "Records from the 'meal_accounts' table."
+  },
+  {
+    "topic": "meal_eligibility_statuses",
+    "collection": "meal_eligibility_statuses",
+    "view_name": "meal_eligibility_statuses",
+    "path": "/api/meal_eligibility_statuses",
+    "detail_path": "/api/meal_eligibility_statuses/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "meal_eligibility_statuses",
+    "table": "meal_eligibility_statuses",
+    "api_route": "/api/meal_eligibility_statuses",
+    "topic_key": "meal_eligibility_statuses",
+    "display_name": "meal eligibility statuses",
+    "synonyms": [
+      "meal eligibility statuses"
+    ],
+    "description": "Records from the 'meal_eligibility_statuses' table."
+  },
+  {
+    "topic": "meal_transactions",
+    "collection": "meal_transactions",
+    "view_name": "meal_transactions",
+    "path": "/api/meal_transactions",
+    "detail_path": "/api/meal_transactions/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "meal_transactions",
+    "table": "meal_transactions",
+    "api_route": "/api/meal_transactions",
+    "topic_key": "meal_transactions",
+    "display_name": "meal transactions",
+    "synonyms": [
+      "meal transactions"
+    ],
+    "description": "Records from the 'meal_transactions' table."
+  },
+  {
+    "topic": "medication_administrations",
+    "collection": "medication_administrations",
+    "view_name": "medication_administrations",
+    "path": "/api/medication_administrations",
+    "detail_path": "/api/medication_administrations/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "medication_administrations",
+    "table": "medication_administrations",
+    "api_route": "/api/medication_administrations",
+    "topic_key": "medication_administrations",
+    "display_name": "medication administrations",
+    "synonyms": [
+      "medication administrations"
+    ],
+    "description": "Records from the 'medication_administrations' table."
+  },
+  {
+    "topic": "medications",
+    "collection": "medications",
+    "view_name": "medications",
+    "path": "/api/medications",
+    "detail_path": "/api/medications/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "medications",
+    "table": "medications",
+    "api_route": "/api/medications",
+    "topic_key": "medications",
+    "display_name": "medications",
+    "synonyms": [
+      "medications"
+    ],
+    "description": "Records from the 'medications' table."
+  },
+  {
+    "topic": "meeting_documents",
+    "collection": "meeting_documents",
+    "view_name": "meeting_documents",
+    "path": "/api/meeting_documents",
+    "detail_path": "/api/meeting_documents/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "meeting_documents",
+    "table": "meeting_documents",
+    "api_route": "/api/meeting_documents",
+    "topic_key": "meeting_documents",
+    "display_name": "meeting documents",
+    "synonyms": [
+      "meeting documents"
+    ],
+    "description": "Records from the 'meeting_documents' table."
+  },
+  {
+    "topic": "meeting_files",
+    "collection": "meeting_files",
+    "view_name": "meeting_files",
+    "path": "/api/meeting_files",
+    "detail_path": "/api/meeting_files/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "meeting_files",
+    "table": "meeting_files",
+    "api_route": "/api/meeting_files",
+    "topic_key": "meeting_files",
+    "display_name": "meeting files",
+    "synonyms": [
+      "meeting files"
+    ],
+    "description": "Records from the 'meeting_files' table."
+  },
+  {
+    "topic": "meeting_permissions",
+    "collection": "meeting_permissions",
+    "view_name": "meeting_permissions",
+    "path": "/api/meeting_permissions",
+    "detail_path": "/api/meeting_permissions/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "meeting_permissions",
+    "table": "meeting_permissions",
+    "api_route": "/api/meeting_permissions",
+    "topic_key": "meeting_permissions",
+    "display_name": "meeting permissions",
+    "synonyms": [
+      "meeting permissions"
+    ],
+    "description": "Records from the 'meeting_permissions' table."
+  },
+  {
+    "topic": "meeting_publications",
+    "collection": "meeting_publications",
+    "view_name": "meeting_publications",
+    "path": "/api/meeting_publications",
+    "detail_path": "/api/meeting_publications/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "meeting_publications",
+    "table": "meeting_publications",
+    "api_route": "/api/meeting_publications",
+    "topic_key": "meeting_publications",
+    "display_name": "meeting publications",
+    "synonyms": [
+      "meeting publications"
+    ],
+    "description": "Records from the 'meeting_publications' table."
+  },
+  {
+    "topic": "meeting_search_index",
+    "collection": "meeting_search_index",
+    "view_name": "meeting_search_index",
+    "path": "/api/meeting_search_index",
+    "detail_path": "/api/meeting_search_index/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "meeting_search_index",
+    "table": "meeting_search_index",
+    "api_route": "/api/meeting_search_index",
+    "topic_key": "meeting_search_index",
+    "display_name": "meeting search index",
+    "synonyms": [
+      "meeting search index"
+    ],
+    "description": "Records from the 'meeting_search_index' table."
+  },
+  {
+    "topic": "meetings",
+    "collection": "meetings",
+    "view_name": "meetings",
+    "path": "/api/meetings",
+    "detail_path": "/api/meetings/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "meetings",
+    "table": "meetings",
+    "api_route": "/api/meetings",
+    "topic_key": "meetings",
+    "display_name": "meetings",
+    "synonyms": [
+      "meetings"
+    ],
+    "description": "Records from the 'meetings' table."
+  },
+  {
+    "topic": "memberships",
+    "collection": "memberships",
+    "view_name": "memberships",
+    "path": "/api/memberships",
+    "detail_path": "/api/memberships/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "memberships",
+    "table": "memberships",
+    "api_route": "/api/memberships",
+    "topic_key": "memberships",
+    "display_name": "memberships",
+    "synonyms": [
+      "memberships"
+    ],
+    "description": "Records from the 'memberships' table."
+  },
+  {
+    "topic": "message_recipients",
+    "collection": "message_recipients",
+    "view_name": "message_recipients",
+    "path": "/api/message_recipients",
+    "detail_path": "/api/message_recipients/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "message_recipients",
+    "table": "message_recipients",
+    "api_route": "/api/message_recipients",
+    "topic_key": "message_recipients",
+    "display_name": "message recipients",
+    "synonyms": [
+      "message recipients"
+    ],
+    "description": "Records from the 'message_recipients' table."
+  },
+  {
+    "topic": "messages",
+    "collection": "messages",
+    "view_name": "messages",
+    "path": "/api/messages",
+    "detail_path": "/api/messages/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "messages",
+    "table": "messages",
+    "api_route": "/api/messages",
+    "topic_key": "messages",
+    "display_name": "messages",
+    "synonyms": [
+      "messages"
+    ],
+    "description": "Records from the 'messages' table."
+  },
+  {
+    "topic": "meters",
+    "collection": "meters",
+    "view_name": "meters",
+    "path": "/api/meters",
+    "detail_path": "/api/meters/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "meters",
+    "table": "meters",
+    "api_route": "/api/meters",
+    "topic_key": "meters",
+    "display_name": "meters",
+    "synonyms": [
+      "meters"
+    ],
+    "description": "Records from the 'meters' table."
+  },
+  {
+    "topic": "minutes",
+    "collection": "minutes",
+    "view_name": "minutes",
+    "path": "/api/minutes",
+    "detail_path": "/api/minutes/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "minutes",
+    "table": "minutes",
+    "api_route": "/api/minutes",
+    "topic_key": "minutes",
+    "display_name": "minutes",
+    "synonyms": [
+      "minutes"
+    ],
+    "description": "Records from the 'minutes' table."
+  },
+  {
+    "topic": "motions",
+    "collection": "motions",
+    "view_name": "motions",
+    "path": "/api/motions",
+    "detail_path": "/api/motions/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "motions",
+    "table": "motions",
+    "api_route": "/api/motions",
+    "topic_key": "motions",
+    "display_name": "motions",
+    "synonyms": [
+      "motions"
+    ],
+    "description": "Records from the 'motions' table."
+  },
+  {
+    "topic": "move_orders",
+    "collection": "move_orders",
+    "view_name": "move_orders",
+    "path": "/api/move_orders",
+    "detail_path": "/api/move_orders/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "move_orders",
+    "table": "move_orders",
+    "api_route": "/api/move_orders",
+    "topic_key": "move_orders",
+    "display_name": "move orders",
+    "synonyms": [
+      "move orders"
+    ],
+    "description": "Records from the 'move_orders' table."
+  },
+  {
+    "topic": "notifications",
+    "collection": "notifications",
+    "view_name": "notifications",
+    "path": "/api/notifications",
+    "detail_path": "/api/notifications/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "notifications",
+    "table": "notifications",
+    "api_route": "/api/notifications",
+    "topic_key": "notifications",
+    "display_name": "notifications",
+    "synonyms": [
+      "notifications"
+    ],
+    "description": "Records from the 'notifications' table."
+  },
+  {
+    "topic": "nurse_visits",
+    "collection": "nurse_visits",
+    "view_name": "nurse_visits",
+    "path": "/api/nurse_visits",
+    "detail_path": "/api/nurse_visits/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "nurse_visits",
+    "table": "nurse_visits",
+    "api_route": "/api/nurse_visits",
+    "topic_key": "nurse_visits",
+    "display_name": "nurse visits",
+    "synonyms": [
+      "nurse visits"
+    ],
+    "description": "Records from the 'nurse_visits' table."
+  },
+  {
+    "topic": "objectives",
+    "collection": "objectives",
+    "view_name": "objectives",
+    "path": "/api/objectives",
+    "detail_path": "/api/objectives/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "objectives",
+    "table": "objectives",
+    "api_route": "/api/objectives",
+    "topic_key": "objectives",
+    "display_name": "objectives",
+    "synonyms": [
+      "objectives"
+    ],
+    "description": "Records from the 'objectives' table."
+  },
+  {
+    "topic": "officials",
+    "collection": "officials",
+    "view_name": "officials",
+    "path": "/api/officials",
+    "detail_path": "/api/officials/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "officials",
+    "table": "officials",
+    "api_route": "/api/officials",
+    "topic_key": "officials",
+    "display_name": "officials",
+    "synonyms": [
+      "officials"
+    ],
+    "description": "Records from the 'officials' table."
+  },
+  {
+    "topic": "order_line_items",
+    "collection": "order_line_items",
+    "view_name": "order_line_items",
+    "path": "/api/order_line_items",
+    "detail_path": "/api/order_line_items/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "order_line_items",
+    "table": "order_line_items",
+    "api_route": "/api/order_line_items",
+    "topic_key": "order_line_items",
+    "display_name": "order line items",
+    "synonyms": [
+      "order line items"
+    ],
+    "description": "Records from the 'order_line_items' table."
+  },
+  {
+    "topic": "orders",
+    "collection": "orders",
+    "view_name": "orders",
+    "path": "/api/orders",
+    "detail_path": "/api/orders/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "orders",
+    "table": "orders",
+    "api_route": "/api/orders",
+    "topic_key": "orders",
+    "display_name": "orders",
+    "synonyms": [
+      "orders"
+    ],
+    "description": "Records from the 'orders' table."
+  },
+  {
+    "topic": "organizations",
+    "collection": "organizations",
+    "view_name": "organizations",
+    "path": "/api/organizations",
+    "detail_path": "/api/organizations/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "organizations",
+    "table": "organizations",
+    "api_route": "/api/organizations",
+    "topic_key": "organizations",
+    "display_name": "organizations",
+    "synonyms": [
+      "organizations"
+    ],
+    "description": "Records from the 'organizations' table."
+  },
+  {
+    "topic": "pages",
+    "collection": "pages",
+    "view_name": "pages",
+    "path": "/api/pages",
+    "detail_path": "/api/pages/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "pages",
+    "table": "pages",
+    "api_route": "/api/pages",
+    "topic_key": "pages",
+    "display_name": "pages",
+    "synonyms": [
+      "pages"
+    ],
+    "description": "Records from the 'pages' table."
+  },
+  {
+    "topic": "part_locations",
+    "collection": "part_locations",
+    "view_name": "part_locations",
+    "path": "/api/part_locations",
+    "detail_path": "/api/part_locations/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "part_locations",
+    "table": "part_locations",
+    "api_route": "/api/part_locations",
+    "topic_key": "part_locations",
+    "display_name": "part locations",
+    "synonyms": [
+      "part locations"
+    ],
+    "description": "Records from the 'part_locations' table."
+  },
+  {
+    "topic": "parts",
+    "collection": "parts",
+    "view_name": "parts",
+    "path": "/api/parts",
+    "detail_path": "/api/parts/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "parts",
+    "table": "parts",
+    "api_route": "/api/parts",
+    "topic_key": "parts",
+    "display_name": "parts",
+    "synonyms": [
+      "parts"
+    ],
+    "description": "Records from the 'parts' table."
+  },
+  {
+    "topic": "passes",
+    "collection": "passes",
+    "view_name": "passes",
+    "path": "/api/passes",
+    "detail_path": "/api/passes/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "passes",
+    "table": "passes",
+    "api_route": "/api/passes",
+    "topic_key": "passes",
+    "display_name": "passes",
+    "synonyms": [
+      "passes"
+    ],
+    "description": "Records from the 'passes' table."
+  },
+  {
+    "topic": "pay_periods",
+    "collection": "pay_periods",
+    "view_name": "pay_periods",
+    "path": "/api/pay_periods",
+    "detail_path": "/api/pay_periods/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "pay_periods",
+    "table": "pay_periods",
+    "api_route": "/api/pay_periods",
+    "topic_key": "pay_periods",
+    "display_name": "pay periods",
+    "synonyms": [
+      "pay periods"
+    ],
+    "description": "Records from the 'pay_periods' table."
+  },
+  {
+    "topic": "paychecks",
+    "collection": "paychecks",
+    "view_name": "paychecks",
+    "path": "/api/paychecks",
+    "detail_path": "/api/paychecks/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "paychecks",
+    "table": "paychecks",
+    "api_route": "/api/paychecks",
+    "topic_key": "paychecks",
+    "display_name": "paychecks",
+    "synonyms": [
+      "paychecks"
+    ],
+    "description": "Records from the 'paychecks' table."
+  },
+  {
+    "topic": "payments",
+    "collection": "payments",
+    "view_name": "payments",
+    "path": "/api/payments",
+    "detail_path": "/api/payments/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "payments",
+    "table": "payments",
+    "api_route": "/api/payments",
+    "topic_key": "payments",
+    "display_name": "payments",
+    "synonyms": [
+      "payments"
+    ],
+    "description": "Records from the 'payments' table."
+  },
+  {
+    "topic": "payroll_runs",
+    "collection": "payroll_runs",
+    "view_name": "payroll_runs",
+    "path": "/api/payroll_runs",
+    "detail_path": "/api/payroll_runs/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "payroll_runs",
+    "table": "payroll_runs",
+    "api_route": "/api/payroll_runs",
+    "topic_key": "payroll_runs",
+    "display_name": "payroll runs",
+    "synonyms": [
+      "payroll runs"
+    ],
+    "description": "Records from the 'payroll_runs' table."
+  },
+  {
+    "topic": "periods",
+    "collection": "periods",
+    "view_name": "periods",
+    "path": "/api/periods",
+    "detail_path": "/api/periods/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "periods",
+    "table": "periods",
+    "api_route": "/api/periods",
+    "topic_key": "periods",
+    "display_name": "periods",
+    "synonyms": [
+      "periods"
+    ],
+    "description": "Records from the 'periods' table."
+  },
+  {
+    "topic": "permissions",
+    "collection": "permissions",
+    "view_name": "permissions",
+    "path": "/api/permissions",
+    "detail_path": "/api/permissions/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "permissions",
+    "table": "permissions",
+    "api_route": "/api/permissions",
+    "topic_key": "permissions",
+    "display_name": "permissions",
+    "synonyms": [
+      "permissions"
+    ],
+    "description": "Records from the 'permissions' table."
+  },
+  {
+    "topic": "person_addresses",
+    "collection": "person_addresses",
+    "view_name": "person_addresses",
+    "path": "/api/person_addresses",
+    "detail_path": "/api/person_addresses/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "person_addresses",
+    "table": "person_addresses",
+    "api_route": "/api/person_addresses",
+    "topic_key": "person_addresses",
+    "display_name": "person addresses",
+    "synonyms": [
+      "person addresses"
+    ],
+    "description": "Records from the 'person_addresses' table."
+  },
+  {
+    "topic": "person_contacts",
+    "collection": "person_contacts",
+    "view_name": "person_contacts",
+    "path": "/api/person_contacts",
+    "detail_path": "/api/person_contacts/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "person_contacts",
+    "table": "person_contacts",
+    "api_route": "/api/person_contacts",
+    "topic_key": "person_contacts",
+    "display_name": "person contacts",
+    "synonyms": [
+      "person contacts"
+    ],
+    "description": "Records from the 'person_contacts' table."
+  },
+  {
+    "topic": "personal_notes",
+    "collection": "personal_notes",
+    "view_name": "personal_notes",
+    "path": "/api/personal_notes",
+    "detail_path": "/api/personal_notes/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "personal_notes",
+    "table": "personal_notes",
+    "api_route": "/api/personal_notes",
+    "topic_key": "personal_notes",
+    "display_name": "personal notes",
+    "synonyms": [
+      "personal notes"
+    ],
+    "description": "Records from the 'personal_notes' table."
+  },
+  {
+    "topic": "persons",
+    "collection": "persons",
+    "view_name": "persons",
+    "path": "/api/persons",
+    "detail_path": "/api/persons/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "persons",
+    "table": "persons",
+    "api_route": "/api/persons",
+    "topic_key": "persons",
+    "display_name": "persons",
+    "synonyms": [
+      "persons"
+    ],
+    "description": "Records from the 'persons' table."
+  },
+  {
+    "topic": "plan_alignments",
+    "collection": "plan_alignments",
+    "view_name": "plan_alignments",
+    "path": "/api/plan_alignments",
+    "detail_path": "/api/plan_alignments/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "plan_alignments",
+    "table": "plan_alignments",
+    "api_route": "/api/plan_alignments",
+    "topic_key": "plan_alignments",
+    "display_name": "plan alignments",
+    "synonyms": [
+      "plan alignments"
+    ],
+    "description": "Records from the 'plan_alignments' table."
+  },
+  {
+    "topic": "plan_assignments",
+    "collection": "plan_assignments",
+    "view_name": "plan_assignments",
+    "path": "/api/plan_assignments",
+    "detail_path": "/api/plan_assignments/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "plan_assignments",
+    "table": "plan_assignments",
+    "api_route": "/api/plan_assignments",
+    "topic_key": "plan_assignments",
+    "display_name": "plan assignments",
+    "synonyms": [
+      "plan assignments"
+    ],
+    "description": "Records from the 'plan_assignments' table."
+  },
+  {
+    "topic": "plan_filters",
+    "collection": "plan_filters",
+    "view_name": "plan_filters",
+    "path": "/api/plan_filters",
+    "detail_path": "/api/plan_filters/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "plan_filters",
+    "table": "plan_filters",
+    "api_route": "/api/plan_filters",
+    "topic_key": "plan_filters",
+    "display_name": "plan filters",
+    "synonyms": [
+      "plan filters"
+    ],
+    "description": "Records from the 'plan_filters' table."
+  },
+  {
+    "topic": "plan_search_index",
+    "collection": "plan_search_index",
+    "view_name": "plan_search_index",
+    "path": "/api/plan_search_index",
+    "detail_path": "/api/plan_search_index/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "plan_search_index",
+    "table": "plan_search_index",
+    "api_route": "/api/plan_search_index",
+    "topic_key": "plan_search_index",
+    "display_name": "plan search index",
+    "synonyms": [
+      "plan search index"
+    ],
+    "description": "Records from the 'plan_search_index' table."
+  },
+  {
+    "topic": "plans",
+    "collection": "plans",
+    "view_name": "plans",
+    "path": "/api/plans",
+    "detail_path": "/api/plans/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "plans",
+    "table": "plans",
+    "api_route": "/api/plans",
+    "topic_key": "plans",
+    "display_name": "plans",
+    "synonyms": [
+      "plans"
+    ],
+    "description": "Records from the 'plans' table."
+  },
+  {
+    "topic": "pm_plans",
+    "collection": "pm_plans",
+    "view_name": "pm_plans",
+    "path": "/api/pm_plans",
+    "detail_path": "/api/pm_plans/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "pm_plans",
+    "table": "pm_plans",
+    "api_route": "/api/pm_plans",
+    "topic_key": "pm_plans",
+    "display_name": "pm plans",
+    "synonyms": [
+      "pm plans"
+    ],
+    "description": "Records from the 'pm_plans' table."
+  },
+  {
+    "topic": "pm_work_generators",
+    "collection": "pm_work_generators",
+    "view_name": "pm_work_generators",
+    "path": "/api/pm_work_generators",
+    "detail_path": "/api/pm_work_generators/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "pm_work_generators",
+    "table": "pm_work_generators",
+    "api_route": "/api/pm_work_generators",
+    "topic_key": "pm_work_generators",
+    "display_name": "pm work generators",
+    "synonyms": [
+      "pm work generators"
+    ],
+    "description": "Records from the 'pm_work_generators' table."
+  },
+  {
+    "topic": "policies",
+    "collection": "policies",
+    "view_name": "policies",
+    "path": "/api/policies",
+    "detail_path": "/api/policies/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "policies",
+    "table": "policies",
+    "api_route": "/api/policies",
+    "topic_key": "policies",
+    "display_name": "policies",
+    "synonyms": [
+      "policies"
+    ],
+    "description": "Records from the 'policies' table."
+  },
+  {
+    "topic": "policy_approvals",
+    "collection": "policy_approvals",
+    "view_name": "policy_approvals",
+    "path": "/api/policy_approvals",
+    "detail_path": "/api/policy_approvals/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "policy_approvals",
+    "table": "policy_approvals",
+    "api_route": "/api/policy_approvals",
+    "topic_key": "policy_approvals",
+    "display_name": "policy approvals",
+    "synonyms": [
+      "policy approvals"
+    ],
+    "description": "Records from the 'policy_approvals' table."
+  },
+  {
+    "topic": "policy_comments",
+    "collection": "policy_comments",
+    "view_name": "policy_comments",
+    "path": "/api/policy_comments",
+    "detail_path": "/api/policy_comments/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "policy_comments",
+    "table": "policy_comments",
+    "api_route": "/api/policy_comments",
+    "topic_key": "policy_comments",
+    "display_name": "policy comments",
+    "synonyms": [
+      "policy comments"
+    ],
+    "description": "Records from the 'policy_comments' table."
+  },
+  {
+    "topic": "policy_files",
+    "collection": "policy_files",
+    "view_name": "policy_files",
+    "path": "/api/policy_files",
+    "detail_path": "/api/policy_files/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "policy_files",
+    "table": "policy_files",
+    "api_route": "/api/policy_files",
+    "topic_key": "policy_files",
+    "display_name": "policy files",
+    "synonyms": [
+      "policy files"
+    ],
+    "description": "Records from the 'policy_files' table."
+  },
+  {
+    "topic": "policy_legal_refs",
+    "collection": "policy_legal_refs",
+    "view_name": "policy_legal_refs",
+    "path": "/api/policy_legal_refs",
+    "detail_path": "/api/policy_legal_refs/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "policy_legal_refs",
+    "table": "policy_legal_refs",
+    "api_route": "/api/policy_legal_refs",
+    "topic_key": "policy_legal_refs",
+    "display_name": "policy legal refs",
+    "synonyms": [
+      "policy legal refs"
+    ],
+    "description": "Records from the 'policy_legal_refs' table."
+  },
+  {
+    "topic": "policy_publications",
+    "collection": "policy_publications",
+    "view_name": "policy_publications",
+    "path": "/api/policy_publications",
+    "detail_path": "/api/policy_publications/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "policy_publications",
+    "table": "policy_publications",
+    "api_route": "/api/policy_publications",
+    "topic_key": "policy_publications",
+    "display_name": "policy publications",
+    "synonyms": [
+      "policy publications"
+    ],
+    "description": "Records from the 'policy_publications' table."
+  },
+  {
+    "topic": "policy_search_index",
+    "collection": "policy_search_index",
+    "view_name": "policy_search_index",
+    "path": "/api/policy_search_index",
+    "detail_path": "/api/policy_search_index/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "policy_search_index",
+    "table": "policy_search_index",
+    "api_route": "/api/policy_search_index",
+    "topic_key": "policy_search_index",
+    "display_name": "policy search index",
+    "synonyms": [
+      "policy search index"
+    ],
+    "description": "Records from the 'policy_search_index' table."
+  },
+  {
+    "topic": "policy_versions",
+    "collection": "policy_versions",
+    "view_name": "policy_versions",
+    "path": "/api/policy_versions",
+    "detail_path": "/api/policy_versions/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "policy_versions",
+    "table": "policy_versions",
+    "api_route": "/api/policy_versions",
+    "topic_key": "policy_versions",
+    "display_name": "policy versions",
+    "synonyms": [
+      "policy versions"
+    ],
+    "description": "Records from the 'policy_versions' table."
+  },
+  {
+    "topic": "policy_workflow_steps",
+    "collection": "policy_workflow_steps",
+    "view_name": "policy_workflow_steps",
+    "path": "/api/policy_workflow_steps",
+    "detail_path": "/api/policy_workflow_steps/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "policy_workflow_steps",
+    "table": "policy_workflow_steps",
+    "api_route": "/api/policy_workflow_steps",
+    "topic_key": "policy_workflow_steps",
+    "display_name": "policy workflow steps",
+    "synonyms": [
+      "policy workflow steps"
+    ],
+    "description": "Records from the 'policy_workflow_steps' table."
+  },
+  {
+    "topic": "policy_workflows",
+    "collection": "policy_workflows",
+    "view_name": "policy_workflows",
+    "path": "/api/policy_workflows",
+    "detail_path": "/api/policy_workflows/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "policy_workflows",
+    "table": "policy_workflows",
+    "api_route": "/api/policy_workflows",
+    "topic_key": "policy_workflows",
+    "display_name": "policy workflows",
+    "synonyms": [
+      "policy workflows"
+    ],
+    "description": "Records from the 'policy_workflows' table."
+  },
+  {
+    "topic": "post_attachments",
+    "collection": "post_attachments",
+    "view_name": "post_attachments",
+    "path": "/api/post_attachments",
+    "detail_path": "/api/post_attachments/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "post_attachments",
+    "table": "post_attachments",
+    "api_route": "/api/post_attachments",
+    "topic_key": "post_attachments",
+    "display_name": "post attachments",
+    "synonyms": [
+      "post attachments"
+    ],
+    "description": "Records from the 'post_attachments' table."
+  },
+  {
+    "topic": "posts",
+    "collection": "posts",
+    "view_name": "posts",
+    "path": "/api/posts",
+    "detail_path": "/api/posts/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "posts",
+    "table": "posts",
+    "api_route": "/api/posts",
+    "topic_key": "posts",
+    "display_name": "posts",
+    "synonyms": [
+      "posts"
+    ],
+    "description": "Records from the 'posts' table."
+  },
+  {
+    "topic": "project_tasks",
+    "collection": "project_tasks",
+    "view_name": "project_tasks",
+    "path": "/api/project_tasks",
+    "detail_path": "/api/project_tasks/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "project_tasks",
+    "table": "project_tasks",
+    "api_route": "/api/project_tasks",
+    "topic_key": "project_tasks",
+    "display_name": "project tasks",
+    "synonyms": [
+      "project tasks"
+    ],
+    "description": "Records from the 'project_tasks' table."
+  },
+  {
+    "topic": "projects",
+    "collection": "projects",
+    "view_name": "projects",
+    "path": "/api/projects",
+    "detail_path": "/api/projects/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "projects",
+    "table": "projects",
+    "api_route": "/api/projects",
+    "topic_key": "projects",
+    "display_name": "projects",
+    "synonyms": [
+      "projects"
+    ],
+    "description": "Records from the 'projects' table."
+  },
+  {
+    "topic": "proposal_documents",
+    "collection": "proposal_documents",
+    "view_name": "proposal_documents",
+    "path": "/api/proposal_documents",
+    "detail_path": "/api/proposal_documents/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "proposal_documents",
+    "table": "proposal_documents",
+    "api_route": "/api/proposal_documents",
+    "topic_key": "proposal_documents",
+    "display_name": "proposal documents",
+    "synonyms": [
+      "proposal documents"
+    ],
+    "description": "Records from the 'proposal_documents' table."
+  },
+  {
+    "topic": "proposal_reviews",
+    "collection": "proposal_reviews",
+    "view_name": "proposal_reviews",
+    "path": "/api/proposal_reviews",
+    "detail_path": "/api/proposal_reviews/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "proposal_reviews",
+    "table": "proposal_reviews",
+    "api_route": "/api/proposal_reviews",
+    "topic_key": "proposal_reviews",
+    "display_name": "proposal reviews",
+    "synonyms": [
+      "proposal reviews"
+    ],
+    "description": "Records from the 'proposal_reviews' table."
+  },
+  {
+    "topic": "proposal_standard_map",
+    "collection": "proposal_standard_map",
+    "view_name": "proposal_standard_map",
+    "path": "/api/proposal_standard_map",
+    "detail_path": "/api/proposal_standard_map/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "proposal_standard_map",
+    "table": "proposal_standard_map",
+    "api_route": "/api/proposal_standard_map",
+    "topic_key": "proposal_standard_map",
+    "display_name": "proposal standard map",
+    "synonyms": [
+      "proposal standard map"
+    ],
+    "description": "Records from the 'proposal_standard_map' table."
+  },
+  {
+    "topic": "proposals",
+    "collection": "proposals",
+    "view_name": "proposals",
+    "path": "/api/proposals",
+    "detail_path": "/api/proposals/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "proposals",
+    "table": "proposals",
+    "api_route": "/api/proposals",
+    "topic_key": "proposals",
+    "display_name": "proposals",
+    "synonyms": [
+      "proposals"
+    ],
+    "description": "Records from the 'proposals' table."
+  },
+  {
+    "topic": "publications",
+    "collection": "publications",
+    "view_name": "publications",
+    "path": "/api/publications",
+    "detail_path": "/api/publications/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "publications",
+    "table": "publications",
+    "api_route": "/api/publications",
+    "topic_key": "publications",
+    "display_name": "publications",
+    "synonyms": [
+      "publications"
+    ],
+    "description": "Records from the 'publications' table."
+  },
+  {
+    "topic": "report_cards",
+    "collection": "report_cards",
+    "view_name": "report_cards",
+    "path": "/api/report_cards",
+    "detail_path": "/api/report_cards/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "report_cards",
+    "table": "report_cards",
+    "api_route": "/api/report_cards",
+    "topic_key": "report_cards",
+    "display_name": "report cards",
+    "synonyms": [
+      "report cards"
+    ],
+    "description": "Records from the 'report_cards' table."
+  },
+  {
+    "topic": "requirements",
+    "collection": "requirements",
+    "view_name": "requirements",
+    "path": "/api/requirements",
+    "detail_path": "/api/requirements/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "requirements",
+    "table": "requirements",
+    "api_route": "/api/requirements",
+    "topic_key": "requirements",
+    "display_name": "requirements",
+    "synonyms": [
+      "requirements"
+    ],
+    "description": "Records from the 'requirements' table."
+  },
+  {
+    "topic": "resolutions",
+    "collection": "resolutions",
+    "view_name": "resolutions",
+    "path": "/api/resolutions",
+    "detail_path": "/api/resolutions/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "resolutions",
+    "table": "resolutions",
+    "api_route": "/api/resolutions",
+    "topic_key": "resolutions",
+    "display_name": "resolutions",
+    "synonyms": [
+      "resolutions"
+    ],
+    "description": "Records from the 'resolutions' table."
+  },
+  {
+    "topic": "retention_rules",
+    "collection": "retention_rules",
+    "view_name": "retention_rules",
+    "path": "/api/retention_rules",
+    "detail_path": "/api/retention_rules/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "retention_rules",
+    "table": "retention_rules",
+    "api_route": "/api/retention_rules",
+    "topic_key": "retention_rules",
+    "display_name": "retention rules",
+    "synonyms": [
+      "retention rules"
+    ],
+    "description": "Records from the 'retention_rules' table."
+  },
+  {
+    "topic": "review_requests",
+    "collection": "review_requests",
+    "view_name": "review_requests",
+    "path": "/api/review_requests",
+    "detail_path": "/api/review_requests/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "review_requests",
+    "table": "review_requests",
+    "api_route": "/api/review_requests",
+    "topic_key": "review_requests",
+    "display_name": "review requests",
+    "synonyms": [
+      "review requests"
+    ],
+    "description": "Records from the 'review_requests' table."
+  },
+  {
+    "topic": "review_rounds",
+    "collection": "review_rounds",
+    "view_name": "review_rounds",
+    "path": "/api/review_rounds",
+    "detail_path": "/api/review_rounds/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "review_rounds",
+    "table": "review_rounds",
+    "api_route": "/api/review_rounds",
+    "topic_key": "review_rounds",
+    "display_name": "review rounds",
+    "synonyms": [
+      "review rounds"
+    ],
+    "description": "Records from the 'review_rounds' table."
+  },
+  {
+    "topic": "reviewers",
+    "collection": "reviewers",
+    "view_name": "reviewers",
+    "path": "/api/reviewers",
+    "detail_path": "/api/reviewers/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "reviewers",
+    "table": "reviewers",
+    "api_route": "/api/reviewers",
+    "topic_key": "reviewers",
+    "display_name": "reviewers",
+    "synonyms": [
+      "reviewers"
+    ],
+    "description": "Records from the 'reviewers' table."
+  },
+  {
+    "topic": "reviews",
+    "collection": "reviews",
+    "view_name": "reviews",
+    "path": "/api/reviews",
+    "detail_path": "/api/reviews/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "reviews",
+    "table": "reviews",
+    "api_route": "/api/reviews",
+    "topic_key": "reviews",
+    "display_name": "reviews",
+    "synonyms": [
+      "reviews"
+    ],
+    "description": "Records from the 'reviews' table."
+  },
+  {
+    "topic": "role_permissions",
+    "collection": "role_permissions",
+    "view_name": "role_permissions",
+    "path": "/api/role_permissions",
+    "detail_path": "/api/role_permissions/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "role_permissions",
+    "table": "role_permissions",
+    "api_route": "/api/role_permissions",
+    "topic_key": "role_permissions",
+    "display_name": "role permissions",
+    "synonyms": [
+      "role permissions"
+    ],
+    "description": "Records from the 'role_permissions' table."
+  },
+  {
+    "topic": "roles",
+    "collection": "roles",
+    "view_name": "roles",
+    "path": "/api/roles",
+    "detail_path": "/api/roles/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "roles",
+    "table": "roles",
+    "api_route": "/api/roles",
+    "topic_key": "roles",
+    "display_name": "roles",
+    "synonyms": [
+      "roles"
+    ],
+    "description": "Records from the 'roles' table."
+  },
+  {
+    "topic": "rooms",
+    "collection": "rooms",
+    "view_name": "rooms",
+    "path": "/api/rooms",
+    "detail_path": "/api/rooms/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "rooms",
+    "table": "rooms",
+    "api_route": "/api/rooms",
+    "topic_key": "rooms",
+    "display_name": "rooms",
+    "synonyms": [
+      "rooms"
+    ],
+    "description": "Records from the 'rooms' table."
+  },
+  {
+    "topic": "round_decisions",
+    "collection": "round_decisions",
+    "view_name": "round_decisions",
+    "path": "/api/round_decisions",
+    "detail_path": "/api/round_decisions/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "round_decisions",
+    "table": "round_decisions",
+    "api_route": "/api/round_decisions",
+    "topic_key": "round_decisions",
+    "display_name": "round decisions",
+    "synonyms": [
+      "round decisions"
+    ],
+    "description": "Records from the 'round_decisions' table."
+  },
+  {
+    "topic": "scan_requests",
+    "collection": "scan_requests",
+    "view_name": "scan_requests",
+    "path": "/api/scan_requests",
+    "detail_path": "/api/scan_requests/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "scan_requests",
+    "table": "scan_requests",
+    "api_route": "/api/scan_requests",
+    "topic_key": "scan_requests",
+    "display_name": "scan requests",
+    "synonyms": [
+      "scan requests"
+    ],
+    "description": "Records from the 'scan_requests' table."
+  },
+  {
+    "topic": "scan_results",
+    "collection": "scan_results",
+    "view_name": "scan_results",
+    "path": "/api/scan_results",
+    "detail_path": "/api/scan_results/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "scan_results",
+    "table": "scan_results",
+    "api_route": "/api/scan_results",
+    "topic_key": "scan_results",
+    "display_name": "scan results",
+    "synonyms": [
+      "scan results"
+    ],
+    "description": "Records from the 'scan_results' table."
+  },
+  {
+    "topic": "schools",
+    "collection": "schools",
+    "view_name": "schools",
+    "path": "/api/schools",
+    "detail_path": "/api/schools/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "schools",
+    "table": "schools",
+    "api_route": "/api/schools",
+    "topic_key": "schools",
+    "display_name": "schools",
+    "synonyms": [
+      "schools"
+    ],
+    "description": "Records from the 'schools' table."
+  },
+  {
+    "topic": "score_entries",
+    "collection": "score_entries",
+    "view_name": "score_entries",
+    "path": "/api/score_entries",
+    "detail_path": "/api/score_entries/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "score_entries",
+    "table": "score_entries",
+    "api_route": "/api/score_entries",
+    "topic_key": "score_entries",
+    "display_name": "score entries",
+    "synonyms": [
+      "score entries"
+    ],
+    "description": "Records from the 'score_entries' table."
+  },
+  {
+    "topic": "scorecard_kpis",
+    "collection": "scorecard_kpis",
+    "view_name": "scorecard_kpis",
+    "path": "/api/scorecard_kpis",
+    "detail_path": "/api/scorecard_kpis/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "scorecard_kpis",
+    "table": "scorecard_kpis",
+    "api_route": "/api/scorecard_kpis",
+    "topic_key": "scorecard_kpis",
+    "display_name": "scorecard kpis",
+    "synonyms": [
+      "scorecard kpis"
+    ],
+    "description": "Records from the 'scorecard_kpis' table."
+  },
+  {
+    "topic": "scorecards",
+    "collection": "scorecards",
+    "view_name": "scorecards",
+    "path": "/api/scorecards",
+    "detail_path": "/api/scorecards/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "scorecards",
+    "table": "scorecards",
+    "api_route": "/api/scorecards",
+    "topic_key": "scorecards",
+    "display_name": "scorecards",
+    "synonyms": [
+      "scorecards"
+    ],
+    "description": "Records from the 'scorecards' table."
+  },
+  {
+    "topic": "season",
+    "collection": "seasons",
+    "view_name": "seasons",
+    "path": "/api/seasons",
+    "detail_path": "/api/seasons/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "seasons",
+    "table": "seasons",
+    "api_route": "/api/seasons",
+    "topic_key": "seasons",
+    "display_name": "seasons",
+    "synonyms": [
+      "seasons"
+    ],
+    "description": "Records from the 'seasons' table."
+  },
+  {
+    "topic": "section504_plans",
+    "collection": "section504_plans",
+    "view_name": "section504_plans",
+    "path": "/api/section504_plans",
+    "detail_path": "/api/section504_plans/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "section504_plans",
+    "table": "section504_plans",
+    "api_route": "/api/section504_plans",
+    "topic_key": "section504_plans",
+    "display_name": "section504 plans",
+    "synonyms": [
+      "section504 plans"
+    ],
+    "description": "Records from the 'section504_plans' table."
+  },
+  {
+    "topic": "section_meetings",
+    "collection": "section_meetings",
+    "view_name": "section_meetings",
+    "path": "/api/section_meetings",
+    "detail_path": "/api/section_meetings/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "section_meetings",
+    "table": "section_meetings",
+    "api_route": "/api/section_meetings",
+    "topic_key": "section_meetings",
+    "display_name": "section meetings",
+    "synonyms": [
+      "section meetings"
+    ],
+    "description": "Records from the 'section_meetings' table."
+  },
+  {
+    "topic": "section_room_assignments",
+    "collection": "section_room_assignments",
+    "view_name": "section_room_assignments",
+    "path": "/api/section_room_assignments",
+    "detail_path": "/api/section_room_assignments/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "section_room_assignments",
+    "table": "section_room_assignments",
+    "api_route": "/api/section_room_assignments",
+    "topic_key": "section_room_assignments",
+    "display_name": "section room assignments",
+    "synonyms": [
+      "section room assignments"
+    ],
+    "description": "Records from the 'section_room_assignments' table."
+  },
+  {
+    "topic": "sessions",
+    "collection": "sessions",
+    "view_name": "sessions",
+    "path": "/api/sessions",
+    "detail_path": "/api/sessions/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "sessions",
+    "table": "sessions",
+    "api_route": "/api/sessions",
+    "topic_key": "sessions",
+    "display_name": "sessions",
+    "synonyms": [
+      "sessions"
+    ],
+    "description": "Records from the 'sessions' table."
+  },
+  {
+    "topic": "sis_import_jobs",
+    "collection": "sis_import_jobs",
+    "view_name": "sis_import_jobs",
+    "path": "/api/sis_import_jobs",
+    "detail_path": "/api/sis_import_jobs/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "sis_import_jobs",
+    "table": "sis_import_jobs",
+    "api_route": "/api/sis_import_jobs",
+    "topic_key": "sis_import_jobs",
+    "display_name": "sis import jobs",
+    "synonyms": [
+      "sis import jobs"
+    ],
+    "description": "Records from the 'sis_import_jobs' table."
+  },
+  {
+    "topic": "space_reservations",
+    "collection": "space_reservations",
+    "view_name": "space_reservations",
+    "path": "/api/space_reservations",
+    "detail_path": "/api/space_reservations/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "space_reservations",
+    "table": "space_reservations",
+    "api_route": "/api/space_reservations",
+    "topic_key": "space_reservations",
+    "display_name": "space reservations",
+    "synonyms": [
+      "space reservations"
+    ],
+    "description": "Records from the 'space_reservations' table."
+  },
+  {
+    "topic": "spaces",
+    "collection": "spaces",
+    "view_name": "spaces",
+    "path": "/api/spaces",
+    "detail_path": "/api/spaces/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "spaces",
+    "table": "spaces",
+    "api_route": "/api/spaces",
+    "topic_key": "spaces",
+    "display_name": "spaces",
+    "synonyms": [
+      "spaces"
+    ],
+    "description": "Records from the 'spaces' table."
+  },
+  {
+    "topic": "special_education_cases",
+    "collection": "special_education_cases",
+    "view_name": "special_education_cases",
+    "path": "/api/special_education_cases",
+    "detail_path": "/api/special_education_cases/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "special_education_cases",
+    "table": "special_education_cases",
+    "api_route": "/api/special_education_cases",
+    "topic_key": "special_education_cases",
+    "display_name": "special education cases",
+    "synonyms": [
+      "special education cases"
+    ],
+    "description": "Records from the 'special_education_cases' table."
+  },
+  {
+    "topic": "sports",
+    "collection": "sports",
+    "view_name": "sports",
+    "path": "/api/sports",
+    "detail_path": "/api/sports/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "sports",
+    "table": "sports",
+    "api_route": "/api/sports",
+    "topic_key": "sports",
+    "display_name": "sports",
+    "synonyms": [
+      "sports"
+    ],
+    "description": "Records from the 'sports' table."
+  },
+  {
+    "topic": "staff",
+    "collection": "staff",
+    "view_name": "staff",
+    "path": "/api/staff",
+    "detail_path": "/api/staff/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "staff",
+    "table": "staff",
+    "api_route": "/api/staff",
+    "topic_key": "staff",
+    "display_name": "staff",
+    "synonyms": [
+      "staff"
+    ],
+    "description": "Records from the 'staff' table."
+  },
+  {
+    "topic": "standardized_tests",
+    "collection": "standardized_tests",
+    "view_name": "standardized_tests",
+    "path": "/api/standardized_tests",
+    "detail_path": "/api/standardized_tests/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "standardized_tests",
+    "table": "standardized_tests",
+    "api_route": "/api/standardized_tests",
+    "topic_key": "standardized_tests",
+    "display_name": "standardized tests",
+    "synonyms": [
+      "standardized tests"
+    ],
+    "description": "Records from the 'standardized_tests' table."
+  },
+  {
+    "topic": "standards",
+    "collection": "standards",
+    "view_name": "standards",
+    "path": "/api/standards",
+    "detail_path": "/api/standards/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "standards",
+    "table": "standards",
+    "api_route": "/api/standards",
+    "topic_key": "standards",
+    "display_name": "standards",
+    "synonyms": [
+      "standards"
+    ],
+    "description": "Records from the 'standards' table."
+  },
+  {
+    "topic": "stat_imports",
+    "collection": "stat_imports",
+    "view_name": "stat_imports",
+    "path": "/api/stat_imports",
+    "detail_path": "/api/stat_imports/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "stat_imports",
+    "table": "stat_imports",
+    "api_route": "/api/stat_imports",
+    "topic_key": "stat_imports",
+    "display_name": "stat imports",
+    "synonyms": [
+      "stat imports"
+    ],
+    "description": "Records from the 'stat_imports' table."
+  },
+  {
+    "topic": "state_reporting_snapshots",
+    "collection": "state_reporting_snapshots",
+    "view_name": "state_reporting_snapshots",
+    "path": "/api/state_reporting_snapshots",
+    "detail_path": "/api/state_reporting_snapshots/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "state_reporting_snapshots",
+    "table": "state_reporting_snapshots",
+    "api_route": "/api/state_reporting_snapshots",
+    "topic_key": "state_reporting_snapshots",
+    "display_name": "state reporting snapshots",
+    "synonyms": [
+      "state reporting snapshots"
+    ],
+    "description": "Records from the 'state_reporting_snapshots' table."
+  },
+  {
+    "topic": "states",
+    "collection": "states",
+    "view_name": "states",
+    "path": "/api/states",
+    "detail_path": "/api/states/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "states",
+    "table": "states",
+    "api_route": "/api/states",
+    "topic_key": "states",
+    "display_name": "states",
+    "synonyms": [
+      "states"
+    ],
+    "description": "Records from the 'states' table."
+  },
+  {
+    "topic": "store_order_items",
+    "collection": "store_order_items",
+    "view_name": "store_order_items",
+    "path": "/api/store_order_items",
+    "detail_path": "/api/store_order_items/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "store_order_items",
+    "table": "store_order_items",
+    "api_route": "/api/store_order_items",
+    "topic_key": "store_order_items",
+    "display_name": "store order items",
+    "synonyms": [
+      "store order items"
+    ],
+    "description": "Records from the 'store_order_items' table."
+  },
+  {
+    "topic": "store_orders",
+    "collection": "store_orders",
+    "view_name": "store_orders",
+    "path": "/api/store_orders",
+    "detail_path": "/api/store_orders/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "store_orders",
+    "table": "store_orders",
+    "api_route": "/api/store_orders",
+    "topic_key": "store_orders",
+    "display_name": "store orders",
+    "synonyms": [
+      "store orders"
+    ],
+    "description": "Records from the 'store_orders' table."
+  },
+  {
+    "topic": "store_products",
+    "collection": "store_products",
+    "view_name": "store_products",
+    "path": "/api/store_products",
+    "detail_path": "/api/store_products/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "store_products",
+    "table": "store_products",
+    "api_route": "/api/store_products",
+    "topic_key": "store_products",
+    "display_name": "store products",
+    "synonyms": [
+      "store products"
+    ],
+    "description": "Records from the 'store_products' table."
+  },
+  {
+    "topic": "student_guardians",
+    "collection": "student_guardians",
+    "view_name": "student_guardians",
+    "path": "/api/student_guardians",
+    "detail_path": "/api/student_guardians/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "student_guardians",
+    "table": "student_guardians",
+    "api_route": "/api/student_guardians",
+    "topic_key": "student_guardians",
+    "display_name": "student guardians",
+    "synonyms": [
+      "student guardians"
+    ],
+    "description": "Records from the 'student_guardians' table."
+  },
+  {
+    "topic": "student_program_enrollments",
+    "collection": "student_program_enrollments",
+    "view_name": "student_program_enrollments",
+    "path": "/api/student_program_enrollments",
+    "detail_path": "/api/student_program_enrollments/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "student_program_enrollments",
+    "table": "student_program_enrollments",
+    "api_route": "/api/student_program_enrollments",
+    "topic_key": "student_program_enrollments",
+    "display_name": "student program enrollments",
+    "synonyms": [
+      "student program enrollments"
+    ],
+    "description": "Records from the 'student_program_enrollments' table."
+  },
+  {
+    "topic": "student_school_enrollments",
+    "collection": "student_school_enrollments",
+    "view_name": "student_school_enrollments",
+    "path": "/api/student_school_enrollments",
+    "detail_path": "/api/student_school_enrollments/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "student_school_enrollments",
+    "table": "student_school_enrollments",
+    "api_route": "/api/student_school_enrollments",
+    "topic_key": "student_school_enrollments",
+    "display_name": "student school enrollments",
+    "synonyms": [
+      "student school enrollments"
+    ],
+    "description": "Records from the 'student_school_enrollments' table."
+  },
+  {
+    "topic": "student_section_enrollments",
+    "collection": "student_section_enrollments",
+    "view_name": "student_section_enrollments",
+    "path": "/api/student_section_enrollments",
+    "detail_path": "/api/student_section_enrollments/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "student_section_enrollments",
+    "table": "student_section_enrollments",
+    "api_route": "/api/student_section_enrollments",
+    "topic_key": "student_section_enrollments",
+    "display_name": "student section enrollments",
+    "synonyms": [
+      "student section enrollments"
+    ],
+    "description": "Records from the 'student_section_enrollments' table."
+  },
+  {
+    "topic": "student_submissions",
+    "collection": "student_submissions",
+    "view_name": "student_submissions",
+    "path": "/api/student_submissions",
+    "detail_path": "/api/student_submissions/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "student_submissions",
+    "table": "student_submissions",
+    "api_route": "/api/student_submissions",
+    "topic_key": "student_submissions",
+    "display_name": "student submissions",
+    "synonyms": [
+      "student submissions"
+    ],
+    "description": "Records from the 'student_submissions' table."
+  },
+  {
+    "topic": "student_transportation_assignments",
+    "collection": "student_transportation_assignments",
+    "view_name": "student_transportation_assignments",
+    "path": "/api/student_transportation_assignments",
+    "detail_path": "/api/student_transportation_assignments/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "student_transportation_assignments",
+    "table": "student_transportation_assignments",
+    "api_route": "/api/student_transportation_assignments",
+    "topic_key": "student_transportation_assignments",
+    "display_name": "student transportation assignments",
+    "synonyms": [
+      "student transportation assignments"
+    ],
+    "description": "Records from the 'student_transportation_assignments' table."
+  },
+  {
+    "topic": "students",
+    "collection": "students",
+    "view_name": "students",
+    "path": "/api/students",
+    "detail_path": "/api/students/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "students",
+    "table": "students",
+    "api_route": "/api/students",
+    "topic_key": "students",
+    "display_name": "students",
+    "synonyms": [
+      "students"
+    ],
+    "description": "Records from the 'students' table."
+  },
+  {
+    "topic": "subjects",
+    "collection": "subjects",
+    "view_name": "subjects",
+    "path": "/api/subjects",
+    "detail_path": "/api/subjects/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "subjects",
+    "table": "subjects",
+    "api_route": "/api/subjects",
+    "topic_key": "subjects",
+    "display_name": "subjects",
+    "synonyms": [
+      "subjects"
+    ],
+    "description": "Records from the 'subjects' table."
+  },
+  {
+    "topic": "subscriptions",
+    "collection": "subscriptions",
+    "view_name": "subscriptions",
+    "path": "/api/subscriptions",
+    "detail_path": "/api/subscriptions/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "subscriptions",
+    "table": "subscriptions",
+    "api_route": "/api/subscriptions",
+    "topic_key": "subscriptions",
+    "display_name": "subscriptions",
+    "synonyms": [
+      "subscriptions"
+    ],
+    "description": "Records from the 'subscriptions' table."
+  },
+  {
+    "topic": "tags",
+    "collection": "tags",
+    "view_name": "tags",
+    "path": "/api/tags",
+    "detail_path": "/api/tags/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "tags",
+    "table": "tags",
+    "api_route": "/api/tags",
+    "topic_key": "tags",
+    "display_name": "tags",
+    "synonyms": [
+      "tags"
+    ],
+    "description": "Records from the 'tags' table."
+  },
+  {
+    "topic": "teacher_section_assignments",
+    "collection": "teacher_section_assignments",
+    "view_name": "teacher_section_assignments",
+    "path": "/api/teacher_section_assignments",
+    "detail_path": "/api/teacher_section_assignments/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "teacher_section_assignments",
+    "table": "teacher_section_assignments",
+    "api_route": "/api/teacher_section_assignments",
+    "topic_key": "teacher_section_assignments",
+    "display_name": "teacher section assignments",
+    "synonyms": [
+      "teacher section assignments"
+    ],
+    "description": "Records from the 'teacher_section_assignments' table."
+  },
+  {
+    "topic": "team_messages",
+    "collection": "team_messages",
+    "view_name": "team_messages",
+    "path": "/api/team_messages",
+    "detail_path": "/api/team_messages/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "team_messages",
+    "table": "team_messages",
+    "api_route": "/api/team_messages",
+    "topic_key": "team_messages",
+    "display_name": "team messages",
+    "synonyms": [
+      "team messages"
+    ],
+    "description": "Records from the 'team_messages' table."
+  },
+  {
+    "topic": "teams",
+    "collection": "teams",
+    "view_name": "teams",
+    "path": "/api/teams",
+    "detail_path": "/api/teams/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "teams",
+    "table": "teams",
+    "api_route": "/api/teams",
+    "topic_key": "teams",
+    "display_name": "teams",
+    "synonyms": [
+      "teams"
+    ],
+    "description": "Records from the 'teams' table."
+  },
+  {
+    "topic": "test_administrations",
+    "collection": "test_administrations",
+    "view_name": "test_administrations",
+    "path": "/api/test_administrations",
+    "detail_path": "/api/test_administrations/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "test_administrations",
+    "table": "test_administrations",
+    "api_route": "/api/test_administrations",
+    "topic_key": "test_administrations",
+    "display_name": "test administrations",
+    "synonyms": [
+      "test administrations"
+    ],
+    "description": "Records from the 'test_administrations' table."
+  },
+  {
+    "topic": "test_results",
+    "collection": "test_results",
+    "view_name": "test_results",
+    "path": "/api/test_results",
+    "detail_path": "/api/test_results/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "test_results",
+    "table": "test_results",
+    "api_route": "/api/test_results",
+    "topic_key": "test_results",
+    "display_name": "test results",
+    "synonyms": [
+      "test results"
+    ],
+    "description": "Records from the 'test_results' table."
+  },
+  {
+    "topic": "ticket_scans",
+    "collection": "ticket_scans",
+    "view_name": "ticket_scans",
+    "path": "/api/ticket_scans",
+    "detail_path": "/api/ticket_scans/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "ticket_scans",
+    "table": "ticket_scans",
+    "api_route": "/api/ticket_scans",
+    "topic_key": "ticket_scans",
+    "display_name": "ticket scans",
+    "synonyms": [
+      "ticket scans"
+    ],
+    "description": "Records from the 'ticket_scans' table."
+  },
+  {
+    "topic": "ticket_types",
+    "collection": "ticket_types",
+    "view_name": "ticket_types",
+    "path": "/api/ticket_types",
+    "detail_path": "/api/ticket_types/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "ticket_types",
+    "table": "ticket_types",
+    "api_route": "/api/ticket_types",
+    "topic_key": "ticket_types",
+    "display_name": "ticket types",
+    "synonyms": [
+      "ticket types"
+    ],
+    "description": "Records from the 'ticket_types' table."
+  },
+  {
+    "topic": "tickets",
+    "collection": "tickets",
+    "view_name": "tickets",
+    "path": "/api/tickets",
+    "detail_path": "/api/tickets/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "tickets",
+    "table": "tickets",
+    "api_route": "/api/tickets",
+    "topic_key": "tickets",
+    "display_name": "tickets",
+    "synonyms": [
+      "tickets"
+    ],
+    "description": "Records from the 'tickets' table."
+  },
+  {
+    "topic": "topics",
+    "collection": "topics",
+    "view_name": "topics",
+    "path": "/api/topics",
+    "detail_path": "/api/topics/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "topics",
+    "table": "topics",
+    "api_route": "/api/topics",
+    "topic_key": "topics",
+    "display_name": "topics",
+    "synonyms": [
+      "topics"
+    ],
+    "description": "Records from the 'topics' table."
+  },
+  {
+    "topic": "transcript_lines",
+    "collection": "transcript_lines",
+    "view_name": "transcript_lines",
+    "path": "/api/transcript_lines",
+    "detail_path": "/api/transcript_lines/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "transcript_lines",
+    "table": "transcript_lines",
+    "api_route": "/api/transcript_lines",
+    "topic_key": "transcript_lines",
+    "display_name": "transcript lines",
+    "synonyms": [
+      "transcript lines"
+    ],
+    "description": "Records from the 'transcript_lines' table."
+  },
+  {
+    "topic": "trips",
+    "collection": "trips",
+    "view_name": "trips",
+    "path": "/api/trips",
+    "detail_path": "/api/trips/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "trips",
+    "table": "trips",
+    "api_route": "/api/trips",
+    "topic_key": "trips",
+    "display_name": "trips",
+    "synonyms": [
+      "trips"
+    ],
+    "description": "Records from the 'trips' table."
+  },
+  {
+    "topic": "turn_in",
+    "collection": "turn_in",
+    "view_name": "turn_in",
+    "path": "/api/turn_in",
+    "detail_path": "/api/turn_in/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "turn_in",
+    "table": "turn_in",
+    "api_route": "/api/turn_in",
+    "topic_key": "turn_in",
+    "display_name": "turn in",
+    "synonyms": [
+      "turn in"
+    ],
+    "description": "Records from the 'turn_in' table."
+  },
+  {
+    "topic": "tutor_out",
+    "collection": "tutor_out",
+    "view_name": "tutor_out",
+    "path": "/api/tutor_out",
+    "detail_path": "/api/tutor_out/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "tutor_out",
+    "table": "tutor_out",
+    "api_route": "/api/tutor_out",
+    "topic_key": "tutor_out",
+    "display_name": "tutor out",
+    "synonyms": [
+      "tutor out"
+    ],
+    "description": "Records from the 'tutor_out' table."
+  },
+  {
+    "topic": "tutor_spec",
+    "collection": "tutor_spec",
+    "view_name": "tutor_spec",
+    "path": "/api/tutor_spec",
+    "detail_path": "/api/tutor_spec/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "tutor_spec",
+    "table": "tutor_spec",
+    "api_route": "/api/tutor_spec",
+    "topic_key": "tutor_spec",
+    "display_name": "tutor spec",
+    "synonyms": [
+      "tutor spec"
+    ],
+    "description": "Records from the 'tutor_spec' table."
+  },
+  {
+    "topic": "tutors",
+    "collection": "tutors",
+    "view_name": "tutors",
+    "path": "/api/tutors",
+    "detail_path": "/api/tutors/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "tutors",
+    "table": "tutors",
+    "api_route": "/api/tutors",
+    "topic_key": "tutors",
+    "display_name": "tutors",
+    "synonyms": [
+      "tutors"
+    ],
+    "description": "Records from the 'tutors' table."
+  },
+  {
+    "topic": "unit_standard_map",
+    "collection": "unit_standard_map",
+    "view_name": "unit_standard_map",
+    "path": "/api/unit_standard_map",
+    "detail_path": "/api/unit_standard_map/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "unit_standard_map",
+    "table": "unit_standard_map",
+    "api_route": "/api/unit_standard_map",
+    "topic_key": "unit_standard_map",
+    "display_name": "unit standard map",
+    "synonyms": [
+      "unit standard map"
+    ],
+    "description": "Records from the 'unit_standard_map' table."
+  },
+  {
+    "topic": "user_accounts",
+    "collection": "user_accounts",
+    "view_name": "user_accounts",
+    "path": "/api/user_accounts",
+    "detail_path": "/api/user_accounts/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "user_accounts",
+    "table": "user_accounts",
+    "api_route": "/api/user_accounts",
+    "topic_key": "user_accounts",
+    "display_name": "user accounts",
+    "synonyms": [
+      "user accounts"
+    ],
+    "description": "Records from the 'user_accounts' table."
+  },
+  {
+    "topic": "user_profiles",
+    "collection": "user_profiles",
+    "view_name": "user_profiles",
+    "path": "/api/user_profiles",
+    "detail_path": "/api/user_profiles/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "user_profiles",
+    "table": "user_profiles",
+    "api_route": "/api/user_profiles",
+    "topic_key": "user_profiles",
+    "display_name": "user profiles",
+    "synonyms": [
+      "user profiles"
+    ],
+    "description": "Records from the 'user_profiles' table."
+  },
+  {
+    "topic": "users",
+    "collection": "users",
+    "view_name": "users",
+    "path": "/api/users",
+    "detail_path": "/api/users/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "users",
+    "table": "users",
+    "api_route": "/api/users",
+    "topic_key": "users",
+    "display_name": "users",
+    "synonyms": [
+      "users"
+    ],
+    "description": "Records from the 'users' table."
+  },
+  {
+    "topic": "vendors",
+    "collection": "vendors",
+    "view_name": "vendors",
+    "path": "/api/vendors",
+    "detail_path": "/api/vendors/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "vendors",
+    "table": "vendors",
+    "api_route": "/api/vendors",
+    "topic_key": "vendors",
+    "display_name": "vendors",
+    "synonyms": [
+      "vendors"
+    ],
+    "description": "Records from the 'vendors' table."
+  },
+  {
+    "topic": "votes",
+    "collection": "votes",
+    "view_name": "votes",
+    "path": "/api/votes",
+    "detail_path": "/api/votes/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "votes",
+    "table": "votes",
+    "api_route": "/api/votes",
+    "topic_key": "votes",
+    "display_name": "votes",
+    "synonyms": [
+      "votes"
+    ],
+    "description": "Records from the 'votes' table."
+  },
+  {
+    "topic": "waivers",
+    "collection": "waivers",
+    "view_name": "waivers",
+    "path": "/api/waivers",
+    "detail_path": "/api/waivers/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "waivers",
+    "table": "waivers",
+    "api_route": "/api/waivers",
+    "topic_key": "waivers",
+    "display_name": "waivers",
+    "synonyms": [
+      "waivers"
+    ],
+    "description": "Records from the 'waivers' table."
+  },
+  {
+    "topic": "warranties",
+    "collection": "warranties",
+    "view_name": "warranties",
+    "path": "/api/warranties",
+    "detail_path": "/api/warranties/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "warranties",
+    "table": "warranties",
+    "api_route": "/api/warranties",
+    "topic_key": "warranties",
+    "display_name": "warranties",
+    "synonyms": [
+      "warranties"
+    ],
+    "description": "Records from the 'warranties' table."
+  },
+  {
+    "topic": "warranty",
+    "collection": "warrantys",
+    "view_name": "warrantys",
+    "path": "/api/warrantys",
+    "detail_path": "/api/warrantys/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    }
+  },
+  {
+    "topic": "webhooks",
+    "collection": "webhooks",
+    "view_name": "webhooks",
+    "path": "/api/webhooks",
+    "detail_path": "/api/webhooks/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "webhooks",
+    "table": "webhooks",
+    "api_route": "/api/webhooks",
+    "topic_key": "webhooks",
+    "display_name": "webhooks",
+    "synonyms": [
+      "webhooks"
+    ],
+    "description": "Records from the 'webhooks' table."
+  },
+  {
+    "topic": "work_assignments",
+    "collection": "work_assignments",
+    "view_name": "work_assignments",
+    "path": "/api/work_assignments",
+    "detail_path": "/api/work_assignments/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "work_assignments",
+    "table": "work_assignments",
+    "api_route": "/api/work_assignments",
+    "topic_key": "work_assignments",
+    "display_name": "work assignments",
+    "synonyms": [
+      "work assignments"
+    ],
+    "description": "Records from the 'work_assignments' table."
+  },
+  {
+    "topic": "work_order_parts",
+    "collection": "work_order_parts",
+    "view_name": "work_order_parts",
+    "path": "/api/work_order_parts",
+    "detail_path": "/api/work_order_parts/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "work_order_parts",
+    "table": "work_order_parts",
+    "api_route": "/api/work_order_parts",
+    "topic_key": "work_order_parts",
+    "display_name": "work order parts",
+    "synonyms": [
+      "work order parts"
+    ],
+    "description": "Records from the 'work_order_parts' table."
+  },
+  {
+    "topic": "work_order_tasks",
+    "collection": "work_order_tasks",
+    "view_name": "work_order_tasks",
+    "path": "/api/work_order_tasks",
+    "detail_path": "/api/work_order_tasks/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "work_order_tasks",
+    "table": "work_order_tasks",
+    "api_route": "/api/work_order_tasks",
+    "topic_key": "work_order_tasks",
+    "display_name": "work order tasks",
+    "synonyms": [
+      "work order tasks"
+    ],
+    "description": "Records from the 'work_order_tasks' table."
+  },
+  {
+    "topic": "work_order_time_logs",
+    "collection": "work_order_time_logs",
+    "view_name": "work_order_time_logs",
+    "path": "/api/work_order_time_logs",
+    "detail_path": "/api/work_order_time_logs/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "work_order_time_logs",
+    "table": "work_order_time_logs",
+    "api_route": "/api/work_order_time_logs",
+    "topic_key": "work_order_time_logs",
+    "display_name": "work order time logs",
+    "synonyms": [
+      "work order time logs"
+    ],
+    "description": "Records from the 'work_order_time_logs' table."
+  },
+  {
+    "topic": "work_orders",
+    "collection": "work_orders",
+    "view_name": "work_orders",
+    "path": "/api/work_orders",
+    "detail_path": "/api/work_orders/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "work_orders",
+    "table": "work_orders",
+    "api_route": "/api/work_orders",
+    "topic_key": "work_orders",
+    "display_name": "work orders",
+    "synonyms": [
+      "work orders"
+    ],
+    "description": "Records from the 'work_orders' table."
+  },
+  {
+    "topic": "workers",
+    "collection": "workers",
+    "view_name": "workers",
+    "path": "/api/workers",
+    "detail_path": "/api/workers/{id}",
+    "base_url": "http://localhost:8000",
+    "default_params": {
+      "skip": 0,
+      "limit": 100
+    },
+    "id": "workers",
+    "table": "workers",
+    "api_route": "/api/workers",
+    "topic_key": "workers",
+    "display_name": "workers",
+    "synonyms": [
+      "workers"
+    ],
+    "description": "Records from the 'workers' table."
+  }
+]

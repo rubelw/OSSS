@@ -21,7 +21,7 @@ RUN mkdir -p /root/.metagpt && \
 'llm:' \
 '  api_type: "ollama"' \
 '  base_url: "http://host.containers.internal:11434/api"' \
-'  model: "llama3.2-vision:latest"' \
+'  model: "llama3.1:latest"' \
 '  api_key: "local-ollama"' \
 
 > /root/.metagpt/config2.yaml

@@ -6,7 +6,7 @@ RULES = [
     HeuristicRule(
         name="incidents__explicit_show",
         intent="incidents",          # ✅ must match your Intent enum value
-        priority=60,                 # > staff_info if you want it to win
+        priority=60,                 # > staffs if you want it to win
         keywords=[
             "show incidents",
             "incidents",

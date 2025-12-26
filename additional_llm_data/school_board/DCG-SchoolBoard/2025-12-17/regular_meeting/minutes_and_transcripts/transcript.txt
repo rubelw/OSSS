@@ -1,0 +1,1426 @@
+
+
+
+0:06
+I'd like to call the regular meeting of the Dallas Center School Board to order. Roll call, please. Miss Wearman. Director Baker Curtis,
+0:12
+here. Director Dickinson. Director Fiala here. Director Malberg here. Director Carpenter
+0:18
+here. Director Quant. Director Vanderved here. I'll acknowledge a quorum. Would everyone please rise for the pledge?
+0:26
+I pledge algiance to the flag of the United States of America and to the
+0:32
+republic for which it stands. One nation under God, indivisible, with liberty and
+0:38
+justice for all.
+0:43
+Has anyone registered to speak? No one is registered to speak.
+0:48
+All right. Uh move along to item four, the agenda. Any changes to the agenda, Dr. Bloom? No changes.
+0:54
+Looking for a motion? Move to approve Vandervald. Second Baker Curtis. Any discussion?
+1:01
+All those in favor indicate by saying I. I. I. Oppos. Same sign. Motion carries. Uh we've got four sets
+1:09
+of meeting minutes uh over the last um 30 days or so to for your review.
+1:16
+Um two sets from 129, two sets from 11:24. Looking for a motion.
+1:22
+Move to approve. Mberg. Second. Viella. Any discussion?
+1:28
+All those in favor indicate by saying I. I. I. Both same sign. Motion carries.
+1:34
+Bills. Looking for a motion. Move to approve. Vandervelden. Second. Menberg.
+1:39
+Any discussion? All those in favor indicate by saying I. I.
+1:45
+Oppos. Same sign. Motion carries. Item seven, the consent agenda. Looking for a motion.
+1:50
+Move to approve. Baker Curtis. Second. Vanderval. Then any discussion?
+1:57
+Just the shortest consent agenda I think I've ever seen. All those in favor indicate by saying I.
+2:04
+I. Post. Same sign. Motion carries. Uh reports. Any questions on the written reports?
+2:13
+Seeing none, we'll move along to building level reports. Um our director of technology, Steven Hopper, here to
+2:19
+report. go ahead and come up to the lect turn and
+2:25
+thanks Stephen. Good evening everyone. How are you doing tonight?
+2:31
+Good. Um this is my annual report. You guys are going to see a lot of familiar things. Um but I like to highlight some
+2:36
+things that have happened even just this month as we go through. And as you guys are many of you that are have been here
+2:42
+a while, you're aware I always start with my team. We're a small but mighty team in the district. If you compare us to any district around us, we're
+2:48
+actually a smaller, more efficient team. Uh I believe uh actually I can back that
+2:53
+up too with just uh this just staff counts. Um we have Barb Chives on the left and Eric Meyer next to him. Eric's
+3:00
+actually the veteran of our group. He's been here prior to anyone else up there. Um you wouldn't look look at it. Um next
+3:06
+to him is my right-hand man Chris Stammerman who is our uh network systems administrator and then myself. Couldn't
+3:12
+do anything without them. Then I'll I'll share a little bit about uh something we've been dealing with the last 24 hours um as we go through the slideshow
+3:19
+here. Uh our core processes have not changed since last year and it really comes down to high quality customer
+3:25
+service, protecting the sensitive data and the integrity of our district technology and re ensuring reliable
+3:31
+network connectivity and access. Uh we don't want to be in the spotlight. Technology shouldn't lead the way. Our
+3:37
+students should do that. Our staff action should do that. We want to be in the background supporting that work. um and not only with our students and staff
+3:43
+but also with our other departments which I'm going to highlight tonight. Um and then off obviously I always spell
+3:49
+this one out for my friend um SPR uh we want to operate within the bounds of our
+3:54
+approved budget. That's why we're she's my office neighbor and we work well together.
+4:03
+Uh I I include a slide like this every year now that I've been here. This is my
+4:08
+um this is my fourth year here with the district. Um I what I did and and you can see this in the PDF a little bit
+4:14
+better. Um I took our tickets over the last three years and kind of mapped them up. And there's a few things I'll point
+4:20
+out. One of them is you see every year beginning in August we always get a spike. That's when students and staff
+4:25
+are coming back. We have device repairs for the summer. All of that. Um that number was actually identical this year
+4:31
+between 2024 and 2025. I didn't believe it. I went back and double checked. It ironically was the same one. The thing
+4:36
+that we've noticed this year that is very different is you do not see that significant drop in September, October,
+4:43
+and November. Um, now on the one hand, it means we're busy. We're consistently busy. Um, but it also means that our
+4:50
+staff are using that throughout the year. They're not waiting until just before break. We've seen another little
+4:55
+uptick this week as we go into winter break. Um, but you can kind of see the pattern has remained consistent except
+5:02
+for that little piece at the end. it's it's remaining high all year long. Um we
+5:07
+can handle it. Don't have any concerns about that right now, but it is something we're watching. Uh moving ahead,
+5:13
+uh I mentioned that I'm going to highlight some of our partnerships and you'll hear some of those tonight. Um these are ones that have just happened
+5:20
+since the 1st of December. So I I didn't even go back that far to talk about um some of the partnerships we've done. Uh
+5:27
+Jeff Wolf and I, he reached out to me. They want to do some work with um Stopfinder Geo Alerts. some additional
+5:32
+technology for our school buses. Is Jeff here tonight? I don't know if Jeff's here tonight. Um he worked he approached
+5:39
+me and said, "Hey, I'm looking at this hardware. Can you review the proposal?" That kind of thing. We were able to find
+5:44
+um some significant savings in our um cellular data because these are devices that run on our buses. Um the proposal
+5:52
+being offered by the vendor was something like $19,000 a year, but we could leverage our existing account with
+5:58
+T-Mobile for about $6,000 a year for the exact same level of service. So that would have been something that had Jeff
+6:04
+not reached out to me, we probably wouldn't have been able to collaborate and find that. So it's a huge savings um not just in year one but in the
+6:11
+subsequent years because it'll be a multiple year agreement. Uh the other one I've been working and I
+6:16
+know um Donny will be up here in a little bit. Uh we've started having conversations about what that operations
+6:22
+campus is going to look like. Right now it's connected by a point-to-point radio. Um, meaning there's an antenna on
+6:27
+the bus garage that points back to an antenna here to deliver internet to that building and that campus. Um, as you
+6:34
+imagine, we've had a lot of wind. Um, we have a lot of snow. We have a lot of ice. We've we've seen that connection
+6:40
+kind of go up and down throughout the day. The what whatever whatever it was couple weeks ago when we had the 50 60 mile per hour wind, you could actually
+6:46
+see our security cameras offline for a minute, back online for a minute. You could almost see in the the video of the
+6:52
+camera how often they were going down. So, one of the things we want to do as we're um developing that campus and kind
+6:58
+of redesigning what that campus might look like is we want to get a fiber line in place that connects this building to that building. Something that we own
+7:05
+that will allow us to connect that network in the ground more much more reliably than what we have. Also
+7:11
+provides us a whole lot of future growth on that campus if we ever need it for anything else. Um so, I appreciate
+7:16
+Donnie bringing me in on that. I think we've got some exciting things that uh we'll share in the months ahead.
+7:21
+uh the activities. This is an older picture. Um uh AD Meltchure approached me would have been the first week in
+7:28
+December um for their wrestling computers. They were ancient. If you've
+7:33
+ever been there, you probably saw some um frazzled uh officials trying to get
+7:39
+the mats connected. Um started reaching out. They have someone that they bring in to help run the wrestling meets who
+7:45
+recommended some equipment. We went through our current inventory. Turns out we have some devices at Oakview that are
+7:51
+only about a year and a half old that meet all of the requirements because the students are using their Chromebooks
+7:57
+now. They don't need those Windows computers. We're going to shift those over at no cost to our activities department. So, they'll essentially get
+8:02
+new computers to run the wrestling meets, which is huge. Um, it was also that this isn't a picture of that, but
+8:09
+it was really cool that day when I was there because it was one of the dual um uh boys and girls meets. So, it was
+8:14
+really really cool to see that environment in there and the you could just feel the energy in the air while that was going on. But again, partnering
+8:21
+with them, we also had an incident uh or shouldn't say an incident. We also have a partnership with them right now about their golf simulators that were
+8:27
+purchased last year for the golf team. They've been having some issues. So, Eric um on my team who's a very avid
+8:32
+golfer uh went out there and is helping them get the simulator up and running and make sure it's up to code as far as
+8:38
+our security measures go. Um school improvement. This is one uh I shared
+8:43
+this slideshow the state technology directors brought in a couple professors from Drake talking about AI. So I shared this with um Corenza and Bloom and some
+8:51
+of our team. Uh we also I just shared last night as I was driving home NPR had a story about AI detection tools. Um
+8:58
+some of which we do use currently in the district. So I shared that to kind of continue that conversation. Um we have a
+9:04
+phenomenal school improvement team but the teacher and the professional learning side of me can never leave that conversation untouched. So, anytime I
+9:11
+can jump into that and share my opinion or expertise, probably more opinion than anything else, um, I'm happy to do that.
+9:18
+So, as you can see, lots of partnerships with lots of different things. Meanwhile, my team and I, we're working
+9:24
+with teachers, we're working with students, we're repairing devices, we're doing all those other things that a tech department usually does.
+9:31
+Uh, fiscal responsibility. We've got some projects every year. Um, many of you will be familiar with -ate. That's
+9:37
+our federal discount program. uh that cycle restarts in fiscal year 2025 or
+9:44
+excuse me 2026. Um and that's going to give us 700 Yeah, there it is. $755,000.
+9:51
+That's our portion and our -ray portion. So over the next five years, the district will probably spend close to
+9:57
+$300,000. That's on things like access points and network switches and
+10:02
+equipment to keep our network up and running. And then in return, we're going to get about $453,000
+10:08
+in discounts and reimbursements from um uh from the federal well it's a branch
+10:15
+of or agency of the federal government. Um that is not counting category one which is our discounted internet rate.
+10:21
+So we get about a 60% rate of what we would normally pay if we were a business
+10:26
+um in the district. Uh you can see some of the projects that we're doing up there. And then the bond
+10:34
+updates. Uh I know you've been talking about that se for the past several months. This summer we're going to target Northridge and Dallas Center
+10:40
+Elementary for an upgraded paging and intercom system. Um it's getting old. Uh they it just doesn't work. It's not up
+10:46
+to speed uh to where we want it to be. So those buildings uh will put an RFP out shortly after the first of the year.
+10:53
+They will get the system that's in our middle school Oakview and high school. So, every teacher will have a microphone they can wear around their neck that
+10:59
+doubles as an emergency alert. So, if there's any kind of event going on, they can hold the buttons that'll trigger an
+11:05
+alert in the main office that they can see and hear and tap into. Um, also gives us updated bells and paging, all
+11:12
+sorts of really, really cool things. Um, and then we'll continue with those in future years. The reason we're hitting
+11:18
+Northridge and DC is our partnership with operations. they're going to be in those buildings and have a lot of the ceilings torn out anyway. So, it makes
+11:25
+sense to just leverage that time when it's already available and we'll have fewer kids.
+11:31
+Um, the other big thing about fiscal responsibility this year and different um you may recall uh we implemented a
+11:37
+break fix insurance policy with Remy Insurance. Basically, we pay a premium and then we can file claims with them
+11:44
+for things like Chromebook parts or um uh an amplifier that went out. Um, we
+11:50
+get that money back via reimbursements or in some cases they pay us directly for our time. Um, when I put this
+11:57
+together last week, we hadn't got September or October. We do have those back now. I think they're sitting at like 60 I want to say 6600 for September
+12:06
+and 6,700 for October. So, if you look at our claims to return ratio, we're
+12:11
+sitting well above 95%. Um, I actually kind of Michelle was thin walls had a
+12:18
+little conversation with them last week. Just like any insurance, sometimes you have to fight what they're denying. Um,
+12:23
+so I'm going to it's probably closer to 97% return on what we're submitting. Um, Donahghue and his team use this as well.
+12:31
+Um, their their line items are significantly more expensive and they tend to get a few more um, challenges.
+12:37
+So, I don't envy what he has to do for Remy compared to what we have.
+12:42
+uh cyber security that I I'll keep this brief and I I don't want to overshare where we're at. Um that is a constant
+12:49
+concern for us. Let me see if I um I'll come back to this one. Uh just in the
+12:55
+last 24 hours, this happens every year the week going into winter break and it's happened to multiple districts.
+13:01
+They get fishing emails from outside the district. They're specifically designed to target staff when their attention is
+13:06
+drawn in multiple directions. Um, we appear through our course. We have one
+13:12
+staff account that was compromised last night. Um, we've been working today. We've remediated. It's secured. Staff's
+13:17
+know been notified. We're in great shape. We're doing our documentation. Um, but to give you a sense of that
+13:23
+compromised account within the span of about 17 minutes, that account was used to send about 3,000 emails to our
+13:30
+internal directory. So, they did 30 emails with a 100 recipients to try to keep it under the the line. um we were
+13:37
+able to purge over 2700 of those emails before anyone even saw them because we came alert right away. The other ones
+13:44
+were viewed by students or staff and we've notified them, hey, you might see this. These are the actions to take.
+13:50
+There's no concern if you didn't click on anything. Um and then just tonight, AJ helped me send the message out to the
+13:55
+parents that we know viewed the email so the parents also understand. So, um been a busy 24 hours as you can imagine, but
+14:02
+I'm very confident our systems worked. We were aware Our teachers and our students should be applauded. We had
+14:08
+about a dozen reports in that first two to three minutes after those emails started going out because it's so easy
+14:14
+for staff and they're trained. Hey, if I get this, send it to help desk. Um, the email that actually alerted us to the
+14:20
+breach came one minute after the email started coming out. So, huge applause for our students and staff who are
+14:26
+taking that and understanding what they need to do. Um, I would put our response time up against anyone in the state,
+14:33
+including the state itself. um with that and very very proud.
+14:38
+Yeah. So it it kind of shows how quickly that that scale can go on. I I I see
+14:44
+director Becker Kur nodding her head. I know Johnston has dealt with this as well over the years. Um one other thing
+14:50
+that I just think is maybe keep top of mind as we head into next year. Um student data privacy. So if you think
+14:56
+about the number of apps and tools that our students use on any given day, right? Amplify, Parents, Square, McGra
+15:03
+Hill, Google Docs. We have dozens of sites that our students are using that we keep track of that are covered under
+15:08
+our third party agreement. Um we're looking at um this is the Student Data
+15:13
+Privacy Consortium or Alliance for All or SDPC. They've kind of done some rebranding. Um, we're kind of an
+15:18
+informal member of that, which basically means they've reached out to hundreds of companies and developed they have a data
+15:25
+privacy agreement that those companies can sign off on to say, "Yep, we're going to honor these pretty stringent
+15:30
+data privacy measures. Um, they're aligned to states like Illinois and Colorado that have state legislation defining student privacy." Um, so we're
+15:37
+kind of an informal member of that. I'm going through the process to become a formal member. Um, but that gives us access to their registry where they have
+15:44
+like 15,000 applications that are preapproved. some of which um I was just sharing with uh uh Dr. Krenza this week
+15:52
+like those are ones we're using. So if we or we're considering if we do it, we sign off, we include it, we know we're
+15:59
+covered under that same data privacy agreement. So something to keep an eye on. Every year in the legislature,
+16:04
+there's usually some rumblings about some additional legislation being passed around the issue of student privacy. Um
+16:10
+so I'm kind of keeping an eye on that as we head into the next legislative session. And with that, I'll stop and answer any
+16:17
+questions you guys might have. I don't have any questions, but I just
+16:24
+want to thank you for all of the time, energy, and effort you put into all of the rebates and the savings that you um
+16:31
+have for our district. We That's amazing. So, thank you. Thank you. Appreciate it. I know Michelle appreciates it. We all
+16:36
+appreciate it. We are pretty good. We are a pretty good partnership. We are
+16:43
+actually uh presenting a course for other SBOs's in the state uh this spring
+16:50
+about uh how to get along with your SBO and how to maximize your e- rate.
+16:56
+Is that the title of it? I thought it was about rate, but yeah, we'll go with that.
+17:01
+Any other questions from the board? Yeah, just a huge thanks to you and your
+17:06
+team. We know you do herculean work every day, so we appreciate you very much. Thank you. I will pass that on to them
+17:12
+and I appreciate it. All right. Thank you. Thanks, David. Uh I think uh Travis Donny Hugh is gonna
+17:19
+come and talk to us uh about some new products maybe. Great.
+17:25
+You're not saving money, you're spending money, right? Well, okay.
+17:32
+Okay. All right. Yes, I got the attachment. So, this is kind of just uh information for the board. So if if you get asked
+17:38
+questions, but we um through the course of the year um had a couple opportunities. One of our head
+17:43
+custodians at the high school brought up this idea of hearing about um water that
+17:48
+can be used for cleaning. Um and then we went to um open house with cap sand,
+17:54
+which is one of our vendors um and looked at a product called Tano water. Um, and essentially what this is is it's
+18:01
+um ozone water that we can be used for cleaning um in our in our district. So
+18:07
+that kind of led us to um installing one of these dispensers in uh Northridge. So
+18:13
+essentially what this does is it takes a cold tap water and turns it into a disinfectant. So when it comes out of
+18:19
+this machine, it's a disinfectant for 24 hours and it's a general purpose cleaner for six days. Um so called around to
+18:26
+other um op uh operations directors. Urbanddale has been using it since about 2019. ADM has been using it for the last
+18:34
+um five six years as well. Um so and they the thing that really got our
+18:39
+interest to this was um the disinfectant capability of this is better than like bleach water. So we
+18:46
+can get the same level of disinfectant that you can with bleach water without having the the bleach in there. So um
+18:52
+we've had it at Northridge now since octo end of October. um and we've been using it. Um so some of the data points
+18:59
+we looked at is one of these cartridges can turn about 800 gallons of water into a disinfectant. Um and then when you
+19:07
+look at that it it lasted us about 33 days. It cost $290 for these cartridges. Um when you
+19:15
+look at what we spend in a normal month, um we're spending around $32 for our
+19:20
+chemical that we're using at at Northridge. The other benefit to this is this is a um It's very uh
+19:28
+environmentally friendly. Once a cartridge is done, you send it back to the company, they inspect it, they
+19:33
+recharge it, and they and they use it for distribution. So, it will save us some money kind of in the long run. Um,
+19:40
+another kind of data point we used was there is I learned a lot of science that
+19:46
+I'm I'm gonna butcher, but um there is an what's called an ATP tester which
+19:51
+essentially is looking at the organic material that is on surfaces. All right?
+19:58
+So, um imagine you take a swab, you swab the surface, you put it into this
+20:03
+reader, it looks at what's called the RLU, which is the light. Um, it's made
+20:09
+with something that you find in a firefly. I not a scientist. It's really hard to explain,
+20:14
+but essentially it kicks out a number. Um, so what we did at um, Northridge was
+20:21
+we tested Northridge before we even started with this product. Um, and then we tested it at two weeks and we tested
+20:27
+it at three weeks looking at different numbers, looking at, you know, if we're looking at um, the nurse's office, we're
+20:33
+looking at door handles, we're looking at flat surfaces. Our numbers are very inconsistent. It's not like this giant,
+20:39
+oh, we should be using this. In talking with other directors, one of the things was I tested during the middle of the
+20:46
+day, you know, and and the thing is, so if you have when you're really looking at this, if someone um let's for
+20:52
+instance, an elementary student coughs on their desk, right? And we go in and I test that desk right after, that number
+20:59
+is going to be really, really high. Um, so then we did some spot testing, um, and found out that the cleanest areas in
+21:05
+that in Northridge were the bathrooms, which makes sense. It's what we spend a lot of time cleaning. Um, some of the
+21:11
+areas that were not very clean, uh, door handles. Uh, when you think about just
+21:16
+every time someone's touching a door handle, uh, sinks, um, inside of sinks, things like that. Uh, one of the
+21:22
+teachers at Northridge took some of this water and used it after every single class came through. They had the kids
+21:29
+spray down the tables and wipe down the tables. Those numbers were really good. So, um it it wasn't like this earth
+21:35
+earthshattering, hey, we need to use this. Um but with this product, we were able to in our kitchen areas. Um after
+21:42
+kids had gone through kind of looking at our cleaning methods, we were able to get it under a 100, which is considered
+21:49
+very like not sanitary, but very clean for us to be able to use. Um, so it it's
+21:55
+it's a good product in the the ways that we can be using it. Um, not only can we
+22:01
+use it for a disinfectant, a general purpose cleaner, it does really well with carpets. So, we can get rid of kind
+22:06
+of our clean spot cleaning um, things, we can get rid of glass cleaning chemical because it works on glass.
+22:12
+Another benefit that they found is this is a product we can put into all of our machines that we use. So, you think
+22:17
+about a floor scrubber, you think about a carpet extractor, you think about our um KYAC machines that we use to clean
+22:23
+the bathrooms. We can put this water in. Um, and some of the benefits it has, it actually cleans those machines as you're
+22:29
+cleaning the area. So, you can get a longer lifespan out of out of those pieces of equipment as well. So, kind of
+22:37
+next steps for us and and why I brought it to the board was um just looking at the numbers and looking at what we're
+22:43
+doing. We have made the decision to move. Our next step is we're going to put this in every single elementary.
+22:48
+Hopefully over winter break. We'll get a dispenser or two in every elementary. Um
+22:53
+we'll take all the cleaning chemicals that we have bought since we've kind of changed our process. The last couple years we kind of buy things in bulk.
+23:00
+We'll move those to the middle school um Oakview and the high school. We'll continue to use those to use that
+23:06
+product up. as we start to get through that product will then bring the middle
+23:11
+school opio and the high school online using the same system. So, a couple
+23:16
+benefits that we we think in our department that are important is the health benefit for our students. Um had
+23:22
+good conversations with um Darla who's our head custodian at Northridge. It's kind of changed some of the ways that
+23:27
+they're cleaning things um at night. Um one of the thing we found with this um product is if you kind of miss the area
+23:34
+and let it sit, it actually cleans. it does a really good job. So, you don't really have to wipe it up because it's
+23:39
+because again, it's just water. Um the other benefit is it's a lot safer to use in classrooms because kids can actually
+23:46
+use it because again, it's not harmful to anyone. Um the guy at Urbanddale was talking about it. They Urbanddale is one
+23:52
+of the first schools to bring it around and um they had one staff member who would go around and he would squirt it
+23:58
+in his mouth. He's like, I don't recommend drinking it, but it's it's very it's very safe. Um so we will we
+24:04
+will move it to the elementarymentaries um and then as we progress we'll have it in have it in all the high schools. The
+24:11
+other big benefit that we look at in our department is right now um our seven
+24:17
+buildings are working all our custodians are doing a really really good job but
+24:23
+we have a kind of a core group of chemical that we use every place with but then kind of depending on the
+24:28
+preference of the head custodian they're using different kind of offshoot chemicals for stuff um that they've just
+24:34
+used over the year. This really brings and gets rid of all of that. we'll we'll get rid of probably 95%
+24:41
+of the chemicals that we're using in a building. So now we can bring some consistency across all of our buildings
+24:46
+when we start talking about our custodial practices of how we clean the processes that we want to use. So kind
+24:53
+of a big shift in our department. So I just thought it was important for the board to know. Um and the last thing that's kind of interesting is Tano makes
+25:00
+a a dashboard. Now um that we're we we were the first ones to test it in the
+25:06
+state. So essentially this is Northridge. This is the one dispenser we have at Northridge. So what we can do
+25:12
+now is every single day we see how many liters of water that we are we are using. It kind of gives us, you know,
+25:18
+our highs and our lows. It also allows us to when we get to a certain percentage of that cartridge being left
+25:24
+over, we can order a new one and get that coming. So as we bring more online, we'll start to see every single
+25:31
+building. So the other data point it'll give us we'll be able to see like okay how why are we using more water at
+25:37
+Northridge than we're using at Heritage vice versa. So we'll be able to track our chemical a little bit better and and
+25:43
+have some better numbers and we look at what we're paying for for cleaning chemicals and things like that. So
+25:50
+that's all I got. Any questions? Very good. Um I do have a quick question. So, I
+25:57
+know during um COVID or when we have large outbreaks of illness, sometimes
+26:04
+we're required to do additional cleaning or use different cleaning products. Will
+26:11
+this product take the replace of those products as well or would we still need to have those, you know, like when we
+26:18
+had the extra deep cleaners come through and do things? um in talking with with Urbanddale when
+26:23
+they went through the pandemic. They by, you know, the state still said, "Hey, you have to have this. You have to use it." So, they still had to do some of
+26:29
+that, but they they had the same kind of tester we had and they took some of their numbers back to the state and
+26:35
+said, "Hey, we're actually getting better numbers with this." So, the state was was pretty flexible with them. Um,
+26:41
+some of the things that our custodial staff brought up when I met with our head custodians in the elementaryaries was we now have some misters that they
+26:47
+use during, you know, uh, cold and flu season. We can still use this product in that. So, when we get to those, we can
+26:54
+still run through a whole entire classroom, a whole entire wing and disinfect the whole entire area just
+26:59
+using this product instead of um, what we were using before. Thank you. I just have heard recently
+27:05
+about schools closing whooping cough, high levels of flu. you know, we want to make sure that we're
+27:11
+we're following all of those precautions. Yeah. And talking to both Urbandale and ADM, they did say one of the things they
+27:16
+noticed was they their numbers, Urbanddale's numbers during CO were a lot less than the state average. And ADM
+27:22
+said that their numbers have been really good when it comes to um those type of outbreaks as well. and both of them said
+27:29
+the other benefit is they've had zero um workman's comp or any issues with chemical because again it's not a it's
+27:36
+not a chemical it's a water thank you yeah thanks trash last month this this
+27:42
+month you're you're on a roll appreciate everything you're digging into appreciate selling 72 gallons of bleach
+27:48
+on gov deals too thank you
+27:54
+okay uh the ad hoc presentation Carrie All
+28:01
+right. Just uh idea here tonight is just to talk about a couple things that we've been discussing over the last half year.
+28:07
+Uh just to give you a little bit of history, um about six months ago, uh you as a board uh wanted a group to form to
+28:15
+identify programs and resources that will attract and retain teachers and students to the district. And so some of
+28:20
+the things that we've done over the last six months uh we did review teacher retention, which I'll share something
+28:25
+right now. Uh Dr. Dr. Bloom has been in twice, once prior to October 1st and once after October 1st to look at our
+28:31
+certified enrollment. Um, and then we brought in AJ uh to do some discussion about some marketing and had some ideas
+28:38
+from uh community members as well. Uh teacher retention, we shared this um to
+28:44
+the point where uh at the end of last school year, we were retaining 93.47
+28:51
+uh of our staff or our teaching staff. This is certified. Uh that number actually goes up to 97% if you think
+28:57
+about people that stayed in the metro area. Uh we you factor out three or four that just left the state for other
+29:03
+reasons. Um I think we had a handful of of teachers that would have left to go to another district. So we're very happy
+29:08
+with that. Of course we could do better, but uh we're happy with that. So what are we doing? Um working closely
+29:15
+with AJ um with the different marketing stuff. Very much a positive spin on what's happening here. uh the
+29:21
+introduction of creator awards this year u recognizing just uh from staff member
+29:26
+to staff member. Scott does a great job every time we give those out. Uh the reason it's great is it's not us in a
+29:32
+meeting saying this teacher is doing great. It's teachers recognizing teachers. A lot of times associates are
+29:37
+involved. Uh sometimes students uh we have another survey coming out in January just to see how we're doing um
+29:44
+from a staff standpoint. Do staff feel safe? Do they feel supported? Um, and then, uh, Jamie Bogey and I will start
+29:50
+going into schools in January and doing stay interviews. So, again, if you don't know much about stay interviews, they're
+29:56
+kind of the opposite of exit interviews. You do an exit interview when people leave. You do stay interviews with
+30:01
+people that are that are staying, and we say why, and we just dig into uh, finding trends in our district, why
+30:07
+people are happy here, and hope to have some presentation stuff for you by the end of the year.
+30:12
+So uh just recently we broke into two separate groups um an elementary group and a secondary group looking for
+30:18
+innovative ideas. Um and our idea here is um just bringing minds together
+30:26
+whether it be teachers um community members, parents, whatnot uh with an idea focusing on the elementary level
+30:33
+and the secondary level. So this is how we broke it down and just brainstorming and then beginning that process of
+30:39
+really digging in and asking the questions and trying to find uh some answers. What would it take for budget?
+30:45
+What would it take for people? How could we um be creative with some things? Uh Austin Roy is leading up the secondary
+30:52
+group and he's not going to be here. Um so I will start with elementary. I forgot. I'll have Asia Olsen talk a
+30:59
+little bit about the elementary focus and then I'll talk about secondary. Bri, you're coming up too.
+31:04
+Yeah. Okay. Um, good evening. My name is Asia Olsen and I am a fourth grade
+31:09
+teacher at Dallas Center Elementary. I am fortunate to also serve as the staff chairperson leading the elementary
+31:15
+committee focused on education, innovation, and district growth. Our committee has been working with an
+31:21
+elementary lens to explore ways we can better support families in our district and ways to grow and retain families.
+31:27
+One area we are currently investigating is wraparound care for preschool with
+31:32
+the goal of making it more accessible to working families. At this time, I would like to introduce Laura Skiel. Laura is
+31:39
+a DCG parent who has generously agreed to share her family's experience related to preschool and child care within our
+31:46
+district. Hi. So, as Asia said, my name is Laura
+31:52
+Skil. My husband Jason and I live here in Grimes. Have a third grader Emma at Northridge. And then my son Jackson is
+31:58
+in preschool. Um, their preschool education looked very different because Emma went here to a DCG preschool. When
+32:04
+she was in preschool, she went to Grimes Child Development Center who had brighter beginnings preschool within the
+32:09
+daycare. So I could, as a working mom who works out of town. I could drop her off at preschool or walk drop her off at
+32:15
+daycare in the morning. When it was time for preschool, she went across the hall to preschool. At the end of preschool, she went right back to daycare. Was all
+32:21
+in one building. She didn't have to go to another place. She didn't have to get on a bus. I didn't have to worry about getting her to and from preschool,
+32:28
+daycare, back and forth. On Wednesdays, she had daycare. On no school days, she had daycare. Um, it was all in one spot.
+32:35
+When Jackson was ready to start preschool, Brighter Beginnings was no longer a preschool, a certified or a
+32:40
+statewide voluntary preschool program. As an educator, I'm an elementary principal in Perry. And so, as an
+32:46
+educator, I believe in public school. I believe in public school preschool settings. Um, I know there's a lot of
+32:52
+daycarees in town that offer that say they have a four-year-old preschool. It's not the same as a statewide
+32:57
+voluntary preschool program. So, instead of Jackson, because there isn't an option for a wraparound preschool program in Grimes, he goes with me to
+33:03
+Perry, which there's perks. I love having him in school with me. I love being able to walk down and see him in the classroom. He doesn't get to go to
+33:10
+school with his neighborhood kids. He doesn't get to go to school with his sister. Um, and so there's just some
+33:15
+we're on a different schedule. I have one schedule with Jackson. Emma has a different schedule with DCG. Um, and so
+33:20
+I think, you know, for parents, for people that have kids that are preschool age, being able to have a wraparound preschool program, um, is critical. Um,
+33:29
+I would have loved for Jackson to be here in DCG, but just because there wasn't an option. Um, in the time that
+33:34
+Brighter Beginnings left Grimes Child Development Center, Jackson went to three different preschools in Grimes or
+33:39
+three different daycarees in Grimes, couldn't find the right fit. So now he goes with me and Perry, which again, I
+33:45
+like, but he misses the neighborhood piece of it. He misses every day he leaves. We leave our house at 6:30 in
+33:51
+the morning and we get typically get home at six in the afternoon. He misses his neighborhood kids and that's the things I just want to play with my
+33:56
+friends. I know, but this is just this is our schedule. Um and so it's just something that I encourage the board to look at and consider be being able to
+34:03
+have a wraparound program. And that's something that our committee talked a lot about is how can we incorporate or how you know what are the what are the
+34:10
+barriers to a wraparound preschool program so that preschool kids can go to
+34:15
+preschool and have um have that one of the things that we talked about is going to talk about at some point kind of my
+34:21
+like pipe dream um that I've talked about even in Perry and talked about when I was in Illinois is an early learning early learning center where
+34:28
+kids can have an early learning center um you know in the secondary I know is going to talk some too about work-based
+34:34
+learning. There's a lot of opportunities for work-based learning in an early childhood center. Kind of two birds, one stone, get it all in one place. So, I
+34:40
+think there's just a lot of opportunity um for things to look out in the short term. Just being able to have a wraparound daycare program for
+34:47
+preschoolers. Thank you. Um we also know that wraparound care is
+34:54
+not just a hypothetical need. So, in our research, we found that a neighboring district implemented um preschool
+35:01
+programming with wraparound care last year and all available spots were filled within 2 minutes. This clearly shows the
+35:08
+high demand families have for this type of programming. Um, one other potential
+35:13
+solution our committee has discussed is simply renting out a classroom to an outside agency to provide this
+35:19
+wraparound care. And this approach would allow our district to generate revenue without taking any um additional
+35:27
+responsibilities on the outside agency would manage all of the things such as logistics, food, insurance, staffing,
+35:34
+payments, program hours while the district is just simply providing the space. This type of partnership would
+35:42
+give access to families um early on. And we know that if families start at DCG,
+35:48
+they'll love it and they'll want to stay. And it creates just a really strong entry point into our district
+35:54
+while continuing to support families. Um, we invite the board to look to our
+36:00
+committee to bring forward one more or a more formal proposal in the coming months as we are hopeful to make this
+36:06
+happen as early as next school year. Um, as families are soon beginning to seek
+36:12
+options for next year. Um, Bri Nelson is also on our ad hoc committee and she was
+36:19
+not able to be here tonight. So, I'm going to talk a little bit about something else our um, uh, committee
+36:26
+talked about and it's actively investigating um, attracting and re
+36:31
+retaining staff particularly through flexible and competitive contract options. While we recognize that many of
+36:39
+these considerations fall within contract negotiations, we're reviewing surrounding district
+36:45
+contracts to better understand what makes them appealing or in some cases more appealing than working for DCG. Um,
+36:52
+areas of interest would include like greater flexibility in how leave is used, beginning each year with a set
+36:58
+number of personal days, improved support for substitute coverage through clearer planning and communication,
+37:04
+options for sick leave payout for current employees or retirees, and potentially improving maternity leave
+37:10
+for a predominantly female workforce. We are also exploring opportunities for
+37:15
+collaboration or alignment with neighboring districts that offer particularly attractive contract
+37:20
+structures. And in closing, I'll just share that our long-term goals for our committee are to
+37:27
+look ahead at the 2027 2028 school year and beyond. These might include recruiting and retaining staff,
+37:33
+exploring possibilities of a 4-day school week, um considering a more balanced calendar, implementing a
+37:40
+week-long fall break to allow staff to travel during off- peak seasons, expanding preschool into neighborhood
+37:46
+schools, or developing an innovative um early learning center. And these goals
+37:52
+reflect our committee's commitment to supporting our staff in providing innovative family focused educational
+37:58
+opportunities for our students. Thank you for taking the time to hear from our ad hoc committee this evening.
+38:08
+And a lot of things Asia talked about several districts around us are talking about the same things and I've been part
+38:14
+of this district for almost 20 years and we've always been innovative. So why not ask those questions now and spend the time? we've got the people willing to do
+38:20
+it and so we'll investigate some of those. Like AJ said, some of the things will come up through negotiations, but I
+38:26
+know Scott and I have a couple meetings already on the calendar digging into some of these things that we'd like to bring forward, too. So, it's very
+38:32
+helpful. She alluded a little bit to secondary um if you've been around long enough to know at the um secondary
+38:38
+level, especially when I was the principal here, we we um uh accept a Perkins grant. And within that Perkins
+38:44
+grant came the Perkins advisory council meetings and those have gone uh to the
+38:49
+wayside a little bit but we're thinking about u bringing those back because the value in those is taking our school
+38:55
+people and our business people and putting them around the table together. Uh one example that I learned as a high
+39:01
+school principal um the business people came to the table and said our graduates that are coming to us don't use Excel
+39:07
+very often and at the time in our school we were not using Excel as often and that triggered some research on do we
+39:13
+need to create an Excel class or something like that that would not have come without that conversation. So, we
+39:18
+really want that um relationship to be rich because we have the opportunities here in Grimes and the surrounding area
+39:24
+to to really hear from uh business folks. And then also uh you know, Greg's led and talked so much about the decap
+39:30
+team and any type of uh CTE and um work-based learning that we're doing.
+39:36
+And so, uh we hope that our committee can work alongside Dr. Corenza uh and getting some of that off the ground and
+39:42
+then also ultimately looking at uh some social emotional behavior and mental health instruction along with um the the
+39:49
+school load that that students are are involved in. That's the last slide we have. This was
+39:55
+not meant to be uh proposals or recommendations at that point. That's just what we're working on. We think if
+40:01
+we do find something like for example Asia's talk about wraparound care, we'd like to have a a deeper like 20 minute
+40:07
+conversation where we can share more information and field questions before there's an actual recommendation. So you
+40:14
+likely um won't hear from us again in April. It'll probably be before then as we get a little bit closer to having some ideas. So what questions do you
+40:21
+have that Asia can answer? I mean we can answer. We can answer. Yeah. Yeah. Thanks for the update. I think we
+40:28
+could probably follow a similar format to tonight. We had Tim Oswald in from Piper Jaffrey to talk to us about some
+40:33
+bond things prior to the board meeting. So, if you think you've got some things that are going to come in the way of a recommendation,
+40:39
+um you know, the board can usually squeeze in a a work session before the board meeting. And so, if that works in
+40:45
+your all schedule, we'd love to hear more about uh what the committee is developing in the way of ideas. It's
+40:51
+kind of exciting to think about a wraparound care that we could see in August versus a four day week which is
+40:56
+two, three, four years from now. That doesn't happen overnight. And so we're kind of trying to juggle both. And that's why we're so thankful to have
+41:02
+people that are interested in in doing some of this work. Yeah. Got it. Okay. Thank you.
+41:08
+Well, thanks to you, Carrie, for leading. Thanks to those of you that are leading subcommittees and then to all the members. I know it's a lot of work,
+41:14
+so appreciate it very much. Thank you. Thanks a lot. Appreciate it. Dr. Kenza.
+41:21
+All right. Good evening everyone. Um, just a couple of updates. I'll start with state reporting. Uh, with the start
+41:26
+of December starts new reporting for winter SRRI, which collects information again just on our enrollments um, and
+41:33
+looking at making sure that what's in our infinite campus is matching what we claim for student information. So, um,
+41:39
+that will also be paired with uh, winter SRRI starts. Then we'll also go in and update our programming. uh it's called
+41:46
+SKIRA which is the application for um career and technical education. So
+41:52
+that'll start in January with the CTE part but we'll work to certify data.
+41:57
+What I want you to know of what's been done the uh preschool desk audit uh Deb
+42:03
+Kale as uh preschool director she's certified and completed that. Um for example of how that works she submitted
+42:09
+items into the desk audit. uh you'll have an item tonight in uh new business where we'll make some or propose some
+42:16
+changes to our handbook. That's that continuous loop from the state which I do appreciate. If there's something from
+42:21
+an accreditation or a standpoint, standard standpoint or we just have maybe not made it clear or need to make
+42:27
+edits, uh she received feedback on one piece, we're able to bring that back to you and be in compliance. So, um that
+42:34
+process works really uh smoothly. So, thank you to Deb for her efforts on that. That is not an easy task. Um then
+42:41
+we had IDA DA uh desk audit and that was work uh Ally Finley worked with Dr.
+42:47
+Bloom to get that certified. So um just looking at how our students are performing and where we're at in our
+42:53
+metrics there. And then lastly, the universal K12 desk audit was as big of a desk audit as I've seen in my time uh
+43:00
+here in the district, but uh we were able to get that certified and um I I believe we're going to be okay with
+43:05
+that. So um but I think that hasn't been finalized yet. Sorry, I've got something in my eye. Uh, teacher quality committee
+43:13
+updates. Okay, teacher quality. Sorry, ignore me. I'm just I'm not crying. I'm not tearing
+43:18
+up. But our TQ committee, right, I may need a tissue if somebody had like to pass one around to me. Uh, our teacher
+43:24
+committee met on December 8th. Uh, and we've just continued our learning and discussion around two district level
+43:30
+pieces. One is the calendar. We always bring the calendar format or what we're proposing for the next year to that TQ
+43:35
+committee for feedback. uh because you'll see here you're going to approve a public reading um of that at the next
+43:41
+meeting. Thank you very much. Uh we're going to approve that public reading and we'll take care of that. The second part
+43:46
+is this process we've been undergoing for several years now where we're looking to merge the strong um
+43:52
+instructional framework with our evaluation process. So um again that's
+43:57
+equal parts representation from administration and then also from the um
+44:02
+education association here for DCG and working together as to what would that look like in the evaluation process for
+44:08
+a teacher or a classified staff member that we would give them additional more specific feedback. So, um, we actually
+44:15
+put together a proposal, um, that made it through the next step, which is us bringing forth kind of a sample or guide
+44:22
+handbook that will start to piece through what it would look like if you're a first year teacher. What would it look like if you're a secondyear
+44:29
+teacher that hasn't quite finished their initial license? What would it look like for someone new to the district that's
+44:34
+coming maybe from another another district? And then lastly, uh, what would that look like for a career teacher that's been here for many years?
+44:41
+I am uh I I just can't say enough. I probably say this every time, but that TQ committee um they really it's such a
+44:49
+safe place for people to make comments, to ask questions, um to push thinking. That's our learning team. Uh in fact, we
+44:57
+probably don't even have enough time to meet. There's so many topics that we could take care of, but I appreciate their work. Professional development
+45:04
+updates. Uh you can see just what we focused on for the month of December. They've had quite a bit of PLC team time
+45:09
+and flex day PD. Um, and you can see, uh, again, really proud of our flex day
+45:14
+PD where we're able to give those groups that need it some additional one-on-one time. Um, I I know there's lots of
+45:21
+groups that meet on that time, but I'd give an example from the nurses. Um, we have a nurse consultant who helps come
+45:26
+in and provide support on the legal side of the work and helping us organize our nurse program. And then also Kate
+45:33
+Bloomstro from Heartland AA supports the TAG teachers. Um, and then again, that's where we use our AEA funding to provide
+45:39
+that support since we are pulled in so many directions. Um, but also our EL teachers work with Cinder Porter from
+45:46
+A.E.A. to look at uh EL practices. Uh, Ally back there is still back there. She
+45:52
+works with our special education teachers, both K uh K6 and then 712 on
+45:58
+their focus areas and then our curriculum facilitators meet with uh their curriculum team. So, very smooth
+46:04
+process. um and and really proud of the work they're doing. Okay, so with that, just a pretty brief report
+46:11
+this month, but do you have any questions for school improvement?
+46:16
+Thank you. Okay, thanks Dr. Bloom. Yeah, I just want to start with thank you for the ad hoc committee because that's teachers time and we have several
+46:24
+parents, you know, that are part of that and they make those afternoons or early evenings work and they're doing some
+46:29
+Zoom. So, I just want to thank them for their kind of research and again with the with the goal of how can we just
+46:35
+take care and work for DCG. So, thank you. And it also hit me having Stephen talk, uh, Travis talk, Carrie talk,
+46:43
+Allie's in the in the crowd here. Like, it's so neat that those people are in kind of these director leadership
+46:49
+positions and it just reminded me they're also been teachers and administrators before. Like there's such
+46:54
+a neat advantage I get to see now of having these people live the lives of teachers and principles and folks and
+47:01
+then do other parts of now education but to help DCA can kind of talk the lingo
+47:07
+know what our people are thinking and feeling. So just kind of hit me today as that that group is sharing that out and
+47:14
+in the different hats that they've worn and leading our district but always trying to have kind of that that teacher
+47:20
+mindset at all times. So appreciate that. We are um up six building permits
+47:26
+uh in Grimes for the month. Um none right now in Dallas Centers, but but up a few and keep driving around. I think I
+47:34
+see you know basements here and there. So, as I say every month, we'll keep being optimistic. Enrollment is we know
+47:40
+we had a tough last month, but but solid here where actually we were up up a few students, up three, 11 students moved in
+47:47
+to our district and and eight moved out. And there's the breakdown of those. um that moved out uh working with AJ
+47:56
+um over probably after you know after break but as we get into the um the
+48:01
+second semester heavy we will be coming up with uh lack of a better word a survey that we'll be able to work with
+48:08
+our registar Diana that when when folks are leaving the district for whatever reason that we'll be able to shoot kind
+48:15
+of a quick what's going on type of a survey and and of course it's optional but you know if they're comfortable
+48:21
+sharing ing, yep, just move in or here's the reason why and if they've got any feedback, good or bad, on the way out.
+48:27
+So, we can try to do a little deeper dive into maybe some of these um
+48:33
+decisions. But again, as I I repeat, each month now, all of these folks are literally moving in or out. Um so, but
+48:41
+we'll do some more learning hopefully on on that. Uh few minutes on facility update. had
+48:48
+the opportunity today at uh uh later this afternoon. We met as a Northridge team. So, April and several of her staff
+48:56
+members met with OPN, DCI and Bishop Engineering. They had their initial benchmarking kickoff for uh their secure
+49:04
+entry as well as the inclusive playground project. So, that group met, OP kind of had the initial conversation
+49:10
+about layout and timeline and next steps um as we hope to kind of get that off
+49:16
+the ground, you know, still in the summertime. So, that was good. And we meet with Dallas Center tomorrow, um, as
+49:22
+we'll be doing the same thing, talking about their inclusive playground project as well as their secure entry. So, uh,
+49:29
+those projects are are getting moving. And then, I'll see if uh, you know, Shaylee and Monica can add, but we took
+49:35
+a team of, uh, 11 of us. Um, two board members, myself, Greg AJ Matt Blackmore,
+49:43
+high school principal. Uh, Colin Lane, our CT coordinator, two instructional coaches, Jolie and Lindsay. Um, couple
+49:51
+OPN folks. Who am I missing? Did I get them? I think you got them. Got them. Uh, and we went to Kansas City
+49:57
+Monday and Tuesday and had the opportunity to tour four different high schools as well as two kind of we'll
+50:03
+call CTE or career kind of learning facilities. And we looked at everything over two
+50:10
+days. And that I mean we how you walked in, where you walked in, what's on the outside, what's the signage look like to
+50:18
+furniture, what was their carpet, uh concrete plan, how did they use different lighting and and I think
+50:27
+everything. And we just took a whole bunch of notes. I would say as much value
+50:34
+just me speaking was man they do that really cool and also well we're not
+50:39
+doing that like you kind of get to do both in that scenario you kind of say we're stay away from that or that was a
+50:45
+cool idea um but I was really impressed with where we got to go the people were
+50:51
+so nice to us and and answered every question took us on hour two-hour tours
+50:57
+but I think it got us excited about where we're going with the high school project specifically. There's going to
+51:02
+be some big components to that, sure, but I got as much excited about just kind of the little controllable things
+51:08
+that we'll be able to find to make that building feel like one. It doesn't have to be these giant really expensive
+51:14
+things. It could be these little things on how you just make this cohesive. So,
+51:19
+um, lot of fun. Excited about the next step. So, we'll kind of debrief share
+51:24
+out with OPN so they can kind of start taking our feedback and and running with it. But whether now or at the the board
+51:31
+part of Monica, you guys just want to jump in. Yeah. Um yeah, like Bloom said, it was
+51:37
+super exciting to see everything and I'm glad that the ad hoc committee talked about secondary of like the school to
+51:42
+work in CTE because every school we went to had a coffee shop, so that was ran by
+51:48
+students. Once um one school had a spirit store, so right outside their gym
+51:53
+and it's ran by students. So just even things like that. Um, and we did go to a couple schools like Bloom referenced
+52:00
+that is strictly CTE stuff that we have some really cool resources and um, booklets that we can you guys can use
+52:06
+and look at. But one school in particular, you walked in and they had an entire first responders CTE program.
+52:13
+So, firefighters, police, EMS. Um, so that got us thinking like, oh, the fire department is right there now. Like, how
+52:19
+do we partner with them? So, yeah, just a lot of cool things. Um, and even just the design of the building, we're unique
+52:26
+because all of these schools that we looked at were at least two, some three stories. Um, we're not and we're not
+52:33
+going to be, which is completely fine. But the one thing that I did take away
+52:38
+too is a we've heard a lot about auditorium space and how we can't make a
+52:44
+bigger auditorium with this bond. Some of these buildings were only a few years old. Some were remodeled over the years.
+52:52
+None of the auditoriums were like 1,200 capacity. They were all around the same capacity as what we currently have. So,
+52:58
+I think that was a little reassuring to me that we can't afford to build a brand new auditorium. And that's okay. Um cuz
+53:06
+even brand new buildings don't have huge capacity for auditoriums. They're upgraded. Their technology is great. The
+53:12
+seats are fantastic, but they're still only seating 5 to 600 people. So, and their school, you know, their
+53:19
+students were more than we have here. So, their capacity was the same or less and their student
+53:26
+numbers were higher than ours, which was interesting to see. But yeah, lots of cool things, lots of
+53:31
+things that were like, oh, definitely don't want to do that. Um, you know, like bathroom designs and learning stairs, things like that. But
+53:38
+no, the just even the school to work piece of it and CTE was incredible.
+53:43
+They're doing a lot of cool things that I think we can easily do some of that here and um make this a more attractive
+53:50
+even more attractive place to go. I think the biggest thing for me was just learning how we can not make the
+53:57
+mistakes that some of these people have done. They've done things and said, "Yeah, that doesn't work for us." And so
+54:02
+knowing that we hopefully won't make those same things and we'll utilize our money maybe better than um yeah, the
+54:09
+learning stairs. Uh, I think every single school had them and only one of them used them. Um,
+54:15
+one school had two sets. Yeah, they had Yeah, one school had two sets of them. Um, and and enjoyed them. I think also too, um, seeing how
+54:24
+one school used a program where the they monitors were in the school, the kids
+54:30
+would see where their classroom was for that week or that month and it would move. um that did not work for them and
+54:37
+they quickly changed that where there is another school that did use that that and they love it and they continue to
+54:42
+use it. It works well for them. So I think it's letting us what you know what will work for us using what we learned
+54:50
+um so that we are doing and and that maybe you have to pivot but making sure that our space is flexible. I think
+54:56
+that's the big thing is making sure what we're doing is flexible, that we can change if what we decide to do doesn't
+55:02
+work. Um, and that we have the space to to do that. Um, but the flexible classrooms, that was a really big thing.
+55:09
+Um, so it was it was very exciting to see. I'm actually really excited to kind of get going and it made it very just
+55:15
+like ready to go and seeing what we can do because another so many cool things out there. Like it's so amazing to see what these schools are
+55:21
+doing and what we have an opportunity to It was also nice to hear cuz I I hear from a lot of parents questioning not
+55:28
+using lockers. Not a single school there has lockers. None of the schools and they said nobody misses them.
+55:34
+You know, it's not an issue. Um they have their athletic lockers. They have their band lockers just like we do.
+55:40
+But the space and it was cool to see the schools that had the lockers and took them out and how they're utilizing your
+55:46
+hallways wider. They have what they call like front porch space. So, it's like the soft furniture that they can hang
+55:53
+out and collaborate on. Um, but nobody misses lockers. So, I promise all parents it will be okay. We don't have
+55:58
+lockers. Nobody wants lockers. They can't open them or they have locks and nobody has
+56:05
+the key to them or they've forgotten their combo. I'm just saying. But I did um one I like
+56:13
+to kind of thank OPN because um they put together these like these little booklets for us and so it had all of the
+56:18
+schools and like pictures and then we could write notes and then they're going to take all of this and kind of put
+56:24
+together something for us like what did we you know like not like um so I really
+56:29
+appreciate all the work that they and we I'm not sure who put the work into this but this was it was put together really
+56:35
+well for us to do this and so I appreciate them um for doing that for us
+56:40
+And fun fact, Greg is a speed demon. You can't. No, I turned it off. Okay, so
+56:46
+back to my part of the agenda. No, thank you, Shaylee, for OPN was
+56:52
+great. They organized it all. They reached out. They made the connections uh with these schools. And again, I look
+56:57
+forward to um calling the schools that we got to see and thanking them. We'll get they were just the I mean, they gave
+57:03
+us a ton of time. Let's talk with folk. It was well worth the two days down there. So appreciate the opportunity to
+57:09
+go down. Um I'm excited about next steps. And lastly on my part, just want to give a shout out. Um Carrie, AG, and
+57:15
+I ran around last Friday. Um again, it's turned into the new highlight of the month. Uh we're surprising these folks
+57:22
+on staff. There a range of staff members by position and the great majority of them are coming directly from their
+57:30
+colleagues. You know, a teacher, an associate, a custodian, a supervisor. So it's really neat. So, Shay Jorgensson's
+57:36
+one of our amazing teachers out in Dallas Center at the elementary. Molly Sorenson at South Prairie Elementary.
+57:42
+Claire Merchant Merchant, excuse me, another teacher at South Prairie. Ashley Zimmerman, teacher at South Prairie.
+57:48
+That that group is recognized together um by their peers. Stephanie Birmingham, who helps run admin assistant at
+57:54
+Heritage, but also does a ton with the preschool program at Heritage. Gina Pierce, our TK teacher. Cody Milbour, a
+58:02
+phenomenal custodian at Northridge Elementary, working with Darla. Dan Easley does special education for us at
+58:08
+the middle school. Jacob Heinman, incredible teacher there. Cara uh runs the place as the nurse. She's amazing.
+58:15
+Um Andrea is one of our associates. It was awesome to see her because we got to celebrate with her again and and and
+58:21
+kids and and special ed teachers around. It was awesome. Britney and Melissa were recognized as a team for their work.
+58:27
+They're language arts teachers for us. Eric Mullis is as talented as they come as the high school choir director.
+58:34
+Jaylen Raymond teaches math and relationship guru me Jackson does it all. Um she was recognized for her role
+58:41
+as a substitute. She's also our head volleyball coach, but Meg Jackson is in every building subbing and and she was
+58:46
+recognized by teachers that you know they are always chasing to get me in their classroom. Rod Roshchek was was
+58:53
+mentioned a number of times. Rod was actually the bus driver Saturday. Our girls wrestling team had a meet in
+59:00
+Williamsburg and we all know Saturday's weather was less than ideal. The meet was on. We talked to coaches talked to
+59:06
+Rod. Hey, we don't have to go. We want to make sure safe. And Rod had full authority but got everybody there
+59:12
+safely. Took good care of them. So, um, Coach Gray reached out to me and just
+59:17
+wanted to give an extra shout out to Rod for his amazing work for the girls that was on top of this. Rod is incredible and he represents our bus drivers, all
+59:25
+of them. And then what was neat is Jeff was there, thought it was over, but there was a nominee for Jeff Wolf, our
+59:31
+director. So, we got to celebrate him in front of all of his drivers on Friday as well. So, the highlight of the month.
+59:38
+So, thanks to Carrie and AJ, they're doing all the work behind the scenes. I just get to be the pretty face that
+59:45
+hands them the award. So, congratulations to everyone. So, that's all I got. Thank you.
+59:52
+Thank you, uh, Miss Wouth. Uh just a quick look at the revenue expenditure summary. Uh this is very
+1:00:00
+similar to what you saw at the close of November because payroll has not yet run for the month of December due to our
+1:00:06
+change in board meeting date. We're at 29.19% of appropriation uh for expenditures at
+1:00:14
+this juncture and uh revenue also looking right in line with where we
+1:00:20
+should be at this point in time at 34.33%. Also taking a look at the public budget
+1:00:27
+comparison report which compares where our spending is in all funds in
+1:00:32
+comparison to what you published in the newspaper at this juncture of the year at about 45% through the year. We are
+1:00:39
+under in all four of the categories. We're continuing to watch total support
+1:00:45
+services uh for the year to determine if we do need an amendment in that specific
+1:00:51
+area prior to May. Uh and we'll take a much closer look at that as we move
+1:00:57
+through the budget cycle. Uh finally, uh I'd like to review the
+1:01:03
+dropout prevention application and uh request for modified supplemental authority. As you remember, uh, we have
+1:01:11
+had the at risk dropout prevention, uh, program at Dallas Center Grimes through
+1:01:17
+a request to the school budget review committee that began in 99 uh, fiscal
+1:01:22
+year and has continued since that point in time. Allowable growth is granted for the 75% portion of that grant that is
+1:01:30
+funded through the state. And then it does require a 25% local match. For us,
+1:01:36
+that local match is $453,000 for a total program in fiscal year 27 of
+1:01:42
+$1.8 million. Uh we consistently have fully spent uh
+1:01:49
+all of the atrisisk funds and we fund several positions in the district through that program. Uh this year
+1:01:56
+you'll also notice a separate motion to approve uh the at risk plan that was
+1:02:03
+written uh by uh Allison Finley who is here tonight and can answer any
+1:02:08
+questions you have about uh the narrative for the plans. It's continuing
+1:02:14
+what we have been doing for some point in time, just putting it out in written format for the board to approve as they
+1:02:21
+also apply in the subsequent motion to the school budget review committee uh to
+1:02:26
+participate in the dropout prevention program. Do you have anything you want to add,
+1:02:31
+Ally?
+1:02:37
+Any questions from Michelle? Okay, I'll move us along to old business. We've got the second reading
+1:02:43
+of board policies. Looking for a motion.
+1:02:49
+Move to approve. Second. Mberg. Any discussion?
+1:02:55
+All those in favor indicate by saying I. I. Post. Same sign. Motion carries. New business. Approve
+1:03:02
+the at risk alternative school and returning dropouts and dropout prevention programs
+1:03:08
+uh program plan handbook. the document Michelle just referenced. Looking for a
+1:03:13
+motion. Move to approve Vandervalden. Second. Baker Curtis. Any discussion?
+1:03:19
+All those in favor indicate by saying I. I. Post. Same sign. Motion carries. Uh consider the atrisisk
+1:03:26
+dropout prevention modified supplemental aid application to the Department of Education. That $ 1.8 million um uh item
+1:03:35
+that Michelle just re reviewed with us. Looking for a motion. Move to approve. Viella
+1:03:42
+second Vanderbeld. Any discussion? All those in favor indicate by saying I.
+1:03:48
+I. Oppos. Same sign. Motion carries. Students graduating early. We just have
+1:03:54
+uh uh one here. I think uh new ad for term two. Looking for a motion.
+1:04:01
+Move to approve. Baker Curtis. Second. Wberg. Any discussion?
+1:04:08
+All those in favor indicate by saying I. I oppose. Same sign. Motion carries. We
+1:04:14
+have the first reading uh of listed board policies. Sorry, assemblyy's catching up here so I
+1:04:21
+may need a moment. Um but looking for a motion. Move to approve. Malberg second.
+1:04:27
+Vanderbalden. Any discussion? All those in favor indicate by saying I.
+1:04:33
+I. Post same sign. Motion carries. Thank you very much.
+1:04:42
+What you get for bragging about your iPad. Yeah, I was just talking about how great it works and then it bombs out on me,
+1:04:48
+Stephen. All right, now see. Oh, you're not even
+1:04:53
+a touchcreen. Okay.
+1:05:00
+I'm getting old eye syndrome, so things have to be at the right distance. Yeah.
+1:05:06
+All right. Um, okay. Item E, uh, resolution appointing, uh, paying agent,
+1:05:14
+bond registar, and transfer agent, approving the paying agent, bond
+1:05:20
+registar, and transfer agent agreement, and authorizing the execution of same.
+1:05:25
+Looking for a motion. Move to approve. Yella.
+1:05:31
+Second. Malberg. Any discussion? All those in favor indicate by saying I.
+1:05:38
+I oppose. Same sign. Motion carries. Uh approval of form of taxexempt
+1:05:45
+certificate. Looking for a motion. Move to approve. Baker Curtis. Second.
+1:05:50
+Vandervalden. Any discussion? All those in favor indicate by saying I.
+1:05:55
+I. Oppos. Same sign. Motion carries. Approval of continuing disclosure
+1:06:02
+certificate. Looking for a motion. Move to approve Vanderbilt. Second Baker Heritis.
+1:06:07
+Any discussion? All those in favor indicate by saying I. I.
+1:06:13
+Oppos. Same sign. Motion carries. Resolution authorizing the issuance of
+1:06:19
+bonds. Looking for a motion. Move to approve. Vandervald then.
+1:06:24
+Second. Baker Curtis. Any discussion? All those in favor indicate by saying I.
+1:06:31
+I. Oppos. Same sign. Motion carries. Thank you very much.
+1:06:36
+Everybody see that? Just helped with technology. You did write that down. Man of many talents.
+1:06:44
+Res. Okay. Okay. Uh set the public hearing gate
+1:06:51
+date for the 26 27 district calendar. Uh looking for a mot. Well, I should uh the
+1:06:57
+the public hearing date is proposed to be January 26th uh 2026 at 5:30 p.m. uh
+1:07:04
+here at the admin building. Looking for a motion. Move to approve. Mberg
+1:07:09
+second. Any discussion? All those in favor indicate by saying I.
+1:07:15
+I. Post. Same sign. Motion carries. The 2526 student
+1:07:20
+handbook midyear update. This was the item that Dr. Krenza spoke on earlier. Uh looking for a motion.
+1:07:27
+Move to approve Vanderbel. Second. Wberg. Any discussion.
+1:07:32
+All those in favor indicate by saying I. I. I. Oppose. Same sign. Motion carries.
+1:07:39
+All right. Item K. OP Architects uh standard form of agreement for the Dallas Center Grimes uh community school
+1:07:45
+district phase one projects. Looking for a motion. Move to approve the ender building.
+1:07:50
+Second. Wberg. Any discussion? All those in favor indicate by saying I.
+1:07:56
+I oppos same sign. Motion carries. Uh Bishop Engineering uh survey contract
+1:08:02
+for the DCG high school phase one site survey proposal. Um looking uh for a
+1:08:09
+motion move to approve. Mberg second. Viella.
+1:08:14
+Any discussion? All those in favor indicate by saying I. I. Oppos. Same sign. Motion carries.
+1:08:22
+Bishop Engineering survey contract for DCG Middle School site survey proposal. Looking for a motion.
+1:08:29
+Move to approve. Vandervelden. Second. Baker Curtis. Any discussion?
+1:08:35
+All those in favor indicate by saying I. I. Oppos. Same sign. Motion carries. Uh,
+1:08:43
+Bishop Engineering Survey Contract for DCG district operations site survey
+1:08:48
+proposal. Looking for a motion. Move to approve. Malberg second Baker Furtis.
+1:08:54
+Any discussion? All those in favor indicate by saying I. I.
+1:09:00
+Post same sign. Motion carries. Bishop Engineering survey contracts for
+1:09:05
+playground uh site survey proposals for Dallas Center Elementary, Heritage,
+1:09:10
+Northridge, and South Prairie elementaryaries. Looking for a motion. Move to approve. Baker Curtis.
+1:09:16
+Second. Vandervalden. Any discussion? Why are these all different just because
+1:09:22
+of locations and things or Yeah, I don't know why they
+1:09:28
+are you talking the ones you just did with all the site surveys like the elementary schools Dallas
+1:09:34
+Center Heritage Northridge and South Prairie so all the elementary schools all the amount for each site survey is different
+1:09:40
+they have different land like is that why yeah and like Northridge for example they have
+1:09:47
+like they had to do more because of the the grease pit in the kitchen goes
+1:09:53
+somewhere funky. I I can't remember, but it's well, they're all done on letter agreements. And so, you know, a lot of
+1:10:00
+times you'll see a master services agreement with a series of addendums or exhibits that'll, you know, be the scope
+1:10:06
+of work for each thing. This appears that they just wrote the scope of work on a letter agreement for every
+1:10:12
+initiative. So, yeah, just curious. Any other discussion?
+1:10:18
+All those in favor indicate by saying I. I. Post same sign. Motion carries.
+1:10:25
+Uh DCI group standard uh form of agreement for DCG phase 1 projects.
+1:10:30
+Looking for a motion. Move to approve. Mberg second. Vanderbild. Any discussion?
+1:10:38
+All those in favor indicate by saying I. I. Post. Same sign. Motion carries.
+1:10:45
+Uh, Transfinder agreement for upgrade.
+1:10:50
+Looking for a motion. Move to approve. Baker Curtis.
+1:10:56
+Second. Vanderve. Any discussion? I just would like to thank Director Wolf
+1:11:03
+for his time on this. I think that this is something that parents, especially
+1:11:08
+parents of very young kids, are often concerned about putting their kids on
+1:11:13
+the bus to school. Um, but I know that Jeff prioritizes student safety and
+1:11:20
+we've seen him report on that a number of times. And so I I know that while
+1:11:25
+this is going to be an initial cost upfront, I think our parents and our
+1:11:30
+stakeholder community will very much appreciate having this service available to them so
+1:11:37
+that they can track their kids in real time. Yeah, well said. Yeah, real quick. Thank you, Nancy, for
+1:11:43
+saying that. And just on a fiscal side, you know, Jeff is in in a spot next year
+1:11:48
+where we're good with all of our buses, whether the quantity of them, how they're running, everything's good. So, we don't need a a bus here. So, we're
+1:11:55
+actually going to spend less than we would for a typical bus, but able to put this amount of money will go to all of
+1:12:02
+our existing buses. So, we're not going to purchase a bus and instead do this
+1:12:07
+and impact all the buses for a little bit less than it would be to purchase a bus. So, really good stuff coming from
+1:12:12
+this. And student safety is priceless, right? 100%. Like, this is going to be great for everybody.
+1:12:19
+Any other discussion? All those in favor indicate by saying I.
+1:12:25
+I. Oppos. Same sign. Motion carries. Uh we've got a list of items to sell on gov
+1:12:30
+deals. Looking for a motion. Move to approve. Wberg second. Fella.
+1:12:35
+Any discussion? All those in favor indicate by saying I. I.
+1:12:41
+Post. Same sign. Motion carries. Uh the financial statements that Michelle reviewed with
+1:12:46
+us a bit ago. Looking for a motion. Move to approve. Vanderved and second Baker Curtis.
+1:12:52
+Any discussion? All those in favor indicate by saying I. I.
+1:12:58
+Oppos same as sign. Motion carries. I don't know. Board commendations might be uh tied with
+1:13:04
+creator awards in terms of my favorite agenda item every every uh month. But uh
+1:13:10
+uh great stuff going on all the time here at DCG. Great to see um our staff and our teams uh across the
+1:13:17
+district being recognized for the great work that they do. Looking for a motion. Move to approve. Baker Curtis.
+1:13:24
+Second. Vandervald. Any discussion? All those in favor indicate by saying I.
+1:13:30
+I. Post. Same sign. Motion carries. The next regular board meeting uh will be Monday, January 26th,
+1:13:38
+2026. Looking for a motion to adjurnn. Move to
+1:13:43
+adjourn. Mberg second BL.
+
