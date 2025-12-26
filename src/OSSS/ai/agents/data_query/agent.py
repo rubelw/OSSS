@@ -242,13 +242,53 @@ class DataQueryAgent(BaseAgent):
         )
 
     async def run(self, context: AgentContext) -> AgentContext:
+
         # --- EXECUTION CONFIG --------------------------------------------------
         exec_state: Dict[str, Any] = getattr(context, "execution_state", {}) or {}
         exec_cfg: Dict[str, Any] = exec_state.get("execution_config", {}) or {}
         dq_cfg: Dict[str, Any] = exec_cfg.get("data_query") or {}
 
+        # Classifier + raw text (best-effort)
         classifier, raw_text = _get_classifier_and_text_from_context(context)
-        intent = (classifier.get("intent") or "").strip().lower() or None
+        raw_text_norm = (raw_text or "").strip()
+        raw_text_lower = raw_text_norm.lower()
+
+        # 🚧 LEXICAL GATE:
+        # Only hit data_query for things that look like a structured query,
+        # e.g., explicitly prefixed with "query ".
+        # You can override this with execution_config["data_query"]["force"] = True.
+        is_structured_query = raw_text_lower.startswith("query ")
+        force_data_query = bool(dq_cfg.get("force"))
+
+        logger.info(
+            "[data_query] lexical gate",
+            extra={
+                "event": "data_query_lexical_gate",
+                "raw_text_preview": raw_text_norm[:200],
+                "is_structured_query": is_structured_query,
+                "force_data_query": force_data_query,
+            },
+        )
+
+        if not is_structured_query and not force_data_query:
+            logger.info(
+                "[data_query:routing] skipping: does not look like a structured query",
+                extra={
+                    "event": "data_query_skip_non_structured",
+                    "raw_text_preview": raw_text_norm[:200],
+                },
+            )
+            return context
+
+        # --- INTENT (best-effort; used only as *extra* signal) -----------------
+        state_intent = getattr(context, "intent", None) or exec_state.get("intent")
+        classifier_intent = (
+            classifier.get("intent") if isinstance(classifier, dict) else None
+        )
+
+        intent_raw = state_intent or classifier_intent
+        intent = (intent_raw or "").strip().lower() or None
+
         topic_override = dq_cfg.get("topic")
 
         logger.info(
@@ -257,21 +297,20 @@ class DataQueryAgent(BaseAgent):
                 "event": "data_query_run_begin",
                 "intent": intent,
                 "topic_override": topic_override,
-                "raw_text_preview": raw_text[:200],
-                "classifier_topic": classifier.get("topic"),
-                "classifier_topics": classifier.get("topics"),
+                "raw_text_preview": raw_text_norm[:200],
+                "classifier_topic": classifier.get("topic") if isinstance(classifier, dict) else None,
+                "classifier_topics": classifier.get("topics") if isinstance(classifier, dict) else None,
             },
         )
 
         logger.debug(
-            "[data_query] run() begin",
+            "[data_query] run() begin (debug)",
             extra={
-                "event": "data_query_run_begin",
+                "event": "data_query_run_begin_debug",
                 "intent": intent,
                 "topic_override": topic_override,
-                "raw_text": raw_text,
-                "classifier_topics": classifier.get("topics"),
-                "classifier_topic": classifier.get("topic"),
+                "raw_text": raw_text_norm,
+                "classifier": classifier,
             },
         )
 
