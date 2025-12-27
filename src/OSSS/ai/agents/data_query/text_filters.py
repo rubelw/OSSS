@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 import logging
 import re
 from typing import List, Optional, Tuple
@@ -13,6 +14,16 @@ from OSSS.ai.agents.data_query.queryspec import (
 )
 
 log = logging.getLogger("OSSS.ai.agents.data_query.text_filters")
+
+# ---------------------------------------------------------------------------
+# Sort specification
+# ---------------------------------------------------------------------------
+
+@dataclass
+class SortSpec:
+    field: str
+    direction: str  # "asc" or "desc"
+
 
 # ---------------------------------------------------------------------------
 # Field aliases + normalization helpers
@@ -92,6 +103,8 @@ def parse_text_filters(user_text: str, spec: QuerySpec) -> QuerySpec:
     Supported patterns (case-insensitive):
       - where last name starts with "R"
       - where last name starts with R
+      - where consent_type ends with "ion"
+      - where consent_type ends with ion
       - where status = active
       - where status is active
       - where created after 2024-01-01
@@ -105,8 +118,16 @@ def parse_text_filters(user_text: str, spec: QuerySpec) -> QuerySpec:
 
     Also supports "filter" as a pseudo-where:
       - ... filter consent_type to start with 'D'
+      - ... filter consent_type to end with 'ion'
+
+    NEW (sort parsing):
+      - order by consent_type desc
+      - sort consent type in descending order
+      - sort consent_type ascending
 
     This function mutates and returns `spec` for convenience.
+    Filters are appended to spec.filters.
+    Sort information, if parsed, is attached as `spec.sort_spec` (SortSpec).
     """
     text = (user_text or "").strip()
     if not text:
@@ -140,12 +161,34 @@ def parse_text_filters(user_text: str, spec: QuerySpec) -> QuerySpec:
             extra={
                 "event": "data_query_filters_parsed",
                 "filters_count": added,
+                "raw_text_preview": text[:200],
+                "filters": [
+                    {"field": f.field, "op": f.op, "value": f.value}
+                    for f in spec.filters[-added:]
+                ],
             },
         )
     else:
         log.info(
             "[text_filters] No filters parsed from text",
-            extra={"event": "data_query_no_filters_parsed"},
+            extra={
+                "event": "data_query_no_filters_parsed",
+                "raw_text_preview": text[:200],
+            },
+        )
+
+    # --- Sort parsing -------------------------------------------------------
+    sort_spec = _parse_sort_clause(text, spec)
+    if sort_spec:
+        # Attach to QuerySpec for downstream use (e.g., DataQueryAgent → HTTP params)
+        setattr(spec, "sort_spec", sort_spec)
+    else:
+        log.info(
+            "[text_filters] No sort parsed from text",
+            extra={
+                "event": "data_query_no_sort_parsed",
+                "raw_text_preview": text[:200],
+            },
         )
 
     return spec
@@ -205,6 +248,9 @@ def _normalize_condition_text(cond: str) -> str:
 
       "filter to only show consent_type which start with 'D'"
         -> "consent_type starts with 'D'"
+
+      "filter consent_type to end with 'ion'"
+        -> "consent_type ends with 'ion'"
     """
     s = cond.strip()
 
@@ -215,6 +261,11 @@ def _normalize_condition_text(cond: str) -> str:
     s = re.sub(r"\bto\s+start\s+with\b", "starts with", s, flags=re.IGNORECASE)
     s = re.sub(r"\bwhich\s+start\s+with\b", "starts with", s, flags=re.IGNORECASE)
     s = re.sub(r"\bthat\s+start\s+with\b", "starts with", s, flags=re.IGNORECASE)
+
+    # Common phrases → "ends with"
+    s = re.sub(r"\bto\s+end\s+with\b", "ends with", s, flags=re.IGNORECASE)
+    s = re.sub(r"\bwhich\s+end\s+with\b", "ends with", s, flags=re.IGNORECASE)
+    s = re.sub(r"\bthat\s+end\s+with\b", "ends with", s, flags=re.IGNORECASE)
 
     return s
 
@@ -227,6 +278,7 @@ def _normalize_condition_text(cond: str) -> str:
 _OPERATOR_PATTERNS: List[Tuple[re.Pattern, FilterOp]] = [
     # textual operators
     (re.compile(r"\bstarts?\s+with\b", re.IGNORECASE), "startswith"),
+    (re.compile(r"\bends?\s+with\b", re.IGNORECASE), "endswith"),
     (re.compile(r"\bcontains?\b", re.IGNORECASE), "contains"),
     (re.compile(r"\bis\s+not\b", re.IGNORECASE), "neq"),
     (re.compile(r"\bis\b", re.IGNORECASE), "eq"),
@@ -244,10 +296,41 @@ _OPERATOR_PATTERNS: List[Tuple[re.Pattern, FilterOp]] = [
 ]
 
 
+def _clean_filter_value(raw: str) -> str:
+    """
+    Normalize the value portion of a condition.
+
+    - Strip whitespace.
+    - Drop anything after the first comma (to avoid swallowing trailing clauses).
+    - Strip surrounding single/double quotes.
+    - Trim dangling 'and'/'or' at the end.
+    """
+    if raw is None:
+        return ""
+
+    value = raw.strip()
+
+    # Critical fix: do not include trailing clauses like ", replace person_id..."
+    if "," in value:
+        value = value.split(",", 1)[0].strip()
+
+    # Strip matching quotes
+    if (value.startswith("'") and value.endswith("'")) or (
+        value.startswith('"') and value.endswith('"')
+    ):
+        value = value[1:-1].strip()
+
+    # Remove dangling boolean connector if it somehow slipped in
+    value = re.sub(r"\b(and|or)$", "", value, flags=re.IGNORECASE).strip()
+
+    return value
+
+
 def _parse_single_condition(cond_text: str, spec: QuerySpec) -> Optional[FilterCondition]:
     """
     Parse one condition string like:
         "last name starts with \"R\""
+        "consent_type ends with \"ion\""
         "status = active"
         "created after 2024-01-01"
     into a FilterCondition, or None if it can't be parsed.
@@ -266,10 +349,12 @@ def _parse_single_condition(cond_text: str, spec: QuerySpec) -> Optional[FilterC
     if not field_phrase or not value_phrase:
         return None
 
-    # strip quotes around the value if present
-    value = _strip_quotes(value_phrase)
+    # 2) Clean the value (handles quotes + trailing clauses)
+    value = _clean_filter_value(value_phrase)
+    if not value:
+        return None
 
-    # 2) resolve field phrase to an actual field/path using aliases, synonyms, etc.
+    # 3) resolve field phrase to an actual field/path using aliases, synonyms, etc.
     resolved_field = _resolve_field_name(field_phrase, spec)
     if not resolved_field:
         return None
@@ -292,6 +377,10 @@ def _find_operator(cond_text: str) -> Tuple[Optional[re.Match], Optional[FilterO
 def _strip_quotes(value: str) -> str:
     """
     Remove surrounding single/double quotes if present.
+
+    NOTE: Kept for backwards compatibility; most parsing should now route
+    through _clean_filter_value instead, which also handles commas and
+    dangling connectors.
     """
     value = value.strip()
     if (value.startswith('"') and value.endswith('"')) or (
@@ -308,7 +397,7 @@ def _strip_quotes(value: str) -> str:
 _INLINE_STARTS_WITH_RE = re.compile(
     r"\bwith\s+"
     r"(?P<field>[A-Za-z_][A-Za-z0-9_ ]*?)\s+"
-    r"starting\s+with\s+'?(?P<value>[^\s']+)'?",
+    r"starting\s+with\s+'?(?P<value>[^\s',]+)'?",
     re.IGNORECASE,
 )
 
@@ -332,7 +421,7 @@ def _parse_inline_startswith(text: str, spec: QuerySpec) -> Optional[FilterCondi
     if not field:
         return None
 
-    value = _strip_quotes(raw_value)
+    value = _clean_filter_value(raw_value)
     if not value:
         return None
 
@@ -357,7 +446,6 @@ def _resolve_field_name(field_phrase: str, spec: QuerySpec) -> Optional[str]:
     raw = (field_phrase or "").strip()
     if not raw:
         return None
-
 
     lowered = raw.lower()
     normalized_key = lowered.replace(" ", "_")
@@ -405,3 +493,60 @@ def _resolve_field_name(field_phrase: str, spec: QuerySpec) -> Optional[str]:
     # 4) As a last resort, ALWAYS return a snake_cased version
     #    so we never emit "consent type" as a field.
     return normalized_key
+
+
+# ---------------------------------------------------------------------------
+# Step 5: sort clause parsing ("order by", "sort by")
+# ---------------------------------------------------------------------------
+
+_ORDER_BY_RE = re.compile(
+    r"\b(?:order|sort)\s+(?:by\s+)?"
+    r"(?P<field>[A-Za-z0-9_ ]+?)"
+    r"(?:\s+(?P<direction>asc|ascending|desc|descending))?"
+    r"(?:$|[,.])",
+    re.IGNORECASE,
+)
+
+
+def _parse_sort_clause(text: str, spec: QuerySpec) -> Optional[SortSpec]:
+    """
+    Parse a simple sort clause like:
+        "order by consent_type desc"
+        "sort consent type ascending"
+        "order consent_type"
+
+    Returns SortSpec or None if no sort is detected.
+    """
+    m = _ORDER_BY_RE.search(text)
+    if not m:
+        return None
+
+    raw_field = (m.group("field") or "").strip()
+    if not raw_field:
+        return None
+
+    raw_dir = (m.group("direction") or "").strip().lower()
+
+    # Resolve the field using same logic as filters
+    field = _resolve_field_name(raw_field, spec) or raw_field.replace(" ", "_").lower()
+
+    if raw_dir.startswith("desc"):
+        direction = "desc"
+    else:
+        # Default to ascending if unspecified or unrecognized
+        direction = "asc"
+
+    sort_spec = SortSpec(field=field, direction=direction)
+
+    log.info(
+        "[text_filters] Parsed sort from text",
+        extra={
+            "event": "data_query_sort_parsed",
+            "field": field,
+            "direction": direction,
+            "raw_field": raw_field,
+            "raw_direction": raw_dir or None,
+        },
+    )
+
+    return sort_spec

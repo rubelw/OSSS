@@ -1,6 +1,13 @@
 from __future__ import annotations
 
-from typing import List
+from typing import List, TYPE_CHECKING, Any
+import json
+
+if TYPE_CHECKING:
+    # Optional import to avoid circular dependencies at runtime.
+    # Adjust the path if your FinalConfig lives somewhere else.
+    from OSSS.ai.agents.final.config import FinalConfig
+
 
 FINAL_USER_PROMPT_TEMPLATE = """RAG_SNIPPET_PRESENT: {rag_present}
 
@@ -9,10 +16,10 @@ USER QUESTION:
 {refiner_block}
 
 RETRIEVED CONTEXT (RAG):
-{rag_section}
+{rag_section}{rag_metadata_block}
 
 DATA_QUERY TABLES (if any):
-{data_query_block}
+{data_query_block}{data_query_metadata_block}
 
 Now produce the final answer for the end user.
 """
@@ -84,6 +91,26 @@ Your output:
 """
 
 
+def _normalize_rag_metadata(meta: Any) -> str:
+    """
+    Ensure rag_metadata is rendered as a readable string for the prompt.
+
+    Accepts:
+    - str: returned as-is (stripped)
+    - dict / list: JSON-dumps with small indentation
+    - anything else: str(...)
+    """
+    if meta is None:
+        return ""
+    if isinstance(meta, str):
+        return meta.strip()
+
+    try:
+        return json.dumps(meta, indent=2, sort_keys=True)
+    except TypeError:
+        return str(meta)
+
+
 def build_final_prompt(
     user_question: str,
     refiner_text: str,
@@ -91,6 +118,11 @@ def build_final_prompt(
     rag_section: str,
     original_user_question: str | None = None,
     data_query_markdown: str | None = None,
+    *,
+    # NEW: optional config + metadata so prompt_composer can control behavior
+    config: "FinalConfig | None" = None,
+    rag_metadata: Any | None = None,
+    data_query_metadata: Any | None = None,
 ) -> str:
     """
     Build the user-facing prompt for the FinalAgent.
@@ -99,7 +131,7 @@ def build_final_prompt(
     - If the *original* user question begins with "query " (any casing), we treat it as a
       structured data query and:
         * DO NOT include the refiner block at all.
-        * DO NOT include any RAG snippet (pretend RAG is absent).
+        * DO NOT include any RAG snippet (pretend RAG is absent), regardless of config.
     """
     # What we’ll display as "USER QUESTION:"
     uq = (user_question or "").strip() or "[missing user question]"
@@ -132,9 +164,21 @@ def build_final_prompt(
         # Hard-disable RAG for structured lexical "query ..." requests
         rag_present_for_prompt = False
         rag_section_final = "No retrieved context provided."
+        # Also ignore rag_metadata in this mode (even if config says to include)
+        rag_metadata_block = ""
     else:
         rag_present_for_prompt = bool(rag_present)
         rag_section_final = (rag_section or "").strip() or "No retrieved context provided."
+
+        # Optional RAG metadata block, controlled by FinalConfig
+        include_rag_meta = bool(getattr(config, "include_rag_metadata", False)) if config else False
+        if include_rag_meta and rag_metadata is not None:
+            rag_metadata_str = _normalize_rag_metadata(rag_metadata)
+            rag_metadata_block = ""
+            if rag_metadata_str:
+                rag_metadata_block = "\n\nRAG METADATA:\n" + rag_metadata_str
+        else:
+            rag_metadata_block = ""
 
     # ---- data_query tables block ---------------------------------------------
     dq = (data_query_markdown or "").strip()
@@ -143,10 +187,26 @@ def build_final_prompt(
     else:
         data_query_block = "[no data_query tables available]"
 
+    # Optional data_query metadata (e.g., collection name, URL, row_count, etc.)
+    include_dq_meta = bool(
+        getattr(config, "include_data_query_metadata", False)
+    ) if config else False
+
+    if include_dq_meta and data_query_metadata is not None:
+        dq_meta_str = _normalize_rag_metadata(data_query_metadata)
+        if dq_meta_str:
+            data_query_metadata_block = "\n\nDATA_QUERY METADATA:\n" + dq_meta_str
+        else:
+            data_query_metadata_block = ""
+    else:
+        data_query_metadata_block = ""
+
     return FINAL_USER_PROMPT_TEMPLATE.format(
         rag_present=str(rag_present_for_prompt),
         user_question=uq,
         refiner_block=refiner_block,
         rag_section=rag_section_final,
+        rag_metadata_block=rag_metadata_block,
         data_query_block=data_query_block,
+        data_query_metadata_block=data_query_metadata_block,
     )

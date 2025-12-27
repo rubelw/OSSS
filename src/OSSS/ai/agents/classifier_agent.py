@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Optional, List
+from typing import Any, Dict, Optional, List, TYPE_CHECKING
 import time
 import hashlib
 import traceback
@@ -11,6 +11,10 @@ import joblib
 
 from OSSS.ai.agents.base_agent import BaseAgent
 from OSSS.ai.observability import get_logger
+
+if TYPE_CHECKING:
+    # Type-only import to avoid circular dependency at runtime
+    from OSSS.ai.context import AgentContext
 
 logger = get_logger(__name__)
 
@@ -334,7 +338,6 @@ class SklearnIntentClassifierAgent(BaseAgent):
         primary_topic = topic_names[best_idx]
         primary_topic_conf = float(topics_proba[best_idx])
 
-
         # Threshold just for extra topics
         threshold = 0.3
         topic_scores = [
@@ -642,10 +645,20 @@ class SklearnIntentClassifierAgent(BaseAgent):
             )
             raise
 
-    async def run(self, query: str, config: Dict[str, Any]) -> Dict[str, Any]:
+    async def run(
+        self,
+        query: str,
+        config: Dict[str, Any],
+        context: "AgentContext | None" = None,  # NEW: optional context injection
+    ) -> Dict[str, Any]:
         """
         Orchestrator-friendly async entrypoint.
         Returns JSON-serializable dict.
+
+        If an AgentContext is provided, this method will also:
+        - store the classifier result via context.set_classifier_result(...)
+        - store the original user question via context.set_user_question(...)
+        - add the classifier output to context.add_agent_output(...)
         """
         t0 = time.perf_counter()
 
@@ -675,12 +688,16 @@ class SklearnIntentClassifierAgent(BaseAgent):
         res = self.classify(query)
 
         # ---- ROUTING METADATA ----
-        # preserve original user input exactly
+        # preserve original user input exactly (for routing etc.)
         original_text = (query or "")[:500]  # prevent log explosions
 
         # normalized for routing: lowercase + strip markup artifacts
         normalized = (
-            original_text.lower().replace("**", "").replace("*", "").replace("#", "").strip()
+            original_text.lower()
+            .replace("**", "")
+            .replace("*", "")
+            .replace("#", "")
+            .strip()
         )
 
         # lightweight tokenization (spaces only)
@@ -693,15 +710,54 @@ class SklearnIntentClassifierAgent(BaseAgent):
 
         logger.debug(
             "[classifier:run:metadata] routing metadata extracted",
-            extra = {
+            extra={
                 "original_text": original_text,
                 "normalized_text": normalized,
                 "query_terms": query_terms,
             },
         )
 
-
         out = res.to_dict()
+
+        # -------------------------
+        # NEW: persist into context
+        # -------------------------
+        if context is not None:
+            try:
+                # Save who the classifier thinks this is (intent/domain/topic)
+                context.set_classifier_result(out)
+            except Exception as e:
+                logger.warning(
+                    "[classifier:run] failed to set classifier_result on context",
+                    extra={
+                        "error_type": type(e).__name__,
+                        "error": str(e),
+                    },
+                )
+
+            try:
+                # Save original user question so downstream agents can access it
+                context.set_user_question(query)
+            except Exception as e:
+                logger.warning(
+                    "[classifier:run] failed to set user_question on context",
+                    extra={
+                        "error_type": type(e).__name__,
+                        "error": str(e),
+                    },
+                )
+
+            try:
+                # Optional: also register this as an agent output for traceability
+                context.add_agent_output(self.name, out)
+            except Exception as e:
+                logger.warning(
+                    "[classifier:run] failed to add classifier output to context",
+                    extra={
+                        "error_type": type(e).__name__,
+                        "error": str(e),
+                    },
+                )
 
         dt_ms = (time.perf_counter() - t0) * 1000.0
         logger.info(

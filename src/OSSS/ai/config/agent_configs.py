@@ -431,6 +431,10 @@ class FinalConfig(BaseModel):
     )
     tone: Optional[str] = None  # <--- add this back so references to config.tone don’t crash
 
+    # ✅ new / restored fields so prompt_composer stops throwing
+    include_rag_metadata: bool = True
+    include_data_query_tables: bool = True
+
 
     @classmethod
     def from_dict(cls, config: Dict[str, Any]) -> "FinalConfig":

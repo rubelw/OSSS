@@ -2,10 +2,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 from sqlalchemy.ext.asyncio import AsyncEngine
 import re
+import json
 from OSSS.ai.context import AgentContext
+from OSSS.ai.agents.classifier_agent import ClassifierResult
+
 from OSSS.ai.agents.base_agent import BaseAgent, LangGraphNodeDefinition
 from OSSS.ai.agents.data_query.config import (
     DataQueryRoute,
@@ -28,6 +31,71 @@ from OSSS.ai.agents.data_query.wizard_config import (
 
 logger = get_logger(__name__)
 
+@dataclass
+class ExtractedTextFilters:
+    filters: List[Dict[str, Any]]
+    sort: Optional[Dict[str, Any]]
+
+
+def _extract_text_filters_from_query(
+    raw_text: str,
+    route: Optional[DataQueryRoute],
+) -> ExtractedTextFilters:
+    """
+    Lightweight fallback parser for simple text filters that the main
+    parse_text_filters(QuerySpec) pipeline might miss.
+
+    Right now this only handles "starts with" patterns like:
+
+        "filter to only show consent_type which start with the letter 'D'"
+        "restrict consent_type to those starting with D"
+
+    It returns an ExtractedTextFilters where:
+      - .filters is a list[dict] in the same shape expected by _apply_filters_to_params
+      - .sort is currently always None (sorting handled elsewhere)
+    """
+    filters: List[Dict[str, Any]] = []
+
+    if not raw_text:
+        return ExtractedTextFilters(filters=[], sort=None)
+
+    text = raw_text.lower()
+
+    for pattern in STARTS_WITH_FILTER_PATTERNS:
+        m = pattern.search(text)
+        if not m:
+            continue
+
+        field = m.group("field")
+        value = m.group("value")
+        if not field or not value:
+            continue
+
+        filters.append(
+            {
+                "field": field,
+                "op": "startswith",
+                "value": value,
+            }
+        )
+        break  # only handle the first match for now
+
+    if filters:
+        logger.info(
+            "[text_filters:fallback] extracted simple 'startswith' filter from text",
+            extra={
+                "event": "data_query_fallback_text_filters",
+                "raw_text_preview": raw_text[:200],
+                "route_topic": getattr(route, "topic", None),
+                "route_collection": getattr(route, "collection", None),
+                "filters": filters,
+            },
+        )
+
+    # Sorting fallback is handled by _extract_text_sort_from_query separately.
+    return ExtractedTextFilters(filters=filters, sort=None)
+
+
 DEFAULT_BASE_URL = os.getenv("OSSS_BACKEND_BASE_URL", "http://app:8000")
 
 
@@ -48,6 +116,10 @@ OP_MAP: Dict[str, str] = {
     # ✅ IMPORTANT: align with API, no more "istartswith"
     "startswith": "startswith",  # ⬅ backend expects __startswith
     "prefix": "startswith",
+
+    # ✅ NEW: endswith support
+    "endswith": "endswith",
+    "suffix": "endswith",
 
     "gt": "gt",
     "greater_than": "gt",
@@ -80,55 +152,238 @@ STARTS_WITH_FILTER_PATTERNS = [
     ),
 ]
 
+# Simple regex to catch phrases like:
+#   "sort consent_type in descending order"
+#   "sort consent_type descending"
+#   "sort consent_type desc"
+SORT_PATTERN = re.compile(
+    r"sort\s+(?P<field>[a-zA-Z_][a-zA-Z0-9_]*)"
+    r"(?:\s+by)?"
+    r"(?:\s+in\s+(?P<long_dir>ascending|descending)\s+order"
+    r"|\s+(?P<short_dir>asc|desc))?",
+    re.IGNORECASE,
+)
 
-def _extract_text_filters_from_query(raw_text: str) -> Dict[str, str]:
+LIKE_PATTERN_RE = re.compile(
+    r"(?i)^(?:is\s+)?(i?like)\s+(.+)$"
+)
+
+REFINED_QUERY_KEY = "refined_query"
+
+def _looks_like_database_query(text: str) -> bool:
+    t = text.strip().lower()
+    if not t:
+        return False
+
+    # Strong signals
+    if t.startswith("query "):
+        return True
+    if t.startswith("select "):
+        return True
+
+    # Weak but useful: mentions of "table", "database", "record", etc.
+    KEYWORDS = (" database", " table", " tables", " row ", " rows ", " records ", "schema")
+    if any(kw in t for kw in KEYWORDS):
+        return True
+
+    return False
+
+
+def _extract_refined_text_from_refiner_output(refiner_output: object) -> Optional[str]:
     """
-    Very small, heuristic filter parser.
+    Normalize whatever the RefinerAgent returned into a clean refined_query string.
 
-    Right now it only supports "starts with" patterns like:
-      - filter to only show consent_type which start with the letter 'D'
-      - restrict consent_type to those starting with D
-
-    Returns a dict of query params to merge into the HTTP params.
+    Handles:
+    - dict with `refined_query` key (ideal)
+    - JSON-ish string containing `"refined_query": "..."` even if not perfectly valid JSON
+    - plain string which is already the refined query
     """
-    filters: Dict[str, str] = {}
+    # Case 1: Already a dict
+    if isinstance(refiner_output, dict):
+        val = refiner_output.get(REFINED_QUERY_KEY)
+        if isinstance(val, str):
+            return val.strip()
 
-    text = (raw_text or "").strip()
-    if not text:
-        return filters
+    # Case 2: String output
+    if isinstance(refiner_output, str):
+        text = refiner_output.strip()
 
-    for pattern in STARTS_WITH_FILTER_PATTERNS:
-        m = pattern.search(text)
-        if m:
-            field = m.group("field")
-            value = m.group("value")
+        # 2a: Try strict JSON
+        if text.startswith("{") and REFINED_QUERY_KEY in text:
+            try:
+                parsed = json.loads(text)
+            except Exception:
+                parsed = None
 
-            # 👇 Align with factory: use __startswith
-            param_key = f"{field}__startswith"
-            filters[param_key] = value
+            if isinstance(parsed, dict):
+                val = parsed.get(REFINED_QUERY_KEY)
+                if isinstance(val, str):
+                    return val.strip()
 
-            logger.info(
-                "[data_query:filters] parsed startswith filter from text",
-                extra={
-                    "event": "data_query_parsed_startswith_filter",
-                    "raw_text_preview": text[:160],
-                    "field": field,
-                    "value": value,
-                    "param_key": param_key,
-                },
+        # 2b: Fuzzy regex fallback for JSON-ish responses
+        if REFINED_QUERY_KEY in text:
+            m = re.search(
+                r'"refined_query"\s*:\s*"(.+)"',
+                text,
+                flags=re.DOTALL,
             )
-            break
+            if m:
+                return m.group(1).strip()
 
-    if not filters:
-        logger.info(
-            "[data_query:filters] no filters parsed from text",
-            extra={
-                "event": "data_query_no_filters_parsed",
-                "raw_text_preview": text[:160],
-            },
+        # 2c: Otherwise, treat it as already-refined text
+        return text
+
+    # Anything else: no usable refined text
+    return None
+
+
+def _get_classifier_and_text_from_context(
+    context: AgentContext,
+) -> tuple[dict, str]:
+    # canonical classifier dict
+    get_clf = getattr(context, "get_classifier_result", None)
+    if callable(get_clf):
+        classifier = get_clf() or {}
+    else:
+        exec_state: dict = getattr(context, "execution_state", {}) or {}
+        classifier = exec_state.get("classifier_result") or {}
+        if not isinstance(classifier, dict):
+            classifier = {}
+
+    # canonical user question
+    get_uq = getattr(context, "get_user_question", None)
+    if callable(get_uq):
+        raw_user_query = get_uq()
+    else:
+        exec_state: dict = getattr(context, "execution_state", {}) or {}
+        raw_user_query = (
+            exec_state.get("original_query")
+            or exec_state.get("user_question")
+            or ""
         )
 
-    return filters
+    # refiner output → still optional
+    refiner_output = None
+    get_last_output = getattr(context, "get_last_output", None)
+    if callable(get_last_output):
+        try:
+            refiner_output = get_last_output("refiner")
+        except Exception:
+            refiner_output = None
+
+    refined_text = _extract_refined_text_from_refiner_output(refiner_output)
+    effective_text = (refined_text or raw_user_query or "").strip()
+
+    return classifier, effective_text
+
+
+def _extract_refined_query(raw: str) -> Optional[str]:
+    """
+    Try to extract the refined_query string from the RefinerAgent output.
+
+    Handles:
+    - Proper JSON like {"refined_query": "query consents ..."}
+    - Slightly malformed JSON that still contains a "refined_query": "..." segment.
+    """
+    if not raw:
+        return None
+
+    text = raw.strip()
+
+    # 1) Best-effort: try normal JSON
+    try:
+        obj = json.loads(text)
+        if isinstance(obj, dict) and isinstance(obj.get("refined_query"), str):
+            return obj["refined_query"]
+    except Exception:
+        pass
+
+    # 2) Fallback: regex against JSON-ish text
+    #   This grabs everything between the first "refined_query": " and the last "
+    m = re.search(r'"refined_query"\s*:\s*"(.+)"', text)
+    if m:
+        return m.group(1)
+
+    return None
+
+
+def _normalize_like_filter_condition(fc: FilterCondition) -> FilterCondition:
+    """
+    Convert FilterCondition that encodes a SQL-ish LIKE into a proper op/value.
+
+    Examples:
+      value="like '%ion%'"  -> op='contains', value='ion'
+      value="like 'ion%'"   -> op='startswith', value='ion'
+      value="like '%ion'"   -> op='endswith',  value='ion'
+
+    Only applied to filters where op is eq/equals and value is a string.
+    """
+    # Only normalize equality-like ops with string values
+    if fc.op not in {"eq", "equals"}:
+        return fc
+    if not isinstance(fc.value, str):
+        return fc
+
+    text = fc.value.strip()
+    m = LIKE_PATTERN_RE.match(text)
+    if not m:
+        return fc
+
+    pattern = m.group(2).strip()
+    # Strip outer quotes if present
+    if len(pattern) >= 2 and pattern[0] == pattern[-1] and pattern[0] in {"'", '"'}:
+        pattern = pattern[1:-1]
+
+    if not pattern:
+        return fc
+
+    starts_pct = pattern.startswith("%")
+    ends_pct = pattern.endswith("%")
+
+    core = pattern.strip("%")
+    if not core:
+        return fc
+
+    # Decide op based on wildcard placement
+    if starts_pct and ends_pct:
+        new_op = "contains"
+    elif starts_pct:
+        new_op = "endswith"
+    elif ends_pct:
+        new_op = "startswith"
+    else:
+        # no wildcards → keep as eq
+        return fc
+
+    return FilterCondition(field=fc.field, op=new_op, value=core)
+
+
+def _extract_text_sort_from_query(text: str) -> Optional[Tuple[str, str]]:
+    """
+    Fallback heuristic to parse a single sort clause from free text.
+
+    Returns:
+        (field, direction) where direction is "asc" or "desc",
+        or None if no sort can be parsed.
+    """
+    if not text:
+        return None
+
+    m = SORT_PATTERN.search(text)
+    if not m:
+        return None
+
+    field = m.group("field")
+    long_dir = m.group("long_dir")
+    short_dir = m.group("short_dir")
+
+    dir_token = (long_dir or short_dir or "asc").lower()
+    direction = "desc" if dir_token.startswith("desc") else "asc"
+
+    return field, direction
+
+
+
 
 def _apply_filters_to_params(
     base_params: Dict[str, Any],
@@ -270,46 +525,6 @@ def _summarize_wizard_payload(payload: Dict[str, Any], cfg: WizardConfig) -> str
     return "\n".join(lines)
 
 
-def _get_classifier_and_text_from_context(context: AgentContext) -> tuple[dict, str]:
-    """
-    Robustly pull classifier result + original query text from AgentContext.
-
-    We prefer execution_state["original_query"] (which is the raw user query
-    from /api/query) over any possibly-mutated context.original_query.
-    """
-    exec_state = getattr(context, "execution_state", {}) or {}
-    meta = getattr(context, "metadata", {}) or {}
-
-    classifier = (
-        exec_state.get("prestep", {}).get("classifier")
-        or exec_state.get("pre_step", {}).get("classifier")
-        or exec_state.get("classifier")
-        or meta.get("classifier")
-        or {}
-    )
-
-    # 🔑 IMPORTANT: prefer exec_state["original_query"] first
-    raw_text = (
-        exec_state.get("original_query")
-        or getattr(context, "original_query", None)
-        or exec_state.get("query")
-        or meta.get("original_query")
-        or meta.get("query")
-        or ""
-    )
-
-    logger.info(
-        "[data_query:context] extracted classifier + text from context",
-        extra={
-            "event": "data_query_context_extracted",
-            "exec_state_keys": list(exec_state.keys()),
-            "meta_keys": list(meta.keys()) if isinstance(meta, dict) else [],
-            "has_classifier": bool(classifier),
-            "raw_text_preview": (raw_text[:200] if isinstance(raw_text, str) else ""),
-        },
-    )
-
-    return classifier, raw_text if isinstance(raw_text, str) else ""
 
 
 # -----------------------------------------------------------------------------
@@ -1222,6 +1437,7 @@ class DataQueryAgent(BaseAgent):
           - lexical detection of "add/create consent" via `_detect_create_intent`
           - QuerySpec-based filter parsing via `parse_text_filters`
           - merging structured filters + text-derived filters into HTTP params
+          - preferring RefinerAgent's refined_query text (when available)
         """
 
         # --- EXECUTION CONFIG --------------------------------------------------
@@ -1230,7 +1446,7 @@ class DataQueryAgent(BaseAgent):
         exec_cfg: Dict[str, Any] = exec_state.setdefault("execution_config", {})
         dq_cfg: Dict[str, Any] = exec_cfg.setdefault("data_query", {})
 
-        # Classifier output + refined text (typically after Refiner)
+        # Classifier output + ORIGINAL text (typically pre-refiner)
         classifier, raw_text = _get_classifier_and_text_from_context(context)
         raw_text_norm = (raw_text or "").strip()
         raw_text_lower = raw_text_norm.lower()
@@ -1238,6 +1454,50 @@ class DataQueryAgent(BaseAgent):
         # 🔎 ORIGINAL / RAW USER INPUT (pre-refiner), if we have it
         raw_user_input = (exec_state.get("user_question") or "").strip()
         raw_user_lower = raw_user_input.lower()
+
+        # ----------------------------------------------------------------------
+        # 🔍 Pull refined_query from RefinerAgent output (if present)
+        # ----------------------------------------------------------------------
+        refined_text: Optional[str] = None
+        try:
+            # This is the canonical place where the refiner's last output lives
+            refiner_output = context.get_last_output("refiner")
+            refined_text = _extract_refined_text_from_refiner_output(refiner_output)
+        except Exception as e:
+            logger.warning(
+                "[data_query:refiner] failed to extract refined_query; falling back to original text",
+                extra={
+                    "event": "data_query_refined_query_extract_error",
+                    "error_type": type(e).__name__,
+                    "error_message": str(e),
+                },
+            )
+            refined_text = None
+
+        # Effective text for routing / lexical gates:
+        # prefer refined_query when available, otherwise original text
+        effective_text = (refined_text or raw_text_norm or "").strip()
+        effective_text_lower = effective_text.lower()
+
+        # Stash for observability
+        exec_state["data_query_texts"] = {
+            "raw_user_input": raw_user_input,
+            "raw_text": raw_text_norm,
+            "refined_text": refined_text,
+            "effective_text": effective_text,
+        }
+        context.execution_state = exec_state
+
+        logger.info(
+            "[data_query:texts] resolved text variants for data_query",
+            extra={
+                "event": "data_query_text_variants",
+                "has_raw_user_input": bool(raw_user_input),
+                "has_raw_text": bool(raw_text_norm),
+                "has_refined_text": bool(refined_text),
+                "effective_text_preview": effective_text[:200],
+            },
+        )
 
         # Keep any structured filters passed into execution_config.data_query
         structured_filters_cfg: List[Dict[str, Any]] = dq_cfg.get("filters") or []
@@ -1250,18 +1510,26 @@ class DataQueryAgent(BaseAgent):
         # ----------------------------------------------------------------------
         consent_create_intent = _detect_create_intent(
             raw_user_input=raw_user_input,
-            refined_text=raw_text_norm,
+            refined_text=effective_text,
         )
 
         # 🚧 SIMPLE STRUCTURED QUERY GATE
-        is_structured_query = raw_text_lower.startswith("query ")
-        force_data_query = bool(dq_cfg.get("force"))
+        #    IMPORTANT: use *effective* text (refined when present) for "query ..." gate
+        is_structured_query = effective_text_lower.startswith("query ")
+
+        # Force data_query when:
+        # - caller explicitly set force=true, OR
+        # - the text clearly looks like a database/data-system query
+        force_data_query = bool(dq_cfg.get("force")) or _looks_like_database_query(
+            effective_text
+        )
 
         logger.info(
             "[data_query] lexical gate",
             extra={
                 "event": "data_query_lexical_gate",
                 "raw_text_preview": raw_text_norm[:200],
+                "effective_text_preview": effective_text[:200],
                 "raw_user_preview": raw_user_input[:200],
                 "is_structured_query": is_structured_query,
                 "force_data_query": force_data_query,
@@ -1282,7 +1550,7 @@ class DataQueryAgent(BaseAgent):
                 "no wizard state, no create-consent trigger",
                 extra={
                     "event": "data_query_skip_non_structured",
-                    "raw_text_preview": raw_text_norm[:200],
+                    "effective_text_preview": effective_text[:200],
                 },
             )
             return context
@@ -1296,7 +1564,9 @@ class DataQueryAgent(BaseAgent):
             return await self._continue_wizard(
                 context,
                 wizard_state,
-                raw_text_norm or raw_user_input,
+                # When continuing a wizard, use whatever the user just typed;
+                # fall back to effective_text as a sane default.
+                effective_text or raw_user_input or raw_text_norm,
             )
 
         # ---- INTENT RESOLUTION ----------------------------------------------
@@ -1321,6 +1591,8 @@ class DataQueryAgent(BaseAgent):
                 "intent": intent,
                 "topic_override": topic_override,
                 "raw_text_preview": raw_text_norm[:200],
+                "refined_text_preview": (refined_text[:200] if refined_text else None),
+                "effective_text_preview": effective_text[:200],
                 "raw_user_preview": raw_user_input[:200],
             },
         )
@@ -1332,6 +1604,8 @@ class DataQueryAgent(BaseAgent):
                 "intent": intent,
                 "topic_override": topic_override,
                 "raw_text": raw_text_norm,
+                "refined_text": refined_text,
+                "effective_text": effective_text,
                 "raw_user_input": raw_user_input,
                 "classifier": classifier,
             },
@@ -1362,14 +1636,14 @@ class DataQueryAgent(BaseAgent):
             # If still nothing → fallback text matching using ORIGINAL user text
             if route is None:
                 route = choose_route_for_query(
-                    raw_user_input or raw_text_norm,
+                    raw_user_input or effective_text or raw_text_norm,
                     classifier,
                 )
                 route_source = "consent_keyword_fallback_text"
 
-        # 3️⃣ Default classifier/text routing
+        # 3️⃣ Default classifier/text routing (now uses effective_text)
         else:
-            route = choose_route_for_query(raw_text_norm, classifier)
+            route = choose_route_for_query(effective_text or raw_text_norm, classifier)
             route_source = "classifier_or_text"
 
         logger.info(
@@ -1496,6 +1770,12 @@ class DataQueryAgent(BaseAgent):
                 synonyms=dict(base_spec.synonyms),
                 search_fields=list(base_spec.search_fields),
                 default_limit=base_spec.default_limit,
+                # NOTE: if QuerySpec has a sort field, clone it too
+                **(
+                    {"sort": list(getattr(base_spec, "sort", []))}
+                    if hasattr(base_spec, "sort")
+                    else {}
+                ),
             )
         else:
             query_spec = QuerySpec(base_collection=collection or "")
@@ -1520,14 +1800,15 @@ class DataQueryAgent(BaseAgent):
         #   "where last name starts with 'R'"
         #   "where status = active"
         #
-        # 🔑 CRITICAL CHANGE:
-        # Use ORIGINAL user input when available so field names like "consent_type"
-        # are not lost by the Refiner.
-        filter_text = raw_user_input or raw_text_norm
+        # 🔑 CRITICAL: still use ORIGINAL user input when available so
+        # field names like "consent_type" aren't lost by Refiner.
+        filter_text = raw_user_input or raw_text_norm or effective_text
         if filter_text:
+            # First, let the main parser attach filters/sort to the QuerySpec.
             before_count = len(query_spec.filters)
             query_spec = parse_text_filters(filter_text, query_spec)
             after_count = len(query_spec.filters)
+
             if after_count > before_count:
                 logger.info(
                     "[data_query:filters] parsed filters from text",
@@ -1539,19 +1820,55 @@ class DataQueryAgent(BaseAgent):
                     },
                 )
 
-            # 🔁 NEW: fallback heuristic for "filter to only show ... which start with the letter 'D'"
-            legacy_param_filters = _extract_text_filters_from_query(filter_text)
-            if legacy_param_filters:
-                logger.info(
-                    "[data_query:filters] legacy text filters -> HTTP params",
+            # 🔁 NEW: normalize any "like '%...%'" equality filters into
+            # contains/startswith/endswith so OP_MAP + backend filters work correctly.
+            normalized_filters: List[FilterCondition] = []
+            for fc in query_spec.filters:
+                try:
+                    normalized_filters.append(_normalize_like_filter_condition(fc))
+                except Exception as e:
+                    logger.warning(
+                        "[data_query:filters] like-normalization failed; keeping original condition",
+                        extra={
+                            "event": "data_query_like_normalization_failed",
+                            "error_type": type(e).__name__,
+                            "error_message": str(e),
+                            "field": getattr(fc, "field", None),
+                            "op": getattr(fc, "op", None),
+                            "value": getattr(fc, "value", None),
+                        },
+                    )
+                    normalized_filters.append(fc)
+
+            query_spec.filters = normalized_filters
+
+            # 🔁 Fallback heuristic for patterns the main parser doesn't handle,
+            # such as: "filter to only show consent_type which start with the letter 'D'".
+            try:
+                extracted = _extract_text_filters_from_query(filter_text, route)
+            except Exception as e:
+                logger.warning(
+                    "[data_query:filters] fallback text filter parsing failed; ignoring",
                     extra={
-                        "event": "data_query_legacy_text_filters",
+                        "event": "data_query_fallback_text_filter_parse_error",
+                        "error_type": type(e).__name__,
+                        "error_message": str(e),
                         "raw_text_preview": filter_text[:200],
-                        "param_filters": legacy_param_filters,
                     },
                 )
-                # Merge directly into params (e.g. consent_type__startswith="D")
-                params.update(legacy_param_filters)
+                extracted = ExtractedTextFilters(filters=[], sort=None)
+
+            if extracted.filters:
+                logger.info(
+                    "[data_query:filters] applying fallback text filters to HTTP params",
+                    extra={
+                        "event": "data_query_apply_fallback_filters",
+                        "raw_text_preview": filter_text[:200],
+                        "fallback_filter_count": len(extracted.filters),
+                        "filters": extracted.filters,
+                    },
+                )
+                params = _apply_filters_to_params(params, extracted.filters)
 
         # Summarize QuerySpec for observability (avoid storing full dataclass)
         dq_meta = exec_state.setdefault("data_query_step_metadata", {})
@@ -1561,6 +1878,8 @@ class DataQueryAgent(BaseAgent):
             "join_count": len(query_spec.joins),
             "filter_count": len(query_spec.filters),
             "search_fields": list(query_spec.search_fields),
+            # 👇 NEW: log sort info for debugging
+            "sort": list(getattr(query_spec, "sort", [])),
         }
 
         # Convert QuerySpec.filters -> dicts for _apply_filters_to_params
@@ -1579,6 +1898,67 @@ class DataQueryAgent(BaseAgent):
                 },
             )
             params = _apply_filters_to_params(params, compiled_filters)
+
+        # --- SORT HANDLING ----------------------------------------------------
+        # 1️⃣ Primary: honor QuerySpec.sort if parse_text_filters populated it
+        sort_list: List[Tuple[str, str]] = list(getattr(query_spec, "sort", []))
+
+        # 2️⃣ Fallback: if QuerySpec.sort is empty, try parsing sort from text ourselves
+        if not sort_list and filter_text:
+            sort_hint = _extract_text_sort_from_query(filter_text)
+            if sort_hint:
+                sort_list = [sort_hint]
+                logger.info(
+                    "[data_query:sort] parsed sort from text fallback",
+                    extra={
+                        "event": "data_query_sort_from_text_fallback",
+                        "collection": query_spec.base_collection,
+                        "field": sort_hint[0],
+                        "direction": sort_hint[1],
+                        "raw_text_preview": filter_text[:200],
+                    },
+                )
+
+        if sort_list:
+            sort_field, sort_dir = sort_list[0]  # first sort key only for now
+
+            orig_dir = sort_dir
+            sort_dir = (sort_dir or "asc").lower()
+            if sort_dir not in {"asc", "desc"}:
+                logger.warning(
+                    "[data_query:sort] invalid sort direction; defaulting to asc",
+                    extra={
+                        "event": "data_query_invalid_sort_direction",
+                        "direction": orig_dir,
+                        "normalized_direction": sort_dir,
+                        "field": sort_field,
+                        "collection": query_spec.base_collection,
+                    },
+                )
+                sort_dir = "asc"
+
+            # Django-style ordering param: "-" prefix for desc
+            ordering_value = f"-{sort_field}" if sort_dir == "desc" else sort_field
+            params["ordering"] = ordering_value
+
+            logger.info(
+                "[data_query:sort] applied sort",
+                extra={
+                    "event": "data_query_sort_applied",
+                    "collection": query_spec.base_collection,
+                    "field": sort_field,
+                    "direction": sort_dir,
+                    "ordering_param": ordering_value,
+                },
+            )
+        else:
+            logger.info(
+                "[data_query:sort] no sort on QuerySpec or text; using backend default",
+                extra={
+                    "event": "data_query_no_sort",
+                    "collection": query_spec.base_collection,
+                },
+            )
 
         entity_meta["base_url"] = base_url
         entity_meta["default_params"] = params
@@ -1614,9 +1994,9 @@ class DataQueryAgent(BaseAgent):
         # --- HTTP CALL ---------------------------------------------------------
         client = BackendAPIClient(BackendAPIConfig(base_url=base_url))
         request_path = (
-            getattr(route, "resolved_path", None)
-            or getattr(route, "path", None)
-            or ""
+                getattr(route, "resolved_path", None)
+                or getattr(route, "path", None)
+                or ""
         )
         request_url = f"{base_url}{request_path}"
 
@@ -1727,9 +2107,9 @@ class DataQueryAgent(BaseAgent):
 
         # --- STORE IN CONTEXT --------------------------------------------------
         store_key = (
-            getattr(route, "resolved_store_key", None)
-            or getattr(route, "view_name", None)
-            or "data_query"
+                getattr(route, "resolved_store_key", None)
+                or getattr(route, "view_name", None)
+                or "data_query"
         )
         context.execution_state[store_key] = payload
         structured = context.execution_state.setdefault("structured_outputs", {})

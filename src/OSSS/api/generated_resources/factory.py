@@ -492,13 +492,31 @@ def create_router_for_model(
         dependencies=_deps_for("list"),
     )
     async def list_items(
-        skip: int = Query(0, ge=0),
-        limit: int = Query(100, ge=1, le=1000),
-        ids: list[str] | None = Query(default=None),
-        db: Session | AsyncSession = Depends(get_db_dep),
-        store: Optional[RedisSession] = Depends(get_session_store),
-        user: Any = Depends(get_current_user) if require_auth else None,
-        request: Request = None,  # 👈 NEW
+            skip: int = Query(0, ge=0),
+            limit: int = Query(100, ge=1, le=1000),
+            ids: list[str] | None = Query(default=None),
+
+            # ✅ explicit sort controls
+            sort: str | None = Query(
+                default=None,
+                description="Optional column name to sort by",
+            ),
+            sort_dir: str | None = Query(
+                default="asc",
+                description="Sort direction: 'asc' or 'desc'",
+            ),
+
+            # ✅ Django-style ordering param, e.g. `consent_type` or `-consent_type`
+            ordering: str | None = Query(
+                default=None,
+                description="Ordering string like 'field' or '-field'. "
+                            "If provided, this takes precedence over sort/sort_dir.",
+            ),
+
+            db: Session | AsyncSession = Depends(get_db_dep),
+            store: Optional[RedisSession] = Depends(get_session_store),
+            user: Any = Depends(get_current_user) if require_auth else None,
+            request: Request = None,
     ):
         _authz("read", user, None)
         pk_field, pk_type = _pk_info(model)
@@ -511,11 +529,59 @@ def create_router_for_model(
             coerced_ids = _coerce_pk_values(pk_type, ids)
             stmt = stmt.where(pk_col.in_(coerced_ids))
 
-        # 🔍 NEW: generic query-parameter filters (e.g. consent_type__startswith=D)
+        # 🔄 Normalize ordering parameter into sort/sort_dir semantics
+        effective_sort = sort
+        effective_dir = (sort_dir or "asc").lower() if sort_dir else "asc"
+
+        if ordering:
+            # Support comma-separated list, but only honor the first entry for now
+            first = ordering.split(",", 1)[0].strip()
+            if first:
+                if first.startswith("-"):
+                    effective_sort = first[1:]
+                    effective_dir = "desc"
+                else:
+                    effective_sort = first
+                    effective_dir = "asc"
+
+                log.info(
+                    "Parsed ordering=%r -> sort=%r sort_dir=%r on %s",
+                    ordering,
+                    effective_sort,
+                    effective_dir,
+                    model.__name__,
+                )
+
+        # 🔽 Apply sorting if requested (from either `ordering` or explicit sort/sort_dir)
+        if effective_sort:
+            if effective_sort not in cols:
+                log.warning(
+                    "Ignoring invalid sort column %r for model %s (columns=%r)",
+                    effective_sort,
+                    model.__name__,
+                    cols,
+                )
+            else:
+                col = getattr(model, effective_sort, None)
+                if col is not None:
+                    dir_norm = (effective_dir or "asc").lower()
+                    if dir_norm == "desc":
+                        stmt = stmt.order_by(col.desc())
+                    else:
+                        stmt = stmt.order_by(col.asc())
+
+                    log.info(
+                        "Applied sort: %s %s on %s",
+                        effective_sort,
+                        dir_norm,
+                        model.__name__,
+                    )
+
+        # 🔍 Generic query-parameter filters (e.g. consent_type__startswith=D)
         if request is not None:
             for key, value in request.query_params.multi_items():
                 # already handled or not a real filter
-                if key in {"skip", "limit", "ids"}:
+                if key in {"skip", "limit", "ids", "sort", "sort_dir", "ordering"}:
                     continue
                 if value is None or value == "":
                     continue

@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Literal
+from typing import Any, Dict, List, Optional, Literal, Tuple
 
 
 @dataclass
@@ -39,9 +39,9 @@ class Join:
     to_collection: str
     to_field: str
     alias: Optional[str] = None
-    # 👇 NEW: which fields to pull from the joined collection (e.g. first_name, last_name)
+    # 👇 which fields to pull from the joined collection (e.g. first_name, last_name)
     select_fields: List[str] = field(default_factory=list)
-    # 👇 NEW: optional alias for a computed human-name field (e.g. "person_name")
+    # 👇 optional alias for a computed human-name field (e.g. "person_name")
     computed_name_alias: Optional[str] = None
 
 
@@ -79,6 +79,7 @@ class QuerySpec:
       - joins: FK-based joins (e.g. consents.person_id -> persons.id)
       - synonyms: NL → field paths (merged from schema.py)
       - search_fields: good candidates for UI search boxes
+      - sort: ordered list of (field, direction) pairs
     """
     base_collection: str
     projections: List[Projection] = field(default_factory=list)
@@ -90,6 +91,9 @@ class QuerySpec:
     # 👇 tiny UI-friendly subset of columns to show by default
     # These are the *aliases* you want visible in the UI when nothing else is specified.
     ui_default_projection_aliases: List[str] = field(default_factory=list)
+    # 👇 ordered list of (field, direction) pairs, e.g. [("consent_type", "desc")]
+    # direction should be "asc" or "desc"
+    sort: List[Tuple[str, str]] = field(default_factory=list)
 
     @property
     def needs_person_join(self) -> bool:
@@ -101,6 +105,18 @@ class QuerySpec:
         Small helper to add a filter fluently.
         """
         self.filters.append(FilterCondition(field=field, op=op, value=value))
+        return self
+
+    def with_sort(self, field: str, direction: str = "asc") -> "QuerySpec":
+        """
+        Small helper to add a sort clause fluently.
+
+        direction: "asc" or "desc" (case-insensitive)
+        """
+        norm_dir = direction.lower()
+        if norm_dir not in ("asc", "desc"):
+            raise ValueError(f"Invalid sort direction: {direction!r}")
+        self.sort.append((field, norm_dir))
         return self
 
 

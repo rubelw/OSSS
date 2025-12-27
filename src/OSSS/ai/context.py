@@ -279,11 +279,8 @@ class AgentContext(BaseModel):
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-
     def _canon_agent(self, agent_name: str) -> str:
         return (agent_name or "").strip().lower()
-
-
 
     def add_agent_output_envelope(self, agent_name: str, envelope: dict) -> None:
         agent = self._canon_agent(agent_name)
@@ -306,8 +303,59 @@ class AgentContext(BaseModel):
 
     def get_agent_output_envelope(self, agent_name: str) -> dict:
         agent = self._canon_agent(agent_name)
-
         return (self.execution_state.get("agent_output_meta") or {}).get(agent, {})
+
+    # ------------------------------------------------------------------
+    # NEW: classifier + user-question helpers backed by execution_state
+    # ------------------------------------------------------------------
+
+    def set_classifier_result(self, result: Dict[str, Any]) -> None:
+        """
+        Store a normalized classifier result dict so other agents can reuse it.
+        """
+        exec_state = self.execution_state or {}
+        if not isinstance(exec_state, dict):
+            exec_state = {}
+        exec_state["classifier_result"] = result or {}
+        self.execution_state = exec_state
+
+    def get_classifier_result(self) -> Dict[str, Any]:
+        """
+        Retrieve the classifier result dict. Always returns a dict (possibly empty).
+        """
+        exec_state = self.execution_state or {}
+        if not isinstance(exec_state, dict):
+            return {}
+        result = exec_state.get("classifier_result") or {}
+        return result if isinstance(result, dict) else {}
+
+    def set_user_question(self, text: str) -> None:
+        """
+        Store the original user question / query for reuse by downstream agents.
+        """
+        exec_state = self.execution_state or {}
+        if not isinstance(exec_state, dict):
+            exec_state = {}
+        exec_state["user_question"] = text or ""
+        self.execution_state = exec_state
+
+    def get_user_question(self) -> str:
+        """
+        Retrieve the stored user question. Falls back to empty string if missing.
+        """
+        exec_state = self.execution_state or {}
+        if not isinstance(exec_state, dict):
+            return ""
+        return (exec_state.get("user_question") or "").strip()
+
+    def get_last_output(self, agent_name: str) -> Optional[Any]:
+        """
+        Convenience helper so agents can ask: 'what did X output most recently?'
+        """
+        agent = self._canon_agent(agent_name)
+        return self.agent_outputs.get(agent)
+
+    # ------------------------------------------------------------------
 
     def get_agent_execution(self, agent_name: str) -> Optional[AgentExecutionInfo]:
         agent = self._canon_agent(agent_name)

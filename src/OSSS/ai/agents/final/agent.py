@@ -117,9 +117,9 @@ class FinalAgent(BaseAgent):
 
         # --- 1) Original vs refined question ---------------------------------
         original_question = (
-            exec_state.get("original_query")
-            or getattr(ctx, "query", "")  # fallback if not set
-            or ""
+                exec_state.get("original_query")
+                or getattr(ctx, "query", "")  # fallback if not set
+                or ""
         )
 
         if not original_question:
@@ -132,9 +132,9 @@ class FinalAgent(BaseAgent):
 
         # --- 2) RAG snippet + presence ---------------------------------------
         rag_snippet = (
-            exec_state.get("rag_snippet")
-            or exec_state.get("rag_context")
-            or ""
+                exec_state.get("rag_snippet")
+                or exec_state.get("rag_context")
+                or ""
         )
         rag_snippet = (rag_snippet or "").strip()
         rag_present = bool(rag_snippet)
@@ -145,24 +145,46 @@ class FinalAgent(BaseAgent):
 
         if isinstance(dq_output, dict):
             data_query_markdown = (
-                dq_output.get("table_markdown")
-                or dq_output.get("markdown")
-                or dq_output.get("content")
-                or ""
+                    dq_output.get("table_markdown")
+                    or dq_output.get("markdown")
+                    or dq_output.get("content")
+                    or ""
             )
         elif isinstance(dq_output, str):
             data_query_markdown = dq_output
 
         data_query_markdown = (data_query_markdown or "").strip()
 
+        # --- 3b) metadata for RAG / data_query (if provided) -----------------
+        # ✅ These *must* be defined before we pass them into build_final_prompt.
+        rag_metadata = ""
+        if isinstance(exec_state, dict):
+            rag_metadata = (
+                    exec_state.get("rag_metadata")
+                    or exec_state.get("rag_meta")
+                    or ""
+            )
+
+        data_query_metadata = ""
+        if isinstance(dq_output, dict):
+            data_query_metadata = (
+                    dq_output.get("metadata")
+                    or dq_output.get("meta")
+                    or dq_output.get("info")
+                    or ""
+            )
+
         # --- 4) Build the final user prompt ----------------------------------
         user_prompt = build_final_prompt(
             user_question=refined_question,
-            refiner_text=refined_question,
+            refiner_text=refined_question,  # still used for refiner block logic
             rag_present=rag_present,
             rag_section=rag_snippet,
             original_user_question=original_question,
             data_query_markdown=data_query_markdown,
+            config=self.config,  # NEW
+            rag_metadata=rag_metadata or None,  # NEW
+            data_query_metadata=data_query_metadata or None,  # NEW
         )
 
         # Use composed or default system prompt
@@ -689,11 +711,11 @@ class FinalAgent(BaseAgent):
         return FINAL_SYSTEM_PROMPT
 
     def _build_prompt(
-        self,
-        user_question: str,
-        refiner_text: str,
-        rag_present: bool,
-        rag_section: str,
+            self,
+            user_question: str,
+            refiner_text: str,
+            rag_present: bool,
+            rag_section: str,
     ) -> str:
         """
         Build the FINAL agent *user* prompt.
@@ -701,6 +723,10 @@ class FinalAgent(BaseAgent):
         Priority:
         1) If PromptComposer provides a "final_prompt" template, use that.
         2) Otherwise, fall back to build_final_prompt from prompts.py.
+
+        NOTE: This helper does not currently pass data_query tables/metadata,
+        because callers only provide basic fields. For full behavior, use
+        _compose_prompt, which is what run() uses.
         """
         # Try composed template first (if available)
         if self._composed_prompt:
@@ -732,6 +758,11 @@ class FinalAgent(BaseAgent):
             refiner_text=refiner_text,
             rag_present=rag_present,
             rag_section=rag_section,
+            original_user_question=None,
+            data_query_markdown=None,
+            config=self.config,  # ✅ pass config so metadata flags still apply
+            rag_metadata=None,
+            data_query_metadata=None,
         )
 
     # -----------------------

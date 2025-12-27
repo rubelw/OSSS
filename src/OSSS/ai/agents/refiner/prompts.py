@@ -70,6 +70,28 @@ or used to generate SQL. Keep it short and direct.
 4. OPTIONAL CLARIFICATION
 - You may add clarifying words *after* the CRUD verb, but you MUST keep the verb itself.
 
+## FILTER OPERATOR PRESERVATION (CRITICAL)
+
+When the user uses explicit filter operators such as:
+- "starts with"
+- "ends with"
+- "contains"
+- "before"
+- "after"
+- "on or before"
+- "on or after"
+
+you MUST preserve those phrases exactly in the refined query.
+
+Do NOT rewrite or weaken filter semantics. In particular:
+- Do NOT rewrite "ends with" as "contains" or "includes".
+- Do NOT rewrite "starts with" as "contains" or "includes".
+- Do NOT drop or replace "before", "after", "on or before", or "on or after"
+  with looser language like "around" or "near".
+
+You may reorder clauses for clarity, but you MUST keep the same filter
+operators and their associated field/value pairs.
+
 {DCG_CANONICALIZATION_BLOCK}
 
 ## OUTPUT FORMAT (STRICT)
