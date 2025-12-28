@@ -15,7 +15,7 @@ All routers implement a common `RoutingFunction` interface, allowing them
 to be treated uniformly by the graph builder and executor.
 """
 
-from typing import Callable, Dict, List, Optional, Set
+from typing import Callable, Dict, List, Optional, Set, Any
 from abc import ABC, abstractmethod
 import re
 
@@ -341,32 +341,73 @@ def planned_agents_for_route_key(route_key: str) -> List[str]:
     return plan
 
 
-def should_route_to_data_query(user_text: str) -> bool:
+def should_route_to_data_query(
+    user_text: str,
+    execution_state: Optional[Dict[str, Any]] = None,
+) -> bool:
     """
     Heuristic to decide if a user request should bypass refiner/critic/synthesis
     and go directly to data_query.
+
+    Can optionally use classifier output from execution_state (if provided)
+    to strengthen DB-query detection.
     """
     try:
         t = (user_text or "").lower()
         tokens = set(_WORD_RE.findall(t))
 
-        has_db_table = bool(DB_TABLES.intersection(tokens))
+        classifier_profile: Dict[str, Any] = {}
+        intent = ""
+        domain = ""
+        query_terms: List[str] = []
+
+        if execution_state:
+            classifier_profile = execution_state.get("classifier_profile") or {}
+            intent = (classifier_profile.get("intent") or "").lower()
+            domain = (classifier_profile.get("domain") or "").lower()
+            query_terms = classifier_profile.get("query_terms") or []
+
+        if not query_terms:
+            # Fallback: use tokenized text
+            query_terms = list(tokens)
+
+        # Signals
+        has_db_table = bool(
+            DB_TABLES.intersection({term.lower() for term in query_terms})
+            or DB_TABLES.intersection(tokens)
+        )
         has_district = bool(tokens.intersection(DISTRICT_ALIASES))
         has_school_entity = bool(tokens.intersection(SCHOOL_ENTITIES))
-        has_action_hint = bool(ACTION_HINTS.search(t))
 
-        # Exact table mentions are a strong signal
+        has_query_prefix = t.startswith("query ")
+        has_database_keyword = " database" in t or " db " in t
+
+        has_action_intent = bool(intent == "action" and domain == "data_systems")
+        # Treat classifier action-intent, explicit query prefix, and "database" as action hints
+        has_action_hint = bool(
+            ACTION_HINTS.search(t)
+            or has_action_intent
+            or has_query_prefix
+            or has_database_keyword
+        )
+
+        # Decision logic:
+        # 1) Exact / canonical DB table: strongest signal
         if has_db_table:
             decision = True
-            reason = "db_table_token"
-        # District alias + school entity
+            reason = "has_db_table"
+        # 2) District alias + school entity (e.g., "DCG students")
         elif has_district and has_school_entity:
             decision = True
             reason = "district_plus_entity"
-        # Common retrieval verbs + school entity
+        # 3) Retrieval verbs + school entities (legacy behavior)
         elif has_action_hint and has_school_entity:
             decision = True
             reason = "action_hint_plus_entity"
+        # 4) Explicit "query ..." or "database" or classifier says action+data_systems
+        elif has_query_prefix or has_database_keyword or has_action_intent:
+            decision = True
+            reason = "query_or_database_or_action_intent"
         else:
             decision = False
             reason = "no_db_query_signals"
@@ -382,6 +423,11 @@ def should_route_to_data_query(user_text: str) -> bool:
                 "has_district_alias": has_district,
                 "has_school_entity": has_school_entity,
                 "has_action_hint": has_action_hint,
+                "has_query_prefix": has_query_prefix,
+                "has_database_keyword": has_database_keyword,
+                "has_action_intent": has_action_intent,
+                "classifier_intent": intent or None,
+                "classifier_domain": domain or None,
                 "sample_query": t[:256],
             },
         )
@@ -579,7 +625,7 @@ class DBQueryRouter(RoutingFunction):
 
             # ✅ Exact, canonical source of the incoming user request:
             query = (context.query or "").strip()
-            should_go_data = should_route_to_data_query(query)
+            should_go_data = should_route_to_data_query(query, context.execution_state)
 
             if should_go_data:
                 context.execution_state["route"] = self.data_query_target

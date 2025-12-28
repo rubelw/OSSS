@@ -46,7 +46,7 @@ async def execute_query(http_request: Request, request: WorkflowRequest) -> Work
         # ---------------------------------------------------------
         exec_cfg = request.execution_config if isinstance(request.execution_config, dict) else {}
 
-        fastpath = exec_cfg.get("graph_pattern") == "refiner_final"
+        fastpath = exec_cfg.get("graph_pattern") == "standard"
 
         # Treat empty list as "unset"
         if request.agents is not None and len(request.agents) == 0:
@@ -61,7 +61,7 @@ async def execute_query(http_request: Request, request: WorkflowRequest) -> Work
             logger.info(
                 "[api] fastpath enforced at route level",
                 extra={
-                    "graph_pattern": "refiner_final",
+                    "graph_pattern": "standard",
                     "agents": None,
                 },
             )

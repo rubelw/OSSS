@@ -144,13 +144,16 @@ class LLMGatewayAPI(BaseAPI):
 # If your concrete implementation moves, add its module path here.
 # Keep this list short and explicit.
 _LANGGRAPH_IMPL_CANDIDATES = [
-    # Most likely locations (adjust/add as needed)
-    "OSSS.ai.api.langgraph",                       # e.g. OSSS/ai/api/langgraph.py
-    "OSSS.ai.api.langgraph_api",                   # e.g. OSSS/ai/api/langgraph_api.py
-    "OSSS.ai.api.orchestration_langgraph",         # e.g. OSSS/ai/api/orchestration_langgraph.py
-    "OSSS.ai.api.impl.langgraph_orchestration",    # e.g. OSSS/ai/api/impl/langgraph_orchestration.py
-    "OSSS.ai.api.external_impl",                   # e.g. OSSS/ai/api/external_impl.py
-    "OSSS.ai.api.langgraph_orchestration_api",     # e.g. OSSS/ai/api/langgraph_orchestration_api.py
+    # Actual current implementation location
+    "OSSS.ai.api.orchestration_api",               # defines LangGraphOrchestrationAPI
+
+    # Other possible/legacy locations (keep if you want)
+    "OSSS.ai.api.langgraph",
+    "OSSS.ai.api.langgraph_api",
+    "OSSS.ai.api.orchestration_langgraph",
+    "OSSS.ai.api.impl.langgraph_orchestration",
+    "OSSS.ai.api.external_impl",
+    "OSSS.ai.api.langgraph_orchestration_api",
 ]
 
 

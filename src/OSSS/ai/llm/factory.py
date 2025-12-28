@@ -66,6 +66,42 @@ def _safe_int(v: Any) -> Optional[int]:
         return None
 
 
+def _unwrap_execution_config_maybe(state_or_cfg: Any) -> Dict[str, Any]:
+    """
+    Make LLMFactory tolerant of both:
+      - a canonical execution_config dict, OR
+      - a full execution_state-style dict that may contain:
+          state["config"]["execution_config"]
+          state["config"]
+          state["execution_config"]
+
+    Priority:
+      1) state["config"]["execution_config"]
+      2) state["config"]
+      3) state["execution_config"]
+      4) the dict itself
+    """
+    if not isinstance(state_or_cfg, dict):
+        return {}
+
+    # 1) state["config"]["execution_config"]
+    cfg = state_or_cfg.get("config")
+    if isinstance(cfg, dict):
+        nested = cfg.get("execution_config")
+        if isinstance(nested, dict):
+            return nested
+        # 2) state["config"]
+        return cfg
+
+    # 3) state["execution_config"]
+    nested = state_or_cfg.get("execution_config")
+    if isinstance(nested, dict):
+        return nested
+
+    # 4) treat as already-canonical
+    return state_or_cfg
+
+
 class LLMFactory:
     @staticmethod
     def create(
@@ -74,7 +110,15 @@ class LLMFactory:
         agent_name: Optional[str] = None,
         execution_config: Optional[Dict[str, Any]] = None,
     ) -> LLMInterface:
-        execution_config = execution_config or {}
+        """
+        Create an LLM instance.
+
+        `execution_config` may be:
+        - a canonical execution_config dict, OR
+        - an execution_state-like dict that contains config/execution_config;
+          in that case we unwrap it using _unwrap_execution_config_maybe.
+        """
+        execution_config = _unwrap_execution_config_maybe(execution_config or {})
         if not isinstance(execution_config, dict):
             execution_config = {}
 

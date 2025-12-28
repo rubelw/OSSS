@@ -13,6 +13,9 @@ from OSSS.ai.agents.metadata import AgentMetadata
 from OSSS.ai.events import emit_decision_made
 from .base_advanced_node import BaseAdvancedNode, NodeExecutionContext
 
+from OSSS.ai.observability import get_logger
+
+logger = get_logger(__name__)
 
 class DecisionCriteria(BaseModel):
     """
@@ -107,30 +110,71 @@ class DecisionNode(BaseAdvancedNode):
         self.default_path = list(paths.keys())[0]  # First path is default
 
     async def execute(self, context: NodeExecutionContext) -> Dict[str, Any]:
-        """
-        Execute the decision logic and select an execution path.
-
-        Parameters
-        ----------
-        context : NodeExecutionContext
-            The execution context
-
-        Returns
-        -------
-        Dict[str, Any]
-            Decision result with selected path and metadata
-        """
-        # Pre-execution setup
         await self.pre_execute(context)
 
-        # Validate context
+        # -------------------------------
+        # (3) Fill missing root attributes from execution_state
+        # -------------------------------
+        try:
+            exec_state = getattr(context, "execution_state", {}) or {}
+
+            # Task classification fallback
+            if not getattr(context, "task_classification", None):
+                task_from_state = exec_state.get("task_classification")
+                if task_from_state:
+                    logger.debug(
+                        "[DecisionNode:%s] populate missing task_classification from execution_state",
+                        self.node_name,
+                    )
+                    context.task_classification = task_from_state
+
+            # Cognitive classification fallback
+            if not getattr(context, "cognitive_classification", None):
+                cognitive_from_state = exec_state.get("cognitive_classification")
+                if cognitive_from_state:
+                    logger.debug(
+                        "[DecisionNode:%s] populate missing cognitive_classification from execution_state",
+                        self.node_name,
+                    )
+                    context.cognitive_classification = cognitive_from_state
+
+        except Exception as e:
+            logger.warning(
+                "[DecisionNode:%s] fallback population failed: %s",
+                self.node_name,
+                e,
+            )
+
+        # -------------------------------
+        # Introspection logging (unchanged)
+        # -------------------------------
+        try:
+            exec_state = getattr(context, "execution_state", {}) or {}
+            logger.debug(
+                "[DecisionNode:%s] execute() context snapshot: "
+                "task_classification=%s, cognitive_classification=%s, "
+                "exec_state_keys=%s",
+                self.node_name,
+                getattr(context, "task_classification", None),
+                getattr(context, "cognitive_classification", None),
+                list(exec_state.keys()),
+            )
+        except Exception as e:
+            logger.warning(
+                "[DecisionNode:%s] failed to introspect context: %s",
+                self.node_name,
+                e,
+            )
+
+        # -------------------------------
+        # Validation + decision eval (unchanged)
+        # -------------------------------
         validation_errors = self.validate_context(context)
         if validation_errors:
             raise ValueError(
                 f"Context validation failed: {', '.join(validation_errors)}"
             )
 
-        # Evaluate decision criteria
         decision_result = await self._evaluate_criteria(context)
 
         # Emit decision event
@@ -150,30 +194,16 @@ class DecisionNode(BaseAdvancedNode):
         return decision_result
 
     def can_handle(self, context: NodeExecutionContext) -> bool:
-        """
-        Check if this node can handle the given context.
+        task = (
+                getattr(context, "task_classification", None)
+                or context.execution_state.get("task_classification")
+        )
+        cognitive = (
+                getattr(context, "cognitive_classification", None)
+                or context.execution_state.get("cognitive_classification")
+        )
 
-        Parameters
-        ----------
-        context : NodeExecutionContext
-            The execution context to evaluate
-
-        Returns
-        -------
-        bool
-            True if the node can handle the context
-        """
-        # Basic validation
-        if not context.cognitive_classification:
-            return False
-
-        # Check if we have the necessary data to evaluate criteria
-        try:
-            for criterion in self.decision_criteria:
-                # Try to evaluate - if it fails, we can't handle
-                criterion.evaluate(context)
-            return True
-        except Exception:
+        if not task or not cognitive:
             return False
 
     async def _evaluate_criteria(self, context: NodeExecutionContext) -> Dict[str, Any]:

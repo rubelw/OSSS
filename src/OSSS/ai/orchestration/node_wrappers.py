@@ -14,6 +14,10 @@ Design Principles:
 - Maintain backward compatibility with existing agents
 - Provide robust error handling and recovery
 - Enable comprehensive observability and debugging
+
+Patterns (as used by upstream planner/orchestrator):
+- "standard":   refiner -> final -> END
+- "data_query": refiner -> data_query -> (historian for CRUD) -> END
 """
 
 import asyncio
@@ -252,28 +256,36 @@ def apply_option_a_fastpath_planning(
     This helper is intended to be called by the planner/optimizer/GraphFactory
     BEFORE graph compilation (i.e., before nodes/edges are decided).
 
-    Behavior:
-      - If caller did not explicitly set a graph_pattern, and the route is informational
-        (chosen_target != "data_query"), force the fastpath:
-          graph_pattern = "refiner_final"
-          planned_agents = ["refiner", "final"]
-      - Otherwise, default graph_pattern to "standard" if still unset.
+    Behavior (clamped to the two supported patterns):
+
+      - If caller did NOT explicitly set a graph_pattern, then:
+          • For DB/action routes (chosen_target == "data_query"):
+                graph_pattern = "data_query"
+                planned_agents = ["refiner", "data_query"]
+
+          • For informational/answer routes (anything else):
+                graph_pattern = "standard"
+                planned_agents = ["refiner", "final"]
 
     NOTE:
       - This is intentionally *not* invoked from route_gate_node.
-      - If you support route locking, the planner should decide how/when to respect it.
+      - Orchestrator may further normalize agents, but pattern names are
+        always one of {"standard", "data_query"}.
     """
     ec = _ensure_execution_config(exec_state)
 
     # Respect existing caller override if provided
-    if isinstance(ec.get("graph_pattern"), str) and ec.get("graph_pattern"):
+    existing = ec.get("graph_pattern")
+    if isinstance(existing, str) and existing.strip():
+        # Orchestrator will clamp to {"standard", "data_query"} if needed.
         return
 
-    if chosen_target != "data_query":
-        ec["graph_pattern"] = "refiner_final"
-        exec_state["planned_agents"] = ["refiner", "final"]
+    if chosen_target == "data_query":
+        ec["graph_pattern"] = "data_query"
+        exec_state["planned_agents"] = ["refiner", "data_query"]
     else:
-        ec.setdefault("graph_pattern", "standard")
+        ec["graph_pattern"] = "standard"
+        exec_state["planned_agents"] = ["refiner", "final"]
 
 
 def _record_effective_query(state: dict, agent_name: str, effective_query: str) -> None:
@@ -1321,7 +1333,9 @@ async def historian_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Dic
 @node_metrics
 async def synthesis_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Dict[str, Any]:
     """
-    (Kept for compatibility; if you switch patterns to terminate at output, synthesis may not run.)
+    (Kept for compatibility; in the two-pattern world, synthesis may not be used
+    by the default "standard" or "data_query" patterns, but it remains callable
+    for any custom graphs that still include it.)
     """
     thread_id = runtime.context.thread_id
     execution_id = runtime.context.execution_id
@@ -1474,7 +1488,7 @@ def get_node_dependencies() -> Dict[str, List[str]]:
         "critic": ["refiner"],
         "historian": ["refiner"],
         "synthesis": ["refiner"],
-        # Option A: output is a terminal node; keep refiner dep for the fastpath pattern.
+        # output is a terminal node in older/custom patterns; it depends on refiner as well.
         "output": ["refiner"],
     }
 
@@ -1500,7 +1514,7 @@ __all__ = [
     "critic_node",
     "historian_node",
     "synthesis_node",
-    "final_node",  # ✅ Option A terminal node
+    "final_node",  # ✅ terminal node in "standard" pattern
     "NodeExecutionError",
     "circuit_breaker",
     "node_metrics",

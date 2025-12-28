@@ -12,6 +12,10 @@ Key purpose of this file:
   - executing nodes in a graph-like traversal loop
   - collecting rich execution metadata (timings, edges, errors)
 
+Graph patterns (kept in sync with orchestration layer):
+- "standard":    informational pattern (refiner → final in production; here we demo refiner → critic)
+- "data_query":  action/DB pattern (refiner → data_query in production; not fully modeled in this POC)
+
 This is NOT a full LangGraph engine; it is a simplified educational scaffold.
 """
 
@@ -61,6 +65,14 @@ from .graph_builder import GraphBuilder, GraphEdge, EdgeType, GraphDefinition
 
 # Module-level logger
 logger = get_logger(__name__)
+
+# ---------------------------------------------------------------------------
+# Pattern constants (kept aligned with orchestration)
+# ---------------------------------------------------------------------------
+
+STANDARD_PATTERN = "standard"
+DATA_QUERY_PATTERN = "data_query"
+SUPPORTED_GRAPH_PATTERNS = {STANDARD_PATTERN, DATA_QUERY_PATTERN}
 
 
 # ---------------------------------------------------------------------------
@@ -118,6 +130,14 @@ class PrototypeDAGExecutor:
     - Only basic conditional routing support
     - No true parallelism (flag exists but not implemented here)
     - No topological sorting; instead uses a simple traversal loop
+
+    Pattern semantics in this prototype:
+    - graph_pattern = "standard":
+        Demonstrates an informational flow by running refiner → critic.
+        (Production "standard" is refiner → final; critic here is a stand-in.)
+    - graph_pattern = "data_query":
+        Accepted and logged for parity with orchestration, but currently runs
+        the same refiner → critic demo flow.
     """
 
     def __init__(
@@ -156,7 +176,13 @@ class PrototypeDAGExecutor:
         """
         Execute the prototype Refiner → Critic DAG.
 
-        This is the "main demo" entrypoint for the POC.
+        This is the "main demo" entrypoint for the POC. It honors the same
+        graph_pattern contract as the real orchestrator, but is deliberately
+        limited to the two canonical patterns:
+
+        - "standard":    informational pattern (this POC)
+        - "data_query":  action/DB pattern (accepted, but currently mapped to
+                         the same POC flow for demonstration purposes).
 
         Parameters
         ----------
@@ -164,6 +190,8 @@ class PrototypeDAGExecutor:
             Input query string.
         config : Dict[str, Any], optional
             Execution configuration controlling validation, retries, timeouts, etc.
+            May include:
+              - graph_pattern: "standard" or "data_query" (default: "standard")
 
         Returns
         -------
@@ -175,8 +203,22 @@ class PrototypeDAGExecutor:
         # Ensure config is a dictionary to simplify downstream access
         config = config or {}
 
+        # Normalize graph_pattern to one of the two supported patterns
+        graph_pattern = str(config.get("graph_pattern") or STANDARD_PATTERN).strip()
+        if graph_pattern not in SUPPORTED_GRAPH_PATTERNS:
+            self.logger.warning(
+                f"Unsupported graph_pattern '{graph_pattern}' for prototype "
+                f"DAG; defaulting to '{STANDARD_PATTERN}'"
+            )
+            graph_pattern = STANDARD_PATTERN
+        config["graph_pattern"] = graph_pattern
+
         self.logger.info(
-            f"Starting Refiner → Critic DAG execution for query: {query[:100]}..."
+            "Starting prototype DAG execution",
+            extra={
+                "graph_pattern": graph_pattern,
+                "query_preview": query[:100],
+            },
         )
         self.total_executions += 1
 
@@ -278,13 +320,18 @@ class PrototypeDAGExecutor:
                 errors=execution_result.errors,
                 execution_path=execution_result.execution_path,
                 performance_metrics=self._calculate_performance_metrics(
-                    execution_result, total_time_ms
+                    execution_result, total_time_ms, graph_pattern
                 ),
             )
 
             self.logger.info(
-                f"DAG execution completed: success={success}, "
-                f"time={total_time_ms:.2f}ms, nodes={len(execution_result.nodes_executed)}"
+                "DAG execution completed",
+                extra={
+                    "success": success,
+                    "time_ms": total_time_ms,
+                    "nodes": len(execution_result.nodes_executed),
+                    "graph_pattern": graph_pattern,
+                },
             )
 
             return result
@@ -294,7 +341,10 @@ class PrototypeDAGExecutor:
             self.failed_executions += 1
             total_time_ms = (time.time() - start_time) * 1000
 
-            self.logger.error(f"DAG execution failed after {total_time_ms:.2f}ms: {e}")
+            self.logger.error(
+                f"DAG execution failed after {total_time_ms:.2f}ms: {e}",
+                extra={"graph_pattern": config.get("graph_pattern", STANDARD_PATTERN)},
+            )
 
             # Return a structured failure result so callers can still inspect metrics
             return DAGExecutionResult(
@@ -308,6 +358,7 @@ class PrototypeDAGExecutor:
                 performance_metrics={
                     "error": str(e),
                     "execution_time_ms": total_time_ms,
+                    "graph_pattern": config.get("graph_pattern", STANDARD_PATTERN),
                 },
             )
 
@@ -391,6 +442,8 @@ class PrototypeDAGExecutor:
         NOTE:
         - max_execution_time_seconds is not enforced here (could be added).
         - enable_parallel_execution is not implemented; loop runs sequentially.
+        - graph_pattern is accepted in config (standard/data_query) for parity
+          with orchestration, but does not change traversal in this POC.
         """
         current_context = initial_context
         nodes_executed: List[str] = []
@@ -619,6 +672,7 @@ class PrototypeDAGExecutor:
         self,
         execution_result: DAGExecutionResult,
         total_time_ms: float,
+        graph_pattern: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Calculate comprehensive performance metrics.
@@ -630,6 +684,7 @@ class PrototypeDAGExecutor:
         - counts of nodes/edges/errors
         - average node time
         - rough efficiency ratio
+        - graph_pattern used for the run (standard/data_query)
         """
         nodes_count = len(execution_result.nodes_executed)
         edges_count = len(execution_result.edges_traversed)
@@ -645,6 +700,10 @@ class PrototypeDAGExecutor:
                 node_timings[node_id] = exec_time
                 total_node_time += exec_time
 
+        normalized_pattern = (
+            graph_pattern if graph_pattern in SUPPORTED_GRAPH_PATTERNS else STANDARD_PATTERN
+        )
+
         return {
             "total_execution_time_ms": total_time_ms,
             "total_node_execution_time_ms": total_node_time,
@@ -656,6 +715,7 @@ class PrototypeDAGExecutor:
             "average_node_time_ms": (total_node_time / nodes_count if nodes_count > 0 else 0),
             "node_timings": node_timings,
             "execution_efficiency": (total_node_time / total_time_ms if total_time_ms > 0 else 0),
+            "graph_pattern": normalized_pattern,
         }
 
     def get_executor_statistics(self) -> Dict[str, Any]:
@@ -684,6 +744,7 @@ class PrototypeDAGExecutor:
             "configuration": {
                 "enable_parallel_execution": self.enable_parallel_execution,
                 "max_execution_time_seconds": self.max_execution_time_seconds,
+                "supported_graph_patterns": sorted(SUPPORTED_GRAPH_PATTERNS),
             },
         }
 
@@ -697,7 +758,7 @@ async def run_prototype_demo(
     This is a convenience wrapper that:
     - creates a PrototypeDAGExecutor
     - defines a reasonable default config
-    - executes the Refiner → Critic DAG
+    - executes the Refiner → Critic DAG using the "standard" pattern
     - logs a brief summary of results
 
     Parameters
@@ -721,6 +782,8 @@ async def run_prototype_demo(
         "fail_fast": True,
         "retry_enabled": True,
         "node_timeout_seconds": 30.0,
+        # Explicitly demonstrate the "standard" graph pattern
+        "graph_pattern": STANDARD_PATTERN,
     }
 
     result = await executor.execute_refiner_critic_dag(query, config)
@@ -732,6 +795,7 @@ async def run_prototype_demo(
     logger.info(f"  Nodes executed: {result.nodes_executed}")
     logger.info(f"  Edges traversed: {result.edges_traversed}")
     logger.info(f"  Errors: {len(result.errors)}")
+    logger.info(f"  Graph pattern: {result.performance_metrics.get('graph_pattern')}")
 
     return result
 

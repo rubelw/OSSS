@@ -156,11 +156,21 @@ STARTS_WITH_FILTER_PATTERNS = [
 #   "sort consent_type in descending order"
 #   "sort consent_type descending"
 #   "sort consent_type desc"
+#   "sort by name"
+#   "sorted by name"
+#   "sort seasons by name"
+#   "sorted seasons by name"
 SORT_PATTERN = re.compile(
-    r"sort\s+(?P<field>[a-zA-Z_][a-zA-Z0-9_]*)"
-    r"(?:\s+by)?"
+    r"(?:sort|sorted)\s+"  # "sort " or "sorted "
+    r"(?:"  # start either/or
+        # Case A: "sort seasons by name"
+        r"(?P<collection>[a-zA-Z_][a-zA-Z0-9_]*)\s+by\s+(?P<field>[a-zA-Z_][a-zA-Z0-9_]*)"
+        r"|"
+        # Case B: "sort by name" or "sort name"
+        r"(?:by\s+)?(?P<field_only>[a-zA-Z_][a-zA-Z0-9_]*)"
+    r")"
     r"(?:\s+in\s+(?P<long_dir>ascending|descending)\s+order"
-    r"|\s+(?P<short_dir>asc|desc))?",
+    r"|\s+(?P<short_dir>asc|desc))?",  # optional direction
     re.IGNORECASE,
 )
 
@@ -362,9 +372,12 @@ def _extract_text_sort_from_query(text: str) -> Optional[Tuple[str, str]]:
     """
     Fallback heuristic to parse a single sort clause from free text.
 
-    Returns:
-        (field, direction) where direction is "asc" or "desc",
-        or None if no sort can be parsed.
+    Supports:
+      - "sort by name"
+      - "sorted by name"
+      - "sort seasons by name"
+      - "sort consent_type desc"
+      - "sort consent_type in descending order"
     """
     if not text:
         return None
@@ -373,7 +386,12 @@ def _extract_text_sort_from_query(text: str) -> Optional[Tuple[str, str]]:
     if not m:
         return None
 
-    field = m.group("field")
+    # Prefer explicit field from "sort <collection> by <field>",
+    # otherwise fall back to the single-field case.
+    field = m.group("field") or m.group("field_only")
+    if not field:
+        return None
+
     long_dir = m.group("long_dir")
     short_dir = m.group("short_dir")
 
@@ -381,7 +399,6 @@ def _extract_text_sort_from_query(text: str) -> Optional[Tuple[str, str]]:
     direction = "desc" if dir_token.startswith("desc") else "asc"
 
     return field, direction
-
 
 
 
@@ -1448,6 +1465,58 @@ class DataQueryAgent(BaseAgent):
 
         # Classifier output + ORIGINAL text (typically pre-refiner)
         classifier, raw_text = _get_classifier_and_text_from_context(context)
+        exec_state: Dict[str, Any] = getattr(context, "execution_state", {}) or {}
+
+        # ---------------------------------------------------------
+        # 🔧 NEW — fallback classifier hydration
+        # ---------------------------------------------------------
+
+        # 1) If context gave us nothing, try direct stored bundle
+        if not classifier:
+            raw_classifier = exec_state.get("classifier_result")
+            classifier = raw_classifier if isinstance(raw_classifier, dict) else {}
+
+        # 2) If still empty, unpack task+cognitive stored by classifier.run()
+        if not classifier and context is not None:
+            # Be VERY defensive: only use dict-like values
+            try:
+                raw_task = (
+                    context.get_task_classification()
+                    if hasattr(context, "get_task_classification")
+                    else exec_state.get("task_classification")
+                )
+            except Exception:
+                raw_task = None
+
+            try:
+                raw_cog = (
+                    context.get_cognitive_classification()
+                    if hasattr(context, "get_cognitive_classification")
+                    else exec_state.get("cognitive_classification")
+                )
+            except Exception:
+                raw_cog = None
+
+            task = raw_task if isinstance(raw_task, dict) else {}
+            cog = raw_cog if isinstance(raw_cog, dict) else {}
+
+            classifier = {
+                "intent": task.get("intent"),
+                "topic": cog.get("topic"),
+                "topics": (cog.get("topics") or []) if isinstance(cog.get("topics"), list) else [],
+                "domain": cog.get("domain"),
+                "confidence": task.get("confidence"),
+                "topic_confidence": cog.get("topic_confidence"),
+            }
+
+        # 3) Ensure required classifier keys exist so routing never breaks
+        if not isinstance(classifier, dict):
+            classifier = {}
+
+        classifier.setdefault("topic_confidence", 0.0)
+        classifier.setdefault("topics", [])
+        classifier.setdefault("intent", None)
+
         raw_text_norm = (raw_text or "").strip()
         raw_text_lower = raw_text_norm.lower()
 
@@ -2088,9 +2157,19 @@ class DataQueryAgent(BaseAgent):
             }
 
         # --- SINGLE CHANNEL KEY FOR THIS RESULT -------------------------------
+        # --- SINGLE CHANNEL KEY FOR THIS RESULT -------------------------------
+        # 🔧 IMPORTANT: prefer view_name so that payload + markdown share the same key.
+        view_name = getattr(route, "view_name", None)
         topic_val = getattr(route, "topic", None)
+
+        view_key = view_name.strip() if isinstance(view_name, str) else ""
         topic_key = topic_val.strip() if isinstance(topic_val, str) else ""
-        if topic_key:
+
+        if view_key:
+            # e.g. "data_query:seasons"
+            channel_key = f"{self.name}:{view_key}"
+        elif topic_key:
+            # fallback: "data_query:season"
             channel_key = f"{self.name}:{topic_key}"
         else:
             channel_key = self.name  # "data_query"

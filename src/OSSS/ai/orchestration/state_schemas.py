@@ -199,6 +199,11 @@ class ExecutionMetadata(TypedDict):
     phase: str
     """Implementation phase: 'phase2_0'."""
 
+    # 🔹 NEW: where per-agent results are tracked
+    agent_outputs: Dict[str, Any]
+    """Per-agent execution outputs and metadata."""
+
+
 class FinalState(TypedDict):
     """
     Output schema for the FinalAgent.
@@ -223,6 +228,118 @@ class FinalState(TypedDict):
     """ISO timestamp when the final answer was produced."""
 
 
+class ExecutionConfig(TypedDict, total=False):
+    """
+    Configuration for orchestration execution.
+
+    This captures relatively static knobs that influence how the
+    workflow runs (graph pattern, RAG settings, etc.).
+    """
+
+    graph_pattern: str
+    """Name of the graph pattern to use (e.g. 'standard')."""
+
+    rag: Dict[str, Any]
+    """RAG-related configuration (index, filters, limits, etc.)."""
+
+    timeout_seconds: int
+    """Overall timeout for the workflow, if enforced at orchestrator level."""
+
+    use_rag: bool
+    """Whether RAG should be used for this execution."""
+
+    use_llm_intent: bool
+    """Whether LLM-based intent classification is enabled."""
+
+
+class ExecutionState(TypedDict, total=False):
+    """
+    Dynamic orchestration state managed by the orchestrator.
+
+    This lives inside OSSSState.execution_state and is the single
+    source of truth for orchestration-related flags, RAG state, and
+    routing decisions.
+    """
+
+    config: ExecutionConfig
+    """Primary execution configuration (graph pattern, RAG config, etc.)."""
+
+    rag_enabled: bool
+    """Whether RAG was actually enabled (after applying config + policy)."""
+
+    rag_context: Optional[str]
+    """Full RAG context text accumulated for this execution."""
+
+    rag_snippet: Optional[str]
+    """Short RAG snippet used for preview / UX."""
+
+    rag_hits: List[Any]
+    """Raw RAG search hits / documents."""
+
+    routing_decision: Dict[str, Any]
+    """Opaque routing decision payload (agents to run, topics, etc.)."""
+
+    agents_to_run: List[str]
+    """Concrete list of agents selected for this execution."""
+
+    graph_pattern: str
+    """Resolved graph pattern (may mirror config.graph_pattern or be derived)."""
+
+    planned_agents: List[str]
+    """Authoritative list of agent node names used to build the graph."""
+
+    agent_output_meta: Dict[str, Any]
+    """Per-agent metadata (query_profile, timing, etc.) populated by agents."""
+
+    route: str
+    """Resolved route key (e.g. 'data_query' or 'refiner')."""
+
+    route_key: str
+    """High-level route type (e.g. 'action', 'informational')."""
+
+    route_reason: Optional[str]
+    """Optional free-form explanation of why this route was chosen."""
+
+    route_locked: bool
+    """Whether routing was pre-locked by the caller (no override)."""
+
+    # Optional but very useful in practice
+    user_question: str
+    """Question the system is currently answering (may differ from original raw query)."""
+
+    original_query: str
+    """Exact original query string preserved for logging/debugging."""
+
+    refiner_full_text: str
+    """Full markdown/text output from the refiner agent."""
+
+    refiner_snippet: str
+    """Short refiner snippet for UI / final agent conditioning."""
+
+    rag_meta: Dict[str, Any]
+    """Metadata about RAG (index, provider, embedding model, top_k, etc.)."""
+
+    rag_error: str
+    """If RAG prefetch failed, error message goes here."""
+
+    data_query_result: Any
+    """Canonical result payload from the latest data_query node."""
+
+    data_query_node_id: str
+    """Node id of the data_query result we surfaced as data_query_result."""
+
+    intent: str
+    """Top-level intent label if classification has already run (e.g. 'action', 'informational')."""
+
+    wizard: Dict[str, Any]
+    """Optional wizard / CRUD workflow state (used by data_query pattern)."""
+
+    query: str
+    """Raw query text stored at execution_state level (if caller wants it here)."""
+
+    raw_query: str
+    """Alternative field for raw query strings (for compatibility with callers)."""
+
 class OSSSState(TypedDict):
     """
     Master state schema for OSSS LangGraph execution.
@@ -230,6 +347,9 @@ class OSSSState(TypedDict):
     This represents the complete state that flows through the
     LangGraph StateGraph during execution. Each agent contributes
     its typed output to this shared state.
+
+    Orchestration-specific state (RAG, routing, etc.) is stored in
+    the nested ExecutionState structure under `execution_state`.
     """
 
     # Core input
@@ -285,10 +405,10 @@ class OSSSState(TypedDict):
     final: Optional[FinalState]
     """Output from the FinalAgent (user-facing answer)."""
 
-    execution_state: Dict[str, Any]
-    rag_context: str
-    rag_snippet: str
-    rag_hits: List[Any]
+    # 🔹 Strongly-typed orchestration state (replaces loose Dict[str, Any] + top-level rag_* fields)
+    execution_state: ExecutionState
+    """Nested, strongly-typed orchestration state (RAG, routing, etc.)."""
+
 
 # Type aliases for improved clarity
 LangGraphState = OSSSState
@@ -303,6 +423,15 @@ def create_initial_state(
     execution_id: str,
     correlation_id: Optional[str] = None,
 ) -> OSSSState:
+    """
+    Create the initial LangGraph state for a new execution.
+
+    This function initializes:
+    - Core query and metadata
+    - Empty agent outputs
+    - Empty data_query planning structures
+    - Strongly-typed ExecutionState with default config & RAG state
+    """
     now = datetime.now(timezone.utc).isoformat()
 
     return OSSSState(
@@ -323,20 +452,37 @@ def create_initial_state(
             agents_requested=["refiner", "historian", "final"],
             execution_mode="langgraph-real",
             phase="phase2_1",
+            agent_outputs={},  # 🔹 ADD THIS
         ),
         errors=[],
         successful_agents=[],
         failed_agents=[],
         structured_outputs={},
-
-        # 🔹 New RAG/execution fields
         final=None,
-        execution_state={},
-        rag_context="",
-        rag_snippet="",
-        rag_hits=[],
+        execution_state=ExecutionState(
+            execution_config=ExecutionConfig(
+                graph_pattern="standard",
+                rag={},
+                use_rag=True,
+                use_llm_intent=True,
+            ),
+            # Optional: keep legacy alias populated too for a while
+            config=ExecutionConfig(
+                graph_pattern="standard",
+                rag={},
+                use_rag=True,
+                use_llm_intent=True,
+            ),
+            rag_enabled=False,
+            rag_context=None,
+            rag_snippet=None,
+            rag_hits=[],
+            routing_decision={},
+            agents_to_run=[],
+            planned_agents=["refiner", "final"],  # sensible default for standard pattern
+            graph_pattern="standard",
+        ),
     )
-
 
 
 def validate_state_integrity(state: OSSSState) -> bool:
@@ -359,6 +505,18 @@ def validate_state_integrity(state: OSSSState) -> bool:
         metadata = state["execution_metadata"]
         if not metadata.get("execution_id"):
             return False
+
+        # Basic validation of execution_state
+        exec_state = state.get("execution_state")
+        if not isinstance(exec_state, dict):
+            return False
+
+        # If a config is present, ensure it has a graph_pattern at minimum
+        cfg = exec_state.get("config")
+        if cfg is not None and isinstance(cfg, dict):
+            graph_pattern = cfg.get("graph_pattern")
+            if graph_pattern is not None and not isinstance(graph_pattern, str):
+                return False
 
         # Validate agent outputs if present
         if state.get("refiner"):
@@ -384,9 +542,9 @@ def validate_state_integrity(state: OSSSState) -> bool:
         if state.get("final"):
             final: Optional[FinalState] = state["final"]
             if (
-                    final is None
-                    or not final.get("final_answer")
-                    or not final.get("timestamp")
+                final is None
+                or not final.get("final_answer")
+                or not final.get("timestamp")
             ):
                 return False
 
@@ -512,6 +670,8 @@ __all__ = [
     "SynthesisState",
     "AgentStateUnion",
     "ExecutionMetadata",
+    "ExecutionConfig",
+    "ExecutionState",
     "OSSSContext",
     "create_initial_state",
     "validate_state_integrity",

@@ -31,6 +31,9 @@ from OSSS.ai.workflows.prompt_composer import PromptComposer, ComposedPrompt
 # Final-specific prompts (system + user template)
 from OSSS.ai.agents.final.prompts import build_final_prompt, FINAL_SYSTEM_PROMPT
 
+# Structured final state (for LangGraph OSSSState.final)
+from OSSS.ai.orchestration.state_schemas import FinalState
+
 logger = get_logger(__name__)
 
 _REFINE_PREFIXES: Tuple[str, ...] = (
@@ -117,9 +120,9 @@ class FinalAgent(BaseAgent):
 
         # --- 1) Original vs refined question ---------------------------------
         original_question = (
-                exec_state.get("original_query")
-                or getattr(ctx, "query", "")  # fallback if not set
-                or ""
+            exec_state.get("original_query")
+            or getattr(ctx, "query", "")  # fallback if not set
+            or ""
         )
 
         if not original_question:
@@ -132,9 +135,9 @@ class FinalAgent(BaseAgent):
 
         # --- 2) RAG snippet + presence ---------------------------------------
         rag_snippet = (
-                exec_state.get("rag_snippet")
-                or exec_state.get("rag_context")
-                or ""
+            exec_state.get("rag_snippet")
+            or exec_state.get("rag_context")
+            or ""
         )
         rag_snippet = (rag_snippet or "").strip()
         rag_present = bool(rag_snippet)
@@ -145,10 +148,10 @@ class FinalAgent(BaseAgent):
 
         if isinstance(dq_output, dict):
             data_query_markdown = (
-                    dq_output.get("table_markdown")
-                    or dq_output.get("markdown")
-                    or dq_output.get("content")
-                    or ""
+                dq_output.get("table_markdown")
+                or dq_output.get("markdown")
+                or dq_output.get("content")
+                or ""
             )
         elif isinstance(dq_output, str):
             data_query_markdown = dq_output
@@ -156,22 +159,21 @@ class FinalAgent(BaseAgent):
         data_query_markdown = (data_query_markdown or "").strip()
 
         # --- 3b) metadata for RAG / data_query (if provided) -----------------
-        # ✅ These *must* be defined before we pass them into build_final_prompt.
         rag_metadata = ""
         if isinstance(exec_state, dict):
             rag_metadata = (
-                    exec_state.get("rag_metadata")
-                    or exec_state.get("rag_meta")
-                    or ""
+                exec_state.get("rag_metadata")
+                or exec_state.get("rag_meta")
+                or ""
             )
 
         data_query_metadata = ""
         if isinstance(dq_output, dict):
             data_query_metadata = (
-                    dq_output.get("metadata")
-                    or dq_output.get("meta")
-                    or dq_output.get("info")
-                    or ""
+                dq_output.get("metadata")
+                or dq_output.get("meta")
+                or dq_output.get("info")
+                or ""
             )
 
         # --- 4) Build the final user prompt ----------------------------------
@@ -182,9 +184,9 @@ class FinalAgent(BaseAgent):
             rag_section=rag_snippet,
             original_user_question=original_question,
             data_query_markdown=data_query_markdown,
-            config=self.config,  # NEW
-            rag_metadata=rag_metadata or None,  # NEW
-            data_query_metadata=data_query_metadata or None,  # NEW
+            config=self.config,
+            rag_metadata=rag_metadata or None,
+            data_query_metadata=data_query_metadata or None,
         )
 
         # Use composed or default system prompt
@@ -636,6 +638,9 @@ class FinalAgent(BaseAgent):
     def _get_execution_config(self, ctx: AgentContext) -> Dict[str, Any]:
         """
         Deterministic retrieval of request execution_config.
+
+        Prefer the canonical execution_state["config"], but support legacy
+        execution_state["execution_config"] and other fallbacks.
         """
 
         def _unwrap(v: Any) -> Dict[str, Any]:
@@ -649,12 +654,17 @@ class FinalAgent(BaseAgent):
         state = getattr(ctx, "execution_state", None)
         if isinstance(state, dict):
             # ✅ Canonical key first
+            cfg = state.get("config")
+            if isinstance(cfg, dict):
+                return _unwrap(cfg)
+
+            # ✅ Back-compat key
             v = state.get("execution_config")
             if isinstance(v, dict):
                 return _unwrap(v)
 
             # ✅ Legacy / transitional keys (best-effort)
-            for key in ("raw_request_config", "raw_execution_config", "config", "request_config"):
+            for key in ("raw_request_config", "raw_execution_config", "request_config"):
                 vv = state.get(key)
                 if isinstance(vv, dict):
                     return _unwrap(vv)
@@ -711,11 +721,11 @@ class FinalAgent(BaseAgent):
         return FINAL_SYSTEM_PROMPT
 
     def _build_prompt(
-            self,
-            user_question: str,
-            refiner_text: str,
-            rag_present: bool,
-            rag_section: str,
+        self,
+        user_question: str,
+        refiner_text: str,
+        rag_present: bool,
+        rag_section: str,
     ) -> str:
         """
         Build the FINAL agent *user* prompt.
@@ -825,6 +835,76 @@ class FinalAgent(BaseAgent):
         logger.info(f"[{self.name}] Configuration updated for FinalAgent")
 
     # -----------------------
+    # helpers to build structured FinalState
+    # -----------------------
+
+    def _build_sources_used(self, ctx: AgentContext, exec_state: Dict[str, Any]) -> List[str]:
+        sources: List[str] = []
+        agent_outputs = getattr(ctx, "agent_outputs", None) or {}
+
+        # Which agents actually contributed?
+        for name in ("refiner", "historian", "critic", "data_query"):
+            if name in agent_outputs:
+                sources.append(name)
+
+        # RAG contribution
+        rag_ctx = exec_state.get("rag_context")
+        rag_enabled = bool(exec_state.get("rag_enabled")) and isinstance(rag_ctx, str) and rag_ctx.strip()
+        if rag_enabled:
+            sources.append("rag")
+
+        # De-dupe preserving order
+        seen = set()
+        out: List[str] = []
+        for s in sources:
+            if s not in seen:
+                seen.add(s)
+                out.append(s)
+        return out
+
+    def _store_structured_final(
+        self,
+        ctx: AgentContext,
+        text: str,
+        *,
+        exec_state: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """
+        Populate a structured FinalState into execution_state, so the LangGraph state
+        bridge can set OSSSState.final correctly.
+        """
+        if exec_state is None:
+            exec_state = self._get_execution_state(ctx)
+
+        rag_ctx = exec_state.get("rag_context")
+        rag_enabled = bool(exec_state.get("rag_enabled")) and isinstance(rag_ctx, str) and rag_ctx.strip()
+        rag_snippet = exec_state.get("rag_snippet")
+        if isinstance(rag_snippet, str):
+            rag_snippet = rag_snippet.strip() or None
+        else:
+            rag_snippet = None
+
+        sources_used = self._build_sources_used(ctx, exec_state)
+
+        final_struct: FinalState = {
+            "final_answer": text,
+            "used_rag": bool(rag_enabled),
+            "rag_excerpt": rag_snippet,
+            "sources_used": sources_used,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+
+        # Store in execution_state
+        exec_state["final"] = final_struct  # canonical for state bridge
+
+        # Also ensure there's a nested structured_outputs container
+        structured = exec_state.get("structured_outputs")
+        if not isinstance(structured, dict):
+            structured = {}
+            exec_state["structured_outputs"] = structured
+        structured["final"] = final_struct
+
+    # -----------------------
     # main entrypoint
     # -----------------------
 
@@ -867,6 +947,9 @@ class FinalAgent(BaseAgent):
                     # ✅ Bypass LLM entirely – return ONLY the table(s)
                     ctx.add_agent_output("final", data_query_markdown)
 
+                    # Populate structured final state so LangGraph sees a FinalState
+                    self._store_structured_final(ctx, data_query_markdown, exec_state=exec_state)
+
                     # Optional: record approximate token usage so observability still works
                     approx_tokens = len(data_query_markdown.split())
                     ctx.add_agent_token_usage(
@@ -895,6 +978,9 @@ class FinalAgent(BaseAgent):
 
             # Set the final output in context
             ctx.add_agent_output("final", formatted_text)
+
+            # Populate structured FinalState inside execution_state
+            self._store_structured_final(ctx, formatted_text, exec_state=exec_state)
 
             # Handle token usage (best-effort)
             input_tokens = getattr(response, "input_tokens", 0) or 0

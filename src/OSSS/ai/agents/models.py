@@ -11,6 +11,7 @@ from typing import List, Optional, Dict, Any, Union, cast
 from datetime import datetime, timezone
 from uuid import UUID
 
+
 from pydantic import BaseModel, Field, ConfigDict, field_validator, model_validator
 from typing_extensions import Self
 
@@ -78,9 +79,29 @@ class BaseAgentOutput(BaseModel):
         description="When the output was generated (ISO format)",
     )
 
+    # Adding task_classification and cognitive_classification
+    task_classification: Optional[str] = Field(
+        None, description="Classification of the task (intent)"
+    )
+    cognitive_classification: Optional[str] = Field(
+        None, description="Cognitive classification (domain, topic)"
+    )
+
     model_config = ConfigDict(
         extra="forbid", validate_assignment=True, use_enum_values=True
     )
+
+    @model_validator(mode="before")
+    def validate_classifications(cls, values):
+        task_classification = values.get('task_classification')
+        cognitive_classification = values.get('cognitive_classification')
+
+        if not task_classification:
+            values['task_classification'] = 'action'  # default classification if not provided
+        if not cognitive_classification:
+            values['cognitive_classification'] = 'data_systems'  # default domain if not provided
+
+        return values
 
 
 class RefinerOutput(BaseAgentOutput):
@@ -115,6 +136,27 @@ class RefinerOutput(BaseAgentOutput):
         max_length=5,
         description="List of ambiguities that were resolved",
     )
+
+    # Adding task_classification and cognitive_classification to the output
+    task_classification: Optional[str] = Field(
+        None, description="Classification of the task (intent)"
+    )
+    cognitive_classification: Optional[str] = Field(
+        None, description="Cognitive classification (domain, topic)"
+    )
+
+    # Ensure to validate the newly added fields here too
+    @model_validator(mode="before")
+    def validate_classifications(cls, values):
+        task_classification = values.get('task_classification')
+        cognitive_classification = values.get('cognitive_classification')
+
+        if not task_classification:
+            values['task_classification'] = 'action'  # default if missing
+        if not cognitive_classification:
+            values['cognitive_classification'] = 'data_systems'  # default if missing
+
+        return values
 
     @field_validator("refined_query")
     @classmethod

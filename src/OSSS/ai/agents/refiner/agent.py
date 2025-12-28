@@ -19,6 +19,7 @@ from typing import Optional, Union
 from OSSS.ai.config.agent_configs import RefinerConfig
 from OSSS.ai.workflows.prompt_composer import PromptComposer, ComposedPrompt
 from OSSS.ai.utils.llm_text import coerce_llm_text
+from OSSS.ai.api.external import CompletionRequest
 
 import logging
 import asyncio
@@ -52,6 +53,8 @@ class RefinerAgent(BaseAgent):
         self._composed_prompt = None
 
         self._update_composed_prompt()
+
+        self.orchestration_api = LangGraphOrchestrationAPI()
 
         logger.debug(f"[{self.name}] RefinerAgent initialized with config: {self.config}")
 
@@ -126,50 +129,27 @@ class RefinerAgent(BaseAgent):
         self._update_composed_prompt()
         logger.info(f"[{self.name}] Configuration updated: {config.refinement_level} refinement")
 
-    async def fetch_from_external_service(self, query: str) -> str:
-        """
-        Fetch relevant context from LangGraphOrchestrationAPI based on the query.
-        """
-        try:
-            logger.info(f"Fetching context for query: {query}")
 
-            context_request = CompletionRequest(query=query)
 
-            context_response = await self.orchestration_api.complete(context_request)
 
-            if context_response and context_response.completion:
-                return context_response.completion
-            else:
-                logger.warning(f"No context found for query: {query}")
-                return ""
-        except Exception as e:
-            logger.error(f"Error while fetching context for query '{query}': {e}")
-            return ""  # Return empty string if there's an error
-
-    async def retrieve_context(self, query: str) -> str:
-        """
-        Wrapper function to retrieve context and handle errors.
-        """
-        context_snippet = await self.fetch_from_external_service(query)
-
-        # Log and handle the snippet presence
-        if context_snippet:
-            logger.info(f"[{self.name}] Retrieved RAG Snippet for query: {query[:100]}...")  # Log snippet for debugging
-            return context_snippet
-        else:
-            logger.warning(f"[{self.name}] No RAG Snippet found for query: {query}")
-            return ""  # Return empty if no context is found
 
     async def run(self, context: AgentContext) -> AgentContext:
         query = (context.query or "").strip()
         logger.info(f"[{self.name}] Processing query: {query}")
+
+        # Retrieve task and cognitive classifications
+        task_classification = context.get_task_classification()
+        cognitive_classification = context.get_cognitive_classification()
+
+        # Log task and cognitive classifications
+        logger.debug(f"[{self.name}] Task Classification: {task_classification}")
+        logger.debug(f"[{self.name}] Cognitive Classification: {cognitive_classification}")
 
         # Check for empty or malformed queries
         if not query:
             logger.error(f"[{self.name}] Received an empty or malformed query.")
             query = "Please provide a valid question to refine."
 
-        # Persist original query immediately
         exec_state = getattr(context, "execution_state", None)
         if not isinstance(exec_state, dict):
             exec_state = {}
@@ -178,27 +158,29 @@ class RefinerAgent(BaseAgent):
 
         system_prompt = self._get_system_prompt()
 
+        # If orchestrator already injected RAG into execution_state, ensure flags are set
+        if isinstance(context.execution_state, dict):
+            rag_snippet = (
+                    context.execution_state.get("rag_snippet")
+                    or context.execution_state.get("rag_context")
+                    or ""
+            )
+            if rag_snippet:
+                context.execution_state["rag_snippet"] = rag_snippet
+                context.execution_state["rag_snippet_present"] = True
+                logger.info(f"[{self.name}] Using existing RAG snippet for query: {query[:100]}...")
+            else:
+                context.execution_state.setdefault("rag_snippet_present", False)
+
+        # Structured service handling
         if self.structured_service:
             try:
-                context_snippet = await self.retrieve_context(query)
-
-                # Update rag_snippet and rag_snippet_present flag
-                if context_snippet:
-                    context.execution_state["rag_snippet"] = context_snippet
-                    context.execution_state["rag_snippet_present"] = True
-                    logger.info(f"[{self.name}] RAG Snippet successfully added to context.")
-                else:
-                    context.execution_state["rag_snippet_present"] = False
-                    logger.warning(f"[{self.name}] No RAG Snippet found, setting rag_snippet_present to False.")
-
                 refined_output = await self._run_structured(query, system_prompt, context)
             except Exception as e:
                 logger.warning(f"[{self.name}] Structured output failed, falling back to traditional: {e}")
                 refined_output = await self._run_traditional(query, system_prompt, context)
         else:
             refined_output = await self._run_traditional(query, system_prompt, context)
-
-        logger.debug(f"[{self.name}] Refined Output: {refined_output}")
 
         # Coerce LLM output to plain text
         raw_text = coerce_llm_text(refined_output).strip()
@@ -208,41 +190,28 @@ class RefinerAgent(BaseAgent):
         else:
             refined_query = None
 
-            # 1) Try strict JSON parse: {"refined_query": "<...>"}
             try:
                 obj = json.loads(raw_text)
                 rq = obj.get("refined_query")
                 if isinstance(rq, str) and rq.strip():
                     refined_query = rq.strip()
-                    logger.debug(
-                        f"[{self.name}] Parsed refined_query from JSON: {refined_query}"
-                    )
+                    logger.debug(f"[{self.name}] Parsed refined_query from JSON: {refined_query}")
             except json.JSONDecodeError:
-                logger.warning(
-                    f"[{self.name}] Refiner output not valid JSON; falling back",
-                    extra={"raw_preview": raw_text[:200]},
-                )
+                logger.warning(f"[{self.name}] Refiner output not valid JSON; falling back")
 
-            # 2) Fallback: support old "[Unchanged] ..." pattern if model still uses it
             if refined_query is None:
                 if raw_text.startswith("[Unchanged]"):
                     candidate = raw_text[len("[Unchanged]"):].strip()
                     refined_query = candidate or query
-                    logger.debug(
-                        f"[{self.name}] Using fallback [Unchanged] pattern: {refined_query}"
-                    )
+                    logger.debug(f"[{self.name}] Using fallback [Unchanged] pattern: {refined_query}")
                 else:
-                    # As a last resort, just treat the raw text as the refined query
                     refined_query = raw_text
-                    logger.debug(
-                        f"[{self.name}] Using raw_text as refined_query fallback: {refined_query}"
-                    )
+                    logger.debug(f"[{self.name}] Using raw_text as refined_query fallback: {refined_query}")
 
-        # Ensure that the refined query is added to the context properly before passing it to the final agent
+        # Ensure that refined query is added to the context
         context.execution_state["refined_query"] = refined_query
 
-        # Now pass this updated context to the final agent
-        final_agent_context = context  # Ensure this context contains the updated refined query
+        final_agent_context = context  # Pass updated context to the final agent
 
         env = self._wrap_output(
             output=refined_query,
@@ -302,9 +271,11 @@ class RefinerAgent(BaseAgent):
                 context.execution_state["structured_outputs"] = {}
             context.execution_state["structured_outputs"][self.name] = structured_result.model_dump()
 
-            if hasattr(context, "execution_metadata"):
-                context.execution_metadata["agent_outputs"] = context.execution_metadata.get("agent_outputs", {})
-                context.execution_metadata["agent_outputs"][self.name] = structured_result.dict()
+            if not hasattr(context, "execution_metadata") or not isinstance(context.execution_metadata, dict):
+                context.execution_metadata = {}
+
+            context.execution_metadata.setdefault("agent_outputs", {})
+            context.execution_metadata["agent_outputs"][self.name] = structured_result.model_dump()
 
             return structured_result.refined_query if not structured_result.was_unchanged else "[Unchanged] " + structured_result.refined_query
 

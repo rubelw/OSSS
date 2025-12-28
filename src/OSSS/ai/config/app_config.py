@@ -459,13 +459,13 @@ class ApplicationConfig(BaseModel):
         except ValueError:
             config.environment = Environment.DEVELOPMENT
 
-        log_level_name = os.getenv("OSSS_LOG_LEVEL", "INFO").upper()
+        log_level_name = os.getenv("OSSS_LOG_LEVEL", "DEBUG").upper()
         try:
             config.log_level = LogLevel(log_level_name)
         except ValueError:
-            config.log_level = LogLevel.INFO
+            config.log_level = LogLevel.DEBUG
 
-        config.debug_mode = os.getenv("OSSS_DEBUG", "false").lower() == "true"
+        #config.debug_mode = os.getenv("OSSS_DEBUG", "false").lower() == "true"
         config.debug_mode = "true"
 
         # Execution configuration

@@ -71,7 +71,25 @@ type WorkflowResponse = {
   execution_time_seconds?: number;
   correlation_id?: string;
   error_message?: string | null;
+  answer?: string; // 👈 NEW: final answer from orchestration_api
+
 };
+
+function pickFinalAnswer(wf: WorkflowResponse): string {
+  // 1) Prefer top-level answer (set from _result.final_answer in orchestration_api)
+  if (typeof wf.answer === "string" && wf.answer.trim()) {
+    return wf.answer;
+  }
+
+  // 2) Fallback: read _result.final_answer directly
+  const metaFinal = wf.agent_output_meta?._result?.final_answer;
+  if (typeof metaFinal === "string" && metaFinal.trim()) {
+    return metaFinal;
+  }
+
+  // 3) Last resort: old behavior (look at agent_outputs.final / refiner / first string)
+  return pickPrimaryText(wf.agent_outputs);
+}
 
 function pickPrimaryText(agentOutputs: Record<string, any> | undefined): string {
   if (!agentOutputs) return "";
@@ -260,6 +278,8 @@ function buildSourcesHtmlFromChunks(chunks: RetrievedChunk[]): string {
     </div>
   `;
 }
+
+
 
 /**
  * 🔹 PREVIOUS: build markdown tables from data_query rows.
@@ -749,8 +769,8 @@ export default function ChatClient() {
         return;
       }
 
-      // Primary text to show in chat (synthesis preferred)
-      const reply = pickPrimaryText(wf.agent_outputs) || "(No agent output returned)";
+      // Primary text to show in chat (now uses final_answer from backend)
+      const reply = pickFinalAnswer(wf) || "(No agent output returned)";
 
       // 🔹 NEW: pull data_query canonical meta if present
       const dataQueryMeta = extractDataQueryMeta(wf.agent_outputs);
@@ -766,48 +786,60 @@ export default function ChatClient() {
 
       const intentDescription = describeIntent(returnedIntent ?? "general");
 
-      // Optional: show debug info (query_profile, timing, markdown export)
+            // Optional: show user-facing text (without debug) + table
       let replyForDisplay = reply.trimEnd();
 
+      // If we have canonical data_query meta AND the reply is just that table,
+      // don't render the table in the main markdown content. Let DataQueryResult
+      // be the single source of truth for the table UI.
+      if (
+        dataQueryMeta &&
+        typeof dataQueryMeta.table_markdown_compact === "string" &&
+        replyForDisplay.trim() === dataQueryMeta.table_markdown_compact.trim()
+      ) {
+        // optional: a short label users see above the table
+        replyForDisplay = "";
+      }
+
+      // Fallback: only build legacy markdown tables when we *don't* have meta
       if (dataQueryMd) {
-        // Keep old behavior as fallback only
         replyForDisplay += `\n\n---\n${dataQueryMd}`;
       }
 
       const replyForHistory = sanitizeForGuard(replyForDisplay);
 
-      if (showDebug) {
-        const debugLines: string[] = [];
-
-        const RAW_DEBUG_MAX = 50_000;
-        let pretty = prettyJson(raw);
-        if (pretty.length > RAW_DEBUG_MAX) pretty = pretty.slice(0, RAW_DEBUG_MAX) + "\n...<truncated>...";
-
-        // Show full raw response body (JSON or not)
-        debugLines.push(
-          `**/api/query raw response (HTTP ${resp.status}):**\n` +
-            "```json\n" +
-            pretty +
-            "\n```"
-        );
-
-        if (debugLines.length > 0) {
-          replyForDisplay += `\n\n---\n` + debugLines.join("\n");
-        }
-      }
-
-      // build final display HTML once
+      // build main display HTML (answer + any fallback table)
       const outHtml = mdToHtml(String(replyForDisplay));
       const sourcesHtml = showSources ? buildSourcesHtmlFromChunks(chunksForThisReply) : "";
       const finalHtml = outHtml + sourcesHtml;
 
-      // 🔹 NEW: use fullWidth if we have debug OR a data_query table (either style)
+      // use fullWidth if we have debug OR a data_query table (either style)
       const useFullWidth = showDebug || !!dataQueryMd || !!dataQueryMeta;
 
-      // Attach meta if we have data_query canonical output; otherwise undefined
+      // 1️⃣ Main bot message: answer + DataQueryResult (via meta)
       appendMessage("bot", finalHtml, true, useFullWidth, dataQueryMeta || undefined);
 
+      // 2️⃣ Separate debug message *below* everything else
+      if (showDebug) {
+        const RAW_DEBUG_MAX = 50_000;
+        let pretty = prettyJson(raw);
+        if (pretty.length > RAW_DEBUG_MAX) {
+          pretty = pretty.slice(0, RAW_DEBUG_MAX) + "\n...<truncated>...";
+        }
+
+        const debugMarkdown =
+          `**/api/query raw response (HTTP ${resp.status}):**\n` +
+          "```json\n" +
+          pretty +
+          "\n```";
+
+        const debugHtml = mdToHtml(debugMarkdown);
+
+        appendMessage("bot", debugHtml, true, true);
+      }
+
       setChatHistory((prev) => [...prev, { role: "assistant", content: String(replyForHistory) }]);
+
     } catch (err: any) {
       // ✅ NEW: distinguish client timeout vs other errors
       if (err?.name === "AbortError") {

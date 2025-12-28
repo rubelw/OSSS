@@ -4,7 +4,9 @@ Core graph building and compilation for OSSS LangGraph backend.
 Goals:
 - Make graph patterns + edges configurable via JSON (graph-patterns.json)
 - Keep a sane default "standard" pattern:
-    refiner -> (critic, historian) -> synthesis -> END
+    refiner -> final -> END
+- Support a data_query-centric pattern:
+    refiner -> data_query -> (historian for CRUD) -> END
 - Support conditional routing via named routers (router registry)
 - Keep GraphFactory as the ONLY place that mutates LangGraph StateGraph
 - Preserve: caching, optional checkpointing, optional semantic validation
@@ -143,6 +145,137 @@ class GraphFactory:
     # CACHE CONTROL (ADMIN / DEBUG)
     # ------------------------------------------------------------------
 
+    def _apply_option_a_planning_bridge(self, cfg: GraphConfig) -> GraphConfig:
+        """
+        Option A bridge:
+          - Decide graph_pattern BEFORE compilation
+          - Use execution_state.execution_config.graph_pattern if caller set it
+          - Otherwise map chosen_target -> {"standard", "data_query"}
+          - Normalize execution_state.planned_agents and cfg.agents_to_run
+        """
+        self.logger.info(
+            "[OptionA] Applying planning bridge",
+            extra={
+                "pattern_name_before": cfg.pattern_name,
+                "agents_before": cfg.agents_to_run,
+            },
+        )
+
+        exec_state = cfg.execution_state
+        if not isinstance(exec_state, dict):
+            self.logger.debug(
+                "[OptionA] execution_state missing or not dict; skipping planning bridge",
+                extra={
+                    "exec_state_type": type(exec_state).__name__
+                    if exec_state is not None
+                    else None,
+                },
+            )
+            return cfg
+
+        # Ensure we have an execution_config dict
+        ec = self._ensure_execution_config(exec_state)
+
+        # 1) Respect explicit graph_pattern if caller set one
+        pattern_from_cfg = (cfg.pattern_name or "").strip().lower()
+        pattern_from_ec = str(ec.get("graph_pattern") or "").strip().lower()
+
+        graph_pattern = pattern_from_ec or pattern_from_cfg
+
+        # 2) If not explicitly set, derive from chosen_target / route
+        if not graph_pattern:
+            chosen_target = cfg.chosen_target or exec_state.get("route") or ""
+            chosen_target = str(chosen_target).strip().lower()
+
+            if chosen_target == "data_query":
+                graph_pattern = "data_query"
+            else:
+                graph_pattern = "standard"
+
+        # Store the resolved pattern back into execution_config
+        ec["graph_pattern"] = graph_pattern
+
+        self.logger.info(
+            "[OptionA] Effective graph_pattern decided",
+            extra={
+                "effective_pattern": graph_pattern,
+                "chosen_target": cfg.chosen_target or exec_state.get("route"),
+            },
+        )
+
+        # 3) Normalize planned_agents to be consistent with the chosen pattern
+        planned_from_state = exec_state.get("planned_agents")
+        if isinstance(planned_from_state, list) and planned_from_state:
+            base_planned = [str(a).lower() for a in planned_from_state if a]
+        else:
+            base_planned = [str(a).lower() for a in (cfg.agents_to_run or []) if a]
+
+        # Always start with a copy
+        normalized: List[str] = [a for a in base_planned if a]
+
+        # Ensure refiner is present
+        if "refiner" not in normalized:
+            normalized.insert(0, "refiner")
+
+        if graph_pattern == "standard":
+            # refiner -> final -> END
+            normalized = [
+                a
+                for a in normalized
+                if a not in {"data_query", "historian", "critic", "synthesis"}
+            ]
+            if "final" not in normalized:
+                normalized.append("final")
+        elif graph_pattern == "data_query":
+            # refiner -> data_query -> (historian for CRUD) -> END
+            normalized = [
+                a for a in normalized if a not in {"final", "synthesis", "critic"}
+            ]
+            if "data_query" not in normalized:
+                normalized.append("data_query")
+            # historian is allowed but optional
+        else:
+            # Fallback: let prepare_config/_normalize_agents_for_pattern handle it
+            self.logger.debug(
+                "[OptionA] Unknown pattern in planning bridge; deferring to prepare_config",
+                extra={"effective_pattern": graph_pattern},
+            )
+
+        # Stable de-dupe
+        deduped: List[str] = []
+        seen = set()
+        for a in normalized:
+            if a not in seen:
+                seen.add(a)
+                deduped.append(a)
+
+        exec_state["planned_agents"] = deduped
+
+        self.logger.info(
+            "[OptionA] Planned agents normalized",
+            extra={
+                "effective_pattern": graph_pattern,
+                "planned_agents": deduped,
+            },
+        )
+
+        # Override cfg with our effective pattern + planned agents
+        cfg = replace(
+            cfg,
+            pattern_name=graph_pattern,
+            agents_to_run=deduped,
+        )
+
+        self.logger.info(
+            "[OptionA] Planning bridge complete",
+            extra={
+                "pattern_name_after": cfg.pattern_name,
+                "agents_after": cfg.agents_to_run,
+            },
+        )
+        return cfg
+
+
     def clear_cache(self) -> None:
         """
         Clear all compiled graph entries from the GraphCache.
@@ -258,9 +391,16 @@ class GraphFactory:
 
         Router signature:
           fn(state: OSSSState) -> str   (must return a destination key)
+
+        NOTE:
+        - If a router with the same name is already present in self.routers,
+          we will NOT re-register it. This avoids noisy "Overwriting existing router"
+          warnings when a shared RouterRegistry is passed in with defaults
+          already installed elsewhere.
         """
         self.logger.info("Registering default routers")
 
+        # Legacy router kept for compatibility (if ever referenced)
         def refiner_route_query_or_reflect(state: OSSSState) -> str:
             decision = "data_query" if self._should_run_data_query(state) else "reflect"
             self.logger.debug(
@@ -271,20 +411,119 @@ class GraphFactory:
             )
             return decision
 
-        self.routers.register(
-            "refiner_route_query_or_reflect", refiner_route_query_or_reflect
-        )
+        # NEW: router used by the "data_query" pattern to decide
+        # whether to go to historian or END after data_query.
+        def route_after_data_query(state: OSSSState) -> str:
+            """
+            Decide where to go after data_query:
+
+            - If the intent/action_type is CRUD (create/update/delete)
+              AND historian is among available agents → 'historian'
+            - Otherwise → 'END'
+            """
+            # Try to read execution_state
+            exec_state = None
+            if isinstance(state, dict):
+                exec_state = state.get("execution_state")
+            if not isinstance(exec_state, dict):
+                exec_state = {}
+
+            # Pull intent from state or execution_state
+            intent_raw = getattr(state, "intent", None) or exec_state.get("intent")
+            intent = (str(intent_raw or "")).strip().lower()
+
+            # Try to read query_profile (same shape used by _should_run_data_query)
+            qp = None
+            aom = exec_state.get("agent_output_meta")
+            if isinstance(aom, dict):
+                qp = aom.get("_query_profile") or aom.get("query_profile")
+            if not isinstance(qp, dict):
+                qp = {}
+
+            action_type_raw = qp.get("action_type", qp.get("action", ""))
+            action_type = (str(action_type_raw or "")).strip().lower()
+
+            is_crud = intent in {"create", "update", "delete"} or action_type in {
+                "create",
+                "update",
+                "delete",
+            }
+
+            # Check which agents are actually present in this compiled graph
+            available = set(getattr(state, "available_agents", []) or [])
+
+            decision = "END"
+            if is_crud and "historian" in available:
+                decision = "historian"
+
+            self.logger.debug(
+                "[router:route_after_data_query] evaluated",
+                extra={
+                    "intent": intent,
+                    "action_type": action_type,
+                    "is_crud": is_crud,
+                    "available_agents": list(available),
+                    "decision": decision,
+                },
+            )
+            return decision
+
+        # Helper to check existence in a duck-typed way
+        def _router_exists(name: str) -> bool:
+            if hasattr(self.routers, "has"):
+                try:
+                    return bool(self.routers.has(name))  # type: ignore[attr-defined]
+                except Exception:
+                    # Fall back to attribute probing if 'has' misbehaves
+                    pass
+            # Best-effort fallback: look for _routers dict if present
+            routers_dict = getattr(self.routers, "_routers", None)
+            if isinstance(routers_dict, dict):
+                return name in routers_dict
+            return False
+
+        # Register refiner_route_query_or_reflect only if not already present
+        if not _router_exists("refiner_route_query_or_reflect"):
+            self.routers.register(
+                "refiner_route_query_or_reflect", refiner_route_query_or_reflect
+            )
+        else:
+            self.logger.debug(
+                "Skipping registration of router; already present",
+                extra={"router_name": "refiner_route_query_or_reflect"},
+            )
+
+        # Register route_after_data_query only if not already present
+        if not _router_exists("route_after_data_query"):
+            self.routers.register("route_after_data_query", route_after_data_query)
+        else:
+            self.logger.debug(
+                "Skipping registration of router; already present",
+                extra={"router_name": "route_after_data_query"},
+            )
+
+        # Try to surface the actual router names if the registry supports it
+        router_names: List[str]
+        if hasattr(self.routers, "list_names"):
+            try:
+                router_names = list(self.routers.list_names())  # type: ignore[attr-defined]
+            except Exception:
+                router_names = ["refiner_route_query_or_reflect", "route_after_data_query"]
+        else:
+            router_names = ["refiner_route_query_or_reflect", "route_after_data_query"]
+
         self.logger.info(
             "Default routers registered",
-            extra={"routers": ["refiner_route_query_or_reflect"]},
+            extra={"routers": router_names},
         )
 
     def _should_run_data_query(self, state: OSSSState) -> bool:
         """
         Determines if data_query should run.
 
-        Matches existing behavior:
-        uses execution_state.agent_output_meta._query_profile / query_profile if present.
+        Uses execution_state.route / route_key / route_locked (from DBQueryRouter)
+        first, and falls back to execution_state.agent_output_meta._query_profile /
+        query_profile if present.
         """
         self.logger.info(
             "[graph] _should_run_data_query invoked",
@@ -308,6 +547,45 @@ class GraphFactory:
                 )
                 return False
 
+            # ------------------------------------------------------------------
+            # 1) Honor explicit routing from DBQueryRouter (route-lock)
+            # ------------------------------------------------------------------
+            route = exec_state.get("route")
+            route_key_raw = exec_state.get("route_key", "")
+            route_key = str(route_key_raw).strip().lower() if route_key_raw is not None else ""
+            route_locked = bool(exec_state.get("route_locked"))
+            route_reason = exec_state.get("route_reason")
+
+            if route == "data_query":
+                self.logger.info(
+                    "[graph] _should_run_data_query: honoring explicit DBQueryRouter route",
+                    extra={
+                        "route": route,
+                        "route_key": route_key,
+                        "route_locked": route_locked,
+                        "route_reason": route_reason,
+                        "reason": "explicit_route_data_query",
+                    },
+                )
+                return True
+
+            # Optional: if you want a locked 'action' route_key to also force data_query
+            if route_key == "action" and route_locked:
+                self.logger.info(
+                    "[graph] _should_run_data_query: honoring locked 'action' route_key from router",
+                    extra={
+                        "route": route,
+                        "route_key": route_key,
+                        "route_locked": route_locked,
+                        "route_reason": route_reason,
+                        "reason": "route_key_action_locked",
+                    },
+                )
+                return True
+
+            # ------------------------------------------------------------------
+            # 2) Fallback to agent_output_meta / query_profile heuristics
+            # ------------------------------------------------------------------
             aom = exec_state.get("agent_output_meta")
             if not isinstance(aom, dict):
                 self.logger.info(
@@ -363,7 +641,7 @@ class GraphFactory:
                 },
             )
 
-            # Decision logic (unchanged; just with explicit logs)
+            # Decision logic
 
             if intent != "action":
                 self.logger.info(
@@ -456,14 +734,36 @@ class GraphFactory:
                 "execution_config found",
                 extra={"keys": list(ec.keys())},
             )
+            return ec
+
         return ec
 
     def _apply_option_a_planning_bridge(self, cfg: GraphConfig) -> GraphConfig:
         """
         Option A bridge:
-          - call apply_option_a_fastpath_planning BEFORE compilation
-          - adopt exec_state.execution_config.graph_pattern into cfg.pattern_name
-          - adopt exec_state.planned_agents into cfg.agents_to_run (authoritative)
+
+        Decide between:
+          - 'standard' pattern (conversational):
+              refiner -> final -> END
+          - 'data_query' pattern (DB / action / query-ish):
+              refiner -> data_query -> (historian) -> END
+
+        Rule:
+
+        1) If DBQueryRouter has explicitly routed to data_query
+           (route == 'data_query' or locked route_key == 'action'):
+               -> use 'data_query'
+
+        2) Otherwise:
+
+           If BOTH:
+             - classifier intent != "action"
+             - original user text does NOT contain "query" or "database"
+             - no wizard state
+           THEN:
+             -> use 'standard'
+           ELSE:
+             -> use 'data_query'
         """
         self.logger.info(
             "[OptionA] Applying planning bridge",
@@ -472,6 +772,7 @@ class GraphFactory:
                 "agents_before": cfg.agents_to_run,
             },
         )
+
         exec_state = cfg.execution_state
         if not isinstance(exec_state, dict):
             self.logger.debug(
@@ -479,102 +780,165 @@ class GraphFactory:
                 extra={
                     "exec_state_type": type(exec_state).__name__
                     if exec_state is not None
-                    else None
+                    else None,
                 },
             )
             return cfg
 
+        # Let the existing fast-path planner run for any side-effects you still want
         chosen_target = cfg.chosen_target or exec_state.get("route")
         if not isinstance(chosen_target, str):
             chosen_target = ""
-
         self.logger.debug(
             "[OptionA] Running fastpath planning",
             extra={"chosen_target": chosen_target or "refiner"},
         )
-
-        # ✅ Option A: decide pattern + planned agents BEFORE compilation
         apply_option_a_fastpath_planning(
             exec_state=exec_state, chosen_target=chosen_target or "refiner"
         )
 
         ec = self._ensure_execution_config(exec_state)
 
-        # ✅ SPECIAL HANDLING for refiner_final
-        # We only apply this branch when the effective graph_pattern is "refiner_final".
-        # That means we're in the "Option A" fastpath where the graph is:
-        #   refiner -> (maybe data_query) -> final
-        if ec.get("graph_pattern") == "refiner_final":
+        # ------------------------------------------------------------------
+        # 1) Respect DBQueryRouter route if present
+        # ------------------------------------------------------------------
+        route = exec_state.get("route")
+        route_key_raw = exec_state.get("route_key", "")
+        route_key = str(route_key_raw).strip().lower() if route_key_raw is not None else ""
+        route_locked = bool(exec_state.get("route_locked"))
+        route_reason = exec_state.get("route_reason")
 
-            raw_query = str(
-                exec_state.get("query")
-                or exec_state.get("user_query")
-                or exec_state.get("raw_query")
-                or ""
-            ).lower()
+        self.logger.info(
+            "[OptionA] Router state before pattern decision",
+            extra={
+                "route": route,
+                "route_key": route_key,
+                "route_locked": route_locked,
+                "route_reason": route_reason,
+            },
+        )
 
-
-            has_database_kw = "database" in raw_query.lower()
-            has_query_kw = "query" in raw_query.lower()
-            request_has_db_or_query = has_database_kw or has_query_kw
-
-            if bool(raw_query) and not request_has_db_or_query:
-
-                planned: List[str] = ["refiner"]
-                planned.append("final")
-
-                exec_state["planned_agents"] = planned
-                self.logger.info(
-                    "[OptionA] refiner_final: no query_profile present; using raw-query heuristic",
-                    extra={
-                        "planned_agents": planned,
-                        "reason": "no_query_profile",
-                        "run_data_query": False,
-                        "raw_query_len": len(raw_query),
-                        "raw_query_has_database": has_database_kw,
-                        "raw_query_has_query": has_query_kw,
-                    },
-                )
-            else:
-
-                # NEW: gate on raw request text only, per your requirement
-                request_has_db_or_query = has_database_kw or has_query_kw
-
-                planned: List[str] = ["refiner"]
-                planned.append("data_query")
-                planned.append("final")
-
-                exec_state["planned_agents"] = planned
-                self.logger.info(
-                    "[OptionA] planned_agents set for refiner_final",
-                    extra={
-                        "planned_agents": planned,
-                        "run_data_query": True,
-                        "intent_is_action": "action",
-                        "request_has_db_or_query": request_has_db_or_query,
-                    },
-                )
-
-        # ✅ If caller didn’t pass pattern_name, adopt computed graph_pattern
-        gp = ec.get("graph_pattern")
-        if isinstance(gp, str) and gp:
-            self.logger.debug(
-                "[OptionA] Overriding pattern_name from execution_config",
+        if route == "data_query" or (route_key == "action" and route_locked):
+            effective_pattern = "data_query"
+            self.logger.info(
+                "[OptionA] Forcing data_query pattern from DBQueryRouter",
                 extra={
-                    "pattern_name_before": cfg.pattern_name,
-                    "pattern_name_after": gp,
+                    "effective_pattern": effective_pattern,
+                    "route": route,
+                    "route_key": route_key,
+                    "route_locked": route_locked,
+                    "route_reason": route_reason,
                 },
             )
-            cfg = replace(cfg, pattern_name=gp)
+        else:
+            # ------------------------------------------------------------------
+            # 2) Use classifier + lexical rule
+            # ------------------------------------------------------------------
+            task_cls = exec_state.get("task_classification") or {}
+            classifier_intent = (task_cls.get("intent") or "").strip().lower()
 
-        # ✅ planned_agents is authoritative for which nodes exist
-        planned = exec_state.get("planned_agents")
-        if isinstance(planned, list) and planned:
-            self.logger.info(
-                "[OptionA] Using planned_agents as authoritative node set",
-                extra={"planned_agents": planned},
+            classifier_profile = exec_state.get("classifier_profile") or {}
+            original_text = (
+                    classifier_profile.get("original_text")
+                    or exec_state.get("query")
+                    or exec_state.get("user_query")
+                    or exec_state.get("raw_query")
+                    or exec_state.get("original_query")
+                    or ""
             )
-            cfg = replace(cfg, agents_to_run=[str(a).lower() for a in planned if a])
+            original_text_str = str(original_text)
+            original_lower = original_text_str.lower()
+
+            has_query_kw = "query" in original_lower
+            has_database_kw = "database" in original_lower
+
+            wizard_state = exec_state.get("wizard")
+            has_wizard = bool(wizard_state)
+
+            # Your rule:
+            # If intent != "action" AND no query/database AND no wizard -> standard
+            # Else -> data_query
+            if (
+                    classifier_intent != "action"
+                    and not has_query_kw
+                    and not has_database_kw
+                    and not has_wizard
+            ):
+                effective_pattern = "standard"
+            else:
+                effective_pattern = "data_query"
+
+            self.logger.info(
+                "[OptionA] Pattern decided from classifier/keywords",
+                extra={
+                    "effective_pattern": effective_pattern,
+                    "classifier_intent": classifier_intent,
+                    "raw_query_len": len(original_text_str),
+                    "raw_query_has_query": has_query_kw,
+                    "raw_query_has_database": has_database_kw,
+                    "has_wizard": has_wizard,
+                },
+            )
+
+        # Persist the pattern choice into execution_config
+        ec["graph_pattern"] = effective_pattern
+
+        # ------------------------------------------------------------------
+        # 3) Normalize planned_agents to match pattern
+        # ------------------------------------------------------------------
+        planned_from_state = exec_state.get("planned_agents")
+        if isinstance(planned_from_state, list) and planned_from_state:
+            base_planned = [str(a).lower() for a in planned_from_state if a]
+        else:
+            base_planned = [str(a).lower() for a in (cfg.agents_to_run or []) if a]
+
+        normalized: List[str] = [a for a in base_planned if a]
+
+        # Always ensure refiner is present
+        if "refiner" not in normalized:
+            normalized.insert(0, "refiner")
+
+        if effective_pattern == "standard":
+            # refiner -> final -> END
+            normalized = [
+                a
+                for a in normalized
+                if a not in {"data_query", "historian", "critic", "synthesis"}
+            ]
+            if "final" not in normalized:
+                normalized.append("final")
+        else:
+            # refiner -> data_query -> (historian) -> END
+            normalized = [
+                a for a in normalized if a not in {"final", "synthesis", "critic"}
+            ]
+            if "data_query" not in normalized:
+                normalized.append("data_query")
+
+        # Stable de-dupe
+        deduped: List[str] = []
+        seen = set()
+        for a in normalized:
+            if a not in seen:
+                seen.add(a)
+                deduped.append(a)
+
+        exec_state["planned_agents"] = deduped
+
+        self.logger.info(
+            "[OptionA] Planned agents normalized",
+            extra={
+                "effective_pattern": effective_pattern,
+                "planned_agents": deduped,
+            },
+        )
+
+        # Override cfg with our effective pattern + planned agents
+        cfg = replace(
+            cfg,
+            pattern_name=effective_pattern,
+            agents_to_run=deduped,
+        )
 
         self.logger.info(
             "[OptionA] Planning bridge complete",
@@ -736,11 +1100,15 @@ class GraphFactory:
     # ------------------------------------------------------------------
 
     def _is_terminal_output_pattern(self, pattern_name: str) -> bool:
-        value = pattern_name.lower() in {
-            "refiner_final",
-            "refiner_only_output",
-            "minimal",
-        }
+        """
+        Patterns that are terminal conversational flows (end in a human-facing
+        output node like 'final').
+
+        For now:
+          - 'standard' is terminal-with-final
+          - 'data_query' is special-cased elsewhere (terminal but no final)
+        """
+        value = pattern_name.lower() in {"standard"}
         self.logger.debug(
             "_is_terminal_output_pattern evaluated",
             extra={"pattern_name": pattern_name, "is_terminal": value},
@@ -759,29 +1127,50 @@ class GraphFactory:
         )
 
         a = [str(x).lower() for x in (agents or []) if x]
+        # Strip prestep agents (classifier is handled elsewhere)
         a = [x for x in a if x not in self.PRESTEP_AGENTS]
 
         # Always ensure refiner first
         if "refiner" not in a:
             a.insert(0, "refiner")
 
-        # Decide terminal vs normal execution
-        terminal = self._is_terminal_output_pattern(pattern_name) or ("final" in a)
+        pattern_lower = pattern_name.lower()
 
-        if terminal:
-            # Terminal flows MUST end with output and MUST NOT include synthesis
-            a = [x for x in a if x != "synthesis"]
+        if pattern_lower == "standard":
+            # Standard conversational path:
+            #   refiner -> final -> END
+            # Ensure final, no synthesis, and no data_query/historian/critic by default.
+            a = [x for x in a if x not in {"synthesis", "data_query", "historian", "critic"}]
             if "final" not in a:
                 a.append("final")
-        else:
-            # Normal flows MUST end with synthesis and MUST NOT include output
-            a = [x for x in a if x != "final"]
-            if "synthesis" not in a:
-                a.append("synthesis")
 
-        # If data_query runs, skip critic/historian entirely
-        if "data_query" in a:
-            a = [x for x in a if x not in ("critic", "historian")]
+        elif pattern_lower == "data_query":
+            # Data-centric path:
+            #   refiner -> data_query -> (historian for CRUD) -> END
+            #
+            # - MUST have data_query
+            # - MUST NOT have final or synthesis or critic
+            # - historian is allowed but optional (for CRUD history)
+            a = [x for x in a if x not in {"final", "synthesis", "critic"}]
+            if "data_query" not in a:
+                a.append("data_query")
+            # historian: kept if present, not auto-added here
+
+        else:
+            # Fallback for any future patterns:
+            # Use the old terminal vs non-terminal rule.
+            terminal = self._is_terminal_output_pattern(pattern_name) or ("final" in a)
+
+            if terminal:
+                # Terminal flows MUST end with output and MUST NOT include synthesis
+                a = [x for x in a if x != "synthesis"]
+                if "final" not in a:
+                    a.append("final")
+            else:
+                # Normal flows MUST end with synthesis and MUST NOT include output
+                a = [x for x in a if x != "final"]
+                if "synthesis" not in a:
+                    a.append("synthesis")
 
         # Stable de-dupe preserving order
         out: List[str] = []
@@ -834,18 +1223,16 @@ class GraphFactory:
     # ------------------------------------------------------------------
 
     def _create_state_graph(
-            self,
-            config: GraphConfig,
-            pattern: GraphPattern,
-            graph_agents: List[str],
+        self,
+        config: GraphConfig,
+        pattern: GraphPattern,
+        graph_agents: List[str],
     ) -> Any:
         """
         Build the underlying LangGraph StateGraph.
 
         IMPORTANT:
         - graph_agents is already the authoritative node set (Option A)
-        - For terminal patterns (e.g. refiner_final), we may need to
-          rewrite edges if extra nodes like data_query are present.
         """
         self.logger.info(
             "Creating new StateGraph",
@@ -896,35 +1283,8 @@ class GraphFactory:
             },
         )
 
-        # ---- SPECIAL CASE: refiner_final + data_query ----------------
-        # In this pattern, the JSON spec likely only describes:
-        #   refiner -> final
-        # To actually run data_query when it is present in graph_agents,
-        # we rewrite that edge to:
-        #   refiner -> data_query -> final
-        lowered_agents = [a.lower() for a in graph_agents]
-        if config.pattern_name.lower() == "refiner_final" and "data_query" in lowered_agents:
-            self.logger.info(
-                "[OptionA] Rewriting edges for refiner_final with data_query present",
-                extra={"edges_before": edges},
-            )
-            new_edges: List[Dict[str, str]] = []
-            for e in edges:
-                frm = str(e.get("from", "")).lower()
-                to = str(e.get("to", "")).lower()
-
-                # Replace refiner->final / refiner->END with a hop through data_query
-                if frm == "refiner" and to in {"final", "end"}:
-                    new_edges.append({"from": "refiner", "to": "data_query"})
-                    new_edges.append({"from": "data_query", "to": to})
-                else:
-                    new_edges.append(e)
-
-            edges = new_edges
-            self.logger.info(
-                "[OptionA] Edges after rewrite for refiner_final with data_query",
-                extra={"edges_after": edges},
-            )
+        # NOTE: the old refiner_final + data_query edge rewrite is no longer
+        # needed now that patterns.json only defines 'standard' and 'data_query'.
 
         # ---- Validate & register edges -------------------------------
         self._assert_edges_valid(edges, graph_agents, config.pattern_name)

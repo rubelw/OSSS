@@ -50,6 +50,12 @@ class StructuredLogger:
 
     Provides convenient methods for structured logging with automatic
     correlation ID injection and performance tracking.
+
+    NOTE: Public methods (debug/info/warning/error/critical/exception) are
+    intentionally compatible with the stdlib logging.Logger signature:
+        logger.debug(msg, *args, **kwargs)
+    so legacy calls like logger.debug("msg", {"foo": "bar"}) or
+    logger.debug("msg %s", value) do not crash.
     """
 
     def __init__(self, name: str, enable_file_logging: bool = True) -> None:
@@ -107,31 +113,35 @@ class StructuredLogger:
         # Set level
         self.logger.setLevel(config.log_level.value)
 
-    def debug(self, message: str, **kwargs: Any) -> None:
+    # ------------------------------------------------------------------
+    # Public logging methods - keep signature compatible with stdlib
+    # ------------------------------------------------------------------
+    def debug(self, message: str, *args: Any, **kwargs: Any) -> None:
         """Log debug message with structured data."""
-        self._log(logging.DEBUG, message, **kwargs)
+        self._log(logging.DEBUG, message, *args, **kwargs)
 
-    def info(self, message: str, **kwargs: Any) -> None:
+    def info(self, message: str, *args: Any, **kwargs: Any) -> None:
         """Log info message with structured data."""
-        self._log(logging.INFO, message, **kwargs)
+        self._log(logging.INFO, message, *args, **kwargs)
 
-    def warning(self, message: str, **kwargs: Any) -> None:
+    def warning(self, message: str, *args: Any, **kwargs: Any) -> None:
         """Log warning message with structured data."""
-        self._log(logging.WARNING, message, **kwargs)
+        self._log(logging.WARNING, message, *args, **kwargs)
 
-    def error(self, message: str, **kwargs: Any) -> None:
+    def error(self, message: str, *args: Any, **kwargs: Any) -> None:
         """Log error message with structured data."""
-        self._log(logging.ERROR, message, **kwargs)
+        self._log(logging.ERROR, message, *args, **kwargs)
 
-    def critical(self, message: str, **kwargs: Any) -> None:
+    def critical(self, message: str, *args: Any, **kwargs: Any) -> None:
         """Log critical message with structured data."""
-        self._log(logging.CRITICAL, message, **kwargs)
+        self._log(logging.CRITICAL, message, *args, **kwargs)
 
-    def exception(self, message: str, **kwargs: Any) -> None:
+    def exception(self, message: str, *args: Any, **kwargs: Any) -> None:
         """
         Log an error message with exception info (mirrors stdlib Logger.exception()).
         """
-        self._log(logging.ERROR, message, exc_info=True, **kwargs)
+        kwargs.setdefault("exc_info", True)
+        self._log(logging.ERROR, message, *args, **kwargs)
 
     # -----------------------------
     # Internal helpers
@@ -182,7 +192,7 @@ class StructuredLogger:
         self,
         level: int,
         message: str,
-        *,
+        *args: Any,
         exc_info: Any = None,
         stack_info: bool = False,
         **kwargs: Any,
@@ -191,12 +201,43 @@ class StructuredLogger:
         Log message with structured data.
 
         IMPORTANT:
+        - Signature is compatible with logging.Logger.log
+        - We support legacy patterns:
+          * logger.debug("msg", {"foo": "bar"})   -> treats second arg as extra dict
+          * logger.debug("msg %s", value)        -> %-formatting
         - exc_info/stack_info must be passed as real logging kwargs
         - extra must never contain reserved LogRecord keys
         """
+        # Extract special logging kwargs (may be passed via kwargs)
+        if "exc_info" in kwargs and exc_info is None:
+            exc_info = kwargs.pop("exc_info")
+        if "stack_info" in kwargs and stack_info is False:
+            stack_info = kwargs.pop("stack_info")
+
+        # Legacy positional handling:
+        # 1) If there's exactly one positional arg and it's a dict -> treat as extra
+        # 2) Otherwise, treat *args as %-formatting args
+        legacy_extra: Dict[str, Any] = {}
+        if len(args) == 1 and isinstance(args[0], dict):
+            legacy_extra = args[0]
+            args = ()
+        elif args:
+            # %-style formatting compatibility
+            try:
+                message = message % args
+            except Exception:
+                # If formatting fails, fall back to original message
+                pass
+            args = ()
+
+        # Base extra with correlation + observability
         extra = self._build_base_extra()
 
-        # user-provided structured fields
+        # Merge legacy extra dict if present
+        if legacy_extra:
+            extra.update(legacy_extra)
+
+        # Remaining kwargs are treated as structured fields
         if kwargs:
             extra.update(kwargs)
 
@@ -210,6 +251,9 @@ class StructuredLogger:
             stack_info=stack_info,
         )
 
+    # ------------------------------------------------------------------
+    # Higher-level helpers
+    # ------------------------------------------------------------------
     def log_agent_start(
         self, agent_name: str, step_id: Optional[str] = None, **metadata: Any
     ) -> None:

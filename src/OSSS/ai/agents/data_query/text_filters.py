@@ -19,6 +19,7 @@ log = logging.getLogger("OSSS.ai.agents.data_query.text_filters")
 # Sort specification
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class SortSpec:
     field: str
@@ -34,10 +35,8 @@ FIELD_ALIASES = {
     "last name": "last_name",
     "lastname": "last_name",
     "surname": "last_name",
-
     "first name": "first_name",
     "firstname": "first_name",
-
     # Extend as needed:
     # "student id": "student_id",
     # "grade level": "grade_level",
@@ -95,6 +94,7 @@ def _normalize_field_name(raw: str, spec: QuerySpec) -> Optional[str]:
 # Public entrypoint
 # ---------------------------------------------------------------------------
 
+
 def parse_text_filters(user_text: str, spec: QuerySpec) -> QuerySpec:
     """
     Parse simple filter expressions from user_text and append FilterCondition
@@ -123,6 +123,7 @@ def parse_text_filters(user_text: str, spec: QuerySpec) -> QuerySpec:
     NEW (sort parsing):
       - order by consent_type desc
       - sort consent type in descending order
+      - sorted by consent_type in descending order
       - sort consent_type ascending
 
     This function mutates and returns `spec` for convenience.
@@ -229,6 +230,7 @@ def _extract_where_clause(text: str) -> Optional[str]:
 # Step 2: split 'a and b and c' into individual condition strings
 # ---------------------------------------------------------------------------
 
+
 def _split_conditions(where_clause: str) -> List[str]:
     """
     Naive split on 'and' for now. You can extend to OR/parentheses later.
@@ -295,6 +297,30 @@ _OPERATOR_PATTERNS: List[Tuple[re.Pattern, FilterOp]] = [
     (re.compile(r"=", re.IGNORECASE), "eq"),
 ]
 
+# Used to strip trailing "order by"/"sort by"/"sorted by" that may be accidentally
+# captured as part of a filter value.
+_SORT_SPLIT_RE = re.compile(r"\b(?:order|sort|sorted)\s+by\b", re.IGNORECASE)
+
+
+def _strip_trailing_sort_clause(value: str) -> str:
+    """
+    Given a raw filter value that may accidentally include a trailing
+    ORDER BY / SORT BY / SORTED BY clause, strip everything from that clause onward.
+
+    Examples:
+      "'re' order by consent_type desc" -> "'re'"
+      "\"D\" sort by created_at desc"   -> "\"D\""
+      "'re' sorted by consent_type in descending order" -> "'re'"
+    """
+    if not value:
+        return value
+
+    parts = _SORT_SPLIT_RE.split(value, maxsplit=1)
+    if parts:
+        value = parts[0].strip()
+
+    return value
+
 
 def _clean_filter_value(raw: str) -> str:
     """
@@ -302,6 +328,7 @@ def _clean_filter_value(raw: str) -> str:
 
     - Strip whitespace.
     - Drop anything after the first comma (to avoid swallowing trailing clauses).
+    - Strip any trailing inline sort clause ("order by"/"sort by"/"sorted by" ...).
     - Strip surrounding single/double quotes.
     - Trim dangling 'and'/'or' at the end.
     """
@@ -313,6 +340,9 @@ def _clean_filter_value(raw: str) -> str:
     # Critical fix: do not include trailing clauses like ", replace person_id..."
     if "," in value:
         value = value.split(",", 1)[0].strip()
+
+    # Strip any trailing "order by"/"sort by"/"sorted by" clause that got captured
+    value = _strip_trailing_sort_clause(value)
 
     # Strip matching quotes
     if (value.startswith("'") and value.endswith("'")) or (
@@ -349,7 +379,7 @@ def _parse_single_condition(cond_text: str, spec: QuerySpec) -> Optional[FilterC
     if not field_phrase or not value_phrase:
         return None
 
-    # 2) Clean the value (handles quotes + trailing clauses)
+    # 2) Clean the value (handles quotes + trailing clauses, including sort text)
     value = _clean_filter_value(value_phrase)
     if not value:
         return None
@@ -432,6 +462,7 @@ def _parse_inline_startswith(text: str, spec: QuerySpec) -> Optional[FilterCondi
 # Step 4: resolve "last name" -> "last_name" or "person.full_name"
 # ---------------------------------------------------------------------------
 
+
 def _resolve_field_name(field_phrase: str, spec: QuerySpec) -> Optional[str]:
     """
     Resolve a natural language field phrase to a concrete field or path.
@@ -496,14 +527,13 @@ def _resolve_field_name(field_phrase: str, spec: QuerySpec) -> Optional[str]:
 
 
 # ---------------------------------------------------------------------------
-# Step 5: sort clause parsing ("order by", "sort by")
+# Step 5: sort clause parsing ("order by", "sort by", "sorted by")
 # ---------------------------------------------------------------------------
 
 _ORDER_BY_RE = re.compile(
-    r"\b(?:order|sort)\s+(?:by\s+)?"
-    r"(?P<field>[A-Za-z0-9_ ]+?)"
-    r"(?:\s+(?P<direction>asc|ascending|desc|descending))?"
-    r"(?:$|[,.])",
+    r"\b(?:order|sort|sorted)\s+(?:by\s+)?"
+    r"(?P<field>[A-Za-z0-9_]+(?:\s+[A-Za-z0-9_]+)*)"
+    r"(?:\s+(?:in\s+)?(?P<direction>asc|ascending|desc|descending)\b)?",
     re.IGNORECASE,
 )
 
@@ -513,6 +543,7 @@ def _parse_sort_clause(text: str, spec: QuerySpec) -> Optional[SortSpec]:
     Parse a simple sort clause like:
         "order by consent_type desc"
         "sort consent type ascending"
+        "sorted by consent_type in descending order"
         "order consent_type"
 
     Returns SortSpec or None if no sort is detected.

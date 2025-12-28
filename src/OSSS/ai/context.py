@@ -179,6 +179,9 @@ class AgentContext(BaseModel):
     execution_id: Optional[str] = None
     thread_id: Optional[str] = None
 
+    task_classification: Optional[Dict[str, Any]] = None
+    cognitive_classification: Optional[Dict[str, Any]] = None
+
     query: str = Field(description="The user's query or question to be processed")
     retrieved_notes: Optional[List[str]] = Field(
         default_factory=list, description="Notes retrieved from memory or context"
@@ -217,6 +220,12 @@ class AgentContext(BaseModel):
         default_factory=dict, description="Dynamic execution state data"
     )
     agent_executions: dict[str, dict] = Field(default_factory=dict)
+
+    # 🔹 NEW: orchestration / logging metadata
+    execution_metadata: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Non-user-facing execution metadata (per-agent envelopes, traces, etc.)",
+    )
 
     successful_agents: Set[str] = Field(
         default_factory=set, description="Set of successfully completed agents"
@@ -279,6 +288,55 @@ class AgentContext(BaseModel):
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
+    # ------------------------------------------------------------------
+    # Internal helpers for execution_metadata.agent_outputs
+    # ------------------------------------------------------------------
+    def _ensure_agent_outputs_metadata(self) -> Dict[str, Any]:
+        """
+        Ensure `execution_metadata["agent_outputs"]` exists and is a dict.
+        """
+        emd = getattr(self, "execution_metadata", None)
+
+        if not isinstance(emd, dict):
+            logger.warning(
+                "[AgentContext] execution_metadata was %r; resetting to {}",
+                emd,
+            )
+            emd = {}
+            # use object.__setattr__ to bypass any Pydantic magic
+            object.__setattr__(self, "execution_metadata", emd)
+
+        agent_outputs_meta = emd.get("agent_outputs")
+
+        if not isinstance(agent_outputs_meta, dict):
+            logger.warning(
+                "[AgentContext] execution_metadata['agent_outputs'] was %r; resetting to {}",
+                agent_outputs_meta,
+            )
+            agent_outputs_meta = {}
+            emd["agent_outputs"] = agent_outputs_meta
+
+        return agent_outputs_meta
+
+
+    def set_task_classification(self, task_classification: Dict[str, Any]) -> None:
+        """Store the task classification result in the context."""
+        self.task_classification = task_classification
+        self.execution_state["task_classification"] = task_classification
+
+    def get_task_classification(self) -> Dict[str, Any]:
+        """Retrieve the task classification from the context."""
+        return self.task_classification or {}
+
+    def set_cognitive_classification(self, cognitive_classification: Dict[str, Any]) -> None:
+        """Store the cognitive classification result in the context."""
+        self.cognitive_classification = cognitive_classification
+        self.execution_state["cognitive_classification"] = cognitive_classification
+
+    def get_cognitive_classification(self) -> Dict[str, Any]:
+        """Retrieve the cognitive classification from the context."""
+        return self.cognitive_classification or {}
+
     def _canon_agent(self, agent_name: str) -> str:
         return (agent_name or "").strip().lower()
 
@@ -301,6 +359,15 @@ class AgentContext(BaseModel):
         self.execution_state.setdefault("agent_output_meta", {})
         self.execution_state["agent_output_meta"][agent] = envelope
 
+        # 🔹 ALSO store in execution_metadata.agent_outputs with safety + logging
+        meta_outputs = self._ensure_agent_outputs_metadata()
+        meta_outputs[agent] = envelope
+
+        logger.debug(
+            "[AgentContext] stored agent output envelope",
+            extra={"agent": agent, "keys": list(envelope.keys())},
+        )
+
     def get_agent_output_envelope(self, agent_name: str) -> dict:
         agent = self._canon_agent(agent_name)
         return (self.execution_state.get("agent_output_meta") or {}).get(agent, {})
@@ -312,11 +379,23 @@ class AgentContext(BaseModel):
     def set_classifier_result(self, result: Dict[str, Any]) -> None:
         """
         Store a normalized classifier result dict so other agents can reuse it.
+        This now also sets task_classification and cognitive_classification.
         """
         exec_state = self.execution_state or {}
         if not isinstance(exec_state, dict):
             exec_state = {}
+
+        # Store the classifier result
         exec_state["classifier_result"] = result or {}
+
+        # Extract and store task_classification and cognitive_classification
+        task_classification = result.get("task_classification", {})
+        cognitive_classification = result.get("cognitive_classification", {})
+
+        # Store them in the execution state and update the context
+        self.set_task_classification(task_classification)
+        self.set_cognitive_classification(cognitive_classification)
+
         self.execution_state = exec_state
 
     def get_classifier_result(self) -> Dict[str, Any]:
@@ -630,7 +709,19 @@ class AgentContext(BaseModel):
             f"Context size after adding {agent}: {self.current_size} bytes"
         )
 
+        # 🔹 Optionally keep a simple mirror in execution_metadata.agent_outputs
+        try:
+            meta_outputs = self._ensure_agent_outputs_metadata()
+            # Only set a simple mirror if no richer envelope exists:
+            meta_outputs.setdefault(agent, {"content": output})
+        except Exception as e:
+            logger.warning(
+                "[AgentContext] failed to update execution_metadata.agent_outputs",
+                extra={"agent": agent, "error": str(e)},
+            )
+
         self.agent_outputs[agent] = output
+
 
     def add_agent_token_usage(
         self,

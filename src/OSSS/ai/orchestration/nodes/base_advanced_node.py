@@ -18,36 +18,47 @@ class NodeExecutionContext(BaseModel):
     """
     Execution context for advanced nodes.
 
-    Migrated from dataclass to Pydantic BaseModel for enhanced validation,
-    serialization, and integration with the OSSS Pydantic ecosystem.
-
-    This context carries all necessary information for node execution including
-    correlation tracking, workflow identification, cognitive classification,
-    and resource usage metrics.
+    Relaxed to align with LangGraph/AgentContext:
+    - Accepts `query` and `execution_state`
+    - Allows extra keys (extra="allow")
+    - task_classification / cognitive_classification are optional
+      and validated at node level.
     """
 
-    # Required fields
-    correlation_id: str = Field(
-        ...,
+    # Core identifiers (can be filled by router; validated later)
+    correlation_id: Optional[str] = Field(
+        default=None,
         description="Unique identifier for request correlation",
         min_length=1,
         max_length=100,
         json_schema_extra={"example": "req-123e4567-e89b-12d3-a456-426614174000"},
     )
-    workflow_id: str = Field(
-        ...,
+    workflow_id: Optional[str] = Field(
+        default=None,
         description="Unique identifier for the workflow",
         min_length=1,
         max_length=100,
         json_schema_extra={"example": "wf-123e4567-e89b-12d3-a456-426614174000"},
     )
-    cognitive_classification: Dict[str, str] = Field(
-        ...,
-        description="Multi-axis cognitive classification metadata",
-        json_schema_extra={"example": {"speed": "fast", "depth": "shallow"}},
+
+    # NEW: raw query + orchestration state (matches your logs)
+    query: Optional[str] = Field(
+        default=None,
+        description="Original user query text, if available",
     )
-    task_classification: TaskClassification = Field(
-        ...,
+    execution_state: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Shared execution state passed along the graph",
+    )
+
+    # Classification info – optional here, enforced in validate_context
+    cognitive_classification: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Multi-axis cognitive classification metadata",
+        json_schema_extra={"example": {"domain": "data_systems", "topic": "website content"}},
+    )
+    task_classification: Optional[TaskClassification] = Field(
+        default=None,
         description="Task classification for execution",
     )
 
@@ -90,7 +101,7 @@ class NodeExecutionContext(BaseModel):
     )
 
     model_config = ConfigDict(
-        extra="forbid",
+        extra="allow",                 # <-- important: accept query, execution_state, etc.
         validate_assignment=True,
         arbitrary_types_allowed=True,  # For TaskClassification and datetime objects
     )
@@ -98,14 +109,18 @@ class NodeExecutionContext(BaseModel):
     @model_validator(mode="after")
     def initialize_defaults_and_validate(self) -> "NodeExecutionContext":
         """Initialize default values and validate context."""
-        # Handle None resource_usage and initialize defaults
         if self.resource_usage is None:
             self.resource_usage = {}
 
-        # Initialize default resource tracking (avoid recursion by using dict operations)
-        # At this point, resource_usage is guaranteed to be a dict, not None
         if self.resource_usage is not None and "start_time" not in self.resource_usage:
             self.resource_usage.update({"start_time": datetime.now(timezone.utc)})
+
+        # Optionally: if classification only exists in execution_state, surface it:
+        exec_state = self.execution_state or {}
+        if self.task_classification is None and "task_classification" in exec_state:
+            self.task_classification = exec_state["task_classification"]  # type: ignore[assignment]
+        if self.cognitive_classification is None and "cognitive_classification" in exec_state:
+            self.cognitive_classification = exec_state["cognitive_classification"]  # type: ignore[assignment]
 
         return self
 
@@ -275,33 +290,43 @@ class BaseAdvancedNode(ABC):
 
     def validate_context(self, context: NodeExecutionContext) -> List[str]:
         """
-        Validate the execution context for common requirements.
+        Validate that required context elements are present.
 
-        Parameters
-        ----------
-        context : NodeExecutionContext
-            The execution context to validate
-
-        Returns
-        -------
-        List[str]
-            List of validation errors (empty if valid)
+        This version SAFELY falls back to execution_state if the
+        root-level fields are not populated yet, allowing the
+        DecisionNode to operate even when classification is stored
+        only in execution_state.
         """
         errors = []
 
-        if not context.correlation_id:
-            errors.append("Missing correlation_id in context")
+        exec_state = getattr(context, "execution_state", {}) or {}
 
-        if not context.workflow_id:
-            errors.append("Missing workflow_id in context")
+        # ---- FALLBACK HYDRATION (Option B) ----
+        task = context.task_classification or context.execution_state.get("task_classification")
+        cognitive = context.cognitive_classification or context.execution_state.get("cognitive_classification")
 
-        if not context.task_classification:
-            errors.append("Missing task_classification in context")
+        # ---- VALIDATION ----
+        if not task:
+            errors.append(
+                "Missing task_classification in context "
+                "(neither root nor execution_state.task_classification set)"
+            )
 
-        if not context.cognitive_classification:
-            errors.append("Missing cognitive_classification in context")
+        if not cognitive:
+            errors.append(
+                "Missing cognitive_classification in context "
+                "(neither root nor execution_state.cognitive_classification set)"
+            )
+
+
+        # ---- OPTIONAL STATE HYDRATION ----
+        if task and not getattr(context, "task_classification", None):
+            context.task_classification = task
+        if cognitive and not getattr(context, "cognitive_classification", None):
+            context.cognitive_classification = cognitive
 
         return errors
+
 
     async def pre_execute(self, context: NodeExecutionContext) -> None:
         """

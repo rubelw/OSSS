@@ -19,6 +19,20 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
+def store_classifier_into_context(context: AgentContext, parsed: dict):
+    exec_state = context.execution_state
+
+    # canonical
+    exec_state["classifier"] = parsed
+    exec_state["task_classification"] = parsed.get("task")
+    exec_state["cognitive_classification"] = parsed.get("cognitive")
+
+    # convenience roots
+    context.classifier = parsed
+    context.task_classification = parsed.get("task")
+    context.cognitive_classification = parsed.get("cognitive")
+
+
 def _safe_list(value) -> list:
     """
     Convert value to a plain Python list without triggering numpy truthiness.
@@ -54,6 +68,8 @@ class ClassifierResult:
 
     # NEW: all topics above threshold, ordered by confidence (desc)
     topics: Optional[List[str]] = None
+
+
 
     def to_dict(self) -> Dict[str, Any]:
         """
@@ -471,6 +487,25 @@ class SklearnIntentClassifierAgent(BaseAgent):
                         "query_hash12": q_hash,
                     },
                 )
+                # Ensure task_classification and cognitive_classification are set
+                task_classification = {
+                    "intent": res.intent,
+                    "confidence": res.confidence,
+                    "sub_intent": None,
+                    "sub_intent_confidence": None,
+                    "model_version": self.model_version,
+                }
+                cognitive_classification = {
+                    "domain": res.domain,
+                    "domain_confidence": res.domain_confidence,
+                    "topic": res.topic,
+                    "topic_confidence": res.topic_confidence,
+                    "topics": res.topics,
+                }
+                # Attach classifications to context or result as needed
+                res.task_classification = task_classification
+                res.cognitive_classification = cognitive_classification
+
                 return res
             except Exception as e:
                 # If bundle path somehow fails, log & fall through to legacy if possible.
@@ -646,19 +681,18 @@ class SklearnIntentClassifierAgent(BaseAgent):
             raise
 
     async def run(
-        self,
-        query: str,
-        config: Dict[str, Any],
-        context: "AgentContext | None" = None,  # NEW: optional context injection
+            self,
+            query: str,
+            config: Dict[str, Any],
+            context: "AgentContext | None" = None,
     ) -> Dict[str, Any]:
         """
         Orchestrator-friendly async entrypoint.
         Returns JSON-serializable dict.
 
         If an AgentContext is provided, this method will also:
-        - store the classifier result via context.set_classifier_result(...)
-        - store the original user question via context.set_user_question(...)
-        - add the classifier output to context.add_agent_output(...)
+        - normalize + store classifier results via store_classifier_into_context()
+        - persist user question + agent output
         """
         t0 = time.perf_counter()
 
@@ -685,25 +719,16 @@ class SklearnIntentClassifierAgent(BaseAgent):
             },
         )
 
+        # ===============================================================
+        # 🧠 Existing model inference
+        # ===============================================================
         res = self.classify(query)
 
         # ---- ROUTING METADATA ----
-        # preserve original user input exactly (for routing etc.)
-        original_text = (query or "")[:500]  # prevent log explosions
-
-        # normalized for routing: lowercase + strip markup artifacts
-        normalized = (
-            original_text.lower()
-            .replace("**", "")
-            .replace("*", "")
-            .replace("#", "")
-            .strip()
-        )
-
-        # lightweight tokenization (spaces only)
+        original_text = (query or "")[:500]
+        normalized = original_text.lower().replace("**", "").replace("*", "").replace("#", "").strip()
         query_terms = [t for t in normalized.split() if t]
 
-        # attach routing metadata to the classifier result
         setattr(res, "_original_text", original_text)
         setattr(res, "_normalized_text", normalized)
         setattr(res, "_query_terms", query_terms)
@@ -719,46 +744,90 @@ class SklearnIntentClassifierAgent(BaseAgent):
 
         out = res.to_dict()
 
-        # -------------------------
-        # NEW: persist into context
-        # -------------------------
+        # ===============================================================
+        # 🔎 Task + cognitive classifications
+        # ===============================================================
+        task_classification = {
+            "intent": res.intent,
+            "confidence": res.confidence,
+            "sub_intent": res.sub_intent,
+            "sub_intent_confidence": res.sub_intent_confidence,
+            "model_version": res.model_version,
+        }
+        cognitive_classification = {
+            "domain": res.domain,
+            "domain_confidence": res.domain_confidence,
+            "topic": res.topic,
+            "topic_confidence": res.topic_confidence,
+            "topics": res.topics,
+        }
+
+        logger.debug(
+            "[classifier:run] preparing context data",
+            extra={
+                "task_classification": task_classification,
+                "cognitive_classification": cognitive_classification,
+            },
+        )
+
+        # ===============================================================
+        #  🌐 NEW — unify classifier metadata storage for downstream agents
+        # ===============================================================
         if context is not None:
             try:
-                # Save who the classifier thinks this is (intent/domain/topic)
-                context.set_classifier_result(out)
+                # Canonical parsed bundle for downstream agents
+                parsed = {
+                    "task": task_classification,
+                    "cognitive": cognitive_classification,
+                    "bundle": out,
+                }
+
+                # Use the local helper defined at top of this file
+                store_classifier_into_context(context, parsed)
+
+                # Backwards-compat for any code using explicit setters
+                if hasattr(context, "set_task_classification"):
+                    context.set_task_classification(task_classification)
+                if hasattr(context, "set_cognitive_classification"):
+                    context.set_cognitive_classification(cognitive_classification)
+                if hasattr(context, "set_classifier_result"):
+                    context.set_classifier_result(out)
+
+                # Keep user question around for downstream agents (refiner, data_query, etc.)
+                if hasattr(context, "set_user_question"):
+                    context.set_user_question(query)
+
+                # Optional: store a lightweight envelope instead of dumping raw dict as content
+                if hasattr(context, "add_agent_output_envelope"):
+                    context.add_agent_output_envelope(
+                        agent=self.name,
+                        intent="classify",
+                        tone="informative",
+                        action="read",
+                        content={
+                            "intent": out.get("intent"),
+                            "confidence": out.get("confidence"),
+                            "domain": out.get("domain"),
+                            "topic": out.get("topic"),
+                        },
+                    )
+                else:
+                    # Fallback if envelopes aren't available: store a small summary string
+                    if hasattr(context, "add_agent_output"):
+                        context.add_agent_output(
+                            self.name,
+                            f"intent={out.get('intent')} (confidence={out.get('confidence')})",
+                        )
+
             except Exception as e:
                 logger.warning(
-                    "[classifier:run] failed to set classifier_result on context",
-                    extra={
-                        "error_type": type(e).__name__,
-                        "error": str(e),
-                    },
+                    "[classifier:run] failed to normalize or store classifier output",
+                    extra={"error_type": type(e).__name__, "error": str(e)},
                 )
 
-            try:
-                # Save original user question so downstream agents can access it
-                context.set_user_question(query)
-            except Exception as e:
-                logger.warning(
-                    "[classifier:run] failed to set user_question on context",
-                    extra={
-                        "error_type": type(e).__name__,
-                        "error": str(e),
-                    },
-                )
-
-            try:
-                # Optional: also register this as an agent output for traceability
-                context.add_agent_output(self.name, out)
-            except Exception as e:
-                logger.warning(
-                    "[classifier:run] failed to add classifier output to context",
-                    extra={
-                        "error_type": type(e).__name__,
-                        "error": str(e),
-                    },
-                )
-
+        # ===============================================================
+        # 🚀 Return behavior preserved
+        # ===============================================================
         dt_ms = (time.perf_counter() - t0) * 1000.0
         logger.info(
             "[classifier:run] done",
@@ -779,4 +848,7 @@ class SklearnIntentClassifierAgent(BaseAgent):
             },
         )
 
+        ### NEW - do NOT return context; orchestrator still expects dict here
+        ### AgentContext will be returned from run_with_retry()
         return out
+
