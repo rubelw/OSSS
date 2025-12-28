@@ -1081,6 +1081,184 @@ handler, and the debug JSON will include mode="<your_mode>" and the raw
 rows/csv.
 
 ---
+
+# OSSS Query Execution Flow — `query consents` Walkthrough
+
+This document provides a complete execution breakdown for the OSSS orchestration pipeline when processing the input:
+
+> **User input:** `query consents`  
+> **Workflow ID:** `03878494-c75e-4091-b486-2c36de1b5cb7`  
+> **Correlation ID:** `720a15cb-115c-4f9f-9c60-1140b12277fb`  
+> **Thread ID:** `osss_20251228_032800_502ad6f1`  
+
+---
+
+## 0. Background Noise: Health Checks
+
+Health checks (`GET /healthz`) are logged repeatedly by `uvicorn.access`.  
+These are liveness probes and **not part of the actual query workflow**.
+
+---
+
+## 1. API Ingress & Thread Setup
+
+1. User sends `POST /api/query` with:
+   - parallel execution
+   - RAG enabled
+   - markdown export requested
+   - top_k = 6
+   - timeout = 180s
+
+2. The system generates/assigns:
+   - **thread ID** `osss_20251228_032800_502ad6f1`
+   - correlation ID forwarded from request headers
+
+3. `LangGraphOrchestrationAPI` instance is retrieved and used for workflow execution.
+
+---
+
+## 2. ClassifierAgent Execution
+
+Classifier is invoked **before orchestration begins**:
+
+| Field | Value |
+|--------|-------|
+| intent | `action` (0.946) |
+| domain | `data_systems` (0.924) |
+| primary_topic | `consents` (confidence low) |
+
+Classifier results are persisted into the shared `execution_state`.
+
+---
+
+## 3. Orchestrator Initialization
+
+`LangGraphOrchestrator`:
+
+- Logs workflow start
+- Loads existing execution state
+- Sets up correlation span
+- Begins pattern/agent resolution
+
+---
+
+## 4. DBQueryRouter Selection
+
+The router evaluates multiple heuristics and returns `route_to_data_query = true`:
+
+| Signal | Evaluation |
+|--------|------------|
+| Text prefix matches `query` | ✔️ |
+| `consents` table detected | ✔️ |
+| Action hint present | ✔️ |
+| Pattern lock requested | ✔️ |
+
+Result:
+```
+route: data_query
+route_reason: db_query_heuristic
+force_data_query: true
+```
+
+---
+
+## 5. DecisionNode Failure (Validation Issue)
+
+The Pydantic validation in `NodeExecutionContext` fails due to structural mismatches:
+
+- missing expected field `task_type`
+- additional unexpected fields such as `intent_confidence`, `model_version`
+
+The orchestrator **falls back to existing agents**, bypassing dynamic pattern selection.
+
+---
+
+## 6. RAG Prefetch
+
+Even though `rag_mode = soft_disable`, RAG still:
+
+1. Embeds `"query consents"` using `nomic-embed-text`
+2. Performs vector search in `index: main`
+3. Stores 6 retrieved chunks (~5KB context) in execution state
+
+---
+
+## 7. Graph Construction
+
+`GraphFactory` normalizes agents and pattern based on router output:
+
+1. Initial agents normalize → `["refiner","data_query"]`
+2. Standard pattern fallback → `["refiner","final"]`
+3. Planning bridge re-routes to data_query
+4. Final effective agents → `["refiner","data_query"]`
+
+A cached compiled graph is used.
+
+Execution order:
+```
+(refiner) → (data_query) → END
+```
+
+---
+
+## 8. `refiner` Node
+
+- Uses `llama3.1:latest`
+- Output remains unchanged: `"query consents"`
+- Execution time: ~1.3s
+- Refiner confirms no need to modify the structured query form
+
+---
+
+## 9. `data_query` Node
+
+### Route Parsing
+``
+collection: consents
+path: /api/consents
+method: GET
+params: skip=0, limit=100
+``
+
+### Query Execution
+- Backend call: `GET http://localhost:8000/api/consents`
+- Response: 5 rows
+- Enrichment: person name + compact column pruning
+
+### Final Columns
+| consent_type | granted | effective_date | expires_on | created_at | updated_at | id | person_name |
+
+### Context Updates
+- Stores table in `execution_state`
+- Stores markdown rendering
+- Keys under: `data_query:consents`
+
+---
+
+## 10. Post-Execution Activities
+
+### Markdown Export
+- Performed by `markdown_export_service`
+- Includes topic analysis via `llama3.1`
+- Exported file:
+  ```
+  2025-12-28T03-28-09_query-consents_70b442.md
+  ```
+
+### Persistence
+- Both workflow and markdown persistence **skipped** due to DB session disabled
+
+---
+
+## 11. Workflow Completion
+
+Two log lines confirm workflow-level completion:
+```
+workflow.completed | 03878494 | ~1.5s
+workflow.completed | 03878494 | ~1.5s
+```
+
+---
 ## 📜 License
 
 This project is licensed under the [Apache License 2.0](./LICENSE).
