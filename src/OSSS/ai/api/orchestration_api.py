@@ -18,15 +18,20 @@ Design goals of this module:
 # ---------------------------------------------------------------------------
 # Standard library imports
 # ---------------------------------------------------------------------------
-
 import uuid                 # Unique workflow IDs (UUID4)
 import asyncio              # Async primitives (sleep, cancellation patterns)
 import time                 # Wall-clock timing for execution durations
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Tuple
 from datetime import datetime, timezone  # UTC timestamps for telemetry/metadata
-import json
+from collections.abc import Mapping, Sequence
+
 import os
-from copy import deepcopy
+
+# ---------------------------------------------------------------------------
+# OSSS core context / orchestration
+# ---------------------------------------------------------------------------
+
+from OSSS.ai.context import AgentContext
 
 # ---------------------------------------------------------------------------
 # OSSS services / config
@@ -66,82 +71,19 @@ from OSSS.ai.events import emit_workflow_started, emit_workflow_completed
 from OSSS.ai.database.connection import get_session_factory
 from OSSS.ai.database.session_factory import DatabaseSessionFactory
 
+from OSSS.ai.orchestration.models_internal import (
+    AgentOutputEnvelope,
+    RoutingMeta,
+    WorkflowResult,
+)
+
 # Module-level logger (structured)
 logger = get_logger(__name__)
 
-def _pick_final_answer(
-    agent_outputs: Dict[str, Any],
-) -> tuple[str, Optional[str]]:
-    """
-    Decide which agent's output should be used as the top-level answer.
 
-    Priority:
-      1) Any data_query* channel (e.g. "data_query", "data_query:consents")
-      2) "final"
-      3) "output"
-      4) "refiner"
-      5) First available key
-
-    For dict-shaped outputs (like data_query canonical_output), we prefer:
-      content -> markdown -> table_markdown -> str(dict)
-    """
-
-    def _extract_text(val: Any) -> str:
-        if isinstance(val, str):
-            return val
-        if isinstance(val, dict):
-            text = (
-                val.get("content")
-                or val.get("markdown")
-                or val.get("table_markdown")
-                or val.get("table_markdown_compact")
-                or val.get("table_markdown_full")
-            )
-            if isinstance(text, str):
-                return text
-        try:
-            return json.dumps(val, ensure_ascii=False, indent=2)
-        except Exception:
-            return str(val)
-
-    if not isinstance(agent_outputs, dict) or not agent_outputs:
-        return "", None
-
-    # 1) Prefer any data_query* key (includes "data_query:consents", etc.)
-    for key, val in agent_outputs.items():
-        k = str(key).strip().lower()
-        if not k.startswith("data_query"):
-            continue
-        text = _extract_text(val).strip()
-        if text:
-            return text, key
-
-    # 2) final
-    if "final" in agent_outputs:
-        text = _extract_text(agent_outputs["final"]).strip()
-        if text:
-            return text, "final"
-
-    # 3) output
-    if "output" in agent_outputs:
-        text = _extract_text(agent_outputs["output"]).strip()
-        if text:
-            return text, "output"
-
-    # 4) refiner
-    if "refiner" in agent_outputs:
-        text = _extract_text(agent_outputs["refiner"]).strip()
-        if text:
-            return text, "refiner"
-
-    # 5) Last resort: first key
-    for key, val in agent_outputs.items():
-        text = _extract_text(val).strip()
-        if text:
-            return text, key
-
-    return "", None
-
+# ---------------------------------------------------------------------------
+# Helper utilities
+# ---------------------------------------------------------------------------
 
 def _norm_agents(seq: Any) -> list[str]:
     """Normalize agent names to lowercase strings, drop empties."""
@@ -157,62 +99,100 @@ def _norm_agents(seq: Any) -> list[str]:
     return out
 
 
-def _executed_agents_from_context(ctx: Any) -> list[str]:
+def _executed_agents_from_context(
+    ctx: AgentContext | Any,
+    exec_state: Optional[Dict[str, Any]] = None,
+) -> List[str]:
     """
-    Derive executed agents from context's execution status bookkeeping.
+    Best-effort list of agents that produced outputs in this workflow.
 
-    We prefer 'completed' agents (i.e., actually ran) over 'planned' agents.
+    Priority:
+      1) exec_state["successful_agents"] if present (node_wrappers fastpath)
+      2) ctx.successful_agents if present on AgentContext
+      3) ctx.agent_outputs keys
+      4) ctx.output_envelopes logical_name / agent_name
 
-    Expected shapes supported (best-effort):
-      - ctx.agent_execution_status: {agent_name: {"completed_at": ..., ...}, ...}
-      - ctx.execution_status: same shape
-      - ctx.execution_state["agent_execution_status"]: same shape
-      - fallback: ctx.agent_outputs keys (less reliable)
+    NOTE: For (1) and (2) we normalize to lowercase/strip to match
+    node_wrappers._merge_successful_agents semantics; for (3) and (4)
+    we preserve keys as-is, since they may be full names like
+    "data_query:wizard:consents".
     """
-    # 1) Direct attributes
-    for attr in ("agent_execution_status", "execution_status"):
-        status = getattr(ctx, attr, None)
-        if isinstance(status, dict):
-            executed: list[str] = []
-            seen = set()
-            for name, st in status.items():
-                if not name:
-                    continue
-                if isinstance(st, dict) and st.get("completed_at") is not None:
-                    n = str(name).strip().lower()
-                    if n and n not in seen:
-                        executed.append(n)
-                        seen.add(n)
-            if executed:
-                return executed
+    agents: list[str] = []
 
-    # 2) From execution_state if present
-    exec_state = getattr(ctx, "execution_state", None)
-    if isinstance(exec_state, dict):
-        status = exec_state.get("agent_execution_status")
-        if isinstance(status, dict):
-            executed: list[str] = []
-            seen = set()
-            for name, st in status.items():
-                if isinstance(st, dict) and st.get("completed_at") is not None:
-                    n = str(name).strip().lower()
-                    if n and n not in seen:
-                        executed.append(n)
-                        seen.add(n)
-            if executed:
-                return executed
+    def _add(name: Any, *, lower: bool = False) -> None:
+        if name is None:
+            return
+        s = str(name).strip()
+        if not s:
+            return
+        if lower:
+            s = s.lower()
+        if s not in agents:
+            agents.append(s)
 
-    # 3) Fallback: agent_outputs keys
-    ao = getattr(ctx, "agent_outputs", None)
-    if isinstance(ao, dict) and ao:
-        return [str(k).strip().lower() for k in ao.keys() if k]
+    # 1) From execution_state.successful_agents (may be list/set/tuple)
+    if isinstance(exec_state, Mapping):
+        succ = exec_state.get("successful_agents")
+        if isinstance(succ, (list, set, tuple)):
+            for a in succ:
+                _add(a, lower=True)
 
-    return []
+    # 2) From AgentContext.successful_agents
+    if hasattr(ctx, "successful_agents"):
+        try:
+            succ_ctx = getattr(ctx, "successful_agents")
+        except Exception:
+            succ_ctx = None
+        if isinstance(succ_ctx, (list, set, tuple)):
+            for a in succ_ctx:
+                _add(a, lower=True)
+
+    # 3) From direct agent_outputs mapping
+    direct_outputs: Optional[Mapping[str, Any]] = None
+
+    if isinstance(ctx, Mapping):
+        direct_outputs = ctx.get("agent_outputs")  # type: ignore[index]
+
+    if direct_outputs is None and hasattr(ctx, "agent_outputs"):
+        direct_outputs = getattr(ctx, "agent_outputs")
+
+    if isinstance(direct_outputs, Mapping):
+        for agent in direct_outputs.keys():
+            _add(agent, lower=False)
+
+    # 4) From canonical envelopes (new AgentContext API)
+    if hasattr(ctx, "output_envelopes"):
+        try:
+            envs = getattr(ctx, "output_envelopes") or []
+        except Exception:
+            envs = []
+
+        for env in envs:
+            if isinstance(env, Mapping):
+                logical = env.get("logical_name")
+                agent = env.get("agent_name") or env.get("agent")
+            else:
+                logical = getattr(env, "logical_name", None)
+                agent = getattr(env, "agent_name", None) or getattr(env, "agent", None)
+
+            for name in (logical, agent):
+                _add(name, lower=False)
+
+    return agents
 
 
 def _db_persist_enabled() -> bool:
-    return os.getenv("OSSS_AI_DB_PERSIST_ENABLED", "true").lower() in ("1", "true", "yes", "on")
+    return os.getenv("OSSS_AI_DB_PERSIST_ENABLED", "true").lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
 
+
+# ---------------------------------------------------------------------------
+# Main Orchestration API implementation
+# ---------------------------------------------------------------------------
 
 class LangGraphOrchestrationAPI(OrchestrationAPI):
     """
@@ -591,6 +571,344 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
             markdown_export=None,
         )
 
+    # -----------------------------------------------------------------------
+    # Agent outputs helpers (using new AgentContext)
+    # -----------------------------------------------------------------------
+
+    def _build_envelopes_from_context(self, ctx: AgentContext | Any) -> list[AgentOutputEnvelope]:
+        """
+        Build a normalized list[AgentOutputEnvelope] from the AgentContext.
+
+        Priority:
+        1) ctx.output_envelopes (canonical public property on AgentContext)
+        2) ctx.agent_output_envelopes / ctx._agent_output_envelopes
+        3) Fallback: synthesize envelopes from ctx.agent_outputs if needed
+        """
+        envelopes: list[AgentOutputEnvelope] = []
+
+        raw_candidates: list[Any] = []
+
+        # 1) Canonical property
+        if hasattr(ctx, "output_envelopes"):
+            try:
+                val = getattr(ctx, "output_envelopes")
+                if isinstance(val, Sequence) and not isinstance(val, (str, bytes)):
+                    raw_candidates = list(val)
+            except Exception:
+                raw_candidates = []
+
+        # 2) Internal attributes, if canonical is empty
+        if not raw_candidates:
+            for attr in ("agent_output_envelopes", "_agent_output_envelopes"):
+                if not hasattr(ctx, attr):
+                    continue
+                try:
+                    val = getattr(ctx, attr)
+                except Exception:
+                    continue
+                if isinstance(val, Sequence) and not isinstance(val, (str, bytes)):
+                    raw_candidates = list(val)
+                    break
+
+        # 3) Normalize any envelope-like objects/dicts we found
+        for e in raw_candidates:
+            if isinstance(e, Mapping):
+                agent_name = (
+                    e.get("agent_name")
+                    or e.get("agent")
+                    or e.get("agent_id")
+                )
+                logical_name = e.get("logical_name")
+                content = e.get("content") or e.get("output")
+                role = e.get("role")
+                meta = e.get("meta") or {}
+            else:
+                agent_name = getattr(e, "agent_name", None) or getattr(e, "agent", None)
+                logical_name = getattr(e, "logical_name", None)
+                content = getattr(e, "content", None) or getattr(e, "output", None)
+                role = getattr(e, "role", None)
+                meta = getattr(e, "meta", None) or {}
+
+            if not agent_name:
+                continue
+
+            if not logical_name:
+                logical_name = str(agent_name).split(":", 1)[0]
+
+            envelopes.append(
+                AgentOutputEnvelope(
+                    agent_name=str(agent_name),
+                    logical_name=str(logical_name),
+                    role=role,
+                    content=content,
+                    meta=dict(meta),
+                )
+            )
+
+        # 4) Fallback: synthesize from ctx.agent_outputs if we still have none
+        if not envelopes:
+            direct_outputs: Optional[Mapping[str, Any]] = None
+
+            if isinstance(ctx, Mapping):
+                direct_outputs = ctx.get("agent_outputs")  # type: ignore[index]
+            if direct_outputs is None and hasattr(ctx, "agent_outputs"):
+                direct_outputs = getattr(ctx, "agent_outputs")
+
+            if isinstance(direct_outputs, Mapping):
+                for agent_name, content in direct_outputs.items():
+                    if agent_name is None:
+                        continue
+                    agent_name_str = str(agent_name)
+                    logical_name = agent_name_str.split(":", 1)[0]
+                    envelopes.append(
+                        AgentOutputEnvelope(
+                            agent_name=agent_name_str,
+                            logical_name=logical_name,
+                            content=content,
+                            meta={},
+                        )
+                    )
+
+        return envelopes
+
+    def _build_agent_outputs_payload(
+            self,
+            ctx: AgentContext | Any,
+    ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+        """
+        Build agent_outputs (simple agent -> content map) and agent_output_meta
+        (full envelope per logical agent) from AgentContext.
+
+        With the new AgentContext:
+        - ctx.agent_outputs is already a canonical "last content" map keyed by
+          logical name (and sometimes full name).
+        - ctx.output_envelopes is the canonical ordered list of envelopes,
+          each with:
+            - agent_name (full name, e.g. 'data_query:wizard:consents')
+            - logical_name (e.g. 'data_query')
+            - content
+            - meta (intent, wizard state, etc.)
+        - ctx.execution_state['agent_output_meta'] may contain previous
+          envelope-like dicts; we merge those as a base.
+
+        Additionally, for data_query workflows, some agents (especially
+        DataQueryAgent) currently store their output only in
+        execution_state["data_query_result"] and/or
+        execution_state["structured_outputs"]. This helper now normalizes those
+        into agent_outputs/agent_output_meta as well.
+        """
+        agent_outputs: Dict[str, Any] = {}
+        agent_output_meta: Dict[str, Any] = {}
+
+        # ------------------------------------------------------------------
+        # 1) Baseline from ctx.agent_outputs
+        # ------------------------------------------------------------------
+        direct_outputs: Optional[Mapping[str, Any]] = None
+
+        if isinstance(ctx, Mapping):
+            direct_outputs = ctx.get("agent_outputs")  # type: ignore[index]
+
+        if direct_outputs is None and hasattr(ctx, "agent_outputs"):
+            direct_outputs = getattr(ctx, "agent_outputs")
+
+        if isinstance(direct_outputs, Mapping):
+            for agent_name, content in direct_outputs.items():
+                if content is None:
+                    continue
+                name = str(agent_name)
+                agent_outputs[name] = content
+                # minimal meta; will be enriched below
+                agent_output_meta.setdefault(name, {"agent": name, "content": content})
+
+        # ------------------------------------------------------------------
+        # 2) Seed meta from execution_state.agent_output_meta (if present)
+        # ------------------------------------------------------------------
+        exec_state = getattr(ctx, "execution_state", {}) or {}
+        if isinstance(exec_state, Mapping):
+            raw_meta = exec_state.get("agent_output_meta") or {}
+            if isinstance(raw_meta, Mapping):
+                for logical_name, env in raw_meta.items():
+                    if not logical_name:
+                        continue
+                    lname = str(logical_name)
+                    if isinstance(env, Mapping):
+                        meta = dict(env)
+                    else:
+                        meta = {"agent": lname, "content": env}
+                    agent_output_meta.setdefault(lname, meta)
+                    # If meta contains a more precise content, prefer it
+                    content = meta.get("content")
+                    if content is not None:
+                        agent_outputs[lname] = content
+
+            # ------------------------------------------------------------------
+            # 2b) NEW: bridge data_query-specific fields into agent_outputs
+            # ------------------------------------------------------------------
+
+            # (a) Single result: execution_state["data_query_result"]
+            dq_result = exec_state.get("data_query_result")
+            if dq_result is not None and "data_query" not in agent_outputs:
+                logical_name = "data_query"
+                agent_outputs[logical_name] = dq_result
+
+                existing_meta = agent_output_meta.get(logical_name, {})
+                if not isinstance(existing_meta, dict):
+                    existing_meta = {}
+
+                new_meta = dict(existing_meta)
+                new_meta.setdefault("agent", logical_name)
+                new_meta.setdefault("logical_name", logical_name)
+                new_meta.setdefault("content", dq_result)
+                new_meta.setdefault("source", "execution_state.data_query_result")
+
+                agent_output_meta[logical_name] = new_meta
+
+            # (b) Structured outputs: execution_state["structured_outputs"]
+            structured_outputs = exec_state.get("structured_outputs")
+            if isinstance(structured_outputs, Mapping):
+                for logical_name, content in structured_outputs.items():
+                    if content is None:
+                        continue
+                    lname = str(logical_name)
+
+                    # Avoid clobbering more specific content already present
+                    if lname not in agent_outputs:
+                        agent_outputs[lname] = content
+
+                    existing_meta = agent_output_meta.get(lname, {})
+                    if not isinstance(existing_meta, dict):
+                        existing_meta = {}
+
+                    new_meta = dict(existing_meta)
+                    new_meta.setdefault("agent", lname)
+                    new_meta.setdefault("logical_name", lname)
+                    new_meta.setdefault("content", content)
+                    new_meta.setdefault("source", "execution_state.structured_outputs")
+
+                    agent_output_meta[lname] = new_meta
+
+        # ------------------------------------------------------------------
+        # 3) Overlay canonical envelopes from ctx.output_envelopes
+        # ------------------------------------------------------------------
+        envelopes: list[Any] = []
+        if hasattr(ctx, "output_envelopes"):
+            try:
+                raw_envs = getattr(ctx, "output_envelopes") or []
+                # raw_envs is a list[dict] from AgentOutputEnvelope.as_public_dict()
+                if isinstance(raw_envs, Sequence) and not isinstance(raw_envs, (str, bytes)):
+                    envelopes = list(raw_envs)
+            except Exception:
+                envelopes = []
+
+        for env in envelopes:
+            # dict-like (preferred)
+            if isinstance(env, Mapping):
+                logical = env.get("logical_name")
+                full_agent = env.get("agent_name") or env.get("agent")
+                content = env.get("content")
+                meta = env.get("meta") or {}
+            else:
+                # object-like (defensive)
+                logical = getattr(env, "logical_name", None)
+                full_agent = getattr(env, "agent_name", None) or getattr(env, "agent", None)
+                content = getattr(env, "content", None)
+                meta = getattr(env, "meta", None) or {}
+
+            if not logical and full_agent:
+                logical = str(full_agent).split(":", 1)[0]
+
+            if not logical:
+                continue
+
+            logical_name = str(logical)
+
+            # Update agent_outputs with canonical content
+            if content is not None:
+                agent_outputs[logical_name] = content
+
+            # Merge/overlay meta
+            existing_meta = agent_output_meta.get(logical_name, {})
+            if not isinstance(existing_meta, dict):
+                existing_meta = {}
+
+            new_meta = dict(existing_meta)
+            if isinstance(meta, Mapping):
+                new_meta.update(meta)
+
+            new_meta.setdefault("agent", full_agent or logical_name)
+            new_meta.setdefault("logical_name", logical_name)
+            new_meta.setdefault("content", content)
+
+            agent_output_meta[logical_name] = new_meta
+
+        logger.debug(
+            "[orchestration_api] agent_outputs payload built",
+            extra={
+                "event": "agent_outputs_payload_built",
+                "keys": list(agent_outputs.keys()),
+                "has_data_query": "data_query" in agent_outputs,
+                "has_structured_outputs": isinstance(
+                    getattr(ctx, "execution_state", {}) or {}, Mapping
+                )
+                                          and bool(
+                    (getattr(ctx, "execution_state", {}) or {}).get(
+                        "structured_outputs"
+                    )
+                ),
+            },
+        )
+
+        return agent_outputs, agent_output_meta
+
+    def _select_final_answer(
+        self,
+        agent_outputs: Dict[str, Any],
+        graph_pattern: str | None = None,
+        agent_output_meta: Optional[Dict[str, Any]] = None,
+        routing_meta: Optional[Dict[str, Any]] = None,
+    ) -> Tuple[Any, Optional[str]]:
+        """
+        Decide which agent's output becomes the top-level `answer`.
+
+        Returns:
+            (final_answer, final_answer_agent_name)
+        """
+        graph_pattern = (graph_pattern or "").strip().lower()
+
+        # 1) Special handling for data_query workflows (Option A)
+        if graph_pattern == "data_query":
+            # Prefer collapsed 'data_query' key if present
+            if "data_query" in agent_outputs:
+                return agent_outputs["data_query"], "data_query"
+
+            # Otherwise, prefer wizard-style keys like 'data_query:wizard:...'
+            for agent_name, content in agent_outputs.items():
+                if isinstance(agent_name, str) and agent_name.startswith("data_query:"):
+                    return content, agent_name
+
+        # 2) Generic preferences for any pattern
+        if "final" in agent_outputs:
+            return agent_outputs["final"], "final"
+
+        # In older/custom graphs with a synthesis node acting as final
+        if "synthesis" in agent_outputs:
+            return agent_outputs["synthesis"], "synthesis"
+
+        if "refiner" in agent_outputs:
+            return agent_outputs["refiner"], "refiner"
+
+        # 3) Last resort: first available output, if any
+        if agent_outputs:
+            agent_name, content = next(iter(agent_outputs.items()))
+            return content, agent_name
+
+        # 4) Nothing available
+        return "", None
+
+    # -----------------------------------------------------------------------
+    # Public execution entrypoint
+    # -----------------------------------------------------------------------
+
     @ensure_initialized
     async def execute_workflow(self, request: WorkflowRequest) -> WorkflowResponse:
         """
@@ -618,6 +936,10 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
         """
         workflow_id = str(uuid.uuid4())
         start_time = time.time()
+        correlation_id = request.correlation_id or f"req-{uuid.uuid4()}"
+
+        # Ensure classifier_profile is always defined in this scope
+        classifier_profile: Dict[str, Any] | None = None
 
         # Normalize request.agents to a list; do NOT override/invent agents here.
         request.agents = _norm_agents(request.agents)
@@ -630,12 +952,9 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
         # Base config passed into orchestrator; only meta fields added here.
         config: Dict[str, Any] = dict(original_execution_config)
         config["workflow_id"] = workflow_id
-        if request.correlation_id:
-            config["correlation_id"] = request.correlation_id
+        config["correlation_id"] = correlation_id
 
         # Seed execution_state so the classifier and orchestrator share it
-        # This allows ClassificationService to write task/cognitive classifications
-        # into execution_state *before* the graph/DecisionNode runs.
         execution_state: Dict[str, Any] = dict(
             original_execution_config.get("execution_state") or {}
         )
@@ -653,6 +972,9 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
         config["prestep"]["classifier"] = classifier_profile
         config["classifier"] = classifier_profile  # optional legacy convenience
         config.setdefault("routing_source", "caller_with_classifier_prestep")
+
+        # Ensure exec_state is always defined, even if an early exception occurs
+        exec_state: Dict[str, Any] = {}
 
         try:
             logger.info(
@@ -673,7 +995,7 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                 query=request.query,
                 agents=agents_for_event,
                 execution_config=original_execution_config,
-                correlation_id=request.correlation_id,
+                correlation_id=correlation_id,
                 metadata={"api_version": self.api_version, "start_time": start_time},
             )
 
@@ -694,13 +1016,15 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
 
             use_advanced = bool(config.get("use_advanced_orchestrator", False))
             if use_advanced:
-                from OSSS.ai.orchestration.advanced_adapter import AdvancedOrchestratorAdapter
+                from OSSS.ai.orchestration.advanced_adapter import (
+                    AdvancedOrchestratorAdapter,
+                )
 
                 logger.info(
                     "[api] Delegating to AdvancedOrchestratorAdapter",
                     extra={
                         "workflow_id": workflow_id,
-                        "correlation_id": request.correlation_id,
+                        "correlation_id": correlation_id,
                     },
                 )
                 result_context = await AdvancedOrchestratorAdapter().run(
@@ -711,19 +1035,55 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                     "[api] Delegating to LangGraphOrchestrator",
                     extra={
                         "workflow_id": workflow_id,
-                        "correlation_id": request.correlation_id,
+                        "correlation_id": correlation_id,
                         "caller_agents": agents_for_event,
-                        "graph_pattern": original_execution_config.get("graph_pattern"),
+                        "graph_pattern": original_execution_config.get(
+                            "graph_pattern"
+                        ),
                     },
                 )
-                result_context = await self._orchestrator.run(request.query, config)
+                result_context = await self._orchestrator.run(
+                    request.query, config
+                )
+
+            # 🔍 DEBUG: basic introspection on result_context
+            try:
+                rc_agent_outputs = getattr(result_context, "agent_outputs", None)
+                rc_state = getattr(result_context, "execution_state", None)
+
+                logger.debug(
+                    "[orchestration_api] result_context introspection",
+                    extra={
+                        "event": "result_context_introspection",
+                        "result_context_type": type(result_context).__name__,
+                        "has_agent_outputs_attr": rc_agent_outputs is not None,
+                        "agent_outputs_type": type(rc_agent_outputs).__name__
+                        if rc_agent_outputs is not None
+                        else None,
+                        "agent_outputs_keys": list(rc_agent_outputs.keys())
+                        if isinstance(rc_agent_outputs, Mapping)
+                        else None,
+                        "has_state_attr": rc_state is not None,
+                        "state_type": type(rc_state).__name__
+                        if rc_state is not None
+                        else None,
+                        "state_keys": list(rc_state.keys())
+                        if isinstance(rc_state, Mapping)
+                        else None,
+                    },
+                )
+            except Exception as debug_exc:
+                logger.debug(
+                    "[orchestration_api] result_context introspection failed",
+                    extra={"error": str(debug_exc)},
+                )
 
             execution_time = time.time() - start_time
 
             # ----------------------------------------------------------------
-            # Normalize execution_state & agent_outputs from AgentContext
+            # Normalize execution_state & routing metadata
             # ----------------------------------------------------------------
-            exec_state: Dict[str, Any] = {}
+            exec_state = {}
             try:
                 maybe_state = getattr(result_context, "execution_state", None)
                 if isinstance(maybe_state, dict):
@@ -731,102 +1091,107 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
             except Exception:
                 exec_state = {}
 
-            # Structured outputs (preferred) from state
-            structured_outputs: Dict[str, Any] = {}
-            try:
-                so = exec_state.get("structured_outputs", {})
-                if isinstance(so, dict):
-                    structured_outputs = so
-            except Exception:
-                structured_outputs = {}
+            # Which agents actually ran (best-effort)
+            executed_agents: List[str] = _executed_agents_from_context(result_context, exec_state)
+            if not isinstance(executed_agents, list):
+                executed_agents = []
 
-            # Raw agent_outputs from context
-            raw_agent_outputs: Dict[str, Any] = {}
-            try:
-                raw_agent_outputs = getattr(result_context, "agent_outputs", {}) or {}
-                if not isinstance(raw_agent_outputs, dict):
-                    raw_agent_outputs = {}
-            except Exception:
-                raw_agent_outputs = {}
+            routing_source = config.get(
+                "routing_source", "caller_with_classifier_prestep"
+            )
+            planned_agents = exec_state.get("planned_agents") or []
+            selected_workflow_id = config.get("selected_workflow_id")
+            pre_agents = exec_state.get("pre_agents") or []
 
-            # Determine which agents actually executed
-            executed_agents: List[str] = _executed_agents_from_context(result_context)
-
-            # Ensure any structured output agents are included in executed list
-            if structured_outputs:
-                for k in structured_outputs.keys():
-                    k2 = str(k).strip().lower()
-                    if k2 and k2 not in executed_agents:
-                        executed_agents.append(k2)
-
-            # Merge structured outputs with raw outputs (structured wins)
-            agent_outputs_to_serialize: Dict[str, Any] = {}
-            for agent_name in executed_agents:
-                if agent_name in structured_outputs:
-                    agent_outputs_to_serialize[agent_name] = structured_outputs[agent_name]
-                else:
-                    agent_outputs_to_serialize[agent_name] = raw_agent_outputs.get(agent_name, "")
-
-            serialized_agent_outputs = self._convert_agent_outputs_to_serializable(
-                agent_outputs_to_serialize
+            graph_pattern = (
+                exec_state.get("graph_pattern")
+                or exec_state.get("execution_config", {}).get("graph_pattern")
+                or config.get("graph_pattern")
+                or original_execution_config.get("graph_pattern")
             )
 
-            # Preserve a stable snapshot for HTTP response
-            response_agent_outputs: Dict[str, Any] = dict(serialized_agent_outputs)
-
-            # Preserve refiner output (if available) for clients / exports
-            refiner_output_for_response = response_agent_outputs.get("refiner")
-            if not refiner_output_for_response:
-                refiner_output_for_response = exec_state.get("refiner_full_text", "")
-                if refiner_output_for_response:
-                    response_agent_outputs["refiner"] = refiner_output_for_response
-
-            # ----------------------------------------------------------------
-            # Single final answer string for UI clients
-            # ----------------------------------------------------------------
-            final_answer, final_answer_agent = _pick_final_answer(response_agent_outputs)
+            routing_meta = {
+                "source": routing_source,
+                "planned_agents": planned_agents,
+                "executed_agents": executed_agents,
+                "selected_workflow_id": selected_workflow_id,
+                "pre_agents": pre_agents,
+                "graph_pattern": graph_pattern,
+            }
 
             # ----------------------------------------------------------------
-            # agent_output_meta: prefer orchestrator-provided meta, then enrich
+            # Build agent_outputs / agent_output_meta from AgentContext
             # ----------------------------------------------------------------
-            agent_output_meta: Dict[str, Any] = {}
+            agent_outputs, agent_output_meta = self._build_agent_outputs_payload(result_context)
+
+            # Attach routing into meta for callers (similar to direct LLM path)
+            agent_output_meta["_routing"] = routing_meta
+
+            # Normalize envelopes into internal model
+            envelopes: list[AgentOutputEnvelope] = self._build_envelopes_from_context(result_context)
+
+            # Make agent_outputs JSON-serializable for persistence / exports
+            agent_outputs_serializable = self._convert_agent_outputs_to_serializable(agent_outputs)
+
+            # Default markdown_export in case export_md is disabled or fails
+            markdown_export = None
+
+            # Decide final answer (prefer wizard output for data_query)
+            final_answer, final_answer_agent = self._select_final_answer(
+                agent_outputs=agent_outputs,
+                graph_pattern=graph_pattern,
+                agent_output_meta=agent_output_meta,
+                routing_meta=routing_meta,
+            )
+
+            # Fallbacks so validator is always happy:
+            if not final_answer:
+                if "final" in agent_outputs:
+                    final_answer_agent = "final"
+                    final_answer = agent_outputs["final"]
+                elif "data_query:wizard:consents" in agent_outputs:
+                    final_answer_agent = "data_query:wizard:consents"
+                    final_answer = agent_outputs[final_answer_agent]
+                elif agent_outputs:
+                    final_answer_agent, final_answer = next(iter(agent_outputs.items()))
+
+            # ----------------------------------------------------------------
+            # Build internal WorkflowResult and stash in execution_state
+            # ----------------------------------------------------------------
             try:
-                aom = exec_state.get("agent_output_meta", {})
-                if isinstance(aom, dict):
-                    agent_output_meta = deepcopy(aom)
-            except Exception:
-                agent_output_meta = {}
+                routing_model = RoutingMeta(**routing_meta)
+                workflow_result = WorkflowResult(
+                    query=request.query,
+                    graph_pattern=graph_pattern,
+                    routing=routing_model,
+                    envelopes=envelopes,
+                    execution_state=exec_state,
+                    final_answer_agent=final_answer_agent,
+                    final_answer=final_answer,
+                )
+                # Store a JSON-serializable view for debugging / analytics
+                exec_state["workflow_result"] = workflow_result.model_dump()
+            except Exception as wr_exc:
+                logger.debug(
+                    "[orchestration_api] failed to build WorkflowResult",
+                    extra={"error": str(wr_exc)},
+                )
 
-            routing_block = agent_output_meta.setdefault("_routing", {})
-            routing_block.setdefault("source", config.get("routing_source", "unknown"))
-            routing_block.setdefault("planned_agents", exec_state.get("planned_agents"))
-            routing_block.setdefault("executed_agents", executed_agents)
-            routing_block.setdefault("selected_workflow_id", config.get("selected_workflow_id"))
-            routing_block.setdefault("pre_agents", [])
-
-            result_meta = agent_output_meta.setdefault("_result", {})
-            result_meta["final_answer"] = final_answer
-            result_meta["final_answer_agent"] = final_answer_agent
-
-            agent_output_meta["_classifier"] = classifier_profile
-
-            # Ensure each agent has a small env block
-            for agent_name in response_agent_outputs.keys():
-                env = agent_output_meta.get(agent_name)
-                if not isinstance(env, dict):
-                    env = {}
-                    agent_output_meta[agent_name] = env
-                env.setdefault("agent", agent_name)
-                env.setdefault("action", "read")
+            # Decide status
+            # Only allowed values: completed | failed | running | cancelled
+            status = "completed" if (final_answer or agent_outputs) else "failed"
 
             response = WorkflowResponse(
                 workflow_id=workflow_id,
-                status="completed",
-                agent_outputs=response_agent_outputs,
-                execution_time_seconds=execution_time,
-                correlation_id=request.correlation_id,
-                agent_output_meta=agent_output_meta,
                 answer=final_answer,
+                execution_state=exec_state,
+                status=status,
+                agent_output_meta=agent_output_meta,
+                agent_outputs=agent_outputs,
+                execution_time_seconds=execution_time,
+                correlation_id=correlation_id,
+                error_message=None if status == "completed" else "No agent outputs",
+                markdown_export=markdown_export,
             )
 
             # ----------------------------------------------------------------
@@ -847,8 +1212,8 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                         workflow_id=workflow_id,
                         request=request,
                         response=response,
-                        agent_outputs_snapshot=response_agent_outputs,
-                        correlation_id=request.correlation_id,
+                        agent_outputs_snapshot=agent_outputs_serializable,
+                        correlation_id=correlation_id,
                     )
                     response.markdown_export = md_info
                 except Exception as md_error:
@@ -886,7 +1251,7 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                 status="completed",
                 execution_time_seconds=execution_time,
                 agent_outputs=getattr(result_context, "agent_outputs", None),
-                correlation_id=request.correlation_id,
+                correlation_id=correlation_id,
                 metadata={
                     "api_version": self.api_version,
                     "end_time": time.time(),
@@ -905,13 +1270,29 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                 f"Workflow {workflow_id} failed after {execution_time:.2f}s: {e}"
             )
 
+            # Sanitize exec_state for error response
+            safe_exec_state: Dict[str, Any] = {}
+            try:
+                for k, v in (exec_state or {}).items():
+                    if k in {
+                        "execution_config",
+                        "wizard_state",
+                        "agent_execution_status",
+                        "timestamps",
+                        "workflow_result",
+                    }:
+                        safe_exec_state[k] = v
+            except Exception:
+                safe_exec_state = {}
+
             error_response = WorkflowResponse(
                 workflow_id=workflow_id,
                 status="failed",
                 agent_outputs={},
                 execution_time_seconds=execution_time,
-                correlation_id=request.correlation_id,
+                correlation_id=correlation_id,
                 error_message=str(e),
+                execution_state=safe_exec_state,
             )
 
             # Persist failed workflow (best-effort, via service)
@@ -944,7 +1325,7 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                 execution_time_seconds=execution_time,
                 error_message=str(e),
                 error_type=type(e).__name__,
-                correlation_id=request.correlation_id,
+                correlation_id=correlation_id,
                 metadata={"api_version": self.api_version, "end_time": time.time()},
             )
 
@@ -1021,14 +1402,18 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
     ) -> Optional[DatabaseSessionFactory]:
 
         if not _db_persist_enabled():
-            logger.debug("DB persistence disabled; markdown DB session factory unavailable")
+            logger.debug(
+                "DB persistence disabled; markdown DB session factory unavailable"
+            )
             return None
 
         if self._db_session_factory is None:
             try:
                 self._db_session_factory = DatabaseSessionFactory()
                 await self._db_session_factory.initialize()
-                logger.info("Database session factory initialized for markdown persistence")
+                logger.info(
+                    "Database session factory initialized for markdown persistence"
+                )
             except Exception as e:
                 logger.warning(
                     "Failed to initialize database session factory for markdown persistence",
@@ -1078,15 +1463,21 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
         try:
             sf = self._get_session_factory()
             if sf is None:
-                logger.debug("DB persistence disabled; skipping workflow history fetch")
+                logger.debug(
+                    "DB persistence disabled; skipping workflow history fetch"
+                )
                 return []
 
             # History loading is still done directly here; this is read-only.
-            from OSSS.ai.database.repositories.question_repository import QuestionRepository
+            from OSSS.ai.database.repositories.question_repository import (
+                QuestionRepository,
+            )
 
             async with sf() as session:
                 question_repo = QuestionRepository(session)
-                questions = await question_repo.get_recent_questions(limit=limit, offset=offset)
+                questions = await question_repo.get_recent_questions(
+                    limit=limit, offset=offset
+                )
 
             return [
                 {
@@ -1115,7 +1506,9 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
         return None
 
     @ensure_initialized
-    async def get_status_by_correlation_id(self, correlation_id: str) -> StatusResponse:
+    async def get_status_by_correlation_id(
+        self, correlation_id: str
+    ) -> StatusResponse:
         workflow_id = self.find_workflow_by_correlation_id(correlation_id)
         if workflow_id is None:
             raise KeyError(f"No workflow found for correlation_id: {correlation_id}")

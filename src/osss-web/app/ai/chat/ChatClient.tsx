@@ -71,23 +71,68 @@ type WorkflowResponse = {
   execution_time_seconds?: number;
   correlation_id?: string;
   error_message?: string | null;
-  answer?: string; // 👈 NEW: final answer from orchestration_api
+  answer?: string; // may be LLMResponse(...) wrapper in some cases
 
+  // 🔹 NEW: canonical final answer locations from orchestration_api
+  execution_state?: {
+    final?: {
+      final_answer?: string;
+      used_rag?: boolean;
+      rag_excerpt?: string;
+      sources_used?: string[];
+      timestamp?: string;
+    };
+    structured_outputs?: {
+      final?: {
+        final_answer?: string;
+        used_rag?: boolean;
+        rag_excerpt?: string;
+        sources_used?: string[];
+        timestamp?: string;
+      };
+    };
+  };
+
+  // 🔹 Also mirrored under workflow_result.structured_outputs.final
+  workflow_result?: {
+    structured_outputs?: {
+      final?: {
+        final_answer?: string;
+        used_rag?: boolean;
+        rag_excerpt?: string;
+        sources_used?: string[];
+        timestamp?: string;
+      };
+    };
+  };
 };
 
+function looksLikeLLMResponseWrapper(text: string): boolean {
+  return /^LLMResponse\(text=/.test(text.trim());
+}
+
 function pickFinalAnswer(wf: WorkflowResponse): string {
-  // 1) Prefer top-level answer (set from _result.final_answer in orchestration_api)
-  if (typeof wf.answer === "string" && wf.answer.trim()) {
+  // 🔹 1) Prefer canonical final_answer from execution_state / structured_outputs
+  const es: any = wf.execution_state || {};
+  const fromExecState =
+    es.final?.final_answer ??
+    es.structured_outputs?.final?.final_answer ??
+    wf.workflow_result?.structured_outputs?.final?.final_answer;
+
+  if (typeof fromExecState === "string" && fromExecState.trim()) {
+    return fromExecState;
+  }
+
+  // 🔹 2) If top-level answer exists and is not just an LLMResponse(...) debug wrapper, use it
+  if (
+    typeof wf.answer === "string" &&
+    wf.answer.trim() &&
+    !looksLikeLLMResponseWrapper(wf.answer)
+  ) {
     return wf.answer;
   }
 
-  // 2) Fallback: read _result.final_answer directly
-  const metaFinal = wf.agent_output_meta?._result?.final_answer;
-  if (typeof metaFinal === "string" && metaFinal.trim()) {
-    return metaFinal;
-  }
-
-  // 3) Last resort: old behavior (look at agent_outputs.final / refiner / first string)
+  // 🔹 3) Last resort: old behavior (look at agent_outputs.final / refiner / first string)
   return pickPrimaryText(wf.agent_outputs);
 }
 
@@ -279,8 +324,6 @@ function buildSourcesHtmlFromChunks(chunks: RetrievedChunk[]): string {
   `;
 }
 
-
-
 /**
  * 🔹 PREVIOUS: build markdown tables from data_query rows.
  * We’ll now treat this as a **fallback** when the backend does NOT
@@ -470,6 +513,7 @@ function DataQueryResult({ meta }: { meta: any }) {
     </div>
   );
 }
+
 
 export default function ChatClient() {
   const [input, setInput] = useState("");
@@ -769,7 +813,7 @@ export default function ChatClient() {
         return;
       }
 
-      // Primary text to show in chat (now uses final_answer from backend)
+      // Primary text to show in chat (now uses canonical final_answer)
       const reply = pickFinalAnswer(wf) || "(No agent output returned)";
 
       // 🔹 NEW: pull data_query canonical meta if present
@@ -786,7 +830,7 @@ export default function ChatClient() {
 
       const intentDescription = describeIntent(returnedIntent ?? "general");
 
-            // Optional: show user-facing text (without debug) + table
+      // Optional: show user-facing text (without debug) + table
       let replyForDisplay = reply.trimEnd();
 
       // If we have canonical data_query meta AND the reply is just that table,

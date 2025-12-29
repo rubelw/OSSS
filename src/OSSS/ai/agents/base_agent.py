@@ -268,14 +268,38 @@ class BaseAgent(ABC):
         self._node_definition: Optional[LangGraphNodeDefinition] = None
 
     def _validate_classifications(self, context: AgentContext) -> None:
-        """Ensure task_classification and cognitive_classification are set in the context."""
-        if not context.task_classification:
-            context.task_classification = "task_classification"
-        if not context.cognitive_classification:
-            context.cognitive_classification = "cognitive_classification"
+        """
+        Ensure classification *slots* exist on the context, without enforcing
+        that they are non-empty.
 
-        if not context.task_classification or not context.cognitive_classification:
-            raise ValueError("Both task_classification and cognitive_classification must be set in the context.")
+        - For the classifier agent itself, do nothing (it PRODUCES these).
+        - For all other agents, try to hydrate from execution_state but do not
+          raise if they're missing; downstream agents (like data_query) now
+          have their own fallbacks.
+        """
+        # Classifier is the producer, so don't enforce anything here
+        if getattr(self, "name", None) == "classifier":
+            return
+
+        exec_state = getattr(context, "execution_state", {}) or {}
+
+        task = getattr(context, "task_classification", None) or exec_state.get("task_classification")
+        cog = getattr(context, "cognitive_classification", None) or exec_state.get("cognitive_classification")
+
+        # Normalize onto the context object
+        context.task_classification = task
+        context.cognitive_classification = cog
+
+        # Soft check only: log, don't blow up
+        if not task or not cog:
+            self.logger.debug(
+                "[base_agent] missing task/cognitive classification; proceeding anyway",
+                extra={
+                    "agent": self.name,
+                    "has_task": bool(task),
+                    "has_cognitive": bool(cog),
+                },
+            )
 
     def _wrap_output(
         self,

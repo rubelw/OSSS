@@ -120,13 +120,16 @@ class WorkflowResponse(BaseModel):
         json_schema_extra={"example": "550e8400-e29b-41d4-a716-446655440000"},
     )
 
-    # ✅ NEW: single best answer string for UI clients
+    # ✅ Single best answer string for UI clients
     answer: Optional[str] = Field(
         None,
         description="Single best answer string (prefers output > synthesis > critic > refiner). Present when available.",
         max_length=200000,
         json_schema_extra={"example": "DCG's superintendent is ..."},
     )
+
+    # Matches what orchestration_api is passing in
+    execution_state: Optional[Dict[str, Any]] = None
 
     status: str = Field(
         ...,
@@ -191,6 +194,45 @@ class WorkflowResponse(BaseModel):
         },
     )
 
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_answer(cls, values: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Normalize `answer` so it is always a string or None, even if a dict is passed.
+
+        This prevents errors like:
+          Input should be a valid string [type=string_type,
+             input_value={'final_answer': '...'}, input_type=dict]
+        by extracting a string from the dict before field validation.
+
+        If a dict is passed, we also stash it in execution_state["final_payload"]
+        for debugging / introspection.
+        """
+        raw_answer = values.get("answer")
+
+        # If already a string or None, leave it alone; later validators will trim
+        if isinstance(raw_answer, str) or raw_answer is None:
+            return values
+
+        if isinstance(raw_answer, dict):
+            # Try common keys first
+            for key in ("final_answer", "answer", "text", "content"):
+                candidate = raw_answer.get(key)
+                if isinstance(candidate, str) and candidate.strip():
+                    values["answer"] = candidate
+                    break
+            else:
+                # Fallback: stringify the dict so we still conform to the schema
+                values["answer"] = str(raw_answer)
+
+            # Optionally retain the full dict for introspection
+            exec_state = values.get("execution_state") or {}
+            if "final_payload" not in exec_state:
+                exec_state["final_payload"] = raw_answer
+                values["execution_state"] = exec_state
+
+        return values
+
     @model_validator(mode="after")
     def validate_status_consistency(self) -> "WorkflowResponse":
         """Validate status consistency with other fields."""
@@ -201,7 +243,9 @@ class WorkflowResponse(BaseModel):
             has_outputs = bool(self.agent_outputs)
             has_answer = bool((self.answer or "").strip())
             if not has_outputs and not has_answer:
-                raise ValueError("agent_outputs cannot be empty when status is 'completed' unless answer is provided")
+                raise ValueError(
+                    "agent_outputs cannot be empty when status is 'completed' unless answer is provided"
+                )
 
         return self
 

@@ -31,6 +31,7 @@ from OSSS.ai.agents.data_query.wizard_config import (
 
 logger = get_logger(__name__)
 
+
 @dataclass
 class ExtractedTextFilters:
     filters: List[Dict[str, Any]]
@@ -47,8 +48,8 @@ def _extract_text_filters_from_query(
 
     Right now this only handles "starts with" patterns like:
 
-        "filter to only show consent_type which start with the letter 'D'"
-        "restrict consent_type to those starting with D"
+        "filter to only show status which start with the letter 'D'"
+        "restrict status to those starting with D"
 
     It returns an ExtractedTextFilters where:
       - .filters is a list[dict] in the same shape expected by _apply_filters_to_params
@@ -134,7 +135,7 @@ OP_MAP: Dict[str, str] = {
 }
 
 STARTS_WITH_FILTER_PATTERNS = [
-    # Matches: "filter to only show consent_type which start with the letter 'D'"
+    # Matches: "filter to only show status which start with the letter 'D'"
     re.compile(
         r"(?:filter|restrict)\s+"
         r"(?:to\s+)?(?:only\s+)?(?:show\s+)?"
@@ -143,7 +144,7 @@ STARTS_WITH_FILTER_PATTERNS = [
         r"(?:\s+the\s+letter)?\s+'?(?P<value>[A-Za-z])'?",
         re.IGNORECASE,
     ),
-    # Matches: "restrict consent_type to those starting with D"
+    # Matches: "restrict status to those starting with D"
     re.compile(
         r"restrict\s+"
         r"(?P<field>[A-Za-z_][A-Za-z0-9_]*)\s+"
@@ -153,9 +154,9 @@ STARTS_WITH_FILTER_PATTERNS = [
 ]
 
 # Simple regex to catch phrases like:
-#   "sort consent_type in descending order"
-#   "sort consent_type descending"
-#   "sort consent_type desc"
+#   "sort status in descending order"
+#   "sort status descending"
+#   "sort status desc"
 #   "sort by name"
 #   "sorted by name"
 #   "sort seasons by name"
@@ -179,6 +180,7 @@ LIKE_PATTERN_RE = re.compile(
 )
 
 REFINED_QUERY_KEY = "refined_query"
+
 
 def _looks_like_database_query(text: str) -> bool:
     t = text.strip().lower()
@@ -205,9 +207,26 @@ def _extract_refined_text_from_refiner_output(refiner_output: object) -> Optiona
 
     Handles:
     - dict with `refined_query` key (ideal)
+    - LLMResponse-like objects with a `.text` attribute that contains JSON or plain text
     - JSON-ish string containing `"refined_query": "..."` even if not perfectly valid JSON
     - plain string which is already the refined query
     """
+    # Case 0: LLMResponse-like object with a `text` attribute
+    # (but which is NOT already a dict or str).
+    if (
+        refiner_output is not None
+        and not isinstance(refiner_output, (dict, str))
+        and hasattr(refiner_output, "text")
+    ):
+        try:
+            text_value = getattr(refiner_output, "text", None)
+            if isinstance(text_value, str):
+                # Recurse with the underlying text string
+                return _extract_refined_text_from_refiner_output(text_value)
+        except Exception:
+            # If anything goes wrong, fall through to generic handling
+            pass
+
     # Case 1: Already a dict
     if isinstance(refiner_output, dict):
         val = refiner_output.get(REFINED_QUERY_KEY)
@@ -218,7 +237,7 @@ def _extract_refined_text_from_refiner_output(refiner_output: object) -> Optiona
     if isinstance(refiner_output, str):
         text = refiner_output.strip()
 
-        # 2a: Try strict JSON
+        # 2a: Try strict JSON first
         if text.startswith("{") and REFINED_QUERY_KEY in text:
             try:
                 parsed = json.loads(text)
@@ -230,15 +249,27 @@ def _extract_refined_text_from_refiner_output(refiner_output: object) -> Optiona
                 if isinstance(val, str):
                     return val.strip()
 
-        # 2b: Fuzzy regex fallback for JSON-ish responses
+        # 2b: Fuzzy regex fallback for JSON-ish responses.
+        # Use a non-greedy / safe matcher so we don't swallow the entire
+        # LLMResponse repr; we only want up to the next quote.
         if REFINED_QUERY_KEY in text:
             m = re.search(
-                r'"refined_query"\s*:\s*"(.+)"',
+                r'"refined_query"\s*:\s*"([^"]*)"',
                 text,
                 flags=re.DOTALL,
             )
             if m:
                 return m.group(1).strip()
+
+            # Secondary fallback for single-quoted content like:
+            # "refined_query': 'query seasons'"
+            m_single = re.search(
+                r"[\"']refined_query[\"']\s*:\s*'([^']*)'",
+                text,
+                flags=re.DOTALL,
+            )
+            if m_single:
+                return m_single.group(1).strip()
 
         # 2c: Otherwise, treat it as already-refined text
         return text
@@ -292,7 +323,7 @@ def _extract_refined_query(raw: str) -> Optional[str]:
     Try to extract the refined_query string from the RefinerAgent output.
 
     Handles:
-    - Proper JSON like {"refined_query": "query consents ..."}
+    - Proper JSON like {"refined_query": "query seasons ..."}
     - Slightly malformed JSON that still contains a "refined_query": "..." segment.
     """
     if not raw:
@@ -309,8 +340,7 @@ def _extract_refined_query(raw: str) -> Optional[str]:
         pass
 
     # 2) Fallback: regex against JSON-ish text
-    #   This grabs everything between the first "refined_query": " and the last "
-    m = re.search(r'"refined_query"\s*:\s*"(.+)"', text)
+    m = re.search(r'"refined_query"\s*:\s*"([^"]*)"', text)
     if m:
         return m.group(1)
 
@@ -376,8 +406,8 @@ def _extract_text_sort_from_query(text: str) -> Optional[Tuple[str, str]]:
       - "sort by name"
       - "sorted by name"
       - "sort seasons by name"
-      - "sort consent_type desc"
-      - "sort consent_type in descending order"
+      - "sort status desc"
+      - "sort status in descending order"
     """
     if not text:
         return None
@@ -401,7 +431,6 @@ def _extract_text_sort_from_query(text: str) -> Optional[Tuple[str, str]]:
     return field, direction
 
 
-
 def _apply_filters_to_params(
     base_params: Dict[str, Any],
     filters: Optional[List[Dict[str, Any]]],
@@ -412,7 +441,7 @@ def _apply_filters_to_params(
     Expected filter shape:
 
         {
-            "field": "consent_type",
+            "field": "field_name",
             "op": "startswith",   # eq|equals|contains|startswith|gt|gte|lt|lte|in
             "value": "D"
         }
@@ -462,45 +491,6 @@ def _apply_filters_to_params(
     return params
 
 
-def _detect_create_intent(raw_user_input: str, refined_text: str) -> bool:
-    """
-    Lexical gate to detect 'add/create consent' style intents, even if the
-    classifier doesn't explicitly say 'create'.
-
-    We look across both the original user input and the refined text.
-    """
-    text_combined = f"{raw_user_input} {refined_text}".lower()
-
-    create_tokens = ("create", "add")
-    consent_tokens = ("consent", "consents", "concent", "concents")
-
-    has_create_or_add = any(tok in text_combined for tok in create_tokens)
-    has_consent_word = any(tok in text_combined for tok in consent_tokens)
-
-    return has_create_or_add and has_consent_word
-
-
-def _is_consents_create_route(route: DataQueryRoute) -> bool:
-    """
-    Heuristic to detect that this DataQueryRoute is for creating a consent
-    record, rather than just querying consents.
-
-    You can tighten this once your DataQueryRoute has explicit operation flags.
-    """
-    name = getattr(route, "name", None)
-    operation = getattr(route, "operation", None)
-    topic = getattr(route, "topic", None)
-    collection = getattr(route, "collection", None)
-
-    if str(name or "").lower() in {"consents_create", "consent_create"}:
-        return True
-    if str(operation or "").lower() == "create" and str(collection or "") == "consents":
-        return True
-    if str(operation or "").lower() == "create" and str(topic or "") == "consents":
-        return True
-    return False
-
-
 # -----------------------------------------------------------------------------
 # GENERIC WIZARD HELPERS
 # -----------------------------------------------------------------------------
@@ -540,8 +530,6 @@ def _summarize_wizard_payload(payload: Dict[str, Any], cfg: WizardConfig) -> str
 
         lines.append(f"- **{label}**: {value_str}")
     return "\n".join(lines)
-
-
 
 
 # -----------------------------------------------------------------------------
@@ -709,6 +697,46 @@ class DataQueryAgent(BaseAgent):
             extra={"base_url_default": self.BASE_URL},
         )
 
+    def _lexical_gate(self, raw_text: str, refined_text: str | None = None) -> dict:
+        effective_text = (refined_text or raw_text or "").strip()
+        text_l = effective_text.lower()
+
+        intent: str | None = None
+
+        # --- HIGH-PRIORITY: explicit CRUD verbs from the user text ---
+        if text_l.startswith("query "):
+            intent = "read"
+        elif text_l.startswith(("get ", "list ", "show ", "find ")):
+            intent = "read"
+        elif text_l.startswith(("create ", "insert ", "add ", "record ")):
+            intent = "create"
+        elif text_l.startswith(("update ", "modify ", "change ")):
+            intent = "update"
+        elif text_l.startswith(("delete ", "remove ")):
+            intent = "delete"
+
+        # Default intent for structured queries w/out explicit verb: read
+        if intent is None and text_l:
+            intent = "read"
+
+        result = {
+            "effective_text": effective_text,
+            "intent": intent,
+            "is_structured_query": text_l.startswith("query "),
+        }
+
+        logger.info(
+            "[data_query] lexical gate (local)",
+            extra={
+                "event": "data_query_lexical_gate_local",
+                "effective_text_preview": effective_text[:80],
+                "intent": intent,
+                "is_structured_query": result["is_structured_query"],
+            },
+        )
+
+        return result
+
     # -------------------------------------------------------------------------
     # GENERIC WIZARD INTERNAL HELPERS
     # -------------------------------------------------------------------------
@@ -799,43 +827,51 @@ class DataQueryAgent(BaseAgent):
                 # generic fallback
                 prompt = f"Please provide {field_cfg.label if field_cfg else next_field_name}."
 
+            content_str = (
+                "I can create a record, but I need a few details first.\n\n" + prompt
+            )
+            meta_block = {
+                "action": "wizard",
+                "step": "collect_field",
+                "collection": collection,
+                "current_field": next_field_name,
+                "missing_fields": missing,
+            }
+
             context.add_agent_output(
-                channel_key,
-                {
-                    "content": (
-                        "I can create a record, but I need a few details first.\n\n"
-                        + prompt
-                    ),
-                    "meta": {
-                        "action": "wizard",
-                        "step": "collect_field",
-                        "collection": collection,
-                        "current_field": next_field_name,
-                        "missing_fields": missing,
-                    },
-                    "intent": "action",
-                },
+                agent_name=channel_key,
+                logical_name=self.name,  # "data_query"
+                content=content_str,
+                role="assistant",
+                meta=meta_block,
+                action="wizard_step",
+                intent="action",
             )
         else:
             # Should be very rare; everything prefilled
             summary = _summarize_wizard_payload(payload, cfg)
             wizard_state["pending_action"] = "confirm"
             self._set_wizard_state(context, wizard_state)
+
+            content_str = (
+                "Here’s the record I’m ready to create:\n\n"
+                f"{summary}\n\n"
+                "Type 'confirm' to save this record or 'cancel' to abort."
+            )
+            meta_block = {
+                "action": "wizard",
+                "step": "confirm",
+                "collection": collection,
+            }
+
             context.add_agent_output(
-                channel_key,
-                {
-                    "content": (
-                        "Here’s the record I’m ready to create:\n\n"
-                        f"{summary}\n\n"
-                        "Type 'confirm' to save this record or 'cancel' to abort."
-                    ),
-                    "meta": {
-                        "action": "wizard",
-                        "step": "confirm",
-                        "collection": collection,
-                    },
-                    "intent": "action",
-                },
+                agent_name=channel_key,
+                logical_name=self.name,
+                content=content_str,
+                role="assistant",
+                meta=meta_block,
+                action="wizard_step",
+                intent="action",
             )
 
         return context
@@ -860,12 +896,17 @@ class DataQueryAgent(BaseAgent):
             # No config anymore? Abort safely.
             self._set_wizard_state(context, None)
             context.add_agent_output(
-                channel_key,
-                {
-                    "content": "Sorry, I’m missing the configuration for this wizard.",
-                    "meta": {"action": "wizard", "step": "error", "collection": collection},
-                    "intent": "action",
+                agent_name=channel_key,
+                logical_name=self.name,
+                content="Sorry, I’m missing the configuration for this wizard.",
+                role="assistant",
+                meta={
+                    "action": "wizard",
+                    "step": "error",
+                    "collection": collection,
                 },
+                action="wizard_error",
+                intent="action",
             )
             return context
 
@@ -887,45 +928,48 @@ class DataQueryAgent(BaseAgent):
                 # generic storage key: "<collection>_create_ready"
                 if collection:
                     exec_state[f"{collection}_create_ready"] = payload
-                    # Backwards-compat for legacy consent key
-                    if collection == "consents":
-                        exec_state["consent_create_ready"] = payload
                 context.execution_state = exec_state
 
                 self._set_wizard_state(context, None)
 
                 summary = _summarize_wizard_payload(payload, cfg)
+
+                content_str = (
+                    "Great, I’ve collected everything needed:\n\n"
+                    f"{summary}\n\n"
+                    "The payload is ready for creation in the backend."
+                )
+                meta_block = {
+                    "action": "wizard",
+                    "step": "confirmed",
+                    "collection": collection,
+                }
+
                 context.add_agent_output(
-                    channel_key,
-                    {
-                        "content": (
-                            "Great, I’ve collected everything needed:\n\n"
-                            f"{summary}\n\n"
-                            "The payload is ready for creation in the backend."
-                        ),
-                        "meta": {
-                            "action": "wizard",
-                            "step": "confirmed",
-                            "collection": collection,
-                        },
-                        "intent": "action",
-                    },
+                    agent_name=channel_key,
+                    logical_name=self.name,
+                    content=content_str,
+                    role="assistant",
+                    meta=meta_block,
+                    action="wizard_confirmed",
+                    intent="action",
                 )
                 return context
 
             # User cancelled
             self._set_wizard_state(context, None)
             context.add_agent_output(
-                channel_key,
-                {
-                    "content": "Okay, I won’t create this record.",
-                    "meta": {
-                        "action": "wizard",
-                        "step": "cancelled",
-                        "collection": collection,
-                    },
-                    "intent": "action",
+                agent_name=channel_key,
+                logical_name=self.name,
+                content="Okay, I won’t create this record.",
+                role="assistant",
+                meta={
+                    "action": "wizard",
+                    "step": "cancelled",
+                    "collection": collection,
                 },
+                action="wizard_cancelled",
+                intent="action",
             )
             return context
 
@@ -993,19 +1037,22 @@ class DataQueryAgent(BaseAgent):
             else:
                 prompt = f"Please provide {next_field_cfg.label if next_field_cfg else next_field_name}."
 
+            meta_block = {
+                "action": "wizard",
+                "step": "collect_field",
+                "collection": collection,
+                "current_field": next_field_name,
+                "missing_fields": missing,
+            }
+
             context.add_agent_output(
-                channel_key,
-                {
-                    "content": prompt,
-                    "meta": {
-                        "action": "wizard",
-                        "step": "collect_field",
-                        "collection": collection,
-                        "current_field": next_field_name,
-                        "missing_fields": missing,
-                    },
-                    "intent": "action",
-                },
+                agent_name=channel_key,
+                logical_name=self.name,
+                content=prompt,
+                role="assistant",
+                meta=meta_block,
+                action="wizard_step",
+                intent="action",
             )
             return context
 
@@ -1015,36 +1062,163 @@ class DataQueryAgent(BaseAgent):
         self._set_wizard_state(context, wizard_state)
 
         summary = _summarize_wizard_payload(payload, cfg)
+        content_str = (
+            "Here’s the record I’m ready to create:\n\n"
+            f"{summary}\n\n"
+            "Type 'confirm' to save this record, or 'cancel' to abort."
+        )
+        meta_block = {
+            "action": "wizard",
+            "step": "confirm",
+            "collection": collection,
+        }
+
         context.add_agent_output(
-            channel_key,
-            {
-                "content": (
-                    "Here’s the record I’m ready to create:\n\n"
-                    f"{summary}\n\n"
-                    "Type 'confirm' to save this record, or 'cancel' to abort."
-                ),
-                "meta": {
-                    "action": "wizard",
-                    "step": "confirm",
-                    "collection": collection,
-                },
-                "intent": "action",
-            },
+            agent_name=channel_key,
+            logical_name=self.name,
+            content=content_str,
+            role="assistant",
+            meta=meta_block,
+            action="wizard_confirm",
+            intent="action",
         )
         return context
+
+    async def _run_stubbed_wizard_operation(
+        self,
+        context: AgentContext,
+        *,
+        operation: str,
+        route: DataQueryRoute,
+        base_url: str,
+        entity_meta: Dict[str, Any],
+    ) -> AgentContext:
+        """
+        Generic stubbed CRUD wizard operation.
+
+        This does NOT call the backend; it just logs a dummy payload and
+        emits a friendly message so you can wire up the real wizard later.
+        """
+        collection = getattr(route, "collection", None)
+        channel_key = self._wizard_channel_key(collection)
+
+        message = (
+            f"[STUB] Would perform **{operation.upper()}** via wizard for "
+            f"collection `{collection}` using base URL `{base_url}`.\n\n"
+            "This is a stub implementation; no data has been changed."
+        )
+
+        payload: Dict[str, Any] = {
+            "ok": True,
+            "source": "wizard_stub",
+            "operation": operation,
+            "collection": collection,
+            "entity": entity_meta,
+            "base_url": base_url,
+            "route": {
+                "topic": getattr(route, "topic", None),
+                "collection": getattr(route, "collection", None),
+                "view_name": getattr(route, "view_name", None),
+                "resolved_path": getattr(route, "resolved_path", None),
+            },
+            "message": message,
+        }
+
+        # Store stub payload in execution_state so other agents / UI can see it
+        exec_state: Dict[str, Any] = getattr(context, "execution_state", {}) or {}
+        key_collection = collection or "unknown_collection"
+        exec_state[f"{key_collection}_{operation}_wizard_stub"] = payload
+        context.execution_state = exec_state
+
+        # Also expose in structured_outputs under both channel and logical agent name
+        structured = exec_state.setdefault("structured_outputs", {})
+        structured[channel_key] = payload
+        if not isinstance(structured.get(self.name), dict):
+            structured[self.name] = payload
+
+        logger.info(
+            "[data_query:wizard_stub] operation stubbed",
+            extra={
+                "event": "data_query_wizard_stub_operation",
+                "operation": operation,
+                "collection": collection,
+                "topic": getattr(route, "topic", None),
+                "view_name": getattr(route, "view_name", None),
+            },
+        )
+
+        context.add_agent_output(
+            agent_name=channel_key,
+            logical_name=self.name,
+            content=message,
+            role="assistant",
+            meta=payload,
+            action=operation,
+            intent="action",
+        )
+
+        return context
+
+    async def _run_stub_create_wizard(
+        self,
+        context: AgentContext,
+        route: DataQueryRoute,
+        base_url: str,
+        entity_meta: Dict[str, Any],
+    ) -> AgentContext:
+        """Stubbed CREATE wizard entrypoint (no real backend call yet)."""
+        return await self._run_stubbed_wizard_operation(
+            context,
+            operation="create",
+            route=route,
+            base_url=base_url,
+            entity_meta=entity_meta,
+        )
+
+    async def _run_stub_update_wizard(
+        self,
+        context: AgentContext,
+        route: DataQueryRoute,
+        base_url: str,
+        entity_meta: Dict[str, Any],
+    ) -> AgentContext:
+        """Stubbed UPDATE wizard entrypoint (no real backend call yet)."""
+        return await self._run_stubbed_wizard_operation(
+            context,
+            operation="update",
+            route=route,
+            base_url=base_url,
+            entity_meta=entity_meta,
+        )
+
+    async def _run_stub_delete_wizard(
+        self,
+        context: AgentContext,
+        route: DataQueryRoute,
+        base_url: str,
+        entity_meta: Dict[str, Any],
+    ) -> AgentContext:
+        """Stubbed DELETE wizard entrypoint (no real backend call yet)."""
+        return await self._run_stubbed_wizard_operation(
+            context,
+            operation="delete",
+            route=route,
+            base_url=base_url,
+            entity_meta=entity_meta,
+        )
 
     # -------------------------------------------------------------------------
     # SUPPORT / QUERY EXECUTION HELPERS
     # -------------------------------------------------------------------------
 
-    async def _enrich_person_name_for_consents(
+    async def _enrich_person_name(
         self,
         client: BackendAPIClient,
         rows_full: List[Dict[str, Any]],
     ) -> List[Dict[str, Any]]:
         """
-        For consents results, look up each person_id in the backend API and
-        add a 'person_name' field to each row.
+        For result rows that have a person_id field, look up each person in the
+        backend API and add a 'person_name' field to each row.
 
         Uses the provided BackendAPIClient; does NOT assume async context-manager
         support on the client.
@@ -1073,9 +1247,9 @@ class DataQueryAgent(BaseAgent):
                         persons_by_id[pid] = person
                 except Exception as inner_exc:  # per-person log, but non-fatal
                     logger.warning(
-                        "[data_query:consents] Failed to fetch person for consent row",
+                        "[data_query:person_enrichment] Failed to fetch person for row",
                         extra={
-                            "event": "data_query_consents_fetch_person_failed",
+                            "event": "data_query_person_enrichment_fetch_failed",
                             "person_id": pid,
                             "error_type": type(inner_exc).__name__,
                             "error_message": str(inner_exc),
@@ -1106,9 +1280,9 @@ class DataQueryAgent(BaseAgent):
 
             # Log a quick sample of the enriched keys
             logger.info(
-                "[data_query:consents] enrichment complete",
+                "[data_query:person_enrichment] enrichment complete",
                 extra={
-                    "event": "data_query_consents_enrichment_complete",
+                    "event": "data_query_person_enrichment_complete",
                     "row_keys_sample": list(rows_full[0].keys()) if rows_full else [],
                 },
             )
@@ -1118,9 +1292,9 @@ class DataQueryAgent(BaseAgent):
         except Exception as exc:
             # Non-fatal: log and return original rows
             logger.warning(
-                "[data_query:consents] Failed to enrich person_name from backend",
+                "[data_query:person_enrichment] Failed to enrich person_name from backend",
                 extra={
-                    "event": "data_query_consents_enrich_person_name_failed",
+                    "event": "data_query_person_enrichment_failed",
                     "error_type": type(exc).__name__,
                     "error_message": str(exc),
                 },
@@ -1170,8 +1344,6 @@ class DataQueryAgent(BaseAgent):
         base_keys = deduped_keys
 
         # --- 2b) NEW: include any *_name fields found in the actual rows -----
-        # This fixes the "person_id but not person_name" issue when projections
-        # don't know about enrichment/join-added fields.
         sample_row = rows_full[0]
         extra_name_keys: List[str] = []
         for k in sample_row.keys():
@@ -1186,7 +1358,6 @@ class DataQueryAgent(BaseAgent):
             base_keys.extend(extra_name_keys)
 
         # --- 3) Generic UX rule: prefer *_name over *_id when both exist ---
-        # e.g. person_name vs person_id, student_name vs student_id, etc.
         name_keys = {k for k in base_keys if k.endswith("_name")}
         id_keys_to_drop = set()
         for name_key in name_keys:
@@ -1230,7 +1401,7 @@ class DataQueryAgent(BaseAgent):
         Execute a QuerySpec against a REST backend.
 
         - Fetch base collection rows.
-        - Apply any configured joins (e.g., consents.person_id -> persons.full_name).
+        - Apply any configured joins (e.g., base_collection.person_id -> persons.full_name).
         - Return enriched rows.
         """
         # 1) Fetch base rows
@@ -1241,7 +1412,6 @@ class DataQueryAgent(BaseAgent):
             return base_rows or []
 
         # 2) For now, handle only the first join (you can generalize later)
-        #    In your case, consents → persons
         join = query_spec.joins[0]
 
         if join.target_collection == "persons" and join.source_field == "person_id":
@@ -1451,10 +1621,11 @@ class DataQueryAgent(BaseAgent):
         Main data_query entrypoint.
 
         Now supports:
-          - lexical detection of "add/create consent" via `_detect_create_intent`
+          - lexical detection of CRUD verbs via lexical gate
           - QuerySpec-based filter parsing via `parse_text_filters`
           - merging structured filters + text-derived filters into HTTP params
           - preferring RefinerAgent's refined_query text (when available)
+          - routing any 'create' intent with a WizardConfig to the create wizard
         """
 
         # --- EXECUTION CONFIG --------------------------------------------------
@@ -1464,7 +1635,7 @@ class DataQueryAgent(BaseAgent):
         dq_cfg: Dict[str, Any] = exec_cfg.setdefault("data_query", {})
 
         # Classifier output + ORIGINAL text (typically pre-refiner)
-        classifier, raw_text = _get_classifier_and_text_from_context(context)
+        classifier, initial_effective_text = _get_classifier_and_text_from_context(context)
         exec_state: Dict[str, Any] = getattr(context, "execution_state", {}) or {}
 
         # ---------------------------------------------------------
@@ -1517,9 +1688,6 @@ class DataQueryAgent(BaseAgent):
         classifier.setdefault("topics", [])
         classifier.setdefault("intent", None)
 
-        raw_text_norm = (raw_text or "").strip()
-        raw_text_lower = raw_text_norm.lower()
-
         # 🔎 ORIGINAL / RAW USER INPUT (pre-refiner), if we have it
         raw_user_input = (exec_state.get("user_question") or "").strip()
         raw_user_lower = raw_user_input.lower()
@@ -1529,7 +1697,6 @@ class DataQueryAgent(BaseAgent):
         # ----------------------------------------------------------------------
         refined_text: Optional[str] = None
         try:
-            # This is the canonical place where the refiner's last output lives
             refiner_output = context.get_last_output("refiner")
             refined_text = _extract_refined_text_from_refiner_output(refiner_output)
         except Exception as e:
@@ -1544,9 +1711,12 @@ class DataQueryAgent(BaseAgent):
             refined_text = None
 
         # Effective text for routing / lexical gates:
-        # prefer refined_query when available, otherwise original text
-        effective_text = (refined_text or raw_text_norm or "").strip()
+        # prefer refined_query when available, otherwise what came from
+        # _get_classifier_and_text_from_context, otherwise empty.
+        effective_text = (refined_text or initial_effective_text or "").strip()
         effective_text_lower = effective_text.lower()
+        raw_text_norm = effective_text
+        raw_text_lower = effective_text_lower
 
         # Stash for observability
         exec_state["data_query_texts"] = {
@@ -1575,20 +1745,25 @@ class DataQueryAgent(BaseAgent):
         wizard_state = self._get_wizard_state(context)
 
         # ----------------------------------------------------------------------
-        # 🔑 LEXICAL CREATE-CONSENT DETECTION
+        # 🔑 LEXICAL GATE (centralized logic)
         # ----------------------------------------------------------------------
-        consent_create_intent = _detect_create_intent(
-            raw_user_input=raw_user_input,
-            refined_text=effective_text,
+        lexical = self._lexical_gate(
+            raw_text=(raw_user_input or raw_text_norm or ""),
+            refined_text=refined_text,
         )
+        is_structured_query = bool(lexical.get("is_structured_query"))
+        lexical_intent = lexical.get("intent")
 
-        # 🚧 SIMPLE STRUCTURED QUERY GATE
-        #    IMPORTANT: use *effective* text (refined when present) for "query ..." gate
-        is_structured_query = effective_text_lower.startswith("query ")
+        # 🔎 Normalize lexical_intent for downstream use
+        if isinstance(lexical_intent, str):
+            lexical_intent = lexical_intent.strip().lower() or None
+        else:
+            lexical_intent = None
 
-        # Force data_query when:
-        # - caller explicitly set force=true, OR
-        # - the text clearly looks like a database/data-system query
+        # Treat any explicit CRUD lexical intent as a reason to keep data_query active
+        is_crud_lexical_intent = lexical_intent in {"create", "update", "delete"}
+
+        # SIMPLE STRUCTURED QUERY / FORCE GATE
         force_data_query = bool(dq_cfg.get("force")) or _looks_like_database_query(
             effective_text
         )
@@ -1603,20 +1778,22 @@ class DataQueryAgent(BaseAgent):
                 "is_structured_query": is_structured_query,
                 "force_data_query": force_data_query,
                 "has_wizard_state": bool(wizard_state),
-                "consent_create_intent": consent_create_intent,
+                "lexical_intent": lexical_intent,
+                "is_crud_lexical_intent": is_crud_lexical_intent,
             },
         )
 
         # ---- SKIP CONDITIONS -------------------------------------------------
+        # ⬇️ UPDATED: do NOT skip if lexical intent is create/update/delete
         if (
             not is_structured_query
             and not force_data_query
             and not wizard_state
-            and not consent_create_intent
+            and not is_crud_lexical_intent
         ):
             logger.info(
                 "[data_query:routing] skipping: no structured query, no force, "
-                "no wizard state, no create-consent trigger",
+                "no wizard state, no CRUD lexical intent",
                 extra={
                     "event": "data_query_skip_non_structured",
                     "effective_text_preview": effective_text[:200],
@@ -1643,13 +1820,26 @@ class DataQueryAgent(BaseAgent):
         classifier_intent = (
             classifier.get("intent") if isinstance(classifier, dict) else None
         )
-        intent_raw = state_intent or classifier_intent
-        intent = (intent_raw or "").strip().lower() or None
 
-        # 💡 If lexical consent-create detected and there's no strong conflicting intent,
-        # treat this as a create.
-        if consent_create_intent and intent not in {"create", "update", "delete"}:
-            intent = "create"
+        # 🧠 NEW: strong CRUD lexical intent wins over a generic classifier "read"
+        crud_verbs = {"create", "update", "delete"}
+
+        if isinstance(state_intent, str):
+            state_intent = state_intent.strip().lower() or None
+        if isinstance(classifier_intent, str):
+            classifier_intent = classifier_intent.strip().lower() or None
+
+        if lexical_intent in crud_verbs:
+            # If state intent explicitly specifies a CRUD verb, let that win.
+            if state_intent in crud_verbs:
+                intent_raw = state_intent
+            else:
+                intent_raw = lexical_intent
+        else:
+            # No strong CRUD signal → keep your original precedence
+            intent_raw = state_intent or classifier_intent or lexical_intent
+
+        intent = (intent_raw or "").strip().lower() or None
 
         topic_override = dq_cfg.get("topic")
 
@@ -1686,31 +1876,7 @@ class DataQueryAgent(BaseAgent):
             route = resolve_route(topic_override, intent=intent)
             route_source = "explicit_override"
 
-        # 2️⃣ Lexical create-consent → bias toward consents route if possible
-        elif consent_create_intent:
-            route = None
-            route_source = "consent_keyword_gate"
-
-            try:
-                route = resolve_route("consents", intent="create")
-            except Exception:
-                route = None
-
-            if route is None:
-                try:
-                    route = resolve_route("consents", intent=intent)
-                except Exception:
-                    route = None
-
-            # If still nothing → fallback text matching using ORIGINAL user text
-            if route is None:
-                route = choose_route_for_query(
-                    raw_user_input or effective_text or raw_text_norm,
-                    classifier,
-                )
-                route_source = "consent_keyword_fallback_text"
-
-        # 3️⃣ Default classifier/text routing (now uses effective_text)
+        # 2️⃣ Default classifier/text routing (now uses effective_text)
         else:
             route = choose_route_for_query(effective_text or raw_text_norm, classifier)
             route_source = "classifier_or_text"
@@ -1868,9 +2034,6 @@ class DataQueryAgent(BaseAgent):
         # Parse text-based filters like:
         #   "where last name starts with 'R'"
         #   "where status = active"
-        #
-        # 🔑 CRITICAL: still use ORIGINAL user input when available so
-        # field names like "consent_type" aren't lost by Refiner.
         filter_text = raw_user_input or raw_text_norm or effective_text
         if filter_text:
             # First, let the main parser attach filters/sort to the QuerySpec.
@@ -1911,8 +2074,7 @@ class DataQueryAgent(BaseAgent):
 
             query_spec.filters = normalized_filters
 
-            # 🔁 Fallback heuristic for patterns the main parser doesn't handle,
-            # such as: "filter to only show consent_type which start with the letter 'D'".
+            # 🔁 Fallback heuristic for patterns the main parser doesn't handle
             try:
                 extracted = _extract_text_filters_from_query(filter_text, route)
             except Exception as e:
@@ -2047,25 +2209,71 @@ class DataQueryAgent(BaseAgent):
             },
         )
 
-        # ---- WIZARD ENTRY POINT (currently used for consents) ---------------
-        if consent_create_intent:
+        # ---- CRUD WIZARDS ----------------------------------------------------
+        #
+        # NEW BEHAVIOR:
+        # - Any intent == "create" will attempt to start the generic create wizard
+        #   for this route's collection (if a WizardConfig exists).
+        # - "update" and "delete" intents go to stubbed wizards.
+        if intent in {"update", "delete"}:
             logger.info(
-                "[data_query:wizard] starting wizard via create-consent intent",
+                "[data_query:wizard_stub] routing to stubbed CRUD wizard",
                 extra={
-                    "event": "data_query_wizard_entry",
+                    "event": "data_query_wizard_stub_entry",
+                    "intent": intent,
                     "route_topic": getattr(route, "topic", None),
                     "route_collection": getattr(route, "collection", None),
-                    "intent": intent,
                 },
             )
-            return await self._start_wizard_for_route(context, route, base_url, entity_meta)
+            if intent == "update":
+                return await self._run_stub_update_wizard(
+                    context=context,
+                    route=route,
+                    base_url=base_url,
+                    entity_meta=entity_meta,
+                )
+            else:  # delete
+                return await self._run_stub_delete_wizard(
+                    context=context,
+                    route=route,
+                    base_url=base_url,
+                    entity_meta=entity_meta,
+                )
+
+        if intent == "create":
+            collection_for_wizard = getattr(route, "collection", None)
+            cfg_for_wizard = get_wizard_config_for_collection(collection_for_wizard)
+            if cfg_for_wizard:
+                logger.info(
+                    "[data_query:wizard] starting create wizard for collection",
+                    extra={
+                        "event": "data_query_wizard_entry_create",
+                        "route_topic": getattr(route, "topic", None),
+                        "route_collection": getattr(route, "collection", None),
+                    },
+                )
+                return await self._start_wizard_for_route(
+                    context=context,
+                    route=route,
+                    base_url=base_url,
+                    entity_meta=entity_meta,
+                )
+            else:
+                logger.info(
+                    "[data_query:wizard] no WizardConfig for collection; falling back to HTTP query",
+                    extra={
+                        "event": "data_query_wizard_no_config_for_create",
+                        "route_topic": getattr(route, "topic", None),
+                        "route_collection": getattr(route, "collection", None),
+                    },
+                )
 
         # --- HTTP CALL ---------------------------------------------------------
         client = BackendAPIClient(BackendAPIConfig(base_url=base_url))
         request_path = (
-                getattr(route, "resolved_path", None)
-                or getattr(route, "path", None)
-                or ""
+            getattr(route, "resolved_path", None)
+            or getattr(route, "path", None)
+            or ""
         )
         request_url = f"{base_url}{request_path}"
 
@@ -2096,9 +2304,8 @@ class DataQueryAgent(BaseAgent):
             )
 
             # Build compact subset for UI
-            # 🔍 Special-case enrichment for consents
-            if getattr(route, "topic", None) == "consents" or getattr(route, "collection", None) == "consents":
-                rows_full = await self._enrich_person_name_for_consents(client, rows_full)
+            # Generic enrichment for any rows with person_id
+            rows_full = await self._enrich_person_name(client, rows_full)
 
             rows_compact = self._shrink_to_ui_defaults(rows_full, query_spec)
 
@@ -2157,7 +2364,6 @@ class DataQueryAgent(BaseAgent):
             }
 
         # --- SINGLE CHANNEL KEY FOR THIS RESULT -------------------------------
-        # --- SINGLE CHANNEL KEY FOR THIS RESULT -------------------------------
         # 🔧 IMPORTANT: prefer view_name so that payload + markdown share the same key.
         view_name = getattr(route, "view_name", None)
         topic_val = getattr(route, "topic", None)
@@ -2186,13 +2392,17 @@ class DataQueryAgent(BaseAgent):
 
         # --- STORE IN CONTEXT --------------------------------------------------
         store_key = (
-                getattr(route, "resolved_store_key", None)
-                or getattr(route, "view_name", None)
-                or "data_query"
+            getattr(route, "resolved_store_key", None)
+            or getattr(route, "view_name", None)
+            or "data_query"
         )
         context.execution_state[store_key] = payload
         structured = context.execution_state.setdefault("structured_outputs", {})
         structured[f"{self.name}:{getattr(route, 'view_name', None)}"] = payload
+
+        # Also expose the canonical payload under the logical agent name
+        if not isinstance(structured.get(self.name), dict):
+            structured[self.name] = payload
 
         logger.debug(
             "[data_query] stored payload in execution_state",
@@ -2243,12 +2453,25 @@ class DataQueryAgent(BaseAgent):
                 },
             )
 
-            context.add_agent_output(channel_key, canonical_output)
+            # Envelope content = markdown; meta carries the rich block
+            context.add_agent_output(
+                agent_name=channel_key,
+                logical_name=self.name,  # "data_query"
+                content=md_compact,
+                role="assistant",
+                meta=meta_block,
+                action="query",
+                intent="action",
+            )
 
             structured_outputs = context.execution_state.setdefault(
                 "structured_outputs", {}
             )
             structured_outputs[channel_key] = canonical_output
+
+            # Mirror canonical_output under logical agent name if not already set
+            if not isinstance(structured_outputs.get(self.name), dict):
+                structured_outputs[self.name] = canonical_output
 
         else:
             logger.debug(
@@ -2258,14 +2481,16 @@ class DataQueryAgent(BaseAgent):
                     "error": payload.get("error"),
                 },
             )
+            fail_content = f"**data_query failed**: {payload.get('error', 'unknown error')}"
+
             context.add_agent_output(
-                channel_key,
-                {
-                    "content": f"**data_query failed**: {payload.get('error', 'unknown error')}",
-                    "meta": payload,
-                    "action": "query",
-                    "intent": "action",
-                },
+                agent_name=channel_key,
+                logical_name=self.name,
+                content=fail_content,
+                role="assistant",
+                meta=payload,
+                action="query",
+                intent="action",
             )
 
         logger.info(

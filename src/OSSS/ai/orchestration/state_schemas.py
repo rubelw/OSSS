@@ -197,7 +197,7 @@ class ExecutionMetadata(TypedDict):
     """Execution mode: 'langgraph-real'."""
 
     phase: str
-    """Implementation phase: 'phase2_0'."""
+    """Implementation phase label (e.g., 'phase2_1')."""
 
     # 🔹 NEW: where per-agent results are tracked
     agent_outputs: Dict[str, Any]
@@ -261,8 +261,11 @@ class ExecutionState(TypedDict, total=False):
     routing decisions.
     """
 
-    config: ExecutionConfig
+    execution_config: ExecutionConfig
     """Primary execution configuration (graph pattern, RAG config, etc.)."""
+
+    config: ExecutionConfig
+    """Deprecated alias; prefer execution_config."""
 
     rag_enabled: bool
     """Whether RAG was actually enabled (after applying config + policy)."""
@@ -339,6 +342,7 @@ class ExecutionState(TypedDict, total=False):
 
     raw_query: str
     """Alternative field for raw query strings (for compatibility with callers)."""
+
 
 class OSSSState(TypedDict):
     """
@@ -434,6 +438,13 @@ def create_initial_state(
     """
     now = datetime.now(timezone.utc).isoformat()
 
+    base_execution_config: ExecutionConfig = ExecutionConfig(
+        graph_pattern="standard",
+        rag={},
+        use_rag=True,
+        use_llm_intent=True,
+    )
+
     return OSSSState(
         query=query,
         refiner=None,
@@ -452,7 +463,7 @@ def create_initial_state(
             agents_requested=["refiner", "historian", "final"],
             execution_mode="langgraph-real",
             phase="phase2_1",
-            agent_outputs={},  # 🔹 ADD THIS
+            agent_outputs={},
         ),
         errors=[],
         successful_agents=[],
@@ -460,19 +471,9 @@ def create_initial_state(
         structured_outputs={},
         final=None,
         execution_state=ExecutionState(
-            execution_config=ExecutionConfig(
-                graph_pattern="standard",
-                rag={},
-                use_rag=True,
-                use_llm_intent=True,
-            ),
+            execution_config=base_execution_config,
             # Optional: keep legacy alias populated too for a while
-            config=ExecutionConfig(
-                graph_pattern="standard",
-                rag={},
-                use_rag=True,
-                use_llm_intent=True,
-            ),
+            config=base_execution_config,
             rag_enabled=False,
             rag_context=None,
             rag_snippet=None,
@@ -512,7 +513,7 @@ def validate_state_integrity(state: OSSSState) -> bool:
             return False
 
         # If a config is present, ensure it has a graph_pattern at minimum
-        cfg = exec_state.get("config")
+        cfg = exec_state.get("execution_config") or exec_state.get("config")
         if cfg is not None and isinstance(cfg, dict):
             graph_pattern = cfg.get("graph_pattern")
             if graph_pattern is not None and not isinstance(graph_pattern, str):

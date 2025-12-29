@@ -1,25 +1,3 @@
-"""
-LangGraph node wrappers for OSSS agents.
-
-This module provides wrapper functions that convert OSSS agents
-into LangGraph-compatible node functions. Each wrapper handles:
-- State conversion between AgentContext and LangGraph state
-- Error handling with circuit breaker patterns
-- Async execution with proper timeout handling
-- Logging and metrics integration
-- Output formatting and validation
-
-Design Principles:
-- Preserve agent autonomy while enabling DAG execution
-- Maintain backward compatibility with existing agents
-- Provide robust error handling and recovery
-- Enable comprehensive observability and debugging
-
-Patterns (as used by upstream planner/orchestrator):
-- "standard":   refiner -> final -> END
-- "data_query": refiner -> data_query -> (historian for CRUD) -> END
-"""
-
 import asyncio
 import time
 import json
@@ -191,6 +169,7 @@ def extract_question_from_refiner(markdown: str) -> str | None:
             return line.split(":", 1)[1].strip()
     return None
 
+
 def _canon_agent_key(name: str) -> str:
     return (name or "").strip().lower().replace("-", "_")
 
@@ -239,6 +218,39 @@ def _get_execution_config(state: Dict[str, Any], runtime: Runtime[OSSSContext]) 
             return ec
 
     return {}
+
+
+def _merge_successful_agents(state: OSSSState, *agents: str) -> List[str]:
+    """
+    Merge one or more agent names into state.successful_agents.
+
+    IMPORTANT:
+      - Always returns a **list** (never a set)
+      - Ensures uniqueness while preserving original order as much as possible
+      - Keeps state["successful_agents"] as a list so LangGraph's list
+        aggregator can safely concatenate without type errors.
+    """
+    existing = state.get("successful_agents")
+    merged: List[str] = []
+
+    # Normalize existing to a list, preserving order where we can
+    if isinstance(existing, list):
+        for a in existing:
+            if isinstance(a, str) and a and a not in merged:
+                merged.append(a)
+    elif isinstance(existing, (set, tuple)):
+        for a in existing:
+            if isinstance(a, str) and a and a not in merged:
+                merged.append(a)
+
+    # Add new agents, keeping uniqueness
+    for a in agents:
+        if isinstance(a, str) and a and a not in merged:
+            merged.append(a)
+
+    # Persist back as list so future reads are consistent
+    state["successful_agents"] = merged
+    return merged
 
 
 # ---------------------------------------------------------------------------
@@ -602,7 +614,6 @@ async def convert_state_to_context(state: OSSSState) -> AgentContext:
             if v is not None:
                 context.execution_state[k] = v
 
-
     # ✅ Make sure FinalAgent has something to treat as the user question
     # user_question: what we show to the FINAL agent
     context.execution_state.setdefault("original_query", original_query)
@@ -680,18 +691,29 @@ async def convert_state_to_context(state: OSSSState) -> AgentContext:
     # Add execution metadata (best-effort)
     execution_metadata = state.get("execution_metadata", {})
     if isinstance(execution_metadata, dict) and execution_metadata:
+        succ = state.get("successful_agents")
+        fail = state.get("failed_agents")
+
+        succ_list = list(succ) if isinstance(succ, (list, set, tuple)) else []
+        fail_list = list(fail) if isinstance(fail, (list, set, tuple)) else []
+
         context.execution_state.update(
             {
                 "execution_id": execution_metadata.get("execution_id", ""),
                 "orchestrator_type": "langgraph-real",
-                "successful_agents": state.get("successful_agents", []).copy()
-                if isinstance(state.get("successful_agents"), list)
-                else [],
-                "failed_agents": state.get("failed_agents", []).copy()
-                if isinstance(state.get("failed_agents"), list)
-                else [],
+                "successful_agents": succ_list,
+                "failed_agents": fail_list,
             }
         )
+
+    # 🔧 Also hydrate AgentContext-level tracking for orchestration_api convenience
+    succ = state.get("successful_agents")
+    fail = state.get("failed_agents")
+
+    if isinstance(succ, (list, set, tuple)):
+        context.successful_agents = list(succ)
+    if isinstance(fail, (list, set, tuple)):
+        context.failed_agents = list(fail)
 
     return context
 
@@ -729,7 +751,7 @@ async def route_gate_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Di
     exec_state = _ensure_exec_state(state)
 
     # Read config for logging only (do NOT mutate planning here; Option A)
-    ec = exec_state.get("execution_config", {}) if isinstance(exec_state.get("execution_config"), dict) else {}
+    ec = _get_execution_config(state, runtime)
 
     logger.info(
         "Route chosen",
@@ -738,9 +760,6 @@ async def route_gate_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Di
             "planned_agents": exec_state.get("planned_agents"),
         },
     )
-
-    # Option A: you can keep this; it's harmless even if only some agents use it.
-    exec_state["rag_enabled"] = True
 
     # Option A: planning/fastpath selection happens BEFORE compilation (planner/GraphFactory).
     # route_gate_node must not mutate graph_pattern/planned_agents because it's too late.
@@ -868,8 +887,8 @@ async def final_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Dict[st
 
         if not exec_state.get("rag_snippet"):
             rag_ctx = (
-                    exec_state.get("rag_context")
-                    or state.get("rag_context")
+                exec_state.get("rag_context")
+                or state.get("rag_context")
             )
 
             if isinstance(rag_ctx, str) and rag_ctx.strip():
@@ -907,24 +926,39 @@ async def final_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Dict[st
             # fail loudly so you notice misconfiguration
             raise NodeExecutionError("Final agent ran but produced no 'final' output")
 
+        rag_snippet = exec_state.get("rag_snippet") or state.get("rag_snippet") or ""
+        rag_snippet = (rag_snippet or "").strip()
+
+        sources_used = ["refiner"]
+        if state.get("historian"):
+            sources_used.append("historian")
+        if exec_state.get("data_query_result") or state.get("data_query"):
+            sources_used.append("data_query")
+
         state["final"] = FinalState(
             final_answer=final_text,
-            used_rag=bool(state.get("rag_snippet")),
-            rag_excerpt=(state.get("rag_snippet") or "")[:500] or None,
-            sources_used=["refiner"] + (["historian"] if state.get("historian") else []),
+            used_rag=bool(rag_snippet),
+            rag_excerpt=rag_snippet[:500] or None,
+            sources_used=sources_used,
             timestamp=datetime.now(timezone.utc).isoformat(),
         )
 
         structured = state.get("structured_outputs")
         if not isinstance(structured, dict):
             structured = {}
-        structured["final"] = final_text
 
-        succ = state.get("successful_agents")
-        if not isinstance(succ, list):
-            succ = []
-        if "final" not in succ:
-            succ.append("final")
+        # Prefer structured FinalState from exec_state, if present
+        exec_structured = exec_state.get("structured_outputs")
+        if isinstance(exec_structured, dict) and "final" in exec_structured:
+            structured["final"] = exec_structured["final"]
+        else:
+            # Fallback: at least store the text
+            structured["final"] = final_text
+
+        # 🔧 merge and normalize successful_agents via helper
+        succ = _merge_successful_agents(state, "final")
+        # mirror into execution_state as list for debug / API
+        exec_state["successful_agents"] = list(succ)
 
         # exec_state already points at the graph's execution_state dict
         return {
@@ -937,6 +971,7 @@ async def final_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Dict[st
     except Exception as e:
         record_agent_error(state, "final", e)
         raise NodeExecutionError(f"Final execution failed: {e}") from e
+
 
 @circuit_breaker(max_failures=3, reset_timeout=300.0)
 @node_metrics
@@ -1010,12 +1045,16 @@ async def refiner_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Dict[
 
         structured_outputs = result_context.execution_state.get("structured_outputs", {})
 
+        # 🔧 merge successful_agents
+        succ = _merge_successful_agents(state, "refiner")
+        exec_state["successful_agents"] = list(succ)
+
         return {
             "execution_state": exec_state,
             "original_query": original_for_state,
             "query": promoted_query,
             "refiner": refiner_state,
-            "successful_agents": ["refiner"],
+            "successful_agents": succ,
             "structured_outputs": structured_outputs,
         }
 
@@ -1128,23 +1167,39 @@ async def data_query_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Di
 
         exec_state = _ensure_exec_state(state)
 
-        successful = ["data_query"]
+        # 🔧 merge successful_agents for data_query + optional dq_node_id alias
+        succ_agents = ["data_query"]
         if dq_node_id != "data_query":
-            successful.append(dq_node_id)
+            succ_agents.append(dq_node_id)
+        succ = _merge_successful_agents(state, *succ_agents)
+        exec_state["successful_agents"] = list(succ)
+
+        # 🔧 store latest result in execution_state for downstream consumers
+        exec_state["data_query_result"] = canonical_value
+        exec_state["data_query_node_id"] = dq_node_id
+
+        # Option A: append/merge instead of overwrite
+        completed_nodes = list(state.get("completed_data_query_nodes") or [])
+        if dq_node_id not in completed_nodes:
+            completed_nodes.append(dq_node_id)
+
+        dq_results = dict(state.get("data_query_results") or {})
+        dq_results[dq_node_id] = canonical_value
+
+        planned_nodes = list(state.get("planned_data_query_nodes") or [])
+        if not planned_nodes:
+            planned_nodes = [dq_node_id]
 
         option_a_updates: Dict[str, Any] = {
-            "completed_data_query_nodes": [dq_node_id],
-            "data_query_results": {dq_node_id: canonical_value},
+            "completed_data_query_nodes": completed_nodes,
+            "data_query_results": dq_results,
+            "planned_data_query_nodes": planned_nodes,
+            "successful_agents": succ,
         }
-
-        planned = state.get("planned_data_query_nodes")
-        if (not isinstance(planned, list)) or (len(planned) == 0):
-            option_a_updates["planned_data_query_nodes"] = [dq_node_id]
 
         return {
             "execution_state": exec_state,
             "data_query": data_query_state,  # legacy compatibility
-            "successful_agents": successful,
             "structured_outputs": structured_outputs,
             **option_a_updates,
         }
@@ -1218,10 +1273,15 @@ async def critic_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Dict[s
         structured_outputs = result_context.execution_state.get("structured_outputs", {})
 
         exec_state = _ensure_exec_state(state)
+
+        # 🔧 merge successful_agents
+        succ = _merge_successful_agents(state, "critic")
+        exec_state["successful_agents"] = list(succ)
+
         return {
             "execution_state": exec_state,
             "critic": critic_state,
-            "successful_agents": ["critic"],
+            "successful_agents": succ,
             "structured_outputs": structured_outputs,
         }
 
@@ -1266,10 +1326,15 @@ async def historian_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Dic
         _record_effective_query(state, "historian", effective_query)
 
         exec_state = _ensure_exec_state(state)
+
+        # 🔧 in skip path, keep successful_agents as-is
+        succ = _merge_successful_agents(state)
+        exec_state["successful_agents"] = list(succ)
+
         return {
             "execution_state": exec_state,
             "historian": None,
-            "successful_agents": [],
+            "successful_agents": succ,
             "structured_outputs": state.get("structured_outputs", {}) or {},
         }
 
@@ -1316,10 +1381,15 @@ async def historian_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Dic
         structured_outputs = result_context.execution_state.get("structured_outputs", {})
 
         exec_state = _ensure_exec_state(state)
+
+        # 🔧 merge successful_agents
+        succ = _merge_successful_agents(state, "historian")
+        exec_state["successful_agents"] = list(succ)
+
         return {
             "execution_state": exec_state,
             "historian": historian_state,
-            "successful_agents": ["historian"],
+            "successful_agents": succ,
             "structured_outputs": structured_outputs,
         }
 
@@ -1455,10 +1525,14 @@ async def synthesis_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Dic
             if isinstance(aom, dict):
                 agent_output_meta = aom
 
+        # 🔧 merge successful_agents
+        succ = _merge_successful_agents(state, "synthesis")
+        exec_state["successful_agents"] = list(succ)
+
         return {
             "execution_state": exec_state,
             "synthesis": synthesis_state,
-            "successful_agents": ["synthesis"],
+            "successful_agents": succ,
             "structured_outputs": structured_outputs,
             "agent_outputs": agent_outputs,
             "agent_output_meta": agent_output_meta,

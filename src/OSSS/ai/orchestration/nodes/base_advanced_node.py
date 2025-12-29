@@ -106,6 +106,7 @@ class NodeExecutionContext(BaseModel):
         arbitrary_types_allowed=True,  # For TaskClassification and datetime objects
     )
 
+
     @model_validator(mode="after")
     def initialize_defaults_and_validate(self) -> "NodeExecutionContext":
         """Initialize default values and validate context."""
@@ -115,12 +116,19 @@ class NodeExecutionContext(BaseModel):
         if self.resource_usage is not None and "start_time" not in self.resource_usage:
             self.resource_usage.update({"start_time": datetime.now(timezone.utc)})
 
-        # Optionally: if classification only exists in execution_state, surface it:
         exec_state = self.execution_state or {}
+
+        # ---- Task classification fallback + coercion ----
         if self.task_classification is None and "task_classification" in exec_state:
-            self.task_classification = exec_state["task_classification"]  # type: ignore[assignment]
+            tc = exec_state["task_classification"]
+            if isinstance(tc, dict):
+                self.task_classification = TaskClassification(**tc)
+            else:
+                self.task_classification = tc  # assume already correct type
+
+        # ---- Cognitive classification fallback (dict, so no special coercion needed) ----
         if self.cognitive_classification is None and "cognitive_classification" in exec_state:
-            self.cognitive_classification = exec_state["cognitive_classification"]  # type: ignore[assignment]
+            self.cognitive_classification = exec_state["cognitive_classification"]
 
         return self
 

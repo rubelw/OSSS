@@ -79,12 +79,22 @@ class BaseAgentOutput(BaseModel):
         description="When the output was generated (ISO format)",
     )
 
-    # Adding task_classification and cognitive_classification
-    task_classification: Optional[str] = Field(
-        None, description="Classification of the task (intent)"
+    # 🔧 allow either a simple label *or* the full classifier dict
+    task_classification: Optional[dict | str] = Field(
+        None,
+        description=(
+            "Task-level classification. Either a simple label "
+            "or the full classifier dict (e.g. "
+            '{"intent": "data_query", "confidence": 0.92}.'
+        ),
     )
-    cognitive_classification: Optional[str] = Field(
-        None, description="Cognitive classification (domain, topic)"
+    cognitive_classification: Optional[dict | str] = Field(
+        None,
+        description=(
+            "Cognitive classification. Either a simple label or a "
+            "full dict (e.g. "
+            '{"domain": "data_systems", "topic": "consents"}.'
+        ),
     )
 
     model_config = ConfigDict(
@@ -93,15 +103,23 @@ class BaseAgentOutput(BaseModel):
 
     @model_validator(mode="before")
     def validate_classifications(cls, values):
-        task_classification = values.get('task_classification')
-        cognitive_classification = values.get('cognitive_classification')
+        task_classification = values.get("task_classification")
+        cognitive_classification = values.get("cognitive_classification")
 
+        # If classifier injected structured dicts, leave them alone
+        if isinstance(task_classification, dict) or isinstance(
+            cognitive_classification, dict
+        ):
+            return values
+
+        # Otherwise, we’re in “simple label” mode – keep your existing defaults
         if not task_classification:
-            values['task_classification'] = 'action'  # default classification if not provided
+            values["task_classification"] = "action"  # default classification if not provided
         if not cognitive_classification:
-            values['cognitive_classification'] = 'data_systems'  # default domain if not provided
+            values["cognitive_classification"] = "data_systems"  # default domain if not provided
 
         return values
+
 
 
 class RefinerOutput(BaseAgentOutput):
@@ -119,127 +137,33 @@ class RefinerOutput(BaseAgentOutput):
         max_length=500,
         description="The original input query as received",
     )
-    changes_made: List[str] = Field(
-        default_factory=list,
-        max_length=10,
-        description="List of specific changes made to improve the query",
-    )
-    was_unchanged: bool = Field(
-        default=False,
-        description="True if query was returned unchanged with [Unchanged] tag",
-    )
-    fallback_used: bool = Field(
-        default=False, description="True if fallback mode was used for malformed input"
-    )
-    ambiguities_resolved: List[str] = Field(
-        default_factory=list,
-        max_length=5,
-        description="List of ambiguities that were resolved",
-    )
+    ...
 
-    # Adding task_classification and cognitive_classification to the output
-    task_classification: Optional[str] = Field(
+    # Keep the fields but allow dict or str
+    task_classification: Optional[dict | str] = Field(
         None, description="Classification of the task (intent)"
     )
-    cognitive_classification: Optional[str] = Field(
+    cognitive_classification: Optional[dict | str] = Field(
         None, description="Cognitive classification (domain, topic)"
     )
 
-    # Ensure to validate the newly added fields here too
     @model_validator(mode="before")
     def validate_classifications(cls, values):
-        task_classification = values.get('task_classification')
-        cognitive_classification = values.get('cognitive_classification')
+        task_classification = values.get("task_classification")
+        cognitive_classification = values.get("cognitive_classification")
+
+        # Respect structured dicts if they’re provided
+        if isinstance(task_classification, dict) or isinstance(
+            cognitive_classification, dict
+        ):
+            return values
 
         if not task_classification:
-            values['task_classification'] = 'action'  # default if missing
+            values["task_classification"] = "action"
         if not cognitive_classification:
-            values['cognitive_classification'] = 'data_systems'  # default if missing
+            values["cognitive_classification"] = "data_systems"
 
         return values
-
-    @field_validator("refined_query")
-    @classmethod
-    def validate_no_meta_commentary(cls, v: str) -> str:
-        """
-        Prevent content pollution by ensuring refined_query contains only content.
-
-        Based on LangChain article patterns for field validation.
-        """
-        # Meta-commentary phrases that indicate pollution
-        pollution_markers = [
-            "I refined",
-            "I changed",
-            "I modified",
-            "I updated",
-            "I improved",
-            "The query was",
-            "After analysis",
-            "Upon review",
-            "Changes made:",
-            "To clarify",
-            "To improve",
-            "I suggest",
-            "I recommend",
-            "This is better because",
-            "The refined version",
-        ]
-
-        v_lower = v.lower()
-        for marker in pollution_markers:
-            if marker.lower() in v_lower:
-                raise ValueError(
-                    f"Content pollution detected: refined_query contains meta-commentary '{marker}'. "
-                    f"Only the refined content should be included, not commentary about the refinement."
-                )
-
-        return v.strip()
-
-    @field_validator("changes_made")
-    @classmethod
-    def validate_changes_format(cls, v: List[str]) -> List[str]:
-        """Ensure changes are concise and properly formatted.
-
-        Character limit increased from 100 → 150 chars (2025-01-26) to accommodate
-        natural LLM language patterns when describing query refinements.
-        """
-        if not v:
-            return v
-
-        validated_changes = []
-        for change in v:
-            change = change.strip()
-            if len(change) < 5:
-                raise ValueError(f"Change description too short: '{change}'")
-            if len(change) > 150:  # Increased to accommodate LLM natural language
-                raise ValueError(
-                    f"Change description too long (max 150 chars): '{change[:50]}...'"
-                )
-            validated_changes.append(change)
-
-        return validated_changes
-
-    model_config = ConfigDict(
-        extra="forbid",
-        validate_assignment=True,
-        json_schema_extra={
-            "example": {
-                "agent_name": "refiner",
-                "processing_mode": "active",
-                "confidence": "high",
-                "refined_query": "What are the potential positive and negative impacts of artificial intelligence on social structures, employment, and human relationships over the next decade?",
-                "original_query": "What about AI and society?",
-                "changes_made": [
-                    "Clarified scope to include positive and negative impacts",
-                    "Specified timeframe as next decade",
-                    "Added specific domains: social structures, employment, relationships",
-                ],
-                "was_unchanged": False,
-                "fallback_used": False,
-                "ambiguities_resolved": ["Unclear scope of 'AI and society'"],
-            }
-        },
-    )
 
 
 class CriticOutput(BaseAgentOutput):

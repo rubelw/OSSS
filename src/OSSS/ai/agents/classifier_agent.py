@@ -20,17 +20,37 @@ logger = get_logger(__name__)
 
 
 def store_classifier_into_context(context: AgentContext, parsed: dict):
-    exec_state = context.execution_state
+    """
+    Canonical place to stash classifier results into AgentContext.
 
-    # canonical
+    expected parsed shape:
+      {
+        "task": { ...task_classification... },
+        "cognitive": { ...cognitive_classification... },
+        "bundle": { ...full_classifier_dict_from_res.to_dict()... },
+      }
+    """
+    exec_state = getattr(context, "execution_state", {}) or {}
+    context.execution_state = exec_state  # ensure we keep the same dict
+
+    # Canonical buckets
     exec_state["classifier"] = parsed
     exec_state["task_classification"] = parsed.get("task")
     exec_state["cognitive_classification"] = parsed.get("cognitive")
 
-    # convenience roots
+    # NEW: this is what DataQueryAgent._get_classifier_and_text_from_context looks for
+    bundle = parsed.get("bundle")
+    if isinstance(bundle, dict):
+        exec_state["classifier_result"] = bundle
+    else:
+        # fall back to entire parsed blob if bundle is missing
+        exec_state["classifier_result"] = parsed
+
+    # Convenience attributes on the context instance
     context.classifier = parsed
     context.task_classification = parsed.get("task")
     context.cognitive_classification = parsed.get("cognitive")
+
 
 
 def _safe_list(value) -> list:
@@ -782,7 +802,7 @@ class SklearnIntentClassifierAgent(BaseAgent):
                     "bundle": out,
                 }
 
-                # Use the local helper defined at top of this file
+                # Store into execution_state in a normalized way
                 store_classifier_into_context(context, parsed)
 
                 # Backwards-compat for any code using explicit setters
@@ -796,28 +816,30 @@ class SklearnIntentClassifierAgent(BaseAgent):
                 # Keep user question around for downstream agents (refiner, data_query, etc.)
                 if hasattr(context, "set_user_question"):
                     context.set_user_question(query)
+                else:
+                    # If you're using the new AgentContext we defined, exec_state is enough;
+                    # get_user_question() will fall back to context.query.
+                    pass
 
-                # Optional: store a lightweight envelope instead of dumping raw dict as content
-                if hasattr(context, "add_agent_output_envelope"):
-                    context.add_agent_output_envelope(
-                        agent=self.name,
-                        intent="classify",
-                        tone="informative",
-                        action="read",
-                        content={
+                # Record a lightweight classifier envelope for downstream consumers
+                if hasattr(context, "add_agent_output"):
+                    context.add_agent_output(
+                        self.name,
+                        {
                             "intent": out.get("intent"),
                             "confidence": out.get("confidence"),
                             "domain": out.get("domain"),
                             "topic": out.get("topic"),
                         },
+                        logical_name="classifier",
+                        role="tool",
+                        meta={
+                            "source": "classifier_agent",
+                            "model_version": self.model_version,
+                        },
+                        action="read",
+                        intent="classify",
                     )
-                else:
-                    # Fallback if envelopes aren't available: store a small summary string
-                    if hasattr(context, "add_agent_output"):
-                        context.add_agent_output(
-                            self.name,
-                            f"intent={out.get('intent')} (confidence={out.get('confidence')})",
-                        )
 
             except Exception as e:
                 logger.warning(

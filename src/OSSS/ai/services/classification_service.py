@@ -260,8 +260,8 @@ class ClassificationService:
             config: Dict[str, Any],
     ) -> None:
         """
-        Populate task_classification and cognitive_classification on the
-        execution_state / context if available.
+        Populate task_classification, cognitive_classification, and classifier
+        on the execution_state / context if available.
         """
         exec_state = self._extract_execution_state(config)
         workflow_id = config.get("workflow_id")
@@ -288,10 +288,13 @@ class ClassificationService:
         if not isinstance(cognitive_cls, MutableMapping):
             cognitive_cls = {}
 
-        # Update task_classification with profile data
+        # ---- Task classification (canonical + backwards-compatible) ----
         task_cls.update(
             {
                 "intent": profile.get("intent", "general"),
+                # canonical key expected by downstream models
+                "confidence": profile.get("confidence", 0.0),
+                # keep legacy alias for anything still reading intent_confidence
                 "intent_confidence": profile.get("confidence", 0.0),
                 "sub_intent": profile.get("sub_intent", None),
                 "sub_intent_confidence": profile.get("sub_intent_confidence", None),
@@ -299,21 +302,33 @@ class ClassificationService:
             }
         )
 
-        # Update cognitive_classification with domain/topic data
+        # ---- Cognitive classification ----
         cognitive_cls.update(
             {
                 "domain": profile.get("domain", None),
                 "domain_confidence": profile.get("domain_confidence", None),
                 "topic": profile.get("topic", None),
                 "topic_confidence": profile.get("topic_confidence", None),
-                "topics": profile.get("topics", []),
+                "topics": profile.get("topics", []) or [],
             }
         )
 
-        # Ensure both fields are set
+        # ---- Classifier root (what DataQueryAgent / routers read) ----
+        classifier_root = {
+            "intent": profile.get("intent", "general"),
+            "confidence": profile.get("confidence", 0.0),
+            "domain": profile.get("domain", None),
+            "domain_confidence": profile.get("domain_confidence", None),
+            "topic": profile.get("topic", None),
+            "topic_confidence": profile.get("topic_confidence", None),
+            "topics": profile.get("topics", []) or [],
+        }
+
+        # Ensure all fields are set on exec_state
         exec_state["task_classification"] = task_cls
         exec_state["cognitive_classification"] = cognitive_cls
         exec_state["classifier_profile"] = profile
+        exec_state["classifier"] = classifier_root
 
         # Add logs to inspect the execution_state
         logger.debug(
@@ -321,13 +336,14 @@ class ClassificationService:
             extra={
                 "workflow_id": workflow_id,
                 "correlation_id": correlation_id,
-                "execution_state": exec_state,  # Log execution state for debugging
+                "execution_state": exec_state,
             },
         )
 
-        # Ensure consistent types for logging
         has_task = isinstance(exec_state.get("task_classification"), MutableMapping)
-        has_cognitive = isinstance(exec_state.get("cognitive_classification"), MutableMapping)
+        has_cognitive = isinstance(
+            exec_state.get("cognitive_classification"), MutableMapping
+        )
 
         logger.info(
             "[classification] wrote classifier results into execution_state",
@@ -336,6 +352,6 @@ class ClassificationService:
                 "correlation_id": correlation_id,
                 "has_task_classification": has_task,
                 "has_cognitive_classification": has_cognitive,
-                "execution_state": exec_state,
+                "has_classifier": exec_state.get("classifier") is not None,
             },
         )

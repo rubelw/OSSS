@@ -9,14 +9,12 @@ and future utility agent integration.
 import time
 from pathlib import Path
 from typing import Dict, Any, Optional, List, Type, Literal, TYPE_CHECKING, cast
-from pydantic import BaseModel, Field, field_validator, ConfigDict
+from pydantic import BaseModel, Field, field_validator, ConfigDict, model_validator
 
 if TYPE_CHECKING:
     from OSSS.ai.agents.base_agent import BaseAgent
 
 from OSSS.ai.agents.protocols import AgentConstructorPattern
-
-
 from OSSS.ai.exceptions import FailurePropagationStrategy
 from OSSS.ai.dependencies.dynamic_composition import DiscoveryStrategy
 
@@ -482,51 +480,8 @@ class AgentMetadata(BaseModel):
         This factory method properly handles None values for list fields,
         letting Pydantic handle default_factory creation instead of manually
         constructing empty lists.
-
-        Parameters
-        ----------
-        name : str
-            Unique name for the agent
-        agent_class : Type[BaseAgent]
-            The agent class to register
-        requires_llm : bool, optional
-            Whether this agent requires an LLM interface, defaults to False
-        constructor_pattern : AgentConstructorPattern, optional
-            Constructor pattern for agent instantiation
-        description : str, optional
-            Human-readable description of the agent, defaults to ""
-        dependencies : List[str], optional
-            List of agent names this agent depends on
-        is_critical : bool, optional
-            Whether agent failure should stop the pipeline, defaults to True
-        failure_strategy : FailurePropagationStrategy, optional
-            How to handle failures from this agent
-        fallback_agents : List[str], optional
-            Alternative agents to try if this one fails
-        health_checks : List[str], optional
-            Health check functions to run before executing
-        cognitive_speed : str, optional
-            Agent cognitive speed, defaults to "adaptive"
-        cognitive_depth : str, optional
-            Agent cognitive depth, defaults to "variable"
-        processing_pattern : str, optional
-            Processing pattern, defaults to "atomic"
-        primary_capability : str, optional
-            Primary capability, defaults to ""
-        secondary_capabilities : List[str], optional
-            Additional capabilities this agent provides
-        pipeline_role : str, optional
-            Role in pipeline, defaults to "standalone"
-        bounded_context : str, optional
-            Bounded context, defaults to "reflection"
-
-        Returns
-        -------
-        AgentMetadata
-            Agent metadata instance with proper default handling
         """
         # Build kwargs dict, only including non-None values for list fields
-        # This lets Pydantic handle default_factory creation
         kwargs = {
             "name": name,
             "agent_class": agent_class,
@@ -547,7 +502,6 @@ class AgentMetadata(BaseModel):
             kwargs["constructor_pattern"] = constructor_pattern
 
         # Only add list fields if they are not None
-        # This allows Pydantic default_factory to handle empty lists properly
         if dependencies is not None:
             kwargs["dependencies"] = dependencies
         if fallback_agents is not None:
@@ -568,20 +522,6 @@ class AgentMetadata(BaseModel):
     ) -> "AgentMetadata":
         """
         Create default agent metadata.
-
-        Parameters
-        ----------
-        name : str, optional
-            Agent name, defaults to "default_agent"
-        agent_class : Type[BaseAgent], optional
-            Agent class, defaults to BaseAgent
-        description : str, optional
-            Agent description
-
-        Returns
-        -------
-        AgentMetadata
-            Default agent metadata instance
         """
         if agent_class is None:
             # Import BaseAgent at runtime to avoid circular import
@@ -611,7 +551,6 @@ class AgentMetadata(BaseModel):
                     @property
                     def metadata(self) -> "AgentMetadata":
                         """Return minimal metadata."""
-                        # Avoid infinite recursion by returning a simplified metadata
                         from OSSS.ai.exceptions import FailurePropagationStrategy
 
                         return cls(
@@ -651,9 +590,7 @@ class AgentMetadata(BaseModel):
 
                 agent_class = EqualityFallbackAgent
 
-        # Ensure agent_class is never None at this point
         if agent_class is None:
-            # This should not happen, but provide a fallback
             raise ValueError("Unable to determine agent class for metadata creation")
 
         return cls(
@@ -695,11 +632,7 @@ class AgentMetadata(BaseModel):
     def from_dict(cls, data: Dict[str, Any]) -> "AgentMetadata":
         """Create AgentMetadata from dictionary representation."""
         # Handle agent_class reconstruction (simplified for now)
-        # agent_class_path available for future use
         data.get("agent_class", "")
-        # In production, this would use importlib to reconstruct the class
-        # For now, we'll use a placeholder
-        # Import BaseAgent at runtime to avoid circular import
         import importlib
 
         try:
@@ -739,7 +672,6 @@ class AgentMetadata(BaseModel):
         pipeline_role_raw = data.get("pipeline_role", "standalone")
         bounded_context_raw = data.get("bounded_context", "reflection")
 
-        # Validate and cast to proper literal types
         cognitive_speed_val: Literal["fast", "slow", "adaptive"] = (
             cast(Literal["fast", "slow", "adaptive"], cognitive_speed_raw)
             if cognitive_speed_raw in ["fast", "slow", "adaptive"]
@@ -836,7 +768,6 @@ try:
     AgentMetadata.model_rebuild()
 except (ImportError, Exception):
     # If import fails or model rebuild fails, continue silently
-    # Tests will need to handle this appropriately
     pass
 
 
@@ -844,40 +775,141 @@ class TaskClassification(BaseModel):
     """
     Classification of work being performed for semantic event routing.
 
-    This enables intelligent routing based on work intent rather than
-    just agent pipeline position.
+    This accepts the raw classifier payload from agent_output_meta["_classifier"]
+    and derives a concrete `task_type` for NodeExecutionContext / DecisionNode.
+
+    Expected upstream payload keys (all optional except task_type when provided):
+    - intent: high-level label, e.g. "action", "question", "query"
+    - confidence: overall intent confidence
+    - domain, domain_confidence
+    - topic, topic_confidence, topics
+    - sub_intent, sub_intent_confidence
+    - labels, raw
+    - model_version
+    - original_text, normalized_text, query_terms
     """
 
+    # What DecisionNode / router really care about:
     task_type: Literal[
         "transform",  # Data/format transformation
-        "evaluate",  # Critical analysis and assessment
-        "retrieve",  # Information and context retrieval
-        "synthesize",  # Multi-perspective integration
+        "evaluate",   # Critical analysis and assessment
+        "retrieve",   # Information and context retrieval
+        "synthesize", # Multi-perspective integration
         "summarize",  # Content condensation
-        "format",  # Output formatting and structuring
-        "filter",  # Content filtering and selection
-        "rank",  # Prioritization and ordering
-        "compare",  # Comparative analysis
-        "explain",  # Explanatory and educational content
-        "clarify",  # Intent clarification and refinement
+        "format",     # Output formatting and structuring
+        "filter",     # Content filtering and selection
+        "rank",       # Prioritization and ordering
+        "compare",    # Comparative analysis
+        "explain",    # Explanatory and educational content
+        "clarify",    # Intent clarification and refinement
     ] = Field(
         ...,
         description="Type of task being performed",
         json_schema_extra={"example": "evaluate"},
     )
 
-    domain: Optional[str] = Field(
-        None,
-        description="Domain of the task (e.g., economics, code, policy, medical)",
-        max_length=100,
-        json_schema_extra={"example": "economics"},
-    )
+    # High-level intent label from the classifier, e.g. "action", "question"
     intent: Optional[str] = Field(
         None,
-        description="User's intent or goal (e.g., help me decide, convert to JSON)",
-        max_length=500,
-        json_schema_extra={"example": "help me understand the concept"},
+        description="Classifier intent label (e.g., 'action', 'question', 'query')",
+        max_length=100,
+        json_schema_extra={"example": "action"},
     )
+
+    # Overall classifier confidence
+    confidence: Optional[float] = Field(
+        None,
+        description="Overall confidence for the primary intent label (0-1)",
+        ge=0.0,
+        le=1.0,
+        json_schema_extra={"example": 0.98},
+    )
+
+    # Domain and domain-specific confidence
+    domain: Optional[str] = Field(
+        None,
+        description="Domain of the task (e.g., data_systems, economics, code, policy)",
+        max_length=100,
+        json_schema_extra={"example": "data_systems"},
+    )
+    domain_confidence: Optional[float] = Field(
+        None,
+        description="Confidence for the domain classification (0-1)",
+        ge=0.0,
+        le=1.0,
+        json_schema_extra={"example": 0.27},
+    )
+
+    # Topic axis
+    topic: Optional[str] = Field(
+        None,
+        description="Primary topic label from classifier",
+        max_length=200,
+        json_schema_extra={"example": "policies"},
+    )
+    topic_confidence: Optional[float] = Field(
+        None,
+        description="Confidence for the primary topic label (0-1)",
+        ge=0.0,
+        le=1.0,
+        json_schema_extra={"example": 0.04},
+    )
+    topics: List[str] = Field(
+        default_factory=list,
+        description="List of topic labels from classifier",
+        json_schema_extra={"example": ["policies"]},
+    )
+
+    # More granular intent axis
+    sub_intent: Optional[str] = Field(
+        None,
+        description="More specific subtype of the intent, if available",
+        max_length=200,
+        json_schema_extra={"example": "create-record"},
+    )
+    sub_intent_confidence: Optional[float] = Field(
+        None,
+        description="Confidence for the sub-intent label (0-1)",
+        ge=0.0,
+        le=1.0,
+        json_schema_extra={"example": 0.8},
+    )
+
+    # Additional classifier metadata
+    labels: Optional[Any] = Field(
+        None,
+        description="Optional raw labels structure from classifier (if any)",
+    )
+    raw: Optional[Any] = Field(
+        None,
+        description="Raw classifier payload or backend-specific metadata",
+    )
+    model_version: Optional[str] = Field(
+        None,
+        description="Underlying classifier model version",
+        max_length=50,
+        json_schema_extra={"example": "v1"},
+    )
+
+    original_text: Optional[str] = Field(
+        None,
+        description="Original text that was classified",
+        max_length=1000,
+        json_schema_extra={"example": "create new consents"},
+    )
+    normalized_text: Optional[str] = Field(
+        None,
+        description="Normalized or preprocessed text used by classifier",
+        max_length=1000,
+        json_schema_extra={"example": "create new consents"},
+    )
+    query_terms: List[str] = Field(
+        default_factory=list,
+        description="Tokenized query terms extracted by classifier",
+        json_schema_extra={"example": ["create", "new", "consents"]},
+    )
+
+    # Local orchestration qualities
     complexity: Literal["simple", "moderate", "complex"] = Field(
         "moderate",
         description="Complexity level of the task",
@@ -889,12 +921,64 @@ class TaskClassification(BaseModel):
         json_schema_extra={"example": "normal"},
     )
 
+    @model_validator(mode="before")
+    @classmethod
+    def derive_task_type_from_classifier(cls, data: Any) -> Any:
+        """
+        Accept raw classifier payloads (like the _classifier block) and
+        derive a concrete task_type if it's missing.
+
+        This is what prevents NodeExecutionContext construction from failing
+        when only classifier fields are present.
+        """
+        if not isinstance(data, dict):
+            return data
+
+        data = dict(data)
+
+        # Only derive if caller didn't explicitly provide task_type
+        if "task_type" not in data:
+            raw_intent = data.get("intent")
+            intent_lower = str(raw_intent).lower() if raw_intent is not None else ""
+
+            # Map classifier-style intents to TaskClassification.task_type
+            intent_to_task_type = {
+                "action": "clarify",     # user wants to do something
+                "question": "explain",   # Q&A style
+                "query": "retrieve",
+                "retrieve": "retrieve",
+                "search": "retrieve",
+                "analyze": "evaluate",
+                "evaluate": "evaluate",
+            }
+
+            if intent_lower in intent_to_task_type:
+                data["task_type"] = intent_to_task_type[intent_lower]
+            else:
+                # Safe default if we can't map the label
+                data["task_type"] = "evaluate"
+
+        return data
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary representation - backward compatibility."""
         return {
             "task_type": self.task_type,
-            "domain": self.domain,
             "intent": self.intent,
+            "confidence": self.confidence,
+            "domain": self.domain,
+            "domain_confidence": self.domain_confidence,
+            "topic": self.topic,
+            "topic_confidence": self.topic_confidence,
+            "topics": self.topics,
+            "sub_intent": self.sub_intent,
+            "sub_intent_confidence": self.sub_intent_confidence,
+            "labels": self.labels,
+            "raw": self.raw,
+            "model_version": self.model_version,
+            "original_text": self.original_text,
+            "normalized_text": self.normalized_text,
+            "query_terms": self.query_terms,
             "complexity": self.complexity,
             "urgency": self.urgency,
         }
@@ -902,17 +986,14 @@ class TaskClassification(BaseModel):
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "TaskClassification":
         """Create TaskClassification from dictionary - backward compatibility."""
-        # Ensure type safety for literal values with proper casting
         complexity_raw = data.get("complexity", "moderate")
         urgency_raw = data.get("urgency", "normal")
 
-        # Validate and cast to proper literal types
         complexity_val: Literal["simple", "moderate", "complex"] = (
             cast(Literal["simple", "moderate", "complex"], complexity_raw)
             if complexity_raw in ["simple", "moderate", "complex"]
             else "moderate"
         )
-
         urgency_val: Literal["low", "normal", "high"] = (
             cast(Literal["low", "normal", "high"], urgency_raw)
             if urgency_raw in ["low", "normal", "high"]
@@ -921,14 +1002,29 @@ class TaskClassification(BaseModel):
 
         return cls(
             task_type=data["task_type"],
-            domain=data.get("domain"),
             intent=data.get("intent"),
+            confidence=data.get("confidence"),
+            domain=data.get("domain"),
+            domain_confidence=data.get("domain_confidence"),
+            topic=data.get("topic"),
+            topic_confidence=data.get("topic_confidence"),
+            topics=data.get("topics") or [],
+            sub_intent=data.get("sub_intent"),
+            sub_intent_confidence=data.get("sub_intent_confidence"),
+            labels=data.get("labels"),
+            raw=data.get("raw"),
+            model_version=data.get("model_version"),
+            original_text=data.get("original_text"),
+            normalized_text=data.get("normalized_text"),
+            query_terms=data.get("query_terms") or [],
             complexity=complexity_val,
             urgency=urgency_val,
         )
 
-    model_config = ConfigDict(extra="forbid", validate_assignment=True)
-
+    model_config = ConfigDict(
+        extra="ignore",          # <-- critical so future classifier fields don't break NodeExecutionContext
+        validate_assignment=True
+    )
 
 def classify_query_task(query: str) -> TaskClassification:
     """
@@ -936,16 +1032,9 @@ def classify_query_task(query: str) -> TaskClassification:
 
     This is a simplified rule-based implementation. In production,
     this could use LLM-powered classification or ML models.
-
-    Args:
-        query: User query to classify
-
-    Returns:
-        TaskClassification with inferred task type and characteristics
     """
     query_lower = query.lower()
 
-    # Simple keyword-based classification with word boundary awareness
     task_type: Literal[
         "transform",
         "evaluate",
@@ -960,7 +1049,6 @@ def classify_query_task(query: str) -> TaskClassification:
         "clarify",
     ]
 
-    # Split into words for precise matching to avoid substring false positives
     query_words = query_lower.split()
 
     if any(word in query_lower for word in ["translate", "convert", "transform"]):
@@ -984,29 +1072,27 @@ def classify_query_task(query: str) -> TaskClassification:
     ):
         task_type = "explain"
     else:
-        task_type = "evaluate"  # Default to evaluation for complex queries
+        task_type = "evaluate"
 
-    # Determine complexity based on query length and keywords
+    # Complexity
     complexity: Literal["simple", "moderate", "complex"] = "simple"
-    if len(query) > 50:  # Adjusted threshold to match test expectations
+    if len(query) > 50:
         complexity = "moderate"
     if len(query) > 200 or any(
         word in query_lower for word in ["complex", "detailed", "comprehensive"]
     ):
         complexity = "complex"
 
-    # Determine urgency based on keywords
+    # Urgency
     urgency: Literal["low", "normal", "high"] = "normal"
-    if any(
-        word in query_lower for word in ["urgent", "asap", "quickly", "immediately"]
-    ):
+    if any(word in query_lower for word in ["urgent", "asap", "quickly", "immediately"]):
         urgency = "high"
     elif any(
         word in query_lower for word in ["when convenient", "no rush", "eventually"]
     ):
         urgency = "low"
 
-    # Extract domain hints
+    # Domain hints
     domain = None
     domain_keywords = {
         "economics": ["economic", "financial", "market", "trade", "economy"],
@@ -1024,7 +1110,13 @@ def classify_query_task(query: str) -> TaskClassification:
     return TaskClassification(
         task_type=task_type,
         domain=domain,
+        # For the rule-based path, you're using the raw query as an "intent-ish" label
         intent=query[:50] + "..." if len(query) > 50 else query,
+        # These classifier-metadata fields are unknown for rule-based classification
+        confidence=None,  # <-- renamed from intent_confidence
+        sub_intent=None,
+        sub_intent_confidence=None,
+        model_version=None,
         complexity=complexity,
         urgency=urgency,
     )

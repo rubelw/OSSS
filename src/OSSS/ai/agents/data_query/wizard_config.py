@@ -4,10 +4,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional
 
+import json
+from pathlib import Path
+
 from OSSS.ai.observability import get_logger
 
 logger = get_logger(__name__)
-
 
 NormalizerFn = Callable[[str], Any]
 
@@ -50,7 +52,7 @@ class WizardConfig:
 
 
 # ---------------------------------------------------------------------------
-# Domain-specific helpers (you can move these here from agent.py)
+# Domain-specific helpers
 # ---------------------------------------------------------------------------
 
 def normalize_consent_status(answer: str) -> str:
@@ -66,65 +68,161 @@ def normalize_consent_status(answer: str) -> str:
     return text
 
 
-# ---------------------------------------------------------------------------
-# STATIC REGISTRY OF WIZARD CONFIGS
-# (later you can generate this from DBML / metadata)
-# ---------------------------------------------------------------------------
-
-WIZARD_CONFIGS: Dict[str, WizardConfig] = {
-    "consents": WizardConfig(
-        collection="consents",
-        fields=[
-            WizardFieldConfig(
-                name="student",
-                label="Student",
-                required=True,
-                prompt="Which student is this consent for? Please provide the full student name.",
-                summary_label="Student",
-            ),
-            WizardFieldConfig(
-                name="guardian",
-                label="Guardian",
-                required=True,
-                prompt="Who gave this consent? Please provide the guardian’s name or relationship.",
-                summary_label="Guardian",
-            ),
-            WizardFieldConfig(
-                name="consent_type",
-                label="Consent type",
-                required=True,
-                prompt="What kind of consent is this? For example: media release, field trip, technology use, etc.",
-                summary_label="Type",
-            ),
-            WizardFieldConfig(
-                name="status",
-                label="Status",
-                required=True,
-                prompt="Was consent granted or denied?",
-                summary_label="Status",
-                normalizer=normalize_consent_status,
-            ),
-            WizardFieldConfig(
-                name="effective_date",
-                label="Effective date",
-                required=False,
-                prompt="What date should this consent be effective from? If it’s today, you can just say 'today'.",
-                summary_label="Effective date",
-                default_value="today",
-            ),
-            WizardFieldConfig(
-                name="notes",
-                label="Notes",
-                required=False,
-                prompt="Any notes you’d like to include? You can say 'no' if there are none.",
-                summary_label="Notes",
-            ),
-        ],
-    ),
-    # Later: add more collections here – all tables from DBML if you want:
-    # "students": WizardConfig(...),
-    # "enrollments": WizardConfig(...),
+# Map string names in JSON -> actual Python callables
+_NORMALIZER_REGISTRY: Dict[str, NormalizerFn] = {
+    "normalize_consent_status": normalize_consent_status,
+    # add more here as you define them
 }
+
+
+JSON_PATH = Path(__file__).resolve().parent / "wizard_configs.json"
+
+
+def _load_wizard_configs_from_json(path: Path) -> Dict[str, WizardConfig]:
+    """
+    Load wizard configs from JSON.
+
+    Supports both shapes:
+
+      1) {
+           "collections": {
+             "consents": {
+               "collection": "consents",
+               "fields": [...]
+             },
+             ...
+           }
+         }
+
+      2) {
+           "consents": {
+             "collection": "consents",
+             "fields": [...]
+           },
+           ...
+         }
+
+    If 'collection' is missing on a config, we fall back to its dict key.
+    """
+    if not path.exists():
+        logger.info("[wizard_config] JSON config not found at %s; using empty registry", path)
+        return {}
+
+    try:
+        with path.open("r", encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception as exc:
+        logger.exception(
+            "[wizard_config] Failed to load JSON config; using empty registry",
+            extra={"json_path": str(path)},
+        )
+        return {}
+
+    if not isinstance(data, dict):
+        logger.error(
+            "[wizard_config] JSON root is not an object; using empty registry",
+            extra={"json_type": type(data).__name__},
+        )
+        return {}
+
+    # Accept either root["collections"] or the root itself as the collections map
+    if "collections" in data and isinstance(data["collections"], dict):
+        collections_data = data["collections"]
+    else:
+        collections_data = data
+
+    result: Dict[str, WizardConfig] = {}
+
+    for cfg_key, cfg in collections_data.items():
+        if not isinstance(cfg, dict):
+            logger.warning(
+                "[wizard_config] Skipping non-dict config entry",
+                extra={"key": cfg_key, "value_type": type(cfg).__name__},
+            )
+            continue
+
+        collection_name = cfg.get("collection") or cfg_key
+        raw_fields = cfg.get("fields", [])
+
+        if not isinstance(raw_fields, list):
+            logger.warning(
+                "[wizard_config] 'fields' is not a list; skipping collection",
+                extra={"collection": collection_name, "fields_type": type(raw_fields).__name__},
+            )
+            continue
+
+        fields: List[WizardFieldConfig] = []
+
+        for f in raw_fields:
+            if not isinstance(f, dict):
+                logger.warning(
+                    "[wizard_config] Skipping non-dict field config",
+                    extra={"collection": collection_name, "field_value_type": type(f).__name__},
+                )
+                continue
+
+            name = f.get("name")
+            if not name:
+                logger.warning(
+                    "[wizard_config] Field missing 'name'; skipping",
+                    extra={"collection": collection_name, "field_config": f},
+                )
+                continue
+
+            label = f.get("label") or name.replace("_", " ").title()
+            required = bool(f.get("required", True))
+            prompt = f.get("prompt")
+            summary_label = f.get("summary_label") or label
+            default_value = f.get("default_value")
+
+            normalizer_name = f.get("normalizer")
+            normalizer = None
+            if isinstance(normalizer_name, str):
+                normalizer = _NORMALIZER_REGISTRY.get(normalizer_name)
+                if normalizer is None:
+                    logger.warning(
+                        "[wizard_config] Unknown normalizer; leaving as None",
+                        extra={
+                            "collection": collection_name,
+                            "field": name,
+                            "normalizer_name": normalizer_name,
+                        },
+                    )
+
+            fields.append(
+                WizardFieldConfig(
+                    name=name,
+                    label=label,
+                    required=required,
+                    prompt=prompt,
+                    summary_label=summary_label,
+                    normalizer=normalizer,
+                    default_value=default_value,
+                )
+            )
+
+        if not fields:
+            logger.info(
+                "[wizard_config] No valid fields for collection; skipping",
+                extra={"collection": collection_name},
+            )
+            continue
+
+        result[collection_name] = WizardConfig(
+            collection=collection_name,
+            fields=fields,
+        )
+
+    logger.info(
+        "[wizard_config] Loaded %d wizard configs from %s",
+        len(result),
+        str(path),
+    )
+    return result
+
+
+# Global registry loaded at import time
+WIZARD_CONFIGS: Dict[str, WizardConfig] = _load_wizard_configs_from_json(JSON_PATH)
 
 
 def get_wizard_config_for_collection(collection: str | None) -> Optional[WizardConfig]:

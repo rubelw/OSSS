@@ -15,17 +15,16 @@ from OSSS.ai.agents.models import RefinerOutput, ProcessingMode, ConfidenceLevel
 from OSSS.ai.services.langchain_service import LangChainService
 
 # Configuration system imports
-from typing import Optional, Union
+from typing import Optional, Any, Dict
 from OSSS.ai.config.agent_configs import RefinerConfig
-from OSSS.ai.workflows.prompt_composer import PromptComposer, ComposedPrompt
-from OSSS.ai.utils.llm_text import coerce_llm_text
+from OSSS.ai.workflows.prompt_composer import PromptComposer
+from OSSS.ai.utils.llm_text import coerce_llm_text  # still imported if you use it elsewhere
 from OSSS.ai.api.external import CompletionRequest
 
 import logging
 import asyncio
-from typing import Dict, Any
 
-# External API import
+# External API import (currently unused here, but kept if you plan to use it later)
 from OSSS.ai.api.external import LangGraphOrchestrationAPI
 
 logger = logging.getLogger(__name__)
@@ -116,11 +115,7 @@ class RefinerAgent(BaseAgent):
 
     def _get_refiner_prompt(self, query: str) -> str:
         """
-        Deprecated helper: left as a thin wrapper to keep callsites simple
-        if needed, but we now rely on the system prompt to fully specify
-        output format.
-
-        The user message just provides the original query.
+        User message content for the refiner call.
         """
         return f"Original query: {query}\n\nPlease refine this query according to the system instructions."
 
@@ -129,103 +124,48 @@ class RefinerAgent(BaseAgent):
         self._update_composed_prompt()
         logger.info(f"[{self.name}] Configuration updated: {config.refinement_level} refinement")
 
+    # --- classification helpers -----------------------------------------
+    def _coerce_task_classification_value(self, value: Any) -> Optional[str]:
+        """
+        Normalize task_classification from context into a simple string.
+        """
+        if value is None:
+            return None
+        if isinstance(value, str):
+            return value.strip() or None
+        if isinstance(value, dict):
+            intent = value.get("intent") or value.get("label") or value.get("task")
+            if isinstance(intent, str) and intent.strip():
+                return intent.strip()
+        try:
+            text = str(value).strip()
+            return text or None
+        except Exception:
+            return None
 
-
-
-
-    async def run(self, context: AgentContext) -> AgentContext:
-        query = (context.query or "").strip()
-        logger.info(f"[{self.name}] Processing query: {query}")
-
-        # Retrieve task and cognitive classifications
-        task_classification = context.get_task_classification()
-        cognitive_classification = context.get_cognitive_classification()
-
-        # Log task and cognitive classifications
-        logger.debug(f"[{self.name}] Task Classification: {task_classification}")
-        logger.debug(f"[{self.name}] Cognitive Classification: {cognitive_classification}")
-
-        # Check for empty or malformed queries
-        if not query:
-            logger.error(f"[{self.name}] Received an empty or malformed query.")
-            query = "Please provide a valid question to refine."
-
-        exec_state = getattr(context, "execution_state", None)
-        if not isinstance(exec_state, dict):
-            exec_state = {}
-            setattr(context, "execution_state", exec_state)
-        exec_state.setdefault("original_query", query)
-
-        system_prompt = self._get_system_prompt()
-
-        # If orchestrator already injected RAG into execution_state, ensure flags are set
-        if isinstance(context.execution_state, dict):
-            rag_snippet = (
-                    context.execution_state.get("rag_snippet")
-                    or context.execution_state.get("rag_context")
-                    or ""
-            )
-            if rag_snippet:
-                context.execution_state["rag_snippet"] = rag_snippet
-                context.execution_state["rag_snippet_present"] = True
-                logger.info(f"[{self.name}] Using existing RAG snippet for query: {query[:100]}...")
-            else:
-                context.execution_state.setdefault("rag_snippet_present", False)
-
-        # Structured service handling
-        if self.structured_service:
-            try:
-                refined_output = await self._run_structured(query, system_prompt, context)
-            except Exception as e:
-                logger.warning(f"[{self.name}] Structured output failed, falling back to traditional: {e}")
-                refined_output = await self._run_traditional(query, system_prompt, context)
-        else:
-            refined_output = await self._run_traditional(query, system_prompt, context)
-
-        # Coerce LLM output to plain text
-        raw_text = coerce_llm_text(refined_output).strip()
-        if not raw_text:
-            logger.error(f"[{self.name}] Refined output is empty; falling back to original query.")
-            refined_query = query
-        else:
-            refined_query = None
-
-            try:
-                obj = json.loads(raw_text)
-                rq = obj.get("refined_query")
-                if isinstance(rq, str) and rq.strip():
-                    refined_query = rq.strip()
-                    logger.debug(f"[{self.name}] Parsed refined_query from JSON: {refined_query}")
-            except json.JSONDecodeError:
-                logger.warning(f"[{self.name}] Refiner output not valid JSON; falling back")
-
-            if refined_query is None:
-                if raw_text.startswith("[Unchanged]"):
-                    candidate = raw_text[len("[Unchanged]"):].strip()
-                    refined_query = candidate or query
-                    logger.debug(f"[{self.name}] Using fallback [Unchanged] pattern: {refined_query}")
-                else:
-                    refined_query = raw_text
-                    logger.debug(f"[{self.name}] Using raw_text as refined_query fallback: {refined_query}")
-
-        # Ensure that refined query is added to the context
-        context.execution_state["refined_query"] = refined_query
-
-        final_agent_context = context  # Pass updated context to the final agent
-
-        env = self._wrap_output(
-            output=refined_query,
-            intent="refine_query",
-            tone="neutral",
-            action="read",
-            sub_tone=None,
-        )
-
-        context.add_agent_output(self.name, refined_query)
-        context.add_agent_output_envelope(self.name, env)
-
-        context.log_trace(self.name, input_data=query, output_data=refined_query)
-        return context
+    def _coerce_cognitive_classification_value(self, value: Any) -> Optional[str]:
+        """
+        Normalize cognitive_classification from context into a simple string.
+        """
+        if value is None:
+            return None
+        if isinstance(value, str):
+            return value.strip() or None
+        if isinstance(value, dict):
+            domain = value.get("domain")
+            topic = value.get("topic")
+            parts = []
+            if isinstance(domain, str) and domain.strip():
+                parts.append(domain.strip())
+            if isinstance(topic, str) and topic.strip():
+                parts.append(topic.strip())
+            if parts:
+                return " : ".join(parts)
+        try:
+            text = str(value).strip()
+            return text or None
+        except Exception:
+            return None
 
     async def _run_structured(self, query: str, system_prompt: str, context: AgentContext) -> str:
         """Run with structured output using LangChain service."""
@@ -237,7 +177,7 @@ class RefinerAgent(BaseAgent):
             raise ValueError("Structured service not available")
 
         try:
-            prompt = f"Original query: {query}\n\nPlease refine this query according to the system instructions."
+            prompt = self._get_refiner_prompt(query)
 
             result = await self.structured_service.get_structured_output(
                 prompt=prompt,
@@ -259,6 +199,33 @@ class RefinerAgent(BaseAgent):
                 else:
                     raise ValueError(f"Unexpected result type: {type(result)}")
 
+            # Inject classifier signals from context into RefinerOutput
+            try:
+                task_raw = context.get_task_classification()
+                cognitive_raw = context.get_cognitive_classification()
+
+                task_str = self._coerce_task_classification_value(task_raw)
+                cognitive_str = self._coerce_cognitive_classification_value(cognitive_raw)
+
+                if task_str is not None or cognitive_str is not None:
+                    structured_result = structured_result.model_copy(
+                        update={
+                            "task_classification": task_str or structured_result.task_classification,
+                            "cognitive_classification": cognitive_str or structured_result.cognitive_classification,
+                        }
+                    )
+                    logger.debug(
+                        f"[{self.name}] Injected classifier metadata into RefinerOutput",
+                        extra={
+                            "task_classification": task_str,
+                            "cognitive_classification": cognitive_str,
+                        },
+                    )
+            except Exception as e:
+                logger.warning(
+                    f"[{self.name}] Failed to inject classifier metadata into RefinerOutput: {e}"
+                )
+
             processing_time_ms = (time.time() - start_time) * 1000
 
             if structured_result.processing_time_ms is None:
@@ -266,6 +233,9 @@ class RefinerAgent(BaseAgent):
                     update={"processing_time_ms": processing_time_ms}
                 )
                 logger.info(f"[{self.name}] Injected server-calculated processing_time_ms: {processing_time_ms:.1f}ms")
+
+            if not hasattr(context, "execution_state") or not isinstance(context.execution_state, dict):
+                context.execution_state = {}
 
             if "structured_outputs" not in context.execution_state:
                 context.execution_state["structured_outputs"] = {}
@@ -277,11 +247,85 @@ class RefinerAgent(BaseAgent):
             context.execution_metadata.setdefault("agent_outputs", {})
             context.execution_metadata["agent_outputs"][self.name] = structured_result.model_dump()
 
-            return structured_result.refined_query if not structured_result.was_unchanged else "[Unchanged] " + structured_result.refined_query
+            return (
+                structured_result.refined_query
+                if not structured_result.was_unchanged
+                else "[Unchanged] " + structured_result.refined_query
+            )
 
         except Exception as e:
             logger.debug(f"[{self.name}] Structured failed fast, falling back: {e}")
             raise
+
+    # ----------------------------------------------------------------------
+    # Helper: normalize LLM response -> refined_query string (JSON-aware)
+    # ----------------------------------------------------------------------
+    def _extract_refined_query_from_llm_response(self, resp: Any) -> str:
+        """
+        Extract the 'refined_query' string from an LLM response without ever
+        calling `.strip()` on a dict.
+
+        Handles:
+        - OpenAI-style resp.choices[0].message.content
+        - Dict-based responses with the same structure
+        - Already-parsed JSON objects with a `refined_query` field
+        - Plain text responses that contain JSON
+        """
+        content: Any = None
+
+        # 1) Try OpenAI-style object access
+        try:
+            if hasattr(resp, "choices"):
+                choices = getattr(resp, "choices", None)
+                if choices:
+                    choice0 = choices[0]
+                    message = getattr(choice0, "message", None) or getattr(choice0, "delta", None)
+                    if isinstance(message, dict):
+                        content = message.get("content")
+                    else:
+                        content = getattr(message, "content", None)
+        except Exception:
+            content = None  # don't let introspection failures blow things up
+
+        # 2) Fallback: dict-style response
+        if content is None and isinstance(resp, dict):
+            try:
+                if "choices" in resp:
+                    choice0 = resp["choices"][0]
+                    msg = choice0.get("message") or choice0.get("delta") or {}
+                    content = msg.get("content")
+                elif "content" in resp:
+                    content = resp["content"]
+            except Exception:
+                content = None
+
+        # 3) Last resort: use the whole response object
+        if content is None:
+            content = resp
+
+        # If it's already a dict, treat as parsed JSON
+        if isinstance(content, dict):
+            rq = content.get("refined_query")
+            if isinstance(rq, str):
+                return rq.strip()
+            # Fall back to stringified content
+            return str(content)
+
+        # Treat as text from here
+        text = str(content).strip()
+
+        # Try to interpret the text as JSON of the form {"refined_query": "..."}
+        try:
+            parsed = json.loads(text)
+            if isinstance(parsed, dict):
+                rq = parsed.get("refined_query")
+                if isinstance(rq, str):
+                    return rq.strip()
+        except Exception:
+            # Not valid JSON – just use raw text
+            pass
+
+        return text
 
     async def _run_traditional(self, query: str, system_prompt: str, context: AgentContext) -> str:
         logger.info(f"[{self.name}] Using traditional LLM interface")
@@ -294,7 +338,8 @@ class RefinerAgent(BaseAgent):
         ]
         resp = await self.llm.ainvoke(messages)
 
-        refined_query = coerce_llm_text(resp).strip()
+        # JSON-aware extraction of the "refined_query" field or fallback text
+        refined_query = self._extract_refined_query_from_llm_response(resp)
 
         input_tokens = getattr(resp, "input_tokens", 0) or 0
         output_tokens = getattr(resp, "output_tokens", 0) or 0
@@ -310,6 +355,127 @@ class RefinerAgent(BaseAgent):
         if refined_query.startswith("[Unchanged]"):
             return refined_query
         return refined_query
+
+    def _extract_query_text(self, context: AgentContext) -> str:
+        """
+        Robustly extract a string query from the AgentContext.
+        """
+        raw: Any = None
+
+        # Preferred source: context.get_user_question()
+        try:
+            raw = context.get_user_question()
+        except Exception as e:
+            logger.debug(f"[{self.name}] get_user_question() failed: {e}")
+
+        # Fallback: context.query
+        if not raw:
+            raw = getattr(context, "query", None)
+
+        # If it's already a string, normalize and return
+        if isinstance(raw, str):
+            return raw.strip()
+
+        # If it's a dict, try common text-bearing keys first
+        if isinstance(raw, dict):
+            for key in ("query", "text", "content", "message"):
+                val = raw.get(key)
+                if isinstance(val, str) and val.strip():
+                    return val.strip()
+            # Last resort: JSON-encode the dict to a string
+            try:
+                return json.dumps(raw, ensure_ascii=False).strip()
+            except Exception:
+                return ""
+
+        # Other types (list, numbers, etc.) – stringify defensively
+        if raw is not None:
+            try:
+                return str(raw).strip()
+            except Exception:
+                return ""
+
+        return ""
+
+    async def run(self, context: AgentContext, **kwargs: Any) -> AgentContext:
+        """
+        Concrete implementation of the abstract BaseAgent.run.
+
+        Picks structured vs traditional mode, updates execution_state, and
+        records an AgentOutputEnvelope in the context.
+        """
+        # Get the best version of the user query, robust to non-string types
+        query = self._extract_query_text(context)
+
+        system_prompt = self._get_system_prompt()
+
+        use_structured = bool(
+            getattr(self.config, "use_structured_output", False) and self.structured_service
+        )
+        processing_mode = "structured" if use_structured else "traditional"
+
+        if use_structured:
+            try:
+                refined_query = await self._run_structured(query, system_prompt, context)
+            except Exception as e:
+                logger.warning(
+                    "[%s] Structured mode failed, falling back to traditional: %s",
+                    self.name,
+                    e,
+                )
+                processing_mode = "traditional"
+                refined_query = await self._run_traditional(query, system_prompt, context)
+        else:
+            refined_query = await self._run_traditional(query, system_prompt, context)
+
+        # Store results in execution_state for downstream agents
+        if not hasattr(context, "execution_state") or not isinstance(context.execution_state, dict):
+            context.execution_state = {}
+
+        context.execution_state.setdefault("refiner", {})
+        context.execution_state["refiner"].update(
+            {
+                "original_query": query,
+                "refined_query": refined_query,
+                "processing_mode": processing_mode,
+            }
+        )
+        # Simple top-level key for convenience
+        context.execution_state["refined_query"] = refined_query
+
+        # Build meta payload
+        meta: Dict[str, Any] = {
+            "processing_mode": processing_mode,
+            "agent": self.name,
+            "original_query": query,
+        }
+        try:
+            meta["task_classification"] = context.get_task_classification()
+            meta["cognitive_classification"] = context.get_cognitive_classification()
+        except Exception:
+            # non-fatal – just skip if helpers blow up
+            pass
+
+        # Attach structured output snapshot if present
+        try:
+            structured_outputs = context.execution_state.get("structured_outputs", {})
+            if isinstance(structured_outputs, dict) and self.name in structured_outputs:
+                meta["structured_output"] = structured_outputs[self.name]
+        except Exception:
+            pass
+
+        # Record canonical envelope – NOTE: content is a STRING, not a dict.
+        context.add_agent_output(
+            agent_name=self.name,
+            logical_name="refiner",
+            content=refined_query,
+            role="assistant",
+            action="refine",
+            intent="informational",
+            meta=meta,
+        )
+
+        return context
 
     def define_node_metadata(self) -> Dict[str, Any]:
         return {

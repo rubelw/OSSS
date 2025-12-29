@@ -13,7 +13,7 @@ Key behavior:
 - Agent selection (which nodes exist) is controlled by routing/optimizer + normalize_agents,
   while edges come from the selected pattern via GraphFactory.
 """
-
+import inspect
 import time
 import uuid
 import os
@@ -107,49 +107,24 @@ DEFAULT_RAG_JSONL_PATH = os.getenv(
 
 
 def normalize_agents(agents: list[str], *, pattern_name: str = "standard") -> list[str]:
-    """
-    Normalize agent list according to the two supported patterns:
-
-    - standard:
-        refiner -> final -> END
-        * no data_query, historian, critic, synthesis in the plan
-
-    - data_query:
-        refiner -> data_query -> (historian for CRUD) -> END
-        * must include data_query
-        * may include historian
-        * no final, critic, synthesis
-    """
     a = [str(x).lower() for x in (agents or []) if x]
 
-    # Always ensure refiner is present
     if "refiner" not in a:
         a.insert(0, "refiner")
 
     pattern = (pattern_name or "standard").strip().lower()
 
     if pattern == "data_query":
-        # Data-centric path:
-        #   refiner -> data_query -> (historian for CRUD) -> END
-        #
-        # - MUST have data_query
-        # - MUST NOT have final, critic, synthesis
-        # - historian is allowed but optional
-        #a = [x for x in a if x not in ("final", "critic", "synthesis")]
+        # refiner -> data_query -> (historian) -> END
+        a = [x for x in a if x not in ("final", "critic", "synthesis")]
         if "data_query" not in a:
             a.append("data_query")
-        # historian is kept if caller requested it
     else:
-        # Standard conversational path:
-        #   refiner -> final -> END
-        #
-        # - MUST have final
-        # - MUST NOT have data_query, historian, critic, synthesis
-        #a = [x for x in a if x not in ("data_query", "historian", "critic", "synthesis")]
+        # refiner -> final -> END
+        a = [x for x in a if x not in ("data_query", "historian", "critic", "synthesis")]
         if "final" not in a:
             a.append("final")
 
-    # Stable de-dupe preserving order
     out: list[str] = []
     seen = set()
     for x in a:
@@ -481,15 +456,14 @@ class LangGraphOrchestrator:
             exec_state = {}  # type: ignore[assignment]
             state["execution_state"] = exec_state  # type: ignore[assignment]
 
-        # Prefer canonical config under "config", but support legacy
+        # Prefer canonical config under "execution_config", but support legacy "config"
         cfg: Dict[str, Any] = {}
-        raw_cfg = exec_state.get("config")
-        if isinstance(raw_cfg, dict):
-            cfg = raw_cfg
-        legacy_exec_cfg = exec_state.get("execution_config")
-        if isinstance(legacy_exec_cfg, dict):
-            # Legacy "execution_config" may still exist; prefer canonical
-            for k, v in legacy_exec_cfg.items():
+        canonical_exec_cfg = exec_state.get("execution_config")
+        if isinstance(canonical_exec_cfg, dict):
+            cfg = canonical_exec_cfg
+        legacy_cfg = exec_state.get("config")
+        if isinstance(legacy_cfg, dict):
+            for k, v in legacy_cfg.items():
                 cfg.setdefault(k, v)
 
         rag_cfg = cfg.get("rag") or {}
@@ -615,8 +589,6 @@ class LangGraphOrchestrator:
     # Agent list resolution
     # ---------------------------------------------------------------------
 
-
-
     def _resolve_agents_for_run(self, config: dict) -> list[str]:
         requested = config.get("agents")
 
@@ -626,7 +598,6 @@ class LangGraphOrchestrator:
         else:
             agents = [str(a).lower() for a in (self.agents_to_run or self.default_agents)]
             source = "self.agents_to_run/default"
-
 
         # De-dupe while preserving order
         deduped: List[str] = []
@@ -768,30 +739,23 @@ class LangGraphOrchestrator:
         if not isinstance(config, dict):
             config = {}
 
-        pattern: Optional[str] = None
-
-        # 1) Explicit override in execution_config
-        exec_cfg = config.get("execution_config") or {}
+        # ------------------------------------------------------------------
+        # 1) Explicit overrides
+        # ------------------------------------------------------------------
+        exec_cfg = config.get("execution_config")
         if isinstance(exec_cfg, dict):
             p = exec_cfg.get("graph_pattern")
             if isinstance(p, str) and p.strip():
-                pattern = p.strip()
+                pattern = p.strip().lower()
+                return pattern if pattern in ("standard", "data_query") else "standard"
 
-        # 2) Legacy/simple override on top-level config
-        if pattern is None:
-            p2 = config.get("graph_pattern")
-            if isinstance(p2, str) and p2.strip():
-                pattern = p2.strip()
-
-        # If caller explicitly set something, clamp and return
-        if pattern is not None:
-            pattern = pattern.lower()
-            if pattern not in ("standard", "data_query"):
-                pattern = "standard"
-            return pattern
+        p2 = config.get("graph_pattern")
+        if isinstance(p2, str) and p2.strip():
+            pattern = p2.strip().lower()
+            return pattern if pattern in ("standard", "data_query") else "standard"
 
         # ------------------------------------------------------------------
-        # 3) No explicit pattern: use classifier + query heuristics
+        # 2) No explicit pattern: use classifier + query heuristics
         # ------------------------------------------------------------------
         classifier = config.get("classifier") or {}
         if not isinstance(classifier, dict):
@@ -802,42 +766,47 @@ class LangGraphOrchestrator:
 
         raw_query = str(config.get("raw_query") or "").lower()
 
-        # Very simple DB-ish heuristic; refine as needed
-        looks_db_like = any(token in raw_query for token in (
-            "query ",
-            " select ",
-            " from ",
-            " where ",
-            " update ",
-            " insert ",
-            " delete ",
-            " join ",
-            " group by",
-            " order by",
-        )) or raw_query.startswith("query ")
+        looks_db_like = any(
+            token in raw_query
+            for token in (
+                "query ",
+                " select ",
+                " from ",
+                " where ",
+                " update ",
+                " insert ",
+                " delete ",
+                " join ",
+                " group by",
+                " order by",
+            )
+        ) or raw_query.startswith("query ")
 
         is_actiony = intent == "action"
 
+        # 🔚 Always return a string
         if is_actiony or looks_db_like:
-            pattern = "data_query"
-        else:
-            pattern = "standard"
-
-        return pattern
+            return "data_query"
+        return "standard"
 
     # ---------------------------------------------------------------------
     # Graph building
     # ---------------------------------------------------------------------
 
     async def _get_compiled_graph(
-        self,
-        *,
-        pattern_name: str,
-        execution_state: Optional[Dict[str, Any]] = None,
-        chosen_target: Optional[str] = None,
+            self,
+            *,
+            pattern_name: str,
+            execution_state: Optional[Dict[str, Any]] = None,
+            chosen_target: Optional[str] = None,
     ) -> Any:
+        # ✅ Normalize defensively so we never call .strip() on None
+        effective_pattern = (pattern_name or self.DEFAULT_PATTERN).strip().lower()
+        if effective_pattern not in ("standard", "data_query"):
+            effective_pattern = self.DEFAULT_PATTERN
+
         graph_agents = [a for a in (self.agents_to_run or [])]
-        key = (pattern_name.strip(), tuple(graph_agents), bool(self.enable_checkpoints))
+        key = (effective_pattern, tuple(graph_agents), bool(self.enable_checkpoints))
 
         if self._compiled_graph is None or self._compiled_graph_key != key:
             self._compiled_graph = None
@@ -845,14 +814,14 @@ class LangGraphOrchestrator:
 
             self.logger.info(
                 "Building LangGraph StateGraph using GraphFactory...",
-                extra={"pattern": pattern_name, "agents": graph_agents},
+                extra={"pattern": effective_pattern, "agents": graph_agents},
             )
 
             cfg = GraphConfig(
                 agents_to_run=graph_agents,
                 enable_checkpoints=self.enable_checkpoints,
                 memory_manager=self.memory_manager,
-                pattern_name=pattern_name.strip(),
+                pattern_name=effective_pattern,
                 cache_enabled=True,
                 execution_state=execution_state or {},
                 chosen_target=chosen_target,
@@ -870,7 +839,7 @@ class LangGraphOrchestrator:
                 "Successfully built LangGraph StateGraph",
                 extra={
                     "agents": graph_agents,
-                    "pattern": pattern_name.strip(),
+                    "pattern": effective_pattern,
                     "checkpoints": self.enable_checkpoints,
                 },
             )
@@ -914,6 +883,10 @@ class LangGraphOrchestrator:
 
         # resolve pattern for THIS run (clamped to {"standard", "data_query"})
         pattern_name = self._resolve_pattern_for_run(config)
+
+        # extra safety in case someone changes _resolve_pattern_for_run later
+        if not pattern_name:
+            pattern_name = self.DEFAULT_PATTERN
         add_trace_metadata("graph_pattern", pattern_name)
 
         # resolve agents (requested/default)
@@ -969,13 +942,11 @@ class LangGraphOrchestrator:
                     initial_state["cognitive_classification"] = cc  # type: ignore[index]
             # -------------------------------------------------------------
 
-
-
-
             # Deterministic execution_config for all agents
             exec_cfg: ExecutionConfig = _canonical_execution_config(config)  # type: ignore[assignment]
-            exec_state["config"] = exec_cfg  # canonical
-            exec_state["execution_config"] = exec_cfg  # back-compat alias
+            # ✅ execution_config is canonical; config is alias
+            exec_state["execution_config"] = exec_cfg
+            exec_state["config"] = exec_cfg  # back-compat alias
 
             # Optional debugging info
             if "raw_request_config" not in exec_state and isinstance(config, dict):
@@ -1018,9 +989,14 @@ class LangGraphOrchestrator:
                         },
                     )
 
-                    decision = await self.decision_node.execute(decision_ctx)
+                    result = self.decision_node.execute(decision_ctx)
+                    if inspect.isawaitable(result):
+                        decision = await result
+                    else:
+                        decision = result or {}
 
                     decision_selected = list(decision.get("selected_agents") or [])
+
                 except Exception as e:
                     self.logger.warning(
                         f"[orchestrator] DecisionNode failed, using existing agents: {e}"
@@ -1189,10 +1165,7 @@ class LangGraphOrchestrator:
                 if not final_state["failed_agents"]
                 else "partial_failure",
                 execution_time_seconds=total_time_ms / 1000,
-                agent_outputs={
-                    k: truncate_output(v)
-                    for k, v in agent_context.agent_outputs.items()
-                },
+                agent_outputs=safe_agent_outputs,
                 successful_agents=list(final_state["successful_agents"]),
                 failed_agents=list(final_state["failed_agents"]),
                 correlation_id=correlation_id,
@@ -1278,8 +1251,8 @@ class LangGraphOrchestrator:
         try:
             exec_state = final_state.get("execution_state", {}) or {}
             if isinstance(exec_state, dict):
-                # ✅ Prefer canonical config, but support legacy execution_config.
-                ex_cfg = exec_state.get("config") or exec_state.get("execution_config")
+                # ✅ Prefer canonical execution_config, but support legacy config alias
+                ex_cfg = exec_state.get("execution_config") or exec_state.get("config")
                 if isinstance(ex_cfg, dict):
                     context.execution_state["execution_config"] = ex_cfg
 
@@ -1360,8 +1333,12 @@ class LangGraphOrchestrator:
                 ]
                 context.execution_state["final_timestamp"] = final_output["timestamp"]
 
+        # ✅ successful_agents is now treated as a list, not a set
+        if getattr(context, "successful_agents", None) is None:
+            context.successful_agents = []
         for agent in final_state["successful_agents"]:
-            context.successful_agents.add(agent)
+            if agent not in context.successful_agents:
+                context.successful_agents.append(agent)
 
         if final_state["errors"]:
             context.execution_state["langgraph_errors"] = final_state["errors"]
@@ -1402,6 +1379,17 @@ class LangGraphOrchestrator:
             if self.total_executions
             else 0.0
         )
+
+        # ✅ Try to pull cache stats from GraphFactory.cache if available
+        graph_factory_stats: Dict[str, Any] = {"enabled": False}
+        try:
+            cache = getattr(self.graph_factory, "cache", None)
+            if cache and hasattr(cache, "get_stats"):
+                graph_factory_stats = cache.get_stats()
+                graph_factory_stats["enabled"] = True
+        except Exception as e:
+            graph_factory_stats = {"enabled": True, "error": str(e)}
+
         return {
             "orchestrator_type": "langgraph-real",
             "total_executions": self.total_executions,
@@ -1409,7 +1397,7 @@ class LangGraphOrchestrator:
             "failed_executions": self.failed_executions,
             "success_rate": success_rate,
             "agents_to_run": self.agents_to_run,
-            "graph_factory_stats": self.graph_factory.get_cache_stats(),
+            "graph_factory_stats": graph_factory_stats,
             "available_patterns": self.get_available_graph_patterns(),
             "default_pattern": self.graph_pattern,
         }
