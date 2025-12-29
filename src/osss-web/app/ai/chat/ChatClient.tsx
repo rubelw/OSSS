@@ -13,9 +13,8 @@ interface UiMessage {
   who: "user" | "bot";
   content: string;
   isHtml?: boolean;
-  fullWidth?: boolean; // 👈 NEW
-  // 👇 NEW: raw metadata from backend, if any
-  meta?: any;
+  fullWidth?: boolean;
+  meta?: any; // no longer used for data_query tables, but kept for future use
 }
 
 interface RetrievedChunk {
@@ -72,11 +71,10 @@ type WorkflowResponse = {
   error_message?: string | null;
   answer?: string;
 
-  // ✅ top-level conversation id (matches your raw JSON)
+  // top-level conversation id (matches your raw JSON)
   conversation_id?: string;
 
   execution_state?: {
-    // ✅ mirrored here if server sets it
     conversation_id?: string;
     final?: {
       final_answer?: string;
@@ -109,13 +107,12 @@ type WorkflowResponse = {
   };
 };
 
-
 function looksLikeLLMResponseWrapper(text: string): boolean {
   return /^LLMResponse\(text=/.test(text.trim());
 }
 
 function pickFinalAnswer(wf: WorkflowResponse): string {
-  // 🔹 1) Prefer canonical final_answer from execution_state / structured_outputs
+  // 1) Prefer canonical final_answer from execution_state / structured_outputs
   const es: any = wf.execution_state || {};
   const fromExecState =
     es.final?.final_answer ??
@@ -126,7 +123,7 @@ function pickFinalAnswer(wf: WorkflowResponse): string {
     return fromExecState;
   }
 
-  // 🔹 2) If top-level answer exists and is not just an LLMResponse(...) debug wrapper, use it
+  // 2) If top-level answer exists and is not just an LLMResponse(...) debug wrapper, use it
   if (
     typeof wf.answer === "string" &&
     wf.answer.trim() &&
@@ -135,22 +132,19 @@ function pickFinalAnswer(wf: WorkflowResponse): string {
     return wf.answer;
   }
 
-  // 🔹 3) Last resort: old behavior (look at agent_outputs.final / refiner / first string)
+  // 3) Last resort: old behavior (look at agent_outputs.final / refiner / first string)
   return pickPrimaryText(wf.agent_outputs);
 }
 
 function pickPrimaryText(agentOutputs: Record<string, any> | undefined): string {
   if (!agentOutputs) return "";
 
-  // Prioritize the final output if available
   const finalOutput = agentOutputs.final;
   if (typeof finalOutput === "string" && finalOutput.trim()) return finalOutput;
 
-  // Fallback to the refiner output if no final output
   const refinerOutput = agentOutputs.refiner;
   if (typeof refinerOutput === "string" && refinerOutput.trim()) return refinerOutput;
 
-  // fallback: first string value
   for (const k of Object.keys(agentOutputs)) {
     const v = agentOutputs[k];
     if (typeof v === "string" && v.trim()) return v;
@@ -163,19 +157,19 @@ function getQueryProfile(payload: any) {
 }
 
 /**
- * Very small Markdown → HTML helper:
+ * Small Markdown → HTML helper:
  * - code blocks
  * - inline code
  * - links
  * - bold
- * - bullet lists starting with `* ` or `- `
- *   (even if they originally appeared inline, like `: * item1 * item2`)
+ * - bullet lists
+ * - tables
  */
 function mdToHtml(src: string): string {
   // Escape HTML
   let s = src.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-  // --- Normalize inline bullets into real lines --------------------
+  // Normalize inline bullets into real lines
   s = s.replace(/([^\n])\s+\*(\s+)/g, "$1\n*$2");
 
   // Code blocks
@@ -195,7 +189,7 @@ function mdToHtml(src: string): string {
   // Bold
   s = s.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
 
-  // --- Line-based processing: lists + tables -----------------------
+  // Line-based processing: lists + tables
   const lines = s.split(/\n/);
   let inList = false;
   const out: string[] = [];
@@ -203,20 +197,17 @@ function mdToHtml(src: string): string {
   const isTableSeparator = (line: string): boolean => {
     const trimmed = line.trim();
     if (!trimmed.startsWith("|")) return false;
-    // something like: | --- | --- | --- |
     return /^\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)+\|?$/.test(trimmed);
   };
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
 
-    // --- TABLE DETECTION -------------------------------------------
     const trimmed = line.trim();
     const looksLikeTableRow = trimmed.startsWith("|") && trimmed.includes("|");
 
     // Header + separator = start of table
     if (looksLikeTableRow && i + 1 < lines.length && isTableSeparator(lines[i + 1])) {
-      // Close any open list before starting table
       if (inList) {
         out.push("</ul>");
         inList = false;
@@ -224,7 +215,7 @@ function mdToHtml(src: string): string {
 
       // Header row
       const headerCells = trimmed
-        .replace(/^\||\|$/g, "") // strip leading/trailing |
+        .replace(/^\||\|$/g, "")
         .split("|")
         .map((c) => c.trim());
 
@@ -232,7 +223,7 @@ function mdToHtml(src: string): string {
       headerCells.forEach((cell) => out.push(`<th>${cell}</th>`));
       out.push("</tr></thead><tbody>");
 
-      // Skip the separator line
+      // Skip separator
       i += 1;
 
       // Data rows
@@ -256,7 +247,7 @@ function mdToHtml(src: string): string {
       continue;
     }
 
-    // --- BULLET LIST HANDLING --------------------------------------
+    // Bullet lists
     const bulletMatch = line.match(/^\s*([*-])\s+(.+)/);
 
     if (bulletMatch) {
@@ -291,17 +282,14 @@ function buildSourcesHtmlFromChunks(chunks: RetrievedChunk[]): string {
   const items: string[] = [];
 
   for (const c of chunks) {
-    // 👇 centralize how we compute the source path
     const sourcePath: string | undefined =
       (c as any).pdf_index_path || (c as any).source || c.filename || undefined;
 
     if (!sourcePath) continue;
 
-    // Encode each path segment so `/` stays as `/`
     const safeSegments = sourcePath.split("/").map((seg) => encodeURIComponent(seg));
     const href = `/rag-pdfs/main/${safeSegments.join("/")}`;
 
-    // Shown text: just the last part
     const displayName = sourcePath.split("/").pop() || c.filename || "Unknown file";
 
     const metaParts: string[] = [];
@@ -328,103 +316,8 @@ function buildSourcesHtmlFromChunks(chunks: RetrievedChunk[]): string {
 }
 
 /**
- * 🔹 PREVIOUS: build markdown tables from data_query rows.
- * We’ll now treat this as a **fallback** when the backend does NOT
- * provide table_markdown_compact / table_markdown_full.
- */
-function buildDataQueryMarkdown(agentOutputs?: Record<string, any>): string {
-  if (!agentOutputs) return "";
-
-  const blocks: string[] = [];
-
-  for (const [key, value] of Object.entries(agentOutputs)) {
-    if (!key.startsWith("data_query")) continue;
-    if (!value || typeof value !== "object") continue;
-
-    // If new-style output with table_markdown_* exists, skip here
-    const v: any = value;
-    if (v.table_markdown_compact || v.table_markdown_full) continue;
-
-    const dq = value as {
-      view?: string;
-      ok?: boolean;
-      rows?: any[];
-      row_count?: number;
-    };
-
-    if (dq.ok !== true) continue;
-    if (!Array.isArray(dq.rows) || dq.rows.length === 0) continue;
-
-    const rows = dq.rows;
-    const viewName = dq.view || key;
-
-    // Collect columns from all rows (union), so we don't drop fields
-    const colSet = new Set<string>();
-    for (const r of rows) {
-      if (r && typeof r === "object") {
-        Object.keys(r).forEach((c) => colSet.add(c));
-      }
-    }
-    const cols = Array.from(colSet);
-    if (cols.length === 0) continue;
-
-    const lines: string[] = [];
-
-    lines.push(`**Data query: ${viewName}**`);
-    if (typeof dq.row_count === "number") {
-      lines.push(`_Rows: ${dq.row_count}_`);
-    }
-    lines.push(""); // blank line before table
-
-    // Header
-    lines.push(`| ${cols.join(" | ")} |`);
-    lines.push(`| ${cols.map(() => "---").join(" | ")} |`);
-
-    // Rows
-    for (const row of rows) {
-      const cells = cols.map((col) => {
-        const v = row?.[col];
-        if (v === null || v === undefined) return "";
-        if (typeof v === "object") {
-          try {
-            return JSON.stringify(v);
-          } catch {
-            return String(v);
-          }
-        }
-        return String(v);
-      });
-      lines.push(`| ${cells.join(" | ")} |`);
-    }
-
-    lines.push(""); // trailing blank line
-    blocks.push(lines.join("\n"));
-  }
-
-  return blocks.join("\n\n---\n\n");
-}
-
-/**
- * 🔹 NEW: extract first data_query canonical output that has
- * table_markdown_compact / table_markdown_full.
- */
-function extractDataQueryMeta(agentOutputs?: Record<string, any>): any | null {
-  if (!agentOutputs) return null;
-  for (const [key, value] of Object.entries(agentOutputs)) {
-    if (!key.startsWith("data_query")) continue;
-    if (!value || typeof value !== "object") continue;
-
-    const v: any = value;
-    if (v.table_markdown_compact || v.table_markdown_full) {
-      return v;
-    }
-  }
-  return null;
-}
-
-/**
  * Map the raw intent label to a more descriptive explanation.
- * This is aligned with server-side intents.
+ * (kept for future use; not shown in UI)
  */
 function describeIntent(intent: string): string {
   switch (intent) {
@@ -440,83 +333,10 @@ function describeIntent(intent: string): string {
       return "student reflection / student help";
     case "parent":
       return "family or guardian perspective";
-    // ... (rest unchanged)
-    case "general":
     default:
       return "general information / mixed audience";
   }
 }
-
-/**
- * 🔹 NEW: UI component for data_query results with compact/full toggle.
- */
-type ProjectionMode = "compact" | "full";
-
-function DataQueryResult({ meta }: { meta: any }) {
-  const [mode, setMode] = useState<ProjectionMode>(
-    (meta?.projection_mode as ProjectionMode) || "compact"
-  );
-
-  const hasCompact = !!meta?.table_markdown_compact;
-  const hasFull = !!meta?.table_markdown_full;
-
-  if (!hasCompact && !hasFull) return null;
-
-  const markdown =
-    mode === "full"
-      ? meta.table_markdown_full || meta.table_markdown_compact
-      : meta.table_markdown_compact || meta.table_markdown_full;
-
-  const html = mdToHtml(String(markdown || ""));
-
-  return (
-    <div className="data-query-result" style={{ marginTop: "8px" }}>
-      <div className="flex justify-between items-center mb-2">
-        <div className="text-sm text-gray-500">
-          {meta?.entity?.display_name || meta?.view || "Query result"}
-        </div>
-
-        {hasCompact && hasFull && (
-          <div className="flex gap-2 text-xs">
-            <button
-              type="button"
-              onClick={() => setMode("compact")}
-              style={{
-                padding: "2px 6px",
-                borderRadius: "4px",
-                border: "1px solid #ccc",
-                backgroundColor: mode === "compact" ? "#f0f0f0" : "transparent",
-                cursor: "pointer",
-              }}
-            >
-              Compact view
-            </button>
-            <button
-              type="button"
-              onClick={() => setMode("full")}
-              style={{
-                padding: "2px 6px",
-                borderRadius: "4px",
-                border: "1px solid #ccc",
-                backgroundColor: mode === "full" ? "#f0f0f0" : "transparent",
-                cursor: "pointer",
-              }}
-            >
-              Full view
-            </button>
-          </div>
-        )}
-      </div>
-
-      <div
-        className="data-query-table"
-        style={{ overflowX: "auto", fontSize: "0.85rem" }}
-        dangerouslySetInnerHTML={{ __html: html }}
-      />
-    </div>
-  );
-}
-
 
 export default function ChatClient() {
   const [input, setInput] = useState("");
@@ -536,7 +356,7 @@ export default function ChatClient() {
 
   const [showDebug, setShowDebug] = useState<boolean>(false);
 
-  // NEW: toggle "Sources" block on/off
+  // toggle "Sources" block on/off
   const [showSources, setShowSources] = useState<boolean>(true);
 
   // main RAG session id (per tab)
@@ -560,18 +380,18 @@ export default function ChatClient() {
     return initial;
   });
 
-  // 🔹 NEW: conversation id state, persisted in sessionStorage
+  // conversation id state, persisted in sessionStorage
   const [conversationId, setConversationId] = useState<string | null>(() => {
-      if (typeof window === "undefined") return null;
-      try {
-        const stored = window.sessionStorage.getItem("osss_conversation_id");
-        return stored || null;
-      } catch {
-        return null;
-      }
-    });
+    if (typeof window === "undefined") return null;
+    try {
+      const stored = window.sessionStorage.getItem("osss_conversation_id");
+      return stored || null;
+    } catch {
+      return null;
+    }
+  });
 
-  // NEW: subagent session id (e.g. registration workflow)
+  // subagent session id (e.g. registration workflow)
   const [subagentSessionId, setSubagentSessionId] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
@@ -614,7 +434,7 @@ export default function ChatClient() {
     }
   }, [messages]);
 
-  // On mount: restore messages & history & conversationId (defensive)
+  // On mount: restore messages & history & conversationId
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -637,7 +457,8 @@ export default function ChatClient() {
         setSessionId(storedSession);
       } else {
         let initial = `session-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-        if (typeof crypto !== "undefined" && "randomUUID" in crypto) initial = crypto.randomUUID();
+        if (typeof crypto !== "undefined" && "randomUUID" in crypto)
+          initial = crypto.randomUUID();
         window.sessionStorage.setItem("osss_chat_session_id", initial);
         setSessionId(initial);
       }
@@ -667,15 +488,8 @@ export default function ChatClient() {
     } catch {}
   }, [chatHistory]);
 
-  // 👇 UPDATED: appendMessage now accepts optional meta
   const appendMessage = useCallback(
-    (
-      who: "user" | "bot",
-      content: string,
-      isHtml = false,
-      fullWidth = false,
-      meta?: any
-    ) => {
+    (who: "user" | "bot", content: string, isHtml = false, fullWidth = false, meta?: any) => {
       setMessages((prev) => {
         const lastId = prev.length ? prev[prev.length - 1].id : 0;
         return [...prev, { id: lastId + 1, who, content, isHtml, fullWidth, meta }];
@@ -692,7 +506,7 @@ export default function ChatClient() {
     setUploadedFiles([]);
     setUploadedFilesNames([]);
     setSubagentSessionId(null);
-    setConversationId(null); // 👈 clear conversation id
+    setConversationId(null);
 
     if (typeof window !== "undefined") {
       try {
@@ -773,10 +587,8 @@ export default function ChatClient() {
         agents: [],
         execution_config: {
           parallel_execution: true,
-          // ✅ NEW: allow server-side workflow longer
           timeout_seconds: 180,
           use_llm_intent: true,
-          // ✅ add these:
           use_rag: true,
           top_k: 6,
         },
@@ -784,14 +596,16 @@ export default function ChatClient() {
         export_md: true,
       };
 
-      // 👇 NEW: send conversation_id if we already have one
       if (conversationId) {
         body.conversation_id = conversationId;
       }
 
-      // ✅ NEW: client-side timeout using AbortController
+      // client-side timeout using AbortController
       const controller = new AbortController();
-      const timeoutId = window.setTimeout(() => controller.abort(), CLIENT_QUERY_TIMEOUT_MS);
+      const timeoutId = window.setTimeout(
+        () => controller.abort(),
+        CLIENT_QUERY_TIMEOUT_MS
+      );
 
       let resp: Response;
       try {
@@ -826,22 +640,22 @@ export default function ChatClient() {
 
       const wf = payload as WorkflowResponse;
 
-      // 🔹 NEW: capture conversation_id from response and persist it
-        const responseConversationId =
-          wf.conversation_id ??
-          wf.execution_state?.conversation_id ??
-          (wf as any).conversationId; // just in case of camelCase from some older code
+      // capture conversation_id from response and persist it
+      const responseConversationId =
+        wf.conversation_id ??
+        wf.execution_state?.conversation_id ??
+        (wf as any).conversationId;
 
-        if (responseConversationId && responseConversationId !== conversationId) {
-          setConversationId(responseConversationId);
-          if (typeof window !== "undefined") {
-            try {
-              window.sessionStorage.setItem("osss_conversation_id", responseConversationId);
-            } catch {
-              // ignore storage errors
-            }
+      if (responseConversationId && responseConversationId !== conversationId) {
+        setConversationId(responseConversationId);
+        if (typeof window !== "undefined") {
+          try {
+            window.sessionStorage.setItem("osss_conversation_id", responseConversationId);
+          } catch {
+            // ignore storage errors
           }
         }
+      }
 
       // This endpoint doesn't currently return retrieved_chunks.
       setRetrievedChunks([]);
@@ -856,59 +670,32 @@ export default function ChatClient() {
         return;
       }
 
-      // Primary text to show in chat (now uses canonical final_answer)
+      // Primary text to show in chat (canonical final_answer or fallback)
       const reply = pickFinalAnswer(wf) || "(No agent output returned)";
+      const replyForDisplay = reply.trimEnd();
 
-      // 🔹 NEW: pull data_query canonical meta if present
-      const dataQueryMeta = extractDataQueryMeta(wf.agent_outputs);
-
-      // 🔹 Fallback: build markdown tables only if no canonical meta exists
-      const dataQueryMd = dataQueryMeta ? "" : buildDataQueryMarkdown(wf.agent_outputs);
-
-      // Pull intent/tone/etc from the query profile (new shape)
+      // Intent (not shown, but kept if you want for logging)
       const qp = getQueryProfile(wf);
       const returnedIntent: string | null = typeof qp?.intent === "string" ? qp.intent : null;
       const intentConfidence: number | null =
         typeof qp?.intent_confidence === "number" ? qp.intent_confidence : null;
-
       const intentDescription = describeIntent(returnedIntent ?? "general");
       void intentDescription;
       void intentConfidence;
 
-      // Optional: show user-facing text (without debug) + table
-      let replyForDisplay = reply.trimEnd();
-
-      // If we have canonical data_query meta AND the reply is just that table,
-      // don't render the table in the main markdown content. Let DataQueryResult
-      // be the single source of truth for the table UI.
-      if (
-        dataQueryMeta &&
-        typeof dataQueryMeta.table_markdown_compact === "string" &&
-        replyForDisplay.trim() === dataQueryMeta.table_markdown_compact.trim()
-      ) {
-        // optional: a short label users see above the table
-        replyForDisplay = "";
-      }
-
-      // Fallback: only build legacy markdown tables when we *don't* have meta
-      if (dataQueryMd) {
-        replyForDisplay += `\n\n---\n${dataQueryMd}`;
-      }
-
       const replyForHistory = sanitizeForGuard(replyForDisplay);
 
-      // build main display HTML (answer + any fallback table)
+      // build main display HTML (answer only) + sources block
       const outHtml = mdToHtml(String(replyForDisplay));
       const sourcesHtml = showSources ? buildSourcesHtmlFromChunks(chunksForThisReply) : "";
       const finalHtml = outHtml + sourcesHtml;
 
-      // use fullWidth if we have debug OR a data_query table (either style)
-      const useFullWidth = showDebug || !!dataQueryMd || !!dataQueryMeta;
+      // use fullWidth only if debug is on (no data_query tables anymore)
+      const useFullWidth = showDebug;
 
-      // 1️⃣ Main bot message: answer + DataQueryResult (via meta)
-      appendMessage("bot", finalHtml, true, useFullWidth, dataQueryMeta || undefined);
+      appendMessage("bot", finalHtml, true, useFullWidth);
 
-      // 2️⃣ Separate debug message *below* everything else
+      // Optional debug message
       if (showDebug) {
         const RAW_DEBUG_MAX = 50_000;
         let pretty = prettyJson(raw);
@@ -927,10 +714,11 @@ export default function ChatClient() {
         appendMessage("bot", debugHtml, true, true);
       }
 
-      setChatHistory((prev) => [...prev, { role: "assistant", content: String(replyForHistory) }]);
-
+      setChatHistory((prev) => [
+        ...prev,
+        { role: "assistant", content: String(replyForHistory) },
+      ]);
     } catch (err: any) {
-      // ✅ NEW: distinguish client timeout vs other errors
       if (err?.name === "AbortError") {
         appendMessage(
           "bot",
@@ -956,7 +744,6 @@ export default function ChatClient() {
     uploadedFilesNames,
     sessionId,
     showDebug,
-    subagentSessionId,
     showSources,
     conversationId,
   ]);
@@ -979,17 +766,37 @@ export default function ChatClient() {
         <div>General Chat — Use responsibly</div>
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
           <label
-            style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "14px", cursor: "pointer" }}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              fontSize: "14px",
+              cursor: "pointer",
+            }}
           >
-            <input type="checkbox" checked={showDebug} onChange={(e) => setShowDebug(e.target.checked)} />
+            <input
+              type="checkbox"
+              checked={showDebug}
+              onChange={(e) => setShowDebug(e.target.checked)}
+            />
             Debug
           </label>
 
-          {/* NEW: Sources toggle */}
+          {/* Sources toggle */}
           <label
-            style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "14px", cursor: "pointer" }}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              fontSize: "14px",
+              cursor: "pointer",
+            }}
           >
-            <input type="checkbox" checked={showSources} onChange={(e) => setShowSources(e.target.checked)} />
+            <input
+              type="checkbox"
+              checked={showSources}
+              onChange={(e) => setShowSources(e.target.checked)}
+            />
             Sources
           </label>
 
@@ -1027,7 +834,9 @@ export default function ChatClient() {
 
       {/* Messages */}
       <div className="mentor-messages" style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
-        {messages.length === 0 && <div className="mentor-empty-hint">Say hello to begin.</div>}
+        {messages.length === 0 && (
+          <div className="mentor-empty-hint">Say hello to begin.</div>
+        )}
         {messages.map((m) => (
           <div
             key={m.id}
@@ -1060,14 +869,11 @@ export default function ChatClient() {
                   : undefined
               }
             >
-              {/* ✅ Always show the main content */}
-              {m.isHtml ? <div dangerouslySetInnerHTML={{ __html: m.content }} /> : m.content}
-
-              {/* ✅ NEW: if this message has data_query meta, render the toggleable table below */}
-              {m.meta &&
-                (m.meta.table_markdown_compact || m.meta.table_markdown_full) && (
-                  <DataQueryResult meta={m.meta} />
-                )}
+              {m.isHtml ? (
+                <div dangerouslySetInnerHTML={{ __html: m.content }} />
+              ) : (
+                m.content
+              )}
             </div>
           </div>
         ))}
@@ -1077,7 +883,13 @@ export default function ChatClient() {
       {/* Composer */}
       <div className="mentor-composer">
         <div className="textarea-container" style={{ position: "relative", width: "100%" }}>
-          <input type="file" ref={fileInputRef} style={{ display: "none" }} onChange={handleFileUpload} multiple />
+          <input
+            type="file"
+            ref={fileInputRef}
+            style={{ display: "none" }}
+            onChange={handleFileUpload}
+            multiple
+          />
           <button
             type="button"
             className="file-upload-btn"
@@ -1106,12 +918,19 @@ export default function ChatClient() {
           />
         </div>
 
-        <button type="button" className="mentor-send primary" onClick={handleSend} disabled={sending}>
+        <button
+          type="button"
+          className="mentor-send primary"
+          onClick={handleSend}
+          disabled={sending}
+        >
           {sending ? "Sending…" : "Send"}
         </button>
       </div>
 
-      <div className="mentor-footer">Local model proxy — for experimentation and allowed use only.</div>
+      <div className="mentor-footer">
+        Local model proxy — for experimentation and allowed use only.
+      </div>
     </div>
   );
 }
