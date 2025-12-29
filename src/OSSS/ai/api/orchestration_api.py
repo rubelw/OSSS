@@ -1341,6 +1341,9 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
         # Ensure exec_state is always defined, even if an early exception occurs
         exec_state: Dict[str, Any] = {}
 
+        # Track whether a CRUD wizard explicitly cancelled this turn
+        wizard_cancelled: bool = False
+
         try:
             logger.info(
                 f"Starting workflow {workflow_id} with query: {request.query[:100]}...",
@@ -1462,13 +1465,12 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
 
             # NEW: persist wizard-related state for this conversation (if any)
             try:
-                persisted_conversation_id = conversation_id  # authoritative now
+                # Prefer the *final* execution_state from the workflow result
+                result_exec_state = getattr(result_context, "execution_state", None) or {}
 
-                # Prefer the *final* execution_state from the workflow result,
-                # fall back to any earlier exec_state only if needed.
-                result_exec_state = (
-                        getattr(result_context, "execution_state", None) or {}
-                )
+                # Did the wizard explicitly cancel this turn?
+                wizard_cancelled = bool(result_exec_state.get("wizard_cancelled"))
+
                 base_exec_state = exec_state or {}
 
                 # Merge older + newer, letting the *newer* values win
@@ -1496,14 +1498,24 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                     ),
                 }
 
-                # Only persist wizard if we actually have one
-                if isinstance(wizard_state, dict):
+                # Only persist wizard if we actually have one AND we didn’t cancel
+                if isinstance(wizard_state, dict) and not wizard_cancelled:
                     minimal_state["wizard"] = wizard_state
 
-                await self._save_conversation_state(
-                    conversation_id=persisted_conversation_id,
-                    state=minimal_state,
-                )
+                # If the wizard was cancelled, *do not* persist per-conversation state
+                if wizard_cancelled:
+                    logger.info(
+                        "[orchestration_api] wizard_cancelled=True, skipping conversation state persistence",
+                        extra={
+                            "event": "conversation_state.skip_on_cancel",
+                            "conversation_id": conversation_id,
+                        },
+                    )
+                else:
+                    await self._save_conversation_state(
+                        conversation_id=conversation_id,
+                        state=minimal_state,
+                    )
 
             except Exception as conv_exc:
                 logger.warning(
@@ -1625,6 +1637,10 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                 else "failed"
             )
 
+            # If a CRUD wizard explicitly cancelled, do NOT continue the thread on the UI:
+            # expose conversation_id = None so the client shows a fresh/empty prompt.
+            response_conversation_id = None if wizard_cancelled else conversation_id
+
             response = WorkflowResponse(
                 workflow_id=workflow_id,
                 answer=final_answer,
@@ -1634,7 +1650,7 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                 agent_outputs=agent_outputs_for_response,
                 execution_time_seconds=execution_time,
                 correlation_id=correlation_id,
-                conversation_id=conversation_id,  # 🔑 Option B: expose to client
+                conversation_id=response_conversation_id,
                 error_message=None if status == "completed" else "No agent outputs",
                 markdown_export=markdown_export,
             )

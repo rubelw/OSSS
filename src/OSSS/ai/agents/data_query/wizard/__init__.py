@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
@@ -11,6 +10,12 @@ from OSSS.ai.agents.data_query.wizard_config import (
 )
 
 logger = get_logger(__name__)
+
+# Shared hint text used in prompts and stub summaries.
+CANCEL_HINT = (
+    "\n\nYou can type **cancel** at any time to end this workflow "
+    "and return to a blank prompt."
+)
 
 
 def _wizard_missing_fields(payload: Dict[str, Any], cfg: WizardConfig) -> List[str]:
@@ -26,7 +31,7 @@ def _wizard_missing_fields(payload: Dict[str, Any], cfg: WizardConfig) -> List[s
 
 
 def _summarize_wizard_payload(payload: Dict[str, Any], cfg: WizardConfig) -> str:
-    """Human‑readable summary used in confirmation messages."""
+    """Human-readable summary used in confirmation messages."""
     lines: List[str] = []
     for field in cfg.fields:
         label = field.summary_label or field.label or field.name
@@ -70,7 +75,7 @@ def wizard_channel_key(agent_name: str, collection: Optional[str] = None) -> str
 
 
 # ---------------------------------------------------------------------------
-# Main flow
+# Main flow (3-turn CRUD wizard stub for read/create/update/delete)
 # ---------------------------------------------------------------------------
 
 
@@ -80,21 +85,112 @@ async def continue_wizard(
     wizard_state: Dict[str, Any],
     user_text: str,
 ) -> AgentContext:
-    """Port of the previous DataQueryAgent._continue_wizard method.
+    """3-turn CRUD wizard stub for read, create, update, and delete.
 
-    This function is intentionally generic so it can be reused by any agent
-    that wants a simple multi‑turn "CRUD wizard" UX.
+    Turn 1 (already handled by DataQueryAgent.run):
+        - Initialize wizard_state with pending_action="confirm_table".
+        - Ask: "Is this the correct table?"
+
+    Turn 2 (here, pending_action == "confirm_table"):
+        - User confirms or overrides table name.
+        - Wizard:
+            * stores final table name
+            * sends a short “thanks” message
+            * asks an operation-specific question
+            * sets pending_action="collect_details"
+
+    Turn 3 (here, pending_action == "collect_details"):
+        - User provides free-form details (filters, fields, ids, etc.).
+        - Wizard:
+            * stores a stub payload in execution_state + structured_outputs
+            * emits a stub summary explaining what would happen
+            * clears wizard_state
+
+    Users can type "cancel" (or similar) at ANY step to abort and clear wizard,
+    returning to a blank prompt.
     """
     collection = wizard_state.get("collection")
     channel_key = wizard_channel_key(agent_name, collection)
     pending_action = wizard_state.get("pending_action")
     payload: Dict[str, Any] = wizard_state.get("payload") or {}
 
+    # Normalize operation; treat "read" and "query" as read-style wizards.
+    operation_raw = (wizard_state.get("operation") or "read").strip().lower()
+    if operation_raw == "query":
+        operation = "read"
+    else:
+        operation = operation_raw
+
     # ---------------------------------------------------------------------
-    # TABLE NAME CONFIRMATION STEP (first turn of CRUD wizards)
+    # GLOBAL CANCEL HANDLER (applies to all steps)
+    # ---------------------------------------------------------------------
+    answer_raw = (user_text or "").strip()
+    answer_lower = answer_raw.lower()
+
+    cancel_tokens = {
+        "cancel",
+        "stop",
+        "never mind",
+        "nevermind",
+        "abort",
+        "exit",
+        "quit",
+    }
+
+    if answer_lower in cancel_tokens:
+        logger.info(
+            "[wizard] user cancelled wizard",
+            extra={
+                "event": "wizard_user_cancel",
+                "collection": collection,
+                "operation": operation,
+                "pending_action": pending_action,
+            },
+        )
+
+        # --- NEW: mark cancellation in execution_state for orchestration_api/UI ---
+        exec_state: Dict[str, Any] = getattr(context, "execution_state", {}) or {}
+        exec_state["wizard_cancelled"] = True
+
+        final_meta = exec_state.setdefault("final_meta", {})
+        if isinstance(final_meta, dict):
+            final_meta.setdefault("source", "wizard")
+            final_meta["status"] = "cancelled"
+            final_meta["reason"] = "user_cancelled_wizard"
+
+        cancel_message = (
+            "Okay, I’ve cancelled this CRUD wizard. No changes were made — "
+            "you’re back at a blank prompt."
+        )
+        exec_state["final_answer"] = cancel_message
+        context.execution_state = exec_state
+        # --- END NEW ---
+
+        # Clear wizard state so future messages are fresh.
+        set_wizard_state(context, None)
+
+        context.add_agent_output(
+            agent_name=channel_key,
+            logical_name=agent_name,
+            content=cancel_message,
+            role="assistant",
+            meta={
+                "action": "wizard",
+                "step": "cancelled",
+                "collection": collection,
+                "operation": operation,
+                "reason": "user_cancelled",
+                "pending_action": pending_action,
+            },
+            action="wizard_cancelled",
+            intent="action",
+        )
+        return context
+
+    # ---------------------------------------------------------------------
+    # TABLE NAME CONFIRMATION STEP (Turn 2)
     # ---------------------------------------------------------------------
     if pending_action == "confirm_table":
-        operation = (wizard_state.get("operation") or "create").lower()
         base_url = wizard_state.get("base_url")
         entity_meta: Dict[str, Any] = wizard_state.get("entity_meta") or {}
 
@@ -105,29 +201,6 @@ async def continue_wizard(
             or entity_meta.get("topic_key")
             or "unknown_table"
         )
-
-        answer_raw = (user_text or "").strip()
-        answer_lower = answer_raw.lower()
-
-        cancel_tokens = {"cancel", "stop", "never mind", "nevermind", "abort", "exit", "quit"}
-        if answer_lower in cancel_tokens:
-            set_wizard_state(context, None)
-            context.add_agent_output(
-                agent_name=channel_key,
-                logical_name=agent_name,
-                content="Okay, I won’t start this wizard right now.",
-                role="assistant",
-                meta={
-                    "action": "wizard",
-                    "step": "cancelled",
-                    "collection": collection,
-                    "operation": operation,
-                    "reason": "user_cancelled_at_table_confirm",
-                },
-                action="wizard_cancelled",
-                intent="action",
-            )
-            return context
 
         yes_tokens = {
             "yes",
@@ -142,17 +215,21 @@ async def continue_wizard(
             "that is right",
         }
 
+        # If the user just says "yes"/"ok" (or nothing), keep the proposed table.
         if not answer_raw or answer_lower in yes_tokens:
             final_table = table_name
         else:
+            # Otherwise, treat their answer as a specific table name.
             final_table = answer_raw
 
+        # Update entity metadata with the final table name.
         entity_meta["table"] = final_table
         wizard_state["table_name"] = final_table
         wizard_state["entity_meta"] = entity_meta
 
         thank_you_msg = (
-            f"Thank you — I’ll use the `{final_table}` table for this {operation} operation."
+            f"Thanks — I’ll use the `{final_table}` table for this **{operation.upper()}** operation."
+            f"{CANCEL_HINT}"
         )
 
         context.add_agent_output(
@@ -171,131 +248,100 @@ async def continue_wizard(
             intent="action",
         )
 
-        # CREATE → proceed into field‑collection wizard
-        if operation == "create":
-            cfg = get_wizard_config_for_collection(collection)
-            if not cfg:
-                set_wizard_state(context, None)
-                context.add_agent_output(
-                    agent_name=channel_key,
-                    logical_name=agent_name,
-                    content=(
-                        "However, I don’t have a wizard configuration for this collection yet, "
-                        "so I can’t collect the fields automatically."
-                    ),
-                    role="assistant",
-                    meta={
-                        "action": "wizard",
-                        "step": "error",
-                        "collection": collection,
-                        "operation": operation,
-                    },
-                    action="wizard_error",
-                    intent="action",
-                )
-                return context
+        # --- Turn 2: ask operation-specific follow-up and move to collect_details ---
+        # Initialize a simple payload shell (for stubbing).
+        payload = {
+            "source": "ai_data_query_wizard_stub",
+            "base_url": base_url,
+            "collection": collection,
+            "table_name": final_table,
+            "operation": operation,
+            "entity": entity_meta,
+        }
+        wizard_state["payload"] = payload
+        wizard_state["pending_action"] = "collect_details"
 
-            payload = {
-                "source": "ai_data_query",
-                "base_url": base_url,
-                "entity_id": entity_meta.get("id"),
-                "collection": collection,
-            }
-
-            missing = _wizard_missing_fields(payload, cfg)
-            next_field_name = missing[0] if missing else None
-
-            new_state: Dict[str, Any] = {
-                "pending_action": "collect",
-                "payload": payload,
-                "collection": collection,
-                "current_field": next_field_name,
-                "route_info": wizard_state.get("route_info") or {},
-            }
-            set_wizard_state(context, new_state)
-
-            if next_field_name:
-                field_cfg = cfg.field_by_name(next_field_name)
-                if field_cfg and field_cfg.prompt:
-                    prompt = field_cfg.prompt
-                else:
-                    prompt = f"Please provide {field_cfg.label if field_cfg else next_field_name}."
-
-                meta_block = {
-                    "action": "wizard",
-                    "step": "collect_field",
-                    "collection": collection,
-                    "current_field": next_field_name,
-                    "missing_fields": missing,
-                }
-
-                context.add_agent_output(
-                    agent_name=channel_key,
-                    logical_name=agent_name,
-                    content="To get started, I just need a few details.\n\n" + prompt,
-                    role="assistant",
-                    meta=meta_block,
-                    action="wizard_step",
-                    intent="action",
-                )
-                return context
-
-            # Everything pre‑filled → go straight to confirm
-            summary = _summarize_wizard_payload(payload, cfg)
-            new_state["pending_action"] = "confirm"
-            set_wizard_state(context, new_state)
-
-            meta_block = {
-                "action": "wizard",
-                "step": "confirm",
-                "collection": collection,
-            }
-
-            context.add_agent_output(
-                agent_name=channel_key,
-                logical_name=agent_name,
-                content=(
-                    "Here’s the record I’m ready to create:\n\n"
-                    f"{summary}\n\n"
-                    "Type 'confirm' to save this record or 'cancel' to abort."
-                ),
-                role="assistant",
-                meta=meta_block,
-                action="wizard_step",
-                intent="action",
+        # Operation-specific follow-up prompt (Turn 3)
+        if operation == "read":
+            details_prompt = (
+                "What filters or conditions should I use when querying this table?\n\n"
+                "For example, you can mention columns, statuses, or date ranges. "
+                "_(This is a stub: I’ll just summarize your answer instead of actually running the query.)_"
             )
-            return context
-
-        # UPDATE / DELETE → stub message then end
-        set_wizard_state(context, None)
-
-        if operation == "update":
-            stub_message = (
-                f"[STUB] I would now start an **UPDATE** wizard for table `{final_table}`.\n\n"
-                "In a full implementation, the next steps would be:\n"
-                "1. Ask which record(s) to update.\n"
-                "2. Ask which fields to change and their new values.\n\n"
-                "This is currently a stub, so no data has been changed."
+        elif operation == "create":
+            details_prompt = (
+                "What fields and values should the new record have?\n\n"
+                "For example: `student_id`, `consent_type`, `granted = yes`, etc.\n"
+                "_(This is a stub: I’ll just summarize the record instead of creating it.)_"
+            )
+        elif operation == "update":
+            details_prompt = (
+                "Which record(s) should I update, and what fields or values should change?\n\n"
+                "You can describe an ID, a filter, and the fields to modify.\n"
+                "_(This is a stub: I’ll summarize the update but won’t change any data.)_"
+            )
+        elif operation == "delete":
+            details_prompt = (
+                "Which record(s) should I delete from this table?\n\n"
+                "You can describe specific IDs or a filter that selects the records.\n"
+                "_(This is a stub: I’ll describe the deletion but won’t actually delete anything.)_"
             )
         else:
-            stub_message = (
-                f"[STUB] I would now start a **DELETE** wizard for table `{final_table}`.\n\n"
-                "In a full implementation, the next steps would be:\n"
-                "1. Ask which record(s) to delete.\n"
-                "2. Ask you to confirm the deletion.\n\n"
-                "This is currently a stub, so no data has been changed."
+            details_prompt = (
+                "Please describe what you want to do with this table.\n\n"
+                "_(This is a stub: I’ll only summarize your intent.)_"
             )
 
+        # Append cancel hint to the details prompt.
+        details_prompt = details_prompt + CANCEL_HINT
+
+        meta_block = {
+            "action": "wizard",
+            "step": "collect_details",
+            "collection": collection,
+            "operation": operation,
+            "table_name": final_table,
+        }
+
+        set_wizard_state(context, wizard_state)
+
+        context.add_agent_output(
+            agent_name=channel_key,
+            logical_name=agent_name,
+            content=details_prompt,
+            role="assistant",
+            meta=meta_block,
+            action="wizard_step",
+            intent="action",
+        )
+        return context
+
+    # ---------------------------------------------------------------------
+    # DETAILS COLLECTION STEP (Turn 3)
+    # ---------------------------------------------------------------------
+    if pending_action == "collect_details":
+        details_text = answer_raw
+
         exec_state: Dict[str, Any] = getattr(context, "execution_state", {}) or {}
+        table_name = (
+            wizard_state.get("table_name")
+            or (wizard_state.get("entity_meta") or {}).get("table")
+            or collection
+            or "unknown_table"
+        )
+        entity_meta: Dict[str, Any] = wizard_state.get("entity_meta") or {}
+
+        # Build a stub payload that other components can inspect.
         payload_stub: Dict[str, Any] = {
             "ok": True,
             "source": "wizard_stub",
             "operation": operation,
             "collection": collection,
+            "table_name": table_name,
             "entity": entity_meta,
             "base_url": wizard_state.get("base_url"),
             "route": wizard_state.get("route_info") or {},
-            "message": stub_message,
+            "details_text": details_text,
         }
 
         key_collection = collection or "unknown_collection"
@@ -307,6 +353,50 @@ async def continue_wizard(
         if not isinstance(structured.get(agent_name), dict):
             structured[agent_name] = payload_stub
 
+        # Operation-specific stub summary message.
+        if operation == "read":
+            stub_message = (
+                f"[STUB] I’ve captured your **READ/QUERY** request for `{table_name}`.\n\n"
+                "Here’s what I understood about the filters/conditions you want:\n\n"
+                f"> {details_text or '_(no additional filters specified_)'}\n\n"
+                "In a full implementation, I would now translate this into query parameters, "
+                "call the backend API, and show you the matching rows."
+            )
+        elif operation == "create":
+            stub_message = (
+                f"[STUB] I’ve captured your **CREATE** request for `{table_name}`.\n\n"
+                "Here’s the record description you provided:\n\n"
+                f"> {details_text or '_(no field details specified_)'}\n\n"
+                "In a full implementation, I would now build a JSON payload and POST it to the backend."
+            )
+        elif operation == "update":
+            stub_message = (
+                f"[STUB] I’ve captured your **UPDATE** request for `{table_name}`.\n\n"
+                "Here’s how you described the records and changes:\n\n"
+                f"> {details_text or '_(no update details specified_)'}\n\n"
+                "In a full implementation, I would now construct an update payload and "
+                "send it to the backend API."
+            )
+        elif operation == "delete":
+            stub_message = (
+                f"[STUB] I’ve captured your **DELETE** request for `{table_name}`.\n\n"
+                "Here’s how you described the records to delete:\n\n"
+                f"> {details_text or '_(no delete criteria specified_)'}\n\n"
+                "In a full implementation, I would now construct a delete request and "
+                "send it to the backend API after an explicit confirmation."
+            )
+        else:
+            stub_message = (
+                f"[STUB] I’ve captured your request for `{table_name}` with operation `{operation}`.\n\n"
+                "Details:\n\n"
+                f"> {details_text or '_(no details specified_)'}\n\n"
+                "In a full implementation, I would now translate this into a backend call."
+            )
+
+        # Append cancel hint to the stub summary (even though the wizard ends,
+        # this keeps the UX consistent with the other messages).
+        stub_message = stub_message + CANCEL_HINT
+
         context.add_agent_output(
             agent_name=channel_key,
             logical_name=agent_name,
@@ -316,188 +406,41 @@ async def continue_wizard(
             action=operation,
             intent="action",
         )
+
+        # End the wizard after 3rd turn.
+        set_wizard_state(context, None)
         return context
 
     # ---------------------------------------------------------------------
-    # Traditional create‑wizard flow (collect / confirm)
+    # Fallback: unknown pending_action → cancel with error
     # ---------------------------------------------------------------------
-    cfg = get_wizard_config_for_collection(collection)
-    if not cfg:
-        set_wizard_state(context, None)
-        context.add_agent_output(
-            agent_name=channel_key,
-            logical_name=agent_name,
-            content="Sorry, I’m missing the configuration for this wizard.",
-            role="assistant",
-            meta={
-                "action": "wizard",
-                "step": "error",
-                "collection": collection,
-            },
-            action="wizard_error",
-            intent="action",
-        )
-        return context
-
-    # CONFIRMATION
-    if pending_action == "confirm":
-        answer = (user_text or "").strip().lower()
-        logger.info(
-            "[wizard] confirmation step",
-            extra={
-                "event": "wizard_confirm",
-                "collection": collection,
-                "answer": answer,
-            },
-        )
-
-        if answer in {"yes", "y", "confirm", "ok", "okay"}:
-            exec_state = getattr(context, "execution_state", {}) or {}
-            if collection:
-                exec_state[f"{collection}_create_ready"] = payload
-            context.execution_state = exec_state
-
-            set_wizard_state(context, None)
-            summary = _summarize_wizard_payload(payload, cfg)
-
-            meta_block = {
-                "action": "wizard",
-                "step": "confirmed",
-                "collection": collection,
-            }
-
-            context.add_agent_output(
-                agent_name=channel_key,
-                logical_name=agent_name,
-                content=(
-                    "Great, I’ve collected everything needed:\n\n"
-                    f"{summary}\n\n"
-                    "The payload is ready for creation in the backend."
-                ),
-                role="assistant",
-                meta=meta_block,
-                action="wizard_confirmed",
-                intent="action",
-            )
-            return context
-
-        # User cancelled
-        set_wizard_state(context, None)
-        context.add_agent_output(
-            agent_name=channel_key,
-            logical_name=agent_name,
-            content="Okay, I won’t create this record.",
-            role="assistant",
-            meta={
-                "action": "wizard",
-                "step": "cancelled",
-                "collection": collection,
-            },
-            action="wizard_cancelled",
-            intent="action",
-        )
-        return context
-
-    # FIELD COLLECTION
-    current_field_name = wizard_state.get("current_field")
-    if not current_field_name:
-        missing = _wizard_missing_fields(payload, cfg)
-        current_field_name = missing[0] if missing else None
-        wizard_state["current_field"] = current_field_name
-        set_wizard_state(context, wizard_state)
-
-    field_cfg = cfg.field_by_name(current_field_name) if current_field_name else None
-
-    logger.info(
-        "[wizard] collecting field",
+    logger.warning(
+        "[wizard] unknown pending_action; cancelling wizard",
         extra={
-            "event": "wizard_collect_field",
+            "event": "wizard_unknown_pending_action",
+            "pending_action": pending_action,
             "collection": collection,
-            "current_field": current_field_name,
-            "user_text": user_text,
+            "operation": operation,
         },
     )
 
-    answer = (user_text or "").strip()
-
-    if field_cfg:
-        if field_cfg.normalizer:
-            value = field_cfg.normalizer(answer)
-        else:
-            if (
-                not field_cfg.required
-                and field_cfg.name in {"notes", "comment", "comments"}
-                and answer.lower() in {"no", "none"}
-            ):
-                value = ""
-            elif not answer and field_cfg.default_value is not None:
-                value = field_cfg.default_value
-            else:
-                value = answer
-        payload[field_cfg.name] = value
-    else:
-        if current_field_name:
-            payload[current_field_name] = answer
-
-    wizard_state["payload"] = payload
-
-    # Recompute missing required fields
-    missing = _wizard_missing_fields(payload, cfg)
-
-    if missing:
-        next_field_name = missing[0]
-        next_field_cfg = cfg.field_by_name(next_field_name)
-        wizard_state["current_field"] = next_field_name
-        wizard_state["pending_action"] = "collect"
-        set_wizard_state(context, wizard_state)
-
-        if next_field_cfg and next_field_cfg.prompt:
-            prompt = next_field_cfg.prompt
-        else:
-            prompt = f"Please provide {next_field_cfg.label if next_field_cfg else next_field_name}."
-
-        meta_block = {
-            "action": "wizard",
-            "step": "collect_field",
-            "collection": collection,
-            "current_field": next_field_name,
-            "missing_fields": missing,
-        }
-
-        context.add_agent_output(
-            agent_name=channel_key,
-            logical_name=agent_name,
-            content=prompt,
-            role="assistant",
-            meta=meta_block,
-            action="wizard_step",
-            intent="action",
-        )
-        return context
-
-    # All required fields present → move to confirmation
-    wizard_state["pending_action"] = "confirm"
-    wizard_state["current_field"] = None
-    set_wizard_state(context, wizard_state)
-
-    summary = _summarize_wizard_payload(payload, cfg)
-    meta_block = {
-        "action": "wizard",
-        "step": "confirm",
-        "collection": collection,
-    }
-
+    set_wizard_state(context, None)
     context.add_agent_output(
         agent_name=channel_key,
         logical_name=agent_name,
         content=(
-            "Here’s the record I’m ready to create:\n\n"
-            f"{summary}\n\n"
-            "Type 'confirm' to save this record, or 'cancel' to abort."
+            "Sorry, I lost track of this CRUD wizard’s state, so I’ve cancelled it. "
+            "You can start again with a new query if you like."
         ),
         role="assistant",
-        meta=meta_block,
-        action="wizard_confirm",
+        meta={
+            "action": "wizard",
+            "step": "error",
+            "collection": collection,
+            "operation": operation,
+            "pending_action": pending_action,
+        },
+        action="wizard_error",
         intent="action",
     )
     return context

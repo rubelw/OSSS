@@ -102,7 +102,9 @@ class DataQueryAgent(BaseAgent):
         text_l = effective_text.lower()
 
         intent: Optional[str] = None
-        if text_l.startswith(("query", "get ", "list ", "show ", "find ")):
+        if text_l.startswith("query "):
+            intent = "read"
+        elif text_l.startswith(("get ", "list ", "show ", "find ")):
             intent = "read"
         elif text_l.startswith(("create ", "insert ", "add ", "record ")):
             intent = "create"
@@ -117,6 +119,7 @@ class DataQueryAgent(BaseAgent):
         result = {
             "effective_text": effective_text,
             "intent": intent,
+            "is_structured_query": text_l.startswith("query "),
         }
 
         logger.info(
@@ -125,6 +128,7 @@ class DataQueryAgent(BaseAgent):
                 "event": "data_query_lexical_gate_local",
                 "effective_text_preview": effective_text[:80],
                 "intent": intent,
+                "is_structured_query": result["is_structured_query"],
             },
         )
         return result
@@ -291,7 +295,7 @@ class DataQueryAgent(BaseAgent):
         # --------------------------
         # Wizard flow classification
         # --------------------------
-        crud_verbs = {"read", "create", "update", "delete", "patch"}
+        crud_verbs = {"create", "update", "delete", "patch"}
         crud_pending_actions = {
             "confirm_table",
             "confirm_entity",
@@ -320,6 +324,7 @@ class DataQueryAgent(BaseAgent):
             raw_text=(raw_user_input or raw_text_norm or ""),
             refined_text=refined_text,
         )
+        is_structured_query = bool(lexical.get("is_structured_query"))
         lexical_intent = lexical.get("intent")
         if isinstance(lexical_intent, str):
             lexical_intent = lexical_intent.strip().lower() or None
@@ -336,6 +341,7 @@ class DataQueryAgent(BaseAgent):
                 "raw_text_preview": raw_text_norm[:200],
                 "effective_text_preview": effective_text[:200],
                 "raw_user_preview": raw_user_input[:200],
+                "is_structured_query": is_structured_query,
                 "force_data_query": force_data_query,
                 "has_wizard_state": wizard_state is not None and bool(wizard_state),
                 "lexical_intent": lexical_intent,
@@ -423,6 +429,7 @@ class DataQueryAgent(BaseAgent):
         # Skip non-query chatter, but emit a structured "skipped" output
         if (
             intent not in crud_verbs
+            and not is_structured_query
             and not force_data_query
             and not is_crud_wizard_flow
         ):
@@ -707,7 +714,7 @@ class DataQueryAgent(BaseAgent):
         entity_meta["default_params"] = params
 
         # CRUD wizards (table-confirm handshake) – only when this turn itself is CRUD intent
-        if intent in {"read", "create", "update", "delete", "patch"}:
+        if intent in {"create", "update", "delete", "patch"}:
             collection_for_wizard = getattr(route, "collection", None)
             table_name = (
                 entity_meta.get("table")
@@ -764,9 +771,8 @@ class DataQueryAgent(BaseAgent):
             channel_key = wizard_channel_key(self.name, collection_for_wizard)
 
             content_str = (
-                f"I’m about to **{verb_for_human}** records in the `{table_name}` table.\n"
-                "Is that the correct table? You can reply 'yes', 'no', provide a different table name, "
-                "or type 'cancel' to end this workflow."
+                f"I’m about to **{intent}** records in the `{table_name}` table.\n"
+                "Is that the correct table? You can reply 'yes', 'no', or provide a different table name."
             )
             meta_block = {
                 "action": "wizard",
@@ -787,7 +793,153 @@ class DataQueryAgent(BaseAgent):
             )
             return context
 
+        # HTTP call
+        client = BackendAPIClient(BackendAPIConfig(base_url=base_url))
+        request_path = (
+            getattr(route, "resolved_path", None)
+            or getattr(route, "path", None)
+            or ""
+        )
+        request_url = f"{base_url}{request_path}"
 
+        rows_full: List[Dict[str, Any]] = []
+        rows_compact: List[Dict[str, Any]] = []
+        status_code: Optional[int] = None
+        error: Optional[str] = None
+
+        try:
+            rows_full = await self._execute_queryspec_http(
+                client=client,
+                route=route,
+                query_spec=query_spec,
+                params=params,
+            )
+
+            rows_full = await self._enrich_person_name(client, rows_full)
+            rows_compact = _shrink_to_ui_defaults(rows_full, query_spec)
+            status_code = 200
+
+            payload = {
+                "ok": True,
+                "view": getattr(route, "view_name", None),
+                "source": "http",
+                "url": request_url,
+                "status_code": status_code,
+                "row_count": len(rows_full),
+                "rows": rows_compact,
+                "rows_full": rows_full,
+                "rows_compact": rows_compact,
+                "entity": entity_meta,
+                "projection_mode": "compact",
+            }
+        except Exception as exc:  # pragma: no cover - hard failure path
+            error = str(exc)
+            rows_full = []
+            rows_compact = []
+            logger.exception(
+                "[data_query:http] request failed",
+                extra={
+                    "event": "data_query_http_collection_error",
+                    "collection": getattr(route, "collection", None),
+                    "url": request_url,
+                },
+            )
+            payload = {
+                "ok": False,
+                "view": getattr(route, "view_name", None),
+                "source": "http",
+                "url": request_url,
+                "status_code": status_code,
+                "row_count": 0,
+                "rows": [],
+                "rows_full": [],
+                "rows_compact": [],
+                "error": error,
+                "entity": entity_meta,
+            }
+
+        view_name = getattr(route, "view_name", None)
+        topic_val = getattr(route, "topic", None)
+
+        view_key = view_name.strip() if isinstance(view_name, str) else ""
+        topic_key = topic_val.strip() if isinstance(topic_val, str) else ""
+
+        if view_key:
+            channel_key = f"{self.name}:{view_key}"
+        elif topic_key:
+            channel_key = f"{self.name}:{topic_key}"
+        else:
+            channel_key = self.name
+
+        store_key = (
+            getattr(route, "resolved_store_key", None)
+            or getattr(route, "view_name", None)
+            or "data_query"
+        )
+        context.execution_state[store_key] = payload
+        structured = context.execution_state.setdefault("structured_outputs", {})
+        structured[f"{self.name}:{getattr(route, 'view_name', None)}"] = payload
+        if not isinstance(structured.get(self.name), dict):
+            structured[self.name] = payload
+
+        if payload.get("ok"):
+            rows_full = payload.get("rows_full") or []
+            rows_compact = payload.get("rows_compact") or rows_full
+
+            md_compact = _rows_to_markdown_table(rows_compact)
+            md_full = _rows_to_markdown_table(rows_full) if rows_full else md_compact
+
+            meta_block = {
+                "view": payload["view"],
+                "row_count": payload["row_count"],
+                "url": payload["url"],
+                "status_code": payload["status_code"],
+                "entity": entity_meta,
+                "projection_mode": payload.get("projection_mode", "compact"),
+                "has_compact": True,
+                "has_full": True,
+                "table_markdown_compact": md_compact,
+                "table_markdown_full": md_full,
+            }
+
+            canonical_output = {
+                "table_markdown": md_compact,
+                "table_markdown_compact": md_compact,
+                "table_markdown_full": md_full,
+                "markdown": md_compact,
+                "content": md_compact,
+                "meta": meta_block,
+                "action": "query",
+                "intent": "action",
+            }
+
+            context.add_agent_output(
+                agent_name=channel_key,
+                logical_name=self.name,
+                content=md_compact,
+                role="assistant",
+                meta=meta_block,
+                action="query",
+                intent="action",
+            )
+
+            structured_outputs = context.execution_state.setdefault(
+                "structured_outputs", {}
+            )
+            structured_outputs[channel_key] = canonical_output
+            if not isinstance(structured_outputs.get(self.name), dict):
+                structured_outputs[self.name] = canonical_output
+        else:
+            fail_content = f"**data_query failed**: {payload.get('error', 'unknown error')}"
+            context.add_agent_output(
+                agent_name=channel_key,
+                logical_name=self.name,
+                content=fail_content,
+                role="assistant",
+                meta=payload,
+                action="query",
+                intent="action",
+            )
 
         logger.info(
             "[data_query] run() completed",
