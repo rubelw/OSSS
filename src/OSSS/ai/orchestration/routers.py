@@ -585,71 +585,56 @@ def router_pick_reflection_node(state: OSSSState) -> str:
 # NEW: route_after_data_query for CRUD / wizard flows
 # -----------------------------------------------------------------------------
 
+from OSSS.ai.orchestration.state_schemas import OSSSState
+from OSSS.ai.observability import get_logger
+
+logger = get_logger(__name__)
+
+
 def route_after_data_query(state: OSSSState) -> str:
     """
-    Decide where to go after `data_query`.
+    Router used right after the data_query node.
 
-    For CRUD flows (create/update/delete/patch) driven by the DataQuery wizard:
-      - Prefer "historian" if present in this graph
-      - Else "final" if present
-      - Else "END"
-
-    This uses wizard_state written by DataQueryAgent into execution_state.
+    - If a wizard is active (pending_action set), we end the graph so that
+      the next user turn can continue the wizard.
+    - Otherwise, only route to 'final' if that node is actually available
+      in this graph; fall back to END.
     """
-    try:
-        planned_agents = _get_available_agents_from_state(state)
-        wizard_state = _extract_data_query_wizard_state(state) or {}
+    exec_state = state.execution_state or {}
+    wizard = exec_state.get("wizard") or {}
+    pending_action = str(wizard.get("pending_action") or "").lower()
+    operation = str(wizard.get("operation") or "").lower()
 
-        operation = str(wizard_state.get("operation") or "").lower()
-        pending_action = str(wizard_state.get("pending_action") or "").lower()
+    available_agents = list(state.available_agents or [])
 
-        crud_ops = {"create", "update", "delete", "patch"}
-        crud_pending_actions = {
-            "confirm_table",
-            "confirm_entity",
-            "collect_filters",
-            "collect_updates",
-        }
+    logger.debug(
+        "[router:route_after_data_query] inspected wizard + agents",
+        extra={
+            "event": "router_route_after_data_query",
+            "pending_action": pending_action,
+            "operation": operation,
+            "available_agents": available_agents,
+        },
+    )
 
-        is_crud = operation in crud_ops or pending_action in crud_pending_actions
-
-        # By default we treat all planned agents as available; if GraphFactory
-        # passes a restricted set via functools.partial, that narrowed set wins.
-        available_agents = list(planned_agents)
-
-        decision = "END"
-        if is_crud:
-            if "historian" in available_agents:
-                decision = "historian"
-            elif "final" in available_agents:
-                decision = "final"
-
+    # If there's an active wizard step (confirm_table, collect_read_filters_stub, etc),
+    # stop the graph here and wait for the next user turn.
+    if pending_action:
         logger.debug(
-            "[router:route_after_data_query] evaluated",
+            "[router:route_after_data_query] wizard pending; ending graph",
             extra={
-                "event": "router_route",
-                "router": "route_after_data_query",
-                "intent": operation,
-                "action_type": operation,
+                "event": "router_data_query_wizard_pending",
                 "pending_action": pending_action,
-                "is_crud": is_crud,
-                "available_agents": available_agents,
-                "decision": decision,
-            },
-        )
-        return decision
-
-    except Exception as exc:
-        logger.error(
-            "Error in route_after_data_query",
-            exc_info=True,
-            extra={
-                "event": "router_error",
-                "router": "route_after_data_query",
-                "error_type": type(exc).__name__,
+                "operation": operation,
             },
         )
         return "END"
+
+    # No wizard in progress. If 'final' is in this graph, route there; otherwise END.
+    if "final" in available_agents:
+        return "final"
+
+    return "END"
 
 
 # -----------------------------------------------------------------------------

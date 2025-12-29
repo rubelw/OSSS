@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import json
 from pathlib import Path
@@ -26,6 +26,11 @@ class WizardFieldConfig:
     summary_label: Optional[str] = None  # label in confirmation summary
     normalizer: Optional[NormalizerFn] = None  # special parsing logic
     default_value: Optional[Any] = None        # e.g. "today" for dates
+
+    # New foreign-key metadata (from wizard_configs.json)
+    is_foreign_key: bool = False
+    foreign_key_table: Optional[str] = None
+    foreign_key_field: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -103,6 +108,11 @@ def _load_wizard_configs_from_json(path: Path) -> Dict[str, WizardConfig]:
          }
 
     If 'collection' is missing on a config, we fall back to its dict key.
+
+    Also supports foreign-key metadata on each field:
+      - is_foreign_key: bool
+      - foreign_key_table: str | null
+      - foreign_key_field: str | null
     """
     if not path.exists():
         logger.info("[wizard_config] JSON config not found at %s; using empty registry", path)
@@ -189,6 +199,11 @@ def _load_wizard_configs_from_json(path: Path) -> Dict[str, WizardConfig]:
                         },
                     )
 
+            # New: foreign key metadata (defaults keep it backward compatible)
+            is_foreign_key = bool(f.get("is_foreign_key", False))
+            foreign_key_table = f.get("foreign_key_table")
+            foreign_key_field = f.get("foreign_key_field")
+
             fields.append(
                 WizardFieldConfig(
                     name=name,
@@ -198,6 +213,9 @@ def _load_wizard_configs_from_json(path: Path) -> Dict[str, WizardConfig]:
                     summary_label=summary_label,
                     normalizer=normalizer,
                     default_value=default_value,
+                    is_foreign_key=is_foreign_key,
+                    foreign_key_table=foreign_key_table,
+                    foreign_key_field=foreign_key_field,
                 )
             )
 
@@ -235,3 +253,46 @@ def get_wizard_config_for_collection(collection: str | None) -> Optional[WizardC
             extra={"collection": collection},
         )
     return cfg
+
+
+def get_foreign_key_info(
+    collection: str | None,
+    field_name: str | None,
+) -> Tuple[bool, Optional[str], Optional[str]]:
+    """
+    Given a collection key and field name, check if the field is configured
+    as a foreign key.
+
+    Returns:
+        (is_foreign_key, foreign_key_table, foreign_key_field)
+
+        - is_foreign_key: bool
+        - foreign_key_table: str | None (the referenced table, if FK)
+        - foreign_key_field: str | None (the referenced column, if FK)
+
+    If the collection or field does not exist, or the field is not configured
+    as a foreign key, returns (False, None, None).
+    """
+    if not collection or not field_name:
+        return (False, None, None)
+
+    cfg = get_wizard_config_for_collection(collection)
+    if cfg is None:
+        return (False, None, None)
+
+    field_cfg = cfg.field_by_name(field_name)
+    if field_cfg is None:
+        logger.debug(
+            "[wizard_config] field not found when checking FK",
+            extra={"collection": collection, "field_name": field_name},
+        )
+        return (False, None, None)
+
+    if not field_cfg.is_foreign_key:
+        return (False, None, None)
+
+    return (
+        True,
+        field_cfg.foreign_key_table,
+        field_cfg.foreign_key_field,
+    )

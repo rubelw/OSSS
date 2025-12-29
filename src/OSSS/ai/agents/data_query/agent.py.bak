@@ -37,22 +37,12 @@ from OSSS.ai.agents.data_query.wizard import (
     continue_wizard,
 )
 
-# Module-level logger; this is the standard OSSS logger with JSON-structured output.
 logger = get_logger(__name__)
 
-# Default base URL for backend HTTP API calls.
-# This is the "OSSS backend" that exposes routes like /api/seasons, /api/students, etc.
-# - It can be overridden via the OSSS_BACKEND_BASE_URL env var.
-# - If not set, it defaults to "http://app:8000" (the internal service name in Docker/K8s).
 DEFAULT_BASE_URL = os.getenv("OSSS_BACKEND_BASE_URL", "http://app:8000")
-
-# Minimum confidence threshold for trusting classifier topics.
-# If classifier.topic_confidence < this threshold, we fall back to text-based routing.
 MIN_TOPIC_CONFIDENCE = float(os.getenv("OSSS_DATAQUERY_MIN_TOPIC_CONFIDENCE", "0.15"))
 
-# Simple confirmation phrases for wizard-style follow-ups.
-# When the wizard asks "Is this the right table?", user replies like "yes", "ok", etc.
-# are treated as positive confirmations.
+# Simple confirmation phrases for wizard-style follow-ups
 CONFIRMATION_TOKENS = {
     "yes",
     "yep",
@@ -70,76 +60,23 @@ CONFIRMATION_TOKENS = {
 
 @dataclass(frozen=True)
 class DataQuerySpec:
-    """
-    Small configuration holder for data_query specifications.
-
-    NOTE: In this file, this dataclass is currently defined but not heavily used.
-    It's useful as a future extension point if we want to parameterize:
-      - a specific query "name" (e.g. "students_by_grade")
-      - a "store_key" where results should be placed in execution_state
-      - a "source" to indicate where results come from (e.g. "http", "db", etc.)
-    """
-
-    # Logical name of the query (purely descriptive).
     name: str
-
-    # Key under which to store results in execution_state (e.g. "students").
     store_key: str
-
-    # Source type, e.g. "http" for HTTP-based backend API calls.
     source: str = "http"
 
 
 class DataQueryAgent(BaseAgent):
-    """
-    Refactored data_query agent.
+    """Refactored data_query agent.
 
-    High-level design:
-
-    - This agent is responsible for turning user text (and classifier output)
-      into *actual* data queries against the OSSS backend API.
-
-    - It has three major concerns:
-        1. **Intent + routing / gating:**
-           - Decide if the message should be treated as a data query at all.
-           - Figure out whether to run a CRUD/query "wizard" flow or a direct HTTP query.
-           - Choose the correct DataQueryRoute (which maps to an API route / table).
-
-        2. **QuerySpec + filters + sorting:**
-           - Build a QuerySpec from:
-               * DEFAULT_QUERY_SPECS (per-collection defaults)
-               * config filters (from dq_cfg["filters"])
-               * text-derived filters (e.g. "grade=4", "status:active")
-               * fallback heuristics for text filters and sort hints.
-
-        3. **Execution + output shaping:**
-           - Make HTTP calls to the backend API.
-           - Normalize results into:
-               * rows_full / rows_compact
-               * markdown tables
-               * canonical structured_outputs entries.
-           - Optionally populate execution_state["final_answer"] so the UI
-             can display a usable answer even if no separate "final" agent runs.
-
-    Division of responsibilities:
-
-    - Wizard orchestration lives in:
-        OSSS.ai.agents.data_query.wizard
-
-    - Common helper utilities live in:
-        OSSS.ai.agents.data_query.utils
-
+    - Wizard orchestration lives in OSSS.ai.agents.data_query.wizard
+    - Common helpers live in OSSS.ai.agents.data_query.utils
     - This class focuses on:
         * lexical gating / intent resolution
         * wiring QuerySpec + HTTP calls
         * emitting structured + markdown outputs
-        * first-level wizard handshake (table confirmation)
     """
 
-    # Agent registry name; used in the global AgentRegistry and in logs.
     name = "data_query"
-
-    # Default base URL for HTTP calls; can be overridden by config/route.
     BASE_URL = DEFAULT_BASE_URL
 
     def __init__(
@@ -148,30 +85,9 @@ class DataQueryAgent(BaseAgent):
         data_query: Optional[Dict[str, Any]] = None,
         pg_engine: Optional[AsyncEngine] = None,
     ):
-        """
-        Initialize the DataQueryAgent.
-
-        Args:
-            data_query:
-                - Optional dictionary for agent-specific configuration.
-                - Currently not heavily used; reserved for future settings.
-
-            pg_engine:
-                - Optional SQLAlchemy AsyncEngine.
-                - This implementation uses HTTP (BackendAPIClient) only,
-                  but pg_engine is kept for potential direct-DB implementations.
-
-        BaseAgent.__init__:
-            - `name`: controls agent identity in logs / registry.
-            - `timeout_seconds`: upper bound for one logical "run_with_retry" call.
-        """
         super().__init__(name=self.name, timeout_seconds=20.0)
-        # Arbitrary configuration bag for future use.
         self.data_query = data_query or {}
-        # Optional database engine; unused in this HTTP-based implementation.
         self.pg_engine = pg_engine
-
-        # Log initialization with the default base_url used for HTTP requests.
         logger.debug(
             "[data_query:init] agent initialized",
             extra={"base_url_default": self.BASE_URL},
@@ -181,67 +97,31 @@ class DataQueryAgent(BaseAgent):
     # Small internal helpers
     # ------------------------------------------------------------------
     def _lexical_gate(self, raw_text: str, refined_text: str | None = None) -> dict:
-        """
-        Simple lexical intent detector (query / CRUD verbs).
-
-        Purpose:
-            - Inspect the user text (and optionally a refiner-produced text)
-              to determine:
-                * A coarse-grained "intent" (read/create/update/delete)
-                * Whether the text is a "structured query" (starts with "query ").
-
-        Behavior:
-            - Prefers refined_text over raw_text, if available.
-            - Normalizes text to lowercase for pattern matching.
-            - Recognizes the following verbs:
-                * "query " -> intent "read" (and marks is_structured_query=True)
-                * "get ", "list ", "show ", "find " -> intent "read"
-                * "create ", "insert ", "add ", "record " -> intent "create"
-                * "update ", "modify ", "change " -> intent "update"
-                * "delete ", "remove " -> intent "delete"
-            - If no verb matches but there is text, defaults intent to "read"
-              (so plain text queries are still treated as read).
-
-        Returns:
-            dict with:
-                - "effective_text": the text actually inspected (refined or raw)
-                - "intent": one of {"read","create","update","delete"} or None
-                - "is_structured_query": True if text starts with "query "
-        """
-        # Pick which text to inspect:
-        #   - If a refiner produced a refined version, use that.
-        #   - Otherwise, fall back to the original raw text.
+        """Simple lexical intent detector (query / CRUD verbs)."""
         effective_text = (refined_text or raw_text or "").strip()
         text_l = effective_text.lower()
 
         intent: Optional[str] = None
-
-        # Recognize other verbs that clearly signal read-only intent.
-        if text_l.startswith(("query", "get ", "list ", "show ", "find ")):
+        if text_l.startswith("query "):
             intent = "read"
-        # Recognize creation intent verbs.
+        elif text_l.startswith(("get ", "list ", "show ", "find ")):
+            intent = "read"
         elif text_l.startswith(("create ", "insert ", "add ", "record ")):
             intent = "create"
-        # Recognize update intent verbs.
         elif text_l.startswith(("update ", "modify ", "change ")):
             intent = "update"
-        # Recognize delete intent verbs.
         elif text_l.startswith(("delete ", "remove ")):
             intent = "delete"
 
-        # If we have *some* text but no recognized verb, default to "read"
-        # so that free-form queries still route as data queries.
         if intent is None and text_l:
             intent = "read"
 
-        # Build the result object with everything downstream needs.
         result = {
             "effective_text": effective_text,
             "intent": intent,
-            "is_structured_query": False
+            "is_structured_query": text_l.startswith("query "),
         }
 
-        # Log the lexical gating decision for observability / debugging.
         logger.info(
             "[data_query] lexical gate (local)",
             extra={
@@ -254,20 +134,7 @@ class DataQueryAgent(BaseAgent):
         return result
 
     def _is_confirmation(self, text: str) -> bool:
-        """
-        Return True if the user text looks like a simple confirmation (e.g. 'yes').
-
-        Used primarily in the wizard-handling flow. When wizard_state says
-        "pending_confirmation" or "confirm_table", we treat messages that match
-        a CONFIRMATION_TOKENS entry as "yes, continue".
-
-        Args:
-            text: raw user text for the current turn.
-
-        Returns:
-            True if text is non-empty and, when normalized, matches one of the
-            confirmation tokens; False otherwise.
-        """
+        """Return True if the user text looks like a simple confirmation (e.g. 'yes')."""
         if not text:
             return False
         normalized = text.strip().lower()
@@ -281,42 +148,19 @@ class DataQueryAgent(BaseAgent):
         effective_text: str,
     ) -> Optional[Dict[str, Any]]:
         """
-        Decide whether to treat this message as a wizard *confirmation*.
-
-        This function only deals with:
-            - "Is this the right table?" style confirmations.
-            - It does *not* handle full wizard flows (those are in continue_wizard).
-
-        Logic:
-            1. If no wizard_state, bail out immediately (None).
-            2. Check wizard_state["status"] or ["pending_action"] to see if it
-               is a confirmation-related state (pending_confirmation/confirm_table).
-            3. If not in confirmation state, bail out (None).
-            4. Derive a confirmation string from effective_text or raw_text.
-            5. If that string is not a simple confirmation (e.g. "yes"), bail out.
-            6. If it *is* a confirmation, call continue_wizard(...) and return
-               a small result dict describing that the wizard handled the turn.
-
-        Returns:
-            - dict like {"ok": True, "handled_by": "wizard_confirm", "status": ...}
-              if the wizard handled the turn.
-            - None if we should continue with normal data_query logic.
+        If there's an in-flight wizard and the user message is a simple confirmation,
+        delegate handling to the wizard instead of treating it as a fresh query.
         """
         if wizard_state is None:
-            # There's no wizard in progress, so this can't be a confirmation
-            # for a prior wizard step.
             logger.debug(
                 "[data_query:wizard_confirm] _maybe_execute_wizard_plan called with no wizard_state",
                 extra={"event": "data_query_wizard_confirm_no_state"},
             )
             return None
 
-        # Support both a newer "status" field and an older "pending_action" field.
-        # If either matches a confirmation state, we treat this as confirm-eligible.
+        # Support both 'status' and older 'pending_action'-style markers.
         status = wizard_state.get("status") or wizard_state.get("pending_action")
         if status not in {"pending_confirmation", "confirm_table"}:
-            # We *do* have wizard_state, but it's not in a confirmation state.
-            # In that case, we don't consume this message as a confirmation.
             logger.debug(
                 "[data_query:wizard_confirm] wizard_state present but status not confirm-related",
                 extra={
@@ -327,12 +171,8 @@ class DataQueryAgent(BaseAgent):
             )
             return None
 
-        # If we got this far, the wizard is in a confirmation state.
-        # Use effective_text if available, else raw_text.
         confirmation_text = effective_text or raw_text
         if not self._is_confirmation(confirmation_text):
-            # The message isn't a simple "yes/ok" etc. so we do *not* treat it
-            # as a confirmation; the caller can proceed with other logic.
             logger.debug(
                 "[data_query:wizard_confirm] message not treated as confirmation",
                 extra={
@@ -342,10 +182,6 @@ class DataQueryAgent(BaseAgent):
             )
             return None
 
-        # At this point we have:
-        #   - wizard_state in a confirmation state
-        #   - a message recognized as a simple confirmation
-        # So we hand it off to continue_wizard to do the actual work.
         logger.info(
             "[data_query:wizard_confirm] confirmation detected, delegating to continue_wizard",
             extra={
@@ -362,7 +198,6 @@ class DataQueryAgent(BaseAgent):
             user_text=confirmation_text,
         )
 
-        # The caller checks for a non-None return to know the wizard handled it.
         return {"ok": True, "handled_by": "wizard_confirm", "status": status}
 
     async def _execute_queryspec_http(
@@ -372,25 +207,7 @@ class DataQueryAgent(BaseAgent):
         query_spec: QuerySpec,
         params: Dict[str, Any],
     ) -> List[Dict[str, Any]]:
-        """
-        Execute the HTTP request for a given route + QuerySpec.
-
-        NOTE:
-            - Currently, QuerySpec is *not* deeply used in this function;
-              most of the query semantics are expressed as query params.
-            - We may later use QuerySpec to drive more complex query shapes.
-
-        Args:
-            client: BackendAPIClient instance configured with base_url.
-            route:  DataQueryRoute that knows how to reach the data (path).
-            query_spec: Logical description of projections/filters/joins (unused).
-            params: HTTP query parameters dict.
-
-        Returns:
-            List[Dict[str, Any]] representing rows returned by the backend.
-        """
-        # Most routes implement either "resolved_path" or "path".
-        # resolved_path is expected to be the final computed path (e.g. /api/seasons).
+        """Very small wrapper around BackendAPIClient.get_json."""
         path = getattr(route, "resolved_path", None) or getattr(route, "path", None) or ""
         rows = await client.get_json(path, params=params)
         return rows or []
@@ -400,35 +217,10 @@ class DataQueryAgent(BaseAgent):
         client: BackendAPIClient,
         rows_full: List[Dict[str, Any]],
     ) -> List[Dict[str, Any]]:
-        """
-        Optional enrichment hook; currently just returns rows unchanged.
-
-        Intended use:
-            - For person-like entities (students, staff, etc.), we might want
-              to add computed fields like "display_name", "full_name", or
-              fetch related data (e.g. homeroom, school, etc).
-
-        Args:
-            client: BackendAPIClient for follow-up requests if needed.
-            rows_full: Full rows returned from the backend.
-
-        Returns:
-            rows_full unchanged (no-op) in the current implementation.
-        """
+        """Optional enrichment hook; currently just returns rows unchanged."""
         return rows_full
 
     def get_node_definition(self) -> LangGraphNodeDefinition:
-        """
-        Provide LangGraph metadata about this agent.
-
-        The LangGraph orchestrator uses this to:
-            - Create a node in the StateGraph with node_type="tool".
-            - Treat the node as a "tool" node that can be invoked.
-            - Enforce that "refiner" must run before "data_query".
-
-        Returns:
-            LangGraphNodeDefinition describing this node.
-        """
         return LangGraphNodeDefinition(
             node_type="tool",
             agent_name=self.name,
@@ -439,77 +231,27 @@ class DataQueryAgent(BaseAgent):
     # MAIN EXECUTION
     # ------------------------------------------------------------------
     async def run(self, context: AgentContext) -> AgentContext:
-        """
-        Main data_query entrypoint.
-
-        This is the function LangGraph calls when the "data_query" node executes.
-
-        High-level flow:
-            1. Pull execution_state and data_query config.
-            2. Extract classifier output + original user text.
-            3. Attempt to extract refined query from the refiner node.
-            4. Record text variants in execution_state["data_query_texts"].
-            5. Load wizard_state and classify if we are in a CRUD wizard flow.
-            6. Run lexical gating + intent resolution.
-            7. Try wizard confirmation path (simple "yes").
-            8. Possibly skip non-query chatter with a "skipped" structured output.
-            9. If wizard exists and we didn't confirm, continue the wizard.
-            10. Otherwise, pick a DataQueryRoute (topic override or classifier-based).
-            11. Build QuerySpec + attach filters + sort + HTTP params.
-            12. For CRUD/query intents, initialize wizard_state (table confirmation).
-            13. For direct queries, execute HTTP call and build payload.
-            14. Emit agent_output markdown + structured_outputs + final_answer (optional).
-        """
-        # ------------------------------------------------------------------
-        # 1. Base execution_state and config handling
-        # ------------------------------------------------------------------
-        # execution_state is a per-workflow mutable bag that all nodes can read/write.
+        """Main data_query entrypoint."""
         exec_state: Dict[str, Any] = getattr(context, "execution_state", {}) or {}
-
-        # execution_config is a nested bag inside execution_state that holds
-        # graph-level configuration (including "data_query" subconfig).
         exec_cfg: Dict[str, Any] = exec_state.setdefault("execution_config", {})
-
-        # dq_cfg is the config block specifically for data_query behavior.
-        # Example entries:
-        #   - "force": bool (force data_query even for non-structured text)
-        #   - "topic": explicit route topic override
-        #   - "filters": list of hard filters to always apply
         dq_cfg: Dict[str, Any] = exec_cfg.setdefault("data_query", {})
 
-        # Whether explicit 'query ...' should go through the CRUD wizard
-        # handshake (table confirmation) or directly execute.
-        query_wizard_enabled: bool = bool(dq_cfg.get("enable_query_wizard", True))
-
-        # ------------------------------------------------------------------
-        # 2. Classifier output + original text (typically pre-refiner)
-        # ------------------------------------------------------------------
-        # _get_classifier_and_text_from_context:
-        #   - Reads classifier results stored by prior nodes.
-        #   - Returns (classifier_dict_or_None, initial_effective_text).
+        # Classifier output + original text (typically pre-refiner)
         classifier, initial_effective_text = _get_classifier_and_text_from_context(context)
         if not isinstance(classifier, dict):
-            # Normalize classifier to a dict so we can safely .get() keys.
             classifier = {}
-        # Ensure default keys exist so later logic doesn't need "if key in classifier".
         classifier.setdefault("topic_confidence", 0.0)
         classifier.setdefault("topics", [])
         classifier.setdefault("intent", None)
 
-        # Raw user query stored by the API layer (e.g. "query seasons").
         raw_user_input = (exec_state.get("user_question") or "").strip()
 
-        # ------------------------------------------------------------------
-        # 3. Try to get refined_query from refiner
-        # ------------------------------------------------------------------
+        # Try to get refined_query from refiner
         refined_text: Optional[str] = None
         try:
-            # context.get_last_output("refiner") returns the last message emitted
-            # by the "refiner" agent. We then parse that to extract a "refined_query".
             refiner_output = context.get_last_output("refiner")
             refined_text = _extract_refined_text_from_refiner_output(refiner_output)
         except Exception as e:  # pragma: no cover - best effort only
-            # If anything goes wrong here, we log and then fall back to original text.
             logger.warning(
                 "[data_query:refiner] failed to extract refined_query; falling back to original text",
                 extra={
@@ -520,15 +262,10 @@ class DataQueryAgent(BaseAgent):
             )
             refined_text = None
 
-        # ------------------------------------------------------------------
-        # 4. Normalize effective_text and record text variants
-        # ------------------------------------------------------------------
-        # effective_text is the main string we will treat as the query text.
         effective_text = (refined_text or initial_effective_text or "").strip()
-        raw_text_norm = effective_text  # normalized text for logs / filters
-        raw_text_lower = effective_text.lower()  # currently unused but ready for heuristics
+        raw_text_norm = effective_text
+        raw_text_lower = effective_text.lower()
 
-        # Save text variants to execution_state for observability and debugging.
         exec_state["data_query_texts"] = {
             "raw_user_input": raw_user_input,
             "raw_text": raw_text_norm,
@@ -537,14 +274,9 @@ class DataQueryAgent(BaseAgent):
         }
         context.execution_state = exec_state
 
-        # Pre-configured structured filters from dq_cfg["filters"], if any.
         structured_filters_cfg: List[Dict[str, Any]] = dq_cfg.get("filters") or []
 
-        # ------------------------------------------------------------------
-        # 5. Load wizard state (if any)
-        # ------------------------------------------------------------------
-        # Wizard state is a dict under some execution_state["wizard"] key.
-        # It tracks multi-turn CRUD flows (e.g. confirm table, collect filters).
+        # Load wizard state (if any)
         wizard_state: Optional[Dict[str, Any]] = get_wizard_state(context)
 
         logger.info(
@@ -561,17 +293,10 @@ class DataQueryAgent(BaseAgent):
         )
 
         # --------------------------
-        # 6. Wizard flow classification
+        # Wizard flow classification
         # --------------------------
-        # CRUD-like verbs overall (for intent resolution, etc.)
+        # Now also treat "read" (queries) as wizard-eligible
         crud_verbs = {"create", "update", "delete", "patch", "read", "query"}
-
-        # Subset that actually uses the CRUD wizard handshake
-        crud_wizard_verbs = {"create", "update", "delete", "patch"}
-        if query_wizard_enabled:
-            # Treat literal 'query ...' just like create/update/delete for wizard
-            crud_wizard_verbs.add("query")
-
         crud_pending_actions = {
             "confirm_table",
             "confirm_entity",
@@ -591,14 +316,11 @@ class DataQueryAgent(BaseAgent):
         )
 
         is_crud_wizard_flow = bool(wizard_state) and (
-                wizard_operation in crud_wizard_verbs
-                or wizard_pending_action in crud_pending_actions
+            wizard_operation in crud_verbs
+            or wizard_pending_action in crud_pending_actions
         )
 
-
-        # ------------------------------------------------------------------
-        # 7. Lexical gate (local intent detection)
-        # ------------------------------------------------------------------
+        # Lexical gate
         lexical = self._lexical_gate(
             raw_text=(raw_user_input or raw_text_norm or ""),
             refined_text=refined_text,
@@ -609,10 +331,6 @@ class DataQueryAgent(BaseAgent):
             lexical_intent = lexical_intent.strip().lower() or None
 
         is_crud_lexical_intent = lexical_intent in crud_verbs
-
-        # "force_data_query" is true if:
-        #   - dq_cfg["force"] is explicitly set, OR
-        #   - the text "looks like" a database query (heuristic).
         force_data_query = bool(dq_cfg.get("force")) or _looks_like_database_query(
             effective_text
         )
@@ -635,39 +353,24 @@ class DataQueryAgent(BaseAgent):
             },
         )
 
-        # ------------------------------------------------------------------
-        # 8. Intent resolution (moved earlier so CRUD flows are never skipped)
-        # ------------------------------------------------------------------
-        # context.intent or exec_state["intent"] may have been set by earlier steps
-        # (e.g. classifier agents, router logic).
+        # ---- Intent resolution (moved earlier so CRUD flows are never skipped) ----
         state_intent = getattr(context, "intent", None) or exec_state.get("intent")
-
-        # classifier["intent"] is the classifier's guess at the intent.
         classifier_intent = classifier.get("intent") if isinstance(classifier, dict) else None
 
-        # Normalize both to lowercase strings or None.
         if isinstance(state_intent, str):
             state_intent = state_intent.strip().lower() or None
         if isinstance(classifier_intent, str):
             classifier_intent = classifier_intent.strip().lower() or None
 
-        # If lexical intent is CRUD-like, give it strong preference:
-        #   - If state_intent is also CRUD-like, use state_intent.
-        #   - Otherwise, use lexical_intent.
         if lexical_intent in crud_verbs:
             if state_intent in crud_verbs:
                 intent_raw = state_intent
             else:
                 intent_raw = lexical_intent
         else:
-            # In non-CRUD lexical cases, use:
-            #   state_intent > classifier_intent > lexical_intent
             intent_raw = state_intent or classifier_intent or lexical_intent
 
-        # Final normalized intent for this turn.
         intent = (intent_raw or "").strip().lower() or None
-
-        # Optional topic override from configuration: forces a specific route topic.
         topic_override = dq_cfg.get("topic")
 
         logger.info(
@@ -683,9 +386,7 @@ class DataQueryAgent(BaseAgent):
             },
         )
 
-        # ------------------------------------------------------------------
-        # 9. Wizard confirmation path: treat this message as "yes"/"ok"
-        # ------------------------------------------------------------------
+        # If there's an active wizard, first check if this is a simple confirmation
         wizard_result: Optional[Dict[str, Any]] = None
         if wizard_state is not None and wizard_state:
             logger.debug(
@@ -698,7 +399,6 @@ class DataQueryAgent(BaseAgent):
                 },
             )
             try:
-                # This function only handles simple confirmation (yes/no).
                 wizard_result = await self._maybe_execute_wizard_plan(
                     context=context,
                     wizard_state=wizard_state,
@@ -716,8 +416,7 @@ class DataQueryAgent(BaseAgent):
                 )
                 wizard_result = None
 
-            # If wizard_result is not None, the wizard consumed this turn.
-            # We should not treat it as a new query; simply return.
+            # If the wizard handled this turn (e.g. "yes" / "ok"), we don't treat it as a new query
             if wizard_result is not None:
                 logger.info(
                     "[data_query:wizard_confirm] wizard handled this turn; skipping fresh query",
@@ -728,14 +427,7 @@ class DataQueryAgent(BaseAgent):
                 )
                 return context
 
-        # ------------------------------------------------------------------
-        # 10. Skip non-query chatter, but emit a structured "skipped" output
-        # ------------------------------------------------------------------
-        # Conditions for *skipping* data_query logic:
-        #   - intent is NOT a CRUD verb
-        #   - AND text is NOT a structured query ("query ")
-        #   - AND we do NOT force data_query
-        #   - AND this is NOT part of a CRUD wizard flow
+        # Skip non-query chatter, but emit a structured "skipped" output
         if (
             intent not in crud_verbs
             and not is_structured_query
@@ -752,10 +444,8 @@ class DataQueryAgent(BaseAgent):
                 },
             )
 
-            # Use the base agent name as the channel key for "skipped" messages.
             channel_key = self.name
 
-            # Meta block describes what happened and why nothing was executed.
             meta_block = {
                 "status": "skipped",
                 "reason": "skip_non_structured",
@@ -763,8 +453,6 @@ class DataQueryAgent(BaseAgent):
                 "projection_mode": "none",
             }
 
-            # Canonical "skipped" structured output. This is the machine-readable
-            # representation telling API consumers "nothing happened".
             canonical_output = {
                 "status": "skipped",
                 "reason": "skip_non_structured",
@@ -778,13 +466,11 @@ class DataQueryAgent(BaseAgent):
                 "intent": "none",
             }
 
-            # Human-facing message to explain skipping to the user.
             human_message = (
                 "Data query skipped: your message didn't look like a structured "
                 "database/query or CRUD request, so no data was fetched."
             )
 
-            # Emit a visible message in the agent output stream.
             context.add_agent_output(
                 agent_name=channel_key,
                 logical_name=self.name,
@@ -795,7 +481,6 @@ class DataQueryAgent(BaseAgent):
                 intent="none",
             )
 
-            # Also record a structured output entry for this channel.
             structured_outputs = context.execution_state.setdefault(
                 "structured_outputs", {}
             )
@@ -805,14 +490,8 @@ class DataQueryAgent(BaseAgent):
 
             return context
 
-        # ------------------------------------------------------------------
-        # 11. Continue wizard, if one is active and this wasn't confirmation
-        # ------------------------------------------------------------------
+        # Continue wizard, if one is active and this wasn't a simple confirmation case
         if wizard_state is not None and wizard_state:
-            # At this point:
-            #   - wizard_result is None, so this wasn't a simple confirmation.
-            #   - wizard_state exists.
-            # => We treat this as the next wizard step (e.g. provide filters).
             logger.info(
                 "[data_query:wizard] continuing existing wizard (non-confirmation path)",
                 extra={
@@ -822,10 +501,6 @@ class DataQueryAgent(BaseAgent):
                     "wizard_status": wizard_state.get("status"),
                 },
             )
-            # continue_wizard is responsible for:
-            #   - possibly calling the backend
-            #   - emitting new agent outputs
-            #   - updating execution_state.wizard
             return await continue_wizard(
                 agent_name=self.name,
                 context=context,
@@ -833,19 +508,13 @@ class DataQueryAgent(BaseAgent):
                 user_text=effective_text or raw_user_input or raw_text_norm,
             )
 
-        # ------------------------------------------------------------------
-        # 12. Route selection (no active wizard, but this is a query/CRUD)
-        # ------------------------------------------------------------------
+        # -----------------
+        # Route selection
+        # -----------------
         if topic_override:
-            # If an explicit topic is provided by configuration (e.g. "seasons"),
-            # we force DataQueryRoute.from_topic for that topic.
             route = DataQueryRoute.from_topic(topic_override, intent=intent)  # type: ignore[attr-defined]
             route_source = "explicit_override"
         else:
-            # Otherwise, we let choose_route_for_query decide based on:
-            #   - effective_text
-            #   - classifier topics / confidence
-            #   - MIN_TOPIC_CONFIDENCE
             route = choose_route_for_query(
                 effective_text or raw_text_norm,
                 classifier,
@@ -853,14 +522,10 @@ class DataQueryAgent(BaseAgent):
             )
             route_source = "classifier_or_text"
 
-        # ------------------------------------------------------------------
-        # 13. Metadata from route (entity_meta)
-        # ------------------------------------------------------------------
-        # Some routes provide a .to_entity() helper to produce metadata for UI.
+        # Metadata from route
         if hasattr(route, "to_entity") and callable(getattr(route, "to_entity")):
             entity_meta: Dict[str, Any] = route.to_entity()
         else:
-            # Otherwise, we synthesize entity_meta from route attributes.
             entity_meta = {
                 "id": getattr(route, "id", None) or route.topic or route.collection,
                 "topic_key": getattr(
@@ -889,13 +554,9 @@ class DataQueryAgent(BaseAgent):
                 "default_params": getattr(route, "default_params", None),
             }
 
-        # ------------------------------------------------------------------
-        # 14. Base URL resolution (config > route > default)
-        # ------------------------------------------------------------------
         raw_base_url_from_cfg = dq_cfg.get("base_url")
         raw_base_url_from_route = getattr(route, "base_url", None)
 
-        # Priority: explicit config base_url > route.base_url > agent default.
         if raw_base_url_from_cfg:
             raw_base_url = raw_base_url_from_cfg
         elif raw_base_url_from_route:
@@ -903,9 +564,7 @@ class DataQueryAgent(BaseAgent):
         else:
             raw_base_url = self.BASE_URL
 
-        # Normalize by stripping any trailing slash.
         base_url = (raw_base_url or "").rstrip("/")
-        # Validate that we ended up with an HTTP(S) URL.
         if not base_url or not base_url.startswith(("http://", "https://")):
             raise RuntimeError(
                 f"Invalid base_url for route "
@@ -913,27 +572,15 @@ class DataQueryAgent(BaseAgent):
                 f"{raw_base_url!r} (expected something like 'http://localhost:8000')"
             )
 
-        # ------------------------------------------------------------------
-        # 15. HTTP params initialization
-        # ------------------------------------------------------------------
         params: Dict[str, Any] = {}
-        # Merge in order of increasing precedence:
-        #   1) route.default_params
-        #   2) dq_cfg.default_params
-        #   3) exec_cfg.http_query_params (highest precedence)
         params.update(getattr(route, "default_params", None) or {})
         params.update(dq_cfg.get("default_params") or {})
         params.update(exec_cfg.get("http_query_params") or {})
 
-        # ------------------------------------------------------------------
-        # 16. QuerySpec setup (from DEFAULT_QUERY_SPECS or minimal)
-        # ------------------------------------------------------------------
+        # QuerySpec setup
         collection = getattr(route, "collection", None) or entity_meta.get("collection")
-        # Look up a default QuerySpec for this collection, if one exists.
         base_spec = DEFAULT_QUERY_SPECS.get(collection) if collection else None
         if base_spec:
-            # Clone base_spec into a fresh QuerySpec instance so we can safely mutate
-            # filters/sort without affecting global defaults.
             query_spec = QuerySpec(
                 base_collection=base_spec.base_collection,
                 projections=list(base_spec.projections),
@@ -949,44 +596,28 @@ class DataQueryAgent(BaseAgent):
                 ),
             )
         else:
-            # If no pre-defined spec exists, construct a minimal one with
-            # base_collection set to the route collection (or empty string).
             query_spec = QuerySpec(base_collection=collection or "")
 
-        # ------------------------------------------------------------------
-        # 17. Attach structured filters from config (dq_cfg["filters"])
-        # ------------------------------------------------------------------
+        # Attach structured filters from config
         for f in structured_filters_cfg:
             try:
                 field = (f.get("field") or "").strip()
                 op = (f.get("op") or "eq").strip().lower()
                 value = f.get("value", None)
                 if field and value is not None:
-                    # Each config filter becomes a FilterCondition in QuerySpec.
                     query_spec.filters.append(
                         FilterCondition(field=field, op=op, value=value)
                     )
             except Exception:
-                # If one filter entry is malformed, we log and continue with others.
                 logger.exception(
                     "[data_query:filters] failed to attach cfg filter",
                     extra={"event": "data_query_cfg_filter_attach_error", "filter": f},
                 )
 
-        # ------------------------------------------------------------------
-        # 18. Text-derived filters (from user text)
-        # ------------------------------------------------------------------
-        # Use whichever text is most representative of what the user asked:
-        #   - raw_user_input if available, else
-        #   - raw_text_norm (which is effective_text), else
-        #   - effective_text itself for safety.
+        # Text-derived filters
         filter_text = raw_user_input or raw_text_norm or effective_text
         if filter_text:
             before_count = len(query_spec.filters)
-
-            # parse_text_filters:
-            #   - Looks for patterns like "field=value" or "field: value".
-            #   - Adds FilterCondition entries to query_spec.filters.
             query_spec = parse_text_filters(filter_text, query_spec)
             after_count = len(query_spec.filters)
 
@@ -1001,8 +632,6 @@ class DataQueryAgent(BaseAgent):
                     },
                 )
 
-            # Normalize LIKE-style filters so they are compatible with the backend
-            # expectations (e.g. prefix/suffix wildcards).
             normalized_filters: List[FilterCondition] = []
             for fc in query_spec.filters:
                 try:
@@ -1023,9 +652,7 @@ class DataQueryAgent(BaseAgent):
 
             query_spec.filters = normalized_filters
 
-            # Fallback 'startswith' filters for simple phrases:
-            # This covers cases where parse_text_filters doesn't capture everything,
-            # but we still want to infer some filter constraints from natural language.
+            # Fallback 'startswith' filters for simple phrases
             try:
                 extracted = _extract_text_filters_from_query(filter_text, route)
             except Exception as e:
@@ -1040,7 +667,6 @@ class DataQueryAgent(BaseAgent):
                 )
                 extracted = ExtractedTextFilters(filters=[], sort=None)
 
-            # Apply extracted.filters as direct HTTP params (not as QuerySpec filters).
             if extracted.filters:
                 logger.info(
                     "[data_query:filters] applying fallback text filters to HTTP params",
@@ -1053,9 +679,6 @@ class DataQueryAgent(BaseAgent):
                 )
                 params = _apply_filters_to_params(params, extracted.filters)
 
-        # ------------------------------------------------------------------
-        # 19. Store a summary of the QuerySpec into execution_state for telemetry
-        # ------------------------------------------------------------------
         dq_meta = exec_state.setdefault("data_query_step_metadata", {})
         dq_meta["query_spec_summary"] = {
             "base_collection": query_spec.base_collection,
@@ -1066,9 +689,6 @@ class DataQueryAgent(BaseAgent):
             "sort": list(getattr(query_spec, "sort", [])),
         }
 
-        # ------------------------------------------------------------------
-        # 20. Compile QuerySpec.filters into HTTP-friendly filter params
-        # ------------------------------------------------------------------
         compiled_filters: List[Dict[str, Any]] = [
             {"field": fc.field, "op": fc.op, "value": fc.value}
             for fc in query_spec.filters
@@ -1076,47 +696,27 @@ class DataQueryAgent(BaseAgent):
         if compiled_filters:
             params = _apply_filters_to_params(params, compiled_filters)
 
-        # ------------------------------------------------------------------
-        # 21. Sort handling
-        # ------------------------------------------------------------------
+        # Sort handling
         sort_list: List[Tuple[str, str]] = list(getattr(query_spec, "sort", []))
-
-        # If no explicit sort is specified and we still have filter_text, try to
-        # infer a sort hint from natural language (e.g. "latest", "most recent").
         if not sort_list and filter_text:
             sort_hint = _extract_text_sort_from_query(filter_text)
             if sort_hint:
                 sort_list = [sort_hint]
 
         if sort_list:
-            # For now we use only the first sort spec in the list.
             sort_field, sort_dir = sort_list[0]
             sort_dir = (sort_dir or "asc").lower()
             if sort_dir not in {"asc", "desc"}:
                 sort_dir = "asc"
-            # Common API pattern: "ordering=field" for ascending, "ordering=-field" for descending.
             ordering_value = f"-{sort_field}" if sort_dir == "desc" else sort_field
             params["ordering"] = ordering_value
 
-        # Attach base_url and default_params to entity_meta so the caller (or UI)
-        # can reconstruct how the query was executed.
         entity_meta["base_url"] = base_url
         entity_meta["default_params"] = params
 
-        # 22. CRUD + query wizards (table-confirm handshake)
-        #
-        # If the intent is a wizard-eligible verb, we do NOT run the query
-        # immediately. Instead we initialize wizard_state and ask for table
-        # confirmation. Which verbs are wizard-eligible is controlled by:
-        #   - always: create/update/delete/patch
-        #   - optionally: query (via enable_query_wizard config)
-        wizard_verbs_for_wizard = {"create", "update", "delete", "patch"}
-        if query_wizard_enabled:
-            wizard_verbs_for_wizard.add("query")
-
-        if intent in wizard_verbs_for_wizard:
+        # CRUD + query wizards (table-confirm handshake) – when this turn is a CRUD-like intent
+        if intent in {"create", "update", "delete", "patch", "read"}:
             collection_for_wizard = getattr(route, "collection", None)
-
             table_name = (
                     entity_meta.get("table")
                     or collection_for_wizard
@@ -1127,8 +727,7 @@ class DataQueryAgent(BaseAgent):
 
             wizard_state_init: Dict[str, Any] = {
                 "pending_action": "confirm_table",
-                # Operation is the actual verb, including 'query'
-                "operation": intent,
+                "operation": intent,  # now includes "read" for query wizards
                 "collection": collection_for_wizard,
                 "table_name": table_name,
                 "base_url": base_url,
@@ -1172,8 +771,8 @@ class DataQueryAgent(BaseAgent):
 
             channel_key = wizard_channel_key(self.name, collection_for_wizard)
 
-            # Now that 'query' is a real intent, just show it directly
-            verb_for_human = intent
+            # Human text: show a nicer verb for "read"
+            verb_for_human = "query" if intent == "read" else intent
 
             content_str = (
                 f"I’m about to **{verb_for_human}** records in the `{table_name}` table.\n"
@@ -1197,19 +796,10 @@ class DataQueryAgent(BaseAgent):
                 action="wizard_table_confirm",
                 intent="action",
             )
-
             return context
 
-        # ------------------------------------------------------------------
-        # 23. HTTP call (direct data query, no CRUD wizard)
-        # ------------------------------------------------------------------
-        # Build a client for backend HTTP API calls using the resolved base_url.
+        # HTTP call
         client = BackendAPIClient(BackendAPIConfig(base_url=base_url))
-
-        # Determine the path part of the URL:
-        #   - resolved_path if present, else
-        #   - path, else
-        #   - empty string (should not normally happen).
         request_path = (
             getattr(route, "resolved_path", None)
             or getattr(route, "path", None)
@@ -1217,14 +807,12 @@ class DataQueryAgent(BaseAgent):
         )
         request_url = f"{base_url}{request_path}"
 
-        # Initialize containers for results and error info.
         rows_full: List[Dict[str, Any]] = []
         rows_compact: List[Dict[str, Any]] = []
         status_code: Optional[int] = None
         error: Optional[str] = None
 
         try:
-            # Execute the actual HTTP query (GET) and get back a list of rows.
             rows_full = await self._execute_queryspec_http(
                 client=client,
                 route=route,
@@ -1232,14 +820,10 @@ class DataQueryAgent(BaseAgent):
                 params=params,
             )
 
-            # Optional enrichment hook (currently no-op).
             rows_full = await self._enrich_person_name(client, rows_full)
-
-            # Build a compact representation suitable for UI display.
             rows_compact = _shrink_to_ui_defaults(rows_full, query_spec)
             status_code = 200
 
-            # Build the canonical success payload with both full and compact rows.
             payload = {
                 "ok": True,
                 "view": getattr(route, "view_name", None),
@@ -1254,7 +838,6 @@ class DataQueryAgent(BaseAgent):
                 "projection_mode": "compact",
             }
         except Exception as exc:  # pragma: no cover - hard failure path
-            # On errors, we record the exception string and an error payload.
             error = str(exc)
             rows_full = []
             rows_compact = []
@@ -1280,19 +863,12 @@ class DataQueryAgent(BaseAgent):
                 "entity": entity_meta,
             }
 
-        # ------------------------------------------------------------------
-        # 24. Channel/store key resolution (for outputs + structured state)
-        # ------------------------------------------------------------------
         view_name = getattr(route, "view_name", None)
         topic_val = getattr(route, "topic", None)
 
         view_key = view_name.strip() if isinstance(view_name, str) else ""
         topic_key = topic_val.strip() if isinstance(topic_val, str) else ""
 
-        # channel_key is used as the "agent_output channel" name, e.g.:
-        #   - "data_query:seasons"
-        #   - "data_query:students"
-        #   - default "data_query" if neither view nor topic present.
         if view_key:
             channel_key = f"{self.name}:{view_key}"
         elif topic_key:
@@ -1300,34 +876,24 @@ class DataQueryAgent(BaseAgent):
         else:
             channel_key = self.name
 
-        # store_key is where the full payload is stored in execution_state.
-        # This allows other nodes (final agent, UI, etc.) to read raw results.
         store_key = (
             getattr(route, "resolved_store_key", None)
             or getattr(route, "view_name", None)
             or "data_query"
         )
         context.execution_state[store_key] = payload
-
-        # structured_outputs is a per-workflow dict of channel->canonical results.
         structured = context.execution_state.setdefault("structured_outputs", {})
         structured[f"{self.name}:{getattr(route, 'view_name', None)}"] = payload
         if not isinstance(structured.get(self.name), dict):
             structured[self.name] = payload
 
-        # ------------------------------------------------------------------
-        # 25. Successful query path: build markdown + final_answer
-        # ------------------------------------------------------------------
         if payload.get("ok"):
-            # Re-read rows from payload in case they were mutated or replaced.
             rows_full = payload.get("rows_full") or []
             rows_compact = payload.get("rows_compact") or rows_full
 
-            # Convert rows_compact and rows_full to markdown tables.
             md_compact = _rows_to_markdown_table(rows_compact)
             md_full = _rows_to_markdown_table(rows_full) if rows_full else md_compact
 
-            # Meta block describing the view and table data for UI usage.
             meta_block = {
                 "view": payload["view"],
                 "row_count": payload["row_count"],
@@ -1341,7 +907,6 @@ class DataQueryAgent(BaseAgent):
                 "table_markdown_full": md_full,
             }
 
-            # Canonical structured output for a successful data query.
             canonical_output = {
                 "table_markdown": md_compact,
                 "table_markdown_compact": md_compact,
@@ -1353,7 +918,6 @@ class DataQueryAgent(BaseAgent):
                 "intent": "action",
             }
 
-            # Emit the markdown table in the chat as the primary user-facing result.
             context.add_agent_output(
                 agent_name=channel_key,
                 logical_name=self.name,
@@ -1364,7 +928,6 @@ class DataQueryAgent(BaseAgent):
                 intent="action",
             )
 
-            # Also record canonical_output in structured_outputs for this channel.
             structured_outputs = context.execution_state.setdefault(
                 "structured_outputs", {}
             )
@@ -1375,20 +938,19 @@ class DataQueryAgent(BaseAgent):
             # --- NEW: also populate final_answer so UI can render directly ---
             exec_state = context.execution_state
             if isinstance(exec_state, dict):
-                # Do not overwrite final_answer if some other agent already wrote it.
+                # Don't clobber an existing final_answer if some other agent already set it
                 if not exec_state.get("final_answer"):
-                    # Provide a simple header that describes the table, using
-                    # the entity display_name or view_name when available.
+                    # Optional: add a small header based on display name / view
                     display_name = (
-                        entity_meta.get("display_name")
-                        or view_name
-                        or channel_key
-                        or "Data query result"
+                            entity_meta.get("display_name")
+                            or view_name
+                            or channel_key
+                            or "Data query result"
                     )
                     header = f"### {display_name}\n\n"
                     exec_state["final_answer"] = header + md_compact
 
-                    # Attach a minimal final_meta block indicating origin.
+                    # Optional: some light metadata about where this came from
                     final_meta = exec_state.setdefault("final_meta", {})
                     if isinstance(final_meta, dict):
                         final_meta.setdefault("source", "data_query")
@@ -1397,11 +959,7 @@ class DataQueryAgent(BaseAgent):
                         final_meta.setdefault("url", payload.get("url"))
                         final_meta.setdefault("entity", entity_meta)
 
-        # ------------------------------------------------------------------
-        # 26. Failure path: emit error message + final_answer error
-        # ------------------------------------------------------------------
         else:
-            # Construct a visible error message for the user.
             fail_content = f"**data_query failed**: {payload.get('error', 'unknown error')}"
             context.add_agent_output(
                 agent_name=channel_key,
@@ -1413,7 +971,7 @@ class DataQueryAgent(BaseAgent):
                 intent="action",
             )
 
-            # Also populate final_answer with the error message if none exists yet.
+
             exec_state = context.execution_state
             if isinstance(exec_state, dict) and not exec_state.get("final_answer"):
                 exec_state["final_answer"] = fail_content
@@ -1422,9 +980,7 @@ class DataQueryAgent(BaseAgent):
                     final_meta.setdefault("source", "data_query")
                     final_meta.setdefault("error", payload.get("error"))
 
-        # ------------------------------------------------------------------
-        # 27. Final logging + return updated context
-        # ------------------------------------------------------------------
+
         logger.info(
             "[data_query] run() completed",
             extra={
