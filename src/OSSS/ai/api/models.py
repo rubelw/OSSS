@@ -5,7 +5,7 @@ Schemas tagged with # EXTERNAL SCHEMA require special handling for changes.
 """
 
 from pydantic import BaseModel, Field, field_validator, model_validator, ConfigDict
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Literal
 from datetime import datetime
 import re
 
@@ -44,6 +44,24 @@ class WorkflowRequest(BaseModel):
         max_length=100,
         json_schema_extra={"example": "req-12345-abcdef"},
     )
+
+    # 🔑 NEW: explicit conversation/thread id for multi-turn flows (Option B)
+    conversation_id: Optional[str] = Field(
+        None,
+        description=(
+            "Stable conversation/thread identifier used for multi-turn memory. "
+            "If omitted, the server may generate one and return it in WorkflowResponse."
+        ),
+        pattern=r"^[a-zA-Z0-9_-]+$",
+        max_length=200,
+        json_schema_extra={"example": "osss_20250101_120000_ab12cd34"},
+    )
+    export_md: Optional[bool] = Field(
+        None,
+        description="Export agent outputs to markdown file (generates wiki file)",
+        json_schema_extra={"example": True},
+    )
+
     export_md: Optional[bool] = Field(
         None,
         description="Export agent outputs to markdown file (generates wiki file)",
@@ -110,6 +128,54 @@ class WorkflowRequest(BaseModel):
 
 
 # EXTERNAL SCHEMA
+class SkippedAgentOutput(BaseModel):
+    """
+    Canonical envelope for agents that were intentionally skipped.
+
+    This is used when an agent (e.g., data_query) decides not to run
+    because the input did not match its domain, but we still want a
+    structured, inspectable record instead of an empty string.
+    """
+
+    status: Literal["skipped"] = Field(
+        ...,
+        description="Status marker indicating the agent was intentionally skipped.",
+        json_schema_extra={"example": "skipped"},
+    )
+    reason: str = Field(
+        ...,
+        description="Human-readable reason why the agent was skipped.",
+        json_schema_extra={"example": "skip_non_structured"},
+    )
+    action: str = Field(
+        "noop",
+        description="Logical action label; usually 'noop' for skipped agents.",
+        json_schema_extra={"example": "noop"},
+    )
+    intent: str = Field(
+        "none",
+        description="High-level intent; 'none' for skipped outputs.",
+        json_schema_extra={"example": "none"},
+    )
+    meta: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Additional metadata about the skip decision.",
+        json_schema_extra={
+            "example": {
+                "event": "data_query_skip_non_structured",
+                "projection_mode": "none",
+            }
+        },
+    )
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for backward compatibility."""
+        return self.model_dump()
+
+    model_config = ConfigDict(extra="allow", validate_assignment=True)
+
+
+# EXTERNAL SCHEMA
 class WorkflowResponse(BaseModel):
     """External workflow execution response - v1.0.0"""
 
@@ -118,6 +184,19 @@ class WorkflowResponse(BaseModel):
         description="Unique identifier for the workflow execution",
         pattern=r"^[a-f0-9-]{36}$",  # UUID format
         json_schema_extra={"example": "550e8400-e29b-41d4-a716-446655440000"},
+    )
+
+    # 🔑 NEW: stable conversation/thread id for multi-turn flows (Option B)
+    conversation_id: Optional[str] = Field(
+        None,
+        description=(
+            "Stable conversation/thread identifier associated with this workflow. "
+            "Clients should send this value back on subsequent WorkflowRequest calls "
+            "to continue the same conversation."
+        ),
+        pattern=r"^[a-zA-Z0-9_-]+$",
+        max_length=200,
+        json_schema_extra={"example": "osss_20250101_120000_ab12cd34"},
     )
 
     # ✅ Single best answer string for UI clients
@@ -142,7 +221,11 @@ class WorkflowResponse(BaseModel):
 
     agent_outputs: Dict[str, Any] = Field(
         ...,
-        description="Outputs from each executed agent (structured Pydantic models or strings for backward compatibility)",
+        description=(
+            "Outputs from each executed agent. "
+            "Supports structured Pydantic models, SkippedAgentOutput envelopes, "
+            "or strings for backward compatibility."
+        ),
         json_schema_extra={
             "example": {
                 "refiner": {
@@ -156,11 +239,21 @@ class WorkflowResponse(BaseModel):
                     "retrieved_notes": ["note1", "note2"],
                     "confidence": 0.88,
                 },
-                "critic": "Critical analysis and evaluation",  # Backward compatible string
+                "data_query": {
+                    "status": "skipped",
+                    "reason": "skip_non_structured",
+                    "action": "noop",
+                    "intent": "none",
+                    "meta": {
+                        "event": "data_query_skip_non_structured",
+                        "projection_mode": "none",
+                    },
+                },
                 "synthesis": "Comprehensive synthesis of insights",  # Backward compatible string
             }
         },
     )
+
     execution_time_seconds: float = Field(
         ...,
         description="Total execution time in seconds",
@@ -193,6 +286,29 @@ class WorkflowResponse(BaseModel):
             }
         },
     )
+
+    @staticmethod
+    def _is_skipped_output_value(output: Any) -> bool:
+        """
+        Helper to detect a 'skipped' envelope, either as a dict or as a Pydantic model.
+
+        This is intentionally tolerant so the orchestrator can pass either:
+          - a SkippedAgentOutput instance, or
+          - a plain dict with at least {'status': 'skipped', 'reason': ...}
+        """
+        try:
+            if hasattr(output, "model_dump"):
+                data = output.model_dump()
+            elif isinstance(output, dict):
+                data = output
+            else:
+                return False
+        except Exception:
+            return False
+
+        status = data.get("status")
+        return isinstance(status, str) and status.strip().lower() == "skipped"
+
 
     @model_validator(mode="before")
     @classmethod
@@ -263,13 +379,25 @@ class WorkflowResponse(BaseModel):
         """
         Validate agent outputs.
 
-        Supports both structured outputs (dict/Pydantic models) and legacy string outputs
-        for backward compatibility.
+        Supports:
+          - structured outputs (dict / Pydantic models),
+          - SkippedAgentOutput envelopes (or equivalent dicts),
+          - legacy string outputs for backward compatibility.
+
+        Hard rules:
+          - None is never allowed.
+          - Plain strings must not be empty/whitespace.
+          - Plain dicts must not be empty, unless represented as a skipped envelope
+            (which, by definition, has at least status + reason).
         """
         for agent_name, output in v.items():
-            # Allow structured outputs (dicts), strings, or Pydantic models
             if output is None:
                 raise ValueError(f"Output for agent '{agent_name}' cannot be None")
+
+            # --- Option 2: explicit skipped envelope is always allowed ---
+            if WorkflowResponse._is_skipped_output_value(output):
+                # Allow skipped outputs as-is; they are explicitly meaningful
+                continue
 
             # If it's a string, ensure it's not empty
             if isinstance(output, str):
@@ -285,14 +413,14 @@ class WorkflowResponse(BaseModel):
                         f"Output for agent '{agent_name}' cannot be empty dict"
                     )
 
-            # If it's a Pydantic model, convert to dict for storage
+            # If it's a Pydantic model, we trust its own validation
             elif hasattr(output, "model_dump"):
-                # This will be handled during serialization, just verify it exists
+                # No extra checks here; serialization will handle it
                 pass
 
-            # For any other type, we'll allow it but log a warning in production
+            # For any other type, we'll allow it but keep behavior flexible
             else:
-                # Allow other types for flexibility
+                # Allow other types for flexibility (e.g., custom serializable objects)
                 pass
 
         return v

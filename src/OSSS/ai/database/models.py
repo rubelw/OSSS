@@ -356,6 +356,45 @@ class HistorianDocument(Base):
         Index("idx_historian_documents_title_created", "title", "created_at"),
     )
 
+class ConversationState(Base):
+    """
+    Per-conversation state storage for wizard + classifier, etc.
+
+    This is used by LangGraphOrchestrationAPI._load_conversation_state /
+    _save_conversation_state and keyed by conversation_id.
+    """
+
+    __tablename__ = "conversation_states"
+
+    # We treat conversation_id as the natural primary key
+    conversation_id: Mapped[str] = mapped_column(
+        String(255),
+        primary_key=True,
+        nullable=False,
+    )
+
+    # Arbitrary JSON state payload (wizard, classifier_result, etc.)
+    state: Mapped[Optional[Dict[str, Any]]] = mapped_column(
+        JSONB,
+        nullable=True,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+    __table_args__ = (
+        Index("idx_conversation_states_updated_at", "updated_at"),
+    )
+
 
 class HistorianSearchAnalytics(Base):
     """

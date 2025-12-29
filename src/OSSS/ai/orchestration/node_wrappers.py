@@ -560,135 +560,121 @@ async def convert_state_to_context(state: OSSSState) -> AgentContext:
     """
     Convert LangGraph state to AgentContext for agent execution.
 
-    Cleanups applied:
-      - Do NOT add duplicate outputs (no "Refiner"/"DataQuery" alias keys)
-      - Do NOT re-add outputs that BaseAgent already writes during this run
-      - Only hydrate context from prior state to support downstream nodes
-
-    Option A:
-      - Prefer data_query_results/latest completed node over legacy state["data_query"]
+    Pattern 1: single state universe
+      - OSSSState["execution_state"] is canonical
+      - AgentContext.execution_state is a direct reference to that dict
     """
-    _ = AgentContextStateBridge()  # retained for future compatibility
+    _ = AgentContextStateBridge()  # retained for future compatibility / tooling
 
     if "query" not in state:
         raise ValueError("State must contain a query field")
 
+    # ---- Core query wiring -------------------------------------------------
     query = state.get("query", "") or ""
-    # Prefer explicitly stored original_query if present
     original_query = (state.get("original_query") or "").strip() or query
 
+    # Canonical execution_state dict (ONE universe)
+    exec_state = _ensure_exec_state(state)  # ensures state["execution_state"] is a dict
+
+    # Build context and attach the SAME dict as execution_state
     context = AgentContext(query=query)
+    context.execution_state = exec_state  # <-- critical: shared reference
 
-    # Carry forward execution_state bits
-    state_exec = state.get("execution_state", {})
-    if isinstance(state_exec, dict):
-        for k in (
-            "agent_output_meta",
-            "effective_queries",
-            "rag_context",
-            "rag_hits",
-            "rag_meta",
-            "rag_enabled",
-            # ✅ keep execution_config/planned_agents flowing through
-            "execution_config",
-            "planned_agents",
-            "route_key",
-            "route",
-            "route_reason",
-            "route_locked",
-        ):
-            v = state_exec.get(k)
-            if v is not None:
-                context.execution_state[k] = v
-
-        # ✅ propagate full refiner text if present so downstream agents / API can use it
-        refiner_full = state_exec.get("refiner_full_text")
-        if isinstance(refiner_full, str) and refiner_full.strip():
-            context.execution_state["refiner_full_text"] = refiner_full
-
-    # 🔧 NEW: also allow RAG to come from top-level state if orchestrator
-    # injected it there before running the graph.
+    # ---- RAG + routing / metadata hydration into the canonical exec_state --
+    # Allow RAG to come from top-level state if orchestrator injected it there.
     for k in ("rag_context", "rag_snippet", "rag_hits", "rag_meta"):
-        if k not in context.execution_state and k in state:
+        if k not in exec_state and k in state:
             v = state.get(k)
             if v is not None:
-                context.execution_state[k] = v
+                exec_state[k] = v
 
-    # ✅ Make sure FinalAgent has something to treat as the user question
-    # user_question: what we show to the FINAL agent
-    context.execution_state.setdefault("original_query", original_query)
-    context.execution_state.setdefault("user_question", original_query)
+    # Make sure FinalAgent and others have a stable view of the question
+    exec_state.setdefault("original_query", original_query)
+    exec_state.setdefault("user_question", original_query)
 
+    # Surface structured_outputs from top-level state into execution_state
     so = state.get("structured_outputs")
     if isinstance(so, dict):
-        context.execution_state["structured_outputs"] = so
+        existing_so = exec_state.get("structured_outputs")
+        if isinstance(existing_so, dict):
+            # merge, with state-level outputs winning
+            merged = dict(existing_so)
+            merged.update(so)
+            exec_state["structured_outputs"] = merged
+        else:
+            exec_state["structured_outputs"] = dict(so)
 
-    # Hydrate prior outputs for downstream nodes.
-    # IMPORTANT: use canonical lowercase keys only.
+    # ---- Hydrate prior agent outputs into AgentContext + exec_state --------
+    # Refiner
     if state.get("refiner"):
         refiner_state: Optional[RefinerState] = state["refiner"]
-        if refiner_state is not None:
+        if isinstance(refiner_state, dict):
             refined_question = refiner_state.get("refined_question", "")
             if refined_question:
                 context.add_agent_output("refiner", refined_question)
-                context.execution_state["refiner_topics"] = refiner_state.get("topics", [])
-                context.execution_state["refiner_confidence"] = refiner_state.get("confidence", 0.8)
+                exec_state["refiner_topics"] = refiner_state.get("topics", [])
+                exec_state["refiner_confidence"] = refiner_state.get("confidence", 0.8)
 
-                # ✅ Provide refiner_snippet for FinalAgent:
-                # prefer the full markdown text if we have it, fall back to the refined question
-                refiner_full = context.execution_state.get("refiner_full_text")
+                # Prefer full markdown text if later stored, otherwise use refined question
+                refiner_full = exec_state.get("refiner_full_text")
                 if isinstance(refiner_full, str) and refiner_full.strip():
                     snippet = refiner_full
                 else:
                     snippet = refined_question
                 if snippet.strip():
-                    context.execution_state.setdefault("refiner_snippet", snippet)
+                    exec_state.setdefault("refiner_snippet", snippet)
 
-    # ✅ Derive rag_snippet from rag_context when available
-    rag_ctx = context.execution_state.get("rag_context")
-    if rag_ctx is not None and not context.execution_state.get("rag_snippet"):
+    # Derive rag_snippet from rag_context when available
+    rag_ctx = exec_state.get("rag_context")
+    if rag_ctx is not None and not exec_state.get("rag_snippet"):
         rag_snippet = _to_text(rag_ctx)
         if rag_snippet.strip():
-            context.execution_state["rag_snippet"] = rag_snippet
+            exec_state["rag_snippet"] = rag_snippet
 
-    # ✅ Option A: hydrate data_query from data_query_results (latest completed)
+    # Data query (Option A: prefer data_query_results)
     latest_payload = _pick_latest_data_query_payload(state)
     if latest_payload is not None:
-        context.add_agent_output("data_query", _to_text(latest_payload))
-        context.execution_state["data_query_result"] = latest_payload
+        dq_text = _to_text(latest_payload)
+        if dq_text.strip():
+            context.add_agent_output("data_query", dq_text)
+        exec_state["data_query_result"] = latest_payload
         latest_node_id = _pick_latest_data_query_node_id(state)
         if latest_node_id:
-            context.execution_state["data_query_node_id"] = latest_node_id
+            exec_state["data_query_node_id"] = latest_node_id
     else:
-        # Legacy fallback
-        if state.get("data_query"):
-            dq_state: Optional[DataQueryState] = state["data_query"]  # type: ignore[assignment]
-            if dq_state is not None:
-                result = dq_state.get("result", "")
-                context.add_agent_output("data_query", _to_text(result))
-                context.execution_state["data_query_result"] = dq_state.get("result")
+        # Legacy fallback: state["data_query"].result
+        dq_state = state.get("data_query")
+        if isinstance(dq_state, dict):
+            result = dq_state.get("result")
+            if result is not None:
+                dq_text = _to_text(result)
+                if dq_text.strip():
+                    context.add_agent_output("data_query", dq_text)
+                exec_state["data_query_result"] = result
 
+    # Critic
     if state.get("critic"):
         critic_state: Optional[CriticState] = state["critic"]
-        if critic_state is not None:
+        if isinstance(critic_state, dict):
             critique = critic_state.get("critique", "")
             if critique:
                 context.add_agent_output("critic", critique)
-                context.execution_state["critic_suggestions"] = critic_state.get("suggestions", [])
-                context.execution_state["critic_severity"] = critic_state.get("severity", "medium")
+                exec_state["critic_suggestions"] = critic_state.get("suggestions", [])
+                exec_state["critic_severity"] = critic_state.get("severity", "medium")
 
+    # Historian
     if state.get("historian"):
         historian_state: Optional[HistorianState] = state["historian"]
-        if historian_state is not None:
+        if isinstance(historian_state, dict):
             historical_summary = historian_state.get("historical_summary", "")
             if historical_summary:
                 context.add_agent_output("historian", historical_summary)
-                context.execution_state["historian_retrieved_notes"] = historian_state.get("retrieved_notes", [])
-                context.execution_state["historian_search_strategy"] = historian_state.get("search_strategy", "hybrid")
-                context.execution_state["historian_topics_found"] = historian_state.get("topics_found", [])
-                context.execution_state["historian_confidence"] = historian_state.get("confidence", 0.8)
+                exec_state["historian_retrieved_notes"] = historian_state.get("retrieved_notes", [])
+                exec_state["historian_search_strategy"] = historian_state.get("search_strategy", "hybrid")
+                exec_state["historian_topics_found"] = historian_state.get("topics_found", [])
+                exec_state["historian_confidence"] = historian_state.get("confidence", 0.8)
 
-    # Add execution metadata (best-effort)
+    # ---- Execution metadata into exec_state + AgentContext -----------------
     execution_metadata = state.get("execution_metadata", {})
     if isinstance(execution_metadata, dict) and execution_metadata:
         succ = state.get("successful_agents")
@@ -697,7 +683,7 @@ async def convert_state_to_context(state: OSSSState) -> AgentContext:
         succ_list = list(succ) if isinstance(succ, (list, set, tuple)) else []
         fail_list = list(fail) if isinstance(fail, (list, set, tuple)) else []
 
-        context.execution_state.update(
+        exec_state.update(
             {
                 "execution_id": execution_metadata.get("execution_id", ""),
                 "orchestrator_type": "langgraph-real",
@@ -706,7 +692,7 @@ async def convert_state_to_context(state: OSSSState) -> AgentContext:
             }
         )
 
-    # 🔧 Also hydrate AgentContext-level tracking for orchestration_api convenience
+    # Also hydrate AgentContext-level tracking for orchestration_api convenience
     succ = state.get("successful_agents")
     fail = state.get("failed_agents")
 
@@ -716,6 +702,7 @@ async def convert_state_to_context(state: OSSSState) -> AgentContext:
         context.failed_agents = list(fail)
 
     return context
+
 
 
 # ---------------------------------------------------------------------------
@@ -1141,7 +1128,7 @@ async def data_query_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Di
         else:
             payload = dq_value
 
-        canonical_value = payload if payload is not None else ""
+        canonical_value = payload if payload is not None else None
 
         if isinstance(getattr(result_context, "execution_state", None), dict):
             aom = result_context.execution_state.setdefault("agent_output_meta", {})

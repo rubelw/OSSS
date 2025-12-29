@@ -6,16 +6,7 @@ production-ready connection pooling, centralized session management,
 Alembic migrations, and vector similarity search capabilities.
 """
 
-from .config import DatabaseConfig, get_database_config
-from .connection import (
-    close_database,
-    get_connection_pool_status,
-    get_database_engine,
-    get_database_session,
-    health_check,
-    init_database,
-    validate_database_schema,
-)
+
 from .models import Base
 from .repositories import RepositoryFactory
 from .session_factory import (
@@ -28,7 +19,6 @@ from .session_factory import (
 __all__ = [
     # Configuration
     "DatabaseConfig",
-    "get_database_config",
     # Connection management
     "get_database_engine",
     "get_database_session",

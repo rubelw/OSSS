@@ -724,14 +724,20 @@ class LangGraphOrchestrator:
     # Pattern resolution
     # ---------------------------------------------------------------------
 
-    def _resolve_pattern_for_run(self, config: Dict[str, Any]) -> str:
+    def _resolve_pattern_for_run(
+            self,
+            config: Dict[str, Any],
+            exec_state: Optional[Dict[str, Any]] = None,
+    ) -> str:
         """
         Pattern selection priority (then clamped to {"standard", "data_query"}):
 
         1) Explicit caller override:
            - config["execution_config"]["graph_pattern"]
            - config["graph_pattern"]
-        2) Heuristic based on classifier + raw_query:
+        2) Route-based override (from DBQueryRouter / routing layer):
+           - route_key => "data_query" or "standard"
+        3) Heuristic based on classifier + raw_query:
            - "data_query" for action/DB-ish queries
            - "standard" otherwise
         """
@@ -755,14 +761,27 @@ class LangGraphOrchestrator:
             return pattern if pattern in ("standard", "data_query") else "standard"
 
         # ------------------------------------------------------------------
-        # 2) No explicit pattern: use classifier + query heuristics
+        # 2) Route-based override (Option B)
+        #    Let DBQueryRouter / routing set the pattern via route_key.
+        # ------------------------------------------------------------------
+        if isinstance(exec_state, dict):
+            route_key = str(exec_state.get("route_key", "")).lower()
+
+            # You can customize these mappings as needed.
+            if route_key in {"action", "data_query"}:
+                return "data_query"
+            if route_key in {"default", "refiner", "conversation"}:
+                return "standard"
+
+        # ------------------------------------------------------------------
+        # 3) No explicit pattern and no route_key: use classifier + query heuristics
         # ------------------------------------------------------------------
         classifier = config.get("classifier") or {}
         if not isinstance(classifier, dict):
             classifier = {}
 
         intent = str(classifier.get("intent", "")).lower()
-        domain = str(classifier.get("domain", "")).lower()
+        domain = str(classifier.get("domain", "")).lower()  # currently unused but kept
 
         raw_query = str(config.get("raw_query") or "").lower()
 
@@ -784,9 +803,10 @@ class LangGraphOrchestrator:
 
         is_actiony = intent == "action"
 
-        # 🔚 Always return a string
         if is_actiony or looks_db_like:
             return "data_query"
+
+        # 🔚 Always return a string
         return "standard"
 
     # ---------------------------------------------------------------------
@@ -881,13 +901,6 @@ class LangGraphOrchestrator:
         add_trace_metadata("orchestrator_type", "langgraph-real")
         add_trace_metadata("query_length", len(query))
 
-        # resolve pattern for THIS run (clamped to {"standard", "data_query"})
-        pattern_name = self._resolve_pattern_for_run(config)
-
-        # extra safety in case someone changes _resolve_pattern_for_run later
-        if not pattern_name:
-            pattern_name = self.DEFAULT_PATTERN
-        add_trace_metadata("graph_pattern", pattern_name)
 
         # resolve agents (requested/default)
         resolved_agents = self._resolve_agents_for_run(config)
@@ -952,16 +965,31 @@ class LangGraphOrchestrator:
             if "raw_request_config" not in exec_state and isinstance(config, dict):
                 exec_state["raw_request_config"] = dict(config)
 
-            # Store resolved pattern hint on ExecutionState for introspection
-            exec_state["graph_pattern"] = pattern_name
+            # graph_pattern will be resolved later once routing has run (Option B)
 
             # Ensure routing has happened (or compute chosen_target here)
             chosen_target = exec_state.get("route")
             if not isinstance(chosen_target, str) or not chosen_target:
-                router = DBQueryRouter(data_query_target="data_query", default_target="refiner")
-                chosen_target = router(
-                    AgentContext(query=initial_state.get("query", "") or query)
+                router = DBQueryRouter(
+                    data_query_target="data_query",
+                    default_target="refiner",
                 )
+
+                # 🔑 Give the router full context: query + current exec_state
+                router_ctx = AgentContext(
+                    query=initial_state.get("query", "") or query,
+                )
+                if isinstance(router_ctx.execution_state, dict):
+                    # Seed router's execution_state with what we already know
+                    router_ctx.execution_state.update(exec_state)
+
+                # Run the router
+                chosen_target = router(router_ctx)
+
+                # 🔑 Merge router’s view of execution_state back into exec_state
+                if isinstance(router_ctx.execution_state, dict):
+                    exec_state.update(router_ctx.execution_state)
+
                 exec_state["route"] = chosen_target
 
             decision_selected: Optional[List[str]] = None
@@ -1025,6 +1053,20 @@ class LangGraphOrchestrator:
                             f"[orchestrator] Failed to apply route_key-based planning: {e}",
                             extra={"route_key": route_key},
                         )
+
+
+            # -------------------------------------------------------------
+            # ✅ Option B: resolve pattern *after* routing, using exec_state
+            # -------------------------------------------------------------
+            pattern_name = self._resolve_pattern_for_run(config, exec_state)
+
+            # extra safety in case someone changes _resolve_pattern_for_run later
+            if not pattern_name:
+                pattern_name = self.DEFAULT_PATTERN
+
+            add_trace_metadata("graph_pattern", pattern_name)
+            exec_state["graph_pattern"] = pattern_name
+            # -------------------------------------------------------------
 
             final_candidates = decision_selected if decision_selected is not None else self.agents_to_run
             final_agents = normalize_agents(final_candidates, pattern_name=pattern_name)

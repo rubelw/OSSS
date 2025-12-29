@@ -20,7 +20,10 @@ from OSSS.ai.config.agent_configs import HistorianConfig
 from OSSS.ai.workflows.prompt_composer import PromptComposer, ComposedPrompt
 
 # Database repository imports
-from OSSS.ai.database.session_factory import DatabaseSessionFactory
+from OSSS.ai.database.session_factory import (
+    DatabaseSessionFactory,
+    get_database_session_factory,
+)
 from OSSS.ai.database.repositories import RepositoryFactory
 
 # Structured output imports
@@ -104,15 +107,15 @@ class HistorianAgent(BaseAgent):
         self._update_composed_prompt()
 
     def _wrap_output(
-            self,
-            output: str | None = None,
-            *,
-            intent: str | None = None,
-            tone: str | None = None,
-            action: str | None = None,
-            sub_tone: str | None = None,
-            content: str | None = None,  # legacy alias
-            **_: Any,
+        self,
+        output: str | None = None,
+        *,
+        intent: str | None = None,
+        tone: str | None = None,
+        action: str | None = None,
+        sub_tone: str | None = None,
+        content: str | None = None,  # legacy alias
+        **_: Any,
     ) -> dict:
         return super()._wrap_output(
             output=output,
@@ -197,13 +200,12 @@ class HistorianAgent(BaseAgent):
                 f"[{self.name}] Structured output service initialized with discovered model: {selected_model}"
             )
 
-            # --- ADD THIS: disable structured output for llama models ---
+            # --- disable structured output for llama models ---
             if "llama" in selected_model.lower():
                 self.logger.info(
                     f"[{self.name}] Disabling structured output for llama models (speed + reliability)"
                 )
                 self.structured_service = None
-            # -----------------------------------------------------------
 
         except Exception as e:
             self.logger.warning(
@@ -246,7 +248,10 @@ class HistorianAgent(BaseAgent):
             return HISTORIAN_SYSTEM_PROMPT
         except ImportError:
             # Fallback to basic embedded prompt
-            return """As a historian agent, analyze queries and provide relevant historical context using available search results and historical information."""
+            return (
+                "As a historian agent, analyze queries and provide relevant historical "
+                "context using available search results and historical information."
+            )
 
     def update_config(self, config: HistorianConfig) -> None:
         """
@@ -264,27 +269,45 @@ class HistorianAgent(BaseAgent):
         )
 
     async def _ensure_database_connection(self) -> Optional[DatabaseSessionFactory]:
-        """Ensure database connection is established and return session factory."""
-        if self._db_session_factory is not None:
+        """
+        Ensure database connection is established and return session factory.
+
+        Uses the shared global DatabaseSessionFactory (which you can back with
+        OSSS.db.session.get_engine / get_sessionmaker) and gracefully disables DB
+        search if persistence is turned off or init fails.
+        """
+        # If we already have an initialized factory, reuse it
+        if (
+            self._db_session_factory is not None
+            and self._db_session_factory.is_initialized
+        ):
             return self._db_session_factory
 
         try:
-            # Initialize database session factory if not already done
-            self._db_session_factory = DatabaseSessionFactory()
+            # Use the global, shared factory
+            self._db_session_factory = get_database_session_factory()
 
             # Add timeout for database initialization
-
             await asyncio.wait_for(
                 self._db_session_factory.initialize(),
                 timeout=self.config.search_timeout_seconds,
             )
+
+            if not self._db_session_factory.is_initialized:
+                # This most likely means db_persist_enabled_from_env() is False
+                self.logger.info(
+                    f"[{self.name}] Database persistence disabled or initialization "
+                    f"skipped; database-backed historian search is disabled."
+                )
+                return None
 
             self.logger.debug(f"[{self.name}] Database connection initialized")
             return self._db_session_factory
 
         except asyncio.TimeoutError:
             self.logger.warning(
-                f"[{self.name}] Database initialization timed out after {self.config.search_timeout_seconds}s"
+                f"[{self.name}] Database initialization timed out after "
+                f"{self.config.search_timeout_seconds}s"
             )
             return None
         except Exception as e:
@@ -297,16 +320,6 @@ class HistorianAgent(BaseAgent):
 
         Uses structured output when available for improved consistency and content
         pollution prevention, with graceful fallback to traditional implementation.
-
-        Parameters
-        ----------
-        context : AgentContext
-            The current context object containing the user query and accumulated outputs.
-
-        Returns
-        -------
-        AgentContext
-            The updated context object with the Historian's output and retrieved notes.
         """
         overall_start = time.time()
         query = context.query.strip()
@@ -746,7 +759,9 @@ class HistorianAgent(BaseAgent):
                     f"input: {input_tokens}, output: {output_tokens}, total: {total_tokens}"
                 )
 
-            relevant_indices = self._parse_relevance_response(response_text, len(search_results))
+            relevant_indices = self._parse_relevance_response(
+                response_text, len(search_results)
+            )
 
             # Filter results based on LLM analysis
             filtered_results = [
@@ -815,7 +830,10 @@ class HistorianAgent(BaseAgent):
 
             # Get LLM synthesis (avoid blocking event loop)
             messages = [
-                {"role": "system", "content": "You are a historian synthesis assistant."},
+                {
+                    "role": "system",
+                    "content": "You are a historian synthesis assistant.",
+                },
                 {"role": "user", "content": synthesis_prompt},
             ]
             if hasattr(self.llm, "ainvoke"):
@@ -873,7 +891,10 @@ class HistorianAgent(BaseAgent):
         """Build prompt for LLM relevance analysis."""
         results_text = "\n".join(
             [
-                f"[{i}] TITLE: {result.title}\n    EXCERPT: {result.excerpt}\n    TOPICS: {', '.join(result.topics)}\n    MATCH: {result.match_type} ({result.relevance_score:.2f})"
+                f"[{i}] TITLE: {result.title}\n"
+                f"    EXCERPT: {result.excerpt}\n"
+                f"    TOPICS: {', '.join(result.topics)}\n"
+                f"    MATCH: {result.match_type} ({result.relevance_score:.2f})"
                 for i, result in enumerate(search_results)
             ]
         )
@@ -911,6 +932,7 @@ RELEVANT INDICES:"""
             if response_clean == "NONE":
                 return []
             import re
+
             numbers = re.findall(r"\d+", response_clean)
             indices = [int(num) for num in numbers]
             return [i for i in indices if 0 <= i < n_results][:5]
@@ -924,7 +946,10 @@ RELEVANT INDICES:"""
         """Build prompt for LLM historical context synthesis."""
         results_context = "\n\n".join(
             [
-                f"### {result.title} ({result.date})\n{result.excerpt}\nTopics: {', '.join(result.topics)}\nSource: {result.filename}"
+                f"### {result.title} ({result.date})\n"
+                f"{result.excerpt}\n"
+                f"Topics: {', '.join(result.topics)}\n"
+                f"Source: {result.filename}"
                 for result in filtered_results
             ]
         )
@@ -997,16 +1022,20 @@ HISTORICAL SYNTHESIS:"""
             search_results = await self._search_historical_content(query, context)
 
             # Step 2: Analyze and filter results with LLM (same as before)
-            #filtered_results = await self._analyze_relevance(
-            #    query, search_results, context
-            #)
+            # filtered_results = await self._analyze_relevance(
+            #     query, search_results, context
+            # )
 
             # Optional: log fields once so you can confirm actual score attribute
             if search_results:
-                self.logger.debug(f"[{self.name}] SearchResult fields: {dir(search_results[0])}")
+                self.logger.debug(
+                    f"[{self.name}] SearchResult fields: {dir(search_results[0])}"
+                )
 
             # Rank safely using the helper (works even if match_score doesn't exist)
-            filtered_results = sorted(search_results, key=self._get_score, reverse=True)[:3]
+            filtered_results = sorted(
+                search_results, key=self._get_score, reverse=True
+            )[:3]
 
             # Step 3: Prepare historical references for structured output
             # Note: HistoricalReference model is simpler than our SearchResult
@@ -1115,7 +1144,6 @@ Focus on the content synthesis only - do not describe your analysis process."""
             # Return the historical synthesis for backward compatibility
             return structured_result.historical_synthesis
 
-
         except Exception as e:
             self.logger.debug(
                 f"[{self.name}] Structured failed fast, falling back: {e}"
@@ -1133,14 +1161,18 @@ Focus on the content synthesis only - do not describe your analysis process."""
         search_results = await self._search_historical_content(query, context)
 
         # Step 2: Analyze and filter results with LLM
-        #filtered_results = await self._analyze_relevance(query, search_results, context)
+        # filtered_results = await self._analyze_relevance(query, search_results, context)
 
         # Optional: log fields once so you can confirm actual score attribute
         if search_results:
-            self.logger.debug(f"[{self.name}] SearchResult fields: {dir(search_results[0])}")
+            self.logger.debug(
+                f"[{self.name}] SearchResult fields: {dir(search_results[0])}"
+            )
 
         # Rank safely using the helper (works even if match_score doesn't exist)
-        filtered_results = sorted(search_results, key=self._get_score, reverse=True)[:3]
+        filtered_results = sorted(
+            search_results, key=self._get_score, reverse=True
+        )[:3]
 
         # Step 3: Synthesize findings into contextual summary
         historical_summary = await self._synthesize_historical_context(
@@ -1169,13 +1201,17 @@ Focus on the content synthesis only - do not describe your analysis process."""
 
     async def _create_fallback_output(self, query: str, mock_history: List[str]) -> str:
         """Create fallback output using mock history data."""
-        return f"Historical context for: {query}\n\nUsing fallback data:\n" + "\n".join(
-            mock_history
+        return (
+            f"Historical context for: {query}\n\nUsing fallback data:\n"
+            + "\n".join(mock_history)
         )
 
     async def _create_no_context_output(self, query: str) -> str:
         """Create output when no historical context is available."""
-        return f"No historical context available for: {query}\n\nThis appears to be a new topic or the notes directory is empty."
+        return (
+            f"No historical context available for: {query}\n\n"
+            f"This appears to be a new topic or the notes directory is empty."
+        )
 
     def define_node_metadata(self) -> Dict[str, Any]:
         """
@@ -1193,7 +1229,9 @@ Focus on the content synthesis only - do not describe your analysis process."""
             "inputs": [
                 NodeInputSchema(
                     name="context",
-                    description="Agent context containing query for historical context retrieval",
+                    description=(
+                        "Agent context containing query for historical context retrieval"
+                    ),
                     required=True,
                     type_hint="AgentContext",
                 )
@@ -1201,7 +1239,9 @@ Focus on the content synthesis only - do not describe your analysis process."""
             "outputs": [
                 NodeOutputSchema(
                     name="context",
-                    description="Updated context with historical notes and retrieved information",
+                    description=(
+                        "Updated context with historical notes and retrieved information"
+                    ),
                     type_hint="AgentContext",
                 )
             ],

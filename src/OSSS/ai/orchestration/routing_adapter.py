@@ -1,5 +1,5 @@
 # routing_adapter.py
-from typing import Optional
+from typing import Optional, Any
 
 from .routing_types import RoutingResult
 from OSSS.ai.orchestrator.nodes.decision_node import DecisionNode
@@ -7,6 +7,58 @@ from OSSS.ai.orchestrator.nodes.base_advanced_node import NodeExecutionContext
 from OSSS.ai.observability import get_logger
 
 logger = get_logger(__name__)
+
+
+def _normalize_decision_result(raw_result: Any, decision_node: DecisionNode) -> dict:
+    """
+    Ensure we always work with a dict-like decision result.
+
+    Expected keys (when present):
+    - selected_agents: list[str]
+    - selected_path: str
+    - confidence: float
+    - reasoning: Any (usually dict/str)
+    """
+    if raw_result is None:
+        logger.warning(
+            "DecisionNode returned None; normalizing to empty dict",
+            extra={
+                "event": "routing_adapter_result_none",
+                "decision_node": getattr(decision_node, "name", None),
+            },
+        )
+        return {}
+
+    if isinstance(raw_result, dict):
+        return raw_result
+
+    # Try to coerce common object-style results into a dict
+    coerced: dict[str, Any] = {}
+    for key in ("selected_agents", "selected_path", "confidence", "reasoning"):
+        if hasattr(raw_result, key):
+            coerced[key] = getattr(raw_result, key)
+
+    if coerced:
+        logger.debug(
+            "Coerced non-dict DecisionNode result into dict",
+            extra={
+                "event": "routing_adapter_result_coerced",
+                "decision_node": getattr(decision_node, "name", None),
+                "coerced_keys": list(coerced.keys()),
+                "raw_type": type(raw_result).__name__,
+            },
+        )
+        return coerced
+
+    logger.warning(
+        "DecisionNode returned unsupported result type; normalizing to empty dict",
+        extra={
+            "event": "routing_adapter_result_unsupported_type",
+            "decision_node": getattr(decision_node, "name", None),
+            "result_type": type(raw_result).__name__,
+        },
+    )
+    return {}
 
 
 def route_agents_with_decision_node(
@@ -34,16 +86,21 @@ def route_agents_with_decision_node(
 
     try:
         # NOTE: Orchestrator owns the loop; this is the sync entry point.
-        result = ctx.loop.run_until_complete(decision_node.execute(ctx))  # or await in async caller
+        raw_result = ctx.loop.run_until_complete(
+            decision_node.execute(ctx)
+        )  # or await in async caller
+
+        result = _normalize_decision_result(raw_result, decision_node)
 
         logger.debug(
             "DecisionNode execution completed",
             extra={
                 "event": "routing_adapter_decision_node_complete",
                 "decision_node": getattr(decision_node, "name", None),
+                "raw_result_type": type(raw_result).__name__,
                 "raw_result_keys": list(result.keys()) if isinstance(result, dict) else None,
-                "selected_path": result.get("selected_path") if isinstance(result, dict) else None,
-                "confidence": result.get("confidence") if isinstance(result, dict) else None,
+                "selected_path": result.get("selected_path"),
+                "confidence": result.get("confidence"),
             },
         )
     except Exception as exc:
@@ -76,12 +133,14 @@ def route_agents_with_decision_node(
         )
         return fallback
 
-    # Normal path: parse DecisionNode result
+    # Normal path: parse normalized DecisionNode result
     if not isinstance(result, dict):
+        # _normalize_decision_result should already have handled this,
+        # but keep an extra guard just in case.
         logger.warning(
-            "DecisionNode returned non-dict result; using fallback agents/pattern",
+            "Normalized DecisionNode result is non-dict; using fallback agents/pattern",
             extra={
-                "event": "routing_adapter_non_dict_result",
+                "event": "routing_adapter_non_dict_result_post_normalization",
                 "decision_node": getattr(decision_node, "name", None),
                 "result_type": type(result).__name__,
             },

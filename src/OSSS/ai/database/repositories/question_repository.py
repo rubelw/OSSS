@@ -274,15 +274,17 @@ class QuestionRepository(BaseRepository[Question]):
 
             for question in questions_with_metadata:
                 if question.execution_metadata:
-                    # Extract execution time if available
-                    exec_time = question.execution_metadata.get("execution_time")
-                    if exec_time:
+                    # Prefer new key, fall back to legacy
+                    exec_time = (
+                            question.execution_metadata.get("execution_time_seconds")
+                            or question.execution_metadata.get("execution_time")
+                    )
+                    if exec_time is not None:
                         execution_times.append(float(exec_time))
 
                 # Count node usage - ensure we have a list to iterate over
                 nodes_executed = question.nodes_executed
                 if nodes_executed is not None:
-                    # Cast to list to avoid Column type iteration issues
                     nodes_list = (
                         list(nodes_executed)
                         if hasattr(nodes_executed, "__iter__")
@@ -291,7 +293,7 @@ class QuestionRepository(BaseRepository[Question]):
                     for node in nodes_list:
                         node_usage[node] = node_usage.get(node, 0) + 1
 
-            # Calculate average execution time
+            # Calculate average execution time (seconds)
             avg_execution_time = (
                 sum(execution_times) / len(execution_times) if execution_times else None
             )

@@ -18,9 +18,9 @@ Design goals of this module:
 # ---------------------------------------------------------------------------
 # Standard library imports
 # ---------------------------------------------------------------------------
-import uuid                 # Unique workflow IDs (UUID4)
-import asyncio              # Async primitives (sleep, cancellation patterns)
-import time                 # Wall-clock timing for execution durations
+import uuid  # Unique workflow IDs (UUID4)
+import asyncio  # Async primitives (sleep, cancellation patterns)
+import time  # Wall-clock timing for execution durations
 from typing import Dict, Any, Optional, List, Tuple
 from datetime import datetime, timezone  # UTC timestamps for telemetry/metadata
 from collections.abc import Mapping, Sequence
@@ -48,12 +48,13 @@ from OSSS.ai.llm.openai import OpenAIChatLLM
 
 from OSSS.ai.api.external import OrchestrationAPI
 from OSSS.ai.api.models import (
-    WorkflowRequest,        # Input request model for workflow execution
-    WorkflowResponse,       # Output response model for workflow execution
-    StatusResponse,         # Response model for status polling
+    WorkflowRequest,  # Input request model for workflow execution
+    WorkflowResponse,  # Output response model for workflow execution
+    StatusResponse,  # Response model for status polling
+    SkippedAgentOutput,  # NEW
 )
-from OSSS.ai.api.base import APIHealthStatus          # API-level health response model
-from OSSS.ai.diagnostics.health import HealthStatus   # Health enum: HEALTHY/DEGRADED/UNHEALTHY
+from OSSS.ai.api.base import APIHealthStatus  # API-level health response model
+from OSSS.ai.diagnostics.health import HealthStatus  # Health enum: HEALTHY/DEGRADED/UNHEALTHY
 
 # Decorator that ensures initialize() has been called before API methods run
 from OSSS.ai.api.decorators import ensure_initialized
@@ -68,8 +69,11 @@ from OSSS.ai.observability import get_logger
 from OSSS.ai.events import emit_workflow_started, emit_workflow_completed
 
 # Database / persistence infrastructure (used via helpers/services)
-from OSSS.ai.database.connection import get_session_factory
-from OSSS.ai.database.session_factory import DatabaseSessionFactory
+from OSSS.ai.database.session_factory import (
+    DatabaseSessionFactory,
+    get_database_session_factory,
+)
+from OSSS.ai.database.models import ConversationState  # or ConversationStateModel
 
 from OSSS.ai.orchestration.models_internal import (
     AgentOutputEnvelope,
@@ -81,9 +85,158 @@ from OSSS.ai.orchestration.models_internal import (
 logger = get_logger(__name__)
 
 
+def _normalize_agent_channel_key(channel_key: str) -> str:
+    """
+    Map structured_outputs keys like 'data_query:students' back to the logical
+    agent name ('data_query') for the public API.
+    """
+    if not isinstance(channel_key, str):
+        return str(channel_key)
+    return channel_key.split(":", 1)[0] or channel_key
+
+
+def _detect_skipped_output_from_payload(payload: Any) -> Optional[SkippedAgentOutput]:
+    """
+    Detect a 'skipped' agent output from the internal payload and convert it
+    into a SkippedAgentOutput envelope for the external API.
+
+    We look for:
+      - meta.reason == 'skip_non_structured'
+      - meta.event  == 'data_query_skip_non_structured'
+    but you can widen this as needed.
+    """
+    if payload is None:
+        return None
+
+    # Canonical_output shape from DataQueryAgent:
+    # {
+    #   "table_markdown": "",
+    #   "markdown": "",
+    #   "meta": {
+    #       "reason": "skip_non_structured",
+    #       "event": "data_query_skip_non_structured",
+    #       "projection_mode": "none",
+    #   },
+    #   "action": "noop",
+    #   "intent": "none",
+    # }
+    if isinstance(payload, dict):
+        meta = payload.get("meta") or {}
+        reason = meta.get("reason")
+        event = meta.get("event")
+        if (
+            isinstance(reason, str)
+            and reason == "skip_non_structured"
+            and isinstance(event, str)
+            and event == "data_query_skip_non_structured"
+        ):
+            return SkippedAgentOutput(
+                status="skipped",
+                reason=reason,
+                action=meta.get("action") or payload.get("action") or "noop",
+                intent=meta.get("intent") or payload.get("intent") or "none",
+                meta=meta,
+            )
+
+    # Not a recognized skip envelope
+    return None
+
+
+def _build_agent_outputs_for_response(
+    execution_state: Dict[str, Any]
+) -> Dict[str, Any]:
+    """
+    Build the public agent_outputs dict for WorkflowResponse.
+
+    - Uses execution_state["structured_outputs"] when present.
+    - Detects 'skipped' payloads and wraps them in SkippedAgentOutput.
+    - Falls back to basic string outputs if structured outputs are missing.
+    """
+    agent_outputs: Dict[str, Any] = {}
+
+    structured_outputs = execution_state.get("structured_outputs") or {}
+
+    # Prefer structured_outputs if available
+    if isinstance(structured_outputs, dict) and structured_outputs:
+        for channel_key, payload in structured_outputs.items():
+            agent_name = _normalize_agent_channel_key(channel_key)
+
+            # Option 2: explicit skipped envelope
+            skipped = _detect_skipped_output_from_payload(payload)
+            if skipped is not None:
+                # Keep one entry per logical agent; last one wins if multiple channels
+                agent_outputs[agent_name] = skipped
+                continue
+
+            # Otherwise, keep payload as-is (dict / string / pydantic model)
+            agent_outputs[agent_name] = payload
+
+        return agent_outputs
+
+    # Fallback: if you also store "agent_outputs" somewhere else as plain strings
+    raw_agent_outputs = execution_state.get("agent_outputs") or {}
+    if isinstance(raw_agent_outputs, dict):
+        for agent_name, output in raw_agent_outputs.items():
+            # Nothing fancy here; Option 2 is handled only via structured_outputs
+            agent_outputs[agent_name] = output
+
+    return agent_outputs
+
+
+# ---------------------------------------------------------------------------
+# Conversation / thread helpers (Option B)
+# ---------------------------------------------------------------------------
+
+
+def _generate_conversation_id() -> str:
+    """
+    Generate a stable, OSSS-style conversation/thread ID.
+
+    This is used when the client does NOT provide a conversation_id.
+    """
+    ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    suffix = uuid.uuid4().hex[:8]
+    return f"osss_{ts}_{suffix}"
+
+
+def _resolve_conversation_id(request: WorkflowRequest) -> str:
+    """
+    Option B: Prefer an explicit conversation_id from the client, otherwise
+    generate a new one and return it.
+
+    Priority:
+      1) request.conversation_id (if the model has it)
+      2) request.execution_config["conversation_id"]
+      3) auto-generated OSSS conversation_id
+    """
+    # 1) Explicit field on the request model
+    conv_id = getattr(request, "conversation_id", None)
+    if isinstance(conv_id, str) and conv_id.strip():
+        return conv_id.strip()
+
+    # 2) Nested in execution_config
+    exec_cfg = request.execution_config or {}
+    if isinstance(exec_cfg, dict):
+        conv_id = exec_cfg.get("conversation_id")
+        if isinstance(conv_id, str) and conv_id.strip():
+            return conv_id.strip()
+
+    # 3) Fallback: generate a new one
+    new_id = _generate_conversation_id()
+    logger.info(
+        "Auto-generated conversation_id",
+        extra={
+            "event": "conversation_id.auto_generated",
+            "conversation_id": new_id,
+        },
+    )
+    return new_id
+
+
 # ---------------------------------------------------------------------------
 # Helper utilities
 # ---------------------------------------------------------------------------
+
 
 def _norm_agents(seq: Any) -> list[str]:
     """Normalize agent names to lowercase strings, drop empties."""
@@ -194,6 +347,7 @@ def _db_persist_enabled() -> bool:
 # Main Orchestration API implementation
 # ---------------------------------------------------------------------------
 
+
 class LangGraphOrchestrationAPI(OrchestrationAPI):
     """
     Production orchestration API wrapping LangGraphOrchestrator.
@@ -236,14 +390,19 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
         # -------------------------------------------------------------------
         # Database session factories
         # -------------------------------------------------------------------
+        # _session_factory is a *callable* returning an async context manager
+        # (DatabaseSessionFactory.get_session), to keep the same shape that
+        # WorkflowPersistenceService and history loaders expect.
         self._session_factory = None  # type: ignore[assignment]
         self._db_session_factory: Optional[DatabaseSessionFactory] = None
 
         # -------------------------------------------------------------------
         # Persistence service (delegated DB writes)
         # -------------------------------------------------------------------
+        # Use the default provider (get_database_session_factory), which returns
+        # a DatabaseSessionFactory instance. WorkflowPersistenceService will then
+        # call .is_initialized / .initialize() on that instance directly.
         self._persistence_service = persistence_service or WorkflowPersistenceService(
-            session_factory_provider=self._get_session_factory,
             api_version=self.api_version,
         )
 
@@ -348,14 +507,32 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
 
     def _get_session_factory(self):
         """
-        Provider used by WorkflowPersistenceService and any other DB helpers.
+        Provider used by WorkflowPersistenceService and other DB helpers.
+
+        Returns:
+            Callable[[], AsyncContextManager[AsyncSession]] | None
+
+        The returned callable is typically DatabaseSessionFactory.get_session,
+        so callers can do:
+
+            sf = session_factory_provider()
+            async with sf() as session:
+                ...
         """
         if not _db_persist_enabled():
             # Keep this quiet; callers may check often
             logger.debug("DB persistence disabled; session factory unavailable")
             return None
+
         if self._session_factory is None:
-            self._session_factory = get_session_factory()
+            # Use the shared global DatabaseSessionFactory instance
+            factory = get_database_session_factory()
+            # We assume initialization was done at app startup via
+            # initialize_database_session_factory(). If not, get_session()
+            # will raise and the persistence layer will treat it as best-effort.
+            self._db_session_factory = factory
+            self._session_factory = factory.get_session
+
         return self._session_factory
 
     # -----------------------------------------------------------------------
@@ -382,6 +559,157 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                 serialized_outputs[agent_name] = output
 
         return serialized_outputs
+
+    # -----------------------------------------------------------------------
+    # Conversation / wizard state persistence
+    # -----------------------------------------------------------------------
+
+    async def _load_conversation_state(self, conversation_id: str) -> Dict[str, Any]:
+        """Load persisted conversation state from the database."""
+
+        logger.debug(
+            "Loading conversation state...",
+            extra={
+                "event": "conversation_state.load.start",
+                "conversation_id": conversation_id,
+            },
+        )
+
+        db_factory = await self._get_or_create_db_session_factory()
+        if db_factory is None:
+            logger.warning(
+                "DB session factory unavailable — returning empty conversation state",
+                extra={
+                    "event": "conversation_state.load.skipped",
+                    "conversation_id": conversation_id,
+                },
+            )
+            return {}
+
+        try:
+            async with db_factory.get_session() as session:
+                row = await session.get(ConversationState, conversation_id)
+
+                if not row:
+                    logger.debug(
+                        "No conversation state found (new conversation)",
+                        extra={
+                            "event": "conversation_state.load.none",
+                            "conversation_id": conversation_id,
+                        },
+                    )
+                    return {}
+
+                if not isinstance(row.state, dict):
+                    logger.warning(
+                        "Conversation state was stored but is not a dict — returning empty state",
+                        extra={
+                            "event": "conversation_state.load.invalid",
+                            "conversation_id": conversation_id,
+                            "type": type(row.state).__name__,
+                        },
+                    )
+                    return {}
+
+                # 🔁 Migration shim: normalize legacy "wizard_state" to "wizard"
+                state: Dict[str, Any] = dict(row.state or {})
+                if "wizard_state" in state and "wizard" not in state:
+                    wizard_state = state.get("wizard_state")
+                    if isinstance(wizard_state, dict):
+                        state["wizard"] = wizard_state
+
+                logger.debug(
+                    "Conversation state loaded successfully",
+                    extra={
+                        "event": "conversation_state.load.success",
+                        "conversation_id": conversation_id,
+                        "state_keys": list(state.keys()),
+                        "state_size_bytes": len(str(state).encode("utf-8")),
+                    },
+                )
+                return state
+
+        except Exception as e:
+            logger.error(
+                f"Failed to load conversation state: {e}",
+                extra={
+                    "event": "conversation_state.load.error",
+                    "conversation_id": conversation_id,
+                    "error_type": type(e).__name__,
+                },
+            )
+            return {}
+
+    async def _save_conversation_state(
+        self, conversation_id: str, state: Dict[str, Any]
+    ) -> None:
+        """Persist conversation state to the database."""
+
+        logger.debug(
+            "Saving conversation state...",
+            extra={
+                "event": "conversation_state.save.start",
+                "conversation_id": conversation_id,
+                "state_size_bytes": len(str(state).encode("utf-8")) if state else 0,
+            },
+        )
+
+        db_factory = await self._get_or_create_db_session_factory()
+        if db_factory is None:
+            logger.warning(
+                "DB session factory unavailable — conversation state NOT persisted.",
+                extra={
+                    "event": "conversation_state.save.skipped",
+                    "conversation_id": conversation_id,
+                },
+            )
+            return
+
+        try:
+            async with db_factory.get_session() as session:
+                existing = await session.get(ConversationState, conversation_id)
+
+                if existing is None:
+                    logger.info(
+                        "Creating new conversation state record",
+                        extra={
+                            "event": "conversation_state.save.insert",
+                            "conversation_id": conversation_id,
+                            "keys": list(state.keys()) if state else [],
+                        },
+                    )
+                    session.add(
+                        ConversationState(conversation_id=conversation_id, state=state)
+                    )
+                else:
+                    logger.debug(
+                        "Updating existing conversation state record",
+                        extra={
+                            "event": "conversation_state.save.update",
+                            "conversation_id": conversation_id,
+                            "updated_keys": list(state.keys()) if state else [],
+                        },
+                    )
+                    existing.state = state
+
+            logger.debug(
+                "Conversation state saved successfully",
+                extra={
+                    "event": "conversation_state.save.success",
+                    "conversation_id": conversation_id,
+                },
+            )
+
+        except Exception as e:
+            logger.error(
+                f"Failed to save conversation state: {e}",
+                extra={
+                    "event": "conversation_state.save.error",
+                    "conversation_id": conversation_id,
+                    "error_type": type(e).__name__,
+                },
+            )
+            raise
 
     # -----------------------------------------------------------------------
     # API identity metadata
@@ -465,7 +793,9 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                     checks["orchestrator_stats"] = orchestrator_stats
 
                     total_executions = orchestrator_stats.get("total_executions", 0)
-                    failed_executions = orchestrator_stats.get("failed_executions", 0)
+                    failed_executions = orchestrator_stats.get(
+                        "failed_executions", 0
+                    )
 
                     if total_executions > 0:
                         failure_rate = failed_executions / total_executions
@@ -613,11 +943,7 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
         # 3) Normalize any envelope-like objects/dicts we found
         for e in raw_candidates:
             if isinstance(e, Mapping):
-                agent_name = (
-                    e.get("agent_name")
-                    or e.get("agent")
-                    or e.get("agent_id")
-                )
+                agent_name = e.get("agent_name") or e.get("agent") or e.get("agent_id")
                 logical_name = e.get("logical_name")
                 content = e.get("content") or e.get("output")
                 role = e.get("role")
@@ -672,8 +998,8 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
         return envelopes
 
     def _build_agent_outputs_payload(
-            self,
-            ctx: AgentContext | Any,
+        self,
+        ctx: AgentContext | Any,
     ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         """
         Build agent_outputs (simple agent -> content map) and agent_output_meta
@@ -795,7 +1121,9 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
             try:
                 raw_envs = getattr(ctx, "output_envelopes") or []
                 # raw_envs is a list[dict] from AgentOutputEnvelope.as_public_dict()
-                if isinstance(raw_envs, Sequence) and not isinstance(raw_envs, (str, bytes)):
+                if isinstance(raw_envs, Sequence) and not isinstance(
+                    raw_envs, (str, bytes)
+                ):
                     envelopes = list(raw_envs)
             except Exception:
                 envelopes = []
@@ -810,7 +1138,9 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
             else:
                 # object-like (defensive)
                 logical = getattr(env, "logical_name", None)
-                full_agent = getattr(env, "agent_name", None) or getattr(env, "agent", None)
+                full_agent = getattr(env, "agent_name", None) or getattr(
+                    env, "agent", None
+                )
                 content = getattr(env, "content", None)
                 meta = getattr(env, "meta", None) or {}
 
@@ -850,7 +1180,7 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                 "has_structured_outputs": isinstance(
                     getattr(ctx, "execution_state", {}) or {}, Mapping
                 )
-                                          and bool(
+                and bool(
                     (getattr(ctx, "execution_state", {}) or {}).get(
                         "structured_outputs"
                     )
@@ -883,7 +1213,9 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
 
             # Otherwise, prefer wizard-style keys like 'data_query:wizard:...'
             for agent_name, content in agent_outputs.items():
-                if isinstance(agent_name, str) and agent_name.startswith("data_query:"):
+                if isinstance(agent_name, str) and agent_name.startswith(
+                    "data_query:"
+                ):
                     return content, agent_name
 
         # 2) Generic preferences for any pattern
@@ -918,7 +1250,9 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
         """
         return await self._execute_workflow_async(request)
 
-    async def _execute_workflow_async(self, request: WorkflowRequest) -> WorkflowResponse:
+    async def _execute_workflow_async(
+        self, request: WorkflowRequest
+    ) -> WorkflowResponse:
         """
         Actual async implementation for workflow execution.
 
@@ -937,6 +1271,26 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
         workflow_id = str(uuid.uuid4())
         start_time = time.time()
         correlation_id = request.correlation_id or f"req-{uuid.uuid4()}"
+
+        # 🔑 Stable conversation identifier for continuity across turns (Option B)
+        conversation_id: str = _resolve_conversation_id(request)
+
+        # NEW: restore any per-conversation state (wizard, classifications, etc.)
+        restored_conversation_state: Dict[str, Any] = {}
+        if conversation_id:
+            try:
+                restored_conversation_state = (
+                    await self._load_conversation_state(conversation_id)
+                ) or {}
+            except Exception as conv_exc:
+                logger.warning(
+                    "[orchestration_api] Failed to load conversation state",
+                    extra={
+                        "event": "conversation_state_load_failed",
+                        "conversation_id": conversation_id,
+                        "error": str(conv_exc),
+                    },
+                )
 
         # Ensure classifier_profile is always defined in this scope
         classifier_profile: Dict[str, Any] | None = None
@@ -958,7 +1312,18 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
         execution_state: Dict[str, Any] = dict(
             original_execution_config.get("execution_state") or {}
         )
+
+        # NEW: merge in any restored per-conversation state (wizard, etc.)
+        if restored_conversation_state:
+            execution_state.update(restored_conversation_state)
+
+        # 🔑 Ensure conversation_id is visible in execution_state (authoritative)
+        execution_state["conversation_id"] = conversation_id
+
         config["execution_state"] = execution_state
+
+        # 🔑 Tell the orchestrator/memory manager which thread to use
+        config["thread_id"] = conversation_id
 
         # ----------------------------------------------------------------
         # Classifier as PRE-STEP (via ClassificationService)
@@ -978,7 +1343,11 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
 
         try:
             logger.info(
-                f"Starting workflow {workflow_id} with query: {request.query[:100]}..."
+                f"Starting workflow {workflow_id} with query: {request.query[:100]}...",
+                extra={
+                    "conversation_id": conversation_id,
+                    "correlation_id": correlation_id,
+                },
             )
 
             # ----------------------------------------------------------------
@@ -1036,15 +1405,15 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                     extra={
                         "workflow_id": workflow_id,
                         "correlation_id": correlation_id,
+                        "conversation_id": conversation_id,
                         "caller_agents": agents_for_event,
                         "graph_pattern": original_execution_config.get(
                             "graph_pattern"
                         ),
                     },
                 )
-                result_context = await self._orchestrator.run(
-                    request.query, config
-                )
+
+                result_context = await self._orchestrator.run(request.query, config)
 
             # 🔍 DEBUG: basic introspection on result_context
             try:
@@ -1091,8 +1460,64 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
             except Exception:
                 exec_state = {}
 
+            # NEW: persist wizard-related state for this conversation (if any)
+            try:
+                persisted_conversation_id = conversation_id  # authoritative now
+
+                # Prefer the *final* execution_state from the workflow result,
+                # fall back to any earlier exec_state only if needed.
+                result_exec_state = (
+                        getattr(result_context, "execution_state", None) or {}
+                )
+                base_exec_state = exec_state or {}
+
+                # Merge older + newer, letting the *newer* values win
+                state_to_persist: Dict[str, Any] = {
+                    **base_exec_state,
+                    **result_exec_state,
+                }
+
+                # 🔑 Look for wizard state under both modern and legacy keys
+                wizard_state = (
+                        state_to_persist.get("wizard")
+                        or state_to_persist.get("wizard_state")
+                )
+
+                minimal_state: Dict[str, Any] = {
+                    "classifier_result": (
+                            state_to_persist.get("classifier_result")
+                            or classifier_profile
+                    ),
+                    "task_classification": state_to_persist.get(
+                        "task_classification"
+                    ),
+                    "cognitive_classification": state_to_persist.get(
+                        "cognitive_classification"
+                    ),
+                }
+
+                # Only persist wizard if we actually have one
+                if isinstance(wizard_state, dict):
+                    minimal_state["wizard"] = wizard_state
+
+                await self._save_conversation_state(
+                    conversation_id=persisted_conversation_id,
+                    state=minimal_state,
+                )
+
+            except Exception as conv_exc:
+                logger.warning(
+                    "[orchestration_api] Failed to persist conversation state",
+                    extra={
+                        "event": "conversation_state_persist_failed",
+                        "error": str(conv_exc),
+                    },
+                )
+
             # Which agents actually ran (best-effort)
-            executed_agents: List[str] = _executed_agents_from_context(result_context, exec_state)
+            executed_agents: List[str] = _executed_agents_from_context(
+                result_context, exec_state
+            )
             if not isinstance(executed_agents, list):
                 executed_agents = []
 
@@ -1120,25 +1545,31 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
             }
 
             # ----------------------------------------------------------------
-            # Build agent_outputs / agent_output_meta from AgentContext
+            # Build *internal* agent_outputs / agent_output_meta from AgentContext
             # ----------------------------------------------------------------
-            agent_outputs, agent_output_meta = self._build_agent_outputs_payload(result_context)
+            agent_outputs_internal, agent_output_meta = (
+                self._build_agent_outputs_payload(result_context)
+            )
 
             # Attach routing into meta for callers (similar to direct LLM path)
             agent_output_meta["_routing"] = routing_meta
 
             # Normalize envelopes into internal model
-            envelopes: list[AgentOutputEnvelope] = self._build_envelopes_from_context(result_context)
+            envelopes: list[AgentOutputEnvelope] = self._build_envelopes_from_context(
+                result_context
+            )
 
-            # Make agent_outputs JSON-serializable for persistence / exports
-            agent_outputs_serializable = self._convert_agent_outputs_to_serializable(agent_outputs)
+            # Make internal agent_outputs JSON-serializable for persistence / exports
+            agent_outputs_serializable = self._convert_agent_outputs_to_serializable(
+                agent_outputs_internal
+            )
 
             # Default markdown_export in case export_md is disabled or fails
             markdown_export = None
 
-            # Decide final answer (prefer wizard output for data_query)
+            # Decide final answer (prefer wizard output for data_query) using *internal* map
             final_answer, final_answer_agent = self._select_final_answer(
-                agent_outputs=agent_outputs,
+                agent_outputs=agent_outputs_internal,
                 graph_pattern=graph_pattern,
                 agent_output_meta=agent_output_meta,
                 routing_meta=routing_meta,
@@ -1146,14 +1577,16 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
 
             # Fallbacks so validator is always happy:
             if not final_answer:
-                if "final" in agent_outputs:
+                if "final" in agent_outputs_internal:
                     final_answer_agent = "final"
-                    final_answer = agent_outputs["final"]
-                elif "data_query:wizard:consents" in agent_outputs:
+                    final_answer = agent_outputs_internal["final"]
+                elif "data_query:wizard:consents" in agent_outputs_internal:
                     final_answer_agent = "data_query:wizard:consents"
-                    final_answer = agent_outputs[final_answer_agent]
-                elif agent_outputs:
-                    final_answer_agent, final_answer = next(iter(agent_outputs.items()))
+                    final_answer = agent_outputs_internal[final_answer_agent]
+                elif agent_outputs_internal:
+                    final_answer_agent, final_answer = next(
+                        iter(agent_outputs_internal.items())
+                    )
 
             # ----------------------------------------------------------------
             # Build internal WorkflowResult and stash in execution_state
@@ -1177,9 +1610,20 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                     extra={"error": str(wr_exc)},
                 )
 
+            # ----------------------------------------------------------------
+            # Build *external* agent_outputs for API response (Option 2)
+            #   - uses exec_state["structured_outputs"]
+            #   - wraps skips as SkippedAgentOutput
+            # ----------------------------------------------------------------
+            agent_outputs_for_response = _build_agent_outputs_for_response(exec_state)
+
             # Decide status
             # Only allowed values: completed | failed | running | cancelled
-            status = "completed" if (final_answer or agent_outputs) else "failed"
+            status = (
+                "completed"
+                if (final_answer or agent_outputs_for_response)
+                else "failed"
+            )
 
             response = WorkflowResponse(
                 workflow_id=workflow_id,
@@ -1187,9 +1631,10 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                 execution_state=exec_state,
                 status=status,
                 agent_output_meta=agent_output_meta,
-                agent_outputs=agent_outputs,
+                agent_outputs=agent_outputs_for_response,
                 execution_time_seconds=execution_time,
                 correlation_id=correlation_id,
+                conversation_id=conversation_id,  # 🔑 Option B: expose to client
                 error_message=None if status == "completed" else "No agent outputs",
                 markdown_export=markdown_export,
             )
@@ -1266,22 +1711,34 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
 
         except Exception as e:
             execution_time = time.time() - start_time
+
             logger.error(
                 f"Workflow {workflow_id} failed after {execution_time:.2f}s: {e}"
             )
 
             # Sanitize exec_state for error response
             safe_exec_state: Dict[str, Any] = {}
+
             try:
+                allowed_keys = {
+                    "execution_config",
+                    "wizard",  # 🔹 NEW: expose canonical wizard state
+                    "wizard_state",
+                    "agent_execution_status",
+                    "timestamps",
+                    "workflow_result",
+                    # 🔹 NEW: keep routing/planning info for better persistence + debugging
+                    "planned_agents",
+                    "agents_to_run",
+                    "graph_pattern",
+                    "route",
+                    "route_key",
+                }
+
                 for k, v in (exec_state or {}).items():
-                    if k in {
-                        "execution_config",
-                        "wizard_state",
-                        "agent_execution_status",
-                        "timestamps",
-                        "workflow_result",
-                    }:
+                    if k in allowed_keys:
                         safe_exec_state[k] = v
+
             except Exception:
                 safe_exec_state = {}
 
@@ -1293,6 +1750,7 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                 correlation_id=correlation_id,
                 error_message=str(e),
                 execution_state=safe_exec_state,
+                conversation_id=conversation_id,  # 🔑 keep it stable even on failure
             )
 
             # Persist failed workflow (best-effort, via service)
@@ -1394,29 +1852,34 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
         return True
 
     # -----------------------------------------------------------------------
-    # Database session factory for markdown persistence
+    # Database session factory for markdown & conv state persistence
     # -----------------------------------------------------------------------
 
     async def _get_or_create_db_session_factory(
         self,
     ) -> Optional[DatabaseSessionFactory]:
-
+        """
+        Lazy helper for features that need a DatabaseSessionFactory instance
+        (conversation state + markdown export, etc).
+        """
         if not _db_persist_enabled():
             logger.debug(
-                "DB persistence disabled; markdown DB session factory unavailable"
+                "DB persistence disabled; markdown/conv-state DB session factory unavailable"
             )
             return None
 
         if self._db_session_factory is None:
             try:
-                self._db_session_factory = DatabaseSessionFactory()
-                await self._db_session_factory.initialize()
+                # Reuse the shared global factory
+                self._db_session_factory = get_database_session_factory()
+                if not self._db_session_factory.is_initialized:
+                    await self._db_session_factory.initialize()
                 logger.info(
-                    "Database session factory initialized for markdown persistence"
+                    "Database session factory initialized for markdown/conv-state persistence"
                 )
             except Exception as e:
                 logger.warning(
-                    "Failed to initialize database session factory for markdown persistence",
+                    "Failed to initialize database session factory for markdown/conv-state persistence",
                     extra={"error": str(e)},
                     exc_info=True,
                 )
@@ -1450,7 +1913,9 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                 "status": wf["status"],
                 "query": wf["request"].query[:100],
                 "start_time": wf["start_time"],
-                "execution_time": wf.get("end_time", time.time()) - wf["start_time"],
+                "execution_time": (
+                    wf.get("end_time", time.time()) - wf["start_time"]
+                ),
             }
             for wf in workflows[:limit]
         ]
@@ -1473,6 +1938,7 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                 QuestionRepository,
             )
 
+            # sf is a callable returning an async context manager
             async with sf() as session:
                 question_repo = QuestionRepository(session)
                 questions = await question_repo.get_recent_questions(

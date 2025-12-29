@@ -199,7 +199,7 @@ class ExecutionMetadata(TypedDict):
     phase: str
     """Implementation phase label (e.g., 'phase2_1')."""
 
-    # 🔹 NEW: where per-agent results are tracked
+    # Per-agent results (index into OSSSState.* + execution_state.agent_output_index)
     agent_outputs: Dict[str, Any]
     """Per-agent execution outputs and metadata."""
 
@@ -237,7 +237,7 @@ class ExecutionConfig(TypedDict, total=False):
     """
 
     graph_pattern: str
-    """Name of the graph pattern to use (e.g. 'standard')."""
+    """Name of the graph pattern to use (e.g. 'standard', 'data_query')."""
 
     rag: Dict[str, Any]
     """RAG-related configuration (index, filters, limits, etc.)."""
@@ -250,6 +250,15 @@ class ExecutionConfig(TypedDict, total=False):
 
     use_llm_intent: bool
     """Whether LLM-based intent classification is enabled."""
+
+    parallel_execution: bool
+    """Whether orchestrator is allowed to run nodes in parallel."""
+
+    top_k: int
+    """Default top_k for RAG / search integrations."""
+
+    workflow_id: str
+    """Workflow id, if the caller pins this execution to a specific workflow."""
 
 
 class ExecutionState(TypedDict, total=False):
@@ -267,6 +276,8 @@ class ExecutionState(TypedDict, total=False):
     config: ExecutionConfig
     """Deprecated alias; prefer execution_config."""
 
+    # --- RAG ---
+
     rag_enabled: bool
     """Whether RAG was actually enabled (after applying config + policy)."""
 
@@ -278,6 +289,14 @@ class ExecutionState(TypedDict, total=False):
 
     rag_hits: List[Any]
     """Raw RAG search hits / documents."""
+
+    rag_meta: Dict[str, Any]
+    """Metadata about RAG (index, provider, embedding model, top_k, etc.)."""
+
+    rag_error: str
+    """If RAG prefetch failed, error message goes here."""
+
+    # --- Routing / planning ---
 
     routing_decision: Dict[str, Any]
     """Opaque routing decision payload (agents to run, topics, etc.)."""
@@ -306,12 +325,31 @@ class ExecutionState(TypedDict, total=False):
     route_locked: bool
     """Whether routing was pre-locked by the caller (no override)."""
 
-    # Optional but very useful in practice
+    # --- Query / classifier view ---
+
     user_question: str
     """Question the system is currently answering (may differ from original raw query)."""
 
     original_query: str
     """Exact original query string preserved for logging/debugging."""
+
+    query: str
+    """Raw query text stored at execution_state level (if caller wants it here)."""
+
+    raw_query: str
+    """Alternative field for raw query strings (for compatibility with callers)."""
+
+    task_classification: Dict[str, Any]
+    """Classifier-level task classification (intent + confidence)."""
+
+    cognitive_classification: Dict[str, Any]
+    """Classifier-level cognitive/domain classification."""
+
+    classifier_profile: Dict[str, Any]
+    """Full classifier profile (intent, domain, topics, etc.)."""
+
+    classifier: Dict[str, Any]
+    """Thin classifier view for routing."""
 
     refiner_full_text: str
     """Full markdown/text output from the refiner agent."""
@@ -319,11 +357,16 @@ class ExecutionState(TypedDict, total=False):
     refiner_snippet: str
     """Short refiner snippet for UI / final agent conditioning."""
 
-    rag_meta: Dict[str, Any]
-    """Metadata about RAG (index, provider, embedding model, top_k, etc.)."""
+    refiner_topics: List[str]
+    """Topics pulled directly from the refiner output, if any."""
 
-    rag_error: str
-    """If RAG prefetch failed, error message goes here."""
+    refiner_confidence: float
+    """Refiner-level confidence in its topic analysis (if present)."""
+
+    effective_queries: Dict[str, str]
+    """Per-stage effective query strings (user/refiner/data_query/etc.)."""
+
+    # --- Data query / wizard ---
 
     data_query_result: Any
     """Canonical result payload from the latest data_query node."""
@@ -331,17 +374,68 @@ class ExecutionState(TypedDict, total=False):
     data_query_node_id: str
     """Node id of the data_query result we surfaced as data_query_result."""
 
-    intent: str
-    """Top-level intent label if classification has already run (e.g. 'action', 'informational')."""
-
     wizard: Dict[str, Any]
     """Optional wizard / CRUD workflow state (used by data_query pattern)."""
 
-    query: str
-    """Raw query text stored at execution_state level (if caller wants it here)."""
+    intent: str
+    """Top-level intent label if classification has already run (e.g. 'action', 'informational')."""
 
-    raw_query: str
-    """Alternative field for raw query strings (for compatibility with callers)."""
+    # Shadow copy of structured_outputs for convenience/persistence
+    structured_outputs: Dict[str, Any]
+    """Structured outputs attached at the orchestration layer (mirrors top-level OSSSState.structured_outputs)."""
+
+    agent_output_index: Dict[str, Any]
+    """Index of agent outputs as returned to external callers."""
+
+    # --- Correlation / execution wiring ---
+
+    conversation_id: str
+    """Conversation/thread id used by the caller."""
+
+    orchestrator_type: str
+    """Type of orchestrator: 'langgraph-real'."""
+
+    orchestrator_span: str
+    """Tracing span id for the orchestrator."""
+
+    execution_id: str
+    """Execution id mirrored from execution_metadata."""
+
+    correlation_id: Optional[str]
+    """Correlation id mirrored from execution_metadata / caller."""
+
+    thread_id: str
+    """Thread id from OSSSContext."""
+
+    agents_requested: List[str]
+    """Agents originally requested by the caller / planner."""
+
+    execution_time_ms: float
+    """Total execution time for the workflow in milliseconds."""
+
+    langgraph_execution: bool
+    """Whether this run used LangGraph (vs a legacy orchestrator)."""
+
+    checkpoints_enabled: bool
+    """Whether LangGraph checkpoints were enabled."""
+
+    successful_agents_count: int
+    """Count of successful agents for metrics/telemetry."""
+
+    failed_agents_count: int
+    """Count of failed agents for metrics/telemetry."""
+
+    errors_count: int
+    """Count of errors encountered during this execution."""
+
+    correlation_context: Dict[str, Any]
+    """Full correlation context (workflow id, parent span, ad-hoc metadata)."""
+
+    raw_request_config: Dict[str, Any]
+    """Raw, unnormalized request config as provided to the orchestrator."""
+
+    workflow_result: Dict[str, Any]
+    """Full workflow result envelope (as returned by LangGraph orchestrator)."""
 
 
 class OSSSState(TypedDict):
@@ -409,7 +503,7 @@ class OSSSState(TypedDict):
     final: Optional[FinalState]
     """Output from the FinalAgent (user-facing answer)."""
 
-    # 🔹 Strongly-typed orchestration state (replaces loose Dict[str, Any] + top-level rag_* fields)
+    # Strongly-typed orchestration state (replaces loose Dict[str, Any] + top-level rag_* fields)
     execution_state: ExecutionState
     """Nested, strongly-typed orchestration state (RAG, routing, etc.)."""
 
@@ -443,6 +537,9 @@ def create_initial_state(
         rag={},
         use_rag=True,
         use_llm_intent=True,
+        parallel_execution=True,
+        top_k=6,
+        workflow_id=execution_id,
     )
 
     return OSSSState(
@@ -472,16 +569,28 @@ def create_initial_state(
         final=None,
         execution_state=ExecutionState(
             execution_config=base_execution_config,
-            # Optional: keep legacy alias populated too for a while
+            # Keep legacy alias populated too for a while
             config=base_execution_config,
             rag_enabled=False,
             rag_context=None,
             rag_snippet=None,
             rag_hits=[],
+            rag_meta={},
             routing_decision={},
             agents_to_run=[],
             planned_agents=["refiner", "final"],  # sensible default for standard pattern
             graph_pattern="standard",
+            # Basic wiring; the rest will be filled in by orchestrator
+            execution_id=execution_id,
+            correlation_id=correlation_id,
+            langgraph_execution=True,
+            checkpoints_enabled=False,
+            successful_agents_count=0,
+            failed_agents_count=0,
+            errors_count=0,
+            correlation_context={},
+            structured_outputs={},
+            agent_output_index={},
         ),
     )
 

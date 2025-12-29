@@ -1,28 +1,24 @@
 """
 Database session factory for centralized session management.
 
-Provides a centralized session factory pattern for database operations
-with proper lifecycle management and resource cleanup.
+Updated to use the canonical async DB engine + sessionmaker from OSSS.db.session.
 """
 
 import asyncio
 from collections.abc import AsyncGenerator, Awaitable, Callable
 from contextlib import asynccontextmanager
-from typing import (
-    Any,
-    Dict,
-    TypeVar,
-)
+from typing import Any, Dict, TypeVar
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from OSSS.ai.observability import get_logger
+#from OSSS.ai.database.config import db_persist_enabled_from_env
 
-from .connection import get_database_engine, get_session_factory
+# 🔄 New imports: use the shared engine + sessionmaker
+from OSSS.db.session import get_engine, get_sessionmaker
+
 from .repositories import RepositoryFactory
-from OSSS.ai.database.config import db_persist_enabled_from_env
-
 
 logger = get_logger(__name__)
 
@@ -33,8 +29,7 @@ class DatabaseSessionFactory:
     """
     Centralized database session factory for repository management.
 
-    Provides session lifecycle management, repository factory integration,
-    and resource cleanup for database operations.
+    Now delegates to OSSS.db.session for engine + sessionmaker.
     """
 
     def __init__(self) -> None:
@@ -45,25 +40,33 @@ class DatabaseSessionFactory:
         """
         Initialize the session factory and database connection.
 
-        This should be called once at application startup.
+        This should be called once at application startup (or lazily on first use).
+        Respects db_persist_enabled_from_env() so non-persistent envs don't
+        spam connection-refused errors.
         """
+
+
         if self._is_initialized:
             logger.debug("Session factory already initialized")
             return
 
         try:
-            # Initialize database engine and validate connection
-            get_database_engine()  # Validate engine creation
-            self._session_factory = get_session_factory()
+            # Get shared engine + sessionmaker from OSSS.db.session
+            engine = get_engine()
+            self._session_factory = get_sessionmaker()
 
-            # Test the connection
             if self._session_factory is None:
                 raise RuntimeError("Session factory creation failed")
-            async with self._session_factory_or_none() as session:
+
+            # Test the connection once
+            async with self._session_factory() as session:
                 await session.execute(text("SELECT 1"))
 
             self._is_initialized = True
-            logger.info("Database session factory initialized successfully")
+            logger.info(
+                "Database session factory initialized successfully "
+                "using OSSS.db.session configuration"
+            )
 
         except Exception as e:
             logger.error(f"Failed to initialize session factory: {e}")
@@ -79,9 +82,8 @@ class DatabaseSessionFactory:
             return
 
         try:
-            from .connection import close_database
-
-            await close_database()
+            engine = get_engine()
+            await engine.dispose()
             self._is_initialized = False
             logger.info("Database session factory shutdown completed")
 
@@ -107,18 +109,18 @@ class DatabaseSessionFactory:
 
         if self._session_factory is None:
             raise RuntimeError(
-                "Session factory is None despite being initialized. This indicates a critical error."
+                "Session factory is None despite being initialized. "
+                "This indicates a critical error."
             )
 
-        session = self._session_factory_or_none()
-        try:
-            yield session
-            await session.commit()
-        except Exception:
-            await session.rollback()
-            raise
-        finally:
-            await session.close()
+        # New: directly create a session from the shared sessionmaker
+        async with self._session_factory() as session:
+            try:
+                yield session
+                await session.commit()
+            except Exception:
+                await session.rollback()
+                raise
 
     @asynccontextmanager
     async def get_repository_factory(self) -> AsyncGenerator[RepositoryFactory, None]:
@@ -148,9 +150,6 @@ class DatabaseSessionFactory:
 
         Returns:
             Result of the operation
-
-        Raises:
-            RuntimeError: If session factory is not initialized
         """
         async with self.get_session() as session:
             return await operation(session, *args, **kwargs)
@@ -168,9 +167,6 @@ class DatabaseSessionFactory:
 
         Returns:
             Result of the operation
-
-        Raises:
-            RuntimeError: If session factory is not initialized
         """
         async with self.get_repository_factory() as repo_factory:
             return await operation(repo_factory, *args, **kwargs)
@@ -191,10 +187,12 @@ class DatabaseSessionFactory:
             return {"status": "unhealthy", "error": "Session factory not initialized"}
 
         try:
-            # Test session creation and basic query
             start_time = asyncio.get_event_loop().time()
 
-            async with self.get_session() as session:
+            if self._session_factory is None:
+                raise RuntimeError("Session factory is None during health check")
+
+            async with self._session_factory() as session:
                 result = await session.execute(text("SELECT 1 as test"))
                 assert result.scalar() == 1
 
@@ -222,9 +220,6 @@ _session_factory: DatabaseSessionFactory | None = None
 def get_database_session_factory() -> DatabaseSessionFactory:
     """
     Get the global database session factory instance.
-
-    Returns:
-        DatabaseSessionFactory: Global session factory instance
     """
     global _session_factory
 
@@ -234,16 +229,14 @@ def get_database_session_factory() -> DatabaseSessionFactory:
     return _session_factory
 
 
-
 async def initialize_database_session_factory() -> None:
-    """Initialize the global database session factory."""
-    if not db_persist_enabled_from_env():
-        logger.info("DB persistence disabled; skipping session factory initialization")
-        return
+    """
+    Initialize the global database session factory.
 
+    Respects db_persist_enabled_from_env().
+    """
     factory = get_database_session_factory()
     await factory.initialize()
-
 
 
 async def shutdown_database_session_factory() -> None:

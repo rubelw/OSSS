@@ -213,6 +213,166 @@ def _get_query_profile(state: OSSSState) -> Dict[str, Any]:
     return qp
 
 
+# -----------------------------------------------------------------------------
+# NEW helpers for data_query → CRUD routing
+# -----------------------------------------------------------------------------
+
+def _get_available_agents_from_state(state: OSSSState) -> List[str]:
+    """
+    Recover the list of agents that actually exist in this compiled graph.
+
+    We look (in order) at:
+      - state.execution_state.planned_agents / agents_to_run
+      - top-level state.planned_agents / agents_to_run / agents_requested
+    """
+    agents: List[str] = []
+
+    try:
+        exec_state = _get_exec_state(state)
+        if exec_state:
+            planned = exec_state.get("planned_agents") or exec_state.get("agents_to_run")
+            if isinstance(planned, list):
+                agents = [str(a) for a in planned]
+
+        if not agents and isinstance(state, dict):
+            for key in ("planned_agents", "agents_to_run", "agents_requested"):
+                val = state.get(key)
+                if isinstance(val, list):
+                    agents = [str(a) for a in val]
+                    break
+
+        # Deduplicate while preserving order
+        seen: set[str] = set()
+        deduped: List[str] = []
+        for a in agents:
+            if a not in seen:
+                seen.add(a)
+                deduped.append(a)
+
+        logger.debug(
+            "Resolved available agents from state",
+            extra={
+                "event": "get_available_agents_from_state",
+                "available_agents": deduped,
+            },
+        )
+        return deduped
+
+    except Exception as exc:
+        logger.error(
+            "Error resolving available agents from state",
+            exc_info=True,
+            extra={
+                "event": "get_available_agents_from_state_error",
+                "error_type": type(exc).__name__,
+            },
+        )
+        return []
+
+
+def _extract_data_query_wizard_state(state: OSSSState) -> Dict[str, Any] | None:
+    """
+    Best-effort extraction of DataQuery CRUD wizard_state.
+
+    We check (in order / new convention first):
+      - execution_state.wizard
+      - execution_state.wizard_state (legacy)
+      - state.wizard (legacy top-level)
+      - state.wizard_state (legacy top-level)
+      - state.data_query.wizard_state (older shapes)
+    """
+    try:
+        if not isinstance(state, dict):
+            return None
+
+        exec_state = _get_exec_state(state)
+
+        # ✅ NEW canonical location
+        if exec_state:
+            wiz = exec_state.get("wizard")
+            if isinstance(wiz, dict):
+                logger.debug(
+                    "Found wizard in execution_state",
+                    extra={
+                        "event": "extract_data_query_wizard_state",
+                        "source": "execution_state.wizard",
+                        "wizard_keys": list(wiz.keys()),
+                    },
+                )
+                return wiz
+
+            # Legacy key support
+            wiz = exec_state.get("wizard_state")
+            if isinstance(wiz, dict):
+                logger.debug(
+                    "Found wizard_state in execution_state",
+                    extra={
+                        "event": "extract_data_query_wizard_state",
+                        "source": "execution_state.wizard_state",
+                        "wizard_keys": list(wiz.keys()),
+                    },
+                )
+                return wiz
+
+        # Top-level, for older shapes
+        wiz = state.get("wizard")
+        if isinstance(wiz, dict):
+            logger.debug(
+                "Found wizard at top-level state",
+                extra={
+                    "event": "extract_data_query_wizard_state",
+                    "source": "state.wizard",
+                    "wizard_keys": list(wiz.keys()),
+                },
+            )
+            return wiz
+
+        wiz = state.get("wizard_state")
+        if isinstance(wiz, dict):
+            logger.debug(
+                "Found wizard_state at top-level state",
+                extra={
+                    "event": "extract_data_query_wizard_state",
+                    "source": "state.wizard_state",
+                    "wizard_keys": list(wiz.keys()),
+                },
+            )
+            return wiz
+
+        # Very old layout: state["data_query"]["wizard_state"]
+        dq_state = state.get("data_query")
+        if isinstance(dq_state, dict):
+            wiz = dq_state.get("wizard_state")
+            if isinstance(wiz, dict):
+                logger.debug(
+                    "Found wizard_state under data_query",
+                    extra={
+                        "event": "extract_data_query_wizard_state",
+                        "source": "data_query.wizard_state",
+                        "wizard_keys": list(wiz.keys()),
+                    },
+                )
+                return wiz
+
+        logger.debug(
+            "No wizard or wizard_state found for data_query",
+            extra={"event": "extract_data_query_wizard_state", "source": "none"},
+        )
+        return None
+
+    except Exception as exc:
+        logger.error(
+            "Error extracting data_query wizard_state",
+            exc_info=True,
+            extra={
+                "event": "extract_data_query_wizard_state_error",
+                "error_type": type(exc).__name__,
+            },
+        )
+        return None
+
+
+
 def _truthy(x: Any) -> bool:
     if isinstance(x, bool):
         return x
@@ -422,6 +582,77 @@ def router_pick_reflection_node(state: OSSSState) -> str:
 
 
 # -----------------------------------------------------------------------------
+# NEW: route_after_data_query for CRUD / wizard flows
+# -----------------------------------------------------------------------------
+
+def route_after_data_query(state: OSSSState) -> str:
+    """
+    Decide where to go after `data_query`.
+
+    For CRUD flows (create/update/delete/patch) driven by the DataQuery wizard:
+      - Prefer "historian" if present in this graph
+      - Else "final" if present
+      - Else "END"
+
+    This uses wizard_state written by DataQueryAgent into execution_state.
+    """
+    try:
+        planned_agents = _get_available_agents_from_state(state)
+        wizard_state = _extract_data_query_wizard_state(state) or {}
+
+        operation = str(wizard_state.get("operation") or "").lower()
+        pending_action = str(wizard_state.get("pending_action") or "").lower()
+
+        crud_ops = {"create", "update", "delete", "patch"}
+        crud_pending_actions = {
+            "confirm_table",
+            "confirm_entity",
+            "collect_filters",
+            "collect_updates",
+        }
+
+        is_crud = operation in crud_ops or pending_action in crud_pending_actions
+
+        # By default we treat all planned agents as available; if GraphFactory
+        # passes a restricted set via functools.partial, that narrowed set wins.
+        available_agents = list(planned_agents)
+
+        decision = "END"
+        if is_crud:
+            if "historian" in available_agents:
+                decision = "historian"
+            elif "final" in available_agents:
+                decision = "final"
+
+        logger.debug(
+            "[router:route_after_data_query] evaluated",
+            extra={
+                "event": "router_route",
+                "router": "route_after_data_query",
+                "intent": operation,
+                "action_type": operation,
+                "pending_action": pending_action,
+                "is_crud": is_crud,
+                "available_agents": available_agents,
+                "decision": decision,
+            },
+        )
+        return decision
+
+    except Exception as exc:
+        logger.error(
+            "Error in route_after_data_query",
+            exc_info=True,
+            extra={
+                "event": "router_error",
+                "router": "route_after_data_query",
+                "error_type": type(exc).__name__,
+            },
+        )
+        return "END"
+
+
+# -----------------------------------------------------------------------------
 # Registry bootstrap
 # -----------------------------------------------------------------------------
 
@@ -458,6 +689,11 @@ def build_default_router_registry() -> RouterRegistry:
         "always_end",
         router_always_end,
         description="always returns END",
+    )
+    reg.register(
+        "route_after_data_query",
+        route_after_data_query,
+        description="data_query -> historian/final/END based on CRUD wizard_state",
     )
 
     logger.debug(

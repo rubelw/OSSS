@@ -16,7 +16,7 @@
       ]
     },
     "data_query": {
-      "description": "Data-centric flow: refiner -> data_query -> (historian for CRUD) -> END",
+      "description": "Data-centric flow: refiner -> data_query -> (historian for CRUD) -> final -> END",
       "entry_point": "refiner",
       "conditional_edges": {
         "data_query": "route_after_data_query"
@@ -24,6 +24,7 @@
       "conditional_destinations": {
         "data_query": {
           "historian": "historian",
+          "final": "final",
           "END": "END"
         }
       },
@@ -34,8 +35,12 @@
         },
         {
           "from": "historian",
-          "to": "END",
+          "to": "final",
           "when": "has('historian')"
+        },
+        {
+          "from": "final",
+          "to": "END"
         }
       ]
     }

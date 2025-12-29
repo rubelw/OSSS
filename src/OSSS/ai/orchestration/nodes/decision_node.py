@@ -7,6 +7,7 @@ routing and flow control in the advanced node execution system.
 
 from typing import Dict, List, Any, Optional, Callable
 from dataclasses import dataclass  # Keep for any remaining dataclasses
+import inspect
 
 from pydantic import BaseModel, Field, ConfigDict
 from OSSS.ai.agents.metadata import AgentMetadata
@@ -16,6 +17,7 @@ from .base_advanced_node import BaseAdvancedNode, NodeExecutionContext
 from OSSS.ai.observability import get_logger
 
 logger = get_logger(__name__)
+
 
 class DecisionCriteria(BaseModel):
     """
@@ -167,7 +169,7 @@ class DecisionNode(BaseAdvancedNode):
             )
 
         # -------------------------------
-        # Validation + decision eval (unchanged)
+        # Validation + decision eval
         # -------------------------------
         validation_errors = self.validate_context(context)
         if validation_errors:
@@ -177,16 +179,25 @@ class DecisionNode(BaseAdvancedNode):
 
         decision_result = await self._evaluate_criteria(context)
 
-        # Emit decision event
-        await emit_decision_made(
-            workflow_id=context.workflow_id,
-            decision_criteria=[c.name for c in self.decision_criteria],
-            selected_path=decision_result["selected_path"],
-            confidence_score=decision_result["confidence"],
-            alternative_paths=decision_result["alternatives"],
-            reasoning=decision_result["reasoning"],
-            correlation_id=context.correlation_id,
-        )
+        # Emit decision event (tolerate sync or async emitters)
+        try:
+            emit_result = emit_decision_made(
+                workflow_id=context.workflow_id,
+                decision_criteria=[c.name for c in self.decision_criteria],
+                selected_path=decision_result["selected_path"],
+                confidence_score=decision_result["confidence"],
+                alternative_paths=decision_result["alternatives"],
+                reasoning=decision_result["reasoning"],
+                correlation_id=context.correlation_id,
+            )
+            if inspect.isawaitable(emit_result):
+                await emit_result
+        except Exception as e:
+            logger.warning(
+                "[DecisionNode:%s] failed to emit decision event: %s",
+                self.node_name,
+                e,
+            )
 
         # Post-execution cleanup
         await self.post_execute(context, decision_result)
@@ -195,16 +206,16 @@ class DecisionNode(BaseAdvancedNode):
 
     def can_handle(self, context: NodeExecutionContext) -> bool:
         task = (
-                getattr(context, "task_classification", None)
-                or context.execution_state.get("task_classification")
+            getattr(context, "task_classification", None)
+            or context.execution_state.get("task_classification")
         )
         cognitive = (
-                getattr(context, "cognitive_classification", None)
-                or context.execution_state.get("cognitive_classification")
+            getattr(context, "cognitive_classification", None)
+            or context.execution_state.get("cognitive_classification")
         )
 
-        if not task or not cognitive:
-            return False
+        # Always return an explicit bool
+        return bool(task and cognitive)
 
     async def _evaluate_criteria(self, context: NodeExecutionContext) -> Dict[str, Any]:
         """
@@ -242,10 +253,9 @@ class DecisionNode(BaseAdvancedNode):
                 }
 
         # Calculate weighted scores for each path
-        path_scores = {}
+        path_scores: Dict[str, float] = {}
         for path_name in self.paths:
             # Simple scoring: sum of weighted scores for passed criteria
-            # In real implementation, this could be more sophisticated
             total_score = sum(
                 scores["score"] * scores["weight"]
                 for scores in criterion_scores.values()
@@ -255,9 +265,9 @@ class DecisionNode(BaseAdvancedNode):
 
         # Select the path with highest score
         selected_path = max(path_scores, key=lambda k: path_scores[k])
-        confidence_score = path_scores[selected_path] / sum(
-            c.weight for c in self.decision_criteria
-        )
+
+        total_weight = sum(c.weight for c in self.decision_criteria) or 1.0
+        confidence_score = path_scores[selected_path] / total_weight
 
         # Build result
         return {

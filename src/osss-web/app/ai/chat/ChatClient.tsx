@@ -5,7 +5,6 @@ import React, { useState, useCallback, useEffect, useRef } from "react";
 // Reference the image from the public folder
 const uploadIcon = "/add.png"; // Path from public directory
 
-
 // Note: fetch has no timeout by default; this makes it explicit.
 const CLIENT_QUERY_TIMEOUT_MS = 180_000; // 3 minutes
 
@@ -71,10 +70,14 @@ type WorkflowResponse = {
   execution_time_seconds?: number;
   correlation_id?: string;
   error_message?: string | null;
-  answer?: string; // may be LLMResponse(...) wrapper in some cases
+  answer?: string;
 
-  // 🔹 NEW: canonical final answer locations from orchestration_api
+  // ✅ top-level conversation id (matches your raw JSON)
+  conversation_id?: string;
+
   execution_state?: {
+    // ✅ mirrored here if server sets it
+    conversation_id?: string;
     final?: {
       final_answer?: string;
       used_rag?: boolean;
@@ -93,7 +96,6 @@ type WorkflowResponse = {
     };
   };
 
-  // 🔹 Also mirrored under workflow_result.structured_outputs.final
   workflow_result?: {
     structured_outputs?: {
       final?: {
@@ -106,6 +108,7 @@ type WorkflowResponse = {
     };
   };
 };
+
 
 function looksLikeLLMResponseWrapper(text: string): boolean {
   return /^LLMResponse\(text=/.test(text.trim());
@@ -557,6 +560,17 @@ export default function ChatClient() {
     return initial;
   });
 
+  // 🔹 NEW: conversation id state, persisted in sessionStorage
+  const [conversationId, setConversationId] = useState<string | null>(() => {
+      if (typeof window === "undefined") return null;
+      try {
+        const stored = window.sessionStorage.getItem("osss_conversation_id");
+        return stored || null;
+      } catch {
+        return null;
+      }
+    });
+
   // NEW: subagent session id (e.g. registration workflow)
   const [subagentSessionId, setSubagentSessionId] = useState<string | null>(null);
 
@@ -600,7 +614,7 @@ export default function ChatClient() {
     }
   }, [messages]);
 
-  // On mount: restore messages & history
+  // On mount: restore messages & history & conversationId (defensive)
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -626,6 +640,11 @@ export default function ChatClient() {
         if (typeof crypto !== "undefined" && "randomUUID" in crypto) initial = crypto.randomUUID();
         window.sessionStorage.setItem("osss_chat_session_id", initial);
         setSessionId(initial);
+      }
+
+      const storedConversationId = window.sessionStorage.getItem("osss_conversation_id");
+      if (storedConversationId) {
+        setConversationId(storedConversationId);
       }
     } catch {
       // ignore storage errors
@@ -673,11 +692,13 @@ export default function ChatClient() {
     setUploadedFiles([]);
     setUploadedFilesNames([]);
     setSubagentSessionId(null);
+    setConversationId(null); // 👈 clear conversation id
 
     if (typeof window !== "undefined") {
       try {
         window.sessionStorage.removeItem("osss_chat_messages");
         window.sessionStorage.removeItem("osss_chat_history");
+        window.sessionStorage.removeItem("osss_conversation_id");
       } catch {}
     }
 
@@ -747,7 +768,7 @@ export default function ChatClient() {
     try {
       const url = `/api/osss/api/query`;
 
-      const body = {
+      const body: any = {
         query: text,
         agents: [],
         execution_config: {
@@ -762,6 +783,11 @@ export default function ChatClient() {
         correlation_id: sessionId,
         export_md: true,
       };
+
+      // 👇 NEW: send conversation_id if we already have one
+      if (conversationId) {
+        body.conversation_id = conversationId;
+      }
 
       // ✅ NEW: client-side timeout using AbortController
       const controller = new AbortController();
@@ -800,6 +826,23 @@ export default function ChatClient() {
 
       const wf = payload as WorkflowResponse;
 
+      // 🔹 NEW: capture conversation_id from response and persist it
+        const responseConversationId =
+          wf.conversation_id ??
+          wf.execution_state?.conversation_id ??
+          (wf as any).conversationId; // just in case of camelCase from some older code
+
+        if (responseConversationId && responseConversationId !== conversationId) {
+          setConversationId(responseConversationId);
+          if (typeof window !== "undefined") {
+            try {
+              window.sessionStorage.setItem("osss_conversation_id", responseConversationId);
+            } catch {
+              // ignore storage errors
+            }
+          }
+        }
+
       // This endpoint doesn't currently return retrieved_chunks.
       setRetrievedChunks([]);
       const chunksForThisReply: RetrievedChunk[] = [];
@@ -829,6 +872,8 @@ export default function ChatClient() {
         typeof qp?.intent_confidence === "number" ? qp.intent_confidence : null;
 
       const intentDescription = describeIntent(returnedIntent ?? "general");
+      void intentDescription;
+      void intentConfidence;
 
       // Optional: show user-facing text (without debug) + table
       let replyForDisplay = reply.trimEnd();
@@ -913,6 +958,7 @@ export default function ChatClient() {
     showDebug,
     subagentSessionId,
     showSources,
+    conversationId,
   ]);
 
   const handleKeyDown: React.KeyboardEventHandler<HTMLTextAreaElement> = (e) => {

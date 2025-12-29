@@ -10,6 +10,12 @@ Key Features:
 - Bidirectional conversion with validation
 - Round-trip integrity testing
 - Comprehensive error handling
+
+UPDATED:
+- Ensure execution_state (including wizard + structured_outputs) is mirrored
+  in a non-reserved "execution_state" key for broader orchestrator visibility.
+- Merge both "_execution_state" and "execution_state" back into AgentContext
+  on import so wizard state survives round-trips.
 """
 
 import time
@@ -93,8 +99,38 @@ class AgentContextStateBridge:
                 f"Converting AgentContext to LangGraph state: {context.context_id}"
             )
 
+            # Take a copy so we can safely introspect / augment
+            exec_state = dict(getattr(context, "execution_state", {}) or {})
+
+            wizard_state = exec_state.get("wizard")
+            structured_outputs = exec_state.get("structured_outputs")
+
+            if wizard_state is not None:
+                logger.debug(
+                    "[state_bridge] exporting wizard state to LangGraph",
+                    extra={
+                        "event": "state_bridge_export_wizard",
+                        "has_wizard": True,
+                        "wizard_keys": list(wizard_state.keys()),
+                    },
+                )
+            else:
+                logger.debug(
+                    "[state_bridge] no wizard state found on AgentContext",
+                    extra={"event": "state_bridge_export_wizard", "has_wizard": False},
+                )
+
+            if structured_outputs:
+                logger.debug(
+                    "[state_bridge] exporting structured_outputs to LangGraph",
+                    extra={
+                        "event": "state_bridge_export_structured_outputs",
+                        "keys": list(structured_outputs.keys()),
+                    },
+                )
+
             # Core context data
-            state = {
+            state: Dict[str, Any] = {
                 "_context_id": context.context_id,
                 "_query": context.query,
                 "_current_size": context.current_size,
@@ -105,8 +141,20 @@ class AgentContextStateBridge:
             # Agent outputs - preserve dynamic typing
             state["_agent_outputs"] = dict(context.agent_outputs)
 
-            # Execution state - preserve all metadata
-            state["_execution_state"] = dict(context.execution_state)
+            # Execution state - preserve all metadata (internal + public view)
+            state["_execution_state"] = exec_state
+
+            # ✅ NEW: also expose execution_state at a public, non-reserved key
+            # so orchestrators / APIs that ignore underscored keys can still
+            # see wizard + structured_outputs.
+            state["execution_state"] = dict(exec_state)
+
+            # Also surface wizard + structured_outputs at top-level for other services
+            if wizard_state is not None:
+                state["wizard"] = wizard_state
+
+            if structured_outputs is not None:
+                state["structured_outputs"] = structured_outputs
 
             # Agent trace - preserve trace history
             state["_agent_trace"] = dict(context.agent_trace)
@@ -194,8 +242,68 @@ class AgentContextStateBridge:
             # Restore agent outputs
             context.agent_outputs.update(state_dict["_agent_outputs"])
 
-            # Restore execution state
-            context.execution_state.update(state_dict["_execution_state"])
+            # --- Execution state + wizard / structured_outputs round-trip ---
+            # ✅ NEW: merge both internal and public execution_state views.
+            base_exec_state: Dict[str, Any] = {}
+
+            internal_exec = state_dict.get("_execution_state") or {}
+            public_exec = state_dict.get("execution_state") or {}
+
+            if internal_exec:
+                logger.debug(
+                    "[state_bridge] importing _execution_state from LangGraph",
+                    extra={
+                        "event": "state_bridge_import_execution_state_internal",
+                        "keys": list(internal_exec.keys()),
+                    },
+                )
+                base_exec_state.update(internal_exec)
+
+            if public_exec:
+                logger.debug(
+                    "[state_bridge] importing execution_state from LangGraph",
+                    extra={
+                        "event": "state_bridge_import_execution_state_public",
+                        "keys": list(public_exec.keys()),
+                    },
+                )
+                # public_exec wins on conflicts so API-side updates are honored
+                base_exec_state.update(public_exec)
+
+            wizard_state = state_dict.get("wizard")
+            structured_outputs = state_dict.get("structured_outputs")
+
+            if wizard_state is not None:
+                logger.debug(
+                    "[state_bridge] importing wizard state from LangGraph",
+                    extra={
+                        "event": "state_bridge_import_wizard",
+                        "has_wizard": True,
+                        "wizard_keys": list(wizard_state.keys()),
+                    },
+                )
+                # Don't clobber if already present
+                base_exec_state.setdefault("wizard", wizard_state)
+            else:
+                logger.debug(
+                    "[state_bridge] no wizard state found in LangGraph",
+                    extra={"event": "state_bridge_import_wizard", "has_wizard": False},
+                )
+
+            if structured_outputs is not None:
+                logger.debug(
+                    "[state_bridge] importing structured_outputs from LangGraph",
+                    extra={
+                        "event": "state_bridge_import_structured_outputs",
+                        "keys": list(structured_outputs.keys()),
+                    },
+                )
+                existing_so = dict(base_exec_state.get("structured_outputs") or {})
+                existing_so.update(structured_outputs)
+                base_exec_state["structured_outputs"] = existing_so
+
+            # Finalize execution_state on the context
+            context.execution_state.update(base_exec_state)
 
             # Restore agent trace
             context.agent_trace.update(state_dict["_agent_trace"])
@@ -308,7 +416,7 @@ class AgentContextStateBridge:
             Serialized snapshot data
         """
         try:
-            snapshots = {}
+            snapshots: Dict[str, Any] = {}
 
             # Get snapshots from context (if the feature exists)
             if hasattr(context, "_snapshots") and context._snapshots:

@@ -34,6 +34,8 @@ async def execute_query(http_request: Request, request: WorkflowRequest) -> Work
                 "agents": request.agents,
                 "query_length": len(request.query or ""),
                 "correlation_id": getattr(request, "correlation_id", None),
+                # 👇 NEW: log conversation_id if present
+                "conversation_id": getattr(request, "conversation_id", None),
             },
         )
 
@@ -63,6 +65,9 @@ async def execute_query(http_request: Request, request: WorkflowRequest) -> Work
                 extra={
                     "graph_pattern": "standard",
                     "agents": None,
+                    # keep correlation / conversation context in the logs
+                    "correlation_id": getattr(request, "correlation_id", None),
+                    "conversation_id": getattr(request, "conversation_id", None),
                 },
             )
 
@@ -77,7 +82,7 @@ async def execute_query(http_request: Request, request: WorkflowRequest) -> Work
             raise HTTPException(status_code=500, detail="Workflow execution failed. No response.")
 
         # Ensure the workflow_id is available
-        if not hasattr(response, 'workflow_id') or response.workflow_id is None:
+        if not hasattr(response, "workflow_id") or response.workflow_id is None:
             logger.error("Response does not contain a valid workflow_id.")
             raise HTTPException(status_code=500, detail="Workflow execution failed. No workflow_id.")
 
@@ -86,6 +91,8 @@ async def execute_query(http_request: Request, request: WorkflowRequest) -> Work
             extra={
                 "workflow_id": response.workflow_id,
                 "correlation_id": response.correlation_id,
+                # 👇 NEW: log response conversation_id if present
+                "conversation_id": getattr(response, "conversation_id", None),
             },
         )
         return response
@@ -118,6 +125,8 @@ async def get_query_status(correlation_id: str) -> StatusResponse:
                 "workflow_id": status_response.workflow_id,
                 "status": status_response.status,
                 "correlation_id": correlation_id,
+                # if StatusResponse ever includes conversation_id, this will show it
+                "conversation_id": getattr(status_response, "conversation_id", None),
             },
         )
         return status_response
@@ -167,6 +176,8 @@ async def get_query_history(
                         query=workflow_data["query"],
                         start_time=workflow_data["start_time"],
                         execution_time_seconds=workflow_data["execution_time"],
+                        # If you later add conversation_id to the DB + Pydantic model:
+                        # conversation_id=workflow_data.get("conversation_id"),
                     )
                 )
             except (KeyError, ValueError) as e:
