@@ -102,7 +102,7 @@ class DataQueryAgent(BaseAgent):
         text_l = effective_text.lower()
 
         intent: Optional[str] = None
-        if text_l.startswith(("query", "get ", "list ", "show ", "find ")):
+        if text_l.startswith(("query", "read", "get ", "list ", "show ", "find ")):
             intent = "read"
         elif text_l.startswith(("create ", "insert ", "add ", "record ")):
             intent = "create"

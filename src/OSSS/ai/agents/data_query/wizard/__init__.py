@@ -191,6 +191,7 @@ async def continue_wizard(
     # TABLE NAME CONFIRMATION STEP (Turn 2)
     # ---------------------------------------------------------------------
     if pending_action == "confirm_table":
+        logger.info("Is confirm_table action")
         base_url = wizard_state.get("base_url")
         entity_meta: Dict[str, Any] = wizard_state.get("entity_meta") or {}
 
@@ -260,6 +261,8 @@ async def continue_wizard(
         }
         wizard_state["payload"] = payload
         wizard_state["pending_action"] = "collect_details"
+
+        logger.info("operation is: "+str(operation))
 
         # Operation-specific follow-up prompt (Turn 3)
         if operation == "read":

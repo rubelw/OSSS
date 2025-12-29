@@ -72,10 +72,10 @@ type WorkflowResponse = {
   answer?: string;
 
   // top-level conversation id (matches your raw JSON)
-  conversation_id?: string;
+  conversation_id?: string | null;
 
   execution_state?: {
-    conversation_id?: string;
+    conversation_id?: string | null;
     final?: {
       final_answer?: string;
       used_rag?: boolean;
@@ -640,22 +640,50 @@ export default function ChatClient() {
 
       const wf = payload as WorkflowResponse;
 
-      // capture conversation_id from response and persist it
-      const responseConversationId =
-        wf.conversation_id ??
-        wf.execution_state?.conversation_id ??
-        (wf as any).conversationId;
+      // --- conversation_id handling ---
+      // If the API explicitly returns `"conversation_id": null` at the top level,
+      // treat that as a signal to CLEAR the local conversation state.
+      const hasTopLevelConvKey = Object.prototype.hasOwnProperty.call(
+        wf,
+        "conversation_id"
+      );
+      const topLevelConv = wf.conversation_id;
+      const execConv =
+        wf.execution_state &&
+        Object.prototype.hasOwnProperty.call(wf.execution_state, "conversation_id")
+          ? wf.execution_state.conversation_id
+          : undefined;
+      const camelConv = (wf as any).conversationId as string | null | undefined;
 
-      if (responseConversationId && responseConversationId !== conversationId) {
-        setConversationId(responseConversationId);
-        if (typeof window !== "undefined") {
-          try {
-            window.sessionStorage.setItem("osss_conversation_id", responseConversationId);
-          } catch {
-            // ignore storage errors
+      if (hasTopLevelConvKey && topLevelConv === null) {
+        // explicit reset from server (e.g., cancel / end-of-conversation)
+        if (conversationId !== null) {
+          setConversationId(null);
+          if (typeof window !== "undefined") {
+            try {
+              window.sessionStorage.removeItem("osss_conversation_id");
+            } catch {
+              // ignore storage errors
+            }
+          }
+        }
+      } else {
+        const responseConversationId = topLevelConv ?? execConv ?? camelConv;
+        if (responseConversationId && responseConversationId !== conversationId) {
+          setConversationId(responseConversationId);
+          if (typeof window !== "undefined") {
+            try {
+              window.sessionStorage.setItem(
+                "osss_conversation_id",
+                responseConversationId
+              );
+            } catch {
+              // ignore storage errors
+            }
           }
         }
       }
+      // --- end conversation_id handling ---
 
       // This endpoint doesn't currently return retrieved_chunks.
       setRetrievedChunks([]);
