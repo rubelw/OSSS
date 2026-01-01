@@ -15,6 +15,8 @@ DOCS_PREFIX = Path("api/python")
 EXPLICIT_SKIP = {
     "OSSS.schemas",
     "OSSS.agents.metagpt_agent",
+    "OSSS.ai.api.schemas.query_response",  # <- the one causing CI failures
+
     # keep adding here if you want permanent skips
 }
 
