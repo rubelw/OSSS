@@ -114,6 +114,6 @@ for py_file in sorted(PKG_DIR.rglob("*.py")):
 # ---------------------------------------------------------------------------
 with gen.open(DOCS_PREFIX / "SUMMARY.md", "w") as f:
     f.write("# Python API navigation\n\n")
-    # IMPORTANT: this now uses paths relative to api/python/,
-    # so links look like `OSSS/settings.md` instead of `api/python/OSSS/settings.md`.
-    f.write(nav.build_literate_nav().format())
+    # build_literate_nav() returns an iterable of lines; just write them out
+    for line in nav.build_literate_nav():
+        f.write(line)
