@@ -21,7 +21,8 @@ EXPLICIT_SKIP = {
 # Whole subtrees we skip (module_name.startswith(prefix))
 SKIP_PREFIXES = (
     "OSSS.ai.api.",   # <- skip all OSSS.ai.api.* modules for mkdocstrings in CI
-    "OSSS.ai.orchestration.nodes."
+    "OSSS.ai.orchestration.nodes.",
+    "OSSS.db.migrations.data."
     # add more prefixes here if needed
 )
 
