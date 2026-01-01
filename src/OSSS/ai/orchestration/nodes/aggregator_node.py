@@ -5,59 +5,16 @@ This module implements the AggregatorNode class which handles parallel
 output combination and synthesis in the advanced node execution system.
 """
 
-from typing import Dict, List, Any, Optional, Union, TYPE_CHECKING
-from dataclasses import dataclass
+from typing import Dict, List, Any, Optional, Union
+from dataclasses import dataclass  # Keep for any remaining dataclasses
 from enum import Enum
 import statistics
 import asyncio
 
-from pydantic import BaseModel, Field, ConfigDict
-
-if TYPE_CHECKING:
-    # For type checkers / IDEs, use the real types
-    from OSSS.ai.agents.metadata import AgentMetadata
-    from OSSS.ai.events import emit_aggregation_completed
-    from .base_advanced_node import BaseAdvancedNode, NodeExecutionContext
-else:
-    try:
-        from OSSS.ai.agents.metadata import AgentMetadata
-        from OSSS.ai.events import emit_aggregation_completed
-        from .base_advanced_node import BaseAdvancedNode, NodeExecutionContext
-    except Exception:
-        # Lightweight stubs so this module can still be imported for docs build
-        class AgentMetadata(BaseModel):
-            """Stub AgentMetadata used when OSSS runtime is unavailable."""
-            id: str = Field("stub-agent")
-
-        async def emit_aggregation_completed(
-            *args: Any, **kwargs: Any
-        ) -> None:  # pragma: no cover
-            """Stub event emitter used only during docs build."""
-            return None
-
-        class NodeExecutionContext(BaseModel):
-            """Stub NodeExecutionContext for docs build."""
-            workflow_id: str = "stub-workflow"
-            correlation_id: Optional[str] = None
-            available_inputs: Dict[str, Any] = Field(default_factory=dict)
-
-        class BaseAdvancedNode(BaseModel):
-            """Stub BaseAdvancedNode for docs build."""
-            metadata: AgentMetadata
-            node_name: str
-            execution_pattern: str = "aggregator"
-
-            async def pre_execute(self, context: "NodeExecutionContext") -> None:
-                return None
-
-            async def post_execute(
-                self, context: "NodeExecutionContext", result: Dict[str, Any]
-            ) -> None:
-                return None
-
-            def validate_context(self, context: "NodeExecutionContext") -> List[str]:
-                return []
-
+from pydantic import BaseModel, Field, ConfigDict, field_validator
+from OSSS.ai.agents.metadata import AgentMetadata
+from OSSS.ai.events import emit_aggregation_completed
+from .base_advanced_node import BaseAdvancedNode, NodeExecutionContext
 
 
 class AggregationStrategy(Enum):
