@@ -582,7 +582,7 @@ def create_app() -> FastAPI:
 
         # -------- Consul registration (non-blocking) --------
         app.state.consul = None
-        #if os.getenv("CONSUL_ENABLE", "1") not in ("0", "false", "False"):
+        # if os.getenv("CONSUL_ENABLE", "1") not in ("0", "false", "False"):
         if (1):
             try:
                 c = Consul(host=CONSUL_HOST, port=CONSUL_PORT)
@@ -611,6 +611,20 @@ def create_app() -> FastAPI:
                 logging.getLogger("startup").warning(
                     "[consul] registration skipped: %s", e
                 )
+
+        # -------- RAG index preload (optional) --------
+        try:
+            from OSSS.ai.rag import additional_index_rag as rag_additional_index_rag
+
+            chunks = rag_additional_index_rag.get_cached_index("main")
+            logging.getLogger("startup").info(
+                "[startup] Preloaded RAG index 'main' with %d chunks",
+                len(chunks),
+            )
+        except Exception:
+            logging.getLogger("startup").exception(
+                "[startup] Failed to preload RAG index 'main'"
+            )
 
         # hand control to application
         yield

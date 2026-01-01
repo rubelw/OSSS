@@ -60,6 +60,27 @@ function sanitizeForGuard(src: string): string {
   return t;
 }
 
+// --- NEW: v1 answer envelope type ---
+type AnswerV1 = {
+  text_markdown?: string;
+  text?: string;
+  used_rag?: boolean;
+  sources?: Array<{
+    type?: string;
+    display_name?: string;
+    filename?: string;
+    source_key?: string;
+    score?: number;
+    metadata?: {
+      chunk_index?: number;
+      page_index?: number;
+      id?: string;
+      [k: string]: any;
+    };
+    [k: string]: any;
+  }>;
+};
+
 type WorkflowResponse = {
   workflow_id?: string;
   status?: string;
@@ -69,7 +90,9 @@ type WorkflowResponse = {
   execution_time_seconds?: number;
   correlation_id?: string;
   error_message?: string | null;
-  answer?: string;
+
+  // v0 and v1 compatible
+  answer?: string | AnswerV1;
 
   // top-level conversation id (matches your raw JSON)
   conversation_id?: string | null;
@@ -107,23 +130,81 @@ type WorkflowResponse = {
   };
 };
 
+function extractSources(wf: WorkflowResponse): RetrievedChunk[] {
+  const chunks: RetrievedChunk[] = [];
+
+  // 1) Prefer v1-style answer envelope with `sources`
+  if (wf.answer && typeof wf.answer === "object") {
+    const ans = wf.answer as AnswerV1;
+    if (Array.isArray(ans.sources)) {
+      for (const s of ans.sources) {
+        const sourcePath = s.source_key || s.filename || s.display_name;
+        if (!sourcePath) continue;
+
+        const meta = s.metadata || {};
+        chunks.push({
+          source: s.source_key,
+          filename: s.filename ?? s.display_name,
+          score: typeof s.score === "number" ? s.score : undefined,
+          chunk_index: meta.chunk_index,
+          page_index: meta.page_index,
+          pdf_index_path: sourcePath,
+        });
+      }
+    }
+  }
+
+  // 2) Fallback: legacy retrieved_chunks in meta (if backend still uses it)
+  const metaChunks = (wf.agent_output_meta as any)?.retrieved_chunks;
+  if (Array.isArray(metaChunks)) {
+    for (const mc of metaChunks) {
+      chunks.push(mc as RetrievedChunk);
+    }
+  }
+
+  return chunks;
+}
+
 function looksLikeLLMResponseWrapper(text: string): boolean {
   return /^LLMResponse\(text=/.test(text.trim());
 }
 
+// Robust final answer picker: execution_state → agent_outputs.final → v1 answer → plain string → legacy
 function pickFinalAnswer(wf: WorkflowResponse): string {
-  // 1) Prefer canonical final_answer from execution_state / structured_outputs
   const es: any = wf.execution_state || {};
-  const fromExecState =
-    es.final?.final_answer ??
+  const ao: any = wf.agent_outputs || {};
+  let fromExecState: any = undefined;
+
+  // 1) New structured state paths (most reliable)
+  fromExecState =
     es.structured_outputs?.final?.final_answer ??
+    es.final?.final_answer ??
     wf.workflow_result?.structured_outputs?.final?.final_answer;
 
   if (typeof fromExecState === "string" && fromExecState.trim()) {
     return fromExecState;
   }
 
-  // 2) If top-level answer exists and is not just an LLMResponse(...) debug wrapper, use it
+  // 2) agent_outputs.final may now be an object like { final_answer, used_rag, ... }
+  if (ao.final && typeof ao.final === "object") {
+    const fa = ao.final.final_answer;
+    if (typeof fa === "string" && fa.trim()) {
+      return fa;
+    }
+  }
+
+  // 3) v1-style envelope at top-level answer
+  if (wf.answer && typeof wf.answer === "object") {
+    const ans = wf.answer as AnswerV1;
+    if (typeof ans.text_markdown === "string" && ans.text_markdown.trim()) {
+      return ans.text_markdown;
+    }
+    if (typeof ans.text === "string" && ans.text.trim()) {
+      return ans.text;
+    }
+  }
+
+  // 4) Legacy: top-level string answer (non-wrapper)
   if (
     typeof wf.answer === "string" &&
     wf.answer.trim() &&
@@ -132,7 +213,7 @@ function pickFinalAnswer(wf: WorkflowResponse): string {
     return wf.answer;
   }
 
-  // 3) Last resort: old behavior (look at agent_outputs.final / refiner / first string)
+  // 5) Last resort: old behavior (look for bare strings in agent_outputs)
   return pickPrimaryText(wf.agent_outputs);
 }
 
@@ -641,8 +722,6 @@ export default function ChatClient() {
       const wf = payload as WorkflowResponse;
 
       // --- conversation_id handling ---
-      // If the API explicitly returns `"conversation_id": null` at the top level,
-      // treat that as a signal to CLEAR the local conversation state.
       const hasTopLevelConvKey = Object.prototype.hasOwnProperty.call(
         wf,
         "conversation_id"
@@ -685,9 +764,9 @@ export default function ChatClient() {
       }
       // --- end conversation_id handling ---
 
-      // This endpoint doesn't currently return retrieved_chunks.
-      setRetrievedChunks([]);
-      const chunksForThisReply: RetrievedChunk[] = [];
+      // Build sources list from answer envelope / meta
+      const chunksForThisReply = extractSources(wf);
+      setRetrievedChunks(chunksForThisReply);
 
       if (!resp.ok) {
         const msg = wf?.error_message || raw || `HTTP ${resp.status}`;

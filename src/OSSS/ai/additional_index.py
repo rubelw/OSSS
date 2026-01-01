@@ -47,6 +47,10 @@ _DOCS: Dict[str, List[IndexedChunk]] = {kind: [] for kind in INDEX_KINDS}
 _INDEX_PATH: Dict[str, str] = DEFAULT_INDEX_PATHS.copy()
 _LOADED: Dict[str, bool] = {kind: False for kind in INDEX_KINDS}
 
+# Per-index *normalized* embedding matrices (for fast cosine search).
+# Shape: (num_chunks, dim) for each index, stored after load / reload.
+_EMB_MAT: Dict[str, Optional[np.ndarray]] = {kind: None for kind in INDEX_KINDS}
+
 
 def _normalize_index_name(index: str) -> str:
     """Ensure index name is one of the supported kinds."""
@@ -123,6 +127,38 @@ def _load_index(index: str, path: Optional[str] = None) -> List[IndexedChunk]:
     return docs
 
 
+def _refresh_embedding_matrix(index: str) -> None:
+    """
+    Build a normalized embedding matrix for the given index and cache it.
+
+    We normalize each row vector so cosine similarity reduces to a dot product,
+    enabling fast vectorized similarity for top_k.
+    """
+    index = _normalize_index_name(index)
+    global _EMB_MAT
+
+    docs = _DOCS[index]
+    if not docs:
+        _EMB_MAT[index] = None
+        return
+
+    # Stack all embeddings into a 2D array: (num_docs, dim)
+    emb_list = [chunk.embedding for chunk in docs]
+    mat = np.stack(emb_list, axis=0).astype("float32")
+
+    # Normalize rows (L2 norm) so cosine similarity is just dot product
+    norms = np.linalg.norm(mat, axis=1, keepdims=True)
+    # Avoid division by zero
+    norms[norms == 0.0] = 1.0
+    mat = mat / norms
+
+    _EMB_MAT[index] = mat
+    print(
+        f"[additional_index:{index}] Built normalized embedding matrix: "
+        f"shape={mat.shape}"
+    )
+
+
 def get_docs(index: str = "main") -> List[IndexedChunk]:
     """
     Return currently loaded chunks for the given index (lazy-load on first access).
@@ -135,6 +171,7 @@ def get_docs(index: str = "main") -> List[IndexedChunk]:
     if not _LOADED[index]:
         _DOCS[index] = _load_index(index)
         _LOADED[index] = True
+        _refresh_embedding_matrix(index)
     return _DOCS[index]
 
 
@@ -155,11 +192,12 @@ def force_reload(index: str = "main", path: Optional[str] = None) -> int:
 
     _DOCS[index] = _load_index(index, path=path)
     _LOADED[index] = True
+    _refresh_embedding_matrix(index)
     return len(_DOCS[index])
 
 
 def _cosine(a: np.ndarray, b: np.ndarray) -> float:
-    """Cosine similarity between two 1D vectors."""
+    """Cosine similarity between two 1D vectors (fallback)."""
     na = np.linalg.norm(a)
     nb = np.linalg.norm(b)
     if na == 0.0 or nb == 0.0:
@@ -175,15 +213,55 @@ def top_k(
     """
     Return top-k most similar chunks to the query embedding for the given index.
 
+    Uses a pre-built normalized embedding matrix when available for a fast
+    vectorized cosine similarity search. Falls back to a per-chunk loop if
+    the matrix is missing for any reason.
+
     :param query_embedding: numpy array representing the query embedding.
     :param k:               number of results to return.
     :param index:           which index to query ("main", "tutor", or "agent").
     """
     index = _normalize_index_name(index)
     docs = get_docs(index=index)
+
+    if not docs:
+        return []
+
+    # Ensure query is float32
+    q = np.asarray(query_embedding, dtype="float32")
+
+    # Try fast path using normalized embedding matrix
+    emb_mat = _EMB_MAT.get(index)
+    if emb_mat is not None and emb_mat.size > 0:
+        # Normalize query
+        q_norm = np.linalg.norm(q)
+        if q_norm == 0.0:
+            return []
+
+        q_unit = q / q_norm
+
+        # scores: (num_docs,) cosine similarities since rows are normalized
+        scores = emb_mat @ q_unit  # matrix-vector dot product
+
+        num_docs = scores.shape[0]
+        if num_docs == 0:
+            return []
+
+        k_eff = min(max(k, 1), num_docs)
+
+        # Argpartition for O(n) selection, then sort those indices
+        idx_part = np.argpartition(scores, -k_eff)[-k_eff:]
+        idx_sorted = idx_part[np.argsort(scores[idx_part])[::-1]]
+
+        results: list[tuple[float, IndexedChunk]] = [
+            (float(scores[i]), docs[i]) for i in idx_sorted
+        ]
+        return results
+
+    # Fallback path: per-chunk cosine similarity (should rarely be used)
     scored: list[tuple[float, IndexedChunk]] = []
     for chunk in docs:
-        sim = _cosine(query_embedding, chunk.embedding)
+        sim = _cosine(q, chunk.embedding)
         scored.append((sim, chunk))
 
     scored.sort(key=lambda t: t[0], reverse=True)

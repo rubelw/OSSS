@@ -34,7 +34,11 @@ class WorkflowRequest(BaseModel):
         None,
         description="Additional execution configuration parameters",
         json_schema_extra={
-            "example": {"timeout_seconds": 30, "parallel_execution": True, "use_llm_intent": True},
+            "example": {
+                "timeout_seconds": 30,
+                "parallel_execution": True,
+                "use_llm_intent": True,
+            },
         },
     )
     correlation_id: Optional[str] = Field(
@@ -114,7 +118,6 @@ class WorkflowRequest(BaseModel):
                 if not isinstance(v["use_llm_intent"], bool):
                     raise ValueError("use_llm_intent must be a boolean")
 
-
         return v
 
     def to_dict(self) -> Dict[str, Any]:
@@ -176,6 +179,104 @@ class SkippedAgentOutput(BaseModel):
 
 
 # EXTERNAL SCHEMA
+# EXTERNAL SCHEMA
+class ClassifierInfo(BaseModel):
+    """
+    Classifier summary and raw payload for frontends.
+
+    Collapses richer internal classifier state into a stable, minimal shape,
+    while also exposing the raw classifier payloads used by the orchestrator.
+    """
+
+    # --- Compact summary fields for UI clients ---
+
+    intent: Optional[str] = Field(
+        None, description="High-level intent (e.g. informational, action_request)."
+    )
+    sub_intent: Optional[str] = Field(
+        None, description="Fine-grained sub-intent label, if available."
+    )
+
+    domain: Optional[str] = Field(
+        None,
+        description="Domain of the question (e.g. policies, grades, attendance).",
+    )
+    topic: Optional[str] = Field(
+        None,
+        description="Primary topic for the question.",
+    )
+    topics: List[str] = Field(
+        default_factory=list,
+        description="Optional list of secondary topics.",
+    )
+
+    tone: Optional[str] = Field(
+        None,
+        description=(
+            "Overall tone of the answer (e.g. neutral, encouraging, cautionary). "
+            "Can be populated from the final agent or left null."
+        ),
+    )
+
+    # Confidence scores
+    intent_confidence: Optional[float] = Field(
+        None, description="Confidence for the intent classification (0–1)."
+    )
+    domain_confidence: Optional[float] = Field(
+        None, description="Confidence for the domain classification (0–1)."
+    )
+    topic_confidence: Optional[float] = Field(
+        None, description="Confidence for the topic classification (0–1)."
+    )
+    sub_intent_confidence: Optional[float] = Field(
+        None, description="Confidence for the sub-intent classification (0–1)."
+    )
+
+    model_version: Optional[str] = Field(
+        None,
+        description="Version of the classifier model that produced this.",
+    )
+
+    # --- NEW: raw payload fields, matching orchestration_api classifier_payload ---
+
+    result: Optional[Dict[str, Any]] = Field(
+        None,
+        description=(
+            "Raw classifier.result payload from the orchestrator, if available. "
+            "Typically includes intent/domain/topic and any internal fields."
+        ),
+    )
+    profile: Optional[Dict[str, Any]] = Field(
+        None,
+        description=(
+            "Raw classifier.profile payload from the orchestrator, if available. "
+            "May mirror result or include enriched metadata."
+        ),
+    )
+    task_classification: Optional[Dict[str, Any]] = Field(
+        None,
+        description=(
+            "Raw task_classification payload from the orchestrator, if available."
+        ),
+    )
+    cognitive_classification: Optional[Dict[str, Any]] = Field(
+        None,
+        description=(
+            "Raw cognitive_classification payload from the orchestrator, if available."
+        ),
+    )
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for backward compatibility."""
+        return self.model_dump()
+
+    # 🔑 Allow extra keys so we don't blow up on additional classifier fields
+    model_config = ConfigDict(
+        extra="allow",
+        validate_assignment=True,
+    )
+
+# EXTERNAL SCHEMA
 class WorkflowResponse(BaseModel):
     """External workflow execution response - v1.0.0"""
 
@@ -199,12 +300,34 @@ class WorkflowResponse(BaseModel):
         json_schema_extra={"example": "osss_20250101_120000_ab12cd34"},
     )
 
+    # 🔎 NEW: original user question/query for this workflow
+    question: Optional[str] = Field(
+        None,
+        description="Original user query / question used to execute the workflow.",
+        max_length=10000,
+        json_schema_extra={"example": "What is DCG's dress code policy?"},
+    )
+
     # ✅ Single best answer string for UI clients
     answer: Optional[str] = Field(
         None,
-        description="Single best answer string (prefers output > synthesis > critic > refiner). Present when available.",
+        description=(
+            "Single best answer string (prefers output > synthesis > critic > refiner). "
+            "Present when available."
+        ),
         max_length=200000,
         json_schema_extra={"example": "DCG's superintendent is ..."},
+    )
+
+    # NEW: compact classifier summary for intent, domain, topic, tone, and confidences
+    classifier: Optional[ClassifierInfo] = Field(
+        None,
+        description=(
+            "Classifier information for this workflow. Includes a compact summary "
+            "(intent, domain, topic, tone, confidences) and may also expose raw "
+            "classifier payloads under result/profile/task_classification/"
+            "cognitive_classification."
+        ),
     )
 
     # Matches what orchestration_api is passing in
@@ -308,7 +431,6 @@ class WorkflowResponse(BaseModel):
 
         status = data.get("status")
         return isinstance(status, str) and status.strip().lower() == "skipped"
-
 
     @model_validator(mode="before")
     @classmethod

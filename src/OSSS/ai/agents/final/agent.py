@@ -70,6 +70,8 @@ class FinalAgent(BaseAgent):
     - Respects role-identity constraints (no hallucinating real-world office holders).
     - Integrates with execution_config via LLMFactory (so use_rag/top_k flow through).
     - Uses FinalConfig + PromptComposer to align with other agents (Historian/Synthesis).
+    - NOTE: This implementation performs exactly one LLM call per run (except the
+      data_query short-circuit path, which can bypass LLM entirely).
     """
 
     write_output_alias: bool = False
@@ -868,6 +870,8 @@ class FinalAgent(BaseAgent):
         text: str,
         *,
         exec_state: Optional[Dict[str, Any]] = None,
+        tone: Optional[str] = None,
+        target_audience: Optional[str] = None,
     ) -> None:
         """
         Populate a structured FinalState into execution_state, so the LangGraph state
@@ -894,6 +898,12 @@ class FinalAgent(BaseAgent):
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
+        # ✅ Attach tone / target audience if available
+        if tone is not None:
+            final_struct["tone"] = tone
+        if target_audience is not None:
+            final_struct["target_audience"] = target_audience
+
         # Store in execution_state
         exec_state["final"] = final_struct  # canonical for state bridge
 
@@ -905,12 +915,36 @@ class FinalAgent(BaseAgent):
         structured["final"] = final_struct
 
     # -----------------------
+    # metadata-strip helper
+    # -----------------------
+
+    def _strip_metadata_block(self, text: str) -> str:
+        """
+        Strip any trailing 'Optional extra context (metadata, not user-visible):'
+        section from the final answer so internal metadata is never surfaced.
+
+        This is intentionally conservative: it only removes content starting at
+        the known marker phrase, leaving normal answers (including tables) intact.
+        """
+        if not isinstance(text, str):
+            return text
+
+        marker = "Optional extra context (metadata, not user-visible):"
+        lowered = text.lower()
+        idx = lowered.find(marker.lower())
+        if idx != -1:
+            return text[:idx].rstrip()
+
+        return text
+
+    # -----------------------
     # main entrypoint
     # -----------------------
 
     async def run(self, ctx: AgentContext) -> AgentContext:
         """
         FinalAgent.run(ctx) – prepares the final answer after processing the query and context.
+        Performs exactly one LLM call (or zero if data_query short-circuit applies).
         """
         self._mark_started(ctx)
         try:
@@ -924,6 +958,15 @@ class FinalAgent(BaseAgent):
                 or ""
             )
             original_q = original_q.strip()
+
+            # Resolve best refiner text / user question once up front
+            best_refiner_text = self._extract_best_refiner_text(ctx)
+            resolved_question = self._resolve_user_question(
+                ctx, refiner_text=best_refiner_text
+            )
+            role_identity_q = self._is_role_identity_question(
+                resolved_question or original_q
+            )
 
             if original_q.lower().startswith("query "):
                 # Pull data_query output from context
@@ -945,10 +988,45 @@ class FinalAgent(BaseAgent):
 
                 if data_query_markdown:
                     # ✅ Bypass LLM entirely – return ONLY the table(s)
-                    ctx.add_agent_output("final", data_query_markdown)
+                    # For structured responses, we still treat this as neutral/informational.
+                    tone = "neutral"
+                    target_audience = exec_state.get("target_audience") or getattr(
+                        ctx, "target_audience", None
+                    )
+
+                    meta = {
+                        "agent": self.name,
+                        "original_answer": data_query_markdown,
+                        "tone": tone,
+                        "target_audience": target_audience,
+                        "role_identity_question": bool(role_identity_q),
+                    }
+
+                    ctx.add_agent_output(
+                        "final",
+                        data_query_markdown,
+                        role="assistant",
+                        action="answer",
+                        intent="informational",
+                        meta=meta,
+                    )
 
                     # Populate structured final state so LangGraph sees a FinalState
-                    self._store_structured_final(ctx, data_query_markdown, exec_state=exec_state)
+                    self._store_structured_final(
+                        ctx,
+                        data_query_markdown,
+                        exec_state=exec_state,
+                        tone=tone,
+                        target_audience=target_audience,
+                    )
+
+                    # If we care downstream, record that this was a role-identity
+                    # style query even though it was answered via tables.
+                    if role_identity_q:
+                        try:
+                            exec_state["final"]["role_identity_question"] = True
+                        except Exception:
+                            pass
 
                     # Optional: record approximate token usage so observability still works
                     approx_tokens = len(data_query_markdown.split())
@@ -966,7 +1044,23 @@ class FinalAgent(BaseAgent):
             # ✅ Use new composer that understands original_query + data_query tables
             system_prompt, user_prompt = self._compose_prompt(ctx)
 
-            # Invoke LLM and process the final answer
+            # If this is a role-identity question, enforce a strict "no guessing names" rule
+            if role_identity_q:
+                system_prompt = (
+                    system_prompt
+                    + "\n\nCRITICAL SAFETY RULE (ROLE IDENTITY): "
+                    "If the user asks who currently holds a role (e.g., superintendent, principal, "
+                    "mayor, president, CEO, etc.), you MUST NOT guess or invent a person's name. "
+                    "Only state a name if it appears explicitly in the provided district documents "
+                    "or retrieved context and is clearly identified as holding that role. "
+                    "If the documents do not clearly state who holds the role, say that you "
+                    "cannot confirm who currently holds the position and suggest contacting the "
+                    "district or checking an official source. Do not speculate."
+                )
+
+            # -------------------------
+            # Single LLM call
+            # -------------------------
             llm = self._resolve_llm(ctx)
             messages = [
                 {"role": "system", "content": system_prompt},
@@ -976,11 +1070,69 @@ class FinalAgent(BaseAgent):
 
             formatted_text = coerce_llm_text(response).strip()
 
-            # Set the final output in context
-            ctx.add_agent_output("final", formatted_text)
+            # 🔹 Strip any trailing metadata block that might have been echoed
+            final_answer = self._strip_metadata_block(formatted_text)
+
+            # -------------------------
+            # Tone / target audience
+            # -------------------------
+            tone: str = "neutral"
+
+            classifier_profile = exec_state.get("classifier_profile") or exec_state.get(
+                "classifier_result"
+            ) or exec_state.get("task_classification") or exec_state.get("classifier") or {}
+
+            # If upstream ever sets a tone, we respect it; otherwise keep neutral.
+            if isinstance(classifier_profile, dict):
+                upstream_tone = classifier_profile.get("tone")
+                if isinstance(upstream_tone, str) and upstream_tone.strip():
+                    tone = upstream_tone.strip()
+
+            # Target audience can be supplied by workflow/planner or context.
+            target_audience: Optional[str] = (
+                exec_state.get("target_audience")
+                or getattr(ctx, "target_audience", None)
+            )
+
+            # -------------------------
+            # Store results & metrics
+            # -------------------------
+
+            # Build meta payload for agent output
+            meta: Dict[str, Any] = {
+                "agent": self.name,
+                "original_answer": formatted_text,
+                "tone": tone,
+                "target_audience": target_audience,
+                "role_identity_question": bool(role_identity_q),
+            }
+
+            # Record canonical envelope
+            ctx.add_agent_output(
+                agent_name=self.name,
+                logical_name="final",
+                content=final_answer,
+                role="assistant",
+                action="answer",
+                intent="informational",
+                meta=meta,
+            )
 
             # Populate structured FinalState inside execution_state
-            self._store_structured_final(ctx, formatted_text, exec_state=exec_state)
+            self._store_structured_final(
+                ctx,
+                final_answer,
+                exec_state=exec_state,
+                tone=tone,
+                target_audience=target_audience,
+            )
+
+            # If this was a role-identity query, flag it in the structured state
+            if role_identity_q:
+                try:
+                    exec_state["final"]["role_identity_question"] = True
+                except Exception:
+                    pass
 
             # Handle token usage (best-effort)
             input_tokens = getattr(response, "input_tokens", 0) or 0

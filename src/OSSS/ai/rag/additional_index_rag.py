@@ -10,17 +10,24 @@ import httpx
 import numpy as np
 from fastapi import HTTPException
 
-from OSSS.ai.additional_index import top_k as index_top_k, IndexedChunk
+from OSSS.ai.additional_index import top_k as index_top_k, IndexedChunk, get_docs
 from OSSS.ai.observability import get_logger
 from OSSS.ai.metrics import observe_prefetch  # 👈 metrics helper
 
 logger = get_logger(__name__)
 
-# ---- Embedding config ----
+# ---- Embedding + retrieval tuning config ----
 EMBED_MODEL = os.getenv("OSSS_EMBED_MODEL", "nomic-embed-text")
 DEFAULT_EMBED_BASE = "http://host.containers.internal:11434"
 OLLAMA_BASE = os.getenv("OSSS_EMBED_BASE", DEFAULT_EMBED_BASE)
 EMBED_URL = os.getenv("OSSS_EMBED_URL", f"{OLLAMA_BASE}/api/embeddings")
+
+# Hard caps for additional-index RAG – override via env as needed
+# e.g. OSSS_RAG_MAX_TOP_K=4, OSSS_RAG_SNIPPET_MAX_CHARS=3000
+MAX_TOP_K = int(os.getenv("OSSS_RAG_MAX_TOP_K", "3"))  # clamp requests to this
+SNIPPET_MAX_CHARS = int(
+    os.getenv("OSSS_RAG_SNIPPET_MAX_CHARS", "2500")
+)  # truncate combined RAG text to this many chars
 
 # ---- Shared HTTP client for embeddings ----
 _embed_client: httpx.AsyncClient | None = None
@@ -39,6 +46,17 @@ def get_embed_client() -> httpx.AsyncClient:
             extra={"embed_url": EMBED_URL},
         )
     return _embed_client
+
+
+def get_cached_index(index: str = "main") -> List[IndexedChunk]:
+    """
+    Convenience helper for startup preloading and callers that want the
+    in-memory view of a given additional index.
+
+    This simply delegates to OSSS.ai.additional_index.get_docs(),
+    which lazily loads and caches the embeddings.jsonl content.
+    """
+    return get_docs(index=index)
 
 
 @dataclass
@@ -81,6 +99,9 @@ def _format_results(
     Turn top-k results into a prompt-ready context string.
     Kept separate from retrieval so different agents can swap in their
     own formatting logic if needed.
+
+    NOTE: This function enforces SNIPPET_MAX_CHARS to avoid
+    oversized prompts slowing down the downstream LLM.
     """
     if not results:
         logger.info(
@@ -99,8 +120,22 @@ def _format_results(
             f"filename={chunk.filename or 'n/a'} "
             f"chunk_index={chunk.chunk_index}"
         )
-        body = chunk.text or ""
-        lines.append(f"{header}\n{body.strip()}")
+        body = (chunk.text or "").strip()
+        lines.append(f"{header}\n{body}")
+
+    combined = "\n\n".join(lines)
+
+    # Enforce a hard cap on context size to keep prompts lean
+    if SNIPPET_MAX_CHARS and len(combined) > SNIPPET_MAX_CHARS:
+        logger.info(
+            "[additional_index_rag] Truncating RAG combined_text",
+            extra={
+                "index": index,
+                "original_chars": len(combined),
+                "truncated_chars": SNIPPET_MAX_CHARS,
+            },
+        )
+        combined = combined[:SNIPPET_MAX_CHARS]
 
     logger.debug(
         "[additional_index_rag] Formatted RAG results",
@@ -112,7 +147,7 @@ def _format_results(
         },
     )
 
-    return "\n\n".join(lines)
+    return combined
 
 
 async def search_additional_index(
@@ -134,11 +169,16 @@ async def search_additional_index(
     start_time = time.monotonic()
     query_preview = (query or "")[:120]
 
+    # Clamp requested top_k to keep retrieval cheap on simple policy-style queries.
+    # This can still be overridden (within MAX_TOP_K) by per-index config in the
+    # orchestrator.
+    effective_top_k = max(1, min(MAX_TOP_K, top_k or MAX_TOP_K))
+
     logger.info(
         "[additional_index_rag] RAG search start",
         extra={
             "index": index,
-            "top_k": top_k,
+            "top_k": effective_top_k,
             "embed_model": EMBED_MODEL,
             "embed_url": EMBED_URL,
             "query_preview": query_preview,
@@ -261,7 +301,7 @@ async def search_additional_index(
     search_start = time.monotonic()
     results: List[Tuple[float, IndexedChunk]] = index_top_k(
         query_emb,
-        k=top_k,
+        k=effective_top_k,
         index=index,
     )
     search_ms = (time.monotonic() - search_start) * 1000.0
@@ -271,6 +311,7 @@ async def search_additional_index(
         extra={
             "index": index,
             "top_k_requested": top_k,
+            "top_k_effective": effective_top_k,
             "result_count": len(results),
             "elapsed_ms": search_ms,
         },
@@ -289,7 +330,7 @@ async def search_additional_index(
     else:
         logger.info(
             "[additional_index_rag] No results returned from index_top_k",
-            extra={"index": index, "top_k": top_k},
+            extra={"index": index, "top_k_effective": effective_top_k},
         )
 
     # ---- 3. Build RagHit list (no formatting) ----
@@ -313,6 +354,7 @@ async def search_additional_index(
     meta: Dict[str, Any] = {
         "index": index,
         "top_k_requested": top_k,
+        "top_k_effective": effective_top_k,
         "result_count": len(results),
         "context_chars": 0,  # to be filled by formatters
         "elapsed_ms_total": total_ms,
@@ -365,7 +407,7 @@ async def rag_prefetch_additional(
         "[additional_index_rag] RAG prefetch completed",
         extra={
             "index": index_name,
-            "top_k": top_k,
+            "top_k": meta_with_ctx.get("top_k_effective", top_k),
             "result_count": len(base_result.hits),
             "context_chars": len(combined_text),
             "elapsed_ms": meta_with_ctx.get("elapsed_ms_total"),

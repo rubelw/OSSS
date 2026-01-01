@@ -726,14 +726,15 @@ class HistorianAgent(BaseAgent):
             # Prepare relevance analysis prompt
             relevance_prompt = self._build_relevance_prompt(query, search_results)
 
-            # Get LLM analysis (avoid blocking event loop)
-            messages = [
-                {"role": "system", "content": "You are a relevance analysis assistant."},
-                {"role": "user", "content": relevance_prompt},
-            ]
-            llm_response = await self.llm.ainvoke(messages)
-            response_text = coerce_llm_text(llm_response).strip()
+            from OSSS.ai.llm.openai import OpenAIChatLLM
+            from OSSS.ai.config.openai_config import OpenAIConfig
 
+            openai_config = OpenAIConfig.load()
+            return OpenAIChatLLM(
+                api_key=openai_config.api_key,
+                model=openai_config.model,
+                base_url=openai_config.base_url,
+            )
             # Track token usage for relevance analysis
             if (
                 hasattr(llm_response, "tokens_used")

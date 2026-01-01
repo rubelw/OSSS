@@ -589,34 +589,75 @@ def route_after_data_query(state: OSSSState) -> str:
     """
     Decide where to go after `data_query`.
 
-    For CRUD flows (create/update/delete/patch) driven by the DataQuery wizard:
-      - Prefer "historian" if present in this graph
-      - Else "final" if present
-      - Else "END"
+    Wizard behavior:
 
-    This uses wizard_state written by DataQueryAgent into execution_state.
+    - While the CRUD wizard is in progress (pending_action is set),
+      ALWAYS return "END" so the HTTP round-trip can complete and
+      the user can respond to the wizard prompt.
+
+    - Only consider routing to follow-on agents (historian/final)
+      once there is NO pending_action.
+
+    Pattern behavior:
+
+    - For the pure `data_query` graph pattern, we never route to `final`
+      because that node usually is not part of the compiled graph.
+      In that case we simply END once data_query is done.
+
+    Fallback is always "END" on errors.
     """
     try:
-        planned_agents = _get_available_agents_from_state(state)
-        wizard_state = _extract_data_query_wizard_state(state) or {}
+        exec_state = _get_exec_state(state)
+        graph_pattern = str(exec_state.get("graph_pattern") or "").lower()
 
+        # Wizard state written by DataQueryAgent
+        wizard_state = _extract_data_query_wizard_state(state) or {}
         operation = str(wizard_state.get("operation") or "").lower()
         pending_action = str(wizard_state.get("pending_action") or "").lower()
 
-        crud_ops = {"create", "update", "delete", "patch"}
-        crud_pending_actions = {
-            "confirm_table",
-            "confirm_entity",
-            "collect_filters",
-            "collect_updates",
-        }
+        # All CRUD-style ops (including read/query flows)
+        crud_ops = {"create", "read", "update", "delete", "patch"}
+        is_crud = operation in crud_ops
 
-        is_crud = operation in crud_ops or pending_action in crud_pending_actions
+        # What agents *this* graph actually planned to run
+        available_agents = _get_available_agents_from_state(state)
 
-        # By default we treat all planned agents as available; if GraphFactory
-        # passes a restricted set via functools.partial, that narrowed set wins.
-        available_agents = list(planned_agents)
+        logger.debug(
+            "[router:route_after_data_query] routing decision context",
+            extra={
+                "event": "router_route",
+                "router": "route_after_data_query",
+                "intent": operation,
+                "action_type": operation,
+                "pending_action": pending_action,
+                "is_crud": is_crud,
+                "graph_pattern": graph_pattern,
+                "available_agents": available_agents,
+            },
+        )
 
+        # 1) Wizard still in progress → keep it alive and wait for next turn
+        if pending_action:
+            logger.debug(
+                "[router:route_after_data_query] Wizard pending; ending workflow for user follow-up",
+                extra={
+                    "event": "router_route_wizard_pending",
+                    "pending_action": pending_action,
+                },
+            )
+            return "END"
+
+        # 2) Pure data_query pattern: we don't have a follow-on final node
+        if graph_pattern == "data_query":
+            logger.debug(
+                "[router:route_after_data_query] data_query pattern; no follow-on node, ending",
+                extra={
+                    "event": "router_route_data_query_pattern_end",
+                },
+            )
+            return "END"
+
+        # 3) Multi-agent patterns: wizard is complete; optionally hand off
         decision = "END"
         if is_crud:
             if "historian" in available_agents:
@@ -650,6 +691,7 @@ def route_after_data_query(state: OSSSState) -> str:
             },
         )
         return "END"
+
 
 
 # -----------------------------------------------------------------------------

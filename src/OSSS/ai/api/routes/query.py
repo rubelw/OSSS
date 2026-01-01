@@ -13,13 +13,23 @@ from OSSS.ai.api.models import (
 from OSSS.ai.api.factory import get_orchestration_api
 from OSSS.ai.observability import get_logger
 
+# ✅ NEW: public API schema + transformer
+from OSSS.ai.api.schemas.query_response import QueryResponse
+from OSSS.ai.api.transformers.query_transformer import (
+    transform_orchestration_payload_to_query_response,
+)
+
 
 logger = get_logger(__name__)
 router = APIRouter()
 
 
-@router.post("/query", response_model=WorkflowResponse)
-async def execute_query(http_request: Request, request: WorkflowRequest) -> WorkflowResponse:
+@router.post("/query", response_model=QueryResponse)
+async def execute_query(
+    http_request: Request,
+    request: WorkflowRequest,
+    debug: bool = Query(default=False, description="Include debug payload in response"),
+) -> QueryResponse:
     try:
         # ---------------------------------------------------------
         # Log raw body + parsed agents to debug "forced agents"
@@ -34,7 +44,7 @@ async def execute_query(http_request: Request, request: WorkflowRequest) -> Work
                 "agents": request.agents,
                 "query_length": len(request.query or ""),
                 "correlation_id": getattr(request, "correlation_id", None),
-                # 👇 NEW: log conversation_id if present
+                # 👇 log conversation_id if present on request
                 "conversation_id": getattr(request, "conversation_id", None),
             },
         )
@@ -44,9 +54,13 @@ async def execute_query(http_request: Request, request: WorkflowRequest) -> Work
         #
         # Goals:
         # - agents=[]  -> treat as NOT PROVIDED
-        # - fastpath (graph_pattern=refiner_final) must not be overridden
+        # - fastpath (graph_pattern=standard) must not be overridden
         # ---------------------------------------------------------
-        exec_cfg = request.execution_config if isinstance(request.execution_config, dict) else {}
+        exec_cfg = (
+            request.execution_config
+            if isinstance(request.execution_config, dict)
+            else {}
+        )
 
         fastpath = exec_cfg.get("graph_pattern") == "standard"
 
@@ -65,38 +79,64 @@ async def execute_query(http_request: Request, request: WorkflowRequest) -> Work
                 extra={
                     "graph_pattern": "standard",
                     "agents": None,
-                    # keep correlation / conversation context in the logs
                     "correlation_id": getattr(request, "correlation_id", None),
                     "conversation_id": getattr(request, "conversation_id", None),
                 },
             )
 
         # ---------------------------------------------------------
-        # Execute workflow
+        # Execute workflow (internal schema)
         # ---------------------------------------------------------
         orchestration_api = await get_orchestration_api()
-        response: WorkflowResponse = await orchestration_api.execute_workflow(request)
+        workflow_response: WorkflowResponse = await orchestration_api.execute_workflow(
+            request
+        )
 
-        if not response:
+        if not workflow_response:
             logger.error("Response is None. Unable to proceed.")
-            raise HTTPException(status_code=500, detail="Workflow execution failed. No response.")
+            raise HTTPException(
+                status_code=500,
+                detail="Workflow execution failed. No response.",
+            )
 
         # Ensure the workflow_id is available
-        if not hasattr(response, "workflow_id") or response.workflow_id is None:
+        if not hasattr(workflow_response, "workflow_id") or workflow_response.workflow_id is None:
             logger.error("Response does not contain a valid workflow_id.")
-            raise HTTPException(status_code=500, detail="Workflow execution failed. No workflow_id.")
+            raise HTTPException(
+                status_code=500,
+                detail="Workflow execution failed. No workflow_id.",
+            )
 
+        # Log based on internal response before transforming
         logger.info(
             "Query executed successfully",
             extra={
-                "workflow_id": response.workflow_id,
-                "correlation_id": response.correlation_id,
-                # 👇 NEW: log response conversation_id if present
-                "conversation_id": getattr(response, "conversation_id", None),
+                "workflow_id": workflow_response.workflow_id,
+                "correlation_id": getattr(workflow_response, "correlation_id", None),
+                "conversation_id": getattr(workflow_response, "conversation_id", None),
             },
         )
-        return response
 
+        # ---------------------------------------------------------
+        # Transform internal workflow response -> public QueryResponse
+        # ---------------------------------------------------------
+        # WorkflowResponse is a Pydantic model; get a plain dict for the transformer
+        if hasattr(workflow_response, "model_dump"):
+            payload_dict: Dict[str, Any] = workflow_response.model_dump()
+        else:
+            # Fallback if it's already a dict-like structure
+            payload_dict = dict(workflow_response)  # type: ignore[arg-type]
+
+        public_response: QueryResponse = transform_orchestration_payload_to_query_response(
+            payload_dict,
+            include_debug=debug,
+        )
+
+        return public_response
+
+    except HTTPException:
+        # Let FastAPI handle already-constructed HTTPExceptions
+        raise
     except Exception as e:
         logger.error(f"Query execution failed: {e}", exc_info=True)
         raise HTTPException(
@@ -115,8 +155,8 @@ async def get_query_status(correlation_id: str) -> StatusResponse:
         logger.info(f"Getting status for correlation_id: {correlation_id}")
 
         orchestration_api = await get_orchestration_api()
-        status_response: StatusResponse = await orchestration_api.get_status_by_correlation_id(
-            correlation_id
+        status_response: StatusResponse = (
+            await orchestration_api.get_status_by_correlation_id(correlation_id)
         )
 
         logger.info(
@@ -142,7 +182,10 @@ async def get_query_status(correlation_id: str) -> StatusResponse:
             },
         )
     except Exception as e:
-        logger.error(f"Failed to get status for correlation_id {correlation_id}: {e}", exc_info=True)
+        logger.error(
+            f"Failed to get status for correlation_id {correlation_id}: {e}",
+            exc_info=True,
+        )
         raise HTTPException(
             status_code=500,
             detail={
@@ -162,8 +205,11 @@ async def get_query_history(
         logger.info(f"Fetching workflow history: limit={limit}, offset={offset}")
 
         orchestration_api = await get_orchestration_api()
-        raw_history: List[Dict[str, Any]] = await orchestration_api.get_workflow_history_from_database(
-            limit=limit, offset=offset
+        raw_history: List[Dict[str, Any]] = (
+            await orchestration_api.get_workflow_history_from_database(
+                limit=limit,
+                offset=offset,
+            )
         )
 
         workflow_items: List[WorkflowHistoryItem] = []

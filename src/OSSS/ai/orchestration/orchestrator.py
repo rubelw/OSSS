@@ -327,7 +327,8 @@ class LangGraphOrchestrator:
     ) -> None:
         # Default agents: we allow data_query and historian in the *pool*,
         # but the pattern + normalize_agents decide which are actually used.
-        self.default_agents = ["classifier","refiner"]
+        # Classifier is assumed to run upstream; it is NOT a graph node here.
+        self.default_agents = ["refiner"]
 
         self._compiled_graph = None
         self._compiled_graph_key: Optional[tuple[str, tuple[str, ...], bool]] = None
@@ -775,13 +776,29 @@ class LangGraphOrchestrator:
 
         # ------------------------------------------------------------------
         # 3) No explicit pattern and no route_key: use classifier + query heuristics
+        #    (merge classifier info from config and execution_state)
         # ------------------------------------------------------------------
-        classifier = config.get("classifier") or {}
-        if not isinstance(classifier, dict):
-            classifier = {}
+        cfg_classifier = config.get("classifier") or {}
+        if not isinstance(cfg_classifier, dict):
+            cfg_classifier = {}
 
-        intent = str(classifier.get("intent", "")).lower()
-        domain = str(classifier.get("domain", "")).lower()  # currently unused but kept
+        state_classifier: Dict[str, Any] = {}
+        if isinstance(exec_state, dict):
+            # Prefer a dedicated classifier_profile if present,
+            # otherwise fall back to task_classification.
+            state_classifier = (
+                exec_state.get("classifier_profile")
+                or exec_state.get("task_classification")
+                or {}
+            )
+            if not isinstance(state_classifier, dict):
+                state_classifier = {}
+
+        # config overrides exec_state on conflicts
+        merged_classifier: Dict[str, Any] = {**state_classifier, **cfg_classifier}
+
+        intent = str(merged_classifier.get("intent", "")).lower()
+        domain = str(merged_classifier.get("domain", "")).lower()  # currently unused but kept
 
         raw_query = str(config.get("raw_query") or "").lower()
 

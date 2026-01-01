@@ -13,6 +13,7 @@ from OSSS.ai.agents.data_query.config import DataQueryRoute
 from OSSS.ai.agents.data_query.queryspec import QuerySpec, FilterCondition
 from OSSS.ai.agents.data_query.query_metadata import DEFAULT_QUERY_SPECS
 from OSSS.ai.agents.data_query.text_filters import parse_text_filters
+from OSSS.ai.services.nl_to_sql_service import NLToSQLService
 
 from OSSS.ai.services.backend_api_client import BackendAPIClient, BackendAPIConfig
 from OSSS.ai.observability import get_logger
@@ -30,11 +31,14 @@ from OSSS.ai.agents.data_query.utils import (
     _shrink_to_ui_defaults,
     choose_route_for_query,
 )
-from OSSS.ai.agents.data_query.wizard import (
+
+
+# 🔁 UPDATED IMPORT: now pulling from wizard.crud_wizard and using the class
+from OSSS.ai.agents.data_query.wizard.crud_wizard import (
     get_wizard_state,
     set_wizard_state,
     wizard_channel_key,
-    continue_wizard,
+    CrudWizard,
 )
 
 logger = get_logger(__name__)
@@ -88,6 +92,9 @@ class DataQueryAgent(BaseAgent):
         super().__init__(name=self.name, timeout_seconds=20.0)
         self.data_query = data_query or {}
         self.pg_engine = pg_engine
+        # Dependency-injected service; default to a shared instance.
+        self._nl_to_sql_service = NLToSQLService()
+
         logger.debug(
             "[data_query:init] agent initialized",
             extra={"base_url_default": self.BASE_URL},
@@ -179,7 +186,7 @@ class DataQueryAgent(BaseAgent):
             return None
 
         logger.info(
-            "[data_query:wizard_confirm] confirmation detected, delegating to continue_wizard",
+            "[data_query:wizard_confirm] confirmation detected, delegating to CrudWizard",
             extra={
                 "event": "data_query_wizard_confirm",
                 "status": status,
@@ -187,7 +194,7 @@ class DataQueryAgent(BaseAgent):
             },
         )
 
-        await continue_wizard(
+        await CrudWizard.continue_wizard(
             agent_name=self.name,
             context=context,
             wizard_state=wizard_state,
@@ -196,32 +203,6 @@ class DataQueryAgent(BaseAgent):
 
         return {"ok": True, "handled_by": "wizard_confirm", "status": status}
 
-    async def _execute_queryspec_http(
-        self,
-        client: BackendAPIClient,
-        route: DataQueryRoute,
-        query_spec: QuerySpec,
-        params: Dict[str, Any],
-    ) -> List[Dict[str, Any]]:
-        """Very small wrapper around BackendAPIClient.get_json."""
-        path = getattr(route, "resolved_path", None) or getattr(route, "path", None) or ""
-        rows = await client.get_json(path, params=params)
-        return rows or []
-
-    async def _enrich_person_name(
-        self,
-        client: BackendAPIClient,
-        rows_full: List[Dict[str, Any]],
-    ) -> List[Dict[str, Any]]:
-        """Optional enrichment hook; currently just returns rows unchanged."""
-        return rows_full
-
-    def get_node_definition(self) -> LangGraphNodeDefinition:
-        return LangGraphNodeDefinition(
-            node_type="tool",
-            agent_name=self.name,
-            dependencies=["refiner"],
-        )
 
     # ------------------------------------------------------------------
     # MAIN EXECUTION
@@ -233,6 +214,7 @@ class DataQueryAgent(BaseAgent):
         dq_cfg: Dict[str, Any] = exec_cfg.setdefault("data_query", {})
 
         # Classifier output + original text (typically pre-refiner)
+        # Classifier output + original text (typically pre-refiner)
         classifier, initial_effective_text = _get_classifier_and_text_from_context(context)
         if not isinstance(classifier, dict):
             classifier = {}
@@ -240,6 +222,7 @@ class DataQueryAgent(BaseAgent):
         classifier.setdefault("topics", [])
         classifier.setdefault("intent", None)
 
+        # ✅ Actual user text (what we really want to route on)
         raw_user_input = (exec_state.get("user_question") or "").strip()
 
         # Try to get refined_query from refiner
@@ -258,8 +241,18 @@ class DataQueryAgent(BaseAgent):
             )
             refined_text = None
 
-        effective_text = (refined_text or initial_effective_text or "").strip()
+        # ✅ Prefer user query for routing; refiner/classifier text is only a fallback
+        effective_text = (raw_user_input or refined_text or initial_effective_text or "").strip()
         raw_text_norm = effective_text
+
+        exec_state["data_query_texts"] = {
+            "raw_user_input": raw_user_input,
+            "raw_text": raw_text_norm,
+            "refined_text": refined_text,
+            "effective_text": effective_text,
+        }
+        context.execution_state = exec_state
+
         raw_text_lower = effective_text.lower()
 
         exec_state["data_query_texts"] = {
@@ -315,11 +308,12 @@ class DataQueryAgent(BaseAgent):
             or wizard_pending_action in crud_pending_actions
         )
 
-        # Lexical gate
+        # Lexical gate (use the cleaned effective_text, not the long refiner narrative)
         lexical = self._lexical_gate(
-            raw_text=(raw_user_input or raw_text_norm or ""),
-            refined_text=refined_text,
+            raw_text=(effective_text or raw_user_input or raw_text_norm or ""),
+            refined_text=None,  # ✅ ignore refiner text here; it can be verbose/meta
         )
+
         lexical_intent = lexical.get("intent")
         if isinstance(lexical_intent, str):
             lexical_intent = lexical_intent.strip().lower() or None
@@ -493,7 +487,8 @@ class DataQueryAgent(BaseAgent):
                     "wizard_status": wizard_state.get("status"),
                 },
             )
-            return await continue_wizard(
+
+            return await CrudWizard.continue_wizard(
                 agent_name=self.name,
                 context=context,
                 wizard_state=wizard_state,
@@ -503,16 +498,30 @@ class DataQueryAgent(BaseAgent):
         # -----------------
         # Route selection
         # -----------------
+        routing_text = effective_text or raw_text_norm or raw_user_input
+
         if topic_override:
             route = DataQueryRoute.from_topic(topic_override, intent=intent)  # type: ignore[attr-defined]
             route_source = "explicit_override"
         else:
             route = choose_route_for_query(
-                effective_text or raw_text_norm,
+                routing_text,
                 classifier,
                 min_topic_confidence=MIN_TOPIC_CONFIDENCE,
             )
             route_source = "classifier_or_text"
+
+        logger.info(
+            "[data_query:routing] route selected",
+            extra={
+                "event": "data_query_route_selected",
+                "route_source": route_source,
+                "routing_text_preview": routing_text[:200],
+                "route_topic": getattr(route, "topic", None),
+                "route_collection": getattr(route, "collection", None),
+                "route_view": getattr(route, "view_name", None),
+            },
+        )
 
         # Metadata from route
         if hasattr(route, "to_entity") and callable(getattr(route, "to_entity")):
@@ -717,6 +726,7 @@ class DataQueryAgent(BaseAgent):
                 or "unknown_table"
             )
 
+
             wizard_state_init: Dict[str, Any] = {
                 "pending_action": "confirm_table",
                 "operation": intent,
@@ -764,7 +774,7 @@ class DataQueryAgent(BaseAgent):
             channel_key = wizard_channel_key(self.name, collection_for_wizard)
 
             content_str = (
-                f"I’m about to **{verb_for_human}** records in the `{table_name}` table.\n"
+                f"I’m about to **{intent}** records in the `{table_name}` table.\n"
                 "Is that the correct table? You can reply 'yes', 'no', provide a different table name, "
                 "or type 'cancel' to end this workflow."
             )

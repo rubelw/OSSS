@@ -759,13 +759,45 @@ class GraphFactory:
         # ------------------------------------------------------------------
         planned_from_state = exec_state.get("planned_agents")
         if isinstance(planned_from_state, list) and planned_from_state:
-            base_planned = [str(a).lower() for a in planned_from_state if a]
-        else:
-            base_planned = [str(a).lower() for a in (cfg.agents_to_run or []) if a]
+            # ✅ Respect precomputed planned_agents from execution_state as
+            #    authoritative about which nodes should exist. We only:
+            #      - lower-case
+            #      - drop duplicates
+            #      - strip prestep agents (e.g. 'classifier')
+            normalized: List[str] = []
+            seen: set[str] = set()
+            for a in planned_from_state:
+                if not a:
+                    continue
+                s = str(a).lower()
+                if s in self.PRESTEP_AGENTS:
+                    continue
+                if s not in seen:
+                    seen.add(s)
+                    normalized.append(s)
 
+            exec_state["planned_agents"] = normalized
+
+            self.logger.info(
+                "[OptionA] Using existing planned_agents from execution_state",
+                extra={
+                    "effective_pattern": effective_pattern,
+                    "planned_agents": normalized,
+                },
+            )
+
+            # Keep cfg agents in sync but do NOT auto-inject 'refiner' here.
+            return replace(
+                cfg,
+                pattern_name=effective_pattern,
+                agents_to_run=normalized,
+            )
+
+        # No state-level plan yet: fall back to automatic planning from cfg.agents_to_run
+        base_planned = [str(a).lower() for a in (cfg.agents_to_run or []) if a]
         normalized: List[str] = [a for a in base_planned if a]
 
-        # Always ensure refiner is present
+        # For auto-planned flows, still ensure refiner is present
         if "refiner" not in normalized:
             normalized.insert(0, "refiner")
 
@@ -779,7 +811,8 @@ class GraphFactory:
             if "final" not in normalized:
                 normalized.append("final")
         else:
-            # refiner -> data_query -> (historian) -> END
+            # data_query-style:
+            #   refiner -> data_query -> (historian) -> END
             normalized = [
                 a for a in normalized if a not in {"final", "synthesis", "critic"}
             ]
@@ -1068,6 +1101,45 @@ class GraphFactory:
                 "agents_before": cfg.agents_to_run,
             },
         )
+
+        exec_state = cfg.execution_state if isinstance(cfg.execution_state, dict) else None
+
+        # ✅ If execution_state already has planned_agents, trust that as the
+        #    final node set for this compiled graph. Do NOT auto-add refiner.
+        if isinstance(exec_state, dict):
+            pa = exec_state.get("planned_agents")
+            if isinstance(pa, list) and pa:
+                deduped: List[str] = []
+                seen: set[str] = set()
+                for a in pa:
+                    if not a:
+                        continue
+                    s = str(a).lower()
+                    # Strip prestep agents like 'classifier'
+                    if s in self.PRESTEP_AGENTS:
+                        continue
+                    if s not in seen:
+                        seen.add(s)
+                        deduped.append(s)
+
+                self.logger.info(
+                    "prepare_config: using planned_agents from execution_state",
+                    extra={
+                        "pattern_name": cfg.pattern_name,
+                        "planned_agents": deduped,
+                    },
+                )
+
+                if deduped == list(cfg.agents_to_run or []):
+                    self.logger.debug(
+                        "GraphConfig agents unchanged after planned_agents normalization",
+                        extra={"agents": deduped},
+                    )
+                    return cfg
+
+                return replace(cfg, agents_to_run=deduped)
+
+        # Otherwise fall back to pattern-aware normalization (old behavior)
         deduped = self._normalize_agents_for_pattern(
             cfg.agents_to_run, cfg.pattern_name
         )

@@ -41,6 +41,7 @@ from OSSS.ai.services.classification_service import ClassificationService
 from OSSS.ai.services.workflow_persistence_service import WorkflowPersistenceService
 from OSSS.ai.config.openai_config import OpenAIConfig
 from OSSS.ai.llm.openai import OpenAIChatLLM
+from OSSS.ai.api.models import ClassifierInfo
 
 # ---------------------------------------------------------------------------
 # OSSS / OSSS API contracts and models
@@ -83,6 +84,331 @@ from OSSS.ai.orchestration.models_internal import (
 
 # Module-level logger (structured)
 logger = get_logger(__name__)
+
+# ---------------------------------------------------------------------------
+# RAG source helpers: de-dupe by filename + logging
+# ---------------------------------------------------------------------------
+
+
+def build_sources_from_rag_hits_unique_by_filename(
+    rag_hits: Sequence[Mapping[str, Any]],
+) -> List[Dict[str, Any]]:
+    """
+    Convert rag_hits into a list of document-level sources, de-duplicated by filename.
+
+    - Groups hits by `filename`.
+    - For each filename, keeps the hit with the highest `score`.
+    - Copies over useful metadata (id, chunk_index).
+    """
+
+    best_by_filename: Dict[str, Mapping[str, Any]] = {}
+
+    for hit in rag_hits:
+        filename = hit.get("filename")
+        if not filename:
+            # If no filename, just skip; you can change this to keep them separately if needed
+            continue
+
+        score = hit.get("score", 0.0)
+        existing = best_by_filename.get(filename)
+
+        if existing is None or score > existing.get("score", 0.0):
+            best_by_filename[filename] = hit
+
+    sources: List[Dict[str, Any]] = []
+    for filename, hit in best_by_filename.items():
+        source_key = hit.get("source") or hit.get("source_key") or filename
+        # Build your source dict in the same shape your API expects:
+        sources.append(
+            {
+                "type": "document",
+                "display_name": filename,
+                "filename": filename,
+                "source_key": source_key,
+                "score": hit.get("score", 0.0),
+                "metadata": {
+                    "chunk_index": hit.get("chunk_index"),
+                    "id": hit.get("id"),
+                },
+            }
+        )
+
+    return sources
+
+
+def dedupe_sources_keep_best(sources: list[dict]) -> list[dict]:
+    """
+    Collapse duplicate sources *strictly by filename*, keeping only the entry
+    with the highest score for each filename.
+
+    This treats all hits with the same filename as the *same* logical document,
+    even if source_key, chunk_index, or id differ.
+    """
+    try:
+        input_count = len(sources)
+    except Exception:
+        input_count = -1
+
+    logger.debug(
+        "[orchestration_api] dedupe_sources_keep_best called",
+        extra={
+            "event": "sources_dedupe.start",
+            "input_count": input_count,
+            "input_filenames": [
+                (s.get("filename") or s.get("display_name"))
+                for s in sources
+                if isinstance(s, Mapping)
+            ],
+        },
+    )
+
+    best: dict[str, dict] = {}
+
+    for src in sources:
+        if not isinstance(src, Mapping):
+            continue
+
+        # Prefer filename; fall back to display_name if filename is missing
+        filename = src.get("filename") or src.get("display_name")
+        if not isinstance(filename, str) or not filename.strip():
+            continue
+
+        key = filename.strip().lower()
+        score = src.get("score", 0.0)
+
+        if key not in best or score > best[key].get("score", float("-inf")):
+            best[key] = src
+
+    result = list(best.values())
+
+    logger.debug(
+        "[orchestration_api] dedupe_sources_keep_best finished",
+        extra={
+            "event": "sources_dedupe.end",
+            "output_count": len(result),
+            "output_filenames": [
+                (s.get("filename") or s.get("display_name")) for s in result
+            ],
+        },
+    )
+
+    return result
+
+
+def _dedupe_rag_hits_by_filename(
+    rag_hits: Sequence[Mapping[str, Any]]
+) -> list[Mapping[str, Any]]:
+    """
+    Collapse duplicate rag_hits *strictly by filename/source*, keeping only the
+    highest-scoring hit for each logical document.
+
+    This is important because the UI often builds "sources" from rag_hits.
+    """
+    try:
+        input_count = len(rag_hits)
+    except Exception:
+        input_count = -1
+
+    logger.debug(
+        "[orchestration_api] _dedupe_rag_hits_by_filename called",
+        extra={
+            "event": "sources_dedupe.rag_hits.start",
+            "input_count": input_count,
+            "input_keys": [
+                (hit.get("filename") or hit.get("source"))
+                for hit in rag_hits
+                if isinstance(hit, Mapping)
+            ],
+        },
+    )
+
+    best: dict[str, Mapping[str, Any]] = {}
+
+    for hit in rag_hits:
+        if not isinstance(hit, Mapping):
+            continue
+
+        filename = hit.get("filename") or hit.get("source")
+        if not isinstance(filename, str) or not filename.strip():
+            continue
+
+        key = filename.strip().lower()
+        score = hit.get("score", 0.0)
+
+        existing = best.get(key)
+        if existing is None or score > existing.get("score", float("-inf")):
+            best[key] = hit
+
+    result = list(best.values())
+
+    logger.debug(
+        "[orchestration_api] _dedupe_rag_hits_by_filename finished",
+        extra={
+            "event": "sources_dedupe.rag_hits.end",
+            "output_count": len(result),
+            "output_keys": [
+                (hit.get("filename") or hit.get("source")) for hit in result
+            ],
+        },
+    )
+
+    return result
+
+
+def _dedupe_sources_in_payload(payload: Any) -> Any:
+    """
+    Recursively walk an arbitrary payload (dict/list/etc.) and:
+
+    - Dedupe any value under a key named "sources" using dedupe_sources_keep_best().
+    - Dedupe any value under a key named "rag_hits" using _dedupe_rag_hits_by_filename().
+    - Recurse into all nested dicts/lists so we catch sources anywhere they appear.
+
+    This is designed so that:
+    - exec_state["structured_outputs"]
+    - response.answer
+    - response.agent_outputs
+    - response.execution_state (including rag_hits)
+    all get a consistent deduplication pass.
+    """
+
+    # dict-like: recurse into values and special-case "sources" and "rag_hits"
+    if isinstance(payload, Mapping):
+        new_dict: dict[str, Any] = {}
+        for k, v in payload.items():
+            key_str = str(k)
+
+            # 1) Dedupe generic "sources" lists
+            if key_str == "sources" and isinstance(v, Sequence) and not isinstance(
+                v, (str, bytes)
+            ):
+                logger.debug(
+                    "[orchestration_api] deduping sources list in payload",
+                    extra={
+                        "event": "sources_dedupe.payload.sources",
+                        "original_count": len(v),
+                    },
+                )
+
+                # Only keep mapping entries for scoring; drop weird primitives
+                mapping_sources: list[dict] = [
+                    s for s in v if isinstance(s, Mapping)
+                ]  # type: ignore[list-item]
+
+                deduped = dedupe_sources_keep_best(mapping_sources)
+
+                logger.debug(
+                    "[orchestration_api] deduped sources list in payload",
+                    extra={
+                        "event": "sources_dedupe.payload.sources_done",
+                        "original_count": len(v),
+                        "deduped_count": len(deduped),
+                    },
+                )
+
+                new_dict[key_str] = deduped
+                continue
+
+            # 2) Dedupe rag_hits lists (common RAG internal shape)
+            if key_str == "rag_hits" and isinstance(v, Sequence) and not isinstance(
+                v, (str, bytes)
+            ):
+                logger.debug(
+                    "[orchestration_api] deduping rag_hits list in payload",
+                    extra={
+                        "event": "sources_dedupe.payload.rag_hits",
+                        "original_count": len(v),
+                    },
+                )
+
+                deduped_hits = _dedupe_rag_hits_by_filename(
+                    [h for h in v if isinstance(h, Mapping)]  # type: ignore[list-item]
+                )
+
+                logger.debug(
+                    "[orchestration_api] deduped rag_hits list in payload",
+                    extra={
+                        "event": "sources_dedupe.payload.rag_hits_done",
+                        "original_count": len(v),
+                        "deduped_count": len(deduped_hits),
+                    },
+                )
+
+                new_dict[key_str] = deduped_hits
+                continue
+
+            # 3) Everything else: recurse
+            new_dict[key_str] = _dedupe_sources_in_payload(v)
+
+        return new_dict
+
+    # list/tuple-like: recurse element-wise
+    if isinstance(payload, Sequence) and not isinstance(payload, (str, bytes)):
+        return [_dedupe_sources_in_payload(item) for item in payload]
+
+    # primitives: return as-is
+    return payload
+
+
+def _apply_sources_dedupe_to_agent_outputs(
+    agent_outputs: Dict[str, Any]
+) -> Dict[str, Any]:
+    """
+    Run _dedupe_sources_in_payload on each agent output value separately.
+    """
+    logger.debug(
+        "[orchestration_api] _apply_sources_dedupe_to_agent_outputs called",
+        extra={
+            "event": "sources_dedupe.agent_outputs.start",
+            "agent_keys": list(agent_outputs.keys()),
+        },
+    )
+
+    result: Dict[str, Any] = {}
+
+    for agent_name, content in agent_outputs.items():
+        deduped = _dedupe_sources_in_payload(content)
+
+        # Small debug snapshot for this agent
+        has_sources = False
+        sources_count = None
+        filenames = None
+
+        if isinstance(deduped, Mapping):
+            maybe_sources = deduped.get("sources")
+            if isinstance(maybe_sources, Sequence) and not isinstance(
+                maybe_sources, (str, bytes)
+            ):
+                has_sources = True
+                sources_count = len(maybe_sources)
+                filenames = [
+                    (s.get("filename") or s.get("display_name"))
+                    for s in maybe_sources
+                    if isinstance(s, Mapping)
+                ]
+
+        logger.debug(
+            "[orchestration_api] agent output deduped",
+            extra={
+                "event": "sources_dedupe.agent_outputs.item",
+                "agent": agent_name,
+                "has_sources": has_sources,
+                "sources_count": sources_count,
+                "filenames": filenames,
+            },
+        )
+
+        result[agent_name] = deduped
+
+    logger.debug(
+        "[orchestration_api] _apply_sources_dedupe_to_agent_outputs finished",
+        extra={
+            "event": "sources_dedupe.agent_outputs.end",
+            "agent_keys": list(result.keys()),
+        },
+    )
+
+    return result
+
 
 
 def _normalize_agent_channel_key(channel_key: str) -> str:
@@ -412,6 +738,69 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
         self._markdown_export_service = None  # type: ignore[assignment]
 
     # -----------------------------------------------------------------------
+    # Classifier builder
+    # -----------------------------------------------------------------------
+
+    def _build_classifier_info_from_state(
+        self, execution_state: Mapping[str, Any]
+    ) -> Optional[ClassifierInfo]:
+        """
+        Build a ClassifierInfo from execution_state fields.
+
+        Uses the internal classifier_result / classifier_profile /
+        task_classification / cognitive_classification that are already
+        present in execution_state.
+        """
+        result = execution_state.get("classifier_result")
+        profile = execution_state.get("classifier_profile")
+        task_cls = execution_state.get("task_classification")
+        cognitive_cls = execution_state.get("cognitive_classification")
+
+        # Nothing to report -> leave classifier = None
+        if not any([result, profile, task_cls, cognitive_cls]):
+            return None
+
+        payload: Dict[str, Any] = {
+            "result": result,
+            "profile": profile,
+            "task_classification": task_cls,
+            "cognitive_classification": cognitive_cls,
+        }
+
+        # Derive compact summary fields from result/profile when present
+        if isinstance(result, Mapping):
+            intent = result.get("intent") or result.get("intent_label")
+            sub_intent = result.get("sub_intent")
+            payload["intent"] = intent
+            payload["sub_intent"] = sub_intent
+
+            if "intent_confidence" in result:
+                payload["intent_confidence"] = result.get("intent_confidence")
+
+        if isinstance(profile, Mapping):
+            payload.setdefault("domain", profile.get("domain"))
+            payload.setdefault("topic", profile.get("topic"))
+
+            if "domain_confidence" in profile:
+                payload.setdefault(
+                    "domain_confidence", profile.get("domain_confidence")
+                )
+            if "topic_confidence" in profile:
+                payload.setdefault("topic_confidence", profile.get("topic_confidence"))
+
+            if "model_version" in profile:
+                payload.setdefault("model_version", profile.get("model_version"))
+
+        try:
+            return ClassifierInfo(**payload)
+        except Exception as e:
+            logger.warning(
+                "Failed to build ClassifierInfo from execution_state",
+                extra={"error": str(e), "payload_keys": list(payload.keys())},
+            )
+            return None
+
+    # -----------------------------------------------------------------------
     # Graph cache helpers
     # -----------------------------------------------------------------------
 
@@ -710,6 +1099,64 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                 },
             )
             raise
+
+    async def _delete_conversation_state(self, conversation_id: str) -> None:
+        """Delete persisted conversation state from the database (best-effort)."""
+
+        logger.debug(
+            "Deleting conversation state...",
+            extra={
+                "event": "conversation_state.delete.start",
+                "conversation_id": conversation_id,
+            },
+        )
+
+        db_factory = await self._get_or_create_db_session_factory()
+        if db_factory is None:
+            logger.debug(
+                "DB session factory unavailable — conversation state NOT deleted.",
+                extra={
+                    "event": "conversation_state.delete.skipped",
+                    "conversation_id": conversation_id,
+                },
+            )
+            return
+
+        try:
+            async with db_factory.get_session() as session:
+                row = await session.get(ConversationState, conversation_id)
+
+                if not row:
+                    logger.debug(
+                        "No conversation state found to delete",
+                        extra={
+                            "event": "conversation_state.delete.none",
+                            "conversation_id": conversation_id,
+                        },
+                    )
+                    return
+
+                await session.delete(row)
+
+            logger.debug(
+                "Conversation state deleted successfully",
+                extra={
+                    "event": "conversation_state.delete.success",
+                    "conversation_id": conversation_id,
+                },
+            )
+
+        except Exception as e:
+            logger.error(
+                f"Failed to delete conversation state: {e}",
+                extra={
+                    "event": "conversation_state.delete.error",
+                    "conversation_id": conversation_id,
+                    "error_type": type(e).__name__,
+                },
+            )
+            # Do not re-raise: cancel() should still succeed for the caller.
+            return
 
     # -----------------------------------------------------------------------
     # API identity metadata
@@ -1270,9 +1717,18 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
         """
         workflow_id = str(uuid.uuid4())
         start_time = time.time()
-        correlation_id = request.correlation_id or f"req-{uuid.uuid4()}"
+
+        # 🔑 Distinguish between client-provided correlation and backend one
+        client_correlation_id = getattr(request, "correlation_id", None)
+        if not client_correlation_id:
+            client_correlation_id = f"req-{uuid.uuid4()}"
+
+        # Backend correlation_id is always unique per workflow
+        correlation_id = f"wf-{uuid.uuid4()}"
 
         # 🔑 Stable conversation identifier for continuity across turns (Option B)
+        # Track whether the client explicitly passed a conversation_id (wizard turns)
+        conversation_id_explicit = bool(getattr(request, "conversation_id", None))
         conversation_id: str = _resolve_conversation_id(request)
 
         # NEW: restore any per-conversation state (wizard, classifications, etc.)
@@ -1306,7 +1762,10 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
         # Base config passed into orchestrator; only meta fields added here.
         config: Dict[str, Any] = dict(original_execution_config)
         config["workflow_id"] = workflow_id
+        # 🔑 Backend correlation ID (unique per workflow)
         config["correlation_id"] = correlation_id
+        # 🔑 Preserve client correlation separately for tracing/status
+        config["client_correlation_id"] = client_correlation_id
 
         # Seed execution_state so the classifier and orchestrator share it
         execution_state: Dict[str, Any] = dict(
@@ -1317,6 +1776,10 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
         if restored_conversation_state:
             execution_state.update(restored_conversation_state)
 
+        # 🔑 Ensure IDs are visible in execution_state
+        execution_state["workflow_id"] = workflow_id
+        execution_state["correlation_id"] = correlation_id
+        execution_state["client_correlation_id"] = client_correlation_id
         # 🔑 Ensure conversation_id is visible in execution_state (authoritative)
         execution_state["conversation_id"] = conversation_id
 
@@ -1326,17 +1789,179 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
         config["thread_id"] = conversation_id
 
         # ----------------------------------------------------------------
+        # NEW: small helper to mirror classifier into execution_state
+        # ----------------------------------------------------------------
+        def _attach_classifier_to_execution_state(
+            profile: Dict[str, Any] | None,
+        ) -> None:
+            """
+            Push classifier outputs into execution_state so orchestrator + nodes
+            can read them from ExecutionState (not just config["classifier"]).
+            """
+            if not isinstance(profile, dict):
+                return
+
+            # Canonical copies
+            execution_state["classifier_result"] = profile
+            execution_state["classifier_profile"] = profile
+
+            # Optional explicit fields, only if not already set by caller/upstream
+            tc = profile.get("task_classification")
+            cc = profile.get("cognitive_classification")
+
+            if tc is not None and execution_state.get("task_classification") is None:
+                execution_state["task_classification"] = tc
+            if cc is not None and execution_state.get(
+                "cognitive_classification"
+            ) is None:
+                execution_state["cognitive_classification"] = cc
+
+        # ----------------------------------------------------------------
+        # NEW: detect if this is a mid-flight data_query wizard turn
+        # ----------------------------------------------------------------
+        wizard_state = None
+        wizard_in_progress = False
+
+        ws = execution_state.get("wizard") or execution_state.get("wizard_state")
+        if isinstance(ws, dict):
+            wizard_state = ws
+            op = (ws.get("operation") or "").lower()
+            pending = (ws.get("pending_action") or "").lower()
+
+            is_crud_op = op in {"read", "create", "update", "delete", "list"}
+            # Consider wizard "in progress" when we still have some pending action
+            is_pending = pending not in {
+                "",
+                "done",
+                "complete",
+                "completed",
+                "end",
+                "cancel",
+                "cancelled",
+            }
+
+            # Only treat this as a wizard turn if the client explicitly pinned the conversation
+            if is_crud_op and is_pending and conversation_id_explicit:
+                wizard_in_progress = True
+
+                logger.info(
+                    "[orchestration_api] Detected in-progress data_query wizard turn; enabling fast-path",
+                    extra={
+                        "event": "wizard_turn_detected",
+                        "conversation_id": conversation_id,
+                        "operation": op,
+                        "pending_action": pending,
+                    },
+                )
+
+        # ----------------------------------------------------------------
         # Classifier as PRE-STEP (via ClassificationService)
         # ----------------------------------------------------------------
-        classifier_profile = await self._classification_service.classify(
-            request.query,
-            config,
-        )
+        if wizard_in_progress and wizard_state is not None:
+            # Fast-path: synthesize a classifier profile instead of calling the LLM
+            op = (wizard_state.get("operation") or "read").lower()
+            collection = (
+                wizard_state.get("collection")
+                or wizard_state.get("table_name")
+                or "data_query"
+            )
 
-        config.setdefault("prestep", {})
-        config["prestep"]["classifier"] = classifier_profile
-        config["classifier"] = classifier_profile  # optional legacy convenience
-        config.setdefault("routing_source", "caller_with_classifier_prestep")
+            classifier_profile = {
+                "intent": op,  # e.g. "read"
+                "confidence": 0.99,
+                "domain": "data_systems",
+                "domain_confidence": 0.99,
+                "topic": collection,
+                "topic_confidence": 0.8,
+                "topics": [collection],
+                "sub_intent": None,
+                "sub_intent_confidence": None,
+                "labels": None,
+                "raw": None,
+                "model_version": "wizard-shortcut",
+                "original_text": request.query,
+                "normalized_text": request.query,
+                "query_terms": [],
+            }
+
+            logger.info(
+                "[orchestration_api] Skipping classifier/refiner for in-progress data_query wizard turn",
+                extra={
+                    "event": "wizard_fast_path",
+                    "conversation_id": conversation_id,
+                    "operation": op,
+                    "collection": collection,
+                },
+            )
+
+            # 🔹 Tell GraphFactory/orchestrator this is a data_query-only turn
+            #    so it WON'T schedule 'refiner'.
+            request.agents = ["data_query"]
+            config["agents"] = ["data_query"]
+            execution_state["planned_agents"] = ["data_query"]
+            execution_state["graph_pattern"] = "data_query"
+            config["graph_pattern"] = "data_query"
+
+            # Optional: turn off RAG / intent-based routing
+            config.setdefault("use_rag", False)
+            config.setdefault("use_llm_intent", False)
+
+            config.setdefault("prestep", {})
+            config["prestep"]["classifier"] = classifier_profile
+            config["classifier"] = classifier_profile
+            config.setdefault("routing_source", "wizard_fast_path")
+
+            # NEW: mirror classifier into execution_state for orchestrator/agents
+            _attach_classifier_to_execution_state(classifier_profile)
+
+        else:
+            # Normal path: run classifier and (optionally) RAG + refiner
+            classifier_profile = await self._classification_service.classify(
+                request.query,
+                config,
+            )
+
+            # 🔹 clear stale wizard for non-CRUD, no explicit conversation_id
+            try:
+                intent = (classifier_profile or {}).get("intent", "") or ""
+                domain = (classifier_profile or {}).get("domain", "") or ""
+
+                crud_intents = {"create", "read", "update", "delete", "list"}
+                data_domains = {"data_systems", "data_query", "wizard", "crud"}
+
+                is_crud_intent = intent.lower() in crud_intents
+                is_data_domain = domain.lower() in data_domains
+                is_crud_or_data_query = is_crud_intent or is_data_domain
+
+                if (not is_crud_or_data_query) and (not conversation_id_explicit):
+                    if "wizard" in execution_state or "wizard_state" in execution_state:
+                        logger.info(
+                            "[orchestration_api] Clearing stale wizard state for non-CRUD query",
+                            extra={
+                                "event": "wizard_state.cleared_for_non_crud",
+                                "conversation_id": conversation_id,
+                                "intent": intent,
+                                "domain": domain,
+                            },
+                        )
+                    execution_state.pop("wizard", None)
+                    execution_state.pop("wizard_state", None)
+            except Exception as wizard_clear_exc:
+                logger.warning(
+                    "[orchestration_api] Failed to evaluate/clear wizard state",
+                    extra={
+                        "event": "wizard_state.clear_error",
+                        "error": str(wizard_clear_exc),
+                    },
+                )
+
+            config.setdefault("prestep", {})
+            config["prestep"]["classifier"] = classifier_profile
+            config["classifier"] = classifier_profile  # optional legacy convenience
+            config.setdefault("routing_source", "caller_with_classifier_prestep")
+
+            # NEW: mirror classifier into execution_state for orchestrator/agents
+            _attach_classifier_to_execution_state(classifier_profile)
 
         # Ensure exec_state is always defined, even if an early exception occurs
         exec_state: Dict[str, Any] = {}
@@ -1350,6 +1975,7 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                 extra={
                     "conversation_id": conversation_id,
                     "correlation_id": correlation_id,
+                    "client_correlation_id": client_correlation_id,
                 },
             )
 
@@ -1368,16 +1994,25 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                 agents=agents_for_event,
                 execution_config=original_execution_config,
                 correlation_id=correlation_id,
-                metadata={"api_version": self.api_version, "start_time": start_time},
+                metadata={
+                    "api_version": self.api_version,
+                    "start_time": start_time,
+                    "client_correlation_id": client_correlation_id,
+                },
             )
 
-            # In-memory tracking for status
             self._active_workflows[workflow_id] = {
                 "status": "running",
                 "request": request,
                 "start_time": start_time,
                 "workflow_id": workflow_id,
+                # 🔑 Track both IDs for status lookups
+                "client_correlation_id": client_correlation_id,
+                "backend_correlation_id": correlation_id,
+                # 🔑 Also track the conversation_id so cancel() can clear its state
+                "conversation_id": conversation_id,
             }
+
             self._total_workflows += 1
 
             # ----------------------------------------------------------------
@@ -1397,6 +2032,7 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                     extra={
                         "workflow_id": workflow_id,
                         "correlation_id": correlation_id,
+                        "client_correlation_id": client_correlation_id,
                     },
                 )
                 result_context = await AdvancedOrchestratorAdapter().run(
@@ -1408,6 +2044,7 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                     extra={
                         "workflow_id": workflow_id,
                         "correlation_id": correlation_id,
+                        "client_correlation_id": client_correlation_id,
                         "conversation_id": conversation_id,
                         "caller_agents": agents_for_event,
                         "graph_pattern": original_execution_config.get(
@@ -1463,6 +2100,19 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
             except Exception:
                 exec_state = {}
 
+            # 🔄 Dedupe any sources inside structured_outputs in-place
+            try:
+                structured_outputs = exec_state.get("structured_outputs")
+                if isinstance(structured_outputs, Mapping):
+                    exec_state["structured_outputs"] = _apply_sources_dedupe_to_agent_outputs(
+                        dict(structured_outputs)
+                    )
+            except Exception as so_exc:
+                logger.warning(
+                    "[orchestration_api] failed to dedupe structured_outputs.sources",
+                    extra={"error": str(so_exc)},
+                )
+
             # NEW: persist wizard-related state for this conversation (if any)
             try:
                 # Prefer the *final* execution_state from the workflow result
@@ -1481,14 +2131,12 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
 
                 # 🔑 Look for wizard state under both modern and legacy keys
                 wizard_state = (
-                        state_to_persist.get("wizard")
-                        or state_to_persist.get("wizard_state")
+                    state_to_persist.get("wizard") or state_to_persist.get("wizard_state")
                 )
 
                 minimal_state: Dict[str, Any] = {
                     "classifier_result": (
-                            state_to_persist.get("classifier_result")
-                            or classifier_profile
+                        state_to_persist.get("classifier_result") or classifier_profile
                     ),
                     "task_classification": state_to_persist.get(
                         "task_classification"
@@ -1600,6 +2248,9 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                         iter(agent_outputs_internal.items())
                     )
 
+            # 🔄 Dedupe sources on the chosen final_answer (if it has a 'sources' list)
+            final_answer = _dedupe_sources_in_payload(final_answer)
+
             # ----------------------------------------------------------------
             # Build internal WorkflowResult and stash in execution_state
             # ----------------------------------------------------------------
@@ -1629,6 +2280,33 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
             # ----------------------------------------------------------------
             agent_outputs_for_response = _build_agent_outputs_for_response(exec_state)
 
+            # 🔹 Deduplicate sources in each agent's response payload (by filename)
+            agent_outputs_for_response = _apply_sources_dedupe_to_agent_outputs(
+                agent_outputs_for_response
+            )
+
+            # ----------------------------------------------------------------
+            # Build classifier payload for v1 HTTP response
+            # ----------------------------------------------------------------
+            classifier_result_state = exec_state.get("classifier_result")
+            classifier_profile_state = exec_state.get("classifier_profile")
+
+            # Prefer execution_state values; fall back to local classifier_profile
+            effective_classifier_result = classifier_result_state or classifier_profile
+            effective_classifier_profile = classifier_profile_state or classifier_profile
+
+            # Keep _query_profile behavior for existing frontend
+            if (
+                isinstance(agent_output_meta, dict)
+                and effective_classifier_profile is not None
+            ):
+                agent_output_meta.setdefault(
+                    "_query_profile", effective_classifier_profile
+                )
+
+            # Build strongly-typed ClassifierInfo for the external schema
+            classifier_info = self._build_classifier_info_from_state(exec_state)
+
             # Decide status
             # Only allowed values: completed | failed | running | cancelled
             status = (
@@ -1653,7 +2331,32 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                 conversation_id=response_conversation_id,
                 error_message=None if status == "completed" else "No agent outputs",
                 markdown_export=markdown_export,
+                classifier=classifier_info,
             )
+
+            # ----------------------------------------------------------------
+            # Final safety pass: ensure no duplicate sources leak to the client
+            # ----------------------------------------------------------------
+            try:
+                # Dedupe sources in top-level answer
+                response.answer = _dedupe_sources_in_payload(response.answer)
+
+                # Dedupe sources in agent_outputs
+                if isinstance(response.agent_outputs, Mapping):
+                    response.agent_outputs = _apply_sources_dedupe_to_agent_outputs(
+                        dict(response.agent_outputs)
+                    )
+
+                # Dedupe sources anywhere inside execution_state we expose
+                if isinstance(response.execution_state, Mapping):
+                    response.execution_state = _dedupe_sources_in_payload(
+                        dict(response.execution_state)
+                    )
+            except Exception as final_dedupe_exc:
+                logger.warning(
+                    "[orchestration_api] final sources dedupe pass failed",
+                    extra={"error": str(final_dedupe_exc)},
+                )
 
             # ----------------------------------------------------------------
             # Optional markdown export (delegated to MarkdownExportService)
@@ -1704,7 +2407,13 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                 )
 
             self._active_workflows[workflow_id].update(
-                {"status": "completed", "response": response, "end_time": time.time()}
+                {
+                    "status": "completed",
+                    "response": response,
+                    "end_time": time.time(),
+                    # Mirror backend correlation into record (defensive)
+                    "backend_correlation_id": correlation_id,
+                }
             )
 
             await emit_workflow_completed(
@@ -1717,6 +2426,7 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                     "api_version": self.api_version,
                     "end_time": time.time(),
                     "agent_output_meta": agent_output_meta,
+                    "client_correlation_id": client_correlation_id,
                 },
             )
 
@@ -1729,7 +2439,11 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
             execution_time = time.time() - start_time
 
             logger.error(
-                f"Workflow {workflow_id} failed after {execution_time:.2f}s: {e}"
+                f"Workflow {workflow_id} failed after {execution_time:.2f}s: {e}",
+                extra={
+                    "correlation_id": correlation_id,
+                    "client_correlation_id": client_correlation_id,
+                },
             )
 
             # Sanitize exec_state for error response
@@ -1790,6 +2504,7 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                         "response": error_response,
                         "error": str(e),
                         "end_time": time.time(),
+                        "backend_correlation_id": correlation_id,
                     }
                 )
 
@@ -1800,7 +2515,11 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
                 error_message=str(e),
                 error_type=type(e).__name__,
                 correlation_id=correlation_id,
-                metadata={"api_version": self.api_version, "end_time": time.time()},
+                metadata={
+                    "api_version": self.api_version,
+                    "end_time": time.time(),
+                    "client_correlation_id": client_correlation_id,
+                },
             )
 
             return error_response
@@ -1846,6 +2565,10 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
     async def cancel_workflow(self, workflow_id: str) -> bool:
         """
         Cancel a running workflow (soft-cancel only).
+
+        Additionally, best-effort delete any persisted conversation state
+        associated with this workflow's conversation_id so the next turn
+        starts with a fresh thread.
         """
         if workflow_id not in self._active_workflows:
             return False
@@ -1855,11 +2578,36 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
         if workflow["status"] in ["completed", "failed"]:
             return False
 
+        # 🔹 Best-effort: clear any persisted per-conversation state
+        conversation_id = workflow.get("conversation_id")
+        if isinstance(conversation_id, str) and conversation_id.strip():
+            try:
+                await self._delete_conversation_state(conversation_id)
+                logger.info(
+                    "[orchestration_api] Cleared conversation state on cancel",
+                    extra={
+                        "event": "conversation_state.cleared_on_cancel",
+                        "conversation_id": conversation_id,
+                        "workflow_id": workflow_id,
+                    },
+                )
+            except Exception as conv_exc:
+                logger.warning(
+                    "[orchestration_api] Failed to clear conversation state on cancel",
+                    extra={
+                        "event": "conversation_state.clear_on_cancel_failed",
+                        "conversation_id": conversation_id,
+                        "workflow_id": workflow_id,
+                        "error": str(conv_exc),
+                    },
+                )
+
         workflow["status"] = "cancelled"
         workflow["end_time"] = time.time()
 
         logger.info(f"Workflow {workflow_id} marked as cancelled")
 
+        # Give the orchestrator a moment to observe cancellation signals
         await asyncio.sleep(1)
 
         if workflow_id in self._active_workflows:
@@ -1981,10 +2729,22 @@ class LangGraphOrchestrationAPI(OrchestrationAPI):
             return []
 
     def find_workflow_by_correlation_id(self, correlation_id: str) -> Optional[str]:
+        """
+        Find a workflow by either:
+        - the client-provided correlation_id on the original request
+        - the stored client_correlation_id
+        - the backend correlation_id (the one on WorkflowResponse / DB)
+        """
         for workflow_id, workflow_data in self._active_workflows.items():
             req = workflow_data.get("request")
-            if req and getattr(req, "correlation_id", None) == correlation_id:
+
+            req_corr = getattr(req, "correlation_id", None) if req else None
+            client_corr = workflow_data.get("client_correlation_id")
+            backend_corr = workflow_data.get("backend_correlation_id")
+
+            if correlation_id in {req_corr, client_corr, backend_corr}:
                 return workflow_id
+
         return None
 
     @ensure_initialized

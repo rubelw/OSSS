@@ -193,7 +193,7 @@ class SklearnIntentClassifierAgent(BaseAgent):
           /workspace/OSSS/ai/agents/...
         """
         # NEW DEFAULT: domain+topic+intent bundle
-        rel = Path("scripts") / "models" / "domain_topic_intent_classifier.joblib"
+        rel = Path("data_model") / "classifier" / "domain_topic_classifier" / "models" / "domain_topic_intent_classifier.joblib"
         here = Path(__file__).resolve()
 
         for base in [here] + list(here.parents):

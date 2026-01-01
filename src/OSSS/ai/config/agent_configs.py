@@ -106,6 +106,7 @@ class RefinerConfig(BaseModel):
     """Configuration for RefinerAgent behavior and prompt composition."""
 
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
+    joblib_model_path: Optional[str] = None
 
     # Behavioral settings
     refinement_level: Literal["minimal", "standard", "detailed", "comprehensive"] = (
@@ -117,6 +118,8 @@ class RefinerConfig(BaseModel):
     output_format: Literal["raw", "prefixed", "structured"] = Field(
         "structured", description="Format for refined query output"
     )
+
+    joblib_model_path: Optional[str] = None
 
     # Nested configurations
     prompt_config: PromptConfig = Field(default_factory=PromptConfig)

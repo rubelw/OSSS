@@ -22,7 +22,7 @@ class ClassificationService:
 
     def __init__(
         self,
-        model_path: str = "/workspace/scripts/models/domain_topic_intent_classifier.joblib",
+        model_path: str = "/workspace/data_model/classifier/domain_topic_classifier/models/domain_topic_intent_classifier.joblib",
         model_version: str = "v1",
     ) -> None:
         self._model_path = model_path

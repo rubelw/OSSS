@@ -154,11 +154,11 @@ class WorkflowPersistenceService:
         return factory  # type: ignore[return-value]
 
     async def persist_success(
-        self,
-        request: Any,
-        response: Any,
-        workflow_id: str,
-        original_execution_config: Dict[str, Any],
+            self,
+            request: Any,
+            response: Any,
+            workflow_id: str,
+            original_execution_config: Dict[str, Any],
     ) -> None:
         """
         Persist a successful workflow execution.
@@ -196,38 +196,44 @@ class WorkflowPersistenceService:
         # Best-effort extraction of nodes actually executed
         nodes_executed: List[str] = list(raw_agent_outputs.keys())
 
+        # 🔑 Option A: use the *response* correlation_id as the authoritative one
+        correlation_id = (
+                getattr(response, "correlation_id", None)
+                or getattr(request, "correlation_id", None)
+        )
+
         try:
             async with factory.get_session() as session:
                 question_repo = QuestionRepository(session)
                 await question_repo.create_question(
                     query=getattr(request, "query", None),
-                    correlation_id=getattr(request, "correlation_id", None),
+                    correlation_id=correlation_id,
                     execution_id=workflow_id,
                     nodes_executed=nodes_executed,
                     execution_metadata=execution_metadata,
                 )
             logger.info(
                 "Workflow persisted to database",
-                extra={"workflow_id": workflow_id},
+                extra={"workflow_id": workflow_id, "correlation_id": correlation_id},
             )
         except Exception as e:
             logger.warning(
                 "Workflow persistence failed; continuing without DB persistence",
                 extra={
                     "workflow_id": workflow_id,
-                    "correlation_id": getattr(request, "correlation_id", None),
+                    "correlation_id": correlation_id,
                     "error": str(e),
                 },
                 exc_info=True,
             )
 
     async def persist_failure(
-        self,
-        request: Any,
-        response: Optional[Any],
-        workflow_id: str,
-        error_message: str,
-        original_execution_config: Dict[str, Any],
+            self,
+            request: Any,
+            response: Optional[Any],
+            workflow_id: str,
+            error_message: str,
+            original_execution_config: Dict[str, Any],
     ) -> None:
         """
         Persist a failed workflow execution.
@@ -267,26 +273,33 @@ class WorkflowPersistenceService:
             "error_message": error_message,
         }
 
+        # 🔑 Option A: again, prefer response.correlation_id if present
+        correlation_id = None
+        if response is not None:
+            correlation_id = getattr(response, "correlation_id", None)
+        if correlation_id is None:
+            correlation_id = getattr(request, "correlation_id", None)
+
         try:
             async with factory.get_session() as session:
                 question_repo = QuestionRepository(session)
                 await question_repo.create_question(
                     query=getattr(request, "query", None),
-                    correlation_id=getattr(request, "correlation_id", None),
+                    correlation_id=correlation_id,
                     execution_id=workflow_id,
                     nodes_executed=nodes_executed,
                     execution_metadata=execution_metadata,
                 )
             logger.info(
                 "Failed workflow persisted to database",
-                extra={"workflow_id": workflow_id},
+                extra={"workflow_id": workflow_id, "correlation_id": correlation_id},
             )
         except Exception as e:
             logger.warning(
                 "Failed-workflow persistence errored; continuing without DB persistence",
                 extra={
                     "workflow_id": workflow_id,
-                    "correlation_id": getattr(request, "correlation_id", None),
+                    "correlation_id": correlation_id,
                     "original_error": error_message,
                     "persistence_error": str(e),
                 },

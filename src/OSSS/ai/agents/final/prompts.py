@@ -15,11 +15,8 @@ USER QUESTION:
 {user_question}
 {refiner_block}
 
-RETRIEVED CONTEXT (RAG):
-{rag_section}{rag_metadata_block}
-
-DATA_QUERY TABLES (if any):
-{data_query_block}{data_query_metadata_block}
+RAG CONTEXT:
+{rag_section}{data_query_section}
 
 Now produce the final answer for the end user.
 """
@@ -34,7 +31,7 @@ Your responsibilities:
 4. Respect all safety and factuality constraints described below.
 
 You will see a field called RAG_SNIPPET_PRESENT in the user message:
-- If RAG_SNIPPET_PRESENT is "True", then the RETRIEVED CONTEXT (RAG) section
+- If RAG_SNIPPET_PRESENT is "True", then the RAG CONTEXT section
   contains context that you MAY rely on as long as you quote or summarize it accurately.
 - If RAG_SNIPPET_PRESENT is "False", then no reliable retrieved context is available.
   In that case you MUST NOT claim that you used retrieved documents or context.
@@ -43,7 +40,7 @@ Structured data-query mode (ABSOLUTE RULES):
 - If the USER QUESTION begins with the token "query " (any casing):
   - Treat this as a structured data query.
   - Ignore any "REFINER CONTEXT" section if present.
-  - Ignore the RETRIEVED CONTEXT (RAG) section entirely.
+  - Ignore the RAG CONTEXT section entirely.
   - If any markdown table(s) are present in the prompt (for example from a data_query
     agent), you MUST respond by outputting ONLY those table(s), unchanged.
   - You MUST NOT add:
@@ -75,7 +72,7 @@ ROLE-IDENTITY SAFETY RULES (CRITICAL):
   such role-identity questions with any specific name at all.
 
 RAG usage:
-- Only treat text in the RETRIEVED CONTEXT (RAG) section as retrieved context.
+- Only treat text in the RAG CONTEXT section as retrieved context.
 - Do not fabricate citations or claim you saw information that is not actually
   present in the RAG section or the user question.
 - If the RAG section says no relevant context was found, behave as if you have
@@ -93,7 +90,10 @@ Your output:
 
 def _normalize_rag_metadata(meta: Any) -> str:
     """
-    Ensure rag_metadata is rendered as a readable string for the prompt.
+    Kept for backward compatibility, but NOTE:
+    - We no longer inject RAG or data_query metadata into the LLM prompt
+      to reduce token usage and improve latency.
+    - Callers may still use this helper for logging or debugging outside of prompts.
 
     Accepts:
     - str: returned as-is (stripped)
@@ -119,7 +119,8 @@ def build_final_prompt(
     original_user_question: str | None = None,
     data_query_markdown: str | None = None,
     *,
-    # NEW: optional config + metadata so prompt_composer can control behavior
+    # Optional config + metadata; currently not injected into the prompt body
+    # to keep token counts lower, but retained for API compatibility.
     config: "FinalConfig | None" = None,
     rag_metadata: Any | None = None,
     data_query_metadata: Any | None = None,
@@ -152,7 +153,7 @@ def build_final_prompt(
     ):
         lines: List[str] = [
             "",
-            "REFINER CONTEXT (may help disambiguate / improve search terms):",
+            "REFINER CONTEXT (for disambiguation):",
             refiner_text,
         ]
         refiner_block = "\n".join(lines)
@@ -164,49 +165,22 @@ def build_final_prompt(
         # Hard-disable RAG for structured lexical "query ..." requests
         rag_present_for_prompt = False
         rag_section_final = "No retrieved context provided."
-        # Also ignore rag_metadata in this mode (even if config says to include)
-        rag_metadata_block = ""
     else:
         rag_present_for_prompt = bool(rag_present)
         rag_section_final = (rag_section or "").strip() or "No retrieved context provided."
 
-        # Optional RAG metadata block, controlled by FinalConfig
-        include_rag_meta = bool(getattr(config, "include_rag_metadata", False)) if config else False
-        if include_rag_meta and rag_metadata is not None:
-            rag_metadata_str = _normalize_rag_metadata(rag_metadata)
-            rag_metadata_block = ""
-            if rag_metadata_str:
-                rag_metadata_block = "\n\nRAG METADATA:\n" + rag_metadata_str
-        else:
-            rag_metadata_block = ""
-
     # ---- data_query tables block ---------------------------------------------
     dq = (data_query_markdown or "").strip()
     if dq:
-        data_query_block = dq
+        # Only include this section if we actually have tables to show
+        data_query_section = f"\n\nDATA QUERY TABLES:\n{dq}"
     else:
-        data_query_block = "[no data_query tables available]"
-
-    # Optional data_query metadata (e.g., collection name, URL, row_count, etc.)
-    include_dq_meta = bool(
-        getattr(config, "include_data_query_metadata", False)
-    ) if config else False
-
-    if include_dq_meta and data_query_metadata is not None:
-        dq_meta_str = _normalize_rag_metadata(data_query_metadata)
-        if dq_meta_str:
-            data_query_metadata_block = "\n\nDATA_QUERY METADATA:\n" + dq_meta_str
-        else:
-            data_query_metadata_block = ""
-    else:
-        data_query_metadata_block = ""
+        data_query_section = ""
 
     return FINAL_USER_PROMPT_TEMPLATE.format(
         rag_present=str(rag_present_for_prompt),
         user_question=uq,
         refiner_block=refiner_block,
         rag_section=rag_section_final,
-        rag_metadata_block=rag_metadata_block,
-        data_query_block=data_query_block,
-        data_query_metadata_block=data_query_metadata_block,
+        data_query_section=data_query_section,
     )
