@@ -62,6 +62,10 @@ nav:
 
 plugins:
   - search
+  - gen-files:
+      scripts:
+        - tooling/export_openapi.py
+        - tooling/generate_all_docs.py
   - mkdocstrings:
       default_handler: python
       handlers:
@@ -71,10 +75,6 @@ plugins:
             docstring_style: google
             show_source: false
             members_order: source
-  - gen-files:
-      scripts:
-        - tooling/export_openapi.py
-        - tooling/generate_all_docs.py
   - section-index
 
 markdown_extensions:
