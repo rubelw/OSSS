@@ -31,7 +31,7 @@ site_dir: site
 docs_dir: docs
 
 nav:
-  - Overview: index.md
+  - Home: index.md
   - Job Positions Being Automated: job_descriptions/INDEX.md
   - Frontend (Next.js):
       - Overview: frontend/overview.md
@@ -42,6 +42,13 @@ nav:
       # - API (Python):
       #     - Index: api/python/index.md
       #     - OSSS package: api/python/OSSS.md
+  - Python API:
+      - Overview: api/python/index.md
+      - Modules: api/python/SUMMARY.md
+  - Web API:
+      - api/web/index.md
+  - REST API:
+      - api/rest/index.md
 
 plugins:
   - search
@@ -57,7 +64,7 @@ plugins:
   - gen-files:
       scripts:
         - tooling/export_openapi.py
-        - tooling/generate_docs.py
+        - tooling/generate_all_docs.py
   - literate-nav
   - section-index
 
