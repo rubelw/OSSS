@@ -1,0 +1,16 @@
+/* Widen the overall Material content grid site-wide */
+.md-grid {
+  max-width: 100%;           /* or 1200px / 1440px / 90rem — your choice */
+}
+
+/* If a right-hand TOC exists, hide it on wide layouts (optional) */
+@media (min-width: 76.25em) { /* ~1220px */
+  .md-sidebar--secondary { display: none; }
+  .md-content { margin-right: 0; }
+}
+
+/* Let ReDoc use the full line length */
+#redoc-container {
+  margin: 0;
+  padding: 0;
+}

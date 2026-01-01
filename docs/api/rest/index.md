@@ -1,13 +1,4 @@
-# tooling/generate_openapi_page.py
-
-from pathlib import Path
-
-def main() -> None:
-    path = Path("docs/api/rest/index.md")
-    path.parent.mkdir(parents=True, exist_ok=True)
-
-    path.write_text(
-        """# REST API
+# REST API
 
 OSSS exposes a REST/JSON API described by an OpenAPI schema and served via the FastAPI app.
 
@@ -47,9 +38,3 @@ OSSS is designed for internal school/district use. If you are exposing the API e
 - Put OSSS behind a reverse proxy (e.g., NGINX, Envoy).
 - Configure any rate limiting and WAF rules at the proxy layer.
 - Monitor usage via OSSS audit logs and your infrastructure metrics.
-""",
-        encoding="utf-8",
-    )
-
-if __name__ == "__main__":
-    main()

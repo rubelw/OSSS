@@ -24,14 +24,18 @@ EXPLICIT_SKIP = {
     "OSSS.schemas",
     "OSSS.agents.metagpt_agent",
     "OSSS.ai.api.schemas.query_response",
+    "OSSS.core.config",  # <-- NEW: skip this module for mkdocstrings
+    "OSSS.middleware.session_ttl",
+    "OSSS.services.google_client",
 }
 
 # Whole subtrees we skip (module_name.startswith(prefix))
 SKIP_PREFIXES = (
     "OSSS.ai.api.",                 # skip all OSSS.ai.api.* modules for mkdocstrings in CI
     "OSSS.ai.orchestration.nodes.", # skip orchestration nodes (heavy deps)
+    "OSSS.ai.database.migrations.", # skip AI/db migrations (Alembic-style)
     "OSSS.db.migrations.data.",     # skip alembic data seed helpers
-    "OSSS.tests.utils.",            # skip test utils
+    "OSSS.tests.",            # skip test utils
     # add more prefixes here if needed
 )
 
@@ -130,7 +134,8 @@ for py_file in sorted(PKG_DIR.rglob("*.py")):
             f.write(
                 "*(API docs for this module are disabled in the MkDocs build "
                 "because it cannot be safely imported in the docs environment "
-                "or is part of an excluded subtree.)*\n"
+                "or is part of an excluded subtree such as migrations, tests, "
+                "or heavy runtime modules.)*\n"
             )
         else:
             f.write(f"::: {module_name}\n")

@@ -245,10 +245,11 @@ class GraphDefinition(BaseModel):
 # ===========================================================================
 class GraphValidationError(Exception):
     """
-    Raised when graph validation fails.
-
-    This distinguishes "graph construction/configuration problems"
-    from other runtime exceptions.
+    Raises:
+        ValueError: No agents are provided.
+        ValueError: Edge references missing nodes.
+        ValueError: Cycles are detected.
+        ValueError: Entry/exit points are invalid.
     """
     pass
 
