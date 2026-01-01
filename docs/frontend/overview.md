@@ -151,11 +151,12 @@ If you proxy a backend during development, confirm `next.config.js` rewrites (e.
 
 ## Related Docs
 
-- [`app/` directory](../app/) – App Router overview  
-- [`app/api/auth/`](../api/auth/) – NextAuth routes & handlers  
-- [`components/`](../components/) – Shared UI components  
-- [`lib/`](../lib/) – Utilities and integrations  
-- [`types/`](../types/) – Shared TS types
+- [`app/ directory`](app.md)
+- [`app/api/auth/`](api/auth/README.md)
+- [`components/`](components/README.components.md)
+- [`lib/`](lib/README.lib.md)
+- [`types/`](types/README.types.md)
+
 ---
 
 ## Links

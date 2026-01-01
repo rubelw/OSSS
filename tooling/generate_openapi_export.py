@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 # tooling/export_openapi.py
 """
 Generate the OpenAPI schema for the OSSS FastAPI backend and expose it
@@ -25,19 +27,83 @@ def _missing(pkg: str) -> bool:
     return importlib.util.find_spec(pkg) is None
 
 
+def _write_stub(reason: str) -> None:
+    """Write a minimal stub OpenAPI page so docs still build."""
+    print(f"[docs] Writing stub OpenAPI docs (reason: {reason})")
+
+    try:
+        import mkdocs_gen_files as gen
+
+        stub_spec = {
+            "openapi": "3.0.0",
+            "info": {
+                "title": "OSSS API (stub)",
+                "version": "0.0.0",
+                "description": f"Stub OpenAPI schema generated because: {reason}",
+            },
+            "paths": {},
+        }
+
+        with gen.open("backend/openapi.json", "w") as f:
+            json.dump(stub_spec, f, indent=2)
+
+        with gen.open("backend/openapi.md", "w") as f:
+            f.write("# OSSS OpenAPI schema (stub)\n\n")
+            f.write(
+                "The real backend could not be imported when building docs, "
+                "so a minimal stub schema was generated instead.\n\n"
+            )
+            f.write("```json\n")
+            json.dump(stub_spec, f, indent=2)
+            f.write("\n```\n")
+
+    except Exception:
+        # Fallback to writing directly into docs/backend
+        os.makedirs("docs/backend", exist_ok=True)
+        json_path = os.path.join("docs", "backend", "openapi.json")
+        md_path = os.path.join("docs", "backend", "openapi.md")
+
+        stub_spec = {
+            "openapi": "3.0.0",
+            "info": {
+                "title": "OSSS API (stub)",
+                "version": "0.0.0",
+                "description": f"Stub OpenAPI schema generated because: {reason}",
+            },
+            "paths": {},
+        }
+
+        with open(json_path, "w") as f:
+            json.dump(stub_spec, f, indent=2)
+
+        with open(md_path, "w") as f:
+            f.write("# OSSS OpenAPI schema (stub)\n\n")
+            f.write(
+                "The real backend could not be imported when building docs, "
+                "so a minimal stub schema was generated instead.\n\n"
+            )
+            f.write("```json\n")
+            json.dump(stub_spec, f, indent=2)
+            f.write("\n```\n")
+
+        print(f"[docs] Stub OpenAPI spec generated on disk: {json_path}, {md_path}")
+
+
 # ---------------------------------------------------------------------------
 # 2. Only run if core backend deps are available
 # ---------------------------------------------------------------------------
 
 if any(_missing(p) for p in ("fastapi", "pydantic_settings", "sqlalchemy")):
-    print("[docs] Skipping OpenAPI export (backend deps missing).")
+    _write_stub("backend dependencies missing")
     sys.exit(0)
 
 try:
     from OSSS.main import app  # FastAPI app
     from fastapi.openapi.utils import get_openapi
 except Exception as e:
-    print(f"[docs] Skipping OpenAPI export: {e}")
+    # 🔁 Instead of just skipping, write a stub
+    print(f"[docs] Skipping real OpenAPI export: {e}")
+    _write_stub(str(e))
     sys.exit(0)
 
 # ---------------------------------------------------------------------------
@@ -76,7 +142,6 @@ try:
 
 except Exception:
     # Fallback for local runs without mkdocs-gen-files context.
-    # This writes into the real docs/ tree so MkDocs can still see it.
     os.makedirs("docs/backend", exist_ok=True)
 
     json_path = os.path.join("docs", "backend", "openapi.json")

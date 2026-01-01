@@ -64,7 +64,7 @@ plugins:
   - search
   - gen-files:
       scripts:
-        - tooling/export_openapi.py
+        - tooling/generate_openapi_export.py
         - tooling/generate_all_docs.py
         - tooling/generate_docker_compose_docs.py
   - mkdocstrings:

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
 Generate docs/backend/docker-compose.md from docker-compose.yml
-for MkDocs + gen-files.
+for MkDocs + gen-files, and per-service docs under docs/backend/docker/.
 """
 
 from __future__ import annotations
@@ -9,7 +9,14 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Mapping, Iterable
 
-import yaml
+import sys
+
+try:
+    import yaml
+except ImportError as exc:  # pragma: no cover
+    # Fail loudly so MkDocs logs show what's wrong
+    print("[docker-compose-docs] ERROR: PyYAML is not installed. Run `pip install pyyaml`.", file=sys.stderr)
+    raise
 
 
 def _format_list(title: str, values: Iterable[str]) -> list[str]:
@@ -51,8 +58,12 @@ def _format_env(env: Any) -> list[str]:
     return lines
 
 
-def _format_service(name: str, cfg: Mapping[str, Any]) -> list[str]:
-    lines: list[str] = [f"## `{name}`", ""]
+def _service_body_lines(name: str, cfg: Mapping[str, Any]) -> list[str]:
+    """
+    Core description for a single service (without the H1).
+    Reused by both overview page sections and per-service pages.
+    """
+    lines: list[str] = []
 
     image = cfg.get("image")
     container_name = cfg.get("container_name")
@@ -108,12 +119,33 @@ def _format_service(name: str, cfg: Mapping[str, Any]) -> list[str]:
     return lines
 
 
-def generate_docs(compose_path: Path, output_path: Path, title: str = "Docker Compose Services") -> None:
+def _write_service_page(name: str, cfg: Mapping[str, Any], service_path: Path) -> None:
+    """
+    Write a standalone page for a single service at service_path.
+    """
+    service_lines: list[str] = [f"# `{name}` service", ""]
+    service_lines.append(
+        "This page documents the configuration for the "
+        f"`{name}` service from `docker-compose.yml`.\n"
+    )
+    service_lines += _service_body_lines(name, cfg)
+
+    service_path.parent.mkdir(parents=True, exist_ok=True)
+    service_path.write_text("\n".join(service_lines), encoding="utf-8")
+    print(f"[docker-compose-docs] Wrote service doc: {service_path}", file=sys.stderr)
+
+
+def generate_docs(compose_path: Path, overview_path: Path, title: str = "Docker Compose Services") -> None:
+    print(f"[docker-compose-docs] Reading compose file from: {compose_path}", file=sys.stderr)
+
     with compose_path.open("r", encoding="utf-8") as f:
-        data = yaml.safe_load(f)
+        data = yaml.safe_load(f) or {}
 
     services = data.get("services") or {}
     version = data.get("version")
+
+    # Directory where per-service docs will live, e.g. docs/backend/docker/
+    services_dir = overview_path.parent / "docker"
 
     lines: list[str] = [f"# {title}", ""]
 
@@ -126,35 +158,59 @@ def generate_docs(compose_path: Path, output_path: Path, title: str = "Docker Co
     else:
         lines.append("This page documents the services defined in `docker-compose.yml`.")
         lines.append("")
+        lines.append(
+            "Each service also has its own page under `backend/docker/` "
+            "with more detailed configuration."
+        )
+        lines.append("")
 
+        # Overview table with links to per-service docs
         lines.append("## Services overview")
         lines.append("")
         lines.append("| Service | Image | Description |")
         lines.append("|---------|-------|-------------|")
+
         for name, cfg in services.items():
             image = cfg.get("image", "")
             desc = cfg.get("container_name", "") or ""
-            lines.append(f"| `{name}` | `{image}` | {desc} |")
+            # Link to per-service page, relative to this overview page
+            link = f"docker/{name}.md"
+            lines.append(f"| [`{name}`]({link}) | `{image}` | {desc} |")
+
         lines.append("")
 
+        # Inline sections on the overview page (optional)
+        lines.append("## Service details")
+        lines.append("")
         for name, cfg in services.items():
-            lines += _format_service(name, cfg)
+            lines.append(f"### `{name}`")
+            lines.append("")
+            lines += _service_body_lines(name, cfg)
+            lines.append("")
 
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text("\n".join(lines), encoding="utf-8")
+            # Also write a standalone page for this service
+            service_path = services_dir / f"{name}.md"
+            _write_service_page(name, cfg, service_path)
+
+    overview_path.parent.mkdir(parents=True, exist_ok=True)
+    overview_path.write_text("\n".join(lines), encoding="utf-8")
+
+    print(f"[docker-compose-docs] Wrote overview docs to: {overview_path}", file=sys.stderr)
 
 
 def main() -> None:
-    compose_path = Path("docker-compose.yml")
-    output_path = Path("docs/backend/docker-compose.md")
+    # Resolve project root from this file, so it works regardless of CWD
+    project_root = Path(__file__).resolve().parents[1]
+    compose_path = project_root / "docker-compose.yml"
+    overview_path = project_root / "docs" / "backend" / "docker-compose.md"
 
     if not compose_path.exists():
-        # Silent no-op if compose file missing, keeps mkdocs happy
+        print(f"[docker-compose-docs] docker-compose.yml not found at: {compose_path}", file=sys.stderr)
         return
 
     generate_docs(
         compose_path,
-        output_path,
+        overview_path,
         title="Backend Docker Compose Services",
     )
 

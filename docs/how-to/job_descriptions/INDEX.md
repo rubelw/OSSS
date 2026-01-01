@@ -1,5 +1,7 @@
 # OSSS Job Descriptions
 
+These are the roles and jobs being pre-populated into keycloak for authentication.
+
 | Role | File | Category |
 |---|---|---|
 | 504 Coordinator | [504-coordinator.md](./504-coordinator.md) | Special Education |
