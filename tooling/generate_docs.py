@@ -22,7 +22,8 @@ EXPLICIT_SKIP = {
 SKIP_PREFIXES = (
     "OSSS.ai.api.",   # <- skip all OSSS.ai.api.* modules for mkdocstrings in CI
     "OSSS.ai.orchestration.nodes.",
-    "OSSS.db.migrations.data."
+    "OSSS.db.migrations.data.",
+    "OSSS.tests.utils."
     # add more prefixes here if needed
 )
 
