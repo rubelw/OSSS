@@ -6,8 +6,8 @@ repo_name: "rubelw/OSSS"
 
 theme:
   name: material
-  language: en              # was: locale
-  favicon: img/favicon.svg  # drop leading ./ (either works)
+  language: en
+  favicon: img/favicon.svg
   logo: img/logo.png
   palette:
     - scheme: default
@@ -26,29 +26,39 @@ theme:
     text: Nunito Sans
     code: IBM Plex Mono
 
-# Use the default output dir so the Pages workflow can upload ./site
+# Source and output dirs
 site_dir: site
 docs_dir: docs
 
 nav:
   - Home: index.md
-  - Job Positions Being Automated: job_descriptions/INDEX.md
+  - Getting started: getting-started.md
+  - Architecture: architecture.md
+
+  - Tutorials:
+      - Install OSSS: tutorials/install.md
+
   - Frontend (Next.js):
       - Overview: frontend/overview.md
       - API (TypeScript): api/web/README.md
+
   - Backend (Python):
       - Overview: backend/overview.md
       - OpenAPI: backend/openapi.md
-      # - API (Python):
-      #     - Index: api/python/index.md
-      #     - OSSS package: api/python/OSSS.md
+
   - Python API:
       - Overview: api/python/index.md
       - Modules: api/python/SUMMARY.md
-  - Web API:
-      - api/web/index.md
+
   - REST API:
-      - api/rest/index.md
+      - Overview: api/rest/index.md
+
+  - How-to:
+      - Job Positions Being Automated: how-to/job_descriptions/INDEX.md
+
+  - FAQ: faq.md
+  - Contributing: CONTRIBUTING.md
+  - Release Notes: RELEASE_NOTES.md
 
 plugins:
   - search
@@ -65,7 +75,6 @@ plugins:
       scripts:
         - tooling/export_openapi.py
         - tooling/generate_all_docs.py
-  # Removed `literate-nav` because we use an explicit YAML nav
   - section-index
 
 markdown_extensions:
