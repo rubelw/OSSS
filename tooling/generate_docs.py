@@ -21,7 +21,9 @@ DOCS_PREFIX = Path("api/python")  # where we write generated docs
 # You can add/remove entries as needed.
 SKIP_MKDOCSTRINGS = {
     "OSSS.schemas",
+    "OSSS.agents.metagpt_agent",
 }
+
 
 def dotted(mod_path: Path) -> str:
     """
