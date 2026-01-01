@@ -34,34 +34,29 @@ nav:
   - Home: index.md
   - Getting started: getting-started.md
   - Architecture: architecture.md
-
-  - Tutorials:
-      - Install OSSS: tutorials/install.md
+  - Docker & services: backend/docker-compose.md
 
   - Frontend (Next.js):
       - Overview: frontend/overview.md
       - API (TypeScript): api/web/README.md
 
-  - Backend (Python):
+  - Backend:
       - Overview: backend/overview.md
       - OpenAPI: backend/openapi.md
+      - FastAPI Modules: api/python/SUMMARY.md
+      - REST API Overview: api/rest/index.md
 
-  - Python API:
-      - Overview: api/python/index.md
-      - Modules: api/python/SUMMARY.md
-
-  - REST API:
-      - Overview: api/rest/index.md
-
-  - How-to:
+  - Auth:
       - Job Positions Being Automated: how-to/job_descriptions/INDEX.md
 
   - FAQ: faq.md
   - Contributing: CONTRIBUTING.md
   - Release Notes: RELEASE_NOTES.md
 
+
 plugins:
   - search
+  - autorefs
   - gen-files:
       scripts:
         - tooling/generate_openapi_export.py
@@ -76,7 +71,11 @@ plugins:
             docstring_style: google
             show_source: false
             members_order: source
+  - macros:
+      include_dir: docs/macros
+      verbose: false
   - section-index
+
 
 markdown_extensions:
   - admonition

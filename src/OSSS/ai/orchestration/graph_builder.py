@@ -245,11 +245,15 @@ class GraphDefinition(BaseModel):
 # ===========================================================================
 class GraphValidationError(Exception):
     """
-    Raises:
-        ValueError: No agents are provided.
-        ValueError: Edge references missing nodes.
-        ValueError: Cycles are detected.
-        ValueError: Entry/exit points are invalid.
+    Error raised when a graph fails structural validation.
+
+    This exception is raised by :class:`GraphBuilder` when one of the following
+    conditions is detected:
+
+    * No agents are provided.
+    * Edges reference nodes that do not exist in the graph.
+    * The graph contains cycles (it is not a DAG).
+    * Entry or exit points are missing or invalid.
     """
     pass
 
@@ -311,7 +315,6 @@ class GraphBuilder:
 
         self._validate_graph(graph_def)
         return graph_def
-
 
     def add_agent(self, agent: BaseAgent) -> "GraphBuilder":
         """
@@ -392,11 +395,10 @@ class GraphBuilder:
         - Validate the resulting graph (node existence, cycles, entry/exit correctness)
 
         Raises:
-            GraphValidationError if:
-            - No agents are provided
-            - Edge references missing nodes
-            - Cycles are detected
-            - Entry/exit points are invalid
+            GraphValidationError: If no agents are provided.
+            GraphValidationError: If an edge references a node that does not exist.
+            GraphValidationError: If the graph contains cycles.
+            GraphValidationError: If entry or exit points are missing or invalid.
         """
         if not self.agents:
             raise GraphValidationError("Cannot build graph with no agents")

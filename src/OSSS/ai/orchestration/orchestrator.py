@@ -1,18 +1,26 @@
 """
 Production LangGraph orchestrator for OSSS agents.
 
-UPDATED to use ONLY:
-- "standard" pattern: refiner -> final -> END
-- "data_query" pattern: refiner -> data_query -> (historian for CRUD) -> END
+Patterns
+--------
 
-Key behavior:
-- Default pattern is "standard" (non-query / conversational)
-- "data_query" is used for DB query or CRUD / wizard-style flows
-- Pattern can still be hinted per-request via config["execution_config"]["graph_pattern"]
-  (or config["graph_pattern"] fallback), but any unknown pattern is coerced to "standard".
-- Agent selection (which nodes exist) is controlled by routing/optimizer + normalize_agents,
-  while edges come from the selected pattern via GraphFactory.
+* ``"standard"``: ``refiner -> final -> END``
+* ``"data_query"``: ``refiner -> data_query -> (historian for CRUD) -> END``
+
+Key behavior
+------------
+
+* Default pattern is ``"standard"`` (non-query / conversational).
+* ``"data_query"`` is used for DB query or CRUD / wizard-style flows.
+* Pattern can be hinted per-request via
+  ``config["execution_config"]["graph_pattern"]`` (or the flat
+  ``config["graph_pattern"]`` fallback). Any unknown pattern is coerced to
+  ``"standard"``.
+* Agent selection (which nodes exist) is controlled by the routing/optimizer
+  plus :func:`normalize_agents`, while edges come from the selected pattern via
+  :class:`GraphFactory`.
 """
+
 import inspect
 import time
 import uuid
@@ -136,15 +144,18 @@ def normalize_agents(agents: list[str], *, pattern_name: str = "standard") -> li
 
 def _canonical_execution_config(config: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Produce a single deterministic execution_config dict (ExecutionConfig).
+    Produce a single deterministic ``execution_config`` mapping
+    (:class:`ExecutionConfig`).
 
     Supports both shapes:
-      A) nested:  config["execution_config"] = {...}
-      B) flat:    config["use_rag"]=..., config["top_k"]=..., etc.
 
-    Returns a dict that agents/orchestrator can rely on:
-      - rag settings under rag.enabled/top_k when present
-      - final_llm settings preserved if provided
+    A) nested: ``config["execution_config"] = {...}``
+    B) flat:   ``config["use_rag"] = ...``, ``config["top_k"] = ...``, etc.
+
+    Returns a dict that agents and the orchestrator can rely on:
+
+    * RAG settings under ``rag["enabled"]`` / ``rag["top_k"]`` when present.
+    * ``final_llm`` settings preserved if provided.
     """
     if not isinstance(config, dict):
         return {}
@@ -207,10 +218,11 @@ def _canonical_execution_config(config: Dict[str, Any]) -> Dict[str, Any]:
 
 def _ensure_effective_queries(state: Dict[str, Any], base_query: str) -> None:
     """
-    Ensure execution_state.effective_queries exists for the run.
+    Ensure ``execution_state["effective_queries"]`` exists for the run.
 
-    Node wrappers will overwrite per-agent values right before each agent runs:
-      execution_state["effective_queries"][agent_name] = effective_query
+    Node wrappers will overwrite per-agent values right before each agent runs::
+
+        execution_state["effective_queries"][agent_name] = effective_query
     """
     exec_state = state.setdefault("execution_state", {})
     if not isinstance(exec_state, dict):
@@ -230,7 +242,8 @@ class RagIndexConfig:
     """
     Config for a single RAG index.
 
-    Values here are *defaults* that can be overridden per-request via exec_cfg["rag"].
+    Values here are defaults that can be overridden per-request via
+    ``exec_cfg["rag"]``.
     """
     name: str = "main"
     default_top_k: int = 6
@@ -731,16 +744,24 @@ class LangGraphOrchestrator:
             exec_state: Optional[Dict[str, Any]] = None,
     ) -> str:
         """
-        Pattern selection priority (then clamped to {"standard", "data_query"}):
+        Resolve the graph pattern for a single run.
 
-        1) Explicit caller override:
-           - config["execution_config"]["graph_pattern"]
-           - config["graph_pattern"]
-        2) Route-based override (from DBQueryRouter / routing layer):
-           - route_key => "data_query" or "standard"
-        3) Heuristic based on classifier + raw_query:
-           - "data_query" for action/DB-ish queries
-           - "standard" otherwise
+        Pattern selection priority (then clamped to
+        ``{"standard", "data_query"}``):
+
+        1. Explicit caller override:
+
+           * ``config["execution_config"]["graph_pattern"]``
+           * ``config["graph_pattern"]``
+
+        2. Route-based override (from :class:`DBQueryRouter` / routing layer):
+
+           * ``route_key`` ⇒ ``"data_query"`` or ``"standard"``
+
+        3. Heuristic based on classifier plus ``raw_query``:
+
+           * ``"data_query"`` for action/DB-ish queries.
+           * ``"standard"`` otherwise.
         """
 
         if not isinstance(config, dict):

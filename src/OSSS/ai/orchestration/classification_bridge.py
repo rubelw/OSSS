@@ -5,10 +5,11 @@ Goal:
 - Give classifier / upstream HTTP layer a single, consistent way
   to attach classification results into the orchestrator config.
 - Orchestrator then reads these from:
-    config["classifier"]              (flat, legacy)
-    config["execution_state"]["classifier_profile"]
-    config["execution_state"]["task_classification"]
-    config["execution_state"]["cognitive_classification"]
+
+    * ``config["classifier"]`` (flat, legacy)
+    * ``config["execution_state"]["classifier_profile"]``
+    * ``config["execution_state"]["task_classification"]``
+    * ``config["execution_state"]["cognitive_classification"]``
 """
 
 from __future__ import annotations
@@ -29,14 +30,25 @@ def attach_classifier_to_config_inplace(
     cognitive_classification: Optional[CognitiveClassification] = None,
 ) -> Dict[str, Any]:
     """
-    Mutate `config` in-place to attach classifier outputs in a canonical way.
+    Mutate ``config`` in-place to attach classifier outputs in a canonical way.
 
     This function:
-    - Puts a flat `config["classifier"]` for legacy consumers
-    - Attaches a richer `classifier_profile` into config["execution_state"]
-    - Mirrors task/cognitive classifications into execution_state too
 
-    Returns the same config dict for convenience.
+    * Puts a flat ``config["classifier"]`` for legacy consumers.
+    * Attaches a richer classifier profile into
+      ``config["execution_state"]["classifier_profile"]``.
+    * Mirrors task and cognitive classifications into
+      ``config["execution_state"]["task_classification"]`` and
+      ``config["execution_state"]["cognitive_classification"]``.
+
+    Args:
+        config: Orchestrator configuration dictionary to be mutated in-place.
+        classifier_profile: Rich classifier profile (intent, domain, action, etc.).
+        task_classification: Optional task-level classification details.
+        cognitive_classification: Optional cognitive classification details.
+
+    Returns:
+        The same ``config`` dict for convenience.
     """
     if not isinstance(config, dict):
         raise TypeError("config must be a dict")
@@ -110,12 +122,23 @@ def build_orchestrator_config(
         )
         ctx = await orchestrator.run(query, config=config)
 
-    This ensures all the right fields are present for the orchestrator:
-    - config["raw_query"]
-    - config["classifier"]
-    - config["execution_state"]["classifier_profile"]
-    - config["execution_state"]["task_classification"]
-    - config["execution_state"]["cognitive_classification"]
+    This ensures all the key fields are present for the orchestrator, including:
+
+    * ``config["raw_query"]``
+    * ``config["classifier"]``
+    * ``config["execution_state"]["classifier_profile"]``
+    * ``config["execution_state"]["task_classification"]``
+    * ``config["execution_state"]["cognitive_classification"]``
+
+    Args:
+        query: Raw user query string.
+        base_config: Optional base configuration to start from.
+        classifier_profile: Rich classifier profile to attach.
+        task_classification: Optional task-level classification details.
+        cognitive_classification: Optional cognitive classification details.
+
+    Returns:
+        A fully populated orchestrator config dictionary.
     """
     cfg: Dict[str, Any] = dict(base_config or {})
 

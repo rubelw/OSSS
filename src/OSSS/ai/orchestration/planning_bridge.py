@@ -3,16 +3,17 @@
 from __future__ import annotations
 
 from dataclasses import replace
-from typing import Any, Dict, Iterable, List, Set, TYPE_CHECKING
+from typing import Any, Dict, Iterable, List, Set, TYPE_CHECKING, Callable
+import logging
 
 if TYPE_CHECKING:
     # Only for type checkers; avoids runtime circular import
     from .graph_factory import GraphConfig
 
 
-def _ensure_execution_config(exec_state: Dict[str, Any], logger) -> Dict[str, Any]:
+def _ensure_execution_config(exec_state: Dict[str, Any], logger: logging.Logger) -> Dict[str, Any]:
     """
-    Ensure exec_state["execution_config"] exists and is a dict.
+    Ensure ``exec_state["execution_config"]`` exists and is a dict.
     """
     ec = exec_state.get("execution_config")
     if not isinstance(ec, dict):
@@ -35,40 +36,68 @@ def _ensure_execution_config(exec_state: Dict[str, Any], logger) -> Dict[str, An
 def apply_option_a_planning_bridge(
     cfg: "GraphConfig",
     *,
-    fastpath_planner,
+    fastpath_planner: Callable[..., Any],
     prestep_agents: Iterable[str],
-    logger,
+    logger: logging.Logger,
 ) -> "GraphConfig":
     """
-    Option A planning bridge (module-level):
+    Option A planning bridge (module-level).
 
-    Decide between:
-      - 'standard' pattern (conversational):
-          refiner -> final -> END
-      - 'data_query' pattern (DB / action / query-ish):
-          refiner -> data_query -> (historian) -> END
+    Decide between two high-level graph patterns:
 
-    Rules:
+    * ``"standard"`` pattern (conversational):
 
-    1) If DBQueryRouter has explicitly routed to data_query
-       (route == 'data_query' or locked route_key == 'action'):
-           -> use 'data_query'
+      ``refiner -> final -> END``
 
-    2) Otherwise:
+    * ``"data_query"`` pattern (DB / action / query-ish):
 
-       If BOTH:
-         - classifier intent != "action"
-         - original user text does NOT contain "query" or "database"
-         - no wizard state
-       THEN:
-         -> use 'standard'
-       ELSE:
-         -> use 'data_query'
+      ``refiner -> data_query -> (historian) -> END``
 
-    IMPORTANT:
-    - Mutates cfg.execution_state["execution_config"]["graph_pattern"]
-    - Mutates cfg.execution_state["planned_agents"]
-    - Returns a new GraphConfig with updated pattern_name and agents_to_run
+    Rules
+    -----
+
+    1. If the DBQueryRouter has explicitly routed to ``"data_query"``
+       (``route == "data_query"`` or locked ``route_key == "action"``):
+
+       * Use the ``"data_query"`` pattern.
+
+    2. Otherwise:
+
+       If **all** of the following are true:
+
+       * classifier intent is not ``"action"``
+       * the original user text does **not** contain the words
+         ``"query"`` or ``"database"``
+       * there is no wizard state
+
+       then:
+
+       * Use the ``"standard"`` pattern.
+
+       Else:
+
+       * Use the ``"data_query"`` pattern.
+
+    Important
+    ---------
+
+    * Mutates
+      ``cfg.execution_state["execution_config"]["graph_pattern"]``.
+    * Mutates ``cfg.execution_state["planned_agents"]``.
+    * Returns a new :class:`GraphConfig` with updated
+      ``pattern_name`` and ``agents_to_run``.
+
+    Args:
+        cfg: Current graph configuration to base planning on.
+        fastpath_planner: Callable implementing the existing fast-path planning
+            logic (invoked for side effects).
+        prestep_agents: Agents that should be treated as "pre-step" and removed
+            from the planned agent list (for example ``"classifier"``).
+        logger: Logger instance used for debug/info log lines.
+
+    Returns:
+        A new :class:`GraphConfig` with the selected graph pattern and a
+        normalized ``agents_to_run`` list.
     """
     logger.info(
         "[OptionA] Applying planning bridge",
@@ -255,7 +284,7 @@ def apply_option_a_planning_bridge(
 
     # Stable de-dupe
     deduped: List[str] = []
-    seen: Set[str] = set()
+    seen = Set[str]()
     for a in normalized:
         if a not in seen:
             seen.add(a)

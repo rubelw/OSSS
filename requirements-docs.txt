@@ -1,8 +1,20 @@
-mkdocs==1.5.3
-mkdocs-material==9.5.17
-mkdocstrings==0.26.1
-mkdocstrings-python==1.10.5
-mkdocs-autorefs>=1.2
+mkdocs==1.6.1
+mkdocs-material>=9.7
+
+# Keep the older mkdocstrings stack that works with mkdocs 1.5.x
+mkdocstrings~=0.30.1
+mkdocstrings-python>=1.18
+
+# IMPORTANT: downgrade autorefs to avoid the span→autoref deprecation warnings
+mkdocs-autorefs>=1.4
+
 mkdocs-gen-files==0.5.0
 mkdocs-literate-nav==0.6.1
 mkdocs-section-index==0.3.8
+
+# Keep griffe 0.x so mkdocstrings-python's griffe.collections import works
+griffe>=1.3
+
+black>=24.0.0
+mkdocs-macros-plugin>=1.0.0
+

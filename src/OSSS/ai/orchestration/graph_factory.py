@@ -1,24 +1,35 @@
 """
-Core graph building and compilation for OSSS LangGraph backend.
+Core graph building and compilation for the OSSS LangGraph backend.
 
 Goals:
-- Make graph patterns + edges configurable via JSON (graph-patterns.json)
-- Keep a sane default "standard" pattern:
-    refiner -> final -> END
-- Support a data_query-centric pattern:
-    refiner -> data_query -> (historian for CRUD) -> END
-- Support conditional routing via named routers (router registry)
-- Keep GraphFactory as the ONLY place that mutates LangGraph StateGraph
-- Preserve: caching, optional checkpointing, optional semantic validation
+- Make graph patterns and edges configurable via JSON (``graph-patterns.json``).
+- Keep a sane default ``"standard"`` pattern::
+
+      refiner -> final -> END
+
+- Support a ``"data_query"``-centric pattern::
+
+      refiner -> data_query -> (historian for CRUD) -> END
+
+- Support conditional routing via named routers (router registry).
+- Keep ``GraphFactory`` as the ONLY place that mutates the LangGraph
+  ``StateGraph``.
+- Preserve: caching, optional checkpointing, and optional semantic validation.
 
 Option A (✅ implemented here):
-- Planning happens BEFORE graph compilation.
-- GraphFactory reads/writes ONLY execution_state planning artifacts:
-    - execution_state["execution_config"]["graph_pattern"]
-    - execution_state["planned_agents"]
-- GraphFactory must honor planned_agents as the source-of-truth for which nodes exist.
-- route_gate_node must NOT mutate planning (it’s too late once the graph is compiled).
+
+- Planning happens **before** graph compilation.
+- ``GraphFactory`` reads/writes only execution_state planning artifacts:
+
+  * ``execution_state["execution_config"]["graph_pattern"]``
+  * ``execution_state["planned_agents"]``
+
+- ``GraphFactory`` must honor ``planned_agents`` as the source of truth for
+  which nodes exist.
+- The route gate node must **not** mutate planning (it is too late once the
+  graph is compiled).
 """
+
 
 from __future__ import annotations
 
@@ -590,7 +601,7 @@ class GraphFactory:
 
     def _ensure_execution_config(self, exec_state: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Ensure exec_state["execution_config"] exists and is a dict.
+        Ensure ``exec_state["execution_config"]`` exists and is a dict.
         """
         ec = exec_state.get("execution_config")
         if not isinstance(ec, dict):
@@ -611,30 +622,55 @@ class GraphFactory:
 
     def _apply_option_a_planning_bridge(self, cfg: GraphConfig) -> GraphConfig:
         """
-        Option A bridge:
+        Option A planning bridge (GraphFactory-level).
 
-        Decide between:
-          - 'standard' pattern (conversational):
+        Decide between two high-level graph patterns:
+
+        * ``"standard"`` pattern (conversational)::
+
               refiner -> final -> END
-          - 'data_query' pattern (DB / action / query-ish):
+
+        * ``"data_query"`` pattern (DB / action / query-oriented)::
+
               refiner -> data_query -> (historian) -> END
 
-        Rule:
+        Rules
+        -----
 
-        1) If DBQueryRouter has explicitly routed to data_query
-           (route == 'data_query' or locked route_key == 'action'):
-               -> use 'data_query'
+        1. If the DBQueryRouter has explicitly routed to ``"data_query"``
+           (``route == "data_query"`` or locked ``route_key == "action"``):
 
-        2) Otherwise:
+           * Use the ``"data_query"`` pattern.
 
-           If BOTH:
-             - classifier intent != "action"
-             - original user text does NOT contain "query" or "database"
-             - no wizard state
-           THEN:
-             -> use 'standard'
-           ELSE:
-             -> use 'data_query'
+        2. Otherwise, if **all** of the following are true:
+
+           * classifier intent is not ``"action"``
+           * the original user text does **not** contain the words
+             ``"query"`` or ``"database"``
+           * there is no wizard state
+
+           then:
+
+           * Use the ``"standard"`` pattern.
+
+           Else:
+
+           * Use the ``"data_query"`` pattern.
+
+        Important
+        ---------
+
+        * Mutates ``exec_state["execution_config"]["graph_pattern"]``.
+        * Mutates ``exec_state["planned_agents"]``.
+        * Returns a new :class:`GraphConfig` with updated ``pattern_name`` and
+          ``agents_to_run``.
+
+        Args:
+            cfg: Current graph configuration to base planning on.
+
+        Returns:
+            A new :class:`GraphConfig` with the selected graph pattern and a
+            normalized ``agents_to_run`` list.
         """
         self.logger.info(
             "[OptionA] Applying planning bridge",
