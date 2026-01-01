@@ -69,31 +69,22 @@ nav["OSSS"] = "OSSS.md"
 # 3. One page per module under src/OSSS
 # ---------------------------------------------------------------------------
 for py_file in sorted(PKG_DIR.rglob("*.py")):
-    # Skip __init__.py — we already have the root OSSS package page,
-    # and subpackages will be covered by their internal modules.
     if py_file.name == "__init__.py":
         continue
 
     module_name = dotted(py_file)
     if not module_name.startswith("OSSS"):
-        # Safety check / future-proofing
         continue
 
-    # Compute doc path inside docs (e.g. OSSS/tutors/router.md)
     rel_md_path = py_file.relative_to(PKG_DIR).with_suffix(".md")
     doc_path = DOCS_PREFIX / rel_md_path
 
-    # Build nav *relative* to DOCS_PREFIX, so links in SUMMARY.md
-    # don’t accidentally prefix "api/python" twice.
     nav_key_parts = tuple(rel_md_path.parts)
     nav[nav_key_parts] = rel_md_path.as_posix()
 
-    # Write the stub page for this module
     with gen.open(doc_path, "w") as f:
         f.write(f"# `{module_name}`\n\n")
 
-        # If this module is problematic to import in the docs environment,
-        # don’t call mkdocstrings on it; just leave a placeholder.
         if module_name in SKIP_MKDOCSTRINGS:
             f.write(
                 "*(API docs for this module are temporarily disabled in the "
@@ -116,6 +107,4 @@ for py_file in sorted(PKG_DIR.rglob("*.py")):
 # ---------------------------------------------------------------------------
 with gen.open(DOCS_PREFIX / "SUMMARY.md", "w") as f:
     f.write("# Python API navigation\n\n")
-    # build_literate_nav() returns an iterable of lines; just write them out
-    for line in nav.build_literate_nav():
-        f.write(line)
+    f.writelines(nav.build_literate_nav())
