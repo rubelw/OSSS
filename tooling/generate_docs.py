@@ -1,4 +1,12 @@
-# tooling/generate_docs.py (key parts)
+# tooling/generate_docs.py
+"""
+Generates lightweight Markdown "stubs" that mkdocstrings fills with Python API docs.
+
+- One page for the top-level `OSSS` package.
+- One page per Python module under src/OSSS.
+- Modules that are unsafe or unwanted for mkdocstrings are skipped via
+  EXPLICIT_SKIP and SKIP_PREFIXES, but still get placeholder pages.
+"""
 
 from pathlib import Path
 import importlib
@@ -20,20 +28,22 @@ EXPLICIT_SKIP = {
 
 # Whole subtrees we skip (module_name.startswith(prefix))
 SKIP_PREFIXES = (
-    "OSSS.ai.api.",   # <- skip all OSSS.ai.api.* modules for mkdocstrings in CI
-    "OSSS.ai.orchestration.nodes.",
-    "OSSS.db.migrations.data.",
-    "OSSS.tests.utils."
+    "OSSS.ai.api.",                 # skip all OSSS.ai.api.* modules for mkdocstrings in CI
+    "OSSS.ai.orchestration.nodes.", # skip orchestration nodes (heavy deps)
+    "OSSS.db.migrations.data.",     # skip alembic data seed helpers
+    "OSSS.tests.utils.",            # skip test utils
     # add more prefixes here if needed
 )
 
 
 def dotted(mod_path: Path) -> str:
+    """Convert src-relative path to a dotted module path."""
     rel = mod_path.relative_to(SRC_DIR)
     return ".".join(rel.with_suffix("").parts)
 
 
 def can_import(module_name: str) -> bool:
+    """Return True if module_name can be imported, False otherwise."""
     try:
         importlib.import_module(module_name)
         return True
@@ -42,20 +52,62 @@ def can_import(module_name: str) -> bool:
 
 
 def should_skip_for_mkdocstrings(module_name: str) -> bool:
+    """
+    Decide whether mkdocstrings should introspect this module.
+
+    Order:
+    - Explicit skip list
+    - Prefix-based subtree skips
+    - Fallback: auto-skip if import fails
+    """
     if module_name in EXPLICIT_SKIP:
         return True
-    if any(module_name == p.rstrip(".") or module_name.startswith(p) for p in SKIP_PREFIXES):
+
+    if any(
+        module_name == prefix.rstrip(".") or module_name.startswith(prefix)
+        for prefix in SKIP_PREFIXES
+    ):
         return True
+
     if not can_import(module_name):
         return True
+
     return False
 
 
 nav = Nav()
 
-# ... index + OSSS.md bits above stay the same ...
+# ---------------------------------------------------------------------------
+# Index page
+# ---------------------------------------------------------------------------
+with gen.open(DOCS_PREFIX / "index.md", "w") as f:
+    f.write("# Python API\n\n")
+    f.write("Auto-generated API reference for the `OSSS` package.\n\n")
+    f.write("- [Package Reference](./OSSS.md)\n")
+    f.write("- [Module Navigation](./SUMMARY.md)\n")
 
+# ---------------------------------------------------------------------------
+# Top-level OSSS package page
+# ---------------------------------------------------------------------------
+with gen.open(DOCS_PREFIX / "OSSS.md", "w") as f:
+    f.write("# `OSSS` package\n\n")
+    f.write("::: OSSS\n")
+    f.write("    handler: python\n")
+    f.write("    options:\n")
+    f.write("      show_root_heading: true\n")
+    f.write("      show_source: false\n")
+    f.write("      docstring_style: google\n")
+    f.write("      members_order: source\n")
+    f.write("      show_signature: true\n")
+
+# Ensure OSSS appears in SUMMARY.md
+nav["OSSS"] = "OSSS.md"
+
+# ---------------------------------------------------------------------------
+# One page per module under src/OSSS
+# ---------------------------------------------------------------------------
 for py_file in sorted(PKG_DIR.rglob("*.py")):
+    # Skip __init__.py files; packages are covered by their modules + OSSS.md
     if py_file.name == "__init__.py":
         continue
 
@@ -63,9 +115,11 @@ for py_file in sorted(PKG_DIR.rglob("*.py")):
     if not module_name.startswith("OSSS"):
         continue
 
+    # docs path relative to api/python
     rel_md_path = py_file.relative_to(PKG_DIR).with_suffix(".md")
     doc_path = DOCS_PREFIX / rel_md_path
 
+    # Nav entry uses a path relative to DOCS_PREFIX
     nav_key_parts = tuple(rel_md_path.parts)
     nav[nav_key_parts] = rel_md_path.as_posix()
 
@@ -88,7 +142,9 @@ for py_file in sorted(PKG_DIR.rglob("*.py")):
             f.write("      members_order: source\n")
             f.write("      show_signature: true\n")
 
-
+# ---------------------------------------------------------------------------
+# SUMMARY.md navigation
+# ---------------------------------------------------------------------------
 with gen.open(DOCS_PREFIX / "SUMMARY.md", "w") as f:
     f.write("# Python API navigation\n\n")
     f.writelines(nav.build_literate_nav())
