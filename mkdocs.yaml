@@ -8,7 +8,7 @@ theme:
   name: material
   language: en
   favicon: img/favicon.svg
-  logo: img/logo.png
+  logo: img/logo.svg
   palette:
     - scheme: default
       primary: custom
