@@ -122,6 +122,7 @@ def _service_body_lines(name: str, cfg: Mapping[str, Any]) -> list[str]:
 def _write_service_page(name: str, cfg: Mapping[str, Any], service_path: Path) -> None:
     """
     Write a standalone page for a single service at service_path.
+    Supports optional extra documentation in docs/backend/docker_docs/<service>.md.
     """
     service_lines: list[str] = [f"# `{name}` service", ""]
     service_lines.append(
@@ -129,6 +130,15 @@ def _write_service_page(name: str, cfg: Mapping[str, Any], service_path: Path) -
         f"`{name}` service from `docker-compose.yml`.\n"
     )
     service_lines += _service_body_lines(name, cfg)
+
+    # --- Include extra documentation if available ---
+    extra_doc_path = Path("docs/backend/docker_docs") / f"{name}.md"
+    if extra_doc_path.exists():
+        service_lines.append("## Additional Documentation\n")
+        service_lines.append("")
+        with extra_doc_path.open("r", encoding="utf-8") as extra:
+            service_lines.append(extra.read())
+        service_lines.append("")
 
     service_path.parent.mkdir(parents=True, exist_ok=True)
     service_path.write_text("\n".join(service_lines), encoding="utf-8")

@@ -1,5 +1,5 @@
 """
-Validator Node Implementation for CogniVault.
+Validator Node Implementation for OSSSVault.
 
 This module implements the ValidatorNode class which handles quality
 validation and gating in the advanced node execution system.
@@ -28,7 +28,7 @@ class ValidationCriteria(BaseModel):
     Represents a single validation criterion.
 
     Migrated from dataclass to Pydantic BaseModel for enhanced validation,
-    serialization, and integration with the CogniVault Pydantic ecosystem.
+    serialization, and integration with the OSSSVault Pydantic ecosystem.
     """
 
     name: str = Field(
@@ -75,7 +75,7 @@ class WorkflowValidationReport(BaseModel):
     Detailed validation report for workflow execution.
 
     Migrated from dataclass to Pydantic BaseModel for enhanced validation,
-    serialization, and integration with the CogniVault Pydantic ecosystem.
+    serialization, and integration with the OSSSVault Pydantic ecosystem.
     """
 
     result: NodeValidationResult = Field(
