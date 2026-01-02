@@ -26,6 +26,8 @@ from sqlalchemy.inspection import inspect as sa_inspect
 from OSSS.core.config import settings
 from OSSS.db import get_sessionmaker
 from OSSS.ai import rag_files
+from OSSS.ai.api.routes import questions
+
 
 from OSSS.middleware.session_ttl import SessionTTL
 
@@ -513,6 +515,8 @@ def create_app() -> FastAPI:
 
         app.include_router(admin_additional_index_router.router)
         app.include_router(rag_files.router)  # or your existing prefix
+        app.include_router(questions.router)  # or your existing prefix
+
 
         app.include_router(metagpt_agent.router)
         app.include_router(query.router, prefix="/api")

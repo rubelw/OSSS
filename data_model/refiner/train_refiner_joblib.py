@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
 
+from __future__ import annotations
+
 import joblib
 import pandas as pd
+from pathlib import Path
 from typing import List, Dict, Any
 
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.neighbors import NearestNeighbors
+
 
 class NearestNeighborRefiner:
     """
@@ -26,9 +30,16 @@ class NearestNeighborRefiner:
         self.raw_queries: List[str] = []
         self.refined_queries: List[str] = []
 
-    def fit(self, raw_queries: List[str], refined_queries: List[str]) -> "NearestNeighborRefiner":
+    def fit(
+        self,
+        raw_queries: List[str],
+        refined_queries: List[str],
+    ) -> "NearestNeighborRefiner":
         if len(raw_queries) != len(refined_queries):
             raise ValueError("raw_queries and refined_queries must have same length")
+
+        if not raw_queries:
+            raise ValueError("Training data is empty")
 
         self.raw_queries = list(raw_queries)
         self.refined_queries = list(refined_queries)
@@ -49,12 +60,11 @@ class NearestNeighborRefiner:
 
     def predict(self, queries: List[str]) -> List[Dict[str, Any]]:
         """
-        For compatibility with your RefinerAgent._joblib_refine:
-
-        Returns a list of dicts:
+        Returns:
             {
                 "refined_query": <str>,
                 "confidence": <float 0..1>,
+                "nearest_training_example": <str>,
             }
         """
         if self.vectorizer is None or self.nn is None:
@@ -65,18 +75,14 @@ class NearestNeighborRefiner:
 
         results: List[Dict[str, Any]] = []
 
-        for i, query in enumerate(queries):
+        for i in range(len(queries)):
             idx = indices[i, 0]
             dist = float(distances[i, 0])  # cosine distance
-            # Convert cosine distance -> similarity
-            similarity = 1.0 - dist
-            similarity = max(0.0, min(1.0, similarity))
-
-            refined = self.refined_queries[idx]
+            similarity = max(0.0, min(1.0, 1.0 - dist))
 
             results.append(
                 {
-                    "refined_query": refined,
+                    "refined_query": self.refined_queries[idx],
                     "confidence": similarity,
                     "nearest_training_example": self.raw_queries[idx],
                 }
@@ -86,30 +92,60 @@ class NearestNeighborRefiner:
 
 
 def main() -> None:
-    # 1) Load training data
-    df = pd.read_csv("data/refiner_training_data.csv")
+    # ------------------------------------------------------------------
+    # Resolve paths relative to THIS file (not cwd)
+    # ------------------------------------------------------------------
+    script_dir = Path(__file__).resolve().parent
+    data_csv = script_dir / "data" / "refiner_training_data.csv"
+    model_dir = script_dir / "models"
+    model_path = model_dir / "refiner_nn.joblib"
+
+    if not data_csv.exists():
+        raise FileNotFoundError(f"Training CSV not found: {data_csv}")
+
+    # ------------------------------------------------------------------
+    # Load training data
+    # ------------------------------------------------------------------
+    df = pd.read_csv(data_csv)
+
+    required_cols = {"raw_query", "refined_query"}
+    missing = required_cols - set(df.columns)
+    if missing:
+        raise ValueError(f"CSV missing required columns: {missing}")
 
     raw_queries = df["raw_query"].astype(str).tolist()
     refined_queries = df["refined_query"].astype(str).tolist()
 
-    # 2) Train the model
+    print(f"Loaded {len(raw_queries)} training examples from {data_csv}")
+
+    # ------------------------------------------------------------------
+    # Train model
+    # ------------------------------------------------------------------
     model = NearestNeighborRefiner(n_neighbors=1)
     model.fit(raw_queries, refined_queries)
 
-    # 3) (Optional) quick sanity check
+    # ------------------------------------------------------------------
+    # Sanity check
+    # ------------------------------------------------------------------
     test_queries = [
         "dcg teachers",
         "show me dcg grades",
         "query dcg consents from database",
     ]
+
+    print("\nSanity check:")
     preds = model.predict(test_queries)
     for q, pred in zip(test_queries, preds):
-        print("Q:", q)
-        print("  ->", pred)
+        print(f"Q: {q}")
+        print(f"  -> {pred}")
 
-    # 4) Save via joblib
-    joblib.dump(model, "models/refiner_nn.joblib")
-    print("Saved model to refiner_nn.joblib")
+    # ------------------------------------------------------------------
+    # Save model
+    # ------------------------------------------------------------------
+    model_dir.mkdir(parents=True, exist_ok=True)
+    joblib.dump(model, model_path)
+
+    print(f"\nSaved model to {model_path}")
 
 
 if __name__ == "__main__":
