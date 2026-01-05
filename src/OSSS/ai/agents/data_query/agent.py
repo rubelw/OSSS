@@ -51,6 +51,19 @@ MIN_TOPIC_CONFIDENCE = float(os.getenv("OSSS_DATAQUERY_MIN_TOPIC_CONFIDENCE", "0
 
 
 # ------------------------------------------------------------------------------
+# ✅ Local helper: truthy coercion (fixes "is True" round-trip issues)
+# ------------------------------------------------------------------------------
+def _truthy(x: Any) -> bool:
+    if isinstance(x, bool):
+        return x
+    if isinstance(x, (int, float)):
+        return x != 0
+    if isinstance(x, str):
+        return x.strip().lower() in {"1", "true", "yes", "y", "on"}
+    return bool(x)
+
+
+# ------------------------------------------------------------------------------
 # ✅ Local helper: choose table using DataQueryRoute registry first, then fallbacks
 # ------------------------------------------------------------------------------
 def _guess_table_name(
@@ -354,22 +367,18 @@ class DataQueryAgent(BaseAgent):
         ✅ PR5.1:
           - Also sets exec_state["wizard_prompted_this_turn"]=True so routers can END.
         """
-        # 1) Ensure exec_state exists and carries the prompt for API response
         exec_state: Dict[str, Any] = getattr(context, "execution_state", {}) or {}
-        # ✅ One-turn flag: only set when we actually prompted the user for wizard input
         if prompted:
             exec_state["wizard_prompted_this_turn"] = True
 
         exec_state["final"] = text
         context.execution_state = exec_state
 
-        # 2) Best-effort: also set top-level "final"
         try:
             context.set("final", text)
         except Exception:
             pass
 
-        # 3) Always emit agent_output record
         try:
             context.add_agent_output(
                 agent_name=self.name,
@@ -404,11 +413,9 @@ class DataQueryAgent(BaseAgent):
         wizard_state["step"] = "collect_details"
         set_wizard_state(context, wizard_state)
 
-        # ✅ Keep canonical wizard state in exec_state as single source of truth for persistence.
         exec_state: Dict[str, Any] = getattr(context, "execution_state", {}) or {}
         exec_state["wizard"] = dict(wizard_state)
 
-        # ✅ Wizard is active and we prompted this turn (router should END)
         exec_state["wizard_in_progress"] = True
         exec_state["wizard_prompted_this_turn"] = True
 
@@ -432,7 +439,6 @@ class DataQueryAgent(BaseAgent):
             "You can type **cancel** at any time to end this workflow."
         )
 
-        # ✅ NEW: hard guarantee the user sees this message even if graph continues
         self._set_user_facing_message(context, prompt, prompted=True)
 
         channel_key = wizard_channel_key(self.name, collection)
@@ -459,14 +465,11 @@ class DataQueryAgent(BaseAgent):
         exec_state["wizard_bail_reason"] = reason
         exec_state["suppress_history"] = True
 
-        # ✅ Ensure router won't think we prompted this turn after we bail
         exec_state.pop("wizard_prompted_this_turn", None)
 
-        # ✅ protocol: DO NOT delete pending_action; just ensure it's not awaiting
         self._mark_pending_action_not_awaiting(exec_state)
         exec_state.pop("pending_action_result", None)
 
-        # ✅ Clear canonical wizard state
         exec_state["wizard"] = None
         exec_state["wizard_in_progress"] = False
 
@@ -498,31 +501,20 @@ class DataQueryAgent(BaseAgent):
         if not wizard_state:
             wizard_state = get_wizard_state(context) or {}
 
-        # Keep in sync if we found any wizard state via legacy getter.
         if wizard_state and not isinstance(exec_state.get("wizard"), dict):
+            exec_state["wizard"] = dict(wizard_state)
             context.execution_state = exec_state
 
         # ------------------------------------------------------------------
-        # ✅ Step D (resume): consume protocol result for this owner and return early.
-        # Location: VERY EARLY in run(), before any “skip” logic.
-        #
-        # IMPORTANT:
-        # - DO NOT delete pending_action. Keep it and flip awaiting=False.
-        # - pending_action_result is one-shot; safe to remove.
+        # ✅ Step D (resume): consume protocol result for this owner and continue.
         # ------------------------------------------------------------------
         par = _turns.consume(exec_state, owner=self.name)
         if par:
-            # ✅ keep pending_action object; just ensure it's not awaiting
             self._mark_pending_action_not_awaiting(exec_state)
-
-            # ✅ one-shot result: safe to drop
             exec_state.pop("pending_action_result", None)
 
-            # legacy / non-protocol keys (safe cleanup)
-            exec_state.pop("pending_action_resume_turn", None)
             exec_state.pop("pending_confirmation", None)
             exec_state.pop("confirm_table", None)
-            # NOTE: keep pending_action_last if you find it useful; it is safe either way.
 
             decision = str(par.get("decision") or "").strip().lower()
 
@@ -535,54 +527,55 @@ class DataQueryAgent(BaseAgent):
                 },
             )
 
-            # YES -> wizard_state already has step="collect_details" from first turn
-            if decision == "yes":
-                # 🔒 only step drives the wizard; confirmations never live in wizard_state
-                step = str((wizard_state or {}).get("step") or "collect_details").strip().lower()
-
-                if not wizard_state:
-                    # Defensive fallback: rebuild wizard state from pending_action_result context if possible.
-                    ctx = par.get("context") if isinstance(par, dict) else None
-                    ctx_dict: Dict[str, Any] = ctx if isinstance(ctx, dict) else {}
-                    table = str(ctx_dict.get("table_name") or "unknown_table").strip() or "unknown_table"
-                    collection = str(ctx_dict.get("collection") or table).strip() or table
-                    entity_meta = ctx_dict.get("entity_meta")
-                    if not isinstance(entity_meta, dict):
-                        entity_meta = {"table": table}
-
-                    wizard_state = {
-                        "operation": "read",
-                        "collection": collection,
-                        "table_name": table,
-                        "entity_meta": dict(entity_meta),
-                        "route_info": {"route": self.name},
-                        "base_url": self.BASE_URL,
-                        "original_query": exec_state.get("original_query") or "",
-                        "step": "collect_details",
-                    }
-                    set_wizard_state(context, wizard_state)
-
-                elif not step:
-                    wizard_state["step"] = "collect_details"
-                    set_wizard_state(context, wizard_state)
-
-                context.execution_state = exec_state
-
-                # For now: if we're in/heading to collect_details, emit that prompt and return.
-                return self._advance_wizard_to_collect_details(context, wizard_state)
-
-            # NO / CANCEL -> clear wizard and stop
             if decision in {"no", "cancel"}:
                 context.execution_state = exec_state
                 self._set_user_facing_message(context, "Okay — cancelled.")
                 return self._bail_wizard_from_confirmation(context, reason=f"pending_action_decision_{decision}")
 
-            # Unknown decision -> bail safely
-            context.execution_state = exec_state
-            self._set_user_facing_message(context, "Okay — cancelled.")
-            return self._bail_wizard_from_confirmation(context, reason="pending_action_decision_unknown")
+            if decision not in {"yes"}:
+                context.execution_state = exec_state
+                self._set_user_facing_message(context, "Okay — cancelled.")
+                return self._bail_wizard_from_confirmation(context, reason="pending_action_decision_unknown")
 
-        # Persist exec_state after possible protocol consumption (helper mutates exec_state)
+            exec_state["wizard_bailed"] = False
+            exec_state["wizard_cancelled"] = False
+            exec_state["wizard_bail_reason"] = None
+            exec_state["wizard_in_progress"] = True
+
+            if not wizard_state:
+                ctx = par.get("context") if isinstance(par, dict) else None
+                ctx_dict: Dict[str, Any] = ctx if isinstance(ctx, dict) else {}
+                table = str(ctx_dict.get("table_name") or "unknown_table").strip() or "unknown_table"
+                collection = str(ctx_dict.get("collection") or table).strip() or table
+                entity_meta = ctx_dict.get("entity_meta")
+                if not isinstance(entity_meta, dict):
+                    entity_meta = {"table": table}
+
+                wizard_state = {
+                    "operation": "read",
+                    "collection": collection,
+                    "table_name": table,
+                    "entity_meta": dict(entity_meta),
+                    "route_info": {"route": self.name},
+                    "base_url": self.BASE_URL,
+                    "original_query": exec_state.get("original_query") or "",
+                    "step": "collect_details",
+                }
+                set_wizard_state(context, wizard_state)
+                exec_state["wizard"] = dict(wizard_state)
+            else:
+                step = str(wizard_state.get("step") or "").strip().lower()
+                if not step:
+                    wizard_state["step"] = "collect_details"
+                    set_wizard_state(context, wizard_state)
+                exec_state["wizard"] = dict(wizard_state)
+
+            # ✅ IMPORTANT: keep pending_action_resume_turn flag (set by TurnController)
+            # so the wizard delegation can detect the resume turn and hard-stop.
+
+            context.execution_state = exec_state
+            # Fall through into the normal wizard delegation below.
+
         context.execution_state = exec_state
 
         # ------------------------------------------------------------------
@@ -639,7 +632,6 @@ class DataQueryAgent(BaseAgent):
 
         structured_filters_cfg: List[Dict[str, Any]] = dq_cfg.get("filters") or []
 
-        # ✅ UPDATED: wizard debug reflects the canonical key + stable ordering
         logger.info(
             "[data_query:wizard_state] loaded wizard state in run()",
             extra={
@@ -652,8 +644,6 @@ class DataQueryAgent(BaseAgent):
 
         # ------------------------------------------------------------------
         # ✅ Fix 3 (robust): absolutely-first-turn guard
-        # If user says "query ..." and there's no wizard yet, ALWAYS start wizard+protocol.
-        # Drop this BEFORE any skip logic.
         # ------------------------------------------------------------------
         if not wizard_state and raw_text_lower.startswith("query "):
             topic = ""
@@ -674,7 +664,7 @@ class DataQueryAgent(BaseAgent):
                 "route_info": {"route": self.name},
                 "base_url": self.BASE_URL,
                 "original_query": exec_state.get("original_query") or raw_user_input,
-            "step": "collect_details",
+                "step": "collect_details",
             }
             set_wizard_state(context, wizard_state)
             exec_state["wizard"] = dict(wizard_state)
@@ -711,8 +701,7 @@ class DataQueryAgent(BaseAgent):
             return context
 
         # ------------------------------------------------------------------
-        # ✅ FIX 2: Orphan wizard-state heal (wizard exists but no step yet)
-        # Re-issue confirm_yes_no if it was lost due to a crash/retry.
+        # ✅ FIX 2: Orphan wizard-state heal
         # ------------------------------------------------------------------
         if wizard_state and not str(wizard_state.get("step") or "").strip():
             pa = exec_state.get("pending_action")
@@ -783,7 +772,6 @@ class DataQueryAgent(BaseAgent):
 
         force_data_query = bool(dq_cfg.get("force")) or _looks_like_database_query(effective_text)
 
-        # ---- Intent resolution ----
         state_intent = getattr(context, "intent", None) or exec_state.get("intent")
         classifier_intent = classifier.get("intent") if isinstance(classifier, dict) else None
 
@@ -799,7 +787,6 @@ class DataQueryAgent(BaseAgent):
 
         intent = (intent_raw or "").strip().lower() or None
 
-        # ✅ treat "query ..." prefix as CRUD read for wizard-init.
         crud_intent_for_wizard = intent
         if raw_text_lower.startswith("query "):
             crud_intent_for_wizard = "read"
@@ -809,9 +796,7 @@ class DataQueryAgent(BaseAgent):
             crud_intent_for_wizard = "read"
 
         # ------------------------------------------------------------------
-        # ✅ MIGRATION WINDOW PATCH via TurnController:
-        # prefer wizard_state.step; fallback legacy pending_action/status;
-        # block confirm_table/pending_confirmation; heal forward to step-only.
+        # ✅ MIGRATION WINDOW PATCH via TurnController
         # ------------------------------------------------------------------
         if wizard_state:
             step, healed = _turns.wizard_step_migration_heal(wizard_state)
@@ -839,12 +824,31 @@ class DataQueryAgent(BaseAgent):
                     "[data_query:wizard] delegating wizard step to CrudWizard",
                     extra={"event": "data_query_wizard_delegate", "step": step},
                 )
-                return await CrudWizard.continue_wizard(
-                    agent_name=self.name,
-                    context=context,
-                    wizard_state=wizard_state,
-                    user_text=effective_text or raw_user_input or raw_text_norm,
-                )
+
+                # --------------------------------------------------------------
+                # ✅ CRITICAL FIX (turns):
+                # On a pending-action YES resume turn, TurnNormalizer swaps the
+                # visible user text ("yes") -> pending_question ("query consents")
+                # for routing. That swapped text MUST NOT be treated as wizard
+                # "details" input.
+                #
+                # We force the collect_details prompt and END this run.
+                # --------------------------------------------------------------
+                if _truthy(exec_state.get("pending_action_resume_turn")) and step == "collect_details":
+                    exec_state.pop("pending_action_resume_turn", None)
+
+                    exec_state["wizard_bailed"] = False
+                    exec_state["wizard_in_progress"] = True
+                    exec_state["wizard"] = dict(wizard_state)
+                    context.execution_state = exec_state
+
+                    return self._advance_wizard_to_collect_details(context, wizard_state)
+
+                # ✅ Normal wizard flow (non-resume turns)
+                wizard_user_text = effective_text
+
+                wizard = CrudWizard(agent_name=self.name, context=context, wizard_state=wizard_state)
+                return await wizard.handle(wizard_user_text)
 
         # ------------------------------------------------------------------
         # Skip non-query chatter (only if NOT forcing data_query and no wizard flow)
@@ -858,14 +862,9 @@ class DataQueryAgent(BaseAgent):
             return context
 
         # ------------------------------------------------------------------
-        # ✅ Wizard init:
-        # If we have a CRUD-ish intent (or force_data_query) and no wizard_state yet,
-        # start the table-selection/confirmation protocol and return early.
+        # ✅ Wizard init
         # ------------------------------------------------------------------
         if not wizard_state and (crud_intent_for_wizard in crud_verbs or force_data_query):
-            # ------------------------------------------------------------------
-            # ✅ NEW: use classifier.topic to pick table/spec first, then substring match
-            # ------------------------------------------------------------------
             topic = ""
             try:
                 topic = str((exec_state.get("classifier") or {}).get("topic") or "").strip().lower()
@@ -876,7 +875,6 @@ class DataQueryAgent(BaseAgent):
             table = guessed_table or (topic or "").strip().lower() or "unknown_table"
             collection = table
 
-            # Build wizard state (writer: step-only going forward; do NOT write confirm_table)
             wizard_state = {
                 "operation": crud_intent_for_wizard or "read",
                 "collection": collection,
@@ -918,25 +916,12 @@ class DataQueryAgent(BaseAgent):
                 },
             )
 
-            # Emit a user-facing prompt and stop this run (next user turn will be yes/no)
             self._set_user_facing_message(context, prompt, prompted=True)
             return context
-
-        # ------------------------------------------------------------------
-        # ... everything below here remains as in your file ...
-        # ------------------------------------------------------------------
-        #
-        # NOTE:
-        # You only provided the file up to this point. The "full updated file"
-        # I can output is therefore the fully-updated version of exactly the
-        # content you pasted (with PR5.1 changes applied).
-        #
-        # If you paste the remainder of your current agent.py, I’ll merge it
-        # under this marker and return a truly complete full file.
-        # ------------------------------------------------------------------
 
         logger.info(
             "[data_query] run() completed (no wizard)",
             extra={"event": "data_query_run_completed"},
         )
         return context
+

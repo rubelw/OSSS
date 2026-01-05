@@ -27,6 +27,7 @@ logger = get_logger(__name__)
 # Single shared controller instance (stateless)
 _turns = TurnController()
 
+# Legacy tokens (still used by interaction_state compatibility branch)
 YES_TOKENS = {"yes", "y", "yep", "yeah", "ok", "okay", "sure", "do it", "go ahead", "confirm"}
 NO_TOKENS = {"no", "n", "nope", "nah", "negative"}
 CANCEL_TOKENS = {"cancel", "stop", "quit", "exit", "abort", "nevermind", "never mind"}
@@ -62,8 +63,8 @@ def _is_cancel(s: str) -> bool:
 
 # ------------------------------------------------------------------
 # Protocol helpers (pending_action contract lives in exec_state)
-# NOTE: with TurnController in place, these are now legacy helpers.
-# You can delete them once you're confident TurnController is stable.
+# NOTE: With TurnController in place, these are now legacy helpers.
+# We keep them only so older callers/types still import cleanly.
 # ------------------------------------------------------------------
 
 def _get_pending_action(exec_state: Dict[str, Any]) -> Optional[PendingAction]:
@@ -91,7 +92,9 @@ def _set_pending_action_result(
 ) -> None:
     """
     Store a one-shot result that the owning agent can consume.
-    This is the ONLY output of interpreting the user's yes/no/cancel.
+
+    NOTE: TurnController owns this behavior now. This helper remains only for
+    legacy callers that may still invoke it.
     """
     owner_canon = (owner or "").strip().lower()
     d = (decision or "").strip().lower()
@@ -109,17 +112,21 @@ def _set_pending_action_result(
 
 def _clear_pending_action(exec_state: Dict[str, Any], pa: PendingAction | None, *, reason: str) -> None:
     """
-    Clear the contract so downstream routers/agents never see "awaiting" after
-    we have already consumed the user reply.
+    Legacy helper.
 
-    Best-practice: snapshot to pending_action_last for debugging.
+    IMPORTANT:
+    - Fix 1 requires keeping pending_action with awaiting=False so upstream merges
+      can't resurrect an awaiting=True action. TurnController handles this correctly.
+    - This function is retained only to avoid breaking old imports. It is NOT used
+      by TurnNormalizer.normalize() anymore.
     """
     if isinstance(pa, dict):
         last = dict(pa)
         last["awaiting"] = False
         last["cleared_reason"] = reason
         exec_state["pending_action_last"] = last
-    exec_state.pop("pending_action", None)
+        # Prefer leaving the object in place rather than popping it.
+        exec_state["pending_action"] = last
 
 
 # ------------------------------------------------------------------
@@ -201,7 +208,8 @@ class TurnNormalizer:
     Best-practice (Step B):
       - Pending actions are protocol contracts (wizard-agnostic).
       - Normalizer interprets ONLY yes/no/cancel while a contract is awaiting.
-      - It writes exec_state["pending_action_result"] and clears exec_state["pending_action"].
+      - It writes exec_state["pending_action_result"] and clears awaiting flag
+        on exec_state["pending_action"] (done by TurnController).
       - It route-locks to the contract’s resume_route/resume_pattern.
       - suppress_history=True so "yes/no" doesn't pollute conversation history.
       - canonical_user_text:
@@ -214,11 +222,10 @@ class TurnNormalizer:
         exec_state, raw_user_text = _coerce_inputs(*args, **kwargs)
 
         # ------------------------------------------------------------------
-        # ✅ Apply 2): Use TurnController at the TOP
+        # ✅ Fix 1: Use TurnController at the TOP (single source of truth)
         # ------------------------------------------------------------------
         r = _turns.preprocess(exec_state, raw_user_text)
         if getattr(r, "handled", False):
-            # r is your TurnController result object (kept opaque here)
             res = NormalizeResult(
                 handled=True,
                 canonical_user_text=getattr(r, "canonical_user_text", "") or "",
@@ -227,81 +234,9 @@ class TurnNormalizer:
             return _as_payload(res, exec_state)
 
         # ------------------------------------------------------------------
-        # ✅ Apply 3): Consume exec_state["pending_action"] (protocol contract)
+        # ✅ Removed: legacy pending_action handling block.
+        # TurnController.preprocess() is the ONLY interpreter of pending_action.
         # ------------------------------------------------------------------
-        pending = _get_pending_action(exec_state)
-        if _pending_confirm_yes_no_awaiting(pending):
-            owner = str((pending or {}).get("owner") or "").strip().lower() or "data_query"
-            resume_route = str((pending or {}).get("resume_route") or "data_query").strip().lower()
-            resume_pattern = str((pending or {}).get("resume_pattern") or resume_route).strip().lower()
-            pending_question = str((pending or {}).get("pending_question") or "").strip()
-            ctx = (pending or {}).get("context") or {}
-            if not isinstance(ctx, dict):
-                ctx = {}
-
-            # YES -> resume original question
-            if _is_yes(raw_user_text):
-                if pending_question:
-                    exec_state["route"] = resume_route
-                    exec_state["route_locked"] = True
-                    exec_state["route_key"] = "pending_action_yes"
-                    exec_state["route_reason"] = "pending_action_resume"
-                    exec_state["graph_pattern"] = resume_pattern
-                    exec_state["suppress_history"] = True
-
-                    _set_pending_action_result(exec_state, owner=owner, decision="yes", context=ctx)
-                    _clear_pending_action(exec_state, pending, reason="user_yes")
-
-                    logger.info(
-                        "[turn_normalizer] pending_action YES handled",
-                        extra={
-                            "event": "turn_normalizer_pending_action_yes",
-                            "owner": owner,
-                            "resume_route": resume_route,
-                            "resume_pattern": resume_pattern,
-                            "pending_question_preview": pending_question[:200],
-                            "route_locked": True,
-                        },
-                    )
-                    return _as_payload(NormalizeResult(True, pending_question), exec_state)
-
-                _set_pending_action_result(exec_state, owner=owner, decision="cancel", context=ctx)
-                _clear_pending_action(exec_state, pending, reason="missing_pending_question")
-                exec_state["suppress_history"] = True
-                return _as_payload(NormalizeResult(True, ""), exec_state)
-
-            # NO -> stop wizard; do not route as a query
-            if _is_no(raw_user_text):
-                exec_state["suppress_history"] = True
-                _set_pending_action_result(exec_state, owner=owner, decision="no", context=ctx)
-                _clear_pending_action(exec_state, pending, reason="user_no")
-
-                logger.info(
-                    "[turn_normalizer] pending_action NO handled",
-                    extra={"event": "turn_normalizer_pending_action_no", "owner": owner},
-                )
-                return _as_payload(NormalizeResult(True, ""), exec_state)
-
-            # CANCEL -> stop wizard; do not route as a query
-            if _is_cancel(raw_user_text):
-                exec_state["suppress_history"] = True
-                _set_pending_action_result(exec_state, owner=owner, decision="cancel", context=ctx)
-                _clear_pending_action(exec_state, pending, reason="user_cancel")
-
-                logger.info(
-                    "[turn_normalizer] pending_action CANCEL handled",
-                    extra={"event": "turn_normalizer_pending_action_cancel", "owner": owner},
-                )
-                return _as_payload(NormalizeResult(True, ""), exec_state)
-
-            # Unclear response while awaiting -> reprompt
-            exec_state["suppress_history"] = True
-            prompt = "Please reply **yes** or **no**."
-            logger.info(
-                "[turn_normalizer] pending_action unclear response; reprompt",
-                extra={"event": "turn_normalizer_pending_action_unclear", "raw_norm": _norm(raw_user_text)[:80]},
-            )
-            return _as_payload(NormalizeResult(True, "", prompt_text=prompt), exec_state)
 
         # ------------------------------------------------------------------
         # Existing interaction_state path (backwards compatibility)
@@ -311,7 +246,7 @@ class TurnNormalizer:
         if interaction.mode != InteractionMode.WIZARD_YES_NO or not interaction.awaiting:
             return _as_payload(NormalizeResult(False, raw_user_text or ""), exec_state)
 
-        # we are awaiting yes/no for a wizard
+        # We are awaiting yes/no for a legacy wizard
         if _is_yes(raw_user_text):
             pending_q = interaction.pending_question.strip()
             mark_yes(exec_state)

@@ -322,37 +322,43 @@ def _get_refined_query_from_state(state: OSSSState) -> str:
 def route_after_data_query(state: OSSSState) -> str:
     """
     For your graph-patterns.json 'data_query' pattern:
-      - if protocol is awaiting a user reply for data_query -> "END"  (STOP: don't run final)
-      - if data_query prompted user for wizard input this turn -> "END" (STOP: don't run final)
-      - elif wizard_bailed -> "END"                                 (STOP)
+      - if protocol is awaiting a user reply for data_query -> "final"  (STOP-ish: show prompt, then end)
+      - if data_query prompted user for wizard input this turn -> "final" (STOP-ish: show prompt, then end)
+      - elif wizard_bailed -> "END"                                     (STOP)
       - elif CRUD -> "historian"
       - else -> "final"
 
-    ✅ Patch 2:
-      - Add the second short-circuit: execution_state["wizard_prompted_this_turn"] is True
-        (strict True check) so final won't overwrite the wizard prompt on the *same* run.
+    ✅ Patch C (router hardening):
+      - Check wizard_prompted_this_turn BEFORE wizard_bailed.
+        This prevents accidental “prompt + bail” states from being interpreted as bail.
+
+    ✅ Patch D (prompt delivery fix):
+      - When we short-circuit for pending_action awaiting OR wizard_prompted_this_turn,
+        route to "final" (not END) so the client actually receives the prompt.
     """
     try:
         exec_state = _get_exec_state(state)
 
         # ✅ HARD STOP (protocol): awaiting a yes/no (or other protocol reply)
+        # IMPORTANT: route to FINAL so the user sees the prompt.
         if _has_pending_action_awaiting(exec_state, owner="data_query"):
+            exec_state["suppress_history"] = True
             logger.info(
-                "route_after_data_query_short_circuit_pending_action",
-                extra={"event": "route_after_data_query_short_circuit_pending_action"},
+                "route_after_data_query_short_circuit_pending_action_to_final",
+                extra={"event": "route_after_data_query_short_circuit_pending_action_to_final"},
             )
-            return _safe_return("END", _ALLOWED_AFTER_DQ, fallback="END")
+            return _safe_return("final", _ALLOWED_AFTER_DQ, fallback="final")
 
-        # ✅ PATCH 2: HARD STOP (same-turn wizard prompt): don't run final after data_query
-        # if data_query just emitted a wizard prompt in this run.
-        if exec_state.get("wizard_prompted_this_turn") is True:
+        # ✅ If we prompted this turn, route to FINAL so the prompt is returned to the client.
+        if _truthy(exec_state.get("wizard_prompted_this_turn")):
+            exec_state["suppress_history"] = True
             logger.info(
-                "route_after_data_query_short_circuit_wizard_prompted_this_turn",
-                extra={"event": "route_after_data_query_short_circuit_wizard_prompted_this_turn"},
+                "route_after_data_query_short_circuit_wizard_prompted_this_turn_to_final",
+                extra={"event": "route_after_data_query_short_circuit_wizard_prompted_this_turn_to_final"},
             )
-            return _safe_return("END", _ALLOWED_AFTER_DQ, fallback="END")
+            return _safe_return("final", _ALLOWED_AFTER_DQ, fallback="final")
 
-        # ✅ Wizard bailed means we're done; don't proceed to historian/final.
+        # ✅ Only after prompt check: bail short-circuit
         if _wizard_bailed(exec_state):
             logger.info(
                 "route_after_data_query_short_circuit_wizard_bailed",
@@ -368,7 +374,6 @@ def route_after_data_query(state: OSSSState) -> str:
     except Exception as exc:
         logger.error("Error in route_after_data_query", exc_info=True, extra={"error": str(exc)})
         return "final"
-
 
 # -----------------------------------------------------------------------------
 # Registry bootstrap

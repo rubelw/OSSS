@@ -9,28 +9,26 @@ Compatibility:
 
 from __future__ import annotations
 
-import time
-import re
 import json
+import re
+import time
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional, List, Tuple, Iterable, Union
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 from OSSS.ai.agents.base_agent import BaseAgent
 from OSSS.ai.context import AgentContext
 from OSSS.ai.observability import get_logger
 
+from OSSS.ai.llm.factory import LLMFactory  # ✅ use factory so request-level use_rag/top_k can apply
 from OSSS.ai.llm.llm_interface import LLMInterface
 from OSSS.ai.utils.llm_text import coerce_llm_text
 
-# ✅ use factory so request-level use_rag/top_k can apply
-from OSSS.ai.llm.factory import LLMFactory
-
 # Configuration + prompt composer imports (follow SynthesisAgent pattern)
 from OSSS.ai.config.agent_configs import FinalConfig
-from OSSS.ai.workflows.prompt_composer import PromptComposer, ComposedPrompt
+from OSSS.ai.workflows.prompt_composer import ComposedPrompt, PromptComposer
 
 # Final-specific prompts (system + user template)
-from OSSS.ai.agents.final.prompts import build_final_prompt, FINAL_SYSTEM_PROMPT
+from OSSS.ai.agents.final.prompts import FINAL_SYSTEM_PROMPT, build_final_prompt
 
 # Structured final state (for LangGraph OSSSState.final)
 from OSSS.ai.orchestration.state_schemas import FinalState
@@ -72,7 +70,13 @@ class FinalAgent(BaseAgent):
     - Integrates with execution_config via LLMFactory (so use_rag/top_k flow through).
     - Uses FinalConfig + PromptComposer to align with other agents (Historian/Synthesis).
     - NOTE: This implementation performs exactly one LLM call per run (except the
-      data_query short-circuit path, which can bypass LLM entirely).
+      prompt-delivery and data_query short-circuit paths, which can bypass LLM entirely).
+
+    ✅ HARDENING (PR5.1+):
+      - If upstream (e.g., data_query) already wrote a user-facing prompt into exec_state["final"]
+        as a STRING, FinalAgent must DELIVER it and must NOT overwrite exec_state["final"] with a dict.
+      - exec_state["final"] is always the user-visible STRING.
+      - Structured FinalState is stored in exec_state["structured_outputs"]["final"].
     """
 
     write_output_alias: bool = False
@@ -136,6 +140,49 @@ class FinalAgent(BaseAgent):
         except Exception:
             return default
 
+    def _set_ctx_final_text(self, ctx: AgentContext, text: str) -> None:
+        """
+        Hard guarantee: write final text into ctx under key "final" (string).
+        """
+        try:
+            ctx.set("final", text)
+        except Exception:
+            pass
+        try:
+            setattr(ctx, "final", text)
+        except Exception:
+            pass
+
+    # -----------------------
+    # prompt-delivery hardening
+    # -----------------------
+
+    def _get_pending_action_prompt(self, exec_state: Dict[str, Any]) -> str:
+        pa = exec_state.get("pending_action")
+        if not isinstance(pa, dict):
+            return ""
+        for k in ("display_prompt", "user_message", "prompt", "question"):
+            v = pa.get(k)
+            if isinstance(v, str) and v.strip():
+                return v.strip()
+        return ""
+
+    def _should_bypass_llm_for_prompt_delivery(self, exec_state: Dict[str, Any]) -> bool:
+        # canonical wizard prompt marker
+        if bool(exec_state.get("wizard_prompted_this_turn")):
+            return True
+
+        # awaiting protocol reply
+        pa = exec_state.get("pending_action")
+        if isinstance(pa, dict) and pa.get("awaiting") is True:
+            return True
+
+        # upstream explicitly suppresses history and already has a final string
+        if bool(exec_state.get("suppress_history")) and isinstance(exec_state.get("final"), str):
+            return True
+
+        return False
+
     # -----------------------
     # heuristics
     # -----------------------
@@ -154,9 +201,7 @@ class FinalAgent(BaseAgent):
             return True
 
         if "refined query" in t and (
-            "contextual information" in t
-            or "revised query" in t
-            or "original query" in t
+            "contextual information" in t or "revised query" in t or "original query" in t
         ):
             return True
 
@@ -184,7 +229,6 @@ class FinalAgent(BaseAgent):
 
         low = t.lower()
 
-        # Very common in your logs
         if "this is a json object" in low and "metadata" in low and "conversation" in low:
             return True
         if "classifier profile" in low and "conversation id" in low:
@@ -192,7 +236,6 @@ class FinalAgent(BaseAgent):
         if "agent outputs" in low and "orchestrator" in low:
             return True
 
-        # General "dump-ish" signals
         braces = t.count("{") + t.count("}")
         colons = t.count(":")
         qmarks = t.count("?")
@@ -247,12 +290,6 @@ class FinalAgent(BaseAgent):
     # -----------------------
 
     def _format_refiner_output_for_prompt(self, refiner_out: Any) -> str:
-        """
-        Refiner output can be stored as:
-          - str (already formatted)
-          - dict/list (structured artifact)
-        We want a stable, readable representation in the final prompt.
-        """
         if refiner_out is None:
             return ""
         if isinstance(refiner_out, str):
@@ -277,10 +314,10 @@ class FinalAgent(BaseAgent):
         """
         PR5: ensure we always have *some* refiner_output artifact available for prompt inclusion.
         Priority:
-          1) exec_state["refiner_output"] (already in state contract)
-          2) ctx.get_last_output("refiner") if available
-          3) ctx/refiner_output or ctx/refiner (dict/str)
-          4) agent_outputs["refiner"] (dict/str)
+          1) exec_state["refiner_output"]
+          2) ctx.get_last_output("refiner")
+          3) ctx/refiner_output or ctx/refiner
+          4) agent_outputs["refiner"]
         """
         if isinstance(exec_state, dict) and "refiner_output" in exec_state:
             return exec_state.get("refiner_output")
@@ -546,12 +583,10 @@ class FinalAgent(BaseAgent):
         # ✅ PR5: stable refiner_output artifact for prompt inclusion (always present as a section)
         refiner_out_struct = self._discover_refiner_output_struct(ctx, exec_state if isinstance(exec_state, dict) else {})
         if isinstance(exec_state, dict) and exec_state.get("refiner_output") is None and refiner_out_struct is not None:
-            # backfill state contract so downstream debug sees it consistently
             exec_state["refiner_output"] = refiner_out_struct
 
         refiner_out_text = self._truncate_block(self._format_refiner_output_for_prompt(refiner_out_struct), limit=4000)
 
-        # ✅ PR5: include data_query_note line if present
         data_query_note = ""
         if isinstance(exec_state, dict):
             v = exec_state.get("data_query_note")
@@ -602,7 +637,6 @@ class FinalAgent(BaseAgent):
                     or self._normalize_refiner_to_question(refiner_text)
                 )
             else:
-                # Never treat metadata dumps as the "question"
                 if not self._looks_like_metadata_dump(refiner_text):
                     refined_question = refiner_text
 
@@ -646,16 +680,11 @@ class FinalAgent(BaseAgent):
 
         data_query_metadata = ""
         if isinstance(dq_output, dict):
-            data_query_metadata = (
-                dq_output.get("metadata")
-                or dq_output.get("meta")
-                or dq_output.get("info")
-                or ""
-            )
+            data_query_metadata = dq_output.get("metadata") or dq_output.get("meta") or dq_output.get("info") or ""
 
         user_prompt = build_final_prompt(
             user_question=refined_question,
-            refiner_text=refiner_text,  # ✅ keep the human-ish refiner text if present
+            refiner_text=refiner_text,
             rag_present=rag_present,
             rag_section=rag_snippet,
             original_user_question=original_question,
@@ -673,12 +702,7 @@ class FinalAgent(BaseAgent):
         extra_parts.append("Refiner output (state.refiner_output):")
         extra_parts.append(refiner_out_text if refiner_out_text else "(none)")
 
-        user_prompt = (
-            user_prompt.rstrip()
-            + "\n\n---\n"
-            + "\n".join(extra_parts).rstrip()
-            + "\n"
-        )
+        user_prompt = user_prompt.rstrip() + "\n\n---\n" + "\n".join(extra_parts).rstrip() + "\n"
 
         system_prompt = self._get_system_prompt()
         return system_prompt, user_prompt
@@ -733,7 +757,7 @@ class FinalAgent(BaseAgent):
         logger.info(f"[{self.name}] Configuration updated for FinalAgent")
 
     # -----------------------
-    # helpers to build structured FinalState (unchanged)
+    # helpers to build structured FinalState
     # -----------------------
 
     def _build_sources_used(self, ctx: AgentContext, exec_state: Dict[str, Any]) -> List[str]:
@@ -766,6 +790,11 @@ class FinalAgent(BaseAgent):
         tone: Optional[str] = None,
         target_audience: Optional[str] = None,
     ) -> None:
+        """
+        ✅ HARDENING:
+          - exec_state["final"] remains the user-visible STRING (always).
+          - structured final goes to exec_state["structured_outputs"]["final"].
+        """
         if exec_state is None:
             exec_state = self._get_execution_state(ctx)
 
@@ -792,7 +821,8 @@ class FinalAgent(BaseAgent):
         if target_audience is not None:
             final_struct["target_audience"] = target_audience
 
-        exec_state["final"] = final_struct
+        # ✅ user-visible final stays a string
+        exec_state["final"] = text
 
         structured = exec_state.get("structured_outputs")
         if not isinstance(structured, dict):
@@ -819,6 +849,47 @@ class FinalAgent(BaseAgent):
         try:
             exec_state = self._get_execution_state(ctx)
 
+            # ✅ Optional hardening: deliver wizard/protocol prompts without an LLM call
+            if self._should_bypass_llm_for_prompt_delivery(exec_state):
+                prompt_text = ""
+                v = exec_state.get("final")
+                if isinstance(v, str) and v.strip():
+                    prompt_text = v.strip()
+                if not prompt_text:
+                    prompt_text = self._get_pending_action_prompt(exec_state)
+
+                if prompt_text:
+                    self._set_ctx_final_text(ctx, prompt_text)
+
+                    ctx.add_agent_output(
+                        agent_name=self.name,
+                        logical_name="final",
+                        content=prompt_text,
+                        role="assistant",
+                        action="answer",
+                        intent="informational",
+                        meta={"agent": self.name, "bypass_llm": True, "reason": "prompt_delivery"},
+                    )
+
+                    self._store_structured_final(
+                        ctx,
+                        prompt_text,
+                        exec_state=exec_state,
+                        tone="neutral",
+                        target_audience=exec_state.get("target_audience") or getattr(ctx, "target_audience", None),
+                    )
+
+                    approx_tokens = len(prompt_text.split())
+                    ctx.add_agent_token_usage(
+                        agent_name=self.name,
+                        input_tokens=0,
+                        output_tokens=approx_tokens,
+                        total_tokens=approx_tokens,
+                    )
+
+                    self._mark_completed(ctx)
+                    return ctx
+
             # Prefer classifier original text for "query ..." detection
             classifier_original = self._get_classifier_original_text(exec_state)
             original_q = (
@@ -834,7 +905,7 @@ class FinalAgent(BaseAgent):
             # Resolve role-identity safety using the real question
             role_identity_q = self._is_role_identity_question(original_q)
 
-            # Structured data-query short-circuit
+            # Structured data-query short-circuit (only when there is a real table result)
             if original_q.lower().startswith("query "):
                 agent_outputs = getattr(ctx, "agent_outputs", None) or {}
                 dq_output = agent_outputs.get("data_query")
@@ -856,21 +927,23 @@ class FinalAgent(BaseAgent):
                     tone = "neutral"
                     target_audience = exec_state.get("target_audience") or getattr(ctx, "target_audience", None)
 
-                    meta = {
-                        "agent": self.name,
-                        "original_answer": data_query_markdown,
-                        "tone": tone,
-                        "target_audience": target_audience,
-                        "role_identity_question": bool(role_identity_q),
-                    }
+                    self._set_ctx_final_text(ctx, data_query_markdown)
 
                     ctx.add_agent_output(
-                        "final",
-                        data_query_markdown,
+                        agent_name=self.name,
+                        logical_name="final",
+                        content=data_query_markdown,
                         role="assistant",
                         action="answer",
                         intent="informational",
-                        meta=meta,
+                        meta={
+                            "agent": self.name,
+                            "tone": tone,
+                            "target_audience": target_audience,
+                            "role_identity_question": bool(role_identity_q),
+                            "bypass_llm": True,
+                            "reason": "data_query_short_circuit",
+                        },
                     )
 
                     self._store_structured_final(
@@ -880,12 +953,6 @@ class FinalAgent(BaseAgent):
                         tone=tone,
                         target_audience=target_audience,
                     )
-
-                    if role_identity_q:
-                        try:
-                            exec_state["final"]["role_identity_question"] = True
-                        except Exception:
-                            pass
 
                     approx_tokens = len(data_query_markdown.split())
                     ctx.add_agent_token_usage(
@@ -920,6 +987,9 @@ class FinalAgent(BaseAgent):
             formatted_text = coerce_llm_text(response).strip()
             final_answer = self._strip_metadata_block(formatted_text)
 
+            # ✅ guarantee ctx["final"] is the final string
+            self._set_ctx_final_text(ctx, final_answer)
+
             tone: str = "neutral"
             classifier_profile = (
                 exec_state.get("classifier_profile")
@@ -935,14 +1005,6 @@ class FinalAgent(BaseAgent):
 
             target_audience: Optional[str] = exec_state.get("target_audience") or getattr(ctx, "target_audience", None)
 
-            meta: Dict[str, Any] = {
-                "agent": self.name,
-                "original_answer": formatted_text,
-                "tone": tone,
-                "target_audience": target_audience,
-                "role_identity_question": bool(role_identity_q),
-            }
-
             ctx.add_agent_output(
                 agent_name=self.name,
                 logical_name="final",
@@ -950,7 +1012,13 @@ class FinalAgent(BaseAgent):
                 role="assistant",
                 action="answer",
                 intent="informational",
-                meta=meta,
+                meta={
+                    "agent": self.name,
+                    "original_answer": formatted_text,
+                    "tone": tone,
+                    "target_audience": target_audience,
+                    "role_identity_question": bool(role_identity_q),
+                },
             )
 
             self._store_structured_final(
@@ -960,12 +1028,6 @@ class FinalAgent(BaseAgent):
                 tone=tone,
                 target_audience=target_audience,
             )
-
-            if role_identity_q:
-                try:
-                    exec_state["final"]["role_identity_question"] = True
-                except Exception:
-                    pass
 
             input_tokens = getattr(response, "input_tokens", 0) or 0
             output_tokens = getattr(response, "output_tokens", 0) or 0

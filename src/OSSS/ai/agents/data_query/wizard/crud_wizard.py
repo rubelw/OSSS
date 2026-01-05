@@ -115,7 +115,7 @@ class CrudWizard:
         t = (s or "").strip().lower()
         return t.strip(" \t\r\n.!?;,:()[]{}\"'")
 
-    # ---------------- protocol contract helpers ----------------
+    # ---------------- protocol helpers ----------------
 
     def _get_exec_state(self) -> Dict[str, Any]:
         return getattr(self.context, "execution_state", {}) or {}
@@ -124,69 +124,49 @@ class CrudWizard:
         """
         Safety net: clear protocol-level pending action contract.
 
-        IMPORTANT DESIGN RULE:
-        - DO NOT delete pending_action. Keep it with awaiting=False so merges
-          cannot resurrect an older awaiting=True action.
+        IMPORTANT:
+        - DO NOT delete pending_action.
+        - Keep it with awaiting=False so merges cannot resurrect it.
         """
         pa = exec_state.get("pending_action")
         if isinstance(pa, dict):
             pa_done = dict(pa)
             pa_done["awaiting"] = False
             pa_done["cleared_reason"] = reason
-
-            # snapshot (optional but useful for debugging)
             exec_state["pending_action_last"] = pa_done
-
-            # keep the object, but ensure awaiting is false + reason is recorded
             exec_state["pending_action"] = pa_done
 
-        # pending_action_result is one-shot; safe to remove (for this owner only)
         par = exec_state.get("pending_action_result")
         if isinstance(par, dict):
             owner = str(par.get("owner") or "").strip().lower()
             if owner == str(self.agent_name or "").strip().lower():
                 exec_state.pop("pending_action_result", None)
 
-    # ---------------- step sourcing (step-only) ----------------
+    # ---------------- step sourcing ----------------
 
     def _get_pending_step(self) -> str:
-        """
-        Step-only: read ONLY wizard_state["step"].
-        Legacy keys (pending_action/status) are not read here anymore.
-        """
         step = self.state.get("step") if isinstance(self.state, dict) else ""
         return str(step or "").strip().lower()
 
-    # ------------------------ public entrypoint -----------------------------
+    # ---------------- entrypoint ----------------
 
     async def handle(self, user_text: str) -> AgentContext:
-        """
-        Main entrypoint: route to the correct step based on wizard_state["step"].
-
-        Option B:
-          - If confirm_table shows up in wizard_state["step"], it is invalid.
-            Log and return context unchanged. Do NOT interpret yes/no.
-        """
         answer_raw = (user_text or "").strip()
         answer_lower = self._canon(answer_raw)
 
-        # Global cancel handler
+        # Global cancel
         if self._is_cancel(answer_lower):
             return self._handle_cancel(answer_raw)
 
         pending = self._get_pending_step()
 
-        # confirm_table/pending_confirmation are protocol-only (no-op if leaked in)
         if pending in self.INVALID_STATES:
             logger.warning(
-                "[wizard] invalid wizard_state.step: confirm_table/pending_confirmation are protocol-only. No-op.",
+                "[wizard] invalid wizard_state.step (protocol-only); no-op",
                 extra={
-                    "event": "wizard_invalid_state_confirm_table",
-                    "collection": self.collection,
-                    "operation": self.operation,
+                    "event": "wizard_invalid_state",
                     "pending": pending,
-                    "wizard_keys": list(self.state.keys()) if isinstance(self.state, dict) else [],
-                    "user_text_preview": answer_raw[:160],
+                    "collection": self.collection,
                 },
             )
             return self.context
@@ -194,43 +174,34 @@ class CrudWizard:
         if pending == "collect_details":
             return self._handle_collect_details(answer_raw)
 
-        # Unknown step → graceful cancel
         return self._handle_unknown(pending=pending)
 
-    # ------------------------ internal helpers -----------------------------
+    # ---------------- helpers ----------------
 
     @classmethod
     def _is_cancel(cls, answer_lower: str) -> bool:
         return (answer_lower or "").strip().lower() in cls.CANCEL_TOKENS
 
     # ---------------------------------------------------------------------
-    # CANCEL HANDLER
+    # CANCEL
     # ---------------------------------------------------------------------
 
     def _handle_cancel(self, answer_raw: str) -> AgentContext:
         logger.info(
             "[wizard] user cancelled wizard",
-            extra={
-                "event": "wizard_user_cancel",
-                "collection": self.collection,
-                "operation": self.operation,
-                "pending": self._get_pending_step(),
-            },
+            extra={"event": "wizard_user_cancel"},
         )
 
         exec_state = self._get_exec_state()
-
         exec_state["wizard_cancelled"] = True
         exec_state["wizard_bailed"] = True
         exec_state["wizard_bail_reason"] = "user_cancelled_wizard"
 
-        # Clear protocol contract (safety) — keep pending_action with awaiting=False
         self._clear_pending_action_contract(exec_state, reason="wizard_cancelled")
-
         exec_state["suppress_history"] = True
 
         cancel_message = "Okay — I cancelled this CRUD wizard. No changes were made."
-        exec_state["final_answer"] = cancel_message
+        exec_state["final"] = cancel_message
         self.context.execution_state = exec_state
 
         set_wizard_state(self.context, None)
@@ -240,27 +211,67 @@ class CrudWizard:
             logical_name=self.agent_name,
             content=cancel_message,
             role="assistant",
-            meta={
-                "action": "wizard",
-                "step": "cancelled",
-                "collection": self.collection,
-                "operation": self.operation,
-                "reason": "user_cancelled",
-                "pending": self._get_pending_step(),
-            },
+            meta={"action": "wizard", "step": "cancelled"},
             action="wizard_cancelled",
             intent="action",
         )
         return self.context
 
     # ---------------------------------------------------------------------
-    # DETAILS COLLECTION STEP
+    # ✅ DETAILS COLLECTION (PATCH APPLIED HERE)
     # ---------------------------------------------------------------------
 
     def _handle_collect_details(self, answer_raw: str) -> AgentContext:
-        details_text = answer_raw
+        answer = (answer_raw or "").strip()
+
+        if not answer:
+            exec_state = getattr(self.context, "execution_state", {}) or {}
+
+            # ✅ MUST NOT bail on empty input
+            exec_state["wizard_bailed"] = False
+            exec_state["wizard_in_progress"] = True
+            exec_state["wizard_prompted_this_turn"] = True
+
+            prompt = "What details should I use? (filters, fields, limits, etc.)" + CANCEL_HINT
+
+            # Use the same user-facing surface your agent/router expects
+            exec_state["final"] = prompt
+            self.context.execution_state = exec_state
+
+            # (optional) emit output through your normal UX channel
+            try:
+                # If the DataQueryAgent passed a compatible hook in some environments
+                set_user_message = exec_state.get("wizard_set_user_message")  # optional
+                if callable(set_user_message):
+                    set_user_message(self.context, prompt, prompted=True)
+            except Exception:
+                pass
+
+            # Always emit wizard channel output (keeps UX consistent)
+            try:
+                self.context.add_agent_output(
+                    agent_name=self.channel_key,
+                    logical_name=self.agent_name,
+                    content=prompt,
+                    role="assistant",
+                    meta={
+                        "action": "wizard",
+                        "step": "collect_details",
+                        "collection": self.collection,
+                        "operation": self.operation,
+                    },
+                    action="wizard_prompt",
+                    intent="action",
+                )
+            except Exception:
+                pass
+
+            return self.context
+
+        # ---------------- existing behavior below ----------------
 
         exec_state = self._get_exec_state()
+
         table_name = (
             self.state.get("table_name")
             or (self.state.get("entity_meta") or {}).get("table")
@@ -278,58 +289,17 @@ class CrudWizard:
             "entity": entity_meta,
             "base_url": self.state.get("base_url"),
             "route": self.state.get("route_info") or {},
-            "details_text": details_text,
+            "details_text": answer,
         }
 
-        key_collection = self.collection or "unknown_collection"
-        exec_state[f"{key_collection}_{self.operation}_wizard_stub"] = payload_stub
+        exec_state[f"{self.collection}_{self.operation}_wizard_stub"] = payload_stub
         self.context.execution_state = exec_state
 
-        structured = exec_state.setdefault("structured_outputs", {})
-        structured[self.channel_key] = payload_stub
-        if not isinstance(structured.get(self.agent_name), dict):
-            structured[self.agent_name] = payload_stub
-
-        if self.operation == "read":
-            stub_message = (
-                f"[STUB] I’ve captured your **READ/QUERY** request for `{table_name}`.\n\n"
-                "Here’s what I understood about the filters/conditions you want:\n\n"
-                f"> {details_text or '_(no additional filters specified_)'}\n\n"
-                "In a full implementation, I would now translate this into query parameters, "
-                "call the backend API, and show you the matching rows."
-            )
-        elif self.operation == "create":
-            stub_message = (
-                f"[STUB] I’ve captured your **CREATE** request for `{table_name}`.\n\n"
-                "Here’s the record description you provided:\n\n"
-                f"> {details_text or '_(no field details specified_)'}\n\n"
-                "In a full implementation, I would now build a JSON payload and POST it to the backend."
-            )
-        elif self.operation == "update":
-            stub_message = (
-                f"[STUB] I’ve captured your **UPDATE** request for `{table_name}`.\n\n"
-                "Here’s how you described the records and changes:\n\n"
-                f"> {details_text or '_(no update details specified_)'}\n\n"
-                "In a full implementation, I would now construct an update payload and "
-                "send it to the backend API."
-            )
-        elif self.operation == "delete":
-            stub_message = (
-                f"[STUB] I’ve captured your **DELETE** request for `{table_name}`.\n\n"
-                "Here’s how you described the records to delete:\n\n"
-                f"> {details_text or '_(no delete criteria specified_)'}\n\n"
-                "In a full implementation, I would now construct a delete request and "
-                "send it to the backend API after an explicit confirmation."
-            )
-        else:
-            stub_message = (
-                f"[STUB] I’ve captured your request for `{table_name}` with operation `{self.operation}`.\n\n"
-                "Details:\n\n"
-                f"> {details_text or '_(no details specified_)'}\n\n"
-                "In a full implementation, I would now translate this into a backend call."
-            )
-
-        stub_message = stub_message + CANCEL_HINT
+        stub_message = (
+            f"[STUB] I’ve captured your **{self.operation.upper()}** request for `{table_name}`.\n\n"
+            f"> {answer}\n\n"
+            "In a full implementation, this would now be translated into a backend call."
+        ) + CANCEL_HINT
 
         self.context.add_agent_output(
             agent_name=self.channel_key,
@@ -341,27 +311,21 @@ class CrudWizard:
             intent="action",
         )
 
-        # Wizard ends here: clear wizard state and protocol contract (safety)
-        exec_state = self._get_exec_state()
+        # Wizard completes
         self._clear_pending_action_contract(exec_state, reason="wizard_completed")
         self.context.execution_state = exec_state
-
         set_wizard_state(self.context, None)
+
         return self.context
 
     # ---------------------------------------------------------------------
-    # Fallback: unknown step → cancel with error
+    # UNKNOWN STEP
     # ---------------------------------------------------------------------
 
     def _handle_unknown(self, *, pending: str) -> AgentContext:
         logger.warning(
-            "[wizard] unknown wizard step; cancelling wizard",
-            extra={
-                "event": "wizard_unknown_step",
-                "pending": pending,
-                "collection": self.collection,
-                "operation": self.operation,
-            },
+            "[wizard] unknown wizard step; cancelling",
+            extra={"pending": pending},
         )
 
         exec_state = self._get_exec_state()
@@ -372,23 +336,17 @@ class CrudWizard:
         self.context.execution_state = exec_state
 
         set_wizard_state(self.context, None)
+
         self.context.add_agent_output(
             agent_name=self.channel_key,
             logical_name=self.agent_name,
             content=(
-                "Sorry, I lost track of this CRUD wizard’s state, so I’ve cancelled it. "
-                "You can start again with a new query if you like."
+                "Sorry, I lost track of this wizard’s state, so I cancelled it. "
+                "You can start again with a new query."
             ),
             role="assistant",
-            meta={
-                "action": "wizard",
-                "step": "error",
-                "collection": self.collection,
-                "operation": self.operation,
-                "pending": pending,
-            },
+            meta={"action": "wizard", "step": "error"},
             action="wizard_error",
             intent="action",
         )
         return self.context
-

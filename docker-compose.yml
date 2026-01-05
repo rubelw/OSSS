@@ -307,6 +307,8 @@ services:
       AGENT_LLM_BASE_URL: "http://host:containers:internal:11434/v1"
       OSSS_AI_GATEWAY_BASE_URL: "http://host.containers.internal:11434"
       OSSS_AI_DB_PERSIST_ENABLED: "true"
+      OSSS_ENABLE_NLP_EXTRACTION: "false"
+
 
     depends_on:
       redis:

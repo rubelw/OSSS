@@ -7,8 +7,8 @@ from OSSS.ai.observability import get_logger
 from OSSS.ai.orchestration.protocol.pending_action import (
     PendingAction,
     PendingActionResult,
-    set_pending_confirm_yes_no,
     consume_pending_action_result,
+    set_pending_confirm_yes_no,
 )
 
 logger = get_logger(__name__)
@@ -56,14 +56,14 @@ class TurnController:
         """
         Entry point called at the TOP of TurnNormalizer.normalize().
 
-        REQUIRED FIX:
+        Fix 1 (protocol gating + correct wizard step):
         - Treat "yes"/"no"/"cancel" specially ONLY if we have an *awaiting* pending_action.
         - Never resume based on leftover helper fields like pending_action_last/pending_action_result.
-
-        Concretely:
-            pending = exec_state.get("pending_action")
-            if isinstance(pending, dict) and pending.get("awaiting") is True:
-                ...
+        - DO NOT guess a wizard "next step" name (e.g. "execute").
+          Based on CrudWizard.handle(), the only valid step currently handled is:
+              - "collect_details"
+          So on a YES resume, we either leave wizard["step"] alone, or (best-effort)
+          ensure it is set to "collect_details" if missing/invalid.
         """
         pa = exec_state.get("pending_action")
         if not (isinstance(pa, dict) and pa.get("awaiting") is True):
@@ -86,6 +86,13 @@ class TurnController:
         if self._is_yes(raw_user_text):
             self._set_pending_action_result(exec_state, owner=owner, decision="yes", context=ctx_dict)
             self._clear_pending_action(exec_state, pa, reason="confirm_yes_no_yes")
+
+            # ✅ Correct behavior for your current CrudWizard:
+            # it only switches on step == "collect_details".
+            self._ensure_wizard_step_after_yes(exec_state, owner=owner)
+
+            # Marker for downstream pipeline logs / classifier skip logic.
+            exec_state["pending_action_resume_turn"] = True
 
             self.lock_route(
                 exec_state,
@@ -144,17 +151,19 @@ class TurnController:
     def consume(self, exec_state: Dict[str, Any], *, owner: str) -> Optional[PendingActionResult]:
         """
         Agent entry helper: consume one-shot pending_action_result for this owner.
+
+        IMPORTANT:
+        - Do NOT delete pending_action; keep it with awaiting=False as a tombstone so merges
+          can't resurrect awaiting=True.
+        - Do NOT clear pending_action_resume_turn here; agents rely on it for resume-turn behavior.
+          Agent code should clear it after it has handled the resume turn.
         """
         par = consume_pending_action_result(exec_state, owner=owner)
         if not par:
             return None
 
-        # ✅ Patch 2 (best-practice): once delivered to the owner, clear protocol state.
-        # Otherwise the conversation can keep persisting "has_pending_action=true" and
-        # the system will loop back to the first-turn confirmation prompt.
-        exec_state.pop("pending_action", None)
+        # ✅ clear only the result payload; leave pending_action tombstone + resume flag
         exec_state.pop("pending_action_result", None)
-        exec_state.pop("pending_action_resume_turn", None)
 
         # Clear any legacy/compat fields that can re-trigger confirm flows.
         exec_state.pop("pending_confirmation", None)
@@ -243,12 +252,48 @@ class TurnController:
     # Internals (small + boring)
     # ---------------------------------------------------------------------
 
+    def _ensure_wizard_step_after_yes(self, exec_state: Dict[str, Any], *, owner: str) -> None:
+        """
+        Based on the CrudWizard you pasted:
+
+            if pending == "collect_details": ...
+            else: unknown -> cancels
+
+        Therefore the ONLY safe "next step" to force here is "collect_details",
+        and only when the wizard exists but is missing/invalid step.
+        """
+        wiz = exec_state.get("wizard")
+        if not isinstance(wiz, dict) or not wiz:
+            return
+
+        # Best-effort owner match: allow mutation if wizard has no owner-like field, or it matches.
+        wiz_owner_raw = wiz.get("owner") or wiz.get("route") or ""
+        wiz_owner = str(wiz_owner_raw or "").strip().lower()
+        if wiz_owner and wiz_owner != (owner or "").strip().lower():
+            return
+
+        step = str(wiz.get("step") or "").strip().lower()
+
+        # If step is already valid for current CrudWizard, do nothing.
+        if step == "collect_details":
+            return
+
+        # If step is invalid/protocol-only/empty, set it to the only handled step.
+        if step in {"", "confirm_table", "pending_confirmation"}:
+            wiz2 = dict(wiz)
+            wiz2["step"] = "collect_details"
+            exec_state["wizard"] = wiz2
+            return
+
+        # Otherwise: leave it alone (let the wizard decide; currently it will cancel unknown steps).
+        # We intentionally do NOT overwrite arbitrary steps here.
+
     def _is_confirm_yes_no_awaiting(self, pa: Optional[PendingAction]) -> bool:
         if not pa:
             return False
         if pa.get("type") != "confirm_yes_no":
             return False
-        # REQUIRED FIX: awaiting must be True to qualify as "resume"
+        # Fix 1: awaiting must be True to qualify as "resume"
         if pa.get("awaiting") is not True:
             return False
         pq = pa.get("pending_question")
@@ -297,7 +342,6 @@ class TurnController:
     # Token parsing
     def _norm(self, s: str) -> str:
         t = (s or "").strip().lower()
-        # simple punctuation trim; you can keep your regex approach if preferred
         return t.strip(" \t\r\n.!?;,:()[]{}\"'")
 
     def _is_yes(self, s: str) -> bool:
